@@ -1,18 +1,23 @@
+import { createFileRoute } from "@tanstack/react-router";
 import { useState, type PointerEvent } from "react";
-import type { ShowcaseMeta } from "../shell/showcase.ts";
 
-export const meta: ShowcaseMeta = {
-  description: "Full-viewport stage pattern for canvas showcases.",
-  order: 1,
-  title: "Stage template",
-};
+export const Route = createFileRoute("/stage-template")({
+  component: StageTemplateShowcase,
+  staticData: {
+    showcase: {
+      description: "Full-viewport stage pattern for canvas showcases.",
+      order: 90,
+      title: "Stage template",
+    },
+  },
+});
 
 /**
  * Template for canvas-style showcases: a full-viewport dark stage with a
  * pointer readout. Real framework showcases replace the stage contents with
- * an InfiniteCanvas desktop once the core is ported.
+ * an InfiniteCanvas desktop.
  */
-export default function StageTemplateShowcase() {
+function StageTemplateShowcase() {
   const [pointer, setPointer] = useState<{ x: number; y: number } | null>(null);
 
   const onPointerMove = (event: PointerEvent<HTMLDivElement>) => {
@@ -25,14 +30,17 @@ export default function StageTemplateShowcase() {
 
   return (
     <div
-      className="stage-canvas"
+      className="absolute inset-0 touch-none bg-surface-stage [background-image:radial-gradient(var(--surface-stage-dot)_1px,transparent_1px)] [background-position:20px_20px] [background-size:40px_40px]"
       data-testid="stage-canvas"
       onPointerLeave={() => {
         setPointer(null);
       }}
       onPointerMove={onPointerMove}
     >
-      <div className="stage-readout" data-testid="stage-readout">
+      <div
+        className="pointer-events-none absolute right-4 bottom-3.5 font-mono text-xs text-muted-foreground"
+        data-testid="stage-readout"
+      >
         {pointer ? `${pointer.x}, ${pointer.y}` : "move pointer over stage"}
       </div>
     </div>

@@ -5,10 +5,10 @@ export default defineConfig({
     "*": "vp check --fix",
   },
   fmt: {
-    ignorePatterns: ["reference/**"],
+    ignorePatterns: ["reference/**", "**/routeTree.gen.ts"],
   },
   lint: {
-    ignorePatterns: ["reference/**"],
+    ignorePatterns: ["reference/**", "**/routeTree.gen.ts"],
     options: { typeAware: true, typeCheck: true },
     overrides: [
       {
