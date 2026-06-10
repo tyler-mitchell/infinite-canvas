@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "playground",
+      "runtimeExecutable": "vp",
+      "runtimeArgs": ["run", "playground#dev"],
+      "port": 5173
+    }
+  ]
+}

@@ -5,7 +5,11 @@ export default defineConfig({
     dts: {
       tsgo: true,
     },
-    exports: true,
+    // Keep `exports` pointing at src for instant playground HMR; vp pack
+    // writes the dist mappings to publishConfig.exports for publishing.
+    exports: {
+      devExports: true,
+    },
   },
   lint: {
     options: {

@@ -1,11 +1,11 @@
 {
-  "name": "infinite-canvas",
+  "name": "infinite-canvas-monorepo",
   "version": "0.0.0",
   "private": true,
   "type": "module",
   "scripts": {
     "ready": "vp check && vp run -r test && vp run -r build",
-    "dev": "vp run website#dev",
+    "dev": "vp run playground#dev",
     "prepare": "vp config"
   },
   "devDependencies": {

@@ -10,6 +10,12 @@ export default defineConfig({
   lint: {
     ignorePatterns: ["reference/**"],
     options: { typeAware: true, typeCheck: true },
+    overrides: [
+      {
+        files: ["apps/playground/**"],
+        plugins: ["typescript", "react"],
+      },
+    ],
   },
   run: {
     cache: true,
