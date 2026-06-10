@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 
 import { worldRectToScreenRect } from "./geometry";
 import {
@@ -111,6 +111,15 @@ function InfiniteCanvasWindowBody<Kind extends string>({
     window.rect.width,
   ]);
 
+  const renderedBody = useRenderedWindowBody({
+    actions,
+    definition,
+    isActive,
+    isSelected,
+    state,
+    window,
+  });
+
   if (shouldUseSnapshot) {
     return (
       <img
@@ -139,14 +148,50 @@ function InfiniteCanvasWindowBody<Kind extends string>({
         width: "100%",
       }}
     >
-      {definition.renderBody?.({
+      {renderedBody}
+    </div>
+  );
+}
+
+function useRenderedWindowBody<Kind extends string>({
+  actions,
+  definition,
+  isActive,
+  isSelected,
+  state,
+  window,
+}: Readonly<{
+  actions: InfiniteCanvasCommands<Kind>;
+  definition: InfiniteCanvasWindowDefinition<Kind>;
+  isActive: boolean;
+  isSelected: boolean;
+  state: InfiniteCanvasState<Kind>;
+  window: InfiniteCanvasWindow<Kind>;
+}>) {
+  const stateRef = useRef(state);
+  stateRef.current = state;
+
+  // The body subtree must NOT reconcile on every camera/selection tick:
+  // shell movement re-renders the frame each frame, and re-invoking
+  // renderBody there reconciles every live body in the document — the
+  // dominant interactive cost at stress scale. `state` is therefore read
+  // through a ref at body render time (fresh whenever the body re-renders
+  // for its own reasons) instead of being an invalidation dependency; body
+  // content that needs live state should subscribe with
+  // useInfiniteCanvasSelector inside its own component so invalidation
+  // stays scoped to what it actually reads.
+  return useMemo(
+    () =>
+      definition.renderBody?.({
         actions,
         isActive,
         isSelected,
-        state,
+        get state() {
+          return stateRef.current;
+        },
         window,
-      })}
-    </div>
+      }),
+    [actions, definition, isActive, isSelected, window],
   );
 }
 
