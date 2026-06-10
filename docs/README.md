@@ -15,8 +15,12 @@ When documents disagree, the order of truth is:
 
 ## Documents
 
+- [ROADMAP.md](ROADMAP.md) — the large work programs (P1–P8) with scope,
+  exit criteria, dependencies, and the recommended spine
 - [ARCHITECTURE_PLAN.md](ARCHITECTURE_PLAN.md) — the porting/bring-up plan
   that stood this repo up (2026-06-10; largely executed)
+- [SHAPING_PLAN.md](SHAPING_PLAN.md) — the html-in-canvas posture +
+  headless extraction plan (2026-06-10; executed)
 - [REQUIREMENTS.md](REQUIREMENTS.md) — what the framework must do, with
   per-requirement status
 - [zoom-policy.md](zoom-policy.md) — the zoom model; mostly implemented,
