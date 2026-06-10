@@ -25,3 +25,7 @@ dist-ssr
 
 # AI agent worktrees
 .claude/worktrees/
+
+# Third-party-derived reference material that must never enter git history.
+# The originals remain in kek-monorepo (apps/web/reference/infinite-canvas/).
+reference/node-editor-inspiration/
