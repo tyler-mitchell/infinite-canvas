@@ -1,0 +1,30 @@
+{
+  // Editor-only project for the reference corpus. This code is out of
+  // context by design (copied from kek-monorepo); it is excluded from lint,
+  // fmt, tests, and builds. This config exists so editors parse it sanely:
+  // JSX enabled, and the kek `#/experiments/...` aliases mapped back onto
+  // the copies that live here. Remaining red squiggles in reference files
+  // are expected and harmless.
+  "compilerOptions": {
+    "target": "es2023",
+    "module": "esnext",
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "jsx": "react-jsx",
+    "skipLibCheck": true,
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "verbatimModuleSyntax": true,
+    "moduleDetection": "force",
+    "noEmit": true,
+    "strict": true,
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+    "baseUrl": ".",
+    "paths": {
+      "#/experiments/infinite-canvas": ["./infinite-canvas/index.ts"],
+      "#/experiments/infinite-canvas/*": ["./infinite-canvas/*"],
+      "#/experiments/infinite-canvas-dynamic-grid/*": ["./infinite-canvas-dynamic-grid/*"]
+    }
+  },
+  "include": ["infinite-canvas", "infinite-canvas-dynamic-grid"]
+}

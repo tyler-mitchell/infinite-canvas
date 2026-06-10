@@ -1,9 +1,20 @@
 {
+  // Catch-all for TS files not claimed by a workspace project tsconfig
+  // (root-level config files, scripts). Workspace members own their own
+  // src/; reference/ has its own editor-only tsconfig.
   "compilerOptions": {
-    "noEmit": true,
-    "module": "nodenext",
-    "moduleResolution": "nodenext",
+    "target": "es2023",
+    "module": "esnext",
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "jsx": "react-jsx",
+    "skipLibCheck": true,
+    "moduleResolution": "bundler",
     "allowImportingTsExtensions": true,
+    "verbatimModuleSyntax": true,
+    "moduleDetection": "force",
+    "noEmit": true,
+    "strict": true,
     "esModuleInterop": true
-  }
+  },
+  "exclude": ["node_modules", "dist", "reference", "apps", "packages"]
 }
