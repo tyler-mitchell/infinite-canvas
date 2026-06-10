@@ -251,10 +251,7 @@ test("host-chrome window frame normalizes scene->host and emits chrome layers", 
 test("selection bounds overlay is tagged data-slot=selection-bounds", () => {
   const markup = renderWithStore(
     baseState,
-    <InfiniteCanvasSelectionBoundsOverlay
-      devicePixelRatio={1}
-      theme={DEFAULT_INFINITE_CANVAS_THEME}
-    />,
+    <InfiniteCanvasSelectionBoundsOverlay devicePixelRatio={1} />,
   );
 
   expect(markup).toContain('data-slot="selection-bounds"');

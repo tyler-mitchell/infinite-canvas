@@ -972,10 +972,7 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
           zIndex={SCENE_SCREEN_OVERLAY_Z_INDEX}
         />
       )}
-      <InfiniteCanvasSelectionBoundsOverlay
-        devicePixelRatio={devicePixelRatio}
-        theme={resolvedTheme}
-      />
+      <InfiniteCanvasSelectionBoundsOverlay devicePixelRatio={devicePixelRatio} />
       <InfiniteCanvasSnapOverlay devicePixelRatio={devicePixelRatio} />
       <InfiniteCanvasMarqueeOverlay />
       {renderOverlay?.(overlayContext)}

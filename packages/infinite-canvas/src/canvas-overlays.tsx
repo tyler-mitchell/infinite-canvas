@@ -2,6 +2,7 @@
 
 import type { CSSProperties } from "react";
 
+import { DEFAULT_INFINITE_CANVAS_STACK_BANDS } from "./constants";
 import { INFINITE_CANVAS_SLOTS } from "./data-attributes";
 import {
   getRectFromPoints,
@@ -10,14 +11,18 @@ import {
 } from "./geometry";
 import { getSelectedWindowBounds } from "./selection";
 import { useInfiniteCanvasState } from "./store";
-import type { InfiniteCanvasSnapGuide, InfiniteCanvasState, InfiniteCanvasTheme } from "./types";
+import type { InfiniteCanvasSnapGuide, InfiniteCanvasState } from "./types";
+
+// Interaction overlays stack directly beneath the HUD band (overlay), above
+// the screen-space scene overlays (overlay - 9): bounds < marquee < snap.
+const SELECTION_BOUNDS_OVERLAY_Z_INDEX = DEFAULT_INFINITE_CANVAS_STACK_BANDS.overlay - 4;
+const MARQUEE_OVERLAY_Z_INDEX = DEFAULT_INFINITE_CANVAS_STACK_BANDS.overlay - 3;
+const SNAP_OVERLAY_Z_INDEX = DEFAULT_INFINITE_CANVAS_STACK_BANDS.overlay - 2;
 
 function InfiniteCanvasSelectionBoundsOverlay({
   devicePixelRatio,
-  theme,
 }: Readonly<{
   devicePixelRatio: number;
-  theme: InfiniteCanvasTheme;
 }>) {
   const state = useInfiniteCanvasState();
   const bounds = getSelectedWindowBounds(state);
@@ -38,16 +43,21 @@ function InfiniteCanvasSelectionBoundsOverlay({
   ).screenRect;
 
   return (
-    <div className="pointer-events-none absolute inset-0 z-[999999996]">
+    <div
+      style={{
+        inset: 0,
+        pointerEvents: "none",
+        position: "absolute",
+        zIndex: SELECTION_BOUNDS_OVERLAY_Z_INDEX,
+      }}
+    >
       <div
-        className="absolute border"
         data-infinite-canvas-selection-bounds="true"
         data-slot={INFINITE_CANVAS_SLOTS.selectionBounds}
         style={{
-          borderColor: theme.selectionBounds,
           boxSizing: "border-box",
-          borderStyle: "dashed",
           height: `${rect.height}px`,
+          position: "absolute",
           transform: `translate3d(${rect.left}px, ${rect.top}px, 0)`,
           width: `${rect.width}px`,
         }}
@@ -81,13 +91,20 @@ function InfiniteCanvasSnapOverlay({
   const visibleGuides = preview.guides.filter((guide) => guide.from === "window");
 
   return (
-    <div className="pointer-events-none absolute inset-0 z-[999999998]">
+    <div
+      style={{
+        inset: 0,
+        pointerEvents: "none",
+        position: "absolute",
+        zIndex: SNAP_OVERLAY_Z_INDEX,
+      }}
+    >
       <div
-        className="absolute border border-[#b7f4ff]/45 bg-[#b7f4ff]/[0.035]"
         data-slot={INFINITE_CANVAS_SLOTS.snapPreview}
         style={{
           boxSizing: "border-box",
           height: `${previewTransform.height}px`,
+          position: "absolute",
           transform: `translate3d(${previewTransform.x}px, ${previewTransform.y}px, 0) scale(${previewTransform.scale})`,
           transformOrigin: "top left",
           width: `${previewTransform.width}px`,
@@ -95,7 +112,6 @@ function InfiniteCanvasSnapOverlay({
       />
       {visibleGuides.map((guide) => (
         <div
-          className="absolute"
           data-axis={guide.axis}
           data-kind={guide.kind}
           data-slot={INFINITE_CANVAS_SLOTS.snapGuide}
@@ -119,25 +135,22 @@ function getSnapGuideStyle(
       (guide.axis === "x" ? state.viewport.width : state.viewport.height) / 2,
     devicePixelRatio,
   );
-  const guideColor = "rgba(183,244,255,0.55)";
   const guideInsetPx = 18;
 
   if (guide.axis === "x") {
     return {
-      backgroundImage: `repeating-linear-gradient(to bottom, ${guideColor} 0 4px, transparent 4px 8px)`,
       height: `${previewScreenRect.height + guideInsetPx * 2}px`,
       left: `${position}px`,
-      opacity: 0.72,
+      position: "absolute",
       top: `${previewScreenRect.top - guideInsetPx}px`,
       width: "1px",
     };
   }
 
   return {
-    backgroundImage: `repeating-linear-gradient(to right, ${guideColor} 0 4px, transparent 4px 8px)`,
     height: "1px",
     left: `${previewScreenRect.left - guideInsetPx}px`,
-    opacity: 0.72,
+    position: "absolute",
     top: `${position}px`,
     width: `${previewScreenRect.width + guideInsetPx * 2}px`,
   };
@@ -158,14 +171,22 @@ function InfiniteCanvasMarqueeOverlay() {
   }
 
   return (
-    <div className="pointer-events-none absolute inset-0 z-[999999997]">
+    <div
+      style={{
+        inset: 0,
+        pointerEvents: "none",
+        position: "absolute",
+        zIndex: MARQUEE_OVERLAY_Z_INDEX,
+      }}
+    >
       <div
-        className="absolute border border-[#b7f4ff]/80 bg-[#b7f4ff]/10 shadow-[inset_0_0_0_1px_rgba(183,244,255,0.16)]"
         data-infinite-canvas-marquee="true"
         data-mode={interaction.mode}
         data-slot={INFINITE_CANVAS_SLOTS.marquee}
         style={{
+          boxSizing: "border-box",
           height: `${rect.height}px`,
+          position: "absolute",
           transform: `translate3d(${rect.x}px, ${rect.y}px, 0)`,
           width: `${rect.width}px`,
         }}
