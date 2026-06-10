@@ -116,11 +116,13 @@ function InfiniteCanvasWindowBody<Kind extends string>({
       <img
         alt=""
         aria-hidden="true"
-        className="h-full w-full object-fill"
         draggable={false}
         src={snapshot.src}
         style={{
+          height: "100%",
+          objectFit: "fill",
           pointerEvents: "none",
+          width: "100%",
         }}
       />
     );
@@ -128,12 +130,13 @@ function InfiniteCanvasWindowBody<Kind extends string>({
 
   return (
     <div
-      className="h-full w-full"
       ref={liveBodyRef}
       style={{
         contain: "layout paint style",
         containIntrinsicSize: `${window.rect.width}px ${getWindowBodyHeight(window, chrome)}px`,
         contentVisibility: shouldUseContentVisibility ? "auto" : "visible",
+        height: "100%",
+        width: "100%",
       }}
     >
       {definition.renderBody?.({

@@ -239,7 +239,14 @@ function InfiniteCanvasWebGpuSurface<Kind extends string, Payload = InfiniteCanv
   );
 
   return (
-    <div className="pointer-events-none absolute inset-0" style={{ zIndex }}>
+    <div
+      style={{
+        inset: 0,
+        pointerEvents: "none",
+        position: "absolute",
+        zIndex,
+      }}
+    >
       <Canvas
         camera={cameraProps}
         dpr={[1, 2]}
