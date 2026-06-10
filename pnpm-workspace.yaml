@@ -19,6 +19,8 @@ catalog:
   # Framework stack — pinned to versions proven together in kek-monorepo.
   "@legendapp/state": 3.0.0-beta.47
   "@react-three/fiber": 10.0.0-canary.dbbe704
+  "@react-three/drei": 10.7.7
+  motion: ^12.40.0
   three: 0.181.2
   "@types/three": 0.184.1
   "@tanstack/hotkeys": ^0.7.1

@@ -11,6 +11,8 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as WelcomeRouteImport } from './routes/welcome'
 import { Route as StageTemplateRouteImport } from './routes/stage-template'
+import { Route as NormalRouteImport } from './routes/normal'
+import { Route as DynamicGridRouteImport } from './routes/dynamic-grid'
 import { Route as IndexRouteImport } from './routes/index'
 
 const WelcomeRoute = WelcomeRouteImport.update({
@@ -23,6 +25,16 @@ const StageTemplateRoute = StageTemplateRouteImport.update({
   path: '/stage-template',
   getParentRoute: () => rootRouteImport,
 } as any)
+const NormalRoute = NormalRouteImport.update({
+  id: '/normal',
+  path: '/normal',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DynamicGridRoute = DynamicGridRouteImport.update({
+  id: '/dynamic-grid',
+  path: '/dynamic-grid',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
@@ -31,30 +43,44 @@ const IndexRoute = IndexRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/dynamic-grid': typeof DynamicGridRoute
+  '/normal': typeof NormalRoute
   '/stage-template': typeof StageTemplateRoute
   '/welcome': typeof WelcomeRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/dynamic-grid': typeof DynamicGridRoute
+  '/normal': typeof NormalRoute
   '/stage-template': typeof StageTemplateRoute
   '/welcome': typeof WelcomeRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/dynamic-grid': typeof DynamicGridRoute
+  '/normal': typeof NormalRoute
   '/stage-template': typeof StageTemplateRoute
   '/welcome': typeof WelcomeRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/stage-template' | '/welcome'
+  fullPaths: '/' | '/dynamic-grid' | '/normal' | '/stage-template' | '/welcome'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/stage-template' | '/welcome'
-  id: '__root__' | '/' | '/stage-template' | '/welcome'
+  to: '/' | '/dynamic-grid' | '/normal' | '/stage-template' | '/welcome'
+  id:
+    | '__root__'
+    | '/'
+    | '/dynamic-grid'
+    | '/normal'
+    | '/stage-template'
+    | '/welcome'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  DynamicGridRoute: typeof DynamicGridRoute
+  NormalRoute: typeof NormalRoute
   StageTemplateRoute: typeof StageTemplateRoute
   WelcomeRoute: typeof WelcomeRoute
 }
@@ -75,6 +101,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof StageTemplateRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/normal': {
+      id: '/normal'
+      path: '/normal'
+      fullPath: '/normal'
+      preLoaderRoute: typeof NormalRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/dynamic-grid': {
+      id: '/dynamic-grid'
+      path: '/dynamic-grid'
+      fullPath: '/dynamic-grid'
+      preLoaderRoute: typeof DynamicGridRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -87,6 +127,8 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  DynamicGridRoute: DynamicGridRoute,
+  NormalRoute: NormalRoute,
   StageTemplateRoute: StageTemplateRoute,
   WelcomeRoute: WelcomeRoute,
 }
