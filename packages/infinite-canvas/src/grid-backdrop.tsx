@@ -5,18 +5,13 @@ import { useMemo, type CSSProperties } from "react";
 import { INFINITE_CANVAS_SLOTS } from "./data-attributes";
 import { getAdaptiveGridSpacing, worldPointToScreenPoint } from "./geometry";
 import { useInfiniteCanvasState } from "./store";
-import type { InfiniteCanvasTheme } from "./types";
 
-function InfiniteCanvasGridBackdrop({
-  theme,
-}: Readonly<{
-  theme: InfiniteCanvasTheme;
-}>) {
+function InfiniteCanvasGridBackdrop() {
   const state = useInfiniteCanvasState();
   const gridStyle = useMemo(() => {
     if (state.viewport.width <= 0 || state.viewport.height <= 0) {
       return {
-        background: theme.background,
+        background: "var(--icx-background)",
       } satisfies CSSProperties;
     }
 
@@ -28,12 +23,12 @@ function InfiniteCanvasGridBackdrop({
     });
 
     return {
-      backgroundColor: theme.background,
+      backgroundColor: "var(--icx-background)",
       backgroundImage: [
-        `linear-gradient(to right, ${theme.gridMajor} 1px, transparent 1px)`,
-        `linear-gradient(to bottom, ${theme.gridMajor} 1px, transparent 1px)`,
-        `linear-gradient(to right, ${theme.gridMinor} 1px, transparent 1px)`,
-        `linear-gradient(to bottom, ${theme.gridMinor} 1px, transparent 1px)`,
+        `linear-gradient(to right, var(--icx-grid-major) 1px, transparent 1px)`,
+        `linear-gradient(to bottom, var(--icx-grid-major) 1px, transparent 1px)`,
+        `linear-gradient(to right, var(--icx-grid-minor) 1px, transparent 1px)`,
+        `linear-gradient(to bottom, var(--icx-grid-minor) 1px, transparent 1px)`,
       ].join(","),
       backgroundPosition: [
         `${origin.x}px ${origin.y}px`,
@@ -48,14 +43,18 @@ function InfiniteCanvasGridBackdrop({
         `${minorSpacing}px ${minorSpacing}px`,
       ].join(","),
     } satisfies CSSProperties;
-  }, [state.camera, state.viewport, theme]);
+  }, [state.camera, state.viewport]);
 
   return (
     <div
       aria-hidden="true"
-      className="pointer-events-none absolute inset-0"
       data-slot={INFINITE_CANVAS_SLOTS.grid}
-      style={gridStyle}
+      style={{
+        inset: 0,
+        pointerEvents: "none",
+        position: "absolute",
+        ...gridStyle,
+      }}
     />
   );
 }

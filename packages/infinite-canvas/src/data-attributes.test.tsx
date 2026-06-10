@@ -152,10 +152,7 @@ test("window state attributes are independent boolean data attributes", () => {
 });
 
 test("grid backdrop is tagged data-slot=grid", () => {
-  const markup = renderWithStore(
-    baseState,
-    <InfiniteCanvasGridBackdrop theme={DEFAULT_INFINITE_CANVAS_THEME} />,
-  );
+  const markup = renderWithStore(baseState, <InfiniteCanvasGridBackdrop />);
 
   expect(markup).toContain('data-slot="grid"');
 });

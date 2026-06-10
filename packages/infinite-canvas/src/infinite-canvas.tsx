@@ -138,7 +138,7 @@ type InfiniteCanvasDesktopProps<
   spatialTargetResolvers?: readonly InfiniteCanvasSpatialTargetResolver<Kind>[];
   storageKey?: string;
   subtitle?: string;
-  theme?: InfiniteCanvasTheme;
+  theme?: Partial<InfiniteCanvasTheme>;
   title?: string;
   windowDefinitions: InfiniteCanvasWindowRegistry<Kind>;
   zoomPolicy?: InfiniteCanvasZoomPolicyInput;
@@ -158,7 +158,7 @@ type InfiniteCanvasViewportProps<
   sceneLayers: readonly InfiniteCanvasSceneLayer<Kind, Payload>[];
   subtitle: string;
   spatialTargetResolvers: readonly InfiniteCanvasSpatialTargetResolver<Kind>[];
-  theme: InfiniteCanvasTheme;
+  theme?: Partial<InfiniteCanvasTheme>;
   title: string;
   windowDefinitions: InfiniteCanvasWindowRegistry<Kind>;
   zoomPolicy: InfiniteCanvasZoomPolicy;
@@ -168,6 +168,48 @@ const SCENE_SCREEN_UNDERLAY_Z_INDEX = 1;
 const WINDOW_LAYER_Z_INDEX = 10;
 const SCENE_OVERLAY_Z_INDEX = DEFAULT_INFINITE_CANVAS_STACK_BANDS.overlay - 10;
 const SCENE_SCREEN_OVERLAY_Z_INDEX = DEFAULT_INFINITE_CANVAS_STACK_BANDS.overlay - 9;
+
+/** Theme field → `--icx-*` custom property, mirroring theme.css's bridged token block. */
+const INFINITE_CANVAS_THEME_VARIABLES: Readonly<Record<keyof InfiniteCanvasTheme, string>> = {
+  activeAccent: "--icx-active-accent",
+  activeBorder: "--icx-active-border",
+  background: "--icx-background",
+  bodyBackground: "--icx-body-background",
+  gridMajor: "--icx-grid-major",
+  gridMinor: "--icx-grid-minor",
+  headerActive: "--icx-header-active",
+  headerIdle: "--icx-header-idle",
+  idleBorder: "--icx-idle-border",
+  selectionBorder: "--icx-selection-border",
+  selectionBounds: "--icx-selection-bounds",
+};
+
+/**
+ * Inline `--icx-*` overrides for exactly the theme keys the consumer
+ * provided. The default look stays in theme.css, so no vars are emitted
+ * when the theme prop is omitted.
+ */
+function getInfiniteCanvasThemeVariables(
+  theme: Partial<InfiniteCanvasTheme> | undefined,
+): CSSProperties | undefined {
+  if (theme === undefined) {
+    return undefined;
+  }
+
+  const variables: Record<string, string> = {};
+
+  for (const field of Object.keys(
+    INFINITE_CANVAS_THEME_VARIABLES,
+  ) as (keyof InfiniteCanvasTheme)[]) {
+    const value = theme[field];
+
+    if (value !== undefined) {
+      variables[INFINITE_CANVAS_THEME_VARIABLES[field]] = value;
+    }
+  }
+
+  return variables;
+}
 
 function getBrowserDevicePixelRatio() {
   return Math.max(window.devicePixelRatio || 1, 1);
@@ -253,7 +295,7 @@ function InfiniteCanvasDesktop<Kind extends string, Payload = InfiniteCanvasDrop
   spatialTargetResolvers = [],
   storageKey,
   subtitle = "Composable WebGPU surface, DOM body seam, pure window model.",
-  theme = DEFAULT_INFINITE_CANVAS_THEME,
+  theme,
   title = "Infinite Canvas Framework",
   windowDefinitions,
   zoomPolicy,
@@ -349,6 +391,14 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
     (state) => state.interaction,
   );
   const pointerMode = pointerModeOverride ?? configuredPointerMode;
+  // Full theme object for the consumers that still need JS color values
+  // (scene layer context, WebGPU surface, host-chrome); DOM styling reads
+  // the `--icx-*` tokens from theme.css instead.
+  const resolvedTheme = useMemo<InfiniteCanvasTheme>(
+    () => ({ ...DEFAULT_INFINITE_CANVAS_THEME, ...theme }),
+    [theme],
+  );
+  const themeVariables = useMemo(() => getInfiniteCanvasThemeVariables(theme), [theme]);
   const getState = () => store.state$.peek() as InfiniteCanvasState<Kind>;
   const activeInputPolicy = useMemo(
     () =>
@@ -759,13 +809,7 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
   return (
     <section
       aria-label={title}
-      className={[
-        "relative flex h-full min-h-0 min-w-0 w-full flex-1 overflow-hidden bg-[#050607] text-white shadow-[0_36px_120px_-64px_rgba(0,0,0,0.92)]",
-        "outline-none focus:outline-none focus-visible:outline-none",
-        className,
-      ]
-        .filter(Boolean)
-        .join(" ")}
+      className={className}
       data-infinite-canvas-viewport="true"
       data-interaction={interaction?.kind}
       data-pointer-mode={pointerMode}
@@ -842,18 +886,34 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
       }}
       ref={rootRef}
       style={{
+        ...themeVariables,
         cursor,
+        display: "flex",
+        flex: "1 1 0%",
+        height: "100%",
+        minHeight: 0,
+        minWidth: 0,
+        overflow: "hidden",
+        position: "relative",
         touchAction: "none",
         userSelect: interaction === null ? undefined : "none",
+        width: "100%",
       }}
     >
       <div
-        className="pointer-events-none absolute h-px w-px opacity-0 outline-none"
         data-infinite-canvas-command-scope="surface"
         ref={commandSurfaceRef}
+        style={{
+          height: 1,
+          opacity: 0,
+          outline: "none",
+          pointerEvents: "none",
+          position: "absolute",
+          width: 1,
+        }}
         tabIndex={-1}
       />
-      <InfiniteCanvasGridBackdrop theme={theme} />
+      <InfiniteCanvasGridBackdrop />
       <InfiniteCanvasWebGpuSurface
         chrome={chrome}
         devicePixelRatio={devicePixelRatio}
@@ -862,7 +922,7 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
         sceneLayers={underlayWorldSceneLayers}
         space="world"
         spatialTargetResolvers={spatialTargetResolvers}
-        theme={theme}
+        theme={resolvedTheme}
         zIndex={SCENE_UNDERLAY_Z_INDEX}
       />
       {underlayScreenSceneLayers.length === 0 ? null : (
@@ -874,7 +934,7 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
           sceneLayers={underlayScreenSceneLayers}
           space="screen"
           spatialTargetResolvers={spatialTargetResolvers}
-          theme={theme}
+          theme={resolvedTheme}
           zIndex={SCENE_SCREEN_UNDERLAY_Z_INDEX}
         />
       )}
@@ -882,7 +942,7 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
         chrome={chrome}
         devicePixelRatio={devicePixelRatio}
         stackBands={DEFAULT_INFINITE_CANVAS_STACK_BANDS}
-        theme={theme}
+        theme={resolvedTheme}
         windowDefinitions={windowDefinitions}
         zIndex={WINDOW_LAYER_Z_INDEX}
       />
@@ -895,7 +955,7 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
           sceneLayers={overlayWorldSceneLayers}
           space="world"
           spatialTargetResolvers={spatialTargetResolvers}
-          theme={theme}
+          theme={resolvedTheme}
           zIndex={SCENE_OVERLAY_Z_INDEX}
         />
       )}
@@ -908,11 +968,14 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
           sceneLayers={overlayScreenSceneLayers}
           space="screen"
           spatialTargetResolvers={spatialTargetResolvers}
-          theme={theme}
+          theme={resolvedTheme}
           zIndex={SCENE_SCREEN_OVERLAY_Z_INDEX}
         />
       )}
-      <InfiniteCanvasSelectionBoundsOverlay devicePixelRatio={devicePixelRatio} theme={theme} />
+      <InfiniteCanvasSelectionBoundsOverlay
+        devicePixelRatio={devicePixelRatio}
+        theme={resolvedTheme}
+      />
       <InfiniteCanvasSnapOverlay devicePixelRatio={devicePixelRatio} />
       <InfiniteCanvasMarqueeOverlay />
       {renderOverlay?.(overlayContext)}
@@ -958,7 +1021,7 @@ function InfiniteCanvasWindowLayer<Kind extends string>({
   );
 
   return (
-    <div className="pointer-events-none absolute inset-0" style={{ zIndex }}>
+    <div style={{ inset: 0, pointerEvents: "none", position: "absolute", zIndex }}>
       {visibleWindows.map((window) => (
         <InfiniteCanvasWindowFrame
           chrome={chrome}
