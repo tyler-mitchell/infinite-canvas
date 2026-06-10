@@ -15,7 +15,10 @@ export {
   createInfiniteCanvasState,
   createInfiniteCanvasWindow,
   defineInfiniteCanvasWindowRegistry,
+  getInfiniteCanvasWindowData,
 } from "./factory";
+export { createInfiniteCanvasHandle } from "./canvas-handle";
+export type { InfiniteCanvasHandle } from "./canvas-handle";
 export {
   InfiniteCanvasProvider,
   createInfiniteCanvasStore,

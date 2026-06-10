@@ -189,10 +189,24 @@ function defineInfiniteCanvasWindowRegistry<Kind extends string>(
   return registry;
 }
 
+/**
+ * Read a window's consumer-owned `data` payload through a type guard,
+ * replacing the `typeof window.data === "object" && "field" in window.data`
+ * boilerplate every renderBody otherwise repeats. Returns null when the
+ * payload is absent or fails the guard.
+ */
+function getInfiniteCanvasWindowData<Data>(
+  window: Readonly<{ data?: unknown }>,
+  guard: (candidate: unknown) => candidate is Data,
+): Data | null {
+  return guard(window.data) ? window.data : null;
+}
+
 export {
   createInfiniteCanvasState,
   createInfiniteCanvasWindow,
   defineInfiniteCanvasWindowRegistry,
+  getInfiniteCanvasWindowData,
 };
 
 export type { InfiniteCanvasStateInput, InfiniteCanvasWindowInput };

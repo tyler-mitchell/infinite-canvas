@@ -37,6 +37,10 @@ type InfiniteCanvasSpatialRectTarget = Readonly<{
 type InfiniteCanvasSpatialEdgeTarget = Readonly<{
   data?: unknown;
   end: InfiniteCanvasPoint;
+  /**
+   * Pick distance from the segment in WORLD units (not screen pixels), so
+   * the effective screen-space hit area scales with zoom.
+   */
   hitRadius?: number;
   id: string;
   kind: string;

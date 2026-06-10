@@ -25,6 +25,25 @@
   handler before interaction state started. Now best-effort.
 - **Non-portable dts emit** in input-policy cursor getters. Annotated.
 
+## Fixed during the headless extraction (2026-06-10)
+
+- **Frame-slot styling conflicts** — dissolved: framework components emit no
+  visual classes; consumer `className`/`style` always wins (verified live —
+  the custom-frames showcase's previously-losing overrides now apply).
+- **HUD opt-out** — `hud?: boolean | { statusCard?, minimizedDock?,
+pointerModeControls?, cameraControls?, zoomControls? }` landed with the HUD
+  extraction.
+- **Drop-drag listener gap** — listeners are now mount-scoped with ref
+  guards; `startDrag` writes the interaction ref synchronously, so same-frame
+  pointer events are heard. Verified: a full down/move/up sequence in one
+  synchronous block commits a drop.
+- **Agent handle promoted** — `createInfiniteCanvasHandle(store)` is an
+  experimental export (commands facade + JSON-safe snapshot + contextual
+  command descriptors), unit-tested as the programmatic consumer contract.
+- **`getInfiniteCanvasWindowData(window, guard)`** helper exported (full
+  generic threading through registry/render contexts remains open, below).
+- **`hitRadius` documented** as world units on the edge-target type.
+
 ## Open — high priority
 
 - **Interactive performance fails NFR-1 in practice.** Both this playground's
@@ -33,42 +52,31 @@
   before prescribing: candidate suspects include per-window React re-renders
   on camera change, full-window-array signal subscriptions in the frame path,
   and per-pointer-move snap candidate rebuilds — see
-  [snapping.md](snapping.md) on spatial indexing). Tracked as risk R15.
-- **`window.data` is `unknown` at render time.** The `Data` generic exists on
-  `createInfiniteCanvasWindow` but doesn't survive into registry/render
-  contexts, so every consumer hand-rolls guard-and-cast helpers. Thread the
-  generic through `defineInfiniteCanvasWindowRegistry` and the render
-  contexts, or ship a `getInfiniteCanvasWindowData(window, guard)` helper.
-- **Frame-slot styling conflicts resolve by stylesheet order.** Slot
-  `className`s concatenate (no merge), so a consumer's `normal-case` may
-  silently lose to the baked-in `uppercase`. Dissolves with the headless
-  extraction (data-slot attributes + stylesheet); until then it's a known
-  trap. Slot layout is similarly rigid (centering a header title requires
-  absolute-position hacks around `Controls`).
+  [snapping.md](snapping.md) on spatial indexing). Tracked as risk R15;
+  html-in-canvas texture-mode is the leading candidate
+  ([html-in-canvas.md](html-in-canvas.md)).
+- **`window.data` generic threading.** The helper removes the boilerplate,
+  but threading `Data` through `defineInfiniteCanvasWindowRegistry` and the
+  render contexts is the real fix.
 
 ## Open — medium
 
-- **HUD title/subtitle cannot be disabled** — every desktop renders the HUD
-  block; defaults apply even when props are omitted. Wants `hud={false}` or a
-  render slot (naturally part of the headless surface).
 - **Typed-payload contexts don't downcast** — `InfiniteCanvasOverlayRenderContext<K, Payload>`
   isn't assignable to the default-payload form (contravariant `startDrag`),
   so generic consumer utilities must carry both type params. Consider
   splitting read surface (covariant) from the drag-start function.
-- **Drop-drag listeners attach in `useEffect`** — pointermoves landing in the
-  same frame as the starting pointerdown are dropped, and automated drivers
-  must yield between down/move/up. Attaching window listeners synchronously
-  inside `startDrag` removes the gap.
-- **The agent/dev handle is playground glue** — `window.__canvas` is wired
-  through `renderOverlay` (must return null, reassigns per render, stale
-  after unmount). The contract already exists (commands facade + serializer +
-  spatial queries); promote to `createInfiniteCanvasHandle()` when ready.
+- **Slot layout rigidity** — centering a header title still requires
+  absolute-position hacks around `Controls`; consider slot order/areas in the
+  styled-distribution work.
+- **Handle change-subscription** — `createInfiniteCanvasHandle` ships without
+  `subscribe`; add once the Legend-State subscription surface to expose is
+  settled (and consider spatial queries, which live in the render layer).
 
 ## Open — small / documentation
 
-- **`hitRadius` on edge targets is in world units** — undocumented; easy to
-  assume screen pixels (which would also be the more useful semantic given
-  the screen-space-threshold philosophy of the snap system — consider).
+- **`hitRadius` semantics** — now documented as world units; still consider
+  whether screen-pixel semantics would serve consumers better (matches the
+  snap system's screen-space-threshold philosophy).
 - **Snap guides for drops are consumer-rendered** — the built-in snap overlay
   only draws `state.snapPreview` (move/resize interactions). Now that drop
   placement returns a snap preview, consider letting the framework overlay

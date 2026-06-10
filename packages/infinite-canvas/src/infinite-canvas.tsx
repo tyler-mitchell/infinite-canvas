@@ -750,10 +750,10 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
   }, [actions, interaction]);
 
   useEffect(() => {
-    if (dropInteraction.status !== "dragging") {
-      return;
-    }
-
+    // Mount-scoped, not gated on drag status: startDrag writes
+    // dropInteractionRef synchronously, so pointer events arriving in the
+    // same frame (before React commits the state) must already be heard.
+    // The handlers no-op unless the ref says a drag is active.
     const handlePointerMove = (event: PointerEvent) => {
       const current = dropInteractionRef.current;
 
@@ -817,7 +817,6 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
     cancelDropDrag,
     chrome,
     createDropInteractionFromPointer,
-    dropInteraction.status,
     dropPolicy,
     releaseDropPointerCapture,
     store,
