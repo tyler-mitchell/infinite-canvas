@@ -1,5 +1,9 @@
-/* Framework theme first: its @layer rules lose to Tailwind utilities and
-   any unlayered consumer CSS, so showcase overrides always win. */
+/* Cascade order: the framework theme must beat Tailwind's preflight (base)
+   now that the framework emits no utility classes of its own, but still lose
+   to components/utilities and any unlayered consumer CSS, so showcase
+   overrides always win. */
+@layer theme, base, infinite-canvas, components, utilities;
+
 @import "infinite-canvas/theme.css";
 
 @import "tailwindcss";

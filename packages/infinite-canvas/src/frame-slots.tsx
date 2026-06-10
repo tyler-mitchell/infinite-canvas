@@ -1,6 +1,5 @@
 "use client";
 
-import { Maximize2, Minimize2, Pin, X } from "lucide-react";
 import {
   createContext,
   useContext,
@@ -9,6 +8,7 @@ import {
 } from "react";
 
 import { INFINITE_CANVAS_SLOTS } from "./data-attributes";
+import { useInfiniteCanvasIcons } from "./icons";
 import { focusInfiniteCanvasCommandSurface } from "./keyboard";
 import { InfiniteCanvasWindowBody } from "./rasterization-layer";
 import {
@@ -110,6 +110,12 @@ function InfiniteCanvasWindowFrameControlsSlot({
   style,
 }: InfiniteCanvasWindowFrameControlsProps) {
   const { actions, window } = useInfiniteCanvasWindowFrameRuntimeContext();
+  const {
+    close: CloseIcon,
+    maximize: MaximizeIcon,
+    minimize: MinimizeIcon,
+    pin: PinIcon,
+  } = useInfiniteCanvasIcons();
 
   return (
     <div
@@ -138,7 +144,7 @@ function InfiniteCanvasWindowFrameControlsSlot({
         style={WINDOW_CONTROL_BUTTON_STYLE}
         type="button"
       >
-        <Pin size={12} strokeWidth={1.8} />
+        <PinIcon />
       </button>
       <button
         aria-label="Minimize window"
@@ -154,7 +160,7 @@ function InfiniteCanvasWindowFrameControlsSlot({
         style={WINDOW_CONTROL_BUTTON_STYLE}
         type="button"
       >
-        <Minimize2 size={12} strokeWidth={1.8} />
+        <MinimizeIcon />
       </button>
       <button
         aria-label={window.mode === "maximized" ? "Restore window" : "Maximize window"}
@@ -174,7 +180,7 @@ function InfiniteCanvasWindowFrameControlsSlot({
         style={WINDOW_CONTROL_BUTTON_STYLE}
         type="button"
       >
-        <Maximize2 size={12} strokeWidth={1.8} />
+        <MaximizeIcon />
       </button>
       <button
         aria-label="Close window"
@@ -190,7 +196,7 @@ function InfiniteCanvasWindowFrameControlsSlot({
         style={WINDOW_CONTROL_BUTTON_STYLE}
         type="button"
       >
-        <X size={12} strokeWidth={1.8} />
+        <CloseIcon />
       </button>
     </div>
   );

@@ -198,6 +198,16 @@ type InfiniteCanvasInputPolicy = Readonly<{
   emptyCanvasDrag: InfiniteCanvasEmptyCanvasDragMode;
 }>;
 
+type InfiniteCanvasHudPolicy = Readonly<{
+  cameraControls: boolean;
+  minimizedDock: boolean;
+  pointerModeControls: boolean;
+  statusCard: boolean;
+  zoomControls: boolean;
+}>;
+
+type InfiniteCanvasHudPolicyInput = boolean | Readonly<Partial<InfiniteCanvasHudPolicy>>;
+
 type InfiniteCanvasStackBands = Readonly<{
   overlay: number;
   pinned: number;
@@ -778,6 +788,8 @@ export type {
   InfiniteCanvasInputPolicy,
   InfiniteCanvasInteraction,
   InfiniteCanvasHotkeyBinding,
+  InfiniteCanvasHudPolicy,
+  InfiniteCanvasHudPolicyInput,
   InfiniteCanvasMarqueeInteraction,
   InfiniteCanvasMarqueeMode,
   InfiniteCanvasMoveInteraction,

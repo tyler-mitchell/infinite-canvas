@@ -1,103 +1,215 @@
 "use client";
 
-import {
-  Frame,
-  LocateFixed,
-  Minus,
-  MousePointer2,
-  Move,
-  Plus,
-  RotateCcw,
-  ScanSearch,
-} from "lucide-react";
+import type { CSSProperties } from "react";
 
 import { DEFAULT_INFINITE_CANVAS_STACK_BANDS } from "./constants";
 import { INFINITE_CANVAS_SLOTS } from "./data-attributes";
 import { getConstrainedZoom } from "./geometry";
+import { useInfiniteCanvasIcons } from "./icons";
 import { useInfiniteCanvasActions, useInfiniteCanvasState } from "./store";
-import type { InfiniteCanvasPointerMode, InfiniteCanvasZoomPolicy } from "./types";
+import type {
+  InfiniteCanvasHudPolicy,
+  InfiniteCanvasHudPolicyInput,
+  InfiniteCanvasPointerMode,
+  InfiniteCanvasZoomPolicy,
+} from "./types";
+
+const DEFAULT_INFINITE_CANVAS_HUD_POLICY: InfiniteCanvasHudPolicy = {
+  cameraControls: true,
+  minimizedDock: true,
+  pointerModeControls: true,
+  statusCard: true,
+  zoomControls: true,
+};
+
+const HIDDEN_INFINITE_CANVAS_HUD_POLICY: InfiniteCanvasHudPolicy = {
+  cameraControls: false,
+  minimizedDock: false,
+  pointerModeControls: false,
+  statusCard: false,
+  zoomControls: false,
+};
+
+function resolveInfiniteCanvasHudPolicy(
+  input?: InfiniteCanvasHudPolicyInput,
+): InfiniteCanvasHudPolicy {
+  if (input === undefined) {
+    return DEFAULT_INFINITE_CANVAS_HUD_POLICY;
+  }
+
+  if (typeof input === "boolean") {
+    return input ? DEFAULT_INFINITE_CANVAS_HUD_POLICY : HIDDEN_INFINITE_CANVAS_HUD_POLICY;
+  }
+
+  return {
+    ...DEFAULT_INFINITE_CANVAS_HUD_POLICY,
+    ...input,
+  };
+}
+
+// Screen-reader-only treatment for the live announcer (Tailwind sr-only).
+const VISUALLY_HIDDEN_STYLE = {
+  borderWidth: 0,
+  clip: "rect(0, 0, 0, 0)",
+  height: "1px",
+  margin: "-1px",
+  overflow: "hidden",
+  padding: 0,
+  position: "absolute",
+  whiteSpace: "nowrap",
+  width: "1px",
+} satisfies CSSProperties;
+
+const HUD_ICON_BUTTON_STYLE = {
+  alignItems: "center",
+  display: "flex",
+  height: "40px",
+  justifyContent: "center",
+  width: "40px",
+} satisfies CSSProperties;
+
+const HUD_GROUP_STYLE = {
+  alignItems: "center",
+  display: "flex",
+  overflow: "hidden",
+  pointerEvents: "auto",
+} satisfies CSSProperties;
 
 function InfiniteCanvasHud({
   onPointerModeChange,
   pointerMode = "marquee",
+  policy,
   subtitle,
   title,
   zoomPolicy,
 }: Readonly<{
   onPointerModeChange?: (pointerMode: InfiniteCanvasPointerMode) => void;
   pointerMode?: InfiniteCanvasPointerMode;
+  policy?: InfiniteCanvasHudPolicyInput;
   subtitle: string;
   title: string;
   zoomPolicy: InfiniteCanvasZoomPolicy;
 }>) {
   const state = useInfiniteCanvasState();
   const actions = useInfiniteCanvasActions();
+  const { reset: ResetIcon } = useInfiniteCanvasIcons();
+  const resolvedPolicy = resolveInfiniteCanvasHudPolicy(policy);
   const activeWindow = state.windows.find((window) => window.id === state.activeWindowId);
   const minimizedWindows = state.windows.filter((window) => window.mode === "minimized");
+  const showControlsRow =
+    resolvedPolicy.cameraControls ||
+    resolvedPolicy.pointerModeControls ||
+    resolvedPolicy.zoomControls;
+
+  if (!showControlsRow && !resolvedPolicy.minimizedDock && !resolvedPolicy.statusCard) {
+    return null;
+  }
 
   return (
     <div
-      className="pointer-events-none absolute inset-0"
       data-slot={INFINITE_CANVAS_SLOTS.hud}
-      style={{ zIndex: DEFAULT_INFINITE_CANVAS_STACK_BANDS.overlay }}
+      style={{
+        inset: 0,
+        pointerEvents: "none",
+        position: "absolute",
+        zIndex: DEFAULT_INFINITE_CANVAS_STACK_BANDS.overlay,
+      }}
     >
-      <div aria-live="polite" className="sr-only">
+      <div aria-live="polite" style={VISUALLY_HIDDEN_STYLE}>
         Active window {activeWindow?.title ?? "none"}.
       </div>
-      <div
-        className="absolute left-4 top-4 max-w-[min(28rem,calc(100%-2rem))] border border-white/10 bg-black/45 px-4 py-3 text-[11px] text-white/56 backdrop-blur-sm"
-        data-slot={INFINITE_CANVAS_SLOTS.hudStatus}
-      >
+      {resolvedPolicy.statusCard ? (
         <div
-          className="font-medium uppercase text-white/72"
-          data-slot={INFINITE_CANVAS_SLOTS.hudTitle}
-        >
-          {title}
-        </div>
-        <div className="mt-2 text-white/38" data-slot={INFINITE_CANVAS_SLOTS.hudSubtitle}>
-          {subtitle}
-        </div>
-      </div>
-      <div
-        className="absolute bottom-4 left-4 flex max-w-[calc(100%-2rem)] flex-wrap items-center gap-2"
-        data-slot={INFINITE_CANVAS_SLOTS.hudDock}
-      >
-        {minimizedWindows.map((window) => (
-          <button
-            className="pointer-events-auto border border-white/10 bg-[#0c1016]/92 px-3 py-2 text-[11px] font-medium uppercase text-white/58 transition hover:border-white/20 hover:bg-white/[0.08] hover:text-white"
-            data-slot={INFINITE_CANVAS_SLOTS.hudDockItem}
-            key={window.id}
-            onClick={() => {
-              actions.restoreWindow(window.id);
-            }}
-            type="button"
-          >
-            {window.title}
-          </button>
-        ))}
-      </div>
-      <div className="absolute bottom-4 right-4 flex max-w-[calc(100%-2rem)] flex-wrap items-center justify-end gap-2">
-        {onPointerModeChange === undefined ? null : (
-          <InfiniteCanvasPointerModeControls
-            onModeChange={onPointerModeChange}
-            pointerMode={pointerMode}
-          />
-        )}
-        <InfiniteCanvasCameraNavigationControls />
-        <InfiniteCanvasZoomControls zoomPolicy={zoomPolicy} />
-        <button
-          aria-label="Reset desktop"
-          className="pointer-events-auto flex h-10 w-10 items-center justify-center border border-white/10 bg-[#0c1016]/92 text-white/68 transition hover:border-white/20 hover:bg-white/[0.08] hover:text-white"
-          data-action="reset"
-          data-slot={INFINITE_CANVAS_SLOTS.hudButton}
-          onClick={() => {
-            actions.reset();
+          data-slot={INFINITE_CANVAS_SLOTS.hudStatus}
+          style={{
+            left: "16px",
+            maxWidth: "min(28rem, calc(100% - 2rem))",
+            padding: "12px 16px",
+            position: "absolute",
+            top: "16px",
           }}
-          type="button"
         >
-          <RotateCcw size={14} strokeWidth={1.8} />
-        </button>
-      </div>
+          <div data-slot={INFINITE_CANVAS_SLOTS.hudTitle}>{title}</div>
+          <div data-slot={INFINITE_CANVAS_SLOTS.hudSubtitle} style={{ marginTop: "8px" }}>
+            {subtitle}
+          </div>
+        </div>
+      ) : null}
+      {resolvedPolicy.minimizedDock ? (
+        <div
+          data-slot={INFINITE_CANVAS_SLOTS.hudDock}
+          style={{
+            alignItems: "center",
+            bottom: "16px",
+            display: "flex",
+            flexWrap: "wrap",
+            gap: "8px",
+            left: "16px",
+            maxWidth: "calc(100% - 2rem)",
+            position: "absolute",
+          }}
+        >
+          {minimizedWindows.map((window) => (
+            <button
+              data-slot={INFINITE_CANVAS_SLOTS.hudDockItem}
+              key={window.id}
+              onClick={() => {
+                actions.restoreWindow(window.id);
+              }}
+              style={{
+                padding: "8px 12px",
+                pointerEvents: "auto",
+              }}
+              type="button"
+            >
+              {window.title}
+            </button>
+          ))}
+        </div>
+      ) : null}
+      {showControlsRow ? (
+        <div
+          style={{
+            alignItems: "center",
+            bottom: "16px",
+            display: "flex",
+            flexWrap: "wrap",
+            gap: "8px",
+            justifyContent: "flex-end",
+            maxWidth: "calc(100% - 2rem)",
+            position: "absolute",
+            right: "16px",
+          }}
+        >
+          {resolvedPolicy.pointerModeControls && onPointerModeChange !== undefined ? (
+            <InfiniteCanvasPointerModeControls
+              onModeChange={onPointerModeChange}
+              pointerMode={pointerMode}
+            />
+          ) : null}
+          {resolvedPolicy.cameraControls ? <InfiniteCanvasCameraNavigationControls /> : null}
+          {resolvedPolicy.zoomControls ? (
+            <InfiniteCanvasZoomControls zoomPolicy={zoomPolicy} />
+          ) : null}
+          {resolvedPolicy.cameraControls ? (
+            <button
+              aria-label="Reset desktop"
+              data-action="reset"
+              data-slot={INFINITE_CANVAS_SLOTS.hudButton}
+              onClick={() => {
+                actions.reset();
+              }}
+              style={{
+                ...HUD_ICON_BUTTON_STYLE,
+                pointerEvents: "auto",
+              }}
+              type="button"
+            >
+              <ResetIcon />
+            </button>
+          ) : null}
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -105,6 +217,11 @@ function InfiniteCanvasHud({
 function InfiniteCanvasCameraNavigationControls() {
   const state = useInfiniteCanvasState();
   const actions = useInfiniteCanvasActions();
+  const {
+    "center-active": CenterActiveIcon,
+    "fit-all": FitAllIcon,
+    "fit-selection": FitSelectionIcon,
+  } = useInfiniteCanvasIcons();
   const activeWindow = state.windows.find(
     (window) => window.id === state.activeWindowId && window.mode !== "minimized",
   );
@@ -114,15 +231,14 @@ function InfiniteCanvasCameraNavigationControls() {
   return (
     <div
       aria-label="Camera navigation"
-      className="pointer-events-auto flex items-center overflow-hidden border border-white/10 bg-[#0c1016]/92 backdrop-blur-sm"
       data-group="camera"
       data-infinite-canvas-control="true"
       data-slot={INFINITE_CANVAS_SLOTS.hudGroup}
       role="group"
+      style={HUD_GROUP_STYLE}
     >
       <button
         aria-label="Center active window"
-        className="flex h-10 w-10 items-center justify-center border-r border-white/8 text-white/68 transition hover:bg-white/[0.08] hover:text-white disabled:cursor-not-allowed disabled:text-white/20"
         data-action="center-active"
         data-slot={INFINITE_CANVAS_SLOTS.hudButton}
         disabled={activeWindow === undefined}
@@ -138,14 +254,14 @@ function InfiniteCanvasCameraNavigationControls() {
             },
           });
         }}
+        style={HUD_ICON_BUTTON_STYLE}
         title="Center active window"
         type="button"
       >
-        <LocateFixed size={14} strokeWidth={1.8} />
+        <CenterActiveIcon />
       </button>
       <button
         aria-label="Fit selection"
-        className="flex h-10 w-10 items-center justify-center border-r border-white/8 text-white/68 transition hover:bg-white/[0.08] hover:text-white disabled:cursor-not-allowed disabled:text-white/20"
         data-action="fit-selection"
         data-slot={INFINITE_CANVAS_SLOTS.hudButton}
         disabled={!selectionExists}
@@ -159,14 +275,14 @@ function InfiniteCanvasCameraNavigationControls() {
             },
           });
         }}
+        style={HUD_ICON_BUTTON_STYLE}
         title="Fit selection"
         type="button"
       >
-        <Frame size={14} strokeWidth={1.8} />
+        <FitSelectionIcon />
       </button>
       <button
         aria-label="Fit all visible windows"
-        className="flex h-10 w-10 items-center justify-center text-white/68 transition hover:bg-white/[0.08] hover:text-white disabled:cursor-not-allowed disabled:text-white/20"
         data-action="fit-all"
         data-slot={INFINITE_CANVAS_SLOTS.hudButton}
         disabled={!visibleWindowExists}
@@ -180,10 +296,11 @@ function InfiniteCanvasCameraNavigationControls() {
             },
           });
         }}
+        style={HUD_ICON_BUTTON_STYLE}
         title="Fit all visible windows"
         type="button"
       >
-        <ScanSearch size={14} strokeWidth={1.8} />
+        <FitAllIcon />
       </button>
     </div>
   );
@@ -196,57 +313,50 @@ function InfiniteCanvasPointerModeControls({
   onModeChange: (pointerMode: InfiniteCanvasPointerMode) => void;
   pointerMode: InfiniteCanvasPointerMode;
 }>) {
+  const { "pointer-marquee": PointerMarqueeIcon, "pointer-pan": PointerPanIcon } =
+    useInfiniteCanvasIcons();
+
   return (
     <div
       aria-label="Canvas interaction mode"
-      className="pointer-events-auto flex items-center overflow-hidden border border-white/10 bg-[#0c1016]/92 backdrop-blur-sm"
       data-group="pointer-mode"
       data-infinite-canvas-control="true"
       data-slot={INFINITE_CANVAS_SLOTS.hudGroup}
       role="group"
+      style={HUD_GROUP_STYLE}
     >
       <button
         aria-label="Use marquee selection mode"
         aria-pressed={pointerMode === "marquee"}
-        className={getPointerModeButtonClassName(pointerMode === "marquee", "border-r")}
         data-action="pointer-marquee"
         data-active={pointerMode === "marquee" ? "" : undefined}
         data-slot={INFINITE_CANVAS_SLOTS.hudButton}
         onClick={() => {
           onModeChange("marquee");
         }}
+        style={HUD_ICON_BUTTON_STYLE}
         title="Marquee selection"
         type="button"
       >
-        <MousePointer2 size={14} strokeWidth={1.8} />
+        <PointerMarqueeIcon />
       </button>
       <button
         aria-label="Use pan mode"
         aria-pressed={pointerMode === "pan"}
-        className={getPointerModeButtonClassName(pointerMode === "pan")}
         data-action="pointer-pan"
         data-active={pointerMode === "pan" ? "" : undefined}
         data-slot={INFINITE_CANVAS_SLOTS.hudButton}
         onClick={() => {
           onModeChange("pan");
         }}
+        style={HUD_ICON_BUTTON_STYLE}
         title="Pan canvas"
         type="button"
       >
-        <Move size={14} strokeWidth={1.8} />
+        <PointerPanIcon />
       </button>
     </div>
   );
-}
-
-function getPointerModeButtonClassName(isActive: boolean, divider = "") {
-  return [
-    "flex h-10 w-10 items-center justify-center border-white/8 transition hover:bg-white/[0.08] hover:text-white",
-    divider,
-    isActive ? "bg-[#142126] text-[#d7fbff]" : "bg-transparent text-white/58 hover:text-white",
-  ]
-    .filter(Boolean)
-    .join(" ");
 }
 
 function InfiniteCanvasZoomControls({
@@ -256,6 +366,7 @@ function InfiniteCanvasZoomControls({
 }>) {
   const state = useInfiniteCanvasState();
   const actions = useInfiniteCanvasActions();
+  const { "zoom-in": ZoomInIcon, "zoom-out": ZoomOutIcon } = useInfiniteCanvasIcons();
   const minZoom = getConstrainedZoom(0, zoomPolicy);
   const zoomPercent = Math.round(state.camera.zoom * 100);
   const centerAnchor = {
@@ -264,14 +375,9 @@ function InfiniteCanvasZoomControls({
   };
 
   return (
-    <div
-      className="pointer-events-auto flex items-center overflow-hidden border border-white/10 bg-[#0c1016]/92 backdrop-blur-sm"
-      data-group="zoom"
-      data-slot={INFINITE_CANVAS_SLOTS.hudGroup}
-    >
+    <div data-group="zoom" data-slot={INFINITE_CANVAS_SLOTS.hudGroup} style={HUD_GROUP_STYLE}>
       <button
         aria-label="Zoom out"
-        className="flex h-10 w-10 items-center justify-center border-r border-white/8 text-white/68 transition hover:bg-white/[0.08] hover:text-white disabled:cursor-not-allowed disabled:text-white/20"
         data-action="zoom-out"
         data-slot={INFINITE_CANVAS_SLOTS.hudButton}
         disabled={state.camera.zoom <= minZoom}
@@ -281,13 +387,13 @@ function InfiniteCanvasZoomControls({
             zoom: state.camera.zoom / zoomPolicy.step,
           });
         }}
+        style={HUD_ICON_BUTTON_STYLE}
         type="button"
       >
-        <Minus size={14} strokeWidth={1.8} />
+        <ZoomOutIcon />
       </button>
       <button
         aria-label="Reset zoom to 100 percent"
-        className="min-w-[86px] px-3 py-2 text-[11px] font-medium uppercase text-white/58 transition hover:bg-white/[0.08] hover:text-white"
         data-action="zoom-reset"
         data-slot={INFINITE_CANVAS_SLOTS.hudButton}
         onClick={() => {
@@ -296,13 +402,16 @@ function InfiniteCanvasZoomControls({
             zoom: zoomPolicy.defaultZoom,
           });
         }}
+        style={{
+          minWidth: "86px",
+          padding: "8px 12px",
+        }}
         type="button"
       >
         <span data-slot={INFINITE_CANVAS_SLOTS.hudZoomReadout}>{zoomPercent}%</span>
       </button>
       <button
         aria-label="Zoom in"
-        className="flex h-10 w-10 items-center justify-center border-l border-white/8 text-white/68 transition hover:bg-white/[0.08] hover:text-white disabled:cursor-not-allowed disabled:text-white/20"
         data-action="zoom-in"
         data-slot={INFINITE_CANVAS_SLOTS.hudButton}
         disabled={state.camera.zoom >= zoomPolicy.maxZoom}
@@ -312,12 +421,13 @@ function InfiniteCanvasZoomControls({
             zoom: state.camera.zoom * zoomPolicy.step,
           });
         }}
+        style={HUD_ICON_BUTTON_STYLE}
         type="button"
       >
-        <Plus size={14} strokeWidth={1.8} />
+        <ZoomInIcon />
       </button>
     </div>
   );
 }
 
-export { InfiniteCanvasHud };
+export { DEFAULT_INFINITE_CANVAS_HUD_POLICY, InfiniteCanvasHud, resolveInfiniteCanvasHudPolicy };
