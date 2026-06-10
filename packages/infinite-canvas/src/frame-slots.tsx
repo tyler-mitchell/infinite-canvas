@@ -8,6 +8,7 @@ import {
   type PointerEvent as ReactPointerEvent,
 } from "react";
 
+import { INFINITE_CANVAS_SLOTS } from "./data-attributes";
 import { focusInfiniteCanvasCommandSurface } from "./keyboard";
 import { InfiniteCanvasWindowBody } from "./rasterization-layer";
 import {
@@ -84,6 +85,7 @@ function InfiniteCanvasWindowFrameTitleSlot({
         "min-w-0 truncate text-[10px] font-medium uppercase text-white/58",
         className,
       )}
+      data-slot={INFINITE_CANVAS_SLOTS.windowTitle}
       style={style}
     >
       {children === undefined ? window.title : children}
@@ -98,10 +100,17 @@ function InfiniteCanvasWindowFrameControlsSlot({
   const { actions, window } = useInfiniteCanvasWindowFrameRuntimeContext();
 
   return (
-    <div className={mergeClassNames("flex shrink-0 items-center gap-1", className)} style={style}>
+    <div
+      className={mergeClassNames("flex shrink-0 items-center gap-1", className)}
+      data-slot={INFINITE_CANVAS_SLOTS.windowControls}
+      style={style}
+    >
       <button
         aria-label={window.isPinned ? "Unpin window" : "Pin window"}
         className="flex h-6 w-6 items-center justify-center border border-white/8 bg-white/[0.03] text-white/46 transition hover:border-white/20 hover:bg-white/[0.08] hover:text-white"
+        data-action="pin"
+        data-active={window.isPinned ? "" : undefined}
+        data-slot={INFINITE_CANVAS_SLOTS.windowControl}
         onClick={(event) => {
           event.stopPropagation();
           actions.togglePinned(window.id);
@@ -123,6 +132,8 @@ function InfiniteCanvasWindowFrameControlsSlot({
       <button
         aria-label="Minimize window"
         className="flex h-6 w-6 items-center justify-center border border-white/8 bg-white/[0.03] text-white/46 transition hover:border-white/20 hover:bg-white/[0.08] hover:text-white"
+        data-action="minimize"
+        data-slot={INFINITE_CANVAS_SLOTS.windowControl}
         onClick={(event) => {
           event.stopPropagation();
           actions.minimizeWindow(window.id);
@@ -140,6 +151,8 @@ function InfiniteCanvasWindowFrameControlsSlot({
       <button
         aria-label={window.mode === "maximized" ? "Restore window" : "Maximize window"}
         className="flex h-6 w-6 items-center justify-center border border-white/8 bg-white/[0.03] text-white/46 transition hover:border-white/20 hover:bg-white/[0.08] hover:text-white"
+        data-action={window.mode === "maximized" ? "restore" : "maximize"}
+        data-slot={INFINITE_CANVAS_SLOTS.windowControl}
         onClick={(event) => {
           event.stopPropagation();
           if (window.mode === "maximized") {
@@ -161,6 +174,8 @@ function InfiniteCanvasWindowFrameControlsSlot({
       <button
         aria-label="Close window"
         className="flex h-6 w-6 items-center justify-center border border-white/8 bg-white/[0.03] text-white/46 transition hover:border-white/20 hover:bg-white/[0.08] hover:text-white"
+        data-action="close"
+        data-slot={INFINITE_CANVAS_SLOTS.windowControl}
         onClick={(event) => {
           event.stopPropagation();
           actions.closeWindow(window.id);
@@ -193,6 +208,7 @@ function InfiniteCanvasWindowFrameHeaderSlot({
         className,
       )}
       data-infinite-canvas-control="true"
+      data-slot={INFINITE_CANVAS_SLOTS.windowHeader}
       onLostPointerCapture={(event) => {
         actions.finishInteraction(event.pointerId);
       }}
@@ -274,6 +290,7 @@ function InfiniteCanvasWindowFrameBodySlot({
     <section
       className={mergeClassNames("absolute inset-x-0 bottom-0 pointer-events-auto", className)}
       data-infinite-canvas-body="true"
+      data-slot={INFINITE_CANVAS_SLOTS.windowBody}
       data-infinite-canvas-body-pan={bodyPointerBehavior === "canvas-pan" ? "true" : undefined}
       data-infinite-canvas-native-scroll={
         definition.wheelBehavior === "native-scroll" ? "true" : undefined
@@ -330,7 +347,12 @@ function InfiniteCanvasWindowFrameActiveCornersSlot({
   const { chrome, isActive } = useInfiniteCanvasWindowFrameRuntimeContext();
 
   return isActive ? (
-    <div aria-hidden="true" className={className} style={style}>
+    <div
+      aria-hidden="true"
+      className={className}
+      data-slot={INFINITE_CANVAS_SLOTS.windowCorners}
+      style={style}
+    >
       <ActiveWindowCorners chrome={chrome} />
     </div>
   ) : null;
@@ -349,6 +371,7 @@ function InfiniteCanvasWindowFrameSurfaceSlot({
         "pointer-events-auto absolute inset-0 overflow-hidden border bg-[#07080b]",
         className,
       )}
+      data-slot={INFINITE_CANVAS_SLOTS.windowSurface}
       style={{
         background: theme.bodyBackground,
         borderColor: isActive
@@ -381,6 +404,8 @@ function ActiveWindowCorners({
       <div
         aria-hidden="true"
         className="absolute border-l border-t border-white/25"
+        data-corner="top-left"
+        data-slot={INFINITE_CANVAS_SLOTS.windowCorner}
         style={{
           ...cornerStyle,
           left: "5px",
@@ -390,6 +415,8 @@ function ActiveWindowCorners({
       <div
         aria-hidden="true"
         className="absolute border-r border-t border-white/25"
+        data-corner="top-right"
+        data-slot={INFINITE_CANVAS_SLOTS.windowCorner}
         style={{
           ...cornerStyle,
           right: "5px",
@@ -399,6 +426,8 @@ function ActiveWindowCorners({
       <div
         aria-hidden="true"
         className="absolute border-b border-l border-white/25"
+        data-corner="bottom-left"
+        data-slot={INFINITE_CANVAS_SLOTS.windowCorner}
         style={{
           ...cornerStyle,
           bottom: "5px",
@@ -408,6 +437,8 @@ function ActiveWindowCorners({
       <div
         aria-hidden="true"
         className="absolute border-b border-r border-white/25"
+        data-corner="bottom-right"
+        data-slot={INFINITE_CANVAS_SLOTS.windowCorner}
         style={{
           ...cornerStyle,
           bottom: "5px",

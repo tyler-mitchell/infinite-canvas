@@ -2,6 +2,7 @@
 
 import type { CSSProperties } from "react";
 
+import { INFINITE_CANVAS_SLOTS } from "./data-attributes";
 import {
   getRectFromPoints,
   projectWorldRectToScreen,
@@ -41,6 +42,7 @@ function InfiniteCanvasSelectionBoundsOverlay({
       <div
         className="absolute border"
         data-infinite-canvas-selection-bounds="true"
+        data-slot={INFINITE_CANVAS_SLOTS.selectionBounds}
         style={{
           borderColor: theme.selectionBounds,
           boxSizing: "border-box",
@@ -82,6 +84,7 @@ function InfiniteCanvasSnapOverlay({
     <div className="pointer-events-none absolute inset-0 z-[999999998]">
       <div
         className="absolute border border-[#b7f4ff]/45 bg-[#b7f4ff]/[0.035]"
+        data-slot={INFINITE_CANVAS_SLOTS.snapPreview}
         style={{
           boxSizing: "border-box",
           height: `${previewTransform.height}px`,
@@ -93,6 +96,9 @@ function InfiniteCanvasSnapOverlay({
       {visibleGuides.map((guide) => (
         <div
           className="absolute"
+          data-axis={guide.axis}
+          data-kind={guide.kind}
+          data-slot={INFINITE_CANVAS_SLOTS.snapGuide}
           key={guide.id}
           style={getSnapGuideStyle(state, guide, previewScreenRect, devicePixelRatio)}
         />
@@ -156,6 +162,8 @@ function InfiniteCanvasMarqueeOverlay() {
       <div
         className="absolute border border-[#b7f4ff]/80 bg-[#b7f4ff]/10 shadow-[inset_0_0_0_1px_rgba(183,244,255,0.16)]"
         data-infinite-canvas-marquee="true"
+        data-mode={interaction.mode}
+        data-slot={INFINITE_CANVAS_SLOTS.marquee}
         style={{
           height: `${rect.height}px`,
           transform: `translate3d(${rect.x}px, ${rect.y}px, 0)`,

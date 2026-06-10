@@ -2,6 +2,7 @@
 
 import { useMemo, type CSSProperties, type ReactNode } from "react";
 
+import { INFINITE_CANVAS_SLOTS, getInfiniteCanvasWindowStateAttributes } from "./data-attributes";
 import {
   DEFAULT_INFINITE_CANVAS_WINDOW_FRAME_SLOTS,
   InfiniteCanvasWindowFrameRuntimeContext,
@@ -160,7 +161,16 @@ function InfiniteCanvasWindowFrame<Kind extends string>({
         aria-label={window.title}
         aria-selected={isSelected}
         className="absolute pointer-events-none"
+        data-frame-chrome={isHostLocalChrome ? "host" : "dom"}
         data-infinite-canvas-window-id={window.id}
+        data-kind={window.kind}
+        data-mode={window.mode}
+        data-slot={INFINITE_CANVAS_SLOTS.window}
+        {...getInfiniteCanvasWindowStateAttributes({
+          isActive,
+          isPinned: window.isPinned,
+          isSelected,
+        })}
         role="group"
         style={articleStyle}
       >
@@ -168,7 +178,9 @@ function InfiniteCanvasWindowFrame<Kind extends string>({
         {resizeHandles.map((handle) => (
           <div
             className="absolute pointer-events-auto"
+            data-handle={handle.handle}
             data-infinite-canvas-control="true"
+            data-slot={INFINITE_CANVAS_SLOTS.resizeHandle}
             key={`${window.id}-${handle.handle}`}
             onLostPointerCapture={(event) => {
               actions.finishInteraction(event.pointerId);
@@ -228,9 +240,14 @@ function InfiniteCanvasWindowHostChrome({
   const tone = getHostChromeTone(theme, isActive, isSelected);
 
   return (
-    <div aria-hidden="true" className="pointer-events-none absolute inset-0 z-0">
+    <div
+      aria-hidden="true"
+      className="pointer-events-none absolute inset-0 z-0"
+      data-slot={INFINITE_CANVAS_SLOTS.windowHostChrome}
+    >
       <div
         className="absolute inset-0"
+        data-layer="fill"
         style={{
           background:
             "linear-gradient(180deg, rgba(255,255,255,0.018), rgba(255,255,255,0) 34%), #06080b",
@@ -238,6 +255,7 @@ function InfiniteCanvasWindowHostChrome({
       />
       <div
         className="absolute inset-x-0 top-0"
+        data-layer="header"
         style={{
           background: tone.header,
           height: `${chrome.headerHeight}px`,
@@ -245,6 +263,7 @@ function InfiniteCanvasWindowHostChrome({
       />
       <div
         className="absolute inset-x-0"
+        data-layer="accent"
         style={{
           background: tone.accent,
           height: `${chrome.headerAccentHeight}px`,
@@ -254,6 +273,7 @@ function InfiniteCanvasWindowHostChrome({
       />
       <div
         className="absolute inset-0 border"
+        data-layer="frame"
         style={{
           borderColor: tone.border,
           borderWidth: `${chrome.borderWidth}px`,
@@ -262,6 +282,7 @@ function InfiniteCanvasWindowHostChrome({
       />
       <div
         className="absolute inset-[1px] border"
+        data-layer="inner-frame"
         style={{
           borderColor: tone.innerBorder,
         }}

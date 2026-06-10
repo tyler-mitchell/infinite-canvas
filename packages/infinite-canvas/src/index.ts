@@ -6,6 +6,8 @@ export {
   InfiniteCanvasWebGpuSurface,
   InfiniteCanvasWindowLayer,
 } from "./infinite-canvas";
+export { INFINITE_CANVAS_SLOTS, getInfiniteCanvasWindowStateAttributes } from "./data-attributes";
+export type { InfiniteCanvasSlot } from "./data-attributes";
 export {
   createInfiniteCanvasState,
   createInfiniteCanvasWindow,

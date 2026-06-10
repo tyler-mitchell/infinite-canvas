@@ -17,6 +17,7 @@ import {
   InfiniteCanvasSelectionBoundsOverlay,
   InfiniteCanvasSnapOverlay,
 } from "./canvas-overlays";
+import { INFINITE_CANVAS_SLOTS } from "./data-attributes";
 import {
   DEFAULT_INFINITE_CANVAS_CHROME,
   DEFAULT_INFINITE_CANVAS_INPUT_POLICY,
@@ -766,6 +767,9 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
         .filter(Boolean)
         .join(" ")}
       data-infinite-canvas-viewport="true"
+      data-interaction={interaction?.kind}
+      data-pointer-mode={pointerMode}
+      data-slot={INFINITE_CANVAS_SLOTS.viewport}
       onLostPointerCapture={(event) => {
         actions.finishInteraction(event.pointerId);
       }}

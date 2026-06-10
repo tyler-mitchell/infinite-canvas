@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 
 import { DEFAULT_INFINITE_CANVAS_STACK_BANDS } from "./constants";
+import { INFINITE_CANVAS_SLOTS } from "./data-attributes";
 import { getConstrainedZoom } from "./geometry";
 import { useInfiniteCanvasActions, useInfiniteCanvasState } from "./store";
 import type { InfiniteCanvasPointerMode, InfiniteCanvasZoomPolicy } from "./types";
@@ -37,19 +38,34 @@ function InfiniteCanvasHud({
   return (
     <div
       className="pointer-events-none absolute inset-0"
+      data-slot={INFINITE_CANVAS_SLOTS.hud}
       style={{ zIndex: DEFAULT_INFINITE_CANVAS_STACK_BANDS.overlay }}
     >
       <div aria-live="polite" className="sr-only">
         Active window {activeWindow?.title ?? "none"}.
       </div>
-      <div className="absolute left-4 top-4 max-w-[min(28rem,calc(100%-2rem))] border border-white/10 bg-black/45 px-4 py-3 text-[11px] text-white/56 backdrop-blur-sm">
-        <div className="font-medium uppercase text-white/72">{title}</div>
-        <div className="mt-2 text-white/38">{subtitle}</div>
+      <div
+        className="absolute left-4 top-4 max-w-[min(28rem,calc(100%-2rem))] border border-white/10 bg-black/45 px-4 py-3 text-[11px] text-white/56 backdrop-blur-sm"
+        data-slot={INFINITE_CANVAS_SLOTS.hudStatus}
+      >
+        <div
+          className="font-medium uppercase text-white/72"
+          data-slot={INFINITE_CANVAS_SLOTS.hudTitle}
+        >
+          {title}
+        </div>
+        <div className="mt-2 text-white/38" data-slot={INFINITE_CANVAS_SLOTS.hudSubtitle}>
+          {subtitle}
+        </div>
       </div>
-      <div className="absolute bottom-4 left-4 flex max-w-[calc(100%-2rem)] flex-wrap items-center gap-2">
+      <div
+        className="absolute bottom-4 left-4 flex max-w-[calc(100%-2rem)] flex-wrap items-center gap-2"
+        data-slot={INFINITE_CANVAS_SLOTS.hudDock}
+      >
         {minimizedWindows.map((window) => (
           <button
             className="pointer-events-auto border border-white/10 bg-[#0c1016]/92 px-3 py-2 text-[11px] font-medium uppercase text-white/58 transition hover:border-white/20 hover:bg-white/[0.08] hover:text-white"
+            data-slot={INFINITE_CANVAS_SLOTS.hudDockItem}
             key={window.id}
             onClick={() => {
               actions.restoreWindow(window.id);
@@ -72,6 +88,8 @@ function InfiniteCanvasHud({
         <button
           aria-label="Reset desktop"
           className="pointer-events-auto flex h-10 w-10 items-center justify-center border border-white/10 bg-[#0c1016]/92 text-white/68 transition hover:border-white/20 hover:bg-white/[0.08] hover:text-white"
+          data-action="reset"
+          data-slot={INFINITE_CANVAS_SLOTS.hudButton}
           onClick={() => {
             actions.reset();
           }}
@@ -97,12 +115,16 @@ function InfiniteCanvasCameraNavigationControls() {
     <div
       aria-label="Camera navigation"
       className="pointer-events-auto flex items-center overflow-hidden border border-white/10 bg-[#0c1016]/92 backdrop-blur-sm"
+      data-group="camera"
       data-infinite-canvas-control="true"
+      data-slot={INFINITE_CANVAS_SLOTS.hudGroup}
       role="group"
     >
       <button
         aria-label="Center active window"
         className="flex h-10 w-10 items-center justify-center border-r border-white/8 text-white/68 transition hover:bg-white/[0.08] hover:text-white disabled:cursor-not-allowed disabled:text-white/20"
+        data-action="center-active"
+        data-slot={INFINITE_CANVAS_SLOTS.hudButton}
         disabled={activeWindow === undefined}
         onClick={() => {
           if (activeWindow === undefined) {
@@ -124,6 +146,8 @@ function InfiniteCanvasCameraNavigationControls() {
       <button
         aria-label="Fit selection"
         className="flex h-10 w-10 items-center justify-center border-r border-white/8 text-white/68 transition hover:bg-white/[0.08] hover:text-white disabled:cursor-not-allowed disabled:text-white/20"
+        data-action="fit-selection"
+        data-slot={INFINITE_CANVAS_SLOTS.hudButton}
         disabled={!selectionExists}
         onClick={() => {
           actions.navigateView({
@@ -143,6 +167,8 @@ function InfiniteCanvasCameraNavigationControls() {
       <button
         aria-label="Fit all visible windows"
         className="flex h-10 w-10 items-center justify-center text-white/68 transition hover:bg-white/[0.08] hover:text-white disabled:cursor-not-allowed disabled:text-white/20"
+        data-action="fit-all"
+        data-slot={INFINITE_CANVAS_SLOTS.hudButton}
         disabled={!visibleWindowExists}
         onClick={() => {
           actions.navigateView({
@@ -174,13 +200,18 @@ function InfiniteCanvasPointerModeControls({
     <div
       aria-label="Canvas interaction mode"
       className="pointer-events-auto flex items-center overflow-hidden border border-white/10 bg-[#0c1016]/92 backdrop-blur-sm"
+      data-group="pointer-mode"
       data-infinite-canvas-control="true"
+      data-slot={INFINITE_CANVAS_SLOTS.hudGroup}
       role="group"
     >
       <button
         aria-label="Use marquee selection mode"
         aria-pressed={pointerMode === "marquee"}
         className={getPointerModeButtonClassName(pointerMode === "marquee", "border-r")}
+        data-action="pointer-marquee"
+        data-active={pointerMode === "marquee" ? "" : undefined}
+        data-slot={INFINITE_CANVAS_SLOTS.hudButton}
         onClick={() => {
           onModeChange("marquee");
         }}
@@ -193,6 +224,9 @@ function InfiniteCanvasPointerModeControls({
         aria-label="Use pan mode"
         aria-pressed={pointerMode === "pan"}
         className={getPointerModeButtonClassName(pointerMode === "pan")}
+        data-action="pointer-pan"
+        data-active={pointerMode === "pan" ? "" : undefined}
+        data-slot={INFINITE_CANVAS_SLOTS.hudButton}
         onClick={() => {
           onModeChange("pan");
         }}
@@ -230,10 +264,16 @@ function InfiniteCanvasZoomControls({
   };
 
   return (
-    <div className="pointer-events-auto flex items-center overflow-hidden border border-white/10 bg-[#0c1016]/92 backdrop-blur-sm">
+    <div
+      className="pointer-events-auto flex items-center overflow-hidden border border-white/10 bg-[#0c1016]/92 backdrop-blur-sm"
+      data-group="zoom"
+      data-slot={INFINITE_CANVAS_SLOTS.hudGroup}
+    >
       <button
         aria-label="Zoom out"
         className="flex h-10 w-10 items-center justify-center border-r border-white/8 text-white/68 transition hover:bg-white/[0.08] hover:text-white disabled:cursor-not-allowed disabled:text-white/20"
+        data-action="zoom-out"
+        data-slot={INFINITE_CANVAS_SLOTS.hudButton}
         disabled={state.camera.zoom <= minZoom}
         onClick={() => {
           actions.zoomAt({
@@ -248,6 +288,8 @@ function InfiniteCanvasZoomControls({
       <button
         aria-label="Reset zoom to 100 percent"
         className="min-w-[86px] px-3 py-2 text-[11px] font-medium uppercase text-white/58 transition hover:bg-white/[0.08] hover:text-white"
+        data-action="zoom-reset"
+        data-slot={INFINITE_CANVAS_SLOTS.hudButton}
         onClick={() => {
           actions.zoomAt({
             anchor: centerAnchor,
@@ -256,11 +298,13 @@ function InfiniteCanvasZoomControls({
         }}
         type="button"
       >
-        {zoomPercent}%
+        <span data-slot={INFINITE_CANVAS_SLOTS.hudZoomReadout}>{zoomPercent}%</span>
       </button>
       <button
         aria-label="Zoom in"
         className="flex h-10 w-10 items-center justify-center border-l border-white/8 text-white/68 transition hover:bg-white/[0.08] hover:text-white disabled:cursor-not-allowed disabled:text-white/20"
+        data-action="zoom-in"
+        data-slot={INFINITE_CANVAS_SLOTS.hudButton}
         disabled={state.camera.zoom >= zoomPolicy.maxZoom}
         onClick={() => {
           actions.zoomAt({

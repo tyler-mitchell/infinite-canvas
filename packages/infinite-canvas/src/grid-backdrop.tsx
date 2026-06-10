@@ -2,6 +2,7 @@
 
 import { useMemo, type CSSProperties } from "react";
 
+import { INFINITE_CANVAS_SLOTS } from "./data-attributes";
 import { getAdaptiveGridSpacing, worldPointToScreenPoint } from "./geometry";
 import { useInfiniteCanvasState } from "./store";
 import type { InfiniteCanvasTheme } from "./types";
@@ -50,7 +51,12 @@ function InfiniteCanvasGridBackdrop({
   }, [state.camera, state.viewport, theme]);
 
   return (
-    <div aria-hidden="true" className="pointer-events-none absolute inset-0" style={gridStyle} />
+    <div
+      aria-hidden="true"
+      className="pointer-events-none absolute inset-0"
+      data-slot={INFINITE_CANVAS_SLOTS.grid}
+      style={gridStyle}
+    />
   );
 }
 
