@@ -4,16 +4,14 @@ import {
   createInfiniteCanvasState,
   createInfiniteCanvasWindow,
   defineInfiniteCanvasWindowRegistry,
+  getInfiniteCanvasDropPlacement,
   InfiniteCanvasDesktop,
-  rectsIntersect,
   worldRectToScreenRect,
   type InfiniteCanvasDropPolicy,
   type InfiniteCanvasOverlayRenderContext,
   type InfiniteCanvasRect,
   type InfiniteCanvasSceneLayer,
   type InfiniteCanvasSize,
-  type InfiniteCanvasSpatialTarget,
-  type InfiniteCanvasState,
   type InfiniteCanvasWindow,
 } from "infinite-canvas";
 import { useMemo, useRef } from "react";
@@ -138,37 +136,6 @@ function isCardAsset(payload: unknown): payload is CardAsset {
   );
 }
 
-/** Beside a window target, centered on the point otherwise; nudged down until free. */
-function placementRect(
-  state: InfiniteCanvasState<CardKind>,
-  target: InfiniteCanvasSpatialTarget<CardKind>,
-  worldPoint: { x: number; y: number },
-): InfiniteCanvasRect {
-  const preferred: InfiniteCanvasRect =
-    target.type === "window"
-      ? {
-          ...cardSize,
-          x: target.window.rect.x + target.window.rect.width + 28,
-          y: target.window.rect.y,
-        }
-      : {
-          ...cardSize,
-          x: worldPoint.x - cardSize.width / 2,
-          y: worldPoint.y - cardSize.height / 2,
-        };
-
-  const occupied = state.windows.map((window) => window.rect);
-  let candidate = preferred;
-  for (let step = 0; step < 12; step += 1) {
-    const overlapping = occupied.some((rect) => rectsIntersect(candidate, rect));
-    if (!overlapping) {
-      return candidate;
-    }
-    candidate = { ...candidate, y: candidate.y + cardSize.height + 24 };
-  }
-  return preferred;
-}
-
 function DropTrayShowcase() {
   const sequenceRef = useRef(0);
 
@@ -196,6 +163,13 @@ function DropTrayShowcase() {
           }
           sequenceRef.current += 1;
           const ordinal = sequenceRef.current;
+          // Same placement call as the drag preview: the card commits exactly
+          // where the preview showed it, snapped like a window move.
+          const placement = getInfiniteCanvasDropPlacement({
+            size: cardSize,
+            state,
+            worldPoint,
+          });
           actions.openWindow(
             makeCard({
               accent: payload.accent,
@@ -203,9 +177,9 @@ function DropTrayShowcase() {
               kind: payload.kind,
               lines:
                 target.type === "window"
-                  ? [`Placed beside “${target.window.title}”.`]
+                  ? [`Related to “${target.window.title}”.`]
                   : ["Placed at the drop point."],
-              rect: placementRect(state, target, worldPoint),
+              rect: placement.rect,
               title: `${payload.label} ${String(ordinal).padStart(2, "0")}`,
               zIndex: state.windows.length + 1,
             }),
@@ -232,18 +206,45 @@ function DropTrayShowcase() {
             ) {
               return null;
             }
-            const rect = placementRect(context.state, drop.dropTarget.target, drop.worldPoint);
+            const placement = getInfiniteCanvasDropPlacement({
+              size: cardSize,
+              state: context.state,
+              worldPoint: drop.worldPoint,
+            });
+            const { rect } = placement;
             const valid = drop.dropTarget.status === "valid";
+            const visible = context.visibleWorldRect;
             return (
-              <group position={[rect.x + rect.width / 2, -(rect.y + rect.height / 2), 10]}>
-                <mesh>
-                  <boxGeometry args={[rect.width, rect.height, 1]} />
-                  <meshBasicMaterial
-                    color={valid ? drop.payload.accent : "#f87171"}
-                    opacity={valid ? 0.16 : 0.08}
-                    transparent
-                  />
-                </mesh>
+              <group>
+                <group position={[rect.x + rect.width / 2, -(rect.y + rect.height / 2), 10]}>
+                  <mesh>
+                    <boxGeometry args={[rect.width, rect.height, 1]} />
+                    <meshBasicMaterial
+                      color={valid ? drop.payload.accent : "#f87171"}
+                      opacity={valid ? 0.16 : 0.08}
+                      transparent
+                    />
+                  </mesh>
+                </group>
+                {placement.preview?.guides.map((guide) => (
+                  <mesh
+                    key={guide.id}
+                    position={
+                      guide.axis === "x"
+                        ? [guide.position, -(visible.y + visible.height / 2), 11]
+                        : [visible.x + visible.width / 2, -guide.position, 11]
+                    }
+                  >
+                    <boxGeometry
+                      args={
+                        guide.axis === "x"
+                          ? [1.5 / context.camera.zoom, visible.height, 1]
+                          : [visible.width, 1.5 / context.camera.zoom, 1]
+                      }
+                    />
+                    <meshBasicMaterial color="#7dd3fc" opacity={0.6} transparent />
+                  </mesh>
+                ))}
               </group>
             );
           },

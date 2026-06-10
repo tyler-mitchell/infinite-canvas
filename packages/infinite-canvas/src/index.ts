@@ -166,8 +166,13 @@ export {
 export {
   EMPTY_INFINITE_CANVAS_DROP,
   createInfiniteCanvasDropInteraction,
+  getInfiniteCanvasDropPlacement,
   isPointInsideInfiniteCanvasViewport,
   normalizeInfiniteCanvasDropValidation,
+} from "./drop-interaction";
+export type {
+  InfiniteCanvasDropPlacement,
+  InfiniteCanvasDropPlacementInput,
 } from "./drop-interaction";
 export {
   createInfiniteCanvasEdgeTargetResolver,

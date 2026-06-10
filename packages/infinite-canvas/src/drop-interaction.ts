@@ -1,12 +1,18 @@
 import { screenPointToWorldPoint } from "./geometry";
+import { applySnapToRect } from "./snap-resolver";
 import type {
   InfiniteCanvasCamera,
   InfiniteCanvasDropInteraction,
   InfiniteCanvasDropValidationInput,
   InfiniteCanvasDropValidationResult,
   InfiniteCanvasPoint,
+  InfiniteCanvasRect,
   InfiniteCanvasResolvedDropTarget,
+  InfiniteCanvasSize,
+  InfiniteCanvasSnapPolicy,
+  InfiniteCanvasSnapPreview,
   InfiniteCanvasSpatialTarget,
+  InfiniteCanvasState,
   InfiniteCanvasViewport,
 } from "./types";
 
@@ -126,11 +132,75 @@ function createInfiniteCanvasDropInteraction<Payload, Kind extends string = stri
   };
 }
 
+type InfiniteCanvasDropPlacementInput<Kind extends string = string> = Readonly<{
+  /**
+   * Where the pointer sits inside the placed rect, normalized 0..1 per axis.
+   * Defaults to the rect center, which is the conventional drag-preview
+   * anchor for palette/asset drops.
+   */
+  anchor?: InfiniteCanvasPoint;
+  size: InfiniteCanvasSize;
+  /**
+   * Snap policy applied to the placement. Defaults to the state-independent
+   * framework default so drop previews engage the same guides as window
+   * moves. Pass `false` to disable snapping.
+   */
+  snapPolicy?: InfiniteCanvasSnapPolicy | false;
+  state: InfiniteCanvasState<Kind>;
+  worldPoint: InfiniteCanvasPoint;
+}>;
+
+type InfiniteCanvasDropPlacement = Readonly<{
+  preview: InfiniteCanvasSnapPreview | null;
+  rect: InfiniteCanvasRect;
+}>;
+
+const DROP_PLACEMENT_WINDOW_ID = "__infinite-canvas-drop-placement__";
+
+/**
+ * Canonical pointer-anchored placement for drop previews and commits.
+ *
+ * The placed rect follows the pointer (it never relocates away from cursor
+ * intent) and snaps against visible windows exactly like a window move, so
+ * the preview a consumer renders during the drag and the rect it commits in
+ * `onDrop` are the same value. Smart placement strategies (avoid overlap,
+ * attach beside a target) should be explicit consumer choices layered on
+ * top, not the default.
+ */
+function getInfiniteCanvasDropPlacement<Kind extends string>({
+  anchor = { x: 0.5, y: 0.5 },
+  size,
+  snapPolicy,
+  state,
+  worldPoint,
+}: InfiniteCanvasDropPlacementInput<Kind>): InfiniteCanvasDropPlacement {
+  const rect: InfiniteCanvasRect = {
+    height: size.height,
+    width: size.width,
+    x: worldPoint.x - size.width * anchor.x,
+    y: worldPoint.y - size.height * anchor.y,
+  };
+
+  if (snapPolicy === false) {
+    return {
+      preview: null,
+      rect,
+    };
+  }
+
+  return applySnapToRect(state, DROP_PLACEMENT_WINDOW_ID, rect, snapPolicy, []);
+}
+
 export {
   EMPTY_INFINITE_CANVAS_DROP,
   createInfiniteCanvasDropInteraction,
+  getInfiniteCanvasDropPlacement,
   isPointInsideInfiniteCanvasViewport,
   normalizeInfiniteCanvasDropValidation,
 };
 
-export type { InfiniteCanvasDropInteractionInput };
+export type {
+  InfiniteCanvasDropInteractionInput,
+  InfiniteCanvasDropPlacement,
+  InfiniteCanvasDropPlacementInput,
+};
