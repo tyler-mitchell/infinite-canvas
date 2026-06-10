@@ -1,4 +1,5 @@
 import type {
+  InfiniteCanvasCursor,
   InfiniteCanvasCursorInteraction,
   InfiniteCanvasInputPolicy,
   InfiniteCanvasPointerMode,
@@ -35,7 +36,7 @@ function withInfiniteCanvasPointerMode(
 function getInfiniteCanvasIdleCursor(
   inputPolicy: InfiniteCanvasInputPolicy,
   pointerMode: InfiniteCanvasPointerMode,
-) {
+): InfiniteCanvasCursor {
   return (
     inputPolicy.cursor?.idle?.[pointerMode] ??
     DEFAULT_INFINITE_CANVAS_CURSOR_POLICY.idle[pointerMode]
@@ -45,7 +46,7 @@ function getInfiniteCanvasIdleCursor(
 function getInfiniteCanvasInteractionCursor(
   inputPolicy: InfiniteCanvasInputPolicy,
   interaction: InfiniteCanvasCursorInteraction,
-) {
+): InfiniteCanvasCursor {
   return (
     inputPolicy.cursor?.interaction?.[interaction] ??
     DEFAULT_INFINITE_CANVAS_CURSOR_POLICY.interaction[interaction]

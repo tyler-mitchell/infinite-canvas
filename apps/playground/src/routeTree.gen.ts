@@ -9,15 +9,29 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as WorkflowBoardRouteImport } from './routes/workflow-board'
 import { Route as WelcomeRouteImport } from './routes/welcome'
+import { Route as StressRouteImport } from './routes/stress'
 import { Route as StageTemplateRouteImport } from './routes/stage-template'
 import { Route as NormalRouteImport } from './routes/normal'
 import { Route as DynamicGridRouteImport } from './routes/dynamic-grid'
+import { Route as DropTrayRouteImport } from './routes/drop-tray'
+import { Route as CustomFramesRouteImport } from './routes/custom-frames'
 import { Route as IndexRouteImport } from './routes/index'
 
+const WorkflowBoardRoute = WorkflowBoardRouteImport.update({
+  id: '/workflow-board',
+  path: '/workflow-board',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const WelcomeRoute = WelcomeRouteImport.update({
   id: '/welcome',
   path: '/welcome',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const StressRoute = StressRouteImport.update({
+  id: '/stress',
+  path: '/stress',
   getParentRoute: () => rootRouteImport,
 } as any)
 const StageTemplateRoute = StageTemplateRouteImport.update({
@@ -35,6 +49,16 @@ const DynamicGridRoute = DynamicGridRouteImport.update({
   path: '/dynamic-grid',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DropTrayRoute = DropTrayRouteImport.update({
+  id: '/drop-tray',
+  path: '/drop-tray',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CustomFramesRoute = CustomFramesRouteImport.update({
+  id: '/custom-frames',
+  path: '/custom-frames',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
@@ -43,55 +67,107 @@ const IndexRoute = IndexRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/custom-frames': typeof CustomFramesRoute
+  '/drop-tray': typeof DropTrayRoute
   '/dynamic-grid': typeof DynamicGridRoute
   '/normal': typeof NormalRoute
   '/stage-template': typeof StageTemplateRoute
+  '/stress': typeof StressRoute
   '/welcome': typeof WelcomeRoute
+  '/workflow-board': typeof WorkflowBoardRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/custom-frames': typeof CustomFramesRoute
+  '/drop-tray': typeof DropTrayRoute
   '/dynamic-grid': typeof DynamicGridRoute
   '/normal': typeof NormalRoute
   '/stage-template': typeof StageTemplateRoute
+  '/stress': typeof StressRoute
   '/welcome': typeof WelcomeRoute
+  '/workflow-board': typeof WorkflowBoardRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/custom-frames': typeof CustomFramesRoute
+  '/drop-tray': typeof DropTrayRoute
   '/dynamic-grid': typeof DynamicGridRoute
   '/normal': typeof NormalRoute
   '/stage-template': typeof StageTemplateRoute
+  '/stress': typeof StressRoute
   '/welcome': typeof WelcomeRoute
+  '/workflow-board': typeof WorkflowBoardRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/dynamic-grid' | '/normal' | '/stage-template' | '/welcome'
-  fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/dynamic-grid' | '/normal' | '/stage-template' | '/welcome'
-  id:
-    | '__root__'
+  fullPaths:
     | '/'
+    | '/custom-frames'
+    | '/drop-tray'
     | '/dynamic-grid'
     | '/normal'
     | '/stage-template'
+    | '/stress'
     | '/welcome'
+    | '/workflow-board'
+  fileRoutesByTo: FileRoutesByTo
+  to:
+    | '/'
+    | '/custom-frames'
+    | '/drop-tray'
+    | '/dynamic-grid'
+    | '/normal'
+    | '/stage-template'
+    | '/stress'
+    | '/welcome'
+    | '/workflow-board'
+  id:
+    | '__root__'
+    | '/'
+    | '/custom-frames'
+    | '/drop-tray'
+    | '/dynamic-grid'
+    | '/normal'
+    | '/stage-template'
+    | '/stress'
+    | '/welcome'
+    | '/workflow-board'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  CustomFramesRoute: typeof CustomFramesRoute
+  DropTrayRoute: typeof DropTrayRoute
   DynamicGridRoute: typeof DynamicGridRoute
   NormalRoute: typeof NormalRoute
   StageTemplateRoute: typeof StageTemplateRoute
+  StressRoute: typeof StressRoute
   WelcomeRoute: typeof WelcomeRoute
+  WorkflowBoardRoute: typeof WorkflowBoardRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/workflow-board': {
+      id: '/workflow-board'
+      path: '/workflow-board'
+      fullPath: '/workflow-board'
+      preLoaderRoute: typeof WorkflowBoardRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/welcome': {
       id: '/welcome'
       path: '/welcome'
       fullPath: '/welcome'
       preLoaderRoute: typeof WelcomeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/stress': {
+      id: '/stress'
+      path: '/stress'
+      fullPath: '/stress'
+      preLoaderRoute: typeof StressRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/stage-template': {
@@ -115,6 +191,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DynamicGridRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/drop-tray': {
+      id: '/drop-tray'
+      path: '/drop-tray'
+      fullPath: '/drop-tray'
+      preLoaderRoute: typeof DropTrayRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/custom-frames': {
+      id: '/custom-frames'
+      path: '/custom-frames'
+      fullPath: '/custom-frames'
+      preLoaderRoute: typeof CustomFramesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -127,10 +217,14 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  CustomFramesRoute: CustomFramesRoute,
+  DropTrayRoute: DropTrayRoute,
   DynamicGridRoute: DynamicGridRoute,
   NormalRoute: NormalRoute,
   StageTemplateRoute: StageTemplateRoute,
+  StressRoute: StressRoute,
   WelcomeRoute: WelcomeRoute,
+  WorkflowBoardRoute: WorkflowBoardRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

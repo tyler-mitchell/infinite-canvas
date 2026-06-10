@@ -1228,6 +1228,12 @@ function WebGpuGuard() {
 
 function InfiniteCanvasSceneBootInvalidator() {
   const invalidate = useThree((threeState) => threeState.invalidate);
+  // Re-arm the boot schedule when the renderer instance lands. Demand frames
+  // requested while the WebGPU backend is still initializing asynchronously
+  // are dropped, so a wall-clock-only schedule can finish before the renderer
+  // can paint, leaving mounted scene-layer content invisible until the next
+  // state-driven invalidation.
+  const gl = useThree((threeState) => threeState.gl);
 
   useEffect(() => {
     const timeoutIds = SCENE_BOOT_INVALIDATION_DELAYS_MS.map((delay) =>
@@ -1239,7 +1245,7 @@ function InfiniteCanvasSceneBootInvalidator() {
         window.clearTimeout(timeoutId);
       });
     };
-  }, [invalidate]);
+  }, [gl, invalidate]);
 
   return null;
 }

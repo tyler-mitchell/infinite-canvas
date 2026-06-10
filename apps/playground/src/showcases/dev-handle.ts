@@ -24,8 +24,8 @@ declare global {
   }
 }
 
-export function exposeCanvasDevHandle<Kind extends string>(
-  context: InfiniteCanvasOverlayRenderContext<Kind>,
+export function exposeCanvasDevHandle<Kind extends string, Payload>(
+  context: InfiniteCanvasOverlayRenderContext<Kind, Payload>,
 ): void {
   if (!import.meta.env.DEV) {
     return;

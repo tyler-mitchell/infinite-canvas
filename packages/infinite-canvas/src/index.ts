@@ -140,6 +140,18 @@ export {
   DEFAULT_INFINITE_CANVAS_SNAP_POLICY,
   resolveInfiniteCanvasZoomPolicy,
 } from "./constants";
+// Pure projection and rect helpers that consumer overlays/scene layers
+// legitimately need (drop outlines, custom guides, hit affordances).
+export {
+  getRectCenter,
+  getVisibleWorldRect,
+  rectContainsPoint,
+  rectsIntersect,
+  screenPointToWorldPoint,
+  unionRects,
+  worldPointToScreenPoint,
+  worldRectToScreenRect,
+} from "./geometry";
 export {
   DEFAULT_INFINITE_CANVAS_CURSOR_POLICY,
   getInfiniteCanvasIdleCursor,
