@@ -1,0 +1,28 @@
+# Risk Register
+
+> Provenance: adapted 2026-06-10 from the kek-monorepo windowing corpus
+> (`08_risk_register.md`, verified 2026-04-23). Statuses reflect the framework
+> as of 2026-06-10. The thesis holds: the biggest risks are architectural
+> boundary mistakes, not rendering bugs.
+
+| #   | Risk                                                      | Status                                                                                                                                                                                                           |
+| --- | --------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| R1  | Layout truth leaks into render layers                     | **mitigated** — canonical world-rect model + pure reducer; renderers subscribe. Guarded by `framework-boundary.test.ts`. Re-check at every new render feature.                                                   |
+| R2  | Snap thresholds vary with zoom                            | **mitigated** — screen-pixel thresholds mapped through the camera, test-covered.                                                                                                                                 |
+| R3  | Docking previews fight alignment guides                   | **live, future** — docking unbuilt; the mitigation (explicit docking-intent mode with priority + its own overlays) is specced in [snapping.md](snapping.md).                                                     |
+| R4  | Binary tree churn makes group editing painful             | **live, future** — adopt n-ary containers with weights from day one ([grouping-and-docking.md](grouping-and-docking.md)).                                                                                        |
+| R5  | Global tiling semantics forced onto the infinite canvas   | **live, standing** — group shells are local layout boundaries; floating windows stay first-class. Cheap to violate accidentally in API design.                                                                   |
+| R6  | DOM snapshot fidelity overestimated                       | **partially mitigated** — live DOM is authoritative for active windows; snapshots sit behind the raster adapter; snapdom remains a compatibility bridge (CORS/fonts/foreignObject risks per RASTERIZATION_PLAN). |
+| R7  | Premature constraint-solver adoption                      | **mitigated by abstention** — weights/min-max first; solver only on demonstrated failure.                                                                                                                        |
+| R8  | Dashboard grid assumptions infect the desktop model       | **mitigated by abstention.**                                                                                                                                                                                     |
+| R9  | Focus model fragments between floating and docked windows | **live, future** — contextual-parent derivation is the planned mitigation ([state-focus-and-recipes.md](state-focus-and-recipes.md)).                                                                            |
+| R10 | Save/restore bolted on too late                           | **half-mitigated** — live-document persistence is core and versioned; **recipes are the unbolted half** and should be designed with the group model, not after.                                                  |
+| R11 | Columns mode built before the base is stable              | **mitigated by sequencing** — columns stays last.                                                                                                                                                                |
+| R12 | HTML-in-canvas optimism becomes architectural debt        | **mitigated** — treated as a feature-detected future adapter slot (RASTERIZATION_PLAN slice 5), never the baseline.                                                                                              |
+
+New risks observed since the port (this repo):
+
+| #   | Risk                                                               | Notes                                                                                                                                                                                                                           |
+| --- | ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| R13 | Headless extraction regresses interaction invariants               | The restyle touches the outer/inner shell split, screen-space handles, and chrome metrics ([body-content-contract.md](body-content-contract.md)). Acceptance scenarios + live driving via `window.__canvas` are the guardrails. |
+| R14 | Beta/canary dependency drift (Legend State 3 beta, R3F v10 canary) | Pinned exact in the catalog; any bump is a deliberate event with the full test + live-drive pass, not a routine update.                                                                                                         |
