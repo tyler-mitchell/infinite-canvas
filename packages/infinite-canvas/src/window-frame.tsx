@@ -70,6 +70,8 @@ function InfiniteCanvasWindowFrame<Kind extends string>({
     contain: "layout paint style",
     height: `${screenTransform.height}px`,
     left: "0px",
+    pointerEvents: "none",
+    position: "absolute",
     top: "0px",
     transform: `translate(${screenTransform.x}px, ${screenTransform.y}px) scale(${screenTransform.scale})`,
     transformOrigin: "top left",
@@ -84,29 +86,21 @@ function InfiniteCanvasWindowFrame<Kind extends string>({
   const FrameSurface = DEFAULT_INFINITE_CANVAS_WINDOW_FRAME_SLOTS.Surface;
   const renderDefaultFrame = (): ReactNode =>
     isHostLocalChrome ? (
-      <FrameSurface className="shadow-[0_20px_80px_-56px_rgba(183,244,255,0.55)]">
-        <InfiniteCanvasWindowHostChrome
-          chrome={chrome}
-          isActive={isActive}
-          isSelected={isSelected}
-          theme={theme}
-        />
+      <FrameSurface>
+        <InfiniteCanvasWindowHostChrome chrome={chrome} />
         <FrameHeader
           style={{
-            background: "transparent",
-            borderBottomColor: "transparent",
             borderBottomWidth: 0,
             zIndex: 3,
           }}
         >
           <>
             <FrameTitle />
-            <FrameControls className="[&>button]:border-white/10 [&>button]:bg-white/[0.035] [&>button]:text-white/48 [&>button:hover]:border-white/18 [&>button:hover]:bg-white/[0.075]" />
+            <FrameControls />
           </>
         </FrameHeader>
         <FrameBody
           style={{
-            background: "transparent",
             bottom: `${chrome.borderWidth}px`,
             left: `${chrome.borderWidth}px`,
             right: `${chrome.borderWidth}px`,
@@ -160,7 +154,6 @@ function InfiniteCanvasWindowFrame<Kind extends string>({
       <article
         aria-label={window.title}
         aria-selected={isSelected}
-        className="absolute pointer-events-none"
         data-frame-chrome={isHostLocalChrome ? "host" : "dom"}
         data-infinite-canvas-window-id={window.id}
         data-kind={window.kind}
@@ -177,7 +170,6 @@ function InfiniteCanvasWindowFrame<Kind extends string>({
         {frameNode}
         {resizeHandles.map((handle) => (
           <div
-            className="absolute pointer-events-auto"
             data-handle={handle.handle}
             data-infinite-canvas-control="true"
             data-slot={INFINITE_CANVAS_SLOTS.resizeHandle}
@@ -217,6 +209,8 @@ function InfiniteCanvasWindowFrame<Kind extends string>({
             style={{
               ...handle.style,
               cursor: handle.cursor,
+              pointerEvents: "auto",
+              position: "absolute",
               zIndex: 4,
             }}
           />
@@ -228,100 +222,64 @@ function InfiniteCanvasWindowFrame<Kind extends string>({
 
 function InfiniteCanvasWindowHostChrome({
   chrome,
-  isActive,
-  isSelected,
-  theme,
 }: Readonly<{
   chrome: InfiniteCanvasChromeMetrics;
-  isActive: boolean;
-  isSelected: boolean;
-  theme: InfiniteCanvasTheme;
 }>) {
-  const tone = getHostChromeTone(theme, isActive, isSelected);
-
   return (
     <div
       aria-hidden="true"
-      className="pointer-events-none absolute inset-0 z-0"
       data-slot={INFINITE_CANVAS_SLOTS.windowHostChrome}
+      style={{
+        inset: 0,
+        pointerEvents: "none",
+        position: "absolute",
+        zIndex: 0,
+      }}
     >
       <div
-        className="absolute inset-0"
         data-layer="fill"
         style={{
-          background:
-            "linear-gradient(180deg, rgba(255,255,255,0.018), rgba(255,255,255,0) 34%), #06080b",
+          inset: 0,
+          position: "absolute",
         }}
       />
       <div
-        className="absolute inset-x-0 top-0"
         data-layer="header"
         style={{
-          background: tone.header,
           height: `${chrome.headerHeight}px`,
+          left: 0,
+          position: "absolute",
+          right: 0,
+          top: 0,
         }}
       />
       <div
-        className="absolute inset-x-0"
         data-layer="accent"
         style={{
-          background: tone.accent,
           height: `${chrome.headerAccentHeight}px`,
-          opacity: tone.accentOpacity,
+          left: 0,
+          position: "absolute",
+          right: 0,
           top: `${Math.max(chrome.headerHeight - chrome.headerAccentHeight, 0)}px`,
         }}
       />
       <div
-        className="absolute inset-0 border"
         data-layer="frame"
         style={{
-          borderColor: tone.border,
           borderWidth: `${chrome.borderWidth}px`,
-          boxShadow: tone.shadow,
+          inset: 0,
+          position: "absolute",
         }}
       />
       <div
-        className="absolute inset-[1px] border"
         data-layer="inner-frame"
         style={{
-          borderColor: tone.innerBorder,
+          inset: "1px",
+          position: "absolute",
         }}
       />
     </div>
   );
-}
-
-function getHostChromeTone(theme: InfiniteCanvasTheme, isActive: boolean, isSelected: boolean) {
-  if (isActive) {
-    return {
-      accent: theme.activeAccent,
-      accentOpacity: 0.9,
-      border: theme.activeBorder,
-      header: theme.headerActive,
-      innerBorder: "rgba(255, 255, 255, 0.14)",
-      shadow: "0 0 0 1px rgba(215, 251, 255, 0.1), 0 18px 60px -44px rgba(183, 244, 255, 0.7)",
-    };
-  }
-
-  if (isSelected) {
-    return {
-      accent: theme.selectionBorder,
-      accentOpacity: 0.58,
-      border: theme.selectionBorder,
-      header: theme.headerIdle,
-      innerBorder: "rgba(190, 244, 255, 0.08)",
-      shadow: "0 0 0 1px rgba(148, 224, 236, 0.08), 0 18px 54px -48px rgba(148, 224, 236, 0.5)",
-    };
-  }
-
-  return {
-    accent: theme.idleBorder,
-    accentOpacity: 0.78,
-    border: "rgba(119, 151, 161, 0.56)",
-    header: theme.headerIdle,
-    innerBorder: "rgba(255, 255, 255, 0.045)",
-    shadow: "0 14px 48px -44px rgba(160, 210, 220, 0.45)",
-  };
 }
 
 function getResizeHandleDescriptors(size: number): readonly Readonly<{

@@ -219,6 +219,9 @@
   [data-slot="window"][data-frame-chrome="host"] [data-slot="window-control"]:hover {
     border-color: var(--icx-host-control-hover-border);
     background: var(--icx-host-control-hover-bg);
+    /* Restate the shared hover color: the host idle rule above out-specifies
+       the generic [data-slot="window-control"]:hover rule. */
+    color: var(--icx-control-hover-fg);
   }
 
   /* ------------------------------------------------------------------ */

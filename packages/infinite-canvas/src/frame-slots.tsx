@@ -81,17 +81,29 @@ function InfiniteCanvasWindowFrameTitleSlot({
 
   return (
     <div
-      className={mergeClassNames(
-        "min-w-0 truncate text-[10px] font-medium uppercase text-white/58",
-        className,
-      )}
+      className={className}
       data-slot={INFINITE_CANVAS_SLOTS.windowTitle}
-      style={style}
+      style={{
+        minWidth: 0,
+        overflow: "hidden",
+        textOverflow: "ellipsis",
+        whiteSpace: "nowrap",
+        ...style,
+      }}
     >
       {children === undefined ? window.title : children}
     </div>
   );
 }
+
+const WINDOW_CONTROL_BUTTON_STYLE = {
+  alignItems: "center",
+  cursor: "pointer",
+  display: "flex",
+  height: "24px",
+  justifyContent: "center",
+  width: "24px",
+} satisfies CSSProperties;
 
 function InfiniteCanvasWindowFrameControlsSlot({
   className,
@@ -101,13 +113,18 @@ function InfiniteCanvasWindowFrameControlsSlot({
 
   return (
     <div
-      className={mergeClassNames("flex shrink-0 items-center gap-1", className)}
+      className={className}
       data-slot={INFINITE_CANVAS_SLOTS.windowControls}
-      style={style}
+      style={{
+        alignItems: "center",
+        display: "flex",
+        flexShrink: 0,
+        gap: "4px",
+        ...style,
+      }}
     >
       <button
         aria-label={window.isPinned ? "Unpin window" : "Pin window"}
-        className="flex h-6 w-6 items-center justify-center border border-white/8 bg-white/[0.03] text-white/46 transition hover:border-white/20 hover:bg-white/[0.08] hover:text-white"
         data-action="pin"
         data-active={window.isPinned ? "" : undefined}
         data-slot={INFINITE_CANVAS_SLOTS.windowControl}
@@ -118,20 +135,13 @@ function InfiniteCanvasWindowFrameControlsSlot({
         onPointerDown={(event) => {
           event.stopPropagation();
         }}
-        style={{
-          cursor: "pointer",
-        }}
+        style={WINDOW_CONTROL_BUTTON_STYLE}
         type="button"
       >
-        <Pin
-          className={window.isPinned ? "rotate-45 text-[#b7f4ff]" : "rotate-45"}
-          size={12}
-          strokeWidth={1.8}
-        />
+        <Pin size={12} strokeWidth={1.8} />
       </button>
       <button
         aria-label="Minimize window"
-        className="flex h-6 w-6 items-center justify-center border border-white/8 bg-white/[0.03] text-white/46 transition hover:border-white/20 hover:bg-white/[0.08] hover:text-white"
         data-action="minimize"
         data-slot={INFINITE_CANVAS_SLOTS.windowControl}
         onClick={(event) => {
@@ -141,16 +151,13 @@ function InfiniteCanvasWindowFrameControlsSlot({
         onPointerDown={(event) => {
           event.stopPropagation();
         }}
-        style={{
-          cursor: "pointer",
-        }}
+        style={WINDOW_CONTROL_BUTTON_STYLE}
         type="button"
       >
         <Minimize2 size={12} strokeWidth={1.8} />
       </button>
       <button
         aria-label={window.mode === "maximized" ? "Restore window" : "Maximize window"}
-        className="flex h-6 w-6 items-center justify-center border border-white/8 bg-white/[0.03] text-white/46 transition hover:border-white/20 hover:bg-white/[0.08] hover:text-white"
         data-action={window.mode === "maximized" ? "restore" : "maximize"}
         data-slot={INFINITE_CANVAS_SLOTS.windowControl}
         onClick={(event) => {
@@ -164,16 +171,13 @@ function InfiniteCanvasWindowFrameControlsSlot({
         onPointerDown={(event) => {
           event.stopPropagation();
         }}
-        style={{
-          cursor: "pointer",
-        }}
+        style={WINDOW_CONTROL_BUTTON_STYLE}
         type="button"
       >
         <Maximize2 size={12} strokeWidth={1.8} />
       </button>
       <button
         aria-label="Close window"
-        className="flex h-6 w-6 items-center justify-center border border-white/8 bg-white/[0.03] text-white/46 transition hover:border-white/20 hover:bg-white/[0.08] hover:text-white"
         data-action="close"
         data-slot={INFINITE_CANVAS_SLOTS.windowControl}
         onClick={(event) => {
@@ -183,9 +187,7 @@ function InfiniteCanvasWindowFrameControlsSlot({
         onPointerDown={(event) => {
           event.stopPropagation();
         }}
-        style={{
-          cursor: "pointer",
-        }}
+        style={WINDOW_CONTROL_BUTTON_STYLE}
         type="button"
       >
         <X size={12} strokeWidth={1.8} />
@@ -199,14 +201,11 @@ function InfiniteCanvasWindowFrameHeaderSlot({
   className,
   style,
 }: InfiniteCanvasWindowFrameHeaderProps) {
-  const { actions, chrome, isActive, theme, window } = useInfiniteCanvasWindowFrameRuntimeContext();
+  const { actions, chrome, window } = useInfiniteCanvasWindowFrameRuntimeContext();
 
   return (
     <header
-      className={mergeClassNames(
-        "absolute left-0 right-0 top-0 flex items-center justify-between gap-3 px-3",
-        className,
-      )}
+      className={className}
       data-infinite-canvas-control="true"
       data-slot={INFINITE_CANVAS_SLOTS.windowHeader}
       onLostPointerCapture={(event) => {
@@ -247,13 +246,20 @@ function InfiniteCanvasWindowFrameHeaderSlot({
         actions.finishInteraction(event.pointerId);
       }}
       style={{
-        background: isActive ? theme.headerActive : theme.headerIdle,
-        borderBottomColor: isActive ? theme.activeAccent : theme.idleBorder,
-        borderBottomStyle: "solid",
+        alignItems: "center",
         borderBottomWidth: `${chrome.headerAccentHeight}px`,
         cursor: "grab",
+        display: "flex",
+        gap: "12px",
         height: `${chrome.headerHeight}px`,
+        justifyContent: "space-between",
+        left: 0,
+        paddingLeft: "12px",
+        paddingRight: "12px",
         pointerEvents: "auto",
+        position: "absolute",
+        right: 0,
+        top: 0,
         ...style,
       }}
     >
@@ -288,7 +294,7 @@ function InfiniteCanvasWindowFrameBodySlot({
 
   return (
     <section
-      className={mergeClassNames("absolute inset-x-0 bottom-0 pointer-events-auto", className)}
+      className={className}
       data-infinite-canvas-body="true"
       data-slot={INFINITE_CANVAS_SLOTS.windowBody}
       data-infinite-canvas-body-pan={bodyPointerBehavior === "canvas-pan" ? "true" : undefined}
@@ -316,7 +322,12 @@ function InfiniteCanvasWindowFrameBodySlot({
         }
       }}
       style={{
+        bottom: 0,
+        left: 0,
         overflowY: definition.overflowY ?? "auto",
+        pointerEvents: "auto",
+        position: "absolute",
+        right: 0,
         top: `${chrome.headerHeight}px`,
         userSelect: textSelection === "native" ? undefined : "none",
         ...style,
@@ -363,23 +374,18 @@ function InfiniteCanvasWindowFrameSurfaceSlot({
   className,
   style,
 }: InfiniteCanvasWindowFrameSurfaceProps) {
-  const { chrome, isActive, isSelected, theme } = useInfiniteCanvasWindowFrameRuntimeContext();
+  const { chrome } = useInfiniteCanvasWindowFrameRuntimeContext();
 
   return (
     <div
-      className={mergeClassNames(
-        "pointer-events-auto absolute inset-0 overflow-hidden border bg-[#07080b]",
-        className,
-      )}
+      className={className}
       data-slot={INFINITE_CANVAS_SLOTS.windowSurface}
       style={{
-        background: theme.bodyBackground,
-        borderColor: isActive
-          ? theme.activeBorder
-          : isSelected
-            ? theme.selectionBorder
-            : theme.idleBorder,
         borderWidth: `${chrome.borderWidth}px`,
+        inset: 0,
+        overflow: "hidden",
+        pointerEvents: "auto",
+        position: "absolute",
         ...style,
       }}
     >
@@ -396,6 +402,7 @@ function ActiveWindowCorners({
   const cornerStyle = {
     height: `${chrome.cornerSize}px`,
     pointerEvents: "none",
+    position: "absolute",
     width: `${chrome.cornerSize}px`,
   } satisfies CSSProperties;
 
@@ -403,7 +410,6 @@ function ActiveWindowCorners({
     <>
       <div
         aria-hidden="true"
-        className="absolute border-l border-t border-white/25"
         data-corner="top-left"
         data-slot={INFINITE_CANVAS_SLOTS.windowCorner}
         style={{
@@ -414,7 +420,6 @@ function ActiveWindowCorners({
       />
       <div
         aria-hidden="true"
-        className="absolute border-r border-t border-white/25"
         data-corner="top-right"
         data-slot={INFINITE_CANVAS_SLOTS.windowCorner}
         style={{
@@ -425,7 +430,6 @@ function ActiveWindowCorners({
       />
       <div
         aria-hidden="true"
-        className="absolute border-b border-l border-white/25"
         data-corner="bottom-left"
         data-slot={INFINITE_CANVAS_SLOTS.windowCorner}
         style={{
@@ -436,7 +440,6 @@ function ActiveWindowCorners({
       />
       <div
         aria-hidden="true"
-        className="absolute border-b border-r border-white/25"
         data-corner="bottom-right"
         data-slot={INFINITE_CANVAS_SLOTS.windowCorner}
         style={{
@@ -447,12 +450,6 @@ function ActiveWindowCorners({
       />
     </>
   );
-}
-
-function mergeClassNames(...classNames: readonly (string | undefined)[]) {
-  return classNames
-    .filter((className) => className !== undefined && className.length > 0)
-    .join(" ");
 }
 
 function getEventViewportPoint(event: ReactPointerEvent<HTMLElement>): InfiniteCanvasPoint {
