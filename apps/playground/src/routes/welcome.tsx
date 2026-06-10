@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { frameworkStatus } from "infinite-canvas";
+import { DEFAULT_INFINITE_CANVAS_ZOOM } from "infinite-canvas";
 
 export const Route = createFileRoute("/welcome")({
   component: WelcomeShowcase,
@@ -22,9 +22,9 @@ function WelcomeShowcase() {
         app with no build step.
       </p>
       <p className="mb-3">
-        Source link proof — the package currently reports:{" "}
+        Source link proof — the framework's default zoom policy reports:{" "}
         <Code data-testid="framework-status">
-          {frameworkStatus.name} · {frameworkStatus.phase}
+          zoom {DEFAULT_INFINITE_CANVAS_ZOOM.minZoom}–{DEFAULT_INFINITE_CANVAS_ZOOM.maxZoom}
         </Code>
       </p>
       <h3 className="mt-6 mb-2 font-semibold text-foreground">Adding a showcase</h3>

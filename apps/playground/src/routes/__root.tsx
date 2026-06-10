@@ -1,8 +1,18 @@
 import { createRootRoute, Link, Outlet, useRouter } from "@tanstack/react-router";
+import type { FC, ReactNode } from "react";
 
 export const Route = createRootRoute({
   component: RootShell,
 });
+
+// The sidebar renders paths collected at runtime; the fully-typed Link
+// instantiates a union across every registered route and trips TS2590.
+const NavLink = Link as unknown as FC<{
+  activeProps?: { className?: string };
+  children: ReactNode;
+  className?: string;
+  to: string;
+}>;
 
 function RootShell() {
   const router = useRouter();
@@ -31,7 +41,7 @@ function RootShell() {
         <ul className="space-y-0.5 p-2">
           {showcases.map(({ meta, path }) => (
             <li key={path}>
-              <Link
+              <NavLink
                 activeProps={{
                   className:
                     "bg-sidebar-accent text-sidebar-foreground shadow-[inset_2px_0_0_var(--sidebar-ring)]",
@@ -43,7 +53,7 @@ function RootShell() {
                 <span className="mt-0.5 block text-[11.5px] text-muted-foreground">
                   {meta.description}
                 </span>
-              </Link>
+              </NavLink>
             </li>
           ))}
         </ul>
