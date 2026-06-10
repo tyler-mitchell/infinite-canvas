@@ -10,17 +10,19 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./package.json": "./package.json"
+    "./package.json": "./package.json",
+    "./theme.css": "./src/theme.css"
   },
   "publishConfig": {
     "exports": {
       ".": "./dist/index.mjs",
-      "./package.json": "./package.json"
+      "./package.json": "./package.json",
+      "./theme.css": "./dist/theme.css"
     },
     "access": "public"
   },
   "scripts": {
-    "build": "vp pack",
+    "build": "vp pack && cp src/theme.css dist/theme.css",
     "test": "vp test",
     "check": "vp check",
     "prepublishOnly": "vp run build"

@@ -1,0 +1,482 @@
+/**
+ * Opt-in theme stylesheet for the infinite-canvas headless distribution.
+ *
+ * Targets the `data-slot` styling contract from ./data-attributes.ts and
+ * reproduces the default Tailwind/inline-style look exactly. Import it as
+ * `infinite-canvas/theme.css`. Everything lives in a single cascade layer
+ * so consumer styles (unlayered or in a later layer) always win.
+ *
+ * Scope rules:
+ * - Visual treatments only (color, background, border color/style/hairline
+ *   widths, shadows, typography, filters, transitions, opacity).
+ * - Geometry and structure (positions, sizes, transforms, z-index,
+ *   pointer-events, flex) stay in the components.
+ * - The 11 `--icx-*` tokens bridged from DEFAULT_INFINITE_CANVAS_THEME in
+ *   ./constants.ts must match those values verbatim (enforced by
+ *   ./theme-tokens.test.ts).
+ */
+
+@layer infinite-canvas {
+  /* ------------------------------------------------------------------ */
+  /* Design tokens (component: all) — declared on the viewport root.     */
+  /* ------------------------------------------------------------------ */
+  [data-slot="viewport"] {
+    /* Bridged 1:1 from DEFAULT_INFINITE_CANVAS_THEME (src/constants.ts). */
+    --icx-active-accent: #b7f4ff;
+    --icx-active-border: #e8fbff;
+    --icx-background: #050607;
+    --icx-body-background: #07080b;
+    --icx-grid-major: rgba(61, 102, 112, 0.24);
+    --icx-grid-minor: rgba(38, 66, 74, 0.18);
+    --icx-header-active: #17262a;
+    --icx-header-idle: #101317;
+    --icx-idle-border: #273035;
+    --icx-selection-border: #5f858d;
+    --icx-selection-bounds: rgba(115, 157, 165, 0.38);
+
+    /* Extended tokens for values currently hardcoded in components. */
+
+    /* Viewport shell (src/infinite-canvas.tsx). */
+    --icx-viewport-fg: #ffffff;
+    --icx-viewport-shadow: 0 36px 120px -64px rgba(0, 0, 0, 0.92);
+
+    /* Window frame surface fallback (src/frame-slots.tsx, bg-[#07080b]). */
+    --icx-frame-surface-bg: #07080b;
+
+    /* Window title (src/frame-slots.tsx, text-white/58). */
+    --icx-title-fg: rgba(255, 255, 255, 0.58);
+
+    /* Window control buttons (src/frame-slots.tsx). */
+    --icx-control-fg: rgba(255, 255, 255, 0.46);
+    --icx-control-bg: rgba(255, 255, 255, 0.03);
+    --icx-control-border: rgba(255, 255, 255, 0.08);
+    --icx-control-hover-fg: #ffffff;
+    --icx-control-hover-bg: rgba(255, 255, 255, 0.08);
+    --icx-control-hover-border: rgba(255, 255, 255, 0.2);
+
+    /* Window control buttons, host-chrome variant (src/window-frame.tsx). */
+    --icx-host-control-fg: rgba(255, 255, 255, 0.48);
+    --icx-host-control-bg: rgba(255, 255, 255, 0.035);
+    --icx-host-control-border: rgba(255, 255, 255, 0.1);
+    --icx-host-control-hover-bg: rgba(255, 255, 255, 0.075);
+    --icx-host-control-hover-border: rgba(255, 255, 255, 0.18);
+
+    /* Active window corners (src/frame-slots.tsx, border-white/25). */
+    --icx-corner: rgba(255, 255, 255, 0.25);
+
+    /* Host-local chrome tones (src/window-frame.tsx, getHostChromeTone). */
+    --icx-host-fill:
+      linear-gradient(180deg, rgba(255, 255, 255, 0.018), rgba(255, 255, 255, 0) 34%), #06080b;
+    --icx-host-idle-border: rgba(119, 151, 161, 0.56);
+    --icx-host-inner-border-active: rgba(255, 255, 255, 0.14);
+    --icx-host-inner-border-selected: rgba(190, 244, 255, 0.08);
+    --icx-host-inner-border-idle: rgba(255, 255, 255, 0.045);
+    --icx-host-shadow-active:
+      0 0 0 1px rgba(215, 251, 255, 0.1), 0 18px 60px -44px rgba(183, 244, 255, 0.7);
+    --icx-host-shadow-selected:
+      0 0 0 1px rgba(148, 224, 236, 0.08), 0 18px 54px -48px rgba(148, 224, 236, 0.5);
+    --icx-host-shadow-idle: 0 14px 48px -44px rgba(160, 210, 220, 0.45);
+    --icx-host-surface-shadow: 0 20px 80px -56px rgba(183, 244, 255, 0.55);
+
+    /* Snap overlay (src/canvas-overlays.tsx). */
+    --icx-snap-guide: rgba(183, 244, 255, 0.55);
+    --icx-snap-preview-border: rgba(183, 244, 255, 0.45);
+    --icx-snap-preview-bg: rgba(183, 244, 255, 0.035);
+
+    /* Marquee overlay (src/canvas-overlays.tsx). */
+    --icx-marquee-border: rgba(183, 244, 255, 0.8);
+    --icx-marquee-bg: rgba(183, 244, 255, 0.1);
+    --icx-marquee-inset-shadow: inset 0 0 0 1px rgba(183, 244, 255, 0.16);
+
+    /* HUD panels, buttons, status card, dock (src/canvas-hud.tsx). */
+    --icx-hud-panel-bg: rgba(12, 16, 22, 0.92);
+    --icx-hud-panel-border: rgba(255, 255, 255, 0.1);
+    --icx-hud-divider: rgba(255, 255, 255, 0.08);
+    --icx-hud-button-fg: rgba(255, 255, 255, 0.68);
+    --icx-hud-button-hover-fg: #ffffff;
+    --icx-hud-button-hover-bg: rgba(255, 255, 255, 0.08);
+    --icx-hud-button-hover-border: rgba(255, 255, 255, 0.2);
+    --icx-hud-button-active-bg: #142126;
+    --icx-hud-button-active-fg: #d7fbff;
+    --icx-hud-button-disabled-fg: rgba(255, 255, 255, 0.2);
+    --icx-hud-status-bg: rgba(0, 0, 0, 0.45);
+    --icx-hud-status-fg: rgba(255, 255, 255, 0.56);
+    --icx-hud-status-title-fg: rgba(255, 255, 255, 0.72);
+    --icx-hud-status-subtitle-fg: rgba(255, 255, 255, 0.38);
+    --icx-hud-dock-item-fg: rgba(255, 255, 255, 0.58);
+    --icx-hud-zoom-readout-fg: rgba(255, 255, 255, 0.58);
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* Viewport shell (src/infinite-canvas.tsx).                            */
+  /* ------------------------------------------------------------------ */
+  [data-slot="viewport"] {
+    background: var(--icx-background);
+    color: var(--icx-viewport-fg);
+    box-shadow: var(--icx-viewport-shadow);
+    outline: none;
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* Grid backdrop (src/grid-backdrop.tsx). The grid line gradients are   */
+  /* zoom/camera dependent and stay inline; only the base color is here.  */
+  /* ------------------------------------------------------------------ */
+  [data-slot="grid"] {
+    background-color: var(--icx-background);
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* Window frame surface (src/frame-slots.tsx Surface slot).             */
+  /* Border-width comes from chrome metrics and stays inline.             */
+  /* Precedence (matches the JS conditional): active > selected > idle.   */
+  /* ------------------------------------------------------------------ */
+  [data-slot="window-surface"] {
+    background: var(--icx-body-background, var(--icx-frame-surface-bg));
+    border-style: solid;
+    border-color: var(--icx-idle-border);
+  }
+
+  [data-slot="window"][data-selected]:not([data-active]) [data-slot="window-surface"] {
+    border-color: var(--icx-selection-border);
+  }
+
+  [data-slot="window"][data-active] [data-slot="window-surface"] {
+    border-color: var(--icx-active-border);
+  }
+
+  /* Host-local chrome frames add a cyan halo on the surface (src/window-frame.tsx). */
+  [data-slot="window"][data-frame-chrome="host"] [data-slot="window-surface"] {
+    box-shadow: var(--icx-host-surface-shadow);
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* Window header (src/frame-slots.tsx Header slot).                     */
+  /* Border-bottom-width comes from chrome metrics and stays inline.      */
+  /* ------------------------------------------------------------------ */
+  [data-slot="window-header"] {
+    background: var(--icx-header-idle);
+    border-bottom-style: solid;
+    border-bottom-color: var(--icx-idle-border);
+  }
+
+  [data-slot="window"][data-active] [data-slot="window-header"] {
+    background: var(--icx-header-active);
+    border-bottom-color: var(--icx-active-accent);
+  }
+
+  /* Host-local chrome paints the header in its own layers; the DOM header is transparent. */
+  [data-slot="window"][data-frame-chrome="host"] [data-slot="window-header"] {
+    background: transparent;
+    border-bottom-color: transparent;
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* Window title (src/frame-slots.tsx Title slot).                       */
+  /* ------------------------------------------------------------------ */
+  [data-slot="window-title"] {
+    color: var(--icx-title-fg);
+    font-size: 10px;
+    font-weight: 500;
+    text-transform: uppercase;
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* Window control buttons (src/frame-slots.tsx Controls slot).          */
+  /* ------------------------------------------------------------------ */
+  [data-slot="window-control"] {
+    border: 1px solid var(--icx-control-border);
+    background: var(--icx-control-bg);
+    color: var(--icx-control-fg);
+    transition-property:
+      color, background-color, border-color, outline-color, text-decoration-color, fill, stroke,
+      opacity, box-shadow, transform, translate, scale, rotate, filter, backdrop-filter;
+    transition-duration: 150ms;
+    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  /* The pin glyph renders rotated; pinned state tints it with the accent. */
+  [data-slot="window-control"][data-action="pin"] svg {
+    transform: rotate(45deg);
+  }
+
+  [data-slot="window-control"][data-action="pin"][data-active] svg {
+    color: var(--icx-active-accent);
+  }
+
+  /* Host-local chrome variant (src/window-frame.tsx [&>button] overrides). */
+  [data-slot="window"][data-frame-chrome="host"] [data-slot="window-control"] {
+    border-color: var(--icx-host-control-border);
+    background: var(--icx-host-control-bg);
+    color: var(--icx-host-control-fg);
+  }
+
+  [data-slot="window-control"]:hover {
+    border-color: var(--icx-control-hover-border);
+    background: var(--icx-control-hover-bg);
+    color: var(--icx-control-hover-fg);
+  }
+
+  [data-slot="window"][data-frame-chrome="host"] [data-slot="window-control"]:hover {
+    border-color: var(--icx-host-control-hover-border);
+    background: var(--icx-host-control-hover-bg);
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* Active window corner brackets (src/frame-slots.tsx).                 */
+  /* Which two sides each bracket draws follows its data-corner position. */
+  /* ------------------------------------------------------------------ */
+  [data-slot="window-corner"] {
+    border: 0 solid var(--icx-corner);
+  }
+
+  [data-slot="window-corner"][data-corner="top-left"] {
+    border-top-width: 1px;
+    border-left-width: 1px;
+  }
+
+  [data-slot="window-corner"][data-corner="top-right"] {
+    border-top-width: 1px;
+    border-right-width: 1px;
+  }
+
+  [data-slot="window-corner"][data-corner="bottom-left"] {
+    border-bottom-width: 1px;
+    border-left-width: 1px;
+  }
+
+  [data-slot="window-corner"][data-corner="bottom-right"] {
+    border-bottom-width: 1px;
+    border-right-width: 1px;
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* Host-local chrome layers (src/window-frame.tsx, getHostChromeTone).  */
+  /* Layer geometry (heights, offsets, frame border-width) stays inline.  */
+  /* Precedence (matches the JS conditional): active > selected > idle.   */
+  /* ------------------------------------------------------------------ */
+  [data-slot="window-host-chrome"] [data-layer="fill"] {
+    background: var(--icx-host-fill);
+  }
+
+  [data-slot="window-host-chrome"] [data-layer="header"] {
+    background: var(--icx-header-idle);
+  }
+
+  [data-slot="window"][data-active] [data-slot="window-host-chrome"] [data-layer="header"] {
+    background: var(--icx-header-active);
+  }
+
+  [data-slot="window-host-chrome"] [data-layer="accent"] {
+    background: var(--icx-idle-border);
+    opacity: 0.78;
+  }
+
+  [data-slot="window"][data-selected]:not([data-active])
+    [data-slot="window-host-chrome"]
+    [data-layer="accent"] {
+    background: var(--icx-selection-border);
+    opacity: 0.58;
+  }
+
+  [data-slot="window"][data-active] [data-slot="window-host-chrome"] [data-layer="accent"] {
+    background: var(--icx-active-accent);
+    opacity: 0.9;
+  }
+
+  [data-slot="window-host-chrome"] [data-layer="frame"] {
+    border-style: solid;
+    border-color: var(--icx-host-idle-border);
+    box-shadow: var(--icx-host-shadow-idle);
+  }
+
+  [data-slot="window"][data-selected]:not([data-active])
+    [data-slot="window-host-chrome"]
+    [data-layer="frame"] {
+    border-color: var(--icx-selection-border);
+    box-shadow: var(--icx-host-shadow-selected);
+  }
+
+  [data-slot="window"][data-active] [data-slot="window-host-chrome"] [data-layer="frame"] {
+    border-color: var(--icx-active-border);
+    box-shadow: var(--icx-host-shadow-active);
+  }
+
+  [data-slot="window-host-chrome"] [data-layer="inner-frame"] {
+    border: 1px solid var(--icx-host-inner-border-idle);
+  }
+
+  [data-slot="window"][data-selected]:not([data-active])
+    [data-slot="window-host-chrome"]
+    [data-layer="inner-frame"] {
+    border-color: var(--icx-host-inner-border-selected);
+  }
+
+  [data-slot="window"][data-active] [data-slot="window-host-chrome"] [data-layer="inner-frame"] {
+    border-color: var(--icx-host-inner-border-active);
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* Multi-selection bounds overlay (src/canvas-overlays.tsx).            */
+  /* ------------------------------------------------------------------ */
+  [data-slot="selection-bounds"] {
+    border: 1px dashed var(--icx-selection-bounds);
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* Snap preview + guides (src/canvas-overlays.tsx).                     */
+  /* Guide position/length are interaction-driven and stay inline; the    */
+  /* dash pattern keys off data-axis so the color can live on a token.    */
+  /* ------------------------------------------------------------------ */
+  [data-slot="snap-preview"] {
+    border: 1px solid var(--icx-snap-preview-border);
+    background: var(--icx-snap-preview-bg);
+  }
+
+  [data-slot="snap-guide"] {
+    opacity: 0.72;
+  }
+
+  [data-slot="snap-guide"][data-axis="x"] {
+    background-image: repeating-linear-gradient(
+      to bottom,
+      var(--icx-snap-guide) 0 4px,
+      transparent 4px 8px
+    );
+  }
+
+  [data-slot="snap-guide"][data-axis="y"] {
+    background-image: repeating-linear-gradient(
+      to right,
+      var(--icx-snap-guide) 0 4px,
+      transparent 4px 8px
+    );
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* Marquee overlay (src/canvas-overlays.tsx).                           */
+  /* ------------------------------------------------------------------ */
+  [data-slot="marquee"] {
+    border: 1px solid var(--icx-marquee-border);
+    background: var(--icx-marquee-bg);
+    box-shadow: var(--icx-marquee-inset-shadow);
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* HUD status card (src/canvas-hud.tsx).                                */
+  /* ------------------------------------------------------------------ */
+  [data-slot="hud-status"] {
+    border: 1px solid var(--icx-hud-panel-border);
+    background: var(--icx-hud-status-bg);
+    color: var(--icx-hud-status-fg);
+    font-size: 11px;
+    backdrop-filter: blur(8px);
+  }
+
+  [data-slot="hud-title"] {
+    color: var(--icx-hud-status-title-fg);
+    font-weight: 500;
+    text-transform: uppercase;
+  }
+
+  [data-slot="hud-subtitle"] {
+    color: var(--icx-hud-status-subtitle-fg);
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* HUD dock items — minimized windows (src/canvas-hud.tsx).             */
+  /* ------------------------------------------------------------------ */
+  [data-slot="hud-dock-item"] {
+    border: 1px solid var(--icx-hud-panel-border);
+    background: var(--icx-hud-panel-bg);
+    color: var(--icx-hud-dock-item-fg);
+    font-size: 11px;
+    font-weight: 500;
+    text-transform: uppercase;
+    transition-property:
+      color, background-color, border-color, outline-color, text-decoration-color, fill, stroke,
+      opacity, box-shadow, transform, translate, scale, rotate, filter, backdrop-filter;
+    transition-duration: 150ms;
+    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  [data-slot="hud-dock-item"]:hover {
+    border-color: var(--icx-hud-button-hover-border);
+    background: var(--icx-hud-button-hover-bg);
+    color: var(--icx-hud-button-hover-fg);
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* HUD button groups + buttons (src/canvas-hud.tsx).                    */
+  /* Standalone buttons (reset) carry their own panel border/background;  */
+  /* grouped buttons are transparent with hairline dividers per action.   */
+  /* ------------------------------------------------------------------ */
+  [data-slot="hud-group"] {
+    border: 1px solid var(--icx-hud-panel-border);
+    background: var(--icx-hud-panel-bg);
+    backdrop-filter: blur(8px);
+  }
+
+  [data-slot="hud-button"] {
+    border: 1px solid var(--icx-hud-panel-border);
+    background: var(--icx-hud-panel-bg);
+    color: var(--icx-hud-button-fg);
+    transition-property:
+      color, background-color, border-color, outline-color, text-decoration-color, fill, stroke,
+      opacity, box-shadow, transform, translate, scale, rotate, filter, backdrop-filter;
+    transition-duration: 150ms;
+    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  [data-slot="hud-group"] [data-slot="hud-button"] {
+    border-width: 0;
+    border-color: var(--icx-hud-divider);
+    background: transparent;
+  }
+
+  [data-slot="hud-button"][data-action="center-active"],
+  [data-slot="hud-button"][data-action="fit-selection"],
+  [data-slot="hud-button"][data-action="zoom-out"],
+  [data-slot="hud-button"][data-action="pointer-marquee"] {
+    border-right-width: 1px;
+  }
+
+  [data-slot="hud-button"][data-action="zoom-in"] {
+    border-left-width: 1px;
+  }
+
+  [data-slot="hud-button"][data-action="zoom-reset"] {
+    color: var(--icx-hud-zoom-readout-fg);
+    font-size: 11px;
+    font-weight: 500;
+    text-transform: uppercase;
+  }
+
+  [data-slot="hud-button"][data-action="pointer-marquee"],
+  [data-slot="hud-button"][data-action="pointer-pan"] {
+    color: var(--icx-hud-dock-item-fg);
+  }
+
+  /* Pointer-mode toggle, pressed state. */
+  [data-slot="hud-button"][data-active] {
+    background: var(--icx-hud-button-active-bg);
+    color: var(--icx-hud-button-active-fg);
+  }
+
+  [data-slot="hud-button"]:hover {
+    border-color: var(--icx-hud-button-hover-border);
+    background: var(--icx-hud-button-hover-bg);
+    color: var(--icx-hud-button-hover-fg);
+  }
+
+  /* Grouped buttons keep their divider color on hover (no hover:border-*). */
+  [data-slot="hud-group"] [data-slot="hud-button"]:hover {
+    border-color: var(--icx-hud-divider);
+    background: var(--icx-hud-button-hover-bg);
+    color: var(--icx-hud-button-hover-fg);
+  }
+
+  [data-slot="hud-button"]:disabled {
+    color: var(--icx-hud-button-disabled-fg);
+    cursor: not-allowed;
+  }
+}
