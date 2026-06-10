@@ -14,7 +14,8 @@
 
 /* Workspace packages style themselves with Tailwind classes; Tailwind must
    scan their sources in addition to this app's. */
-@source "../../../packages/infinite-canvas/src";
+/* The framework is headless (no utility classes); only the ui kit needs
+   Tailwind to scan workspace sources. */
 @source "../../../packages/ui/src";
 
 @custom-variant dark (&:is(.dark *));

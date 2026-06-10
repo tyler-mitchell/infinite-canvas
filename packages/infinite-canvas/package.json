@@ -31,8 +31,7 @@
     "@legendapp/state": "catalog:",
     "@tanstack/hotkeys": "catalog:",
     "@zumer/snapdom": "catalog:",
-    "arktype": "catalog:",
-    "lucide-react": "catalog:"
+    "arktype": "catalog:"
   },
   "devDependencies": {
     "@react-three/fiber": "catalog:",
