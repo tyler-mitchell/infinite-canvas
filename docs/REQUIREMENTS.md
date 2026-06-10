@@ -130,11 +130,17 @@ the framework FEATURE_TRACKER.
 
 ## 5. Non-Functional Requirements
 
-### NFR-1 Performance
+### NFR-1 Performance — **failing as of 2026-06-10**
 
 At least 10 simultaneous windows without obvious frame-rate degradation during
 pan/zoom/move/resize. Background and unfocused windows throttleable (the
-rasterization lanes exist for this; stress showcases are the measuring stick).
+rasterization lanes exist for this; the /stress showcase is the measuring
+stick).
+
+Current reality: interaction degrades at even ~20 live windows (observed in
+both this repo's /stress stage and the kek implementation). A dedicated
+profiling deep-dive is planned — tracked as risk R15 in
+[research/risk-register.md](research/risk-register.md).
 
 ### NFR-2 Modularity
 

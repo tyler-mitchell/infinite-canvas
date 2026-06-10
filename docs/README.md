@@ -46,7 +46,11 @@ note and current status.
   window-body contract (portal roots, positioning, input ownership, a11y) and
   low-zoom chrome findings
 - [risk-register.md](research/risk-register.md) — architectural risks with
-  mitigation status, including two new ones from this repo's port
+  mitigation status, including repo-era additions (headless regression,
+  dependency drift, interactive performance)
+- [api-friction-backlog.md](research/api-friction-backlog.md) — defects and
+  ergonomic gaps surfaced by the 2026-06-10 showcase-rebuild exercise, with
+  fixed/open status
 - [tooling-candidates.md](research/tooling-candidates.md) — ecosystem
   packages with adoption triggers, corrected for decisions already made
 - [feature-landscape-2026.md](research/feature-landscape-2026.md) — near-
