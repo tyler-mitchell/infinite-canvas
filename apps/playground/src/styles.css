@@ -1,3 +1,7 @@
+/* Framework theme first: its @layer rules lose to Tailwind utilities and
+   any unlayered consumer CSS, so showcase overrides always win. */
+@import "infinite-canvas/theme.css";
+
 @import "tailwindcss";
 
 @import "tw-animate-css";
