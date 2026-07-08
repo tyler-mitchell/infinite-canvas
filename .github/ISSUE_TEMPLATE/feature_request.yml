@@ -1,0 +1,81 @@
+name: Feature request
+description: Propose a capability or an API change for @infinite-canvas/react.
+title: "[feat]: "
+labels: ["enhancement", "needs triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Before you build it: this is a pre-1.0 project with a deliberately small surface. Opening an
+        issue first is cheaper than opening a pull request first, for both of us.
+
+        Worth reading: [docs/ROADMAP.md](https://github.com/tyler-mitchell/infinite-canvas/blob/main/docs/ROADMAP.md)
+        and [CONTRIBUTING.md](https://github.com/tyler-mitchell/infinite-canvas/blob/main/CONTRIBUTING.md).
+
+  - type: checkboxes
+    id: preflight
+    attributes:
+      label: Preflight
+      options:
+        - label: I searched the existing issues and the roadmap, and this has not already been proposed.
+          required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: |
+        What are you trying to do that you cannot do today? Describe the situation, not the solution —
+        the best proposals start from a use case that is currently awkward or impossible.
+      placeholder: "I want to …, but the only way to do it today is …"
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: |
+        What should the API look like? Sketch the call site, not the implementation.
+      placeholder: |
+        ```tsx
+        <InfiniteCanvasDesktop … />
+        ```
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives you considered
+      description: Including "do nothing" and "solve it in userland". Why don't those work?
+    validations:
+      required: false
+
+  - type: dropdown
+    id: layer
+    attributes:
+      label: Which layer does this touch?
+      description: Best guess is fine.
+      options:
+        - "Pure core (geometry / reducer / selection / snapping / commands)"
+        - "React components and rendering"
+        - "Styling — the data-slot contract or theme.css"
+        - "Persistence and validation"
+        - "Scene layers, rasterization, WebGPU"
+        - "Drag and drop"
+        - "Keyboard and commands"
+        - "Tooling, build, or packaging"
+        - "Not sure"
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: breaking
+    attributes:
+      label: Compatibility
+      options:
+        - label: This would be a breaking change to the public API, the rendered DOM, the `data-slot` contract, or the serialized persistence shape.
+          required: false
+        - label: I would be willing to open a pull request for this.
+          required: false

@@ -153,7 +153,13 @@ function InfiniteCanvasWindowFrame<Kind extends string>({
     <InfiniteCanvasWindowFrameRuntimeContext.Provider value={frameRuntimeContext}>
       <article
         aria-label={window.title}
-        aria-selected={isSelected}
+        // `aria-selected` is only valid on gridcell/option/row/tab/treeitem —
+        // never on `group`, where assistive tech ignores or misreports it.
+        // The active window is the "current item in a set", which is exactly
+        // what `aria-current` means and is valid on any element. Selection
+        // stays a styling concern via the `data-selected` contract.
+        aria-current={isActive ? "true" : undefined}
+        aria-roledescription="window"
         data-frame-chrome={isHostLocalChrome ? "host" : "dom"}
         data-infinite-canvas-window-id={window.id}
         data-kind={window.kind}

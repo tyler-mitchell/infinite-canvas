@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Report a security vulnerability
+    url: https://github.com/tyler-mitchell/infinite-canvas/blob/main/SECURITY.md
+    about: Do not open a public issue. Report vulnerabilities privately — see SECURITY.md.
+  - name: Contributing guide
+    url: https://github.com/tyler-mitchell/infinite-canvas/blob/main/CONTRIBUTING.md
+    about: Setup, the dev loop, and the invariants the test suite enforces.

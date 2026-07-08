@@ -1,23 +1,122 @@
-# vite-plus-starter
+# @infinite-canvas/react
 
-A starter for creating a Vite Plus project.
+An infinite-canvas window manager for React: a pure reducer core, real DOM window bodies, and a programmable WebGPU spatial surface.
 
-## Development
-
-- Install dependencies:
+## Install
 
 ```bash
-vp install
+npm install @infinite-canvas/react react react-dom three @react-three/fiber
 ```
 
-- Run the unit tests:
+The package ships no renderer of its own. It declares four peers:
 
-```bash
-vp test
+| Peer                 | Range                         |
+| -------------------- | ----------------------------- |
+| `react`              | `^19.0.0`                     |
+| `react-dom`          | `^19.0.0`                     |
+| `three`              | `>=0.181.0`                   |
+| `@react-three/fiber` | `>=10.0.0-canary.dbbe704 <11` |
+
+`@react-three/fiber` must be a v10 release — the current `9.x` line does not satisfy the range. Install the matching canary explicitly if your package manager resolves `latest`.
+
+## Quick start
+
+```tsx
+"use client";
+
+import {
+  InfiniteCanvasDesktop,
+  createInfiniteCanvasState,
+  createInfiniteCanvasWindow,
+  defineInfiniteCanvasWindowRegistry,
+} from "@infinite-canvas/react";
+
+type WindowKind = "note";
+
+const windowDefinitions = defineInfiniteCanvasWindowRegistry<WindowKind>({
+  note: {
+    kind: "note",
+    renderBody: ({ window }) => <p>{window.title}</p>,
+  },
+});
+
+const initialState = createInfiniteCanvasState<WindowKind>({
+  windows: [
+    createInfiniteCanvasWindow({
+      id: "note-1",
+      kind: "note",
+      rect: { height: 240, width: 360, x: 0, y: 0 },
+      title: "First note",
+    }),
+    createInfiniteCanvasWindow({
+      id: "note-2",
+      kind: "note",
+      rect: { height: 240, width: 360, x: 440, y: 120 },
+      title: "Second note",
+    }),
+  ],
+});
+
+export function Workspace() {
+  return (
+    <div style={{ height: "100dvh" }}>
+      <InfiniteCanvasDesktop initialState={initialState} windowDefinitions={windowDefinitions} />
+    </div>
+  );
+}
 ```
 
-- Build the library:
+Every `window.kind` must have a matching entry in `windowDefinitions`, and each registry key must equal its definition's `kind` — both are checked at mount and throw otherwise. Empty documents (`windows: []`) are valid.
 
-```bash
-vp pack
+## Sizing: the one rule
+
+`InfiniteCanvasDesktop` fills its parent (`width: 100%; height: 100%`). **The parent must have a bounded height.** Give it an explicit height, or make it a flex child with `minHeight: 0` — and keep `minHeight: 0` on every flex ancestor, or the canvas grows past the visible workspace and the HUD, window DOM, and WebGPU layers scroll out of view.
+
+## Styling is optional
+
+The package is headless. Components emit structure, geometry, and a `data-slot="…"` attribute vocabulary; they carry no visual identity of their own (a boundary test enforces this). The canvas is fully functional unstyled.
+
+To get the default look, import the theme once:
+
+```ts
+import "@infinite-canvas/react/theme.css";
 ```
+
+It is a single `@layer infinite-canvas` cascade layer targeting the `data-slot` contract, so unlayered consumer styles always win. You can skip it entirely and write your own CSS against the same selectors, or pass the `theme` prop to override the bridged `--icx-*` custom properties.
+
+## What you get
+
+- **Window lifecycle** — open, close, focus, minimize, maximize, restore, and pin, through one typed command facade.
+- **Selection and marquee** — replace / add / toggle / clear, select-all-visible, group move, plus typed non-window selection targets for consumer-owned scene objects and edges.
+- **Snapping with guides** — edge, center, and equal-gap guides while moving and resizing, with screen-pixel-stable thresholds. Viewport snapping is opt-in through `snapPolicy`.
+- **Keyboard commands** — `Escape`, `Mod+A`, `Shift+1` (fit all), `Shift+2` (fit selection), arrow-key nudge, `Mod+0` (reset zoom); replaceable through `hotkeyBindings`.
+- **Camera navigation** — frame a window, the selection, all visible windows, a world point, or an arbitrary rect, with `center`, `centerAtZoom`, or `fit` behavior.
+- **Persistence** — versioned JSON layouts through `storageKey`, scoped by `documentKey`, parsed with ArkType and normalized against your registry so stale window kinds are dropped before hydration.
+- **Typed drag & drop** — an opaque payload generic threaded through `dropPolicy.canDrop` / `onDrop`, overlay and scene-layer contexts, and valid / invalid / outside drop status.
+- **R3F scene layers** — `sceneLayers` render read-only React Three Fiber content above or below the DOM window plane, in camera-owned `space: "world"` or DOM-aligned `space: "screen"`, backed by projected window proxies.
+- **Custom frames** — `renderFrame` composes framework-owned slots (`Surface`, `Header`, `Title`, `Controls`, `Body`, `ActiveCorners`) so you can replace chrome without reimplementing drag, resize, focus, or body projection.
+
+## Status
+
+**0.1.0 — pre-1.0. The API may change between minor versions.**
+
+What exists is what is documented above. Notably **not** implemented yet:
+
+- window grouping, docking, or tabs
+- undo / redo
+- layout recipes
+- keyboard navigation between windows, and a complete accessibility story
+
+Rasterization / level-of-detail is partial: the policy, scheduler, and snapshot capture exist behind the `rasterization` prop and are off by default.
+
+There is no hosted documentation site. The full export surface is catalogued in [`docs/API.md`](https://github.com/tyler-mitchell/infinite-canvas/blob/main/docs/API.md).
+
+## Requirements
+
+- **React 19.** The library is client-only; the built entry point is marked `"use client"`.
+- **A WebGPU-capable browser** for the spatial surface — the scene renders through `@react-three/fiber/webgpu`. Development is Chrome-first.
+- ESM only. There is no CommonJS build.
+
+## License
+
+MIT © Tyler Davis Mitchell

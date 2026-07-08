@@ -250,7 +250,7 @@ test("window proxies use the same device-pixel-snapped screen projection as DOM 
   expect(proxy?.screenPosition).toEqual([454.5, -301, 0]);
 });
 
-test("arktype persisted-state parser rejects unsafe geometry and defaults window mode", () => {
+test("persisted-state parser rejects unsafe geometry and defaults window mode", () => {
   const parsed = parseInfiniteCanvasSerializedState<BoundaryWindowKind>({
     activeWindowId: "demo-window",
     camera: {

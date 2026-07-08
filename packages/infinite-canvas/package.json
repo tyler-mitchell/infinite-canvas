@@ -56,8 +56,7 @@
   "dependencies": {
     "@legendapp/state": "catalog:",
     "@tanstack/hotkeys": "catalog:",
-    "@zumer/snapdom": "catalog:",
-    "arktype": "catalog:"
+    "@zumer/snapdom": "catalog:"
   },
   "devDependencies": {
     "@react-three/fiber": "catalog:",

@@ -1,0 +1,69 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# One in-flight run per ref. A new push to a branch cancels the previous run.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: node ${{ matrix.node-version }}
+    runs-on: ubuntu-latest
+
+    strategy:
+      # Surface a failure on every Node version, not just the first to break.
+      fail-fast: false
+      matrix:
+        node-version: ["22", "24"]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Must precede setup-node: `cache: pnpm` needs the pnpm binary on PATH.
+      # No `version:` input — action-setup@v4 reads `packageManager` from the
+      # root package.json (pnpm@11.5.2), keeping one source of truth.
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # `vp check` = format + lint + typecheck, across the workspace.
+      - name: Check (format, lint, types)
+        run: pnpm exec vp check
+
+      - name: Test
+        run: pnpm exec vp run -r test
+
+      # Produces packages/infinite-canvas/dist, which the packaging gate below
+      # asserts against. The workspace resolves the library to src/ via
+      # source-linked exports, so packaging bugs are invisible until this runs.
+      - name: Build
+        run: pnpm exec vp run -r build
+
+      - name: Confirm build artifact exists
+        run: |
+          if [ ! -d packages/infinite-canvas/dist ]; then
+            echo "::error::packages/infinite-canvas/dist is missing after the build step"
+            exit 1
+          fi
+
+      # Publish gate: "use client" first, snapdom stays lazy, no undeclared
+      # imports, dts emit intact. Resolves its own paths, so cwd is irrelevant.
+      - name: Verify package artifact
+        run: node packages/infinite-canvas/scripts/verify-artifact.mjs

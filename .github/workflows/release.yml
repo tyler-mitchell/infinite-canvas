@@ -1,0 +1,59 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  # Required for npm provenance: npm exchanges this OIDC token with Sigstore to
+  # sign the published attestation. Without it, a provenance publish fails.
+  id-token: write
+
+jobs:
+  publish:
+    name: Publish to npm
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # Full history: provenance attestation records the source commit.
+          fetch-depth: 0
+
+      # Must precede setup-node: `cache: pnpm` needs the pnpm binary on PATH.
+      # No `version:` input — action-setup@v4 reads `packageManager` from the
+      # root package.json (pnpm@11.5.2).
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      # registry-url writes an .npmrc wired to NODE_AUTH_TOKEN, which pnpm honors.
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          registry-url: "https://registry.npmjs.org"
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Check (format, lint, types)
+        run: pnpm exec vp check
+
+      - name: Test
+        run: pnpm exec vp run -r test
+
+      # No explicit build step: the package's `prepublishOnly` runs `vp run verify`,
+      # which is `vp run build && node ./scripts/verify-artifact.mjs` — so the
+      # build and the packaging gate both run here, and a gate failure aborts the
+      # publish before anything reaches the registry.
+      #
+      # Provenance comes from publishConfig.provenance: true in the package
+      # manifest, plus the id-token: write permission granted above.
+      - name: Publish
+        run: pnpm publish --filter @infinite-canvas/react --access public --no-git-checks
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

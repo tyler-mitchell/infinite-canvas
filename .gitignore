@@ -29,3 +29,6 @@ dist-ssr
 # Third-party-derived reference material that must never enter git history.
 # The originals remain in kek-monorepo (apps/web/reference/infinite-canvas/).
 reference/node-editor-inspiration/
+
+# Stop-hook completion sentinel (local only)
+.claude/.goal-complete

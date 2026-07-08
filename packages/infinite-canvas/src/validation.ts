@@ -1,5 +1,3 @@
-import { type } from "arktype";
-
 import type {
   InfiniteCanvasCamera,
   InfiniteCanvasPoint,
@@ -12,173 +10,267 @@ import type {
   InfiniteCanvasWindowMode,
 } from "./types";
 
-type InfiniteCanvasParsedWindow<Kind extends string> = Omit<InfiniteCanvasWindow<Kind>, "mode"> &
-  Readonly<{
-    mode?: InfiniteCanvasWindowMode;
-  }>;
+/**
+ * Structural parsers for untrusted persisted state. Each returns the parsed
+ * value with unknown keys stripped, or `null` when the shape is invalid.
+ *
+ * These were an arktype schema, but `store -> persistence -> validation` puts
+ * them on every consumer's render path, so the runtime type system shipped in
+ * every bundle: 46 KB gzipped, 34% of the package, to validate eight small
+ * shapes. Hand-rolled guards are behaviour-identical — ./validation.test.ts
+ * characterizes the original semantics and passes unchanged against these.
+ */
 
-type InfiniteCanvasParsedSerializedState<Kind extends string> = Omit<
-  InfiniteCanvasSerializedState<Kind>,
-  "windows"
-> &
-  Readonly<{
-    windows: readonly InfiniteCanvasParsedWindow<Kind>[];
-  }>;
+/** Matches arktype's `number.safe`: finite, and within the safe-integer magnitude. */
+function isSafeNumber(value: unknown): value is number {
+  return (
+    typeof value === "number" &&
+    Number.isFinite(value) &&
+    Math.abs(value) <= Number.MAX_SAFE_INTEGER
+  );
+}
 
-const infiniteCanvasPointSchema = type({
-  "+": "delete",
-  x: "number.safe",
-  y: "number.safe",
-});
+/** Matches arktype's `number.safe > 0`. */
+function isPositiveSafeNumber(value: unknown): value is number {
+  return isSafeNumber(value) && value > 0;
+}
 
-const infiniteCanvasSizeSchema = type({
-  "+": "delete",
-  height: "number.safe > 0",
-  width: "number.safe > 0",
-});
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
 
-const infiniteCanvasRectSchema = type({
-  "+": "delete",
-  height: "number.safe > 0",
-  width: "number.safe > 0",
-  x: "number.safe",
-  y: "number.safe",
-});
+function isStringArray(value: unknown): value is readonly string[] {
+  return Array.isArray(value) && value.every((entry) => typeof entry === "string");
+}
 
-const infiniteCanvasCameraSchema = type({
-  "+": "delete",
-  center: infiniteCanvasPointSchema,
-  zoom: "number.safe > 0",
-});
+/** Optional keys: `JSON.parse` never yields `undefined`, so treat it as absent. */
+function isAbsent(value: unknown): value is undefined {
+  return value === undefined;
+}
 
-const infiniteCanvasWindowModeSchema = type.enumerated("normal", "minimized", "maximized");
-
-const infiniteCanvasSelectionTargetTypeSchema = type.enumerated("edge", "scene-object");
-
-const infiniteCanvasSelectionTargetSchema = type({
-  "+": "delete",
-  "data?": "unknown",
-  id: "string",
-  kind: "string",
-  type: infiniteCanvasSelectionTargetTypeSchema,
-});
-
-const infiniteCanvasSelectionSchema = type({
-  "+": "delete",
-  "anchorWindowId?": "string | null",
-  "targets?": type(infiniteCanvasSelectionTargetSchema, "[]"),
-  windowIds: "string[]",
-});
-
-const infiniteCanvasWindowSchema = type({
-  "+": "delete",
-  "data?": "unknown",
-  id: "string",
-  isPinned: "boolean",
-  kind: "string",
-  minSize: infiniteCanvasSizeSchema,
-  "mode?": infiniteCanvasWindowModeSchema,
-  rect: infiniteCanvasRectSchema,
-  "restoreRect?": infiniteCanvasRectSchema,
-  title: "string",
-  zIndex: "number.safe",
-});
-
-const infiniteCanvasSerializedStateSchema = type({
-  "+": "delete",
-  activeWindowId: "string | null",
-  camera: infiniteCanvasCameraSchema,
-  "selection?": infiniteCanvasSelectionSchema,
-  version: "1",
-  windows: type(infiniteCanvasWindowSchema, "[]"),
-});
-
-function parseInfiniteCanvasSchema<Value>(
-  schema: (value: unknown) => unknown,
-  value: unknown,
-): Value | null {
-  const result = schema(value);
-
-  return result instanceof type.errors ? null : (result as Value);
+function isWindowMode(value: unknown): value is InfiniteCanvasWindowMode {
+  return value === "normal" || value === "minimized" || value === "maximized";
 }
 
 function parseInfiniteCanvasPoint(value: unknown): InfiniteCanvasPoint | null {
-  return parseInfiniteCanvasSchema<InfiniteCanvasPoint>(infiniteCanvasPointSchema, value);
+  if (!isRecord(value) || !isSafeNumber(value.x) || !isSafeNumber(value.y)) {
+    return null;
+  }
+
+  return { x: value.x, y: value.y };
 }
 
 function parseInfiniteCanvasSize(value: unknown): InfiniteCanvasSize | null {
-  return parseInfiniteCanvasSchema<InfiniteCanvasSize>(infiniteCanvasSizeSchema, value);
+  if (
+    !isRecord(value) ||
+    !isPositiveSafeNumber(value.height) ||
+    !isPositiveSafeNumber(value.width)
+  ) {
+    return null;
+  }
+
+  return { height: value.height, width: value.width };
 }
 
 function parseInfiniteCanvasRect(value: unknown): InfiniteCanvasRect | null {
-  return parseInfiniteCanvasSchema<InfiniteCanvasRect>(infiniteCanvasRectSchema, value);
+  if (
+    !isRecord(value) ||
+    !isPositiveSafeNumber(value.height) ||
+    !isPositiveSafeNumber(value.width) ||
+    !isSafeNumber(value.x) ||
+    !isSafeNumber(value.y)
+  ) {
+    return null;
+  }
+
+  return { height: value.height, width: value.width, x: value.x, y: value.y };
 }
 
 function parseInfiniteCanvasCamera(value: unknown): InfiniteCanvasCamera | null {
-  return parseInfiniteCanvasSchema<InfiniteCanvasCamera>(infiniteCanvasCameraSchema, value);
+  if (!isRecord(value) || !isPositiveSafeNumber(value.zoom)) {
+    return null;
+  }
+
+  const center = parseInfiniteCanvasPoint(value.center);
+
+  return center === null ? null : { center, zoom: value.zoom };
+}
+
+function parseInfiniteCanvasSelectionTarget(value: unknown): InfiniteCanvasSelectionTarget | null {
+  if (!isRecord(value) || typeof value.id !== "string" || typeof value.kind !== "string") {
+    return null;
+  }
+
+  if (value.type !== "edge" && value.type !== "scene-object") {
+    return null;
+  }
+
+  return {
+    ...("data" in value ? { data: value.data } : {}),
+    id: value.id,
+    kind: value.kind,
+    type: value.type,
+  };
+}
+
+function parseInfiniteCanvasSelectionTargets(
+  value: unknown,
+): readonly InfiniteCanvasSelectionTarget[] | null {
+  if (!Array.isArray(value)) {
+    return null;
+  }
+
+  const targets: InfiniteCanvasSelectionTarget[] = [];
+
+  for (const entry of value) {
+    const target = parseInfiniteCanvasSelectionTarget(entry);
+
+    if (target === null) {
+      return null;
+    }
+
+    targets.push(target);
+  }
+
+  return targets;
 }
 
 function parseInfiniteCanvasSelection(value: unknown): InfiniteCanvasSelection | null {
-  const parsed = parseInfiniteCanvasSchema<
-    Readonly<{
-      anchorWindowId?: string | null;
-      targets?: readonly InfiniteCanvasSelectionTarget[];
-      windowIds: readonly string[];
-    }>
-  >(infiniteCanvasSelectionSchema, value);
+  if (!isRecord(value) || !isStringArray(value.windowIds)) {
+    return null;
+  }
 
-  return parsed === null
-    ? null
-    : {
-        anchorWindowId: parsed.anchorWindowId ?? null,
-        ...(parsed.targets === undefined ? {} : { targets: parsed.targets }),
-        windowIds: parsed.windowIds,
-      };
+  const { anchorWindowId } = value;
+
+  if (!isAbsent(anchorWindowId) && anchorWindowId !== null && typeof anchorWindowId !== "string") {
+    return null;
+  }
+
+  let targets: readonly InfiniteCanvasSelectionTarget[] | undefined;
+
+  if (!isAbsent(value.targets)) {
+    const parsedTargets = parseInfiniteCanvasSelectionTargets(value.targets);
+
+    if (parsedTargets === null) {
+      return null;
+    }
+
+    targets = parsedTargets;
+  }
+
+  return {
+    anchorWindowId: anchorWindowId ?? null,
+    ...(targets === undefined ? {} : { targets }),
+    windowIds: [...value.windowIds],
+  };
 }
 
 function parseInfiniteCanvasWindow<Kind extends string>(
   value: unknown,
 ): InfiniteCanvasWindow<Kind> | null {
-  const parsed = parseInfiniteCanvasSchema<InfiniteCanvasParsedWindow<Kind>>(
-    infiniteCanvasWindowSchema,
-    value,
-  );
+  if (!isRecord(value)) {
+    return null;
+  }
 
-  return parsed === null
-    ? null
-    : {
-        ...parsed,
-        mode: parsed.mode ?? "normal",
-      };
+  const { id, isPinned, kind, mode, restoreRect, title, zIndex } = value;
+
+  if (
+    typeof id !== "string" ||
+    typeof kind !== "string" ||
+    typeof title !== "string" ||
+    typeof isPinned !== "boolean" ||
+    !isSafeNumber(zIndex)
+  ) {
+    return null;
+  }
+
+  if (!isAbsent(mode) && !isWindowMode(mode)) {
+    return null;
+  }
+
+  const minSize = parseInfiniteCanvasSize(value.minSize);
+  const rect = parseInfiniteCanvasRect(value.rect);
+
+  if (minSize === null || rect === null) {
+    return null;
+  }
+
+  let parsedRestoreRect: InfiniteCanvasRect | undefined;
+
+  if (!isAbsent(restoreRect)) {
+    const candidate = parseInfiniteCanvasRect(restoreRect);
+
+    if (candidate === null) {
+      return null;
+    }
+
+    parsedRestoreRect = candidate;
+  }
+
+  return {
+    ...("data" in value ? { data: value.data } : {}),
+    id,
+    isPinned,
+    kind: kind as Kind,
+    minSize,
+    mode: mode ?? "normal",
+    rect,
+    ...(parsedRestoreRect === undefined ? {} : { restoreRect: parsedRestoreRect }),
+    title,
+    zIndex,
+  };
 }
 
 function parseInfiniteCanvasSerializedState<Kind extends string>(
   value: unknown,
 ): InfiniteCanvasSerializedState<Kind> | null {
-  const parsed = parseInfiniteCanvasSchema<InfiniteCanvasParsedSerializedState<Kind>>(
-    infiniteCanvasSerializedStateSchema,
-    value,
-  );
+  if (!isRecord(value) || value.version !== 1) {
+    return null;
+  }
 
-  return parsed === null
-    ? null
-    : {
-        ...parsed,
-        selection:
-          parsed.selection === undefined
-            ? undefined
-            : {
-                anchorWindowId: parsed.selection.anchorWindowId ?? null,
-                ...(parsed.selection.targets === undefined
-                  ? {}
-                  : { targets: parsed.selection.targets }),
-                windowIds: parsed.selection.windowIds,
-              },
-        windows: parsed.windows.map((window) => ({
-          ...window,
-          mode: window.mode ?? "normal",
-        })),
-      };
+  const { activeWindowId } = value;
+
+  if (activeWindowId !== null && typeof activeWindowId !== "string") {
+    return null;
+  }
+
+  const camera = parseInfiniteCanvasCamera(value.camera);
+
+  if (camera === null || !Array.isArray(value.windows)) {
+    return null;
+  }
+
+  const windows: InfiniteCanvasWindow<Kind>[] = [];
+
+  for (const entry of value.windows) {
+    const window = parseInfiniteCanvasWindow<Kind>(entry);
+
+    if (window === null) {
+      return null;
+    }
+
+    windows.push(window);
+  }
+
+  let selection: InfiniteCanvasSelection | undefined;
+
+  if (!isAbsent(value.selection)) {
+    const parsedSelection = parseInfiniteCanvasSelection(value.selection);
+
+    if (parsedSelection === null) {
+      return null;
+    }
+
+    selection = parsedSelection;
+  }
+
+  return {
+    activeWindowId,
+    camera,
+    selection,
+    version: 1,
+    windows,
+  };
 }
 
 export {

@@ -1,0 +1,117 @@
+name: Bug report
+description: Something in @infinite-canvas/react does not behave the way it should.
+title: "[bug]: "
+labels: ["bug", "needs triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for filing a bug.
+
+        **Do not report security vulnerabilities here.** See
+        [SECURITY.md](https://github.com/tyler-mitchell/infinite-canvas/blob/main/SECURITY.md)
+        for private disclosure.
+
+        The single most useful thing you can give us is a minimal reproduction.
+
+  - type: checkboxes
+    id: preflight
+    attributes:
+      label: Preflight
+      options:
+        - label: I searched the existing issues and this has not already been reported.
+          required: true
+        - label: I can reproduce this on the latest release of `@infinite-canvas/react`.
+          required: false
+
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Which version of `@infinite-canvas/react` are you on? (`0.1.0`, a git SHA, `workspace:*`…)
+      placeholder: "0.1.0"
+    validations:
+      required: true
+
+  - type: input
+    id: browser
+    attributes:
+      label: Browser and OS
+      description: Name and version, plus the operating system.
+      placeholder: "Chrome 138 on macOS 15.4"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: webgpu
+    attributes:
+      label: Is WebGPU available in that browser?
+      description: |
+        Open the devtools console and run `!!navigator.gpu && !!(await navigator.gpu.requestAdapter())`.
+        `true` means WebGPU is available and an adapter was returned. If you are not using the R3F /
+        scene-layer features at all, pick "Not relevant".
+      options:
+        - "Yes — navigator.gpu exists and an adapter was returned"
+        - "No — navigator.gpu is missing or requestAdapter() returned null"
+        - "Not relevant — the bug does not involve scene layers or rasterization"
+        - "I don't know"
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Minimal reproduction
+      description: |
+        A link to a repository, a StackBlitz, or — best of all — a playground showcase route
+        (`apps/playground/src/routes/*.tsx`) as a patch or gist. If you cannot share a link, paste the
+        smallest component that reproduces the problem.
+
+        Issues without a reproduction are much harder to act on and may be closed.
+      placeholder: |
+        https://github.com/…  — or —
+
+        ```tsx
+        import { InfiniteCanvasDesktop } from "@infinite-canvas/react";
+        // …
+        ```
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: What do you do, in order, to see the bug?
+      placeholder: |
+        1. Open the canvas with two windows.
+        2. Drag the left window's right edge past the right window.
+        3. …
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: What did you expect to happen?
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: What happened instead? Include any console errors, verbatim.
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Anything else
+      description: |
+        Screenshots, a screen recording, React / React DOM / `three` / `@react-three/fiber` versions,
+        whether persistence is enabled, whether rasterization is on. Optional.
+    validations:
+      required: false
