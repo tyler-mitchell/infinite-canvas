@@ -15,6 +15,7 @@ import {
 } from "@infinite-canvas/react";
 import { useRef } from "react";
 import { Button } from "ui";
+import { CommandPalette } from "../showcases/command-palette.tsx";
 import { exposeCanvasDevHandle } from "../showcases/dev-handle.ts";
 
 export const Route = createFileRoute("/groups")({
@@ -333,16 +334,21 @@ function GroupsShowcase() {
         renderOverlay={(context) => {
           exposeCanvasDevHandle(context);
           return (
-            <div className="pointer-events-auto absolute bottom-4 left-4 flex items-center gap-1.5 rounded-lg border border-border bg-popover/90 p-1.5 backdrop-blur">
-              <NewWindowButton />
-              <span className="mx-1 h-4 w-px bg-border" />
-              <GroupControls />
-              <span className="mx-1 h-4 w-px bg-border" />
-              <RecipeControls />
-            </div>
+            <>
+              {/* Mod+K. Built entirely on `context.contextualCommands`, which has been public
+                  since the agent handle landed and which nothing consumed until now. */}
+              <CommandPalette context={context} />
+              <div className="pointer-events-auto absolute bottom-4 left-4 flex items-center gap-1.5 rounded-lg border border-border bg-popover/90 p-1.5 backdrop-blur">
+                <NewWindowButton />
+                <span className="mx-1 h-4 w-px bg-border" />
+                <GroupControls />
+                <span className="mx-1 h-4 w-px bg-border" />
+                <RecipeControls />
+              </div>
+            </>
           );
         }}
-        subtitle="New window, then Alt+drag it onto another to dock. Drag a shell edge to resize the group, a tab along its strip to reorder. Mod+Shift+Arrow tiles a floating window. Mod+Z undoes everything."
+        subtitle="Mod+K for every command. Alt+drag to dock, drag a shell edge to resize, a tab along its strip to reorder. Mod+Shift+Arrow tiles a floating window. Mod+Z undoes everything."
         title="Groups"
         windowDefinitions={registry}
       />

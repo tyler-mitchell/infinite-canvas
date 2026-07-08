@@ -56,6 +56,16 @@ sections, in this order, omitting the ones that don't apply:
   `@infinite-canvas/react/scene` and returns its `true` fallback for every consumer who has not
   installed `three` and enabled `diagnostics.frustum`. Rasterization eligibility now shares it.
 
+- **A command palette in `/groups`** (`Mod+K`), built entirely on `contextualCommands` — an
+  array that has been public since the agent handle landed and that **nothing consumed**. It
+  already carried `label`, `description`, `hotkeys`, `group`, and `enabled` computed against the
+  live state, so the palette is about sixty lines over an API that existed. The command layer
+  was documented and undiscoverable; now it is only the former. Unavailable commands are shown
+  greyed and inert rather than hidden: hiding them makes the palette lie about what the
+  framework can do, and running them makes it lie about what it can do _now_. Playground glue,
+  not a framework export — a palette is UI, and this framework is headless. What the framework
+  owes it is the vocabulary, and it already had that.
+
 - **A world overview, as geometry rather than as a widget.** An infinite canvas has a failure
   mode nothing bounded does: you can pan into empty space and lose everything. Fit-all,
   directional focus, and recipes all recover you _after_ you are lost; an overview is the only
