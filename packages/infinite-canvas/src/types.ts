@@ -6,6 +6,12 @@ import type {
   ReactNode,
 } from "react";
 
+import type {
+  InfiniteCanvasGroupDockEdge,
+  InfiniteCanvasGroupLayoutMode,
+  InfiniteCanvasGroupNode,
+} from "./group-tree";
+
 type InfiniteCanvasPoint = Readonly<{
   x: number;
   y: number;
@@ -150,9 +156,27 @@ type InfiniteCanvasInteraction =
   | InfiniteCanvasResizeInteraction
   | null;
 
+/**
+ * A world object that owns a local layout. It moves and resizes as one thing;
+ * inside, `tree` arranges its member windows.
+ *
+ * `rect` is the shell's content rect in world units — the solver partitions it
+ * directly. A member window's own `rect` is kept synced to whatever the solver
+ * says, so snapping, selection bounds, and camera framing keep reading
+ * `window.rect` and need to know nothing about groups.
+ */
+type InfiniteCanvasGroup = Readonly<{
+  id: string;
+  rect: InfiniteCanvasRect;
+  title: string;
+  tree: InfiniteCanvasGroupNode;
+  zIndex: number;
+}>;
+
 type InfiniteCanvasState<Kind extends string = string> = Readonly<{
   activeWindowId: string | null;
   camera: InfiniteCanvasCamera;
+  groups: readonly InfiniteCanvasGroup[];
   interaction: InfiniteCanvasInteraction;
   selection: InfiniteCanvasSelection;
   snapPreview: InfiniteCanvasSnapPreview | null;
@@ -160,11 +184,19 @@ type InfiniteCanvasState<Kind extends string = string> = Readonly<{
   windows: readonly InfiniteCanvasWindow<Kind>[];
 }>;
 
+/**
+ * `version: 2` added `groups`. A `version: 1` payload is still accepted and
+ * migrates to `groups: []`. Making `groups` an optional field on `version: 1`
+ * would have looked backward-compatible right up until an older build read a
+ * newer payload, dropped the field it did not know, and wrote back a layout with
+ * every group silently deleted.
+ */
 type InfiniteCanvasSerializedState<Kind extends string = string> = Readonly<{
   activeWindowId: string | null;
   camera: InfiniteCanvasCamera;
+  groups: readonly InfiniteCanvasGroup[];
   selection?: InfiniteCanvasSelection;
-  version: 1;
+  version: 2;
   windows: readonly InfiniteCanvasWindow<Kind>[];
 }>;
 
@@ -643,6 +675,43 @@ type InfiniteCanvasAction<Kind extends string = string> =
   | Readonly<{ command: InfiniteCanvasCommand; type: "command.execute" }>
   | Readonly<{ type: "desktop.hydrate"; state: InfiniteCanvasState<Kind> }>
   | Readonly<{ type: "desktop.reset"; state: InfiniteCanvasState<Kind> }>
+  | Readonly<{
+      groupId: string;
+      rect: InfiniteCanvasRect;
+      title?: string;
+      type: "group.create";
+      windowIds: readonly string[];
+    }>
+  | Readonly<{ groupId: string; type: "group.close" }>
+  | Readonly<{ groupId: string; rect: InfiniteCanvasRect; type: "group.setRect" }>
+  | Readonly<{
+      containerId: string;
+      edge: InfiniteCanvasGroupDockEdge;
+      groupId: string;
+      targetId: string;
+      type: "group.dockWindow";
+      windowId: string;
+    }>
+  | Readonly<{ rect?: InfiniteCanvasRect; type: "group.undockWindow"; windowId: string }>
+  | Readonly<{
+      childId: string;
+      containerId: string;
+      groupId: string;
+      type: "group.setActiveChild";
+    }>
+  | Readonly<{
+      containerId: string;
+      groupId: string;
+      layout: InfiniteCanvasGroupLayoutMode;
+      type: "group.setLayoutMode";
+    }>
+  | Readonly<{
+      containerId: string;
+      groupId: string;
+      type: "group.setChildWeights";
+      weights: Readonly<Record<string, number>>;
+    }>
+  | Readonly<{ childId: string; groupId: string; toIndex: number; type: "group.reorderChild" }>
   | Readonly<{ type: "interaction.finish"; pointerId: number }>
   | Readonly<{
       mode: InfiniteCanvasMarqueeMode;
@@ -704,11 +773,51 @@ type InfiniteCanvasAction<Kind extends string = string> =
   | Readonly<{ type: "window.togglePinned"; windowId: string }>;
 
 type InfiniteCanvasCommands<Kind extends string = string> = Readonly<{
+  closeGroup: (groupId: string) => void;
   closeWindow: (windowId: string) => void;
+  createGroup: (
+    input: Readonly<{
+      groupId: string;
+      rect: InfiniteCanvasRect;
+      title?: string;
+      windowIds: readonly string[];
+    }>,
+  ) => void;
   dispatch: (action: InfiniteCanvasAction<Kind>) => void;
+  dockWindow: (
+    input: Readonly<{
+      containerId: string;
+      edge: InfiniteCanvasGroupDockEdge;
+      groupId: string;
+      targetId: string;
+      windowId: string;
+    }>,
+  ) => void;
   executeCommand: (command: InfiniteCanvasCommand) => void;
   finishInteraction: (pointerId: number) => void;
   focusWindow: (windowId: string) => void;
+  reorderGroupChild: (
+    input: Readonly<{ childId: string; groupId: string; toIndex: number }>,
+  ) => void;
+  setGroupActiveChild: (
+    input: Readonly<{ childId: string; containerId: string; groupId: string }>,
+  ) => void;
+  setGroupChildWeights: (
+    input: Readonly<{
+      containerId: string;
+      groupId: string;
+      weights: Readonly<Record<string, number>>;
+    }>,
+  ) => void;
+  setGroupLayoutMode: (
+    input: Readonly<{
+      containerId: string;
+      groupId: string;
+      layout: InfiniteCanvasGroupLayoutMode;
+    }>,
+  ) => void;
+  setGroupRect: (input: Readonly<{ groupId: string; rect: InfiniteCanvasRect }>) => void;
+  undockWindow: (input: Readonly<{ rect?: InfiniteCanvasRect; windowId: string }>) => void;
   hydrate: (state: InfiniteCanvasState<Kind>) => void;
   maximizeWindow: (windowId: string) => void;
   minimizeWindow: (windowId: string) => void;
@@ -789,6 +898,7 @@ export type {
   InfiniteCanvasCommands,
   InfiniteCanvasContextualCommand,
   InfiniteCanvasDirection,
+  InfiniteCanvasGroup,
   InfiniteCanvasCursor,
   InfiniteCanvasCursorInteraction,
   InfiniteCanvasCursorPolicy,

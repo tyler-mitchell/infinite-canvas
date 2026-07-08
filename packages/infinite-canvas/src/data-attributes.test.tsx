@@ -109,6 +109,11 @@ function countOccurrences(markup: string, needle: string) {
 test("INFINITE_CANVAS_SLOTS is the complete slot vocabulary", () => {
   expect(INFINITE_CANVAS_SLOTS).toEqual({
     grid: "grid",
+    groupAccordionHeader: "group-accordion-header",
+    groupGutter: "group-gutter",
+    groupShell: "group-shell",
+    groupTab: "group-tab",
+    groupTabStrip: "group-tab-strip",
     hud: "hud",
     hudButton: "hud-button",
     hudDock: "hud-dock",
@@ -262,6 +267,7 @@ test("selection bounds overlay is tagged data-slot=selection-bounds", () => {
 test("snap overlay emits snap-preview and per-guide axis/kind attributes", () => {
   const snapState: InfiniteCanvasState<ContractWindowKind> = {
     ...baseState,
+    groups: [],
     interaction: {
       kind: "move",
       originPointer: { x: 50, y: 50 },
@@ -312,6 +318,7 @@ test("snap overlay emits snap-preview and per-guide axis/kind attributes", () =>
 test("marquee overlay emits data-slot=marquee with the interaction mode", () => {
   const marqueeState: InfiniteCanvasState<ContractWindowKind> = {
     ...baseState,
+    groups: [],
     interaction: {
       currentPointer: { x: 220, y: 160 },
       kind: "marquee",

@@ -1,6 +1,6 @@
 # API Reference
 
-The public surface of `@infinite-canvas/react`: 157 values and 134 types,
+The public surface of `@infinite-canvas/react`: 176 values and 148 types,
 generated from the barrel (`packages/infinite-canvas/src/index.ts`) so it cannot
 drift. Anything not exported from the barrel is internal and unstable —
 including every `data-infinite-canvas-*` attribute, which is a behavioural hook
@@ -138,6 +138,24 @@ buttons, and programmatic drivers share one mutation path.
 - `getInfiniteCanvasContextualCommands`
 - `getInfiniteCanvasHotkeyBindings`
 - `isInfiniteCanvasCommandEnabled`
+
+**`group-tree`** — the n-ary container tree a group shell owns
+
+- `createInfiniteCanvasGroupWindowNode`, `dockInfiniteCanvasGroupWindow`, `undockInfiniteCanvasGroupWindow`
+- `findInfiniteCanvasGroupNode`, `getInfiniteCanvasGroupParent`, `getInfiniteCanvasGroupWindowIds`
+- `isInfiniteCanvasGroupContainer`, `normalizeInfiniteCanvasGroupTree`, `DEFAULT_INFINITE_CANVAS_GROUP_WEIGHT`
+
+**`group-layout`** — solving that tree into rects
+
+- `getInfiniteCanvasGroupLayout` — tree + shell rect → window rects, gutters, tab strips, accordion headers
+- `getInfiniteCanvasGroupDockEdgeAtPoint` — which edge a pointer docks against, from a _model_ rect
+- `getInfiniteCanvasGroupGutterWeights` — the reweighting a gutter drag produces
+- `DEFAULT_INFINITE_CANVAS_GROUP_METRICS`
+
+**`group-state`** — groups projected onto canvas state
+
+- `findInfiniteCanvasGroup`, `getInfiniteCanvasWindowGroup`, `isInfiniteCanvasWindowGrouped`
+- `getInfiniteCanvasGroupedWindowIds`, `getInfiniteCanvasGroupProjection`, `reconcileInfiniteCanvasGroups`
 
 **`window-focus`**
 

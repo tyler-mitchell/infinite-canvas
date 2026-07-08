@@ -1,7 +1,13 @@
-import type { InfiniteCanvasSerializedState, InfiniteCanvasState } from "./types";
+import { reconcileInfiniteCanvasGroups } from "./group-state";
+import type {
+  InfiniteCanvasGroup,
+  InfiniteCanvasSerializedState,
+  InfiniteCanvasState,
+} from "./types";
 import { EMPTY_INFINITE_CANVAS_SELECTION, normalizeSelection } from "./selection";
 import {
   parseInfiniteCanvasCamera,
+  parseInfiniteCanvasGroup,
   parseInfiniteCanvasSelection,
   parseInfiniteCanvasWindow,
 } from "./validation";
@@ -10,6 +16,7 @@ import { getUniqueInfiniteCanvasWindows } from "./window-identity";
 type InfiniteCanvasPersistenceEnvelope = Readonly<{
   activeWindowId: string | null;
   camera: unknown;
+  groups: readonly unknown[];
   selection: unknown;
   windows: readonly unknown[];
 }>;
@@ -36,8 +43,9 @@ function serializeInfiniteCanvasState<Kind extends string>(
   return {
     activeWindowId: state.activeWindowId,
     camera: state.camera,
+    groups: state.groups,
     selection: state.selection,
-    version: 1,
+    version: 2,
     windows: state.windows,
   };
 }
@@ -53,13 +61,19 @@ function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
 function readInfiniteCanvasPersistenceEnvelope(
   value: unknown,
 ): InfiniteCanvasPersistenceEnvelope | null {
-  if (!isRecord(value) || value.version !== 1 || !Array.isArray(value.windows)) {
+  // `version: 1` predates groups; it migrates to none rather than being rejected.
+  if (
+    !isRecord(value) ||
+    (value.version !== 1 && value.version !== 2) ||
+    !Array.isArray(value.windows)
+  ) {
     return null;
   }
 
   return {
     activeWindowId: typeof value.activeWindowId === "string" ? value.activeWindowId : null,
     camera: value.camera,
+    groups: Array.isArray(value.groups) ? value.groups : [],
     selection: value.selection,
     windows: value.windows,
   };
@@ -112,10 +126,16 @@ function parseInfiniteCanvasState<Kind extends string>(
           anchorWindowId: activeWindowId,
           windowIds: [activeWindowId],
         });
+  // A malformed group is dropped, not fatal: it can only cost the user a layout,
+  // whereas rejecting the payload costs them every window on the canvas.
+  const groups = envelope.groups
+    .map((group) => parseInfiniteCanvasGroup(group))
+    .filter((group): group is InfiniteCanvasGroup => group !== null);
   const unnormalizedState = {
     ...baseState,
     activeWindowId,
     camera: parseInfiniteCanvasCamera(envelope.camera) ?? baseState.camera,
+    groups,
     interaction: null,
     selection: initialSelection,
     snapPreview: null,
@@ -123,11 +143,14 @@ function parseInfiniteCanvasState<Kind extends string>(
   } satisfies InfiniteCanvasState<Kind>;
   const selection = normalizeSelection(unnormalizedState, initialSelection);
 
-  return {
+  // A persisted tree can name a window whose kind has since left the registry,
+  // or that a duplicate-id pass dropped. Reconciling here means no caller ever
+  // sees a group laying out a window that does not exist.
+  return reconcileInfiniteCanvasGroups({
     ...unnormalizedState,
     activeWindowId: selection.anchorWindowId,
     selection,
-  };
+  });
 }
 
 function parseInfiniteCanvasStateJson<Kind extends string>(

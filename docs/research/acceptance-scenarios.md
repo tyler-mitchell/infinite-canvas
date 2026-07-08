@@ -37,10 +37,12 @@
 - **DOCK-001** — Drag a floating window beside another → new split group
   shell.
 - **DOCK-002** — Drag over a group's center → tab merge (or configured merge).
+  (`partial`: `dockInfiniteCanvasGroupWindow` with `edge: "center"` merges into a tab group; the drag gesture that calls it is unbuilt.)
 - **DOCK-003** — Move a group shell → the group moves as one world object.
 - **DOCK-004** — Tear a child out of a tab group → sensible floating rect;
   group stays valid.
 - **DOCK-005** — Remove the last child → empty-group cleanup.
+  (`done`: `undockInfiniteCanvasGroupWindow` returns `null`, and `withInfiniteCanvasGroupTree` drops the shell.)
 
 ## Split behavior — all `open`
 

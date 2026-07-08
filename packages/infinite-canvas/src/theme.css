@@ -482,4 +482,46 @@
     color: var(--icx-hud-button-disabled-fg);
     cursor: not-allowed;
   }
+
+  /* ---- Group chrome -------------------------------------------------------
+     Group shells sit beneath the window plane. Their chrome never overlaps a
+     member window: the solver reserves each gutter and tab strip its own rect.
+     Sizes come from the solver, not from CSS, so nothing here sets width or
+     height -- doing so would make the DOM disagree with the canonical layout. */
+
+  [data-slot="group-shell"] {
+    background: var(--icx-body-background);
+    border: 1px solid var(--icx-idle-border);
+    border-radius: 2px;
+  }
+
+  [data-slot="group-gutter"] {
+    background: var(--icx-idle-border);
+  }
+
+  [data-slot="group-tab-strip"] {
+    background: var(--icx-header-idle);
+    border-bottom: 1px solid var(--icx-idle-border);
+    gap: 1px;
+  }
+
+  [data-slot="group-tab"],
+  [data-slot="group-accordion-header"] {
+    background: transparent;
+    border: 0;
+    color: var(--icx-grid-major);
+    cursor: pointer;
+    font: inherit;
+    overflow: hidden;
+    padding-inline: 10px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  [data-slot="group-tab"][data-active],
+  [data-slot="group-accordion-header"][data-active] {
+    background: var(--icx-header-active);
+    box-shadow: inset 0 -2px 0 0 var(--icx-active-accent);
+    color: var(--icx-selection-border);
+  }
 }

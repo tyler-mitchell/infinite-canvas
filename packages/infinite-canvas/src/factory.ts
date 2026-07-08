@@ -1,8 +1,10 @@
 import { DEFAULT_INFINITE_CANVAS_CAMERA } from "./constants";
+import { reconcileInfiniteCanvasGroups } from "./group-state";
 import { normalizeSelection } from "./selection";
 import { getUniqueInfiniteCanvasWindows } from "./window-identity";
 import type {
   InfiniteCanvasCamera,
+  InfiniteCanvasGroup,
   InfiniteCanvasRect,
   InfiniteCanvasSelection,
   InfiniteCanvasSize,
@@ -29,6 +31,7 @@ type InfiniteCanvasWindowInput<Kind extends string, Data = unknown> = Readonly<{
 type InfiniteCanvasStateInput<Kind extends string> = Readonly<{
   activeWindowId?: string | null;
   camera?: InfiniteCanvasCamera;
+  groups?: readonly InfiniteCanvasGroup[];
   selection?: InfiniteCanvasSelection | readonly string[];
   viewport?: InfiniteCanvasViewport;
   windows: readonly InfiniteCanvasWindow<Kind>[];
@@ -128,6 +131,7 @@ function readSelectionInput(
 function createInfiniteCanvasState<Kind extends string>({
   activeWindowId,
   camera = DEFAULT_INFINITE_CANVAS_CAMERA,
+  groups = [],
   selection,
   viewport = DEFAULT_INFINITE_CANVAS_VIEWPORT,
   windows,
@@ -147,6 +151,7 @@ function createInfiniteCanvasState<Kind extends string>({
       },
       zoom: camera.zoom,
     },
+    groups,
     interaction: null,
     selection: readSelectionInput(selection, resolvedActiveWindowId),
     snapPreview: null,
@@ -162,11 +167,14 @@ function createInfiniteCanvasState<Kind extends string>({
   } satisfies InfiniteCanvasState<Kind>;
   const normalizedSelection = normalizeSelection(unnormalizedState, unnormalizedState.selection);
 
-  return {
+  // Groups supplied by a consumer are untrusted the same way persisted ones are:
+  // reconcile drops members that name no live window, and projects the rest onto
+  // their windows' rects.
+  return reconcileInfiniteCanvasGroups({
     ...unnormalizedState,
     activeWindowId: normalizedSelection.anchorWindowId ?? resolvedActiveWindowId,
     selection: normalizedSelection,
-  };
+  });
 }
 
 function defineInfiniteCanvasWindowRegistry<Kind extends string>(

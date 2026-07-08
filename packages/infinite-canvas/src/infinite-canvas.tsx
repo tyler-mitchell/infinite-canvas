@@ -40,6 +40,8 @@ import {
   isPointInsideInfiniteCanvasViewport,
 } from "./drop-interaction";
 import { InfiniteCanvasGridBackdrop } from "./grid-backdrop";
+import { InfiniteCanvasGroupLayer } from "./group-layer";
+import { getInfiniteCanvasGroupProjection } from "./group-state";
 import {
   DEFAULT_INFINITE_CANVAS_ICONS,
   InfiniteCanvasIconsContext,
@@ -179,6 +181,12 @@ type InfiniteCanvasViewportProps<
 }>;
 
 const SCENE_SCREEN_UNDERLAY_Z_INDEX = 1;
+/**
+ * Group chrome sits under the windows. It never fights them for stacking: the
+ * solver gives tab strips and gutters their own rects and places members in what
+ * is left, so the two are disjoint by construction.
+ */
+const GROUP_LAYER_Z_INDEX = 5;
 const WINDOW_LAYER_Z_INDEX = 10;
 const SCENE_OVERLAY_Z_INDEX = DEFAULT_INFINITE_CANVAS_STACK_BANDS.overlay - 10;
 const SCENE_SCREEN_OVERLAY_Z_INDEX = DEFAULT_INFINITE_CANVAS_STACK_BANDS.overlay - 9;
@@ -1042,6 +1050,10 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
             zIndex={SCENE_SCREEN_UNDERLAY_Z_INDEX}
           />
         )}
+        <InfiniteCanvasGroupLayer
+          devicePixelRatio={devicePixelRatio}
+          zIndex={GROUP_LAYER_Z_INDEX}
+        />
         <InfiniteCanvasWindowLayer
           chrome={chrome}
           devicePixelRatio={devicePixelRatio}
@@ -1112,15 +1124,22 @@ function InfiniteCanvasWindowLayer<Kind extends string>({
   zIndex?: number;
 }>) {
   const state = useInfiniteCanvasState<Kind>();
+  // Behind an inactive tab or a collapsed accordion fold. Still members of their
+  // group and still addressable — they simply have no rect to be drawn at.
+  const { hiddenWindowIds } = useMemo(
+    () => getInfiniteCanvasGroupProjection(state.groups),
+    [state.groups],
+  );
   // Keep DOM order stable during focus changes; z-index owns visual stacking.
   const visibleWindows = useMemo(
     () =>
       state.windows.filter(
         (window): window is InfiniteCanvasWindow<Kind> =>
           window.mode !== "minimized" &&
+          !hiddenWindowIds.has(window.id) &&
           isRegisteredInfiniteCanvasWindow(windowDefinitions, window),
       ),
-    [state.windows, windowDefinitions],
+    [hiddenWindowIds, state.windows, windowDefinitions],
   );
 
   return (

@@ -1,5 +1,7 @@
+import type { InfiniteCanvasGroupLayoutMode, InfiniteCanvasGroupNode } from "./group-tree";
 import type {
   InfiniteCanvasCamera,
+  InfiniteCanvasGroup,
   InfiniteCanvasPoint,
   InfiniteCanvasRect,
   InfiniteCanvasSelection,
@@ -221,10 +223,86 @@ function parseInfiniteCanvasWindow<Kind extends string>(
   };
 }
 
+const INFINITE_CANVAS_GROUP_AXES = ["horizontal", "vertical"] as const;
+const INFINITE_CANVAS_GROUP_LAYOUT_MODES = ["accordion", "split", "tabs"] as const;
+
+function isGroupLayoutMode(value: unknown): value is InfiniteCanvasGroupLayoutMode {
+  return INFINITE_CANVAS_GROUP_LAYOUT_MODES.includes(value as InfiniteCanvasGroupLayoutMode);
+}
+
+/**
+ * A persisted layout tree. Recursive, so it is parsed recursively; a malformed
+ * branch invalidates the whole tree rather than silently pruning members, since
+ * a half-parsed group would lay out windows nobody asked it to.
+ */
+function parseInfiniteCanvasGroupNode(value: unknown): InfiniteCanvasGroupNode | null {
+  if (!isRecord(value) || typeof value.id !== "string" || !isPositiveSafeNumber(value.weight)) {
+    return null;
+  }
+
+  if (value.kind === "window") {
+    return { id: value.id, kind: "window", weight: value.weight };
+  }
+
+  if (
+    value.kind !== "container" ||
+    !isGroupLayoutMode(value.layout) ||
+    !INFINITE_CANVAS_GROUP_AXES.includes(
+      value.axis as (typeof INFINITE_CANVAS_GROUP_AXES)[number],
+    ) ||
+    !Array.isArray(value.children) ||
+    value.children.length === 0 ||
+    (value.activeChildId !== null && typeof value.activeChildId !== "string")
+  ) {
+    return null;
+  }
+
+  const children: InfiniteCanvasGroupNode[] = [];
+
+  for (const entry of value.children) {
+    const child = parseInfiniteCanvasGroupNode(entry);
+
+    if (child === null) {
+      return null;
+    }
+
+    children.push(child);
+  }
+
+  return {
+    activeChildId: value.activeChildId,
+    axis: value.axis as (typeof INFINITE_CANVAS_GROUP_AXES)[number],
+    children,
+    id: value.id,
+    kind: "container",
+    layout: value.layout,
+    weight: value.weight,
+  };
+}
+
+function parseInfiniteCanvasGroup(value: unknown): InfiniteCanvasGroup | null {
+  if (!isRecord(value) || typeof value.id !== "string" || typeof value.title !== "string") {
+    return null;
+  }
+
+  const rect = parseInfiniteCanvasRect(value.rect);
+  const tree = parseInfiniteCanvasGroupNode(value.tree);
+
+  if (rect === null || tree === null || !isSafeNumber(value.zIndex)) {
+    return null;
+  }
+
+  return { id: value.id, rect, title: value.title, tree, zIndex: value.zIndex };
+}
+
 function parseInfiniteCanvasSerializedState<Kind extends string>(
   value: unknown,
 ): InfiniteCanvasSerializedState<Kind> | null {
-  if (!isRecord(value) || value.version !== 1) {
+  // `version: 1` predates groups and migrates to none. Accepting it here rather
+  // than making `groups` optional is what stops an older build from reading a
+  // newer payload, dropping the field it does not know, and writing back a
+  // layout with every group silently deleted.
+  if (!isRecord(value) || (value.version !== 1 && value.version !== 2)) {
     return null;
   }
 
@@ -264,17 +342,38 @@ function parseInfiniteCanvasSerializedState<Kind extends string>(
     selection = parsedSelection;
   }
 
+  const groups: InfiniteCanvasGroup[] = [];
+
+  if (!isAbsent(value.groups)) {
+    if (!Array.isArray(value.groups)) {
+      return null;
+    }
+
+    for (const entry of value.groups) {
+      const group = parseInfiniteCanvasGroup(entry);
+
+      if (group === null) {
+        return null;
+      }
+
+      groups.push(group);
+    }
+  }
+
   return {
     activeWindowId,
     camera,
+    groups,
     selection,
-    version: 1,
+    version: 2,
     windows,
   };
 }
 
 export {
   parseInfiniteCanvasCamera,
+  parseInfiniteCanvasGroup,
+  parseInfiniteCanvasGroupNode,
   parseInfiniteCanvasPoint,
   parseInfiniteCanvasRect,
   parseInfiniteCanvasSelection,

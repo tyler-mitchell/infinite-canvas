@@ -1,5 +1,19 @@
 import { executeInfiniteCanvasCommand } from "./commands";
 import { navigateCamera } from "./camera-navigation";
+import {
+  closeInfiniteCanvasGroup,
+  createInfiniteCanvasGroup,
+  detachInfiniteCanvasWindowFromGroups,
+  dockInfiniteCanvasWindowIntoGroup,
+  reorderInfiniteCanvasGroupChildInState,
+  setInfiniteCanvasGroupActiveChildInState,
+  setInfiniteCanvasGroupChildWeightsInState,
+  setInfiniteCanvasGroupLayoutModeInState,
+  isInfiniteCanvasWindowGrouped,
+  setInfiniteCanvasGroupRect,
+  syncInfiniteCanvasGroupWindowRects,
+  undockInfiniteCanvasWindowFromGroup,
+} from "./group-state";
 import { panCameraByScreenDelta, zoomCameraAtScreenPoint } from "./geometry";
 import {
   beginCanvasPan,
@@ -71,11 +85,22 @@ function reduceInfiniteCanvasState<Kind extends string>(
       return finishCanvasInteraction(state, action.pointerId);
     case "interaction.startMarquee":
       return beginMarqueeSelection(state, action.pointerId, action.point, action.mode);
+    // A grouped window has no rect of its own to drag -- the tree owns its
+    // placement. Dragging the shell, and tearing a member out of it, are pointer
+    // gestures that compile to `group.setRect` and `group.undockWindow`; until
+    // those land, a drag on a member is simply refused rather than allowed to
+    // fight the projection.
     case "interaction.startMove":
-      return beginWindowMove(state, action.pointerId, action.windowId, action.point);
+      return isInfiniteCanvasWindowGrouped(state, action.windowId)
+        ? state
+        : beginWindowMove(state, action.pointerId, action.windowId, action.point);
     case "interaction.startPan":
       return beginCanvasPan(state, action.pointerId, action.point, action.clearSelection);
     case "interaction.startResize":
+      if (isInfiniteCanvasWindowGrouped(state, action.windowId)) {
+        return state;
+      }
+
       return beginWindowResize(
         state,
         action.pointerId,
@@ -83,8 +108,14 @@ function reduceInfiniteCanvasState<Kind extends string>(
         action.handle,
         action.point,
       );
+    // Re-project after every step. A group-move drags several windows at once, and
+    // a selection can mix grouped and floating windows; rather than teaching the
+    // interaction layer which is which, the projection simply wins. It is a no-op
+    // when there are no groups.
     case "interaction.step":
-      return stepCanvasInteraction(state, action.pointerId, action.point, action.snapPolicy);
+      return syncInfiniteCanvasGroupWindowRects(
+        stepCanvasInteraction(state, action.pointerId, action.point, action.snapPolicy),
+      );
     case "selection.add":
       return addSelection(state, action.windowIds);
     case "selection.clear":
@@ -110,14 +141,45 @@ function reduceInfiniteCanvasState<Kind extends string>(
         ...state,
         viewport: action.viewport,
       };
+    case "group.close":
+      return closeInfiniteCanvasGroup(state, action.groupId);
+    case "group.create":
+      return createInfiniteCanvasGroup(state, action);
+    case "group.dockWindow":
+      return dockInfiniteCanvasWindowIntoGroup(state, action);
+    case "group.reorderChild":
+      return reorderInfiniteCanvasGroupChildInState(state, action);
+    case "group.setActiveChild":
+      return setInfiniteCanvasGroupActiveChildInState(state, action);
+    case "group.setChildWeights":
+      return setInfiniteCanvasGroupChildWeightsInState(state, action);
+    case "group.setLayoutMode":
+      return setInfiniteCanvasGroupLayoutModeInState(state, action);
+    case "group.setRect":
+      return setInfiniteCanvasGroupRect(state, action);
+    case "group.undockWindow":
+      return undockInfiniteCanvasWindowFromGroup(state, action);
+    // A window that is gone, or collapsed into the dock, cannot keep occupying a
+    // layout slot. Detaching after the fact keeps `stacking` group-blind.
     case "window.close":
-      return closeWindow(state, action.windowId);
+      return detachInfiniteCanvasWindowFromGroups(
+        closeWindow(state, action.windowId),
+        action.windowId,
+      );
     case "window.focus":
       return focusWindow(state, action.windowId);
+    // Maximizing a grouped window would have it cover its own shell. Tear it out
+    // first: the user asked for the whole viewport, not for a pane.
     case "window.maximize":
-      return maximizeWindow(state, action.windowId);
+      return maximizeWindow(
+        detachInfiniteCanvasWindowFromGroups(state, action.windowId),
+        action.windowId,
+      );
     case "window.minimize":
-      return minimizeWindow(state, action.windowId);
+      return detachInfiniteCanvasWindowFromGroups(
+        minimizeWindow(state, action.windowId),
+        action.windowId,
+      );
     case "window.open":
       return openWindow(state, action.window);
     case "window.restore":

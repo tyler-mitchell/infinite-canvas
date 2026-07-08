@@ -17,6 +17,7 @@ const commandState: InfiniteCanvasState<CommandTestWindowKind> = {
     },
     zoom: 1,
   },
+  groups: [],
   interaction: null,
   selection: {
     anchorWindowId: "alpha",

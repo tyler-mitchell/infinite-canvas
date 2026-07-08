@@ -1,5 +1,6 @@
 import type {
   InfiniteCanvasCamera,
+  InfiniteCanvasGroup,
   InfiniteCanvasRect,
   InfiniteCanvasSelection,
   InfiniteCanvasSize,
@@ -52,6 +53,15 @@ function cloneSelection(selection: InfiniteCanvasSelection): InfiniteCanvasSelec
   };
 }
 
+/**
+ * A group's tree is deeply immutable — every `group-tree` mutation returns fresh
+ * nodes and shares the rest — so it is safe to carry by reference. Only `rect` is
+ * a mutable-shaped value worth copying.
+ */
+function cloneGroup(group: InfiniteCanvasGroup): InfiniteCanvasGroup {
+  return { ...group, rect: cloneRect(group.rect) };
+}
+
 function cloneWindow<Kind extends string>(
   window: InfiniteCanvasWindow<Kind>,
 ): InfiniteCanvasWindow<Kind> {
@@ -69,6 +79,7 @@ function cloneInfiniteCanvasState<Kind extends string>(
   return {
     ...state,
     camera: cloneCamera(state.camera),
+    groups: state.groups.map(cloneGroup),
     selection: cloneSelection(state.selection),
     viewport: cloneSize(state.viewport),
     windows: state.windows.map(cloneWindow),

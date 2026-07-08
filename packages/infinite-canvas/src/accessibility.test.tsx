@@ -137,9 +137,10 @@ test("windows expose an accessible name, a role, and a role description", () => 
   expect(markup).toContain('aria-roledescription="window"');
 });
 
-test("aria-selected is never emitted: it is invalid on role=group", () => {
+test("window frames and the HUD never emit aria-selected: invalid on role=group", () => {
   // axe-core `aria-allowed-attr`. aria-selected is only supported on
-  // gridcell/option/row/tab/columnheader/rowheader/treeitem.
+  // gridcell/option/row/tab/columnheader/rowheader/treeitem — which is why the
+  // group layer's `role="tab"` buttons DO carry it, and windows never may.
   for (const isSelected of [false, true]) {
     for (const isActive of [false, true]) {
       expect(renderFrame({ isActive, isSelected })).not.toContain("aria-selected");
@@ -202,7 +203,7 @@ test("unavailable HUD commands are exposed as disabled, not merely dimmed", () =
   expect(findAction(hudMarkup, "fit-selection")).not.toContain("disabled");
 });
 
-test("the invalid state cannot silently return: aria-selected is absent from every slot", () => {
+test("the invalid state cannot silently return: no aria-selected on frames or HUD", () => {
   const allMarkup = [
     renderFrame({ isActive: true, isSelected: true }),
     renderFrame({ isActive: false, isSelected: false }),

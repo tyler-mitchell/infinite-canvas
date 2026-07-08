@@ -17,6 +17,48 @@ export {
   defineInfiniteCanvasWindowRegistry,
   getInfiniteCanvasWindowData,
 } from "./factory";
+export {
+  DEFAULT_INFINITE_CANVAS_GROUP_METRICS,
+  getInfiniteCanvasGroupDockEdgeAtPoint,
+  getInfiniteCanvasGroupGutterWeights,
+  getInfiniteCanvasGroupLayout,
+} from "./group-layout";
+export type {
+  InfiniteCanvasGroupAccordionHeader,
+  InfiniteCanvasGroupGutter,
+  InfiniteCanvasGroupLayout,
+  InfiniteCanvasGroupMetrics,
+  InfiniteCanvasGroupTabStrip,
+  InfiniteCanvasGroupWindowPlacement,
+} from "./group-layout";
+export {
+  DEFAULT_INFINITE_CANVAS_GROUP_WEIGHT,
+  createInfiniteCanvasGroupWindowNode,
+  dockInfiniteCanvasGroupWindow,
+  findInfiniteCanvasGroupNode,
+  getInfiniteCanvasGroupParent,
+  getInfiniteCanvasGroupWindowIds,
+  isInfiniteCanvasGroupContainer,
+  normalizeInfiniteCanvasGroupTree,
+  undockInfiniteCanvasGroupWindow,
+} from "./group-tree";
+export type {
+  InfiniteCanvasGroupAxis,
+  InfiniteCanvasGroupContainerNode,
+  InfiniteCanvasGroupDockEdge,
+  InfiniteCanvasGroupLayoutMode,
+  InfiniteCanvasGroupNode,
+  InfiniteCanvasGroupWindowNode,
+} from "./group-tree";
+export {
+  findInfiniteCanvasGroup,
+  getInfiniteCanvasGroupProjection,
+  getInfiniteCanvasGroupedWindowIds,
+  getInfiniteCanvasWindowGroup,
+  isInfiniteCanvasWindowGrouped,
+  reconcileInfiniteCanvasGroups,
+} from "./group-state";
+export type { InfiniteCanvasGroupProjection } from "./group-state";
 export { createInfiniteCanvasHandle } from "./canvas-handle";
 export type { InfiniteCanvasHandle } from "./canvas-handle";
 export {
@@ -272,6 +314,7 @@ export type {
   InfiniteCanvasCursorPolicy,
   InfiniteCanvasDragStartInput,
   InfiniteCanvasDirection,
+  InfiniteCanvasGroup,
   InfiniteCanvasDropCommitContext,
   InfiniteCanvasDropInteraction,
   InfiniteCanvasDropPayload,

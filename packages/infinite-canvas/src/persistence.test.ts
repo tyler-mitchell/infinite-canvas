@@ -18,6 +18,7 @@ const state: InfiniteCanvasState<PersistedWindowKind> = {
     },
     zoom: 1.5,
   },
+  groups: [],
   interaction: {
     kind: "pan",
     originCamera: {

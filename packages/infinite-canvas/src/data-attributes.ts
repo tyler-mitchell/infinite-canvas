@@ -14,6 +14,11 @@
  */
 const INFINITE_CANVAS_SLOTS = {
   grid: "grid",
+  groupAccordionHeader: "group-accordion-header",
+  groupGutter: "group-gutter",
+  groupShell: "group-shell",
+  groupTab: "group-tab",
+  groupTabStrip: "group-tab-strip",
   hud: "hud",
   hudButton: "hud-button",
   hudDock: "hud-dock",

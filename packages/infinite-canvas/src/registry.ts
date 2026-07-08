@@ -1,3 +1,4 @@
+import { reconcileInfiniteCanvasGroups } from "./group-state";
 import { EMPTY_INFINITE_CANVAS_SELECTION, normalizeSelection } from "./selection";
 import type {
   InfiniteCanvasState,
@@ -50,9 +51,12 @@ function normalizeInfiniteCanvasStateForWindowRegistry<Kind extends string>(
   registry: InfiniteCanvasWindowRegistry<Kind>,
 ): InfiniteCanvasState<Kind> | null {
   if (state.windows.length === 0) {
+    // No windows means no group can hold one. Dropping the shells here is what
+    // stops a stale tree from laying out ghosts.
     return {
       ...state,
       activeWindowId: null,
+      groups: [],
       selection: EMPTY_INFINITE_CANVAS_SELECTION,
       windows: [],
     };
@@ -78,11 +82,14 @@ function normalizeInfiniteCanvasStateForWindowRegistry<Kind extends string>(
   } satisfies InfiniteCanvasState<Kind>;
   const selection = normalizeSelection(unnormalizedState, state.selection);
 
-  return {
+  // A persisted group can name a window whose `kind` has since left the registry,
+  // or one a duplicate-id pass dropped. Reconciling removes those members, and
+  // any shell they emptied, then re-projects the survivors onto their rects.
+  return reconcileInfiniteCanvasGroups({
     ...unnormalizedState,
     activeWindowId: selection.anchorWindowId ?? activeWindowId,
     selection,
-  };
+  });
 }
 
 function assertInfiniteCanvasStateMatchesWindowRegistry<Kind extends string>(
@@ -119,6 +126,8 @@ function recoverInfiniteCanvasStateForWindowRegistry<Kind extends string>(
     normalizeInfiniteCanvasStateForWindowRegistry(state, registry) ?? {
       ...state,
       activeWindowId: null,
+      // Every window was unregistered, so every group is empty by definition.
+      groups: [],
       interaction: null,
       selection: EMPTY_INFINITE_CANVAS_SELECTION,
       snapPreview: null,

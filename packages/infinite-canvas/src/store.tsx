@@ -14,6 +14,7 @@ import { reduceInfiniteCanvasState } from "./reducer";
 import { cloneInfiniteCanvasState } from "./state";
 import type {
   InfiniteCanvasAction,
+  InfiniteCanvasGroup,
   InfiniteCanvasCamera,
   InfiniteCanvasCommand,
   InfiniteCanvasCommands,
@@ -51,6 +52,9 @@ type InfiniteCanvasWritableObservable<Kind extends string> = Observable<Infinite
     camera: Readonly<{
       set: (value: InfiniteCanvasCamera) => void;
     }>;
+    groups: Readonly<{
+      set: (value: readonly InfiniteCanvasGroup[]) => void;
+    }>;
     interaction: Readonly<{
       set: (value: InfiniteCanvasInteraction) => void;
     }>;
@@ -84,6 +88,10 @@ function commitInfiniteCanvasState<Kind extends string>(
 
     if (currentState.camera !== nextState.camera) {
       writableState$.camera.set(nextState.camera);
+    }
+
+    if (currentState.groups !== nextState.groups) {
+      writableState$.groups.set(nextState.groups);
     }
 
     if (currentState.interaction !== nextState.interaction) {
@@ -161,10 +169,64 @@ function createInfiniteCanvasStore<Kind extends string>(
         type: "command.execute",
       });
     },
+    closeGroup: (groupId) => {
+      dispatch({
+        groupId,
+        type: "group.close",
+      });
+    },
+    createGroup: (input) => {
+      dispatch({
+        ...input,
+        type: "group.create",
+      });
+    },
+    dockWindow: (input) => {
+      dispatch({
+        ...input,
+        type: "group.dockWindow",
+      });
+    },
     focusWindow: (windowId) => {
       dispatch({
         type: "window.focus",
         windowId,
+      });
+    },
+    reorderGroupChild: (input) => {
+      dispatch({
+        ...input,
+        type: "group.reorderChild",
+      });
+    },
+    setGroupActiveChild: (input) => {
+      dispatch({
+        ...input,
+        type: "group.setActiveChild",
+      });
+    },
+    setGroupChildWeights: (input) => {
+      dispatch({
+        ...input,
+        type: "group.setChildWeights",
+      });
+    },
+    setGroupLayoutMode: (input) => {
+      dispatch({
+        ...input,
+        type: "group.setLayoutMode",
+      });
+    },
+    setGroupRect: (input) => {
+      dispatch({
+        ...input,
+        type: "group.setRect",
+      });
+    },
+    undockWindow: (input) => {
+      dispatch({
+        ...input,
+        type: "group.undockWindow",
       });
     },
     hydrate: (state) => {

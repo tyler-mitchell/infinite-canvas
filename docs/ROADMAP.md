@@ -12,9 +12,21 @@
 The single biggest capability leap and the framework's identity claim:
 windows compose into movable local layout regions.
 
-- Group shells as first-class world objects; **n-ary container trees** with
-  weights; split mode first (create-group-by-docking, insert regions,
-  tear-out back to float, empty-group cleanup, normalization rules).
+- ✅ **Landed (2026-07-08): the canonical layer.** Group shells are first-class
+  world objects in `InfiniteCanvasState.groups`; `group-tree.ts` is the n-ary
+  container tree with weights and normalization; `group-layout.ts` solves it;
+  `group-state.ts` projects the solution onto member `window.rect`s so the rest
+  of the framework stays group-blind. Nine reducer actions and a command facade
+  (create, close, dock, undock, setRect, setLayoutMode, setActiveChild,
+  setChildWeights, reorderChild). Persisted at `version: 2`, with `version: 1`
+  migrating to `groups: []`. Rendered by `group-layer.tsx` (shell, gutters, tab
+  strips, accordion headers) beneath the window plane. `/groups` showcase.
+- **Still open: the pointer gestures.** Create-group-by-docking, drag-the-shell,
+  tear-out-by-drag, and gutter dragging all have canonical commands and a pure
+  hit-test (`getInfiniteCanvasGroupDockEdgeAtPoint`,
+  `getInfiniteCanvasGroupGutterWeights`) but no pointer bindings yet. Until they
+  land, a drag on a grouped window is refused rather than allowed to fight the
+  projection.
 - Tabs + accordion modes (center-merge, reorder, mode conversion,
   active-child semantics).
 - **Docking-intent snapping**: explicit intent mode with region overlays
@@ -29,6 +41,8 @@ windows compose into movable local layout regions.
   [research/acceptance-scenarios.md](research/acceptance-scenarios.md).
 - Exit: a /groups showcase where floating windows dock into split shells,
   merge into tabs, tear out, move as units; scenario tests green.
+  **Partially met.** The showcase drives all of that through commands. Doing it
+  by dragging, and the scenario tests, remain.
 - Dependencies: none hard; benefits from P2's chrome memoization landing
   first (group shells add chrome).
 

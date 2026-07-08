@@ -50,7 +50,10 @@ Initial release.
   fit the world, zoom to a point — as commands rather than imperative camera pokes.
 - **Versioned, document-scoped persistence.** Canvas state serializes to a versioned envelope, keyed
   per document, and is validated and recovered on read: unknown window kinds and stale references are
-  dropped rather than crashing the canvas.
+  dropped rather than crashing the canvas. The envelope is at `version: 2`; a `version: 1` payload
+  (which predates groups) still parses and migrates to `groups: []`. Making `groups` an optional field
+  on `version: 1` would have looked backward-compatible right up until an older build read a newer
+  payload, dropped the field it did not know, and wrote back a layout with every group deleted.
 - **Typed drag and drop.** A drop-target contract with spatial resolution, so a payload dropped on
   the canvas resolves to the window (or the empty canvas region) actually underneath it, in canvas
   coordinates.
@@ -61,6 +64,24 @@ Initial release.
   `three` and `@react-three/fiber` genuinely optional peers: the main entry never reaches them, so a
   consumer who does not render scene content can leave both uninstalled. Passing `sceneLayers`
   without a `sceneSurface` warns in development rather than silently rendering nothing.
+- **Window groups.** Windows compose into a group shell: a world object that owns a local layout and
+  moves as one thing. Inside, an n-ary container tree arranges them as a `split` (weighted panes with
+  draggable seams), `tabs` (one visible child behind a tab strip), or an `accordion`. Nine canonical
+  mutations — create, close, dock, undock, move/resize the shell, change layout mode, activate a
+  child, reweight children, reorder — so pointer, keyboard, and programmatic drivers compile to the
+  same vocabulary.
+
+  **The group is the source of truth and a member's `rect` is its projection.** Every mutation
+  re-solves the tree and writes the result back onto `window.rect`, which is what keeps snapping,
+  selection bounds, camera framing, persistence, and the scene-layer window proxies group-blind. A
+  window belongs to at most one tree; closing or minimizing one detaches it; removing the last member
+  destroys the shell.
+
+  Pointer gestures for docking, tear-out, and gutter dragging are not built yet. The canonical
+  commands and the pure hit-tests (`getInfiniteCanvasGroupDockEdgeAtPoint`,
+  `getInfiniteCanvasGroupGutterWeights`) exist; until the bindings land, a drag on a grouped window is
+  refused rather than allowed to fight the projection.
+
 - **Custom window chrome.** Replace the default header, controls, and corners wholesale via
   `renderFrame`, or slot into the existing frame. `renderFrame` is memoized on the window's own
   identity and is **not** re-invoked when the camera moves — a window's chrome must not reconcile on

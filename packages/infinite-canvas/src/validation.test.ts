@@ -9,7 +9,8 @@
  * Semantics locked here, verified empirically against arktype:
  *  - `number.safe`      -> finite number with |value| <= Number.MAX_SAFE_INTEGER
  *  - `number.safe > 0`  -> the above, and strictly positive
- *  - `version: "1"`     -> the numeric literal 1 (the string "1" is invalid)
+ *  - `version`           -> the numeric literal 1 or 2 (the string "1" is invalid).
+ *                          `version: 1` predates groups and migrates to `groups: []`.
  *  - `"+": "delete"`    -> unknown keys are stripped from the result
  */
 import { expect, test } from "vite-plus/test";
@@ -167,7 +168,7 @@ test("window rejects wrong-typed required fields", () => {
   expect(parseInfiniteCanvasWindow({ ...validWindow, minSize: { height: 1 } })).toBeNull();
 });
 
-test("serialized state requires the numeric literal version 1", () => {
+test("serialized state accepts the numeric literals 1 and 2, and migrates 1", () => {
   const base = {
     activeWindowId: null,
     camera: { center: { x: 0, y: 0 }, zoom: 1 },
@@ -175,8 +176,15 @@ test("serialized state requires the numeric literal version 1", () => {
   };
 
   expect(parseInfiniteCanvasSerializedState({ ...base, version: 1 })).not.toBeNull();
+  expect(parseInfiniteCanvasSerializedState({ ...base, version: 2 })).not.toBeNull();
   expect(parseInfiniteCanvasSerializedState({ ...base, version: "1" })).toBeNull();
-  expect(parseInfiniteCanvasSerializedState({ ...base, version: 2 })).toBeNull();
+  expect(parseInfiniteCanvasSerializedState({ ...base, version: 3 })).toBeNull();
+
+  // A version-1 payload predates groups and migrates to none, upgraded in place.
+  expect(parseInfiniteCanvasSerializedState({ ...base, version: 1 })).toMatchObject({
+    groups: [],
+    version: 2,
+  });
   expect(parseInfiniteCanvasSerializedState(base)).toBeNull();
 });
 
