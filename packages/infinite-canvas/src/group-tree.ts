@@ -31,7 +31,7 @@ type InfiniteCanvasGroupAxis = "horizontal" | "vertical";
  * one child at a time behind a tab strip. `accordion` stacks child headers
  * along `axis` and expands the active one.
  */
-type InfiniteCanvasGroupLayout = "accordion" | "split" | "tabs";
+type InfiniteCanvasGroupLayoutMode = "accordion" | "split" | "tabs";
 
 /** A window occupying a slot. Its `id` is the window's id — see invariant 1. */
 type InfiniteCanvasGroupWindowNode = Readonly<{
@@ -47,7 +47,7 @@ type InfiniteCanvasGroupContainerNode = Readonly<{
   children: readonly InfiniteCanvasGroupNode[];
   id: string;
   kind: "container";
-  layout: InfiniteCanvasGroupLayout;
+  layout: InfiniteCanvasGroupLayoutMode;
   weight: number;
 }>;
 
@@ -496,9 +496,9 @@ function clampIndex(index: number, lastInsertableIndex: number): number {
  * and back to split restores the proportions it had (weights ride along on the
  * nodes even while the layout ignores them).
  */
-function setInfiniteCanvasGroupLayout(
+function setInfiniteCanvasGroupLayoutMode(
   root: InfiniteCanvasGroupNode,
-  input: Readonly<{ containerId: string; layout: InfiniteCanvasGroupLayout }>,
+  input: Readonly<{ containerId: string; layout: InfiniteCanvasGroupLayoutMode }>,
 ): InfiniteCanvasGroupNode | null {
   const { containerId, layout } = input;
 
@@ -600,14 +600,14 @@ export {
   setInfiniteCanvasGroupActiveChild,
   setInfiniteCanvasGroupAxis,
   setInfiniteCanvasGroupChildWeights,
-  setInfiniteCanvasGroupLayout,
+  setInfiniteCanvasGroupLayoutMode,
   undockInfiniteCanvasGroupWindow,
 };
 export type {
   InfiniteCanvasGroupAxis,
   InfiniteCanvasGroupContainerNode,
   InfiniteCanvasGroupDockEdge,
-  InfiniteCanvasGroupLayout,
+  InfiniteCanvasGroupLayoutMode,
   InfiniteCanvasGroupNode,
   InfiniteCanvasGroupWindowNode,
 };
