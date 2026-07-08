@@ -4,13 +4,16 @@ import {
   createInfiniteCanvasState,
   createInfiniteCanvasWindow,
   defineInfiniteCanvasWindowRegistry,
+  getInfiniteCanvasGroupWindowIds,
   InfiniteCanvasDesktop,
   parseInfiniteCanvasRecipe,
+  unionRects,
   useInfiniteCanvasActions,
   useInfiniteCanvasSelector,
   useInfiniteCanvasStore,
   type InfiniteCanvasRecipe,
 } from "@infinite-canvas/react";
+import { useRef } from "react";
 import { Button } from "ui";
 import { exposeCanvasDevHandle } from "../showcases/dev-handle.ts";
 
@@ -55,9 +58,10 @@ const registry = defineInfiniteCanvasWindowRegistry<Kind>({
 });
 
 /**
- * `left` and `right` start as free-floating windows. `Group them` docks both into
- * a split shell; from there the layout mode can be swapped and the shell moved,
- * and the windows follow because their rects are derived, never stored.
+ * `left` and `right` start as free-floating windows, and `New window` adds more.
+ * `Group them` docks every floating window into one split shell; from there the layout
+ * mode can be swapped, and the shell moved or resized by its edge, and the windows follow
+ * because their rects are derived from the shell, never stored.
  */
 const initialState = createInfiniteCanvasState<Kind>({
   camera: { center: { x: 360, y: 180 }, zoom: 0.9 },
@@ -142,26 +146,84 @@ function RecipeControls() {
   );
 }
 
+const NEW_WINDOW_SIZE = { height: 260, width: 320 } as const;
+
+/**
+ * Opens a floating window at the camera's centre, so it lands where you are looking
+ * however far you have panned. Consecutive windows cascade rather than stacking exactly.
+ *
+ * `openWindow` assigns the z-index and focus itself, so neither is passed here.
+ */
+function NewWindowButton() {
+  const actions = useInfiniteCanvasActions<Kind>();
+  const store = useInfiniteCanvasStore<Kind>();
+  const sequenceRef = useRef(0);
+
+  return (
+    <Button
+      onClick={() => {
+        // Peek, don't subscribe: this needs the camera once, on click, and a subscription
+        // would re-render these controls on every pan frame.
+        const { camera } = store.state$.peek();
+        sequenceRef.current += 1;
+        const ordinal = sequenceRef.current;
+        const cascade = (ordinal % 5) * 28;
+
+        actions.openWindow(
+          createInfiniteCanvasWindow<Kind>({
+            id: `pane-${ordinal}`,
+            kind: "pane",
+            rect: {
+              ...NEW_WINDOW_SIZE,
+              x: camera.center.x - NEW_WINDOW_SIZE.width / 2 + cascade,
+              y: camera.center.y - NEW_WINDOW_SIZE.height / 2 + cascade,
+            },
+            title: `Pane ${ordinal}`,
+          }),
+        );
+      }}
+      size="xs"
+      variant="ghost"
+    >
+      New window
+    </Button>
+  );
+}
+
 function GroupControls() {
   const actions = useInfiniteCanvasActions();
   const groups = useInfiniteCanvasSelector((state) => state.groups);
+  const windows = useInfiniteCanvasSelector((state) => state.windows);
   const group = groups.find((candidate) => candidate.id === GROUP_ID) ?? null;
 
   if (group === null) {
+    // Whatever is floating right now, not a hardcoded pair. `New window` would otherwise
+    // be ignored by the one button you'd reach for immediately after pressing it.
+    const groupedIds = new Set(
+      groups.flatMap((candidate) => getInfiniteCanvasGroupWindowIds(candidate.tree)),
+    );
+    const members = windows.filter(
+      (window) => window.mode !== "minimized" && !groupedIds.has(window.id),
+    );
+    // The shell lands over the windows it swallows, rather than at a fixed rect far from
+    // wherever you happen to be looking. The solver re-projects them into it either way.
+    const rect = unionRects(members.map((window) => window.rect)) ?? GROUP_RECT;
+
     return (
       <Button
+        disabled={members.length < 2}
         onClick={() => {
           actions.createGroup({
             groupId: GROUP_ID,
-            rect: GROUP_RECT,
+            rect,
             title: "Workbench",
-            windowIds: ["left", "right"],
+            windowIds: members.map((window) => window.id),
           });
         }}
         size="xs"
         variant="ghost"
       >
-        Group them
+        Group them ({members.length})
       </Button>
     );
   }
@@ -194,15 +256,21 @@ function GroupControls() {
       </Button>
       <Button
         onClick={() => {
-          actions.undockWindow({
-            rect: { height: 260, width: 320, x: group.rect.x, y: group.rect.y + 400 },
-            windowId: "right",
-          });
+          // The last member, not a hardcoded `"right"` that may not be in the tree at all
+          // once the group is built from whatever was floating.
+          const lastMemberId = getInfiniteCanvasGroupWindowIds(group.tree).at(-1);
+
+          if (lastMemberId !== undefined) {
+            actions.undockWindow({
+              rect: { ...NEW_WINDOW_SIZE, x: group.rect.x, y: group.rect.y + 400 },
+              windowId: lastMemberId,
+            });
+          }
         }}
         size="xs"
         variant="ghost"
       >
-        Tear out right
+        Tear out last
       </Button>
       <Button
         onClick={() => {
@@ -226,13 +294,15 @@ function GroupsShowcase() {
           exposeCanvasDevHandle(context);
           return (
             <div className="pointer-events-auto absolute bottom-4 left-4 flex items-center gap-1.5 rounded-lg border border-border bg-popover/90 p-1.5 backdrop-blur">
+              <NewWindowButton />
+              <span className="mx-1 h-4 w-px bg-border" />
               <GroupControls />
               <span className="mx-1 h-4 w-px bg-border" />
               <RecipeControls />
             </div>
           );
         }}
-        subtitle="Alt+drag to dock. Save the arrangement as a recipe and put it back anywhere. Mod+Z undoes."
+        subtitle="New window, then Alt+drag it onto another to dock. Drag a shell edge to resize the group. Save the arrangement as a recipe and put it back anywhere. Mod+Z undoes."
         title="Groups"
         windowDefinitions={registry}
       />
