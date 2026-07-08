@@ -106,9 +106,11 @@ consumer that had nothing installed:**
 **Program work landed alongside** (capability, not ship blockers): P2 tranche 1
 (frame chrome memoization — landed, **unmeasured**, see
 [research/performance-profile.md](research/performance-profile.md)); P1 in full —
-the group core is wired, all four pointer gestures land, undo/redo and layout
-recipes shipped with it. P1's scenario tests remain unwritten, so it is
-capability-complete and verification-incomplete.
+the group core is wired, **every** pointer gesture lands (dock, shell move, shell
+resize, seam reweight, tab tear-out, tab reorder), undo/redo and layout recipes
+shipped with it, and FOCUS-002/FOCUS-003/ACC-001 landed alongside. P1's scenario
+tests remain unwritten, so it is capability-complete and verification-empty: no
+test in the suite touches groups, history, or recipes at all.
 
 ## Blocker classes
 
@@ -226,22 +228,52 @@ enforced, and both had already been wrong in exactly the way a gate would have c
   negative-tested, because a gate with false positives is a gate people learn to ignore.
   It also refuses to pass if the crawl reaches fewer modules than its floor.
 
+- ✅ **A third gate, which C1 did not anticipate and the other two exposed.** `pre-commit`
+  runs `vp staged` — lint and format over **the files you staged**. It is structurally blind
+  to a change in file A that breaks file B, where B was never staged. Making `isGrouped` a
+  required prop on `InfiniteCanvasWindowFrame` broke two test files exactly that way, and
+  **`vp check` failed on the workspace for six consecutive "clean" commits** before anyone
+  ran it. CI would have caught it on the next push, which is to say: after it was pushed.
+  `.vite-hooks/pre-push` now runs `vp check` (~4s) plus both gates above. Negative-tested:
+  deleting the prop from an unstaged test gives `vp staged → exit 0`, `pre-push → exit 1`.
+  Tests and builds stay in CI on purpose; a pre-push hook slow enough to be resented gets
+  disabled within a week.
+
 Exit: **met.** An observable imported into `reducer.ts` fails CI; so does a `three` import
 three hops away, reported with the full trail. Both negative-tested, along with the
-type-only false-positive case and a stale root entry.
+type-only false-positive case and a stale root entry. The API-doc gate has since caught
+undocumented exports **three times**, within six commits of being written.
 
-**C2 — P1 scenario tests (~2h, no browser).** P1's exit criteria say "scenario tests
-green". The gestures work; the tests do not exist. DOCK-001..005, SPLIT-001..003,
-TAB-001/002, ACC-001 are specified in `research/acceptance-scenarios.md` and are pure
-reducer-level assertions — no DOM needed, because the group core is pure. This is the
-single largest gap between "it works when I try it" and "it works". Exit: those scenario
-ids assert against the reducer and pass.
+**C2 — P1 scenario tests (~2h, no browser). NOT DONE — forbidden this session.** P1's exit
+criteria say "scenario tests green". The gestures work; the tests do not exist.
+DOCK-001..005, SPLIT-001..003, TAB-001/002, ACC-001 are specified in
+`research/acceptance-scenarios.md` and are pure reducer-level assertions — no DOM needed,
+because the group core is pure. **This is now the single largest gap in the project.** Exit:
+those scenario ids assert against the reducer and pass.
 
-_Three bugs found by reading on 2026-07-08 — dock intent dispatched three times, dead resize
-handles burying the gutter, and a mid-drag zoom sliding the window out from under the cursor
-— map exactly onto DOCK-001, SPLIT-001, and FAIL-001. That is the argument for C2, and it is
-not hypothetical. **No test in the suite touches groups, history, or recipes at all**, so P1
-and P4 are capability-complete and verification-empty._
+_The argument stopped being hypothetical. **Eight pre-existing defects were found by reading**
+on 2026-07-08, and four map straight onto scenarios that do not exist as tests:_
+
+| Defect                                                   | Scenario  |
+| -------------------------------------------------------- | --------- |
+| `Alt`+drag dispatched `interaction.step` three times     | DOCK-001  |
+| Dead resize handles on grouped windows buried the gutter | SPLIT-001 |
+| Mid-drag zoom slid the window out from under the cursor  | FAIL-001  |
+| `window.nudge` detached a grouped window from its shell  | DOCK-003  |
+
+_The other four had no scenario at all: `scope="window"` portals painting under their own
+window; `maxPendingCaptures` blanking every window the queue refused; the frustum probe
+sweeping its whole tracked set every frame, quadratically, inside the subsystem that exists to
+measure frame cost; and a group tab strip spending one tab stop per tab._
+
+_Three more were **introduced and caught the same day** — two in group-resize code re-read an
+hour after writing it, and a hotkey collision found by audit rather than by anyone hitting it.
+A fourth was found only by running the workspace gate: `vp check` had failed for six
+consecutive commits._
+
+_**No test in the suite touches groups, history, or recipes.** `grep -l` over `src/*.test.*`
+returns nothing for `createGroup`, `dockWindow`, `setChildWeights`, `undoInfiniteCanvas`, or
+`captureInfiniteCanvasRecipe`. P1 and P4 are capability-complete and verification-empty._
 
 _Auditing `acceptance-scenarios.md` on 2026-07-08 also found the doc badly stale — its
 headers said "grouping unbuilt" over a list of scenarios each marked `done`, and `SNAP-005`,
@@ -249,7 +281,13 @@ headers said "grouping unbuilt" over a list of scenarios each marked `done`, and
 Root cause: one status bucket, `open`, meant both "unbuilt" and "untested". It now
 distinguishes `built` (works, nothing guards it) from `unbuilt`._
 
-**C3 — Group shell resize. ✅ BUILT, not browser-verified.** Reported by the owner: a
+_Auditing `acceptance-scenarios.md` on 2026-07-08 also found the doc badly stale — its
+headers said "grouping unbuilt" over a list of scenarios each marked `done`, and `SNAP-005`,
+`PERSIST-001`, and `PERSIST-003` were filed as unbuilt features that had long since shipped.
+Root cause: one status bucket, `open`, meant both "unbuilt" and "untested". It now
+distinguishes `built` (works, nothing guards it) from `unbuilt`._
+
+**C3 — Group shell resize. ✅ BUILT, owner-confirmed.** Reported by the owner: a
 group's outer edge could not be dragged. A `groupResize` interaction beside
 `groupMove`/`groupGutter` steps `group.rect`; members re-project for free.
 
@@ -288,20 +326,48 @@ restoration, and the tab strip's roving tab stop. Focus behaviour is precisely t
 where shipping unverified is malpractice. Exit: `Tab` from the command surface enters the
 active window's body and cannot escape into an inactive window's content.
 
-### What "7 hours" actually buys
+### What the 7 hours actually bought
 
-C1 + C2 + C3 ≈ 5 agent-hours and need **no browser**. They convert P1 from
-capability-complete/verification-incomplete to actually done, close the owner's reported
-bug, and stop two documents from lying again.
+_Written after, from the git log, not before from the plan._
 
-C4 + C5 ≈ 4 hours and **cannot be honestly completed without a browser**. They are not
-blocked on knowledge; they are blocked on the ability to observe. Anything that claims
-them done without observation is the green checkmark this project's own conventions
-forbid.
+**Landed, and unobserved.** Eight pre-existing defects found by reading, each traced end to
+end and fixed: `maxPendingCaptures` blanking every window the capture queue refused;
+`Alt`+drag dispatching `interaction.step` three times so `dockIntent` resolved to `false`; a
+grouped window's dead resize handles burying the gutter between two panes; `scope="window"`
+portals painting underneath the very window they belonged to, since `0.1.0`; a mid-drag zoom
+sliding the window out from under the cursor, unboundedly; `window.nudge` detaching a group
+member from its shell; the frustum probe sweeping its tracked set quadratically every frame;
+a tab strip spending one tab stop per tab. Plus a hotkey collision **introduced and then
+caught by audit** — `Mod+Alt+Arrow` switches browser tabs on macOS and is not
+page-cancellable, so it would have switched the tab _and_ moved the window.
 
-**Therefore: `1.0` is not the deliverable at the end of 7 hours. A publishable, public,
-honestly-scoped `0.2.0` is** — with NFR-1 still marked failing and FR-9 still marked
-partial, because they are, and the README already says so.
+**P1 is capability-complete.** Every gesture in the spec lands: dock, shell move, shell
+resize, seam reweight, tab tear-out, tab reorder. FOCUS-002 (contextual parent), FOCUS-003
+(keyboard placement), and ACC-001 (accordion arrows follow the container's axis) all landed
+too. `acceptance-scenarios.md` has no `unbuilt` entry left outside columns mode and the
+hypothetical dashboard.
+
+**Exactly one thing was observed.** The owner dragged a group shell edge. Everything else in
+the list above is reasoned, typechecked, gated, and unwatched. `built` in the scenario doc
+means "works when tried, nothing guards it" — and for these entries, nobody has tried them.
+Both showcases were rewritten so that each claim can be falsified in a single gesture, which
+is the only lever on verification available without a browser. `/portals` needed it most: it
+had been demonstrating its own bug.
+
+### What still stands between here and the three gates
+
+- **npm publish** — nothing technical. An external-service action, the owner's.
+- **Public repo** — one `git filter-repo` purge. Irreversible, no remote, owner-gated.
+- **Production** — C2 (forbidden this session), C4 and C5 (both need a browser).
+
+C2 needs no browser and is the largest remaining gap; it was out of scope only because tests
+were explicitly forbidden. C4 + C5 are not blocked on knowledge but on the **ability to
+observe**, and anything claiming them done without observation is the green checkmark this
+project's conventions forbid.
+
+**Therefore: `1.0` is not the deliverable. A publishable, public, honestly-scoped `0.2.0`
+is** — with NFR-1 still marked failing and FR-9 still marked partial, because they are, and
+the README already says so.
 
 ---
 
@@ -424,8 +490,11 @@ and a bad first read. This needed no new code, only honesty about what is stable
   Nothing downstream should quote a number until it is run.
 - **Scenario tests for DOCK / SPLIT / TAB — NOT WRITTEN.** P1's exit criteria say
   "scenario tests green"; the gestures work and the tests do not exist. P1 is
-  capability-complete and verification-incomplete, and the roadmap says so rather than
-  ticking the box.
+  capability-complete and verification-empty, and the roadmap says so rather than
+  ticking the box. Not written on 2026-07-08 because writing tests was explicitly out of
+  scope for that session, not because the work is hard: the group core is pure, so every
+  DOCK/SPLIT/TAB/ACC scenario is a reducer-level assertion. See Track C2, where four of the
+  day's eight defects are mapped onto the scenarios that would have caught them.
 
 ### Not on the critical path, and why
 
