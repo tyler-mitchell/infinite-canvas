@@ -4,7 +4,12 @@ import {
   navigateCameraToWindow,
 } from "./camera-navigation";
 import { DEFAULT_INFINITE_CANVAS_ZOOM } from "./constants";
-import { getViewportInsetWorldRect, isUsableViewport, zoomCameraAtScreenPoint } from "./geometry";
+import {
+  getViewportInsetWorldRect,
+  isUsableViewport,
+  resizeRectFromHandle,
+  zoomCameraAtScreenPoint,
+} from "./geometry";
 import {
   findInfiniteCanvasGroup,
   getInfiniteCanvasWindowGroup,
@@ -323,6 +328,55 @@ const DEFAULT_INFINITE_CANVAS_COMMAND_DESCRIPTORS = [
   // The quarters have no default chord either — four more bindings would crowd the
   // vocabulary for a placement most users reach for through a menu. They stay dispatchable
   // as `{ region: "top-left", type: "window.place" }` and bindable through `hotkeyBindings`.
+  //
+  // Resize is `Alt+Shift+Arrow`, one modifier away from `Alt+Arrow`'s directional focus and
+  // unowned by any browser. `Shift+Arrow` is already the ten-pixel nudge, so the vocabulary
+  // reads: bare arrow moves a little, Shift moves a lot, Alt moves *focus*, Alt+Shift changes
+  // the shape. Ten pixels, not one — a one-pixel resize is a keystroke nobody wants twice.
+  {
+    command: {
+      amountPx: 10,
+      direction: "right",
+      type: "window.resize",
+    },
+    description: "Widen the active window by ten screen pixels.",
+    hotkeys: ["Alt+Shift+ArrowRight"],
+    id: "window.resize.right",
+    label: "Widen Window",
+  },
+  {
+    command: {
+      amountPx: 10,
+      direction: "left",
+      type: "window.resize",
+    },
+    description: "Narrow the active window by ten screen pixels.",
+    hotkeys: ["Alt+Shift+ArrowLeft"],
+    id: "window.resize.left",
+    label: "Narrow Window",
+  },
+  {
+    command: {
+      amountPx: 10,
+      direction: "down",
+      type: "window.resize",
+    },
+    description: "Make the active window ten screen pixels taller.",
+    hotkeys: ["Alt+Shift+ArrowDown"],
+    id: "window.resize.down",
+    label: "Heighten Window",
+  },
+  {
+    command: {
+      amountPx: 10,
+      direction: "up",
+      type: "window.resize",
+    },
+    description: "Make the active window ten screen pixels shorter.",
+    hotkeys: ["Alt+Shift+ArrowUp"],
+    id: "window.resize.up",
+    label: "Shorten Window",
+  },
 ] satisfies readonly InfiniteCanvasCommandDescriptor[];
 
 const FIT_CAMERA_NAVIGATION_BEHAVIOR = {
@@ -498,24 +552,27 @@ function isInfiniteCanvasCommandEnabled<Kind extends string>(
     case "window.nudge":
       return state.selection.windowIds.length > 0;
     case "window.place":
-      return getPlaceableWindowId(state) !== null;
+    case "window.resize":
+      return getActiveFloatingWindowId(state) !== null;
   }
 }
 
 /**
- * The window a placement command acts on, or `null` when there is nothing to place.
+ * The window a placement or resize command acts on, or `null` when there is none.
  *
  * The **active** window, not the selection: "left half" applied to three selected windows
  * would stack all three in the same rect, and a tiling shortcut that silently buries two of
- * your windows is worse than one that does nothing.
+ * your windows is worse than one that does nothing. Resize follows placement here rather than
+ * following `nudge`, because growing three windows by the same delta about their own origins
+ * is a mess nobody asked for.
  *
  * A grouped window is refused, for the same reason `interaction.startResize` refuses it — a
  * member's rect is its group's projection, and a pane placed in the left half of the screen
  * would be snapped back the moment the tree re-solved. Place the shell, or undock first.
  *
- * An unmeasured viewport has no halves.
+ * An unmeasured viewport has no halves, and no pixels to convert a resize through.
  */
-function getPlaceableWindowId<Kind extends string>(
+function getActiveFloatingWindowId<Kind extends string>(
   state: InfiniteCanvasState<Kind>,
 ): string | null {
   const windowId = state.activeWindowId;
@@ -537,7 +594,7 @@ function placeActiveWindow<Kind extends string>(
   state: InfiniteCanvasState<Kind>,
   command: Extract<InfiniteCanvasCommand, { type: "window.place" }>,
 ): InfiniteCanvasState<Kind> {
-  const windowId = getPlaceableWindowId(state);
+  const windowId = getActiveFloatingWindowId(state);
   const window = windowId === null ? null : findWindow(state, windowId);
 
   if (windowId === null || window === null) {
@@ -552,6 +609,46 @@ function placeActiveWindow<Kind extends string>(
     state,
     windowId,
     getInfiniteCanvasWindowPlacementRect(bounds, command.region, window.rect, window.minSize),
+  );
+}
+
+/**
+ * Grow or shrink the active window's east and south edges, leaving its origin where it is.
+ *
+ * `resizeRectFromHandle` already does exactly this for the `east` and `south` handles, clamps
+ * against `minSize`, and is exercised by every pointer resize. Reimplementing the arithmetic
+ * here would be a second definition of what a resize means, and the two would eventually
+ * disagree about the floor.
+ *
+ * The delta converts through the camera, as a nudge does: ten screen pixels stays ten screen
+ * pixels at any zoom, which is what a keyboard user is asking for. Ten *world* units would
+ * shrink to nothing zoomed out and fly off the screen zoomed in.
+ */
+function resizeActiveWindow<Kind extends string>(
+  state: InfiniteCanvasState<Kind>,
+  command: Extract<InfiniteCanvasCommand, { type: "window.resize" }>,
+): InfiniteCanvasState<Kind> {
+  const windowId = getActiveFloatingWindowId(state);
+  const window = windowId === null ? null : findWindow(state, windowId);
+
+  if (windowId === null || window === null) {
+    return state;
+  }
+
+  const worldDelta = command.amountPx / state.camera.zoom;
+  const isHorizontal = command.direction === "left" || command.direction === "right";
+  const isGrowing = command.direction === "right" || command.direction === "down";
+  const signedDelta = isGrowing ? worldDelta : -worldDelta;
+
+  return updateWindowRect(
+    state,
+    windowId,
+    resizeRectFromHandle(
+      window.rect,
+      isHorizontal ? "east" : "south",
+      { x: isHorizontal ? signedDelta : 0, y: isHorizontal ? 0 : signedDelta },
+      window.minSize,
+    ),
   );
 }
 
@@ -574,6 +671,7 @@ function getInfiniteCanvasCommandGroup(command: InfiniteCanvasCommand): Infinite
     case "window.focusDirection":
     case "window.nudge":
     case "window.place":
+    case "window.resize":
       return "window";
   }
 }
@@ -664,6 +762,8 @@ function executeInfiniteCanvasCommand<Kind extends string>(
       return nudgeSelectedWindows(state, command);
     case "window.place":
       return placeActiveWindow(state, command);
+    case "window.resize":
+      return resizeActiveWindow(state, command);
   }
 }
 

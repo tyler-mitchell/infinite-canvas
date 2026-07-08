@@ -229,9 +229,16 @@ Professional-tool table stakes; the command layer is transaction-ready.
   neighbour is not a left half.
 - ✅ **Landed (2026-07-08): roving tab stops** in group tab strips and accordions,
   the accordion's arrows following `container.axis` (ACC-001).
-- **Still open: move/resize by keyboard.** `window.nudge` moves; nothing resizes.
-  A grouped window's nudge translates its shell, since a member has no rect of its
-  own.
+- ✅ **Landed (2026-07-08): resize by keyboard.** `Alt+Shift+Arrow` grows or shrinks the
+  active window's east and south edges, leaving its origin where it is. Ten screen pixels,
+  converted through the camera as a nudge is, so the step stays ten screen pixels at any
+  zoom. It reuses `resizeRectFromHandle` rather than redefining what a resize means, and
+  refuses a grouped window for the same reason `interaction.startResize` does. A grouped
+  window's nudge translates its shell, since a member has no rect of its own.
+
+  The chord vocabulary now reads: bare arrow moves a little, `Shift` moves a lot, `Alt`
+  moves _focus_, `Alt+Shift` changes the shape, `Mod+Shift` tiles.
+
 - **Still open: focus trapping**, and a documented path for DOM focus to enter and
   leave a window's own content. This is the last structural piece of FR-9, and the
   one item here that genuinely wants a browser: focus behaviour is not something to
@@ -239,8 +246,8 @@ Professional-tool table stakes; the command layer is transaction-ready.
 - IME and text-selection hardening; screen-reader pass. `role="tab"` still carries
   no `aria-controls`, because a window frame has no DOM `id` to point at.
 - Exit: full keyboard-only session (open, focus, move, resize, arrange,
-  close) is practical; a11y audit checklist in the repo passes. **Resize and focus
-  trapping are what stand between here and that.**
+  close) is practical; a11y audit checklist in the repo passes. **Focus trapping is what
+  stands between here and that** — every other verb in that list now has a chord.
 - Dependencies: group-local focus needed P1, which has landed. Everything left is
   window-level and independent.
 

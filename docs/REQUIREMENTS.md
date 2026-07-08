@@ -145,8 +145,14 @@ capture); edge cases around body-content focus handoff and gesture routing
   manual (Enter or Space, through the same `onClick` the pointer uses): arrowing
   across a strip under automatic activation would mount and discard a window body
   per tab.
+- done: **resize by keyboard** (`Alt+Shift+Arrow`), reusing `resizeRectFromHandle` so a
+  keyboard resize clamps against `minSize` exactly as a pointer resize does. The origin
+  never moves; only the east and south edges do. Ten screen pixels, converted through the
+  camera, so the step is zoom-invariant. With this, every verb in FR-9's exit criteria —
+  open, focus, move, resize, arrange, close — has a chord.
 - open: focus trapping policy, and a documented path to accessible controls
-  inside window content.
+  inside window content. **This is the last structural piece**, and the one that
+  genuinely wants a browser: focus behaviour is not something to land unverified.
 - open: `role="tab"` carries no `aria-controls`, because a window frame has no DOM
   `id` to point at — only `data-infinite-canvas-window-id`. Minting one means
   deciding how ids stay unique across two canvases on one page.

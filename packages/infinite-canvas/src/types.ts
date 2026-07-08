@@ -839,6 +839,17 @@ type InfiniteCanvasCommand =
       type: "window.place";
     }>
   | Readonly<{
+      /** Screen pixels, converted through the camera like a nudge. */
+      amountPx: number;
+      /**
+       * `right`/`down` grow the window; `left`/`up` shrink it. The window's origin never
+       * moves — only its east and south edges do, which is what "resize" means when there is
+       * no handle under a cursor to say otherwise.
+       */
+      direction: InfiniteCanvasDirection;
+      type: "window.resize";
+    }>
+  | Readonly<{
       direction: InfiniteCanvasDirection;
       type: "window.focusDirection";
     }>
@@ -872,7 +883,11 @@ type InfiniteCanvasCommandId =
   | "window.place.fill"
   | "window.place.left"
   | "window.place.right"
-  | "window.place.top";
+  | "window.place.top"
+  | "window.resize.down"
+  | "window.resize.left"
+  | "window.resize.right"
+  | "window.resize.up";
 
 type InfiniteCanvasCommandDescriptor = Readonly<{
   command: InfiniteCanvasCommand;

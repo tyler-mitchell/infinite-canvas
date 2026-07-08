@@ -56,6 +56,19 @@ sections, in this order, omitting the ones that don't apply:
   `@infinite-canvas/react/scene` and returns its `true` fallback for every consumer who has not
   installed `three` and enabled `diagnostics.frustum`. Rasterization eligibility now shares it.
 
+- **Resize by keyboard** (`Alt+Shift+Arrow`). `window.nudge` moved a window and nothing resized
+  one; a keyboard-only session could open, focus, move, arrange, and close, but never reshape.
+  Right and Down grow the window, Left and Up shrink it, and the origin never moves — only the
+  east and south edges do, which is what "resize" means when there is no handle under a cursor
+  to say otherwise. Ten screen pixels, converted through the camera as a nudge is, so the step
+  stays ten screen pixels at any zoom; ten _world_ units would vanish zoomed out and fly off the
+  screen zoomed in. It reuses `resizeRectFromHandle` rather than restating what a resize means,
+  so it clamps against `minSize` exactly as a pointer resize does, and it refuses a grouped
+  window for the same reason `interaction.startResize` refuses it.
+
+  The chord vocabulary now reads: bare arrow moves a little, `Shift` moves a lot, `Alt` moves
+  _focus_, `Alt+Shift` changes the shape, `Mod+Shift` tiles.
+
 - **A command palette in `/groups`** (`Mod+K`), built entirely on `contextualCommands` — an
   array that has been public since the agent handle landed and that **nothing consumed**. It
   already carried `label`, `description`, `hotkeys`, `group`, and `enabled` computed against the
