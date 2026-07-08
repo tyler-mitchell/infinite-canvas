@@ -56,8 +56,20 @@ sections, in this order, omitting the ones that don't apply:
   `@infinite-canvas/react/scene` and returns its `true` fallback for every consumer who has not
   installed `three` and enabled `diagnostics.frustum`. Rasterization eligibility now shares it.
 
+- **Tabs reorder by dragging them** (TAB-001). Where the pointer goes decides what the drag is:
+  inside the strip it reorders, leaving the strip tears the window out. Until now _any_ six
+  pixels of travel tore the tab out, which made `group.reorderChild` unreachable by pointer no
+  matter how carefully you slid a tab sideways — the command existed and nothing compiled to it.
+  Leaving the strip costs the same six **screen** pixels that entering the drag did: the strip's
+  height is fixed in world units, so at low zoom a bare "below the strip" test would tear a tab
+  out on the first downward wobble of a sideways drag. A tab whose child is a nested container
+  still cannot float, and can now still be reordered.
+
 ### Changed
 
+- **`DOCK-004`'s tear-out trigger is now "leave the strip", not "travel 6px".** TAB-001 needed
+  those pixels. Dragging a tab out of its strip still undocks the window and hands the same
+  pointer to a normal window move.
 - **Every drag interaction stores `originCamera` instead of a cached `zoom` scalar**
   (`move`, `resize`, `groupMove`, `groupResize`, `groupGutter`). `pan` already did, because a
   pan _is_ a camera change and could not have been written any other way. Consumers reading

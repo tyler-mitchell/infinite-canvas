@@ -21,12 +21,13 @@ windows compose into movable local layout regions.
   setChildWeights, reorderChild). Persisted at `version: 2`, with `version: 1`
   migrating to `groups: []`. Rendered by `group-layer.tsx` (shell, gutters, tab
   strips, accordion headers) beneath the window plane. `/groups` showcase.
-- ✅ **Landed: all four pointer gestures.** Dragging a grouped window's header
+- ✅ **Landed: the pointer gestures.** Dragging a grouped window's header
   moves its shell as one world object (DOCK-003). Dragging the seam between split
   panes reweights the pair (SPLIT-001) — the step recomputes from the container as
   it stood at drag start, so the seam stays under the cursor rather than drifting.
-  Dragging a tab past a 6px threshold tears the window out and hands the same
-  pointer to a normal window move (DOCK-004). **Alt+dragging** a floating window
+  Dragging a tab out of its strip tears the window out and hands the same
+  pointer to a normal window move (DOCK-004); dragging it along the strip reorders
+  it (TAB-001). **Alt+dragging** a floating window
   over another window, or over a group member, docks it (DOCK-001/002).
 - ✅ **Docking-intent mode**, which risk R3 asked for. Docking is never something
   a drag falls into: without the modifier a window overlaps as it always did.
@@ -48,7 +49,16 @@ windows compose into movable local layout regions.
   straddling the edge — everything inside is member-window DOM drawn above the group layer, so
   an inward half is unreachable by construction.
 
-- **Still open:** tab reorder by drag is command-only.
+- ✅ **Landed (2026-07-08): tab reorder by drag.** Where the pointer goes decides what the
+  drag is — inside the strip it reorders, leaving it tears out. Previously any 6px of travel
+  tore the tab out, which made `group.reorderChild` unreachable by pointer however carefully
+  you slid a tab sideways.
+
+  **P1 is capability-complete.** Every gesture in the spec lands: dock, shell move, shell
+  resize, seam reweight, tab tear-out, tab reorder. What remains is verification — the DOCK,
+  SPLIT, TAB, and ACC scenarios are `built` and entirely unasserted, and no test in the suite
+  touches groups at all.
+
 - Tabs + accordion modes (center-merge, reorder, mode conversion,
   active-child semantics).
 - **Docking-intent snapping**: explicit intent mode with region overlays

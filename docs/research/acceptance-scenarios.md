@@ -66,10 +66,11 @@ hysteresis unimplemented` until 2026-07-08, long after it shipped.
   (dragging any member's header starts a `groupMove` interaction; members follow
   because their rects are re-derived from the shell.)
 - **DOCK-004** — Tear a child out of a tab group → sensible floating rect; group
-  stays valid. `built` (dragging a tab past a 6px threshold undocks the window and
-  hands the same pointer to `interaction.startMove`. It keeps the rect the solver
-  gave it — for a hidden tab, the size it would have been revealed at — so nothing
-  jumps and nothing swells to fill the shell.)
+  stays valid. `built` (dragging a tab **out of its strip** undocks the window and hands the
+  same pointer to `interaction.startMove`. It keeps the rect the solver gave it — for a
+  hidden tab, the size it would have been revealed at — so nothing jumps and nothing swells
+  to fill the shell. The trigger was "any 6px of travel" until 2026-07-08, when TAB-001
+  needed those pixels for reordering.)
 - **DOCK-005** — Remove the last child → empty-group cleanup. `built`
   (`undockInfiniteCanvasGroupWindow` returns `null`, and `withInfiniteCanvasGroupTree`
   drops the shell.)
@@ -95,9 +96,14 @@ hysteresis unimplemented` until 2026-07-08, long after it shipped.
 
 ## Tabs, accordion, focus
 
-- **TAB-001** — Tab reorder via drag persists; focus stays predictable. `unbuilt`
-  by drag — `group.reorderChild` exists as a command, but no pointer gesture compiles
-  to it.
+- **TAB-001** — Tab reorder via drag persists; focus stays predictable. `built`
+  (2026-07-08). Where the pointer goes decides what the drag is: inside the strip it
+  reorders, leaving the strip tears out. Until then _any_ six pixels of travel tore the tab
+  out, so reorder was unreachable by drag no matter how carefully you slid a tab sideways —
+  `group.reorderChild` existed and nothing compiled to it. Leaving the strip costs the same
+  six **screen** pixels that entering the drag did, because the strip's height is fixed in
+  world units and at low zoom a bare `clientY > bottom` would tear on the first wobble.
+  Unasserted.
 - **TAB-002** — Tabs↔accordion conversion preserves membership. `built`
   (`setInfiniteCanvasGroupLayoutMode` changes `layout` and touches no child.)
 - **ACC-001** — Keyboard navigation follows accordion orientation. `built` (2026-07-08).

@@ -44,9 +44,11 @@ import type {
  * are disjoint by construction — no chrome is ever underneath a window it should
  * be drawn over.
  *
- * Nothing here reads the DOM. Every rect comes from the same solver the reducer
- * used to place the windows, so the chrome cannot drift out of alignment with
- * the panes it separates.
+ * No rect here comes from the DOM. Every one comes from the same solver the reducer used
+ * to place the windows, so the chrome cannot drift out of alignment with the panes it
+ * separates. The single exception is `getTabDropIndex`, which hit-tests a tab strip during
+ * a reorder drag: tab widths are flex content and no solver knows them. It decides *which
+ * slot the pointer is over*, never where anything is drawn.
  */
 
 const SHELL_RESIZE_HANDLE_SIZE_CSS_VARIABLE = "--icx-resize-handle-size";
@@ -178,21 +180,47 @@ function getWorldRectStyle(
 }
 
 /**
- * A tab travels a few pixels before it means anything. Below the threshold the
- * gesture is a click that activates the tab; past it, the window is torn out of
- * the tree and the drag becomes an ordinary window move — the same
- * `interaction.startMove` a floating window's header would have started.
+ * A tab travels a few pixels before it means anything. Below the threshold the gesture is
+ * a click that activates the tab.
  *
- * Tear-out hands the window no rect. It keeps the one the solver already gave it,
- * which for a hidden tab is the size it would have been revealed at, so nothing
- * jumps and nothing swells to fill the shell.
+ * Past it, **where the pointer goes decides what the drag is** (TAB-001, DOCK-004). Inside
+ * the strip it reorders; leaving the strip tears the window out and hands the same pointer
+ * to `interaction.startMove`, exactly as a floating window's header would have started it.
+ * This is the rule every real tab bar uses, and until 2026-07-08 the strip did not have it:
+ * *any* six pixels of travel tore the tab out, which made reordering unreachable by drag,
+ * however hard you tried to slide a tab sideways.
  *
- * Only a window can float. A tab whose child is a nested container has nowhere to
- * go, so it stays put and remains clickable.
+ * Tear-out hands the window no rect. It keeps the one the solver already gave it, which for
+ * a hidden tab is the size it would have been revealed at, so nothing jumps and nothing
+ * swells to fill the shell.
+ *
+ * Only a window can float. A tab whose child is a nested container has nowhere to go, so it
+ * stays inside the strip — and, now, can still be reordered within it.
  */
-const TAB_TEAR_OUT_THRESHOLD_PX = 6;
+const TAB_DRAG_THRESHOLD_PX = 6;
 
-function useInfiniteCanvasTabTearOut(
+/**
+ * Where a tab dropped at `clientX` belongs, as an index among its *siblings*.
+ *
+ * The dragged tab is excluded from the scan because `reorderChild` splices it out before
+ * inserting at `toIndex` — so the index it wants is an index into the others, and counting
+ * the dragged tab's own slot would overshoot by one every time you dragged rightwards.
+ *
+ * This is the only place in this file that measures the DOM, and it measures a *hit test*,
+ * never a layout: tab widths come from flex content, which no solver knows. Every rect that
+ * decides where anything is drawn still comes from `group-layout.ts`.
+ */
+function getTabDropIndex(siblings: readonly HTMLElement[], clientX: number): number {
+  const index = siblings.findIndex((sibling) => {
+    const rect = sibling.getBoundingClientRect();
+
+    return clientX < rect.left + rect.width / 2;
+  });
+
+  return index === -1 ? siblings.length : index;
+}
+
+function useInfiniteCanvasTabDrag(
   actions: InfiniteCanvasCommands,
   group: InfiniteCanvasGroup,
   childId: string,
@@ -203,34 +231,79 @@ function useInfiniteCanvasTabTearOut(
 
   return {
     onPointerDown: (event: ReactPointerEvent<HTMLElement>) => {
-      if (!isPrimaryButton(event) || !canTearOut) {
+      if (!isPrimaryButton(event)) {
         return;
       }
 
+      // Captured even when the child cannot float: a container tab still reorders.
       originRef.current = { x: event.clientX, y: event.clientY };
       capturePointer(event.currentTarget, event.pointerId);
     },
     onPointerMove: (event: ReactPointerEvent<HTMLElement>) => {
       const origin = originRef.current;
+      const tab = event.currentTarget;
+      const strip = tab.parentElement;
 
-      if (origin === null) {
+      if (origin === null || strip === null) {
         return;
       }
 
-      const travel = Math.hypot(event.clientX - origin.x, event.clientY - origin.y);
-
-      if (travel < TAB_TEAR_OUT_THRESHOLD_PX) {
+      if (Math.hypot(event.clientX - origin.x, event.clientY - origin.y) < TAB_DRAG_THRESHOLD_PX) {
         return;
       }
 
-      originRef.current = null;
-      releasePointer(event.currentTarget, event.pointerId);
-      actions.undockWindow({ windowId: childId });
-      actions.startMove({
-        pointerId: event.pointerId,
-        point: getEventViewportPoint(event),
-        windowId: childId,
-      });
+      // Leaving the strip has to cost the same six screen pixels that entering the drag
+      // did. The strip's height is fixed in *world* units, so at low zoom it is only a few
+      // screen pixels tall and a bare `clientY > bottom` would tear a tab out on the first
+      // downward wobble of a sideways drag. Same trap as the resize handles that used to
+      // straddle a world-sized gutter.
+      const stripRect = strip.getBoundingClientRect();
+      const hasLeftStrip =
+        event.clientX < stripRect.left - TAB_DRAG_THRESHOLD_PX ||
+        event.clientX > stripRect.right + TAB_DRAG_THRESHOLD_PX ||
+        event.clientY < stripRect.top - TAB_DRAG_THRESHOLD_PX ||
+        event.clientY > stripRect.bottom + TAB_DRAG_THRESHOLD_PX;
+
+      if (hasLeftStrip) {
+        if (!canTearOut) {
+          return;
+        }
+
+        originRef.current = null;
+        releasePointer(tab, event.pointerId);
+        actions.undockWindow({ windowId: childId });
+        actions.startMove({
+          pointerId: event.pointerId,
+          point: getEventViewportPoint(event),
+          windowId: childId,
+        });
+
+        return;
+      }
+
+      // Read the live DOM order rather than a `childIds` prop: a reorder dispatched on an
+      // earlier pointermove has already moved this tab, and the prop in this closure is a
+      // render behind.
+      const tabs = [
+        ...strip.querySelectorAll<HTMLElement>(
+          `:scope > [data-slot="${INFINITE_CANVAS_SLOTS.groupTab}"]`,
+        ),
+      ];
+      const fromIndex = tabs.indexOf(tab);
+
+      if (fromIndex === -1) {
+        return;
+      }
+
+      const toIndex = getTabDropIndex(
+        tabs.filter((candidate) => candidate !== tab),
+        event.clientX,
+      );
+
+      // The pointer is still over the slot this tab already occupies.
+      if (toIndex !== fromIndex) {
+        actions.reorderGroupChild({ childId, groupId: group.id, toIndex });
+      }
     },
     onPointerUp: (event: ReactPointerEvent<HTMLElement>) => {
       originRef.current = null;
@@ -637,7 +710,7 @@ function InfiniteCanvasGroupTab({
   onFocus: (childId: string) => void;
 }>) {
   const actions = useInfiniteCanvasActions();
-  const tearOut = useInfiniteCanvasTabTearOut(actions, group, childId);
+  const tabDrag = useInfiniteCanvasTabDrag(actions, group, childId);
 
   return (
     <button
@@ -653,10 +726,10 @@ function InfiniteCanvasGroupTab({
       }}
       onPointerDown={(event) => {
         event.stopPropagation();
-        tearOut.onPointerDown(event);
+        tabDrag.onPointerDown(event);
       }}
-      onPointerMove={tearOut.onPointerMove}
-      onPointerUp={tearOut.onPointerUp}
+      onPointerMove={tabDrag.onPointerMove}
+      onPointerUp={tabDrag.onPointerUp}
       role="tab"
       tabIndex={isTabStop ? 0 : -1}
       type="button"
