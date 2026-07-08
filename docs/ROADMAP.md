@@ -81,7 +81,14 @@ windows compose into movable local layout regions.
 ## P2 — Performance: 60fps at 100+ windows
 
 Started (body memoization landed; 20→97fps pan). Finish the cost model in
-[research/performance-profile.md](research/performance-profile.md):
+[research/performance-profile.md](research/performance-profile.md).
+
+**`NFR-1` is not this program's bar, and passing it does not make P2 done.** NFR-1
+asks for ten windows without obvious degradation, and has cleared that with headroom
+since `962e42c` on 2026-06-10 — a fact four documents went on denying for a month
+until 2026-07-08. P2's bar is **100 windows at 60fps**, and 80 windows currently pan
+at 21.3 fps. Both statements are true at once; conflating them is how the project
+spent a month believing its performance requirement was failing.
 
 - ~~Tranche 1: memoize frame inner chrome~~ — **landed, unmeasured.** The
   frame no longer takes `state`; chrome, body, and resize handles are
@@ -120,10 +127,22 @@ marginPx)` in `geometry.ts` — pure, synchronous, camera-derived, no peer. Note
   148+ with the OT flag — owner's browser or token.
 - Productize the measurement harness: scripted benchmark runs (the
   synthetic wheel/drag drivers) with thresholds, runnable via vp, so perf
-  regressions fail loudly.
-- Raster defaults tuning at scale (maxPendingCaptures etc.).
+  regressions fail loudly. This is the same work as SHIP_PLAN's C4, and it is
+  the prerequisite for every number below it. Nothing may quote a figure for
+  tranche 1 until it runs.
+- **Raster defaults tuning at scale.** _Rescoped 2026-07-08._ The knob was not
+  merely untuned, it was **broken**: `maxPendingCaptures` at any finite value
+  left every window the queue refused permanently un-rasterized, because the
+  body recorded a capture it had never made. Fixed — a refused request is no
+  longer recorded, and a waiting body re-arms when the queue drains. The
+  **defaults** are still unbounded (`maxPendingCaptures` and `viewportMarginPx`
+  both `Infinity`), deliberately: picking a bound without profiling would be a
+  guess wearing a measurement's clothes. Tune them with the harness above, not
+  before it.
 - Exit: 100 windows at 60fps pan/zoom/drag on real hardware; benchmark
   suite guarding the numbers; texture-mode go/no-go decided with data.
+  **Tranche 1 is landed and unmeasured**, so P2 cannot be assessed at all until
+  the harness exists — that is the first thing to build, not the last.
 
 ## P3 — Styled Distribution & the Design Language
 
@@ -160,7 +179,10 @@ Professional-tool table stakes; the command layer is transaction-ready.
   entry and a cancelled drag still has somewhere to return to. Size policy: 100
   entries, oldest dropped. Hydrate and reset discard the stack. History is
   session-scoped and never serialized — a layout is a document, not its edit log.
-- **Still open: recipes**, and putting history in the versioned envelope.
+- **Still open: putting history in the versioned envelope** — and it is a real
+  question, not an oversight. History is session-scoped and deliberately never
+  serialized, so "put it in the envelope" means deciding that a layout's edit log
+  is part of the document. The current answer is no.
 - ✅ **Landed (2026-07-08): layout recipes.** `recipes.ts` captures a named
   arrangement — the selection, or a named set, or the whole canvas — stored with
   its origin at `(0, 0)` and a `size`, so it drops into any region of an unbounded
@@ -193,17 +215,34 @@ Professional-tool table stakes; the command layer is transaction-ready.
 
 - ✅ **Landed: directional window focus** (`Alt+Arrow`), group-local first with a
   global geometric fallback, plus focus restoration on close/minimize. FOCUS-001
-  is done. Still open: the contextual-parent rule for floating windows near a
-  shell (FOCUS-002).
-- Expanded command grammar: move/resize/arrange via keyboard, named
-  placements (left-half/right-third — FR-4's tiling commands) resolving
-  through the same placement engine as drag.
-- ARIA semantics for windows/controls/HUD; focus trapping policy; IME and
-  text-selection hardening; screen-reader pass.
+  is done.
+- ✅ **Landed (2026-07-08): the contextual-parent rule** (FOCUS-002). A floating
+  window whose centre lies inside a group's rect takes that group as its
+  contextual parent, so it needs no keyboard model of its own. Smallest containing
+  group wins; ties break on id. This closes risk R9.
+- ✅ **Landed (2026-07-08): named placements** (FOCUS-003).
+  `Mod+Shift+Arrow` for halves, `Mod+Shift+Enter` to fill; quarters and centre are
+  commands without a default chord, because the canvas `preventDefault()`s every
+  chord it owns and the obvious candidates are browser devtools or tab-switching
+  keys. `window-placement.ts` is the one thing that knows what "left half" means.
+  **Placement deliberately does not snap** — a left half nudged to align with its
+  neighbour is not a left half.
+- ✅ **Landed (2026-07-08): roving tab stops** in group tab strips and accordions,
+  the accordion's arrows following `container.axis` (ACC-001).
+- **Still open: move/resize by keyboard.** `window.nudge` moves; nothing resizes.
+  A grouped window's nudge translates its shell, since a member has no rect of its
+  own.
+- **Still open: focus trapping**, and a documented path for DOM focus to enter and
+  leave a window's own content. This is the last structural piece of FR-9, and the
+  one item here that genuinely wants a browser: focus behaviour is not something to
+  land unverified.
+- IME and text-selection hardening; screen-reader pass. `role="tab"` still carries
+  no `aria-controls`, because a window frame has no DOM `id` to point at.
 - Exit: full keyboard-only session (open, focus, move, resize, arrange,
-  close) is practical; a11y audit checklist in the repo passes.
-- Dependencies: group-local focus needs P1; window-level work is
-  independent.
+  close) is practical; a11y audit checklist in the repo passes. **Resize and focus
+  trapping are what stand between here and that.**
+- Dependencies: group-local focus needed P1, which has landed. Everything left is
+  window-level and independent.
 
 ## P6 — Body Content Platform (the app-inside-a-window contract)
 
