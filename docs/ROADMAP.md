@@ -145,10 +145,10 @@ Professional-tool table stakes; the command layer is transaction-ready.
 
 ## P5 — Keyboard, Focus & Accessibility (FR-9 + FR-8 completion)
 
-- Directional window focus (group-local first, global geometric fallback,
-  floating windows via contextual parent —
-  [research/state-focus-and-recipes.md](research/state-focus-and-recipes.md));
-  focus restoration; FOCUS-001..003 scenarios.
+- ✅ **Landed: directional window focus** (`Alt+Arrow`), group-local first with a
+  global geometric fallback, plus focus restoration on close/minimize. FOCUS-001
+  is done. Still open: the contextual-parent rule for floating windows near a
+  shell (FOCUS-002).
 - Expanded command grammar: move/resize/arrange via keyboard, named
   placements (left-half/right-third — FR-4's tiling commands) resolving
   through the same placement engine as drag.

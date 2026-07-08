@@ -133,8 +133,11 @@ capture); edge cases around body-content focus handoff and gesture routing
   Minimize controls hand DOM focus back to the command surface before they
   unmount — otherwise focus falls to `<body>` and every hotkey silently stops
   working, with no way for the user to tell why.
-- open: **group-local focus** (FOCUS-001 prefers group-local neighbours over the
-  global geometric fallback built here) — needs P1's group model.
+- done: **group-local focus** (FOCUS-001). Inside a group the arrow searches the
+  group's own members first and only leaves it when nothing lies that way — a pane
+  docked beside you is the neighbour the user means, even when a floating window
+  sits geometrically closer. Windows behind an inactive tab or a collapsed fold are
+  never focus targets, because nothing draws them.
 - open: focus trapping policy, and a documented path to accessible controls
   inside window content.
 

@@ -70,10 +70,11 @@
 - **TAB-001** — Tab reorder via drag persists; focus stays predictable.
 - **TAB-002** — Tabs↔accordion conversion preserves membership.
 - **ACC-001** — Keyboard navigation follows accordion orientation.
-- **FOCUS-001** — Directional focus prefers group-local neighbors over global.
-  (`partial`: the global geometric tier is built — `window.focusDirection`,
-  `src/window-focus.ts`, nearest window strictly ahead, "beside" outranking
-  "close". The group-local tier it should prefer first awaits P1.)
+- **FOCUS-001** — (`done`: inside a group the arrow searches the group's own
+  members first, and only leaves the group when nothing lies that way. Windows
+  behind an inactive tab or a collapsed fold are never focus targets — nothing
+  draws them. The global tier ranks "beside" over "close", so arrows never drift
+  diagonally.) Directional focus prefers group-local neighbors over global.
 - **FOCUS-002** — Floating window over a shell: contextual-parent focus
   behaves sensibly.
 - **FOCUS-003** — "Left half"-style placement commands resolve through the

@@ -1,4 +1,6 @@
 import { getRectCenter, getVisibleWorldRect } from "./geometry";
+import { getInfiniteCanvasGroupProjection, getInfiniteCanvasWindowGroup } from "./group-state";
+import { getInfiniteCanvasGroupWindowIds } from "./group-tree";
 import { isSelectableWindow } from "./selection";
 import type {
   InfiniteCanvasDirection,
@@ -20,9 +22,11 @@ import type {
  * Everything here is pure geometry over `state.windows`. No DOM, no group model,
  * so this lands before P1 and keeps working after it.
  *
- * Scope: this is the *global geometric* tier of FOCUS-001. The group-local tier
- * that scenario says should be preferred first needs P1's group model, and this
- * becomes its fallback rather than its replacement.
+ * Focus is two-tiered (FOCUS-001). Inside a group, the arrow first looks at the
+ * group's own members: a window docked beside you in a split is a nearer
+ * neighbour, in the sense the user means, than a floating window that happens to
+ * be geometrically closer. Only when the group has nothing in that direction does
+ * the arrow leave it and search the whole canvas.
  */
 
 /** World space grows downward, matching the DOM — and matching `window.nudge`. */
@@ -104,10 +108,52 @@ function compareInfiniteCanvasFocusCandidates(
   return left.windowId < right.windowId ? -1 : 1;
 }
 
+/**
+ * A window behind an inactive tab or a collapsed fold is solved into a rect, but
+ * nothing draws it. Focusing it would move `aria-current` onto something invisible.
+ */
 function getFocusableInfiniteCanvasWindows<Kind extends string>(
   state: InfiniteCanvasState<Kind>,
 ): readonly InfiniteCanvasWindow<Kind>[] {
-  return state.windows.filter(isSelectableWindow);
+  const { hiddenWindowIds } = getInfiniteCanvasGroupProjection(state.groups);
+
+  return state.windows.filter(
+    (window) => isSelectableWindow(window) && !hiddenWindowIds.has(window.id),
+  );
+}
+
+/** The nearest window strictly ahead of `source`, among `candidates`, or `null`. */
+function getDirectionalTargetAmong<Kind extends string>(
+  source: InfiniteCanvasWindow<Kind>,
+  candidates: readonly InfiniteCanvasWindow<Kind>[],
+  direction: InfiniteCanvasDirection,
+): string | null {
+  const sourceCenter = getRectCenter(source.rect);
+  const ranked: InfiniteCanvasFocusCandidate[] = [];
+
+  for (const window of candidates) {
+    if (window.id === source.id) {
+      continue;
+    }
+
+    const center = getRectCenter(window.rect);
+    const distanceAlong = getDistanceAlongDirection(direction, sourceCenter, center);
+
+    // Strictly ahead. A window whose center sits level with ours is not "to the
+    // right" of us, however far right its far edge reaches.
+    if (distanceAlong <= 0) {
+      continue;
+    }
+
+    ranked.push({
+      distanceAcross: getDistanceAcrossDirection(direction, sourceCenter, center),
+      distanceAlong,
+      isBeside: overlapsAcrossDirection(direction, source.rect, window.rect),
+      windowId: window.id,
+    });
+  }
+
+  return ranked.sort(compareInfiniteCanvasFocusCandidates)[0]?.windowId ?? null;
 }
 
 /**
@@ -154,32 +200,24 @@ function getInfiniteCanvasDirectionalFocusTarget<Kind extends string>(
     return getInfiniteCanvasWindowNearestCameraCenter(state, focusableWindows);
   }
 
-  const sourceCenter = getRectCenter(source.rect);
-  const candidates: InfiniteCanvasFocusCandidate[] = [];
+  // Group-local first (FOCUS-001). A pane docked beside you is the neighbour the
+  // user means, even when a floating window happens to sit geometrically closer.
+  const group = getInfiniteCanvasWindowGroup(state, source.id);
 
-  for (const window of focusableWindows) {
-    if (window.id === source.id) {
-      continue;
+  if (group !== null) {
+    const memberIds = new Set(getInfiniteCanvasGroupWindowIds(group.tree));
+    const localTarget = getDirectionalTargetAmong(
+      source,
+      focusableWindows.filter((window) => memberIds.has(window.id)),
+      direction,
+    );
+
+    if (localTarget !== null) {
+      return localTarget;
     }
-
-    const center = getRectCenter(window.rect);
-    const distanceAlong = getDistanceAlongDirection(direction, sourceCenter, center);
-
-    // Strictly ahead. A window whose center sits level with ours is not "to the
-    // right" of us, however far right its far edge reaches.
-    if (distanceAlong <= 0) {
-      continue;
-    }
-
-    candidates.push({
-      distanceAcross: getDistanceAcrossDirection(direction, sourceCenter, center),
-      distanceAlong,
-      isBeside: overlapsAcrossDirection(direction, source.rect, window.rect),
-      windowId: window.id,
-    });
   }
 
-  return candidates.sort(compareInfiniteCanvasFocusCandidates)[0]?.windowId ?? null;
+  return getDirectionalTargetAmong(source, focusableWindows, direction);
 }
 
 /**
