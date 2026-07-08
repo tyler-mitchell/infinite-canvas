@@ -15,7 +15,6 @@ import { Route as StressRouteImport } from './routes/stress'
 import { Route as StageTemplateRouteImport } from './routes/stage-template'
 import { Route as PersistenceRouteImport } from './routes/persistence'
 import { Route as NormalRouteImport } from './routes/normal'
-import { Route as DynamicGridRouteImport } from './routes/dynamic-grid'
 import { Route as DropTrayRouteImport } from './routes/drop-tray'
 import { Route as CustomFramesRouteImport } from './routes/custom-frames'
 import { Route as IndexRouteImport } from './routes/index'
@@ -50,11 +49,6 @@ const NormalRoute = NormalRouteImport.update({
   path: '/normal',
   getParentRoute: () => rootRouteImport,
 } as any)
-const DynamicGridRoute = DynamicGridRouteImport.update({
-  id: '/dynamic-grid',
-  path: '/dynamic-grid',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const DropTrayRoute = DropTrayRouteImport.update({
   id: '/drop-tray',
   path: '/drop-tray',
@@ -75,7 +69,6 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/custom-frames': typeof CustomFramesRoute
   '/drop-tray': typeof DropTrayRoute
-  '/dynamic-grid': typeof DynamicGridRoute
   '/normal': typeof NormalRoute
   '/persistence': typeof PersistenceRoute
   '/stage-template': typeof StageTemplateRoute
@@ -87,7 +80,6 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/custom-frames': typeof CustomFramesRoute
   '/drop-tray': typeof DropTrayRoute
-  '/dynamic-grid': typeof DynamicGridRoute
   '/normal': typeof NormalRoute
   '/persistence': typeof PersistenceRoute
   '/stage-template': typeof StageTemplateRoute
@@ -100,7 +92,6 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/custom-frames': typeof CustomFramesRoute
   '/drop-tray': typeof DropTrayRoute
-  '/dynamic-grid': typeof DynamicGridRoute
   '/normal': typeof NormalRoute
   '/persistence': typeof PersistenceRoute
   '/stage-template': typeof StageTemplateRoute
@@ -114,7 +105,6 @@ export interface FileRouteTypes {
     | '/'
     | '/custom-frames'
     | '/drop-tray'
-    | '/dynamic-grid'
     | '/normal'
     | '/persistence'
     | '/stage-template'
@@ -126,7 +116,6 @@ export interface FileRouteTypes {
     | '/'
     | '/custom-frames'
     | '/drop-tray'
-    | '/dynamic-grid'
     | '/normal'
     | '/persistence'
     | '/stage-template'
@@ -138,7 +127,6 @@ export interface FileRouteTypes {
     | '/'
     | '/custom-frames'
     | '/drop-tray'
-    | '/dynamic-grid'
     | '/normal'
     | '/persistence'
     | '/stage-template'
@@ -151,7 +139,6 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   CustomFramesRoute: typeof CustomFramesRoute
   DropTrayRoute: typeof DropTrayRoute
-  DynamicGridRoute: typeof DynamicGridRoute
   NormalRoute: typeof NormalRoute
   PersistenceRoute: typeof PersistenceRoute
   StageTemplateRoute: typeof StageTemplateRoute
@@ -204,13 +191,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof NormalRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/dynamic-grid': {
-      id: '/dynamic-grid'
-      path: '/dynamic-grid'
-      fullPath: '/dynamic-grid'
-      preLoaderRoute: typeof DynamicGridRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/drop-tray': {
       id: '/drop-tray'
       path: '/drop-tray'
@@ -239,7 +219,6 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   CustomFramesRoute: CustomFramesRoute,
   DropTrayRoute: DropTrayRoute,
-  DynamicGridRoute: DynamicGridRoute,
   NormalRoute: NormalRoute,
   PersistenceRoute: PersistenceRoute,
   StageTemplateRoute: StageTemplateRoute,

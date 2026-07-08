@@ -77,13 +77,13 @@ program with exit criteria in [the roadmap](docs/ROADMAP.md), not a wish.
 
 ## Repository
 
-| Path                       |                                                                                                              |
-| -------------------------- | ------------------------------------------------------------------------------------------------------------ |
-| `packages/infinite-canvas` | the published library, `@infinite-canvas/react`                                                              |
-| `apps/playground`          | showcases; also the framework's integration test bed                                                         |
-| `packages/ui`              | private UI kit, used only by the playground                                                                  |
-| `docs/`                    | requirements, roadmap, API reference, research                                                               |
-| `reference/`               | prior-art source from the predecessor implementation, kept for mining; excluded from lint, tests, and builds |
+| Path                       |                                                                                                           |
+| -------------------------- | --------------------------------------------------------------------------------------------------------- |
+| `packages/infinite-canvas` | the published library, `@infinite-canvas/react`                                                           |
+| `apps/playground`          | showcases; also the framework's integration test bed                                                      |
+| `packages/ui`              | private UI kit, used only by the playground                                                               |
+| `docs/`                    | requirements, roadmap, API reference, research                                                            |
+| `reference/`               | prior-art source, kept on disk for mining; **not in the repository** (see [SHIP_PLAN](docs/SHIP_PLAN.md)) |
 
 ## Development
 

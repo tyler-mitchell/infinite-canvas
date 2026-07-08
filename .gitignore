@@ -26,9 +26,16 @@ dist-ssr
 # AI agent worktrees
 .claude/worktrees/
 
-# Third-party-derived reference material that must never enter git history.
-# The originals remain in kek-monorepo (apps/web/reference/infinite-canvas/).
-reference/node-editor-inspiration/
+# Prior-art and reference material. Kept on disk as a living reference, excluded
+# from the repository: `reference/infinite-canvas-dynamic-grid/` is derived from
+# deobfuscated third-party code ("Robot Components" nodegrid), and the rest is
+# copied prior art that is clutter in a public tree. The originals remain in
+# kek-monorepo (apps/web/reference/infinite-canvas/). See docs/SHIP_PLAN.md.
+#
+# NOTE: untracking only removes these from HEAD. The derived implementation is
+# still reachable in git history, so a public repo leaks it regardless. Purging
+# that needs a history rewrite -- irreversible, and the owner's call.
+reference/
 
 # Stop-hook completion sentinel (local only)
 .claude/.goal-complete

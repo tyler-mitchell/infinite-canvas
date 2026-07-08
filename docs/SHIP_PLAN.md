@@ -56,10 +56,13 @@ CHANGELOG / issue + PR templates.
 
 **Class 4 item 13 (optional 3D): DONE** — see below. Items 12 and 14 remain.
 
-**Class 2 (cannot open-source) — STILL BLOCKING.** One step is mechanical and
-one is destructive; see "The remaining 7 hours". The npm package is unaffected:
-`/dynamic-grid` and `reference/` ship in neither the tarball nor the published
-artifact. Only making the _repository_ public is gated.
+**Class 2 (cannot open-source) — mechanical half DONE; history rewrite still
+required.** `reference/` is untracked and the derived `/dynamic-grid` showcase
+has left `apps/playground`. What remains is a `git filter-repo` purge of the
+derived implementation from history — irreversible, rewrites every SHA, no
+remote to recover from, and therefore the owner's call rather than an agent's.
+The npm package is unaffected and publishable today: neither `/dynamic-grid` nor
+`reference/` ever shipped in the tarball.
 
 **Also fixed, found by measuring the artifact rather than the workspace:**
 
@@ -166,26 +169,35 @@ group core (`group-tree.ts`, `group-layout.ts` — 1,057 lines, unwired).
 > follows is what actually stands between the repo and a public, production
 > release, ordered by what unblocks the most.
 
-### Hour 0–1 — Class 2, the mechanical half (unblocks everything downstream)
+### Hour 0–1 — Class 2, the mechanical half: **DONE**
 
-`/dynamic-grid` and `reference/` are the only things gating a **public
+`/dynamic-grid` and `reference/` were the only things gating a **public
 repository**. Neither ships in the npm tarball, so the package can be published
-today; only the repo is blocked.
+today; only the repo was blocked.
 
-- Untrack `reference/` (78 files) and the two `dynamic-grid` playground files
-  from `HEAD`, and `.gitignore` them. They stay on disk — Tyler asked for the
-  motion study as a living aesthetic reference — but leave the tree that goes
-  public. Non-destructive and reversible.
-- Delete the `/dynamic-grid` route from the playground's route table so the
-  build does not break on a missing file for a fresh clone.
+- ✅ `reference/` (80 files) untracked and `.gitignore`d. It stays on disk —
+  the motion study is a living aesthetic reference — but leaves the tree that
+  goes public. Non-destructive and reversible.
+- ✅ The derived `/dynamic-grid` route and its showcase moved out of
+  `apps/playground` into `reference/infinite-canvas-dynamic-grid/playground/`.
+  Moving rather than `.gitignore`-in-place was the only stable option:
+  `routeTree.gen.ts` is tracked and regenerated from whatever sits in
+  `routes/`, so an ignored-but-present route file would leave that generated
+  file permanently dirty. `routeTree.gen.ts` was hand-edited to exactly what the
+  generator now emits.
+- ✅ Playground nav is driven by each route's `staticData`, so the entry
+  disappears with the file. `vite.config.ts` `ignorePatterns` and
+  `tsconfig.json` `exclude` both tolerate a missing `reference/`, so a fresh
+  clone builds.
 
-**Then stop and get an explicit go-ahead** for the destructive half: the derived
-implementation is still reachable in git history, so a public repo leaks it
-regardless of `HEAD`. Purging it means a history rewrite (`git filter-repo`),
-which is irreversible and rewrites every SHA. That is the owner's call, not the
-agent's — it cannot be undone, and the repo has no remote to recover from.
+**Still open, and it is the owner's call.** The derived implementation remains
+reachable in git history, so a public repo leaks it regardless of `HEAD`.
+Purging it means a history rewrite (`git filter-repo`) — irreversible, rewrites
+every SHA, and this repo has no remote to recover from. An agent should not do
+that unasked. Until it happens, the repo cannot go public; **the npm package can
+be published now.**
 
-### Hour 1–3 — FR-9: keyboard navigation between windows
+### Hour 1–3 — FR-9: keyboard navigation between windows: **DONE**
 
 The single largest gap between "works" and "production". `docs/REQUIREMENTS.md`
 marks FR-9 `open`, and "production-ready" is not an honest claim for a window
@@ -203,7 +215,15 @@ Scope, deliberately narrow — no group model dependency, so it can land before 
 - Acceptance: the _global geometric_ tier of FOCUS-001. The group-local tier
   it should prefer first needs P1 and is explicitly out of scope here.
 
-Exit: a keyboard-only session can open, focus, move, and close windows.
+✅ Landed as `window.focusDirection` (`Alt+Arrow`) over `src/window-focus.ts`,
+plus two fixes the work exposed: the command surface now swallows any chord it
+owns even when the command is unavailable (otherwise `Alt+ArrowLeft` at the edge
+of your windows falls through to the browser's Back), and the Close/Minimize
+controls hand DOM focus back before they unmount (otherwise focus lands on
+`<body>` and every hotkey silently dies).
+
+FR-9 is `partial`, not done: group-local focus needs P1, and focus trapping plus
+accessible controls inside window bodies remain.
 
 ### Hour 3–4 — API surface tiering
 

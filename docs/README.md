@@ -7,10 +7,12 @@ Project-level documentation for the infinite-canvas framework.
 When documents disagree, the order of truth is:
 
 1. **Code and tests** (`packages/infinite-canvas/`)
-2. **Implementation-era planning docs** carried with the code
-   (`reference/infinite-canvas/README.md`, `FEATURE_TRACKER.md`,
-   `RASTERIZATION_PLAN.md`, `SELECTION_AND_KEYBOARD_PLAN.md`) — these were
-   maintained through the latest implementation work
+2. **Implementation-era planning docs** (`reference/infinite-canvas/README.md`,
+   `FEATURE_TRACKER.md`, `RASTERIZATION_PLAN.md`,
+   `SELECTION_AND_KEYBOARD_PLAN.md`) — maintained through the latest
+   implementation work. **Local only**: `reference/` is on disk but excluded from
+   the repository, so these links resolve for the owner and not for a clone. See
+   [SHIP_PLAN.md](SHIP_PLAN.md) for why.
 3. **This directory** — requirements, policies, and forward-looking research
 
 ## Documents
