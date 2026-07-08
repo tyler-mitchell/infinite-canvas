@@ -80,12 +80,22 @@ pointerModeControls?, cameraControls?, zoomControls? }` landed with the HUD
   and an opt-in window-local root tracking the window's screen rect. `/portals`
   demonstrates both.
 
+## Fixed 2026-07-08 (continued)
+
+- **Typed-payload contexts don't downcast.** `InfiniteCanvasOverlayRenderContext<K, Payload>`
+  was invariant in `Payload` because `startDrag` takes one — an intersection with a
+  contravariant member is assignable in neither direction — so every generic consumer
+  utility had to thread both type parameters. Split into
+  `InfiniteCanvasOverlayReadContext<K, Payload>` (covariant: `Payload` appears only in
+  output positions) intersected with the `startDrag` function. A utility that only
+  reads takes the read context and stops caring.
+- **`getInfiniteCanvasScopedStorageKey` widened to `string | undefined`** even when a
+  `storageKey` was supplied, because both inputs are optional — so callers wrote
+  `?? storageKey` to take it back. Now overloaded: give it a key and you get a key.
+  `/persistence` drops its workaround.
+
 ## Open — medium
 
-- **Typed-payload contexts don't downcast** — `InfiniteCanvasOverlayRenderContext<K, Payload>`
-  isn't assignable to the default-payload form (contravariant `startDrag`),
-  so generic consumer utilities must carry both type params. Consider
-  splitting read surface (covariant) from the drag-start function.
 - **Slot layout rigidity** — centering a header title still requires
   absolute-position hacks around `Controls`; consider slot order/areas in the
   styled-distribution work.

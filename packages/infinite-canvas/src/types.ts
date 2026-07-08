@@ -533,7 +533,14 @@ type InfiniteCanvasDropPolicy<
   onDrop?: (context: InfiniteCanvasDropCommitContext<Kind, Payload>) => void;
 }>;
 
-type InfiniteCanvasOverlayRenderContext<
+/**
+ * Everything an overlay *reads*. `Payload` appears only in output positions here,
+ * so this type is covariant in it: a context for a narrow payload is assignable to
+ * one for a wider payload, and a shared utility can take
+ * `InfiniteCanvasOverlayReadContext<Kind, MyPayload>` without also naming `Kind`
+ * at every call site.
+ */
+type InfiniteCanvasOverlayReadContext<
   Kind extends string = string,
   Payload = InfiniteCanvasDropPayload,
 > = Readonly<{
@@ -542,9 +549,26 @@ type InfiniteCanvasOverlayRenderContext<
   contextualCommands: readonly InfiniteCanvasContextualCommand[];
   drag: InfiniteCanvasDropInteraction<Payload, Kind>;
   resolveSpatialTarget: InfiniteCanvasResolveSpatialTarget<Kind>;
-  startDrag: (input: InfiniteCanvasDragStartInput<Payload>) => void;
   state: InfiniteCanvasState<Kind>;
 }>;
+
+/**
+ * The read surface plus the one function that makes the whole context invariant.
+ *
+ * `startDrag` takes a `Payload`, so it is *contravariant* in it, and an
+ * intersection with a contravariant member is assignable in neither direction.
+ * That is why a helper written against the default payload could not accept a
+ * typed one, and why every generic consumer utility had to thread both type
+ * parameters through. Splitting the surface means a utility that only reads takes
+ * `InfiniteCanvasOverlayReadContext` and stops caring.
+ */
+type InfiniteCanvasOverlayRenderContext<
+  Kind extends string = string,
+  Payload = InfiniteCanvasDropPayload,
+> = InfiniteCanvasOverlayReadContext<Kind, Payload> &
+  Readonly<{
+    startDrag: (input: InfiniteCanvasDragStartInput<Payload>) => void;
+  }>;
 
 type InfiniteCanvasWindowFrameSurfaceProps = Readonly<{
   children?: ReactNode;
@@ -1083,6 +1107,7 @@ export type {
   InfiniteCanvasMarqueeMode,
   InfiniteCanvasMoveInteraction,
   InfiniteCanvasMoveOriginRect,
+  InfiniteCanvasOverlayReadContext,
   InfiniteCanvasOverlayRenderContext,
   InfiniteCanvasPanInteraction,
   InfiniteCanvasPoint,

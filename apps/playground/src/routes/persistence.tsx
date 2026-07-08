@@ -25,16 +25,11 @@ type Kind = "note";
 const STORAGE_KEY = "playground.persistence.v1";
 const DOCUMENT_KEY = "demo";
 
-/**
- * The exact key the framework writes under — used by the reset button.
- * The helper widens to `string | undefined` because both inputs are optional;
- * with both supplied it always returns a string.
- */
-const scopedKey =
-  getInfiniteCanvasScopedStorageKey({
-    documentKey: DOCUMENT_KEY,
-    storageKey: STORAGE_KEY,
-  }) ?? STORAGE_KEY;
+/** The exact key the framework writes under — used by the reset button. */
+const scopedKey = getInfiniteCanvasScopedStorageKey({
+  documentKey: DOCUMENT_KEY,
+  storageKey: STORAGE_KEY,
+});
 
 const registry = defineInfiniteCanvasWindowRegistry<Kind>({
   note: {

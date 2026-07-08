@@ -360,6 +360,7 @@ export type {
   InfiniteCanvasMarqueeMode,
   InfiniteCanvasMoveInteraction,
   InfiniteCanvasMoveOriginRect,
+  InfiniteCanvasOverlayReadContext,
   InfiniteCanvasOverlayRenderContext,
   InfiniteCanvasPanInteraction,
   InfiniteCanvasPoint,

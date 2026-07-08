@@ -28,6 +28,18 @@ type InfiniteCanvasStorageKeyInput = Readonly<{
 
 const INFINITE_CANVAS_DOCUMENT_STORAGE_SEPARATOR = "::document::";
 
+/**
+ * Both inputs are optional, so the inferred return widened to `string | undefined`
+ * even when a `storageKey` was supplied — and every caller wrote `?? storageKey` to
+ * take it back. The overload states what the function already guaranteed: give it a
+ * key and you get a key.
+ */
+function getInfiniteCanvasScopedStorageKey(
+  input: Readonly<{ documentKey?: string; storageKey: string }>,
+): string;
+function getInfiniteCanvasScopedStorageKey(
+  input: InfiniteCanvasStorageKeyInput,
+): string | undefined;
 function getInfiniteCanvasScopedStorageKey({
   documentKey,
   storageKey,
