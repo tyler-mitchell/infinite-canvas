@@ -36,10 +36,11 @@ import type { InfiniteCanvasGroup, InfiniteCanvasRect, InfiniteCanvasState } fro
  * is how a window manager grows a dozen places that can disagree about where a
  * window actually is.
  *
- * A window hidden behind an inactive tab or a collapsed fold has no solved rect.
- * It takes the group's own rect: it is inside the group, nothing renders it, and
- * anything that unions window rects (fit-all, selection bounds) then gets the
- * right answer instead of a stale one from before it was docked.
+ * A window hidden behind an inactive tab or a collapsed fold is still solved — it
+ * takes the rect it would occupy if revealed. Nothing renders it, but a tear-out
+ * frees it at its own size rather than swelling it to fill the shell, and
+ * anything that unions window rects (fit-all, selection bounds) sees the truth
+ * instead of a stale rect from before it was docked.
  */
 
 const DEFAULT_INFINITE_CANVAS_GROUP_TITLE = "Group";
@@ -111,9 +112,11 @@ function getInfiniteCanvasGroupProjection(
       windowRects.set(placement.windowId, placement.rect);
     }
 
-    for (const windowId of layout.hiddenWindowIds) {
-      hiddenWindowIds.add(windowId);
-      windowRects.set(windowId, group.rect);
+    // Hidden members carry the rect they would occupy if revealed, so a tear-out
+    // frees them at their own size and anything unioning rects sees the truth.
+    for (const placement of layout.hiddenWindows) {
+      hiddenWindowIds.add(placement.windowId);
+      windowRects.set(placement.windowId, placement.rect);
     }
   }
 

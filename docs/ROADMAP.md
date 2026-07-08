@@ -21,16 +21,18 @@ windows compose into movable local layout regions.
   setChildWeights, reorderChild). Persisted at `version: 2`, with `version: 1`
   migrating to `groups: []`. Rendered by `group-layer.tsx` (shell, gutters, tab
   strips, accordion headers) beneath the window plane. `/groups` showcase.
-- ✅ **Landed: two of the four pointer gestures.** Dragging a grouped window's
-  header moves its shell as one world object (DOCK-003). Dragging the seam
-  between split panes reweights the pair (SPLIT-001) — the step recomputes from
-  the container as it stood at drag start, so the seam stays under the cursor
-  instead of drifting as rounding accumulates.
-- **Still open: create-group-by-docking and tear-out-by-drag.** Both have
-  canonical commands and a pure hit-test
-  (`getInfiniteCanvasGroupDockEdgeAtPoint`) and no pointer bindings. Resizing a
-  grouped window directly is still refused: a pane is resized by its seam, and
-  the shell has no edge handles yet.
+- ✅ **Landed: three of the four pointer gestures.** Dragging a grouped window's
+  header moves its shell as one world object (DOCK-003). Dragging the seam between
+  split panes reweights the pair (SPLIT-001) — the step recomputes from the
+  container as it stood at drag start, so the seam stays under the cursor rather
+  than drifting as rounding accumulates. Dragging a tab past a 6px threshold tears
+  the window out and hands the same pointer to a normal window move (DOCK-004).
+- **Still open: create-group-by-docking (DOCK-001/002).** The canonical command
+  and the pure hit-test (`getInfiniteCanvasGroupDockEdgeAtPoint`) exist; what is
+  missing is resolving a drop target while a floating window is being dragged, and
+  the region overlay that shows the user where it will land. Resizing a grouped
+  window directly stays refused: a pane is resized by its seam, and the shell has
+  no edge handles yet.
 - Tabs + accordion modes (center-merge, reorder, mode conversion,
   active-child semantics).
 - **Docking-intent snapping**: explicit intent mode with region overlays

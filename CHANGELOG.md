@@ -79,10 +79,11 @@ Initial release.
 
   Dragging a grouped window's header moves its shell as one world object. Dragging the seam between
   two split panes reweights them — every step recomputes from the container as it stood when the drag
-  began, so the seam stays under the cursor rather than drifting as rounding accumulates. Docking by
-  drag and tearing out by drag are not built yet; their canonical commands and hit-test
-  (`getInfiniteCanvasGroupDockEdgeAtPoint`) exist. Resizing a grouped window directly is refused: a
-  pane is resized by its seam.
+  began, so the seam stays under the cursor rather than drifting as rounding accumulates. Dragging a
+  tab out of its strip tears the window free and hands the same pointer to a normal window move; it
+  keeps the rect the solver gave it, which for a hidden tab is the size it would have been revealed
+  at. Docking by drag is not built yet; its command and hit-test exist. Resizing a grouped window
+  directly is refused: a pane is resized by its seam.
 
 - **Custom window chrome.** Replace the default header, controls, and corners wholesale via
   `renderFrame`, or slot into the existing frame. `renderFrame` is memoized on the window's own

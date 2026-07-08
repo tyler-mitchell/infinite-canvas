@@ -41,7 +41,11 @@
 - **DOCK-003** — Move a group shell → the group moves as one world object.
   (`done`: dragging any member's header starts a `groupMove` interaction; the
   members follow because their rects are re-derived from the shell.)
-- **DOCK-004** — Tear a child out of a tab group → sensible floating rect;
+- **DOCK-004** — (`done`: dragging a tab past a 6px threshold undocks the window
+  and hands the same pointer to `interaction.startMove`. It keeps the rect the
+  solver gave it — for a hidden tab, the size it would have been revealed at — so
+  nothing jumps and nothing swells to fill the shell.) Tear a child out of a tab
+  group → sensible floating rect;
   group stays valid.
 - **DOCK-005** — Remove the last child → empty-group cleanup.
   (`done`: `undockInfiniteCanvasGroupWindow` returns `null`, and `withInfiniteCanvasGroupTree` drops the shell.)

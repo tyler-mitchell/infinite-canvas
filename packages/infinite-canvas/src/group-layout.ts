@@ -1,6 +1,5 @@
 import {
   getInfiniteCanvasGroupChildWeightSum,
-  getInfiniteCanvasGroupWindowIds,
   isInfiniteCanvasGroupContainer,
   type InfiniteCanvasGroupAxis,
   type InfiniteCanvasGroupContainerNode,
@@ -75,14 +74,18 @@ type InfiniteCanvasGroupAccordionHeader = Readonly<{
 }>;
 
 /**
- * Everything a renderer needs, flattened. `windows` are the ones with a rect;
- * `hiddenWindowIds` are still members of the group — behind an inactive tab or a
- * collapsed accordion fold — and must stay mounted and addressable, not culled.
+ * Everything a renderer needs, flattened.
+ *
+ * `hiddenWindows` are still members — behind an inactive tab or a collapsed fold —
+ * and they carry **the rect they would occupy if revealed**, not nothing and not
+ * the shell's. Nothing draws them, but a tear-out gesture hands that rect to the
+ * window it frees, so a torn-out tab lands at its own size rather than swelling to
+ * fill the group. Anything that unions member rects gets the right answer too.
  */
 type InfiniteCanvasGroupLayout = Readonly<{
   accordionHeaders: readonly InfiniteCanvasGroupAccordionHeader[];
   gutters: readonly InfiniteCanvasGroupGutter[];
-  hiddenWindowIds: readonly string[];
+  hiddenWindows: readonly InfiniteCanvasGroupWindowPlacement[];
   tabStrips: readonly InfiniteCanvasGroupTabStrip[];
   windows: readonly InfiniteCanvasGroupWindowPlacement[];
 }>;
@@ -90,7 +93,7 @@ type InfiniteCanvasGroupLayout = Readonly<{
 type InfiniteCanvasGroupLayoutDraft = {
   accordionHeaders: InfiniteCanvasGroupAccordionHeader[];
   gutters: InfiniteCanvasGroupGutter[];
-  hiddenWindowIds: string[];
+  hiddenWindows: InfiniteCanvasGroupWindowPlacement[];
   tabStrips: InfiniteCanvasGroupTabStrip[];
   windows: InfiniteCanvasGroupWindowPlacement[];
 };
@@ -134,6 +137,7 @@ function solveSplitContainer(
   rect: InfiniteCanvasRect,
   metrics: InfiniteCanvasGroupMetrics,
   draft: InfiniteCanvasGroupLayoutDraft,
+  isHidden: boolean,
 ) {
   const { axis, children } = container;
   const gutterCount = Math.max(children.length - 1, 0);
@@ -152,12 +156,14 @@ function solveSplitContainer(
       sliceRectAlongAxis(rect, axis, offset, extent),
       metrics,
       draft,
+      isHidden,
     );
     offset += extent;
 
     const nextChild = children[index + 1];
 
-    if (nextChild !== undefined) {
+    // Chrome inside a hidden subtree is never drawn, so it is never emitted.
+    if (nextChild !== undefined && !isHidden) {
       draft.gutters.push({
         afterChildId: child.id,
         availableExtent: available,
@@ -166,6 +172,9 @@ function solveSplitContainer(
         containerId: container.id,
         rect: sliceRectAlongAxis(rect, axis, offset, metrics.gutterSize),
       });
+    }
+
+    if (nextChild !== undefined) {
       offset += metrics.gutterSize;
     }
   });
@@ -180,6 +189,7 @@ function solveTabsContainer(
   rect: InfiniteCanvasRect,
   metrics: InfiniteCanvasGroupMetrics,
   draft: InfiniteCanvasGroupLayoutDraft,
+  isHidden: boolean,
 ) {
   const activeChild = getActiveChild(container);
 
@@ -189,26 +199,33 @@ function solveTabsContainer(
 
   const stripHeight = Math.min(metrics.tabStripSize, rect.height);
 
-  draft.tabStrips.push({
-    activeChildId: activeChild.id,
-    childIds: container.children.map((child) => child.id),
-    containerId: container.id,
-    rect: { height: stripHeight, width: rect.width, x: rect.x, y: rect.y },
-  });
+  if (!isHidden) {
+    draft.tabStrips.push({
+      activeChildId: activeChild.id,
+      childIds: container.children.map((child) => child.id),
+      containerId: container.id,
+      rect: { height: stripHeight, width: rect.width, x: rect.x, y: rect.y },
+    });
+  }
 
-  hideInactiveChildren(container, activeChild.id, draft);
+  // Every child of a tab group shares the same content rect; the inactive ones
+  // are solved into it too, so they know the size they would be revealed at.
+  const contentRect = {
+    height: Math.max(rect.height - stripHeight, 0),
+    width: rect.width,
+    x: rect.x,
+    y: rect.y + stripHeight,
+  };
 
-  solveInfiniteCanvasGroupNode(
-    activeChild,
-    {
-      height: Math.max(rect.height - stripHeight, 0),
-      width: rect.width,
-      x: rect.x,
-      y: rect.y + stripHeight,
-    },
-    metrics,
-    draft,
-  );
+  for (const child of container.children) {
+    solveInfiniteCanvasGroupNode(
+      child,
+      contentRect,
+      metrics,
+      draft,
+      isHidden || child.id !== activeChild.id,
+    );
+  }
 }
 
 /**
@@ -222,6 +239,7 @@ function solveAccordionContainer(
   rect: InfiniteCanvasRect,
   metrics: InfiniteCanvasGroupMetrics,
   draft: InfiniteCanvasGroupLayoutDraft,
+  isHidden: boolean,
 ) {
   const { axis, children } = container;
   const activeChild = getActiveChild(container);
@@ -235,26 +253,31 @@ function solveAccordionContainer(
   const expandedExtent = Math.max(total - headerSize * children.length, 0);
   let offset = getAxisOrigin(rect, axis);
 
-  hideInactiveChildren(container, activeChild.id, draft);
-
   for (const child of children) {
     const isExpanded = child.id === activeChild.id;
 
-    draft.accordionHeaders.push({
-      childId: child.id,
-      containerId: container.id,
-      isExpanded,
-      rect: sliceRectAlongAxis(rect, axis, offset, headerSize),
-    });
+    if (!isHidden) {
+      draft.accordionHeaders.push({
+        childId: child.id,
+        containerId: container.id,
+        isExpanded,
+        rect: sliceRectAlongAxis(rect, axis, offset, headerSize),
+      });
+    }
+
     offset += headerSize;
 
+    // A collapsed fold is solved into the extent it would expand to, at its own
+    // offset — so a member torn out of it lands at the size it would have shown.
+    solveInfiniteCanvasGroupNode(
+      child,
+      sliceRectAlongAxis(rect, axis, offset, expandedExtent),
+      metrics,
+      draft,
+      isHidden || !isExpanded,
+    );
+
     if (isExpanded) {
-      solveInfiniteCanvasGroupNode(
-        child,
-        sliceRectAlongAxis(rect, axis, offset, expandedExtent),
-        metrics,
-        draft,
-      );
       offset += expandedExtent;
     }
   }
@@ -274,43 +297,32 @@ function getActiveChild(
   );
 }
 
-function hideInactiveChildren(
-  container: InfiniteCanvasGroupContainerNode,
-  activeChildId: string,
-  draft: InfiniteCanvasGroupLayoutDraft,
-) {
-  for (const child of container.children) {
-    if (child.id !== activeChildId) {
-      draft.hiddenWindowIds.push(...getInfiniteCanvasGroupWindowIds(child));
-    }
-  }
-}
-
 function solveInfiniteCanvasGroupNode(
   node: InfiniteCanvasGroupNode,
   rect: InfiniteCanvasRect,
   metrics: InfiniteCanvasGroupMetrics,
   draft: InfiniteCanvasGroupLayoutDraft,
+  isHidden: boolean,
 ) {
   if (!isInfiniteCanvasGroupContainer(node)) {
-    draft.windows.push({ rect, windowId: node.id });
+    (isHidden ? draft.hiddenWindows : draft.windows).push({ rect, windowId: node.id });
 
     return;
   }
 
   if (node.layout === "split") {
-    solveSplitContainer(node, rect, metrics, draft);
+    solveSplitContainer(node, rect, metrics, draft, isHidden);
 
     return;
   }
 
   if (node.layout === "tabs") {
-    solveTabsContainer(node, rect, metrics, draft);
+    solveTabsContainer(node, rect, metrics, draft, isHidden);
 
     return;
   }
 
-  solveAccordionContainer(node, rect, metrics, draft);
+  solveAccordionContainer(node, rect, metrics, draft, isHidden);
 }
 
 /** Solve a group shell's content rect into window rects and the chrome between them. */
@@ -322,12 +334,12 @@ function getInfiniteCanvasGroupLayout(
   const draft: InfiniteCanvasGroupLayoutDraft = {
     accordionHeaders: [],
     gutters: [],
-    hiddenWindowIds: [],
+    hiddenWindows: [],
     tabStrips: [],
     windows: [],
   };
 
-  solveInfiniteCanvasGroupNode(root, rect, metrics, draft);
+  solveInfiniteCanvasGroupNode(root, rect, metrics, draft, false);
 
   return draft;
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, type CSSProperties } from "react";
+import { useMemo, useRef, type CSSProperties, type PointerEvent as ReactPointerEvent } from "react";
 
 import { INFINITE_CANVAS_SLOTS } from "./data-attributes";
 import { getEventViewportPoint } from "./frame-slots";
@@ -10,11 +10,12 @@ import {
   getInfiniteCanvasGroupLayout,
   type InfiniteCanvasGroupMetrics,
 } from "./group-layout";
-import { findInfiniteCanvasGroupNode } from "./group-tree";
+import { findInfiniteCanvasGroupNode, isInfiniteCanvasGroupContainer } from "./group-tree";
 import { capturePointer, isPrimaryButton, releasePointer } from "./runtime";
 import { useInfiniteCanvasActions, useInfiniteCanvasSelector } from "./store";
 import type {
   InfiniteCanvasCamera,
+  InfiniteCanvasCommands,
   InfiniteCanvasGroup,
   InfiniteCanvasRect,
   InfiniteCanvasViewport,
@@ -52,6 +53,68 @@ function getWorldRectStyle(
     transform: `translate(${screenTransform.x}px, ${screenTransform.y}px) scale(${screenTransform.scale})`,
     transformOrigin: "top left",
     width: `${screenTransform.width}px`,
+  };
+}
+
+/**
+ * A tab travels a few pixels before it means anything. Below the threshold the
+ * gesture is a click that activates the tab; past it, the window is torn out of
+ * the tree and the drag becomes an ordinary window move — the same
+ * `interaction.startMove` a floating window's header would have started.
+ *
+ * Tear-out hands the window no rect. It keeps the one the solver already gave it,
+ * which for a hidden tab is the size it would have been revealed at, so nothing
+ * jumps and nothing swells to fill the shell.
+ *
+ * Only a window can float. A tab whose child is a nested container has nowhere to
+ * go, so it stays put and remains clickable.
+ */
+const TAB_TEAR_OUT_THRESHOLD_PX = 6;
+
+function useInfiniteCanvasTabTearOut(
+  actions: InfiniteCanvasCommands,
+  group: InfiniteCanvasGroup,
+  childId: string,
+) {
+  const originRef = useRef<{ x: number; y: number } | null>(null);
+  const node = findInfiniteCanvasGroupNode(group.tree, childId);
+  const canTearOut = node !== null && !isInfiniteCanvasGroupContainer(node);
+
+  return {
+    onPointerDown: (event: ReactPointerEvent<HTMLElement>) => {
+      if (!isPrimaryButton(event) || !canTearOut) {
+        return;
+      }
+
+      originRef.current = { x: event.clientX, y: event.clientY };
+      capturePointer(event.currentTarget, event.pointerId);
+    },
+    onPointerMove: (event: ReactPointerEvent<HTMLElement>) => {
+      const origin = originRef.current;
+
+      if (origin === null) {
+        return;
+      }
+
+      const travel = Math.hypot(event.clientX - origin.x, event.clientY - origin.y);
+
+      if (travel < TAB_TEAR_OUT_THRESHOLD_PX) {
+        return;
+      }
+
+      originRef.current = null;
+      releasePointer(event.currentTarget, event.pointerId);
+      actions.undockWindow({ windowId: childId });
+      actions.startMove({
+        pointerId: event.pointerId,
+        point: getEventViewportPoint(event),
+        windowId: childId,
+      });
+    },
+    onPointerUp: (event: ReactPointerEvent<HTMLElement>) => {
+      originRef.current = null;
+      releasePointer(event.currentTarget, event.pointerId);
+    },
   };
 }
 
@@ -149,23 +212,13 @@ function InfiniteCanvasGroupShell({
           }}
         >
           {strip.childIds.map((childId) => (
-            <button
-              aria-selected={childId === strip.activeChildId}
-              data-active={childId === strip.activeChildId ? "" : undefined}
-              data-slot={INFINITE_CANVAS_SLOTS.groupTab}
+            <InfiniteCanvasGroupTab
+              childId={childId}
+              containerId={strip.containerId}
+              group={group}
+              isActive={childId === strip.activeChildId}
               key={childId}
-              onClick={() => {
-                actions.setGroupActiveChild({
-                  childId,
-                  containerId: strip.containerId,
-                  groupId: group.id,
-                });
-              }}
-              role="tab"
-              type="button"
-            >
-              {getTabLabel(group, childId)}
-            </button>
+            />
           ))}
         </div>
       ))}
@@ -192,6 +245,43 @@ function InfiniteCanvasGroupShell({
         </button>
       ))}
     </div>
+  );
+}
+
+function InfiniteCanvasGroupTab({
+  childId,
+  containerId,
+  group,
+  isActive,
+}: Readonly<{
+  childId: string;
+  containerId: string;
+  group: InfiniteCanvasGroup;
+  isActive: boolean;
+}>) {
+  const actions = useInfiniteCanvasActions();
+  const tearOut = useInfiniteCanvasTabTearOut(actions, group, childId);
+
+  return (
+    <button
+      aria-selected={isActive}
+      data-active={isActive ? "" : undefined}
+      data-infinite-canvas-control="true"
+      data-slot={INFINITE_CANVAS_SLOTS.groupTab}
+      onClick={() => {
+        actions.setGroupActiveChild({ childId, containerId, groupId: group.id });
+      }}
+      onPointerDown={(event) => {
+        event.stopPropagation();
+        tearOut.onPointerDown(event);
+      }}
+      onPointerMove={tearOut.onPointerMove}
+      onPointerUp={tearOut.onPointerUp}
+      role="tab"
+      type="button"
+    >
+      {getTabLabel(group, childId)}
+    </button>
   );
 }
 
