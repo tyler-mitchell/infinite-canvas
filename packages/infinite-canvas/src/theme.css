@@ -254,7 +254,9 @@
 
   /* ------------------------------------------------------------------ */
   /* Host-local chrome layers (src/window-frame.tsx, getHostChromeTone).  */
-  /* Layer geometry (heights, offsets, frame border-width) stays inline.  */
+  /* Layer geometry (heights, offsets, frame border-width) stays inline. Strokes
+     drawn inside the frame's transform read --icx-chrome-stroke, which the frame
+     widens in world units as zoom shrinks so nothing renders sub-pixel.  */
   /* Precedence (matches the JS conditional): active > selected > idle.   */
   /* ------------------------------------------------------------------ */
   [data-slot="window-host-chrome"] [data-layer="fill"] {
@@ -304,8 +306,12 @@
     box-shadow: var(--icx-host-shadow-active);
   }
 
+  /* Inside the frame's zoom transform, so the width comes from the clamped stroke
+     rather than a literal pixel: a 1px rule vanishes below ~50% zoom. */
   [data-slot="window-host-chrome"] [data-layer="inner-frame"] {
-    border: 1px solid var(--icx-host-inner-border-idle);
+    border-width: var(--icx-chrome-stroke);
+    border-style: solid;
+    border-color: var(--icx-host-inner-border-idle);
   }
 
   [data-slot="window"][data-selected]:not([data-active])

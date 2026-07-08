@@ -61,6 +61,29 @@ import type {
  */
 const RESIZE_HANDLE_SIZE_CSS_VARIABLE = "--icx-resize-handle-size";
 
+/**
+ * Chrome strokes are drawn in world units inside a zoom-scaled frame, so a 1px
+ * border renders as `1 × zoom` screen pixels. At 10% zoom that is a tenth of a
+ * pixel: borders, the header rule, and the inner frame all thin to nothing and a
+ * window becomes an unreadable blob exactly when the user has zoomed out to see
+ * how their windows relate.
+ *
+ * So the stroke is published as a custom property, widened in world units by
+ * however much the zoom is shrinking it, and never allowed to render thinner than
+ * one screen pixel. Above 100% zoom this is inert: the authored width already
+ * exceeds the floor, and a stroke that grows with the canvas is what you want.
+ */
+const CHROME_STROKE_CSS_VARIABLE = "--icx-chrome-stroke";
+
+const CHROME_STROKE = `var(${CHROME_STROKE_CSS_VARIABLE})`;
+
+/** A stroke may not disappear. One screen pixel is the floor. */
+const MINIMUM_CHROME_STROKE_SCREEN_PX = 1;
+
+function getChromeStrokeWorldPx(borderWidth: number, scale: number): number {
+  return scale <= 0 ? borderWidth : Math.max(borderWidth, MINIMUM_CHROME_STROKE_SCREEN_PX / scale);
+}
+
 const RESIZE_HANDLE_EXTENT = `var(${RESIZE_HANDLE_SIZE_CSS_VARIABLE})`;
 
 /** Handles straddle the frame edge, so they hang half their extent outside it. */
@@ -68,6 +91,7 @@ const RESIZE_HANDLE_OVERHANG = `calc(${RESIZE_HANDLE_EXTENT} / -2)`;
 
 /** React's `CSSProperties` has no slot for custom properties. Widen just this one. */
 type InfiniteCanvasFrameStyle = CSSProperties &
+  Readonly<Record<typeof CHROME_STROKE_CSS_VARIABLE, string>> &
   Readonly<Record<typeof RESIZE_HANDLE_SIZE_CSS_VARIABLE, string>>;
 
 type InfiniteCanvasResizeHandleDescriptor = Readonly<{
@@ -205,6 +229,7 @@ function InfiniteCanvasWindowFrame<Kind extends string>({
   // The frame's box is in world units; `scale` maps it to the screen. Handles
   // therefore need a world-unit extent that shrinks as zoom grows.
   const articleStyle: InfiniteCanvasFrameStyle = {
+    [CHROME_STROKE_CSS_VARIABLE]: `${getChromeStrokeWorldPx(chrome.borderWidth, screenTransform.scale)}px`,
     [RESIZE_HANDLE_SIZE_CSS_VARIABLE]: `${chrome.resizeHandleSize / screenTransform.scale}px`,
     contain: "layout paint style",
     height: `${screenTransform.height}px`,
@@ -402,9 +427,9 @@ function InfiniteCanvasHostChromeFrame({
       </Header>
       <Body
         style={{
-          bottom: `${chrome.borderWidth}px`,
-          left: `${chrome.borderWidth}px`,
-          right: `${chrome.borderWidth}px`,
+          bottom: CHROME_STROKE,
+          left: CHROME_STROKE,
+          right: CHROME_STROKE,
           top: `${chrome.headerHeight}px`,
           zIndex: 2,
         }}
@@ -473,7 +498,7 @@ function InfiniteCanvasWindowHostChrome({
       <div
         data-layer="frame"
         style={{
-          borderWidth: `${chrome.borderWidth}px`,
+          borderWidth: CHROME_STROKE,
           inset: 0,
           position: "absolute",
         }}
@@ -481,7 +506,7 @@ function InfiniteCanvasWindowHostChrome({
       <div
         data-layer="inner-frame"
         style={{
-          inset: "1px",
+          inset: CHROME_STROKE,
           position: "absolute",
         }}
       />

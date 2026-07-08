@@ -263,7 +263,7 @@ function InfiniteCanvasWindowFrameHeaderSlot({
       }}
       style={{
         alignItems: "center",
-        borderBottomWidth: `${chrome.headerAccentHeight}px`,
+        borderBottomWidth: `max(${chrome.headerAccentHeight}px, var(--icx-chrome-stroke))`,
         cursor: "grab",
         display: "flex",
         gap: "12px",
@@ -388,14 +388,14 @@ function InfiniteCanvasWindowFrameSurfaceSlot({
   className,
   style,
 }: InfiniteCanvasWindowFrameSurfaceProps) {
-  const { chrome } = useInfiniteCanvasWindowFrameRuntimeContext();
-
   return (
     <div
       className={className}
       data-slot={INFINITE_CANVAS_SLOTS.windowSurface}
       style={{
-        borderWidth: `${chrome.borderWidth}px`,
+        // Never thinner than one screen pixel, however far the canvas is zoomed
+        // out. The frame publishes the widened world-unit value; see window-frame.
+        borderWidth: "var(--icx-chrome-stroke)",
         inset: 0,
         overflow: "hidden",
         pointerEvents: "auto",

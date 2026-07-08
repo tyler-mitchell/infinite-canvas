@@ -180,8 +180,14 @@ sharpest near-term trap
   pinch documented as the Ctrl+wheel path it has always been. See
   [zoom-policy.md](zoom-policy.md). Per-engine pinch verification in Safari
   remains, and that is a browser task rather than a code one.
-- Low-zoom chrome stroke policy (minimum screen-space stroke or simplified
-  proxy chrome).
+- ✅ **Landed (2026-07-08): low-zoom chrome strokes.** Chrome is drawn in world
+  units inside a zoom-scaled frame, so a 1px border rendered as `1 × zoom` screen
+  pixels — a tenth of a pixel at 10% zoom. Borders, the header rule, and the inner
+  frame all thinned to nothing exactly when the user zoomed out to see how their
+  windows relate. Strokes now read `--icx-chrome-stroke`, which the frame widens in
+  world units as zoom shrinks and never lets render below one screen pixel. Above
+  100% zoom it is inert. Simplified proxy chrome remains a P7 (semantic LOD) item —
+  a stroke that survives is not the same as chrome that is legible.
 - `window.data` generic threading through registry + render contexts (the
   real fix beyond the helper); payload-variance split for overlay contexts.
 - Exit: a showcase embedding a non-trivial app (forms, popovers, scrolling

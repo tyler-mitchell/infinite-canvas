@@ -100,7 +100,7 @@ To get the default look, import the theme once:
 import "@infinite-canvas/react/theme.css";
 ```
 
-It is a single `@layer infinite-canvas` cascade layer targeting the `data-slot` contract, so unlayered consumer styles always win. You can skip it entirely and write your own CSS against the same selectors, or pass the `theme` prop to override the bridged `--icx-*` custom properties.
+It is a single `@layer infinite-canvas` cascade layer targeting the `data-slot` contract, so unlayered consumer styles always win. Strokes drawn inside a window read `--icx-chrome-stroke`, which the framework widens as you zoom out so a 1px border never renders sub-pixel. You can skip it entirely and write your own CSS against the same selectors, or pass the `theme` prop to override the bridged `--icx-*` custom properties.
 
 ## What you get
 

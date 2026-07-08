@@ -70,6 +70,11 @@ Initial release.
   zoom gesture outranks a scrollable window body — pinching inside a long list zooms the desktop
   rather than doing nothing — while the plain wheel still belongs to the body. Trackpad pinch is
   Ctrl+wheel, which is why it and Ctrl+wheel have always shared one code path.
+- **Chrome that survives zooming out.** Window strokes are drawn in world units inside a zoom-scaled
+  frame, so a 1px border rendered as `1 × zoom` screen pixels — a tenth of a pixel at 10% zoom.
+  Borders, the header rule, and the inner frame thinned to nothing exactly when the user zoomed out to
+  see how their windows relate. Every stroke now reads `--icx-chrome-stroke`, published by the frame
+  and clamped so nothing renders below one screen pixel. Above 100% zoom it changes nothing.
 - **Keyboard command layer.** Hotkeys bound to the same command vocabulary the pointer interactions
   use, so anything the mouse can do the keyboard can express. Includes **directional window focus**
   (`Alt+Arrow`): the nearest window strictly ahead along the arrow wins, and one whose span overlaps
