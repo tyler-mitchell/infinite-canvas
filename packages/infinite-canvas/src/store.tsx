@@ -201,6 +201,12 @@ function createInfiniteCanvasStore<Kind extends string>(
         windowId,
       });
     },
+    applyRecipe: (input) => {
+      dispatch({
+        ...input,
+        type: "recipe.apply",
+      });
+    },
     redo: () => {
       dispatch({
         command: { type: "history.redo" },

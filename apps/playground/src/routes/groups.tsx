@@ -1,11 +1,15 @@
 import { createFileRoute } from "@tanstack/react-router";
 import {
+  captureInfiniteCanvasRecipe,
   createInfiniteCanvasState,
   createInfiniteCanvasWindow,
   defineInfiniteCanvasWindowRegistry,
   InfiniteCanvasDesktop,
+  parseInfiniteCanvasRecipe,
   useInfiniteCanvasActions,
   useInfiniteCanvasSelector,
+  useInfiniteCanvasStore,
+  type InfiniteCanvasRecipe,
 } from "@infinite-canvas/react";
 import { Button } from "ui";
 import { exposeCanvasDevHandle } from "../showcases/dev-handle.ts";
@@ -70,6 +74,71 @@ const initialState = createInfiniteCanvasState<Kind>({
     }),
   ],
 });
+
+const RECIPE_STORAGE_KEY = "playground.groups.recipe.v1";
+
+/**
+ * Recipes are values the consumer owns: the framework captures and applies them,
+ * and never decides where they live. Here that is `localStorage`, parsed
+ * structurally on the way back in — a recipe crossing storage is untrusted input
+ * exactly like persisted canvas state.
+ */
+function readStoredRecipe(): InfiniteCanvasRecipe | null {
+  const raw = globalThis.localStorage.getItem(RECIPE_STORAGE_KEY);
+
+  if (raw === null) {
+    return null;
+  }
+
+  try {
+    return parseInfiniteCanvasRecipe(JSON.parse(raw));
+  } catch {
+    return null;
+  }
+}
+
+function RecipeControls() {
+  const actions = useInfiniteCanvasActions();
+  const store = useInfiniteCanvasStore();
+
+  return (
+    <>
+      <Button
+        onClick={() => {
+          const recipe = captureInfiniteCanvasRecipe(store.state$.peek(), {
+            name: "Workbench layout",
+            recipeId: "workbench",
+          });
+
+          if (recipe !== null) {
+            globalThis.localStorage.setItem(RECIPE_STORAGE_KEY, JSON.stringify(recipe));
+          }
+        }}
+        size="xs"
+        variant="ghost"
+      >
+        Save recipe
+      </Button>
+      <Button
+        onClick={() => {
+          const recipe = readStoredRecipe();
+
+          if (recipe !== null) {
+            // Centred in the region, at its natural size: recipes translate, never scale.
+            actions.applyRecipe({
+              placement: { rect: { height: 600, width: 900, x: -100, y: -100 } },
+              recipe,
+            });
+          }
+        }}
+        size="xs"
+        variant="ghost"
+      >
+        Apply recipe
+      </Button>
+    </>
+  );
+}
 
 function GroupControls() {
   const actions = useInfiniteCanvasActions();
@@ -156,10 +225,12 @@ function GroupsShowcase() {
           return (
             <div className="pointer-events-auto absolute bottom-4 left-4 flex items-center gap-1.5 rounded-lg border border-border bg-popover/90 p-1.5 backdrop-blur">
               <GroupControls />
+              <span className="mx-1 h-4 w-px bg-border" />
+              <RecipeControls />
             </div>
           );
         }}
-        subtitle="Alt+drag to dock. Drag a header to move the shell, a seam to reweight, a tab to tear out."
+        subtitle="Alt+drag to dock. Save the arrangement as a recipe and put it back anywhere. Mod+Z undoes."
         title="Groups"
         windowDefinitions={registry}
       />

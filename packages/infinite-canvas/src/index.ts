@@ -68,6 +68,12 @@ export {
   redoInfiniteCanvasHistory,
   undoInfiniteCanvasHistory,
 } from "./history";
+export {
+  INFINITE_CANVAS_RECIPE_VERSION,
+  applyInfiniteCanvasRecipe,
+  captureInfiniteCanvasRecipe,
+  getInfiniteCanvasRecipeOrigin,
+} from "./recipes";
 export { createInfiniteCanvasHandle } from "./canvas-handle";
 export type { InfiniteCanvasHandle } from "./canvas-handle";
 export {
@@ -98,6 +104,7 @@ export {
 export {
   parseInfiniteCanvasCamera,
   parseInfiniteCanvasPoint,
+  parseInfiniteCanvasRecipe,
   parseInfiniteCanvasRect,
   parseInfiniteCanvasSelection,
   parseInfiniteCanvasSerializedState,
@@ -350,6 +357,10 @@ export type {
   InfiniteCanvasPanInteraction,
   InfiniteCanvasPoint,
   InfiniteCanvasPointerMode,
+  InfiniteCanvasRecipe,
+  InfiniteCanvasRecipeGroup,
+  InfiniteCanvasRecipePlacement,
+  InfiniteCanvasRecipeWindow,
   InfiniteCanvasRect,
   InfiniteCanvasResizeHandle,
   InfiniteCanvasResizeInteraction,

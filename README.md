@@ -68,10 +68,10 @@ documented works and is tested; nothing below is aspirational.
 marquee, and group move · snapping with edge/center/gap guides · keyboard
 command layer, including directional window focus · camera navigation · versioned, document-scoped persistence ·
 typed drag & drop with spatial target resolution · window groups with split, tab,
-and accordion layouts, docked by Alt+drag · undo/redo · read-only R3F scene layers ·
+and accordion layouts, docked by Alt+drag · undo/redo · layout recipes · read-only R3F scene layers ·
 custom chrome via `renderFrame` · headless theming.
 
-**Not implemented yet:** layout recipes · group-local focus, focus trapping, and a complete
+**Not implemented yet:** per-window dock history · group-local focus, focus trapping, and a complete
 accessibility story · far-zoom semantic level-of-detail. Each is a defined
 program with exit criteria in [the roadmap](docs/ROADMAP.md), not a wish.
 

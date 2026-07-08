@@ -1,6 +1,7 @@
 import { executeInfiniteCanvasCommand } from "./commands";
 import { navigateCamera } from "./camera-navigation";
 import { findInfiniteCanvasGroupNode, isInfiniteCanvasGroupContainer } from "./group-tree";
+import { applyInfiniteCanvasRecipe } from "./recipes";
 import {
   EMPTY_INFINITE_CANVAS_HISTORY,
   getInfiniteCanvasDocument,
@@ -230,6 +231,8 @@ function applyInfiniteCanvasAction<Kind extends string>(
       return setInfiniteCanvasGroupRect(state, action);
     case "group.undockWindow":
       return undockInfiniteCanvasWindowFromGroup(state, action);
+    case "recipe.apply":
+      return applyInfiniteCanvasRecipe(state, action.recipe, action.placement);
     // A window that is gone, or collapsed into the dock, cannot keep occupying a
     // layout slot. Detaching after the fact keeps `stacking` group-blind.
     case "window.close":

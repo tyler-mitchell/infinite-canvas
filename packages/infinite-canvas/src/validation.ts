@@ -2,6 +2,9 @@ import type { InfiniteCanvasGroupLayoutMode, InfiniteCanvasGroupNode } from "./g
 import type {
   InfiniteCanvasCamera,
   InfiniteCanvasGroup,
+  InfiniteCanvasRecipe,
+  InfiniteCanvasRecipeGroup,
+  InfiniteCanvasRecipeWindow,
   InfiniteCanvasPoint,
   InfiniteCanvasRect,
   InfiniteCanvasSelection,
@@ -295,6 +298,92 @@ function parseInfiniteCanvasGroup(value: unknown): InfiniteCanvasGroup | null {
   return { id: value.id, rect, title: value.title, tree, zIndex: value.zIndex };
 }
 
+/**
+ * Recipes cross `localStorage` like persisted state does, so they are parsed
+ * structurally rather than trusted. A malformed entry is `null`, never a
+ * half-built arrangement that would place windows nobody asked it to.
+ */
+function parseInfiniteCanvasRecipeWindow(value: unknown): InfiniteCanvasRecipeWindow | null {
+  if (
+    !isRecord(value) ||
+    typeof value.windowId !== "string" ||
+    typeof value.isPinned !== "boolean" ||
+    !isSafeNumber(value.zIndex)
+  ) {
+    return null;
+  }
+
+  const rect = parseInfiniteCanvasRect(value.rect);
+
+  return rect === null || !isWindowMode(value.mode)
+    ? null
+    : {
+        isPinned: value.isPinned,
+        mode: value.mode,
+        rect,
+        windowId: value.windowId,
+        zIndex: value.zIndex,
+      };
+}
+
+function parseInfiniteCanvasRecipeGroup(value: unknown): InfiniteCanvasRecipeGroup | null {
+  if (!isRecord(value) || typeof value.groupId !== "string" || typeof value.title !== "string") {
+    return null;
+  }
+
+  const rect = parseInfiniteCanvasRect(value.rect);
+  const tree = parseInfiniteCanvasGroupNode(value.tree);
+
+  return rect === null || tree === null || !isSafeNumber(value.zIndex)
+    ? null
+    : { groupId: value.groupId, rect, title: value.title, tree, zIndex: value.zIndex };
+}
+
+function parseInfiniteCanvasRecipe(value: unknown): InfiniteCanvasRecipe | null {
+  if (
+    !isRecord(value) ||
+    value.version !== 1 ||
+    typeof value.id !== "string" ||
+    typeof value.name !== "string" ||
+    !Array.isArray(value.windows) ||
+    !Array.isArray(value.groups)
+  ) {
+    return null;
+  }
+
+  const size = parseInfiniteCanvasSize(value.size);
+
+  if (size === null) {
+    return null;
+  }
+
+  const windows: InfiniteCanvasRecipeWindow[] = [];
+
+  for (const entry of value.windows) {
+    const window = parseInfiniteCanvasRecipeWindow(entry);
+
+    if (window === null) {
+      return null;
+    }
+
+    windows.push(window);
+  }
+
+  const groups: InfiniteCanvasRecipeGroup[] = [];
+
+  for (const entry of value.groups) {
+    const group = parseInfiniteCanvasRecipeGroup(entry);
+
+    if (group === null) {
+      return null;
+    }
+
+    groups.push(group);
+  }
+
+  return { groups, id: value.id, name: value.name, size, version: 1, windows };
+}
+
 function parseInfiniteCanvasSerializedState<Kind extends string>(
   value: unknown,
 ): InfiniteCanvasSerializedState<Kind> | null {
@@ -375,6 +464,7 @@ export {
   parseInfiniteCanvasGroup,
   parseInfiniteCanvasGroupNode,
   parseInfiniteCanvasPoint,
+  parseInfiniteCanvasRecipe,
   parseInfiniteCanvasRect,
   parseInfiniteCanvasSelection,
   parseInfiniteCanvasSerializedState,

@@ -115,15 +115,31 @@ Professional-tool table stakes; the command layer is transaction-ready.
   entries, oldest dropped. Hydrate and reset discard the stack. History is
   session-scoped and never serialized — a layout is a document, not its edit log.
 - **Still open: recipes**, and putting history in the versioned envelope.
-- **Layout recipes** (designed WITH the group model per risk R10): named
-  arrangements, save selection/cluster, reapply into a world region,
-  per-window history (last floating rect, last dock path).
+- ✅ **Landed (2026-07-08): layout recipes.** `recipes.ts` captures a named
+  arrangement — the selection, or a named set, or the whole canvas — stored with
+  its origin at `(0, 0)` and a `size`, so it drops into any region of an unbounded
+  world. Groups come along only when _every_ member does: half a group is not a
+  group, and its tree would name windows the recipe never took. Applying it
+  rearranges the windows that exist and skips the ones the canvas has lost;
+  `reconcileInfiniteCanvasGroups` runs on the way back in, so a recipe saved before
+  a window was closed never restores a shell laying out a ghost. Recipes are values
+  the consumer owns and persists; `parseInfiniteCanvasRecipe` treats one crossing
+  storage as untrusted input, like canvas state. Applying a recipe is one undo
+  entry, for free, because it is one document mutation.
+  **Recipes translate; they do not scale.** Fitting an arrangement into a smaller
+  region would shrink windows below their own `minSize` — a recipe that quietly
+  violates a constraint the rest of the framework enforces is worse than one that
+  does not fit. Placed into a `rect`, an arrangement is centred at natural size.
+- **Still open: per-window history** (last floating rect, last dock path), and
+  recipes/history in the versioned envelope.
 - Persistence v2: recipes + history in the versioned serialization;
   PERSIST-001..003 scenarios as tests.
 - Exit: ctrl-Z/shift-ctrl-Z across all mutations; recipe save/apply in a
   showcase; tear-out→move→re-dock→undo×3 is transactionally coherent.
-  **Partially met.** Undo/redo spans every window and group mutation, and each
-  drag is one transaction. Recipes remain.
+  **Met, except transactional coherence across a tear-out→move→re-dock chain,
+  which needs the scenario tests to demonstrate.** Undo/redo spans every window and
+  group mutation, each drag is one transaction, and recipe save/apply is in the
+  `/groups` showcase.
 - Dependencies: recipes want P1's group model; window-only undo/redo can
   land first.
 

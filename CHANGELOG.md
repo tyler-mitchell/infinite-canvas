@@ -46,6 +46,15 @@ Initial release.
   drag begins, so a cancelled drag still has somewhere to return to. Bounded at 100 entries; discarded
   on hydrate and reset; session-scoped and never serialized, because a layout is a document, not its
   edit log.
+- **Layout recipes.** `captureInfiniteCanvasRecipe` saves a named arrangement — the selection, a named
+  set, or the whole canvas — relative to its own origin, so it drops into any region of an unbounded
+  world. `applyInfiniteCanvasRecipe` puts it back: windows it does not name are untouched, windows the
+  canvas has lost are skipped, and any group holding a recipe window is dissolved first so two things
+  never claim to own the same window's rect. A group is captured only when every one of its members
+  is. Recipes translate rather than scale — fitting an arrangement into a smaller region would push
+  windows below their own `minSize`. They are plain values the consumer owns and persists, and
+  `parseInfiniteCanvasRecipe` treats one crossing storage as untrusted input. Applying one is a single
+  undo entry.
 - **Keyboard command layer.** Hotkeys bound to the same command vocabulary the pointer interactions
   use, so anything the mouse can do the keyboard can express. Includes **directional window focus**
   (`Alt+Arrow`): the nearest window strictly ahead along the arrow wins, and one whose span overlaps

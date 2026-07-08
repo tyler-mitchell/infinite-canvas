@@ -242,6 +242,42 @@ type InfiniteCanvasHistory<Kind extends string = string> = Readonly<{
   past: readonly InfiniteCanvasDocument<Kind>[];
 }>;
 
+/** A window's place in a saved arrangement, relative to the recipe's own origin. */
+type InfiniteCanvasRecipeWindow = Readonly<{
+  isPinned: boolean;
+  mode: InfiniteCanvasWindowMode;
+  rect: InfiniteCanvasRect;
+  windowId: string;
+  zIndex: number;
+}>;
+
+type InfiniteCanvasRecipeGroup = Readonly<{
+  groupId: string;
+  rect: InfiniteCanvasRect;
+  title: string;
+  tree: InfiniteCanvasGroupNode;
+  zIndex: number;
+}>;
+
+/**
+ * A named arrangement, stored with its origin at `(0, 0)` so it drops into any
+ * region of an unbounded world. It names windows by id rather than carrying them:
+ * a recipe restores where things were, never what they were.
+ */
+type InfiniteCanvasRecipe = Readonly<{
+  groups: readonly InfiniteCanvasRecipeGroup[];
+  id: string;
+  name: string;
+  size: InfiniteCanvasSize;
+  version: 1;
+  windows: readonly InfiniteCanvasRecipeWindow[];
+}>;
+
+/** Pin the arrangement's top-left at `origin`, or centre it inside `rect`. */
+type InfiniteCanvasRecipePlacement =
+  | Readonly<{ origin: InfiniteCanvasPoint }>
+  | Readonly<{ rect: InfiniteCanvasRect }>;
+
 type InfiniteCanvasState<Kind extends string = string> = Readonly<{
   activeWindowId: string | null;
   camera: InfiniteCanvasCamera;
@@ -769,6 +805,11 @@ type InfiniteCanvasAction<Kind extends string = string> =
     }>
   | Readonly<{ rect?: InfiniteCanvasRect; type: "group.undockWindow"; windowId: string }>
   | Readonly<{
+      placement: InfiniteCanvasRecipePlacement;
+      recipe: InfiniteCanvasRecipe;
+      type: "recipe.apply";
+    }>
+  | Readonly<{
       childId: string;
       containerId: string;
       groupId: string;
@@ -888,6 +929,9 @@ type InfiniteCanvasCommands<Kind extends string = string> = Readonly<{
   executeCommand: (command: InfiniteCanvasCommand) => void;
   finishInteraction: (pointerId: number) => void;
   focusWindow: (windowId: string) => void;
+  applyRecipe: (
+    input: Readonly<{ placement: InfiniteCanvasRecipePlacement; recipe: InfiniteCanvasRecipe }>,
+  ) => void;
   redo: () => void;
   reorderGroupChild: (
     input: Readonly<{ childId: string; groupId: string; toIndex: number }>,
@@ -1037,6 +1081,10 @@ export type {
   InfiniteCanvasPanInteraction,
   InfiniteCanvasPoint,
   InfiniteCanvasPointerMode,
+  InfiniteCanvasRecipe,
+  InfiniteCanvasRecipeGroup,
+  InfiniteCanvasRecipePlacement,
+  InfiniteCanvasRecipeWindow,
   InfiniteCanvasRect,
   InfiniteCanvasResizeHandle,
   InfiniteCanvasResizeInteraction,
