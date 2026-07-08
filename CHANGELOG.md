@@ -58,6 +58,16 @@ sections, in this order, omitting the ones that don't apply:
 
 ### Fixed
 
+- **Every `scope="window"` portal painted underneath the window it belonged to.** The window
+  portal root rendered _before_ the frame and carried no `z-index`, while the frame carries its
+  stack value. Both are positioned, so paint order falls to `z-index` first and document order
+  second, and the frame won both. A portalled popover was mounted, laid out, and completely
+  hidden behind the opaque window body — present in the DOM, invisible on screen.
+  `scope="window"` had never worked since it shipped in `0.1.0`, and `/portals` demonstrated the
+  bug rather than the feature. The root now renders after the frame and shares the frame's stack
+  value: above its own window, still below any window stacked higher, which is what "belongs to
+  this window" has to mean. The root stays `pointer-events: none`, so interactive portalled
+  content sets `pointer-events: auto` on itself, the same contract `renderOverlay` uses.
 - **A grouped window's dead resize handles ate the gutter drag.** `interaction.startResize`
   refuses a grouped window outright — a pane is resized by its seam — but the frame drew its
   resize handles anyway. Handles straddle the frame edge, hanging half their extent outside

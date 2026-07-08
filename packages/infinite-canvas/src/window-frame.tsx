@@ -362,26 +362,6 @@ function InfiniteCanvasWindowFrame<Kind extends string>({
   return (
     <InfiniteCanvasWindowFrameRuntimeContext.Provider value={frameRuntimeContext}>
       <InfiniteCanvasWindowPortalContext.Provider value={windowPortalRoot}>
-        {definition.portalRoot !== true ? null : (
-          // A sibling of the frame, not a child: it must sit outside the frame's
-          // transform, or content mounted here would be scaled by zoom and would
-          // resolve `position: fixed` against the frame. It tracks the window's
-          // *screen* rect instead, so a popover lands beside its anchor at natural
-          // size.
-          <div
-            data-infinite-canvas-window-id={window.id}
-            data-slot={INFINITE_CANVAS_SLOTS.windowPortalRoot}
-            ref={setWindowPortalRoot}
-            style={{
-              height: `${screenRect.height}px`,
-              left: `${screenRect.left}px`,
-              pointerEvents: "none",
-              position: "absolute",
-              top: `${screenRect.top}px`,
-              width: `${screenRect.width}px`,
-            }}
-          />
-        )}
         <article
           aria-label={window.title}
           // `aria-selected` is only valid on gridcell/option/row/tab/treeitem —
@@ -407,6 +387,39 @@ function InfiniteCanvasWindowFrame<Kind extends string>({
           {frameNode}
           {isGrouped ? null : resizeHandles}
         </article>
+        {definition.portalRoot !== true ? null : (
+          // A sibling of the frame, not a child: it must sit outside the frame's
+          // transform, or content mounted here would be scaled by zoom and would resolve
+          // `position: fixed` against the frame. It tracks the window's *screen* rect
+          // instead, so a popover lands beside its anchor at natural size.
+          //
+          // **After the frame, and carrying the frame's own stack value.** Both are
+          // positioned, so paint order is decided first by `z-index` and then by document
+          // order. Rendered before the frame with no `z-index`, as this was until
+          // 2026-07-08, every portalled popover painted *underneath* the opaque window
+          // body it belonged to — present in the DOM, invisible on screen. Sharing the
+          // frame's stack value rather than adding to it keeps the popover above its own
+          // window and still below any window stacked higher, which is what "belongs to
+          // this window" has to mean.
+          //
+          // `pointer-events: none` so the root does not blanket the body it covers.
+          // Interactive portalled content sets `pointer-events: auto` on itself, the same
+          // contract `renderOverlay` uses.
+          <div
+            data-infinite-canvas-window-id={window.id}
+            data-slot={INFINITE_CANVAS_SLOTS.windowPortalRoot}
+            ref={setWindowPortalRoot}
+            style={{
+              height: `${screenRect.height}px`,
+              left: `${screenRect.left}px`,
+              pointerEvents: "none",
+              position: "absolute",
+              top: `${screenRect.top}px`,
+              width: `${screenRect.width}px`,
+              zIndex: getWindowStackValue(window, stackBands),
+            }}
+          />
+        )}
       </InfiniteCanvasWindowPortalContext.Provider>
     </InfiniteCanvasWindowFrameRuntimeContext.Provider>
   );

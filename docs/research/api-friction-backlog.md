@@ -137,6 +137,28 @@ pointerModeControls?, cameraControls?, zoomControls? }` landed with the HUD
   dependency of its own observer and could re-trigger it. Spatial queries remain
   open: they live in the render layer.
 
+## Fixed 2026-07-08 (window portals painted behind their window)
+
+- **`scope="window"` never worked, and the showcase built to prove it worked showed the bug.**
+  Reported by the owner from a screenshot of `/portals`: only the deliberately-wrong in-body
+  popover was visible; the portalled one was nowhere.
+
+  The window portal root rendered _before_ the `<article>` and carried no `z-index`, while the
+  frame carries `getWindowStackValue(window, stackBands)`. Both are positioned elements, so paint
+  order is decided by `z-index` first and document order second — and the frame won on both
+  counts. The portalled content mounted, laid out at the right screen rect, and painted entirely
+  underneath the opaque window body.
+
+  Fixed by rendering the root after the frame with the frame's own stack value. Equal `z-index`,
+  later in document order, so it paints above its own window — and still below any window stacked
+  higher, because a popover belongs to a window rather than to the world.
+
+  **This is the failure mode `/portals` exists to catch, and it caught nothing**, because nobody
+  looked at the route after building it. The commit that shipped portals says the framework
+  "renders nothing until its root exists rather than falling back into the transformed subtree,
+  because a popover that quietly appears in the wrong place is a bug the consumer will chase into
+  their own code." It then quietly put the popover in the wrong place.
+
 ## Fixed 2026-07-08 (grouped-window handles)
 
 - **The gutter seam dragged only when zoomed in, and the outer edges did nothing.** Two

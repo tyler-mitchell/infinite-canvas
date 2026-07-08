@@ -49,8 +49,11 @@ function WindowMenu() {
       ) : null}
 
       {isOpen ? (
+        // The window root is `pointer-events: none` so it never blankets the body it
+        // covers; interactive portalled content opts back in, exactly as `renderOverlay`
+        // content does.
         <InfiniteCanvasPortal scope="window">
-          <div className="absolute top-16 right-4 rounded border border-emerald-500/50 bg-popover p-2 text-[10px]">
+          <div className="pointer-events-auto absolute top-16 right-4 rounded border border-emerald-500/50 bg-popover p-2 text-[10px]">
             portalled: natural size
           </div>
         </InfiniteCanvasPortal>

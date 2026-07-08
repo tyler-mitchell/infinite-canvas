@@ -27,6 +27,12 @@ import { createPortal } from "react-dom";
  * definition). Mounting one for every window would cost a style write per window
  * per camera tick, which is precisely the cost the frame's memoization exists to
  * avoid. Windows that never open a popover pay nothing.
+ *
+ * The window root renders after its frame and carries the frame's own stack value, so
+ * portalled content paints above the window it belongs to and below any window stacked
+ * higher. It is `pointer-events: none`, so it never blankets the body it covers;
+ * interactive portalled content sets `pointer-events: auto` on itself, the same contract
+ * `renderOverlay` uses. Content that only draws needs nothing.
  */
 
 type InfiniteCanvasPortalScope = "desktop" | "window";
