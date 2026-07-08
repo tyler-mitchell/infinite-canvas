@@ -17,8 +17,9 @@ matrix updates follow every camera change.
 1. pointer-anchored zoom on the desktop surface (the world point under the
    pointer stays fixed; camera center recomputed from old zoom, new zoom, and
    the anchor)
-2. keyboard zoom around the viewport center (`Mod+0` reset; fit commands share
-   the camera reducer)
+2. keyboard zoom around the viewport center (`Shift+0` reset — **not** `Mod+0`,
+   whose browser accelerator the page cannot cancel; fit commands share the
+   camera reducer)
 3. trackpad pinch reuses the pointer-anchored path (continuous pinch zoom is
    implemented)
 4. future touch pinch reuses the same path

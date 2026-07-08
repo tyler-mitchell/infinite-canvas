@@ -241,16 +241,7 @@ const DEFAULT_INFINITE_CANVAS_COMMAND_DESCRIPTORS = [
     id: "history.redo",
     label: "Redo",
   },
-  {
-    command: {
-      type: "view.resetZoom",
-    },
-    description: "Reset the canvas zoom around the viewport center.",
-    hotkeys: ["Mod+0"],
-    id: "view.resetZoom",
-    label: "Reset Zoom",
-  },
-  // Placement chords are `Mod+Shift+…`, and the reason is worth keeping.
+  // ── The rule that governs every chord below, and one above. ──────────────────────────
   //
   // `registerInfiniteCanvasHotkeys` calls `preventDefault()` on any chord the canvas owns,
   // the moment it lands — that is what stops `Alt+ArrowLeft` at the edge of your windows
@@ -260,6 +251,27 @@ const DEFAULT_INFINITE_CANVAS_COMMAND_DESCRIPTORS = [
   // Chrome, Safari, and Firefox, so binding it would have switched the tab *and* placed the
   // window. `Cmd+Alt+C` opens DevTools; `Cmd+Shift+C` opens the inspector.
   //
+  // Reset-zoom was `Mod+0` until 2026-07-08, which is the clearest violation of the rule
+  // this file states. The browser's zoom accelerators — `Mod` with `0`, `+`, and `-` — are
+  // handled above the page in Chrome, Firefox, and Safari alike: the keydown is delivered,
+  // `preventDefault()` returns without error, and the page zoom resets anyway. So `Mod+0`
+  // reset the canvas *and* the browser, two surprises for one keypress, and the canvas's
+  // reset was the one the user could not see happen.
+  //
+  // `Shift+0` joins the view family it belongs to — `Shift+1` fits all, `Shift+2` fits the
+  // selection — and is unclaimed. It also survives keyboard layout: `@tanstack/hotkeys`
+  // matches a single-character hotkey against `event.key` first, and when `Shift+0` yields
+  // `)` on a US layout it falls through to `event.code === "Digit0"`. The same path the two
+  // chords beside it have always taken.
+  {
+    command: {
+      type: "view.resetZoom",
+    },
+    description: "Reset the canvas zoom around the viewport center.",
+    hotkeys: ["Shift+0"],
+    id: "view.resetZoom",
+    label: "Reset Zoom",
+  },
   // `Mod+Shift+Arrow` is unclaimed in the browsers' page context, and reads as "the bigger
   // modifier moves the window further" beside `Shift+Arrow`'s ten-pixel nudge.
   {

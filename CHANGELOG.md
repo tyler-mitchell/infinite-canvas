@@ -88,15 +88,22 @@ sections, in this order, omitting the ones that don't apply:
   The chord vocabulary now reads: bare arrow moves a little, `Shift` moves a lot, `Alt` moves
   _focus_, `Alt+Shift` changes the shape, `Mod+Shift` tiles.
 
-- **A command palette in `/groups`** (`Mod+K`), built entirely on `contextualCommands` — an
-  array that has been public since the agent handle landed and that **nothing consumed**. It
-  already carried `label`, `description`, `hotkeys`, `group`, and `enabled` computed against the
-  live state, so the palette is about sixty lines over an API that existed. The command layer
-  was documented and undiscoverable; now it is only the former. Unavailable commands are shown
-  greyed and inert rather than hidden: hiding them makes the palette lie about what the
-  framework can do, and running them makes it lie about what it can do _now_. Playground glue,
-  not a framework export — a palette is UI, and this framework is headless. What the framework
-  owes it is the vocabulary, and it already had that.
+- **A command palette on every playground canvas** (`Mod+K`), built entirely on
+  `getInfiniteCanvasContextualCommands` — a function public since the agent handle landed that
+  **nothing consumed**. Its result already carried `label`, `description`, `hotkeys`, `group`,
+  and `enabled` computed against the live state, so the palette is about sixty lines over an API
+  that existed. The command layer was documented and undiscoverable; now it is only the former.
+  Unavailable commands are shown greyed and inert rather than hidden: hiding them makes the
+  palette lie about what the framework can do, and running them makes it lie about what it can do
+  _now_. Playground glue, not a framework export — a palette is UI, and this framework is
+  headless. What the framework owes it is the vocabulary, and it already had that.
+
+  Reading the function directly rather than taking `context.contextualCommands` is what let one
+  component mount on all eight routes: `InfiniteCanvasOverlayRenderContext<Kind, Payload>` is
+  invariant in both parameters, because its `actions` _take_ windows of that kind, so `/drop-tray`
+  could never have passed its context to a component typed for another. Nothing subscribes while
+  the palette is closed, either — `useInfiniteCanvasState()` re-renders on every camera tick, and
+  a palette nobody has opened has no business reconciling sixty times a second while you pan.
 
 - **A world overview, as geometry rather than as a widget.** An infinite canvas has a failure
   mode nothing bounded does: you can pan into empty space and lose everything. Fit-all,
@@ -167,6 +174,20 @@ sections, in this order, omitting the ones that don't apply:
   still cannot float, and can now still be reordered.
 
 ### Changed
+
+- **Reset zoom is `Shift+0`, not `Mod+0`.** Breaking for anyone who learned the old chord, and
+  the old chord never worked the way it looked. The browser reserves `Mod` with `0`, `+`, and
+  `-` above the page: the keydown arrives, `preventDefault()` returns without error, and the
+  page zoom resets anyway. So `Mod+0` reset the canvas _and_ the browser — two surprises for
+  one keypress, and the canvas's was the one the user could not see happen.
+
+  This is the rule this repository already wrote down when it rebound the placement chords off
+  `Mod+Alt+Arrow`: **a default chord that shadows a browser shortcut is theft, not a nuisance,
+  because the canvas `preventDefault()`s every chord it owns.** The rule was stated two entries
+  below the descriptor that broke it. `Shift+0` joins the view family (`Shift+1` fits all,
+  `Shift+2` fits the selection) and is unclaimed; it survives keyboard layout because
+  `@tanstack/hotkeys` falls back to `event.code === "Digit0"` when `Shift+0` yields `)`, which
+  is the path `Shift+1` and `Shift+2` have always taken. Rebind through `hotkeyBindings`.
 
 - **`DOCK-004`'s tear-out trigger is now "leave the strip", not "travel 6px".** TAB-001 needed
   those pixels. Dragging a tab out of its strip still undocks the window and hands the same

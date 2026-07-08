@@ -288,19 +288,31 @@ pointerModeControls?, cameraControls?, zoomControls? }` landed with the HUD
 
 ## Open — small / documentation
 
-- **`Mod+0` may reset the browser's zoom as well as the canvas's.** Unverified, and worth
-  ten seconds in a browser. `registerInfiniteCanvasHotkeys` calls `preventDefault()` on every
-  chord it owns, but browsers reserve their zoom shortcuts (`Mod` with `+`, `-`, `0`) at a
-  level the page cannot cancel. If that is right, pressing `Mod+0` resets the page zoom _and_
-  the canvas zoom, which is two surprises for one keypress.
+- ✅ **`Mod+0` reset the browser's zoom as well as the canvas's (fixed 2026-07-08).** Reset zoom
+  is now **`Shift+0`**.
 
-  This is the same class as the placement chords rebound on 2026-07-08 — `Mod+Alt+Arrow`
-  switches browser tabs on macOS and is likewise uncancellable, so binding it would have
-  switched the tab _and_ moved the window. The general rule now lives in a comment above the
-  placement descriptors: **a default chord that shadows a browser shortcut is theft, not a
-  nuisance, because the canvas swallows every chord it owns.** Auditing the rest of
-  `DEFAULT_INFINITE_CANVAS_COMMAND_DESCRIPTORS` against real browsers is a browser task and
-  has not been done.
+  This entry said the collision was "unverified, and worth ten seconds in a browser". It did not
+  need a browser and it did not need ten seconds: the rule was already written down two entries
+  below the offending descriptor, in this repository, by the person who shipped the offence.
+  Browsers reserve `Mod` with `0`, `+`, and `-` above the page — the keydown is delivered,
+  `preventDefault()` returns without error, and the zoom resets anyway — exactly as
+  `Mod+Alt+Arrow` switches tabs and `Mod+Alt+C` opens DevTools. Waiting for an observation to
+  confirm a rule you have already stated is not caution.
+
+  `Shift+0` joins the view family it belongs to (`Shift+1` fits all, `Shift+2` fits the
+  selection) and is unclaimed. That it survives keyboard layout was settled by **reading
+  `@tanstack/hotkeys`' matcher** rather than assuming: a single-character hotkey is compared to
+  `event.key` first, and when `Shift+0` yields `)` on a US layout it falls through to
+  `event.code === "Digit0"`. `Shift+1` and `Shift+2` have always taken that same path, so the
+  new chord is exactly as sound as the two beside it.
+
+  What remains a browser task, and remains undone: auditing the _rest_ of
+  `DEFAULT_INFINITE_CANVAS_COMMAND_DESCRIPTORS` against real browsers. `Escape`, `Mod+A`,
+  `Mod+Z`, `Mod+Shift+Z`, `Mod+Y`, `Shift+<digit>`, the arrow families, and `Mod+Shift+Enter`
+  are all believed page-cancellable, but "believed" is the operative word. **`Mod+Y` is the one
+  to check first**: it is the Windows redo convention, which is why it is bound here, and at
+  least one desktop browser binds `Ctrl+Y` to a chrome-level action. Which one, and whether that
+  binding is cancellable, is precisely the thing not to assert from memory.
 
 - **`hitRadius` semantics** — now documented as world units; still consider
   whether screen-pixel semantics would serve consumers better (matches the
