@@ -39,6 +39,8 @@
 - **DOCK-002** — Drag over a group's center → tab merge (or configured merge).
   (`partial`: `dockInfiniteCanvasGroupWindow` with `edge: "center"` merges into a tab group; the drag gesture that calls it is unbuilt.)
 - **DOCK-003** — Move a group shell → the group moves as one world object.
+  (`done`: dragging any member's header starts a `groupMove` interaction; the
+  members follow because their rects are re-derived from the shell.)
 - **DOCK-004** — Tear a child out of a tab group → sensible floating rect;
   group stays valid.
 - **DOCK-005** — Remove the last child → empty-group cleanup.
@@ -46,7 +48,10 @@
 
 ## Split behavior — all `open`
 
-- **SPLIT-001** — Resizing a child changes weights/partitions; DOM widths are
+- **SPLIT-001** — (`done`: dragging a gutter starts a `groupGutter` interaction
+  and dispatches `group.setChildWeights`. Each step recomputes from the container
+  snapshotted at drag start, so the seam tracks the cursor exactly. No DOM width
+  is ever read.) Resizing a child changes weights/partitions; DOM widths are
   never the source of truth.
 - **SPLIT-002** — Inserting a third sibling stays stable (n-ary, no binary
   churn).

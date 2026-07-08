@@ -39,6 +39,9 @@ const registry = defineInfiniteCanvasWindowRegistry<Kind>({
           A grouped window has no rect of its own. The group&apos;s tree owns its placement, and the
           reducer projects the solved rect back onto <code>window.rect</code>.
         </p>
+        <p className="text-white/40">
+          Drag this header to move the whole shell. Drag the seam between panes to reweight them.
+        </p>
       </div>
     ),
   },
@@ -155,7 +158,7 @@ function GroupsShowcase() {
             </div>
           );
         }}
-        subtitle="Windows compose into a movable local layout region; the tree owns their rects."
+        subtitle="Drag a header to move the shell; drag a seam to reweight. The tree owns every rect."
         title="Groups"
         windowDefinitions={registry}
       />

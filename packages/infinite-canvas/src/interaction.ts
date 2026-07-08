@@ -5,6 +5,11 @@ import {
   screenPointToWorldPoint,
   subtractPoints,
 } from "./geometry";
+import { getInfiniteCanvasGroupGutterWeights } from "./group-layout";
+import {
+  setInfiniteCanvasGroupChildWeightsInState,
+  setInfiniteCanvasGroupRect,
+} from "./group-state";
 import { clearSelection, isWindowSelected, replaceSelection } from "./selection";
 import { applyResizeSnapToRect, applySnapToRect } from "./snap";
 import {
@@ -14,6 +19,9 @@ import {
   updateWindowRect,
 } from "./stacking";
 import type {
+  InfiniteCanvasGroup,
+  InfiniteCanvasGroupGutterInteraction,
+  InfiniteCanvasGroupMoveInteraction,
   InfiniteCanvasMarqueeInteraction,
   InfiniteCanvasMarqueeMode,
   InfiniteCanvasMoveInteraction,
@@ -62,6 +70,94 @@ function beginMarqueeSelection<Kind extends string>(
   } satisfies InfiniteCanvasState<Kind>;
 
   return mode === "replace" ? replaceSelection(nextState, []) : nextState;
+}
+
+/**
+ * Drag a group shell by one of its members' headers. The whole group travels as
+ * one world object (DOCK-003); the members follow because their rects are
+ * re-derived from the shell, never stored.
+ */
+function beginInfiniteCanvasGroupMove<Kind extends string>(
+  state: InfiniteCanvasState<Kind>,
+  pointerId: number,
+  group: InfiniteCanvasGroup,
+  point: InfiniteCanvasPoint,
+): InfiniteCanvasState<Kind> {
+  return {
+    ...state,
+    interaction: {
+      groupId: group.id,
+      kind: "groupMove",
+      originPointer: point,
+      originRect: group.rect,
+      pointerId,
+      zoom: state.camera.zoom,
+    },
+    snapPreview: null,
+  };
+}
+
+/** Drag the seam between two split panes. Everything a step needs is captured here. */
+function beginInfiniteCanvasGroupGutterDrag<Kind extends string>(
+  state: InfiniteCanvasState<Kind>,
+  input: Omit<InfiniteCanvasGroupGutterInteraction, "kind" | "zoom">,
+): InfiniteCanvasState<Kind> {
+  return {
+    ...state,
+    interaction: {
+      ...input,
+      kind: "groupGutter",
+      zoom: state.camera.zoom,
+    },
+    snapPreview: null,
+  };
+}
+
+function stepInfiniteCanvasGroupMove<Kind extends string>(
+  state: InfiniteCanvasState<Kind>,
+  interaction: InfiniteCanvasGroupMoveInteraction,
+  point: InfiniteCanvasPoint,
+): InfiniteCanvasState<Kind> {
+  const screenDelta = subtractPoints(point, interaction.originPointer);
+
+  return setInfiniteCanvasGroupRect(state, {
+    groupId: interaction.groupId,
+    rect: {
+      ...interaction.originRect,
+      x: interaction.originRect.x + screenDelta.x / interaction.zoom,
+      y: interaction.originRect.y + screenDelta.y / interaction.zoom,
+    },
+  });
+}
+
+/**
+ * Recompute the pair's weights from the container as it stood when the drag
+ * began, and the total pointer travel since. Deriving from the origin rather
+ * than applying an incremental delta to live weights is what keeps the seam
+ * exactly under the cursor instead of drifting as rounding accumulates.
+ */
+function stepInfiniteCanvasGroupGutterDrag<Kind extends string>(
+  state: InfiniteCanvasState<Kind>,
+  interaction: InfiniteCanvasGroupGutterInteraction,
+  point: InfiniteCanvasPoint,
+): InfiniteCanvasState<Kind> {
+  const screenDelta = subtractPoints(point, interaction.originPointer);
+  const alongAxis = interaction.axis === "horizontal" ? screenDelta.x : screenDelta.y;
+  const weights = getInfiniteCanvasGroupGutterWeights(interaction.originContainer, interaction, {
+    availableExtent: interaction.availableExtent,
+    delta: alongAxis / interaction.zoom,
+  });
+
+  // `{}` means the pair has no room left to move; the drag continues, nothing shifts.
+  if (Object.keys(weights).length === 0) {
+    return state;
+  }
+
+  return setInfiniteCanvasGroupChildWeightsInState(state, {
+    containerId: interaction.containerId,
+    groupId: interaction.groupId,
+    weights,
+  });
 }
 
 function beginWindowMove<Kind extends string>(
@@ -168,6 +264,14 @@ function stepCanvasInteraction<Kind extends string>(
 
   if (interaction.kind === "marquee") {
     return stepMarqueeSelection(state, interaction, point);
+  }
+
+  if (interaction.kind === "groupMove") {
+    return stepInfiniteCanvasGroupMove(state, interaction, point);
+  }
+
+  if (interaction.kind === "groupGutter") {
+    return stepInfiniteCanvasGroupGutterDrag(state, interaction, point);
   }
 
   const targetWindow = findWindow(state, interaction.windowId);
@@ -351,12 +455,20 @@ function getInteractionCursor(interaction: InfiniteCanvasState["interaction"]) {
     return undefined;
   }
 
-  if (interaction.kind === "pan" || interaction.kind === "move") {
+  if (
+    interaction.kind === "pan" ||
+    interaction.kind === "move" ||
+    interaction.kind === "groupMove"
+  ) {
     return "grabbing";
   }
 
   if (interaction.kind === "marquee") {
     return "crosshair";
+  }
+
+  if (interaction.kind === "groupGutter") {
+    return interaction.axis === "horizontal" ? "ew-resize" : "ns-resize";
   }
 
   switch (interaction.handle) {
@@ -377,6 +489,8 @@ function getInteractionCursor(interaction: InfiniteCanvasState["interaction"]) {
 
 export {
   beginCanvasPan,
+  beginInfiniteCanvasGroupGutterDrag,
+  beginInfiniteCanvasGroupMove,
   beginMarqueeSelection,
   beginWindowMove,
   beginWindowResize,

@@ -223,6 +223,12 @@ function createInfiniteCanvasStore<Kind extends string>(
         type: "group.setRect",
       });
     },
+    startGroupGutterDrag: (input) => {
+      dispatch({
+        ...input,
+        type: "interaction.startGroupGutter",
+      });
+    },
     undockWindow: (input) => {
       dispatch({
         ...input,

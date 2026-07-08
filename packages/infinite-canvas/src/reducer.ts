@@ -1,5 +1,6 @@
 import { executeInfiniteCanvasCommand } from "./commands";
 import { navigateCamera } from "./camera-navigation";
+import { findInfiniteCanvasGroupNode, isInfiniteCanvasGroupContainer } from "./group-tree";
 import {
   closeInfiniteCanvasGroup,
   createInfiniteCanvasGroup,
@@ -9,6 +10,8 @@ import {
   setInfiniteCanvasGroupActiveChildInState,
   setInfiniteCanvasGroupChildWeightsInState,
   setInfiniteCanvasGroupLayoutModeInState,
+  findInfiniteCanvasGroup,
+  getInfiniteCanvasWindowGroup,
   isInfiniteCanvasWindowGrouped,
   setInfiniteCanvasGroupRect,
   syncInfiniteCanvasGroupWindowRects,
@@ -17,6 +20,8 @@ import {
 import { panCameraByScreenDelta, zoomCameraAtScreenPoint } from "./geometry";
 import {
   beginCanvasPan,
+  beginInfiniteCanvasGroupGutterDrag,
+  beginInfiniteCanvasGroupMove,
   beginMarqueeSelection,
   beginWindowMove,
   beginWindowResize,
@@ -85,15 +90,43 @@ function reduceInfiniteCanvasState<Kind extends string>(
       return finishCanvasInteraction(state, action.pointerId);
     case "interaction.startMarquee":
       return beginMarqueeSelection(state, action.pointerId, action.point, action.mode);
-    // A grouped window has no rect of its own to drag -- the tree owns its
-    // placement. Dragging the shell, and tearing a member out of it, are pointer
-    // gestures that compile to `group.setRect` and `group.undockWindow`; until
-    // those land, a drag on a member is simply refused rather than allowed to
-    // fight the projection.
-    case "interaction.startMove":
-      return isInfiniteCanvasWindowGrouped(state, action.windowId)
-        ? state
-        : beginWindowMove(state, action.pointerId, action.windowId, action.point);
+    // Dragging a grouped window's header drags its shell: the group is one world
+    // object, and the member has no rect of its own to move (DOCK-003). Focus
+    // still lands on the window the user actually grabbed.
+    case "interaction.startMove": {
+      const group = getInfiniteCanvasWindowGroup(state, action.windowId);
+
+      return group === null
+        ? beginWindowMove(state, action.pointerId, action.windowId, action.point)
+        : beginInfiniteCanvasGroupMove(
+            focusWindow(state, action.windowId),
+            action.pointerId,
+            group,
+            action.point,
+          );
+    }
+    case "interaction.startGroupGutter": {
+      const group = findInfiniteCanvasGroup(state, action.groupId);
+      const container =
+        group === null ? null : findInfiniteCanvasGroupNode(group.tree, action.containerId);
+
+      // A stale seam -- the tree changed under the pointer -- is not worth throwing over.
+      if (container === null || !isInfiniteCanvasGroupContainer(container)) {
+        return state;
+      }
+
+      return beginInfiniteCanvasGroupGutterDrag(state, {
+        afterChildId: action.afterChildId,
+        availableExtent: action.availableExtent,
+        axis: action.axis,
+        beforeChildId: action.beforeChildId,
+        containerId: action.containerId,
+        groupId: action.groupId,
+        originContainer: container,
+        originPointer: action.point,
+        pointerId: action.pointerId,
+      });
+    }
     case "interaction.startPan":
       return beginCanvasPan(state, action.pointerId, action.point, action.clearSelection);
     case "interaction.startResize":

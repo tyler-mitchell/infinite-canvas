@@ -3,6 +3,7 @@
 import { useMemo, type CSSProperties } from "react";
 
 import { INFINITE_CANVAS_SLOTS } from "./data-attributes";
+import { getEventViewportPoint } from "./frame-slots";
 import { projectWorldRectToScreen } from "./geometry";
 import {
   DEFAULT_INFINITE_CANVAS_GROUP_METRICS,
@@ -10,6 +11,7 @@ import {
   type InfiniteCanvasGroupMetrics,
 } from "./group-layout";
 import { findInfiniteCanvasGroupNode } from "./group-tree";
+import { capturePointer, isPrimaryButton, releasePointer } from "./runtime";
 import { useInfiniteCanvasActions, useInfiniteCanvasSelector } from "./store";
 import type {
   InfiniteCanvasCamera,
@@ -89,11 +91,48 @@ function InfiniteCanvasGroupShell({
         <div
           aria-hidden="true"
           data-axis={gutter.axis}
+          data-infinite-canvas-control="true"
           data-slot={INFINITE_CANVAS_SLOTS.groupGutter}
           key={`${gutter.containerId}:${gutter.afterChildId}`}
+          onLostPointerCapture={(event) => {
+            actions.finishInteraction(event.pointerId);
+          }}
+          onPointerCancel={(event) => {
+            actions.finishInteraction(event.pointerId);
+          }}
+          onPointerDown={(event) => {
+            if (!isPrimaryButton(event)) {
+              return;
+            }
+
+            event.preventDefault();
+            event.stopPropagation();
+            capturePointer(event.currentTarget, event.pointerId);
+            actions.startGroupGutterDrag({
+              afterChildId: gutter.afterChildId,
+              availableExtent: gutter.availableExtent,
+              axis: gutter.axis,
+              beforeChildId: gutter.beforeChildId,
+              containerId: gutter.containerId,
+              groupId: group.id,
+              point: getEventViewportPoint(event),
+              pointerId: event.pointerId,
+            });
+          }}
+          onPointerMove={(event) => {
+            actions.stepInteraction({
+              pointerId: event.pointerId,
+              point: getEventViewportPoint(event),
+            });
+          }}
+          onPointerUp={(event) => {
+            releasePointer(event.currentTarget, event.pointerId);
+            actions.finishInteraction(event.pointerId);
+          }}
           style={{
             ...getLocalRectStyle(gutter.rect, group.rect),
-            cursor: gutter.axis === "horizontal" ? "col-resize" : "row-resize",
+            cursor: gutter.axis === "horizontal" ? "ew-resize" : "ns-resize",
+            pointerEvents: "auto",
           }}
         />
       ))}

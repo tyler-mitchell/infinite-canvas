@@ -71,7 +71,7 @@ typed drag & drop with spatial target resolution · window groups with split,
 tab, and accordion layouts · read-only R3F scene layers ·
 custom chrome via `renderFrame` · headless theming.
 
-**Not implemented yet:** pointer gestures for docking and tear-out · undo/redo ·
+**Not implemented yet:** docking and tear-out by drag · undo/redo ·
 layout recipes · group-local focus, focus trapping, and a complete
 accessibility story · far-zoom semantic level-of-detail. Each is a defined
 program with exit criteria in [the roadmap](docs/ROADMAP.md), not a wish.

@@ -7,6 +7,8 @@ import type {
 } from "react";
 
 import type {
+  InfiniteCanvasGroupAxis,
+  InfiniteCanvasGroupContainerNode,
   InfiniteCanvasGroupDockEdge,
   InfiniteCanvasGroupLayoutMode,
   InfiniteCanvasGroupNode,
@@ -139,6 +141,39 @@ type InfiniteCanvasMoveInteraction = Readonly<{
   zoom: number;
 }>;
 
+/** Dragging a group shell by any of its members' headers. DOCK-003. */
+type InfiniteCanvasGroupMoveInteraction = Readonly<{
+  groupId: string;
+  kind: "groupMove";
+  originPointer: InfiniteCanvasPoint;
+  originRect: InfiniteCanvasRect;
+  pointerId: number;
+  zoom: number;
+}>;
+
+/**
+ * Dragging the seam between two split panes. SPLIT-001: this changes weights,
+ * never a DOM width.
+ *
+ * `originContainer` is the container as it stood when the drag began. Every step
+ * recomputes the pair's weights from *that* snapshot and the total pointer travel
+ * since. Applying an incremental delta to the live weights instead would let
+ * rounding accumulate and the seam drift out from under the cursor.
+ */
+type InfiniteCanvasGroupGutterInteraction = Readonly<{
+  afterChildId: string;
+  availableExtent: number;
+  axis: InfiniteCanvasGroupAxis;
+  beforeChildId: string;
+  containerId: string;
+  groupId: string;
+  kind: "groupGutter";
+  originContainer: InfiniteCanvasGroupContainerNode;
+  originPointer: InfiniteCanvasPoint;
+  pointerId: number;
+  zoom: number;
+}>;
+
 type InfiniteCanvasResizeInteraction = Readonly<{
   handle: InfiniteCanvasResizeHandle;
   kind: "resize";
@@ -153,6 +188,8 @@ type InfiniteCanvasInteraction =
   | InfiniteCanvasMarqueeInteraction
   | InfiniteCanvasPanInteraction
   | InfiniteCanvasMoveInteraction
+  | InfiniteCanvasGroupMoveInteraction
+  | InfiniteCanvasGroupGutterInteraction
   | InfiniteCanvasResizeInteraction
   | null;
 
@@ -712,6 +749,17 @@ type InfiniteCanvasAction<Kind extends string = string> =
       weights: Readonly<Record<string, number>>;
     }>
   | Readonly<{ childId: string; groupId: string; toIndex: number; type: "group.reorderChild" }>
+  | Readonly<{
+      afterChildId: string;
+      availableExtent: number;
+      axis: InfiniteCanvasGroupAxis;
+      beforeChildId: string;
+      containerId: string;
+      groupId: string;
+      point: InfiniteCanvasPoint;
+      pointerId: number;
+      type: "interaction.startGroupGutter";
+    }>
   | Readonly<{ type: "interaction.finish"; pointerId: number }>
   | Readonly<{
       mode: InfiniteCanvasMarqueeMode;
@@ -817,6 +865,18 @@ type InfiniteCanvasCommands<Kind extends string = string> = Readonly<{
     }>,
   ) => void;
   setGroupRect: (input: Readonly<{ groupId: string; rect: InfiniteCanvasRect }>) => void;
+  startGroupGutterDrag: (
+    input: Readonly<{
+      afterChildId: string;
+      availableExtent: number;
+      axis: InfiniteCanvasGroupAxis;
+      beforeChildId: string;
+      containerId: string;
+      groupId: string;
+      point: InfiniteCanvasPoint;
+      pointerId: number;
+    }>,
+  ) => void;
   undockWindow: (input: Readonly<{ rect?: InfiniteCanvasRect; windowId: string }>) => void;
   hydrate: (state: InfiniteCanvasState<Kind>) => void;
   maximizeWindow: (windowId: string) => void;
@@ -899,6 +959,8 @@ export type {
   InfiniteCanvasContextualCommand,
   InfiniteCanvasDirection,
   InfiniteCanvasGroup,
+  InfiniteCanvasGroupGutterInteraction,
+  InfiniteCanvasGroupMoveInteraction,
   InfiniteCanvasCursor,
   InfiniteCanvasCursorInteraction,
   InfiniteCanvasCursorPolicy,

@@ -21,12 +21,16 @@ windows compose into movable local layout regions.
   setChildWeights, reorderChild). Persisted at `version: 2`, with `version: 1`
   migrating to `groups: []`. Rendered by `group-layer.tsx` (shell, gutters, tab
   strips, accordion headers) beneath the window plane. `/groups` showcase.
-- **Still open: the pointer gestures.** Create-group-by-docking, drag-the-shell,
-  tear-out-by-drag, and gutter dragging all have canonical commands and a pure
-  hit-test (`getInfiniteCanvasGroupDockEdgeAtPoint`,
-  `getInfiniteCanvasGroupGutterWeights`) but no pointer bindings yet. Until they
-  land, a drag on a grouped window is refused rather than allowed to fight the
-  projection.
+- ✅ **Landed: two of the four pointer gestures.** Dragging a grouped window's
+  header moves its shell as one world object (DOCK-003). Dragging the seam
+  between split panes reweights the pair (SPLIT-001) — the step recomputes from
+  the container as it stood at drag start, so the seam stays under the cursor
+  instead of drifting as rounding accumulates.
+- **Still open: create-group-by-docking and tear-out-by-drag.** Both have
+  canonical commands and a pure hit-test
+  (`getInfiniteCanvasGroupDockEdgeAtPoint`) and no pointer bindings. Resizing a
+  grouped window directly is still refused: a pane is resized by its seam, and
+  the shell has no edge handles yet.
 - Tabs + accordion modes (center-merge, reorder, mode conversion,
   active-child semantics).
 - **Docking-intent snapping**: explicit intent mode with region overlays
@@ -41,8 +45,8 @@ windows compose into movable local layout regions.
   [research/acceptance-scenarios.md](research/acceptance-scenarios.md).
 - Exit: a /groups showcase where floating windows dock into split shells,
   merge into tabs, tear out, move as units; scenario tests green.
-  **Partially met.** The showcase drives all of that through commands. Doing it
-  by dragging, and the scenario tests, remain.
+  **Partially met.** Move-as-units and pane reweighting are draggable; docking
+  and tear-out are still command-only. Scenario tests remain.
 - Dependencies: none hard; benefits from P2's chrome memoization landing
   first (group shells add chrome).
 

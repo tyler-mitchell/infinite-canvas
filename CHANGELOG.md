@@ -77,10 +77,12 @@ Initial release.
   window belongs to at most one tree; closing or minimizing one detaches it; removing the last member
   destroys the shell.
 
-  Pointer gestures for docking, tear-out, and gutter dragging are not built yet. The canonical
-  commands and the pure hit-tests (`getInfiniteCanvasGroupDockEdgeAtPoint`,
-  `getInfiniteCanvasGroupGutterWeights`) exist; until the bindings land, a drag on a grouped window is
-  refused rather than allowed to fight the projection.
+  Dragging a grouped window's header moves its shell as one world object. Dragging the seam between
+  two split panes reweights them — every step recomputes from the container as it stood when the drag
+  began, so the seam stays under the cursor rather than drifting as rounding accumulates. Docking by
+  drag and tearing out by drag are not built yet; their canonical commands and hit-test
+  (`getInfiniteCanvasGroupDockEdgeAtPoint`) exist. Resizing a grouped window directly is refused: a
+  pane is resized by its seam.
 
 - **Custom window chrome.** Replace the default header, controls, and corners wholesale via
   `renderFrame`, or slot into the existing frame. `renderFrame` is memoized on the window's own

@@ -47,6 +47,13 @@ type InfiniteCanvasGroupWindowPlacement = Readonly<{
 /** The draggable seam between two split siblings. Dragging it reweights the pair. */
 type InfiniteCanvasGroupGutter = Readonly<{
   afterChildId: string;
+  /**
+   * The extent, along `axis`, that the container had left for its children after
+   * reserving every gutter. Published here because the solver already computed it
+   * and a drag needs exactly this number to convert a pointer delta into weight —
+   * re-deriving it at the call site is how the seam drifts away from the cursor.
+   */
+  availableExtent: number;
   axis: InfiniteCanvasGroupAxis;
   beforeChildId: string;
   containerId: string;
@@ -153,6 +160,7 @@ function solveSplitContainer(
     if (nextChild !== undefined) {
       draft.gutters.push({
         afterChildId: child.id,
+        availableExtent: available,
         axis,
         beforeChildId: nextChild.id,
         containerId: container.id,
@@ -395,12 +403,12 @@ function clamp(value: number, minimum: number, maximum: number): number {
  */
 function getInfiniteCanvasGroupGutterWeights(
   container: InfiniteCanvasGroupContainerNode,
-  gutter: InfiniteCanvasGroupGutter,
+  seam: Readonly<{ afterChildId: string; beforeChildId: string }>,
   input: Readonly<{ availableExtent: number; delta: number; minimumExtent?: number }>,
 ): Readonly<Record<string, number>> {
   const { availableExtent, delta, minimumExtent = 0 } = input;
-  const before = container.children.find((child) => child.id === gutter.afterChildId);
-  const after = container.children.find((child) => child.id === gutter.beforeChildId);
+  const before = container.children.find((child) => child.id === seam.afterChildId);
+  const after = container.children.find((child) => child.id === seam.beforeChildId);
 
   if (before === undefined || after === undefined || availableExtent <= 0) {
     return {};

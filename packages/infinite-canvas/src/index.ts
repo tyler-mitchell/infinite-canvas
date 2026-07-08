@@ -315,6 +315,8 @@ export type {
   InfiniteCanvasDragStartInput,
   InfiniteCanvasDirection,
   InfiniteCanvasGroup,
+  InfiniteCanvasGroupGutterInteraction,
+  InfiniteCanvasGroupMoveInteraction,
   InfiniteCanvasDropCommitContext,
   InfiniteCanvasDropInteraction,
   InfiniteCanvasDropPayload,
