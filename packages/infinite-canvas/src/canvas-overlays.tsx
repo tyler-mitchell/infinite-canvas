@@ -11,7 +11,12 @@ import {
 } from "./geometry";
 import { getSelectedWindowBounds } from "./selection";
 import { useInfiniteCanvasState } from "./store";
-import type { InfiniteCanvasSnapGuide, InfiniteCanvasState } from "./types";
+import type {
+  InfiniteCanvasDropInteraction,
+  InfiniteCanvasSnapGuide,
+  InfiniteCanvasSnapPreview,
+  InfiniteCanvasState,
+} from "./types";
 
 // Interaction overlays stack directly beneath the HUD band (overlay), above
 // the screen-space scene overlays (overlay - 9): bounds < marquee < snap.
@@ -120,20 +125,23 @@ function InfiniteCanvasDockPreviewOverlay({
   );
 }
 
-function InfiniteCanvasSnapOverlay({
+/**
+ * Draws one snap preview: the ghost rect and the guides holding it.
+ *
+ * Extracted because a *drop* snaps against exactly the same candidates as a move —
+ * `getInfiniteCanvasDropPlacement` calls the same `applySnapToRect` — and the guides
+ * it produced were being computed and thrown away. Every consumer that wanted them
+ * drew their own, slightly differently, against the same `data-slot` contract the
+ * framework was already styling.
+ */
+function InfiniteCanvasSnapPreviewLayer({
   devicePixelRatio,
+  preview,
 }: Readonly<{
   devicePixelRatio: number;
+  preview: InfiniteCanvasSnapPreview;
 }>) {
   const state = useInfiniteCanvasState();
-  const preview = state.snapPreview;
-  const isActiveSnapInteraction =
-    state.interaction?.kind === "move" || state.interaction?.kind === "resize";
-
-  if (preview === null || !isActiveSnapInteraction) {
-    return null;
-  }
-
   const previewProjection = projectWorldRectToScreen(
     state.camera,
     state.viewport,
@@ -142,6 +150,8 @@ function InfiniteCanvasSnapOverlay({
   );
   const previewTransform = previewProjection.screenTransform;
   const previewScreenRect = previewProjection.screenRect;
+  // Viewport-edge guides would draw a line down the middle of the screen; only the
+  // ones anchored to another window tell the user what they are aligning with.
   const visibleGuides = preview.guides.filter((guide) => guide.from === "window");
 
   return (
@@ -174,6 +184,41 @@ function InfiniteCanvasSnapOverlay({
         />
       ))}
     </div>
+  );
+}
+
+function InfiniteCanvasSnapOverlay({
+  devicePixelRatio,
+}: Readonly<{
+  devicePixelRatio: number;
+}>) {
+  const state = useInfiniteCanvasState();
+  const preview = state.snapPreview;
+  const isActiveSnapInteraction =
+    state.interaction?.kind === "move" || state.interaction?.kind === "resize";
+
+  return preview === null || !isActiveSnapInteraction ? null : (
+    <InfiniteCanvasSnapPreviewLayer devicePixelRatio={devicePixelRatio} preview={preview} />
+  );
+}
+
+/**
+ * The same guides, for a drag that has not landed yet.
+ *
+ * Only drawn when `dropPolicy.placement` told the framework how big the incoming
+ * thing is — without that, there is no rect to snap and nothing honest to draw.
+ */
+function InfiniteCanvasDropSnapOverlay<Payload, Kind extends string>({
+  devicePixelRatio,
+  drop,
+}: Readonly<{
+  devicePixelRatio: number;
+  drop: InfiniteCanvasDropInteraction<Payload, Kind>;
+}>) {
+  const preview = drop.status === "dragging" ? drop.placement?.preview : null;
+
+  return preview === null || preview === undefined ? null : (
+    <InfiniteCanvasSnapPreviewLayer devicePixelRatio={devicePixelRatio} preview={preview} />
   );
 }
 
@@ -251,6 +296,7 @@ function InfiniteCanvasMarqueeOverlay() {
 
 export {
   InfiniteCanvasDockPreviewOverlay,
+  InfiniteCanvasDropSnapOverlay,
   InfiniteCanvasMarqueeOverlay,
   InfiniteCanvasSelectionBoundsOverlay,
   InfiniteCanvasSnapOverlay,

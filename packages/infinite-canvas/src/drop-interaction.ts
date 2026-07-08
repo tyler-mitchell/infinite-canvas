@@ -3,6 +3,7 @@ import { applySnapToRect } from "./snap-resolver";
 import type {
   InfiniteCanvasCamera,
   InfiniteCanvasDropInteraction,
+  InfiniteCanvasDropPlacement,
   InfiniteCanvasDropValidationInput,
   InfiniteCanvasDropValidationResult,
   InfiniteCanvasPoint,
@@ -10,7 +11,6 @@ import type {
   InfiniteCanvasResolvedDropTarget,
   InfiniteCanvasSize,
   InfiniteCanvasSnapPolicy,
-  InfiniteCanvasSnapPreview,
   InfiniteCanvasSpatialTarget,
   InfiniteCanvasState,
   InfiniteCanvasViewport,
@@ -25,6 +25,7 @@ type InfiniteCanvasDropInteractionInput<
   id: string;
   originClientPoint: InfiniteCanvasPoint;
   payload: Payload;
+  placement?: InfiniteCanvasDropPlacement | null;
   pointerId: number;
   target?: InfiniteCanvasSpatialTarget<Kind> | null;
   validation?: InfiniteCanvasDropValidationInput;
@@ -99,6 +100,7 @@ function createInfiniteCanvasDropInteraction<Payload, Kind extends string = stri
   id,
   originClientPoint,
   payload,
+  placement = null,
   pointerId,
   target,
   validation = true,
@@ -125,6 +127,7 @@ function createInfiniteCanvasDropInteraction<Payload, Kind extends string = stri
     isOverViewport,
     originClientPoint,
     payload,
+    placement,
     pointerId,
     status: "dragging",
     viewportPoint,
@@ -148,11 +151,6 @@ type InfiniteCanvasDropPlacementInput<Kind extends string = string> = Readonly<{
   snapPolicy?: InfiniteCanvasSnapPolicy | false;
   state: InfiniteCanvasState<Kind>;
   worldPoint: InfiniteCanvasPoint;
-}>;
-
-type InfiniteCanvasDropPlacement = Readonly<{
-  preview: InfiniteCanvasSnapPreview | null;
-  rect: InfiniteCanvasRect;
 }>;
 
 const DROP_PLACEMENT_WINDOW_ID = "__infinite-canvas-drop-placement__";
@@ -199,8 +197,4 @@ export {
   normalizeInfiniteCanvasDropValidation,
 };
 
-export type {
-  InfiniteCanvasDropInteractionInput,
-  InfiniteCanvasDropPlacement,
-  InfiniteCanvasDropPlacementInput,
-};
+export type { InfiniteCanvasDropInteractionInput, InfiniteCanvasDropPlacementInput };

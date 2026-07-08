@@ -14,6 +14,7 @@ import {
 import { InfiniteCanvasHud } from "./canvas-hud";
 import {
   InfiniteCanvasDockPreviewOverlay,
+  InfiniteCanvasDropSnapOverlay,
   InfiniteCanvasMarqueeOverlay,
   InfiniteCanvasSelectionBoundsOverlay,
   InfiniteCanvasSnapOverlay,
@@ -38,6 +39,7 @@ import { getWheelZoomFactor } from "./geometry";
 import {
   EMPTY_INFINITE_CANVAS_DROP,
   createInfiniteCanvasDropInteraction,
+  getInfiniteCanvasDropPlacement,
   isPointInsideInfiniteCanvasViewport,
 } from "./drop-interaction";
 import { InfiniteCanvasGridBackdrop } from "./grid-backdrop";
@@ -103,6 +105,7 @@ import type {
   InfiniteCanvasDragStartInput,
   InfiniteCanvasDropPayload,
   InfiniteCanvasDropInteraction,
+  InfiniteCanvasDropPlacement,
   InfiniteCanvasDropPolicy,
   InfiniteCanvasDropValidationInput,
   InfiniteCanvasHudPolicyInput,
@@ -174,6 +177,8 @@ type InfiniteCanvasViewportProps<
   renderOverlay?: (context: InfiniteCanvasOverlayRenderContext<Kind, Payload>) => ReactNode;
   sceneLayers: readonly InfiniteCanvasSceneLayer<Kind, Payload>[];
   sceneSurface?: InfiniteCanvasSceneSurface<Kind, Payload>;
+  /** Reaches the store for move/resize; the viewport needs it to snap a drop too. */
+  snapPolicy?: InfiniteCanvasSnapPolicy;
   subtitle: string;
   spatialTargetResolvers: readonly InfiniteCanvasSpatialTargetResolver<Kind>[];
   theme?: Partial<InfiniteCanvasTheme>;
@@ -301,6 +306,7 @@ function resolveInfiniteCanvasDragDropTarget<Kind extends string, Payload>({
   dropPolicy,
   payload,
   resolvers,
+  snapPolicy,
   state,
   viewportPoint,
 }: Readonly<{
@@ -308,14 +314,17 @@ function resolveInfiniteCanvasDragDropTarget<Kind extends string, Payload>({
   dropPolicy?: InfiniteCanvasDropPolicy<Kind, Payload>;
   payload: Payload;
   resolvers: readonly InfiniteCanvasSpatialTargetResolver<Kind>[];
+  snapPolicy?: InfiniteCanvasSnapPolicy;
   state: InfiniteCanvasState<Kind>;
   viewportPoint: InfiniteCanvasPoint;
 }>): Readonly<{
+  placement: InfiniteCanvasDropPlacement | null;
   target: InfiniteCanvasSpatialTarget<Kind> | null;
   validation: InfiniteCanvasDropValidationInput;
 }> {
   if (!isPointInsideInfiniteCanvasViewport(state.viewport, viewportPoint)) {
     return {
+      placement: null,
       target: null,
       validation: true,
     };
@@ -327,17 +336,31 @@ function resolveInfiniteCanvasDragDropTarget<Kind extends string, Payload>({
     state,
     viewportPoint,
   });
+  const context = {
+    payload,
+    state,
+    target,
+    viewportPoint,
+    worldPoint: target.worldPoint,
+  };
+  const placementInput = dropPolicy?.placement?.(context) ?? null;
 
   return {
+    // Snapped against the same candidates a window move snaps against, using the
+    // same resolver. The guides were always being computed here; they were just
+    // never handed to anyone.
+    placement:
+      placementInput === null
+        ? null
+        : getInfiniteCanvasDropPlacement({
+            anchor: placementInput.anchor,
+            size: placementInput.size,
+            snapPolicy,
+            state,
+            worldPoint: target.worldPoint,
+          }),
     target,
-    validation:
-      dropPolicy?.canDrop?.({
-        payload,
-        state,
-        target,
-        viewportPoint,
-        worldPoint: target.worldPoint,
-      }) ?? true,
+    validation: dropPolicy?.canDrop?.(context) ?? true,
   };
 }
 
@@ -425,6 +448,7 @@ function InfiniteCanvasDesktop<Kind extends string, Payload = InfiniteCanvasDrop
             dropPolicy={dropPolicy}
             hotkeyBindings={hotkeyBindings}
             hud={hud}
+            snapPolicy={snapPolicy}
             icons={icons}
             inputPolicy={inputPolicy}
             renderOverlay={renderOverlay}
@@ -455,6 +479,7 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
   renderOverlay,
   sceneLayers,
   sceneSurface: SceneSurface,
+  snapPolicy,
   subtitle,
   spatialTargetResolvers,
   theme,
@@ -553,6 +578,7 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
         dropPolicy,
         payload: current.payload,
         resolvers: spatialTargetResolvers,
+        snapPolicy,
         state: latestState,
         viewportPoint,
       });
@@ -565,6 +591,7 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
             id: current.id,
             originClientPoint: current.originClientPoint,
             payload: current.payload,
+            placement: dropTarget.placement,
             pointerId: current.pointerId,
             target: dropTarget.target,
             validation: dropTarget.validation,
@@ -572,7 +599,7 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
             viewportPoint,
           });
     },
-    [chrome, dropPolicy, spatialTargetResolvers, store],
+    [chrome, dropPolicy, snapPolicy, spatialTargetResolvers, store],
   );
   const cancelDropDrag = useCallback(() => {
     const current = dropInteractionRef.current;
@@ -889,6 +916,8 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
           actions,
           dropTarget: finalDropInteraction.dropTarget,
           payload: finalDropInteraction.payload,
+          // The same object the preview was drawing, not a fresh computation.
+          placement: finalDropInteraction.placement,
           state: latestState,
           target: finalDropInteraction.dropTarget.target,
           viewportPoint: finalDropInteraction.viewportPoint,
@@ -1119,6 +1148,10 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
           <InfiniteCanvasSelectionBoundsOverlay devicePixelRatio={devicePixelRatio} />
           <InfiniteCanvasDockPreviewOverlay devicePixelRatio={devicePixelRatio} />
           <InfiniteCanvasSnapOverlay devicePixelRatio={devicePixelRatio} />
+          <InfiniteCanvasDropSnapOverlay
+            devicePixelRatio={devicePixelRatio}
+            drop={dropInteraction}
+          />
           <InfiniteCanvasMarqueeOverlay />
           {renderOverlay?.(overlayContext)}
           <InfiniteCanvasHud

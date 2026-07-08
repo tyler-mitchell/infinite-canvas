@@ -248,10 +248,7 @@ export {
   isPointInsideInfiniteCanvasViewport,
   normalizeInfiniteCanvasDropValidation,
 } from "./drop-interaction";
-export type {
-  InfiniteCanvasDropPlacement,
-  InfiniteCanvasDropPlacementInput,
-} from "./drop-interaction";
+export type { InfiniteCanvasDropPlacementInput } from "./drop-interaction";
 export {
   createInfiniteCanvasEdgeTargetResolver,
   createInfiniteCanvasOverlayTargetResolver,
@@ -344,6 +341,7 @@ export type {
   InfiniteCanvasGroupMoveInteraction,
   InfiniteCanvasHistory,
   InfiniteCanvasDropCommitContext,
+  InfiniteCanvasDropPlacement,
   InfiniteCanvasDropInteraction,
   InfiniteCanvasDropPayload,
   InfiniteCanvasDropPolicy,

@@ -4,7 +4,6 @@ import {
   createInfiniteCanvasState,
   createInfiniteCanvasWindow,
   defineInfiniteCanvasWindowRegistry,
-  getInfiniteCanvasDropPlacement,
   InfiniteCanvasDesktop,
   worldRectToScreenRect,
   type InfiniteCanvasDropPolicy,
@@ -158,19 +157,12 @@ function DropTrayShowcase() {
             }
           );
         },
-        onDrop: ({ actions, payload, state, target, worldPoint }) => {
-          if (!isCardAsset(payload)) {
+        onDrop: ({ actions, payload, placement, state, target }) => {
+          if (!isCardAsset(payload) || placement === null) {
             return;
           }
           sequenceRef.current += 1;
           const ordinal = sequenceRef.current;
-          // Same placement call as the drag preview: the card commits exactly
-          // where the preview showed it, snapped like a window move.
-          const placement = getInfiniteCanvasDropPlacement({
-            size: cardSize,
-            state,
-            worldPoint,
-          });
           actions.openWindow(
             makeCard({
               accent: payload.accent,
@@ -180,12 +172,17 @@ function DropTrayShowcase() {
                 target.type === "window"
                   ? [`Related to “${target.window.title}”.`]
                   : ["Placed at the drop point."],
+              // Literally the rect the ghost was drawn at — the framework hands
+              // back the placement it previewed rather than a second computation.
               rect: placement.rect,
               title: `${payload.label} ${String(ordinal).padStart(2, "0")}`,
               zIndex: state.windows.length + 1,
             }),
           );
         },
+        // Telling the framework how big the card will be is what lets it snap the
+        // drop and draw the guides. Without it, `drag.placement` stays null.
+        placement: ({ payload }) => (isCardAsset(payload) ? { size: cardSize } : null),
       }) satisfies InfiniteCanvasDropPolicy<CardKind, CardAsset>,
     [],
   );
@@ -197,55 +194,31 @@ function DropTrayShowcase() {
           frameloop: "demand",
           id: "drop-preview",
           placement: "overlay",
+          // The ghost. The framework draws the snap guides beside it now, from the
+          // same placement — this layer used to re-derive them and paint its own.
           render: (context) => {
             const { drop } = context;
             if (
               drop.status !== "dragging" ||
               !drop.isOverViewport ||
               !isCardAsset(drop.payload) ||
-              drop.dropTarget.target === null
+              drop.dropTarget.target === null ||
+              drop.placement === null
             ) {
               return null;
             }
-            const placement = getInfiniteCanvasDropPlacement({
-              size: cardSize,
-              state: context.state,
-              worldPoint: drop.worldPoint,
-            });
-            const { rect } = placement;
+            const { rect } = drop.placement;
             const valid = drop.dropTarget.status === "valid";
-            const visible = context.visibleWorldRect;
             return (
-              <group>
-                <group position={[rect.x + rect.width / 2, -(rect.y + rect.height / 2), 10]}>
-                  <mesh>
-                    <boxGeometry args={[rect.width, rect.height, 1]} />
-                    <meshBasicMaterial
-                      color={valid ? drop.payload.accent : "#f87171"}
-                      opacity={valid ? 0.16 : 0.08}
-                      transparent
-                    />
-                  </mesh>
-                </group>
-                {placement.preview?.guides.map((guide) => (
-                  <mesh
-                    key={guide.id}
-                    position={
-                      guide.axis === "x"
-                        ? [guide.position, -(visible.y + visible.height / 2), 11]
-                        : [visible.x + visible.width / 2, -guide.position, 11]
-                    }
-                  >
-                    <boxGeometry
-                      args={
-                        guide.axis === "x"
-                          ? [1.5 / context.camera.zoom, visible.height, 1]
-                          : [visible.width, 1.5 / context.camera.zoom, 1]
-                      }
-                    />
-                    <meshBasicMaterial color="#7dd3fc" opacity={0.6} transparent />
-                  </mesh>
-                ))}
+              <group position={[rect.x + rect.width / 2, -(rect.y + rect.height / 2), 10]}>
+                <mesh>
+                  <boxGeometry args={[rect.width, rect.height, 1]} />
+                  <meshBasicMaterial
+                    color={valid ? drop.payload.accent : "#f87171"}
+                    opacity={valid ? 0.16 : 0.08}
+                    transparent
+                  />
+                </mesh>
               </group>
             );
           },

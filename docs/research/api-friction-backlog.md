@@ -139,10 +139,24 @@ pointerModeControls?, cameraControls?, zoomControls? }` landed with the HUD
 - **`hitRadius` semantics** — now documented as world units; still consider
   whether screen-pixel semantics would serve consumers better (matches the
   snap system's screen-space-threshold philosophy).
-- **Snap guides for drops are consumer-rendered** — the built-in snap overlay
-  only draws `state.snapPreview` (move/resize interactions). Now that drop
-  placement returns a snap preview, consider letting the framework overlay
-  render it.
+- ✅ **Snap guides for drops are consumer-rendered (fixed 2026-07-08).** The snap
+  overlay drew `state.snapPreview` only, so every consumer redrew the drop's guides
+  themselves, slightly differently, against the same `data-slot` contract the
+  framework was already styling. The guides were being computed inside
+  `getInfiniteCanvasDropPlacement` and thrown away.
+
+  `dropPolicy.placement` now tells the framework how big the payload will be; the
+  viewport snaps the drop against the same candidates a window move snaps against
+  and exposes the result as `drag.placement`. `InfiniteCanvasDropSnapOverlay` draws
+  it with the same layer the move overlay uses. Omit `placement` and drops behave
+  exactly as before.
+
+  `onDrop` now receives **that same placement object**, rather than the consumer
+  calling `getInfiniteCanvasDropPlacement` a second time to find out where the ghost
+  was. Two calls can disagree, and when they do the card lands somewhere other than
+  where the preview promised. `/drop-tray` lost eighteen lines of guide meshes and a
+  duplicate placement call.
+
 - **Stress-scale raster defaults** — `maxPendingCaptures` defaults to
   `Infinity`; at 160 windows the capture queue churns for a long time.
   Revisit defaults with the perf deep-dive.

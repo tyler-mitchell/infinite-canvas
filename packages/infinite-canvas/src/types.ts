@@ -473,6 +473,19 @@ type InfiniteCanvasResolvedDropTarget<Kind extends string = string> =
       target: InfiniteCanvasSpatialTarget<Kind>;
     }>;
 
+/**
+ * Where a dragged payload would land, and the guides holding it there. `preview` is
+ * `null` when snapping is off or nothing is near enough to catch.
+ *
+ * Lives here rather than in `drop-interaction` because the drop interaction carries
+ * one, and a type-only cycle between the two modules would be a cycle a reader has
+ * to hold in their head.
+ */
+type InfiniteCanvasDropPlacement = Readonly<{
+  preview: InfiniteCanvasSnapPreview | null;
+  rect: InfiniteCanvasRect;
+}>;
+
 type InfiniteCanvasDropInteraction<
   Payload = InfiniteCanvasDropPayload,
   Kind extends string = string,
@@ -487,6 +500,12 @@ type InfiniteCanvasDropInteraction<
       isOverViewport: boolean;
       originClientPoint: InfiniteCanvasPoint;
       payload: Payload;
+      /**
+       * Where the payload would land, snapped, and the guides holding it there.
+       * `null` unless `dropPolicy.placement` declared how big the incoming thing is —
+       * without a size there is no rect to snap, and nothing honest to draw.
+       */
+      placement: InfiniteCanvasDropPlacement | null;
       pointerId: number;
       status: "dragging";
       viewportPoint: InfiniteCanvasPoint;
@@ -506,6 +525,13 @@ type InfiniteCanvasDropCommitContext<
   actions: InfiniteCanvasCommands<Kind>;
   dropTarget: Extract<InfiniteCanvasResolvedDropTarget<Kind>, { status: "valid" }>;
   payload: Payload;
+  /**
+   * The very placement the preview was drawing when the pointer came up — not a
+   * fresh call. Recomputing it here is how a drop lands somewhere other than where
+   * the ghost promised, because the two calls can disagree the moment anything
+   * about the snap candidates differs.
+   */
+  placement: InfiniteCanvasDropPlacement | null;
   state: InfiniteCanvasState<Kind>;
   target: InfiniteCanvasSpatialTarget<Kind>;
   viewportPoint: InfiniteCanvasPoint;
@@ -531,6 +557,18 @@ type InfiniteCanvasDropPolicy<
     context: InfiniteCanvasDropTargetContext<Kind, Payload>,
   ) => InfiniteCanvasDropValidationInput;
   onDrop?: (context: InfiniteCanvasDropCommitContext<Kind, Payload>) => void;
+  /**
+   * How large the payload will be when it lands, and where the pointer sits inside
+   * it. Supplying this is what lets the framework snap the drop against the same
+   * candidates a window move snaps against, and draw the same guides — the ones it
+   * was already computing inside `getInfiniteCanvasDropPlacement` and discarding.
+   *
+   * Return `null` for a payload that has no rect. Omit it entirely and drops behave
+   * as before: no snapping, no guides, `drag.placement` is `null`.
+   */
+  placement?: (
+    context: InfiniteCanvasDropTargetContext<Kind, Payload>,
+  ) => Readonly<{ anchor?: InfiniteCanvasPoint; size: InfiniteCanvasSize }> | null;
 }>;
 
 /**
@@ -1112,6 +1150,7 @@ export type {
   InfiniteCanvasDragStartInput,
   InfiniteCanvasDropCommitContext,
   InfiniteCanvasDropInteraction,
+  InfiniteCanvasDropPlacement,
   InfiniteCanvasDropPayload,
   InfiniteCanvasDropPolicy,
   InfiniteCanvasDropTargetContext,
