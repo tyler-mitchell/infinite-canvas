@@ -14,6 +14,7 @@ import { projectWorldRectToScreen } from "./geometry";
 import {
   DEFAULT_INFINITE_CANVAS_GROUP_METRICS,
   getInfiniteCanvasGroupLayout,
+  getInfiniteCanvasGroupMinimumSize,
   type InfiniteCanvasGroupMetrics,
 } from "./group-layout";
 import { findInfiniteCanvasGroupNode, isInfiniteCanvasGroupContainer } from "./group-tree";
@@ -304,6 +305,9 @@ function InfiniteCanvasGroupShell({
             actions.startGroupResize({
               groupId: group.id,
               handle: descriptor.handle,
+              // Measured with the metrics this shell was laid out with, not the defaults
+              // the reducer would otherwise have to assume.
+              minSize: getInfiniteCanvasGroupMinimumSize(group.tree, metrics),
               point: getEventViewportPoint(event),
               pointerId: event.pointerId,
             });

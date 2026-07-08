@@ -471,8 +471,9 @@ const MINIMUM_GROUP_PANE_EXTENT = 48;
  *   the widest child across it;
  * - **tabs** stacks a strip above the tallest child, since every child shares one content
  *   rect;
- * - **accordion** gives every child a header along the axis and the active child the
- *   remainder, so its minimum is `n` headers plus the active child.
+ * - **accordion** gives every child a header along the axis and one child the remainder, so
+ *   its minimum is `n` headers plus the *widest* child — not the active one, since
+ *   expanding a different fold must never squeeze the shell below its own floor.
  */
 function getInfiniteCanvasGroupMinimumSize(
   node: InfiniteCanvasGroupNode,
@@ -500,14 +501,17 @@ function getInfiniteCanvasGroupMinimumSize(
   const isHorizontal = isHorizontalAxis(node.axis);
 
   if (node.layout === "accordion") {
-    const activeChild = getActiveChild(node);
-    const activeIndex = node.children.findIndex((child) => child.id === activeChild?.id);
-    const activeSize = children[activeIndex] ?? children[0];
+    // Every child gets a header; exactly one gets the remainder. Size against the
+    // *widest* child rather than the active one, because `setGroupActiveChild` is a
+    // command: a shell sized to fit the fold that happens to be open would squeeze
+    // itself below its own floor the moment a larger one is expanded. Tabs already
+    // reason this way — all children share one content rect — and the two branches
+    // must not disagree about what "fits" means.
     const headers = metrics.accordionHeaderSize * children.length;
 
     return isHorizontal
-      ? { height: tallest, width: headers + (activeSize?.width ?? 0) }
-      : { height: headers + (activeSize?.height ?? 0), width: widest };
+      ? { height: tallest, width: headers + widest }
+      : { height: headers + tallest, width: widest };
   }
 
   const gutters = metrics.gutterSize * Math.max(children.length - 1, 0);

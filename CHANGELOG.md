@@ -31,11 +31,19 @@ sections, in this order, omitting the ones that don't apply:
   entry per drag, checkpointed at drag start.
 
   The shell's minimum size is **structural** — gutters, tab strips, accordion headers, and
-  `MINIMUM_GROUP_PANE_EXTENT` per pane — exposed as `getInfiniteCanvasGroupMinimumSize(tree)`.
-  It is deliberately **not** a member window's `minSize`, which the solver has never consulted:
-  inside a tree a member has no rect of its own, so letting one stubborn window veto a resize of
-  the group it merely belongs to would contradict the gutter drag, which already floors panes by
-  share and extent.
+  `MINIMUM_GROUP_PANE_EXTENT` per pane — exposed as
+  `getInfiniteCanvasGroupMinimumSize(tree, metrics)`. It is deliberately **not** a member
+  window's `minSize`, which the solver has never consulted: inside a tree a member has no rect
+  of its own, so letting one stubborn window veto a resize of the group it merely belongs to
+  would contradict the gutter drag, which already floors panes by share and extent. An
+  accordion is sized against its **widest** child rather than the expanded one, because
+  `setGroupActiveChild` is a command — a shell sized to the open fold would squeeze itself the
+  moment a larger one expanded.
+
+  `startGroupResize` takes that `minSize` as an argument, exactly as `startGroupGutterDrag`
+  takes `availableExtent`: group metrics live in the render layer, and a pure reducer that
+  guessed at them would hand a consumer with custom metrics a floor disagreeing with the
+  layout in front of them.
 
   The handles sit entirely _outside_ the shell rect, unlike a window frame's, which straddle the
   edge. Everything inside a shell is member-window DOM and the window plane draws above the group

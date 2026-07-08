@@ -253,6 +253,14 @@ start so a mode change mid-drag cannot move the floor under the pointer. And the
 handles must sit **outside** its rect, not straddle its edge: everything inside is
 member-window DOM drawn above the group layer, so an inward half can never be clicked.
 
+Two further corrections came from re-reading the finished code rather than the plan. The
+accordion branch sized its minimum against the _active_ child while the tabs branch used
+the widest — they must agree, since `setGroupActiveChild` can expand a larger fold at any
+time and squeeze the shell below its own floor. And `minSize` now travels on the action,
+like the gutter drag's `availableExtent`: group metrics live in the render layer, so a
+reducer that assumed the defaults would hand a consumer with custom metrics a floor that
+disagreed with the layout in front of them.
+
 Exit: dragging a shell edge resizes the group, the shell stops at its structural floor,
 and the drag is one undo entry. **The first two are unobserved** — reasoning only.
 

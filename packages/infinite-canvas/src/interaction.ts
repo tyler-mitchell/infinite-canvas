@@ -5,10 +5,7 @@ import {
   screenPointToWorldPoint,
   subtractPoints,
 } from "./geometry";
-import {
-  getInfiniteCanvasGroupGutterWeights,
-  getInfiniteCanvasGroupMinimumSize,
-} from "./group-layout";
+import { getInfiniteCanvasGroupGutterWeights } from "./group-layout";
 import {
   applyInfiniteCanvasDockPreview,
   resolveInfiniteCanvasDockPreview,
@@ -27,6 +24,7 @@ import type {
   InfiniteCanvasGroup,
   InfiniteCanvasGroupGutterInteraction,
   InfiniteCanvasGroupResizeInteraction,
+  InfiniteCanvasSize,
   InfiniteCanvasGroupMoveInteraction,
   InfiniteCanvasMarqueeInteraction,
   InfiniteCanvasMarqueeMode,
@@ -106,15 +104,18 @@ function beginInfiniteCanvasGroupMove<Kind extends string>(
 /**
  * Drag a group shell's outer edge.
  *
- * The structural minimum is resolved once, at drag start, from the tree as it stands.
- * Re-deriving it every step would let a mode change mid-drag move the floor under the
- * pointer; capturing it means the shell stops exactly where it stopped.
+ * `minSize` is measured by the caller, with the metrics it laid the shell out with, and
+ * captured here for the whole drag. Two reasons it is not recomputed per step: the
+ * reducer has no access to render-layer metrics (which is why `availableExtent` travels
+ * on the gutter action too), and a mode change mid-drag would otherwise move the floor
+ * under the pointer.
  */
 function beginInfiniteCanvasGroupResize<Kind extends string>(
   state: InfiniteCanvasState<Kind>,
   pointerId: number,
   group: InfiniteCanvasGroup,
   handle: InfiniteCanvasResizeHandle,
+  minSize: InfiniteCanvasSize,
   point: InfiniteCanvasPoint,
 ): InfiniteCanvasState<Kind> {
   return {
@@ -123,7 +124,7 @@ function beginInfiniteCanvasGroupResize<Kind extends string>(
       groupId: group.id,
       handle,
       kind: "groupResize",
-      minSize: getInfiniteCanvasGroupMinimumSize(group.tree),
+      minSize,
       originPointer: point,
       originRect: group.rect,
       pointerId,

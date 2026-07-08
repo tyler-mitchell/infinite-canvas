@@ -951,6 +951,14 @@ type InfiniteCanvasAction<Kind extends string = string> =
   | Readonly<{
       groupId: string;
       handle: InfiniteCanvasResizeHandle;
+      /**
+       * The shell's structural floor, measured by the caller with the same metrics it
+       * laid the tree out with. Carried on the action for the same reason
+       * `availableExtent` is: metrics live in the render layer, and the reducer must not
+       * guess at them or a consumer with custom metrics gets a floor that disagrees with
+       * the layout it can see.
+       */
+      minSize: InfiniteCanvasSize;
       point: InfiniteCanvasPoint;
       pointerId: number;
       type: "interaction.startGroupResize";
@@ -1082,11 +1090,17 @@ type InfiniteCanvasCommands<Kind extends string = string> = Readonly<{
       pointerId: number;
     }>,
   ) => void;
-  /** Drag a group shell's outer edge. The tree is untouched; members re-project. */
+  /**
+   * Drag a group shell's outer edge. The tree is untouched; members re-project.
+   *
+   * `minSize` comes from `getInfiniteCanvasGroupMinimumSize(group.tree, metrics)` — pass
+   * the same metrics the shell was laid out with.
+   */
   startGroupResize: (
     input: Readonly<{
       groupId: string;
       handle: InfiniteCanvasResizeHandle;
+      minSize: InfiniteCanvasSize;
       point: InfiniteCanvasPoint;
       pointerId: number;
     }>,

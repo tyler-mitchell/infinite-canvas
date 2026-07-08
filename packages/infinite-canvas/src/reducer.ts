@@ -178,6 +178,7 @@ function applyInfiniteCanvasAction<Kind extends string>(
         action.pointerId,
         group,
         action.handle,
+        action.minSize,
         action.point,
       );
     }
