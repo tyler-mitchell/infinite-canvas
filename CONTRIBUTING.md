@@ -118,7 +118,9 @@ wrong.
 
 ## The two invariants contributors most often break
 
-Both are enforced by tests, so you will find out. Better to know why.
+The first is enforced by `src/headless-boundary.test.ts`, so you will find out. The
+second is not enforced by anything — it holds because nobody has broken it. Either
+way, better to know why.
 
 ### 1. The framework package is headless
 

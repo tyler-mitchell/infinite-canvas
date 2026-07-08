@@ -31,9 +31,12 @@ that.
 ## The four bets
 
 1. **A pure, state-library-agnostic core.** Geometry, the reducer, selection,
-   snapping, stacking, and camera navigation are pure functions over plain
-   data, testable without rendering. Legend State is an adapter at the React
-   boundary, never inside derivation. A boundary test enforces it.
+   snapping, stacking, groups, history, and camera navigation are pure
+   functions over plain data, testable without rendering. Legend State is
+   confined to four files, all at the React or programmatic boundary — `store`,
+   `rasterization`, `visibility`, `canvas-handle` — and appears nowhere in
+   derivation. That holds today by construction; **no test enforces it yet**,
+   and this line used to claim one did.
 
 2. **An explicit GPU/DOM seam, stated honestly.** WebGPU owns the programmable
    spatial layer; window chrome and bodies are DOM, projected from the same
@@ -99,8 +102,9 @@ pnpm exec vp run -r test            # tests
 The playground consumes the framework through source-linked exports, so
 framework edits hot-reload with no build step. See
 [CONTRIBUTING.md](CONTRIBUTING.md) — in particular the two invariants
-contributors most often break (the headless boundary, and the pure core's
-import boundary), both enforced by tests.
+contributors most often break. The **headless boundary** is enforced by
+`src/headless-boundary.test.ts`. The **pure core's import boundary** is not
+enforced by anything, and holds only because nobody has broken it yet.
 
 ## License
 

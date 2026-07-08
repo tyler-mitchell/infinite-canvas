@@ -94,14 +94,29 @@ pointerModeControls?, cameraControls?, zoomControls? }` landed with the HUD
   `?? storageKey` to take it back. Now overloaded: give it a key and you get a key.
   `/persistence` drops its workaround.
 
+- **Handle change-subscription.** `createInfiniteCanvasHandle` now exposes
+  `subscribe(selector, listener)`, returning a disposer. Selector-based rather than
+  a bare `onChange`: a bare one fires on every camera tick and the caller ends up
+  diffing anyway. Because the reducers return the _identical_ array when they change
+  nothing, `subscribe((state) => state.windows, …)` fires exactly when the windows
+  change and never during a pan. The listener runs on a microtask, outside Legend's
+  tracking context — called inline, anything it read would be recorded as a
+  dependency of its own observer and could re-trigger it. Spatial queries remain
+  open: they live in the render layer.
+
 ## Open — medium
 
+- **The pure core's import boundary is unenforced.** Legend State is confined to
+  `store`, `rasterization`, `visibility`, and `canvas-handle` — all at the React or
+  programmatic boundary — and appears nowhere in derivation. That holds today by
+  construction and by reading, and nothing stops the next contributor from importing
+  an observable into `reducer.ts`. `README.md` and `CONTRIBUTING.md` both claimed a
+  test enforced this. **No such test exists**; only the _headless_ boundary is
+  tested. The docs now say so. An import-graph assertion over the pure-core modules
+  (the shape of `optional-peers.test.ts`) is the fix.
 - **Slot layout rigidity** — centering a header title still requires
   absolute-position hacks around `Controls`; consider slot order/areas in the
   styled-distribution work.
-- **Handle change-subscription** — `createInfiniteCanvasHandle` ships without
-  `subscribe`; add once the Legend-State subscription surface to expose is
-  settled (and consider spatial queries, which live in the render layer).
 
 ## Open — small / documentation
 
