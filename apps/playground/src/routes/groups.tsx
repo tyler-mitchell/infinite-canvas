@@ -52,6 +52,19 @@ const registry = defineInfiniteCanvasWindowRegistry<Kind>({
           floating window over another — the pointer has to be over the target, not just the windows
           overlapping — to dock it.
         </p>
+        <p className="text-white/40">
+          In <code>tabs</code> mode, drag a tab along its strip to reorder it, or out of the strip
+          to tear the window free. <kbd>Arrow</kbd> with a pane selected moves the whole shell,
+          because a member has no rect to nudge. <kbd>Mod</kbd>+<kbd>Shift</kbd>+<kbd>Arrow</kbd>{" "}
+          tiles the active <em>floating</em> window into a half of the view; a grouped one is
+          refused, for the same reason.
+        </p>
+        <p className="text-white/40">
+          <em>Float over shell</em> drops a window centred on the group. Its centre is inside the
+          shell, so the group becomes its <em>contextual parent</em>: <kbd>Alt</kbd>+
+          <kbd>Arrow</kbd> from it searches the group&apos;s members before the rest of the canvas,
+          and a floating window never needs a keyboard model of its own.
+        </p>
       </div>
     ),
   },
@@ -191,9 +204,10 @@ function NewWindowButton() {
 }
 
 function GroupControls() {
-  const actions = useInfiniteCanvasActions();
+  const actions = useInfiniteCanvasActions<Kind>();
   const groups = useInfiniteCanvasSelector((state) => state.groups);
   const windows = useInfiniteCanvasSelector((state) => state.windows);
+  const floatingSequenceRef = useRef(0);
   const group = groups.find((candidate) => candidate.id === GROUP_ID) ?? null;
 
   if (group === null) {
@@ -274,6 +288,32 @@ function GroupControls() {
       </Button>
       <Button
         onClick={() => {
+          // Centred on the shell, which is exactly the FOCUS-002 setup: a floating window
+          // whose centre lies inside a group's rect takes that group as its contextual
+          // parent, so `Alt+Arrow` from it searches the group's members before the canvas.
+          floatingSequenceRef.current += 1;
+          const ordinal = floatingSequenceRef.current;
+
+          actions.openWindow(
+            createInfiniteCanvasWindow<Kind>({
+              id: `floating-${ordinal}`,
+              kind: "pane",
+              rect: {
+                ...NEW_WINDOW_SIZE,
+                x: group.rect.x + (group.rect.width - NEW_WINDOW_SIZE.width) / 2,
+                y: group.rect.y + (group.rect.height - NEW_WINDOW_SIZE.height) / 2,
+              },
+              title: `Floating ${ordinal}`,
+            }),
+          );
+        }}
+        size="xs"
+        variant="ghost"
+      >
+        Float over shell
+      </Button>
+      <Button
+        onClick={() => {
           actions.closeGroup(GROUP_ID);
         }}
         size="xs"
@@ -302,7 +342,7 @@ function GroupsShowcase() {
             </div>
           );
         }}
-        subtitle="New window, then Alt+drag it onto another to dock. Drag a shell edge to resize the group. Save the arrangement as a recipe and put it back anywhere. Mod+Z undoes."
+        subtitle="New window, then Alt+drag it onto another to dock. Drag a shell edge to resize the group, a tab along its strip to reorder. Mod+Shift+Arrow tiles a floating window. Mod+Z undoes everything."
         title="Groups"
         windowDefinitions={registry}
       />
