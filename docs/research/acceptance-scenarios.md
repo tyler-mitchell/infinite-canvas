@@ -131,7 +131,9 @@ hysteresis unimplemented` until 2026-07-08, long after it shipped.
   canonical placement engine as drag snapping. `built` (2026-07-08). `window.place` takes a
   region — halves, quarters, `fill`, `center` — and `window-placement.ts` is the only thing
   that knows what "left half" means, so pointer and keyboard cannot disagree.
-  `Mod+Alt+Arrow`, `Mod+Alt+Enter`, `Mod+Alt+C`; quarters have no default chord.
+  `Mod+Shift+Arrow`, `Mod+Shift+Enter`; centring and the quarters have no default chord,
+  because the canvas `preventDefault()`s every chord it owns and the obvious candidates are
+  browser devtools or tab-switching keys.
 
   **The scenario's clause is met in substance and refused in letter, deliberately.**
   Placement does _not_ route through `applySnapToRect`, which is what drag snapping adds on

@@ -63,9 +63,13 @@ sections, in this order, omitting the ones that don't apply:
   and the tighter one is the one it is really in; area ties break on group id, so an arrow key is
   never ambiguous. Actual membership still takes precedence.
   `getInfiniteCanvasContextualGroup(state, point)` is public.
-- **Keyboard window placement** (FOCUS-003). `Mod+Alt+Arrow` puts the active window in a half of
-  the visible canvas, `Mod+Alt+Enter` fills it, `Mod+Alt+C` centres it at natural size. The
-  `window.place` command also takes the four quarters, which have no default chord.
+- **Keyboard window placement** (FOCUS-003). `Mod+Shift+Arrow` puts the active window in a half of
+  the visible canvas and `Mod+Shift+Enter` fills it. Centring and the four quarters are commands
+  without a default chord — every obvious candidate for centring (`Mod+Alt+C`, `Mod+Shift+C`)
+  opens browser devtools, and the canvas `preventDefault()`s any chord it owns, so a default
+  binding that shadows a browser shortcut is theft rather than a nuisance. `Mod+Alt+Arrow` was
+  ruled out for the same reason: on macOS it switches browser tabs, and browsers do not let the
+  page cancel it, so the tab would have changed _and_ the window moved.
   `getInfiniteCanvasWindowPlacementRect(bounds, region, size, minSize)` is public and is the only
   thing that knows what "left half" means, so pointer and keyboard placement cannot disagree.
 

@@ -57,22 +57,27 @@ pointerModeControls?, cameraControls?, zoomControls? }` landed with the HUD
 
 ## Open — high priority
 
-- **Zooming mid-drag slides the window out from under the cursor** (found by reading,
-  2026-07-08; unverified in a browser). Every drag captures `zoom` at `startMove` and each
-  step computes `screenDelta / interaction.zoom`. The wheel handler is not gated on an
-  active interaction, so once the zoom changes the whole accumulated screen delta is
-  converted at a stale scale.
+- ✅ **Zooming mid-drag slid the window out from under the cursor (fixed 2026-07-08).** Every
+  drag captured `zoom` at `startMove` and each step computed `screenDelta / interaction.zoom`.
+  The wheel handler is not gated on an active interaction, so once the zoom changed the whole
+  accumulated screen delta was converted at a stale scale.
 
   Grab a window at zoom 1, drag 100px right (world +100), zoom to 2, drag 100px more.
   `screenDelta` is 200; divided by the captured zoom 1 that is world +200, where the true
-  displacement is 100 + 50 = **150**. The error is unbounded in the drag's remaining
-  length, and it applies to `move`, `resize`, `groupMove`, and `groupResize` alike, since
-  all four cache one scalar zoom.
+  displacement is 100 + 50 = **150**. The error was unbounded in the drag's remaining length,
+  and it applied to `move`, `resize`, `groupMove`, `groupResize`, and `groupGutter` alike.
 
-  The fix is two screen→world projections — origin pointer under the origin camera,
-  current pointer under the current camera — instead of one cached scalar. That changes
-  `InfiniteCanvasMoveInteraction` (public) and every drag path reads it, so **FAIL-001
-  should exist as a regression test before the edit**, not after. Tracked there.
+  `getInteractionWorldDelta` projects both ends — origin pointer under the origin camera,
+  current pointer under the current camera — instead of dividing by one cached scalar. It is a
+  strict generalization: `screenPointToWorldPoint` is `center + (p - viewport/2) / zoom`, so for
+  an unchanged camera the difference is exactly `(p - origin) / zoom`, the expression it
+  replaces, to the bit. `zoom` is gone from the five interaction types in favour of
+  `originCamera`, which `pan` always carried.
+
+  **This entry originally said the fix should wait for FAIL-001 as a regression test.** It
+  landed without one, because the reduction above makes the static-camera case provably
+  unchanged and tests are out of scope this session. The scenario remains unasserted, and the
+  fix remains unobserved in a browser.
 
 - **Interactive performance fails NFR-1 in practice.** Both this playground's
   /stress stage and the kek implementation degrade at even ~20 live windows
@@ -275,6 +280,20 @@ pointerModeControls?, cameraControls?, zoomControls? }` landed with the HUD
   styled-distribution work.
 
 ## Open — small / documentation
+
+- **`Mod+0` may reset the browser's zoom as well as the canvas's.** Unverified, and worth
+  ten seconds in a browser. `registerInfiniteCanvasHotkeys` calls `preventDefault()` on every
+  chord it owns, but browsers reserve their zoom shortcuts (`Mod` with `+`, `-`, `0`) at a
+  level the page cannot cancel. If that is right, pressing `Mod+0` resets the page zoom _and_
+  the canvas zoom, which is two surprises for one keypress.
+
+  This is the same class as the placement chords rebound on 2026-07-08 — `Mod+Alt+Arrow`
+  switches browser tabs on macOS and is likewise uncancellable, so binding it would have
+  switched the tab _and_ moved the window. The general rule now lives in a comment above the
+  placement descriptors: **a default chord that shadows a browser shortcut is theft, not a
+  nuisance, because the canvas swallows every chord it owns.** Auditing the rest of
+  `DEFAULT_INFINITE_CANVAS_COMMAND_DESCRIPTORS` against real browsers is a browser task and
+  has not been done.
 
 - **`hitRadius` semantics** — now documented as world units; still consider
   whether screen-pixel semantics would serve consumers better (matches the

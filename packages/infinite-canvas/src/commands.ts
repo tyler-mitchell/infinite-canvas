@@ -245,13 +245,25 @@ const DEFAULT_INFINITE_CANVAS_COMMAND_DESCRIPTORS = [
     id: "view.resetZoom",
     label: "Reset Zoom",
   },
+  // Placement chords are `Mod+Shift+…`, and the reason is worth keeping.
+  //
+  // `registerInfiniteCanvasHotkeys` calls `preventDefault()` on any chord the canvas owns,
+  // the moment it lands — that is what stops `Alt+ArrowLeft` at the edge of your windows
+  // from navigating Back. It also means a default binding that shadows a browser or OS
+  // shortcut is not a nuisance, it is theft. And the shortcuts the browser reserves for
+  // itself are not always cancellable: on macOS `Cmd+Alt+Left/Right` switches tabs in
+  // Chrome, Safari, and Firefox, so binding it would have switched the tab *and* placed the
+  // window. `Cmd+Alt+C` opens DevTools; `Cmd+Shift+C` opens the inspector.
+  //
+  // `Mod+Shift+Arrow` is unclaimed in the browsers' page context, and reads as "the bigger
+  // modifier moves the window further" beside `Shift+Arrow`'s ten-pixel nudge.
   {
     command: {
       region: "left",
       type: "window.place",
     },
     description: "Place the active window in the left half of the visible canvas.",
-    hotkeys: ["Mod+Alt+ArrowLeft"],
+    hotkeys: ["Mod+Shift+ArrowLeft"],
     id: "window.place.left",
     label: "Place Left Half",
   },
@@ -261,7 +273,7 @@ const DEFAULT_INFINITE_CANVAS_COMMAND_DESCRIPTORS = [
       type: "window.place",
     },
     description: "Place the active window in the right half of the visible canvas.",
-    hotkeys: ["Mod+Alt+ArrowRight"],
+    hotkeys: ["Mod+Shift+ArrowRight"],
     id: "window.place.right",
     label: "Place Right Half",
   },
@@ -271,7 +283,7 @@ const DEFAULT_INFINITE_CANVAS_COMMAND_DESCRIPTORS = [
       type: "window.place",
     },
     description: "Place the active window in the top half of the visible canvas.",
-    hotkeys: ["Mod+Alt+ArrowUp"],
+    hotkeys: ["Mod+Shift+ArrowUp"],
     id: "window.place.top",
     label: "Place Top Half",
   },
@@ -281,7 +293,7 @@ const DEFAULT_INFINITE_CANVAS_COMMAND_DESCRIPTORS = [
       type: "window.place",
     },
     description: "Place the active window in the bottom half of the visible canvas.",
-    hotkeys: ["Mod+Alt+ArrowDown"],
+    hotkeys: ["Mod+Shift+ArrowDown"],
     id: "window.place.bottom",
     label: "Place Bottom Half",
   },
@@ -291,7 +303,7 @@ const DEFAULT_INFINITE_CANVAS_COMMAND_DESCRIPTORS = [
       type: "window.place",
     },
     description: "Place the active window across the whole visible canvas.",
-    hotkeys: ["Mod+Alt+Enter"],
+    hotkeys: ["Mod+Shift+Enter"],
     id: "window.place.fill",
     label: "Place Filling View",
   },
@@ -301,11 +313,14 @@ const DEFAULT_INFINITE_CANVAS_COMMAND_DESCRIPTORS = [
       type: "window.place",
     },
     description: "Centre the active window at its current size.",
-    hotkeys: ["Mod+Alt+C"],
+    // No default chord. Every obvious candidate is taken: `Mod+Alt+C` and `Mod+Shift+C`
+    // both open browser devtools, and a canvas that swallows the inspector is a canvas
+    // nobody can debug. Bind it through `hotkeyBindings` if you want one.
+    hotkeys: [],
     id: "window.place.center",
     label: "Centre Window",
   },
-  // The quarters have no default chord — four more Mod+Alt bindings would crowd the
+  // The quarters have no default chord either — four more bindings would crowd the
   // vocabulary for a placement most users reach for through a menu. They stay dispatchable
   // as `{ region: "top-left", type: "window.place" }` and bindable through `hotkeyBindings`.
 ] satisfies readonly InfiniteCanvasCommandDescriptor[];

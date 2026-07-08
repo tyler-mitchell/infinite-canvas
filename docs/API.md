@@ -209,10 +209,13 @@ buttons, and programmatic drivers share one mutation path.
   snaps**: a left half nudged to align with its neighbour is no longer a left half, and the
   shortcut pressed twice would give two different rects.
 
-Driven by the `window.place` command (`Mod+Alt+Arrow` for halves, `Mod+Alt+Enter` to fill,
-`Mod+Alt+C` to centre). Quarters have no default chord and stay dispatchable by region. The
-command acts on the **active** window, not the selection — tiling three selected windows into
-one rect buries two of them — and refuses a grouped window, whose rect belongs to its tree.
+Driven by the `window.place` command (`Mod+Shift+Arrow` for halves, `Mod+Shift+Enter` to fill).
+Centring and the quarters have no default chord and stay dispatchable by region: the canvas
+`preventDefault()`s any chord it owns, and the obvious centring keys (`Mod+Alt+C`,
+`Mod+Shift+C`) open browser devtools. `Mod+Alt+Arrow` switches browser tabs on macOS and is not
+page-cancellable, so it is not bound either. The command acts on the **active** window, not the
+selection — tiling three selected windows into one rect buries two of them — and refuses a
+grouped window, whose rect belongs to its tree.
 
 <details><summary>types (1)</summary>
 
