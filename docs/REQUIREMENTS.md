@@ -163,16 +163,38 @@ The shortcut guard protects editable targets today.
 
 ## 5. Non-Functional Requirements
 
-### NFR-1 Performance — **failing as of 2026-06-10**
+### NFR-1 Performance — **met at its stated bar; unmeasured beyond it**
 
 At least 10 simultaneous windows without obvious frame-rate degradation during
 pan/zoom/move/resize. Background and unfocused windows throttleable (the
 rasterization lanes exist for this; the /stress showcase is the measuring
 stick).
 
-Current reality: interaction degrades at even ~20 live windows (observed in
-both this repo's /stress stage and the kek implementation). A dedicated
-profiling deep-dive is planned — tracked as risk R15 in
+**Corrected 2026-07-08.** This section read "failing as of 2026-06-10" and
+"interaction degrades at even ~20 live windows" for a month after the
+measurement that contradicted it. `962e42c` restored body-content memoization
+that afternoon and
+[research/performance-profile.md](research/performance-profile.md) recorded the
+result: at 20 windows, pan went 15.6 fps → **96.9 fps** and drag 4.4 fps → 58.3
+fps; at 40 windows, pan 8.2 fps → 52.1 fps. The bar this requirement actually
+states — ten windows — is cleared with headroom, and the document defining the
+requirement went on claiming otherwise. That is the drift this project keeps
+finding, in the file least able to afford it.
+
+Three caveats, so the correction does not overshoot:
+
+- Measured in the **embedded preview browser**, which underclocks `rAF` under
+  load. The ratios and slopes are the finding; absolute numbers want real
+  hardware.
+- **P2's target is not this bar.** 100 windows at 60 fps pan/zoom/drag is the
+  roadmap's exit criterion, and 80 windows currently pan at 21.3 fps. NFR-1
+  passing does not make P2 done.
+- **P2 tranche 1 (frame-chrome memoization) is landed and unmeasured.** No
+  number above reflects it. See
+  [research/performance-profile.md](research/performance-profile.md), which says
+  so in its own tranche-1 section.
+
+Tracked as risk R15 in
 [research/risk-register.md](research/risk-register.md).
 
 ### NFR-2 Modularity

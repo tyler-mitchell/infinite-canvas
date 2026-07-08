@@ -312,12 +312,22 @@ and the drag is one undo entry. **Owner-confirmed working in the browser, 2026-0
 The structural floor and the single-undo-entry properties remain unobserved — nobody has
 dragged a shell to its minimum and watched it hold, or undone a resize.
 
-**C4 — NFR-1, the measurement (~2h, BROWSER REQUIRED).** P2 tranche 1 is committed and
-unmeasured; the profile's tables still describe the pre-tranche-1 runtime. Nothing
-downstream may quote a number until the synthetic wheel/drag drivers run on `/stress` at
-20/40/80 windows. **`NFR-1` currently reads "failing" and must keep reading "failing"
-until this runs.** Exit: the profile's tables describe the current runtime, and the
-benchmark is scripted so a regression fails loudly rather than silently.
+**C4 — the measurement (~2h, BROWSER REQUIRED).** P2 tranche 1 is committed and unmeasured;
+the profile's tables describe the pre-tranche-1 runtime, and say so. Nothing downstream may
+quote a number until the synthetic wheel/drag drivers run on `/stress` at 20/40/80 windows.
+
+_Corrected 2026-07-08: this entry said `NFR-1` "currently reads failing and must keep
+reading failing". It read failing in `REQUIREMENTS.md`, which had not been updated for a
+month after the measurement that contradicted it — `962e42c` took pan at 20 windows from
+15.6 fps to 96.9 fps, and NFR-1's stated bar is **ten** windows. I repeated the stale claim
+without checking the profile it pointed at._
+
+**NFR-1 passes at its own bar.** What is unmeasured is P2 tranche 1, and what is unmet is
+**P2's** target of 100 windows at 60 fps — 80 windows pan at 21.3 fps today. Those are three
+different statements and this plan was collapsing them into one.
+
+Exit: the profile's tables describe the current runtime, and the benchmark is scripted so a
+regression fails loudly rather than silently.
 
 **C5 — FR-9 focus trapping (~2h, BROWSER REQUIRED to trust).** The last structural
 accessibility piece: how DOM focus enters and leaves a window's own content. Everything

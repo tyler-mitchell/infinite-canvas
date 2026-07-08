@@ -79,15 +79,22 @@ pointerModeControls?, cameraControls?, zoomControls? }` landed with the HUD
   unchanged and tests are out of scope this session. The scenario remains unasserted, and the
   fix remains unobserved in a browser.
 
-- **Interactive performance fails NFR-1 in practice.** Both this playground's
-  /stress stage and the kek implementation degrade at even ~20 live windows
-  during pan/zoom/move. A dedicated performance deep-dive is planned (profile
-  before prescribing: candidate suspects include per-window React re-renders
-  on camera change, full-window-array signal subscriptions in the frame path,
-  and per-pointer-move snap candidate rebuilds — see
-  [snapping.md](snapping.md) on spatial indexing). Tracked as risk R15;
-  html-in-canvas texture-mode is the leading candidate
+- ~~**Interactive performance fails NFR-1 in practice.**~~ **Stale — corrected 2026-07-08.**
+  This entry said `/stress` degrades "at even ~20 live windows during pan/zoom/move". It did,
+  until `962e42c` restored body-content memoization on the afternoon of 2026-06-10: pan at 20
+  windows went 15.6 fps → 96.9 fps, drag 4.4 fps → 58.3 fps. NFR-1's stated bar is ten
+  windows, so it passes.
+
+  What remains true, restated without the false headline: **P2's target is 100 windows at
+  60 fps**, and 80 windows currently pan at 21.3 fps. The dominant remaining cost is
+  frame-chrome reconciliation, which P2 tranche 1 attacked and **nobody has measured**. The
+  candidates listed here are still the candidates — but the profile now says drag cost was
+  bodies, confirmed, and snap-candidate rebuilds are explicitly _not_ the bottleneck at this
+  N. Profile before prescribing, and read
+  [performance-profile.md](performance-profile.md) first: it is measured, and this entry was
+  not. Tracked as risk R15; html-in-canvas texture-mode remains the leading candidate
   ([html-in-canvas.md](html-in-canvas.md)).
+
 - ✅ **`window.data` generic threading (2026-07-08).**
   `defineInfiniteCanvasWindowRegistry<Kind, DataByKind>` types each kind's payload
   while the registry literal is written, then erases it. `renderBody({ window })`

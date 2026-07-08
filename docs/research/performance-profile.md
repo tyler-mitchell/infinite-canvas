@@ -73,8 +73,19 @@ In rough order of leverage:
    Chrome 148+ with the Origin Trial / flag
    ([html-in-canvas.md](html-in-canvas.md)).
 3. **Visibility culling in the window layer** — offscreen windows currently
-   still render frames; the visibility subsystem exists but the layer maps
-   all windows. Pairs naturally with (1).
+   still render frames. _Corrected 2026-07-08: "the visibility subsystem exists
+   but the layer maps all windows" was wrong._ `visibility.tsx` is written only
+   by the R3F frustum probe, which ships behind the optional `/scene` entry and
+   runs only under `diagnostics.frustum` — culling on it would cull nothing for
+   any consumer without `three` installed, and would re-couple rendering to the
+   3D peer the `/scene` seam exists to keep out. The culling predicate is
+   `isWorldRectWithinViewport` in `geometry.ts`: pure, camera-derived, no peer.
+   **And culling must not unmount** — dropping an offscreen window from the
+   layer tears down its subtree, so DOM focus on the active window falls to
+   `<body>` and silently kills every hotkey, portal roots unmount, and body
+   scroll, video, and uncontrolled input state come back blank on pan-in.
+   Skipping a _transform update_ for an invisible window is unobservable;
+   unmounting is not.
 4. Snap candidate indexing ([snapping.md](snapping.md)) — NOT currently a
    bottleneck (drag cost was bodies, confirmed), revisit at larger N.
 
