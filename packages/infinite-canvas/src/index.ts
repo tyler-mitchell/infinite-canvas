@@ -19,9 +19,11 @@ export {
 } from "./factory";
 export {
   DEFAULT_INFINITE_CANVAS_GROUP_METRICS,
+  MINIMUM_GROUP_PANE_EXTENT,
   getInfiniteCanvasGroupDockEdgeAtPoint,
   getInfiniteCanvasGroupGutterWeights,
   getInfiniteCanvasGroupLayout,
+  getInfiniteCanvasGroupMinimumSize,
 } from "./group-layout";
 export type {
   InfiniteCanvasGroupAccordionHeader,
@@ -341,6 +343,7 @@ export type {
   InfiniteCanvasGroup,
   InfiniteCanvasGroupGutterInteraction,
   InfiniteCanvasGroupMoveInteraction,
+  InfiniteCanvasGroupResizeInteraction,
   InfiniteCanvasHistory,
   InfiniteCanvasDropCommitContext,
   InfiniteCanvasDropPlacement,

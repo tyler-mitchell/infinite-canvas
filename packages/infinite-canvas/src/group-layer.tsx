@@ -24,6 +24,7 @@ import type {
   InfiniteCanvasCommands,
   InfiniteCanvasGroup,
   InfiniteCanvasRect,
+  InfiniteCanvasResizeHandle,
   InfiniteCanvasViewport,
 } from "./types";
 
@@ -41,6 +42,114 @@ import type {
  * used to place the windows, so the chrome cannot drift out of alignment with
  * the panes it separates.
  */
+
+const SHELL_RESIZE_HANDLE_SIZE_CSS_VARIABLE = "--icx-resize-handle-size";
+const SHELL_RESIZE_HANDLE_EXTENT = `var(${SHELL_RESIZE_HANDLE_SIZE_CSS_VARIABLE})`;
+const SHELL_RESIZE_HANDLE_OUTSET = `calc(${SHELL_RESIZE_HANDLE_EXTENT} * -1)`;
+
+type InfiniteCanvasShellResizeHandleDescriptor = Readonly<{
+  cursor: CSSProperties["cursor"];
+  handle: InfiniteCanvasResizeHandle;
+  style: CSSProperties;
+}>;
+
+/** React's `CSSProperties` has no slot for custom properties. Widen just this one. */
+type InfiniteCanvasGroupShellStyle = CSSProperties &
+  Readonly<Record<typeof SHELL_RESIZE_HANDLE_SIZE_CSS_VARIABLE, string>>;
+
+/**
+ * A shell's handles sit **entirely outside** its rect, unlike a window frame's, which
+ * straddle the edge and hang half their extent out.
+ *
+ * Everything inside the shell is member-window DOM, and the window plane draws above the
+ * group layer. An inward half would therefore be buried under a pane and never receive a
+ * pointerdown — which is precisely the bug that made a grouped window's own handles eat
+ * the gutter between two panes. Outside the shell there is nothing to be buried under.
+ *
+ * Corners come last so they paint over the edges they overlap and win the hit test.
+ */
+const SHELL_RESIZE_HANDLE_DESCRIPTORS: readonly InfiniteCanvasShellResizeHandleDescriptor[] = [
+  {
+    cursor: "ns-resize",
+    handle: "north",
+    style: {
+      height: SHELL_RESIZE_HANDLE_EXTENT,
+      left: 0,
+      right: 0,
+      top: SHELL_RESIZE_HANDLE_OUTSET,
+    },
+  },
+  {
+    cursor: "ns-resize",
+    handle: "south",
+    style: {
+      bottom: SHELL_RESIZE_HANDLE_OUTSET,
+      height: SHELL_RESIZE_HANDLE_EXTENT,
+      left: 0,
+      right: 0,
+    },
+  },
+  {
+    cursor: "ew-resize",
+    handle: "west",
+    style: {
+      bottom: 0,
+      left: SHELL_RESIZE_HANDLE_OUTSET,
+      top: 0,
+      width: SHELL_RESIZE_HANDLE_EXTENT,
+    },
+  },
+  {
+    cursor: "ew-resize",
+    handle: "east",
+    style: {
+      bottom: 0,
+      right: SHELL_RESIZE_HANDLE_OUTSET,
+      top: 0,
+      width: SHELL_RESIZE_HANDLE_EXTENT,
+    },
+  },
+  {
+    cursor: "nwse-resize",
+    handle: "north-west",
+    style: {
+      height: SHELL_RESIZE_HANDLE_EXTENT,
+      left: SHELL_RESIZE_HANDLE_OUTSET,
+      top: SHELL_RESIZE_HANDLE_OUTSET,
+      width: SHELL_RESIZE_HANDLE_EXTENT,
+    },
+  },
+  {
+    cursor: "nesw-resize",
+    handle: "north-east",
+    style: {
+      height: SHELL_RESIZE_HANDLE_EXTENT,
+      right: SHELL_RESIZE_HANDLE_OUTSET,
+      top: SHELL_RESIZE_HANDLE_OUTSET,
+      width: SHELL_RESIZE_HANDLE_EXTENT,
+    },
+  },
+  {
+    cursor: "nesw-resize",
+    handle: "south-west",
+    style: {
+      bottom: SHELL_RESIZE_HANDLE_OUTSET,
+      height: SHELL_RESIZE_HANDLE_EXTENT,
+      left: SHELL_RESIZE_HANDLE_OUTSET,
+      width: SHELL_RESIZE_HANDLE_EXTENT,
+    },
+  },
+  {
+    cursor: "nwse-resize",
+    handle: "south-east",
+    style: {
+      bottom: SHELL_RESIZE_HANDLE_OUTSET,
+      height: SHELL_RESIZE_HANDLE_EXTENT,
+      right: SHELL_RESIZE_HANDLE_OUTSET,
+      width: SHELL_RESIZE_HANDLE_EXTENT,
+    },
+  },
+];
 
 /** World rect → the absolutely-positioned screen box that draws it. */
 function getWorldRectStyle(
@@ -129,12 +238,14 @@ function InfiniteCanvasGroupShell({
   devicePixelRatio,
   group,
   metrics,
+  resizeHandleSize,
   viewport,
 }: Readonly<{
   camera: InfiniteCanvasCamera;
   devicePixelRatio: number;
   group: InfiniteCanvasGroup;
   metrics: InfiniteCanvasGroupMetrics;
+  resizeHandleSize: number;
   viewport: InfiniteCanvasViewport;
 }>) {
   const actions = useInfiniteCanvasActions();
@@ -142,6 +253,24 @@ function InfiniteCanvasGroupShell({
     () => getInfiniteCanvasGroupLayout(group.tree, group.rect, metrics),
     [group.rect, group.tree, metrics],
   );
+  const { screenTransform } = projectWorldRectToScreen(
+    camera,
+    viewport,
+    group.rect,
+    devicePixelRatio,
+  );
+  const shellStyle: InfiniteCanvasGroupShellStyle = {
+    ...getWorldRectStyle(camera, viewport, group.rect, devicePixelRatio),
+    // The shell's box is in world units and `scale` maps it to the screen, so the handles
+    // need a world extent that shrinks as zoom grows. Publishing it as a custom property
+    // on a style that is rewritten every camera tick anyway keeps the handle elements
+    // themselves referentially stable.
+    [SHELL_RESIZE_HANDLE_SIZE_CSS_VARIABLE]: `${
+      screenTransform.scale <= 0 ? resizeHandleSize : resizeHandleSize / screenTransform.scale
+    }px`,
+    pointerEvents: "none",
+    zIndex: group.zIndex,
+  };
 
   return (
     <div
@@ -150,12 +279,53 @@ function InfiniteCanvasGroupShell({
       data-infinite-canvas-group-id={group.id}
       data-slot={INFINITE_CANVAS_SLOTS.groupShell}
       role="group"
-      style={{
-        ...getWorldRectStyle(camera, viewport, group.rect, devicePixelRatio),
-        pointerEvents: "none",
-        zIndex: group.zIndex,
-      }}
+      style={shellStyle}
     >
+      {SHELL_RESIZE_HANDLE_DESCRIPTORS.map((descriptor) => (
+        <div
+          data-handle={descriptor.handle}
+          data-infinite-canvas-control="true"
+          data-slot={INFINITE_CANVAS_SLOTS.groupResizeHandle}
+          key={descriptor.handle}
+          onLostPointerCapture={(event) => {
+            actions.finishInteraction(event.pointerId);
+          }}
+          onPointerCancel={(event) => {
+            actions.finishInteraction(event.pointerId);
+          }}
+          onPointerDown={(event) => {
+            if (!isPrimaryButton(event)) {
+              return;
+            }
+
+            event.preventDefault();
+            event.stopPropagation();
+            capturePointer(event.currentTarget, event.pointerId);
+            actions.startGroupResize({
+              groupId: group.id,
+              handle: descriptor.handle,
+              point: getEventViewportPoint(event),
+              pointerId: event.pointerId,
+            });
+          }}
+          onPointerMove={(event) => {
+            actions.stepInteraction({
+              pointerId: event.pointerId,
+              point: getEventViewportPoint(event),
+            });
+          }}
+          onPointerUp={(event) => {
+            releasePointer(event.currentTarget, event.pointerId);
+            actions.finishInteraction(event.pointerId);
+          }}
+          style={{
+            ...descriptor.style,
+            cursor: descriptor.cursor,
+            pointerEvents: "auto",
+            position: "absolute",
+          }}
+        />
+      ))}
       {layout.gutters.map((gutter) => (
         <div
           aria-hidden="true"
@@ -415,10 +585,12 @@ function getTabLabel(group: InfiniteCanvasGroup, childId: string): string {
 function InfiniteCanvasGroupLayer({
   devicePixelRatio,
   metrics = DEFAULT_INFINITE_CANVAS_GROUP_METRICS,
+  resizeHandleSize,
   zIndex,
 }: Readonly<{
   devicePixelRatio: number;
   metrics?: InfiniteCanvasGroupMetrics;
+  resizeHandleSize: number;
   zIndex: number;
 }>) {
   const camera = useInfiniteCanvasSelector((state) => state.camera);
@@ -438,6 +610,7 @@ function InfiniteCanvasGroupLayer({
           group={group}
           key={group.id}
           metrics={metrics}
+          resizeHandleSize={resizeHandleSize}
           viewport={viewport}
         />
       ))}

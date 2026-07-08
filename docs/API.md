@@ -1,6 +1,6 @@
 # API Reference
 
-The public surface of `@infinite-canvas/react`: 194 values and 160 types,
+The public surface of `@infinite-canvas/react`: 196 values and 161 types,
 generated from the barrel (`packages/infinite-canvas/src/index.ts`) so it cannot
 drift. Anything not exported from the barrel is internal and unstable —
 including every `data-infinite-canvas-*` attribute, which is a behavioural hook
@@ -161,7 +161,8 @@ buttons, and programmatic drivers share one mutation path.
 - `getInfiniteCanvasGroupLayout` — tree + shell rect → window rects, gutters, tab strips, accordion headers
 - `getInfiniteCanvasGroupDockEdgeAtPoint` — which edge a pointer docks against, from a _model_ rect
 - `getInfiniteCanvasGroupGutterWeights` — the reweighting a gutter drag produces
-- `DEFAULT_INFINITE_CANVAS_GROUP_METRICS`
+- `getInfiniteCanvasGroupMinimumSize` — the smallest rect a tree solves into: gutters, strips, headers, panes. **Not** a member's `minSize`, which the solver has never consulted
+- `DEFAULT_INFINITE_CANVAS_GROUP_METRICS`, `MINIMUM_GROUP_PANE_EXTENT`
 
 <details><summary>types (7)</summary>
 
@@ -667,6 +668,7 @@ name.
 - `InfiniteCanvasHotkeyBinding`
 - `InfiniteCanvasGroupGutterInteraction`
 - `InfiniteCanvasGroupMoveInteraction`
+- `InfiniteCanvasGroupResizeInteraction`
 - `InfiniteCanvasHudPolicy`
 - `InfiniteCanvasHudPolicyInput`
 - `InfiniteCanvasInputPolicy`

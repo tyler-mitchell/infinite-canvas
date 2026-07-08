@@ -5,7 +5,10 @@ import {
   screenPointToWorldPoint,
   subtractPoints,
 } from "./geometry";
-import { getInfiniteCanvasGroupGutterWeights } from "./group-layout";
+import {
+  getInfiniteCanvasGroupGutterWeights,
+  getInfiniteCanvasGroupMinimumSize,
+} from "./group-layout";
 import {
   applyInfiniteCanvasDockPreview,
   resolveInfiniteCanvasDockPreview,
@@ -23,6 +26,7 @@ import {
 import type {
   InfiniteCanvasGroup,
   InfiniteCanvasGroupGutterInteraction,
+  InfiniteCanvasGroupResizeInteraction,
   InfiniteCanvasGroupMoveInteraction,
   InfiniteCanvasMarqueeInteraction,
   InfiniteCanvasMarqueeMode,
@@ -97,6 +101,67 @@ function beginInfiniteCanvasGroupMove<Kind extends string>(
     },
     snapPreview: null,
   };
+}
+
+/**
+ * Drag a group shell's outer edge.
+ *
+ * The structural minimum is resolved once, at drag start, from the tree as it stands.
+ * Re-deriving it every step would let a mode change mid-drag move the floor under the
+ * pointer; capturing it means the shell stops exactly where it stopped.
+ */
+function beginInfiniteCanvasGroupResize<Kind extends string>(
+  state: InfiniteCanvasState<Kind>,
+  pointerId: number,
+  group: InfiniteCanvasGroup,
+  handle: InfiniteCanvasResizeHandle,
+  point: InfiniteCanvasPoint,
+): InfiniteCanvasState<Kind> {
+  return {
+    ...state,
+    interaction: {
+      groupId: group.id,
+      handle,
+      kind: "groupResize",
+      minSize: getInfiniteCanvasGroupMinimumSize(group.tree),
+      originPointer: point,
+      originRect: group.rect,
+      pointerId,
+      zoom: state.camera.zoom,
+    },
+    snapPreview: null,
+  };
+}
+
+/**
+ * Resize from the rect the shell had when the drag began, never from its live rect.
+ *
+ * `resizeRectFromHandle` clamps against `minSize`, so once the shell is at its floor the
+ * pointer can travel further without the rect moving — and travelling back must return it
+ * step for step. Applying an incremental delta to the live rect would instead lose every
+ * pixel spent past the clamp, and the edge would lag the cursor by however far it was
+ * over-dragged. This is the same reason a gutter drag recomputes from `originContainer`.
+ */
+function stepInfiniteCanvasGroupResize<Kind extends string>(
+  state: InfiniteCanvasState<Kind>,
+  interaction: InfiniteCanvasGroupResizeInteraction,
+  point: InfiniteCanvasPoint,
+): InfiniteCanvasState<Kind> {
+  const screenDelta = subtractPoints(point, interaction.originPointer);
+  const worldDelta = {
+    x: screenDelta.x / interaction.zoom,
+    y: screenDelta.y / interaction.zoom,
+  };
+
+  return setInfiniteCanvasGroupRect(state, {
+    groupId: interaction.groupId,
+    rect: resizeRectFromHandle(
+      interaction.originRect,
+      interaction.handle,
+      worldDelta,
+      interaction.minSize,
+    ),
+  });
 }
 
 /** Drag the seam between two split panes. Everything a step needs is captured here. */
@@ -276,6 +341,10 @@ function stepCanvasInteraction<Kind extends string>(
 
   if (interaction.kind === "groupGutter") {
     return stepInfiniteCanvasGroupGutterDrag(state, interaction, point);
+  }
+
+  if (interaction.kind === "groupResize") {
+    return stepInfiniteCanvasGroupResize(state, interaction, point);
   }
 
   const targetWindow = findWindow(state, interaction.windowId);
@@ -536,6 +605,7 @@ export {
   beginCanvasPan,
   beginInfiniteCanvasGroupGutterDrag,
   beginInfiniteCanvasGroupMove,
+  beginInfiniteCanvasGroupResize,
   beginMarqueeSelection,
   beginWindowMove,
   beginWindowResize,

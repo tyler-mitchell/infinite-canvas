@@ -173,6 +173,26 @@ type InfiniteCanvasGroupMoveInteraction = Readonly<{
 }>;
 
 /**
+ * Dragging a group shell's outer edge. The shell's rect changes; the tree does not,
+ * and every member's rect is re-derived from the new shell — a group resize is one
+ * write to `group.rect` and a re-solve, never a per-window resize.
+ *
+ * A grouped window's own edges carry no handles: `interaction.startResize` refuses a
+ * grouped window, because a pane is resized by its seam and the shell by its edge.
+ */
+type InfiniteCanvasGroupResizeInteraction = Readonly<{
+  groupId: string;
+  handle: InfiniteCanvasResizeHandle;
+  kind: "groupResize";
+  /** Structural floor from the tree — gutters, strips, headers, panes. Never `minSize`. */
+  minSize: InfiniteCanvasSize;
+  originPointer: InfiniteCanvasPoint;
+  originRect: InfiniteCanvasRect;
+  pointerId: number;
+  zoom: number;
+}>;
+
+/**
  * Dragging the seam between two split panes. SPLIT-001: this changes weights,
  * never a DOM width.
  *
@@ -211,6 +231,7 @@ type InfiniteCanvasInteraction =
   | InfiniteCanvasMoveInteraction
   | InfiniteCanvasGroupMoveInteraction
   | InfiniteCanvasGroupGutterInteraction
+  | InfiniteCanvasGroupResizeInteraction
   | InfiniteCanvasResizeInteraction
   | null;
 
@@ -927,6 +948,13 @@ type InfiniteCanvasAction<Kind extends string = string> =
       pointerId: number;
       type: "interaction.startGroupGutter";
     }>
+  | Readonly<{
+      groupId: string;
+      handle: InfiniteCanvasResizeHandle;
+      point: InfiniteCanvasPoint;
+      pointerId: number;
+      type: "interaction.startGroupResize";
+    }>
   | Readonly<{ type: "interaction.finish"; pointerId: number }>
   | Readonly<{
       mode: InfiniteCanvasMarqueeMode;
@@ -1054,6 +1082,15 @@ type InfiniteCanvasCommands<Kind extends string = string> = Readonly<{
       pointerId: number;
     }>,
   ) => void;
+  /** Drag a group shell's outer edge. The tree is untouched; members re-project. */
+  startGroupResize: (
+    input: Readonly<{
+      groupId: string;
+      handle: InfiniteCanvasResizeHandle;
+      point: InfiniteCanvasPoint;
+      pointerId: number;
+    }>,
+  ) => void;
   undo: () => void;
   undockWindow: (input: Readonly<{ rect?: InfiniteCanvasRect; windowId: string }>) => void;
   hydrate: (state: InfiniteCanvasState<Kind>) => void;
@@ -1143,6 +1180,7 @@ export type {
   InfiniteCanvasGroup,
   InfiniteCanvasGroupGutterInteraction,
   InfiniteCanvasGroupMoveInteraction,
+  InfiniteCanvasGroupResizeInteraction,
   InfiniteCanvasHistory,
   InfiniteCanvasCursor,
   InfiniteCanvasCursorInteraction,

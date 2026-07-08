@@ -6,7 +6,7 @@ import {
   type InfiniteCanvasGroupDockEdge,
   type InfiniteCanvasGroupNode,
 } from "./group-tree";
-import type { InfiniteCanvasPoint, InfiniteCanvasRect } from "./types";
+import type { InfiniteCanvasPoint, InfiniteCanvasRect, InfiniteCanvasSize } from "./types";
 
 /**
  * The layout solver for a group shell's container tree.
@@ -448,11 +448,83 @@ function getInfiniteCanvasGroupGutterWeights(
   };
 }
 
+/**
+ * The extent below which a pane has no room left to be seen or grabbed.
+ *
+ * Deliberately **not** a member window's `minSize`. The solver has never consulted it:
+ * a group owns its layout and a member's `rect` is that layout's projection, so
+ * `minSize` — a floating-window property — has no authority inside a tree. Honouring it
+ * here would let one stubborn member veto a resize of a group it merely belongs to, and
+ * would contradict the gutter drag, which already floors panes by share and by extent.
+ */
+const MINIMUM_GROUP_PANE_EXTENT = 48;
+
+/**
+ * The smallest content rect this tree can be solved into without a pane vanishing.
+ *
+ * A shell's minimum is structural: gutters, tab strips, and accordion headers each claim
+ * space no matter how hard the user squeezes, and every window pane needs
+ * `MINIMUM_GROUP_PANE_EXTENT` on both axes underneath that. Each branch mirrors the
+ * solver directly, so the two cannot disagree about what "fits" means:
+ *
+ * - **split** sums along its axis, adding a gutter between each adjacent pair, and takes
+ *   the widest child across it;
+ * - **tabs** stacks a strip above the tallest child, since every child shares one content
+ *   rect;
+ * - **accordion** gives every child a header along the axis and the active child the
+ *   remainder, so its minimum is `n` headers plus the active child.
+ */
+function getInfiniteCanvasGroupMinimumSize(
+  node: InfiniteCanvasGroupNode,
+  metrics: InfiniteCanvasGroupMetrics = DEFAULT_INFINITE_CANVAS_GROUP_METRICS,
+): InfiniteCanvasSize {
+  if (!isInfiniteCanvasGroupContainer(node)) {
+    return { height: MINIMUM_GROUP_PANE_EXTENT, width: MINIMUM_GROUP_PANE_EXTENT };
+  }
+
+  const children = node.children.map((child) => getInfiniteCanvasGroupMinimumSize(child, metrics));
+
+  // `normalizeInfiniteCanvasGroupTree` never leaves an empty container standing, but a
+  // caller can hand us an unnormalized tree, and `Math.max()` of nothing is -Infinity.
+  if (children.length === 0) {
+    return { height: MINIMUM_GROUP_PANE_EXTENT, width: MINIMUM_GROUP_PANE_EXTENT };
+  }
+
+  const widest = Math.max(...children.map((size) => size.width));
+  const tallest = Math.max(...children.map((size) => size.height));
+
+  if (node.layout === "tabs") {
+    return { height: tallest + metrics.tabStripSize, width: widest };
+  }
+
+  const isHorizontal = isHorizontalAxis(node.axis);
+
+  if (node.layout === "accordion") {
+    const activeChild = getActiveChild(node);
+    const activeIndex = node.children.findIndex((child) => child.id === activeChild?.id);
+    const activeSize = children[activeIndex] ?? children[0];
+    const headers = metrics.accordionHeaderSize * children.length;
+
+    return isHorizontal
+      ? { height: tallest, width: headers + (activeSize?.width ?? 0) }
+      : { height: headers + (activeSize?.height ?? 0), width: widest };
+  }
+
+  const gutters = metrics.gutterSize * Math.max(children.length - 1, 0);
+  const sum = (extents: readonly number[]) => extents.reduce((total, extent) => total + extent, 0);
+
+  return isHorizontal
+    ? { height: tallest, width: sum(children.map((size) => size.width)) + gutters }
+    : { height: sum(children.map((size) => size.height)) + gutters, width: widest };
+}
+
 export {
   DEFAULT_INFINITE_CANVAS_GROUP_METRICS,
+  MINIMUM_GROUP_PANE_EXTENT,
   getInfiniteCanvasGroupDockEdgeAtPoint,
   getInfiniteCanvasGroupGutterWeights,
   getInfiniteCanvasGroupLayout,
+  getInfiniteCanvasGroupMinimumSize,
 };
 export type {
   InfiniteCanvasGroupAccordionHeader,

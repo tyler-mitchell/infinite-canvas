@@ -241,12 +241,20 @@ _Two bugs found by reading on 2026-07-08 — dock intent dispatched three times,
 resize handles burying the gutter — would both have been caught by DOCK-001 and SPLIT-001.
 That is the argument for C2, and it is not hypothetical._
 
-**C3 — Group shell resize (~2h, no browser to build, browser to trust).** Reported by the
-owner: a group's outer edge cannot be dragged. A `groupResize` interaction beside
-`groupMove`/`groupGutter` stepping `group.rect`; members re-project for free. The real
-work is the shell's minimum size — a function of every pane's `minSize` plus the gutters,
-not a constant. Exit: dragging a shell edge resizes the group and no pane goes below its
-`minSize`.
+**C3 — Group shell resize. ✅ BUILT, not browser-verified.** Reported by the owner: a
+group's outer edge could not be dragged. A `groupResize` interaction beside
+`groupMove`/`groupGutter` steps `group.rect`; members re-project for free.
+
+The plan was wrong about the hard part twice, and reading fixed both. The minimum size is
+**not** a function of every pane's `minSize` — the solver has never consulted `minSize`,
+because inside a tree a member has no rect of its own. It is structural: gutters, tab
+strips, accordion headers, and `MINIMUM_GROUP_PANE_EXTENT` per pane, resolved once at drag
+start so a mode change mid-drag cannot move the floor under the pointer. And the shell's
+handles must sit **outside** its rect, not straddle its edge: everything inside is
+member-window DOM drawn above the group layer, so an inward half can never be clicked.
+
+Exit: dragging a shell edge resizes the group, the shell stops at its structural floor,
+and the drag is one undo entry. **The first two are unobserved** — reasoning only.
 
 **C4 — NFR-1, the measurement (~2h, BROWSER REQUIRED).** P2 tranche 1 is committed and
 unmeasured; the profile's tables still describe the pre-tranche-1 runtime. Nothing

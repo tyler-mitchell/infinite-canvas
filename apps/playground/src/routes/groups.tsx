@@ -44,8 +44,10 @@ const registry = defineInfiniteCanvasWindowRegistry<Kind>({
           reducer projects the solved rect back onto <code>window.rect</code>.
         </p>
         <p className="text-white/40">
-          Drag this header to move the whole shell. Drag the seam between panes to reweight them.
-          Hold <kbd>Alt</kbd> while dragging a floating window over another to dock it.
+          Drag this header to move the whole shell, or the shell&apos;s outer edge to resize it.
+          Drag the seam between panes to reweight them. Hold <kbd>Alt</kbd> while dragging a
+          floating window over another — the pointer has to be over the target, not just the windows
+          overlapping — to dock it.
         </p>
       </div>
     ),

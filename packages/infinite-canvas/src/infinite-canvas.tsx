@@ -1114,6 +1114,7 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
           )}
           <InfiniteCanvasGroupLayer
             devicePixelRatio={devicePixelRatio}
+            resizeHandleSize={chrome.resizeHandleSize}
             zIndex={GROUP_LAYER_Z_INDEX}
           />
           <InfiniteCanvasWindowLayer
@@ -1382,7 +1383,8 @@ function getCanvasCursor(
   if (
     interaction.kind === "resize" ||
     interaction.kind === "groupMove" ||
-    interaction.kind === "groupGutter"
+    interaction.kind === "groupGutter" ||
+    interaction.kind === "groupResize"
   ) {
     return getInteractionCursor(interaction);
   }

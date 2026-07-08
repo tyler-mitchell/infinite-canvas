@@ -24,6 +24,23 @@ sections, in this order, omitting the ones that don't apply:
 
 ### Added
 
+- **Group shells resize by their outer edge.** Eight handles around the shell, a `groupResize`
+  interaction beside `groupMove` and `groupGutter`, and the `startGroupResize` command. The tree
+  is never touched: the shell's `rect` changes and every member re-projects from it, which is the
+  same invariant that lets snapping, camera framing, and persistence stay group-blind. One undo
+  entry per drag, checkpointed at drag start.
+
+  The shell's minimum size is **structural** — gutters, tab strips, accordion headers, and
+  `MINIMUM_GROUP_PANE_EXTENT` per pane — exposed as `getInfiniteCanvasGroupMinimumSize(tree)`.
+  It is deliberately **not** a member window's `minSize`, which the solver has never consulted:
+  inside a tree a member has no rect of its own, so letting one stubborn window veto a resize of
+  the group it merely belongs to would contradict the gutter drag, which already floors panes by
+  share and extent.
+
+  The handles sit entirely _outside_ the shell rect, unlike a window frame's, which straddle the
+  edge. Everything inside a shell is member-window DOM and the window plane draws above the group
+  layer, so an inward half would be buried under a pane and never receive a `pointerdown`.
+
 - **`isWorldRectWithinViewport(camera, viewport, rect, marginPx)`** and `isUsableViewport` are
   public geometry helpers. The framework's frustum test: pure, synchronous, camera-derived, and
   free of the optional 3D peers. This is the predicate to build culling or virtualization on —

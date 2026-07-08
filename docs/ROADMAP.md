@@ -34,16 +34,21 @@ windows compose into movable local layout regions.
   land, and alignment guides are suppressed — a snap guide and a drop target are
   contradictory affordances. The overlay renders the same value the reducer
   applies on release, not a fresh hit-test, so what is promised is what happens.
-- **Still open:** resizing a grouped window directly stays refused — a pane is
-  resized by its seam, and **the shell has no edge handles yet**, so a group cannot be
-  resized at all. Until 2026-07-08 the frame still _drew_ resize handles on grouped
-  windows: dead controls that also straddled the frame edge and buried the gutter
-  between two panes, eating the seam drag at low zoom. They are gone; the missing
-  capability is now honest rather than broken. Building it means a `groupResize`
-  interaction beside `groupMove`/`groupGutter` that steps `group.rect` and lets the
-  solver re-project members — the hard part is the shell's minimum size, which is a
-  function of every pane's `minSize` plus the gutters, not a constant.
-  Tab reorder by drag is command-only.
+- ✅ **Landed (2026-07-08): the shell resizes by its outer edge.** A `groupResize`
+  interaction beside `groupMove`/`groupGutter` steps `group.rect`; the tree is untouched and
+  members re-project. Resizing a grouped window _directly_ stays refused — a pane is resized
+  by its seam, the shell by its edge — and the frame no longer draws handles it would refuse,
+  which is what had been burying the gutter between two panes and eating the seam drag at low
+  zoom.
+
+  Two things the build corrected about its own plan. The shell's minimum is **structural**
+  (gutters, strips, headers, `MINIMUM_GROUP_PANE_EXTENT` per pane), _not_ a function of every
+  pane's `minSize`: the solver has never consulted `minSize`, because inside a tree a member
+  has no rect of its own. And the shell's handles sit **entirely outside** its rect rather than
+  straddling the edge — everything inside is member-window DOM drawn above the group layer, so
+  an inward half is unreachable by construction.
+
+- **Still open:** tab reorder by drag is command-only.
 - Tabs + accordion modes (center-merge, reorder, mode conversion,
   active-child semantics).
 - **Docking-intent snapping**: explicit intent mode with region overlays

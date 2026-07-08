@@ -142,7 +142,13 @@ function canRedoInfiniteCanvas<Kind extends string>(state: InfiniteCanvasState<K
 }
 
 /** Drags that move something. A pan or a marquee edits the view, not the document. */
-const MUTATING_INTERACTION_KINDS = new Set(["groupGutter", "groupMove", "move", "resize"]);
+const MUTATING_INTERACTION_KINDS = new Set([
+  "groupGutter",
+  "groupMove",
+  "groupResize",
+  "move",
+  "resize",
+]);
 
 /**
  * Whether an action should leave a checkpoint behind, given what it produced.

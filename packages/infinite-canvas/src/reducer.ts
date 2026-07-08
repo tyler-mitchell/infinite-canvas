@@ -28,6 +28,7 @@ import { panCameraByScreenDelta, zoomCameraAtScreenPoint } from "./geometry";
 import {
   beginCanvasPan,
   beginInfiniteCanvasGroupGutterDrag,
+  beginInfiniteCanvasGroupResize,
   beginInfiniteCanvasGroupMove,
   beginMarqueeSelection,
   beginWindowMove,
@@ -163,6 +164,22 @@ function applyInfiniteCanvasAction<Kind extends string>(
         originPointer: action.point,
         pointerId: action.pointerId,
       });
+    }
+    case "interaction.startGroupResize": {
+      const group = findInfiniteCanvasGroup(state, action.groupId);
+
+      // A shell that closed under the pointer is not worth throwing over.
+      if (group === null) {
+        return state;
+      }
+
+      return beginInfiniteCanvasGroupResize(
+        state,
+        action.pointerId,
+        group,
+        action.handle,
+        action.point,
+      );
     }
     case "interaction.startPan":
       return beginCanvasPan(state, action.pointerId, action.point, action.clearSelection);

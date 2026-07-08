@@ -249,6 +249,12 @@ function createInfiniteCanvasStore<Kind extends string>(
         type: "interaction.startGroupGutter",
       });
     },
+    startGroupResize: (input) => {
+      dispatch({
+        ...input,
+        type: "interaction.startGroupResize",
+      });
+    },
     undo: () => {
       dispatch({
         command: { type: "history.undo" },
