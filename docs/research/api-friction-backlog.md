@@ -130,6 +130,16 @@ pointerModeControls?, cameraControls?, zoomControls? }` landed with the HUD
   test enforced this. **No such test exists**; only the _headless_ boundary is
   tested. The docs now say so. An import-graph assertion over the pure-core modules
   (the shape of `optional-peers.test.ts`) is the fix.
+- **`docs/API.md` drifts silently, because nothing regenerates or checks it.**
+  `SHIP_PLAN.md` described it as "generated from the barrel"; it is hand-maintained.
+  By 2026-07-08 it was missing **43 public names** — undo/redo, layout recipes, and
+  portals had no section in it _at all_, though each is a headline feature in
+  `CHANGELOG.md`, and `README.md` points consumers there for "the full export
+  surface". Reconciled by hand that day, which fixes the symptom and not the cause.
+  The fix is a gate shaped like `scripts/verify-artifact.mjs`: extract every name
+  from `index.ts` / `scene.ts`, assert each appears in `docs/API.md`, fail otherwise.
+  Same shape as the pure-core import-boundary assertion below, and worth doing in the
+  same pass.
 - **Slot layout rigidity** — centering a header title still requires
   absolute-position hacks around `Controls`; consider slot order/areas in the
   styled-distribution work.

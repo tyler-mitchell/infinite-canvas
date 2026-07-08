@@ -1,6 +1,6 @@
 # API Reference
 
-The public surface of `@infinite-canvas/react`: 194 values and 159 types,
+The public surface of `@infinite-canvas/react`: 194 values and 160 types,
 generated from the barrel (`packages/infinite-canvas/src/index.ts`) so it cannot
 drift. Anything not exported from the barrel is internal and unstable —
 including every `data-infinite-canvas-*` attribute, which is a behavioural hook
@@ -100,10 +100,11 @@ its definition's `kind`. `getInfiniteCanvasWindowData` reads a window's opaque
 - `defineInfiniteCanvasWindowRegistry`
 - `getInfiniteCanvasWindowData`
 
-<details><summary>types (2)</summary>
+<details><summary>types (3)</summary>
 
 - `InfiniteCanvasStateInput`
 - `InfiniteCanvasWindowInput`
+- `InfiniteCanvasWindowRegistryInput` — types each kind's `data` while the registry literal is written, then erases it
 
 </details>
 
@@ -145,6 +146,16 @@ buttons, and programmatic drivers share one mutation path.
 - `findInfiniteCanvasGroupNode`, `getInfiniteCanvasGroupParent`, `getInfiniteCanvasGroupWindowIds`
 - `isInfiniteCanvasGroupContainer`, `normalizeInfiniteCanvasGroupTree`, `DEFAULT_INFINITE_CANVAS_GROUP_WEIGHT`
 
+<details><summary>types (5)</summary>
+
+- `InfiniteCanvasGroupAxis`
+- `InfiniteCanvasGroupContainerNode`
+- `InfiniteCanvasGroupLayoutMode` — `"accordion" | "split" | "tabs"`
+- `InfiniteCanvasGroupNode`
+- `InfiniteCanvasGroupWindowNode`
+
+</details>
+
 **`group-layout`** — solving that tree into rects
 
 - `getInfiniteCanvasGroupLayout` — tree + shell rect → window rects, gutters, tab strips, accordion headers
@@ -152,16 +163,42 @@ buttons, and programmatic drivers share one mutation path.
 - `getInfiniteCanvasGroupGutterWeights` — the reweighting a gutter drag produces
 - `DEFAULT_INFINITE_CANVAS_GROUP_METRICS`
 
+<details><summary>types (7)</summary>
+
+- `InfiniteCanvasGroupAccordionHeader`
+- `InfiniteCanvasGroupDockEdge`
+- `InfiniteCanvasGroupGutter`
+- `InfiniteCanvasGroupLayout`
+- `InfiniteCanvasGroupMetrics`
+- `InfiniteCanvasGroupTabStrip`
+- `InfiniteCanvasGroupWindowPlacement`
+
+</details>
+
 **`group-state`** — groups projected onto canvas state
 
 - `findInfiniteCanvasGroup`, `getInfiniteCanvasWindowGroup`, `isInfiniteCanvasWindowGrouped`
 - `getInfiniteCanvasGroupedWindowIds`, `getInfiniteCanvasGroupProjection`, `reconcileInfiniteCanvasGroups`
 
+<details><summary>types (3)</summary>
+
+- `InfiniteCanvasDockPreview`
+- `InfiniteCanvasGroup` — a group shell: a world object owning a local layout
+- `InfiniteCanvasGroupProjection`
+
+</details>
+
 **`window-focus`**
 
-- `getInfiniteCanvasDirectionalFocusTarget` — the window an arrow key moves focus to
+- `getInfiniteCanvasDirectionalFocusTarget` — the window an arrow key moves focus to; searches the group's own members first (FOCUS-001)
 - `getInfiniteCanvasWindowNearestCameraCenter` — the keyboard's way into an unfocused canvas
 - `isInfiniteCanvasWindowFullyVisible` — whether focusing a window should also move the camera
+
+<details><summary>types (1)</summary>
+
+- `InfiniteCanvasDirection`
+
+</details>
 
 **`keyboard`**
 
@@ -410,11 +447,76 @@ value or `null`; unknown keys are stripped.
 
 - `parseInfiniteCanvasCamera`
 - `parseInfiniteCanvasPoint`
+- `parseInfiniteCanvasRecipe` — a recipe crossing storage is untrusted input
 - `parseInfiniteCanvasRect`
 - `parseInfiniteCanvasSelection`
 - `parseInfiniteCanvasSerializedState`
 - `parseInfiniteCanvasSize`
 - `parseInfiniteCanvasWindow`
+
+## History (undo / redo)
+
+History is over the _document_ — the windows and the groups — because everything else
+is a view onto it. Panning is not an edit. A drag is one entry, checkpointed when the
+drag begins. Bounded at `INFINITE_CANVAS_HISTORY_LIMIT`, session-scoped, never
+serialized: a layout is a document, not its edit log.
+
+**`history`**
+
+- `canUndoInfiniteCanvas`, `canRedoInfiniteCanvas` — gate the commands
+- `undoInfiniteCanvasHistory`, `redoInfiniteCanvasHistory`
+- `getInfiniteCanvasDocument` — the undoable half of the canvas
+- `EMPTY_INFINITE_CANVAS_HISTORY`, `INFINITE_CANVAS_HISTORY_LIMIT`
+
+<details><summary>types (2)</summary>
+
+- `InfiniteCanvasDocument`
+- `InfiniteCanvasHistory`
+
+</details>
+
+## Layout recipes
+
+A named arrangement — the selection, a named set, or the whole canvas — captured
+relative to its own origin so it drops into any region of an unbounded world. Recipes
+**translate rather than scale**: fitting an arrangement into a smaller region would
+push windows below their own `minSize`. They are plain serializable values the
+consumer owns and persists.
+
+**`recipes`**
+
+- `captureInfiniteCanvasRecipe`, `applyInfiniteCanvasRecipe`
+- `getInfiniteCanvasRecipeOrigin`
+- `INFINITE_CANVAS_RECIPE_VERSION`
+
+<details><summary>types (4)</summary>
+
+- `InfiniteCanvasRecipe`
+- `InfiniteCanvasRecipeGroup`
+- `InfiniteCanvasRecipePlacement`
+- `InfiniteCanvasRecipeWindow`
+
+</details>
+
+## Portals
+
+A window frame is `transform: scale(zoom)`, which makes it the containing block for
+`position: fixed` — so a popover inside a window body resolves against the _frame_ and
+is scaled by the zoom. These mount content outside every transform. The window root is
+opt-in per window kind (`portalRoot: true`).
+
+**`portal`**
+
+- `InfiniteCanvasPortal` — `scope="desktop"` escapes the window; `scope="window"` tracks it at natural size
+- `useInfiniteCanvasPortalRoots`
+- `useInfiniteCanvasDesktopPortalRoot`
+- `useInfiniteCanvasWindowPortalRoot`
+
+<details><summary>types (1)</summary>
+
+- `InfiniteCanvasPortalScope`
+
+</details>
 
 ## Presence
 
@@ -563,6 +665,8 @@ name.
 - `InfiniteCanvasDropValidationResult`
 - `InfiniteCanvasEmptyCanvasDragMode`
 - `InfiniteCanvasHotkeyBinding`
+- `InfiniteCanvasGroupGutterInteraction`
+- `InfiniteCanvasGroupMoveInteraction`
 - `InfiniteCanvasHudPolicy`
 - `InfiniteCanvasHudPolicyInput`
 - `InfiniteCanvasInputPolicy`
@@ -571,6 +675,7 @@ name.
 - `InfiniteCanvasMarqueeMode`
 - `InfiniteCanvasMoveInteraction`
 - `InfiniteCanvasMoveOriginRect`
+- `InfiniteCanvasOverlayReadContext` — covariant in `Payload`; a utility that only reads takes this
 - `InfiniteCanvasOverlayRenderContext`
 - `InfiniteCanvasPanInteraction`
 - `InfiniteCanvasPoint`

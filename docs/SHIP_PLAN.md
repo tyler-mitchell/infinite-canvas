@@ -49,7 +49,7 @@ Proven with `pnpm pack` -> install into a fresh project outside the workspace
 pipeline and resolves to `@infinite-canvas/react@0.1.0` on the registry.
 
 **Class 3 (nobody would trust it): DONE.** LICENSE, root README, npm README
-(quickstart compiled verbatim), `docs/API.md` generated from the barrel (287
+(quickstart compiled verbatim), `docs/API.md` derived from the barrel (287
 names, all verified present in the built `.d.mts`), CI (node 22/24) and a
 provenance release workflow, CONTRIBUTING / CODE_OF_CONDUCT / SECURITY /
 CHANGELOG / issue + PR templates.
@@ -161,8 +161,16 @@ capability-complete and verification-incomplete.
     is insufficient: bundlers resolve dynamic-import specifiers at build time.
     It took an API seam (`@infinite-canvas/react/scene` + the `sceneSurface`
     prop). 40.1 KB gzipped without the 3D path.
-14. **API surface audit** — 287 exports is a maintenance liability; mark
+14. **API surface audit** — the export surface is a maintenance liability; mark
     experimental vs stable, consider moving scene helpers behind `/scene`.
+    _As of 2026-07-08 the main entry exports **194 values and 160 types**_ (the "287
+    names" above was true when written, before P1/P4 landed groups, history, recipes,
+    and portals). `docs/API.md` is **hand-maintained, not generated** — despite what
+    this plan said — and it had silently drifted: undo/redo, layout recipes, and
+    portals had no section in it at all, 43 public names in total. Now reconciled.
+    **A drift gate belongs here**, shaped like `scripts/verify-artifact.mjs`: assert
+    every barrel export appears in `docs/API.md` and fail the build otherwise.
+    Nothing today stops the next feature from going undocumented the same way.
 
 ## The remaining 7 hours
 
@@ -249,8 +257,8 @@ Still open, and these are what keep FR-9 `partial`:
 
 ### Hour 3–4 — API surface tiering: **DONE**
 
-287 public names is a maintenance liability and a bad first read. This needed no
-new code, only honesty about what is stable.
+287 public names (354 as of 2026-07-08, after P1 and P4) is a maintenance liability
+and a bad first read. This needed no new code, only honesty about what is stable.
 
 - ✅ `@experimental` in TSDoc on `createInfiniteCanvasHandle`, the rasterization
   policy surface, and the six frustum-visibility exports. `docs/API.md` opens
