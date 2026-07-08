@@ -102,9 +102,19 @@ lineage, "build something better").
 
 Professional-tool table stakes; the command layer is transaction-ready.
 
-- Transaction boundaries: coalesce drag/resize/group-move into single
-  undoable units; history stack with size policy; undo/redo commands +
-  hotkeys (unblocks the deferred Delete binding).
+- ✅ **Landed (2026-07-08): undo/redo over the document.** `history.ts` keeps a
+  past/future stack of `{ groups, windows }` — the undoable half of the canvas.
+  Panning is not an edit, and undo never scrolls the view out from under someone
+  who just wanted their window back. `Mod+Z` / `Mod+Shift+Z`, gated by
+  `canUndoInfiniteCanvas` / `canRedoInfiniteCanvas`, compiled from the same command
+  vocabulary as everything else — which is exactly why history had to live in
+  `InfiniteCanvasState` rather than beside it in the store.
+  **Transactions coalesce by construction:** `interaction.step` never records; the
+  checkpoint is taken when a mutating drag _begins_, so a hundred-frame drag is one
+  entry and a cancelled drag still has somewhere to return to. Size policy: 100
+  entries, oldest dropped. Hydrate and reset discard the stack. History is
+  session-scoped and never serialized — a layout is a document, not its edit log.
+- **Still open: recipes**, and putting history in the versioned envelope.
 - **Layout recipes** (designed WITH the group model per risk R10): named
   arrangements, save selection/cluster, reapply into a world region,
   per-window history (last floating rect, last dock path).
@@ -112,6 +122,8 @@ Professional-tool table stakes; the command layer is transaction-ready.
   PERSIST-001..003 scenarios as tests.
 - Exit: ctrl-Z/shift-ctrl-Z across all mutations; recipe save/apply in a
   showcase; tear-out→move→re-dock→undo×3 is transactionally coherent.
+  **Partially met.** Undo/redo spans every window and group mutation, and each
+  drag is one transaction. Recipes remain.
 - Dependencies: recipes want P1's group model; window-only undo/redo can
   land first.
 

@@ -269,6 +269,7 @@ test("snap overlay emits snap-preview and per-guide axis/kind attributes", () =>
   const snapState: InfiniteCanvasState<ContractWindowKind> = {
     ...baseState,
     groups: [],
+    history: { future: [], past: [] },
     interaction: {
       dockPreview: null,
       kind: "move",
@@ -321,6 +322,7 @@ test("marquee overlay emits data-slot=marquee with the interaction mode", () => 
   const marqueeState: InfiniteCanvasState<ContractWindowKind> = {
     ...baseState,
     groups: [],
+    history: { future: [], past: [] },
     interaction: {
       currentPointer: { x: 220, y: 160 },
       kind: "marquee",

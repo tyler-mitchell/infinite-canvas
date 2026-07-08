@@ -96,42 +96,30 @@ const windowRegistry = defineInfiniteCanvasWindowRegistry<ConsumerWindowKind>({
   },
 });
 
+/**
+ * Every command, spied. A hand-written literal here has to be extended every time
+ * the framework grows a command, and it broke on `closeGroup`, `redo`, `undo` and
+ * nine others the moment groups and history landed. A proxy mints one `vi.fn()`
+ * per property on first access and caches it, so `actions.focusWindow` is still a
+ * stable spy and the mock never needs touching again.
+ */
 function createActionSpyCommands(): InfiniteCanvasCommands<ConsumerWindowKind> {
-  return {
-    closeWindow: vi.fn(),
-    dispatch: vi.fn(),
-    executeCommand: vi.fn(),
-    finishInteraction: vi.fn(),
-    fitAllVisibleWindows: vi.fn(),
-    fitSelection: vi.fn(),
-    focusWindow: vi.fn(),
-    hydrate: vi.fn(),
-    maximizeWindow: vi.fn(),
-    minimizeWindow: vi.fn(),
-    navigateToPoint: vi.fn(),
-    navigateToRect: vi.fn(),
-    navigateToWindow: vi.fn(),
-    navigateView: vi.fn(),
-    openWindow: vi.fn(),
-    panBy: vi.fn(),
-    reset: vi.fn(),
-    restoreWindow: vi.fn(),
-    selectAllVisibleWindows: vi.fn(),
-    selectTarget: vi.fn(),
-    selectWindow: vi.fn(),
-    setTargetSelection: vi.fn(),
-    setSelection: vi.fn(),
-    setViewport: vi.fn(),
-    startMarquee: vi.fn(),
-    startMove: vi.fn(),
-    startPan: vi.fn(),
-    startResize: vi.fn(),
-    stepInteraction: vi.fn(),
-    togglePinned: vi.fn(),
-    toggleTargetSelection: vi.fn(),
-    toggleWindowSelection: vi.fn(),
-    zoomAt: vi.fn(),
-  };
+  const spies = new Map<string, ReturnType<typeof vi.fn>>();
+
+  return new Proxy({} as InfiniteCanvasCommands<ConsumerWindowKind>, {
+    get: (_target, property: string) => {
+      const existing = spies.get(property);
+
+      if (existing !== undefined) {
+        return existing;
+      }
+
+      const spy = vi.fn();
+      spies.set(property, spy);
+
+      return spy;
+    },
+  });
 }
 
 function getWindowById(

@@ -2,6 +2,12 @@ import { executeInfiniteCanvasCommand } from "./commands";
 import { navigateCamera } from "./camera-navigation";
 import { findInfiniteCanvasGroupNode, isInfiniteCanvasGroupContainer } from "./group-tree";
 import {
+  EMPTY_INFINITE_CANVAS_HISTORY,
+  getInfiniteCanvasDocument,
+  isInfiniteCanvasHistoryCheckpoint,
+  pushInfiniteCanvasHistory,
+} from "./history";
+import {
   closeInfiniteCanvasGroup,
   createInfiniteCanvasGroup,
   detachInfiniteCanvasWindowFromGroups,
@@ -56,7 +62,37 @@ type InfiniteCanvasReducerOptions = Readonly<{
   zoomPolicy?: InfiniteCanvasZoomPolicy;
 }>;
 
+/**
+ * The document is checkpointed here, once, around the pure transition — rather
+ * than inside forty reducer cases that would each have to remember. A drag is one
+ * entry: `interaction.step` never records, and the checkpoint is taken when the
+ * drag begins.
+ *
+ * Hydrating or resetting the desktop discards the stack. Undoing across a
+ * document you have never seen is not undo, it is a surprise.
+ */
 function reduceInfiniteCanvasState<Kind extends string>(
+  state: InfiniteCanvasState<Kind>,
+  action: InfiniteCanvasAction<Kind>,
+  options: InfiniteCanvasReducerOptions = {},
+): InfiniteCanvasState<Kind> {
+  const nextState = applyInfiniteCanvasAction(state, action, options);
+
+  if (action.type === "desktop.hydrate" || action.type === "desktop.reset") {
+    return { ...nextState, history: EMPTY_INFINITE_CANVAS_HISTORY };
+  }
+
+  if (nextState === state || !isInfiniteCanvasHistoryCheckpoint(action, state, nextState)) {
+    return nextState;
+  }
+
+  return {
+    ...nextState,
+    history: pushInfiniteCanvasHistory(state.history, getInfiniteCanvasDocument(state)),
+  };
+}
+
+function applyInfiniteCanvasAction<Kind extends string>(
   state: InfiniteCanvasState<Kind>,
   action: InfiniteCanvasAction<Kind>,
   options: InfiniteCanvasReducerOptions = {},

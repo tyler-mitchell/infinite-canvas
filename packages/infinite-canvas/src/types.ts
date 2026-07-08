@@ -231,10 +231,23 @@ type InfiniteCanvasGroup = Readonly<{
   zIndex: number;
 }>;
 
+/** The undoable half of the canvas: what exists, not where you are looking. */
+type InfiniteCanvasDocument<Kind extends string = string> = Readonly<{
+  groups: readonly InfiniteCanvasGroup[];
+  windows: readonly InfiniteCanvasWindow<Kind>[];
+}>;
+
+type InfiniteCanvasHistory<Kind extends string = string> = Readonly<{
+  future: readonly InfiniteCanvasDocument<Kind>[];
+  past: readonly InfiniteCanvasDocument<Kind>[];
+}>;
+
 type InfiniteCanvasState<Kind extends string = string> = Readonly<{
   activeWindowId: string | null;
   camera: InfiniteCanvasCamera;
   groups: readonly InfiniteCanvasGroup[];
+  /** Session-scoped and never serialized: a layout is a document, not its edit log. */
+  history: InfiniteCanvasHistory<Kind>;
   interaction: InfiniteCanvasInteraction;
   selection: InfiniteCanvasSelection;
   snapPreview: InfiniteCanvasSnapPreview | null;
@@ -677,10 +690,14 @@ type InfiniteCanvasCommand =
       direction: InfiniteCanvasDirection;
       type: "window.focusDirection";
     }>
+  | Readonly<{ type: "history.undo" }>
+  | Readonly<{ type: "history.redo" }>
   | Readonly<{ type: "view.resetZoom" }>;
 
 type InfiniteCanvasCommandId =
   | "desktop.cancel"
+  | "history.redo"
+  | "history.undo"
   | "selection.clear"
   | "selection.selectAllVisible"
   | "view.fitAll"
@@ -707,7 +724,7 @@ type InfiniteCanvasCommandDescriptor = Readonly<{
   label: string;
 }>;
 
-type InfiniteCanvasCommandGroup = "canvas" | "selection" | "view" | "window";
+type InfiniteCanvasCommandGroup = "canvas" | "edit" | "selection" | "view" | "window";
 
 type InfiniteCanvasContextualCommand = InfiniteCanvasCommandDescriptor &
   Readonly<{
@@ -871,6 +888,7 @@ type InfiniteCanvasCommands<Kind extends string = string> = Readonly<{
   executeCommand: (command: InfiniteCanvasCommand) => void;
   finishInteraction: (pointerId: number) => void;
   focusWindow: (windowId: string) => void;
+  redo: () => void;
   reorderGroupChild: (
     input: Readonly<{ childId: string; groupId: string; toIndex: number }>,
   ) => void;
@@ -904,6 +922,7 @@ type InfiniteCanvasCommands<Kind extends string = string> = Readonly<{
       pointerId: number;
     }>,
   ) => void;
+  undo: () => void;
   undockWindow: (input: Readonly<{ rect?: InfiniteCanvasRect; windowId: string }>) => void;
   hydrate: (state: InfiniteCanvasState<Kind>) => void;
   maximizeWindow: (windowId: string) => void;
@@ -988,9 +1007,11 @@ export type {
   InfiniteCanvasContextualCommand,
   InfiniteCanvasDirection,
   InfiniteCanvasDockPreview,
+  InfiniteCanvasDocument,
   InfiniteCanvasGroup,
   InfiniteCanvasGroupGutterInteraction,
   InfiniteCanvasGroupMoveInteraction,
+  InfiniteCanvasHistory,
   InfiniteCanvasCursor,
   InfiniteCanvasCursorInteraction,
   InfiniteCanvasCursorPolicy,

@@ -59,6 +59,15 @@ export {
   reconcileInfiniteCanvasGroups,
 } from "./group-state";
 export type { InfiniteCanvasGroupProjection } from "./group-state";
+export {
+  EMPTY_INFINITE_CANVAS_HISTORY,
+  INFINITE_CANVAS_HISTORY_LIMIT,
+  canRedoInfiniteCanvas,
+  canUndoInfiniteCanvas,
+  getInfiniteCanvasDocument,
+  redoInfiniteCanvasHistory,
+  undoInfiniteCanvasHistory,
+} from "./history";
 export { createInfiniteCanvasHandle } from "./canvas-handle";
 export type { InfiniteCanvasHandle } from "./canvas-handle";
 export {
@@ -315,9 +324,11 @@ export type {
   InfiniteCanvasDragStartInput,
   InfiniteCanvasDirection,
   InfiniteCanvasDockPreview,
+  InfiniteCanvasDocument,
   InfiniteCanvasGroup,
   InfiniteCanvasGroupGutterInteraction,
   InfiniteCanvasGroupMoveInteraction,
+  InfiniteCanvasHistory,
   InfiniteCanvasDropCommitContext,
   InfiniteCanvasDropInteraction,
   InfiniteCanvasDropPayload,

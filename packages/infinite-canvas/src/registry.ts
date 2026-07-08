@@ -1,3 +1,4 @@
+import { EMPTY_INFINITE_CANVAS_HISTORY } from "./history";
 import { reconcileInfiniteCanvasGroups } from "./group-state";
 import { EMPTY_INFINITE_CANVAS_SELECTION, normalizeSelection } from "./selection";
 import type {
@@ -57,6 +58,7 @@ function normalizeInfiniteCanvasStateForWindowRegistry<Kind extends string>(
       ...state,
       activeWindowId: null,
       groups: [],
+      history: EMPTY_INFINITE_CANVAS_HISTORY,
       selection: EMPTY_INFINITE_CANVAS_SELECTION,
       windows: [],
     };
@@ -78,6 +80,11 @@ function normalizeInfiniteCanvasStateForWindowRegistry<Kind extends string>(
   const unnormalizedState = {
     ...state,
     activeWindowId,
+    // Normalization runs at document boundaries -- mount and hydrate -- and it
+    // drops windows whose kind left the registry. Every document in the stack
+    // refers to windows from before that pass, so the stack is stale by
+    // definition. It also re-types the canvas from `string` to `Kind`.
+    history: EMPTY_INFINITE_CANVAS_HISTORY,
     windows,
   } satisfies InfiniteCanvasState<Kind>;
   const selection = normalizeSelection(unnormalizedState, state.selection);
@@ -128,6 +135,7 @@ function recoverInfiniteCanvasStateForWindowRegistry<Kind extends string>(
       activeWindowId: null,
       // Every window was unregistered, so every group is empty by definition.
       groups: [],
+      history: EMPTY_INFINITE_CANVAS_HISTORY,
       interaction: null,
       selection: EMPTY_INFINITE_CANVAS_SELECTION,
       snapPreview: null,

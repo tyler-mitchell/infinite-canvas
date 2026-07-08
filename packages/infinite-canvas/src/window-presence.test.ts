@@ -15,6 +15,7 @@ const presenceState: InfiniteCanvasState<PresenceWindowKind> = {
     zoom: 1,
   },
   groups: [],
+  history: { future: [], past: [] },
   interaction: null,
   selection: {
     anchorWindowId: "active-window",

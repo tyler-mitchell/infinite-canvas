@@ -39,6 +39,13 @@ Initial release.
   move across the whole selection.
 - **Snapping with visual guides.** Edge, center, and gap alignment resolved against live snap
   candidates during move and resize, with preview guides rendered as the drag happens.
+- **Undo and redo.** `Mod+Z` and `Mod+Shift+Z` (or `Mod+Y`) across every window and group mutation.
+  History is over the _document_ — the windows and the groups — because everything else is a view onto
+  it. Panning is not an edit, and undo never scrolls the canvas out from under someone who just wanted
+  their window back. A drag is one entry, not one per frame: the checkpoint is taken when a mutating
+  drag begins, so a cancelled drag still has somewhere to return to. Bounded at 100 entries; discarded
+  on hydrate and reset; session-scoped and never serialized, because a layout is a document, not its
+  edit log.
 - **Keyboard command layer.** Hotkeys bound to the same command vocabulary the pointer interactions
   use, so anything the mouse can do the keyboard can express. Includes **directional window focus**
   (`Alt+Arrow`): the nearest window strictly ahead along the arrow wins, and one whose span overlaps

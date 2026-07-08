@@ -1,3 +1,4 @@
+import { EMPTY_INFINITE_CANVAS_HISTORY } from "./history";
 import type {
   InfiniteCanvasCamera,
   InfiniteCanvasGroup,
@@ -86,12 +87,17 @@ function cloneInfiniteCanvasState<Kind extends string>(
   };
 }
 
+/**
+ * Reset drops the undo stack. The document you would be undoing into is one the
+ * user never edited — restoring it would be a surprise, not an undo.
+ */
 function resetInfiniteCanvasState<Kind extends string>(
   currentState: InfiniteCanvasState<Kind>,
   initialState: InfiniteCanvasState<Kind>,
 ) {
   return {
     ...cloneInfiniteCanvasState(initialState),
+    history: EMPTY_INFINITE_CANVAS_HISTORY,
     interaction: null,
     snapPreview: null,
     viewport: cloneSize(currentState.viewport),

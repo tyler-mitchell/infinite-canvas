@@ -6,6 +6,12 @@ import {
 import { DEFAULT_INFINITE_CANVAS_ZOOM } from "./constants";
 import { zoomCameraAtScreenPoint } from "./geometry";
 import {
+  canRedoInfiniteCanvas,
+  canUndoInfiniteCanvas,
+  redoInfiniteCanvasHistory,
+  undoInfiniteCanvasHistory,
+} from "./history";
+import {
   clearSelection,
   getSelectableWindowIds,
   hasInfiniteCanvasSelection,
@@ -207,6 +213,24 @@ const DEFAULT_INFINITE_CANVAS_COMMAND_DESCRIPTORS = [
   },
   {
     command: {
+      type: "history.undo",
+    },
+    description: "Undo the last change to the windows or groups on the canvas.",
+    hotkeys: ["Mod+Z"],
+    id: "history.undo",
+    label: "Undo",
+  },
+  {
+    command: {
+      type: "history.redo",
+    },
+    description: "Redo the change that was last undone.",
+    hotkeys: ["Mod+Shift+Z", "Mod+Y"],
+    id: "history.redo",
+    label: "Redo",
+  },
+  {
+    command: {
       type: "view.resetZoom",
     },
     description: "Reset the canvas zoom around the viewport center.",
@@ -345,6 +369,10 @@ function isInfiniteCanvasCommandEnabled<Kind extends string>(
       return isCameraNavigationAvailable(state, command.request);
     case "view.resetZoom":
       return state.viewport.width > 0 && state.viewport.height > 0;
+    case "history.redo":
+      return canRedoInfiniteCanvas(state);
+    case "history.undo":
+      return canUndoInfiniteCanvas(state);
     case "window.focusDirection":
       return getInfiniteCanvasDirectionalFocusTarget(state, command.direction) !== null;
     case "window.nudge":
@@ -356,6 +384,9 @@ function getInfiniteCanvasCommandGroup(command: InfiniteCanvasCommand): Infinite
   switch (command.type) {
     case "desktop.cancel":
       return "canvas";
+    case "history.redo":
+    case "history.undo":
+      return "edit";
     case "selection.clear":
     case "selection.selectAllVisible":
       return "selection";
@@ -447,6 +478,10 @@ function executeInfiniteCanvasCommand<Kind extends string>(
           zoomPolicy,
         ),
       };
+    case "history.redo":
+      return redoInfiniteCanvasHistory(state);
+    case "history.undo":
+      return undoInfiniteCanvasHistory(state);
     case "window.focusDirection":
       return focusWindowInDirection(state, command.direction, zoomPolicy);
     case "window.nudge":

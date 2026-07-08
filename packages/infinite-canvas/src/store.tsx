@@ -15,6 +15,7 @@ import { cloneInfiniteCanvasState } from "./state";
 import type {
   InfiniteCanvasAction,
   InfiniteCanvasGroup,
+  InfiniteCanvasHistory,
   InfiniteCanvasCamera,
   InfiniteCanvasCommand,
   InfiniteCanvasCommands,
@@ -55,6 +56,9 @@ type InfiniteCanvasWritableObservable<Kind extends string> = Observable<Infinite
     groups: Readonly<{
       set: (value: readonly InfiniteCanvasGroup[]) => void;
     }>;
+    history: Readonly<{
+      set: (value: InfiniteCanvasHistory<Kind>) => void;
+    }>;
     interaction: Readonly<{
       set: (value: InfiniteCanvasInteraction) => void;
     }>;
@@ -92,6 +96,10 @@ function commitInfiniteCanvasState<Kind extends string>(
 
     if (currentState.groups !== nextState.groups) {
       writableState$.groups.set(nextState.groups);
+    }
+
+    if (currentState.history !== nextState.history) {
+      writableState$.history.set(nextState.history);
     }
 
     if (currentState.interaction !== nextState.interaction) {
@@ -193,6 +201,12 @@ function createInfiniteCanvasStore<Kind extends string>(
         windowId,
       });
     },
+    redo: () => {
+      dispatch({
+        command: { type: "history.redo" },
+        type: "command.execute",
+      });
+    },
     reorderGroupChild: (input) => {
       dispatch({
         ...input,
@@ -227,6 +241,12 @@ function createInfiniteCanvasStore<Kind extends string>(
       dispatch({
         ...input,
         type: "interaction.startGroupGutter",
+      });
+    },
+    undo: () => {
+      dispatch({
+        command: { type: "history.undo" },
+        type: "command.execute",
       });
     },
     undockWindow: (input) => {

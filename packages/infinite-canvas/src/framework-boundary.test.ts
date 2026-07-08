@@ -363,6 +363,7 @@ test("registry normalization drops stale persisted window kinds", () => {
       zoom: 1,
     },
     groups: [],
+    history: { future: [], past: [] },
     interaction: null,
     selection: {
       anchorWindowId: "stale-window",

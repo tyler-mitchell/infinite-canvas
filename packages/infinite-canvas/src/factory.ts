@@ -1,5 +1,6 @@
 import { DEFAULT_INFINITE_CANVAS_CAMERA } from "./constants";
 import { reconcileInfiniteCanvasGroups } from "./group-state";
+import { EMPTY_INFINITE_CANVAS_HISTORY } from "./history";
 import { normalizeSelection } from "./selection";
 import { getUniqueInfiniteCanvasWindows } from "./window-identity";
 import type {
@@ -152,6 +153,7 @@ function createInfiniteCanvasState<Kind extends string>({
       zoom: camera.zoom,
     },
     groups,
+    history: EMPTY_INFINITE_CANVAS_HISTORY,
     interaction: null,
     selection: readSelectionInput(selection, resolvedActiveWindowId),
     snapPreview: null,

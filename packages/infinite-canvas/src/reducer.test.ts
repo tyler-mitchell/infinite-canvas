@@ -16,6 +16,7 @@ const baseState: InfiniteCanvasState<TestWindowKind> = {
     zoom: 2,
   },
   groups: [],
+  history: { future: [], past: [] },
   interaction: null,
   selection: {
     anchorWindowId: "alpha",
