@@ -33,6 +33,11 @@ sections, in this order, omitting the ones that don't apply:
 
 ### Fixed
 
+- **`diagnostics.frustum` swept its whole tracked window set every frame.** The probe layer
+  re-renders on each camera tick and rebuilt its window-id array per render, so the effect that
+  drops departed windows re-fired on every pan step — and its membership test was a linear scan
+  inside a filter, so the sweep was quadratic in window count. The instrument was perturbing the
+  frame cost it exists to measure. Memoized on the window list, and the scan is now a `Set`.
 - **`rasterization.maxPendingCaptures` bounded the queue by breaking it.** Any finite value
   left every refused window permanently un-rasterized: the queue dropped the request, but the
   window body had already recorded the capture as requested and never asked again. A bound is

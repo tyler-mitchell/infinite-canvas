@@ -22,7 +22,8 @@ type InfiniteCanvasVisibilitySummary = Readonly<{
 
 type InfiniteCanvasVisibilityContextValue = Readonly<{
   markWindowsFramed: (entries: readonly InfiniteCanvasWindowFrustumVisibilityEntry[]) => void;
-  pruneWindows: (windowIds: readonly string[]) => void;
+  /** Drops every tracked window *except* these. See {@link retainWindowFrustumVisibility}. */
+  retainWindows: (windowIds: readonly string[]) => void;
   state$: Observable<InfiniteCanvasVisibilityState>;
 }>;
 
@@ -52,7 +53,7 @@ const disabledVisibilityState$ = observable<InfiniteCanvasVisibilityState>(
 
 const DISABLED_INFINITE_CANVAS_VISIBILITY_CONTEXT: InfiniteCanvasVisibilityContextValue = {
   markWindowsFramed: () => {},
-  pruneWindows: () => {},
+  retainWindows: () => {},
   state$: disabledVisibilityState$,
 };
 
@@ -114,21 +115,33 @@ function setWindowsFrustumVisibility(
   };
 }
 
-function pruneWindowFrustumVisibility(
+/**
+ * Keeps only the tracked windows named in `windowIds`, dropping the rest.
+ *
+ * `windowIds` is the set to **retain**, not the set to remove — it is the caller's live
+ * window list. The old name for this was `pruneWindowFrustumVisibility`, which read as
+ * exactly the inverse and would have deleted the entire canvas save one window the day
+ * someone called it with the ids they meant to forget.
+ *
+ * Membership goes through a `Set`: this runs once per window-list change, over every
+ * tracked window, and an `Array.includes` inside the filter made it quadratic.
+ */
+function retainWindowFrustumVisibility(
   state: InfiniteCanvasVisibilityState,
   windowIds: readonly string[],
 ): InfiniteCanvasVisibilityState {
-  const nextWindows = Object.fromEntries(
-    Object.entries(state.windows).filter(([windowId]) => windowIds.includes(windowId)),
-  );
+  const retainedIds = new Set(windowIds);
+  const trackedIds = Object.keys(state.windows);
 
-  if (Object.keys(nextWindows).length === Object.keys(state.windows).length) {
+  if (trackedIds.every((windowId) => retainedIds.has(windowId))) {
     return state;
   }
 
   return {
     revision: state.revision + 1,
-    windows: nextWindows,
+    windows: Object.fromEntries(
+      Object.entries(state.windows).filter(([windowId]) => retainedIds.has(windowId)),
+    ),
   };
 }
 
@@ -179,8 +192,8 @@ function InfiniteCanvasVisibilityProvider({ children }: Readonly<{ children: Rea
       markWindowsFramed: (entries) => {
         updateVisibilityState(state$, (state) => setWindowsFrustumVisibility(state, entries));
       },
-      pruneWindows: (windowIds) => {
-        updateVisibilityState(state$, (state) => pruneWindowFrustumVisibility(state, windowIds));
+      retainWindows: (windowIds) => {
+        updateVisibilityState(state$, (state) => retainWindowFrustumVisibility(state, windowIds));
       },
       state$,
     }),
@@ -253,7 +266,7 @@ export {
   getInfiniteCanvasVisibilitySummary,
   getWindowFrustumVisibility,
   isWindowFramed,
-  pruneWindowFrustumVisibility,
+  retainWindowFrustumVisibility,
   setWindowFrustumVisibility,
   setWindowsFrustumVisibility,
   useInfiniteCanvasVisibilityContext,

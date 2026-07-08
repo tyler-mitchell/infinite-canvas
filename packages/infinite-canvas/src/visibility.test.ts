@@ -5,7 +5,7 @@ import {
   getInfiniteCanvasVisibilitySummary,
   getWindowFrustumVisibility,
   isWindowFramed,
-  pruneWindowFrustumVisibility,
+  retainWindowFrustumVisibility,
   setWindowFrustumVisibility,
   setWindowsFrustumVisibility,
 } from "./visibility";
@@ -65,14 +65,15 @@ test("window frustum visibility batches state changes", () => {
   });
 });
 
-test("window frustum visibility prunes windows that no longer have scene probes", () => {
+test("window frustum visibility retains only the windows that still have scene probes", () => {
   const state = setWindowFrustumVisibility(
     setWindowFrustumVisibility(createInfiniteCanvasVisibilityState(), "alpha", true, 100),
     "bravo",
     false,
     200,
   );
-  const pruned = pruneWindowFrustumVisibility(state, ["alpha"]);
+  // The argument is the set to keep, not the set to drop.
+  const pruned = retainWindowFrustumVisibility(state, ["alpha"]);
 
   expect(pruned.revision).toBe(3);
   expect(getWindowFrustumVisibility(pruned, "alpha")).toEqual({
