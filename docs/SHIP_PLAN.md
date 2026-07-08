@@ -172,7 +172,105 @@ capability-complete and verification-incomplete.
     every barrel export appears in `docs/API.md` and fail the build otherwise.
     Nothing today stops the next feature from going undocumented the same way.
 
-## The remaining 7 hours
+## The delivery plan
+
+> **Rewritten again, late 2026-07-08.** Everything below the horizontal rule is the
+> historical record of hours already spent — kept because it says what was proven and
+> how. This section is the plan _forward_, and it exists because the previous version
+> described work that is now finished and therefore routed nobody anywhere.
+
+**Ship, open-source, and production are three separate gates.** Conflating them is what
+made the earlier plans read as further from done than they are.
+
+| Gate                    | State              | What actually stands in the way                                                |
+| ----------------------- | ------------------ | ------------------------------------------------------------------------------ |
+| **Publishable to npm**  | ✅ ready _now_     | Nothing technical. `pnpm publish` is an external-service action — the owner's. |
+| **Public repository**   | ⛔ owner-gated     | One `git filter-repo` purge. Irreversible, no remote. Nobody else may do it.   |
+| **Honest "production"** | 🟡 three real gaps | NFR-1 unmeasured, FR-9 focus trapping, P1 scenario tests. All below.           |
+
+### Track A — Publish (0 agent-hours; owner action)
+
+The package is publishable today and has been since the Class-1 work landed.
+`scripts/verify-artifact.mjs` gates `prepublishOnly`; `pnpm publish --dry-run` resolves
+`@infinite-canvas/react@0.1.0`. Neither `reference/` nor `/dynamic-grid` has ever been in
+the tarball, so the history problem does **not** block npm. It blocks only the repo.
+
+**Owner action, one line:** create the npm org, then `pnpm publish`.
+
+### Track B — Open-source (0 agent-hours; owner-gated, and that is final)
+
+`reference/` is untracked, the derived `/dynamic-grid` showcase is out of the tree, and a
+fresh clone builds. What remains is that the derived implementation is still reachable in
+git history. `git filter-repo` rewrites every SHA and this repo has no remote to recover
+from. **An agent must not do this unasked, and naming it is the whole result.** Until it
+happens the repo cannot go public; nothing else on any track is waiting on it.
+
+### Track C — Production honesty (the only track with agent-hours left)
+
+Ordered by what unblocks the most. Each has an exit criterion, not a vibe.
+
+**C1 — Drift gates (~1h, no browser).** Two documents currently make claims nothing
+enforces, and both have already been wrong in exactly the way a gate would have caught:
+
+- `docs/API.md` had drifted by 43 public names — undo/redo, recipes, and portals had no
+  section at all, while `README.md` pointed consumers there for "the full export surface".
+- `README.md` and `CONTRIBUTING.md` claimed a test enforced the pure core's import
+  boundary. No such test existed.
+
+Both fixes are the same shape as `scripts/verify-artifact.mjs`: parse the barrel, assert,
+fail the build. Exit: a barrel export missing from `docs/API.md` fails CI; an observable
+imported into `reducer.ts` fails CI.
+
+**C2 — P1 scenario tests (~2h, no browser).** P1's exit criteria say "scenario tests
+green". The gestures work; the tests do not exist. DOCK-001..005, SPLIT-001..003,
+TAB-001/002, ACC-001 are specified in `research/acceptance-scenarios.md` and are pure
+reducer-level assertions — no DOM needed, because the group core is pure. This is the
+single largest gap between "it works when I try it" and "it works". Exit: those scenario
+ids assert against the reducer and pass.
+
+_Two bugs found by reading on 2026-07-08 — dock intent dispatched three times, and dead
+resize handles burying the gutter — would both have been caught by DOCK-001 and SPLIT-001.
+That is the argument for C2, and it is not hypothetical._
+
+**C3 — Group shell resize (~2h, no browser to build, browser to trust).** Reported by the
+owner: a group's outer edge cannot be dragged. A `groupResize` interaction beside
+`groupMove`/`groupGutter` stepping `group.rect`; members re-project for free. The real
+work is the shell's minimum size — a function of every pane's `minSize` plus the gutters,
+not a constant. Exit: dragging a shell edge resizes the group and no pane goes below its
+`minSize`.
+
+**C4 — NFR-1, the measurement (~2h, BROWSER REQUIRED).** P2 tranche 1 is committed and
+unmeasured; the profile's tables still describe the pre-tranche-1 runtime. Nothing
+downstream may quote a number until the synthetic wheel/drag drivers run on `/stress` at
+20/40/80 windows. **`NFR-1` currently reads "failing" and must keep reading "failing"
+until this runs.** Exit: the profile's tables describe the current runtime, and the
+benchmark is scripted so a regression fails loudly rather than silently.
+
+**C5 — FR-9 focus trapping (~2h, BROWSER REQUIRED to trust).** The last structural
+accessibility piece: how DOM focus enters and leaves a window's own content. Everything
+else in FR-9 has landed — ARIA semantics, directional focus, group-local focus, focus
+restoration, and the tab strip's roving tab stop. Focus behaviour is precisely the domain
+where shipping unverified is malpractice. Exit: `Tab` from the command surface enters the
+active window's body and cannot escape into an inactive window's content.
+
+### What "7 hours" actually buys
+
+C1 + C2 + C3 ≈ 5 agent-hours and need **no browser**. They convert P1 from
+capability-complete/verification-incomplete to actually done, close the owner's reported
+bug, and stop two documents from lying again.
+
+C4 + C5 ≈ 4 hours and **cannot be honestly completed without a browser**. They are not
+blocked on knowledge; they are blocked on the ability to observe. Anything that claims
+them done without observation is the green checkmark this project's own conventions
+forbid.
+
+**Therefore: `1.0` is not the deliverable at the end of 7 hours. A publishable, public,
+honestly-scoped `0.2.0` is** — with NFR-1 still marked failing and FR-9 still marked
+partial, because they are, and the README already says so.
+
+---
+
+## Historical: the original "remaining 7 hours"
 
 > Rewritten 2026-07-08. The original ordering (rename → `"use client"` →
 > metadata → tarball proof) is **done**, as is the optional-3D split. What
