@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef } from "react";
 
-import { worldRectToScreenRect } from "./geometry";
+import { isWorldRectWithinViewport } from "./geometry";
 import {
   useInfiniteCanvasRasterCaptureCapacity,
   useInfiniteCanvasRasterContext,
@@ -301,25 +301,11 @@ function isWindowRasterizationEligible<Kind extends string>({
     return state.interaction.windowId !== window.id;
   }
 
-  return isWindowInsideRasterMargin(state, window, policy.viewportMarginPx);
-}
-
-function isWindowInsideRasterMargin<Kind extends string>(
-  state: InfiniteCanvasState<Kind>,
-  window: InfiniteCanvasWindow<Kind>,
-  margin: number,
-) {
-  if (!Number.isFinite(margin)) {
-    return true;
-  }
-
-  const rect = worldRectToScreenRect(state.camera, state.viewport, window.rect);
-
-  return (
-    rect.left + rect.width >= -margin &&
-    rect.left <= state.viewport.width + margin &&
-    rect.top + rect.height >= -margin &&
-    rect.top <= state.viewport.height + margin
+  return isWorldRectWithinViewport(
+    state.camera,
+    state.viewport,
+    window.rect,
+    policy.viewportMarginPx,
   );
 }
 

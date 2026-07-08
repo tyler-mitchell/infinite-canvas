@@ -170,6 +170,49 @@ function worldRectToScreenRect(
   };
 }
 
+/**
+ * Whether a world rect overlaps the viewport, expanded by `marginPx` screen pixels.
+ *
+ * The framework's frustum test: pure, synchronous, and derived from the camera alone.
+ * Distinct from `useInfiniteCanvasWindowFramed`, which reads a store written by the R3F
+ * probe layer — that ships behind the optional `/scene` entry and only runs under
+ * `diagnostics.frustum`, so it cannot be the basis of a rendering decision.
+ *
+ * A non-finite `marginPx` means unbounded: every rect overlaps. That is how the
+ * rasterization policy spells "no viewport limit".
+ *
+ * **An unmeasured (`0 × 0`) viewport overlaps nothing, and this returns `false`.** That
+ * is the honest geometric answer, and it is a trap, because the right response to it
+ * depends on what the caller does with a `false`:
+ *
+ * - A caller that **culls** on `false` must not cull before the first resize
+ *   observation, or it paints an empty canvas and recovers only on the next camera
+ *   change. Guard with {@link isUsableViewport} first.
+ * - A caller that **rasterizes** on `true` wants exactly this `false`: a window whose
+ *   viewport has never been measured should stay live DOM, not become a snapshot.
+ *
+ * Opposite defaults for the same uncertainty, so this function does not pick one.
+ */
+function isWorldRectWithinViewport(
+  camera: InfiniteCanvasCamera,
+  viewport: InfiniteCanvasViewport,
+  rect: InfiniteCanvasRect,
+  marginPx = 0,
+): boolean {
+  if (!Number.isFinite(marginPx)) {
+    return true;
+  }
+
+  const screenRect = worldRectToScreenRect(camera, viewport, rect);
+
+  return (
+    screenRect.left + screenRect.width >= -marginPx &&
+    screenRect.left <= viewport.width + marginPx &&
+    screenRect.top + screenRect.height >= -marginPx &&
+    screenRect.top <= viewport.height + marginPx
+  );
+}
+
 function worldRectToScreenTransform(
   camera: InfiniteCanvasCamera,
   viewport: InfiniteCanvasViewport,
@@ -458,6 +501,7 @@ export {
   getWindowBodyRect,
   getWindowHeaderRect,
   isUsableViewport,
+  isWorldRectWithinViewport,
   panCameraByScreenDelta,
   projectWorldRectToScreen,
   rectContainsPoint,

@@ -65,8 +65,32 @@ Started (body memoization landed; 20→97fps pan). Finish the cost model in
   frame no longer takes `state`; chrome, body, and resize handles are
   memoized on window identity, and handle geometry moved to a CSS custom
   property so zoom stops rebuilding them. Numbers pending a real-hardware
-  run. Tranche 2: window-layer visibility culling (subsystem exists, layer
-  ignores it).
+  run.
+- **Tranche 2: window-layer visibility culling.** _Corrected 2026-07-08 — the
+  earlier note here said "subsystem exists, layer ignores it". That was wrong,
+  and acting on it would have been a mistake._ The subsystem that exists
+  (`visibility.tsx`) is fed **only** by the R3F frustum probe, which ships behind
+  the optional `/scene` entry and runs only under `diagnostics.frustum`. Culling
+  on `useInfiniteCanvasWindowFramed` would therefore cull nothing for any consumer
+  without `three` installed (it returns its `true` fallback), and would re-couple
+  rendering to the optional 3D peer that the `/scene` seam exists to keep out. It
+  is a diagnostics store, not a culling source.
+
+  The culling predicate is `isWorldRectWithinViewport(camera, viewport, rect,
+marginPx)` in `geometry.ts` — pure, synchronous, camera-derived, no peer. Note
+  its unmeasured-viewport trap: a `0 × 0` viewport overlaps nothing, so a culler
+  must check `isUsableViewport` first or paint an empty canvas on first frame.
+
+  **Culling must not unmount.** The window layer maps `visibleWindows` straight to
+  frames, so dropping an offscreen window from that array unmounts its subtree:
+  DOM focus on the active window falls to `<body>` and silently kills every hotkey
+  (the failure the Close/Minimize controls already work around), `portalRoot`
+  roots tear down, and body scroll position, video playback, and uncontrolled
+  input state are destroyed on pan-away and come back blank. Skipping the frame's
+  _transform update_ while offscreen is safe — a stale transform on something
+  nobody can see is unobservable, and it re-renders on re-entry. Unmounting is
+  not. Profile before prescribing which.
+
 - **html-in-canvas tier**: texture-mode-during-camera-motion prototype
   (capture → WebGPU quads during pan/zoom, live DOM on settle), then the
   measured decision on the canvas-subtree body plane

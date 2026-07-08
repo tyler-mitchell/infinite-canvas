@@ -22,6 +22,15 @@ sections, in this order, omitting the ones that don't apply:
 ### Security
 -->
 
+### Added
+
+- **`isWorldRectWithinViewport(camera, viewport, rect, marginPx)`** and `isUsableViewport` are
+  public geometry helpers. The framework's frustum test: pure, synchronous, camera-derived, and
+  free of the optional 3D peers. This is the predicate to build culling or virtualization on —
+  **not** `useInfiniteCanvasWindowFramed`, whose store is written only by the R3F probe behind
+  `@infinite-canvas/react/scene` and returns its `true` fallback for every consumer who has not
+  installed `three` and enabled `diagnostics.frustum`. Rasterization eligibility now shares it.
+
 ### Fixed
 
 - **`rasterization.maxPendingCaptures` bounded the queue by breaking it.** Any finite value

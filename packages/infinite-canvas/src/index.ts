@@ -223,6 +223,8 @@ export {
 export {
   getRectCenter,
   getVisibleWorldRect,
+  isUsableViewport,
+  isWorldRectWithinViewport,
   rectContainsPoint,
   rectsIntersect,
   screenPointToWorldPoint,

@@ -1,6 +1,6 @@
 # API Reference
 
-The public surface of `@infinite-canvas/react`: 192 values and 159 types,
+The public surface of `@infinite-canvas/react`: 194 values and 159 types,
 generated from the barrel (`packages/infinite-canvas/src/index.ts`) so it cannot
 drift. Anything not exported from the barrel is internal and unstable —
 including every `data-infinite-canvas-*` attribute, which is a behavioural hook
@@ -232,6 +232,8 @@ legitimately need, plus the default policies.
 
 - `getRectCenter`
 - `getVisibleWorldRect`
+- `isUsableViewport`
+- `isWorldRectWithinViewport`
 - `rectContainsPoint`
 - `rectsIntersect`
 - `screenPointToWorldPoint`
