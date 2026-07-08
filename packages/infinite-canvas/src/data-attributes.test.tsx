@@ -125,6 +125,7 @@ test("INFINITE_CANVAS_SLOTS is the complete slot vocabulary", () => {
     hudTitle: "hud-title",
     hudZoomReadout: "hud-zoom-readout",
     marquee: "marquee",
+    portalRoot: "portal-root",
     resizeHandle: "resize-handle",
     selectionBounds: "selection-bounds",
     snapGuide: "snap-guide",
@@ -138,6 +139,7 @@ test("INFINITE_CANVAS_SLOTS is the complete slot vocabulary", () => {
     windowCorners: "window-corners",
     windowHeader: "window-header",
     windowHostChrome: "window-host-chrome",
+    windowPortalRoot: "window-portal-root",
     windowSurface: "window-surface",
     windowTitle: "window-title",
   });

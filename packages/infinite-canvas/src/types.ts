@@ -680,6 +680,12 @@ type InfiniteCanvasWindowDefinition<Kind extends string = string> = Readonly<{
   frameChrome?: InfiniteCanvasWindowFrameChrome;
   kind: Kind;
   overflowY?: CSSProperties["overflowY"];
+  /**
+   * Mount a portal root that tracks this window's screen rect, outside every
+   * transform. Opt-in: a root for every window would cost a style write per window
+   * per camera tick, and windows that never open a popover would pay for one.
+   */
+  portalRoot?: boolean;
   renderBody?: (context: InfiniteCanvasWindowRenderContext<Kind>) => ReactNode;
   renderFrame?: (context: InfiniteCanvasWindowFrameRenderContext<Kind>) => ReactNode;
   textSelection?: InfiniteCanvasWindowTextSelection;

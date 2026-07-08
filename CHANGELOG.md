@@ -55,6 +55,15 @@ Initial release.
   windows below their own `minSize`. They are plain values the consumer owns and persists, and
   `parseInfiniteCanvasRecipe` treats one crossing storage as untrusted input. Applying one is a single
   undo entry.
+- **Portal roots.** A window frame is `transform: scale(zoom)`, which makes it the containing block for
+  `position: fixed` — so a popover, menu, or tooltip inside a window body resolves against the _frame_,
+  lands in the wrong place, and is scaled by the zoom. `<InfiniteCanvasPortal>` mounts content into a
+  root outside every transform: `scope="desktop"` for overlays that escape the window entirely, and
+  `scope="window"` for content that must track its window at natural size. The window root is opt-in
+  per window kind (`portalRoot: true`) — mounting one for every window would cost a style write per
+  window per camera tick. The portal renders nothing until its root exists rather than falling back
+  into the transformed subtree, because a popover that quietly appears in the wrong place is a bug the
+  consumer will chase into their own code.
 - **Keyboard command layer.** Hotkeys bound to the same command vocabulary the pointer interactions
   use, so anything the mouse can do the keyboard can express. Includes **directional window focus**
   (`Alt+Arrow`): the nearest window strictly ahead along the arrow wins, and one whose span overlaps

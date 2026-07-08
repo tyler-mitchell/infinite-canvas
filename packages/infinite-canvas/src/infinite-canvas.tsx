@@ -49,6 +49,7 @@ import {
   type InfiniteCanvasIcons,
 } from "./icons";
 import { getInteractionCursor } from "./interaction";
+import { InfiniteCanvasDesktopPortalContext } from "./portal";
 import {
   getInfiniteCanvasIdleCursor,
   getInfiniteCanvasInteractionCursor,
@@ -188,6 +189,8 @@ const SCENE_SCREEN_UNDERLAY_Z_INDEX = 1;
  * is left, so the two are disjoint by construction.
  */
 const GROUP_LAYER_Z_INDEX = 5;
+/** Above every band, because portalled content is what escapes the window plane. */
+const PORTAL_ROOT_Z_INDEX = DEFAULT_INFINITE_CANVAS_STACK_BANDS.overlay + 1;
 const WINDOW_LAYER_Z_INDEX = 10;
 const SCENE_OVERLAY_Z_INDEX = DEFAULT_INFINITE_CANVAS_STACK_BANDS.overlay - 10;
 const SCENE_SCREEN_OVERLAY_Z_INDEX = DEFAULT_INFINITE_CANVAS_STACK_BANDS.overlay - 9;
@@ -467,6 +470,7 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
   const [pointerModeOverride, setPointerModeOverride] = useState<InfiniteCanvasPointerMode | null>(
     null,
   );
+  const [desktopPortalRoot, setDesktopPortalRoot] = useState<HTMLDivElement | null>(null);
   const [dropInteraction, setDropInteraction] = useState<
     InfiniteCanvasDropInteraction<Payload, Kind>
   >(EMPTY_INFINITE_CANVAS_DROP);
@@ -917,197 +921,211 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
   ]);
 
   return (
-    <InfiniteCanvasIconsContext.Provider value={resolvedIcons}>
-      <section
-        aria-label={title}
-        className={className}
-        data-infinite-canvas-viewport="true"
-        data-interaction={interaction?.kind}
-        data-pointer-mode={pointerMode}
-        data-slot={INFINITE_CANVAS_SLOTS.viewport}
-        onLostPointerCapture={(event) => {
-          actions.finishInteraction(event.pointerId);
-        }}
-        onPointerCancel={(event) => {
-          actions.finishInteraction(event.pointerId);
-        }}
-        onPointerDown={(event) => {
-          if (!isCanvasPointerGesture(event)) {
-            return;
-          }
-
-          const point = getViewportPoint(event.currentTarget, getClientPoint(event));
-
-          if (!isCanvasPanGesture(event, spacePanRef.current)) {
-            const selectableTarget = getInfiniteCanvasSelectableTargetFromSpatialTarget(
-              resolveSpatialTarget(point),
-            );
-
-            if (selectableTarget !== null) {
-              event.preventDefault();
-              event.stopPropagation();
-              clearNativeTextSelection();
-              focusInfiniteCanvasCommandSurface(commandSurfaceRef.current);
-              applyModifiedPointerTargetSelection(actions, event, selectableTarget);
-
+    <InfiniteCanvasDesktopPortalContext.Provider value={desktopPortalRoot}>
+      <InfiniteCanvasIconsContext.Provider value={resolvedIcons}>
+        <section
+          aria-label={title}
+          className={className}
+          data-infinite-canvas-viewport="true"
+          data-interaction={interaction?.kind}
+          data-pointer-mode={pointerMode}
+          data-slot={INFINITE_CANVAS_SLOTS.viewport}
+          onLostPointerCapture={(event) => {
+            actions.finishInteraction(event.pointerId);
+          }}
+          onPointerCancel={(event) => {
+            actions.finishInteraction(event.pointerId);
+          }}
+          onPointerDown={(event) => {
+            if (!isCanvasPointerGesture(event)) {
               return;
             }
-          }
 
-          const selectionExists = getState().selection.windowIds.length > 0;
-          const emptyCanvasDragIntent = getEmptyCanvasDragIntent(
-            activeInputPolicy,
-            event,
-            spacePanRef.current,
-            selectionExists,
-          );
+            const point = getViewportPoint(event.currentTarget, getClientPoint(event));
 
-          if (!isCanvasPanTarget(event.target, event.currentTarget, emptyCanvasDragIntent)) {
-            return;
-          }
+            if (!isCanvasPanGesture(event, spacePanRef.current)) {
+              const selectableTarget = getInfiniteCanvasSelectableTargetFromSpatialTarget(
+                resolveSpatialTarget(point),
+              );
 
-          event.preventDefault();
-          clearNativeTextSelection();
-          focusInfiniteCanvasCommandSurface(commandSurfaceRef.current);
-          capturePointer(event.currentTarget, event.pointerId);
+              if (selectableTarget !== null) {
+                event.preventDefault();
+                event.stopPropagation();
+                clearNativeTextSelection();
+                focusInfiniteCanvasCommandSurface(commandSurfaceRef.current);
+                applyModifiedPointerTargetSelection(actions, event, selectableTarget);
 
-          if (emptyCanvasDragIntent === "pan") {
-            actions.startPan({
-              clearSelection: shouldClearSelectionOnPanStart(event, spacePanRef.current),
-              pointerId: event.pointerId,
-              point,
-            });
-          } else {
-            actions.startMarquee({
-              mode: getMarqueeMode(event),
-              pointerId: event.pointerId,
-              point,
-            });
-          }
-        }}
-        onPointerMove={(event) => {
-          actions.stepInteraction({
-            pointerId: event.pointerId,
-            point: getViewportPoint(event.currentTarget, getClientPoint(event)),
-          });
-        }}
-        onPointerUp={(event) => {
-          releasePointer(event.currentTarget, event.pointerId);
-          actions.finishInteraction(event.pointerId);
-        }}
-        ref={rootRef}
-        style={{
-          ...themeVariables,
-          cursor,
-          display: "flex",
-          flex: "1 1 0%",
-          height: "100%",
-          minHeight: 0,
-          minWidth: 0,
-          overflow: "hidden",
-          position: "relative",
-          touchAction: "none",
-          userSelect: interaction === null ? undefined : "none",
-          width: "100%",
-        }}
-      >
-        <div
-          data-infinite-canvas-command-scope="surface"
-          ref={commandSurfaceRef}
-          style={{
-            height: 1,
-            opacity: 0,
-            outline: "none",
-            pointerEvents: "none",
-            position: "absolute",
-            width: 1,
+                return;
+              }
+            }
+
+            const selectionExists = getState().selection.windowIds.length > 0;
+            const emptyCanvasDragIntent = getEmptyCanvasDragIntent(
+              activeInputPolicy,
+              event,
+              spacePanRef.current,
+              selectionExists,
+            );
+
+            if (!isCanvasPanTarget(event.target, event.currentTarget, emptyCanvasDragIntent)) {
+              return;
+            }
+
+            event.preventDefault();
+            clearNativeTextSelection();
+            focusInfiniteCanvasCommandSurface(commandSurfaceRef.current);
+            capturePointer(event.currentTarget, event.pointerId);
+
+            if (emptyCanvasDragIntent === "pan") {
+              actions.startPan({
+                clearSelection: shouldClearSelectionOnPanStart(event, spacePanRef.current),
+                pointerId: event.pointerId,
+                point,
+              });
+            } else {
+              actions.startMarquee({
+                mode: getMarqueeMode(event),
+                pointerId: event.pointerId,
+                point,
+              });
+            }
           }}
-          tabIndex={-1}
-        />
-        <InfiniteCanvasGridBackdrop />
-        {SceneSurface === undefined ||
-        (underlayWorldSceneLayers.length === 0 && !diagnostics.frustum) ? null : (
-          <SceneSurface
+          onPointerMove={(event) => {
+            actions.stepInteraction({
+              pointerId: event.pointerId,
+              point: getViewportPoint(event.currentTarget, getClientPoint(event)),
+            });
+          }}
+          onPointerUp={(event) => {
+            releasePointer(event.currentTarget, event.pointerId);
+            actions.finishInteraction(event.pointerId);
+          }}
+          ref={rootRef}
+          style={{
+            ...themeVariables,
+            cursor,
+            display: "flex",
+            flex: "1 1 0%",
+            height: "100%",
+            minHeight: 0,
+            minWidth: 0,
+            overflow: "hidden",
+            position: "relative",
+            touchAction: "none",
+            userSelect: interaction === null ? undefined : "none",
+            width: "100%",
+          }}
+        >
+          <div
+            data-infinite-canvas-command-scope="surface"
+            ref={commandSurfaceRef}
+            style={{
+              height: 1,
+              opacity: 0,
+              outline: "none",
+              pointerEvents: "none",
+              position: "absolute",
+              width: 1,
+            }}
+            tabIndex={-1}
+          />
+          {/* Outside every transform, so `position: fixed` in portalled content
+            resolves against the viewport rather than a scaled window frame. */}
+          <div
+            data-slot={INFINITE_CANVAS_SLOTS.portalRoot}
+            ref={setDesktopPortalRoot}
+            style={{
+              inset: 0,
+              pointerEvents: "none",
+              position: "absolute",
+              zIndex: PORTAL_ROOT_Z_INDEX,
+            }}
+          />
+          <InfiniteCanvasGridBackdrop />
+          {SceneSurface === undefined ||
+          (underlayWorldSceneLayers.length === 0 && !diagnostics.frustum) ? null : (
+            <SceneSurface
+              chrome={chrome}
+              devicePixelRatio={devicePixelRatio}
+              diagnostics={diagnostics}
+              dropInteraction={dropInteraction}
+              sceneLayers={underlayWorldSceneLayers}
+              space="world"
+              spatialTargetResolvers={spatialTargetResolvers}
+              theme={resolvedTheme}
+              zIndex={SCENE_UNDERLAY_Z_INDEX}
+            />
+          )}
+          {SceneSurface === undefined || underlayScreenSceneLayers.length === 0 ? null : (
+            <SceneSurface
+              chrome={chrome}
+              devicePixelRatio={devicePixelRatio}
+              diagnostics={DEFAULT_INFINITE_CANVAS_DIAGNOSTICS}
+              dropInteraction={dropInteraction}
+              sceneLayers={underlayScreenSceneLayers}
+              space="screen"
+              spatialTargetResolvers={spatialTargetResolvers}
+              theme={resolvedTheme}
+              zIndex={SCENE_SCREEN_UNDERLAY_Z_INDEX}
+            />
+          )}
+          <InfiniteCanvasGroupLayer
+            devicePixelRatio={devicePixelRatio}
+            zIndex={GROUP_LAYER_Z_INDEX}
+          />
+          <InfiniteCanvasWindowLayer
             chrome={chrome}
             devicePixelRatio={devicePixelRatio}
-            diagnostics={diagnostics}
-            dropInteraction={dropInteraction}
-            sceneLayers={underlayWorldSceneLayers}
-            space="world"
-            spatialTargetResolvers={spatialTargetResolvers}
+            stackBands={DEFAULT_INFINITE_CANVAS_STACK_BANDS}
             theme={resolvedTheme}
-            zIndex={SCENE_UNDERLAY_Z_INDEX}
+            windowDefinitions={windowDefinitions}
+            zIndex={WINDOW_LAYER_Z_INDEX}
           />
-        )}
-        {SceneSurface === undefined || underlayScreenSceneLayers.length === 0 ? null : (
-          <SceneSurface
-            chrome={chrome}
-            devicePixelRatio={devicePixelRatio}
-            diagnostics={DEFAULT_INFINITE_CANVAS_DIAGNOSTICS}
-            dropInteraction={dropInteraction}
-            sceneLayers={underlayScreenSceneLayers}
-            space="screen"
-            spatialTargetResolvers={spatialTargetResolvers}
-            theme={resolvedTheme}
-            zIndex={SCENE_SCREEN_UNDERLAY_Z_INDEX}
+          {SceneSurface === undefined || overlayWorldSceneLayers.length === 0 ? null : (
+            <SceneSurface
+              chrome={chrome}
+              devicePixelRatio={devicePixelRatio}
+              diagnostics={DEFAULT_INFINITE_CANVAS_DIAGNOSTICS}
+              dropInteraction={dropInteraction}
+              sceneLayers={overlayWorldSceneLayers}
+              space="world"
+              spatialTargetResolvers={spatialTargetResolvers}
+              theme={resolvedTheme}
+              zIndex={SCENE_OVERLAY_Z_INDEX}
+            />
+          )}
+          {SceneSurface === undefined || overlayScreenSceneLayers.length === 0 ? null : (
+            <SceneSurface
+              chrome={chrome}
+              devicePixelRatio={devicePixelRatio}
+              diagnostics={DEFAULT_INFINITE_CANVAS_DIAGNOSTICS}
+              dropInteraction={dropInteraction}
+              sceneLayers={overlayScreenSceneLayers}
+              space="screen"
+              spatialTargetResolvers={spatialTargetResolvers}
+              theme={resolvedTheme}
+              zIndex={SCENE_SCREEN_OVERLAY_Z_INDEX}
+            />
+          )}
+          <InfiniteCanvasSelectionBoundsOverlay devicePixelRatio={devicePixelRatio} />
+          <InfiniteCanvasDockPreviewOverlay devicePixelRatio={devicePixelRatio} />
+          <InfiniteCanvasSnapOverlay devicePixelRatio={devicePixelRatio} />
+          <InfiniteCanvasMarqueeOverlay />
+          {renderOverlay?.(overlayContext)}
+          <InfiniteCanvasHud
+            onPointerModeChange={setPointerModeOverride}
+            pointerMode={pointerMode}
+            policy={hud}
+            subtitle={subtitle}
+            title={title}
+            zoomPolicy={zoomPolicy}
           />
-        )}
-        <InfiniteCanvasGroupLayer
-          devicePixelRatio={devicePixelRatio}
-          zIndex={GROUP_LAYER_Z_INDEX}
-        />
-        <InfiniteCanvasWindowLayer
-          chrome={chrome}
-          devicePixelRatio={devicePixelRatio}
-          stackBands={DEFAULT_INFINITE_CANVAS_STACK_BANDS}
-          theme={resolvedTheme}
-          windowDefinitions={windowDefinitions}
-          zIndex={WINDOW_LAYER_Z_INDEX}
-        />
-        {SceneSurface === undefined || overlayWorldSceneLayers.length === 0 ? null : (
-          <SceneSurface
-            chrome={chrome}
-            devicePixelRatio={devicePixelRatio}
-            diagnostics={DEFAULT_INFINITE_CANVAS_DIAGNOSTICS}
-            dropInteraction={dropInteraction}
-            sceneLayers={overlayWorldSceneLayers}
-            space="world"
-            spatialTargetResolvers={spatialTargetResolvers}
-            theme={resolvedTheme}
-            zIndex={SCENE_OVERLAY_Z_INDEX}
-          />
-        )}
-        {SceneSurface === undefined || overlayScreenSceneLayers.length === 0 ? null : (
-          <SceneSurface
-            chrome={chrome}
-            devicePixelRatio={devicePixelRatio}
-            diagnostics={DEFAULT_INFINITE_CANVAS_DIAGNOSTICS}
-            dropInteraction={dropInteraction}
-            sceneLayers={overlayScreenSceneLayers}
-            space="screen"
-            spatialTargetResolvers={spatialTargetResolvers}
-            theme={resolvedTheme}
-            zIndex={SCENE_SCREEN_OVERLAY_Z_INDEX}
-          />
-        )}
-        <InfiniteCanvasSelectionBoundsOverlay devicePixelRatio={devicePixelRatio} />
-        <InfiniteCanvasDockPreviewOverlay devicePixelRatio={devicePixelRatio} />
-        <InfiniteCanvasSnapOverlay devicePixelRatio={devicePixelRatio} />
-        <InfiniteCanvasMarqueeOverlay />
-        {renderOverlay?.(overlayContext)}
-        <InfiniteCanvasHud
-          onPointerModeChange={setPointerModeOverride}
-          pointerMode={pointerMode}
-          policy={hud}
-          subtitle={subtitle}
-          title={title}
-          zoomPolicy={zoomPolicy}
-        />
-        <InfiniteCanvasRasterSchedulerGate paused={interaction !== null} />
-        <InfiniteCanvasDiagnosticsOverlay policy={diagnostics} />
-        <InfiniteCanvasRasterHud />
-      </section>
-    </InfiniteCanvasIconsContext.Provider>
+          <InfiniteCanvasRasterSchedulerGate paused={interaction !== null} />
+          <InfiniteCanvasDiagnosticsOverlay policy={diagnostics} />
+          <InfiniteCanvasRasterHud />
+        </section>
+      </InfiniteCanvasIconsContext.Provider>
+    </InfiniteCanvasDesktopPortalContext.Provider>
   );
 }
 

@@ -70,6 +70,16 @@ pointerModeControls?, cameraControls?, zoomControls? }` landed with the HUD
   but threading `Data` through `defineInfiniteCanvasWindowRegistry` and the
   render contexts is the real fix.
 
+## Fixed 2026-07-08
+
+- **Popovers inside window bodies land in the wrong place.** A frame is
+  `transform: scale(zoom)`, which makes it the containing block for
+  `position: fixed`, so every floating-UI library resolves against the frame and
+  gets scaled by the zoom. Fixed with framework-owned portal roots
+  (`src/portal.tsx`, `<InfiniteCanvasPortal>`): a desktop root at viewport level,
+  and an opt-in window-local root tracking the window's screen rect. `/portals`
+  demonstrates both.
+
 ## Open — medium
 
 - **Typed-payload contexts don't downcast** — `InfiniteCanvasOverlayRenderContext<K, Payload>`

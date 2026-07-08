@@ -30,6 +30,7 @@ const INFINITE_CANVAS_SLOTS = {
   hudTitle: "hud-title",
   hudZoomReadout: "hud-zoom-readout",
   marquee: "marquee",
+  portalRoot: "portal-root",
   resizeHandle: "resize-handle",
   selectionBounds: "selection-bounds",
   snapGuide: "snap-guide",
@@ -43,6 +44,7 @@ const INFINITE_CANVAS_SLOTS = {
   windowCorners: "window-corners",
   windowHeader: "window-header",
   windowHostChrome: "window-host-chrome",
+  windowPortalRoot: "window-portal-root",
   windowSurface: "window-surface",
   windowTitle: "window-title",
 } as const;

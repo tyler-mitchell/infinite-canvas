@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, type CSSProperties, type ReactNode } from "react";
+import { useMemo, useState, type CSSProperties, type ReactNode } from "react";
 
 import { INFINITE_CANVAS_SLOTS, getInfiniteCanvasWindowStateAttributes } from "./data-attributes";
 import {
@@ -16,6 +16,7 @@ import {
   isPrimaryButton,
   releasePointer,
 } from "./runtime";
+import { InfiniteCanvasWindowPortalContext } from "./portal";
 import { getWindowStackValue } from "./stacking";
 import { useInfiniteCanvasActions, useInfiniteCanvasStore } from "./store";
 import type {
@@ -193,7 +194,8 @@ function InfiniteCanvasWindowFrame<Kind extends string>({
   const isHostLocalChrome = frameChrome === "host" || frameChrome === "scene";
   const textSelection = definition.textSelection ?? "none";
   const bodyPointerBehavior = definition.bodyPointerBehavior ?? "native";
-  const { screenTransform } = projectWorldRectToScreen(
+  const [windowPortalRoot, setWindowPortalRoot] = useState<HTMLDivElement | null>(null);
+  const { screenRect, screenTransform } = projectWorldRectToScreen(
     camera,
     viewport,
     window.rect,
@@ -321,31 +323,53 @@ function InfiniteCanvasWindowFrame<Kind extends string>({
 
   return (
     <InfiniteCanvasWindowFrameRuntimeContext.Provider value={frameRuntimeContext}>
-      <article
-        aria-label={window.title}
-        // `aria-selected` is only valid on gridcell/option/row/tab/treeitem —
-        // never on `group`, where assistive tech ignores or misreports it.
-        // The active window is the "current item in a set", which is exactly
-        // what `aria-current` means and is valid on any element. Selection
-        // stays a styling concern via the `data-selected` contract.
-        aria-current={isActive ? "true" : undefined}
-        aria-roledescription="window"
-        data-frame-chrome={isHostLocalChrome ? "host" : "dom"}
-        data-infinite-canvas-window-id={window.id}
-        data-kind={window.kind}
-        data-mode={window.mode}
-        data-slot={INFINITE_CANVAS_SLOTS.window}
-        {...getInfiniteCanvasWindowStateAttributes({
-          isActive,
-          isPinned: window.isPinned,
-          isSelected,
-        })}
-        role="group"
-        style={articleStyle}
-      >
-        {frameNode}
-        {resizeHandles}
-      </article>
+      <InfiniteCanvasWindowPortalContext.Provider value={windowPortalRoot}>
+        {definition.portalRoot !== true ? null : (
+          // A sibling of the frame, not a child: it must sit outside the frame's
+          // transform, or content mounted here would be scaled by zoom and would
+          // resolve `position: fixed` against the frame. It tracks the window's
+          // *screen* rect instead, so a popover lands beside its anchor at natural
+          // size.
+          <div
+            data-infinite-canvas-window-id={window.id}
+            data-slot={INFINITE_CANVAS_SLOTS.windowPortalRoot}
+            ref={setWindowPortalRoot}
+            style={{
+              height: `${screenRect.height}px`,
+              left: `${screenRect.left}px`,
+              pointerEvents: "none",
+              position: "absolute",
+              top: `${screenRect.top}px`,
+              width: `${screenRect.width}px`,
+            }}
+          />
+        )}
+        <article
+          aria-label={window.title}
+          // `aria-selected` is only valid on gridcell/option/row/tab/treeitem —
+          // never on `group`, where assistive tech ignores or misreports it.
+          // The active window is the "current item in a set", which is exactly
+          // what `aria-current` means and is valid on any element. Selection
+          // stays a styling concern via the `data-selected` contract.
+          aria-current={isActive ? "true" : undefined}
+          aria-roledescription="window"
+          data-frame-chrome={isHostLocalChrome ? "host" : "dom"}
+          data-infinite-canvas-window-id={window.id}
+          data-kind={window.kind}
+          data-mode={window.mode}
+          data-slot={INFINITE_CANVAS_SLOTS.window}
+          {...getInfiniteCanvasWindowStateAttributes({
+            isActive,
+            isPinned: window.isPinned,
+            isSelected,
+          })}
+          role="group"
+          style={articleStyle}
+        >
+          {frameNode}
+          {resizeHandles}
+        </article>
+      </InfiniteCanvasWindowPortalContext.Provider>
     </InfiniteCanvasWindowFrameRuntimeContext.Provider>
   );
 }

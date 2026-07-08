@@ -74,6 +74,13 @@ export {
   captureInfiniteCanvasRecipe,
   getInfiniteCanvasRecipeOrigin,
 } from "./recipes";
+export {
+  InfiniteCanvasPortal,
+  useInfiniteCanvasDesktopPortalRoot,
+  useInfiniteCanvasPortalRoots,
+  useInfiniteCanvasWindowPortalRoot,
+} from "./portal";
+export type { InfiniteCanvasPortalScope } from "./portal";
 export { createInfiniteCanvasHandle } from "./canvas-handle";
 export type { InfiniteCanvasHandle } from "./canvas-handle";
 export {

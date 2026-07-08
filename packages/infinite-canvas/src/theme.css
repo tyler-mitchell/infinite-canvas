@@ -537,4 +537,16 @@
     background: color-mix(in oklab, var(--icx-selection-border) 22%, transparent);
     border-color: var(--icx-selection-border);
   }
+
+  /* Portal roots are structural: they carry no look, only position. They must not
+     capture pointer events themselves, or an empty root would swallow the canvas. */
+  [data-slot="portal-root"],
+  [data-slot="window-portal-root"] {
+    pointer-events: none;
+  }
+
+  [data-slot="portal-root"] > *,
+  [data-slot="window-portal-root"] > * {
+    pointer-events: auto;
+  }
 }

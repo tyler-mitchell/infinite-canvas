@@ -165,10 +165,15 @@ Unblocks real applications living in window bodies — currently the
 sharpest near-term trap
 ([research/body-content-contract.md](research/body-content-contract.md)).
 
-- Framework-owned **portal roots**: window-local (menus/popovers tracking
-  the window) and desktop-level (overlays escaping window bounds);
-  documented positioning semantics for transformed subtrees (base-ui
-  popovers inside bodies become safe).
+- ✅ **Landed (2026-07-08): portal roots.** `portal.tsx` gives two roots outside
+  every transform: a desktop-level one on the viewport, and a window-local one
+  positioned to a window's _screen_ rect and moved as the camera does.
+  `<InfiniteCanvasPortal scope="window">` mounts into it, so a popover anchored to a
+  button inside a body appears beside that button at natural size instead of being
+  scaled by zoom and positioned against the frame. The window root is **opt-in per
+  window kind** (`portalRoot: true`): mounting one for every window would cost a
+  style write per window per camera tick, which is exactly what the frame's
+  memoization exists to avoid. `/portals` shows the trap and the fix side by side.
 - Input ownership policy completion: wheel `deltaMode` normalization,
   modifier-zoom-over-bodies decision, pinch edge cases
   ([zoom-policy.md](zoom-policy.md) open items).
