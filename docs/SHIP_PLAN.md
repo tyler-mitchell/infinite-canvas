@@ -37,6 +37,53 @@ onto a canary and pay for three.js even if they never use `sceneLayers`.
 ✅ Good news: `@zumer/snapdom` is correctly lazy (`import()` only), dist is
 216 KB ESM + 100 KB dts + theme.css copied correctly, 131 tests green.
 
+## Status — 2026-06-24
+
+**Class 1 (cannot publish): DONE.** Renamed to `@infinite-canvas/react`;
+`"use client"` re-asserted as the bundle's first statement; full npm metadata,
+`sideEffects: ["**/*.css"]`, provenance; peers widened off the exact R3F canary.
+`scripts/verify-artifact.mjs` is the standing gate, wired to `prepublishOnly`.
+Proven with `pnpm pack` -> install into a fresh project outside the workspace
+-> `tsc --noEmit` against the published `.d.mts` -> esbuild bundles at exit 0
+-> theme.css subpath resolves. `pnpm publish --dry-run` runs the whole
+pipeline and resolves to `@infinite-canvas/react@0.1.0` on the registry.
+
+**Class 3 (nobody would trust it): DONE.** LICENSE, root README, npm README
+(quickstart compiled verbatim), `docs/API.md` generated from the barrel (285
+names, all verified present in the built `.d.mts`), CI (node 22/24) and a
+provenance release workflow, CONTRIBUTING / CODE_OF_CONDUCT / SECURITY /
+CHANGELOG / issue + PR templates.
+
+**Also fixed, found by measuring the artifact rather than the workspace:**
+
+- The toolchain catalog pinned `vite`/`vitest`/`vite-plus` to `@latest`, so
+  every `install` silently upgraded it. A 0.1.24 -> 0.2.2 drift broke
+  `vp test` mid-session. Now pinned exactly — reproducible builds are a
+  prerequisite for CI meaning anything.
+- `arktype` was 45.5 KB gzipped, **34% of the shipped bundle**, reachable from
+  `store -> persistence -> validation` on every consumer's render path, to
+  validate eight small shapes. Replaced with hand-rolled guards, proven
+  behaviour-identical by characterization tests written against arktype first.
+  132.9 KB -> 87.4 KB gzipped.
+- `aria-selected` on `role="group"` is invalid ARIA. Replaced with
+  `aria-current` on the active window, plus `aria-roledescription="window"`.
+  Locked by `src/accessibility.test.tsx`.
+- Persistence had **no browser coverage at all** — no playground route set
+  `storageKey`. Added `/persistence`, and verified live: a fractional rect
+  (`x: 144.21052631578948`) round-trips exactly; transient interaction state is
+  stripped; a poisoned payload, a window whose `kind` no longer exists, and
+  unparseable JSON each recover cleanly with zero console errors.
+
+**Class 2 (cannot open-source) — STILL BLOCKING, owner decision required.**
+See "Open questions" below. The npm package is unaffected: `/dynamic-grid` and
+`reference/` are playground/repo-only and ship in neither the tarball nor the
+published artifact. Only making the _repository_ public is gated.
+
+**Class 4 (production hardening) — remaining, in value order:** the optional-3D
+bundle split (`three` + `@react-three/fiber` are hard peers, statically
+imported, even for consumers who never pass `sceneLayers`); keyboard navigation
+between windows; API surface tiering (155 values + 131 types).
+
 ## Blocker classes
 
 ### Class 1 — Cannot publish (fix first)
