@@ -31,6 +31,8 @@ import type { InfiniteCanvasPoint, InfiniteCanvasRect, InfiniteCanvasState } fro
  * Minimized windows have no rect and are omitted. Windows hidden behind an inactive tab or a
  * collapsed fold are omitted *individually* but still counted through their group, which is
  * the thing you would navigate to.
+ *
+ * @experimental Landed 2026-07-08 and no arrow has been drawn in a browser. The shape may change.
  */
 
 type InfiniteCanvasOffscreenTargetKind = "group" | "window";

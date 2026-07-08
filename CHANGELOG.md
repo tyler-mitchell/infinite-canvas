@@ -24,6 +24,25 @@ sections, in this order, omitting the ones that don't apply:
 
 ### Added
 
+- **Every public name now carries a stability tier**, classified per module in
+  `scripts/api-stability.json` and enforced by `scripts/verify-api-stability.mjs` in CI, in
+  `prepublishOnly`, and on `pre-push`. **374 names shipped with no tier at all, which is not
+  "no promise" — it is an implicit promise of stability on all 374, made by silence**, including
+  on modules nobody has ever watched run. Now 315 stable and 57 experimental.
+
+  Classification is per **module**, and the asymmetry is deliberate: a new export inside
+  `geometry.ts` inherits stable without a manifest edit, and a new module in a barrel fails the
+  build until someone decides what it promises. Every experimental entry names one of four
+  reasons, each a fact about the repo rather than a feeling about the code — `unobserved`,
+  `off-by-default`, `unconsumed`, `r3f-canary`.
+
+  Auditing to write it produced the finding: **`window-scene-shell` exports fifteen names and
+  nothing calls them.** Grepping the tree finds callers only inside its own test file, and
+  `getMinimumWorldLength` has no reference anywhere, tests included. Meanwhile
+  `scene-layer-geometry`, `scene-model`, `spatial-target`, and `window-proxy` sound like 3D,
+  are pure-core roots that cannot reach `three`, and have real consumers — so they are stable
+  and stay on the main entry. Purity is not a stability argument; size is not either.
+
 - **Group shells resize by their outer edge.** Eight handles around the shell, a `groupResize`
   interaction beside `groupMove` and `groupGutter`, and the `startGroupResize` command. The tree
   is never touched: the shell's `rect` changes and every member re-projects from it, which is the

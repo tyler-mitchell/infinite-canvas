@@ -58,6 +58,12 @@ jobs:
       - name: Verify pure-core import boundary
         run: node packages/infinite-canvas/scripts/verify-pure-core.mjs
 
+      # Semver gate: a barrel that re-exports from a module classified in neither tier
+      # of scripts/api-stability.json fails here. 374 names shipped with no tier once,
+      # which is not "no promise" — it is an implicit promise of stability on all of them.
+      - name: Verify public API stability tiers
+        run: node packages/infinite-canvas/scripts/verify-api-stability.mjs
+
       - name: Test
         run: pnpm exec vp run -r test
 

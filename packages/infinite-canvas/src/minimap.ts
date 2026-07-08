@@ -25,6 +25,8 @@ import type {
  * Pure: no DOM, no React, no store. It composes from the same `unionRects` and
  * `getVisibleWorldRect` a consumer already has, which is the point — nothing here is
  * privileged, and a consumer who wants a different overview can write one.
+ *
+ * @experimental Landed 2026-07-08 and no minimap has been drawn in a browser. The shape may change.
  */
 
 /** A window as the overview sees it: a box, and the two states worth styling differently. */

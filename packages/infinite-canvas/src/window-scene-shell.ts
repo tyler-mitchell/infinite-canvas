@@ -1,3 +1,16 @@
+/**
+ * A window's chrome projected into scene space: the frame plane, the body plane, and the
+ * local↔scene transforms between them.
+ *
+ * Pure — it reaches `geometry` and nothing else, and `verify-pure-core.mjs` proves it cannot
+ * reach `three`. Pure is not the same as load-bearing.
+ *
+ * @experimental **Nothing calls this.** Fifteen exported names, and grepping the tree finds
+ * callers only inside `window-scene-shell.test.ts`. `getMinimumWorldLength` has no reference
+ * anywhere at all, tests included, and `window-proxy.ts` reaches in for exactly one function.
+ * An API nobody has used is an API nobody has found the flaws in, so it promises nothing until
+ * somebody does.
+ */
 import { projectWorldRectToScreen, worldRectToScreenTransform } from "./geometry";
 import type {
   InfiniteCanvasCamera,

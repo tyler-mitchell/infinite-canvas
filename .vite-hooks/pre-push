@@ -20,6 +20,7 @@
 
 vp check
 
-# The same two gates CI runs. Both read source, need no build, and take milliseconds.
+# The same three gates CI runs. All read source, need no build, and take milliseconds.
 node packages/infinite-canvas/scripts/verify-api-doc.mjs
 node packages/infinite-canvas/scripts/verify-pure-core.mjs
+node packages/infinite-canvas/scripts/verify-api-stability.mjs

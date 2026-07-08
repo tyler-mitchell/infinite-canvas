@@ -1,10 +1,16 @@
 # API Reference
 
-The public surface of `@infinite-canvas/react`: 200 values and 166 types,
-generated from the barrel (`packages/infinite-canvas/src/index.ts`) so it cannot
-drift. Anything not exported from the barrel is internal and unstable —
+The public surface of `@infinite-canvas/react`: 203 values and 171 types across
+two entries. Anything not exported from a barrel is internal and unstable —
 including every `data-infinite-canvas-*` attribute, which is a behavioural hook
 for hit-testing, not a styling contract.
+
+This document is **hand-maintained and machine-checked**, which is not the same
+as generated — it said "generated from the barrel, so it cannot drift" for the
+first month of its life, while drifting by 43 names. `verify-api-doc.mjs` now
+asserts every export appears here, and `verify-api-stability.mjs` asserts every
+exporting module is classified below. Neither writes a word of prose; both fail
+the build when the prose stops matching the code.
 
 The `@infinite-canvas/react/scene` entry is documented separately below. It is
 the only entry that pulls in `three` and `@react-three/fiber`.
@@ -13,27 +19,46 @@ the only entry that pulls in `three` and `@react-three/fiber`.
 
 ## Stability
 
-Three tiers. Everything not listed as experimental is stable in the sense that a
-change to it will be called out under `Changed` or `Removed` in the changelog.
+**Two tiers, assigned per module.** A change to a stable export is called out
+under `Changed` or `Removed` in the changelog. An experimental export may change
+or disappear in any release.
 
-**Experimental — the shape will change.** Marked `@experimental` in TSDoc.
+Classification lives in
+[`packages/infinite-canvas/scripts/api-stability.json`](../packages/infinite-canvas/scripts/api-stability.json)
+and `verify-api-stability.mjs` enforces it: a barrel that re-exports from an
+unclassified module fails the build. **A new export inside an already-classified
+module inherits that module's tier**, which is the intended asymmetry — adding a
+function to `geometry.ts` should not require a manifest edit, and adding a whole
+module to the public surface should require a decision.
 
-| Export                                                                                                                                                                                        | Why                                                                                                                                                                                                               |
-| --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `createInfiniteCanvasHandle`                                                                                                                                                                  | The programmatic surface for automation is still finding its shape.                                                                                                                                               |
-| `DEFAULT_INFINITE_CANVAS_RASTERIZATION`, `resolveInfiniteCanvasRasterizationPolicy`, and the `InfiniteCanvasRaster*` types                                                                    | Rasterization is partial and off by default. The capture lane is slated to be rebuilt on `html-in-canvas` (P7), and semantic level-of-detail is unbuilt.                                                          |
-| `useInfiniteCanvasWindowFrustum`, `useInfiniteCanvasWindowFramed`, `useInfiniteCanvasVisibilitySummary`, `getInfiniteCanvasVisibilitySummary`, `getWindowFrustumVisibility`, `isWindowFramed` | **Inert unless a scene surface is mounted with `diagnostics.frustum` on** — only the frustum probe layer, which ships behind `/scene`, writes that store. A `null` reading means "unmeasured", never "offscreen". |
+Every experimental entry names one of four reasons, and each reason is a fact
+about this repository rather than a feeling about the code.
 
-**Behind `@infinite-canvas/react/scene`.** The WebGPU surface and the frustum
-probe layer. Importing this entry is what opts you into `three` and
-`@react-three/fiber`.
+| Reason             | Meaning                                                                                                                                                                                | Modules                                                                                   |
+| ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| **unobserved**     | Shipped, typechecked, gated — never watched running.                                                                                                                                   | `canvas-handle`, `minimap`, `offscreen`                                                   |
+| **off-by-default** | Behind a policy prop that no default configuration turns on, so nothing exercises the shipped path.                                                                                    | `rasterization-layer`, `visibility`, `diagnostics`                                        |
+| **unconsumed**     | Nothing outside its own test file calls it. An API nobody has used is an API nobody has found the flaws in.                                                                            | `window-scene-shell`                                                                      |
+| **r3f-canary**     | Reachable only through `@infinite-canvas/react/scene`, whose `@react-three/fiber` peer range admits a v10 canary. The framework cannot promise stability across someone else's canary. | `scene-surface`, `scene:scene-surface`, `scene:visibility-probes`, `scene:webgpu-surface` |
 
-**On the main entry, and staying there:** the ~40 `getInfiniteCanvas*Scene*`,
-connector, and world-path helpers. It is tempting to file them under `/scene`
-since only scene-layer authors tend to reach for them, but they are pure
-geometry — `scene-layer-geometry.ts` imports no `three` — and a consumer drawing
-window connectors into an SVG overlay needs them with no 3D engine anywhere.
-Moving them would force the 3D peers on someone who never asked for them.
+Plus six types in `types.ts`, which is a grab-bag holding
+`InfiniteCanvasSceneLayer` next to `InfiniteCanvasRect`: the `SceneLayer` family
+and `InfiniteCanvasSceneVector3`, all **r3f-canary**.
+
+### What is deliberately _not_ experimental
+
+**Purity is not a stability reason and neither is size.** `scene-layer-geometry`,
+`scene-model`, `spatial-target`, and `window-proxy` sound like 3D and are not:
+all four are pure-core roots — `verify-pure-core.mjs` proves none of them can
+reach `three` — and all four have consumers. They are stable, and they stay on
+the main entry, because a consumer drawing window connectors into an SVG overlay
+needs them with no 3D engine anywhere. Moving them behind `/scene` would force
+the 3D peers on someone who never asked for them.
+
+`window-scene-shell` is equally pure and is _not_ stable, on evidence rather than
+on smell: grepping the tree for its fifteen exported names finds callers only
+inside `window-scene-shell.test.ts`, and `getMinimumWorldLength` has no reference
+anywhere at all.
 
 ## Components
 
