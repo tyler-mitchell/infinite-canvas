@@ -128,10 +128,15 @@ capture); edge cases around body-content focus handoff and gesture routing
 - done: the command surface swallows any chord it owns, even when the command is
   unavailable — otherwise `Alt+ArrowLeft` at the edge of your windows falls
   through to the browser's Back and takes the document with it.
+- done: focus restoration when the active window leaves. `closeWindow` and
+  `minimizeWindow` fall back to the topmost remaining window, and the Close and
+  Minimize controls hand DOM focus back to the command surface before they
+  unmount — otherwise focus falls to `<body>` and every hotkey silently stops
+  working, with no way for the user to tell why.
 - open: **group-local focus** (FOCUS-001 prefers group-local neighbours over the
   global geometric fallback built here) — needs P1's group model.
-- open: focus trapping policy, focus restoration after close/minimize, and a
-  documented path to accessible controls inside window content.
+- open: focus trapping policy, and a documented path to accessible controls
+  inside window content.
 
 The shortcut guard protects editable targets today.
 

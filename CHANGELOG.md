@@ -73,6 +73,8 @@ Initial release.
 - **Accessibility contract.** Windows expose `role="group"`, an accessible name, and
   `aria-roledescription="window"`; the active window is marked with `aria-current`. Every
   framework-rendered button has an accessible name, and unavailable commands are `disabled`.
+  The Close and Minimize controls return DOM focus to the command surface before they unmount,
+  because focus falling to `<body>` silently kills every hotkey with nothing to tell the user why.
 - **Packaging gate.** `scripts/verify-artifact.mjs` asserts, on every build and before publish, that
   the JS entry is marked `"use client"` and the declaration files are _not_ (a directive prologue is
   a statement, and would fail every consumer without `skipLibCheck`), that `@zumer/snapdom` stays

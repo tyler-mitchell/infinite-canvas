@@ -9,7 +9,7 @@ import type {
 } from "./types";
 
 /**
- * Directional focus: which window an arrow key moves to (FR-9, FOCUS-001..003).
+ * Directional focus: which window an arrow key moves to (FR-9).
  *
  * The rule, and it is the one i3 and AeroSpace settled on: **arrow keys must not
  * drift diagonally.** A window that sits beside you — one whose span overlaps
@@ -19,6 +19,10 @@ import type {
  *
  * Everything here is pure geometry over `state.windows`. No DOM, no group model,
  * so this lands before P1 and keeps working after it.
+ *
+ * Scope: this is the *global geometric* tier of FOCUS-001. The group-local tier
+ * that scenario says should be preferred first needs P1's group model, and this
+ * becomes its fallback rather than its replacement.
  */
 
 /** World space grows downward, matching the DOM — and matching `window.nudge`. */

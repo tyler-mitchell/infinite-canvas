@@ -156,6 +156,8 @@ function InfiniteCanvasWindowFrameControlsSlot({
         data-slot={INFINITE_CANVAS_SLOTS.windowControl}
         onClick={(event) => {
           event.stopPropagation();
+          // This button is about to unmount with its window.
+          focusCommandSurfaceFrom(event.currentTarget);
           actions.minimizeWindow(window.id);
         }}
         onPointerDown={(event) => {
@@ -192,6 +194,8 @@ function InfiniteCanvasWindowFrameControlsSlot({
         data-slot={INFINITE_CANVAS_SLOTS.windowControl}
         onClick={(event) => {
           event.stopPropagation();
+          // This button is about to unmount with its window.
+          focusCommandSurfaceFrom(event.currentTarget);
           actions.closeWindow(window.id);
         }}
         onPointerDown={(event) => {
@@ -470,12 +474,23 @@ function getEventViewportPoint(event: ReactPointerEvent<HTMLElement>): InfiniteC
     : getViewportPoint(viewport, getClientPoint(event));
 }
 
-function focusEventCommandSurface(event: ReactPointerEvent<HTMLElement>) {
-  const viewport = event.currentTarget.closest<HTMLElement>(
-    "[data-infinite-canvas-viewport='true']",
-  );
+/**
+ * Hand keyboard control back to the canvas from any element inside it.
+ *
+ * Hotkeys only fire for events that land inside the command surface, so
+ * whenever an element that currently holds DOM focus is about to leave the
+ * document, something must claim focus first — otherwise it falls to `<body>`,
+ * every shortcut silently stops working, and the user has no way to know why
+ * except to click the canvas again.
+ */
+function focusCommandSurfaceFrom(element: HTMLElement) {
+  const viewport = element.closest<HTMLElement>("[data-infinite-canvas-viewport='true']");
 
   focusInfiniteCanvasCommandSurface(getCommandSurfaceElement(viewport));
+}
+
+function focusEventCommandSurface(event: ReactPointerEvent<HTMLElement>) {
+  focusCommandSurfaceFrom(event.currentTarget);
 }
 
 function getCommandSurfaceElement(viewport: HTMLElement | null) {
