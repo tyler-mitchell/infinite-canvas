@@ -120,6 +120,33 @@ pointerModeControls?, cameraControls?, zoomControls? }` landed with the HUD
   dependency of its own observer and could re-trigger it. Spatial queries remain
   open: they live in the render layer.
 
+## Fixed 2026-07-08 (dock intent)
+
+- **`Alt`+drag never docked, because three handlers stepped one pointermove.** Reported
+  against `/groups`. The window header dispatched `interaction.step` with
+  `dockIntent: event.altKey`; the canvas root — an **ancestor of every window frame**, so
+  a header drag bubbles into it — dispatched the same step with no `dockIntent` at all,
+  and `action.dockIntent === true` resolved it to `false`, nulling the `dockPreview` the
+  header had just resolved; the mount-scoped `window` listener then dispatched a third
+  time, with the modifier. Dock intent was decided by handler ordering for a single
+  physical event, and `dockPreview` flapped null↔set within one frame — which the dock
+  overlay reads.
+
+  The root's `onPointerMove` was vestigial: the "Move/resize/pan/marquee listener gap"
+  fix above made the mount-scoped `window` listener the source of truth for every
+  captured pointer, and did not remove the React handler it replaced. Removed. Pan and
+  marquee both `capturePointer` on the root, so their moves still retarget there and
+  bubble to `window`.
+
+  **The lesson is structural, not local:** an interaction step carrying a modifier must be
+  dispatched from exactly one place. Two dispatchers with different knowledge of the same
+  event is a race, and the one that knows less wins whenever it runs last.
+
+  Still worth deciding: `resolveInfiniteCanvasDockPreview` hit-tests the **pointer**
+  against the target's rect, not the dragged window's rect against it. Docs say "drag a
+  floating window _over another_", which reads as rect overlap. Cursor semantics match
+  VS Code and Dockview and are probably right, but the wording oversells it.
+
 ## Open — medium
 
 - **The pure core's import boundary is unenforced.** Legend State is confined to

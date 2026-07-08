@@ -33,6 +33,16 @@ sections, in this order, omitting the ones that don't apply:
 
 ### Fixed
 
+- **`Alt`+drag to dock did nothing.** One physical `pointermove` during a window drag
+  dispatched `interaction.step` three times: from the window header (carrying
+  `dockIntent: event.altKey`), from the canvas root (carrying nothing), and from the
+  mount-scoped `window` listener (carrying the modifier again). The canvas root is an
+  ancestor of every window frame, so a header drag bubbles into it, and its step resolved
+  `dockIntent` to `false` and wiped the `dockPreview` the header had just resolved.
+  Whether docking worked came down to which handler ran last. The root's `onPointerMove`
+  was a leftover from before interaction listeners became mount-scoped; the `window`
+  listener is now the single source for interaction steps. Also cuts the reducer work per
+  pointermove from three passes to one.
 - **A group's tab strip was one tab stop per tab.** Every tab is a `<button>`, so Tab walked
   all of them — three groups of four tabs put twelve stops between a keyboard user and anything
   else on the page. The tablist now carries a roving `tabIndex` and moves between tabs with

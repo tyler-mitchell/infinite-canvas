@@ -1028,12 +1028,17 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
               });
             }
           }}
-          onPointerMove={(event) => {
-            actions.stepInteraction({
-              pointerId: event.pointerId,
-              point: getViewportPoint(event.currentTarget, getClientPoint(event)),
-            });
-          }}
+          // No `onPointerMove` here, deliberately. This element is an ancestor of every
+          // window frame, so a header drag bubbles into it, and a second
+          // `interaction.step` for the one physical pointermove is dispatched from a
+          // handler that knows nothing about `event.altKey`. `dockIntent` then resolves
+          // to `false` and wipes the `dockPreview` the header just resolved — Alt+drag
+          // silently refuses to dock, decided by whichever of three handlers ran last.
+          //
+          // The mount-scoped `window` listener above is the single source for interaction
+          // steps: it fires for every captured pointer, in one coordinate space, and it
+          // carries the modifier. That was already the intent of the mount-scoped
+          // listener fix; this React handler was the leftover it failed to remove.
           onPointerUp={(event) => {
             releasePointer(event.currentTarget, event.pointerId);
             actions.finishInteraction(event.pointerId);
