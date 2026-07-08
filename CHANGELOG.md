@@ -49,8 +49,9 @@ Initial release.
 - **Typed drag and drop.** A drop-target contract with spatial resolution, so a payload dropped on
   the canvas resolves to the window (or the empty canvas region) actually underneath it, in canvas
   coordinates.
-- **Read-only R3F / WebGPU scene layers.** Windows can host React Three Fiber scene content on a
-  shared WebGPU surface, composited with the DOM canvas.
+- **Read-only R3F / WebGPU scene layers.** `sceneLayers` render React Three Fiber content above or
+  below the DOM window plane on a transparent WebGPU surface, in camera-owned world space or
+  DOM-aligned screen space, backed by projected window proxies.
 - **Custom window chrome.** Replace the default header, controls, and corners wholesale via
   `renderFrame`, or slot into the existing frame.
 - **Headless styling.** The framework ships no visual identity: every structural element is tagged
@@ -62,3 +63,15 @@ Initial release.
 
 [Unreleased]: https://github.com/tyler-mitchell/infinite-canvas/compare/v0.1.0...HEAD
 [0.1.0]: https://github.com/tyler-mitchell/infinite-canvas/releases/tag/v0.1.0
+
+- **Headless styling contract.** Framework components emit a stable `data-slot` attribute
+  vocabulary and no visual identity; `@infinite-canvas/react/theme.css` is an opt-in cascade layer
+  over that contract, so consumer styles always win. Enforced by a boundary test.
+- **Accessibility contract.** Windows expose `role="group"`, an accessible name, and
+  `aria-roledescription="window"`; the active window is marked with `aria-current`. Every
+  framework-rendered button has an accessible name, and unavailable commands are `disabled`.
+- **Packaging gate.** `scripts/verify-artifact.mjs` asserts, on every build and before publish, that
+  the bundle is marked `"use client"`, that `@zumer/snapdom` stays dynamically imported, that every
+  top-level import is a declared dependency or peer, and that the type declarations emit.
+- **Experimental programmatic handle.** `createInfiniteCanvasHandle(store)` exposes a state
+  snapshot, the typed command facade, and contextual command descriptors for automation and testing.

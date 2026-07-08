@@ -91,7 +91,7 @@ It is a single `@layer infinite-canvas` cascade layer targeting the `data-slot` 
 - **Snapping with guides** — edge, center, and equal-gap guides while moving and resizing, with screen-pixel-stable thresholds. Viewport snapping is opt-in through `snapPolicy`.
 - **Keyboard commands** — `Escape`, `Mod+A`, `Shift+1` (fit all), `Shift+2` (fit selection), arrow-key nudge, `Mod+0` (reset zoom); replaceable through `hotkeyBindings`.
 - **Camera navigation** — frame a window, the selection, all visible windows, a world point, or an arbitrary rect, with `center`, `centerAtZoom`, or `fit` behavior.
-- **Persistence** — versioned JSON layouts through `storageKey`, scoped by `documentKey`, parsed with ArkType and normalized against your registry so stale window kinds are dropped before hydration.
+- **Persistence** — versioned JSON layouts through `storageKey`, scoped by `documentKey`, structurally validated on hydration and normalized against your registry so stale window kinds are dropped before render.
 - **Typed drag & drop** — an opaque payload generic threaded through `dropPolicy.canDrop` / `onDrop`, overlay and scene-layer contexts, and valid / invalid / outside drop status.
 - **R3F scene layers** — `sceneLayers` render read-only React Three Fiber content above or below the DOM window plane, in camera-owned `space: "world"` or DOM-aligned `space: "screen"`, backed by projected window proxies.
 - **Custom frames** — `renderFrame` composes framework-owned slots (`Surface`, `Header`, `Title`, `Controls`, `Body`, `ActiveCorners`) so you can replace chrome without reimplementing drag, resize, focus, or body projection.

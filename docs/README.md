@@ -15,6 +15,10 @@ When documents disagree, the order of truth is:
 
 ## Documents
 
+- [API.md](API.md) — the complete public surface (155 values, 131 types),
+  generated from the barrel
+- [SHIP_PLAN.md](SHIP_PLAN.md) — open-source / production blockers, with verified
+  findings
 - [ROADMAP.md](ROADMAP.md) — the large work programs (P1–P8) with scope,
   exit criteria, dependencies, and the recommended spine
 - [ARCHITECTURE_PLAN.md](ARCHITECTURE_PLAN.md) — the porting/bring-up plan
