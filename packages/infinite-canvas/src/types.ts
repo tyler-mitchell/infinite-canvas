@@ -11,6 +11,13 @@ type InfiniteCanvasPoint = Readonly<{
   y: number;
 }>;
 
+/**
+ * A cardinal direction in world space, which grows downward like the DOM: `up`
+ * is decreasing `y`. Shared by every directional command so nudging and focusing
+ * can never disagree about which way is up.
+ */
+type InfiniteCanvasDirection = "down" | "left" | "right" | "up";
+
 type InfiniteCanvasSize = Readonly<{
   height: number;
   width: number;
@@ -573,8 +580,12 @@ type InfiniteCanvasCommand =
     }>
   | Readonly<{
       amountPx: number;
-      direction: "down" | "left" | "right" | "up";
+      direction: InfiniteCanvasDirection;
       type: "window.nudge";
+    }>
+  | Readonly<{
+      direction: InfiniteCanvasDirection;
+      type: "window.focusDirection";
     }>
   | Readonly<{ type: "view.resetZoom" }>;
 
@@ -585,6 +596,10 @@ type InfiniteCanvasCommandId =
   | "view.fitAll"
   | "view.fitSelection"
   | "view.resetZoom"
+  | "window.focus.down"
+  | "window.focus.left"
+  | "window.focus.right"
+  | "window.focus.up"
   | "window.nudge.down"
   | "window.nudge.down.large"
   | "window.nudge.left"
@@ -773,6 +788,7 @@ export type {
   InfiniteCanvasCommandId,
   InfiniteCanvasCommands,
   InfiniteCanvasContextualCommand,
+  InfiniteCanvasDirection,
   InfiniteCanvasCursor,
   InfiniteCanvasCursorInteraction,
   InfiniteCanvasCursorPolicy,

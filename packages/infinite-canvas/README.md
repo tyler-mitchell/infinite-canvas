@@ -107,7 +107,7 @@ It is a single `@layer infinite-canvas` cascade layer targeting the `data-slot` 
 - **Window lifecycle** — open, close, focus, minimize, maximize, restore, and pin, through one typed command facade.
 - **Selection and marquee** — replace / add / toggle / clear, select-all-visible, group move, plus typed non-window selection targets for consumer-owned scene objects and edges.
 - **Snapping with guides** — edge, center, and equal-gap guides while moving and resizing, with screen-pixel-stable thresholds. Viewport snapping is opt-in through `snapPolicy`.
-- **Keyboard commands** — `Escape`, `Mod+A`, `Shift+1` (fit all), `Shift+2` (fit selection), arrow-key nudge, `Mod+0` (reset zoom); replaceable through `hotkeyBindings`.
+- **Keyboard commands** — `Escape`, `Mod+A`, `Shift+1` (fit all), `Shift+2` (fit selection), arrow-key nudge, `Alt+Arrow` (focus the neighbouring window), `Mod+0` (reset zoom); replaceable through `hotkeyBindings`. A chord the canvas owns is swallowed even when its command is unavailable, so a focus move at the edge of your windows can never fall through to the browser's Back.
 - **Camera navigation** — frame a window, the selection, all visible windows, a world point, or an arbitrary rect, with `center`, `centerAtZoom`, or `fit` behavior.
 - **Persistence** — versioned JSON layouts through `storageKey`, scoped by `documentKey`, structurally validated on hydration and normalized against your registry so stale window kinds are dropped before render.
 - **Typed drag & drop** — an opaque payload generic threaded through `dropPolicy.canDrop` / `onDrop`, overlay and scene-layer contexts, and valid / invalid / outside drop status.
@@ -125,7 +125,7 @@ What exists is what is documented above. Notably **not** implemented yet:
 - window grouping, docking, or tabs
 - undo / redo
 - layout recipes
-- keyboard navigation between windows, and a complete accessibility story
+- group-local focus, focus trapping, and a complete accessibility story
 
 Rasterization / level-of-detail is partial: the policy, scheduler, and snapshot capture exist behind the `rasterization` prop and are off by default.
 

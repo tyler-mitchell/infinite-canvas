@@ -40,7 +40,12 @@ Initial release.
 - **Snapping with visual guides.** Edge, center, and gap alignment resolved against live snap
   candidates during move and resize, with preview guides rendered as the drag happens.
 - **Keyboard command layer.** Hotkeys bound to the same command vocabulary the pointer interactions
-  use, so anything the mouse can do the keyboard can express.
+  use, so anything the mouse can do the keyboard can express. Includes **directional window focus**
+  (`Alt+Arrow`): the nearest window strictly ahead along the arrow wins, and one whose span overlaps
+  yours on the cross axis beats one that is merely closer — so arrow keys never drift diagonally and
+  Right-then-Left returns you where you started. A chord the command surface owns is swallowed even
+  when its command is unavailable, so a focus move at the edge of your windows cannot fall through to
+  the browser's Back and take the document with it.
 - **Camera navigation commands.** Programmatic camera moves — focus a window, frame the selection,
   fit the world, zoom to a point — as commands rather than imperative camera pokes.
 - **Versioned, document-scoped persistence.** Canvas state serializes to a versioned envelope, keyed

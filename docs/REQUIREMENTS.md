@@ -112,13 +112,28 @@ interference. Largely implemented (input policy, shortcut guard, pointer
 capture); edge cases around body-content focus handoff and gesture routing
 (pinch policy, modifier zoom) remain — see [zoom-policy.md](zoom-policy.md).
 
-### FR-9 Accessibility Foundations — open
+### FR-9 Accessibility Foundations — partial
 
-Keyboard navigation between windows, focus trapping where appropriate, focus
-restoration, a path to accessible controls inside window content. The shortcut
-guard protects editable targets today; directional window focus, ARIA
-semantics, and focus restoration are unbuilt. Tracked as a hardening risk in
-the framework FEATURE_TRACKER.
+- done: ARIA semantics for windows and framework chrome (`role="group"`,
+  `aria-roledescription="window"`, `aria-current` on the active window, an
+  accessible name on every framework button), locked by
+  `src/accessibility.test.tsx`
+- done: **directional window focus** (`Alt+Arrow`) — `window.focusDirection`
+  picks the nearest window strictly ahead along the arrow, preferring one whose
+  span overlaps yours on the cross axis so arrow keys never drift diagonally.
+  With nothing focused, any arrow enters at the window nearest the camera
+  center. Focus reuses `focusWindow`, so keyboard and pointer compile to the
+  same mutation, and the camera only recentres when the target is not already
+  fully on screen. Pure geometry in `src/window-focus.ts`.
+- done: the command surface swallows any chord it owns, even when the command is
+  unavailable — otherwise `Alt+ArrowLeft` at the edge of your windows falls
+  through to the browser's Back and takes the document with it.
+- open: **group-local focus** (FOCUS-001 prefers group-local neighbours over the
+  global geometric fallback built here) — needs P1's group model.
+- open: focus trapping policy, focus restoration after close/minimize, and a
+  documented path to accessible controls inside window content.
+
+The shortcut guard protects editable targets today.
 
 ### FR-10 Serializable and Restorable Desktop State — partial
 

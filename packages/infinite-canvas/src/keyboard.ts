@@ -65,17 +65,23 @@ function registerInfiniteCanvasHotkeys<Kind extends string>({
       manager.register(
         binding.hotkey,
         (event) => {
-          const state = getState();
-
-          if (
-            !shouldHandleInfiniteCanvasKeyboardEvent(event, target) ||
-            !isInfiniteCanvasCommandEnabled(state, binding.command)
-          ) {
+          if (!shouldHandleInfiniteCanvasKeyboardEvent(event, target)) {
             return;
           }
 
+          // The chord belongs to the canvas the moment it lands on the command
+          // surface, so swallow it even when the command is unavailable. Letting
+          // an unavailable binding fall through to the browser is how
+          // `Alt+ArrowLeft` at the left edge of your windows navigates Back and
+          // takes the document with it — the failure arrives exactly when the
+          // user is pressing hardest against a boundary.
           event.preventDefault();
           event.stopPropagation();
+
+          if (!isInfiniteCanvasCommandEnabled(getState(), binding.command)) {
+            return;
+          }
+
           executeCommand(binding.command);
         },
         {

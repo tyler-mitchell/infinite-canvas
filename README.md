@@ -66,12 +66,12 @@ documented works and is tested; nothing below is aspirational.
 
 **Implemented:** infinite pan/zoom canvas · window lifecycle · selection,
 marquee, and group move · snapping with edge/center/gap guides · keyboard
-command layer · camera navigation · versioned, document-scoped persistence ·
+command layer, including directional window focus · camera navigation · versioned, document-scoped persistence ·
 typed drag & drop with spatial target resolution · read-only R3F scene layers ·
 custom chrome via `renderFrame` · headless theming.
 
 **Not implemented yet:** window grouping, docking, and tabs · undo/redo ·
-layout recipes · keyboard navigation _between_ windows, and a complete
+layout recipes · group-local focus, focus trapping, and a complete
 accessibility story · far-zoom semantic level-of-detail. Each is a defined
 program with exit criteria in [the roadmap](docs/ROADMAP.md), not a wish.
 

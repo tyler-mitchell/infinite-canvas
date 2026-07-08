@@ -1,6 +1,6 @@
 # API Reference
 
-The public surface of `@infinite-canvas/react`: 154 values and 133 types,
+The public surface of `@infinite-canvas/react`: 157 values and 134 types,
 generated from the barrel (`packages/infinite-canvas/src/index.ts`) so it cannot
 drift. Anything not exported from the barrel is internal and unstable —
 including every `data-infinite-canvas-*` attribute, which is a behavioural hook
@@ -114,6 +114,12 @@ buttons, and programmatic drivers share one mutation path.
 - `getInfiniteCanvasContextualCommands`
 - `getInfiniteCanvasHotkeyBindings`
 - `isInfiniteCanvasCommandEnabled`
+
+**`window-focus`**
+
+- `getInfiniteCanvasDirectionalFocusTarget` — the window an arrow key moves focus to
+- `getInfiniteCanvasWindowNearestCameraCenter` — the keyboard's way into an unfocused canvas
+- `isInfiniteCanvasWindowFullyVisible` — whether focusing a window should also move the camera
 
 **`keyboard`**
 

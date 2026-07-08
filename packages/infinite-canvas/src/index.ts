@@ -136,6 +136,11 @@ export {
   toInfiniteCanvasWindowWorldRect,
 } from "./window-scene-shell";
 export {
+  getInfiniteCanvasDirectionalFocusTarget,
+  getInfiniteCanvasWindowNearestCameraCenter,
+  isInfiniteCanvasWindowFullyVisible,
+} from "./window-focus";
+export {
   focusInfiniteCanvasCommandSurface,
   registerInfiniteCanvasHotkeys,
   shouldHandleInfiniteCanvasKeyboardEvent,
@@ -266,6 +271,7 @@ export type {
   InfiniteCanvasCursorInteraction,
   InfiniteCanvasCursorPolicy,
   InfiniteCanvasDragStartInput,
+  InfiniteCanvasDirection,
   InfiniteCanvasDropCommitContext,
   InfiniteCanvasDropInteraction,
   InfiniteCanvasDropPayload,

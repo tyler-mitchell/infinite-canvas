@@ -1,4 +1,8 @@
-import { isCameraNavigationAvailable, navigateCamera } from "./camera-navigation";
+import {
+  isCameraNavigationAvailable,
+  navigateCamera,
+  navigateCameraToWindow,
+} from "./camera-navigation";
 import { DEFAULT_INFINITE_CANVAS_ZOOM } from "./constants";
 import { zoomCameraAtScreenPoint } from "./geometry";
 import {
@@ -10,12 +14,18 @@ import {
   isWindowSelected,
   selectAllVisibleWindows,
 } from "./selection";
+import { findWindow, focusWindow } from "./stacking";
+import {
+  getInfiniteCanvasDirectionalFocusTarget,
+  isInfiniteCanvasWindowFullyVisible,
+} from "./window-focus";
 import type {
   InfiniteCanvasCameraNavigationBehavior,
   InfiniteCanvasCommand,
   InfiniteCanvasCommandDescriptor,
   InfiniteCanvasCommandGroup,
   InfiniteCanvasContextualCommand,
+  InfiniteCanvasDirection,
   InfiniteCanvasHotkeyBinding,
   InfiniteCanvasState,
   InfiniteCanvasZoomPolicy,
@@ -157,6 +167,46 @@ const DEFAULT_INFINITE_CANVAS_COMMAND_DESCRIPTORS = [
   },
   {
     command: {
+      direction: "left",
+      type: "window.focusDirection",
+    },
+    description: "Focus the nearest window to the left of the active one.",
+    hotkeys: ["Alt+ArrowLeft"],
+    id: "window.focus.left",
+    label: "Focus Left",
+  },
+  {
+    command: {
+      direction: "right",
+      type: "window.focusDirection",
+    },
+    description: "Focus the nearest window to the right of the active one.",
+    hotkeys: ["Alt+ArrowRight"],
+    id: "window.focus.right",
+    label: "Focus Right",
+  },
+  {
+    command: {
+      direction: "up",
+      type: "window.focusDirection",
+    },
+    description: "Focus the nearest window above the active one.",
+    hotkeys: ["Alt+ArrowUp"],
+    id: "window.focus.up",
+    label: "Focus Up",
+  },
+  {
+    command: {
+      direction: "down",
+      type: "window.focusDirection",
+    },
+    description: "Focus the nearest window below the active one.",
+    hotkeys: ["Alt+ArrowDown"],
+    id: "window.focus.down",
+    label: "Focus Down",
+  },
+  {
+    command: {
       type: "view.resetZoom",
     },
     description: "Reset the canvas zoom around the viewport center.",
@@ -168,6 +218,11 @@ const DEFAULT_INFINITE_CANVAS_COMMAND_DESCRIPTORS = [
 
 const FIT_CAMERA_NAVIGATION_BEHAVIOR = {
   type: "fit",
+} satisfies InfiniteCanvasCameraNavigationBehavior;
+
+/** Keyboard focus keeps the user's zoom; it only recentres. */
+const FOCUS_CAMERA_NAVIGATION_BEHAVIOR = {
+  type: "center",
 } satisfies InfiniteCanvasCameraNavigationBehavior;
 
 function getNudgeDelta(command: Extract<InfiniteCanvasCommand, { type: "window.nudge" }>) {
@@ -193,6 +248,43 @@ function getNudgeDelta(command: Extract<InfiniteCanvasCommand, { type: "window.n
         y: -command.amountPx,
       };
   }
+}
+
+/**
+ * Move focus to the neighbouring window, and bring the camera along only if the
+ * target is not already fully on screen. Recentring on every arrow press would
+ * be nauseating; never recentring would let focus escape offscreen, where the
+ * user cannot see what they just selected.
+ *
+ * Focus reuses `focusWindow`, so a keyboard move raises and selects exactly as a
+ * pointer click does — one canonical mutation, two input devices.
+ */
+function focusWindowInDirection<Kind extends string>(
+  state: InfiniteCanvasState<Kind>,
+  direction: InfiniteCanvasDirection,
+  zoomPolicy: InfiniteCanvasZoomPolicy,
+): InfiniteCanvasState<Kind> {
+  const targetWindowId = getInfiniteCanvasDirectionalFocusTarget(state, direction);
+
+  if (targetWindowId === null) {
+    return state;
+  }
+
+  const focused = focusWindow(state, targetWindowId);
+  const target = findWindow(focused, targetWindowId);
+
+  if (target === null || isInfiniteCanvasWindowFullyVisible(focused, target.rect)) {
+    return focused;
+  }
+
+  return navigateCameraToWindow(
+    focused,
+    {
+      behavior: FOCUS_CAMERA_NAVIGATION_BEHAVIOR,
+      windowId: targetWindowId,
+    },
+    zoomPolicy,
+  );
 }
 
 function nudgeSelectedWindows<Kind extends string>(
@@ -253,6 +345,8 @@ function isInfiniteCanvasCommandEnabled<Kind extends string>(
       return isCameraNavigationAvailable(state, command.request);
     case "view.resetZoom":
       return state.viewport.width > 0 && state.viewport.height > 0;
+    case "window.focusDirection":
+      return getInfiniteCanvasDirectionalFocusTarget(state, command.direction) !== null;
     case "window.nudge":
       return state.selection.windowIds.length > 0;
   }
@@ -271,6 +365,7 @@ function getInfiniteCanvasCommandGroup(command: InfiniteCanvasCommand): Infinite
       return "view";
     case "view.fitSelection":
       return "selection";
+    case "window.focusDirection":
     case "window.nudge":
       return "window";
   }
@@ -352,6 +447,8 @@ function executeInfiniteCanvasCommand<Kind extends string>(
           zoomPolicy,
         ),
       };
+    case "window.focusDirection":
+      return focusWindowInDirection(state, command.direction, zoomPolicy);
     case "window.nudge":
       return nudgeSelectedWindows(state, command);
   }

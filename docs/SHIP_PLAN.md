@@ -200,7 +200,8 @@ Scope, deliberately narrow — no group model dependency, so it can land before 
   to the same vocabulary. Bind through `hotkeyBindings`, replaceable.
 - Focus restoration: focusing a window scrolls it into view via the existing
   `navigateToWindow`, which already exists and is already tested.
-- Acceptance: FOCUS-001..003 in `research/acceptance-scenarios.md`.
+- Acceptance: the _global geometric_ tier of FOCUS-001. The group-local tier
+  it should prefer first needs P1 and is explicitly out of scope here.
 
 Exit: a keyboard-only session can open, focus, move, and close windows.
 
