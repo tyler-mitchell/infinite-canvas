@@ -20,9 +20,11 @@ Four buckets now:
 
 **The `built` column is the honest headline.** No test in the suite touches groups,
 history, or recipes — `grep -l "createGroup\|dockWindow\|setChildWeights\|undoInfiniteCanvas\|captureInfiniteCanvasRecipe" src/*.test.*` returns nothing. P1 and P4 are capability-complete
-and verification-empty. Two defects found by reading on 2026-07-08 — dock intent dispatched
-three times for one pointermove, and a grouped window's dead resize handles burying the
-gutter — would both have been caught by DOCK-001 and SPLIT-001 had they existed as tests.
+and verification-empty. Three defects found by reading on 2026-07-08 — dock intent dispatched
+three times for one pointermove, a grouped window's dead resize handles burying the gutter,
+and a mid-drag zoom sliding the window out from under the cursor — map onto DOCK-001,
+SPLIT-001, and FAIL-001. The third was found _by writing this document down_, before a line
+of it could be run.
 
 ## Floating windows
 
