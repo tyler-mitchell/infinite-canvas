@@ -28,15 +28,32 @@ Snapping must feel predictable, screen-space stable, and locally relevant:
 | Grid / user guides                                               | open, optional; must never dominate semantic types |
 | Command/recipe placement through the same resolver               | open                                               |
 
-## Hysteresis — open (tracked risk)
+## Hysteresis — done (2026-07-08)
 
-Without hysteresis, guides flicker near dense geometry. Spec:
+Without it, a guide engages and releases at the same pointer distance: nudge one
+pixel across the threshold and the window jumps to the guide, jump back and it
+un-snaps, and it does that every frame the pointer sits on the boundary. The
+window shivers, the guide strobes, and the user cannot tell what they did.
 
-- once an axis is snapped, keep it snapped until the pointer exceeds a larger
-  release threshold
-- separate acquire/release thresholds — e.g. **acquire 8 px, release 14 px**
-- hysteresis state is **per axis**, stored in the interaction snapshot
-- invariant across zoom (screen-space, like all thresholds)
+- ✅ separate acquire/release thresholds. `policy.threshold` (and
+  `policy.gapThreshold`) to catch; `policy.releaseThreshold` to let go. Both
+  screen-space, so the feel is invariant across zoom, like every other threshold.
+  Defaults: acquire 10 px, release 18 px.
+- ✅ `Math.max(acquire, release)` guards the invariant. A `releaseThreshold` below
+  `threshold` would invert the hysteresis — snapping more eager to let go than to
+  catch — which is worse than none.
+- **Deviation from this spec, deliberately.** The spec called for per-axis state in
+  the interaction snapshot. State is per _guide_ instead, and it needs no new
+  field: `state.snapPreview` already records the guides holding the window, and a
+  guide's id is its candidate's id. So the resolver asks "was this candidate
+  engaged last frame?" directly. That is strictly finer than per-axis — two guides
+  on the same axis release independently — and it costs nothing to remember.
+- ✅ Applies to resize as well as move. Nothing about dragging a corner makes the
+  flicker at the threshold more tolerable.
+
+`releaseThreshold` had been declared on `InfiniteCanvasSnapPolicy` and set in the
+defaults since the policy existed, and read by nothing. The knob promised
+hysteresis and delivered none.
 
 ## Docking-intent detection — open (with groups)
 

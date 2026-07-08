@@ -37,8 +37,12 @@ Initial release.
   the command layer all live below the renderer and can be driven headlessly.
 - **Selection model.** Multi-select with marquee, an anchored selection with union bounds, and group
   move across the whole selection.
-- **Snapping with visual guides.** Edge, center, and gap alignment resolved against live snap
-  candidates during move and resize, with preview guides rendered as the drag happens.
+- **Snapping with visual guides, and hysteresis.** Edge, center, and gap alignment resolved against
+  live snap candidates during move and resize, with preview guides rendered as the drag happens. A
+  guide that has caught holds until the pointer travels `releaseThreshold` away, while an idle guide
+  still engages at `threshold` — so the pointer crosses a band, not a line, and a window parked on the
+  boundary no longer shivers between snapped and free. Hysteresis is per guide, not per axis: two
+  guides on the same axis release independently.
 - **Undo and redo.** `Mod+Z` and `Mod+Shift+Z` (or `Mod+Y`) across every window and group mutation.
   History is over the _document_ — the windows and the groups — because everything else is a view onto
   it. Panning is not an edit, and undo never scrolls the canvas out from under someone who just wanted

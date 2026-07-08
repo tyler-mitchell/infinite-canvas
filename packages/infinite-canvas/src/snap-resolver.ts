@@ -38,8 +38,46 @@ function nearlyEqual(left: number, right: number) {
   return Math.abs(left - right) <= SNAP_DELTA_EPSILON;
 }
 
-function getCandidateThreshold(candidate: SnapCandidate, policy: InfiniteCanvasSnapPolicy) {
-  return candidate.kind === "gap" ? policy.gapThreshold : policy.threshold;
+/**
+ * Snapping needs two thresholds, not one.
+ *
+ * With a single distance, a guide engages and releases at the same pointer
+ * position: nudge one pixel across it and the window jumps to the guide, jump the
+ * pointer back and it un-snaps, and it does that every frame the pointer sits on
+ * the boundary. The window shivers, the guide strobes, and the user has no idea
+ * what they did wrong. This is risk R3 in the register.
+ *
+ * A guide that has *caught* is stickier than one that has not: it holds until the
+ * pointer travels `releaseThreshold` away, while an idle guide still engages at
+ * `threshold`. The pointer must cross a band, not a line, and the flicker has
+ * nowhere to happen. `Math.max` is not a clamp for tidiness — a `releaseThreshold`
+ * below `threshold` would invert the hysteresis and make snapping *more* eager to
+ * let go than to catch, which is worse than no hysteresis at all.
+ */
+function getCandidateThreshold(
+  candidate: SnapCandidate,
+  policy: InfiniteCanvasSnapPolicy,
+  engagedGuideIds: ReadonlySet<string>,
+) {
+  const engageThreshold = candidate.kind === "gap" ? policy.gapThreshold : policy.threshold;
+
+  return engagedGuideIds.has(candidate.id)
+    ? Math.max(engageThreshold, policy.releaseThreshold)
+    : engageThreshold;
+}
+
+/**
+ * The guides that were holding the window last frame. `state.snapPreview` is
+ * already exactly this record, and a guide's id is its candidate's id — so
+ * hysteresis needs no new state to remember what it caught.
+ */
+function getEngagedGuideIds<Kind extends string>(
+  state: InfiniteCanvasState<Kind>,
+  windowId: string,
+): ReadonlySet<string> {
+  return state.snapPreview === null || state.snapPreview.windowId !== windowId
+    ? new Set()
+    : new Set(state.snapPreview.guides.map((guide) => guide.id));
 }
 
 function toGuide(anchor: SnapAnchor, candidate: SnapCandidate): InfiniteCanvasSnapGuide {
@@ -76,6 +114,7 @@ function findAxisAdjustment(
   candidates: readonly SnapCandidate[],
   policy: InfiniteCanvasSnapPolicy,
   zoom: number,
+  engagedGuideIds: ReadonlySet<string>,
 ): SnapAdjustment | null {
   const matches: readonly SnapMatch[] = anchors.flatMap((anchor) =>
     candidates
@@ -87,7 +126,7 @@ function findAxisAdjustment(
           distancePx: Math.abs((candidate.position - anchor.position) * zoom),
           guide: toGuide(anchor, candidate),
           sourceAnchor: anchor.sourceAnchor,
-          threshold: getCandidateThreshold(candidate, policy),
+          threshold: getCandidateThreshold(candidate, policy, engagedGuideIds),
         }),
       ),
   );
@@ -153,17 +192,20 @@ function applySnapToRect<Kind extends string>(
 
   const candidates = buildSnapCandidates(state, windowId, rect, policy, excludedWindowIds);
   const anchors = getMoveSnapAnchors(rect, policy);
+  const engagedGuideIds = getEngagedGuideIds(state, windowId);
   const xAdjustment = findAxisAdjustment(
     anchors.filter((anchor) => anchor.axis === "x"),
     candidates.filter((candidate) => candidate.axis === "x"),
     policy,
     state.camera.zoom,
+    engagedGuideIds,
   );
   const yAdjustment = findAxisAdjustment(
     anchors.filter((anchor) => anchor.axis === "y"),
     candidates.filter((candidate) => candidate.axis === "y"),
     policy,
     state.camera.zoom,
+    engagedGuideIds,
   );
   const snappedRect = {
     ...rect,
@@ -291,17 +333,22 @@ function applyResizeSnapToRect<Kind extends string>(
     (candidate) => candidate.kind !== "gap",
   );
   const anchors = getResizeSnapAnchors(rect, handle);
+  // A resize edge that has caught a guide is as sticky as a moved one. Nothing
+  // about dragging a corner makes the flicker at the threshold more tolerable.
+  const engagedGuideIds = getEngagedGuideIds(state, windowId);
   const xAdjustment = findAxisAdjustment(
     anchors.filter((anchor) => anchor.axis === "x"),
     candidates.filter((candidate) => candidate.axis === "x"),
     policy,
     state.camera.zoom,
+    engagedGuideIds,
   );
   const yAdjustment = findAxisAdjustment(
     anchors.filter((anchor) => anchor.axis === "y"),
     candidates.filter((candidate) => candidate.axis === "y"),
     policy,
     state.camera.zoom,
+    engagedGuideIds,
   );
   const xApplied = applyResizeAxisAdjustment(rect, xAdjustment, minSize);
   const yApplied = applyResizeAxisAdjustment(xApplied.rect, yAdjustment, minSize);
