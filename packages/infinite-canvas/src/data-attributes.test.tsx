@@ -173,6 +173,7 @@ test("dom window frame emits window slot, identity enums, states, and frame anat
       chrome={DEFAULT_INFINITE_CANVAS_CHROME}
       devicePixelRatio={1}
       isActive={true}
+      isGrouped={false}
       isSelected={true}
       stackBands={DEFAULT_INFINITE_CANVAS_STACK_BANDS}
       theme={DEFAULT_INFINITE_CANVAS_THEME}
@@ -232,6 +233,7 @@ test("host-chrome window frame normalizes scene->host and emits chrome layers", 
       chrome={DEFAULT_INFINITE_CANVAS_CHROME}
       devicePixelRatio={1}
       isActive={false}
+      isGrouped={false}
       isSelected={false}
       stackBands={DEFAULT_INFINITE_CANVAS_STACK_BANDS}
       theme={DEFAULT_INFINITE_CANVAS_THEME}
@@ -283,9 +285,9 @@ test("snap overlay emits snap-preview and per-guide axis/kind attributes", () =>
           windowId: noteWindow.id,
         },
       ],
+      originCamera: baseState.camera,
       pointerId: 1,
       windowId: noteWindow.id,
-      zoom: 1,
     },
     snapPreview: {
       guides: [

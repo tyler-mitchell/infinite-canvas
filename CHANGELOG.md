@@ -56,8 +56,24 @@ sections, in this order, omitting the ones that don't apply:
   `@infinite-canvas/react/scene` and returns its `true` fallback for every consumer who has not
   installed `three` and enabled `diagnostics.frustum`. Rasterization eligibility now shares it.
 
+### Changed
+
+- **Every drag interaction stores `originCamera` instead of a cached `zoom` scalar**
+  (`move`, `resize`, `groupMove`, `groupResize`, `groupGutter`). `pan` already did, because a
+  pan _is_ a camera change and could not have been written any other way. Consumers reading
+  `interaction.zoom` should read `interaction.originCamera.zoom`.
+
 ### Fixed
 
+- **Zooming mid-drag slid the window out from under the cursor** (FAIL-001). Each drag cached
+  `zoom` at its start and divided the whole accumulated screen delta by that one scalar, and the
+  wheel handler is not gated on an active interaction. Grab a window at zoom 1, drag 100px right
+  (world +100), zoom to 2, drag 100px more: `screenDelta / 1` claims +200 where the pointer has
+  really travelled 100 + 50 = **150**. The error grew without bound in the remaining length of the
+  drag, and it applied to every drag the framework has. The world delta is now derived from two
+  screen→world projections — the origin pointer under the origin camera, the current pointer under
+  the current camera — which is correct across a zoom _and_ a pan. It reduces exactly to the old
+  expression when the camera has not moved.
 - **Every `scope="window"` portal painted underneath the window it belonged to.** The window
   portal root rendered _before_ the frame and carried no `z-index`, while the frame carries its
   stack value. Both are positioned, so paint order falls to `z-index` first and document order

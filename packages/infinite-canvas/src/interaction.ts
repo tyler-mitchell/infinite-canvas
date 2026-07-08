@@ -21,6 +21,7 @@ import {
   updateWindowRect,
 } from "./stacking";
 import type {
+  InfiniteCanvasCamera,
   InfiniteCanvasGroup,
   InfiniteCanvasGroupGutterInteraction,
   InfiniteCanvasGroupResizeInteraction,
@@ -77,6 +78,43 @@ function beginMarqueeSelection<Kind extends string>(
 }
 
 /**
+ * How far the pointer has travelled **in world units** since the drag began (FAIL-001).
+ *
+ * Every drag used to cache `zoom` at its start and divide the accumulated screen delta by
+ * that one scalar. The wheel handler is not gated on an active interaction, so zooming
+ * mid-drag converted the *whole* travel at a stale scale: grab at zoom 1, drag 100px right
+ * (world +100), zoom to 2, drag 100px more, and `screenDelta / 1` says +200 where the
+ * pointer has really moved 100 + 50 = 150. The window slid out from under the cursor and
+ * kept sliding, unboundedly in the length of the drag.
+ *
+ * Projecting both ends instead — the origin pointer under the origin camera, the current
+ * pointer under the current camera — asks the only question that matters: where in the
+ * world was the pointer, and where is it now. It is correct across a zoom *and* a pan.
+ *
+ * This is a strict generalization, not a rewrite. `screenPointToWorldPoint` is
+ * `center + (p - viewport/2) / zoom`, so when the camera has not moved the two `center`
+ * and `viewport` terms cancel and the difference is exactly `(p - origin) / zoom` — the
+ * expression it replaces, to the bit. A static camera is the overwhelmingly common case,
+ * and it behaves identically.
+ *
+ * `pan` never had the bug: it has always stored `originCamera`, because a pan *is* a camera
+ * change and could not have been written any other way. Every other drag now matches it.
+ */
+function getInteractionWorldDelta<Kind extends string>(
+  state: InfiniteCanvasState<Kind>,
+  interaction: Readonly<{
+    originCamera: InfiniteCanvasCamera;
+    originPointer: InfiniteCanvasPoint;
+  }>,
+  point: InfiniteCanvasPoint,
+): InfiniteCanvasPoint {
+  return subtractPoints(
+    screenPointToWorldPoint(state.camera, state.viewport, point),
+    screenPointToWorldPoint(interaction.originCamera, state.viewport, interaction.originPointer),
+  );
+}
+
+/**
  * Drag a group shell by one of its members' headers. The whole group travels as
  * one world object (DOCK-003); the members follow because their rects are
  * re-derived from the shell, never stored.
@@ -95,7 +133,7 @@ function beginInfiniteCanvasGroupMove<Kind extends string>(
       originPointer: point,
       originRect: group.rect,
       pointerId,
-      zoom: state.camera.zoom,
+      originCamera: state.camera,
     },
     snapPreview: null,
   };
@@ -128,7 +166,7 @@ function beginInfiniteCanvasGroupResize<Kind extends string>(
       originPointer: point,
       originRect: group.rect,
       pointerId,
-      zoom: state.camera.zoom,
+      originCamera: state.camera,
     },
     snapPreview: null,
   };
@@ -148,18 +186,12 @@ function stepInfiniteCanvasGroupResize<Kind extends string>(
   interaction: InfiniteCanvasGroupResizeInteraction,
   point: InfiniteCanvasPoint,
 ): InfiniteCanvasState<Kind> {
-  const screenDelta = subtractPoints(point, interaction.originPointer);
-  const worldDelta = {
-    x: screenDelta.x / interaction.zoom,
-    y: screenDelta.y / interaction.zoom,
-  };
-
   return setInfiniteCanvasGroupRect(state, {
     groupId: interaction.groupId,
     rect: resizeRectFromHandle(
       interaction.originRect,
       interaction.handle,
-      worldDelta,
+      getInteractionWorldDelta(state, interaction, point),
       interaction.minSize,
     ),
   });
@@ -168,14 +200,14 @@ function stepInfiniteCanvasGroupResize<Kind extends string>(
 /** Drag the seam between two split panes. Everything a step needs is captured here. */
 function beginInfiniteCanvasGroupGutterDrag<Kind extends string>(
   state: InfiniteCanvasState<Kind>,
-  input: Omit<InfiniteCanvasGroupGutterInteraction, "kind" | "zoom">,
+  input: Omit<InfiniteCanvasGroupGutterInteraction, "kind" | "originCamera">,
 ): InfiniteCanvasState<Kind> {
   return {
     ...state,
     interaction: {
       ...input,
       kind: "groupGutter",
-      zoom: state.camera.zoom,
+      originCamera: state.camera,
     },
     snapPreview: null,
   };
@@ -186,14 +218,14 @@ function stepInfiniteCanvasGroupMove<Kind extends string>(
   interaction: InfiniteCanvasGroupMoveInteraction,
   point: InfiniteCanvasPoint,
 ): InfiniteCanvasState<Kind> {
-  const screenDelta = subtractPoints(point, interaction.originPointer);
+  const worldDelta = getInteractionWorldDelta(state, interaction, point);
 
   return setInfiniteCanvasGroupRect(state, {
     groupId: interaction.groupId,
     rect: {
       ...interaction.originRect,
-      x: interaction.originRect.x + screenDelta.x / interaction.zoom,
-      y: interaction.originRect.y + screenDelta.y / interaction.zoom,
+      x: interaction.originRect.x + worldDelta.x,
+      y: interaction.originRect.y + worldDelta.y,
     },
   });
 }
@@ -209,11 +241,12 @@ function stepInfiniteCanvasGroupGutterDrag<Kind extends string>(
   interaction: InfiniteCanvasGroupGutterInteraction,
   point: InfiniteCanvasPoint,
 ): InfiniteCanvasState<Kind> {
-  const screenDelta = subtractPoints(point, interaction.originPointer);
-  const alongAxis = interaction.axis === "horizontal" ? screenDelta.x : screenDelta.y;
+  // `availableExtent` is in the same world units the layout was solved in, so the seam's
+  // travel has to be too.
+  const worldDelta = getInteractionWorldDelta(state, interaction, point);
   const weights = getInfiniteCanvasGroupGutterWeights(interaction.originContainer, interaction, {
     availableExtent: interaction.availableExtent,
-    delta: alongAxis / interaction.zoom,
+    delta: interaction.axis === "horizontal" ? worldDelta.x : worldDelta.y,
   });
 
   // `{}` means the pair has no room left to move; the drag continues, nothing shifts.
@@ -271,7 +304,7 @@ function beginWindowMove<Kind extends string>(
       originRects,
       pointerId,
       windowId,
-      zoom: focusedState.camera.zoom,
+      originCamera: focusedState.camera,
     },
     snapPreview: null,
   };
@@ -298,7 +331,7 @@ function beginWindowResize<Kind extends string>(
           originRect: targetWindow.rect,
           pointerId,
           windowId,
-          zoom: focusedState.camera.zoom,
+          originCamera: focusedState.camera,
         },
         snapPreview: null,
       };
@@ -357,11 +390,7 @@ function stepCanvasInteraction<Kind extends string>(
     };
   }
 
-  const screenDelta = subtractPoints(point, interaction.originPointer);
-  const worldDelta = {
-    x: screenDelta.x / interaction.zoom,
-    y: screenDelta.y / interaction.zoom,
-  };
+  const worldDelta = getInteractionWorldDelta(state, interaction, point);
 
   if (interaction.kind === "resize") {
     return stepWindowResize(state, interaction, worldDelta, targetWindow.minSize, snapPolicy);

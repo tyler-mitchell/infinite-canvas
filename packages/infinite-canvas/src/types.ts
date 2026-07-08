@@ -159,7 +159,7 @@ type InfiniteCanvasMoveInteraction = Readonly<{
   originRects: readonly InfiniteCanvasMoveOriginRect[];
   pointerId: number;
   windowId: string;
-  zoom: number;
+  originCamera: InfiniteCanvasCamera;
 }>;
 
 /** Dragging a group shell by any of its members' headers. DOCK-003. */
@@ -169,7 +169,7 @@ type InfiniteCanvasGroupMoveInteraction = Readonly<{
   originPointer: InfiniteCanvasPoint;
   originRect: InfiniteCanvasRect;
   pointerId: number;
-  zoom: number;
+  originCamera: InfiniteCanvasCamera;
 }>;
 
 /**
@@ -189,7 +189,7 @@ type InfiniteCanvasGroupResizeInteraction = Readonly<{
   originPointer: InfiniteCanvasPoint;
   originRect: InfiniteCanvasRect;
   pointerId: number;
-  zoom: number;
+  originCamera: InfiniteCanvasCamera;
 }>;
 
 /**
@@ -212,7 +212,7 @@ type InfiniteCanvasGroupGutterInteraction = Readonly<{
   originContainer: InfiniteCanvasGroupContainerNode;
   originPointer: InfiniteCanvasPoint;
   pointerId: number;
-  zoom: number;
+  originCamera: InfiniteCanvasCamera;
 }>;
 
 type InfiniteCanvasResizeInteraction = Readonly<{
@@ -222,7 +222,7 @@ type InfiniteCanvasResizeInteraction = Readonly<{
   originRect: InfiniteCanvasRect;
   pointerId: number;
   windowId: string;
-  zoom: number;
+  originCamera: InfiniteCanvasCamera;
 }>;
 
 type InfiniteCanvasInteraction =

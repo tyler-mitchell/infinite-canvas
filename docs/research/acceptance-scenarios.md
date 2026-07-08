@@ -165,12 +165,20 @@ hysteresis unimplemented` until 2026-07-08, long after it shipped.
   correct displacement is 100 (at zoom 1) + 50 (at zoom 2) = **+150**. The window slides
   50 world units out from under the cursor, and keeps sliding.
 
-  The fix is to derive the world delta from two screen→world projections — the origin
-  pointer under the origin camera, the current pointer under the current camera — rather
-  than from one cached scalar. That changes `InfiniteCanvasMoveInteraction`, which is
-  public, and every drag path depends on it, so it wants this scenario as a regression
-  test first rather than a blind edit. Applies to move, resize, `groupMove`, and
-  `groupResize` alike.
+  **Fixed the same day.** `getInteractionWorldDelta` derives the world delta from two
+  screen→world projections — the origin pointer under the origin camera, the current
+  pointer under the current camera — instead of one cached scalar. `zoom` is gone from
+  `move`, `resize`, `groupMove`, `groupResize`, and `groupGutter`; each now stores
+  `originCamera`, which `pan` has always stored, because a pan _is_ a camera change and
+  could not have been written any other way.
+
+  The edit is a strict generalization rather than a rewrite: `screenPointToWorldPoint` is
+  `center + (p - viewport/2) / zoom`, so for an unchanged camera the `center` and
+  `viewport` terms cancel and the difference is exactly `(p - origin) / zoom` — the
+  expression it replaces, to the bit. A static camera behaves identically.
+
+  `built`, and still unasserted: nobody has zoomed mid-drag and watched the window stay
+  under the cursor.
 
 - **FAIL-002** — Rapid hover between neighboring docking targets doesn't
   flicker. `built` — docking exists; the dock overlay renders the same value the
