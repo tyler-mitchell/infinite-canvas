@@ -137,6 +137,23 @@ pointerModeControls?, cameraControls?, zoomControls? }` landed with the HUD
   dependency of its own observer and could re-trigger it. Spatial queries remain
   open: they live in the render layer.
 
+## Fixed 2026-07-08 (nudge detached a grouped window)
+
+- **`window.nudge` wrote a group member's `rect` directly.** A member's rect is the projection
+  of its group's tree, and only `interaction.step` is wrapped in
+  `syncInfiniteCanvasGroupWindowRects` — `command.execute` is not. So arrowing a selected pane
+  slid it out of its shell and left it there until some unrelated mutation re-solved the tree
+  and snapped it back without explanation.
+
+  Nudging a member now translates the **shell**, as dragging that member's header does
+  (DOCK-003), and each group moves once however many of its members are selected.
+
+  **The rule was already there and one command broke it.** `close`, `maximize`, and `minimize`
+  all call `detachInfiniteCanvasWindowFromGroups` before touching a rect. `nudge` neither
+  detached nor deferred to the shell. Any future command that writes `window.rect` must do one
+  or the other, and the invariant is worth stating that plainly: **nothing outside the group
+  layer may write a member's rect.**
+
 ## Fixed 2026-07-08 (window portals painted behind their window)
 
 - **`scope="window"` never worked, and the showcase built to prove it worked showed the bug.**

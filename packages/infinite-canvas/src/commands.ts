@@ -6,6 +6,12 @@ import {
 import { DEFAULT_INFINITE_CANVAS_ZOOM } from "./constants";
 import { zoomCameraAtScreenPoint } from "./geometry";
 import {
+  findInfiniteCanvasGroup,
+  getInfiniteCanvasWindowGroup,
+  isInfiniteCanvasWindowGrouped,
+  setInfiniteCanvasGroupRect,
+} from "./group-state";
+import {
   canRedoInfiniteCanvas,
   canUndoInfiniteCanvas,
   redoInfiniteCanvasHistory,
@@ -311,6 +317,16 @@ function focusWindowInDirection<Kind extends string>(
   );
 }
 
+/**
+ * Nudge the selection by one screen step.
+ *
+ * **A grouped window has no rect of its own to nudge.** Its `rect` is the projection of its
+ * group's tree, and `command.execute` is not re-projected the way `interaction.step` is, so
+ * writing to it directly detached the pane from its shell until some later mutation
+ * re-solved the tree and silently snapped it back. Arrow-nudging a group member therefore
+ * translates the **shell**, exactly as dragging that member's header does (DOCK-003), and
+ * each group moves once however many of its members are selected.
+ */
 function nudgeSelectedWindows<Kind extends string>(
   state: InfiniteCanvasState<Kind>,
   command: Extract<InfiniteCanvasCommand, { type: "window.nudge" }>,
@@ -324,11 +340,36 @@ function nudgeSelectedWindows<Kind extends string>(
     x: screenDelta.x / state.camera.zoom,
     y: screenDelta.y / state.camera.zoom,
   };
+  const selectedGroupIds = new Set(
+    state.selection.windowIds
+      .map((windowId) => getInfiniteCanvasWindowGroup(state, windowId)?.id)
+      .filter((groupId) => groupId !== undefined),
+  );
+  // Shells first: `setInfiniteCanvasGroupRect` re-projects every member, so the window map
+  // below must leave those members alone or it would translate them a second time.
+  const movedState = [...selectedGroupIds].reduce<InfiniteCanvasState<Kind>>(
+    (currentState, groupId) => {
+      const group = findInfiniteCanvasGroup(currentState, groupId);
+
+      return group === null
+        ? currentState
+        : setInfiniteCanvasGroupRect(currentState, {
+            groupId,
+            rect: {
+              ...group.rect,
+              x: group.rect.x + worldDelta.x,
+              y: group.rect.y + worldDelta.y,
+            },
+          });
+    },
+    state,
+  );
 
   return {
-    ...state,
-    windows: state.windows.map((window) =>
-      isWindowSelected(state, window.id)
+    ...movedState,
+    windows: movedState.windows.map((window) =>
+      isWindowSelected(movedState, window.id) &&
+      !isInfiniteCanvasWindowGrouped(movedState, window.id)
         ? {
             ...window,
             rect: {

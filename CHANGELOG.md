@@ -77,6 +77,14 @@ sections, in this order, omitting the ones that don't apply:
 
 ### Fixed
 
+- **Arrow-nudging a grouped window detached it from its shell.** A group member is selectable,
+  and `window.nudge` wrote straight to `window.rect` — but a member's rect is the _projection_
+  of its group's tree, and `command.execute` is not re-projected the way `interaction.step` is.
+  The pane slid out of the shell and stayed there until some later mutation re-solved the tree
+  and silently snapped it back. Nudging a group member now translates the **shell**, exactly as
+  dragging that member's header does, and each group moves once however many of its members are
+  selected. `close`, `maximize`, and `minimize` already detached the window from its group first;
+  `nudge` was the one command that did neither.
 - **Zooming mid-drag slid the window out from under the cursor** (FAIL-001). Each drag cached
   `zoom` at its start and divided the whole accumulated screen delta by that one scalar, and the
   wheel handler is not gated on an active interaction. Grab a window at zoom 1, drag 100px right
