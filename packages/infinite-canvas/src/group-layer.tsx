@@ -1,6 +1,12 @@
 "use client";
 
-import { useMemo, useRef, type CSSProperties, type PointerEvent as ReactPointerEvent } from "react";
+import {
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+  type PointerEvent as ReactPointerEvent,
+} from "react";
 
 import { INFINITE_CANVAS_SLOTS } from "./data-attributes";
 import { getEventViewportPoint } from "./frame-slots";
@@ -200,27 +206,14 @@ function InfiniteCanvasGroupShell({
         />
       ))}
       {layout.tabStrips.map((strip) => (
-        <div
-          data-slot={INFINITE_CANVAS_SLOTS.groupTabStrip}
+        <InfiniteCanvasGroupTabStrip
+          activeChildId={strip.activeChildId}
+          childIds={strip.childIds}
+          containerId={strip.containerId}
+          group={group}
           key={strip.containerId}
-          role="tablist"
-          style={{
-            ...getLocalRectStyle(strip.rect, group.rect),
-            alignItems: "stretch",
-            display: "flex",
-            pointerEvents: "auto",
-          }}
-        >
-          {strip.childIds.map((childId) => (
-            <InfiniteCanvasGroupTab
-              childId={childId}
-              containerId={strip.containerId}
-              group={group}
-              isActive={childId === strip.activeChildId}
-              key={childId}
-            />
-          ))}
-        </div>
+          style={getLocalRectStyle(strip.rect, group.rect)}
+        />
       ))}
       {layout.accordionHeaders.map((header) => (
         <button
@@ -248,16 +241,124 @@ function InfiniteCanvasGroupShell({
   );
 }
 
+/** Which tab an Arrow / Home / End keypress moves focus to, or `null` to ignore the key. */
+function getNextTabStopIndex(key: string, index: number, count: number): number | null {
+  switch (key) {
+    case "ArrowLeft": {
+      return (index - 1 + count) % count;
+    }
+    case "ArrowRight": {
+      return (index + 1) % count;
+    }
+    case "End": {
+      return count - 1;
+    }
+    case "Home": {
+      return 0;
+    }
+    default: {
+      return null;
+    }
+  }
+}
+
+/**
+ * A tab strip is one tab stop, not one per tab.
+ *
+ * Every tab used to be a natively focusable `<button>`, so Tab walked all of them:
+ * three groups of four tabs put twelve stops between the user and anything else on
+ * the page. The ARIA Tabs pattern instead puts a single tab stop on the tablist and
+ * moves between tabs with Arrow / Home / End — which is the roving `tabIndex` below.
+ *
+ * **Manual activation**: an arrow key moves focus without switching tabs; Enter or
+ * Space activates, through the same `onClick` the pointer uses. APG allows either,
+ * and recommends manual whenever activation reveals expensive content. Activating a
+ * tab here mounts a window body, so arrowing across four tabs with automatic
+ * activation would mount and discard three of them.
+ *
+ * The roving stop follows focus, so tabbing away and back returns you to the tab you
+ * were last on rather than to the selected one. It falls back to the active tab when
+ * the tab it was on has left the strip — a torn-out tab cannot keep the tab stop.
+ */
+function InfiniteCanvasGroupTabStrip({
+  activeChildId,
+  childIds,
+  containerId,
+  group,
+  style,
+}: Readonly<{
+  activeChildId: string;
+  childIds: readonly string[];
+  containerId: string;
+  group: InfiniteCanvasGroup;
+  style: CSSProperties;
+}>) {
+  const stripRef = useRef<HTMLDivElement>(null);
+  const [focusedChildId, setFocusedChildId] = useState<string | null>(null);
+  const tabStopChildId =
+    focusedChildId !== null && childIds.includes(focusedChildId) ? focusedChildId : activeChildId;
+
+  return (
+    <div
+      aria-orientation="horizontal"
+      data-slot={INFINITE_CANVAS_SLOTS.groupTabStrip}
+      onKeyDown={(event) => {
+        const index = childIds.indexOf(tabStopChildId);
+        const nextIndex =
+          index === -1 ? null : getNextTabStopIndex(event.key, index, childIds.length);
+
+        if (nextIndex === null) {
+          return;
+        }
+
+        // Home/End and the arrows would otherwise scroll the nearest scroll container.
+        event.preventDefault();
+        setFocusedChildId(childIds[nextIndex] ?? null);
+        // Tabs are direct children in `childIds` order, so the index addresses the
+        // button without escaping a consumer-supplied window id into a selector.
+        //
+        // `preventScroll` because the strip sits inside the shell's `transform:
+        // scale(zoom)`: a plain `focus()` scrolls ancestors to reveal the target, which
+        // would drag the canvas out from under the user to chase a tab already in view.
+        stripRef.current
+          ?.querySelectorAll<HTMLButtonElement>(
+            `:scope > [data-slot="${INFINITE_CANVAS_SLOTS.groupTab}"]`,
+          )
+          [nextIndex]?.focus({ preventScroll: true });
+      }}
+      ref={stripRef}
+      role="tablist"
+      style={{ ...style, alignItems: "stretch", display: "flex", pointerEvents: "auto" }}
+    >
+      {childIds.map((childId) => (
+        <InfiniteCanvasGroupTab
+          childId={childId}
+          containerId={containerId}
+          group={group}
+          isActive={childId === activeChildId}
+          isTabStop={childId === tabStopChildId}
+          key={childId}
+          onFocus={setFocusedChildId}
+        />
+      ))}
+    </div>
+  );
+}
+
 function InfiniteCanvasGroupTab({
   childId,
   containerId,
   group,
   isActive,
+  isTabStop,
+  onFocus,
 }: Readonly<{
   childId: string;
   containerId: string;
   group: InfiniteCanvasGroup;
   isActive: boolean;
+  isTabStop: boolean;
+  onFocus: (childId: string) => void;
 }>) {
   const actions = useInfiniteCanvasActions();
   const tearOut = useInfiniteCanvasTabTearOut(actions, group, childId);
@@ -271,6 +372,9 @@ function InfiniteCanvasGroupTab({
       onClick={() => {
         actions.setGroupActiveChild({ childId, containerId, groupId: group.id });
       }}
+      onFocus={() => {
+        onFocus(childId);
+      }}
       onPointerDown={(event) => {
         event.stopPropagation();
         tearOut.onPointerDown(event);
@@ -278,6 +382,7 @@ function InfiniteCanvasGroupTab({
       onPointerMove={tearOut.onPointerMove}
       onPointerUp={tearOut.onPointerUp}
       role="tab"
+      tabIndex={isTabStop ? 0 : -1}
       type="button"
     >
       {getTabLabel(group, childId)}

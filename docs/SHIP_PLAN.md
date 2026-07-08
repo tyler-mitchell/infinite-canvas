@@ -105,8 +105,10 @@ consumer that had nothing installed:**
 
 **Program work landed alongside** (capability, not ship blockers): P2 tranche 1
 (frame chrome memoization — landed, **unmeasured**, see
-[research/performance-profile.md](research/performance-profile.md)); P1's pure
-group core (`group-tree.ts`, `group-layout.ts` — 1,057 lines, unwired).
+[research/performance-profile.md](research/performance-profile.md)); P1 in full —
+the group core is wired, all four pointer gestures land, undo/redo and layout
+recipes shipped with it. P1's scenario tests remain unwritten, so it is
+capability-complete and verification-incomplete.
 
 ## Blocker classes
 
@@ -222,8 +224,28 @@ of your windows falls through to the browser's Back), and the Close/Minimize
 controls hand DOM focus back before they unmount (otherwise focus lands on
 `<body>` and every hotkey silently dies).
 
-FR-9 is `partial`, not done: group-local focus needs P1, and focus trapping plus
-accessible controls inside window bodies remain.
+FR-9 is `partial`, not done.
+
+**Updated 2026-07-08.** Group-local focus no longer "needs P1" — P1 landed, and
+`window-focus.ts` now implements both tiers of FOCUS-001: inside a group the arrow
+searches that group's members first and leaves it only when nothing lies that way.
+Windows behind an inactive tab or a collapsed fold are never focus targets.
+
+Also landed: **a group tab strip is one tab stop, not one per tab.** Each tab was a
+natively focusable `<button>`, so Tab walked every tab of every group before reaching
+anything else. The tablist now carries a roving `tabIndex` with Arrow / Home / End
+between tabs, and manual activation (Enter / Space) — arrowing a strip under automatic
+activation would mount and discard a window body per tab.
+
+Still open, and these are what keep FR-9 `partial`:
+
+- **Focus trapping**, and a documented path for DOM focus to enter and leave a
+  window's own content. This is the last structural piece, and it is the one item
+  here that genuinely wants a browser: focus behaviour is not something to land
+  unverified.
+- **`aria-controls` on `role="tab"`.** A window frame has no DOM `id` to point at,
+  only `data-infinite-canvas-window-id`. Minting one requires deciding how ids stay
+  unique across two canvases on a page.
 
 ### Hour 3–4 — API surface tiering: **DONE**
 
@@ -248,18 +270,21 @@ new code, only honesty about what is stable.
 
 ### Hour 4–7 — P2 tranche 1 measurement, then P1 wiring
 
-- **Measure tranche 1.** It is committed and unmeasured. The profile's tables
-  still describe the pre-tranche-1 runtime and say so. Re-run the synthetic
-  wheel/drag drivers on `/stress` at 20/40/80 windows and either confirm the
-  prediction (pan and zoom both approach one style write per window) or find out
-  the memo boundary is leaking. Do this before building anything on top of it.
-- **Wire the group core.** `group-tree.ts` and `group-layout.ts` are pure,
-  complete, and imported by nothing. Wiring is: `InfiniteCanvasGroup` into
-  `InfiniteCanvasState`, docking mutations into the reducer, a group shell in the
-  window layer. Persisted state goes to `version: 2`, with `version: 1` payloads
-  migrating to `groups: []` — an optional field defaulting to empty would look
-  backward-compatible right up until an older build silently ate a group layout
-  on write-back.
+- ✅ **Wire the group core — DONE.** `InfiniteCanvasGroup` is in
+  `InfiniteCanvasState`, nine canonical mutations are in the reducer, `group-layer.tsx`
+  draws the shell, and persistence went to `version: 2` with `version: 1` migrating to
+  `groups: []`. All four pointer gestures land (dock, shell move, seam reweight, tab
+  tear-out). The invariant that made it tractable: **the group owns the layout and a
+  member's `rect` is its projection**, which is what keeps snapping, selection bounds,
+  camera framing, and the scene-layer proxies group-blind.
+- **Measure tranche 1 — NOT DONE, and blocked.** It is committed and unmeasured. The
+  profile's tables still describe the pre-tranche-1 runtime and say so. This needs the
+  synthetic wheel/drag drivers on `/stress` at 20/40/80 windows in a real browser.
+  Nothing downstream should quote a number until it is run.
+- **Scenario tests for DOCK / SPLIT / TAB — NOT WRITTEN.** P1's exit criteria say
+  "scenario tests green"; the gestures work and the tests do not exist. P1 is
+  capability-complete and verification-incomplete, and the roadmap says so rather than
+  ticking the box.
 
 ### Not on the critical path, and why
 

@@ -138,8 +138,18 @@ capture); edge cases around body-content focus handoff and gesture routing
   docked beside you is the neighbour the user means, even when a floating window
   sits geometrically closer. Windows behind an inactive tab or a collapsed fold are
   never focus targets, because nothing draws them.
+- done: **group tab strips are one tab stop, not one per tab.** Every tab was a
+  natively focusable `<button>`, so Tab walked all of them — three groups of four
+  tabs put twelve stops between the user and anything else. The tablist now carries
+  a roving `tabIndex` and moves between tabs with Arrow / Home / End. Activation is
+  manual (Enter or Space, through the same `onClick` the pointer uses): arrowing
+  across a strip under automatic activation would mount and discard a window body
+  per tab.
 - open: focus trapping policy, and a documented path to accessible controls
   inside window content.
+- open: `role="tab"` carries no `aria-controls`, because a window frame has no DOM
+  `id` to point at — only `data-infinite-canvas-window-id`. Minting one means
+  deciding how ids stay unique across two canvases on one page.
 
 The shortcut guard protects editable targets today.
 

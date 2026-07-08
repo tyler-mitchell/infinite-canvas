@@ -33,6 +33,14 @@ sections, in this order, omitting the ones that don't apply:
 
 ### Fixed
 
+- **A group's tab strip was one tab stop per tab.** Every tab is a `<button>`, so Tab walked
+  all of them — three groups of four tabs put twelve stops between a keyboard user and anything
+  else on the page. The tablist now carries a roving `tabIndex` and moves between tabs with
+  `Arrow` / `Home` / `End`, per the ARIA Tabs pattern. Activation stays manual (`Enter` /
+  `Space`, through the same `onClick` the pointer uses): arrowing across a strip under automatic
+  activation would mount and discard a window body per tab. Focus moves with `preventScroll`,
+  because the strip lives inside the shell's `transform: scale(zoom)` and a plain `focus()`
+  scrolls ancestors to reveal a tab that is already in view.
 - **`diagnostics.frustum` swept its whole tracked window set every frame.** The probe layer
   re-renders on each camera tick and rebuilt its window-id array per render, so the effect that
   drops departed windows re-fired on every pan step — and its membership test was a linear scan
