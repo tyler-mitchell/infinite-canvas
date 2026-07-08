@@ -57,6 +57,23 @@ pointerModeControls?, cameraControls?, zoomControls? }` landed with the HUD
 
 ## Open — high priority
 
+- **Zooming mid-drag slides the window out from under the cursor** (found by reading,
+  2026-07-08; unverified in a browser). Every drag captures `zoom` at `startMove` and each
+  step computes `screenDelta / interaction.zoom`. The wheel handler is not gated on an
+  active interaction, so once the zoom changes the whole accumulated screen delta is
+  converted at a stale scale.
+
+  Grab a window at zoom 1, drag 100px right (world +100), zoom to 2, drag 100px more.
+  `screenDelta` is 200; divided by the captured zoom 1 that is world +200, where the true
+  displacement is 100 + 50 = **150**. The error is unbounded in the drag's remaining
+  length, and it applies to `move`, `resize`, `groupMove`, and `groupResize` alike, since
+  all four cache one scalar zoom.
+
+  The fix is two screen→world projections — origin pointer under the origin camera,
+  current pointer under the current camera — instead of one cached scalar. That changes
+  `InfiniteCanvasMoveInteraction` (public) and every drag path reads it, so **FAIL-001
+  should exist as a regression test before the edit**, not after. Tracked there.
+
 - **Interactive performance fails NFR-1 in practice.** Both this playground's
   /stress stage and the kek implementation degrade at even ~20 live windows
   during pan/zoom/move. A dedicated performance deep-dive is planned (profile

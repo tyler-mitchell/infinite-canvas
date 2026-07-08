@@ -237,9 +237,17 @@ reducer-level assertions — no DOM needed, because the group core is pure. This
 single largest gap between "it works when I try it" and "it works". Exit: those scenario
 ids assert against the reducer and pass.
 
-_Two bugs found by reading on 2026-07-08 — dock intent dispatched three times, and dead
-resize handles burying the gutter — would both have been caught by DOCK-001 and SPLIT-001.
-That is the argument for C2, and it is not hypothetical._
+_Three bugs found by reading on 2026-07-08 — dock intent dispatched three times, dead resize
+handles burying the gutter, and a mid-drag zoom sliding the window out from under the cursor
+— map exactly onto DOCK-001, SPLIT-001, and FAIL-001. That is the argument for C2, and it is
+not hypothetical. **No test in the suite touches groups, history, or recipes at all**, so P1
+and P4 are capability-complete and verification-empty._
+
+_Auditing `acceptance-scenarios.md` on 2026-07-08 also found the doc badly stale — its
+headers said "grouping unbuilt" over a list of scenarios each marked `done`, and `SNAP-005`,
+`PERSIST-001`, and `PERSIST-003` were filed as unbuilt features that had long since shipped.
+Root cause: one status bucket, `open`, meant both "unbuilt" and "untested". It now
+distinguishes `built` (works, nothing guards it) from `unbuilt`._
 
 **C3 — Group shell resize. ✅ BUILT, not browser-verified.** Reported by the owner: a
 group's outer edge could not be dragged. A `groupResize` interaction beside
