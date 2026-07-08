@@ -148,7 +148,16 @@ source must not:
 
 Components forward the consumer's `className` / `style` props and tag every structural element with
 `data-slot="…"`. Appearance is the job of `packages/infinite-canvas/src/theme.css`, an **opt-in**
-stylesheet that targets that `data-slot` contract.
+stylesheet that targets that `data-slot` contract. The framework writes `--icx-*` custom properties
+only for the theme keys a consumer actually passes, so an unstyled canvas really is unstyled.
+
+The two **debug overlays** — `raster-devtools.tsx` and `visibility-devtools.tsx` — are the standing
+exception, and they are styled with inline `style` objects rather than classes so the boundary test
+still passes over them. They render only behind the `rasterization` and `diagnostics.frustum` opt-ins
+and are not public exports. A debug panel that inherits your theme is a debug panel you cannot read.
+Nothing else in `src/**` may carry colour: `constants.ts` holds `DEFAULT_INFINITE_CANVAS_THEME`,
+whose only jobs are to fill gaps in a partial `theme` prop and to feed the WebGPU surface, which
+cannot read CSS variables.
 
 The slot vocabulary is the public styling contract and lives in
 `packages/infinite-canvas/src/data-attributes.ts` (`INFINITE_CANVAS_SLOTS`). If you render a new

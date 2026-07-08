@@ -108,7 +108,9 @@ The types apply while you write the registry and are then erased — `window.dat
 
 ## Styling is optional
 
-The package is headless. Components emit structure, geometry, and a `data-slot="…"` attribute vocabulary; they carry no visual identity of their own (a boundary test enforces this). The canvas is fully functional unstyled.
+The package is headless. Components emit structure, geometry, and a `data-slot="…"` attribute vocabulary; they carry no visual identity of their own. The canvas is fully functional unstyled — mount it without importing anything and you get a working, colourless canvas, because the framework emits `--icx-*` custom properties only for the theme keys you actually pass.
+
+`src/headless-boundary.test.ts` enforces the two ways that guarantee has been broken in practice: no framework source imports an icon library, and none emits a literal `className="…"`. It does not — and this is deliberate, not an oversight — forbid inline `style` colour, because the two **debug overlays** (`InfiniteCanvasRasterHud`, `InfiniteCanvasVisibilityHud`) are styled inline on purpose. They render only when you opt into `rasterization` or `diagnostics.frustum`, they are not part of the public export surface, and a debug panel that inherits your theme is a debug panel you cannot read.
 
 To get the default look, import the theme once:
 
