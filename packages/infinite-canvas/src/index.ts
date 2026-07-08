@@ -3,10 +3,10 @@ export {
   InfiniteCanvasDesktop,
   InfiniteCanvasHud,
   InfiniteCanvasViewport,
-  InfiniteCanvasWebGpuSurface,
   InfiniteCanvasWindowLayer,
 } from "./infinite-canvas";
 export { INFINITE_CANVAS_SLOTS, getInfiniteCanvasWindowStateAttributes } from "./data-attributes";
+export type { InfiniteCanvasSceneSurface, InfiniteCanvasSceneSurfaceProps } from "./scene-surface";
 export type { InfiniteCanvasSlot } from "./data-attributes";
 export { DEFAULT_INFINITE_CANVAS_HUD_POLICY, resolveInfiniteCanvasHudPolicy } from "./canvas-hud";
 export { DEFAULT_INFINITE_CANVAS_ICONS, useInfiniteCanvasIcons } from "./icons";

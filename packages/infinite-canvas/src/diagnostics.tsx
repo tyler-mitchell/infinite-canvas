@@ -4,7 +4,6 @@ import { type ReactNode } from "react";
 
 import { InfiniteCanvasVisibilityHud } from "./visibility-devtools";
 import { InfiniteCanvasVisibilityProvider } from "./visibility";
-import { InfiniteCanvasWindowFrustumProbeLayer } from "./visibility-probes";
 
 type InfiniteCanvasDiagnosticsPolicy = Readonly<{
   frustum: boolean;
@@ -53,14 +52,6 @@ function InfiniteCanvasDiagnosticsProvider({
   return <InfiniteCanvasVisibilityProvider>{children}</InfiniteCanvasVisibilityProvider>;
 }
 
-function InfiniteCanvasDiagnosticsWebGpuLayer({
-  policy,
-}: Readonly<{
-  policy: InfiniteCanvasDiagnosticsPolicy;
-}>) {
-  return policy.frustum ? <InfiniteCanvasWindowFrustumProbeLayer /> : null;
-}
-
 function InfiniteCanvasDiagnosticsOverlay({
   policy,
 }: Readonly<{
@@ -73,7 +64,6 @@ export {
   DEFAULT_INFINITE_CANVAS_DIAGNOSTICS,
   InfiniteCanvasDiagnosticsOverlay,
   InfiniteCanvasDiagnosticsProvider,
-  InfiniteCanvasDiagnosticsWebGpuLayer,
   resolveInfiniteCanvasDiagnosticsPolicy,
 };
 

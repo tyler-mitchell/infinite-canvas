@@ -14,6 +14,7 @@ import {
   type InfiniteCanvasSize,
   type InfiniteCanvasWindow,
 } from "@infinite-canvas/react";
+import { InfiniteCanvasWebGpuSurface } from "@infinite-canvas/react/scene";
 import { useMemo, useRef } from "react";
 import { exposeCanvasDevHandle } from "../showcases/dev-handle.ts";
 
@@ -271,6 +272,7 @@ function DropTrayShowcase() {
         initialState={initialState}
         renderOverlay={(context) => <TrayOverlay context={context} />}
         sceneLayers={sceneLayers}
+        sceneSurface={InfiniteCanvasWebGpuSurface}
         spatialTargetResolvers={spatialTargetResolvers}
         subtitle="Typed payloads, validated targets, R3F placement preview, framework-committed drops."
         title="Drop Tray"

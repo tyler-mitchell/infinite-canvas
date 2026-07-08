@@ -34,12 +34,14 @@
   ],
   "exports": {
     ".": "./src/index.ts",
+    "./scene": "./src/scene.ts",
     "./package.json": "./package.json",
     "./theme.css": "./src/theme.css"
   },
   "publishConfig": {
     "exports": {
       ".": "./dist/index.mjs",
+      "./scene": "./dist/scene.mjs",
       "./package.json": "./package.json",
       "./theme.css": "./dist/theme.css"
     },
@@ -77,6 +79,14 @@
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "three": ">=0.181.0"
+  },
+  "peerDependenciesMeta": {
+    "@react-three/fiber": {
+      "optional": true
+    },
+    "three": {
+      "optional": true
+    }
   },
   "engines": {
     "node": ">=20"

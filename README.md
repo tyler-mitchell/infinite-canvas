@@ -5,11 +5,11 @@
 Windows are the primary object: you open, focus, pin, minimize, maximize,
 move, resize, snap, and arrange them on an infinite orthographic plane. Each
 window body is ordinary React DOM, so anything you can build in a component
-can live inside one. A transparent WebGPU surface sits behind and above the
-window plane for programmable, camera-synchronized scene content.
+can live inside one. An optional, transparent WebGPU surface sits behind and above
+the window plane for programmable, camera-synchronized scene content.
 
 ```bash
-npm install @infinite-canvas/react react react-dom three @react-three/fiber
+npm install @infinite-canvas/react react react-dom
 ```
 
 → **[Quick start and package docs](packages/infinite-canvas/README.md)**
@@ -59,10 +59,10 @@ documented works and is tested; nothing below is aspirational.
 
 |              |                                                                                             |
 | ------------ | ------------------------------------------------------------------------------------------- |
-| Tests        | 158, including packaging, accessibility, headless-boundary and pure-core-boundary contracts |
-| Bundle       | ~87 KB gzipped, excluding peers                                                             |
+| Tests        | 164, including packaging, accessibility, headless-boundary and pure-core-boundary contracts |
+| Bundle       | ~40 KB gzipped without scene layers, excluding peers                                        |
 | Runtime deps | 3 — `@legendapp/state`, `@tanstack/hotkeys`, and `@zumer/snapdom` (lazily imported)         |
-| Requires     | React 19, and a WebGPU-capable browser for the scene surface                                |
+| Requires     | React 19. `three` and `@react-three/fiber` are optional peers, needed only for scene layers |
 
 **Implemented:** infinite pan/zoom canvas · window lifecycle · selection,
 marquee, and group move · snapping with edge/center/gap guides · keyboard

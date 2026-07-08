@@ -2,11 +2,28 @@ import { defineConfig } from "vite-plus";
 
 export default defineConfig({
   pack: {
+    // Two entries, deliberately. `./scene` is the only one that reaches `three`
+    // and `@react-three/fiber`, which is what makes those peers genuinely
+    // optional: a consumer who never imports it can leave them uninstalled and
+    // their bundler never tries to resolve them.
+    entry: {
+      index: "src/index.ts",
+      scene: "src/scene.ts",
+    },
     // The bundler flattens away the per-file "use client" directives, which
     // silently breaks React Server Component consumers (Next.js App Router)
     // of what is a hooks/DOM/WebGPU client library. Re-assert it once, as the
-    // bundle's first statement. Verified by ./scripts/verify-artifact.mjs.
-    outputOptions: { banner: '"use client";' },
+    // bundle's first statement.
+    //
+    // Declaration files go through the same output pipeline, and a directive
+    // prologue is a *statement* — illegal in an ambient context. Emitting it
+    // there makes `tsc` fail with TS1036 for every consumer who has not set
+    // `skipLibCheck`. Banner the JS chunks only. Both halves of this are
+    // asserted by ./scripts/verify-artifact.mjs.
+    outputOptions: {
+      banner: (chunk: { fileName: string }) =>
+        /\.d\.[cm]?ts$/.test(chunk.fileName) ? "" : '"use client";',
+    },
     dts: {
       tsgo: true,
     },

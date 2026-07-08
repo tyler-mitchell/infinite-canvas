@@ -6,10 +6,9 @@ import type * as THREE from "three";
 
 import { getInfiniteCanvasContextualCommands } from "./commands";
 import { DEFAULT_INFINITE_CANVAS_CHROME, DEFAULT_INFINITE_CANVAS_THEME } from "./constants";
-import {
-  InfiniteCanvasDiagnosticsWebGpuLayer,
-  type InfiniteCanvasDiagnosticsPolicy,
-} from "./diagnostics";
+import { SCENE_UNDERLAY_Z_INDEX } from "./scene-surface";
+import type { InfiniteCanvasSceneSurfaceProps } from "./scene-surface";
+import { InfiniteCanvasWindowFrustumProbeLayer } from "./visibility-probes";
 import { EMPTY_INFINITE_CANVAS_DROP } from "./drop-interaction";
 import { getVisibleWorldRect } from "./geometry";
 import {
@@ -20,18 +19,14 @@ import { resolveInfiniteCanvasSpatialTarget } from "./spatial-target";
 import { useInfiniteCanvasActions, useInfiniteCanvasState, useInfiniteCanvasStore } from "./store";
 import { getInfiniteCanvasWindowProxies, getInfiniteCanvasWindowProxy } from "./window-proxy";
 import type {
-  InfiniteCanvasChromeMetrics,
   InfiniteCanvasDropInteraction,
   InfiniteCanvasDropPayload,
   InfiniteCanvasPoint,
   InfiniteCanvasSceneLayer,
   InfiniteCanvasSceneLayerFrameloop,
-  InfiniteCanvasSceneLayerPlacement,
   InfiniteCanvasSceneLayerRenderContext,
   InfiniteCanvasSceneLayerSpace,
-  InfiniteCanvasSpatialTargetResolver,
   InfiniteCanvasState,
-  InfiniteCanvasTheme,
 } from "./types";
 
 const FRAME_CANVAS_RESIZE = {
@@ -41,31 +36,8 @@ const FRAME_CANVAS_RESIZE = {
   },
 } as const;
 
-const SCENE_UNDERLAY_Z_INDEX = 0;
 const SCENE_CAMERA_Z = 10;
 const SCENE_BOOT_INVALIDATION_DELAYS_MS = [0, 16, 80, 240, 600, 1200, 2000] as const;
-
-function getSceneLayerPlacement<Kind extends string, Payload>(
-  layer: InfiniteCanvasSceneLayer<Kind, Payload>,
-) {
-  return layer.placement ?? "underlay";
-}
-
-function getSceneLayerSpace<Kind extends string, Payload>(
-  layer: InfiniteCanvasSceneLayer<Kind, Payload>,
-) {
-  return layer.space ?? "world";
-}
-
-function getSceneLayers<Kind extends string, Payload>(
-  layers: readonly InfiniteCanvasSceneLayer<Kind, Payload>[],
-  placement: InfiniteCanvasSceneLayerPlacement,
-  space: InfiniteCanvasSceneLayerSpace,
-) {
-  return layers.filter(
-    (layer) => getSceneLayerPlacement(layer) === placement && getSceneLayerSpace(layer) === space,
-  );
-}
 
 function getSceneSurfaceFrameloop<Kind extends string, Payload>(
   sceneLayers: readonly InfiniteCanvasSceneLayer<Kind, Payload>[],
@@ -119,17 +91,7 @@ function InfiniteCanvasWebGpuSurface<Kind extends string, Payload = InfiniteCanv
   spatialTargetResolvers = [],
   theme = DEFAULT_INFINITE_CANVAS_THEME,
   zIndex = SCENE_UNDERLAY_Z_INDEX,
-}: Readonly<{
-  chrome?: InfiniteCanvasChromeMetrics;
-  devicePixelRatio?: number;
-  diagnostics: InfiniteCanvasDiagnosticsPolicy;
-  dropInteraction?: InfiniteCanvasDropInteraction<Payload, Kind>;
-  sceneLayers?: readonly InfiniteCanvasSceneLayer<Kind, Payload>[];
-  space?: InfiniteCanvasSceneLayerSpace;
-  spatialTargetResolvers?: readonly InfiniteCanvasSpatialTargetResolver<Kind>[];
-  theme?: InfiniteCanvasTheme;
-  zIndex?: number;
-}>) {
+}: InfiniteCanvasSceneSurfaceProps<Kind, Payload>) {
   const state = useInfiniteCanvasState<Kind>();
   const store = useInfiniteCanvasStore<Kind>();
   const actions = useInfiniteCanvasActions<Kind>();
@@ -276,7 +238,7 @@ function InfiniteCanvasWebGpuSurface<Kind extends string, Payload = InfiniteCanv
         {sceneLayers.map((layer) => (
           <InfiniteCanvasSceneLayerHost context={sceneLayerContext} key={layer.id} layer={layer} />
         ))}
-        <InfiniteCanvasDiagnosticsWebGpuLayer policy={diagnostics} />
+        {diagnostics.frustum ? <InfiniteCanvasWindowFrustumProbeLayer /> : null}
       </Canvas>
     </div>
   );
@@ -419,4 +381,4 @@ function isWritableOrthographicCamera(camera: unknown): camera is THREE.Orthogra
   );
 }
 
-export { InfiniteCanvasWebGpuSurface, SCENE_UNDERLAY_Z_INDEX, getSceneLayers };
+export { InfiniteCanvasWebGpuSurface };

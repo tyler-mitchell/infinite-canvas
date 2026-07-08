@@ -1,20 +1,22 @@
 # API Reference
 
-The public surface of `@infinite-canvas/react`: 155 values and 131 types,
+The public surface of `@infinite-canvas/react`: 154 values and 133 types,
 generated from the barrel (`packages/infinite-canvas/src/index.ts`) so it cannot
 drift. Anything not exported from the barrel is internal and unstable —
 including every `data-infinite-canvas-*` attribute, which is a behavioural hook
 for hit-testing, not a styling contract.
+
+The `@infinite-canvas/react/scene` entry is documented separately below. It is
+the only entry that pulls in `three` and `@react-three/fiber`.
 
 > Pre-1.0: the API may change between minor versions. `createInfiniteCanvasHandle` is explicitly **experimental**.
 
 ## Components
 
 `InfiniteCanvasDesktop` is the one component most apps mount.
-`InfiniteCanvasViewport`, `InfiniteCanvasWindowLayer`,
-`InfiniteCanvasWebGpuSurface` and `InfiniteCanvasHud` are its internals,
-exported for custom shells; `InfiniteCanvas` is a namespace object bundling
-them.
+`InfiniteCanvasViewport`, `InfiniteCanvasWindowLayer` and `InfiniteCanvasHud`
+are its internals, exported for custom shells; `InfiniteCanvas` is a namespace
+object bundling them.
 
 **`infinite-canvas`**
 
@@ -22,7 +24,6 @@ them.
 - `InfiniteCanvasDesktop`
 - `InfiniteCanvasHud`
 - `InfiniteCanvasViewport`
-- `InfiniteCanvasWebGpuSurface`
 - `InfiniteCanvasWindowLayer`
 
 <details><summary>types (2)</summary>
@@ -576,3 +577,29 @@ name.
 - `InfiniteCanvasZoomPolicyInput`
 
 </details>
+
+## `@infinite-canvas/react/scene`
+
+A separate entry point, and the only one that imports `three` and
+`@react-three/fiber`. Import it to opt into a 3D engine, then pass the surface
+to `<InfiniteCanvasDesktop sceneSurface={...} />`. If you never import it, both
+peers can stay uninstalled and neither enters your bundle.
+
+```tsx
+import { InfiniteCanvasWebGpuSurface } from "@infinite-canvas/react/scene";
+```
+
+**`scene`**
+
+- `InfiniteCanvasWebGpuSurface` — the transparent WebGPU surface that paints `sceneLayers`
+- `InfiniteCanvasWindowFrustumProbeLayer` — the frustum-visibility probe used by `diagnostics.frustum`
+
+<details><summary>types (2)</summary>
+
+- `InfiniteCanvasSceneSurface`
+- `InfiniteCanvasSceneSurfaceProps`
+
+</details>
+
+Both types are also re-exported from the main entry, so you can type a
+`sceneSurface` prop without importing the scene entry.

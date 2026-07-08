@@ -49,21 +49,15 @@ Initial release.
 - **Typed drag and drop.** A drop-target contract with spatial resolution, so a payload dropped on
   the canvas resolves to the window (or the empty canvas region) actually underneath it, in canvas
   coordinates.
-- **Read-only R3F / WebGPU scene layers.** `sceneLayers` render React Three Fiber content above or
-  below the DOM window plane on a transparent WebGPU surface, in camera-owned world space or
-  DOM-aligned screen space, backed by projected window proxies.
+- **Read-only R3F / WebGPU scene layers, as an opt-in entry.** `sceneLayers` render React Three
+  Fiber content above or below the DOM window plane on a transparent WebGPU surface, in camera-owned
+  world space or DOM-aligned screen space, backed by projected window proxies. The surface itself
+  ships from `@infinite-canvas/react/scene` and is injected via the `sceneSurface` prop, which makes
+  `three` and `@react-three/fiber` genuinely optional peers: the main entry never reaches them, so a
+  consumer who does not render scene content can leave both uninstalled. Passing `sceneLayers`
+  without a `sceneSurface` warns in development rather than silently rendering nothing.
 - **Custom window chrome.** Replace the default header, controls, and corners wholesale via
   `renderFrame`, or slot into the existing frame.
-- **Headless styling.** The framework ships no visual identity: every structural element is tagged
-  with a `data-slot` from the public `INFINITE_CANVAS_SLOTS` contract, appearance is opt-in via the
-  separately-exported `theme.css`, and icons are injected rather than imported.
-- **Experimental programmatic handle.** `createInfiniteCanvasHandle` exposes the command surface
-  outside the React tree, for tests, tooling, and automation. The shape of this API is not yet
-  stable.
-
-[Unreleased]: https://github.com/tyler-mitchell/infinite-canvas/compare/v0.1.0...HEAD
-[0.1.0]: https://github.com/tyler-mitchell/infinite-canvas/releases/tag/v0.1.0
-
 - **Headless styling contract.** Framework components emit a stable `data-slot` attribute
   vocabulary and no visual identity; `@infinite-canvas/react/theme.css` is an opt-in cascade layer
   over that contract, so consumer styles always win. Enforced by a boundary test.
@@ -71,7 +65,14 @@ Initial release.
   `aria-roledescription="window"`; the active window is marked with `aria-current`. Every
   framework-rendered button has an accessible name, and unavailable commands are `disabled`.
 - **Packaging gate.** `scripts/verify-artifact.mjs` asserts, on every build and before publish, that
-  the bundle is marked `"use client"`, that `@zumer/snapdom` stays dynamically imported, that every
-  top-level import is a declared dependency or peer, and that the type declarations emit.
+  the JS entry is marked `"use client"` and the declaration files are _not_ (a directive prologue is
+  a statement, and would fail every consumer without `skipLibCheck`), that `@zumer/snapdom` stays
+  dynamically imported, that `three` and `@react-three/fiber` are reachable only from `./scene` and
+  never from the main entry — not even through a dynamic `import()`, which bundlers resolve eagerly —
+  that every top-level import in every chunk is a declared dependency or peer, and that the type
+  declarations emit.
 - **Experimental programmatic handle.** `createInfiniteCanvasHandle(store)` exposes a state
   snapshot, the typed command facade, and contextual command descriptors for automation and testing.
+
+[Unreleased]: https://github.com/tyler-mitchell/infinite-canvas/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/tyler-mitchell/infinite-canvas/releases/tag/v0.1.0

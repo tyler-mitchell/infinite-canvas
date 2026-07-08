@@ -18,6 +18,7 @@ import {
   type InfiniteCanvasWindow,
   type InfiniteCanvasWorldSegment,
 } from "@infinite-canvas/react";
+import { InfiniteCanvasWebGpuSurface } from "@infinite-canvas/react/scene";
 import { useMemo, useState } from "react";
 import { Button } from "ui";
 import { exposeCanvasDevHandle } from "../showcases/dev-handle.ts";
@@ -265,6 +266,7 @@ function WorkflowBoardShowcase() {
           />
         )}
         sceneLayers={sceneLayers}
+        sceneSurface={InfiniteCanvasWebGpuSurface}
         spatialTargetResolvers={spatialTargetResolvers}
         subtitle="Scene-layer links, selectable edges, ports, and scoped workspaces."
         title={`Workflow — ${workspace.label}`}

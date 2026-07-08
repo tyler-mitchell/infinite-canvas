@@ -5,17 +5,35 @@ An infinite-canvas window manager for React: a pure reducer core, real DOM windo
 ## Install
 
 ```bash
-npm install @infinite-canvas/react react react-dom three @react-three/fiber
+npm install @infinite-canvas/react react react-dom
 ```
 
-The package ships no renderer of its own. It declares four peers:
+The package ships no renderer of its own. It declares four peers, two of which are optional:
 
-| Peer                 | Range                         |
-| -------------------- | ----------------------------- |
-| `react`              | `^19.0.0`                     |
-| `react-dom`          | `^19.0.0`                     |
-| `three`              | `>=0.181.0`                   |
-| `@react-three/fiber` | `>=10.0.0-canary.dbbe704 <11` |
+| Peer                 | Range                         | Required?                               |
+| -------------------- | ----------------------------- | --------------------------------------- |
+| `react`              | `^19.0.0`                     | yes                                     |
+| `react-dom`          | `^19.0.0`                     | yes                                     |
+| `three`              | `>=0.181.0`                   | only for `@infinite-canvas/react/scene` |
+| `@react-three/fiber` | `>=10.0.0-canary.dbbe704 <11` | only for `@infinite-canvas/react/scene` |
+
+Windows, panning, zooming, selection, snapping, drag & drop, and persistence need no 3D engine. `three` and `@react-three/fiber` are reachable only from the `@infinite-canvas/react/scene` entry — the main entry never imports them, statically or dynamically — so if you do not render scene layers you can leave both uninstalled and they never enter your bundle. A `<InfiniteCanvasDesktop>` with no scene layers is **~40 KB gzipped**.
+
+To render scene layers, install the 3D peers and pass the surface in:
+
+```bash
+npm install three @react-three/fiber
+```
+
+```tsx
+import { InfiniteCanvasWebGpuSurface } from "@infinite-canvas/react/scene";
+
+<InfiniteCanvasDesktop
+  sceneLayers={sceneLayers}
+  sceneSurface={InfiniteCanvasWebGpuSurface}
+  {...rest}
+/>;
+```
 
 `@react-three/fiber` must be a v10 release — the current `9.x` line does not satisfy the range. Install the matching canary explicitly if your package manager resolves `latest`.
 
@@ -113,8 +131,8 @@ There is no hosted documentation site. The full export surface is catalogued in 
 
 ## Requirements
 
-- **React 19.** The library is client-only; the built entry point is marked `"use client"`.
-- **A WebGPU-capable browser** for the spatial surface — the scene renders through `@react-three/fiber/webgpu`. Development is Chrome-first.
+- **React 19.** The library is client-only; the built entry points are marked `"use client"`.
+- **A WebGPU-capable browser**, but only if you use `@infinite-canvas/react/scene` — that surface renders through `@react-three/fiber/webgpu`. Development is Chrome-first.
 - ESM only. There is no CommonJS build.
 
 ## License
