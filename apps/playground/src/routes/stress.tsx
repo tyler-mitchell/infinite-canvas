@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import { Button } from "ui";
 import { exposeCanvasBenchmark } from "../showcases/benchmark.ts";
 import { exposeCanvasDevHandle } from "../showcases/dev-handle.ts";
+import { CanvasMinimap } from "../showcases/minimap.tsx";
 import {
   createStressInfiniteCanvasState,
   sampleInfiniteCanvasWindowRegistry,
@@ -55,41 +56,46 @@ function StressShowcase() {
           // enough windows for the numbers to mean anything.
           exposeCanvasBenchmark();
           return (
-            <div className="pointer-events-none absolute bottom-4 left-4 z-[70] flex items-center gap-1.5">
-              <div className="pointer-events-auto flex items-center gap-1.5 rounded-lg border border-border bg-popover/90 p-1.5 backdrop-blur">
-                {countPresets.map((preset) => (
+            <>
+              {/* At 160 windows you can pan into nothing. This is the only affordance that
+                  tells you where you are while you are still there. */}
+              <CanvasMinimap />
+              <div className="pointer-events-none absolute bottom-4 left-4 z-[70] flex items-center gap-1.5">
+                <div className="pointer-events-auto flex items-center gap-1.5 rounded-lg border border-border bg-popover/90 p-1.5 backdrop-blur">
+                  {countPresets.map((preset) => (
+                    <Button
+                      key={preset}
+                      onClick={() =>
+                        void navigate({ search: (prev) => ({ ...prev, count: preset }) })
+                      }
+                      size="xs"
+                      variant={count === preset ? "secondary" : "ghost"}
+                    >
+                      {preset}
+                    </Button>
+                  ))}
+                  <span className="mx-1 h-4 w-px bg-border" />
                   <Button
-                    key={preset}
                     onClick={() =>
-                      void navigate({ search: (prev) => ({ ...prev, count: preset }) })
+                      void navigate({ search: (prev) => ({ ...prev, raster: !prev.raster }) })
                     }
                     size="xs"
-                    variant={count === preset ? "secondary" : "ghost"}
+                    variant={raster ? "secondary" : "ghost"}
                   >
-                    {preset}
+                    raster {raster ? "on" : "off"}
                   </Button>
-                ))}
-                <span className="mx-1 h-4 w-px bg-border" />
-                <Button
-                  onClick={() =>
-                    void navigate({ search: (prev) => ({ ...prev, raster: !prev.raster }) })
-                  }
-                  size="xs"
-                  variant={raster ? "secondary" : "ghost"}
-                >
-                  raster {raster ? "on" : "off"}
-                </Button>
-                <Button
-                  onClick={() =>
-                    void navigate({ search: (prev) => ({ ...prev, debug: !prev.debug }) })
-                  }
-                  size="xs"
-                  variant={debug ? "secondary" : "ghost"}
-                >
-                  debug
-                </Button>
+                  <Button
+                    onClick={() =>
+                      void navigate({ search: (prev) => ({ ...prev, debug: !prev.debug }) })
+                    }
+                    size="xs"
+                    variant={debug ? "secondary" : "ghost"}
+                  >
+                    debug
+                  </Button>
+                </div>
               </div>
-            </div>
+            </>
           );
         }}
         subtitle={`${count} generated windows · bodies ${raster ? "rasterize when eligible" : "stay live DOM"}.`}

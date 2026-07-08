@@ -56,6 +56,24 @@ sections, in this order, omitting the ones that don't apply:
   `@infinite-canvas/react/scene` and returns its `true` fallback for every consumer who has not
   installed `three` and enabled `diagnostics.frustum`. Rasterization eligibility now shares it.
 
+- **A world overview, as geometry rather than as a widget.** An infinite canvas has a failure
+  mode nothing bounded does: you can pan into empty space and lose everything. Fit-all,
+  directional focus, and recipes all recover you _after_ you are lost; an overview is the only
+  affordance that answers "where is everything, and where am I in it" continuously.
+
+  `getInfiniteCanvasMinimapLayout` projects windows, groups, and the camera's visible rect into
+  a box of overview pixels; `getInfiniteCanvasMinimapWorldPoint` is its exact inverse, for
+  click-to-navigate. Both pure. **The framework draws nothing** — a minimap is almost entirely
+  a projection problem, and the projection is the part a consumer cannot easily get right; the
+  rounded corners are the part they can. The same bargain `data-slot` strikes.
+
+  The camera's visible rect is **unioned into the bounds**, so panning away from every window
+  shrinks the content rather than pushing the viewport indicator out of the box — precisely the
+  moment you reached for the overview. Scale is uniform on both axes, because a map that lies
+  about aspect ratio is worse than no map. Windows behind an inactive tab or a collapsed fold
+  are omitted, as are minimized ones: an overview maps what is on screen to be found. `/stress`
+  draws one.
+
 - **A floating window over a group gets that group as its contextual parent** (FOCUS-002).
   Directional focus searches the group's members before the rest of the canvas, so a floating
   window needs no separate keyboard model — the mitigation the focus model was designed around.

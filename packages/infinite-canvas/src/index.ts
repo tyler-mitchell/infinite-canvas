@@ -210,6 +210,13 @@ export {
 } from "./window-focus";
 export { getInfiniteCanvasWindowPlacementRect } from "./window-placement";
 export type { InfiniteCanvasWindowPlacementRegion } from "./window-placement";
+export { getInfiniteCanvasMinimapLayout, getInfiniteCanvasMinimapWorldPoint } from "./minimap";
+export type {
+  InfiniteCanvasMinimapGroup,
+  InfiniteCanvasMinimapLayout,
+  InfiniteCanvasMinimapOptions,
+  InfiniteCanvasMinimapWindow,
+} from "./minimap";
 export {
   focusInfiniteCanvasCommandSurface,
   registerInfiniteCanvasHotkeys,

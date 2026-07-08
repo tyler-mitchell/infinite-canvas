@@ -43,6 +43,7 @@ const PURE_CORE_ROOTS = [
   "input-policy.ts",
   "interaction.ts",
   "keyboard.ts",
+  "minimap.ts",
   "persistence.ts",
   "recipes.ts",
   "reducer.ts",

@@ -1,6 +1,6 @@
 # API Reference
 
-The public surface of `@infinite-canvas/react`: 198 values and 162 types,
+The public surface of `@infinite-canvas/react`: 200 values and 166 types,
 generated from the barrel (`packages/infinite-canvas/src/index.ts`) so it cannot
 drift. Anything not exported from the barrel is internal and unstable —
 including every `data-infinite-canvas-*` attribute, which is a behavioural hook
@@ -221,6 +221,35 @@ grouped window, whose rect belongs to its tree.
 
 - `InfiniteCanvasWindowPlacementRegion` — `"left" | "right" | "top" | "bottom"`, the four
   quarters, `"fill"`, `"center"`
+
+</details>
+
+**`minimap`** — a world overview, as geometry rather than as a widget
+
+An infinite canvas has a failure mode nothing bounded does: you can pan into empty space and
+lose everything. Fit-all, directional focus, and recipes all recover you _after_ you are lost;
+an overview is the only affordance that answers "where is everything, and where am I in it"
+continuously. This module computes it and draws nothing — a minimap is almost entirely a
+projection problem, and the projection is the part a consumer cannot easily get right.
+
+- `getInfiniteCanvasMinimapLayout` — `(state, size, options?)`. Windows, groups, and the
+  camera's visible rect, projected into a box of `size` pixels. Uniform scale on both axes; the
+  camera's rect is **unioned into the bounds**, so panning away from every window shrinks the
+  content rather than pushing the viewport indicator out of the box. Returns `null` for an
+  unmeasured viewport or an empty canvas: rendering nothing beats rendering a degenerate
+  projection.
+- `getInfiniteCanvasMinimapWorldPoint` — `(layout, minimapPoint)`. The exact inverse, for
+  click-to-navigate. Hand the result to `navigateToPoint`.
+
+Windows behind an inactive tab or a collapsed fold are omitted, as are minimized ones: an
+overview is a map of what is on screen to be found.
+
+<details><summary>types (4)</summary>
+
+- `InfiniteCanvasMinimapGroup`
+- `InfiniteCanvasMinimapLayout`
+- `InfiniteCanvasMinimapOptions`
+- `InfiniteCanvasMinimapWindow`
 
 </details>
 
