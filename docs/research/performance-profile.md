@@ -64,11 +64,8 @@ which is **frame-chrome reconciliation**: each camera tick re-renders every
 ~15-element chrome subtree even though only the outer transform changed.
 In rough order of leverage:
 
-1. **Memoize the frame's inner chrome** the same way bodies are now
-   memoized (slots depend on window/state flags + chrome metrics, not the
-   screen transform) — the outer transform write stays per-frame, the inner
-   tree stops reconciling. Should roughly double the 80-window numbers.
-   Zoom stays costlier (chrome metrics legitimately depend on zoom).
+1. ~~**Memoize the frame's inner chrome**~~ — **landed, unmeasured.** See
+   below.
 2. **Texture-mode-during-camera-motion** (html-in-canvas, owner directive):
    present cached window textures on the WebGPU plane during pan/zoom and
    swap live DOM back on settle — removes DOM from the camera loop entirely;
@@ -84,3 +81,38 @@ In rough order of leverage:
 Re-measure on real hardware (the embedded browser underclocks rAF under
 load) before declaring absolute numbers; the protocol above is reproducible
 via the synthetic drivers in this doc's history.
+
+## Tranche 1: frame chrome memoization (landed, NOT YET MEASURED)
+
+> No numbers in this section. The change is argued structurally; the table
+> above still describes the pre-tranche-1 runtime. Re-run the protocol on
+> real hardware before quoting any figure.
+
+The rule the frame is now built around: **only the outer transform may
+change per camera tick.**
+
+- `InfiniteCanvasWindowFrame` no longer receives `state`. It takes `camera`
+  and `viewport` — what the transform needs — and reads everything else
+  through the store at call time. Threading `state` down was what forced
+  every memo beneath it to churn.
+- The frame's runtime context, its rendered chrome node, and its eight
+  resize-handle elements are each memoized on the window's own identity.
+  On pan they are all referentially stable, so React bails out of the
+  subtree and the work collapses to one inline-style write per window.
+- The runtime context no longer carries canvas state at all, which removes
+  the last per-tick invalidation source from the slot subtree.
+- `InfiniteCanvasWindowBody` stopped taking `state` as a prop and now
+  subscribes to the two booleans it actually reads (raster eligibility, and
+  whether the canvas is idle). A pan recomputes both every tick and
+  re-renders nothing, because neither answer changed.
+
+**Zoom should no longer be structurally costlier than pan.** The previous
+per-zoom cost was `getResizeHandleDescriptors(size / zoom)` allocating eight
+fresh inline styles per window per frame. Handle geometry is now expressed
+against a `--icx-resize-handle-size` custom property published on the frame,
+whose inline style is rewritten every tick regardless — so the handle
+elements are constant across zoom. `chrome` metrics are zoom-independent.
+
+The prediction to test: pan and zoom both approach the cost of one style
+write per window, and drag cost stays proportional to the _dragged_ window
+only (its `window` identity changes; the others' does not).

@@ -57,7 +57,11 @@ Initial release.
   consumer who does not render scene content can leave both uninstalled. Passing `sceneLayers`
   without a `sceneSurface` warns in development rather than silently rendering nothing.
 - **Custom window chrome.** Replace the default header, controls, and corners wholesale via
-  `renderFrame`, or slot into the existing frame.
+  `renderFrame`, or slot into the existing frame. `renderFrame` is memoized on the window's own
+  identity and is **not** re-invoked when the camera moves — a window's chrome must not reconcile on
+  every pan frame. Its `context.state` is live at call time; implementations that need to re-render
+  when state changes should subscribe with `useInfiniteCanvasSelector` inside their own components,
+  so invalidation stays scoped to what they read. This is the contract `renderBody` already has.
 - **Headless styling contract.** Framework components emit a stable `data-slot` attribute
   vocabulary and no visual identity; `@infinite-canvas/react/theme.css` is an opt-in cascade layer
   over that contract, so consumer styles always win. Enforced by a boundary test.

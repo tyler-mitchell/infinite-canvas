@@ -17,56 +17,193 @@ import {
   releasePointer,
 } from "./runtime";
 import { getWindowStackValue } from "./stacking";
-import { useInfiniteCanvasActions } from "./store";
+import { useInfiniteCanvasActions, useInfiniteCanvasStore } from "./store";
 import type {
+  InfiniteCanvasCamera,
   InfiniteCanvasChromeMetrics,
   InfiniteCanvasResizeHandle,
   InfiniteCanvasStackBands,
   InfiniteCanvasState,
   InfiniteCanvasTheme,
+  InfiniteCanvasViewport,
   InfiniteCanvasWindow,
   InfiniteCanvasWindowFrameRenderContext,
   InfiniteCanvasWindowRegistry,
 } from "./types";
 
+/**
+ * A window frame is the hot path: every camera tick re-renders one of these per
+ * window, and at stress scale that is the interactive frame budget. The rule
+ * this file is built around is that **only the outer transform may change per
+ * tick.** Everything inside — chrome, body, resize handles — is memoized on the
+ * window's own identity, so React bails out of the subtree on pan and zoom and
+ * the work collapses to a single style write per window.
+ *
+ * Two consequences follow, and both are deliberate:
+ *
+ * 1. The frame never receives canvas state as a prop. It takes `camera` and
+ *    `viewport` (what the transform needs) and reads the rest through the store
+ *    at call time. Threading `state` down would make every memo below churn on
+ *    every tick, which is exactly the cost this file exists to avoid.
+ * 2. `renderFrame` is not re-invoked on camera movement. Implementations that
+ *    need reactive state subscribe with `useInfiniteCanvasSelector` inside
+ *    their own components, so invalidation stays scoped to what they read.
+ *    This mirrors the contract `renderBody` already has.
+ */
+
+/**
+ * Resize handles must stay a constant *screen* size, but they live inside the
+ * frame's zoom-scaled subtree, so their geometry is zoom-dependent. Publishing
+ * that size as a custom property on the frame — whose inline style is rewritten
+ * every tick regardless — lets the eight handle elements stay referentially
+ * stable across zoom instead of being rebuilt with fresh inline styles.
+ */
+const RESIZE_HANDLE_SIZE_CSS_VARIABLE = "--icx-resize-handle-size";
+
+const RESIZE_HANDLE_EXTENT = `var(${RESIZE_HANDLE_SIZE_CSS_VARIABLE})`;
+
+/** Handles straddle the frame edge, so they hang half their extent outside it. */
+const RESIZE_HANDLE_OVERHANG = `calc(${RESIZE_HANDLE_EXTENT} / -2)`;
+
+/** React's `CSSProperties` has no slot for custom properties. Widen just this one. */
+type InfiniteCanvasFrameStyle = CSSProperties &
+  Readonly<Record<typeof RESIZE_HANDLE_SIZE_CSS_VARIABLE, string>>;
+
+type InfiniteCanvasResizeHandleDescriptor = Readonly<{
+  cursor: CSSProperties["cursor"];
+  handle: InfiniteCanvasResizeHandle;
+  style: CSSProperties;
+}>;
+
+/**
+ * Edge handles are inset by one extent at each end so the corner handles own
+ * the corners. Every value is expressed against the CSS variable, which makes
+ * this a module constant rather than a per-zoom allocation.
+ */
+const RESIZE_HANDLE_DESCRIPTORS: readonly InfiniteCanvasResizeHandleDescriptor[] = [
+  {
+    cursor: "ns-resize",
+    handle: "north",
+    style: {
+      height: RESIZE_HANDLE_EXTENT,
+      left: RESIZE_HANDLE_EXTENT,
+      right: RESIZE_HANDLE_EXTENT,
+      top: RESIZE_HANDLE_OVERHANG,
+    },
+  },
+  {
+    cursor: "ns-resize",
+    handle: "south",
+    style: {
+      bottom: RESIZE_HANDLE_OVERHANG,
+      height: RESIZE_HANDLE_EXTENT,
+      left: RESIZE_HANDLE_EXTENT,
+      right: RESIZE_HANDLE_EXTENT,
+    },
+  },
+  {
+    cursor: "ew-resize",
+    handle: "east",
+    style: {
+      bottom: RESIZE_HANDLE_EXTENT,
+      right: RESIZE_HANDLE_OVERHANG,
+      top: RESIZE_HANDLE_EXTENT,
+      width: RESIZE_HANDLE_EXTENT,
+    },
+  },
+  {
+    cursor: "ew-resize",
+    handle: "west",
+    style: {
+      bottom: RESIZE_HANDLE_EXTENT,
+      left: RESIZE_HANDLE_OVERHANG,
+      top: RESIZE_HANDLE_EXTENT,
+      width: RESIZE_HANDLE_EXTENT,
+    },
+  },
+  {
+    cursor: "nwse-resize",
+    handle: "north-west",
+    style: {
+      height: RESIZE_HANDLE_EXTENT,
+      left: RESIZE_HANDLE_OVERHANG,
+      top: RESIZE_HANDLE_OVERHANG,
+      width: RESIZE_HANDLE_EXTENT,
+    },
+  },
+  {
+    cursor: "nesw-resize",
+    handle: "north-east",
+    style: {
+      height: RESIZE_HANDLE_EXTENT,
+      right: RESIZE_HANDLE_OVERHANG,
+      top: RESIZE_HANDLE_OVERHANG,
+      width: RESIZE_HANDLE_EXTENT,
+    },
+  },
+  {
+    cursor: "nesw-resize",
+    handle: "south-west",
+    style: {
+      bottom: RESIZE_HANDLE_OVERHANG,
+      height: RESIZE_HANDLE_EXTENT,
+      left: RESIZE_HANDLE_OVERHANG,
+      width: RESIZE_HANDLE_EXTENT,
+    },
+  },
+  {
+    cursor: "nwse-resize",
+    handle: "south-east",
+    style: {
+      bottom: RESIZE_HANDLE_OVERHANG,
+      height: RESIZE_HANDLE_EXTENT,
+      right: RESIZE_HANDLE_OVERHANG,
+      width: RESIZE_HANDLE_EXTENT,
+    },
+  },
+];
+
 function InfiniteCanvasWindowFrame<Kind extends string>({
+  camera,
   chrome,
   devicePixelRatio,
   isActive,
   isSelected,
   stackBands,
-  state,
   theme,
+  viewport,
   window,
   windowDefinitions,
 }: Readonly<{
+  camera: InfiniteCanvasCamera;
   chrome: InfiniteCanvasChromeMetrics;
   devicePixelRatio: number;
   isActive: boolean;
   isSelected: boolean;
   stackBands: InfiniteCanvasStackBands;
-  state: InfiniteCanvasState<Kind>;
   theme: InfiniteCanvasTheme;
+  viewport: InfiniteCanvasViewport;
   window: InfiniteCanvasWindow<Kind>;
   windowDefinitions: InfiniteCanvasWindowRegistry<Kind>;
 }>) {
   const actions = useInfiniteCanvasActions<Kind>();
+  const store = useInfiniteCanvasStore<Kind>();
   const definition = windowDefinitions[window.kind];
   const frameChrome = definition.frameChrome ?? "dom";
   const isHostLocalChrome = frameChrome === "host" || frameChrome === "scene";
   const textSelection = definition.textSelection ?? "none";
   const bodyPointerBehavior = definition.bodyPointerBehavior ?? "native";
-  const screenTransform = projectWorldRectToScreen(
-    state.camera,
-    state.viewport,
+  const { screenTransform } = projectWorldRectToScreen(
+    camera,
+    viewport,
     window.rect,
     devicePixelRatio,
-  ).screenTransform;
-  const resizeHandles = useMemo(
-    () => getResizeHandleDescriptors(chrome.resizeHandleSize / state.camera.zoom),
-    [chrome.resizeHandleSize, state.camera.zoom],
   );
-  const articleStyle: CSSProperties = {
+
+  // The frame's box is in world units; `scale` maps it to the screen. Handles
+  // therefore need a world-unit extent that shrinks as zoom grows.
+  const articleStyle: InfiniteCanvasFrameStyle = {
+    [RESIZE_HANDLE_SIZE_CSS_VARIABLE]: `${chrome.resizeHandleSize / screenTransform.scale}px`,
     contain: "layout paint style",
     height: `${screenTransform.height}px`,
     left: "0px",
@@ -78,76 +215,109 @@ function InfiniteCanvasWindowFrame<Kind extends string>({
     width: `${screenTransform.width}px`,
     zIndex: getWindowStackValue(window, stackBands),
   };
-  const FrameTitle = DEFAULT_INFINITE_CANVAS_WINDOW_FRAME_SLOTS.Title;
-  const FrameControls = DEFAULT_INFINITE_CANVAS_WINDOW_FRAME_SLOTS.Controls;
-  const FrameHeader = DEFAULT_INFINITE_CANVAS_WINDOW_FRAME_SLOTS.Header;
-  const FrameBody = DEFAULT_INFINITE_CANVAS_WINDOW_FRAME_SLOTS.Body;
-  const FrameActiveCorners = DEFAULT_INFINITE_CANVAS_WINDOW_FRAME_SLOTS.ActiveCorners;
-  const FrameSurface = DEFAULT_INFINITE_CANVAS_WINDOW_FRAME_SLOTS.Surface;
-  const renderDefaultFrame = (): ReactNode =>
-    isHostLocalChrome ? (
-      <FrameSurface>
-        <InfiniteCanvasWindowHostChrome chrome={chrome} />
-        <FrameHeader
-          style={{
-            borderBottomWidth: 0,
-            zIndex: 3,
+
+  const frameRuntimeContext = useMemo(
+    () =>
+      ({
+        actions,
+        bodyPointerBehavior,
+        chrome,
+        definition,
+        isActive,
+        isSelected,
+        textSelection,
+        theme,
+        window,
+      }) satisfies InfiniteCanvasWindowFrameRuntimeContextValue<Kind>,
+    [
+      actions,
+      bodyPointerBehavior,
+      chrome,
+      definition,
+      isActive,
+      isSelected,
+      textSelection,
+      theme,
+      window,
+    ],
+  );
+
+  const frameNode = useMemo(() => {
+    const renderDefaultFrame = (): ReactNode =>
+      isHostLocalChrome ? (
+        <InfiniteCanvasHostChromeFrame chrome={chrome} />
+      ) : (
+        <InfiniteCanvasDomChromeFrame />
+      );
+    const frameContext = {
+      actions,
+      chrome,
+      frame: DEFAULT_INFINITE_CANVAS_WINDOW_FRAME_SLOTS,
+      isActive,
+      isSelected,
+      renderDefaultFrame,
+      // Read at call time, never an invalidation source — see the file header.
+      get state() {
+        return store.state$.peek() as InfiniteCanvasState<Kind>;
+      },
+      theme,
+      window,
+    } satisfies InfiniteCanvasWindowFrameRenderContext<Kind>;
+
+    return definition.renderFrame?.(frameContext) ?? renderDefaultFrame();
+  }, [actions, chrome, definition, isActive, isHostLocalChrome, isSelected, store, theme, window]);
+
+  const resizeHandles = useMemo(
+    () =>
+      RESIZE_HANDLE_DESCRIPTORS.map((descriptor) => (
+        <div
+          data-handle={descriptor.handle}
+          data-infinite-canvas-control="true"
+          data-slot={INFINITE_CANVAS_SLOTS.resizeHandle}
+          key={descriptor.handle}
+          onLostPointerCapture={(event) => {
+            actions.finishInteraction(event.pointerId);
           }}
-        >
-          <>
-            <FrameTitle />
-            <FrameControls />
-          </>
-        </FrameHeader>
-        <FrameBody
+          onPointerCancel={(event) => {
+            actions.finishInteraction(event.pointerId);
+          }}
+          onPointerDown={(event) => {
+            if (!isPrimaryButton(event)) {
+              return;
+            }
+
+            event.preventDefault();
+            event.stopPropagation();
+            clearNativeTextSelection();
+            capturePointer(event.currentTarget, event.pointerId);
+            actions.startResize({
+              handle: descriptor.handle,
+              pointerId: event.pointerId,
+              point: getEventViewportPoint(event),
+              windowId: window.id,
+            });
+          }}
+          onPointerMove={(event) => {
+            actions.stepInteraction({
+              pointerId: event.pointerId,
+              point: getEventViewportPoint(event),
+            });
+          }}
+          onPointerUp={(event) => {
+            releasePointer(event.currentTarget, event.pointerId);
+            actions.finishInteraction(event.pointerId);
+          }}
           style={{
-            bottom: `${chrome.borderWidth}px`,
-            left: `${chrome.borderWidth}px`,
-            right: `${chrome.borderWidth}px`,
-            top: `${chrome.headerHeight}px`,
-            zIndex: 2,
+            ...descriptor.style,
+            cursor: descriptor.cursor,
+            pointerEvents: "auto",
+            position: "absolute",
+            zIndex: 4,
           }}
         />
-        <FrameActiveCorners style={{ zIndex: 4 }} />
-      </FrameSurface>
-    ) : (
-      <FrameSurface>
-        <FrameHeader />
-        <FrameBody />
-        <FrameActiveCorners />
-      </FrameSurface>
-    );
-  const frameRuntimeContext = {
-    actions,
-    bodyPointerBehavior,
-    chrome,
-    definition,
-    isActive,
-    isSelected,
-    state,
-    textSelection,
-    theme,
-    window,
-  } satisfies InfiniteCanvasWindowFrameRuntimeContextValue<Kind>;
-  const frameContext = {
-    actions,
-    chrome,
-    frame: {
-      ActiveCorners: FrameActiveCorners,
-      Body: FrameBody,
-      Controls: FrameControls,
-      Header: FrameHeader,
-      Surface: FrameSurface,
-      Title: FrameTitle,
-    },
-    isActive,
-    isSelected,
-    renderDefaultFrame,
-    state,
-    theme,
-    window,
-  } satisfies InfiniteCanvasWindowFrameRenderContext<Kind>;
-  const frameNode = definition.renderFrame?.(frameContext) ?? renderDefaultFrame();
+      )),
+    [actions, window.id],
+  );
 
   return (
     <InfiniteCanvasWindowFrameRuntimeContext.Provider value={frameRuntimeContext}>
@@ -174,55 +344,62 @@ function InfiniteCanvasWindowFrame<Kind extends string>({
         style={articleStyle}
       >
         {frameNode}
-        {resizeHandles.map((handle) => (
-          <div
-            data-handle={handle.handle}
-            data-infinite-canvas-control="true"
-            data-slot={INFINITE_CANVAS_SLOTS.resizeHandle}
-            key={`${window.id}-${handle.handle}`}
-            onLostPointerCapture={(event) => {
-              actions.finishInteraction(event.pointerId);
-            }}
-            onPointerCancel={(event) => {
-              actions.finishInteraction(event.pointerId);
-            }}
-            onPointerDown={(event) => {
-              if (!isPrimaryButton(event)) {
-                return;
-              }
-
-              event.preventDefault();
-              event.stopPropagation();
-              clearNativeTextSelection();
-              capturePointer(event.currentTarget, event.pointerId);
-              actions.startResize({
-                handle: handle.handle,
-                pointerId: event.pointerId,
-                point: getEventViewportPoint(event),
-                windowId: window.id,
-              });
-            }}
-            onPointerMove={(event) => {
-              actions.stepInteraction({
-                pointerId: event.pointerId,
-                point: getEventViewportPoint(event),
-              });
-            }}
-            onPointerUp={(event) => {
-              releasePointer(event.currentTarget, event.pointerId);
-              actions.finishInteraction(event.pointerId);
-            }}
-            style={{
-              ...handle.style,
-              cursor: handle.cursor,
-              pointerEvents: "auto",
-              position: "absolute",
-              zIndex: 4,
-            }}
-          />
-        ))}
+        {resizeHandles}
       </article>
     </InfiniteCanvasWindowFrameRuntimeContext.Provider>
+  );
+}
+
+/**
+ * Chrome painted by the host: discrete layers the consumer can style
+ * independently, stacked under the header and body.
+ */
+function InfiniteCanvasHostChromeFrame({
+  chrome,
+}: Readonly<{
+  chrome: InfiniteCanvasChromeMetrics;
+}>) {
+  const { ActiveCorners, Body, Controls, Header, Surface, Title } =
+    DEFAULT_INFINITE_CANVAS_WINDOW_FRAME_SLOTS;
+
+  return (
+    <Surface>
+      <InfiniteCanvasWindowHostChrome chrome={chrome} />
+      <Header
+        style={{
+          borderBottomWidth: 0,
+          zIndex: 3,
+        }}
+      >
+        <>
+          <Title />
+          <Controls />
+        </>
+      </Header>
+      <Body
+        style={{
+          bottom: `${chrome.borderWidth}px`,
+          left: `${chrome.borderWidth}px`,
+          right: `${chrome.borderWidth}px`,
+          top: `${chrome.headerHeight}px`,
+          zIndex: 2,
+        }}
+      />
+      <ActiveCorners style={{ zIndex: 4 }} />
+    </Surface>
+  );
+}
+
+/** Chrome painted by the slots themselves — the default. */
+function InfiniteCanvasDomChromeFrame() {
+  const { ActiveCorners, Body, Header, Surface } = DEFAULT_INFINITE_CANVAS_WINDOW_FRAME_SLOTS;
+
+  return (
+    <Surface>
+      <Header />
+      <Body />
+      <ActiveCorners />
+    </Surface>
   );
 }
 
@@ -286,97 +463,6 @@ function InfiniteCanvasWindowHostChrome({
       />
     </div>
   );
-}
-
-function getResizeHandleDescriptors(size: number): readonly Readonly<{
-  cursor: CSSProperties["cursor"];
-  handle: InfiniteCanvasResizeHandle;
-  style: CSSProperties;
-}>[] {
-  const halfSize = size / 2;
-
-  return [
-    {
-      cursor: "ns-resize",
-      handle: "north",
-      style: {
-        height: `${size}px`,
-        left: `${size}px`,
-        right: `${size}px`,
-        top: `${-halfSize}px`,
-      },
-    },
-    {
-      cursor: "ns-resize",
-      handle: "south",
-      style: {
-        bottom: `${-halfSize}px`,
-        height: `${size}px`,
-        left: `${size}px`,
-        right: `${size}px`,
-      },
-    },
-    {
-      cursor: "ew-resize",
-      handle: "east",
-      style: {
-        bottom: `${size}px`,
-        right: `${-halfSize}px`,
-        top: `${size}px`,
-        width: `${size}px`,
-      },
-    },
-    {
-      cursor: "ew-resize",
-      handle: "west",
-      style: {
-        bottom: `${size}px`,
-        left: `${-halfSize}px`,
-        top: `${size}px`,
-        width: `${size}px`,
-      },
-    },
-    {
-      cursor: "nwse-resize",
-      handle: "north-west",
-      style: {
-        height: `${size}px`,
-        left: `${-halfSize}px`,
-        top: `${-halfSize}px`,
-        width: `${size}px`,
-      },
-    },
-    {
-      cursor: "nesw-resize",
-      handle: "north-east",
-      style: {
-        height: `${size}px`,
-        right: `${-halfSize}px`,
-        top: `${-halfSize}px`,
-        width: `${size}px`,
-      },
-    },
-    {
-      cursor: "nesw-resize",
-      handle: "south-west",
-      style: {
-        bottom: `${-halfSize}px`,
-        height: `${size}px`,
-        left: `${-halfSize}px`,
-        width: `${size}px`,
-      },
-    },
-    {
-      cursor: "nwse-resize",
-      handle: "south-east",
-      style: {
-        bottom: `${-halfSize}px`,
-        height: `${size}px`,
-        right: `${-halfSize}px`,
-        width: `${size}px`,
-      },
-    },
-  ];
 }
 
 export { InfiniteCanvasWindowFrame };

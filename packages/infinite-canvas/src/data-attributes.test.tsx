@@ -161,13 +161,14 @@ test("dom window frame emits window slot, identity enums, states, and frame anat
   const markup = renderWithStore(
     baseState,
     <InfiniteCanvasWindowFrame
+      camera={baseState.camera}
       chrome={DEFAULT_INFINITE_CANVAS_CHROME}
       devicePixelRatio={1}
       isActive={true}
       isSelected={true}
       stackBands={DEFAULT_INFINITE_CANVAS_STACK_BANDS}
-      state={baseState}
       theme={DEFAULT_INFINITE_CANVAS_THEME}
+      viewport={baseState.viewport}
       window={noteWindow}
       windowDefinitions={windowRegistry}
     />,
@@ -219,13 +220,14 @@ test("host-chrome window frame normalizes scene->host and emits chrome layers", 
   const markup = renderWithStore(
     baseState,
     <InfiniteCanvasWindowFrame
+      camera={baseState.camera}
       chrome={DEFAULT_INFINITE_CANVAS_CHROME}
       devicePixelRatio={1}
       isActive={false}
       isSelected={false}
       stackBands={DEFAULT_INFINITE_CANVAS_STACK_BANDS}
-      state={baseState}
       theme={DEFAULT_INFINITE_CANVAS_THEME}
+      viewport={baseState.viewport}
       window={hostWindow}
       windowDefinitions={windowRegistry}
     />,

@@ -114,6 +114,8 @@ It is a single `@layer infinite-canvas` cascade layer targeting the `data-slot` 
 - **R3F scene layers** — `sceneLayers` render read-only React Three Fiber content above or below the DOM window plane, in camera-owned `space: "world"` or DOM-aligned `space: "screen"`, backed by projected window proxies.
 - **Custom frames** — `renderFrame` composes framework-owned slots (`Surface`, `Header`, `Title`, `Controls`, `Body`, `ActiveCorners`) so you can replace chrome without reimplementing drag, resize, focus, or body projection.
 
+`renderFrame` and `renderBody` are both memoized on the window's identity and are not re-invoked when the camera moves — window content must not reconcile on every pan frame. Their `context.state` is live at call time. If your frame or body needs to re-render when canvas state changes, subscribe with `useInfiniteCanvasSelector` inside your own component, so invalidation stays scoped to what you actually read.
+
 ## Status
 
 **0.1.0 — pre-1.0. The API may change between minor versions.**

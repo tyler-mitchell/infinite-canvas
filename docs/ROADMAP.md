@@ -37,9 +37,12 @@ windows compose into movable local layout regions.
 Started (body memoization landed; 20→97fps pan). Finish the cost model in
 [research/performance-profile.md](research/performance-profile.md):
 
-- Tranche 1: memoize frame inner chrome (transform writes stay per-frame,
-  ~15-element chrome trees stop reconciling). Tranche 2: window-layer
-  visibility culling (subsystem exists, layer ignores it).
+- ~~Tranche 1: memoize frame inner chrome~~ — **landed, unmeasured.** The
+  frame no longer takes `state`; chrome, body, and resize handles are
+  memoized on window identity, and handle geometry moved to a CSS custom
+  property so zoom stops rebuilding them. Numbers pending a real-hardware
+  run. Tranche 2: window-layer visibility culling (subsystem exists, layer
+  ignores it).
 - **html-in-canvas tier**: texture-mode-during-camera-motion prototype
   (capture → WebGPU quads during pan/zoom, live DOM on settle), then the
   measured decision on the canvas-subtree body plane

@@ -23,7 +23,6 @@ import type {
   InfiniteCanvasChromeMetrics,
   InfiniteCanvasCommands,
   InfiniteCanvasPoint,
-  InfiniteCanvasState,
   InfiniteCanvasTheme,
   InfiniteCanvasWindow,
   InfiniteCanvasWindowBodyPointerBehavior,
@@ -38,6 +37,12 @@ import type {
   InfiniteCanvasWindowTextSelection,
 } from "./types";
 
+/**
+ * Everything a frame slot needs, and deliberately no canvas state: this value
+ * is memoized on the window's own identity so the slot subtree does not
+ * reconcile on camera ticks. Slots that need reactive state subscribe to it
+ * directly — see `InfiniteCanvasWindowBody`.
+ */
 type InfiniteCanvasWindowFrameRuntimeContextValue<Kind extends string> = Readonly<{
   actions: InfiniteCanvasCommands<Kind>;
   bodyPointerBehavior: InfiniteCanvasWindowBodyPointerBehavior;
@@ -45,7 +50,6 @@ type InfiniteCanvasWindowFrameRuntimeContextValue<Kind extends string> = Readonl
   definition: InfiniteCanvasWindowDefinition<Kind>;
   isActive: boolean;
   isSelected: boolean;
-  state: InfiniteCanvasState<Kind>;
   textSelection: InfiniteCanvasWindowTextSelection;
   theme: InfiniteCanvasTheme;
   window: InfiniteCanvasWindow<Kind>;
@@ -293,7 +297,6 @@ function InfiniteCanvasWindowFrameBodySlot({
     definition,
     isActive,
     isSelected,
-    state,
     textSelection,
     window,
   } = useInfiniteCanvasWindowFrameRuntimeContext();
@@ -346,7 +349,6 @@ function InfiniteCanvasWindowFrameBodySlot({
           definition={definition}
           isActive={isActive}
           isSelected={isSelected}
-          state={state}
           textSelection={textSelection}
           window={window}
         />

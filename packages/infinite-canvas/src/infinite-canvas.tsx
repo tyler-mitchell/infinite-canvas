@@ -1106,14 +1106,15 @@ function InfiniteCanvasWindowLayer<Kind extends string>({
     <div style={{ inset: 0, pointerEvents: "none", position: "absolute", zIndex }}>
       {visibleWindows.map((window) => (
         <InfiniteCanvasWindowFrame
+          camera={state.camera}
           chrome={chrome}
           devicePixelRatio={devicePixelRatio}
           isActive={state.activeWindowId === window.id}
           isSelected={isWindowSelected(state, window.id)}
           key={window.id}
           stackBands={stackBands}
-          state={state}
           theme={theme}
+          viewport={state.viewport}
           window={window}
           windowDefinitions={windowDefinitions}
         />

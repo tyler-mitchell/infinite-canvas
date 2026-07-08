@@ -8,6 +8,7 @@ import {
   useInfiniteCanvasRasterSnapshot,
   type InfiniteCanvasRasterizationPolicy,
 } from "./rasterization";
+import { useInfiniteCanvasSelector, useInfiniteCanvasStore } from "./store";
 import type {
   InfiniteCanvasChromeMetrics,
   InfiniteCanvasCommands,
@@ -23,7 +24,6 @@ function InfiniteCanvasWindowBody<Kind extends string>({
   definition,
   isActive,
   isSelected,
-  state,
   textSelection,
   window,
 }: Readonly<{
@@ -32,7 +32,6 @@ function InfiniteCanvasWindowBody<Kind extends string>({
   definition: InfiniteCanvasWindowDefinition<Kind>;
   isActive: boolean;
   isSelected: boolean;
-  state: InfiniteCanvasState<Kind>;
   textSelection: InfiniteCanvasWindowTextSelection;
   window: InfiniteCanvasWindow<Kind>;
 }>) {
@@ -41,25 +40,36 @@ function InfiniteCanvasWindowBody<Kind extends string>({
   const raster = useInfiniteCanvasRasterContext();
   const snapshot = useInfiniteCanvasRasterSnapshot(window.id);
   const signature = getWindowRasterSignature(window, chrome, raster.policy);
-  const isEligible = isWindowRasterizationEligible({
-    definition,
-    isActive,
-    isSelected,
-    policy: raster.policy,
-    state,
-    textSelection,
-    window,
-  });
+
+  // Both of these derive from live canvas state, and both collapse it to a
+  // boolean. Subscribing to the booleans rather than taking `state` as a prop
+  // is what keeps the body out of the camera loop: a pan recomputes them every
+  // tick and re-renders nothing, because neither answer changed.
+  const isEligible = useInfiniteCanvasSelector<Kind, boolean>((state) =>
+    isWindowRasterizationEligible({
+      definition,
+      isActive,
+      isSelected,
+      policy: raster.policy,
+      state,
+      textSelection,
+      window,
+    }),
+  );
+  const isCanvasIdle = useInfiniteCanvasSelector<Kind, boolean>(
+    (state) => state.interaction === null,
+  );
+
   const hasMatchingSnapshot = snapshot?.signature === signature;
   const shouldUseSnapshot =
     isEligible && hasMatchingSnapshot && snapshot.status === "ready" && snapshot.src !== null;
   const shouldQueueCapture =
     isEligible &&
-    state.interaction === null &&
+    isCanvasIdle &&
     !shouldUseSnapshot &&
     !(hasMatchingSnapshot && snapshot?.status === "failed") &&
     lastRequestedSignatureRef.current !== signature;
-  const shouldUseContentVisibility = !isActive && !isSelected && state.interaction === null;
+  const shouldUseContentVisibility = !isActive && !isSelected && isCanvasIdle;
 
   useEffect(() => {
     raster.setDisplayMode(window.id, shouldUseSnapshot ? "snapshot" : "live");
@@ -116,7 +126,6 @@ function InfiniteCanvasWindowBody<Kind extends string>({
     definition,
     isActive,
     isSelected,
-    state,
     window,
   });
 
@@ -158,24 +167,21 @@ function useRenderedWindowBody<Kind extends string>({
   definition,
   isActive,
   isSelected,
-  state,
   window,
 }: Readonly<{
   actions: InfiniteCanvasCommands<Kind>;
   definition: InfiniteCanvasWindowDefinition<Kind>;
   isActive: boolean;
   isSelected: boolean;
-  state: InfiniteCanvasState<Kind>;
   window: InfiniteCanvasWindow<Kind>;
 }>) {
-  const stateRef = useRef(state);
-  stateRef.current = state;
+  const store = useInfiniteCanvasStore<Kind>();
 
   // The body subtree must NOT reconcile on every camera/selection tick:
   // shell movement re-renders the frame each frame, and re-invoking
   // renderBody there reconciles every live body in the document — the
-  // dominant interactive cost at stress scale. `state` is therefore read
-  // through a ref at body render time (fresh whenever the body re-renders
+  // dominant interactive cost at stress scale. `state` is therefore peeked
+  // from the store at body render time (fresh whenever the body re-renders
   // for its own reasons) instead of being an invalidation dependency; body
   // content that needs live state should subscribe with
   // useInfiniteCanvasSelector inside its own component so invalidation
@@ -187,11 +193,11 @@ function useRenderedWindowBody<Kind extends string>({
         isActive,
         isSelected,
         get state() {
-          return stateRef.current;
+          return store.state$.peek() as InfiniteCanvasState<Kind>;
         },
         window,
       }),
-    [actions, definition, isActive, isSelected, window],
+    [actions, definition, isActive, isSelected, store, window],
   );
 }
 
