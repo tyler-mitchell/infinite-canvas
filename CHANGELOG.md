@@ -58,7 +58,7 @@ sections, in this order, omitting the ones that don't apply:
   swallowed the seam's `pointerdown`. Handle extent is constant in _screen_ pixels while the
   gutter is fixed in _world_ units, so the seam dragged when you were zoomed in and quietly
   stopped as you zoomed out — which reads as "sometimes it works". A grouped window now
-  draws no resize handles. Resizing a group **shell** by its outer edge is still not built.
+  draws no resize handles; the **shell** carries them instead, on its outer edge (see Added).
 - **`Alt`+drag to dock did nothing.** One physical `pointermove` during a window drag
   dispatched `interaction.step` three times: from the window header (carrying
   `dockIntent: event.altKey`), from the canvas root (carrying nothing), and from the
