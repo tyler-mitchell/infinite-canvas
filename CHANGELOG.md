@@ -22,6 +22,17 @@ sections, in this order, omitting the ones that don't apply:
 ### Security
 -->
 
+### Fixed
+
+- **`rasterization.maxPendingCaptures` bounded the queue by breaking it.** Any finite value
+  left every refused window permanently un-rasterized: the queue dropped the request, but the
+  window body had already recorded the capture as requested and never asked again. A bound is
+  only reached at stress scale, which is precisely where the blank windows appeared. Capture
+  requests now report whether they were accepted, a refused request is not recorded, and a
+  window waiting on a full queue re-arms when the queue drains. Bodies subscribe to that
+  full/not-full edge only while they are actually waiting, so finishing one capture does not
+  re-render every other window. The default queue is unbounded, where this changes nothing.
+
 ## [0.1.0] - 2026-06-24
 
 Initial release.

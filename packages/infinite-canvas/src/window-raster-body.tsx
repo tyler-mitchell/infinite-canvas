@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef } from "react";
 
 import { worldRectToScreenRect } from "./geometry";
 import {
+  useInfiniteCanvasRasterCaptureCapacity,
   useInfiniteCanvasRasterContext,
   useInfiniteCanvasRasterSnapshot,
   type InfiniteCanvasRasterizationPolicy,
@@ -63,12 +64,21 @@ function InfiniteCanvasWindowBody<Kind extends string>({
   const hasMatchingSnapshot = snapshot?.signature === signature;
   const shouldUseSnapshot =
     isEligible && hasMatchingSnapshot && snapshot.status === "ready" && snapshot.src !== null;
-  const shouldQueueCapture =
+  const wantsCapture =
     isEligible &&
     isCanvasIdle &&
     !shouldUseSnapshot &&
     !(hasMatchingSnapshot && snapshot?.status === "failed") &&
     lastRequestedSignatureRef.current !== signature;
+  // Capacity is part of the condition, not a guard inside the effect. A refused
+  // window keeps `wantsCapture === true` across the refusal, so without this the dep
+  // array never changes and the effect never re-fires — the window waits forever.
+  // The full -> not-full crossing is the only edge that can move a dep here.
+  //
+  // Subscribed only while this body is actually waiting, so a drain wakes the windows
+  // that still need a capture and no others.
+  const hasCaptureCapacity = useInfiniteCanvasRasterCaptureCapacity(wantsCapture);
+  const shouldQueueCapture = wantsCapture && hasCaptureCapacity;
   const shouldUseContentVisibility = !isActive && !isSelected && isCanvasIdle;
 
   useEffect(() => {
@@ -94,14 +104,21 @@ function InfiniteCanvasWindowBody<Kind extends string>({
 
     const timeout = globalThis.setTimeout(
       () => {
-        lastRequestedSignatureRef.current = signature;
-        raster.queueCapture({
+        // Only record the request once the queue has taken it. Marking it made
+        // regardless is how a refused capture becomes a window that waits forever:
+        // `shouldQueueCapture` goes false on the signature it never actually
+        // requested, and nothing ever asks again.
+        const isQueued = raster.queueCapture({
           element: node,
           height: getWindowBodyHeight(window, chrome),
           signature,
           width: window.rect.width,
           windowId: window.id,
         });
+
+        if (isQueued) {
+          lastRequestedSignatureRef.current = signature;
+        }
       },
       getWindowCaptureDelayMs(window.id, raster.policy),
     );

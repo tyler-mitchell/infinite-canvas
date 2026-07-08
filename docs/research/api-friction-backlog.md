@@ -157,9 +157,36 @@ pointerModeControls?, cameraControls?, zoomControls? }` landed with the HUD
   where the preview promised. `/drop-tray` lost eighteen lines of guide meshes and a
   duplicate placement call.
 
-- **Stress-scale raster defaults** — `maxPendingCaptures` defaults to
-  `Infinity`; at 160 windows the capture queue churns for a long time.
-  Revisit defaults with the perf deep-dive.
+- **Stress-scale raster defaults** — `maxPendingCaptures` defaults to `Infinity`, and so
+  does `viewportMarginPx`; at 160 windows the capture queue churns for a long time.
+  Revisit defaults with the perf deep-dive. Deliberately not changed alongside the
+  liveness fix below: picking a bound without profiling would be a guess wearing a
+  measurement's clothes. Rasterization is `enabled: false` by default, so these bind
+  only on consumers who opted in.
+
+## Fixed 2026-07-08 (raster queue)
+
+- **`maxPendingCaptures` was a knob that broke the thing it bounded.** Setting it to any
+  finite value made every window it refused go permanently un-rasterized. `queueCapture`
+  returned `void` and simply dropped the request when the queue was full, while the body
+  had _already_ written `lastRequestedSignatureRef.current = signature` before the call —
+  and `shouldQueueCapture` tests `lastRequestedSignatureRef.current !== signature`. So the
+  body recorded a request it never made, went quiet, and nothing ever asked again. The one
+  configuration where the bound mattered — stress scale — is the one where it silently
+  produced blank windows.
+
+  `queueCapture` now returns `boolean`, and the body records the signature only when the
+  queue accepted. Refusal (`false`) is distinguished from _already satisfied_ (`true`, when
+  an equivalent snapshot is queued/capturing/ready): conflating them the other way turns the
+  skip path into a re-arm loop.
+
+  Liveness needs a wake-up too, and the effect's deps do not move on their own — a refused
+  body keeps `wantsCapture === true` across the refusal. `useInfiniteCanvasRasterCaptureCapacity`
+  selects the full ↔ not-full crossing as a boolean, so a drain re-arms the waiting bodies.
+  It subscribes **only while a body is waiting**: the selector returns before touching
+  `state$`, Legend records no dependency, and a completed capture does not wake the other
+  159 windows. At the default `Infinity` the value is a constant `true` and the whole
+  mechanism costs nothing.
 
 ## Corrected observations (no action)
 

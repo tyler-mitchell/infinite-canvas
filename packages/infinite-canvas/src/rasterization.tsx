@@ -105,7 +105,15 @@ type InfiniteCanvasRasterSummary = Readonly<{
 
 type InfiniteCanvasRasterContextValue = Readonly<{
   policy: InfiniteCanvasRasterizationPolicy;
-  queueCapture: (request: InfiniteCanvasRasterCaptureRequest) => void;
+  /**
+   * `false` when the request was refused: the queue is at `maxPendingCaptures`.
+   *
+   * The caller must not record the request as made. A refused capture that the
+   * caller believes it made is a window that waits forever for a snapshot nobody
+   * is taking — and the only symptom is that one window stays live while its
+   * neighbours rasterize.
+   */
+  queueCapture: (request: InfiniteCanvasRasterCaptureRequest) => boolean;
   setPaused: (paused: boolean) => void;
   setDisplayMode: (windowId: string, mode: InfiniteCanvasRasterDisplayMode) => void;
   state$: Observable<InfiniteCanvasRasterStoreState>;
@@ -165,7 +173,8 @@ const createInitialRasterState = (): InfiniteCanvasRasterStoreState => ({
 const disabledRasterState$ = observable<InfiniteCanvasRasterStoreState>(createInitialRasterState());
 const DISABLED_INFINITE_CANVAS_RASTER_CONTEXT: InfiniteCanvasRasterContextValue = {
   policy: DEFAULT_INFINITE_CANVAS_RASTERIZATION,
-  queueCapture: () => {},
+  // Refused, not satisfied. Nothing is going to capture anything here.
+  queueCapture: () => false,
   setPaused: () => {},
   setDisplayMode: () => {},
   state$: disabledRasterState$,
@@ -521,19 +530,21 @@ function InfiniteCanvasRasterizationProvider({
       policy,
       queueCapture: (request) => {
         if (!policy.enabled) {
-          return;
+          return false;
         }
 
         const state = state$.peek() as InfiniteCanvasRasterStoreState;
 
+        // An equivalent snapshot is already queued, capturing, or ready. The
+        // caller's request is satisfied, so it may record it as made.
         if (shouldSkipQueuedCapture(state.snapshots[request.windowId], request.signature)) {
-          return;
+          return true;
         }
 
         if (
           !hasPendingCaptureCapacity(policy, queueRef.current.size, activeCaptureCountRef.current)
         ) {
-          return;
+          return false;
         }
 
         queueRef.current.set(request.windowId, request);
@@ -550,6 +561,8 @@ function InfiniteCanvasRasterizationProvider({
           },
         }));
         scheduleCaptureDrain();
+
+        return true;
       },
       setPaused: (paused) => {
         if (pausedRef.current === paused) {
@@ -635,6 +648,39 @@ function InfiniteCanvasRasterSchedulerGate({
   return null;
 }
 
+/**
+ * Whether the capture queue would accept another request right now.
+ *
+ * The reason a refused window ever tries again. Selecting a boolean rather than the
+ * queue depth means a subscriber re-renders only when the queue crosses
+ * full ↔ not-full, and with the default `maxPendingCaptures: Infinity` the value is
+ * permanently `true`.
+ *
+ * Pass `isWaiting: false` when the caller has nothing queued. The selector then
+ * returns before reading `state$`, so Legend records no dependency and the caller
+ * does not re-render on a crossing it does not care about — which is what keeps a
+ * bounded queue from waking all 160 windows every time one capture completes. The
+ * subscription re-arms on the render where `isWaiting` flips back to `true`, because
+ * the selector runs on every render.
+ */
+function useInfiniteCanvasRasterCaptureCapacity(isWaiting: boolean): boolean {
+  const { policy, state$ } = useInfiniteCanvasRasterContext();
+
+  return useSelector(() => {
+    if (!isWaiting) {
+      return true;
+    }
+
+    const state = state$.get() as InfiniteCanvasRasterStoreState;
+
+    return hasPendingCaptureCapacity(
+      policy,
+      state.runtime.queuedCaptures,
+      state.runtime.activeCaptures,
+    );
+  });
+}
+
 function useInfiniteCanvasRasterSnapshot(windowId: string) {
   const { state$ } = useInfiniteCanvasRasterContext();
 
@@ -659,6 +705,7 @@ export {
   InfiniteCanvasRasterSchedulerGate,
   InfiniteCanvasRasterizationProvider,
   resolveInfiniteCanvasRasterizationPolicy,
+  useInfiniteCanvasRasterCaptureCapacity,
   useInfiniteCanvasRasterContext,
   useInfiniteCanvasRasterPolicy,
   useInfiniteCanvasRasterSnapshot,
