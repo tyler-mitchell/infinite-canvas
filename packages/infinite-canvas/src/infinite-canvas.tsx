@@ -1194,7 +1194,11 @@ function InfiniteCanvasWindowLayer<Kind extends string>({
   const state = useInfiniteCanvasState<Kind>();
   // Behind an inactive tab or a collapsed accordion fold. Still members of their
   // group and still addressable — they simply have no rect to be drawn at.
-  const { hiddenWindowIds } = useMemo(
+  // `windowRects` keys every window a group tree places, which is exactly the set that
+  // must not draw resize handles: the reducer refuses to resize a grouped window, and the
+  // handles straddle its edges, so two adjacent panes would bury the gutter between them
+  // under dead controls and eat the seam drag.
+  const { hiddenWindowIds, windowRects } = useMemo(
     () => getInfiniteCanvasGroupProjection(state.groups),
     [state.groups],
   );
@@ -1218,6 +1222,7 @@ function InfiniteCanvasWindowLayer<Kind extends string>({
           chrome={chrome}
           devicePixelRatio={devicePixelRatio}
           isActive={state.activeWindowId === window.id}
+          isGrouped={windowRects.has(window.id)}
           isSelected={isWindowSelected(state, window.id)}
           key={window.id}
           stackBands={stackBands}

@@ -33,6 +33,15 @@ sections, in this order, omitting the ones that don't apply:
 
 ### Fixed
 
+- **A grouped window's dead resize handles ate the gutter drag.** `interaction.startResize`
+  refuses a grouped window outright — a pane is resized by its seam — but the frame drew its
+  resize handles anyway. Handles straddle the frame edge, hanging half their extent outside
+  it, and the window plane draws above the group layer, so two adjacent panes covered the
+  gutter between them with controls that could not do the thing their cursor promised, and
+  swallowed the seam's `pointerdown`. Handle extent is constant in _screen_ pixels while the
+  gutter is fixed in _world_ units, so the seam dragged when you were zoomed in and quietly
+  stopped as you zoomed out — which reads as "sometimes it works". A grouped window now
+  draws no resize handles. Resizing a group **shell** by its outer edge is still not built.
 - **`Alt`+drag to dock did nothing.** One physical `pointermove` during a window drag
   dispatched `interaction.step` three times: from the window header (carrying
   `dockIntent: event.altKey`), from the canvas root (carrying nothing), and from the

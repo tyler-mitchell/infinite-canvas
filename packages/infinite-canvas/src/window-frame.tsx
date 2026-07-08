@@ -193,6 +193,7 @@ function InfiniteCanvasWindowFrame<Kind extends string>({
   chrome,
   devicePixelRatio,
   isActive,
+  isGrouped,
   isSelected,
   stackBands,
   theme,
@@ -204,6 +205,18 @@ function InfiniteCanvasWindowFrame<Kind extends string>({
   chrome: InfiniteCanvasChromeMetrics;
   devicePixelRatio: number;
   isActive: boolean;
+  /**
+   * A grouped window carries no resize handles.
+   *
+   * `interaction.startResize` refuses a grouped window outright — a pane is resized by
+   * its seam — so the handles were controls that could not do the thing their cursor
+   * promised. Worse, they straddle the frame edge and hang half their extent *outside*
+   * it, and the window plane draws above the group layer. Two adjacent panes therefore
+   * covered the gutter between them with dead handles and swallowed its pointerdown.
+   * Handle extent is constant in screen pixels while the gutter is fixed in world units,
+   * so the seam worked when zoomed in and quietly stopped working as you zoomed out.
+   */
+  isGrouped: boolean;
   isSelected: boolean;
   stackBands: InfiniteCanvasStackBands;
   theme: InfiniteCanvasTheme;
@@ -392,7 +405,7 @@ function InfiniteCanvasWindowFrame<Kind extends string>({
           style={articleStyle}
         >
           {frameNode}
-          {resizeHandles}
+          {isGrouped ? null : resizeHandles}
         </article>
       </InfiniteCanvasWindowPortalContext.Provider>
     </InfiniteCanvasWindowFrameRuntimeContext.Provider>

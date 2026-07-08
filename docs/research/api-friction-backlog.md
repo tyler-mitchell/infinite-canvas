@@ -120,6 +120,31 @@ pointerModeControls?, cameraControls?, zoomControls? }` landed with the HUD
   dependency of its own observer and could re-trigger it. Spatial queries remain
   open: they live in the render layer.
 
+## Fixed 2026-07-08 (grouped-window handles)
+
+- **The gutter seam dragged only when zoomed in, and the outer edges did nothing.** Two
+  symptoms, one cause. `interaction.startResize` refuses a grouped window (a pane is resized
+  by its seam), but the frame kept drawing its resize handles. Those handles straddle the
+  frame edge — `RESIZE_HANDLE_OVERHANG = calc(extent / -2)` — and the window plane draws
+  above the group layer, so two adjacent panes blanketed the gutter between them with
+  controls that were guaranteed to do nothing, and swallowed its `pointerdown`.
+
+  The intermittency was **zoom**, not focus: handle extent is constant in screen pixels
+  (`chrome.resizeHandleSize / scale`), while gutter width is fixed in world units. Zoomed in,
+  the seam is wide in screen pixels and its centre stays exposed; zoom out and the two
+  handles close over it. Same click, different zoom, different outcome.
+
+  A grouped window now draws no resize handles at all. The window layer passes `isGrouped`
+  from the group projection's `windowRects` keys, which is precisely the placed-by-a-tree set.
+
+  **Not fixed, and worth building: a group shell has no edge handles.** The outer border of a
+  group cannot be dragged. Removing the dead handles makes that honest rather than broken, but
+  the capability is still missing. Sketch: a `groupResize` interaction alongside `groupMove`
+  and `groupGutter`, stepping `group.rect`; the solver re-projects members for free, because
+  the group owns the layout and a member's `rect` is its projection. The open question is the
+  shell's minimum size — it is a function of every pane's `minSize` and the gutters between
+  them, not a constant.
+
 ## Fixed 2026-07-08 (dock intent)
 
 - **`Alt`+drag never docked, because three handlers stepped one pointermove.** Reported
