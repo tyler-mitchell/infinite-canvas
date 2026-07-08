@@ -78,6 +78,21 @@ pnpm exec vp run infinite-canvas-monorepo#ready
 
 A pull request that has not had `vp check` run on it will almost always fail on formatting. Run it.
 
+### What the git hooks do, and what they cannot
+
+`pre-commit` runs `vp staged`: lint and format, over **the files you staged**. It is fast and it
+is structurally blind to the failure that matters most — a change to file A that breaks file B,
+where B was never staged. On 2026-07-08, making `isGrouped` a required prop on
+`InfiniteCanvasWindowFrame` broke two test files exactly that way, and nothing noticed across six
+clean commits, because neither test was ever part of one.
+
+`pre-push` therefore runs the whole-workspace static gates: `vp check` (about four seconds),
+plus the API-doc and pure-core assertions. Tests and builds stay in CI, where a red run costs
+nobody's attention mid-flow and where a hook slow enough to be resented would just get disabled.
+
+`VITE_GIT_HOOKS=0 git push` skips it. If you do that, CI is the only thing left between you and
+a broken `main`.
+
 ---
 
 ## Adding a showcase

@@ -93,7 +93,7 @@ for (const { entry, path } of BARRELS) {
   totalValues += values.size;
   totalTypes += types.size;
 
-  for (const name of [...values, ...types].sort()) {
+  for (const name of [...values, ...types].sort((left, right) => left.localeCompare(right))) {
     if (!documented.has(name)) {
       failures.push(`${entry}: \`${name}\` is exported but appears nowhere in docs/API.md`);
     }

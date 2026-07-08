@@ -82,6 +82,7 @@ function renderFrame(input: Readonly<{ isActive: boolean; isSelected: boolean }>
       chrome={DEFAULT_INFINITE_CANVAS_CHROME}
       devicePixelRatio={1}
       isActive={input.isActive}
+      isGrouped={false}
       isSelected={input.isSelected}
       stackBands={DEFAULT_INFINITE_CANVAS_STACK_BANDS}
       theme={DEFAULT_INFINITE_CANVAS_THEME}
