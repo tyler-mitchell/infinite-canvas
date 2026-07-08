@@ -64,6 +64,12 @@ Initial release.
   window per camera tick. The portal renders nothing until its root exists rather than falling back
   into the transformed subtree, because a popover that quietly appears in the wrong place is a bug the
   consumer will chase into their own code.
+- **Input ownership, decided rather than incidental.** Wheel deltas are normalized through
+  `event.deltaMode`. The line-mode calibration was 16px, which made one Firefox notch travel about
+  half as far as the same notch in Chrome; it is now 40, the value `normalize-wheel` settled on. A
+  zoom gesture outranks a scrollable window body — pinching inside a long list zooms the desktop
+  rather than doing nothing — while the plain wheel still belongs to the body. Trackpad pinch is
+  Ctrl+wheel, which is why it and Ctrl+wheel have always shared one code path.
 - **Keyboard command layer.** Hotkeys bound to the same command vocabulary the pointer interactions
   use, so anything the mouse can do the keyboard can express. Includes **directional window focus**
   (`Alt+Arrow`): the nearest window strictly ahead along the arrow wins, and one whose span overlaps

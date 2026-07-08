@@ -174,9 +174,12 @@ sharpest near-term trap
   window kind** (`portalRoot: true`): mounting one for every window would cost a
   style write per window per camera tick, which is exactly what the frame's
   memoization exists to avoid. `/portals` shows the trap and the fix side by side.
-- Input ownership policy completion: wheel `deltaMode` normalization,
-  modifier-zoom-over-bodies decision, pinch edge cases
-  ([zoom-policy.md](zoom-policy.md) open items).
+- ✅ **Landed (2026-07-08): input ownership.** Wheel `deltaMode` normalization
+  (line mode was calibrated at 16px, so a Firefox notch travelled half as far as a
+  Chrome one — now 40), modifier-zoom-over-bodies decided in favour of zoom, and
+  pinch documented as the Ctrl+wheel path it has always been. See
+  [zoom-policy.md](zoom-policy.md). Per-engine pinch verification in Safari
+  remains, and that is a browser task rather than a code one.
 - Low-zoom chrome stroke policy (minimum screen-space stroke or simplified
   proxy chrome).
 - `window.data` generic threading through registry + render contexts (the

@@ -40,18 +40,45 @@ surfaces, and browser page zoom must stay suppressed inside the desktop root
 (non-passive listeners at the root). Verify the over-body and macOS
 Safari/Chromium pinch representation cases explicitly.
 
+## Decided (2026-07-08)
+
+1. ✅ **Wheel normalization.** `getWheelScreenDelta` reads `event.deltaMode` and
+   converts to screen pixels: line mode by `WHEEL_LINE_HEIGHT_PX`, page mode by
+   the viewport. Magnitude is clamped downstream by
+   `zoomPolicy.wheelMaxExponent`, so a page-mode notch saturates to one maximum
+   zoom step rather than teleporting; there is no second clamp.
+
+   `WHEEL_LINE_HEIGHT_PX` is **40**, not the 16 it was. It is not a text line
+   height — it is a calibration between browsers that disagree about what a notch
+   is. Firefox reports `deltaMode = 1, deltaY ≈ 3` per notch; Chrome reports
+   pixels at roughly 100. At 16, one notch moved the canvas 48px in Firefox and
+   ~100px in Chrome: the same physical gesture, half the travel. 40 is the value
+   `normalize-wheel` settled on for this exact problem (3 × 40 = 120). If the feel
+   is wrong, change this number — not the arithmetic around it.
+
+2. ✅ **Modifier zoom outranks a scrollable body.** An unmodified wheel over a
+   `native-scroll` body scrolls the body; a zoom gesture over that same body zooms
+   the desktop. Anything else strands the user — pinch inside a long list, nothing
+   zooms, and no affordance says why. The body still owns the plain wheel, which is
+   the gesture it is actually for. Editable controls are unaffected: the guard runs
+   on the wheel target, and zoom gestures are captured at the viewport root.
+
+   This was already the behaviour. It was a side effect; it is now a decision, and
+   the code says so where it happens.
+
+3. ✅ **Pinch is Ctrl+wheel.** A macOS trackpad pinch arrives as a wheel event with
+   `ctrlKey` synthesized, so pinch and `Ctrl+wheel` are one code path and always
+   were. `metaKey` is folded in to catch `Cmd+wheel` on macOS, where the browser
+   would otherwise page-zoom the whole document out from under the canvas. Both
+   paths `preventDefault` on a non-passive root listener, which is what suppresses
+   browser page zoom.
+
 ## Open Work
 
-1. **Wheel normalization utility** — read `event.deltaMode`, convert line/page
-   units to pixel-like units, clamp per-event magnitude, then apply
-   exponential scaling. The current exponential shape is directionally right
-   but assumes pixel deltas; wheel delta units are not guaranteed to be
-   pixels (`WheelEvent.deltaMode`).
-2. **Modifier-based desktop zoom over bodies** — decide whether `Mod+wheel`
-   over scrollable window bodies (but not editable controls) should zoom the
-   desktop. Must be an explicit policy decision, not a side effect.
-3. **Pinch edge cases** — the over-body pinch rule and page-zoom suppression
-   need a dedicated verification pass per browser engine.
+- **Per-engine verification of pinch representation.** The rules above are
+  reasoned from the specification and from how Chromium and Gecko are documented to
+  synthesise pinch; they have not been measured in Safari. That is a browser task,
+  not a code one.
 
 Keep `zoomAtScreenPoint`-style single entry for pointer-driven zoom and the
 viewport-center path for keyboard zoom; route any new gesture into one of

@@ -711,9 +711,18 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
 
     const handleWheel = (event: WheelEvent) => {
       const state = store.state$.peek() as InfiniteCanvasState<Kind>;
+      // A macOS trackpad pinch arrives as a wheel event with `ctrlKey` synthesized,
+      // which is why pinch and Ctrl+wheel are the same code path and always have
+      // been. `metaKey` catches Cmd+wheel on macOS, where the browser would
+      // otherwise page-zoom the whole document out from under the canvas.
       const isZoomGesture = event.ctrlKey || event.metaKey;
       const isCanvasTarget = isCanvasWheelTarget(event.target, node);
 
+      // Zoom outranks a scrollable body. An unmodified wheel over a
+      // `native-scroll` body scrolls it; a zoom gesture over that same body zooms
+      // the canvas. Anything else would strand the user: pinch inside a long list
+      // and nothing zooms, with no affordance saying why. The body still owns the
+      // plain wheel, which is the gesture it is actually for.
       if (
         state.viewport.width <= 0 ||
         state.viewport.height <= 0 ||
@@ -1267,6 +1276,27 @@ function isViewportEventTarget(target: EventTarget | null, viewport: HTMLElement
   return target instanceof Element ? viewport.contains(target) : target === viewport;
 }
 
+/**
+ * A line, in pixels, for browsers that report wheel deltas in lines.
+ *
+ * Not a text line height. It is a *calibration* between two browsers that
+ * disagree about what a wheel notch is: Firefox reports `deltaMode = 1` with
+ * `deltaY ≈ 3` per notch, Chrome reports pixels at roughly 100 per notch. At the
+ * 16 this used to be, one notch moved the canvas 48px in Firefox and ~100px in
+ * Chrome — the same physical gesture, half the travel. 40 is the value
+ * `normalize-wheel` settled on for exactly this (3 × 40 = 120), and it is the
+ * number to change if the feel is wrong, not the arithmetic around it.
+ */
+const WHEEL_LINE_HEIGHT_PX = 40;
+
+/**
+ * Wheel deltas, in screen pixels, whatever unit the browser chose to report.
+ *
+ * Page mode is scaled by the viewport rather than by a constant: a page notch
+ * should move the canvas by a page. Zoom clamps the result through
+ * `zoomPolicy.wheelMaxExponent`, so a page-mode notch saturates to one maximum
+ * zoom step instead of teleporting.
+ */
 function getWheelScreenDelta(
   event: Pick<WheelEvent, "deltaMode" | "deltaX" | "deltaY">,
   viewport: InfiniteCanvasState["viewport"],
@@ -1274,8 +1304,8 @@ function getWheelScreenDelta(
   switch (event.deltaMode) {
     case WheelEvent.DOM_DELTA_LINE:
       return {
-        x: event.deltaX * 16,
-        y: event.deltaY * 16,
+        x: event.deltaX * WHEEL_LINE_HEIGHT_PX,
+        y: event.deltaY * WHEEL_LINE_HEIGHT_PX,
       };
     case WheelEvent.DOM_DELTA_PAGE:
       return {
