@@ -37,7 +37,7 @@ onto a canary and pay for three.js even if they never use `sceneLayers`.
 ✅ Good news: `@zumer/snapdom` is correctly lazy (`import()` only), dist is
 216 KB ESM + 100 KB dts + theme.css copied correctly, 131 tests green.
 
-## Status — 2026-06-24
+## Status — 2026-07-08
 
 **Class 1 (cannot publish): DONE.** Renamed to `@infinite-canvas/react`;
 `"use client"` re-asserted as the bundle's first statement; full npm metadata,
@@ -49,10 +49,17 @@ Proven with `pnpm pack` -> install into a fresh project outside the workspace
 pipeline and resolves to `@infinite-canvas/react@0.1.0` on the registry.
 
 **Class 3 (nobody would trust it): DONE.** LICENSE, root README, npm README
-(quickstart compiled verbatim), `docs/API.md` generated from the barrel (285
+(quickstart compiled verbatim), `docs/API.md` generated from the barrel (287
 names, all verified present in the built `.d.mts`), CI (node 22/24) and a
 provenance release workflow, CONTRIBUTING / CODE_OF_CONDUCT / SECURITY /
 CHANGELOG / issue + PR templates.
+
+**Class 4 item 13 (optional 3D): DONE** — see below. Items 12 and 14 remain.
+
+**Class 2 (cannot open-source) — STILL BLOCKING.** One step is mechanical and
+one is destructive; see "The remaining 7 hours". The npm package is unaffected:
+`/dynamic-grid` and `reference/` ship in neither the tarball nor the published
+artifact. Only making the _repository_ public is gated.
 
 **Also fixed, found by measuring the artifact rather than the workspace:**
 
@@ -74,15 +81,29 @@ CHANGELOG / issue + PR templates.
   stripped; a poisoned payload, a window whose `kind` no longer exists, and
   unparseable JSON each recover cleanly with zero console errors.
 
-**Class 2 (cannot open-source) — STILL BLOCKING, owner decision required.**
-See "Open questions" below. The npm package is unaffected: `/dynamic-grid` and
-`reference/` are playground/repo-only and ship in neither the tarball nor the
-published artifact. Only making the _repository_ public is gated.
+**Two ship blockers the artifact gate did not catch, found by building a
+consumer that had nothing installed:**
 
-**Class 4 (production hardening) — remaining, in value order:** the optional-3D
-bundle split (`three` + `@react-three/fiber` are hard peers, statically
-imported, even for consumers who never pass `sceneLayers`); keyboard navigation
-between windows; API surface tiering (155 values + 131 types).
+- ✅ **`peerDependenciesMeta.optional` was a false claim.** Marking `three`
+  optional and hiding the surface behind a dynamic `import()` silences npm but
+  does nothing for bundlers: they resolve dynamic-import specifiers at build
+  time, so an esbuild run in a consumer with no 3D packages still hard-failed on
+  `three`. Fixed with an API seam, not a manifest edit —
+  `InfiniteCanvasWebGpuSurface` now ships from `@infinite-canvas/react/scene`
+  and is injected as the `sceneSurface` prop. The main entry never reaches it,
+  statically or dynamically. A consumer with neither peer installed typechecks
+  and bundles: **40.1 KB gzipped**, versus 263.3 KB with the 3D path.
+- ✅ **The `"use client"` banner leaked into `index.d.mts`.** A directive
+  prologue is a statement, illegal in an ambient context, so every consumer who
+  had not set `skipLibCheck` would have failed to compile with TS1036 on
+  install. Introduced by the Class-1 fix; caught only by typechecking a real
+  consumer with `skipLibCheck: false`. Both halves are now asserted by the gate,
+  and each assertion was negative-tested against a deliberately broken artifact.
+
+**Program work landed alongside** (capability, not ship blockers): P2 tranche 1
+(frame chrome memoization — landed, **unmeasured**, see
+[research/performance-profile.md](research/performance-profile.md)); P1's pure
+group core (`group-tree.ts`, `group-layout.ts` — 1,057 lines, unwired).
 
 ## Blocker classes
 
@@ -128,32 +149,99 @@ between windows; API surface tiering (155 values + 131 types).
 
 ### Class 4 — Production hardening (highest-value follow-through)
 
-12. **Accessibility baseline (FR-9)** — currently `open`. Windows/controls
-    need ARIA semantics and keyboard reachability before "production" is an
-    honest claim.
-13. **Optional 3D**: make the WebGPU surface lazily mounted so consumers who
-    never pass `sceneLayers` don't ship three.js. Large win, medium risk.
-14. **API surface audit** — 200+ exports is a maintenance liability; mark
-    experimental vs stable, consider an `/internal` subpath.
+12. **Accessibility baseline (FR-9)** — currently `open`. ARIA semantics are
+    done and locked by a test; **keyboard reachability between windows is not**.
+    Still the largest gap before "production" is an honest claim.
+13. ✅ **Optional 3D** — DONE, but not the way this item imagined. A lazy mount
+    is insufficient: bundlers resolve dynamic-import specifiers at build time.
+    It took an API seam (`@infinite-canvas/react/scene` + the `sceneSurface`
+    prop). 40.1 KB gzipped without the 3D path.
+14. **API surface audit** — 287 exports is a maintenance liability; mark
+    experimental vs stable, consider moving scene helpers behind `/scene`.
 
-## The 7-hour execution order
+## The remaining 7 hours
 
-Serial critical path (must be done in order, owned start-to-finish):
+> Rewritten 2026-07-08. The original ordering (rename → `"use client"` →
+> metadata → tarball proof) is **done**, as is the optional-3D split. What
+> follows is what actually stands between the repo and a public, production
+> release, ordered by what unblocks the most.
 
-1. **Rename** to `@infinite-canvas/react` (touches everything downstream).
-2. **Fix `"use client"`** preservation + prove it in dist.
-3. **Metadata, peers, `sideEffects`, LICENSE.**
-4. **Tarball consumability proof** in a scratch app — the ground-truth gate.
+### Hour 0–1 — Class 2, the mechanical half (unblocks everything downstream)
 
-Parallelizable once the name is fixed:
+`/dynamic-grid` and `reference/` are the only things gating a **public
+repository**. Neither ships in the npm tarball, so the package can be published
+today; only the repo is blocked.
 
-- CI workflows (test + release with provenance).
-- Root README, package README, CONTRIBUTING, CODE_OF_CONDUCT, templates.
-- CHANGELOG + changesets.
-- API reference generated from the public barrel.
+- Untrack `reference/` (78 files) and the two `dynamic-grid` playground files
+  from `HEAD`, and `.gitignore` them. They stay on disk — Tyler asked for the
+  motion study as a living aesthetic reference — but leave the tree that goes
+  public. Non-destructive and reversible.
+- Delete the `/dynamic-grid` route from the playground's route table so the
+  build does not break on a missing file for a fresh clone.
 
-Then, as time allows, in value order: **accessibility baseline** →
-**optional-3D bundle split** → **API surface tiering**.
+**Then stop and get an explicit go-ahead** for the destructive half: the derived
+implementation is still reachable in git history, so a public repo leaks it
+regardless of `HEAD`. Purging it means a history rewrite (`git filter-repo`),
+which is irreversible and rewrites every SHA. That is the owner's call, not the
+agent's — it cannot be undone, and the repo has no remote to recover from.
+
+### Hour 1–3 — FR-9: keyboard navigation between windows
+
+The single largest gap between "works" and "production". `docs/REQUIREMENTS.md`
+marks FR-9 `open`, and "production-ready" is not an honest claim for a window
+manager you cannot drive from the keyboard.
+
+Scope, deliberately narrow — no group model dependency, so it can land before P1:
+
+- Directional focus (`Mod+Arrow`): pick the nearest window whose center lies in
+  the arrow's half-plane, tie-broken by center distance. Pure geometry over
+  `state.windows`; a new function in `camera-navigation.ts`'s neighbourhood.
+- A new canonical command per direction, so pointer and keyboard keep compiling
+  to the same vocabulary. Bind through `hotkeyBindings`, replaceable.
+- Focus restoration: focusing a window scrolls it into view via the existing
+  `navigateToWindow`, which already exists and is already tested.
+- Acceptance: FOCUS-001..003 in `research/acceptance-scenarios.md`.
+
+Exit: a keyboard-only session can open, focus, move, and close windows.
+
+### Hour 3–4 — API surface tiering
+
+287 public names is a maintenance liability and a bad first read. Nothing here
+needs new code, only honesty about what is stable:
+
+- Mark `createInfiniteCanvasHandle` and the scene-layer geometry helpers
+  `@experimental` in TSDoc; `docs/API.md` already groups by module, so add a
+  stability column.
+- Decide whether the ~40 `getInfiniteCanvas*Scene*` helpers belong on the main
+  entry at all, or behind `@infinite-canvas/react/scene` with the surface. They
+  are only useful to someone already writing scene layers.
+
+Exit: every export is either documented as stable or marked experimental.
+
+### Hour 4–7 — P2 tranche 1 measurement, then P1 wiring
+
+- **Measure tranche 1.** It is committed and unmeasured. The profile's tables
+  still describe the pre-tranche-1 runtime and say so. Re-run the synthetic
+  wheel/drag drivers on `/stress` at 20/40/80 windows and either confirm the
+  prediction (pan and zoom both approach one style write per window) or find out
+  the memo boundary is leaking. Do this before building anything on top of it.
+- **Wire the group core.** `group-tree.ts` and `group-layout.ts` are pure,
+  complete, and imported by nothing. Wiring is: `InfiniteCanvasGroup` into
+  `InfiniteCanvasState`, docking mutations into the reducer, a group shell in the
+  window layer. Persisted state goes to `version: 2`, with `version: 1` payloads
+  migrating to `groups: []` — an optional field defaulting to empty would look
+  backward-compatible right up until an older build silently ate a group layout
+  on write-back.
+
+### Not on the critical path, and why
+
+- **Window-layer visibility culling** (P2 tranche 2). The profile ranked it
+  third on the assumption that chrome reconciliation dominated; tranche 1 removed
+  that. It now saves ~80% of _one style write per window_ and costs unmount
+  semantics — an offscreen window loses scroll position, focus, and uncontrolled
+  input state. On a window manager that is the bug that ruins the product.
+- **html-in-canvas texture mode** (P2/P7). Needs Chrome 148+ with the Origin
+  Trial flag. Real, big, and not gateable on CI yet.
 
 ## Open questions requiring the owner
 
