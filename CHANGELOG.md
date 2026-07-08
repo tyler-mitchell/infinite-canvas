@@ -77,6 +77,15 @@ sections, in this order, omitting the ones that don't apply:
   was a leftover from before interaction listeners became mount-scoped; the `window`
   listener is now the single source for interaction steps. Also cuts the reducer work per
   pointermove from three passes to one.
+- **An accordion's headers had no keyboard navigation between them** (ACC-001). They were
+  focusable `<button>`s that activated on Enter/Space, but nothing moved focus from one to the
+  next. Each accordion container is now one roving tab stop, and **its arrows follow the
+  container's axis** — a vertical accordion answers `Up`/`Down`, a horizontal one
+  `Left`/`Right`. Hard-coding `Left`/`Right` the way a tablist does would make `Down` walk a
+  row of side-by-side headers, which is the diagonal drift directional focus refuses
+  everywhere else. `Home`/`End` are axis-independent. `InfiniteCanvasGroupAccordionHeader`
+  gains an `axis` field so the keyboard handler reads the solver's answer instead of
+  re-deriving geometry the solver owns.
 - **A group's tab strip was one tab stop per tab.** Every tab is a `<button>`, so Tab walked
   all of them — three groups of four tabs put twelve stops between a keyboard user and anything
   else on the page. The tablist now carries a roving `tabIndex` and moves between tabs with

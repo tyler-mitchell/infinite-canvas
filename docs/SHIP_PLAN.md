@@ -270,7 +270,9 @@ reducer that assumed the defaults would hand a consumer with custom metrics a fl
 disagreed with the layout in front of them.
 
 Exit: dragging a shell edge resizes the group, the shell stops at its structural floor,
-and the drag is one undo entry. **The first two are unobserved** — reasoning only.
+and the drag is one undo entry. **Owner-confirmed working in the browser, 2026-07-08.**
+The structural floor and the single-undo-entry properties remain unobserved — nobody has
+dragged a shell to its minimum and watched it hold, or undone a resize.
 
 **C4 — NFR-1, the measurement (~2h, BROWSER REQUIRED).** P2 tranche 1 is committed and
 unmeasured; the profile's tables still describe the pre-tranche-1 runtime. Nothing

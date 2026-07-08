@@ -67,6 +67,8 @@ type InfiniteCanvasGroupTabStrip = Readonly<{
 }>;
 
 type InfiniteCanvasGroupAccordionHeader = Readonly<{
+  /** The axis the headers stack along, so keyboard navigation can follow it (ACC-001). */
+  axis: InfiniteCanvasGroupAxis;
   childId: string;
   containerId: string;
   isExpanded: boolean;
@@ -258,6 +260,7 @@ function solveAccordionContainer(
 
     if (!isHidden) {
       draft.accordionHeaders.push({
+        axis,
         childId: child.id,
         containerId: container.id,
         isExpanded,

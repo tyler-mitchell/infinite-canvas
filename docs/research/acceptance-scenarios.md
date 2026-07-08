@@ -100,11 +100,13 @@ hysteresis unimplemented` until 2026-07-08, long after it shipped.
   to it.
 - **TAB-002** — Tabs↔accordion conversion preserves membership. `built`
   (`setInfiniteCanvasGroupLayoutMode` changes `layout` and touches no child.)
-- **ACC-001** — Keyboard navigation follows accordion orientation. `unbuilt`.
-  Accordion headers are focusable `<button>`s that activate on Enter/Space, but
-  nothing moves focus _between_ them along the container's axis. The tab strip got a
-  roving `tabIndex` with Arrow/Home/End on 2026-07-08; the accordion did not, and its
-  arrows should follow `container.axis` rather than assuming horizontal.
+- **ACC-001** — Keyboard navigation follows accordion orientation. `built` (2026-07-08).
+  Each accordion container is one roving tab stop, and its arrows follow
+  `container.axis`: a vertically stacked accordion answers Up/Down, a horizontal one
+  Left/Right. Hard-coding Left/Right, as a tablist may, would make Down walk a row of
+  side-by-side headers — the diagonal drift `window-focus.ts` refuses everywhere else.
+  Home/End are axis-independent. Activation stays Enter/Space through the existing
+  `onClick`. Unasserted.
 - **FOCUS-001** — Directional focus prefers group-local neighbors over global.
   `built` (inside a group the arrow searches the group's own members first, and only
   leaves the group when nothing lies that way. Windows behind an inactive tab or a

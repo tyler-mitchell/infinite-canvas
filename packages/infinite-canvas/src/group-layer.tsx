@@ -15,9 +15,14 @@ import {
   DEFAULT_INFINITE_CANVAS_GROUP_METRICS,
   getInfiniteCanvasGroupLayout,
   getInfiniteCanvasGroupMinimumSize,
+  type InfiniteCanvasGroupAccordionHeader,
   type InfiniteCanvasGroupMetrics,
 } from "./group-layout";
-import { findInfiniteCanvasGroupNode, isInfiniteCanvasGroupContainer } from "./group-tree";
+import {
+  findInfiniteCanvasGroupNode,
+  isInfiniteCanvasGroupContainer,
+  type InfiniteCanvasGroupAxis,
+} from "./group-tree";
 import { capturePointer, isPrimaryButton, releasePointer } from "./runtime";
 import { useInfiniteCanvasActions, useInfiniteCanvasSelector } from "./store";
 import type {
@@ -254,6 +259,23 @@ function InfiniteCanvasGroupShell({
     () => getInfiniteCanvasGroupLayout(group.tree, group.rect, metrics),
     [group.rect, group.tree, metrics],
   );
+  // The solver emits headers flat; each container is its own roving-focus scope, so they
+  // are regrouped by `containerId` with source order preserved inside each.
+  const accordionsByContainer = useMemo(() => {
+    const byContainer = new Map<string, InfiniteCanvasGroupAccordionHeader[]>();
+
+    for (const header of layout.accordionHeaders) {
+      const existing = byContainer.get(header.containerId);
+
+      if (existing === undefined) {
+        byContainer.set(header.containerId, [header]);
+      } else {
+        existing.push(header);
+      }
+    }
+
+    return [...byContainer];
+  }, [layout.accordionHeaders]);
   const { screenTransform } = projectWorldRectToScreen(
     camera,
     viewport,
@@ -389,7 +411,70 @@ function InfiniteCanvasGroupShell({
           style={getLocalRectStyle(strip.rect, group.rect)}
         />
       ))}
-      {layout.accordionHeaders.map((header) => (
+      {accordionsByContainer.map(([containerId, headers]) => (
+        <InfiniteCanvasGroupAccordionHeaders group={group} headers={headers} key={containerId} />
+      ))}
+    </div>
+  );
+}
+
+/**
+ * One accordion's headers, and one tab stop between them (ACC-001).
+ *
+ * The same roving-`tabIndex` contract the tab strip uses, with one difference that is the
+ * whole point of the scenario: **the arrows follow the container's axis.** An accordion
+ * stacked vertically answers to Up/Down; one stacked horizontally answers to Left/Right.
+ * Hard-coding Left/Right, as a tablist may, would make Down walk a row of side-by-side
+ * headers — the diagonal drift that `window-focus.ts` refuses everywhere else.
+ *
+ * Each container is its own scope, so a shell holding two accordions has two tab stops,
+ * not one. The wrapper exists only to make `:scope >` mean "this accordion's headers"; it
+ * has no box and no role, and passes pointer events straight through.
+ */
+function InfiniteCanvasGroupAccordionHeaders({
+  group,
+  headers,
+}: Readonly<{
+  group: InfiniteCanvasGroup;
+  headers: readonly InfiniteCanvasGroupAccordionHeader[];
+}>) {
+  const actions = useInfiniteCanvasActions();
+  const headersRef = useRef<HTMLDivElement>(null);
+  const [focusedChildId, setFocusedChildId] = useState<string | null>(null);
+  const childIds = headers.map((header) => header.childId);
+  const expandedChildId = headers.find((header) => header.isExpanded)?.childId;
+  // Falls back to the expanded fold when the header that held the stop has left the
+  // accordion, and to the first header when nothing is expanded.
+  const tabStopChildId =
+    focusedChildId !== null && childIds.includes(focusedChildId)
+      ? focusedChildId
+      : (expandedChildId ?? childIds[0]);
+  const axis = headers[0]?.axis ?? "vertical";
+
+  return (
+    <div
+      onKeyDown={(event) => {
+        const index = childIds.indexOf(tabStopChildId ?? "");
+        const nextIndex =
+          index === -1 ? null : getNextRovingIndex(event.key, index, childIds.length, axis);
+
+        if (nextIndex === null) {
+          return;
+        }
+
+        // Home/End and the arrows would otherwise scroll the nearest scroll container.
+        event.preventDefault();
+        setFocusedChildId(childIds[nextIndex] ?? null);
+        focusRovingSibling(
+          headersRef.current,
+          INFINITE_CANVAS_SLOTS.groupAccordionHeader,
+          nextIndex,
+        );
+      }}
+      ref={headersRef}
+      style={{ inset: 0, pointerEvents: "none", position: "absolute" }}
+    >
+      {headers.map((header) => (
         <button
           aria-expanded={header.isExpanded}
           data-active={header.isExpanded ? "" : undefined}
@@ -402,10 +487,14 @@ function InfiniteCanvasGroupShell({
               groupId: group.id,
             });
           }}
+          onFocus={() => {
+            setFocusedChildId(header.childId);
+          }}
           style={{
             ...getLocalRectStyle(header.rect, group.rect),
             pointerEvents: "auto",
           }}
+          tabIndex={header.childId === tabStopChildId ? 0 : -1}
           type="button"
         >
           {getTabLabel(group, header.childId)}
@@ -415,25 +504,47 @@ function InfiniteCanvasGroupShell({
   );
 }
 
-/** Which tab an Arrow / Home / End keypress moves focus to, or `null` to ignore the key. */
-function getNextTabStopIndex(key: string, index: number, count: number): number | null {
-  switch (key) {
-    case "ArrowLeft": {
-      return (index - 1 + count) % count;
-    }
-    case "ArrowRight": {
-      return (index + 1) % count;
-    }
-    case "End": {
-      return count - 1;
-    }
-    case "Home": {
-      return 0;
-    }
-    default: {
-      return null;
-    }
+/**
+ * Which sibling an Arrow / Home / End keypress moves focus to, or `null` to ignore the key.
+ *
+ * Arrows follow the axis the controls are laid out along. A tab strip is always horizontal,
+ * but an accordion stacks its headers along its container's `axis` (ACC-001), and pressing
+ * Down to walk a row of side-by-side headers is exactly the diagonal drift the directional
+ * focus rule refuses elsewhere. Home and End are axis-independent.
+ */
+function getNextRovingIndex(
+  key: string,
+  index: number,
+  count: number,
+  axis: InfiniteCanvasGroupAxis,
+): number | null {
+  const previousKey = axis === "horizontal" ? "ArrowLeft" : "ArrowUp";
+  const nextKey = axis === "horizontal" ? "ArrowRight" : "ArrowDown";
+
+  if (key === previousKey) {
+    return (index - 1 + count) % count;
   }
+
+  if (key === nextKey) {
+    return (index + 1) % count;
+  }
+
+  if (key === "Home") {
+    return 0;
+  }
+
+  return key === "End" ? count - 1 : null;
+}
+
+/** Focus a roving sibling without scrolling ancestors to reveal it. */
+function focusRovingSibling(container: HTMLElement | null, slot: string, index: number) {
+  // Siblings are direct children in source order, so the index addresses the element
+  // without escaping a consumer-supplied id into a selector. `preventScroll` because the
+  // control lives inside the shell's `transform: scale(zoom)`: a plain `focus()` scrolls
+  // ancestors to reveal a control that is already exactly where the user can see it.
+  container
+    ?.querySelectorAll<HTMLButtonElement>(`:scope > [data-slot="${slot}"]`)
+    [index]?.focus({ preventScroll: true });
 }
 
 /**
@@ -478,8 +589,9 @@ function InfiniteCanvasGroupTabStrip({
       data-slot={INFINITE_CANVAS_SLOTS.groupTabStrip}
       onKeyDown={(event) => {
         const index = childIds.indexOf(tabStopChildId);
+        // A tab strip always lays out horizontally, whatever its container's axis.
         const nextIndex =
-          index === -1 ? null : getNextTabStopIndex(event.key, index, childIds.length);
+          index === -1 ? null : getNextRovingIndex(event.key, index, childIds.length, "horizontal");
 
         if (nextIndex === null) {
           return;
@@ -488,17 +600,7 @@ function InfiniteCanvasGroupTabStrip({
         // Home/End and the arrows would otherwise scroll the nearest scroll container.
         event.preventDefault();
         setFocusedChildId(childIds[nextIndex] ?? null);
-        // Tabs are direct children in `childIds` order, so the index addresses the
-        // button without escaping a consumer-supplied window id into a selector.
-        //
-        // `preventScroll` because the strip sits inside the shell's `transform:
-        // scale(zoom)`: a plain `focus()` scrolls ancestors to reveal the target, which
-        // would drag the canvas out from under the user to chase a tab already in view.
-        stripRef.current
-          ?.querySelectorAll<HTMLButtonElement>(
-            `:scope > [data-slot="${INFINITE_CANVAS_SLOTS.groupTab}"]`,
-          )
-          [nextIndex]?.focus({ preventScroll: true });
+        focusRovingSibling(stripRef.current, INFINITE_CANVAS_SLOTS.groupTab, nextIndex);
       }}
       ref={stripRef}
       role="tablist"
