@@ -44,6 +44,7 @@ const PURE_CORE_ROOTS = [
   "interaction.ts",
   "keyboard.ts",
   "minimap.ts",
+  "offscreen.ts",
   "persistence.ts",
   "recipes.ts",
   "reducer.ts",

@@ -253,6 +253,37 @@ overview is a map of what is on screen to be found.
 
 </details>
 
+**`offscreen`** — edge indicators for what has fallen off the viewport
+
+The minimap answers "where am I?" — you look at it. This answers "where did my window go?" — you
+don't. Peripheral rather than central, and on an infinite canvas both halves are load-bearing: a
+bounded document can only scroll, so a lost window is always one `Home` away. Here it can be
+anywhere, and fit-all is a blunt instrument that moves the camera off everything else to find one
+thing.
+
+- `getInfiniteCanvasOffscreenIndicators` — `(state, options?)`. Every drawn thing that does not
+  overlap the viewport, nearest first, each with the `point` on the inset viewport edge where an
+  arrow belongs, the `angle` to rotate it by (radians, clockwise, `0` is right), the
+  `distancePx` it sorts on, and the `rect` to navigate to.
+
+A **group is one indicator, not one per pane** — four panes docked together share a bearing and a
+distance, and four arrows on one pixel is not information. Minimized windows are omitted; windows
+hidden behind a tab are omitted individually and counted through their group, which is the thing
+you would navigate to.
+
+`options.limit` is unbounded by default. A hundred and sixty windows means a hundred and forty
+arrows, which is a border rather than a hint — but only the consumer knows how big their canvas
+is, and a consumer who caps should say so, because a silent cap reads as "that's everything" when
+it isn't.
+
+<details><summary>types (3)</summary>
+
+- `InfiniteCanvasOffscreenIndicator`
+- `InfiniteCanvasOffscreenOptions`
+- `InfiniteCanvasOffscreenTargetKind`
+
+</details>
+
 **`keyboard`**
 
 - `focusInfiniteCanvasCommandSurface`

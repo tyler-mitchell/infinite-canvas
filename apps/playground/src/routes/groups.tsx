@@ -17,6 +17,7 @@ import { useRef } from "react";
 import { Button } from "ui";
 import { CommandPalette } from "../showcases/command-palette.tsx";
 import { exposeCanvasDevHandle } from "../showcases/dev-handle.ts";
+import { CanvasOffscreenIndicators } from "../showcases/offscreen-indicators.tsx";
 
 export const Route = createFileRoute("/groups")({
   component: GroupsShowcase,
@@ -338,6 +339,8 @@ function GroupsShowcase() {
               {/* Mod+K. Built entirely on `getInfiniteCanvasContextualCommands`, which has been
                   public since the agent handle landed and which nothing consumed until now. */}
               <CommandPalette />
+              {/* Pan away from the shell: a four-pane group gets one arrow, not four. */}
+              <CanvasOffscreenIndicators />
               <div className="pointer-events-auto absolute bottom-4 left-4 flex items-center gap-1.5 rounded-lg border border-border bg-popover/90 p-1.5 backdrop-blur">
                 <NewWindowButton />
                 <span className="mx-1 h-4 w-px bg-border" />

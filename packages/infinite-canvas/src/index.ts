@@ -217,6 +217,12 @@ export type {
   InfiniteCanvasMinimapOptions,
   InfiniteCanvasMinimapWindow,
 } from "./minimap";
+export { getInfiniteCanvasOffscreenIndicators } from "./offscreen";
+export type {
+  InfiniteCanvasOffscreenIndicator,
+  InfiniteCanvasOffscreenOptions,
+  InfiniteCanvasOffscreenTargetKind,
+} from "./offscreen";
 export {
   focusInfiniteCanvasCommandSurface,
   registerInfiniteCanvasHotkeys,

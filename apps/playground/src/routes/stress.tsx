@@ -6,6 +6,7 @@ import { exposeCanvasBenchmark } from "../showcases/benchmark.ts";
 import { CommandPalette } from "../showcases/command-palette.tsx";
 import { exposeCanvasDevHandle } from "../showcases/dev-handle.ts";
 import { CanvasMinimap } from "../showcases/minimap.tsx";
+import { CanvasOffscreenIndicators } from "../showcases/offscreen-indicators.tsx";
 import {
   createStressInfiniteCanvasState,
   sampleInfiniteCanvasWindowRegistry,
@@ -59,9 +60,11 @@ function StressShowcase() {
           return (
             <>
               <CommandPalette />
-              {/* At 160 windows you can pan into nothing. This is the only affordance that
-                  tells you where you are while you are still there. */}
+              {/* At 160 windows you can pan into nothing. The map tells you where you are; the
+                  arrows tell you where everything else went. Central and peripheral halves of
+                  the same problem — pan hard in one direction and watch which one you use. */}
               <CanvasMinimap />
+              <CanvasOffscreenIndicators />
               <div className="pointer-events-none absolute bottom-4 left-4 z-[70] flex items-center gap-1.5">
                 <div className="pointer-events-auto flex items-center gap-1.5 rounded-lg border border-border bg-popover/90 p-1.5 backdrop-blur">
                   {countPresets.map((preset) => (

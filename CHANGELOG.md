@@ -97,6 +97,23 @@ sections, in this order, omitting the ones that don't apply:
   are omitted, as are minimized ones: an overview maps what is on screen to be found. `/stress`
   draws one.
 
+- **Offscreen indicators**, the peripheral half of that problem: `getInfiniteCanvasOffscreenIndicators`
+  returns everything that does not overlap the viewport, nearest first, each carrying the `point`
+  on the inset viewport edge where an arrow belongs, the `angle` to rotate it by, the `distancePx`
+  it sorts on, and the `rect` to navigate to. Pure, like the minimap, and drawing nothing for the
+  same reason. The minimap answers "where am I" and you look at it; this answers "where did my
+  window go" and you don't.
+
+  **A group is one indicator, not one per pane.** Four panes docked together share a bearing and a
+  distance, and four arrows on one pixel is not information — so grouped windows fold into their
+  group's rect, the same rule the rest of the framework follows. Minimized windows are omitted;
+  windows behind an inactive tab are omitted individually and counted through their group, which is
+  the thing you would navigate to.
+
+  `options.limit` is **unbounded by default**, because only the consumer knows how big their canvas
+  is — and a consumer who caps should say so, since a silent cap reads as "that's everything" when
+  it isn't. `/stress` and `/groups` draw them, capped at twelve, with the count rendered.
+
 - **A floating window over a group gets that group as its contextual parent** (FOCUS-002).
   Directional focus searches the group's members before the rest of the canvas, so a floating
   window needs no separate keyboard model — the mitigation the focus model was designed around.
