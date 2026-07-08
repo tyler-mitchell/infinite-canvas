@@ -35,6 +35,14 @@
  *     await window.__canvasBench.table()   // every gesture, markdown, ready to paste
  */
 
+import {
+  REGRESSION_FLOOR_MS,
+  REGRESSION_MARGIN,
+  RUNS,
+  type BenchmarkBaselineEntry,
+  type BenchmarkBaselineRun,
+} from "./benchmark-baseline.ts";
+
 type BenchmarkGesture = "drag" | "pan" | "zoom";
 
 type BenchmarkResult = Readonly<{
@@ -200,7 +208,7 @@ const run = async ({
  * find, and it is not tolerable for a strict comparison — reload between rows, and never
  * compare a `table()` row against a `run()` taken from a fresh page.
  */
-const table = async (): Promise<string> => {
+const runAllGestures = async (): Promise<readonly BenchmarkResult[]> => {
   const results: BenchmarkResult[] = [];
 
   for (const gesture of ["pan", "zoom", "drag"] as const) {
@@ -208,6 +216,11 @@ const table = async (): Promise<string> => {
     results.push(await run({ gesture }));
   }
 
+  return results;
+};
+
+const table = async (): Promise<string> => {
+  const results = await runAllGestures();
   const windows = results[0]?.windows ?? 0;
   const cell = (result: BenchmarkResult | undefined) =>
     result === undefined ? "—" : `${result.fps} fps (${result.meanMs}ms, p95 ${result.p95Ms}ms)`;
@@ -219,9 +232,86 @@ const table = async (): Promise<string> => {
   ].join("\n");
 };
 
+/** Record every gesture, shaped for pasting into `benchmark-baseline.ts`'s `RUNS`. */
+const baseline = async (): Promise<Readonly<Record<number, BenchmarkBaselineRun>>> => {
+  const [pan, zoom, drag] = await runAllGestures();
+
+  // Not a cast. `runAllGestures` returns three results today; a baseline silently missing a
+  // gesture is a baseline that approves whatever that gesture later does.
+  if (pan === undefined || zoom === undefined || drag === undefined) {
+    throw new Error("Benchmark did not produce all three gestures; refusing to record.");
+  }
+
+  const entry = (result: BenchmarkResult): BenchmarkBaselineEntry => ({
+    meanMs: result.meanMs,
+    p95Ms: result.p95Ms,
+  });
+
+  return { [pan.windows]: { drag: entry(drag), pan: entry(pan), zoom: entry(zoom) } };
+};
+
+type BenchmarkComparison = Readonly<{
+  detail: string;
+  status: "pass" | "regressed" | "unrecorded";
+}>;
+
+/**
+ * Compare this machine against the committed baseline.
+ *
+ * **`unrecorded` is not `pass`.** With no baseline for this window count, there is nothing to
+ * compare against, and reporting success would make the gate a decoration. It is the same rule
+ * `verify-api-doc.mjs` follows when the barrel grows a form its parser cannot see: refuse,
+ * loudly, rather than approve vacuously.
+ *
+ * A gesture regresses when its `p95` exceeds the baseline by both `REGRESSION_MARGIN` **and**
+ * `REGRESSION_FLOOR_MS`. Either alone produces a gate nobody trusts: the fraction alone fires
+ * on sub-millisecond jitter, the floor alone lets a 40ms frame become 41 forever.
+ *
+ * This cannot fail CI today. Nothing runs a browser in CI. What it can do is turn "is this
+ * slower?" from an argument into a command, and be ready the day a headless runner exists.
+ */
+const compare = async (): Promise<BenchmarkComparison> => {
+  const results = await runAllGestures();
+  const windows = results[0]?.windows ?? 0;
+  const recorded = RUNS[windows];
+
+  if (recorded === undefined) {
+    return {
+      detail:
+        `No baseline recorded for ${windows} windows. This is not a pass — there is nothing ` +
+        "to compare against. Run `await window.__canvasBench.baseline()` on hardware you " +
+        "trust and paste the result into `benchmark-baseline.ts`.",
+      status: "unrecorded",
+    };
+  }
+
+  const regressions = results.filter((result) => {
+    const before = recorded[result.gesture].p95Ms;
+    const growth = result.p95Ms - before;
+
+    return growth > before * REGRESSION_MARGIN && growth > REGRESSION_FLOOR_MS;
+  });
+
+  if (regressions.length === 0) {
+    return { detail: `${windows} windows: no gesture regressed.`, status: "pass" };
+  }
+
+  return {
+    detail: regressions
+      .map(
+        (result) =>
+          `${result.gesture}: p95 ${recorded[result.gesture].p95Ms}ms → ${result.p95Ms}ms`,
+      )
+      .join("; "),
+    status: "regressed",
+  };
+};
+
 declare global {
   interface Window {
     __canvasBench?: Readonly<{
+      baseline: typeof baseline;
+      compare: typeof compare;
       run: typeof run;
       table: typeof table;
     }>;
@@ -234,5 +324,5 @@ export function exposeCanvasBenchmark(): void {
     return;
   }
 
-  window.__canvasBench = { run, table };
+  window.__canvasBench = { baseline, compare, run, table };
 }
