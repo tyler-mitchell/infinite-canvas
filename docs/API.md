@@ -9,7 +9,31 @@ for hit-testing, not a styling contract.
 The `@infinite-canvas/react/scene` entry is documented separately below. It is
 the only entry that pulls in `three` and `@react-three/fiber`.
 
-> Pre-1.0: the API may change between minor versions. `createInfiniteCanvasHandle` is explicitly **experimental**.
+> Pre-1.0: the API may change between minor versions.
+
+## Stability
+
+Three tiers. Everything not listed as experimental is stable in the sense that a
+change to it will be called out under `Changed` or `Removed` in the changelog.
+
+**Experimental — the shape will change.** Marked `@experimental` in TSDoc.
+
+| Export                                                                                                                                                                                        | Why                                                                                                                                                                                                               |
+| --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `createInfiniteCanvasHandle`                                                                                                                                                                  | The programmatic surface for automation is still finding its shape.                                                                                                                                               |
+| `DEFAULT_INFINITE_CANVAS_RASTERIZATION`, `resolveInfiniteCanvasRasterizationPolicy`, and the `InfiniteCanvasRaster*` types                                                                    | Rasterization is partial and off by default. The capture lane is slated to be rebuilt on `html-in-canvas` (P7), and semantic level-of-detail is unbuilt.                                                          |
+| `useInfiniteCanvasWindowFrustum`, `useInfiniteCanvasWindowFramed`, `useInfiniteCanvasVisibilitySummary`, `getInfiniteCanvasVisibilitySummary`, `getWindowFrustumVisibility`, `isWindowFramed` | **Inert unless a scene surface is mounted with `diagnostics.frustum` on** — only the frustum probe layer, which ships behind `/scene`, writes that store. A `null` reading means "unmeasured", never "offscreen". |
+
+**Behind `@infinite-canvas/react/scene`.** The WebGPU surface and the frustum
+probe layer. Importing this entry is what opts you into `three` and
+`@react-three/fiber`.
+
+**On the main entry, and staying there:** the ~40 `getInfiniteCanvas*Scene*`,
+connector, and world-path helpers. It is tempting to file them under `/scene`
+since only scene-layer authors tend to reach for them, but they are pure
+geometry — `scene-layer-geometry.ts` imports no `three` — and a consumer drawing
+window connectors into an SVG overlay needs them with no 3D engine anywhere.
+Moving them would force the 3D peers on someone who never asked for them.
 
 ## Components
 

@@ -117,6 +117,13 @@ type InfiniteCanvasRasterWritableObservable = Observable<InfiniteCanvasRasterSto
     set: (state: InfiniteCanvasRasterStoreState) => void;
   }>;
 
+/**
+ * @experimental Rasterization is partial: the policy, scheduler, and snapshot
+ * capture exist and are off by default, but the capture lane is slated to be
+ * rebuilt on `html-in-canvas` (P7), and semantic level-of-detail — the half of
+ * far-zoom readability that snapshots cannot solve — is unbuilt. The policy
+ * shape will change.
+ */
 const DEFAULT_INFINITE_CANVAS_RASTERIZATION: InfiniteCanvasRasterizationPolicy = {
   adapter: "snapdom",
   cache: "full",

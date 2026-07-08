@@ -225,19 +225,26 @@ controls hand DOM focus back before they unmount (otherwise focus lands on
 FR-9 is `partial`, not done: group-local focus needs P1, and focus trapping plus
 accessible controls inside window bodies remain.
 
-### Hour 3–4 — API surface tiering
+### Hour 3–4 — API surface tiering: **DONE**
 
-287 public names is a maintenance liability and a bad first read. Nothing here
-needs new code, only honesty about what is stable:
+287 public names is a maintenance liability and a bad first read. This needed no
+new code, only honesty about what is stable.
 
-- Mark `createInfiniteCanvasHandle` and the scene-layer geometry helpers
-  `@experimental` in TSDoc; `docs/API.md` already groups by module, so add a
-  stability column.
-- Decide whether the ~40 `getInfiniteCanvas*Scene*` helpers belong on the main
-  entry at all, or behind `@infinite-canvas/react/scene` with the surface. They
-  are only useful to someone already writing scene layers.
-
-Exit: every export is either documented as stable or marked experimental.
+- ✅ `@experimental` in TSDoc on `createInfiniteCanvasHandle`, the rasterization
+  policy surface, and the six frustum-visibility exports. `docs/API.md` opens
+  with a Stability section naming all three tiers.
+- ✅ The frustum-visibility hooks were the find. They are **inert unless a scene
+  surface is mounted with `diagnostics.frustum` on** — only the probe layer,
+  which ships behind `/scene`, writes that store. `useInfiniteCanvasWindowFramed`
+  returns its fallback forever otherwise, so a culling decision built on it would
+  silently keep everything. `null` now documented as "unmeasured", never
+  "offscreen".
+- ✅ **Reversed this plan's own recommendation** about moving the ~40
+  `getInfiniteCanvas*Scene*` helpers behind `/scene`. They are pure geometry —
+  `scene-layer-geometry.ts` imports no `three` — and a consumer drawing window
+  connectors into an SVG overlay needs them with no 3D engine anywhere. Moving
+  them would force the 3D peers on someone who never asked for them, which is the
+  exact problem the `/scene` split was made to solve.
 
 ### Hour 4–7 — P2 tranche 1 measurement, then P1 wiring
 

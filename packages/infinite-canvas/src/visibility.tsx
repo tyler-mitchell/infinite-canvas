@@ -198,6 +198,16 @@ function useInfiniteCanvasVisibilityContext() {
   return useContext(InfiniteCanvasVisibilityContext);
 }
 
+/**
+ * Live frustum-visibility for one window, or `null` when nothing is measuring it.
+ *
+ * @experimental Only the frustum probe layer writes this store, and that layer
+ * ships behind `@infinite-canvas/react/scene` and runs only when
+ * `diagnostics.frustum` is on. Without both, every window reads as unmeasured —
+ * `useInfiniteCanvasWindowFramed` will return its fallback forever, and a
+ * culling decision built on it will silently keep everything. Treat a `null`
+ * here as "unknown", never as "offscreen".
+ */
 function useInfiniteCanvasWindowFrustum(windowId: string) {
   const { state$ } = useInfiniteCanvasVisibilityContext();
 
@@ -207,12 +217,28 @@ function useInfiniteCanvasWindowFrustum(windowId: string) {
   );
 }
 
+/**
+ * Whether a window is inside the camera frustum, falling back to `fallback` when
+ * nothing is measuring it.
+ *
+ * @experimental See {@link useInfiniteCanvasWindowFrustum}: the probe that feeds
+ * this lives behind the `/scene` entry and only runs under `diagnostics.frustum`.
+ * The fallback defaults to `true` precisely so that an unmeasured canvas renders
+ * everything rather than nothing.
+ */
 function useInfiniteCanvasWindowFramed(windowId: string, fallback = true) {
   const visibility = useInfiniteCanvasWindowFrustum(windowId);
 
   return visibility?.isFramed ?? fallback;
 }
 
+/**
+ * Aggregate frustum-visibility counts across the canvas.
+ *
+ * @experimental Reads the same probe-fed store as
+ * {@link useInfiniteCanvasWindowFrustum}, so it reports zeros unless a scene
+ * surface is mounted with `diagnostics.frustum` on.
+ */
 function useInfiniteCanvasVisibilitySummary() {
   const { state$ } = useInfiniteCanvasVisibilityContext();
 
