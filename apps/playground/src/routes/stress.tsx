@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { InfiniteCanvasDesktop } from "@infinite-canvas/react";
 import { useMemo } from "react";
 import { Button } from "ui";
+import { exposeCanvasBenchmark } from "../showcases/benchmark.ts";
 import { exposeCanvasDevHandle } from "../showcases/dev-handle.ts";
 import {
   createStressInfiniteCanvasState,
@@ -50,6 +51,9 @@ function StressShowcase() {
         rasterization={rasterization}
         renderOverlay={(context) => {
           exposeCanvasDevHandle(context);
+          // `window.__canvasBench.table()` in the console. This is the only route with
+          // enough windows for the numbers to mean anything.
+          exposeCanvasBenchmark();
           return (
             <div className="pointer-events-none absolute bottom-4 left-4 z-[70] flex items-center gap-1.5">
               <div className="pointer-events-auto flex items-center gap-1.5 rounded-lg border border-border bg-popover/90 p-1.5 backdrop-blur">

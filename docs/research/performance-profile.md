@@ -89,9 +89,45 @@ In rough order of leverage:
 4. Snap candidate indexing ([snapping.md](snapping.md)) — NOT currently a
    bottleneck (drag cost was bodies, confirmed), revisit at larger N.
 
-Re-measure on real hardware (the embedded browser underclocks rAF under
-load) before declaring absolute numbers; the protocol above is reproducible
-via the synthetic drivers in this doc's history.
+Re-measure on real hardware (the embedded browser underclocks rAF under load)
+before declaring absolute numbers.
+
+## The harness (added 2026-07-08)
+
+This document used to close by saying the protocol was "reproducible via the
+synthetic drivers in this doc's history" — which meant the drivers were **not in
+the tree**, and every number above was produced by code nobody could re-run.
+That is why tranche 1 sat landed and unmeasured: re-deriving the harness costs
+more than reading the diff, so nobody did, so the tables stayed stale.
+
+The harness now lives at `apps/playground/src/showcases/benchmark.ts` and mounts
+on `/stress` in dev:
+
+```js
+// http://localhost:5173/stress?count=40
+await window.__canvasBench.table(); // pan, zoom, drag — markdown, ready to paste
+await window.__canvasBench.run({ gesture: "pan" }); // one gesture, structured
+```
+
+One input event per animation frame, as in the 2026-06-10 runs. Frame duration is
+the delta between successive `requestAnimationFrame` timestamps, so it measures
+the whole frame — handlers, reconciliation, style, layout, paint — because that is
+what a user feels. The first frame of a gesture is discarded: it carries
+`startPan`/`startMove` and is not steady state.
+
+**It reports `p95` alongside the mean, and `p95` is the number that matters.** A
+pan averaging 12 ms that spikes to 40 twice a second feels broken, and the mean
+will not say so. The tables above predate the harness and carry means only.
+
+Two properties worth keeping. A drag dispatches `pointermove` on `window`, not on
+the header, because the framework's interaction listeners are mount-scoped there —
+a driver that moved the header would measure nothing and pass. And the wheel is
+dispatched on the viewport element rather than a window body, because an
+unmodified wheel over a scrollable body belongs to the body, by design.
+
+**Building the harness needed no browser. Running it does.** That asymmetry is the
+point: the numbers are now one console call away rather than one archaeology
+session away.
 
 ## Tranche 1: frame chrome memoization (landed, NOT YET MEASURED)
 
