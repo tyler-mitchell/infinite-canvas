@@ -94,9 +94,13 @@ Initial release.
   (which predates groups) still parses and migrates to `groups: []`. Making `groups` an optional field
   on `version: 1` would have looked backward-compatible right up until an older build read a newer
   payload, dropped the field it did not know, and wrote back a layout with every group deleted.
-- **Typed drag and drop.** A drop-target contract with spatial resolution, so a payload dropped on
-  the canvas resolves to the window (or the empty canvas region) actually underneath it, in canvas
-  coordinates.
+- **Typed drag and drop, snapped and previewed.** A drop-target contract with spatial resolution, so a
+  payload dropped on the canvas resolves to the window (or the empty canvas region) actually underneath
+  it, in canvas coordinates. Tell the framework how large the payload will be with
+  `dropPolicy.placement` and the drop snaps against the same candidates a window move snaps against —
+  the framework draws the guides itself, instead of every consumer redrawing them. `onDrop` receives
+  the _same_ placement object the preview was drawing, not a second computation: two calls can
+  disagree, and when they do the payload lands somewhere other than where the ghost promised.
 - **Read-only R3F / WebGPU scene layers, as an opt-in entry.** `sceneLayers` render React Three
   Fiber content above or below the DOM window plane on a transparent WebGPU surface, in camera-owned
   world space or DOM-aligned screen space, backed by projected window proxies. The surface itself
