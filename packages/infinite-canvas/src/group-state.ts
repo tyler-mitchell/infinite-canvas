@@ -1,5 +1,6 @@
 import {
   DEFAULT_INFINITE_CANVAS_GROUP_METRICS,
+  getInfiniteCanvasGroupDockEdgeAtPoint,
   getInfiniteCanvasGroupLayout,
   type InfiniteCanvasGroupMetrics,
 } from "./group-layout";
@@ -18,7 +19,13 @@ import {
   type InfiniteCanvasGroupLayoutMode,
   type InfiniteCanvasGroupNode,
 } from "./group-tree";
-import type { InfiniteCanvasGroup, InfiniteCanvasRect, InfiniteCanvasState } from "./types";
+import type {
+  InfiniteCanvasDockPreview,
+  InfiniteCanvasGroup,
+  InfiniteCanvasPoint,
+  InfiniteCanvasRect,
+  InfiniteCanvasState,
+} from "./types";
 
 /**
  * Groups, projected onto canvas state.
@@ -498,8 +505,177 @@ function reconcileInfiniteCanvasGroups<Kind extends string>(
   return syncInfiniteCanvasGroupWindowRects({ ...state, groups });
 }
 
+/**
+ * Docking, resolved from the canonical model.
+ *
+ * A drop target is found by asking the group solver where its members are and
+ * the window list where the floating ones are — never by hit-testing the DOM. A
+ * target read from `getBoundingClientRect` would disagree with the tree the
+ * moment a transform, a scroll, or a zoom got involved, and the user would drop
+ * a window somewhere other than where the overlay promised.
+ */
+
+/**
+ * Container and group ids are derived from the target rather than generated, so
+ * the operation stays pure and an undo replay rebuilds the identical tree. Two
+ * live containers can never share an id: a container is named for the node it
+ * wraps and the edge it wraps it on, and node ids are window ids, which are
+ * unique across the canvas.
+ */
+function getInfiniteCanvasDockContainerId(targetId: string, edge: string): string {
+  return `${targetId}::${edge}`;
+}
+
+function getInfiniteCanvasDockGroupId(targetWindowId: string): string {
+  return `${targetWindowId}::group`;
+}
+
+/** The region a drop would fill: half the target on that edge, or all of it for a tab merge. */
+function getInfiniteCanvasDockRegionRect(
+  rect: InfiniteCanvasRect,
+  edge: InfiniteCanvasGroupDockEdge,
+): InfiniteCanvasRect {
+  const halfWidth = rect.width / 2;
+  const halfHeight = rect.height / 2;
+
+  switch (edge) {
+    case "center":
+      return rect;
+    case "east":
+      return { height: rect.height, width: halfWidth, x: rect.x + halfWidth, y: rect.y };
+    case "north":
+      return { height: halfHeight, width: rect.width, x: rect.x, y: rect.y };
+    case "south":
+      return { height: halfHeight, width: rect.width, x: rect.x, y: rect.y + halfHeight };
+    case "west":
+      return { height: rect.height, width: halfWidth, x: rect.x, y: rect.y };
+  }
+}
+
+function rectContainsPoint(rect: InfiniteCanvasRect, point: InfiniteCanvasPoint): boolean {
+  return (
+    point.x >= rect.x &&
+    point.y >= rect.y &&
+    point.x <= rect.x + rect.width &&
+    point.y <= rect.y + rect.height
+  );
+}
+
+/**
+ * Where a window would land if the drag ended now, or `null` over empty canvas.
+ *
+ * Groups are searched before floating windows, and both topmost-first, so the
+ * answer matches what the user sees stacked under the cursor. The dragged window
+ * and anything already grouped are never targets.
+ */
+function resolveInfiniteCanvasDockPreview<Kind extends string>(
+  state: InfiniteCanvasState<Kind>,
+  worldPoint: InfiniteCanvasPoint,
+  draggedWindowId: string,
+  metrics: InfiniteCanvasGroupMetrics = DEFAULT_INFINITE_CANVAS_GROUP_METRICS,
+): InfiniteCanvasDockPreview | null {
+  if (isInfiniteCanvasWindowGrouped(state, draggedWindowId)) {
+    return null;
+  }
+
+  const groupsByDepth = [...state.groups].sort((left, right) => right.zIndex - left.zIndex);
+
+  for (const group of groupsByDepth) {
+    const layout = getInfiniteCanvasGroupLayout(group.tree, group.rect, metrics);
+
+    for (const placement of layout.windows) {
+      if (!rectContainsPoint(placement.rect, worldPoint)) {
+        continue;
+      }
+
+      const edge = getInfiniteCanvasGroupDockEdgeAtPoint(placement.rect, worldPoint);
+
+      return {
+        containerId: getInfiniteCanvasDockContainerId(placement.windowId, edge),
+        edge,
+        groupId: group.id,
+        rect: getInfiniteCanvasDockRegionRect(placement.rect, edge),
+        targetId: placement.windowId,
+        windowId: draggedWindowId,
+      };
+    }
+  }
+
+  const floatingByDepth = [...state.windows]
+    .filter(
+      (window) =>
+        window.id !== draggedWindowId &&
+        window.mode !== "minimized" &&
+        !isInfiniteCanvasWindowGrouped(state, window.id),
+    )
+    .sort((left, right) => right.zIndex - left.zIndex);
+
+  for (const window of floatingByDepth) {
+    if (!rectContainsPoint(window.rect, worldPoint)) {
+      continue;
+    }
+
+    const edge = getInfiniteCanvasGroupDockEdgeAtPoint(window.rect, worldPoint);
+
+    return {
+      containerId: getInfiniteCanvasDockContainerId(window.id, edge),
+      edge,
+      groupId: null,
+      rect: getInfiniteCanvasDockRegionRect(window.rect, edge),
+      targetId: window.id,
+      windowId: draggedWindowId,
+    };
+  }
+
+  return null;
+}
+
+/**
+ * Commit a resolved preview. Docking onto a floating window first wraps that
+ * window in a group occupying exactly the rect it already had, then docks the
+ * dragged window against it — so the pair lands where the target was standing
+ * and nothing else on the canvas shifts (DOCK-001).
+ */
+function applyInfiniteCanvasDockPreview<Kind extends string>(
+  state: InfiniteCanvasState<Kind>,
+  preview: InfiniteCanvasDockPreview,
+): InfiniteCanvasState<Kind> {
+  if (preview.groupId !== null) {
+    return dockInfiniteCanvasWindowIntoGroup(state, {
+      containerId: preview.containerId,
+      edge: preview.edge,
+      groupId: preview.groupId,
+      targetId: preview.targetId,
+      windowId: preview.windowId,
+    });
+  }
+
+  const target = state.windows.find((window) => window.id === preview.targetId);
+
+  if (target === undefined) {
+    return state;
+  }
+
+  const groupId = getInfiniteCanvasDockGroupId(target.id);
+  const seeded = createInfiniteCanvasGroup(state, {
+    groupId,
+    rect: target.rect,
+    title: target.title,
+    windowIds: [target.id],
+  });
+
+  return dockInfiniteCanvasWindowIntoGroup(seeded, {
+    containerId: preview.containerId,
+    edge: preview.edge,
+    groupId,
+    targetId: preview.targetId,
+    windowId: preview.windowId,
+  });
+}
+
 export {
   DEFAULT_INFINITE_CANVAS_GROUP_TITLE,
+  applyInfiniteCanvasDockPreview,
   closeInfiniteCanvasGroup,
   createInfiniteCanvasGroup,
   detachInfiniteCanvasWindowFromGroups,
@@ -511,6 +687,7 @@ export {
   isInfiniteCanvasWindowGrouped,
   reconcileInfiniteCanvasGroups,
   reorderInfiniteCanvasGroupChildInState,
+  resolveInfiniteCanvasDockPreview,
   setInfiniteCanvasGroupActiveChildInState,
   setInfiniteCanvasGroupChildWeightsInState,
   setInfiniteCanvasGroupLayoutModeInState,

@@ -524,4 +524,17 @@
     box-shadow: inset 0 -2px 0 0 var(--icx-active-accent);
     color: var(--icx-selection-border);
   }
+
+  /* The region a dragged window will fill when released. Shown only while docking
+     intent is held; a drop the user did not see coming is the failure mode. */
+  [data-slot="dock-region"] {
+    background: color-mix(in oklab, var(--icx-active-accent) 18%, transparent);
+    border: 1px solid var(--icx-active-accent);
+    border-radius: 2px;
+  }
+
+  [data-slot="dock-region"][data-edge="center"] {
+    background: color-mix(in oklab, var(--icx-selection-border) 22%, transparent);
+    border-color: var(--icx-selection-border);
+  }
 }

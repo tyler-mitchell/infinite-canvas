@@ -13,6 +13,7 @@
  * enum because window states co-occur.
  */
 const INFINITE_CANVAS_SLOTS = {
+  dockRegion: "dock-region",
   grid: "grid",
   groupAccordionHeader: "group-accordion-header",
   groupGutter: "group-gutter",

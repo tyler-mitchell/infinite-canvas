@@ -16,6 +16,7 @@ import type { InfiniteCanvasSnapGuide, InfiniteCanvasState } from "./types";
 // Interaction overlays stack directly beneath the HUD band (overlay), above
 // the screen-space scene overlays (overlay - 9): bounds < marquee < snap.
 const SELECTION_BOUNDS_OVERLAY_Z_INDEX = DEFAULT_INFINITE_CANVAS_STACK_BANDS.overlay - 4;
+const DOCK_REGION_OVERLAY_Z_INDEX = DEFAULT_INFINITE_CANVAS_STACK_BANDS.overlay - 3;
 const MARQUEE_OVERLAY_Z_INDEX = DEFAULT_INFINITE_CANVAS_STACK_BANDS.overlay - 3;
 const SNAP_OVERLAY_Z_INDEX = DEFAULT_INFINITE_CANVAS_STACK_BANDS.overlay - 2;
 
@@ -54,6 +55,59 @@ function InfiniteCanvasSelectionBoundsOverlay({
       <div
         data-infinite-canvas-selection-bounds="true"
         data-slot={INFINITE_CANVAS_SLOTS.selectionBounds}
+        style={{
+          boxSizing: "border-box",
+          height: `${rect.height}px`,
+          position: "absolute",
+          transform: `translate3d(${rect.left}px, ${rect.top}px, 0)`,
+          width: `${rect.width}px`,
+        }}
+      />
+    </div>
+  );
+}
+
+/**
+ * Where the dragged window will land if released now. Shown only while docking
+ * intent is held, because that is the only time a drop target exists — and a drop
+ * the user did not see coming is the one thing a docking gesture must never do.
+ *
+ * The rect comes from the same value the reducer will apply on release, not from
+ * a fresh hit-test, so what is promised is what happens.
+ */
+function InfiniteCanvasDockPreviewOverlay({
+  devicePixelRatio,
+}: Readonly<{
+  devicePixelRatio: number;
+}>) {
+  const state = useInfiniteCanvasState();
+  const interaction = state.interaction;
+  const dockPreview = interaction?.kind === "move" ? interaction.dockPreview : null;
+
+  if (dockPreview === null) {
+    return null;
+  }
+
+  const rect = projectWorldRectToScreen(
+    state.camera,
+    state.viewport,
+    dockPreview.rect,
+    devicePixelRatio,
+  ).screenRect;
+
+  return (
+    <div
+      style={{
+        inset: 0,
+        pointerEvents: "none",
+        position: "absolute",
+        zIndex: DOCK_REGION_OVERLAY_Z_INDEX,
+      }}
+    >
+      <div
+        aria-hidden="true"
+        data-edge={dockPreview.edge}
+        data-slot={INFINITE_CANVAS_SLOTS.dockRegion}
         style={{
           boxSizing: "border-box",
           height: `${rect.height}px`,
@@ -196,6 +250,7 @@ function InfiniteCanvasMarqueeOverlay() {
 }
 
 export {
+  InfiniteCanvasDockPreviewOverlay,
   InfiniteCanvasMarqueeOverlay,
   InfiniteCanvasSelectionBoundsOverlay,
   InfiniteCanvasSnapOverlay,

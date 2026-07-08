@@ -147,7 +147,9 @@ function reduceInfiniteCanvasState<Kind extends string>(
     // when there are no groups.
     case "interaction.step":
       return syncInfiniteCanvasGroupWindowRects(
-        stepCanvasInteraction(state, action.pointerId, action.point, action.snapPolicy),
+        stepCanvasInteraction(state, action.pointerId, action.point, action.snapPolicy, {
+          dockIntent: action.dockIntent === true,
+        }),
       );
     case "selection.add":
       return addSelection(state, action.windowIds);

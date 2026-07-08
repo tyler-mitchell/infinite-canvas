@@ -13,6 +13,7 @@ import {
 
 import { InfiniteCanvasHud } from "./canvas-hud";
 import {
+  InfiniteCanvasDockPreviewOverlay,
   InfiniteCanvasMarqueeOverlay,
   InfiniteCanvasSelectionBoundsOverlay,
   InfiniteCanvasSnapOverlay,
@@ -811,6 +812,7 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
       }
 
       actions.stepInteraction({
+        dockIntent: event.altKey,
         pointerId: event.pointerId,
         point: getViewportPoint(node, getClientPoint(event)),
       });
@@ -1089,6 +1091,7 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
           />
         )}
         <InfiniteCanvasSelectionBoundsOverlay devicePixelRatio={devicePixelRatio} />
+        <InfiniteCanvasDockPreviewOverlay devicePixelRatio={devicePixelRatio} />
         <InfiniteCanvasSnapOverlay devicePixelRatio={devicePixelRatio} />
         <InfiniteCanvasMarqueeOverlay />
         {renderOverlay?.(overlayContext)}
@@ -1282,7 +1285,14 @@ function getCanvasCursor(
     return getInfiniteCanvasIdleCursor(inputPolicy, pointerMode);
   }
 
-  if (interaction.kind === "resize") {
+  // Resize handles and group chrome carry structural cursors, like a gutter's
+  // seam. Only pan / move / marquee are the consumer's to re-map, which is what
+  // `InfiniteCanvasCursorInteraction` enumerates.
+  if (
+    interaction.kind === "resize" ||
+    interaction.kind === "groupMove" ||
+    interaction.kind === "groupGutter"
+  ) {
     return getInteractionCursor(interaction);
   }
 

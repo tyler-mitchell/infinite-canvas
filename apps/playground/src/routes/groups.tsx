@@ -41,6 +41,7 @@ const registry = defineInfiniteCanvasWindowRegistry<Kind>({
         </p>
         <p className="text-white/40">
           Drag this header to move the whole shell. Drag the seam between panes to reweight them.
+          Hold <kbd>Alt</kbd> while dragging a floating window over another to dock it.
         </p>
       </div>
     ),
@@ -158,7 +159,7 @@ function GroupsShowcase() {
             </div>
           );
         }}
-        subtitle="Drag a header to move the shell; drag a seam to reweight. The tree owns every rect."
+        subtitle="Alt+drag to dock. Drag a header to move the shell, a seam to reweight, a tab to tear out."
         title="Groups"
         windowDefinitions={registry}
       />

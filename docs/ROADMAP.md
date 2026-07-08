@@ -21,18 +21,22 @@ windows compose into movable local layout regions.
   setChildWeights, reorderChild). Persisted at `version: 2`, with `version: 1`
   migrating to `groups: []`. Rendered by `group-layer.tsx` (shell, gutters, tab
   strips, accordion headers) beneath the window plane. `/groups` showcase.
-- ✅ **Landed: three of the four pointer gestures.** Dragging a grouped window's
-  header moves its shell as one world object (DOCK-003). Dragging the seam between
-  split panes reweights the pair (SPLIT-001) — the step recomputes from the
-  container as it stood at drag start, so the seam stays under the cursor rather
-  than drifting as rounding accumulates. Dragging a tab past a 6px threshold tears
-  the window out and hands the same pointer to a normal window move (DOCK-004).
-- **Still open: create-group-by-docking (DOCK-001/002).** The canonical command
-  and the pure hit-test (`getInfiniteCanvasGroupDockEdgeAtPoint`) exist; what is
-  missing is resolving a drop target while a floating window is being dragged, and
-  the region overlay that shows the user where it will land. Resizing a grouped
-  window directly stays refused: a pane is resized by its seam, and the shell has
-  no edge handles yet.
+- ✅ **Landed: all four pointer gestures.** Dragging a grouped window's header
+  moves its shell as one world object (DOCK-003). Dragging the seam between split
+  panes reweights the pair (SPLIT-001) — the step recomputes from the container as
+  it stood at drag start, so the seam stays under the cursor rather than drifting.
+  Dragging a tab past a 6px threshold tears the window out and hands the same
+  pointer to a normal window move (DOCK-004). **Alt+dragging** a floating window
+  over another window, or over a group member, docks it (DOCK-001/002).
+- ✅ **Docking-intent mode**, which risk R3 asked for. Docking is never something
+  a drag falls into: without the modifier a window overlaps as it always did.
+  While intent is held, a dock region overlay shows exactly where the window will
+  land, and alignment guides are suppressed — a snap guide and a drop target are
+  contradictory affordances. The overlay renders the same value the reducer
+  applies on release, not a fresh hit-test, so what is promised is what happens.
+- **Still open:** resizing a grouped window directly stays refused — a pane is
+  resized by its seam, and the shell has no edge handles yet. Tab reorder by drag
+  is command-only.
 - Tabs + accordion modes (center-merge, reorder, mode conversion,
   active-child semantics).
 - **Docking-intent snapping**: explicit intent mode with region overlays
@@ -47,8 +51,8 @@ windows compose into movable local layout regions.
   [research/acceptance-scenarios.md](research/acceptance-scenarios.md).
 - Exit: a /groups showcase where floating windows dock into split shells,
   merge into tabs, tear out, move as units; scenario tests green.
-  **Partially met.** Move-as-units and pane reweighting are draggable; docking
-  and tear-out are still command-only. Scenario tests remain.
+  **Met, except the scenario tests.** Floating windows dock into split shells,
+  merge into tabs, tear out, and move as units — all by dragging.
 - Dependencies: none hard; benefits from P2's chrome memoization landing
   first (group shells add chrome).
 

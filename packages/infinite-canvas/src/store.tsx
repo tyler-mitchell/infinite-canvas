@@ -388,10 +388,13 @@ function createInfiniteCanvasStore<Kind extends string>(
         windowId,
       });
     },
-    stepInteraction: ({ pointerId, point }) => {
+    stepInteraction: ({ dockIntent, pointerId, point }) => {
       dispatch({
+        dockIntent,
         pointerId,
         point,
+        // Alignment guides and a dock region are contradictory affordances; the
+        // reducer drops the snap policy while docking intent is held.
         snapPolicy: options.snapPolicy,
         type: "interaction.step",
       });

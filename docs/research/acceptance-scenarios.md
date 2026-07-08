@@ -34,10 +34,13 @@
 
 ## Docking and groups — all `open` (grouping unbuilt)
 
-- **DOCK-001** — Drag a floating window beside another → new split group
+- **DOCK-001** — (`done`: Alt+drag. `resolveInfiniteCanvasDockPreview` finds the
+  target from the canonical model, `applyInfiniteCanvasDockPreview` wraps it in a
+  group occupying the rect it already had, then docks the dragged window beside
+  it, so nothing else on the canvas shifts.) Drag a floating window beside another → new split group
   shell.
-- **DOCK-002** — Drag over a group's center → tab merge (or configured merge).
-  (`partial`: `dockInfiniteCanvasGroupWindow` with `edge: "center"` merges into a tab group; the drag gesture that calls it is unbuilt.)
+- **DOCK-002** — (`done`: the centre `1 - 2 × centerRatio` of a target is the
+  tab-merge zone; outside it the nearest edge wins.) Drag over a group's center → tab merge.
 - **DOCK-003** — Move a group shell → the group moves as one world object.
   (`done`: dragging any member's header starts a `groupMove` interaction; the
   members follow because their rects are re-derived from the shell.)

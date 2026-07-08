@@ -7,6 +7,8 @@ import {
 } from "./geometry";
 import { getInfiniteCanvasGroupGutterWeights } from "./group-layout";
 import {
+  applyInfiniteCanvasDockPreview,
+  resolveInfiniteCanvasDockPreview,
   setInfiniteCanvasGroupChildWeightsInState,
   setInfiniteCanvasGroupRect,
 } from "./group-state";
@@ -196,6 +198,7 @@ function beginWindowMove<Kind extends string>(
   return {
     ...focusedState,
     interaction: {
+      dockPreview: null,
       kind: "move",
       originPointer: point,
       originRect: targetWindow.rect,
@@ -240,6 +243,7 @@ function stepCanvasInteraction<Kind extends string>(
   pointerId: number,
   point: InfiniteCanvasPoint,
   snapPolicy?: InfiniteCanvasSnapPolicy,
+  options: Readonly<{ dockIntent?: boolean }> = {},
 ): InfiniteCanvasState<Kind> {
   const interaction = state.interaction;
 
@@ -289,9 +293,35 @@ function stepCanvasInteraction<Kind extends string>(
     y: screenDelta.y / interaction.zoom,
   };
 
-  return interaction.kind === "move"
-    ? stepWindowMove(state, interaction, worldDelta, snapPolicy)
-    : stepWindowResize(state, interaction, worldDelta, targetWindow.minSize, snapPolicy);
+  if (interaction.kind === "resize") {
+    return stepWindowResize(state, interaction, worldDelta, targetWindow.minSize, snapPolicy);
+  }
+
+  // Docking is an explicit intent, never something a drag falls into. Without it
+  // a window could not be dragged over another to overlap it -- which is most of
+  // what an infinite canvas is for. A multi-window group move cannot dock either:
+  // there is no single window to seat against the target.
+  const dockPreview =
+    options.dockIntent === true && interaction.originRects.length === 1
+      ? resolveInfiniteCanvasDockPreview(
+          state,
+          screenPointToWorldPoint(state.camera, state.viewport, point),
+          interaction.windowId,
+        )
+      : null;
+  // Alignment guides and a dock region are contradictory affordances. Once the
+  // user is aiming at a drop target, stop offering to line them up with a
+  // neighbour instead (research/snapping.md, risk R3).
+  const moved = stepWindowMove(
+    state,
+    interaction,
+    worldDelta,
+    dockPreview === null ? snapPolicy : undefined,
+  );
+
+  return moved.interaction === null || moved.interaction.kind !== "move"
+    ? moved
+    : { ...moved, interaction: { ...moved.interaction, dockPreview } };
 }
 
 function getMarqueeWorldRect<Kind extends string>(
@@ -437,17 +467,32 @@ function stepWindowResize<Kind extends string>(
   };
 }
 
+/**
+ * Releasing over a dock region commits the dock; releasing anywhere else simply
+ * ends the drag, leaving the window where it was dropped. The preview the user
+ * was looking at is exactly what gets applied — it is the same value, not a
+ * re-resolution against a pointer that has since moved.
+ */
 function finishCanvasInteraction<Kind extends string>(
   state: InfiniteCanvasState<Kind>,
   pointerId: number,
 ): InfiniteCanvasState<Kind> {
-  return state.interaction?.pointerId === pointerId
-    ? {
-        ...state,
-        interaction: null,
-        snapPreview: null,
-      }
-    : state;
+  const interaction = state.interaction;
+
+  if (interaction?.pointerId !== pointerId) {
+    return state;
+  }
+
+  const docked =
+    interaction.kind === "move" && interaction.dockPreview !== null
+      ? applyInfiniteCanvasDockPreview(state, interaction.dockPreview)
+      : state;
+
+  return {
+    ...docked,
+    interaction: null,
+    snapPreview: null,
+  };
 }
 
 function getInteractionCursor(interaction: InfiniteCanvasState["interaction"]) {

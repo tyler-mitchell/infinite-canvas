@@ -108,6 +108,7 @@ function countOccurrences(markup: string, needle: string) {
 
 test("INFINITE_CANVAS_SLOTS is the complete slot vocabulary", () => {
   expect(INFINITE_CANVAS_SLOTS).toEqual({
+    dockRegion: "dock-region",
     grid: "grid",
     groupAccordionHeader: "group-accordion-header",
     groupGutter: "group-gutter",
@@ -269,6 +270,7 @@ test("snap overlay emits snap-preview and per-guide axis/kind attributes", () =>
     ...baseState,
     groups: [],
     interaction: {
+      dockPreview: null,
       kind: "move",
       originPointer: { x: 50, y: 50 },
       originRect: noteWindow.rect,

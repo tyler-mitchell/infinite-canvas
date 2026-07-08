@@ -112,7 +112,7 @@ It is a single `@layer infinite-canvas` cascade layer targeting the `data-slot` 
 - **Persistence** — versioned JSON layouts through `storageKey`, scoped by `documentKey`, structurally validated on hydration and normalized against your registry so stale window kinds are dropped before render.
 - **Typed drag & drop** — an opaque payload generic threaded through `dropPolicy.canDrop` / `onDrop`, overlay and scene-layer contexts, and valid / invalid / outside drop status.
 - **R3F scene layers** — `sceneLayers` render read-only React Three Fiber content above or below the DOM window plane, in camera-owned `space: "world"` or DOM-aligned `space: "screen"`, backed by projected window proxies.
-- **Window groups** — windows compose into a group shell that owns a local layout and moves as one world object: `split` panes with weights, `tabs`, or an `accordion`. The group's tree owns member placement, and each member's `rect` is re-derived from it, so nothing else in the framework has to know what a group is. Drag a member's header to move the shell, a seam to reweight panes, or a tab out of its strip to tear the window free. Docking by drag is not built yet; its command is.
+- **Window groups** — windows compose into a group shell that owns a local layout and moves as one world object: `split` panes with weights, `tabs`, or an `accordion`. The group's tree owns member placement, and each member's `rect` is re-derived from it, so nothing else in the framework has to know what a group is. **Alt+drag** a floating window over another to dock them into a group; a region overlay shows where it lands, and alignment guides step aside while you aim. Drag a member's header to move the shell, a seam to reweight panes, or a tab out of its strip to tear the window free.
 - **Custom frames** — `renderFrame` composes framework-owned slots (`Surface`, `Header`, `Title`, `Controls`, `Body`, `ActiveCorners`) so you can replace chrome without reimplementing drag, resize, focus, or body projection.
 
 `renderFrame` and `renderBody` are both memoized on the window's identity and are not re-invoked when the camera moves — window content must not reconcile on every pan frame. Their `context.state` is live at call time. If your frame or body needs to re-render when canvas state changes, subscribe with `useInfiniteCanvasSelector` inside your own component, so invalidation stays scoped to what you actually read.
@@ -123,7 +123,6 @@ It is a single `@layer infinite-canvas` cascade layer targeting the `data-slot` 
 
 What exists is what is documented above. Notably **not** implemented yet:
 
-- docking by drag (the command and hit-test exist; shell move, seam drag, and tear-out are built)
 - undo / redo
 - layout recipes
 - group-local focus, focus trapping, and a complete accessibility story

@@ -251,6 +251,8 @@ function InfiniteCanvasWindowFrameHeaderSlot({
       }}
       onPointerMove={(event) => {
         actions.stepInteraction({
+          // Hold Alt while dragging to dock instead of overlap.
+          dockIntent: event.altKey,
           pointerId: event.pointerId,
           point: getEventViewportPoint(event),
         });

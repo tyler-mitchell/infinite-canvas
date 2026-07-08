@@ -314,6 +314,7 @@ export type {
   InfiniteCanvasCursorPolicy,
   InfiniteCanvasDragStartInput,
   InfiniteCanvasDirection,
+  InfiniteCanvasDockPreview,
   InfiniteCanvasGroup,
   InfiniteCanvasGroupGutterInteraction,
   InfiniteCanvasGroupMoveInteraction,

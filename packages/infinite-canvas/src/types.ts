@@ -131,7 +131,28 @@ type InfiniteCanvasMoveOriginRect = Readonly<{
   windowId: string;
 }>;
 
+/**
+ * Where a dragged window would dock if released now, resolved from the canonical
+ * model and never from the DOM. `groupId: null` means the target is a floating
+ * window, and dropping wraps it in a new group.
+ */
+type InfiniteCanvasDockPreview = Readonly<{
+  containerId: string;
+  edge: InfiniteCanvasGroupDockEdge;
+  groupId: string | null;
+  /** The region the drop would fill — half the target on that edge, or all of it for a tab merge. */
+  rect: InfiniteCanvasRect;
+  targetId: string;
+  windowId: string;
+}>;
+
 type InfiniteCanvasMoveInteraction = Readonly<{
+  /**
+   * Carried on the interaction rather than in state: a dock preview belongs to
+   * the drag that produced it, and dies with it. Nothing else can observe a
+   * preview for a drag that is not happening.
+   */
+  dockPreview: InfiniteCanvasDockPreview | null;
   kind: "move";
   originPointer: InfiniteCanvasPoint;
   originRect: InfiniteCanvasRect;
@@ -787,6 +808,12 @@ type InfiniteCanvasAction<Kind extends string = string> =
       windowId: string;
     }>
   | Readonly<{
+      /**
+       * The user is asking to dock, not to overlap. Held during a window drag it
+       * resolves a dock region under the pointer and suppresses alignment guides,
+       * which are the wrong affordance once a drop target exists.
+       */
+      dockIntent?: boolean;
       point: InfiniteCanvasPoint;
       pointerId: number;
       snapPolicy?: InfiniteCanvasSnapPolicy;
@@ -937,7 +964,9 @@ type InfiniteCanvasCommands<Kind extends string = string> = Readonly<{
       windowId: string;
     }>,
   ) => void;
-  stepInteraction: (input: Readonly<{ pointerId: number; point: InfiniteCanvasPoint }>) => void;
+  stepInteraction: (
+    input: Readonly<{ dockIntent?: boolean; pointerId: number; point: InfiniteCanvasPoint }>,
+  ) => void;
   toggleTargetSelection: (target: InfiniteCanvasSelectionTarget) => void;
   toggleWindowSelection: (windowId: string) => void;
   togglePinned: (windowId: string) => void;
@@ -958,6 +987,7 @@ export type {
   InfiniteCanvasCommands,
   InfiniteCanvasContextualCommand,
   InfiniteCanvasDirection,
+  InfiniteCanvasDockPreview,
   InfiniteCanvasGroup,
   InfiniteCanvasGroupGutterInteraction,
   InfiniteCanvasGroupMoveInteraction,
