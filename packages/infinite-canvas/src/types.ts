@@ -373,12 +373,12 @@ type InfiniteCanvasTheme = Readonly<{
   selectionBounds: string;
 }>;
 
-type InfiniteCanvasWindowRenderContext<Kind extends string = string> = Readonly<{
+type InfiniteCanvasWindowRenderContext<Kind extends string = string, Data = unknown> = Readonly<{
   actions: InfiniteCanvasCommands<Kind>;
   isActive: boolean;
   isSelected: boolean;
   state: InfiniteCanvasState<Kind>;
-  window: InfiniteCanvasWindow<Kind>;
+  window: InfiniteCanvasWindow<Kind, Data>;
 }>;
 
 type InfiniteCanvasSpatialWindowArea = "body" | "frame" | "header" | "resize-handle";
@@ -613,14 +613,16 @@ type InfiniteCanvasWindowFrameSlots = Readonly<{
   Title: ComponentType<InfiniteCanvasWindowFrameTitleProps>;
 }>;
 
-type InfiniteCanvasWindowFrameRenderContext<Kind extends string = string> =
-  InfiniteCanvasWindowRenderContext<Kind> &
-    Readonly<{
-      chrome: InfiniteCanvasChromeMetrics;
-      frame: InfiniteCanvasWindowFrameSlots;
-      renderDefaultFrame: () => ReactNode;
-      theme: InfiniteCanvasTheme;
-    }>;
+type InfiniteCanvasWindowFrameRenderContext<
+  Kind extends string = string,
+  Data = unknown,
+> = InfiniteCanvasWindowRenderContext<Kind, Data> &
+  Readonly<{
+    chrome: InfiniteCanvasChromeMetrics;
+    frame: InfiniteCanvasWindowFrameSlots;
+    renderDefaultFrame: () => ReactNode;
+    theme: InfiniteCanvasTheme;
+  }>;
 
 type InfiniteCanvasSceneVector3 = readonly [number, number, number];
 
@@ -699,7 +701,7 @@ type InfiniteCanvasWindowTextSelection = "none" | "native";
 
 type InfiniteCanvasWindowFrameChrome = "dom" | "host" | "scene";
 
-type InfiniteCanvasWindowDefinition<Kind extends string = string> = Readonly<{
+type InfiniteCanvasWindowDefinition<Kind extends string = string, Data = unknown> = Readonly<{
   bodyPointerBehavior?: InfiniteCanvasWindowBodyPointerBehavior;
   frameChrome?: InfiniteCanvasWindowFrameChrome;
   kind: Kind;
@@ -710,10 +712,28 @@ type InfiniteCanvasWindowDefinition<Kind extends string = string> = Readonly<{
    * per camera tick, and windows that never open a popover would pay for one.
    */
   portalRoot?: boolean;
-  renderBody?: (context: InfiniteCanvasWindowRenderContext<Kind>) => ReactNode;
-  renderFrame?: (context: InfiniteCanvasWindowFrameRenderContext<Kind>) => ReactNode;
+  renderBody?: (context: InfiniteCanvasWindowRenderContext<Kind, Data>) => ReactNode;
+  renderFrame?: (context: InfiniteCanvasWindowFrameRenderContext<Kind, Data>) => ReactNode;
   textSelection?: InfiniteCanvasWindowTextSelection;
   wheelBehavior?: InfiniteCanvasWindowWheelBehavior;
+}>;
+
+/**
+ * A registry with `data` typed per kind, as it is written.
+ *
+ * `defineInfiniteCanvasWindowRegistry<Kind, DataByKind>` accepts this shape and
+ * returns the erased `InfiniteCanvasWindowRegistry<Kind>`. The type lives at the
+ * authoring boundary and nowhere else, on purpose: `renderBody` *takes* a context,
+ * so `InfiniteCanvasWindowDefinition<K, {text: string}>` is not assignable to
+ * `InfiniteCanvasWindowDefinition<K, unknown>`, and threading `Data` any further
+ * would force every internal component signature to carry it for a guarantee the
+ * framework cannot keep anyway — `window.data` really is `unknown` at runtime.
+ */
+type InfiniteCanvasWindowRegistryInput<
+  Kind extends string,
+  DataByKind extends Readonly<Record<Kind, unknown>>,
+> = Readonly<{
+  [K in Kind]: InfiniteCanvasWindowDefinition<Kind, DataByKind[K]>;
 }>;
 
 type InfiniteCanvasWindowRegistry<Kind extends string = string> = Readonly<
@@ -1160,6 +1180,7 @@ export type {
   InfiniteCanvasWindowMode,
   InfiniteCanvasWindowProxy,
   InfiniteCanvasWindowRegistry,
+  InfiniteCanvasWindowRegistryInput,
   InfiniteCanvasWindowRenderContext,
   InfiniteCanvasWindowSceneModel,
   InfiniteCanvasWindowTextSelection,

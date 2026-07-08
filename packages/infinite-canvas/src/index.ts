@@ -413,6 +413,7 @@ export type {
   InfiniteCanvasWindowMode,
   InfiniteCanvasWindowProxy,
   InfiniteCanvasWindowRegistry,
+  InfiniteCanvasWindowRegistryInput,
   InfiniteCanvasWindowRenderContext,
   InfiniteCanvasWindowSceneModel,
   InfiniteCanvasWindowTextSelection,

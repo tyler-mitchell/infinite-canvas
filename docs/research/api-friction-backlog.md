@@ -66,9 +66,25 @@ pointerModeControls?, cameraControls?, zoomControls? }` landed with the HUD
   [snapping.md](snapping.md) on spatial indexing). Tracked as risk R15;
   html-in-canvas texture-mode is the leading candidate
   ([html-in-canvas.md](html-in-canvas.md)).
-- **`window.data` generic threading.** The helper removes the boilerplate,
-  but threading `Data` through `defineInfiniteCanvasWindowRegistry` and the
-  render contexts is the real fix.
+- ✅ **`window.data` generic threading (2026-07-08).**
+  `defineInfiniteCanvasWindowRegistry<Kind, DataByKind>` types each kind's payload
+  while the registry literal is written, then erases it. `renderBody({ window })`
+  hands back `window.data` typed by kind, and `getInfiniteCanvasWindowData` is no
+  longer needed for data the consumer put there themselves.
+
+  Erased on purpose, twice over. `renderBody` _takes_ a context, so
+  `InfiniteCanvasWindowDefinition<K, Data>` is contravariant in `Data`: a per-kind
+  registry is not assignable to the erased one, and threading `DataByKind` onward
+  would force `InfiniteCanvasDesktop`, the viewport, the window layer, the frame,
+  and every slot to carry a type parameter. And it would buy nothing — `window.data`
+  really is `unknown` at runtime. It round-trips through `JSON.parse` on hydration,
+  and a tampered `localStorage` entry can put anything there.
+
+  **So the guarantee stops where the framework's knowledge stops.** For persisted
+  canvases, validate on read: `getInfiniteCanvasWindowData(window, guard)` exists for
+  exactly that, and a `renderBody` that trusts `window.data` out of `localStorage` is
+  trusting a string the user can edit. Making the type imply otherwise would have
+  been the more comfortable lie.
 
 ## Fixed 2026-07-08
 

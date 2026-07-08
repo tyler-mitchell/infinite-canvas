@@ -86,6 +86,22 @@ export function Workspace() {
 
 Every `window.kind` must have a matching entry in `windowDefinitions`, and each registry key must equal its definition's `kind` — both are checked at mount and throw otherwise. Empty documents (`windows: []`) are valid.
 
+### Typing `window.data`
+
+Pass a second type argument to type each kind's payload:
+
+```ts
+type Kind = "chart" | "note";
+type DataByKind = { chart: { series: number[] }; note: { text: string } };
+
+const windowDefinitions = defineInfiniteCanvasWindowRegistry<Kind, DataByKind>({
+  chart: { kind: "chart", renderBody: ({ window }) => plot(window.data?.series) },
+  note: { kind: "note", renderBody: ({ window }) => <p>{window.data?.text}</p> },
+});
+```
+
+The types apply while you write the registry and are then erased — `window.data` really is `unknown` at runtime, because it round-trips through `JSON.parse` on hydration. **If you persist the canvas, validate on read** with `getInfiniteCanvasWindowData(window, guard)`. A `renderBody` that trusts `window.data` out of `localStorage` is trusting a string the user can edit.
+
 ## Sizing: the one rule
 
 `InfiniteCanvasDesktop` fills its parent (`width: 100%; height: 100%`). **The parent must have a bounded height.** Give it an explicit height, or make it a flex child with `minHeight: 0` — and keep `minHeight: 0` on every flex ancestor, or the canvas grows past the visible workspace and the HUD, window DOM, and WebGPU layers scroll out of view.

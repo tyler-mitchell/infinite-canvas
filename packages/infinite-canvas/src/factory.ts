@@ -12,8 +12,10 @@ import type {
   InfiniteCanvasState,
   InfiniteCanvasViewport,
   InfiniteCanvasWindow,
+  InfiniteCanvasWindowDefinition,
   InfiniteCanvasWindowMode,
   InfiniteCanvasWindowRegistry,
+  InfiniteCanvasWindowRegistryInput,
 } from "./types";
 
 type InfiniteCanvasWindowInput<Kind extends string, Data = unknown> = Readonly<{
@@ -179,12 +181,48 @@ function createInfiniteCanvasState<Kind extends string>({
   });
 }
 
-function defineInfiniteCanvasWindowRegistry<Kind extends string>(
-  registry: InfiniteCanvasWindowRegistry<Kind>,
-) {
+/**
+ * Define a window registry, optionally typing each kind's `data` payload.
+ *
+ * ```ts
+ * type Kind = "chart" | "note";
+ * type DataByKind = { chart: { series: number[] }; note: { text: string } };
+ *
+ * defineInfiniteCanvasWindowRegistry<Kind, DataByKind>({
+ *   chart: { kind: "chart", renderBody: ({ window }) => plot(window.data?.series) },
+ *   note: { kind: "note", renderBody: ({ window }) => <p>{window.data?.text}</p> },
+ * });
+ * ```
+ *
+ * `DataByKind` is used **while the literal is being written** and then erased. That
+ * is the whole design, and it is deliberate:
+ *
+ * - `renderBody` *takes* a context, so `InfiniteCanvasWindowDefinition<K, Data>` is
+ *   contravariant in `Data`. A registry typed per kind is therefore not assignable
+ *   to the erased one, and threading `DataByKind` onward would force
+ *   `InfiniteCanvasDesktop`, the viewport, the window layer, the frame, and every
+ *   slot to carry a type parameter.
+ * - It would buy nothing. `window.data` is genuinely `unknown` at runtime: it round
+ *   trips through `JSON.parse` on hydration, and a tampered `localStorage` entry can
+ *   put anything there. The framework cannot keep a promise about its shape.
+ *
+ * So `data` is typed where the author knows what they put in it, and stays `unknown`
+ * where the framework hands it back. **For persisted canvases, validate on read** —
+ * `getInfiniteCanvasWindowData(window, guard)` exists for exactly that, and a
+ * `renderBody` that trusts `window.data` from `localStorage` is trusting a string a
+ * user can edit.
+ *
+ * Calling it without `DataByKind` types every payload `unknown`, as before.
+ */
+function defineInfiniteCanvasWindowRegistry<
+  Kind extends string,
+  DataByKind extends Readonly<Record<Kind, unknown>> = Readonly<Record<Kind, unknown>>,
+>(
+  registry: InfiniteCanvasWindowRegistryInput<Kind, DataByKind>,
+): InfiniteCanvasWindowRegistry<Kind> {
   const registryEntries = Object.entries(registry) as readonly [
     string,
-    InfiniteCanvasWindowRegistry<Kind>[Kind],
+    InfiniteCanvasWindowDefinition<Kind>,
   ][];
   const mismatchedKinds = registryEntries
     .filter(([kind, definition]) => definition.kind !== kind)
@@ -196,7 +234,11 @@ function defineInfiniteCanvasWindowRegistry<Kind extends string>(
     );
   }
 
-  return registry;
+  // The erasure. Every `renderBody` here was written against a `data` the author
+  // declared; at runtime it receives whatever `data` the window actually carries.
+  // That gap is the consumer's assertion, made explicit at one line rather than
+  // spread across the framework's internals as a type parameter that lies.
+  return registry as unknown as InfiniteCanvasWindowRegistry<Kind>;
 }
 
 /**
