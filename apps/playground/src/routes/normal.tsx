@@ -3,7 +3,7 @@ import {
   getInfiniteCanvasWindowPresence,
   InfiniteCanvasDesktop,
   type InfiniteCanvasOverlayRenderContext,
-} from "infinite-canvas";
+} from "@infinite-canvas/react";
 import { exposeCanvasDevHandle } from "../showcases/dev-handle.ts";
 import {
   sampleInfiniteCanvasState,

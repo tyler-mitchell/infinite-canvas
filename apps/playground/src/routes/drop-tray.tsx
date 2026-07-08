@@ -13,7 +13,7 @@ import {
   type InfiniteCanvasSceneLayer,
   type InfiniteCanvasSize,
   type InfiniteCanvasWindow,
-} from "infinite-canvas";
+} from "@infinite-canvas/react";
 import { useMemo, useRef } from "react";
 import { exposeCanvasDevHandle } from "../showcases/dev-handle.ts";
 

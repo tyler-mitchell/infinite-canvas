@@ -11,10 +11,10 @@
   "dependencies": {
     "@base-ui/react": "catalog:",
     "@fontsource-variable/geist": "catalog:",
+    "@infinite-canvas/react": "workspace:*",
     "@react-three/drei": "catalog:",
     "@react-three/fiber": "catalog:",
     "@tanstack/react-router": "catalog:",
-    "infinite-canvas": "workspace:*",
     "lucide-react": "catalog:",
     "motion": "catalog:",
     "react": "catalog:",

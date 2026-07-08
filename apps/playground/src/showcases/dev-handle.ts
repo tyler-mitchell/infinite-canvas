@@ -1,7 +1,7 @@
 import {
   serializeInfiniteCanvasState,
   type InfiniteCanvasOverlayRenderContext,
-} from "infinite-canvas";
+} from "@infinite-canvas/react";
 
 /**
  * Dev-only programmatic handle so agents and E2E tooling can drive the

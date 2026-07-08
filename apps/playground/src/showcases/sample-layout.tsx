@@ -4,8 +4,8 @@ import {
   createInfiniteCanvasState,
   createInfiniteCanvasWindow,
   defineInfiniteCanvasWindowRegistry,
-} from "infinite-canvas";
-import type { InfiniteCanvasState } from "infinite-canvas";
+} from "@infinite-canvas/react";
+import type { InfiniteCanvasState } from "@infinite-canvas/react";
 
 type SampleCanvasWindowKind = "archive" | "control" | "dense" | "log";
 

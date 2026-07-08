@@ -8,9 +8,13 @@ catalogMode: prefer
 catalog:
   "@types/node": ^24
   typescript: ^5
-  vite: npm:@voidzero-dev/vite-plus-core@latest
-  vitest: npm:@voidzero-dev/vite-plus-test@latest
-  vite-plus: latest
+  # Pinned exactly: these were `@latest`, so every `install` silently upgraded
+  # the whole toolchain. A 0.1.24 -> 0.2.2 drift broke `vp test`'s vitest bin
+  # resolution mid-session. Reproducible builds require exact pins here; bump
+  # deliberately, with the full `ready` gate.
+  vite: npm:@voidzero-dev/vite-plus-core@0.1.24
+  vitest: npm:@voidzero-dev/vite-plus-test@0.1.24
+  vite-plus: 0.1.24
   react: ^19.2.7
   react-dom: ^19.2.7
   "@types/react": ^19.2.17

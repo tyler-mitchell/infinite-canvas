@@ -5,7 +5,7 @@ import {
   defineInfiniteCanvasWindowRegistry,
   InfiniteCanvasDesktop,
   type InfiniteCanvasWindowFrameRenderContext,
-} from "infinite-canvas";
+} from "@infinite-canvas/react";
 import { exposeCanvasDevHandle } from "../showcases/dev-handle.ts";
 
 export const Route = createFileRoute("/custom-frames")({

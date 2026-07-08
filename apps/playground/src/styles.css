@@ -4,7 +4,7 @@
    overrides always win. */
 @layer theme, base, infinite-canvas, components, utilities;
 
-@import "infinite-canvas/theme.css";
+@import "@infinite-canvas/react/theme.css";
 
 @import "tailwindcss";
 

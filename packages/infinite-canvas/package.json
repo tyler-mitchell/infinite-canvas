@@ -1,13 +1,37 @@
 {
-  "name": "infinite-canvas",
-  "version": "0.0.0",
-  "description": "Infinite canvas framework: a windowed 2D world model with a pure reducer core, React DOM window bodies, and a WebGPU spatial surface.",
+  "name": "@infinite-canvas/react",
+  "version": "0.1.0",
+  "description": "An infinite-canvas window manager for React: a pure reducer core, real DOM window bodies, and a programmable WebGPU spatial surface.",
+  "keywords": [
+    "canvas",
+    "headless",
+    "infinite-canvas",
+    "pan-zoom",
+    "react",
+    "react-three-fiber",
+    "spatial",
+    "webgpu",
+    "window-manager",
+    "workspace"
+  ],
+  "homepage": "https://github.com/tyler-mitchell/infinite-canvas#readme",
+  "bugs": {
+    "url": "https://github.com/tyler-mitchell/infinite-canvas/issues"
+  },
   "license": "MIT",
   "author": "Tyler Davis Mitchell <tyler.davis.mitchell@gmail.com>",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tyler-mitchell/infinite-canvas.git",
+    "directory": "packages/infinite-canvas"
+  },
   "files": [
     "dist"
   ],
   "type": "module",
+  "sideEffects": [
+    "**/*.css"
+  ],
   "exports": {
     ".": "./src/index.ts",
     "./package.json": "./package.json",
@@ -19,13 +43,15 @@
       "./package.json": "./package.json",
       "./theme.css": "./dist/theme.css"
     },
-    "access": "public"
+    "access": "public",
+    "provenance": true
   },
   "scripts": {
     "build": "vp pack && cp src/theme.css dist/theme.css",
     "test": "vp test",
     "check": "vp check",
-    "prepublishOnly": "vp run build"
+    "verify": "vp run build && node ./scripts/verify-artifact.mjs",
+    "prepublishOnly": "vp run verify"
   },
   "dependencies": {
     "@legendapp/state": "catalog:",
@@ -48,9 +74,12 @@
     "vite-plus": "catalog:"
   },
   "peerDependencies": {
-    "@react-three/fiber": "catalog:",
-    "react": "catalog:",
-    "react-dom": "catalog:",
-    "three": "catalog:"
+    "@react-three/fiber": ">=10.0.0-canary.dbbe704 <11",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "three": ">=0.181.0"
+  },
+  "engines": {
+    "node": ">=20"
   }
 }

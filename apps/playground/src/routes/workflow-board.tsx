@@ -17,7 +17,7 @@ import {
   type InfiniteCanvasState,
   type InfiniteCanvasWindow,
   type InfiniteCanvasWorldSegment,
-} from "infinite-canvas";
+} from "@infinite-canvas/react";
 import { useMemo, useState } from "react";
 import { Button } from "ui";
 import { exposeCanvasDevHandle } from "../showcases/dev-handle.ts";

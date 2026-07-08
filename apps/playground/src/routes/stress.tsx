@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { InfiniteCanvasDesktop } from "infinite-canvas";
+import { InfiniteCanvasDesktop } from "@infinite-canvas/react";
 import { useMemo } from "react";
 import { Button } from "ui";
 import { exposeCanvasDevHandle } from "../showcases/dev-handle.ts";
