@@ -47,6 +47,12 @@ jobs:
       - name: Check (format, lint, types)
         run: pnpm exec vp check
 
+      # Docs gate: every barrel export must appear in docs/API.md, which README
+      # calls "the full export surface". Reads src/, so it needs no build and
+      # fails fast. It had drifted by 43 names before this existed.
+      - name: Verify public API documentation
+        run: node packages/infinite-canvas/scripts/verify-api-doc.mjs
+
       - name: Test
         run: pnpm exec vp run -r test
 

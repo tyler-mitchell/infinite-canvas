@@ -175,6 +175,24 @@ Guarded by: `packages/infinite-canvas/src/framework-boundary.test.ts`, which dri
 end-to-end — factories, registry normalization/recovery, window proxies, validation — through
 non-React entry points, so the core has to keep standing up without a renderer.
 
+### Adding a public export
+
+Anything you add to `src/index.ts` or `src/scene.ts` must also appear in
+[`docs/API.md`](docs/API.md), which the README calls "the full export surface".
+`packages/infinite-canvas/scripts/verify-api-doc.mjs` enforces it, in CI and before publish.
+It reads source rather than `dist/`, so you can run it without a build:
+
+```bash
+pnpm exec vp run @infinite-canvas/react#verify:api-doc
+```
+
+It once drifted by 43 names — undo/redo, layout recipes, and portals had no section at all —
+which is why it is a gate rather than a convention. The parser understands only re-export
+blocks (`export { … } from`, `export type { … } from`). Add an `export const` or an
+`export * from` to a barrel and the gate **fails on purpose**: it would otherwise pass while
+blind to exactly the surface you just introduced. Teach it the new form, or keep the barrels
+as re-exports.
+
 ### Packaging invariants
 
 `packages/infinite-canvas/scripts/verify-artifact.mjs` runs against the **built** `dist/` and

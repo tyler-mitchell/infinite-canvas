@@ -168,9 +168,9 @@ capability-complete and verification-incomplete.
     and portals). `docs/API.md` is **hand-maintained, not generated** — despite what
     this plan said — and it had silently drifted: undo/redo, layout recipes, and
     portals had no section in it at all, 43 public names in total. Now reconciled.
-    **A drift gate belongs here**, shaped like `scripts/verify-artifact.mjs`: assert
-    every barrel export appears in `docs/API.md` and fail the build otherwise.
-    Nothing today stops the next feature from going undocumented the same way.
+    ✅ **The drift gate now exists**: `scripts/verify-api-doc.mjs` asserts every barrel
+    export appears in `docs/API.md`, and fails CI (before the build) and `prepublishOnly`
+    otherwise. The next feature cannot go undocumented the same way.
 
 ## The delivery plan
 
@@ -209,17 +209,21 @@ happens the repo cannot go public; nothing else on any track is waiting on it.
 
 Ordered by what unblocks the most. Each has an exit criterion, not a vibe.
 
-**C1 — Drift gates (~1h, no browser).** Two documents currently make claims nothing
-enforces, and both have already been wrong in exactly the way a gate would have caught:
+**C1 — Drift gates (~1h, no browser). Half done.** Two documents made claims nothing
+enforced, and both had already been wrong in exactly the way a gate would have caught:
 
-- `docs/API.md` had drifted by 43 public names — undo/redo, recipes, and portals had no
+- ✅ `docs/API.md` had drifted by 43 public names — undo/redo, recipes, and portals had no
   section at all, while `README.md` pointed consumers there for "the full export surface".
-- `README.md` and `CONTRIBUTING.md` claimed a test enforced the pure core's import
-  boundary. No such test existed.
+  **`scripts/verify-api-doc.mjs` now gates it**, in CI before the build and in
+  `prepublishOnly`. Both assertions negative-tested, including the one that makes the gate
+  refuse to run when the barrel grows an export form its parser cannot see — a drift gate
+  blind to your new export is worse than none, because it reports success.
+- ⬜ `README.md` and `CONTRIBUTING.md` claimed a test enforced the pure core's import
+  boundary. No such test existed; the docs were corrected to say so. The assertion itself
+  is still unwritten: an import-graph crawl from `reducer.ts` that fails when an observable
+  is reachable, shaped like `optional-peers.test.ts`.
 
-Both fixes are the same shape as `scripts/verify-artifact.mjs`: parse the barrel, assert,
-fail the build. Exit: a barrel export missing from `docs/API.md` fails CI; an observable
-imported into `reducer.ts` fails CI.
+Exit: an observable imported into `reducer.ts` fails CI. (The API-doc half already fails.)
 
 **C2 — P1 scenario tests (~2h, no browser).** P1's exit criteria say "scenario tests
 green". The gestures work; the tests do not exist. DOCK-001..005, SPLIT-001..003,

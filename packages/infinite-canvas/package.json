@@ -52,7 +52,8 @@
     "build": "vp pack && cp src/theme.css dist/theme.css",
     "test": "vp test",
     "check": "vp check",
-    "verify": "vp run build && node ./scripts/verify-artifact.mjs",
+    "verify:api-doc": "node ./scripts/verify-api-doc.mjs",
+    "verify": "vp run build && node ./scripts/verify-artifact.mjs && node ./scripts/verify-api-doc.mjs",
     "prepublishOnly": "vp run verify"
   },
   "dependencies": {

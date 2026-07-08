@@ -182,16 +182,27 @@ pointerModeControls?, cameraControls?, zoomControls? }` landed with the HUD
   test enforced this. **No such test exists**; only the _headless_ boundary is
   tested. The docs now say so. An import-graph assertion over the pure-core modules
   (the shape of `optional-peers.test.ts`) is the fix.
-- **`docs/API.md` drifts silently, because nothing regenerates or checks it.**
-  `SHIP_PLAN.md` described it as "generated from the barrel"; it is hand-maintained.
-  By 2026-07-08 it was missing **43 public names** — undo/redo, layout recipes, and
+- ✅ **`docs/API.md` drifted silently, because nothing regenerated or checked it
+  (fixed 2026-07-08).** `SHIP_PLAN.md` described it as "generated from the barrel"; it is
+  hand-maintained. It was missing **43 public names** — undo/redo, layout recipes, and
   portals had no section in it _at all_, though each is a headline feature in
-  `CHANGELOG.md`, and `README.md` points consumers there for "the full export
-  surface". Reconciled by hand that day, which fixes the symptom and not the cause.
-  The fix is a gate shaped like `scripts/verify-artifact.mjs`: extract every name
-  from `index.ts` / `scene.ts`, assert each appears in `docs/API.md`, fail otherwise.
-  Same shape as the pure-core import-boundary assertion below, and worth doing in the
-  same pass.
+  `CHANGELOG.md`, and `README.md` points consumers there for "the full export surface".
+
+  Reconciling by hand fixed the symptom. `scripts/verify-api-doc.mjs` fixes the cause: it
+  extracts every name from `index.ts` / `scene.ts` and fails when one is absent from the
+  doc. Wired into CI before the build — it reads source, so it needs none — and into
+  `prepublishOnly`.
+
+  Both assertions were negative-tested. Removing a documented name fails. So does adding an
+  `export const` or an `export * from`, because the parser understands only re-export
+  blocks and **refuses to run rather than pass vacuously** when the barrel grows a form it
+  cannot see. That second guard is the one that matters: a drift gate blind to the export
+  you just added is worse than no gate, because it reports success.
+
+  It asserts presence, not quality — a name buried in the doc with no explanation still
+  passes — and it does not check the reverse direction, since the doc legitimately names
+  types and options that are not themselves exports.
+
 - **Slot layout rigidity** — centering a header title still requires
   absolute-position hacks around `Controls`; consider slot order/areas in the
   styled-distribution work.
