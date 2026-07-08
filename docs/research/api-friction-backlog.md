@@ -37,6 +37,17 @@ pointerModeControls?, cameraControls?, zoomControls? }` landed with the HUD
   guards; `startDrag` writes the interaction ref synchronously, so same-frame
   pointer events are heard. Verified: a full down/move/up sequence in one
   synchronous block commits a drop.
+- **Move/resize/pan/marquee listener gap (2026-07-08)** — the same defect, left
+  behind when the drop path was fixed. The window/canvas interaction listeners
+  were `useEffect`-gated on `state.interaction`, so they attached only after
+  React committed the pointerdown; a pointermove arriving in the same frame was
+  dropped and the window never moved. Invisible to humans (one frame), fatal to
+  every synthetic driver — `down -> move -> up` in one synchronous block is
+  exactly how automation and browser-mode tests drive this canvas, and it
+  silently did nothing. Now mount-scoped, reading `store.state$.peek()` at event
+  time: `commitInfiniteCanvasState` batches synchronously, so that read is never
+  a frame stale. Costs one `peek()` per idle pointermove, which is the trade the
+  drop path already accepted.
 - **Agent handle promoted** — `createInfiniteCanvasHandle(store)` is an
   experimental export (commands facade + JSON-safe snapshot + contextual
   command descriptors), unit-tested as the programmatic consumer contract.

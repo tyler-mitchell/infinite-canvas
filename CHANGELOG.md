@@ -84,6 +84,10 @@ Initial release.
   declarations emit.
 - **Experimental programmatic handle.** `createInfiniteCanvasHandle(store)` exposes a state
   snapshot, the typed command facade, and contextual command descriptors for automation and testing.
+- **Drivable by synthetic input.** Every pointer interaction — move, resize, pan, marquee, and drop —
+  listens from mount rather than attaching after React commits the pointerdown. A
+  `pointerdown → pointermove → pointerup` sequence dispatched in one synchronous block does what it
+  says, which is how automation and browser-mode tests drive a canvas.
 
 [Unreleased]: https://github.com/tyler-mitchell/infinite-canvas/compare/v0.1.0...HEAD
 [0.1.0]: https://github.com/tyler-mitchell/infinite-canvas/releases/tag/v0.1.0

@@ -770,14 +770,35 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
   }, []);
 
   useEffect(() => {
-    const node = rootRef.current;
+    // Mount-scoped, and deliberately NOT gated on `interaction`. Gating on it
+    // attaches the listeners only after React commits the pointerdown, so a
+    // pointermove arriving in the same frame is dropped and the window never
+    // moves. Humans never notice — the gap is one frame — but every synthetic
+    // driver does: a `down -> move -> up` sequence in one synchronous block is
+    // exactly how browser-mode tests and automation drive this canvas, and it
+    // silently did nothing. The drop-drag path was fixed this way already.
+    //
+    // `commitInfiniteCanvasState` batches synchronously, so peeking the store at
+    // event time is the only read of the interaction that is never a frame
+    // stale. The handlers no-op while the canvas is idle.
+    const getInteractionForPointer = (pointerId: number) => {
+      const current = (store.state$.peek() as InfiniteCanvasState<Kind>).interaction;
 
-    if (node === null || interaction === null) {
-      return;
-    }
+      return current !== null && current.pointerId === pointerId ? current : null;
+    };
+    const finishInteraction = (pointerId: number) => {
+      const node = rootRef.current;
 
+      if (node !== null) {
+        releasePointer(node, pointerId);
+      }
+
+      actions.finishInteraction(pointerId);
+    };
     const handlePointerMove = (event: PointerEvent) => {
-      if (event.pointerId !== interaction.pointerId) {
+      const node = rootRef.current;
+
+      if (node === null || getInteractionForPointer(event.pointerId) === null) {
         return;
       }
 
@@ -786,17 +807,17 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
         point: getViewportPoint(node, getClientPoint(event)),
       });
     };
-    const finishInteraction = (pointerId: number) => {
-      releasePointer(node, pointerId);
-      actions.finishInteraction(pointerId);
-    };
     const handlePointerUp = (event: PointerEvent) => {
-      if (event.pointerId === interaction.pointerId) {
+      if (getInteractionForPointer(event.pointerId) !== null) {
         finishInteraction(event.pointerId);
       }
     };
     const handleBlur = () => {
-      finishInteraction(interaction.pointerId);
+      const current = (store.state$.peek() as InfiniteCanvasState<Kind>).interaction;
+
+      if (current !== null) {
+        finishInteraction(current.pointerId);
+      }
     };
 
     window.addEventListener("pointermove", handlePointerMove);
@@ -810,7 +831,7 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
       window.removeEventListener("pointercancel", handlePointerUp);
       window.removeEventListener("blur", handleBlur);
     };
-  }, [actions, interaction]);
+  }, [actions, store]);
 
   useEffect(() => {
     // Mount-scoped, not gated on drag status: startDrag writes
