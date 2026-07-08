@@ -119,7 +119,14 @@ hysteresis unimplemented` until 2026-07-08, long after it shipped.
   collapsed fold are never focus targets — nothing draws them. The global tier ranks
   "beside" over "close", so arrows never drift diagonally.)
 - **FOCUS-002** — Floating window over a shell: contextual-parent focus behaves
-  sensibly. `unbuilt`
+  sensibly. `built` (2026-07-08). A floating window whose centre lies inside a group's rect
+  gets that group as its **contextual parent**, and directional focus searches the group's
+  members before the canvas — so a floating window needs no keyboard model of its own, which
+  is the mitigation `research/state-focus-and-recipes.md` names for the "focus model
+  fragments" risk. Smallest containing group wins, because group rects may overlap and the
+  tighter one is the one the window is really in; area ties break on group id, so an arrow
+  key is never ambiguous. Membership still takes precedence and short-circuits the scan.
+  `getInfiniteCanvasContextualGroup(state, point)` is public. Unasserted.
 - **FOCUS-003** — "Left half"-style placement commands resolve through the same
   canonical placement engine as drag snapping. `built` (2026-07-08). `window.place` takes a
   region — halves, quarters, `fill`, `center` — and `window-placement.ts` is the only thing

@@ -1,4 +1,4 @@
-import { getRectCenter, getVisibleWorldRect } from "./geometry";
+import { getRectCenter, getVisibleWorldRect, rectContainsPoint } from "./geometry";
 import { getInfiniteCanvasGroupProjection, getInfiniteCanvasWindowGroup } from "./group-state";
 import { getInfiniteCanvasGroupWindowIds } from "./group-tree";
 import { isSelectableWindow } from "./selection";
@@ -109,6 +109,44 @@ function compareInfiniteCanvasFocusCandidates(
 }
 
 /**
+ * The smallest group whose rect contains `point`, or `null` (FOCUS-002).
+ *
+ * A floating window sitting over a shell has no membership, but it has a **contextual
+ * parent**: the group it is spatially inside. Directional focus searches that group's
+ * members before it searches the canvas, so a floating window does not need a keyboard
+ * model of its own — which is the whole mitigation for the "focus model fragments" risk in
+ * `research/state-focus-and-recipes.md`.
+ *
+ * Smallest wins, because group rects can overlap and the tighter one is the one the window
+ * is really "in". Area ties break on group id, so an arrow key is never ambiguous.
+ */
+function getInfiniteCanvasContextualGroup<Kind extends string>(
+  state: InfiniteCanvasState<Kind>,
+  point: InfiniteCanvasPoint,
+): InfiniteCanvasState<Kind>["groups"][number] | null {
+  let contextualGroup: InfiniteCanvasState<Kind>["groups"][number] | null = null;
+  let smallestArea = Number.POSITIVE_INFINITY;
+
+  for (const group of state.groups) {
+    if (!rectContainsPoint(group.rect, point)) {
+      continue;
+    }
+
+    const area = group.rect.width * group.rect.height;
+    const isTighter =
+      area < smallestArea ||
+      (area === smallestArea && contextualGroup !== null && group.id < contextualGroup.id);
+
+    if (isTighter) {
+      smallestArea = area;
+      contextualGroup = group;
+    }
+  }
+
+  return contextualGroup;
+}
+
+/**
  * A window behind an inactive tab or a collapsed fold is solved into a rect, but
  * nothing draws it. Focusing it would move `aria-current` onto something invisible.
  */
@@ -202,7 +240,14 @@ function getInfiniteCanvasDirectionalFocusTarget<Kind extends string>(
 
   // Group-local first (FOCUS-001). A pane docked beside you is the neighbour the
   // user means, even when a floating window happens to sit geometrically closer.
-  const group = getInfiniteCanvasWindowGroup(state, source.id);
+  //
+  // A floating window gets the same tier through its **contextual parent** — the smallest
+  // group its centre lies inside (FOCUS-002). Membership takes precedence and short-circuits
+  // the scan: group rects may overlap, so a member's centre can sit inside a group that is
+  // not its own, and its own tree is unambiguously the group it belongs to.
+  const group =
+    getInfiniteCanvasWindowGroup(state, source.id) ??
+    getInfiniteCanvasContextualGroup(state, getRectCenter(source.rect));
 
   if (group !== null) {
     const memberIds = new Set(getInfiniteCanvasGroupWindowIds(group.tree));
@@ -248,6 +293,7 @@ function isInfiniteCanvasWindowFullyVisible<Kind extends string>(
 
 export {
   INFINITE_CANVAS_DIRECTION_VECTORS,
+  getInfiniteCanvasContextualGroup,
   getInfiniteCanvasDirectionalFocusTarget,
   getInfiniteCanvasWindowNearestCameraCenter,
   isInfiniteCanvasWindowFullyVisible,

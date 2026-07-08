@@ -1,6 +1,6 @@
 # API Reference
 
-The public surface of `@infinite-canvas/react`: 197 values and 162 types,
+The public surface of `@infinite-canvas/react`: 198 values and 162 types,
 generated from the barrel (`packages/infinite-canvas/src/index.ts`) so it cannot
 drift. Anything not exported from the barrel is internal and unstable —
 including every `data-infinite-canvas-*` attribute, which is a behavioural hook
@@ -191,7 +191,8 @@ buttons, and programmatic drivers share one mutation path.
 
 **`window-focus`**
 
-- `getInfiniteCanvasDirectionalFocusTarget` — the window an arrow key moves focus to; searches the group's own members first (FOCUS-001)
+- `getInfiniteCanvasDirectionalFocusTarget` — the window an arrow key moves focus to; searches the group's own members first (FOCUS-001), and a floating window's contextual parent (FOCUS-002)
+- `getInfiniteCanvasContextualGroup` — the smallest group whose rect contains a point. A floating window over a shell belongs to it for keyboard purposes, so floating windows need no separate keyboard model
 - `getInfiniteCanvasWindowNearestCameraCenter` — the keyboard's way into an unfocused canvas
 - `isInfiniteCanvasWindowFullyVisible` — whether focusing a window should also move the camera
 

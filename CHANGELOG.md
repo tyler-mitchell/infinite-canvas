@@ -56,6 +56,13 @@ sections, in this order, omitting the ones that don't apply:
   `@infinite-canvas/react/scene` and returns its `true` fallback for every consumer who has not
   installed `three` and enabled `diagnostics.frustum`. Rasterization eligibility now shares it.
 
+- **A floating window over a group gets that group as its contextual parent** (FOCUS-002).
+  Directional focus searches the group's members before the rest of the canvas, so a floating
+  window needs no separate keyboard model — the mitigation the focus model was designed around.
+  The smallest group whose rect contains the window's centre wins, since group rects may overlap
+  and the tighter one is the one it is really in; area ties break on group id, so an arrow key is
+  never ambiguous. Actual membership still takes precedence.
+  `getInfiniteCanvasContextualGroup(state, point)` is public.
 - **Keyboard window placement** (FOCUS-003). `Mod+Alt+Arrow` puts the active window in a half of
   the visible canvas, `Mod+Alt+Enter` fills it, `Mod+Alt+C` centres it at natural size. The
   `window.place` command also takes the four quarters, which have no default chord.

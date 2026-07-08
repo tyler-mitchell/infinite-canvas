@@ -203,6 +203,7 @@ export {
   toInfiniteCanvasWindowWorldRect,
 } from "./window-scene-shell";
 export {
+  getInfiniteCanvasContextualGroup,
   getInfiniteCanvasDirectionalFocusTarget,
   getInfiniteCanvasWindowNearestCameraCenter,
   isInfiniteCanvasWindowFullyVisible,
