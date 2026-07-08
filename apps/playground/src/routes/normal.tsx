@@ -4,6 +4,7 @@ import {
   InfiniteCanvasDesktop,
   type InfiniteCanvasOverlayRenderContext,
 } from "@infinite-canvas/react";
+import { CommandPalette } from "../showcases/command-palette.tsx";
 import { exposeCanvasDevHandle } from "../showcases/dev-handle.ts";
 import {
   sampleInfiniteCanvasState,
@@ -27,7 +28,14 @@ function NormalShowcase() {
     <div className="absolute inset-0">
       <InfiniteCanvasDesktop
         initialState={sampleInfiniteCanvasState}
-        renderOverlay={renderSampleWindowDock}
+        renderOverlay={(context) => (
+          <>
+            <CommandPalette />
+            {/* The dock renders nothing until something is pinned or minimized; the palette
+                must not be hidden behind that condition. */}
+            {renderSampleWindowDock(context)}
+          </>
+        )}
         windowDefinitions={sampleInfiniteCanvasWindowRegistry}
       />
     </div>

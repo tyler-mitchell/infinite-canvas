@@ -21,6 +21,7 @@ import {
 import { InfiniteCanvasWebGpuSurface } from "@infinite-canvas/react/scene";
 import { useMemo, useState } from "react";
 import { Button } from "ui";
+import { CommandPalette } from "../showcases/command-palette.tsx";
 import { exposeCanvasDevHandle } from "../showcases/dev-handle.ts";
 
 export const Route = createFileRoute("/workflow-board")({
@@ -255,15 +256,18 @@ function WorkflowBoardShowcase() {
         documentKey={`workflow-${workspaceId}`}
         initialState={workspace.state}
         renderOverlay={(context) => (
-          <BoardOverlay
-            connections={connections}
-            context={context}
-            pendingFrom={pendingFrom}
-            setConnections={setConnections}
-            setPendingFrom={setPendingFrom}
-            setWorkspaceId={setWorkspaceId}
-            workspaceId={workspaceId}
-          />
+          <>
+            <CommandPalette />
+            <BoardOverlay
+              connections={connections}
+              context={context}
+              pendingFrom={pendingFrom}
+              setConnections={setConnections}
+              setPendingFrom={setPendingFrom}
+              setWorkspaceId={setWorkspaceId}
+              workspaceId={workspaceId}
+            />
+          </>
         )}
         sceneLayers={sceneLayers}
         sceneSurface={InfiniteCanvasWebGpuSurface}

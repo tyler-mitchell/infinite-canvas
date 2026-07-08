@@ -8,6 +8,7 @@ import {
   InfiniteCanvasPortal,
 } from "@infinite-canvas/react";
 import { Button } from "ui";
+import { CommandPalette } from "../showcases/command-palette.tsx";
 
 export const Route = createFileRoute("/portals")({
   component: PortalsShowcase,
@@ -115,6 +116,7 @@ function PortalsShowcase() {
     <div className="absolute inset-0">
       <InfiniteCanvasDesktop
         initialState={initialState}
+        renderOverlay={() => <CommandPalette />}
         subtitle='Open the menu and zoom — the HUD reads the zoom out for you. The red popover grows with the canvas; the green one holds its size and stays above its window. If they agree, scope="window" is broken.'
         title="Portals"
         windowDefinitions={registry}

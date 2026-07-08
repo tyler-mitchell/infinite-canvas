@@ -15,6 +15,7 @@ import {
 } from "@infinite-canvas/react";
 import { InfiniteCanvasWebGpuSurface } from "@infinite-canvas/react/scene";
 import { useMemo, useRef } from "react";
+import { CommandPalette } from "../showcases/command-palette.tsx";
 import { exposeCanvasDevHandle } from "../showcases/dev-handle.ts";
 
 export const Route = createFileRoute("/drop-tray")({
@@ -243,7 +244,12 @@ function DropTrayShowcase() {
       <InfiniteCanvasDesktop<CardKind, CardAsset>
         dropPolicy={dropPolicy}
         initialState={initialState}
-        renderOverlay={(context) => <TrayOverlay context={context} />}
+        renderOverlay={(context) => (
+          <>
+            <CommandPalette />
+            <TrayOverlay context={context} />
+          </>
+        )}
         sceneLayers={sceneLayers}
         sceneSurface={InfiniteCanvasWebGpuSurface}
         spatialTargetResolvers={spatialTargetResolvers}

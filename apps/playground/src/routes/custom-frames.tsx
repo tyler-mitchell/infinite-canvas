@@ -6,6 +6,7 @@ import {
   InfiniteCanvasDesktop,
   type InfiniteCanvasWindowFrameRenderContext,
 } from "@infinite-canvas/react";
+import { CommandPalette } from "../showcases/command-palette.tsx";
 import { exposeCanvasDevHandle } from "../showcases/dev-handle.ts";
 
 export const Route = createFileRoute("/custom-frames")({
@@ -175,7 +176,7 @@ function CustomFramesShowcase() {
         initialState={initialState}
         renderOverlay={(context) => {
           exposeCanvasDevHandle(context);
-          return null;
+          return <CommandPalette />;
         }}
         subtitle="Custom chrome through controlled frame slots; interaction stays framework-owned."
         title="Custom Frames"

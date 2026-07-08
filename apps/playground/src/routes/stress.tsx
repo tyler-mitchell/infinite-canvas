@@ -3,6 +3,7 @@ import { InfiniteCanvasDesktop } from "@infinite-canvas/react";
 import { useMemo } from "react";
 import { Button } from "ui";
 import { exposeCanvasBenchmark } from "../showcases/benchmark.ts";
+import { CommandPalette } from "../showcases/command-palette.tsx";
 import { exposeCanvasDevHandle } from "../showcases/dev-handle.ts";
 import { CanvasMinimap } from "../showcases/minimap.tsx";
 import {
@@ -57,6 +58,7 @@ function StressShowcase() {
           exposeCanvasBenchmark();
           return (
             <>
+              <CommandPalette />
               {/* At 160 windows you can pan into nothing. This is the only affordance that
                   tells you where you are while you are still there. */}
               <CanvasMinimap />

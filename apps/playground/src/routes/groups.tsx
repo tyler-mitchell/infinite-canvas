@@ -335,9 +335,9 @@ function GroupsShowcase() {
           exposeCanvasDevHandle(context);
           return (
             <>
-              {/* Mod+K. Built entirely on `context.contextualCommands`, which has been public
-                  since the agent handle landed and which nothing consumed until now. */}
-              <CommandPalette context={context} />
+              {/* Mod+K. Built entirely on `getInfiniteCanvasContextualCommands`, which has been
+                  public since the agent handle landed and which nothing consumed until now. */}
+              <CommandPalette />
               <div className="pointer-events-auto absolute bottom-4 left-4 flex items-center gap-1.5 rounded-lg border border-border bg-popover/90 p-1.5 backdrop-blur">
                 <NewWindowButton />
                 <span className="mx-1 h-4 w-px bg-border" />

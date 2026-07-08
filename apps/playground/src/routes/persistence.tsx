@@ -7,6 +7,7 @@ import {
   InfiniteCanvasDesktop,
 } from "@infinite-canvas/react";
 import { Button } from "ui";
+import { CommandPalette } from "../showcases/command-palette.tsx";
 import { exposeCanvasDevHandle } from "../showcases/dev-handle.ts";
 
 export const Route = createFileRoute("/persistence")({
@@ -79,25 +80,28 @@ function PersistenceShowcase() {
         renderOverlay={(context) => {
           exposeCanvasDevHandle(context);
           return (
-            <div className="pointer-events-auto absolute bottom-4 left-4 flex items-center gap-1.5 rounded-lg border border-border bg-popover/90 p-1.5 backdrop-blur">
-              <span
-                className="px-2 font-mono text-[10px] text-muted-foreground"
-                data-testid="storage-key"
-              >
-                {scopedKey}
-              </span>
-              <Button
-                data-testid="reset-persisted"
-                onClick={() => {
-                  globalThis.localStorage.removeItem(scopedKey);
-                  globalThis.location.reload();
-                }}
-                size="xs"
-                variant="ghost"
-              >
-                Clear + reload
-              </Button>
-            </div>
+            <>
+              <CommandPalette />
+              <div className="pointer-events-auto absolute bottom-4 left-4 flex items-center gap-1.5 rounded-lg border border-border bg-popover/90 p-1.5 backdrop-blur">
+                <span
+                  className="px-2 font-mono text-[10px] text-muted-foreground"
+                  data-testid="storage-key"
+                >
+                  {scopedKey}
+                </span>
+                <Button
+                  data-testid="reset-persisted"
+                  onClick={() => {
+                    globalThis.localStorage.removeItem(scopedKey);
+                    globalThis.location.reload();
+                  }}
+                  size="xs"
+                  variant="ghost"
+                >
+                  Clear + reload
+                </Button>
+              </div>
+            </>
           );
         }}
         storageKey={STORAGE_KEY}

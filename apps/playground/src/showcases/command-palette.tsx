@@ -1,14 +1,18 @@
-import type { InfiniteCanvasOverlayRenderContext } from "@infinite-canvas/react";
-import { useEffect, useRef, useState } from "react";
+import {
+  getInfiniteCanvasContextualCommands,
+  useInfiniteCanvasActions,
+  useInfiniteCanvasState,
+} from "@infinite-canvas/react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 /**
- * A command palette over `context.contextualCommands`.
+ * A command palette over `getInfiniteCanvasContextualCommands`.
  *
- * That array has been public since the agent-handle work and **nothing consumed it**. It
- * already carries everything a palette needs — `label`, `description`, `hotkeys`, `group`, and
- * `enabled` computed against the live state — so this is roughly sixty lines over an API that
- * existed. The framework's whole command layer was documented and undiscoverable; a palette
- * makes it the former without making it the latter.
+ * That function has been public since the agent-handle work and **nothing consumed it**. Its
+ * result already carries everything a palette needs — `label`, `description`, `hotkeys`,
+ * `group`, and `enabled` computed against the live state — so this is roughly sixty lines over
+ * an API that existed. The framework's whole command layer was documented and undiscoverable;
+ * a palette makes it the former without making it the latter.
  *
  * Playground glue, not a framework export. A palette is UI, and this framework is headless.
  * What the framework owes it is the *vocabulary*, and that it already had.
@@ -27,7 +31,7 @@ const returnFocusToCanvas = (): void => {
   document.querySelector<HTMLElement>("[data-infinite-canvas-command-scope='surface']")?.focus();
 };
 
-type ContextualCommand = InfiniteCanvasOverlayRenderContext["contextualCommands"][number];
+type ContextualCommand = ReturnType<typeof getInfiniteCanvasContextualCommands>[number];
 
 /**
  * A hotkey is a string like `"Mod+Shift+ArrowLeft"` **or** a parsed `{ key, mod, shift, … }`
@@ -69,21 +73,20 @@ const matches = (command: ContextualCommand, query: string): boolean => {
 };
 
 /**
- * Generic in `Kind` deliberately. `InfiniteCanvasOverlayRenderContext<K>` is invariant in `K`
- * because `actions` *takes* windows of that kind, so a `<"pane">` context does not assign to
- * the erased one — the same variance that forced the framework to split
- * `InfiniteCanvasOverlayReadContext` out. A palette needs `actions.executeCommand`, which
- * lives on the write half, so it takes the parameter rather than the erasure.
+ * Owns `Mod+K` and nothing else.
+ *
+ * The dialog is a separate component so that a **closed** palette holds no subscription. The
+ * framework's own rule — subscribe to what you read, not to the state — applies to overlays
+ * too: `useInfiniteCanvasState` re-renders on every camera tick, and a palette nobody has
+ * opened has no business reconciling sixty times a second while you pan.
+ *
+ * Takes no props. `contextualCommands` on the overlay context is exactly
+ * `getInfiniteCanvasContextualCommands(state)`, and both are public, so the palette does not
+ * need the context — which also sidesteps its invariance in `Payload` and lets one component
+ * mount inside any canvas on any route.
  */
-export function CommandPalette<Kind extends string>({
-  context,
-}: {
-  context: InfiniteCanvasOverlayRenderContext<Kind>;
-}) {
+export function CommandPalette() {
   const [isOpen, setIsOpen] = useState(false);
-  const [query, setQuery] = useState("");
-  const [selectedIndex, setSelectedIndex] = useState(0);
-  const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -93,8 +96,6 @@ export function CommandPalette<Kind extends string>({
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === PALETTE_HOTKEY) {
         event.preventDefault();
         setIsOpen((open) => !open);
-        setQuery("");
-        setSelectedIndex(0);
       }
     };
 
@@ -105,28 +106,35 @@ export function CommandPalette<Kind extends string>({
     };
   }, []);
 
+  return isOpen ? (
+    <CommandPaletteDialog
+      onClose={() => {
+        setIsOpen(false);
+        returnFocusToCanvas();
+      }}
+    />
+  ) : null;
+}
+
+function CommandPaletteDialog({ onClose }: { onClose: () => void }) {
+  const state = useInfiniteCanvasState();
+  const actions = useInfiniteCanvasActions();
+  const [query, setQuery] = useState("");
+  const [selectedIndex, setSelectedIndex] = useState(0);
+  const inputRef = useRef<HTMLInputElement>(null);
+
   useEffect(() => {
-    if (isOpen) {
-      inputRef.current?.focus();
-    }
-  }, [isOpen]);
+    inputRef.current?.focus();
+  }, []);
 
-  if (!isOpen) {
-    return null;
-  }
-
-  const filtered = context.contextualCommands.filter((command) => matches(command, query));
+  const contextualCommands = useMemo(() => getInfiniteCanvasContextualCommands(state), [state]);
+  const filtered = contextualCommands.filter((command) => matches(command, query));
   // Available first, and only the available ones are navigable. Hiding the rest would make the
   // palette lie about what the framework can do; letting you run them would make it lie about
   // what it can do *now*. Showing them, greyed and inert, is the only version that teaches.
   const available = filtered.filter((command) => command.enabled);
   const unavailable = filtered.filter((command) => !command.enabled);
   const active = available[Math.min(selectedIndex, available.length - 1)];
-
-  const close = () => {
-    setIsOpen(false);
-    returnFocusToCanvas();
-  };
 
   return (
     <div
@@ -138,7 +146,7 @@ export function CommandPalette<Kind extends string>({
         event.stopPropagation();
 
         if (event.target === event.currentTarget) {
-          close();
+          onClose();
         }
       }}
     >
@@ -151,13 +159,13 @@ export function CommandPalette<Kind extends string>({
           }}
           onKeyDown={(event) => {
             if (event.key === "Escape") {
-              close();
+              onClose();
               return;
             }
 
             if (event.key === "Enter" && active !== undefined) {
-              context.actions.executeCommand(active.command);
-              close();
+              actions.executeCommand(active.command);
+              onClose();
               return;
             }
 
@@ -194,8 +202,8 @@ export function CommandPalette<Kind extends string>({
               ].join(" ")}
               key={command.id}
               onClick={() => {
-                context.actions.executeCommand(command.command);
-                close();
+                actions.executeCommand(command.command);
+                onClose();
               }}
               onPointerEnter={() => {
                 setSelectedIndex(index);
