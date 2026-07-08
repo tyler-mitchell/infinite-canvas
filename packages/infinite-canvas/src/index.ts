@@ -207,6 +207,8 @@ export {
   getInfiniteCanvasWindowNearestCameraCenter,
   isInfiniteCanvasWindowFullyVisible,
 } from "./window-focus";
+export { getInfiniteCanvasWindowPlacementRect } from "./window-placement";
+export type { InfiniteCanvasWindowPlacementRegion } from "./window-placement";
 export {
   focusInfiniteCanvasCommandSurface,
   registerInfiniteCanvasHotkeys,

@@ -1,6 +1,6 @@
 # API Reference
 
-The public surface of `@infinite-canvas/react`: 196 values and 161 types,
+The public surface of `@infinite-canvas/react`: 197 values and 162 types,
 generated from the barrel (`packages/infinite-canvas/src/index.ts`) so it cannot
 drift. Anything not exported from the barrel is internal and unstable —
 including every `data-infinite-canvas-*` attribute, which is a behavioural hook
@@ -198,6 +198,25 @@ buttons, and programmatic drivers share one mutation path.
 <details><summary>types (1)</summary>
 
 - `InfiniteCanvasDirection`
+
+</details>
+
+**`window-placement`** — where a tiling shortcut puts a window (FOCUS-003)
+
+- `getInfiniteCanvasWindowPlacementRect` — bounds + region + size → rect. The only thing that
+  knows what "left half" means, so pointer and keyboard cannot disagree. **Placement never
+  snaps**: a left half nudged to align with its neighbour is no longer a left half, and the
+  shortcut pressed twice would give two different rects.
+
+Driven by the `window.place` command (`Mod+Alt+Arrow` for halves, `Mod+Alt+Enter` to fill,
+`Mod+Alt+C` to centre). Quarters have no default chord and stay dispatchable by region. The
+command acts on the **active** window, not the selection — tiling three selected windows into
+one rect buries two of them — and refuses a grouped window, whose rect belongs to its tree.
+
+<details><summary>types (1)</summary>
+
+- `InfiniteCanvasWindowPlacementRegion` — `"left" | "right" | "top" | "bottom"`, the four
+  quarters, `"fill"`, `"center"`
 
 </details>
 

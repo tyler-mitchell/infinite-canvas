@@ -13,6 +13,8 @@ import type {
   InfiniteCanvasGroupLayoutMode,
   InfiniteCanvasGroupNode,
 } from "./group-tree";
+// Type-only, so the cycle back through `window-placement` erases before runtime.
+import type { InfiniteCanvasWindowPlacementRegion } from "./window-placement";
 
 type InfiniteCanvasPoint = Readonly<{
   x: number;
@@ -832,6 +834,11 @@ type InfiniteCanvasCommand =
       type: "window.nudge";
     }>
   | Readonly<{
+      /** Where in the visible region the active window lands. Never snapped. */
+      region: InfiniteCanvasWindowPlacementRegion;
+      type: "window.place";
+    }>
+  | Readonly<{
       direction: InfiniteCanvasDirection;
       type: "window.focusDirection";
     }>
@@ -859,7 +866,13 @@ type InfiniteCanvasCommandId =
   | "window.nudge.right"
   | "window.nudge.right.large"
   | "window.nudge.up"
-  | "window.nudge.up.large";
+  | "window.nudge.up.large"
+  | "window.place.bottom"
+  | "window.place.center"
+  | "window.place.fill"
+  | "window.place.left"
+  | "window.place.right"
+  | "window.place.top";
 
 type InfiniteCanvasCommandDescriptor = Readonly<{
   command: InfiniteCanvasCommand;

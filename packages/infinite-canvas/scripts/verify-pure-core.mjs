@@ -56,6 +56,7 @@ const PURE_CORE_ROOTS = [
   "spatial-target.ts",
   "validation.ts",
   "window-focus.ts",
+  "window-placement.ts",
   "window-presence.ts",
   "window-proxy.ts",
 ];

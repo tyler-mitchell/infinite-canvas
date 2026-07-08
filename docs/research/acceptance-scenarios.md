@@ -121,9 +121,23 @@ hysteresis unimplemented` until 2026-07-08, long after it shipped.
 - **FOCUS-002** — Floating window over a shell: contextual-parent focus behaves
   sensibly. `unbuilt`
 - **FOCUS-003** — "Left half"-style placement commands resolve through the same
-  canonical placement engine as drag snapping. `unbuilt` (`partial` precedent:
-  fit/navigation commands already share the camera reducer; placement commands don't
-  exist yet)
+  canonical placement engine as drag snapping. `built` (2026-07-08). `window.place` takes a
+  region — halves, quarters, `fill`, `center` — and `window-placement.ts` is the only thing
+  that knows what "left half" means, so pointer and keyboard cannot disagree.
+  `Mod+Alt+Arrow`, `Mod+Alt+Enter`, `Mod+Alt+C`; quarters have no default chord.
+
+  **The scenario's clause is met in substance and refused in letter, deliberately.**
+  Placement does _not_ route through `applySnapToRect`, which is what drag snapping adds on
+  top of a rect. A left half nudged a few pixels to align with the window beside it is no
+  longer a left half, and pressing the shortcut twice would give two different rects —
+  Rectangle and Magnet do not snap tiles either. What the clause is really guarding against
+  is a second hand-rolled placement path, and there is exactly one.
+
+  Placement acts on the **active** window, not the selection: tiling three selected windows
+  into one rect buries two of them. It refuses a grouped window, as
+  `interaction.startResize` does, because a member's rect is its group's projection. A tile
+  narrower than the window's `minSize` grows away from the edge it is anchored to, so a
+  too-narrow right half keeps its right edge instead of sliding off screen. Unasserted.
 
 ## Persistence
 

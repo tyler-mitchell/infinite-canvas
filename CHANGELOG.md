@@ -56,6 +56,19 @@ sections, in this order, omitting the ones that don't apply:
   `@infinite-canvas/react/scene` and returns its `true` fallback for every consumer who has not
   installed `three` and enabled `diagnostics.frustum`. Rasterization eligibility now shares it.
 
+- **Keyboard window placement** (FOCUS-003). `Mod+Alt+Arrow` puts the active window in a half of
+  the visible canvas, `Mod+Alt+Enter` fills it, `Mod+Alt+C` centres it at natural size. The
+  `window.place` command also takes the four quarters, which have no default chord.
+  `getInfiniteCanvasWindowPlacementRect(bounds, region, size, minSize)` is public and is the only
+  thing that knows what "left half" means, so pointer and keyboard placement cannot disagree.
+
+  **Placement never snaps.** A left half nudged to align with the window beside it is no longer a
+  left half, and the shortcut pressed twice would give two different rects. It acts on the
+  **active** window rather than the selection — tiling three selected windows into one rect
+  buries two of them — and refuses a grouped window, whose rect belongs to its tree. A tile
+  narrower than the window's `minSize` grows away from the edge it is anchored to, so a
+  too-narrow right half keeps its right edge instead of sliding off screen.
+
 - **Tabs reorder by dragging them** (TAB-001). Where the pointer goes decides what the drag is:
   inside the strip it reorders, leaving the strip tears the window out. Until now _any_ six
   pixels of travel tore the tab out, which made `group.reorderChild` unreachable by pointer no

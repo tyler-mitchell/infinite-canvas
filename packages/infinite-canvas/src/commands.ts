@@ -4,7 +4,7 @@ import {
   navigateCameraToWindow,
 } from "./camera-navigation";
 import { DEFAULT_INFINITE_CANVAS_ZOOM } from "./constants";
-import { zoomCameraAtScreenPoint } from "./geometry";
+import { getViewportInsetWorldRect, isUsableViewport, zoomCameraAtScreenPoint } from "./geometry";
 import {
   findInfiniteCanvasGroup,
   getInfiniteCanvasWindowGroup,
@@ -26,11 +26,12 @@ import {
   isWindowSelected,
   selectAllVisibleWindows,
 } from "./selection";
-import { findWindow, focusWindow } from "./stacking";
+import { findWindow, focusWindow, updateWindowRect } from "./stacking";
 import {
   getInfiniteCanvasDirectionalFocusTarget,
   isInfiniteCanvasWindowFullyVisible,
 } from "./window-focus";
+import { getInfiniteCanvasWindowPlacementRect } from "./window-placement";
 import type {
   InfiniteCanvasCameraNavigationBehavior,
   InfiniteCanvasCommand,
@@ -244,6 +245,69 @@ const DEFAULT_INFINITE_CANVAS_COMMAND_DESCRIPTORS = [
     id: "view.resetZoom",
     label: "Reset Zoom",
   },
+  {
+    command: {
+      region: "left",
+      type: "window.place",
+    },
+    description: "Place the active window in the left half of the visible canvas.",
+    hotkeys: ["Mod+Alt+ArrowLeft"],
+    id: "window.place.left",
+    label: "Place Left Half",
+  },
+  {
+    command: {
+      region: "right",
+      type: "window.place",
+    },
+    description: "Place the active window in the right half of the visible canvas.",
+    hotkeys: ["Mod+Alt+ArrowRight"],
+    id: "window.place.right",
+    label: "Place Right Half",
+  },
+  {
+    command: {
+      region: "top",
+      type: "window.place",
+    },
+    description: "Place the active window in the top half of the visible canvas.",
+    hotkeys: ["Mod+Alt+ArrowUp"],
+    id: "window.place.top",
+    label: "Place Top Half",
+  },
+  {
+    command: {
+      region: "bottom",
+      type: "window.place",
+    },
+    description: "Place the active window in the bottom half of the visible canvas.",
+    hotkeys: ["Mod+Alt+ArrowDown"],
+    id: "window.place.bottom",
+    label: "Place Bottom Half",
+  },
+  {
+    command: {
+      region: "fill",
+      type: "window.place",
+    },
+    description: "Place the active window across the whole visible canvas.",
+    hotkeys: ["Mod+Alt+Enter"],
+    id: "window.place.fill",
+    label: "Place Filling View",
+  },
+  {
+    command: {
+      region: "center",
+      type: "window.place",
+    },
+    description: "Centre the active window at its current size.",
+    hotkeys: ["Mod+Alt+C"],
+    id: "window.place.center",
+    label: "Centre Window",
+  },
+  // The quarters have no default chord — four more Mod+Alt bindings would crowd the
+  // vocabulary for a placement most users reach for through a menu. They stay dispatchable
+  // as `{ region: "top-left", type: "window.place" }` and bindable through `hotkeyBindings`.
 ] satisfies readonly InfiniteCanvasCommandDescriptor[];
 
 const FIT_CAMERA_NAVIGATION_BEHAVIOR = {
@@ -418,7 +482,62 @@ function isInfiniteCanvasCommandEnabled<Kind extends string>(
       return getInfiniteCanvasDirectionalFocusTarget(state, command.direction) !== null;
     case "window.nudge":
       return state.selection.windowIds.length > 0;
+    case "window.place":
+      return getPlaceableWindowId(state) !== null;
   }
+}
+
+/**
+ * The window a placement command acts on, or `null` when there is nothing to place.
+ *
+ * The **active** window, not the selection: "left half" applied to three selected windows
+ * would stack all three in the same rect, and a tiling shortcut that silently buries two of
+ * your windows is worse than one that does nothing.
+ *
+ * A grouped window is refused, for the same reason `interaction.startResize` refuses it — a
+ * member's rect is its group's projection, and a pane placed in the left half of the screen
+ * would be snapped back the moment the tree re-solved. Place the shell, or undock first.
+ *
+ * An unmeasured viewport has no halves.
+ */
+function getPlaceableWindowId<Kind extends string>(
+  state: InfiniteCanvasState<Kind>,
+): string | null {
+  const windowId = state.activeWindowId;
+
+  if (windowId === null || !isUsableViewport(state.viewport)) {
+    return null;
+  }
+
+  const window = findWindow(state, windowId);
+
+  return window === null ||
+    window.mode === "minimized" ||
+    isInfiniteCanvasWindowGrouped(state, windowId)
+    ? null
+    : windowId;
+}
+
+function placeActiveWindow<Kind extends string>(
+  state: InfiniteCanvasState<Kind>,
+  command: Extract<InfiniteCanvasCommand, { type: "window.place" }>,
+): InfiniteCanvasState<Kind> {
+  const windowId = getPlaceableWindowId(state);
+  const window = windowId === null ? null : findWindow(state, windowId);
+
+  if (windowId === null || window === null) {
+    return state;
+  }
+
+  // The visible region, in world units. "Left half" means the left half of what you can
+  // see: an unbounded world has no halves.
+  const bounds = getViewportInsetWorldRect(state.camera, state.viewport, 0);
+
+  return updateWindowRect(
+    state,
+    windowId,
+    getInfiniteCanvasWindowPlacementRect(bounds, command.region, window.rect, window.minSize),
+  );
 }
 
 function getInfiniteCanvasCommandGroup(command: InfiniteCanvasCommand): InfiniteCanvasCommandGroup {
@@ -439,6 +558,7 @@ function getInfiniteCanvasCommandGroup(command: InfiniteCanvasCommand): Infinite
       return "selection";
     case "window.focusDirection":
     case "window.nudge":
+    case "window.place":
       return "window";
   }
 }
@@ -527,6 +647,8 @@ function executeInfiniteCanvasCommand<Kind extends string>(
       return focusWindowInDirection(state, command.direction, zoomPolicy);
     case "window.nudge":
       return nudgeSelectedWindows(state, command);
+    case "window.place":
+      return placeActiveWindow(state, command);
   }
 }
 
