@@ -171,9 +171,23 @@ src/state.ts  src/factory.ts  src/registry.ts  src/validation.ts  src/types.ts
 If you need reactivity, do it in the store/component layer (`src/store.tsx`,
 `src/infinite-canvas.tsx`) and keep the transition itself a pure function of `(state, action)`.
 
-Guarded by: `packages/infinite-canvas/src/framework-boundary.test.ts`, which drives the core
-end-to-end — factories, registry normalization/recovery, window proxies, validation — through
-non-React entry points, so the core has to keep standing up without a renderer.
+Guarded by two things, which check different halves of the claim:
+
+- `packages/infinite-canvas/src/framework-boundary.test.ts` drives the core end-to-end —
+  factories, registry normalization/recovery, window proxies, validation — through non-React
+  entry points, so the core has to keep _standing up_ without a renderer.
+- `packages/infinite-canvas/scripts/verify-pure-core.mjs` crawls the real import graph from every
+  pure-core root and fails if any of them can _reach_ `react`, `@legendapp/state`, `three`,
+  `@react-three/fiber`, or `@zumer/snapdom`. Type-only imports are ignored, because
+  `import type { … }` and `import { type X }` erase before runtime. Runs in CI and before publish:
+
+  ```bash
+  pnpm exec vp run @infinite-canvas/react#verify:pure-core
+  ```
+
+  Until 2026-07-08 this file and `README.md` both claimed a test enforced the import boundary.
+  **No such test existed** — the rule held by construction and by reading, and nothing stopped the
+  next contributor from importing an observable into `reducer.ts`. Now something does.
 
 ### Adding a public export
 

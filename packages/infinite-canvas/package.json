@@ -53,7 +53,8 @@
     "test": "vp test",
     "check": "vp check",
     "verify:api-doc": "node ./scripts/verify-api-doc.mjs",
-    "verify": "vp run build && node ./scripts/verify-artifact.mjs && node ./scripts/verify-api-doc.mjs",
+    "verify:pure-core": "node ./scripts/verify-pure-core.mjs",
+    "verify": "vp run build && node ./scripts/verify-artifact.mjs && node ./scripts/verify-api-doc.mjs && node ./scripts/verify-pure-core.mjs",
     "prepublishOnly": "vp run verify"
   },
   "dependencies": {

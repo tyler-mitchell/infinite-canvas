@@ -209,7 +209,7 @@ happens the repo cannot go public; nothing else on any track is waiting on it.
 
 Ordered by what unblocks the most. Each has an exit criterion, not a vibe.
 
-**C1 — Drift gates (~1h, no browser). Half done.** Two documents made claims nothing
+**C1 — Drift gates (~1h, no browser). ✅ DONE.** Two documents made claims nothing
 enforced, and both had already been wrong in exactly the way a gate would have caught:
 
 - ✅ `docs/API.md` had drifted by 43 public names — undo/redo, recipes, and portals had no
@@ -218,12 +218,17 @@ enforced, and both had already been wrong in exactly the way a gate would have c
   `prepublishOnly`. Both assertions negative-tested, including the one that makes the gate
   refuse to run when the barrel grows an export form its parser cannot see — a drift gate
   blind to your new export is worse than none, because it reports success.
-- ⬜ `README.md` and `CONTRIBUTING.md` claimed a test enforced the pure core's import
-  boundary. No such test existed; the docs were corrected to say so. The assertion itself
-  is still unwritten: an import-graph crawl from `reducer.ts` that fails when an observable
-  is reachable, shaped like `optional-peers.test.ts`.
+- ✅ `README.md` and `CONTRIBUTING.md` claimed a test enforced the pure core's import
+  boundary. **No such test existed.** `scripts/verify-pure-core.mjs` now crawls the import
+  graph from 29 pure-core roots (reaching 33 modules) and fails when any can reach `react`,
+  `@legendapp/state`, `three`, `@react-three/fiber`, or `@zumer/snapdom`. Type-only imports
+  are ignored — `import { type X } from "./store"` erases and must not trip it, which is
+  negative-tested, because a gate with false positives is a gate people learn to ignore.
+  It also refuses to pass if the crawl reaches fewer modules than its floor.
 
-Exit: an observable imported into `reducer.ts` fails CI. (The API-doc half already fails.)
+Exit: **met.** An observable imported into `reducer.ts` fails CI; so does a `three` import
+three hops away, reported with the full trail. Both negative-tested, along with the
+type-only false-positive case and a stale root entry.
 
 **C2 — P1 scenario tests (~2h, no browser).** P1's exit criteria say "scenario tests
 green". The gestures work; the tests do not exist. DOCK-001..005, SPLIT-001..003,

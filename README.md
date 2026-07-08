@@ -103,8 +103,11 @@ The playground consumes the framework through source-linked exports, so
 framework edits hot-reload with no build step. See
 [CONTRIBUTING.md](CONTRIBUTING.md) — in particular the two invariants
 contributors most often break. The **headless boundary** is enforced by
-`src/headless-boundary.test.ts`. The **pure core's import boundary** is not
-enforced by anything, and holds only because nobody has broken it yet.
+`src/headless-boundary.test.ts`. The **pure core's import boundary** is enforced by
+`packages/infinite-canvas/scripts/verify-pure-core.mjs`, which crawls the import
+graph from every pure-core root and fails CI if the reducer can reach React,
+Legend State, or `three`. It held by construction until 2026-07-08; now something
+checks.
 
 ## License
 

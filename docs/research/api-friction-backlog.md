@@ -174,14 +174,25 @@ pointerModeControls?, cameraControls?, zoomControls? }` landed with the HUD
 
 ## Open — medium
 
-- **The pure core's import boundary is unenforced.** Legend State is confined to
-  `store`, `rasterization`, `visibility`, and `canvas-handle` — all at the React or
-  programmatic boundary — and appears nowhere in derivation. That holds today by
-  construction and by reading, and nothing stops the next contributor from importing
-  an observable into `reducer.ts`. `README.md` and `CONTRIBUTING.md` both claimed a
-  test enforced this. **No such test exists**; only the _headless_ boundary is
-  tested. The docs now say so. An import-graph assertion over the pure-core modules
-  (the shape of `optional-peers.test.ts`) is the fix.
+- ✅ **The pure core's import boundary was unenforced (fixed 2026-07-08).** Legend State is
+  confined to `store`, `rasterization`, `visibility`, and `canvas-handle` — all at the React
+  or programmatic boundary — and appears nowhere in derivation. That held by construction and
+  by reading, and nothing stopped the next contributor from importing an observable into
+  `reducer.ts`. `README.md` and `CONTRIBUTING.md` both claimed a test enforced it. **No such
+  test existed**; only the _headless_ boundary was tested.
+
+  `scripts/verify-pure-core.mjs` crawls the import graph from 29 pure-core roots — 33 modules
+  reached — and fails when any can reach `react`, `react-dom`, `@legendapp/state`, `three`,
+  `@react-three/fiber`, or `@zumer/snapdom`, reporting the full trail rather than just the
+  offending package. In CI before the build, and in `prepublishOnly`.
+
+  Two decisions worth keeping: **type-only imports are ignored**, because
+  `import { type InfiniteCanvasStore } from "./store"` erases before runtime and must not drag
+  `store.ts` into the core — a gate with false positives is a gate people learn to route
+  around; and it carries a **coverage floor**, because `optional-peers.test.ts` shipped in this
+  repo passing vacuously when its regex missed `export … from` and the crawl reached exactly
+  one module. Both cases negative-tested, along with a stale root entry.
+
 - ✅ **`docs/API.md` drifted silently, because nothing regenerated or checked it
   (fixed 2026-07-08).** `SHIP_PLAN.md` described it as "generated from the barrel"; it is
   hand-maintained. It was missing **43 public names** — undo/redo, layout recipes, and

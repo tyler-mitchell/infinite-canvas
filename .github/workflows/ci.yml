@@ -53,6 +53,11 @@ jobs:
       - name: Verify public API documentation
         run: node packages/infinite-canvas/scripts/verify-api-doc.mjs
 
+      # Architecture gate: the reducer and its vocabulary must stay drivable without a
+      # renderer. Crawls the import graph; type-only imports erase and are ignored.
+      - name: Verify pure-core import boundary
+        run: node packages/infinite-canvas/scripts/verify-pure-core.mjs
+
       - name: Test
         run: pnpm exec vp run -r test
 
