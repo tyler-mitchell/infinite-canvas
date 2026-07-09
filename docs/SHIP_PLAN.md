@@ -302,6 +302,20 @@ _**No test in the suite touches groups, history, or recipes.** `grep -l` over `s
 returns nothing for `createGroup`, `dockWindow`, `setChildWeights`, `undoInfiniteCanvas`, or
 `captureInfiniteCanvasRecipe`. P1 and P4 are capability-complete and verification-empty._
 
+_The two highest-risk of those paths were **reading-audited 2026-07-09**, which is not a test
+and does not close C2 — it only narrows the range of what an eventual test might catch. Both
+were found sound. In `recipes.ts`, a recipe applied after one of its windows was closed does
+not restore a shell laying out a ghost: `reconcileInfiniteCanvasGroups` runs on the way back in
+and `undockInfiniteCanvasGroupWindow` strips every non-live leaf, dropping any tree it empties,
+so the comment claiming this is backed by the code rather than hoping. In `history.ts` +
+`reducer.ts`, the checkpoint records the **pre-action** document via `pushInfiniteCanvasHistory`
+(which clears the redo branch), a drag is one entry because only the null→non-null interaction
+transition checkpoints while `interaction.step` never does, and undo/redo move documents between
+`past` and `future` without losing the current one. The one wart is deliberate and documented:
+grabbing a window and releasing it without moving still leaves a checkpoint, so it costs one
+no-op undo press. A test would still be worth writing; the risk that it finds a corruption bug
+in these two paths is now lower than it was._
+
 _Auditing `acceptance-scenarios.md` on 2026-07-08 also found the doc badly stale — its
 headers said "grouping unbuilt" over a list of scenarios each marked `done`, and `SNAP-005`,
 `PERSIST-001`, and `PERSIST-003` were filed as unbuilt features that had long since shipped.
