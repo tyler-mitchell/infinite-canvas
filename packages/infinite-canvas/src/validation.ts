@@ -234,11 +234,33 @@ function isGroupLayoutMode(value: unknown): value is InfiniteCanvasGroupLayoutMo
 }
 
 /**
+ * How deep a persisted tree may nest before it is rejected as malformed.
+ *
+ * Every framework-written tree is normalized first — single-child splits collapse, same-axis
+ * splits inline — so a real tree's depth is bounded by its axis alternations and tab/accordion
+ * folds, in the low tens even for a canvas of hundreds of windows. 256 is an order of magnitude
+ * of headroom over anything the serializer emits, and it exists only to answer a *hand-crafted*
+ * `localStorage` payload nested thousands deep. Without it, `parseInfiniteCanvasGroupNode`
+ * recurses to exhaustion and throws `RangeError` — which violates the contract every parser in
+ * this file states ("`null` when the shape is invalid"), and which the framework's own hydration
+ * only survives because `parseInfiniteCanvasStateJson` wraps the whole parse in `try/catch`. A
+ * consumer calling the exported parser on already-parsed JSON has no such net; "too deep to be
+ * real" is an invalid shape, and this returns `null` for it like every other invalid shape.
+ */
+const MAX_INFINITE_CANVAS_GROUP_TREE_DEPTH = 256;
+
+/**
  * A persisted layout tree. Recursive, so it is parsed recursively; a malformed
  * branch invalidates the whole tree rather than silently pruning members, since
  * a half-parsed group would lay out windows nobody asked it to.
+ *
+ * `depth` is internal — callers parse a tree root and leave it at `0`.
  */
-function parseInfiniteCanvasGroupNode(value: unknown): InfiniteCanvasGroupNode | null {
+function parseInfiniteCanvasGroupNode(value: unknown, depth = 0): InfiniteCanvasGroupNode | null {
+  if (depth > MAX_INFINITE_CANVAS_GROUP_TREE_DEPTH) {
+    return null;
+  }
+
   if (!isRecord(value) || typeof value.id !== "string" || !isPositiveSafeNumber(value.weight)) {
     return null;
   }
@@ -263,7 +285,7 @@ function parseInfiniteCanvasGroupNode(value: unknown): InfiniteCanvasGroupNode |
   const children: InfiniteCanvasGroupNode[] = [];
 
   for (const entry of value.children) {
-    const child = parseInfiniteCanvasGroupNode(entry);
+    const child = parseInfiniteCanvasGroupNode(entry, depth + 1);
 
     if (child === null) {
       return null;
