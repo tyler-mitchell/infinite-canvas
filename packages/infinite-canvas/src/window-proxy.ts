@@ -105,12 +105,4 @@ function getInfiniteCanvasWindowProxies<Kind extends string>(
     .map((window) => getInfiniteCanvasWindowProxy(state, window, chrome, devicePixelRatio));
 }
 
-const getInfiniteCanvasWindowSceneModel = getInfiniteCanvasWindowProxy;
-const getInfiniteCanvasWindowSceneModels = getInfiniteCanvasWindowProxies;
-
-export {
-  getInfiniteCanvasWindowProxies,
-  getInfiniteCanvasWindowProxy,
-  getInfiniteCanvasWindowSceneModels,
-  getInfiniteCanvasWindowSceneModel,
-};
+export { getInfiniteCanvasWindowProxies, getInfiniteCanvasWindowProxy };

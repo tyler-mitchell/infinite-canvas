@@ -28,20 +28,24 @@ sections, in this order, omitting the ones that don't apply:
   `scripts/api-stability.json` and enforced by `scripts/verify-api-stability.mjs` in CI, in
   `prepublishOnly`, and on `pre-push`. **374 names shipped with no tier at all, which is not
   "no promise" — it is an implicit promise of stability on all 374, made by silence**, including
-  on modules nobody has ever watched run. Now 315 stable and 57 experimental.
+  on modules nobody has ever watched run. Now 312 stable and 42 experimental.
 
   Classification is per **module**, and the asymmetry is deliberate: a new export inside
   `geometry.ts` inherits stable without a manifest edit, and a new module in a barrel fails the
-  build until someone decides what it promises. Every experimental entry names one of four
+  build until someone decides what it promises. Every experimental entry names one of three
   reasons, each a fact about the repo rather than a feeling about the code — `unobserved`,
-  `off-by-default`, `unconsumed`, `r3f-canary`.
+  `off-by-default`, `r3f-canary`.
 
-  Auditing to write it produced the finding: **`window-scene-shell` exports fifteen names and
-  nothing calls them.** Grepping the tree finds callers only inside its own test file, and
-  `getMinimumWorldLength` has no reference anywhere, tests included. Meanwhile
-  `scene-layer-geometry`, `scene-model`, `spatial-target`, and `window-proxy` sound like 3D,
-  are pure-core roots that cannot reach `three`, and have real consumers — so they are stable
-  and stay on the main entry. Purity is not a stability argument; size is not either.
+  Auditing to write it produced a finding, and the finding produced a removal rather than a
+  tier: **`window-scene-shell` exported fifteen names nothing called, and `scene-model` was a
+  re-export of `window-proxy` under pre-proxy names nothing imported.** An export nobody uses is
+  not a feature awaiting a consumer, it is a promise awaiting a break; both were unexported the
+  same day, along with the `@deprecated` `getWindowSceneModel` / `InfiniteCanvasWindowSceneModel`
+  aliases on the scene-layer context. The package has never been published, so the removal broke
+  no one. Meanwhile `scene-layer-geometry`, `spatial-target`, and `window-proxy` sound like 3D,
+  are pure-core roots that cannot reach `three`, and have real consumers — so they are stable and
+  stay on the main entry. Purity is not a stability argument; size is not either; and
+  _unconsumed_ is not a tier, it is a delete.
 
 - **Group shells resize by their outer edge.** Eight handles around the shell, a `groupResize`
   interaction beside `groupMove` and `groupGutter`, and the `startGroupResize` command. The tree
@@ -197,7 +201,18 @@ sections, in this order, omitting the ones that don't apply:
   pan _is_ a camera change and could not have been written any other way. Consumers reading
   `interaction.zoom` should read `interaction.originCamera.zoom`.
 
-### Fixed
+### Removed
+
+- **The pre-proxy scene-model surface.** `getInfiniteCanvasWindowSceneModel`,
+  `getInfiniteCanvasWindowSceneModels`, the `InfiniteCanvasWindowSceneModel` type, and the
+  `@deprecated` `getWindowSceneModel` field on the scene-layer render context — all aliases of
+  the `window-proxy` vocabulary that superseded them, each marked deprecated or re-exported under
+  an old name, and **none of them called by anything**. Use `getInfiniteCanvasWindowProxy`,
+  `getInfiniteCanvasWindowProxies`, `InfiniteCanvasWindowProxy`, and `context.getWindowProxy`.
+- **The `window-scene-shell` barrel exports** (fifteen names: the scene-shell projections, local
+  frame-rect helpers, and their types). Nothing outside the module's own test imported them. The
+  module stays on disk — `window-proxy` uses one of its functions internally — so this is an
+  export removal, not a deletion, and it is re-exportable in a minor if a consumer ever needs it.
 
 - **Arrow-nudging a grouped window detached it from its shell.** A group member is selectable,
   and `window.nudge` wrote straight to `window.rect` — but a member's rect is the _projection_

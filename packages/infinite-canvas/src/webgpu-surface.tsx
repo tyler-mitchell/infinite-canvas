@@ -161,7 +161,6 @@ function InfiniteCanvasWebGpuSurface<Kind extends string, Payload = InfiniteCanv
         drop: dropInteraction,
         getState,
         getWindowProxy,
-        getWindowSceneModel: getWindowProxy,
         resolveSpatialTarget,
         space,
         state,

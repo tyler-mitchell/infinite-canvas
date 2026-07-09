@@ -144,14 +144,15 @@ It is a single `@layer infinite-canvas` cascade layer targeting the `data-slot` 
 
 **0.1.0 — pre-1.0. The API may change between minor versions.**
 
-The public surface is **315 stable names and 57 experimental ones**, classified per module in
+The public surface is **312 stable names and 42 experimental ones**, classified per module in
 [`scripts/api-stability.json`](https://github.com/tyler-mitchell/infinite-canvas/blob/main/packages/infinite-canvas/scripts/api-stability.json)
 and enforced in CI. A stable export's breaking change is called out in the changelog; an
 experimental one may move or vanish in any release, and each says why it is experimental — it
-is unobserved, off by default, unconsumed, or reachable only through the R3F canary. The
-experimental set is the rasterization lane, the frustum-visibility store and its diagnostics
-policy, `createInfiniteCanvasHandle`, the minimap and offscreen-indicator geometry, the
-scene-shell projections, and the whole `/scene` entry.
+is unobserved, off by default, or reachable only through the R3F canary. The experimental set is
+the rasterization lane, the frustum-visibility store and its diagnostics policy,
+`createInfiniteCanvasHandle`, the minimap and offscreen-indicator geometry, and the whole
+`/scene` entry. (An export that is merely _unconsumed_ is not classified experimental — it is
+removed; the pre-proxy `scene-model` and `window-scene-shell` surfaces went that way.)
 
 What exists is what is documented above. Notably **not** implemented yet:
 

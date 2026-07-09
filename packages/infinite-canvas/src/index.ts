@@ -164,10 +164,6 @@ export {
   toggleSelection,
   toggleTargetSelection,
 } from "./selection";
-export {
-  getInfiniteCanvasWindowSceneModels,
-  getInfiniteCanvasWindowSceneModel,
-} from "./scene-model";
 export { getInfiniteCanvasWindowProxies, getInfiniteCanvasWindowProxy } from "./window-proxy";
 export {
   getInfiniteCanvasMinimizedWindowItems,
@@ -191,17 +187,6 @@ export {
   getInfiniteCanvasWorldSegmentSceneTransform,
   getVisibleInfiniteCanvasWindowProxies,
 } from "./scene-layer-geometry";
-export {
-  createInfiniteCanvasWindowLocalFrameRect,
-  frameLocalPointToScenePoint,
-  frameLocalRectToScenePlane,
-  getInfiniteCanvasWindowBodyProjection,
-  getInfiniteCanvasWindowSceneChromeMetrics,
-  getInfiniteCanvasWindowSceneShell,
-  getInfiniteCanvasWindowSceneShellLayout,
-  getMinimumWorldLength,
-  toInfiniteCanvasWindowWorldRect,
-} from "./window-scene-shell";
 export {
   getInfiniteCanvasContextualGroup,
   getInfiniteCanvasDirectionalFocusTarget,
@@ -322,14 +307,6 @@ export type {
   InfiniteCanvasWindowPresenceItem,
 } from "./window-presence";
 export type {
-  InfiniteCanvasScenePlane,
-  InfiniteCanvasWindowBodyProjection,
-  InfiniteCanvasWindowSceneChromeMetrics,
-  InfiniteCanvasWindowSceneHandle,
-  InfiniteCanvasWindowSceneShell,
-  InfiniteCanvasWindowSceneShellLayout,
-} from "./window-scene-shell";
-export type {
   InfiniteCanvasSpatialEdgeTarget,
   InfiniteCanvasSpatialRectTarget,
   InfiniteCanvasSpatialTargetInput,
@@ -434,7 +411,6 @@ export type {
   InfiniteCanvasWindowRegistry,
   InfiniteCanvasWindowRegistryInput,
   InfiniteCanvasWindowRenderContext,
-  InfiniteCanvasWindowSceneModel,
   InfiniteCanvasWindowTextSelection,
   InfiniteCanvasWindowWheelBehavior,
   InfiniteCanvasZoomPolicy,

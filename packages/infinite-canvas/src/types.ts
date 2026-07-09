@@ -710,9 +710,6 @@ type InfiniteCanvasWindowProxy<Kind extends string = string> = Readonly<{
   zIndex: number;
 }>;
 
-/** @deprecated Use InfiniteCanvasWindowProxy. */
-type InfiniteCanvasWindowSceneModel<Kind extends string = string> = InfiniteCanvasWindowProxy<Kind>;
-
 type InfiniteCanvasSceneLayerRenderContext<
   Kind extends string = string,
   Payload = InfiniteCanvasDropPayload,
@@ -725,8 +722,6 @@ type InfiniteCanvasSceneLayerRenderContext<
   drop: InfiniteCanvasDropInteraction<Payload, Kind>;
   getState: () => InfiniteCanvasState<Kind>;
   getWindowProxy: (windowId: string) => InfiniteCanvasWindowProxy<Kind> | null;
-  /** @deprecated Use getWindowProxy. */
-  getWindowSceneModel: (windowId: string) => InfiniteCanvasWindowSceneModel<Kind> | null;
   resolveSpatialTarget: InfiniteCanvasResolveSpatialTarget<Kind>;
   space: InfiniteCanvasSceneLayerSpace;
   state: InfiniteCanvasState<Kind>;
@@ -1301,7 +1296,6 @@ export type {
   InfiniteCanvasWindowRegistry,
   InfiniteCanvasWindowRegistryInput,
   InfiniteCanvasWindowRenderContext,
-  InfiniteCanvasWindowSceneModel,
   InfiniteCanvasWindowTextSelection,
   InfiniteCanvasWindowWheelBehavior,
   InfiniteCanvasZoomPolicy,

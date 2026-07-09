@@ -50,7 +50,6 @@ const PURE_CORE_ROOTS = [
   "reducer.ts",
   "registry.ts",
   "scene-layer-geometry.ts",
-  "scene-model.ts",
   "selection.ts",
   "snap-candidates.ts",
   "snap-resolver.ts",

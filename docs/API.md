@@ -1,6 +1,6 @@
 # API Reference
 
-The public surface of `@infinite-canvas/react`: 203 values and 171 types across
+The public surface of `@infinite-canvas/react`: 192 values and 164 types across
 two entries. Anything not exported from a barrel is internal and unstable —
 including every `data-infinite-canvas-*` attribute, which is a behavioural hook
 for hit-testing, not a styling contract.
@@ -31,34 +31,37 @@ module inherits that module's tier**, which is the intended asymmetry — adding
 function to `geometry.ts` should not require a manifest edit, and adding a whole
 module to the public surface should require a decision.
 
-Every experimental entry names one of four reasons, and each reason is a fact
+Every experimental entry names one of three reasons, and each reason is a fact
 about this repository rather than a feeling about the code.
 
 | Reason             | Meaning                                                                                                                                                                                | Modules                                                                                   |
 | ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
 | **unobserved**     | Shipped, typechecked, gated — never watched running.                                                                                                                                   | `canvas-handle`, `minimap`, `offscreen`                                                   |
 | **off-by-default** | Behind a policy prop that no default configuration turns on, so nothing exercises the shipped path.                                                                                    | `rasterization-layer`, `visibility`, `diagnostics`                                        |
-| **unconsumed**     | Nothing outside its own test file calls it. An API nobody has used is an API nobody has found the flaws in.                                                                            | `window-scene-shell`                                                                      |
 | **r3f-canary**     | Reachable only through `@infinite-canvas/react/scene`, whose `@react-three/fiber` peer range admits a v10 canary. The framework cannot promise stability across someone else's canary. | `scene-surface`, `scene:scene-surface`, `scene:visibility-probes`, `scene:webgpu-surface` |
 
 Plus six types in `types.ts`, which is a grab-bag holding
 `InfiniteCanvasSceneLayer` next to `InfiniteCanvasRect`: the `SceneLayer` family
 and `InfiniteCanvasSceneVector3`, all **r3f-canary**.
 
+There is no **unconsumed** tier, and the absence is deliberate: an export nothing
+uses is not classified, it is removed. `window-scene-shell` (fifteen names, called
+only by its own test) and `scene-model` (a re-export of `window-proxy` under
+pre-proxy names) were both public and both dead on 2026-07-08; they were unexported
+that day rather than given a tier. The package has never been published, so the
+removal broke no one. `window-scene-shell.ts` stays on disk because `window-proxy`
+calls one function from it, and it is re-exportable in a minor if a consumer ever
+asks — a promise not yet made is cheaper to keep than one made and withdrawn.
+
 ### What is deliberately _not_ experimental
 
 **Purity is not a stability reason and neither is size.** `scene-layer-geometry`,
-`scene-model`, `spatial-target`, and `window-proxy` sound like 3D and are not:
-all four are pure-core roots — `verify-pure-core.mjs` proves none of them can
-reach `three` — and all four have consumers. They are stable, and they stay on
-the main entry, because a consumer drawing window connectors into an SVG overlay
-needs them with no 3D engine anywhere. Moving them behind `/scene` would force
-the 3D peers on someone who never asked for them.
-
-`window-scene-shell` is equally pure and is _not_ stable, on evidence rather than
-on smell: grepping the tree for its fifteen exported names finds callers only
-inside `window-scene-shell.test.ts`, and `getMinimumWorldLength` has no reference
-anywhere at all.
+`spatial-target`, and `window-proxy` sound like 3D and are not: all three are
+pure-core roots — `verify-pure-core.mjs` proves none of them can reach `three` —
+and all three have consumers. They are stable, and they stay on the main entry,
+because a consumer drawing window connectors into an SVG overlay needs them with
+no 3D engine anywhere. Moving them behind `/scene` would force the 3D peers on
+someone who never asked for them.
 
 ## Components
 
@@ -437,34 +440,6 @@ these over hand-rolled path maths.
 
 </details>
 
-**`window-scene-shell`**
-
-- `createInfiniteCanvasWindowLocalFrameRect`
-- `frameLocalPointToScenePoint`
-- `frameLocalRectToScenePlane`
-- `getInfiniteCanvasWindowBodyProjection`
-- `getInfiniteCanvasWindowSceneChromeMetrics`
-- `getInfiniteCanvasWindowSceneShell`
-- `getInfiniteCanvasWindowSceneShellLayout`
-- `getMinimumWorldLength`
-- `toInfiniteCanvasWindowWorldRect`
-
-<details><summary>types (6)</summary>
-
-- `InfiniteCanvasScenePlane`
-- `InfiniteCanvasWindowBodyProjection`
-- `InfiniteCanvasWindowSceneChromeMetrics`
-- `InfiniteCanvasWindowSceneHandle`
-- `InfiniteCanvasWindowSceneShell`
-- `InfiniteCanvasWindowSceneShellLayout`
-
-</details>
-
-**`scene-model`**
-
-- `getInfiniteCanvasWindowSceneModel`
-- `getInfiniteCanvasWindowSceneModels`
-
 **`window-proxy`**
 
 - `getInfiniteCanvasWindowProxies`
@@ -835,7 +810,6 @@ name.
 - `InfiniteCanvasWindowProxy`
 - `InfiniteCanvasWindowRegistry`
 - `InfiniteCanvasWindowRenderContext`
-- `InfiniteCanvasWindowSceneModel`
 - `InfiniteCanvasWindowTextSelection`
 - `InfiniteCanvasWindowWheelBehavior`
 - `InfiniteCanvasZoomPolicy`

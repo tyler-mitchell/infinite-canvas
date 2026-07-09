@@ -165,11 +165,12 @@ test in the suite touches groups, history, or recipes at all.
     prop). 40.1 KB gzipped without the 3D path.
 14. ✅ **API surface audit — DONE.** The export surface was a maintenance liability;
     mark experimental vs stable, consider moving scene helpers behind `/scene`.
-    _As of 2026-07-08 the two entries export **203 values and 171 types**_ (the "287
+    _As of 2026-07-08 the two entries export **192 values and 164 types**_ (the "287
     names" above was true when written, before P1/P4 landed groups, history, recipes,
-    and portals). `docs/API.md` is **hand-maintained, not generated** — despite what
-    this plan said, and despite what `API.md`'s own header said for a month while
-    drifting by 43 names. Both claims are now corrected in the file that made them.
+    and portals; the audit then removed the dead pre-proxy surface, below). `docs/API.md`
+    is **hand-maintained, not generated** — despite what this plan said, and despite what
+    `API.md`'s own header said for a month while drifting by 43 names. Both claims are now
+    corrected in the file that made them.
 
     ✅ **The drift gate exists**: `scripts/verify-api-doc.mjs` asserts every barrel
     export appears in `docs/API.md`, failing CI (before the build) and `prepublishOnly`.
@@ -177,7 +178,7 @@ test in the suite touches groups, history, or recipes at all.
     ✅ **The semver gate exists**: `scripts/verify-api-stability.mjs` +
     `scripts/api-stability.json`. **374 names shipped with no tier, which is not "no
     promise" — it is an implicit promise of stability on all 374, made by silence**,
-    including on modules nobody has ever watched run. Now 315 stable, 57 experimental.
+    including on modules nobody has ever watched run. Now 312 stable, 42 experimental.
     Classification is per **module**, deliberately: a new export in `geometry.ts`
     inherits stable, and a new module in a barrel fails the build until someone decides
     what it promises. All five failure modes negative-tested (unclassified module, both
@@ -185,13 +186,20 @@ test in the suite touches groups, history, or recipes at all.
     naming an experimental module).
 
     **The audit's second half — "consider moving scene helpers behind `/scene`" — is
-    answered no, on evidence.** `scene-layer-geometry`, `scene-model`, `spatial-target`,
-    and `window-proxy` sound like 3D and are all pure-core roots that `verify-pure-core.mjs`
-    proves cannot reach `three`; each has a consumer. Moving them would force the 3D peers
-    on someone drawing SVG connectors. What the audit did find is `window-scene-shell`:
-    fifteen exported names whose only callers live in `window-scene-shell.test.ts`, and
-    `getMinimumWorldLength`, which has no reference anywhere at all. It is experimental for
-    that reason and no other — purity is not a stability argument, and neither is size.
+    answered no, on evidence.** `scene-layer-geometry`, `spatial-target`, and `window-proxy`
+    sound like 3D and are all pure-core roots that `verify-pure-core.mjs` proves cannot reach
+    `three`; each has a consumer. Moving them would force the 3D peers on someone drawing SVG
+    connectors.
+
+    **What the audit found instead was dead surface, and the answer to dead surface is a
+    delete, not a tier.** `window-scene-shell` exported fifteen names whose only callers lived
+    in `window-scene-shell.test.ts` — `getMinimumWorldLength` had no reference anywhere at all —
+    and `scene-model` was a two-line re-export of `window-proxy` under pre-proxy names nothing
+    imported, alongside the `@deprecated` `getWindowSceneModel` / `InfiniteCanvasWindowSceneModel`
+    aliases on the scene-layer context. All of it was unexported the same day. The package has
+    never been published, so nothing broke; `window-scene-shell.ts` stays on disk because
+    `window-proxy` calls one function from it, and it is re-exportable in a minor if a consumer
+    ever asks. An unconsumed export is not a stability tier — it is a promise not worth making.
 
 ## The delivery plan
 
