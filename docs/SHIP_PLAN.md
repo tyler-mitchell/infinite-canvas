@@ -423,6 +423,16 @@ so the protocol is mechanical:
    numbers want real hardware; the embedded preview underclocks `rAF` under load, so the ratios
    and slopes are the finding, not the milliseconds.
 
+**Attempted 2026-07-09; the embedded preview cannot be the instrument.** Step 1 was run against
+the `preview_*` sandbox: the harness works end to end (exposes, drives, no errors, page
+responsive), but `baseline()` at 20 windows ran **past 280 seconds without finishing** — an
+effective ~1 fps under the drag load. The preview `rAF`-throttles under exactly the load the
+benchmark applies, so it cannot produce a timely or trustworthy number. This does not soften
+step 5's caveat, it **hardens** it: C4 needs a real browser on real hardware, where `baseline()`
+returns in seconds, and the preview is confirmed the wrong place to run it. See
+[research/performance-profile.md](research/performance-profile.md)'s 2026-07-09 subsection. The
+harness is proven ready; the environment is the remaining gate.
+
 **C5 — FR-9 focus trapping (~2h, BROWSER REQUIRED to trust).** The last structural
 accessibility piece: how DOM focus enters and leaves a window's own content. Everything
 else in FR-9 has landed — ARIA semantics, directional focus, group-local focus, focus

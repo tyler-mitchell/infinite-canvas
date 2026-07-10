@@ -163,3 +163,25 @@ elements are constant across zoom. `chrome` metrics are zoom-independent.
 The prediction to test: pan and zoom both approach the cost of one style
 write per window, and drag cost stays proportional to the _dragged_ window
 only (its `window` identity changes; the others' does not).
+
+### 2026-07-09 — the harness was run, and the embedded preview cannot measure it
+
+An attempt to record the tranche-1 numbers ran `window.__canvasBench.baseline()` on
+`/stress?count=20&raster=false` in the **embedded preview browser** (the sanctioned
+`preview_*` tooling, the only browser available to that session). The finding is about the
+_environment_, not the code:
+
+- **The harness works end to end.** It exposes on `/stress`, drives synthetic pan/zoom/drag
+  one input per `rAF`, and threw no errors across the whole run; the page stayed responsive
+  throughout (state reads returned instantly at every checkpoint).
+- **The preview `rAF`-throttles too severely to finish.** `baseline()` — three gestures ×
+  90 measured frames — ran for **over 280 seconds at 20 windows and had not completed**, an
+  effective rate near **1 fps** under the drag load. Measuring 20/40/80 that way would take
+  the better part of an hour and the absolute numbers would still be untrustworthy.
+
+This does not soften "re-run on real hardware" — it **hardens** it from a caveat into a
+demonstrated requirement. The embedded preview is confirmed the wrong instrument: it
+underclocks `rAF` under exactly the load the benchmark exists to apply, so both the wall-clock
+and the frame times it would report are artifacts of the sandbox, not of the framework. C4's
+measurement needs a real browser on real hardware, where `baseline()` completes in seconds and
+the numbers mean something. The harness is ready for it; the preview is not the place to run it.
