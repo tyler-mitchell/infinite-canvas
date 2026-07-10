@@ -316,6 +316,26 @@ grabbing a window and releasing it without moving still leaves a checkpoint, so 
 no-op undo press. A test would still be worth writing; the risk that it finds a corruption bug
 in these two paths is now lower than it was._
 
+_The audit widened the same day across the rest of the core, and it earned its keep: **it found
+two live bugs**, both now fixed (see the friction backlog and CHANGELOG). A recursive parser over
+untrusted `localStorage` threw `RangeError` on pathological nesting instead of returning `null`
+per its contract (`validation.ts`, depth bound added). And **pan discarded a zoom performed
+mid-pan** — the sibling of FAIL-001 on the one drag FAIL-001's own write-up called immune, caught
+by reading `stepCanvasInteraction` end to end. The paths read and **found sound** were:
+`interaction.ts` drag/zoom deltas (every drag re-projects both pointer ends; a strict
+generalization proven bit-identical at static zoom), `geometry.ts` zoom-at-cursor and pan math,
+`selection.ts` marquee accumulation (duplicates from `add` mode are deduped downstream by
+`normalizeSelectionWindowIds`), the `group-tree.ts` dock/undock/normalize core (the `targetId::edge`
+container id is collision-free because re-docking the same edge extends the split rather than
+recreating it; weights preserve neighbour proportions), and both halves of snapping — the resolver
+(hysteresis, priority, resize-edge sign math) and the candidate builder (gap centering, stable ids,
+overlap gating). None of this is a test. It is reading, and it says: when the scenario tests are
+written, these are the invariants they should assert, and these two are the regressions they should
+lock down. `registry.ts` carries one unreachable-through-the-public-API inconsistency (the
+empty-windows and main normalization paths preserve a transient `interaction` that the
+all-unregistered fallback clears) — noted, not fixed, because no real flow reaches it: the store
+only ever validates a hydrated state whose interaction is already `null`._
+
 _Auditing `acceptance-scenarios.md` on 2026-07-08 also found the doc badly stale — its
 headers said "grouping unbuilt" over a list of scenarios each marked `done`, and `SNAP-005`,
 `PERSIST-001`, and `PERSIST-003` were filed as unbuilt features that had long since shipped.
