@@ -271,12 +271,21 @@ three hops away, reported with the full trail. Both negative-tested, along with 
 type-only false-positive case and a stale root entry. The API-doc gate has since caught
 undocumented exports **three times**, within six commits of being written.
 
-**C2 — P1 scenario tests (~2h, no browser). NOT DONE — forbidden this session.** P1's exit
-criteria say "scenario tests green". The gestures work; the tests do not exist.
-DOCK-001..005, SPLIT-001..003, TAB-001/002, ACC-001 are specified in
-`research/acceptance-scenarios.md` and are pure reducer-level assertions — no DOM needed,
-because the group core is pure. **This is now the single largest gap in the project.** Exit:
-those scenario ids assert against the reducer and pass.
+**C2 — P1 scenario tests (~2h, no browser). NOT DONE — forbidden this session, but now
+specified to the assertion.** P1's exit criteria say "scenario tests green". The gestures work;
+the tests do not exist. DOCK-001..005, SPLIT-001..004, TAB-001/002, ACC-001, FAIL-001, and the
+PERSIST/recipe path are pure reducer-level assertions — no DOM, because the group core is pure.
+**This is the single largest gap in the project.** Exit: those scenario ids assert against the
+reducer and pass.
+
+**Writing the tests was out of scope this session; specifying them was not.** The 2026-07-09
+reading-audit of the whole group/history/recipe core established which invariant each scenario
+turns on, and [research/c2-test-plan.md](research/c2-test-plan.md) renders that as an
+arrange/act/assert for **every** P1/P4 scenario, grounded in the real functions and expected
+container ids. It turns "write the suite" into "type these assertions", which is the difference
+between a gap that needs design and one that needs an afternoon of mechanical work. The plan also
+carries the two regressions the audit caught (dock-intent-once, pan-keeps-mid-pan-zoom) as guard
+assertions, and a coverage-floor gate so P1/P4 cannot silently return to verification-empty.
 
 _The argument stopped being hypothetical. **Eight pre-existing defects were found by reading**
 on 2026-07-08, and four map straight onto scenarios that do not exist as tests:_
