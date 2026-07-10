@@ -170,6 +170,7 @@ test("dom window frame emits window slot, identity enums, states, and frame anat
     baseState,
     <InfiniteCanvasWindowFrame
       camera={baseState.camera}
+      canvasInstanceId="test-canvas"
       chrome={DEFAULT_INFINITE_CANVAS_CHROME}
       devicePixelRatio={1}
       isActive={true}
@@ -230,6 +231,7 @@ test("host-chrome window frame normalizes scene->host and emits chrome layers", 
     baseState,
     <InfiniteCanvasWindowFrame
       camera={baseState.camera}
+      canvasInstanceId="test-canvas"
       chrome={DEFAULT_INFINITE_CANVAS_CHROME}
       devicePixelRatio={1}
       isActive={false}

@@ -153,9 +153,15 @@ capture); edge cases around body-content focus handoff and gesture routing
 - open: focus trapping policy, and a documented path to accessible controls
   inside window content. **This is the last structural piece**, and the one that
   genuinely wants a browser: focus behaviour is not something to land unverified.
-- open: `role="tab"` carries no `aria-controls`, because a window frame has no DOM
-  `id` to point at — only `data-infinite-canvas-window-id`. Minting one means
-  deciding how ids stay unique across two canvases on one page.
+- done (2026-07-09): **`role="tab"` now carries `aria-controls`.** A window frame gains a real
+  DOM `id`, namespaced by a per-canvas token minted with React's `useId()` at the desktop root
+  and shared by the window and group layers, so `${instanceId}-window-${windowId}` is unique even
+  with two canvases on one page — the uniqueness question this item raised, answered. The tab's
+  `childId` is the window id, so a tab controls exactly its own window's panel. **Browser-verified**
+  in the preview: every tab emits a correctly-formed `aria-controls`, and the active tab's resolves
+  to its rendered frame. Inactive-tab panels are lazily mounted, so their reference resolves on
+  activation — the standard lazy-tabpanel pattern. The frame-id helper stays internal until the
+  wider focus-trapping work (above) lands with it.
 
 The shortcut guard protects editable targets today.
 

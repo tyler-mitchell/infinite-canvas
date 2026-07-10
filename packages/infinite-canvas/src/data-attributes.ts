@@ -53,6 +53,22 @@ const INFINITE_CANVAS_SLOTS = {
 type InfiniteCanvasSlot = (typeof INFINITE_CANVAS_SLOTS)[keyof typeof INFINITE_CANVAS_SLOTS];
 
 /**
+ * The DOM `id` of a window's frame element, namespaced by the canvas instance.
+ *
+ * A window frame needs a real `id` so a group tab's `aria-controls` can name the panel the tab
+ * reveals (FR-9). A window id is unique within a canvas but not across two canvases on one page,
+ * so the id is prefixed with a per-canvas instance token — mint one with React's `useId()` at the
+ * desktop root and thread it down. The frame and the tab both compute the id through this one
+ * function, so a rename cannot make them disagree.
+ *
+ * Not re-exported from the barrel yet: the `aria-controls` wiring it supports is unverified in a
+ * browser, and this stays internal until it is.
+ */
+function getInfiniteCanvasWindowFrameElementId(canvasInstanceId: string, windowId: string): string {
+  return `${canvasInstanceId}-window-${windowId}`;
+}
+
+/**
  * Window state attributes for the styling contract. Present states render
  * as empty-string valued attributes (`data-active=""`); absent states are
  * `undefined`, which React omits from the DOM.
@@ -73,5 +89,9 @@ function getInfiniteCanvasWindowStateAttributes({
   };
 }
 
-export { INFINITE_CANVAS_SLOTS, getInfiniteCanvasWindowStateAttributes };
+export {
+  INFINITE_CANVAS_SLOTS,
+  getInfiniteCanvasWindowFrameElementId,
+  getInfiniteCanvasWindowStateAttributes,
+};
 export type { InfiniteCanvasSlot };

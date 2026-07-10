@@ -2,7 +2,11 @@
 
 import { useMemo, useState, type CSSProperties, type ReactNode } from "react";
 
-import { INFINITE_CANVAS_SLOTS, getInfiniteCanvasWindowStateAttributes } from "./data-attributes";
+import {
+  INFINITE_CANVAS_SLOTS,
+  getInfiniteCanvasWindowFrameElementId,
+  getInfiniteCanvasWindowStateAttributes,
+} from "./data-attributes";
 import {
   DEFAULT_INFINITE_CANVAS_WINDOW_FRAME_SLOTS,
   InfiniteCanvasWindowFrameRuntimeContext,
@@ -190,6 +194,7 @@ const RESIZE_HANDLE_DESCRIPTORS: readonly InfiniteCanvasResizeHandleDescriptor[]
 
 function InfiniteCanvasWindowFrame<Kind extends string>({
   camera,
+  canvasInstanceId,
   chrome,
   devicePixelRatio,
   isActive,
@@ -202,6 +207,8 @@ function InfiniteCanvasWindowFrame<Kind extends string>({
   windowDefinitions,
 }: Readonly<{
   camera: InfiniteCanvasCamera;
+  /** Per-canvas token (`useId()` at the desktop root) that namespaces the frame's DOM `id`. */
+  canvasInstanceId: string;
   chrome: InfiniteCanvasChromeMetrics;
   devicePixelRatio: number;
   isActive: boolean;
@@ -373,6 +380,8 @@ function InfiniteCanvasWindowFrame<Kind extends string>({
           aria-roledescription="window"
           data-frame-chrome={isHostLocalChrome ? "host" : "dom"}
           data-infinite-canvas-window-id={window.id}
+          // A real DOM id so a group tab's `aria-controls` can name this panel (FR-9).
+          id={getInfiniteCanvasWindowFrameElementId(canvasInstanceId, window.id)}
           data-kind={window.kind}
           data-mode={window.mode}
           data-slot={INFINITE_CANVAS_SLOTS.window}

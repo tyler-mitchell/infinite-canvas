@@ -24,6 +24,15 @@ sections, in this order, omitting the ones that don't apply:
 
 ### Added
 
+- **A group's `role="tab"` now carries `aria-controls`** naming the window panel it reveals
+  (FR-9). A window frame gains a real DOM `id`, namespaced by a per-canvas token minted with
+  React's `useId()` at the desktop root and shared by the window and group layers, so
+  `${instanceId}-window-${windowId}` stays unique even with two canvases on one page — the
+  uniqueness problem that had kept this open. Browser-verified: every tab emits a correctly-formed
+  reference and the active tab's resolves to its rendered frame; inactive-tab panels are lazily
+  mounted, so their reference resolves on activation (the standard lazy-tabpanel pattern). The
+  frame-id helper is internal for now — it ships public with the focus-trapping work it supports.
+
 - **Every public name now carries a stability tier**, classified per module in
   `scripts/api-stability.json` and enforced by `scripts/verify-api-stability.mjs` in CI, in
   `prepublishOnly`, and on `pre-push`. **374 names shipped with no tier at all, which is not

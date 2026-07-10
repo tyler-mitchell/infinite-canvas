@@ -3,6 +3,7 @@
 import {
   useCallback,
   useEffect,
+  useId,
   useMemo,
   useRef,
   useState,
@@ -487,6 +488,10 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
   windowDefinitions,
   zoomPolicy,
 }: InfiniteCanvasViewportProps<Kind, Payload>) {
+  // One token per mounted canvas, shared by the window and group layers so a frame's DOM `id`
+  // and the group tab's `aria-controls` that names it are computed from the same prefix. Two
+  // canvases on one page get disjoint namespaces from their own `useId()`.
+  const canvasInstanceId = useId();
   const rootRef = useRef<HTMLDivElement | null>(null);
   const commandSurfaceRef = useRef<HTMLDivElement | null>(null);
   const spacePanRef = useRef(false);
@@ -1113,11 +1118,13 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
             />
           )}
           <InfiniteCanvasGroupLayer
+            canvasInstanceId={canvasInstanceId}
             devicePixelRatio={devicePixelRatio}
             resizeHandleSize={chrome.resizeHandleSize}
             zIndex={GROUP_LAYER_Z_INDEX}
           />
           <InfiniteCanvasWindowLayer
+            canvasInstanceId={canvasInstanceId}
             chrome={chrome}
             devicePixelRatio={devicePixelRatio}
             stackBands={DEFAULT_INFINITE_CANVAS_STACK_BANDS}
@@ -1178,6 +1185,7 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
 }
 
 function InfiniteCanvasWindowLayer<Kind extends string>({
+  canvasInstanceId,
   chrome,
   devicePixelRatio,
   stackBands,
@@ -1185,6 +1193,12 @@ function InfiniteCanvasWindowLayer<Kind extends string>({
   windowDefinitions,
   zIndex = WINDOW_LAYER_Z_INDEX,
 }: Readonly<{
+  /**
+   * Per-canvas token namespacing each frame's DOM `id`, for a group tab's `aria-controls`.
+   * `InfiniteCanvasViewport` mints one with `useId()` and shares it with the group layer so the
+   * two agree. Optional so a standalone `InfiniteCanvasWindowLayer` still works — it mints its own.
+   */
+  canvasInstanceId?: string;
   chrome: InfiniteCanvasChromeMetrics;
   devicePixelRatio: number;
   stackBands: InfiniteCanvasStackBands;
@@ -1192,6 +1206,8 @@ function InfiniteCanvasWindowLayer<Kind extends string>({
   windowDefinitions: InfiniteCanvasWindowRegistry<Kind>;
   zIndex?: number;
 }>) {
+  const fallbackInstanceId = useId();
+  const resolvedInstanceId = canvasInstanceId ?? fallbackInstanceId;
   const state = useInfiniteCanvasState<Kind>();
   // Behind an inactive tab or a collapsed accordion fold. Still members of their
   // group and still addressable — they simply have no rect to be drawn at.
@@ -1220,6 +1236,7 @@ function InfiniteCanvasWindowLayer<Kind extends string>({
       {visibleWindows.map((window) => (
         <InfiniteCanvasWindowFrame
           camera={state.camera}
+          canvasInstanceId={resolvedInstanceId}
           chrome={chrome}
           devicePixelRatio={devicePixelRatio}
           isActive={state.activeWindowId === window.id}

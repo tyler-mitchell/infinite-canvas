@@ -159,8 +159,10 @@ What exists is what is documented above. Notably **not** implemented yet:
 - focus trapping, and a documented path to accessible controls inside window bodies.
   Group-local focus and group tab-strip keyboard navigation both landed; what remains
   is deciding how DOM focus enters and leaves a window's own content.
-- `role="tab"` carries no `aria-controls`: a window frame has no DOM `id` to point at,
-  and minting one means deciding how ids stay unique across two canvases on a page.
+- focus trapping inside a window body (see above). Since 2026-07-09 a window frame carries a real
+  DOM `id` (`useId()`-namespaced, unique across two canvases) and a group `role="tab"` points its
+  `aria-controls` at the panel it reveals — browser-verified — so that specific gap is closed; what
+  remains is how DOM focus enters and leaves the body.
 
 Rasterization / level-of-detail is partial: the policy, scheduler, and snapshot capture exist behind the `rasterization` prop and are off by default.
 

@@ -8,7 +8,7 @@ import {
   type PointerEvent as ReactPointerEvent,
 } from "react";
 
-import { INFINITE_CANVAS_SLOTS } from "./data-attributes";
+import { INFINITE_CANVAS_SLOTS, getInfiniteCanvasWindowFrameElementId } from "./data-attributes";
 import { getEventViewportPoint } from "./frame-slots";
 import { projectWorldRectToScreen } from "./geometry";
 import {
@@ -314,6 +314,7 @@ function useInfiniteCanvasTabDrag(
 
 function InfiniteCanvasGroupShell({
   camera,
+  canvasInstanceId,
   devicePixelRatio,
   group,
   metrics,
@@ -321,6 +322,7 @@ function InfiniteCanvasGroupShell({
   viewport,
 }: Readonly<{
   camera: InfiniteCanvasCamera;
+  canvasInstanceId: string;
   devicePixelRatio: number;
   group: InfiniteCanvasGroup;
   metrics: InfiniteCanvasGroupMetrics;
@@ -477,6 +479,7 @@ function InfiniteCanvasGroupShell({
       {layout.tabStrips.map((strip) => (
         <InfiniteCanvasGroupTabStrip
           activeChildId={strip.activeChildId}
+          canvasInstanceId={canvasInstanceId}
           childIds={strip.childIds}
           containerId={strip.containerId}
           group={group}
@@ -640,12 +643,14 @@ function focusRovingSibling(container: HTMLElement | null, slot: string, index: 
  */
 function InfiniteCanvasGroupTabStrip({
   activeChildId,
+  canvasInstanceId,
   childIds,
   containerId,
   group,
   style,
 }: Readonly<{
   activeChildId: string;
+  canvasInstanceId: string;
   childIds: readonly string[];
   containerId: string;
   group: InfiniteCanvasGroup;
@@ -681,6 +686,7 @@ function InfiniteCanvasGroupTabStrip({
     >
       {childIds.map((childId) => (
         <InfiniteCanvasGroupTab
+          canvasInstanceId={canvasInstanceId}
           childId={childId}
           containerId={containerId}
           group={group}
@@ -695,6 +701,7 @@ function InfiniteCanvasGroupTabStrip({
 }
 
 function InfiniteCanvasGroupTab({
+  canvasInstanceId,
   childId,
   containerId,
   group,
@@ -702,6 +709,7 @@ function InfiniteCanvasGroupTab({
   isTabStop,
   onFocus,
 }: Readonly<{
+  canvasInstanceId: string;
   childId: string;
   containerId: string;
   group: InfiniteCanvasGroup;
@@ -714,6 +722,8 @@ function InfiniteCanvasGroupTab({
 
   return (
     <button
+      // The tab's `childId` IS the window id, so it controls that window's frame panel (FR-9).
+      aria-controls={getInfiniteCanvasWindowFrameElementId(canvasInstanceId, childId)}
       aria-selected={isActive}
       data-active={isActive ? "" : undefined}
       data-infinite-canvas-control="true"
@@ -762,11 +772,14 @@ function getTabLabel(group: InfiniteCanvasGroup, childId: string): string {
 }
 
 function InfiniteCanvasGroupLayer({
+  canvasInstanceId,
   devicePixelRatio,
   metrics = DEFAULT_INFINITE_CANVAS_GROUP_METRICS,
   resizeHandleSize,
   zIndex,
 }: Readonly<{
+  /** Per-canvas token, shared with the window layer, so a tab's `aria-controls` matches a frame id. */
+  canvasInstanceId: string;
   devicePixelRatio: number;
   metrics?: InfiniteCanvasGroupMetrics;
   resizeHandleSize: number;
@@ -785,6 +798,7 @@ function InfiniteCanvasGroupLayer({
       {groups.map((group) => (
         <InfiniteCanvasGroupShell
           camera={camera}
+          canvasInstanceId={canvasInstanceId}
           devicePixelRatio={devicePixelRatio}
           group={group}
           key={group.id}

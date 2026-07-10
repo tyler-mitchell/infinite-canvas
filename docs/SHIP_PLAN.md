@@ -464,6 +464,15 @@ the command surface enters the active body; `Tab` cycles inside it and cannot re
 window; `Escape` returns to chrome and every hotkey works again; a screen reader announces the
 tab→panel relationship through the new `aria-controls`.
 
+**The `aria-controls` half is DONE and browser-verified (2026-07-09).** The id-scheme decision
+above is implemented: a window frame carries `id={`${instanceId}-window-${windowId}`}` with
+`instanceId` from `useId()` at the desktop root, shared by the window and group layers, and a
+group tab's `aria-controls` names its window's frame. Confirmed in the preview — every tab's
+reference is correctly formed and the active tab's resolves to its rendered frame (inactive
+panels mount lazily, so theirs resolve on activation). What remains of C5 is the **focus trap**
+itself and the screen-reader pass — the parts that genuinely need sustained interactive
+verification, not the discrete DOM check the `aria-controls` wiring only needed.
+
 ### What the 7 hours actually bought
 
 _Written after, from the git log, not before from the plan._

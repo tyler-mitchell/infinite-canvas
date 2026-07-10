@@ -79,6 +79,7 @@ function renderFrame(input: Readonly<{ isActive: boolean; isSelected: boolean }>
   return renderWithStore(
     <InfiniteCanvasWindowFrame
       camera={state.camera}
+      canvasInstanceId="test-canvas"
       chrome={DEFAULT_INFINITE_CANVAS_CHROME}
       devicePixelRatio={1}
       isActive={input.isActive}
