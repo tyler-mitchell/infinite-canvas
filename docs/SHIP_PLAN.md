@@ -402,12 +402,57 @@ different statements and this plan was collapsing them into one.
 Exit: the profile's tables describe the current runtime, and the benchmark is scripted so a
 regression fails loudly rather than silently.
 
+**The measurement is scripted; only the running needs the browser.** The harness exists
+(`apps/playground/src/showcases/benchmark.ts`, exposed on `/stress` as `window.__canvasBench`),
+so the protocol is mechanical:
+
+1. For `count ∈ {20, 40, 80}`, open `/stress?count=<count>&raster=false`, wait for the windows to
+   mount, and run `await window.__canvasBench.baseline()`. It drives synthetic wheel/drag/pan at
+   one input per `rAF` and prints a `{ pan, drag, zoom }` object of `p95` frame times.
+2. Paste each printed object into `benchmark-baseline.ts`'s `RUNS`, keyed by `count`. This is the
+   recorded baseline the regression gate compares against; `RUNS` is empty today, so
+   `compare()` reports `unrecorded` and never a false `pass`.
+3. Re-run with `raster=true` at 80/160 to confirm the rasterization lane throttles background
+   windows rather than blanking them (the `maxPendingCaptures` fix).
+4. Write the numbers into
+   [research/performance-profile.md](research/performance-profile.md)'s tranche-1 section, which
+   currently describes the **pre**-tranche-1 runtime and says so. The one question the run
+   answers: did frame-chrome memoization move 80-window pan off 21.3 fps toward P2's 60 fps bar?
+5. A gesture regresses only when its `p95` exceeds the baseline by **both** `REGRESSION_MARGIN`
+   (0.25) **and** `REGRESSION_FLOOR_MS` (1.5) — either alone is a gate nobody trusts. Absolute
+   numbers want real hardware; the embedded preview underclocks `rAF` under load, so the ratios
+   and slopes are the finding, not the milliseconds.
+
 **C5 — FR-9 focus trapping (~2h, BROWSER REQUIRED to trust).** The last structural
 accessibility piece: how DOM focus enters and leaves a window's own content. Everything
 else in FR-9 has landed — ARIA semantics, directional focus, group-local focus, focus
 restoration, and the tab strip's roving tab stop. Focus behaviour is precisely the domain
 where shipping unverified is malpractice. Exit: `Tab` from the command surface enters the
 active window's body and cannot escape into an inactive window's content.
+
+**The design, decided so the browser session only has to verify it, not invent it.** Two
+decisions the entry left open, taken here with defensible defaults:
+
+- **The id scheme** (`role="tab"` has no `aria-controls` because a frame has no DOM `id`). Mint a
+  canvas **instance id** with React 19's `useId()` at the desktop root — it is built for exactly
+  this (stable across renders, SSR-safe, unique per component instance) — and give every frame
+  `id={`${instanceId}-${windowId}`}`. Two canvases on one page get disjoint namespaces from their
+  own `useId()`; a window id is already unique within a canvas, so the pair is globally unique.
+  `role="tab"` then points `aria-controls` at the active member's frame id. This stays out of the
+  pure core (it is render-layer only) and does not touch serialized state, so persistence and undo
+  replay are unaffected.
+- **The trap policy.** A windowed app should behave like the OS it imitates: `Tab` cycles within
+  the **active window's** body and does not leak into an inactive window's content or another
+  window's chrome; `Escape` returns focus to the command surface (which
+  `focusInfiniteCanvasCommandSurface` already does for Close/Minimize). Implement as a keydown
+  handler on the active frame that, on `Tab`/`Shift+Tab` past the last/first focusable descendant,
+  wraps within the body — the standard focus-trap, scoped to `[data-infinite-canvas-body]`. Do
+  **not** trap when no window is active (the command surface owns Tab then).
+
+Verification the browser session must do, because focus is not landable unverified: `Tab` from
+the command surface enters the active body; `Tab` cycles inside it and cannot reach an inactive
+window; `Escape` returns to chrome and every hotkey works again; a screen reader announces the
+tab→panel relationship through the new `aria-controls`.
 
 ### What the 7 hours actually bought
 
