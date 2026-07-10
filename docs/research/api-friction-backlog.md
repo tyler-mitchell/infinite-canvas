@@ -79,6 +79,22 @@ pointerModeControls?, cameraControls?, zoomControls? }` landed with the HUD
   unchanged and tests are out of scope this session. The scenario remains unasserted, and the
   fix remains unobserved in a browser.
 
+- ✅ **Pan had the sibling of that bug, and the sentence above missed it (fixed 2026-07-09).**
+  "`pan` always carried `originCamera`" was true of pan's _delta_ — pan projects its center from
+  the origin camera and never divided by a stale scalar, so it never slid a window. But the pan
+  step wrote `camera: { ...interaction.originCamera, center }`, which spread the pan-start
+  **zoom** into every frame's output. A wheel-zoom fired mid-pan — same ungated wheel handler —
+  was overwritten on the very next pointermove, snapping the zoom back and discarding it.
+
+  The step now anchors the world point grabbed at pan-start and re-projects it through the
+  current zoom: `worldAtOrigin - (point - viewport/2) / camera.zoom`. Same strict-generalization
+  argument as FAIL-001 — with the zoom unchanged the `viewport/2` terms cancel and it reduces to
+  `originCamera.center - screenDelta / originCamera.zoom`, the old expression to the bit, so pan
+  without a concurrent zoom is bit-identical. It differs only in the concurrent-pan-zoom case,
+  which was the bug. Reachable through a held pan drag plus `Ctrl`/`Cmd`+wheel or a trackpad
+  pinch; narrow, but real, and found by reading `stepCanvasInteraction` end to end. Unobserved
+  in a browser, like its sibling.
+
 - ~~**Interactive performance fails NFR-1 in practice.**~~ **Stale — corrected 2026-07-08.**
   This entry said `/stress` degrades "at even ~20 live windows during pan/zoom/move". It did,
   until `962e42c` restored body-content memoization on the afternoon of 2026-06-10: pan at 20

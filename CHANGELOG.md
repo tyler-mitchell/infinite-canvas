@@ -231,6 +231,14 @@ sections, in this order, omitting the ones that don't apply:
   screen→world projections — the origin pointer under the origin camera, the current pointer under
   the current camera — which is correct across a zoom _and_ a pan. It reduces exactly to the old
   expression when the camera has not moved.
+- **Panning discarded a zoom performed mid-pan** — the sibling of the bug above, on the one drag
+  that "carried `originCamera` all along" was said to be immune to. Pan's _delta_ was always
+  correct; its _output_ was not. Each pan step wrote `camera: { ...originCamera, center }`, so it
+  spread the pan-start zoom back over the live one every frame, and a `Ctrl`/`Cmd`+wheel or
+  trackpad pinch during a held pan was undone on the next pointermove. The step now anchors the
+  world point grabbed at pan-start and re-projects it through the current zoom; with the zoom
+  unchanged it is bit-identical to the previous behaviour, and it differs only in the
+  concurrent-pan-zoom case that was broken.
 - **Every `scope="window"` portal painted underneath the window it belonged to.** The window
   portal root rendered _before_ the frame and carried no `z-index`, while the frame carries its
   stack value. Both are positioned, so paint order falls to `z-index` first and document order

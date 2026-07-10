@@ -351,15 +351,29 @@ function stepCanvasInteraction<Kind extends string>(
   }
 
   if (interaction.kind === "pan") {
-    const delta = subtractPoints(point, interaction.originPointer);
+    // Keep the world point grabbed at pan-start under the cursor, re-projected through the
+    // *current* zoom. The old form spread `...interaction.originCamera`, which forced zoom back
+    // to its pan-start value on every step — so a wheel-zoom fired mid-pan (the handler is not
+    // gated on an active interaction) was discarded on the very next pointermove.
+    //
+    // A strict generalization, not a rewrite, exactly as FAIL-001 was. With the zoom unchanged
+    // — pan without a concurrent zoom, the overwhelmingly common case — the `viewport/2` terms
+    // cancel and this reduces to `originCamera.center - screenDelta / originCamera.zoom`, the
+    // expression it replaces, to the bit. It differs only when the zoom moved under the pan,
+    // where the old code snapped it back and this respects it.
+    const worldAtOrigin = screenPointToWorldPoint(
+      interaction.originCamera,
+      state.viewport,
+      interaction.originPointer,
+    );
 
     return {
       ...state,
       camera: {
-        ...interaction.originCamera,
+        ...state.camera,
         center: {
-          x: interaction.originCamera.center.x - delta.x / interaction.originCamera.zoom,
-          y: interaction.originCamera.center.y - delta.y / interaction.originCamera.zoom,
+          x: worldAtOrigin.x - (point.x - state.viewport.width / 2) / state.camera.zoom,
+          y: worldAtOrigin.y - (point.y - state.viewport.height / 2) / state.camera.zoom,
         },
       },
     };
