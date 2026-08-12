@@ -232,7 +232,78 @@ sections, in this order, omitting the ones that don't apply:
   out on the first downward wobble of a sideways drag. A tab whose child is a nested container
   still cannot float, and can now still be reordered.
 
+- **Every pointer gesture now has a keyboard form.** Docking was the largest of them: the whole
+  group model — the library's biggest feature — was reachable only by drag, because
+  `resolveInfiniteCanvasDockPreview` reads a world point. `window.dockDirection` and
+  `window.undock` close that, and `resolveInfiniteCanvasDockPreviewForTarget` produces the
+  _same_ `InfiniteCanvasDockPreview` a drop produces, committed through the same
+  `applyInfiniteCanvasDockPreview` — so a keyboard dock and a dropped drag are one operation
+  with two ways in rather than two implementations to keep agreeing. Direction names where the
+  window travels and it lands on the far side's near edge, matching a drag onto that half.
+
+  Alongside it: `group.setLayout` (split / tabs / accordion), `group.flipAxis`,
+  `group.dissolve`, `group.moveChild`, `group.resizePane`, `group.equalizeChildren`, and
+  `window.swap`. Several of these existed in the reducer and reached no user at all —
+  `setInfiniteCanvasGroupAxis` had no action, no store method and no command since the day it
+  was written, so a split's orientation could never be changed.
+
+- **Window lifecycle commands: `activeWindow.close`, `.minimize`, `.toggleMaximized`,
+  `.togglePinned`.** These lived only as `onClick` handlers on the chrome buttons, so no chord
+  could be bound to them, no palette could list them, and a consumer replacing the header slot
+  lost the capability. `activeWindow.*` rather than `window.*` because `window.close` is
+  already an _action_ type and the two vocabularies are otherwise disjoint. There is
+  deliberately no `activeWindow.restore`: minimizing hands the active window to the next
+  visible one, so it could never be enabled.
+
+- **Camera commands: `view.pan` and `view.zoomBy`.** The camera had fit-all, fit-selection and
+  reset-zoom, so a keyboard user could jump the view but not move or scale it — on an infinite
+  canvas, the primary interaction. Pan shares `window.nudge`'s direction-to-delta mapping so the
+  two cannot disagree about which way is up; zoom anchors on the viewport centre, there being no
+  pointer to anchor on.
+
+- **`selection.extendDirection`** — the keyboard's Ctrl+click. Every arrange verb needs two or
+  more selected windows, and `window.focusDirection` _replaces_ the selection with the window it
+  focuses, so the arrange family was listed in the palette and unusable without a pointer.
+
+- **Window capabilities.** `capabilities` on a window declares which chrome affordances it
+  supports — `closable`, `maximizable`, `minimizable`, `resizable`, AppKit's vocabulary. Every
+  field is optional and **absent means permitted**, so nothing existing changes and no persisted
+  document migrates; read them through the new `isInfiniteCanvasWindowCapable`. They are
+  **enforced by the reducer**, not merely respected by the chrome: `actions.closeWindow` on a
+  `closable: false` window returns state unchanged. An advisory flag would be a lie the UI
+  tells. Withheld buttons render `disabled` with `data-disabled`; resize handles are withheld
+  outright, an invisible hit target having no useful disabled state.
+
+- **`InfiniteCanvasProvider` accepts a `store`.** `createInfiniteCanvasStore` and
+  `createInfiniteCanvasHandle` were public exports no consumer could reach: the provider minted
+  its own store and the handle's only argument source was a hook inside the tree, while its
+  stated audience — agents, E2E drivers, command palettes — is all parent-side. Either
+  `initialState` or `store`, never both; supplying both is a compile error. Persistence follows
+  `storageKey`, not store ownership.
+
 ### Changed
+
+- **`hitRadius` on an edge target is screen pixels, not world units.** It was compared against a
+  raw world distance, so an edge that was easy to click at 100% became unclickable as you zoomed
+  out — the threshold shrank with the canvas. It now converts through the camera, the same way
+  `snap-resolver` treats its own thresholds, so the two subsystems answer "close enough to
+  catch" the same way. Consumers who tuned a value against the old behaviour will want to
+  re-check it.
+
+- **Semantic LOD defaults are `fullAbovePx: 160` / `summaryBelowPx: 120`,** down from 240 / 180.
+  The old restore threshold sat above the extent of an ordinary window: a 300×210 window at 100%
+  zoom measures 210, under 240, so it demoted to its summary on any zoom-out and never came
+  back. The band now sits below the sizes windows actually are.
+
+- **Frame slots take `render` and arbitrary consumer props.** Each slot merges them with
+  Base UI's semantics, transplanted rather than depended on: consumer event handlers run first
+  and can suppress the framework's, `className` concatenates, `style` merges per declaration
+  with the consumer last, and `data-slot` stays framework-owned.
+
+- **`isInfiniteCanvasCommandEnabled` and `getInfiniteCanvasContextualCommands` take an optional
+  zoom policy.** A zoom step is offered only when it would move, and whether it moves depends on
+  the policy's floor — computing enablement against the default while executing against a custom
+  policy would grey out a step that works.
 
 - **Reset zoom is `Shift+0`, not `Mod+0`.** Breaking for anyone who learned the old chord, and
   the old chord never worked the way it looked. The browser reserves `Mod` with `0`, `+`, and
@@ -255,6 +326,22 @@ sections, in this order, omitting the ones that don't apply:
   (`move`, `resize`, `groupMove`, `groupResize`, `groupGutter`). `pan` already did, because a
   pan _is_ a camera change and could not have been written any other way. Consumers reading
   `interaction.zoom` should read `interaction.originCamera.zoom`.
+
+### Fixed
+
+- **`interaction.step` was dispatched twice for every pointermove of every drag.** A comment in
+  `infinite-canvas.tsx` claimed the mount-scoped `window` listener was "the single source for
+  interaction steps"; it was false the day it was written. Four React `onPointerMove` handlers
+  survived the fix that comment describes — the window header, the window resize handle, the
+  group resize handle, and the group gutter — and three of the four omitted `dockIntent`, which
+  is the modifier race the friction backlog had already recorded a lesson about. Removed, and
+  `single-dispatcher.test.ts` now enforces by reading the source what the comment could only
+  assert.
+
+- **An inactive tab's `aria-controls` pointed at a panel that was not in the document.** A tabs
+  container renders only its active child, so every other tab named a frame id that did not
+  exist. A dangling reference is worse than an absent one: assistive technology follows it,
+  finds nothing, and says nothing. The attribute is now emitted only where the panel exists.
 
 ### Removed
 

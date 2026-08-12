@@ -14,9 +14,15 @@ import { createInfiniteCanvasStore, InfiniteCanvasProvider } from "./store";
  * consumer could reach. The provider minted its own store internally and accepted no
  * `store` prop, so the only way to obtain one was `useInfiniteCanvasStore` from *inside*
  * the tree — which means the handle's stated audience, "agents, E2E drivers, and command
- * palettes", could not obtain the handle, because all three are parent-side. The playground
- * shows the forced workaround: components that only exist to reach down for state a parent
- * already wanted.
+ * palettes", could not obtain the handle, because all three are parent-side.
+ *
+ * An earlier draft of this paragraph cited the playground as showing "the forced workaround:
+ * components that only exist to reach down for state a parent already wanted". That was
+ * wrong, and is corrected here rather than quietly deleted. `NewWindowButton` and
+ * `RecipeControls` render inside `renderOverlay`, a slot of `InfiniteCanvasDesktop` — they
+ * are genuinely inside the canvas, where `useInfiniteCanvasStore` is the intended API, and
+ * one of them carries a comment explaining why it peeks rather than subscribes. The gap
+ * injection closes is real; that was not evidence of it.
  *
  * Injecting the store is the whole fix, and it needs no companion `handleRef` prop: a
  * parent holding the store calls `createInfiniteCanvasHandle(store)` on it directly.
