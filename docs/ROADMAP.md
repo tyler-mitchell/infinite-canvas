@@ -439,10 +439,24 @@ sharpest near-term trap
   world units as zoom shrinks and never lets render below one screen pixel. Above
   100% zoom it is inert. Simplified proxy chrome remains a P7 (semantic LOD) item —
   a stroke that survives is not the same as chrome that is legible.
-- `window.data` generic threading through registry + render contexts (the
-  real fix beyond the helper); payload-variance split for overlay contexts.
+- ✅ **Landed (2026-07-08): `window.data` generic threading.**
+  `defineInfiniteCanvasWindowRegistry<Kind, DataByKind>` types each kind's payload while the
+  registry literal is written, then erases it, so `renderBody({ window })` hands back
+  `window.data` typed by kind. This item stayed unticked for a month and asked for "the real
+  fix beyond the helper" — **that fix was considered and deliberately rejected**, which the
+  friction backlog records and this line did not. `renderBody` _takes_ a context, so
+  `InfiniteCanvasWindowDefinition<K, Data>` is contravariant in `Data`: threading `DataByKind`
+  onward would force a type parameter through `Desktop`, the viewport, the window layer, the
+  frame, and every slot — and would buy nothing, because `window.data` really is `unknown` at
+  runtime. It round-trips through `JSON.parse` on hydration, and a tampered `localStorage`
+  entry can put anything there. `getInfiniteCanvasWindowData(window, guard)` exists for
+  exactly that boundary.
 - Exit: a showcase embedding a non-trivial app (forms, popovers, scrolling
-  lists) in windows with zero consumer workarounds.
+  lists) in windows with zero consumer workarounds. **The pieces exist across two showcases
+  rather than one** — `/body-content` carries the forms, the scrolling list on
+  `wheelBehavior: "native-scroll"`, and selectable prose; `/portals` carries the popover that
+  escapes the zoom transform. What nobody has checked is the "zero consumer workarounds" half,
+  which is a claim about using them, not about their being there.
 
 ## P7 — Rasterization v2 & Semantic LOD (far-zoom readability)
 
@@ -465,18 +479,20 @@ unblocked half hostage to the blocked one.** Split them explicitly:
   effective screen size rather than zoom, with a hysteresis band because zoom is
   continuous and a single threshold flickers.
 
-The capture lane modernization plus the half of RASTERIZATION_PLAN that
-snapshots can't solve:
+**P7a's remaining work**, restated after the split so this list no longer contradicts the
+entry above it — it described semantic LOD as pending while P7b records it landed:
 
 - html-in-canvas capture adapter behind the existing raster contract
   (`captureElementImage` primary, snapdom fallback, feature-detected;
   captures land as ImageBitmaps/GPU textures — old slices 4+5 merged).
   `onpaint` as the recapture signal replacing idle-callback heuristics.
-- **Semantic LOD lanes**: `renderSummary`/`renderIcon` on window
-  definitions, thresholds on effective screen size, far proxy lane
-  (readable labels/icons at 12% zoom — no rasterized paragraph survives
-  far zoom).
-- RENDER-001..003 scenarios as tests; LOD showcase.
+- `renderIcon` — the one piece of the LOD lane that is genuinely unbuilt.
+  `grep renderIcon src/` returns nothing; `renderSummary` shipped and this
+  did not. Whether an icon lane is wanted at all below the summary band is
+  an open question, not a scheduled task.
+- RENDER-003 as a test, which needs culling to exist first. RENDER-001's
+  far-card lane and RENDER-002's pause-during-interaction are both asserted
+  or reasoned in `acceptance-scenarios.md`.
 - Exit: a 12–25% zoom document where every window stays identifiable;
   capture lane switches automatically per browser capability.
 - Dependencies: shares the capture plumbing with P2's texture mode —
