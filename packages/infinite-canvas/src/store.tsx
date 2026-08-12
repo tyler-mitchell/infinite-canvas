@@ -243,6 +243,18 @@ function createInfiniteCanvasStore<Kind extends string>(
         type: "group.setTitle",
       });
     },
+    addWindowToWorkspace: (input) => {
+      dispatch({
+        ...input,
+        type: "workspace.addWindow",
+      });
+    },
+    removeWindowFromWorkspace: (input) => {
+      dispatch({
+        ...input,
+        type: "workspace.removeWindow",
+      });
+    },
     setWorkspaceTitle: (input) => {
       dispatch({
         ...input,

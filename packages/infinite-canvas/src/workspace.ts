@@ -157,6 +157,62 @@ function renameInfiniteCanvasWorkspace<Kind extends string>(
   };
 }
 
+/**
+ * Membership as a delta, which is the difference between a verb and a race.
+ *
+ * `setInfiniteCanvasWorkspaceWindows` takes the whole list, so a caller wanting "put this
+ * window on that desktop" has to read the membership, append, and write it back — and a
+ * window added by anything else between the read and the write is discarded. That is the same
+ * defect `equalizeInfiniteCanvasGroupChildren` exists to avoid, where the record is keyed by
+ * child id and a pane docked mid-flight keeps its old weight.
+ *
+ * Both forms stay. The absolute one is what a recipe or a restore needs; this is what a
+ * gesture needs.
+ */
+function addInfiniteCanvasWindowToWorkspace<Kind extends string>(
+  state: InfiniteCanvasState<Kind>,
+  input: Readonly<{ windowId: string; workspaceId: string }>,
+): InfiniteCanvasState<Kind> {
+  const target = findInfiniteCanvasWorkspace(state, input.workspaceId);
+  const isLiveWindow = state.windows.some((window) => window.id === input.windowId);
+
+  if (target === null || !isLiveWindow || target.windowIds.includes(input.windowId)) {
+    return state;
+  }
+
+  return {
+    ...state,
+    workspaces: state.workspaces.map((workspace) =>
+      workspace.id === input.workspaceId
+        ? { ...workspace, windowIds: [...workspace.windowIds, input.windowId] }
+        : workspace,
+    ),
+  };
+}
+
+function removeInfiniteCanvasWindowFromWorkspace<Kind extends string>(
+  state: InfiniteCanvasState<Kind>,
+  input: Readonly<{ windowId: string; workspaceId: string }>,
+): InfiniteCanvasState<Kind> {
+  const target = findInfiniteCanvasWorkspace(state, input.workspaceId);
+
+  if (target === null || !target.windowIds.includes(input.windowId)) {
+    return state;
+  }
+
+  return {
+    ...state,
+    workspaces: state.workspaces.map((workspace) =>
+      workspace.id === input.workspaceId
+        ? {
+            ...workspace,
+            windowIds: workspace.windowIds.filter((windowId) => windowId !== input.windowId),
+          }
+        : workspace,
+    ),
+  };
+}
+
 function setInfiniteCanvasWorkspaceWindows<Kind extends string>(
   state: InfiniteCanvasState<Kind>,
   input: Readonly<{ windowIds: readonly string[]; workspaceId: string }>,
@@ -216,12 +272,14 @@ function detachInfiniteCanvasWindowFromWorkspaces<Kind extends string>(
 
 export {
   activateInfiniteCanvasWorkspace,
+  addInfiniteCanvasWindowToWorkspace,
   closeInfiniteCanvasWorkspace,
   createInfiniteCanvasWorkspace,
   detachInfiniteCanvasWindowFromWorkspaces,
   findInfiniteCanvasWorkspace,
   getInfiniteCanvasWorkspaceWindowIds,
   isInfiniteCanvasWindowInActiveWorkspace,
+  removeInfiniteCanvasWindowFromWorkspace,
   renameInfiniteCanvasWorkspace,
   setInfiniteCanvasWorkspaceWindows,
 };

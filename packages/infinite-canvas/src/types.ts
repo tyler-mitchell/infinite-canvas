@@ -1111,6 +1111,8 @@ type InfiniteCanvasAction<Kind extends string = string> =
   | Readonly<{ type: "workspace.close"; workspaceId: string }>
   | Readonly<{ title: string; type: "workspace.setTitle"; workspaceId: string }>
   | Readonly<{ type: "workspace.activate"; workspaceId: string | null }>
+  | Readonly<{ type: "workspace.addWindow"; windowId: string; workspaceId: string }>
+  | Readonly<{ type: "workspace.removeWindow"; windowId: string; workspaceId: string }>
   | Readonly<{
       type: "workspace.setWindows";
       windowIds: readonly string[];
@@ -1301,6 +1303,13 @@ type InfiniteCanvasCommands<Kind extends string = string> = Readonly<{
   setWindowTitle: (input: Readonly<{ title: string; windowId: string }>) => void;
   setGroupTitle: (input: Readonly<{ groupId: string; title: string }>) => void;
   setWorkspaceTitle: (input: Readonly<{ title: string; workspaceId: string }>) => void;
+  /**
+   * Membership as a delta rather than a replacement. `setGroupChildWeights` taught this the
+   * hard way: an action that takes the whole collection forces a caller to read it, edit it,
+   * and write it back, and anything that changed in between is silently discarded.
+   */
+  addWindowToWorkspace: (input: Readonly<{ windowId: string; workspaceId: string }>) => void;
+  removeWindowFromWorkspace: (input: Readonly<{ windowId: string; workspaceId: string }>) => void;
   setGroupAxis: (
     input: Readonly<{
       axis: InfiniteCanvasGroupAxis;

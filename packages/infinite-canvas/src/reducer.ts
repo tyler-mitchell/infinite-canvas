@@ -4,8 +4,10 @@ import { findInfiniteCanvasGroupNode, isInfiniteCanvasGroupContainer } from "./g
 import { applyInfiniteCanvasRecipe } from "./recipes";
 import {
   activateInfiniteCanvasWorkspace,
+  addInfiniteCanvasWindowToWorkspace,
   closeInfiniteCanvasWorkspace,
   createInfiniteCanvasWorkspace,
+  removeInfiniteCanvasWindowFromWorkspace,
   renameInfiniteCanvasWorkspace,
   detachInfiniteCanvasWindowFromWorkspaces,
   setInfiniteCanvasWorkspaceWindows,
@@ -259,6 +261,10 @@ function applyInfiniteCanvasAction<Kind extends string>(
       return closeInfiniteCanvasWorkspace(state, action.workspaceId);
     case "workspace.activate":
       return activateInfiniteCanvasWorkspace(state, action.workspaceId);
+    case "workspace.addWindow":
+      return addInfiniteCanvasWindowToWorkspace(state, action);
+    case "workspace.removeWindow":
+      return removeInfiniteCanvasWindowFromWorkspace(state, action);
     case "workspace.setWindows":
       return setInfiniteCanvasWorkspaceWindows(state, action);
     case "group.setTitle":

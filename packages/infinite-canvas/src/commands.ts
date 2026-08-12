@@ -73,9 +73,8 @@ import {
 import { getInfiniteCanvasWindowPlacementRect } from "./window-placement";
 import {
   activateInfiniteCanvasWorkspace,
-  findInfiniteCanvasWorkspace,
   isInfiniteCanvasWindowInActiveWorkspace,
-  setInfiniteCanvasWorkspaceWindows,
+  removeInfiniteCanvasWindowFromWorkspace,
 } from "./workspace";
 import type {
   InfiniteCanvasCameraNavigationBehavior,
@@ -1662,16 +1661,16 @@ function executeInfiniteCanvasCommand<Kind extends string>(
       );
     case "workspace.showAll":
       return activateInfiniteCanvasWorkspace(state, null);
-    case "workspace.removeActiveWindow": {
-      const active = findInfiniteCanvasWorkspace(state, state.activeWorkspaceId ?? "");
-
-      return active === null || state.activeWindowId === null
+    // Written first as a read-filter-write over `setInfiniteCanvasWorkspaceWindows`, which is
+    // the exact race `equalizeInfiniteCanvasGroupChildren` exists to avoid: a window added to
+    // this workspace between the read and the write would have been discarded by it.
+    case "workspace.removeActiveWindow":
+      return state.activeWorkspaceId === null || state.activeWindowId === null
         ? state
-        : setInfiniteCanvasWorkspaceWindows(state, {
-            windowIds: active.windowIds.filter((windowId) => windowId !== state.activeWindowId),
-            workspaceId: active.id,
+        : removeInfiniteCanvasWindowFromWorkspace(state, {
+            windowId: state.activeWindowId,
+            workspaceId: state.activeWorkspaceId,
           });
-    }
     case "selection.removeActive":
       return state.activeWindowId === null ? state : removeSelection(state, [state.activeWindowId]);
     // The reducer's lifecycle cases detach the window from its group before acting — a pane

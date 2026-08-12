@@ -316,3 +316,86 @@ test("with no workspace active there is nothing to cycle or leave", () => {
     expect(isInfiniteCanvasCommandEnabled(bare, command)).toBe(false);
   }
 });
+
+// ── Membership as a delta, not a replacement ─────────────────────────────────────────────
+
+/**
+ * `workspace.setWindows` takes the whole list, so a caller wanting "put this window on that
+ * desktop" has to read the membership, append, and write it back — and anything that changed
+ * in between is discarded. That is the same defect `equalizeInfiniteCanvasGroupChildren` was
+ * built to avoid, and `workspace.removeActiveWindow` shipped with it before this.
+ *
+ * Both forms stay: the absolute one is what a restore needs, the delta is what a gesture needs.
+ */
+
+test("adding and removing a window touches only that window's membership", () => {
+  const state = withTwoWorkspaces();
+  const added = reduceInfiniteCanvasState(state, {
+    type: "workspace.addWindow",
+    windowId: "c",
+    workspaceId: "research",
+  });
+
+  expect(added.workspaces[0]?.windowIds).toEqual(["a", "b", "c"]);
+  // The other workspace is untouched, and keeps its identity rather than being rebuilt.
+  expect(added.workspaces[1]).toBe(state.workspaces[1]);
+
+  const removed = reduceInfiniteCanvasState(added, {
+    type: "workspace.removeWindow",
+    windowId: "a",
+    workspaceId: "research",
+  });
+
+  expect(removed.workspaces[0]?.windowIds).toEqual(["b", "c"]);
+});
+
+test("a delta does not discard a membership change it did not make", () => {
+  // The race stated as a test. A caller holding `state` from before `b` was added would, with
+  // the replacement form, write back a list missing it. The delta cannot: it never names the
+  // windows it is not changing.
+  const stale = withTwoWorkspaces();
+  const meanwhile = reduceInfiniteCanvasState(stale, {
+    type: "workspace.addWindow",
+    windowId: "c",
+    workspaceId: "research",
+  });
+  const added = reduceInfiniteCanvasState(meanwhile, {
+    type: "workspace.addWindow",
+    windowId: "a",
+    workspaceId: "writing",
+  });
+
+  expect(added.workspaces[0]?.windowIds).toEqual(["a", "b", "c"]);
+  expect(added.workspaces[1]?.windowIds).toEqual(["c", "a"]);
+});
+
+test("adding is idempotent, and neither verb invents a window", () => {
+  const state = reduceInfiniteCanvasState(withTwoWorkspaces(), {
+    type: "workspace.addWindow",
+    windowId: "c",
+    workspaceId: "research",
+  });
+
+  // Identical state, so a repeated gesture never reaches the undo stack.
+  expect(
+    reduceInfiniteCanvasState(state, {
+      type: "workspace.addWindow",
+      windowId: "c",
+      workspaceId: "research",
+    }),
+  ).toBe(state);
+  expect(
+    reduceInfiniteCanvasState(state, {
+      type: "workspace.addWindow",
+      windowId: "ghost",
+      workspaceId: "research",
+    }),
+  ).toBe(state);
+  expect(
+    reduceInfiniteCanvasState(state, {
+      type: "workspace.removeWindow",
+      windowId: "ghost",
+      workspaceId: "research",
+    }),
+  ).toBe(state);
+});

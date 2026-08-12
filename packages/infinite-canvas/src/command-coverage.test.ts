@@ -98,7 +98,11 @@ const ACTION_COMMAND_COVERAGE: Readonly<
   "workspace.activate": "workspace.cycle.next",
   "workspace.close": "parameterized",
   "workspace.create": "parameterized",
-  "workspace.setWindows": "workspace.removeActiveWindow",
+  // The delta form is what a gesture uses; the absolute form is what a restore uses. Only
+  // one of them is reachable from state without an argument.
+  "workspace.addWindow": "parameterized",
+  "workspace.removeWindow": "workspace.removeActiveWindow",
+  "workspace.setWindows": "parameterized",
   "window.close": "activeWindow.close",
   "window.focus": "window.focus.left",
   "window.maximize": "activeWindow.toggleMaximized",

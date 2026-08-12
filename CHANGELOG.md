@@ -247,7 +247,12 @@ sections, in this order, omitting the ones that don't apply:
   saves the outgoing workspace and restores the incoming one, and is one undo entry;
   `activeWorkspaceId` and `workspaces` are part of the undo document while the camera is not.
   Reached by `workspace.cycle`, `workspace.showAll` and `workspace.removeActiveWindow`;
-  creating and naming a set stays the consumer's. Persistence envelope moves to version 3,
+  creating and naming a set stays the consumer's. Membership is edited as a delta —
+  `workspace.addWindow` / `workspace.removeWindow`, with `addWindowToWorkspace` /
+  `removeWindowFromWorkspace` on the actions facade — because the replacement form makes a
+  caller read the list, edit it and write it back, discarding anything that changed in
+  between. `workspace.setWindows` remains for a restore, which genuinely does own the whole
+  list. Persistence envelope moves to version 3,
   and versions 1 and 2 migrate to no workspaces rather than being rejected.
 
 - **Every pointer gesture now has a keyboard form.** Docking was the largest of them: the whole
