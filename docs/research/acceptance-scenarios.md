@@ -173,8 +173,26 @@ hysteresis unimplemented` until 2026-07-08, long after it shipped.
 ## Rendering and body mounts
 
 - **RENDER-001** — Focused = live DOM; background = snapshot; far = card.
-  Transitions stable, identity preserved. `partial` (snapshot lane exists;
-  semantic far-card lane is RASTERIZATION_PLAN work)
+  Transitions stable, identity preserved. `partial`, and for a different reason than this entry
+  gave until 2026-08-12: the **far-card lane is built and asserted**, not "RASTERIZATION*PLAN
+  work". `renderSummary` on a window definition plus the hysteresis band in `detail-level.ts`
+  decide it on \_effective screen size* rather than raw zoom, so a large window stays legible
+  longer than a small one.
+
+  Two halves, tested separately on purpose. `detail-level.test.ts` covers the policy — which
+  level applies for a rect, a zoom, and a previous level. `window-raster-body.test.tsx` covers
+  the wiring — that the level the policy returns is the one the body actually renders, which no
+  policy test can see: a `renderSummary` that never ran, or ran always, would pass all eleven of
+  them.
+
+  That distinction is not theoretical here. The policy was correct while the shipped _defaults_
+  stranded every 300×210 window as a summary card at 100% zoom, demoting on zoom-out and never
+  restoring; it was found by driving the product, not by the green assertions around it, and
+  fixed in `aa5f085`. The first wiring test is now that bug's regression guard.
+
+  What keeps it `partial` is the middle lane: snapshots exist behind the `rasterization` prop and
+  nothing turns them on, so "background = snapshot" is unexercised.
+
 - **RENDER-002** — Dragging a snapshot-represented window stays coherent.
   `partial` (captures pause during interaction by design; needs an explicit
   test)
