@@ -191,6 +191,22 @@ is the surface that supplies the argument.
 
 **Unverified:** the route typechecks and builds, and nobody has looked at it.
 
+🐛 **And not looking at it hid a real one, found 2026-08-12 by reading rather than driving.**
+Opening a window while a desktop was active made it join _no_ desktop — and a workspace is a
+membership filter, so the window layer dropped it on the frame it was created and the user saw
+nothing happen at all. Every path into `workspaces` removed ids (`detach`, `reconcile`) or moved
+them deliberately; **nothing added one**, so a window created on a desktop could only be seen
+again by leaving that desktop for "show all".
+
+`window.open` now joins the active workspace, which is the only defensible answer: a window
+belongs where it was made. `window.open` is the sole creation path — drop dispatches it and
+recipes only ever `map` over windows that already exist — so the one case covers all of them.
+
+Worth naming as a pattern rather than a one-off: this is the same shape as the semantic-LOD
+defect at the top of this file. A feature shipped with passing tests and an exit criterion that
+read as met, and the first ordinary thing a user would do with it did not work. The tests asked
+whether switching preserves a camera; nobody asked what happens when you open a window.
+
 ### Deliberately deferred, with reasons
 
 - **Columns mode** — breaks `group-tree`'s "only weight ratios matter" invariant (a column's

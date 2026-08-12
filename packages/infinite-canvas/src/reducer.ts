@@ -326,8 +326,30 @@ function applyInfiniteCanvasAction<Kind extends string>(
         minimizeWindow(state, action.windowId),
         action.windowId,
       );
+    /**
+     * A window opened while a desktop is active joins that desktop.
+     *
+     * Without this it joins none, and a workspace is a membership filter — so the window layer
+     * drops it on the very frame it was created and the user sees nothing happen. Every other
+     * path into `workspaces` removes ids (`detach`, `reconcile`) or moves them deliberately;
+     * nothing added one, so the only way a new window could ever become visible again was to
+     * leave the desktop entirely.
+     *
+     * "Where it was made" is the only defensible answer. The alternative — belonging to no
+     * desktop and appearing only under "show all" — makes creating a window a silent no-op in
+     * the one view the user is looking at.
+     *
+     * `addInfiniteCanvasWindowToWorkspace` is a no-op when no workspace is active, so a canvas
+     * that never creates one is untouched, and it refuses ids that are not live windows, which
+     * is why the open has to happen first.
+     */
     case "window.open":
-      return openWindow(state, action.window);
+      return state.activeWorkspaceId === null
+        ? openWindow(state, action.window)
+        : addInfiniteCanvasWindowToWorkspace(openWindow(state, action.window), {
+            windowId: action.window.id,
+            workspaceId: state.activeWorkspaceId,
+          });
     case "window.restore":
       return restoreWindow(state, action.windowId);
     case "window.togglePinned":
