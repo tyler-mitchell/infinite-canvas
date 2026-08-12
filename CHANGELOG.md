@@ -232,6 +232,24 @@ sections, in this order, omitting the ones that don't apply:
   out on the first downward wobble of a sideways drag. A tab whose child is a nested container
   still cannot float, and can now still be reordered.
 
+- **Anything with a title can be renamed.** `window.setTitle`, `group.setTitle` and
+  `workspace.setTitle`, with `setWindowTitle` / `setGroupTitle` / `setWorkspaceTitle` on the
+  actions facade. Nothing in the model could be renamed before: five types carried a `title`
+  and none had an action to change it, so a consumer building an inline rename had to close
+  the entity and recreate it — losing its id, z-index, group membership and place in the undo
+  stack. Deliberately no commands: a palette cannot invent a title. An empty or
+  whitespace-only rename is refused, because a title is an accessible name before it is a
+  label, and renaming to the same text returns the identical state so it never reaches undo.
+
+- **Workspaces.** Virtual desktops — a named set of windows carrying the camera and selection
+  you left it at, and deliberately _not_ nested canvases, which would need a second camera and
+  a second input plane. Opt-in like groups: with none active, nothing is filtered. Switching
+  saves the outgoing workspace and restores the incoming one, and is one undo entry;
+  `activeWorkspaceId` and `workspaces` are part of the undo document while the camera is not.
+  Reached by `workspace.cycle`, `workspace.showAll` and `workspace.removeActiveWindow`;
+  creating and naming a set stays the consumer's. Persistence envelope moves to version 3,
+  and versions 1 and 2 migrate to no workspaces rather than being rejected.
+
 - **Every pointer gesture now has a keyboard form.** Docking was the largest of them: the whole
   group model — the library's biggest feature — was reachable only by drag, because
   `resolveInfiniteCanvasDockPreview` reads a world point. `window.dockDirection` and

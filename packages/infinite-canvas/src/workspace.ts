@@ -137,6 +137,26 @@ function activateInfiniteCanvasWorkspace<Kind extends string>(
   };
 }
 
+/** Renaming a workspace, under the same rule window and group renames follow. */
+function renameInfiniteCanvasWorkspace<Kind extends string>(
+  state: InfiniteCanvasState<Kind>,
+  input: Readonly<{ title: string; workspaceId: string }>,
+): InfiniteCanvasState<Kind> {
+  const title = input.title.trim();
+  const target = findInfiniteCanvasWorkspace(state, input.workspaceId);
+
+  if (title === "" || target === null || target.title === title) {
+    return state;
+  }
+
+  return {
+    ...state,
+    workspaces: state.workspaces.map((workspace) =>
+      workspace.id === input.workspaceId ? { ...workspace, title } : workspace,
+    ),
+  };
+}
+
 function setInfiniteCanvasWorkspaceWindows<Kind extends string>(
   state: InfiniteCanvasState<Kind>,
   input: Readonly<{ windowIds: readonly string[]; workspaceId: string }>,
@@ -202,5 +222,6 @@ export {
   findInfiniteCanvasWorkspace,
   getInfiniteCanvasWorkspaceWindowIds,
   isInfiniteCanvasWindowInActiveWorkspace,
+  renameInfiniteCanvasWorkspace,
   setInfiniteCanvasWorkspaceWindows,
 };

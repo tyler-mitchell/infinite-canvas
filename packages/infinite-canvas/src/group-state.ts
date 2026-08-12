@@ -262,6 +262,24 @@ function createInfiniteCanvasGroup<Kind extends string>(
  * Their rects are already the solved ones — that is the invariant — so there is
  * nothing to restore and nothing jumps.
  */
+/** Renaming a shell, under the same rule window renames follow. */
+function renameInfiniteCanvasGroup<Kind extends string>(
+  state: InfiniteCanvasState<Kind>,
+  input: Readonly<{ groupId: string; title: string }>,
+): InfiniteCanvasState<Kind> {
+  const title = input.title.trim();
+  const target = findInfiniteCanvasGroup(state, input.groupId);
+
+  if (title === "" || target === null || target.title === title) {
+    return state;
+  }
+
+  return {
+    ...state,
+    groups: state.groups.map((group) => (group.id === input.groupId ? { ...group, title } : group)),
+  };
+}
+
 function closeInfiniteCanvasGroup<Kind extends string>(
   state: InfiniteCanvasState<Kind>,
   groupId: string,
@@ -780,6 +798,7 @@ export {
   getInfiniteCanvasWindowGroup,
   isInfiniteCanvasWindowGrouped,
   reconcileInfiniteCanvasGroups,
+  renameInfiniteCanvasGroup,
   reorderInfiniteCanvasGroupChildInState,
   resolveInfiniteCanvasDockPreview,
   resolveInfiniteCanvasDockPreviewForTarget,

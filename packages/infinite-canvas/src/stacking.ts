@@ -170,6 +170,32 @@ function openWindow<Kind extends string>(
   );
 }
 
+/**
+ * A title is an accessible name before it is a label — `accessibility.test.tsx` asserts every
+ * window exposes one — so an empty or whitespace-only rename is refused rather than stored.
+ * Trimming here and comparing after means a rename to the same text returns the identical
+ * state, which keeps it out of the undo stack: `isSameInfiniteCanvasDocument` compares by
+ * reference, and a no-op that allocated would read as an edit.
+ */
+function renameWindow<Kind extends string>(
+  state: InfiniteCanvasState<Kind>,
+  input: Readonly<{ title: string; windowId: string }>,
+): InfiniteCanvasState<Kind> {
+  const title = input.title.trim();
+  const target = findWindow(state, input.windowId);
+
+  if (title === "" || target === null || target.title === title) {
+    return state;
+  }
+
+  return {
+    ...state,
+    windows: state.windows.map((window) =>
+      window.id === input.windowId ? { ...window, title } : window,
+    ),
+  };
+}
+
 function closeWindow<Kind extends string>(
   state: InfiniteCanvasState<Kind>,
   windowId: string,
@@ -331,6 +357,7 @@ export {
   maximizeWindow,
   minimizeWindow,
   openWindow,
+  renameWindow,
   restoreWindow,
   sortWindowsByStack,
   toggleWindowPinned,

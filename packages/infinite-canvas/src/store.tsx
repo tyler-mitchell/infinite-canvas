@@ -231,6 +231,24 @@ function createInfiniteCanvasStore<Kind extends string>(
         type: "group.setChildWeights",
       });
     },
+    setWindowTitle: (input) => {
+      dispatch({
+        ...input,
+        type: "window.setTitle",
+      });
+    },
+    setGroupTitle: (input) => {
+      dispatch({
+        ...input,
+        type: "group.setTitle",
+      });
+    },
+    setWorkspaceTitle: (input) => {
+      dispatch({
+        ...input,
+        type: "workspace.setTitle",
+      });
+    },
     setGroupAxis: (input) => {
       dispatch({
         ...input,

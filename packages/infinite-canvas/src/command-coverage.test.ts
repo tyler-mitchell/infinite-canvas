@@ -110,6 +110,14 @@ const ACTION_COMMAND_COVERAGE: Readonly<
   // presence surface, which has `getInfiniteCanvasMinimizedWindowItems` for exactly that.
   "window.restore": "parameterized",
   "window.togglePinned": "activeWindow.togglePinned",
+  // Renaming needs a string only the user has. A palette entry cannot invent a title any
+  // more than it can invent which window to open, so all three renames stay here — but the
+  // *actions* exist, which is the part that was missing: nothing in the model could be
+  // renamed at all, so a consumer building an inline edit had to close the thing and
+  // recreate it, losing its id, z-index, membership and history.
+  "window.setTitle": "parameterized",
+  "group.setTitle": "parameterized",
+  "workspace.setTitle": "parameterized",
 };
 
 const CHROMELESS_REASONS = new Set<string>([

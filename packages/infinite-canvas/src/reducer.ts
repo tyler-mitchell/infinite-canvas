@@ -6,6 +6,7 @@ import {
   activateInfiniteCanvasWorkspace,
   closeInfiniteCanvasWorkspace,
   createInfiniteCanvasWorkspace,
+  renameInfiniteCanvasWorkspace,
   detachInfiniteCanvasWindowFromWorkspaces,
   setInfiniteCanvasWorkspaceWindows,
 } from "./workspace";
@@ -21,6 +22,7 @@ import {
   detachInfiniteCanvasWindowFromGroups,
   dockInfiniteCanvasWindowIntoGroup,
   equalizeInfiniteCanvasGroupChildrenInState,
+  renameInfiniteCanvasGroup,
   reorderInfiniteCanvasGroupChildInState,
   setInfiniteCanvasGroupActiveChildInState,
   setInfiniteCanvasGroupAxisInState,
@@ -64,6 +66,7 @@ import {
   maximizeWindow,
   minimizeWindow,
   openWindow,
+  renameWindow,
   restoreWindow,
   toggleWindowPinned,
 } from "./stacking";
@@ -250,12 +253,16 @@ function applyInfiniteCanvasAction<Kind extends string>(
       };
     case "workspace.create":
       return createInfiniteCanvasWorkspace(state, action);
+    case "workspace.setTitle":
+      return renameInfiniteCanvasWorkspace(state, action);
     case "workspace.close":
       return closeInfiniteCanvasWorkspace(state, action.workspaceId);
     case "workspace.activate":
       return activateInfiniteCanvasWorkspace(state, action.workspaceId);
     case "workspace.setWindows":
       return setInfiniteCanvasWorkspaceWindows(state, action);
+    case "group.setTitle":
+      return renameInfiniteCanvasGroup(state, action);
     case "group.close":
       return closeInfiniteCanvasGroup(state, action.groupId);
     case "group.create":
@@ -282,6 +289,8 @@ function applyInfiniteCanvasAction<Kind extends string>(
       return applyInfiniteCanvasRecipe(state, action.recipe, action.placement);
     // A window that is gone, or collapsed into the dock, cannot keep occupying a
     // layout slot. Detaching after the fact keeps `stacking` group-blind.
+    case "window.setTitle":
+      return renameWindow(state, action);
     case "window.close":
       return detachInfiniteCanvasWindowFromWorkspaces(
         detachInfiniteCanvasWindowFromGroups(closeWindow(state, action.windowId), action.windowId),

@@ -1109,12 +1109,14 @@ type InfiniteCanvasAction<Kind extends string = string> =
       workspaceId: string;
     }>
   | Readonly<{ type: "workspace.close"; workspaceId: string }>
+  | Readonly<{ title: string; type: "workspace.setTitle"; workspaceId: string }>
   | Readonly<{ type: "workspace.activate"; workspaceId: string | null }>
   | Readonly<{
       type: "workspace.setWindows";
       windowIds: readonly string[];
       workspaceId: string;
     }>
+  | Readonly<{ groupId: string; title: string; type: "group.setTitle" }>
   | Readonly<{ groupId: string; type: "group.close" }>
   | Readonly<{ groupId: string; rect: InfiniteCanvasRect; type: "group.setRect" }>
   | Readonly<{
@@ -1241,6 +1243,7 @@ type InfiniteCanvasAction<Kind extends string = string> =
     }>
   | Readonly<{ type: "selection.toggle"; windowIds: readonly string[] }>
   | Readonly<{ type: "viewport.set"; viewport: InfiniteCanvasViewport }>
+  | Readonly<{ title: string; type: "window.setTitle"; windowId: string }>
   | Readonly<{ type: "window.close"; windowId: string }>
   | Readonly<{ type: "window.focus"; windowId: string }>
   | Readonly<{ type: "window.maximize"; windowId: string }>
@@ -1290,6 +1293,14 @@ type InfiniteCanvasCommands<Kind extends string = string> = Readonly<{
       weights: Readonly<Record<string, number>>;
     }>,
   ) => void;
+  /**
+   * Renaming, for the three entities that carry a title. There is no command for these: a
+   * palette cannot invent a string, so an inline edit calls these directly. An empty or
+   * whitespace-only title is refused — a title is an accessible name before it is a label.
+   */
+  setWindowTitle: (input: Readonly<{ title: string; windowId: string }>) => void;
+  setGroupTitle: (input: Readonly<{ groupId: string; title: string }>) => void;
+  setWorkspaceTitle: (input: Readonly<{ title: string; workspaceId: string }>) => void;
   setGroupAxis: (
     input: Readonly<{
       axis: InfiniteCanvasGroupAxis;
