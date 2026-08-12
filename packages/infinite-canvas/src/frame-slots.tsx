@@ -9,6 +9,7 @@ import {
 
 import { INFINITE_CANVAS_SLOTS } from "./data-attributes";
 import { useInfiniteCanvasIcons } from "./icons";
+import { trapInfiniteCanvasTabKey } from "./focus-trap";
 import { focusInfiniteCanvasCommandSurface } from "./keyboard";
 import { InfiniteCanvasWindowBody } from "./rasterization-layer";
 import {
@@ -317,6 +318,24 @@ function InfiniteCanvasWindowFrameBodySlot({
         definition.wheelBehavior === "native-scroll" ? "true" : undefined
       }
       data-infinite-canvas-native-text-selection={textSelection === "native" ? "true" : undefined}
+      onKeyDown={(event) => {
+        // Focus containment (FR-9). A window body is a focus region the way an OS window is:
+        // Tab cycles what is inside it and stops at its edges, and Escape hands you back to
+        // the desktop. Without the Escape half a trap is a cage — the user would be inside a
+        // window with no keyboard way out, and every canvas hotkey would stay dead because the
+        // command surface never regains focus.
+        if (event.key === "Escape") {
+          event.preventDefault();
+          event.stopPropagation();
+          focusCommandSurfaceFrom(event.currentTarget);
+
+          return;
+        }
+
+        if (event.key === "Tab" && trapInfiniteCanvasTabKey(event, event.currentTarget)) {
+          event.preventDefault();
+        }
+      }}
       onPointerDownCapture={(event) => {
         if (!isPrimaryButton(event)) {
           return;
@@ -347,6 +366,11 @@ function InfiniteCanvasWindowFrameBodySlot({
         userSelect: textSelection === "native" ? undefined : "none",
         ...style,
       }}
+      // Programmatically focusable, never a Tab stop. Entering a window is deliberate — the
+      // desktop's Tab order must not walk into window contents — but a body with no controls
+      // of its own still has to be enterable, or `Tab` from the command surface would look
+      // broken rather than empty.
+      tabIndex={-1}
     >
       {children === undefined ? (
         <InfiniteCanvasWindowBody

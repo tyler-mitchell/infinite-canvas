@@ -20,7 +20,8 @@ import {
   InfiniteCanvasSelectionBoundsOverlay,
   InfiniteCanvasSnapOverlay,
 } from "./canvas-overlays";
-import { INFINITE_CANVAS_SLOTS } from "./data-attributes";
+import { getInfiniteCanvasWindowFrameElementId, INFINITE_CANVAS_SLOTS } from "./data-attributes";
+import { focusInfiniteCanvasContent } from "./focus-trap";
 import {
   DEFAULT_INFINITE_CANVAS_CHROME,
   DEFAULT_INFINITE_CANVAS_INPUT_POLICY,
@@ -1066,6 +1067,29 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
         >
           <div
             data-infinite-canvas-command-scope="surface"
+            onKeyDown={(event) => {
+              // `Tab` at the desktop enters the active window's content, and only its content
+              // (FR-9). Left to the browser it would walk document order instead: out of the
+              // active window, through an inactive one's buttons, into a third window's form
+              // — with nothing on screen saying where focus went, because an inactive window
+              // looks inactive either way. `Escape` inside the body brings it back here.
+              //
+              // Shift+Tab is deliberately not claimed. Backing out of the canvas to whatever
+              // precedes it on the page is the one direction a user cannot accomplish any
+              // other way, and a canvas that swallows it is a keyboard trap for the document.
+              if (event.key !== "Tab" || event.shiftKey || state.activeWindowId === null) {
+                return;
+              }
+
+              const frame = document.getElementById(
+                getInfiniteCanvasWindowFrameElementId(canvasInstanceId, state.activeWindowId),
+              );
+              const body = frame?.querySelector<HTMLElement>("[data-infinite-canvas-body='true']");
+
+              if (body !== null && body !== undefined && focusInfiniteCanvasContent(body)) {
+                event.preventDefault();
+              }
+            }}
             ref={commandSurfaceRef}
             style={{
               height: 1,
