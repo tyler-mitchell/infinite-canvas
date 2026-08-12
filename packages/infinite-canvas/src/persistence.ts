@@ -5,7 +5,11 @@ import type {
   InfiniteCanvasSerializedState,
   InfiniteCanvasState,
 } from "./types";
-import { EMPTY_INFINITE_CANVAS_SELECTION, normalizeSelection } from "./selection";
+import {
+  EMPTY_INFINITE_CANVAS_SELECTION,
+  getSelectionAnchorTarget,
+  normalizeSelection,
+} from "./selection";
 import {
   parseInfiniteCanvasCamera,
   parseInfiniteCanvasGroup,
@@ -189,7 +193,18 @@ function parseInfiniteCanvasState<Kind extends string>(
   return reconcileInfiniteCanvasWorkspaces(
     reconcileInfiniteCanvasGroups({
       ...unnormalizedState,
-      activeWindowId: selection.anchorWindowId,
+      // The selection's anchor wins where there is one, because active-is-anchor is what
+      // `applySelection` maintains. Where there is none the hydrated id is kept rather than
+      // discarded, so a window focused *without* being selected survives a reload — a state
+      // the model produces on its own, when `minimizeWindow` hands focus on or entering a
+      // workspace with nothing selected picks something on that desktop.
+      //
+      // Only when the selection anchors nothing at all, though. A selection anchored on a
+      // non-window target — an edge, a scene object — has deliberately no active window, and
+      // an earlier version of this line restored one anyway.
+      activeWindowId:
+        selection.anchorWindowId ??
+        (getSelectionAnchorTarget(selection) === null ? activeWindowId : null),
       selection,
     }),
   );

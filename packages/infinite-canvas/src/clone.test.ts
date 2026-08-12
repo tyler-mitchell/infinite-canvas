@@ -63,10 +63,16 @@ test("mutating the source after cloning does not reach the clone", () => {
   const source = seed();
   const clone = cloneInfiniteCanvasState(source);
 
+  const sourceWindow = source.windows[0];
+  const sourceWorkspace = source.workspaces[0];
+
+  expect(sourceWindow).toBeDefined();
+  expect(sourceWorkspace).toBeDefined();
+
   (source.camera as { zoom: number }).zoom = 99;
-  (source.windows[0]?.rect as { x: number }).x = 99;
-  (source.workspaces[0]?.camera as { zoom: number }).zoom = 99;
-  (source.workspaces[0] as { title: string }).title = "Tampered";
+  (sourceWindow!.rect as { x: number }).x = 99;
+  (sourceWorkspace!.camera as { zoom: number }).zoom = 99;
+  (sourceWorkspace as { title: string } | undefined)!.title = "Tampered";
 
   expect(clone.camera.zoom).toBe(1);
   expect(clone.windows[0]?.rect.x).toBe(0);
