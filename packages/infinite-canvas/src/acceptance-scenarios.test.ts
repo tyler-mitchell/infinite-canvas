@@ -1,5 +1,6 @@
 import { expect, test } from "vite-plus/test";
 
+import { getInfiniteCanvasContextualCommands } from "./commands";
 import { createInfiniteCanvasState, createInfiniteCanvasWindow } from "./factory";
 import { getInfiniteCanvasGroupProjection } from "./group-state";
 import { createInfiniteCanvasGroupWindowNode } from "./group-tree";
@@ -318,4 +319,30 @@ test("FOCUS-003 — placement resolves through one engine, and never below minSi
   // Anchored right, too narrow to fit: it keeps its right edge rather than sliding off screen.
   expect(clamped.width).toBe(900);
   expect(clamped.x + clamped.width).toBe(bounds.x + bounds.width);
+});
+
+test("arrange verbs report themselves enabled when the selection actually supports them", () => {
+  // Found by driving the product: `window.__canvas.contextualCommands()` reported
+  // `enabled: false` for every align command while two floating windows were selected and
+  // executing the command demonstrably moved them. The palette showed them enabled at the same
+  // moment, so the two disagreed about the same state.
+  //
+  // This pins the predicate itself. If it passes, the descriptor logic is sound and the
+  // disagreement was staleness in the handle; if it fails, the enablement rule is the bug.
+  const state: InfiniteCanvasState<Kind> = {
+    ...createInfiniteCanvasState<Kind>({
+      windows: [windowAt("left", 0, 0), windowAt("right", 400, 0)],
+    }),
+    selection: { anchorWindowId: "right", targets: [], windowIds: ["left", "right"] },
+    viewport: { height: 800, width: 1200 },
+  };
+
+  const byId = new Map(
+    getInfiniteCanvasContextualCommands(state).map((command) => [command.id, command]),
+  );
+
+  expect(byId.get("window.align.left")?.enabled).toBe(true);
+  // Distribute needs three, so it stays unavailable on a pair — the floor differs per verb and
+  // the pure module is the one that knows which.
+  expect(byId.get("window.distribute.horizontal")?.enabled).toBe(false);
 });
