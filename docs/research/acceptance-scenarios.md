@@ -324,9 +324,19 @@ hysteresis unimplemented` until 2026-07-08, long after it shipped.
   2026-08-12.
 
 - **FAIL-002** — Rapid hover between neighboring docking targets doesn't
-  flicker. `built` — docking exists; the dock overlay renders the same value the
-  reducer applies on release rather than a fresh hit-test, which is the property this
-  scenario is really testing. Unasserted.
+  flicker. `covered` (2026-08-12, `dock-preview.test.tsx`). It reads like a timing problem
+  and is not one: the preview is resolved **once into interaction state**, and both the
+  overlay and `finishCanvasInteraction` read that stored value rather than hit-testing
+  again — so what you were shown is what you get, and there is no second answer to
+  disagree with the first. Asserted end to end: the preview resolves, the overlay renders
+  its edge, releasing builds the group the preview named, and a pointer wandering through
+  one region yields one unchanging answer. No defect.
+
+  Worth recording because a test got it wrong first: **a dock region is not a half.**
+  `getInfiniteCanvasGroupDockEdgeAtPoint` returns `center` when all four normalized edge
+  distances are at least 34% — the tab-merge zone — and otherwise the _nearest_ edge. A
+  point in the left half that is closer to the bottom resolves to `south`, correctly.
+
 - **FAIL-003** — Rapid open/close doesn't leak stale candidates from indexes
   or layout caches. `unbuilt` (becomes real with the spatial index)
 
