@@ -580,6 +580,20 @@ const DEFAULT_INFINITE_CANVAS_COMMAND_DESCRIPTORS = [
     label: "Close Selected Windows",
   },
   {
+    command: { type: "selection.minimize" },
+    description: "Collapse every selected window that can be minimized, as a single undoable edit.",
+    hotkeys: [],
+    id: "selection.minimize",
+    label: "Minimize Selected Windows",
+  },
+  {
+    command: { type: "selection.togglePinned" },
+    description: "Pin every selected window, or unpin them all when every one is already pinned.",
+    hotkeys: [],
+    id: "selection.togglePinned",
+    label: "Pin / Unpin Selected Windows",
+  },
+  {
     command: { type: "activeWindow.minimize" },
     description: "Collapse the active window into the dock.",
     hotkeys: [],
@@ -1101,19 +1115,25 @@ const INFINITE_CANVAS_LIFECYCLE_CAPABILITY = {
 >;
 
 /**
- * The selected windows that closing would actually remove.
+ * The selected windows a bulk verb would actually reach.
  *
- * Filtered by `closable` rather than refused wholesale: a selection mixing a pinned-open
+ * Filtered by capability rather than refused wholesale: a selection mixing a pinned-open
  * console with four scratch windows should close the four, which is what the user asked for.
+ * A `null` capability admits every live selected window — pinning is not a capability, since
+ * nothing about a fixed-size or unclosable window implies it cannot be pinned in place.
+ *
  * Order follows the selection, and duplicates cannot occur because a selection is normalized.
  */
-function getInfiniteCanvasClosableSelection<Kind extends string>(
+function getInfiniteCanvasCapableSelection<Kind extends string>(
   state: InfiniteCanvasState<Kind>,
+  capability: InfiniteCanvasWindowCapability | null,
 ): readonly string[] {
   return state.selection.windowIds.filter((windowId) => {
     const window = findWindow(state, windowId);
 
-    return window !== null && isInfiniteCanvasWindowCapable(window, "closable");
+    return (
+      window !== null && (capability === null || isInfiniteCanvasWindowCapable(window, capability))
+    );
   });
 }
 
@@ -1382,7 +1402,15 @@ function isInfiniteCanvasCommandEnabled<Kind extends string>(
     // Offered when at least one selected window would actually close. A selection of five
     // unclosable windows must not present an enabled verb that does nothing.
     case "selection.close":
-      return getInfiniteCanvasClosableSelection(state).length > 0;
+      return getInfiniteCanvasCapableSelection(state, "closable").length > 0;
+    case "selection.minimize":
+      // A window already in the dock is not minimizable again, so an all-minimized selection
+      // offers nothing rather than offering a verb that would not move.
+      return getInfiniteCanvasCapableSelection(state, "minimizable").some(
+        (windowId) => findWindow(state, windowId)?.mode !== "minimized",
+      );
+    case "selection.togglePinned":
+      return getInfiniteCanvasCapableSelection(state, null).length > 0;
     case "activeWindow.close":
     case "activeWindow.minimize":
     case "activeWindow.toggleMaximized":
@@ -1603,6 +1631,8 @@ function getInfiniteCanvasCommandGroup(command: InfiniteCanvasCommand): Infinite
       return "canvas";
     case "view.fitSelection":
     case "selection.close":
+    case "selection.minimize":
+    case "selection.togglePinned":
     case "selection.extendDirection":
     case "selection.removeActive":
       return "selection";
@@ -1669,9 +1699,39 @@ function executeInfiniteCanvasCommand<Kind extends string>(
      * `applyInfiniteCanvasWindowLifecycle` is not reused because it reads the *active* window's
      * mode, and folding needs the id in hand.
      */
+    /**
+     * Same fold, same single history entry, and the same reason: one document change is one
+     * checkpoint, so a loop at the call site would bury the stack under one entry per window.
+     */
+    case "selection.minimize":
+      return getInfiniteCanvasCapableSelection(state, "minimizable").reduce<
+        InfiniteCanvasState<Kind>
+      >(
+        (current, windowId) =>
+          detachInfiniteCanvasWindowFromGroups(minimizeWindow(current, windowId), windowId),
+        state,
+      );
+    /**
+     * Bring them all to the same state, choosing the one that is not already universal.
+     *
+     * Toggling each window independently would leave a mixed selection exactly as mixed as it
+     * started, merely inverted, which is not what pressing one control on five windows means.
+     */
+    case "selection.togglePinned": {
+      const selected = getInfiniteCanvasCapableSelection(state, null);
+      const shouldPin = selected.some((windowId) => findWindow(state, windowId)?.isPinned !== true);
+
+      return selected.reduce<InfiniteCanvasState<Kind>>(
+        (current, windowId) =>
+          findWindow(current, windowId)?.isPinned === shouldPin
+            ? current
+            : toggleWindowPinned(current, windowId),
+        state,
+      );
+    }
     case "selection.close":
       return clearSelection(
-        getInfiniteCanvasClosableSelection(state).reduce<InfiniteCanvasState<Kind>>(
+        getInfiniteCanvasCapableSelection(state, "closable").reduce<InfiniteCanvasState<Kind>>(
           (current, windowId) =>
             detachInfiniteCanvasWindowFromWorkspaces(
               detachInfiniteCanvasWindowFromGroups(closeWindow(current, windowId), windowId),

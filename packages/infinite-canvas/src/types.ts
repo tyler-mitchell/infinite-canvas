@@ -948,6 +948,20 @@ type InfiniteCanvasCommand =
    * recovering from a mistaken close means pressing undo five times.
    */
   | Readonly<{ type: "selection.close" }>
+  /** Collapse every minimizable window in the selection into the dock, as one edit. */
+  | Readonly<{ type: "selection.minimize" }>
+  /**
+   * Pin every selected window, or unpin them all if every one is already pinned.
+   *
+   * Toggling each window independently would leave a mixed selection exactly as mixed as it
+   * started, just inverted — which is not what pressing one button on five windows means. The
+   * rule is the conventional one for a group toggle: bring them all to the same state, and
+   * choose the state that is not already universal.
+   *
+   * There is deliberately no `selection.toggleMaximized`. Five maximized windows are five
+   * windows filling the same viewport, stacked — the verb has no meaning in bulk.
+   */
+  | Readonly<{ type: "selection.togglePinned" }>
   | Readonly<{ amountPx: number; direction: InfiniteCanvasDirection; type: "view.pan" }>
   | Readonly<{ factor: number; type: "view.zoomBy" }>
   | Readonly<{ direction: InfiniteCanvasDirection; type: "selection.extendDirection" }>
@@ -1012,6 +1026,8 @@ type InfiniteCanvasCommandId =
   | "activeWindow.toggleMaximized"
   | "activeWindow.togglePinned"
   | "selection.close"
+  | "selection.minimize"
+  | "selection.togglePinned"
   | "group.equalizeChildren"
   | "group.dissolve"
   | "group.growPane"
