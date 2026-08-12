@@ -364,15 +364,37 @@ Professional-tool table stakes; the command layer is transaction-ready.
   The chord vocabulary now reads: bare arrow moves a little, `Shift` moves a lot, `Alt`
   moves _focus_, `Alt+Shift` changes the shape, `Mod+Shift` tiles.
 
-- **Still open: focus trapping**, and a documented path for DOM focus to enter and
-  leave a window's own content. This is the last structural piece of FR-9, and the
-  one item here that genuinely wants a browser: focus behaviour is not something to
-  land unverified.
-- IME and text-selection hardening; screen-reader pass. `role="tab"` still carries
-  no `aria-controls`, because a window frame has no DOM `id` to point at.
-- Exit: full keyboard-only session (open, focus, move, resize, arrange,
-  close) is practical; a11y audit checklist in the repo passes. **Focus trapping is what
-  stands between here and that** — every other verb in that list now has a chord.
+- ✅ **Landed: focus trapping.** `focus-trap.ts` and both its wirings —
+  `trapInfiniteCanvasTabKey` on Tab in the frame, `focusInfiniteCanvasContent` on entry —
+  exist and are called. This section called it "still open" for a month after it shipped,
+  alongside the claim that `role="tab"` carries no `aria-controls` "because a window frame
+  has no DOM `id` to point at". Both are false: the tab sets `aria-controls` from
+  `getInfiniteCanvasWindowFrameElementId`, and the frame carries that id with a comment
+  saying it exists for exactly this. Corrected 2026-08-12.
+- ✅ **Landed (2026-08-12): a selection can be built without a pointer** (FOCUS-004).
+  `selection.extendDirection` is the keyboard's Ctrl+click, and it matters more than it
+  sounds: every arrange verb — six aligns, two distributes, swap — needs two or more
+  selected windows, and `window.focusDirection` calls `focusWindow`, which _replaces_ the
+  selection with the window it focuses. With only "clear" and "select all visible"
+  alongside it, the whole arrange family was listed in the palette and unusable in
+  practice. The target joins the selection _before_ it is focused, because
+  `focusWindowPreservingSelection` takes the active window from the selection's anchor.
+- ✅ **Landed (2026-08-12): the camera answers the keyboard.** `view.pan` and
+  `view.zoomBy`. It had three commands before — fit-all, fit-selection, reset-zoom — so a
+  keyboard user could jump the view but not move or scale it.
+- IME and text-selection hardening; screen-reader pass.
+- Exit: full keyboard-only session (open, focus, move, resize, arrange, close) is
+  practical; a11y audit checklist in the repo passes. **Every verb in that list is now
+  reachable**, by chord or palette, except `open` — consumer territory, since only the
+  consumer knows what kinds exist and what a new one contains.
+
+  **What stands between here and the exit is two things, neither a missing command.**
+  There is no a11y audit checklist in the repo to pass. And the families added on
+  2026-08-12 — arrange, dock, group shape, lifecycle, camera, extend-selection — all ship
+  with empty `hotkeys`, because the arrow space is fully taken and the conventional zoom
+  keys are the browser's own. Palette-reachable is reachable, but a keyboard-only session
+  that routes every verb through a dialog is not yet _practical_.
+
 - Dependencies: group-local focus needed P1, which has landed. Everything left is
   window-level and independent.
 

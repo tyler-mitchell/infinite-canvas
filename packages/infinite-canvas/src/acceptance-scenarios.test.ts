@@ -675,3 +675,96 @@ test("TAB-004 — the ends of the order are not offered, because the move would 
     false,
   );
 });
+
+// ── FOCUS-004 — building a selection without a pointer ───────────────────────────────────
+
+/**
+ * The arrange family needs two or more selected windows: six aligns, two distributes, and
+ * swap. Until 2026-08-12 a keyboard user could not produce one — `window.focusDirection`
+ * calls `focusWindow`, which *replaces* the selection with the window it focuses, and the
+ * only other selection commands were "clear" and "select all visible". Every arrange verb
+ * was listed in the palette and unusable in practice.
+ */
+
+const threeInARow = (): InfiniteCanvasState<Kind> => ({
+  ...createInfiniteCanvasState<Kind>({
+    windows: [windowAt("a", 0, 0), windowAt("b", 400, 0), windowAt("c", 800, 0)],
+  }),
+  activeWindowId: "a",
+  viewport: { height: 800, width: 1600 },
+});
+
+test("FOCUS-004 — ordinary directional focus replaces the selection, as a click does", () => {
+  // Not a defect, and worth pinning: this is what a pointer click does too, and it is why a
+  // second verb was needed rather than a change to this one.
+  const moved = executeInfiniteCanvasCommand(threeInARow(), {
+    direction: "right",
+    type: "window.focusDirection",
+  });
+
+  expect(moved.selection.windowIds).toEqual(["b"]);
+});
+
+test("FOCUS-004 — extending keeps what was selected and adds the neighbour", () => {
+  const state = threeInARow();
+
+  expect(
+    isInfiniteCanvasCommandEnabled(state, {
+      direction: "right",
+      type: "selection.extendDirection",
+    }),
+  ).toBe(true);
+
+  const extended = executeInfiniteCanvasCommand(state, {
+    direction: "right",
+    type: "selection.extendDirection",
+  });
+
+  expect([...extended.selection.windowIds].toSorted()).toEqual(["a", "b"]);
+  // Focus must actually move, or a second extend would re-target the same neighbour. The
+  // active window comes from the selection anchor, which is why the target is added before
+  // it is focused rather than after.
+  expect(extended.activeWindowId).toBe("b");
+
+  const twice = executeInfiniteCanvasCommand(extended, {
+    direction: "right",
+    type: "selection.extendDirection",
+  });
+
+  expect([...twice.selection.windowIds].toSorted()).toEqual(["a", "b", "c"]);
+  expect(twice.activeWindowId).toBe("c");
+});
+
+test("FOCUS-004 — a keyboard-built selection makes the arrange verbs usable", () => {
+  // The point of the whole thing. Two extends, then an align — the sequence that was
+  // impossible without a pointer.
+  const selected = executeInfiniteCanvasCommand(threeInARow(), {
+    direction: "right",
+    type: "selection.extendDirection",
+  });
+
+  expect(isInfiniteCanvasCommandEnabled(selected, { alignment: "top", type: "window.align" })).toBe(
+    true,
+  );
+
+  const aligned = executeInfiniteCanvasCommand(selected, {
+    alignment: "top",
+    type: "window.align",
+  });
+  const tops = aligned.windows
+    .filter((window) => ["a", "b"].includes(window.id))
+    .map((window) => window.rect.y);
+
+  expect(new Set(tops).size).toBe(1);
+});
+
+test("FOCUS-004 — extending is not offered where there is no neighbour", () => {
+  const atEdge = { ...threeInARow(), activeWindowId: "c" };
+
+  expect(
+    isInfiniteCanvasCommandEnabled(atEdge, {
+      direction: "right",
+      type: "selection.extendDirection",
+    }),
+  ).toBe(false);
+});

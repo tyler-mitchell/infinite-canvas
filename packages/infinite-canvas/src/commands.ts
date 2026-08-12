@@ -38,6 +38,7 @@ import {
   undoInfiniteCanvasHistory,
 } from "./history";
 import {
+  addSelection,
   clearSelection,
   getSelectableWindowIds,
   hasInfiniteCanvasSelection,
@@ -50,6 +51,7 @@ import {
   closeWindow,
   findWindow,
   focusWindow,
+  focusWindowPreservingSelection,
   maximizeWindow,
   minimizeWindow,
   restoreWindow,
@@ -365,6 +367,46 @@ const DEFAULT_INFINITE_CANVAS_COMMAND_DESCRIPTORS = [
     hotkeys: [],
     id: "window.undock",
     label: "Undock Window",
+  },
+  // Building a selection without a pointer. Every arrange verb — six aligns, two distributes,
+  // and swap — needs two or more selected windows, and until 2026-08-12 a keyboard user could
+  // not produce one: `window.focusDirection` calls `focusWindow`, which *replaces* the
+  // selection with the window it focuses, and the only other selection commands were "clear"
+  // and "select all visible". So the whole arrange family was reachable in the palette and
+  // unusable in practice, which is worse than absent.
+  //
+  // This is the keyboard's Ctrl+click. It targets through `getInfiniteCanvasDirectionalFocusTarget`,
+  // the same function ordinary focus uses, so extending reaches exactly the window focusing
+  // would — one notion of which window is to your left.
+  {
+    command: { direction: "left", type: "selection.extendDirection" },
+    description:
+      "Add the nearest window to the left of the active one to the selection, and focus it.",
+    hotkeys: [],
+    id: "selection.extend.left",
+    label: "Extend Selection Left",
+  },
+  {
+    command: { direction: "right", type: "selection.extendDirection" },
+    description:
+      "Add the nearest window to the right of the active one to the selection, and focus it.",
+    hotkeys: [],
+    id: "selection.extend.right",
+    label: "Extend Selection Right",
+  },
+  {
+    command: { direction: "up", type: "selection.extendDirection" },
+    description: "Add the nearest window above the active one to the selection, and focus it.",
+    hotkeys: [],
+    id: "selection.extend.up",
+    label: "Extend Selection Up",
+  },
+  {
+    command: { direction: "down", type: "selection.extendDirection" },
+    description: "Add the nearest window below the active one to the selection, and focus it.",
+    hotkeys: [],
+    id: "selection.extend.down",
+    label: "Extend Selection Down",
   },
   // Panning and zooming by keyboard. Until 2026-08-12 the camera had exactly three commands
   // — fit-all, fit-selection, reset-zoom — so a keyboard user could jump the view but could
@@ -763,6 +805,7 @@ function focusWindowInDirection<Kind extends string>(
   state: InfiniteCanvasState<Kind>,
   direction: InfiniteCanvasDirection,
   zoomPolicy: InfiniteCanvasZoomPolicy,
+  selection: "extend" | "replace",
 ): InfiniteCanvasState<Kind> {
   const targetWindowId = getInfiniteCanvasDirectionalFocusTarget(state, direction);
 
@@ -770,7 +813,14 @@ function focusWindowInDirection<Kind extends string>(
     return state;
   }
 
-  const focused = focusWindow(state, targetWindowId);
+  // Added to the selection *before* focusing, not after: `focusWindowPreservingSelection`
+  // takes the new active window from the selection's anchor, and only moves that anchor to a
+  // window already in the selection. Focusing first would raise the target and leave the
+  // active window behind on whatever it was.
+  const focused =
+    selection === "extend"
+      ? focusWindowPreservingSelection(addSelection(state, [targetWindowId]), targetWindowId)
+      : focusWindow(state, targetWindowId);
   const target = findWindow(focused, targetWindowId);
 
   if (target === null || isInfiniteCanvasWindowFullyVisible(focused, target.rect)) {
@@ -1095,6 +1145,8 @@ function isInfiniteCanvasCommandEnabled<Kind extends string>(
     // absent from this family — minimizing hands `activeWindowId` to the next visible window,
     // so a restore keyed to the active window could never be enabled. Bringing a minimized
     // window back is a "which one?" choice, and belongs to the presence surface.
+    case "selection.extendDirection":
+      return getInfiniteCanvasDirectionalFocusTarget(state, command.direction) !== null;
     case "view.pan":
       return isUsableViewport(state.viewport);
     // Offered only where it would move: at the policy's floor or ceiling a further step
@@ -1324,6 +1376,7 @@ function getInfiniteCanvasCommandGroup(command: InfiniteCanvasCommand): Infinite
     case "view.resetZoom":
       return "view";
     case "view.fitSelection":
+    case "selection.extendDirection":
       return "selection";
     case "activeWindow.close":
     case "activeWindow.minimize":
@@ -1430,7 +1483,9 @@ function executeInfiniteCanvasCommand<Kind extends string>(
     case "history.undo":
       return undoInfiniteCanvasHistory(state);
     case "window.focusDirection":
-      return focusWindowInDirection(state, command.direction, zoomPolicy);
+      return focusWindowInDirection(state, command.direction, zoomPolicy, "replace");
+    case "selection.extendDirection":
+      return focusWindowInDirection(state, command.direction, zoomPolicy, "extend");
     // The reducer's lifecycle cases detach the window from its group before acting — a pane
     // that closes or maximizes cannot keep occupying a layout slot. Calling the same helpers
     // in the same order is what keeps that true here rather than only there.

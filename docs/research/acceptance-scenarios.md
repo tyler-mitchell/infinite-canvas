@@ -160,6 +160,13 @@ hysteresis unimplemented` until 2026-07-08, long after it shipped.
   the start or end of its container's order. Clamped rather than wrapping — a pane at the
   end that jumped to the front would read as a bug, and the drag it mirrors cannot wrap —
   so the ends are simply not offered.)
+- **FOCUS-004** — Build a multi-window selection without a pointer. `covered` (2026-08-12.
+  `selection.extendDirection`. Every arrange verb needs two or more selected windows, and
+  `window.focusDirection` calls `focusWindow`, which _replaces_ the selection — so the
+  arrange family was listed in the palette and unusable in practice. Ordinary focus still
+  replaces, matching what a click does; extending is the second verb. The target joins the
+  selection before being focused, because `focusWindowPreservingSelection` takes the active
+  window from the anchor and would otherwise leave focus behind.)
 - **ACC-001** — Keyboard navigation follows accordion orientation. `covered` (2026-07-08).
   Each accordion container is one roving tab stop, and its arrows follow
   `container.axis`: a vertically stacked accordion answers Up/Down, a horizontal one
