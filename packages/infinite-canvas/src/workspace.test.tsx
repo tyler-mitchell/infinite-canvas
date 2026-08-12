@@ -431,3 +431,68 @@ test("select-all and fit-all see only the desktop you are on", () => {
 
   expect(fittedToWorkspace.camera.center.x).toBeLessThan(fittedToEverything.camera.center.x);
 });
+
+// ── Groups and workspaces compose, or neither works ──────────────────────────────────────
+
+/**
+ * A group is one world object — a shell with a rect, gutters between its panes, and a tab
+ * strip across them. Workspace membership is per *window*, so nothing structurally stopped a
+ * workspace admitting half a group, which would render a gutter between a visible pane and an
+ * absent one and a tab controlling a panel on another desktop.
+ */
+
+const dockedThenFiltered = () => {
+  const docked = executeInfiniteCanvasCommand(
+    { ...threeWindows(), activeWindowId: "a" },
+    { direction: "right", type: "window.dockDirection" },
+  );
+
+  // Only `a` is named, and `a` is docked with `b`.
+  return reduceInfiniteCanvasState(docked, {
+    type: "workspace.create",
+    windowIds: ["a"],
+    workspaceId: "research",
+  });
+};
+
+test("naming one window of a group puts the whole group on the workspace", () => {
+  const state = dockedThenFiltered();
+
+  expect([...(state.workspaces[0]?.windowIds ?? [])].toSorted()).toEqual(["a", "b"]);
+});
+
+test("a group's shell is not rendered on a desktop its windows are not on", () => {
+  // The chrome half of the same rule. Before this the layer took `state.groups` whole, so a
+  // tab strip and its gutters stood over windows the window layer had filtered out.
+  const state = dockedThenFiltered();
+  const elsewhere = reduceInfiniteCanvasState(
+    reduceInfiniteCanvasState(state, {
+      type: "workspace.create",
+      windowIds: ["c"],
+      workspaceId: "writing",
+    }),
+    { type: "workspace.activate", workspaceId: "writing" },
+  );
+  const markup = renderToStaticMarkup(
+    <InfiniteCanvasProvider initialState={elsewhere}>
+      <InfiniteCanvasViewport<Kind> windowDefinitions={registry} />
+    </InfiniteCanvasProvider>,
+  );
+
+  expect(markup).toContain("<p>c</p>");
+  expect(markup).not.toContain('data-slot="group-gutter"');
+
+  // And it *is* rendered on the desktop they are on, so the assertion above is not passing
+  // because the group never renders at all.
+  const here = reduceInfiniteCanvasState(elsewhere, {
+    type: "workspace.activate",
+    workspaceId: "research",
+  });
+  const onIts = renderToStaticMarkup(
+    <InfiniteCanvasProvider initialState={here}>
+      <InfiniteCanvasViewport<Kind> windowDefinitions={registry} />
+    </InfiniteCanvasProvider>,
+  );
+
+  expect(onIts).toContain('data-slot="group-gutter"');
+});

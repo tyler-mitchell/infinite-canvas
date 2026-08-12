@@ -106,6 +106,16 @@ hysteresis unimplemented` until 2026-07-08, long after it shipped.
   `closeInfiniteCanvasGroup` behaving as it always has, now exposed; giving dissolve a
   fan-out is a separate decision about shared semantics and has not been taken.)
 
+- **DOCK-008** — A group belongs to a workspace as a unit. `covered` (2026-08-12. Workspace
+  membership is per _window_ and a group is one world object — a shell with a rect, gutters
+  between its panes, a tab strip across them — so nothing structurally stopped a workspace
+  admitting half of one, which would render a gutter between a visible pane and an absent one
+  and a tab controlling a panel on another desktop. Naming any member now names them all,
+  expanded in `normalizeInfiniteCanvasWorkspaceWindowIds`; expansion rather than rejection for
+  the reason `createInfiniteCanvasGroup` drops rather than steals — the gesture was "put this
+  on that desktop" and the honest reading includes what the window is docked into. The group
+  layer filters to match, having previously taken `state.groups` whole.)
+
 ## Split behavior — built, asserted 2026-08-12 (except SPLIT-004)
 
 - **SPLIT-001** — Resizing a child changes weights/partitions; DOM widths are never

@@ -18,7 +18,12 @@ import {
   type InfiniteCanvasGroupAccordionHeader,
   type InfiniteCanvasGroupMetrics,
 } from "./group-layout";
-import { findInfiniteCanvasGroupNode, isInfiniteCanvasGroupContainer } from "./group-tree";
+import {
+  findInfiniteCanvasGroupNode,
+  getInfiniteCanvasGroupWindowIds,
+  isInfiniteCanvasGroupContainer,
+} from "./group-tree";
+import { getInfiniteCanvasWorkspaceWindowIds } from "./workspace-membership";
 import { capturePointer, isPrimaryButton, releasePointer } from "./runtime";
 import { useInfiniteCanvasActions, useInfiniteCanvasSelector } from "./store";
 import { getNextInfiniteCanvasRovingIndex } from "./window-focus";
@@ -750,7 +755,20 @@ function InfiniteCanvasGroupLayer({
 }>) {
   const camera = useInfiniteCanvasSelector((state) => state.camera);
   const viewport = useInfiniteCanvasSelector((state) => state.viewport);
-  const groups = useInfiniteCanvasSelector((state) => state.groups);
+  const allGroups = useInfiniteCanvasSelector((state) => state.groups);
+  // A group shell is chrome for its members, so it belongs on the desktops they are on.
+  // Rendering every group regardless would leave tab strips and gutters standing over
+  // windows the active workspace filtered out. Membership is group-complete, so asking about
+  // any one member answers for the shell.
+  const admittedWindowIds = useInfiniteCanvasSelector(getInfiniteCanvasWorkspaceWindowIds);
+  const groups =
+    admittedWindowIds === null
+      ? allGroups
+      : allGroups.filter((group) =>
+          getInfiniteCanvasGroupWindowIds(group.tree).some((windowId) =>
+            admittedWindowIds.has(windowId),
+          ),
+        );
 
   if (groups.length === 0) {
     return null;

@@ -1,3 +1,5 @@
+import { getInfiniteCanvasWindowGroup } from "./group-state";
+import { getInfiniteCanvasGroupWindowIds } from "./group-tree";
 import { getSelectableWindowIds, normalizeSelection } from "./selection";
 import {
   getInfiniteCanvasWorkspaceWindowIds,
@@ -228,14 +230,33 @@ function setInfiniteCanvasWorkspaceWindows<Kind extends string>(
   };
 }
 
-/** Membership is a set of ids that exist: deduplicated, and never naming a closed window. */
+/**
+ * Membership is a set of ids that exist — deduplicated, never naming a closed window — and
+ * **group-complete**.
+ *
+ * A group is one world object: a shell with a rect, gutters between its panes, and a tab
+ * strip across them. Letting a workspace admit half of one would render a gutter between a
+ * visible pane and an absent one, and a tab controlling a panel on another desktop. So naming
+ * any member names them all, which is the same reasoning that makes the group the source of
+ * truth and a member's rect its projection.
+ *
+ * This is an expansion rather than a rejection for the same reason `createInfiniteCanvasGroup`
+ * drops rather than steals: the user's gesture was "put this on that desktop", and the honest
+ * reading of it includes the thing the window is docked into.
+ */
 function normalizeInfiniteCanvasWorkspaceWindowIds<Kind extends string>(
   state: InfiniteCanvasState<Kind>,
   windowIds: readonly string[],
 ): readonly string[] {
   const live = new Set(state.windows.map((window) => window.id));
+  const named = [...new Set(windowIds)].filter((windowId) => live.has(windowId));
+  const withGroups = named.flatMap((windowId) => {
+    const group = getInfiniteCanvasWindowGroup(state, windowId);
 
-  return [...new Set(windowIds)].filter((windowId) => live.has(windowId));
+    return group === null ? [windowId] : getInfiniteCanvasGroupWindowIds(group.tree);
+  });
+
+  return [...new Set(withGroups)].filter((windowId) => live.has(windowId));
 }
 
 /**
