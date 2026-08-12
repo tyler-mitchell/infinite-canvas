@@ -19,6 +19,7 @@ import { Route as NormalRouteImport } from './routes/normal'
 import { Route as GroupsRouteImport } from './routes/groups'
 import { Route as DropTrayRouteImport } from './routes/drop-tray'
 import { Route as CustomFramesRouteImport } from './routes/custom-frames'
+import { Route as BodyContentRouteImport } from './routes/body-content'
 import { Route as IndexRouteImport } from './routes/index'
 
 const WorkflowBoardRoute = WorkflowBoardRouteImport.update({
@@ -71,6 +72,11 @@ const CustomFramesRoute = CustomFramesRouteImport.update({
   path: '/custom-frames',
   getParentRoute: () => rootRouteImport,
 } as any)
+const BodyContentRoute = BodyContentRouteImport.update({
+  id: '/body-content',
+  path: '/body-content',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
@@ -79,6 +85,7 @@ const IndexRoute = IndexRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/body-content': typeof BodyContentRoute
   '/custom-frames': typeof CustomFramesRoute
   '/drop-tray': typeof DropTrayRoute
   '/groups': typeof GroupsRoute
@@ -92,6 +99,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/body-content': typeof BodyContentRoute
   '/custom-frames': typeof CustomFramesRoute
   '/drop-tray': typeof DropTrayRoute
   '/groups': typeof GroupsRoute
@@ -106,6 +114,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/body-content': typeof BodyContentRoute
   '/custom-frames': typeof CustomFramesRoute
   '/drop-tray': typeof DropTrayRoute
   '/groups': typeof GroupsRoute
@@ -121,6 +130,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/body-content'
     | '/custom-frames'
     | '/drop-tray'
     | '/groups'
@@ -134,6 +144,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/body-content'
     | '/custom-frames'
     | '/drop-tray'
     | '/groups'
@@ -147,6 +158,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/body-content'
     | '/custom-frames'
     | '/drop-tray'
     | '/groups'
@@ -161,6 +173,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  BodyContentRoute: typeof BodyContentRoute
   CustomFramesRoute: typeof CustomFramesRoute
   DropTrayRoute: typeof DropTrayRoute
   GroupsRoute: typeof GroupsRoute
@@ -245,6 +258,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CustomFramesRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/body-content': {
+      id: '/body-content'
+      path: '/body-content'
+      fullPath: '/body-content'
+      preLoaderRoute: typeof BodyContentRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -257,6 +277,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  BodyContentRoute: BodyContentRoute,
   CustomFramesRoute: CustomFramesRoute,
   DropTrayRoute: DropTrayRoute,
   GroupsRoute: GroupsRoute,
