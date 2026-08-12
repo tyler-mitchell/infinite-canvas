@@ -271,12 +271,33 @@ three hops away, reported with the full trail. Both negative-tested, along with 
 type-only false-positive case and a stale root entry. The API-doc gate has since caught
 undocumented exports **three times**, within six commits of being written.
 
-**C2 — P1 scenario tests (~2h, no browser). NOT DONE — forbidden this session, but now
-specified to the assertion.** P1's exit criteria say "scenario tests green". The gestures work;
-the tests do not exist. DOCK-001..005, SPLIT-001..004, TAB-001/002, ACC-001, FAIL-001, and the
-PERSIST/recipe path are pure reducer-level assertions — no DOM, because the group core is pure.
-**This is the single largest gap in the project.** Exit: those scenario ids assert against the
-reducer and pass.
+**C2 — P1 scenario tests. ✅ DONE (2026-08-12).** Called "the single largest gap in the project"
+for a month. **All seventeen scenario ids now assert**: DOCK-001..005, SPLIT-001..003,
+TAB-001/002, ACC-001, FAIL-001, FOCUS-001..003, PERSIST-001/003. 237 tests across 27 files, up
+from 165 across 22 when this entry was written.
+
+Landed across three files by what each scenario turns on: `group-tree.test.ts` for the structural
+claims (the tree is pure, so the primitive surface is tightest), `history.test.ts` for the
+transaction claims, and `acceptance-scenarios.test.ts` for everything that only exists once a
+_state_ does — a shell moving as one object, a seam reweighting, a zoom mid-drag, a cluster
+surviving storage.
+
+**ACC-001 required moving code, not just asserting it.** `getNextRovingIndex` was private to
+`group-layer.tsx`, so the accordion's axis rule was unreachable from a test — which is exactly why
+it stayed unasserted while every other roving-focus claim was checked. It is pure keyboard geometry
+and holds no React, so it now lives in `window-focus.ts` as `getNextInfiniteCanvasRovingIndex`,
+beside the directional-focus rule whose diagonal-drift refusal it implements. Internal, not
+exported from the barrel.
+
+**FAIL-001 caught its own author.** The first draft asserted the doc's +150 and got +100 — and the
+code was right. The doc's arithmetic assumes a **pointer-anchored** zoom (`camera.zoomAt`, which
+holds the world point under the cursor fixed and makes the two drag legs additive); setting `zoom`
+directly while leaving `center` alone teleports the world under the cursor and yields a different
+number for an uninteresting reason. The test now drives the real zoom path, and carries a second
+assertion of the invariant itself — the grabbed world point stays pinned to the cursor across an
+arbitrary zoom — so it survives any future change to the numbers.
+
+Exit: **met.**
 
 **Writing the tests was out of scope this session; specifying them was not.** The 2026-07-09
 reading-audit of the whole group/history/recipe core established which invariant each scenario

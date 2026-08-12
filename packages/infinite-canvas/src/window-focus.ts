@@ -1,6 +1,7 @@
 import { getRectCenter, getVisibleWorldRect, rectContainsPoint } from "./geometry";
 import { getInfiniteCanvasGroupProjection, getInfiniteCanvasWindowGroup } from "./group-state";
 import { getInfiniteCanvasGroupWindowIds } from "./group-tree";
+import type { InfiniteCanvasGroupAxis } from "./group-tree";
 import { isSelectableWindow } from "./selection";
 import type {
   InfiniteCanvasDirection,
@@ -291,11 +292,50 @@ function isInfiniteCanvasWindowFullyVisible<Kind extends string>(
   );
 }
 
+/**
+ * Which sibling an Arrow / Home / End keypress moves focus to, or `null` to ignore the key.
+ *
+ * Arrows follow the axis the controls are laid out along. A tab strip is always horizontal, but
+ * an accordion stacks its headers along its container's `axis` (ACC-001), and pressing Down to
+ * walk a row of side-by-side headers is exactly the diagonal drift the directional focus rule
+ * above refuses everywhere else. Home and End are axis-independent.
+ *
+ * It lives here rather than in `group-layer.tsx`, where it was written, because it is keyboard
+ * geometry and holds no React: a `.tsx` render module was the wrong owner, and being unreachable
+ * from a test is how ACC-001 stayed unasserted while every other roving-focus claim was checked.
+ * Internal — the group layer is the only caller, and a consumer rebuilding a tab strip is
+ * rebuilding the whole roving contract, not one index calculation.
+ */
+function getNextInfiniteCanvasRovingIndex(
+  key: string,
+  index: number,
+  count: number,
+  axis: InfiniteCanvasGroupAxis,
+): number | null {
+  const previousKey = axis === "horizontal" ? "ArrowLeft" : "ArrowUp";
+  const nextKey = axis === "horizontal" ? "ArrowRight" : "ArrowDown";
+
+  if (key === previousKey) {
+    return (index - 1 + count) % count;
+  }
+
+  if (key === nextKey) {
+    return (index + 1) % count;
+  }
+
+  if (key === "Home") {
+    return 0;
+  }
+
+  return key === "End" ? count - 1 : null;
+}
+
 export {
   INFINITE_CANVAS_DIRECTION_VECTORS,
   getInfiniteCanvasContextualGroup,
   getInfiniteCanvasDirectionalFocusTarget,
   getInfiniteCanvasWindowNearestCameraCenter,
+  getNextInfiniteCanvasRovingIndex,
   isInfiniteCanvasWindowFullyVisible,
 };
 export type { InfiniteCanvasFocusCandidate };

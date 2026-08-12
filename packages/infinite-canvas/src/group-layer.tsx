@@ -18,13 +18,10 @@ import {
   type InfiniteCanvasGroupAccordionHeader,
   type InfiniteCanvasGroupMetrics,
 } from "./group-layout";
-import {
-  findInfiniteCanvasGroupNode,
-  isInfiniteCanvasGroupContainer,
-  type InfiniteCanvasGroupAxis,
-} from "./group-tree";
+import { findInfiniteCanvasGroupNode, isInfiniteCanvasGroupContainer } from "./group-tree";
 import { capturePointer, isPrimaryButton, releasePointer } from "./runtime";
 import { useInfiniteCanvasActions, useInfiniteCanvasSelector } from "./store";
+import { getNextInfiniteCanvasRovingIndex } from "./window-focus";
 import type {
   InfiniteCanvasCamera,
   InfiniteCanvasCommands,
@@ -532,7 +529,9 @@ function InfiniteCanvasGroupAccordionHeaders({
       onKeyDown={(event) => {
         const index = childIds.indexOf(tabStopChildId ?? "");
         const nextIndex =
-          index === -1 ? null : getNextRovingIndex(event.key, index, childIds.length, axis);
+          index === -1
+            ? null
+            : getNextInfiniteCanvasRovingIndex(event.key, index, childIds.length, axis);
 
         if (nextIndex === null) {
           return;
@@ -578,38 +577,6 @@ function InfiniteCanvasGroupAccordionHeaders({
       ))}
     </div>
   );
-}
-
-/**
- * Which sibling an Arrow / Home / End keypress moves focus to, or `null` to ignore the key.
- *
- * Arrows follow the axis the controls are laid out along. A tab strip is always horizontal,
- * but an accordion stacks its headers along its container's `axis` (ACC-001), and pressing
- * Down to walk a row of side-by-side headers is exactly the diagonal drift the directional
- * focus rule refuses elsewhere. Home and End are axis-independent.
- */
-function getNextRovingIndex(
-  key: string,
-  index: number,
-  count: number,
-  axis: InfiniteCanvasGroupAxis,
-): number | null {
-  const previousKey = axis === "horizontal" ? "ArrowLeft" : "ArrowUp";
-  const nextKey = axis === "horizontal" ? "ArrowRight" : "ArrowDown";
-
-  if (key === previousKey) {
-    return (index - 1 + count) % count;
-  }
-
-  if (key === nextKey) {
-    return (index + 1) % count;
-  }
-
-  if (key === "Home") {
-    return 0;
-  }
-
-  return key === "End" ? count - 1 : null;
 }
 
 /** Focus a roving sibling without scrolling ancestors to reveal it. */
@@ -669,7 +636,9 @@ function InfiniteCanvasGroupTabStrip({
         const index = childIds.indexOf(tabStopChildId);
         // A tab strip always lays out horizontally, whatever its container's axis.
         const nextIndex =
-          index === -1 ? null : getNextRovingIndex(event.key, index, childIds.length, "horizontal");
+          index === -1
+            ? null
+            : getNextInfiniteCanvasRovingIndex(event.key, index, childIds.length, "horizontal");
 
         if (nextIndex === null) {
           return;

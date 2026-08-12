@@ -45,15 +45,25 @@ at 100% zoom"_ — the question the product asks. **Every feature on this slate 
 verified against real registries at real zoom levels before it is called done**, and M2 makes
 that structural rather than a habit.
 
-### M1 — Close C2: the six missing scenarios (~2h)
+### M1 — Close C2: the six missing scenarios. ✅ DONE (2026-08-12)
 
-DOCK-003, SPLIT-001, ACC-001, FAIL-001, PERSIST-001, and the FOCUS family. Nine of fifteen assert
-today (`DOCK-001/002/004/005`, `SPLIT-002/003`, `TAB-001/002`, `PERSIST-003`).
+DOCK-003, SPLIT-001, ACC-001, FAIL-001, PERSIST-001, and the FOCUS family, on top of the nine that
+already asserted. **All seventeen scenario ids now pass** — 237 tests across 27 files.
 
-**This is the last thing standing between the framework and an honest production claim**, which
-is why a test track leads a slate the owner asked to be feature-heavy.
+**This was the last thing standing between the framework and an honest production claim**, which
+is why a test track led a slate the owner asked to be feature-heavy. With it closed, the only
+remaining production item is P2's measurement, which needs real hardware and is not required for a
+0.2.0 that documents its own limits.
 
-Exit: all fifteen scenario ids assert against the reducer and pass.
+Two things it cost that a test track is not supposed to cost, both worth keeping:
+`getNextRovingIndex` had to **move out of `group-layer.tsx`** into `window-focus.ts` before ACC-001
+could be asserted at all — pure keyboard geometry has no business in a render module, and being
+unreachable is why that scenario stayed unchecked. And FAIL-001's first draft asserted the doc's
+number against correct code, because the doc's arithmetic assumes a pointer-anchored zoom; the
+test now drives `camera.zoomAt` and additionally asserts the underlying invariant rather than the
+arithmetic.
+
+Exit: **met.**
 
 ### M2 — Product-shaped verification (~2.5h)
 
