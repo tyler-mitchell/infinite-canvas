@@ -10,15 +10,18 @@ import {
   parseInfiniteCanvasGroup,
   parseInfiniteCanvasSelection,
   parseInfiniteCanvasWindow,
+  parseInfiniteCanvasWorkspace,
 } from "./validation";
 import { getUniqueInfiniteCanvasWindows } from "./window-identity";
 
 type InfiniteCanvasPersistenceEnvelope = Readonly<{
   activeWindowId: string | null;
+  activeWorkspaceId: string | null;
   camera: unknown;
   groups: readonly unknown[];
   selection: unknown;
   windows: readonly unknown[];
+  workspaces: readonly unknown[];
 }>;
 
 type InfiniteCanvasStorageKeyInput = Readonly<{
@@ -54,11 +57,13 @@ function serializeInfiniteCanvasState<Kind extends string>(
 ): InfiniteCanvasSerializedState<Kind> {
   return {
     activeWindowId: state.activeWindowId,
+    activeWorkspaceId: state.activeWorkspaceId,
     camera: state.camera,
     groups: state.groups,
     selection: state.selection,
-    version: 2,
+    version: 3,
     windows: state.windows,
+    workspaces: state.workspaces,
   };
 }
 
@@ -73,10 +78,11 @@ function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
 function readInfiniteCanvasPersistenceEnvelope(
   value: unknown,
 ): InfiniteCanvasPersistenceEnvelope | null {
-  // `version: 1` predates groups; it migrates to none rather than being rejected.
+  // `version: 1` predates groups and `2` predates workspaces; both migrate to none rather
+  // than being rejected.
   if (
     !isRecord(value) ||
-    (value.version !== 1 && value.version !== 2) ||
+    (value.version !== 1 && value.version !== 2 && value.version !== 3) ||
     !Array.isArray(value.windows)
   ) {
     return null;
@@ -85,9 +91,11 @@ function readInfiniteCanvasPersistenceEnvelope(
   return {
     activeWindowId: typeof value.activeWindowId === "string" ? value.activeWindowId : null,
     camera: value.camera,
+    activeWorkspaceId: typeof value.activeWorkspaceId === "string" ? value.activeWorkspaceId : null,
     groups: Array.isArray(value.groups) ? value.groups : [],
     selection: value.selection,
     windows: value.windows,
+    workspaces: Array.isArray(value.workspaces) ? value.workspaces : [],
   };
 }
 
@@ -143,11 +151,27 @@ function parseInfiniteCanvasState<Kind extends string>(
   const groups = envelope.groups
     .map((group) => parseInfiniteCanvasGroup(group))
     .filter((group): group is InfiniteCanvasGroup => group !== null);
+  // Same bargain as a group: a malformed workspace is dropped rather than fatal, because it
+  // can only cost the user a membership filter while rejecting the payload costs them every
+  // window on the canvas. A workspace naming a window that did not survive keeps that name
+  // out — the filter must not admit a ghost.
+  const liveWindowIds = new Set(windows.map((window) => window.id));
+  const workspaces = envelope.workspaces
+    .map((workspace) => parseInfiniteCanvasWorkspace(workspace))
+    .filter((workspace) => workspace !== null)
+    .map((workspace) => ({
+      ...workspace,
+      windowIds: workspace.windowIds.filter((windowId) => liveWindowIds.has(windowId)),
+    }));
   const unnormalizedState = {
     ...baseState,
     activeWindowId,
+    activeWorkspaceId: workspaces.some((workspace) => workspace.id === envelope.activeWorkspaceId)
+      ? envelope.activeWorkspaceId
+      : null,
     camera: parseInfiniteCanvasCamera(envelope.camera) ?? baseState.camera,
     groups,
+    workspaces,
     interaction: null,
     selection: initialSelection,
     snapPreview: null,

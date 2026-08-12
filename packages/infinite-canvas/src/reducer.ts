@@ -3,6 +3,13 @@ import { navigateCamera } from "./camera-navigation";
 import { findInfiniteCanvasGroupNode, isInfiniteCanvasGroupContainer } from "./group-tree";
 import { applyInfiniteCanvasRecipe } from "./recipes";
 import {
+  activateInfiniteCanvasWorkspace,
+  closeInfiniteCanvasWorkspace,
+  createInfiniteCanvasWorkspace,
+  detachInfiniteCanvasWindowFromWorkspaces,
+  setInfiniteCanvasWorkspaceWindows,
+} from "./workspace";
+import {
   EMPTY_INFINITE_CANVAS_HISTORY,
   getInfiniteCanvasDocument,
   isInfiniteCanvasHistoryCheckpoint,
@@ -241,6 +248,14 @@ function applyInfiniteCanvasAction<Kind extends string>(
         ...state,
         viewport: action.viewport,
       };
+    case "workspace.create":
+      return createInfiniteCanvasWorkspace(state, action);
+    case "workspace.close":
+      return closeInfiniteCanvasWorkspace(state, action.workspaceId);
+    case "workspace.activate":
+      return activateInfiniteCanvasWorkspace(state, action.workspaceId);
+    case "workspace.setWindows":
+      return setInfiniteCanvasWorkspaceWindows(state, action);
     case "group.close":
       return closeInfiniteCanvasGroup(state, action.groupId);
     case "group.create":
@@ -268,8 +283,8 @@ function applyInfiniteCanvasAction<Kind extends string>(
     // A window that is gone, or collapsed into the dock, cannot keep occupying a
     // layout slot. Detaching after the fact keeps `stacking` group-blind.
     case "window.close":
-      return detachInfiniteCanvasWindowFromGroups(
-        closeWindow(state, action.windowId),
+      return detachInfiniteCanvasWindowFromWorkspaces(
+        detachInfiniteCanvasWindowFromGroups(closeWindow(state, action.windowId), action.windowId),
         action.windowId,
       );
     case "window.focus":

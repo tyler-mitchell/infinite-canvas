@@ -68,7 +68,8 @@
     "window-focus",
     "window-placement",
     "window-presence",
-    "window-proxy"
+    "window-proxy",
+    "workspace"
   ],
   "experimental": {
     "canvas-handle": "unobserved \u2014 a debug and automation seam, not a consumer API. Its shape follows whatever drives it.",

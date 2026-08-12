@@ -123,6 +123,29 @@ shape; resize handles are withheld entirely, because an invisible hit target has
 useful disabled state. A capability set to `true` is not serialized, since it means
 the same as absent and two canvases that behave alike should serialize alike.
 
+**`workspace`**
+
+Virtual desktops: a named set of windows with the camera and selection you left it at.
+Deliberately _not_ nested canvases — a canvas inside a canvas needs a second camera and a
+second input plane, which is a different program. Opt-in like groups: with no workspace
+active, nothing is filtered and a canvas behaves exactly as it did before they existed.
+
+Switching saves the outgoing workspace's camera and selection and restores the incoming
+one's, which is why `activeWorkspaceId` and `workspaces` are part of the undo document while
+the camera is not — panning is not an edit, but changing which desktop you are on is.
+
+- `findInfiniteCanvasWorkspace` — one workspace by id, or `null`.
+- `getInfiniteCanvasWorkspaceWindowIds` — the ids the active workspace admits, or `null`
+  when none is active, which means "admits everything".
+- `isInfiniteCanvasWindowInActiveWorkspace` — the predicate form, for callers that would
+  otherwise build a set to ask about one window.
+
+<details><summary>types (1)</summary>
+
+- `InfiniteCanvasWorkspace` — `camera`, `id`, `selection`, `title`, `windowIds`.
+
+</details>
+
 **`window-capabilities`**
 
 - `isInfiniteCanvasWindowCapable` — the one reader of a window's capabilities, owning the

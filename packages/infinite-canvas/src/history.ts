@@ -41,7 +41,12 @@ const EMPTY_INFINITE_CANVAS_HISTORY: InfiniteCanvasHistory<never> = {
 function getInfiniteCanvasDocument<Kind extends string>(
   state: InfiniteCanvasState<Kind>,
 ): InfiniteCanvasDocument<Kind> {
-  return { groups: state.groups, windows: state.windows };
+  return {
+    activeWorkspaceId: state.activeWorkspaceId,
+    groups: state.groups,
+    windows: state.windows,
+    workspaces: state.workspaces,
+  };
 }
 
 /**
@@ -53,7 +58,12 @@ function isSameInfiniteCanvasDocument<Kind extends string>(
   left: InfiniteCanvasDocument<Kind>,
   right: InfiniteCanvasDocument<Kind>,
 ): boolean {
-  return left.windows === right.windows && left.groups === right.groups;
+  return (
+    left.windows === right.windows &&
+    left.groups === right.groups &&
+    left.workspaces === right.workspaces &&
+    left.activeWorkspaceId === right.activeWorkspaceId
+  );
 }
 
 /** Oldest entries fall off the back; an unbounded stack is a memory leak with a nice name. */
@@ -82,7 +92,9 @@ function applyInfiniteCanvasDocument<Kind extends string>(
 ): InfiniteCanvasState<Kind> {
   const restored = {
     ...state,
+    activeWorkspaceId: document.activeWorkspaceId,
     groups: document.groups,
+    workspaces: document.workspaces,
     history,
     // An interaction cannot survive the document it was manipulating.
     interaction: null,

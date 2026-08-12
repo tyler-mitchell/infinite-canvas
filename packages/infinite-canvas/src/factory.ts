@@ -14,6 +14,7 @@ import type {
   InfiniteCanvasWindow,
   InfiniteCanvasWindowDefinition,
   InfiniteCanvasWindowCapabilities,
+  InfiniteCanvasWorkspace,
   InfiniteCanvasWindowMode,
   InfiniteCanvasWindowRegistry,
   InfiniteCanvasWindowRegistryInput,
@@ -34,6 +35,7 @@ type InfiniteCanvasWindowInput<Kind extends string, Data = unknown> = Readonly<{
 }>;
 
 type InfiniteCanvasStateInput<Kind extends string> = Readonly<{
+  workspaces?: readonly InfiniteCanvasWorkspace[];
   activeWindowId?: string | null;
   camera?: InfiniteCanvasCamera;
   groups?: readonly InfiniteCanvasGroup[];
@@ -145,6 +147,7 @@ function createInfiniteCanvasState<Kind extends string>({
   selection,
   viewport = DEFAULT_INFINITE_CANVAS_VIEWPORT,
   windows,
+  workspaces = [],
 }: InfiniteCanvasStateInput<Kind>): InfiniteCanvasState<Kind> {
   const uniqueWindows = getUniqueInfiniteCanvasWindows(windows);
   const windowIds = uniqueWindows.map((window) => window.id);
@@ -154,6 +157,10 @@ function createInfiniteCanvasState<Kind extends string>({
       : getFirstSelectableWindowId(uniqueWindows);
   const unnormalizedState = {
     activeWindowId: resolvedActiveWindowId,
+    // Opt-in, exactly as `groups` is: no workspace means no membership filter, and a canvas
+    // that never creates one behaves as it did before they existed.
+    activeWorkspaceId: null,
+    workspaces,
     camera: {
       center: {
         x: camera.center.x,

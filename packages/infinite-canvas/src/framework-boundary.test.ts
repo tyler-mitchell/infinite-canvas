@@ -362,7 +362,9 @@ test("registry normalization drops stale persisted window kinds", () => {
       },
       zoom: 1,
     },
+    activeWorkspaceId: null,
     groups: [],
+    workspaces: [],
     history: { future: [], past: [] },
     interaction: null,
     selection: {

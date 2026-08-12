@@ -21,7 +21,9 @@ const commandState: InfiniteCanvasState<CommandTestWindowKind> = {
     },
     zoom: 1,
   },
+  activeWorkspaceId: null,
   groups: [],
+  workspaces: [],
   history: { future: [], past: [] },
   interaction: null,
   selection: {

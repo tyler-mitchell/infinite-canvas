@@ -21,6 +21,7 @@ import {
   InfiniteCanvasSnapOverlay,
 } from "./canvas-overlays";
 import { getInfiniteCanvasWindowFrameElementId, INFINITE_CANVAS_SLOTS } from "./data-attributes";
+import { getInfiniteCanvasWorkspaceWindowIds } from "./workspace";
 import { focusInfiniteCanvasContent } from "./focus-trap";
 import {
   DEFAULT_INFINITE_CANVAS_CHROME,
@@ -1267,6 +1268,10 @@ function InfiniteCanvasWindowLayer<Kind extends string>({
     () => getInfiniteCanvasGroupProjection(state.groups),
     [state.groups],
   );
+  const admittedWindowIds = useMemo(
+    () => getInfiniteCanvasWorkspaceWindowIds(state),
+    [state.activeWorkspaceId, state.workspaces],
+  );
   // Keep DOM order stable during focus changes; z-index owns visual stacking.
   const visibleWindows = useMemo(
     () =>
@@ -1274,9 +1279,12 @@ function InfiniteCanvasWindowLayer<Kind extends string>({
         (window): window is InfiniteCanvasWindow<Kind> =>
           window.mode !== "minimized" &&
           !hiddenWindowIds.has(window.id) &&
+          // A workspace is a membership filter and nothing more. `null` admits everything,
+          // so a canvas that never creates one renders exactly what it did before.
+          (admittedWindowIds === null || admittedWindowIds.has(window.id)) &&
           isRegisteredInfiniteCanvasWindow(windowDefinitions, window),
       ),
-    [hiddenWindowIds, state.windows, windowDefinitions],
+    [admittedWindowIds, hiddenWindowIds, state.windows, windowDefinitions],
   );
 
   return (

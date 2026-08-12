@@ -15,7 +15,9 @@ const baseState: InfiniteCanvasState<TestWindowKind> = {
     },
     zoom: 2,
   },
+  activeWorkspaceId: null,
   groups: [],
+  workspaces: [],
   history: { future: [], past: [] },
   interaction: null,
   selection: {

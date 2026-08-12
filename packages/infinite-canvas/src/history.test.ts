@@ -52,11 +52,21 @@ const commitEdit = (state: InfiniteCanvasState<Kind>, next: InfiniteCanvasState<
 
 // ── The document is windows + groups, and nothing else ────────────────────────────────────
 
-test("the document is the windows and groups, not the view", () => {
+test("the document is what was arranged, not how it is being looked at", () => {
+  // Windows, groups, and — since 2026-08-12 — workspaces. A workspace is part of the layout:
+  // which windows belong to which named set is an edit, and switching between them writes the
+  // outgoing set's camera and selection, which is why the exit criterion asks for it to be
+  // one undo entry. Camera, viewport, interaction and snap preview stay out: panning is not
+  // an edit and undo must never scroll the canvas out from under someone.
   const state = baseState();
   const document = getInfiniteCanvasDocument(state);
 
-  expect(Object.keys(document).toSorted()).toStrictEqual(["groups", "windows"]);
+  expect(Object.keys(document).toSorted()).toStrictEqual([
+    "activeWorkspaceId",
+    "groups",
+    "windows",
+    "workspaces",
+  ]);
 });
 
 test("undo restores the document and leaves the camera alone", () => {

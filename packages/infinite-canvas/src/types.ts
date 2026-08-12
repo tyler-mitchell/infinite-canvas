@@ -287,8 +287,31 @@ type InfiniteCanvasGroup = Readonly<{
 
 /** The undoable half of the canvas: what exists, not where you are looking. */
 type InfiniteCanvasDocument<Kind extends string = string> = Readonly<{
+  /**
+   * Which workspace is showing is part of the document, unlike which window is focused.
+   * Switching is an edit: it writes the outgoing workspace's camera and selection, and the
+   * roadmap's exit for M5 asks that a switch be one undo entry.
+   */
+  activeWorkspaceId: string | null;
   groups: readonly InfiniteCanvasGroup[];
   windows: readonly InfiniteCanvasWindow<Kind>[];
+  workspaces: readonly InfiniteCanvasWorkspace[];
+}>;
+
+/**
+ * A named set of windows, with the camera and selection you left it at — virtual desktops
+ * rather than nested canvases, which would need a second camera and a second input plane.
+ *
+ * `camera` and `selection` are a snapshot taken when the workspace is switched *away* from.
+ * While it is active they are stale by design: writing through on every pan would make each
+ * frame a workspace mutation, and workspace mutations are undo checkpoints.
+ */
+type InfiniteCanvasWorkspace = Readonly<{
+  camera: InfiniteCanvasCamera;
+  id: string;
+  selection: InfiniteCanvasSelection;
+  title: string;
+  windowIds: readonly string[];
 }>;
 
 type InfiniteCanvasHistory<Kind extends string = string> = Readonly<{
@@ -334,6 +357,8 @@ type InfiniteCanvasRecipePlacement =
 
 type InfiniteCanvasState<Kind extends string = string> = Readonly<{
   activeWindowId: string | null;
+  /** `null` means no filtering: every window is on the canvas, as before workspaces existed. */
+  activeWorkspaceId: string | null;
   camera: InfiniteCanvasCamera;
   groups: readonly InfiniteCanvasGroup[];
   /** Session-scoped and never serialized: a layout is a document, not its edit log. */
@@ -343,6 +368,7 @@ type InfiniteCanvasState<Kind extends string = string> = Readonly<{
   snapPreview: InfiniteCanvasSnapPreview | null;
   viewport: InfiniteCanvasViewport;
   windows: readonly InfiniteCanvasWindow<Kind>[];
+  workspaces: readonly InfiniteCanvasWorkspace[];
 }>;
 
 /**
@@ -355,10 +381,18 @@ type InfiniteCanvasState<Kind extends string = string> = Readonly<{
 type InfiniteCanvasSerializedState<Kind extends string = string> = Readonly<{
   activeWindowId: string | null;
   camera: InfiniteCanvasCamera;
+  activeWorkspaceId?: string | null;
   groups: readonly InfiniteCanvasGroup[];
   selection?: InfiniteCanvasSelection;
-  version: 2;
+  /**
+   * `3` added workspaces; `1` and `2` are still read and migrate to none. Bumping rather
+   * than making the field optional on `2` is the same choice `groups` made: an optional
+   * field looks backward-compatible right up until an older build reads a payload it cannot
+   * represent and silently drops half of it.
+   */
+  version: 3;
   windows: readonly InfiniteCanvasWindow<Kind>[];
+  workspaces?: readonly InfiniteCanvasWorkspace[];
 }>;
 
 type InfiniteCanvasChromeMetrics = Readonly<{
@@ -1061,6 +1095,19 @@ type InfiniteCanvasAction<Kind extends string = string> =
       type: "group.create";
       windowIds: readonly string[];
     }>
+  | Readonly<{
+      title?: string;
+      type: "workspace.create";
+      windowIds?: readonly string[];
+      workspaceId: string;
+    }>
+  | Readonly<{ type: "workspace.close"; workspaceId: string }>
+  | Readonly<{ type: "workspace.activate"; workspaceId: string | null }>
+  | Readonly<{
+      type: "workspace.setWindows";
+      windowIds: readonly string[];
+      workspaceId: string;
+    }>
   | Readonly<{ groupId: string; type: "group.close" }>
   | Readonly<{ groupId: string; rect: InfiniteCanvasRect; type: "group.setRect" }>
   | Readonly<{
@@ -1446,6 +1493,7 @@ export type {
   InfiniteCanvasWindowCapabilities,
   InfiniteCanvasWindowCapability,
   InfiniteCanvasWindowMode,
+  InfiniteCanvasWorkspace,
   InfiniteCanvasWindowProxy,
   InfiniteCanvasWindowRegistry,
   InfiniteCanvasWindowRegistryInput,

@@ -119,9 +119,19 @@ restored on switch.
 Deliberately not "nested canvases": a canvas inside a canvas means a second camera and a second
 input plane, which is a different program. A workspace is one canvas and a membership filter.
 
-Needs a state shape, reducer actions, a persistence envelope bump, commands, palette integration,
-and a showcase. Exit: switching workspaces preserves each one's camera and selection, survives
-reload, and is one undo entry.
+✅ **The model landed 2026-08-12** — state shape, four reducer actions, the persistence envelope
+at version 3, and the render filter. The exit is asserted: switching preserves each workspace's
+camera and selection, survives a reload, and is one undo entry.
+
+`activeWorkspaceId` and `workspaces` are part of the **undo document**, unlike the camera.
+Switching writes the outgoing workspace's camera and selection, and the exit asks for it to be
+undoable, so which desktop you are on is an edit while panning is not.
+
+**Still open: commands, palette integration, and a showcase.** A workspace is created and named
+by a consumer, so the four actions are `parameterized` in `command-coverage.test.ts` — a palette
+entry cannot invent which set. The verbs that _would_ resolve from state, and which belong here
+when a consumer surface exists, are "switch to the next workspace" and "put the active window
+in one".
 
 ### Deliberately deferred, with reasons
 

@@ -14,7 +14,9 @@ const presenceState: InfiniteCanvasState<PresenceWindowKind> = {
     },
     zoom: 1,
   },
+  activeWorkspaceId: null,
   groups: [],
+  workspaces: [],
   history: { future: [], past: [] },
   interaction: null,
   selection: {

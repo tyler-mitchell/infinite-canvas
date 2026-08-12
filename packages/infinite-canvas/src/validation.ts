@@ -14,6 +14,7 @@ import type {
   InfiniteCanvasWindow,
   InfiniteCanvasWindowCapabilities,
   InfiniteCanvasWindowMode,
+  InfiniteCanvasWorkspace,
 } from "./types";
 
 /**
@@ -361,6 +362,32 @@ function parseInfiniteCanvasGroupNode(value: unknown, depth = 0): InfiniteCanvas
   };
 }
 
+/**
+ * A workspace crossing storage. Membership is validated as a list of strings and nothing
+ * more — whether those ids still name live windows is the reducer's business, and rejecting
+ * a whole document because one window was closed elsewhere would lose the rest of the layout.
+ */
+function parseInfiniteCanvasWorkspace(value: unknown): InfiniteCanvasWorkspace | null {
+  if (!isRecord(value) || typeof value.id !== "string" || typeof value.title !== "string") {
+    return null;
+  }
+
+  const camera = parseInfiniteCanvasCamera(value.camera);
+  const selection = parseInfiniteCanvasSelection(value.selection);
+
+  if (camera === null || selection === null || !Array.isArray(value.windowIds)) {
+    return null;
+  }
+
+  const windowIds = value.windowIds.filter((windowId) => typeof windowId === "string");
+
+  if (windowIds.length !== value.windowIds.length) {
+    return null;
+  }
+
+  return { camera, id: value.id, selection, title: value.title, windowIds };
+}
+
 function parseInfiniteCanvasGroup(value: unknown): InfiniteCanvasGroup | null {
   if (!isRecord(value) || typeof value.id !== "string" || typeof value.title !== "string") {
     return null;
@@ -465,11 +492,11 @@ function parseInfiniteCanvasRecipe(value: unknown): InfiniteCanvasRecipe | null 
 function parseInfiniteCanvasSerializedState<Kind extends string>(
   value: unknown,
 ): InfiniteCanvasSerializedState<Kind> | null {
-  // `version: 1` predates groups and migrates to none. Accepting it here rather
-  // than making `groups` optional is what stops an older build from reading a
-  // newer payload, dropping the field it does not know, and writing back a
-  // layout with every group silently deleted.
-  if (!isRecord(value) || (value.version !== 1 && value.version !== 2)) {
+  // `version: 1` predates groups and `2` predates workspaces; both migrate to none.
+  // Accepting them here rather than making the fields optional is what stops an older build
+  // from reading a newer payload, dropping the field it does not know, and writing back a
+  // layout with every group — or every workspace — silently deleted.
+  if (!isRecord(value) || (value.version !== 1 && value.version !== 2 && value.version !== 3)) {
     return null;
   }
 
@@ -527,13 +554,37 @@ function parseInfiniteCanvasSerializedState<Kind extends string>(
     }
   }
 
+  const workspaces: InfiniteCanvasWorkspace[] = [];
+
+  if (!isAbsent(value.workspaces)) {
+    if (!Array.isArray(value.workspaces)) {
+      return null;
+    }
+
+    for (const entry of value.workspaces) {
+      const workspace = parseInfiniteCanvasWorkspace(entry);
+
+      if (workspace === null) {
+        return null;
+      }
+
+      workspaces.push(workspace);
+    }
+  }
+
   return {
     activeWindowId,
+    // A version-2 payload predates workspaces, so it carries neither field and migrates to
+    // none — the same bargain groups struck at version 2.
+    ...(value.version === 3 && typeof value.activeWorkspaceId === "string"
+      ? { activeWorkspaceId: value.activeWorkspaceId }
+      : {}),
     camera,
     groups,
     selection,
-    version: 2,
+    version: 3,
     windows,
+    ...(value.version === 3 ? { workspaces } : { workspaces: [] }),
   };
 }
 
@@ -548,4 +599,5 @@ export {
   parseInfiniteCanvasSerializedState,
   parseInfiniteCanvasSize,
   parseInfiniteCanvasWindow,
+  parseInfiniteCanvasWorkspace,
 };

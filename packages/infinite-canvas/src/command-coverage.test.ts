@@ -91,6 +91,14 @@ const ACTION_COMMAND_COVERAGE: Readonly<
   "selection.targets.toggle": "parameterized",
   "selection.toggle": "parameterized",
   "viewport.set": "lifecycle",
+  // Workspaces are named sets a consumer creates and titles; a palette entry cannot invent
+  // which set, any more than it can invent which window to open. The verbs that *do* resolve
+  // from state — switch to the next set, put the active window in one — are the commands to
+  // build when the consumer surface for them exists.
+  "workspace.activate": "parameterized",
+  "workspace.close": "parameterized",
+  "workspace.create": "parameterized",
+  "workspace.setWindows": "parameterized",
   "window.close": "activeWindow.close",
   "window.focus": "window.focus.left",
   "window.maximize": "activeWindow.toggleMaximized",

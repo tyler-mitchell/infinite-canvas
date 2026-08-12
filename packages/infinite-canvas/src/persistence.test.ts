@@ -18,7 +18,9 @@ const state: InfiniteCanvasState<PersistedWindowKind> = {
     },
     zoom: 1.5,
   },
+  activeWorkspaceId: null,
   groups: [],
+  workspaces: [],
   history: { future: [], past: [] },
   interaction: {
     kind: "pan",

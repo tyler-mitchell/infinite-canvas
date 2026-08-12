@@ -168,7 +168,7 @@ test("window rejects wrong-typed required fields", () => {
   expect(parseInfiniteCanvasWindow({ ...validWindow, minSize: { height: 1 } })).toBeNull();
 });
 
-test("serialized state accepts the numeric literals 1 and 2, and migrates 1", () => {
+test("serialized state accepts the numeric literals 1, 2 and 3, and migrates the older two", () => {
   const base = {
     activeWindowId: null,
     camera: { center: { x: 0, y: 0 }, zoom: 1 },
@@ -177,13 +177,15 @@ test("serialized state accepts the numeric literals 1 and 2, and migrates 1", ()
 
   expect(parseInfiniteCanvasSerializedState({ ...base, version: 1 })).not.toBeNull();
   expect(parseInfiniteCanvasSerializedState({ ...base, version: 2 })).not.toBeNull();
+  expect(parseInfiniteCanvasSerializedState({ ...base, version: 3 })).not.toBeNull();
   expect(parseInfiniteCanvasSerializedState({ ...base, version: "1" })).toBeNull();
-  expect(parseInfiniteCanvasSerializedState({ ...base, version: 3 })).toBeNull();
+  expect(parseInfiniteCanvasSerializedState({ ...base, version: 4 })).toBeNull();
 
-  // A version-1 payload predates groups and migrates to none, upgraded in place.
+  // A version-1 payload predates groups and a version-2 one predates workspaces; both
+  // migrate to none and are upgraded in place to the current envelope.
   expect(parseInfiniteCanvasSerializedState({ ...base, version: 1 })).toMatchObject({
     groups: [],
-    version: 2,
+    version: 3,
   });
   expect(parseInfiniteCanvasSerializedState(base)).toBeNull();
 });
@@ -197,7 +199,7 @@ test("serialized state strips unknown keys and defaults each window mode", () =>
     windows: [{ ...validWindow, extraWindowField: "deleted" }],
   });
 
-  // The input is `version: 1`, and the parser migrates it in place — so the output is a v2
+  // The input is `version: 1`, and the parser migrates it in place — so the output is a v3
   // envelope with `groups: []`, exactly as the migration test above asserts. This expectation
   // still described the pre-group envelope and had been failing since groups shipped.
   expect(parsed).toEqual({
@@ -205,7 +207,8 @@ test("serialized state strips unknown keys and defaults each window mode", () =>
     camera: { center: { x: 0, y: 0 }, zoom: 1 },
     groups: [],
     selection: undefined,
-    version: 2,
+    version: 3,
+    workspaces: [],
     windows: [{ ...validWindow, mode: "normal" }],
   });
 });
