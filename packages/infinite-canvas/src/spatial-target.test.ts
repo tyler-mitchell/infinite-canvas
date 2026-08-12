@@ -373,3 +373,60 @@ test("selectable targets are derived only from scene objects and edges", () => {
   });
   expect(windowTarget).toBeNull();
 });
+
+/**
+ * `hitRadius` is screen pixels, not world units — changed 2026-08-12.
+ *
+ * It was the framework's only threshold measured in world units, while snap's `threshold`, the
+ * detail-level band, the offscreen inset, the tab-drag threshold, and the keyboard nudge step are
+ * all screen pixels mapped through the camera. World units make an edge's hit area shrink as you
+ * zoom out, so edges become unclickable exactly when you have zoomed out to see the whole graph.
+ *
+ * These tests are the zoom curve, which is the part that actually changed: every pre-existing
+ * test in this file runs at zoom 1, where the two conventions are identical by construction and
+ * therefore say nothing about which one is in force.
+ */
+
+const edgeState = (zoom: number) =>
+  createInfiniteCanvasState({
+    camera: { center: { x: 0, y: 0 }, zoom },
+    viewport: { height: 400, width: 400 },
+    windows: [],
+  });
+
+/** A horizontal edge along y = 0. The pointer is offset straight down from its middle. */
+const edgeResolver = createInfiniteCanvasEdgeTargetResolver({
+  id: "edges",
+  targets: [{ end: { x: 100, y: 0 }, id: "edge", kind: "wire", start: { x: -100, y: 0 } }],
+});
+
+const hitAt = (zoom: number, screenOffsetY: number) =>
+  resolveInfiniteCanvasSpatialTarget({
+    resolvers: [edgeResolver],
+    state: edgeState(zoom),
+    // Viewport centre is (200, 200) and the camera looks at world (0,0), so this offset is a
+    // pure screen-pixel displacement from the edge whatever the zoom.
+    viewportPoint: { x: 200, y: 200 + screenOffsetY },
+  });
+
+test("an edge is equally easy to hit at every zoom", () => {
+  // The whole point of the change. 8 screen px is inside the default 10px radius, and stays
+  // inside it whether the canvas is zoomed way out or way in.
+  for (const zoom of [0.25, 1, 4]) {
+    expect(hitAt(zoom, 8)).toMatchObject({ id: "edge", type: "edge" });
+  }
+});
+
+test("the radius is a screen-pixel boundary at every zoom, not a world one", () => {
+  // 14 screen px is outside the default radius regardless of zoom. Under the old world-unit
+  // rule this was a miss at 0.25 (56 world units away), a miss at 1, and a *hit* at 4 — where
+  // 14 screen px is only 3.5 world units.
+  for (const zoom of [0.25, 1, 4]) {
+    expect(hitAt(zoom, 14).type).toBe("empty-world");
+  }
+});
+
+test("zoom 1 behaviour is unchanged, which is why the default stayed 10", () => {
+  expect(hitAt(1, 9)).toMatchObject({ id: "edge", type: "edge" });
+  expect(hitAt(1, 11).type).toBe("empty-world");
+});

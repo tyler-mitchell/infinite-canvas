@@ -53,7 +53,7 @@ pointerModeControls?, cameraControls?, zoomControls? }` landed with the HUD
   command descriptors), unit-tested as the programmatic consumer contract.
 - **`getInfiniteCanvasWindowData(window, guard)`** helper exported (full
   generic threading through registry/render contexts remains open, below).
-- **`hitRadius` documented** as world units on the edge-target type.
+- **`hitRadius` documented** on the edge-target type — as world units at the time; changed to screen pixels on 2026-08-12, see the entry below.
 
 ## Open — high priority
 
@@ -330,9 +330,24 @@ pointerModeControls?, cameraControls?, zoomControls? }` landed with the HUD
   least one desktop browser binds `Ctrl+Y` to a chrome-level action. Which one, and whether that
   binding is cancellable, is precisely the thing not to assert from memory.
 
-- **`hitRadius` semantics** — now documented as world units; still consider
-  whether screen-pixel semantics would serve consumers better (matches the
-  snap system's screen-space-threshold philosophy).
+- ✅ **`hitRadius` is screen pixels (decided and changed 2026-08-12).** This entry asked whether
+  screen-pixel semantics "would serve consumers better". They do, and the case is stronger than
+  a preference: `hitRadius` was the framework's **only** threshold measured in world units.
+  Snap's `threshold` and `releaseThreshold`, the detail-level band, the offscreen inset and
+  margin, the 6px tab-drag threshold, and the keyboard nudge step are all screen pixels mapped
+  through the camera.
+
+  World units make an edge's hit area shrink as you zoom out — at 25% zoom the default 10-unit
+  radius is 2.5 screen pixels, so edges become unclickable exactly when you have zoomed out to
+  see the whole graph and most want to click one, and balloon to a sloppy 40px at 400%. That is
+  risk **R2** ("thresholds vary with zoom"), which the register records as _mitigated_ for
+  snapping and which was live here, and it is the same defect as the low-zoom chrome stroke that
+  rendered at a tenth of a pixel.
+
+  The default stays 10, so behaviour at zoom 1 is unchanged and only the zoom curve differs —
+  which is why every pre-existing test kept passing and why the new ones assert at 0.25 and 4,
+  where the two conventions actually disagree.
+
 - ✅ **Snap guides for drops are consumer-rendered (fixed 2026-07-08).** The snap
   overlay drew `state.snapPreview` only, so every consumer redrew the drop's guides
   themselves, slightly differently, against the same `data-slot` contract the

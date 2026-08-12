@@ -38,8 +38,21 @@ type InfiniteCanvasSpatialEdgeTarget = Readonly<{
   data?: unknown;
   end: InfiniteCanvasPoint;
   /**
-   * Pick distance from the segment in WORLD units (not screen pixels), so
-   * the effective screen-space hit area scales with zoom.
+   * Pick distance from the segment in **screen pixels**, so an edge is equally easy to hit at
+   * every zoom.
+   *
+   * This was world units until 2026-08-12, and it was the framework's only threshold that was:
+   * snap's `threshold` and `releaseThreshold`, the detail-level band, the offscreen inset and
+   * margin, the tab-drag threshold, and the keyboard nudge step are all screen pixels mapped
+   * through the camera. World units make the hit area *shrink as you zoom out* — at 25% a
+   * 10-unit radius is 2.5 screen pixels, so edges become unclickable exactly when you have
+   * zoomed out to see the whole graph and most want to click one, and balloon to a sloppy 40px
+   * at 400%.
+   *
+   * That is risk R2 ("thresholds vary with zoom"), which the register records as *mitigated*
+   * for snapping and which was live here, and the same defect as the low-zoom chrome stroke
+   * that rendered at a tenth of a pixel. The default is unchanged at 10, so behaviour at zoom 1
+   * is identical and only the zoom curve differs.
    */
   hitRadius?: number;
   id: string;
@@ -202,13 +215,16 @@ function getPointToSegmentDistance(
 function getNearestSpatialEdgeTarget(
   targets: readonly InfiniteCanvasSpatialEdgeTarget[],
   point: InfiniteCanvasPoint,
+  zoom: number,
 ) {
   return targets.reduce<Readonly<{
     distance: number;
     target: InfiniteCanvasSpatialEdgeTarget;
   }> | null>((nearest, target) => {
     const hitRadius = target.hitRadius ?? DEFAULT_INFINITE_CANVAS_EDGE_TARGET_HIT_RADIUS;
-    const distance = getPointToSegmentDistance(point, target.start, target.end);
+    // World distance, compared in screen pixels — the same conversion `snap-resolver` applies to
+    // its own thresholds, so the two subsystems answer "close enough to catch" the same way.
+    const distance = getPointToSegmentDistance(point, target.start, target.end) * zoom;
 
     return distance > hitRadius
       ? nearest
@@ -270,6 +286,7 @@ function createInfiniteCanvasEdgeTargetResolver<Kind extends string = string>({
       const nearest = getNearestSpatialEdgeTarget(
         getSpatialTargetList(targets, context),
         context.worldPoint,
+        context.state.camera.zoom,
       );
 
       return nearest === null
