@@ -7,6 +7,7 @@ import {
   addInfiniteCanvasWindowToWorkspace,
   closeInfiniteCanvasWorkspace,
   createInfiniteCanvasWorkspace,
+  reconcileInfiniteCanvasWorkspaces,
   removeInfiniteCanvasWindowFromWorkspace,
   renameInfiniteCanvasWorkspace,
   detachInfiniteCanvasWindowFromWorkspaces,
@@ -94,7 +95,16 @@ function reduceInfiniteCanvasState<Kind extends string>(
   action: InfiniteCanvasAction<Kind>,
   options: InfiniteCanvasReducerOptions = {},
 ): InfiniteCanvasState<Kind> {
-  const nextState = applyInfiniteCanvasAction(state, action, options);
+  const applied = applyInfiniteCanvasAction(state, action, options);
+  // Workspace membership is group-complete, and a dozen actions move a window between trees
+  // without touching membership — docking, undocking, applying a recipe. Reconciling here,
+  // once, is the same choice the history checkpoint makes: the alternative is forty cases
+  // that each have to remember. Guarded on reference equality so an untouched canvas pays
+  // nothing.
+  const nextState =
+    applied.groups === state.groups && applied.workspaces === state.workspaces
+      ? applied
+      : reconcileInfiniteCanvasWorkspaces(applied);
 
   if (action.type === "desktop.hydrate" || action.type === "desktop.reset") {
     return { ...nextState, history: EMPTY_INFINITE_CANVAS_HISTORY };

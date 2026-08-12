@@ -260,6 +260,43 @@ function normalizeInfiniteCanvasWorkspaceWindowIds<Kind extends string>(
 }
 
 /**
+ * Re-expand every workspace's membership so it stays group-complete.
+ *
+ * `normalizeInfiniteCanvasWorkspaceWindowIds` establishes that invariant when membership is
+ * *written*, and several things change groups without touching membership at all: docking a
+ * window into a group whose members are on a workspace, applying a recipe that rebuilds
+ * groups from a stored layout, undocking one back out. Each would leave a workspace holding
+ * part of a group, which is the state the invariant exists to forbid — a gutter between a
+ * visible pane and an absent one.
+ *
+ * Called once from the reducer rather than from the dozen actions that can move a window
+ * between trees, the same way the document is checkpointed once around the transition
+ * instead of inside forty cases that would each have to remember.
+ */
+function reconcileInfiniteCanvasWorkspaces<Kind extends string>(
+  state: InfiniteCanvasState<Kind>,
+): InfiniteCanvasState<Kind> {
+  if (state.workspaces.length === 0) {
+    return state;
+  }
+
+  const reconciled = state.workspaces.map((workspace) => {
+    const windowIds = normalizeInfiniteCanvasWorkspaceWindowIds(state, workspace.windowIds);
+
+    // Identical when nothing moved, so the document comparison — which is reference
+    // equality — does not read reconciliation as an edit.
+    return windowIds.length === workspace.windowIds.length &&
+      windowIds.every((windowId, index) => windowId === workspace.windowIds[index])
+      ? workspace
+      : { ...workspace, windowIds };
+  });
+
+  return reconciled.every((workspace, index) => workspace === state.workspaces[index])
+    ? state
+    : { ...state, workspaces: reconciled };
+}
+
+/**
  * Drop a window from every workspace. Called where `detachInfiniteCanvasWindowFromGroups` is:
  * a closed window cannot keep a membership, and a later workspace naming it would resurrect a
  * dead id into the filter.
@@ -290,6 +327,7 @@ export {
   addInfiniteCanvasWindowToWorkspace,
   closeInfiniteCanvasWorkspace,
   createInfiniteCanvasWorkspace,
+  reconcileInfiniteCanvasWorkspaces,
   detachInfiniteCanvasWindowFromWorkspaces,
   findInfiniteCanvasWorkspace,
   getInfiniteCanvasWorkspaceWindowIds,

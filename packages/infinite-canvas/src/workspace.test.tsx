@@ -496,3 +496,47 @@ test("a group's shell is not rendered on a desktop its windows are not on", () =
 
   expect(onIts).toContain('data-slot="group-gutter"');
 });
+
+test("docking into a group on a workspace brings the docked window onto it", () => {
+  // The invariant needed a keeper. `normalizeInfiniteCanvasWorkspaceWindowIds` makes membership
+  // group-complete when membership is *written*, and docking never writes membership — it
+  // moves a window into a tree. Without reconciliation the workspace would hold `a` and `b`
+  // while `c` sat in their group and off the desktop, which is the split the invariant forbids.
+  const docked = executeInfiniteCanvasCommand(
+    { ...threeWindows(), activeWindowId: "a" },
+    { direction: "right", type: "window.dockDirection" },
+  );
+  const filtered = reduceInfiniteCanvasState(docked, {
+    type: "workspace.create",
+    windowIds: ["a"],
+    workspaceId: "research",
+  });
+
+  expect([...(filtered.workspaces[0]?.windowIds ?? [])].toSorted()).toEqual(["a", "b"]);
+
+  // Dispatched through the reducer rather than by calling the executor directly, because
+  // reconciliation lives there — once, around the transition, next to the history checkpoint.
+  // A consumer reaches commands the same way: the handle's `executeCommand` and the store's
+  // facade both dispatch `command.execute`. The bare `executeInfiniteCanvasCommand` is the
+  // pure function underneath, and calling it by hand skips the reducer exactly as calling
+  // `closeWindow` by hand would.
+  const grown = reduceInfiniteCanvasState(
+    { ...filtered, activeWindowId: "c" },
+    { command: { direction: "left", type: "window.dockDirection" }, type: "command.execute" },
+  );
+
+  expect([...(grown.workspaces[0]?.windowIds ?? [])].toSorted()).toEqual(["a", "b", "c"]);
+});
+
+test("reconciliation returns the identical state when nothing moved", () => {
+  // It runs after every action that touches groups or workspaces, so an allocation here would
+  // make ordinary edits look like workspace edits to the undo document, which compares by
+  // reference.
+  const state = withTwoWorkspaces();
+  const panned = reduceInfiniteCanvasState(state, {
+    delta: { x: 10, y: 0 },
+    type: "camera.panBy",
+  });
+
+  expect(panned.workspaces).toBe(state.workspaces);
+});
