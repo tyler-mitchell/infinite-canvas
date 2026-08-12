@@ -7,6 +7,118 @@
 > rules from [README.md](README.md) apply; specs referenced here win over
 > this summary.
 
+## Current execution slate (adopted 2026-08-12)
+
+> A **view over the programs below**, not a new program list. P1–P8 own the
+> capability definitions; this section says what gets worked next and in what
+> order. When a track lands, its program entry above is what gets updated.
+
+The framework is capability-rich and **verb-poor**: the group model, undo,
+recipes, portals, persistence, and navigation geometry all exist, but the
+window-manager vocabulary a user reaches for — arrange these, find that one,
+make it legible when I zoom out, restyle it — is thin or missing. The slate
+attacks that, and carries its tests with it rather than after it.
+
+Four findings ground the ordering, each verified against the code on
+2026-08-12 rather than taken from a doc:
+
+- **Theming is 11/59 public.** `theme.css` defines 59 `--icx-*` tokens; the
+  public `theme` prop bridges **11** of them ([infinite-canvas.tsx]'s
+  `INFINITE_CANVAS_THEME_VARIABLES`). The other 48 are reachable only by
+  overriding CSS. There is **no** light-theme scaffold — zero
+  `prefers-color-scheme` or `[data-theme]` rules in `theme.css`.
+- **Semantic LOD is unbuilt, and the seam is clean.**
+  `InfiniteCanvasWindowDefinition` has no `renderSummary`/`renderIcon`; far
+  zoom has no representation lane at all.
+- **The action vocabulary has no arrange family.** 48 action types, none for
+  align, distribute, tidy, swap, or equalize.
+- **The group core is still untested.** 165 tests across 22 files; none touch
+  groups, history, or recipes. [research/c2-test-plan.md](research/c2-test-plan.md)
+  already specifies the suite to the assertion.
+
+### T1 — Window-manager verbs: align, distribute, tidy, swap, equalize (~1.5h)
+
+**Feature.** The highest capability-per-hour item on the board, and pure
+geometry — a new `window-arrange.ts` beside `window-placement.ts`, plus
+`group.equalizeChildren` for the tree.
+
+**Guard R5 deliberately.** These are explicit one-shot commands over an
+explicit selection, never a persistent global layout mode. A canvas that
+silently re-tiles is the tiling-semantics failure R5 has flagged as _live,
+standing_ since the beginning. Grouped windows translate their **shell**, per
+the `window.nudge` precedent — a member has no rect of its own.
+
+Exit: align/distribute/tidy act on a multi-window selection, are one undo
+entry each, refuse to shrink anything below `minSize`, and assert in tests.
+
+### T2 — Window switcher (~1h)
+
+**Feature.** The command palette is mounted on every canvas route and reads
+`getInfiniteCanvasContextualCommands`, which enumerates _canvas_ commands and
+no windows. So there is no way to answer "where is my Notes window" by name.
+The minimap and offscreen indicators solve orientation geometrically; this
+solves it lexically, and completes that trio.
+
+Exit: the palette lists open windows by title, filters them, and
+Enter focuses + navigates the camera to the chosen one.
+
+### T3 — Light theme and token completeness (~2h)
+
+**Feature, and the most visible gap.** P3's own framing is right: a light
+theme is the _proof_ of token completeness, because every hardcoded color
+fights it. Audit every visual surface for a missing token — snap guides,
+marquee, dock preview, gutters, tab strips, accordion headers, resize
+handles, minimap, offscreen indicators, HUD — then widen the bridged set well
+beyond 11 and ship a second complete look with a playground switcher.
+
+Exit: `/`-level theme switcher toggles two complete looks; no framework
+surface renders an unthemed color in either.
+
+### T4 — Semantic LOD: readable cards at far zoom (~2h)
+
+**Feature, and distinctive.** At 12–25% zoom every window is illegible, and no
+snapshot fixes that — a rasterized paragraph is still a paragraph. Add
+`renderSummary`/`renderIcon` to the window definition and a threshold on
+**effective screen size** (not raw zoom, so a large window stays legible
+longer than a small one). This is P7's semantic half and is independent of the
+capture lane, which needs Chrome's OT flag.
+
+Exit: a `/stress`-scale document at 15% zoom where every window is
+identifiable; the lane is off unless a kind declares a summary.
+
+### T5 — Retire the C2 test debt (~2h)
+
+**Plumbing, highest structural value.** DOCK/SPLIT/TAB/ACC/PERSIST/FAIL
+against the reducer, from the existing plan. Not first, because only T1 of the
+feature tracks touches the untested core — but not last either, because it is
+what makes the group tree safe to keep changing.
+
+Exit: those scenario ids assert and pass; `grep` for `createGroup`,
+`dockWindow`, `undoInfiniteCanvas`, `captureInfiniteCanvasRecipe` in
+`src/*.test.*` returns hits.
+
+### Tail (next, not this slate)
+
+- **T6 — Focus trapping**, FR-9's last structural piece (~1.5h). Needs bounded
+  browser verification, which is available for discrete DOM checks.
+- **T7 — A non-trivial app in a window** (~1.5h): P6's unmet exit criterion.
+  Forms, popovers, scrolling lists, with zero consumer workarounds.
+
+### Deliberately deferred, with reasons
+
+- **Columns mode** — breaks `group-tree`'s "only weight ratios matter"
+  invariant (a column's extent is absolute) and needs shell-local scrolling to
+  be usable at all. Shipping the layout without the scroll gives a shell whose
+  columns are unreachable. R11 is right that it stays last.
+- **Workspaces / nested canvases** — genuinely valuable and genuinely large;
+  it wants its own session and a persistence-envelope decision, not a corner
+  of this one.
+- **P2 measurement** — the harness exists and works; the embedded preview
+  throttles `rAF` under load, so the number needs real hardware. Demonstrated,
+  not assumed.
+- **Texture-mode capture** — needs Chrome 148+ with the OT flag.
+- **npm publish, git history purge** — owner actions. Irreversible or external.
+
 ## P1 — Grouping & Docking (the window-manager tranche)
 
 The single biggest capability leap and the framework's identity claim:
