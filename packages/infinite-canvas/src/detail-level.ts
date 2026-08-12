@@ -44,13 +44,28 @@ type InfiniteCanvasDetailPolicy = Readonly<{
 }>;
 
 /**
- * 180 screen pixels is roughly where a window stops being able to hold a legible line of body
- * text plus its chrome. The return threshold sits 60px above it, wide enough that a deliberate
+ * 120 screen pixels is roughly where a window stops being able to hold a legible line of body
+ * text plus its chrome. The return threshold sits 40px above it, wide enough that a deliberate
  * zoom crosses it once and a jittery trackpad does not cross it at all.
+ *
+ * **These were 180/240 until a run of `/stress` showed the band straddling zoom 1.** Its windows
+ * are 300×210, and `extent` takes the *smaller* axis, so their on-screen extent at 100% zoom is
+ * 210 — under the old 240px return threshold. Zooming out demoted them and coming back to 100%
+ * did not restore them; they returned only at 114% zoom. The same window at the same zoom showed
+ * different content depending on where the camera had been, and the default zoom was the level it
+ * was wrong at. That is not a hysteresis band, it is a trap door.
+ *
+ * The band itself was never wrong — the numbers were, relative to the window sizes anyone
+ * actually uses. A band must sit far enough below natural size that returning to 100% always
+ * restores; 120/160 puts the dead zone at roughly 57–76% zoom, where a window genuinely is too
+ * small to read, and leaves zoom 1 unambiguously full for any window taller than 160px.
+ *
+ * Widening a window's own band is a `policy` override, which is why this only ever needed to be
+ * a defaults change and not an algorithm one.
  */
 const DEFAULT_INFINITE_CANVAS_DETAIL_POLICY = {
-  fullAbovePx: 240,
-  summaryBelowPx: 180,
+  fullAbovePx: 160,
+  summaryBelowPx: 120,
 } as const satisfies Required<InfiniteCanvasDetailPolicy>;
 
 /**

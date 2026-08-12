@@ -97,3 +97,29 @@ test("a custom policy is respected on both edges", () => {
   expect(getInfiniteCanvasWindowDetailLevel(rect(50, 50), 1, "summary", policy)).toBe("summary");
   expect(getInfiniteCanvasWindowDetailLevel(rect(70, 70), 1, "summary", policy)).toBe("full");
 });
+
+test("the default band never strands a window at 100% zoom", () => {
+  // The regression that shipped: `/stress` draws 300×210 windows, `extent` takes the smaller
+  // axis, and the old defaults (demote 180 / restore 240) put 210 inside the band. Zooming out
+  // demoted them and returning to 100% left them as summary cards until 114% zoom. The same
+  // window at the same zoom rendered different content depending on camera history.
+  //
+  // Every unit test passed, because they all asked "does the band work" with numbers chosen to
+  // exercise the band rather than numbers any window actually has. This one asks the question
+  // the product asks: at 100% zoom, is a real window full detail regardless of where it has been?
+  const stressWindow = rect(300, 210);
+
+  expect(getInfiniteCanvasWindowDetailLevel(stressWindow, 1, "summary")).toBe("full");
+  expect(getInfiniteCanvasWindowDetailLevel(stressWindow, 1, "full")).toBe("full");
+});
+
+test("a window still demotes when it is genuinely too small to read", () => {
+  // The fix must not buy zoom-1 correctness by disabling the lane. The same window far out is
+  // still a summary, and the band still has a dead zone — just one that sits where a window is
+  // actually illegible rather than across the default zoom.
+  const stressWindow = rect(300, 210);
+
+  expect(getInfiniteCanvasWindowDetailLevel(stressWindow, 0.4, "full")).toBe("summary");
+  expect(getInfiniteCanvasWindowDetailLevel(stressWindow, 0.65, "summary")).toBe("summary");
+  expect(getInfiniteCanvasWindowDetailLevel(stressWindow, 0.65, "full")).toBe("full");
+});
