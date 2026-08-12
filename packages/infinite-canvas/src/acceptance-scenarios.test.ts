@@ -1,6 +1,7 @@
 import { expect, test } from "vite-plus/test";
 
 import { getInfiniteCanvasContextualCommands } from "./commands";
+import { DEFAULT_INFINITE_CANVAS_SNAP_POLICY } from "./constants";
 import { createInfiniteCanvasState, createInfiniteCanvasWindow } from "./factory";
 import {
   DEFAULT_INFINITE_CANVAS_GROUP_METRICS,
@@ -872,4 +873,73 @@ test("SPLIT-004 — a whole shell resize is one undo entry, however many steps i
   });
 
   expect(finished.history.past).toHaveLength(1);
+});
+
+// ── FLOAT-001 — movement across the zoom range ───────────────────────────────────────────
+
+/**
+ * The scenario asks for a move at 0.25x, 1x and 4x with "no hidden zoom-coupled thresholds".
+ * It stood at `partial` because reducer tests moved a window at *a* non-default zoom and
+ * never swept the range — and a threshold that misbehaves at one end is invisible to a test
+ * that only samples the middle.
+ *
+ * That failure mode is not hypothetical here. Two zoom-coupled defects surfaced on
+ * 2026-08-12 alone: `hitRadius` was measured in world units, so edges became unclickable as
+ * you zoomed out, and the semantic-LOD band stranded every stock window at 100%. Both were
+ * arithmetic that looked right at one zoom.
+ *
+ * Snapping is disabled throughout. It is a real zoom-coupled threshold, deliberately so, and
+ * SNAP-001 already asserts it engages at a fixed *screen* distance; leaving it on here would
+ * test that instead of movement.
+ */
+
+const UNSNAPPED = { ...DEFAULT_INFINITE_CANVAS_SNAP_POLICY, enabled: false };
+
+const soloAtZoom = (zoom: number): InfiniteCanvasState<Kind> => ({
+  ...createInfiniteCanvasState<Kind>({ windows: [windowAt("solo", 0, 0)] }),
+  camera: { center: { x: 0, y: 0 }, zoom },
+  viewport: { height: 800, width: 1200 },
+});
+
+test("FLOAT-001 — a drag covers the world distance the camera says it should, at every zoom", () => {
+  // 240 screen pixels is 960 world units at 0.25x and 60 at 4x. The relationship is the
+  // camera's definition, and a move that quietly clamped, rounded, or bailed at one end of
+  // the range would break it there and nowhere else.
+  for (const zoom of [0.12, 0.25, 0.5, 1, 2, 4, 8]) {
+    const state = soloAtZoom(zoom);
+    const grabbed = beginWindowMove(state, POINTER, "solo", { x: 600, y: 400 });
+    const moved = stepCanvasInteraction(grabbed, POINTER, { x: 840, y: 520 }, UNSNAPPED);
+
+    expect(moved.windows[0]!.rect.x).toBeCloseTo(240 / zoom, 5);
+    expect(moved.windows[0]!.rect.y).toBeCloseTo(120 / zoom, 5);
+  }
+});
+
+test("FLOAT-001 — the same pointer travel moves a window the same distance on screen", () => {
+  // The user-facing form of the claim: a drag feels identical zoomed in and out. World
+  // distance times zoom is screen distance, so this is the previous assertion read from the
+  // other side — and it is the side a person would notice.
+  for (const zoom of [0.25, 1, 4]) {
+    const state = soloAtZoom(zoom);
+    const grabbed = beginWindowMove(state, POINTER, "solo", { x: 600, y: 400 });
+    const moved = stepCanvasInteraction(grabbed, POINTER, { x: 700, y: 400 }, UNSNAPPED);
+
+    expect(moved.windows[0]!.rect.x * zoom).toBeCloseTo(100, 5);
+  }
+});
+
+test("FLOAT-001 — a drag is continuous: many small steps land where one large step does", () => {
+  // A per-step threshold — a minimum travel to register, a rounding to whole world units —
+  // would show up as drift between these two, and would be worst at high zoom where each
+  // step is a fraction of a world unit.
+  for (const zoom of [0.25, 1, 4]) {
+    const grabbed = beginWindowMove(soloAtZoom(zoom), POINTER, "solo", { x: 600, y: 400 });
+    const oneStep = stepCanvasInteraction(grabbed, POINTER, { x: 700, y: 400 }, UNSNAPPED);
+    const manySteps = Array.from({ length: 20 }, (_, index) => 605 + index * 5).reduce(
+      (current, x) => stepCanvasInteraction(current, POINTER, { x, y: 400 }, UNSNAPPED),
+      grabbed,
+    );
+
+    expect(manySteps.windows[0]!.rect.x).toBeCloseTo(oneStep.windows[0]!.rect.x, 5);
+  }
 });

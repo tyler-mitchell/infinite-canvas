@@ -33,8 +33,12 @@ of it could be run.
 ## Floating windows
 
 - **FLOAT-001** — Move a window across the world at 0.25x, 1x, 4x zoom.
-  Movement stays smooth; no hidden zoom-coupled thresholds. `partial`
-  (reducer tests cover move at non-default zoom; no sweep across the range)
+  Movement stays smooth; no hidden zoom-coupled thresholds. `covered` (2026-08-12. Swept
+  0.12 → 8, asserting the world delta is the screen delta over zoom, that the _screen_
+  displacement is identical across zooms — the side a person notices — and that twenty small
+  steps land where one large step does, which is where a per-step threshold or a rounding to
+  whole world units would show. Snapping is disabled throughout: it is a real zoom-coupled
+  threshold by design, and SNAP-001 asserts it separately. No defect found.)
 - **FLOAT-002** — Resize from each edge and corner. Min/max respected;
   opposite edges stay anchored. `covered`
 - **FLOAT-003** — Front A, interact with B, refocus A. Z-order and focus are
