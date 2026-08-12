@@ -2,11 +2,17 @@ import { expect, test } from "vite-plus/test";
 
 import { getInfiniteCanvasContextualCommands } from "./commands";
 import { createInfiniteCanvasState, createInfiniteCanvasWindow } from "./factory";
+import {
+  DEFAULT_INFINITE_CANVAS_GROUP_METRICS,
+  getInfiniteCanvasGroupMinimumSize,
+  MINIMUM_GROUP_PANE_EXTENT,
+} from "./group-layout";
 import { getInfiniteCanvasGroupProjection } from "./group-state";
 import { createInfiniteCanvasGroupWindowNode, getInfiniteCanvasGroupWindowIds } from "./group-tree";
 import type { InfiniteCanvasGroupContainerNode } from "./group-tree";
 import {
   beginInfiniteCanvasGroupMove,
+  beginInfiniteCanvasGroupResize,
   beginWindowMove,
   stepCanvasInteraction,
 } from "./interaction";
@@ -767,4 +773,103 @@ test("FOCUS-004 — extending is not offered where there is no neighbour", () =>
       type: "selection.extendDirection",
     }),
   ).toBe(false);
+});
+
+// ── SPLIT-004 — resizing the shell by its outer edge ─────────────────────────────────────
+
+/**
+ * The last `built` entry in the split family: "works when tried; nothing guards it". Its
+ * three claims are asserted here for the first time — members re-project, no pane falls
+ * below the structural floor, and the drag is one undo entry.
+ *
+ * The floor is the interesting one. It is captured at drag start and comes from the *tree*,
+ * not from any member's `minSize`: a shell holding three panes and two gutters cannot be
+ * dragged down to one pane's minimum, because the gutters and the panes beside it still
+ * need their extent.
+ */
+
+const groupMinimum = () =>
+  getInfiniteCanvasGroupMinimumSize(splitTree(), DEFAULT_INFINITE_CANVAS_GROUP_METRICS);
+
+test("SPLIT-004 — resizing the shell re-projects every member onto the new rect", () => {
+  const state = groupedState();
+  const resizing = beginInfiniteCanvasGroupResize(
+    state,
+    POINTER,
+    state.groups[0]!,
+    "south-east",
+    groupMinimum(),
+    { x: 800, y: 400 },
+  );
+  const resized = stepCanvasInteraction(resizing, POINTER, { x: 1000, y: 500 });
+
+  expect(resized.groups[0]!.rect.width).toBeGreaterThan(state.groups[0]!.rect.width);
+
+  // The claim is not that the shell grew. It is that a member's rect is never anything but
+  // the solver's answer for the shell it is in — the invariant the whole projection exists
+  // to hold, checked here against a rect that just changed underneath it.
+  const solved = getInfiniteCanvasGroupProjection(resized.groups).windowRects;
+
+  for (const window of resized.windows) {
+    expect(window.rect).toEqual(solved.get(window.id));
+  }
+});
+
+test("SPLIT-004 — the shell cannot be dragged below the floor its tree needs", () => {
+  const state = groupedState();
+  const minimum = groupMinimum();
+
+  // The floor must exceed a single pane's extent, or the assertions below would hold for a
+  // floor that had forgotten the second pane and the gutter between them. Two panes at 48
+  // plus a 6px gutter is 102.
+  expect(minimum.width).toBeGreaterThan(MINIMUM_GROUP_PANE_EXTENT);
+
+  const resizing = beginInfiniteCanvasGroupResize(
+    state,
+    POINTER,
+    state.groups[0]!,
+    "south-east",
+    minimum,
+    { x: 800, y: 400 },
+  );
+  // Far past the floor, and from the south-east handle so both axes clamp at once.
+  const crushed = stepCanvasInteraction(resizing, POINTER, { x: -5000, y: -5000 });
+
+  expect(crushed.groups[0]!.rect.width).toBe(minimum.width);
+  expect(crushed.groups[0]!.rect.height).toBe(minimum.height);
+
+  // The floor is structural, so it must leave room for every pane rather than merely for one.
+  for (const rect of getInfiniteCanvasGroupProjection(crushed.groups).windowRects.values()) {
+    expect(rect.width).toBeGreaterThanOrEqual(MINIMUM_GROUP_PANE_EXTENT);
+    expect(rect.height).toBeGreaterThanOrEqual(MINIMUM_GROUP_PANE_EXTENT);
+  }
+});
+
+test("SPLIT-004 — a whole shell resize is one undo entry, however many steps it takes", () => {
+  // Through the reducer, because history lives there: `interaction.step` never records, and
+  // the checkpoint is taken when the drag begins. A drag that recorded per step would bury
+  // every earlier action under a hundred entries.
+  const started = reduceInfiniteCanvasState(groupedState(), {
+    groupId: "shell",
+    handle: "south-east",
+    minSize: groupMinimum(),
+    point: { x: 800, y: 400 },
+    pointerId: POINTER,
+    type: "interaction.startGroupResize",
+  });
+  const dragged = [900, 950, 1000, 1050].reduce(
+    (current, x) =>
+      reduceInfiniteCanvasState(current, {
+        point: { x, y: 450 },
+        pointerId: POINTER,
+        type: "interaction.step",
+      }),
+    started,
+  );
+  const finished = reduceInfiniteCanvasState(dragged, {
+    pointerId: POINTER,
+    type: "interaction.finish",
+  });
+
+  expect(finished.history.past).toHaveLength(1);
 });

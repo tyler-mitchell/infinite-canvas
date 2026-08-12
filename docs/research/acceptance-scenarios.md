@@ -21,8 +21,9 @@ Four buckets now:
 **That headline changed on 2026-08-12.** This paragraph read "No test in the suite touches
 groups, history, or recipes" for a month, and that is no longer true: seventeen scenarios moved
 from `built` to `covered` when C2 landed and the README-claims audit followed it. What remains
-`built` is now a short list rather than the bulk of the document — SPLIT-004, the RENDER family,
-and the transactional _sequence_ in PERSIST-003. P1 and P4 were capability-complete
+`built` is now a short list rather than the bulk of the document — the RENDER family and the
+transactional _sequence_ in PERSIST-003. SPLIT-004 left it on 2026-08-12, asserted and
+defect-free. P1 and P4 were capability-complete
 and verification-empty. Three defects found by reading on 2026-07-08 — dock intent dispatched
 three times for one pointermove, a grouped window's dead resize handles burying the gutter,
 and a mid-drag zoom sliding the window out from under the cursor — map onto DOCK-001,
@@ -116,9 +117,12 @@ hysteresis unimplemented` until 2026-07-08, long after it shipped.
   Tab and accordion shells are semantic and survive. Bottom-up, so one pass reaches a
   fixed point.)
 - **SPLIT-004** — Resize the shell by its outer edge: members re-project, no pane
-  falls below the structural floor, and the drag is one undo entry. `built`
-  (2026-07-08. `groupResize` steps `group.rect`; `getInfiniteCanvasGroupMinimumSize`
-  is the floor, measured with the layer's own metrics and captured at drag start.)
+  falls below the structural floor, and the drag is one undo entry. `covered`
+  (2026-07-08 built; asserted 2026-08-12. `groupResize` steps `group.rect`;
+  `getInfiniteCanvasGroupMinimumSize` is the floor, measured with the layer's own metrics
+  and captured at drag start. All three claims held on first run — no defect. The floor is
+  structural rather than one pane's minimum, and a test pins that: two 48px panes plus a
+  6px gutter is 102, so a floor that had forgotten the second pane would fail.)
 - **SPLIT-006** — Flip a container's axis: a row of panes becomes a column and back,
   without moving or resizing the shell. `covered` (2026-08-12. `group.flipAxis`.
   `setInfiniteCanvasGroupAxis` had existed since the group model shipped and was reachable
