@@ -230,6 +230,39 @@ buttons, and programmatic drivers share one mutation path.
 
 </details>
 
+**`window-arrange`** — aligning and distributing a set of windows
+
+Sibling to `window-placement`, and the distinction is load-bearing: placement answers "where
+does _one_ window go inside a region", arrange answers "how do _these_ windows relate to each
+other". Alignment is relative to the windows' **own collective bounds**, never the viewport —
+aligning three windows left means "share the leftmost one's left edge", not "go to the left of
+the screen", which is `window.place`.
+
+- `getInfiniteCanvasAlignedRects` — rects + alignment → rects sharing an edge or centreline.
+- `getInfiniteCanvasDistributedRects` — rects + axis → rects with even **gaps**, holding the
+  outermost two still. Equal gaps rather than equal centres: with rects of differing size the
+  two differ, and equal gaps is what every design tool means by "distribute".
+
+**These translate and never resize**, which is what makes them safe: a window cannot be pushed
+below its `minSize` by an arrange, so there is no clamping pass and no constraint to violate.
+Order in equals order out, so a caller pairing rects with window ids by index stays correct.
+
+Driven by the `window.align` and `window.distribute` commands, which act on the **selection**
+and ship with **no default chords** — eight commands would need eight chords, the unclaimed
+space is nearly exhausted, and design tools do not agree on bindings for these anyway. Bind
+them through `hotkeyBindings`, or put them in a toolbar. Grouped windows are skipped, as
+`window.place` refuses one, because a member's rect is its group's projection.
+
+They are one-shot commands, **not a layout mode**: a canvas that keeps windows aligned as they
+move is a tiling manager, which risk R5 exists to prevent.
+
+<details><summary>types (2)</summary>
+
+- `InfiniteCanvasAlignment` — `"left" | "right" | "top" | "bottom" | "horizontal-center" | "vertical-center"`
+- `InfiniteCanvasDistribution` — `"horizontal" | "vertical"`
+
+</details>
+
 **`window-placement`** — where a tiling shortcut puts a window (FOCUS-003)
 
 - `getInfiniteCanvasWindowPlacementRect` — bounds + region + size → rect. The only thing that

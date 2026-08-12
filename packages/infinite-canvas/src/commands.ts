@@ -36,6 +36,7 @@ import {
   getInfiniteCanvasDirectionalFocusTarget,
   isInfiniteCanvasWindowFullyVisible,
 } from "./window-focus";
+import { getInfiniteCanvasAlignedRects, getInfiniteCanvasDistributedRects } from "./window-arrange";
 import { getInfiniteCanvasWindowPlacementRect } from "./window-placement";
 import type {
   InfiniteCanvasCameraNavigationBehavior,
@@ -240,6 +241,72 @@ const DEFAULT_INFINITE_CANVAS_COMMAND_DESCRIPTORS = [
     hotkeys: ["Mod+Shift+Z", "Mod+Y"],
     id: "history.redo",
     label: "Redo",
+  },
+  // Arrange verbs ship with NO default chords, and that is a decision rather than an omission.
+  // Eight commands would need eight chords; the unclaimed space is nearly exhausted (see the
+  // rule below), and design tools do not agree on bindings for these anyway — they live in a
+  // toolbar or a palette, which is where a consumer should put them. `hotkeyBindings` takes
+  // them if a consumer disagrees.
+  //
+  // These act on the SELECTION and are one-shot. They are emphatically not a layout mode: a
+  // canvas that keeps things aligned as they move is a tiling manager, and risk R5 has flagged
+  // "global tiling semantics forced onto the infinite canvas" as live and standing since the
+  // beginning. You align, and then the windows are where you put them.
+  {
+    command: { alignment: "left", type: "window.align" },
+    description: "Align the selected windows to the left edge of their collective bounds.",
+    hotkeys: [],
+    id: "window.align.left",
+    label: "Align Left",
+  },
+  {
+    command: { alignment: "right", type: "window.align" },
+    description: "Align the selected windows to the right edge of their collective bounds.",
+    hotkeys: [],
+    id: "window.align.right",
+    label: "Align Right",
+  },
+  {
+    command: { alignment: "top", type: "window.align" },
+    description: "Align the selected windows to the top edge of their collective bounds.",
+    hotkeys: [],
+    id: "window.align.top",
+    label: "Align Top",
+  },
+  {
+    command: { alignment: "bottom", type: "window.align" },
+    description: "Align the selected windows to the bottom edge of their collective bounds.",
+    hotkeys: [],
+    id: "window.align.bottom",
+    label: "Align Bottom",
+  },
+  {
+    command: { alignment: "horizontal-center", type: "window.align" },
+    description: "Align the selected windows on a shared vertical centreline.",
+    hotkeys: [],
+    id: "window.align.horizontal-center",
+    label: "Align Horizontal Centers",
+  },
+  {
+    command: { alignment: "vertical-center", type: "window.align" },
+    description: "Align the selected windows on a shared horizontal centreline.",
+    hotkeys: [],
+    id: "window.align.vertical-center",
+    label: "Align Vertical Centers",
+  },
+  {
+    command: { distribution: "horizontal", type: "window.distribute" },
+    description: "Even out the horizontal gaps between the selected windows.",
+    hotkeys: [],
+    id: "window.distribute.horizontal",
+    label: "Distribute Horizontally",
+  },
+  {
+    command: { distribution: "vertical", type: "window.distribute" },
+    description: "Even out the vertical gaps between the selected windows.",
+    hotkeys: [],
+    id: "window.distribute.vertical",
+    label: "Distribute Vertically",
   },
   // ── The rule that governs every chord below, and one above. ──────────────────────────
   //
@@ -528,6 +595,55 @@ function nudgeSelectedWindows<Kind extends string>(
   };
 }
 
+/**
+ * The selected windows an arrange verb may move: floating, not minimized.
+ *
+ * A **grouped** window is skipped rather than aligned, for the reason `window.place` refuses
+ * one — a member's rect is its group's projection, so writing it would be overwritten by the
+ * next solve. Aligning the group *shell* instead is coherent and is deliberately not done here:
+ * it would mean a single command that sometimes moves one window and sometimes moves five, and
+ * that ambiguity belongs in its own command rather than smuggled into this one.
+ */
+function getArrangeableWindows<Kind extends string>(state: InfiniteCanvasState<Kind>) {
+  return state.windows.filter(
+    (window) =>
+      window.mode !== "minimized" &&
+      isWindowSelected(state, window.id) &&
+      !isInfiniteCanvasWindowGrouped(state, window.id),
+  );
+}
+
+/**
+ * Apply an arrange verb to the selection.
+ *
+ * The arranged rects come back in the order the windows went in — `window-arrange.ts`
+ * guarantees that — so pairing them by index is sound. Nothing is resized, so no `minSize`
+ * clamping is needed: the constraint cannot be violated by a translation.
+ */
+function arrangeSelectedWindows<Kind extends string>(
+  state: InfiniteCanvasState<Kind>,
+  command: Extract<InfiniteCanvasCommand, { type: "window.align" | "window.distribute" }>,
+) {
+  const targets = getArrangeableWindows(state);
+  const rects = targets.map((window) => window.rect);
+  const arranged =
+    command.type === "window.align"
+      ? getInfiniteCanvasAlignedRects(rects, command.alignment)
+      : getInfiniteCanvasDistributedRects(rects, command.distribution);
+  const rectByWindowId = new Map(
+    targets.map((window, index) => [window.id, arranged[index] ?? window.rect]),
+  );
+
+  return {
+    ...state,
+    windows: state.windows.map((window) => {
+      const rect = rectByWindowId.get(window.id);
+
+      return rect === undefined ? window : { ...window, rect };
+    }),
+  };
+}
+
 function isInfiniteCanvasCommandEnabled<Kind extends string>(
   state: InfiniteCanvasState<Kind>,
   command: InfiniteCanvasCommand,
@@ -566,6 +682,19 @@ function isInfiniteCanvasCommandEnabled<Kind extends string>(
     case "window.place":
     case "window.resize":
       return getActiveFloatingWindowId(state) !== null;
+    // Two windows is the floor for an alignment and three for a distribution, and the pure
+    // module is the one that knows which — asking it is how the enabled state and the result
+    // stay in agreement rather than drifting into two definitions of "enough windows".
+    case "window.align":
+    case "window.distribute": {
+      const rects = getArrangeableWindows(state).map((window) => window.rect);
+      const arranged =
+        command.type === "window.align"
+          ? getInfiniteCanvasAlignedRects(rects, command.alignment)
+          : getInfiniteCanvasDistributedRects(rects, command.distribution);
+
+      return arranged !== rects;
+    }
   }
 }
 
@@ -680,6 +809,8 @@ function getInfiniteCanvasCommandGroup(command: InfiniteCanvasCommand): Infinite
       return "view";
     case "view.fitSelection":
       return "selection";
+    case "window.align":
+    case "window.distribute":
     case "window.focusDirection":
     case "window.nudge":
     case "window.place":
@@ -770,6 +901,9 @@ function executeInfiniteCanvasCommand<Kind extends string>(
       return undoInfiniteCanvasHistory(state);
     case "window.focusDirection":
       return focusWindowInDirection(state, command.direction, zoomPolicy);
+    case "window.align":
+    case "window.distribute":
+      return arrangeSelectedWindows(state, command);
     case "window.nudge":
       return nudgeSelectedWindows(state, command);
     case "window.place":

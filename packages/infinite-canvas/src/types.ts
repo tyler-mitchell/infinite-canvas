@@ -14,6 +14,7 @@ import type {
   InfiniteCanvasGroupNode,
 } from "./group-tree";
 // Type-only, so the cycle back through `window-placement` erases before runtime.
+import type { InfiniteCanvasAlignment, InfiniteCanvasDistribution } from "./window-arrange";
 import type { InfiniteCanvasWindowPlacementRegion } from "./window-placement";
 
 type InfiniteCanvasPoint = Readonly<{
@@ -829,6 +830,25 @@ type InfiniteCanvasCommand =
       type: "window.nudge";
     }>
   | Readonly<{
+      /**
+       * Bring the selected floating windows to a shared edge or centreline of their own
+       * collective bounds — never the viewport's. Aligning three windows left means "share the
+       * leftmost one's left edge", not "go to the left of the screen"; the latter is
+       * `window.place`, and conflating them gives two commands that both claim to align.
+       */
+      alignment: InfiniteCanvasAlignment;
+      type: "window.align";
+    }>
+  | Readonly<{
+      /**
+       * Even out the gaps between the selected floating windows along one axis, holding the
+       * outermost two still. Equal gaps rather than equal centres — with windows of differing
+       * size the two differ, and equal gaps is what every tool means by "distribute".
+       */
+      distribution: InfiniteCanvasDistribution;
+      type: "window.distribute";
+    }>
+  | Readonly<{
       /** Where in the visible region the active window lands. Never snapped. */
       region: InfiniteCanvasWindowPlacementRegion;
       type: "window.place";
@@ -855,6 +875,14 @@ type InfiniteCanvasCommand =
 type InfiniteCanvasCommandId =
   | "desktop.cancel"
   | "history.redo"
+  | "window.align.bottom"
+  | "window.align.horizontal-center"
+  | "window.align.left"
+  | "window.align.right"
+  | "window.align.top"
+  | "window.align.vertical-center"
+  | "window.distribute.horizontal"
+  | "window.distribute.vertical"
   | "history.undo"
   | "selection.clear"
   | "selection.selectAllVisible"

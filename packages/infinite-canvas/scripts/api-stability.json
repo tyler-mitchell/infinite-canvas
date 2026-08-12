@@ -63,6 +63,7 @@
     "store",
     "types",
     "validation",
+    "window-arrange",
     "window-focus",
     "window-placement",
     "window-presence",
