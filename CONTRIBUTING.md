@@ -87,7 +87,8 @@ where B was never staged. On 2026-07-08, making `isGrouped` a required prop on
 clean commits, because neither test was ever part of one.
 
 `pre-push` therefore runs the whole-workspace static gates: `vp check` (about four seconds),
-plus the API-doc and pure-core assertions. Tests and builds stay in CI, where a red run costs
+plus the API-doc, pure-core, **and API-stability** assertions — read the hook rather than this
+sentence if they ever disagree, because this one omitted the third for as long as it existed. Tests and builds stay in CI, where a red run costs
 nobody's attention mid-flow and where a hook slow enough to be resented would just get disabled.
 
 `VITE_GIT_HOOKS=0 git push` skips it. If you do that, CI is the only thing left between you and
@@ -133,9 +134,13 @@ wrong.
 
 ## The two invariants contributors most often break
 
-The first is enforced by `src/headless-boundary.test.ts`, so you will find out. The
-second is not enforced by anything — it holds because nobody has broken it. Either
-way, better to know why.
+Both are enforced now, so you will find out either way — but it is still worth knowing why.
+
+This paragraph used to say the second "is not enforced by anything — it holds because nobody
+has broken it". That stopped being true on 2026-07-08, when `verify-pure-core.mjs` landed; the
+section below was updated to describe the two things that guard it and this introduction was
+not, so the file contradicted itself sixty lines apart. Corrected 2026-08-12, alongside the
+identical defect in `README.md`, where the same claim had gone stale in the same direction.
 
 ### 1. The framework package is headless
 
@@ -231,6 +236,22 @@ blocks (`export { … } from`, `export type { … } from`). Add an `export const
 blind to exactly the surface you just introduced. Teach it the new form, or keep the barrels
 as re-exports.
 
+### Two invariants held by tests rather than scripts
+
+These are ordinary Vitest files, so `vp run -r test` finds them, but they guard structure
+rather than behaviour and are easy to mistake for redundant.
+
+- `src/command-coverage.test.ts` types a map of **every** action as
+  `Record<InfiniteCanvasAction["type"], …>`, so adding an action fails the typecheck until it
+  is classified: either it names a command that reaches it, or it declares which of four
+  reasons makes it deliberately chromeless. The command registry feeds hotkeys, the palette,
+  and contextual availability, and it had drifted to roughly half the reducer's vocabulary
+  before this existed — every window-lifecycle verb was reachable only as an `onClick`.
+- `src/single-dispatcher.test.ts` reads the source and fails if any module other than
+  `infinite-canvas.tsx` calls `stepInteraction`. Two dispatchers for one pointer event is a
+  race whose loser is whichever handler knows less about the modifiers; the friction backlog
+  recorded that lesson once and four dispatchers survived the fix it produced.
+
 ### Packaging invariants
 
 `packages/infinite-canvas/scripts/verify-artifact.mjs` runs against the **built** `dist/` and
@@ -239,7 +260,13 @@ asserts what the source-linked dev loop can't see:
 - `"use client"` is the first statement of `dist/index.mjs` (RSC consumers break otherwise),
 - `@zumer/snapdom` stays a dynamic import and never gets hoisted into every consumer bundle,
 - nothing is imported that isn't a declared `dependency` or `peerDependency`,
-- every path in `publishConfig.exports` exists and the `.d.mts` emit actually resolves.
+- every path in `publishConfig.exports` exists and the `.d.mts` emit actually resolves,
+- `LICENSE` and `README.md` sit in the **package** root, because npm packs them from beside
+  `package.json` and not from the repository root — `files` is `["dist"]`, so the tarball
+  carried no licence text at all until 2026-08-12 while its manifest declared MIT,
+- every name the package `README.md` imports in a code fence is still exported. That file is
+  what npm renders on the package page and it ships inside the tarball, so a rename would
+  leave the front page telling every new consumer to import something that no longer exists.
 
 Run it after a build:
 
