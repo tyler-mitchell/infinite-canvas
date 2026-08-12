@@ -146,7 +146,13 @@ function focus(): readonly CheckResult[] {
     results.push(skip("focus.tab-wraps", "This window body has no tabbable controls."));
   } else {
     lastTabbable.focus({ preventScroll: true });
-    body.dispatchEvent(
+    // Dispatched on the FOCUSED control, not on the body. A real keypress targets whatever has
+    // focus and bubbles to the body's handler, and the trap only fires at the edges — it
+    // compares `event.target` against the first and last tabbable to decide whether the Tab is
+    // leaving. Dispatching on the body makes `target` the body, which is neither, so the trap
+    // correctly declines and the check reports a failure that only its own wiring caused.
+    // (This harness did exactly that on its first run and accused the feature of the bug.)
+    lastTabbable.dispatchEvent(
       new KeyboardEvent("keydown", { bubbles: true, cancelable: true, key: "Tab" }),
     );
     results.push(
@@ -159,8 +165,9 @@ function focus(): readonly CheckResult[] {
           ),
     );
 
-    // Escape must hand focus back, or the trap is a cage and every hotkey stays dead.
-    body.dispatchEvent(
+    // Escape must hand focus back, or the trap is a cage and every hotkey stays dead. Dispatched
+    // on the focused control for the same reason as the Tab above.
+    (document.activeElement ?? body).dispatchEvent(
       new KeyboardEvent("keydown", { bubbles: true, cancelable: true, key: "Escape" }),
     );
     results.push(
