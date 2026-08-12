@@ -168,25 +168,25 @@ type InfiniteCanvasViewportProps<
   Kind extends string,
   Payload = InfiniteCanvasDropPayload,
 > = Readonly<{
-  chrome: InfiniteCanvasChromeMetrics;
+  chrome?: InfiniteCanvasChromeMetrics;
   className?: string;
-  diagnostics: InfiniteCanvasDiagnosticsPolicy;
+  diagnostics?: InfiniteCanvasDiagnosticsPolicy;
   dropPolicy?: InfiniteCanvasDropPolicy<Kind, Payload>;
   hotkeyBindings?: readonly InfiniteCanvasHotkeyBinding[];
   hud?: InfiniteCanvasHudPolicyInput;
   icons?: InfiniteCanvasIcons;
-  inputPolicy: InfiniteCanvasInputPolicy;
+  inputPolicy?: InfiniteCanvasInputPolicy;
   renderOverlay?: (context: InfiniteCanvasOverlayRenderContext<Kind, Payload>) => ReactNode;
-  sceneLayers: readonly InfiniteCanvasSceneLayer<Kind, Payload>[];
+  sceneLayers?: readonly InfiniteCanvasSceneLayer<Kind, Payload>[];
   sceneSurface?: InfiniteCanvasSceneSurface<Kind, Payload>;
   /** Reaches the store for move/resize; the viewport needs it to snap a drop too. */
   snapPolicy?: InfiniteCanvasSnapPolicy;
-  subtitle: string;
-  spatialTargetResolvers: readonly InfiniteCanvasSpatialTargetResolver<Kind>[];
+  subtitle?: string;
+  spatialTargetResolvers?: readonly InfiniteCanvasSpatialTargetResolver<Kind>[];
   theme?: Partial<InfiniteCanvasTheme>;
-  title: string;
+  title?: string;
   windowDefinitions: InfiniteCanvasWindowRegistry<Kind>;
-  zoomPolicy: InfiniteCanvasZoomPolicy;
+  zoomPolicy?: InfiniteCanvasZoomPolicy;
 }>;
 
 const SCENE_SCREEN_UNDERLAY_Z_INDEX = 1;
@@ -469,25 +469,42 @@ function InfiniteCanvasDesktop<Kind extends string, Payload = InfiniteCanvasDrop
   );
 }
 
+/**
+ * The canvas itself, mountable without `InfiniteCanvasDesktop`.
+ *
+ * **Every policy prop defaults here as well as on `Desktop`**, and that duplication is the
+ * point rather than an oversight. Until 2026-08-12 nine of them were *required* in their
+ * already-resolved form — `chrome`, `diagnostics`, `inputPolicy`, `zoomPolicy`,
+ * `sceneLayers`, `spatialTargetResolvers`, `title`, `subtitle`, `windowDefinitions` — while
+ * every default and every `resolve*` call lived inside `Desktop`. So this component was
+ * documented as exported "for custom shells" and could not actually be mounted by one: a
+ * consumer composing `Provider` + `Viewport` had to re-implement `Desktop`'s internals to
+ * produce the values it demanded.
+ *
+ * `Desktop` still passes its own resolved values explicitly, so nothing about mounting it
+ * changes; these defaults exist for the direct consumer it claimed to serve.
+ */
 function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDropPayload>({
-  chrome,
+  chrome = DEFAULT_INFINITE_CANVAS_CHROME,
   className,
-  diagnostics,
+  diagnostics = DEFAULT_INFINITE_CANVAS_DIAGNOSTICS,
   dropPolicy,
   hotkeyBindings,
   hud,
   icons,
-  inputPolicy,
+  inputPolicy = DEFAULT_INFINITE_CANVAS_INPUT_POLICY,
   renderOverlay,
-  sceneLayers,
+  sceneLayers = [],
   sceneSurface: SceneSurface,
   snapPolicy,
-  subtitle,
-  spatialTargetResolvers,
+  // HUD copy, not viewport geometry. Required until 2026-08-12, which meant a consumer
+  // mounting a bare canvas had to invent a product name for it before it would compile.
+  subtitle = "",
+  spatialTargetResolvers = [],
   theme,
-  title,
+  title = "",
   windowDefinitions,
-  zoomPolicy,
+  zoomPolicy = resolveInfiniteCanvasZoomPolicy(),
 }: InfiniteCanvasViewportProps<Kind, Payload>) {
   // One token per mounted canvas, shared by the window and group layers so a frame's DOM `id`
   // and the group tab's `aria-controls` that names it are computed from the same prefix. Two

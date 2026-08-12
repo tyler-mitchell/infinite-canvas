@@ -65,10 +65,26 @@ someone who never asked for them.
 
 ## Components
 
-`InfiniteCanvasDesktop` is the one component most apps mount.
-`InfiniteCanvasViewport`, `InfiniteCanvasWindowLayer` and `InfiniteCanvasHud`
-are its internals, exported for custom shells; `InfiniteCanvas` is a namespace
-object bundling them.
+`InfiniteCanvasDesktop` is the one component most apps mount — a preset that
+supplies defaults and resolves policies around `InfiniteCanvasViewport`.
+
+**The parts compose without it**, which this file asserted for a month before it
+was true. Nine of `Viewport`'s props were required in their already-resolved
+form while every default and every `resolve*` call lived inside `Desktop`, so a
+"custom shell" had to re-implement `Desktop` to satisfy the component `Desktop`
+renders. Everything now defaults except `windowDefinitions`, which is genuinely
+required because a canvas cannot render a window kind it has never heard of:
+
+```tsx
+<InfiniteCanvasProvider initialState={state}>
+  <InfiniteCanvasViewport windowDefinitions={registry} />
+</InfiniteCanvasProvider>
+```
+
+`compound-api.test.tsx` mounts exactly that and asserts windows and bodies
+render, so re-adding a required prop without a default breaks a test rather
+than a consumer. `InfiniteCanvas` is a namespace object bundling the same
+components — asserted identical, not a parallel set that could drift.
 
 **`infinite-canvas`**
 
