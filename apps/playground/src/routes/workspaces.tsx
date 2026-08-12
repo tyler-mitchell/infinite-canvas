@@ -83,6 +83,7 @@ function WorkspaceSwitcher() {
   const sequenceRef = useRef(0);
   const workspaces = useInfiniteCanvasSelector((state) => state.workspaces);
   const activeWorkspaceId = useInfiniteCanvasSelector((state) => state.activeWorkspaceId);
+  const activeWindowId = useInfiniteCanvasSelector((state) => state.activeWindowId);
 
   return (
     <div className="pointer-events-auto absolute bottom-4 left-4 flex items-center gap-1.5 rounded-lg border border-border bg-popover/90 p-1.5 backdrop-blur">
@@ -109,6 +110,40 @@ function WorkspaceSwitcher() {
           {workspace.title}
         </Button>
       ))}
+      <span className="mx-1 h-4 w-px bg-border" />
+      {/*
+       * Sending the active window to another desktop — the operation a virtual desktop exists
+       * for, and the one this bar could not reach until the verb existed.
+       *
+       * `workspace.moveActiveWindow` is parameterized, like `workspace.create`: a palette entry
+       * cannot invent which desktop, so a surface that lists them is what supplies the argument.
+       * That is the whole reason this control is here rather than in the palette.
+       *
+       * Only desktops the window is not already on are offered, so every button visibly does
+       * something. Dock two panes together first and send one: the shell goes as a unit,
+       * because membership is group-complete.
+       */}
+      <span className="px-1 font-mono text-[10px] tracking-wider text-muted-foreground uppercase">
+        send to
+      </span>
+      {workspaces
+        .filter((workspace) => !workspace.windowIds.includes(activeWindowId ?? ""))
+        .map((workspace) => (
+          <Button
+            disabled={activeWindowId === null}
+            key={workspace.id}
+            onClick={() => {
+              actions.executeCommand({
+                type: "workspace.moveActiveWindow",
+                workspaceId: workspace.id,
+              });
+            }}
+            size="xs"
+            variant="ghost"
+          >
+            → {workspace.title}
+          </Button>
+        ))}
       <span className="mx-1 h-4 w-px bg-border" />
       {/*
        * The affordance this route was missing, and the omission hid a real defect.
