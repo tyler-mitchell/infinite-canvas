@@ -135,6 +135,17 @@ hysteresis unimplemented` until 2026-07-08, long after it shipped.
   `group.setAxis` action, a `setGroupAxis` facade method, and a command that computes the
   opposite axis. Offered only when the container is not a tab strip, whose layout ignores
   axis entirely.)
+- **SPLIT-007** — Adjust a seam without a pointer. `covered` (2026-08-12. `groupGutter` was
+  the last pointer-only interaction kind with no keyboard form: a user could equalize a
+  container but could not make one pane bigger than another, which is the thing you most
+  often want from a docked layout. `group.resizePane` drives the _same_
+  `getInfiniteCanvasGroupGutterWeights` the drag drives, with `availableExtent` taken from
+  the solved layout rather than re-derived — the layout module says why in its own words.
+  The last pane has no seam after it and grows by pushing the seam before it backwards,
+  which is a sign the tests pin: getting it wrong would shrink the pane the user asked to
+  grow. The invariant across zoom is the **screen** distance, not the resulting share — the
+  seam travels 24 screen pixels at any zoom, exactly as dragging it does, and the share moves
+  by however much that turns out to be.)
 - **SPLIT-005** — Equalize returns a container's panes to identical weights, undoing
   accumulated seam drags. `covered` (2026-08-12. `equalizeInfiniteCanvasGroupChildren`,
   reached by the `group.equalizeChildren` command, which targets the active window's

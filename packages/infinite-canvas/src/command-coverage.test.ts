@@ -67,7 +67,7 @@ const ACTION_COMMAND_COVERAGE: Readonly<
   "group.reorderChild": "group.moveChild.end",
   "group.setActiveChild": "parameterized",
   "group.setAxis": "group.flipAxis",
-  "group.setChildWeights": "pointer",
+  "group.setChildWeights": "group.growPane",
   "group.setLayoutMode": "group.setLayout.tabs",
   "group.setRect": "pointer",
   "group.undockWindow": "window.undock",

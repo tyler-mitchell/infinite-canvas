@@ -11,6 +11,7 @@ import {
   resizeRectFromHandle,
   zoomCameraAtScreenPoint,
 } from "./geometry";
+import { getInfiniteCanvasGroupGutterWeights, getInfiniteCanvasGroupLayout } from "./group-layout";
 import {
   getInfiniteCanvasGroupParent,
   type InfiniteCanvasGroupContainerNode,
@@ -27,6 +28,7 @@ import {
   reorderInfiniteCanvasGroupChildInState,
   resolveInfiniteCanvasDockPreviewForTarget,
   setInfiniteCanvasGroupAxisInState,
+  setInfiniteCanvasGroupChildWeightsInState,
   setInfiniteCanvasGroupLayoutModeInState,
   setInfiniteCanvasGroupRect,
   undockInfiniteCanvasWindowFromGroup,
@@ -538,6 +540,29 @@ const DEFAULT_INFINITE_CANVAS_COMMAND_DESCRIPTORS = [
     id: "group.setLayout.accordion",
     label: "Layout: Accordion",
   },
+  // The last pointer-only interaction to get a keyboard form. `groupGutter` — dragging the
+  // seam between two panes — had none, so a keyboard user could equalize a container (reset
+  // every pane to the same share) but could not make one pane bigger than another, which is
+  // the thing you most often want from a docked layout.
+  //
+  // Both descriptors drive one command with an inverted amount, the shape `view.zoomBy` and
+  // `window.nudge` already use.
+  {
+    command: { amountPx: 24, type: "group.resizePane" },
+    description:
+      "Give the active window a larger share of its container, taking it from the pane beside it.",
+    hotkeys: [],
+    id: "group.growPane",
+    label: "Grow Pane",
+  },
+  {
+    command: { amountPx: -24, type: "group.resizePane" },
+    description:
+      "Give the active window a smaller share of its container, returning it to the pane beside it.",
+    hotkeys: [],
+    id: "group.shrinkPane",
+    label: "Shrink Pane",
+  },
   {
     command: { type: "group.dissolve" },
     description:
@@ -1021,6 +1046,47 @@ function applyInfiniteCanvasWindowLifecycle<Kind extends string>(
   }
 }
 
+/**
+ * The seam to push so the active window grows, and which way pushing it does that.
+ *
+ * A pane grows by taking from the sibling after it — so the seam that sits *after* the active
+ * child, moved forward. The last pane has no such seam and takes from the one before it
+ * instead, which means moving that seam backward: hence `grows`, which is `+1` or `-1`.
+ *
+ * The gutter comes from the solved layout rather than being re-derived, because it carries
+ * `availableExtent`, and the layout module says plainly why: "re-deriving it at the call site
+ * is how the seam drifts away from the cursor". A keyboard step has no cursor to drift from,
+ * but it must land on the same weights the drag would, or the two gestures disagree.
+ */
+function resolveInfiniteCanvasPaneSeam<Kind extends string>(state: InfiniteCanvasState<Kind>) {
+  const active = getActiveInfiniteCanvasGroupContainer(state);
+  const windowId = state.activeWindowId;
+
+  if (active === null || windowId === null) {
+    return null;
+  }
+
+  const group = findInfiniteCanvasGroup(state, active.groupId);
+
+  if (group === null) {
+    return null;
+  }
+
+  const { gutters } = getInfiniteCanvasGroupLayout(group.tree, group.rect);
+  const after = gutters.find((gutter) => gutter.afterChildId === windowId);
+  const before = gutters.find((gutter) => gutter.beforeChildId === windowId);
+  const gutter = after ?? before;
+
+  return gutter === undefined
+    ? null
+    : {
+        container: active.container,
+        groupId: active.groupId,
+        grows: after === undefined ? -1 : 1,
+        gutter,
+      };
+}
+
 /** Where the active window sits in its container's order, and how many siblings it has. */
 function getActiveInfiniteCanvasGroupChildIndex<Kind extends string>(
   state: InfiniteCanvasState<Kind>,
@@ -1179,6 +1245,8 @@ function isInfiniteCanvasCommandEnabled<Kind extends string>(
 
       return required === null || isInfiniteCanvasWindowCapable(active, required);
     }
+    case "group.resizePane":
+      return resolveInfiniteCanvasPaneSeam(state) !== null;
     case "group.dissolve":
       return (
         state.activeWindowId !== null && isInfiniteCanvasWindowGrouped(state, state.activeWindowId)
@@ -1384,6 +1452,7 @@ function getInfiniteCanvasCommandGroup(command: InfiniteCanvasCommand): Infinite
     case "activeWindow.togglePinned":
     case "group.dissolve":
     case "group.equalizeChildren":
+    case "group.resizePane":
     case "group.flipAxis":
     case "group.moveChild":
     case "group.setLayout":
@@ -1527,6 +1596,29 @@ function executeInfiniteCanvasCommand<Kind extends string>(
           zoomPolicy,
         ),
       };
+    case "group.resizePane": {
+      const seam = resolveInfiniteCanvasPaneSeam(state);
+
+      if (seam === null) {
+        return state;
+      }
+
+      // `availableExtent` is in the world units the layout was solved in, so the travel has
+      // to be too — the same conversion the drag makes, from the other end.
+      const weights = getInfiniteCanvasGroupGutterWeights(seam.container, seam.gutter, {
+        availableExtent: seam.gutter.availableExtent,
+        delta: (command.amountPx * seam.grows) / state.camera.zoom,
+      });
+
+      // `{}` means the pair has no room left to move.
+      return Object.keys(weights).length === 0
+        ? state
+        : setInfiniteCanvasGroupChildWeightsInState(state, {
+            containerId: seam.gutter.containerId,
+            groupId: seam.groupId,
+            weights,
+          });
+    }
     case "group.dissolve": {
       const group =
         state.activeWindowId === null

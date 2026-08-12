@@ -1032,3 +1032,96 @@ test("FAIL-001 sibling — a pan with no zoom change is unaffected by the genera
   expect(stepped.camera.zoom).toBe(1);
   expect(stepped.camera.center.x).toBeCloseTo(-240, 5);
 });
+
+// ── SPLIT-007 — adjusting a seam without a pointer ───────────────────────────────────────
+
+/**
+ * `groupGutter` was the last pointer-only interaction kind with no keyboard form. A keyboard
+ * user could equalize a container — reset every pane to the same share — but could not make
+ * one pane bigger than another, which is the thing you most often want from a docked layout.
+ *
+ * The command drives the *same* `getInfiniteCanvasGroupGutterWeights` the drag drives, with
+ * the same `availableExtent` taken from the solved layout rather than re-derived. The layout
+ * module says why in its own words: "re-deriving it at the call site is how the seam drifts
+ * away from the cursor". A keyboard step has no cursor to drift from, but it has to land on
+ * the weights the drag would, or the two gestures disagree about what a seam is.
+ */
+
+test("SPLIT-007 — growing a pane takes share from the sibling beside it", () => {
+  const state = dockedPair();
+  const before = getInfiniteCanvasGroupProjection(state.groups).windowRects;
+
+  expect(before.get("west")!.width).toBe(before.get("east")!.width);
+  expect(isInfiniteCanvasCommandEnabled(state, { amountPx: 24, type: "group.resizePane" })).toBe(
+    true,
+  );
+
+  const grown = executeInfiniteCanvasCommand(state, { amountPx: 24, type: "group.resizePane" });
+  const after = getInfiniteCanvasGroupProjection(grown.groups).windowRects;
+
+  expect(after.get("west")!.width).toBeGreaterThan(before.get("west")!.width);
+  expect(after.get("east")!.width).toBeLessThan(before.get("east")!.width);
+  // A seam redistributes inside the shell; the shell itself must not move or resize.
+  expect(grown.groups[0]!.rect).toEqual(state.groups[0]!.rect);
+});
+
+test("SPLIT-007 — shrinking is the inverse, and the two round-trip", () => {
+  const state = dockedPair();
+  const roundTripped = executeInfiniteCanvasCommand(
+    executeInfiniteCanvasCommand(state, { amountPx: 24, type: "group.resizePane" }),
+    { amountPx: -24, type: "group.resizePane" },
+  );
+  const widths = getInfiniteCanvasGroupProjection(roundTripped.groups).windowRects;
+
+  expect(widths.get("west")!.width).toBeCloseTo(
+    getInfiniteCanvasGroupProjection(state.groups).windowRects.get("west")!.width,
+    5,
+  );
+});
+
+test("SPLIT-007 — the last pane grows by taking from the one before it", () => {
+  // There is no seam after the last child, so growing it means pushing the seam that sits
+  // before it *backwards*. Getting that sign wrong would shrink the pane the user asked to
+  // grow — the failure would look like the command working in reverse.
+  const state = { ...dockedPair(), activeWindowId: "east" };
+  const before = getInfiniteCanvasGroupProjection(state.groups).windowRects;
+  const grown = executeInfiniteCanvasCommand(state, { amountPx: 24, type: "group.resizePane" });
+  const after = getInfiniteCanvasGroupProjection(grown.groups).windowRects;
+
+  expect(after.get("east")!.width).toBeGreaterThan(before.get("east")!.width);
+});
+
+test("SPLIT-007 — a floating window has no seam to push", () => {
+  const floating: InfiniteCanvasState<Kind> = {
+    ...createInfiniteCanvasState<Kind>({ windows: [windowAt("solo", 0, 0)] }),
+    activeWindowId: "solo",
+    viewport: { height: 800, width: 1200 },
+  };
+
+  expect(isInfiniteCanvasCommandEnabled(floating, { amountPx: 24, type: "group.resizePane" })).toBe(
+    false,
+  );
+});
+
+test("SPLIT-007 — the seam travels the same distance on screen at any zoom", () => {
+  // The invariant is the *screen* distance, not the resulting share, and the first draft of
+  // this test asserted the share. It cannot be zoom-invariant: `availableExtent` is world
+  // units and the shell does not shrink when you zoom out, so at 0.25 the container occupies
+  // a quarter of the screen it did and 24 screen pixels is four times the fraction of it.
+  //
+  // That is exactly what dragging the seam does — it follows the cursor, so 24 pixels of
+  // travel is 24 pixels of seam movement whatever the zoom, and the share moves by however
+  // much that turns out to be. Matching the drag is the whole point.
+  const screenGrowth = [0.25, 1, 4].map((zoom) => {
+    const state = { ...dockedPair(), camera: { center: { x: 0, y: 0 }, zoom } };
+    const before = getInfiniteCanvasGroupProjection(state.groups).windowRects.get("west")!.width;
+    const grown = executeInfiniteCanvasCommand(state, { amountPx: 24, type: "group.resizePane" });
+    const after = getInfiniteCanvasGroupProjection(grown.groups).windowRects.get("west")!.width;
+
+    return (after - before) * zoom;
+  });
+
+  for (const growth of screenGrowth) {
+    expect(growth).toBeCloseTo(24, 5);
+  }
+});
