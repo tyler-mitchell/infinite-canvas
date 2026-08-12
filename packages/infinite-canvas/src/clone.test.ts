@@ -88,6 +88,63 @@ test("a store cannot be reached through the state its caller handed over", () =>
   expect(live.windows[0]?.title).toBe("Draft");
 });
 
+/**
+ * Every shared reference, found rather than listed.
+ *
+ * The tests above name the fields they check, which is the same shape as the bug: a list that
+ * goes out of date the moment a field is added. `workspaces` was missing from `clone`'s list
+ * for a day and would have been missing from an assertion list just as easily.
+ *
+ * This walks the whole state instead, so a new field is checked by default and forgetting it
+ * makes the test fail rather than silently pass. Sharing that *is* deliberate is declared
+ * below — and a declaration is safe in a way an omission is not, because adding one is a
+ * decision someone had to write down.
+ */
+
+/** Paths where source and clone deliberately share a reference. */
+const DELIBERATELY_SHARED = [
+  // Trees are rebuilt wholesale by every mutation, never edited in place. `cloneGroup` shares
+  // them for the same reason.
+  /^groups\[\d+\]\.tree/,
+  // The consumer's own payload. The framework treats it as opaque, and deep-copying it would
+  // both cost more than it can know and break any identity the consumer relies on.
+  /^windows\[\d+\]\.data/,
+  // Rebuilt by every reducer that touches membership, like a tree.
+  /^workspaces\[\d+\]\.windowIds/,
+  // Not cloned at all: an undo stack holds documents that hold the same windows and groups,
+  // and copying it would multiply the whole history by the depth of the stack. `reset`
+  // replaces it outright rather than restoring it.
+  /^history/,
+];
+
+const findSharedReferences = (source: unknown, clone: unknown, path: string): readonly string[] => {
+  if (source === null || typeof source !== "object") {
+    return [];
+  }
+
+  if (DELIBERATELY_SHARED.some((allowed) => allowed.test(path))) {
+    return [];
+  }
+
+  if (source === clone) {
+    return [path];
+  }
+
+  return Object.keys(source).flatMap((key) =>
+    findSharedReferences(
+      (source as Record<string, unknown>)[key],
+      (clone as Record<string, unknown>)[key],
+      Array.isArray(source) ? `${path}[${key}]` : path === "" ? key : `${path}.${key}`,
+    ),
+  );
+};
+
+test("no reference is shared between a state and its clone except by declaration", () => {
+  const source = seed();
+
+  expect(findSharedReferences(source, cloneInfiniteCanvasState(source), "")).toEqual([]);
+});
+
 test("a clone is equal to its source, so isolation is not achieved by losing data", () => {
   // The check that keeps the ones above honest: a clone that dropped `workspaces` entirely
   // would share nothing and pass every identity assertion in this file.
