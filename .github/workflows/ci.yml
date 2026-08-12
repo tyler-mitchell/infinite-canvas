@@ -72,6 +72,13 @@ jobs:
       - name: Verify distribution
         run: pnpm --filter @hyphened/infinite-canvas run verify:distribution
 
+      # The only check that installs the package the way npm would and runs it. Every other
+      # gate reads this repository; this one packs the tarball, installs it into a clean
+      # project, imports through the published entry point and drives the store. Its first run
+      # caught the store silently dropping every workspace action.
+      - name: Verify consumer install
+        run: pnpm --filter @hyphened/infinite-canvas run verify:consumer
+
       - name: Test
         run: pnpm exec vp run -r test
 

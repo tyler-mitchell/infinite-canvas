@@ -86,40 +86,15 @@ function commitInfiniteCanvasState<Kind extends string>(
   const currentState = writableState$.peek() as InfiniteCanvasState<Kind>;
 
   batch(() => {
-    if (currentState.activeWindowId !== nextState.activeWindowId) {
-      writableState$.activeWindowId.set(nextState.activeWindowId);
-    }
-
-    if (currentState.camera !== nextState.camera) {
-      writableState$.camera.set(nextState.camera);
-    }
-
-    if (currentState.groups !== nextState.groups) {
-      writableState$.groups.set(nextState.groups);
-    }
-
-    if (currentState.history !== nextState.history) {
-      writableState$.history.set(nextState.history);
-    }
-
-    if (currentState.interaction !== nextState.interaction) {
-      writableState$.interaction.set(nextState.interaction);
-    }
-
-    if (currentState.selection !== nextState.selection) {
-      writableState$.selection.set(nextState.selection);
-    }
-
-    if (currentState.snapPreview !== nextState.snapPreview) {
-      writableState$.snapPreview.set(nextState.snapPreview);
-    }
-
-    if (currentState.viewport !== nextState.viewport) {
-      writableState$.viewport.set(nextState.viewport);
-    }
-
-    if (currentState.windows !== nextState.windows) {
-      writableState$.windows.set(nextState.windows);
+    for (const field of Object.keys(nextState) as readonly (keyof InfiniteCanvasState<Kind>)[]) {
+      if (currentState[field] !== nextState[field]) {
+        // The per-field observable is typed for its own field; the loop is generic over all of
+        // them, so this is the one place a cast is unavoidable. The reference comparison above
+        // is what keeps the write set minimal, which is the reason this writes fields at all
+        // rather than replacing the root: a `set` on the root would invalidate every observer
+        // on every action.
+        (writableState$[field] as { set: (value: unknown) => void }).set(nextState[field]);
+      }
     }
   });
 }
