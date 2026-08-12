@@ -1,7 +1,9 @@
 import {
   getInfiniteCanvasContextualCommands,
+  getInfiniteCanvasWindowPresence,
   useInfiniteCanvasActions,
   useInfiniteCanvasState,
+  type InfiniteCanvasWindowPresenceItem,
 } from "@infinite-canvas/react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
@@ -32,6 +34,14 @@ const returnFocusToCanvas = (): void => {
 };
 
 type ContextualCommand = ReturnType<typeof getInfiniteCanvasContextualCommands>[number];
+
+/**
+ * One navigable row. A discriminated union rather than two parallel lists, so the arrow keys
+ * traverse a single sequence and `Enter` has exactly one thing to do with whatever is selected.
+ */
+type PaletteEntry =
+  | Readonly<{ command: ContextualCommand; kind: "command" }>
+  | Readonly<{ kind: "window"; window: InfiniteCanvasWindowPresenceItem }>;
 
 /**
  * A hotkey is a string like `"Mod+Shift+ArrowLeft"` **or** a parsed `{ key, mod, shift, … }`
@@ -134,7 +144,50 @@ function CommandPaletteDialog({ onClose }: { onClose: () => void }) {
   // what it can do *now*. Showing them, greyed and inert, is the only version that teaches.
   const available = filtered.filter((command) => command.enabled);
   const unavailable = filtered.filter((command) => !command.enabled);
-  const active = available[Math.min(selectedIndex, available.length - 1)];
+
+  /**
+   * The switcher half. `getInfiniteCanvasWindowPresence` has been public all along and this is
+   * the first thing to enumerate windows for navigation — the minimap answers "where am I"
+   * geometrically and the offscreen indicators answer it peripherally, but neither answers
+   * "where is the window called Notes", which is the question you actually have at 160 windows.
+   *
+   * Windows rank **above** commands, including on an empty query. In a spatial canvas the
+   * common intent is "take me to X", and it was until now the one thing the palette could not
+   * do. Sorted by stack order, so the palette agrees with what is on top.
+   */
+  const windows = useMemo(
+    () =>
+      getInfiniteCanvasWindowPresence(state).windows.filter(
+        (window) => query === "" || window.title.toLowerCase().includes(query.toLowerCase()),
+      ),
+    [query, state],
+  );
+
+  // One flat navigable list so Arrow keys cross the section boundary without the user having to
+  // know there is one. Two independent indices would make Down stop dead at the end of a
+  // section, which is the sort of thing that reads as a bug rather than as a design.
+  const entries: readonly PaletteEntry[] = [
+    ...windows.map((window) => ({ kind: "window" as const, window })),
+    ...available.map((command) => ({ command, kind: "command" as const })),
+  ];
+  const active = entries[Math.min(selectedIndex, entries.length - 1)];
+
+  const runEntry = (entry: PaletteEntry) => {
+    if (entry.kind === "command") {
+      actions.executeCommand(entry.command.command);
+    } else {
+      // A minimized window has no rect to navigate to, so restore before focusing — otherwise
+      // the camera flies to where the window is not, which is worse than not moving.
+      if (entry.window.mode === "minimized") {
+        actions.restoreWindow(entry.window.id);
+      }
+
+      actions.focusWindow(entry.window.id);
+      actions.navigateToWindow({ windowId: entry.window.id });
+    }
+
+    onClose();
+  };
 
   return (
     <div
@@ -164,8 +217,7 @@ function CommandPaletteDialog({ onClose }: { onClose: () => void }) {
             }
 
             if (event.key === "Enter" && active !== undefined) {
-              actions.executeCommand(active.command);
-              onClose();
+              runEntry(active);
               return;
             }
 
@@ -176,37 +228,76 @@ function CommandPaletteDialog({ onClose }: { onClose: () => void }) {
               event.preventDefault();
               setSelectedIndex((index) => {
                 const next = event.key === "ArrowDown" ? index + 1 : index - 1;
-                return Math.max(0, Math.min(next, available.length - 1));
+                return Math.max(0, Math.min(next, entries.length - 1));
               });
             }
           }}
-          placeholder="Search commands…"
+          placeholder="Search windows and commands…"
           ref={inputRef}
           value={query}
         />
 
         <div className="max-h-80 overflow-y-auto p-1.5">
-          {available.length === 0 && unavailable.length === 0 ? (
+          {entries.length === 0 && unavailable.length === 0 ? (
             <p className="px-3 py-6 text-center text-xs text-muted-foreground">
-              No command matches “{query}”.
+              Nothing matches “{query}”.
             </p>
           ) : null}
 
-          {available.map((command, index) => (
+          {windows.length === 0 ? null : (
+            <div className="px-3 pt-1 pb-1 font-mono text-[9px] tracking-widest text-muted-foreground uppercase">
+              windows
+            </div>
+          )}
+
+          {windows.map((window, index) => (
             <button
               className={[
                 "flex w-full items-center justify-between gap-3 rounded-md px-3 py-2 text-left",
-                index === Math.min(selectedIndex, available.length - 1)
+                index === Math.min(selectedIndex, entries.length - 1)
+                  ? "bg-accent text-accent-foreground"
+                  : "text-foreground/80",
+              ].join(" ")}
+              key={window.id}
+              onClick={() => {
+                runEntry({ kind: "window", window });
+              }}
+              onPointerEnter={() => {
+                setSelectedIndex(index);
+              }}
+              type="button"
+            >
+              <span className="grid gap-0.5">
+                <span className="text-xs font-medium">{window.title}</span>
+                <span className="text-[10px] text-muted-foreground">{window.kind}</span>
+              </span>
+              <span className="flex shrink-0 gap-1.5 font-mono text-[9px] text-muted-foreground">
+                {window.isActive ? <span className="text-emerald-300/80">active</span> : null}
+                {window.mode === "minimized" ? <span>minimized</span> : null}
+              </span>
+            </button>
+          ))}
+
+          {available.length === 0 ? null : (
+            <div className="px-3 pt-3 pb-1 font-mono text-[9px] tracking-widest text-muted-foreground uppercase">
+              commands
+            </div>
+          )}
+
+          {available.map((command, commandIndex) => (
+            <button
+              className={[
+                "flex w-full items-center justify-between gap-3 rounded-md px-3 py-2 text-left",
+                windows.length + commandIndex === Math.min(selectedIndex, entries.length - 1)
                   ? "bg-accent text-accent-foreground"
                   : "text-foreground/80",
               ].join(" ")}
               key={command.id}
               onClick={() => {
-                actions.executeCommand(command.command);
-                onClose();
+                runEntry({ command, kind: "command" });
               }}
               onPointerEnter={() => {
-                setSelectedIndex(index);
+                setSelectedIndex(windows.length + commandIndex);
               }}
               type="button"
             >
