@@ -76,8 +76,9 @@ pointerModeControls?, cameraControls?, zoomControls? }` landed with the HUD
 
   **This entry originally said the fix should wait for FAIL-001 as a regression test.** It
   landed without one, because the reduction above makes the static-camera case provably
-  unchanged and tests are out of scope this session. The scenario remains unasserted, and the
-  fix remains unobserved in a browser.
+  unchanged and tests were out of scope that session. FAIL-001 has been asserted since C2 —
+  this paragraph's "the scenario remains unasserted" went stale then and was corrected
+  2026-08-12. The fix is still unobserved in a browser.
 
 - ✅ **Pan had the sibling of that bug, and the sentence above missed it (fixed 2026-07-09).**
   "`pan` always carried `originCamera`" was true of pan's _delta_ — pan projects its center from
@@ -94,6 +95,15 @@ pointerModeControls?, cameraControls?, zoomControls? }` landed with the HUD
   which was the bug. Reachable through a held pan drag plus `Ctrl`/`Cmd`+wheel or a trackpad
   pinch; narrow, but real, and found by reading `stepCanvasInteraction` end to end. Unobserved
   in a browser, like its sibling.
+
+  **Asserted 2026-08-12**, a month after its sibling was, and only because this document was
+  read end to end rather than searched. Three tests: the zoom survives the next pan step —
+  the bug verbatim, which came back `1` under the old form; the world point grabbed at
+  pan-start is still under the cursor after a mid-pan zoom, which is panning's actual
+  invariant and which a step that kept the new zoom but re-projected against the old one
+  would fail; and a pan with no zoom change still moves the camera exactly
+  `screenDelta / zoom`, which is the strict-generalization claim made above. Still
+  unobserved in a browser.
 
 - ~~**Interactive performance fails NFR-1 in practice.**~~ **Stale — corrected 2026-07-08.**
   This entry said `/stress` degrades "at even ~20 live windows during pan/zoom/move". It did,

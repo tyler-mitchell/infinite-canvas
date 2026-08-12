@@ -25,6 +25,7 @@ import {
   getInfiniteCanvasDirectionalFocusTarget,
   getNextInfiniteCanvasRovingIndex,
 } from "./window-focus";
+import { screenPointToWorldPoint } from "./geometry";
 import { getInfiniteCanvasWindowPlacementRect } from "./window-placement";
 import type { InfiniteCanvasGroup, InfiniteCanvasState } from "./types";
 
@@ -942,4 +943,92 @@ test("FLOAT-001 — a drag is continuous: many small steps land where one large 
 
     expect(manySteps.windows[0]!.rect.x).toBeCloseTo(oneStep.windows[0]!.rect.x, 5);
   }
+});
+
+// ── FAIL-001's sibling — a zoom during a pan ─────────────────────────────────────────────
+
+/**
+ * The friction backlog records this fix and says of it: "Unobserved in a browser, like its
+ * sibling." Its sibling has been asserted since C2; this one never was.
+ *
+ * The bug: the pan step wrote `camera: { ...interaction.originCamera, center }`, spreading
+ * the pan-start **zoom** into every frame. The wheel handler is not gated on an active
+ * interaction, so a zoom fired mid-pan was overwritten on the very next pointermove —
+ * snapping back and discarding it. Narrow, since it needs a held pan plus a pinch or
+ * Ctrl+wheel, and entirely real.
+ */
+
+test("FAIL-001 sibling — a zoom fired mid-pan survives the next pan step", () => {
+  const state: InfiniteCanvasState<Kind> = {
+    ...createInfiniteCanvasState<Kind>({ windows: [windowAt("solo", 0, 0)] }),
+    viewport: { height: 800, width: 1200 },
+  };
+  const panning = reduceInfiniteCanvasState(state, {
+    clearSelection: false,
+    point: { x: 600, y: 400 },
+    pointerId: POINTER,
+    type: "interaction.startPan",
+  });
+  const zoomed = reduceInfiniteCanvasState(panning, {
+    anchor: { x: 600, y: 400 },
+    type: "camera.zoomAt",
+    zoom: 2,
+  });
+
+  expect(zoomed.camera.zoom).toBe(2);
+
+  const stepped = stepCanvasInteraction(zoomed, POINTER, { x: 700, y: 400 });
+
+  // The whole bug in one assertion: the old step spread the pan-start camera and this came
+  // back 1.
+  expect(stepped.camera.zoom).toBe(2);
+});
+
+test("FAIL-001 sibling — the world point grabbed at pan-start stays under the cursor", () => {
+  // Stronger than "the zoom survived": panning's own invariant is that the world does not
+  // slide under your finger. A step that kept the new zoom but re-projected against the old
+  // one would pass the test above and still tear the canvas away.
+  const state: InfiniteCanvasState<Kind> = {
+    ...createInfiniteCanvasState<Kind>({ windows: [windowAt("solo", 0, 0)] }),
+    viewport: { height: 800, width: 1200 },
+  };
+  const grabPoint = { x: 500, y: 300 };
+  const panning = reduceInfiniteCanvasState(state, {
+    clearSelection: false,
+    point: grabPoint,
+    pointerId: POINTER,
+    type: "interaction.startPan",
+  });
+  const grabbedWorldPoint = screenPointToWorldPoint(state.camera, state.viewport, grabPoint);
+  const zoomed = reduceInfiniteCanvasState(panning, {
+    anchor: { x: 900, y: 600 },
+    type: "camera.zoomAt",
+    zoom: 3,
+  });
+  const releasePoint = { x: 640, y: 380 };
+  const stepped = stepCanvasInteraction(zoomed, POINTER, releasePoint);
+  const underCursor = screenPointToWorldPoint(stepped.camera, stepped.viewport, releasePoint);
+
+  expect(underCursor.x).toBeCloseTo(grabbedWorldPoint.x, 5);
+  expect(underCursor.y).toBeCloseTo(grabbedWorldPoint.y, 5);
+});
+
+test("FAIL-001 sibling — a pan with no zoom change is unaffected by the generalization", () => {
+  // The backlog calls the fix "a strict generalization, not a rewrite": with the zoom
+  // unchanged it must reduce to `originCamera.center - screenDelta / zoom` exactly. A pan of
+  // 240 screen pixels at zoom 1 moves the camera 240 world units against the drag.
+  const state: InfiniteCanvasState<Kind> = {
+    ...createInfiniteCanvasState<Kind>({ windows: [windowAt("solo", 0, 0)] }),
+    viewport: { height: 800, width: 1200 },
+  };
+  const panning = reduceInfiniteCanvasState(state, {
+    clearSelection: false,
+    point: { x: 600, y: 400 },
+    pointerId: POINTER,
+    type: "interaction.startPan",
+  });
+  const stepped = stepCanvasInteraction(panning, POINTER, { x: 840, y: 400 });
+
+  expect(stepped.camera.zoom).toBe(1);
+  expect(stepped.camera.center.x).toBeCloseTo(-240, 5);
 });
