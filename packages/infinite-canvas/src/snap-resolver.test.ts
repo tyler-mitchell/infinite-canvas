@@ -6,7 +6,7 @@ import { applySnapToRect } from "./snap-resolver";
 import type { InfiniteCanvasState } from "./types";
 
 /**
- * Snap hysteresis — the flicker guarantee, which had no test.
+ * Snap hysteresis (SNAP-005) — the flicker guarantee, which had no test.
  *
  * `README.md` promises "screen-pixel-stable thresholds and hysteresis (a caught guide holds until
  * you pull `releaseThreshold` away, so nothing flickers on the boundary)", and `snap-resolver.ts`
@@ -86,7 +86,7 @@ test("an idle guide does not engage past `threshold`", () => {
   expect(result.rect.x).toBe(ANCHOR_X + 14);
 });
 
-test("a caught guide holds where an idle one would not — the band itself", () => {
+test("SNAP-005: a caught guide holds where an idle one would not — the band itself", () => {
   // The whole guarantee in one assertion pair: the same 14px offset answers differently
   // depending on whether a guide was already engaged. Without this, the pointer sitting on the
   // boundary would snap and un-snap every frame.

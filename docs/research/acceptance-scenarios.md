@@ -18,8 +18,11 @@ Four buckets now:
 | `built`   | **Built and entirely unasserted.** Works when tried; nothing guards it. |
 | `unbuilt` | The capability does not exist.                                          |
 
-**The `built` column is the honest headline.** No test in the suite touches groups,
-history, or recipes — `grep -l "createGroup\|dockWindow\|setChildWeights\|undoInfiniteCanvas\|captureInfiniteCanvasRecipe" src/*.test.*` returns nothing. P1 and P4 are capability-complete
+**That headline changed on 2026-08-12.** This paragraph read "No test in the suite touches
+groups, history, or recipes" for a month, and that is no longer true: seventeen scenarios moved
+from `built` to `covered` when C2 landed and the README-claims audit followed it. What remains
+`built` is now a short list rather than the bulk of the document — SPLIT-004, the RENDER family,
+and the transactional _sequence_ in PERSIST-003. P1 and P4 were capability-complete
 and verification-empty. Three defects found by reading on 2026-07-08 — dock intent dispatched
 three times for one pointermove, a grouped window's dead resize handles burying the gutter,
 and a mid-drag zoom sliding the window out from under the cursor — map onto DOCK-001,
@@ -47,46 +50,47 @@ of it could be run.
 - **SNAP-004** — Resize-edge snap: the active edge snaps; the rect doesn't
   jump. `covered`
 - **SNAP-005** — Hysteresis: snap holds on small retreat, releases past the
-  larger threshold. `built` — implemented in `snap-resolver.ts`
+  larger threshold. `covered` (2026-08-12, `snap-resolver.test.ts`) — implemented in
+  `snap-resolver.ts`
   (`getCandidateThreshold` widens an engaged guide's threshold to
   `releaseThreshold`, per guide rather than per axis). This entry read `open —
 hysteresis unimplemented` until 2026-07-08, long after it shipped.
 
-## Docking and groups — built by drag, none asserted
+## Docking and groups — built by drag, asserted 2026-08-12
 
 - **DOCK-001** — Drag a floating window beside another → new split group shell.
-  `built` (Alt+drag. `resolveInfiniteCanvasDockPreview` finds the target from the
+  `covered` (Alt+drag. `resolveInfiniteCanvasDockPreview` finds the target from the
   canonical model; `applyInfiniteCanvasDockPreview` wraps it in a group occupying the
   rect it already had, then docks the dragged window beside it, so nothing else on the
   canvas shifts.)
-- **DOCK-002** — Drag over a group's center → tab merge. `built` (the centre
+- **DOCK-002** — Drag over a group's center → tab merge. `covered` (the centre
   `1 - 2 × centerRatio` of a target is the tab-merge zone; outside it the nearest
   edge wins.)
-- **DOCK-003** — Move a group shell → the group moves as one world object. `built`
+- **DOCK-003** — Move a group shell → the group moves as one world object. `covered`
   (dragging any member's header starts a `groupMove` interaction; members follow
   because their rects are re-derived from the shell.)
 - **DOCK-004** — Tear a child out of a tab group → sensible floating rect; group
-  stays valid. `built` (dragging a tab **out of its strip** undocks the window and hands the
+  stays valid. `covered` (dragging a tab **out of its strip** undocks the window and hands the
   same pointer to `interaction.startMove`. It keeps the rect the solver gave it — for a
   hidden tab, the size it would have been revealed at — so nothing jumps and nothing swells
   to fill the shell. The trigger was "any 6px of travel" until 2026-07-08, when TAB-001
   needed those pixels for reordering.)
-- **DOCK-005** — Remove the last child → empty-group cleanup. `built`
+- **DOCK-005** — Remove the last child → empty-group cleanup. `covered`
   (`undockInfiniteCanvasGroupWindow` returns `null`, and `withInfiniteCanvasGroupTree`
   drops the shell.)
 
-## Split behavior — built, none asserted
+## Split behavior — built, asserted 2026-08-12 (except SPLIT-004)
 
 - **SPLIT-001** — Resizing a child changes weights/partitions; DOM widths are never
-  the source of truth. `built` (dragging a gutter starts a `groupGutter` interaction
+  the source of truth. `covered` (dragging a gutter starts a `groupGutter` interaction
   and dispatches `group.setChildWeights`. Each step recomputes from the container
   snapshotted at drag start, so the seam tracks the cursor exactly. No DOM width is
   ever read.)
 - **SPLIT-002** — Inserting a third sibling stays stable (n-ary, no binary churn).
-  `built` (the tree is n-ary by construction; docking inserts a child rather than
+  `covered` (the tree is n-ary by construction; docking inserts a child rather than
   splitting a pair.)
 - **SPLIT-003** — Normalization flattens a redundant single-child container safely.
-  `built` (`normalizeInfiniteCanvasGroupTree`: a single-child split _is_ its child.
+  `covered` (`normalizeInfiniteCanvasGroupTree`: a single-child split _is_ its child.
   Tab and accordion shells are semantic and survive. Bottom-up, so one pass reaches a
   fixed point.)
 - **SPLIT-004** — Resize the shell by its outer edge: members re-project, no pane
@@ -96,7 +100,7 @@ hysteresis unimplemented` until 2026-07-08, long after it shipped.
 
 ## Tabs, accordion, focus
 
-- **TAB-001** — Tab reorder via drag persists; focus stays predictable. `built`
+- **TAB-001** — Tab reorder via drag persists; focus stays predictable. `covered`
   (2026-07-08). Where the pointer goes decides what the drag is: inside the strip it
   reorders, leaving the strip tears out. Until then _any_ six pixels of travel tore the tab
   out, so reorder was unreachable by drag no matter how carefully you slid a tab sideways —
@@ -104,9 +108,9 @@ hysteresis unimplemented` until 2026-07-08, long after it shipped.
   six **screen** pixels that entering the drag did, because the strip's height is fixed in
   world units and at low zoom a bare `clientY > bottom` would tear on the first wobble.
   Unasserted.
-- **TAB-002** — Tabs↔accordion conversion preserves membership. `built`
+- **TAB-002** — Tabs↔accordion conversion preserves membership. `covered`
   (`setInfiniteCanvasGroupLayoutMode` changes `layout` and touches no child.)
-- **ACC-001** — Keyboard navigation follows accordion orientation. `built` (2026-07-08).
+- **ACC-001** — Keyboard navigation follows accordion orientation. `covered` (2026-07-08).
   Each accordion container is one roving tab stop, and its arrows follow
   `container.axis`: a vertically stacked accordion answers Up/Down, a horizontal one
   Left/Right. Hard-coding Left/Right, as a tablist may, would make Down walk a row of
@@ -114,12 +118,12 @@ hysteresis unimplemented` until 2026-07-08, long after it shipped.
   Home/End are axis-independent. Activation stays Enter/Space through the existing
   `onClick`. Unasserted.
 - **FOCUS-001** — Directional focus prefers group-local neighbors over global.
-  `built` (inside a group the arrow searches the group's own members first, and only
+  `covered` (inside a group the arrow searches the group's own members first, and only
   leaves the group when nothing lies that way. Windows behind an inactive tab or a
   collapsed fold are never focus targets — nothing draws them. The global tier ranks
   "beside" over "close", so arrows never drift diagonally.)
 - **FOCUS-002** — Floating window over a shell: contextual-parent focus behaves
-  sensibly. `built` (2026-07-08). A floating window whose centre lies inside a group's rect
+  sensibly. `covered` (2026-07-08). A floating window whose centre lies inside a group's rect
   gets that group as its **contextual parent**, and directional focus searches the group's
   members before the canvas — so a floating window needs no keyboard model of its own, which
   is the mitigation `research/state-focus-and-recipes.md` names for the "focus model
@@ -128,7 +132,7 @@ hysteresis unimplemented` until 2026-07-08, long after it shipped.
   key is never ambiguous. Membership still takes precedence and short-circuits the scan.
   `getInfiniteCanvasContextualGroup(state, point)` is public. Unasserted.
 - **FOCUS-003** — "Left half"-style placement commands resolve through the same
-  canonical placement engine as drag snapping. `built` (2026-07-08). `window.place` takes a
+  canonical placement engine as drag snapping. `covered` (2026-07-08). `window.place` takes a
   region — halves, quarters, `fill`, `center` — and `window-placement.ts` is the only thing
   that knows what "left half" means, so pointer and keyboard cannot disagree.
   `Mod+Shift+Arrow`, `Mod+Shift+Enter`; centring and the quarters have no default chord,
@@ -151,13 +155,13 @@ hysteresis unimplemented` until 2026-07-08, long after it shipped.
 ## Persistence
 
 - **PERSIST-001** — Save a cluster (floating + multi-tab group); restore recreates
-  positions, membership, modes. `built` — the envelope is at `version: 2` and
+  positions, membership, modes. `covered` — the envelope is at `version: 2` and
   serializes `groups`; a `version: 1` payload migrates to `groups: []`. No test
   round-trips a group.
 - **PERSIST-002** — Persist, reload, compare canonical state: runtime
   previews/constraints/hover are absent from persistence. `covered`
 - **PERSIST-003** — Tear out, move, re-dock, undo each step transactionally.
-  `built` — undo/redo over `{ groups, windows }` shipped with P4; a drag is one entry,
+  `covered` — undo/redo over `{ groups, windows }` shipped with P4; a drag is one entry,
   checkpointed at its start. This entry read `open (undo/redo unbuilt)` until
   2026-07-08. The transactional _sequence_ in this scenario is unasserted.
 
@@ -206,8 +210,13 @@ hysteresis unimplemented` until 2026-07-08, long after it shipped.
   `viewport` terms cancel and the difference is exactly `(p - origin) / zoom` — the
   expression it replaces, to the bit. A static camera behaves identically.
 
-  `built`, and still unasserted: nobody has zoomed mid-drag and watched the window stay
-  under the cursor.
+  `covered` by `acceptance-scenarios.test.ts`, which drives the doc's own arithmetic through the
+  real `camera.zoomAt` path and additionally asserts the invariant behind it — the grabbed world
+  point stays pinned to the cursor across an arbitrary zoom.
+
+  **Asserted is not observed.** Nobody has zoomed mid-drag and watched the window stay under the
+  cursor, and this line said "still unasserted" for both facts until they were separated on
+  2026-08-12.
 
 - **FAIL-002** — Rapid hover between neighboring docking targets doesn't
   flicker. `built` — docking exists; the dock overlay renders the same value the
