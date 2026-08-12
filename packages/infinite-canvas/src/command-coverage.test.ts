@@ -82,7 +82,7 @@ const ACTION_COMMAND_COVERAGE: Readonly<
   "recipe.apply": "parameterized",
   "selection.add": "parameterized",
   "selection.clear": "selection.clear",
-  "selection.remove": "parameterized",
+  "selection.remove": "selection.removeActive",
   "selection.replace": "parameterized",
   "selection.selectAllVisible": "selection.selectAllVisible",
   "selection.targets.add": "parameterized",

@@ -186,6 +186,16 @@ hysteresis unimplemented` until 2026-07-08, long after it shipped.
   replaces, matching what a click does; extending is the second verb. The target joins the
   selection before being focused, because `focusWindowPreservingSelection` takes the active
   window from the anchor and would otherwise leave focus behind.)
+
+  **`selection.removeActive` is the way back out**, added the same day once extending proved
+  one-way: a user who reached a window too far could only clear and rebuild. It is
+  deliberately not a _toggle_, and the reason is the model's — `applySelection` sets the
+  active window **from** the selection's anchor, so the two are one concept and a window
+  cannot leave the selection while staying active. Dropping works with that grain instead:
+  `normalizeSelection` falls the anchor back to `windowIds.at(-1)`, which for an
+  insertion-ordered selection is the window added before this one, so repeating it retraces
+  the extends exactly.)
+
 - **ACC-002** — No ARIA relationship points at an element that is not there. `covered`
   (2026-08-12, `accessibility-structure.test.tsx`. Found the defect it was written to look
   for: a tabs container renders only its active child, so every inactive tab's

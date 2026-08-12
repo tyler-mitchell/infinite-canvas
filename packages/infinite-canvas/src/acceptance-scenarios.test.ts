@@ -1125,3 +1125,39 @@ test("SPLIT-007 — the seam travels the same distance on screen at any zoom", (
     expect(growth).toBeCloseTo(24, 5);
   }
 });
+
+test("FOCUS-004 — extending one window too far is walked back, not started over", () => {
+  // The hole in the selection story as first built: `extendDirection` only ever adds, and
+  // the only other selection commands were "clear" and "select all visible".
+  const three = executeInfiniteCanvasCommand(
+    executeInfiniteCanvasCommand(threeInARow(), {
+      direction: "right",
+      type: "selection.extendDirection",
+    }),
+    { direction: "right", type: "selection.extendDirection" },
+  );
+
+  expect([...three.selection.windowIds].toSorted()).toEqual(["a", "b", "c"]);
+  expect(three.activeWindowId).toBe("c");
+
+  const walkedBack = executeInfiniteCanvasCommand(three, { type: "selection.removeActive" });
+
+  expect([...walkedBack.selection.windowIds].toSorted()).toEqual(["a", "b"]);
+  // Focus falls back to the window added before it, so repeating this retraces the extends
+  // exactly. That is `normalizeSelection` choosing `windowIds.at(-1)` when the anchor leaves
+  // the selection — the model's own fallback, not special-casing.
+  expect(walkedBack.activeWindowId).toBe("b");
+
+  const further = executeInfiniteCanvasCommand(walkedBack, { type: "selection.removeActive" });
+
+  expect(further.selection.windowIds).toEqual(["a"]);
+  expect(further.activeWindowId).toBe("a");
+});
+
+test("FOCUS-004 — a window that is not selected has nothing to remove", () => {
+  // The active window is the selection's anchor here, so this is normally true and the
+  // command is normally available; the guard is for the states where it is not.
+  const cleared = executeInfiniteCanvasCommand(threeInARow(), { type: "selection.clear" });
+
+  expect(isInfiniteCanvasCommandEnabled(cleared, { type: "selection.removeActive" })).toBe(false);
+});

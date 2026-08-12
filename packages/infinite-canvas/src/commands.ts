@@ -47,6 +47,7 @@ import {
   getSelectedWindowBounds,
   getVisibleWindowBounds,
   isWindowSelected,
+  removeSelection,
   selectAllVisibleWindows,
 } from "./selection";
 import {
@@ -409,6 +410,14 @@ const DEFAULT_INFINITE_CANVAS_COMMAND_DESCRIPTORS = [
     hotkeys: [],
     id: "selection.extend.down",
     label: "Extend Selection Down",
+  },
+  {
+    command: { type: "selection.removeActive" },
+    description:
+      "Drop the active window from the selection and fall back to the one before it — the way out of extending one window too far.",
+    hotkeys: [],
+    id: "selection.removeActive",
+    label: "Remove Window From Selection",
   },
   // Panning and zooming by keyboard. Until 2026-08-12 the camera had exactly three commands
   // — fit-all, fit-selection, reset-zoom — so a keyboard user could jump the view but could
@@ -1213,6 +1222,8 @@ function isInfiniteCanvasCommandEnabled<Kind extends string>(
     // window back is a "which one?" choice, and belongs to the presence surface.
     case "selection.extendDirection":
       return getInfiniteCanvasDirectionalFocusTarget(state, command.direction) !== null;
+    case "selection.removeActive":
+      return state.activeWindowId !== null && isWindowSelected(state, state.activeWindowId);
     case "view.pan":
       return isUsableViewport(state.viewport);
     // Offered only where it would move: at the policy's floor or ceiling a further step
@@ -1445,6 +1456,7 @@ function getInfiniteCanvasCommandGroup(command: InfiniteCanvasCommand): Infinite
       return "view";
     case "view.fitSelection":
     case "selection.extendDirection":
+    case "selection.removeActive":
       return "selection";
     case "activeWindow.close":
     case "activeWindow.minimize":
@@ -1555,6 +1567,17 @@ function executeInfiniteCanvasCommand<Kind extends string>(
       return focusWindowInDirection(state, command.direction, zoomPolicy, "replace");
     case "selection.extendDirection":
       return focusWindowInDirection(state, command.direction, zoomPolicy, "extend");
+    // Not a toggle, and the difference is the model's. `applySelection` sets the active
+    // window *from* the selection's anchor — the two are one concept here, joined
+    // deliberately — so a window cannot leave the selection and stay active, and a verb
+    // claiming to toggle would be one-way: nothing left to toggle back.
+    //
+    // Dropping works with the grain instead. `normalizeSelection` falls the anchor back to
+    // `windowIds.at(-1)` when it leaves the selection, which for an insertion-ordered
+    // selection is the window added before this one. Extending focuses what it adds, so
+    // repeating this retraces the extends exactly.
+    case "selection.removeActive":
+      return state.activeWindowId === null ? state : removeSelection(state, [state.activeWindowId]);
     // The reducer's lifecycle cases detach the window from its group before acting — a pane
     // that closes or maximizes cannot keep occupying a layout slot. Calling the same helpers
     // in the same order is what keeps that true here rather than only there.

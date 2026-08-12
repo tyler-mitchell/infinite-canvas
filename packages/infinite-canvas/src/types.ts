@@ -907,6 +907,7 @@ type InfiniteCanvasCommand =
   | Readonly<{ amountPx: number; direction: InfiniteCanvasDirection; type: "view.pan" }>
   | Readonly<{ factor: number; type: "view.zoomBy" }>
   | Readonly<{ direction: InfiniteCanvasDirection; type: "selection.extendDirection" }>
+  | Readonly<{ type: "selection.removeActive" }>
   | Readonly<{ amountPx: number; type: "group.resizePane" }>
   | Readonly<{ type: "group.dissolve" }>
   | Readonly<{ type: "group.flipAxis" }>
@@ -971,6 +972,7 @@ type InfiniteCanvasCommandId =
   | "selection.extend.left"
   | "selection.extend.right"
   | "selection.extend.up"
+  | "selection.removeActive"
   | "view.pan.down"
   | "view.pan.left"
   | "view.pan.right"
