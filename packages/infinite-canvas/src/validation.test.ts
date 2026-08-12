@@ -197,11 +197,15 @@ test("serialized state strips unknown keys and defaults each window mode", () =>
     windows: [{ ...validWindow, extraWindowField: "deleted" }],
   });
 
+  // The input is `version: 1`, and the parser migrates it in place — so the output is a v2
+  // envelope with `groups: []`, exactly as the migration test above asserts. This expectation
+  // still described the pre-group envelope and had been failing since groups shipped.
   expect(parsed).toEqual({
     activeWindowId: "w1",
     camera: { center: { x: 0, y: 0 }, zoom: 1 },
+    groups: [],
     selection: undefined,
-    version: 1,
+    version: 2,
     windows: [{ ...validWindow, mode: "normal" }],
   });
 });

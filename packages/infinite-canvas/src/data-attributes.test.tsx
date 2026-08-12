@@ -112,6 +112,7 @@ test("INFINITE_CANVAS_SLOTS is the complete slot vocabulary", () => {
     grid: "grid",
     groupAccordionHeader: "group-accordion-header",
     groupGutter: "group-gutter",
+    groupResizeHandle: "group-resize-handle",
     groupShell: "group-shell",
     groupTab: "group-tab",
     groupTabStrip: "group-tab-strip",
