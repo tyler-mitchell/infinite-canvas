@@ -519,11 +519,22 @@ sharpest near-term trap
   carrying roving `tabIndex` and the only means of switching a tab or a fold — dropping them
   would be an accessibility regression wearing a performance argument.
 
-  **Still open: the title and the four control buttons**, which at that zoom are unreadable and
-  under three pixels across. Both live in the public frame-slot contract behind a consumer
-  `render` override, so simplifying them means threading the detail level through
-  `InfiniteCanvasWindowFrameRuntimeContextValue` and deciding what a consumer override means at
-  summary detail — a public-surface change, and not one to make without tests covering it.
+  ✅ **The title and the four control buttons landed too.** `detailLevel` is now on
+  `InfiniteCanvasWindowFrameRuntimeContextValue` — which is package-internal rather than a public
+  export, so this was additive and broke no consumer type; the earlier claim that it was a
+  "public-surface change" was wrong and is corrected here. At `summary` the title renders nothing
+  and the controls container renders no buttons.
+
+  Two lines drawn deliberately. **Consumer `children` on the title are left alone** — they were
+  passed on purpose, and deciding someone else's content is illegible is not the framework's call;
+  only the framework's own default drops out. And **the containers stay**, so a consumer's
+  `render` and styling still resolve against a real element.
+
+  **The honest cost: those buttons leave the accessibility tree at far zoom.** A screen-reader
+  user who happens to be zoomed out loses the per-window buttons. It is recoverable — every
+  window verb has a keyboard chord and a palette entry — and it matches the precedent the body's
+  `renderSummary` lane already set, where zoom decides what is in the DOM. It is still a real
+  trade rather than a free win, and it is the half most worth a browser and a screen reader.
 
 - ✅ **Landed (2026-07-08): low-zoom chrome strokes.** Chrome is drawn in world
   units inside a zoom-scaled frame, so a 1px border rendered as `1 × zoom` screen

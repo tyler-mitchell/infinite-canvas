@@ -9,6 +9,7 @@ import {
 } from "react";
 
 import { INFINITE_CANVAS_SLOTS } from "./data-attributes";
+import type { InfiniteCanvasDetailLevel } from "./detail-level";
 import { useInfiniteCanvasIcons } from "./icons";
 import { trapInfiniteCanvasTabKey } from "./focus-trap";
 import { focusInfiniteCanvasCommandSurface } from "./keyboard";
@@ -52,6 +53,14 @@ type InfiniteCanvasWindowFrameRuntimeContextValue<Kind extends string> = Readonl
   bodyPointerBehavior: InfiniteCanvasWindowBodyPointerBehavior;
   chrome: InfiniteCanvasChromeMetrics;
   definition: InfiniteCanvasWindowDefinition<Kind>;
+  /**
+   * How much chrome this window can usefully show at the current zoom.
+   *
+   * `summary` means the frame is a few tens of screen pixels: text is unreadable and a control
+   * is under three pixels across. Slots that draw labels or buttons should render nothing
+   * rather than render something nobody can read or hit.
+   */
+  detailLevel: InfiniteCanvasDetailLevel;
   isActive: boolean;
   isSelected: boolean;
   textSelection: InfiniteCanvasWindowTextSelection;
@@ -85,7 +94,7 @@ function InfiniteCanvasWindowFrameTitleSlot({
   render,
   ...consumerProps
 }: InfiniteCanvasWindowFrameTitleProps) {
-  const { window } = useInfiniteCanvasWindowFrameRuntimeContext();
+  const { detailLevel, window } = useInfiniteCanvasWindowFrameRuntimeContext();
   const props = mergeInfiniteCanvasSlotProps(
     {
       "data-slot": INFINITE_CANVAS_SLOTS.windowTitle,
@@ -98,7 +107,11 @@ function InfiniteCanvasWindowFrameTitleSlot({
     },
     consumerProps,
   );
-  const content = children === undefined ? window.title : children;
+  // The framework's own default drops out at far zoom, where the title is a smear a few pixels
+  // tall. Consumer `children` are left alone: they were passed deliberately, and deciding they
+  // are illegible is not the framework's call to make on someone else's content.
+  const defaultTitle = detailLevel === "summary" ? null : window.title;
+  const content = children === undefined ? defaultTitle : children;
 
   return render === undefined ? (
     <div {...props}>{content}</div>
@@ -120,7 +133,7 @@ function InfiniteCanvasWindowFrameControlsSlot({
   render,
   ...consumerProps
 }: InfiniteCanvasWindowFrameControlsProps) {
-  const { actions, window } = useInfiniteCanvasWindowFrameRuntimeContext();
+  const { actions, detailLevel, window } = useInfiniteCanvasWindowFrameRuntimeContext();
   const {
     close: CloseIcon,
     maximize: MaximizeIcon,
@@ -224,10 +237,16 @@ function InfiniteCanvasWindowFrameControlsSlot({
     </>
   );
 
+  // Four buttons under three screen pixels across are not controls. They cannot be read, cannot
+  // be hit, and cost four SVGs per window on every canvas that has zoomed out to see the whole
+  // layout — which is the view with the most windows in it. The container stays so a consumer's
+  // `render` and styling still resolve against a real element.
+  const rendered = detailLevel === "summary" ? null : content;
+
   return render === undefined ? (
-    <div {...props}>{content}</div>
+    <div {...props}>{rendered}</div>
   ) : (
-    render(props, { children: content })
+    render(props, { children: rendered })
   );
 }
 
