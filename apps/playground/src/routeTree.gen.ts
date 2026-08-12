@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as WorkspacesRouteImport } from './routes/workspaces'
 import { Route as WorkflowBoardRouteImport } from './routes/workflow-board'
 import { Route as WelcomeRouteImport } from './routes/welcome'
 import { Route as StressRouteImport } from './routes/stress'
@@ -22,6 +23,11 @@ import { Route as CustomFramesRouteImport } from './routes/custom-frames'
 import { Route as BodyContentRouteImport } from './routes/body-content'
 import { Route as IndexRouteImport } from './routes/index'
 
+const WorkspacesRoute = WorkspacesRouteImport.update({
+  id: '/workspaces',
+  path: '/workspaces',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const WorkflowBoardRoute = WorkflowBoardRouteImport.update({
   id: '/workflow-board',
   path: '/workflow-board',
@@ -96,6 +102,7 @@ export interface FileRoutesByFullPath {
   '/stress': typeof StressRoute
   '/welcome': typeof WelcomeRoute
   '/workflow-board': typeof WorkflowBoardRoute
+  '/workspaces': typeof WorkspacesRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -110,6 +117,7 @@ export interface FileRoutesByTo {
   '/stress': typeof StressRoute
   '/welcome': typeof WelcomeRoute
   '/workflow-board': typeof WorkflowBoardRoute
+  '/workspaces': typeof WorkspacesRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -125,6 +133,7 @@ export interface FileRoutesById {
   '/stress': typeof StressRoute
   '/welcome': typeof WelcomeRoute
   '/workflow-board': typeof WorkflowBoardRoute
+  '/workspaces': typeof WorkspacesRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -141,6 +150,7 @@ export interface FileRouteTypes {
     | '/stress'
     | '/welcome'
     | '/workflow-board'
+    | '/workspaces'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -155,6 +165,7 @@ export interface FileRouteTypes {
     | '/stress'
     | '/welcome'
     | '/workflow-board'
+    | '/workspaces'
   id:
     | '__root__'
     | '/'
@@ -169,6 +180,7 @@ export interface FileRouteTypes {
     | '/stress'
     | '/welcome'
     | '/workflow-board'
+    | '/workspaces'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -184,10 +196,18 @@ export interface RootRouteChildren {
   StressRoute: typeof StressRoute
   WelcomeRoute: typeof WelcomeRoute
   WorkflowBoardRoute: typeof WorkflowBoardRoute
+  WorkspacesRoute: typeof WorkspacesRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/workspaces': {
+      id: '/workspaces'
+      path: '/workspaces'
+      fullPath: '/workspaces'
+      preLoaderRoute: typeof WorkspacesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/workflow-board': {
       id: '/workflow-board'
       path: '/workflow-board'
@@ -288,6 +308,7 @@ const rootRouteChildren: RootRouteChildren = {
   StressRoute: StressRoute,
   WelcomeRoute: WelcomeRoute,
   WorkflowBoardRoute: WorkflowBoardRoute,
+  WorkspacesRoute: WorkspacesRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
