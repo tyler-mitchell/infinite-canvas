@@ -472,23 +472,45 @@ function createInfiniteCanvasStore<Kind extends string>(
   };
 }
 
-function InfiniteCanvasProvider<Kind extends string>({
-  children,
-  documentKey,
-  initialState,
-  snapPolicy,
-  stateValidator,
-  storageKey,
-  zoomPolicy,
-}: Readonly<{
+/**
+ * Either state to build a store from, or a store built already — never both.
+ *
+ * `createInfiniteCanvasStore` and `createInfiniteCanvasHandle` were public exports that no
+ * consumer could reach until 2026-08-12: the provider minted its own store internally and
+ * took no `store` prop, and the handle's only argument source was `useInfiniteCanvasStore`
+ * from *inside* the tree. So the handle's stated audience — "agents, E2E drivers, and
+ * command palettes", all of them parent-side — could not obtain one, and a parent that
+ * owned the canvas could not read it, subscribe to it, or drive it.
+ *
+ * Injecting the store is the whole fix, and it needs no second prop: a parent that built
+ * the store can call `createInfiniteCanvasHandle(store)` on it directly.
+ *
+ * `store?: never` on one branch and `initialState?: never` on the other make supplying both
+ * a compile error rather than a runtime precedence puzzle.
+ */
+type InfiniteCanvasProviderProps<Kind extends string> = Readonly<{
   children: ReactNode;
   documentKey?: string;
-  initialState: InfiniteCanvasState<Kind>;
   snapPolicy?: InfiniteCanvasSnapPolicy;
   stateValidator?: InfiniteCanvasStateValidator<Kind>;
+  /**
+   * Persistence follows this key, not store ownership: an injected store with a
+   * `storageKey` is hydrated and persisted like any other, because wanting parent access to
+   * the store is orthogonal to wanting the framework to persist it. One difference is worth
+   * knowing — `onReset` can only be wired when a store is constructed, so a reset on an
+   * injected store is written by the ordinary 120ms debounce rather than flushed
+   * immediately. Pass `onReset` to `createInfiniteCanvasStore` yourself to restore that.
+   */
   storageKey?: string;
   zoomPolicy?: InfiniteCanvasZoomPolicyInput;
-}>) {
+}> &
+  (
+    | Readonly<{ initialState: InfiniteCanvasState<Kind>; store?: never }>
+    | Readonly<{ initialState?: never; store: InfiniteCanvasStore<Kind> }>
+  );
+
+function InfiniteCanvasProvider<Kind extends string>(props: InfiniteCanvasProviderProps<Kind>) {
+  const { children, documentKey, snapPolicy, stateValidator, storageKey, zoomPolicy } = props;
   const storeRef = useRef<InfiniteCanvasStore<Kind> | null>(null);
   const persistTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const scopedStorageKey = getInfiniteCanvasScopedStorageKey({
@@ -497,23 +519,32 @@ function InfiniteCanvasProvider<Kind extends string>({
   });
 
   if (storeRef.current === null) {
-    storeRef.current = createInfiniteCanvasStore(initialState, {
-      onReset:
-        scopedStorageKey === undefined
-          ? undefined
-          : (state) => {
-              if (typeof window !== "undefined") {
-                if (persistTimeoutRef.current !== null) {
-                  clearTimeout(persistTimeoutRef.current);
-                  persistTimeoutRef.current = null;
-                }
+    // An injected store is adopted as-is. Only a store this provider constructs can carry
+    // `onReset`, which is the flush that writes a reset immediately instead of waiting out
+    // the debounce below.
+    storeRef.current =
+      props.store === undefined
+        ? createInfiniteCanvasStore(props.initialState, {
+            onReset:
+              scopedStorageKey === undefined
+                ? undefined
+                : (state) => {
+                    if (typeof window !== "undefined") {
+                      if (persistTimeoutRef.current !== null) {
+                        clearTimeout(persistTimeoutRef.current);
+                        persistTimeoutRef.current = null;
+                      }
 
-                window.localStorage.setItem(scopedStorageKey, stringifyInfiniteCanvasState(state));
-              }
-            },
-      snapPolicy,
-      zoomPolicy,
-    });
+                      window.localStorage.setItem(
+                        scopedStorageKey,
+                        stringifyInfiniteCanvasState(state),
+                      );
+                    }
+                  },
+            snapPolicy,
+            zoomPolicy,
+          })
+        : props.store;
   }
 
   useEffect(() => {

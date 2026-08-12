@@ -108,6 +108,22 @@ The store adapts the pure reducer to Legend State signals.
 `useInfiniteCanvasSelector` is the narrow subscription you want inside window
 bodies.
 
+**Owning the store from outside.** `InfiniteCanvasProvider` takes either
+`initialState` or a `store` you built with `createInfiniteCanvasStore` — never both;
+supplying both is a compile error. Injecting one is how a parent reads, subscribes
+to, or drives a canvas it renders, and it is what makes `createInfiniteCanvasHandle`
+reachable at all: hold the store, and call the handle factory on it. Until
+2026-08-12 the provider always minted its own, so both of those exports were public
+and unusable, and the only way to reach the store was a child component that existed
+solely to read down into it.
+
+Persistence follows `storageKey`, not store ownership: an injected store with a
+`storageKey` is hydrated and persisted like any other, because wanting parent access
+is orthogonal to wanting the framework to persist. One difference — `onReset` can
+only be wired when a store is constructed, so a reset on an injected store is written
+by the ordinary debounce rather than flushed immediately. Pass `onReset` to
+`createInfiniteCanvasStore` yourself if you need that flush.
+
 **`store`**
 
 - `InfiniteCanvasProvider`
