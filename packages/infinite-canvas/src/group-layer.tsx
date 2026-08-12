@@ -10,7 +10,7 @@ import {
 
 import { INFINITE_CANVAS_SLOTS, getInfiniteCanvasWindowFrameElementId } from "./data-attributes";
 import { getEventViewportPoint } from "./frame-slots";
-import { projectWorldRectToScreen } from "./geometry";
+import { isWorldRectCulled, projectWorldRectToScreen } from "./geometry";
 import {
   DEFAULT_INFINITE_CANVAS_GROUP_METRICS,
   getInfiniteCanvasGroupLayout,
@@ -368,6 +368,13 @@ function InfiniteCanvasGroupShell({
     [SHELL_RESIZE_HANDLE_SIZE_CSS_VARIABLE]: `${
       screenTransform.scale <= 0 ? resizeHandleSize : resizeHandleSize / screenTransform.scale
     }px`,
+    // A shell is gutters, tab strips, accordion headers and eight resize handles, all of which
+    // are only reachable where the shell is drawn — so an offscreen group's chrome is skipped
+    // on the same margin its panes are, and by the same predicate, so the two can never
+    // disagree and strand a gutter without the panes it divides. Purely geometric, unlike the
+    // window frame's: a group whose rect is a viewport away has nothing visible to preserve,
+    // and the active window inside it keeps its own frame live on its own policy.
+    contentVisibility: isWorldRectCulled(camera, viewport, group.rect) ? "auto" : "visible",
     pointerEvents: "none",
     zIndex: group.zIndex,
   };

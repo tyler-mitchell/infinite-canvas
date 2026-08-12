@@ -15,8 +15,7 @@ import {
 } from "./frame-slots";
 import {
   getWorldLengthWithScreenFloor,
-  isUsableViewport,
-  isWorldRectWithinViewport,
+  isWorldRectCulled,
   projectWorldRectToScreen,
 } from "./geometry";
 import {
@@ -93,26 +92,13 @@ const RESIZE_HANDLE_EXTENT = `var(${RESIZE_HANDLE_SIZE_CSS_VARIABLE})`;
 const RESIZE_HANDLE_OVERHANG = `calc(${RESIZE_HANDLE_EXTENT} / -2)`;
 
 /**
- * How far past the viewport edge a window stays fully rendered, in screen pixels.
- *
- * A pan moves the camera every frame, so a window culled the instant it crosses the edge
- * would be skipped and restored repeatedly during one gesture. The margin buys a band of
- * frames either side of the boundary; it is screen pixels rather than world units for the
- * same reason every other threshold here is — a world-unit band would shrink as you zoom
- * out, which is exactly when the most windows are near the edge.
- */
-const WINDOW_CULL_MARGIN_PX = 480;
-
-/**
  * Whether this frame's subtree can be skipped this frame.
  *
- * Never the active or selected window, matching `InfiniteCanvasWindowBody`'s rasterization
- * policy: those are the windows a keystroke or a resize is most likely to land on, and the
- * cost of keeping at most a handful live is not worth reasoning about the edge cases.
- *
- * `isUsableViewport` is checked first and defaults to *not* culled. A `0 × 0` viewport — the
- * first frame, before the resize observer has measured anything — overlaps no window at all,
- * so culling on it would skip every window on the canvas and paint nothing.
+ * The geometry is `isWorldRectCulled`, shared with the group layer. What this adds is the
+ * policy: never the active or selected window, matching `InfiniteCanvasWindowBody`'s
+ * rasterization policy beside it. Those are the windows a keystroke or a resize is most likely
+ * to land on, and the cost of keeping at most a handful live is not worth reasoning about the
+ * edge cases.
  */
 function isFrameOffscreen<Kind extends string>({
   camera,
@@ -127,11 +113,7 @@ function isFrameOffscreen<Kind extends string>({
   viewport: InfiniteCanvasViewport;
   window: InfiniteCanvasWindow<Kind>;
 }>): boolean {
-  if (isActive || isSelected || !isUsableViewport(viewport)) {
-    return false;
-  }
-
-  return !isWorldRectWithinViewport(camera, viewport, window.rect, WINDOW_CULL_MARGIN_PX);
+  return !isActive && !isSelected && isWorldRectCulled(camera, viewport, window.rect);
 }
 
 /** React's `CSSProperties` has no slot for custom properties. Widen just this one. */

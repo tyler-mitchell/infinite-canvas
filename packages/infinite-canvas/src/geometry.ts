@@ -213,6 +213,38 @@ function isWorldRectWithinViewport(
   );
 }
 
+/**
+ * How far past the viewport edge content stays fully rendered, in screen pixels.
+ *
+ * A pan moves the camera every frame, so content culled the instant it crosses the edge would
+ * be skipped and restored repeatedly during one gesture. The margin buys a band of frames
+ * either side of the boundary. Screen pixels rather than world units, like every other
+ * threshold in this framework: a world-unit band would shrink as you zoom out, which is
+ * exactly when the most content sits near the edge.
+ */
+const CULL_MARGIN_PX = 480;
+
+/**
+ * Whether a world rect is far enough outside the viewport to skip rendering its subtree.
+ *
+ * The geometric half of culling, shared by the window and group layers so the two cannot
+ * disagree about where the boundary is — a group shell culled on a different margin than the
+ * windows inside it would drop its gutters and handles while the panes they belong to were
+ * still being drawn.
+ *
+ * Defaults to **not** culled on an unusable viewport. A `0 × 0` viewport — the first frame,
+ * before the resize observer has measured anything — overlaps nothing at all, so culling on it
+ * would skip every window on the canvas and paint an empty page.
+ */
+function isWorldRectCulled(
+  camera: InfiniteCanvasCamera,
+  viewport: InfiniteCanvasViewport,
+  rect: InfiniteCanvasRect,
+  marginPx = CULL_MARGIN_PX,
+): boolean {
+  return isUsableViewport(viewport) && !isWorldRectWithinViewport(camera, viewport, rect, marginPx);
+}
+
 function worldRectToScreenTransform(
   camera: InfiniteCanvasCamera,
   viewport: InfiniteCanvasViewport,
@@ -528,6 +560,7 @@ export {
   getWindowBodyRect,
   getWindowHeaderRect,
   isUsableViewport,
+  isWorldRectCulled,
   isWorldRectWithinViewport,
   panCameraByScreenDelta,
   projectWorldRectToScreen,
