@@ -34,77 +34,139 @@
     --icx-selection-border: #5f858d;
     --icx-selection-bounds: rgba(115, 157, 165, 0.38);
 
-    /* Extended tokens for values currently hardcoded in components. */
+    /* ---------------------------------------------------------------- */
+    /* The semantic layer — the six knobs everything below derives from. */
+    /* ---------------------------------------------------------------- */
+    /*
+     * Auditing this file on 2026-08-12 found that most of the 48 "extended"
+     * tokens below were not independent decisions. The great majority were the
+     * same white at a different alpha, or the same cyan at a different alpha —
+     * and that cyan, rgb(183 244 255), is `--icx-active-accent` written out by
+     * hand. Restyling therefore meant overriding 48 values to change six.
+     *
+     * Those now derive. `color-mix(…, transparent)` is exactly equivalent to
+     * the `rgba()` literal it replaces — mixing a colour with `transparent` in
+     * sRGB yields that colour at the given alpha — so every derived token
+     * below holds its previous computed value to the bit.
+     *
+     * SIX DO NOT DERIVE, and they are left literal and marked rather than
+     * bent to fit: the host chrome's shadow and border tints are a hand-tuned
+     * family of NEAR-accent colours (215 251 255, 190 244 255, 148 224 236,
+     * 160 210 220), the host fill sits on its own near-black, and the active
+     * HUD button's foreground is its own tint. Deriving them from the accent
+     * would have silently restyled the frame while claiming to refactor it.
+     *
+     * **Those six are the finding**, not an oversight: they are precisely
+     * what will fight a light theme, because they encode "light tint over a
+     * dark surface" in their values rather than in a token. Giving each a
+     * semantic home is the next step and wants an eye on the result, which is
+     * why it is not done blind here.
+     *
+     * Consumers retheme by overriding the six below (plus the eleven bridged
+     * tokens above, which the `theme` prop also reaches). A light theme is
+     * that override and little more; it belongs in consumer CSS rather than
+     * here, because a theme the framework ships is not proof that a theme a
+     * consumer writes would work.
+     */
+    --icx-color-foreground: #ffffff;
+    --icx-color-accent: var(--icx-active-accent);
+    --icx-color-shadow: #000000;
+    /* Panels that float above the canvas rather than sitting in it. */
+    --icx-color-surface-raised: rgb(12 16 22);
+    /* Chrome that reads as accent-tinted metal rather than as pure accent. */
+    --icx-color-accent-muted: rgb(119 151 161);
+    /* The fill behind an active accent control. */
+    --icx-color-accent-surface: rgb(20 33 38);
 
     /* Viewport shell (src/infinite-canvas.tsx). */
-    --icx-viewport-fg: #ffffff;
-    --icx-viewport-shadow: 0 36px 120px -64px rgba(0, 0, 0, 0.92);
+    --icx-viewport-fg: var(--icx-color-foreground);
+    --icx-viewport-shadow: 0 36px 120px -64px
+      color-mix(in srgb, var(--icx-color-shadow) 92%, transparent);
 
     /* Window frame surface fallback (src/frame-slots.tsx, bg-[#07080b]). */
-    --icx-frame-surface-bg: #07080b;
+    --icx-frame-surface-bg: var(--icx-body-background);
 
     /* Window title (src/frame-slots.tsx, text-white/58). */
-    --icx-title-fg: rgba(255, 255, 255, 0.58);
+    --icx-title-fg: color-mix(in srgb, var(--icx-color-foreground) 58%, transparent);
 
     /* Window control buttons (src/frame-slots.tsx). */
-    --icx-control-fg: rgba(255, 255, 255, 0.46);
-    --icx-control-bg: rgba(255, 255, 255, 0.03);
-    --icx-control-border: rgba(255, 255, 255, 0.08);
-    --icx-control-hover-fg: #ffffff;
-    --icx-control-hover-bg: rgba(255, 255, 255, 0.08);
-    --icx-control-hover-border: rgba(255, 255, 255, 0.2);
+    --icx-control-fg: color-mix(in srgb, var(--icx-color-foreground) 46%, transparent);
+    --icx-control-bg: color-mix(in srgb, var(--icx-color-foreground) 3%, transparent);
+    --icx-control-border: color-mix(in srgb, var(--icx-color-foreground) 8%, transparent);
+    --icx-control-hover-fg: var(--icx-color-foreground);
+    --icx-control-hover-bg: color-mix(in srgb, var(--icx-color-foreground) 8%, transparent);
+    --icx-control-hover-border: color-mix(in srgb, var(--icx-color-foreground) 20%, transparent);
 
     /* Window control buttons, host-chrome variant (src/window-frame.tsx). */
-    --icx-host-control-fg: rgba(255, 255, 255, 0.48);
-    --icx-host-control-bg: rgba(255, 255, 255, 0.035);
-    --icx-host-control-border: rgba(255, 255, 255, 0.1);
-    --icx-host-control-hover-bg: rgba(255, 255, 255, 0.075);
-    --icx-host-control-hover-border: rgba(255, 255, 255, 0.18);
+    --icx-host-control-fg: color-mix(in srgb, var(--icx-color-foreground) 48%, transparent);
+    --icx-host-control-bg: color-mix(in srgb, var(--icx-color-foreground) 3.5%, transparent);
+    --icx-host-control-border: color-mix(in srgb, var(--icx-color-foreground) 10%, transparent);
+    --icx-host-control-hover-bg: color-mix(in srgb, var(--icx-color-foreground) 7.5%, transparent);
+    --icx-host-control-hover-border: color-mix(
+      in srgb,
+      var(--icx-color-foreground) 18%,
+      transparent
+    );
 
     /* Active window corners (src/frame-slots.tsx, border-white/25). */
-    --icx-corner: rgba(255, 255, 255, 0.25);
+    --icx-corner: color-mix(in srgb, var(--icx-color-foreground) 25%, transparent);
 
     /* Host-local chrome tones (src/window-frame.tsx, getHostChromeTone). */
+    /* NOT DERIVED (1/6): its own near-black, distinct from --icx-background. */
     --icx-host-fill:
-      linear-gradient(180deg, rgba(255, 255, 255, 0.018), rgba(255, 255, 255, 0) 34%), #06080b;
-    --icx-host-idle-border: rgba(119, 151, 161, 0.56);
-    --icx-host-inner-border-active: rgba(255, 255, 255, 0.14);
+      linear-gradient(
+        180deg,
+        color-mix(in srgb, var(--icx-color-foreground) 1.8%, transparent),
+        transparent 34%
+      ),
+      #06080b;
+    --icx-host-idle-border: color-mix(in srgb, var(--icx-color-accent-muted) 56%, transparent);
+    --icx-host-inner-border-active: color-mix(
+      in srgb,
+      var(--icx-color-foreground) 14%,
+      transparent
+    );
+    /* NOT DERIVED (2/6): rgb(190 244 255), not the accent's rgb(183 244 255). */
     --icx-host-inner-border-selected: rgba(190, 244, 255, 0.08);
-    --icx-host-inner-border-idle: rgba(255, 255, 255, 0.045);
+    --icx-host-inner-border-idle: color-mix(in srgb, var(--icx-color-foreground) 4.5%, transparent);
+    /* NOT DERIVED (3-5/6): three distinct hand-tuned tints, none the accent. */
     --icx-host-shadow-active:
       0 0 0 1px rgba(215, 251, 255, 0.1), 0 18px 60px -44px rgba(183, 244, 255, 0.7);
     --icx-host-shadow-selected:
       0 0 0 1px rgba(148, 224, 236, 0.08), 0 18px 54px -48px rgba(148, 224, 236, 0.5);
     --icx-host-shadow-idle: 0 14px 48px -44px rgba(160, 210, 220, 0.45);
-    --icx-host-surface-shadow: 0 20px 80px -56px rgba(183, 244, 255, 0.55);
+    --icx-host-surface-shadow: 0 20px 80px -56px
+      color-mix(in srgb, var(--icx-color-accent) 55%, transparent);
 
     /* Snap overlay (src/canvas-overlays.tsx). */
-    --icx-snap-guide: rgba(183, 244, 255, 0.55);
-    --icx-snap-preview-border: rgba(183, 244, 255, 0.45);
-    --icx-snap-preview-bg: rgba(183, 244, 255, 0.035);
+    --icx-snap-guide: color-mix(in srgb, var(--icx-color-accent) 55%, transparent);
+    --icx-snap-preview-border: color-mix(in srgb, var(--icx-color-accent) 45%, transparent);
+    --icx-snap-preview-bg: color-mix(in srgb, var(--icx-color-accent) 3.5%, transparent);
 
     /* Marquee overlay (src/canvas-overlays.tsx). */
-    --icx-marquee-border: rgba(183, 244, 255, 0.8);
-    --icx-marquee-bg: rgba(183, 244, 255, 0.1);
-    --icx-marquee-inset-shadow: inset 0 0 0 1px rgba(183, 244, 255, 0.16);
+    --icx-marquee-border: color-mix(in srgb, var(--icx-color-accent) 80%, transparent);
+    --icx-marquee-bg: color-mix(in srgb, var(--icx-color-accent) 10%, transparent);
+    --icx-marquee-inset-shadow: inset 0 0 0 1px
+      color-mix(in srgb, var(--icx-color-accent) 16%, transparent);
 
     /* HUD panels, buttons, status card, dock (src/canvas-hud.tsx). */
-    --icx-hud-panel-bg: rgba(12, 16, 22, 0.92);
-    --icx-hud-panel-border: rgba(255, 255, 255, 0.1);
-    --icx-hud-divider: rgba(255, 255, 255, 0.08);
-    --icx-hud-button-fg: rgba(255, 255, 255, 0.68);
-    --icx-hud-button-hover-fg: #ffffff;
-    --icx-hud-button-hover-bg: rgba(255, 255, 255, 0.08);
-    --icx-hud-button-hover-border: rgba(255, 255, 255, 0.2);
-    --icx-hud-button-active-bg: #142126;
+    --icx-hud-panel-bg: color-mix(in srgb, var(--icx-color-surface-raised) 92%, transparent);
+    --icx-hud-panel-border: color-mix(in srgb, var(--icx-color-foreground) 10%, transparent);
+    --icx-hud-divider: color-mix(in srgb, var(--icx-color-foreground) 8%, transparent);
+    --icx-hud-button-fg: color-mix(in srgb, var(--icx-color-foreground) 68%, transparent);
+    --icx-hud-button-hover-fg: var(--icx-color-foreground);
+    --icx-hud-button-hover-bg: color-mix(in srgb, var(--icx-color-foreground) 8%, transparent);
+    --icx-hud-button-hover-border: color-mix(in srgb, var(--icx-color-foreground) 20%, transparent);
+    --icx-hud-button-active-bg: var(--icx-color-accent-surface);
+    /* NOT DERIVED (6/6): its own tint, lighter than the accent. */
     --icx-hud-button-active-fg: #d7fbff;
-    --icx-hud-button-disabled-fg: rgba(255, 255, 255, 0.2);
-    --icx-hud-status-bg: rgba(0, 0, 0, 0.45);
-    --icx-hud-status-fg: rgba(255, 255, 255, 0.56);
-    --icx-hud-status-title-fg: rgba(255, 255, 255, 0.72);
-    --icx-hud-status-subtitle-fg: rgba(255, 255, 255, 0.38);
-    --icx-hud-dock-item-fg: rgba(255, 255, 255, 0.58);
-    --icx-hud-zoom-readout-fg: rgba(255, 255, 255, 0.58);
+    --icx-hud-button-disabled-fg: color-mix(in srgb, var(--icx-color-foreground) 20%, transparent);
+    --icx-hud-status-bg: color-mix(in srgb, var(--icx-color-shadow) 45%, transparent);
+    --icx-hud-status-fg: color-mix(in srgb, var(--icx-color-foreground) 56%, transparent);
+    --icx-hud-status-title-fg: color-mix(in srgb, var(--icx-color-foreground) 72%, transparent);
+    --icx-hud-status-subtitle-fg: color-mix(in srgb, var(--icx-color-foreground) 38%, transparent);
+    --icx-hud-dock-item-fg: color-mix(in srgb, var(--icx-color-foreground) 58%, transparent);
+    --icx-hud-zoom-readout-fg: color-mix(in srgb, var(--icx-color-foreground) 58%, transparent);
   }
 
   /* ------------------------------------------------------------------ */
