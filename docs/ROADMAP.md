@@ -127,11 +127,28 @@ camera and selection, survives a reload, and is one undo entry.
 Switching writes the outgoing workspace's camera and selection, and the exit asks for it to be
 undoable, so which desktop you are on is an edit while panning is not.
 
-**Still open: commands, palette integration, and a showcase.** A workspace is created and named
-by a consumer, so the four actions are `parameterized` in `command-coverage.test.ts` — a palette
-entry cannot invent which set. The verbs that _would_ resolve from state, and which belong here
-when a consumer surface exists, are "switch to the next workspace" and "put the active window
-in one".
+✅ **Commands landed the same day the model did** (2026-08-12), rather than waiting for someone
+to notice the model had no verb reaching it — the shape this repository has produced repeatedly,
+from `setInfiniteCanvasGroupAxis` being dead since the day it was written to every
+window-lifecycle verb living only as an `onClick`. `workspace.cycle` walks the ring and wraps,
+`workspace.showAll` leaves without closing, and `workspace.removeActiveWindow` takes the window
+you are looking at off this desktop while leaving it open.
+
+Cycling treats "all windows" as outside the ring: entering from the unfiltered view goes to the
+first or last set rather than making it a desktop you cycle back into, which would make the ring
+one longer than the number of workspaces and read as an off-by-one.
+
+✅ **Showcase landed** at `/workspaces`: two desktops with different work on them, one window on
+neither so "show all" is visibly distinct from either, and a switcher bar that is deliberately
+thin — every button but the desktop list drives a command the palette already carries. Palette
+integration needed no work at all: the playground's palette is built on
+`getInfiniteCanvasContextualCommands`, so the workspace commands appear in it by construction.
+
+Creating and titling a set stays the consumer's — a palette entry cannot invent which set, so
+`workspace.create` and `workspace.close` remain `parameterized`, and the switcher's desktop list
+is the surface that supplies the argument.
+
+**Unverified:** the route typechecks and builds, and nobody has looked at it.
 
 ### Deliberately deferred, with reasons
 
