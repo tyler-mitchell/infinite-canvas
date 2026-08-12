@@ -229,6 +229,32 @@ function worldRectToScreenTransform(
   };
 }
 
+/**
+ * A world-unit length widened so it never renders thinner than `minimumScreenPx`.
+ *
+ * Chrome is drawn in world units inside a zoom-scaled frame, so an authored 1px border renders as
+ * `1 × scale` screen pixels — a tenth of a pixel at 10% zoom. Borders, the header rule, and the
+ * inner frame all thinned to nothing and a window became an unreadable blob exactly when the user
+ * zoomed out to see how their windows relate.
+ *
+ * Above 100% this is inert: the authored width already exceeds the floor, and a stroke that grows
+ * with the canvas is what you want. A non-positive scale has no meaningful conversion, so the
+ * authored width passes through rather than dividing by zero.
+ *
+ * Lives here rather than in `window-frame.tsx`, where it was written, because it is a world↔screen
+ * conversion and holds no React — and because being unreachable from a test is how zoom arithmetic
+ * ships wrong. Two defects of exactly this shape were found on 2026-08-12: a detail-level band
+ * whose thresholds stranded every stock window, and a `hitRadius` measured in world units so edges
+ * became unclickable as you zoomed out. Not exported from the barrel; the frame is its only caller.
+ */
+function getWorldLengthWithScreenFloor(
+  worldLength: number,
+  scale: number,
+  minimumScreenPx = 1,
+): number {
+  return scale <= 0 ? worldLength : Math.max(worldLength, minimumScreenPx / scale);
+}
+
 function snapScreenValueToDevicePixel(value: number, devicePixelRatio: number) {
   const ratio = Math.max(devicePixelRatio, 1);
 
@@ -498,6 +524,7 @@ export {
   getViewportInsetWorldRect,
   getVisibleWorldRect,
   getWheelZoomFactor,
+  getWorldLengthWithScreenFloor,
   getWindowBodyRect,
   getWindowHeaderRect,
   isUsableViewport,

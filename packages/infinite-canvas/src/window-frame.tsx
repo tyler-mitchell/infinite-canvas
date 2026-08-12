@@ -13,7 +13,7 @@ import {
   getEventViewportPoint,
   type InfiniteCanvasWindowFrameRuntimeContextValue,
 } from "./frame-slots";
-import { projectWorldRectToScreen } from "./geometry";
+import { getWorldLengthWithScreenFloor, projectWorldRectToScreen } from "./geometry";
 import {
   capturePointer,
   clearNativeTextSelection,
@@ -80,13 +80,6 @@ const RESIZE_HANDLE_SIZE_CSS_VARIABLE = "--icx-resize-handle-size";
 const CHROME_STROKE_CSS_VARIABLE = "--icx-chrome-stroke";
 
 const CHROME_STROKE = `var(${CHROME_STROKE_CSS_VARIABLE})`;
-
-/** A stroke may not disappear. One screen pixel is the floor. */
-const MINIMUM_CHROME_STROKE_SCREEN_PX = 1;
-
-function getChromeStrokeWorldPx(borderWidth: number, scale: number): number {
-  return scale <= 0 ? borderWidth : Math.max(borderWidth, MINIMUM_CHROME_STROKE_SCREEN_PX / scale);
-}
 
 const RESIZE_HANDLE_EXTENT = `var(${RESIZE_HANDLE_SIZE_CSS_VARIABLE})`;
 
@@ -249,7 +242,7 @@ function InfiniteCanvasWindowFrame<Kind extends string>({
   // The frame's box is in world units; `scale` maps it to the screen. Handles
   // therefore need a world-unit extent that shrinks as zoom grows.
   const articleStyle: InfiniteCanvasFrameStyle = {
-    [CHROME_STROKE_CSS_VARIABLE]: `${getChromeStrokeWorldPx(chrome.borderWidth, screenTransform.scale)}px`,
+    [CHROME_STROKE_CSS_VARIABLE]: `${getWorldLengthWithScreenFloor(chrome.borderWidth, screenTransform.scale)}px`,
     [RESIZE_HANDLE_SIZE_CSS_VARIABLE]: `${chrome.resizeHandleSize / screenTransform.scale}px`,
     contain: "layout paint style",
     height: `${screenTransform.height}px`,

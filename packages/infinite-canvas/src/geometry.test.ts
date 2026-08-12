@@ -4,6 +4,7 @@ import { DEFAULT_INFINITE_CANVAS_ZOOM, MIN_RENDERABLE_INFINITE_CANVAS_ZOOM } fro
 import {
   getConstrainedZoom,
   getWheelZoomFactor,
+  getWorldLengthWithScreenFloor,
   projectWorldRectToScreen,
   resizeRectFromHandle,
   screenPointToWorldPoint,
@@ -206,4 +207,52 @@ test("west resize respects minimum width without drifting past the clamp", () =>
   expect(nextRect.x).toBe(240);
   expect(nextRect.y).toBe(200);
   expect(nextRect.height).toBe(240);
+});
+
+/**
+ * `getWorldLengthWithScreenFloor` — the chrome-stroke floor, extracted from `window-frame.tsx` on
+ * 2026-08-12 so it could be tested at all.
+ *
+ * Chrome is drawn in world units inside a zoom-scaled frame, so an authored 1px border renders as
+ * `1 × scale` screen pixels. At 10% zoom that is a tenth of a pixel and every stroke vanishes
+ * exactly when the user has zoomed out to see how their windows relate.
+ *
+ * This is the third piece of zoom arithmetic audited today and the only one that was already
+ * correct. The detail-level band stranded every stock window at 100% zoom, and `hitRadius` was
+ * measured in world units so edges became unclickable as you zoomed out. All three were
+ * unreachable from a test when they were written; this one now is.
+ */
+
+test("a stroke never renders thinner than one screen pixel", () => {
+  // The whole point: as scale shrinks, the world width grows to compensate, and the product
+  // — what actually reaches the screen — holds at the floor.
+  for (const scale of [1, 0.5, 0.1, 0.02]) {
+    const worldWidth = getWorldLengthWithScreenFloor(1, scale);
+
+    expect(worldWidth * scale).toBeGreaterThanOrEqual(1 - 1e-9);
+  }
+});
+
+test("above 100% zoom the floor is inert and the authored width wins", () => {
+  // A stroke that grows with the canvas is what you want when zoomed in; the floor must not
+  // clamp it back down.
+  expect(getWorldLengthWithScreenFloor(1, 2)).toBe(1);
+  expect(getWorldLengthWithScreenFloor(3, 4)).toBe(3);
+});
+
+test("a thicker authored stroke is never thinned to reach the floor", () => {
+  // The floor raises, never lowers. A 4px border at 50% zoom is already 2 screen px.
+  expect(getWorldLengthWithScreenFloor(4, 0.5)).toBe(4);
+});
+
+test("a non-positive scale passes the authored width through instead of dividing by zero", () => {
+  // An unmeasured or degenerate camera has no meaningful conversion. Returning Infinity here
+  // would write `Infinitypx` into a style and blank the frame's borders entirely.
+  expect(getWorldLengthWithScreenFloor(2, 0)).toBe(2);
+  expect(getWorldLengthWithScreenFloor(2, -1)).toBe(2);
+  expect(Number.isFinite(getWorldLengthWithScreenFloor(2, 0))).toBe(true);
+});
+
+test("the floor is configurable for callers that need a thicker minimum", () => {
+  expect(getWorldLengthWithScreenFloor(1, 0.5, 2)).toBe(4);
 });
