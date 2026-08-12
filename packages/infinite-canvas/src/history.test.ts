@@ -310,3 +310,59 @@ test("RECIPE: applying a recipe naming no live window leaves the state untouched
 
   expect(applyInfiniteCanvasRecipe(elsewhere, recipe!, { origin: { x: 0, y: 0 } })).toBe(elsewhere);
 });
+
+/**
+ * Undo restores the whole document, checked without naming its fields.
+ *
+ * `applyInfiniteCanvasDocument` enumerates what it puts back, and a field added to
+ * `InfiniteCanvasDocument` but forgotten there would mean undo silently does not restore it —
+ * no error, no failing test, just an edit that cannot be taken back. I added
+ * `activeWorkspaceId` and `workspaces` to both by hand today and nothing would have caught me
+ * doing one and not the other.
+ *
+ * This needs no list of fields, unlike the persistence and clone guards: comparing documents
+ * key by key is exhaustive by construction, so a new field is covered the moment
+ * `getInfiniteCanvasDocument` returns it.
+ */
+
+/** One edit that moves every field of the document at once. */
+const editEveryDocumentField = (state: InfiniteCanvasState<Kind>): InfiniteCanvasState<Kind> => ({
+  ...state,
+  activeWorkspaceId: "research",
+  groups: [
+    {
+      id: "shell",
+      rect: { height: 400, width: 800, x: 0, y: 0 },
+      title: "Shell",
+      tree: { id: "a", kind: "window", weight: 1 },
+      zIndex: 1,
+    },
+  ],
+  windows: state.windows.filter((window) => window.id !== "c"),
+  workspaces: [
+    {
+      camera: state.camera,
+      id: "research",
+      selection: { anchorWindowId: null, windowIds: [] },
+      title: "Research",
+      windowIds: ["a"],
+    },
+  ],
+});
+
+test("undo restores every field of the document, whatever they are", () => {
+  const state = baseState();
+  const before = getInfiniteCanvasDocument(state);
+  const edited = commitEdit(state, editEveryDocumentField(state));
+
+  // The edit has to actually move every field, or the comparison below passes over the ones
+  // it missed — which is how a guard like this quietly stops guarding.
+  const moved = Object.keys(before).filter(
+    (field) =>
+      getInfiniteCanvasDocument(edited)[field as keyof typeof before] !==
+      before[field as keyof typeof before],
+  );
+
+  expect(moved.toSorted()).toEqual(["activeWorkspaceId", "groups", "windows", "workspaces"]);
+  expect(getInfiniteCanvasDocument(undoInfiniteCanvasHistory(edited))).toEqual(before);
+});
