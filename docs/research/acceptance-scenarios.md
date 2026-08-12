@@ -167,6 +167,12 @@ hysteresis unimplemented` until 2026-07-08, long after it shipped.
   replaces, matching what a click does; extending is the second verb. The target joins the
   selection before being focused, because `focusWindowPreservingSelection` takes the active
   window from the anchor and would otherwise leave focus behind.)
+- **ACC-002** — No ARIA relationship points at an element that is not there. `covered`
+  (2026-08-12, `accessibility-structure.test.tsx`. Found the defect it was written to look
+  for: a tabs container renders only its active child, so every inactive tab's
+  `aria-controls` named a panel absent from the document. Now emitted only where the panel
+  exists — APG recommends the reference where there is something to reference, and does not
+  ask for one that lies.)
 - **ACC-001** — Keyboard navigation follows accordion orientation. `covered` (2026-07-08).
   Each accordion container is one roving tab stop, and its arrows follow
   `container.axis`: a vertically stacked accordion answers Up/Down, a horizontal one

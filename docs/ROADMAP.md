@@ -388,8 +388,20 @@ Professional-tool table stakes; the command layer is transaction-ready.
   reachable**, by chord or palette, except `open` — consumer territory, since only the
   consumer knows what kinds exist and what a new one contains.
 
-  **What stands between here and the exit is two things, neither a missing command.**
-  There is no a11y audit checklist in the repo to pass. And the families added on
+  ✅ **The checklist exists, as a guard rather than a document** (2026-08-12).
+  `accessibility-structure.test.tsx` renders a canvas with a real tab group — which
+  `accessibility.test.tsx` never built, so `aria-controls` was never emitted there — and
+  asserts the structural class the semantics tests do not reach: no ARIA id reference
+  dangles, no element takes a positive `tabindex`, every tab sits inside a tablist. A
+  checklist in prose would go stale the way this section did; a guard fails the build.
+
+  **It found a real defect on its first run.** Only the active child of a tabs container
+  renders a frame, so every inactive tab named a panel that was not in the document. A
+  dangling `aria-controls` is worse than an absent one — assistive technology follows it,
+  finds nothing, and says nothing — so the reference is now emitted only where the panel
+  exists.
+
+  **What stands between here and the exit is chords.** And the families added on
   2026-08-12 — arrange, dock, group shape, lifecycle, camera, extend-selection — all ship
   with empty `hotkeys`, because the arrow space is fully taken and the conventional zoom
   keys are the browser's own. Palette-reachable is reachable, but a keyboard-only session

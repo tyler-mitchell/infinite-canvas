@@ -679,8 +679,14 @@ function InfiniteCanvasGroupTab({
 
   return (
     <button
-      // The tab's `childId` IS the window id, so it controls that window's frame panel (FR-9).
-      aria-controls={getInfiniteCanvasWindowFrameElementId(canvasInstanceId, childId)}
+      // The tab's `childId` IS the window id, so it controls that window's frame panel (FR-9)
+      // — but only the *active* child of a tabs container is rendered. An inactive tab named a
+      // panel that was not in the document, and a dangling `aria-controls` is worse than an
+      // absent one: assistive technology follows it, finds nothing, and says nothing. APG
+      // recommends the reference where the panel exists; it does not ask for one that lies.
+      aria-controls={
+        isActive ? getInfiniteCanvasWindowFrameElementId(canvasInstanceId, childId) : undefined
+      }
       aria-selected={isActive}
       data-active={isActive ? "" : undefined}
       data-infinite-canvas-control="true"
