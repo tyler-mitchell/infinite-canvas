@@ -938,6 +938,16 @@ type InfiniteCanvasCommand =
   | Readonly<{ type: "activeWindow.minimize" }>
   | Readonly<{ type: "activeWindow.toggleMaximized" }>
   | Readonly<{ type: "activeWindow.togglePinned" }>
+  /**
+   * Close every closable window in the selection, as one edit.
+   *
+   * The lifecycle verbs above act on the active window because the actions beneath them take a
+   * single id — and that left "select five windows, close them" with no verb at all. This is one
+   * action rather than a loop over `window.close` for the reason that loop was rejected: a
+   * document change is a history checkpoint, so five dispatches are five undo entries and
+   * recovering from a mistaken close means pressing undo five times.
+   */
+  | Readonly<{ type: "selection.close" }>
   | Readonly<{ amountPx: number; direction: InfiniteCanvasDirection; type: "view.pan" }>
   | Readonly<{ factor: number; type: "view.zoomBy" }>
   | Readonly<{ direction: InfiniteCanvasDirection; type: "selection.extendDirection" }>
@@ -1001,6 +1011,7 @@ type InfiniteCanvasCommandId =
   | "activeWindow.minimize"
   | "activeWindow.toggleMaximized"
   | "activeWindow.togglePinned"
+  | "selection.close"
   | "group.equalizeChildren"
   | "group.dissolve"
   | "group.growPane"

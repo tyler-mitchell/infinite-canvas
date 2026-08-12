@@ -564,6 +564,21 @@ const DEFAULT_INFINITE_CANVAS_COMMAND_DESCRIPTORS = [
     id: "activeWindow.close",
     label: "Close Window",
   },
+  // Acts on the selection, where the four above act on the active window — which is why it is
+  // named for the selection rather than joining the `activeWindow.*` family.
+  //
+  // No default chord, for the same reason `activeWindow.close` has none and one more of its own.
+  // `Mod+W` is the browser's; and `Delete`/`Backspace` — the chord every canvas editor uses for
+  // this — would put a destructive multi-window verb one keypress from a stray press. It is
+  // recoverable in one undo by construction, but that is an argument for offering the binding
+  // rather than for making it the default in someone else's application.
+  {
+    command: { type: "selection.close" },
+    description: "Close every selected window that can be closed, as a single undoable edit.",
+    hotkeys: [],
+    id: "selection.close",
+    label: "Close Selected Windows",
+  },
   {
     command: { type: "activeWindow.minimize" },
     description: "Collapse the active window into the dock.",
@@ -1086,6 +1101,23 @@ const INFINITE_CANVAS_LIFECYCLE_CAPABILITY = {
 >;
 
 /**
+ * The selected windows that closing would actually remove.
+ *
+ * Filtered by `closable` rather than refused wholesale: a selection mixing a pinned-open
+ * console with four scratch windows should close the four, which is what the user asked for.
+ * Order follows the selection, and duplicates cannot occur because a selection is normalized.
+ */
+function getInfiniteCanvasClosableSelection<Kind extends string>(
+  state: InfiniteCanvasState<Kind>,
+): readonly string[] {
+  return state.selection.windowIds.filter((windowId) => {
+    const window = findWindow(state, windowId);
+
+    return window !== null && isInfiniteCanvasWindowCapable(window, "closable");
+  });
+}
+
+/**
  * The lifecycle verbs, in one place.
  *
  * `toggleMaximized` is the reason this exists rather than four inline cases: the rule that a
@@ -1347,6 +1379,10 @@ function isInfiniteCanvasCommandEnabled<Kind extends string>(
           zoomPolicy,
         ).zoom !== state.camera.zoom
       );
+    // Offered when at least one selected window would actually close. A selection of five
+    // unclosable windows must not present an enabled verb that does nothing.
+    case "selection.close":
+      return getInfiniteCanvasClosableSelection(state).length > 0;
     case "activeWindow.close":
     case "activeWindow.minimize":
     case "activeWindow.toggleMaximized":
@@ -1566,6 +1602,7 @@ function getInfiniteCanvasCommandGroup(command: InfiniteCanvasCommand): Infinite
     case "workspace.removeActiveWindow":
       return "canvas";
     case "view.fitSelection":
+    case "selection.close":
     case "selection.extendDirection":
     case "selection.removeActive":
       return "selection";
@@ -1620,6 +1657,29 @@ function executeInfiniteCanvasCommand<Kind extends string>(
   zoomPolicy: InfiniteCanvasZoomPolicy = DEFAULT_INFINITE_CANVAS_ZOOM,
 ): InfiniteCanvasState<Kind> {
   switch (command.type) {
+    /**
+     * One fold, so one document, so one undo entry.
+     *
+     * This is the whole reason the verb exists rather than a loop over `window.close` at the
+     * call site: every document change is a history checkpoint, so five dispatches would be
+     * five entries and undoing a mistaken close would mean pressing undo five times. Reducing
+     * over the ids produces a single next document, and the checkpoint is taken once.
+     *
+     * Each id is detached from its groups and its workspaces exactly as a single close is —
+     * `applyInfiniteCanvasWindowLifecycle` is not reused because it reads the *active* window's
+     * mode, and folding needs the id in hand.
+     */
+    case "selection.close":
+      return clearSelection(
+        getInfiniteCanvasClosableSelection(state).reduce<InfiniteCanvasState<Kind>>(
+          (current, windowId) =>
+            detachInfiniteCanvasWindowFromWorkspaces(
+              detachInfiniteCanvasWindowFromGroups(closeWindow(current, windowId), windowId),
+              windowId,
+            ),
+          state,
+        ),
+      );
     case "desktop.cancel":
       return state.interaction === null
         ? clearSelection(state)
