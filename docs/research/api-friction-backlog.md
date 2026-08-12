@@ -231,13 +231,22 @@ pointerModeControls?, cameraControls?, zoomControls? }` landed with the HUD
   A grouped window now draws no resize handles at all. The window layer passes `isGrouped`
   from the group projection's `windowRects` keys, which is precisely the placed-by-a-tree set.
 
-  **Not fixed, and worth building: a group shell has no edge handles.** The outer border of a
-  group cannot be dragged. Removing the dead handles makes that honest rather than broken, but
-  the capability is still missing. Sketch: a `groupResize` interaction alongside `groupMove`
-  and `groupGutter`, stepping `group.rect`; the solver re-projects members for free, because
-  the group owns the layout and a member's `rect` is its projection. The open question is the
-  shell's minimum size — it is a function of every pane's `minSize` and the gutters between
-  them, not a constant.
+  ✅ **A group shell has edge handles (built since; this entry was stale until 2026-08-12).**
+  The sketch below is what shipped, near enough verbatim: a `groupResize` interaction beside
+  `groupMove` and `groupGutter`, stepping `group.rect` and letting the solver re-project members
+  for free.
+
+  The open question it named — the shell's minimum size — was answered by
+  `getInfiniteCanvasGroupMinimumSize`, which recurses the tree and mirrors the solver branch for
+  branch: a split sums along its axis with a gutter between each adjacent pair, tabs stack a
+  strip above the tallest child, and an accordion takes `n` headers plus the _widest_ child
+  rather than the active one. It is deliberately **not** built from members' `minSize`: a
+  member's rect is the tree's projection, so a floating-window property has no authority inside
+  it, and honouring it would let one stubborn pane veto a resize of a group it merely belongs to.
+
+  Recorded because the staleness is the lesson: this entry described a missing capability for
+  long enough that a later reader — me — went looking for the work before checking whether it
+  existed. A backlog that is not retired as it is worked becomes a source of phantom tasks.
 
 ## Fixed 2026-07-08 (dock intent)
 

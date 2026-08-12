@@ -109,6 +109,31 @@ mounted. The predicate is `isWorldRectWithinViewport`, guarded by `isUsableViewp
 Exit: at 160 windows, per-frame work drops measurably; focus, portals, and body scroll all survive
 a pan-away and return.
 
+✅ **The culling landed 2026-08-12**, in `window-frame.tsx`, where the frame already holds the
+camera and viewport and already rewrites this style every camera tick — so it needed no new prop
+threading and no new subscription. A frame more than `WINDOW_CULL_MARGIN_PX` (480 screen pixels)
+outside the viewport renders `content-visibility: auto` with a `contain-intrinsic-size` matching
+its screen box; the active and selected windows are never culled, matching the rasterization
+policy next to it. Screen pixels rather than world units, like every other threshold here: a
+world-unit band would shrink as you zoom out, which is when the most windows sit near the edge.
+
+`culling.test.tsx` asserts the trap directly — an offscreen window is still in the document, body
+and all — and that a `0 × 0` viewport culls nothing. Its first draft **passed for the wrong
+reason**: it searched the whole frame subtree and matched the window _body's_ `content-visibility`,
+which comes from the rasterization policy and would have reported success no matter what the frame
+did. It now reads the `<article>`'s own style attribute, and was confirmed to fail against a
+mutant that never culls.
+
+**Not built, and the roadmap sentence above asks for it: skipping transform updates.**
+`content-visibility` skips the browser's layout and paint for a skipped subtree; it does not stop
+React from re-rendering the frame or rebuilding its style object every camera tick. Freezing the
+transform while culled is a separate change with a real staleness risk, and its value is precisely
+what this exit wants measured.
+
+**Unmeasured.** The exit asks for per-frame work to drop measurably at 160 windows, and no profile
+has been taken — that needs a browser. What is verified is the shape: culled windows stay mounted,
+the first frame is never blanked, and nothing regressed across 469 tests.
+
 ### M5 — Workspaces (~3.5h)
 
 The largest genuinely new capability, and the one the domain survey supports: nested canvases and

@@ -13,7 +13,12 @@ import {
   getEventViewportPoint,
   type InfiniteCanvasWindowFrameRuntimeContextValue,
 } from "./frame-slots";
-import { getWorldLengthWithScreenFloor, projectWorldRectToScreen } from "./geometry";
+import {
+  getWorldLengthWithScreenFloor,
+  isUsableViewport,
+  isWorldRectWithinViewport,
+  projectWorldRectToScreen,
+} from "./geometry";
 import {
   capturePointer,
   clearNativeTextSelection,
@@ -86,6 +91,48 @@ const RESIZE_HANDLE_EXTENT = `var(${RESIZE_HANDLE_SIZE_CSS_VARIABLE})`;
 
 /** Handles straddle the frame edge, so they hang half their extent outside it. */
 const RESIZE_HANDLE_OVERHANG = `calc(${RESIZE_HANDLE_EXTENT} / -2)`;
+
+/**
+ * How far past the viewport edge a window stays fully rendered, in screen pixels.
+ *
+ * A pan moves the camera every frame, so a window culled the instant it crosses the edge
+ * would be skipped and restored repeatedly during one gesture. The margin buys a band of
+ * frames either side of the boundary; it is screen pixels rather than world units for the
+ * same reason every other threshold here is — a world-unit band would shrink as you zoom
+ * out, which is exactly when the most windows are near the edge.
+ */
+const WINDOW_CULL_MARGIN_PX = 480;
+
+/**
+ * Whether this frame's subtree can be skipped this frame.
+ *
+ * Never the active or selected window, matching `InfiniteCanvasWindowBody`'s rasterization
+ * policy: those are the windows a keystroke or a resize is most likely to land on, and the
+ * cost of keeping at most a handful live is not worth reasoning about the edge cases.
+ *
+ * `isUsableViewport` is checked first and defaults to *not* culled. A `0 × 0` viewport — the
+ * first frame, before the resize observer has measured anything — overlaps no window at all,
+ * so culling on it would skip every window on the canvas and paint nothing.
+ */
+function isFrameOffscreen<Kind extends string>({
+  camera,
+  isActive,
+  isSelected,
+  viewport,
+  window,
+}: Readonly<{
+  camera: InfiniteCanvasCamera;
+  isActive: boolean;
+  isSelected: boolean;
+  viewport: InfiniteCanvasViewport;
+  window: InfiniteCanvasWindow<Kind>;
+}>): boolean {
+  if (isActive || isSelected || !isUsableViewport(viewport)) {
+    return false;
+  }
+
+  return !isWorldRectWithinViewport(camera, viewport, window.rect, WINDOW_CULL_MARGIN_PX);
+}
 
 /** React's `CSSProperties` has no slot for custom properties. Widen just this one. */
 type InfiniteCanvasFrameStyle = CSSProperties &
@@ -246,6 +293,15 @@ function InfiniteCanvasWindowFrame<Kind extends string>({
     [CHROME_STROKE_CSS_VARIABLE]: `${getWorldLengthWithScreenFloor(chrome.borderWidth, screenTransform.scale)}px`,
     [RESIZE_HANDLE_SIZE_CSS_VARIABLE]: `${chrome.resizeHandleSize / screenTransform.scale}px`,
     contain: "layout paint style",
+    // Skipping a pan-away window's subtree, without unmounting it. `auto` and not `hidden`:
+    // the browser forces skipped content back on when it takes focus or is found by
+    // find-in-page, which is what keeps a hotkey bound to a control inside an offscreen
+    // window alive. Unmounting instead would drop DOM focus to `<body>`, detach portal
+    // roots, and destroy body scroll, video playback, and uncontrolled input state.
+    containIntrinsicSize: `${screenTransform.width}px ${screenTransform.height}px`,
+    contentVisibility: isFrameOffscreen({ camera, isActive, isSelected, viewport, window })
+      ? "auto"
+      : "visible",
     height: `${screenTransform.height}px`,
     left: "0px",
     pointerEvents: "none",
