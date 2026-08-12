@@ -18,6 +18,7 @@ import { Button } from "ui";
 import { CommandPalette } from "../showcases/command-palette.tsx";
 import { exposeCanvasDevHandle } from "../showcases/dev-handle.ts";
 import { CanvasOffscreenIndicators } from "../showcases/offscreen-indicators.tsx";
+import { CanvasThemeSwitcher } from "../showcases/theme-switcher.tsx";
 
 export const Route = createFileRoute("/groups")({
   component: GroupsShowcase,
@@ -40,28 +41,28 @@ const registry = defineInfiniteCanvasWindowRegistry<Kind>({
     kind: "pane",
     overflowY: "auto",
     renderBody: ({ window }) => (
-      <div className="grid content-start gap-2 p-4 text-xs leading-relaxed text-white/60">
-        <div className="font-mono text-[10px] tracking-wider text-white/40 uppercase">
+      <div className="grid content-start gap-2 p-4 icx-showcase-text text-xs leading-relaxed">
+        <div className="font-mono icx-showcase-muted text-[10px] tracking-wider uppercase">
           {window.id}
         </div>
         <p>
           A grouped window has no rect of its own. The group&apos;s tree owns its placement, and the
           reducer projects the solved rect back onto <code>window.rect</code>.
         </p>
-        <p className="text-white/40">
+        <p className="icx-showcase-muted">
           Drag this header to move the whole shell, or the shell&apos;s outer edge to resize it.
           Drag the seam between panes to reweight them. Hold <kbd>Alt</kbd> while dragging a
           floating window over another — the pointer has to be over the target, not just the windows
           overlapping — to dock it.
         </p>
-        <p className="text-white/40">
+        <p className="icx-showcase-muted">
           In <code>tabs</code> mode, drag a tab along its strip to reorder it, or out of the strip
           to tear the window free. <kbd>Arrow</kbd> with a pane selected moves the whole shell,
           because a member has no rect to nudge. <kbd>Mod</kbd>+<kbd>Shift</kbd>+<kbd>Arrow</kbd>{" "}
           tiles the active <em>floating</em> window into a half of the view; a grouped one is
           refused, for the same reason.
         </p>
-        <p className="text-white/40">
+        <p className="icx-showcase-muted">
           <em>Float over shell</em> drops a window centred on the group. Its centre is inside the
           shell, so the group becomes its <em>contextual parent</em>: <kbd>Alt</kbd>+
           <kbd>Arrow</kbd> from it searches the group&apos;s members before the rest of the canvas,
@@ -342,6 +343,8 @@ function GroupsShowcase() {
               {/* Pan away from the shell: a four-pane group gets one arrow, not four. */}
               <CanvasOffscreenIndicators />
               <div className="pointer-events-auto absolute bottom-4 left-4 flex items-center gap-1.5 rounded-lg border border-border bg-popover/90 p-1.5 backdrop-blur">
+                <CanvasThemeSwitcher />
+                <span className="mx-1 h-4 w-px bg-border" />
                 <NewWindowButton />
                 <span className="mx-1 h-4 w-px bg-border" />
                 <GroupControls />

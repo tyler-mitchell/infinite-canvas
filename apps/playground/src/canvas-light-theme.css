@@ -1,0 +1,79 @@
+/**
+ * A complete second look for the canvas, written as **consumer CSS**.
+ *
+ * It lives here rather than in the framework deliberately, and the framework's own theme.css
+ * says why: a theme the framework ships is not proof that a theme a consumer writes would work.
+ * This file is the proof. It imports nothing from the framework and overrides only the public
+ * `--icx-*` contract — if a colour cannot be reached from here, the token set is incomplete, and
+ * that is exactly the finding a light theme is supposed to produce.
+ *
+ * It also inverts the one thing the dark default encodes structurally: the accent ramp runs
+ * *brighter* than the accent because it sits on a near-black surface. On a light surface it has
+ * to run *darker*, or every tinted edge and shadow disappears into the page. That inversion is
+ * four overrides because the rungs are named; before they were named it would have been a fork.
+ *
+ * Opt in with `data-canvas-theme="light"` on any ancestor. Unlayered, so it wins over the
+ * framework's `@layer infinite-canvas` without `!important`.
+ */
+
+[data-canvas-theme="light"] [data-slot="viewport"] {
+  /* ---- The eleven bridged tokens (also reachable through the `theme` prop). ---- */
+  --icx-active-accent: #0f6d84;
+  --icx-active-border: #0b4d5e;
+  --icx-background: #f4f7f9;
+  --icx-body-background: #ffffff;
+  --icx-grid-major: rgba(15 61 74 / 0.16);
+  --icx-grid-minor: rgba(15 61 74 / 0.08);
+  --icx-header-active: #dff0f4;
+  --icx-header-idle: #eef2f5;
+  --icx-idle-border: #c3ced4;
+  --icx-selection-border: #2b7f95;
+  --icx-selection-bounds: rgba(43 127 149 / 0.28);
+
+  /* ---- The six semantic knobs everything else derives from. ---- */
+  /*
+   * `--icx-color-foreground` is the one that carries the whole file. Every derived token mixes
+   * it with `transparent` at some alpha, so flipping it from white to near-black re-tints 30-odd
+   * tokens at once — control fills, borders, corners, titles, HUD text. That is the token set
+   * doing its job, and it is why the ramp below is the only part that needed thought.
+   */
+  --icx-color-foreground: #0d1b21;
+  --icx-color-shadow: #0b1f26;
+  --icx-color-surface-raised: #ffffff;
+  --icx-color-accent-muted: #5a7f8b;
+  --icx-color-accent-surface: #d7ecf2;
+
+  /* ---- The accent ramp, inverted. ---- */
+  /*
+   * Dark: bright → faint, all lighter than the accent, glowing off a near-black surface.
+   * Light: the same four roles read as increasingly *washed out* toward the page instead, so the
+   * ordering flips — `bright` is the deepest here because it is the most emphatic, not the
+   * lightest.
+   */
+  --icx-color-accent-bright: #0a4a5c;
+  --icx-color-accent-soft: #17708a;
+  --icx-color-accent-dim: #4b93a6;
+  --icx-color-accent-faint: #7fb0be;
+  --icx-color-surface-sunken: #fbfdfe;
+}
+
+/**
+ * Showcase body text, derived from the canvas foreground instead of hardcoded white.
+ *
+ * Found by building the light theme, which is what a light theme is for: the framework's own
+ * chrome re-tinted correctly from one `--icx-color-foreground` override, and the *playground's*
+ * `renderBody` did not, because it asked Tailwind for `text-white/60`. White on a white body is
+ * invisible, and no amount of token completeness in the framework can fix a consumer that has
+ * opted out of the tokens.
+ *
+ * These live beside the light theme rather than inside it deliberately — they are unconditional,
+ * because the bug is not "wrong in light mode", it is "not themed at all". In the dark default
+ * they resolve to the same whites they replaced.
+ */
+.icx-showcase-text {
+  color: color-mix(in srgb, var(--icx-color-foreground) 60%, transparent);
+}
+
+.icx-showcase-muted {
+  color: color-mix(in srgb, var(--icx-color-foreground) 40%, transparent);
+}

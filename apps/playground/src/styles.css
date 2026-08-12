@@ -6,6 +6,9 @@
 
 @import "@infinite-canvas/react/theme.css";
 
+/* Consumer-authored second look; unlayered so it beats @layer infinite-canvas. */
+@import "./canvas-light-theme.css";
+
 @import "tailwindcss";
 
 @import "tw-animate-css";
