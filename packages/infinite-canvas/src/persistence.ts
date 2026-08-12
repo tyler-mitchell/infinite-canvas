@@ -1,4 +1,5 @@
 import { reconcileInfiniteCanvasGroups } from "./group-state";
+import { reconcileInfiniteCanvasWorkspaces } from "./workspace";
 import type {
   InfiniteCanvasGroup,
   InfiniteCanvasSerializedState,
@@ -153,16 +154,13 @@ function parseInfiniteCanvasState<Kind extends string>(
     .filter((group): group is InfiniteCanvasGroup => group !== null);
   // Same bargain as a group: a malformed workspace is dropped rather than fatal, because it
   // can only cost the user a membership filter while rejecting the payload costs them every
-  // window on the canvas. A workspace naming a window that did not survive keeps that name
-  // out — the filter must not admit a ghost.
-  const liveWindowIds = new Set(windows.map((window) => window.id));
+  // window on the canvas. Membership itself is left alone here and reconciled below — a
+  // hand-edited or older payload can name a window that did not survive, or half a group,
+  // and there should be one rule deciding what membership means rather than a copy of it
+  // living in the parser.
   const workspaces = envelope.workspaces
     .map((workspace) => parseInfiniteCanvasWorkspace(workspace))
-    .filter((workspace) => workspace !== null)
-    .map((workspace) => ({
-      ...workspace,
-      windowIds: workspace.windowIds.filter((windowId) => liveWindowIds.has(windowId)),
-    }));
+    .filter((workspace) => workspace !== null);
   const unnormalizedState = {
     ...baseState,
     activeWindowId,
@@ -179,14 +177,22 @@ function parseInfiniteCanvasState<Kind extends string>(
   } satisfies InfiniteCanvasState<Kind>;
   const selection = normalizeSelection(unnormalizedState, initialSelection);
 
-  // A persisted tree can name a window whose kind has since left the registry,
-  // or that a duplicate-id pass dropped. Reconciling here means no caller ever
-  // sees a group laying out a window that does not exist.
-  return reconcileInfiniteCanvasGroups({
-    ...unnormalizedState,
-    activeWindowId: selection.anchorWindowId,
-    selection,
-  });
+  // A persisted tree can name a window whose kind has since left the registry, or that a
+  // duplicate-id pass dropped. Reconciling here means no caller ever sees a group laying out
+  // a window that does not exist.
+  //
+  // Workspaces reconcile *after* groups, and through the same function the reducer uses:
+  // hydration is the one path that builds state without passing through it, so a payload
+  // could otherwise arrive holding half a group — the state the group-complete invariant
+  // forbids — and the keeper installed in the reducer would never see it. Groups first,
+  // because the expansion reads the trees that reconciliation may just have pruned.
+  return reconcileInfiniteCanvasWorkspaces(
+    reconcileInfiniteCanvasGroups({
+      ...unnormalizedState,
+      activeWindowId: selection.anchorWindowId,
+      selection,
+    }),
+  );
 }
 
 function parseInfiniteCanvasStateJson<Kind extends string>(

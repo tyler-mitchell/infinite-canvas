@@ -540,3 +540,47 @@ test("reconciliation returns the identical state when nothing moved", () => {
 
   expect(panned.workspaces).toBe(state.workspaces);
 });
+
+test("hydration cannot bring in a workspace holding half a group", () => {
+  // Hydration is the one path that builds state without passing through the reducer, so the
+  // keeper installed there never sees it. A hand-edited payload — or one written by a build
+  // before membership was group-complete — can name one member of a docked pair.
+  const docked = executeInfiniteCanvasCommand(
+    { ...threeWindows(), activeWindowId: "a" },
+    { direction: "right", type: "window.dockDirection" },
+  );
+  const filtered = reduceInfiniteCanvasState(docked, {
+    type: "workspace.create",
+    windowIds: ["a", "b"],
+    workspaceId: "research",
+  });
+  const serialized = serializeInfiniteCanvasState(filtered);
+
+  // Half the group, as an older or edited document would hold it.
+  const tampered = {
+    ...serialized,
+    workspaces: serialized.workspaces?.map((workspace) => ({ ...workspace, windowIds: ["a"] })),
+  } as never;
+  const restored = parseInfiniteCanvasState<Kind>(tampered, threeWindows());
+
+  expect([...(restored?.workspaces[0]?.windowIds ?? [])].toSorted()).toEqual(["a", "b"]);
+});
+
+test("hydration drops a membership naming a window that did not survive", () => {
+  // The rule the parser used to apply by hand. It still holds, now through the same function
+  // the reducer uses rather than a second copy of it.
+  const state = reduceInfiniteCanvasState(threeWindows(), {
+    type: "workspace.create",
+    windowIds: ["a", "b"],
+    workspaceId: "research",
+  });
+  const serialized = serializeInfiniteCanvasState(state);
+  const withoutB = {
+    ...serialized,
+    windows: serialized.windows.filter((window) => window.id !== "b"),
+  } as never;
+
+  expect(
+    parseInfiniteCanvasState<Kind>(withoutB, threeWindows())?.workspaces[0]?.windowIds,
+  ).toEqual(["a"]);
+});
