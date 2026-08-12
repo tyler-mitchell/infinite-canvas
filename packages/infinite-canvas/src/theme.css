@@ -78,6 +78,34 @@
     /* The fill behind an active accent control. */
     --icx-color-accent-surface: rgb(20 33 38);
 
+    /*
+     * The accent ramp — resolved 2026-08-12, and it was five decisions wearing six coats.
+     *
+     * The block above used to end by naming six values that "do not derive", left literal
+     * because deriving them from the accent would have silently restyled the frame. That was the
+     * right call and the wrong conclusion: they do not derive *from the accent*, but they are not
+     * independent either. Reading them out revealed that
+     * `--icx-host-shadow-active`'s glow was `rgba(183, 244, 255, …)`, which is `--icx-active-accent`
+     * written by hand, and that `#d7fbff` appeared twice — once as the active ring, once as the
+     * active HUD foreground — as two separate literals for one colour.
+     *
+     * What is left is a genuine hand-tuned ramp of tints around the accent, and its rungs are
+     * named here rather than inlined so a theme overrides four values instead of hunting six
+     * literals through the file. This is the thing that fights a light theme: the ramp runs
+     * *brighter* than the accent because it sits on a dark surface, and a light theme inverts it.
+     * Naming the rungs is what makes that inversion a set of overrides rather than a fork.
+     *
+     * Every rewrite below is bit-for-bit: `color-mix(in srgb, X n%, transparent)` is exactly
+     * `rgba(X, n/100)`, verified against the computed `box-shadow` and `color` of a live probe
+     * before and after.
+     */
+    --icx-color-accent-bright: #d7fbff;
+    --icx-color-accent-soft: #bef4ff;
+    --icx-color-accent-dim: #94e0ec;
+    --icx-color-accent-faint: #a0d2dc;
+    /* The host frame's own near-black, distinct from --icx-background and --icx-body-background. */
+    --icx-color-surface-sunken: #06080b;
+
     /* Viewport shell (src/infinite-canvas.tsx). */
     --icx-viewport-fg: var(--icx-color-foreground);
     --icx-viewport-shadow: 0 36px 120px -64px
@@ -112,29 +140,34 @@
     --icx-corner: color-mix(in srgb, var(--icx-color-foreground) 25%, transparent);
 
     /* Host-local chrome tones (src/window-frame.tsx, getHostChromeTone). */
-    /* NOT DERIVED (1/6): its own near-black, distinct from --icx-background. */
     --icx-host-fill:
       linear-gradient(
         180deg,
         color-mix(in srgb, var(--icx-color-foreground) 1.8%, transparent),
         transparent 34%
       ),
-      #06080b;
+      var(--icx-color-surface-sunken);
     --icx-host-idle-border: color-mix(in srgb, var(--icx-color-accent-muted) 56%, transparent);
     --icx-host-inner-border-active: color-mix(
       in srgb,
       var(--icx-color-foreground) 14%,
       transparent
     );
-    /* NOT DERIVED (2/6): rgb(190 244 255), not the accent's rgb(183 244 255). */
-    --icx-host-inner-border-selected: rgba(190, 244, 255, 0.08);
+    --icx-host-inner-border-selected: color-mix(
+      in srgb,
+      var(--icx-color-accent-soft) 8%,
+      transparent
+    );
     --icx-host-inner-border-idle: color-mix(in srgb, var(--icx-color-foreground) 4.5%, transparent);
-    /* NOT DERIVED (3-5/6): three distinct hand-tuned tints, none the accent. */
+    /* The active glow is the accent itself — it was `rgba(183, 244, 255, …)` spelled out. */
     --icx-host-shadow-active:
-      0 0 0 1px rgba(215, 251, 255, 0.1), 0 18px 60px -44px rgba(183, 244, 255, 0.7);
+      0 0 0 1px color-mix(in srgb, var(--icx-color-accent-bright) 10%, transparent),
+      0 18px 60px -44px color-mix(in srgb, var(--icx-color-accent) 70%, transparent);
     --icx-host-shadow-selected:
-      0 0 0 1px rgba(148, 224, 236, 0.08), 0 18px 54px -48px rgba(148, 224, 236, 0.5);
-    --icx-host-shadow-idle: 0 14px 48px -44px rgba(160, 210, 220, 0.45);
+      0 0 0 1px color-mix(in srgb, var(--icx-color-accent-dim) 8%, transparent),
+      0 18px 54px -48px color-mix(in srgb, var(--icx-color-accent-dim) 50%, transparent);
+    --icx-host-shadow-idle: 0 14px 48px -44px
+      color-mix(in srgb, var(--icx-color-accent-faint) 45%, transparent);
     --icx-host-surface-shadow: 0 20px 80px -56px
       color-mix(in srgb, var(--icx-color-accent) 55%, transparent);
 
@@ -158,8 +191,7 @@
     --icx-hud-button-hover-bg: color-mix(in srgb, var(--icx-color-foreground) 8%, transparent);
     --icx-hud-button-hover-border: color-mix(in srgb, var(--icx-color-foreground) 20%, transparent);
     --icx-hud-button-active-bg: var(--icx-color-accent-surface);
-    /* NOT DERIVED (6/6): its own tint, lighter than the accent. */
-    --icx-hud-button-active-fg: #d7fbff;
+    --icx-hud-button-active-fg: var(--icx-color-accent-bright);
     --icx-hud-button-disabled-fg: color-mix(in srgb, var(--icx-color-foreground) 20%, transparent);
     --icx-hud-status-bg: color-mix(in srgb, var(--icx-color-shadow) 45%, transparent);
     --icx-hud-status-fg: color-mix(in srgb, var(--icx-color-foreground) 56%, transparent);
