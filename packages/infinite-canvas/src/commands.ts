@@ -7,6 +7,7 @@ import { DEFAULT_INFINITE_CANVAS_ZOOM } from "./constants";
 import {
   getViewportInsetWorldRect,
   isUsableViewport,
+  panCameraByScreenDelta,
   resizeRectFromHandle,
   zoomCameraAtScreenPoint,
 } from "./geometry";
@@ -365,6 +366,61 @@ const DEFAULT_INFINITE_CANVAS_COMMAND_DESCRIPTORS = [
     id: "window.undock",
     label: "Undock Window",
   },
+  // Panning and zooming by keyboard. Until 2026-08-12 the camera had exactly three commands
+  // — fit-all, fit-selection, reset-zoom — so a keyboard user could jump the view but could
+  // not move or scale it. On an infinite canvas that is the primary interaction, and its
+  // absence is the substance of the FR-9 accessibility gap SHIP_PLAN calls the largest thing
+  // standing between here and an honest "production".
+  //
+  // No default chords, and this family is where that hurts most, so the reason is worth
+  // stating: every arrow combination is taken (plain nudges, Shift nudges large, Alt focuses,
+  // Alt+Shift resizes, Mod+Shift places), and the conventional zoom keys are the browser's
+  // own — `Mod+0`, `Mod+=`, `Mod+-` are not page-cancellable, which is the family this file
+  // has already been burned by twice. Choosing between the remaining chords is a decision
+  // about someone's whole application, so `hotkeyBindings` takes it. What was actually
+  // missing is a command to bind at all.
+  {
+    command: { amountPx: 200, direction: "left", type: "view.pan" },
+    description: "Move the viewport left across the canvas.",
+    hotkeys: [],
+    id: "view.pan.left",
+    label: "Pan Left",
+  },
+  {
+    command: { amountPx: 200, direction: "right", type: "view.pan" },
+    description: "Move the viewport right across the canvas.",
+    hotkeys: [],
+    id: "view.pan.right",
+    label: "Pan Right",
+  },
+  {
+    command: { amountPx: 200, direction: "up", type: "view.pan" },
+    description: "Move the viewport up across the canvas.",
+    hotkeys: [],
+    id: "view.pan.up",
+    label: "Pan Up",
+  },
+  {
+    command: { amountPx: 200, direction: "down", type: "view.pan" },
+    description: "Move the viewport down across the canvas.",
+    hotkeys: [],
+    id: "view.pan.down",
+    label: "Pan Down",
+  },
+  {
+    command: { factor: 1.25, type: "view.zoomBy" },
+    description: "Zoom in one step, holding the centre of the viewport still.",
+    hotkeys: [],
+    id: "view.zoomIn",
+    label: "Zoom In",
+  },
+  {
+    command: { factor: 0.8, type: "view.zoomBy" },
+    description: "Zoom out one step, holding the centre of the viewport still.",
+    hotkeys: [],
+    id: "view.zoomOut",
+    label: "Zoom Out",
+  },
   // Window lifecycle. Until 2026-08-12 these lived only as four `onClick` handlers on the
   // chrome buttons in `frame-slots.tsx`, so they were absent from the one registry that is
   // supposed to be the whole vocabulary. The buttons are real `<button>`s with labels, so this
@@ -659,27 +715,37 @@ const FOCUS_CAMERA_NAVIGATION_BEHAVIOR = {
   type: "center",
 } satisfies InfiniteCanvasCameraNavigationBehavior;
 
-function getNudgeDelta(command: Extract<InfiniteCanvasCommand, { type: "window.nudge" }>) {
-  switch (command.direction) {
+/**
+ * A direction and a screen distance, as a screen-space delta. Shared by nudging a window and
+ * panning the camera so the two can never disagree about which way "up" is — the world grows
+ * downward like the DOM, so up is decreasing `y`.
+ */
+const getViewportCentre = (viewport: InfiniteCanvasState<string>["viewport"]) => ({
+  x: viewport.width / 2,
+  y: viewport.height / 2,
+});
+
+function getDirectionalScreenDelta(direction: InfiniteCanvasDirection, amountPx: number) {
+  switch (direction) {
     case "down":
       return {
         x: 0,
-        y: command.amountPx,
+        y: amountPx,
       };
     case "left":
       return {
-        x: -command.amountPx,
+        x: -amountPx,
         y: 0,
       };
     case "right":
       return {
-        x: command.amountPx,
+        x: amountPx,
         y: 0,
       };
     case "up":
       return {
         x: 0,
-        y: -command.amountPx,
+        y: -amountPx,
       };
   }
 }
@@ -739,7 +805,7 @@ function nudgeSelectedWindows<Kind extends string>(
     return state;
   }
 
-  const screenDelta = getNudgeDelta(command);
+  const screenDelta = getDirectionalScreenDelta(command.direction, command.amountPx);
   const worldDelta = {
     x: screenDelta.x / state.camera.zoom,
     y: screenDelta.y / state.camera.zoom,
@@ -965,9 +1031,16 @@ function arrangeSelectedWindows<Kind extends string>(
   };
 }
 
+/**
+ * Takes the zoom policy for the same reason `executeInfiniteCanvasCommand` does: a zoom step
+ * is offered only when it would move, and whether it moves depends on the policy's floor and
+ * ceiling. Computing enablement against the default while executing against a custom policy
+ * would grey out a step that works, or offer one that does nothing.
+ */
 function isInfiniteCanvasCommandEnabled<Kind extends string>(
   state: InfiniteCanvasState<Kind>,
   command: InfiniteCanvasCommand,
+  zoomPolicy: InfiniteCanvasZoomPolicy = DEFAULT_INFINITE_CANVAS_ZOOM,
 ) {
   switch (command.type) {
     case "desktop.cancel":
@@ -1022,6 +1095,22 @@ function isInfiniteCanvasCommandEnabled<Kind extends string>(
     // absent from this family — minimizing hands `activeWindowId` to the next visible window,
     // so a restore keyed to the active window could never be enabled. Bringing a minimized
     // window back is a "which one?" choice, and belongs to the presence surface.
+    case "view.pan":
+      return isUsableViewport(state.viewport);
+    // Offered only where it would move: at the policy's floor or ceiling a further step
+    // clamps to the same zoom, and a command that visibly does nothing is worse than one
+    // that is greyed out.
+    case "view.zoomBy":
+      return (
+        isUsableViewport(state.viewport) &&
+        zoomCameraAtScreenPoint(
+          state.camera,
+          state.viewport,
+          getViewportCentre(state.viewport),
+          state.camera.zoom * command.factor,
+          zoomPolicy,
+        ).zoom !== state.camera.zoom
+      );
     case "activeWindow.close":
     case "activeWindow.minimize":
     case "activeWindow.toggleMaximized":
@@ -1230,6 +1319,8 @@ function getInfiniteCanvasCommandGroup(command: InfiniteCanvasCommand): Infinite
       return "selection";
     case "view.fitAll":
     case "view.navigate":
+    case "view.pan":
+    case "view.zoomBy":
     case "view.resetZoom":
       return "view";
     case "view.fitSelection":
@@ -1259,10 +1350,11 @@ function getInfiniteCanvasCommandGroup(command: InfiniteCanvasCommand): Infinite
 function getInfiniteCanvasContextualCommands<Kind extends string>(
   state: InfiniteCanvasState<Kind>,
   commandDescriptors: readonly InfiniteCanvasCommandDescriptor[] = DEFAULT_INFINITE_CANVAS_COMMAND_DESCRIPTORS,
+  zoomPolicy: InfiniteCanvasZoomPolicy = DEFAULT_INFINITE_CANVAS_ZOOM,
 ): readonly InfiniteCanvasContextualCommand[] {
   return commandDescriptors.map((descriptor) => ({
     ...descriptor,
-    enabled: isInfiniteCanvasCommandEnabled(state, descriptor.command),
+    enabled: isInfiniteCanvasCommandEnabled(state, descriptor.command, zoomPolicy),
     group: getInfiniteCanvasCommandGroup(descriptor.command),
   }));
 }
@@ -1270,8 +1362,9 @@ function getInfiniteCanvasContextualCommands<Kind extends string>(
 function getAvailableInfiniteCanvasContextualCommands<Kind extends string>(
   state: InfiniteCanvasState<Kind>,
   commandDescriptors: readonly InfiniteCanvasCommandDescriptor[] = DEFAULT_INFINITE_CANVAS_COMMAND_DESCRIPTORS,
+  zoomPolicy: InfiniteCanvasZoomPolicy = DEFAULT_INFINITE_CANVAS_ZOOM,
 ) {
-  return getInfiniteCanvasContextualCommands(state, commandDescriptors).filter(
+  return getInfiniteCanvasContextualCommands(state, commandDescriptors, zoomPolicy).filter(
     (command) => command.enabled,
   );
 }
@@ -1354,6 +1447,31 @@ function executeInfiniteCanvasCommand<Kind extends string>(
 
       return applyInfiniteCanvasWindowLifecycle(state, command.type, windowId, active.mode);
     }
+    case "view.pan":
+      return {
+        ...state,
+        camera: panCameraByScreenDelta(
+          state.camera,
+          getDirectionalScreenDelta(command.direction, command.amountPx),
+        ),
+      };
+    // `zoomCameraAtScreenPoint` takes an absolute requested zoom, so the step multiplies
+    // rather than passing the factor through — a factor handed straight to it would set the
+    // zoom *to* 1.25 from wherever you were.
+    //
+    // Anchored at the viewport centre rather than a pointer, because there is no pointer:
+    // what the user is looking at stays put while the scale changes around it.
+    case "view.zoomBy":
+      return {
+        ...state,
+        camera: zoomCameraAtScreenPoint(
+          state.camera,
+          state.viewport,
+          getViewportCentre(state.viewport),
+          state.camera.zoom * command.factor,
+          zoomPolicy,
+        ),
+      };
     case "group.dissolve": {
       const group =
         state.activeWindowId === null

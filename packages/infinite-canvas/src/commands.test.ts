@@ -7,6 +7,7 @@ import {
   getInfiniteCanvasContextualCommands,
   isInfiniteCanvasCommandEnabled,
 } from "./commands";
+import { DEFAULT_INFINITE_CANVAS_ZOOM } from "./constants";
 import type { InfiniteCanvasState } from "./types";
 
 type CommandTestWindowKind = "demo";
@@ -244,4 +245,98 @@ test("a lifecycle verb is offered only when a window is active", () => {
     expect(isInfiniteCanvasCommandEnabled(commandState, { type })).toBe(true);
     expect(isInfiniteCanvasCommandEnabled(empty, { type })).toBe(false);
   }
+});
+
+/**
+ * Camera reach by keyboard — the substance of the FR-9 gap.
+ *
+ * Until 2026-08-12 the camera had exactly three commands: fit-all, fit-selection, and
+ * reset-zoom. A keyboard user could jump the view but could not move or scale it, which on
+ * an infinite canvas withholds the primary interaction.
+ */
+
+test("panning moves the view in the direction named, at any zoom", () => {
+  const panned = executeInfiniteCanvasCommand(commandState, {
+    amountPx: 200,
+    direction: "right",
+    type: "view.pan",
+  });
+
+  // Right means the viewport travels right across the canvas, revealing what was off that
+  // edge — the same sense `window.nudge` gives the word, because both read the delta from
+  // `getDirectionalScreenDelta`.
+  expect(panned.camera.center.x).toBeGreaterThan(commandState.camera.center.x);
+  expect(panned.camera.center.y).toBe(commandState.camera.center.y);
+
+  // Up is decreasing y: the world grows downward like the DOM.
+  expect(
+    executeInfiniteCanvasCommand(commandState, { amountPx: 200, direction: "up", type: "view.pan" })
+      .camera.center.y,
+  ).toBeLessThan(commandState.camera.center.y);
+});
+
+test("a pan covers the same world distance per screen pixel at any zoom", () => {
+  // The whole point of expressing the amount in screen pixels: panning must feel identical
+  // zoomed in and zoomed out, which means the world delta scales with zoom.
+  const near = executeInfiniteCanvasCommand(
+    { ...commandState, camera: { ...commandState.camera, zoom: 2 } },
+    { amountPx: 200, direction: "right", type: "view.pan" },
+  );
+  const far = executeInfiniteCanvasCommand(
+    { ...commandState, camera: { ...commandState.camera, zoom: 0.5 } },
+    { amountPx: 200, direction: "right", type: "view.pan" },
+  );
+
+  expect(near.camera.center.x - commandState.camera.center.x).toBe(100);
+  expect(far.camera.center.x - commandState.camera.center.x).toBe(400);
+});
+
+test("zooming holds the centre of the viewport still", () => {
+  // There is no pointer to anchor on, so what the user is looking at must stay put while the
+  // scale changes around it. Anchoring at the origin instead would slide the canvas away.
+  // Deliberately not at zoom 1, where a multiplicative step and an absolute one are
+  // indistinguishable. The first draft of this test used the default zoom of 1 and passed
+  // while the command set the zoom *to* the factor rather than multiplying by it.
+  const near = { ...commandState, camera: { ...commandState.camera, zoom: 2 } };
+  const zoomed = executeInfiniteCanvasCommand(near, { factor: 1.25, type: "view.zoomBy" });
+
+  expect(zoomed.camera.zoom).toBeCloseTo(2.5, 5);
+  expect(zoomed.camera.center).toEqual(near.camera.center);
+});
+
+test("a zoom step is not offered once the policy's limit is reached", () => {
+  // Offering a step that clamps to the zoom you already have is a command that visibly does
+  // nothing, which is the rule every other verb added today follows.
+  const floored = { ...commandState, camera: { ...commandState.camera, zoom: 0.12 } };
+
+  expect(isInfiniteCanvasCommandEnabled(floored, { factor: 0.8, type: "view.zoomBy" })).toBe(false);
+  expect(isInfiniteCanvasCommandEnabled(floored, { factor: 1.25, type: "view.zoomBy" })).toBe(true);
+});
+
+test("enablement reads the zoom policy it is given, not the default", () => {
+  // Enablement and execution must agree about the floor. A consumer with a custom policy
+  // whose commands were greyed out by the default's limits would be told a working step is
+  // unavailable.
+  const floored = { ...commandState, camera: { ...commandState.camera, zoom: 0.12 } };
+  const deeper = { ...DEFAULT_INFINITE_CANVAS_ZOOM, minZoom: 0.01 };
+
+  expect(isInfiniteCanvasCommandEnabled(floored, { factor: 0.8, type: "view.zoomBy" })).toBe(false);
+  expect(
+    isInfiniteCanvasCommandEnabled(floored, { factor: 0.8, type: "view.zoomBy" }, deeper),
+  ).toBe(true);
+});
+
+test("the camera cannot be moved before the viewport has been measured", () => {
+  const unmeasured = { ...commandState, viewport: { height: 0, width: 0 } };
+
+  expect(
+    isInfiniteCanvasCommandEnabled(unmeasured, {
+      amountPx: 200,
+      direction: "up",
+      type: "view.pan",
+    }),
+  ).toBe(false);
+  expect(isInfiniteCanvasCommandEnabled(unmeasured, { factor: 1.25, type: "view.zoomBy" })).toBe(
+    false,
+  );
 });

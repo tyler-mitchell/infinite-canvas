@@ -42,9 +42,13 @@ const ACTION_COMMAND_COVERAGE: Readonly<
 > = {
   // `view.navigate` is a command *type* with no default descriptor — a consumer supplies
   // the target — so the reachable representatives are the two that resolve one from state.
+  //
+  // `camera.panBy` and `camera.zoomAt` were classified `pointer` until 2026-08-12, which was
+  // the map recording a real gap as if it were a design choice: panning and zooming genuinely
+  // had no keyboard form, and on an infinite canvas that is the primary interaction.
   "camera.navigate": "view.fitAll",
-  "camera.panBy": "pointer",
-  "camera.zoomAt": "pointer",
+  "camera.panBy": "view.pan.right",
+  "camera.zoomAt": "view.zoomIn",
   "command.execute": "indirection",
   "desktop.hydrate": "lifecycle",
   "desktop.reset": "lifecycle",

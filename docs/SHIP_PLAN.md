@@ -156,9 +156,26 @@ test in the suite touches groups, history, or recipes at all.
 
 ### Class 4 — Production hardening (highest-value follow-through)
 
-12. **Accessibility baseline (FR-9)** — currently `open`. ARIA semantics are
-    done and locked by a test; **keyboard reachability between windows is not**.
-    Still the largest gap before "production" is an honest claim.
+12. **Accessibility baseline (FR-9)** — ARIA semantics are done and locked by a
+    test. Keyboard reachability _between windows_ landed with `window.focusDirection`
+    (Alt+Arrow); this item stayed marked `open` afterwards and was stale.
+
+    **What was actually still missing, found 2026-08-12 by asking what a pointer can
+    do that a keyboard cannot:** the camera. It had exactly three commands — fit-all,
+    fit-selection, reset-zoom — so a keyboard user could jump the view but could not
+    pan or zoom it, which on an infinite canvas withholds the primary interaction.
+    `view.pan` and `view.zoomBy` close that. The same sweep found the whole group
+    model pointer-only (docking, undocking, layout conversion, axis, dissolve,
+    reorder) and the window lifecycle absent from the command registry entirely; all
+    are now commands, and `command-coverage.test.ts` fails the typecheck if a new
+    action is added without classifying whether it needs one.
+
+    **Still open, and it is chords rather than commands.** Every new family ships
+    with an empty `hotkeys` array: the arrow space is fully taken and the
+    conventional zoom keys are the browser's own, which this file has been burned by
+    twice. Everything is palette-reachable and bindable through `hotkeyBindings`; a
+    default chord set is a decision about someone's whole application.
+
 13. ✅ **Optional 3D** — DONE, but not the way this item imagined. A lazy mount
     is insufficient: bundlers resolve dynamic-import specifiers at build time.
     It took an API seam (`@infinite-canvas/react/scene` + the `sceneSurface`
