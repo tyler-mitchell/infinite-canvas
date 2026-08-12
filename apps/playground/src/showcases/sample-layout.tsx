@@ -281,6 +281,26 @@ const sampleInfiniteCanvasWindowRegistry =
     dense: {
       kind: "dense",
       overflowY: "auto",
+      /**
+       * What this window says once it is too small to read — the thing rasterization cannot do,
+       * because a snapshot of the grid below is the same illegible grid, only blurrier.
+       *
+       * Deliberately almost empty. A summary that tries to fit a little of everything is just
+       * the body again at a size where it still cannot be read; the only useful answer at 40
+       * screen pixels is identity, and identity is one line. `/stress` at 160 windows is where
+       * this stops being a nicety: zoomed out to see the whole document, every window is a grey
+       * rectangle without it.
+       */
+      renderSummary: ({ window }) => (
+        <div className="grid h-full place-items-center p-2 text-center">
+          <div className="grid gap-1">
+            <div className="font-mono text-lg leading-none text-[#b7f4ff]/85">{window.title}</div>
+            <div className="font-mono text-xs uppercase tracking-widest text-white/40">
+              {denseStressRows.length * denseStressCells.length} cells
+            </div>
+          </div>
+        </div>
+      ),
       renderBody: ({ window }) => (
         <div className="grid content-start gap-2 p-3 font-mono text-[10px] leading-tight text-white/56">
           <div className="flex items-center justify-between border-b border-white/8 pb-2">

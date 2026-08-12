@@ -34,9 +34,13 @@
 - a **window-local portal root** for menus, tooltips, popovers that should
   track the window
 - a **desktop-level portal root** for overlays that must escape window bounds
-- neither exists today; consumers currently have no documented answer for
-  "where do I portal a dropdown inside a transformed window," which will bite
-  the moment a showcase uses base-ui popups inside window bodies
+- ✅ **both shipped 2026-07-08** and this bullet said "neither exists today" for
+  a month afterwards. `portal.tsx` provides exactly the two roots described
+  above: a desktop-level one on the viewport, and a window-local one tracking
+  the window's _screen_ rect. `<InfiniteCanvasPortal scope="window" | "desktop">`
+  mounts into them, opt-in per kind via `portalRoot: true` — a root for every
+  window would cost a style write per window per camera tick, which is what the
+  frame's memoization exists to avoid. `/portals` demonstrates both.
 
 ### Positioning semantics
 

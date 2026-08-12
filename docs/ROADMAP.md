@@ -477,6 +477,25 @@ sharpest near-term trap
 
 ## P7 — Rasterization v2 & Semantic LOD (far-zoom readability)
 
+**This is two programs wearing one number, and treating them as one held the
+unblocked half hostage to the blocked one.** Split them explicitly:
+
+- **P7a — capture-lane modernization.** Genuinely blocked: needs Chrome 148+
+  with the OT flag, which is the owner's browser or token. Nothing here is an
+  agent's to finish. _Status check, 2026-08-12: html-in-canvas is **not
+  leveraged at all**. `rasterization.tsx` types its adapter as the one-member
+  union `"snapdom"`, the single capture call is `import("@zumer/snapdom")`, and
+  the string "html-in-canvas" appears once in `src/` — in a comment saying the
+  lane will be rebuilt on it. R12 reads as though a decision were executed; it
+  was made, recorded, and never built._
+- **P7b — semantic LOD.** ✅ **Landed 2026-08-12 (`1545636`)**, and it was never
+  blocked on P7a. It could not have been: **rasterization cannot deliver
+  far-zoom readability, because a rasterized paragraph is still a paragraph.**
+  A snapshot at 15% zoom is the same unreadable text, blurrier and cheaper.
+  `detail-level.ts` + `renderSummary` on the window definition; thresholded on
+  effective screen size rather than zoom, with a hysteresis band because zoom is
+  continuous and a single threshold flickers.
+
 The capture lane modernization plus the half of RASTERIZATION_PLAN that
 snapshots can't solve:
 
