@@ -4,6 +4,7 @@ import {
   createContext,
   useContext,
   type CSSProperties,
+  type KeyboardEvent as ReactKeyboardEvent,
   type PointerEvent as ReactPointerEvent,
 } from "react";
 
@@ -12,6 +13,7 @@ import { useInfiniteCanvasIcons } from "./icons";
 import { trapInfiniteCanvasTabKey } from "./focus-trap";
 import { focusInfiniteCanvasCommandSurface } from "./keyboard";
 import { InfiniteCanvasWindowBody } from "./rasterization-layer";
+import { mergeInfiniteCanvasSlotProps } from "./slot";
 import {
   capturePointer,
   clearNativeTextSelection,
@@ -79,25 +81,28 @@ function useInfiniteCanvasWindowFrameRuntimeContext<Kind extends string = string
 
 function InfiniteCanvasWindowFrameTitleSlot({
   children,
-  className,
-  style,
+  render,
+  ...consumerProps
 }: InfiniteCanvasWindowFrameTitleProps) {
   const { window } = useInfiniteCanvasWindowFrameRuntimeContext();
-
-  return (
-    <div
-      className={className}
-      data-slot={INFINITE_CANVAS_SLOTS.windowTitle}
-      style={{
+  const props = mergeInfiniteCanvasSlotProps(
+    {
+      "data-slot": INFINITE_CANVAS_SLOTS.windowTitle,
+      style: {
         minWidth: 0,
         overflow: "hidden",
         textOverflow: "ellipsis",
         whiteSpace: "nowrap",
-        ...style,
-      }}
-    >
-      {children === undefined ? window.title : children}
-    </div>
+      },
+    },
+    consumerProps,
+  );
+  const content = children === undefined ? window.title : children;
+
+  return render === undefined ? (
+    <div {...props}>{content}</div>
+  ) : (
+    render(props, { children: content })
   );
 }
 
@@ -111,8 +116,8 @@ const WINDOW_CONTROL_BUTTON_STYLE = {
 } satisfies CSSProperties;
 
 function InfiniteCanvasWindowFrameControlsSlot({
-  className,
-  style,
+  render,
+  ...consumerProps
 }: InfiniteCanvasWindowFrameControlsProps) {
   const { actions, window } = useInfiniteCanvasWindowFrameRuntimeContext();
   const {
@@ -122,18 +127,20 @@ function InfiniteCanvasWindowFrameControlsSlot({
     pin: PinIcon,
   } = useInfiniteCanvasIcons();
 
-  return (
-    <div
-      className={className}
-      data-slot={INFINITE_CANVAS_SLOTS.windowControls}
-      style={{
+  const props = mergeInfiniteCanvasSlotProps(
+    {
+      "data-slot": INFINITE_CANVAS_SLOTS.windowControls,
+      style: {
         alignItems: "center",
         display: "flex",
         flexShrink: 0,
         gap: "4px",
-        ...style,
-      }}
-    >
+      },
+    },
+    consumerProps,
+  );
+  const content = (
+    <>
       <button
         aria-label={window.isPinned ? "Unpin window" : "Pin window"}
         data-action="pin"
@@ -207,29 +214,33 @@ function InfiniteCanvasWindowFrameControlsSlot({
       >
         <CloseIcon />
       </button>
-    </div>
+    </>
+  );
+
+  return render === undefined ? (
+    <div {...props}>{content}</div>
+  ) : (
+    render(props, { children: content })
   );
 }
 
 function InfiniteCanvasWindowFrameHeaderSlot({
   children,
-  className,
-  style,
+  render,
+  ...consumerProps
 }: InfiniteCanvasWindowFrameHeaderProps) {
   const { actions, chrome, window } = useInfiniteCanvasWindowFrameRuntimeContext();
-
-  return (
-    <header
-      className={className}
-      data-infinite-canvas-control="true"
-      data-slot={INFINITE_CANVAS_SLOTS.windowHeader}
-      onLostPointerCapture={(event) => {
+  const props = mergeInfiniteCanvasSlotProps(
+    {
+      "data-infinite-canvas-control": "true",
+      "data-slot": INFINITE_CANVAS_SLOTS.windowHeader,
+      onLostPointerCapture: (event: ReactPointerEvent<HTMLElement>) => {
         actions.finishInteraction(event.pointerId);
-      }}
-      onPointerCancel={(event) => {
+      },
+      onPointerCancel: (event: ReactPointerEvent<HTMLElement>) => {
         actions.finishInteraction(event.pointerId);
-      }}
-      onPointerDown={(event) => {
+      },
+      onPointerDown: (event: ReactPointerEvent<HTMLElement>) => {
         if (!isPrimaryButton(event)) {
           return;
         }
@@ -249,20 +260,20 @@ function InfiniteCanvasWindowFrameHeaderSlot({
           point: getEventViewportPoint(event),
           windowId: window.id,
         });
-      }}
-      onPointerMove={(event) => {
+      },
+      onPointerMove: (event: ReactPointerEvent<HTMLElement>) => {
         actions.stepInteraction({
           // Hold Alt while dragging to dock instead of overlap.
           dockIntent: event.altKey,
           pointerId: event.pointerId,
           point: getEventViewportPoint(event),
         });
-      }}
-      onPointerUp={(event) => {
+      },
+      onPointerUp: (event: ReactPointerEvent<HTMLElement>) => {
         releasePointer(event.currentTarget, event.pointerId);
         actions.finishInteraction(event.pointerId);
-      }}
-      style={{
+      },
+      style: {
         alignItems: "center",
         borderBottomWidth: `max(${chrome.headerAccentHeight}px, var(--icx-chrome-stroke))`,
         cursor: "grab",
@@ -277,25 +288,31 @@ function InfiniteCanvasWindowFrameHeaderSlot({
         position: "absolute",
         right: 0,
         top: 0,
-        ...style,
-      }}
-    >
-      {children === undefined ? (
-        <>
-          <InfiniteCanvasWindowFrameTitleSlot />
-          <InfiniteCanvasWindowFrameControlsSlot />
-        </>
-      ) : (
-        children
-      )}
-    </header>
+      },
+    },
+    consumerProps,
+  );
+  const content =
+    children === undefined ? (
+      <>
+        <InfiniteCanvasWindowFrameTitleSlot />
+        <InfiniteCanvasWindowFrameControlsSlot />
+      </>
+    ) : (
+      children
+    );
+
+  return render === undefined ? (
+    <header {...props}>{content}</header>
+  ) : (
+    render(props, { children: content })
   );
 }
 
 function InfiniteCanvasWindowFrameBodySlot({
   children,
-  className,
-  style,
+  render,
+  ...consumerProps
 }: InfiniteCanvasWindowFrameBodyProps) {
   const {
     actions,
@@ -307,18 +324,15 @@ function InfiniteCanvasWindowFrameBodySlot({
     textSelection,
     window,
   } = useInfiniteCanvasWindowFrameRuntimeContext();
-
-  return (
-    <section
-      className={className}
-      data-infinite-canvas-body="true"
-      data-slot={INFINITE_CANVAS_SLOTS.windowBody}
-      data-infinite-canvas-body-pan={bodyPointerBehavior === "canvas-pan" ? "true" : undefined}
-      data-infinite-canvas-native-scroll={
-        definition.wheelBehavior === "native-scroll" ? "true" : undefined
-      }
-      data-infinite-canvas-native-text-selection={textSelection === "native" ? "true" : undefined}
-      onKeyDown={(event) => {
+  const props = mergeInfiniteCanvasSlotProps(
+    {
+      "data-infinite-canvas-body": "true",
+      "data-infinite-canvas-body-pan": bodyPointerBehavior === "canvas-pan" ? "true" : undefined,
+      "data-infinite-canvas-native-scroll":
+        definition.wheelBehavior === "native-scroll" ? "true" : undefined,
+      "data-infinite-canvas-native-text-selection": textSelection === "native" ? "true" : undefined,
+      "data-slot": INFINITE_CANVAS_SLOTS.windowBody,
+      onKeyDown: (event: ReactKeyboardEvent<HTMLElement>) => {
         // Focus containment (FR-9). A window body is a focus region the way an OS window is:
         // Tab cycles what is inside it and stops at its edges, and Escape hands you back to
         // the desktop. Without the Escape half a trap is a cage — the user would be inside a
@@ -335,8 +349,8 @@ function InfiniteCanvasWindowFrameBodySlot({
         if (event.key === "Tab" && trapInfiniteCanvasTabKey(event, event.currentTarget)) {
           event.preventDefault();
         }
-      }}
-      onPointerDownCapture={(event) => {
+      },
+      onPointerDownCapture: (event: ReactPointerEvent<HTMLElement>) => {
         if (!isPrimaryButton(event)) {
           return;
         }
@@ -354,8 +368,8 @@ function InfiniteCanvasWindowFrameBodySlot({
         } else {
           actions.focusWindow(window.id);
         }
-      }}
-      style={{
+      },
+      style: {
         bottom: 0,
         left: 0,
         overflowY: definition.overflowY ?? "auto",
@@ -364,59 +378,71 @@ function InfiniteCanvasWindowFrameBodySlot({
         right: 0,
         top: `${chrome.headerHeight}px`,
         userSelect: textSelection === "native" ? undefined : "none",
-        ...style,
-      }}
+      },
       // Programmatically focusable, never a Tab stop. Entering a window is deliberate — the
       // desktop's Tab order must not walk into window contents — but a body with no controls
       // of its own still has to be enterable, or `Tab` from the command surface would look
       // broken rather than empty.
-      tabIndex={-1}
-    >
-      {children === undefined ? (
-        <InfiniteCanvasWindowBody
-          actions={actions}
-          chrome={chrome}
-          definition={definition}
-          isActive={isActive}
-          isSelected={isSelected}
-          textSelection={textSelection}
-          window={window}
-        />
-      ) : (
-        children
-      )}
-    </section>
+      tabIndex: -1,
+    },
+    consumerProps,
+  );
+  const content =
+    children === undefined ? (
+      <InfiniteCanvasWindowBody
+        actions={actions}
+        chrome={chrome}
+        definition={definition}
+        isActive={isActive}
+        isSelected={isSelected}
+        textSelection={textSelection}
+        window={window}
+      />
+    ) : (
+      children
+    );
+
+  return render === undefined ? (
+    <section {...props}>{content}</section>
+  ) : (
+    render(props, { children: content })
   );
 }
 
 function InfiniteCanvasWindowFrameActiveCornersSlot({
-  className,
-  style,
+  render,
+  ...consumerProps
 }: InfiniteCanvasWindowFrameActiveCornersProps) {
   const { chrome, isActive } = useInfiniteCanvasWindowFrameRuntimeContext();
+  const props = mergeInfiniteCanvasSlotProps(
+    {
+      "aria-hidden": "true",
+      "data-slot": INFINITE_CANVAS_SLOTS.windowCorners,
+    },
+    consumerProps,
+  );
+  const content = <ActiveWindowCorners chrome={chrome} />;
 
-  return isActive ? (
-    <div
-      aria-hidden="true"
-      className={className}
-      data-slot={INFINITE_CANVAS_SLOTS.windowCorners}
-      style={style}
-    >
-      <ActiveWindowCorners chrome={chrome} />
-    </div>
-  ) : null;
+  if (!isActive) {
+    return null;
+  }
+
+  return render === undefined ? (
+    <div {...props}>{content}</div>
+  ) : (
+    render(props, { children: content })
+  );
 }
 
 function InfiniteCanvasWindowFrameSurfaceSlot({
   children,
-  className,
-  style,
+  render,
+  ...consumerProps
 }: InfiniteCanvasWindowFrameSurfaceProps) {
-  return (
-    <div
-      className={className}
-      data-slot={INFINITE_CANVAS_SLOTS.windowSurface}
-      style={{
+  const props = mergeInfiniteCanvasSlotProps(
+    {
+      "data-slot": INFINITE_CANVAS_SLOTS.windowSurface,
+      style: {
         // Never thinner than one screen pixel, however far the canvas is zoomed
         // out. The frame publishes the widened world-unit value; see window-frame.
         borderWidth: "var(--icx-chrome-stroke)",
@@ -424,12 +450,12 @@ function InfiniteCanvasWindowFrameSurfaceSlot({
         overflow: "hidden",
         pointerEvents: "auto",
         position: "absolute",
-        ...style,
-      }}
-    >
-      {children}
-    </div>
+      },
+    },
+    consumerProps,
   );
+
+  return render === undefined ? <div {...props}>{children}</div> : render(props, { children });
 }
 
 function ActiveWindowCorners({

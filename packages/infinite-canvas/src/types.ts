@@ -2,8 +2,10 @@ import type { RegisterableHotkey } from "@tanstack/hotkeys";
 import type {
   ComponentType,
   CSSProperties,
+  HTMLAttributes,
   PointerEvent as ReactPointerEvent,
   ReactNode,
+  Ref,
 } from "react";
 
 import type {
@@ -632,39 +634,55 @@ type InfiniteCanvasOverlayRenderContext<
     startDrag: (input: InfiniteCanvasDragStartInput<Payload>) => void;
   }>;
 
-type InfiniteCanvasWindowFrameSurfaceProps = Readonly<{
-  children?: ReactNode;
-  className?: string;
-  style?: CSSProperties;
-}>;
+/**
+ * What a frame slot accepts.
+ *
+ * Until 2026-08-12 this was `{ children?, className?, style? }` and nothing else — which made the
+ * framework *unstyled* rather than *headless*. A consumer could recolour a header but could not
+ * put an `id` on it, attach an `onFocus`, hang a `ref` off it to measure or anchor to, give it an
+ * `aria-describedby`, or render it as anything but the tag the framework picked.
+ *
+ * Now every slot takes the element's own props — `ref` included, which needs no `forwardRef`
+ * because React 19 passes it as an ordinary prop — plus `render`, Base UI's spelling of
+ * `asChild`: given the merged props, the consumer returns the element, and the framework keeps
+ * its behaviour while giving up its tag.
+ *
+ * Merging is `mergeInfiniteCanvasSlotProps`, and the rules are per-kind rather than
+ * last-wins — event handlers compose so passing `onPointerDown` to a header cannot silently
+ * disable window dragging, and `data-slot` stays framework-owned because it is the styling
+ * contract's only anchor.
+ */
+type InfiniteCanvasSlotRender = (
+  props: Record<string, unknown>,
+  state: Readonly<{ children?: ReactNode }>,
+) => ReactNode;
 
-type InfiniteCanvasWindowFrameHeaderProps = Readonly<{
-  children?: ReactNode;
-  className?: string;
-  style?: CSSProperties;
-}>;
+/**
+ * `HTMLAttributes` rather than `ComponentPropsWithRef<"div">`, and the reason is a hard
+ * TypeScript limit rather than a preference: intersecting the full element props with anything
+ * makes the union too complex to represent (TS2590), which this repository has already hit once
+ * in its router typings. `HTMLAttributes` plus an explicit `ref` carries the substance —
+ * `id`, `role`, `tabIndex`, every `aria-*`, every DOM event, `className`, `style` — at a
+ * fraction of the type size. Arbitrary `data-*` is the one thing it does not admit; slots that
+ * need one today have it framework-side, and widening further would reintroduce TS2590.
+ */
+type InfiniteCanvasSlotElementProps<Element extends HTMLElement> = HTMLAttributes<Element> &
+  Readonly<{
+    ref?: Ref<Element>;
+    render?: InfiniteCanvasSlotRender;
+  }>;
 
-type InfiniteCanvasWindowFrameTitleProps = Readonly<{
-  children?: ReactNode;
-  className?: string;
-  style?: CSSProperties;
-}>;
+type InfiniteCanvasWindowFrameSurfaceProps = InfiniteCanvasSlotElementProps<HTMLDivElement>;
 
-type InfiniteCanvasWindowFrameControlsProps = Readonly<{
-  className?: string;
-  style?: CSSProperties;
-}>;
+type InfiniteCanvasWindowFrameHeaderProps = InfiniteCanvasSlotElementProps<HTMLElement>;
 
-type InfiniteCanvasWindowFrameBodyProps = Readonly<{
-  children?: ReactNode;
-  className?: string;
-  style?: CSSProperties;
-}>;
+type InfiniteCanvasWindowFrameTitleProps = InfiniteCanvasSlotElementProps<HTMLDivElement>;
 
-type InfiniteCanvasWindowFrameActiveCornersProps = Readonly<{
-  className?: string;
-  style?: CSSProperties;
-}>;
+type InfiniteCanvasWindowFrameControlsProps = InfiniteCanvasSlotElementProps<HTMLDivElement>;
+
+type InfiniteCanvasWindowFrameBodyProps = InfiniteCanvasSlotElementProps<HTMLDivElement>;
+
+type InfiniteCanvasWindowFrameActiveCornersProps = InfiniteCanvasSlotElementProps<HTMLDivElement>;
 
 type InfiniteCanvasWindowFrameSlots = Readonly<{
   ActiveCorners: ComponentType<InfiniteCanvasWindowFrameActiveCornersProps>;
