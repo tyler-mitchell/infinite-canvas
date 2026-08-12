@@ -5,8 +5,10 @@ import {
   InfiniteCanvasDesktop,
   useInfiniteCanvasActions,
   useInfiniteCanvasSelector,
+  useInfiniteCanvasStore,
 } from "@infinite-canvas/react";
 import { createFileRoute } from "@tanstack/react-router";
+import { useRef } from "react";
 import { Button } from "ui";
 
 import { CommandPalette } from "../showcases/command-palette.tsx";
@@ -77,6 +79,8 @@ const initialState = createInfiniteCanvasState<Kind>({
 
 function WorkspaceSwitcher() {
   const actions = useInfiniteCanvasActions<Kind>();
+  const store = useInfiniteCanvasStore<Kind>();
+  const sequenceRef = useRef(0);
   const workspaces = useInfiniteCanvasSelector((state) => state.workspaces);
   const activeWorkspaceId = useInfiniteCanvasSelector((state) => state.activeWorkspaceId);
 
@@ -105,6 +109,46 @@ function WorkspaceSwitcher() {
           {workspace.title}
         </Button>
       ))}
+      <span className="mx-1 h-4 w-px bg-border" />
+      {/*
+       * The affordance this route was missing, and the omission hid a real defect.
+       *
+       * A workspace is a membership filter, and until 2026-08-12 a window opened while a desktop
+       * was active joined no desktop — so the window layer dropped it on the frame it was
+       * created and nothing appeared. The route existed to demonstrate workspaces and had no way
+       * to open a window on one, which is exactly why nobody met the bug here. Press this on
+       * "Research", then switch to "Writing": the new pane belongs to the desktop it was made on
+       * and does not follow you.
+       */}
+      <Button
+        onClick={() => {
+          // Peek, don't subscribe: the camera is needed once, on click, and a subscription would
+          // re-render this bar on every pan frame.
+          const { camera } = store.state$.peek();
+          sequenceRef.current += 1;
+          const ordinal = sequenceRef.current;
+          const cascade = (ordinal % 5) * 28;
+
+          actions.openWindow(
+            createInfiniteCanvasWindow<Kind>({
+              id: `scratch-${ordinal}`,
+              kind: "note",
+              minSize: { height: 140, width: 220 },
+              rect: {
+                height: 200,
+                width: 320,
+                x: camera.center.x - 160 + cascade,
+                y: camera.center.y - 100 + cascade,
+              },
+              title: `note ${ordinal}`,
+            }),
+          );
+        }}
+        size="xs"
+        variant="ghost"
+      >
+        New window
+      </Button>
       <span className="mx-1 h-4 w-px bg-border" />
       {/* Cycling is a command, so it is in the palette too. This is the same verb. */}
       <Button

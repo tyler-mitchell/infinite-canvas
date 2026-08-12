@@ -285,6 +285,33 @@ pointerModeControls?, cameraControls?, zoomControls? }` landed with the HUD
   floating window _over another_", which reads as rect overlap. Cursor semantics match
   VS Code and Dockview and are probably right, but the wording oversells it.
 
+- ✅ **The package leaked a `@types/node` requirement onto its consumers, and the playground
+  build had been broken by it (fixed 2026-08-12).** `packages/infinite-canvas/tsconfig.json`
+  carries `"types": ["node"]` — correctly, for the tests that read this package's own source from
+  disk to enforce invariants a type cannot. But the package is **source-linked** into the
+  playground, so a consumer typechecks this source under _its_ tsconfig, and a single
+  `process.env.NODE_ENV` in `infinite-canvas.tsx` compiled green here while failing there with
+  `TS2591: Cannot find name 'process'`.
+
+  The package's own `vp check` could never have caught it: the leak is only visible from the
+  other side of the boundary. It was found by running the playground's build after touching a
+  showcase, and confirmed pre-existing by stashing the change and rebuilding.
+
+  Fixed at the point of use — `process` is now declared in module scope, which shadows the global
+  where one is typed and supplies the type where none is, while keeping the literal
+  `process.env.NODE_ENV` token every bundler replaces. `import.meta.env.DEV` was rejected: it
+  trades a node dependency for a Vite one, in a library that should require neither.
+
+  Setting `"types": []` was tried and reverted — the tests genuinely need `node:fs`, `node:path`,
+  and `node:url`. The tsconfig now records what the entry is for and that shipped source must not
+  rely on it.
+
+  **Still open: nothing enforces this.** The four surface gates guard exports, docs, the pure
+  core's import graph, and semver tiers; none asks whether shipped source references an ambient
+  global its consumers will not have. A fifth check — no node builtin import and no bare
+  `process` outside `*.test.*` — is the shape that would have caught this the day it landed, and
+  it is the same drift class every existing gate exists for.
+
 ## Open — medium
 
 - ✅ **The pure core's import boundary was unenforced (fixed 2026-07-08).** Legend State is

@@ -277,6 +277,22 @@ function getInfiniteCanvasMissingSceneSurfaceWarning(
   return null;
 }
 
+/**
+ * The one `process` reference in the package, declared locally rather than inherited.
+ *
+ * This module's tsconfig carries `"types": ["node"]`, so `process` resolved here and the
+ * package typechecked — while **leaking a `@types/node` requirement onto every consumer that
+ * typechecks this source**. The playground does exactly that (the package is source-linked), and
+ * its build failed on `TS2591: Cannot find name 'process'` while the package's own `vp check`
+ * stayed green. A browser library must not make its consumers install node types to compile.
+ *
+ * Declared in module scope, so it shadows the global where one is typed and supplies the type
+ * where none is. The literal `process.env.NODE_ENV` token survives, which is the point: every
+ * bundler replaces it, and `import.meta.env.DEV` would have traded a node dependency for a
+ * Vite one.
+ */
+declare const process: Readonly<{ env: Readonly<{ NODE_ENV?: string }> }>;
+
 /** Say it once, in development, rather than letting it read as a bug in the layer. */
 function useInfiniteCanvasSceneSurfaceWarning(
   sceneLayerCount: number,

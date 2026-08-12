@@ -4,6 +4,14 @@
     "module": "esnext",
     "lib": ["ES2023", "DOM", "DOM.Iterable"],
     "jsx": "react-jsx",
+    // Present for the TESTS, which read this package's own source from disk to enforce
+    // invariants a type cannot (`single-dispatcher.test.ts`, the clone walker) and therefore
+    // import `node:fs`, `node:path`, and `node:url`.
+    //
+    // Shipped source must not rely on it. This package is source-linked into its consumers, so
+    // an ambient node global here becomes a `@types/node` requirement for anyone who
+    // typechecks it — which is exactly how a single `process.env.NODE_ENV` compiled green here
+    // and broke the playground build. The one such reference declares `process` locally instead.
     "types": ["node"],
     "skipLibCheck": true,
 
