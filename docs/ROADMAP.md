@@ -119,6 +119,59 @@ Exit: those scenario ids assert and pass; `grep` for `createGroup`,
 - **Texture-mode capture** — needs Chrome 148+ with the OT flag.
 - **npm publish, git history purge** — owner actions. Irreversible or external.
 
+### The other axis: the critical path to production
+
+The slate above is **feature work**, because that is what was asked for. Shipping
+is a _different axis_, and conflating the two is how a project ends up feeling
+busy while the release stays where it was. Stated separately so the mix is a
+choice rather than an accident.
+
+Three gates, and they are independent — none blocks another:
+
+| Gate                    | State          | What stands in the way                                              |
+| ----------------------- | -------------- | ------------------------------------------------------------------- |
+| **Publishable to npm**  | ✅ ready now   | Nothing technical. `pnpm publish`. Owner action (external service). |
+| **Public repository**   | ⛔ owner-gated | One `git filter-repo` purge. Irreversible, no remote.               |
+| **Honest "production"** | 🟡 two levers  | Below. Nothing here is unknown; two things are un-permitted.        |
+
+**Status of the four production items, 2026-08-12.** Three of them moved today,
+which is why this section is worth re-reading rather than trusting:
+
+| Item                                | State                                                       |
+| ----------------------------------- | ----------------------------------------------------------- |
+| **C5** — FR-9 focus containment     | **Built** (`8793f04`). Code complete, browser-unverified.   |
+| **P6** — non-trivial app content    | **Built** (`19cac41`). `/body-content` exists to be tried.  |
+| **P3** — themeable surface          | **Built** (`fcdd628`). 48 tokens → 6 knobs, unverified.     |
+| **C2** — group/history/recipe tests | **Not started.** Specified to the assertion; not permitted. |
+| **C4** — P2 measurement             | **Not startable here.** Needs real hardware.                |
+
+**So the distance to an honest "production-usable" is not a list of unknowns.
+It is two levers, both the owner's:**
+
+1. **Browser verification.** Three of the four items above are written and
+   unwatched. Verifying all three is one dev-server session and well under an
+   hour: Tab into `/body-content`'s form and confirm it cycles and stops,
+   `Escape` back, wheel over the list, drag across the prose, then eyeball the
+   theme refactor for a colour that moved. This is currently un-run only because
+   background processes were asked to stay off ahead of a restart.
+2. **Whether unit tests are in scope.** C2 is the largest remaining gap and the
+   only item that is neither built nor blocked on hardware. Its plan is written
+   to the assertion in [research/c2-test-plan.md](research/c2-test-plan.md), so
+   it is roughly two mechanical hours — but writing it contradicts a standing
+   instruction from earlier in this session, so it is not an agent's call to
+   make.
+
+**With both levers pulled, production-usable at NFR-1's stated bar is about three
+hours of work, none of it speculative.** NFR-1 asks for ten windows without
+degradation, which the framework already clears with headroom. P2's separate bar
+— 100 windows at 60 fps — needs item C4 and real hardware, and a `0.2.0` that
+documents its own limits does not need it.
+
+**Nothing on the feature slate is a production blocker, and nothing on this path
+is a feature.** They are genuinely parallel tracks, and the only item that sits
+on both is C2 — simultaneously the largest production gap and the thing that
+makes the group tree safe to keep adding features to.
+
 ## P1 — Grouping & Docking (the window-manager tranche)
 
 The single biggest capability leap and the framework's identity claim:
