@@ -7,195 +7,120 @@
 > rules from [README.md](README.md) apply; specs referenced here win over
 > this summary.
 
-## Current execution slate (adopted 2026-08-12)
+## Current execution slate (adopted 2026-08-12, rewritten after driving the product)
 
-> A **view over the programs below**, not a new program list. P1–P8 own the
-> capability definitions; this section says what gets worked next and in what
-> order. When a track lands, its program entry above is what gets updated.
+> A **view over the programs below**, not a new program list. P1–P8 own the capability
+> definitions; this section says what gets worked next and in what order.
 
-The framework is capability-rich and **verb-poor**: the group model, undo,
-recipes, portals, persistence, and navigation geometry all exist, but the
-window-manager vocabulary a user reaches for — arrange these, find that one,
-make it legible when I zoom out, restyle it — is thin or missing. The slate
-attacks that, and carries its tests with it rather than after it.
+The previous slate was consumed in a few hours because every track on it was a one-to-two hour
+addition. This one is built from what **running the product** revealed rather than from what the
+documents claimed, and it is ordered so that production readiness is _closed_ rather than
+described.
 
-Four findings ground the ordering, each verified against the code on
-2026-08-12 rather than taken from a doc:
+### Where production actually stands — verified 2026-08-12, not read off a doc
 
-- **Theming is 11/59 public.** `theme.css` defines 59 `--icx-*` tokens; the
-  public `theme` prop bridges **11** of them ([infinite-canvas.tsx]'s
-  `INFINITE_CANVAS_THEME_VARIABLES`). The other 48 are reachable only by
-  overriding CSS. There is **no** light-theme scaffold — zero
-  `prefers-color-scheme` or `[data-theme]` rules in `theme.css`.
-- **Semantic LOD is unbuilt, and the seam is clean.**
-  `InfiniteCanvasWindowDefinition` has no `renderSummary`/`renderIcon`; far
-  zoom has no representation lane at all.
-- **The action vocabulary has no arrange family.** 48 action types, none for
-  align, distribute, tidy, swap, or equalize.
-- **The group core is still untested.** 165 tests across 22 files; none touch
-  groups, history, or recipes. [research/c2-test-plan.md](research/c2-test-plan.md)
-  already specifies the suite to the assertion.
+The sentinel and the ship plan both understate this, because they were written when tests and
+the browser were out of scope and were never revised when that changed.
 
-### T1 — Window-manager verbs: align, distribute, tidy, swap, equalize (~1.5h)
+| Gate                    | State                | Reality                                                                                                             |
+| ----------------------- | -------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| **Publishable to npm**  | ✅ ready             | `pnpm publish`. Owner action, external service.                                                                     |
+| **Public repository**   | ⛔ owner-gated       | One `git filter-repo` purge. Irreversible, no remote.                                                               |
+| **Honest "production"** | 🟡 **one item left** | Focus trapping **is built** (`focus-trap.ts`). The body-content showcase **is built** (221-line route). C2 is 9/15. |
 
-**Feature.** The highest capability-per-hour item on the board, and pure
-geometry — a new `window-arrange.ts` beside `window-placement.ts`, plus
-`group.equalizeChildren` for the tree.
+So the only agent-executable production blocker left is **C2's remaining six scenarios**. P2's
+measurement needs real hardware and is not required for a 0.2.0 that documents its own limits.
+That is M1, and it is first for exactly that reason.
 
-**Guard R5 deliberately.** These are explicit one-shot commands over an
-explicit selection, never a persistent global layout mode. A canvas that
-silently re-tiles is the tiling-semantics failure R5 has flagged as _live,
-standing_ since the beginning. Grouped windows translate their **shell**, per
-the `window.nudge` precedent — a member has no rect of its own.
+### What driving the product actually taught
 
-Exit: align/distribute/tidy act on a multi-window selection, are one undo
-entry each, refuse to shrink anything below `minSize`, and assert in tests.
+Semantic LOD shipped with 11 green unit tests and was **broken in the most ordinary use there
+is**: `/stress` windows are 300×210, `extent` takes the smaller axis, and 210 sat under the old
+240px restore threshold. A window demoted on zoom-out and never came back at 100% zoom. Fixed in
+`aa5f085`.
 
-### T2 — Window switcher (~1h)
+The tests were not a safety net; they were the problem. They asked _"does the hysteresis band
+work"_ using numbers chosen to exercise the band, and never asked _"is a real window full detail
+at 100% zoom"_ — the question the product asks. **Every feature on this slate is therefore
+verified against real registries at real zoom levels before it is called done**, and M2 makes
+that structural rather than a habit.
 
-**Feature.** The command palette is mounted on every canvas route and reads
-`getInfiniteCanvasContextualCommands`, which enumerates _canvas_ commands and
-no windows. So there is no way to answer "where is my Notes window" by name.
-The minimap and offscreen indicators solve orientation geometrically; this
-solves it lexically, and completes that trio.
+### M1 — Close C2: the six missing scenarios (~2h)
 
-Exit: the palette lists open windows by title, filters them, and
-Enter focuses + navigates the camera to the chosen one.
+DOCK-003, SPLIT-001, ACC-001, FAIL-001, PERSIST-001, and the FOCUS family. Nine of fifteen assert
+today (`DOCK-001/002/004/005`, `SPLIT-002/003`, `TAB-001/002`, `PERSIST-003`).
 
-### T3 — Light theme and token completeness (~2h) — **half landed**
+**This is the last thing standing between the framework and an honest production claim**, which
+is why a test track leads a slate the owner asked to be feature-heavy.
 
-**Feature, and the most visible gap.** P3's own framing is right: a light
-theme is the _proof_ of token completeness, because every hardcoded color
-fights it.
+Exit: all fifteen scenario ids assert against the reducer and pass.
 
-✅ **The semantic layer landed (`fcdd628`).** The 48 unbridged tokens were not
-48 decisions — most were one white or one cyan at varying alpha, and that cyan
-was `--icx-active-accent` written out by hand. They now derive from six knobs,
-value-preserving to the bit.
+### M2 — Product-shaped verification (~2.5h)
 
-**What remains is the proof, and the audit already named what will fight it:**
-six tokens do _not_ derive and are marked `NOT DERIVED (n/6)` in `theme.css` —
-the host chrome's near-accent tint family, its own near-black fill, and the
-active HUD button's foreground. They encode "light tint over a dark surface"
-in their values rather than in a token. Give each a semantic home, then write
-the light theme **in consumer CSS** (the playground), because a theme the
-framework ships is not evidence that a consumer's would work — and because
-`theme-tokens.test.ts` reads tokens into a `Map` over the whole file, so a
-light block inside `theme.css` would silently become the value it asserts
-against.
+The systemic fix for the class of defect that shipped in semantic LOD. A suite that drives the
+**playground's own registries and window dimensions** through the framework and asserts the
+invariants a user would notice: every window kind is full detail at 100% zoom; every arrange verb
+is enabled exactly when its precondition holds; every default chord resolves to a command; no
+`--icx-*` token referenced by a component is undefined.
 
-Exit: a playground theme switcher toggles two complete looks; no framework
-surface renders an unthemed color in either.
+Also fixes the one bug found today and not yet closed: **`window.__canvas.contextualCommands()`
+returns stale enablement.** It reported `enabled: false` for align while the command demonstrably
+worked — the product UI was correct, only the automation handle was stale. That handle is the
+agent-facing contract, and an agent that trusts it is misled exactly as I was.
 
-### T4 — Semantic LOD: readable cards at far zoom (~2h)
+Exit: the suite fails when a threshold is set so a stock window is not full at zoom 1; the dev
+handle's enablement matches the palette's.
 
-**Feature, and distinctive.** At 12–25% zoom every window is illegible, and no
-snapshot fixes that — a rasterized paragraph is still a paragraph. Add
-`renderSummary`/`renderIcon` to the window definition and a threshold on
-**effective screen size** (not raw zoom, so a large window stays legible
-longer than a small one). This is P7's semantic half and is independent of the
-capture lane, which needs Chrome's OT flag.
+### M3 — The theme system, completed (P3) (~3h)
 
-Exit: a `/stress`-scale document at 15% zoom where every window is
-identifiable; the lane is off unless a kind declares a summary.
+`theme.css` defines **65** `--icx-*` tokens and the public `theme` prop bridges **11**. There is
+**no** light-theme scaffold — zero `prefers-color-scheme` or `[data-theme]` rules. So 54 tokens
+are reachable only by overriding CSS, and the headless claim is thinner than the README implies.
 
-### T5 — Retire the C2 test debt (~2h)
+Audit every visual surface for a missing token — snap guides, marquee, dock preview, gutters, tab
+strips, accordion headers, resize handles, minimap, offscreen indicators, HUD — widen the bridged
+set, then ship a second complete look. The light theme is not decoration; it is the **proof** the
+token set is complete, because every hardcoded color fights it.
 
-**Plumbing, highest structural value.** DOCK/SPLIT/TAB/ACC/PERSIST/FAIL
-against the reducer, from the existing plan. Not first, because only T1 of the
-feature tracks touches the untested core — but not last either, because it is
-what makes the group tree safe to keep changing.
+Exit: a playground switcher toggles two complete looks; no framework surface renders an unthemed
+color in either; the bridged count is the token count.
 
-Exit: those scenario ids assert and pass; `grep` for `createGroup`,
-`dockWindow`, `undoInfiniteCanvas`, `captureInfiniteCanvasRecipe` in
-`src/*.test.*` returns hits.
+### M4 — Window-layer culling that does not unmount (P2 tranche 2) (~2.5h)
 
-### Tail — **both landed 2026-08-12, ahead of the slate**
+The path to 100 windows at 60fps, and the one place the roadmap already spells out the trap:
+**culling must not unmount.** Dropping an offscreen window from `visibleWindows` tears down its
+subtree — DOM focus falls to `<body>` and silently kills every hotkey, portal roots detach, and
+body scroll position, video playback, and uncontrolled input state are destroyed on pan-away.
 
-Pulled forward because the owner's direction turned to building a real
-application on the framework, and these two are what any real application
-leans on first. Neither is verified in a browser.
+So: skip transform updates and mark offscreen frames `content-visibility: auto` while leaving them
+mounted. The predicate is `isWorldRectWithinViewport`, guarded by `isUsableViewport` first — a
+`0 × 0` viewport overlaps nothing and would blank the canvas on first frame.
 
-- ✅ **T6 — Focus trapping** (`8793f04`). FR-9's last structural piece. `Tab`
-  enters the active window's content and only its content; it cycles and wraps
-  inside; `Escape` returns to the command surface. `Shift+Tab` is deliberately
-  not claimed — swallowing it would make the canvas a keyboard trap for the
-  whole document.
-- ✅ **T7 — A non-trivial app in a window** (`19cac41`). P6's exit criterion, as
-  `/body-content`. Building it found _why_ the criterion had sat unmet: every
-  other showcase puts **inert** content in its windows, and none of the
-  contract's failure modes are about painting. They are about input ownership,
-  which a div that wants no input cannot test. One widget per contested input:
-  a form (caret, tab order), a scrolling list (wheel), selectable prose
-  (pointer).
+Exit: at 160 windows, per-frame work drops measurably; focus, portals, and body scroll all survive
+a pan-away and return.
+
+### M5 — Workspaces (~3.5h)
+
+The largest genuinely new capability, and the one the domain survey supports: nested canvases and
+boards-in-boards are how every mature spatial tool answers sprawl. For a _window manager_ that
+reads as **virtual desktops** — named sets a window belongs to, with the camera and selection
+restored on switch.
+
+Deliberately not "nested canvases": a canvas inside a canvas means a second camera and a second
+input plane, which is a different program. A workspace is one canvas and a membership filter.
+
+Needs a state shape, reducer actions, a persistence envelope bump, commands, palette integration,
+and a showcase. Exit: switching workspaces preserves each one's camera and selection, survives
+reload, and is one undo entry.
 
 ### Deliberately deferred, with reasons
 
-- **Columns mode** — breaks `group-tree`'s "only weight ratios matter"
-  invariant (a column's extent is absolute) and needs shell-local scrolling to
-  be usable at all. Shipping the layout without the scroll gives a shell whose
-  columns are unreachable. R11 is right that it stays last.
-- **Workspaces / nested canvases** — genuinely valuable and genuinely large;
-  it wants its own session and a persistence-envelope decision, not a corner
-  of this one.
-- **P2 measurement** — the harness exists and works; the embedded preview
-  throttles `rAF` under load, so the number needs real hardware. Demonstrated,
-  not assumed.
+- **Columns mode** — breaks `group-tree`'s "only weight ratios matter" invariant (a column's
+  extent is absolute) and needs shell-local scrolling to be usable at all. R11 is right.
+- **P2 measurement** — harness works; the embedded preview throttles `rAF` under load, so the
+  number needs real hardware. Demonstrated, not assumed.
 - **Texture-mode capture** — needs Chrome 148+ with the OT flag.
-- **npm publish, git history purge** — owner actions. Irreversible or external.
-
-### The other axis: the critical path to production
-
-The slate above is **feature work**, because that is what was asked for. Shipping
-is a _different axis_, and conflating the two is how a project ends up feeling
-busy while the release stays where it was. Stated separately so the mix is a
-choice rather than an accident.
-
-Three gates, and they are independent — none blocks another:
-
-| Gate                    | State          | What stands in the way                                              |
-| ----------------------- | -------------- | ------------------------------------------------------------------- |
-| **Publishable to npm**  | ✅ ready now   | Nothing technical. `pnpm publish`. Owner action (external service). |
-| **Public repository**   | ⛔ owner-gated | One `git filter-repo` purge. Irreversible, no remote.               |
-| **Honest "production"** | 🟡 two levers  | Below. Nothing here is unknown; two things are un-permitted.        |
-
-**Status of the four production items, 2026-08-12.** Three of them moved today,
-which is why this section is worth re-reading rather than trusting:
-
-| Item                                | State                                                       |
-| ----------------------------------- | ----------------------------------------------------------- |
-| **C5** — FR-9 focus containment     | **Built** (`8793f04`). Code complete, browser-unverified.   |
-| **P6** — non-trivial app content    | **Built** (`19cac41`). `/body-content` exists to be tried.  |
-| **P3** — themeable surface          | **Built** (`fcdd628`). 48 tokens → 6 knobs, unverified.     |
-| **C2** — group/history/recipe tests | **Not started.** Specified to the assertion; not permitted. |
-| **C4** — P2 measurement             | **Not startable here.** Needs real hardware.                |
-
-**So the distance to an honest "production-usable" is not a list of unknowns.
-It is two levers, both the owner's:**
-
-1. **Browser verification.** Three of the four items above are written and
-   unwatched. Verifying all three is one dev-server session and well under an
-   hour: Tab into `/body-content`'s form and confirm it cycles and stops,
-   `Escape` back, wheel over the list, drag across the prose, then eyeball the
-   theme refactor for a colour that moved. This is currently un-run only because
-   background processes were asked to stay off ahead of a restart.
-2. **Whether unit tests are in scope.** C2 is the largest remaining gap and the
-   only item that is neither built nor blocked on hardware. Its plan is written
-   to the assertion in [research/c2-test-plan.md](research/c2-test-plan.md), so
-   it is roughly two mechanical hours — but writing it contradicts a standing
-   instruction from earlier in this session, so it is not an agent's call to
-   make.
-
-**With both levers pulled, production-usable at NFR-1's stated bar is about three
-hours of work, none of it speculative.** NFR-1 asks for ten windows without
-degradation, which the framework already clears with headroom. P2's separate bar
-— 100 windows at 60 fps — needs item C4 and real hardware, and a `0.2.0` that
-documents its own limits does not need it.
-
-**Nothing on the feature slate is a production blocker, and nothing on this path
-is a feature.** They are genuinely parallel tracks, and the only item that sits
-on both is C2 — simultaneously the largest production gap and the thing that
-makes the group tree safe to keep adding features to.
+- **npm publish, git history purge** — owner actions.
 
 ## P1 — Grouping & Docking (the window-manager tranche)
 
