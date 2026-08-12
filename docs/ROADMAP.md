@@ -116,8 +116,10 @@ a pan-away and return.
 camera and viewport and already rewrites this style every camera tick — so it needed no new prop
 threading and no new subscription. A frame more than `CULL_MARGIN_PX` (480 screen pixels)
 outside the viewport renders `content-visibility: auto` with a `contain-intrinsic-size` matching
-its screen box; the active and selected windows are never culled, matching the rasterization
-policy next to it. Screen pixels rather than world units, like every other threshold here: a
+its screen box. Exactly one exemption: the **active** window, where keyboard focus and every
+window-scoped command land. Selection is deliberately not exempt — a selection is unbounded, so
+exempting it would switch culling off entirely under `Mod+A`, which is the one scenario it exists
+for. Screen pixels rather than world units, like every other threshold here: a
 world-unit band would shrink as you zoom out, which is when the most windows sit near the edge.
 
 `culling.test.tsx` asserts the trap directly — an offscreen window is still in the document, body

@@ -95,26 +95,30 @@ const RESIZE_HANDLE_OVERHANG = `calc(${RESIZE_HANDLE_EXTENT} / -2)`;
 /**
  * Whether this frame's subtree can be skipped this frame.
  *
- * The geometry is `isWorldRectCulled`, shared with the group layer. What this adds is the
- * policy: never the active or selected window, matching `InfiniteCanvasWindowBody`'s
- * rasterization policy beside it. Those are the windows a keystroke or a resize is most likely
- * to land on, and the cost of keeping at most a handful live is not worth reasoning about the
- * edge cases.
+ * The geometry is `isWorldRectCulled`, shared with the group layer. What this adds is one
+ * exemption: the active window, which is where keyboard focus and every window-scoped command
+ * land, and which is exactly one window however large the canvas is.
+ *
+ * **Selection is deliberately not exempt**, unlike in the rasterization policy beside this.
+ * A selection is unbounded — `Mod+A` over 160 windows selects all 160 — so exempting it would
+ * switch culling off entirely in the one scenario it exists for, and "select everything, then
+ * arrange" is ordinary use rather than a corner. The exemption is safe to drop because
+ * `content-visibility: auto` is not `hidden`: the browser un-skips a subtree that takes focus
+ * or is found by find-in-page, and selection is a state concept that owes nothing to whether
+ * the window is currently painted.
  */
 function isFrameOffscreen<Kind extends string>({
   camera,
   isActive,
-  isSelected,
   viewport,
   window,
 }: Readonly<{
   camera: InfiniteCanvasCamera;
   isActive: boolean;
-  isSelected: boolean;
   viewport: InfiniteCanvasViewport;
   window: InfiniteCanvasWindow<Kind>;
 }>): boolean {
-  return !isActive && !isSelected && isWorldRectCulled(camera, viewport, window.rect);
+  return !isActive && isWorldRectCulled(camera, viewport, window.rect);
 }
 
 /** React's `CSSProperties` has no slot for custom properties. Widen just this one. */
@@ -311,7 +315,7 @@ function InfiniteCanvasWindowFrameContent<Kind extends string>({
     // window alive. Unmounting instead would drop DOM focus to `<body>`, detach portal
     // roots, and destroy body scroll, video playback, and uncontrolled input state.
     containIntrinsicSize: `${screenTransform.width}px ${screenTransform.height}px`,
-    contentVisibility: isFrameOffscreen({ camera, isActive, isSelected, viewport, window })
+    contentVisibility: isFrameOffscreen({ camera, isActive, viewport, window })
       ? "auto"
       : "visible",
     height: `${screenTransform.height}px`,
