@@ -7,6 +7,7 @@ import type {
   InfiniteCanvasSize,
   InfiniteCanvasState,
   InfiniteCanvasWindow,
+  InfiniteCanvasWorkspace,
 } from "./types";
 
 function cloneSize(size: InfiniteCanvasSize): InfiniteCanvasSize {
@@ -63,6 +64,19 @@ function cloneGroup(group: InfiniteCanvasGroup): InfiniteCanvasGroup {
   return { ...group, rect: cloneRect(group.rect) };
 }
 
+/**
+ * A workspace's camera and selection are value objects a caller could hold and mutate; its
+ * `windowIds` is rebuilt by every reducer that touches it, so it is shared the way
+ * `cloneGroup` shares a tree.
+ */
+function cloneWorkspace(workspace: InfiniteCanvasWorkspace): InfiniteCanvasWorkspace {
+  return {
+    ...workspace,
+    camera: cloneCamera(workspace.camera),
+    selection: cloneSelection(workspace.selection),
+  };
+}
+
 function cloneWindow<Kind extends string>(
   window: InfiniteCanvasWindow<Kind>,
 ): InfiniteCanvasWindow<Kind> {
@@ -84,6 +98,7 @@ function cloneInfiniteCanvasState<Kind extends string>(
     selection: cloneSelection(state.selection),
     viewport: cloneSize(state.viewport),
     windows: state.windows.map(cloneWindow),
+    workspaces: state.workspaces.map(cloneWorkspace),
   };
 }
 
