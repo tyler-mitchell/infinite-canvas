@@ -282,13 +282,40 @@ function reconcileInfiniteCanvasWorkspaces<Kind extends string>(
 
   const reconciled = state.workspaces.map((workspace) => {
     const windowIds = normalizeInfiniteCanvasWorkspaceWindowIds(state, workspace.windowIds);
+    // A stored selection is cleaned against this workspace's *own* membership rather than
+    // through `normalizeSelection`, which reads the active workspace and would filter an
+    // inactive one against the wrong desktop.
+    //
+    // Entering already normalizes what it restores, so a stale id here is inert rather than
+    // dangerous. It is cleaned anyway because it survives every reload otherwise: a window
+    // closed once leaves its name in a document forever, and "a workspace names no window
+    // that does not exist" is a simpler thing to hold than the same claim about membership
+    // alone.
+    const admitted = new Set(windowIds);
+    const selectedWindowIds = workspace.selection.windowIds.filter((windowId) =>
+      admitted.has(windowId),
+    );
+    const anchorWindowId =
+      workspace.selection.anchorWindowId !== null &&
+      admitted.has(workspace.selection.anchorWindowId)
+        ? workspace.selection.anchorWindowId
+        : null;
 
     // Identical when nothing moved, so the document comparison — which is reference
     // equality — does not read reconciliation as an edit.
-    return windowIds.length === workspace.windowIds.length &&
-      windowIds.every((windowId, index) => windowId === workspace.windowIds[index])
+    const isUnchanged =
+      windowIds.length === workspace.windowIds.length &&
+      windowIds.every((windowId, index) => windowId === workspace.windowIds[index]) &&
+      selectedWindowIds.length === workspace.selection.windowIds.length &&
+      anchorWindowId === workspace.selection.anchorWindowId;
+
+    return isUnchanged
       ? workspace
-      : { ...workspace, windowIds };
+      : {
+          ...workspace,
+          selection: { ...workspace.selection, anchorWindowId, windowIds: selectedWindowIds },
+          windowIds,
+        };
   });
 
   return reconciled.every((workspace, index) => workspace === state.workspaces[index])

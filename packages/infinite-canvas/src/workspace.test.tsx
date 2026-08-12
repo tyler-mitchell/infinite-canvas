@@ -584,3 +584,58 @@ test("hydration drops a membership naming a window that did not survive", () => 
     parseInfiniteCanvasState<Kind>(withoutB, threeWindows())?.workspaces[0]?.windowIds,
   ).toEqual(["a"]);
 });
+
+test("a workspace names no window that does not exist, in its membership or its selection", () => {
+  // Reconciliation cleaned membership and left the stored selection alone, so a window closed
+  // once left its name in the document forever — re-serialized on every save. Inert, because
+  // entering normalizes what it restores, but accumulating.
+  const state = reduceInfiniteCanvasState(
+    reduceInfiniteCanvasState(threeWindows(), {
+      type: "workspace.create",
+      windowIds: ["a", "b"],
+      workspaceId: "research",
+    }),
+    { type: "workspace.activate", workspaceId: "research" },
+  );
+  const selected = reduceInfiniteCanvasState(state, {
+    type: "selection.replace",
+    windowIds: ["b"],
+  });
+  const left = reduceInfiniteCanvasState(selected, {
+    type: "workspace.activate",
+    workspaceId: null,
+  });
+
+  expect(left.workspaces[0]?.selection.windowIds).toEqual(["b"]);
+
+  const closed = reduceInfiniteCanvasState(left, { type: "window.close", windowId: "b" });
+
+  expect(closed.workspaces[0]?.windowIds).toEqual(["a"]);
+  expect(closed.workspaces[0]?.selection.windowIds).toEqual([]);
+  expect(closed.workspaces[0]?.selection.anchorWindowId).toBeNull();
+});
+
+test("entering a workspace was already safe against a stale stored selection", () => {
+  // Pinned because the cleanup above relies on it: the cleanup is hygiene, not the guarantee.
+  // Even a document that arrives with a dead id — hand-edited, or written before the cleanup
+  // existed — must enter safely, normalizing what it restores and focusing something live.
+  const state = reduceInfiniteCanvasState(threeWindows(), {
+    type: "workspace.create",
+    windowIds: ["a"],
+    workspaceId: "research",
+  });
+  const tampered: InfiniteCanvasState<Kind> = {
+    ...state,
+    workspaces: state.workspaces.map((workspace) => ({
+      ...workspace,
+      selection: { anchorWindowId: "ghost", windowIds: ["ghost"] },
+    })),
+  };
+  const entered = reduceInfiniteCanvasState(tampered, {
+    type: "workspace.activate",
+    workspaceId: "research",
+  });
+
+  expect(entered.selection.windowIds).toEqual([]);
+  expect(entered.activeWindowId).toBe("a");
+});
