@@ -337,12 +337,6 @@ function InfiniteCanvasWindowFrame<Kind extends string>({
               windowId: window.id,
             });
           }}
-          onPointerMove={(event) => {
-            actions.stepInteraction({
-              pointerId: event.pointerId,
-              point: getEventViewportPoint(event),
-            });
-          }}
           onPointerUp={(event) => {
             releasePointer(event.currentTarget, event.pointerId);
             actions.finishInteraction(event.pointerId);

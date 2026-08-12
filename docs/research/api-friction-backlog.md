@@ -251,6 +251,16 @@ pointerModeControls?, cameraControls?, zoomControls? }` landed with the HUD
   dispatched from exactly one place. Two dispatchers with different knowledge of the same
   event is a race, and the one that knows less wins whenever it runs last.
 
+  **And the fix drawn from it did not take (2026-08-12).** Removing the root's handler left
+  _four_ others dispatching `interaction.step` — the window header, the window resize handle,
+  the group resize handle, and the group gutter — so every pointermove during a drag still
+  dispatched twice, on the hottest path in the application, and three of the four omitted
+  `dockIntent`. The comment written at the time, claiming the mount-scoped listener was "the
+  single source for interaction steps", was false the day it was written and stayed false for
+  a month. All four are removed, and `single-dispatcher.test.ts` enforces the rule by reading
+  the source: no module but `infinite-canvas.tsx` may call `stepInteraction`. Recording a
+  structural lesson in prose is not the same as installing it; this entry is the evidence.
+
   Still worth deciding: `resolveInfiniteCanvasDockPreview` hit-tests the **pointer**
   against the target's rect, not the dragged window's rect against it. Docs say "drag a
   floating window _over another_", which reads as rect overlap. Cursor semantics match

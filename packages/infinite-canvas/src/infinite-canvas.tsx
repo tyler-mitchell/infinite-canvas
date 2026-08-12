@@ -1062,6 +1062,13 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
           // steps: it fires for every captured pointer, in one coordinate space, and it
           // carries the modifier. That was already the intent of the mount-scoped
           // listener fix; this React handler was the leftover it failed to remove.
+          //
+          // This paragraph was false when it was written, and stayed false for a month.
+          // Four more `onPointerMove` handlers survived that fix — the window header, the
+          // window resize handle, the group resize handle, and the group gutter — so every
+          // pointermove during a drag dispatched twice, and three of the four omitted
+          // `dockIntent`. Removed 2026-08-12, and `single-dispatcher.test.ts` now enforces
+          // what this comment could only assert.
           onPointerUp={(event) => {
             releasePointer(event.currentTarget, event.pointerId);
             actions.finishInteraction(event.pointerId);

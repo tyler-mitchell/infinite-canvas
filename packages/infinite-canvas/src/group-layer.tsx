@@ -406,12 +406,6 @@ function InfiniteCanvasGroupShell({
               pointerId: event.pointerId,
             });
           }}
-          onPointerMove={(event) => {
-            actions.stepInteraction({
-              pointerId: event.pointerId,
-              point: getEventViewportPoint(event),
-            });
-          }}
           onPointerUp={(event) => {
             releasePointer(event.currentTarget, event.pointerId);
             actions.finishInteraction(event.pointerId);
@@ -454,12 +448,6 @@ function InfiniteCanvasGroupShell({
               groupId: group.id,
               point: getEventViewportPoint(event),
               pointerId: event.pointerId,
-            });
-          }}
-          onPointerMove={(event) => {
-            actions.stepInteraction({
-              pointerId: event.pointerId,
-              point: getEventViewportPoint(event),
             });
           }}
           onPointerUp={(event) => {

@@ -261,14 +261,6 @@ function InfiniteCanvasWindowFrameHeaderSlot({
           windowId: window.id,
         });
       },
-      onPointerMove: (event: ReactPointerEvent<HTMLElement>) => {
-        actions.stepInteraction({
-          // Hold Alt while dragging to dock instead of overlap.
-          dockIntent: event.altKey,
-          pointerId: event.pointerId,
-          point: getEventViewportPoint(event),
-        });
-      },
       onPointerUp: (event: ReactPointerEvent<HTMLElement>) => {
         releasePointer(event.currentTarget, event.pointerId);
         actions.finishInteraction(event.pointerId);
