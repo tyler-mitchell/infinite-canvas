@@ -24,6 +24,52 @@ sections, in this order, omitting the ones that don't apply:
 
 ### Added
 
+- **Arrange verbs: `window.align` and `window.distribute`.** The action vocabulary had 48 types
+  and no arrange family. `window-arrange.ts` is pure geometry —
+  `getInfiniteCanvasAlignedRects` and `getInfiniteCanvasDistributedRects` — sibling to
+  `window-placement.ts`, and the split matters: placement answers "where does _one_ window go
+  inside a region", arrange answers "how do _these_ windows relate to each other". Alignment is
+  relative to the windows' own collective bounds, never the viewport.
+
+  **They translate and never resize**, which is what makes them safe: a window cannot be pushed
+  below its `minSize` by an arrange, so there is no clamping pass and no constraint to violate.
+  Distribute evens the _gaps_ rather than the centres — with windows of differing size those are
+  different arrangements — and degrades to even overlap rather than refusing when they do not
+  fit. **No default chords**: eight commands would need eight, the unclaimed space is nearly
+  exhausted, and design tools do not agree on bindings for these. Bind through `hotkeyBindings`.
+
+  One-shot commands over an explicit selection, never a layout mode: a canvas that keeps windows
+  aligned as they move is a tiling manager, which risk R5 exists to prevent. Grouped windows are
+  skipped, as `window.place` refuses one, because a member's rect is its group's projection.
+
+- **Semantic LOD: `renderSummary` on the window definition.** What a window shows once it is too
+  small on screen to read. **Rasterization cannot solve this and never could — a rasterized
+  paragraph is still a paragraph**, only blurrier; at far zoom a window has to say something
+  _different_. Opt-in per kind, and inert without it: the framework cannot invent a meaningful
+  summary for content it does not understand.
+
+  `getInfiniteCanvasWindowDetailLevel` thresholds on **effective screen size, not zoom** — at 20%
+  zoom a 200px window is illegible and a 1200px window is fine, so thresholding on zoom would
+  demote both or neither. The two thresholds form a **hysteresis band**, which is not optional:
+  zoom is continuous, so a window at a single threshold flickers between body and summary for
+  every pixel. `previousLevel` keeps the function pure while the band works.
+
+- **Six semantic theme tokens.** `--icx-color-{foreground,accent,shadow,surface-raised,accent-muted,accent-surface}`.
+  Most of the 48 previously-unbridged `--icx-*` tokens were the same white or the same accent at
+  varying alpha, so restyling meant editing 48 values to change six. They now derive, value-preserving
+  to the bit (`color-mix(…, transparent)` is exactly the `rgba()` it replaces). Six do **not**
+  derive and are marked `NOT DERIVED (n/6)` in `theme.css`: the host chrome's near-accent tint
+  family, its own near-black fill, and the active HUD button's foreground. Those six encode
+  "light tint over a dark surface" in their values rather than in a token, and are therefore
+  exactly what a light theme will fight.
+
+- **Focus containment inside a window body** (FR-9's last structural piece). `Tab` at the desktop
+  enters the **active** window's content and only its content; inside, it cycles that window's
+  controls and wraps at the edges; `Escape` returns focus to the command surface, which is what
+  makes the canvas hotkeys live again. `Shift+Tab` from the command surface is deliberately **not**
+  claimed — backing out of the canvas to the rest of the page is the one direction a user cannot
+  achieve any other way, and swallowing it would make the canvas a keyboard trap for the document.
+
 - **A group's `role="tab"` now carries `aria-controls`** naming the window panel it reveals
   (FR-9). A window frame gains a real DOM `id`, namespaced by a per-canvas token minted with
   React's `useId()` at the desktop root and shared by the window and group layers, so
