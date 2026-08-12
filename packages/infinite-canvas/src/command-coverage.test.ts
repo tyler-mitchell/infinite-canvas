@@ -50,11 +50,17 @@ const ACTION_COMMAND_COVERAGE: Readonly<
   "desktop.reset": "lifecycle",
   // Every group verb below is reached by a command that resolves the container from the
   // active window, rather than by a palette entry that could not know which container.
-  "group.close": "parameterized",
+  //
+  // `group.close` and `group.reorderChild` were classified `parameterized` when this map was
+  // first written, hours before the commands existed. That was too generous: both resolve
+  // perfectly well from the active window, exactly as equalize and flip do, and calling them
+  // parameterized was the map excusing a gap rather than recording one. Corrected here when
+  // the commands landed.
+  "group.close": "group.dissolve",
   "group.create": "parameterized",
   "group.dockWindow": "window.dock.right",
   "group.equalizeChildren": "group.equalizeChildren",
-  "group.reorderChild": "parameterized",
+  "group.reorderChild": "group.moveChild.end",
   "group.setActiveChild": "parameterized",
   "group.setAxis": "group.flipAxis",
   "group.setChildWeights": "pointer",

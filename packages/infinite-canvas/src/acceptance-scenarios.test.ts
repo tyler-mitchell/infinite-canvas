@@ -595,3 +595,83 @@ test("TAB-003 — the layout a container already has is not offered, and tabs ca
     false,
   );
 });
+
+// ── DOCK-007 / TAB-004 — membership is editable without a pointer ────────────────────────
+
+test("DOCK-007 — dissolving a split leaves every member floating exactly where it was drawn", () => {
+  // `group.close` existed in the reducer and was dispatched from nowhere but the actions
+  // facade, so a user could build a group and never take it apart except by undocking one
+  // member at a time.
+  // Built through the real docking path rather than from `groupedState()`, which hand-builds
+  // `groups` without running `syncInfiniteCanvasGroupWindowRects` — so its windows still carry
+  // their seed rects and could not show this invariant at all.
+  const state = dockedPair();
+  const drawn = getInfiniteCanvasGroupProjection(state.groups).windowRects;
+
+  expect(isInfiniteCanvasCommandEnabled(state, { type: "group.dissolve" })).toBe(true);
+
+  const dissolved = executeInfiniteCanvasCommand(state, { type: "group.dissolve" });
+
+  expect(dissolved.groups).toEqual([]);
+
+  // Nothing jumps: each member keeps the rect the solver last gave it.
+  for (const window of dissolved.windows) {
+    expect(window.rect).toEqual(drawn.get(window.id));
+  }
+
+  expect(isInfiniteCanvasCommandEnabled(dissolved, { type: "group.dissolve" })).toBe(false);
+});
+
+test("DOCK-007 — dissolving a tab group stacks its members, which is faithful rather than tidy", () => {
+  // Recorded because it is a real product consequence, not because it is desirable. Tab and
+  // accordion members all carry the shell's content rect — the rect they would occupy if
+  // revealed — so ungrouping five tabs yields five windows in an exact pile. That is
+  // `closeInfiniteCanvasGroup` behaving as it always has; this command exposes it rather
+  // than changing it, and giving dissolve a fan-out is a separate decision about shared
+  // semantics that should not be smuggled in here.
+  const tabbed = executeInfiniteCanvasCommand(dockedPair(), {
+    layout: "tabs",
+    type: "group.setLayout",
+  });
+  const dissolved = executeInfiniteCanvasCommand(tabbed, { type: "group.dissolve" });
+  const [first, second] = dissolved.windows;
+
+  expect(dissolved.groups).toEqual([]);
+  expect(first?.rect).toEqual(second?.rect);
+});
+
+test("TAB-004 — a pane can be moved through its container's order by keyboard", () => {
+  // Reordering existed only as a tab drag (TAB-001), so the order of a group's members was
+  // pointer-only in exactly the way docking was.
+  const state = { ...groupedState(), activeWindowId: "left" };
+  const order = (candidate: InfiniteCanvasState<Kind>) =>
+    getInfiniteCanvasGroupWindowIds(candidate.groups[0]!.tree);
+
+  expect(order(state)).toEqual(["left", "right"]);
+
+  const moved = executeInfiniteCanvasCommand(state, { toward: "end", type: "group.moveChild" });
+
+  expect(order(moved)).toEqual(["right", "left"]);
+  expect(
+    order(executeInfiniteCanvasCommand(moved, { toward: "start", type: "group.moveChild" })),
+  ).toEqual(["left", "right"]);
+});
+
+test("TAB-004 — the ends of the order are not offered, because the move would clamp", () => {
+  // Clamped rather than wrapping: a pane at the end that jumped to the front would read as a
+  // bug, and the drag this mirrors cannot wrap either.
+  const atStart = dockedPair();
+
+  expect(
+    isInfiniteCanvasCommandEnabled(atStart, { toward: "start", type: "group.moveChild" }),
+  ).toBe(false);
+  expect(isInfiniteCanvasCommandEnabled(atStart, { toward: "end", type: "group.moveChild" })).toBe(
+    true,
+  );
+
+  const atEnd = { ...dockedPair(), activeWindowId: "east" };
+
+  expect(isInfiniteCanvasCommandEnabled(atEnd, { toward: "end", type: "group.moveChild" })).toBe(
+    false,
+  );
+});

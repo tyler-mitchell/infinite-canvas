@@ -91,6 +91,16 @@ hysteresis unimplemented` until 2026-07-08, long after it shipped.
   a drop produces and both commit through `applyInfiniteCanvasDockPreview`, so the two
   gestures are one operation by construction. `window.undock` tears the active window out.)
 
+- **DOCK-007** — Break up a group from the product. `covered` (2026-08-12. `group.close`
+  existed in the reducer and was dispatched from nowhere but the actions facade, so a user
+  could build a group and never take it apart except by undocking one member at a time.
+  `group.dissolve` closes the group holding the active window. A split comes apart exactly
+  where it was drawn — every member keeps the rect the solver last gave it. **A tab or
+  accordion group lands its members in an exact stack**, because hidden members all carry
+  the shell's content rect, the rect they would occupy if revealed. That is
+  `closeInfiniteCanvasGroup` behaving as it always has, now exposed; giving dissolve a
+  fan-out is a separate decision about shared semantics and has not been taken.)
+
 ## Split behavior — built, asserted 2026-08-12 (except SPLIT-004)
 
 - **SPLIT-001** — Resizing a child changes weights/partitions; DOM widths are never
@@ -144,6 +154,12 @@ hysteresis unimplemented` until 2026-07-08, long after it shipped.
   live `activeChildId` — a split's is always null — which is exactly why that guarantee
   exists; a test pins it, because otherwise the conversion yields a tab group with no
   visible pane.)
+- **TAB-004** — Reorder a pane within its container by keyboard. `covered` (2026-08-12.
+  Reordering existed only as a tab drag, so a group's member order was pointer-only in
+  exactly the way docking was. `group.moveChild` moves the active window one place toward
+  the start or end of its container's order. Clamped rather than wrapping — a pane at the
+  end that jumped to the front would read as a bug, and the drag it mirrors cannot wrap —
+  so the ends are simply not offered.)
 - **ACC-001** — Keyboard navigation follows accordion orientation. `covered` (2026-07-08).
   Each accordion container is one roving tab stop, and its arrows follow
   `container.axis`: a vertically stacked accordion answers Up/Down, a horizontal one

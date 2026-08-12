@@ -17,11 +17,13 @@ import {
 } from "./group-tree";
 import {
   applyInfiniteCanvasDockPreview,
+  closeInfiniteCanvasGroup,
   detachInfiniteCanvasWindowFromGroups,
   equalizeInfiniteCanvasGroupChildrenInState,
   findInfiniteCanvasGroup,
   getInfiniteCanvasWindowGroup,
   isInfiniteCanvasWindowGrouped,
+  reorderInfiniteCanvasGroupChildInState,
   resolveInfiniteCanvasDockPreviewForTarget,
   setInfiniteCanvasGroupAxisInState,
   setInfiniteCanvasGroupLayoutModeInState,
@@ -435,6 +437,28 @@ const DEFAULT_INFINITE_CANVAS_COMMAND_DESCRIPTORS = [
     hotkeys: [],
     id: "group.setLayout.accordion",
     label: "Layout: Accordion",
+  },
+  {
+    command: { type: "group.dissolve" },
+    description:
+      "Break up the group holding the active window, leaving every member floating where it was drawn.",
+    hotkeys: [],
+    id: "group.dissolve",
+    label: "Ungroup Panes",
+  },
+  {
+    command: { toward: "start", type: "group.moveChild" },
+    description: "Move the active window one place toward the start of its container's order.",
+    hotkeys: [],
+    id: "group.moveChild.start",
+    label: "Move Pane Toward Start",
+  },
+  {
+    command: { toward: "end", type: "group.moveChild" },
+    description: "Move the active window one place toward the end of its container's order.",
+    hotkeys: [],
+    id: "group.moveChild.end",
+    label: "Move Pane Toward End",
   },
   {
     command: { type: "group.flipAxis" },
@@ -859,6 +883,24 @@ function applyInfiniteCanvasWindowLifecycle<Kind extends string>(
   }
 }
 
+/** Where the active window sits in its container's order, and how many siblings it has. */
+function getActiveInfiniteCanvasGroupChildIndex<Kind extends string>(
+  state: InfiniteCanvasState<Kind>,
+): Readonly<{ at: number; childId: string; count: number; groupId: string }> | null {
+  const active = getActiveInfiniteCanvasGroupContainer(state);
+  const childId = state.activeWindowId;
+
+  if (active === null || childId === null) {
+    return null;
+  }
+
+  const at = active.container.children.findIndex((child) => child.id === childId);
+
+  return at === -1
+    ? null
+    : { at, childId, count: active.container.children.length, groupId: active.groupId };
+}
+
 function equalizeActiveInfiniteCanvasGroupContainer<Kind extends string>(
   state: InfiniteCanvasState<Kind>,
 ): InfiniteCanvasState<Kind> {
@@ -963,6 +1005,21 @@ function isInfiniteCanvasCommandEnabled<Kind extends string>(
     case "activeWindow.toggleMaximized":
     case "activeWindow.togglePinned":
       return state.activeWindowId !== null && findWindow(state, state.activeWindowId) !== null;
+    case "group.dissolve":
+      return (
+        state.activeWindowId !== null && isInfiniteCanvasWindowGrouped(state, state.activeWindowId)
+      );
+    // Clamped rather than wrapping: a pane at the end that jumped to the front would read as
+    // a bug, and the drag this mirrors cannot wrap either. So the ends are simply not offered.
+    case "group.moveChild": {
+      const index = getActiveInfiniteCanvasGroupChildIndex(state);
+
+      if (index === null) {
+        return false;
+      }
+
+      return command.toward === "start" ? index.at > 0 : index.at < index.count - 1;
+    }
     // Offered only where it would change something, the same rule equalize follows.
     case "group.setLayout": {
       const active = getActiveInfiniteCanvasGroupContainer(state);
@@ -1148,8 +1205,10 @@ function getInfiniteCanvasCommandGroup(command: InfiniteCanvasCommand): Infinite
     case "activeWindow.minimize":
     case "activeWindow.toggleMaximized":
     case "activeWindow.togglePinned":
+    case "group.dissolve":
     case "group.equalizeChildren":
     case "group.flipAxis":
+    case "group.moveChild":
     case "group.setLayout":
     case "window.dockDirection":
     case "window.undock":
@@ -1261,6 +1320,29 @@ function executeInfiniteCanvasCommand<Kind extends string>(
       }
 
       return applyInfiniteCanvasWindowLifecycle(state, command.type, windowId, active.mode);
+    }
+    case "group.dissolve": {
+      const group =
+        state.activeWindowId === null
+          ? null
+          : getInfiniteCanvasWindowGroup(state, state.activeWindowId);
+
+      // Members keep the rect the solver last gave them, so a split comes apart exactly where
+      // it was drawn. Tab and accordion members all carry the shell's content rect — the rect
+      // they would occupy if revealed — so those land stacked. That is `closeInfiniteCanvasGroup`
+      // as it has always behaved, exposed rather than changed.
+      return group === null ? state : closeInfiniteCanvasGroup(state, group.id);
+    }
+    case "group.moveChild": {
+      const index = getActiveInfiniteCanvasGroupChildIndex(state);
+
+      return index === null
+        ? state
+        : reorderInfiniteCanvasGroupChildInState(state, {
+            childId: index.childId,
+            groupId: index.groupId,
+            toIndex: command.toward === "start" ? index.at - 1 : index.at + 1,
+          });
     }
     case "group.equalizeChildren":
       return equalizeActiveInfiniteCanvasGroupContainer(state);

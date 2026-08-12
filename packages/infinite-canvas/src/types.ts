@@ -876,7 +876,9 @@ type InfiniteCanvasCommand =
   | Readonly<{ type: "activeWindow.minimize" }>
   | Readonly<{ type: "activeWindow.toggleMaximized" }>
   | Readonly<{ type: "activeWindow.togglePinned" }>
+  | Readonly<{ type: "group.dissolve" }>
   | Readonly<{ type: "group.flipAxis" }>
+  | Readonly<{ toward: "end" | "start"; type: "group.moveChild" }>
   | Readonly<{ layout: InfiniteCanvasGroupLayoutMode; type: "group.setLayout" }>
   | Readonly<{ direction: InfiniteCanvasDirection; type: "window.dockDirection" }>
   | Readonly<{ type: "window.undock" }>
@@ -930,7 +932,10 @@ type InfiniteCanvasCommandId =
   | "activeWindow.toggleMaximized"
   | "activeWindow.togglePinned"
   | "group.equalizeChildren"
+  | "group.dissolve"
   | "group.flipAxis"
+  | "group.moveChild.end"
+  | "group.moveChild.start"
   | "group.setLayout.accordion"
   | "group.setLayout.split"
   | "group.setLayout.tabs"
