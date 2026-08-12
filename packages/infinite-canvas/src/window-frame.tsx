@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, type CSSProperties, type ReactNode } from "react";
+import { memo, useMemo, useState, type CSSProperties, type ReactNode } from "react";
 
 import {
   INFINITE_CANVAS_SLOTS,
@@ -233,7 +233,7 @@ const RESIZE_HANDLE_DESCRIPTORS: readonly InfiniteCanvasResizeHandleDescriptor[]
   },
 ];
 
-function InfiniteCanvasWindowFrame<Kind extends string>({
+function InfiniteCanvasWindowFrameContent<Kind extends string>({
   camera,
   canvasInstanceId,
   chrome,
@@ -597,5 +597,58 @@ function InfiniteCanvasWindowHostChrome({
     </div>
   );
 }
+
+/**
+ * Props whose only effect on a culled frame is where it would be drawn.
+ *
+ * Everything else — the window, its chrome, whether it is active — changes what the frame
+ * *is*, and must re-render it whether or not anyone can see it, so that it is already correct
+ * the frame it comes back into view.
+ */
+const FRAME_PROJECTION_PROPS: ReadonlySet<string> = new Set(["camera", "viewport"]);
+
+/**
+ * A culled frame does not re-render when the camera moves.
+ *
+ * `content-visibility` is the browser's half of culling: it skips layout and paint for a
+ * skipped subtree. It does nothing about React, which still re-renders every frame and
+ * rebuilds its style object on every camera tick — and frame reconciliation is the dominant
+ * remaining cost at high window counts, so at 160 windows the great majority of that work is
+ * spent on windows nobody is looking at.
+ *
+ * Skipping it is sound precisely because the frame is not being drawn: a stale transform on a
+ * subtree the browser is not painting is unobservable. The moment the camera brings it back
+ * within the cull margin, `isFrameOffscreen(next)` is false, this returns false, and the frame
+ * re-renders with the current camera before it can be seen.
+ *
+ * The comparison walks the props rather than listing them. Listing is how a memo comparator
+ * goes stale: a prop added later would be absent from the list and silently stop propagating,
+ * which is a far worse failure than a missed optimization — this file has already produced one
+ * bug of exactly that shape, in `cloneInfiniteCanvasState`'s hand-listed fields.
+ */
+type InfiniteCanvasWindowFrameProps = Parameters<
+  typeof InfiniteCanvasWindowFrameContent<string>
+>[0];
+
+const isCulledFrameRenderRedundant = (
+  previous: InfiniteCanvasWindowFrameProps,
+  next: InfiniteCanvasWindowFrameProps,
+): boolean => {
+  if (!isFrameOffscreen(previous) || !isFrameOffscreen(next)) {
+    return false;
+  }
+
+  const values = (props: InfiniteCanvasWindowFrameProps) =>
+    props as Readonly<Record<string, unknown>>;
+
+  return [...new Set([...Object.keys(previous), ...Object.keys(next)])].every(
+    (key) => FRAME_PROJECTION_PROPS.has(key) || Object.is(values(previous)[key], values(next)[key]),
+  );
+};
+
+const InfiniteCanvasWindowFrame = memo(
+  InfiniteCanvasWindowFrameContent,
+  isCulledFrameRenderRedundant,
+) as typeof InfiniteCanvasWindowFrameContent;
 
 export { InfiniteCanvasWindowFrame };

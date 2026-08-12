@@ -124,11 +124,22 @@ which comes from the rasterization policy and would have reported success no mat
 did. It now reads the `<article>`'s own style attribute, and was confirmed to fail against a
 mutant that never culls.
 
-**Not built, and the roadmap sentence above asks for it: skipping transform updates.**
-`content-visibility` skips the browser's layout and paint for a skipped subtree; it does not stop
-React from re-rendering the frame or rebuilding its style object every camera tick. Freezing the
-transform while culled is a separate change with a real staleness risk, and its value is precisely
-what this exit wants measured.
+✅ **The transform skip landed the same day**, which is the other half of the roadmap sentence
+above. `content-visibility` is the browser's half — it skips layout and paint. React was still
+re-rendering every culled frame and rebuilding its style object on every camera tick, and frame
+reconciliation is the dominant remaining cost at high window counts, so at 160 windows most of
+that work was being spent on windows nobody is looking at.
+
+The frame is now memoized on a comparator that bails out only when the frame is offscreen under
+**both** the previous and the next props and every non-projection prop is referentially equal. It
+is sound precisely because the subtree is not being painted: a stale transform on skipped content
+is unobservable, and the moment the camera brings the window back within the cull margin the
+comparator returns false and it re-renders with the current camera before it can be seen.
+
+The comparator walks the props rather than listing them. A hand-written list is how a memo
+comparator goes stale — a prop added later would be missing from it and silently stop
+propagating, which is a worse failure than a missed optimization, and this repository has already
+shipped one bug of exactly that shape in `cloneInfiniteCanvasState`.
 
 **Unmeasured.** The exit asks for per-frame work to drop measurably at 160 windows, and no profile
 has been taken — that needs a browser. What is verified is the shape: culled windows stay mounted,
