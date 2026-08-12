@@ -9,7 +9,7 @@ can live inside one. An optional, transparent WebGPU surface sits behind and abo
 the window plane for programmable, camera-synchronized scene content.
 
 ```bash
-npm install @infinite-canvas/react react react-dom
+npm install @hyphened/infinite-canvas react react-dom
 ```
 
 → **[Quick start and package docs](packages/infinite-canvas/README.md)**
@@ -88,7 +88,7 @@ program with exit criteria in [the roadmap](docs/ROADMAP.md), not a wish.
 
 | Path                       |                                                                                                           |
 | -------------------------- | --------------------------------------------------------------------------------------------------------- |
-| `packages/infinite-canvas` | the published library, `@infinite-canvas/react`                                                           |
+| `packages/infinite-canvas` | the published library, `@hyphened/infinite-canvas`                                                        |
 | `apps/playground`          | showcases; also the framework's integration test bed                                                      |
 | `packages/ui`              | private UI kit, used only by the playground                                                               |
 | `docs/`                    | requirements, roadmap, API reference, research                                                            |

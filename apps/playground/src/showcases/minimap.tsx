@@ -3,7 +3,7 @@ import {
   getInfiniteCanvasMinimapWorldPoint,
   useInfiniteCanvasActions,
   useInfiniteCanvasState,
-} from "@infinite-canvas/react";
+} from "@hyphened/infinite-canvas";
 
 /**
  * A world overview, drawn from `getInfiniteCanvasMinimapLayout`.

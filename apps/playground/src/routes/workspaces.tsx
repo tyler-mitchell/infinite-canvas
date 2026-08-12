@@ -6,7 +6,7 @@ import {
   useInfiniteCanvasActions,
   useInfiniteCanvasSelector,
   useInfiniteCanvasStore,
-} from "@infinite-canvas/react";
+} from "@hyphened/infinite-canvas";
 import { createFileRoute } from "@tanstack/react-router";
 import { useRef } from "react";
 import { Button } from "ui";

@@ -12,7 +12,7 @@ import {
   useInfiniteCanvasSelector,
   useInfiniteCanvasStore,
   type InfiniteCanvasRecipe,
-} from "@infinite-canvas/react";
+} from "@hyphened/infinite-canvas";
 import { useRef } from "react";
 import { Button } from "ui";
 import { CommandPalette } from "../showcases/command-palette.tsx";

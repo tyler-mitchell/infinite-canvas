@@ -12,7 +12,7 @@
 ## Verified state of the world
 
 ✅ **The npm name `infinite-canvas` is taken** (v1.0.0 published by someone
-else). `@infinite-canvas/react` and `@infinite-canvas/core` are free. The
+else). `@hyphened/infinite-canvas` and `@infinite-canvas/core` are free. The
 scoped rename is now a _hard requirement_, not a preference.
 
 ✅ **`"use client"` is stripped from the build.** 16 source files declare it;
@@ -39,14 +39,14 @@ onto a canary and pay for three.js even if they never use `sceneLayers`.
 
 ## Status — 2026-07-08
 
-**Class 1 (cannot publish): DONE.** Renamed to `@infinite-canvas/react`;
+**Class 1 (cannot publish): DONE.** Renamed to `@hyphened/infinite-canvas`;
 `"use client"` re-asserted as the bundle's first statement; full npm metadata,
 `sideEffects: ["**/*.css"]`, provenance; peers widened off the exact R3F canary.
 `scripts/verify-artifact.mjs` is the standing gate, wired to `prepublishOnly`.
 Proven with `pnpm pack` -> install into a fresh project outside the workspace
 -> `tsc --noEmit` against the published `.d.mts` -> esbuild bundles at exit 0
 -> theme.css subpath resolves. `pnpm publish --dry-run` runs the whole
-pipeline and resolves to `@infinite-canvas/react@0.1.0` on the registry.
+pipeline and resolves to `@hyphened/infinite-canvas@0.1.0` on the registry.
 
 **Class 3 (nobody would trust it): DONE.** LICENSE, root README, npm README
 (quickstart compiled verbatim), `docs/API.md` derived from the barrel (287
@@ -92,7 +92,7 @@ consumer that had nothing installed:**
   does nothing for bundlers: they resolve dynamic-import specifiers at build
   time, so an esbuild run in a consumer with no 3D packages still hard-failed on
   `three`. Fixed with an API seam, not a manifest edit —
-  `InfiniteCanvasWebGpuSurface` now ships from `@infinite-canvas/react/scene`
+  `InfiniteCanvasWebGpuSurface` now ships from `@hyphened/infinite-canvas/scene`
   and is injected as the `sceneSurface` prop. The main entry never reaches it,
   statically or dynamically. A consumer with neither peer installed typechecks
   and bundles: **40.1 KB gzipped**, versus 263.3 KB with the 3D path.
@@ -139,14 +139,14 @@ enough that a hook running them gets disabled within a week, which is the same r
 `pre-push` already records. They remain in `pre-push` and CI for when a remote exists.
 
 **What this does not fix, and is worth the owner knowing:** no automation runs the tests or the
-builds. Until a remote exists, `pnpm --filter @infinite-canvas/react verify` and the playground's
+builds. Until a remote exists, `pnpm --filter @hyphened/infinite-canvas verify` and the playground's
 build are manual steps. Publishing and creating the remote are both owner actions.
 
 ## Blocker classes
 
 ### Class 1 — Cannot publish (fix first)
 
-1. **Rename** to `@infinite-canvas/react`; update workspace deps, playground
+1. **Rename** to `@hyphened/infinite-canvas`; update workspace deps, playground
    imports, `theme.css` subpath, docs.
 2. **Preserve `"use client"`** through the bundle (tsdown/rolldown directive
    preservation, or a banner). Verify by grepping dist.
@@ -221,7 +221,7 @@ build are manual steps. Publishing and creating the remote are both owner action
 
 13. ✅ **Optional 3D** — DONE, but not the way this item imagined. A lazy mount
     is insufficient: bundlers resolve dynamic-import specifiers at build time.
-    It took an API seam (`@infinite-canvas/react/scene` + the `sceneSurface`
+    It took an API seam (`@hyphened/infinite-canvas/scene` + the `sceneSurface`
     prop). 40.1 KB gzipped without the 3D path.
 14. ✅ **API surface audit — DONE.** The export surface was a maintenance liability;
     mark experimental vs stable, consider moving scene helpers behind `/scene`.
@@ -281,7 +281,7 @@ made the earlier plans read as further from done than they are.
 
 The package is publishable today and has been since the Class-1 work landed.
 `scripts/verify-artifact.mjs` gates `prepublishOnly`; `pnpm publish --dry-run` resolves
-`@infinite-canvas/react@0.1.0`. Neither `reference/` nor `/dynamic-grid` has ever been in
+`@hyphened/infinite-canvas@0.1.0`. Neither `reference/` nor `/dynamic-grid` has ever been in
 the tarball, so the history problem does **not** block npm. It blocks only the repo.
 
 **Owner action, one line:** create the npm org, then `pnpm publish`.
@@ -749,5 +749,5 @@ and a bad first read. This needed no new code, only honesty about what is stable
   something better") already implies an original implementation, and the
   motion study can inform _taste_ without shipping _derived constants_.
 - **`reference/`**: exclude from the public repo (recommendation) or keep.
-- **Scope name**: `@infinite-canvas/react` (recommended; leaves room for
+- **Scope name**: `@hyphened/infinite-canvas` (recommended; leaves room for
   `/core`, `/theme`, `/styled`) — requires creating the npm org.

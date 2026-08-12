@@ -1,6 +1,6 @@
 # API Reference
 
-The public surface of `@infinite-canvas/react`: 192 values and 164 types across
+The public surface of `@hyphened/infinite-canvas`: 192 values and 164 types across
 two entries. Anything not exported from a barrel is internal and unstable —
 including every `data-infinite-canvas-*` attribute, which is a behavioural hook
 for hit-testing, not a styling contract.
@@ -12,7 +12,7 @@ asserts every export appears here, and `verify-api-stability.mjs` asserts every
 exporting module is classified below. Neither writes a word of prose; both fail
 the build when the prose stops matching the code.
 
-The `@infinite-canvas/react/scene` entry is documented separately below. It is
+The `@hyphened/infinite-canvas/scene` entry is documented separately below. It is
 the only entry that pulls in `three` and `@react-three/fiber`.
 
 > Pre-1.0: the API may change between minor versions.
@@ -34,11 +34,11 @@ module to the public surface should require a decision.
 Every experimental entry names one of three reasons, and each reason is a fact
 about this repository rather than a feeling about the code.
 
-| Reason             | Meaning                                                                                                                                                                                | Modules                                                                                   |
-| ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
-| **unobserved**     | Shipped, typechecked, gated — never watched running.                                                                                                                                   | `canvas-handle`, `minimap`, `offscreen`                                                   |
-| **off-by-default** | Behind a policy prop that no default configuration turns on, so nothing exercises the shipped path.                                                                                    | `rasterization-layer`, `visibility`, `diagnostics`                                        |
-| **r3f-canary**     | Reachable only through `@infinite-canvas/react/scene`, whose `@react-three/fiber` peer range admits a v10 canary. The framework cannot promise stability across someone else's canary. | `scene-surface`, `scene:scene-surface`, `scene:visibility-probes`, `scene:webgpu-surface` |
+| Reason             | Meaning                                                                                                                                                                                   | Modules                                                                                   |
+| ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| **unobserved**     | Shipped, typechecked, gated — never watched running.                                                                                                                                      | `canvas-handle`, `minimap`, `offscreen`                                                   |
+| **off-by-default** | Behind a policy prop that no default configuration turns on, so nothing exercises the shipped path.                                                                                       | `rasterization-layer`, `visibility`, `diagnostics`                                        |
+| **r3f-canary**     | Reachable only through `@hyphened/infinite-canvas/scene`, whose `@react-three/fiber` peer range admits a v10 canary. The framework cannot promise stability across someone else's canary. | `scene-surface`, `scene:scene-surface`, `scene:visibility-probes`, `scene:webgpu-surface` |
 
 Plus six types in `types.ts`, which is a grab-bag holding
 `InfiniteCanvasSceneLayer` next to `InfiniteCanvasRect`: the `SceneLayer` family
@@ -1008,7 +1008,7 @@ The framework keeps its behaviour and gives up its tag. `ref` needs no `forwardR
 
 </details>
 
-## `@infinite-canvas/react/scene`
+## `@hyphened/infinite-canvas/scene`
 
 A separate entry point, and the only one that imports `three` and
 `@react-three/fiber`. Import it to opt into a 3D engine, then pass the surface
@@ -1016,7 +1016,7 @@ to `<InfiniteCanvasDesktop sceneSurface={...} />`. If you never import it, both
 peers can stay uninstalled and neither enters your bundle.
 
 ```tsx
-import { InfiniteCanvasWebGpuSurface } from "@infinite-canvas/react/scene";
+import { InfiniteCanvasWebGpuSurface } from "@hyphened/infinite-canvas/scene";
 ```
 
 **`scene`**

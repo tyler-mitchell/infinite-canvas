@@ -34,11 +34,11 @@ pnpm install
 
 The workspace has three members:
 
-| Path                       | Package                  | What it is                                           |
-| -------------------------- | ------------------------ | ---------------------------------------------------- |
-| `packages/infinite-canvas` | `@infinite-canvas/react` | The published library. This is the real thing.       |
-| `apps/playground`          | `playground` (private)   | Showcase app — the consumer surface for the library. |
-| `packages/ui`              | `ui` (private)           | Internal UI kit used **only** by the playground.     |
+| Path                       | Package                     | What it is                                           |
+| -------------------------- | --------------------------- | ---------------------------------------------------- |
+| `packages/infinite-canvas` | `@hyphened/infinite-canvas` | The published library. This is the real thing.       |
+| `apps/playground`          | `playground` (private)      | Showcase app — the consumer surface for the library. |
+| `packages/ui`              | `ui` (private)              | Internal UI kit used **only** by the playground.     |
 
 ## The dev loop
 
@@ -211,7 +211,7 @@ Guarded by two things, which check different halves of the claim:
   `import type { … }` and `import { type X }` erase before runtime. Runs in CI and before publish:
 
   ```bash
-  pnpm exec vp run @infinite-canvas/react#verify:pure-core
+  pnpm exec vp run @hyphened/infinite-canvas#verify:pure-core
   ```
 
   Until 2026-07-08 this file and `README.md` both claimed a test enforced the import boundary.
@@ -226,7 +226,7 @@ Anything you add to `src/index.ts` or `src/scene.ts` must also appear in
 It reads source rather than `dist/`, so you can run it without a build:
 
 ```bash
-pnpm exec vp run @infinite-canvas/react#verify:api-doc
+pnpm exec vp run @hyphened/infinite-canvas#verify:api-doc
 ```
 
 It once drifted by 43 names — undo/redo, layout recipes, and portals had no section at all —
@@ -271,7 +271,7 @@ asserts what the source-linked dev loop can't see:
 Run it after a build:
 
 ```bash
-pnpm exec vp run @infinite-canvas/react#verify   # build, then verify dist/
+pnpm exec vp run @hyphened/infinite-canvas#verify   # build, then verify dist/
 ```
 
 It also runs on `prepublishOnly`. If you add an import to the library, this is the script that will

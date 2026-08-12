@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { DEFAULT_INFINITE_CANVAS_ZOOM } from "@infinite-canvas/react";
+import { DEFAULT_INFINITE_CANVAS_ZOOM } from "@hyphened/infinite-canvas";
 
 export const Route = createFileRoute("/welcome")({
   component: WelcomeShowcase,

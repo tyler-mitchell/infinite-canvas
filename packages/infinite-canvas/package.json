@@ -1,5 +1,5 @@
 {
-  "name": "@infinite-canvas/react",
+  "name": "@hyphened/infinite-canvas",
   "version": "0.1.0",
   "description": "An infinite-canvas window manager for React: a pure reducer core, real DOM window bodies, and a programmable WebGPU spatial surface.",
   "keywords": [
@@ -54,7 +54,8 @@
     "check": "vp check",
     "verify:api-doc": "node ./scripts/verify-api-doc.mjs",
     "verify:pure-core": "node ./scripts/verify-pure-core.mjs",
-    "verify": "vp run build && node ./scripts/verify-artifact.mjs && node ./scripts/verify-api-doc.mjs && node ./scripts/verify-pure-core.mjs && node ./scripts/verify-api-stability.mjs && node ./scripts/verify-consumer-portability.mjs",
+    "verify": "vp run build && pnpm run verify:distribution && node ./scripts/verify-artifact.mjs && node ./scripts/verify-api-doc.mjs && node ./scripts/verify-pure-core.mjs && node ./scripts/verify-api-stability.mjs",
+    "verify:distribution": "publint && pnpm pack --out ./.pack.tgz && attw ./.pack.tgz --profile esm-only --exclude-entrypoints theme.css",
     "prepublishOnly": "vp run verify",
     "verify:api-stability": "node ./scripts/verify-api-stability.mjs"
   },

@@ -32,7 +32,7 @@ If this touches `packages/infinite-canvas/src/**`, also confirm:
 - [ ] **Framework boundary holds** — the pure core (geometry, reducer, selection, snapping, commands,
       state, validation) still imports no React, no `three`, and no `@legendapp/state`, and still runs
       without a renderer. _Verified by `src/framework-boundary.test.ts`._
-- [ ] **Packaging invariants hold** — `pnpm exec vp run @infinite-canvas/react#verify` passes. Relevant
+- [ ] **Packaging invariants hold** — `pnpm exec vp run @hyphened/infinite-canvas#verify` passes. Relevant
       if you added an import, changed the entry point, or touched `exports` / `publishConfig`.
       _Enforced by `packages/infinite-canvas/scripts/verify-artifact.mjs`, which also gates publish._
 

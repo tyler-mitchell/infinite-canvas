@@ -1,5 +1,5 @@
 name: Bug report
-description: Something in @infinite-canvas/react does not behave the way it should.
+description: Something in @hyphened/infinite-canvas does not behave the way it should.
 title: "[bug]: "
 labels: ["bug", "needs triage"]
 body:
@@ -21,14 +21,14 @@ body:
       options:
         - label: I searched the existing issues and this has not already been reported.
           required: true
-        - label: I can reproduce this on the latest release of `@infinite-canvas/react`.
+        - label: I can reproduce this on the latest release of `@hyphened/infinite-canvas`.
           required: false
 
   - type: input
     id: version
     attributes:
       label: Version
-      description: Which version of `@infinite-canvas/react` are you on? (`0.1.0`, a git SHA, `workspace:*`…)
+      description: Which version of `@hyphened/infinite-canvas` are you on? (`0.1.0`, a git SHA, `workspace:*`…)
       placeholder: "0.1.0"
     validations:
       required: true
@@ -72,7 +72,7 @@ body:
         https://github.com/…  — or —
 
         ```tsx
-        import { InfiniteCanvasDesktop } from "@infinite-canvas/react";
+        import { InfiniteCanvasDesktop } from "@hyphened/infinite-canvas";
         // …
         ```
     validations:

@@ -64,12 +64,13 @@ jobs:
       - name: Verify public API stability tiers
         run: node packages/infinite-canvas/scripts/verify-api-stability.mjs
 
-      # Boundary gate: this package is source-linked into its consumers, so they typecheck
-      # this source under *their* tsconfig. One `process.env.NODE_ENV` compiled green in the
-      # package and broke the playground build, because every other gate runs inside the
-      # package and the leak is only visible from the other side of the boundary.
-      - name: Verify consumer portability
-        run: node packages/infinite-canvas/scripts/verify-consumer-portability.mjs
+      # Packaging and types-resolution, by the tools built for it rather than by hand.
+      # `publint` lints the packed tarball's manifest; `attw` reports how the published types
+      # resolve for consumers across node10/node16/bundler. The esm-only profile encodes the
+      # deliberate choice to ship pure ESM, and theme.css is excluded because it is a
+      # stylesheet export that no module resolver is meant to resolve to types.
+      - name: Verify distribution
+        run: pnpm --filter @hyphened/infinite-canvas run verify:distribution
 
       - name: Test
         run: pnpm exec vp run -r test

@@ -2,7 +2,7 @@
 
 ## Supported versions
 
-`@infinite-canvas/react` is pre-1.0. Only the latest `0.1.x` release receives fixes.
+`@hyphened/infinite-canvas` is pre-1.0. Only the latest `0.1.x` release receives fixes.
 
 | Version | Supported |
 | ------- | --------- |

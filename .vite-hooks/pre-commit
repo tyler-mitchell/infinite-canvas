@@ -25,4 +25,3 @@ vp staged
 node packages/infinite-canvas/scripts/verify-api-doc.mjs
 node packages/infinite-canvas/scripts/verify-pure-core.mjs
 node packages/infinite-canvas/scripts/verify-api-stability.mjs
-node packages/infinite-canvas/scripts/verify-consumer-portability.mjs

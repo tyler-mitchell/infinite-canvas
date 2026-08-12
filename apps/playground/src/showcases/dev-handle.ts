@@ -2,7 +2,7 @@ import {
   getInfiniteCanvasContextualCommands,
   serializeInfiniteCanvasState,
   type InfiniteCanvasOverlayRenderContext,
-} from "@infinite-canvas/react";
+} from "@hyphened/infinite-canvas";
 
 /**
  * Dev-only programmatic handle so agents and E2E tooling can drive the

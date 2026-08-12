@@ -43,6 +43,8 @@ catalog:
   tailwind-variants: ^3.2.2
   tailwind-merge: ^3.5.0
   clsx: ^2.1.1
+  publint: ^0.3.23
+  "@arethetypeswrong/core": ^0.18.5
 overrides:
   vite: "catalog:"
   vitest: "catalog:"

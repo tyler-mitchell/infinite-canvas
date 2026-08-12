@@ -151,7 +151,7 @@ type InfiniteCanvasDesktopProps<
   sceneLayers?: readonly InfiniteCanvasSceneLayer<Kind, Payload>[];
   /**
    * The component that paints `sceneLayers`. Pass
-   * `InfiniteCanvasWebGpuSurface` from `@infinite-canvas/react/scene`; without
+   * `InfiniteCanvasWebGpuSurface` from `@hyphened/infinite-canvas/scene`; without
    * it, scene layers are inert and `three` never enters your bundle.
    */
   sceneSurface?: InfiniteCanvasSceneSurface<Kind, Payload>;
@@ -263,14 +263,14 @@ function getInfiniteCanvasMissingSceneSurfaceWarning(
     return (
       "[infinite-canvas] `sceneLayers` were provided without a `sceneSurface`, so they will " +
       "not render. Pass `sceneSurface={InfiniteCanvasWebGpuSurface}` from " +
-      "`@infinite-canvas/react/scene`, and install the `three` and `@react-three/fiber` peers."
+      "`@hyphened/infinite-canvas/scene`, and install the `three` and `@react-three/fiber` peers."
     );
   }
 
   if (frustumDiagnostics) {
     return (
       "[infinite-canvas] `diagnostics.frustum` needs a `sceneSurface` to run its probes. Pass " +
-      "`sceneSurface={InfiniteCanvasWebGpuSurface}` from `@infinite-canvas/react/scene`."
+      "`sceneSurface={InfiniteCanvasWebGpuSurface}` from `@hyphened/infinite-canvas/scene`."
     );
   }
 

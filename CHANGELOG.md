@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to `@infinite-canvas/react` are documented in this file.
+All notable changes to `@hyphened/infinite-canvas` are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
@@ -131,7 +131,7 @@ sections, in this order, omitting the ones that don't apply:
   public geometry helpers. The framework's frustum test: pure, synchronous, camera-derived, and
   free of the optional 3D peers. This is the predicate to build culling or virtualization on —
   **not** `useInfiniteCanvasWindowFramed`, whose store is written only by the R3F probe behind
-  `@infinite-canvas/react/scene` and returns its `true` fallback for every consumer who has not
+  `@hyphened/infinite-canvas/scene` and returns its `true` fallback for every consumer who has not
   installed `three` and enabled `diagnostics.frustum`. Rasterization eligibility now shares it.
 
 - **Resize by keyboard** (`Alt+Shift+Arrow`). `window.nudge` moved a window and nothing resized
@@ -546,7 +546,7 @@ Initial release.
 - **Read-only R3F / WebGPU scene layers, as an opt-in entry.** `sceneLayers` render React Three
   Fiber content above or below the DOM window plane on a transparent WebGPU surface, in camera-owned
   world space or DOM-aligned screen space, backed by projected window proxies. The surface itself
-  ships from `@infinite-canvas/react/scene` and is injected via the `sceneSurface` prop, which makes
+  ships from `@hyphened/infinite-canvas/scene` and is injected via the `sceneSurface` prop, which makes
   `three` and `@react-three/fiber` genuinely optional peers: the main entry never reaches them, so a
   consumer who does not render scene content can leave both uninstalled. Passing `sceneLayers`
   without a `sceneSurface` warns in development rather than silently rendering nothing.
@@ -578,7 +578,7 @@ Initial release.
   when state changes should subscribe with `useInfiniteCanvasSelector` inside their own components,
   so invalidation stays scoped to what they read. This is the contract `renderBody` already has.
 - **Headless styling contract.** Framework components emit a stable `data-slot` attribute
-  vocabulary and no visual identity; `@infinite-canvas/react/theme.css` is an opt-in cascade layer
+  vocabulary and no visual identity; `@hyphened/infinite-canvas/theme.css` is an opt-in cascade layer
   over that contract, so consumer styles always win. Enforced by a boundary test.
 - **Accessibility contract.** Windows expose `role="group"`, an accessible name, and
   `aria-roledescription="window"`; the active window is marked with `aria-current`. Every

@@ -54,6 +54,6 @@ jobs:
       # Provenance comes from publishConfig.provenance: true in the package
       # manifest, plus the id-token: write permission granted above.
       - name: Publish
-        run: pnpm publish --filter @infinite-canvas/react --access public --no-git-checks
+        run: pnpm publish --filter @hyphened/infinite-canvas --access public --no-git-checks
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

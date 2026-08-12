@@ -1,5 +1,5 @@
 name: Feature request
-description: Propose a capability or an API change for @infinite-canvas/react.
+description: Propose a capability or an API change for @hyphened/infinite-canvas.
 title: "[feat]: "
 labels: ["enhancement", "needs triage"]
 body:

@@ -7,7 +7,7 @@ import { getInfiniteCanvasMissingSceneSurfaceWarning } from "./infinite-canvas";
 
 /**
  * `three` and `@react-three/fiber` are optional peers: a consumer that never
- * imports `@infinite-canvas/react/scene` must never be asked to install a 3D
+ * imports `@hyphened/infinite-canvas/scene` must never be asked to install a 3D
  * engine. That holds only while the engine is unreachable from the main
  * barrel — including through a dynamic `import()`, since bundlers resolve
  * static specifiers into lazy chunks at build time and fail there.

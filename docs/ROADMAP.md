@@ -639,7 +639,7 @@ entry above it — it described semantic LOD as pending while P7b records it lan
   and no LICENSE before. `verify-artifact.mjs` asserts it, so it cannot regress
   between here and a publish.
 
-- Exit: `npm install @infinite-canvas/react` works for an external
+- Exit: `npm install @hyphened/infinite-canvas` works for an external
   consumer with documented quick-start; CI gates on tests + benchmarks +
   visual checks.
 - Dependencies: none, but most valuable after P3 exists to show.

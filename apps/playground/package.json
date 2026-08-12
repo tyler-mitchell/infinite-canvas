@@ -11,7 +11,7 @@
   "dependencies": {
     "@base-ui/react": "catalog:",
     "@fontsource-variable/geist": "catalog:",
-    "@infinite-canvas/react": "workspace:*",
+    "@hyphened/infinite-canvas": "workspace:*",
     "@react-three/drei": "catalog:",
     "@react-three/fiber": "catalog:",
     "@tanstack/hotkeys": "catalog:",

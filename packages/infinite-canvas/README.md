@@ -1,23 +1,23 @@
-# @infinite-canvas/react
+# @hyphened/infinite-canvas
 
 An infinite-canvas window manager for React: a pure reducer core, real DOM window bodies, and a programmable WebGPU spatial surface.
 
 ## Install
 
 ```bash
-npm install @infinite-canvas/react react react-dom
+npm install @hyphened/infinite-canvas react react-dom
 ```
 
 The package ships no renderer of its own. It declares four peers, two of which are optional:
 
-| Peer                 | Range                         | Required?                               |
-| -------------------- | ----------------------------- | --------------------------------------- |
-| `react`              | `^19.0.0`                     | yes                                     |
-| `react-dom`          | `^19.0.0`                     | yes                                     |
-| `three`              | `>=0.181.0`                   | only for `@infinite-canvas/react/scene` |
-| `@react-three/fiber` | `>=10.0.0-canary.dbbe704 <11` | only for `@infinite-canvas/react/scene` |
+| Peer                 | Range                         | Required?                                  |
+| -------------------- | ----------------------------- | ------------------------------------------ |
+| `react`              | `^19.0.0`                     | yes                                        |
+| `react-dom`          | `^19.0.0`                     | yes                                        |
+| `three`              | `>=0.181.0`                   | only for `@hyphened/infinite-canvas/scene` |
+| `@react-three/fiber` | `>=10.0.0-canary.dbbe704 <11` | only for `@hyphened/infinite-canvas/scene` |
 
-Windows, panning, zooming, selection, snapping, drag & drop, and persistence need no 3D engine. `three` and `@react-three/fiber` are reachable only from the `@infinite-canvas/react/scene` entry — the main entry never imports them, statically or dynamically — so if you do not render scene layers you can leave both uninstalled and they never enter your bundle. A `<InfiniteCanvasDesktop>` with no scene layers is **~40 KB gzipped**.
+Windows, panning, zooming, selection, snapping, drag & drop, and persistence need no 3D engine. `three` and `@react-three/fiber` are reachable only from the `@hyphened/infinite-canvas/scene` entry — the main entry never imports them, statically or dynamically — so if you do not render scene layers you can leave both uninstalled and they never enter your bundle. A `<InfiniteCanvasDesktop>` with no scene layers is **~40 KB gzipped**.
 
 To render scene layers, install the 3D peers and pass the surface in:
 
@@ -26,7 +26,7 @@ npm install three @react-three/fiber
 ```
 
 ```tsx
-import { InfiniteCanvasWebGpuSurface } from "@infinite-canvas/react/scene";
+import { InfiniteCanvasWebGpuSurface } from "@hyphened/infinite-canvas/scene";
 
 <InfiniteCanvasDesktop
   sceneLayers={sceneLayers}
@@ -47,7 +47,7 @@ import {
   createInfiniteCanvasState,
   createInfiniteCanvasWindow,
   defineInfiniteCanvasWindowRegistry,
-} from "@infinite-canvas/react";
+} from "@hyphened/infinite-canvas";
 
 type WindowKind = "note";
 
@@ -115,7 +115,7 @@ The package is headless. Components emit structure, geometry, and a `data-slot="
 To get the default look, import the theme once:
 
 ```ts
-import "@infinite-canvas/react/theme.css";
+import "@hyphened/infinite-canvas/theme.css";
 ```
 
 It is a single `@layer infinite-canvas` cascade layer targeting the `data-slot` contract, so unlayered consumer styles always win. Strokes drawn inside a window read `--icx-chrome-stroke`, which the framework widens as you zoom out so a 1px border never renders sub-pixel. You can skip it entirely and write your own CSS against the same selectors, or pass the `theme` prop to override the bridged `--icx-*` custom properties.
@@ -171,7 +171,7 @@ There is no hosted documentation site. The full export surface is catalogued in 
 ## Requirements
 
 - **React 19.** The library is client-only; the built entry points are marked `"use client"`.
-- **A WebGPU-capable browser**, but only if you use `@infinite-canvas/react/scene` — that surface renders through `@react-three/fiber/webgpu`. Development is Chrome-first.
+- **A WebGPU-capable browser**, but only if you use `@hyphened/infinite-canvas/scene` — that surface renders through `@react-three/fiber/webgpu`. Development is Chrome-first.
 - ESM only. There is no CommonJS build.
 
 ## License

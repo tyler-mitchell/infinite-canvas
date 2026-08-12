@@ -5,7 +5,7 @@ import {
   defineInfiniteCanvasWindowRegistry,
   getInfiniteCanvasScopedStorageKey,
   InfiniteCanvasDesktop,
-} from "@infinite-canvas/react";
+} from "@hyphened/infinite-canvas";
 import { Button } from "ui";
 import { CommandPalette } from "../showcases/command-palette.tsx";
 import { exposeCanvasDevHandle } from "../showcases/dev-handle.ts";

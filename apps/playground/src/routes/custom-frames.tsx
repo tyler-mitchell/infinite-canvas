@@ -5,7 +5,7 @@ import {
   defineInfiniteCanvasWindowRegistry,
   InfiniteCanvasDesktop,
   type InfiniteCanvasWindowFrameRenderContext,
-} from "@infinite-canvas/react";
+} from "@hyphened/infinite-canvas";
 import { CommandPalette } from "../showcases/command-palette.tsx";
 import { exposeCanvasDevHandle } from "../showcases/dev-handle.ts";
 

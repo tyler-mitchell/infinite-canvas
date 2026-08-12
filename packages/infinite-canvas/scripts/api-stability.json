@@ -13,7 +13,7 @@
     "reasons applies, and each reason is a fact about the repo rather than a feeling about the code:",
     "  - unobserved: shipped, typechecked, gated, never watched running.",
     "  - off-by-default: behind a policy prop no default configuration turns on.",
-    "  - r3f-canary: reachable only through @infinite-canvas/react/scene, whose @react-three/fiber",
+    "  - r3f-canary: reachable only through @hyphened/infinite-canvas/scene, whose @react-three/fiber",
     "    peer range admits a v10 canary. The framework cannot promise stability across someone",
     "    else's canary.",
     "",

@@ -215,7 +215,7 @@ function useInfiniteCanvasVisibilityContext() {
  * Live frustum-visibility for one window, or `null` when nothing is measuring it.
  *
  * @experimental Only the frustum probe layer writes this store, and that layer
- * ships behind `@infinite-canvas/react/scene` and runs only when
+ * ships behind `@hyphened/infinite-canvas/scene` and runs only when
  * `diagnostics.frustum` is on. Without both, every window reads as unmeasured —
  * `useInfiniteCanvasWindowFramed` will return its fallback forever, and a
  * culling decision built on it will silently keep everything. Treat a `null`

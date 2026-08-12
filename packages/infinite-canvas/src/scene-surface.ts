@@ -18,7 +18,7 @@ import type {
  * Everything here is pure types and pure functions, so the viewport can decide
  * *whether* a scene surface is needed — and lay out around one — without
  * importing `three` or `@react-three/fiber`. The WebGPU implementation lives
- * behind the `@infinite-canvas/react/scene` entry and is injected through the
+ * behind the `@hyphened/infinite-canvas/scene` entry and is injected through the
  * `sceneSurface` prop, so a consumer that never renders scene content never
  * has a 3D engine anywhere in its module graph. A dynamic `import()` would not
  * have achieved that: bundlers follow static specifiers into lazy chunks and
@@ -44,7 +44,7 @@ type InfiniteCanvasSceneSurfaceProps<
 
 /**
  * A component that paints scene layers behind and above the window plane.
- * `InfiniteCanvasWebGpuSurface` from `@infinite-canvas/react/scene` is the
+ * `InfiniteCanvasWebGpuSurface` from `@hyphened/infinite-canvas/scene` is the
  * implementation this framework ships; the seam exists so that it is
  * replaceable and, more importantly, omissible.
  */

@@ -6,7 +6,7 @@ import {
   defineInfiniteCanvasWindowRegistry,
   InfiniteCanvasDesktop,
   InfiniteCanvasPortal,
-} from "@infinite-canvas/react";
+} from "@hyphened/infinite-canvas";
 import { Button } from "ui";
 import { CommandPalette } from "../showcases/command-palette.tsx";
 

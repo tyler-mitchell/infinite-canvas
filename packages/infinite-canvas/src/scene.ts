@@ -1,5 +1,5 @@
 /**
- * `@infinite-canvas/react/scene` — the WebGPU scene surface.
+ * `@hyphened/infinite-canvas/scene` — the WebGPU scene surface.
  *
  * This entry, and only this entry, imports `three` and `@react-three/fiber`.
  * Importing it is how a consumer opts into a 3D engine; pass the surface to

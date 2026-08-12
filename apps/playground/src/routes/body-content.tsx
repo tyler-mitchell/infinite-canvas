@@ -4,7 +4,7 @@ import {
   createInfiniteCanvasWindow,
   defineInfiniteCanvasWindowRegistry,
   InfiniteCanvasDesktop,
-} from "@infinite-canvas/react";
+} from "@hyphened/infinite-canvas";
 import { useState } from "react";
 import { CommandPalette } from "../showcases/command-palette.tsx";
 import { exposeCanvasDevHandle } from "../showcases/dev-handle.ts";

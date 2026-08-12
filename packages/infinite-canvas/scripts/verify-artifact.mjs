@@ -1,7 +1,7 @@
 /**
  * Publish gate: assert the built artifact is actually consumable.
  *
- * The workspace resolves `@infinite-canvas/react` to `src/` via source-linked
+ * The workspace resolves `@hyphened/infinite-canvas` to `src/` via source-linked
  * exports, which hides every packaging bug from the dev loop and the test
  * suite. These invariants are only observable on `dist/`, so they are checked
  * here and wired into CI + `prepublishOnly`.

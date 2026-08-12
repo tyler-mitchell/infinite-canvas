@@ -9,6 +9,8 @@
     "prepare": "vp config"
   },
   "devDependencies": {
+    "@arethetypeswrong/core": "catalog:",
+    "publint": "catalog:",
     "vite-plus": "catalog:"
   },
   "engines": {

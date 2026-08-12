@@ -12,8 +12,8 @@ import {
   type InfiniteCanvasSceneLayer,
   type InfiniteCanvasSize,
   type InfiniteCanvasWindow,
-} from "@infinite-canvas/react";
-import { InfiniteCanvasWebGpuSurface } from "@infinite-canvas/react/scene";
+} from "@hyphened/infinite-canvas";
+import { InfiniteCanvasWebGpuSurface } from "@hyphened/infinite-canvas/scene";
 import { useMemo, useRef } from "react";
 import { CommandPalette } from "../showcases/command-palette.tsx";
 import { exposeCanvasDevHandle } from "../showcases/dev-handle.ts";

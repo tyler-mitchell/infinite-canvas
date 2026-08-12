@@ -2,7 +2,7 @@ import {
   getInfiniteCanvasOffscreenIndicators,
   useInfiniteCanvasActions,
   useInfiniteCanvasState,
-} from "@infinite-canvas/react";
+} from "@hyphened/infinite-canvas";
 
 /**
  * Arrows on the viewport edge pointing at everything you have panned away from.

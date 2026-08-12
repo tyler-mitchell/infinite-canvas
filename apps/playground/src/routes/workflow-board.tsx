@@ -17,8 +17,8 @@ import {
   type InfiniteCanvasState,
   type InfiniteCanvasWindow,
   type InfiniteCanvasWorldSegment,
-} from "@infinite-canvas/react";
-import { InfiniteCanvasWebGpuSurface } from "@infinite-canvas/react/scene";
+} from "@hyphened/infinite-canvas";
+import { InfiniteCanvasWebGpuSurface } from "@hyphened/infinite-canvas/scene";
 import { useMemo, useState } from "react";
 import { Button } from "ui";
 import { CommandPalette } from "../showcases/command-palette.tsx";
