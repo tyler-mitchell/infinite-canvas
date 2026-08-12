@@ -287,7 +287,8 @@ aligning three windows left means "share the leftmost one's left edge", not "go 
 the screen", which is `window.place`.
 
 - `getInfiniteCanvasAlignedRects` — rects + alignment → rects sharing an edge or centreline.
-- `getInfiniteCanvasDistributedRects` — rects + axis → rects with even **gaps**, holding the
+- `getInfiniteCanvasDistributedRects`
+- `getInfiniteCanvasSwappedRects` — two rects trade **centres**, each keeping its size; exchanging corners would make differently-sized windows swap lopsidedly — rects + axis → rects with even **gaps**, holding the
   outermost two still. Equal gaps rather than equal centres: with rects of differing size the
   two differ, and equal gaps is what every design tool means by "distribute".
 

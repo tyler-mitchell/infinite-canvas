@@ -1,6 +1,10 @@
 import { expect, test } from "vite-plus/test";
 
-import { getInfiniteCanvasAlignedRects, getInfiniteCanvasDistributedRects } from "./window-arrange";
+import {
+  getInfiniteCanvasAlignedRects,
+  getInfiniteCanvasDistributedRects,
+  getInfiniteCanvasSwappedRects,
+} from "./window-arrange";
 import type { InfiniteCanvasRect } from "./types";
 
 /**
@@ -166,4 +170,58 @@ test("vertical distribution works on the other axis and leaves x alone", () => {
 
   expect(arranged.map((entry) => entry.y)).toStrictEqual([0, 45, 90]);
   expect(arranged.map((entry) => entry.x)).toStrictEqual([5, 5, 5]);
+});
+
+/**
+ * Swap — two windows trade places, each keeping its own size.
+ *
+ * The verb every tiling window manager has and this one did not. `align` and `distribute` operate
+ * on a set; swap is the one arrange verb that is strictly binary, which is why its floor is an
+ * equality rather than a minimum.
+ */
+
+test("two windows exchange centres, and both keep their own size", () => {
+  const swapped = getInfiniteCanvasSwappedRects([
+    { height: 100, width: 200, x: 0, y: 0 },
+    { height: 300, width: 400, x: 1_000, y: 500 },
+  ]);
+
+  // Centres were (100, 50) and (1200, 650); each rect is now centred where the other was.
+  expect(swapped[0]).toEqual({ height: 100, width: 200, x: 1_100, y: 600 });
+  expect(swapped[1]).toEqual({ height: 300, width: 400, x: -100, y: -100 });
+});
+
+test("exchanging centres reduces to exchanging origins when the sizes match", () => {
+  // The property that makes the choice safe: for equal sizes it is exactly what swapping corners
+  // would have done, so the decision only shows up where corners would have looked wrong.
+  const a = { height: 100, width: 200, x: 0, y: 0 };
+  const b = { height: 100, width: 200, x: 700, y: 300 };
+  const swapped = getInfiniteCanvasSwappedRects([a, b]);
+
+  expect(swapped[0]).toEqual({ ...a, x: b.x, y: b.y });
+  expect(swapped[1]).toEqual({ ...b, x: a.x, y: a.y });
+});
+
+test("swapping is its own inverse", () => {
+  const rects = [
+    { height: 100, width: 200, x: 12, y: 34 },
+    { height: 250, width: 90, x: -400, y: 800 },
+  ];
+
+  expect(getInfiniteCanvasSwappedRects(getInfiniteCanvasSwappedRects(rects))).toEqual(rects);
+});
+
+test("a swap needs exactly two rects, not at least two", () => {
+  // Three windows have no unambiguous pairing, so the identity return keeps the command
+  // unavailable rather than picking a pair on the user's behalf.
+  const three = [
+    { height: 10, width: 10, x: 0, y: 0 },
+    { height: 10, width: 10, x: 50, y: 0 },
+    { height: 10, width: 10, x: 100, y: 0 },
+  ];
+  const one = [three[0]!];
+
+  expect(getInfiniteCanvasSwappedRects(three)).toBe(three);
+  expect(getInfiniteCanvasSwappedRects(one)).toBe(one);
+  expect(getInfiniteCanvasSwappedRects([])).toHaveLength(0);
 });

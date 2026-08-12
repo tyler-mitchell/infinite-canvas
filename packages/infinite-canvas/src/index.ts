@@ -195,7 +195,11 @@ export {
 } from "./window-focus";
 export { getInfiniteCanvasWindowPlacementRect } from "./window-placement";
 export type { InfiniteCanvasWindowPlacementRegion } from "./window-placement";
-export { getInfiniteCanvasAlignedRects, getInfiniteCanvasDistributedRects } from "./window-arrange";
+export {
+  getInfiniteCanvasAlignedRects,
+  getInfiniteCanvasDistributedRects,
+  getInfiniteCanvasSwappedRects,
+} from "./window-arrange";
 export {
   DEFAULT_INFINITE_CANVAS_DETAIL_POLICY,
   getInfiniteCanvasWindowDetailLevel,

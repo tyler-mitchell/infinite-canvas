@@ -870,6 +870,8 @@ type InfiniteCanvasCommand =
       alignment: InfiniteCanvasAlignment;
       type: "window.align";
     }>
+  /** Exactly two selected windows trade centres, each keeping its own size. */
+  | Readonly<{ type: "window.swap" }>
   | Readonly<{
       /**
        * Even out the gaps between the selected floating windows along one axis, holding the
@@ -914,6 +916,7 @@ type InfiniteCanvasCommandId =
   | "window.align.vertical-center"
   | "window.distribute.horizontal"
   | "window.distribute.vertical"
+  | "window.swap"
   | "history.undo"
   | "selection.clear"
   | "selection.selectAllVisible"

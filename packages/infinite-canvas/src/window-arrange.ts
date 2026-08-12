@@ -1,4 +1,4 @@
-import type { InfiniteCanvasRect } from "./types";
+import type { InfiniteCanvasPoint, InfiniteCanvasRect } from "./types";
 
 /**
  * Aligning and distributing a set of rects — the arrange verbs a window manager needs and this
@@ -58,6 +58,9 @@ const MINIMUM_ALIGN_COUNT = 2;
  * two rects still and respaces what lies between them, so with two there is nothing between.
  */
 const MINIMUM_DISTRIBUTE_COUNT = 3;
+
+/** A swap is between two things. Three windows have no unambiguous pairing. */
+const SWAP_COUNT = 2;
 
 function getRectsBounds(rects: readonly InfiniteCanvasRect[]): InfiniteCanvasRect | null {
   const [first] = rects;
@@ -200,5 +203,46 @@ function getInfiniteCanvasDistributedRects(
   return arranged;
 }
 
-export { getInfiniteCanvasAlignedRects, getInfiniteCanvasDistributedRects };
+/**
+ * Exactly two rects trade places, each keeping its own size.
+ *
+ * **Centres are exchanged, not origins**, and that choice is the whole design. Swapping origins
+ * is what a tiling window manager does, because there the two panes occupy identical slots and
+ * the sizes come from the tree. Here windows float at whatever size they were given, so
+ * exchanging top-left corners makes a large and a small window trade places *lopsidedly* — the
+ * small one lands against the large one's corner and appears to have moved somewhere nobody
+ * pointed at. Exchanging centres is what "these two swapped" looks like when the sizes differ,
+ * and it reduces to exchanging origins exactly when they do not.
+ *
+ * Nothing is resized, so no `minSize` clamping is needed: a translation cannot violate it.
+ *
+ * Returns the input array when the count is not exactly two, matching `getInfiniteCanvasAlignedRects`
+ * — the caller compares identity to decide whether the command is available at all.
+ */
+function getInfiniteCanvasSwappedRects(
+  rects: readonly InfiniteCanvasRect[],
+): readonly InfiniteCanvasRect[] {
+  if (rects.length !== SWAP_COUNT) {
+    return rects;
+  }
+
+  const [first, second] = rects as readonly [InfiniteCanvasRect, InfiniteCanvasRect];
+  const toCentre = (rect: InfiniteCanvasRect) => ({
+    x: rect.x + rect.width / 2,
+    y: rect.y + rect.height / 2,
+  });
+  const place = (rect: InfiniteCanvasRect, centre: InfiniteCanvasPoint): InfiniteCanvasRect => ({
+    ...rect,
+    x: centre.x - rect.width / 2,
+    y: centre.y - rect.height / 2,
+  });
+
+  return [place(first, toCentre(second)), place(second, toCentre(first))];
+}
+
+export {
+  getInfiniteCanvasAlignedRects,
+  getInfiniteCanvasDistributedRects,
+  getInfiniteCanvasSwappedRects,
+};
 export type { InfiniteCanvasAlignment, InfiniteCanvasDistribution };

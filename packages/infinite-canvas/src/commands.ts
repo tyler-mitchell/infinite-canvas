@@ -36,7 +36,11 @@ import {
   getInfiniteCanvasDirectionalFocusTarget,
   isInfiniteCanvasWindowFullyVisible,
 } from "./window-focus";
-import { getInfiniteCanvasAlignedRects, getInfiniteCanvasDistributedRects } from "./window-arrange";
+import {
+  getInfiniteCanvasAlignedRects,
+  getInfiniteCanvasDistributedRects,
+  getInfiniteCanvasSwappedRects,
+} from "./window-arrange";
 import { getInfiniteCanvasWindowPlacementRect } from "./window-placement";
 import type {
   InfiniteCanvasCameraNavigationBehavior,
@@ -293,6 +297,14 @@ const DEFAULT_INFINITE_CANVAS_COMMAND_DESCRIPTORS = [
     hotkeys: [],
     id: "window.align.vertical-center",
     label: "Align Vertical Centers",
+  },
+  {
+    command: { type: "window.swap" },
+    description:
+      "Swap the two selected windows, each keeping its own size. Centres are exchanged rather than corners, so windows of different sizes visibly trade places.",
+    hotkeys: [],
+    id: "window.swap",
+    label: "Swap Windows",
   },
   {
     command: { distribution: "horizontal", type: "window.distribute" },
@@ -622,14 +634,19 @@ function getArrangeableWindows<Kind extends string>(state: InfiniteCanvasState<K
  */
 function arrangeSelectedWindows<Kind extends string>(
   state: InfiniteCanvasState<Kind>,
-  command: Extract<InfiniteCanvasCommand, { type: "window.align" | "window.distribute" }>,
+  command: Extract<
+    InfiniteCanvasCommand,
+    { type: "window.align" | "window.distribute" | "window.swap" }
+  >,
 ) {
   const targets = getArrangeableWindows(state);
   const rects = targets.map((window) => window.rect);
   const arranged =
     command.type === "window.align"
       ? getInfiniteCanvasAlignedRects(rects, command.alignment)
-      : getInfiniteCanvasDistributedRects(rects, command.distribution);
+      : command.type === "window.swap"
+        ? getInfiniteCanvasSwappedRects(rects)
+        : getInfiniteCanvasDistributedRects(rects, command.distribution);
   const rectByWindowId = new Map(
     targets.map((window, index) => [window.id, arranged[index] ?? window.rect]),
   );
@@ -686,12 +703,15 @@ function isInfiniteCanvasCommandEnabled<Kind extends string>(
     // module is the one that knows which — asking it is how the enabled state and the result
     // stay in agreement rather than drifting into two definitions of "enough windows".
     case "window.align":
-    case "window.distribute": {
+    case "window.distribute":
+    case "window.swap": {
       const rects = getArrangeableWindows(state).map((window) => window.rect);
       const arranged =
         command.type === "window.align"
           ? getInfiniteCanvasAlignedRects(rects, command.alignment)
-          : getInfiniteCanvasDistributedRects(rects, command.distribution);
+          : command.type === "window.swap"
+            ? getInfiniteCanvasSwappedRects(rects)
+            : getInfiniteCanvasDistributedRects(rects, command.distribution);
 
       return arranged !== rects;
     }
@@ -811,6 +831,7 @@ function getInfiniteCanvasCommandGroup(command: InfiniteCanvasCommand): Infinite
       return "selection";
     case "window.align":
     case "window.distribute":
+    case "window.swap":
     case "window.focusDirection":
     case "window.nudge":
     case "window.place":
@@ -903,6 +924,7 @@ function executeInfiniteCanvasCommand<Kind extends string>(
       return focusWindowInDirection(state, command.direction, zoomPolicy);
     case "window.align":
     case "window.distribute":
+    case "window.swap":
       return arrangeSelectedWindows(state, command);
     case "window.nudge":
       return nudgeSelectedWindows(state, command);
