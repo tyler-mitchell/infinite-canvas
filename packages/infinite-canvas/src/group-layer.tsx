@@ -10,6 +10,7 @@ import {
 
 import { INFINITE_CANVAS_SLOTS, getInfiniteCanvasWindowFrameElementId } from "./data-attributes";
 import { getEventViewportPoint } from "./frame-slots";
+import { getInfiniteCanvasWindowDetailLevel, type InfiniteCanvasDetailLevel } from "./detail-level";
 import { isWorldRectCulled, projectWorldRectToScreen } from "./geometry";
 import {
   DEFAULT_INFINITE_CANVAS_GROUP_METRICS,
@@ -379,6 +380,29 @@ function InfiniteCanvasGroupShell({
     zIndex: group.zIndex,
   };
 
+  /**
+   * The shell's handles simplify at far zoom, exactly as a window frame's do.
+   *
+   * These are the same defect one layer up: handle extent is `resizeHandleSize / scale`, a
+   * constant *screen* size, so it does not shrink with the group. Zoomed out, each of the eight
+   * is larger than the shell it surrounds and they close over the whole group — including the
+   * gutters between panes, which is the seam drag they already blanketed once before.
+   *
+   * Only the handles. The tab strips and accordion headers below stay at every zoom, and the
+   * difference is not cosmetic: they are sized in world units so they shrink with the group
+   * rather than swamping it, and they are focusable controls carrying roving `tabIndex` and the
+   * only means of switching a tab or a fold. Dropping those would be an accessibility
+   * regression wearing a performance argument.
+   */
+  const handleDetailRef = useRef<InfiniteCanvasDetailLevel>("full");
+  const handleDetail = getInfiniteCanvasWindowDetailLevel(
+    group.rect,
+    camera.zoom,
+    handleDetailRef.current,
+  );
+
+  handleDetailRef.current = handleDetail;
+
   return (
     <div
       aria-label={group.title}
@@ -388,7 +412,7 @@ function InfiniteCanvasGroupShell({
       role="group"
       style={shellStyle}
     >
-      {SHELL_RESIZE_HANDLE_DESCRIPTORS.map((descriptor) => (
+      {(handleDetail === "full" ? SHELL_RESIZE_HANDLE_DESCRIPTORS : []).map((descriptor) => (
         <div
           data-handle={descriptor.handle}
           data-infinite-canvas-control="true"

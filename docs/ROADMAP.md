@@ -508,6 +508,15 @@ sharpest near-term trap
   content and only they can say what its summary is, while the chrome is the framework's own,
   and a window kind cannot meaningfully opt into having illegible buttons.
 
+  The **group shell's** eight handles simplify on the same band, for the same reason — their
+  extent is `resizeHandleSize / scale`, so zoomed out each one is larger than the shell it
+  surrounds and together they close over the group and the gutters between its panes.
+
+  Tab strips and accordion headers deliberately **stay at every zoom**. They are sized in world
+  units so they shrink with the group rather than swamping it, and they are focusable controls
+  carrying roving `tabIndex` and the only means of switching a tab or a fold — dropping them
+  would be an accessibility regression wearing a performance argument.
+
   **Still open: the title and the four control buttons**, which at that zoom are unreadable and
   under three pixels across. Both live in the public frame-slot contract behind a consumer
   `render` override, so simplifying them means threading the detail level through
