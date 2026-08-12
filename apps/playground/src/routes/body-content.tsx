@@ -8,6 +8,7 @@ import {
 import { useState } from "react";
 import { CommandPalette } from "../showcases/command-palette.tsx";
 import { exposeCanvasDevHandle } from "../showcases/dev-handle.ts";
+import { exposeCanvasVerification } from "../showcases/verify.ts";
 
 /**
  * Real interactive content inside window bodies — P6's exit criterion, and the surface FR-9's
@@ -205,6 +206,9 @@ function BodyContentShowcase() {
         initialState={initialState}
         renderOverlay={(context) => {
           exposeCanvasDevHandle(context);
+          // `window.__canvasVerify.all()` in the console. This route is where the focus checks
+          // have something to check — it is the only one with tabbable controls in a body.
+          exposeCanvasVerification();
 
           return <CommandPalette />;
         }}
