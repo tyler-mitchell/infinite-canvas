@@ -854,6 +854,8 @@ name.
 - `InfiniteCanvasSpatialTargetResolver`
 - `InfiniteCanvasSpatialTargetResolverContext`
 - `InfiniteCanvasSpatialTargetResolverPhase`
+- `InfiniteCanvasSlotElementProps`
+- `InfiniteCanvasSlotRender`
 - `InfiniteCanvasSpatialWindowArea`
 - `InfiniteCanvasStackBands`
 - `InfiniteCanvasState`
@@ -869,6 +871,35 @@ name.
 - `InfiniteCanvasWindowFrameHeaderProps`
 - `InfiniteCanvasWindowFrameRenderContext`
 - `InfiniteCanvasWindowFrameSlots`
+
+</details>
+
+### Slots are headless, not just unstyled
+
+Every frame slot takes **the element's own attributes** — `id`, `role`, `tabIndex`, every `aria-*`,
+every DOM event, `ref` — plus **`render`**, which replaces the element entirely:
+
+```tsx
+renderFrame: ({ frame: { Header, Surface } }) => (
+  <Surface>
+    <Header render={(props, { children }) => <nav {...props}>{children}</nav>} />
+  </Surface>
+);
+```
+
+The framework keeps its behaviour and gives up its tag. `ref` needs no `forwardRef` because React
+19 passes it as an ordinary prop.
+
+**Merging is per-kind, not last-wins**, and the rules are Base UI's `mergeProps` semantics:
+
+| Prop kind       | Rule                                                                                                                                                                                                                                                                                                     |
+| --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Event handlers  | **Both run, consumer first.** Passing `onPointerDown` to a header cannot silently disable window dragging. To decline the framework's behaviour, call `event.preventInfiniteCanvasHandler()` — deliberately not `preventDefault`, which means "skip the browser's default" and is a different intention. |
+| `className`     | Concatenated, consumer first.                                                                                                                                                                                                                                                                            |
+| `style`         | Shallow-merged, consumer last — overriding one declaration keeps the geometry the framework computed for the rest.                                                                                                                                                                                       |
+| `data-slot`     | **Framework-owned.** It is the styling contract's only anchor; a consumer who could set it would silently detach the stylesheet while everything still looked wired.                                                                                                                                     |
+| Everything else | Consumer-owned.                                                                                                                                                                                                                                                                                          |
+
 - `InfiniteCanvasWindowFrameSurfaceProps`
 - `InfiniteCanvasWindowFrameTitleProps`
 - `InfiniteCanvasWindowMode`

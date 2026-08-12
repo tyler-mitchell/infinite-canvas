@@ -410,6 +410,8 @@ export type {
   InfiniteCanvasWindowFrameControlsProps,
   InfiniteCanvasWindowFrameHeaderProps,
   InfiniteCanvasWindowFrameRenderContext,
+  InfiniteCanvasSlotElementProps,
+  InfiniteCanvasSlotRender,
   InfiniteCanvasWindowFrameSlots,
   InfiniteCanvasWindowFrameSurfaceProps,
   InfiniteCanvasWindowFrameTitleProps,
