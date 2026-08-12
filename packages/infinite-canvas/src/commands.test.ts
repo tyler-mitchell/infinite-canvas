@@ -2,8 +2,10 @@ import { expect, test } from "vite-plus/test";
 
 import {
   DEFAULT_INFINITE_CANVAS_COMMAND_DESCRIPTORS,
+  executeInfiniteCanvasCommand,
   getAvailableInfiniteCanvasContextualCommands,
   getInfiniteCanvasContextualCommands,
+  isInfiniteCanvasCommandEnabled,
 } from "./commands";
 import type { InfiniteCanvasState } from "./types";
 
@@ -175,5 +177,71 @@ test("every declared command reaches the palette, with a group and a unique id",
     expect(command?.group.length ?? 0).toBeGreaterThan(0);
     expect(descriptor.label.length).toBeGreaterThan(0);
     expect(descriptor.description.length).toBeGreaterThan(0);
+  }
+});
+
+/**
+ * Lifecycle verbs, executed rather than merely declared.
+ *
+ * `command-coverage.test.ts` asserts these exist in the registry; that is a different claim
+ * from their doing anything. The toggles are the interesting half — the maximize/restore
+ * rule used to live inside the chrome button in `frame-slots.tsx`, where no consumer
+ * replacing the header could reuse it.
+ */
+
+test("closing and minimizing the active window act on it, and nothing else", () => {
+  const closed = executeInfiniteCanvasCommand(commandState, { type: "activeWindow.close" });
+
+  expect(closed.windows).toEqual([]);
+
+  const minimized = executeInfiniteCanvasCommand(commandState, { type: "activeWindow.minimize" });
+
+  expect(minimized.windows[0]?.mode).toBe("minimized");
+  // Minimizing hands the active id to the next visible window, and there is none here. That
+  // is precisely why no `activeWindow.restore` exists: it could never be enabled.
+  expect(minimized.activeWindowId).toBeNull();
+});
+
+test("maximize toggles back to the size the window had before", () => {
+  const originalRect = commandState.windows[0]!.rect;
+  const maximized = executeInfiniteCanvasCommand(commandState, {
+    type: "activeWindow.toggleMaximized",
+  });
+
+  expect(maximized.windows[0]?.mode).toBe("maximized");
+  expect(maximized.windows[0]?.rect).not.toEqual(originalRect);
+
+  const restored = executeInfiniteCanvasCommand(maximized, {
+    type: "activeWindow.toggleMaximized",
+  });
+
+  // The rule the chrome button encoded inline: maximized restores, anything else maximizes.
+  expect(restored.windows[0]?.mode).toBe("normal");
+  expect(restored.windows[0]?.rect).toEqual(originalRect);
+});
+
+test("pinning toggles both ways", () => {
+  const pinned = executeInfiniteCanvasCommand(commandState, {
+    type: "activeWindow.togglePinned",
+  });
+
+  expect(pinned.windows[0]?.isPinned).toBe(true);
+  expect(
+    executeInfiniteCanvasCommand(pinned, { type: "activeWindow.togglePinned" }).windows[0]
+      ?.isPinned,
+  ).toBe(false);
+});
+
+test("a lifecycle verb is offered only when a window is active", () => {
+  const empty = { ...commandState, activeWindowId: null };
+
+  for (const type of [
+    "activeWindow.close",
+    "activeWindow.minimize",
+    "activeWindow.toggleMaximized",
+    "activeWindow.togglePinned",
+  ] as const) {
+    expect(isInfiniteCanvasCommandEnabled(commandState, { type })).toBe(true);
+    expect(isInfiniteCanvasCommandEnabled(empty, { type })).toBe(false);
   }
 });

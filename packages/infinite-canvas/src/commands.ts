@@ -17,6 +17,7 @@ import {
 } from "./group-tree";
 import {
   applyInfiniteCanvasDockPreview,
+  detachInfiniteCanvasWindowFromGroups,
   equalizeInfiniteCanvasGroupChildrenInState,
   findInfiniteCanvasGroup,
   getInfiniteCanvasWindowGroup,
@@ -42,7 +43,16 @@ import {
   isWindowSelected,
   selectAllVisibleWindows,
 } from "./selection";
-import { findWindow, focusWindow, updateWindowRect } from "./stacking";
+import {
+  closeWindow,
+  findWindow,
+  focusWindow,
+  maximizeWindow,
+  minimizeWindow,
+  restoreWindow,
+  toggleWindowPinned,
+  updateWindowRect,
+} from "./stacking";
 import {
   getInfiniteCanvasDirectionalFocusTarget,
   isInfiniteCanvasWindowFullyVisible,
@@ -62,6 +72,7 @@ import type {
   InfiniteCanvasDirection,
   InfiniteCanvasHotkeyBinding,
   InfiniteCanvasState,
+  InfiniteCanvasWindowMode,
   InfiniteCanvasZoomPolicy,
 } from "./types";
 
@@ -349,6 +360,56 @@ const DEFAULT_INFINITE_CANVAS_COMMAND_DESCRIPTORS = [
     hotkeys: [],
     id: "window.undock",
     label: "Undock Window",
+  },
+  // Window lifecycle. Until 2026-08-12 these lived only as four `onClick` handlers on the
+  // chrome buttons in `frame-slots.tsx`, so they were absent from the one registry that is
+  // supposed to be the whole vocabulary. The buttons are real `<button>`s with labels, so this
+  // was never a keyboard-reachability failure — it was an authority failure, with three
+  // consequences: `getInfiniteCanvasHotkeyBindings` derives strictly from descriptors, so a
+  // consumer could not bind a chord to "close" even if they wanted one; no palette could list
+  // them; and a consumer who replaces the header slot — the entire point of the slot API — lost
+  // the capability unless they reached past the commands to the raw actions facade.
+  //
+  // `activeWindow.*` rather than `window.*` for two reasons. `window.close` and
+  // `window.togglePinned` are already *action* types, and actions and commands are otherwise
+  // disjoint sets; two switches over identical strings meaning different things is the kind of
+  // trap that costs a later reader an hour. And the namespace states the target, which the
+  // existing `window.*` family leaves ambiguous — `window.align` acts on the selection while
+  // `window.focusDirection` acts on the active window, and nothing in either name says so.
+  //
+  // These act on the ACTIVE window, not the selection, because the actions beneath them take a
+  // single id: closing a selection of five would be five dispatches and five undo entries.
+  //
+  // No default chords. `Mod+W` is the browser's tab-close and is not page-cancellable, which is
+  // the exact family the `Mod+0` post-mortem below is about.
+  {
+    command: { type: "activeWindow.close" },
+    description: "Close the active window.",
+    hotkeys: [],
+    id: "activeWindow.close",
+    label: "Close Window",
+  },
+  {
+    command: { type: "activeWindow.minimize" },
+    description: "Collapse the active window into the dock.",
+    hotkeys: [],
+    id: "activeWindow.minimize",
+    label: "Minimize Window",
+  },
+  {
+    command: { type: "activeWindow.toggleMaximized" },
+    description:
+      "Maximize the active window to fill the viewport, or restore it to the size it had before.",
+    hotkeys: [],
+    id: "activeWindow.toggleMaximized",
+    label: "Maximize / Restore Window",
+  },
+  {
+    command: { type: "activeWindow.togglePinned" },
+    description: "Pin the active window so panning and fit-all leave it in place, or unpin it.",
+    hotkeys: [],
+    id: "activeWindow.togglePinned",
+    label: "Pin / Unpin Window",
   },
   // Shape verbs. `setInfiniteCanvasGroupLayoutMode` was reachable only through the actions
   // facade and `setInfiniteCanvasGroupAxis` was reachable by nothing at all — dead code since
@@ -766,6 +827,38 @@ function resolveInfiniteCanvasDirectionalDock<Kind extends string>(
       });
 }
 
+/**
+ * The lifecycle verbs, in one place.
+ *
+ * `toggleMaximized` is the reason this exists rather than four inline cases: the rule that a
+ * maximized window restores and any other window maximizes was written inside the chrome
+ * button in `frame-slots.tsx`, so every consumer replacing the header had to rediscover it.
+ * It lives here now, and the button can read it back out.
+ */
+function applyInfiniteCanvasWindowLifecycle<Kind extends string>(
+  state: InfiniteCanvasState<Kind>,
+  type:
+    | "activeWindow.close"
+    | "activeWindow.minimize"
+    | "activeWindow.toggleMaximized"
+    | "activeWindow.togglePinned",
+  windowId: string,
+  mode: InfiniteCanvasWindowMode,
+): InfiniteCanvasState<Kind> {
+  switch (type) {
+    case "activeWindow.close":
+      return detachInfiniteCanvasWindowFromGroups(closeWindow(state, windowId), windowId);
+    case "activeWindow.minimize":
+      return detachInfiniteCanvasWindowFromGroups(minimizeWindow(state, windowId), windowId);
+    case "activeWindow.toggleMaximized":
+      return mode === "maximized"
+        ? restoreWindow(state, windowId)
+        : maximizeWindow(detachInfiniteCanvasWindowFromGroups(state, windowId), windowId);
+    case "activeWindow.togglePinned":
+      return toggleWindowPinned(state, windowId);
+  }
+}
+
 function equalizeActiveInfiniteCanvasGroupContainer<Kind extends string>(
   state: InfiniteCanvasState<Kind>,
 ): InfiniteCanvasState<Kind> {
@@ -860,6 +953,16 @@ function isInfiniteCanvasCommandEnabled<Kind extends string>(
       return (
         state.activeWindowId !== null && isInfiniteCanvasWindowGrouped(state, state.activeWindowId)
       );
+    // A lifecycle verb needs something to act on and nothing more: every one of them is
+    // meaningful in any mode the active window can actually be in. `restore` is deliberately
+    // absent from this family — minimizing hands `activeWindowId` to the next visible window,
+    // so a restore keyed to the active window could never be enabled. Bringing a minimized
+    // window back is a "which one?" choice, and belongs to the presence surface.
+    case "activeWindow.close":
+    case "activeWindow.minimize":
+    case "activeWindow.toggleMaximized":
+    case "activeWindow.togglePinned":
+      return state.activeWindowId !== null && findWindow(state, state.activeWindowId) !== null;
     // Offered only where it would change something, the same rule equalize follows.
     case "group.setLayout": {
       const active = getActiveInfiniteCanvasGroupContainer(state);
@@ -1041,6 +1144,10 @@ function getInfiniteCanvasCommandGroup(command: InfiniteCanvasCommand): Infinite
       return "view";
     case "view.fitSelection":
       return "selection";
+    case "activeWindow.close":
+    case "activeWindow.minimize":
+    case "activeWindow.toggleMaximized":
+    case "activeWindow.togglePinned":
     case "group.equalizeChildren":
     case "group.flipAxis":
     case "group.setLayout":
@@ -1139,6 +1246,22 @@ function executeInfiniteCanvasCommand<Kind extends string>(
       return undoInfiniteCanvasHistory(state);
     case "window.focusDirection":
       return focusWindowInDirection(state, command.direction, zoomPolicy);
+    // The reducer's lifecycle cases detach the window from its group before acting — a pane
+    // that closes or maximizes cannot keep occupying a layout slot. Calling the same helpers
+    // in the same order is what keeps that true here rather than only there.
+    case "activeWindow.close":
+    case "activeWindow.minimize":
+    case "activeWindow.toggleMaximized":
+    case "activeWindow.togglePinned": {
+      const windowId = state.activeWindowId;
+      const active = windowId === null ? null : findWindow(state, windowId);
+
+      if (windowId === null || active === null) {
+        return state;
+      }
+
+      return applyInfiniteCanvasWindowLifecycle(state, command.type, windowId, active.mode);
+    }
     case "group.equalizeChildren":
       return equalizeActiveInfiniteCanvasGroupContainer(state);
     case "group.setLayout": {

@@ -872,6 +872,10 @@ type InfiniteCanvasCommand =
     }>
   /** Exactly two selected windows trade centres, each keeping its own size. */
   | Readonly<{ type: "group.equalizeChildren" }>
+  | Readonly<{ type: "activeWindow.close" }>
+  | Readonly<{ type: "activeWindow.minimize" }>
+  | Readonly<{ type: "activeWindow.toggleMaximized" }>
+  | Readonly<{ type: "activeWindow.togglePinned" }>
   | Readonly<{ type: "group.flipAxis" }>
   | Readonly<{ layout: InfiniteCanvasGroupLayoutMode; type: "group.setLayout" }>
   | Readonly<{ direction: InfiniteCanvasDirection; type: "window.dockDirection" }>
@@ -921,6 +925,10 @@ type InfiniteCanvasCommandId =
   | "window.align.vertical-center"
   | "window.distribute.horizontal"
   | "window.distribute.vertical"
+  | "activeWindow.close"
+  | "activeWindow.minimize"
+  | "activeWindow.toggleMaximized"
+  | "activeWindow.togglePinned"
   | "group.equalizeChildren"
   | "group.flipAxis"
   | "group.setLayout.accordion"
