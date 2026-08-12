@@ -109,6 +109,14 @@ hysteresis unimplemented` until 2026-07-08, long after it shipped.
   falls below the structural floor, and the drag is one undo entry. `built`
   (2026-07-08. `groupResize` steps `group.rect`; `getInfiniteCanvasGroupMinimumSize`
   is the floor, measured with the layer's own metrics and captured at drag start.)
+- **SPLIT-006** — Flip a container's axis: a row of panes becomes a column and back,
+  without moving or resizing the shell. `covered` (2026-08-12. `group.flipAxis`.
+  `setInfiniteCanvasGroupAxis` had existed since the group model shipped and was reachable
+  by **nothing** — no action variant, no store method, no command — so a user could dock
+  windows into a split and never change which way it ran. Now wired end to end: a
+  `group.setAxis` action, a `setGroupAxis` facade method, and a command that computes the
+  opposite axis. Offered only when the container is not a tab strip, whose layout ignores
+  axis entirely.)
 - **SPLIT-005** — Equalize returns a container's panes to identical weights, undoing
   accumulated seam drags. `covered` (2026-08-12. `equalizeInfiniteCanvasGroupChildren`,
   reached by the `group.equalizeChildren` command, which targets the active window's
@@ -127,6 +135,15 @@ hysteresis unimplemented` until 2026-07-08, long after it shipped.
   Unasserted.
 - **TAB-002** — Tabs↔accordion conversion preserves membership. `covered`
   (`setInfiniteCanvasGroupLayoutMode` changes `layout` and touches no child.)
+- **TAB-003** — Convert a container's layout from the product, not just the API. `covered`
+  (2026-08-12. TAB-002 was covered at the primitive while no user could trigger it:
+  `setInfiniteCanvasGroupLayoutMode` was dispatched only from the actions facade, so
+  turning a split into tabs was impossible for anyone but a consumer calling the store
+  directly. `group.setLayout` exposes all three modes, each offered only when the container
+  is not already in that mode. Converting split→tabs relies on normalization filling in a
+  live `activeChildId` — a split's is always null — which is exactly why that guarantee
+  exists; a test pins it, because otherwise the conversion yields a tab group with no
+  visible pane.)
 - **ACC-001** — Keyboard navigation follows accordion orientation. `covered` (2026-07-08).
   Each accordion container is one roving tab stop, and its arrows follow
   `container.axis`: a vertically stacked accordion answers Up/Down, a horizontal one

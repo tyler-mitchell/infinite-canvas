@@ -22,6 +22,8 @@ import {
   getInfiniteCanvasWindowGroup,
   isInfiniteCanvasWindowGrouped,
   resolveInfiniteCanvasDockPreviewForTarget,
+  setInfiniteCanvasGroupAxisInState,
+  setInfiniteCanvasGroupLayoutModeInState,
   setInfiniteCanvasGroupRect,
   undockInfiniteCanvasWindowFromGroup,
 } from "./group-state";
@@ -347,6 +349,39 @@ const DEFAULT_INFINITE_CANVAS_COMMAND_DESCRIPTORS = [
     hotkeys: [],
     id: "window.undock",
     label: "Undock Window",
+  },
+  // Shape verbs. `setInfiniteCanvasGroupLayoutMode` was reachable only through the actions
+  // facade and `setInfiniteCanvasGroupAxis` was reachable by nothing at all — dead code since
+  // it was written. A user could dock windows into a split and then never change what that
+  // split was, which is half of what a tiling layout is for.
+  {
+    command: { layout: "split", type: "group.setLayout" },
+    description: "Show the active window's panes side by side, sharing the container.",
+    hotkeys: [],
+    id: "group.setLayout.split",
+    label: "Layout: Split",
+  },
+  {
+    command: { layout: "tabs", type: "group.setLayout" },
+    description: "Collapse the active window's panes into a tab strip, one visible at a time.",
+    hotkeys: [],
+    id: "group.setLayout.tabs",
+    label: "Layout: Tabs",
+  },
+  {
+    command: { layout: "accordion", type: "group.setLayout" },
+    description: "Stack the active window's panes as folds, one expanded at a time.",
+    hotkeys: [],
+    id: "group.setLayout.accordion",
+    label: "Layout: Accordion",
+  },
+  {
+    command: { type: "group.flipAxis" },
+    description:
+      "Turn the active window's panes through ninety degrees — a row becomes a column, and back.",
+    hotkeys: [],
+    id: "group.flipAxis",
+    label: "Flip Pane Orientation",
   },
   {
     command: { type: "group.equalizeChildren" },
@@ -825,6 +860,23 @@ function isInfiniteCanvasCommandEnabled<Kind extends string>(
       return (
         state.activeWindowId !== null && isInfiniteCanvasWindowGrouped(state, state.activeWindowId)
       );
+    // Offered only where it would change something, the same rule equalize follows.
+    case "group.setLayout": {
+      const active = getActiveInfiniteCanvasGroupContainer(state);
+
+      return active !== null && active.container.layout !== command.layout;
+    }
+    // Axis partitions a split and stacks an accordion; a tab strip always lays out
+    // horizontally whatever its container's axis says, so flipping one is invisible.
+    case "group.flipAxis": {
+      const active = getActiveInfiniteCanvasGroupContainer(state);
+
+      return (
+        active !== null &&
+        active.container.children.length > 1 &&
+        active.container.layout !== "tabs"
+      );
+    }
     case "group.equalizeChildren": {
       const active = getActiveInfiniteCanvasGroupContainer(state);
 
@@ -990,6 +1042,8 @@ function getInfiniteCanvasCommandGroup(command: InfiniteCanvasCommand): Infinite
     case "view.fitSelection":
       return "selection";
     case "group.equalizeChildren":
+    case "group.flipAxis":
+    case "group.setLayout":
     case "window.dockDirection":
     case "window.undock":
     case "window.align":
@@ -1087,6 +1141,28 @@ function executeInfiniteCanvasCommand<Kind extends string>(
       return focusWindowInDirection(state, command.direction, zoomPolicy);
     case "group.equalizeChildren":
       return equalizeActiveInfiniteCanvasGroupContainer(state);
+    case "group.setLayout": {
+      const active = getActiveInfiniteCanvasGroupContainer(state);
+
+      return active === null
+        ? state
+        : setInfiniteCanvasGroupLayoutModeInState(state, {
+            containerId: active.container.id,
+            groupId: active.groupId,
+            layout: command.layout,
+          });
+    }
+    case "group.flipAxis": {
+      const active = getActiveInfiniteCanvasGroupContainer(state);
+
+      return active === null
+        ? state
+        : setInfiniteCanvasGroupAxisInState(state, {
+            axis: active.container.axis === "horizontal" ? "vertical" : "horizontal",
+            containerId: active.container.id,
+            groupId: active.groupId,
+          });
+    }
     case "window.dockDirection": {
       const preview = resolveInfiniteCanvasDirectionalDock(state, command.direction);
 

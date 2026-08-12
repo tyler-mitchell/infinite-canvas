@@ -872,6 +872,8 @@ type InfiniteCanvasCommand =
     }>
   /** Exactly two selected windows trade centres, each keeping its own size. */
   | Readonly<{ type: "group.equalizeChildren" }>
+  | Readonly<{ type: "group.flipAxis" }>
+  | Readonly<{ layout: InfiniteCanvasGroupLayoutMode; type: "group.setLayout" }>
   | Readonly<{ direction: InfiniteCanvasDirection; type: "window.dockDirection" }>
   | Readonly<{ type: "window.undock" }>
   | Readonly<{ type: "window.swap" }>
@@ -920,6 +922,10 @@ type InfiniteCanvasCommandId =
   | "window.distribute.horizontal"
   | "window.distribute.vertical"
   | "group.equalizeChildren"
+  | "group.flipAxis"
+  | "group.setLayout.accordion"
+  | "group.setLayout.split"
+  | "group.setLayout.tabs"
   | "window.dock.down"
   | "window.dock.left"
   | "window.dock.right"
@@ -1031,6 +1037,12 @@ type InfiniteCanvasAction<Kind extends string = string> =
       weights: Readonly<Record<string, number>>;
     }>
   | Readonly<{ containerId: string; groupId: string; type: "group.equalizeChildren" }>
+  | Readonly<{
+      axis: InfiniteCanvasGroupAxis;
+      containerId: string;
+      groupId: string;
+      type: "group.setAxis";
+    }>
   | Readonly<{ childId: string; groupId: string; toIndex: number; type: "group.reorderChild" }>
   | Readonly<{
       afterChildId: string;
@@ -1163,6 +1175,13 @@ type InfiniteCanvasCommands<Kind extends string = string> = Readonly<{
       containerId: string;
       groupId: string;
       weights: Readonly<Record<string, number>>;
+    }>,
+  ) => void;
+  setGroupAxis: (
+    input: Readonly<{
+      axis: InfiniteCanvasGroupAxis;
+      containerId: string;
+      groupId: string;
     }>,
   ) => void;
   setGroupLayoutMode: (

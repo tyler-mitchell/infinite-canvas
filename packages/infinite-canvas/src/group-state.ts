@@ -13,9 +13,11 @@ import {
   normalizeInfiniteCanvasGroupTree,
   reorderInfiniteCanvasGroupChild,
   setInfiniteCanvasGroupActiveChild,
+  setInfiniteCanvasGroupAxis,
   setInfiniteCanvasGroupChildWeights,
   setInfiniteCanvasGroupLayoutMode,
   undockInfiniteCanvasGroupWindow,
+  type InfiniteCanvasGroupAxis,
   type InfiniteCanvasGroupDockEdge,
   type InfiniteCanvasGroupLayoutMode,
   type InfiniteCanvasGroupNode,
@@ -420,6 +422,23 @@ function setInfiniteCanvasGroupLayoutModeInState<Kind extends string>(
   );
 }
 
+function setInfiniteCanvasGroupAxisInState<Kind extends string>(
+  state: InfiniteCanvasState<Kind>,
+  input: Readonly<{ axis: InfiniteCanvasGroupAxis; containerId: string; groupId: string }>,
+): InfiniteCanvasState<Kind> {
+  const group = findInfiniteCanvasGroup(state, input.groupId);
+
+  if (group === null) {
+    return state;
+  }
+
+  return withInfiniteCanvasGroupTree(
+    state,
+    group.id,
+    setInfiniteCanvasGroupAxis(group.tree, { axis: input.axis, containerId: input.containerId }),
+  );
+}
+
 function equalizeInfiniteCanvasGroupChildrenInState<Kind extends string>(
   state: InfiniteCanvasState<Kind>,
   input: Readonly<{ containerId: string; groupId: string }>,
@@ -765,6 +784,7 @@ export {
   resolveInfiniteCanvasDockPreview,
   resolveInfiniteCanvasDockPreviewForTarget,
   setInfiniteCanvasGroupActiveChildInState,
+  setInfiniteCanvasGroupAxisInState,
   setInfiniteCanvasGroupChildWeightsInState,
   setInfiniteCanvasGroupLayoutModeInState,
   setInfiniteCanvasGroupRect,

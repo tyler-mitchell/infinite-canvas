@@ -231,6 +231,12 @@ function createInfiniteCanvasStore<Kind extends string>(
         type: "group.setChildWeights",
       });
     },
+    setGroupAxis: (input) => {
+      dispatch({
+        ...input,
+        type: "group.setAxis",
+      });
+    },
     setGroupLayoutMode: (input) => {
       dispatch({
         ...input,

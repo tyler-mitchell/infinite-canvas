@@ -493,3 +493,105 @@ test("DOCK-006 — a docked window cannot dock again, and a lone window has nowh
     isInfiniteCanvasCommandEnabled(alone, { direction: "right", type: "window.dockDirection" }),
   ).toBe(false);
 });
+
+// ── TAB-003 / SPLIT-006 — the group's shape is editable ──────────────────────────────────
+
+/**
+ * `setInfiniteCanvasGroupLayoutMode` was reachable only through the actions facade, and
+ * `setInfiniteCanvasGroupAxis` was reachable by nothing at all — dead since it was written:
+ * no action variant, no store method, no command. So a user could dock windows into a split
+ * and then never change what that split was, which is half of what a tiling layout is for.
+ *
+ * These assert the *solved* layout rather than the tree field, because setting `layout` on a
+ * node is not the claim — what reaches the screen is.
+ */
+
+const dockedPair = () =>
+  executeInfiniteCanvasCommand(
+    {
+      ...createInfiniteCanvasState<Kind>({
+        windows: [windowAt("west", 0, 0), windowAt("east", 400, 0)],
+      }),
+      activeWindowId: "west",
+      viewport: { height: 800, width: 1200 },
+    },
+    { direction: "right", type: "window.dockDirection" },
+  );
+
+test("SPLIT-006 — flipping the axis turns a row of panes into a column", () => {
+  const state = dockedPair();
+  const row = getInfiniteCanvasGroupProjection(state.groups).windowRects;
+
+  // A horizontal split: panes differ in x, share y.
+  expect(row.get("west")!.x).not.toBe(row.get("east")!.x);
+  expect(row.get("west")!.y).toBe(row.get("east")!.y);
+  expect(isInfiniteCanvasCommandEnabled(state, { type: "group.flipAxis" })).toBe(true);
+
+  const flipped = executeInfiniteCanvasCommand(state, { type: "group.flipAxis" });
+  const column = getInfiniteCanvasGroupProjection(flipped.groups).windowRects;
+
+  expect(column.get("west")!.x).toBe(column.get("east")!.x);
+  expect(column.get("west")!.y).not.toBe(column.get("east")!.y);
+  // Turning the panes must not move or resize the shell they live in.
+  expect(flipped.groups[0]!.rect).toEqual(state.groups[0]!.rect);
+});
+
+test("SPLIT-006 — flipping twice returns the original layout", () => {
+  const state = dockedPair();
+  const once = executeInfiniteCanvasCommand(state, { type: "group.flipAxis" });
+  const twice = executeInfiniteCanvasCommand(once, { type: "group.flipAxis" });
+
+  expect(getInfiniteCanvasGroupProjection(twice.groups).windowRects).toEqual(
+    getInfiniteCanvasGroupProjection(state.groups).windowRects,
+  );
+});
+
+test("TAB-003 — converting a split to tabs hides all but one pane, keeping every member", () => {
+  const state = dockedPair();
+
+  expect(isInfiniteCanvasCommandEnabled(state, { layout: "tabs", type: "group.setLayout" })).toBe(
+    true,
+  );
+
+  const tabbed = executeInfiniteCanvasCommand(state, { layout: "tabs", type: "group.setLayout" });
+  const projection = getInfiniteCanvasGroupProjection(tabbed.groups);
+
+  // TAB-002's claim — membership survives — now reachable by a user rather than only by a
+  // consumer calling the action directly.
+  expect(getInfiniteCanvasGroupWindowIds(tabbed.groups[0]!.tree).toSorted()).toEqual([
+    "east",
+    "west",
+  ]);
+  expect(projection.hiddenWindowIds.size).toBe(1);
+});
+
+test("TAB-003 — a split converted to tabs gets a live active child rather than an empty strip", () => {
+  // `setInfiniteCanvasGroupLayoutMode` writes `layout` and nothing else, so a split — whose
+  // `activeChildId` is always null — would convert into a tab group with no visible pane if
+  // normalization did not fill one in. This is the reason that guarantee exists.
+  const tabbed = executeInfiniteCanvasCommand(dockedPair(), {
+    layout: "tabs",
+    type: "group.setLayout",
+  });
+  const container = tabbed.groups[0]!.tree as InfiniteCanvasGroupContainerNode;
+
+  expect(container.activeChildId).not.toBeNull();
+  expect(getInfiniteCanvasGroupProjection(tabbed.groups).windowRects.size).toBe(2);
+});
+
+test("TAB-003 — the layout a container already has is not offered, and tabs cannot be flipped", () => {
+  const state = dockedPair();
+
+  expect(isInfiniteCanvasCommandEnabled(state, { layout: "split", type: "group.setLayout" })).toBe(
+    false,
+  );
+
+  const tabbed = executeInfiniteCanvasCommand(state, { layout: "tabs", type: "group.setLayout" });
+
+  // A tab strip lays out horizontally whatever its container's axis says, so offering a flip
+  // there would present a verb whose effect is invisible until you convert back.
+  expect(isInfiniteCanvasCommandEnabled(tabbed, { type: "group.flipAxis" })).toBe(false);
+  expect(isInfiniteCanvasCommandEnabled(tabbed, { layout: "tabs", type: "group.setLayout" })).toBe(
+    false,
+  );
+});
