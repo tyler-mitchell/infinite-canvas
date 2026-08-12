@@ -170,11 +170,24 @@ test in the suite touches groups, history, or recipes at all.
     are now commands, and `command-coverage.test.ts` fails the typecheck if a new
     action is added without classifying whether it needs one.
 
-    **Still open, and it is chords rather than commands.** Every new family ships
-    with an empty `hotkeys` array: the arrow space is fully taken and the
-    conventional zoom keys are the browser's own, which this file has been burned by
-    twice. Everything is palette-reachable and bindable through `hotkeyBindings`; a
-    default chord set is a decision about someone's whole application.
+    **Partly closed 2026-08-12: zoom now has a default chord.** `view.zoomBy` binds
+    bare `=` and `-`, the pair every spatial editor already uses. Not `Mod+=`/`Mod+-`,
+    which are the browser's above the page; and not `Shift+=`, which was the first
+    choice for symmetry with the `Shift+0/1/2` view family — `@tanstack/hotkeys`
+    refuses that at the type level, and its reason is better than the symmetry
+    argument: `Shift` changes what a punctuation key produces, so the chord is not
+    stable across keyboard layouts. Digits are exempt, which is why `Shift+1` is
+    registerable and `Shift+=` is not. Bare keys are safe because registration sets
+    `ignoreInputs`.
+
+    **Pan stays unbound, and the reason is now concrete rather than a preference.**
+    Every arrow combination is taken — bare by `window.nudge`, `Alt` by directional
+    focus, `Shift`/`Alt+Shift`/`Mod+Shift` by their own families — and `Mod+Arrow` is
+    the browser's history and scroll-to-end on macOS. Sharing the bare arrows with
+    `window.nudge` does not work either: bindings register independently and the
+    handler swallows the chord _before_ testing enablement, so both would fire and one
+    arrow press would nudge a window and pan the canvas at once. It stays
+    palette-reachable and bindable through `hotkeyBindings`.
 
 13. ✅ **Optional 3D** — DONE, but not the way this item imagined. A lazy mount
     is insufficient: bundlers resolve dynamic-import specifiers at build time.
@@ -345,9 +358,14 @@ hour after writing it, and a hotkey collision found by audit rather than by anyo
 A fourth was found only by running the workspace gate: `vp check` had failed for six
 consecutive commits._
 
-_**No test in the suite touches groups, history, or recipes.** `grep -l` over `src/*.test.*`
-returns nothing for `createGroup`, `dockWindow`, `setChildWeights`, `undoInfiniteCanvas`, or
-`captureInfiniteCanvasRecipe`. P1 and P4 are capability-complete and verification-empty._
+_**This paragraph was true when written and is false now — corrected 2026-08-12.** It read "No
+test in the suite touches groups, history, or recipes. P1 and P4 are capability-complete and
+verification-empty", in the present tense, directly below the **DONE** that contradicts it. C2
+closed that gap: `group-tree.test.ts`, `history.test.ts`, and `acceptance-scenarios.test.ts` cover
+all seventeen scenario ids, and the suite now stands at 469 tests across 51 files. Left in place
+rather than deleted because the argument it makes — that capability without verification is a
+liability — is why the tests exist; but a stale claim stated in the present tense is how a
+successor concludes the suite is empty and rebuilds what is already there._
 
 _The two highest-risk of those paths were **reading-audited 2026-07-09**, which is not a test
 and does not close C2 — it only narrows the range of what an eventual test might catch. Both

@@ -497,17 +497,41 @@ const DEFAULT_INFINITE_CANVAS_COMMAND_DESCRIPTORS = [
     id: "view.pan.down",
     label: "Pan Down",
   },
+  // The one camera family that could take a default chord, and it is the bare `=` / `-` pair
+  // every spatial editor already uses for zoom.
+  //
+  // **Not `Mod+=` / `Mod+-`.** Those are the browser's above the page: the keydown is delivered,
+  // `preventDefault()` returns without error, and the page zooms anyway. That rule is written
+  // down twice in this repository because it was learned twice, and `Shift+0` exists rather than
+  // `Mod+0` for the same reason.
+  //
+  // **And not `Shift+=` either**, which was the first choice here for consistency with the
+  // `Shift+0/1/2` view family. `@tanstack/hotkeys` refuses it at the type level, and its reason
+  // is better than the symmetry argument: `Shift` changes what a punctuation key *produces*
+  // (`Shift+=` is `+` on US layouts and something else elsewhere), so the chord is not stable
+  // across keyboard layouts. Digits are exempt from that, which is why `Shift+1` is registerable
+  // and `Shift+=` is not — the family the eye sees is not the family the type system models.
+  //
+  // Bare keys are safe here because registration sets `ignoreInputs`, so a chord that lands
+  // while a text field has focus is never delivered to the canvas.
+  //
+  // Pan keeps its empty `hotkeys`, and the reason is sharper than "the consumer decides". Every
+  // arrow combination is taken — bare by `window.nudge`, `Alt` by directional focus, `Shift` and
+  // `Alt+Shift` and `Mod+Shift` by their own families — and `Mod+Arrow` is the browser's history
+  // and scroll-to-end on macOS. Sharing the bare arrows with `window.nudge` does not work either:
+  // bindings register independently and the handler swallows the chord *before* testing
+  // enablement, so both would fire and an arrow would nudge a window and pan the canvas at once.
   {
     command: { factor: 1.25, type: "view.zoomBy" },
     description: "Zoom in one step, holding the centre of the viewport still.",
-    hotkeys: [],
+    hotkeys: ["="],
     id: "view.zoomIn",
     label: "Zoom In",
   },
   {
     command: { factor: 0.8, type: "view.zoomBy" },
     description: "Zoom out one step, holding the centre of the viewport still.",
-    hotkeys: [],
+    hotkeys: ["-"],
     id: "view.zoomOut",
     label: "Zoom Out",
   },
