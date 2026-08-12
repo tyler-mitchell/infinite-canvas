@@ -109,6 +109,39 @@ function focusInfiniteCanvasContent(root: HTMLElement): boolean {
  * every Tab in order to reimplement the platform's own traversal is how focus managers become
  * the bug they were written to fix.
  */
+/**
+ * What a `Tab` press inside a trapped region should do.
+ *
+ * `release` means "let the browser handle it", which is the answer for every Tab that is not at
+ * an edge.
+ */
+type InfiniteCanvasTabTrapAction = "focus-first" | "focus-last" | "focus-root" | "release";
+
+/**
+ * The trap's decision, separated from the DOM it acts on.
+ *
+ * Extracted 2026-08-12 so the rule could be tested at all: this package's test environment has no
+ * DOM, so anything reaching for `querySelectorAll` or `.focus()` was unreachable from a test, and
+ * focus behaviour is the last place to accept that. The traversal and the focusing stay below;
+ * only the choice between them lives here, and it is a pure function of four values.
+ */
+function getInfiniteCanvasTabTrapAction(
+  event: Readonly<{ shiftKey: boolean; target: EventTarget | null }>,
+  edges: Readonly<{ first: EventTarget; last: EventTarget }> | null,
+): InfiniteCanvasTabTrapAction {
+  // Nothing focusable inside: the whole body is one stop, so either direction wraps to itself
+  // and Tab must not escape into the document.
+  if (edges === null) {
+    return "focus-root";
+  }
+
+  if (!event.shiftKey && event.target === edges.last) {
+    return "focus-first";
+  }
+
+  return event.shiftKey && event.target === edges.first ? "focus-last" : "release";
+}
+
 function trapInfiniteCanvasTabKey(
   event: Readonly<{ shiftKey: boolean; target: EventTarget | null }>,
   root: HTMLElement,
@@ -116,31 +149,31 @@ function trapInfiniteCanvasTabKey(
   const tabbable = getInfiniteCanvasTabbableElements(root);
   const first = tabbable[0];
   const last = tabbable[tabbable.length - 1];
+  const action = getInfiniteCanvasTabTrapAction(
+    event,
+    first === undefined || last === undefined ? null : { first, last },
+  );
 
-  // Nothing focusable inside: the whole body is one stop, so either direction wraps to itself
-  // and Tab must not escape into the document.
-  if (first === undefined || last === undefined) {
-    root.focus({ preventScroll: true });
-
-    return true;
+  if (action === "release") {
+    return false;
   }
 
-  const isLeavingForward = !event.shiftKey && event.target === last;
-  const isLeavingBackward = event.shiftKey && event.target === first;
+  const destination =
+    action === "focus-root"
+      ? root
+      : action === "focus-first"
+        ? (first as HTMLElement)
+        : (last as HTMLElement);
 
-  if (isLeavingForward) {
-    first.focus({ preventScroll: true });
+  destination.focus({ preventScroll: true });
 
-    return true;
-  }
-
-  if (isLeavingBackward) {
-    last.focus({ preventScroll: true });
-
-    return true;
-  }
-
-  return false;
+  return true;
 }
 
-export { focusInfiniteCanvasContent, getInfiniteCanvasTabbableElements, trapInfiniteCanvasTabKey };
+export {
+  focusInfiniteCanvasContent,
+  getInfiniteCanvasTabTrapAction,
+  getInfiniteCanvasTabbableElements,
+  trapInfiniteCanvasTabKey,
+};
+export type { InfiniteCanvasTabTrapAction };
