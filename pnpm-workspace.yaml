@@ -46,6 +46,7 @@ catalog:
   publint: ^0.3.23
   "@arethetypeswrong/core": ^0.18.5
   execa: ^10.0.1
+  "@changesets/cli": ^3.0.0
 overrides:
   vite: "catalog:"
   vitest: "catalog:"

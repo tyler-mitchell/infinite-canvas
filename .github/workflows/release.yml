@@ -1,59 +1,56 @@
 name: Release
 
+# Changesets owns versioning and publication. A push to main that touches `.changeset/`
+# opens or updates a version pull request; merging that pull request publishes.
+#
+# This replaces a hand-managed `version` field in the package manifest, which required
+# remembering to bump it, to write a changelog entry, and to tag — three steps that drift
+# apart the first time one is skipped.
 on:
   push:
-    tags: ["v*"]
+    branches:
+      - main
+    paths:
+      - ".changeset/**"
+      - ".github/workflows/release.yml"
   workflow_dispatch:
+
+concurrency: release
 
 permissions:
   contents: read
-  # Required for npm provenance: npm exchanges this OIDC token with Sigstore to
-  # sign the published attestation. Without it, a provenance publish fails.
-  id-token: write
 
 jobs:
-  publish:
-    name: Publish to npm
+  release:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+      # `id-token` is what mints the OIDC token npm provenance is signed with. Without it a
+      # provenance publish fails, which is why a local `pnpm publish` cannot produce one.
+      id-token: write
+      pull-requests: write
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
-          # Full history: provenance attestation records the source commit.
           fetch-depth: 0
-
-      # Must precede setup-node: `cache: pnpm` needs the pnpm binary on PATH.
-      # No `version:` input — action-setup@v4 reads `packageManager` from the
-      # root package.json (pnpm@11.5.2).
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-
-      # registry-url writes an .npmrc wired to NODE_AUTH_TOKEN, which pnpm honors.
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+          persist-credentials: false
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
         with:
-          node-version: "24"
-          registry-url: "https://registry.npmjs.org"
+          node-version: 24
           cache: pnpm
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Check (format, lint, types)
-        run: pnpm exec vp check
-
-      - name: Test
-        run: pnpm exec vp run -r test
-
-      # No explicit build step: the package's `prepublishOnly` runs `vp run verify`,
-      # which is `vp run build && node ./scripts/verify-artifact.mjs` — so the
-      # build and the packaging gate both run here, and a gate failure aborts the
-      # publish before anything reaches the registry.
-      #
-      # Provenance comes from publishConfig.provenance: true in the package
-      # manifest, plus the id-token: write permission granted above.
-      - name: Publish
-        run: pnpm publish --filter @hyphened/infinite-canvas --access public --no-git-checks
+          registry-url: https://registry.npmjs.org
+      - run: pnpm install --frozen-lockfile
+      - uses: changesets/action@v1
+        with:
+          # `release` runs the package's full `verify` first — build, publint, attw, the
+          # consumer install, and the source-reading gates — so nothing reaches the registry
+          # that has not been installed and driven at least once.
+          publish: pnpm release
+          version: pnpm release:version
+          setupGitUser: false
         env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

@@ -112,6 +112,30 @@ shipped with it, and FOCUS-002/FOCUS-003/ACC-001 landed alongside. P1's scenario
 tests remain unwritten, so it is capability-complete and verification-empty: no
 test in the suite touches groups, history, or recipes at all.
 
+## Release is Changesets now, not a hand-managed version field — 2026-08-12
+
+Versioning, changelog, and publication run through `@changesets/cli`, taking the approach and
+the pinned tooling from the featuretype repository rather than inventing one here. A push to
+`main` touching `.changeset/` opens a version pull request; merging it publishes.
+
+What that replaces: a `version` field somebody had to remember to bump, a changelog somebody had
+to remember to write, and a tag somebody had to remember to push — three steps that drift apart
+the first time one is skipped, and which no gate here checked.
+
+`pnpm release` runs the package's full `verify` before `changeset publish`, so the build,
+`publint`, `attw`, the consumer install, and the source-reading gates all run before anything
+reaches the registry. `access` is `public` in the changesets config, because a scoped package
+defaults to restricted and this one ships public. The playground and the UI kit are
+`private: true`, so Changesets versions them and never publishes them.
+
+Pinned to `@changesets/cli@^2.31.1`, matching featuretype. The `latest` 3.0.0 fails on Node 24
+with an unsettled top-level await, which is how it was found.
+
+**Owner actions, unchanged and not mine:** creating the remote, and the first publish. The
+`@hyphened` org now exists and `@hyphened/infinite-canvas` is unclaimed. npm provenance needs
+an OIDC token, which only CI can mint — a local `pnpm publish` with `provenance: true` will
+fail, so the first publish should come from the Release workflow or use `--no-provenance`.
+
 ## The gates this plan credits have never run — found 2026-08-12
 
 **This repository has no git remote.** `git remote -v` is empty. Two consequences that every
