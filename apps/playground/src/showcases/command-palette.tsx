@@ -5,6 +5,7 @@ import {
   useInfiniteCanvasState,
   type InfiniteCanvasWindowPresenceItem,
 } from "@infinite-canvas/react";
+import { createHotkeyHandler, formatForDisplay } from "@tanstack/hotkeys";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 /**
@@ -20,7 +21,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
  * What the framework owes it is the *vocabulary*, and that it already had.
  */
 
-const PALETTE_HOTKEY = "k";
+const PALETTE_HOTKEY = "Mod+K";
 
 /**
  * Focus must go back to the canvas, never to `<body>`.
@@ -44,27 +45,20 @@ type PaletteEntry =
   | Readonly<{ kind: "window"; window: InfiniteCanvasWindowPresenceItem }>;
 
 /**
- * A hotkey is a string like `"Mod+Shift+ArrowLeft"` **or** a parsed `{ key, mod, shift, … }`
- * object — `@tanstack/hotkeys` accepts either, so a descriptor may carry either. Rendering the
- * union straight into JSX prints `[object Object]` for the second, which is the sort of thing
- * that ships because nobody opens the route.
+ * `formatForDisplay` from `@tanstack/hotkeys`, which is what this should always have been.
+ *
+ * This was a hand-rolled reducer over `{ mod, ctrl, meta, alt, shift, key }` producing
+ * `"Mod+Shift+ArrowLeft"`. The package it was written beside already exports a formatter that
+ * takes the exact `RegisterableHotkey` union the descriptors carry — the union the hand-rolled
+ * version existed to flatten — and it is strictly better at the job: platform-aware, so macOS
+ * gets `⌘ ⇧ ←` instead of the literal string `Mod+Shift+ArrowLeft`, and it knows that `Escape`
+ * displays as `Esc`.
+ *
+ * Kept as a named wrapper only because `.map(formatHotkey)` reads better than an inline arrow
+ * at the call site; it adds nothing and could be inlined.
  */
-const formatHotkey = (hotkey: ContextualCommand["hotkeys"][number]): string => {
-  if (typeof hotkey === "string") {
-    return hotkey;
-  }
-
-  return [
-    hotkey.mod === true ? "Mod" : null,
-    hotkey.ctrl === true ? "Ctrl" : null,
-    hotkey.meta === true ? "Meta" : null,
-    hotkey.alt === true ? "Alt" : null,
-    hotkey.shift === true ? "Shift" : null,
-    hotkey.key,
-  ]
-    .filter((part) => part !== null)
-    .join("+");
-};
+const formatHotkey = (hotkey: ContextualCommand["hotkeys"][number]): string =>
+  formatForDisplay(hotkey);
 
 const matches = (command: ContextualCommand, query: string): boolean => {
   if (query === "") {
@@ -99,15 +93,20 @@ export function CommandPalette() {
   const [isOpen, setIsOpen] = useState(false);
 
   useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      // `Mod+K` is not a chord the canvas owns, and every web application with a palette binds
-      // it — which is the evidence that browsers let the page cancel it. `Mod+Alt+Arrow` is
-      // not, and would have switched the browser's tab as well as running the command.
-      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === PALETTE_HOTKEY) {
-        event.preventDefault();
-        setIsOpen((open) => !open);
-      }
-    };
+    // `createHotkeyHandler` from `@tanstack/hotkeys` rather than a hand-rolled
+    // `(metaKey || ctrlKey) && key.toLowerCase() === "k"`. The hand-rolled test was wrong in
+    // ways that only show on other people's keyboards: it treated Ctrl and Cmd as
+    // interchangeable on every platform, and it matched even when Alt or Shift were also held,
+    // so `Mod+Alt+K` opened the palette too. `Mod` is the package's own platform-resolved
+    // modifier, and its matcher compares every modifier rather than only the two it remembered.
+    //
+    // `Mod+K` is not a chord the canvas owns, and every web application with a palette binds it
+    // — which is the evidence that browsers let the page cancel it. `Mod+Alt+Arrow` is not, and
+    // would have switched the browser's tab as well as running the command.
+    const handleKeyDown = createHotkeyHandler(PALETTE_HOTKEY, (event) => {
+      event.preventDefault();
+      setIsOpen((open) => !open);
+    });
 
     window.addEventListener("keydown", handleKeyDown);
 
