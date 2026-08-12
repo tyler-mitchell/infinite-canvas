@@ -39,6 +39,7 @@ import type {
   InfiniteCanvasWindowFrameTitleProps,
   InfiniteCanvasWindowTextSelection,
 } from "./types";
+import { isInfiniteCanvasWindowCapable } from "./window-capabilities";
 
 /**
  * Everything a frame slot needs, and deliberately no canvas state: this value
@@ -161,7 +162,9 @@ function InfiniteCanvasWindowFrameControlsSlot({
       <button
         aria-label="Minimize window"
         data-action="minimize"
+        data-disabled={isInfiniteCanvasWindowCapable(window, "minimizable") ? undefined : ""}
         data-slot={INFINITE_CANVAS_SLOTS.windowControl}
+        disabled={!isInfiniteCanvasWindowCapable(window, "minimizable")}
         onClick={(event) => {
           event.stopPropagation();
           // This button is about to unmount with its window.
@@ -179,7 +182,9 @@ function InfiniteCanvasWindowFrameControlsSlot({
       <button
         aria-label={window.mode === "maximized" ? "Restore window" : "Maximize window"}
         data-action={window.mode === "maximized" ? "restore" : "maximize"}
+        data-disabled={isInfiniteCanvasWindowCapable(window, "maximizable") ? undefined : ""}
         data-slot={INFINITE_CANVAS_SLOTS.windowControl}
+        disabled={!isInfiniteCanvasWindowCapable(window, "maximizable")}
         onClick={(event) => {
           event.stopPropagation();
           if (window.mode === "maximized") {
@@ -199,7 +204,9 @@ function InfiniteCanvasWindowFrameControlsSlot({
       <button
         aria-label="Close window"
         data-action="close"
+        data-disabled={isInfiniteCanvasWindowCapable(window, "closable") ? undefined : ""}
         data-slot={INFINITE_CANVAS_SLOTS.windowControl}
+        disabled={!isInfiniteCanvasWindowCapable(window, "closable")}
         onClick={(event) => {
           event.stopPropagation();
           // This button is about to unmount with its window.

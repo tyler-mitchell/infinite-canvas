@@ -35,6 +35,7 @@ import type {
   InfiniteCanvasWindowFrameRenderContext,
   InfiniteCanvasWindowRegistry,
 } from "./types";
+import { isInfiniteCanvasWindowCapable } from "./window-capabilities";
 
 /**
  * A window frame is the hot path: every camera tick re-renders one of these per
@@ -307,6 +308,11 @@ function InfiniteCanvasWindowFrame<Kind extends string>({
     return definition.renderFrame?.(frameContext) ?? renderDefaultFrame();
   }, [actions, chrome, definition, isActive, isHostLocalChrome, isSelected, store, theme, window]);
 
+  // Withheld rather than disabled, unlike the chrome buttons: a resize handle is an
+  // invisible hit target, not a labelled control, so there is no disabled state worth
+  // conveying — only a grip that must not be there. A grouped pane already withholds
+  // them, because it is resized by its seam.
+  const isResizable = !isGrouped && isInfiniteCanvasWindowCapable(window, "resizable");
   const resizeHandles = useMemo(
     () =>
       RESIZE_HANDLE_DESCRIPTORS.map((descriptor) => (
@@ -381,7 +387,7 @@ function InfiniteCanvasWindowFrame<Kind extends string>({
           style={articleStyle}
         >
           {frameNode}
-          {isGrouped ? null : resizeHandles}
+          {isResizable ? resizeHandles : null}
         </article>
         {definition.portalRoot !== true ? null : (
           // A sibling of the frame, not a child: it must sit outside the frame's

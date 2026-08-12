@@ -13,12 +13,14 @@ import type {
   InfiniteCanvasViewport,
   InfiniteCanvasWindow,
   InfiniteCanvasWindowDefinition,
+  InfiniteCanvasWindowCapabilities,
   InfiniteCanvasWindowMode,
   InfiniteCanvasWindowRegistry,
   InfiniteCanvasWindowRegistryInput,
 } from "./types";
 
 type InfiniteCanvasWindowInput<Kind extends string, Data = unknown> = Readonly<{
+  capabilities?: InfiniteCanvasWindowCapabilities;
   data?: Data;
   id: string;
   isPinned?: boolean;
@@ -73,6 +75,7 @@ function createDefaultWindowMinSize(rect: InfiniteCanvasRect): InfiniteCanvasSiz
 }
 
 function createInfiniteCanvasWindow<Kind extends string, Data = unknown>({
+  capabilities,
   data,
   id,
   isPinned = false,
@@ -85,6 +88,10 @@ function createInfiniteCanvasWindow<Kind extends string, Data = unknown>({
   zIndex = 0,
 }: InfiniteCanvasWindowInput<Kind, Data>): InfiniteCanvasWindow<Kind, Data> {
   return {
+    // Omitted rather than defaulted to an all-true object: absent already means permitted,
+    // and writing the default out would put a redundant record on every window in state and
+    // in every persisted document.
+    ...(capabilities === undefined ? {} : { capabilities }),
     ...(data === undefined ? {} : { data }),
     id,
     isPinned,

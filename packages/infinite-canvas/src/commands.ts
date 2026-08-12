@@ -74,9 +74,11 @@ import type {
   InfiniteCanvasDirection,
   InfiniteCanvasHotkeyBinding,
   InfiniteCanvasState,
+  InfiniteCanvasWindowCapability,
   InfiniteCanvasWindowMode,
   InfiniteCanvasZoomPolicy,
 } from "./types";
+import { isInfiniteCanvasWindowCapable } from "./window-capabilities";
 
 const DEFAULT_INFINITE_CANVAS_COMMAND_DESCRIPTORS = [
   {
@@ -852,6 +854,26 @@ function resolveInfiniteCanvasDirectionalDock<Kind extends string>(
 }
 
 /**
+ * Which capability each lifecycle verb needs, or `null` where none applies. A maximize
+ * toggle asks for `maximizable` in both directions: a window that cannot be maximized has
+ * nothing to restore from either.
+ */
+const INFINITE_CANVAS_LIFECYCLE_CAPABILITY = {
+  "activeWindow.close": "closable",
+  "activeWindow.minimize": "minimizable",
+  "activeWindow.toggleMaximized": "maximizable",
+  "activeWindow.togglePinned": null,
+} as const satisfies Readonly<
+  Record<
+    | "activeWindow.close"
+    | "activeWindow.minimize"
+    | "activeWindow.toggleMaximized"
+    | "activeWindow.togglePinned",
+    InfiniteCanvasWindowCapability | null
+  >
+>;
+
+/**
  * The lifecycle verbs, in one place.
  *
  * `toggleMaximized` is the reason this exists rather than four inline cases: the rule that a
@@ -1003,8 +1025,19 @@ function isInfiniteCanvasCommandEnabled<Kind extends string>(
     case "activeWindow.close":
     case "activeWindow.minimize":
     case "activeWindow.toggleMaximized":
-    case "activeWindow.togglePinned":
-      return state.activeWindowId !== null && findWindow(state, state.activeWindowId) !== null;
+    case "activeWindow.togglePinned": {
+      const active = state.activeWindowId === null ? null : findWindow(state, state.activeWindowId);
+
+      if (active === null) {
+        return false;
+      }
+
+      // Pinning is not a capability: it is the window's own state, and nothing about a
+      // fixed-size or unclosable window implies it cannot be pinned in place.
+      const required = INFINITE_CANVAS_LIFECYCLE_CAPABILITY[command.type];
+
+      return required === null || isInfiniteCanvasWindowCapable(active, required);
+    }
     case "group.dissolve":
       return (
         state.activeWindowId !== null && isInfiniteCanvasWindowGrouped(state, state.activeWindowId)

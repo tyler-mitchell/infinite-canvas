@@ -1,7 +1,7 @@
 {
   "$comment": [
     "The public surface, classified. Read by scripts/verify-api-stability.mjs, which fails when a",
-    "barrel re-exports from a module listed in neither tier — so a new module cannot enter the API",
+    "barrel re-exports from a module listed in neither tier \u2014 so a new module cannot enter the API",
     "without someone deciding what it promises. A new export inside an already-classified module",
     "inherits that module's tier, which is the right default: adding `getRectArea` to geometry.ts",
     "does not make it experimental.",
@@ -25,16 +25,15 @@
     "unexported that day rather than classified. window-scene-shell exported fifteen names nothing",
     "called; scene-model was a two-line re-export of window-proxy under pre-proxy names nothing",
     "imported. An export nobody uses is not a feature waiting for a consumer, it is a promise",
-    "waiting to be broken — and the package has never been published, so unexporting cost nobody",
+    "waiting to be broken \u2014 and the package has never been published, so unexporting cost nobody",
     "anything. window-scene-shell.ts still exists on disk, since window-proxy calls one function",
     "from it; it is re-exportable in a minor if a consumer ever wants it. That direction is cheap;",
     "the other is not. This is why 'unconsumed' is not one of the reasons above: an unconsumed",
     "export is not classified, it is removed.",
     "",
-    "typesExperimental: types.ts is a grab-bag — it holds InfiniteCanvasSceneLayer next to",
+    "typesExperimental: types.ts is a grab-bag \u2014 it holds InfiniteCanvasSceneLayer next to",
     "InfiniteCanvasRect. Its experimental names are listed one by one and checked to still exist."
   ],
-
   "stable": [
     "camera-navigation",
     "canvas-hud",
@@ -65,25 +64,24 @@
     "types",
     "validation",
     "window-arrange",
+    "window-capabilities",
     "window-focus",
     "window-placement",
     "window-presence",
     "window-proxy"
   ],
-
   "experimental": {
-    "canvas-handle": "unobserved — a debug and automation seam, not a consumer API. Its shape follows whatever drives it.",
-    "diagnostics": "off-by-default — this policy exists to switch on the frustum probe layer, and nothing switches it on.",
-    "minimap": "unobserved — landed 2026-07-08. No minimap has been drawn in a browser.",
-    "offscreen": "unobserved — landed 2026-07-08. No arrow has been drawn in a browser.",
-    "rasterization-layer": "off-by-default — the policy, scheduler, and snapshot capture ship behind the rasterization prop. P7 intends to rebuild the capture lane on html-in-canvas.",
-    "visibility": "off-by-default — reads the store only the frustum probe layer writes, so every reading is null unless /scene is mounted with diagnostics.frustum.",
-    "scene-surface": "r3f-canary — the surface contract the /scene entry implements.",
-    "scene:scene-surface": "r3f-canary — the /scene entry in full.",
-    "scene:visibility-probes": "r3f-canary — the /scene entry in full.",
-    "scene:webgpu-surface": "r3f-canary — the /scene entry in full."
+    "canvas-handle": "unobserved \u2014 a debug and automation seam, not a consumer API. Its shape follows whatever drives it.",
+    "diagnostics": "off-by-default \u2014 this policy exists to switch on the frustum probe layer, and nothing switches it on.",
+    "minimap": "unobserved \u2014 landed 2026-07-08. No minimap has been drawn in a browser.",
+    "offscreen": "unobserved \u2014 landed 2026-07-08. No arrow has been drawn in a browser.",
+    "rasterization-layer": "off-by-default \u2014 the policy, scheduler, and snapshot capture ship behind the rasterization prop. P7 intends to rebuild the capture lane on html-in-canvas.",
+    "visibility": "off-by-default \u2014 reads the store only the frustum probe layer writes, so every reading is null unless /scene is mounted with diagnostics.frustum.",
+    "scene-surface": "r3f-canary \u2014 the surface contract the /scene entry implements.",
+    "scene:scene-surface": "r3f-canary \u2014 the /scene entry in full.",
+    "scene:visibility-probes": "r3f-canary \u2014 the /scene entry in full.",
+    "scene:webgpu-surface": "r3f-canary \u2014 the /scene entry in full."
   },
-
   "typesExperimental": [
     "InfiniteCanvasSceneLayer",
     "InfiniteCanvasSceneLayerFrameloop",

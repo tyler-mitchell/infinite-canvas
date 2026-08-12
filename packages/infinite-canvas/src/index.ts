@@ -419,6 +419,8 @@ export type {
   InfiniteCanvasWindowFrameSlots,
   InfiniteCanvasWindowFrameSurfaceProps,
   InfiniteCanvasWindowFrameTitleProps,
+  InfiniteCanvasWindowCapabilities,
+  InfiniteCanvasWindowCapability,
   InfiniteCanvasWindowMode,
   InfiniteCanvasWindowProxy,
   InfiniteCanvasWindowRegistry,
@@ -429,3 +431,4 @@ export type {
   InfiniteCanvasZoomPolicy,
   InfiniteCanvasZoomPolicyInput,
 } from "./types";
+export { isInfiniteCanvasWindowCapable } from "./window-capabilities";

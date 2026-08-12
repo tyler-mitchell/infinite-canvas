@@ -52,6 +52,7 @@ import {
 } from "./selection";
 import {
   closeWindow,
+  findWindow,
   focusWindow,
   maximizeWindow,
   minimizeWindow,
@@ -61,6 +62,7 @@ import {
 } from "./stacking";
 import { resetInfiniteCanvasState } from "./state";
 import type { InfiniteCanvasAction, InfiniteCanvasState, InfiniteCanvasZoomPolicy } from "./types";
+import { isInfiniteCanvasWindowCapable } from "./window-capabilities";
 
 type InfiniteCanvasReducerOptions = Readonly<{
   zoomPolicy?: InfiniteCanvasZoomPolicy;
@@ -186,8 +188,14 @@ function applyInfiniteCanvasAction<Kind extends string>(
     }
     case "interaction.startPan":
       return beginCanvasPan(state, action.pointerId, action.point, action.clearSelection);
+    // A grouped pane is resized by its seam, not its edge; a window that declares itself
+    // unresizable is not resized at all. Both refusals live here rather than inside
+    // `beginWindowResize` because the grouped one already did.
     case "interaction.startResize":
-      if (isInfiniteCanvasWindowGrouped(state, action.windowId)) {
+      if (
+        isInfiniteCanvasWindowGrouped(state, action.windowId) ||
+        !isInfiniteCanvasWindowCapable(findWindow(state, action.windowId), "resizable")
+      ) {
         return state;
       }
 

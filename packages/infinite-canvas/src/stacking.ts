@@ -1,5 +1,6 @@
 import { DEFAULT_INFINITE_CANVAS_STACK_BANDS } from "./constants";
 import { getViewportInsetWorldRect } from "./geometry";
+import { isInfiniteCanvasWindowCapable } from "./window-capabilities";
 import {
   cleanSelection,
   isWindowSelected,
@@ -173,6 +174,10 @@ function closeWindow<Kind extends string>(
   state: InfiniteCanvasState<Kind>,
   windowId: string,
 ): InfiniteCanvasState<Kind> {
+  if (!isInfiniteCanvasWindowCapable(findWindow(state, windowId), "closable")) {
+    return state;
+  }
+
   const nextWindows = state.windows.filter((window) => window.id !== windowId);
   const fallbackWindowId =
     state.activeWindowId === windowId ? getNextVisibleWindowId(nextWindows) : state.activeWindowId;
@@ -205,7 +210,7 @@ function minimizeWindow<Kind extends string>(
   state: InfiniteCanvasState<Kind>,
   windowId: string,
 ): InfiniteCanvasState<Kind> {
-  if (findWindow(state, windowId) === null) {
+  if (!isInfiniteCanvasWindowCapable(findWindow(state, windowId), "minimizable")) {
     return state;
   }
 
@@ -251,7 +256,7 @@ function maximizeWindow<Kind extends string>(
   const focusedState = focusWindow(state, windowId);
   const targetWindow = findWindow(focusedState, windowId);
 
-  if (targetWindow === null) {
+  if (!isInfiniteCanvasWindowCapable(targetWindow, "maximizable")) {
     return state;
   }
 

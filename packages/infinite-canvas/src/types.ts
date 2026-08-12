@@ -57,7 +57,35 @@ type InfiniteCanvasResizeHandle =
 
 type InfiniteCanvasWindowMode = "normal" | "minimized" | "maximized";
 
+/**
+ * Which chrome affordances a window supports.
+ *
+ * The vocabulary is AppKit's — a window is closable, minimizable, resizable — because that
+ * is the conventional ontology for exactly this, and inventing one would leave a maintainer
+ * translating. A fixed-size console, a reference pane that must not be closed, and a
+ * background layer that cannot be dragged out of the way are ordinary desktop-shell
+ * requirements; without this a consumer had to replace the whole `Controls` slot and
+ * re-implement pin, minimize, maximize and their focus hand-back to withhold one button.
+ *
+ * Every field is optional and **absent means permitted**, so no existing window changes
+ * behaviour and no persisted state needs migrating. Read it through
+ * `isInfiniteCanvasWindowCapable`, which owns that rule; comparing to `true` somewhere
+ * would silently forbid everything that never opted in.
+ *
+ * These are enforced by the reducer, not merely reflected in the chrome. The alternative —
+ * an advisory flag the buttons respect and `actions.closeWindow` ignores — makes the flag a
+ * lie the UI tells, and this codebase already refuses caller-issued actions on model
+ * grounds: `interaction.startResize` returns state unchanged for a grouped window, and
+ * `createInfiniteCanvasGroup` drops members that are minimized or already grouped.
+ */
+type InfiniteCanvasWindowCapability = "closable" | "maximizable" | "minimizable" | "resizable";
+
+type InfiniteCanvasWindowCapabilities = Partial<
+  Readonly<Record<InfiniteCanvasWindowCapability, boolean>>
+>;
+
 type InfiniteCanvasWindow<Kind extends string = string, Data = unknown> = Readonly<{
+  capabilities?: InfiniteCanvasWindowCapabilities;
   data?: Data;
   id: string;
   isPinned: boolean;
@@ -1397,6 +1425,8 @@ export type {
   InfiniteCanvasWindowFrameSlots,
   InfiniteCanvasWindowFrameSurfaceProps,
   InfiniteCanvasWindowFrameTitleProps,
+  InfiniteCanvasWindowCapabilities,
+  InfiniteCanvasWindowCapability,
   InfiniteCanvasWindowMode,
   InfiniteCanvasWindowProxy,
   InfiniteCanvasWindowRegistry,

@@ -108,6 +108,36 @@ The store adapts the pure reducer to Legend State signals.
 `useInfiniteCanvasSelector` is the narrow subscription you want inside window
 bodies.
 
+**Declining chrome affordances.** A window may carry `capabilities` — `closable`,
+`maximizable`, `minimizable`, `resizable`, using AppKit's vocabulary rather than an
+invented one. Every field is optional and **absent means permitted**, so nothing
+existing changes and no persisted document needs migrating; read them through
+`isInfiniteCanvasWindowCapable`, which owns that default.
+
+They are enforced by the reducer, not merely respected by the chrome:
+`actions.closeWindow` on a `closable: false` window returns state unchanged, and
+`interaction.startResize` refuses an unresizable one exactly as it already refuses a
+grouped pane. An advisory flag would be a lie the UI tells. Withheld controls render
+`disabled` with `data-disabled` rather than disappearing, so the chrome keeps its
+shape; resize handles are withheld entirely, because an invisible hit target has no
+useful disabled state. A capability set to `true` is not serialized, since it means
+the same as absent and two canvases that behave alike should serialize alike.
+
+**`window-capabilities`**
+
+- `isInfiniteCanvasWindowCapable` — the one reader of a window's capabilities, owning the
+  "absent means permitted" default so the reducer, the command layer, the chrome, and a
+  consumer's replacement chrome cannot disagree about it.
+
+<details><summary>types (2)</summary>
+
+- `InfiniteCanvasWindowCapability` — one affordance: `"closable"`, `"maximizable"`,
+  `"minimizable"`, or `"resizable"`.
+- `InfiniteCanvasWindowCapabilities` — the optional set carried on a window; every field
+  may be omitted, and omission permits.
+
+</details>
+
 **Owning the store from outside.** `InfiniteCanvasProvider` takes either
 `initialState` or a `store` you built with `createInfiniteCanvasStore` — never both;
 supplying both is a compile error. Injecting one is how a parent reads, subscribes

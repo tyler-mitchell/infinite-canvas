@@ -12,6 +12,7 @@ import type {
   InfiniteCanvasSerializedState,
   InfiniteCanvasSize,
   InfiniteCanvasWindow,
+  InfiniteCanvasWindowCapabilities,
   InfiniteCanvasWindowMode,
 } from "./types";
 
@@ -170,6 +171,54 @@ function parseInfiniteCanvasSelection(value: unknown): InfiniteCanvasSelection |
   };
 }
 
+const INFINITE_CANVAS_WINDOW_CAPABILITIES = [
+  "closable",
+  "maximizable",
+  "minimizable",
+  "resizable",
+] as const;
+
+/**
+ * `undefined` when absent, `null` when malformed — the parser's own convention, kept so a
+ * corrupt capability set rejects the window rather than silently unlocking it.
+ *
+ * Only `false` is carried across. A capability set to `true` means the same as absent, so
+ * dropping it keeps persisted state small and canonical: two documents that behave
+ * identically serialize identically.
+ */
+function parseInfiniteCanvasWindowCapabilities(
+  value: unknown,
+): InfiniteCanvasWindowCapabilities | null | undefined {
+  if (isAbsent(value)) {
+    return undefined;
+  }
+
+  if (!isRecord(value)) {
+    return null;
+  }
+
+  const entries = INFINITE_CANVAS_WINDOW_CAPABILITIES.flatMap((capability) => {
+    const flag = value[capability];
+
+    if (isAbsent(flag)) {
+      return [];
+    }
+
+    return typeof flag === "boolean" ? [[capability, flag] as const] : [null];
+  });
+
+  if (entries.some((entry) => entry === null)) {
+    return null;
+  }
+
+  const withheld = entries.filter(
+    (entry): entry is readonly [(typeof INFINITE_CANVAS_WINDOW_CAPABILITIES)[number], boolean] =>
+      entry !== null && entry[1] === false,
+  );
+
+  return withheld.length === 0 ? undefined : Object.fromEntries(withheld);
+}
+
 function parseInfiniteCanvasWindow<Kind extends string>(
   value: unknown,
 ): InfiniteCanvasWindow<Kind> | null {
@@ -212,7 +261,14 @@ function parseInfiniteCanvasWindow<Kind extends string>(
     parsedRestoreRect = candidate;
   }
 
+  const capabilities = parseInfiniteCanvasWindowCapabilities(value.capabilities);
+
+  if (capabilities === null) {
+    return null;
+  }
+
   return {
+    ...(capabilities === undefined ? {} : { capabilities }),
     ...("data" in value ? { data: value.data } : {}),
     id,
     isPinned,
