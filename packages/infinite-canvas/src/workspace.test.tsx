@@ -6,6 +6,7 @@ import {
   createInfiniteCanvasWindow,
   defineInfiniteCanvasWindowRegistry,
 } from "./factory";
+import { executeInfiniteCanvasCommand, isInfiniteCanvasCommandEnabled } from "./commands";
 import { InfiniteCanvasViewport } from "./infinite-canvas";
 import { parseInfiniteCanvasState, serializeInfiniteCanvasState } from "./persistence";
 import { reduceInfiniteCanvasState } from "./reducer";
@@ -213,4 +214,105 @@ test("activating a workspace that does not exist changes nothing", () => {
   expect(
     reduceInfiniteCanvasState(state, { type: "workspace.activate", workspaceId: "absent" }),
   ).toBe(state);
+});
+
+// ── Reaching workspaces from the keyboard ────────────────────────────────────────────────
+
+/**
+ * The model landed before any verb reached it, which is the shape this codebase has produced
+ * repeatedly: `setInfiniteCanvasGroupAxis` was dead from the day it was written, and every
+ * window-lifecycle verb lived only as an `onClick`. Three workspace verbs resolve from state;
+ * creating and naming a set does not, and stays the consumer's.
+ */
+
+test("cycling walks the workspaces and wraps", () => {
+  const state = withTwoWorkspaces();
+
+  expect(
+    isInfiniteCanvasCommandEnabled(state, { direction: "next", type: "workspace.cycle" }),
+  ).toBe(true);
+
+  // From the unfiltered view, `next` enters the first set and `previous` enters the last —
+  // rather than treating "all windows" as a desktop in the ring, which would make the cycle
+  // one longer than the number of workspaces and read as an off-by-one.
+  const first = executeInfiniteCanvasCommand(state, { direction: "next", type: "workspace.cycle" });
+
+  expect(first.activeWorkspaceId).toBe("research");
+
+  const second = executeInfiniteCanvasCommand(first, {
+    direction: "next",
+    type: "workspace.cycle",
+  });
+
+  expect(second.activeWorkspaceId).toBe("writing");
+  expect(
+    executeInfiniteCanvasCommand(second, { direction: "next", type: "workspace.cycle" })
+      .activeWorkspaceId,
+  ).toBe("research");
+  expect(
+    executeInfiniteCanvasCommand(state, { direction: "previous", type: "workspace.cycle" })
+      .activeWorkspaceId,
+  ).toBe("writing");
+});
+
+test("cycling carries each workspace's camera with it", () => {
+  // The same save-and-restore the switch action does, reached by command: cycling is not a
+  // second way to change workspaces, it is the same one with the target resolved from state.
+  const research = executeInfiniteCanvasCommand(withTwoWorkspaces(), {
+    direction: "next",
+    type: "workspace.cycle",
+  });
+  const moved = { ...research, camera: { center: { x: 900, y: 40 }, zoom: 3 } };
+  const away = executeInfiniteCanvasCommand(moved, { direction: "next", type: "workspace.cycle" });
+  const back = executeInfiniteCanvasCommand(away, {
+    direction: "previous",
+    type: "workspace.cycle",
+  });
+
+  expect(back.camera).toEqual({ center: { x: 900, y: 40 }, zoom: 3 });
+});
+
+test("showing all leaves the workspace without closing it", () => {
+  const active = executeInfiniteCanvasCommand(withTwoWorkspaces(), {
+    direction: "next",
+    type: "workspace.cycle",
+  });
+
+  expect(isInfiniteCanvasCommandEnabled(active, { type: "workspace.showAll" })).toBe(true);
+
+  const all = executeInfiniteCanvasCommand(active, { type: "workspace.showAll" });
+
+  expect(all.activeWorkspaceId).toBeNull();
+  expect(all.workspaces).toHaveLength(2);
+  // Not offered when nothing is filtered, because it would do nothing.
+  expect(isInfiniteCanvasCommandEnabled(all, { type: "workspace.showAll" })).toBe(false);
+});
+
+test("a window can be taken off the workspace it is on, and stays open", () => {
+  const active = executeInfiniteCanvasCommand(
+    { ...withTwoWorkspaces(), activeWindowId: "a" },
+    { direction: "next", type: "workspace.cycle" },
+  );
+
+  expect(isInfiniteCanvasCommandEnabled(active, { type: "workspace.removeActiveWindow" })).toBe(
+    true,
+  );
+
+  const removed = executeInfiniteCanvasCommand(active, { type: "workspace.removeActiveWindow" });
+
+  expect(removed.workspaces[0]?.windowIds).toEqual(["b"]);
+  // The window is not closed. It is simply not on this desktop any more.
+  expect(removed.windows.map((window) => window.id)).toContain("a");
+});
+
+test("with no workspace active there is nothing to cycle or leave", () => {
+  const bare = threeWindows();
+
+  for (const command of [
+    { direction: "next", type: "workspace.cycle" },
+    { type: "workspace.showAll" },
+    { type: "workspace.removeActiveWindow" },
+  ] as const) {
+    expect(isInfiniteCanvasCommandEnabled(bare, command)).toBe(false);
+  }
 });

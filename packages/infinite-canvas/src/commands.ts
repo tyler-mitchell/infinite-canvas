@@ -71,6 +71,12 @@ import {
   getInfiniteCanvasSwappedRects,
 } from "./window-arrange";
 import { getInfiniteCanvasWindowPlacementRect } from "./window-placement";
+import {
+  activateInfiniteCanvasWorkspace,
+  findInfiniteCanvasWorkspace,
+  isInfiniteCanvasWindowInActiveWorkspace,
+  setInfiniteCanvasWorkspaceWindows,
+} from "./workspace";
 import type {
   InfiniteCanvasCameraNavigationBehavior,
   InfiniteCanvasCommand,
@@ -410,6 +416,38 @@ const DEFAULT_INFINITE_CANVAS_COMMAND_DESCRIPTORS = [
     hotkeys: [],
     id: "selection.extend.down",
     label: "Extend Selection Down",
+  },
+  // Workspaces, for the verbs that resolve from state. Creating and naming a set is the
+  // consumer's — a palette entry cannot invent which set — but cycling, showing everything,
+  // and taking the window you are looking at off this desktop all resolve without an argument.
+  {
+    command: { direction: "next", type: "workspace.cycle" },
+    description: "Switch to the next workspace, wrapping at the end.",
+    hotkeys: [],
+    id: "workspace.cycle.next",
+    label: "Next Workspace",
+  },
+  {
+    command: { direction: "previous", type: "workspace.cycle" },
+    description: "Switch to the previous workspace, wrapping at the start.",
+    hotkeys: [],
+    id: "workspace.cycle.previous",
+    label: "Previous Workspace",
+  },
+  {
+    command: { type: "workspace.showAll" },
+    description: "Leave the current workspace and show every window on the canvas.",
+    hotkeys: [],
+    id: "workspace.showAll",
+    label: "Show All Windows",
+  },
+  {
+    command: { type: "workspace.removeActiveWindow" },
+    description:
+      "Take the active window off this workspace. The window stays open; it is no longer on this desktop.",
+    hotkeys: [],
+    id: "workspace.removeActiveWindow",
+    label: "Remove Window From Workspace",
   },
   {
     command: { type: "selection.removeActive" },
@@ -1096,6 +1134,31 @@ function resolveInfiniteCanvasPaneSeam<Kind extends string>(state: InfiniteCanva
       };
 }
 
+/**
+ * The workspace a cycle lands on. Wraps, and treats "no workspace" as a position in the ring
+ * only when you are already there — entering from the unfiltered view goes to the first or
+ * last set rather than making "all windows" a desktop you can cycle back into, which would
+ * make the ring one longer than the number of workspaces and read as an off-by-one.
+ */
+function getNextInfiniteCanvasWorkspaceId<Kind extends string>(
+  state: InfiniteCanvasState<Kind>,
+  direction: "next" | "previous",
+): string | null {
+  const ids = state.workspaces.map((workspace) => workspace.id);
+
+  if (ids.length === 0) {
+    return state.activeWorkspaceId;
+  }
+
+  const at = state.activeWorkspaceId === null ? -1 : ids.indexOf(state.activeWorkspaceId);
+
+  if (at === -1) {
+    return (direction === "next" ? ids.at(0) : ids.at(-1)) ?? null;
+  }
+
+  return ids[(at + (direction === "next" ? 1 : ids.length - 1)) % ids.length] ?? null;
+}
+
 /** Where the active window sits in its container's order, and how many siblings it has. */
 function getActiveInfiniteCanvasGroupChildIndex<Kind extends string>(
   state: InfiniteCanvasState<Kind>,
@@ -1224,6 +1287,18 @@ function isInfiniteCanvasCommandEnabled<Kind extends string>(
       return getInfiniteCanvasDirectionalFocusTarget(state, command.direction) !== null;
     case "selection.removeActive":
       return state.activeWindowId !== null && isWindowSelected(state, state.activeWindowId);
+    case "workspace.cycle":
+      return getNextInfiniteCanvasWorkspaceId(state, command.direction) !== state.activeWorkspaceId;
+    case "workspace.showAll":
+      return state.activeWorkspaceId !== null;
+    // Only reachable in one direction, and that is not a limitation: a window absent from the
+    // active workspace is not rendered, so it cannot be the active window to begin with.
+    case "workspace.removeActiveWindow":
+      return (
+        state.activeWorkspaceId !== null &&
+        state.activeWindowId !== null &&
+        isInfiniteCanvasWindowInActiveWorkspace(state, state.activeWindowId)
+      );
     case "view.pan":
       return isUsableViewport(state.viewport);
     // Offered only where it would move: at the policy's floor or ceiling a further step
@@ -1454,6 +1529,10 @@ function getInfiniteCanvasCommandGroup(command: InfiniteCanvasCommand): Infinite
     case "view.zoomBy":
     case "view.resetZoom":
       return "view";
+    case "workspace.cycle":
+    case "workspace.showAll":
+    case "workspace.removeActiveWindow":
+      return "canvas";
     case "view.fitSelection":
     case "selection.extendDirection":
     case "selection.removeActive":
@@ -1576,6 +1655,23 @@ function executeInfiniteCanvasCommand<Kind extends string>(
     // `windowIds.at(-1)` when it leaves the selection, which for an insertion-ordered
     // selection is the window added before this one. Extending focuses what it adds, so
     // repeating this retraces the extends exactly.
+    case "workspace.cycle":
+      return activateInfiniteCanvasWorkspace(
+        state,
+        getNextInfiniteCanvasWorkspaceId(state, command.direction),
+      );
+    case "workspace.showAll":
+      return activateInfiniteCanvasWorkspace(state, null);
+    case "workspace.removeActiveWindow": {
+      const active = findInfiniteCanvasWorkspace(state, state.activeWorkspaceId ?? "");
+
+      return active === null || state.activeWindowId === null
+        ? state
+        : setInfiniteCanvasWorkspaceWindows(state, {
+            windowIds: active.windowIds.filter((windowId) => windowId !== state.activeWindowId),
+            workspaceId: active.id,
+          });
+    }
     case "selection.removeActive":
       return state.activeWindowId === null ? state : removeSelection(state, [state.activeWindowId]);
     // The reducer's lifecycle cases detach the window from its group before acting — a pane
