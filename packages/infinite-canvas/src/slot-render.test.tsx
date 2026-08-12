@@ -133,3 +133,53 @@ test("a consumer className joins the framework's rather than replacing it", () =
   expect(markup).toContain("consumer-surface");
   expect(markup).toContain('data-slot="window-surface"');
 });
+
+/**
+ * Centring a header title, which `api-friction-backlog.md` recorded as needing
+ * "absolute-position hacks around `Controls`".
+ *
+ * That was true of a slot API taking only `children`, `className`, and `style`: the header is a
+ * flex row with `justify-content: space-between`, so `Title` sat wherever `Controls` left room,
+ * and pulling it to the centre meant taking it out of flow.
+ *
+ * It is no longer true, and this test is the evidence rather than an assertion that it should be.
+ * Two capabilities added on 2026-08-12 dissolve it between them: a slot's `children` replace the
+ * default arrangement, and a consumer `style` merges per-declaration over the framework's. A
+ * three-column grid with the title in the middle column centres it against the *header*, not
+ * against the space `Controls` happens to leave — and nothing is positioned absolutely.
+ */
+test("a header title centres with grid columns, no absolute positioning", () => {
+  const markup = renderFrameWith(({ frame: { Controls, Header, Surface, Title } }) => (
+    <Surface>
+      <Header style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr" }}>
+        <span data-testid="leading" />
+        <Title style={{ textAlign: "center" }} />
+        <Controls style={{ justifySelf: "end" }} />
+      </Header>
+    </Surface>
+  ));
+
+  // The consumer's display wins over the framework's `flex`...
+  expect(markup).toContain("display:grid");
+  expect(markup).toContain("grid-template-columns:1fr auto 1fr");
+  // ...while the framework's own geometry for the rest of the header survives the merge.
+  expect(markup).toContain("position:absolute");
+  expect(markup).toContain('data-slot="window-header"');
+  expect(markup).toContain('data-slot="window-title"');
+  expect(markup).toContain('data-slot="window-controls"');
+});
+
+test("the header's framework behaviour survives a consumer relayout", () => {
+  // The relayout must not cost the drag. `data-infinite-canvas-control` is what marks the header
+  // as a drag surface, and it is framework-owned through the merge.
+  const markup = renderFrameWith(({ frame: { Controls, Header, Surface, Title } }) => (
+    <Surface>
+      <Header style={{ display: "grid" }}>
+        <Title />
+        <Controls />
+      </Header>
+    </Surface>
+  ));
+
+  expect(markup).toContain('data-infinite-canvas-control="true"');
+});

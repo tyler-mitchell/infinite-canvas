@@ -298,9 +298,24 @@ pointerModeControls?, cameraControls?, zoomControls? }` landed with the HUD
   passes — and it does not check the reverse direction, since the doc legitimately names
   types and options that are not themselves exports.
 
-- **Slot layout rigidity** — centering a header title still requires
-  absolute-position hacks around `Controls`; consider slot order/areas in the
-  styled-distribution work.
+- ✅ **Slot layout rigidity — dissolved 2026-08-12, and not by the fix this entry expected.**
+  Centring a header title needed "absolute-position hacks around `Controls`" because the header
+  is a flex row with `justify-content: space-between`, so `Title` sat wherever `Controls` left
+  room and pulling it to the centre meant taking it out of flow.
+
+  This entry proposed "slot order/areas in the styled-distribution work" — a new mechanism. None
+  was needed. The headless slot work closed it as a side effect: a slot's `children` replace the
+  default arrangement, and a consumer `style` merges per-declaration over the framework's, so a
+  three-column grid with the title in the middle column centres it against the **header** rather
+  than against the space `Controls` happens to leave.
+
+  Closed on evidence rather than by argument: `slot-render.test.tsx` builds exactly that header
+  through the public API and asserts no absolute positioning is involved, and that the header's
+  `data-infinite-canvas-control` drag surface survives the relayout — a centring trick that cost
+  you window dragging would not be a fix.
+
+  Worth recording as a pattern: a general capability retired a specific complaint, and building
+  the proposed mechanism would have added a second way to do what one already did.
 
 ## Open — small / documentation
 
