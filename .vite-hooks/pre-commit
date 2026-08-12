@@ -1,1 +1,28 @@
+# Lint and format what you staged, then the source-reading gates.
+#
+# `vp staged` is the right thing for a commit hook: it touches only the files in the commit and
+# stays fast. The gates below are here for a reason that is easy to get wrong, so it is written
+# down rather than assumed.
+#
+# **This repository has no git remote.** `pre-push` cannot fire, because there is nothing to
+# push to, and GitHub Actions has never run for the same reason. Every protection the ship plan
+# credits to CI — `vp check`, the tests, the build, the gates — is inert. The only automation
+# that has ever actually executed on this repository is the line above.
+#
+# That is not theoretical either: the playground's build was broken by a `process.env.NODE_ENV`
+# reference in source-linked framework code and stayed broken, unnoticed, while every in-package
+# gate reported green.
+#
+# So the gates run here. All five read source, need no build, and take milliseconds together —
+# cheap enough to pay per commit, which is the only event this repository actually has. They
+# stay in `pre-push` and in CI as well, for when a remote exists.
+#
+# The dispatcher runs this under `sh -e`, so the first failing command aborts the commit.
+# `VITE_GIT_HOOKS=0 git commit` skips it, if you must.
+
 vp staged
+
+node packages/infinite-canvas/scripts/verify-api-doc.mjs
+node packages/infinite-canvas/scripts/verify-pure-core.mjs
+node packages/infinite-canvas/scripts/verify-api-stability.mjs
+node packages/infinite-canvas/scripts/verify-consumer-portability.mjs

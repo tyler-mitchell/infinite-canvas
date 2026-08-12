@@ -112,6 +112,36 @@ shipped with it, and FOCUS-002/FOCUS-003/ACC-001 landed alongside. P1's scenario
 tests remain unwritten, so it is capability-complete and verification-empty: no
 test in the suite touches groups, history, or recipes at all.
 
+## The gates this plan credits have never run — found 2026-08-12
+
+**This repository has no git remote.** `git remote -v` is empty. Two consequences that every
+entry below was written without:
+
+- **GitHub Actions has never executed.** `ci.yml` and `release.yml` are well-formed and
+  describe exactly the right pipeline. Nothing has ever triggered them.
+- **`pre-push` has never fired**, because there is nothing to push to. That hook holds
+  `vp check` and the source-reading gates, and its own comment defers tests and builds to CI
+  "where a red run costs nobody's attention" — a division of labour that is correct in a repo
+  with a remote and leaves nothing running in this one.
+
+So the only automation that has ever actually executed here is `pre-commit` → `vp staged`,
+which lints and formats **the files in the commit**. Everything C1 describes as enforced is
+enforced only when someone runs it by hand.
+
+This is not a hypothetical gap. The playground's build was broken by a `process.env.NODE_ENV`
+reference in source-linked framework code, and stayed broken while every in-package gate
+reported green — because nothing ran the consumer's build.
+
+**Changed in response:** the four source-reading gates now run in `pre-commit` as well, where
+they will actually execute. They read source, need no build, and cost milliseconds together.
+`vp check`, the tests, and the builds stay out of `pre-commit` deliberately — they are slow
+enough that a hook running them gets disabled within a week, which is the same reasoning
+`pre-push` already records. They remain in `pre-push` and CI for when a remote exists.
+
+**What this does not fix, and is worth the owner knowing:** no automation runs the tests or the
+builds. Until a remote exists, `pnpm --filter @infinite-canvas/react verify` and the playground's
+build are manual steps. Publishing and creating the remote are both owner actions.
+
 ## Blocker classes
 
 ### Class 1 — Cannot publish (fix first)

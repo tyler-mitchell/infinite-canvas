@@ -64,6 +64,13 @@ jobs:
       - name: Verify public API stability tiers
         run: node packages/infinite-canvas/scripts/verify-api-stability.mjs
 
+      # Boundary gate: this package is source-linked into its consumers, so they typecheck
+      # this source under *their* tsconfig. One `process.env.NODE_ENV` compiled green in the
+      # package and broke the playground build, because every other gate runs inside the
+      # package and the leak is only visible from the other side of the boundary.
+      - name: Verify consumer portability
+        run: node packages/infinite-canvas/scripts/verify-consumer-portability.mjs
+
       - name: Test
         run: pnpm exec vp run -r test
 

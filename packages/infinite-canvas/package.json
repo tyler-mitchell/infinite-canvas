@@ -54,7 +54,7 @@
     "check": "vp check",
     "verify:api-doc": "node ./scripts/verify-api-doc.mjs",
     "verify:pure-core": "node ./scripts/verify-pure-core.mjs",
-    "verify": "vp run build && node ./scripts/verify-artifact.mjs && node ./scripts/verify-api-doc.mjs && node ./scripts/verify-pure-core.mjs && node ./scripts/verify-api-stability.mjs",
+    "verify": "vp run build && node ./scripts/verify-artifact.mjs && node ./scripts/verify-api-doc.mjs && node ./scripts/verify-pure-core.mjs && node ./scripts/verify-api-stability.mjs && node ./scripts/verify-consumer-portability.mjs",
     "prepublishOnly": "vp run verify",
     "verify:api-stability": "node ./scripts/verify-api-stability.mjs"
   },
