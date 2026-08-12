@@ -73,6 +73,7 @@ import {
 import { getInfiniteCanvasWindowPlacementRect } from "./window-placement";
 import {
   activateInfiniteCanvasWorkspace,
+  detachInfiniteCanvasWindowFromWorkspaces,
   isInfiniteCanvasWindowInActiveWorkspace,
   removeInfiniteCanvasWindowFromWorkspace,
 } from "./workspace";
@@ -1103,8 +1104,16 @@ function applyInfiniteCanvasWindowLifecycle<Kind extends string>(
   mode: InfiniteCanvasWindowMode,
 ): InfiniteCanvasState<Kind> {
   switch (type) {
+    // Detached from its workspaces as well as its group, matching the `window.close` action.
+    // The two diverged: workspaces and these lifecycle commands landed the same day and only the
+    // action path was updated, so closing from the palette left the id a phantom member of every
+    // workspace that held it — in a field that is part of the undo document and is persisted.
+    // Only close does this. A minimized window still belongs to its desktop.
     case "activeWindow.close":
-      return detachInfiniteCanvasWindowFromGroups(closeWindow(state, windowId), windowId);
+      return detachInfiniteCanvasWindowFromWorkspaces(
+        detachInfiniteCanvasWindowFromGroups(closeWindow(state, windowId), windowId),
+        windowId,
+      );
     case "activeWindow.minimize":
       return detachInfiniteCanvasWindowFromGroups(minimizeWindow(state, windowId), windowId);
     case "activeWindow.toggleMaximized":
