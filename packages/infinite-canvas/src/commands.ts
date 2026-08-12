@@ -10,13 +10,20 @@ import {
   resizeRectFromHandle,
   zoomCameraAtScreenPoint,
 } from "./geometry";
-import { getInfiniteCanvasGroupParent, type InfiniteCanvasGroupContainerNode } from "./group-tree";
 import {
+  getInfiniteCanvasGroupParent,
+  type InfiniteCanvasGroupContainerNode,
+  type InfiniteCanvasGroupDockEdge,
+} from "./group-tree";
+import {
+  applyInfiniteCanvasDockPreview,
   equalizeInfiniteCanvasGroupChildrenInState,
   findInfiniteCanvasGroup,
   getInfiniteCanvasWindowGroup,
   isInfiniteCanvasWindowGrouped,
+  resolveInfiniteCanvasDockPreviewForTarget,
   setInfiniteCanvasGroupRect,
+  undockInfiniteCanvasWindowFromGroup,
 } from "./group-state";
 import {
   canRedoInfiniteCanvas,
@@ -299,6 +306,47 @@ const DEFAULT_INFINITE_CANVAS_COMMAND_DESCRIPTORS = [
     hotkeys: [],
     id: "window.align.vertical-center",
     label: "Align Vertical Centers",
+  },
+  // Docking without a pointer. Every group gesture was drag-only until 2026-08-12, which made
+  // the library's largest feature unreachable by keyboard — an accessibility failure, not just
+  // a missing convenience. These carry no default chords for the same reason the arrange verbs
+  // do not: the unclaimed chord space is nearly exhausted, and a consumer knows better than we
+  // do whether docking deserves four of it.
+  {
+    command: { direction: "left", type: "window.dockDirection" },
+    description: "Dock the active window against the nearest window to its left.",
+    hotkeys: [],
+    id: "window.dock.left",
+    label: "Dock Left",
+  },
+  {
+    command: { direction: "right", type: "window.dockDirection" },
+    description: "Dock the active window against the nearest window to its right.",
+    hotkeys: [],
+    id: "window.dock.right",
+    label: "Dock Right",
+  },
+  {
+    command: { direction: "up", type: "window.dockDirection" },
+    description: "Dock the active window against the nearest window above it.",
+    hotkeys: [],
+    id: "window.dock.up",
+    label: "Dock Up",
+  },
+  {
+    command: { direction: "down", type: "window.dockDirection" },
+    description: "Dock the active window against the nearest window below it.",
+    hotkeys: [],
+    id: "window.dock.down",
+    label: "Dock Down",
+  },
+  {
+    command: { type: "window.undock" },
+    description:
+      "Tear the active window out of its group, back to floating at the size it currently occupies.",
+    hotkeys: [],
+    id: "window.undock",
+    label: "Undock Window",
   },
   {
     command: { type: "group.equalizeChildren" },
@@ -642,6 +690,47 @@ function getArrangeableWindows<Kind extends string>(state: InfiniteCanvasState<K
  * guarantees that — so pairing them by index is sound. Nothing is resized, so no `minSize`
  * clamping is needed: the constraint cannot be violated by a translation.
  */
+/**
+ * The edge a keyboard dock lands on: the side the window arrives from, which is the
+ * *opposite* of the direction it travels. Sending a window right, into the neighbour on its
+ * right, puts it on that neighbour's west edge — the same result as dragging it onto that
+ * neighbour's left half, so the two gestures agree about what "dock right" means.
+ */
+const INFINITE_CANVAS_ARRIVAL_EDGE = {
+  down: "north",
+  left: "east",
+  right: "west",
+  up: "south",
+} as const satisfies Readonly<Record<InfiniteCanvasDirection, InfiniteCanvasGroupDockEdge>>;
+
+/**
+ * Resolve a keyboard dock to the same preview a drop would produce.
+ *
+ * Target selection reuses directional focus, so "dock left" reaches exactly the window
+ * "focus left" would — one notion of which window is to your left, rather than a second one
+ * that could disagree with the first.
+ */
+function resolveInfiniteCanvasDirectionalDock<Kind extends string>(
+  state: InfiniteCanvasState<Kind>,
+  direction: InfiniteCanvasDirection,
+) {
+  const windowId = state.activeWindowId;
+
+  if (windowId === null) {
+    return null;
+  }
+
+  const targetId = getInfiniteCanvasDirectionalFocusTarget(state, direction);
+
+  return targetId === null
+    ? null
+    : resolveInfiniteCanvasDockPreviewForTarget(state, {
+        edge: INFINITE_CANVAS_ARRIVAL_EDGE[direction],
+        targetId,
+        windowId,
+      });
+}
+
 function equalizeActiveInfiniteCanvasGroupContainer<Kind extends string>(
   state: InfiniteCanvasState<Kind>,
 ): InfiniteCanvasState<Kind> {
@@ -728,6 +817,14 @@ function isInfiniteCanvasCommandEnabled<Kind extends string>(
     // Enabled only where it can change something: a container with at least two panes
     // that are not already equal. Offering it on an untouched split would present a verb
     // that appears to do nothing.
+    // Asking the resolver is how the enabled state and the result stay in agreement: the
+    // command is offered exactly when a dock would actually land somewhere.
+    case "window.dockDirection":
+      return resolveInfiniteCanvasDirectionalDock(state, command.direction) !== null;
+    case "window.undock":
+      return (
+        state.activeWindowId !== null && isInfiniteCanvasWindowGrouped(state, state.activeWindowId)
+      );
     case "group.equalizeChildren": {
       const active = getActiveInfiniteCanvasGroupContainer(state);
 
@@ -893,6 +990,8 @@ function getInfiniteCanvasCommandGroup(command: InfiniteCanvasCommand): Infinite
     case "view.fitSelection":
       return "selection";
     case "group.equalizeChildren":
+    case "window.dockDirection":
+    case "window.undock":
     case "window.align":
     case "window.distribute":
     case "window.swap":
@@ -988,6 +1087,15 @@ function executeInfiniteCanvasCommand<Kind extends string>(
       return focusWindowInDirection(state, command.direction, zoomPolicy);
     case "group.equalizeChildren":
       return equalizeActiveInfiniteCanvasGroupContainer(state);
+    case "window.dockDirection": {
+      const preview = resolveInfiniteCanvasDirectionalDock(state, command.direction);
+
+      return preview === null ? state : applyInfiniteCanvasDockPreview(state, preview);
+    }
+    case "window.undock":
+      return state.activeWindowId === null
+        ? state
+        : undockInfiniteCanvasWindowFromGroup(state, { windowId: state.activeWindowId });
     case "window.align":
     case "window.distribute":
     case "window.swap":

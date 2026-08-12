@@ -56,7 +56,7 @@ of it could be run.
   `releaseThreshold`, per guide rather than per axis). This entry read `open —
 hysteresis unimplemented` until 2026-07-08, long after it shipped.
 
-## Docking and groups — built by drag, asserted 2026-08-12
+## Docking and groups — asserted 2026-08-12; keyboard-reachable since DOCK-006
 
 - **DOCK-001** — Drag a floating window beside another → new split group shell.
   `covered` (Alt+drag. `resolveInfiniteCanvasDockPreview` finds the target from the
@@ -77,7 +77,19 @@ hysteresis unimplemented` until 2026-07-08, long after it shipped.
   needed those pixels for reordering.)
 - **DOCK-005** — Remove the last child → empty-group cleanup. `covered`
   (`undockInfiniteCanvasGroupWindow` returns `null`, and `withInfiniteCanvasGroupTree`
-  drops the shell.)
+  drops the shell.) Note the _last_, literally: a one-member group is a deliberate state
+  — `createInfiniteCanvasGroup` has a branch that builds one — so undocking down to one
+  leaves a shell holding a single pane rather than dissolving.
+- **DOCK-006** — Dock and undock without a pointer. `covered` (2026-08-12. Every group
+  gesture was drag-only until then: `resolveInfiniteCanvasDockPreview` reads a world
+  point, so the largest feature in the library was unreachable by keyboard — an
+  accessibility failure, not a missing convenience. `window.dockDirection` targets via
+  `getInfiniteCanvasDirectionalFocusTarget`, so "dock left" reaches exactly the window
+  "focus left" would, and lands on the _arrival_ edge — travelling right puts the window
+  on the target's west side, matching a drag onto that target's left half.
+  `resolveInfiniteCanvasDockPreviewForTarget` produces the same `InfiniteCanvasDockPreview`
+  a drop produces and both commit through `applyInfiniteCanvasDockPreview`, so the two
+  gestures are one operation by construction. `window.undock` tears the active window out.)
 
 ## Split behavior — built, asserted 2026-08-12 (except SPLIT-004)
 

@@ -3,7 +3,7 @@ import { expect, test } from "vite-plus/test";
 import { getInfiniteCanvasContextualCommands } from "./commands";
 import { createInfiniteCanvasState, createInfiniteCanvasWindow } from "./factory";
 import { getInfiniteCanvasGroupProjection } from "./group-state";
-import { createInfiniteCanvasGroupWindowNode } from "./group-tree";
+import { createInfiniteCanvasGroupWindowNode, getInfiniteCanvasGroupWindowIds } from "./group-tree";
 import type { InfiniteCanvasGroupContainerNode } from "./group-tree";
 import {
   beginInfiniteCanvasGroupMove,
@@ -387,5 +387,109 @@ test("SPLIT-005 — equalize is unavailable to a window that is not docked", () 
       { ...floating, activeWindowId: "solo" },
       { type: "group.equalizeChildren" },
     ),
+  ).toBe(false);
+});
+
+// ── DOCK-006 — docking without a pointer ─────────────────────────────────────────────────
+
+/**
+ * Every group gesture was drag-only until 2026-08-12. `resolveInfiniteCanvasDockPreview`
+ * reads a world point, so the library's largest feature was unreachable by keyboard — an
+ * accessibility failure rather than a missing convenience, and one nothing in this file
+ * could have caught, because every DOCK scenario above drives a pointer.
+ *
+ * The design that makes it safe: keyboard targeting produces the *same*
+ * `InfiniteCanvasDockPreview` a drop produces, and both commit through
+ * `applyInfiniteCanvasDockPreview`. The two gestures are one operation with two ways in.
+ */
+
+const twoFloating = (): InfiniteCanvasState<Kind> => ({
+  ...createInfiniteCanvasState<Kind>({
+    windows: [windowAt("west", 0, 0), windowAt("east", 400, 0)],
+  }),
+  activeWindowId: "west",
+  viewport: { height: 800, width: 1200 },
+});
+
+test("DOCK-006 — docking right wraps both windows in a group, active window on the west", () => {
+  const state = twoFloating();
+
+  expect(state.groups).toEqual([]);
+  expect(
+    isInfiniteCanvasCommandEnabled(state, { direction: "right", type: "window.dockDirection" }),
+  ).toBe(true);
+
+  const docked = executeInfiniteCanvasCommand(state, {
+    direction: "right",
+    type: "window.dockDirection",
+  });
+
+  expect(docked.groups).toHaveLength(1);
+
+  const rects = getInfiniteCanvasGroupProjection(docked.groups).windowRects;
+
+  // The direction names where the window travels; it arrives on the far side's near edge.
+  // Sending `west` rightward into `east` must leave it on the left, exactly as dragging it
+  // onto `east`'s left half would.
+  expect(rects.get("west")!.x).toBeLessThan(rects.get("east")!.x);
+});
+
+test("DOCK-006 — a keyboard dock lands where the drag would, and the pair occupies the target's place", () => {
+  // DOCK-001's promise, reached by keyboard: the group takes the rect the target already
+  // had, so nothing else on the canvas shifts.
+  const state = twoFloating();
+  const targetRect = state.windows.find((window) => window.id === "east")!.rect;
+  const docked = executeInfiniteCanvasCommand(state, {
+    direction: "right",
+    type: "window.dockDirection",
+  });
+
+  expect(docked.groups[0]!.rect).toEqual(targetRect);
+});
+
+test("DOCK-006 — undocking frees the active window and leaves the shell holding its last member", () => {
+  const docked = executeInfiniteCanvasCommand(twoFloating(), {
+    direction: "right",
+    type: "window.dockDirection",
+  });
+
+  expect(isInfiniteCanvasCommandEnabled(docked, { type: "window.undock" })).toBe(true);
+
+  const undocked = executeInfiniteCanvasCommand(docked, { type: "window.undock" });
+
+  // Not `groups: []`. DOCK-005 drops a shell whose *last* child leaves, and a one-member
+  // group is a deliberate state here — `createInfiniteCanvasGroup` has an explicit branch
+  // building one, and normalization keeps a one-tab group because it is still a tab group.
+  // So dock-then-undock does not round-trip to bare floating windows, and that asymmetry is
+  // the model's, not an accident of this command.
+  expect(undocked.groups).toHaveLength(1);
+  expect(getInfiniteCanvasGroupWindowIds(undocked.groups[0]!.tree)).toEqual(["east"]);
+  // What the verb actually promises: the window is out, and free to dock again.
+  expect(isInfiniteCanvasCommandEnabled(undocked, { type: "window.undock" })).toBe(false);
+  expect(
+    isInfiniteCanvasCommandEnabled(undocked, { direction: "right", type: "window.dockDirection" }),
+  ).toBe(true);
+});
+
+test("DOCK-006 — a docked window cannot dock again, and a lone window has nowhere to dock", () => {
+  // A window lives in at most one tree. The pointer path refuses a grouped source outright;
+  // the keyboard path must refuse it too, or the two gestures disagree about what is legal.
+  const docked = executeInfiniteCanvasCommand(twoFloating(), {
+    direction: "right",
+    type: "window.dockDirection",
+  });
+
+  expect(
+    isInfiniteCanvasCommandEnabled(docked, { direction: "left", type: "window.dockDirection" }),
+  ).toBe(false);
+
+  const alone: InfiniteCanvasState<Kind> = {
+    ...createInfiniteCanvasState<Kind>({ windows: [windowAt("solo", 0, 0)] }),
+    activeWindowId: "solo",
+    viewport: { height: 800, width: 1200 },
+  };
+
+  expect(
+    isInfiniteCanvasCommandEnabled(alone, { direction: "right", type: "window.dockDirection" }),
   ).toBe(false);
 });

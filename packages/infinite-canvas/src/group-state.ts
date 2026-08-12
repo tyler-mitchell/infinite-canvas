@@ -649,6 +649,62 @@ function resolveInfiniteCanvasDockPreview<Kind extends string>(
 }
 
 /**
+ * The same preview, resolved from a named target rather than from a pointer.
+ *
+ * Docking was pointer-only until 2026-08-12: `resolveInfiniteCanvasDockPreview` reads a
+ * world point, so the whole group model — the library's largest feature — was unreachable
+ * without a mouse. This is the second targeting policy, and it deliberately produces the
+ * *same* `InfiniteCanvasDockPreview` so both gestures commit through
+ * `applyInfiniteCanvasDockPreview`. A keyboard dock and a dropped drag are then the same
+ * operation by construction, rather than two implementations that have to be kept agreeing.
+ *
+ * The caller supplies the edge, because the two policies derive it differently: a drag
+ * reads which half of the target the pointer is over, while a keyboard gesture takes the
+ * side the window arrives from.
+ */
+function resolveInfiniteCanvasDockPreviewForTarget<Kind extends string>(
+  state: InfiniteCanvasState<Kind>,
+  input: Readonly<{
+    edge: InfiniteCanvasGroupDockEdge;
+    targetId: string;
+    windowId: string;
+  }>,
+  metrics: InfiniteCanvasGroupMetrics = DEFAULT_INFINITE_CANVAS_GROUP_METRICS,
+): InfiniteCanvasDockPreview | null {
+  const { edge, targetId, windowId } = input;
+
+  // A window already in a tree is moved by reordering or by tearing out, never by docking
+  // it somewhere else — the same refusal the pointer path makes.
+  if (targetId === windowId || isInfiniteCanvasWindowGrouped(state, windowId)) {
+    return null;
+  }
+
+  const group = getInfiniteCanvasWindowGroup(state, targetId);
+  const target = state.windows.find((window) => window.id === targetId);
+
+  if (target === undefined || target.mode === "minimized") {
+    return null;
+  }
+
+  // A grouped target's own `rect` is a projection and may lag its tree; the solver is the
+  // authority, exactly as it is for the pointer path.
+  const targetRect =
+    group === null
+      ? target.rect
+      : (getInfiniteCanvasGroupProjection([group], metrics).windowRects.get(targetId) ??
+        target.rect);
+
+  return {
+    containerId: getInfiniteCanvasDockContainerId(targetId, edge),
+    edge,
+    groupId: group?.id ?? null,
+    rect: getInfiniteCanvasDockRegionRect(targetRect, edge),
+    targetId,
+    windowId,
+  };
+}
+
+/**
  * Commit a resolved preview. Docking onto a floating window first wraps that
  * window in a group occupying exactly the rect it already had, then docks the
  * dragged window against it — so the pair lands where the target was standing
@@ -707,6 +763,7 @@ export {
   reconcileInfiniteCanvasGroups,
   reorderInfiniteCanvasGroupChildInState,
   resolveInfiniteCanvasDockPreview,
+  resolveInfiniteCanvasDockPreviewForTarget,
   setInfiniteCanvasGroupActiveChildInState,
   setInfiniteCanvasGroupChildWeightsInState,
   setInfiniteCanvasGroupLayoutModeInState,
