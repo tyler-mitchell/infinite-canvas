@@ -74,7 +74,9 @@ import { getInfiniteCanvasWindowPlacementRect } from "./window-placement";
 import {
   activateInfiniteCanvasWorkspace,
   detachInfiniteCanvasWindowFromWorkspaces,
+  findInfiniteCanvasWorkspace,
   isInfiniteCanvasWindowInActiveWorkspace,
+  moveInfiniteCanvasWindowToWorkspace,
   removeInfiniteCanvasWindowFromWorkspace,
 } from "./workspace";
 import type {
@@ -440,6 +442,17 @@ const DEFAULT_INFINITE_CANVAS_COMMAND_DESCRIPTORS = [
     hotkeys: [],
     id: "workspace.showAll",
     label: "Show All Windows",
+  },
+  // Parameterized, like `workspace.create`: a palette entry cannot invent which desktop, so the
+  // descriptor carries a placeholder id and the surface listing the desktops supplies the real
+  // one. It is here so the verb has a label and a description in one place rather than being
+  // re-invented by every consumer that builds a switcher.
+  {
+    command: { type: "workspace.moveActiveWindow", workspaceId: "" },
+    description: "Send the active window to another desktop, leaving the one it is on.",
+    hotkeys: [],
+    id: "workspace.moveActiveWindow",
+    label: "Move Window to Desktop",
   },
   {
     command: { type: "workspace.removeActiveWindow" },
@@ -1377,6 +1390,13 @@ function isInfiniteCanvasCommandEnabled<Kind extends string>(
       return state.activeWorkspaceId !== null;
     // Only reachable in one direction, and that is not a limitation: a window absent from the
     // active workspace is not rendered, so it cannot be the active window to begin with.
+    // Offered whenever there is an active window and a desktop to send it to, including from
+    // "show all" — a window on no desktop is the one you most want to file onto one.
+    case "workspace.moveActiveWindow":
+      return (
+        state.activeWindowId !== null &&
+        findInfiniteCanvasWorkspace(state, command.workspaceId) !== null
+      );
     case "workspace.removeActiveWindow":
       return (
         state.activeWorkspaceId !== null &&
@@ -1627,6 +1647,7 @@ function getInfiniteCanvasCommandGroup(command: InfiniteCanvasCommand): Infinite
       return "view";
     case "workspace.cycle":
     case "workspace.showAll":
+    case "workspace.moveActiveWindow":
     case "workspace.removeActiveWindow":
       return "canvas";
     case "view.fitSelection":
@@ -1823,6 +1844,15 @@ function executeInfiniteCanvasCommand<Kind extends string>(
         : removeInfiniteCanvasWindowFromWorkspace(state, {
             windowId: state.activeWindowId,
             workspaceId: state.activeWorkspaceId,
+          });
+    // Reachable from "show all" as well as from a desktop, unlike `removeActiveWindow`: a
+    // window on no desktop is exactly the one you most want to file onto one.
+    case "workspace.moveActiveWindow":
+      return state.activeWindowId === null
+        ? state
+        : moveInfiniteCanvasWindowToWorkspace(state, {
+            windowId: state.activeWindowId,
+            workspaceId: command.workspaceId,
           });
     case "selection.removeActive":
       return state.activeWindowId === null ? state : removeSelection(state, [state.activeWindowId]);

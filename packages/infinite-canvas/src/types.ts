@@ -969,6 +969,13 @@ type InfiniteCanvasCommand =
   | Readonly<{ direction: "next" | "previous"; type: "workspace.cycle" }>
   | Readonly<{ type: "workspace.showAll" }>
   | Readonly<{ type: "workspace.removeActiveWindow" }>
+  /**
+   * Send the active window to a named desktop.
+   *
+   * Parameterized like `workspace.create`, and for the same reason: a palette entry cannot
+   * invent which desktop. The surface listing the desktops is what supplies the argument.
+   */
+  | Readonly<{ type: "workspace.moveActiveWindow"; workspaceId: string }>
   | Readonly<{ amountPx: number; type: "group.resizePane" }>
   | Readonly<{ type: "group.dissolve" }>
   | Readonly<{ type: "group.flipAxis" }>
@@ -1040,6 +1047,7 @@ type InfiniteCanvasCommandId =
   | "workspace.cycle.next"
   | "workspace.cycle.previous"
   | "workspace.removeActiveWindow"
+  | "workspace.moveActiveWindow"
   | "workspace.showAll"
   | "view.pan.down"
   | "view.pan.left"
@@ -1139,6 +1147,15 @@ type InfiniteCanvasAction<Kind extends string = string> =
   | Readonly<{ title: string; type: "workspace.setTitle"; workspaceId: string }>
   | Readonly<{ type: "workspace.activate"; workspaceId: string | null }>
   | Readonly<{ type: "workspace.addWindow"; windowId: string; workspaceId: string }>
+  /**
+   * Move a window to a desktop: it leaves every other one and joins this one, as one edit.
+   *
+   * `addWindow` and `removeWindow` cannot express this between them — two dispatches are two
+   * undo entries, and the window sits on both desktops in between. The whole group moves,
+   * because membership is group-complete and leaving siblings behind would have reconciliation
+   * pull the window straight back.
+   */
+  | Readonly<{ type: "workspace.moveWindow"; windowId: string; workspaceId: string }>
   | Readonly<{ type: "workspace.removeWindow"; windowId: string; workspaceId: string }>
   | Readonly<{
       type: "workspace.setWindows";

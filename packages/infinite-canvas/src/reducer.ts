@@ -5,6 +5,7 @@ import { applyInfiniteCanvasRecipe } from "./recipes";
 import {
   activateInfiniteCanvasWorkspace,
   addInfiniteCanvasWindowToWorkspace,
+  moveInfiniteCanvasWindowToWorkspace,
   closeInfiniteCanvasWorkspace,
   createInfiniteCanvasWorkspace,
   reconcileInfiniteCanvasWorkspaces,
@@ -273,6 +274,8 @@ function applyInfiniteCanvasAction<Kind extends string>(
       return activateInfiniteCanvasWorkspace(state, action.workspaceId);
     case "workspace.addWindow":
       return addInfiniteCanvasWindowToWorkspace(state, action);
+    case "workspace.moveWindow":
+      return moveInfiniteCanvasWindowToWorkspace(state, action);
     case "workspace.removeWindow":
       return removeInfiniteCanvasWindowFromWorkspace(state, action);
     case "workspace.setWindows":

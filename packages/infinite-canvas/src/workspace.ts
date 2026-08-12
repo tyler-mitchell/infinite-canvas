@@ -349,6 +349,59 @@ function detachInfiniteCanvasWindowFromWorkspaces<Kind extends string>(
   };
 }
 
+/**
+ * Move a window to a desktop: it leaves every other one and joins this one, as a single edit.
+ *
+ * The operation a virtual desktop exists for, and the one thing `addWindow` and `removeWindow`
+ * could not express between them. Two dispatches would also be two undo entries, and a window
+ * would be on both desktops in between.
+ *
+ * **The whole group moves, and it has to.** Membership is group-complete, and
+ * `reconcileInfiniteCanvasWorkspaces` re-expands every workspace after every action — so moving
+ * one pane of a docked shell while its siblings stayed behind would have reconcile pull the
+ * moved pane straight back into the desktop it just left. Naming the group-complete set up
+ * front is what makes the move stick.
+ *
+ * Returns the identical state when the move would change nothing, so a no-op lands no history
+ * entry.
+ */
+function moveInfiniteCanvasWindowToWorkspace<Kind extends string>(
+  state: InfiniteCanvasState<Kind>,
+  input: Readonly<{ windowId: string; workspaceId: string }>,
+): InfiniteCanvasState<Kind> {
+  const target = findInfiniteCanvasWorkspace(state, input.workspaceId);
+
+  if (target === null) {
+    return state;
+  }
+
+  const moving = new Set(normalizeInfiniteCanvasWorkspaceWindowIds(state, [input.windowId]));
+
+  if (moving.size === 0) {
+    return state;
+  }
+
+  const workspaces = state.workspaces.map((workspace) => {
+    if (workspace.id === input.workspaceId) {
+      const missing = [...moving].filter((windowId) => !workspace.windowIds.includes(windowId));
+
+      return missing.length === 0
+        ? workspace
+        : { ...workspace, windowIds: [...workspace.windowIds, ...missing] };
+    }
+
+    const remaining = workspace.windowIds.filter((windowId) => !moving.has(windowId));
+
+    return remaining.length === workspace.windowIds.length
+      ? workspace
+      : { ...workspace, windowIds: remaining };
+  });
+
+  return workspaces.every((workspace, index) => workspace === state.workspaces[index])
+    ? state
+    : { ...state, workspaces };
+}
+
 export {
   activateInfiniteCanvasWorkspace,
   addInfiniteCanvasWindowToWorkspace,
@@ -359,6 +412,7 @@ export {
   findInfiniteCanvasWorkspace,
   getInfiniteCanvasWorkspaceWindowIds,
   isInfiniteCanvasWindowInActiveWorkspace,
+  moveInfiniteCanvasWindowToWorkspace,
   removeInfiniteCanvasWindowFromWorkspace,
   renameInfiniteCanvasWorkspace,
   setInfiniteCanvasWorkspaceWindows,
