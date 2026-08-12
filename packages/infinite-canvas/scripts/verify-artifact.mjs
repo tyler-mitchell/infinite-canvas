@@ -59,6 +59,25 @@ check(
   'publishConfig.exports is missing "./scene" — the 3D entry consumers import',
 );
 
+// 1b. The legal and orienting files npm packs regardless of `files`, which it looks for in
+//     the *package* root rather than the repository root. `files` is `["dist"]`, so nothing
+//     else is carried explicitly, and a monorepo naturally puts LICENSE at the top where the
+//     tarball cannot see it. Publishing a package whose manifest declares MIT while shipping
+//     no licence text is not a cosmetic gap: MIT asks that the notice travel with "all copies
+//     or substantial portions of the Software", and the copy a consumer installs is one.
+for (const required of ["LICENSE", "README.md"]) {
+  check(
+    existsSync(join(packageRoot, required)),
+    `${required} is missing from the package root, so npm will not pack it — ` +
+      "npm looks for it beside package.json, not at the repository root",
+  );
+}
+
+check(
+  typeof manifest.license === "string" && manifest.license.length > 0,
+  "package.json declares no license",
+);
+
 const bundle = readFileSync(join(dist, "index.mjs"), "utf8");
 const types = readFileSync(join(dist, "index.d.mts"), "utf8");
 

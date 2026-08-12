@@ -505,9 +505,19 @@ entry above it — it described semantic LOD as pending while P7b records it lan
   one-off live driving; the computed-style fingerprint harness productized
   as a visual-regression tool (or port kek's visual-parity).
 - Perf benchmarks in CI (from P2's harness).
-- **Publishing pipeline**: rename to the `@infinite-canvas/*` scope,
-  changesets/version flow, README + API documentation, docs site seed in
-  the `apps/website` slot, license/contribution hygiene.
+- **Publishing pipeline**: the rename to `@infinite-canvas/*` is done, as are
+  README + API documentation and the root's contribution hygiene (LICENSE,
+  CONTRIBUTING, CODE_OF_CONDUCT, SECURITY). Still open: a changesets/version
+  flow, and the docs site seed in the `apps/website` slot, which does not exist.
+
+  ✅ **The package now ships its licence (2026-08-12).** It did not. `files` is
+  `["dist"]`, and npm looks for LICENSE beside `package.json` rather than at the
+  repository root — where a monorepo naturally puts it — so the tarball would have
+  declared MIT in its manifest and carried no licence text. `npm pack --dry-run`
+  confirms both halves: `LICENSE README.md package.json` plus seven dist files now,
+  and no LICENSE before. `verify-artifact.mjs` asserts it, so it cannot regress
+  between here and a publish.
+
 - Exit: `npm install @infinite-canvas/react` works for an external
   consumer with documented quick-start; CI gates on tests + benchmarks +
   visual checks.
