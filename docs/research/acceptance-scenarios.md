@@ -194,8 +194,24 @@ hysteresis unimplemented` until 2026-07-08, long after it shipped.
   nothing turns them on, so "background = snapshot" is unexercised.
 
 - **RENDER-002** — Dragging a snapshot-represented window stays coherent.
-  `partial` (captures pause during interaction by design; needs an explicit
-  test)
+  `partial` (captures pause during interaction by design; needs an explicit test)
+
+  **Deliberately not tested on 2026-08-12, and the reason is worth stating so it is a decision
+  rather than an omission.** The mechanism is real and readable: the scheduler gate pauses on
+  `interaction !== null`, and a window under a `move`/`resize` interaction is additionally
+  ineligible for capture, so the one you are dragging stays live DOM while its neighbours may
+  not. Asserting it end to end means standing up the rasterization provider and a snapshot
+  fixture.
+
+  That cost buys coverage of a lane that is **off by default, marked experimental, and slated
+  for replacement**: P7 rebuilds the capture path on `html-in-canvas`, with `@zumer/snapdom` as
+  the fallback. Tests written against the current scheduler would be rewritten with it. The
+  higher-value work with the same effort was `group-layout.ts` — the solver every grouped window's
+  rect comes from, which had zero coverage and is not going anywhere.
+
+  Revisit when P7 lands, when the lane is turned on by default, or if a snapshot defect is ever
+  observed in use — whichever comes first.
+
 - **RENDER-003** — Offscreen culling doesn't break selection or restoration.
   `unbuilt` — there is no culling. `visibility.tsx` is a diagnostics probe behind
   `/scene`, not a culling source; the predicate a culler would use is
