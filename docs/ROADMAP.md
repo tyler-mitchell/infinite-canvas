@@ -62,16 +62,29 @@ solves it lexically, and completes that trio.
 Exit: the palette lists open windows by title, filters them, and
 Enter focuses + navigates the camera to the chosen one.
 
-### T3 — Light theme and token completeness (~2h)
+### T3 — Light theme and token completeness (~2h) — **half landed**
 
 **Feature, and the most visible gap.** P3's own framing is right: a light
 theme is the _proof_ of token completeness, because every hardcoded color
-fights it. Audit every visual surface for a missing token — snap guides,
-marquee, dock preview, gutters, tab strips, accordion headers, resize
-handles, minimap, offscreen indicators, HUD — then widen the bridged set well
-beyond 11 and ship a second complete look with a playground switcher.
+fights it.
 
-Exit: `/`-level theme switcher toggles two complete looks; no framework
+✅ **The semantic layer landed (`fcdd628`).** The 48 unbridged tokens were not
+48 decisions — most were one white or one cyan at varying alpha, and that cyan
+was `--icx-active-accent` written out by hand. They now derive from six knobs,
+value-preserving to the bit.
+
+**What remains is the proof, and the audit already named what will fight it:**
+six tokens do _not_ derive and are marked `NOT DERIVED (n/6)` in `theme.css` —
+the host chrome's near-accent tint family, its own near-black fill, and the
+active HUD button's foreground. They encode "light tint over a dark surface"
+in their values rather than in a token. Give each a semantic home, then write
+the light theme **in consumer CSS** (the playground), because a theme the
+framework ships is not evidence that a consumer's would work — and because
+`theme-tokens.test.ts` reads tokens into a `Map` over the whole file, so a
+light block inside `theme.css` would silently become the value it asserts
+against.
+
+Exit: a playground theme switcher toggles two complete looks; no framework
 surface renders an unthemed color in either.
 
 ### T4 — Semantic LOD: readable cards at far zoom (~2h)
@@ -97,12 +110,24 @@ Exit: those scenario ids assert and pass; `grep` for `createGroup`,
 `dockWindow`, `undoInfiniteCanvas`, `captureInfiniteCanvasRecipe` in
 `src/*.test.*` returns hits.
 
-### Tail (next, not this slate)
+### Tail — **both landed 2026-08-12, ahead of the slate**
 
-- **T6 — Focus trapping**, FR-9's last structural piece (~1.5h). Needs bounded
-  browser verification, which is available for discrete DOM checks.
-- **T7 — A non-trivial app in a window** (~1.5h): P6's unmet exit criterion.
-  Forms, popovers, scrolling lists, with zero consumer workarounds.
+Pulled forward because the owner's direction turned to building a real
+application on the framework, and these two are what any real application
+leans on first. Neither is verified in a browser.
+
+- ✅ **T6 — Focus trapping** (`8793f04`). FR-9's last structural piece. `Tab`
+  enters the active window's content and only its content; it cycles and wraps
+  inside; `Escape` returns to the command surface. `Shift+Tab` is deliberately
+  not claimed — swallowing it would make the canvas a keyboard trap for the
+  whole document.
+- ✅ **T7 — A non-trivial app in a window** (`19cac41`). P6's exit criterion, as
+  `/body-content`. Building it found _why_ the criterion had sat unmet: every
+  other showcase puts **inert** content in its windows, and none of the
+  contract's failure modes are about painting. They are about input ownership,
+  which a div that wants no input cannot test. One widget per contested input:
+  a form (caret, tab order), a scrolling list (wheel), selectable prose
+  (pointer).
 
 ### Deliberately deferred, with reasons
 
