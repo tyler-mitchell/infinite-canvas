@@ -230,6 +230,38 @@ buttons, and programmatic drivers share one mutation path.
 
 </details>
 
+**`detail-level`** — what a window shows when it is too small to read (semantic LOD)
+
+The readability half of P7, and independent of the capture lane it was long filed beside.
+Rasterization cannot solve this and never could: **a rasterized paragraph is still a
+paragraph**, only blurrier. At far zoom a window has to say something _different_ — a title, an
+icon, a count — not the same thing smaller.
+
+- `getInfiniteCanvasWindowDetailLevel` — rect + zoom + previous level → `"full" | "summary"`.
+- `DEFAULT_INFINITE_CANVAS_DETAIL_POLICY` — demote below 180 screen px, restore above 240.
+
+The threshold is on **effective screen size, not zoom**. Zoom belongs to the camera and
+readability belongs to the window: at 20% zoom a 200px window is 40px and illegible while a
+1200px window is 240px and fine. Thresholding on zoom would demote both or neither.
+
+The gap between the two thresholds is a **hysteresis band**, and it is not optional — zoom is
+continuous, so a window sitting at a single threshold would flicker between its body and its
+summary for every pixel of zoom. The snap resolver carries hysteresis for exactly this reason.
+`previousLevel` is how the band works while the function stays pure: the caller holds the last
+answer and hands it back.
+
+Opt in per window kind with `renderSummary` on the definition. **A kind that declares none
+always renders its body at any zoom** — the framework cannot invent a meaningful summary for
+content it does not understand, and a generic one would be worse than small text, which at
+least still says what it says.
+
+<details><summary>types (2)</summary>
+
+- `InfiniteCanvasDetailLevel` — `"full" | "summary"`
+- `InfiniteCanvasDetailPolicy` — `summaryBelowPx`, `fullAbovePx`
+
+</details>
+
 **`window-arrange`** — aligning and distributing a set of windows
 
 Sibling to `window-placement`, and the distinction is load-bearing: placement answers "where

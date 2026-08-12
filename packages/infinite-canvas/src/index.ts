@@ -196,6 +196,11 @@ export {
 export { getInfiniteCanvasWindowPlacementRect } from "./window-placement";
 export type { InfiniteCanvasWindowPlacementRegion } from "./window-placement";
 export { getInfiniteCanvasAlignedRects, getInfiniteCanvasDistributedRects } from "./window-arrange";
+export {
+  DEFAULT_INFINITE_CANVAS_DETAIL_POLICY,
+  getInfiniteCanvasWindowDetailLevel,
+} from "./detail-level";
+export type { InfiniteCanvasDetailLevel, InfiniteCanvasDetailPolicy } from "./detail-level";
 export type { InfiniteCanvasAlignment, InfiniteCanvasDistribution } from "./window-arrange";
 export { getInfiniteCanvasMinimapLayout, getInfiniteCanvasMinimapWorldPoint } from "./minimap";
 export type {

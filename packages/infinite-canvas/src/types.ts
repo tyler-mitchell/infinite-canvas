@@ -771,6 +771,19 @@ type InfiniteCanvasWindowDefinition<Kind extends string = string, Data = unknown
   portalRoot?: boolean;
   renderBody?: (context: InfiniteCanvasWindowRenderContext<Kind, Data>) => ReactNode;
   renderFrame?: (context: InfiniteCanvasWindowFrameRenderContext<Kind, Data>) => ReactNode;
+  /**
+   * What this window shows when it is too small on screen to read (semantic LOD).
+   *
+   * Opt-in per kind, and the lane is inert without it: a kind that declares no summary always
+   * renders its body, at any zoom. That is the honest default — the framework cannot invent a
+   * meaningful summary for content it does not understand, and a generic one would be worse
+   * than small text, because small text at least still says what it says.
+   *
+   * Rasterization does **not** solve this and never could: a rasterized paragraph is still a
+   * paragraph. At far zoom a window has to say something *different* — a title, an icon, a
+   * count — not the same thing smaller. Receives the same context as `renderBody`.
+   */
+  renderSummary?: (context: InfiniteCanvasWindowRenderContext<Kind, Data>) => ReactNode;
   textSelection?: InfiniteCanvasWindowTextSelection;
   wheelBehavior?: InfiniteCanvasWindowWheelBehavior;
 }>;

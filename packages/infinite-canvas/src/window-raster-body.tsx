@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef } from "react";
 
+import { getInfiniteCanvasWindowDetailLevel, type InfiniteCanvasDetailLevel } from "./detail-level";
 import { isWorldRectWithinViewport } from "./geometry";
 import {
   useInfiniteCanvasRasterCaptureCapacity,
@@ -203,19 +204,42 @@ function useRenderedWindowBody<Kind extends string>({
   // content that needs live state should subscribe with
   // useInfiniteCanvasSelector inside its own component so invalidation
   // stays scoped to what it actually reads.
-  return useMemo(
-    () =>
-      definition.renderBody?.({
-        actions,
-        isActive,
-        isSelected,
-        get state() {
-          return store.state$.peek() as InfiniteCanvasState<Kind>;
-        },
-        window,
-      }),
-    [actions, definition, isActive, isSelected, store, window],
+  // Semantic LOD. The selector collapses camera zoom to one of two strings, which is what keeps
+  // this out of the camera loop for the same reason the booleans above are: a pan recomputes it
+  // every tick and re-renders nothing, because the answer did not change. Returning the screen
+  // extent instead would re-render every window on every frame.
+  //
+  // A kind with no `renderSummary` short-circuits to `full`, so the lane costs nothing — not a
+  // re-render, not a threshold comparison that could ever flip — for the windows that opted out.
+  //
+  // The ref carries the previous answer, which is what makes the hysteresis band work while
+  // `getInfiniteCanvasWindowDetailLevel` stays pure. Writing it during render is the documented
+  // caching use of a ref, and it is idempotent: inside the band the function returns the value
+  // that is already there.
+  const detailLevelRef = useRef<InfiniteCanvasDetailLevel>("full");
+  const detailLevel = useInfiniteCanvasSelector<Kind, InfiniteCanvasDetailLevel>((state) =>
+    definition.renderSummary === undefined
+      ? "full"
+      : getInfiniteCanvasWindowDetailLevel(window.rect, state.camera.zoom, detailLevelRef.current),
   );
+
+  detailLevelRef.current = detailLevel;
+
+  return useMemo(() => {
+    const context = {
+      actions,
+      isActive,
+      isSelected,
+      get state() {
+        return store.state$.peek() as InfiniteCanvasState<Kind>;
+      },
+      window,
+    };
+
+    return detailLevel === "summary" && definition.renderSummary !== undefined
+      ? definition.renderSummary(context)
+      : definition.renderBody?.(context);
+  }, [actions, definition, detailLevel, isActive, isSelected, store, window]);
 }
 
 function getWindowBodyHeight<Kind extends string>(
