@@ -3,6 +3,7 @@ import { expect, test } from "vite-plus/test";
 import {
   createInfiniteCanvasGroupWindowNode,
   dockInfiniteCanvasGroupWindow,
+  equalizeInfiniteCanvasGroupChildren,
   getInfiniteCanvasGroupWindowIds,
   isInfiniteCanvasGroupContainer,
   normalizeInfiniteCanvasGroupTree,
@@ -372,5 +373,94 @@ test("TAB-002: tabs → accordion → tabs preserves children, order, and weight
   // `split` restores the proportions the user last set rather than resetting them.
   expect(backToTabs.children.map((child) => [child.id, child.weight])).toStrictEqual(
     tabs.children.map((child) => [child.id, child.weight]),
+  );
+});
+
+// ── SPLIT-005 — equalize: undo accumulated seam drags ────────────────────────────────────
+
+/**
+ * `equalizeInfiniteCanvasGroupChildren` — the arrange verb for docked panes, added on
+ * 2026-08-12.
+ *
+ * Seam drags are lossy in one direction: every drag records new weights and nothing
+ * remembers what they were before, so a shell that has been resized a few times can only
+ * be returned to even panes by dragging each seam back by eye. Align and distribute give
+ * floating windows a one-shot way out of that; docked panes had none.
+ */
+
+const splitOf = (
+  childIds: readonly string[],
+  weights: readonly number[],
+): InfiniteCanvasGroupNode =>
+  asContainer(
+    normalizeInfiniteCanvasGroupTree({
+      activeChildId: null,
+      axis: "horizontal",
+      children: childIds.map((id, index) => windowNode(id, weights[index] ?? 1)),
+      id: "root",
+      kind: "container",
+      layout: "split",
+      weight: 1,
+    }),
+  );
+
+test("SPLIT-005: equalizing returns skewed panes to identical weights", () => {
+  const equalized = asContainer(
+    equalizeInfiniteCanvasGroupChildren(splitOf(["A", "B", "C"], [7, 1, 4]), "root"),
+  );
+
+  expect(new Set(equalized.children.map((child) => child.weight)).size).toBe(1);
+});
+
+test("SPLIT-005: equalizing is idempotent", () => {
+  // The verb has to be safe to invoke on an already-even split — a palette does not know
+  // whether the user dragged a seam since last time.
+  const once = asContainer(
+    equalizeInfiniteCanvasGroupChildren(splitOf(["A", "B"], [3, 1]), "root"),
+  );
+  const twice = equalizeInfiniteCanvasGroupChildren(once, "root");
+
+  expect(asContainer(twice).children.map((child) => child.weight)).toStrictEqual(
+    once.children.map((child) => child.weight),
+  );
+});
+
+test("SPLIT-005: equalizing a container leaves a nested container's own weights alone", () => {
+  // The verb names one container. Recursing would make it a whole-tree "balance", which is a
+  // coarser gesture than the user asked for by focusing one pane.
+  const nested = asContainer(
+    normalizeInfiniteCanvasGroupTree({
+      activeChildId: null,
+      axis: "horizontal",
+      children: [
+        windowNode("A", 5),
+        {
+          activeChildId: null,
+          axis: "vertical",
+          children: [windowNode("B", 9), windowNode("C", 1)],
+          id: "inner",
+          kind: "container",
+          layout: "split",
+          weight: 1,
+        },
+      ],
+      id: "root",
+      kind: "container",
+      layout: "split",
+      weight: 1,
+    }),
+  );
+  const equalized = asContainer(equalizeInfiniteCanvasGroupChildren(nested, "root"));
+  const inner = equalized.children.find((child) => child.id === "inner");
+
+  expect(new Set(equalized.children.map((child) => child.weight)).size).toBe(1);
+  expect(asContainer(inner ?? null).children.map((child) => child.weight)).toStrictEqual([9, 1]);
+});
+
+test("SPLIT-005: equalizing an unknown container id changes nothing", () => {
+  const tree = splitOf(["A", "B"], [3, 1]);
+
+  expect(asContainer(equalizeInfiniteCanvasGroupChildren(tree, "absent")).children).toStrictEqual(
+    asContainer(tree).children,
   );
 });

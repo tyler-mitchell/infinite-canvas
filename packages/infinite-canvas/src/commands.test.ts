@@ -149,17 +149,31 @@ test("no default chord shadows a browser shortcut the page cannot cancel", () =>
   expect(reserved).toEqual([]);
 });
 
-test("every default chord names a command the reducer can actually execute", () => {
+test("every declared command reaches the palette, with a group and a unique id", () => {
   // A descriptor whose command type no longer exists is a dead key: the canvas swallows the
   // chord — it owns it — and then does nothing, which reads as a broken shortcut rather than an
   // absent one.
-  const executable = new Set(
-    DEFAULT_INFINITE_CANVAS_COMMAND_DESCRIPTORS.map((descriptor) => descriptor.command.type),
+  //
+  // This test was tautological until 2026-08-12: it built its `executable` set *from* the same
+  // descriptor list it then checked against, so it passed for any descriptor whatsoever and
+  // asserted nothing about reachability. Adding `window.swap` proved the gap — the function
+  // was absent from the barrel and every test still passed. What follows crosses the boundary
+  // instead, asking the surface a consumer actually reads.
+  const surfaced = new Map(
+    getInfiniteCanvasContextualCommands(commandState).map((command) => [command.id, command]),
   );
 
+  expect(surfaced.size).toBe(DEFAULT_INFINITE_CANVAS_COMMAND_DESCRIPTORS.length);
+
   for (const descriptor of DEFAULT_INFINITE_CANVAS_COMMAND_DESCRIPTORS) {
-    expect(executable.has(descriptor.command.type)).toBe(true);
-    expect(descriptor.id.length).toBeGreaterThan(0);
+    const command = surfaced.get(descriptor.id);
+
+    // An unsurfaced command is unreachable from the palette however well its reducer case works.
+    expect(command).toBeDefined();
+    // `getInfiniteCanvasCommandGroup` is an exhaustive switch, so a missing group means a new
+    // command type slipped past it and the palette would render it under no heading.
+    expect(command?.group.length ?? 0).toBeGreaterThan(0);
     expect(descriptor.label.length).toBeGreaterThan(0);
+    expect(descriptor.description.length).toBeGreaterThan(0);
   }
 });

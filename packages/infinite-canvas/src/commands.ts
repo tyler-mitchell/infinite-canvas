@@ -10,7 +10,9 @@ import {
   resizeRectFromHandle,
   zoomCameraAtScreenPoint,
 } from "./geometry";
+import { getInfiniteCanvasGroupParent, type InfiniteCanvasGroupContainerNode } from "./group-tree";
 import {
+  equalizeInfiniteCanvasGroupChildrenInState,
   findInfiniteCanvasGroup,
   getInfiniteCanvasWindowGroup,
   isInfiniteCanvasWindowGrouped,
@@ -297,6 +299,14 @@ const DEFAULT_INFINITE_CANVAS_COMMAND_DESCRIPTORS = [
     hotkeys: [],
     id: "window.align.vertical-center",
     label: "Align Vertical Centers",
+  },
+  {
+    command: { type: "group.equalizeChildren" },
+    description:
+      "Reset the panes sharing a row or column with the active window to equal shares, undoing accumulated seam drags.",
+    hotkeys: [],
+    id: "group.equalizeChildren",
+    label: "Equalize Panes",
   },
   {
     command: { type: "window.swap" },
@@ -632,6 +642,19 @@ function getArrangeableWindows<Kind extends string>(state: InfiniteCanvasState<K
  * guarantees that — so pairing them by index is sound. Nothing is resized, so no `minSize`
  * clamping is needed: the constraint cannot be violated by a translation.
  */
+function equalizeActiveInfiniteCanvasGroupContainer<Kind extends string>(
+  state: InfiniteCanvasState<Kind>,
+): InfiniteCanvasState<Kind> {
+  const active = getActiveInfiniteCanvasGroupContainer(state);
+
+  return active === null
+    ? state
+    : equalizeInfiniteCanvasGroupChildrenInState(state, {
+        containerId: active.container.id,
+        groupId: active.groupId,
+      });
+}
+
 function arrangeSelectedWindows<Kind extends string>(
   state: InfiniteCanvasState<Kind>,
   command: Extract<
@@ -702,6 +725,20 @@ function isInfiniteCanvasCommandEnabled<Kind extends string>(
     // Two windows is the floor for an alignment and three for a distribution, and the pure
     // module is the one that knows which — asking it is how the enabled state and the result
     // stay in agreement rather than drifting into two definitions of "enough windows".
+    // Enabled only where it can change something: a container with at least two panes
+    // that are not already equal. Offering it on an untouched split would present a verb
+    // that appears to do nothing.
+    case "group.equalizeChildren": {
+      const active = getActiveInfiniteCanvasGroupContainer(state);
+
+      if (active === null || active.container.children.length < 2) {
+        return false;
+      }
+
+      const [first, ...rest] = active.container.children;
+
+      return rest.some((child) => child.weight !== first?.weight);
+    }
     case "window.align":
     case "window.distribute":
     case "window.swap": {
@@ -733,6 +770,32 @@ function isInfiniteCanvasCommandEnabled<Kind extends string>(
  *
  * An unmeasured viewport has no halves, and no pixels to convert a resize through.
  */
+/**
+ * The container whose panes the active window shares — its immediate parent in the tree,
+ * not the root. Equalizing the row you are looking at is the predictable reading of the
+ * verb; balancing every container in the group at once is a different, coarser gesture and
+ * would belong to its own command.
+ */
+function getActiveInfiniteCanvasGroupContainer<Kind extends string>(
+  state: InfiniteCanvasState<Kind>,
+): Readonly<{ container: InfiniteCanvasGroupContainerNode; groupId: string }> | null {
+  const windowId = state.activeWindowId;
+
+  if (windowId === null) {
+    return null;
+  }
+
+  const group = getInfiniteCanvasWindowGroup(state, windowId);
+
+  if (group === null) {
+    return null;
+  }
+
+  const container = getInfiniteCanvasGroupParent(group.tree, windowId);
+
+  return container === null ? null : { container, groupId: group.id };
+}
+
 function getActiveFloatingWindowId<Kind extends string>(
   state: InfiniteCanvasState<Kind>,
 ): string | null {
@@ -829,6 +892,7 @@ function getInfiniteCanvasCommandGroup(command: InfiniteCanvasCommand): Infinite
       return "view";
     case "view.fitSelection":
       return "selection";
+    case "group.equalizeChildren":
     case "window.align":
     case "window.distribute":
     case "window.swap":
@@ -922,6 +986,8 @@ function executeInfiniteCanvasCommand<Kind extends string>(
       return undoInfiniteCanvasHistory(state);
     case "window.focusDirection":
       return focusWindowInDirection(state, command.direction, zoomPolicy);
+    case "group.equalizeChildren":
+      return equalizeActiveInfiniteCanvasGroupContainer(state);
     case "window.align":
     case "window.distribute":
     case "window.swap":

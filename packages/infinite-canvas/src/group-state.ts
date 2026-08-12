@@ -7,6 +7,7 @@ import {
 import {
   createInfiniteCanvasGroupWindowNode,
   dockInfiniteCanvasGroupWindow,
+  equalizeInfiniteCanvasGroupChildren,
   findInfiniteCanvasGroupNode,
   getInfiniteCanvasGroupWindowIds,
   normalizeInfiniteCanvasGroupTree,
@@ -419,6 +420,23 @@ function setInfiniteCanvasGroupLayoutModeInState<Kind extends string>(
   );
 }
 
+function equalizeInfiniteCanvasGroupChildrenInState<Kind extends string>(
+  state: InfiniteCanvasState<Kind>,
+  input: Readonly<{ containerId: string; groupId: string }>,
+): InfiniteCanvasState<Kind> {
+  const group = findInfiniteCanvasGroup(state, input.groupId);
+
+  if (group === null) {
+    return state;
+  }
+
+  return withInfiniteCanvasGroupTree(
+    state,
+    group.id,
+    equalizeInfiniteCanvasGroupChildren(group.tree, input.containerId),
+  );
+}
+
 function setInfiniteCanvasGroupChildWeightsInState<Kind extends string>(
   state: InfiniteCanvasState<Kind>,
   input: Readonly<{
@@ -680,6 +698,7 @@ export {
   createInfiniteCanvasGroup,
   detachInfiniteCanvasWindowFromGroups,
   dockInfiniteCanvasWindowIntoGroup,
+  equalizeInfiniteCanvasGroupChildrenInState,
   findInfiniteCanvasGroup,
   getInfiniteCanvasGroupProjection,
   getInfiniteCanvasGroupedWindowIds,

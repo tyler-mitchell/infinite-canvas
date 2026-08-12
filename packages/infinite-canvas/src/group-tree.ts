@@ -576,6 +576,39 @@ function setInfiniteCanvasGroupChildWeights(
   );
 }
 
+/**
+ * Reset a container's children to equal shares.
+ *
+ * This is a primitive rather than a `setInfiniteCanvasGroupChildWeights` call with a
+ * caller-computed record, because that record is keyed by child id and so carries a
+ * read-then-write race: a child docked between the read and the write is absent from the
+ * record, keeps its old weight, and the panes come out unequal — the one thing the verb
+ * exists to guarantee. Naming the container instead closes the gap.
+ *
+ * Weights are relative and `group-layout` divides each by their sum, so equal shares means
+ * every weight identical; the value itself is arbitrary.
+ */
+function equalizeInfiniteCanvasGroupChildren(
+  root: InfiniteCanvasGroupNode,
+  containerId: string,
+): InfiniteCanvasGroupNode | null {
+  return normalizeGroupTreeOrNull(
+    replaceInfiniteCanvasGroupNode(root, containerId, (node) => {
+      if (!isInfiniteCanvasGroupContainer(node)) {
+        return node;
+      }
+
+      return {
+        ...node,
+        children: node.children.map((child) => ({
+          ...child,
+          weight: DEFAULT_INFINITE_CANVAS_GROUP_WEIGHT,
+        })),
+      };
+    }),
+  );
+}
+
 /** `replaceInfiniteCanvasGroupNode` may empty the root; normalization only runs on a tree. */
 function normalizeGroupTreeOrNull(
   node: InfiniteCanvasGroupNode | null,
@@ -587,6 +620,7 @@ export {
   DEFAULT_INFINITE_CANVAS_GROUP_WEIGHT,
   createInfiniteCanvasGroupWindowNode,
   dockInfiniteCanvasGroupWindow,
+  equalizeInfiniteCanvasGroupChildren,
   findInfiniteCanvasGroupNode,
   getInfiniteCanvasGroupChildWeightSum,
   getInfiniteCanvasGroupDockAxis,

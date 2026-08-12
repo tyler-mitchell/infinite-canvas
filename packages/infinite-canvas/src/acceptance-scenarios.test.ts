@@ -11,6 +11,7 @@ import {
   stepCanvasInteraction,
 } from "./interaction";
 import { parseInfiniteCanvasState, serializeInfiniteCanvasState } from "./persistence";
+import { executeInfiniteCanvasCommand, isInfiniteCanvasCommandEnabled } from "./commands";
 import { reduceInfiniteCanvasState } from "./reducer";
 import {
   getInfiniteCanvasContextualGroup,
@@ -345,4 +346,46 @@ test("arrange verbs report themselves enabled when the selection actually suppor
   // Distribute needs three, so it stays unavailable on a pair — the floor differs per verb and
   // the pure module is the one that knows which.
   expect(byId.get("window.distribute.horizontal")?.enabled).toBe(false);
+});
+
+test("SPLIT-005 — equalize returns skewed panes to equal widths, and is offered only when it would", () => {
+  // The end-to-end claim, which the tree tests cannot make: equalizing changes what is on
+  // screen. `group.setChildWeights` is the only way panes go uneven and it records no history
+  // of what they were, so without this verb an even split is unrecoverable except by dragging
+  // each seam back by eye.
+  const state = { ...groupedState(), activeWindowId: "left" };
+  const even = getInfiniteCanvasGroupProjection(state.groups).windowRects;
+
+  expect(even.get("left")!.width).toBe(even.get("right")!.width);
+  // Already even: offering the verb here would present a command that appears to do nothing.
+  expect(isInfiniteCanvasCommandEnabled(state, { type: "group.equalizeChildren" })).toBe(false);
+
+  const skewed = reduceInfiniteCanvasState(state, {
+    containerId: "shell::root",
+    groupId: "shell",
+    type: "group.setChildWeights",
+    weights: { left: 3, right: 1 },
+  });
+
+  expect(isInfiniteCanvasCommandEnabled(skewed, { type: "group.equalizeChildren" })).toBe(true);
+
+  const equalized = executeInfiniteCanvasCommand(skewed, { type: "group.equalizeChildren" });
+  const restored = getInfiniteCanvasGroupProjection(equalized.groups).windowRects;
+
+  expect(restored.get("left")!.width).toBe(restored.get("right")!.width);
+  // A pane arrangement redistributes *inside* the shell, exactly as a seam drag does.
+  expect(equalized.groups[0]!.rect).toEqual(state.groups[0]!.rect);
+});
+
+test("SPLIT-005 — equalize is unavailable to a window that is not docked", () => {
+  // The verb names a container. A floating window has no siblings to share with, and the
+  // palette must not offer a pane command to someone who is not looking at panes.
+  const floating = createInfiniteCanvasState<Kind>({ windows: [windowAt("solo", 0, 0)] });
+
+  expect(
+    isInfiniteCanvasCommandEnabled(
+      { ...floating, activeWindowId: "solo" },
+      { type: "group.equalizeChildren" },
+    ),
+  ).toBe(false);
 });

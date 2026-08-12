@@ -13,6 +13,7 @@ import {
   createInfiniteCanvasGroup,
   detachInfiniteCanvasWindowFromGroups,
   dockInfiniteCanvasWindowIntoGroup,
+  equalizeInfiniteCanvasGroupChildrenInState,
   reorderInfiniteCanvasGroupChildInState,
   setInfiniteCanvasGroupActiveChildInState,
   setInfiniteCanvasGroupChildWeightsInState,
@@ -241,6 +242,8 @@ function applyInfiniteCanvasAction<Kind extends string>(
       return reorderInfiniteCanvasGroupChildInState(state, action);
     case "group.setActiveChild":
       return setInfiniteCanvasGroupActiveChildInState(state, action);
+    case "group.equalizeChildren":
+      return equalizeInfiniteCanvasGroupChildrenInState(state, action);
     case "group.setChildWeights":
       return setInfiniteCanvasGroupChildWeightsInState(state, action);
     case "group.setLayoutMode":

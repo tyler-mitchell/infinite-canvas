@@ -871,6 +871,7 @@ type InfiniteCanvasCommand =
       type: "window.align";
     }>
   /** Exactly two selected windows trade centres, each keeping its own size. */
+  | Readonly<{ type: "group.equalizeChildren" }>
   | Readonly<{ type: "window.swap" }>
   | Readonly<{
       /**
@@ -916,6 +917,7 @@ type InfiniteCanvasCommandId =
   | "window.align.vertical-center"
   | "window.distribute.horizontal"
   | "window.distribute.vertical"
+  | "group.equalizeChildren"
   | "window.swap"
   | "history.undo"
   | "selection.clear"
@@ -1021,6 +1023,7 @@ type InfiniteCanvasAction<Kind extends string = string> =
       type: "group.setChildWeights";
       weights: Readonly<Record<string, number>>;
     }>
+  | Readonly<{ containerId: string; groupId: string; type: "group.equalizeChildren" }>
   | Readonly<{ childId: string; groupId: string; toIndex: number; type: "group.reorderChild" }>
   | Readonly<{
       afterChildId: string;

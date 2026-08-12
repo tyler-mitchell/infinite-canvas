@@ -287,10 +287,14 @@ aligning three windows left means "share the leftmost one's left edge", not "go 
 the screen", which is `window.place`.
 
 - `getInfiniteCanvasAlignedRects` — rects + alignment → rects sharing an edge or centreline.
-- `getInfiniteCanvasDistributedRects`
-- `getInfiniteCanvasSwappedRects` — two rects trade **centres**, each keeping its size; exchanging corners would make differently-sized windows swap lopsidedly — rects + axis → rects with even **gaps**, holding the
+- `getInfiniteCanvasDistributedRects` — rects + axis → rects with even **gaps**, holding the
   outermost two still. Equal gaps rather than equal centres: with rects of differing size the
   two differ, and equal gaps is what every design tool means by "distribute".
+- `getInfiniteCanvasSwappedRects` — exactly two rects trade **centres**, each keeping its own
+  size. Exchanging corners is the tiling-manager convention, but these windows float at
+  arbitrary sizes, so corner-swapping lands the smaller one somewhere nobody pointed at; for
+  equal sizes the two are identical. Fewer or more than two rects pass through unchanged,
+  which is what keeps the command unavailable rather than guessing a pair.
 
 **These translate and never resize**, which is what makes them safe: a window cannot be pushed
 below its `minSize` by an arrange, so there is no clamping pass and no constraint to violate.

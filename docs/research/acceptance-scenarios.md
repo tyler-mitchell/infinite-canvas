@@ -97,6 +97,11 @@ hysteresis unimplemented` until 2026-07-08, long after it shipped.
   falls below the structural floor, and the drag is one undo entry. `built`
   (2026-07-08. `groupResize` steps `group.rect`; `getInfiniteCanvasGroupMinimumSize`
   is the floor, measured with the layer's own metrics and captured at drag start.)
+- **SPLIT-005** — Equalize returns a container's panes to identical weights, undoing
+  accumulated seam drags. `covered` (2026-08-12. `equalizeInfiniteCanvasGroupChildren`,
+  reached by the `group.equalizeChildren` command, which targets the active window's
+  _parent_ container rather than the whole tree and is disabled when the panes are
+  already even. Idempotent; a nested container keeps its own weights.)
 
 ## Tabs, accordion, focus
 
