@@ -432,8 +432,8 @@ export type {
   InfiniteCanvasZoomPolicyInput,
 } from "./types";
 export { isInfiniteCanvasWindowCapable } from "./window-capabilities";
+export { findInfiniteCanvasWorkspace } from "./workspace";
 export {
-  findInfiniteCanvasWorkspace,
   getInfiniteCanvasWorkspaceWindowIds,
   isInfiniteCanvasWindowInActiveWorkspace,
-} from "./workspace";
+} from "./workspace-membership";

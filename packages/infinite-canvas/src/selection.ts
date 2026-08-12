@@ -1,4 +1,5 @@
 import { unionRects } from "./geometry";
+import { isInfiniteCanvasWindowInActiveWorkspace } from "./workspace-membership";
 import type {
   InfiniteCanvasRect,
   InfiniteCanvasSelection,
@@ -16,8 +17,21 @@ function isSelectableWindow(window: Pick<InfiniteCanvasWindow, "mode">) {
   return window.mode !== "minimized";
 }
 
+/**
+ * Selectable means on screen, and a workspace is what decides that as much as `mode` is.
+ *
+ * Without the membership test, `selection.selectAllVisible` would select windows on other
+ * desktops — invisible things an arrange verb would then move — and `view.fitAll`, which
+ * unions these bounds, would zoom out to frame windows the user cannot see. Both were true
+ * for one commit after workspaces landed.
+ */
 function getSelectableWindowIds<Kind extends string>(state: InfiniteCanvasState<Kind>) {
-  return state.windows.filter(isSelectableWindow).map((window) => window.id);
+  return state.windows
+    .filter(
+      (window) =>
+        isSelectableWindow(window) && isInfiniteCanvasWindowInActiveWorkspace(state, window.id),
+    )
+    .map((window) => window.id);
 }
 
 function normalizeSelectionWindowIds<Kind extends string>(

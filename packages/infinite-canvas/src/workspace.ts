@@ -1,4 +1,8 @@
-import { normalizeSelection } from "./selection";
+import { getSelectableWindowIds, normalizeSelection } from "./selection";
+import {
+  getInfiniteCanvasWorkspaceWindowIds,
+  isInfiniteCanvasWindowInActiveWorkspace,
+} from "./workspace-membership";
 import type { InfiniteCanvasState, InfiniteCanvasWorkspace } from "./types";
 
 /**
@@ -17,28 +21,6 @@ import type { InfiniteCanvasState, InfiniteCanvasWorkspace } from "./types";
  * design — writing through on every pan would make each frame a workspace mutation, and
  * workspace mutations are undo checkpoints.
  */
-
-/** The windows the active workspace admits, or every window when none is active. */
-function getInfiniteCanvasWorkspaceWindowIds<Kind extends string>(
-  state: InfiniteCanvasState<Kind>,
-): ReadonlySet<string> | null {
-  const active = state.workspaces.find((workspace) => workspace.id === state.activeWorkspaceId);
-
-  return active === undefined ? null : new Set(active.windowIds);
-}
-
-/**
- * `null` means "admits everything", which is why this is a predicate rather than a filter over
- * `getInfiniteCanvasWorkspaceWindowIds`: the no-workspace case must not pay for a set.
- */
-function isInfiniteCanvasWindowInActiveWorkspace<Kind extends string>(
-  state: InfiniteCanvasState<Kind>,
-  windowId: string,
-): boolean {
-  const admitted = getInfiniteCanvasWorkspaceWindowIds(state);
-
-  return admitted === null || admitted.has(windowId);
-}
 
 function findInfiniteCanvasWorkspace<Kind extends string>(
   state: InfiniteCanvasState<Kind>,
@@ -124,17 +106,29 @@ function activateInfiniteCanvasWorkspace<Kind extends string>(
             : workspace,
         );
 
-  return {
+  const entered = {
     ...state,
     activeWorkspaceId: workspaceId,
-    // A window admitted by the outgoing workspace and not the incoming one must not stay
-    // selected or active: it is not on screen, and every verb keyed to the active window
-    // would act on something the user cannot see.
-    ...(target === null
-      ? {}
-      : { camera: target.camera, selection: normalizeSelection(state, target.selection) }),
+    ...(target === null ? {} : { camera: target.camera }),
     workspaces: saved,
   };
+
+  // Normalized against the workspace being *entered*, not the one being left. `normalizeSelection`
+  // reaches `getSelectableWindowIds`, which now asks which desktop a window is on — so
+  // normalizing against `state` would filter the incoming selection through the outgoing
+  // membership and empty it.
+  //
+  // A window admitted by the outgoing workspace and not the incoming one must not stay selected
+  // or active either: it is not on screen, and every verb keyed to the active window would act
+  // on something the user cannot see.
+  const selection = normalizeSelection(entered, target?.selection ?? entered.selection);
+  // A workspace saved with nothing selected would otherwise be entered with no active window,
+  // and every verb keyed to the active one — close, minimize, dock, extend the selection —
+  // would be dead until the user clicked. Falling back to a window *on this desktop* is the
+  // same courtesy `minimizeWindow` does when it hands focus on.
+  const activeWindowId = selection.anchorWindowId ?? getSelectableWindowIds(entered).at(-1) ?? null;
+
+  return { ...entered, activeWindowId, selection };
 }
 
 /** Renaming a workspace, under the same rule window and group renames follow. */

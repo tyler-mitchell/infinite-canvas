@@ -135,10 +135,15 @@ one's, which is why `activeWorkspaceId` and `workspaces` are part of the undo do
 the camera is not — panning is not an edit, but changing which desktop you are on is.
 
 - `findInfiniteCanvasWorkspace` — one workspace by id, or `null`.
+
+**`workspace-membership`** — the reader, kept apart from the verbs because `selection` needs
+it and `workspace` needs `selection`.
+
 - `getInfiniteCanvasWorkspaceWindowIds` — the ids the active workspace admits, or `null`
-  when none is active, which means "admits everything".
-- `isInfiniteCanvasWindowInActiveWorkspace` — the predicate form, for callers that would
-  otherwise build a set to ask about one window.
+  when none is active, which means "admits everything". Right for a render pass asking about
+  every window once.
+- `isInfiniteCanvasWindowInActiveWorkspace` — the same question about one window, without
+  building the set.
 
 <details><summary>types (1)</summary>
 

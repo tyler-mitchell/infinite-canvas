@@ -289,20 +289,28 @@ test("showing all leaves the workspace without closing it", () => {
 });
 
 test("a window can be taken off the workspace it is on, and stays open", () => {
-  const active = executeInfiniteCanvasCommand(
-    { ...withTwoWorkspaces(), activeWindowId: "a" },
-    { direction: "next", type: "workspace.cycle" },
-  );
+  const active = executeInfiniteCanvasCommand(withTwoWorkspaces(), {
+    direction: "next",
+    type: "workspace.cycle",
+  });
 
+  // Read which window activation chose rather than presuming it. Entering a workspace takes
+  // the active window from that workspace's saved selection, falling back to one on the
+  // desktop; an earlier draft set `activeWindowId` beforehand and asserted it survived the
+  // switch, which it should not.
+  const focused = active.activeWindowId;
+
+  expect(focused).not.toBeNull();
+  expect(active.workspaces[0]?.windowIds).toContain(focused);
   expect(isInfiniteCanvasCommandEnabled(active, { type: "workspace.removeActiveWindow" })).toBe(
     true,
   );
 
   const removed = executeInfiniteCanvasCommand(active, { type: "workspace.removeActiveWindow" });
 
-  expect(removed.workspaces[0]?.windowIds).toEqual(["b"]);
+  expect(removed.workspaces[0]?.windowIds).not.toContain(focused);
   // The window is not closed. It is simply not on this desktop any more.
-  expect(removed.windows.map((window) => window.id)).toContain("a");
+  expect(removed.windows.map((window) => window.id)).toContain(focused);
 });
 
 test("with no workspace active there is nothing to cycle or leave", () => {
@@ -398,4 +406,28 @@ test("adding is idempotent, and neither verb invents a window", () => {
       workspaceId: "research",
     }),
   ).toBe(state);
+});
+
+test("select-all and fit-all see only the desktop you are on", () => {
+  // The bug workspaces introduced and this closes. `getSelectableWindowIds` filtered on window
+  // mode alone, so with a workspace active `selection.selectAllVisible` selected windows on
+  // other desktops — invisible things an arrange verb would then move — and `view.fitAll`,
+  // which unions the same bounds, zoomed out to frame windows the user could not see.
+  const research = executeInfiniteCanvasCommand(withTwoWorkspaces(), {
+    direction: "next",
+    type: "workspace.cycle",
+  });
+  const selected = executeInfiniteCanvasCommand(research, { type: "selection.selectAllVisible" });
+
+  expect([...selected.selection.windowIds].toSorted()).toEqual(["a", "b"]);
+
+  // `c` is at x 800; a fit that included it would have to sit further right than one that
+  // does not, so comparing the two cameras is what distinguishes "filtered" from "lucky".
+  const fittedToWorkspace = executeInfiniteCanvasCommand(research, { type: "view.fitAll" });
+  const fittedToEverything = executeInfiniteCanvasCommand(
+    executeInfiniteCanvasCommand(research, { type: "workspace.showAll" }),
+    { type: "view.fitAll" },
+  );
+
+  expect(fittedToWorkspace.camera.center.x).toBeLessThan(fittedToEverything.camera.center.x);
 });
