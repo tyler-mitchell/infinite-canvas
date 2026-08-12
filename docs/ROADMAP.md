@@ -73,10 +73,13 @@ invariants a user would notice: every window kind is full detail at 100% zoom; e
 is enabled exactly when its precondition holds; every default chord resolves to a command; no
 `--icx-*` token referenced by a component is undefined.
 
-Also fixes the one bug found today and not yet closed: **`window.__canvas.contextualCommands()`
-returns stale enablement.** It reported `enabled: false` for align while the command demonstrably
-worked — the product UI was correct, only the automation handle was stale. That handle is the
-agent-facing contract, and an agent that trusts it is misled exactly as I was.
+✅ **The stale-enablement bug is closed** (this paragraph claimed otherwise until 2026-08-12).
+`window.__canvas.contextualCommands()` used to return `context.contextualCommands` — the array
+the canvas memoized for _its_ render — while `state` returned `context.state`, and the two
+disagreed about the same moment: it reported `enabled: false` for all six align verbs while the
+palette listed them and executing one demonstrably moved a window. It now computes from the same
+state the handle reports, which makes the disagreement unrepresentable rather than unlikely. The
+incident is recorded in `dev-handle.ts` beside the fix.
 
 Exit: the suite fails when a threshold is set so a stock window is not full at zoom 1; the dev
 handle's enablement matches the palette's.
@@ -111,7 +114,7 @@ a pan-away and return.
 
 ✅ **The culling landed 2026-08-12**, in `window-frame.tsx`, where the frame already holds the
 camera and viewport and already rewrites this style every camera tick — so it needed no new prop
-threading and no new subscription. A frame more than `WINDOW_CULL_MARGIN_PX` (480 screen pixels)
+threading and no new subscription. A frame more than `CULL_MARGIN_PX` (480 screen pixels)
 outside the viewport renders `content-visibility: auto` with a `contain-intrinsic-size` matching
 its screen box; the active and selected windows are never culled, matching the rasterization
 policy next to it. Screen pixels rather than world units, like every other threshold here: a
@@ -494,6 +497,23 @@ sharpest near-term trap
   pinch documented as the Ctrl+wheel path it has always been. See
   [zoom-policy.md](zoom-policy.md). Per-engine pinch verification in Safari
   remains, and that is a browser task rather than a code one.
+- 🟡 **Partially landed (2026-08-12): proxy chrome at far zoom.** The line below closed the
+  stroke half and explicitly left this open — "a stroke that survives is not the same as chrome
+  that is legible". The frame now simplifies on the **same detail band the body uses**: at
+  `summary` it renders no resize handles at all. Those are a constant _screen_ size by design,
+  so on a window that is tens of screen pixels wide each handle is larger than the window it
+  surrounds — eight of them stop being controls and become a smear that swallows the pointer.
+
+  Unlike the body's summary lane this is **not opt-in per kind**: a body is the consumer's
+  content and only they can say what its summary is, while the chrome is the framework's own,
+  and a window kind cannot meaningfully opt into having illegible buttons.
+
+  **Still open: the title and the four control buttons**, which at that zoom are unreadable and
+  under three pixels across. Both live in the public frame-slot contract behind a consumer
+  `render` override, so simplifying them means threading the detail level through
+  `InfiniteCanvasWindowFrameRuntimeContextValue` and deciding what a consumer override means at
+  summary detail — a public-surface change, and not one to make without tests covering it.
+
 - ✅ **Landed (2026-07-08): low-zoom chrome strokes.** Chrome is drawn in world
   units inside a zoom-scaled frame, so a 1px border rendered as `1 × zoom` screen
   pixels — a tenth of a pixel at 10% zoom. Borders, the header rule, and the inner

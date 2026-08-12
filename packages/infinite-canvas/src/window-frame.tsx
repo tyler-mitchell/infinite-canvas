@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useMemo, useState, type CSSProperties, type ReactNode } from "react";
+import { memo, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 
 import {
   INFINITE_CANVAS_SLOTS,
@@ -13,6 +13,7 @@ import {
   getEventViewportPoint,
   type InfiniteCanvasWindowFrameRuntimeContextValue,
 } from "./frame-slots";
+import { getInfiniteCanvasWindowDetailLevel, type InfiniteCanvasDetailLevel } from "./detail-level";
 import {
   getWorldLengthWithScreenFloor,
   isWorldRectCulled,
@@ -257,6 +258,35 @@ function InfiniteCanvasWindowFrameContent<Kind extends string>({
   const actions = useInfiniteCanvasActions<Kind>();
   const store = useInfiniteCanvasStore<Kind>();
   const definition = windowDefinitions[window.kind];
+  /**
+   * Chrome simplifies at far zoom, on the same band the body already uses.
+   *
+   * A stroke that survives low zoom is not the same as chrome that is legible there. Zoomed
+   * out to see how windows relate, a 300 × 200 window is tens of screen pixels: the title is
+   * unreadable, the four control buttons are under three pixels across and cannot be hit, and
+   * the eight resize handles — which are a constant *screen* size by design — are individually
+   * larger than the window they surround, so they stop being controls and become a smear that
+   * swallows the pointer.
+   *
+   * Unlike the body's summary lane this is not opt-in per kind. A body is the consumer's
+   * content and only they can say what its summary is; the chrome is the framework's own, and
+   * a window kind cannot meaningfully opt into having illegible buttons.
+   *
+   * `camera` is already a prop, so this needs no subscription of its own. The ref carries the
+   * previous answer, which is what lets `getInfiniteCanvasWindowDetailLevel` stay pure while
+   * the hysteresis band works; writing it during render is the documented caching use of a
+   * ref, and it is idempotent because inside the band the function returns what is already
+   * there.
+   */
+  const chromeDetailRef = useRef<InfiniteCanvasDetailLevel>("full");
+  const chromeDetail = getInfiniteCanvasWindowDetailLevel(
+    window.rect,
+    camera.zoom,
+    chromeDetailRef.current,
+  );
+
+  chromeDetailRef.current = chromeDetail;
+
   const frameChrome = definition.frameChrome ?? "dom";
   const isHostLocalChrome = frameChrome === "host" || frameChrome === "scene";
   const textSelection = definition.textSelection ?? "none";
@@ -425,7 +455,7 @@ function InfiniteCanvasWindowFrameContent<Kind extends string>({
           style={articleStyle}
         >
           {frameNode}
-          {isResizable ? resizeHandles : null}
+          {isResizable && chromeDetail === "full" ? resizeHandles : null}
         </article>
         {definition.portalRoot !== true ? null : (
           // A sibling of the frame, not a child: it must sit outside the frame's
