@@ -35,8 +35,14 @@ that.
    functions over plain data, testable without rendering. Legend State is
    confined to four files, all at the React or programmatic boundary — `store`,
    `rasterization`, `visibility`, `canvas-handle` — and appears nowhere in
-   derivation. That holds today by construction; **no test enforces it yet**,
-   and this line used to claim one did.
+   derivation. `verify-pure-core.mjs` crawls the import graph and fails the build if a
+   pure-core module can reach React, Legend State, or `three`.
+
+   This sentence has now been wrong in both directions. It claimed a test enforced the
+   boundary when none did; it was corrected to "no test enforces it yet"; the gate landed
+   on 2026-07-08 and the correction outlived it by a month, while the same README said
+   seventy lines further down that something checks. Under-claiming is the politer error
+   and still an error.
 
 2. **An explicit GPU/DOM seam, stated honestly.** WebGPU owns the programmable
    spatial layer; window chrome and bodies are DOM, projected from the same
@@ -60,12 +66,12 @@ that.
 **0.1.0 — pre-1.0.** The API may change between minor versions. What is
 documented works and is tested; nothing below is aspirational.
 
-|              |                                                                                             |
-| ------------ | ------------------------------------------------------------------------------------------- |
-| Tests        | 164, including packaging, accessibility, headless-boundary and pure-core-boundary contracts |
-| Bundle       | ~40 KB gzipped without scene layers, excluding peers                                        |
-| Runtime deps | 3 — `@legendapp/state`, `@tanstack/hotkeys`, and `@zumer/snapdom` (lazily imported)         |
-| Requires     | React 19. `three` and `@react-three/fiber` are optional peers, needed only for scene layers |
+|              |                                                                                                               |
+| ------------ | ------------------------------------------------------------------------------------------------------------- |
+| Tests        | 400+, including packaging, accessibility, headless-boundary, pure-core-boundary and action-coverage contracts |
+| Bundle       | ~40 KB gzipped without scene layers, excluding peers                                                          |
+| Runtime deps | 3 — `@legendapp/state`, `@tanstack/hotkeys`, and `@zumer/snapdom` (lazily imported)                           |
+| Requires     | React 19. `three` and `@react-three/fiber` are optional peers, needed only for scene layers                   |
 
 **Implemented:** infinite pan/zoom canvas · window lifecycle · selection,
 marquee, and group move · snapping with edge/center/gap guides · keyboard

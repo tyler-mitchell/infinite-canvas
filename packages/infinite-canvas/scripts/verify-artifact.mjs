@@ -78,6 +78,56 @@ check(
   "package.json declares no license",
 );
 
+// 1c. The quick-start in that README is what npm renders on the package page, and it is the
+//     first code anyone runs. Nothing checked that the names it imports still exist:
+//     `verify-api-doc.mjs` guards `docs/API.md`, which does not ship, while this file does.
+//     A rename would leave the front page telling every new consumer to import something gone.
+const barrelExports = (entry) => {
+  const source = readFileSync(join(packageRoot, "src", entry), "utf8")
+    .replaceAll(/\/\*[\s\S]*?\*\//g, "")
+    .replaceAll(/\/\/.*/g, "");
+
+  return new Set(
+    [...source.matchAll(/export\s+(?:type\s+)?\{([^}]*)\}/g)].flatMap((match) =>
+      match[1]
+        .split(",")
+        .map((specifier) =>
+          specifier
+            .trim()
+            .replace(/^type\s+/, "")
+            .split(" as ")
+            .pop()
+            ?.trim(),
+        )
+        .filter((name) => name !== undefined && name !== ""),
+    ),
+  );
+};
+
+const README_BARRELS = {
+  [manifest.name]: barrelExports("index.ts"),
+  [`${manifest.name}/scene`]: barrelExports("scene.ts"),
+};
+const readme = readFileSync(join(packageRoot, "README.md"), "utf8");
+
+for (const match of readme.matchAll(/import\s+(?:type\s+)?\{([^}]*)\}\s*from\s*"([^"]+)"/g)) {
+  const surface = README_BARRELS[match[2]];
+
+  if (surface === undefined) continue;
+
+  for (const specifier of match[1].split(",")) {
+    const name = specifier
+      .trim()
+      .replace(/^type\s+/, "")
+      .trim();
+
+    check(
+      name === "" || surface.has(name),
+      `README.md imports \`${name}\` from "${match[2]}", which no longer exports it`,
+    );
+  }
+}
+
 const bundle = readFileSync(join(dist, "index.mjs"), "utf8");
 const types = readFileSync(join(dist, "index.d.mts"), "utf8");
 
