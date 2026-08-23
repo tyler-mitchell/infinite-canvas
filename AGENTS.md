@@ -57,3 +57,7 @@ GitHub owns the pending workflow. If it is behind `release`, run
 After publication, synchronize `main` forward from `release` only with a clean
 worktree and no parallel uncommitted work. Never rebase or force-push shared
 commits.
+
+Complete that synchronization before the next daily change and confirm Bumpy's
+consumed bump files are absent. Address review findings in code; resolve the
+thread only after the correction makes it outdated.
