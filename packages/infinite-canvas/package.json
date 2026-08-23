@@ -56,7 +56,7 @@
     "verify:api-doc": "node ./scripts/verify-api-doc.mjs",
     "verify:pure-core": "node ./scripts/verify-pure-core.mjs",
     "verify": "vp run build && pnpm run verify:distribution && pnpm run verify:consumer && node ./scripts/verify-artifact.mjs && node ./scripts/verify-api-doc.mjs && node ./scripts/verify-pure-core.mjs && node ./scripts/verify-api-stability.mjs",
-    "verify:distribution": "publint && pnpm pack --out ./.pack.tgz && attw ./.pack.tgz --profile esm-only --exclude-entrypoints theme.css",
+    "verify:distribution": "publint && pnpm pack --out ./.pack.tgz && pnpm exec attw ./.pack.tgz --profile esm-only --exclude-entrypoints theme.css",
     "verify:consumer": "node ./scripts/verify-consumer-install.ts",
     "prepublishOnly": "vp run verify",
     "verify:api-stability": "node ./scripts/verify-api-stability.mjs"
