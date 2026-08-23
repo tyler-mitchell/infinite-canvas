@@ -1,6 +1,6 @@
 {
   "name": "@hyphened/infinite-canvas",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "An infinite-canvas window manager for React: a pure reducer core, real DOM window bodies, and a programmable WebGPU spatial surface.",
   "keywords": [
     "canvas",
