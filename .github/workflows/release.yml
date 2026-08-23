@@ -1,56 +1,118 @@
 name: Release
 
-# Changesets owns versioning and publication. A push to main that touches `.changeset/`
-# opens or updates a version pull request; merging that pull request publishes.
-#
-# This replaces a hand-managed `version` field in the package manifest, which required
-# remembering to bump it, to write a changelog entry, and to tag — three steps that drift
-# apart the first time one is skipped.
 on:
   push:
-    branches:
-      - main
-    paths:
-      - ".changeset/**"
-      - ".github/workflows/release.yml"
-  workflow_dispatch:
+    branches: [main]
 
-concurrency: release
-
-permissions:
-  contents: read
+concurrency:
+  group: bumpy-release-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
-  release:
+  plan:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
     permissions:
-      contents: write
-      # `id-token` is what mints the OIDC token npm provenance is signed with. Without it a
-      # provenance publish fails, which is why a local `pnpm publish` cannot produce one.
-      id-token: write
-      pull-requests: write
-
+      contents: read
+    outputs:
+      mode: ${{ steps.plan.outputs.mode }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           fetch-depth: 0
           persist-credentials: false
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
+      - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 24
           cache: pnpm
-          registry-url: https://registry.npmjs.org
       - run: pnpm install --frozen-lockfile
-      - uses: changesets/action@v1
-        with:
-          # `release` runs the package's full `verify` first — build, publint, attw, the
-          # consumer install, and the source-reading gates — so nothing reaches the registry
-          # that has not been installed and driven at least once.
-          publish: pnpm release
-          version: pnpm release:version
-          setupGitUser: false
+      - name: Validate publish contract
+        run: |
+          node --input-type=module <<'NODE'
+          import { existsSync, readFileSync } from "node:fs";
+          const manifest = JSON.parse(readFileSync("packages/infinite-canvas/package.json", "utf8"));
+          const repository = typeof manifest.repository === "string" ? manifest.repository : manifest.repository?.url;
+          if (!repository?.includes(process.env.GITHUB_REPOSITORY)) throw new Error("repository.url must match the repository");
+          if (!manifest.scripts?.prepack) throw new Error("scripts.prepack is required");
+          if (!existsSync("scripts/verify-published.mjs")) throw new Error("a concrete published-package probe is required");
+          NODE
+      - id: plan
+        run: pnpm exec bumpy ci plan
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
+
+  version-pr:
+    needs: plan
+    if: needs.plan.outputs.mode == 'version-pr'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec bumpy ci release --expect-mode version-pr
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+  publish:
+    needs: plan
+    if: needs.plan.outputs.mode == 'publish'
+    runs-on: ubuntu-latest
+    environment: publish
+    timeout-minutes: 15
+    permissions:
+      contents: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+          package-manager-cache: false
+      - run: npm install --global npm@latest
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec bumpy ci release --expect-mode publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+  verify:
+    needs: publish
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+          package-manager-cache: false
+      - run: npm install --global npm@latest
+      - name: Verify public package
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version="$(node -p "require('./packages/infinite-canvas/package.json').version")"
+          consumer="$(mktemp -d)"
+          printf '{"name":"infinite-canvas-verifier","private":true,"type":"module"}\n' > "$consumer/package.json"
+          npm install "@hyphened/infinite-canvas@$version" --prefer-online --no-audit --no-fund --prefix "$consumer"
+          npm audit signatures --prefix "$consumer"
+          test "$(npm view "@hyphened/infinite-canvas@$version" dist.attestations.provenance.predicateType)" = "https://slsa.dev/provenance/v1"
+          cp scripts/verify-published.mjs "$consumer/probe.mjs"
+          node "$consumer/probe.mjs"
+          test "$(gh release view "@hyphened/infinite-canvas@$version" --repo "$GITHUB_REPOSITORY" --json isDraft --jq .isDraft)" = "false"

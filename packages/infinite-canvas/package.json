@@ -50,6 +50,7 @@
   },
   "scripts": {
     "build": "vp pack && cp src/theme.css dist/theme.css",
+    "prepack": "vp run build",
     "test": "vp test",
     "check": "vp check",
     "verify:api-doc": "node ./scripts/verify-api-doc.mjs",

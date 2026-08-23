@@ -4,98 +4,51 @@ on:
   push:
     branches: [main]
   pull_request:
+  workflow_dispatch:
 
-# One in-flight run per ref. A new push to a branch cancels the previous run.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 permissions:
   contents: read
+  pull-requests: write
 
 jobs:
-  build:
-    name: node ${{ matrix.node-version }}
-    runs-on: ubuntu-latest
-
+  check:
     strategy:
-      # Surface a failure on every Node version, not just the first to break.
       fail-fast: false
       matrix:
-        node-version: ["22", "24"]
-
+        node: ["22", "24"]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      # Must precede setup-node: `cache: pnpm` needs the pnpm binary on PATH.
-      # No `version:` input — action-setup@v4 reads `packageManager` from the
-      # root package.json (pnpm@11.5.2), keeping one source of truth.
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
-          node-version: ${{ matrix.node-version }}
+          persist-credentials: false
+      - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ matrix.node }}
           cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run check
 
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      # `vp check` = format + lint + typecheck, across the workspace.
-      - name: Check (format, lint, types)
-        run: pnpm exec vp check
-
-      # Docs gate: every barrel export must appear in docs/API.md, which README
-      # calls "the full export surface". Reads src/, so it needs no build and
-      # fails fast. It had drifted by 43 names before this existed.
-      - name: Verify public API documentation
-        run: node packages/infinite-canvas/scripts/verify-api-doc.mjs
-
-      # Architecture gate: the reducer and its vocabulary must stay drivable without a
-      # renderer. Crawls the import graph; type-only imports erase and are ignored.
-      - name: Verify pure-core import boundary
-        run: node packages/infinite-canvas/scripts/verify-pure-core.mjs
-
-      # Semver gate: a barrel that re-exports from a module classified in neither tier
-      # of scripts/api-stability.json fails here. 374 names shipped with no tier once,
-      # which is not "no promise" — it is an implicit promise of stability on all of them.
-      - name: Verify public API stability tiers
-        run: node packages/infinite-canvas/scripts/verify-api-stability.mjs
-
-      # Packaging and types-resolution, by the tools built for it rather than by hand.
-      # `publint` lints the packed tarball's manifest; `attw` reports how the published types
-      # resolve for consumers across node10/node16/bundler. The esm-only profile encodes the
-      # deliberate choice to ship pure ESM, and theme.css is excluded because it is a
-      # stylesheet export that no module resolver is meant to resolve to types.
-      - name: Verify distribution
-        run: pnpm --filter @hyphened/infinite-canvas run verify:distribution
-
-      # The only check that installs the package the way npm would and runs it. Every other
-      # gate reads this repository; this one packs the tarball, installs it into a clean
-      # project, imports through the published entry point and drives the store. Its first run
-      # caught the store silently dropping every workspace action.
-      - name: Verify consumer install
-        run: pnpm --filter @hyphened/infinite-canvas run verify:consumer
-
-      - name: Test
-        run: pnpm exec vp run -r test
-
-      # Produces packages/infinite-canvas/dist, which the packaging gate below
-      # asserts against. The workspace resolves the library to src/ via
-      # source-linked exports, so packaging bugs are invisible until this runs.
-      - name: Build
-        run: pnpm exec vp run -r build
-
-      - name: Confirm build artifact exists
-        run: |
-          if [ ! -d packages/infinite-canvas/dist ]; then
-            echo "::error::packages/infinite-canvas/dist is missing after the build step"
-            exit 1
-          fi
-
-      # Publish gate: "use client" first, snapdom stays lazy, no undeclared
-      # imports, dts emit intact. Resolves its own paths, so cwd is irrelevant.
-      - name: Verify package artifact
-        run: node packages/infinite-canvas/scripts/verify-artifact.mjs
+  release-plan:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec bumpy ci check --strict
+        env:
+          GH_TOKEN: ${{ github.token }}
