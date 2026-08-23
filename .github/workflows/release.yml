@@ -26,16 +26,7 @@ jobs:
           node-version: 24
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - name: Validate publish contract
-        run: |
-          node --input-type=module <<'NODE'
-          import { existsSync, readFileSync } from "node:fs";
-          const manifest = JSON.parse(readFileSync("packages/infinite-canvas/package.json", "utf8"));
-          const repository = typeof manifest.repository === "string" ? manifest.repository : manifest.repository?.url;
-          if (!repository?.includes(process.env.GITHUB_REPOSITORY)) throw new Error("repository.url must match the repository");
-          if (!manifest.scripts?.prepack) throw new Error("scripts.prepack is required");
-          if (!existsSync("scripts/verify-published.mjs")) throw new Error("a concrete published-package probe is required");
-          NODE
+      - run: pnpm run release:preflight
       - id: plan
         run: pnpm exec bumpy ci plan
         env:
@@ -102,17 +93,7 @@ jobs:
         with:
           node-version: 24
           package-manager-cache: false
-      - run: npm install --global npm@latest
-      - name: Verify public package
+      - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+      - run: pnpm run release:verify
         env:
           GH_TOKEN: ${{ github.token }}
-        run: |
-          version="$(node -p "require('./packages/infinite-canvas/package.json').version")"
-          consumer="$(mktemp -d)"
-          printf '{"name":"infinite-canvas-verifier","private":true,"type":"module"}\n' > "$consumer/package.json"
-          npm install "@hyphened/infinite-canvas@$version" --prefer-online --no-audit --no-fund --prefix "$consumer"
-          npm audit signatures --prefix "$consumer"
-          test "$(npm view "@hyphened/infinite-canvas@$version" dist.attestations.provenance.predicateType)" = "https://slsa.dev/provenance/v1"
-          cp scripts/verify-published.mjs "$consumer/probe.mjs"
-          node "$consumer/probe.mjs"
-          test "$(gh release view "@hyphened/infinite-canvas@$version" --repo "$GITHUB_REPOSITORY" --json isDraft --jq .isDraft)" = "false"
