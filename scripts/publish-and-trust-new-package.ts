@@ -1,6 +1,6 @@
 import { execFileSync } from "node:child_process";
 
-execFileSync(process.execPath, ["scripts/validate-package-contract.ts"], { stdio: "inherit" });
+execFileSync(process.execPath, ["scripts/verify-package.ts"], { stdio: "inherit" });
 execFileSync("npm", ["login"], { stdio: "inherit" });
 execFileSync(
   "pnpm",
