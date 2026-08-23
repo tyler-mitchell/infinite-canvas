@@ -22,7 +22,6 @@
     "release:registry-version": "npm view @hyphened/infinite-canvas version",
     "release:status": "bumpy status --json",
     "release:preflight": "node scripts/verify-package.ts",
-    "release:trust": "node scripts/trust-package.ts",
     "release:verify": "node scripts/verify-release.ts",
     "setup:github": "node scripts/configure-github.ts",
     "setup:repository": "git remote add origin https://github.com/tyler-mitchell/infinite-canvas.git",
