@@ -6,6 +6,7 @@
   "scripts": {
     "check": "pnpm run ready",
     "ci:dispatch": "gh workflow run ci.yml",
+    "ci:cancel": "gh run cancel",
     "ci:list": "gh run list --limit 10",
     "ci:logs": "gh run view --log-failed",
     "ci:rerun": "gh run rerun",
@@ -18,11 +19,12 @@
     "release:publish-and-trust-new-package": "node scripts/publish-and-trust-new-package.ts",
     "release:merge": "gh pr merge bumpy/version-packages --squash",
     "release:pr": "gh pr view bumpy/version-packages",
+    "release:registry-version": "npm view @hyphened/infinite-canvas version",
     "release:status": "bumpy status --json",
     "release:preflight": "node scripts/verify-package.ts",
     "release:trust": "node scripts/trust-package.ts",
     "release:verify": "node scripts/verify-release.ts",
-    "setup:github": "gh api --method PUT repos/{owner}/{repo}/actions/permissions/workflow -f default_workflow_permissions=read -F can_approve_pull_request_reviews=true",
+    "setup:github": "node scripts/configure-github.ts",
     "setup:repository": "git remote add origin https://github.com/tyler-mitchell/infinite-canvas.git",
     "workflow:check": "go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.12 .github/workflows/*.yml"
   },

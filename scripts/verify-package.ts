@@ -7,12 +7,16 @@ import { promisify } from "node:util";
 
 const run = promisify(execFile);
 const workspace = fileURLToPath(new URL("..", import.meta.url));
+const root = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8")) as {
+  devDependencies?: { npm?: string };
+};
 const manifest = JSON.parse(
   await readFile(new URL("../packages/infinite-canvas/package.json", import.meta.url), "utf8"),
 ) as { name: string; repository?: string | { url?: string }; scripts?: { prepack?: string } };
 const repository =
   typeof manifest.repository === "string" ? manifest.repository : manifest.repository?.url;
 
+if (!root.devDependencies?.npm) throw new Error("A locked npm 11.15+ tool dependency is required.");
 if (manifest.name !== "@hyphened/infinite-canvas") throw new Error("Package name mismatch.");
 if (!repository?.includes("tyler-mitchell/infinite-canvas")) {
   throw new Error("repository.url mismatch.");
