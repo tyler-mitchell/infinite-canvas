@@ -7,6 +7,55 @@ starts at the version someone happened to adopt a tool is a changelog with no pa
 Keep-a-Changelog view of the whole project — including work not yet released — lives in the
 repository root's `CHANGELOG.md`.
 
+## 0.2.0
+
+<sub>2026-08-23</sub>
+
+- _(minor)_
+  Workspaces: virtual desktops for the canvas.
+
+A workspace is one canvas plus a membership filter — a named set of windows carrying the camera and selection you left it at. Switching is a single undo entry and survives a reload. Membership is group-complete: docking a window into a shell brings the shell's other panes with it.
+
+`workspace.create`, `workspace.activate`, `workspace.cycle`, `workspace.showAll`, `workspace.removeActiveWindow`, and `workspace.moveActiveWindow` — the last of which sends the active window to another desktop as one edit, taking its whole shell along, because leaving siblings behind would have reconciliation pull it straight back.
+
+Deliberately not nested canvases: a canvas inside a canvas needs a second camera and a second input plane, which is a different program.
+
+- _(minor)_
+  Window chrome simplifies at far zoom instead of rendering illegibly.
+
+Resize handles are a constant _screen_ size by design, so on a window a few tens of pixels wide each handle is larger than the window it surrounds. At `summary` detail a frame renders no resize handles, no title, and no control buttons, and a group shell drops its own eight handles on the same band.
+
+Tab strips and accordion headers deliberately stay at every zoom: they are sized in world units so they shrink with the group, and they are focusable controls carrying roving `tabIndex` — the only means of switching a tab or a fold.
+
+- _(minor)_
+  Offscreen windows and group shells are culled without unmounting.
+
+A frame more than 480 screen pixels outside the viewport renders `content-visibility: auto` and stops re-rendering on camera ticks, while staying in the document. Focus, portal roots, body scroll, video playback, and uncontrolled input state all survive a pan-away — which dropping the window from the rendered set would destroy.
+
+Only the active window is exempt. A selection is unbounded, so exempting it would switch culling off under `Mod+A`, which is the one case it exists for.
+
+- _(minor)_
+  Bulk lifecycle verbs, and a keyboard-reachable camera.
+
+`selection.close`, `selection.minimize`, and `selection.togglePinned` act on the whole selection as one undoable edit, rather than one entry per window. `togglePinned` brings the selection to one state and picks the one that is not already universal. There is deliberately no bulk maximize — five maximized windows are five windows filling the same viewport.
+
+`view.zoomBy` binds `=` and `-`. Not `Mod` with those, which browsers own above the page.
+
+- _(patch)_
+  Fix workspaces being unreachable through the public API.
+
+`commitInfiniteCanvasState` wrote a hand-listed set of state fields into the observable, and `workspaces` and `activeWorkspaceId` were not on it — so every workspace action reduced correctly and was then thrown away. Since the reducer is not exported, the store is the public path, which made the whole feature unusable except through `initialState`. The commit is now generic over the state's own keys, so there is no list left to go stale.
+
+Also fixed, all from the same shape of defect:
+
+- A window opened while a desktop was active joined no desktop, so the window layer dropped it on the frame it was created.
+- Closing a window from a command left its id a phantom member of every workspace holding it; only the action path detached.
+- `cloneInfiniteCanvasState` and the persistence envelope both dropped `workspaces`, so it survived neither a clone nor a reload.
+- _(patch)_
+  Stop leaking a `@types/node` requirement onto consumers.
+
+A single `process.env.NODE_ENV` reference compiled cleanly inside this package, whose tsconfig carries `"types": ["node"]` for the tests that read source from disk — and failed for anyone typechecking this source without node types, which is how the playground's build broke. `process` is now declared in module scope, keeping the literal token every bundler replaces while requiring nothing of consumers.
+
 ## [0.1.0] - 2026-06-24
 
 Initial release.
