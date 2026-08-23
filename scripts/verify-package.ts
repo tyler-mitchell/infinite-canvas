@@ -12,7 +12,11 @@ const root = JSON.parse(await readFile(new URL("../package.json", import.meta.ur
 };
 const manifest = JSON.parse(
   await readFile(new URL("../packages/infinite-canvas/package.json", import.meta.url), "utf8"),
-) as { name: string; repository?: string | { url?: string }; scripts?: { prepack?: string } };
+) as {
+  name: string;
+  repository?: string | { url?: string };
+  scripts?: { prepack?: string; prepublishOnly?: string };
+};
 const repository =
   typeof manifest.repository === "string" ? manifest.repository : manifest.repository?.url;
 
@@ -26,6 +30,9 @@ if (!manifest.scripts?.prepack) throw new Error("scripts.prepack is required.");
 const directory = await mkdtemp(join(tmpdir(), "infinite-canvas-preflight-"));
 const tarball = join(directory, "package.tgz");
 try {
+  if (manifest.scripts?.prepublishOnly) {
+    await run("pnpm", ["--filter", manifest.name, "run", "prepublishOnly"], { cwd: workspace });
+  }
   await run("pnpm", ["--filter", manifest.name, "pack", "--out", tarball], { cwd: workspace });
   await writeFile(
     join(directory, "package.json"),

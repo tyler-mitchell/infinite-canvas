@@ -67,6 +67,7 @@
     "@zumer/snapdom": "catalog:"
   },
   "devDependencies": {
+    "@arethetypeswrong/cli": "catalog:",
     "@react-three/fiber": "catalog:",
     "@types/node": "^25.6.2",
     "@types/react": "catalog:",

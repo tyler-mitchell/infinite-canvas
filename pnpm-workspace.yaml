@@ -45,6 +45,7 @@ catalog:
   clsx: ^2.1.1
   publint: ^0.3.23
   "@arethetypeswrong/core": ^0.18.5
+  "@arethetypeswrong/cli": ^0.18.5
   execa: ^10.0.1
   "@varlock/bumpy": 1.18.1
 overrides:
