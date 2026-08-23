@@ -17,7 +17,7 @@
     "release:add": "bumpy add",
     "release:check": "bumpy check --strict",
     "release:merge": "gh pr merge bumpy/version-packages --auto --squash",
-    "release:pr": "gh pr view bumpy/version-packages",
+    "release:pr": "gh pr list --head bumpy/version-packages --base main --state open --limit 1",
     "release:registry-version": "npm view @hyphened/infinite-canvas version",
     "release:status": "bumpy status --json",
     "release:update": "gh pr update-branch bumpy/version-packages",
