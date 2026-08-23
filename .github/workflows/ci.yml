@@ -36,7 +36,7 @@ jobs:
       - run: pnpm run release:preflight
 
   release-plan:
-    if: github.event_name != 'push'
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
