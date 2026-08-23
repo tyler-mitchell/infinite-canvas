@@ -1,6 +1,12 @@
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 
+if (execFileSync("git", ["branch", "--show-current"], { encoding: "utf8" }).trim() !== "main") {
+  throw new Error("First publication requires the main branch.");
+}
+if (execFileSync("git", ["status", "--porcelain"], { encoding: "utf8" }).trim() !== "") {
+  throw new Error("First publication requires a clean worktree.");
+}
 execFileSync(process.execPath, ["scripts/verify-package.ts"], { stdio: "inherit" });
 const manifest = JSON.parse(
   readFileSync(new URL("../packages/infinite-canvas/package.json", import.meta.url), "utf8"),
