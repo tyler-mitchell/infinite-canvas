@@ -5,7 +5,7 @@ export default defineConfig({
     "*": "vp check --fix",
   },
   fmt: {
-    ignorePatterns: ["reference/**", "**/routeTree.gen.ts"],
+    ignorePatterns: ["reference/**", "**/routeTree.gen.ts", "**/CHANGELOG.md"],
   },
   lint: {
     ignorePatterns: ["reference/**", "**/routeTree.gen.ts"],
