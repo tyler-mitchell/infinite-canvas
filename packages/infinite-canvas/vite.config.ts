@@ -2,6 +2,12 @@ import { defineConfig } from "vite-plus";
 
 export default defineConfig({
   pack: {
+    attw: {
+      excludeEntrypoints: ["theme.css"],
+      level: "error",
+      profile: "esm-only",
+    },
+    copy: { from: "src/theme.css", to: "dist" },
     // Two entries, deliberately. `./scene` is the only one that reaches `three`
     // and `@react-three/fiber`, which is what makes those peers genuinely
     // optional: a consumer who never imports it can leave them uninstalled and
@@ -38,6 +44,7 @@ export default defineConfig({
       },
       devExports: true,
     },
+    publint: true,
   },
   lint: {
     options: {
