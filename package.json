@@ -16,13 +16,16 @@
     "ready": "vp check && vp run -r test && vp run -r build",
     "release:add": "bumpy add",
     "release:check": "bumpy check --strict",
-    "release:merge": "gh pr merge bumpy/version-packages --squash",
+    "release:merge": "gh pr merge bumpy/version-packages --auto --squash",
     "release:pr": "gh pr view bumpy/version-packages",
     "release:registry-version": "npm view @hyphened/infinite-canvas version",
     "release:status": "bumpy status --json",
+    "release:update": "gh pr update-branch bumpy/version-packages",
     "release:preflight": "node scripts/verify-package.ts",
     "release:verify": "node scripts/verify-release.ts",
-    "setup:github": "node scripts/configure-github.ts",
+    "setup:bumpy": "bumpy ci setup",
+    "setup:branch-protection": "gh api --silent --method PUT repos/{owner}/{repo}/branches/main/protection --input .github/branch-protection.json",
+    "setup:repository": "gh api --silent --method PATCH repos/{owner}/{repo} --field allow_auto_merge=true --field allow_update_branch=true --field delete_branch_on_merge=true",
     "workflow:check": "go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.12 .github/workflows/*.yml"
   },
   "devDependencies": {
