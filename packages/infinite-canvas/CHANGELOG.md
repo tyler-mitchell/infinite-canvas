@@ -7,6 +7,12 @@ starts at the version someone happened to adopt a tool is a changelog with no pa
 Keep-a-Changelog view of the whole project — including work not yet released — lives in the
 repository root's `CHANGELOG.md`.
 
+
+## 0.2.1
+<sub>2026-08-23</sub>
+
+- *(patch)* Added desktop registry metadata.
+
 ## 0.2.0
 
 <sub>2026-08-23</sub>
