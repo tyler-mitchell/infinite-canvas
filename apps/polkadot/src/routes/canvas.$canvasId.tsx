@@ -35,6 +35,8 @@ export const Route = createFileRoute("/canvas/$canvasId")({
     return {
       hydration: hydrateCanvasLayout(record.layout),
       id: record.id,
+      projectId: record.projectId,
+      projectTitle: record.projectTitle,
       revision: record.revision,
       title: record.title,
     };
@@ -68,6 +70,8 @@ function CanvasRoute() {
         droppedKinds:
           canvas.hydration.status === "recovered" ? canvas.hydration.droppedKinds : undefined,
         id: canvas.id,
+        projectId: canvas.projectId,
+        projectTitle: canvas.projectTitle,
         revision: canvas.revision,
         state: canvas.hydration.state,
         title: canvas.title,

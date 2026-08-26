@@ -17,24 +17,28 @@ DEFINE FUNCTION OVERWRITE fn::most_recent_canvas() {
     LIMIT 1;
 };
 
+-- The project comes back flattened alongside the canvas. The route names a canvas and a canvas
+-- belongs to exactly one project, so the project is derivable — reading it here rather than in a
+-- second query is what lets the shell name both without the URL carrying redundant identity that
+-- could contradict the record.
 DEFINE FUNCTION OVERWRITE fn::open_canvas($canvas: record<canvas_document>) {
-  RETURN SELECT id, title, revision, layout FROM ONLY $canvas;
+  RETURN SELECT id, title, revision, layout, project.id AS projectId, project.title AS projectTitle
+    FROM ONLY $canvas;
 };
 
--- The switcher's list. `layout` is deliberately not projected: a list of canvases would otherwise
--- carry every window of every canvas, which is the whole database in a menu.
-DEFINE FUNCTION OVERWRITE fn::list_canvases() {
+-- The switcher's list, scoped to one project. `layout` is deliberately not projected: a list of
+-- canvases would otherwise carry every window of every canvas, which is the whole database in a
+-- menu.
+DEFINE FUNCTION OVERWRITE fn::list_canvases($project: record<project>) {
   RETURN SELECT id, title, revision, updated_at
     FROM canvas_document
-    WHERE archived_at = NONE
+    WHERE project = $project AND archived_at = NONE
     ORDER BY updated_at DESC;
 };
 
--- `project:default` is referenced rather than bootstrapped. `fn::open_default_canvas` is the one
--- place a new install is created, and reaching this function means the app already opened.
-DEFINE FUNCTION OVERWRITE fn::create_canvas($title: string, $layout: object) {
+DEFINE FUNCTION OVERWRITE fn::create_canvas($project: record<project>, $title: string, $layout: object) {
   RETURN CREATE ONLY canvas_document CONTENT {
-    project: project:default,
+    project: $project,
     title: $title,
     layout: $layout
   };
@@ -54,10 +58,10 @@ DEFINE FUNCTION OVERWRITE fn::restore_canvas($canvas: record<canvas_document>) {
   RETURN UPDATE ONLY $canvas SET archived_at = NONE;
 };
 
-DEFINE FUNCTION OVERWRITE fn::list_archived_canvases() {
+DEFINE FUNCTION OVERWRITE fn::list_archived_canvases($project: record<project>) {
   RETURN SELECT id, title, revision, archived_at
     FROM canvas_document
-    WHERE archived_at != NONE
+    WHERE project = $project AND archived_at != NONE
     ORDER BY archived_at DESC;
 };
 

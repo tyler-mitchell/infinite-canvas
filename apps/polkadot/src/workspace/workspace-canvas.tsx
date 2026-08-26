@@ -15,6 +15,7 @@ import { useCanvasRuntime } from "../canvas/use-canvas-runtime";
 import { windowDefinitions, type WindowData, type WindowKind } from "../canvas/window-registry";
 import { CanvasHud } from "../hud/canvas-hud";
 import { CanvasSwitcher } from "./canvas-switcher";
+import { ProjectSwitcher } from "./project-switcher";
 
 type SaveAdmission = Readonly<{
   message: string;
@@ -24,6 +25,8 @@ type SaveAdmission = Readonly<{
 type LoadedCanvas = Readonly<{
   droppedKinds?: readonly string[];
   id: string;
+  projectId: string;
+  projectTitle: string;
   revision: number;
   state: InfiniteCanvasState<WindowKind>;
   title: string;
@@ -40,8 +43,6 @@ type LoadedCanvas = Readonly<{
 const workspace = tv({
   slots: {
     brand: "flex items-center gap-1.5 pr-1 pl-1.5",
-    brandMark:
-      "grid size-6 place-items-center rounded-[7px] bg-[var(--accent)] font-mono text-[11px] font-semibold text-[var(--primary-foreground)]",
     divider: "mx-1 h-4 w-px bg-[var(--border)]",
     rail: "flex items-center gap-1 rounded-[var(--radius-pill)] bg-[var(--surface)] p-1 shadow-[var(--lift-2)] inset-ring-1 inset-ring-[var(--edge-light)] backdrop-blur-2xl",
     root: "relative h-dvh min-h-0 overflow-hidden bg-[var(--ground)]",
@@ -89,11 +90,15 @@ function getSaveAdmission(status: CanvasPersistenceStatus): SaveAdmission {
 function IdentityRail({
   canvas,
   canvasId,
+  projectId,
+  projectTitle,
   saveAdmission,
   title,
 }: Readonly<{
   canvas: InfiniteCanvasOverlayReadContext<WindowKind>;
   canvasId: string;
+  projectId: string;
+  projectTitle: string;
   saveAdmission: SaveAdmission;
   title: string;
 }>) {
@@ -102,8 +107,8 @@ function IdentityRail({
   return (
     <div className={styles.rail()}>
       <div className={styles.brand()}>
-        <div className={styles.brandMark()}>P</div>
-        <CanvasSwitcher canvasId={canvasId} title={title} />
+        <ProjectSwitcher projectId={projectId} projectTitle={projectTitle} />
+        <CanvasSwitcher canvasId={canvasId} projectId={projectId} title={title} />
       </div>
       <span className={styles.divider()} />
       <div className={styles.status()} data-save-status={saveAdmission.status}>
@@ -168,6 +173,8 @@ export function WorkspaceCanvas({ canvas }: Readonly<{ canvas: LoadedCanvas }>) 
                 <IdentityRail
                   canvas={context}
                   canvasId={canvas.id}
+                  projectId={canvas.projectId}
+                  projectTitle={canvas.projectTitle}
                   saveAdmission={getSaveAdmission(runtime.saveStatus)}
                   title={canvas.title}
                 />

@@ -16,14 +16,41 @@ const modules = import.meta.glob("../../surql/**/*.surql", {
 
 const lifecycle: { promise?: Promise<Surreal> } = {};
 
+/**
+ * An open canvas, with its project flattened alongside it.
+ *
+ * The route names a canvas and a canvas belongs to exactly one project, so the project is
+ * derivable — reading it here rather than putting it in the URL is what keeps the address from
+ * carrying identity that could contradict the record.
+ */
 const CanvasRecord = type({
   id: "string",
   layout: "object",
+  projectId: "string",
+  projectTitle: "string > 0",
   revision: "number.integer >= 0",
   title: "string > 0",
 }).onUndeclaredKey("delete");
 
 type CanvasRecord = typeof CanvasRecord.infer;
+
+/**
+ * Just enough to navigate to a canvas.
+ *
+ * Creating, duplicating, and bootstrapping all end in "open this" and nothing else, so they
+ * validate an id rather than a whole record — none of them project the flattened shape above and
+ * requiring it would only force those queries to fetch what no caller reads.
+ */
+const CanvasRef = type({ id: "string" }).onUndeclaredKey("delete");
+
+type CanvasRef = typeof CanvasRef.infer;
+
+const CanvasRevision = type({
+  id: "string",
+  revision: "number.integer >= 0",
+}).onUndeclaredKey("delete");
+
+type CanvasRevision = typeof CanvasRevision.infer;
 
 function getErrorMessage(error: unknown) {
   return error instanceof Error ? error.message : String(error);
@@ -99,7 +126,7 @@ function openLocalDatabase() {
   return lifecycle.promise;
 }
 
-async function openDefaultCanvas(initialLayout: object): Promise<CanvasRecord> {
+async function openDefaultCanvas(initialLayout: object): Promise<CanvasRef> {
   const client = await openLocalDatabase();
   // One statement, one result. `LET $x = …; RETURN $x;` is two statements, and SurrealDB answers
   // with one result per statement — so destructuring `[record]` read the `LET`, which is NONE.
@@ -107,7 +134,7 @@ async function openDefaultCanvas(initialLayout: object): Promise<CanvasRecord> {
     .query<[unknown]>("RETURN fn::open_default_canvas($layout);", { layout: initialLayout })
     .json();
 
-  return CanvasRecord.assert(record);
+  return CanvasRef.assert(record);
 }
 
 /**
@@ -116,10 +143,10 @@ async function openDefaultCanvas(initialLayout: object): Promise<CanvasRecord> {
  * Empty is a normal state rather than a failure — it is what a first run looks like — so the
  * caller decides between bootstrapping and reporting, and this stays a read.
  */
-async function readMostRecentCanvas(): Promise<CanvasRecord | null> {
+async function readMostRecentCanvas(): Promise<CanvasRef | null> {
   const client = await openLocalDatabase();
   const [records] = await client.query<[unknown]>("RETURN fn::most_recent_canvas();").json();
-  const [record] = CanvasRecord.array().assert(records);
+  const [record] = CanvasRef.array().assert(records);
 
   return record ?? null;
 }
@@ -154,22 +181,30 @@ const CanvasSummary = type({
 
 type CanvasSummary = typeof CanvasSummary.infer;
 
-async function listCanvases(): Promise<readonly CanvasSummary[]> {
+async function listCanvases(projectId: string): Promise<readonly CanvasSummary[]> {
   const client = await openLocalDatabase();
-  const [records] = await client.query<[unknown]>("RETURN fn::list_canvases();").json();
+  const [records] = await client
+    .query<[unknown]>("RETURN fn::list_canvases($project);", {
+      project: new StringRecordId(projectId),
+    })
+    .json();
 
   return CanvasSummary.array().assert(records);
 }
 
 async function createCanvas(
-  input: Readonly<{ layout: object; title: string }>,
-): Promise<CanvasRecord> {
+  input: Readonly<{ layout: object; projectId: string; title: string }>,
+): Promise<CanvasRef> {
   const client = await openLocalDatabase();
   const [record] = await client
-    .query<[unknown]>("RETURN fn::create_canvas($title, $layout);", input)
+    .query<[unknown]>("RETURN fn::create_canvas($project, $title, $layout);", {
+      layout: input.layout,
+      project: new StringRecordId(input.projectId),
+      title: input.title,
+    })
     .json();
 
-  return CanvasRecord.assert(record);
+  return CanvasRef.assert(record);
 }
 
 /**
@@ -219,16 +254,20 @@ async function restoreCanvas(canvasId: string): Promise<CanvasSummary> {
   return CanvasSummary.assert(record);
 }
 
-async function listArchivedCanvases(): Promise<readonly CanvasSummary[]> {
+async function listArchivedCanvases(projectId: string): Promise<readonly CanvasSummary[]> {
   const client = await openLocalDatabase();
-  const [records] = await client.query<[unknown]>("RETURN fn::list_archived_canvases();").json();
+  const [records] = await client
+    .query<[unknown]>("RETURN fn::list_archived_canvases($project);", {
+      project: new StringRecordId(projectId),
+    })
+    .json();
 
   return CanvasSummary.array().assert(records);
 }
 
 async function duplicateCanvas(
   input: Readonly<{ canvasId: string; title: string }>,
-): Promise<CanvasRecord> {
+): Promise<CanvasRef> {
   const client = await openLocalDatabase();
   const [record] = await client
     .query<[unknown]>("RETURN fn::duplicate_canvas($canvas, $title);", {
@@ -237,7 +276,50 @@ async function duplicateCanvas(
     })
     .json();
 
-  return CanvasRecord.assert(record);
+  return CanvasRef.assert(record);
+}
+
+const ProjectSummary = type({
+  id: "string",
+  title: "string > 0",
+}).onUndeclaredKey("delete");
+
+type ProjectSummary = typeof ProjectSummary.infer;
+
+async function listProjects(): Promise<readonly ProjectSummary[]> {
+  const client = await openLocalDatabase();
+  const [records] = await client.query<[unknown]>("RETURN fn::list_projects();").json();
+
+  return ProjectSummary.array().assert(records);
+}
+
+/**
+ * Returns the project's first canvas, not the project. A project with no canvas would be
+ * unreachable — the app addresses canvases — so creating one and landing on it is the same act.
+ */
+async function createProject(
+  input: Readonly<{ layout: object; title: string }>,
+): Promise<CanvasRef> {
+  const client = await openLocalDatabase();
+  const [record] = await client
+    .query<[unknown]>("RETURN fn::create_project($title, $layout);", input)
+    .json();
+
+  return CanvasRef.assert(record);
+}
+
+async function renameProject(
+  input: Readonly<{ projectId: string; title: string }>,
+): Promise<ProjectSummary> {
+  const client = await openLocalDatabase();
+  const [record] = await client
+    .query<[unknown]>("RETURN fn::rename_project($project, $title);", {
+      project: new StringRecordId(input.projectId),
+      title: input.title,
+    })
+    .json();
+
+  return ProjectSummary.assert(record);
 }
 
 async function readCanvasRemovalSummary(canvasId: string): Promise<CanvasRemovalSummary> {
@@ -270,7 +352,7 @@ async function saveCanvas(
     layout: object;
     revision: number;
   }>,
-): Promise<CanvasRecord> {
+): Promise<CanvasRevision> {
   const client = await openLocalDatabase();
   const [record] = await client
     .query<[unknown]>("RETURN fn::save_canvas($canvas, $revision, $layout);", {
@@ -287,7 +369,7 @@ async function saveCanvas(
     });
   }
 
-  return CanvasRecord.assert(record);
+  return CanvasRevision.assert(record);
 }
 
 /**
@@ -382,10 +464,13 @@ export {
   createCanvas,
   createNote,
   deleteCanvas,
+  createProject,
   duplicateCanvas,
   listArchivedCanvases,
   listCanvases,
   listNotes,
+  listProjects,
+  renameProject,
   readCanvasRemovalSummary,
   restoreCanvas,
   NoteRevisionConflictError,
@@ -398,4 +483,12 @@ export {
   saveCanvas,
   saveNote,
 };
-export type { CanvasRecord, CanvasRemovalSummary, CanvasSummary, NoteRecord };
+export type {
+  CanvasRecord,
+  CanvasRef,
+  CanvasRemovalSummary,
+  CanvasRevision,
+  CanvasSummary,
+  NoteRecord,
+  ProjectSummary,
+};

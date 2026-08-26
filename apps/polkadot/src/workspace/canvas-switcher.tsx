@@ -56,19 +56,29 @@ const canvasSwitcher = tv({
 const canvasGateway = {
   archive: async (canvasId: string) =>
     (await import("../database/database.client")).archiveCanvas(canvasId),
-  create: async (title: string) =>
-    (await import("../database/database.client")).createCanvas({ layout: initialLayout, title }),
+  create: async (projectId: string, title: string) =>
+    (await import("../database/database.client")).createCanvas({
+      layout: initialLayout,
+      projectId,
+      title,
+    }),
   duplicate: async (canvasId: string, title: string) =>
     (await import("../database/database.client")).duplicateCanvas({ canvasId, title }),
-  list: async () => (await import("../database/database.client")).listCanvases(),
-  listArchived: async () => (await import("../database/database.client")).listArchivedCanvases(),
+  list: async (projectId: string) =>
+    (await import("../database/database.client")).listCanvases(projectId),
+  listArchived: async (projectId: string) =>
+    (await import("../database/database.client")).listArchivedCanvases(projectId),
   rename: async (canvasId: string, title: string) =>
     (await import("../database/database.client")).renameCanvas({ canvasId, title }),
   restore: async (canvasId: string) =>
     (await import("../database/database.client")).restoreCanvas(canvasId),
 };
 
-export function CanvasSwitcher({ canvasId, title }: Readonly<{ canvasId: string; title: string }>) {
+export function CanvasSwitcher({
+  canvasId,
+  projectId,
+  title,
+}: Readonly<{ canvasId: string; projectId: string; title: string }>) {
   const navigate = useNavigate();
   const router = useRouter();
   const canvases$ = useObservable<readonly CanvasSummary[]>([]);
@@ -180,10 +190,10 @@ export function CanvasSwitcher({ canvasId, title }: Readonly<{ canvasId: string;
       <DropdownMenu
         onOpenChange={(open) => {
           if (open) {
-            void canvasGateway.list().then((records) => {
+            void canvasGateway.list(projectId).then((records) => {
               canvases$.set(records);
             });
-            void canvasGateway.listArchived().then((records) => {
+            void canvasGateway.listArchived(projectId).then((records) => {
               archived$.set(records);
             });
           }
@@ -253,9 +263,11 @@ export function CanvasSwitcher({ canvasId, title }: Readonly<{ canvasId: string;
           </DropdownMenuItem>
           <DropdownMenuItem
             onClick={() => {
-              void canvasGateway.create(`Canvas ${canvases.length + 1}`).then((created) => {
-                openCanvas(created.id);
-              });
+              void canvasGateway
+                .create(projectId, `Canvas ${canvases.length + 1}`)
+                .then((created) => {
+                  openCanvas(created.id);
+                });
             }}
           >
             <Plus />
