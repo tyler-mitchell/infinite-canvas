@@ -571,17 +571,18 @@ type InfiniteCanvasResolveSpatialTarget<Kind extends string = string> = (
 type InfiniteCanvasDropPayload = unknown;
 
 /**
- * The payload the viewport supplies for a file dragged in from outside the page.
+ * The payload the viewport supplies for files dragged in from outside the page.
  *
  * Every other drop payload is the consumer's — they started the drag, so they said what it carries.
- * Nobody starts an OS file drag, so this is the one shape the framework has to name. A consumer
- * that wants file drops widens its own payload to include it:
+ * Nobody starts an OS drag, so these are the shapes the framework has to name. A consumer widens
+ * its own payload with the union rather than this member, so a lane added to the bridge does not
+ * silently narrow what its policy is handed:
  *
  * ```ts
- * type Payload = MyPaletteItem | InfiniteCanvasFileDropPayload;
+ * type Payload = MyPaletteItem | InfiniteCanvasNativeDropPayload;
  * ```
  *
- * and narrows on `payload.type === "files"` inside `canDrop`, `placement` and `onDrop`.
+ * and narrows on `payload.type` inside `canDrop`, `placement` and `onDrop`.
  *
  * The split between `types` and `files` is the browser's rule, not a convenience. While a drag is
  * in flight the contents of a file are withheld, so `files` is empty until the drop lands and
@@ -595,6 +596,41 @@ type InfiniteCanvasFileDropPayload = Readonly<{
   /** MIME types the drag advertises, readable throughout the drag. */
   types: readonly string[];
 }>;
+
+/**
+ * A drag carrying text rather than files — most often a link.
+ *
+ * Dragging a browser tab, an address bar, or a search result puts `text/uri-list` on the transfer,
+ * and dragging a selection puts `text/plain`. Both arrive here, tagged the same way files are, and
+ * a consumer narrows on `payload.type === "text"`.
+ *
+ * `uris` is separate from `text` because `text/uri-list` is a line-oriented format with comments —
+ * dragging a Chrome tab sends the URL and the page title, and the title is a `#` line. A consumer
+ * reading `text` and hoping for an address would get a sentence.
+ *
+ * The in-flight rule is the file lane's, for the browser's reason rather than a design one: `types`
+ * reads throughout, contents do not. So `text` is `""` and `uris` is empty during the drag, which
+ * is exactly when `canDrop` runs — judge by `types`, the same as a file policy does.
+ */
+type InfiniteCanvasTextDropPayload = Readonly<{
+  /** Empty until the drop commits; the browser withholds transfer data during the drag. */
+  text: string;
+  type: "text";
+  /** MIME types the drag advertises, readable throughout the drag. */
+  types: readonly string[];
+  /** The address lines of a `text/uri-list`, comments dropped. Empty until the drop commits. */
+  uris: readonly string[];
+}>;
+
+/**
+ * Everything the viewport can make of a drag that started outside the page.
+ *
+ * A consumer widens its own payload with this rather than with one member, so adding a lane to the
+ * bridge does not silently narrow what its `canDrop` is handed.
+ */
+type InfiniteCanvasNativeDropPayload =
+  | InfiniteCanvasFileDropPayload
+  | InfiniteCanvasTextDropPayload;
 
 type InfiniteCanvasDropValidationResult = Readonly<{
   accepted: boolean;
@@ -1600,6 +1636,8 @@ export type {
   InfiniteCanvasDropValidationResult,
   InfiniteCanvasEmptyCanvasDragMode,
   InfiniteCanvasFileDropPayload,
+  InfiniteCanvasNativeDropPayload,
+  InfiniteCanvasTextDropPayload,
   InfiniteCanvasInputPolicy,
   InfiniteCanvasInteraction,
   InfiniteCanvasHotkeyBinding,

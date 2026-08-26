@@ -45,7 +45,7 @@ import {
   getInfiniteCanvasDropPlacement,
   isPointInsideInfiniteCanvasViewport,
 } from "./drop-interaction";
-import { getInfiniteCanvasFileDropPayload, isInfiniteCanvasFileDrag } from "./file-drop";
+import { getInfiniteCanvasNativeDropPayload } from "./native-drop";
 import { InfiniteCanvasGridBackdrop } from "./grid-backdrop";
 import { InfiniteCanvasGroupLayer } from "./group-layer";
 import { getInfiniteCanvasGroupProjection } from "./group-state";
@@ -575,14 +575,14 @@ function InfiniteCanvasDesktop<Kind extends string, Payload = InfiniteCanvasDrop
  * changes; these defaults exist for the direct consumer it claimed to serve.
  */
 /**
- * A file drag has no pointer, and the drop machinery is keyed by one.
+ * A drag from outside the page has no pointer, and the drop machinery is keyed by one.
  *
  * Negative because every real `pointerId` is not: the pointer handlers all compare against
  * `current.pointerId`, so a sentinel no device can produce is what keeps a mouse moving during a
- * file drag from being mistaken for that drag.
+ * native drag from being mistaken for that drag.
  */
-const FILE_DROP_POINTER_ID = -1;
-const FILE_DROP_INTERACTION_ID = "__infinite-canvas-file-drop__";
+const NATIVE_DROP_POINTER_ID = -1;
+const NATIVE_DROP_INTERACTION_ID = "__infinite-canvas-native-drop__";
 
 function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDropPayload>({
   chrome: chromeInput,
@@ -821,13 +821,13 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
     (
       current: Extract<InfiniteCanvasDropInteraction<Payload, Kind>, { status: "dragging" }>,
       event: DragEvent,
+      payload: Payload,
     ) => {
       const node = rootRef.current;
       const latestState = store.state$.peek() as InfiniteCanvasState<Kind>;
       const clientPoint = getClientPoint(event);
       const viewportPoint =
         node === null ? current.viewportPoint : getViewportPoint(node, clientPoint);
-      const payload = getInfiniteCanvasFileDropPayload(event.dataTransfer) as Payload;
       const dropTarget = resolveInfiniteCanvasDragDropTarget({
         chrome,
         dropPolicy,
@@ -845,7 +845,7 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
         originClientPoint: current.originClientPoint,
         payload,
         placement: dropTarget.placement,
-        pointerId: FILE_DROP_POINTER_ID,
+        pointerId: NATIVE_DROP_POINTER_ID,
         target: dropTarget.target,
         validation: dropTarget.validation,
         viewport: latestState.viewport,
@@ -854,8 +854,8 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
     },
     [chrome, dropPolicy, snapPolicy, spatialTargetResolvers, store],
   );
-  const startFileDropDrag = useCallback(
-    (event: DragEvent) => {
+  const startNativeDrag = useCallback(
+    (event: DragEvent, payload: Payload) => {
       const node = rootRef.current;
 
       if (node === null) {
@@ -865,7 +865,6 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
       const latestState = store.state$.peek() as InfiniteCanvasState<Kind>;
       const clientPoint = getClientPoint(event);
       const viewportPoint = getViewportPoint(node, clientPoint);
-      const payload = getInfiniteCanvasFileDropPayload(event.dataTransfer) as Payload;
       const dropTarget = resolveInfiniteCanvasDragDropTarget({
         chrome,
         dropPolicy,
@@ -878,11 +877,11 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
       const next = createInfiniteCanvasDropInteraction<Payload, Kind>({
         camera: latestState.camera,
         clientPoint,
-        id: FILE_DROP_INTERACTION_ID,
+        id: NATIVE_DROP_INTERACTION_ID,
         originClientPoint: clientPoint,
         payload,
         placement: dropTarget.placement,
-        pointerId: FILE_DROP_POINTER_ID,
+        pointerId: NATIVE_DROP_POINTER_ID,
         target: dropTarget.target,
         validation: dropTarget.validation,
         viewport: latestState.viewport,
@@ -897,10 +896,10 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
   /**
    * No pointer capture to release, unlike `cancelDropDrag`.
    *
-   * A file drag never captured one — `FILE_DROP_POINTER_ID` is a sentinel no real pointer uses, and
-   * releasing it would throw.
+   * A native drag never captured one — `NATIVE_DROP_POINTER_ID` is a sentinel no real pointer uses,
+   * and releasing it would throw.
    */
-  const cancelFileDropDrag = useCallback(() => {
+  const cancelNativeDrag = useCallback(() => {
     dropInteractionRef.current = EMPTY_INFINITE_CANVAS_DROP;
     setDropInteraction(EMPTY_INFINITE_CANVAS_DROP);
   }, []);
@@ -1232,14 +1231,20 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
 
   useEffect(() => {
     /*
-     * A file dragged in from outside the page, through the same pipeline as everything else.
+     * A drag from outside the page — files, or a link — through the same pipeline as everything
+     * else.
      *
-     * The drop system above is driven by pointer events, and an OS file drag fires none: the
-     * browser sends `dragover` and `drop` carrying a `DataTransfer`, captures no pointer, and
-     * handles cancellation itself. Everything downstream of "a payload is over this world point" is
+     * The drop system above is driven by pointer events, and a native drag fires none: the browser
+     * sends `dragover` and `drop` carrying a `DataTransfer`, captures no pointer, and handles
+     * cancellation itself. Everything downstream of "a payload is over this world point" is
      * identical, though — `canDrop`, `placement`, snapping, the guides, the preview a consumer
      * draws from `drag` — so this translates the native events into the interaction the rest of the
      * file already understands rather than growing a second pipeline beside it.
+     *
+     * **Which drags count is not decided here.** This admits anything
+     * `getInfiniteCanvasNativeDropPayload` can describe and lets `canDrop` refuse the rest in
+     * flight, which is what it already does for an unwanted file type. Deciding it here instead
+     * meant link drags were swallowed before any policy saw them, and no consumer could opt in.
      *
      * Attached to the viewport element, not the window: a file dropped on the app's own chrome is
      * not a drop on the canvas, and `getViewportPoint` is only meaningful inside this node anyway.
@@ -1267,19 +1272,30 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
      * canvas while more enters than leaves have arrived.
      */
     let depth = 0;
-    const updateFromDragEvent = (event: DragEvent) => {
+    /*
+     * One read of the transfer per event, and it decides everything.
+     *
+     * `null` means the drag carries nothing this can describe, and every handler treats that as
+     * "not mine" — which is the whole of the gate. It used to be a separate predicate beside the
+     * builder, and two functions that both answer "does this drag count" can disagree: the
+     * predicate would admit a drag the builder then rendered as an empty payload, and the policy
+     * would be asked about nothing.
+     */
+    const readPayload = (event: DragEvent) =>
+      getInfiniteCanvasNativeDropPayload(event.dataTransfer) as Payload | null;
+    const updateFromDragEvent = (event: DragEvent, payload: Payload) => {
       const current = dropInteractionRef.current;
 
-      if (current.status !== "dragging" || current.pointerId !== FILE_DROP_POINTER_ID) {
+      if (current.status !== "dragging" || current.pointerId !== NATIVE_DROP_POINTER_ID) {
         return null;
       }
 
       /*
-       * The payload is rebuilt each time rather than carried, because it is not the same object
-       * twice: `files` is empty for every event until the drop, when the browser finally hands the
-       * contents over. Reusing the drag-time payload on commit would deliver an empty list.
+       * The payload is re-read each event rather than carried, because it is not the same object
+       * twice: contents are withheld until the drop, when the browser finally hands them over.
+       * Reusing the drag-time payload on commit would deliver an empty list and an empty string.
        */
-      const next = createDropInteractionFromNativeDrag(current, event);
+      const next = createDropInteractionFromNativeDrag(current, event, payload);
 
       dropInteractionRef.current = next;
       setDropInteraction(next);
@@ -1287,7 +1303,9 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
       return next;
     };
     const handleDragEnter = (event: DragEvent) => {
-      if (!isInfiniteCanvasFileDrag(event.dataTransfer)) {
+      const payload = readPayload(event);
+
+      if (payload === null) {
         return;
       }
 
@@ -1295,18 +1313,21 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
       event.preventDefault();
 
       if (dropInteractionRef.current.status !== "dragging") {
-        startFileDropDrag(event);
+        startNativeDrag(event, payload);
       }
     };
     const handleDragOver = (event: DragEvent) => {
-      if (!isInfiniteCanvasFileDrag(event.dataTransfer)) {
+      const payload = readPayload(event);
+
+      if (payload === null) {
         return;
       }
 
-      // Without this the browser navigates to the dropped file, replacing the app.
+      // Without this the browser handles the drop itself — navigating away to the dropped file or
+      // link, replacing the app.
       event.preventDefault();
 
-      const next = updateFromDragEvent(event);
+      const next = updateFromDragEvent(event, payload);
 
       if (event.dataTransfer !== null) {
         // What the cursor says the drop will do. `none` is what turns a rejected type into a
@@ -1316,25 +1337,27 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
       }
     };
     const handleDragLeave = (event: DragEvent) => {
-      if (!isInfiniteCanvasFileDrag(event.dataTransfer)) {
+      if (readPayload(event) === null) {
         return;
       }
 
       depth = Math.max(0, depth - 1);
 
       if (depth === 0) {
-        cancelFileDropDrag();
+        cancelNativeDrag();
       }
     };
     const handleDrop = (event: DragEvent) => {
-      if (!isInfiniteCanvasFileDrag(event.dataTransfer)) {
+      const payload = readPayload(event);
+
+      if (payload === null) {
         return;
       }
 
       event.preventDefault();
       depth = 0;
 
-      const final = updateFromDragEvent(event);
+      const final = updateFromDragEvent(event, payload);
 
       if (final?.status === "dragging" && final.dropTarget.status === "valid") {
         dropPolicy?.onDrop?.({
@@ -1349,7 +1372,7 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
         });
       }
 
-      cancelFileDropDrag();
+      cancelNativeDrag();
     };
 
     node.addEventListener("dragenter", handleDragEnter);
@@ -1365,10 +1388,10 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
     };
   }, [
     actions,
-    cancelFileDropDrag,
+    cancelNativeDrag,
     createDropInteractionFromNativeDrag,
     dropPolicy,
-    startFileDropDrag,
+    startNativeDrag,
     store,
   ]);
 

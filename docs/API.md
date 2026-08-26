@@ -37,7 +37,7 @@ about this repository rather than a feeling about the code.
 | Reason             | Meaning                                                                                                                                                                                   | Modules                                                                                   |
 | ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
 | **unobserved**     | Shipped, typechecked, gated — never watched running.                                                                                                                                      | `canvas-handle`                                                                           |
-| **off-by-default** | Behind a policy prop that no default configuration turns on, so nothing exercises the shipped path.                                                                                       | `rasterization-layer`, `visibility`, `diagnostics`, `file-drop`                           |
+| **off-by-default** | Behind a policy prop that no default configuration turns on, so nothing exercises the shipped path.                                                                                       | `rasterization-layer`, `visibility`, `diagnostics`, `native-drop`                         |
 | **r3f-canary**     | Reachable only through `@hyphened/infinite-canvas/scene`, whose `@react-three/fiber` peer range admits a v10 canary. The framework cannot promise stability across someone else's canary. | `scene-surface`, `scene:scene-surface`, `scene:visibility-probes`, `scene:webgpu-surface` |
 
 Plus six types in `types.ts`, which is a grab-bag holding
@@ -774,14 +774,21 @@ Typed, opaque payloads threaded through validation and commit.
 `getInfiniteCanvasDropPlacement` is the canonical pointer-anchored, snap-
 integrated placement shared by a drag preview and its commit.
 
-Files dragged in from outside the page arrive through the same policy. The
-viewport listens for the native drag events on its own element and translates
-them into the interaction the pointer path already produces, so `canDrop`,
-`placement`, snapping, the guides, and the preview an overlay draws from `drag`
-all behave identically — a consumer writes no coordinate maths and no second
-placement. The payload for those is supplied by the framework rather than the
-consumer, since nobody starts an OS file drag: widen your own payload with
-`InfiniteCanvasFileDropPayload` and narrow on `payload.type === "files"`.
+Drags from outside the page arrive through the same policy. The viewport listens
+for the native drag events on its own element and translates them into the
+interaction the pointer path already produces, so `canDrop`, `placement`,
+snapping, the guides, and the preview an overlay draws from `drag` all behave
+identically — a consumer writes no coordinate maths and no second placement. The
+payload for those is supplied by the framework rather than the consumer, since
+nobody starts an OS drag: widen your own payload with
+`InfiniteCanvasNativeDropPayload` and narrow on `payload.type`, which is
+`"files"` for a file drag and `"text"` for a dragged link or selection.
+
+The bridge does not decide which drags are interesting. Anything it can describe
+reaches `canDrop`, which refuses the rest in flight — from `types` alone, since
+the browser withholds contents until the drop. A drag it can describe nothing of
+is left alone entirely, so a canvas never takes the browser's own handling away
+from a page.
 
 **`drop-interaction`**
 
@@ -791,22 +798,25 @@ consumer, since nobody starts an OS file drag: widen your own payload with
 - `isPointInsideInfiniteCanvasViewport`
 - `normalizeInfiniteCanvasDropValidation`
 
-<details><summary>types (3)</summary>
+<details><summary>types (5)</summary>
 
 - `InfiniteCanvasDropPlacement`
 - `InfiniteCanvasDropPlacementInput`
 - `InfiniteCanvasFileDropPayload`
+- `InfiniteCanvasNativeDropPayload`
+- `InfiniteCanvasTextDropPayload`
 
 </details>
 
-**`file-drop`**
+**`native-drop`**
 
-Reading a native file drag. The viewport uses both internally; they are public
-for a consumer wiring file drops onto its own surface — a library rail, a
-sidebar — rather than onto the canvas.
+Reading a drag that started outside the page. The viewport uses this internally;
+it is public for a consumer wiring drops onto its own surface — a library rail, a
+sidebar — rather than onto the canvas. `null` means the drag carries nothing
+describable and should be left to the browser.
 
-- `getInfiniteCanvasFileDropPayload`
-- `isInfiniteCanvasFileDrag`
+- `getInfiniteCanvasNativeDropPayload`
+- `URI_LIST_TYPE`
 
 ## Persistence & validation
 
