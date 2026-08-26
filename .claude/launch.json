@@ -2,16 +2,10 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "polkadot",
-      "runtimeExecutable": "vp",
-      "runtimeArgs": ["run", "polkadot#dev"],
-      "port": 3000
-    },
-    {
-      "name": "playground",
-      "runtimeExecutable": "vp",
-      "runtimeArgs": ["run", "playground#dev"],
-      "port": 5173
+      "name": "compositor-poc",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["-C", "apps/compositor-poc", "dev"],
+      "port": 3100
     }
   ]
 }

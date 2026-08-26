@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Compositor PoC</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --ground: oklch(0.155 0.008 265);
+        --ink: oklch(0.96 0.008 85);
+        --ink-faint: oklch(0.55 0.012 265);
+      }
+
+      * {
+        box-sizing: border-box;
+        margin: 0;
+      }
+
+      html,
+      body {
+        height: 100%;
+      }
+
+      body {
+        background: var(--ground);
+        color: var(--ink);
+        font:
+          13px/1.5 ui-sans-serif,
+          system-ui,
+          sans-serif;
+        overflow: hidden;
+      }
+
+      /*
+       * Fixed rather than sized against an ancestor: `100dvh` on `body` computed to 0 in the
+       * preview pane, which left the canvas 0×0 and nothing drew.
+       *
+       * The explicit `width`/`height` are load-bearing, not redundant with `inset`. A canvas has an
+       * intrinsic size, so `inset: 0` alone let the element size itself from its `width` attribute
+       * — and since the attribute is set from `clientWidth × dpr`, each frame doubled it. It
+       * reached 153600×76800 before anything looked wrong on screen.
+       */
+      #surface {
+        display: block;
+        height: 100%;
+        inset: 0;
+        position: fixed;
+        touch-action: none;
+        width: 100%;
+      }
+
+      #readout {
+        backdrop-filter: blur(12px);
+        background: oklch(0.205 0.009 265 / 0.86);
+        border-radius: 10px;
+        font-variant-numeric: tabular-nums;
+        left: 12px;
+        padding: 10px 12px;
+        pointer-events: none;
+        position: fixed;
+        top: 12px;
+        white-space: pre;
+      }
+
+      #readout b {
+        color: var(--ink-faint);
+        font-weight: 400;
+      }
+    </style>
+  </head>
+  <body>
+    <canvas id="surface"></canvas>
+    <pre id="readout">starting…</pre>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

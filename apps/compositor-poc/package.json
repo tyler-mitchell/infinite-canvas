@@ -1,0 +1,21 @@
+{
+  "name": "compositor-poc",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vp dev --port 3100",
+    "build": "vp build",
+    "preview": "vp preview"
+  },
+  "dependencies": {
+    "typegpu": "catalog:"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "@webgpu/types": "catalog:",
+    "typescript": "~6.0.2",
+    "unplugin-typegpu": "catalog:",
+    "vite": "catalog:",
+    "vite-plus": "catalog:"
+  }
+}
