@@ -153,6 +153,44 @@ test("offscreen indicators point at what left the viewport, nearest first", () =
   }
 });
 
+test("a desktop filters the ring: no arrow points at a window it hides", () => {
+  /*
+   * A desktop is a membership filter, so the canvas does not draw what it excludes — and an arrow
+   * aimed at one of those is a claim that something is just off the edge, which is the exact thing
+   * the desktop is hiding. Standing on a desktop used to fill the ring with them, and an *empty*
+   * desktop carried one per window on the canvas behind it.
+   *
+   * The same correction `window.reveal` already received when it filtered on `minimized` alone and
+   * panned to a rect nothing renders.
+   */
+  const base = offscreenState();
+  const filtered: InfiniteCanvasState<Kind> = {
+    ...base,
+    activeWorkspaceId: "desk",
+    workspaces: [
+      {
+        camera: base.camera,
+        id: "desk",
+        selection: { anchorWindowId: null, windowIds: [] },
+        title: "Desk",
+        windowIds: ["near"],
+      },
+    ],
+  };
+  const filteredIds = getInfiniteCanvasOffscreenIndicators(filtered).map(
+    (indicator) => indicator.id,
+  );
+
+  expect(filteredIds).toContain("near");
+  expect(filteredIds).not.toContain("far");
+  // No active desktop admits everything, so a canvas that never makes one is untouched by this.
+  expect(
+    getInfiniteCanvasOffscreenIndicators(base)
+      .map((indicator) => indicator.id)
+      .sort(),
+  ).toEqual(["far", "near"]);
+});
+
 test("an indicator's angle actually points from the viewport centre toward its target", () => {
   // The claim a consumer relies on: rotate a right-pointing chevron by `angle` and it aims at the
   // window. Recompute the bearing from the returned rect and require agreement.

@@ -755,13 +755,21 @@ open because it feels good to look at. Concretely, and these are enforced in rev
   context. It would have fired the first time any window was on another desktop, which is the
   ordinary case, and it survived this long precisely because "the harness cannot re-open the menu"
   was believed. A section that is only ever typechecked is a section whose crash is waiting.
-  **Still open, and found while looking at this:** the offscreen indicator ring points at windows
-  that are not on the active desktop. `getInfiniteCanvasOffscreenIndicators` filters on `minimized`
-  alone and never consults workspace membership, so entering a desktop fills the ring with arrows
-  aimed at windows the canvas is not drawing — the accessibility tree on an empty desktop carries a
-  "Go to Untitled 3" chip for a note filtered off it. This is the same correction `window.reveal`
-  already received and `offscreen.ts` never got, it is framework-owned, and the audit records why
-  the product cannot fix it without either a lying `targetCount` or restating the membership rule.
+  **Closed, in the framework, where the audit said it had to be.** The offscreen ring pointed at
+  windows that are not on the active desktop: `getInfiniteCanvasOffscreenIndicators` filtered on
+  `minimized` alone and never consulted workspace membership, so entering a desktop filled the ring
+  with arrows aimed at windows the canvas is not drawing — an empty desktop carried a "Go to
+  Untitled 3" chip for a note filtered off it. Worse than useless on precisely the screen this file
+  already says is "indistinguishable from losing your work": an arrow is a claim that something is
+  just off the edge, which is the exact thing a desktop is for hiding.
+  It is fixed where `window.reveal` was fixed and by the same rule. `offscreen.ts` reads
+  `getInfiniteCanvasWorkspaceWindowIds` once and admits a window only when the active workspace
+  holds it; `null` means no desktop is active and admits everything, so a canvas that never makes
+  one is untouched. Groups take the same set on `some` member, since membership is group-complete.
+  **The audit's reasoning for refusing to wrap it held up**: post-filtering the returned indicators
+  would have left a surviving chip carrying a `targetCount` that counted windows on other desktops
+  — a badge that lies — because `limit` and `mergeWithinPx` are applied inside. Pinned by a test
+  that fails without the change with `expected [ 'near', 'far' ] to not include 'far'`.
 - [x] **Grain and vignette.** Both are passes inside the field rather than an overlay on top of it,
       because material noise belongs to the surface: a two-scale grain plus a radial falloff, each
       on its own `intensity` knob. The windows themselves still have no grain.

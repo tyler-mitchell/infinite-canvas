@@ -8,6 +8,7 @@ import {
 import { getInfiniteCanvasGroupProjection } from "./group-state";
 import { getInfiniteCanvasGroupWindowIds } from "./group-tree";
 import type { InfiniteCanvasPoint, InfiniteCanvasRect, InfiniteCanvasState } from "./types";
+import { getInfiniteCanvasWorkspaceWindowIds } from "./workspace-membership";
 
 /**
  * Edge indicators for what has fallen off the viewport, as geometry rather than as a widget.
@@ -202,18 +203,47 @@ function getInfiniteCanvasOffscreenIndicators<Kind extends string>(
           getInfiniteCanvasGroupWindowIds(group.tree).includes(activeWindowId),
         )?.id ?? null);
 
+  /*
+   * An arrow may only point at something this canvas is actually drawing.
+   *
+   * A desktop is a membership filter, so standing on one hides every window it does not admit —
+   * and this used to keep pointing at them. Entering a desktop filled the ring with arrows aimed
+   * at windows that are not rendered, each offering to navigate to one; an empty desktop still
+   * carried a chip per note on the canvas behind it. The arrow is not merely useless there, it is
+   * a claim that something is just off the edge, which is exactly what a desktop is for hiding.
+   *
+   * `null` means no workspace is active, which admits everything — so a canvas that never creates
+   * a desktop behaves as it always did. This is the correction `window.reveal` already received
+   * when it filtered on `minimized` alone and panned to a rect nothing renders; the same omission
+   * lived here, in the surface whose entire job is pointing at things.
+   */
+  const admitted = getInfiniteCanvasWorkspaceWindowIds(state);
   const targets = [
-    ...state.groups.map((group) => ({
-      id: group.id,
-      isActive: group.id === activeGroupId,
-      kind: "group" as const,
-      rect: group.rect,
-    })),
+    // Membership is group-complete — a workspace admits all of a group's windows or none — so one
+    // admitted member settles the group. `some` rather than `every` because a group holding no
+    // windows has nothing to admit and no rect worth pointing at either.
+    ...state.groups
+      .filter(
+        (group) =>
+          admitted === null ||
+          getInfiniteCanvasGroupWindowIds(group.tree).some((windowId) => admitted.has(windowId)),
+      )
+      .map((group) => ({
+        id: group.id,
+        isActive: group.id === activeGroupId,
+        kind: "group" as const,
+        rect: group.rect,
+      })),
     // `windowRects` holds every window a group has placed — including the ones hidden behind a
     // tab, which carry the rect they would occupy if revealed. So `has` is the membership test,
     // the same one the window layer uses to decide a member has no resize handles of its own.
     ...state.windows
-      .filter((window) => window.mode !== "minimized" && !windowRects.has(window.id))
+      .filter(
+        (window) =>
+          window.mode !== "minimized" &&
+          !windowRects.has(window.id) &&
+          (admitted === null || admitted.has(window.id)),
+      )
       .map((window) => ({
         id: window.id,
         isActive: window.id === activeWindowId,
