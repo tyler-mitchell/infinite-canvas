@@ -53,15 +53,38 @@ export const relations = {
     (await client()).setRelationLabel(input),
 };
 
-export const notes = {
-  archive: async (noteId: string) => (await client()).archiveNote(noteId),
-  create: async (input: Readonly<{ projectId: string; text: string; title: string }>) =>
-    (await client()).createNote(input),
-  list: async (projectId: string) => (await client()).listNotes(projectId),
-  listArchived: async (projectId: string) => (await client()).listArchivedNotes(projectId),
-  read: async (noteId: string) => (await client()).readNote(noteId),
-  restore: async (noteId: string) => (await client()).restoreNote(noteId),
+/**
+ * Content items, of any kind.
+ *
+ * Deliberately says nothing about what a note or an image is: this module's whole job is deferring
+ * the WebAssembly import, and a `create` that knew to put text in `content.text` would be a second
+ * place the note's shape is written down. Each kind builds its own operations on these — see
+ * `notes/note-gateway`.
+ */
+export const content = {
+  archive: async (itemId: string) => (await client()).archiveContentItem(itemId),
+  create: async (
+    input: Readonly<{
+      content: object;
+      kind: string;
+      projectId: string;
+      searchText: string;
+      title: string;
+    }>,
+  ) => (await client()).createContentItem(input),
+  list: async (input: Readonly<{ kind: string; projectId: string }>) =>
+    (await client()).listContentItems(input),
+  listArchived: async (input: Readonly<{ kind: string; projectId: string }>) =>
+    (await client()).listArchivedContentItems(input),
+  read: async (itemId: string) => (await client()).readContentItem(itemId),
+  restore: async (itemId: string) => (await client()).restoreContentItem(itemId),
   save: async (
-    input: Readonly<{ noteId: string; revision: number; text: string; title: string }>,
-  ) => (await client()).saveNote(input),
+    input: Readonly<{
+      content: object;
+      itemId: string;
+      revision: number;
+      searchText: string;
+      title: string;
+    }>,
+  ) => (await client()).saveContentItem(input),
 };

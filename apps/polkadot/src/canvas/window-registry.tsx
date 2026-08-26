@@ -6,7 +6,16 @@ import {
 import { type } from "arktype";
 import { tv } from "ui/tv";
 
-import type { NoteGateway } from "../notes/note-store";
+/*
+ * Imported rather than wrapped in a lazy `await import`, which is what used to sit here.
+ *
+ * The wrapper existed to keep an 11 MB WebAssembly engine off the first frame, and that concern is
+ * real — but `database/operations` already holds the only static reference to the engine behind a
+ * `() => import(...)`, so this module reaches the gateway without pulling any of it. The wrapper
+ * was deferring something already deferred, and cost a second place the note's read and save were
+ * named.
+ */
+import { noteGateway } from "../notes/note-gateway";
 import { NoteWindowBody } from "../notes/note-window";
 
 /**
@@ -69,17 +78,6 @@ function NoteSummary({ title }: Readonly<{ title: string }>) {
     </div>
   );
 }
-
-/**
- * The database, as the note layer sees it.
- *
- * Passed to the window body rather than imported by it, so the body stays renderable without
- * pulling an 11 MB WebAssembly engine into a test or a summary.
- */
-const noteGateway: NoteGateway = {
-  read: async (noteId) => (await import("../database/database.client")).readNote(noteId),
-  save: async (input) => (await import("../database/database.client")).saveNote(input),
-};
 
 const windowDefinitions = defineInfiniteCanvasWindowRegistry<WindowKind, WindowData>({
   note: {

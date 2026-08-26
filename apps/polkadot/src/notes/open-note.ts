@@ -7,7 +7,7 @@ import {
 } from "@hyphened/infinite-canvas";
 
 import type { WindowData, WindowKind } from "../canvas/window-registry";
-import * as database from "../database/operations";
+import { noteGateway } from "./note-gateway";
 import { loadProjectNotes } from "./project-notes";
 
 /**
@@ -97,11 +97,11 @@ function getNextUntitledTitle(titles: readonly string[]) {
 
 async function openNewNote(input: Placement & Readonly<{ projectId: string }>) {
   const [offered, archived] = await Promise.all([
-    database.notes.list(input.projectId),
-    database.notes.listArchived(input.projectId),
+    noteGateway.list(input.projectId),
+    noteGateway.listArchived(input.projectId),
   ]);
   const title = getNextUntitledTitle([...offered, ...archived].map((note) => note.title));
-  const created = await database.notes.create({ projectId: input.projectId, text: "", title });
+  const created = await noteGateway.create({ projectId: input.projectId, text: "", title });
 
   openNoteWindow({ actions: input.actions, noteId: created.id, state: input.state, title });
   await loadProjectNotes(input.projectId);

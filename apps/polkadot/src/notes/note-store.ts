@@ -1,7 +1,7 @@
 import { observable } from "@legendapp/state";
 import { AsyncQueuer, Debouncer } from "@tanstack/pacer";
 
-import type { NoteRecord } from "../database/database.client";
+import type { NoteRecord } from "./note-gateway";
 
 /**
  * Open notes, keyed by record id.

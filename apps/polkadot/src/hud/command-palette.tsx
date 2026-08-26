@@ -50,13 +50,9 @@ import { tv } from "ui/tv";
 import { initialLayout } from "../canvas/canvas-document";
 import { getSelectedRelations } from "../canvas/connector-geometry";
 import type { WindowKind } from "../canvas/window-registry";
-import type {
-  CanvasSummary,
-  NoteRecord,
-  NoteRelation,
-  ProjectSummary,
-} from "../database/database.client";
+import type { CanvasSummary, NoteRelation, ProjectSummary } from "../database/database.client";
 import * as database from "../database/operations";
+import { noteGateway, type NoteRecord } from "../notes/note-gateway";
 import { renameNote } from "../notes/note-store";
 import { openNewNote, openNoteWindow } from "../notes/open-note";
 import {
@@ -532,10 +528,7 @@ function PaletteContent({
           }
         : {
             commit: () => {
-              renameNote(page.note, draft, {
-                read: database.notes.read,
-                save: database.notes.save,
-              });
+              renameNote(page.note, draft, noteGateway);
               /*
                * A rename lands in three places, because three of them write the old name down.
                * `note-store` owns the save. The project listing is what the library rail reads, and

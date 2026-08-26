@@ -19,8 +19,7 @@ import { Button } from "ui";
 import { tv } from "ui/tv";
 
 import type { WindowKind } from "../canvas/window-registry";
-import type { NoteRecord } from "../database/database.client";
-import * as database from "../database/operations";
+import { noteGateway, type NoteRecord } from "../notes/note-gateway";
 import { renameNote } from "../notes/note-store";
 import { openNewNote, openNoteWindow } from "../notes/open-note";
 import {
@@ -226,7 +225,7 @@ export function LibraryRail({
 
     archivedNotes$.set(null);
 
-    void database.notes.listArchived(projectId).then((listed) => {
+    void noteGateway.listArchived(projectId).then((listed) => {
       if (archived$.peek()) {
         archivedNotes$.set(listed);
       }
@@ -382,7 +381,7 @@ export function LibraryRail({
       return;
     }
 
-    renameNote(note, next, { read: database.notes.read, save: database.notes.save });
+    renameNote(note, next, noteGateway);
     setProjectNoteTitle(note.id, next);
 
     const windowId = windowIdByNoteId.get(note.id);
@@ -426,7 +425,7 @@ export function LibraryRail({
 
   const restore = async (noteId: string) => {
     await restoreProjectNote({ noteId, projectId });
-    archivedNotes$.set(await database.notes.listArchived(projectId));
+    archivedNotes$.set(await noteGateway.listArchived(projectId));
   };
 
   return (

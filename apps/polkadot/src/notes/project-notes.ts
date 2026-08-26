@@ -1,7 +1,7 @@
 import { observable } from "@legendapp/state";
 
-import type { NoteRecord } from "../database/database.client";
-import * as database from "../database/operations";
+import { content } from "../database/operations";
+import { noteGateway, type NoteRecord } from "./note-gateway";
 
 /**
  * Which notes this project offers — one authority, because it has several writers.
@@ -42,7 +42,7 @@ async function loadProjectNotes(projectId: string) {
     projectNotes$.set(null);
   }
 
-  projectNotes$.set({ notes: await database.notes.list(projectId), projectId });
+  projectNotes$.set({ notes: await noteGateway.list(projectId), projectId });
 }
 
 /**
@@ -53,12 +53,12 @@ async function loadProjectNotes(projectId: string) {
  * windows.
  */
 async function archiveProjectNote(input: Readonly<{ noteId: string; projectId: string }>) {
-  await database.notes.archive(input.noteId);
+  await content.archive(input.noteId);
   await loadProjectNotes(input.projectId);
 }
 
 async function restoreProjectNote(input: Readonly<{ noteId: string; projectId: string }>) {
-  await database.notes.restore(input.noteId);
+  await content.restore(input.noteId);
   await loadProjectNotes(input.projectId);
 }
 

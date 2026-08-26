@@ -507,74 +507,108 @@ async function saveCanvas(
 }
 
 /**
- * A note is a `content_item`; a window only carries its id.
+ * Everything a window can be bound to; a window only carries its id.
  *
  * The split is deliberate and it is the reason the canvas layout stays a layout: moving, docking,
- * grouping, or closing a window never touches what was written. It also means the same note can
- * appear on more than one canvas later without the text being copied.
+ * grouping, or closing a window never touches what it shows. It also means the same item can appear
+ * on more than one canvas without its content being copied.
+ *
+ * `content` is `object` and stays that way here. This layer knows an item has content and cannot
+ * know its shape — a note's is `{ text }`, an image's is not — so the kind that wrote it is the
+ * layer that validates it on the way back out.
  */
-const NoteRecord = type({
-  content: { text: "string" },
+const ContentItemRecord = type({
+  content: "object",
   id: "string",
+  kind: "string",
   revision: "number.integer >= 0",
   title: "string",
 }).onUndeclaredKey("delete");
 
-type NoteRecord = typeof NoteRecord.infer;
+type ContentItemRecord = typeof ContentItemRecord.infer;
 
-async function createNote(
-  input: Readonly<{ projectId: string; text: string; title: string }>,
-): Promise<NoteRecord> {
+async function createContentItem(
+  input: Readonly<{
+    content: object;
+    kind: string;
+    projectId: string;
+    searchText: string;
+    title: string;
+  }>,
+): Promise<ContentItemRecord> {
   const client = await openLocalDatabase();
   const [record] = await client
-    .query<[unknown]>("RETURN fn::create_note($project, $title, $text);", {
-      project: new StringRecordId(input.projectId),
-      text: input.text,
-      title: input.title,
+    .query<[unknown]>(
+      "RETURN fn::create_content_item($project, $kind, $title, $content, $search_text);",
+      {
+        content: input.content,
+        kind: input.kind,
+        project: new StringRecordId(input.projectId),
+        search_text: input.searchText,
+        title: input.title,
+      },
+    )
+    .json();
+
+  return ContentItemRecord.assert(record);
+}
+
+async function readContentItem(itemId: string): Promise<ContentItemRecord | null> {
+  const client = await openLocalDatabase();
+  const [record] = await client
+    .query<[unknown]>("RETURN fn::read_content_item($item);", {
+      item: new StringRecordId(itemId),
     })
     .json();
 
-  return NoteRecord.assert(record);
+  return record === null || record === undefined ? null : ContentItemRecord.assert(record);
 }
 
-async function readNote(noteId: string): Promise<NoteRecord | null> {
+async function saveContentItem(
+  input: Readonly<{
+    content: object;
+    itemId: string;
+    revision: number;
+    searchText: string;
+    title: string;
+  }>,
+): Promise<ContentItemRecord> {
   const client = await openLocalDatabase();
   const [record] = await client
-    .query<[unknown]>("RETURN fn::read_note($note);", { note: new StringRecordId(noteId) })
-    .json();
-
-  return record === null || record === undefined ? null : NoteRecord.assert(record);
-}
-
-async function saveNote(
-  input: Readonly<{ noteId: string; revision: number; text: string; title: string }>,
-): Promise<NoteRecord> {
-  const client = await openLocalDatabase();
-  const [record] = await client
-    .query<[unknown]>("RETURN fn::save_note($note, $revision, $title, $text);", {
-      note: new StringRecordId(input.noteId),
-      revision: input.revision,
-      text: input.text,
-      title: input.title,
-    })
+    .query<[unknown]>(
+      "RETURN fn::save_content_item($item, $revision, $title, $content, $search_text);",
+      {
+        content: input.content,
+        item: new StringRecordId(input.itemId),
+        revision: input.revision,
+        search_text: input.searchText,
+        title: input.title,
+      },
+    )
     .json();
 
   if (record === null || record === undefined) {
-    throw new NoteRevisionConflictError({ expectedRevision: input.revision, noteId: input.noteId });
+    throw new ContentRevisionConflictError({
+      expectedRevision: input.revision,
+      itemId: input.itemId,
+    });
   }
 
-  return NoteRecord.assert(record);
+  return ContentItemRecord.assert(record);
 }
 
-async function listNotes(projectId: string): Promise<readonly NoteRecord[]> {
+async function listContentItems(
+  input: Readonly<{ kind: string; projectId: string }>,
+): Promise<readonly ContentItemRecord[]> {
   const client = await openLocalDatabase();
   const [records] = await client
-    .query<[unknown]>("RETURN fn::list_notes($project);", {
-      project: new StringRecordId(projectId),
+    .query<[unknown]>("RETURN fn::list_content_items($project, $kind);", {
+      kind: input.kind,
+      project: new StringRecordId(input.projectId),
     })
     .json();
 
-  return NoteRecord.array().assert(records);
+  return ContentItemRecord.array().assert(records);
 }
 
 /**
@@ -583,27 +617,34 @@ async function listNotes(projectId: string): Promise<readonly NoteRecord[]> {
  * Never one without the other: an archive that cannot be undone is a delete wearing a gentler word,
  * and this is the same pairing canvases and projects already ship.
  */
-async function archiveNote(noteId: string): Promise<void> {
+async function archiveContentItem(itemId: string): Promise<void> {
   const client = await openLocalDatabase();
 
-  await client.query("RETURN fn::archive_note($note);", { note: new StringRecordId(noteId) });
+  await client.query("RETURN fn::archive_content_item($item);", {
+    item: new StringRecordId(itemId),
+  });
 }
 
-async function restoreNote(noteId: string): Promise<void> {
+async function restoreContentItem(itemId: string): Promise<void> {
   const client = await openLocalDatabase();
 
-  await client.query("RETURN fn::restore_note($note);", { note: new StringRecordId(noteId) });
+  await client.query("RETURN fn::restore_content_item($item);", {
+    item: new StringRecordId(itemId),
+  });
 }
 
-async function listArchivedNotes(projectId: string): Promise<readonly NoteRecord[]> {
+async function listArchivedContentItems(
+  input: Readonly<{ kind: string; projectId: string }>,
+): Promise<readonly ContentItemRecord[]> {
   const client = await openLocalDatabase();
   const [records] = await client
-    .query<[unknown]>("RETURN fn::list_archived_notes($project);", {
-      project: new StringRecordId(projectId),
+    .query<[unknown]>("RETURN fn::list_archived_content_items($project, $kind);", {
+      kind: input.kind,
+      project: new StringRecordId(input.projectId),
     })
     .json();
 
-  return NoteRecord.array().assert(records);
+  return ContentItemRecord.array().assert(records);
 }
 
 const NoteRelation = type({
@@ -693,15 +734,15 @@ async function unrelateNotes(input: Readonly<{ source: string; target: string }>
     .json();
 }
 
-class NoteRevisionConflictError extends Error {
-  override readonly name = "NoteRevisionConflictError";
+class ContentRevisionConflictError extends Error {
+  override readonly name = "ContentRevisionConflictError";
   readonly expectedRevision: number;
-  readonly noteId: string;
+  readonly itemId: string;
 
-  constructor(input: Readonly<{ expectedRevision: number; noteId: string }>) {
-    super(`Note ${input.noteId} changed after revision ${input.expectedRevision}`);
+  constructor(input: Readonly<{ expectedRevision: number; itemId: string }>) {
+    super(`Content item ${input.itemId} changed after revision ${input.expectedRevision}`);
     this.expectedRevision = input.expectedRevision;
-    this.noteId = input.noteId;
+    this.itemId = input.itemId;
   }
 }
 
@@ -719,42 +760,42 @@ async function closeLocalDatabase() {
 
 export {
   archiveCanvas,
-  archiveNote,
+  archiveContentItem,
   archiveProject,
   bootstrapCanvas,
   CanvasRevisionConflictError,
   closeLocalDatabase,
+  ContentRevisionConflictError,
   createCanvas,
-  createNote,
+  createContentItem,
   createProject,
   deleteCanvas,
   deleteProject,
   duplicateCanvas,
   listArchivedCanvases,
+  listArchivedContentItems,
   listArchivedProjects,
   listCanvases,
-  listArchivedNotes,
-  listNotes,
+  listContentItems,
   listProjects,
   listRelations,
   readProjectRemovalSummary,
   relateNotes,
   renameProject,
-  restoreNote,
+  restoreContentItem,
   restoreProject,
   setRelationKind,
   setRelationLabel,
   unrelateNotes,
   readCanvasRemovalSummary,
   restoreCanvas,
-  NoteRevisionConflictError,
   openCanvas,
   openLocalDatabase,
+  readContentItem,
   readMostRecentCanvas,
-  readNote,
   renameCanvas,
   saveCanvas,
-  saveNote,
+  saveContentItem,
 };
 export type {
   CanvasRecord,
@@ -762,7 +803,7 @@ export type {
   CanvasRemovalSummary,
   CanvasRevision,
   CanvasSummary,
-  NoteRecord,
+  ContentItemRecord,
   NoteRelation,
   ProjectRemovalSummary,
   ProjectSummary,
