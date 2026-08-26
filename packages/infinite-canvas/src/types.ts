@@ -377,11 +377,32 @@ type InfiniteCanvasRecipePlacement =
   | Readonly<{ origin: InfiniteCanvasPoint }>
   | Readonly<{ rect: InfiniteCanvasRect }>;
 
+/** The sizes a group's chrome is solved from. */
+type InfiniteCanvasGroupMetrics = Readonly<{
+  /** Extent, along the container's axis, of a collapsed accordion child's header. */
+  accordionHeaderSize: number;
+  /** Extent of the draggable seam between two split children. */
+  gutterSize: number;
+  /** Height of the tab strip above a tab group's content. */
+  tabStripSize: number;
+}>;
+
+type InfiniteCanvasGroupMetricsInput = Partial<InfiniteCanvasGroupMetrics>;
+
 type InfiniteCanvasState<Kind extends string = string> = Readonly<{
   activeWindowId: string | null;
   /** `null` means no filtering: every window is on the canvas, as before workspaces existed. */
   activeWorkspaceId: string | null;
   camera: InfiniteCanvasCamera;
+  /**
+   * The sizes a group's chrome is solved from. Consumer chrome policy, never serialized — the
+   * same category as `viewportInsets`.
+   *
+   * In state rather than a prop because the reducer solves member rects from it on every dock,
+   * undock, reweight and move. A value the layer held alone would draw a tab strip at one height
+   * over panes placed for another.
+   */
+  groupMetrics: InfiniteCanvasGroupMetrics;
   groups: readonly InfiniteCanvasGroup[];
   /** Session-scoped and never serialized: a layout is a document, not its edit log. */
   history: InfiniteCanvasHistory<Kind>;
@@ -1420,6 +1441,7 @@ type InfiniteCanvasAction<Kind extends string = string> =
     }>
   | Readonly<{ type: "selection.toggle"; windowIds: readonly string[] }>
   | Readonly<{ type: "viewport.set"; viewport: InfiniteCanvasViewport }>
+  | Readonly<{ metrics: InfiniteCanvasGroupMetrics; type: "groupMetrics.set" }>
   | Readonly<{ insets: InfiniteCanvasViewportInsets; type: "viewportInsets.set" }>
   | Readonly<{ title: string; type: "window.setTitle"; windowId: string }>
   | Readonly<{ type: "window.close"; windowId: string }>
@@ -1564,6 +1586,8 @@ type InfiniteCanvasCommands<Kind extends string = string> = Readonly<{
   selectWindow: (windowId: string) => void;
   setTargetSelection: (targets: readonly InfiniteCanvasSelectionTarget[]) => void;
   setSelection: (windowIds: readonly string[]) => void;
+  /** Resize a group's chrome: the tab strip, the split seams, the accordion headers. */
+  setGroupMetrics: (metrics: InfiniteCanvasGroupMetricsInput) => void;
   setViewport: (viewport: InfiniteCanvasViewport) => void;
   /** Tell the canvas which edges the consumer's own chrome is covering. */
   setViewportInsets: (insets: InfiniteCanvasViewportInsetsInput) => void;
@@ -1619,6 +1643,8 @@ export type {
   InfiniteCanvasDocument,
   InfiniteCanvasGroup,
   InfiniteCanvasGroupGutterInteraction,
+  InfiniteCanvasGroupMetrics,
+  InfiniteCanvasGroupMetricsInput,
   InfiniteCanvasGroupMoveInteraction,
   InfiniteCanvasGroupResizeInteraction,
   InfiniteCanvasHistory,

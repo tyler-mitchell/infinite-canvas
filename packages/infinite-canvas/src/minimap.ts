@@ -113,7 +113,7 @@ function getInfiniteCanvasMinimapLayout<Kind extends string>(
     return null;
   }
 
-  const { hiddenWindowIds } = getInfiniteCanvasGroupProjection(state.groups);
+  const { hiddenWindowIds } = getInfiniteCanvasGroupProjection(state.groups, state.groupMetrics);
   /*
    * A desktop hides windows, so the map may not draw them either.
    *

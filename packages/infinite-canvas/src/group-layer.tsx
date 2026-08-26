@@ -13,11 +13,9 @@ import { getEventViewportPoint } from "./frame-slots";
 import { getInfiniteCanvasWindowDetailLevel, type InfiniteCanvasDetailLevel } from "./detail-level";
 import { isWorldRectCulled, projectWorldRectToScreen } from "./geometry";
 import {
-  DEFAULT_INFINITE_CANVAS_GROUP_METRICS,
   getInfiniteCanvasGroupLayout,
   getInfiniteCanvasGroupMinimumSize,
   type InfiniteCanvasGroupAccordionHeader,
-  type InfiniteCanvasGroupMetrics,
 } from "./group-layout";
 import {
   findInfiniteCanvasGroupNode,
@@ -33,6 +31,7 @@ import type {
   InfiniteCanvasCamera,
   InfiniteCanvasCommands,
   InfiniteCanvasGroup,
+  InfiniteCanvasGroupMetrics,
   InfiniteCanvasRect,
   InfiniteCanvasResizeHandle,
   InfiniteCanvasViewport,
@@ -780,7 +779,6 @@ function getLocalRectStyle(rect: InfiniteCanvasRect, shell: InfiniteCanvasRect):
 function InfiniteCanvasGroupLayer({
   canvasInstanceId,
   devicePixelRatio,
-  metrics = DEFAULT_INFINITE_CANVAS_GROUP_METRICS,
   resizeHandleSize,
   tabLabel = getInfiniteCanvasGroupTabLabel,
   zIndex,
@@ -788,7 +786,6 @@ function InfiniteCanvasGroupLayer({
   /** Per-canvas token, shared with the window layer, so a tab's `aria-controls` matches a frame id. */
   canvasInstanceId: string;
   devicePixelRatio: number;
-  metrics?: InfiniteCanvasGroupMetrics;
   resizeHandleSize: number;
   tabLabel?: InfiniteCanvasGroupTabLabel;
   zIndex: number;
@@ -796,6 +793,9 @@ function InfiniteCanvasGroupLayer({
   const camera = useInfiniteCanvasSelector((state) => state.camera);
   const viewport = useInfiniteCanvasSelector((state) => state.viewport);
   const allGroups = useInfiniteCanvasSelector((state) => state.groups);
+  // From state, never a prop: the reducer solves member rects from the same value, and chrome
+  // drawn at a height the panes were not placed for is the whole reason this is not local.
+  const metrics = useInfiniteCanvasSelector((state) => state.groupMetrics);
   // A group shell is chrome for its members, so it belongs on the desktops they are on.
   // Rendering every group regardless would leave tab strips and gutters standing over
   // windows the active workspace filtered out. Membership is group-complete, so asking about

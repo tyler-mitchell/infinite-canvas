@@ -291,6 +291,13 @@ function applyInfiniteCanvasAction<Kind extends string>(
         ...state,
         viewportInsets: action.insets,
       };
+    // Re-solve immediately: every member's rect was placed against the old sizes, so a strip
+    // that grows without this draws over the pane beneath it until the next unrelated edit.
+    case "groupMetrics.set":
+      return syncInfiniteCanvasGroupWindowRects({
+        ...state,
+        groupMetrics: action.metrics,
+      });
     case "workspace.create":
       return createInfiniteCanvasWorkspace(state, action);
     case "workspace.setTitle":

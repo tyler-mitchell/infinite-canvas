@@ -8,6 +8,7 @@ import {
   isInfiniteCanvasCommandEnabled,
 } from "./commands";
 import { DEFAULT_INFINITE_CANVAS_ZOOM } from "./constants";
+import { DEFAULT_INFINITE_CANVAS_GROUP_METRICS } from "./group-layout";
 import type { InfiniteCanvasState } from "./types";
 
 type CommandTestWindowKind = "demo";
@@ -22,6 +23,7 @@ const commandState: InfiniteCanvasState<CommandTestWindowKind> = {
     zoom: 1,
   },
   activeWorkspaceId: null,
+  groupMetrics: DEFAULT_INFINITE_CANVAS_GROUP_METRICS,
   groups: [],
   workspaces: [],
   history: { future: [], past: [] },

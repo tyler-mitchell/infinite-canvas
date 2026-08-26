@@ -1,4 +1,5 @@
 import { DEFAULT_INFINITE_CANVAS_CAMERA, resolveInfiniteCanvasViewportInsets } from "./constants";
+import { resolveInfiniteCanvasGroupMetrics } from "./group-layout";
 import { reconcileInfiniteCanvasGroups } from "./group-state";
 import { EMPTY_INFINITE_CANVAS_HISTORY } from "./history";
 import { normalizeSelection } from "./selection";
@@ -6,6 +7,7 @@ import { getUniqueInfiniteCanvasWindows } from "./window-identity";
 import type {
   InfiniteCanvasCamera,
   InfiniteCanvasGroup,
+  InfiniteCanvasGroupMetricsInput,
   InfiniteCanvasRect,
   InfiniteCanvasSelection,
   InfiniteCanvasSize,
@@ -39,6 +41,7 @@ type InfiniteCanvasStateInput<Kind extends string> = Readonly<{
   workspaces?: readonly InfiniteCanvasWorkspace[];
   activeWindowId?: string | null;
   camera?: InfiniteCanvasCamera;
+  groupMetrics?: InfiniteCanvasGroupMetricsInput;
   groups?: readonly InfiniteCanvasGroup[];
   selection?: InfiniteCanvasSelection | readonly string[];
   viewport?: InfiniteCanvasViewport;
@@ -145,6 +148,7 @@ function readSelectionInput(
 function createInfiniteCanvasState<Kind extends string>({
   activeWindowId,
   camera = DEFAULT_INFINITE_CANVAS_CAMERA,
+  groupMetrics,
   groups = [],
   selection,
   viewport = DEFAULT_INFINITE_CANVAS_VIEWPORT,
@@ -171,6 +175,7 @@ function createInfiniteCanvasState<Kind extends string>({
       },
       zoom: camera.zoom,
     },
+    groupMetrics: resolveInfiniteCanvasGroupMetrics(groupMetrics),
     groups,
     history: EMPTY_INFINITE_CANVAS_HISTORY,
     interaction: null,

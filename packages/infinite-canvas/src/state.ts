@@ -94,6 +94,7 @@ function cloneInfiniteCanvasState<Kind extends string>(
   return {
     ...state,
     camera: cloneCamera(state.camera),
+    groupMetrics: { ...state.groupMetrics },
     groups: state.groups.map(cloneGroup),
     selection: cloneSelection(state.selection),
     viewport: cloneSize(state.viewport),

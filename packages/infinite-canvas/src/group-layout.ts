@@ -6,7 +6,13 @@ import {
   type InfiniteCanvasGroupDockEdge,
   type InfiniteCanvasGroupNode,
 } from "./group-tree";
-import type { InfiniteCanvasPoint, InfiniteCanvasRect, InfiniteCanvasSize } from "./types";
+import type {
+  InfiniteCanvasGroupMetrics,
+  InfiniteCanvasGroupMetricsInput,
+  InfiniteCanvasPoint,
+  InfiniteCanvasRect,
+  InfiniteCanvasSize,
+} from "./types";
 
 /**
  * The layout solver for a group shell's container tree.
@@ -23,20 +29,28 @@ import type { InfiniteCanvasPoint, InfiniteCanvasRect, InfiniteCanvasSize } from
  * its content rect in world units, so every rect out of here is world units too.
  */
 
-type InfiniteCanvasGroupMetrics = Readonly<{
-  /** Extent, along the container's axis, of a collapsed accordion child's header. */
-  accordionHeaderSize: number;
-  /** Extent of the draggable seam between two split children. */
-  gutterSize: number;
-  /** Height of the tab strip above a tab group's content. */
-  tabStripSize: number;
-}>;
-
 const DEFAULT_INFINITE_CANVAS_GROUP_METRICS: InfiniteCanvasGroupMetrics = {
   accordionHeaderSize: 28,
   gutterSize: 6,
   tabStripSize: 30,
 };
+
+/**
+ * Every size optional, so a consumer changing the tab strip says nothing about gutters.
+ *
+ * Field by field rather than a spread: a spread copies an explicit `undefined` over the default,
+ * and the prop path builds its input from three possibly-absent fields.
+ */
+function resolveInfiniteCanvasGroupMetrics(
+  metrics: InfiniteCanvasGroupMetricsInput = {},
+): InfiniteCanvasGroupMetrics {
+  return {
+    accordionHeaderSize:
+      metrics.accordionHeaderSize ?? DEFAULT_INFINITE_CANVAS_GROUP_METRICS.accordionHeaderSize,
+    gutterSize: metrics.gutterSize ?? DEFAULT_INFINITE_CANVAS_GROUP_METRICS.gutterSize,
+    tabStripSize: metrics.tabStripSize ?? DEFAULT_INFINITE_CANVAS_GROUP_METRICS.tabStripSize,
+  };
+}
 
 type InfiniteCanvasGroupWindowPlacement = Readonly<{
   rect: InfiniteCanvasRect;
@@ -532,12 +546,12 @@ export {
   getInfiniteCanvasGroupGutterWeights,
   getInfiniteCanvasGroupLayout,
   getInfiniteCanvasGroupMinimumSize,
+  resolveInfiniteCanvasGroupMetrics,
 };
 export type {
   InfiniteCanvasGroupAccordionHeader,
   InfiniteCanvasGroupGutter,
   InfiniteCanvasGroupLayout,
-  InfiniteCanvasGroupMetrics,
   InfiniteCanvasGroupTabStrip,
   InfiniteCanvasGroupWindowPlacement,
 };

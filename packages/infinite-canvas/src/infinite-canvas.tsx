@@ -53,6 +53,7 @@ import {
   getInfiniteCanvasGroupTabLabel,
   type InfiniteCanvasGroupTabLabel,
 } from "./group-state";
+import type { InfiniteCanvasGroupMetricsInput } from "./types";
 import {
   DEFAULT_INFINITE_CANVAS_ICONS,
   InfiniteCanvasIconsContext,
@@ -217,6 +218,15 @@ type InfiniteCanvasViewportProps<
    */
   viewportInsets?: InfiniteCanvasViewportInsetsInput;
   dropPolicy?: InfiniteCanvasDropPolicy<Kind, Payload>;
+  /**
+   * The sizes a group's chrome is solved from: tab strip height, split seam width, accordion
+   * header extent. Each optional.
+   *
+   * Reaches the store rather than the layer, because the reducer places member windows from the
+   * same value — a strip drawn at one height over panes placed for another is the failure this
+   * avoids by construction.
+   */
+  groupMetrics?: InfiniteCanvasGroupMetricsInput;
   /**
    * Names a group's tabs and accordion headers.
    *
@@ -615,6 +625,7 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
   className,
   diagnostics = DEFAULT_INFINITE_CANVAS_DIAGNOSTICS,
   dropPolicy,
+  groupMetrics,
   groupTabLabel = getInfiniteCanvasGroupTabLabel,
   hotkeyActions,
   hotkeyBindings,
@@ -1065,6 +1076,19 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
    * is a new object every render, and this writes to the store — identity deps would dispatch on
    * every render forever.
    */
+  useEffect(() => {
+    actions.setGroupMetrics({
+      accordionHeaderSize: groupMetrics?.accordionHeaderSize,
+      gutterSize: groupMetrics?.gutterSize,
+      tabStripSize: groupMetrics?.tabStripSize,
+    });
+  }, [
+    actions,
+    groupMetrics?.accordionHeaderSize,
+    groupMetrics?.gutterSize,
+    groupMetrics?.tabStripSize,
+  ]);
+
   useEffect(() => {
     actions.setViewportInsets({
       bottom: viewportInsets?.bottom ?? 0,
@@ -1867,8 +1891,8 @@ function InfiniteCanvasWindowLayer<Kind extends string>({
   // handles straddle its edges, so two adjacent panes would bury the gutter between them
   // under dead controls and eat the seam drag.
   const { hiddenWindowIds, windowRects } = useMemo(
-    () => getInfiniteCanvasGroupProjection(state.groups),
-    [state.groups],
+    () => getInfiniteCanvasGroupProjection(state.groups, state.groupMetrics),
+    [state.groupMetrics, state.groups],
   );
   const admittedWindowIds = useMemo(
     () => getInfiniteCanvasWorkspaceWindowIds(state),

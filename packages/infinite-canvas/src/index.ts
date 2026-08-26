@@ -24,12 +24,12 @@ export {
   getInfiniteCanvasGroupGutterWeights,
   getInfiniteCanvasGroupLayout,
   getInfiniteCanvasGroupMinimumSize,
+  resolveInfiniteCanvasGroupMetrics,
 } from "./group-layout";
 export type {
   InfiniteCanvasGroupAccordionHeader,
   InfiniteCanvasGroupGutter,
   InfiniteCanvasGroupLayout,
-  InfiniteCanvasGroupMetrics,
   InfiniteCanvasGroupTabStrip,
   InfiniteCanvasGroupWindowPlacement,
 } from "./group-layout";
@@ -402,6 +402,8 @@ export type {
   InfiniteCanvasDocument,
   InfiniteCanvasGroup,
   InfiniteCanvasGroupGutterInteraction,
+  InfiniteCanvasGroupMetrics,
+  InfiniteCanvasGroupMetricsInput,
   InfiniteCanvasGroupMoveInteraction,
   InfiniteCanvasGroupResizeInteraction,
   InfiniteCanvasHistory,

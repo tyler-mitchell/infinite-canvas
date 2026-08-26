@@ -194,7 +194,7 @@ function getInfiniteCanvasOffscreenIndicators<Kind extends string>(
     return [];
   }
 
-  const { windowRects } = getInfiniteCanvasGroupProjection(state.groups);
+  const { windowRects } = getInfiniteCanvasGroupProjection(state.groups, state.groupMetrics);
   const { activeWindowId } = state;
   const activeGroupId =
     activeWindowId === null

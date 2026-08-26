@@ -1,6 +1,7 @@
 import { expect, test } from "vite-plus/test";
 
 import { DEFAULT_INFINITE_CANVAS_SNAP_POLICY } from "./constants";
+import { DEFAULT_INFINITE_CANVAS_GROUP_METRICS } from "./group-layout";
 import { reduceInfiniteCanvasState } from "./reducer";
 import type { InfiniteCanvasSelectionTarget, InfiniteCanvasState } from "./types";
 
@@ -16,6 +17,7 @@ const baseState: InfiniteCanvasState<TestWindowKind> = {
     zoom: 2,
   },
   activeWorkspaceId: null,
+  groupMetrics: DEFAULT_INFINITE_CANVAS_GROUP_METRICS,
   groups: [],
   workspaces: [],
   history: { future: [], past: [] },

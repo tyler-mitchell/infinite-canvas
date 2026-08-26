@@ -154,7 +154,7 @@ function getInfiniteCanvasContextualGroup<Kind extends string>(
 function getFocusableInfiniteCanvasWindows<Kind extends string>(
   state: InfiniteCanvasState<Kind>,
 ): readonly InfiniteCanvasWindow<Kind>[] {
-  const { hiddenWindowIds } = getInfiniteCanvasGroupProjection(state.groups);
+  const { hiddenWindowIds } = getInfiniteCanvasGroupProjection(state.groups, state.groupMetrics);
 
   return state.windows.filter(
     (window) => isSelectableWindow(window) && !hiddenWindowIds.has(window.id),

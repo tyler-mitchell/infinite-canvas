@@ -5,6 +5,7 @@ import {
   parseInfiniteCanvasStateJson,
   stringifyInfiniteCanvasState,
 } from "./persistence";
+import { DEFAULT_INFINITE_CANVAS_GROUP_METRICS } from "./group-layout";
 import type { InfiniteCanvasState } from "./types";
 
 type PersistedWindowKind = "demo";
@@ -19,6 +20,7 @@ const state: InfiniteCanvasState<PersistedWindowKind> = {
     zoom: 1.5,
   },
   activeWorkspaceId: null,
+  groupMetrics: DEFAULT_INFINITE_CANVAS_GROUP_METRICS,
   groups: [],
   workspaces: [],
   history: { future: [], past: [] },

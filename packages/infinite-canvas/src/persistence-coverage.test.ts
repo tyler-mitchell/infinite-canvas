@@ -30,6 +30,8 @@ const PERSISTENCE: Readonly<Record<keyof InfiniteCanvasState<Kind>, NotPersisted
   activeWindowId: "persisted",
   activeWorkspaceId: "persisted",
   camera: "persisted",
+  // The consumer's chrome sizes, declared on mount for the same reason `viewportInsets` is.
+  groupMetrics: "measured",
   groups: "persisted",
   // "A layout is a document, not its edit log." Undoing across a reload would step into a
   // document the user never edited in this session.

@@ -316,15 +316,19 @@ buttons, and programmatic drivers share one mutation path.
 - `getInfiniteCanvasGroupDockEdgeAtPoint` — which edge a pointer docks against, from a _model_ rect
 - `getInfiniteCanvasGroupGutterWeights` — the reweighting a gutter drag produces
 - `getInfiniteCanvasGroupMinimumSize` — the smallest rect a tree solves into: gutters, strips, headers, panes. **Not** a member's `minSize`, which the solver has never consulted. Pass the metrics you laid the shell out with, and hand the result to `startGroupResize`
+- `resolveInfiniteCanvasGroupMetrics` — a partial to the three sizes, mirroring
+  `resolveInfiniteCanvasZoomPolicy` and `resolveInfiniteCanvasChromeMetrics`. Set them through the
+  desktop's `groupMetrics` prop, which lands in `state.groupMetrics`: the reducer places member
+  windows from that same value, so chrome cannot be drawn at a height the panes were not placed
+  for. Field by field rather than a spread, so an explicit `undefined` does not erase a default
 - `DEFAULT_INFINITE_CANVAS_GROUP_METRICS`, `MINIMUM_GROUP_PANE_EXTENT`
 
-<details><summary>types (7)</summary>
+<details><summary>types (6)</summary>
 
 - `InfiniteCanvasGroupAccordionHeader`
 - `InfiniteCanvasGroupDockEdge`
 - `InfiniteCanvasGroupGutter`
 - `InfiniteCanvasGroupLayout`
-- `InfiniteCanvasGroupMetrics`
 - `InfiniteCanvasGroupTabStrip`
 - `InfiniteCanvasGroupWindowPlacement`
 
@@ -1083,6 +1087,8 @@ name.
 - `InfiniteCanvasEmptyCanvasDragMode`
 - `InfiniteCanvasHotkeyBinding`
 - `InfiniteCanvasGroupGutterInteraction`
+- `InfiniteCanvasGroupMetrics`, `InfiniteCanvasGroupMetricsInput` — the three chrome sizes, and the
+  partial a consumer writes. `state.groupMetrics` holds the resolved form
 - `InfiniteCanvasGroupMoveInteraction`
 - `InfiniteCanvasGroupResizeInteraction`
 - `InfiniteCanvasHudPolicy`

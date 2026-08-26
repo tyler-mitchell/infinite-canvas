@@ -6,6 +6,7 @@ import {
   defineInfiniteCanvasWindowRegistry,
 } from "./factory";
 import { DEFAULT_INFINITE_CANVAS_CHROME } from "./constants";
+import { DEFAULT_INFINITE_CANVAS_GROUP_METRICS } from "./group-layout";
 import {
   assertInfiniteCanvasStateMatchesWindowRegistry,
   normalizeInfiniteCanvasStateForWindowRegistry,
@@ -365,6 +366,7 @@ test("registry normalization drops stale persisted window kinds", () => {
       zoom: 1,
     },
     activeWorkspaceId: null,
+    groupMetrics: DEFAULT_INFINITE_CANVAS_GROUP_METRICS,
     groups: [],
     workspaces: [],
     history: { future: [], past: [] },

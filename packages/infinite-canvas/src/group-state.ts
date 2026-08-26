@@ -2,7 +2,6 @@ import {
   DEFAULT_INFINITE_CANVAS_GROUP_METRICS,
   getInfiniteCanvasGroupDockEdgeAtPoint,
   getInfiniteCanvasGroupLayout,
-  type InfiniteCanvasGroupMetrics,
 } from "./group-layout";
 import {
   createInfiniteCanvasGroupWindowNode,
@@ -25,6 +24,7 @@ import {
 import type {
   InfiniteCanvasDockPreview,
   InfiniteCanvasGroup,
+  InfiniteCanvasGroupMetrics,
   InfiniteCanvasPoint,
   InfiniteCanvasRect,
   InfiniteCanvasState,
@@ -139,13 +139,12 @@ function getInfiniteCanvasGroupProjection(
  */
 function syncInfiniteCanvasGroupWindowRects<Kind extends string>(
   state: InfiniteCanvasState<Kind>,
-  metrics?: InfiniteCanvasGroupMetrics,
 ): InfiniteCanvasState<Kind> {
   if (state.groups.length === 0) {
     return state;
   }
 
-  const { windowRects } = getInfiniteCanvasGroupProjection(state.groups, metrics);
+  const { windowRects } = getInfiniteCanvasGroupProjection(state.groups, state.groupMetrics);
 
   return {
     ...state,
@@ -627,7 +626,6 @@ function resolveInfiniteCanvasDockPreview<Kind extends string>(
   state: InfiniteCanvasState<Kind>,
   worldPoint: InfiniteCanvasPoint,
   draggedWindowId: string,
-  metrics: InfiniteCanvasGroupMetrics = DEFAULT_INFINITE_CANVAS_GROUP_METRICS,
 ): InfiniteCanvasDockPreview | null {
   if (isInfiniteCanvasWindowGrouped(state, draggedWindowId)) {
     return null;
@@ -636,7 +634,7 @@ function resolveInfiniteCanvasDockPreview<Kind extends string>(
   const groupsByDepth = [...state.groups].sort((left, right) => right.zIndex - left.zIndex);
 
   for (const group of groupsByDepth) {
-    const layout = getInfiniteCanvasGroupLayout(group.tree, group.rect, metrics);
+    const layout = getInfiniteCanvasGroupLayout(group.tree, group.rect, state.groupMetrics);
 
     for (const placement of layout.windows) {
       if (!rectContainsPoint(placement.rect, worldPoint)) {
@@ -706,7 +704,6 @@ function resolveInfiniteCanvasDockPreviewForTarget<Kind extends string>(
     targetId: string;
     windowId: string;
   }>,
-  metrics: InfiniteCanvasGroupMetrics = DEFAULT_INFINITE_CANVAS_GROUP_METRICS,
 ): InfiniteCanvasDockPreview | null {
   const { edge, targetId, windowId } = input;
 
@@ -728,7 +725,7 @@ function resolveInfiniteCanvasDockPreviewForTarget<Kind extends string>(
   const targetRect =
     group === null
       ? target.rect
-      : (getInfiniteCanvasGroupProjection([group], metrics).windowRects.get(targetId) ??
+      : (getInfiniteCanvasGroupProjection([group], state.groupMetrics).windowRects.get(targetId) ??
         target.rect);
 
   return {
