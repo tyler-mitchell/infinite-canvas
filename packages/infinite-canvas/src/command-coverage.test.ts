@@ -104,11 +104,11 @@ const ACTION_COMMAND_COVERAGE: Readonly<
   // The delta form is what a gesture uses; the absolute form is what a restore uses. Only
   // one of them is reachable from state without an argument.
   "workspace.addWindow": "parameterized",
-  "workspace.moveWindow": "workspace.moveActiveWindow",
+  "workspace.moveWindows": "workspace.moveActiveWindow",
   "workspace.removeWindow": "workspace.removeActiveWindow",
   // A destination index is something only a drag knows. There is no state-resolved form of
   // "put this desktop third" the way there is for "move the active window", so unlike its
-  // `workspace.moveWindow` neighbour this one has no command representative.
+  // `workspace.moveWindows` neighbour this one has no command representative.
   "workspace.reorder": "parameterized",
   "workspace.setWindows": "parameterized",
   "window.close": "activeWindow.close",
