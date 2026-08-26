@@ -4,6 +4,7 @@ import {
   getInfiniteCanvasWorldPath,
   getInfiniteCanvasWorldPathPointAtProgress,
   getSelectionTargets,
+  isInfiniteCanvasWindowInActiveWorkspace,
   type InfiniteCanvasPoint,
   type InfiniteCanvasRect,
   type InfiniteCanvasSelection,
@@ -51,7 +52,23 @@ function getConnectorRectsByNote(state: InfiniteCanvasState<WindowKind>) {
   return state.windows.reduce<Map<string, InfiniteCanvasRect[]>>((rects, window) => {
     const data = getInfiniteCanvasWindowData(window, NoteWindowData.allows);
 
-    return data == null || window.mode === "minimized"
+    /*
+     * Desktop membership, which this used to ignore.
+     *
+     * `state.windows` is every window on the canvas, not every window on the desktop you are
+     * looking at — a workspace is a membership filter over that same list. Skipping only minimized
+     * windows meant a connector was drawn between two notes that live on another desktop, so
+     * switching to an empty one showed a line hanging in blank space joining nothing you could see.
+     * Found by opening the app rather than by reading this, and only visible once desktops had more
+     * than one member.
+     *
+     * `isInfiniteCanvasWindowInActiveWorkspace` is the framework's answer and already handles the
+     * case that matters most: with no workspace active it admits everything, so a canvas that never
+     * creates a desktop behaves exactly as it did before.
+     */
+    return data == null ||
+      window.mode === "minimized" ||
+      !isInfiniteCanvasWindowInActiveWorkspace(state, window.id)
       ? rects
       : rects.set(data.noteId, [...(rects.get(data.noteId) ?? []), window.rect]);
   }, new Map());
