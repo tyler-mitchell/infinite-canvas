@@ -168,11 +168,25 @@ open because it feels good to look at. Concretely, and these are enforced in rev
       was a measurement error, reading a 360×240 window at an unsettled ~0.667 zoom as a 240×160
       window at 1.0. The floor only bites where placement actually falls back to it, which is a
       small viewport. Closing it is cheap insurance, not a repair.
-      **Found while looking at something else, and worth recording:** the summary renders
-      `text-[12px]` in world units, so at the zooms where the lane is engaged it is 3–6 screen
-      pixels. The lane exists because the body is unreadable, and the summary is unreadable too. No
-      design chosen — constant screen size would overflow a 60px-wide window, so the answer is
-      probably fewer words rather than larger ones, and that is a decision rather than a fix.
+      **The far-zoom summary can be read now, which is the only thing it was for.** It rendered
+      `text-[12px]` in _world_ units, so it shrank with the window and came out at 3–6 screen pixels
+      exactly where the lane had engaged — the lane exists because the body is unreadable, and the
+      summary was unreadable too. Its own docstring is explicit that a window must then say
+      something _different_ rather than the same thing smaller; a title that scales is the same
+      thing smaller.
+      The size is held in **screen** pixels now — `11 / zoom` in world units — so the words stay the
+      size words have to be and the window decides how many survive. That is what "fewer words
+      rather than larger ones" actually means in practice: nothing is re-worded, the container
+      simply runs out of room and `truncate` says so. No glyph and no connection count were added,
+      because connectors are already drawn at that zoom and a count on the card would restate what
+      the canvas is showing.
+      Zoom is read with `useInfiniteCanvasSelector` inside the summary rather than passed down,
+      which is what the framework asks for — invalidation stays scoped to the one thing that reads
+      it, and a pan recomputes the same number and re-renders nothing.
+      Driven across the band: at 1.4 and 0.7 the body renders; at 0.42 the lane flips and the title
+      is 26.2 world px — 11 on screen; at 0.21 it is 52.4 world px — still 11 on screen, in a window
+      that is 76×50. Under the old rule those last two were 5.0px and 2.5px. "Untitled 3" is plainly
+      legible in a thumbnail at 21% zoom.
 - [x] **Notes that are notes.** Lexical behind a `{ value, onChange }` boundary — the engine is
       named in exactly one file — with a debounced, revision-guarded write per note. Landed early,
       out of sequence with `IMPLEMENTATION_PHASES.md`, which is recorded in the audit rather than
