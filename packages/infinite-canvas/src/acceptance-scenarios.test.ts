@@ -630,22 +630,34 @@ test("DOCK-007 — dissolving a split leaves every member floating exactly where
   expect(isInfiniteCanvasCommandEnabled(dissolved, { type: "group.dissolve" })).toBe(false);
 });
 
-test("DOCK-007 — dissolving a tab group stacks its members, which is faithful rather than tidy", () => {
-  // Recorded because it is a real product consequence, not because it is desirable. Tab and
-  // accordion members all carry the shell's content rect — the rect they would occupy if
-  // revealed — so ungrouping five tabs yields five windows in an exact pile. That is
-  // `closeInfiniteCanvasGroup` behaving as it always has; this command exposes it rather
-  // than changing it, and giving dissolve a fan-out is a separate decision about shared
-  // semantics that should not be smuggled in here.
+test("DOCK-007 — dissolving a tab group fans its members out rather than piling them", () => {
+  // This asserted the pile, and said so: tab and accordion members all carry the shell's content
+  // rect, so ungrouping five tabs gave five windows at identical coordinates. It was recorded as
+  // faithful rather than desirable, and the fan-out deferred as "a separate decision about shared
+  // semantics". Taken: a verb whose entire visible effect is four windows disappearing behind a
+  // fifth reads as not having run, which is the same failure `window.undock` had.
+  //
+  // The split case above is the control, and it still passes untouched — vacancy placement returns
+  // a rect that overlaps nothing exactly as it was given, so only the pile moves.
   const tabbed = executeInfiniteCanvasCommand(dockedPair(), {
     layout: "tabs",
     type: "group.setLayout",
   });
   const dissolved = executeInfiniteCanvasCommand(tabbed, { type: "group.dissolve" });
   const [first, second] = dissolved.windows;
+  const overlap =
+    first !== undefined &&
+    second !== undefined &&
+    first.rect.x < second.rect.x + second.rect.width &&
+    second.rect.x < first.rect.x + first.rect.width &&
+    first.rect.y < second.rect.y + second.rect.height &&
+    second.rect.y < first.rect.y + first.rect.height;
 
   expect(dissolved.groups).toEqual([]);
-  expect(first?.rect).toEqual(second?.rect);
+  expect(overlap).toBe(false);
+  // Moved, not reshaped: the size a member had as a tab is the size it keeps.
+  expect(first?.rect.width).toBe(second?.rect.width);
+  expect(first?.rect.height).toBe(second?.rect.height);
 });
 
 test("TAB-004 — a pane can be moved through its container's order by keyboard", () => {

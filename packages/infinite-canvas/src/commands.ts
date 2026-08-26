@@ -5,7 +5,6 @@ import {
 } from "./camera-navigation";
 import { DEFAULT_INFINITE_CANVAS_ZOOM } from "./constants";
 import {
-  getInfiniteCanvasContentWorldRect,
   getViewportInsetWorldRect,
   isUsableViewport,
   panCameraByScreenDelta,
@@ -15,6 +14,7 @@ import {
 import { getInfiniteCanvasGroupGutterWeights, getInfiniteCanvasGroupLayout } from "./group-layout";
 import {
   getInfiniteCanvasGroupParent,
+  getInfiniteCanvasGroupWindowIds,
   type InfiniteCanvasGroupContainerNode,
   type InfiniteCanvasGroupDockEdge,
 } from "./group-tree";
@@ -93,12 +93,31 @@ import type {
   InfiniteCanvasContextualCommand,
   InfiniteCanvasDirection,
   InfiniteCanvasHotkeyBinding,
+  InfiniteCanvasRect,
   InfiniteCanvasState,
   InfiniteCanvasWindowCapability,
   InfiniteCanvasWindowMode,
   InfiniteCanvasZoomPolicy,
 } from "./types";
 import { isInfiniteCanvasWindowCapable } from "./window-capabilities";
+
+/**
+ * Where a window freed from a group is allowed to land: around the shell, not around the camera.
+ *
+ * Freeing a member is not a camera verb. Bounding the search by what is on screen pulls a window
+ * that was legitimately off the right edge back into view — measured, when a split pane at x=553
+ * moved to x=429 for no reason a user asked for. A rect centred on the shell and one shell wider
+ * in every direction contains every member already (they live inside it) so nothing that is fine
+ * moves, and leaves a ring to fan out into when something has to.
+ */
+function getInfiniteCanvasRoomAround(shell: InfiniteCanvasRect): InfiniteCanvasRect {
+  return {
+    height: shell.height * 3,
+    width: shell.width * 3,
+    x: shell.x - shell.width,
+    y: shell.y - shell.height,
+  };
+}
 
 const DEFAULT_INFINITE_CANVAS_COMMAND_DESCRIPTORS = [
   {
@@ -2037,11 +2056,52 @@ function executeInfiniteCanvasCommand<Kind extends string>(
           ? null
           : getInfiniteCanvasWindowGroup(state, state.activeWindowId);
 
-      // Members keep the rect the solver last gave them, so a split comes apart exactly where
-      // it was drawn. Tab and accordion members all carry the shell's content rect — the rect
-      // they would occupy if revealed — so those land stacked. That is `closeInfiniteCanvasGroup`
-      // as it has always behaved, exposed rather than changed.
-      return group === null ? state : closeInfiniteCanvasGroup(state, group.id);
+      /*
+       * Members keep the rect the solver last gave them, which comes apart correctly for a split
+       * and stacks for tabs: every tab member carries the shell's whole content rect, so five
+       * tabs dissolved into five windows at identical coordinates — four of them invisible and
+       * reachable only through the dock.
+       *
+       * That was recorded as faithful rather than desirable, and deferred as "a separate
+       * decision about shared semantics". Taken now, and it lands the same way `window.undock`
+       * does: a member freed by a command has to be somewhere it can be seen, because a verb
+       * whose whole effect is invisible reads as not having run.
+       *
+       * Each freed rect goes through vacancy placement with itself as `preferred`, folded so
+       * each sees the ones already placed. A split is unchanged by construction — its panes are
+       * already clear of one another, so every one of them is returned untouched.
+       */
+      if (group === null) {
+        return state;
+      }
+
+      const bounds = getInfiniteCanvasRoomAround(group.rect);
+      const freedIds = new Set(getInfiniteCanvasGroupWindowIds(group.tree));
+      const dissolved = closeInfiniteCanvasGroup(state, group.id);
+      const settled: InfiniteCanvasRect[] = dissolved.windows
+        .filter((window) => !freedIds.has(window.id) && window.mode !== "minimized")
+        .map((window) => window.rect);
+
+      return {
+        ...dissolved,
+        windows: dissolved.windows.map((window) => {
+          if (!freedIds.has(window.id)) {
+            return window;
+          }
+
+          const rect = getInfiniteCanvasVacantRect({
+            bounds,
+            // The shell is gone, so its footprint is free — but only for the first member to
+            // claim it, which is what keeps a one-member dissolve exactly where it was.
+            occupied: settled,
+            preferred: window.rect,
+          });
+
+          settled.push(rect);
+
+          return { ...window, rect };
+        }),
+      };
     }
     case "group.moveChild": {
       const index = getActiveInfiniteCanvasGroupChildIndex(state);
@@ -2105,10 +2165,8 @@ function executeInfiniteCanvasCommand<Kind extends string>(
         ? state
         : undockInfiniteCanvasWindowFromGroup(state, {
             rect: getInfiniteCanvasVacantRect({
-              bounds: getInfiniteCanvasContentWorldRect(
-                state.camera,
-                state.viewport,
-                state.viewportInsets,
+              bounds: getInfiniteCanvasRoomAround(
+                getInfiniteCanvasWindowGroup(state, freed.id)?.rect ?? freed.rect,
               ),
               occupied: [
                 ...state.groups.map((group) => group.rect),
