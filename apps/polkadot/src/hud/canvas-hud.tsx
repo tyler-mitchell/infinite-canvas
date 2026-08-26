@@ -1,11 +1,14 @@
 import {
+  getSelectedWindowBounds,
   useInfiniteCanvasActions,
   useInfiniteCanvasSelector,
+  useInfiniteCanvasStore,
   type InfiniteCanvasCommand,
 } from "@hyphened/infinite-canvas";
 import {
   AlignHorizontalSpaceAround,
   AlignStartVertical,
+  Columns2,
   Pin,
   Scan,
   Trash2,
@@ -97,10 +100,36 @@ function Verb({
  */
 function SelectionRail() {
   const actions = useInfiniteCanvasActions();
+  const store = useInfiniteCanvasStore();
   const selectedCount = useInfiniteCanvasSelector((state) => state.selection.windowIds.length);
   const styles = canvasHud();
   const run = (command: InfiniteCanvasCommand) => () => {
     actions.executeCommand(command);
+  };
+  /*
+   * The only thing in the app that invites docking.
+   *
+   * The framework has had the whole group model since before this app had a second window kind —
+   * the Alt-drag gesture, the palette's dock commands, tabs and splits — and Polkadot never offered
+   * a way in. A capability reachable only by a modifier nobody presses speculatively, or a palette
+   * row nobody searches for, is a capability nobody has.
+   *
+   * Read from a peek rather than a selector: the bounds are a fresh object every call, so selecting
+   * them would re-render this rail on every camera tick to compute a rect only a click needs.
+   */
+  const group = () => {
+    const state = store.state$.peek();
+    const rect = getSelectedWindowBounds(state);
+
+    if (rect === null) {
+      return;
+    }
+
+    actions.createGroup({
+      groupId: globalThis.crypto.randomUUID(),
+      rect,
+      windowIds: state.selection.windowIds,
+    });
   };
 
   return (
@@ -119,6 +148,9 @@ function SelectionRail() {
           label="Distribute horizontally"
           onPress={run({ distribution: "horizontal", type: "window.distribute" })}
         />
+        {/* Same rule as the spatial verbs above: visible and dim below two, rather than appearing
+            and moving the buttons beside it. */}
+        <Verb disabled={selectedCount < 2} icon={Columns2} label="Group selected" onPress={group} />
         <span className={styles.divider()} />
         <Verb icon={Pin} label="Pin or unpin" onPress={run({ type: "selection.togglePinned" })} />
         <Verb icon={Scan} label="Fit selection" onPress={run({ type: "view.fitSelection" })} />
