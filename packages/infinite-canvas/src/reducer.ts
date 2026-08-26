@@ -1,5 +1,6 @@
 import { executeInfiniteCanvasCommand } from "./commands";
 import { navigateCamera } from "./camera-navigation";
+import { isUsableViewport } from "./geometry";
 import { findInfiniteCanvasGroupNode, isInfiniteCanvasGroupContainer } from "./group-tree";
 import { applyInfiniteCanvasRecipe } from "./recipes";
 import {
@@ -147,8 +148,28 @@ function applyInfiniteCanvasAction<Kind extends string>(
       };
     case "command.execute":
       return executeInfiniteCanvasCommand(state, action.command, options.zoomPolicy);
+    /**
+     * Hydration replaces the document but never the measurement.
+     *
+     * `viewport` is the one field that is measured from the DOM rather than authored, which is
+     * why `serializeInfiniteCanvasState` deliberately omits it — restoring a viewport would
+     * hydrate a canvas sized for someone else's monitor. The consequence was that hydrating
+     * *adopted* the incoming document's viewport, which for a parsed document is the fallback's,
+     * and that is `0 x 0`.
+     *
+     * A canvas in that state is not subtly wrong. World origin projects to screen origin instead
+     * of the viewport centre, so content lands off the top-left corner; `isUsableViewport` is
+     * false, so culling, `view.fitAll`, `view.fitSelection`, and viewport snapping are all inert.
+     * And it does not recover: the resize observer already fired at the real size, so it has no
+     * reason to fire again.
+     *
+     * Keeping the live measurement is therefore not a special case — it is the same rule
+     * persistence already follows, applied on the way back in.
+     */
     case "desktop.hydrate":
-      return action.state;
+      return isUsableViewport(state.viewport)
+        ? { ...action.state, viewport: state.viewport }
+        : action.state;
     case "desktop.reset":
       return resetInfiniteCanvasState(state, action.state);
     case "interaction.finish":

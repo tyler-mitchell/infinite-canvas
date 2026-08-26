@@ -224,10 +224,22 @@
   /* Border-width comes from chrome metrics and stays inline.             */
   /* Precedence (matches the JS conditional): active > selected > idle.   */
   /* ------------------------------------------------------------------ */
+  /*
+   * `--icx-surface-radius` and `--icx-surface-shadow` default to the flat frame this theme has
+   * always drawn, so nothing changes for a consumer who does not set them. They exist because
+   * colour was the only thing a DOM-chrome window could be themed with: a product whose windows
+   * should read as physical objects — resting on the canvas with weight rather than being
+   * outlined on it — had no token to say so, and the `host` chrome variant already had one.
+   *
+   * The radius rounds the surface rather than the frame, so it composes with the resize handles,
+   * which straddle the frame edge and must stay square to stay grabbable.
+   */
   [data-slot="window-surface"] {
     background: var(--icx-body-background, var(--icx-frame-surface-bg));
     border-style: solid;
     border-color: var(--icx-idle-border);
+    border-radius: var(--icx-surface-radius, 0);
+    box-shadow: var(--icx-surface-shadow, none);
   }
 
   [data-slot="window"][data-selected]:not([data-active]) [data-slot="window-surface"] {

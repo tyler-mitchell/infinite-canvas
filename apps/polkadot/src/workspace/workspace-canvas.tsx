@@ -19,7 +19,8 @@ import { useEffect, useState } from "react";
 import { Button } from "ui";
 import { tv } from "ui/tv";
 
-import { DotField } from "../canvas/dot-field";
+import { NoteWindowBody } from "../notes/note-window";
+import type { NoteGateway } from "../notes/note-store";
 import {
   startCanvasPersistence,
   type CanvasPersistenceStatus,
@@ -28,7 +29,7 @@ import {
 
 type WindowKind = "note";
 
-const NoteWindowData = type({ text: "string" });
+const NoteWindowData = type({ noteId: "string" });
 type NoteWindowData = typeof NoteWindowData.infer;
 
 type WindowData = Readonly<{
@@ -42,11 +43,21 @@ type DatabaseAdmission = Readonly<{
 
 const noteWindow = tv({
   slots: {
-    body: "grid gap-3 p-5 text-sm leading-6 text-white/68",
-    explanation: "text-white/38",
-    summary: "grid h-full place-items-center p-3 text-center text-xs text-white/60",
+    summary:
+      "grid h-full place-items-center px-4 text-center text-[12px] leading-[1.5] text-[var(--ink-faint)]",
   },
 });
+
+/**
+ * The database, as the note layer sees it.
+ *
+ * Passed to the window body rather than imported by it, so the body stays renderable without
+ * pulling an 11 MB WebAssembly engine into a test or a summary.
+ */
+const noteGateway: NoteGateway = {
+  read: async (noteId) => (await import("../database/database.client")).readNote(noteId),
+  save: async (input) => (await import("../database/database.client")).saveNote(input),
+};
 
 /**
  * The shell.
@@ -102,6 +113,12 @@ const openCanvas = async (initialLayout: object) => {
   return database.openDefaultCanvas(initialLayout);
 };
 
+const createNoteRecord = async (input: Readonly<{ text: string; title: string }>) => {
+  const database = await import("../database/database.client");
+
+  return database.createNote(input);
+};
+
 const saveCanvas = async (input: CanvasSaveInput<WindowKind>) => {
   const database = await import("../database/database.client");
 
@@ -126,16 +143,12 @@ const windowDefinitions = defineInfiniteCanvasWindowRegistry<WindowKind, WindowD
     kind: "note",
     overflowY: "auto",
     renderBody: ({ window }) => {
-      const styles = noteWindow();
       const data = getInfiniteCanvasWindowData(window, NoteWindowData.allows);
 
-      return (
-        <article className={styles.body()}>
-          <p>{data?.text ?? "This note's saved data is invalid."}</p>
-          <p className={styles.explanation()}>
-            This window is live React DOM inside the headless infinite-canvas runtime.
-          </p>
-        </article>
+      return data == null ? (
+        <div className={noteWindow().summary()}>This window is not bound to a note.</div>
+      ) : (
+        <NoteWindowBody gateway={noteGateway} noteId={data.noteId} />
       );
     },
     renderSummary: ({ window }) => {
@@ -152,14 +165,13 @@ const initialState = createInfiniteCanvasState<WindowKind>({
   camera: { center: { x: 0, y: 0 }, zoom: 1 },
   windows: [
     createInfiniteCanvasWindow<WindowKind, WindowData["note"]>({
-      data: {
-        text: "Polkadot now has a real TanStack Start shell, a parent-owned canvas store, and a typed window registry.",
-      },
+      // Seeded by `fn::open_default_canvas`, so the layout references a record that exists.
+      data: { noteId: "content_item:welcome" },
       id: "welcome",
       kind: "note",
       minSize: { height: 180, width: 280 },
-      rect: { height: 280, width: 440, x: -220, y: -140 },
-      title: "Polkadot",
+      rect: { height: 300, width: 460, x: -230, y: -150 },
+      title: "Welcome",
     }),
   ],
 });
@@ -214,21 +226,23 @@ function WorkspaceOverlay({
                   noteMinimumSize,
                 );
 
-                canvas.actions.openWindow(
-                  createInfiniteCanvasWindow<WindowKind, WindowData["note"]>({
-                    data: {
-                      text: "A new spatial note. Editing and durable content arrive in the first product slice.",
-                    },
-                    id: globalThis.crypto.randomUUID(),
-                    kind: "note",
-                    minSize: noteMinimumSize,
-                    rect: {
-                      ...baseRect,
-                      x: baseRect.x + offset,
-                      y: baseRect.y + offset,
-                    },
-                    title: `Untitled ${ordinal}`,
-                  }),
+                void createNoteRecord({ text: "", title: `Untitled ${ordinal}` }).then(
+                  (created) => {
+                    canvas.actions.openWindow(
+                      createInfiniteCanvasWindow<WindowKind, WindowData["note"]>({
+                        data: { noteId: created.id },
+                        id: globalThis.crypto.randomUUID(),
+                        kind: "note",
+                        minSize: noteMinimumSize,
+                        rect: {
+                          ...baseRect,
+                          x: baseRect.x + offset,
+                          y: baseRect.y + offset,
+                        },
+                        title: `Untitled ${ordinal}`,
+                      }),
+                    );
+                  },
                 );
               }}
               size="sm"
@@ -317,7 +331,6 @@ export function WorkspaceCanvas() {
       <InfiniteCanvas.Provider store={store}>
         <InfiniteCanvas.Viewport<WindowKind>
           hud={false}
-          renderBackdrop={() => <DotField />}
           renderOverlay={(canvas) => (
             <WorkspaceOverlay canvas={canvas} databaseAdmission={databaseAdmission} />
           )}

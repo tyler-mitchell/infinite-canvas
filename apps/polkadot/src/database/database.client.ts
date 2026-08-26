@@ -136,6 +136,79 @@ async function saveCanvas(
   return CanvasRecord.assert(record);
 }
 
+/**
+ * A note is a `content_item`; a window only carries its id.
+ *
+ * The split is deliberate and it is the reason the canvas layout stays a layout: moving, docking,
+ * grouping, or closing a window never touches what was written. It also means the same note can
+ * appear on more than one canvas later without the text being copied.
+ */
+const NoteRecord = type({
+  content: { text: "string" },
+  id: "string",
+  revision: "number.integer >= 0",
+  title: "string",
+}).onUndeclaredKey("delete");
+
+type NoteRecord = typeof NoteRecord.infer;
+
+async function createNote(input: Readonly<{ text: string; title: string }>): Promise<NoteRecord> {
+  const client = await openLocalDatabase();
+  const [record] = await client
+    .query<[unknown]>("RETURN fn::create_note($title, $text);", input)
+    .json();
+
+  return NoteRecord.assert(record);
+}
+
+async function readNote(noteId: string): Promise<NoteRecord | null> {
+  const client = await openLocalDatabase();
+  const [record] = await client
+    .query<[unknown]>("RETURN fn::read_note($note);", { note: new StringRecordId(noteId) })
+    .json();
+
+  return record === null || record === undefined ? null : NoteRecord.assert(record);
+}
+
+async function saveNote(
+  input: Readonly<{ noteId: string; revision: number; text: string; title: string }>,
+): Promise<NoteRecord> {
+  const client = await openLocalDatabase();
+  const [record] = await client
+    .query<[unknown]>("RETURN fn::save_note($note, $revision, $title, $text);", {
+      note: new StringRecordId(input.noteId),
+      revision: input.revision,
+      text: input.text,
+      title: input.title,
+    })
+    .json();
+
+  if (record === null || record === undefined) {
+    throw new NoteRevisionConflictError({ expectedRevision: input.revision, noteId: input.noteId });
+  }
+
+  return NoteRecord.assert(record);
+}
+
+async function listNotes(): Promise<readonly NoteRecord[]> {
+  const client = await openLocalDatabase();
+  const [records] = await client.query<[unknown]>("RETURN fn::list_notes();").json();
+
+  return NoteRecord.array().assert(records);
+}
+
+class NoteRevisionConflictError extends Error {
+  override readonly name = "NoteRevisionConflictError";
+  readonly expectedRevision: number;
+  readonly noteId: string;
+
+  constructor(input: Readonly<{ expectedRevision: number; noteId: string }>) {
+    super(`Note ${input.noteId} changed after revision ${input.expectedRevision}`);
+    this.expectedRevision = input.expectedRevision;
+    this.noteId = input.noteId;
+  }
+}
+
 async function closeLocalDatabase() {
   const pending = lifecycle.promise;
   lifecycle.promise = undefined;
@@ -151,8 +224,13 @@ async function closeLocalDatabase() {
 export {
   CanvasRevisionConflictError,
   closeLocalDatabase,
+  createNote,
+  listNotes,
+  NoteRevisionConflictError,
   openDefaultCanvas,
   openLocalDatabase,
+  readNote,
   saveCanvas,
+  saveNote,
 };
-export type { CanvasRecord };
+export type { CanvasRecord, NoteRecord };

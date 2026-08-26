@@ -18,6 +18,19 @@ DEFINE FUNCTION OVERWRITE fn::open_default_canvas($layout: object) {
     };
   };
 
+  -- The canvas seed references this note by id, so it must exist before the layout is stored.
+  LET $welcome = SELECT * FROM ONLY content_item:welcome;
+
+  IF $welcome = NONE {
+    CREATE ONLY content_item:welcome CONTENT {
+      project: project:default,
+      kind: "note",
+      title: "Welcome",
+      content: { text: "" },
+      search_text: "welcome"
+    };
+  };
+
   LET $canvas = SELECT * FROM ONLY canvas_document:main;
 
   RETURN IF $canvas = NONE {

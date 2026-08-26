@@ -37,7 +37,8 @@ open because it feels good to look at. Concretely, and these are enforced in rev
 - [x] Local canvas open, autosave, reload — verified in a browser, `indexedDB` holds `polkadot`
 - [x] Framework: `renderBackdrop`, the counterpart to `renderOverlay`
 - [x] Design tokens: palette, elevation, motion, type
-- [x] The dot field — world-anchored lattice, screen-constant dots, pointer lift, window displacement
+- [x] Framework tokens for window radius and elevation (`--icx-surface-radius`, `--icx-surface-shadow`)
+- [ ] ~~The dot field~~ — **written, then deleted.** See "The living field" below.
 
 ## Next
 
@@ -53,7 +54,30 @@ open because it feels good to look at. Concretely, and these are enforced in rev
       exist; typed relations between notes are the first thing that makes this a _knowledge_
       workbench rather than a note board.
 - [ ] **Workspaces** as the organizing spine, with `workspace.moveActiveWindow`.
-- [ ] **Grain and vignette.** The field is clean; real material has noise.
+- [ ] **Grain and vignette.** Real material has noise.
+
+## The living field — unstarted, and not to be attempted casually
+
+An earlier attempt shipped a flat dot lattice with a radial brightness falloff and called it the
+signature. It was deleted. A caricature occupying the slot is worse than an empty slot, because it
+reads as finished.
+
+The real behaviour is specified in `reference/infinite-canvas-dynamic-grid/GRID_MOTION_STUDY.md`,
+recovered from a working implementation. It is not "dots that light up near the cursor":
+
+- Lattice points are **simulated**, not drawn from a formula — integration gain `0.08`, damping
+  `0.75`, so the field has momentum and settles rather than snapping.
+- Window rects apply a force of `(1 - min(distance / 400, 1))^2 * 25` over a 400px radius, with
+  the rect targets themselves smoothed before they reach the field.
+- Node influence strength eases at `0.15` per frame.
+- The pointer highlight eases between **lattice intersections**, not to raw cursor coordinates —
+  it snaps to the grid and glides, which is most of why it feels intentional.
+- The highlight is composed, not one glow: thin centre lines, faint adjacent-cell traces, and a
+  lifted intersection dot, each drawn separately.
+- A grain pass over the whole field: `fract(sin(dot(st, vec2(12.9898, 78.233))) * 43758.5453123)`.
+
+`renderBackdrop` exists in the framework and is the correct seam for it. That part was right and
+stays. What is missing is the field itself, and it is hours of careful work, not a pass.
 
 ## Later, deliberately
 

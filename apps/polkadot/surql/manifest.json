@@ -7,7 +7,7 @@
     },
     {
       "name": "functions",
-      "files": ["functions/001_canvas.surql"]
+      "files": ["functions/001_canvas.surql", "functions/002_notes.surql"]
     }
   ],
   "tests": ["tests/001_core.surql"]

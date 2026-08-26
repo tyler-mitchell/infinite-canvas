@@ -109,6 +109,15 @@
   --icx-color-foreground: var(--ink);
   --icx-color-accent: var(--accent);
   --icx-color-surface-raised: var(--surface-raised);
+
+  /* A window is an object resting on the field, not a rectangle drawn on it. */
+  --icx-surface-radius: 12px;
+  --icx-surface-shadow: var(--lift-2);
+}
+
+/* The active window lifts further and picks up the specular, like the shell's rails. */
+[data-slot="window"][data-active] {
+  --icx-surface-shadow: var(--lift-3);
 }
 
 * {
