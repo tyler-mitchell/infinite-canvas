@@ -66,6 +66,19 @@ const workspace = tv({
 
 const CHROME = { headerHeight: 32 } as const;
 
+/**
+ * What this app's own chrome covers, per edge.
+ *
+ * The library rail is the obvious one, but it is not the only one: the identity rail sits along
+ * the top and the zoom and selection rails along the bottom, and until they were named here the
+ * camera centred content underneath them and the offscreen indicators projected their ring onto
+ * an edge that has a pill rail sitting on it — an arrow appeared behind the "New note" button.
+ *
+ * Declaring one edge and forgetting the others is the same bug as declaring none, just quieter.
+ */
+const TOP_INSET = 56;
+const BOTTOM_INSET = 56;
+
 function getSaveAdmission(status: CanvasPersistenceStatus): SaveAdmission {
   if (status.status === "error") {
     return {
@@ -169,7 +182,11 @@ export function WorkspaceCanvas({ canvas }: Readonly<{ canvas: LoadedCanvas }>) 
            * middle of the element — which is under the panel — and the rail would be a surface
            * that fights every camera command while looking finished.
            */
-          viewportInsets={{ left: libraryOpen ? RAIL_INSET : 0 }}
+          viewportInsets={{
+            bottom: BOTTOM_INSET,
+            left: libraryOpen ? RAIL_INSET : 0,
+            top: TOP_INSET,
+          }}
           // Beneath the windows: a connector should pass under the note it joins, not across it.
           renderUnderlay={() => <ConnectorLayer />}
           hud={{
