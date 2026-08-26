@@ -407,15 +407,36 @@ tagging, ranking or describing anything. The measurement is of the thing itself.
 
 ### Cost
 
-Frame time at 100 000 quads over 64 windows is **4.20 ms with the light on and 4.20 ms with it off**
-— unchanged. That is the honest limit of what is measured: the timestamp query wraps only the window
-pipeline, so the analyse and light passes are **not** isolated in the `gpu` reading and their
-individual cost is unknown. What can be said is that adding both moved the frame budget by nothing
-detectable at a hundred thousand instances.
+Every pass carries its own timestamp query now, so this is per-pass rather than one number for the
+frame. Twelve windows, six textures, three materials, median of the last ninety samples:
 
-The analyse pass runs every frame rather than on capture. At 576 texture loads per window that is
-147k loads for a full 256-window canvas — small enough that running it unconditionally buys away a
-whole class of invalidation bug for a cost too small to find.
+| pass        | median GPU       |
+| ----------- | ---------------- |
+| **analyse** | **0.138 ms**     |
+| light       | 0.038 ms         |
+| windows     | 0.019–0.037 ms   |
+| glass       | 0.058 ms         |
+| edge        | 0.060–0.094 ms   |
+| sheen       | 0.013–0.084 ms   |
+| **total**   | **0.35–0.44 ms** |
+
+**This corrects two things written above.**
+
+~~"A cost too small to find."~~ The analyse pass is the **single most expensive pass on the canvas**
+— more than the windows whose pixels it reads, more than any material. 0.138 ms every frame for
+work that only changes when a capture lands. The invalidation-bug argument for running it
+unconditionally still holds, but it is now a trade with a price on it rather than a free lunch, and
+running it on capture instead would give back about 3% of a 120 Hz frame.
+
+~~"Adding both moved the frame budget by nothing detectable."~~ True, and useless. Frame time is
+pinned by the display; a pass costing nothing and a pass costing half a millisecond look identical
+through that lens. The whole GPU cost of this canvas is **0.35–0.44 ms**, and now each part of it is
+attributable.
+
+**The medians are load-bearing.** Reporting the newest sample gave a ten-fold spread across runs of
+identical work — glass read 0.113, then 0.553, then 0.049 ms — because one GPU timestamp carries
+whatever else the device was doing that instant. One arbitrary sample out of twelve thousand looks
+exactly like data and is not, which is the same failure as the zero-reading documented further up.
 
 ### Two calibration mistakes worth keeping
 

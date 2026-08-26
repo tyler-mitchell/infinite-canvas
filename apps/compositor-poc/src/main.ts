@@ -52,6 +52,59 @@ const root = await tgpu.init({
 const context = root.configureContext({ alphaMode: "opaque", canvas });
 const hasTimestamps = root.enabledFeatures.has("timestamp-query");
 
+/**
+ * GPU time per pass, not one number for the whole frame.
+ *
+ * One timer on the window pass could only ever support "adding the others moved nothing
+ * detectable", which is the weakest kind of claim: it says the frame budget is large, not what
+ * anything costs. A compute pipeline takes the same callback a render pipeline does, so every pass
+ * can carry its own.
+ *
+ * The query set skips a frame when a previous read is still in flight, so a reading of zero means
+ * "no sample landed", not "it was free". Counting samples is what tells those apart — reporting the
+ * zero as a measurement is how the 500 000 row first lied.
+ */
+const passTimings: Record<string, { recent: number[]; samples: number }> = {};
+
+const timePass = <
+  Pipeline extends {
+    withPerformanceCallback: (callback: (start: bigint, end: bigint) => void) => Pipeline;
+  },
+>(
+  name: string,
+  pipeline: Pipeline,
+) =>
+  hasTimestamps
+    ? pipeline.withPerformanceCallback((start, end) => {
+        const elapsed = Number(end - start);
+        const slot = (passTimings[name] ??= { recent: [], samples: 0 });
+
+        if (elapsed > 0) {
+          slot.recent.push(elapsed / 1e6);
+          slot.samples += 1;
+
+          if (slot.recent.length > 90) {
+            slot.recent.shift();
+          }
+        }
+      })
+    : pipeline;
+
+/**
+ * Median of the last ninety samples, not the newest one.
+ *
+ * Reporting the latest sample gave a ten-fold spread across runs of identical work — glass read
+ * 0.113, then 0.553, then 0.049 ms — because a single GPU timestamp carries whatever else the
+ * device was doing that instant. One arbitrary sample out of twelve thousand is not a
+ * measurement, and it is the same failure as the zero-reading this file already documents: a
+ * number that looks like data and is not.
+ */
+const passMedian = (name: string) => {
+  const sorted = [...(passTimings[name]?.recent ?? [])].sort((left, right) => left - right);
+
+  return sorted[Math.floor(sorted.length / 2)] ?? 0;
+};
+
 const layout = tgpu.bindGroupLayout({
   camera: { uniform: Camera },
   quads: { storage: d.arrayOf(Quad), access: "readonly" },
@@ -840,12 +893,15 @@ const materials = {
 const materialPipelines = Object.fromEntries(
   Object.entries(materials).map(([name, material]) => [
     name,
-    root.createRenderPipeline({
-      fragment: material.fragment,
-      primitive: { topology: "triangle-list" },
-      targets: { blend: material.blend, format: navigator.gpu.getPreferredCanvasFormat() },
-      vertex: surfaceVertex,
-    }),
+    timePass(
+      name,
+      root.createRenderPipeline({
+        fragment: material.fragment,
+        primitive: { topology: "triangle-list" },
+        targets: { blend: material.blend, format: navigator.gpu.getPreferredCanvasFormat() },
+        vertex: surfaceVertex,
+      }),
+    ),
   ]),
 );
 
@@ -1105,30 +1161,9 @@ const camera = {
   center: { x: 0, y: 0 },
   zoom: Math.max(Number(params.get("zoom") ?? 0.35), 0.01),
 };
-let gpuNanoseconds = 0;
-
-let gpuSamples = 0;
-let gpuCallbacks = 0;
-
-// The query set skips a frame when a previous read is still in flight, so a reading of zero means
-// "no sample landed", not "it was free". Counting samples is what tells those apart — reporting
-// the zero as a measurement is how the 500 000 row first lied.
-//
-// Callbacks and samples are counted separately because they fail differently: no callbacks at all
-// means the timing path is not wired, while callbacks carrying zeros means the query resolved
-// empty. Collapsing them into one counter hides which.
-const timed = hasTimestamps
-  ? pipeline.withPerformanceCallback((start, end) => {
-      const elapsed = Number(end - start);
-
-      gpuCallbacks += 1;
-
-      if (elapsed > 0) {
-        gpuNanoseconds = elapsed;
-        gpuSamples += 1;
-      }
-    })
-  : pipeline;
+const timedWindows = timePass("windows", pipeline);
+const timedLight = timePass("light", lightPipeline);
+const timedAnalyze = timePass("analyse", analyze);
 
 /**
  * The scene texture straight to the canvas.
@@ -1251,8 +1286,8 @@ const frame = () => {
   const sceneView = sceneTexture;
 
   if (lit) {
-    analyze.dispatchWorkgroups(textureLayers);
-    lightPipeline
+    timedAnalyze.dispatchWorkgroups(textureLayers);
+    timedLight
       .withColorAttachment({
         clearValue: [0.037, 0.04, 0.049, 1],
         loadOp: "clear",
@@ -1262,7 +1297,7 @@ const frame = () => {
       .draw(6, quadCount);
   }
 
-  timed
+  timedWindows
     .withColorAttachment({
       clearValue: [0.055, 0.06, 0.07, 1],
       // The windows draw over the light rather than replacing it, so the glow survives in the space
@@ -1338,7 +1373,11 @@ const frame = () => {
     `draw calls 1`,
     `frame      ${median.toFixed(2)} ms  (${(1000 / median).toFixed(0)} fps)`,
     hasTimestamps
-      ? `gpu        ${(gpuNanoseconds / 1e6).toFixed(3)} ms   (${String(gpuSamples)} samples / ${String(gpuCallbacks)} callbacks)`
+      ? `gpu        ${Object.keys(passTimings)
+          .map((name) => `${name} ${passMedian(name).toFixed(3)}`)
+          .join("  ")}   = ${Object.keys(passTimings)
+          .reduce((total, name) => total + passMedian(name), 0)
+          .toFixed(3)} ms median`
       : `gpu        timestamp-query unavailable`,
     `textures   ${String(textureLayers)} x ${String(textureSize)}px  = ${(textureBytes / 1024 ** 2).toFixed(1)} MB`,
     `capture    ${captureLabel}`,
