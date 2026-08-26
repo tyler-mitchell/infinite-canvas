@@ -18,7 +18,7 @@ import { tv } from "ui/tv";
 import { CollectionSummary } from "../collections/collection-summary";
 import { CollectionWindowBody } from "../collections/collection-window";
 import { ImageWindowBody } from "../images/image-window";
-import { LinkSummary, LinkWindowBody } from "../links/link-window";
+import { LinkWindowBody } from "../links/link-window";
 import { noteGateway } from "../notes/note-gateway";
 import { NoteWindowBody } from "../notes/note-window";
 
@@ -105,14 +105,6 @@ function NoteSummary({ title }: Readonly<{ title: string }>) {
   );
 }
 
-/** Zoom read here, not in `link-window.tsx`: the selector is generic over `WindowKind` and that
- * module importing this one would be a cycle. */
-function LinkSummaryBody({ linkId }: Readonly<{ linkId: string }>) {
-  const zoom = useInfiniteCanvasSelector<WindowKind, number>((state) => state.camera.zoom);
-
-  return <LinkSummary linkId={linkId} zoom={zoom} />;
-}
-
 const windowDefinitions = defineInfiniteCanvasWindowRegistry<WindowKind, WindowData>({
   /*
    * A collection scrolls like a note and selects like neither.
@@ -191,8 +183,14 @@ const windowDefinitions = defineInfiniteCanvasWindowRegistry<WindowKind, WindowD
   },
   /*
    * The page itself, so the body keeps its own pointer and wheel — the camera cannot have them,
-   * and could not take them from a cross-origin frame anyway. Summarises to the host: a page at a
-   * tenth of the size is unreadable in a way a picture is not.
+   * and could not take them from a cross-origin frame anyway.
+   *
+   * **No summary, and that is what keeps the page alive.** The lane swaps body for summary at far
+   * zoom, and swapping unmounts the iframe, which reloads the page and loses its scroll and any
+   * session. Declining the summary keeps the lane inert, so the frame is never torn down. Measured
+   * against the alternative: parking iframes outside the render tree does preserve them, but a
+   * single body-level overlay cannot respect per-window stacking, so a page would float above the
+   * windows in front of it.
    */
   link: {
     kind: "link",
@@ -205,11 +203,6 @@ const windowDefinitions = defineInfiniteCanvasWindowRegistry<WindowKind, WindowD
       ) : (
         <LinkWindowBody linkId={data.itemId} />
       );
-    },
-    renderSummary: ({ window }) => {
-      const data = getInfiniteCanvasWindowData(window, ContentWindowData.allows);
-
-      return data == null ? null : <LinkSummaryBody linkId={data.itemId} />;
     },
     textSelection: "native",
     wheelBehavior: "native-scroll",

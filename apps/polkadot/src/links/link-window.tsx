@@ -52,32 +52,8 @@ const linkWindow = tv({
     name: "truncate text-[12.5px] leading-[1.35] font-medium text-[var(--ink)]",
     notice: "grid h-full place-items-center px-6 text-center text-[12.5px] text-[var(--ink-faint)]",
     root: "flex h-full flex-col",
-    summary: "grid h-full place-items-center gap-2 px-4 text-center",
-    summaryHost: "max-w-full truncate font-medium text-[var(--ink-muted)]",
   },
 });
-
-/** Screen pixels, divided by zoom: the host stays readable when the card is a thumbnail. */
-const SUMMARY_HOST_SCREEN_PX = 12;
-
-export function LinkSummary({ linkId, zoom }: Readonly<{ linkId: string; zoom: number }>) {
-  const entry = useValue(links.entries$[linkId]);
-  const styles = linkWindow();
-
-  useEffect(() => {
-    links.ensureLoaded(linkId);
-  }, [linkId]);
-
-  const host = entry?.record?.content.host ?? "";
-
-  return (
-    <div className={styles.summary()}>
-      <span className={styles.summaryHost()} style={{ fontSize: SUMMARY_HOST_SCREEN_PX / zoom }}>
-        {host === "" ? "Link" : host.replace(/^www\./, "")}
-      </span>
-    </div>
-  );
-}
 
 export function LinkWindowBody({ linkId }: Readonly<{ linkId: string }>) {
   const entry = useValue(links.entries$[linkId]);
