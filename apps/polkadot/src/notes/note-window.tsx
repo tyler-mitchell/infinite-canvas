@@ -21,8 +21,17 @@ import { NoteEditor } from "./note-editor";
 
 const noteWindow = tv({
   slots: {
-    body: "flex h-full min-h-0 flex-col gap-2 px-5 pt-3.5 pb-4",
-    editor: "min-h-0 flex-1",
+    /*
+     * `min-h-full`, never `h-full`.
+     *
+     * The frame body the framework draws is already a scroll container — it declares
+     * `overflowY: auto` and this kind asks for `native-scroll`. Pinning the content to exactly
+     * that height meant the container could never have anything to scroll, so a note longer than
+     * its window was clipped with no way to reach the rest of it. Growing past the frame is what
+     * hands the overflow back to the one scroller that exists.
+     */
+    body: "flex min-h-full flex-col gap-2 px-5 pt-3.5 pb-4",
+    editor: "flex flex-1 flex-col",
     notice: "grid h-full place-items-center px-6 text-center text-[12.5px] text-[var(--ink-faint)]",
     title:
       "w-full bg-transparent text-[15px] font-medium tracking-[-0.015em] text-[var(--ink)] outline-none placeholder:text-[var(--ink-faint)]",

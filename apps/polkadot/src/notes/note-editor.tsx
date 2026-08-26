@@ -37,11 +37,14 @@ import { tv } from "ui/tv";
 
 const noteEditor = tv({
   slots: {
+    // `flex-1` rather than `h-full`: a flex item keeps `min-height: auto`, so it fills the column
+    // when the note is short and grows past it when the note is long. A height locks out the
+    // second case, which is how a note longer than its window became unreadable.
     content:
-      "h-full min-h-0 text-[13.5px] leading-[1.7] text-[var(--ink-muted)] outline-none [&_a]:text-[var(--accent)] [&_a]:underline [&_a]:underline-offset-2 [&_blockquote]:my-2 [&_blockquote]:border-l-2 [&_blockquote]:border-[var(--accent)] [&_blockquote]:pl-3 [&_blockquote]:text-[var(--ink-faint)] [&_code]:rounded-[4px] [&_code]:bg-[var(--surface-hover)] [&_code]:px-1 [&_code]:py-0.5 [&_code]:font-mono [&_code]:text-[12px] [&_code]:text-[var(--ink)] [&_h1]:mt-0 [&_h1]:mb-2 [&_h1]:text-[17px] [&_h1]:font-medium [&_h1]:tracking-[-0.015em] [&_h1]:text-[var(--ink)] [&_h2]:mt-4 [&_h2]:mb-1.5 [&_h2]:text-[14px] [&_h2]:font-medium [&_h2]:text-[var(--ink)] [&_li]:my-0.5 [&_ol]:my-2 [&_ol]:list-decimal [&_ol]:pl-5 [&_p+p]:mt-3 [&_strong]:font-medium [&_strong]:text-[var(--ink)] [&_ul]:my-2 [&_ul]:list-disc [&_ul]:pl-5",
+      "flex-1 text-[13.5px] leading-[1.7] text-[var(--ink-muted)] outline-none [&_a]:text-[var(--accent)] [&_a]:underline [&_a]:underline-offset-2 [&_blockquote]:my-2 [&_blockquote]:border-l-2 [&_blockquote]:border-[var(--accent)] [&_blockquote]:pl-3 [&_blockquote]:text-[var(--ink-faint)] [&_code]:rounded-[4px] [&_code]:bg-[var(--surface-hover)] [&_code]:px-1 [&_code]:py-0.5 [&_code]:font-mono [&_code]:text-[12px] [&_code]:text-[var(--ink)] [&_h1]:mt-0 [&_h1]:mb-2 [&_h1]:text-[17px] [&_h1]:font-medium [&_h1]:tracking-[-0.015em] [&_h1]:text-[var(--ink)] [&_h2]:mt-4 [&_h2]:mb-1.5 [&_h2]:text-[14px] [&_h2]:font-medium [&_h2]:text-[var(--ink)] [&_li]:my-0.5 [&_ol]:my-2 [&_ol]:list-decimal [&_ol]:pl-5 [&_p+p]:mt-3 [&_strong]:font-medium [&_strong]:text-[var(--ink)] [&_ul]:my-2 [&_ul]:list-disc [&_ul]:pl-5",
     placeholder:
       "pointer-events-none absolute inset-0 text-[13.5px] leading-[1.7] text-[var(--ink-faint)] select-none",
-    root: "relative h-full min-h-0",
+    root: "relative flex flex-1 flex-col",
   },
 });
 

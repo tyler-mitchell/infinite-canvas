@@ -260,9 +260,35 @@ open because it feels good to look at. Concretely, and these are enforced in rev
   another desktop is `window.reveal`, which found the second gap: navigation filtered on
   `minimized` alone, so going to a hidden window panned the camera to a rect nothing renders and
   the window read as lost rather than elsewhere.
-  **Still open:** desktops cannot be renamed or reordered; nothing shows which desktop a window is
-  on while you are looking at another one; and the only way to fill a desktop is one window at a
-  time, so "put these three on a new desktop" is three trips through the launcher.
+  **The desktop is a switcher now, like the two beside it.** "Cannot be renamed or reordered"
+  described this app, not the framework: `setWorkspaceTitle` and `reorderWorkspace` shipped with the
+  workspace model and nothing here had ever called either. `command-coverage.test.ts` even says why
+  neither is a command — a title and a destination index are things only the user has. So the
+  missing piece was a surface, and the rail already had the right shape twice over: project ▸
+  canvas ▸ desktop, each a name that _is_ its control. `DesktopSwitcher` replaces the old pill and
+  follows `CanvasSwitcher` exactly — a radio group over the set, an inline rename that replaces the
+  trigger, and no dialog to change one word.
+  The pill it replaces returned `null` whenever no desktop was active, which is where you spend most
+  of your time and the one place "what else is there" gets asked, so the app hid the answer exactly
+  when it mattered. "All windows" is a row in the list now rather than the entire click target.
+  Reorder is Move up / Move down rather than a drag, and that is a decision: `motion`'s `Reorder` is
+  here and is what a sortable list should use, but it owns the pointer for a whole row and so does a
+  Base UI menu item, and a list three long is faster by button and reachable by keyboard.
+  **Witnessed:** absent with no desktops; appearing on creation with the accent wash and the
+  membership filter emptying the canvas; the menu listing All windows, the desktop with its window
+  count and its check, with Move up and Move down confirmed `data-disabled` at a single desktop;
+  rename changing the trigger and the row together and surviving a reload.
+  **Not witnessed, and the reason is the harness rather than the code:** select-on-open for the
+  rename field, reorder actually moving one, the "All windows" round trip, and Close this desktop.
+  `computer{action:"screenshot"}` dismisses a Base UI menu, and a coordinate click requires a
+  screenshot in the same batch — so screenshot-then-click-a-menu-item cancels itself. The rename
+  field's `select()` sits in the same effect whose hotkey registration was witnessed committing on
+  Enter, so it runs; that it _selects_ is inference, not observation.
+  **Still open:** nothing shows which desktop a window is on while you are looking at another one;
+  and the only way to fill a desktop is one window at a time, so "put these three on a new desktop"
+  is three trips through the launcher — which is a framework question rather than a product one,
+  since `workspace.moveWindow` is per window and the framework's own note on it says two dispatches
+  would be two undo entries with the window on both desktops in between.
 - [x] **Grain and vignette.** Both are passes inside the field rather than an overlay on top of it,
       because material noise belongs to the surface: a two-scale grain plus a radial falloff, each
       on its own `intensity` knob. The windows themselves still have no grain.

@@ -24,7 +24,7 @@ import { LibraryRail, RAIL_INSET } from "../library/library-rail";
 import { openNewNote } from "../notes/open-note";
 import { loadRelations, relations$ } from "../notes/relations";
 import { CanvasSwitcher } from "./canvas-switcher";
-import { DesktopIndicator } from "./desktop-indicator";
+import { DesktopSwitcher } from "./desktop-switcher";
 import { ProjectSwitcher } from "./project-switcher";
 
 type SaveAdmission = Readonly<{
@@ -139,7 +139,7 @@ function IdentityRail({
       <div className={styles.brand()}>
         <ProjectSwitcher projectId={projectId} projectTitle={projectTitle} />
         <CanvasSwitcher canvasId={canvasId} projectId={projectId} title={title} />
-        <DesktopIndicator />
+        <DesktopSwitcher />
       </div>
       <span className={styles.divider()} />
       <div className={styles.status()} data-save-status={saveAdmission.status}>

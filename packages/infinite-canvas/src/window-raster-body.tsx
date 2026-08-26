@@ -171,7 +171,14 @@ function InfiniteCanvasWindowBody<Kind extends string>({
         contain: "layout paint style",
         containIntrinsicSize: `${window.rect.width}px ${getWindowBodyHeight(window, chrome)}px`,
         contentVisibility: shouldUseContentVisibility ? "auto" : "visible",
-        height: "100%",
+        // `minHeight`, not `height`. The body slot above is the scroll container — it carries
+        // `overflowY: definition.overflowY ?? "auto"` — and a wrapper locked to exactly its height
+        // means that container can never have anything to scroll. A body taller than its window
+        // was silently unreachable: no scrollbar, no wheel, no keyboard, for every consumer. The
+        // minimum still fills the container when the content is short, which is all the height was
+        // ever doing. Containment is not the culprit and stays: with an auto height the wrapper
+        // grows to its content, so `paint` has nothing overflowing to clip.
+        minHeight: "100%",
         width: "100%",
       }}
     >
