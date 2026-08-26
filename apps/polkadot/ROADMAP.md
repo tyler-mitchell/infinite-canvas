@@ -104,8 +104,31 @@ open because it feels good to look at. Concretely, and these are enforced in rev
       The header is 32px, and the specular hairline is composed into `--icx-surface-shadow`. All four
       things this item asked for — floating surface, no outline, controls on approach, a header that
       belongs to the note — are done.
-      **Not part of this item, but adjacent and unbuilt:** grain, and the window body still has no
-      scroll affordance at small sizes.
+      **The edge of the text is said with light now.** Scrolling itself already worked — the
+      framework's body declares `overflowY: auto`, this kind asks for `native-scroll`, and the note
+      grows past the frame — but nothing announced it: a note taller than its window simply began or
+      ended mid-sentence, and macOS overlay scrollbars show nothing at rest, so the only cue arrived
+      after you had already guessed. A gradient into the body's own colour now sits at whichever
+      edge has text beyond it, `sticky` so it holds against the frame while the content moves, with
+      a negative margin so it costs the layout nothing. Measured on scroll _and_ on either box
+      resizing, because typing grows the content without scrolling it and dragging the frame's
+      corner changes neither — both cross the threshold a scroll listener alone never sees.
+      Driven: at the top the lower fade alone is lit, midway both are, at the bottom only the upper.
+      **Two things went wrong on the way, and both are worth keeping.** The state was first held as
+      one `{ above, below }` observable, and the fades never moved — Legend State commits per field
+      and does not replace the root, so a component reading the root of an object observable can be
+      subscribed to something that never changes. That is the same trap that left this app's
+      autosave subscribed to a constant for weeks, recorded at the top of this file. Two primitives
+      have no root to go stale. And the visibility was first a `data-visible` attribute with a
+      `data-[visible=true]:opacity-100` variant; the element matched its own selector and stayed at
+      `opacity: 0`, because that utility was never generated. Opacity is a computed number, so it is
+      passed as one.
+      **Unverified, precisely:** the fade updates were driven by setting `scrollTop` and dispatching
+      the `scroll` event, because this environment fires no scroll event for a programmatic set and
+      real wheel input hangs the browser pane. What that proves is the listener and the measurement;
+      what it assumes is that Chrome fires `scroll` on real user scrolling, which is the platform's
+      guarantee rather than this code's.
+      **Still adjacent and unbuilt:** grain.
 - [x] **Notes that are notes.** Lexical behind a `{ value, onChange }` boundary — the engine is
       named in exactly one file — with a debounced, revision-guarded write per note. Landed early,
       out of sequence with `IMPLEMENTATION_PHASES.md`, which is recorded in the audit rather than
