@@ -538,16 +538,58 @@ and the thing to optimise is how often boxes are re-measured — not how materia
 
 The 0.00 is below this timer's resolution at six windows, not a claim that it is free at scale.
 
+### Glass, and the pass it forced
+
+The material that cannot be written without a backdrop, which is why it was worth building — it
+proves the ping-pong rather than describing it. A pass cannot sample the target it is writing to, so
+the passes were restructured:
+
+```
+analyse  → signature buffer
+light    → scene texture   (clear)
+windows  → scene texture   (load)
+blit     → canvas
+glass, edge, sheen → canvas, sampling the scene texture as a backdrop
+```
+
+The signed distance field already in use for corners gives a surface normal for free — the central
+difference of the distance is the gradient — so near a component's boundary the backdrop sample is
+pushed _outward_ and the rim shows a compressed view of its surroundings. On a window that means the
+light field bends around its own edge, which is what glass does and what no amount of CSS can fake.
+
+Glass is the exception to "materials only add": it blends `over`, replacing its pixels with
+refracted ones. It is confined to the bevel for exactly that reason — the interior is untouched and
+the text inside a component is never at risk.
+
+Three materials, three draws, `36 instances / 3 draws (glass 12, edge 12, sheen 12)`.
+
+### Two failures worth keeping
+
+**A format mismatch renders black and says nothing.** Every pipeline here declares
+`getPreferredCanvasFormat()` as its target — `bgra8unorm` on this machine — while the scene texture
+was created `rgba8unorm`. A pipeline cannot render into an attachment of a different format, so the
+light and window passes were rejected, the blit faithfully showed the empty texture it was given,
+and every symptom pointed at the shader. What settled it was making the blit output its own UVs: a
+clean gradient appeared, proving the blit and its coordinates were fine and the texture really was
+empty. **The timestamp query was the tell all along** — `0 samples / 2408 callbacks` meant the
+window pass was doing no work, and that reading was on screen the whole time.
+
+**`querySelectorAll` does not include the element it is called on.** A material declared on the
+window root was collected zero times, so glass produced no instances at all — and the readout said
+`edge 12, sheen 12` without a word about the material that was missing. A count of what you found
+cannot report what you never looked at.
+
 ### What this does not answer
 
-- **Rounded corners are passed as a number, not read.** `data-radius` duplicates what CSS already
-  knows. Reading `border-radius` from computed style would fix it; transforms and clipping would
-  not be fixed so easily, and a component with either would have a UV rect that does not match its
-  real shape.
-- **Nothing refracts yet.** Glass needs to sample what is already drawn, which means the compositor
-  ping-pongs two colour targets and hands the material a backdrop. Not built.
+- **Transforms and clipping would break the UV rect.** The corner radius is read from computed style
+  now, so the declaration is one word and the stylesheet stays the single source. A component that
+  is rotated, scaled or clipped would still have a box that does not match its real shape, and
+  nothing here handles that.
 - **The instance count is capped** at 128 window-instances, and the readout says when that
   truncated. A real compositor would emit materials only for visible windows.
+- **Materials do not re-collect on layout change.** Boxes are measured once at mount. A window whose
+  content reflows moves its components without the compositor noticing, and since geometry is the
+  expensive half of collection, doing it on every capture is a cost nobody has measured.
 
 ### Why the layout host stays one canvas
 

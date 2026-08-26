@@ -41,6 +41,9 @@ export const Note = ({ index, size }: { index: number; size: number }) => {
   return (
     <div
       className="note"
+      // Glass on the window itself: its bevel refracts the light field around its own edge, which
+      // is a thing only a material with a backdrop can do.
+      data-surface="glass"
       style={{ "--accent": accent, height: size, width: size } as React.CSSProperties}
     >
       <div className="note-chrome" />
@@ -48,11 +51,12 @@ export const Note = ({ index, size }: { index: number; size: number }) => {
         {/*
           The whole declaration a shader material needs, on the element it applies to.
 
-          `data-surface` names the material and `data-radius` its corner, both read by the
-          compositor while it is already walking this subtree for hit-test geometry. The component
-          says what it *is*; nothing here reaches for a canvas, a ref, or a renderer.
+          One word. The corner radius comes from the stylesheet, which already says it, and the
+          colour from the inherited accent — the compositor reads both while it is walking this
+          subtree for hit-test geometry anyway. The component says what it *is*; nothing here
+          reaches for a canvas, a ref, or a renderer.
         */}
-        <span className="note-tag" data-radius="999" data-surface="edge">
+        <span className="note-tag" data-surface="edge">
           {done ? "done" : "open"}
         </span>
         <h2>Meeting notes {index}</h2>
@@ -77,7 +81,6 @@ export const Note = ({ index, size }: { index: number; size: number }) => {
         <button
           className="note-action"
           data-done={done ? "true" : undefined}
-          data-radius="8"
           data-surface="sheen"
           onClick={() => {
             setDone(!done);

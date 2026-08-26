@@ -3,7 +3,14 @@ import { common, d, std, tgpu } from "typegpu";
 import { createLightField, lightLayout } from "./light-field.ts";
 import { Camera, Quad } from "./scene.ts";
 import { analyzeWindows, BANDS, Signature, signatureLayout } from "./signature.ts";
-import { edgeFragment, sheenFragment, Surface, surfaceLayout, surfaceVertex } from "./surface.ts";
+import {
+  edgeFragment,
+  glassFragment,
+  sheenFragment,
+  Surface,
+  surfaceLayout,
+  surfaceVertex,
+} from "./surface.ts";
 
 /**
  * Three passes over one texture array: analyse, light, draw.
@@ -24,6 +31,14 @@ const quadCount = Math.max(Number(params.get("n") ?? 2000), 1);
  * interesting — see the README. */
 const textureLayers = Math.max(Number(params.get("tex") ?? 64), 1);
 const textureSize = Math.max(Number(params.get("texsize") ?? 256), 8);
+
+/**
+ * Draw order for materials, and the batching order the instance buffer is laid out in.
+ *
+ * Glass first, so the accents and the sheen sit on top of the bevel rather than under it. The order
+ * is a list because that is what it is — a material library grows by adding a row.
+ */
+const MATERIAL_ORDER = ["glass", "edge", "sheen"];
 
 const canvas = document.querySelector("canvas") as HTMLCanvasElement;
 const readout = document.querySelector("#readout") as HTMLPreElement;
@@ -213,13 +228,40 @@ if (captureNative) {
       const box = element.getBoundingClientRect();
       const accent = readColour(getComputedStyle(element).getPropertyValue("--accent"));
 
-      for (const node of element.querySelectorAll<HTMLElement>("[data-surface]")) {
+      /*
+       * The window itself counts.
+       *
+       * `querySelectorAll` searches descendants only, so a material declared on the window root was
+       * collected zero times and glass silently produced no instances — the readout said
+       * `edge 12, sheen 12` and nothing about the material that was missing. A window is a
+       * component like any other.
+       */
+      const candidates = [
+        ...(element.dataset["surface"] === undefined ? [] : [element]),
+        ...element.querySelectorAll<HTMLElement>("[data-surface]"),
+      ];
+
+      for (const node of candidates) {
         const material = node.dataset["surface"];
         const nodeBox = node.getBoundingClientRect();
 
         if (material === undefined || box.width === 0) {
           continue;
         }
+
+        /*
+         * The corner comes from CSS, not from an attribute beside it.
+         *
+         * A `data-radius` said the same thing the stylesheet already said, in a second place that
+         * could disagree with the first. Clamped to half the short side the way the browser clamps
+         * it, so a pill written as `999px` resolves to an actual pill rather than a nonsense
+         * distance the SDF would fold inside out.
+         */
+        const declared = Number.parseFloat(getComputedStyle(node).borderTopLeftRadius);
+        const radius = Math.min(
+          Number.isFinite(declared) ? declared : 0,
+          Math.min(nodeBox.width, nodeBox.height) / 2,
+        );
 
         found.push({
           box: [
@@ -231,8 +273,9 @@ if (captureNative) {
           element: node,
           layer,
           material,
-          // Declared in the element's own pixels; carried as a fraction like everything else.
-          radius: Number(node.dataset["radius"] ?? 8) / box.width,
+          // Carried as a fraction of the window, like every other measurement here, so one
+          // collection serves the window at any size.
+          radius: radius / box.width,
           tint: accent,
         });
       }
@@ -690,7 +733,7 @@ const surfaceQuads = Math.min(quadCount, 128);
 const surfacePlan: Array<{ element: HTMLElement; material: string }> = [];
 const surfaceBatches: Array<{ count: number; first: number; material: string }> = [];
 
-for (const material of ["sheen", "edge"]) {
+for (const material of MATERIAL_ORDER) {
   const first = surfacePlan.length;
 
   for (const source of surfaceSources.filter((candidate) => candidate.material === material)) {
@@ -713,11 +756,42 @@ const surfaceTint = new Float32Array(surfaceCount * 4);
 const surfaceWorld = new Float32Array(surfaceCount * 4);
 const surfacesBuffer = root.createBuffer(d.arrayOf(Surface, surfaceCount)).$usage("storage");
 
-const surfaceBindGroup = root.createBindGroup(surfaceLayout, {
+const linearSampler = root.createSampler({ magFilter: "linear", minFilter: "linear" });
+
+/**
+ * The scene as a texture, so materials can sample what is behind them.
+ *
+ * A pass cannot read the target it writes to, so the light and the windows render here, the canvas
+ * gets a blit of it, and materials then draw over the canvas with this as an ordinary input. Every
+ * compositor that has ever blurred a backdrop does this; glass is what makes it non-optional.
+ *
+ * Rebuilt on resize, along with everything that binds it.
+ */
+/*
+ * The canvas's own format, not `rgba8unorm`.
+ *
+ * Every render pipeline here declares `getPreferredCanvasFormat()` as its target, which on this
+ * machine is `bgra8unorm`. A pipeline cannot render into an attachment of a different format, so an
+ * `rgba8unorm` scene texture produced a completely black screen and no visible error — the passes
+ * were rejected, the blit faithfully showed what it was given, and every symptom pointed at the
+ * shader instead.
+ */
+const createSceneTexture = (width: number, height: number) =>
+  root
+    .createTexture({
+      format: navigator.gpu.getPreferredCanvasFormat(),
+      size: [width, height] as [number, number],
+    })
+    .$usage("render", "sampled");
+
+let sceneTexture = createSceneTexture(1, 1);
+/** Reported, because a backdrop that silently stayed 1×1 looks exactly like a shader that is wrong. */
+let sceneSize = "1 x 1";
+let surfaceBindGroup = root.createBindGroup(surfaceLayout, {
+  backdrop: sceneTexture,
   camera: cameraBuffer,
-  sampler: root.createSampler({ magFilter: "linear", minFilter: "linear" }),
+  sampler: linearSampler,
   surfaces: surfacesBuffer,
-  windows: windowTextures,
 });
 
 /**
@@ -728,26 +802,35 @@ const surfaceBindGroup = root.createBindGroup(surfaceLayout, {
  * 500 000 quads in a single draw measured earlier, a few dozen materials is not a budget worth
  * thinking about.
  */
-const materials = { edge: edgeFragment, sheen: sheenFragment };
+/**
+ * Additive, so a material adds light to captured pixels instead of covering them. Text inside a
+ * component survives untouched, which is the rule that keeps this usable at all.
+ */
+const ADDITIVE = {
+  alpha: { dstFactor: "one", operation: "add", srcFactor: "one" },
+  color: { dstFactor: "one", operation: "add", srcFactor: "one" },
+} as const;
+
+/** Glass is the exception: it replaces its pixels with refracted ones, confined to the rim. */
+const OVER = {
+  alpha: { dstFactor: "one-minus-src-alpha", operation: "add", srcFactor: "one" },
+  color: { dstFactor: "one-minus-src-alpha", operation: "add", srcFactor: "src-alpha" },
+} as const;
+
+const materials = {
+  edge: { blend: ADDITIVE, fragment: edgeFragment },
+  glass: { blend: OVER, fragment: glassFragment },
+  sheen: { blend: ADDITIVE, fragment: sheenFragment },
+};
 const materialPipelines = Object.fromEntries(
-  Object.entries(materials).map(([name, fragment]) => [
+  Object.entries(materials).map(([name, material]) => [
     name,
-    root
-      .createRenderPipeline({
-        fragment,
-        primitive: { topology: "triangle-list" },
-        targets: {
-          // Additive, so a material adds light to captured pixels instead of covering them. Text
-          // inside a component survives untouched, which is the rule that keeps this usable.
-          blend: {
-            alpha: { dstFactor: "one", operation: "add", srcFactor: "one" },
-            color: { dstFactor: "one", operation: "add", srcFactor: "one" },
-          },
-          format: navigator.gpu.getPreferredCanvasFormat(),
-        },
-        vertex: surfaceVertex,
-      })
-      .with(surfaceLayout, surfaceBindGroup),
+    root.createRenderPipeline({
+      fragment: material.fragment,
+      primitive: { topology: "triangle-list" },
+      targets: { blend: material.blend, format: navigator.gpu.getPreferredCanvasFormat() },
+      vertex: surfaceVertex,
+    }),
   ]),
 );
 
@@ -834,7 +917,7 @@ common.writeSoA(quadsBuffer, { rect: rects, tint: tints });
 {
   let slot = 0;
 
-  for (const material of ["sheen", "edge"]) {
+  for (const material of MATERIAL_ORDER) {
     for (const source of surfaceSources.filter((candidate) => candidate.material === material)) {
       for (let quad = 0; quad < surfaceQuads; quad++) {
         if (quad % textureLayers !== source.layer) {
@@ -1014,11 +1097,63 @@ const timed = hasTimestamps
     })
   : pipeline;
 
+/**
+ * The scene texture straight to the canvas.
+ *
+ * A full-screen triangle rather than a quad — `common.fullScreenTriangle` is the shape the library
+ * ships for exactly this, and one triangle has no diagonal seam for the rasteriser to shade twice.
+ */
+const blitLayout = tgpu.bindGroupLayout({
+  sampler: { sampler: "filtering" },
+  source: { texture: d.texture2d(d.f32) },
+});
+
+const blit = root.createRenderPipeline({
+  fragment: tgpu.fragmentFn({ in: { uv: d.vec2f }, out: d.vec4f })((input) => {
+    "use gpu";
+
+    return d.vec4f(std.textureSample(blitLayout.$.source, blitLayout.$.sampler, input.uv).xyz, 1);
+  }),
+  primitive: { topology: "triangle-list" },
+  targets: { format: navigator.gpu.getPreferredCanvasFormat() },
+  // The library's own, rather than a hand-rolled one. Getting the winding or the UV flip wrong here
+  // fails as a black screen with no error, which is exactly the class of mistake a shipped
+  // primitive exists to prevent.
+  vertex: common.fullScreenTriangle,
+});
+
+let blitBindGroup = root.createBindGroup(blitLayout, {
+  sampler: linearSampler,
+  source: sceneTexture,
+});
+
 const resize = () => {
   const ratio = Math.min(globalThis.devicePixelRatio, 2);
+  const width = Math.max(Math.round(canvas.clientWidth * ratio), 1);
+  const height = Math.max(Math.round(canvas.clientHeight * ratio), 1);
 
-  canvas.width = Math.max(Math.round(canvas.clientWidth * ratio), 1);
-  canvas.height = Math.max(Math.round(canvas.clientHeight * ratio), 1);
+  if (width === canvas.width && height === canvas.height) {
+    return;
+  }
+
+  canvas.width = width;
+  canvas.height = height;
+
+  // The backdrop has to match the canvas exactly, since materials address it by framebuffer
+  // coordinate. Everything that binds it is rebuilt with it.
+  sceneTexture.destroy();
+  sceneTexture = createSceneTexture(width, height);
+  sceneSize = `${String(width)} x ${String(height)}`;
+  surfaceBindGroup = root.createBindGroup(surfaceLayout, {
+    backdrop: sceneTexture,
+    camera: cameraBuffer,
+    sampler: linearSampler,
+    surfaces: surfacesBuffer,
+  });
+  blitBindGroup = root.createBindGroup(blitLayout, {
+    sampler: linearSampler,
+    source: sceneTexture,
+  });
 };
 
 new ResizeObserver(resize).observe(canvas);
@@ -1080,6 +1215,8 @@ const frame = () => {
    * — nothing next to the draw — and running it unconditionally means the light can never be stale,
    * which removes a whole class of invalidation bug in exchange for a cost too small to measure.
    */
+  const sceneView = sceneTexture;
+
   if (lit) {
     analyze.dispatchWorkgroups(textureLayers);
     lightPipeline
@@ -1087,7 +1224,7 @@ const frame = () => {
         clearValue: [0.037, 0.04, 0.049, 1],
         loadOp: "clear",
         storeOp: "store",
-        view: context,
+        view: sceneView,
       })
       .draw(6, quadCount);
   }
@@ -1099,9 +1236,15 @@ const frame = () => {
       // between them.
       loadOp: lit ? "load" : "clear",
       storeOp: "store",
-      view: context,
+      view: sceneView,
     })
     .draw(6, quadCount);
+
+  // The scene reaches the canvas here, and from this point it is also readable as a backdrop.
+  blit
+    .with(blitLayout, blitBindGroup)
+    .withColorAttachment({ loadOp: "clear", storeOp: "store", view: context })
+    .draw(3);
 
   /*
    * Materials, batched by material, drawn over the windows.
@@ -1133,7 +1276,8 @@ const frame = () => {
     // material library on screen, never the number of components.
     for (const batch of surfaceBatches) {
       materialPipelines[batch.material]
-        ?.withColorAttachment({ loadOp: "load", storeOp: "store", view: context })
+        ?.with(surfaceLayout, surfaceBindGroup)
+        .withColorAttachment({ loadOp: "load", storeOp: "store", view: context })
         .draw(6, batch.count, 0, batch.first);
     }
   }
@@ -1165,6 +1309,7 @@ const frame = () => {
       : `gpu        timestamp-query unavailable`,
     `textures   ${String(textureLayers)} x ${String(textureSize)}px  = ${(textureBytes / 1024 ** 2).toFixed(1)} MB`,
     `capture    ${captureLabel}`,
+    `backdrop   ${sceneSize}   canvas ${String(canvas.width)} x ${String(canvas.height)}`,
     ...(lit ? [`ink        ${signatureReport}   (measured from the captured pixels)`] : []),
     ...(surfacePlan.length > 0
       ? [

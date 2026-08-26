@@ -30,10 +30,18 @@ export const Surface = d.struct({
 });
 
 export const surfaceLayout = tgpu.bindGroupLayout({
+  /**
+   * Everything already drawn this frame — the light and the windows — as a texture.
+   *
+   * A material that refracts has to see what is behind it, and a pass cannot sample the target it
+   * is writing to. So the scene renders to its own texture first and the canvas gets a blit; by the
+   * time materials draw, the backdrop is an ordinary input. This is the one structural change glass
+   * forces, and it is the same ping-pong every compositor that has ever blurred a backdrop makes.
+   */
+  backdrop: { texture: d.texture2d(d.f32) },
   camera: { uniform: Camera },
   sampler: { sampler: "filtering" },
   surfaces: { access: "readonly", storage: d.arrayOf(Surface) },
-  windows: { texture: d.texture2dArray() },
 });
 
 /**
@@ -61,6 +69,8 @@ export const surfaceVertex = tgpu.vertexFn({
     size: d.interpolate("flat", d.vec2f),
     tint: d.vec4f,
     uv: d.vec2f,
+    /** World units per device pixel, so a material can size a blur in pixels at any zoom. */
+    zoom: d.interpolate("flat", d.f32),
   },
 })((input) => {
   "use gpu";
@@ -97,6 +107,7 @@ export const surfaceVertex = tgpu.vertexFn({
     tint: surface.tint,
     // Remapped so 0–1 spans the component itself rather than the bled quad.
     uv: std.sub(std.mul(corner, 2), d.vec2f(0.5, 0.5)),
+    zoom: camera.zoom,
   };
 });
 
@@ -142,6 +153,93 @@ export const sheenFragment = tgpu.fragmentFn({
   const amount = (rim * 1.15 + fill) * input.hover + sweep * 1.3;
 
   return d.vec4f(std.mul(input.tint.xyz, amount), 1);
+});
+
+/**
+ * Glass: a refractive bevel around a component's border.
+ *
+ * The one material that cannot be written without a backdrop, which is why it is the one worth
+ * building — it proves the ping-pong rather than describing it. The signed distance field gives a
+ * surface normal for free, so near the boundary the sample is pushed *outward* and the rim shows a
+ * compressed view of whatever surrounds the component. On a window that means the light field bends
+ * around its edge, which is what glass actually does and what no amount of CSS can fake.
+ *
+ * Alpha rather than additive: this replaces its pixels with refracted ones, so it is the exception
+ * to the rule that materials only add. It is confined to the rim for exactly that reason — the
+ * interior is left alone and the text inside a component is never at risk.
+ */
+export const glassFragment = tgpu.fragmentFn({
+  in: {
+    hover: d.interpolate("flat", d.f32),
+    pos: d.builtin.position,
+    radius: d.interpolate("flat", d.f32),
+    size: d.interpolate("flat", d.vec2f),
+    tint: d.vec4f,
+    uv: d.vec2f,
+    zoom: d.interpolate("flat", d.f32),
+  },
+  out: d.vec4f,
+})((input) => {
+  "use gpu";
+  const half = std.mul(input.size, 0.5);
+  const point = std.mul(std.sub(input.uv, d.vec2f(0.5, 0.5)), input.size);
+  const distance = roundedBoxDistance(point, half, input.radius);
+
+  // Thickness of the bevel, in world units, so it stays proportional to the component.
+  const thickness = std.max(std.min(input.size.x, input.size.y) * 0.09, 1);
+  const feather = std.max(thickness * 0.35, 0.5);
+  const inside = 1 - std.smoothstep(0, feather, distance);
+  const bevel = std.smoothstep(-thickness, -feather, distance) * inside;
+
+  // Central difference on the distance field: its gradient is the surface normal, no extra data.
+  const step = std.max(thickness * 0.25, 0.35);
+  const gradient = d.vec2f(
+    roundedBoxDistance(std.add(point, d.vec2f(step, 0)), half, input.radius) -
+      roundedBoxDistance(std.sub(point, d.vec2f(step, 0)), half, input.radius),
+    roundedBoxDistance(std.add(point, d.vec2f(0, step)), half, input.radius) -
+      roundedBoxDistance(std.sub(point, d.vec2f(0, step)), half, input.radius),
+  );
+  const normal = std.normalize(std.add(gradient, d.vec2f(0.0001, 0.0001)));
+
+  /*
+   * Sampled in device pixels, because the backdrop is a screen-space texture.
+   *
+   * The bend is scaled by zoom so a window refracts by the same *apparent* amount however far away
+   * it is — otherwise the effect would vanish when zoomed out and swallow the window when close.
+   */
+  const viewport = surfaceLayout.$.camera.viewport;
+  const bend = std.mul(normal, bevel * thickness * input.zoom * 1.6);
+  const centre = std.div(input.pos.xy, viewport);
+  const sampled = std.div(std.add(input.pos.xy, bend), viewport);
+
+  // Three taps along the bend rather than a kernel: the smear should follow the refraction, which
+  // is what makes it read as thickness instead of as blur.
+  const refracted = std.mul(
+    std.add(
+      std.add(
+        std.textureSample(surfaceLayout.$.backdrop, surfaceLayout.$.sampler, sampled).xyz,
+        std.textureSample(
+          surfaceLayout.$.backdrop,
+          surfaceLayout.$.sampler,
+          std.mix(centre, sampled, 0.55),
+        ).xyz,
+      ),
+      std.textureSample(
+        surfaceLayout.$.backdrop,
+        surfaceLayout.$.sampler,
+        std.div(std.add(input.pos.xy, std.mul(bend, 1.5)), viewport),
+      ).xyz,
+    ),
+    0.3333,
+  );
+
+  // A highlight where the normal faces up-left, which is where a single light would be.
+  const specular = std.pow(std.max(std.dot(normal, d.vec2f(-0.7, -0.72)), 0), 5) * bevel;
+
+  return d.vec4f(
+    std.add(std.mul(refracted, 1.18), std.mul(input.tint.xyz, specular * 0.5 + bevel * 0.05)),
+    bevel,
+  );
 });
 
 /** Edge: a constant accent rim. No hover, so it is the cheap case and the second batch. */
