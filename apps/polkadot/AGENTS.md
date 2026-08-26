@@ -9,6 +9,25 @@ seems wrong, strengthen or repoint it and say why — tightening is fine, weaken
 work seems complete, say so in your reply and keep working. A disarmed hook fails silently, which
 is how an entire mission once ran with no enforcement at all.
 
+## Committing when another session is working in the same tree
+
+`git add <paths>` does not bound your commit. The pre-commit hook runs `vp staged`, whose scope
+is the modified working tree rather than your index — commit two files while another session has
+five uncommitted and you will commit seven, under your message.
+
+This has happened twice, in both directions, and neither time was noticed until afterwards. Once
+a commit swept a staged deletion whose replacement was still untracked, which left `HEAD` naming
+a SurQL file it did not contain and the database unable to open from a clean clone. Once a
+commit about window summaries carried an entire unrelated conflict-notice feature.
+
+So: **read `git show --stat HEAD` after every commit**, and if it names files you did not write,
+say so to the other session immediately and precisely — which files, which commit. The tree stays
+correct either way; what breaks is the other agent's picture of what they still have to land, and
+that only breaks if nobody says anything.
+
+Do not fix it by rewriting history. A rebase or an amend across a tree someone else is editing
+costs more than a misattributed commit message, and rewriting shared history is the owner's call.
+
 ## The one rule that is not negotiable
 
 **Check the framework first. This is a hard precondition on every capability, with no exception
