@@ -236,72 +236,82 @@ Learned by probing rather than from docs, because both constraints are load-bear
 snapdom was a baseline, not a candidate — it existed here to establish that the native path is
 worth having, which at 4× it is. Nothing in the compositor design should be shaped around it.
 
-### The native lane is not a faster capture — it is not a capture at all
+## Result — fill rate
 
-**Everything above measures the fallback.** The primary lane is Chrome's
-HTML-in-canvas, and it is a different mechanism rather than a quicker version of
-the same one.
+`?overdraw=1` stacks every quad over the whole visible world, so each is drawn full-viewport and
+every fragment is written `n` times. Fifty layers of full-screen textured overdraw:
 
-The API shape below is taken from a reference in
-`agentic-tooling/plugins/codex/react-three-fiber/examples/src`. What is borrowed
-is the _contract_ — which is Chrome's and therefore holds regardless of the code
-wrapped around it — not that implementation's structure, which is not a model to
-follow:
+**0.240 ms.**
 
-```ts
-canvas.toggleAttribute("layoutsubtree", true); // canvas lays out its children
-canvas.append(windowElement); // source is a DIRECT child
-canvas.addEventListener("paint", (event) => {
-  // browser says what changed
-  ctx.drawElementImage(windowElement, 0, 0); // browser paints its own layout
-});
-canvas.requestPaint();
-// the canvas itself is then the texture source — no readback
-```
+Fill is not a constraint either. Both halves of the geometry question are now answered and neither
+is anywhere near the budget.
 
-The differences that matter:
+## Result — interaction, and this is the finding that matters most
 
-- **No rasterisation step to pay for.** snapdom walks the DOM, inlines computed
-  styles, builds an SVG foreign object and rasterises that — reconstructing a
-  layout the browser already has. The native lane has the browser paint the
-  layout it already computed, straight into the canvas.
-- **No readback, no blob, no `ImageBitmap`.** The canvas _is_ the texture source.
-  The 16 ms above includes a round trip this path does not make.
-- **Invalidation is browser-driven.** The `paint` event carries
-  `changedElements`, so "what needs re-capturing" is answered by the engine
-  rather than guessed at by watching state.
-- **The source must be a direct child of the canvas**, and the canvas must carry
-  `layoutsubtree`. That is a real structural constraint, not a detail: it means
-  **one canvas per window**, not one texture array with a layer per window — so
-  the 256-layer cap above does not apply to this path, and the residency model
-  is different in kind.
+A captured window is a texture. What decides whether this is a **compositor** or a gallery of
+screenshots is whether a pointer reaches the DOM that made it.
 
-Probed here with the correct names, all absent in this Chrome 148 build:
+It does. Hovering a button inside a captured window lights it up; clicking it flips its state, and
+the change shows up on the canvas:
 
-| feature                                     | present |
-| ------------------------------------------- | ------- |
-| `layoutsubtree` attribute settable          | yes     |
-| `HTMLCanvasElement.requestPaint`            | **no**  |
-| `CanvasRenderingContext2D.drawElementImage` | **no**  |
-| `HTMLCanvasElement.captureElementImage`     | **no**  |
-| `onpaint` handler slot                      | **no**  |
+| interaction                 | hit-test → DOM change → paint → copy |
+| --------------------------- | ------------------------------------ |
+| hover enter / leave         | 2.50 ms                              |
+| click (state + text change) | 4.10 ms                              |
 
-The attribute being settable is meaningless on its own — any attribute can be
-set — and the reference's own probe says exactly that.
+Both sit inside a 60 Hz frame, and both are the _entire_ round trip, timed to
+`queue.onSubmittedWorkDone()` rather than to the enqueue call.
 
-**So the 16 ms is an upper bound on the wrong path.** It is the right number to
-plan against _today_, and the wrong one to design the architecture around. What
-is still missing is the native cost, and getting it needs a Chrome launched with
-the feature enabled.
+### Picking needs no GPU pass
+
+The surface is flat and the camera transform affine, so inverting it on the CPU is exact: screen
+point → world point → which quad (last match wins, since later instances draw over earlier) → local
+pixel via the quad's UV × `textureSize`. No ID buffer, no readback, no extra pass. A _deforming_
+surface would need one; a flat one never does.
+
+### `elementFromPoint` cannot see into a `layoutsubtree` canvas
+
+The first attempt routed the hit through `document.elementFromPoint`, which returned nothing —
+consistently, for every point inside every captured window. Children of a `layoutsubtree` canvas are
+laid out and painted by that canvas rather than composited into the page's normal hit-test tree.
+
+**So the compositor owns hit-testing.** It already has the window rects; what it additionally needs
+is each window's _interior_ geometry, and that comes from `getBoundingClientRect` on the source
+elements — free and exact, precisely because the browser really did lay them out.
+
+Two consequences, both architectural:
+
+- **The source subtree must stay attached and laid out.** Detaching the layout host after the first
+  capture looked harmless and silently broke everything downstream: no layout means
+  `getBoundingClientRect` reports zeros, so every control's box collapsed to a point and no click
+  could ever land. It is parked behind the opaque surface instead.
+- **Hover cannot come from CSS.** The source DOM is never under the user's pointer — the pointer is
+  over the WebGPU canvas the whole time — so `:hover` can never fire on it. The compositor resolves
+  what is under the pointer, marks it on the source element, and repaints. That is why hover appears
+  in the table above as a measurable cost at all.
+
+The same reasoning rules out **CSS transitions and animations inside a captured window**: a captured
+surface only advances when it is repainted, so an animated state freezes at whatever frame the paint
+happened to catch. Motion on the canvas belongs to the shader, not to the captured pixels.
+
+### Why the layout host stays one canvas
+
+Earlier notes in this file claimed the direct-child rule forces **one canvas per window**. It does
+not, and the interaction work is what makes the difference concrete: every window is a sibling child
+of a single `layoutsubtree` canvas, each copying into its own texture-array layer, and each
+answering `getBoundingClientRect` in the same coordinate space. One canvas, one paint, N layers, one
+hit-test space.
 
 ## What is still not settled
 
-- **Fill rate.** Every run above is at zoom 0.35 with most quads small or
-  offscreen. The instance count was never the bottleneck, so these are
-  instance-count and upload results, not fill results. Windows filling the
-  viewport is a different test and has not been run.
-- **Culling.** Not implemented. The GPU processes all N instances every frame,
-  including those far offscreen — so the geometry numbers are a conservative
-  worst case, but no real compositor would do this.
-- **The native capture lane.** Measured above with snapdom only;
-  `ctx.drawElement` needs a flagged Chrome and is the number that matters most.
+- **Culling.** Not implemented. The GPU processes all N instances every frame, including those far
+  offscreen — so the geometry numbers are a conservative worst case, but no real compositor would do
+  this.
+- **Text input and focus.** Clicking a button is one interaction; a caret, selection, IME and focus
+  rings are another, and none have been tried. This is the likeliest place for the approach to still
+  hit a wall.
+- **Transform synchronisation.** Captured windows are drawn at the compositor's transform, not the
+  browser's. Nothing here checks what the browser believes a captured element's on-screen box is,
+  which matters for accessibility and for anything the engine positions itself.
+- **React.** Every window here is static HTML cloned N times. Rendering real components into the
+  layout host is the next step, and is not proven.

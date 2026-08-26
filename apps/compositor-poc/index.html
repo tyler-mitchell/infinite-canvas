@@ -76,6 +76,21 @@
         top: 0;
       }
 
+      /*
+       * The html-in-canvas layout host, parked *behind* the opaque WebGPU surface rather than
+       * off-screen or detached.
+       *
+       * Same reason as above, twice over: a detached subtree has no layout, so `requestPaint()`
+       * rasterises nothing and `getBoundingClientRect()` reports zeros — which silently broke
+       * pointer hit-testing, since every control's box collapsed to a point.
+       */
+      #paint-host {
+        left: 0;
+        position: fixed;
+        top: 0;
+        z-index: -1;
+      }
+
       .note {
         background: oklch(0.205 0.009 265);
         border-radius: 12px;
@@ -110,6 +125,45 @@
         margin: 0 0 12px 18px;
       }
 
+      .note-action {
+        background: oklch(0.268 0.011 265);
+        border: 0;
+        border-radius: 8px;
+        color: oklch(0.96 0.008 85);
+        font: inherit;
+        font-size: 13px;
+        margin-bottom: 12px;
+        padding: 8px 14px;
+      }
+
+      /*
+       * Hover is marked by the compositor, not by `:hover`.
+       *
+       * This subtree is never under the user's pointer — the pointer is over the WebGPU canvas the
+       * whole time — so the browser's own hover state can never fire. The compositor resolves what
+       * is under the pointer and sets the attribute. `:hover` is kept alongside only so the source
+       * DOM still behaves normally when it is looked at directly.
+       *
+       * No `transition`: a captured surface only advances when it is repainted, so an animated
+       * state would freeze at whatever frame the paint happened to catch.
+       */
+      .note-action:hover,
+      .note-action[data-hover="true"] {
+        background: oklch(0.35 0.015 265);
+        box-shadow: inset 0 0 0 1px oklch(0.5 0.02 265);
+      }
+
+      .note-action[data-done="true"] {
+        background: oklch(0.78 0.15 55);
+        color: oklch(0.16 0.02 55);
+      }
+
+      .note-action[data-done="true"]:hover,
+      .note-action[data-done="true"][data-hover="true"] {
+        background: oklch(0.86 0.16 55);
+        box-shadow: inset 0 0 0 1px oklch(0.95 0.06 55);
+      }
+
       .note-meta {
         color: oklch(0.55 0.012 265) !important;
         font-size: 11px !important;
@@ -138,6 +192,8 @@
             <li>An 8192² atlas holds ~341 windows</li>
             <li>Re-capture is a scheduling problem</li>
           </ul>
+          <!-- A real control, so interaction can be proven rather than asserted. -->
+          <button class="note-action" type="button">Mark as done</button>
           <p class="note-meta">edited 2 minutes ago · 3 links</p>
         </div>
       </div>

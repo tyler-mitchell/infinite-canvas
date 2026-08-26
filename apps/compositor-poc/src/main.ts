@@ -112,12 +112,16 @@ let incrementalMs = 0;
 let changedElementCount = 0;
 let changedElementsReported = false;
 let dirtyWindows = 0;
+let interactionResult = "click a window to test";
+/** Paint + copy cost of showing a hover or click, measured to the point the GPU has done it. */
+let respondMs = 0;
 
 if (captureNative) {
   const paintCanvas = document.createElement("canvas");
 
   paintCanvas.width = textureSize;
   paintCanvas.height = textureSize;
+  paintCanvas.id = "paint-host";
   paintCanvas.toggleAttribute("layoutsubtree", true);
   document.body.append(paintCanvas);
 
@@ -228,9 +232,173 @@ if (captureNative) {
   changedElementCount = changed.length;
   changedElementsReported = changed.length > 0;
   dirtyWindows = dirtyCount;
+
+  /**
+   * Screen point → the control under it.
+   *
+   * This is the difference between a compositor and a gallery of screenshots, and for a *flat*
+   * surface it needs none of the GPU UV-picking a deforming one would: the quad's placement is an
+   * affine transform of the camera, so inverting it on the CPU is exact. Screen point → world
+   * point → which quad → local pixel → the control's own box.
+   *
+   * Resolved against that box rather than `document.elementFromPoint`, which returns nothing for
+   * children of a `layoutsubtree` canvas: they are laid out and painted by the canvas rather than
+   * composited into the page's normal hit-test tree. That is a real constraint on this
+   * architecture — routing a pointer into a captured window needs geometry the compositor carries,
+   * not the browser's hit test.
+   */
+  const resolvePointer = (clientX: number, clientY: number) => {
+    const bounds = canvas.getBoundingClientRect();
+    const world = {
+      x: (clientX - bounds.left - canvas.clientWidth / 2) / camera.zoom + camera.center.x,
+      y: (clientY - bounds.top - canvas.clientHeight / 2) / camera.zoom + camera.center.y,
+    };
+
+    // Last match wins: later instances draw over earlier ones, so the topmost is the one hit.
+    let hitIndex = -1;
+
+    for (let index = 0; index < quadCount; index++) {
+      const offset = index * 4;
+      const x = rects[offset] as number;
+      const y = rects[offset + 1] as number;
+      const width = rects[offset + 2] as number;
+      const height = rects[offset + 3] as number;
+
+      if (world.x >= x && world.x <= x + width && world.y >= y && world.y <= y + height) {
+        hitIndex = index;
+      }
+    }
+
+    const layer = hitIndex % textureLayers;
+    const element = hitIndex < 0 ? undefined : windowElements[layer];
+
+    if (!element) {
+      return null;
+    }
+
+    // The quad shows the whole layer, so UV scales to texture space; the element occupies its own
+    // box at the layer's origin.
+    const offset = hitIndex * 4;
+    const local = {
+      x: ((world.x - (rects[offset] ?? 0)) / (rects[offset + 2] ?? 1)) * textureSize,
+      y: ((world.y - (rects[offset + 1] ?? 0)) / (rects[offset + 3] ?? 1)) * textureSize,
+    };
+    const elementBox = element.getBoundingClientRect();
+    const candidate = element.querySelector(".note-action") as HTMLButtonElement | null;
+    const candidateBox = candidate?.getBoundingClientRect();
+    const control =
+      candidate !== null &&
+      candidateBox !== undefined &&
+      local.x >= candidateBox.left - elementBox.left &&
+      local.x <= candidateBox.right - elementBox.left &&
+      local.y >= candidateBox.top - elementBox.top &&
+      local.y <= candidateBox.bottom - elementBox.top
+        ? candidate
+        : null;
+
+    return { control, layer, local };
+  };
+
+  /**
+   * Repaint the subtree once, then re-copy only the layers named.
+   *
+   * One paint covers every window, so the cost of showing a state change is the paint plus a copy
+   * per changed layer — never a paint per window. Timed, because "does this feel live" is a
+   * measurement rather than an opinion.
+   */
+  const recapture = async (layers: readonly number[]) => {
+    const started = performance.now();
+
+    await paintOnce();
+
+    for (const layer of layers) {
+      const element = windowElements[layer];
+
+      if (element) {
+        copyElementImageToTexture(
+          { source: element },
+          { destination: { origin: [0, 0, layer], texture: rawTexture } },
+        );
+      }
+    }
+
+    await root.device.queue.onSubmittedWorkDone();
+    respondMs = performance.now() - started;
+  };
+
+  /**
+   * Hover, driven by the compositor rather than by CSS.
+   *
+   * The source DOM sits behind the surface and is never under the user's pointer, so `:hover` can
+   * never fire on it. The compositor resolves what is under the pointer, marks it on the source
+   * element, and repaints — which is also the honest test of the capture loop, since hover is the
+   * cheapest interaction there is and it still costs a full paint.
+   *
+   * Only a *change* of hovered control repaints. Repainting per pointer event would pay ~3 ms a
+   * move for pixels that are already correct.
+   */
+  let hovered: { control: HTMLButtonElement; layer: number } | null = null;
+
+  canvas.addEventListener("pointermove", (event) => {
+    // Dragging is a camera pan; the window under the pointer is not being aimed at.
+    if (event.buttons !== 0) {
+      return;
+    }
+
+    const found = resolvePointer(event.clientX, event.clientY);
+    const control = found?.control ?? null;
+
+    // Cursor feedback lives outside the texture, so it lands on the very next frame rather than
+    // waiting on a paint.
+    canvas.style.cursor = control === null ? "default" : "pointer";
+
+    if ((hovered?.control ?? null) === control) {
+      return;
+    }
+
+    const stale = hovered;
+
+    hovered = control === null || found === null ? null : { control, layer: found.layer };
+
+    stale?.control.removeAttribute("data-hover");
+
+    if (hovered) {
+      hovered.control.dataset["hover"] = "true";
+    }
+
+    void recapture([...(stale ? [stale.layer] : []), ...(hovered ? [hovered.layer] : [])]);
+  });
+
+  /**
+   * Clicking a captured window and having the source DOM respond.
+   *
+   * The window stays the authority for its own state. Nothing here synthesises a DOM event or
+   * reaches into the scene; the hit resolves to a control, the control's state changes, and the
+   * changed window is repainted and re-copied into its layer.
+   */
+  canvas.addEventListener("click", (event) => {
+    const found = resolvePointer(event.clientX, event.clientY);
+
+    interactionResult =
+      found === null
+        ? "no window under the pointer"
+        : found.control === null
+          ? `window ${String(found.layer)} — hit, no control at ${found.local.x.toFixed(0)},${found.local.y.toFixed(0)}`
+          : `window ${String(found.layer)} — control activated`;
+
+    if (found === null || found.control === null) {
+      return;
+    }
+
+    const done = found.control.dataset["done"] !== "true";
+
+    found.control.dataset["done"] = String(done);
+    found.control.textContent = done ? "Done ✓" : "Mark as done";
+
+    void recapture([found.layer]);
+  });
   captureLabel = `native copyElementImageToTexture  (${(captureMs / textureLayers).toFixed(2)} ms/window)`;
   nativeDirectToTexture = true;
-  paintCanvas.remove();
 } else if (captureHtml) {
   await document.fonts.ready;
 
@@ -513,6 +681,8 @@ const frame = () => {
           `${String(dirtyWindows)} dirty    ${incrementalMs.toFixed(2)} ms in one paint   (${(incrementalMs / dirtyWindows).toFixed(2)} ms/window)`,
           `changedEls ${changedElementsReported ? `${String(changedElementCount)} reported` : "not reported by the paint event"}`,
           `all ${String(textureLayers)}     ${captureMs.toFixed(0)} ms  (${(captureMs / textureLayers).toFixed(2)} ms/window)`,
+          `click      ${interactionResult}`,
+          `respond    ${respondMs === 0 ? "hover a control to test" : `${respondMs.toFixed(2)} ms  paint + copy`}`,
         ]
       : []),
     nativeDirectToTexture
