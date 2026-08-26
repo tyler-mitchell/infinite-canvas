@@ -42,7 +42,7 @@ Exit: the app has a real framework-backed execution path and can receive product
 ## Phase 1: database corpus and browser worker
 
 Type: Database  
-Status: in progress  
+Status: complete  
 Estimated: 3 hours, 10 minutes human review  
 Files: `surql/manifest.json`, `surql/schema/001_core.surql`, `surql/functions/001_canvas.surql`,
 `surql/tests/001_core.surql`, `src/database/database.client.ts`,
@@ -64,7 +64,7 @@ Verification:
 
 - [x] `surql_validate` accepts the corpus with strict corpus checks.
 - [x] The local SurrealDB runtime executes the manifest and proof file.
-- [ ] A browser worker opens `indxdb://polkadot`, writes a record, reloads, and reads it.
+- [x] A browser worker opens `indxdb://polkadot`, writes a record, reloads, and reads it.
 - [x] A stale `fn::save_canvas` revision returns no update.
 - [x] The database worker is absent from the initial main-thread route chunk.
 - [x] The production worker resolves Vite's emitted hashed WASM asset.
@@ -74,6 +74,7 @@ Exit: a browser-owned database runs off the main thread and enforces the first d
 ## Phase 2: runtime load and canvas hydration
 
 Type: Integration  
+Status: complete, one verification deferred  
 Estimated: 3.5 hours, 5 minutes human review  
 Files: `src/runtime/runtime.client.ts`, `src/runtime/runtime-context.tsx`,
 `src/database/project-repository.ts`, `src/database/canvas-repository.ts`,
@@ -82,20 +83,41 @@ Files: `src/runtime/runtime.client.ts`, `src/runtime/runtime-context.tsx`,
 
 Tasks:
 
-- [ ] Compose the database, repositories, window registry, canvas store, and canvas handle in one client runtime.
-- [ ] Load or create the first project and canvas.
-- [ ] Parse the saved layout with the framework parser and normalize it against the registry.
-- [ ] Render deterministic loading, ready, empty, and database-failure states.
-- [ ] Route `/` to the most recent canvas and `/canvas/$canvasId` to one runtime instance.
-- [ ] Ensure route changes dispose subscriptions, database resources, and store references.
+- [x] Compose the database, repositories, window registry, canvas store, and canvas handle in one client runtime.
+- [x] Load or create the first project and canvas.
+- [x] Parse the saved layout with the framework parser and normalize it against the registry.
+- [x] Render deterministic loading, ready, empty, and database-failure states.
+- [x] Route `/` to the most recent canvas and `/canvas/$canvasId` to one runtime instance.
+- [x] Ensure route changes dispose subscriptions, database resources, and store references.
+
+The planned `project-repository.ts` and `canvas-repository.ts` were not created:
+`database.client.ts` already owns connection lifecycle, SurQL installation, and
+validation, so both would have re-exported it and owned nothing.
 
 Verification:
 
 - [ ] A new database creates one project and canvas and opens it.
-- [ ] A saved canvas reloads with the same camera, windows, groups, and workspaces.
-- [ ] A malformed layout opens recovery UI while valid content remains queryable.
-- [ ] Two canvas routes never share a store instance.
-- [ ] Navigating away and back does not duplicate a database or handle subscription.
+- [x] A saved canvas reloads with the same camera, windows, groups, and workspaces.
+- [x] A malformed layout opens recovery UI while valid content remains queryable.
+- [x] Two canvas routes never share a store instance.
+- [x] Navigating away and back does not duplicate a database or handle subscription.
+
+Witnessed in the browser, not inferred from the suite:
+
+- Zooming advanced `canvas_document:main` from revision 0 to 1 with `camera.zoom`
+  1 to 1.405; a reload restored 140% with the window at `scale(1.40493)`.
+- A second canvas opened at 100% and `scale(1)` while main held 140% and
+  `scale(1.40493)`, so the two routes did not share a store.
+- A layout of `{ notACanvas: true }` opened "This canvas layout is damaged"; a
+  layout naming `chart` and `timeline` opened the canvas with its valid note and a
+  HUD notice reading "2 window kinds could not be opened: chart, timeline".
+- Navigating main → second → main and then zooming once advanced the revision by
+  exactly 1, so no subscription survived the route change.
+
+The first box is unticked deliberately: proving it means erasing this browser's
+IndexedDB, which holds the note written during the Phase 1 witness. Bootstrap runs
+on the `/` loader when `fn::most_recent_canvas` returns nothing, and that branch has
+not been executed since it was written.
 
 Exit: route identity reaches one loaded, validated, parent-owned canvas runtime.
 
