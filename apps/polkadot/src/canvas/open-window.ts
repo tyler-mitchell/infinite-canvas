@@ -1,8 +1,8 @@
 import {
   createInfiniteCanvasWindow,
+  getInfiniteCanvasContentWorldRect,
   getInfiniteCanvasVacantRect,
   getInfiniteCanvasWindowPlacementRect,
-  getVisibleWorldRect,
   type InfiniteCanvasCommands,
   type InfiniteCanvasRect,
   type InfiniteCanvasState,
@@ -51,7 +51,28 @@ const WINDOW_GAP = 24;
 function getPlacedRect(
   input: WindowPlacement & Readonly<{ minSize: WindowSize; size: WindowSize }>,
 ) {
-  const bounds = getVisibleWorldRect(input.state.camera, input.state.viewport, 0);
+  /*
+   * The part of the world this app's own chrome is not sitting on — not the whole visible rect.
+   *
+   * A window is as hidden behind the library rail as behind another window, and the rail is not an
+   * occupant: it is screen-space furniture, so what it leaves is the complement of a band. Every
+   * such band is already declared through `viewportInsets`, and every camera verb already respects
+   * them; placement was the surface still asking the wider question.
+   *
+   * The centre rarely lands under the rail on its own, which is why this survived. The *search*
+   * does: `getInfiniteCanvasVacantRect` steps cells across whatever bounds it is given, so with the
+   * full visible rect the leftmost column starts at the viewport edge, behind the rail. Open onto a
+   * busy middle and the nearest free cell is one nobody can see — the note opens, the canvas looks
+   * unchanged, and the rail is covering it.
+   *
+   * Same rule the connector anchor already follows, and the same rule the rest of this app learned
+   * once: a derived view has to ask the question the verb asks.
+   */
+  const bounds = getInfiniteCanvasContentWorldRect(
+    input.state.camera,
+    input.state.viewport,
+    input.state.viewportInsets,
+  );
 
   return getInfiniteCanvasVacantRect({
     bounds,
