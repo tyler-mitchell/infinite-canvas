@@ -110,3 +110,27 @@ Framework changes also need the package's own check, its 489 tests, and both bui
 thing is good. Open the preview, hover the canvas, drag a window, watch the field react. The one
 defect that mattered most in this app's history — every workspace action being silently dropped —
 survived a full test suite and died the first time someone loaded the page.
+
+### Clicking by coordinate
+
+**A coordinate click is in the screenshot's pixels, not the page's.** The pane scales the viewport
+— a 514×998 viewport photographs as 800×1553 — so a coordinate read from `getBoundingClientRect`
+lands somewhere else entirely, usually on whatever the library rail has at that height. Multiply by
+the screenshot's width over the viewport's width, both of which every `read_page` and screenshot
+result prints.
+
+This cost six attempts on one menu and produced a confident, wrong conclusion each time: the menu
+opened, the click missed, and it read as "the item did not take" — a product defect that was not
+there. Three cheap habits make it unmistakable:
+
+- Ask `document.elementFromPoint(x, y)` whether the element you meant is actually on top. It answers
+  in viewport pixels, so agreeing with your target proves the _target_, not the click.
+- After a failed click, look at the screenshot for what highlighted instead. A hovered row
+  elsewhere is the coordinate space telling you it disagrees.
+- Check nothing is covering it. A conflict notice or a menu left open from a previous attempt sits
+  above the canvas, and Base UI toggles — so a click on a trigger whose menu is already open closes
+  it, and everything later in that batch lands on bare canvas.
+
+For a Base UI menu specifically: `ref` clicks do not open one at all, and `element.click()` misses
+because it opens on pointerdown. Screenshot, click the trigger, wait, screenshot again, then click
+the item — all in one batch, starting from a closed menu, with both clicks in screenshot pixels.
