@@ -61,6 +61,29 @@ open because it feels good to look at. Concretely, and these are enforced in rev
       save-status pill read "Local canvas saved" throughout, because that is its initial value.
       What had actually been witnessed was the _note_ round-trip, which persists by a different
       path. Now genuinely verified: revision advanced 0 → 1 → 2 and a reload restored the camera.
+      **The second way this loop stopped saving was worse than the first, because it looked
+      handled.** A revision conflict — the document on disk moved past the revision this tab holds,
+      which is what two tabs on one canvas produce — was reported as an ordinary `error`. But the
+      held revision only advances on a _successful_ write, so after a conflict it is permanently
+      stale and every later save carries the same doomed number. The write loop went on refusing
+      every write for the rest of the session behind a small red pill reading "Canvas
+      canvas_document:main changed after revision 396", which names a record and a number and tells
+      a person nothing about whether their work is at risk. Driven before it was fixed: two document
+      edits after a conflict, and the status never left `error` on that same revision. Everything
+      done from that moment was lost on reload.
+      **A conflict is now its own status, and the loop stops rather than churning.** Stopping is the
+      point — the queue was doing steady work that could only fail. The pill says "Changes are not
+      being saved", which is the sentence that is actually true, and a notice offers the two honest
+      answers. There is no third: the layout is one blob, so there is nothing to merge and somebody's
+      arrangement wins. **"Keep mine" forks this tab's arrangement into a new canvas**, which is the
+      only option that destroys nothing — the other writer's canvas is untouched. Reloading is the
+      other answer and it is destructive, so it says so.
+      Witnessed through the real path rather than a simulated one: two tabs on one canvas, an edit in
+      each, the conflict raised in the stale tab. The snapshot handed to the fork was
+      `["Images·", "Untitled 10"]` — including the edit that could not be saved — and the new canvas
+      came up at its own id holding both. Conflicts are detected by error `name` rather than
+      `instanceof`, because importing the error's class into the write loop would drag the
+      eleven-megabyte WebAssembly engine onto that path.
 - [x] Framework: `renderBackdrop`, the counterpart to `renderOverlay`
 - [x] Design tokens: palette, elevation, motion, type
 - [x] Framework tokens for window radius and elevation (`--icx-surface-radius`, `--icx-surface-shadow`)

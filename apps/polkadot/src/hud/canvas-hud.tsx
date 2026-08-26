@@ -174,6 +174,7 @@ function RecoveryNotice({ droppedKinds }: Readonly<{ droppedKinds: readonly stri
 
 export function CanvasHud({
   commandPalette,
+  conflict,
   droppedKinds,
   identity,
   library,
@@ -181,6 +182,12 @@ export function CanvasHud({
   minimap,
 }: Readonly<{
   commandPalette?: ReactNode;
+  /**
+   * The canvas has stopped saving and needs a decision. Takes the top-right corner outright when
+   * present: it and the recovery notice both live there, and stacking two warnings would put the
+   * one that is merely historical over the one that is still true.
+   */
+  conflict?: ReactNode;
   droppedKinds?: readonly string[];
   identity: ReactNode;
   library?: ReactNode;
@@ -215,7 +222,15 @@ export function CanvasHud({
         <HudSurface anchor="top-left" persistent>
           {identity}
         </HudSurface>
-        {droppedKinds === undefined ? null : <RecoveryNotice droppedKinds={droppedKinds} />}
+        {conflict === undefined || conflict === null ? (
+          droppedKinds === undefined ? null : (
+            <RecoveryNotice droppedKinds={droppedKinds} />
+          )
+        ) : (
+          <HudSurface anchor="top-right" persistent present>
+            {conflict}
+          </HudSurface>
+        )}
         <SelectionRail />
         {/* Inside the inset root, unlike the offscreen ring: this is an ordinary corner surface,
             and it should sit inside whatever the library leaves rather than under it. */}

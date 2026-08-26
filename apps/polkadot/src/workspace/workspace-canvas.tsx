@@ -10,6 +10,7 @@ import { useEffect, useMemo } from "react";
 import { Button } from "ui";
 import { tv } from "ui/tv";
 
+import { CanvasConflictNotice } from "../canvas/canvas-conflict-notice";
 import type { CanvasPersistenceStatus } from "../canvas/canvas-persistence";
 import { CANVAS_CHROME } from "../canvas/chrome";
 import { createCanvasDropPolicy, type CanvasDropPayload } from "../canvas/drop-policy";
@@ -86,6 +87,18 @@ const TOP_INSET = 56;
 const BOTTOM_INSET = 56;
 
 function getSaveAdmission(status: CanvasPersistenceStatus): SaveAdmission {
+  /*
+   * A conflict says what is true of the work, not what the database said.
+   *
+   * The raw error — "Canvas canvas_document:main changed after revision 396" — names a record and
+   * a number, and a person reading it cannot tell whether anything of theirs is at risk. What is
+   * actually true is that nothing they do from now on is being written down, and that is the
+   * sentence the pill should carry. The notice beside it says what to do about it.
+   */
+  if (status.status === "conflict") {
+    return { message: "Changes are not being saved", status: "error" };
+  }
+
   if (status.status === "error") {
     return {
       message: status.error instanceof Error ? status.error.message : "Local save failed",
@@ -288,6 +301,15 @@ export function WorkspaceCanvas({ canvas }: Readonly<{ canvas: LoadedCanvas }>) 
               <ConnectorDraft projectId={canvas.projectId} />
               <CanvasHud
                 commandPalette={<CommandPalette projectId={canvas.projectId} />}
+                conflict={
+                  runtime.saveStatus.status === "conflict" ? (
+                    <CanvasConflictNotice
+                      canvasTitle={canvas.title}
+                      handle={runtime.handle}
+                      projectId={canvas.projectId}
+                    />
+                  ) : null
+                }
                 droppedKinds={canvas.droppedKinds}
                 libraryInset={libraryOpen ? RAIL_INSET : 0}
                 minimap={

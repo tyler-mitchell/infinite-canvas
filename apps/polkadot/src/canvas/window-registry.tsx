@@ -15,6 +15,7 @@ import { tv } from "ui/tv";
  * was deferring something already deferred, and cost a second place the note's read and save were
  * named.
  */
+import { CollectionSummary } from "../collections/collection-summary";
 import { CollectionWindowBody } from "../collections/collection-window";
 import { ImageWindowBody } from "../images/image-window";
 import { noteGateway } from "../notes/note-gateway";
@@ -111,10 +112,11 @@ const windowDefinitions = defineInfiniteCanvasWindowRegistry<WindowKind, WindowD
    * is genuinely taller than the frame and the wheel belongs to it, which is the note's answer and
    * the opposite of the image's.
    *
-   * No `renderSummary`: at far zoom a list of titles is exactly the small text the lane exists to
-   * replace, and the framework's contract asks for something *different* rather than the same thing
-   * smaller. What that different thing should be — a count, an icon — is a real design question and
-   * inventing an answer to satisfy the field would be worse than leaving the body to shrink.
+   * Its summary is a name and a number, which is the *different* thing the lane asks for. Shrinking
+   * a list of titles produces grey stripes where every stripe was a word; "Images · 6" still answers
+   * what the window is and how much is in it at a zoom where none of the rows can be read. The count
+   * is the part a list cannot say at any size without being read, so far zoom is where it earns its
+   * place rather than a consolation for losing the rows.
    */
   collection: {
     kind: "collection",
@@ -126,6 +128,13 @@ const windowDefinitions = defineInfiniteCanvasWindowRegistry<WindowKind, WindowD
         <div className={noteWindow().summary()}>This window is not bound to a collection.</div>
       ) : (
         <CollectionWindowBody collectionId={data.itemId} />
+      );
+    },
+    renderSummary: ({ window }) => {
+      const data = getInfiniteCanvasWindowData(window, ContentWindowData.allows);
+
+      return data == null ? null : (
+        <CollectionSummary collectionId={data.itemId} title={window.title} />
       );
     },
     textSelection: "none",
