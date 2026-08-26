@@ -53,6 +53,14 @@ removal broke no one. `window-scene-shell.ts` stays on disk because `window-prox
 calls one function from it, and it is re-exportable in a minor if a consumer ever
 asks — a promise not yet made is cheaper to keep than one made and withdrawn.
 
+`canvas-handle` is a narrower case than the others and its entry used to say the
+wrong thing — "a debug and automation seam, not a consumer API". It is in fact the
+incubator app's persistence spine: Polkadot's autosave runs on
+`subscribeDocument`, and that path has been watched working. What remains
+unobserved is the rest of the surface — `subscribe`, `snapshot`, and
+`getContextualCommands` are driven by nothing — and the handle may still grow
+spatial queries. Experimental for what is untested, not for what it is.
+
 `offscreen` was **unobserved** until Polkadot drew its indicator ring and the
 arrows were watched tracking offscreen notes in a browser. It moved to stable the
 day that stopped being true, which is the only thing that should ever move an

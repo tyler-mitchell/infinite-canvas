@@ -76,7 +76,7 @@
     "workspace-membership"
   ],
   "experimental": {
-    "canvas-handle": "unobserved \u2014 a debug and automation seam, not a consumer API. Its shape follows whatever drives it.",
+    "canvas-handle": "unobserved \u2014 the handle's *documented* surface outruns what anything exercises. Polkadot's autosave depends on `subscribeDocument` and has been watched working, so that much is observed; `subscribe`, `snapshot`, and `getContextualCommands` are not driven by anything and the surface may still grow spatial queries. Not the 'debug seam nobody consumes' this entry claimed until 2026-08-26 \u2014 it is the incubator app's persistence spine.",
     "diagnostics": "off-by-default \u2014 this policy exists to switch on the frustum probe layer, and nothing switches it on.",
     "minimap": "unobserved \u2014 landed 2026-07-08. No minimap has been drawn in a browser.",
     "rasterization-layer": "off-by-default \u2014 the policy, scheduler, and snapshot capture ship behind the rasterization prop. P7 intends to rebuild the capture lane on html-in-canvas.",
