@@ -45,21 +45,55 @@ open because it feels good to look at. Concretely, and these are enforced in rev
   quietly stops applying is worse than one that was never written down. Read the item before acting
   on this: the cost that first took it off screen was fixed, and what keeps it off is a decision
   about where the field belongs, which is not an agent's to reverse.
-- **Every class comes from a `tv` slot.** No Tailwind strings in JSX, ever. Global CSS is
-  tokens, resets, and imports only — **and every reset in it belongs inside a layer.** That last
-  clause used to stop at "resets", and the licence it granted cost the app its typography:
-  `styles.css` ended with an unlayered `button, input, textarea { font: inherit }`, which in the CSS
-  cascade **outranks every layered style**, including the whole of `@layer utilities` this file
-  declares on line 1. One bare selector beat the utility system. Every font-size and font-weight
-  utility on every button, input and textarea rendered at the document default: the note title
-  declared `text-[15px] font-medium` and drew at 16px/400, rail rows declared 12.5px and drew at
-  16px, the rail search declared 12px and drew at 16px. The classes were on the elements and the
-  rules were generated — they simply never won, so nothing errored and nothing looked broken enough
-  to chase.
+- **Every class comes from a `tv` slot.** No Tailwind strings in JSX, ever. Global CSS is tokens,
+  resets, and imports only — **and every rule in it lives inside a layer.** Only `:root` is exempt,
+  because it declares custom properties and nothing else.
+  That clause used to stop at "every _reset_", and the licence it granted cost the app its
+  typography: `styles.css` ended with an unlayered `button, input, textarea { font: inherit }`,
+  which in the CSS cascade **outranks every layered style**, including the whole of
+  `@layer utilities` this file declares on line 1. One bare selector beat the utility system. Every
+  font-size and font-weight utility on every button, input and textarea rendered at the document
+  default: the note title declared `text-[15px] font-medium` and drew at 16px/400, rail rows
+  declared 12.5px and drew at 16px, the rail search declared 12px and drew at 16px. The classes
+  were on the elements and the rules were generated — they simply never won, so nothing errored and
+  nothing looked broken enough to chase.
   Found by measuring a computed style against its declaration rather than by looking, which is the
   only way this is visible; a screenshot of it reads as "the rail seems a bit loose". Deleted rather
   than layered, because Tailwind's preflight already declares `font: inherit` on that set inside
   `@layer base` where utilities can beat it.
+  Deleting it fixed the one line and left the mechanism, because **the whole file was unlayered** —
+  all 23 rules, every one of them a ceiling over `@layer utilities`. They now sit in
+  `@layer components`, which the line-1 order puts after the framework's `infinite-canvas` and
+  before `utilities`: slot overrides still beat the framework's theme, and a utility now beats a
+  slot override. The framework carries the other half — `theme.css` used to promise a cascade
+  position it cannot hold, since a layer is ordered by where it is first established, so importing
+  the theme after `@import "tailwindcss"` makes the theme outrank every utility. That is documented
+  now, and a containment test fails if any rule is ever written outside the framework's layer.
+  The general shape has its own bullet below, because it outgrew this one.
+- **Every declaration must be shown to win.** This app's most expensive defect class is not a
+  wrong value — it is **a declaration that is present, generated, and never wins.** It emits no
+  error, fails no typecheck, and produces no obviously broken pixel, so it survives review for as
+  long as nobody measures. Four instances so far, by two different mechanisms:
+
+  - an unlayered `font: inherit` reset outranked all of `@layer utilities` — every font utility on
+    every button, input and textarea rendered at the document default;
+  - the same, one level up: the _whole_ of `styles.css` was unlayered, so all 23 rules were a
+    ceiling over the utility system;
+  - `theme.css` was ordered by import position, so a consumer importing it after Tailwind gets a
+    framework theme that outranks every utility they write;
+  - a `justify-content: flex-end` on the note and link header, which never applied because the
+    framework writes `justify-content` into that header's **inline** style, and inline beats every
+    stylesheet rule at any layer. These kinds hide the chrome title, so the header has exactly one laid-out child —
+    and `space-between` parks a lone child at the _start_. Note controls sat on the left for weeks,
+    with half the header empty to their right.
+
+  The first three are cascade layers; the fourth is inline style, which no layer can reach. What
+  they share is the symptom, and the symptom is the point: **a screenshot cannot find any of them.**
+  The reset one reads as "the rail seems a bit loose"; the header one was read off a screenshot as
+  correct and was not. The only thing that finds this class is reading the computed value back and
+  comparing it against what was declared — `getComputedStyle`, not the eye. Do that once per visual
+  change and this class stops shipping.
+
 - **Nothing hand-rolled that a maintained library owns.** TanStack (Router, Pacer, Hotkeys,
   Form, Virtual, DB), Base UI, cmdk, ArkType, Legend State, motion, tailwind-variants.
 
@@ -1038,21 +1072,22 @@ stays. What is missing is the field itself, and it is hours of careful work, not
 
 Kept here because the list _is_ the incubator's output.
 
-| Gap                                                                                                      | Generic affordance                                                              | State  |
-| -------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- | ------ |
-| Backdrop was hardcoded                                                                                   | `renderBackdrop`, mirroring `renderOverlay`                                     | landed |
-| No way to observe "the durable document changed"                                                         | `InfiniteCanvasHandle.subscribeDocument`                                        | landed |
-| Hydration adopted a fallback's unusable viewport                                                         | `desktop.hydrate` keeps a usable viewport over the payload's                    | landed |
-| `chrome` demanded all five metrics, and the defaults are not exported                                    | `InfiniteCanvasChromeMetricsInput`, mirroring `zoomPolicy`                      | landed |
-| No DOM layer between the backdrop and the windows: connectors meant losing the grid or taking on `three` | `renderUnderlay`, the counterpart to `renderBackdrop` and `renderOverlay`       | landed |
-| Workspaces could be walked but never entered: no command made one, named which to go to, or closed one   | `workspace.create`, `workspace.enter`, `workspace.close`                        | landed |
-| Navigation was not desktop-aware: going to a window another desktop hid panned the camera to nothing     | `window.reveal` — go where the window is, restore it, focus it                  | landed |
-| The HUD pinned itself to the element's edges, ignoring the bands every camera verb already respects      | `canvas-hud` insets its root by `viewportInsets`, per edge                      | landed |
-| The HUD's bottom edge was two absolutes pinned to opposite sides, free to grow into each other           | one flex row: the dock shrinks and wraps, the controls hold their size          | landed |
-| A dock item's padding was an inline style and its text was uppercased, over a `window.title`             | both moved into `theme.css`, where a consumer can reach them                    | landed |
-| A body wrapper fixed at `min-height: 100%` made `height: 100%` impossible for its own content            | the wrapper follows the kind's `overflowY`: growable if it scrolls, else pinned | landed |
-| The drop system was pointer-only, so a file dragged in from the OS could reach none of it                | the viewport bridges native drag events into the same drop interaction          | landed |
-| Six surfaces answered "which windows" without asking which desktop, so each offered what one hides       | every derived view reads the same membership the verb does                      | landed |
+| Gap                                                                                                       | Generic affordance                                                              | State  |
+| --------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- | ------ |
+| Backdrop was hardcoded                                                                                    | `renderBackdrop`, mirroring `renderOverlay`                                     | landed |
+| No way to observe "the durable document changed"                                                          | `InfiniteCanvasHandle.subscribeDocument`                                        | landed |
+| Hydration adopted a fallback's unusable viewport                                                          | `desktop.hydrate` keeps a usable viewport over the payload's                    | landed |
+| `chrome` demanded all five metrics, and the defaults are not exported                                     | `InfiniteCanvasChromeMetricsInput`, mirroring `zoomPolicy`                      | landed |
+| No DOM layer between the backdrop and the windows: connectors meant losing the grid or taking on `three`  | `renderUnderlay`, the counterpart to `renderBackdrop` and `renderOverlay`       | landed |
+| Workspaces could be walked but never entered: no command made one, named which to go to, or closed one    | `workspace.create`, `workspace.enter`, `workspace.close`                        | landed |
+| Navigation was not desktop-aware: going to a window another desktop hid panned the camera to nothing      | `window.reveal` — go where the window is, restore it, focus it                  | landed |
+| The HUD pinned itself to the element's edges, ignoring the bands every camera verb already respects       | `canvas-hud` insets its root by `viewportInsets`, per edge                      | landed |
+| The HUD's bottom edge was two absolutes pinned to opposite sides, free to grow into each other            | one flex row: the dock shrinks and wraps, the controls hold their size          | landed |
+| A dock item's padding was an inline style and its text was uppercased, over a `window.title`              | both moved into `theme.css`, where a consumer can reach them                    | landed |
+| A body wrapper fixed at `min-height: 100%` made `height: 100%` impossible for its own content             | the wrapper follows the kind's `overflowY`: growable if it scrolls, else pinned | landed |
+| The drop system was pointer-only, so a file dragged in from the OS could reach none of it                 | the viewport bridges native drag events into the same drop interaction          | landed |
+| Six surfaces answered "which windows" without asking which desktop, so each offered what one hides        | every derived view reads the same membership the verb does                      | landed |
+| `theme.css` promised a cascade position it cannot hold, so importing it after Tailwind beat every utility | the contract documented as it is, plus a test that no rule escapes the layer    | landed |
 
 **On the last row, because the count is the finding.** One omission repeated six
 times: `window.reveal` panned to a rect nothing renders, the offscreen ring aimed arrows at hidden
