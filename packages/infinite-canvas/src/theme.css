@@ -24,8 +24,18 @@
  * Scope rules:
  * - Visual treatments only (color, background, border color/style/hairline
  *   widths, shadows, typography, filters, transitions, opacity).
- * - Geometry and structure (positions, sizes, transforms, z-index,
- *   pointer-events, flex) stay in the components.
+ * - Geometry the framework *computes* stays in the components, because
+ *   something else derives from it: positions, sizes, transforms, z-index,
+ *   pointer-events, and the body offset and hit-testing that read them.
+ *
+ *   This line used to end at "flex", and that was drawn in the wrong place.
+ *   An inline style outranks every stylesheet rule in every layer, so a
+ *   property written there is not merely defaulted — it is unreachable, and a
+ *   consumer's rule for it fails silently. Whether children sit at the start,
+ *   the end or apart is a choice a consumer can reasonably disagree with and
+ *   nothing derives from, so `justify-content` on the header belongs here.
+ *   The distinction is what the framework computes, not which property group
+ *   the name falls into.
  * - The 11 `--icx-*` tokens bridged from DEFAULT_INFINITE_CANVAS_THEME in
  *   ./constants.ts must match those values verbatim (enforced by
  *   ./theme-tokens.test.ts).
