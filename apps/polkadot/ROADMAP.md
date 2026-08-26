@@ -221,8 +221,16 @@ stays. What is missing is the field itself, and it is hours of careful work, not
       angular gap is tens of pixels on an edge and almost nothing at a corner. The nearer target
       survives and carries a `targetCount`, which the chip shows as a badge: one arrow over a
       cluster of five should say five, or you do not go looking.
-      Folding is proven by unit test and mutation-checked; the browser has witnessed the
-      _non_-folding case — two chips 47px apart, correctly left alone — not a fold.
+      Folding is proven by unit test, mutation-checked, and now witnessed: panned far enough that
+      the two bearings converge, the pair becomes one chip carrying a `2` and reading "Go to
+      Welcome, and 1 more this way".
+      **And witnessing it found the next thing.** The folded chip landed behind the "New note"
+      button, because this app declared only its `left` inset. The library rail is the obvious
+      chrome; the identity rail along the top and the zoom and selection rails along the bottom are
+      chrome too, and until they were named the camera centred content underneath them and the
+      indicator ring projected onto an edge with a pill rail sitting on it. Declaring one edge and
+      forgetting the others is the same bug as declaring none, only quieter — and it was mine, from
+      building the affordance and then using a quarter of it.
       **Still open:** the chips are peripheral by design and deliberately quiet, tuned by one look
       rather than by watching anyone use them.
 
