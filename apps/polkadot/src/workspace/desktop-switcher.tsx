@@ -20,6 +20,7 @@ import { useEffect, useRef } from "react";
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuRadioGroup,
@@ -260,25 +261,35 @@ export function DesktopSwitcher() {
         {elsewhere.length === 0 ? null : (
           <>
             <DropdownMenuSeparator />
-            <DropdownMenuLabel>Not on this desktop</DropdownMenuLabel>
-            {elsewhere.slice(0, ELSEWHERE_LIMIT).map((window) => (
-              <DropdownMenuItem
-                key={window.id}
-                onClick={() => {
-                  actions.executeCommand({ type: "window.reveal", windowId: window.id });
-                }}
-              >
-                <CornerUpRight />
-                <span className={styles.itemTitle()}>{window.title}</span>
-                <span className={styles.where()}>{window.where}</span>
-              </DropdownMenuItem>
-            ))}
-            {/* A silent cap reads as "that is everything" when it is not. */}
-            {elsewhere.length > ELSEWHERE_LIMIT ? (
-              <DropdownMenuLabel>
-                and {String(elsewhere.length - ELSEWHERE_LIMIT)} more
-              </DropdownMenuLabel>
-            ) : null}
+            {/*
+              Grouped because `DropdownMenuLabel` is Base UI's *group* label and reads
+              `MenuGroupContext`: outside a group it throws, and the throw takes the canvas down to
+              an error page rather than logging a warning. The label above is inside the radio group
+              and was always safe; these two never were. This file's roadmap entry records that this
+              section and the one below it were "typechecked and read, not driven" — this is what
+              was waiting in them, and it fires the first time any window is on another desktop.
+            */}
+            <DropdownMenuGroup>
+              <DropdownMenuLabel>Not on this desktop</DropdownMenuLabel>
+              {elsewhere.slice(0, ELSEWHERE_LIMIT).map((window) => (
+                <DropdownMenuItem
+                  key={window.id}
+                  onClick={() => {
+                    actions.executeCommand({ type: "window.reveal", windowId: window.id });
+                  }}
+                >
+                  <CornerUpRight />
+                  <span className={styles.itemTitle()}>{window.title}</span>
+                  <span className={styles.where()}>{window.where}</span>
+                </DropdownMenuItem>
+              ))}
+              {/* A silent cap reads as "that is everything" when it is not. */}
+              {elsewhere.length > ELSEWHERE_LIMIT ? (
+                <DropdownMenuLabel>
+                  and {String(elsewhere.length - ELSEWHERE_LIMIT)} more
+                </DropdownMenuLabel>
+              ) : null}
+            </DropdownMenuGroup>
           </>
         )}
         {active === undefined ? null : (

@@ -406,20 +406,32 @@ open because it feels good to look at. Concretely, and these are enforced in rev
   the shape. `InfiniteCanvasViewportInsets` and `InfiniteCanvasViewportInsetsInput` are exported
   now, with `docs/API.md` updated. The same omission the comment above that function already
   describes for `resolveInfiniteCanvasChromeMetrics`, which is what made it recognisable.
-  **Not driven in a browser, and not yet mounted — the honest state of the surface.** Both modules
-  are committed and typecheck, and the database half underneath them is witnessed, but nothing has
-  clicked any of it. **`SavedViewMenu` is not rendered anywhere yet**: the one line that mounts it
-  belongs in `IdentityRail` in `workspace-canvas.tsx`, and that file imports `notes/relations`,
-  which another session was moving to `relations/relation-store` while this landed. Committing the
-  wiring would have meant committing a file that does not resolve, so the wiring waits for that move
-  rather than racing it. It is one line, and it is the next thing to do.
-  The canvas route was also down at the time, on the same session's refactor —
-  `window-registry.tsx` renamed `NoteWindowData` to `ContentWindowData` and `connector-draft.tsx`
-  is half migrated — so the app did not boot to be looked at either. **Do not tick this item on the
-  strength of a typecheck.** What needs watching once it mounts: that the saved rect is the region
-  the chrome leaves rather than the whole viewport, which is the one thing here that is easy to get
-  wrong and invisible in code — save a view with the rail open, pan away, come back, and check the
-  thing you framed is not sitting under the panel.
+  **Driven end to end, and two defects came out of driving it that no typecheck could have.**
+  Watched: the menu opens listing nothing over "Nothing saved here yet."; "Save this view" replaces
+  the trigger with an input carrying the suggested name **already selected**, so the first keystroke
+  replaces it; Enter commits and the trigger returns wearing a count; the view appears as a row and
+  "Remove a view" appears with it; jumping restores the framing; removal takes the row and the count
+  away together. The round trip was made deliberately hard to fake — saved at 18%, zoomed out to
+  30%, jumped back, landed on **18%**.
+  **The first defect took the whole canvas down.** `DropdownMenuLabel` is Base UI's _group_ label and
+  reads `MenuGroupContext`, so a label outside a `DropdownMenuGroup` throws rather than warns:
+  "Base UI: MenuGroupContext is missing" over the error page, on the first click. Worth more than
+  the fix: **`DesktopSwitcher` had the same latent break in two places** — its "Not on this desktop"
+  and "and N more" labels sit outside any group, and this file already recorded that section as
+  "typechecked and read, not driven". That is what was waiting in it, and it would have fired the
+  first time any window sat on another desktop. Both are grouped now.
+  **The second was quieter and is the more interesting one.** `navigateToRect` defaults to
+  `center`, and centring keeps the zoom you are already at — so the first jump moved the camera and
+  left the framing wrong, which reads as "it went somewhere" rather than as a bug. A saved view has
+  to _fit_: `behavior: { paddingPx: 0, type: "fit" }`. Zero padding rather than the default 80,
+  because the stored rect is already the region the chrome leaves and `getFitCamera` fits into that
+  same inset region — padding it again would zoom out 80px every trip, so a view re-saved from
+  itself would drift wider each time.
+  **One thing remains unwatched**, and it is the claim the geometry exists for: that a view saved
+  with the rail open frames what is beside the rail rather than what is behind it. The framework
+  test pins the arithmetic — an asymmetric-inset rect is not centred on the camera, and that test
+  fails against `getVisibleWorldRect` — but nobody has yet saved a view, closed the rail, and
+  confirmed by eye that the subject did not shift.
   **Rename and create landed.** Double-click a row and it becomes an input — Enter commits, Escape
   abandons, blur commits, because clicking away from a field you have typed into and losing it is
   what nobody expects. This is the rail's own justification made concrete: this file already

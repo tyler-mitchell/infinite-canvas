@@ -6,6 +6,7 @@ import { useEffect, useRef } from "react";
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
@@ -195,32 +196,58 @@ export function SavedViewMenu({ canvasId }: Readonly<{ canvasId: string }>) {
         {views.length === 0 ? null : <span className={styles.count()}>{views.length}</span>}
       </DropdownMenuTrigger>
       <DropdownMenuContent>
-        <DropdownMenuLabel>{removing ? "Remove which view?" : "Saved views"}</DropdownMenuLabel>
-        {/* Blank rather than "none yet" until a read answers: an empty state is a claim about the
-            world, and a claim nobody has checked is the one thing a local-first app must not make. */}
-        {views.length === 0 ? (
-          <DropdownMenuLabel>
-            {getSavedViews(listing, canvasId) === null ? "" : "Nothing saved here yet."}
-          </DropdownMenuLabel>
-        ) : (
-          views.map((view) => (
-            <DropdownMenuItem
-              key={view.id}
-              onClick={() => {
-                if (removing) {
-                  void removeSavedView({ canvasId, viewId: view.id });
+        {/*
+          The group is not decoration. `DropdownMenuLabel` is Base UI's *group* label and reads
+          `MenuGroupContext`, so a label outside a group throws and takes the whole canvas down with
+          it — "Base UI: MenuGroupContext is missing" over an error page, not a warning in a console.
+          Found by opening this menu; the typecheck had nothing to say about it.
+        */}
+        <DropdownMenuGroup>
+          <DropdownMenuLabel>{removing ? "Remove which view?" : "Saved views"}</DropdownMenuLabel>
+          {/* Blank rather than "none yet" until a read answers: an empty state is a claim about the
+              world, and a claim nobody has checked is the one thing a local-first app must not make. */}
+          {views.length === 0 ? (
+            <DropdownMenuLabel>
+              {getSavedViews(listing, canvasId) === null ? "" : "Nothing saved here yet."}
+            </DropdownMenuLabel>
+          ) : (
+            views.map((view) => (
+              <DropdownMenuItem
+                key={view.id}
+                onClick={() => {
+                  if (removing) {
+                    void removeSavedView({ canvasId, viewId: view.id });
 
-                  return;
-                }
+                    return;
+                  }
 
-                actions.navigateToRect({ rect: view.rect });
-              }}
-            >
-              {removing ? <Trash2 /> : <Crosshair />}
-              <span className={styles.itemTitle()}>{view.title}</span>
-            </DropdownMenuItem>
-          ))
-        )}
+                  /*
+                   * `fit` with no padding, which is the difference between going there and
+                   * arriving.
+                   *
+                   * `navigateToRect` defaults to `center`, and centring keeps the zoom you are
+                   * already at — so jumping to a view saved at 18% while sitting at 12% moved the
+                   * camera and left the framing wrong. Watched it happen: the windows slid across
+                   * and the zoom readout never changed.
+                   *
+                   * Zero padding rather than the default 80, because the stored rect is *already*
+                   * the region the chrome leaves — `getInfiniteCanvasContentWorldRect` computed it
+                   * that way, and `getFitCamera` fits into that same inset region. Padding it again
+                   * would zoom out by 80px every trip, so a view would drift wider each time it was
+                   * re-saved from itself.
+                   */
+                  actions.navigateToRect({
+                    behavior: { paddingPx: 0, type: "fit" },
+                    rect: view.rect,
+                  });
+                }}
+              >
+                {removing ? <Trash2 /> : <Crosshair />}
+                <span className={styles.itemTitle()}>{view.title}</span>
+              </DropdownMenuItem>
+            ))
+          )}
+        </DropdownMenuGroup>
         <DropdownMenuSeparator />
         {removing ? (
           <DropdownMenuItem
