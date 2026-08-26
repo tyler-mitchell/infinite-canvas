@@ -1059,6 +1059,23 @@ stays. What is missing is the field itself, and it is hours of careful work, not
       it as an unexamined default rather than a decision. Turning it on found four framework
       defects, all in the table below.
 
+- [x] **Groups are reachable.** The framework has shipped the whole model since before this app had
+      a second window kind — Alt-drag docking, dock commands, three layouts, persistence — and
+      Polkadot offered no way in. A capability behind a modifier nobody presses speculatively, or a
+      palette row nobody searches for, is a capability nobody has.
+      Two surfaces close it. The selection rail gained a group verb, dim below two like the align
+      verbs beside it. A group rail appears when the active window is grouped: the three layouts as
+      a segmented choice, undock, ungroup. Layout reads the _container_ holding the active window
+      via `getInfiniteCanvasGroupParent`, not the group root — a nested split inside a tabbed group
+      is where those differ.
+      Driven: two windows to a group with a rect spanning them; split → tabs → accordion each
+      reaching the tree with the live segment following; ungroup dissolving it and leaving all
+      twelve windows. **And the round trip, which this app had never checked:** a group survives a
+      full reload with the same id, layout, member count and rect to the last decimal. Worth
+      checking rather than assuming, because this app's autosave has silently stopped twice.
+      No framework change was needed and none was made — `InfiniteCanvasHudPolicy` has no group
+      surface, so the rails are the app's rather than a second copy of one.
+
 ## Later, deliberately
 
 - **Tours** — `getInfiniteCanvasWorldPath` and `…PointAtProgress` are built for guided paths
