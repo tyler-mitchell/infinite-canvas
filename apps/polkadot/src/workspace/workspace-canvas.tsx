@@ -10,7 +10,6 @@ import { tv } from "ui/tv";
 
 import type { CanvasPersistenceStatus } from "../canvas/canvas-persistence";
 import { ConnectorLayer } from "../canvas/connector-layer";
-import { Field } from "../canvas/field";
 import { useCanvasRuntime } from "../canvas/use-canvas-runtime";
 import { windowDefinitions, type WindowKind } from "../canvas/window-registry";
 import { CanvasHud } from "../hud/canvas-hud";
@@ -143,9 +142,6 @@ export function WorkspaceCanvas({ canvas }: Readonly<{ canvas: LoadedCanvas }>) 
           // A note names itself in its body, so its header carries only controls and does not
           // need 40px to do it.
           chrome={CHROME}
-          // The ground. Draws only when something has actually moved, so a canvas at rest costs
-          // nothing — see `Field` for why that is load-bearing rather than an optimization.
-          renderBackdrop={() => <Field />}
           // Beneath the windows: a connector should pass under the note it joins, not across it.
           renderUnderlay={() => <ConnectorLayer />}
           hud={{
