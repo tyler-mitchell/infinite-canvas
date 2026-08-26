@@ -752,10 +752,10 @@ open because it feels good to look at. Concretely, and these are enforced in rev
   compatibility path for a shape it has replaced, and moving one window is a set of one. The action
   is `workspace.moveWindows`, matching `setWindows`: in this union a name is plural when it takes a
   set.
-  **Building it opened a hole, and the hole was older than the feature.** Filing the *active* window
+  **Building it opened a hole, and the hole was older than the feature.** Filing the _active_ window
   onto another desktop left it active and selected while the canvas stopped drawing it — so close,
   minimize, dock, place and resize all aimed at a window nobody could see.
-  `activateInfiniteCanvasWorkspace` already states the rule for the moment you *enter* a desktop —
+  `activateInfiniteCanvasWorkspace` already states the rule for the moment you _enter_ a desktop —
   a window it does not admit "must not stay selected or active either" — and nothing applied it in
   the other direction, where membership changes under a stationary camera. `removeWindow` could do
   it too; the plural move just made it a one-click gesture.
