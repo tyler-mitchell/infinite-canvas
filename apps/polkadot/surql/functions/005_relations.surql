@@ -25,6 +25,15 @@ DEFINE FUNCTION OVERWRITE fn::relate_notes(
   RETURN RELATE ONLY $source->relates_to->$target CONTENT { kind: $kind };
 };
 
+-- What an edge means. `kind` has been a required field since the first migration and every writer
+-- passed the literal "relates", so the column existed and said nothing.
+--
+-- Directed by id rather than by endpoints, unlike unrelate below: the caller has selected a
+-- specific edge on the canvas, so there is nothing to resolve and no second edge to catch.
+DEFINE FUNCTION OVERWRITE fn::set_relation_kind($relation: record<relates_to>, $kind: string) {
+  RETURN UPDATE ONLY $relation SET kind = $kind;
+};
+
 -- Undirected from the user's point of view: they connected two notes, so disconnecting removes
 -- the edge whichever way round it was drawn.
 DEFINE FUNCTION OVERWRITE fn::unrelate_notes(

@@ -26,6 +26,7 @@ import {
   Move3d,
   Search,
   SquareStack,
+  Tag,
   Trash2,
   Undo2,
   Unlink2,
@@ -49,7 +50,15 @@ import type { WindowKind } from "../canvas/window-registry";
 import type { CanvasSummary, NoteRecord, ProjectSummary } from "../database/database.client";
 import * as database from "../database/operations";
 import { openNewNote, openNoteWindow } from "../notes/open-note";
-import { connectNotes, disconnectNotes, findRelation, relations$ } from "../notes/relations";
+import {
+  connectNotes,
+  DEFAULT_RELATION_KIND,
+  disconnectNotes,
+  findRelation,
+  RELATION_KINDS,
+  relations$,
+  setRelationKind,
+} from "../notes/relations";
 
 /**
  * One surface over three vocabularies: the windows on this canvas, what Polkadot can do, and what
@@ -502,6 +511,36 @@ function PaletteContent({
             keywords="create"
             title="New canvas"
           />
+          {/*
+            What the selected connection means, one row per kind.
+
+            A fixed vocabulary is what a palette row is *for* — unlike a rename, there is nothing to
+            type, so this needs no inline editor and belongs here rather than in the rail. The kind
+            the edge already carries is left out: offering "Mark as supports" on an edge that
+            already supports is a row that does nothing, and a list that reads as a set of choices
+            when one of them is the current state teaches the wrong thing about what is selected.
+          */}
+          {selectedRelations.length === 0
+            ? null
+            : RELATION_KINDS.filter(
+                (kind) => !selectedRelations.every((relation) => relation.kind === kind),
+              ).map((kind) => (
+                <Row
+                  icon={kind === DEFAULT_RELATION_KIND ? Link2 : Tag}
+                  key={kind}
+                  keywords="mark kind meaning label edge relation"
+                  onSelect={run(() => {
+                    for (const relation of selectedRelations) {
+                      void setRelationKind({ kind, projectId, relationId: relation.id });
+                    }
+                  })}
+                  title={
+                    kind === DEFAULT_RELATION_KIND
+                      ? "Clear what this connection says"
+                      : `Say this connection ${kind}`
+                  }
+                />
+              ))}
           {selectedRelations.length === 0 ? null : (
             <Row
               icon={Unlink2}

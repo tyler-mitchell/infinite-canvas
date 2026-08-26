@@ -12,6 +12,27 @@ import * as database from "../database/operations";
 
 const relations$ = observable<readonly NoteRelation[]>([]);
 
+/**
+ * What a connection can mean.
+ *
+ * Argument-mapping vocabulary rather than an invented one, and deliberately small: five verbs a
+ * person can hold in their head beats a taxonomy they have to consult. Each is written as the word
+ * the connector shows, so the stored kind and the drawn label are the same string — there is no
+ * second table mapping one to the other and therefore no way for them to disagree.
+ *
+ * `relates` is the default and shows nothing. An unlabelled line is the honest rendering of "these
+ * belong together", which is the claim `relate` already makes by existing; drawing the word
+ * "relates" on it would put a label on every edge that says only what the line says.
+ */
+const RELATION_KINDS = ["relates", "supports", "contradicts", "refines", "follows"] as const;
+
+type RelationKind = (typeof RELATION_KINDS)[number];
+
+const DEFAULT_RELATION_KIND: RelationKind = "relates";
+
+/** What a connector says, or nothing when it makes no claim beyond existing. */
+const getRelationLabel = (kind: string) => (kind === DEFAULT_RELATION_KIND ? undefined : kind);
+
 async function loadRelations(projectId: string) {
   relations$.set(await database.relations.list(projectId));
 }
@@ -19,7 +40,25 @@ async function loadRelations(projectId: string) {
 async function connectNotes(
   input: Readonly<{ projectId: string; source: string; target: string }>,
 ) {
-  await database.relations.connect({ kind: "relates", source: input.source, target: input.target });
+  await database.relations.connect({
+    kind: DEFAULT_RELATION_KIND,
+    source: input.source,
+    target: input.target,
+  });
+  await loadRelations(input.projectId);
+}
+
+/**
+ * Say what an existing connection means.
+ *
+ * The edge is named by id rather than by its endpoints: the caller selected a specific connector on
+ * the canvas, so there is nothing to resolve, and the undirected endpoint lookup `disconnectNotes`
+ * needs would be answering a question nobody asked.
+ */
+async function setRelationKind(
+  input: Readonly<{ kind: RelationKind; projectId: string; relationId: string }>,
+) {
+  await database.relations.setKind({ kind: input.kind, relationId: input.relationId });
   await loadRelations(input.projectId);
 }
 
@@ -43,4 +82,15 @@ function findRelation(
   );
 }
 
-export { connectNotes, disconnectNotes, findRelation, loadRelations, relations$ };
+export {
+  connectNotes,
+  DEFAULT_RELATION_KIND,
+  disconnectNotes,
+  findRelation,
+  getRelationLabel,
+  loadRelations,
+  RELATION_KINDS,
+  relations$,
+  setRelationKind,
+};
+export type { RelationKind };

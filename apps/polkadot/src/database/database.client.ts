@@ -117,8 +117,82 @@ async function connectAndInstall() {
   }
 }
 
+/**
+ * Long enough for a cold WASM worker and a full schema install on a slow machine; short enough
+ * that nobody sits through it wondering.
+ */
+const LOCAL_DATABASE_OPEN_TIMEOUT_MS = 10_000;
+
+class LocalDatabaseUnavailableError extends Error {
+  override readonly name = "LocalDatabaseUnavailableError";
+}
+
+/**
+ * A rejection scheduled for later, and a way to call it off.
+ *
+ * The timer is cleared whichever way the race ends, so a successful open does not leave one armed
+ * for ten seconds. `Promise.race` attaches to this, so the rejection is never unhandled.
+ */
+function rejectAfter(ms: number, message: string) {
+  const canceller = new AbortController();
+
+  return {
+    cancel: () => {
+      canceller.abort();
+    },
+    promise: new Promise<never>((_resolve, reject) => {
+      const timer = setTimeout(() => {
+        reject(new LocalDatabaseUnavailableError(message));
+      }, ms);
+
+      canceller.signal.addEventListener("abort", () => {
+        clearTimeout(timer);
+      });
+    }),
+  };
+}
+
+/**
+ * Opening the database, bounded in time.
+ *
+ * Every way this can *fail* is already named above with the step that produced it. The way it can
+ * do neither was not. An open that never settles rejects nothing, so nothing is caught, and the
+ * route's pending component spins forever with no error, no explanation, and no way out — a worse
+ * outcome than a crash, because a crash at least tells you to stop waiting.
+ *
+ * Written after watching exactly that: the app sat on "Opening your workspace" indefinitely. The
+ * cause turned out to be stale dev-server modules rather than anything in this file, and I could
+ * not reproduce a hang from concurrent tabs — two open this database happily. So this is not a fix
+ * for a diagnosed defect. It is the observation that an unbounded open has no way to *report*,
+ * which is true regardless of what causes one.
+ *
+ * The driver offers no connect timeout — `ConnectOptions` carries retry, reconnect, and version
+ * checking, and nothing that bounds the initial open — so the bound is composed here. It wraps the
+ * whole open rather than just `connect`, since a half-alive connection can stall the schema import
+ * too, and one deadline over the whole thing is both simpler and stricter.
+ */
 function openLocalDatabase() {
-  lifecycle.promise ??= connectAndInstall().catch((error) => {
+  lifecycle.promise ??= (async () => {
+    /*
+     * No terminal punctuation, and no guess at the cause.
+     *
+     * `RootFailure` renders this as `${message}.` followed by its own sentence, so a message that
+     * punctuates itself reads with a doubled period. And the obvious-sounding cause — "another tab
+     * has it open" — is one I checked and disproved: two tabs open this database concurrently
+     * without complaint. Naming it would have sent whoever hit this to close tabs that were never
+     * the problem, which is worse than saying only what is known.
+     */
+    const deadline = rejectAfter(
+      LOCAL_DATABASE_OPEN_TIMEOUT_MS,
+      `The local workspace did not respond within ${String(LOCAL_DATABASE_OPEN_TIMEOUT_MS / 1000)} seconds`,
+    );
+
+    try {
+      return await Promise.race([connectAndInstall(), deadline.promise]);
+    } finally {
+      deadline.cancel();
+    }
+  })().catch((error: unknown) => {
     lifecycle.promise = undefined;
     throw error;
   });
@@ -574,6 +648,18 @@ async function relateNotes(
     .json();
 }
 
+async function setRelationKind(
+  input: Readonly<{ kind: string; relationId: string }>,
+): Promise<void> {
+  const client = await openLocalDatabase();
+  await client
+    .query<[unknown]>("RETURN fn::set_relation_kind($relation, $kind);", {
+      kind: input.kind,
+      relation: new StringRecordId(input.relationId),
+    })
+    .json();
+}
+
 async function unrelateNotes(input: Readonly<{ source: string; target: string }>): Promise<void> {
   const client = await openLocalDatabase();
   await client
@@ -633,6 +719,7 @@ export {
   renameProject,
   restoreNote,
   restoreProject,
+  setRelationKind,
   unrelateNotes,
   readCanvasRemovalSummary,
   restoreCanvas,

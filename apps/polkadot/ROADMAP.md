@@ -227,8 +227,27 @@ open because it feels good to look at. Concretely, and these are enforced in rev
   reason it is not a `window` listener: Backspace inside a note body still deletes a character.
   Witnessed rather than reasoned — the edge is gone after a reload, Backspace on empty canvas does
   nothing, "abcd" in a note body backspaces to "abc", and `Shift+1` still fits all afterwards.
-  **Still open:** labels and typed kinds, since every edge is currently `relates`; and no way to see
-  an edge whose notes are not both open, which is where the library rail would earn its place.
+  **Typed kinds landed, and the kind is the label.** `relates_to` has carried `kind` and `label`
+  since the first migration and every writer passed the literal `"relates"`, so the column existed
+  and said nothing. Five verbs now — `relates`, `supports`, `contradicts`, `refines`, `follows` —
+  written by `fn::set_relation_kind` and chosen from a palette row each, which is what a palette row
+  is _for_: a fixed vocabulary needs no inline editor, unlike the rename that had to go to the rail.
+  The kind the edge already carries is left out of the list, because offering "say this supports" on
+  an edge that already supports is a row that does nothing. The stored kind and the drawn word are
+  one string, so they cannot drift apart; `relates` draws nothing, since an unlabelled line already
+  says "these belong together" and printing the word would label every edge with what the line says.
+  The anchor is the framework's — `getInfiniteCanvasWorldPathPointAtProgress(path, 0.5)` over
+  `getInfiniteCanvasWorldPath(points)` — so it walks half the _routed_ length rather than averaging
+  the endpoints, which for an orthogonal elbow lands in open space beside the line.
+  **What a label does when it cannot be read:** it scales with the camera, because it belongs to the
+  edge and one held at a fixed size would detach from the line and compete with the HUD. Below 8px
+  it is dropped rather than shrunk — sub-8px text carries nothing, and the line still says the notes
+  are joined. A _selected_ edge draws its label at any zoom, because there is exactly one of it and
+  you asked for it. Driven, not reasoned: at 39% deselected the DOM holds no label; at 39% selected
+  it is there at the 8px floor; at 100% it is there at 11px.
+  **Still open:** free-text `label` is deliberately unwritten and unread — a palette row cannot host
+  a text field — and there is still no way to see an edge whose notes are not both open, which is
+  where the library rail would earn its place.
 - [~] **Workspaces** as the organizing spine. The framework's workspace model was reachable only by
   a consumer reaching past the command layer: `cycle` walks desktops that exist and does nothing
   when there are none, so nothing could make the first one, name which one to enter, or take one

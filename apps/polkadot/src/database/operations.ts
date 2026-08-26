@@ -47,6 +47,8 @@ export const relations = {
   disconnect: async (input: Readonly<{ source: string; target: string }>) =>
     (await client()).unrelateNotes(input),
   list: async (projectId: string) => (await client()).listRelations(projectId),
+  setKind: async (input: Readonly<{ kind: string; relationId: string }>) =>
+    (await client()).setRelationKind(input),
 };
 
 export const notes = {

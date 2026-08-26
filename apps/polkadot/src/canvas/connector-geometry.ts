@@ -1,6 +1,8 @@
 import {
   getInfiniteCanvasRectConnectorPath,
   getInfiniteCanvasWindowData,
+  getInfiniteCanvasWorldPath,
+  getInfiniteCanvasWorldPathPointAtProgress,
   getSelectionTargets,
   type InfiniteCanvasPoint,
   type InfiniteCanvasRect,
@@ -27,6 +29,15 @@ import { NoteWindowData, type WindowKind } from "./window-registry";
  */
 
 type DrawnConnector = Readonly<{
+  /**
+   * Where a label sits: the midpoint of the *routed* path, not of its endpoints.
+   *
+   * An orthogonal connector is three segments, so the average of its two ends is a point in open
+   * space beside the elbow rather than anywhere on the line. `getInfiniteCanvasWorldPath` measures
+   * the polyline and `…PointAtProgress` walks half its length along it, which lands on the drawn
+   * line whatever shape the route takes.
+   */
+  midpoint: InfiniteCanvasPoint;
   points: readonly InfiniteCanvasPoint[];
   relation: NoteRelation;
   segments: readonly InfiniteCanvasWorldSegment[];
@@ -56,8 +67,12 @@ function getDrawnConnectors(
     (rectsByNote.get(relation.source) ?? []).flatMap((fromRect) =>
       (rectsByNote.get(relation.target) ?? []).map((toRect) => {
         const path = getInfiniteCanvasRectConnectorPath(fromRect, toRect, { route: "orthogonal" });
+        const midpoint = getInfiniteCanvasWorldPathPointAtProgress(
+          getInfiniteCanvasWorldPath(path.points),
+          0.5,
+        );
 
-        return { points: path.points, relation, segments: path.segments };
+        return { midpoint, points: path.points, relation, segments: path.segments };
       }),
     ),
   );
