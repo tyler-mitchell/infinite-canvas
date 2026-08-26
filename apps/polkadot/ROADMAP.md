@@ -130,7 +130,10 @@ open because it feels good to look at. Concretely, and these are enforced in rev
   The HUD is inset by the same number the camera is, so the identity rail stops sitting under
   the panel and the selection rail re-centres on what is visible. Verified in the browser:
   revealing a note centres it at x≈490 in a visible region whose centre is 486, where the
-  element's centre is 400.
+  element's centre is 400. The connection path is witnessed too, end to end rather than
+  inferred: authoring `relates_to` from the palette draws the connector on the canvas, both rows
+  grow a count, the count expands in place with the neighbour indented under it, and the nested
+  row reaches the note it names.
   **Still open:** the rail cannot create, rename, or delete; there is no saved-views concept
   yet; connections cannot be authored or cut from here; and it does not yet draw the offscreen
   indicators, which is the other half of "where is the note this connects to".
