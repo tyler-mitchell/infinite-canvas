@@ -12,6 +12,7 @@ import {
   PanelLeftClose,
   Plus,
   Search,
+  Unlink2,
 } from "lucide-react";
 import { useEffect } from "react";
 import { Button } from "ui";
@@ -30,7 +31,7 @@ import {
   restoreProjectNote,
   setProjectNoteTitle,
 } from "../notes/project-notes";
-import { relations$ } from "../notes/relations";
+import { disconnectNotes, findRelation, getRelationLabel, relations$ } from "../notes/relations";
 
 /**
  * Everything in this project, and how it is joined together.
@@ -58,8 +59,38 @@ const rail = tv({
     body: "min-h-0 flex-1 overflow-y-auto overscroll-contain px-1.5 pb-1.5",
     /** Indented past the parent's gutter, so a connection reads as belonging to the row above it. */
     connection:
-      "flex w-full items-center gap-2 rounded-[var(--radius-sm)] py-1 pr-2 pl-5 text-left text-[12px] text-[var(--ink-muted)] transition-colors duration-100 ease-[var(--ease-swift)] hover:bg-[var(--surface-hover)] hover:text-[var(--ink)]",
+      "flex min-w-0 flex-1 items-center gap-2 py-1 pl-5 text-left text-[12px] text-[var(--ink-muted)] transition-colors duration-100 ease-[var(--ease-swift)] group-hover/connection:text-[var(--ink)]",
+    /**
+     * What the connection says, when it says anything.
+     *
+     * The kind is shown here and not on the note rows above, because a label belongs to the edge
+     * rather than to either end. `relates` renders as nothing at all: it is the default and means
+     * only "these belong together", which the row already says by existing — the same rule the
+     * connector on the canvas follows, so the two surfaces never disagree about what is worth
+     * saying.
+     */
+    connectionKind: "shrink-0 truncate text-[10.5px] text-[var(--ink-faint)] italic",
+    /**
+     * The hover target is the whole row, not the reach button inside it.
+     *
+     * `group/connection` is named rather than bare because these rows sit inside the note row's own
+     * `group`, and an unnamed nested group would make hovering anywhere on a note reveal the cut
+     * control on every connection beneath it.
+     */
+    connectionRow:
+      "group/connection flex w-full items-center rounded-[var(--radius-sm)] pr-1 transition-colors duration-100 ease-[var(--ease-swift)] hover:bg-[var(--surface-hover)]",
     connectionTitle: "min-w-0 truncate",
+    /**
+     * `rowAction`, but listening to the connection row's own group.
+     *
+     * It cannot reuse `rowAction`: that reveals on the unnamed `group`, which is the note row —
+     * and a connection row is a *sibling* of the note row, not a child of it. So `group-hover:`
+     * inside one has no ancestor group to match and would never fire, leaving a control that is
+     * permanently invisible and reachable only by keyboard. Caught by reading the tree rather than
+     * by the typecheck, which had nothing to say about it.
+     */
+    connectionAction:
+      "shrink-0 rounded-[var(--radius-sm)] p-1 text-[var(--ink-faint)] opacity-0 transition-opacity duration-100 ease-[var(--ease-swift)] group-hover/connection:opacity-100 hover:text-[var(--danger)] focus-visible:opacity-100",
     /** Sized and weighted exactly like the title it replaces, so committing does not jump. */
     editor:
       "min-w-0 flex-1 rounded-[var(--radius-sm)] bg-[var(--surface-raised)] px-1 py-1.5 text-[12.5px] text-[var(--ink)] outline-none inset-ring-1 inset-ring-[var(--accent)]",
@@ -505,23 +536,56 @@ export function LibraryRail({
                   {isExpanded
                     ? neighbours.map((neighbourId) => {
                         const neighbour = notes.find((candidate) => candidate.id === neighbourId);
+                        const relation = findRelation(relations, note.id, neighbourId);
 
-                        return neighbour === undefined ? null : (
-                          <button
-                            className={styles.connection()}
-                            key={neighbourId}
-                            onClick={(event) => {
-                              reach(event.currentTarget, neighbour.id, neighbour.title);
-                            }}
-                            type="button"
-                          >
-                            <span className={styles.gutter()}>
-                              {openNoteIds.has(neighbour.id) ? (
-                                <span className={styles.presence()} />
-                              ) : null}
-                            </span>
-                            <span className={styles.connectionTitle()}>{neighbour.title}</span>
-                          </button>
+                        return neighbour === undefined || relation === undefined ? null : (
+                          <div className={styles.connectionRow()} key={neighbourId}>
+                            <button
+                              className={styles.connection()}
+                              onClick={(event) => {
+                                reach(event.currentTarget, neighbour.id, neighbour.title);
+                              }}
+                              type="button"
+                            >
+                              <span className={styles.gutter()}>
+                                {openNoteIds.has(neighbour.id) ? (
+                                  <span className={styles.presence()} />
+                                ) : null}
+                              </span>
+                              <span className={styles.connectionTitle()}>{neighbour.title}</span>
+                              {getRelationLabel(relation) === undefined ? null : (
+                                <span className={styles.connectionKind()}>
+                                  {getRelationLabel(relation)}
+                                </span>
+                              )}
+                            </button>
+                            {/*
+                              Cutting an edge without having to find it on the canvas.
+
+                              A connector between two windows that nearly touch is almost entirely
+                              behind them — windows resolve before edges, correctly — so the only
+                              part you can aim at is the few pixels crossing the gap, and at one
+                              measured arrangement that was 30px with its midpoint still inside a
+                              window. The rail already knows every edge without needing either end
+                              to be on screen, which makes it the surface where acting on one does
+                              not depend on where the notes happen to sit.
+                            */}
+                            <button
+                              aria-label={`Cut the connection to ${neighbour.title}`}
+                              className={styles.connectionAction()}
+                              onClick={() => {
+                                void disconnectNotes({
+                                  projectId,
+                                  source: relation.source,
+                                  target: relation.target,
+                                });
+                              }}
+                              title="Cut this connection"
+                              type="button"
+                            >
+                              <Unlink2 className={styles.rowActionIcon()} />
+                            </button>
+                          </div>
                         );
                       })
                     : null}

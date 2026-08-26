@@ -357,6 +357,19 @@ open because it feels good to look at. Concretely, and these are enforced in rev
   connected, so this is not an edge case. A connector may need a grab area that survives occlusion —
   the label already sits at the routed midpoint and is a candidate — but that is a design question
   and no design has been chosen.
+  **Two objections to the label-as-grab-area idea, before anyone builds it.** The midpoint is
+  exactly the point measured as being _inside_ a window, so anchoring there inherits the problem it
+  was meant to solve. And a `relates` edge draws no label at all by design, so a label-shaped target
+  would give the least-annotated edges the smallest one — the opposite of what is wanted. What
+  actually survives occlusion is the longest run of the path no window rect covers, which is a
+  different query from "the middle of the path", and one the framework is better placed to answer
+  since it owns both the path segments and the window rects. "Which part of this line can be seen"
+  is not a Polkadot question.
+  **Cutting no longer waits on any of that.** The library rail lists every connection a note has,
+  including ones whose other end is closed, and each row now says what the connection means and
+  offers to cut it. That is the surface where acting on an edge does not depend on where its notes
+  happen to sit — the occluded-connector problem stays open for _selecting_ one on the canvas, but
+  it no longer blocks removing one.
 - [~] **Workspaces** as the organizing spine. The framework's workspace model was reachable only by
   a consumer reaching past the command layer: `cycle` walks desktops that exist and does nothing
   when there are none, so nothing could make the first one, name which one to enter, or take one
