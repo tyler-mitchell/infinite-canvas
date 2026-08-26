@@ -1,8 +1,8 @@
-import { observable } from "@legendapp/state";
 import { useValue } from "@legendapp/state/react";
 import { useEffect } from "react";
 import { tv } from "ui/tv";
 
+import { createContentCache } from "../database/content-cache";
 import { imageGateway, type ImageRecord } from "./image-gateway";
 
 /**
@@ -17,47 +17,16 @@ import { imageGateway, type ImageRecord } from "./image-gateway";
  * nothing else, kept keyed by id rather than by window so the same picture opened twice is fetched
  * once and both windows show it.
  *
- * Deliberately not extracted into a shared store yet. It is the read half of what `note-store`
- * does, but that module's entry shape and its debounced writer are entangled, so a common store
- * built from these two would have exactly one honest consumer. The third kind that needs it is what
- * should shape it.
+ * That cache used to be written out here, with a note saying the next kind needing the same shape
+ * should be what pulls it out. `link` was that kind, so it lives in `database/content-cache` now
+ * and this declares one — the same reads, one implementation, and no second copy to drift.
  */
 
-type ImageEntry = Readonly<{
-  error: string | null;
-  image: ImageRecord | null;
-  status: "error" | "loading" | "ready";
-}>;
-
-const images$ = observable<Record<string, ImageEntry>>({});
-const loaded = new Set<string>();
-
-function ensureImageLoaded(imageId: string) {
-  if (loaded.has(imageId)) {
-    return;
-  }
-
-  loaded.add(imageId);
-  images$[imageId].set({ error: null, image: null, status: "loading" });
-
-  void imageGateway
-    .read(imageId)
-    .then((image) => {
-      images$[imageId].set(
-        image === null
-          ? { error: "This image no longer exists.", image: null, status: "error" }
-          : { error: null, image, status: "ready" },
-      );
-    })
-    .catch((error: unknown) => {
-      loaded.delete(imageId);
-      images$[imageId].set({
-        error: error instanceof Error ? error.message : "Could not open this image.",
-        image: null,
-        status: "error",
-      });
-    });
-}
+const images = createContentCache<ImageRecord>({
+  failedMessage: "Could not open this image.",
+  missingMessage: "This image no longer exists.",
+  read: (imageId) => imageGateway.read(imageId),
+});
 
 const imageWindow = tv({
   slots: {
@@ -87,18 +56,18 @@ const imageWindow = tv({
 });
 
 export function ImageWindowBody({ imageId }: Readonly<{ imageId: string }>) {
-  const entry = useValue(images$[imageId]);
+  const entry = useValue(images.entries$[imageId]);
   const styles = imageWindow();
 
   useEffect(() => {
-    ensureImageLoaded(imageId);
+    images.ensureLoaded(imageId);
   }, [imageId]);
 
   if (entry === undefined || entry.status === "loading") {
     return <div className={styles.notice()}>Loading…</div>;
   }
 
-  if (entry.status === "error" || entry.image === null) {
+  if (entry.status === "error" || entry.record === null) {
     return <div className={styles.notice()}>{entry.error ?? "Could not open this image."}</div>;
   }
 
@@ -108,7 +77,7 @@ export function ImageWindowBody({ imageId }: Readonly<{ imageId: string }>) {
        * The description, not the title. They start equal and diverge: renaming the window to
        * "Reference" must not tell a screen reader the picture depicts the word Reference.
        */
-      alt={entry.image.content.description}
+      alt={entry.record.content.description}
       className={styles.image()}
       /*
        * A data URL that fails to decode is a corrupt record, not a network problem — so this says
@@ -116,13 +85,9 @@ export function ImageWindowBody({ imageId }: Readonly<{ imageId: string }>) {
        * the same failure.
        */
       onError={() => {
-        images$[imageId].set({
-          error: "This image could not be decoded.",
-          image: null,
-          status: "error",
-        });
+        images.fail(imageId, "This image could not be decoded.");
       }}
-      src={entry.image.content.source}
+      src={entry.record.content.source}
     />
   );
 }

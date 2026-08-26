@@ -414,9 +414,21 @@
   }
 
   /*
- * The framework's header is `justify-content: space-between`, which pushes the title left and the
- * controls right. With the title gone that leaves one child, and space-between put the controls
- * at the start — so the header has to say where its single child belongs.
+ * **This rule has never worked, and saying so is the point of keeping it here.**
+ *
+ * The intent is right: the framework's header is `justify-content: space-between`, which pushes
+ * the title left and the controls right, and with the title hidden that leaves one child which
+ * space-between parks at the *start*. So a titleless header shows its window controls on the left.
+ *
+ * The reason it does nothing is that the framework writes `justify-content` into the header's
+ * **inline style**, which no stylesheet rule can outrank. Measured rather than reasoned: the
+ * controls sit at x=12 of a 376px header. Every note has rendered this way since the title was
+ * hidden, and nobody noticed, because controls on the left is a layout rather than a break.
+ *
+ * Left in place, pointing at the fix, because deleting it would erase the finding: this is the
+ * same shape as the dock item whose padding was an inline style — a framework layout choice that
+ * belongs in `theme.css` where a consumer can reach it. Recorded in `AFFORDANCE_AUDIT.md` as the
+ * gap to close, at which point this rule starts working and this comment goes away.
  */
   [data-slot="window"]:is([data-kind="note"], [data-kind="link"]) [data-slot="window-header"] {
     justify-content: flex-end;

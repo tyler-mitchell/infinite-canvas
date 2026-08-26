@@ -18,6 +18,7 @@ import { tv } from "ui/tv";
 import { CollectionSummary } from "../collections/collection-summary";
 import { CollectionWindowBody } from "../collections/collection-window";
 import { ImageWindowBody } from "../images/image-window";
+import { LinkSummary, LinkWindowBody } from "../links/link-window";
 import { noteGateway } from "../notes/note-gateway";
 import { NoteWindowBody } from "../notes/note-window";
 
@@ -34,7 +35,7 @@ import { NoteWindowBody } from "../notes/note-window";
  * share a canvas.
  */
 
-type WindowKind = "collection" | "image" | "note";
+type WindowKind = "collection" | "image" | "link" | "note";
 
 /**
  * What every window on this canvas carries: the id of the content item it shows.
@@ -56,6 +57,7 @@ type ContentWindowData = typeof ContentWindowData.infer;
 type WindowData = Readonly<{
   collection: ContentWindowData;
   image: ContentWindowData;
+  link: ContentWindowData;
   note: ContentWindowData;
 }>;
 
@@ -101,6 +103,18 @@ function NoteSummary({ title }: Readonly<{ title: string }>) {
       </span>
     </div>
   );
+}
+
+/**
+ * The zoom read here rather than in `link-window.tsx`, for the same reason `NoteSummary` lives in
+ * this file: `useInfiniteCanvasSelector` is generic over `WindowKind`, which this module owns and
+ * every kind's module imports — reading it there would close the cycle. So the subscription stays
+ * where the type is and the card's appearance stays with the card.
+ */
+function LinkSummaryBody({ linkId }: Readonly<{ linkId: string }>) {
+  const zoom = useInfiniteCanvasSelector<WindowKind, number>((state) => state.camera.zoom);
+
+  return <LinkSummary linkId={linkId} zoom={zoom} />;
 }
 
 const windowDefinitions = defineInfiniteCanvasWindowRegistry<WindowKind, WindowData>({
@@ -175,6 +189,43 @@ const windowDefinitions = defineInfiniteCanvasWindowRegistry<WindowKind, WindowD
       ) : (
         <ImageWindowBody imageId={data.itemId} />
       );
+    },
+    textSelection: "none",
+    wheelBehavior: "canvas-pan",
+  },
+  /*
+   * A link is a card, so it takes the image's physics and the note's summary.
+   *
+   * `canvas-pan` on both the wheel and the body drag, for the image's reason: there is nothing to
+   * scroll and no caret to place, so both gestures belong to the camera. `textSelection: "none"`
+   * for the pointer that is not moving — a double-click on a card should not paint a highlight
+   * across an address.
+   *
+   * It declares a summary where the image declines to, and the difference is what each kind is made
+   * of. A picture at a tenth of the size is still the picture; a link at a tenth of the size is an
+   * address rendered at two pixels, which is nothing. The host is the part a person recognises, so
+   * that is what the card becomes.
+   *
+   * Its 200px floor is that summary's price: a kind with a summary must clear `fullAbovePx` on its
+   * short axis or the first zoom-out strands it as a summary at every zoom afterwards.
+   */
+  link: {
+    bodyPointerBehavior: "canvas-pan",
+    kind: "link",
+    overflowY: "hidden",
+    renderBody: ({ window }) => {
+      const data = getInfiniteCanvasWindowData(window, ContentWindowData.allows);
+
+      return data == null ? (
+        <div className={noteWindow().summary()}>This window is not bound to a link.</div>
+      ) : (
+        <LinkWindowBody linkId={data.itemId} />
+      );
+    },
+    renderSummary: ({ window }) => {
+      const data = getInfiniteCanvasWindowData(window, ContentWindowData.allows);
+
+      return data == null ? null : <LinkSummaryBody linkId={data.itemId} />;
     },
     textSelection: "none",
     wheelBehavior: "canvas-pan",
