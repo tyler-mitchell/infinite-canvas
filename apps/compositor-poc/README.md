@@ -147,18 +147,63 @@ is noise next to this.
   capture is for the ones you are _not_ touching. That is the html-in-canvas
   hybrid, and this number is why it has to be one.
 
-### The number that is missing
+### The native lane is not a faster capture — it is not a capture at all
 
-**This is the fallback lane, not the primary one.**
-`CanvasRenderingContext2D.drawElement` — Chrome's native HTML-in-canvas API — is
-`undefined` in the browser here (Chrome 148, no flag), so what is measured is
-snapdom: a DOM walk, style inlining, and an SVG foreign-object rasterisation.
+**Everything above measures the fallback.** The primary lane is Chrome's
+HTML-in-canvas, and it is a different mechanism rather than a quicker version of
+the same one.
 
-The native path should be dramatically cheaper, because it is the browser
-rasterising its own layout rather than a library reconstructing it. **How much
-cheaper is unmeasured, and it is the single most valuable number still missing**
-— it decides whether capture stays a scheduling problem or stops being a problem.
-Getting it needs Chrome launched with the feature enabled.
+The API shape below is taken from a reference in
+`agentic-tooling/plugins/codex/react-three-fiber/examples/src`. What is borrowed
+is the _contract_ — which is Chrome's and therefore holds regardless of the code
+wrapped around it — not that implementation's structure, which is not a model to
+follow:
+
+```ts
+canvas.toggleAttribute("layoutsubtree", true); // canvas lays out its children
+canvas.append(windowElement); // source is a DIRECT child
+canvas.addEventListener("paint", (event) => {
+  // browser says what changed
+  ctx.drawElementImage(windowElement, 0, 0); // browser paints its own layout
+});
+canvas.requestPaint();
+// the canvas itself is then the texture source — no readback
+```
+
+The differences that matter:
+
+- **No rasterisation step to pay for.** snapdom walks the DOM, inlines computed
+  styles, builds an SVG foreign object and rasterises that — reconstructing a
+  layout the browser already has. The native lane has the browser paint the
+  layout it already computed, straight into the canvas.
+- **No readback, no blob, no `ImageBitmap`.** The canvas _is_ the texture source.
+  The 16 ms above includes a round trip this path does not make.
+- **Invalidation is browser-driven.** The `paint` event carries
+  `changedElements`, so "what needs re-capturing" is answered by the engine
+  rather than guessed at by watching state.
+- **The source must be a direct child of the canvas**, and the canvas must carry
+  `layoutsubtree`. That is a real structural constraint, not a detail: it means
+  **one canvas per window**, not one texture array with a layer per window — so
+  the 256-layer cap above does not apply to this path, and the residency model
+  is different in kind.
+
+Probed here with the correct names, all absent in this Chrome 148 build:
+
+| feature                                     | present |
+| ------------------------------------------- | ------- |
+| `layoutsubtree` attribute settable          | yes     |
+| `HTMLCanvasElement.requestPaint`            | **no**  |
+| `CanvasRenderingContext2D.drawElementImage` | **no**  |
+| `HTMLCanvasElement.captureElementImage`     | **no**  |
+| `onpaint` handler slot                      | **no**  |
+
+The attribute being settable is meaningless on its own — any attribute can be
+set — and the reference's own probe says exactly that.
+
+**So the 16 ms is an upper bound on the wrong path.** It is the right number to
+plan against _today_, and the wrong one to design the architecture around. What
+is still missing is the native cost, and getting it needs a Chrome launched with
+the feature enabled.
 
 ## What is still not settled
 

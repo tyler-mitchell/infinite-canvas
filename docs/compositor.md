@@ -134,6 +134,43 @@ have textures right now, at what scale, and what gets evicted when the budget is
 gone. That is what a browser compositor does with tiles. Pass ordering was the
 easy part to write down; this is the part that decides whether it works.
 
+### Where the pixels come from
+
+A window's texture is captured HTML, and the capture path is not a detail the
+resource contract can stay neutral about — it is the most expensive thing in the
+frame by two orders of magnitude.
+
+Measured: **16 ms per window** through the fallback (`snapdom` — a DOM walk,
+style inlining, and SVG foreign-object rasterisation), against ~0.7 ms to upload
+and effectively zero to draw. One re-capture costs a whole frame at 60 Hz.
+
+The [WICG html-in-canvas proposal](https://github.com/WICG/html-in-canvas)
+replaces that path rather than speeding it up:
+
+| primitive                            | what it gives the compositor                        |
+| ------------------------------------ | --------------------------------------------------- |
+| `layoutsubtree` + `drawElementImage` | browser paints its own layout into a canvas         |
+| `paint` event / `requestPaint`       | **browser-driven invalidation** — `changedElements` |
+| `copyElementImageToTexture` (WebGPU) | **DOM straight into a GPU texture, no canvas hop**  |
+| `captureElementImage`                | a snapshot handle rather than a live surface        |
+| transform synchronization            | source DOM stays hit-testable and accessible        |
+
+Two of those change the design rather than its performance:
+
+- **`copyElementImageToTexture` is the path this compositor wants.** The
+  canvas-as-`CanvasTexture` route forces one canvas per window, which is
+  incompatible with an array or atlas; a direct copy into a layer is not.
+- **Transform synchronization is what keeps windows real.** The source DOM stays
+  the authority for layout, focus, and accessibility while its pixels live on the
+  GPU. For a workbench — where windows are edited, not decorative — that is the
+  difference between a compositor and a screenshot gallery. The window being
+  edited stays live DOM; capture is for the ones nobody is touching.
+
+**None of these primitives exist in the Chrome available here** (probed: no
+`requestPaint`, no `drawElementImage`, no `captureElementImage`). They need a
+flagged build or the origin trial. Until then 16 ms is the number to plan
+against, and it is the wrong number to design around.
+
 ```ts
 type CompositorResource = Readonly<{
   id: string;
