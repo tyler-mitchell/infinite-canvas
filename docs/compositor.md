@@ -122,6 +122,18 @@ today re-runs React reconciliation on every camera tick.
 Textures and buffers are declared, not allocated by whoever happens to need them
 first. The graph owns their lifetime and their size relative to the viewport.
 
+**This is the half that matters, and the proof of concept is why.** Geometry was
+never going to be the constraint — 100 000 quads draw in 0.9 ms in a single
+instanced call. Texture residency binds three orders of magnitude earlier: 256
+windows at 512² is 256 MB and 131 ms of upload, and `maxTextureArrayLayers` is
+**256**, so a single array cannot even hold a canvas's worth. An 8192² atlas holds
+about 341 windows at readable resolution.
+
+So the resource contract has to carry residency, not just size: which windows
+have textures right now, at what scale, and what gets evicted when the budget is
+gone. That is what a browser compositor does with tiles. Pass ordering was the
+easy part to write down; this is the part that decides whether it works.
+
 ```ts
 type CompositorResource = Readonly<{
   id: string;

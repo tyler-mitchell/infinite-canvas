@@ -70,16 +70,53 @@ costs under a millisecond in a single draw. **There is no scene graph to miss**,
 and `three`'s contribution to this workload is zero — which is what the
 compositor plan assumed and had not proven.
 
-### What it does not settle
+## Result — question 3, and it inverts the picture
 
-- **Fill rate, which is the real constraint.** Every measurement above is at
-  zoom 0.35 with most quads small or offscreen. The instance count was never the
-  bottleneck, so this is an instance-count result, not a fill result. Windows
-  filling the viewport is a different test.
-- **Question 3, textures.** Every quad here samples nothing; the fragment does a
-  cheap procedural edge instead. Real per-window textures from HTML capture bring
-  upload bandwidth, atlas or array management, and re-capture cadence — none of
-  which a tint can stand in for.
-- **Culling.** Not implemented. The GPU is processing all N instances every frame,
-  including those far offscreen. That is the honest worst case, so the numbers are
-  conservative — but a real compositor would not do this.
+**Texture residency is the binding constraint, and it binds three orders of
+magnitude earlier than geometry does.**
+
+Each quad samples its own layer of a `texture_2d_array`, uploaded as one batched
+write and timed to `queue.onSubmittedWorkDone()` rather than to the enqueue call:
+
+| layers | size  | VRAM   | upload   | rate      |
+| ------ | ----- | ------ | -------- | --------- |
+| 64     | 256px | 16 MB  | —        | —         |
+| 256    | 512px | 256 MB | 131.2 ms | 1951 MB/s |
+
+And a hard wall sits right there: **`maxTextureArrayLayers` is 256.** An 8192²
+atlas — the largest 2D texture the device allows — holds only **341** windows at
+512×384.
+
+### What this settles
+
+Geometry was never going to be the problem. **256 windows cost 256 MB and 131 ms
+of upload; 100 000 quads cost 0.9 ms of draw.** So the compositor's hard parts are
+not the ones the plan was worrying about:
+
+- **A single texture array cannot hold a canvas.** Past 256 windows it is
+  multiple arrays, an atlas, or both — and an atlas caps out around 341 at
+  readable resolution.
+- **Residency has to be managed.** Windows far from the camera need smaller
+  textures or none; offscreen windows need to give theirs back. This is what a
+  browser compositor does with tiles, and it is not optional here.
+- **Re-capture has a budget.** At 1951 MB/s, one 512² window costs about half a
+  millisecond to upload. That affords a couple of dozen re-captures per frame at
+  60 Hz, not hundreds — so capture cadence is a scheduling problem, not a
+  fire-and-forget one.
+
+None of that argues against the compositor. It argues that the interesting design
+work is the **resource** half of the contract — `scale`, residency, eviction —
+rather than the pass ordering, which was the easy part to write down.
+
+## What is still not settled
+
+- **Fill rate.** Every run above is at zoom 0.35 with most quads small or
+  offscreen. The instance count was never the bottleneck, so these are
+  instance-count and upload results, not fill results. Windows filling the
+  viewport is a different test and has not been run.
+- **Culling.** Not implemented. The GPU processes all N instances every frame,
+  including those far offscreen — so the geometry numbers are a conservative
+  worst case, but no real compositor would do this.
+- **Real HTML capture.** The layers are painted with 2D canvas calls, which is a
+  fair stand-in for the _upload_ (snapdom hands back a canvas either way) but
+  says nothing about what rasterising real DOM costs, or how often it must happen.

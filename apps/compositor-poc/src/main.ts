@@ -24,9 +24,13 @@ const Camera = d.struct({
   zoom: d.f32,
 });
 
-/** Read `?n=` so the count can be pushed until something gives, without a rebuild. */
+/** Read `?n=` and `?tex=` so counts can be pushed until something gives, without a rebuild. */
 const params = new URLSearchParams(globalThis.location.search);
 const quadCount = Math.max(Number(params.get("n") ?? 2000), 1);
+/** Distinct window textures. Capped by `maxTextureArrayLayers`, which is where this gets
+ * interesting — see the README. */
+const textureLayers = Math.max(Number(params.get("tex") ?? 64), 1);
+const textureSize = Math.max(Number(params.get("texsize") ?? 256), 8);
 
 const canvas = document.querySelector("canvas") as HTMLCanvasElement;
 const readout = document.querySelector("#readout") as HTMLPreElement;
@@ -43,13 +47,69 @@ const hasTimestamps = root.enabledFeatures.has("timestamp-query");
 const layout = tgpu.bindGroupLayout({
   camera: { uniform: Camera },
   quads: { storage: d.arrayOf(Quad), access: "readonly" },
+  sampler: { sampler: "filtering" },
+  windows: { texture: d.texture2dArray() },
 });
 
 const cameraBuffer = root.createBuffer(Camera).$usage("uniform");
 const quadsBuffer = root.createBuffer(d.arrayOf(Quad, quadCount)).$usage("storage");
+
+/**
+ * One layer per distinct window, which is the honest model: every window shows different pixels,
+ * so nothing is shared. `'render'` usage is required to write an image source at all.
+ */
+const windowTextures = root
+  .createTexture({
+    format: "rgba8unorm",
+    size: [textureSize, textureSize, textureLayers],
+  })
+  .$usage("sampled", "render");
+
+/**
+ * Stand-in for an HTML capture, and a fair one: `snapdom` and friends hand back a canvas or an
+ * `ImageBitmap`, and writing one to a GPU texture is the same operation whatever drew it. What is
+ * being measured here is the upload, not the rasterisation.
+ */
+const painted = document.createElement("canvas");
+
+painted.width = textureSize;
+painted.height = textureSize;
+
+const paint = painted.getContext("2d") as CanvasRenderingContext2D;
+const captures: ImageBitmap[] = [];
+
+for (let layer = 0; layer < textureLayers; layer++) {
+  paint.fillStyle = `oklch(0.24 0.03 ${String((layer * 37) % 360)})`;
+  paint.fillRect(0, 0, textureSize, textureSize);
+  paint.fillStyle = `oklch(0.85 0.12 ${String((layer * 37 + 40) % 360)})`;
+  paint.fillRect(12, 12, textureSize - 24, 26);
+  paint.fillStyle = "oklch(0.95 0.01 85)";
+  paint.font = "13px ui-sans-serif, system-ui, sans-serif";
+  paint.fillText(`window ${String(layer)}`, 16, 62);
+
+  captures.push(await createImageBitmap(painted));
+}
+
+/**
+ * One batched write for every layer, timed to the point the GPU has actually done it.
+ *
+ * `write` only enqueues, so timing the call alone reported 0.4 ms and an absurd 40 GB/s — the
+ * same shape of lie as reading a timestamp query that never landed. Awaiting
+ * `onSubmittedWorkDone` is what makes this a transfer measurement rather than a measurement of
+ * how fast JavaScript can ask.
+ */
+const uploadStarted = performance.now();
+
+windowTextures.write(captures);
+await root.device.queue.onSubmittedWorkDone();
+
+const uploadMs = performance.now() - uploadStarted;
+
 const bindGroup = root.createBindGroup(layout, {
   camera: cameraBuffer,
   quads: quadsBuffer,
+  sampler: root.createSampler({ magFilter: "linear", minFilter: "linear" }),
+  windows: windowTextures,
 });
 
 /**
@@ -95,7 +155,7 @@ common.writeSoA(quadsBuffer, { rect: rects, tint: tints });
  */
 const vertex = tgpu.vertexFn({
   in: { instanceIndex: d.builtin.instanceIndex, vertexIndex: d.builtin.vertexIndex },
-  out: { pos: d.builtin.position, tint: d.vec4f, uv: d.vec2f },
+  out: { layer: d.interpolate("flat", d.f32), pos: d.builtin.position, tint: d.vec4f, uv: d.vec2f },
 })((input) => {
   "use gpu";
   const corners = [
@@ -118,6 +178,8 @@ const vertex = tgpu.vertexFn({
   const clip = std.sub(std.mul(std.div(screen, camera.viewport), 2), d.vec2f(1, 1));
 
   return {
+    // Flat: a layer index must not be interpolated across the quad.
+    layer: d.f32(input.instanceIndex % textureLayers),
     pos: d.vec4f(clip.x, -clip.y, 0, 1),
     tint: quad.tint,
     uv: corner,
@@ -125,18 +187,18 @@ const vertex = tgpu.vertexFn({
 });
 
 const fragment = tgpu.fragmentFn({
-  in: { tint: d.vec4f, uv: d.vec2f },
+  in: { layer: d.interpolate("flat", d.f32), tint: d.vec4f, uv: d.vec2f },
   out: d.vec4f,
 })((input) => {
   "use gpu";
-  // Stand-in for sampling a captured HTML texture: enough per-pixel work that fill rate is real
-  // rather than a flat fill the driver can trivially collapse.
-  const edge = std.min(
-    std.min(input.uv.x, 1 - input.uv.x) * 12,
-    std.min(input.uv.y, 1 - input.uv.y) * 12,
+  const captured = std.textureSample(
+    layout.$.windows,
+    layout.$.sampler,
+    input.uv,
+    d.u32(input.layer),
   );
 
-  return d.vec4f(std.mul(input.tint.xyz, 0.35 + std.clamp(edge, 0, 1) * 0.65), 1);
+  return d.vec4f(std.mul(captured.xyz, input.tint.xyz), 1);
 });
 
 const pipeline = root
@@ -213,18 +275,19 @@ const frame = () => {
   const sorted = [...frames].sort((left, right) => left - right);
   const median = sorted[Math.floor(sorted.length / 2)] ?? 0;
 
+  const textureBytes = textureSize * textureSize * 4 * textureLayers;
+
   readout.textContent = [
-    `<b>quads</b>      ${String(quadCount)}`,
-    `<b>draw calls</b> 1`,
-    `<b>frame</b>      ${median.toFixed(2)} ms  (${(1000 / median).toFixed(0)} fps)`,
+    `quads      ${String(quadCount)}`,
+    `draw calls 1`,
+    `frame      ${median.toFixed(2)} ms  (${(1000 / median).toFixed(0)} fps)`,
     hasTimestamps
-      ? `<b>gpu</b>        ${(gpuNanoseconds / 1e6).toFixed(3)} ms`
-      : `<b>gpu</b>        timestamp-query unavailable`,
-    `<b>zoom</b>       ${camera.zoom.toFixed(2)}   drag to pan, wheel to zoom`,
-  ]
-    .join("\n")
-    .replaceAll("<b>", "")
-    .replaceAll("</b>", "");
+      ? `gpu        ${(gpuNanoseconds / 1e6).toFixed(3)} ms`
+      : `gpu        timestamp-query unavailable`,
+    `textures   ${String(textureLayers)} x ${String(textureSize)}px  = ${(textureBytes / 1024 ** 2).toFixed(1)} MB`,
+    `upload     ${uploadMs.toFixed(1)} ms  (${(textureBytes / 1024 ** 2 / (uploadMs / 1000)).toFixed(0)} MB/s)`,
+    `zoom       ${camera.zoom.toFixed(2)}   drag to pan, wheel to zoom`,
+  ].join("\n");
 
   requestAnimationFrame(frame);
 };
