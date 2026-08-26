@@ -34,6 +34,8 @@ const hud = tv({
   variants: {
     anchor: {
       "bottom-center": { surface: "bottom-4 left-1/2 -translate-x-1/2" },
+      /** Stacked over the selection rail, so neither moves when the other appears. */
+      "bottom-center-above": { surface: "bottom-16 left-1/2 -translate-x-1/2" },
       "bottom-right": { surface: "right-4 bottom-4" },
       /**
        * Clear of the framework's own navigation rail, which puts itself in that corner.

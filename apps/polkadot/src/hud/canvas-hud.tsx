@@ -1,18 +1,25 @@
 import {
+  getInfiniteCanvasGroupParent,
+  getInfiniteCanvasWindowGroup,
   getSelectedWindowBounds,
   useInfiniteCanvasActions,
   useInfiniteCanvasSelector,
   useInfiniteCanvasStore,
   type InfiniteCanvasCommand,
+  type InfiniteCanvasGroupLayoutMode,
 } from "@hyphened/infinite-canvas";
 import {
   AlignHorizontalSpaceAround,
   AlignStartVertical,
   Columns2,
+  Grip,
   Pin,
+  Rows3,
   Scan,
+  SquareSplitHorizontal,
   Trash2,
   TriangleAlert,
+  Ungroup,
   X,
 } from "lucide-react";
 import { useState, type ComponentType, type ReactNode } from "react";
@@ -20,6 +27,7 @@ import { Button } from "ui";
 import { tv } from "ui/tv";
 
 import { OffscreenIndicators } from "../canvas/offscreen-indicators";
+import type { WindowKind } from "../canvas/window-registry";
 import { HudRoot, HudSurface } from "./hud-surfaces";
 
 /**
@@ -73,7 +81,7 @@ function Verb({
   icon: ComponentType<Readonly<{ className?: string }>>;
   label: string;
   onPress: () => void;
-  variant?: "destructive" | "ghost";
+  variant?: "destructive" | "ghost" | "secondary";
 }>) {
   return (
     <Button
@@ -160,6 +168,80 @@ function SelectionRail() {
           label="Close selected"
           onPress={run({ type: "selection.close" })}
           variant="destructive"
+        />
+      </div>
+    </HudSurface>
+  );
+}
+
+/** The three shapes a container can take, in the order they escalate: apart, stacked, one at a time. */
+const GROUP_LAYOUTS = [
+  { icon: SquareSplitHorizontal, label: "Side by side", layout: "split" },
+  { icon: Rows3, label: "Folded", layout: "accordion" },
+  { icon: Columns2, label: "Tabbed", layout: "tabs" },
+] as const satisfies readonly Readonly<{
+  icon: ComponentType<Readonly<{ className?: string }>>;
+  label: string;
+  layout: InfiniteCanvasGroupLayoutMode;
+}>[];
+
+/**
+ * What a person does with a group once they have one.
+ *
+ * Creating a group was the discoverability gap; this is the rest of it. A group could be made and
+ * then never reshaped or taken apart from the app — the verbs existed as palette rows nobody
+ * searches for. Layout is a segmented choice rather than a toggle because there are three shapes,
+ * and showing which one is live is most of what the control is for.
+ *
+ * Sits above the selection rail rather than beside it: both are about the active thing, and a rail
+ * that grows sideways as state changes moves the buttons already under the pointer.
+ */
+function GroupRail() {
+  const actions = useInfiniteCanvasActions();
+  const styles = canvasHud();
+  // The container's own layout, not the group's — a nested split inside a tabbed group is the case
+  // where those differ, and the buttons must describe the pane the active window is actually in.
+  const layout = useInfiniteCanvasSelector<WindowKind, InfiniteCanvasGroupLayoutMode | null>(
+    (state) => {
+      const tree =
+        state.activeWindowId === null
+          ? undefined
+          : getInfiniteCanvasWindowGroup(state, state.activeWindowId)?.tree;
+
+      return tree === undefined || state.activeWindowId === null
+        ? null
+        : (getInfiniteCanvasGroupParent(tree, state.activeWindowId)?.layout ?? null);
+    },
+  );
+
+  return (
+    <HudSurface anchor="bottom-center-above" present={layout !== null}>
+      <div className={styles.rail()}>
+        {GROUP_LAYOUTS.map((entry) => (
+          <Verb
+            icon={entry.icon}
+            key={entry.layout}
+            label={entry.label}
+            onPress={() => {
+              actions.executeCommand({ layout: entry.layout, type: "group.setLayout" });
+            }}
+            variant={entry.layout === layout ? "secondary" : "ghost"}
+          />
+        ))}
+        <span className={styles.divider()} />
+        <Verb
+          icon={Grip}
+          label="Undock this window"
+          onPress={() => {
+            actions.executeCommand({ type: "window.undock" });
+          }}
+        />
+        <Verb
+          icon={Ungroup}
+          label="Ungroup"
+          onPress={() => {
+            actions.executeCommand({ type: "group.dissolve" });
+          }}
         />
       </div>
     </HudSurface>
@@ -263,6 +345,7 @@ export function CanvasHud({
             {conflict}
           </HudSurface>
         )}
+        <GroupRail />
         <SelectionRail />
         {/* Inside the inset root, unlike the offscreen ring: this is an ordinary corner surface,
             and it should sit inside whatever the library leaves rather than under it. */}
