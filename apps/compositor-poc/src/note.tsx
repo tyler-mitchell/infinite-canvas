@@ -1,3 +1,4 @@
+import type React from "react";
 import { useState } from "react";
 
 /**
@@ -12,14 +13,26 @@ import { useState } from "react";
  * The meta line reads from `draft` deliberately: it is the tell that React re-rendered, rather than
  * an uncontrolled input simply showing what was typed into it.
  */
+/**
+ * Each window carries an accent, the way a real note carries a tag colour.
+ *
+ * Not decoration: the signature pass reports the colour of a window's *content*, so a window has to
+ * actually have a colour for that to mean anything. Before this, every note was the same near-white
+ * text on the same ground and the light field could only ever produce a grey wash — the measurement
+ * was correct and the thing it measured was uniform.
+ */
+const ACCENTS = [24, 62, 148, 196, 268, 322];
+
 export const Note = ({ index }: { index: number }) => {
   const [done, setDone] = useState(false);
   const [draft, setDraft] = useState("");
+  const accent = `oklch(0.78 0.17 ${String(ACCENTS[index % ACCENTS.length])})`;
 
   return (
-    <div className="note">
+    <div className="note" style={{ "--accent": accent } as React.CSSProperties}>
       <div className="note-chrome" />
       <div className="note-body">
+        <span className="note-tag">{done ? "done" : "open"}</span>
         <h2>Meeting notes {index}</h2>
         <p>
           The compositor&rsquo;s constraint is texture residency, not draw calls. Half a million

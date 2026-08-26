@@ -370,6 +370,78 @@ which is the only version of this that survives contact with a real codebase.
 Focus works the same way: the compositor calls `focus()` and stops. Keystrokes, selection and IME
 reach the field through the platform's own channels with nothing of ours in the path.
 
+## Result — the canvas reads its own content, and is lit by it
+
+Every window's captured pixels live in one texture array, which means a compute pass can look at all
+of them at once. **This is the thing nothing else in a UI stack can do.** The DOM cannot see its own
+rasterisation. A renderer that only draws cannot see what it drew. Here the pixels are just memory,
+and reading them is a dispatch.
+
+Three passes now, in the order `docs/compositor.md` describes:
+
+1. **analyse** — one invocation per window samples a 24×24 grid of its layer and writes a signature:
+   the colour of its content, and how much ink is on it.
+2. **light** — one additive instanced quad per window, coloured and sized by that signature.
+3. **draw** — the windows, over the light.
+
+### It responds to content, not to events
+
+Clicking **Mark as done** turns a note's button into a large block of its accent colour. Nothing
+tells the light field this happened:
+
+|          | measured ink | the space around it                    |
+| -------- | ------------ | -------------------------------------- |
+| open     | 0.86         | dim, neutral                           |
+| **done** | **1.24**     | **blooms rose, the note's own accent** |
+
+The compositor dispatched a click, React re-rendered, the browser repainted, the copy landed in the
+texture layer, and the _next frame's compute pass saw different pixels_. No event bus, no state
+mirror, no invalidation to get wrong. The light is downstream of the pixels the way a photograph is
+downstream of a room.
+
+### Why this is practical and not an effect
+
+At a zoom where no text is legible, the lit regions are where the substance is. A canvas of hundreds
+of windows reads as a map instead of a field of grey rectangles, and it does so without anyone
+tagging, ranking or describing anything. The measurement is of the thing itself.
+
+### Cost
+
+Frame time at 100 000 quads over 64 windows is **4.20 ms with the light on and 4.20 ms with it off**
+— unchanged. That is the honest limit of what is measured: the timestamp query wraps only the window
+pipeline, so the analyse and light passes are **not** isolated in the `gpu` reading and their
+individual cost is unknown. What can be said is that adding both moved the frame budget by nothing
+detectable at a hundred thousand instances.
+
+The analyse pass runs every frame rather than on capture. At 576 texture loads per window that is
+147k loads for a full 256-window canvas — small enough that running it unconditionally buys away a
+whole class of invalidation bug for a cost too small to find.
+
+### Two calibration mistakes worth keeping
+
+Both were caught by putting the measured ink in the readout, which is the only reason it is there.
+
+- **The scale was seven times too small**, then three times too large. The first produced a glow
+  nobody could see; the second pinned every window at the ceiling so they all glowed identically.
+  Same failure, opposite sign.
+- **Weighting colour by presence alone reports near-white**, because a window's most common
+  non-background pixel is body text. Every window came back the same warm grey and the light could
+  only ever be a wash — the measurement was correct and the thing it measured was uniform. Cubing a
+  chroma weight lets the accents carry the hue, and each note got a real accent colour so there was
+  something true to find.
+
+A third, in the instrument rather than the thing: the readback was gated on `frames.length % 30`,
+and that array caps at 90 — so it ran on every frame once warm and pushed a hover from 2.6 ms to
+26 ms. A measurement that changed what it measured.
+
+### Why the fake tint had to go
+
+Each quad used to carry a `tint` that multiplied its captured pixels, left over from before there
+were textures at all. Once the signature pass started reporting the colour of a window's _content_,
+that tint was a lie: it changed what a window looked like without changing anything the compute pass
+could see, so the light and the window it came from disagreed. Windows carry their own accent now
+and the fragment returns the captured pixels untouched.
+
 ### Why the layout host stays one canvas
 
 Earlier notes in this file claimed the direct-child rule forces **one canvas per window**. It does

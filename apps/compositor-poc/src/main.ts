@@ -1,28 +1,20 @@
 import { common, d, std, tgpu } from "typegpu";
 
+import { createLightField, lightLayout } from "./light-field.ts";
+import { Camera, Quad } from "./scene.ts";
+import { analyzeWindows, signatureLayout } from "./signature.ts";
+
 /**
- * Question 1 and 2, and nothing else.
+ * Three passes over one texture array: analyse, light, draw.
  *
- * Can N textured quads — window proxies, in the real thing — be drawn as **one instanced draw**
- * reading their rects from a buffer, and where does it break? If the answer is yes at counts that
- * hurt, the compositor in `docs/compositor.md` is the right shape and a scene graph is dead weight.
- * If per-quad state forces a draw call each, that is the finding and the plan is wrong.
+ * It started as one question — can N textured quads be drawn as **one instanced draw** reading
+ * their rects from a buffer, and where does it break? — and the answer held so far past the counts
+ * that matter that the interesting work moved elsewhere. See the README for every number.
  *
- * Deliberately ugly. No React, no abstraction, no reuse — a reconciler is the thing being removed,
- * so bringing one in would prove nothing.
+ * What it grew into is the shape `docs/compositor.md` describes: a render graph of passes over
+ * shared resources, where the windows' captured pixels are just memory the GPU can read. The
+ * signature pass is the proof of that last part, and the light field is what it looks like.
  */
-
-/** One window proxy: its world rect, and a tint standing in for its captured texture. */
-const Quad = d.struct({
-  rect: d.vec4f,
-  tint: d.vec4f,
-});
-
-const Camera = d.struct({
-  center: d.vec2f,
-  viewport: d.vec2f,
-  zoom: d.f32,
-});
 
 /** Read `?n=` and `?tex=` so counts can be pushed until something gives, without a rebuild. */
 const params = new URLSearchParams(globalThis.location.search);
@@ -570,6 +562,47 @@ const bindGroup = root.createBindGroup(layout, {
 });
 
 /**
+ * What the canvas knows about its own content: one `vec4f` per window, colour in `xyz` and ink in
+ * `w`, written by a compute pass that reads the captured pixels and read by the light field.
+ */
+const signaturesBuffer = root
+  .createBuffer(d.arrayOf(d.vec4f, textureLayers))
+  .$usage("storage", "uniform");
+
+const analyze = root.createComputePipeline({ compute: analyzeWindows }).with(
+  signatureLayout,
+  root.createBindGroup(signatureLayout, {
+    signatures: signaturesBuffer,
+    windows: windowTextures,
+  }),
+);
+
+const light = createLightField(textureLayers);
+const lightPipeline = root
+  .createRenderPipeline({
+    fragment: light.fragment,
+    primitive: { topology: "triangle-list" },
+    targets: {
+      // Additive: light accumulates where windows crowd together, which is the whole point — a
+      // dense cluster reads as one bright region rather than as several separate haloes.
+      blend: {
+        alpha: { dstFactor: "one", operation: "add", srcFactor: "one" },
+        color: { dstFactor: "one", operation: "add", srcFactor: "one" },
+      },
+      format: navigator.gpu.getPreferredCanvasFormat(),
+    },
+    vertex: light.vertex,
+  })
+  .with(
+    lightLayout,
+    root.createBindGroup(lightLayout, {
+      camera: cameraBuffer,
+      quads: quadsBuffer,
+      signatures: signaturesBuffer,
+    }),
+  );
+
+/**
  * Scattered on a loose grid with jitter, sized like real notes.
  *
  * Seeded through `writeSoA` — per-field packed arrays — rather than an array of typed instances.
@@ -589,6 +622,8 @@ const tints = new Float32Array(quadCount * 4);
  * thing that could still make "quads and passes" the wrong shape.
  */
 const overdraw = params.get("overdraw") === "1";
+/** `?lit=0` turns the content-derived light off, so its cost and its contribution are both visible. */
+const lit = params.get("lit") !== "0";
 
 for (let index = 0; index < quadCount; index++) {
   const offset = index * 4;
@@ -673,7 +708,15 @@ const fragment = tgpu.fragmentFn({
     d.u32(input.layer),
   );
 
-  return d.vec4f(std.mul(captured.xyz, input.tint.xyz), 1);
+  /*
+   * The captured pixels, untinted.
+   *
+   * A per-quad tint used to multiply this, left over from before there were textures at all. Once
+   * the signature pass started reporting the colour of a window's *content*, that tint became a
+   * lie: it changed what a window looked like without changing anything the compute pass could
+   * see, so the light and the window it came from disagreed. Windows carry their own accent now.
+   */
+  return d.vec4f(captured.xyz, 1);
 });
 
 const pipeline = root
@@ -742,6 +785,21 @@ canvas.addEventListener("wheel", (event) => {
 
 const frames: number[] = [];
 let previous = performance.now();
+/**
+ * What the compute pass actually measured, read back periodically.
+ *
+ * Every thirtieth frame, because a buffer read synchronises with the GPU and doing it per frame
+ * would make the frame timing above a measurement of the readback. This is the only place the
+ * signature is visible as numbers rather than as light.
+ */
+let signatureReport = "measuring…";
+let signatureReading = false;
+/**
+ * Counted rather than derived from `frames.length`, which caps at 90 — so `length % 30` was true on
+ * every frame once warm and the readback ran continuously, pushing a hover from 2 ms to 26 ms. A
+ * measurement instrument that changes what it measures.
+ */
+let frameCount = 0;
 
 const frame = () => {
   const now = performance.now();
@@ -760,14 +818,48 @@ const frame = () => {
     zoom: camera.zoom,
   });
 
+  /*
+   * Three passes, in the order the compositor contract describes them.
+   *
+   * The signature pass runs every frame rather than on capture. It is 576 texture loads per window
+   * — nothing next to the draw — and running it unconditionally means the light can never be stale,
+   * which removes a whole class of invalidation bug in exchange for a cost too small to measure.
+   */
+  if (lit) {
+    analyze.dispatchWorkgroups(textureLayers);
+    lightPipeline
+      .withColorAttachment({
+        clearValue: [0.037, 0.04, 0.049, 1],
+        loadOp: "clear",
+        storeOp: "store",
+        view: context,
+      })
+      .draw(6, quadCount);
+  }
+
   timed
     .withColorAttachment({
       clearValue: [0.055, 0.06, 0.07, 1],
-      loadOp: "clear",
+      // The windows draw over the light rather than replacing it, so the glow survives in the space
+      // between them.
+      loadOp: lit ? "load" : "clear",
       storeOp: "store",
       view: context,
     })
     .draw(6, quadCount);
+
+  frameCount += 1;
+
+  if (lit && !signatureReading && frameCount % 45 === 0) {
+    signatureReading = true;
+    void signaturesBuffer.read().then((values) => {
+      signatureReport = values
+        .slice(0, 4)
+        .map((value) => value.w.toFixed(2))
+        .join("  ");
+      signatureReading = false;
+    });
+  }
 
   const sorted = [...frames].sort((left, right) => left - right);
   const median = sorted[Math.floor(sorted.length / 2)] ?? 0;
@@ -783,6 +875,7 @@ const frame = () => {
       : `gpu        timestamp-query unavailable`,
     `textures   ${String(textureLayers)} x ${String(textureSize)}px  = ${(textureBytes / 1024 ** 2).toFixed(1)} MB`,
     `capture    ${captureLabel}`,
+    ...(lit ? [`ink        ${signatureReport}   (measured from the captured pixels)`] : []),
     ...(captureNative
       ? [
           `${String(dirtyWindows)} dirty    ${incrementalMs.toFixed(2)} ms in one paint   (${(incrementalMs / dirtyWindows).toFixed(2)} ms/window)`,
