@@ -1,7 +1,20 @@
-import { useInfiniteCanvasActions, useInfiniteCanvasSelector } from "@hyphened/infinite-canvas";
+import {
+  useInfiniteCanvasActions,
+  useInfiniteCanvasSelector,
+  type InfiniteCanvasWindow,
+} from "@hyphened/infinite-canvas";
 import { useObservable, useValue } from "@legendapp/state/react";
 import { getHotkeyManager } from "@tanstack/hotkeys";
-import { ArrowDown, ArrowUp, LayoutGrid, Layers, PencilLine, Plus, X } from "lucide-react";
+import {
+  ArrowDown,
+  ArrowUp,
+  CornerUpRight,
+  Layers,
+  LayoutGrid,
+  PencilLine,
+  Plus,
+  X,
+} from "lucide-react";
 import { useEffect, useRef } from "react";
 import {
   DropdownMenu,
@@ -14,6 +27,8 @@ import {
   DropdownMenuTrigger,
 } from "ui";
 import { tv } from "ui/tv";
+
+import type { WindowKind } from "../canvas/window-registry";
 
 /**
  * Which desktop you are on, and every way of changing that.
@@ -43,6 +58,8 @@ const desktopSwitcher = tv({
     input:
       "w-40 rounded-md bg-[var(--ground-sunken)] px-1.5 py-0.5 text-[12px] text-[var(--ink)] outline-none inset-ring-1 inset-ring-[var(--accent)]",
     itemTitle: "truncate",
+    /** Where a window lives, when the point of the row is that it does not live here. */
+    where: "ml-auto pl-3 text-[11px] text-[var(--ink-faint)]",
     trigger:
       "group/desktop flex items-center gap-1.5 rounded-md px-1.5 py-0.5 text-[12px] text-[var(--ink)] transition-colors duration-150 ease-[var(--ease-swift)] outline-none hover:bg-[var(--surface-hover)] focus-visible:bg-[var(--surface-hover)] data-popup-open:bg-[var(--surface-hover)]",
   },
@@ -65,6 +82,14 @@ function describeWindowCount(count: number) {
   return count === 1 ? "1 window" : `${String(count)} windows`;
 }
 
+/**
+ * How many of the elsewhere list to show before it stops being orientation and starts being a list.
+ *
+ * The library rail is where you go to see everything. This is here to answer "where did the rest of
+ * my canvas go", and the honest answer to that on a large canvas is a number, not eighty rows.
+ */
+const ELSEWHERE_LIMIT = 6;
+
 export function DesktopSwitcher() {
   const actions = useInfiniteCanvasActions();
   const activeWorkspaceId = useInfiniteCanvasSelector((state) => state.activeWorkspaceId);
@@ -72,9 +97,41 @@ export function DesktopSwitcher() {
   const draftTitle$ = useObservable<string | null>(null);
   const draftTitle = useValue(draftTitle$);
   const inputRef = useRef<HTMLInputElement>(null);
+  const windows = useInfiniteCanvasSelector<
+    WindowKind,
+    readonly InfiniteCanvasWindow<WindowKind>[]
+  >((state) => state.windows);
   const activeIndex = workspaces.findIndex((workspace) => workspace.id === activeWorkspaceId);
   const active = workspaces[activeIndex];
   const styles = desktopSwitcher({ filtered: active !== undefined });
+
+  /**
+   * What entering this desktop took off the screen, and where each piece went.
+   *
+   * The gap this closes: a desktop is a membership filter, so standing on one hides every window
+   * that is not in it and says nothing about them. Creating a desktop hides *everything*, because a
+   * new one starts empty — the canvas goes blank and the only honest reading available to the user
+   * was "my work is gone". The counts on the rows above say how much is elsewhere; this says what,
+   * and clicking a row is `window.reveal`, which is desktop-aware and goes there.
+   *
+   * A window filed on no desktop is in this list too, and that is not an edge case: it is every
+   * window on the canvas the moment the first desktop is made.
+   */
+  const desktopByWindowId = new Map(
+    workspaces.flatMap((workspace) =>
+      workspace.windowIds.map((windowId) => [windowId, workspace.title] as const),
+    ),
+  );
+  const elsewhere =
+    active === undefined
+      ? []
+      : windows
+          .filter((window) => window.mode !== "minimized" && !active.windowIds.includes(window.id))
+          .map((window) => ({
+            id: window.id,
+            title: window.title,
+            where: desktopByWindowId.get(window.id) ?? "no desktop",
+          }));
 
   const commitRename = () => {
     const title = (draftTitle$.peek() ?? "").trim();
@@ -191,6 +248,30 @@ export function DesktopSwitcher() {
             </DropdownMenuRadioItem>
           ))}
         </DropdownMenuRadioGroup>
+        {elsewhere.length === 0 ? null : (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuLabel>Not on this desktop</DropdownMenuLabel>
+            {elsewhere.slice(0, ELSEWHERE_LIMIT).map((window) => (
+              <DropdownMenuItem
+                key={window.id}
+                onClick={() => {
+                  actions.executeCommand({ type: "window.reveal", windowId: window.id });
+                }}
+              >
+                <CornerUpRight />
+                <span className={styles.itemTitle()}>{window.title}</span>
+                <span className={styles.where()}>{window.where}</span>
+              </DropdownMenuItem>
+            ))}
+            {/* A silent cap reads as "that is everything" when it is not. */}
+            {elsewhere.length > ELSEWHERE_LIMIT ? (
+              <DropdownMenuLabel>
+                and {String(elsewhere.length - ELSEWHERE_LIMIT)} more
+              </DropdownMenuLabel>
+            ) : null}
+          </>
+        )}
         {active === undefined ? null : (
           <>
             <DropdownMenuSeparator />
