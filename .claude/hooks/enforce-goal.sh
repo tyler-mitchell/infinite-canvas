@@ -34,13 +34,22 @@ Before you stop, you must be able to state exactly what productive work you did 
 
 Prefer finishing one coherent slice over starting three. Commit it. Then say plainly what is done, what is unmeasured, and what is not built — never imply a completeness you have not earned. A green checkmark over unverified work is worse than an honest gap.
 
-You may stop when the work is genuinely complete: the tracks you took on this session are done rather than merely described, and everything remaining is either owner-gated or explicitly out of scope. When that is true, create the sentinel file `.claude/.goal-complete` and stop.
+There is no state in which you disarm this hook. `.claude/.goal-complete` is Tyler's switch and only Tyler's: never create it, never restore it, never work around it. If you believe the work is genuinely complete — every track done rather than described, everything remaining owner-gated or out of scope — say so plainly in your reply and keep going. Saying it costs a sentence; silencing the hook costs every turn after it, and it will be days before anyone notices the agent stopped being pushed.
+
+The mission is apps/polkadot: a production-grade, exceptionally polished open-source spatial
+workbench that is simultaneously the framework's incubator. Design is a first-class axis, not a
+finishing pass — the bar is software people open because it feels good to look at.
+
+A gap Polkadot finds is fixed in the framework GENERICALLY or not in the framework at all. If the
+design needs the word "Polkadot" to justify itself, it is the wrong design.
 
 Where to look for the next seam, in priority order:
-  1. docs/SHIP_PLAN.md  — open-source / production blockers, with verified findings.
-  2. docs/ROADMAP.md    — the eight large programs (P1..P8), each with exit criteria.
-  3. docs/research/api-friction-backlog.md — known defects and ergonomic gaps.
-  4. docs/research/acceptance-scenarios.md — scenarios still marked `open`.
+  1. apps/polkadot/ROADMAP.md — the bar, the order, and the framework gaps found so far.
+  2. apps/polkadot/AGENTS.md  — the rules that are not negotiable (tv slots, library-first,
+     framework-first). Violations of these are defects even when nothing is broken.
+  3. The running app itself — open the preview and look at it. This is a design-led product and
+     a passing typecheck says nothing about whether the thing is good.
+  4. packages/infinite-canvas — affordances Polkadot needs and the framework lacks.
   5. The code itself — the seams you find by reading are usually the real ones.
 Pick one. Start it. Do not ask which.
 EOF

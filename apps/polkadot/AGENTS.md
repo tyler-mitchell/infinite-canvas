@@ -2,6 +2,13 @@
 
 Read `ROADMAP.md` first — it holds the bar, the order, and the framework gaps found so far.
 
+## Hooks
+
+You never disarm a hook. Not by sentinel file, not by settings, not by any workaround. If one
+seems wrong, strengthen or repoint it and say why — tightening is fine, weakening is not. If the
+work seems complete, say so in your reply and keep working. A disarmed hook fails silently, which
+is how an entire mission once ran with no enforcement at all.
+
 ## The one rule that is not negotiable
 
 Polkadot is the framework's incubator. When you find something Polkadot cannot do:
