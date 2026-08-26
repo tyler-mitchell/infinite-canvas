@@ -652,7 +652,21 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
         : withInfiniteCanvasPointerMode(inputPolicy, pointerModeOverride),
     [inputPolicy, pointerModeOverride],
   );
-  const cursor = getCanvasCursor(interaction, pointerMode, activeInputPolicy);
+  /*
+   * Whether the idle pointer is over something a consumer registered, tracked here rather than in
+   * the store.
+   *
+   * A store write per pointermove would make every mouse movement across the canvas a state
+   * mutation — and workspace and window mutations are undo checkpoints, so this is the wrong
+   * neighbourhood entirely. It is local, and it only leaves this component as a cursor string.
+   */
+  const [isOverSelectableTarget, setIsOverSelectableTarget] = useState(false);
+  const cursor = getCanvasCursor(
+    interaction,
+    pointerMode,
+    activeInputPolicy,
+    isOverSelectableTarget,
+  );
   const devicePixelRatio = useInfiniteCanvasDevicePixelRatio();
   const underlayWorldSceneLayers = useMemo(
     () => getSceneLayers(sceneLayers, "underlay", "world"),
@@ -1125,6 +1139,37 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
           onPointerCancel={(event) => {
             actions.finishInteraction(event.pointerId);
           }}
+          onPointerLeave={() => {
+            setIsOverSelectableTarget(false);
+          }}
+          /*
+           * Hover feedback for consumer-registered targets, and nothing else.
+           *
+           * Bound only when there are resolvers, so a canvas that registers none never resolves a
+           * thing on pointermove and pays exactly what it did before this existed. Skipped mid-drag
+           * too — during an interaction the cursor is the interaction's, and hit-testing the thing
+           * under a pointer that is busy moving a window answers a question nobody asked.
+           *
+           * The resolve itself is rect tests; the React work is gated on the boolean actually
+           * changing, so sweeping across empty canvas costs no renders.
+           */
+          onPointerMove={
+            spatialTargetResolvers.length === 0
+              ? undefined
+              : (event) => {
+                  if (interaction !== null) {
+                    return;
+                  }
+
+                  const target = resolveSpatialTarget(
+                    getViewportPoint(event.currentTarget, getClientPoint(event)),
+                  );
+
+                  setIsOverSelectableTarget(
+                    getInfiniteCanvasSelectableTargetFromSpatialTarget(target) !== null,
+                  );
+                }
+          }
           onPointerDown={(event) => {
             if (!isCanvasPointerGesture(event)) {
               return;
@@ -1594,9 +1639,23 @@ function getCanvasCursor(
   interaction: InfiniteCanvasInteraction,
   pointerMode: InfiniteCanvasPointerMode,
   inputPolicy: InfiniteCanvasInputPolicy,
+  isOverSelectableTarget = false,
 ): CSSProperties["cursor"] {
   if (interaction === null) {
-    return getInfiniteCanvasIdleCursor(inputPolicy, pointerMode);
+    /*
+     * A consumer's own object, saying it can be clicked.
+     *
+     * The canvas lets a consumer register hit-testable objects and selects them on pointerdown, so
+     * they behave like scenery you can act on — but nothing said so before the click. A connector
+     * you can select and cut looked exactly like a connector you cannot, which is the difference
+     * between an affordance and a secret.
+     *
+     * Windows need no equivalent because their chrome is DOM and carries its own cursors; these
+     * targets are drawn by the consumer and have no element under the pointer to hang one on.
+     */
+    return isOverSelectableTarget
+      ? "pointer"
+      : getInfiniteCanvasIdleCursor(inputPolicy, pointerMode);
   }
 
   // Resize handles and group chrome carry structural cursors, like a gutter's
