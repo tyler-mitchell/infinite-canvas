@@ -35,29 +35,48 @@ const RAIL_INSET = RAIL_WIDTH + 24;
 const rail = tv({
   slots: {
     body: "min-h-0 flex-1 overflow-y-auto overscroll-contain px-1.5 pb-1.5",
+    /** Indented past the parent's gutter, so a connection reads as belonging to the row above it. */
     connection:
-      "flex w-full items-center gap-2 rounded-[var(--radius-sm)] py-1 pr-2 pl-7 text-left text-[12px] text-[var(--ink-muted)] transition-colors duration-100 ease-[var(--ease-swift)] hover:bg-[var(--surface-hover)] hover:text-[var(--ink)]",
+      "flex w-full items-center gap-2 rounded-[var(--radius-sm)] py-1 pr-2 pl-5 text-left text-[12px] text-[var(--ink-muted)] transition-colors duration-100 ease-[var(--ease-swift)] hover:bg-[var(--surface-hover)] hover:text-[var(--ink)]",
+    connectionTitle: "min-w-0 truncate",
     count:
-      "flex shrink-0 items-center gap-1 font-mono text-[10px] tabular-nums text-[var(--ink-faint)]",
+      "flex shrink-0 items-center gap-1 rounded-[var(--radius-sm)] px-1 py-0.5 font-mono text-[10px] tabular-nums text-[var(--ink-faint)] transition-colors duration-100 ease-[var(--ease-swift)] hover:bg-[var(--surface-raised)] hover:text-[var(--ink-muted)]",
     countIcon: "size-3",
     disclosure:
-      "size-3 shrink-0 text-[var(--ink-faint)] transition-transform duration-150 ease-[var(--ease-swift)]",
-    empty: "px-3 py-6 text-center text-[12px] text-[var(--ink-faint)]",
+      "size-3 shrink-0 transition-transform duration-150 ease-[var(--ease-swift)] motion-reduce:transition-none",
+    empty: "px-3 py-8 text-center text-[12px] text-[var(--ink-faint)]",
+    /**
+     * A fixed leading column, whether or not there is a dot in it.
+     *
+     * Rendering the dot only when a note is open shifted every closed note's title left by the
+     * dot plus its gap, so the list had two left edges and read as ragged. The gutter is the
+     * column; presence is what happens to be in it.
+     */
+    gutter: "flex w-2 shrink-0 justify-center",
     header: "flex items-center gap-1 px-1.5 pt-1.5 pb-1",
     heading: "flex-1 pl-1.5 text-[12px] font-medium tracking-[-0.005em] text-[var(--ink-muted)]",
-    presence: "size-1.5 shrink-0 rounded-full bg-[var(--accent)]",
+    presence: "size-1.5 rounded-full bg-[var(--accent)]",
     root: "flex w-[264px] flex-col rounded-[var(--radius-lg)] bg-[var(--surface)] shadow-[var(--lift-2)] inset-ring-1 inset-ring-[var(--edge-light)] backdrop-blur-2xl",
-    row: "flex w-full items-center gap-2 rounded-[var(--radius-sm)] px-1.5 py-1.5 text-left transition-colors duration-100 ease-[var(--ease-swift)] hover:bg-[var(--surface-hover)]",
+    /** The whole row lights up, though the reach target and the disclosure are separate controls. */
+    row: "group flex w-full items-center gap-2 rounded-[var(--radius-sm)] pr-1 pl-1.5 transition-colors duration-100 ease-[var(--ease-swift)] hover:bg-[var(--surface-hover)]",
     search:
       "min-w-0 flex-1 bg-transparent text-[12px] text-[var(--ink)] outline-none placeholder:text-[var(--ink-faint)]",
     searchIcon: "size-3.5 shrink-0 text-[var(--ink-faint)]",
     searchRow:
-      "mx-1.5 mb-1 flex items-center gap-2 rounded-[var(--radius-sm)] bg-[var(--surface-raised)] px-2 py-1.5",
-    title: "min-w-0 flex-1 truncate text-[12.5px] text-[var(--ink)]",
+      "mx-1.5 mb-1.5 flex items-center gap-2 rounded-[var(--radius-sm)] bg-[var(--surface-raised)] px-2 py-1.5",
+    // `text-left` is not cosmetic: a button centres its text, so without it the titles floated in
+    // the middle of the rail and the list had no left edge at all.
+    title:
+      "min-w-0 flex-1 truncate py-1.5 text-left text-[12.5px] transition-colors duration-100 ease-[var(--ease-swift)]",
+    total: "px-1 font-mono text-[10px] tabular-nums text-[var(--ink-faint)]",
   },
   variants: {
+    expanded: {
+      true: { disclosure: "rotate-90" },
+    },
     open: {
-      // A note already on the canvas reads as present rather than as a destination.
+      false: { title: "text-[var(--ink-muted)] group-hover:text-[var(--ink)]" },
+      // A note already on the canvas is present rather than a destination, and reads brighter.
       true: { title: "text-[var(--ink)]" },
     },
   },
@@ -153,6 +172,8 @@ export function LibraryRail({
     <div className={styles.root()}>
       <div className={styles.header()}>
         <span className={styles.heading()}>Library</span>
+        {/* The count is the answer to "is this everything?", which a list alone never gives. */}
+        <span className={styles.total()}>{notes.length}</span>
         <Button aria-label="Collapse library" onClick={onCollapse} size="icon-sm" variant="ghost">
           <PanelLeftClose />
         </Button>
@@ -182,7 +203,9 @@ export function LibraryRail({
             return (
               <div key={note.id}>
                 <div className={styles.row()}>
-                  {openNoteIds.has(note.id) ? <span className={styles.presence()} /> : null}
+                  <span className={styles.gutter()}>
+                    {openNoteIds.has(note.id) ? <span className={styles.presence()} /> : null}
+                  </span>
                   <button
                     className={styles.title({ open: openNoteIds.has(note.id) })}
                     onClick={() => {
@@ -202,10 +225,7 @@ export function LibraryRail({
                       }}
                       type="button"
                     >
-                      <ChevronRight
-                        className={styles.disclosure()}
-                        style={{ transform: isExpanded ? "rotate(90deg)" : undefined }}
-                      />
+                      <ChevronRight className={rail({ expanded: isExpanded }).disclosure()} />
                       <Link2 className={styles.countIcon()} />
                       {neighbours.length}
                     </button>
@@ -229,10 +249,12 @@ export function LibraryRail({
                           }}
                           type="button"
                         >
-                          {openNoteIds.has(neighbour.id) ? (
-                            <span className={styles.presence()} />
-                          ) : null}
-                          {neighbour.title}
+                          <span className={styles.gutter()}>
+                            {openNoteIds.has(neighbour.id) ? (
+                              <span className={styles.presence()} />
+                            ) : null}
+                          </span>
+                          <span className={styles.connectionTitle()}>{neighbour.title}</span>
                         </button>
                       );
                     })
