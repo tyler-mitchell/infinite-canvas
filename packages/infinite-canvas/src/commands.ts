@@ -73,6 +73,8 @@ import {
 import { getInfiniteCanvasWindowPlacementRect } from "./window-placement";
 import {
   activateInfiniteCanvasWorkspace,
+  closeInfiniteCanvasWorkspace,
+  createInfiniteCanvasWorkspace,
   detachInfiniteCanvasWindowFromWorkspaces,
   findInfiniteCanvasWorkspace,
   isInfiniteCanvasWindowInActiveWorkspace,
@@ -442,6 +444,29 @@ const DEFAULT_INFINITE_CANVAS_COMMAND_DESCRIPTORS = [
     hotkeys: [],
     id: "workspace.showAll",
     label: "Show All Windows",
+  },
+  // Parameterized like `moveActiveWindow`: the placeholder id is replaced by the surface that
+  // knows which desktop, and the label and description live here rather than in each consumer.
+  {
+    command: { type: "workspace.create", workspaceId: "" },
+    description: "Make a new desktop and go to it. Windows stay where they are; none are moved.",
+    hotkeys: [],
+    id: "workspace.create",
+    label: "New Desktop",
+  },
+  {
+    command: { type: "workspace.enter", workspaceId: "" },
+    description: "Go to a desktop, restoring the camera and selection it was left with.",
+    hotkeys: [],
+    id: "workspace.enter",
+    label: "Go to Desktop",
+  },
+  {
+    command: { type: "workspace.close", workspaceId: "" },
+    description: "Remove a desktop. The windows on it stay open; only the grouping goes.",
+    hotkeys: [],
+    id: "workspace.close",
+    label: "Close Desktop",
   },
   // Parameterized, like `workspace.create`: a palette entry cannot invent which desktop, so the
   // descriptor carries a placeholder id and the surface listing the desktops supplies the real
@@ -1505,6 +1530,21 @@ function isInfiniteCanvasCommandEnabled<Kind extends string>(
 
       return arranged !== rects;
     }
+    // All three follow `moveActiveWindow`: a parameterized descriptor carries a placeholder id,
+    // and a placeholder cannot run. Without this the descriptor's own `workspaceId: ""` is offered
+    // as enabled, and would make a desktop nothing can name or enter one that is not there.
+    case "workspace.create":
+      return (
+        command.workspaceId !== "" &&
+        findInfiniteCanvasWorkspace(state, command.workspaceId) === null
+      );
+    case "workspace.enter":
+      return (
+        command.workspaceId !== state.activeWorkspaceId &&
+        findInfiniteCanvasWorkspace(state, command.workspaceId) !== null
+      );
+    case "workspace.close":
+      return findInfiniteCanvasWorkspace(state, command.workspaceId) !== null;
   }
 }
 
@@ -1645,7 +1685,10 @@ function getInfiniteCanvasCommandGroup(command: InfiniteCanvasCommand): Infinite
     case "view.zoomBy":
     case "view.resetZoom":
       return "view";
+    case "workspace.close":
+    case "workspace.create":
     case "workspace.cycle":
+    case "workspace.enter":
     case "workspace.showAll":
     case "workspace.moveActiveWindow":
     case "workspace.removeActiveWindow":
@@ -1835,6 +1878,20 @@ function executeInfiniteCanvasCommand<Kind extends string>(
       );
     case "workspace.showAll":
       return activateInfiniteCanvasWorkspace(state, null);
+    // Create then enter: a desktop you made and were not taken to is a desktop you have to go
+    // find, and every surface that creates one would have to pair the two calls itself.
+    case "workspace.create":
+      return activateInfiniteCanvasWorkspace(
+        createInfiniteCanvasWorkspace(state, {
+          title: command.title,
+          workspaceId: command.workspaceId,
+        }),
+        command.workspaceId,
+      );
+    case "workspace.enter":
+      return activateInfiniteCanvasWorkspace(state, command.workspaceId);
+    case "workspace.close":
+      return closeInfiniteCanvasWorkspace(state, command.workspaceId);
     // Written first as a read-filter-write over `setInfiniteCanvasWorkspaceWindows`, which is
     // the exact race `equalizeInfiniteCanvasGroupChildren` exists to avoid: a window added to
     // this workspace between the read and the write would have been discarded by it.

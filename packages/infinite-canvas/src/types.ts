@@ -974,6 +974,19 @@ type InfiniteCanvasCommand =
   | Readonly<{ type: "workspace.showAll" }>
   | Readonly<{ type: "workspace.removeActiveWindow" }>
   /**
+   * Make a desktop, and go to one.
+   *
+   * Without these the workspace model had no entry point: `cycle` walks desktops that exist and
+   * does nothing when there are none, and nothing else could bring the first one into being or
+   * name which one to enter. Parameterized for the same reason `moveActiveWindow` is — the id and
+   * the name come from the surface listing the desktops, not from a palette guessing.
+   */
+  | Readonly<{ title?: string; type: "workspace.create"; workspaceId: string }>
+  | Readonly<{ type: "workspace.enter"; workspaceId: string }>
+  /** Closing never closes the windows on it: a membership filter that deleted what it filtered
+   * would make "which set is this in" a destructive question. */
+  | Readonly<{ type: "workspace.close"; workspaceId: string }>
+  /**
    * Send the active window to a named desktop.
    *
    * Parameterized like `workspace.create`, and for the same reason: a palette entry cannot
@@ -1024,6 +1037,9 @@ type InfiniteCanvasCommand =
 type InfiniteCanvasCommandId =
   | "desktop.cancel"
   | "history.redo"
+  | "workspace.close"
+  | "workspace.create"
+  | "workspace.enter"
   | "window.align.bottom"
   | "window.align.horizontal-center"
   | "window.align.left"
