@@ -401,14 +401,15 @@ function PaletteContent({
    */
   const openNoteIds = new Set(
     state.windows
-      .map((window) => (window.data as { noteId?: string } | undefined)?.noteId)
-      .filter((noteId) => noteId !== undefined),
+      .map((window) => getInfiniteCanvasWindowData(window, ContentWindowData.allows)?.itemId)
+      .filter((itemId) => itemId !== undefined),
   );
   const recentIds = new Set(useValue(recentNoteIds$));
   /** A window whose note is in `Recent` is reachable from there; showing it twice says nothing. */
   const noteIdByWindowId = new Map(
     state.windows.map(
-      (window) => [window.id, (window.data as { noteId?: string } | undefined)?.noteId] as const,
+      (window) =>
+        [window.id, getInfiniteCanvasWindowData(window, ContentWindowData.allows)?.itemId] as const,
     ),
   );
   /**
@@ -572,9 +573,17 @@ function PaletteContent({
                */
               setProjectItemTitle(page.note.id, draft);
 
+              /*
+               * Through the guard, not a cast. This read `data.noteId`, a field that stopped
+               * existing when window data became one `{ itemId }` for every kind — so it matched
+               * nothing and the third place a rename lands was never written. The cast is what
+               * hid it: `data` is `unknown` by design, and asserting a shape onto it turns a dead
+               * read into a silent one.
+               */
               const windowId = state.windows.find(
                 (window) =>
-                  (window.data as { noteId?: string } | undefined)?.noteId === page.note.id,
+                  getInfiniteCanvasWindowData(window, ContentWindowData.allows)?.itemId ===
+                  page.note.id,
               )?.id;
 
               if (windowId !== undefined) {
