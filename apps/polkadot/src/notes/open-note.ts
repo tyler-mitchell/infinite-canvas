@@ -8,6 +8,7 @@ import {
 
 import type { WindowData, WindowKind } from "../canvas/window-registry";
 import * as database from "../database/operations";
+import { loadProjectNotes } from "./project-notes";
 
 /**
  * Put a note on the canvas, in the middle of what the user is looking at.
@@ -48,11 +49,21 @@ function openNoteWindow(input: Placement & Readonly<{ noteId: string; title: str
   );
 }
 
+/**
+ * Refreshing the listing here is what makes creation whole, wherever it was asked for.
+ *
+ * This is already the one creation path — the rail's `+`, the palette's action, and the identity
+ * rail's button all arrive here — so it is the only place that can promise the library shows a note
+ * the moment it exists. It used to be the rail's own job, and the rail could only keep that promise
+ * for notes it made itself: the other two callers left it reading "No notes yet." over a canvas
+ * with the new note on it.
+ */
 async function openNewNote(input: Placement & Readonly<{ projectId: string }>) {
   const title = `Untitled ${input.state.windows.length + 1}`;
   const created = await database.notes.create({ projectId: input.projectId, text: "", title });
 
   openNoteWindow({ actions: input.actions, noteId: created.id, state: input.state, title });
+  await loadProjectNotes(input.projectId);
 }
 
 export { openNewNote, openNoteWindow };

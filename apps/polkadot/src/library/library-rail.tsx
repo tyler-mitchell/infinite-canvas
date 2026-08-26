@@ -22,6 +22,14 @@ import type { NoteRecord } from "../database/database.client";
 import * as database from "../database/operations";
 import { renameNote } from "../notes/note-store";
 import { openNewNote, openNoteWindow } from "../notes/open-note";
+import {
+  archiveProjectNote,
+  getProjectNotes,
+  loadProjectNotes,
+  projectNotes$,
+  restoreProjectNote,
+  setProjectNoteTitle,
+} from "../notes/project-notes";
 import { relations$ } from "../notes/relations";
 
 /**
@@ -137,8 +145,16 @@ export function LibraryRail({
 }: Readonly<{ onCollapse: () => void; projectId: string }>) {
   const actions = useInfiniteCanvasActions<WindowKind>();
   const state = useInfiniteCanvasState<WindowKind>();
-  /** `null` until the first read answers. See `emptyState` for why that is not the same as `[]`. */
-  const notes$ = useObservable<readonly NoteRecord[] | null>(null);
+  /**
+   * The archived list, which is this component's alone.
+   *
+   * The reachable list is not: it lives in `project-notes` because several things create and
+   * archive notes and the rail is only one of them. Archived notes have exactly one reader and one
+   * writer, both here, so a shared authority would be ceremony — and folding them into the same
+   * observable would give it two meanings, which is the confusion the heading guard below exists to
+   * prevent. `null` until a read answers; see `emptyState` for why that is not `[]`.
+   */
+  const archivedNotes$ = useObservable<readonly NoteRecord[] | null>(null);
   const query$ = useObservable("");
   const expanded$ = useObservable<string | null>(null);
   /** The note being renamed, and the text so far. `null` when nothing is being edited. */
@@ -146,35 +162,45 @@ export function LibraryRail({
   /** Which list the rail is showing. Archived notes are still notes, just not offered. */
   const archived$ = useObservable(false);
 
-  const listing = useValue(notes$);
-  const notes = listing ?? [];
+  const archivedListing = useValue(archivedNotes$);
   const query = useValue(query$);
   const expanded = useValue(expanded$);
   const editing = useValue(editing$);
   const archived = useValue(archived$);
   const relations = useValue(relations$);
+  const reachableListing = getProjectNotes(useValue(projectNotes$), projectId);
+  const listing = archived ? archivedListing : reachableListing;
+  const notes = listing ?? [];
   const styles = rail();
 
   /**
    * Ask, and show nothing until the answer comes back.
    *
-   * Clearing to `null` first is what keeps the list and the heading in step. Toggling to Archive
-   * used to leave the *notes* sitting there under the word "Archived" until the second query
-   * landed — a list labelled as something it is not, which is worse than a list that is briefly
-   * absent. The guard drops an answer to a question no longer being asked, so switching back and
-   * forth cannot let a slow first query overwrite the second.
+   * The two lists are held separately, which is what keeps the heading and the list in step.
+   * Toggling to Archive used to leave the *notes* sitting there under the word "Archived" until the
+   * second query landed — a list labelled as something it is not, which is worse than a list that
+   * is briefly absent. It is no longer possible to read one list under the other's heading, and the
+   * way back is now instant instead of blank, because returning to the library reads an answer that
+   * was never thrown away.
+   *
+   * The guard still drops an answer to a question no longer being asked, so flicking between the
+   * two cannot let a slow query land under the wrong heading.
    */
   useEffect(() => {
-    notes$.set(null);
+    if (!archived) {
+      void loadProjectNotes(projectId);
 
-    void (archived ? database.notes.listArchived(projectId) : database.notes.list(projectId)).then(
-      (listed) => {
-        if (archived$.peek() === archived) {
-          notes$.set(listed);
-        }
-      },
-    );
-  }, [archived, archived$, notes$, projectId]);
+      return;
+    }
+
+    archivedNotes$.set(null);
+
+    void database.notes.listArchived(projectId).then((listed) => {
+      if (archived$.peek()) {
+        archivedNotes$.set(listed);
+      }
+    });
+  }, [archived, archived$, archivedNotes$, projectId]);
 
   /**
    * Which note each window is showing, in one pass.
@@ -326,11 +352,7 @@ export function LibraryRail({
     }
 
     renameNote(note, next, { read: database.notes.read, save: database.notes.save });
-    notes$.set(
-      notes.map((candidate) =>
-        candidate.id === note.id ? { ...candidate, title: next } : candidate,
-      ),
-    );
+    setProjectNoteTitle(note.id, next);
 
     const windowId = windowIdByNoteId.get(note.id);
 
@@ -342,13 +364,12 @@ export function LibraryRail({
   /**
    * Create where you are already looking.
    *
-   * The identity rail can make a note too, but from here you watch it join the list you are
-   * browsing — and land in rename, because a note called "Untitled 4" is a note you have to come
-   * back to.
+   * No refetch here any more: `openNewNote` refreshes the listing itself, so a note made from the
+   * identity rail or the palette joins this list too. That it used to be this function's job is
+   * exactly why those two did not.
    */
   const create = async () => {
     await openNewNote({ actions, projectId, state });
-    notes$.set(await database.notes.list(projectId));
   };
 
   /**
@@ -369,13 +390,12 @@ export function LibraryRail({
       actions.closeWindow(windowId);
     }
 
-    await database.notes.archive(noteId);
-    notes$.set(await database.notes.list(projectId));
+    await archiveProjectNote({ noteId, projectId });
   };
 
   const restore = async (noteId: string) => {
-    await database.notes.restore(noteId);
-    notes$.set(await database.notes.listArchived(projectId));
+    await restoreProjectNote({ noteId, projectId });
+    archivedNotes$.set(await database.notes.listArchived(projectId));
   };
 
   return (
