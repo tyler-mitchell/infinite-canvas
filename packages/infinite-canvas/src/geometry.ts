@@ -2,6 +2,7 @@ import {
   DEFAULT_INFINITE_CANVAS_CHROME,
   DEFAULT_INFINITE_CANVAS_ZOOM,
   MIN_RENDERABLE_INFINITE_CANVAS_ZOOM,
+  NO_INFINITE_CANVAS_VIEWPORT_INSETS,
 } from "./constants";
 import type {
   InfiniteCanvasCamera,
@@ -12,7 +13,6 @@ import type {
   InfiniteCanvasSize,
   InfiniteCanvasViewport,
   InfiniteCanvasViewportInsets,
-  InfiniteCanvasViewportInsetsInput,
   InfiniteCanvasZoomPolicy,
 } from "./types";
 
@@ -480,25 +480,6 @@ function getVisibleWorldRect(
   };
 }
 
-const NO_INFINITE_CANVAS_VIEWPORT_INSETS = {
-  bottom: 0,
-  left: 0,
-  right: 0,
-  top: 0,
-} satisfies InfiniteCanvasViewportInsets;
-
-/** Every edge optional, so a consumer with one panel names one edge. Mirrors the chrome metrics. */
-function resolveInfiniteCanvasViewportInsets(
-  input: InfiniteCanvasViewportInsetsInput = {},
-): InfiniteCanvasViewportInsets {
-  return {
-    bottom: input.bottom ?? 0,
-    left: input.left ?? 0,
-    right: input.right ?? 0,
-    top: input.top ?? 0,
-  };
-}
-
 /**
  * The part of the viewport a consumer's chrome is **not** covering, in screen space.
  *
@@ -638,10 +619,8 @@ export {
   isUsableViewport,
   isWorldRectCulled,
   isWorldRectWithinViewport,
-  NO_INFINITE_CANVAS_VIEWPORT_INSETS,
   panCameraByScreenDelta,
   projectWorldRectToScreen,
-  resolveInfiniteCanvasViewportInsets,
   rectContainsPoint,
   rectsIntersect,
   resizeRectFromHandle,

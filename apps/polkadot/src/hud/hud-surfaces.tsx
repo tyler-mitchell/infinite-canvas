@@ -35,6 +35,13 @@ const hud = tv({
     anchor: {
       "bottom-center": { surface: "bottom-4 left-1/2 -translate-x-1/2" },
       "bottom-right": { surface: "right-4 bottom-4" },
+      /**
+       * A full-height edge, for a surface you work *against* rather than reach for.
+       *
+       * `items-stretch` rather than the shared `items-center`: a rail this tall has internal
+       * structure — a header, a scrolling body — and centring would collapse it to its content.
+       */
+      left: { surface: "top-3 bottom-3 left-3 items-stretch" },
       "top-left": { surface: "top-3 left-3" },
       "top-right": { surface: "top-3 right-3" },
     },
@@ -92,10 +99,29 @@ function HudSurface({
   );
 }
 
-function HudRoot({ children }: Readonly<{ children: ReactNode }>) {
+/**
+ * The HUD's frame, shrunk to whatever the app's own panels leave.
+ *
+ * Moving the frame's own left edge rather than padding it: an absolutely positioned child resolves
+ * against its containing block's *padding box*, so padding here would have moved nothing. Shrinking
+ * the box moves every surface at once — the identity rail stops sitting under the library, and the
+ * selection rail re-centres on what the user can see rather than on the element. Doing it per
+ * anchor would mean each surface deciding separately, which is how they drift apart.
+ *
+ * This is the same number the canvas gets as `viewportInsets`. One value, two consumers: the camera
+ * aims inside it and the chrome sits inside it.
+ */
+function HudRoot({
+  children,
+  insetLeft = 0,
+}: Readonly<{ children: ReactNode; insetLeft?: number }>) {
   const styles = hud();
 
-  return <div className={styles.root()}>{children}</div>;
+  return (
+    <div className={styles.root()} style={{ left: insetLeft }}>
+      {children}
+    </div>
+  );
 }
 
 export { HudRoot, HudSurface, useCanvasActivity };

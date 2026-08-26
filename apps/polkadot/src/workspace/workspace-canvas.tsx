@@ -3,7 +3,8 @@ import {
   type InfiniteCanvasOverlayReadContext,
   type InfiniteCanvasState,
 } from "@hyphened/infinite-canvas";
-import { Plus } from "lucide-react";
+import { useObservable, useValue } from "@legendapp/state/react";
+import { PanelLeft, Plus } from "lucide-react";
 import { useEffect } from "react";
 import { Button } from "ui";
 import { tv } from "ui/tv";
@@ -14,6 +15,7 @@ import { useCanvasRuntime } from "../canvas/use-canvas-runtime";
 import { windowDefinitions, type WindowKind } from "../canvas/window-registry";
 import { CanvasHud } from "../hud/canvas-hud";
 import { CommandPalette } from "../hud/command-palette";
+import { LibraryRail, RAIL_INSET } from "../library/library-rail";
 import { openNewNote } from "../notes/open-note";
 import { loadRelations } from "../notes/relations";
 import { CanvasSwitcher } from "./canvas-switcher";
@@ -86,6 +88,8 @@ function getSaveAdmission(status: CanvasPersistenceStatus): SaveAdmission {
 function IdentityRail({
   canvas,
   canvasId,
+  libraryOpen,
+  onToggleLibrary,
   projectId,
   projectTitle,
   saveAdmission,
@@ -93,6 +97,8 @@ function IdentityRail({
 }: Readonly<{
   canvas: InfiniteCanvasOverlayReadContext<WindowKind>;
   canvasId: string;
+  libraryOpen: boolean;
+  onToggleLibrary: () => void;
   projectId: string;
   projectTitle: string;
   saveAdmission: SaveAdmission;
@@ -102,6 +108,18 @@ function IdentityRail({
 
   return (
     <div className={styles.rail()}>
+      {/* The way back when the rail is collapsed, and a second way out while it is open. */}
+      <Button
+        aria-label={libraryOpen ? "Hide library" : "Show library"}
+        aria-pressed={libraryOpen}
+        onClick={onToggleLibrary}
+        size="icon-sm"
+        title={libraryOpen ? "Hide library" : "Show library"}
+        variant="ghost"
+      >
+        <PanelLeft />
+      </Button>
+      <span className={styles.divider()} />
       <div className={styles.brand()}>
         <ProjectSwitcher projectId={projectId} projectTitle={projectTitle} />
         <CanvasSwitcher canvasId={canvasId} projectId={projectId} title={title} />
@@ -129,6 +147,8 @@ function IdentityRail({
 
 export function WorkspaceCanvas({ canvas }: Readonly<{ canvas: LoadedCanvas }>) {
   const runtime = useCanvasRuntime(canvas);
+  const library$ = useObservable(true);
+  const libraryOpen = useValue(library$);
   const styles = workspace();
 
   useEffect(() => {
@@ -142,6 +162,14 @@ export function WorkspaceCanvas({ canvas }: Readonly<{ canvas: LoadedCanvas }>) 
           // A note names itself in its body, so its header carries only controls and does not
           // need 40px to do it.
           chrome={CHROME}
+          /*
+           * What the library rail is covering, so the camera stops aiming behind it.
+           *
+           * Without this, `view.fit`, `view.fitSelection` and `window.reveal` all centre on the
+           * middle of the element — which is under the panel — and the rail would be a surface
+           * that fights every camera command while looking finished.
+           */
+          viewportInsets={{ left: libraryOpen ? RAIL_INSET : 0 }}
           // Beneath the windows: a connector should pass under the note it joins, not across it.
           renderUnderlay={() => <ConnectorLayer />}
           hud={{
@@ -155,10 +183,25 @@ export function WorkspaceCanvas({ canvas }: Readonly<{ canvas: LoadedCanvas }>) 
             <CanvasHud
               commandPalette={<CommandPalette projectId={canvas.projectId} />}
               droppedKinds={canvas.droppedKinds}
+              libraryInset={libraryOpen ? RAIL_INSET : 0}
+              library={
+                libraryOpen ? (
+                  <LibraryRail
+                    onCollapse={() => {
+                      library$.set(false);
+                    }}
+                    projectId={canvas.projectId}
+                  />
+                ) : null
+              }
               identity={
                 <IdentityRail
                   canvas={context}
                   canvasId={canvas.id}
+                  libraryOpen={libraryOpen}
+                  onToggleLibrary={() => {
+                    library$.set(!libraryOpen);
+                  }}
                   projectId={canvas.projectId}
                   projectTitle={canvas.projectTitle}
                   saveAdmission={getSaveAdmission(runtime.saveStatus)}

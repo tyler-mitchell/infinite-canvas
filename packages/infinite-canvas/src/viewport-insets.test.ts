@@ -1,12 +1,12 @@
 import { expect, test } from "vite-plus/test";
 
 import { navigateCameraToWindow } from "./camera-navigation";
+import { resolveInfiniteCanvasViewportInsets } from "./constants";
 import { createInfiniteCanvasState, createInfiniteCanvasWindow } from "./factory";
 import {
   fitCameraToWorldRect,
   getInfiniteCanvasContentViewport,
   getInfiniteCanvasInsetCameraCenter,
-  resolveInfiniteCanvasViewportInsets,
   screenPointToWorldPoint,
 } from "./geometry";
 import { getInfiniteCanvasOffscreenIndicators } from "./offscreen";

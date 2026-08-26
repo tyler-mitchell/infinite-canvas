@@ -6,6 +6,8 @@ import type {
   InfiniteCanvasSnapPolicy,
   InfiniteCanvasStackBands,
   InfiniteCanvasTheme,
+  InfiniteCanvasViewportInsets,
+  InfiniteCanvasViewportInsetsInput,
   InfiniteCanvasZoomPolicy,
   InfiniteCanvasZoomPolicyInput,
 } from "./types";
@@ -32,6 +34,30 @@ function resolveInfiniteCanvasChromeMetrics(
   return {
     ...DEFAULT_INFINITE_CANVAS_CHROME,
     ...chrome,
+  };
+}
+
+const NO_INFINITE_CANVAS_VIEWPORT_INSETS: InfiniteCanvasViewportInsets = {
+  bottom: 0,
+  left: 0,
+  right: 0,
+  top: 0,
+};
+
+/**
+ * Every edge optional, so a consumer with one panel names one edge.
+ *
+ * Here rather than beside the geometry that uses it, for the same reason the chrome metrics are:
+ * `factory` and `store` both need it, and both are upstream of `geometry`. Putting it there made a
+ * cycle that typechecked, passed 514 tests, and failed at runtime with the resolver undefined —
+ * module initialisation order is not something a type system has an opinion about.
+ */
+function resolveInfiniteCanvasViewportInsets(
+  insets: InfiniteCanvasViewportInsetsInput = {},
+): InfiniteCanvasViewportInsets {
+  return {
+    ...NO_INFINITE_CANVAS_VIEWPORT_INSETS,
+    ...insets,
   };
 }
 
@@ -99,6 +125,8 @@ export {
   DEFAULT_INFINITE_CANVAS_THEME,
   DEFAULT_INFINITE_CANVAS_ZOOM,
   MIN_RENDERABLE_INFINITE_CANVAS_ZOOM,
+  NO_INFINITE_CANVAS_VIEWPORT_INSETS,
   resolveInfiniteCanvasChromeMetrics,
+  resolveInfiniteCanvasViewportInsets,
   resolveInfiniteCanvasZoomPolicy,
 };

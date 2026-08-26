@@ -1,5 +1,4 @@
-import { DEFAULT_INFINITE_CANVAS_CAMERA } from "./constants";
-import { resolveInfiniteCanvasViewportInsets } from "./geometry";
+import { DEFAULT_INFINITE_CANVAS_CAMERA, resolveInfiniteCanvasViewportInsets } from "./constants";
 import { reconcileInfiniteCanvasGroups } from "./group-state";
 import { EMPTY_INFINITE_CANVAS_HISTORY } from "./history";
 import { normalizeSelection } from "./selection";

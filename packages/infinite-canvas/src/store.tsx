@@ -4,8 +4,7 @@ import { batch, observable, observe, type Observable } from "@legendapp/state";
 import { useSelector, useValue } from "@legendapp/state/react";
 import { createContext, useContext, useEffect, useRef, type ReactNode } from "react";
 
-import { resolveInfiniteCanvasZoomPolicy } from "./constants";
-import { resolveInfiniteCanvasViewportInsets } from "./geometry";
+import { resolveInfiniteCanvasViewportInsets, resolveInfiniteCanvasZoomPolicy } from "./constants";
 import {
   getInfiniteCanvasScopedStorageKey,
   parseInfiniteCanvasStateJson,

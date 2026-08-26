@@ -99,29 +99,41 @@ open because it feels good to look at. Concretely, and these are enforced in rev
       **Still open:** the palette cannot rename or delete — those have inline editors and typed
       confirmations that a list row cannot host — and it has no recent-items memory, so the empty
       state is ordered by group rather than by what you actually reach for.
-- [ ] **The library rail** — content, search, saved views. This line said "currently an empty box
-      making a promise", which overstated it: there is no box. `CanvasHud` renders the identity
-      rail, the selection rail, the recovery notice and the launcher, and nothing else.
-      **What it has to be worth:** the launcher already opens a closed note, so a rail that only
-      lists notes is a worse palette that is always on screen. Its case is the three things a
-      modal cannot do — browsing without knowing what you want, seeing relationships between
-      notes rather than one at a time, and staying put while you work against it. The connector
-      item below is blocked on exactly that: an edge whose notes are not both open is currently
-      invisible, and no amount of palette fixes it.
-      **The framework check ran first and found a gap** — recorded in `AFFORDANCE_AUDIT.md`. Every
-      inset the framework takes is a single scalar applied to all four edges:
-      `getViewportInsetWorldRect`, `fitCameraToWorldRect`, `getFitCamera`'s `paddingPx ?? 80`,
-      `getInfiniteCanvasOffscreenIndicators`. A consumer with persistent chrome on one edge cannot
-      say which region is occluded, so `view.fit`, `view.fitSelection`, `window.reveal` and
-      placement would all centre content underneath the rail. **Per-edge viewport insets are the
-      precondition**, and they are product-neutral — a sidebar, an inspector and a docked panel all
-      want the same affordance. Building the rail first would ship a surface that fights every
-      camera command, which is exactly the half-built failure this file warns about.
-      The same check found a second thing worth naming: `getInfiniteCanvasMinimapLayout`,
-      `getInfiniteCanvasOffscreenIndicators` and `getInfiniteCanvasWorldPath` are exported and
-      consumed by nothing here. Not a framework gap — a coverage gap in the app meant to be the
-      framework's showcase, and offscreen indicators answer the rail's own question: where is the
-      note this one connects to, when it is not on screen.
+- [~] **The library rail** — content, search, saved views. This line said "currently an empty box
+  making a promise", which overstated it: there is no box. `CanvasHud` renders the identity
+  rail, the selection rail, the recovery notice and the launcher, and nothing else.
+  **What it has to be worth:** the launcher already opens a closed note, so a rail that only
+  lists notes is a worse palette that is always on screen. Its case is the three things a
+  modal cannot do — browsing without knowing what you want, seeing relationships between
+  notes rather than one at a time, and staying put while you work against it. The connector
+  item below is blocked on exactly that: an edge whose notes are not both open is currently
+  invisible, and no amount of palette fixes it.
+  **The framework check ran first and found a gap** — recorded in `AFFORDANCE_AUDIT.md`. Every
+  inset the framework takes is a single scalar applied to all four edges:
+  `getViewportInsetWorldRect`, `fitCameraToWorldRect`, `getFitCamera`'s `paddingPx ?? 80`,
+  `getInfiniteCanvasOffscreenIndicators`. A consumer with persistent chrome on one edge cannot
+  say which region is occluded, so `view.fit`, `view.fitSelection`, `window.reveal` and
+  placement would all centre content underneath the rail. **Per-edge viewport insets are the
+  precondition**, and they are product-neutral — a sidebar, an inspector and a docked panel all
+  want the same affordance. Building the rail first would ship a surface that fights every
+  camera command, which is exactly the half-built failure this file warns about.
+  The same check found a second thing worth naming: `getInfiniteCanvasMinimapLayout`,
+  `getInfiniteCanvasOffscreenIndicators` and `getInfiniteCanvasWorldPath` are exported and
+  consumed by nothing here. Not a framework gap — a coverage gap in the app meant to be the
+  framework's showcase, and offscreen indicators answer the rail's own question: where is the
+  note this one connects to, when it is not on screen.
+  **Landed:** the framework affordance, and a first rail against it. Every note in the project,
+  searchable, with a presence dot for the ones already on the canvas and a connection count that
+  expands in place — reaching a connected note costs one click whether or not it has a window,
+  which is the thing the palette cannot do. Clicking a row is `window.reveal` when the note is
+  open and `openNoteWindow` when it is not; neither is re-derived here.
+  The HUD is inset by the same number the camera is, so the identity rail stops sitting under
+  the panel and the selection rail re-centres on what is visible. Verified in the browser:
+  revealing a note centres it at x≈490 in a visible region whose centre is 486, where the
+  element's centre is 400.
+  **Still open:** the rail cannot create, rename, or delete; there is no saved-views concept
+  yet; connections cannot be authored or cut from here; and it does not yet draw the offscreen
+  indicators, which is the other half of "where is the note this connects to".
 - [~] **Connectors.** `relates_to` is written for the first time, and edges render between the
   windows showing their notes — framework geometry throughout, drawn in the new
   `renderUnderlay` band so a connector passes beneath the note rather than across it.

@@ -175,20 +175,42 @@ export function CanvasHud({
   commandPalette,
   droppedKinds,
   identity,
+  library,
+  libraryInset = 0,
 }: Readonly<{
   commandPalette?: ReactNode;
   droppedKinds?: readonly string[];
   identity: ReactNode;
+  library?: ReactNode;
+  libraryInset?: number;
 }>) {
   return (
-    <HudRoot>
-      <HudSurface anchor="top-left" persistent>
-        {identity}
-      </HudSurface>
-      {droppedKinds === undefined ? null : <RecoveryNotice droppedKinds={droppedKinds} />}
-      <SelectionRail />
-      {/* Outside the anchored surfaces: it is a modal, not a corner. */}
-      {commandPalette}
-    </HudRoot>
+    <>
+      {/*
+        Outside the inset root, because it *is* the inset.
+
+        Persistent, unlike every other surface: the HUD's rule is that chrome recedes while the
+        pointer is down, since a rail hovering over the window you are dragging occludes the thing
+        you are positioning. The library is the exception that proves it — the canvas has reserved
+        its space, so it is over nothing, and fading it would make the reserved gap read as a bug
+        rather than as a panel.
+      */}
+      {library === undefined || library === null ? null : (
+        <HudRoot>
+          <HudSurface anchor="left" persistent>
+            {library}
+          </HudSurface>
+        </HudRoot>
+      )}
+      <HudRoot insetLeft={libraryInset}>
+        <HudSurface anchor="top-left" persistent>
+          {identity}
+        </HudSurface>
+        {droppedKinds === undefined ? null : <RecoveryNotice droppedKinds={droppedKinds} />}
+        <SelectionRail />
+        {/* Outside the anchored surfaces: it is a modal, not a corner. */}
+        {commandPalette}
+      </HudRoot>
+    </>
   );
 }
