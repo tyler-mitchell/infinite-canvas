@@ -332,3 +332,69 @@ implementation and is directly relevant to the mentions item above.
 
 **What not to borrow:** the playground is a demo application. Its state management, styling, and
 app shell are not production patterns. Take the editor architecture, not the surroundings.
+
+---
+
+## feat: arrangements — layout recipes as first-class objects
+
+Save an arrangement of windows and apply it again later: "review layout", "writing layout",
+"three-up compare". A spatial tool's real unit of reuse is not a document, it is a _configuration
+of documents_, and today that only exists in the user's memory of where they dragged things.
+
+**Check the framework first — most of this may already exist.** `InfiniteCanvasRecipe` and
+`parseInfiniteCanvasRecipe` are already exported, and `recipes.ts` is a framework module. Before
+any product code, establish what a recipe already is: whether it describes a target arrangement,
+whether it can be applied to live windows, and whether it is parameterised by which windows it
+acts on. It is entirely possible that an Arrangement is nothing more than a durable, named,
+user-authored recipe — a `content_item` of `kind: "arrangement"` whose content is a recipe the
+framework already knows how to run. If so, almost none of this is new machinery, and the
+temptation to model it a second way is the failure to avoid.
+
+**The interesting design question** is what an arrangement is _bound to_. Three candidates, and
+they behave very differently:
+
+- **Positional** — slots, filled by whatever is selected when applied. Reusable across content.
+- **Identity-bound** — names specific records, so applying it reopens those exact notes. This is
+  closer to a saved session.
+- **Query-bound** — names a filter ("everything tagged `review`"), so the arrangement stays
+  correct as content changes. Most powerful, most work.
+
+Positional is almost certainly the right first cut: it composes with selection, which the user
+already understands, and the other two can be layered on the same object later.
+
+**Where it touches what exists:** framework `workspaces` are already a membership filter within a
+canvas, so an arrangement is not a workspace and must not be modelled as one. An arrangement
+produces geometry; a workspace decides visibility.
+
+---
+
+## feat: undo that shows you where
+
+Undo on an infinite canvas has a failure mode no linear editor has: **the change you reverted can
+be entirely off-screen.** The user presses undo, sees nothing move, presses it again, and now two
+changes are gone with no feedback for either. Every canvas tool has this bug and almost none fix it.
+
+The fix is that undo is a _navigation_ as much as a mutation. Reverting a change should carry the
+camera to where the change was and mark what changed, so the undo is witnessed rather than
+inferred.
+
+**This is a framework capability, not a Polkadot one.** Any consumer with a camera and a history
+has this exact problem. The framework already has both halves — `state.history`, and
+`navigateToRect` for camera movement — and what is missing between them is that a history entry
+does not say _what region it affected_. That is the generic gap: an undoable entry should be able
+to report the world rect it touched, and then "navigate to the undone change" composes from
+existing parts rather than being written.
+
+**Design notes:**
+
+- Do not move the camera if the change is already comfortably in view. Motion the user did not
+  need is worse than none, and `isWorldRectWithinViewport` already answers this.
+- The highlight should decay on its own rather than needing dismissal — it is an answer to "what
+  just happened", which stops being a question within about a second.
+- Redo needs the identical treatment, and gets it free if the rect lives on the entry.
+- A batch undo covering several scattered windows should fit their union rather than pick one,
+  which `navigateToRect` already handles once the rect exists.
+
+**Worth doing early**, because it is a small amount of work against a history model that is
+already there, and it is the kind of detail that makes a tool feel considered rather than
+assembled.

@@ -68,6 +68,11 @@
 
   --radius: 0.75rem;
   --radius-pill: 999px;
+  /* The shared primitives reference these directly inside arbitrary values. */
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
 
   /* shadcn/Base UI compatibility for the shared `ui` primitives. */
   --background: var(--ground);
@@ -88,6 +93,53 @@
   --border: oklch(1 0 0 / 0.06);
   --input: oklch(1 0 0 / 0.08);
   --ring: var(--accent);
+}
+
+/**
+ * Registering the compatibility layer with Tailwind.
+ *
+ * The block above only declares custom properties. Tailwind 4 generates a utility such as
+ * `bg-popover` from a `--color-*` entry in `@theme`, and from nothing else — so without this,
+ * every class the shared `ui` primitives are built from resolved to nothing and the primitives
+ * rendered unstyled while their tokens sat correctly defined a few lines above. A `bg-secondary`
+ * button computed to `rgba(0, 0, 0, 0)`.
+ *
+ * `inline` so the utilities reference the custom properties rather than copying their values,
+ * which keeps `:root` the single place a colour is decided.
+ *
+ * Polkadot's own slots keep writing `bg-[var(--surface)]` against the palette directly. This
+ * namespace exists for the shared primitives, which are written against shadcn's vocabulary and
+ * cannot know about this palette.
+ */
+@theme inline {
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  /*
+   * Deliberately not `--accent`. In shadcn's vocabulary `bg-accent` is the hover and focus
+   * surface for interactive items, not a brand colour — mapping it to Polkadot's apricot
+   * signature would paint every hovered menu row bright orange. The signature stays reserved for
+   * active state, which is what `--icx-hud-button-active-bg` already does on the canvas.
+   */
+  --color-accent: var(--surface-hover);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
 }
 
 /**
