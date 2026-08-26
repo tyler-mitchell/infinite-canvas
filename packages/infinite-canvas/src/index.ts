@@ -433,6 +433,8 @@ export type {
 } from "./types";
 export { isInfiniteCanvasWindowCapable } from "./window-capabilities";
 export { findInfiniteCanvasWorkspace } from "./workspace";
+export { getInfiniteCanvasActivity, isInfiniteCanvasActivityTransient } from "./activity";
+export type { InfiniteCanvasActivity } from "./activity";
 export {
   getInfiniteCanvasWorkspaceWindowIds,
   isInfiniteCanvasWindowInActiveWorkspace,

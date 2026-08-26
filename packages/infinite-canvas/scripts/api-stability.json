@@ -35,6 +35,7 @@
     "InfiniteCanvasRect. Its experimental names are listed one by one and checked to still exist."
   ],
   "stable": [
+    "activity",
     "camera-navigation",
     "canvas-hud",
     "commands",

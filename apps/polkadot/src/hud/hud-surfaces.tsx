@@ -1,0 +1,102 @@
+import {
+  getInfiniteCanvasActivity,
+  isInfiniteCanvasActivityTransient,
+  useInfiniteCanvasSelector,
+  type InfiniteCanvasActivity,
+} from "@hyphened/infinite-canvas";
+import { AnimatePresence, motion } from "motion/react";
+import type { ReactNode } from "react";
+import { tv } from "ui/tv";
+
+/**
+ * The HUD's frame: where surfaces sit, and when they are allowed to be there.
+ *
+ * A HUD is not a toolbar. It is a set of surfaces whose presence is a function of what the canvas
+ * is doing, and the single rule that matters most is that **chrome recedes while the pointer is
+ * down**. A rail hovering over the window you are dragging is the most common way canvas chrome
+ * ruins a canvas: it occludes the thing you are positioning, at exactly the moment you are
+ * judging where it goes.
+ *
+ * `getInfiniteCanvasActivity` answers that from the framework, so the rule lives in one place
+ * rather than being re-derived from `state.interaction?.kind` at every surface.
+ *
+ * Receding is not hiding. Surfaces stay mounted and keep their layout — they drop opacity and
+ * lift slightly out of the way — so nothing reflows when the drag ends and the eye does not have
+ * to re-find anything.
+ */
+
+const hud = tv({
+  slots: {
+    // The HUD never eats pointer events as a layer; each surface opts itself back in.
+    root: "pointer-events-none absolute inset-0 z-80",
+    surface: "pointer-events-auto absolute flex items-center gap-1",
+  },
+  variants: {
+    anchor: {
+      "bottom-center": { surface: "bottom-4 left-1/2 -translate-x-1/2" },
+      "bottom-right": { surface: "right-4 bottom-4" },
+      "top-left": { surface: "top-3 left-3" },
+      "top-right": { surface: "top-3 right-3" },
+    },
+  },
+});
+
+/** Springs, not ramps. Surfaces settle into place the way objects do. */
+const SETTLE = { damping: 30, mass: 0.6, stiffness: 420, type: "spring" } as const;
+
+type HudAnchor = NonNullable<Parameters<typeof hud>[0]>["anchor"];
+
+function useCanvasActivity(): InfiniteCanvasActivity {
+  return useInfiniteCanvasSelector(getInfiniteCanvasActivity);
+}
+
+/**
+ * One HUD surface.
+ *
+ * `present` decides whether it exists at all — that is composition, and it animates in and out.
+ * Receding is separate and automatic: any surface not marked `persistent` fades back while an
+ * interaction is live, without unmounting.
+ */
+function HudSurface({
+  anchor,
+  children,
+  persistent = false,
+  present = true,
+}: Readonly<{
+  anchor: HudAnchor;
+  children: ReactNode;
+  persistent?: boolean;
+  present?: boolean;
+}>) {
+  const activity = useCanvasActivity();
+  const receded = !persistent && isInfiniteCanvasActivityTransient(activity);
+  const styles = hud({ anchor });
+
+  return (
+    <AnimatePresence>
+      {present ? (
+        <motion.div
+          animate={{ opacity: receded ? 0.25 : 1, scale: 1, y: 0 }}
+          className={styles.surface()}
+          data-activity={activity}
+          exit={{ opacity: 0, scale: 0.96, y: 4 }}
+          initial={{ opacity: 0, scale: 0.96, y: 6 }}
+          // Opacity alone during a drag: no spring, because a surface springing while the user is
+          // already moving something reads as a second thing moving.
+          transition={receded ? { duration: 0.12 } : SETTLE}
+        >
+          {children}
+        </motion.div>
+      ) : null}
+    </AnimatePresence>
+  );
+}
+
+function HudRoot({ children }: Readonly<{ children: ReactNode }>) {
+  const styles = hud();
+
+  return <div className={styles.root()}>{children}</div>;
+}
+
+export { HudRoot, HudSurface, useCanvasActivity };
+export type { HudAnchor };

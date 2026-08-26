@@ -558,6 +558,17 @@ legitimately need, plus the default policies.
 - `MIN_RENDERABLE_INFINITE_CANVAS_ZOOM`
 - `resolveInfiniteCanvasZoomPolicy`
 
+**`activity`**
+
+What the canvas is _doing_, for chrome that must respond to it — distinct from
+`getInfiniteCanvasPointerMode`, which is the tool the user selected and does not change when a
+drag begins. `isInfiniteCanvasActivityTransient` separates the states that last only while a
+pointer is down, which is when chrome should recede.
+
+- `getInfiniteCanvasActivity`
+- `isInfiniteCanvasActivityTransient`
+- `InfiniteCanvasActivity`
+
 **`input-policy`**
 
 - `DEFAULT_INFINITE_CANVAS_CURSOR_POLICY`
