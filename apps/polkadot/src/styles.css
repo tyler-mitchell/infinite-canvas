@@ -62,10 +62,24 @@
    */
   --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23g)' opacity='0.07'/%3E%3C/svg%3E");
 
-  /* Ink — warm against the cool ground. */
+  /*
+   * Ink — warm against the cool ground, and that has to hold for the whole family.
+   *
+   * This comment said exactly that while two of the three carried hue 265 — the *ground's* hue,
+   * shared with `--surface` and `--surface-raised`. Only `--ink` was warm. That would be a small
+   * inconsistency if `--ink` were what the app is written in, and it is not: rail rows, HUD
+   * buttons, the zoom readout, dock items and every window control at rest are `--ink-muted` or
+   * `--ink-faint`, so nearly all of this app's text was cool grey on a cool ground, separated from
+   * it by lightness alone. That is the "pure grey on pure black" default the bar rejects, wearing
+   * a different colour.
+   *
+   * Hue only — lightness and chroma are untouched, so contrast against every surface is exactly
+   * what it was and this cannot be a legibility change hiding inside a taste one. Recessive ink
+   * gets quieter by dropping lightness, not by drifting toward the background it is sitting on.
+   */
   --ink: oklch(0.96 0.008 85);
-  --ink-muted: oklch(0.72 0.012 265);
-  --ink-faint: oklch(0.55 0.012 265);
+  --ink-muted: oklch(0.72 0.012 85);
+  --ink-faint: oklch(0.55 0.012 85);
 
   /* The signature. A luminous apricot, warm where every dev tool is cyan. */
   --accent: oklch(0.78 0.15 55);

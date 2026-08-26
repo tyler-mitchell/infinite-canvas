@@ -86,6 +86,23 @@ open because it feels good to look at. Concretely, and these are enforced in rev
       eleven-megabyte WebAssembly engine onto that path.
 - [x] Framework: `renderBackdrop`, the counterpart to `renderOverlay`
 - [x] Design tokens: palette, elevation, motion, type
+      **The ink family only became warm on 2026-08-26, and the comment above it had claimed so for
+      months.** `/* Ink — warm against the cool ground. */` sat over `--ink` at hue 85 and
+      `--ink-muted` and `--ink-faint` at hue 265 — the _ground's_ hue, shared with `--surface` and
+      `--surface-raised`. That would be a rounding error if `--ink` were what the app is written in,
+      and it is not: rail rows, HUD buttons, the zoom readout, dock items and every window control
+      at rest are muted or faint, so nearly all of this app's text was cool grey on a cool ground,
+      separated from it by lightness alone. That is the "pure grey on pure black" default the bar
+      rejects, wearing a different colour. Both are hue 85 now.
+      **Hue only, so this cannot be a legibility change hiding inside a taste one** — lightness and
+      chroma are untouched, and in OKLCH `L` is perceptual lightness, so contrast against every
+      surface is exactly what it was. Recessive ink still recedes by dropping lightness rather than
+      by drifting toward the background it sits on.
+      **Not demonstrated, and worth saying:** the reasoning is from the stated intent and the
+      computed values, not from a comparison anyone looked at. The dev pane downscales 1440 to 800,
+      region crops are unsupported, and an HMR reload wipes a runtime override mid-A/B, so a
+      before-and-after of a subtle hue shift was not obtainable here. Worth an eye on a real display
+      before it is called settled.
 - [x] Framework tokens for window radius and elevation (`--icx-surface-radius`, `--icx-surface-shadow`)
 - [x] **The living field.** Written once as a flat lattice, deleted, and now built for real — see
       below for what it actually is, because the description that stood here was wrong.
