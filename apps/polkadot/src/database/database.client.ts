@@ -126,12 +126,17 @@ function openLocalDatabase() {
   return lifecycle.promise;
 }
 
-async function openDefaultCanvas(initialLayout: object): Promise<CanvasRef> {
+/**
+ * The canvas `/` opens when nothing is open yet: the first usable project and canvas, creating
+ * only what is missing. Archived documents are not usable, so archiving everything gives a fresh
+ * workspace rather than handing the archived one back.
+ */
+async function bootstrapCanvas(initialLayout: object): Promise<CanvasRef> {
   const client = await openLocalDatabase();
   // One statement, one result. `LET $x = …; RETURN $x;` is two statements, and SurrealDB answers
   // with one result per statement — so destructuring `[record]` read the `LET`, which is NONE.
   const [record] = await client
-    .query<[unknown]>("RETURN fn::open_default_canvas($layout);", { layout: initialLayout })
+    .query<[unknown]>("RETURN fn::bootstrap_canvas($layout);", { layout: initialLayout })
     .json();
 
   return CanvasRef.assert(record);
@@ -577,6 +582,7 @@ async function closeLocalDatabase() {
 export {
   archiveCanvas,
   archiveProject,
+  bootstrapCanvas,
   CanvasRevisionConflictError,
   closeLocalDatabase,
   createCanvas,
@@ -600,7 +606,6 @@ export {
   restoreCanvas,
   NoteRevisionConflictError,
   openCanvas,
-  openDefaultCanvas,
   openLocalDatabase,
   readMostRecentCanvas,
   readNote,

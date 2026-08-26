@@ -18,7 +18,7 @@ export const Route = createFileRoute("/")({
   loader: async () => {
     const database = await import("../database/database.client");
     const existing = await database.readMostRecentCanvas();
-    const canvas = existing ?? (await database.openDefaultCanvas(initialLayout));
+    const canvas = existing ?? (await database.bootstrapCanvas(initialLayout));
 
     throw redirect({ params: { canvasId: canvas.id }, to: "/canvas/$canvasId" });
   },

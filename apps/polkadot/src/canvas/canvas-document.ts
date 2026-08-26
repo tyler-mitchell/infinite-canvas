@@ -1,6 +1,5 @@
 import {
   createInfiniteCanvasState,
-  createInfiniteCanvasWindow,
   getUnknownInfiniteCanvasWindowKinds,
   parseInfiniteCanvasState,
   recoverInfiniteCanvasStateForWindowRegistry,
@@ -8,7 +7,7 @@ import {
   type InfiniteCanvasState,
 } from "@hyphened/infinite-canvas";
 
-import { windowDefinitions, type WindowData, type WindowKind } from "./window-registry";
+import { windowDefinitions, type WindowKind } from "./window-registry";
 
 /**
  * What a canvas contains on a first run, and how a saved one is turned back into runtime state.
@@ -18,19 +17,17 @@ import { windowDefinitions, type WindowData, type WindowKind } from "./window-re
  * be corrected once it exists.
  */
 
+/**
+ * A new canvas is empty.
+ *
+ * It used to seed a window bound to `content_item:welcome`, a fixed note id. That was fine while
+ * one canvas existed and wrong the moment more than one project did: every new project's first
+ * canvas opened showing the first project's note. An empty canvas with `New note` in the rail says
+ * the same thing honestly, and any existing note is reachable from the palette.
+ */
 const initialState = createInfiniteCanvasState<WindowKind>({
   camera: { center: { x: 0, y: 0 }, zoom: 1 },
-  windows: [
-    createInfiniteCanvasWindow<WindowKind, WindowData["note"]>({
-      // Seeded by `fn::open_default_canvas`, so the layout references a record that exists.
-      data: { noteId: "content_item:welcome" },
-      id: "welcome",
-      kind: "note",
-      minSize: { height: 180, width: 280 },
-      rect: { height: 300, width: 460, x: -230, y: -150 },
-      title: "Welcome",
-    }),
-  ],
+  windows: [],
 });
 
 const initialLayout = serializeInfiniteCanvasState(initialState);
