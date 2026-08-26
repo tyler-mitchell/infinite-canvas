@@ -186,6 +186,104 @@
   /* A window is an object resting on the field, not a rectangle drawn on it. */
   --icx-surface-radius: 12px;
   --icx-surface-shadow: var(--lift-2);
+
+  /*
+   * Window controls, unboxed.
+   *
+   * The framework draws each control with `border: 1px solid var(--icx-control-border)` over
+   * `--icx-control-bg`, which by default puts four outlined squares on every header at all
+   * times — the single loudest thing on a canvas of windows, and the clearest case of the
+   * wireframe look this palette exists to avoid. The glyph is enough at rest; the surface
+   * arrives under the pointer.
+   */
+  --icx-control-bg: transparent;
+  --icx-control-border: transparent;
+  --icx-control-fg: var(--ink-faint);
+  --icx-control-hover-bg: var(--surface-hover);
+  --icx-control-hover-border: transparent;
+  --icx-control-hover-fg: var(--ink);
+  --icx-host-control-bg: transparent;
+  --icx-host-control-border: transparent;
+  --icx-host-control-fg: var(--ink-faint);
+  --icx-host-control-hover-bg: var(--surface-hover);
+  --icx-host-control-hover-border: transparent;
+
+  /*
+   * No corner brackets and no frame stroke. Which window is active is already said twice —
+   * by the header's material and by elevation — and a third statement drawn in hairlines is
+   * what makes a dark canvas read as a diagram of an app.
+   */
+  --icx-chrome-stroke: transparent;
+  --icx-corner: transparent;
+
+  --icx-title-fg: var(--ink-faint);
+}
+
+/*
+ * The active window, said with material instead of a rule.
+ *
+ * The framework marks the active window with a 3px `border-bottom` on the header, painted in
+ * `--icx-active-accent`. It was the loudest element on screen: a saturated stripe running the
+ * full width, competing with the note it belongs to.
+ *
+ * The signal it carries is real — on a canvas of windows you must be able to tell which one has
+ * focus at a glance — so it moves rather than disappearing. The active header carries a warm
+ * tint of the accent and sits lighter; the window itself lifts. Both are the palette's own rule
+ * that depth comes from light.
+ *
+ * The token is deliberately not blanked: `--icx-active-accent` also tints the pinned control and
+ * the snap preview, which are semantic uses of the accent and should stay. Only the header's
+ * border is neutralised, which is why this targets the border rather than the colour.
+ */
+[data-slot="window"] [data-slot="window-header"],
+[data-slot="window"][data-active] [data-slot="window-header"] {
+  border-bottom-color: transparent;
+}
+
+[data-slot="viewport"] {
+  --icx-header-active: color-mix(in oklab, var(--accent) 9%, var(--surface-raised));
+}
+
+/* Rounded to match the rails, and roomy enough that the glyph is not the whole target. */
+[data-slot="window-control"] {
+  border-radius: 7px;
+}
+
+/*
+ * Controls arrive on approach.
+ *
+ * A note on a canvas is mostly something you read, and four glyphs sitting in every header of
+ * every window is chrome charging rent on content that does not need it. They appear on the
+ * window under the pointer and on the one holding focus, which are the only two a person is
+ * about to act on.
+ *
+ * Opacity rather than mounting: the header must not reflow when they arrive, and a control that
+ * is not there cannot be tabbed to. `:focus-within` keeps them present for the keyboard, so
+ * hover is an accelerant rather than the only way in.
+ */
+[data-slot="window-controls"] {
+  opacity: 0;
+  transition: opacity 160ms var(--ease-swift);
+}
+
+[data-slot="window"]:hover [data-slot="window-controls"],
+[data-slot="window"][data-active] [data-slot="window-controls"],
+[data-slot="window"]:focus-within [data-slot="window-controls"] {
+  opacity: 1;
+}
+
+/*
+ * Sentence case, at reading size.
+ *
+ * The framework sets 10px uppercase, which reads as a system label rather than the name of the
+ * thing in the window. A note's title is content the user wrote, and chrome that shouts it back
+ * in small caps makes the window feel like a panel in a tool rather than a page.
+ */
+[data-slot="window-title"] {
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: -0.005em;
+  text-transform: none;
 }
 
 /* The active window lifts further and picks up the specular, like the shell's rails. */
