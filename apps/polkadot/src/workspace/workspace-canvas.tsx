@@ -240,9 +240,25 @@ export function WorkspaceCanvas({ canvas }: Readonly<{ canvas: LoadedCanvas }>) 
           // Beneath the windows: a connector should pass under the note it joins, not across it.
           renderUnderlay={() => <ConnectorLayer />}
           spatialTargetResolvers={spatialTargetResolvers}
+          /*
+           * The dock is on because minimizing was otherwise a one-way door.
+           *
+           * The window chrome has always offered Minimize, and `mode: "minimized"` is what it set —
+           * but with no dock, nothing on the canvas said where the window went. The only route back
+           * was a library rail row, which is incidental (it reveals the *note*, not the window) and
+           * absent entirely when the rail is collapsed. A control that hides something with no
+           * visible way to get it back is a trapdoor, not a feature.
+           *
+           * `minimizedDock: false` sat here uncommented while every other line in this object was
+           * argued for, which is what marks it as an unexamined default rather than a decision.
+           *
+           * `pointerModeControls` and `statusCard` stay off deliberately: this app has one pointer
+           * mode and says its save state in the identity rail, so both would be chrome restating
+           * something already on screen.
+           */
           hud={{
             cameraControls: true,
-            minimizedDock: false,
+            minimizedDock: true,
             pointerModeControls: false,
             statusCard: false,
             zoomControls: true,

@@ -386,6 +386,57 @@
   --icx-surface-shadow: inset 0 1px 0 0 var(--edge-light), var(--lift-3);
 }
 
+/*
+ * The dock: where a minimized note waits.
+ *
+ * The framework draws it as bare buttons and leaves every visual decision here, which is the right
+ * split — but left unstyled it rendered as two words of text lying directly on the canvas,
+ * belonging to nothing. It is the same kind of object as the identity rail and the zoom controls,
+ * so it is the same material: one floating pill holding its items, a layered shadow, a specular
+ * hairline along the top edge, and no outline anywhere.
+ */
+[data-slot="hud-dock"] {
+  padding: 4px;
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  box-shadow:
+    inset 0 1px 0 0 var(--edge-light),
+    var(--lift-2);
+  backdrop-filter: blur(24px);
+}
+
+/*
+ * A minimized note reads as put away, not as a button competing with the canvas: no fill at rest,
+ * and the surface arrives under the pointer — the same rule the window controls follow.
+ */
+[data-slot="hud-dock-item"] {
+  max-width: 12rem;
+  padding: 6px 12px;
+  overflow: hidden;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  border: 0;
+  color: var(--icx-hud-dock-item-fg);
+  font-size: 12px;
+  letter-spacing: -0.005em;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  cursor: pointer;
+  transition:
+    background-color 100ms var(--ease-swift),
+    color 100ms var(--ease-swift);
+}
+
+[data-slot="hud-dock-item"]:hover {
+  background: var(--surface-hover);
+  color: var(--ink);
+}
+
+[data-slot="hud-dock-item"]:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
 * {
   box-sizing: border-box;
 }

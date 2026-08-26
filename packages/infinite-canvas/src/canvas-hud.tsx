@@ -75,6 +75,47 @@ const HUD_GROUP_STYLE = {
   pointerEvents: "auto",
 } satisfies CSSProperties;
 
+/**
+ * The bottom edge is one row, not two corners.
+ *
+ * The dock and the controls used to be separate absolutely-positioned children, one pinned left and
+ * one pinned right, each allowed to grow to `calc(100% - 2rem)`. Nothing kept them apart: minimize
+ * two windows in an app with a left inset and the dock slides straight under the zoom controls.
+ * Widths cannot be tuned out of this — the dock's width is however many windows the user minimized.
+ *
+ * As a flex row they cannot overlap at all. The dock shrinks and wraps within its own share, the
+ * controls hold their intrinsic size, and `marginLeft: auto` keeps the controls right even when
+ * there is no dock beside them — which `justify-content: space-between` would get wrong.
+ */
+const HUD_BOTTOM_BAND_STYLE = {
+  alignItems: "flex-end",
+  bottom: "16px",
+  display: "flex",
+  gap: "8px",
+  left: "16px",
+  position: "absolute",
+  right: "16px",
+} satisfies CSSProperties;
+
+const HUD_DOCK_STYLE = {
+  alignItems: "center",
+  display: "flex",
+  flexWrap: "wrap",
+  gap: "8px",
+  // Below its content, so a long dock wraps instead of pushing the controls off the edge.
+  minWidth: 0,
+} satisfies CSSProperties;
+
+const HUD_CONTROLS_STYLE = {
+  alignItems: "center",
+  display: "flex",
+  flexShrink: 0,
+  flexWrap: "wrap",
+  gap: "8px",
+  justifyContent: "flex-end",
+  marginLeft: "auto",
+} satisfies CSSProperties;
+
 function InfiniteCanvasHud({
   onPointerModeChange,
   pointerMode = "marquee",
@@ -100,18 +141,44 @@ function InfiniteCanvasHud({
     resolvedPolicy.cameraControls ||
     resolvedPolicy.pointerModeControls ||
     resolvedPolicy.zoomControls;
+  /*
+   * Nothing minimized means no dock, not an empty one.
+   *
+   * A dock with no items in it is not a place — it is a container announcing a capability the user
+   * is not currently using. Rendering it anyway pushed the decision onto consumers, who reached for
+   * `:empty` to hide it; that only works while the framework happens to render no whitespace, and
+   * every app has to discover it independently.
+   */
+  const showDock = resolvedPolicy.minimizedDock && minimizedWindows.length > 0;
 
-  if (!showControlsRow && !resolvedPolicy.minimizedDock && !resolvedPolicy.statusCard) {
+  if (!showControlsRow && !showDock && !resolvedPolicy.statusCard) {
     return null;
   }
 
   return (
     <div
       data-slot={INFINITE_CANVAS_SLOTS.hud}
+      /*
+       * Inset by whatever the consumer said its own chrome covers, rather than pinned to the
+       * element's edges.
+       *
+       * `viewportInsets` exists because a canvas cannot see the panels an app floats over it, and
+       * every camera verb was taught to respect them — `view.fit`, `view.fitSelection` and
+       * `window.reveal` all aim at the region that is left. The HUD was not, so the framework's own
+       * controls kept being placed in bands the consumer had already declared as covered.
+       *
+       * Found the moment a consumer turned the minimized dock on: it renders bottom-left, the app
+       * has a library rail down the left edge, and the dock drew underneath it. The status card
+       * (top-left) had the same problem waiting. Fixing it at the root fixes every control the HUD
+       * places, now and later, instead of each one learning about insets separately.
+       */
       style={{
-        inset: 0,
+        bottom: state.viewportInsets.bottom,
+        left: state.viewportInsets.left,
         pointerEvents: "none",
         position: "absolute",
+        right: state.viewportInsets.right,
+        top: state.viewportInsets.top,
         zIndex: DEFAULT_INFINITE_CANVAS_STACK_BANDS.overlay,
       }}
     >
@@ -124,7 +191,6 @@ function InfiniteCanvasHud({
           style={{
             left: "16px",
             maxWidth: "min(28rem, calc(100% - 2rem))",
-            padding: "12px 16px",
             position: "absolute",
             top: "16px",
           }}
@@ -135,78 +201,69 @@ function InfiniteCanvasHud({
           </div>
         </div>
       ) : null}
-      {resolvedPolicy.minimizedDock ? (
-        <div
-          data-slot={INFINITE_CANVAS_SLOTS.hudDock}
-          style={{
-            alignItems: "center",
-            bottom: "16px",
-            display: "flex",
-            flexWrap: "wrap",
-            gap: "8px",
-            left: "16px",
-            maxWidth: "calc(100% - 2rem)",
-            position: "absolute",
-          }}
-        >
-          {minimizedWindows.map((window) => (
-            <button
-              data-slot={INFINITE_CANVAS_SLOTS.hudDockItem}
-              key={window.id}
-              onClick={() => {
-                actions.restoreWindow(window.id);
-              }}
-              style={{
-                padding: "8px 12px",
-                pointerEvents: "auto",
-              }}
-              type="button"
-            >
-              {window.title}
-            </button>
-          ))}
-        </div>
-      ) : null}
-      {showControlsRow ? (
-        <div
-          style={{
-            alignItems: "center",
-            bottom: "16px",
-            display: "flex",
-            flexWrap: "wrap",
-            gap: "8px",
-            justifyContent: "flex-end",
-            maxWidth: "calc(100% - 2rem)",
-            position: "absolute",
-            right: "16px",
-          }}
-        >
-          {resolvedPolicy.pointerModeControls && onPointerModeChange !== undefined ? (
-            <InfiniteCanvasPointerModeControls
-              onModeChange={onPointerModeChange}
-              pointerMode={pointerMode}
-            />
+      {showDock || showControlsRow ? (
+        <div style={HUD_BOTTOM_BAND_STYLE}>
+          {showDock ? (
+            <div data-slot={INFINITE_CANVAS_SLOTS.hudDock} style={HUD_DOCK_STYLE}>
+              {minimizedWindows.map((window) => (
+                <button
+                  /*
+                   * The title alone is not a label. Every other HUD button names its action —
+                   * "Fit selection", "Reset desktop" — while a dock item announced only "Untitled
+                   * 2", which is also what a row in the consumer's own list announces. The visible
+                   * text stays inside the name, so speaking the title still reaches this button.
+                   */
+                  aria-label={`Restore ${window.title}`}
+                  data-slot={INFINITE_CANVAS_SLOTS.hudDockItem}
+                  key={window.id}
+                  onClick={() => {
+                    actions.restoreWindow(window.id);
+                  }}
+                  style={{ pointerEvents: "auto" }}
+                  /*
+                   * A dock item is a title, and a title can be longer than a dock. Consumers
+                   * truncate these — the theme leaves the width alone but nothing stops an app from
+                   * clamping it — and a truncated title with no way to read the rest is a worse
+                   * affordance than a wide dock. The button already knows the full string.
+                   */
+                  title={window.title}
+                  type="button"
+                >
+                  {window.title}
+                </button>
+              ))}
+            </div>
           ) : null}
-          {resolvedPolicy.cameraControls ? <InfiniteCanvasCameraNavigationControls /> : null}
-          {resolvedPolicy.zoomControls ? (
-            <InfiniteCanvasZoomControls zoomPolicy={zoomPolicy} />
-          ) : null}
-          {resolvedPolicy.cameraControls ? (
-            <button
-              aria-label="Reset desktop"
-              data-action="reset"
-              data-slot={INFINITE_CANVAS_SLOTS.hudButton}
-              onClick={() => {
-                actions.reset();
-              }}
-              style={{
-                ...HUD_ICON_BUTTON_STYLE,
-                pointerEvents: "auto",
-              }}
-              type="button"
-            >
-              <ResetIcon />
-            </button>
+          {showControlsRow ? (
+            <div style={HUD_CONTROLS_STYLE}>
+              {resolvedPolicy.pointerModeControls && onPointerModeChange !== undefined ? (
+                <InfiniteCanvasPointerModeControls
+                  onModeChange={onPointerModeChange}
+                  pointerMode={pointerMode}
+                />
+              ) : null}
+              {resolvedPolicy.cameraControls ? <InfiniteCanvasCameraNavigationControls /> : null}
+              {resolvedPolicy.zoomControls ? (
+                <InfiniteCanvasZoomControls zoomPolicy={zoomPolicy} />
+              ) : null}
+              {resolvedPolicy.cameraControls ? (
+                <button
+                  aria-label="Reset desktop"
+                  data-action="reset"
+                  data-slot={INFINITE_CANVAS_SLOTS.hudButton}
+                  onClick={() => {
+                    actions.reset();
+                  }}
+                  style={{
+                    ...HUD_ICON_BUTTON_STYLE,
+                    pointerEvents: "auto",
+                  }}
+                  type="button"
+                >
+                  <ResetIcon />
+                </button>
+              ) : null}
+            </div>
           ) : null}
         </div>
       ) : null}
