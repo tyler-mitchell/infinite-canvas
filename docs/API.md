@@ -338,6 +338,9 @@ buttons, and programmatic drivers share one mutation path.
 
 - `findInfiniteCanvasGroup`, `getInfiniteCanvasWindowGroup`, `isInfiniteCanvasWindowGrouped`
 - `getInfiniteCanvasGroupedWindowIds`, `getInfiniteCanvasGroupProjection`, `reconcileInfiniteCanvasGroups`
+- `DEFAULT_INFINITE_CANVAS_GROUP_TITLE` — what a group is called when nobody named it. Exported so
+  a consumer can tell an unnamed group from a named one, which is the difference between offering
+  "Name this group" and offering "Rename"
 - `getInfiniteCanvasGroupTabLabel` — what a tab or accordion header is called: the window's
   `title`, or for a nested tabs/accordion container whatever it is currently showing. A split has
   no single occupant and takes the group's title. Pass `groupTabLabel` to the desktop to replace

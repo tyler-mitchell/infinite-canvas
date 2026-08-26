@@ -53,6 +53,7 @@ export type {
   InfiniteCanvasGroupWindowNode,
 } from "./group-tree";
 export {
+  DEFAULT_INFINITE_CANVAS_GROUP_TITLE,
   findInfiniteCanvasGroup,
   getInfiniteCanvasGroupProjection,
   getInfiniteCanvasGroupTabLabel,
