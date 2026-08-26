@@ -55,10 +55,15 @@ DEFINE FUNCTION OVERWRITE fn::save_content_item(
     WHERE revision = $revision;
 };
 
-DEFINE FUNCTION OVERWRITE fn::list_content_items($project: record<project>, $kind: string) {
+-- `$kind` is optional, because "everything in this project" is a real question and had no way to
+-- be asked. A collection asks for one kind; the library asks for all of them, and per-kind calls
+-- merged in the client would order four sorted lists by hand and go stale one kind at a time.
+DEFINE FUNCTION OVERWRITE fn::list_content_items($project: record<project>, $kind: option<string>) {
   RETURN SELECT id, kind, title, revision, content, updated_at
     FROM content_item
-    WHERE project = $project AND kind = $kind AND archived_at = NONE
+    WHERE project = $project
+      AND ($kind = NONE OR kind = $kind)
+      AND archived_at = NONE
     ORDER BY updated_at DESC;
 };
 
@@ -106,9 +111,14 @@ DEFINE FUNCTION OVERWRITE fn::restore_content_item($item: record<content_item>) 
   RETURN UPDATE ONLY $item SET archived_at = NONE;
 };
 
-DEFINE FUNCTION OVERWRITE fn::list_archived_content_items($project: record<project>, $kind: string) {
+DEFINE FUNCTION OVERWRITE fn::list_archived_content_items(
+  $project: record<project>,
+  $kind: option<string>
+) {
   RETURN SELECT id, kind, title, revision, content, archived_at
     FROM content_item
-    WHERE project = $project AND kind = $kind AND archived_at != NONE
+    WHERE project = $project
+      AND ($kind = NONE OR kind = $kind)
+      AND archived_at != NONE
     ORDER BY archived_at DESC;
 };

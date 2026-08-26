@@ -10,16 +10,8 @@ import { collectionGateway, type CollectionQuestion } from "./collection-gateway
  */
 
 const COLLECTION_SIZE = { height: 420, width: 300 } as const;
-/**
- * Above the semantic-LOD band's restore threshold, like a note's and unlike an image's.
- *
- * **This was written as insurance and has since become load-bearing**, which is the useful part of
- * the record. It said "this kind declares no summary today, so the lane never engages" and reasoned
- * that a floor below the band would strand the window as a card it could never come back from. The
- * summary landed, the lane engages, and the floor is the only reason zooming out and back leaves a
- * collection readable. Cheaper to be above the band from the start than to find that through the
- * bug — and the framework now says so where the threshold is defined rather than only here.
- */
+/** Above the LOD restore threshold. Written as insurance before this kind had a summary; now that
+ * it has one, it is the only reason zooming out and back leaves a collection readable. */
 const COLLECTION_MINIMUM_SIZE = { height: 220, width: 220 } as const;
 
 async function openNewCollection(

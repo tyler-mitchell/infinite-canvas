@@ -8,20 +8,8 @@ import { linkGateway, type LinkRecord } from "./link-gateway";
 /**
  * A window body bound to a link record.
  *
- * Read-once through the shared content cache, for the same reason a picture is: the window carries
- * only `{ itemId }`, a link's content never changes after creation, and the same address open in
- * two windows must not be two reads.
- *
- * **There is no preview and that is the design, not a gap.** Every link app fetches a title, a
- * description and an image from the page, and every one of those is a network read of a third-party
- * address. This workbench is local-first — a canvas that needs a connection to draw its own
- * contents is blank on a plane — and it is also somebody's private board of what they are reading,
- * which is not a thing to be quietly announcing to the sites on it. So the card draws what the drop
- * carried and nothing else.
- *
- * What replaces the favicon is a mark derived from the host. It is not decoration: a wall of link
- * cards is a wall of near-identical rectangles, and a stable colour per domain is what makes the
- * three cards from one site read as a group before a single word is read.
+ * No favicon, because that is a network read of a third-party address and this is local-first. The
+ * host mark replaces it: a stable colour per domain, so cards from one site read as a group.
  */
 
 const links = createContentCache<LinkRecord>({
@@ -30,13 +18,7 @@ const links = createContentCache<LinkRecord>({
   read: (linkId) => linkGateway.read(linkId),
 });
 
-/**
- * A stable hue for a host, so one site is one colour everywhere on the canvas.
- *
- * Any cheap string hash does; this is the FNV-style multiply-xor loop, taken mod 360. What matters
- * is that it is deterministic and spread — the same host is the same colour in every window and in
- * every session, and two different hosts are usually far enough apart to tell apart.
- */
+/** A stable hue per host, so one site is one colour in every window and every session. */
 function getHostHue(host: string): number {
   let hash = 0;
 
@@ -54,30 +36,12 @@ function getHostInitial(host: string): string {
 
 const linkWindow = tv({
   slots: {
-    /*
-     * The whole card is the target, because a link's one verb is "go there".
-     *
-     * `grid` with the mark in its own column keeps the name and the address aligned to each other
-     * rather than to the mark's height, so a two-line name does not push the address out of
-     * alignment with the cards beside it.
-     */
-    /*
-     * Centred rather than top-aligned, because the card's height is not its own choice.
-     *
-     * 200px is what the semantic-LOD return threshold costs a kind that wants a summary, and a
-     * host, a name and an address need about 130 of it. Packing them to the top left the remainder
-     * as a void under the text that read as a card that had failed to load something. Centring
-     * spends the surplus as air on both sides, which is what the extra height actually is.
-     */
+    // Whole card is the target; centred because the 200px floor is the LOD threshold's price.
     card: "grid h-full grid-cols-[auto_1fr] content-center gap-x-3.5 gap-y-2.5 p-4 no-underline outline-none transition-[background-color] duration-150 hover:bg-[color-mix(in_oklch,var(--ink)_4%,transparent)] focus-visible:bg-[color-mix(in_oklch,var(--ink)_6%,transparent)]",
     /** Faint, and last. It is the thing you check, not the thing you read. */
     address: "col-span-2 truncate text-[11.5px] leading-[1.4] text-[var(--ink-faint)]",
     host: "truncate self-center text-[12px] leading-[1.3] font-medium text-[var(--ink-muted)]",
-    /*
-     * Depth from light: the mark is a lit tile of the host's own hue over the window surface, with
-     * the glyph in a brighter tint of the same. No border — a 1px ring would read as a wireframe
-     * where a material is wanted.
-     */
+    // Lit tile of the host's hue, glyph in a brighter tint. No ring: light, not wireframe.
     mark: "grid size-8 place-items-center rounded-[9px] text-[13px] leading-none font-semibold",
     name: "col-span-2 line-clamp-2 text-[14px] leading-[1.45] font-medium text-balance text-[var(--ink)]",
     notice: "grid h-full place-items-center px-6 text-center text-[12.5px] text-[var(--ink-faint)]",
@@ -87,13 +51,7 @@ const linkWindow = tv({
   },
 });
 
-/**
- * Held in screen pixels and divided by zoom, which is the whole point of a summary.
- *
- * A link card shrunk is an address nobody can read. The host at a constant size is the *different*
- * thing the lane asks for — it is the part of a link a person actually recognises, and at a zoom
- * where the card is a thumbnail it is the only part worth the space.
- */
+/** Screen pixels, divided by zoom: the host stays readable when the card is a thumbnail. */
 const SUMMARY_HOST_SCREEN_PX = 12;
 
 export function LinkSummary({ linkId, zoom }: Readonly<{ linkId: string; zoom: number }>) {
@@ -134,11 +92,7 @@ export function LinkWindowBody({ linkId }: Readonly<{ linkId: string }>) {
   const { host, url } = entry.record.content;
   const hue = getHostHue(host);
 
-  /*
-   * An address that would not parse has no host, and the card says so by not offering to go
-   * anywhere: dragging selected text that merely looks like a link produces a string no browser
-   * will take, and a dead link that still looks clickable is worse than one that plainly is not.
-   */
+  // No host means the string never parsed, so the card does not pretend to be clickable.
   if (host === "") {
     return (
       <div className={styles.card()}>
@@ -156,11 +110,7 @@ export function LinkWindowBody({ linkId }: Readonly<{ linkId: string }>) {
     <a
       className={styles.card()}
       href={url}
-      /*
-       * `noreferrer` as well as `noopener`. The second is the security one — a new tab must not get
-       * a handle on this one — and the first is the privacy one: a canvas of someone's reading is
-       * not a thing to announce to every site on it as they open each card.
-       */
+      // noopener for security, noreferrer so the sites are not told what board they came from.
       rel="noreferrer noopener"
       target="_blank"
     >

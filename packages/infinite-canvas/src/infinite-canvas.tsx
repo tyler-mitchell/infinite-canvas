@@ -38,7 +38,7 @@ import {
   type InfiniteCanvasDiagnosticsPolicy,
   type InfiniteCanvasDiagnosticsPolicyInput,
 } from "./diagnostics";
-import { getWheelZoomFactor } from "./geometry";
+import { getInfiniteCanvasContentViewport, getWheelZoomFactor } from "./geometry";
 import {
   EMPTY_INFINITE_CANVAS_DROP,
   createInfiniteCanvasDropInteraction,
@@ -584,6 +584,20 @@ function InfiniteCanvasDesktop<Kind extends string, Payload = InfiniteCanvasDrop
 const NATIVE_DROP_POINTER_ID = -1;
 const NATIVE_DROP_INTERACTION_ID = "__infinite-canvas-native-drop__";
 
+/** Where a paste belongs to something else: a field, or anything the user can type into. */
+function isEditableEventTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) {
+    return false;
+  }
+
+  return (
+    target.isContentEditable ||
+    target instanceof HTMLInputElement ||
+    target instanceof HTMLTextAreaElement ||
+    target.closest("[contenteditable='true'], input, textarea") !== null
+  );
+}
+
 function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDropPayload>({
   chrome: chromeInput,
   className,
@@ -630,6 +644,8 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
   const commandSurfaceRef = useRef<HTMLDivElement | null>(null);
   const spacePanRef = useRef(false);
   const dragCaptureTargetRef = useRef<HTMLElement | null>(null);
+  /** Last pointer position over this viewport, so a paste lands where the user is looking. */
+  const pastePointRef = useRef<InfiniteCanvasPoint | null>(null);
   const configuredPointerMode = getInfiniteCanvasPointerMode(inputPolicy);
   const [pointerModeOverride, setPointerModeOverride] = useState<InfiniteCanvasPointerMode | null>(
     null,
@@ -892,6 +908,71 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
       setDropInteraction(next);
     },
     [chrome, dropPolicy, snapPolicy, spatialTargetResolvers, store],
+  );
+  /**
+   * A paste is a drop with no drag in front of it — same `DataTransfer`, so the same payload
+   * reader, but nothing to preview or cancel. Lands under the pointer, or at the middle of what is
+   * visible when the paste came from the keyboard alone.
+   */
+  const commitPaste = useCallback(
+    (event: ClipboardEvent, payload: Payload) => {
+      const node = rootRef.current;
+
+      if (node === null) {
+        return;
+      }
+
+      const latestState = store.state$.peek() as InfiniteCanvasState<Kind>;
+      const content = getInfiniteCanvasContentViewport(
+        latestState.viewport,
+        latestState.viewportInsets,
+      );
+      const viewportPoint = pastePointRef.current ?? {
+        x: content.x + content.width / 2,
+        y: content.y + content.height / 2,
+      };
+      const dropTarget = resolveInfiniteCanvasDragDropTarget({
+        chrome,
+        dropPolicy,
+        payload,
+        resolvers: spatialTargetResolvers,
+        snapPolicy,
+        state: latestState,
+        viewportPoint,
+      });
+
+      const interaction = createInfiniteCanvasDropInteraction<Payload, Kind>({
+        camera: latestState.camera,
+        clientPoint: viewportPoint,
+        id: NATIVE_DROP_INTERACTION_ID,
+        originClientPoint: viewportPoint,
+        payload,
+        placement: dropTarget.placement,
+        pointerId: NATIVE_DROP_POINTER_ID,
+        target: dropTarget.target,
+        validation: dropTarget.validation,
+        viewport: latestState.viewport,
+        viewportPoint,
+      });
+
+      // Refused, so the browser keeps its paste rather than the canvas swallowing it.
+      if (interaction.status !== "dragging" || interaction.dropTarget.status !== "valid") {
+        return;
+      }
+
+      event.preventDefault();
+      dropPolicy?.onDrop?.({
+        actions,
+        dropTarget: interaction.dropTarget,
+        payload,
+        placement: interaction.placement,
+        state: latestState,
+        target: interaction.dropTarget.target,
+        viewportPoint: interaction.viewportPoint,
+        worldPoint: interaction.worldPoint,
+      });
+    },
+    [actions, chrome, dropPolicy, snapPolicy, spatialTargetResolvers, store],
   );
   /**
    * No pointer capture to release, unlike `cancelDropDrag`.
@@ -1375,16 +1456,42 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
       cancelNativeDrag();
     };
 
+    // On the document, since the canvas is not focusable. The editable guard is what keeps a paste
+    // inside a window's editor from being stolen by the canvas.
+    const handlePaste = (event: ClipboardEvent) => {
+      if (event.defaultPrevented || isEditableEventTarget(event.target)) {
+        return;
+      }
+
+      const payload = getInfiniteCanvasNativeDropPayload(event.clipboardData) as Payload | null;
+
+      if (payload !== null) {
+        commitPaste(event, payload);
+      }
+    };
+    const trackPastePoint = (event: PointerEvent) => {
+      pastePointRef.current = getViewportPoint(node, getClientPoint(event));
+    };
+    const forgetPastePoint = () => {
+      pastePointRef.current = null;
+    };
+
     node.addEventListener("dragenter", handleDragEnter);
     node.addEventListener("dragover", handleDragOver);
     node.addEventListener("dragleave", handleDragLeave);
     node.addEventListener("drop", handleDrop);
+    node.addEventListener("pointermove", trackPastePoint);
+    node.addEventListener("pointerleave", forgetPastePoint);
+    document.addEventListener("paste", handlePaste);
 
     return () => {
       node.removeEventListener("dragenter", handleDragEnter);
       node.removeEventListener("dragover", handleDragOver);
       node.removeEventListener("dragleave", handleDragLeave);
       node.removeEventListener("drop", handleDrop);
+      node.removeEventListener("pointermove", trackPastePoint);
+      node.removeEventListener("pointerleave", forgetPastePoint);
+      document.removeEventListener("paste", handlePaste);
     };
   }, [
     actions,
