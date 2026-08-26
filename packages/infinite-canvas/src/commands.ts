@@ -5,6 +5,7 @@ import {
 } from "./camera-navigation";
 import { DEFAULT_INFINITE_CANVAS_ZOOM } from "./constants";
 import {
+  getInfiniteCanvasContentWorldRect,
   getViewportInsetWorldRect,
   isUsableViewport,
   panCameraByScreenDelta,
@@ -70,7 +71,10 @@ import {
   getInfiniteCanvasDistributedRects,
   getInfiniteCanvasSwappedRects,
 } from "./window-arrange";
-import { getInfiniteCanvasWindowPlacementRect } from "./window-placement";
+import {
+  getInfiniteCanvasVacantRect,
+  getInfiniteCanvasWindowPlacementRect,
+} from "./window-placement";
 import {
   activateInfiniteCanvasWorkspace,
   closeInfiniteCanvasWorkspace,
@@ -2079,10 +2083,44 @@ function executeInfiniteCanvasCommand<Kind extends string>(
 
       return preview === null ? state : applyInfiniteCanvasDockPreview(state, preview);
     }
-    case "window.undock":
-      return state.activeWindowId === null
+    /*
+     * A commanded undock has to place the window; a dragged one must not.
+     *
+     * `undockInfiniteCanvasWindowFromGroup` leaves the window where the solver drew it when given
+     * no rect, which is right for a tear-out — the pointer is already carrying it and a jump would
+     * fight the drag. Invoked from a palette there is no pointer, so the window stayed inside the
+     * shell's footprint, under the tab strip it had just left. It reads as nothing having
+     * happened, which is the failure `getInfiniteCanvasVacantRect` exists to prevent.
+     *
+     * `preferred` is where it already is, so it moves the shortest distance that clears.
+     */
+    case "window.undock": {
+      if (state.activeWindowId === null) {
+        return state;
+      }
+
+      const freed = findWindow(state, state.activeWindowId);
+
+      return freed === null || freed === undefined
         ? state
-        : undockInfiniteCanvasWindowFromGroup(state, { windowId: state.activeWindowId });
+        : undockInfiniteCanvasWindowFromGroup(state, {
+            rect: getInfiniteCanvasVacantRect({
+              bounds: getInfiniteCanvasContentWorldRect(
+                state.camera,
+                state.viewport,
+                state.viewportInsets,
+              ),
+              occupied: [
+                ...state.groups.map((group) => group.rect),
+                ...state.windows
+                  .filter((window) => window.mode !== "minimized" && window.id !== freed.id)
+                  .map((window) => window.rect),
+              ],
+              preferred: freed.rect,
+            }),
+            windowId: state.activeWindowId,
+          });
+    }
     case "window.align":
     case "window.distribute":
     case "window.swap":
