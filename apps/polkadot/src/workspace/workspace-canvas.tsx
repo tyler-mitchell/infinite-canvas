@@ -10,6 +10,8 @@ import { Button } from "ui";
 import { tv } from "ui/tv";
 
 import type { CanvasPersistenceStatus } from "../canvas/canvas-persistence";
+import { CANVAS_CHROME } from "../canvas/chrome";
+import { ConnectorDraft } from "../canvas/connector-draft";
 import { ConnectorLayer } from "../canvas/connector-layer";
 import { useCanvasRuntime } from "../canvas/use-canvas-runtime";
 import { windowDefinitions, type WindowKind } from "../canvas/window-registry";
@@ -63,8 +65,6 @@ const workspace = tv({
     },
   },
 });
-
-const CHROME = { headerHeight: 32 } as const;
 
 /**
  * What this app's own chrome covers, per edge.
@@ -172,9 +172,7 @@ export function WorkspaceCanvas({ canvas }: Readonly<{ canvas: LoadedCanvas }>) 
     <main className={styles.root()}>
       <InfiniteCanvas.Provider store={runtime.store}>
         <InfiniteCanvas.Viewport<WindowKind>
-          // A note names itself in its body, so its header carries only controls and does not
-          // need 40px to do it.
-          chrome={CHROME}
+          chrome={CANVAS_CHROME}
           /*
            * What the library rail is covering, so the camera stops aiming behind it.
            *
@@ -197,35 +195,43 @@ export function WorkspaceCanvas({ canvas }: Readonly<{ canvas: LoadedCanvas }>) 
             zoomControls: true,
           }}
           renderOverlay={(context) => (
-            <CanvasHud
-              commandPalette={<CommandPalette projectId={canvas.projectId} />}
-              droppedKinds={canvas.droppedKinds}
-              libraryInset={libraryOpen ? RAIL_INSET : 0}
-              library={
-                libraryOpen ? (
-                  <LibraryRail
-                    onCollapse={() => {
-                      library$.set(false);
+            <>
+              {/*
+                Above the windows, unlike `ConnectorLayer`. A settled connector belongs to the
+                scene and passes under the note it joins; a line being dragged is the thing you
+                are looking at.
+              */}
+              <ConnectorDraft projectId={canvas.projectId} />
+              <CanvasHud
+                commandPalette={<CommandPalette projectId={canvas.projectId} />}
+                droppedKinds={canvas.droppedKinds}
+                libraryInset={libraryOpen ? RAIL_INSET : 0}
+                library={
+                  libraryOpen ? (
+                    <LibraryRail
+                      onCollapse={() => {
+                        library$.set(false);
+                      }}
+                      projectId={canvas.projectId}
+                    />
+                  ) : null
+                }
+                identity={
+                  <IdentityRail
+                    canvas={context}
+                    canvasId={canvas.id}
+                    libraryOpen={libraryOpen}
+                    onToggleLibrary={() => {
+                      library$.set(!libraryOpen);
                     }}
                     projectId={canvas.projectId}
+                    projectTitle={canvas.projectTitle}
+                    saveAdmission={getSaveAdmission(runtime.saveStatus)}
+                    title={canvas.title}
                   />
-                ) : null
-              }
-              identity={
-                <IdentityRail
-                  canvas={context}
-                  canvasId={canvas.id}
-                  libraryOpen={libraryOpen}
-                  onToggleLibrary={() => {
-                    library$.set(!libraryOpen);
-                  }}
-                  projectId={canvas.projectId}
-                  projectTitle={canvas.projectTitle}
-                  saveAdmission={getSaveAdmission(runtime.saveStatus)}
-                  title={canvas.title}
-                />
-              }
-            />
+                }
+              />
+            </>
           )}
           title={canvas.title}
           windowDefinitions={windowDefinitions}

@@ -134,8 +134,7 @@ open because it feels good to look at. Concretely, and these are enforced in rev
   inferred: authoring `relates_to` from the palette draws the connector on the canvas, both rows
   grow a count, the count expands in place with the neighbour indented under it, and the nested
   row reaches the note it names.
-  **Still open:** the rail cannot create, rename, or delete; there is no saved-views concept
-  yet; and connections cannot be authored or cut from here.
+  **Still open:** there is no saved-views concept yet, and connections cannot be cut from here.
   **Rename and create landed.** Double-click a row and it becomes an input — Enter commits, Escape
   abandons, blur commits, because clicking away from a field you have typed into and losing it is
   what nobody expects. This is the rail's own justification made concrete: this file already
@@ -145,16 +144,34 @@ open because it feels good to look at. Concretely, and these are enforced in rev
   full records from `listNotes` and could have saved directly, which would race a note that is also
   open and being typed into. `setWindowTitle` keeps the window's own title following the record.
   `+` in the header creates where you are already looking and the list updates in place.
-  **Delete is not built and needs schema work first:** `database.notes` has no delete, and removing
-  a note has to take its `relates_to` edges with it — the same cascade `fn::delete_project` already
-  does for a project.
+  **Removal landed as archive, not delete.** Reading the schema settled which one exists:
+  `fn::list_notes` has filtered `archived_at = NONE` since it was written, and canvases and
+  projects already ship archive/restore pairs. A note carries `relates_to` edges, so a delete would
+  have to cascade them or leave the graph pointing at nothing; archiving leaves both intact, so
+  restore puts back everything that was there — which a cascade could never promise. No typed
+  confirmation, because nothing is destroyed. The note's window closes as it is archived: a note the
+  library no longer offers but that is still open on the canvas is the state where "archived" stops
+  meaning anything. Designing it exposed a defect already present — connection counts were taken
+  over every edge, so an archived neighbour showed a count with no row that expanding could
+  produce. Counts now cover only neighbours the current list can show.
 - [~] **Connectors.** `relates_to` is written for the first time, and edges render between the
   windows showing their notes — framework geometry throughout, drawn in the new
   `renderUnderlay` band so a connector passes beneath the note rather than across it.
-  Authoring is "connect the two selected windows" from the palette, which costs no new gesture.
-  **Still open:** drag-to-connect, which is a gesture sprint; edge selection, labels, and typed
-  kinds, since every edge is currently `relates`; and no way to see an edge whose notes are not
-  both open, which is where the library rail would earn its place.
+  **Drag-to-connect landed.** Hovering a note reveals a handle on its edge; dragging from it draws
+  a preview that is dashed while the far end is only a pointer and solid once it is over a note it
+  can join, and releasing writes the edge. Self-connection and duplicates are refused, and the
+  preview says so before you let go rather than after. Two framework findings came out of it. The
+  first is that no geometry was missing: `getInfiniteCanvasRectConnectorPath` takes two rects and a
+  drag has one rect and a pointer, but a zero-extent rect **is** that pointer to this geometry
+  exactly — so the preview routes through the same function, with the same elbow, as the edge it
+  becomes, which is why it predicts the result instead of approximating it. The second was a real
+  gap, now closed: `resolveInfiniteCanvasChromeMetrics` was the only unexported policy resolver,
+  while `resolveInfiniteCanvasSpatialTarget` demands complete chrome metrics and the viewport takes
+  a partial override — so an app with shortened headers could not hit-test against the chrome it
+  was drawing.
+  **Still open:** edge selection, labels, and typed kinds, since every edge is currently `relates`;
+  cutting an edge, which has a database verb but no gesture; and no way to see an edge whose notes
+  are not both open, which is where the library rail would earn its place.
 - [~] **Workspaces** as the organizing spine. The framework's workspace model was reachable only by
   a consumer reaching past the command layer: `cycle` walks desktops that exist and does nothing
   when there are none, so nothing could make the first one, name which one to enter, or take one

@@ -561,7 +561,15 @@ legitimately need, plus the default policies.
 - `DEFAULT_INFINITE_CANVAS_SNAP_POLICY`
 - `DEFAULT_INFINITE_CANVAS_ZOOM`
 - `MIN_RENDERABLE_INFINITE_CANVAS_ZOOM`
+- `resolveInfiniteCanvasChromeMetrics`
 - `resolveInfiniteCanvasZoomPolicy`
+
+`resolveInfiniteCanvasChromeMetrics` merges a partial chrome override with the
+defaults, exactly as `InfiniteCanvas.Viewport` does with its `chrome` prop. Pass
+its result to `resolveInfiniteCanvasSpatialTarget`, which requires complete
+metrics: a consumer that overrides one metric on the viewport and then spreads
+the defaults by hand at each hit-test call site will drift from what the viewport
+draws the moment a metric is added.
 
 **`activity`**
 

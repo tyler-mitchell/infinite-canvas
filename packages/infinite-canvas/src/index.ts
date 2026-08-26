@@ -231,6 +231,16 @@ export {
   DEFAULT_INFINITE_CANVAS_INPUT_POLICY,
   MIN_RENDERABLE_INFINITE_CANVAS_ZOOM,
   DEFAULT_INFINITE_CANVAS_SNAP_POLICY,
+  /*
+   * Public for the same reason the viewport needs it: `resolveInfiniteCanvasSpatialTarget` asks for
+   * *complete* chrome metrics, while `InfiniteCanvas.Viewport` takes a partial override — so a
+   * consumer that shortens its window headers had no way to ask "what is under this pointer" using
+   * the metrics the viewport is actually drawing. Spreading the defaults by hand is not the answer:
+   * it re-implements this merge at every call site and drifts the moment a metric is added.
+   *
+   * Every sibling policy resolver was already exported. This one was the omission.
+   */
+  resolveInfiniteCanvasChromeMetrics,
   resolveInfiniteCanvasZoomPolicy,
 } from "./constants";
 // Pure projection and rect helpers that consumer overlays/scene layers
