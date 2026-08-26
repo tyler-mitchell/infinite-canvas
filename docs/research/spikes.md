@@ -5,7 +5,9 @@ proved, why it matters, and what would make it worth starting. Nothing here is i
 
 ## WebMCP: agents drive and observe the product as a first-class consumer
 
-**Raised by Tyler, 2026-08-26.**
+**Raised by Tyler, 2026-08-26. A requirement rather than an option — the architectural consequence
+is recorded in `apps/polkadot/AGENTS.md`, since it binds every capability written from here on and
+not only this investigation.**
 
 WebMCP lets a page register tools an agent can call directly, instead of an agent simulating a
 user. `document.modelContext.registerTool({ name, description, inputSchema, execute })`, results

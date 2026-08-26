@@ -110,6 +110,23 @@ listed as closed, and the recent-notes dedup never fired. Not one of them errore
 Through the guard, a shape that no longer validates fails at the boundary, loudly, where the
 mismatch is. Past it, `undefined === "x"` is false and the app carries on being subtly wrong.
 
+## Agents are a consumer, not an afterthought
+
+**WebMCP is a requirement, so every capability has to exist somewhere an agent can call.** A page
+registers tools an agent invokes directly; anything reachable only by clicking is invisible to it.
+
+The architectural consequence: a capability lives in the command vocabulary or a module function
+first, and a control calls it. Not the reverse. An `onClick` that builds an argument and dispatches
+is the shape to avoid — it is a capability that exists only for a pointer, and it cannot be
+described, enabled, or invoked.
+
+Two live examples of the wrong shape, both written this session: the selection rail's group verb
+composes `getSelectedWindowBounds` with `createGroup` inside a click handler, and the palette's
+collection rows compose a kind with `openNewCollection` in theirs. Neither is a command; neither
+can be driven except by a person. `getContextualCommands` already returns label, description and
+live enablement for everything the framework owns — that is the bar the app's own verbs should
+meet. See `docs/research/spikes.md`.
+
 ## Libraries
 
 Never hand-roll what a maintained library owns. In practice: TanStack Router, Pacer, Hotkeys,
