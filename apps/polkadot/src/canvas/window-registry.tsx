@@ -190,12 +190,11 @@ const windowDefinitions = defineInfiniteCanvasWindowRegistry<WindowKind, WindowD
     wheelBehavior: "canvas-pan",
   },
   /*
-   * A card: the image's physics, the note's summary. Nothing to scroll and no caret to place, so
-   * wheel and drag belong to the camera. A link at a tenth of the size is an unreadable address,
-   * unlike a picture, so it summarises to the host.
+   * The page itself, so the body keeps its own pointer and wheel — the camera cannot have them,
+   * and could not take them from a cross-origin frame anyway. Summarises to the host: a page at a
+   * tenth of the size is unreadable in a way a picture is not.
    */
   link: {
-    bodyPointerBehavior: "canvas-pan",
     kind: "link",
     overflowY: "hidden",
     renderBody: ({ window }) => {
@@ -212,8 +211,8 @@ const windowDefinitions = defineInfiniteCanvasWindowRegistry<WindowKind, WindowD
 
       return data == null ? null : <LinkSummaryBody linkId={data.itemId} />;
     },
-    textSelection: "none",
-    wheelBehavior: "canvas-pan",
+    textSelection: "native",
+    wheelBehavior: "native-scroll",
   },
   note: {
     kind: "note",

@@ -1,15 +1,22 @@
 import { useValue } from "@legendapp/state/react";
+import { ExternalLink } from "lucide-react";
 import { useEffect } from "react";
+import { Button } from "ui";
 import { tv } from "ui/tv";
 
 import { createContentCache } from "../database/content-cache";
 import { linkGateway, type LinkRecord } from "./link-gateway";
 
 /**
- * A window body bound to a link record.
+ * A window body bound to a link record: the page itself, in the canvas.
  *
- * No favicon, because that is a network read of a third-party address and this is local-first. The
- * host mark replaces it: a stable colour per domain, so cards from one site read as a group.
+ * Many sites refuse to be embedded (`X-Frame-Options`, CSP `frame-ancestors`) and the failure is
+ * silent — a blank frame, no error anyone can read. There is no reliable way to detect it, so the
+ * bar above the page is always there: host, title, and a way out. A refused page leaves a window
+ * that still says what it is and still opens.
+ *
+ * No favicon: that is a network read of a third-party address. The host mark replaces it, a stable
+ * colour per domain so cards from one site read as a group.
  */
 
 const links = createContentCache<LinkRecord>({
@@ -36,16 +43,15 @@ function getHostInitial(host: string): string {
 
 const linkWindow = tv({
   slots: {
-    // Whole card is the target; centred because the 200px floor is the LOD threshold's price.
-    card: "grid h-full grid-cols-[auto_1fr] content-center gap-x-3.5 gap-y-2.5 p-4 no-underline outline-none transition-[background-color] duration-150 hover:bg-[color-mix(in_oklch,var(--ink)_4%,transparent)] focus-visible:bg-[color-mix(in_oklch,var(--ink)_6%,transparent)]",
-    /** Faint, and last. It is the thing you check, not the thing you read. */
-    address: "col-span-2 truncate text-[11.5px] leading-[1.4] text-[var(--ink-faint)]",
-    host: "truncate self-center text-[12px] leading-[1.3] font-medium text-[var(--ink-muted)]",
+    address: "truncate text-[11px] leading-[1.3] text-[var(--ink-faint)]",
+    bar: "flex shrink-0 items-center gap-2.5 px-2.5 py-2",
+    frame: "min-h-0 flex-1 border-0 bg-[var(--ground-sunken)]",
+    identity: "flex min-w-0 flex-1 flex-col gap-0.5",
     // Lit tile of the host's hue, glyph in a brighter tint. No ring: light, not wireframe.
-    mark: "grid size-8 place-items-center rounded-[9px] text-[13px] leading-none font-semibold",
-    name: "col-span-2 line-clamp-2 text-[14px] leading-[1.45] font-medium text-balance text-[var(--ink)]",
+    mark: "grid size-7 shrink-0 place-items-center rounded-[8px] text-[12px] leading-none font-semibold",
+    name: "truncate text-[12.5px] leading-[1.35] font-medium text-[var(--ink)]",
     notice: "grid h-full place-items-center px-6 text-center text-[12.5px] text-[var(--ink-faint)]",
-    /** The summary lane: one word at a readable size, whatever the zoom. */
+    root: "flex h-full flex-col",
     summary: "grid h-full place-items-center gap-2 px-4 text-center",
     summaryHost: "max-w-full truncate font-medium text-[var(--ink-muted)]",
   },
@@ -91,42 +97,58 @@ export function LinkWindowBody({ linkId }: Readonly<{ linkId: string }>) {
 
   const { host, url } = entry.record.content;
   const hue = getHostHue(host);
-
-  // No host means the string never parsed, so the card does not pretend to be clickable.
-  if (host === "") {
-    return (
-      <div className={styles.card()}>
-        <span className={styles.mark()} style={{ background: "var(--ground-sunken)" }}>
-          ?
-        </span>
-        <span className={styles.host()}>Not a link</span>
-        <span className={styles.name()}>{entry.record.title}</span>
-        <span className={styles.address()}>{url}</span>
-      </div>
-    );
-  }
+  // No host means the string never parsed, so there is nothing to load and nowhere to open.
+  const isAddress = host !== "";
 
   return (
-    <a
-      className={styles.card()}
-      href={url}
-      // noopener for security, noreferrer so the sites are not told what board they came from.
-      rel="noreferrer noopener"
-      target="_blank"
-    >
-      <span
-        className={styles.mark()}
-        style={{
-          background: `oklch(0.42 0.09 ${hue})`,
-          color: `oklch(0.92 0.06 ${hue})`,
-        }}
-      >
-        {getHostInitial(host)}
-      </span>
-      <span className={styles.host()}>{host.replace(/^www\./, "")}</span>
-      <span className={styles.name()}>{entry.record.title}</span>
-      <span className={styles.address()}>{url}</span>
-    </a>
+    <div className={styles.root()}>
+      <div className={styles.bar()}>
+        <span
+          className={styles.mark()}
+          style={
+            isAddress
+              ? { background: `oklch(0.42 0.09 ${hue})`, color: `oklch(0.92 0.06 ${hue})` }
+              : { background: "var(--ground-sunken)" }
+          }
+        >
+          {isAddress ? getHostInitial(host) : "?"}
+        </span>
+        <span className={styles.identity()}>
+          <span className={styles.name()}>{entry.record.title}</span>
+          <span className={styles.address()}>{isAddress ? url : "Not a link"}</span>
+        </span>
+        {isAddress ? (
+          <Button
+            aria-label="Open in browser"
+            onClick={() => {
+              globalThis.open(url, "_blank", "noreferrer,noopener");
+            }}
+            onPointerDown={(event) => {
+              event.stopPropagation();
+            }}
+            size="icon-sm"
+            title="Open in browser"
+            variant="ghost"
+          >
+            <ExternalLink />
+          </Button>
+        ) : null}
+      </div>
+      {isAddress ? (
+        <iframe
+          className={styles.frame()}
+          referrerPolicy="no-referrer"
+          // `allow-same-origin` keeps the embedded page on its own origin, which most sites need to
+          // run at all. It is not this document's origin, so it grants nothing here.
+          sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox"
+          src={url}
+          // A page that refuses to embed, or fails to resolve, paints the browser's own blank
+          // document. Dark keeps that from flashing white on a dark canvas.
+          style={{ colorScheme: "dark" }}
+          title={entry.record.title}
+        />
+      ) : null}
+    </div>
   );
 }
 

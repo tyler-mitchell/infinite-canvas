@@ -30,6 +30,7 @@
     "@tanstack/react-router": "catalog:",
     "arktype": "catalog:",
     "lexical": "catalog:",
+    "liquid-gooey": "catalog:",
     "lucide-react": "catalog:",
     "motion": "catalog:",
     "react": "catalog:",

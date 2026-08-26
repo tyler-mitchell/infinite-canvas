@@ -8,12 +8,9 @@ import { getLinkHost, linkGateway } from "./link-gateway";
  * named, and a dropped address is a string.
  */
 
-/**
- * 200 tall because a kind with a summary must clear `fullAbovePx` on its short axis, or the first
- * zoom-out strands it as a summary forever. The card itself needs about 130.
- */
-const LINK_SIZE = { height: 200, width: 380 } as const;
-const LINK_MINIMUM_SIZE = { height: 200, width: 260 } as const;
+/** A window holding a live page, not a bookmark. The floor clears the LOD restore threshold. */
+const LINK_SIZE = { height: 460, width: 620 } as const;
+const LINK_MINIMUM_SIZE = { height: 240, width: 320 } as const;
 
 const TITLE_LIMIT = 64;
 
