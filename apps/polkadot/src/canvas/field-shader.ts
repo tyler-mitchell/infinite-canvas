@@ -43,9 +43,17 @@ const layout = tgpu.bindGroupLayout({
   uniforms: { uniform: FieldUniforms },
 });
 
-// `layout.$` — `layout.bound` was removed in 0.12.
-const uniforms = layout.$.uniforms;
-const masses = layout.$.masses;
+/*
+ * `layout.$` is reached inside each shader that uses it, never captured out here.
+ *
+ * `layout.bound` was removed in 0.12 and `layout.$` replaced it, but the two are not
+ * interchangeable at module scope: `layout.$.uniforms` is a proxy whose getter throws
+ * "Direct access to buffer values is possible only as part of a compute dispatch or draw call"
+ * unless it is read from inside a shader body. Two module-level aliases stood here, so importing
+ * this file threw before a single line of it ran — and because nothing mounts the field yet, that
+ * had never once been executed. A binding read inside a `'use gpu'` body resolves to a WGSL
+ * pointer (`let uniforms = (&uniforms_1);`), which is exactly what the aliases were meant to be.
+ */
 
 const random = tgpu.fn(
   [d.vec2f],
@@ -72,6 +80,7 @@ const rectPull = tgpu.fn(
   d.vec2f,
 )((point, rect, strength) => {
   "use gpu";
+  const uniforms = layout.$.uniforms;
 
   if (strength <= 0.001 || rect.z <= 0) {
     return d.vec2f();
@@ -97,6 +106,8 @@ const fieldPull = tgpu.fn(
   d.vec2f,
 )((point) => {
   "use gpu";
+  const uniforms = layout.$.uniforms;
+  const masses = layout.$.masses;
   let total = d.vec2f();
 
   for (let index = 0; index < MAX_RECTS; index++) {
@@ -134,6 +145,7 @@ const fieldFragment = tgpu["~unstable"].fragmentFn({
   out: d.vec4f,
 })((input) => {
   "use gpu";
+  const uniforms = layout.$.uniforms;
   const frag = std.mul(input.uv, uniforms.resolution);
   const gravity = uniforms[GRAVITY];
   const intensity = uniforms.intensity;

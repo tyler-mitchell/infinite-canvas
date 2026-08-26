@@ -488,7 +488,8 @@ export function Field({ config = DEFAULT_FIELD_CONFIG }: Readonly<{ config?: Fie
         });
 
         pipeline
-          .with(layout, bindGroup)
+          // The bind group carries its own layout; passing both is TypeGPU's outdated overload.
+          .with(bindGroup)
           .withColorAttachment({
             clearValue: [0, 0, 0, 1],
             loadOp: "clear",
