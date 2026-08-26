@@ -1,4 +1,5 @@
 import {
+  getInfiniteCanvasGroupProjection,
   useInfiniteCanvasSelector,
   worldPointToScreenPoint,
   type InfiniteCanvasCamera,
@@ -130,6 +131,8 @@ type RectState = {
 
 type FieldInput = Readonly<{
   camera: InfiniteCanvasCamera;
+  /** Members a group is not drawing — behind a tab, or a collapsed fold. */
+  hiddenWindowIds: ReadonlySet<string>;
   viewport: InfiniteCanvasViewportSize;
   windows: readonly InfiniteCanvasWindow<WindowKind>[];
 }>;
@@ -165,30 +168,38 @@ const readColor = (element: Element, name: string) => {
  * the pull falls away with the square of the distance. Minimized windows are excluded because they
  * have no rect on screen to pull with.
  */
-const getScreenRects = ({ camera, viewport, windows }: FieldInput) => {
+const getScreenRects = ({ camera, hiddenWindowIds, viewport, windows }: FieldInput) => {
   const centre = { x: viewport.width / 2, y: viewport.height / 2 };
   const distanceFromCentre = (
     rect: Readonly<{ height: number; width: number; x: number; y: number }>,
   ) => (rect.x + rect.width / 2 - centre.x) ** 2 + (rect.y + rect.height / 2 - centre.y) ** 2;
 
-  return windows
-    .filter((window) => window.mode !== "minimized")
-    .map((window) => {
-      const origin = worldPointToScreenPoint(camera, viewport, {
-        x: window.rect.x,
-        y: window.rect.y,
-      });
+  return (
+    windows
+      /*
+       * A hidden tab member has no rect on screen to pull with either — which is this filter's own
+       * stated reason for dropping minimized windows, and it did not know the second case. Its `mode`
+       * is `"normal"` and its `rect` is the shell's whole content rect, so both members of a tab pair
+       * displaced the field at the same place and one visible shell pulled twice.
+       */
+      .filter((window) => window.mode !== "minimized" && !hiddenWindowIds.has(window.id))
+      .map((window) => {
+        const origin = worldPointToScreenPoint(camera, viewport, {
+          x: window.rect.x,
+          y: window.rect.y,
+        });
 
-      return {
-        height: window.rect.height * camera.zoom,
-        id: window.id,
-        width: window.rect.width * camera.zoom,
-        x: origin.x,
-        y: origin.y,
-      };
-    })
-    .sort((left, right) => distanceFromCentre(left) - distanceFromCentre(right))
-    .slice(0, MAX_RECTS);
+        return {
+          height: window.rect.height * camera.zoom,
+          id: window.id,
+          width: window.rect.width * camera.zoom,
+          x: origin.x,
+          y: origin.y,
+        };
+      })
+      .sort((left, right) => distanceFromCentre(left) - distanceFromCentre(right))
+      .slice(0, MAX_RECTS)
+  );
 };
 
 export function Field({ config = DEFAULT_FIELD_CONFIG }: Readonly<{ config?: FieldConfig }>) {
@@ -201,10 +212,13 @@ export function Field({ config = DEFAULT_FIELD_CONFIG }: Readonly<{ config?: Fie
   >((state) => state.windows);
   // The loop reads the latest canvas through a ref rather than restarting on every camera frame:
   // rebuilding the device and pipeline each pan would drop the field's own settling on the floor.
-  const inputRef = useRef<FieldInput>({ camera, viewport, windows });
+  const hiddenWindowIds = useInfiniteCanvasSelector<WindowKind, ReadonlySet<string>>(
+    (state) => getInfiniteCanvasGroupProjection(state.groups, state.groupMetrics).hiddenWindowIds,
+  );
+  const inputRef = useRef<FieldInput>({ camera, hiddenWindowIds, viewport, windows });
   const configRef = useRef<FieldConfig>(config);
 
-  inputRef.current = { camera, viewport, windows };
+  inputRef.current = { camera, hiddenWindowIds, viewport, windows };
   configRef.current = config;
   const styles = field();
 
