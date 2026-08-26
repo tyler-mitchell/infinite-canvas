@@ -220,6 +220,15 @@
     --icx-header-active: var(--grain), var(--surface-raised);
     --icx-idle-border: transparent;
     --icx-active-border: transparent;
+    /*
+   * The seam between split panes, which is a control rather than an outline.
+   *
+   * It read `--icx-idle-border` in the framework's theme until that token got its own name, so
+   * turning outlines off — the bar's first rule — left a 6px invisible drag target between panes.
+   * Said with the ground rather than a line: the seam is the canvas showing through between two
+   * lifted surfaces, which is the same way every other separation here is made.
+   */
+    --icx-group-gutter: var(--ground);
     --icx-active-accent: var(--accent);
     --icx-selection-border: var(--accent);
     --icx-selection-bounds: var(--accent-wash);
