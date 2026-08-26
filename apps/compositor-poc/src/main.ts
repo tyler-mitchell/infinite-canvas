@@ -113,8 +113,14 @@ let changedElementCount = 0;
 let changedElementsReported = false;
 let dirtyWindows = 0;
 let interactionResult = "click a window to test";
-/** Paint + copy cost of showing a hover or click, measured to the point the GPU has done it. */
-let respondMs = 0;
+/**
+ * Paint + copy cost per kind of interaction, measured to the point the GPU has done it.
+ *
+ * Kept per cause rather than as one number, because one number is useless here: a hover flush
+ * landing after a burst of typing overwrites the keystroke reading with its own, and the row that
+ * matters most silently becomes the row you cannot see.
+ */
+const responses: Record<string, string> = {};
 
 if (captureNative) {
   const paintCanvas = document.createElement("canvas");
@@ -247,6 +253,15 @@ if (captureNative) {
    * architecture — routing a pointer into a captured window needs geometry the compositor carries,
    * not the browser's hit test.
    */
+  /**
+   * What counts as a target, by the same rule a browser uses: the interactive elements.
+   *
+   * Hardcoding one class would have made the hit-test a demo of itself. Scanning the real
+   * interactive set is the rule a compositor would actually carry, and costs a `querySelectorAll`
+   * over one already-laid-out subtree.
+   */
+  const CONTROLS = "button, input, textarea, select, [contenteditable]";
+
   const resolvePointer = (clientX: number, clientY: number) => {
     const bounds = canvas.getBoundingClientRect();
     const world = {
@@ -284,30 +299,52 @@ if (captureNative) {
       y: ((world.y - (rects[offset + 1] ?? 0)) / (rects[offset + 3] ?? 1)) * textureSize,
     };
     const elementBox = element.getBoundingClientRect();
-    const candidate = element.querySelector(".note-action") as HTMLButtonElement | null;
-    const candidateBox = candidate?.getBoundingClientRect();
     const control =
-      candidate !== null &&
-      candidateBox !== undefined &&
-      local.x >= candidateBox.left - elementBox.left &&
-      local.x <= candidateBox.right - elementBox.left &&
-      local.y >= candidateBox.top - elementBox.top &&
-      local.y <= candidateBox.bottom - elementBox.top
-        ? candidate
-        : null;
+      Array.from(element.querySelectorAll<HTMLElement>(CONTROLS)).find((candidate) => {
+        const box = candidate.getBoundingClientRect();
+
+        return (
+          local.x >= box.left - elementBox.left &&
+          local.x <= box.right - elementBox.left &&
+          local.y >= box.top - elementBox.top &&
+          local.y <= box.bottom - elementBox.top
+        );
+      }) ?? null;
 
     return { control, layer, local };
   };
 
   /**
-   * Repaint the subtree once, then re-copy only the layers named.
+   * Dirty layers, coalesced against the capture pipeline's own rate.
    *
-   * One paint covers every window, so the cost of showing a state change is the paint plus a copy
-   * per changed layer — never a paint per window. Timed, because "does this feel live" is a
-   * measurement rather than an opinion.
+   * The naive version — paint per interaction — measured 15.9 ms a keystroke against 4.2 ms for a
+   * single paint, because fast typing put four paints in flight and each one waited behind the
+   * last. That is the same fixed-round-trip cost this file already identified, arriving through a
+   * door nobody was watching.
+   *
+   * The fix is not a fixed cadence. While a paint is in flight, further changes only mark layers
+   * dirty; when it lands, one more paint covers everything that accumulated. So the capture rate
+   * self-tunes to whatever the pipeline can actually sustain, and a burst of input costs one paint
+   * rather than one each.
    */
-  const recapture = async (layers: readonly number[]) => {
+  const dirtyLayers = new Set<number>();
+  let flushing = false;
+  let dirtyCause = "";
+  let coalesced = 0;
+
+  const flush = async () => {
+    if (flushing || dirtyLayers.size === 0) {
+      return;
+    }
+
+    flushing = true;
+
+    const layers = [...dirtyLayers];
+    const events = coalesced;
     const started = performance.now();
+
+    dirtyLayers.clear();
+    coalesced = 0;
 
     await paintOnce();
 
@@ -323,7 +360,23 @@ if (captureNative) {
     }
 
     await root.device.queue.onSubmittedWorkDone();
-    respondMs = performance.now() - started;
+
+    responses[dirtyCause] =
+      `${dirtyCause} ${(performance.now() - started).toFixed(2)} ms (${String(events)}→${String(layers.length)})`;
+    flushing = false;
+
+    // Anything that arrived mid-flight goes out in the next one.
+    void flush();
+  };
+
+  const markDirty = (layers: readonly number[], cause: string) => {
+    for (const layer of layers) {
+      dirtyLayers.add(layer);
+    }
+
+    coalesced += 1;
+    dirtyCause = cause;
+    void flush();
   };
 
   /**
@@ -337,7 +390,9 @@ if (captureNative) {
    * Only a *change* of hovered control repaints. Repainting per pointer event would pay ~3 ms a
    * move for pixels that are already correct.
    */
-  let hovered: { control: HTMLButtonElement; layer: number } | null = null;
+  let hovered: { control: HTMLElement; layer: number } | null = null;
+  /** The focused field, tracked because its ring is drawn by the compositor rather than captured. */
+  let focused: HTMLElement | null = null;
 
   canvas.addEventListener("pointermove", (event) => {
     // Dragging is a camera pan; the window under the pointer is not being aimed at.
@@ -366,36 +421,92 @@ if (captureNative) {
       hovered.control.dataset["hover"] = "true";
     }
 
-    void recapture([...(stale ? [stale.layer] : []), ...(hovered ? [hovered.layer] : [])]);
+    markDirty([...(stale ? [stale.layer] : []), ...(hovered ? [hovered.layer] : [])], "hover");
   });
+
+  /**
+   * What activating a control means, per kind of control.
+   *
+   * A button changes its own state; a field takes focus. Keyed on the tag rather than branched,
+   * because this is the table a compositor grows — every new control kind is a row, not a limb.
+   */
+  const activate: Readonly<Record<string, (control: HTMLElement) => string>> = {
+    BUTTON: (control) => {
+      const done = control.dataset["done"] !== "true";
+
+      control.dataset["done"] = String(done);
+      control.textContent = done ? "Done ✓" : "Mark as done";
+
+      return "control activated";
+    },
+    /**
+     * Real focus, not a synthesised one.
+     *
+     * The keyboard is a channel the compositor does not own and should not try to: once the browser
+     * has focus on the field, keystrokes, selection and IME all reach it natively. The compositor's
+     * whole job here is the geometry that decides *which* field — everything after that is the
+     * platform's.
+     */
+    INPUT: (control) => {
+      control.focus();
+
+      return "field focused — type";
+    },
+  };
 
   /**
    * Clicking a captured window and having the source DOM respond.
    *
-   * The window stays the authority for its own state. Nothing here synthesises a DOM event or
-   * reaches into the scene; the hit resolves to a control, the control's state changes, and the
-   * changed window is repainted and re-copied into its layer.
+   * The window stays the authority for its own state. Nothing here reaches into the scene; the hit
+   * resolves to a control, the control does its own thing, and the changed window is repainted and
+   * re-copied into its layer.
    */
   canvas.addEventListener("click", (event) => {
     const found = resolvePointer(event.clientX, event.clientY);
+    const control = found?.control ?? null;
 
-    interactionResult =
-      found === null
-        ? "no window under the pointer"
-        : found.control === null
-          ? `window ${String(found.layer)} — hit, no control at ${found.local.x.toFixed(0)},${found.local.y.toFixed(0)}`
-          : `window ${String(found.layer)} — control activated`;
+    if (found === null || control === null) {
+      interactionResult =
+        found === null
+          ? "no window under the pointer"
+          : `window ${String(found.layer)} — hit, no control at ${found.local.x.toFixed(0)},${found.local.y.toFixed(0)}`;
+      focused?.removeAttribute("data-focus");
+      focused = null;
 
-    if (found === null || found.control === null) {
       return;
     }
 
-    const done = found.control.dataset["done"] !== "true";
+    const outcome = activate[control.tagName]?.(control) ?? "control has no behaviour";
 
-    found.control.dataset["done"] = String(done);
-    found.control.textContent = done ? "Done ✓" : "Mark as done";
+    // The focus ring is the compositor's to draw: the browser paints one on its own compositor,
+    // above the page, so it is simply not in the pixels a capture returns.
+    focused?.removeAttribute("data-focus");
+    focused = control.tagName === "INPUT" ? control : null;
+    focused?.setAttribute("data-focus", "true");
 
-    void recapture([found.layer]);
+    interactionResult = `window ${String(found.layer)} — ${outcome}`;
+
+    markDirty([found.layer], "click");
+  });
+
+  /**
+   * Typing, which is the interaction that could still have killed this.
+   *
+   * Every keystroke changes a window's pixels, so every keystroke is a capture. At snapdom's 16 ms
+   * that was hopeless and this file said so; the native lane's cost is what decides whether editing
+   * can happen *in* the canvas rather than in a real DOM window floating above it.
+   *
+   * Delegated on the layout host rather than bound per field: `input` bubbles normally, since the
+   * canvas is an ordinary DOM ancestor whatever it does with layout.
+   */
+  paintCanvas.addEventListener("input", (event) => {
+    const layer = windowElements.indexOf(
+      (event.target as HTMLElement).closest(".note") as HTMLElement,
+    );
+
+    if (layer >= 0) {
+      markDirty([layer], "keystroke");
+    }
   });
   captureLabel = `native copyElementImageToTexture  (${(captureMs / textureLayers).toFixed(2)} ms/window)`;
   nativeDirectToTexture = true;
@@ -682,7 +793,7 @@ const frame = () => {
           `changedEls ${changedElementsReported ? `${String(changedElementCount)} reported` : "not reported by the paint event"}`,
           `all ${String(textureLayers)}     ${captureMs.toFixed(0)} ms  (${(captureMs / textureLayers).toFixed(2)} ms/window)`,
           `click      ${interactionResult}`,
-          `respond    ${respondMs === 0 ? "hover a control to test" : `${respondMs.toFixed(2)} ms  paint + copy`}`,
+          `respond    ${Object.keys(responses).length === 0 ? "interact with a window to test" : `${Object.values(responses).join("   ")}   (events→layers)`}`,
         ]
       : []),
     nativeDirectToTexture

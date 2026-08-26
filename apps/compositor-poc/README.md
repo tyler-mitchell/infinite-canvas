@@ -142,10 +142,12 @@ is noise next to this.
   it has to be event-driven, on actual content change, and coalesced. A window
   being dragged must not re-capture at all — its texture is still valid, only its
   transform changed, which is exactly what the compositor is for.
-- **Live-editing a window cannot go through capture.** At 16 ms a keystroke would
-  drop a frame. The window being edited stays real DOM on top of the canvas;
-  capture is for the ones you are _not_ touching. That is the html-in-canvas
-  hybrid, and this number is why it has to be one.
+- ~~**Live-editing a window cannot go through capture.**~~ **Wrong, and only ever
+  true of the fallback.** At snapdom's 16 ms a keystroke drops a frame, so this
+  file concluded the edited window had to stay real DOM floating above the
+  canvas. On the native lane a burst of thirty-six keystrokes costs 5.1 ms, and
+  text editing inside a captured window is measured working further down. The
+  hybrid may still be wanted for other reasons; this is no longer one of them.
 
 ## Result — native html-in-canvas, measured
 
@@ -294,6 +296,43 @@ The same reasoning rules out **CSS transitions and animations inside a captured 
 surface only advances when it is repainted, so an animated state freezes at whatever frame the paint
 happened to catch. Motion on the canvas belongs to the shader, not to the captured pixels.
 
+### Text editing works, and the caret survives capture
+
+Clicking a text field inside a captured window focuses it, typing reaches it, and the characters
+appear on the canvas — **including the caret**, which is in the captured pixels rather than drawn
+over them.
+
+The compositor's whole contribution is deciding _which_ field. After `focus()`, keystrokes,
+selection and IME are the platform's, through channels the compositor never touches. This is the
+part that could most easily have been a wall and is not one.
+
+Two things it does have to own, and both are the same shape of problem:
+
+- **The focus ring.** Browsers paint focus rings on their own compositor, above the page, so a
+  capture does not contain one. It has to be drawn in CSS on the source element.
+- **The caret's blink.** The caret is captured, but a captured surface only advances when it is
+  repainted — so between keystrokes the blink freezes at whatever phase the last paint caught. An
+  idle focused field needs either a repaint tick of its own or a caret the compositor draws.
+
+### Per-event capture does not work; per-flush coalescing does
+
+The first version repainted per interaction and measured **15.9 ms a keystroke** against 4.2 ms for
+a single paint — fast typing put several paints in flight and each waited behind the last. Same
+fixed round trip this file already identified, arriving through a door nobody was watching.
+
+The fix is not a fixed cadence. While a paint is in flight, further changes only mark layers dirty;
+when it lands, one more paint covers everything that accumulated:
+
+| interaction         | coalesced cost                    |
+| ------------------- | --------------------------------- |
+| hover enter / leave | 1.90 ms (1 event → 1 layer)       |
+| click               | 4.10 ms (1 event → 1 layer)       |
+| **typing burst**    | **5.10 ms (36 events → 1 layer)** |
+
+**Thirty-six keystrokes for the price of one paint.** Capture rate self-tunes to whatever the
+pipeline can sustain, so cost is bounded by the paint rate rather than the event rate — which is
+what makes input cost independent of how fast the user is.
+
 ### Why the layout host stays one canvas
 
 Earlier notes in this file claimed the direct-child rule forces **one canvas per window**. It does
@@ -307,9 +346,9 @@ hit-test space.
 - **Culling.** Not implemented. The GPU processes all N instances every frame, including those far
   offscreen — so the geometry numbers are a conservative worst case, but no real compositor would do
   this.
-- **Text input and focus.** Clicking a button is one interaction; a caret, selection, IME and focus
-  rings are another, and none have been tried. This is the likeliest place for the approach to still
-  hit a wall.
+- **Selection and IME.** Typing and the caret are measured working; dragging a selection across
+  captured text, and composing with an IME, are not. Selection in particular needs pointer _drag_
+  routed into the field, which the hit-test can do but does not yet.
 - **Transform synchronisation.** Captured windows are drawn at the compositor's transform, not the
   browser's. Nothing here checks what the browser believes a captured element's on-screen box is,
   which matters for accessibility and for anything the engine positions itself.
