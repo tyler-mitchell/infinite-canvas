@@ -180,31 +180,54 @@
 }
 
 /**
+ * Everything below is in `@layer components`, and that is load-bearing rather than tidiness.
+ *
+ * Line 1 declares `theme, base, infinite-canvas, components, utilities` and, until now, this file
+ * put none of its own rules in any of them. Unlayered styles beat every layered style, so all of
+ * this outranked the whole utility system — and one rule in it, a `font: inherit` on form controls,
+ * quietly killed every font-size and font-weight utility on every button and input in the app.
+ * The architecture was declared and then not used.
+ *
+ * `components` is the right layer rather than `base`, because these rules exist to beat the
+ * framework: `theme.css` wraps itself in `@layer infinite-canvas`, which the order above places
+ * *before* components. So the overrides still win against the framework's defaults, exactly as
+ * they did unlayered, and utilities now win against them, which is what the bar asks for — every
+ * class comes from a `tv` slot, and a slot's class should not be outranked by a stylesheet.
+ *
+ * Nothing here targets an element the app puts utilities on: these are `[data-slot]` hooks the
+ * framework renders, plus document-level `*` and `body`. That is why the layer changes precedence
+ * against utilities and against nothing else.
+ *
+ * `:root` above stays outside, deliberately — it declares custom properties, layers do not change
+ * how those resolve, and moving them would be churn with no effect.
+ */
+@layer components {
+  /**
  * The canvas chrome, retuned onto the palette above.
  *
  * The framework draws its own window frames and reads these tokens, so a window belongs to the
  * same material system as the shell instead of arriving in the framework's default look.
  */
-[data-slot="viewport"] {
-  --icx-background: transparent;
-  /*
+  [data-slot="viewport"] {
+    --icx-background: transparent;
+    /*
    * Grain over each, so the whole window is one material rather than a grainy body under a flat
    * bar. The tiles do not align across the three elements and do not need to — noise has no
    * pattern to misalign, which is the property that makes it usable this way at all.
    */
-  --icx-body-background: var(--grain), var(--surface);
-  --icx-header-idle: var(--grain), var(--surface);
-  --icx-header-active: var(--grain), var(--surface-raised);
-  --icx-idle-border: transparent;
-  --icx-active-border: transparent;
-  --icx-active-accent: var(--accent);
-  --icx-selection-border: var(--accent);
-  --icx-selection-bounds: var(--accent-wash);
-  --icx-color-foreground: var(--ink);
-  --icx-color-accent: var(--accent);
-  --icx-color-surface-raised: var(--surface-raised);
+    --icx-body-background: var(--grain), var(--surface);
+    --icx-header-idle: var(--grain), var(--surface);
+    --icx-header-active: var(--grain), var(--surface-raised);
+    --icx-idle-border: transparent;
+    --icx-active-border: transparent;
+    --icx-active-accent: var(--accent);
+    --icx-selection-border: var(--accent);
+    --icx-selection-bounds: var(--accent-wash);
+    --icx-color-foreground: var(--ink);
+    --icx-color-accent: var(--accent);
+    --icx-color-surface-raised: var(--surface-raised);
 
-  /*
+    /*
    * The framework's HUD, on Polkadot's material.
    *
    * Its zoom and camera controls are consumed rather than rebuilt — they already carry
@@ -212,25 +235,25 @@
    * belong to the same surface system as the rest of the chrome: a floating panel with a
    * specular edge, no outline, and the accent reserved for the active state.
    */
-  --icx-hud-panel-bg: var(--surface);
-  --icx-hud-panel-border: transparent;
-  --icx-hud-divider: var(--border);
-  --icx-hud-button-fg: var(--ink-muted);
-  --icx-hud-button-hover-fg: var(--ink);
-  --icx-hud-button-hover-bg: var(--surface-hover);
-  --icx-hud-button-hover-border: transparent;
-  --icx-hud-button-active-fg: var(--accent);
-  --icx-hud-button-active-bg: var(--accent-wash);
-  --icx-hud-button-disabled-fg: var(--ink-faint);
-  --icx-hud-zoom-readout-fg: var(--ink-muted);
-  --icx-hud-dock-item-fg: var(--ink-muted);
+    --icx-hud-panel-bg: var(--surface);
+    --icx-hud-panel-border: transparent;
+    --icx-hud-divider: var(--border);
+    --icx-hud-button-fg: var(--ink-muted);
+    --icx-hud-button-hover-fg: var(--ink);
+    --icx-hud-button-hover-bg: var(--surface-hover);
+    --icx-hud-button-hover-border: transparent;
+    --icx-hud-button-active-fg: var(--accent);
+    --icx-hud-button-active-bg: var(--accent-wash);
+    --icx-hud-button-disabled-fg: var(--ink-faint);
+    --icx-hud-zoom-readout-fg: var(--ink-muted);
+    --icx-hud-dock-item-fg: var(--ink-muted);
 
-  /* A window is an object resting on the field, not a rectangle drawn on it. The inset hairline
+    /* A window is an object resting on the field, not a rectangle drawn on it. The inset hairline
      is the specular the palette describes — the same one the rails carry. */
-  --icx-surface-radius: 12px;
-  --icx-surface-shadow: inset 0 1px 0 0 var(--edge-light), var(--lift-2);
+    --icx-surface-radius: 12px;
+    --icx-surface-shadow: inset 0 1px 0 0 var(--edge-light), var(--lift-2);
 
-  /*
+    /*
    * Window controls, unboxed.
    *
    * The framework draws each control with `border: 1px solid var(--icx-control-border)` over
@@ -239,30 +262,30 @@
    * wireframe look this palette exists to avoid. The glyph is enough at rest; the surface
    * arrives under the pointer.
    */
-  --icx-control-bg: transparent;
-  --icx-control-border: transparent;
-  --icx-control-fg: var(--ink-faint);
-  --icx-control-hover-bg: var(--surface-hover);
-  --icx-control-hover-border: transparent;
-  --icx-control-hover-fg: var(--ink);
-  --icx-host-control-bg: transparent;
-  --icx-host-control-border: transparent;
-  --icx-host-control-fg: var(--ink-faint);
-  --icx-host-control-hover-bg: var(--surface-hover);
-  --icx-host-control-hover-border: transparent;
+    --icx-control-bg: transparent;
+    --icx-control-border: transparent;
+    --icx-control-fg: var(--ink-faint);
+    --icx-control-hover-bg: var(--surface-hover);
+    --icx-control-hover-border: transparent;
+    --icx-control-hover-fg: var(--ink);
+    --icx-host-control-bg: transparent;
+    --icx-host-control-border: transparent;
+    --icx-host-control-fg: var(--ink-faint);
+    --icx-host-control-hover-bg: var(--surface-hover);
+    --icx-host-control-hover-border: transparent;
 
-  /*
+    /*
    * No corner brackets and no frame stroke. Which window is active is already said twice —
    * by the header's material and by elevation — and a third statement drawn in hairlines is
    * what makes a dark canvas read as a diagram of an app.
    */
-  --icx-chrome-stroke: transparent;
-  --icx-corner: transparent;
+    --icx-chrome-stroke: transparent;
+    --icx-corner: transparent;
 
-  --icx-title-fg: var(--ink-faint);
-}
+    --icx-title-fg: var(--ink-faint);
+  }
 
-/*
+  /*
  * The active window, said with material instead of a rule.
  *
  * The framework marks the active window with a 3px `border-bottom` on the header, painted in
@@ -278,21 +301,21 @@
  * the snap preview, which are semantic uses of the accent and should stay. Only the header's
  * border is neutralised, which is why this targets the border rather than the colour.
  */
-[data-slot="window"] [data-slot="window-header"],
-[data-slot="window"][data-active] [data-slot="window-header"] {
-  border-bottom-color: transparent;
-}
+  [data-slot="window"] [data-slot="window-header"],
+  [data-slot="window"][data-active] [data-slot="window-header"] {
+    border-bottom-color: transparent;
+  }
 
-[data-slot="viewport"] {
-  --icx-header-active: color-mix(in oklab, var(--accent) 9%, var(--surface-raised));
-}
+  [data-slot="viewport"] {
+    --icx-header-active: color-mix(in oklab, var(--accent) 9%, var(--surface-raised));
+  }
 
-/* Rounded to match the rails, and roomy enough that the glyph is not the whole target. */
-[data-slot="window-control"] {
-  border-radius: 7px;
-}
+  /* Rounded to match the rails, and roomy enough that the glyph is not the whole target. */
+  [data-slot="window-control"] {
+    border-radius: 7px;
+  }
 
-/*
+  /*
  * Controls arrive on approach.
  *
  * A note on a canvas is mostly something you read, and four glyphs sitting in every header of
@@ -304,103 +327,107 @@
  * is not there cannot be tabbed to. `:focus-within` keeps them present for the keyboard, so
  * hover is an accelerant rather than the only way in.
  */
-[data-slot="window-controls"] {
-  opacity: 0;
-  transition: opacity 160ms var(--ease-swift);
-}
+  [data-slot="window-controls"] {
+    opacity: 0;
+    transition: opacity 160ms var(--ease-swift);
+  }
 
-[data-slot="window"]:hover [data-slot="window-controls"],
-[data-slot="window"][data-active] [data-slot="window-controls"],
-[data-slot="window"]:focus-within [data-slot="window-controls"] {
-  opacity: 1;
-}
+  [data-slot="window"]:hover [data-slot="window-controls"],
+  [data-slot="window"][data-active] [data-slot="window-controls"],
+  [data-slot="window"]:focus-within [data-slot="window-controls"] {
+    opacity: 1;
+  }
 
-/*
+  /*
  * Sentence case, at reading size.
  *
  * The framework sets 10px uppercase, which reads as a system label rather than the name of the
  * thing in the window. A note's title is content the user wrote, and chrome that shouts it back
  * in small caps makes the window feel like a panel in a tool rather than a page.
  */
-[data-slot="window-title"] {
-  font-size: 11px;
-  font-weight: 500;
-  letter-spacing: -0.005em;
-  text-transform: none;
-}
+  [data-slot="window-title"] {
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: -0.005em;
+    text-transform: none;
+  }
 
-/*
+  /*
  * The command launcher, on Polkadot's material.
  *
  * `ui` gives the structure; the look belongs here, the same split the window chrome uses. The
  * panel is a raised surface with the specular hairline and the deepest lift, so it reads as an
  * object in front of the canvas rather than a card drawn on it.
  */
-[data-slot="dialog-content"]:has([data-slot="command"]) {
-  background: var(--surface-raised);
-  border-radius: 14px;
-  box-shadow:
-    inset 0 1px 0 0 var(--edge-light),
-    var(--lift-3);
-}
+  [data-slot="dialog-content"]:has([data-slot="command"]) {
+    background: var(--surface-raised);
+    border-radius: 14px;
+    box-shadow:
+      inset 0 1px 0 0 var(--edge-light),
+      var(--lift-3);
+  }
 
-[data-slot="dialog-backdrop"] {
-  background: oklch(0.09 0.006 265 / 0.55);
-}
+  [data-slot="dialog-backdrop"] {
+    background: oklch(0.09 0.006 265 / 0.55);
+  }
 
-/* Separation by light, not a rule: the list sits on a faintly darker ground than the input. */
-[data-slot="command-list"] {
-  background: oklch(0 0 0 / 0.12);
-  box-shadow: inset 0 1px 0 0 var(--edge-light);
-}
+  /* Separation by light, not a rule: the list sits on a faintly darker ground than the input. */
+  [data-slot="command-list"] {
+    background: oklch(0 0 0 / 0.12);
+    box-shadow: inset 0 1px 0 0 var(--edge-light);
+  }
 
-[data-slot="command-footer"] {
-  background: oklch(0 0 0 / 0.18);
-  box-shadow: inset 0 1px 0 0 var(--edge-light);
-}
+  [data-slot="command-footer"] {
+    background: oklch(0 0 0 / 0.18);
+    box-shadow: inset 0 1px 0 0 var(--edge-light);
+  }
 
-/*
+  /*
  * The selected row is the accent's job. A row that is merely a lighter grey makes the user hunt
  * for where Enter will land.
  */
-[data-slot="command-item"][data-selected="true"] {
-  background: var(--accent-wash);
-}
+  [data-slot="command-item"][data-selected="true"] {
+    background: var(--accent-wash);
+  }
 
-[data-slot="command-item"][data-selected="true"] [data-slot="command-item-icon"] {
-  background: var(--accent);
-  color: var(--primary-foreground);
-}
+  [data-slot="command-item"][data-selected="true"] [data-slot="command-item-icon"] {
+    background: var(--accent);
+    color: var(--primary-foreground);
+  }
 
-/*
- * A note names itself.
+  /*
+ * A note names itself, and so does a link.
  *
  * The note body's first field is the title, and the chrome was printing the same string again
  * sixty pixels above it. Two treatments of one value is a header labelling the note from outside;
  * hiding it leaves a slim bar that belongs to the note, which is what the header should be.
  *
+ * The link card arrived with the same fault and it was worse there: a card is 200px tall because
+ * the semantic-LOD floor makes it so, and spending its widest line on a string already printed in
+ * the header wastes the one thing the card is short of.
+ *
  * Hidden, not removed: `window.title` still carries the name for the far-zoom summary and the
- * window's accessible name, and `note-window.tsx` keeps it in step with the record.
+ * window's accessible name, and each kind's body keeps it in step with the record.
  */
-[data-slot="window"][data-kind="note"] [data-slot="window-title"] {
-  display: none;
-}
+  [data-slot="window"]:is([data-kind="note"], [data-kind="link"]) [data-slot="window-title"] {
+    display: none;
+  }
 
-/*
+  /*
  * The framework's header is `justify-content: space-between`, which pushes the title left and the
  * controls right. With the title gone that leaves one child, and space-between put the controls
  * at the start — so the header has to say where its single child belongs.
  */
-[data-slot="window"][data-kind="note"] [data-slot="window-header"] {
-  justify-content: flex-end;
-}
+  [data-slot="window"]:is([data-kind="note"], [data-kind="link"]) [data-slot="window-header"] {
+    justify-content: flex-end;
+  }
 
-/* The active window lifts further and picks up the specular, like the shell's rails. */
-[data-slot="window"][data-active] {
-  --icx-surface-shadow: inset 0 1px 0 0 var(--edge-light), var(--lift-3);
-}
+  /* The active window lifts further and picks up the specular, like the shell's rails. */
+  [data-slot="window"][data-active] {
+    --icx-surface-shadow: inset 0 1px 0 0 var(--edge-light), var(--lift-3);
+  }
 
-/*
+  /*
  * The dock: where a minimized note waits.
  *
  * The framework draws it as bare buttons and leaves every visual decision here, which is the right
@@ -409,69 +436,69 @@
  * so it is the same material: one floating pill holding its items, a layered shadow, a specular
  * hairline along the top edge, and no outline anywhere.
  */
-[data-slot="hud-dock"] {
-  padding: 4px;
-  border-radius: var(--radius-pill);
-  background: var(--surface);
-  box-shadow:
-    inset 0 1px 0 0 var(--edge-light),
-    var(--lift-2);
-  backdrop-filter: blur(24px);
-}
+  [data-slot="hud-dock"] {
+    padding: 4px;
+    border-radius: var(--radius-pill);
+    background: var(--surface);
+    box-shadow:
+      inset 0 1px 0 0 var(--edge-light),
+      var(--lift-2);
+    backdrop-filter: blur(24px);
+  }
 
-/*
+  /*
  * A minimized note reads as put away, not as a button competing with the canvas: no fill at rest,
  * and the surface arrives under the pointer — the same rule the window controls follow.
  */
-[data-slot="hud-dock-item"] {
-  max-width: 12rem;
-  padding: 6px 12px;
-  overflow: hidden;
-  border-radius: var(--radius-pill);
-  background: transparent;
-  border: 0;
-  color: var(--icx-hud-dock-item-fg);
-  font-size: 12px;
-  letter-spacing: -0.005em;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-  cursor: pointer;
-  transition:
-    background-color 100ms var(--ease-swift),
-    color 100ms var(--ease-swift);
-}
+  [data-slot="hud-dock-item"] {
+    max-width: 12rem;
+    padding: 6px 12px;
+    overflow: hidden;
+    border-radius: var(--radius-pill);
+    background: transparent;
+    border: 0;
+    color: var(--icx-hud-dock-item-fg);
+    font-size: 12px;
+    letter-spacing: -0.005em;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    cursor: pointer;
+    transition:
+      background-color 100ms var(--ease-swift),
+      color 100ms var(--ease-swift);
+  }
 
-[data-slot="hud-dock-item"]:hover {
-  background: var(--surface-hover);
-  color: var(--ink);
-}
+  [data-slot="hud-dock-item"]:hover {
+    background: var(--surface-hover);
+    color: var(--ink);
+  }
 
-[data-slot="hud-dock-item"]:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: -2px;
-}
+  [data-slot="hud-dock-item"]:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: -2px;
+  }
 
-* {
-  box-sizing: border-box;
-}
+  * {
+    box-sizing: border-box;
+  }
 
-html,
-body {
-  height: 100%;
-}
+  html,
+  body {
+    height: 100%;
+  }
 
-body {
-  margin: 0;
-  overflow: hidden;
-  background: var(--ground);
-  color: var(--ink);
-  font-family: var(--font-sans);
-  /* Optical, not decorative: it removes the mechanical evenness of default hinting. */
-  -webkit-font-smoothing: antialiased;
-  text-rendering: optimizeLegibility;
-}
+  body {
+    margin: 0;
+    overflow: hidden;
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--font-sans);
+    /* Optical, not decorative: it removes the mechanical evenness of default hinting. */
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
 
-/*
+  /*
  * No form-control font reset here, and its absence is the fix rather than an omission.
  *
  * This file ended with an unlayered `button, input, textarea { font: inherit }`. It reads like the
@@ -492,3 +519,4 @@ body {
  * The rule for anything added below: a document-level reset belongs in a layer. An unlayered
  * selector in this file outranks the entire utility system.
  */
+}
