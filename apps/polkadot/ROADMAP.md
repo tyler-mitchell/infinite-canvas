@@ -63,18 +63,20 @@ open because it feels good to look at. Concretely, and these are enforced in rev
 
 ## Next
 
-- [~] **Window chrome.** Outlines gone — the boxed controls, corner brackets, frame stroke, and
-  the 3px accent bar were all already tokenised and simply never set. The active window is now
-  said with material (a 9% accent wash over the raised surface, plus `--lift-3`) rather than
-  with a rule, and controls arrive on approach via opacity so the header never reflows.
-  The header now reads as part of the note rather than labelling it: the chrome title is hidden
-  for the note kind, so the note's own first field is its name and the header is a slim bar
-  carrying only controls. `window.title` follows the record underneath, for the far-zoom summary
-  and the accessible name — which also fixed a defect where renaming a note left both showing
-  whatever it was called at creation.
-  **Still open:** that header is 40px of empty bar on a kind with no title to show, and
-  `headerHeight` is chrome metrics rather than CSS, so shrinking it means passing the `chrome`
-  prop. The specular hairline the palette describes is also not on the window yet.
+- [x] **Window chrome.** Outlines gone — the boxed controls, corner brackets, frame stroke, and
+      the 3px accent bar were all already tokenised and simply never set. The active window is now
+      said with material (a 9% accent wash over the raised surface, plus `--lift-3`) rather than
+      with a rule, and controls arrive on approach via opacity so the header never reflows.
+      The header now reads as part of the note rather than labelling it: the chrome title is hidden
+      for the note kind, so the note's own first field is its name and the header is a slim bar
+      carrying only controls. `window.title` follows the record underneath, for the far-zoom summary
+      and the accessible name — which also fixed a defect where renaming a note left both showing
+      whatever it was called at creation.
+      The header is 32px, and the specular hairline is composed into `--icx-surface-shadow`. All four
+      things this item asked for — floating surface, no outline, controls on approach, a header that
+      belongs to the note — are done.
+      **Not part of this item, but adjacent and unbuilt:** grain, and the window body still has no
+      scroll affordance at small sizes.
 - [x] **Notes that are notes.** Lexical behind a `{ value, onChange }` boundary — the engine is
       named in exactly one file — with a debounced, revision-guarded write per note. Landed early,
       out of sequence with `IMPLEMENTATION_PHASES.md`, which is recorded in the audit rather than
@@ -124,11 +126,12 @@ stays. What is missing is the field itself, and it is hours of careful work, not
 
 Kept here because the list _is_ the incubator's output.
 
-| Gap                                              | Generic affordance                                           | State  |
-| ------------------------------------------------ | ------------------------------------------------------------ | ------ |
-| Backdrop was hardcoded                           | `renderBackdrop`, mirroring `renderOverlay`                  | landed |
-| No way to observe "the durable document changed" | `InfiniteCanvasHandle.subscribeDocument`                     | landed |
-| Hydration adopted a fallback's unusable viewport | `desktop.hydrate` keeps a usable viewport over the payload's | landed |
+| Gap                                                                   | Generic affordance                                           | State  |
+| --------------------------------------------------------------------- | ------------------------------------------------------------ | ------ |
+| Backdrop was hardcoded                                                | `renderBackdrop`, mirroring `renderOverlay`                  | landed |
+| No way to observe "the durable document changed"                      | `InfiniteCanvasHandle.subscribeDocument`                     | landed |
+| Hydration adopted a fallback's unusable viewport                      | `desktop.hydrate` keeps a usable viewport over the payload's | landed |
+| `chrome` demanded all five metrics, and the defaults are not exported | `InfiniteCanvasChromeMetricsInput`, mirroring `zoomPolicy`   | landed |
 
 **On the second row**, because it is the clearest thing the incubator has produced so far. Any
 consumer persisting a canvas needs to know when the stored shape changed. The obvious way to ask —
