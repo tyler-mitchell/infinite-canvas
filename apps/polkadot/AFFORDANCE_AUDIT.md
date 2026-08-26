@@ -1,45 +1,69 @@
-# Affordance audit
+# Polkadot affordance admission record
 
-**A row here is a precondition, not a record.** It is written _before_ the code, and code written
-without one is a defect regardless of whether it works.
+Implementation gate: **open only for Phase 1 database admission**
 
-This file existed before, was used as a phase gate, deadlocked the project, and was deleted along
-with the evidence requirement it carried. Deleting it was the mistake: within hours, a HUD was
-written that rebuilt the framework's zoom and camera controls from scratch, and both versions
-rendered on the canvas side by side. The sequencing gate is gone for good. The evidence
-requirement is not optional and never was.
+Feature development remains closed. The retrospective and source corrections
+are complete; the only admitted next action is the existing Phase 1 browser
+proof for the local database spine.
 
-## Why this cannot be left to judgment
+This record is the required evidence boundary between a product need and an
+implementation. Every row must identify the existing authority or prove a
+reusable gap before product code is admitted.
 
-Polkadot exists to find gaps in `@hyphened/infinite-canvas`. That only works if "does the framework
-already do this?" is answered _every time, with evidence_, before anything is written. An agent
-moving quickly will skip the check to produce visible output, and will not notice it skipped —
-the code compiles, it renders, it looks like progress. The duplicate is only visible later, from
-outside, usually to Tyler.
+| Area                        | Existing evidence                                                                                                                                                                                                                    | Finding                                                                              | Required implementation                                                                                 | Status                    |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------- | ------------------------- |
+| Delivery sequence           | `IMPLEMENTATION_PHASES.md` keeps database admission and runtime hydration ahead of command discovery, minimap, and offscreen navigation                                                                                              | Later-phase UI was started while the storage spine remained unproven                 | Premature UI removed; resume at the first open phase                                                    | accepted                  |
+| Application scaffold        | Official TanStack Start blank scaffold; `createFileRoute`, `createRootRoute`, and `createRouter` remain intact                                                                                                                       | Library-native                                                                       | Retain                                                                                                  | accepted                  |
+| Repository toolchain        | Vite+ 0.1.24 built TanStack Start but served every development route as 404; 0.2.9 returned HTTP 200 and passed the repository check, tests, and builds                                                                              | Evidence-backed compatibility pin                                                    | Retain 0.2.9 until a future full ready-gate proves an upgrade                                           | accepted                  |
+| Canvas ownership            | `createInfiniteCanvasStore`, `InfiniteCanvas.Provider`, `InfiniteCanvas.Viewport`, and `createInfiniteCanvasHandle` are public and tested                                                                                            | Framework-native                                                                     | Retain the parent-owned store and handle                                                                | accepted                  |
+| Canvas mutations            | `InfiniteCanvasCommands` is the canonical pointer, keyboard, UI, and agent mutation path                                                                                                                                             | Framework-native                                                                     | Product controls call `context.actions` only                                                            | accepted                  |
+| Framework hotkeys           | `keyboard.ts` registers canvas commands through TanStack's `HotkeyManager`, applies framework scope and enablement, and exposes custom command bindings                                                                              | Framework-native                                                                     | Retain; product UI shortcuts use `@tanstack/react-hotkeys` when their scheduled phase begins            | accepted                  |
+| Command menu data           | `getInfiniteCanvasContextualCommands`, `getInfiniteCanvasWindowPresence`, and the playground command palette already define the product vocabulary                                                                                   | Existing affordance was found and then bypassed                                      | Remove the premature implementation; later consume these authorities without rebuilding their model     | deferred to planned phase |
+| Command menu interaction    | The reference UI package uses Base UI Dialog, `cmdk`, `@tanstack/react-hotkeys`, and `tailwind-variants`                                                                                                                             | Custom filtering, roving selection, modal dismissal, and focus code were unjustified | Remove the premature implementation; later compose the maintained primitives                            | deferred to planned phase |
+| Command-surface focus       | Framework controls use `focusInfiniteCanvasCommandSurface`; Base UI restores focus to the previously focused canvas surface when a future modal closes                                                                               | No current product gap remains after removing the custom modal                       | Re-evaluate only with a concrete focus postcondition in the command-menu phase                          | accepted                  |
+| New-window placement        | `getVisibleWorldRect` and `getInfiniteCanvasWindowPlacementRect` are exported and tested                                                                                                                                             | Existing affordance was bypassed                                                     | Base rect now comes from framework geometry; only the product cascade offset remains local              | accepted                  |
+| Minimap                     | `getInfiniteCanvasMinimapLayout` and `getInfiniteCanvasMinimapWorldPoint` own projection and inversion; the playground is the canonical consumer                                                                                     | Framework-native capability implemented out of sequence                              | Remove now; consume the helpers in the planned navigation phase                                         | deferred to planned phase |
+| Offscreen cues              | `getInfiniteCanvasOffscreenIndicators` and `navigateToRect` own geometry and navigation; the playground is the canonical consumer                                                                                                    | Framework-native capability implemented out of sequence                              | Remove now; consume the helpers in the planned navigation phase                                         | deferred to planned phase |
+| Canvas hydration            | `parseInfiniteCanvasState` and `normalizeInfiniteCanvasStateForWindowRegistry` own migration and registry repair                                                                                                                     | Framework-native                                                                     | Retain; add explicit recovery UX later                                                                  | accepted                  |
+| Window payload reads        | Persisted `window.data` is `unknown`; `getInfiniteCanvasWindowData` is the framework's public guarded-read boundary, and ArkType already owns runtime schemas                                                                        | Existing affordance was bypassed by direct optional property access                  | Note payloads now pass through ArkType and the framework helper                                         | accepted                  |
+| External canvas persistence | `InfiniteCanvasHandle.subscribe` and `snapshot` are the intended external observation boundary; no async database adapter exists                                                                                                     | Framework boundary is sufficient; scheduling is non-canvas infrastructure            | Handle observation and snapshot remain the only canvas persistence seam                                 | accepted                  |
+| Local database              | Repository policy selects SurrealDB/WASM; official SDK engines and project-local SurQL corpus are in use; WASM 2.6.1 is pinned because the 3.x IndexedDB engine failed in the browser                                                | Library-native, browser admission still unproven                                     | Invalid tooling profile removed; run only the bounded Phase 1 admission proof                           | evidence pending          |
+| WASM worker packaging       | WASM 2.6.1 retains IndexedDB but predates upstream Vite fix 507; WASM 3.x includes that fix but removed IndexedDB; the unpatched production worker requested `../wasm/surrealdb_bg.wasm` while Vite emitted a hashed asset elsewhere | No published version currently satisfies both IndexedDB and Vite worker packaging    | Upstream `beb9d00` is backported with pnpm patch; the injected worker now embeds Vite's hashed WASM URL | accepted                  |
+| Runtime validation          | ArkType validates database output; framework parsers validate serialized layout                                                                                                                                                      | Library-native                                                                       | Retain and extend per content kind                                                                      | accepted                  |
+| Reactive UI state           | Legend State owns shell/database observables; the canvas framework store is itself a Legend observable; `useObservable` is the native component-local constructor                                                                    | Existing library affordance was bypassed by wrapping `observable` in React state     | Shell and admission state now use `useObservable`; no second document-state authority exists            | accepted                  |
+| Legend sync                 | `syncObservable` offers `debounceSet`, retry, and IndexedDB plugins, but its remote change processor launches prepared sets without serial awaiting; another IndexedDB plugin would also duplicate SurrealDB's storage authority     | Insufficient for revision-ordered SurrealDB canvas writes                            | Keep framework observation on the canvas handle; do not introduce a second persistence store            | accepted exclusion        |
+| Scheduling                  | `canvas-persistence.ts` owned a timer and promise queue; TanStack Pacer supplies trailing `Debouncer` and concurrency-one `AsyncQueuer` primitives                                                                                   | Unjustified custom infrastructure had a proven maintained replacement                | Persistence now composes those Pacer primitives                                                         | accepted                  |
+| Styling                     | Shared `ui` uses `tailwind-variants`; Polkadot JSX previously contained literal and conditional Tailwind strings                                                                                                                     | Required convention was violated                                                     | `ui/tv` is the single style constructor and every remaining JSX class comes from its slots or variants  | accepted                  |
+| IDs                         | `crypto.randomUUID()` is the platform's maintained UUID generator                                                                                                                                                                    | Platform-native                                                                      | Retain                                                                                                  | accepted                  |
+| Browser verification        | Headless agent-browser is restricted to scheduled five-minute witnesses                                                                                                                                                              | Verification is downstream of source evidence                                        | Source checks now pass; keep automation paused until the prepared Phase 1 witness begins                | ready, paused             |
 
-The framework is 199 exports. Guesses about what is missing are wrong more often than right.
+## External implementation authorities
 
-## How to satisfy it
+- TanStack Hotkeys React guide: <https://tanstack.com/hotkeys/latest/docs/framework/react/guides/hotkeys>
+- TanStack Pacer async queue guide: <https://tanstack.com/pacer/latest/docs/framework/react/guides/async-queuing>
+- TanStack Pacer debounce guide: <https://tanstack.com/pacer/latest/docs/framework/react/guides/debouncing>
+- SurrealDB JavaScript SDK IndexedDB tracking issue: <https://github.com/surrealdb/surrealdb.js/issues/548>
+- SurrealDB JavaScript SDK Vite worker fix: <https://github.com/surrealdb/surrealdb.js/pull/507>
+- Reference UI implementation: `/Users/tylermitchell/Projects/kek-monorepo/packages/ui`
 
-Before implementing any capability, in this order:
+## Current source verification
 
-1. `mcp__type-atlas__list_module_exports` on `@hyphened/infinite-canvas` — page through all of it,
-   not the first screen.
-2. Read the module that looks closest, in full. `InfiniteCanvasHud` was one `read_file` away.
-3. Check `packages/ui` (`src/index.ts`) for the interaction primitive before writing one.
-4. Check the playground — it is the canonical consumer and shows the intended composition.
-5. Write the row below.
+```sh
+vp -C apps/polkadot check --fix
+# pass: formatting, lint, and type checks
 
-If the framework owns it, consume it. If it half-owns it, extend the framework generically. Only
-what is genuinely a _product_ decision belongs in Polkadot.
+vp -C apps/polkadot build
+# pass: TanStack Start client and server builds
 
-| Capability                                                         | Framework/library evidence                                                                                                    | Finding                                                             | Where it belongs                                                                                                | Status    |
-| ------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- | --------- |
-| Zoom, camera navigation, minimized dock, status card, pointer mode | `InfiniteCanvasHud` with `InfiniteCanvasHudPolicy`; `--icx-hud-*` tokens; playground consumes it                              | Rebuilt from scratch without ever opening it; both rendered at once | Framework, enabled via `hud` policy and themed                                                                  | corrected |
-| Buttons in chrome                                                  | `packages/ui` `Button` — Base UI, `ghost`/`destructive`, `icon-sm`, focus ring, disabled, SVG sizing                          | A third button implementation was written                           | `ui`'s Button                                                                                                   | corrected |
-| Chrome that recedes during an interaction                          | Nothing in the framework; `getInfiniteCanvasActivity` added generically to derive the state                                   | Genuinely absent                                                    | `HudSurface` in Polkadot for now; the receding rule is arguably framework-level and is a candidate to push down | open      |
-| Verbs for a multi-window selection                                 | Framework owns the commands (`window.align`, `selection.close`, …) and their enablement; it has no opinion on presenting them | Vocabulary is framework, presentation is product                    | Polkadot renders; framework decides enablement                                                                  | accepted  |
-| Note content storage                                               | Framework owns layout only (`serializeInfiniteCanvasState` omits content by design)                                           | Product concern                                                     | SurrealDB `content_item`                                                                                        | accepted  |
-| Rich text editing                                                  | Not a canvas concern                                                                                                          | Library                                                             | Lexical, behind one boundary                                                                                    | accepted  |
-| Backdrop replacement                                               | `InfiniteCanvasGridBackdrop` was hardcoded with no seam                                                                       | Real gap                                                            | Framework: `renderBackdrop`                                                                                     | landed    |
-| Viewport survival across hydration                                 | `desktop.hydrate` replaced the whole document including measured `viewport`                                                   | Real gap                                                            | Framework: hydrate keeps the live measurement                                                                   | landed    |
+vp check
+# pass: 243 formatted files and 174 linted/type-checked files
+
+vp run -r test
+# pass: 55 framework files and 489 tests
+
+vp run -r build
+# pass: framework package, playground, and Polkadot client/server builds
+
+vp -C apps/polkadot preview --port 3001
+# root, injected worker, and hashed WASM asset each return HTTP 200
+```
