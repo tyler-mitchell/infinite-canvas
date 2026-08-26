@@ -28,6 +28,13 @@ with, and there is no string to terminate.
 field, and the warped-lattice fragment — rewritten in TGSL and validated through the TypeGPU
 runtime inspector MCP against a real WebGPU device.
 
+> **Read the docs before pinning a version.** This spike ran on 0.11 because that is what the
+> MCP's bundled copy happened to be, and the version was taken from it rather than checked.
+> TypeGPU is at **0.12.3**, and 0.12 removed `layout.bound`, the
+> `withVertex(...).withFragment(...)` pipeline builder, and string-based texture layouts — so the
+> code this spike endorsed was already written against a dead API. Corrected, but the runtime
+> witness below is from 0.11 and has not been repeated on 0.12.
+
 The generated WGSL was correct and the pipeline was created with **zero compilation messages**:
 
 ```wgsl
@@ -60,10 +67,12 @@ convertible, but it is real work rather than a copy.
 
 **What it costs.**
 
-- **WebGPU only.** TypeGPU does not target WebGL, deliberately — "Leaving WebGL behind" is a
-  heading in their own docs. The field currently runs anywhere WebGL2 does. This is the one real
-  decision in the spike, and it is already decided: Chrome-first is a standing constraint for this
-  project, not a new risk introduced here.
+- **WebGPU only, with one caveat.** "Leaving WebGL behind" is a heading in their own docs, and the
+  field currently runs anywhere WebGL2 does. Chrome-first is already a standing constraint here,
+  so this is not a new risk — but the picture is not quite as absolute as first written:
+  `@typegpu/gl` ships an experimental WebGL 2 fallback via `initWithGLFallback()`, supporting
+  vertex and fragment pipelines, constants, uniforms and 2D textures. **A full-screen effect like
+  the field fits that surface; anything using storage buffers, bind groups or compute does not.**
 - A runtime dependency plus `unplugin-typegpu` in the Vite config, which is required for
   TypeScript-authored shaders to work at all.
 - The ternary restriction, and presumably other TGSL limits not reached by a probe this size.
@@ -76,4 +85,13 @@ bans elsewhere.
 
 **Not yet measured.** The inspector's headless device is swiftshader, so this spike proves the
 shader _compiles and links_, not that it is fast. Frame cost has to be compared on real hardware
-before the port is called done.
+before the port is called done — and there is a proper instrument for it rather than frame
+timings: `pipeline.withPerformanceCallback((start, end) => …)` returns GPU nanoseconds, given a
+device initialized with the `timestamp-query` feature.
+
+**Tooling this turned up, not yet adopted.** `tsover` restores operator overloading in `'use gpu'`
+functions, so vector maths reads as `a + b` rather than `std.add(a, b)` — the field's shader is
+almost entirely vector maths and would shrink considerably. `eslint-plugin-typegpu` catches the
+`'use gpu'` pitfalls that cost round trips here (integer division, `Math.*`, unsupported syntax).
+There is also an official TypeGPU agent skill: `npx skills add software-mansion-labs/skills -s
+typegpu`.

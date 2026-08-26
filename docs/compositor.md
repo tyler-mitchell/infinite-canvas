@@ -65,6 +65,23 @@ Two facts make the change cheaper than it looks:
   `getVisibleWorldRect`, `isWorldRectWithinViewport`, and the window proxies are
   framework code with no renderer in them. A compositor inherits them.
 
+### A third option, which is not this one
+
+Reading TypeGPU's docs turned up `@typegpu/three`: TypeGPU functions compiled to
+TSL nodes and plugged into Three.js materials. That keeps `three`, keeps R3F, and
+still gets shaders written in TypeScript — far less work than replacing a
+renderer.
+
+It is the right answer if the scene graph turns out to be load-bearing. It is the
+wrong answer here only because the scene graph is precisely the part not being
+used, and because it does not help the direction this is heading: HTML surfaces
+composited with effects want a pass graph, not materials on meshes. Worth stating
+because it is a real fork, not a strawman — and worth revisiting if the proof of
+concept says quads-and-passes is not the whole workload.
+
+Note also that `@typegpu/three` carries the same WebGPU-only caveat, by its own
+documentation.
+
 ## The contract
 
 A layer stops returning nodes and starts **declaring draw work**. The unit is a
@@ -206,13 +223,28 @@ Steps 1–3 are the proof of concept and touch no framework code.
   reconciliation cost this replaces.
 - **WebGL.** The scene layer already refuses to run without WebGPU.
 
+  `@typegpu/gl` does offer an experimental WebGL 2 fallback, but its supported
+  surface rules it out for this: no storage buffers, no bind groups, no vertex or
+  index buffers, no compute. It targets "shader-driven effects that keep their
+  geometry in constants and their changing state in uniforms" — which describes
+  the _field_, and does not describe a compositor whose whole design is instanced
+  quads reading a buffer. A fallback for the field alone is possible; a fallback
+  for the compositor is not, and pretending otherwise would shape the contract
+  around a path that cannot run.
+
 ## What is unproven
 
 TypeGPU has been validated here only as far as: the field's shader compiles to
 correct WGSL and creates a render pipeline against a real device, with zero
-compilation messages. See `apps/polkadot/SPIKES.md`.
+compilation messages — **on 0.11**, before the port to 0.12. See
+`apps/polkadot/SPIKES.md`.
 
 Nothing about frame cost, quad batching at window counts that matter, or texture
 upload from HTML capture has been measured. The sequence above is ordered so that
 step 3 answers the load-bearing question — whether quads-and-passes really is the
-whole workload — before step 5 removes the alternative.
+whole workload — before step 6 removes the alternative.
+
+Frame cost is measurable and should not stay a guess: pipelines expose
+`.withPerformanceCallback((start, end) => …)`, giving GPU nanoseconds directly,
+provided the device is initialized with the `timestamp-query` feature. The proof
+of concept has no excuse for reporting frame times instead.
