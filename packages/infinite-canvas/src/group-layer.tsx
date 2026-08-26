@@ -588,6 +588,10 @@ function InfiniteCanvasGroupAccordionHeaders({
         <button
           aria-expanded={header.isExpanded}
           data-active={header.isExpanded ? "" : undefined}
+          // A collapsed fold's header is a strip along the container's axis, so which axis decides
+          // which way its label has to run. The solver knows; nothing said so in the DOM, and a
+          // consumer cannot ask an element what shape it is.
+          data-axis={header.axis}
           data-slot={INFINITE_CANVAS_SLOTS.groupAccordionHeader}
           key={header.childId}
           onClick={() => {

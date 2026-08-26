@@ -696,6 +696,20 @@
     white-space: nowrap;
   }
 
+  /*
+   * A fold that stacks along the horizontal axis is a vertical strip, so its label turns with it.
+   *
+   * Measured before this existed: a 28px-wide header holding a label that wanted 92px, inside a
+   * box 479px tall. Every accordion header on that axis was one glyph and an ellipsis, and the
+   * room it needed was the dimension the text was not using. `padding-block` for the same reason —
+   * `padding-inline` runs along the text now, not across the strip.
+   */
+  [data-slot="group-accordion-header"][data-axis="horizontal"] {
+    padding-block: 10px;
+    padding-inline: 0;
+    writing-mode: vertical-rl;
+  }
+
   [data-slot="group-tab"][data-active],
   [data-slot="group-accordion-header"][data-active] {
     background: var(--icx-header-active);
