@@ -111,6 +111,7 @@ let nativeDirectToTexture = false;
 let incrementalMs = 0;
 let changedElementCount = 0;
 let changedElementsReported = false;
+let dirtyWindows = 0;
 
 if (captureNative) {
   const paintCanvas = document.createElement("canvas");
@@ -204,24 +205,29 @@ if (captureNative) {
    * costs a fraction of the full one, capture is a solved problem rather than a scheduling one —
    * because nothing else gets under the per-window rasterisation floor.
    */
-  const edited = windowElements[0];
+  const dirtyCount = Math.min(Math.max(Number(params.get("dirty") ?? 1), 1), textureLayers);
+  const dirty = windowElements.slice(0, dirtyCount);
 
-  if (edited) {
-    (edited.querySelector("h2") as HTMLElement).textContent = "Edited just now";
-
-    const incrementalStarted = performance.now();
-    const changed = await paintOnce();
-
-    copyElementImageToTexture(
-      { source: edited },
-      { destination: { origin: [0, 0, 0], texture: rawTexture } },
-    );
-    await root.device.queue.onSubmittedWorkDone();
-
-    incrementalMs = performance.now() - incrementalStarted;
-    changedElementCount = changed.length;
-    changedElementsReported = changed.length > 0;
+  for (const [index, element] of dirty.entries()) {
+    (element.querySelector("h2") as HTMLElement).textContent = `Edited ${String(index)}`;
   }
+
+  const incrementalStarted = performance.now();
+  const changed = await paintOnce();
+
+  for (const [index, element] of dirty.entries()) {
+    copyElementImageToTexture(
+      { source: element },
+      { destination: { origin: [0, 0, index], texture: rawTexture } },
+    );
+  }
+
+  await root.device.queue.onSubmittedWorkDone();
+
+  incrementalMs = performance.now() - incrementalStarted;
+  changedElementCount = changed.length;
+  changedElementsReported = changed.length > 0;
+  dirtyWindows = dirtyCount;
   captureLabel = `native copyElementImageToTexture  (${(captureMs / textureLayers).toFixed(2)} ms/window)`;
   nativeDirectToTexture = true;
   paintCanvas.remove();
@@ -504,8 +510,9 @@ const frame = () => {
     `capture    ${captureLabel}`,
     ...(captureNative
       ? [
-          `1 changed  ${incrementalMs.toFixed(2)} ms   vs ${captureMs.toFixed(0)} ms for all ${String(textureLayers)}`,
+          `${String(dirtyWindows)} dirty    ${incrementalMs.toFixed(2)} ms in one paint   (${(incrementalMs / dirtyWindows).toFixed(2)} ms/window)`,
           `changedEls ${changedElementsReported ? `${String(changedElementCount)} reported` : "not reported by the paint event"}`,
+          `all ${String(textureLayers)}     ${captureMs.toFixed(0)} ms  (${(captureMs / textureLayers).toFixed(2)} ms/window)`,
         ]
       : []),
     nativeDirectToTexture

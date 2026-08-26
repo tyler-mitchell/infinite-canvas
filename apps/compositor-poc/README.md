@@ -184,15 +184,32 @@ a fixed round trip 64 times over. The design consequence inverts with it: do not
 **coalesce every dirty window into one paint**. One dirty window costs 3.7 ms; twenty cost about
 `3 + 20 × 0.7 ≈ 17 ms`. The fixed cost is the thing to amortise, and batching is what amortises it.
 
-### `changedElements` narrows correctly
+### `changedElements` narrows exactly
 
-Editing one heading among 64 and asking the paint event what changed: **1 element reported.** The
-browser scopes invalidation to the element that actually changed, so a compositor does not need to
-track dirtiness itself — the engine already knows and says so.
+`?dirty=N` edits N of the 64 windows and takes one paint. The event reported the dirty count every
+single time — **1, 5, 20, 64** — never more, never fewer. The browser scopes invalidation precisely,
+so a compositor must not keep its own dirty set; the engine already has one and hands it over.
 
-Together those give the capture budget its real shape at 60 Hz: one paint round trip plus roughly
-nineteen re-rasterised windows fits in a frame. A window that merely _moved_ costs nothing at all,
-because it never enters this path.
+### The budget, measured across the curve
+
+| dirty windows | one coalesced paint | per window | fits in a 60 Hz frame? |
+| ------------- | ------------------- | ---------- | ---------------------- |
+| 1             | 3.70 ms             | 3.70 ms    | yes                    |
+| 5             | 9.00 ms             | 1.80 ms    | yes                    |
+| 20            | 11.20 ms            | 0.56 ms    | yes                    |
+| 64            | 32.30 ms            | 0.50 ms    | no — about two frames  |
+
+**Roughly twenty windows can be re-captured inside a single 60 Hz frame.** Past about thirty the
+budget is gone and the work has to spread across frames, which is what makes this a scheduler
+rather than a policy.
+
+The marginal cost keeps falling as the batch grows — 3.70 ms for one, 0.50 ms each for
+sixty-four — which is the fixed round trip being amortised, and the reason coalescing is the whole
+design.
+
+> **The "all 64" control is noisy and should not be quoted.** Across runs it read 43, 88 and 67 ms
+> for identical work, because it includes first layout and a cold start. The `dirty` rows are
+> steady-state and are the ones to trust.
 
 ### What the API actually requires
 

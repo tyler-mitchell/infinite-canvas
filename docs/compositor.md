@@ -187,12 +187,25 @@ Measured: 64 windows in one paint cost 45 ms total, 0.70 ms each; one changed
 window costs 3.70 ms. **The 4.06 ms above was mostly a fixed round trip paid 64
 times over**, not rasterisation.
 
-So capture is a **batching** problem rather than a per-window one. Coalesce every
-dirty window into a single paint — one dirty window is 3.7 ms, twenty are about
-`3 + 20 × 0.7 ≈ 17 ms`. And `changedElements` reports exactly the element that
-changed (verified: 1 of 64), so the engine already tracks dirtiness and the
-compositor must not duplicate it. A window that merely _moved_ never enters this
-path at all.
+So capture is a **batching** problem rather than a per-window one, and the curve
+gives the scheduler its budget directly:
+
+| dirty windows | one coalesced paint | fits a 60 Hz frame? |
+| ------------- | ------------------- | ------------------- |
+| 1             | 3.70 ms             | yes                 |
+| 5             | 9.00 ms             | yes                 |
+| 20            | 11.20 ms            | yes                 |
+| 64            | 32.30 ms            | no — about two      |
+
+**Roughly twenty windows re-capture inside a single frame.** Past about thirty
+the work must spread across frames — which is what makes capture a scheduler
+rather than a policy, and it is the one component the compositor has to own that
+a renderer would not.
+
+`changedElements` reported the dirty count exactly at every point on that curve
+(1, 5, 20, 64), so the engine already keeps the dirty set and the compositor must
+not keep a second one. A window that merely _moved_ never enters this path at
+all.
 
 Two constraints the API imposes, both structural:
 
