@@ -3,6 +3,9 @@ import { expect, test } from "vite-plus/test";
 import { DEFAULT_INFINITE_CANVAS_ZOOM, MIN_RENDERABLE_INFINITE_CANVAS_ZOOM } from "./constants";
 import {
   getConstrainedZoom,
+  getInfiniteCanvasContentViewport,
+  getInfiniteCanvasContentWorldRect,
+  getVisibleWorldRect,
   getWheelZoomFactor,
   getWorldLengthWithScreenFloor,
   projectWorldRectToScreen,
@@ -11,9 +14,15 @@ import {
   snapScreenTransformToDevicePixels,
   snapScreenValueToDevicePixel,
   worldPointToScreenPoint,
+  worldRectToScreenRect,
   worldRectToScreenTransform,
   zoomCameraAtScreenPoint,
 } from "./geometry";
+
+/** A rail down the left, a thin bar on top, a taller one at the bottom, nothing on the right. */
+const CHROME = { bottom: 100, left: 200, right: 0, top: 50 };
+const CENTERED_CAMERA = { center: { x: 0, y: 0 }, zoom: 1 };
+const VIEWPORT = { height: 800, width: 1000 };
 
 test("world and screen projection round-trip through one camera contract", () => {
   const camera = {
@@ -255,4 +264,80 @@ test("a non-positive scale passes the authored width through instead of dividing
 
 test("the floor is configurable for callers that need a thicker minimum", () => {
   expect(getWorldLengthWithScreenFloor(1, 0.5, 2)).toBe(4);
+});
+
+test("the content world rect is the unoccluded region, not the whole viewport", () => {
+  const content = getInfiniteCanvasContentWorldRect(CENTERED_CAMERA, VIEWPORT, CHROME);
+
+  // Screen (200, 50) with the viewport centre at (500, 400) and zoom 1 is world (-300, -350).
+  expect(content).toEqual({ height: 650, width: 800, x: -300, y: -350 });
+});
+
+test("asymmetric chrome moves the visible centre off the camera centre", () => {
+  // The assertion this whole function exists for. `getVisibleWorldRect` answers about the entire
+  // viewport, so it stays centred on the camera no matter what covers the edges — which is why
+  // swapping one for the other is a silent defect rather than a type error. A camera at the origin
+  // behind a 200px left rail is *not* looking at the middle of what the user can see.
+  const content = getInfiniteCanvasContentWorldRect(CENTERED_CAMERA, VIEWPORT, CHROME);
+  const visible = getVisibleWorldRect(CENTERED_CAMERA, VIEWPORT, 0);
+
+  expect(content.x + content.width / 2).toBe(100);
+  expect(content.y + content.height / 2).toBe(-25);
+  expect(visible.x + visible.width / 2).toBe(0);
+  expect(visible.y + visible.height / 2).toBe(0);
+});
+
+test("with no chrome it agrees with the unpadded visible rect", () => {
+  const content = getInfiniteCanvasContentWorldRect(CENTERED_CAMERA, VIEWPORT);
+
+  expect(content).toEqual(getVisibleWorldRect(CENTERED_CAMERA, VIEWPORT, 0));
+});
+
+test("the content world rect projects back onto the content viewport", () => {
+  // Independent of the arithmetic above: whatever the world rect is, drawing it must land exactly
+  // on the screen region the insets leave. A sign error or a missing divide fails here.
+  const camera = { center: { x: 120, y: -80 }, zoom: 1.75 };
+  const content = getInfiniteCanvasContentWorldRect(camera, VIEWPORT, CHROME);
+  const projected = worldRectToScreenRect(camera, VIEWPORT, content);
+  const expected = getInfiniteCanvasContentViewport(VIEWPORT, CHROME);
+
+  expect(projected.left).toBeCloseTo(expected.x, 5);
+  expect(projected.top).toBeCloseTo(expected.y, 5);
+  expect(projected.width).toBeCloseTo(expected.width, 5);
+  expect(projected.height).toBeCloseTo(expected.height, 5);
+});
+
+test("zoom scales the world rect while the screen region it covers stays put", () => {
+  const zoomed = getInfiniteCanvasContentWorldRect(
+    { center: { x: 0, y: 0 }, zoom: 2 },
+    VIEWPORT,
+    CHROME,
+  );
+
+  expect(zoomed).toEqual({ height: 325, width: 400, x: -150, y: -175 });
+});
+
+test("chrome wider than the viewport clamps instead of inverting the rect", () => {
+  // Insets that overlap describe chrome covering everything. A negative extent here would flip the
+  // sign of every camera fed this rect, which is worse than a degenerate one.
+  const collapsed = getInfiniteCanvasContentWorldRect(CENTERED_CAMERA, VIEWPORT, {
+    bottom: 900,
+    left: 900,
+    right: 900,
+    top: 900,
+  });
+
+  expect(collapsed.width).toBeGreaterThan(0);
+  expect(collapsed.height).toBeGreaterThan(0);
+});
+
+test("a degenerate zoom yields a finite rect rather than an infinite one", () => {
+  const degenerate = getInfiniteCanvasContentWorldRect(
+    { center: { x: 0, y: 0 }, zoom: 0 },
+    VIEWPORT,
+    CHROME,
+  );
+
+  expect(Number.isFinite(degenerate.width)).toBe(true);
+  expect(Number.isFinite(degenerate.height)).toBe(true);
 });

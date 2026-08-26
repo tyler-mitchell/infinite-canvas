@@ -1,6 +1,5 @@
 import {
-  getInfiniteCanvasContentViewport,
-  screenPointToWorldPoint,
+  getInfiniteCanvasContentWorldRect,
   type InfiniteCanvasCamera,
   type InfiniteCanvasViewportInsets,
   type InfiniteCanvasViewportSize,
@@ -62,16 +61,16 @@ async function removeSavedView(input: Readonly<{ canvasId: string; viewId: strin
 /**
  * What is on screen right now, in world coordinates — the rect a new view stores.
  *
- * **The inset region, not the whole viewport, and that is the whole subtlety here.** This app
- * declares `viewportInsets` for the library rail, the identity rail and the minimap, so a
- * meaningful part of the viewport is behind the app's own chrome. Framing the whole viewport would
- * save a rect whose left quarter is permanently under the rail, and returning to it would put the
- * thing you were looking at behind a panel — off-centre by exactly the width of the chrome.
- * `getInfiniteCanvasContentViewport` is the framework's answer to "which region do my insets
- * leave", and it is exported precisely so a consumer does not re-derive it.
+ * **The inset region, not the whole viewport.** This app declares `viewportInsets` for the library
+ * rail, the identity rail and the minimap, so a meaningful part of the viewport sits behind the
+ * app's own chrome. Framing the whole thing would store a rect whose left quarter is permanently
+ * under the rail, and returning to it would put the subject behind a panel, off-centre by exactly
+ * the width of the chrome.
  *
- * `getVisibleWorldRect` is the tempting neighbour and is the wrong call: it takes a single scalar
- * padding and knows nothing about which edges are covered.
+ * Composed by hand here first, which is what showed the framework should own it: the arithmetic is
+ * the same for anything asking "what can be seen right now" in world terms, and nothing about it is
+ * a Polkadot idea. `getInfiniteCanvasContentWorldRect` is that, with the asymmetry case pinned by
+ * a test that fails against `getVisibleWorldRect` — the neighbour that looks right and is not.
  */
 function getCurrentFraming(
   input: Readonly<{
@@ -80,18 +79,7 @@ function getCurrentFraming(
     viewport: InfiniteCanvasViewportSize;
   }>,
 ): SavedViewRect {
-  const content = getInfiniteCanvasContentViewport(input.viewport, input.insets);
-  const origin = screenPointToWorldPoint(input.camera, input.viewport, {
-    x: content.x,
-    y: content.y,
-  });
-
-  return {
-    height: content.height / input.camera.zoom,
-    width: content.width / input.camera.zoom,
-    x: origin.x,
-    y: origin.y,
-  };
+  return getInfiniteCanvasContentWorldRect(input.camera, input.viewport, input.insets);
 }
 
 export { getCurrentFraming, getSavedViews, loadSavedViews, removeSavedView, savedViews$, saveView };

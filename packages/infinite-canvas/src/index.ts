@@ -269,6 +269,13 @@ export {
    * then kept the answer to itself.
    */
   getInfiniteCanvasContentViewport,
+  /*
+   * The same region as above, in world terms — the per-edge counterpart of
+   * `getViewportInsetWorldRect`, whose single scalar cannot describe a sidebar. Public because two
+   * consumers composed it by hand before it existed, which is the signal that the composition was
+   * the framework's to own.
+   */
+  getInfiniteCanvasContentWorldRect,
   getRectCenter,
   getVisibleWorldRect,
   isUsableViewport,

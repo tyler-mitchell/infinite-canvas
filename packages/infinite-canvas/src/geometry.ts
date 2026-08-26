@@ -545,6 +545,42 @@ function getViewportInsetWorldRect(
   };
 }
 
+/**
+ * The world rect of the region a consumer's chrome is **not** covering.
+ *
+ * The per-edge counterpart of `getViewportInsetWorldRect`, which takes one scalar and so cannot
+ * describe a sidebar — the asymmetry is the whole point of the question. Chrome is almost never
+ * symmetric: a rail down one edge and a status bar across the bottom leave a region whose centre
+ * is not the viewport's centre, and every camera fed the symmetric answer lands off by half the
+ * difference.
+ *
+ * Composed from `getInfiniteCanvasContentViewport` rather than repeating its arithmetic, so the
+ * screen answer and the world answer cannot drift apart — including the clamp that stops chrome
+ * wider than the viewport from inverting the rect.
+ *
+ * This exists because two consumers wrote it by hand first. Anything asking "what can actually be
+ * seen right now" in world terms wants this: saving a framing to return to, fitting content into
+ * the visible band, or culling against it. `getVisibleWorldRect` is the neighbour that looks right
+ * and is not — it covers the whole viewport, takes a scalar overscan, and knows nothing about which
+ * edges are covered, so a rect it returns includes the strip behind the sidebar.
+ */
+function getInfiniteCanvasContentWorldRect(
+  camera: InfiniteCanvasCamera,
+  viewport: InfiniteCanvasViewport,
+  insets: InfiniteCanvasViewportInsets = NO_INFINITE_CANVAS_VIEWPORT_INSETS,
+): InfiniteCanvasRect {
+  const content = getInfiniteCanvasContentViewport(viewport, insets);
+  const origin = screenPointToWorldPoint(camera, viewport, { x: content.x, y: content.y });
+  const scale = Math.max(camera.zoom, Number.EPSILON);
+
+  return {
+    height: content.height / scale,
+    width: content.width / scale,
+    x: origin.x,
+    y: origin.y,
+  };
+}
+
 function getAdaptiveGridSpacing(zoom: number) {
   const exponent = clamp(Math.floor(Math.log2(1 / zoom)), -2, 4);
 
@@ -607,6 +643,7 @@ export {
   getAdaptiveGridSpacing,
   getConstrainedZoom,
   getInfiniteCanvasContentViewport,
+  getInfiniteCanvasContentWorldRect,
   getInfiniteCanvasInsetCameraCenter,
   getRectFromPoints,
   getRectCenter,
