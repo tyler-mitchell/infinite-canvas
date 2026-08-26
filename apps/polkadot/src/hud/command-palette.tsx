@@ -64,6 +64,7 @@ import {
   projectNotes$,
   setProjectNoteTitle,
 } from "../notes/project-notes";
+import { recentNoteIds$, rememberNote } from "../notes/recent-notes";
 import {
   connectNotes,
   DEFAULT_RELATION_KIND,
@@ -355,7 +356,67 @@ function PaletteContent({
       .map((window) => (window.data as { noteId?: string } | undefined)?.noteId)
       .filter((noteId) => noteId !== undefined),
   );
-  const closedNotes = notes.filter((note) => !openNoteIds.has(note.id));
+  const recentIds = new Set(useValue(recentNoteIds$));
+  /** A window whose note is in `Recent` is reachable from there; showing it twice says nothing. */
+  const noteIdByWindowId = new Map(
+    state.windows.map(
+      (window) => [window.id, (window.data as { noteId?: string } | undefined)?.noteId] as const,
+    ),
+  );
+  /**
+   * Lifted out of their home group only while `Recent` is on screen.
+   *
+   * Filtering them out unconditionally would have hidden them from search the moment you typed,
+   * since `Recent` disappears then — a note becoming unfindable *because* you had used it recently
+   * is the exact opposite of the feature.
+   */
+  const isBrowsing = query.trim() === "";
+  const closedNotes = notes
+    .filter((note) => !openNoteIds.has(note.id))
+    .filter((note) => !(isBrowsing && recentIds.has(note.id)));
+
+  /**
+   * What you were just doing, resolved against what still exists.
+   *
+   * Only on an empty query: once you have typed something you know what you are after, and the
+   * filter already ranks it. On the empty state there is nothing to rank by except habit.
+   *
+   * Recent notes are lifted out of `Windows` and `Notes` rather than repeated in both places. cmdk
+   * identifies a row by its value, so two rows sharing one are indistinguishable to selection — and
+   * a list that shows you the same note twice is answering a question you did not ask.
+   */
+  const visibleWindows = windows.filter((window) => {
+    const noteId = noteIdByWindowId.get(window.id);
+
+    return !(isBrowsing && noteId !== undefined && recentIds.has(noteId));
+  });
+
+  const recentNotes = isBrowsing
+    ? [...recentIds]
+        .map((noteId) => notes.find((note) => note.id === noteId))
+        .filter((note) => note !== undefined)
+    : [];
+
+  /**
+   * Reach a note wherever it is, and remember that you did.
+   *
+   * `window.reveal` when it already has a window — one verb for switching desktop, restoring,
+   * focusing and moving the camera — and `openNoteWindow` when it does not. Neither is re-derived
+   * here; the rail reaches a note exactly this way.
+   */
+  const reachNote = (note: NoteRecord) => {
+    const windowId = state.windows.find(
+      (window) => (window.data as { noteId?: string } | undefined)?.noteId === note.id,
+    )?.id;
+
+    rememberNote(note.id);
+
+    if (windowId === undefined) {
+      openNoteWindow({ actions, noteId: note.id, state, title: note.title });
+    } else {
+      actions.executeCommand({ type: "window.reveal", windowId });
+    }
+  };
 
   /**
    * The note record behind the active window, if that window is showing one.
@@ -544,13 +605,40 @@ function PaletteContent({
       <CommandList>
         <CommandEmpty>Nothing matches that.</CommandEmpty>
 
-        {windows.length === 0 ? null : (
+        {recentNotes.length === 0 ? null : (
+          <CommandGroup heading="Recent">
+            {recentNotes.map((note) => (
+              <Row
+                icon={FileText}
+                key={note.id}
+                keywords="recent note"
+                onSelect={run(() => {
+                  reachNote(note);
+                })}
+                title={note.title}
+                trailing={
+                  openNoteIds.has(note.id) ? (
+                    <span className={styles.description()}>open</span>
+                  ) : null
+                }
+              />
+            ))}
+          </CommandGroup>
+        )}
+
+        {visibleWindows.length === 0 ? null : (
           <CommandGroup heading="Windows">
-            {windows.map((window) => (
+            {visibleWindows.map((window) => (
               <Row
                 icon={Frame}
                 key={window.id}
                 onSelect={run(() => {
+                  const noteId = noteIdByWindowId.get(window.id);
+
+                  if (noteId !== undefined) {
+                    rememberNote(noteId);
+                  }
+
                   actions.executeCommand({ type: "window.reveal", windowId: window.id });
                 })}
                 keywords={`window ${window.kind}`}
@@ -570,7 +658,7 @@ function PaletteContent({
                 icon={FileText}
                 key={note.id}
                 onSelect={run(() => {
-                  openNoteWindow({ actions, noteId: note.id, state, title: note.title });
+                  reachNote(note);
                 })}
                 keywords="note"
                 title={note.title}

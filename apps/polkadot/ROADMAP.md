@@ -139,9 +139,28 @@ open because it feels good to look at. Concretely, and these are enforced in rev
       else re-listed — witnessed, then fixed by making the palette read the shared store like
       everyone else. Driven end to end: the note field, `window.title`, and the rail row now all
       read the new name together.
+      **The empty state now leads with what you were just doing.** A `Recent` group of up to five
+      notes sits above everything else, and only while the query is empty — once you type you know
+      what you are after and the filter already ranks it, so recency would be arguing with you.
+      Recents are _notes_, not commands, because a command already carries a hotkey and is found by
+      typing its name, while the thing you genuinely reach for twice is a note. They are stored as
+      ids and resolved against the live listing, so an archived note stops appearing rather than
+      leaving a row that opens nothing, and they persist per device through Legend State's own
+      `syncObservable` and `localStorage` plugin — which the audit's "Legend sync" exclusion does not
+      cover, since that was about revision-ordered SurrealDB writes and this is five strings with no
+      remote. A recent note is lifted out of `Windows` and `Notes` rather than repeated there, since
+      cmdk identifies a row by its value and two rows sharing one are indistinguishable to selection.
+      Driven: reaching "Untitled 2" writes `["content_item:…"]` to `localStorage`, the next open
+      leads with `RECENT · Untitled 2 open`, `WINDOWS` no longer lists it, and a reload keeps it.
+      **A defect I wrote and caught before committing:** the first version filtered recents out of
+      their home groups unconditionally, which meant that once you typed — when `Recent` is hidden —
+      those notes disappeared from search entirely. A note becoming unfindable _because_ you had
+      just used it is the exact inverse of the feature. The lift-out is now conditional on browsing.
       **Still open:** the palette cannot delete, which genuinely does need a typed confirmation
-      rather than a text field, and it has no recent-items memory, so the empty state is ordered by
-      group rather than by what you actually reach for.
+      rather than a text field. And a latent one this made visible rather than caused: two windows
+      showing notes with the same title produce two rows with the same cmdk value, which selection
+      cannot tell apart. That predates the search-value work — the old value was
+      `window <title> <kind>`, equally identical — and nothing here fixes it.
 - [~] **The library rail** — content, search, saved views. This line said "currently an empty box
   making a promise", which overstated it: there is no box. `CanvasHud` renders the identity
   rail, the selection rail, the recovery notice and the launcher, and nothing else.
