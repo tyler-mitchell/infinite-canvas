@@ -433,6 +433,29 @@ pinned by the display; a pass costing nothing and a pass costing half a millisec
 through that lens. The whole GPU cost of this canvas is **0.35–0.44 ms**, and now each part of it is
 attributable.
 
+### The material cost is the pass, not the shading
+
+Materials measured more expensive than the windows they decorate, which was suspicious: a sheen over
+a button is a few thousand fragments and a window is a textured quad. `?emptypass=1` runs every
+material pass with **zero instances** — same passes, no work:
+
+| pass    | 12 instances | 0 instances |
+| ------- | ------------ | ----------- |
+| glass   | 0.063 ms     | 0.217 ms    |
+| edge    | 0.135 ms     | 0.128 ms    |
+| sheen   | 0.130 ms     | 0.107 ms    |
+| _total_ | _0.741 ms_   | _0.863 ms_  |
+
+**A pass drawing nothing costs what a pass drawing twelve instances costs.** The shading is free;
+the overhead is the render pass itself — three passes on a 1428×941 target, each loading and storing
+the whole framebuffer. So "draw calls scale with materials, not components" is true and incomplete:
+**draw calls are cheap, passes are not**, and a material library should be one pass with pipeline
+switches inside it rather than a pass each.
+
+That is the next build, and it is now justified by a measurement rather than a hunch. TypeGPU
+supports it directly — `pipeline.with(pass).draw(...)`, or `pass.setPipeline()` then `pass.draw()`.
+The trade is that per-material timing goes away, since the pass becomes the unit that can be timed.
+
 **The medians are load-bearing.** Reporting the newest sample gave a ten-fold spread across runs of
 identical work — glass read 0.113, then 0.553, then 0.049 ms — because one GPU timestamp carries
 whatever else the device was doing that instant. One arbitrary sample out of twelve thousand looks
@@ -628,6 +651,22 @@ cannot report what you never looked at.
 - **Re-collection is triggered by capture, not by layout.** A capture means something repainted,
   which is a good proxy and not the same thing. A window that reflows without repainting — a font
   loading late, a scrollbar appearing — would move its components with nothing to notice.
+
+### It looked blurry because every window was the wrong shape
+
+A square 512×512 layer drawn across a 300×220 quad squashes its contents vertically by 27%. Nobody
+reads that as distortion — it reads as "a bit blurry", because the eye notices letters are wrong
+well before it can say why, and the obvious suspects (filtering, device pixel ratio, mipmaps) are
+all somewhere else.
+
+The layer takes the window's aspect now, so the mapping is 1:1 and the text is sharp. It also stops
+spending a third of every texture on the part of a square that was never going to be seen.
+
+**And it broke hit-testing, which is the useful part.** `resolvePointer` scaled both axes by
+`textureSize` — correct only while the layer was square. Once it wasn't, every click landed 36%
+above where it was aimed. Worth keeping because it is evidence the hit-test is _derived_: a version
+with the button's position hardcoded would not have broken, and would also never have worked for a
+second control.
 
 ### Why the layout host stays one canvas
 

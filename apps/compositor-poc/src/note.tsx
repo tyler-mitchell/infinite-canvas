@@ -23,7 +23,15 @@ import { useState } from "react";
  */
 const ACCENTS = [28, 68, 152, 202, 272, 326];
 
-export const Note = ({ index, size }: { index: number; size: number }) => {
+export const Note = ({
+  height,
+  index,
+  width,
+}: {
+  height: number;
+  index: number;
+  width: number;
+}) => {
   const [done, setDone] = useState(false);
   const [draft, setDraft] = useState("");
   // Chroma kept modest on purpose: the light field amplifies whatever hue it finds, so a garish
@@ -34,9 +42,12 @@ export const Note = ({ index, size }: { index: number; size: number }) => {
    * The window sizes itself to its layer.
    *
    * Not a detail: a note that is 512 wide and whatever tall its content came to leaves most of a
-   * square layer unwritten, and the quad draws that as a black band. Setting it from outside after
-   * mount worked but forced a relayout that pushed a single-window repaint from 4 ms to 136 ms —
-   * a window's own size belongs to the window.
+   * layer unwritten, and the quad draws that as a black band. Setting it from outside after mount
+   * worked but forced a relayout that pushed a single-window repaint from 4 ms to 136 ms — a
+   * window's own size belongs to the window.
+   *
+   * The layer is shaped like the window it will be drawn into, so the mapping is 1:1. A square
+   * texture on a 300×220 quad squashed every note vertically by 27%.
    */
   return (
     <div
@@ -44,7 +55,7 @@ export const Note = ({ index, size }: { index: number; size: number }) => {
       // Glass on the window itself: its bevel refracts the light field around its own edge, which
       // is a thing only a material with a backdrop can do.
       data-surface="glass"
-      style={{ "--accent": accent, height: size, width: size } as React.CSSProperties}
+      style={{ "--accent": accent, height, width } as React.CSSProperties}
     >
       <div className="note-chrome" />
       <div className="note-body">

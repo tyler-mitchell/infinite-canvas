@@ -51,7 +51,9 @@ export const analyzeWindows = tgpu.computeFn({
   "use gpu";
   const layer = d.i32(input.id.x);
   const size = std.textureDimensions(signatureLayout.$.windows);
-  const step = d.i32(size.x) / GRID;
+  // Stepped per axis: the layer is shaped like the window, which is not square.
+  const stepX = d.i32(size.x) / GRID;
+  const stepY = d.i32(size.y) / GRID;
 
   let ink = d.f32(0);
   let tint = d.vec3f(0, 0, 0);
@@ -74,7 +76,7 @@ export const analyzeWindows = tgpu.computeFn({
       for (let x = 0; x < GRID; x++) {
         const texel = std.textureLoad(
           signatureLayout.$.windows,
-          d.vec2i(x * step, y * step),
+          d.vec2i(x * stepX, y * stepY),
           layer,
           0,
         );

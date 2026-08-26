@@ -33,6 +33,19 @@ const textureLayers = Math.max(Number(params.get("tex") ?? 64), 1);
 const textureSize = Math.max(Number(params.get("texsize") ?? 256), 8);
 
 /**
+ * A window's world size, and the texture shaped to match it.
+ *
+ * These have to agree or every window is distorted. A square texture stretched across a 300×220
+ * quad squashes its contents vertically by 27%, which reads as "blurry" long before anyone works
+ * out that the text is the wrong shape — the eye notices that letters are wrong before it can say
+ * why. Deriving the texture's height from the window's aspect makes the mapping 1:1, and spends
+ * texels on the window instead of on the part of a square that was never going to be seen.
+ */
+const WINDOW_WIDTH = 300;
+const WINDOW_HEIGHT = 220;
+const textureHeight = Math.max(Math.round((textureSize * WINDOW_HEIGHT) / WINDOW_WIDTH), 8);
+
+/**
  * Draw order for materials, and the batching order the instance buffer is laid out in.
  *
  * Glass first, so the accents and the sheen sit on top of the bevel rather than under it. The order
@@ -123,7 +136,7 @@ const quadsBuffer = root.createBuffer(d.arrayOf(Quad, quadCount)).$usage("storag
 const windowTextures = root
   .createTexture({
     format: "rgba8unorm",
-    size: [textureSize, textureSize, textureLayers],
+    size: [textureSize, textureHeight, textureLayers],
   })
   .$usage("sampled", "render");
 
@@ -135,7 +148,7 @@ const windowTextures = root
 const painted = document.createElement("canvas");
 
 painted.width = textureSize;
-painted.height = textureSize;
+painted.height = textureHeight;
 
 const paint = painted.getContext("2d") as CanvasRenderingContext2D;
 const captures: ImageBitmap[] = [];
@@ -229,7 +242,7 @@ if (captureNative) {
   const paintCanvas = document.createElement("canvas");
 
   paintCanvas.width = textureSize;
-  paintCanvas.height = textureSize;
+  paintCanvas.height = textureHeight;
   paintCanvas.id = "paint-host";
   paintCanvas.toggleAttribute("layoutsubtree", true);
   document.body.append(paintCanvas);
@@ -259,7 +272,12 @@ if (captureNative) {
         Fragment,
         null,
         Array.from({ length: textureLayers }, (_, layer) =>
-          createElement(Note, { index: layer, key: layer, size: textureSize }),
+          createElement(Note, {
+            height: textureHeight,
+            index: layer,
+            key: layer,
+            width: textureSize,
+          }),
         ),
       ),
     );
@@ -510,9 +528,12 @@ if (captureNative) {
     // The quad shows the whole layer, so UV scales to texture space; the element occupies its own
     // box at the layer's origin.
     const offset = hitIndex * 4;
+    // Scaled per axis. Using `textureSize` for both was correct only while the layer was square;
+    // once it took the window's shape the vertical hit-test was off by the aspect ratio, and every
+    // click landed above where it was aimed.
     const local = {
       x: ((world.x - (rects[offset] ?? 0)) / (rects[offset + 2] ?? 1)) * textureSize,
-      y: ((world.y - (rects[offset + 1] ?? 0)) / (rects[offset + 3] ?? 1)) * textureSize,
+      y: ((world.y - (rects[offset + 1] ?? 0)) / (rects[offset + 3] ?? 1)) * textureHeight,
     };
     const elementBox = element.getBoundingClientRect();
     const control =
@@ -952,6 +973,17 @@ const tints = new Float32Array(quadCount * 4);
 const overdraw = params.get("overdraw") === "1";
 /** `?lit=0` turns the content-derived light off, so its cost and its contribution are both visible. */
 const lit = params.get("lit") !== "0";
+/**
+ * `?emptypass=1` runs every material pass with zero instances.
+ *
+ * Materials measured more expensive than the windows they decorate, and the suspicion was that the
+ * cost is *per pass* — each material owns a render pass, and a pass on a 1428×941 target loads and
+ * stores the whole framebuffer — rather than per fragment. This is the cheap way to tell: if a pass
+ * drawing nothing still costs what a pass drawing twelve instances costs, the overhead is the pass,
+ * and merging them into one is worth building. If the cost collapses, it is the shading and merging
+ * would buy nothing.
+ */
+const emptyPass = params.get("emptypass") === "1";
 
 for (let index = 0; index < quadCount; index++) {
   const offset = index * 4;
@@ -965,8 +997,8 @@ for (let index = 0; index < quadCount; index++) {
   } else {
     rects[offset] = (index % columns) * 420 + ((index * 97) % 140);
     rects[offset + 1] = Math.floor(index / columns) * 320 + ((index * 53) % 110);
-    rects[offset + 2] = 300;
-    rects[offset + 3] = 220;
+    rects[offset + 2] = WINDOW_WIDTH;
+    rects[offset + 3] = WINDOW_HEIGHT;
   }
 
   tints[offset] = 0.55 + ((index * 17) % 100) / 400;
@@ -1346,7 +1378,7 @@ const frame = () => {
       materialPipelines[batch.material]
         ?.with(surfaceLayout, surfaceBindGroup)
         .withColorAttachment({ loadOp: "load", storeOp: "store", view: context })
-        .draw(6, batch.count, 0, batch.first);
+        .draw(6, emptyPass ? 0 : batch.count, 0, batch.first);
     }
   }
 
