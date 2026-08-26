@@ -196,6 +196,9 @@
     --icx-host-surface-shadow: 0 20px 80px -56px
       color-mix(in srgb, var(--icx-color-accent) 55%, transparent);
 
+    /* The seam between two split panes (src/group-layer.tsx). A control, not a border. */
+    --icx-group-gutter: var(--icx-idle-border);
+
     /* Snap overlay (src/canvas-overlays.tsx). */
     --icx-snap-guide: color-mix(in srgb, var(--icx-color-accent) 55%, transparent);
     --icx-snap-preview-border: color-mix(in srgb, var(--icx-color-accent) 45%, transparent);
@@ -647,8 +650,16 @@
     border-radius: 2px;
   }
 
+  /*
+   * The seam has its own token, defaulting to the border colour it used to read directly.
+   *
+   * A gutter is not a border: it is a draggable control with a rect the solver reserved. Reading
+   * `--icx-idle-border` made those one decision, so a consumer suppressing window outlines — a
+   * deliberate, common choice — lost every seam and had a 6px invisible drag target. Named here,
+   * the default is unchanged and the two can disagree.
+   */
   [data-slot="group-gutter"] {
-    background: var(--icx-idle-border);
+    background: var(--icx-group-gutter, var(--icx-idle-border));
   }
 
   [data-slot="group-tab-strip"] {
