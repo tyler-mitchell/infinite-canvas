@@ -18,10 +18,41 @@ import { cn } from "../lib/utils";
  */
 const dialog = tv({
   slots: {
+    /*
+     * Transitions, not `animate-in` / `animate-out`.
+     *
+     * Those utilities come from an animation plugin this workspace does not install, so every one
+     * of them — `animate-in`, `fade-out-0`, `zoom-out-95` — compiled to nothing. That looked
+     * harmless, since a dialog appearing instantly is only a missing flourish. It was not harmless:
+     * Base UI holds a closing popup mounted until its exit animation finishes, and an exit
+     * animation that never starts never finishes.
+     *
+     * The result was a dialog stuck at `data-closed` with `data-ending-style` for as long as you
+     * left it — measured at twelve seconds and still mounted — and, far worse, its **backdrop**
+     * stuck with it at full opacity and `pointer-events: auto`. A zero-height dialog is invisible;
+     * an invisible full-screen backdrop swallows every click in the application.
+     *
+     * `opacity` and `scale` under the same `data-` variants are real properties, so the transition
+     * actually runs and `transitionend` actually fires. `data-starting-style` is what Base UI sets
+     * for one frame on entry, which is what gives the transition somewhere to come from.
+     */
+    /*
+     * `data-closed:pointer-events-none` is the load-bearing part, not the fade.
+     *
+     * A closed dialog must stop taking input the instant it is closed, whether or not it has
+     * finished leaving. Without this, a dismissed palette left a full-screen backdrop at
+     * `pointer-events: auto` over the whole application — `elementFromPoint` at the centre of the
+     * viewport returned the backdrop, so every click in the app went nowhere. Invisible and
+     * inert are different things, and only one of them is safe.
+     *
+     * It is written as a state rule rather than a cleanup because it cannot then depend on the
+     * exit completing. That is what went wrong before: the popup's mount was tied to an animation
+     * that never ran, so anything else tied to the same moment never happened either.
+     */
     backdrop:
-      "fixed inset-0 isolate z-50 bg-black/40 duration-150 supports-backdrop-filter:backdrop-blur-sm data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0",
+      "fixed inset-0 isolate z-50 bg-black/40 transition-opacity duration-150 supports-backdrop-filter:backdrop-blur-sm data-closed:pointer-events-none data-closed:opacity-0 data-starting-style:opacity-0",
     content:
-      "fixed top-1/2 left-1/2 z-50 grid w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-4 overflow-hidden rounded-xl bg-popover p-4 text-sm text-popover-foreground shadow-2xl duration-150 outline-none sm:max-w-md data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
+      "fixed top-1/2 left-1/2 z-50 grid w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-4 overflow-hidden rounded-xl bg-popover p-4 text-sm text-popover-foreground shadow-2xl transition-[opacity,scale] duration-150 outline-none sm:max-w-md data-closed:pointer-events-none data-closed:scale-95 data-closed:opacity-0 data-starting-style:scale-95 data-starting-style:opacity-0",
     description: "text-sm leading-relaxed text-balance text-muted-foreground",
     footer:
       "-mx-4 -mb-4 flex flex-col-reverse gap-2 bg-background/40 p-4 sm:flex-row sm:justify-end",
