@@ -8,7 +8,7 @@ import { tv } from "ui/tv";
 
 import { editNote, ensureNoteLoaded, notes$, type NoteGateway } from "./note-store";
 import { projectNotes$ } from "./project-notes";
-import { connectNotes } from "./relations";
+import { connectItems } from "../relations/relation-store";
 import { NoteEditor } from "./note-editor";
 
 /**
@@ -225,7 +225,7 @@ export function NoteWindowBody({
                */
               onSelect: (mentionedId) => {
                 if (projectId !== undefined) {
-                  void connectNotes({ projectId, source: noteId, target: mentionedId });
+                  void connectItems({ projectId, source: noteId, target: mentionedId });
                 }
               },
               // Never itself: `relate_notes` refuses a self-edge, so offering one offers a no-op.

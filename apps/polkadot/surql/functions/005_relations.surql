@@ -1,5 +1,8 @@
--- Typed edges between notes. `relates_to` has been in the schema since the first migration —
--- `TYPE RELATION IN content_item OUT content_item ENFORCED` — and nothing has ever written one.
+-- Typed edges between content items. `relates_to` has been in the schema since the first migration
+-- as `TYPE RELATION IN content_item OUT content_item ENFORCED`, and these functions were named
+-- `relate_notes` and `unrelate_content_items` anyway — a narrower name over a signature that was already
+-- right. The second window kind is what made the misnomer cost something: an image and a note were
+-- joinable here and not on the canvas, because every name along the path said notes.
 
 -- `in` and `out` are projected under friendlier names; they are SurrealQL's edge endpoints, not a
 -- vocabulary the application should have to speak.
@@ -13,7 +16,7 @@ DEFINE FUNCTION OVERWRITE fn::list_relations($project: record<project>) {
 --
 -- This checked only `in = $source AND out = $target`, so connecting A to B and then B to A stored
 -- two edges between the same pair. Every other part of the system already treats an edge as
--- undirected: `unrelate_notes` deletes it whichever way round it was drawn, `findRelation` finds it
+-- undirected: `unrelate_content_items` deletes it whichever way round it was drawn, `findRelation` finds it
 -- either way, and the rail counts a neighbour once regardless of direction. Only the guard against
 -- creating one had a direction, so the one operation that could produce the inconsistency was the
 -- one that did not check for it.
@@ -23,9 +26,9 @@ DEFINE FUNCTION OVERWRITE fn::list_relations($project: record<project>) {
 --
 -- Reproduced before fixing: connect A→B, connect B→A, and `list_relations` returned two rows for
 -- the same pair. Both then drew, one on top of the other, and cutting removed both at once because
--- `unrelate_notes` was already undirected — so the second edge was invisible until something
+-- `unrelate_content_items` was already undirected — so the second edge was invisible until something
 -- counted.
-DEFINE FUNCTION OVERWRITE fn::relate_notes(
+DEFINE FUNCTION OVERWRITE fn::relate_content_items(
   $source: record<content_item>,
   $target: record<content_item>,
   $kind: string
@@ -61,7 +64,7 @@ DEFINE FUNCTION OVERWRITE fn::set_relation_label(
 
 -- Undirected from the user's point of view: they connected two notes, so disconnecting removes
 -- the edge whichever way round it was drawn.
-DEFINE FUNCTION OVERWRITE fn::unrelate_notes(
+DEFINE FUNCTION OVERWRITE fn::unrelate_content_items(
   $source: record<content_item>,
   $target: record<content_item>
 ) {

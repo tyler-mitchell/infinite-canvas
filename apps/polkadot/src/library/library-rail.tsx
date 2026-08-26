@@ -30,7 +30,12 @@ import {
   restoreProjectNote,
   setProjectNoteTitle,
 } from "../notes/project-notes";
-import { disconnectNotes, findRelation, getRelationLabel, relations$ } from "../notes/relations";
+import {
+  disconnectItems,
+  findRelation,
+  getRelationLabel,
+  relations$,
+} from "../relations/relation-store";
 
 /**
  * Everything in this project, and how it is joined together.
@@ -573,7 +578,7 @@ export function LibraryRail({
                               aria-label={`Cut the connection to ${neighbour.title}`}
                               className={styles.connectionAction()}
                               onClick={() => {
-                                void disconnectNotes({
+                                void disconnectItems({
                                   projectId,
                                   source: relation.source,
                                   target: relation.target,

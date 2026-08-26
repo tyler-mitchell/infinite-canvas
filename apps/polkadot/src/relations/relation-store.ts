@@ -1,16 +1,21 @@
 import { observable } from "@legendapp/state";
 
-import type { NoteRelation } from "../database/database.client";
+import type { ContentRelation } from "../database/database.client";
 import * as database from "../database/operations";
 
 /**
- * Typed edges between notes, for the project on screen.
+ * Typed edges between content items, for the project on screen.
  *
- * A mention will eventually be the natural way to author one of these; connecting two selected
- * windows is the first way, and both write the same edge.
+ * This lived in `notes/` and was named for notes throughout, which was true of every caller and
+ * never true of the model: `relates_to` is `IN content_item OUT content_item` and has been since
+ * the first migration. The second window kind is what made the misnomer cost something — an image
+ * and a note were joinable in the database and not on the canvas, because every name along the path
+ * said the endpoints were notes.
+ *
+ * Nothing here reads an endpoint's kind. An edge is two ids and what it means.
  */
 
-const relations$ = observable<readonly NoteRelation[]>([]);
+const relations$ = observable<readonly ContentRelation[]>([]);
 
 /**
  * What a connection can mean.
@@ -38,7 +43,7 @@ const DEFAULT_RELATION_KIND: RelationKind = "relates";
  * gestures at. The kind stays underneath either way: it is the queryable category, and the label is
  * how this one edge reads. Clearing the label falls back to the kind rather than to silence.
  */
-const getRelationLabel = (relation: NoteRelation) =>
+const getRelationLabel = (relation: ContentRelation) =>
   relation.label?.trim() || (relation.kind === DEFAULT_RELATION_KIND ? undefined : relation.kind);
 
 /**
@@ -59,7 +64,7 @@ const loadedProject = { id: null as string | null };
  * duration of the query after navigating, and nothing could tell — `project-notes.ts` names this
  * exact defect in its own header as the correction still owed here.
  *
- * The visible cost was small, because edges reference note ids the new canvas does not have, so
+ * The visible cost was small, because edges reference item ids the new canvas does not have, so
  * little drew. The real one is a write: `findRelation` reads this to decide whether the palette
  * offers Connect or Disconnect, and against another project's edges it answers "not connected" for
  * a pair that is. Acting on that answer stores a duplicate edge — a wrong pixel repaints, a wrong
@@ -83,7 +88,7 @@ async function loadRelations(projectId: string) {
   }
 }
 
-async function connectNotes(
+async function connectItems(
   input: Readonly<{ projectId: string; source: string; target: string }>,
 ) {
   await database.relations.connect({
@@ -98,7 +103,7 @@ async function connectNotes(
  * Say what an existing connection means.
  *
  * The edge is named by id rather than by its endpoints: the caller selected a specific connector on
- * the canvas, so there is nothing to resolve, and the undirected endpoint lookup `disconnectNotes`
+ * the canvas, so there is nothing to resolve, and the undirected endpoint lookup `disconnectItems`
  * needs would be answering a question nobody asked.
  */
 async function setRelationKind(
@@ -119,19 +124,19 @@ async function setRelationLabel(
   await loadRelations(input.projectId);
 }
 
-async function disconnectNotes(
+async function disconnectItems(
   input: Readonly<{ projectId: string; source: string; target: string }>,
 ) {
   await database.relations.disconnect({ source: input.source, target: input.target });
   await loadRelations(input.projectId);
 }
 
-/** Undirected, because a user who connected two notes did not choose a direction. */
+/** Undirected, because a user who connected two things did not choose a direction. */
 function findRelation(
-  relations: readonly NoteRelation[],
+  relations: readonly ContentRelation[],
   source: string,
   target: string,
-): NoteRelation | undefined {
+): ContentRelation | undefined {
   return relations.find(
     (relation) =>
       (relation.source === source && relation.target === target) ||
@@ -140,9 +145,9 @@ function findRelation(
 }
 
 export {
-  connectNotes,
+  connectItems,
   DEFAULT_RELATION_KIND,
-  disconnectNotes,
+  disconnectItems,
   findRelation,
   getRelationLabel,
   loadRelations,

@@ -7,7 +7,7 @@ import {
 import { useValue } from "@legendapp/state/react";
 import { tv } from "ui/tv";
 
-import { getRelationLabel, relations$ } from "../notes/relations";
+import { getRelationLabel, relations$ } from "../relations/relation-store";
 import { getDrawnConnectors, getHiddenConnectorStubs } from "./connector-geometry";
 import type { WindowKind } from "./window-registry";
 
@@ -191,16 +191,16 @@ export function ConnectorLayer() {
         const anchor = worldPointToScreenPoint(state.camera, state.viewport, stub.endpoint);
 
         return (
-          <g key={`${stub.noteId}:hidden:${String(index)}`}>
+          <g key={`${stub.itemId}:hidden:${String(index)}`}>
             <polyline
               className={connectors().stub()}
-              data-hidden-stub={stub.noteId}
+              data-hidden-stub={stub.itemId}
               points={points}
             />
             {isLabelLegible ? (
               <text
                 className={connectors().label()}
-                data-hidden-count={stub.noteId}
+                data-hidden-count={stub.itemId}
                 dominantBaseline="central"
                 fontSize={labelSize}
                 textAnchor="middle"

@@ -24,7 +24,8 @@ import { CommandPalette } from "../hud/command-palette";
 import { Minimap, MINIMAP_INSET } from "../hud/minimap";
 import { LibraryRail, RAIL_INSET } from "../library/library-rail";
 import { openNewNote } from "../notes/open-note";
-import { loadRelations, relations$ } from "../notes/relations";
+import { loadRelations, relations$ } from "../relations/relation-store";
+import { SavedViewMenu } from "../views/saved-view-menu";
 import { CanvasSwitcher } from "./canvas-switcher";
 import { DesktopSwitcher } from "./desktop-switcher";
 import { ProjectSwitcher } from "./project-switcher";
@@ -142,6 +143,7 @@ function IdentityRail({
         <ProjectSwitcher projectId={projectId} projectTitle={projectTitle} />
         <CanvasSwitcher canvasId={canvasId} projectId={projectId} title={title} />
         <DesktopSwitcher />
+        <SavedViewMenu canvasId={canvasId} />
       </div>
       <span className={styles.divider()} />
       <div className={styles.status()} data-save-status={saveAdmission.status}>

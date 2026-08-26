@@ -15,9 +15,9 @@ import { useObservable, useValue } from "@legendapp/state/react";
 import { useEffect, useRef } from "react";
 import { tv } from "ui/tv";
 
-import { connectNotes, findRelation, relations$ } from "../notes/relations";
+import { connectItems, findRelation, relations$ } from "../relations/relation-store";
 import { CANVAS_CHROME } from "./chrome";
-import { NoteWindowData, type WindowKind } from "./window-registry";
+import { ContentWindowData, type WindowKind } from "./window-registry";
 
 /**
  * Authoring a connection by dragging one note onto another.
@@ -56,14 +56,15 @@ const draft = tv({
 type Draft = Readonly<{
   /** Viewport coordinates, which is what the framework's resolvers read. */
   pointer: InfiniteCanvasPoint;
-  sourceNoteId: string;
+  sourceItemId: string;
   sourceWindowId: string;
 }>;
 
-function getNoteId(window: InfiniteCanvasWindow<WindowKind> | undefined) {
+/** Whatever content item a window is bound to, whichever kind of window it is. */
+function getItemId(window: InfiniteCanvasWindow<WindowKind> | undefined) {
   return window === undefined
     ? undefined
-    : getInfiniteCanvasWindowData(window, NoteWindowData.allows)?.noteId;
+    : getInfiniteCanvasWindowData(window, ContentWindowData.allows)?.itemId;
 }
 
 /** Whatever window a drag is currently over, through the framework's one answer for that. */
@@ -152,7 +153,7 @@ export function ConnectorDraft({ projectId }: Readonly<{ projectId: string }>) {
         return;
       }
 
-      const noteId = getNoteId(
+      const itemId = getItemId(
         getLandingWindow(state, {
           x: event.clientX - bounds.left,
           y: event.clientY - bounds.top,
@@ -160,14 +161,14 @@ export function ConnectorDraft({ projectId }: Readonly<{ projectId: string }>) {
       );
 
       if (
-        noteId === undefined ||
-        noteId === source.sourceNoteId ||
-        findRelation(relations, source.sourceNoteId, noteId) !== undefined
+        itemId === undefined ||
+        itemId === source.sourceItemId ||
+        findRelation(relations, source.sourceItemId, itemId) !== undefined
       ) {
         return;
       }
 
-      void connectNotes({ projectId, source: source.sourceNoteId, target: noteId });
+      void connectItems({ projectId, source: source.sourceItemId, target: itemId });
     };
 
     const onKeyDown = (event: KeyboardEvent) => {
@@ -187,24 +188,24 @@ export function ConnectorDraft({ projectId }: Readonly<{ projectId: string }>) {
 
   const sourceWindowId = dragging?.sourceWindowId ?? affordanceWindowId;
   const sourceWindow = state.windows.find((candidate) => candidate.id === sourceWindowId);
-  const sourceNoteId = getNoteId(sourceWindow);
+  const sourceItemId = getItemId(sourceWindow);
 
-  if (sourceWindow === undefined || sourceNoteId === undefined) {
+  if (sourceWindow === undefined || sourceItemId === undefined) {
     return <div className={styles.root()} data-slot="connector-draft" ref={rootRef} />;
   }
 
   /*
-   * What the far end is right now: a note the pointer is over, or the pointer itself.
+   * What the far end is right now: whatever the pointer is over, or the pointer itself.
    *
    * Resolved from the live pointer rather than remembered in the drag state, so the preview and the
    * commit read the same answer and cannot disagree about where the drag would land.
    */
   const landing = dragging === null ? undefined : getLandingWindow(state, dragging.pointer);
-  const landingNoteId = getNoteId(landing);
+  const landingItemId = getItemId(landing);
   const isJoinable =
-    landingNoteId !== undefined &&
-    landingNoteId !== sourceNoteId &&
-    findRelation(relations, sourceNoteId, landingNoteId) === undefined;
+    landingItemId !== undefined &&
+    landingItemId !== sourceItemId &&
+    findRelation(relations, sourceItemId, landingItemId) === undefined;
   const preview =
     dragging === null
       ? null
@@ -251,7 +252,7 @@ export function ConnectorDraft({ projectId }: Readonly<{ projectId: string }>) {
 
                   draft$.set({
                     pointer: { x: event.clientX - bounds.left, y: event.clientY - bounds.top },
-                    sourceNoteId,
+                    sourceItemId,
                     sourceWindowId: sourceWindow.id,
                   });
                 }}

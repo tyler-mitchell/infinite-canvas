@@ -52,6 +52,10 @@ catalog:
   publint: ^0.3.23
   "@arethetypeswrong/core": ^0.18.5
   execa: ^10.0.1
+  # The house CLI framework. `tools/surreal-inspect` asked for `citty: "catalog:"`
+  # with no entry here, which fails `pnpm install` for every package in the
+  # workspace — so no `vp check` could run anywhere until this line existed.
+  citty: ^0.1.6
   "@varlock/bumpy": 1.18.1
   "@fontsource-variable/geist-mono": ^5.3.0
   "@tiptap/react": ^3.30.3

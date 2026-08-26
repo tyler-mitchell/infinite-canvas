@@ -30,7 +30,7 @@ const NOTE_MINIMUM_SIZE = { height: 200, width: 240 } as const;
 function openNoteWindow(input: WindowPlacement & Readonly<{ noteId: string; title: string }>) {
   openContentWindow({
     actions: input.actions,
-    data: { noteId: input.noteId },
+    data: { itemId: input.noteId },
     kind: "note",
     minSize: NOTE_MINIMUM_SIZE,
     size: NOTE_SIZE,

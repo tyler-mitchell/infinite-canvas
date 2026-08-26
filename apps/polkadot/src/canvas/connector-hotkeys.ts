@@ -1,6 +1,6 @@
 import type { InfiniteCanvasHotkeyAction, InfiniteCanvasState } from "@hyphened/infinite-canvas";
 
-import { disconnectNotes, relations$ } from "../notes/relations";
+import { disconnectItems, relations$ } from "../relations/relation-store";
 import { getSelectedRelations } from "./connector-geometry";
 import type { WindowKind } from "./window-registry";
 
@@ -45,7 +45,7 @@ function getConnectorHotkeyActions(
       label: "Cut Connection",
       run: (state) => {
         getRelationsToCut(state).forEach((relation) => {
-          void disconnectNotes({ projectId, source: relation.source, target: relation.target });
+          void disconnectItems({ projectId, source: relation.source, target: relation.target });
         });
       },
     },

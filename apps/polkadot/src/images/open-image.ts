@@ -134,7 +134,7 @@ function openImageWindow(
 ) {
   openContentWindow({
     actions: input.actions,
-    data: { imageId: input.imageId },
+    data: { itemId: input.imageId },
     kind: "image",
     minSize: IMAGE_MINIMUM_SIZE,
     rect: input.rect,

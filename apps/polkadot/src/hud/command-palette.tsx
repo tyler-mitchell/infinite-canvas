@@ -50,7 +50,7 @@ import { tv } from "ui/tv";
 import { initialLayout } from "../canvas/canvas-document";
 import { getSelectedRelations } from "../canvas/connector-geometry";
 import type { WindowKind } from "../canvas/window-registry";
-import type { CanvasSummary, NoteRelation, ProjectSummary } from "../database/database.client";
+import type { CanvasSummary, ContentRelation, ProjectSummary } from "../database/database.client";
 import * as database from "../database/operations";
 import { noteGateway, type NoteRecord } from "../notes/note-gateway";
 import { renameNote } from "../notes/note-store";
@@ -64,15 +64,15 @@ import {
 } from "../notes/project-notes";
 import { recentNoteIds$, rememberNote } from "../notes/recent-notes";
 import {
-  connectNotes,
+  connectItems,
   DEFAULT_RELATION_KIND,
-  disconnectNotes,
+  disconnectItems,
   findRelation,
   RELATION_KINDS,
   relations$,
   setRelationKind,
   setRelationLabel,
-} from "../notes/relations";
+} from "../relations/relation-store";
 
 /**
  * One surface over three vocabularies: the windows on this canvas, what Polkadot can do, and what
@@ -157,7 +157,7 @@ const searchWords = (parts: readonly (string | undefined)[]) =>
  * the mode has to be readable where `filter` is declared, and one page at a time is the whole rule.
  */
 type PalettePage =
-  | Readonly<{ kind: "label"; relation: NoteRelation }>
+  | Readonly<{ kind: "label"; relation: ContentRelation }>
   | Readonly<{ kind: "rename"; note: NoteRecord }>;
 
 /** The framework groups every command; the glyph follows that rather than being decoration. */
@@ -929,7 +929,7 @@ function PaletteContent({
               keys={["⌫"]}
               onSelect={run(() => {
                 for (const relation of selectedRelations) {
-                  void disconnectNotes({
+                  void disconnectItems({
                     projectId,
                     source: relation.source,
                     target: relation.target,
@@ -956,8 +956,8 @@ function PaletteContent({
                 }
 
                 void (connectedPair === undefined
-                  ? connectNotes({ projectId, source, target })
-                  : disconnectNotes({ projectId, source, target }));
+                  ? connectItems({ projectId, source, target })
+                  : disconnectItems({ projectId, source, target }));
               })}
               id="connect-selected-notes"
               keywords={

@@ -591,6 +591,7 @@ legitimately need, plus the default policies.
 **`geometry`**
 
 - `getInfiniteCanvasContentViewport`
+- `getInfiniteCanvasContentWorldRect`
 - `getRectCenter`
 - `getVisibleWorldRect`
 - `isUsableViewport`

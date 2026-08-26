@@ -647,7 +647,7 @@ async function listArchivedContentItems(
   return ContentItemRecord.array().assert(records);
 }
 
-const NoteRelation = type({
+const ContentRelation = type({
   id: "string",
   kind: "string",
   /** Absent for every edge written before labels existed, and `null` once one is cleared. */
@@ -656,9 +656,9 @@ const NoteRelation = type({
   target: "string",
 }).onUndeclaredKey("delete");
 
-type NoteRelation = typeof NoteRelation.infer;
+type ContentRelation = typeof ContentRelation.infer;
 
-async function listRelations(projectId: string): Promise<readonly NoteRelation[]> {
+async function listRelations(projectId: string): Promise<readonly ContentRelation[]> {
   const client = await openLocalDatabase();
   const [records] = await client
     .query<[unknown]>("RETURN fn::list_relations($project);", {
@@ -666,15 +666,15 @@ async function listRelations(projectId: string): Promise<readonly NoteRelation[]
     })
     .json();
 
-  return NoteRelation.array().assert(records);
+  return ContentRelation.array().assert(records);
 }
 
-async function relateNotes(
+async function relateContentItems(
   input: Readonly<{ kind: string; source: string; target: string }>,
 ): Promise<void> {
   const client = await openLocalDatabase();
   await client
-    .query<[unknown]>("RETURN fn::relate_notes($source, $target, $kind);", {
+    .query<[unknown]>("RETURN fn::relate_content_items($source, $target, $kind);", {
       kind: input.kind,
       source: new StringRecordId(input.source),
       target: new StringRecordId(input.target),
@@ -724,10 +724,12 @@ async function setRelationLabel(
     .json();
 }
 
-async function unrelateNotes(input: Readonly<{ source: string; target: string }>): Promise<void> {
+async function unrelateContentItems(
+  input: Readonly<{ source: string; target: string }>,
+): Promise<void> {
   const client = await openLocalDatabase();
   await client
-    .query<[unknown]>("RETURN fn::unrelate_notes($source, $target);", {
+    .query<[unknown]>("RETURN fn::unrelate_content_items($source, $target);", {
       source: new StringRecordId(input.source),
       target: new StringRecordId(input.target),
     })
@@ -872,14 +874,14 @@ export {
   listSavedViews,
   readProjectRemovalSummary,
   reframeSavedView,
-  relateNotes,
+  relateContentItems,
   renameProject,
   renameSavedView,
   restoreContentItem,
   restoreProject,
   setRelationKind,
   setRelationLabel,
-  unrelateNotes,
+  unrelateContentItems,
   readCanvasRemovalSummary,
   restoreCanvas,
   openCanvas,
@@ -897,7 +899,7 @@ export type {
   CanvasRevision,
   CanvasSummary,
   ContentItemRecord,
-  NoteRelation,
+  ContentRelation,
   ProjectRemovalSummary,
   ProjectSummary,
   SavedView,

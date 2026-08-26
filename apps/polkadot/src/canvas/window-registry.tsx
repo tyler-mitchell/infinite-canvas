@@ -34,15 +34,26 @@ import { NoteWindowBody } from "../notes/note-window";
 
 type WindowKind = "image" | "note";
 
-const NoteWindowData = type({ noteId: "string" });
-type NoteWindowData = typeof NoteWindowData.infer;
-
-const ImageWindowData = type({ imageId: "string" });
-type ImageWindowData = typeof ImageWindowData.infer;
+/**
+ * What every window on this canvas carries: the id of the content item it shows.
+ *
+ * One schema for every kind, and the second kind is what proved it had to be. These were
+ * `{ noteId }` and `{ imageId }` — the same fact under two names, since `window.kind` already says
+ * which sort of item it is. Two names cost more than tidiness: nothing could ask a window what it
+ * was bound to without knowing its kind first, so the connector layer resolved notes and only
+ * notes, and an image could not be connected to anything even though `relates_to` has admitted any
+ * content item to any other since the first migration.
+ *
+ * A canvas saved before this reads `{ noteId }`, which no longer validates — those windows say they
+ * are unbound and the note is reopened from the library. The records themselves are untouched; only
+ * the binding is, and the repo keeps no compatibility path for a shape it has replaced.
+ */
+const ContentWindowData = type({ itemId: "string" });
+type ContentWindowData = typeof ContentWindowData.infer;
 
 type WindowData = Readonly<{
-  image: ImageWindowData;
-  note: NoteWindowData;
+  image: ContentWindowData;
+  note: ContentWindowData;
 }>;
 
 const noteWindow = tv({
@@ -118,12 +129,12 @@ const windowDefinitions = defineInfiniteCanvasWindowRegistry<WindowKind, WindowD
     kind: "image",
     overflowY: "hidden",
     renderBody: ({ window }) => {
-      const data = getInfiniteCanvasWindowData(window, ImageWindowData.allows);
+      const data = getInfiniteCanvasWindowData(window, ContentWindowData.allows);
 
       return data == null ? (
         <div className={noteWindow().summary()}>This window is not bound to an image.</div>
       ) : (
-        <ImageWindowBody imageId={data.imageId} />
+        <ImageWindowBody imageId={data.itemId} />
       );
     },
     textSelection: "none",
@@ -133,14 +144,14 @@ const windowDefinitions = defineInfiniteCanvasWindowRegistry<WindowKind, WindowD
     kind: "note",
     overflowY: "auto",
     renderBody: ({ window }) => {
-      const data = getInfiniteCanvasWindowData(window, NoteWindowData.allows);
+      const data = getInfiniteCanvasWindowData(window, ContentWindowData.allows);
 
       return data == null ? (
         <div className={noteWindow().summary()}>This window is not bound to a note.</div>
       ) : (
         <NoteWindowBody
           gateway={noteGateway}
-          noteId={data.noteId}
+          noteId={data.itemId}
           windowId={window.id}
           windowTitle={window.title}
         />
@@ -152,5 +163,5 @@ const windowDefinitions = defineInfiniteCanvasWindowRegistry<WindowKind, WindowD
   },
 });
 
-export { ImageWindowData, NoteWindowData, windowDefinitions };
+export { ContentWindowData, windowDefinitions };
 export type { WindowData, WindowKind };

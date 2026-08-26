@@ -15,8 +15,8 @@ import {
   type InfiniteCanvasWorldSegment,
 } from "@hyphened/infinite-canvas";
 
-import type { NoteRelation } from "../database/database.client";
-import { NoteWindowData, type WindowKind } from "./window-registry";
+import type { ContentRelation } from "../database/database.client";
+import { ContentWindowData, type WindowKind } from "./window-registry";
 
 /**
  * Where every connector actually is, in world space.
@@ -45,17 +45,26 @@ type DrawnConnector = Readonly<{
    */
   anchor: InfiniteCanvasPoint | null;
   points: readonly InfiniteCanvasPoint[];
-  relation: NoteRelation;
+  relation: ContentRelation;
   segments: readonly InfiniteCanvasWorldSegment[];
 }>;
 
 /** The kind every connector target carries, so a selected edge can be told apart from a shape. */
 const CONNECTOR_TARGET_KIND = "relation";
 
-function getConnectorRectsByNote(state: InfiniteCanvasState<WindowKind>) {
-  // A note can be open in more than one window, so an edge joins every pair showing it.
+/**
+ * Every content item on this desktop and the windows showing it — of any kind.
+ *
+ * This resolved note windows and only note windows, which made the connector layer the last part of
+ * the app that believed a canvas held one sort of thing. `relates_to` joins any content item to any
+ * other and has since the first migration, so an image was connectable in the database and not on
+ * the canvas. Reading the shared `itemId` is the whole fix: a window says what it is bound to
+ * without having to say what kind it is.
+ */
+function getConnectorRectsByItem(state: InfiniteCanvasState<WindowKind>) {
+  // An item can be open in more than one window, so an edge joins every pair showing it.
   return state.windows.reduce<Map<string, InfiniteCanvasRect[]>>((rects, window) => {
-    const data = getInfiniteCanvasWindowData(window, NoteWindowData.allows);
+    const data = getInfiniteCanvasWindowData(window, ContentWindowData.allows);
 
     /*
      * Desktop membership, which this used to ignore.
@@ -75,21 +84,21 @@ function getConnectorRectsByNote(state: InfiniteCanvasState<WindowKind>) {
       window.mode === "minimized" ||
       !isInfiniteCanvasWindowInActiveWorkspace(state, window.id)
       ? rects
-      : rects.set(data.noteId, [...(rects.get(data.noteId) ?? []), window.rect]);
+      : rects.set(data.itemId, [...(rects.get(data.itemId) ?? []), window.rect]);
   }, new Map());
 }
 
 function getDrawnConnectors(
   state: InfiniteCanvasState<WindowKind>,
-  relations: readonly NoteRelation[],
+  relations: readonly ContentRelation[],
 ): readonly DrawnConnector[] {
-  const rectsByNote = getConnectorRectsByNote(state);
+  const rectsByItem = getConnectorRectsByItem(state);
   /*
    * Everything that can hide a connector, which is every window on this desktop — not only the two
    * the edge joins. A third note parked across the line hides a label just as completely as an
    * endpoint does.
    */
-  const occluders = [...rectsByNote.values()].flat();
+  const occluders = [...rectsByItem.values()].flat();
   /*
    * The part of the world this app's own chrome is not sitting on.
    *
@@ -119,8 +128,8 @@ function getDrawnConnectors(
   };
 
   return relations.flatMap((relation) =>
-    (rectsByNote.get(relation.source) ?? []).flatMap((fromRect) =>
-      (rectsByNote.get(relation.target) ?? []).map((toRect) => {
+    (rectsByItem.get(relation.source) ?? []).flatMap((fromRect) =>
+      (rectsByItem.get(relation.target) ?? []).map((toRect) => {
         const path = getInfiniteCanvasRectConnectorPath(fromRect, toRect, { route: "orthogonal" });
         /*
          * Where a marker goes: the middle of the longest stretch nothing covers, or nowhere.
@@ -178,17 +187,17 @@ const HIDDEN_STUB_LENGTH = 56;
  */
 function getHiddenConnectorStubs(
   state: InfiniteCanvasState<WindowKind>,
-  relations: readonly NoteRelation[],
+  relations: readonly ContentRelation[],
 ) {
-  const rectsByNote = getConnectorRectsByNote(state);
+  const rectsByItem = getConnectorRectsByItem(state);
 
-  return [...rectsByNote].flatMap(([noteId, rects]) => {
+  return [...rectsByItem].flatMap(([itemId, rects]) => {
     const neighbourIds = new Set(
       relations
-        .filter((relation) => relation.source === noteId || relation.target === noteId)
-        .map((relation) => (relation.source === noteId ? relation.target : relation.source)),
+        .filter((relation) => relation.source === itemId || relation.target === itemId)
+        .map((relation) => (relation.source === itemId ? relation.target : relation.source)),
     );
-    const hiddenCount = [...neighbourIds].filter((id) => !rectsByNote.has(id)).length;
+    const hiddenCount = [...neighbourIds].filter((id) => !rectsByItem.has(id)).length;
 
     return hiddenCount === 0
       ? []
@@ -203,7 +212,7 @@ function getHiddenConnectorStubs(
           return {
             count: hiddenCount,
             endpoint,
-            noteId,
+            itemId,
             points: getInfiniteCanvasConnectionPreviewPath(rect, endpoint, { route: "orthogonal" })
               .points,
           };
@@ -220,7 +229,7 @@ function getHiddenConnectorStubs(
  */
 function getConnectorEdgeTargets(
   state: InfiniteCanvasState<WindowKind>,
-  relations: readonly NoteRelation[],
+  relations: readonly ContentRelation[],
 ) {
   return getDrawnConnectors(state, relations).flatMap((connector) =>
     connector.segments.map((segment) => ({
@@ -246,8 +255,8 @@ function getConnectorEdgeTargets(
  */
 function getSelectedRelations(
   selection: InfiniteCanvasSelection,
-  relations: readonly NoteRelation[],
-): readonly NoteRelation[] {
+  relations: readonly ContentRelation[],
+): readonly ContentRelation[] {
   return getSelectionTargets(selection)
     .filter((target) => target.type === "edge" && target.kind === CONNECTOR_TARGET_KIND)
     .flatMap((target) => relations.filter((relation) => relation.id === target.id));
