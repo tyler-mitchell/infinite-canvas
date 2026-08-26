@@ -316,7 +316,13 @@ open because it feels good to look at. Concretely, and these are enforced in rev
   the notes under the heading "Archived" until the second query landed. Witnessed by recording the
   rail's own DOM across both toggles: the settled list is preceded by a state carrying the new
   heading with no count, no message, and no rows.
-  **Still open:** there is no saved-views concept yet, and connections cannot be cut from here.
+  **Cutting an edge from here landed**, and this line said it had not for longer than it was true.
+  Each expanded neighbour row carries an unlink action, which matters because of what the connector
+  work measured: two windows that nearly touch hide almost all of the line between them — windows
+  resolve before edges, correctly — so the aimable part can be a few pixels, and at one measured
+  arrangement it was 30px with its midpoint inside a window. The rail knows every edge without
+  needing either end on screen, so acting on one here does not depend on where the notes sit.
+  **Still open:** there is no saved-views concept yet.
   **Rename and create landed.** Double-click a row and it becomes an input — Enter commits, Escape
   abandons, blur commits, because clicking away from a field you have typed into and losing it is
   what nobody expects. This is the rail's own justification made concrete: this file already
@@ -451,6 +457,31 @@ open because it feels good to look at. Concretely, and these are enforced in rev
   offers to cut it. That is the surface where acting on an edge does not depend on where its notes
   happen to sit — the occluded-connector problem stays open for _selecting_ one on the canvas, but
   it no longer blocks removing one.
+- [ ] **Mentions.** The third way to author an edge, and the one `relations.ts` has named as the
+      natural one since it was written. Not started — this entry exists because the design has a hazard
+      that decides its scope, and finding that out after writing the typeahead would be finding it out
+      too late.
+      **Library-first is already settled:** `@lexical/react` is installed and ships
+      `LexicalTypeaheadMenuPlugin`, so the trigger, the menu, keyboard traversal and the query lifecycle
+      are the library's. Anything hand-rolled there is a defect. The product owns what the menu lists —
+      the project's notes, from `projectNotes$` — and what selecting one writes.
+      **The hazard: two authoring paths, one edge table.** The obvious design derives edges from the
+      text, the way Obsidian and Roam do, so deleting a mention deletes the edge and nothing can drift.
+      That works only when text is the _sole_ origin of an edge. Here it is not — an edge can also be
+      dragged between two windows, and a drag leaves no text anywhere. Reconciling a note's edges
+      against its body on save would therefore delete every dragged edge the moment its source note was
+      edited, silently, with no undo. That is data loss dressed as a sync routine, and it is the failure
+      this item is written down to prevent.
+      **Two defensible ways out, and the choice belongs to whoever builds it.** Either give `relates_to`
+      an origin so reconciliation can restrict itself to text-authored edges and leave dragged ones
+      alone — a schema field on a `SCHEMAFULL` table, cheap to add and honest about the difference — or
+      declare that a mention _authors_ an edge and does not own it, so removing the mention leaves the
+      connection standing and the rail is where you cut it. The second needs no schema change and is
+      coherent, but it breaks the symmetry people carry over from Obsidian, so it must be stated in the
+      product rather than discovered.
+      **What must not be built:** mentions that create edges with no story for removing them. That is
+      the version that looks finished, accumulates edges nobody asked for, and makes the graph
+      progressively less true the more the app is used.
 - [~] **Workspaces** as the organizing spine. The framework's workspace model was reachable only by
   a consumer reaching past the command layer: `cycle` walks desktops that exist and does nothing
   when there are none, so nothing could make the first one, name which one to enter, or take one
