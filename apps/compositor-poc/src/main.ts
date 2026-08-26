@@ -169,6 +169,8 @@ let hoveredElement: HTMLElement | null = null;
 const hoverAmounts = new Map<HTMLElement, number>();
 let surfaceCollectMs = 0;
 let cascadeProbeMs = 0;
+/** Instances the plan wanted that the buffer could not hold. Reported, never swallowed. */
+let surfaceOverflow = 0;
 
 if (captureNative) {
   const paintCanvas = document.createElement("canvas");
@@ -522,6 +524,16 @@ if (captureNative) {
 
     await root.device.queue.onSubmittedWorkDone();
 
+    /*
+     * A capture means the DOM changed, which means boxes may have moved.
+     *
+     * Measured once at mount, materials drift the moment a window reflows — the button's own label
+     * changes width when it is marked done, and the bevel stays around where it used to be. This is
+     * the cheapest correct trigger: exactly the moments something was repainted.
+     */
+    collectSurfaces?.();
+    buildSurfaces();
+
     responses[dirtyCause] =
       `${dirtyCause} ${(performance.now() - started).toFixed(2)} ms (${String(events)}→${String(layers.length)})`;
     flushing = false;
@@ -733,23 +745,26 @@ const surfaceQuads = Math.min(quadCount, 128);
 const surfacePlan: Array<{ element: HTMLElement; material: string }> = [];
 const surfaceBatches: Array<{ count: number; first: number; material: string }> = [];
 
-for (const material of MATERIAL_ORDER) {
-  const first = surfacePlan.length;
+/** Instances the plan yields right now, in material order, without touching any buffer. */
+const planSurfaces = () =>
+  MATERIAL_ORDER.flatMap((material) =>
+    surfaceSources
+      .filter((source) => source.material === material)
+      .flatMap((source) =>
+        Array.from({ length: surfaceQuads }, (_, quad) => quad)
+          .filter((quad) => quad % textureLayers === source.layer)
+          .map((quad) => ({ material, quad, source })),
+      ),
+  );
 
-  for (const source of surfaceSources.filter((candidate) => candidate.material === material)) {
-    for (let quad = 0; quad < surfaceQuads; quad++) {
-      if (quad % textureLayers === source.layer) {
-        surfacePlan.push({ element: source.element, material });
-      }
-    }
-  }
-
-  if (surfacePlan.length > first) {
-    surfaceBatches.push({ count: surfacePlan.length - first, first, material });
-  }
-}
-
-const surfaceCount = Math.max(surfacePlan.length, 1);
+/**
+ * Headroom, so a window whose content reflows can be re-measured without reallocating.
+ *
+ * The buffer is sized once; re-collection refreshes geometry into it. Twice the initial count
+ * absorbs a component appearing or disappearing, and anything past that is reported rather than
+ * silently dropped.
+ */
+const surfaceCount = Math.max(planSurfaces().length * 2, 32);
 const surfaceAtlas = new Float32Array(surfaceCount * 4);
 const surfaceParams = new Float32Array(surfaceCount * 4);
 const surfaceTint = new Float32Array(surfaceCount * 4);
@@ -906,45 +921,63 @@ for (let index = 0; index < quadCount; index++) {
 
 common.writeSoA(quadsBuffer, { rect: rects, tint: tints });
 
-/*
- * The static half of every material instance, written once.
+/**
+ * The static half of every material instance: box, colour, radius, layer.
  *
- * A component's box, colour and radius do not change between frames — only its hover does — so the
- * per-frame work is one float per instance rather than a rebuild. Each instance maps a component's
- * fractional box onto one quad's world rect, which is what lets a single collection serve every
- * instance of a window.
+ * Re-run whenever a capture lands, not once at mount. A window whose content reflows moves its
+ * components — clicking "Mark as done" changes the button's own width — and geometry measured once
+ * leaves the material behind, drawing a bevel around where the button used to be.
+ *
+ * Only `hover` changes between frames, so this stays out of the frame loop; the per-frame work is
+ * one float per instance rather than a rebuild.
  */
-{
-  let slot = 0;
+const buildSurfaces = () => {
+  const planned = planSurfaces();
 
+  surfacePlan.length = 0;
+  surfaceBatches.length = 0;
+
+  for (const [slot, instance] of planned.entries()) {
+    if (slot >= surfaceCount) {
+      break;
+    }
+
+    const { quad, source } = instance;
+    const offset = quad * 4;
+    const x = rects[offset] ?? 0;
+    const y = rects[offset + 1] ?? 0;
+    const width = rects[offset + 2] ?? 0;
+    const height = rects[offset + 3] ?? 0;
+    const field = slot * 4;
+
+    surfaceAtlas.set(source.box, field);
+    surfaceParams[field + 1] = source.radius * width;
+    surfaceParams[field + 2] = source.layer;
+    surfaceTint.set(source.tint, field);
+    surfaceTint[field + 3] = 1;
+    surfaceWorld[field] = x + source.box[0] * width;
+    surfaceWorld[field + 1] = y + source.box[1] * height;
+    surfaceWorld[field + 2] = source.box[2] * width;
+    surfaceWorld[field + 3] = source.box[3] * height;
+
+    surfacePlan.push({ element: source.element, material: instance.material });
+  }
+
+  surfaceOverflow = planned.length - surfacePlan.length;
+
+  // Contiguous ranges, derived from the plan rather than tracked alongside it, so they cannot drift
+  // out of step with what was actually written.
   for (const material of MATERIAL_ORDER) {
-    for (const source of surfaceSources.filter((candidate) => candidate.material === material)) {
-      for (let quad = 0; quad < surfaceQuads; quad++) {
-        if (quad % textureLayers !== source.layer) {
-          continue;
-        }
+    const first = surfacePlan.findIndex((instance) => instance.material === material);
+    const count = surfacePlan.filter((instance) => instance.material === material).length;
 
-        const offset = quad * 4;
-        const x = rects[offset] ?? 0;
-        const y = rects[offset + 1] ?? 0;
-        const width = rects[offset + 2] ?? 0;
-        const height = rects[offset + 3] ?? 0;
-        const field = slot * 4;
-
-        surfaceAtlas.set(source.box, field);
-        surfaceParams[field + 1] = source.radius * width;
-        surfaceParams[field + 2] = source.layer;
-        surfaceTint.set(source.tint, field);
-        surfaceTint[field + 3] = 1;
-        surfaceWorld[field] = x + source.box[0] * width;
-        surfaceWorld[field + 1] = y + source.box[1] * height;
-        surfaceWorld[field + 2] = source.box[2] * width;
-        surfaceWorld[field + 3] = source.box[3] * height;
-        slot += 1;
-      }
+    if (first >= 0) {
+      surfaceBatches.push({ count, first, material });
     }
   }
-}
+};
+
+buildSurfaces();
 
 /**
  * One instanced draw for every quad.
@@ -1314,9 +1347,12 @@ const frame = () => {
     ...(surfacePlan.length > 0
       ? [
           `surfaces   ${String(surfacePlan.length)} instances / ${String(surfaceBatches.length)} draws  (${surfaceBatches.map((batch) => `${batch.material} ${String(batch.count)}`).join(", ")})`,
-          `collect    ${surfaceCollectMs.toFixed(2)} ms attribute walk   ${cascadeProbeMs.toFixed(2)} ms if it were a cascading custom property`,
+          `collect    ${surfaceCollectMs.toFixed(2)} ms per capture   ${cascadeProbeMs.toFixed(2)} ms if it were a cascading custom property`,
           ...(quadCount > surfaceQuads
             ? [`           capped at ${String(surfaceQuads)} of ${String(quadCount)} quads`]
+            : []),
+          ...(surfaceOverflow > 0
+            ? [`           ${String(surfaceOverflow)} instances dropped — buffer full`]
             : []),
         ]
       : []),

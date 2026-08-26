@@ -527,16 +527,33 @@ A cascading custom property (`--surface: sheen`, inherited like any CSS) is the 
 feel native, and it needs `getComputedStyle` on every element in every window. An attribute
 (`[data-surface]`) is a cheap selector. I expected the cascade to be the costly one. Measured:
 
-| collection method                     | cost           |
-| ------------------------------------- | -------------- |
-| `[data-surface]` walk + geometry      | **3.1–4.3 ms** |
-| `getComputedStyle` over every element | **0.00 ms**    |
+| collection method                     | cold (first run) | steady state |
+| ------------------------------------- | ---------------- | ------------ |
+| `[data-surface]` walk + geometry      | 3.1–5.7 ms       | **0.60 ms**  |
+| `getComputedStyle` over every element | **0.00 ms**      | 0.00 ms      |
 
 **The geometry is the cost, not the style lookup.** `getBoundingClientRect` forces layout; reading a
 custom property off already-computed styles is free. So the nicer API is also the affordable one,
 and the thing to optimise is how often boxes are re-measured — not how materials are declared.
 
+The cold and steady columns are a correction: the first numbers here were quoted as though they were
+the recurring cost, and they are not. That run includes first layout. Once the page has settled,
+re-collecting every material's geometry costs **0.60 ms** against the 3.8 ms paint it rides along
+with — small enough that doing it on every capture is affordable, which is what makes the fix below
+possible at all.
+
 The 0.00 is below this timer's resolution at six windows, not a claim that it is free at scale.
+
+### Materials follow reflow, because measuring once is wrong
+
+Boxes were measured at mount and never again. Clicking **Mark as done** changes the button's own
+label from "Mark as done" to "Done ✓", which changes its width — so the sheen stayed a rim around
+where the button used to be, and nothing said so.
+
+Collection now runs on every capture flush, which is the cheapest correct trigger: exactly the
+moments something was repainted. The buffer is sized with headroom rather than reallocated, and
+instances the plan wanted but could not fit are counted into the readout instead of dropped
+quietly.
 
 ### Glass, and the pass it forced
 
@@ -587,9 +604,9 @@ cannot report what you never looked at.
   nothing here handles that.
 - **The instance count is capped** at 128 window-instances, and the readout says when that
   truncated. A real compositor would emit materials only for visible windows.
-- **Materials do not re-collect on layout change.** Boxes are measured once at mount. A window whose
-  content reflows moves its components without the compositor noticing, and since geometry is the
-  expensive half of collection, doing it on every capture is a cost nobody has measured.
+- **Re-collection is triggered by capture, not by layout.** A capture means something repainted,
+  which is a good proxy and not the same thing. A window that reflows without repainting — a font
+  loading late, a scrollbar appearing — would move its components with nothing to notice.
 
 ### Why the layout host stays one canvas
 
