@@ -39,7 +39,10 @@ open because it feels good to look at. Concretely, and these are enforced in rev
 - **Motion has weight.** Springs, not linear ramps. Things that move in space settle; state
   changes are swift. `--ease-settle` and `--ease-swift` exist so this is not decided per-site.
 - **The ground is alive.** The dot field responds to the pointer and is displaced by windows.
-  A canvas whose background is wallpaper is a canvas you do not believe in.
+  A canvas whose background is wallpaper is a canvas you do not believe in. **This bar is not
+  currently met** — the field is built and deliberately unmounted for cost, so the running app has
+  wallpaper. Stated here rather than only in the item below, because a bar that quietly stops
+  applying is worse than one that was never written down.
 - **Every class comes from a `tv` slot.** No Tailwind strings in JSX, ever. Global CSS is
   tokens, resets, and imports only.
 - **Nothing hand-rolled that a maintained library owns.** TanStack (Router, Pacer, Hotkeys,
@@ -61,6 +64,11 @@ open because it feels good to look at. Concretely, and these are enforced in rev
 - [x] Framework tokens for window radius and elevation (`--icx-surface-radius`, `--icx-surface-shadow`)
 - [x] **The living field.** Written once as a flat lattice, deleted, and now built for real — see
       below for what it actually is, because the description that stood here was wrong.
+      **Currently unmounted.** `workspace-canvas.tsx` passes no `renderBackdrop`, so what the
+      running app shows is the framework's default grid. It was disabled deliberately — it cost too
+      much frame time — and it stays that way until that is fixed rather than hidden. The code is
+      intact in `canvas/field.tsx`; nothing has been lost. But anyone reading this file and then
+      opening the app would otherwise conclude the field was broken.
 
 ## Next
 
@@ -100,6 +108,20 @@ open because it feels good to look at. Concretely, and these are enforced in rev
       notes rather than one at a time, and staying put while you work against it. The connector
       item below is blocked on exactly that: an edge whose notes are not both open is currently
       invisible, and no amount of palette fixes it.
+      **The framework check ran first and found a gap** — recorded in `AFFORDANCE_AUDIT.md`. Every
+      inset the framework takes is a single scalar applied to all four edges:
+      `getViewportInsetWorldRect`, `fitCameraToWorldRect`, `getFitCamera`'s `paddingPx ?? 80`,
+      `getInfiniteCanvasOffscreenIndicators`. A consumer with persistent chrome on one edge cannot
+      say which region is occluded, so `view.fit`, `view.fitSelection`, `window.reveal` and
+      placement would all centre content underneath the rail. **Per-edge viewport insets are the
+      precondition**, and they are product-neutral — a sidebar, an inspector and a docked panel all
+      want the same affordance. Building the rail first would ship a surface that fights every
+      camera command, which is exactly the half-built failure this file warns about.
+      The same check found a second thing worth naming: `getInfiniteCanvasMinimapLayout`,
+      `getInfiniteCanvasOffscreenIndicators` and `getInfiniteCanvasWorldPath` are exported and
+      consumed by nothing here. Not a framework gap — a coverage gap in the app meant to be the
+      framework's showcase, and offscreen indicators answer the rail's own question: where is the
+      note this one connects to, when it is not on screen.
 - [~] **Connectors.** `relates_to` is written for the first time, and edges render between the
   windows showing their notes — framework geometry throughout, drawn in the new
   `renderUnderlay` band so a connector passes beneath the note rather than across it.
