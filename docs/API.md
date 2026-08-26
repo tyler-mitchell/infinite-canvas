@@ -683,9 +683,11 @@ these over hand-rolled path maths.
 
 **`scene-layer-geometry`**
 
+- `getInfiniteCanvasLongestUnoccludedSegment`
 - `getInfiniteCanvasRectConnectorPath`
 - `getInfiniteCanvasRectConnectorPoint`
 - `getInfiniteCanvasRectConnectorSegment`
+- `getInfiniteCanvasUnoccludedSegments`
 - `getInfiniteCanvasViewportScreenRect`
 - `getInfiniteCanvasWindowConnectorPath`
 - `getInfiniteCanvasWindowConnectorPoint`

@@ -172,9 +172,11 @@ export {
   getInfiniteCanvasWindowPresenceItem,
 } from "./window-presence";
 export {
+  getInfiniteCanvasLongestUnoccludedSegment,
   getInfiniteCanvasRectConnectorPath,
   getInfiniteCanvasRectConnectorPoint,
   getInfiniteCanvasRectConnectorSegment,
+  getInfiniteCanvasUnoccludedSegments,
   getInfiniteCanvasViewportScreenRect,
   getInfiniteCanvasWindowConnectorPoint,
   getInfiniteCanvasWindowConnectorPath,

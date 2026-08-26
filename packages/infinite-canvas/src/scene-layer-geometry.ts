@@ -165,6 +165,128 @@ function getInfiniteCanvasWorldPath(
   };
 }
 
+type ParametricSpan = Readonly<{ from: number; to: number }>;
+
+/**
+ * Where along a segment it passes through a rect, as a `0…1` span, or `null` if it never does.
+ *
+ * Liang–Barsky: the segment is inside on the intersection of four half-plane constraints, one per
+ * rect edge, each of which either bounds the entry or the exit depending on the sign of the
+ * direction. A zero denominator means the segment is parallel to that pair of edges, in which case
+ * it is either wholly within that band or wholly outside it — no clipping to do either way.
+ *
+ * The low-level-mathematics exception to this codebase's no-`let` rule applies here, which is why
+ * the accumulation is a `reduce` rather than a loop with mutable bounds. `null` short-circuits.
+ */
+function getSegmentRectSpan(
+  segment: InfiniteCanvasWorldSegment,
+  rect: InfiniteCanvasRect,
+): ParametricSpan | null {
+  return [
+    { denominator: -segment.delta.x, distance: segment.start.x - rect.x },
+    { denominator: segment.delta.x, distance: rect.x + rect.width - segment.start.x },
+    { denominator: -segment.delta.y, distance: segment.start.y - rect.y },
+    { denominator: segment.delta.y, distance: rect.y + rect.height - segment.start.y },
+  ].reduce<ParametricSpan | null>(
+    (span, { denominator, distance }) => {
+      if (span === null) {
+        return null;
+      }
+
+      if (denominator === 0) {
+        return distance < 0 ? null : span;
+      }
+
+      const crossing = distance / denominator;
+
+      return denominator < 0
+        ? crossing > span.to
+          ? null
+          : { from: Math.max(span.from, crossing), to: span.to }
+        : crossing < span.from
+          ? null
+          : { from: span.from, to: Math.min(span.to, crossing) };
+    },
+    { from: 0, to: 1 },
+  );
+}
+
+/** The complement of a set of spans within `0…1`, with overlaps merged as it goes. */
+function getUncoveredSpans(covered: readonly ParametricSpan[]): readonly ParametricSpan[] {
+  const merged = [...covered]
+    .sort((left, right) => left.from - right.from)
+    .reduce<Readonly<{ cursor: number; spans: readonly ParametricSpan[] }>>(
+      (state, span) =>
+        span.to <= state.cursor
+          ? state
+          : {
+              cursor: span.to,
+              spans:
+                span.from > state.cursor
+                  ? [...state.spans, { from: state.cursor, to: span.from }]
+                  : state.spans,
+            },
+      { cursor: 0, spans: [] },
+    );
+
+  return merged.cursor < 1 ? [...merged.spans, { from: merged.cursor, to: 1 }] : merged.spans;
+}
+
+/**
+ * The parts of a path no rect covers.
+ *
+ * Answers "which of this line can actually be seen", which a consumer drawing connectors beneath
+ * windows cannot answer for itself without re-deriving geometry the canvas already owns — it holds
+ * both the path segments and the window rects, and they must not be computed twice.
+ *
+ * The case that motivated it: a connector between two windows that nearly touch is almost entirely
+ * behind them, and anything anchored at the path's midpoint — a label, a grab target — lands inside
+ * a window and is invisible. The midpoint is the obvious anchor and the wrong one. The longest run
+ * returned here is the right one, and it is a different query.
+ *
+ * Rects are consumed as opaque occluders rather than as windows, so a consumer can pass whatever
+ * actually covers the line: windows, its own overlays, a HUD panel's world footprint.
+ */
+function getInfiniteCanvasUnoccludedSegments(
+  segments: readonly InfiniteCanvasWorldSegment[],
+  occluders: readonly InfiniteCanvasRect[],
+): readonly InfiniteCanvasWorldSegment[] {
+  return segments.flatMap((segment) => {
+    const covered = occluders.flatMap((rect) => {
+      const span = getSegmentRectSpan(segment, rect);
+
+      return span === null || span.to <= span.from ? [] : [span];
+    });
+
+    return getUncoveredSpans(covered).map((span) =>
+      getInfiniteCanvasWorldSegment(
+        interpolatePoint(segment.start, segment.end, span.from),
+        interpolatePoint(segment.start, segment.end, span.to),
+      ),
+    );
+  });
+}
+
+/**
+ * The longest run of a path that nothing covers, or `null` when every part of it is hidden.
+ *
+ * What a consumer almost always wants from the above: one place to put the thing that has to be
+ * seen or hit. Returning the whole set and leaving each caller to sort it would have every caller
+ * write the same three lines and eventually disagree about ties.
+ */
+function getInfiniteCanvasLongestUnoccludedSegment(
+  segments: readonly InfiniteCanvasWorldSegment[],
+  occluders: readonly InfiniteCanvasRect[],
+): InfiniteCanvasWorldSegment | null {
+  return getInfiniteCanvasUnoccludedSegments(
+    segments,
+    occluders,
+  ).reduce<InfiniteCanvasWorldSegment | null>(
+    (longest, segment) => (longest === null || segment.length > longest.length ? segment : longest),
+    null,
+  );
+}
+
 function clampProgress(progress: number) {
   return Math.min(Math.max(progress, 0), 1);
 }
@@ -342,9 +464,11 @@ function getVisibleInfiniteCanvasWindowProxies<Kind extends string>(
 }
 
 export {
+  getInfiniteCanvasLongestUnoccludedSegment,
   getInfiniteCanvasRectConnectorPath,
   getInfiniteCanvasRectConnectorPoint,
   getInfiniteCanvasRectConnectorSegment,
+  getInfiniteCanvasUnoccludedSegments,
   getInfiniteCanvasViewportScreenRect,
   getInfiniteCanvasWindowConnectorPoint,
   getInfiniteCanvasWindowConnectorPath,

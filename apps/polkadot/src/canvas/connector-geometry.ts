@@ -1,5 +1,6 @@
 import {
   getInfiniteCanvasConnectionPreviewPath,
+  getInfiniteCanvasLongestUnoccludedSegment,
   getInfiniteCanvasRectConnectorPath,
   getInfiniteCanvasWindowData,
   getInfiniteCanvasWorldPath,
@@ -80,15 +81,38 @@ function getDrawnConnectors(
   relations: readonly NoteRelation[],
 ): readonly DrawnConnector[] {
   const rectsByNote = getConnectorRectsByNote(state);
+  /*
+   * Everything that can hide a connector, which is every window on this desktop — not only the two
+   * the edge joins. A third note parked across the line hides a label just as completely as an
+   * endpoint does.
+   */
+  const occluders = [...rectsByNote.values()].flat();
 
   return relations.flatMap((relation) =>
     (rectsByNote.get(relation.source) ?? []).flatMap((fromRect) =>
       (rectsByNote.get(relation.target) ?? []).map((toRect) => {
         const path = getInfiniteCanvasRectConnectorPath(fromRect, toRect, { route: "orthogonal" });
-        const midpoint = getInfiniteCanvasWorldPathPointAtProgress(
-          getInfiniteCanvasWorldPath(path.points),
-          0.5,
-        );
+        /*
+         * Where the label goes: the middle of the longest stretch nothing covers.
+         *
+         * It used to be the midpoint of the routed path, which is the obvious anchor and the wrong
+         * one — connectors are drawn beneath the windows they join, so between two notes that
+         * nearly touch the midpoint is *inside* a window and the label is simply not there. Nothing
+         * about that failure is visible in the code: the label renders, it has the right text, and
+         * a window is painted over it.
+         *
+         * `getInfiniteCanvasLongestUnoccludedSegment` answers the question that anchor actually
+         * needs, and answers it in the framework, which owns both the path segments and the window
+         * rects and should not have either re-derived here.
+         *
+         * Falling back to the path midpoint when every stretch is covered is deliberate. A label
+         * with nowhere legible to sit is going to be hidden wherever it goes, and putting it in a
+         * defined place keeps it from jumping about as windows move over the last visible pixels.
+         */
+        const clear = getInfiniteCanvasLongestUnoccludedSegment(path.segments, occluders);
+        const midpoint =
+          clear?.midpoint ??
+          getInfiniteCanvasWorldPathPointAtProgress(getInfiniteCanvasWorldPath(path.points), 0.5);
 
         return { midpoint, points: path.points, relation, segments: path.segments };
       }),
