@@ -58,8 +58,35 @@ function openNoteWindow(input: Placement & Readonly<{ noteId: string; title: str
  * for notes it made itself: the other two callers left it reading "No notes yet." over a canvas
  * with the new note on it.
  */
+/**
+ * The next "Untitled n" nothing in this project is already called.
+ *
+ * It used to be `windows.length + 1` — the number of windows open on the canvas, which is not a
+ * fact about the notes at all. Closing a note freed its number for the next one, opening the same
+ * note in two windows inflated the count, and windows sitting on another desktop were counted too.
+ * Found by clicking "New note" on a canvas with two windows and three notes: the result was a
+ * second note called "Untitled 3", indistinguishable in the library from the first.
+ *
+ * Archived notes are counted as well, and that is the point of asking twice. They hold their titles
+ * while archived, so skipping them hands out a name that collides the moment someone restores —
+ * a defect that appears long after the action that caused it, in a surface neither of them was in.
+ */
+function getNextUntitledTitle(titles: readonly string[]) {
+  const used = titles.flatMap((title) => {
+    const ordinal = /^Untitled (\d+)$/.exec(title)?.[1];
+
+    return ordinal === undefined ? [] : [Number(ordinal)];
+  });
+
+  return `Untitled ${String(Math.max(0, ...used) + 1)}`;
+}
+
 async function openNewNote(input: Placement & Readonly<{ projectId: string }>) {
-  const title = `Untitled ${input.state.windows.length + 1}`;
+  const [offered, archived] = await Promise.all([
+    database.notes.list(input.projectId),
+    database.notes.listArchived(input.projectId),
+  ]);
+  const title = getNextUntitledTitle([...offered, ...archived].map((note) => note.title));
   const created = await database.notes.create({ projectId: input.projectId, text: "", title });
 
   openNoteWindow({ actions: input.actions, noteId: created.id, state: input.state, title });
