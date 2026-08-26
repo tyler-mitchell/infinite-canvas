@@ -269,188 +269,203 @@ open because it feels good to look at. Concretely, and these are enforced in rev
       **Still open on the palette:** nothing named. Projects and canvases have their own destructive
       removals with typed confirmations, and those are genuinely not page-shaped — but no line here
       has ever asked the palette to host them.
-- [~] **The library rail** — content, search, saved views. This line said "currently an empty box
-  making a promise", which overstated it: there is no box. `CanvasHud` renders the identity
-  rail, the selection rail, the recovery notice and the launcher, and nothing else.
-  **What it has to be worth:** the launcher already opens a closed note, so a rail that only
-  lists notes is a worse palette that is always on screen. Its case is the three things a
-  modal cannot do — browsing without knowing what you want, seeing relationships between
-  notes rather than one at a time, and staying put while you work against it. The connector
-  item below is blocked on exactly that: an edge whose notes are not both open is currently
-  invisible, and no amount of palette fixes it.
-  **The framework check ran first and found a gap** — recorded in `AFFORDANCE_AUDIT.md`. Every
-  inset the framework takes is a single scalar applied to all four edges:
-  `getViewportInsetWorldRect`, `fitCameraToWorldRect`, `getFitCamera`'s `paddingPx ?? 80`,
-  `getInfiniteCanvasOffscreenIndicators`. A consumer with persistent chrome on one edge cannot
-  say which region is occluded, so `view.fit`, `view.fitSelection`, `window.reveal` and
-  placement would all centre content underneath the rail. **Per-edge viewport insets are the
-  precondition**, and they are product-neutral — a sidebar, an inspector and a docked panel all
-  want the same affordance. Building the rail first would ship a surface that fights every
-  camera command, which is exactly the half-built failure this file warns about.
-  The same check found a second thing worth naming: `getInfiniteCanvasMinimapLayout`,
-  `getInfiniteCanvasOffscreenIndicators` and `getInfiniteCanvasWorldPath` are exported and
-  consumed by nothing here. Not a framework gap — a coverage gap in the app meant to be the
-  framework's showcase, and offscreen indicators answer the rail's own question: where is the
-  note this one connects to, when it is not on screen.
-  **Two of the three are now drawn.** Offscreen indicators landed first; the minimap landed
-  second, in `hud/minimap.tsx` — see its own item below. `getInfiniteCanvasWorldPath` is the
-  one still consumed by nothing, and it is deliberate: it is built for tours, which this file
-  keeps under "Later".
-  **Landed:** the framework affordance, and a first rail against it. Every note in the project,
-  searchable, with a presence dot for the ones already on the canvas and a connection count that
-  expands in place — reaching a connected note costs one click whether or not it has a window,
-  which is the thing the palette cannot do. Clicking a row is `window.reveal` when the note is
-  open and `openNoteWindow` when it is not; neither is re-derived here.
-  The HUD is inset by the same number the camera is, so the identity rail stops sitting under
-  the panel and the selection rail re-centres on what is visible. Verified in the browser:
-  revealing a note centres it at x≈490 in a visible region whose centre is 486, where the
-  element's centre is 400. The connection path is witnessed too, end to end rather than
-  inferred: authoring `relates_to` from the palette draws the connector on the canvas, both rows
-  grow a count, the count expands in place with the neighbour indented under it, and the nested
-  row reaches the note it names.
-  **The rail no longer claims a project is empty before it has looked.** `notes$` started as `[]`,
-  so "nobody has asked yet" and "the answer was nothing" were one value, and a fresh load greeted
-  three notes with "No notes yet." for as long as the first query took — which reads as data loss,
-  not as loading. It is `null` until answered now, and the count and the message both stay blank
-  until there is something to say. The same conflation mislabelled a list: switching to Archive left
-  the notes under the heading "Archived" until the second query landed. Witnessed by recording the
-  rail's own DOM across both toggles: the settled list is preceded by a state carrying the new
-  heading with no count, no message, and no rows.
-  **Cutting an edge from here landed**, and this line said it had not for longer than it was true.
-  Each expanded neighbour row carries an unlink action, which matters because of what the connector
-  work measured: two windows that nearly touch hide almost all of the line between them — windows
-  resolve before edges, correctly — so the aimable part can be a few pixels, and at one measured
-  arrangement it was 30px with its midpoint inside a window. The rail knows every edge without
-  needing either end on screen, so acting on one here does not depend on where the notes sit.
-  **Still open: there is no saved-views concept yet — and the framework check settled what one is
-  before any of it gets built.** The first honest reading is that a saved view already exists and
-  is called a workspace: `workspace.ts` opens by defining one as "a named set of windows, with the
-  camera and selection you left it at", it is persisted at version 3, and `DesktopSwitcher` already
-  surfaces it. Building a second named-camera model beside that would be two models over one
-  concept.
-  **It is not the same thing, and the framework says so in the same paragraph.** A workspace's
-  camera is "a snapshot taken on the way out … stale by design — writing through on every pan
-  would make each frame a workspace mutation, and workspace mutations are undo checkpoints." That
-  is _resume where I left off_. A saved view is the opposite intent: a framing you return to
-  precisely because it does **not** move while you work. Implementing views as workspaces gives one
-  of two defects and there is no third option — either the camera writes through, and every pan
-  becomes an undo entry, or it does not, and the bookmark silently drifts away from the thing it
-  was pointing at.
-  **So the split is: the framework owns _going_ there, the app owns _naming_ it.**
-  `navigateToRect` and `getFitCamera` already take a world rect and are exported, so nothing is
-  missing on the camera side and this asks the framework for nothing. A named rect is project data
-  — it belongs in the database beside notes, with a title someone typed, the way every other named
-  thing here does. That also passes the rule at the top of this file: "a list of bookmarks" is not
-  a canvas affordance, and a `savedViews` prop would be the same feature and the wrong one.
-  **What must not be built:** saved views as a second workspace, or a view that stores a camera
-  (a centre and a zoom) rather than a world rect. A stored zoom is wrong on a different display or
-  a resized pane; a rect re-fits to whatever window it is asked into, which is why every framework
-  entry point on this path takes one.
-  **The database spine landed and is driven, and no surface has been built on it yet** — said
-  plainly because a half-built surface is the failure this file opens by warning about, and the
-  honest state is that this is a spine and not a feature. `saved_view` is a `SCHEMAFULL` table
-  keyed to a `canvas_document`, with `list` / `create` / `rename` / `reframe` / `delete` in
-  `functions/006_views.surql`, an ArkType boundary in `database.client`, and a `savedViews` group
-  on the lazy `operations` module. `reframe` is the verb no other table here has, and the one that
-  makes a bookmark honest: a framing goes stale as soon as what it points at moves, and without it
-  the only repair is delete-and-recreate, which loses the name that was the point.
-  **Driven against the running database rather than typechecked**, through `window.__surreal.query`:
-  an empty canvas lists `[]`; two views created out of alphabetical order come back in title order,
-  so the ordering is observed rather than assumed; `reframe` replaces the rect and leaves the title,
-  `rename` the reverse; `delete` drops the row. Both schema assertions were made to fire — a
-  zero-width rect and an all-whitespace title were each refused with the assertion's own message —
-  which is the part the SurQL test file cannot reach, since a thrown assertion aborts the script.
-  The rows were removed afterwards; the table is empty.
-  **What is left is the surface**, and it is the whole of the remaining design: where a view is
-  saved from, how it is named, and where the list lives.
-  **The framework check for that half ran too, and it also asks for nothing.** Going back is
-  `navigateToRect` — the same call this session used to bring four windows into view after the
-  camera had drifted off them. Capturing the current framing composes two exports that already
-  exist: `getInfiniteCanvasContentViewport(viewport, insets)` gives the screen region the app's own
-  chrome leaves, which is the right region rather than the whole viewport — a view saved while the
-  rail is open must frame what you can actually see, not what is behind the panel — and the camera
-  converts it. `getVisibleWorldRect` is the padded whole-viewport answer and is the wrong one here
-  for that reason.
-  **Placement was decided against both of the obvious candidates.** The rail is what this item's
-  title assumed, and it is where a list you rename and prune belongs — a palette row cannot host an
-  inline editor, which is the argument that put note renaming there. Against it, and decisive: the
-  rail browses _content_ (presence dots, connection counts, archive) and a framing is navigation, so
-  a third mode would put two unrelated domains in one 599-line component. The palette was the other
-  candidate and is where you go already knowing the name, which is the opposite of a list you want
-  visible.
-  **So it sits fourth in the identity rail, after project ▸ canvas ▸ desktop.** That chain is
-  already three switchers whose name _is_ the control, and this asks the same shape of question —
-  which of these named things do I want. `SavedViewMenu` follows `DesktopSwitcher` part for part:
-  the same trigger, the same rename-in-place input, the same Enter/Escape through the hotkey
-  manager scoped to the field.
-  **It is not a switcher, and that is why there is no radio group.** Entering a desktop is a mode
-  you stay in, so that control marks which one you are on. Going to a view is a jump — the moment
-  the camera arrives you are free to pan away, and nothing is "on" afterwards. Marking one current
-  would be a claim that goes stale on the next scroll.
-  **Removal shipped with it**, because a view list that only grows is the same defect this file
-  refuses for mentions. It is a mode rather than a control on each row: a trailing button inside a
-  menu item is the obvious shape and the wrong one, since the item owns the click and the button
-  either never fires or fires alongside the jump. Removing is one action per row, keyboard
-  reachable, and says what it is about to do before the click rather than after. The mode never
-  survives the menu closing — one you return to without knowing is one where the next click deletes
-  instead of goes.
-  **Rename and reframe are deliberately not built.** `fn::rename_saved_view` and
-  `fn::reframe_saved_view` exist and are driven; no surface calls them yet. Delete-and-re-save
-  covers both, so the capability is whole without them rather than half-built — but reframe is the
-  better verb and should get a surface, since it is the one that keeps a name attached to a framing
-  that has drifted.
-  **One framework gap fell out of building it, and it is fixed generically.**
-  `getInfiniteCanvasContentViewport` is public and takes resolved insets, `InfiniteCanvas.Viewport`
-  accepts `viewportInsets`, and `state.viewportInsets` holds the resolved form — three public
-  surfaces trafficking in a type with no public name, so any consumer with chrome had to re-declare
-  the shape. `InfiniteCanvasViewportInsets` and `InfiniteCanvasViewportInsetsInput` are exported
-  now, with `docs/API.md` updated. The same omission the comment above that function already
-  describes for `resolveInfiniteCanvasChromeMetrics`, which is what made it recognisable.
-  **Driven end to end, and two defects came out of driving it that no typecheck could have.**
-  Watched: the menu opens listing nothing over "Nothing saved here yet."; "Save this view" replaces
-  the trigger with an input carrying the suggested name **already selected**, so the first keystroke
-  replaces it; Enter commits and the trigger returns wearing a count; the view appears as a row and
-  "Remove a view" appears with it; jumping restores the framing; removal takes the row and the count
-  away together. The round trip was made deliberately hard to fake — saved at 18%, zoomed out to
-  30%, jumped back, landed on **18%**.
-  **The first defect took the whole canvas down.** `DropdownMenuLabel` is Base UI's _group_ label and
-  reads `MenuGroupContext`, so a label outside a `DropdownMenuGroup` throws rather than warns:
-  "Base UI: MenuGroupContext is missing" over the error page, on the first click. Worth more than
-  the fix: **`DesktopSwitcher` had the same latent break in two places** — its "Not on this desktop"
-  and "and N more" labels sit outside any group, and this file already recorded that section as
-  "typechecked and read, not driven". That is what was waiting in it, and it would have fired the
-  first time any window sat on another desktop. Both are grouped now.
-  **The second was quieter and is the more interesting one.** `navigateToRect` defaults to
-  `center`, and centring keeps the zoom you are already at — so the first jump moved the camera and
-  left the framing wrong, which reads as "it went somewhere" rather than as a bug. A saved view has
-  to _fit_: `behavior: { paddingPx: 0, type: "fit" }`. Zero padding rather than the default 80,
-  because the stored rect is already the region the chrome leaves and `getFitCamera` fits into that
-  same inset region — padding it again would zoom out 80px every trip, so a view re-saved from
-  itself would drift wider each time.
-  **One thing remains unwatched**, and it is the claim the geometry exists for: that a view saved
-  with the rail open frames what is beside the rail rather than what is behind it. The framework
-  test pins the arithmetic — an asymmetric-inset rect is not centred on the camera, and that test
-  fails against `getVisibleWorldRect` — but nobody has yet saved a view, closed the rail, and
-  confirmed by eye that the subject did not shift.
-  **Rename and create landed.** Double-click a row and it becomes an input — Enter commits, Escape
-  abandons, blur commits, because clicking away from a field you have typed into and losing it is
-  what nobody expects. This is the rail's own justification made concrete: this file already
-  recorded that the palette cannot rename because a _palette_ row cannot host an inline editor, and
-  a rail row can, being persistent rather than modal. The write goes through `note-store` rather
-  than straight to the database, so the revision guard still has one authority — the rail holds
-  full records from `listNotes` and could have saved directly, which would race a note that is also
-  open and being typed into. `setWindowTitle` keeps the window's own title following the record.
-  `+` in the header creates where you are already looking and the list updates in place.
-  **Removal landed as archive, not delete.** Reading the schema settled which one exists:
-  `fn::list_notes` has filtered `archived_at = NONE` since it was written, and canvases and
-  projects already ship archive/restore pairs. A note carries `relates_to` edges, so a delete would
-  have to cascade them or leave the graph pointing at nothing; archiving leaves both intact, so
-  restore puts back everything that was there — which a cascade could never promise. No typed
-  confirmation, because nothing is destroyed. The note's window closes as it is archived: a note the
-  library no longer offers but that is still open on the canvas is the state where "archived" stops
-  meaning anything. Designing it exposed a defect already present — connection counts were taken
-  over every edge, so an archived neighbour showed a count with no row that expanding could
-  produce. Counts now cover only neighbours the current list can show.
+- [x] **The library rail** — content, search, saved views. This line said "currently an empty box
+      making a promise", which overstated it: there is no box. `CanvasHud` renders the identity
+      rail, the selection rail, the recovery notice and the launcher, and nothing else.
+      **Ticked with one correction to its own title: saved views did not land _in_ this rail**, and
+      the reasoning is in the saved-views entry below. This rail browses content — presence dots,
+      connection counts, archive — and a framing is navigation, so a third mode here would have put
+      two unrelated domains in one 599-line component. They sit fourth in the identity rail instead,
+      beside the project, canvas and desktop switchers, which is where the other "named thing you pick
+      from" controls already live. The capability the title asked for exists; the address changed.
+      **What it has to be worth:** the launcher already opens a closed note, so a rail that only
+      lists notes is a worse palette that is always on screen. Its case is the three things a
+      modal cannot do — browsing without knowing what you want, seeing relationships between
+      notes rather than one at a time, and staying put while you work against it. The connector
+      item below is blocked on exactly that: an edge whose notes are not both open is currently
+      invisible, and no amount of palette fixes it.
+      **The framework check ran first and found a gap** — recorded in `AFFORDANCE_AUDIT.md`. Every
+      inset the framework takes is a single scalar applied to all four edges:
+      `getViewportInsetWorldRect`, `fitCameraToWorldRect`, `getFitCamera`'s `paddingPx ?? 80`,
+      `getInfiniteCanvasOffscreenIndicators`. A consumer with persistent chrome on one edge cannot
+      say which region is occluded, so `view.fit`, `view.fitSelection`, `window.reveal` and
+      placement would all centre content underneath the rail. **Per-edge viewport insets are the
+      precondition**, and they are product-neutral — a sidebar, an inspector and a docked panel all
+      want the same affordance. Building the rail first would ship a surface that fights every
+      camera command, which is exactly the half-built failure this file warns about.
+      The same check found a second thing worth naming: `getInfiniteCanvasMinimapLayout`,
+      `getInfiniteCanvasOffscreenIndicators` and `getInfiniteCanvasWorldPath` are exported and
+      consumed by nothing here. Not a framework gap — a coverage gap in the app meant to be the
+      framework's showcase, and offscreen indicators answer the rail's own question: where is the
+      note this one connects to, when it is not on screen.
+      **Two of the three are now drawn.** Offscreen indicators landed first; the minimap landed
+      second, in `hud/minimap.tsx` — see its own item below. `getInfiniteCanvasWorldPath` is the
+      one still consumed by nothing, and it is deliberate: it is built for tours, which this file
+      keeps under "Later".
+      **Landed:** the framework affordance, and a first rail against it. Every note in the project,
+      searchable, with a presence dot for the ones already on the canvas and a connection count that
+      expands in place — reaching a connected note costs one click whether or not it has a window,
+      which is the thing the palette cannot do. Clicking a row is `window.reveal` when the note is
+      open and `openNoteWindow` when it is not; neither is re-derived here.
+      The HUD is inset by the same number the camera is, so the identity rail stops sitting under
+      the panel and the selection rail re-centres on what is visible. Verified in the browser:
+      revealing a note centres it at x≈490 in a visible region whose centre is 486, where the
+      element's centre is 400. The connection path is witnessed too, end to end rather than
+      inferred: authoring `relates_to` from the palette draws the connector on the canvas, both rows
+      grow a count, the count expands in place with the neighbour indented under it, and the nested
+      row reaches the note it names.
+      **The rail no longer claims a project is empty before it has looked.** `notes$` started as `[]`,
+      so "nobody has asked yet" and "the answer was nothing" were one value, and a fresh load greeted
+      three notes with "No notes yet." for as long as the first query took — which reads as data loss,
+      not as loading. It is `null` until answered now, and the count and the message both stay blank
+      until there is something to say. The same conflation mislabelled a list: switching to Archive left
+      the notes under the heading "Archived" until the second query landed. Witnessed by recording the
+      rail's own DOM across both toggles: the settled list is preceded by a state carrying the new
+      heading with no count, no message, and no rows.
+      **Cutting an edge from here landed**, and this line said it had not for longer than it was true.
+      Each expanded neighbour row carries an unlink action, which matters because of what the connector
+      work measured: two windows that nearly touch hide almost all of the line between them — windows
+      resolve before edges, correctly — so the aimable part can be a few pixels, and at one measured
+      arrangement it was 30px with its midpoint inside a window. The rail knows every edge without
+      needing either end on screen, so acting on one here does not depend on where the notes sit.
+      **Still open: there is no saved-views concept yet — and the framework check settled what one is
+      before any of it gets built.** The first honest reading is that a saved view already exists and
+      is called a workspace: `workspace.ts` opens by defining one as "a named set of windows, with the
+      camera and selection you left it at", it is persisted at version 3, and `DesktopSwitcher` already
+      surfaces it. Building a second named-camera model beside that would be two models over one
+      concept.
+      **It is not the same thing, and the framework says so in the same paragraph.** A workspace's
+      camera is "a snapshot taken on the way out … stale by design — writing through on every pan
+      would make each frame a workspace mutation, and workspace mutations are undo checkpoints." That
+      is _resume where I left off_. A saved view is the opposite intent: a framing you return to
+      precisely because it does **not** move while you work. Implementing views as workspaces gives one
+      of two defects and there is no third option — either the camera writes through, and every pan
+      becomes an undo entry, or it does not, and the bookmark silently drifts away from the thing it
+      was pointing at.
+      **So the split is: the framework owns _going_ there, the app owns _naming_ it.**
+      `navigateToRect` and `getFitCamera` already take a world rect and are exported, so nothing is
+      missing on the camera side and this asks the framework for nothing. A named rect is project data
+      — it belongs in the database beside notes, with a title someone typed, the way every other named
+      thing here does. That also passes the rule at the top of this file: "a list of bookmarks" is not
+      a canvas affordance, and a `savedViews` prop would be the same feature and the wrong one.
+      **What must not be built:** saved views as a second workspace, or a view that stores a camera
+      (a centre and a zoom) rather than a world rect. A stored zoom is wrong on a different display or
+      a resized pane; a rect re-fits to whatever window it is asked into, which is why every framework
+      entry point on this path takes one.
+      **The database spine landed and is driven, and no surface has been built on it yet** — said
+      plainly because a half-built surface is the failure this file opens by warning about, and the
+      honest state is that this is a spine and not a feature. `saved_view` is a `SCHEMAFULL` table
+      keyed to a `canvas_document`, with `list` / `create` / `rename` / `reframe` / `delete` in
+      `functions/006_views.surql`, an ArkType boundary in `database.client`, and a `savedViews` group
+      on the lazy `operations` module. `reframe` is the verb no other table here has, and the one that
+      makes a bookmark honest: a framing goes stale as soon as what it points at moves, and without it
+      the only repair is delete-and-recreate, which loses the name that was the point.
+      **Driven against the running database rather than typechecked**, through `window.__surreal.query`:
+      an empty canvas lists `[]`; two views created out of alphabetical order come back in title order,
+      so the ordering is observed rather than assumed; `reframe` replaces the rect and leaves the title,
+      `rename` the reverse; `delete` drops the row. Both schema assertions were made to fire — a
+      zero-width rect and an all-whitespace title were each refused with the assertion's own message —
+      which is the part the SurQL test file cannot reach, since a thrown assertion aborts the script.
+      The rows were removed afterwards; the table is empty.
+      **What is left is the surface**, and it is the whole of the remaining design: where a view is
+      saved from, how it is named, and where the list lives.
+      **The framework check for that half ran too, and it also asks for nothing.** Going back is
+      `navigateToRect` — the same call this session used to bring four windows into view after the
+      camera had drifted off them. Capturing the current framing composes two exports that already
+      exist: `getInfiniteCanvasContentViewport(viewport, insets)` gives the screen region the app's own
+      chrome leaves, which is the right region rather than the whole viewport — a view saved while the
+      rail is open must frame what you can actually see, not what is behind the panel — and the camera
+      converts it. `getVisibleWorldRect` is the padded whole-viewport answer and is the wrong one here
+      for that reason.
+      **Placement was decided against both of the obvious candidates.** The rail is what this item's
+      title assumed, and it is where a list you rename and prune belongs — a palette row cannot host an
+      inline editor, which is the argument that put note renaming there. Against it, and decisive: the
+      rail browses _content_ (presence dots, connection counts, archive) and a framing is navigation, so
+      a third mode would put two unrelated domains in one 599-line component. The palette was the other
+      candidate and is where you go already knowing the name, which is the opposite of a list you want
+      visible.
+      **So it sits fourth in the identity rail, after project ▸ canvas ▸ desktop.** That chain is
+      already three switchers whose name _is_ the control, and this asks the same shape of question —
+      which of these named things do I want. `SavedViewMenu` follows `DesktopSwitcher` part for part:
+      the same trigger, the same rename-in-place input, the same Enter/Escape through the hotkey
+      manager scoped to the field.
+      **It is not a switcher, and that is why there is no radio group.** Entering a desktop is a mode
+      you stay in, so that control marks which one you are on. Going to a view is a jump — the moment
+      the camera arrives you are free to pan away, and nothing is "on" afterwards. Marking one current
+      would be a claim that goes stale on the next scroll.
+      **Removal shipped with it**, because a view list that only grows is the same defect this file
+      refuses for mentions. It is a mode rather than a control on each row: a trailing button inside a
+      menu item is the obvious shape and the wrong one, since the item owns the click and the button
+      either never fires or fires alongside the jump. Removing is one action per row, keyboard
+      reachable, and says what it is about to do before the click rather than after. The mode never
+      survives the menu closing — one you return to without knowing is one where the next click deletes
+      instead of goes.
+      **Rename and reframe are deliberately not built.** `fn::rename_saved_view` and
+      `fn::reframe_saved_view` exist and are driven; no surface calls them yet. Delete-and-re-save
+      covers both, so the capability is whole without them rather than half-built — but reframe is the
+      better verb and should get a surface, since it is the one that keeps a name attached to a framing
+      that has drifted.
+      **One framework gap fell out of building it, and it is fixed generically.**
+      `getInfiniteCanvasContentViewport` is public and takes resolved insets, `InfiniteCanvas.Viewport`
+      accepts `viewportInsets`, and `state.viewportInsets` holds the resolved form — three public
+      surfaces trafficking in a type with no public name, so any consumer with chrome had to re-declare
+      the shape. `InfiniteCanvasViewportInsets` and `InfiniteCanvasViewportInsetsInput` are exported
+      now, with `docs/API.md` updated. The same omission the comment above that function already
+      describes for `resolveInfiniteCanvasChromeMetrics`, which is what made it recognisable.
+      **Driven end to end, and two defects came out of driving it that no typecheck could have.**
+      Watched: the menu opens listing nothing over "Nothing saved here yet."; "Save this view" replaces
+      the trigger with an input carrying the suggested name **already selected**, so the first keystroke
+      replaces it; Enter commits and the trigger returns wearing a count; the view appears as a row and
+      "Remove a view" appears with it; jumping restores the framing; removal takes the row and the count
+      away together. The round trip was made deliberately hard to fake — saved at 18%, zoomed out to
+      30%, jumped back, landed on **18%**.
+      **The first defect took the whole canvas down.** `DropdownMenuLabel` is Base UI's _group_ label and
+      reads `MenuGroupContext`, so a label outside a `DropdownMenuGroup` throws rather than warns:
+      "Base UI: MenuGroupContext is missing" over the error page, on the first click. Worth more than
+      the fix: **`DesktopSwitcher` had the same latent break in two places** — its "Not on this desktop"
+      and "and N more" labels sit outside any group, and this file already recorded that section as
+      "typechecked and read, not driven". That is what was waiting in it, and it would have fired the
+      first time any window sat on another desktop. Both are grouped now.
+      **The second was quieter and is the more interesting one.** `navigateToRect` defaults to
+      `center`, and centring keeps the zoom you are already at — so the first jump moved the camera and
+      left the framing wrong, which reads as "it went somewhere" rather than as a bug. A saved view has
+      to _fit_: `behavior: { paddingPx: 0, type: "fit" }`. Zero padding rather than the default 80,
+      because the stored rect is already the region the chrome leaves and `getFitCamera` fits into that
+      same inset region — padding it again would zoom out 80px every trip, so a view re-saved from
+      itself would drift wider each time.
+      **The claim the geometry exists for is witnessed too, and by measurement rather than by eye.**
+      That a view saved with the rail open frames what is beside the rail rather than what is behind
+      it, stated as something falsifiable: **saving a view and immediately jumping to it must move the
+      camera by nothing at all.** The stored rect is the region the chrome leaves and `getFitCamera`
+      fits into that same region, so the round trip is an identity — and any confusion between the
+      content region and the whole viewport breaks it, because fitting a whole-viewport rect into a
+      smaller region necessarily zooms out.
+      Driven with the rail open and the insets deliberately lopsided (`left: 288`, `top: 56`,
+      `bottom: 168`): camera drift was `x: 0`, `zoom: 0`, and `y: -2.3e-13`, which is float noise
+      rather than movement. The discriminator is what makes it evidence — had the rect been the whole
+      viewport, the same jump would have landed on zoom `0.1377` instead of `0.1833`, a quarter of the
+      scale gone in one visible step. **A test that could only pass one way is worth more than a
+      screenshot that looks right**, which is why this is written as the identity rather than as "the
+      subject did not appear to shift".
+      **Rename and create landed.** Double-click a row and it becomes an input — Enter commits, Escape
+      abandons, blur commits, because clicking away from a field you have typed into and losing it is
+      what nobody expects. This is the rail's own justification made concrete: this file already
+      recorded that the palette cannot rename because a _palette_ row cannot host an inline editor, and
+      a rail row can, being persistent rather than modal. The write goes through `note-store` rather
+      than straight to the database, so the revision guard still has one authority — the rail holds
+      full records from `listNotes` and could have saved directly, which would race a note that is also
+      open and being typed into. `setWindowTitle` keeps the window's own title following the record.
+      `+` in the header creates where you are already looking and the list updates in place.
+      **Removal landed as archive, not delete.** Reading the schema settled which one exists:
+      `fn::list_notes` has filtered `archived_at = NONE` since it was written, and canvases and
+      projects already ship archive/restore pairs. A note carries `relates_to` edges, so a delete would
+      have to cascade them or leave the graph pointing at nothing; archiving leaves both intact, so
+      restore puts back everything that was there — which a cascade could never promise. No typed
+      confirmation, because nothing is destroyed. The note's window closes as it is archived: a note the
+      library no longer offers but that is still open on the canvas is the state where "archived" stops
+      meaning anything. Designing it exposed a defect already present — connection counts were taken
+      over every edge, so an archived neighbour showed a count with no row that expanding could
+      produce. Counts now cover only neighbours the current list can show.
 - [~] **Connectors.** `relates_to` is written for the first time, and edges render between the
   windows showing their notes — framework geometry throughout, drawn in the new
   `renderUnderlay` band so a connector passes beneath the note rather than across it.
