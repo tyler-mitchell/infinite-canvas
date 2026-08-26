@@ -118,7 +118,15 @@ To get the default look, import the theme once:
 import "@hyphened/infinite-canvas/theme.css";
 ```
 
-It is a single `@layer infinite-canvas` cascade layer targeting the `data-slot` contract, so unlayered consumer styles always win. Strokes drawn inside a window read `--icx-chrome-stroke`, which the framework widens as you zoom out so a 1px border never renders sub-pixel. You can skip it entirely and write your own CSS against the same selectors, or pass the `theme` prop to override the bridged `--icx-*` custom properties.
+It is a single `@layer infinite-canvas` cascade layer targeting the `data-slot` contract. Strokes drawn inside a window read `--icx-chrome-stroke`, which the framework widens as you zoom out so a 1px border never renders sub-pixel. You can skip it entirely and write your own CSS against the same selectors, or pass the `theme` prop to override the bridged `--icx-*` custom properties.
+
+**If you use cascade layers, declare the order yourself.** A layer takes its position from wherever it is first established, so `@import "tailwindcss"` followed by this theme puts `infinite-canvas` _after_ `utilities`, and the theme then outranks every utility class you write — silently, since the class is present and simply loses. One statement above your imports fixes it for good, and makes import order irrelevant:
+
+```css
+@layer infinite-canvas, components, utilities;
+```
+
+Unlayered consumer styles always win regardless, because unlayered beats every layer. That is also the trap in the other direction: a single unlayered rule of your own outranks your entire utility system, so put your slot overrides in a layer between the two — `components` above — rather than at the top level.
 
 ## What you get
 

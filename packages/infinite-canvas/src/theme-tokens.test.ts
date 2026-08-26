@@ -96,6 +96,60 @@ test("runtime-computed tokens are still written as inline custom properties", ()
   }
 });
 
+/**
+ * Layer containment. The one promise theme.css makes about the cascade.
+ *
+ * A rule added to this file *outside* the `@layer infinite-canvas` block is unlayered, and an
+ * unlayered rule outranks every layered rule in the document — including all of a consumer's
+ * `@layer utilities`. So a single stray brace turns the opt-in theme into a ceiling over the
+ * consumer's entire styling system, and nothing about it looks wrong: the consumer's class is in
+ * the DOM, present in their stylesheet, and simply loses.
+ *
+ * It is the same defect that has already shipped twice on the consumer side of this repo, which is
+ * why it is worth a test rather than a comment. Structural, not textual: it walks braces, so a rule
+ * nested three deep inside the layer passes and a rule appended after the closing brace fails.
+ */
+function getTopLevelPreludes(css: string): readonly string[] {
+  const source = css.replace(/\/\*[\s\S]*?\*\//g, "");
+  const preludes: string[] = [];
+  let depth = 0;
+  let prelude = "";
+
+  for (const character of source) {
+    if (character === "{") {
+      if (depth === 0) preludes.push(prelude.replace(/\s+/g, " ").trim());
+      depth += 1;
+      prelude = "";
+    } else if (character === "}") {
+      depth -= 1;
+      prelude = "";
+    } else if (depth === 0) {
+      // A top-level `;` closes a statement at-rule (`@layer a, b;`, `@import …;`), which declares
+      // nothing and cannot outrank anything. Keep it as its own prelude so it is still asserted.
+      if (character === ";") {
+        preludes.push(prelude.replace(/\s+/g, " ").trim());
+        prelude = "";
+      } else {
+        prelude += character;
+      }
+    }
+  }
+
+  return preludes.filter((entry) => entry.length > 0);
+}
+
+test("every rule in theme.css is inside the infinite-canvas layer", () => {
+  expect(getTopLevelPreludes(themeCss)).toStrictEqual(["@layer infinite-canvas"]);
+});
+
+test("the containment check fails on a rule written outside the layer", () => {
+  // The test above is worthless unless it bites, and its failure mode — a rule that is present and
+  // simply loses — is invisible in a browser. Prove it here instead.
+  expect(
+    getTopLevelPreludes(`${themeCss}\n[data-slot="viewport"] { color: red; }\n`),
+  ).toStrictEqual(["@layer infinite-canvas", '[data-slot="viewport"]']);
+});
+
 test("no component references an --icx-* token that nothing defines or writes", () => {
   // The dangling-token check. A `var(--icx-typo)` renders as nothing and styles silently vanish.
   //

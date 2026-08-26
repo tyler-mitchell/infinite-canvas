@@ -975,6 +975,21 @@ The `data-slot` vocabulary is the public _styling_ selector contract, targeted
 by `theme.css` — separate from the behavioural `data-infinite-canvas-*`
 attributes, which are internal. `hud` policy resolution lives here.
 
+`theme.css` is one cascade layer, `infinite-canvas`, and a layer's position is
+decided by where it is first established. Importing the theme after a utility
+framework therefore ranks it above `utilities`, and the theme wins against
+every utility class — with no symptom other than the class not applying. A
+consumer using cascade layers declares the order once, above the imports, and
+source order stops mattering:
+
+```css
+@layer infinite-canvas, components, utilities;
+```
+
+Slot overrides then belong in a layer between the two. Written unlayered they
+still beat the theme, but they also beat the consumer's own utilities, which is
+the same defect facing the other way.
+
 **`data-attributes`**
 
 - `INFINITE_CANVAS_SLOTS`

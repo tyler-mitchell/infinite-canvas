@@ -3,8 +3,23 @@
  *
  * Targets the `data-slot` styling contract from ./data-attributes.ts and
  * reproduces the default Tailwind/inline-style look exactly. Import it as
- * `infinite-canvas/theme.css`. Everything lives in a single cascade layer
- * so consumer styles (unlayered or in a later layer) always win.
+ * `infinite-canvas/theme.css`.
+ *
+ * Everything lives in one cascade layer, `infinite-canvas`, and where that
+ * layer *sits* is not this file's decision to make. A layer takes its order
+ * from wherever it is first established, so importing this file after a
+ * utility framework puts `infinite-canvas` after `utilities` and this
+ * stylesheet quietly outranks every utility class the consumer writes. The
+ * failure is silent — the class is in the DOM, in the stylesheet, and loses.
+ *
+ * Unlayered consumer styles always win, unconditionally, because unlayered
+ * beats every layer. Layered ones win only if the consumer says so:
+ *
+ *   @layer infinite-canvas, components, utilities;
+ *
+ * one statement, before any import, and source order stops mattering. Any
+ * consumer using cascade layers wants that line; a consumer with no layers
+ * at all needs nothing.
  *
  * Scope rules:
  * - Visual treatments only (color, background, border color/style/hairline
