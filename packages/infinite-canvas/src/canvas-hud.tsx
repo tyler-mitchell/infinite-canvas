@@ -6,6 +6,7 @@ import { DEFAULT_INFINITE_CANVAS_STACK_BANDS } from "./constants";
 import { INFINITE_CANVAS_SLOTS } from "./data-attributes";
 import { getConstrainedZoom } from "./geometry";
 import { useInfiniteCanvasIcons } from "./icons";
+import { getSelectableWindowIds } from "./selection";
 import { useInfiniteCanvasActions, useInfiniteCanvasState } from "./store";
 import type {
   InfiniteCanvasHudPolicy,
@@ -13,6 +14,7 @@ import type {
   InfiniteCanvasPointerMode,
   InfiniteCanvasZoomPolicy,
 } from "./types";
+import { isInfiniteCanvasWindowInActiveWorkspace } from "./workspace-membership";
 
 const DEFAULT_INFINITE_CANVAS_HUD_POLICY: InfiniteCanvasHudPolicy = {
   cameraControls: true,
@@ -136,7 +138,23 @@ function InfiniteCanvasHud({
   const { reset: ResetIcon } = useInfiniteCanvasIcons();
   const resolvedPolicy = resolveInfiniteCanvasHudPolicy(policy);
   const activeWindow = state.windows.find((window) => window.id === state.activeWindowId);
-  const minimizedWindows = state.windows.filter((window) => window.mode === "minimized");
+  /*
+   * The dock holds what *this desktop* put away.
+   *
+   * Minimizing and workspace membership are orthogonal — a window minimized on one desktop stays a
+   * member of it — so filtering on `mode` alone listed windows put away on desktops the user is not
+   * standing on. Restoring one from there is worse than a stale row: the window returns to a
+   * desktop this canvas is not drawing, so the dock item vanishes and nothing appears, which reads
+   * exactly like the control being broken.
+   *
+   * `getSelectableWindowIds` has filtered this way since workspaces landed, and `window.reveal`,
+   * the offscreen ring and the minimap have each since taken the same correction. This was the
+   * fourth surface reading `mode` and stopping.
+   */
+  const minimizedWindows = state.windows.filter(
+    (window) =>
+      window.mode === "minimized" && isInfiniteCanvasWindowInActiveWorkspace(state, window.id),
+  );
   const showControlsRow =
     resolvedPolicy.cameraControls ||
     resolvedPolicy.pointerModeControls ||
@@ -280,9 +298,24 @@ function InfiniteCanvasCameraNavigationControls() {
     "fit-selection": FitSelectionIcon,
   } = useInfiniteCanvasIcons();
   const activeWindow = state.windows.find(
-    (window) => window.id === state.activeWindowId && window.mode !== "minimized",
+    (window) =>
+      window.id === state.activeWindowId &&
+      window.mode !== "minimized" &&
+      isInfiniteCanvasWindowInActiveWorkspace(state, window.id),
   );
-  const visibleWindowExists = state.windows.some((window) => window.mode !== "minimized");
+  /*
+   * Asked of the same set the verb acts on, which it was not.
+   *
+   * "Fit all visible windows" runs `view.fitAll`, which unions `getSelectableWindowIds` — and that
+   * has excluded other desktops since workspaces landed. This asked only about `mode`, so on a
+   * desktop holding nothing the button sat enabled because some *other* desktop had a window open,
+   * and pressing it did nothing at all. A control whose enabled state and whose action disagree is
+   * worse than a disabled one: the user concludes the feature is broken rather than that there is
+   * nothing to fit.
+   *
+   * `getSelectableWindowIds` rather than a fourth hand-rolled filter, so the two cannot drift again.
+   */
+  const visibleWindowExists = getSelectableWindowIds(state).length > 0;
   const selectionExists = state.selection.windowIds.length > 0;
 
   return (
