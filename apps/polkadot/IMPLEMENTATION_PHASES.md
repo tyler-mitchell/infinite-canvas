@@ -96,7 +96,7 @@ validation, so both would have re-exported it and owned nothing.
 
 Verification:
 
-- [ ] A new database creates one project and canvas and opens it.
+- [x] A new database creates one project and canvas and opens it.
 - [x] A saved canvas reloads with the same camera, windows, groups, and workspaces.
 - [x] A malformed layout opens recovery UI while valid content remains queryable.
 - [x] Two canvas routes never share a store instance.
@@ -114,10 +114,16 @@ Witnessed in the browser, not inferred from the suite:
 - Navigating main → second → main and then zooming once advanced the revision by
   exactly 1, so no subscription survived the route change.
 
-The first box is unticked deliberately: proving it means erasing this browser's
-IndexedDB, which holds the note written during the Phase 1 witness. Bootstrap runs
-on the `/` loader when `fn::most_recent_canvas` returns nothing, and that branch has
-not been executed since it was written.
+The first box was unticked for a long time because proving it looked like it meant
+erasing this browser's IndexedDB. It did not: archiving is reversible and
+`fn::most_recent_canvas` already filters archived rows, so archiving every project
+simulates an empty database exactly, and the state is restored afterwards.
+
+Exercising it found a defect rather than confirming the branch. Bootstrap was built
+on fixed record ids and handed the archived project back instead of creating a new
+workspace — so archiving your only project silently undid itself. Fixed in
+`fn::bootstrap_canvas`, then verified: a fresh project and an empty canvas, with the
+archived one untouched.
 
 Exit: route identity reaches one loaded, validated, parent-owned canvas runtime.
 
