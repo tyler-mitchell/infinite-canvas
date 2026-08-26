@@ -3,6 +3,47 @@
 Investigations that are worth doing, deliberately not scheduled. Each entry states what would be
 proved, why it matters, and what would make it worth starting. Nothing here is in flight.
 
+## WebMCP: agents drive and observe the product as a first-class consumer
+
+**Raised by Tyler, 2026-08-26.**
+
+WebMCP lets a page register tools an agent can call directly, instead of an agent simulating a
+user. `document.modelContext.registerTool({ name, description, inputSchema, execute })`, results
+serialized to JSON, a `toolchange` event when the set changes, gated behind a `tools` permissions
+policy defaulting to `['self']` and requiring a secure context.
+
+**Why this app is unusually well placed.** Polkadot already exposes the surface. `window.__canvas`
+is an `InfiniteCanvasHandle` with `getState`, `commands`, `snapshot`, `subscribe`,
+`subscribeDocument` and `getContextualCommands` — and the last of those already returns every
+command with a label, a description and live enablement, which is the exact shape a tool descriptor
+wants. The adapter is plausibly a map from `getContextualCommands()` to `registerTool()`, plus a
+handful of read tools over `getState`. Almost nothing new has to be modelled.
+
+**Why it is worth proving rather than assuming.** Driving this app through the browser today means
+`javascript_exec`, synthetic DOM events and screenshot-space coordinates, and every one of those has
+cost real time this session: a coordinate space that is not the page's, a cmdk palette that ignores
+a synthetic `Enter` unless focus has settled first, HMR leaving a stale module while the probe reads
+the old one. Those are harness failures being mistaken for product failures, repeatedly. A typed
+tool call has none of them.
+
+**What the spike must establish**
+
+- That the handle maps cleanly onto tool descriptors — particularly whether `getContextualCommands`
+  enablement can be expressed, since a tool an agent may not call right now has no obvious encoding.
+- What a _read_ tool returns. `getState` is the whole canvas; an agent wants "what windows are
+  visible", "what is selected", "what does this window contain". Those are queries the handle does
+  not have, and inventing them is most of the work.
+- Whether the framework should own any of this. A canvas handle is generic; a tool registry over it
+  might be. If it needs the word Polkadot, it belongs in the app.
+- The security shape. `untrustedContentHint` exists for a reason, and this app renders third-party
+  pages in link windows.
+
+**What would make it worth starting:** it is already worth starting on the harness argument alone.
+The gate is availability rather than value — Draft Community Group Report as of 2026-08-26, not on
+the standards track, and the registration getter moved from `navigator.modelContext` to
+`document.modelContext` recently enough that Chrome 150 deprecated the old name. Pin the entry point
+behind one adapter module so that churn costs one file.
+
 ## liquid-gooey for HUD state transitions
 
 **Raised by Tyler, 2026-08-26. Natural home is the HUD workstream, so this is the nearer of the
