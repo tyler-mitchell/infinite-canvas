@@ -123,9 +123,25 @@ open because it feels good to look at. Concretely, and these are enforced in rev
       value from title, description, and synonyms now; a caller supplies only the synonyms, so it
       cannot forget the title because it never writes it. Witnessed rather than reasoned: with a
       connector selected, "cut the selected" finds the row it names.
-      **Still open:** the palette cannot rename or delete — those have inline editors and typed
-      confirmations that a list row cannot host — and it has no recent-items memory, so the empty
-      state is ordered by group rather than by what you actually reach for.
+      **"The palette cannot rename" was wrong, and it is now false twice over.** The reasoning was
+      that rename needs an inline editor a list row cannot host. A _row_ cannot; a palette can, and
+      cmdk documents it — the label page proved it first, and rename is the same shell with
+      different words, so both are declared as data and one shell reads them. `Rename “<note>”…`
+      appears for the active note's window, opens seeded with the current name because a rename is
+      an edit of a name that already exists, and refuses an empty one in the row rather than letting
+      the database refuse it after the palette has closed and said it worked. The rail keeps its
+      double-click, which is the better gesture while browsing; this is the better one with your
+      hands on `Mod+K`. Both write through `renameNote`, so there is still one authority for note
+      writes.
+      Building it exposed a defect in the palette that predated it: it kept its own copy of the
+      project's notes, which is exactly what `project-notes` was created to abolish after the rail's
+      copy went stale. Renaming from the palette left the rail showing the old name until something
+      else re-listed — witnessed, then fixed by making the palette read the shared store like
+      everyone else. Driven end to end: the note field, `window.title`, and the rail row now all
+      read the new name together.
+      **Still open:** the palette cannot delete, which genuinely does need a typed confirmation
+      rather than a text field, and it has no recent-items memory, so the empty state is ordered by
+      group rather than by what you actually reach for.
 - [~] **The library rail** — content, search, saved views. This line said "currently an empty box
   making a promise", which overstated it: there is no box. `CanvasHud` renders the identity
   rail, the selection rail, the recovery notice and the launcher, and nothing else.

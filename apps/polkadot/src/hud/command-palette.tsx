@@ -56,7 +56,14 @@ import type {
   ProjectSummary,
 } from "../database/database.client";
 import * as database from "../database/operations";
+import { renameNote } from "../notes/note-store";
 import { openNewNote, openNoteWindow } from "../notes/open-note";
+import {
+  getProjectNotes,
+  loadProjectNotes,
+  projectNotes$,
+  setProjectNoteTitle,
+} from "../notes/project-notes";
 import {
   connectNotes,
   DEFAULT_RELATION_KIND,
@@ -133,6 +140,18 @@ const matchCommand = (value: string, search: string) => {
  */
 const searchValue = (parts: readonly (string | undefined)[]) => parts.filter(Boolean).join(" ");
 
+/**
+ * A page the palette has gone into, or `null` for the list.
+ *
+ * `ROADMAP.md` said the palette could not rename because a list row cannot host an inline editor.
+ * A *row* cannot; a palette can, and cmdk documents how — so once the label page existed, rename
+ * was the same shape with different words. Both are here rather than in two observables because
+ * the mode has to be readable where `filter` is declared, and one page at a time is the whole rule.
+ */
+type PalettePage =
+  | Readonly<{ kind: "label"; relation: NoteRelation }>
+  | Readonly<{ kind: "rename"; note: NoteRecord }>;
+
 /** The framework groups every command; the glyph follows that rather than being decoration. */
 const GROUP_ICON: Record<InfiniteCanvasCommandGroup, ComponentType> = {
   canvas: Frame,
@@ -166,8 +185,8 @@ export function CommandPalette({ projectId }: Readonly<{ projectId: string }>) {
    * it. Held here rather than inside the content because `filter` is declared here and has to know
    * it must stop filtering; a typed sentence is not a query and must not eliminate its own row.
    */
-  const labelling$ = useObservable<NoteRelation | null>(null);
-  const labelling = useValue(labelling$);
+  const page$ = useObservable<PalettePage | null>(null);
+  const page = useValue(page$);
 
   useEffect(() => {
     const handleKeyDown = createHotkeyHandler(PALETTE_HOTKEY, (event) => {
@@ -184,7 +203,7 @@ export function CommandPalette({ projectId }: Readonly<{ projectId: string }>) {
 
   const close = () => {
     isOpen$.set(false);
-    labelling$.set(null);
+    page$.set(null);
     returnFocusToCanvas();
   };
   const portalRoot = useInfiniteCanvasDesktopPortalRoot();
@@ -203,8 +222,8 @@ export function CommandPalette({ projectId }: Readonly<{ projectId: string }>) {
        */
       container={portalRoot}
       description="Search windows, actions, and canvas commands"
-      // While a label is being typed the text is content, not a query, so nothing is eliminated.
-      filter={labelling === null ? matchCommand : () => 1}
+      // On a page the text is content, not a query, so nothing is eliminated by typing it.
+      filter={page === null ? matchCommand : () => 1}
       onOpenChange={(open) => {
         if (open) {
           isOpen$.set(true);
@@ -217,15 +236,14 @@ export function CommandPalette({ projectId }: Readonly<{ projectId: string }>) {
     >
       {/* Mounted only while open. `useInfiniteCanvasState` re-renders on every camera tick, and a
           palette nobody opened has no business reconciling while the user pans. */}
-      {isOpen ? (
-        <PaletteContent labelling$={labelling$} onClose={close} projectId={projectId} />
-      ) : null}
+      {isOpen ? <PaletteContent onClose={close} page$={page$} projectId={projectId} /> : null}
     </CommandDialog>
   );
 }
 
 function Row({
   description,
+  disabled,
   icon: Icon,
   keys,
   keywords,
@@ -234,6 +252,8 @@ function Row({
   trailing,
 }: Readonly<{
   description?: string;
+  /** Shown and greyed rather than hidden, so a row can say why it cannot run yet. */
+  disabled?: boolean;
   icon: ComponentType;
   keys?: readonly string[];
   /** Words to find this row by *beyond* what it displays. The title is always searchable. */
@@ -245,7 +265,11 @@ function Row({
   const styles = palette();
 
   return (
-    <CommandItem onSelect={onSelect} value={searchValue([title, description, keywords])}>
+    <CommandItem
+      disabled={disabled}
+      onSelect={onSelect}
+      value={searchValue([title, description, keywords])}
+    >
       <span className={styles.tile()} data-slot="command-item-icon">
         <Icon />
       </span>
@@ -271,23 +295,31 @@ function Row({
 }
 
 function PaletteContent({
-  labelling$,
   onClose,
+  page$,
   projectId,
 }: Readonly<{
-  labelling$: Observable<NoteRelation | null>;
   onClose: () => void;
+  page$: Observable<PalettePage | null>;
   projectId: string;
 }>) {
-  const labelling = useValue(labelling$);
+  const page = useValue(page$);
   const state = useInfiniteCanvasState<WindowKind>();
   const actions = useInfiniteCanvasActions<WindowKind>();
   const navigate = useNavigate();
   const canvases$ = useObservable<readonly CanvasSummary[]>([]);
   const projectList$ = useObservable<readonly ProjectSummary[]>([]);
-  const notes$ = useObservable<readonly NoteRecord[]>([]);
+  /*
+   * The project's notes come from the shared store, not a second copy loaded here.
+   *
+   * A component-owned list is the defect `project-notes` was created to remove: the rail held one,
+   * and every writer that was not the rail left it stale. The palette holding another would have
+   * put that defect straight back — renaming from here would keep the rail honest and the palette's
+   * own list wrong.
+   */
+  const projectNotes = useValue(projectNotes$);
   const query$ = useObservable("");
-  const notes = useValue(notes$);
+  const notes = getProjectNotes(projectNotes, projectId) ?? [];
   const relations = useValue(relations$);
   const canvases = useValue(canvases$);
   const projectList = useValue(projectList$);
@@ -307,10 +339,8 @@ function PaletteContent({
     void database.projects.list().then((records) => {
       projectList$.set(records);
     });
-    void database.notes.list(projectId).then((records) => {
-      notes$.set(records);
-    });
-  }, [canvases$, notes$, projectId, projectList$]);
+    void loadProjectNotes(projectId);
+  }, [canvases$, projectId, projectList$]);
 
   /**
    * Notes with no window on this canvas.
@@ -326,6 +356,20 @@ function PaletteContent({
       .filter((noteId) => noteId !== undefined),
   );
   const closedNotes = notes.filter((note) => !openNoteIds.has(note.id));
+
+  /**
+   * The note record behind the active window, if that window is showing one.
+   *
+   * The full record rather than the window's title, because `renameNote` seeds the store from what
+   * the caller already holds — handing it a title alone would mean a round trip for data the
+   * palette has loaded anyway.
+   */
+  const activeNoteId = (
+    state.windows.find((window) => window.id === state.activeWindowId)?.data as
+      | { noteId?: string }
+      | undefined
+  )?.noteId;
+  const activeNote = notes.find((note) => note.id === activeNoteId);
 
   /**
    * Connecting from the selection, which is the keyboard's way in.
@@ -380,8 +424,64 @@ function PaletteContent({
    * same Enter that runs every other row, and clearing is visibly the same act as writing rather
    * than a separate destructive verb hidden somewhere else.
    */
-  if (labelling !== null) {
+  if (page !== null) {
     const draft = query.trim();
+    /*
+     * Both pages are the same shell — an input, one row, a footer — so what differs is declared as
+     * data and the shell reads it. Adding a third page is then a third entry rather than a third
+     * copy of the same JSX, which is what keeps them behaving identically.
+     */
+    const spec =
+      page.kind === "label"
+        ? {
+            commit: () => {
+              void setRelationLabel({ label: draft, projectId, relationId: page.relation.id });
+            },
+            // Empty is a real choice here: it clears the label and the edge falls back to its kind.
+            enabled: true,
+            heading: `Connection · ${page.relation.kind}`,
+            icon: draft === "" ? Eraser : Tag,
+            placeholder: "What does this connection say?",
+            title:
+              draft === ""
+                ? `Clear the label, leaving “${page.relation.kind}”`
+                : `Label this connection “${draft}”`,
+          }
+        : {
+            commit: () => {
+              renameNote(page.note, draft, {
+                read: database.notes.read,
+                save: database.notes.save,
+              });
+              /*
+               * A rename lands in three places, because three of them write the old name down.
+               * `note-store` owns the save. The project listing is what the library rail reads, and
+               * without this it went on showing the previous name until something else re-listed —
+               * witnessed, not guessed. `window.title` is the far-zoom summary and the accessible
+               * name.
+               */
+              setProjectNoteTitle(page.note.id, draft);
+
+              const windowId = state.windows.find(
+                (window) =>
+                  (window.data as { noteId?: string } | undefined)?.noteId === page.note.id,
+              )?.id;
+
+              if (windowId !== undefined) {
+                actions.setWindowTitle({ title: draft, windowId });
+              }
+            },
+            /*
+             * Empty is not a choice here, it is a hole. The schema asserts a non-empty title, so a
+             * blank rename would be refused by the database after the palette had already closed and
+             * told you it worked. The row says why instead of failing silently later.
+             */
+            enabled: draft !== "",
+            heading: "Note",
+            icon: FileText,
+            placeholder: "What is this note called?",
+            title: draft === "" ? "A note needs a name" : `Rename to “${draft}”`,
+          };
 
     return (
       <>
@@ -391,30 +491,27 @@ function PaletteContent({
             if (event.key === "Escape") {
               event.preventDefault();
               event.stopPropagation();
-              labelling$.set(null);
+              page$.set(null);
               query$.set("");
             }
           }}
           onValueChange={(value) => {
             query$.set(value);
           }}
-          placeholder="What does this connection say?"
+          placeholder={spec.placeholder}
           value={query}
         />
         <CommandList>
-          <CommandGroup heading={`Connection · ${labelling.kind}`}>
+          <CommandGroup heading={spec.heading}>
             <Row
-              icon={draft === "" ? Eraser : Tag}
+              disabled={!spec.enabled}
+              icon={spec.icon}
               onSelect={run(() => {
-                void setRelationLabel({ label: draft, projectId, relationId: labelling.id });
-                labelling$.set(null);
+                spec.commit();
+                page$.set(null);
                 query$.set("");
               })}
-              title={
-                draft === ""
-                  ? `Clear the label, leaving “${labelling.kind}”`
-                  : `Label this connection “${draft}”`
-              }
+              title={spec.title}
             />
           </CommandGroup>
         </CommandList>
@@ -633,6 +730,30 @@ function PaletteContent({
                   }
                 />
               ))}
+          {/*
+            Renaming the note you are looking at, without leaving the keyboard.
+
+            `ROADMAP.md` recorded this as impossible — "a list row cannot host an inline editor" —
+            and the rail got rename for that reason. The claim was half right: a row cannot, a page
+            can, and the label page proved it. The rail keeps its double-click, which is the better
+            gesture when you are already browsing; this is the better one when your hands are on
+            `Mod+K`. Both write through `renameNote`, so there is still one authority for note
+            writes and the revision guard still guards something.
+
+            Seeded with the current name rather than blank, because a rename is an edit of a name
+            that exists, and starting empty makes the common case — changing one word — retyping.
+          */}
+          {activeNote === undefined ? null : (
+            <Row
+              icon={FileText}
+              keywords="rename title name note"
+              onSelect={() => {
+                page$.set({ kind: "rename", note: activeNote });
+                query$.set(activeNote.title);
+              }}
+              title={`Rename “${activeNote.title}”…`}
+            />
+          )}
           {/* Only for a single edge: a sentence written onto four connections at once is a
               sentence that was true of none of them. */}
           {selectedRelations.length === 1 && selectedRelations[0] !== undefined ? (
@@ -640,8 +761,12 @@ function PaletteContent({
               icon={Tag}
               keywords="label name text say describe edge relation"
               onSelect={() => {
-                labelling$.set(selectedRelations[0] ?? null);
-                query$.set(selectedRelations[0]?.label ?? "");
+                const relation = selectedRelations[0];
+
+                if (relation !== undefined) {
+                  page$.set({ kind: "label", relation });
+                  query$.set(relation.label ?? "");
+                }
               }}
               title="Label this connection…"
             />
