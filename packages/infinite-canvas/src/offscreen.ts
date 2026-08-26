@@ -1,4 +1,5 @@
 import {
+  getInfiniteCanvasContentViewport,
   getRectCenter,
   isUsableViewport,
   isWorldRectWithinViewport,
@@ -142,8 +143,17 @@ function getInfiniteCanvasOffscreenIndicators<Kind extends string>(
     marginPx = 0,
   } = options;
   const { camera, viewport } = state;
-  const halfWidth = viewport.width / 2 - insetPx;
-  const halfHeight = viewport.height / 2 - insetPx;
+  /*
+   * The ring sits inside what the user can see, not inside the element.
+   *
+   * `insetPx` is how far the indicators sit in from the edge, which is a different question from
+   * where the edge *is*. With chrome on one side the two disagree, and a ring placed on the
+   * element would put half its arrows behind the panel — indicators for windows you cannot see,
+   * rendered somewhere you cannot see them.
+   */
+  const content = getInfiniteCanvasContentViewport(viewport, state.viewportInsets);
+  const halfWidth = content.width / 2 - insetPx;
+  const halfHeight = content.height / 2 - insetPx;
 
   if (!isUsableViewport(viewport) || halfWidth <= 0 || halfHeight <= 0 || limit <= 0) {
     return [];
@@ -178,7 +188,10 @@ function getInfiniteCanvasOffscreenIndicators<Kind extends string>(
       })),
   ];
 
-  const screenCenter = { x: viewport.width / 2, y: viewport.height / 2 };
+  const screenCenter = {
+    x: content.x + content.width / 2,
+    y: content.y + content.height / 2,
+  };
 
   return targets
     .filter((target) => !isWorldRectWithinViewport(camera, viewport, target.rect, marginPx))

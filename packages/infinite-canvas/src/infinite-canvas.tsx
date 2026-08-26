@@ -130,6 +130,7 @@ import type {
   InfiniteCanvasWindow,
   InfiniteCanvasWindowRegistry,
   InfiniteCanvasChromeMetricsInput,
+  InfiniteCanvasViewportInsetsInput,
   InfiniteCanvasZoomPolicy,
   InfiniteCanvasZoomPolicyInput,
 } from "./types";
@@ -190,6 +191,15 @@ type InfiniteCanvasViewportProps<
   chrome?: InfiniteCanvasChromeMetricsInput;
   className?: string;
   diagnostics?: InfiniteCanvasDiagnosticsPolicy;
+  /**
+   * Screen space this consumer's own chrome covers, per edge.
+   *
+   * The canvas fills its element, so a sidebar, an inspector, or a docked panel drawn on top of it
+   * is invisible to every camera decision — fitting and centring aim at the middle of the element
+   * and put content behind the panel. Naming the edges here is what lets them aim at the middle of
+   * what the user can actually see.
+   */
+  viewportInsets?: InfiniteCanvasViewportInsetsInput;
   dropPolicy?: InfiniteCanvasDropPolicy<Kind, Payload>;
   hotkeyBindings?: readonly InfiniteCanvasHotkeyBinding[];
   hud?: InfiniteCanvasHudPolicyInput;
@@ -569,6 +579,7 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
   spatialTargetResolvers = [],
   theme,
   title = "",
+  viewportInsets,
   windowDefinitions,
   zoomPolicy = resolveInfiniteCanvasZoomPolicy(),
 }: InfiniteCanvasViewportProps<Kind, Payload>) {
@@ -816,6 +827,28 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
       observer?.disconnect();
     };
   }, [actions]);
+
+  /*
+   * The consumer's own chrome, declared rather than dispatched.
+   *
+   * Field deps for the same reason `chrome` uses them: an inline `viewportInsets={{ left: 320 }}`
+   * is a new object every render, and this writes to the store — identity deps would dispatch on
+   * every render forever.
+   */
+  useEffect(() => {
+    actions.setViewportInsets({
+      bottom: viewportInsets?.bottom ?? 0,
+      left: viewportInsets?.left ?? 0,
+      right: viewportInsets?.right ?? 0,
+      top: viewportInsets?.top ?? 0,
+    });
+  }, [
+    actions,
+    viewportInsets?.bottom,
+    viewportInsets?.left,
+    viewportInsets?.right,
+    viewportInsets?.top,
+  ]);
 
   useEffect(() => {
     const node = commandSurfaceRef.current;

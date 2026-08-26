@@ -9,6 +9,7 @@ import {
   resolveInfiniteCanvasViewportInsets,
   screenPointToWorldPoint,
 } from "./geometry";
+import { getInfiniteCanvasOffscreenIndicators } from "./offscreen";
 import { reduceInfiniteCanvasState } from "./reducer";
 import type { InfiniteCanvasRect, InfiniteCanvasViewport } from "./types";
 
@@ -188,6 +189,26 @@ test("navigateCamera — a canvas that never sets insets is unchanged", () => {
       { windowId: "note" },
     ).camera,
   );
+});
+
+test("getInfiniteCanvasOffscreenIndicators — the ring sits inside what the user can see", () => {
+  const state = createInfiniteCanvasState<"note">({
+    viewport: VIEWPORT,
+    viewportInsets: { left: 400 },
+    windows: [
+      createInfiniteCanvasWindow<"note">({
+        // Far to the left, so its indicator lands on the ring's left edge.
+        id: "note",
+        kind: "note",
+        rect: { height: 100, width: 100, x: -5000, y: 0 },
+      }),
+    ],
+  });
+  const [indicator] = getInfiniteCanvasOffscreenIndicators(state, { insetPx: 0 });
+
+  expect(indicator).toBeDefined();
+  // Without insets this would be 0 — the element's own left edge, behind the panel.
+  expect(indicator?.point.x).toBeCloseTo(400, 6);
 });
 
 test("viewportInsets.set — the store's action reaches state, with unnamed edges filled", () => {
