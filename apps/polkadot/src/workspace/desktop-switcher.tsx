@@ -137,11 +137,19 @@ export function DesktopSwitcher() {
             title: window.title,
             where: desktopByWindowId.get(window.id) ?? "no desktop",
           }));
-  /** The selected windows this desktop does not already hold — what "bring here" would move. */
-  const selectedElsewhere =
-    active === undefined
+  /**
+   * The desktops a selection could still be filed onto.
+   *
+   * A desktop already holding every selected window is left out: moving them there is a no-op that
+   * returns the identical state, so the row would be one that does nothing — the same reason the
+   * connector palette leaves out the kind an edge already carries.
+   */
+  const filingTargets =
+    selectedWindowIds.length === 0
       ? []
-      : selectedWindowIds.filter((windowId) => !active.windowIds.includes(windowId));
+      : workspaces.filter((workspace) =>
+          selectedWindowIds.some((windowId) => !workspace.windowIds.includes(windowId)),
+        );
 
   const commitRename = () => {
     const title = (draftTitle$.peek() ?? "").trim();
@@ -292,34 +300,52 @@ export function DesktopSwitcher() {
             </DropdownMenuGroup>
           </>
         )}
+        {/*
+          Filing a selection onto a desktop, from wherever you are standing.
+
+          This used to read "Bring N windows here" and only appeared while a desktop was active,
+          which made it unreachable by the gesture its own comment described — "select three notes,
+          enter the desktop you want them on, one click". Entering a desktop **clears the
+          selection**: `activateInfiniteCanvasWorkspace` normalizes the incoming selection against
+          the workspace being entered, because a selected window the filter hides would arm every
+          verb keyed to the active window against something nobody can see. That is the right rule,
+          so the row was wrong — by the time you arrived there was nothing selected to bring. Driven
+          before it was replaced: select two, enter, and the count goes 2 → 0.
+          So the move happens *without* entering. You are most likely to be on "All windows" when
+          you gather things anyway, which is the one place the old row could never appear. Each
+          desktop that does not already hold the whole selection is offered; one that does is a row
+          that would do nothing, which this file refuses elsewhere for the same reason.
+        */}
+        {filingTargets.length === 0 ? null : (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuGroup>
+              <DropdownMenuLabel>
+                Move {describeWindowCount(selectedWindowIds.length)} to
+              </DropdownMenuLabel>
+              {filingTargets.map((workspace) => (
+                <DropdownMenuItem
+                  key={workspace.id}
+                  onClick={() => {
+                    // One dispatch for one gesture. `workspace.moveWindow` takes the set, so this
+                    // is a single edit and a single undo rather than one per window.
+                    actions.dispatch({
+                      type: "workspace.moveWindow",
+                      windowIds: selectedWindowIds,
+                      workspaceId: workspace.id,
+                    });
+                  }}
+                >
+                  <ArrowDownToLine />
+                  <span className={styles.itemTitle()}>{workspace.title}</span>
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuGroup>
+          </>
+        )}
         {active === undefined ? null : (
           <>
             <DropdownMenuSeparator />
-            {/*
-              Filing a whole selection at once, which until now was one trip through the launcher
-              per window: select three notes, enter the desktop you want them on, one click.
-
-              One dispatch, and that is the framework's doing rather than this file's. It used to be
-              N — one per window — which cost N undo entries for what the user did as one gesture,
-              and left the desktop half-populated at every step in between. Batching it here would
-              have restated the framework's own rule about what a single edit is, so it was recorded
-              as an ask instead. `workspace.moveWindow` takes `windowIds` now, so the gesture and
-              the edit are the same size.
-            */}
-            {selectedElsewhere.length === 0 ? null : (
-              <DropdownMenuItem
-                onClick={() => {
-                  actions.dispatch({
-                    type: "workspace.moveWindow",
-                    windowIds: selectedElsewhere,
-                    workspaceId: active.id,
-                  });
-                }}
-              >
-                <ArrowDownToLine />
-                Bring {describeWindowCount(selectedElsewhere.length)} here
-              </DropdownMenuItem>
-            )}
             <DropdownMenuItem
               onClick={() => {
                 draftTitle$.set(active.title);

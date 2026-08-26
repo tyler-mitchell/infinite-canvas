@@ -737,8 +737,9 @@ open because it feels good to look at. Concretely, and these are enforced in rev
   **Both of the remaining two closed, in the switcher.** "Not on this desktop" lists every window
   the filter is hiding with the desktop it is on — or "no desktop", which is not an edge case but
   every window on the canvas the moment the first desktop is made. Clicking one is `window.reveal`.
-  And "Bring N windows here" files a whole selection at once, so "put these three on a new desktop"
-  is select, enter, click rather than three round trips through a modal.
+  And a selection can be filed onto a desktop in one click rather than one trip through the
+  launcher per window — see below, because the first version of that row could not actually be
+  reached.
   That last one used to be N dispatches, which is N undo entries for one gesture, and the desktop
   was half-populated at every step in between — so undoing "put these three there" took three
   undos and passed through two states nobody asked for. Batching it in the product would have
@@ -749,11 +750,24 @@ open because it feels good to look at. Concretely, and these are enforced in rev
   and expanded each group, so the function that was written around a `Set` simply stopped being
   handed a set of one. `windowId` was replaced rather than joined by a plural — this repo keeps no
   compatibility path for a shape it has replaced, and moving one window is a set of one.
-  **"Not on this desktop" is driven; "Bring N windows here" still is not.** The first renders its
-  label and a row per hidden window with the desktop each is on — "no desktop" for all of them
-  before anything is filed — and it correctly drops a window from the list once that window is on
-  the desktop you are standing on. The second needs a selection to appear and was not exercised on
-  screen — though the verb underneath it is now covered by tests: filing three windows lands one
+  **And driving the second found that it could never have run.** "Bring N windows here" appeared
+  only while a desktop was active, and it read the selection — but **entering a desktop clears the
+  selection**. `activateInfiniteCanvasWorkspace` normalizes the incoming selection against the
+  workspace being entered, because a selected window the filter hides would arm every verb keyed to
+  the active window against something nobody can see. That rule is right; the row built on top of it
+  was not. So the gesture its own comment described — "select three notes, enter the desktop you
+  want them on, one click" — was impossible: by the time you arrived, nothing was selected. Measured
+  before replacing it: select two, enter, and the count goes 2 → 0. It had been in the file long
+  enough to be described in three places and had never once appeared.
+  **The move happens without entering now.** The menu offers "Move N windows to" with a row per
+  desktop that does not already hold the whole selection, which works from "All windows" — the one
+  place you are most likely to be while gathering things, and the one place the old row could never
+  show. Driven: two windows selected on All windows, one click, both filed, `history.past` 1 → 2 —
+  one entry for two windows — and one undo put both back with all three still on the canvas.
+  **"Not on this desktop" is driven too.** It renders its label and a row per hidden window with the
+  desktop each is on — "no desktop" for all of them before anything is filed — and it correctly
+  drops a window from the list once that window is on the desktop you are standing on. The verb
+  underneath both is covered by tests as well: filing three windows lands one
   history entry, one undo puts all three back, and a set carrying a duplicate and a dead id
   normalizes to the one real window.
   **That section was one click from taking the canvas down, and nobody had ever opened it.**
