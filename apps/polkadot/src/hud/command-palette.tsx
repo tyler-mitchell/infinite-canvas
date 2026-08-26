@@ -23,6 +23,8 @@ import {
   FolderOpen,
   FolderPlus,
   Frame,
+  Images,
+  Layers,
   LayoutGrid,
   Link2,
   MousePointerSquareDashed,
@@ -51,6 +53,7 @@ import { initialLayout } from "../canvas/canvas-document";
 import { getSelectedRelations } from "../canvas/connector-geometry";
 import type { WindowKind } from "../canvas/window-registry";
 import type { CanvasSummary, ContentRelation, ProjectSummary } from "../database/database.client";
+import { openNewCollection } from "../collections/open-collection";
 import * as database from "../database/operations";
 import { noteGateway, type NoteRecord } from "../notes/note-gateway";
 import { renameNote } from "../notes/note-store";
@@ -796,6 +799,42 @@ function PaletteContent({
             id="new-note"
             keywords="create"
             title="New note"
+          />
+          {/*
+            Named for what it lists rather than offering an empty one to configure. "New collection"
+            would put the user in a window with nothing in it and a menu to find; "Collection of
+            notes" is already the thing they wanted, and switching what it lists is one click away
+            in the window itself.
+          */}
+          <Row
+            icon={Layers}
+            onSelect={run(() => {
+              void openNewCollection({
+                actions,
+                listsKind: "note",
+                projectId,
+                state,
+                title: "Notes",
+              });
+            })}
+            id="new-collection-notes"
+            keywords="create list all"
+            title="Collection of notes"
+          />
+          <Row
+            icon={Images}
+            onSelect={run(() => {
+              void openNewCollection({
+                actions,
+                listsKind: "image",
+                projectId,
+                state,
+                title: "Images",
+              });
+            })}
+            id="new-collection-images"
+            keywords="create list all"
+            title="Collection of images"
           />
           <Row
             icon={Columns3}
