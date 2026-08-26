@@ -286,6 +286,29 @@
   text-transform: none;
 }
 
+/*
+ * A note names itself.
+ *
+ * The note body's first field is the title, and the chrome was printing the same string again
+ * sixty pixels above it. Two treatments of one value is a header labelling the note from outside;
+ * hiding it leaves a slim bar that belongs to the note, which is what the header should be.
+ *
+ * Hidden, not removed: `window.title` still carries the name for the far-zoom summary and the
+ * window's accessible name, and `note-window.tsx` keeps it in step with the record.
+ */
+[data-slot="window"][data-kind="note"] [data-slot="window-title"] {
+  display: none;
+}
+
+/*
+ * The framework's header is `justify-content: space-between`, which pushes the title left and the
+ * controls right. With the title gone that leaves one child, and space-between put the controls
+ * at the start — so the header has to say where its single child belongs.
+ */
+[data-slot="window"][data-kind="note"] [data-slot="window-header"] {
+  justify-content: flex-end;
+}
+
 /* The active window lifts further and picks up the specular, like the shell's rails. */
 [data-slot="window"][data-active] {
   --icx-surface-shadow: var(--lift-3);

@@ -347,6 +347,34 @@ app shell are not production patterns. Take the editor architecture, not the sur
 
 ---
 
+## defect: notes become unreachable when their last window closes
+
+Closing a window does not delete the note, which is correct — the note is a record and the window
+was a view of it. But there is no other way to reach a note, so closing the last window on one
+makes it invisible while it stays in the database forever. Found while cleaning up test notes:
+records kept accumulating with no product surface able to see or remove them.
+
+**This is the strongest argument for the library rail**, which `ROADMAP.md` lists as "an empty box
+making a promise". The rail is not a nicety — it is the only thing that makes closing a window a
+safe act rather than a silent leak.
+
+**Until it exists**, closing the last window on a note is a data-loss-shaped action with no
+warning. Two honest interim options, neither of which should be chosen casually:
+
+- Say so at the moment of closing, when the window is the last view of its note.
+- Or treat a note with no window as archived rather than invisible, so the recovery collection
+  already built for canvases has something to show.
+
+**Also check while here:** `fn::save_note` uses `UPDATE ONLY $note SET …`, and SurrealDB's
+`UPDATE` on a specific record id creates it when it is absent. A debounced write landing after a
+note is deleted could therefore resurrect it as a partial record. The revision guard may already
+prevent this — `WHERE revision = $revision` cannot match a record that does not exist — but that
+is a guess, and this is exactly the kind of thing that should be proven rather than assumed. It
+looked like it happened during cleanup, and the alternative explanation (a stray `New note` click)
+was never ruled out.
+
+---
+
 ## feat: arrangements — layout recipes as first-class objects
 
 Save an arrangement of windows and apply it again later: "review layout", "writing layout",

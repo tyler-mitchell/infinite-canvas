@@ -1,3 +1,4 @@
+import { useInfiniteCanvasActions } from "@hyphened/infinite-canvas";
 import { useValue } from "@legendapp/state/react";
 import { useEffect } from "react";
 import { tv } from "ui/tv";
@@ -13,6 +14,12 @@ import { NoteEditor } from "./note-editor";
  *
  * The database module is passed in rather than imported, because it pulls an 11 MB WebAssembly
  * engine and this component must be renderable — in a test, in a summary, in a story — without it.
+ *
+ * The note's name is written here and nowhere else. The window chrome's title is hidden for this
+ * kind — printing the same string twice, sixty pixels apart, is what a header does when it is
+ * labelling the note rather than belonging to it. `window.title` is still kept in step below,
+ * because the layout is what the far-zoom summary reads and what the window announces to a screen
+ * reader; hiding a value is not the same as not having one.
  */
 
 const noteWindow = tv({
@@ -28,13 +35,34 @@ const noteWindow = tv({
 export function NoteWindowBody({
   gateway,
   noteId,
-}: Readonly<{ gateway: NoteGateway; noteId: string }>) {
+  windowId,
+  windowTitle,
+}: Readonly<{ gateway: NoteGateway; noteId: string; windowId: string; windowTitle: string }>) {
+  const actions = useInfiniteCanvasActions();
   const entry = useValue(notes$[noteId]);
   const styles = noteWindow();
+  const noteTitle = entry?.note?.title;
 
   useEffect(() => {
     ensureNoteLoaded(noteId, gateway);
   }, [gateway, noteId]);
+
+  /**
+   * The layout's copy of the name follows the record's.
+   *
+   * `window.title` was written once when the window was opened and never again, so renaming a note
+   * left the summary, the accessible name, and any future list showing whatever it was called at
+   * creation. Syncing here rather than inside the rename handler also repairs windows opened
+   * before a rename that happened in a different window on the same note.
+   *
+   * Empty titles are skipped because the framework refuses them — a title is an accessible name
+   * before it is a label — so a half-typed rename must not reach the layout.
+   */
+  useEffect(() => {
+    if (noteTitle !== undefined && noteTitle.trim().length > 0 && noteTitle !== windowTitle) {
+      actions.setWindowTitle({ title: noteTitle, windowId });
+    }
+  }, [actions, noteTitle, windowId, windowTitle]);
 
   if (entry === undefined || entry.status === "loading") {
     return <div className={styles.notice()} />;

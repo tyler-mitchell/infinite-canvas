@@ -53,7 +53,12 @@ const windowDefinitions = defineInfiniteCanvasWindowRegistry<WindowKind, WindowD
       return data == null ? (
         <div className={noteWindow().summary()}>This window is not bound to a note.</div>
       ) : (
-        <NoteWindowBody gateway={noteGateway} noteId={data.noteId} />
+        <NoteWindowBody
+          gateway={noteGateway}
+          noteId={data.noteId}
+          windowId={window.id}
+          windowTitle={window.title}
+        />
       );
     },
     renderSummary: ({ window }) => <div className={noteWindow().summary()}>{window.title}</div>,
