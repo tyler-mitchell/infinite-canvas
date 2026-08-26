@@ -1,6 +1,8 @@
 # Compositor
 
-Status: contract proposed, nothing built (2026-08-26).
+Status: contract proposed, nothing built (2026-08-26). Proved in an isolated
+proof of concept before any framework code changes — see "This is proved in
+isolation first".
 
 ## What this replaces, and what it is called
 
@@ -137,7 +139,26 @@ note cost exactly as much as dragging a window. The gate has to be **change**,
 not presence — an "is the pointer over the canvas" flag latches true on first
 move and never idles.
 
-## Structure
+## This is proved in isolation first
+
+**No framework changes until a standalone proof of concept answers the
+load-bearing question**, which is not "can TypeGPU draw" — the spike already
+showed it can — but _is the workload really quads and passes?_ If window proxies
+at real counts, with real HTML-derived textures, need something a scene graph
+provides, that is discovered in a throwaway, not halfway through replacing a
+surface the framework ships.
+
+The proof of concept lives outside `packages/infinite-canvas` and imports
+nothing from it. It is allowed to be ugly, hard-coded, and deleted. What it owes
+is one honest answer and one number: frames at a window count that matters.
+
+Only two things carry over from it: the pass and graph contracts, if they
+survived contact, and the measurement.
+
+## Structure, once it graduates
+
+Where this lands **if** the proof of concept earns it — not a directory to create
+now:
 
 ```
 packages/infinite-canvas/src/compositor/
@@ -158,15 +179,20 @@ concern.
 
 ## Sequence
 
-1. **`pass.ts` and `graph.ts` first, with no backend.** Types and ordering are
+Steps 1–3 are the proof of concept and touch no framework code.
+
+1. **The contracts, with no backend.** Pass, resource, and graph ordering are
    testable without a GPU and are the part that outlives whichever backend wins.
-2. **One pass, ported.** The field is the honest first subject: it already exists,
-   already runs on TypeGPU, and is a single full-screen pass with no geometry.
-3. **Window proxies as quads.** This is where `three` actually stops being needed,
-   and where the claim "the workload is textured quads" is either true or is not.
-4. **Frustum culling onto the graph.** Already pure (`isWorldRectWithinViewport`);
-   it becomes a graph concern rather than a renderer feature.
-5. **Delete the R3F surface.** Not before — but not "eventually" either. Two
+2. **One full-screen pass.** The field is the honest first subject: it already
+   exists, already runs on TypeGPU, and has no geometry to get wrong.
+3. **Window proxies as textured quads, at a window count that hurts.** This is
+   the whole question. Either "textured quads and passes" is the entire workload
+   or it is not, and this is where that stops being an assertion.
+4. **Graduate the contracts into the framework** — only if step 3 said yes.
+5. **Frustum culling onto the graph.** Already pure
+   (`isWorldRectWithinViewport`); it becomes a graph concern rather than a
+   renderer feature.
+6. **Delete the R3F surface.** Not before — but not "eventually" either. Two
    backends behind one seam is the coexistence this repo bans elsewhere, and every
    adapter written between them dies in the final state anyway.
 
