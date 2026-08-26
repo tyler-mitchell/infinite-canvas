@@ -570,6 +570,32 @@ type InfiniteCanvasResolveSpatialTarget<Kind extends string = string> = (
 
 type InfiniteCanvasDropPayload = unknown;
 
+/**
+ * The payload the viewport supplies for a file dragged in from outside the page.
+ *
+ * Every other drop payload is the consumer's — they started the drag, so they said what it carries.
+ * Nobody starts an OS file drag, so this is the one shape the framework has to name. A consumer
+ * that wants file drops widens its own payload to include it:
+ *
+ * ```ts
+ * type Payload = MyPaletteItem | InfiniteCanvasFileDropPayload;
+ * ```
+ *
+ * and narrows on `payload.type === "files"` inside `canDrop`, `placement` and `onDrop`.
+ *
+ * The split between `types` and `files` is the browser's rule, not a convenience. While a drag is
+ * in flight the contents of a file are withheld, so `files` is empty until the drop lands and
+ * `types` is all a `canDrop` can judge by — which is enough to accept an image and turn away an
+ * archive before the user has let go.
+ */
+type InfiniteCanvasFileDropPayload = Readonly<{
+  /** Empty until the drop commits; the browser withholds file contents during the drag. */
+  files: readonly File[];
+  type: "files";
+  /** MIME types the drag advertises, readable throughout the drag. */
+  types: readonly string[];
+}>;
+
 type InfiniteCanvasDropValidationResult = Readonly<{
   accepted: boolean;
   reason?: string;
@@ -1569,6 +1595,7 @@ export type {
   InfiniteCanvasDropValidationInput,
   InfiniteCanvasDropValidationResult,
   InfiniteCanvasEmptyCanvasDragMode,
+  InfiniteCanvasFileDropPayload,
   InfiniteCanvasInputPolicy,
   InfiniteCanvasInteraction,
   InfiniteCanvasHotkeyBinding,

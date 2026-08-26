@@ -299,6 +299,7 @@ export {
   normalizeInfiniteCanvasDropValidation,
 } from "./drop-interaction";
 export type { InfiniteCanvasDropPlacementInput } from "./drop-interaction";
+export { getInfiniteCanvasFileDropPayload, isInfiniteCanvasFileDrag } from "./file-drop";
 export {
   createInfiniteCanvasEdgeTargetResolver,
   createInfiniteCanvasOverlayTargetResolver,
@@ -393,6 +394,7 @@ export type {
   InfiniteCanvasDropValidationInput,
   InfiniteCanvasDropValidationResult,
   InfiniteCanvasEmptyCanvasDragMode,
+  InfiniteCanvasFileDropPayload,
   InfiniteCanvasInputPolicy,
   InfiniteCanvasInteraction,
   InfiniteCanvasHotkeyBinding,

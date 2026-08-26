@@ -12,6 +12,7 @@ import { tv } from "ui/tv";
 
 import type { CanvasPersistenceStatus } from "../canvas/canvas-persistence";
 import { CANVAS_CHROME } from "../canvas/chrome";
+import { createCanvasDropPolicy, type CanvasDropPayload } from "../canvas/drop-policy";
 import { ConnectorDraft } from "../canvas/connector-draft";
 import { getConnectorEdgeTargets } from "../canvas/connector-geometry";
 import { getConnectorHotkeyActions } from "../canvas/connector-hotkeys";
@@ -202,6 +203,10 @@ export function WorkspaceCanvas({ canvas }: Readonly<{ canvas: LoadedCanvas }>) 
     () => getConnectorHotkeyActions(canvas.projectId),
     [canvas.projectId],
   );
+  // Memoized for the same reason as the keymap: the viewport rebinds its native drag listeners
+  // whenever this object's identity changes, and a fresh one every render would tear them down and
+  // re-attach them mid-drag.
+  const dropPolicy = useMemo(() => createCanvasDropPolicy(canvas.projectId), [canvas.projectId]);
 
   useEffect(() => {
     void loadRelations(canvas.projectId);
@@ -210,8 +215,16 @@ export function WorkspaceCanvas({ canvas }: Readonly<{ canvas: LoadedCanvas }>) 
   return (
     <main className={styles.root()}>
       <InfiniteCanvas.Provider store={runtime.store}>
-        <InfiniteCanvas.Viewport<WindowKind>
+        <InfiniteCanvas.Viewport<WindowKind, CanvasDropPayload>
           chrome={CANVAS_CHROME}
+          /*
+           * Drag a picture in from the desktop and it lands where you let go.
+           *
+           * Passing this is also what switches the framework's native-drag bridge on at all — it
+           * stays inert without a policy, so a canvas that was never told what a file means leaves
+           * the browser's own handling alone.
+           */
+          dropPolicy={dropPolicy}
           /*
            * What the library rail is covering, so the camera stops aiming behind it.
            *

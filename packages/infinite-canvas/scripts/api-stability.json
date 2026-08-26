@@ -79,6 +79,7 @@
   "experimental": {
     "canvas-handle": "unobserved \u2014 the handle's *documented* surface outruns what anything exercises. Polkadot's autosave depends on `subscribeDocument` and has been watched working, so that much is observed; `subscribe`, `snapshot`, and `getContextualCommands` are not driven by anything and the surface may still grow spatial queries. Not the 'debug seam nobody consumes' this entry claimed until 2026-08-26 \u2014 it is the incubator app's persistence spine.",
     "diagnostics": "off-by-default \u2014 this policy exists to switch on the frustum probe layer, and nothing switches it on.",
+    "file-drop": "off-by-default \u2014 the viewport's native-drag bridge is inert unless a consumer passes `dropPolicy`, deliberately: without one, validation defaults to accepted and `dragover` would have to take the browser's own file handling away from canvases that never asked for it. The two helpers are public for a consumer wiring file drops onto a surface the canvas does not own, which nothing does yet.",
     "rasterization-layer": "off-by-default \u2014 the policy, scheduler, and snapshot capture ship behind the rasterization prop. P7 intends to rebuild the capture lane on html-in-canvas.",
     "visibility": "off-by-default \u2014 reads the store only the frustum probe layer writes, so every reading is null unless /scene is mounted with diagnostics.frustum.",
     "scene-surface": "r3f-canary \u2014 the surface contract the /scene entry implements.",

@@ -1,3 +1,5 @@
+import type { InfiniteCanvasPoint, InfiniteCanvasRect } from "@hyphened/infinite-canvas";
+
 import { CANVAS_CHROME } from "../canvas/chrome";
 import { openContentWindow, type WindowPlacement, type WindowSize } from "../canvas/open-window";
 import { imageGateway } from "./image-gateway";
@@ -90,7 +92,17 @@ function readFileAsDataUrl(file: File): Promise<string> {
   });
 }
 
-async function openNewImage(input: WindowPlacement & Readonly<{ file: File; projectId: string }>) {
+/**
+ * `at` is where a drop landed, in world coordinates.
+ *
+ * Only the top-left is taken from it, not the size: the framework's drop placement is computed from
+ * a size guessed before the bytes were decoded, and the picture's real proportions are known by the
+ * time this runs. Keeping the point and replacing the extent puts the window where the pointer let
+ * go while still giving it the shape the picture asked for.
+ */
+async function openNewImage(
+  input: WindowPlacement & Readonly<{ at?: InfiniteCanvasPoint; file: File; projectId: string }>,
+) {
   const source = await readFileAsDataUrl(input.file);
   const [created, size] = await Promise.all([
     imageGateway.create({
@@ -104,6 +116,7 @@ async function openNewImage(input: WindowPlacement & Readonly<{ file: File; proj
   openImageWindow({
     actions: input.actions,
     imageId: created.id,
+    rect: input.at === undefined ? undefined : { ...size, x: input.at.x, y: input.at.y },
     size,
     state: input.state,
     title: created.title,
@@ -111,13 +124,20 @@ async function openNewImage(input: WindowPlacement & Readonly<{ file: File; proj
 }
 
 function openImageWindow(
-  input: WindowPlacement & Readonly<{ imageId: string; size: WindowSize; title: string }>,
+  input: WindowPlacement &
+    Readonly<{
+      imageId: string;
+      rect?: InfiniteCanvasRect;
+      size: WindowSize;
+      title: string;
+    }>,
 ) {
   openContentWindow({
     actions: input.actions,
     data: { imageId: input.imageId },
     kind: "image",
     minSize: IMAGE_MINIMUM_SIZE,
+    rect: input.rect,
     size: input.size,
     state: input.state,
     title: input.title,

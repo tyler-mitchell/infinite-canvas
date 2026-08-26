@@ -3,6 +3,7 @@ import {
   getInfiniteCanvasWindowPlacementRect,
   getVisibleWorldRect,
   type InfiniteCanvasCommands,
+  type InfiniteCanvasRect,
   type InfiniteCanvasState,
 } from "@hyphened/infinite-canvas";
 
@@ -24,18 +25,17 @@ type WindowPlacement = Readonly<{
   state: InfiniteCanvasState<WindowKind>;
 }>;
 
-function openContentWindow<Kind extends WindowKind>(
-  input: WindowPlacement &
-    Readonly<{
-      data: WindowData[Kind];
-      kind: Kind;
-      minSize: WindowSize;
-      size: WindowSize;
-      title: string;
-    }>,
+/**
+ * The centred, cascading rect a window gets when nobody said where to put it.
+ *
+ * The cascade is what keeps a run of openings from stacking into one silhouette, and it is only
+ * right for openings the user did not aim: a drop landed somewhere on purpose, and nudging it 28px
+ * because it happens to be the fourth window would move it away from the pointer that placed it.
+ */
+function getCascadedRect(
+  input: WindowPlacement & Readonly<{ minSize: WindowSize; size: WindowSize }>,
 ) {
   const ordinal = input.state.windows.length + 1;
-  // Cascade, so a run of openings does not stack into one silhouette.
   const offset = ((ordinal - 1) % 6) * 28;
   const baseRect = getInfiniteCanvasWindowPlacementRect(
     getVisibleWorldRect(input.state.camera, input.state.viewport, 0),
@@ -44,13 +44,28 @@ function openContentWindow<Kind extends WindowKind>(
     input.minSize,
   );
 
+  return { ...baseRect, x: baseRect.x + offset, y: baseRect.y + offset };
+}
+
+function openContentWindow<Kind extends WindowKind>(
+  input: WindowPlacement &
+    Readonly<{
+      data: WindowData[Kind];
+      kind: Kind;
+      minSize: WindowSize;
+      /** Where it lands, when the caller knows — a drop, for one. Cascaded from the camera if not. */
+      rect?: InfiniteCanvasRect;
+      size: WindowSize;
+      title: string;
+    }>,
+) {
   input.actions.openWindow(
     createInfiniteCanvasWindow<WindowKind, WindowData[Kind]>({
       data: input.data,
       id: globalThis.crypto.randomUUID(),
       kind: input.kind,
       minSize: input.minSize,
-      rect: { ...baseRect, x: baseRect.x + offset, y: baseRect.y + offset },
+      rect: input.rect ?? getCascadedRect(input),
       title: input.title,
     }),
   );
