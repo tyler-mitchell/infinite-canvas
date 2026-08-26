@@ -11,24 +11,40 @@ is how an entire mission once ran with no enforcement at all.
 
 ## Committing when another session is working in the same tree
 
-`git add <paths>` does not bound your commit. The pre-commit hook runs `vp staged`, whose scope
-is the modified working tree rather than your index — commit two files while another session has
-five uncommitted and you will commit seven, under your message.
+This section previously blamed the pre-commit hook, and that was wrong. Recorded here rather than
+quietly deleted, because the wrong mechanism sends the next agent to defend the wrong door.
 
-There is a second route to the same place, and it needs no hook at all: **`git commit` commits the
-index, and the index is one file that both sessions share.** Anything you `git add` is visible to
-the other session's very next commit, whoever typed it. So the window between staging and
-committing is the exposure, and it is the part you control.
+**`vp staged` scopes to your index, not to the working tree.** Watched directly: two files staged
+while another session had nine modified, and lint-staged reported `Config object — 2 files`,
+`* — 2 files`, and the commit landed with exactly two. The hook's own comment says so, and it is
+right. It also stashes everything unstaged for the duration of the run and restores it afterwards.
 
-**Stage and commit in one command** — `git add <paths> && git commit …` — and never leave work
-sitting in the index while you go and read something. That does not close the hook's route above,
-which is why the check below is still required, but it removes the case where your own half-staged
-work is what gets carried off.
+The real route needs no hook at all: **the index is one file that both sessions share.** Anything
+you `git add` is visible to the other session's very next commit, whoever typed it — and any broad
+add of your own (`git add -A`, `git add <dir>`, `git commit -a`) picks up whatever they have in
+flight. That is almost certainly what both historical sweeps actually were, though neither was
+diagnosed at the time and this is inference rather than something anyone watched.
 
-This has happened twice, in both directions, and neither time was noticed until afterwards. Once
-a commit swept a staged deletion whose replacement was still untracked, which left `HEAD` naming
-a SurQL file it did not contain and the database unable to open from a clean clone. Once a
-commit about window summaries carried an entire unrelated conflict-notice feature.
+Two habits, and the second is the one that actually holds:
+
+- **Stage and commit in one command** — `git add <paths> && git commit …` — and never leave work
+  in the index while you go and read something. Name paths; never `-A`, never a directory, never
+  `-a`.
+- **Bound the commit with a pathspec**: `git add <paths> && git commit -F - -- <paths>`. A pathspec
+  commit is built from the named paths and HEAD, so anything else sitting in the shared index —
+  staged by you or by them — stays staged and stays out of your commit. This is the form to use
+  whenever `git status` shows work that is not yours.
+
+One hazard the correction does not remove: the hook stashes the other session's unstaged work for
+the length of the run, so a commit of yours and a write of theirs can overlap. It usually restores
+cleanly. It does not always clean up after itself — `git stash list` currently holds two orphaned
+`lint-staged automatic backup` entries whose contents have long since landed. Leave them; a stash
+you did not create is not yours to drop, and they cost nothing but noise.
+
+The two sweeps, for the record — opposite directions, neither noticed until afterwards. Once a
+commit swept a staged deletion whose replacement was still untracked, which left `HEAD` naming a
+SurQL file it did not contain and the database unable to open from a clean clone. Once a commit
+about window summaries carried an entire unrelated conflict-notice feature.
 
 So: **read `git show --stat HEAD` after every commit**, and if it names files you did not write,
 say so to the other session immediately and precisely — which files, which commit. The tree stays
