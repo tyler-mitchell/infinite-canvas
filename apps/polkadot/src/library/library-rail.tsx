@@ -1,4 +1,8 @@
-import { useInfiniteCanvasActions, useInfiniteCanvasState } from "@hyphened/infinite-canvas";
+import {
+  focusInfiniteCanvasCommandSurfaceFrom,
+  useInfiniteCanvasActions,
+  useInfiniteCanvasState,
+} from "@hyphened/infinite-canvas";
 import { useObservable, useValue } from "@legendapp/state/react";
 import { ChevronRight, Link2, PanelLeftClose, Search } from "lucide-react";
 import { useEffect } from "react";
@@ -156,16 +160,24 @@ export function LibraryRail({
    * hand went wrong in exactly the way that is invisible: navigating to a window another desktop
    * hid panned the camera to a rect nothing renders.
    */
-  const reach = (noteId: string, title: string) => {
+  const reach = (from: HTMLElement, noteId: string, title: string) => {
     const windowId = windowIdByNoteId.get(noteId);
 
     if (windowId === undefined) {
       openNoteWindow({ actions, noteId, state, title });
-
-      return;
+    } else {
+      actions.executeCommand({ type: "window.reveal", windowId });
     }
 
-    actions.executeCommand({ type: "window.reveal", windowId });
+    /*
+     * Give the keyboard back.
+     *
+     * Every canvas hotkey fires only for events inside the command surface, so a rail button that
+     * takes focus and keeps it leaves focus on `<body>` — where `Mod+K` and every shortcut are
+     * silently dead and nothing on screen says why. Found by driving this: after reaching a note
+     * from the rail, the palette would not open.
+     */
+    focusInfiniteCanvasCommandSurfaceFrom(from);
   };
 
   return (
@@ -208,8 +220,8 @@ export function LibraryRail({
                   </span>
                   <button
                     className={styles.title({ open: openNoteIds.has(note.id) })}
-                    onClick={() => {
-                      reach(note.id, note.title);
+                    onClick={(event) => {
+                      reach(event.currentTarget, note.id, note.title);
                     }}
                     type="button"
                   >
@@ -244,8 +256,8 @@ export function LibraryRail({
                         <button
                           className={styles.connection()}
                           key={neighbourId}
-                          onClick={() => {
-                            reach(neighbour.id, neighbour.title);
+                          onClick={(event) => {
+                            reach(event.currentTarget, neighbour.id, neighbour.title);
                           }}
                           type="button"
                         >

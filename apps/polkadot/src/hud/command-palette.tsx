@@ -63,8 +63,15 @@ import { connectNotes, disconnectNotes, findRelation, relations$ } from "../note
 
 const PALETTE_HOTKEY = "Mod+K";
 
-/** The dialog restores focus to whatever opened it, and a hotkey is not an element — so without
- * this, focus lands on `<body>` where every canvas shortcut is dead and nothing says why. */
+/**
+ * The dialog restores focus to whatever opened it, and a hotkey is not an element — so without
+ * this, focus lands on `<body>` where every canvas shortcut is dead and nothing says why.
+ *
+ * A document query rather than the framework's `focusInfiniteCanvasCommandSurfaceFrom`, which
+ * walks up from an element inside the canvas: this dialog is portalled to `<body>`, so at the
+ * moment it closes there is no such element to walk from. Chrome that lives *in* the canvas — the
+ * library rail — uses the framework verb instead.
+ */
 const returnFocusToCanvas = () => {
   focusInfiniteCanvasCommandSurface(
     document.querySelector<HTMLElement>("[data-infinite-canvas-command-scope='surface']"),

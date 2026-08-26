@@ -12,7 +12,7 @@ import { INFINITE_CANVAS_SLOTS } from "./data-attributes";
 import type { InfiniteCanvasDetailLevel } from "./detail-level";
 import { useInfiniteCanvasIcons } from "./icons";
 import { trapInfiniteCanvasTabKey } from "./focus-trap";
-import { focusInfiniteCanvasCommandSurface } from "./keyboard";
+import { focusInfiniteCanvasCommandSurfaceFrom } from "./keyboard";
 import { InfiniteCanvasWindowBody } from "./rasterization-layer";
 import { mergeInfiniteCanvasSlotProps } from "./slot";
 import {
@@ -181,7 +181,7 @@ function InfiniteCanvasWindowFrameControlsSlot({
         onClick={(event) => {
           event.stopPropagation();
           // This button is about to unmount with its window.
-          focusCommandSurfaceFrom(event.currentTarget);
+          focusInfiniteCanvasCommandSurfaceFrom(event.currentTarget);
           actions.minimizeWindow(window.id);
         }}
         onPointerDown={(event) => {
@@ -223,7 +223,7 @@ function InfiniteCanvasWindowFrameControlsSlot({
         onClick={(event) => {
           event.stopPropagation();
           // This button is about to unmount with its window.
-          focusCommandSurfaceFrom(event.currentTarget);
+          focusInfiniteCanvasCommandSurfaceFrom(event.currentTarget);
           actions.closeWindow(window.id);
         }}
         onPointerDown={(event) => {
@@ -359,7 +359,7 @@ function InfiniteCanvasWindowFrameBodySlot({
         if (event.key === "Escape") {
           event.preventDefault();
           event.stopPropagation();
-          focusCommandSurfaceFrom(event.currentTarget);
+          focusInfiniteCanvasCommandSurfaceFrom(event.currentTarget);
 
           return;
         }
@@ -544,29 +544,8 @@ function getEventViewportPoint(event: ReactPointerEvent<HTMLElement>): InfiniteC
     : getViewportPoint(viewport, getClientPoint(event));
 }
 
-/**
- * Hand keyboard control back to the canvas from any element inside it.
- *
- * Hotkeys only fire for events that land inside the command surface, so
- * whenever an element that currently holds DOM focus is about to leave the
- * document, something must claim focus first — otherwise it falls to `<body>`,
- * every shortcut silently stops working, and the user has no way to know why
- * except to click the canvas again.
- */
-function focusCommandSurfaceFrom(element: HTMLElement) {
-  const viewport = element.closest<HTMLElement>("[data-infinite-canvas-viewport='true']");
-
-  focusInfiniteCanvasCommandSurface(getCommandSurfaceElement(viewport));
-}
-
 function focusEventCommandSurface(event: ReactPointerEvent<HTMLElement>) {
-  focusCommandSurfaceFrom(event.currentTarget);
-}
-
-function getCommandSurfaceElement(viewport: HTMLElement | null) {
-  return (
-    viewport?.querySelector<HTMLElement>("[data-infinite-canvas-command-scope='surface']") ?? null
-  );
+  focusInfiniteCanvasCommandSurfaceFrom(event.currentTarget);
 }
 
 function applyModifiedPointerSelection<Kind extends string>(

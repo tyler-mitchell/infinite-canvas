@@ -112,8 +112,39 @@ function focusInfiniteCanvasCommandSurface(surface: HTMLElement | null) {
   });
 }
 
+function getInfiniteCanvasCommandSurfaceElement(viewport: HTMLElement | null) {
+  return (
+    viewport?.querySelector<HTMLElement>("[data-infinite-canvas-command-scope='surface']") ?? null
+  );
+}
+
+/**
+ * Hand keyboard control back to the canvas from any element inside it.
+ *
+ * Hotkeys only fire for events that land inside the command surface, so whenever an element that
+ * holds DOM focus is about to lose it — a control being removed, a panel finishing its job —
+ * something must claim it first. Otherwise it falls to `<body>`, every shortcut silently stops
+ * working, and the user has no way to know why except to click the canvas again.
+ *
+ * The counterpart to {@link focusInfiniteCanvasCommandSurface}, which takes the surface element
+ * and so requires the caller to know this framework's DOM contract. This one walks up from
+ * whatever it is given, so a consumer's own chrome can return focus without restating a selector
+ * that is not theirs to know.
+ *
+ * Here rather than beside the frame slots that first needed it: it is a keyboard-focus concern,
+ * uses no React, and belongs with the function it is the counterpart to.
+ */
+function focusInfiniteCanvasCommandSurfaceFrom(element: HTMLElement) {
+  focusInfiniteCanvasCommandSurface(
+    getInfiniteCanvasCommandSurfaceElement(
+      element.closest<HTMLElement>("[data-infinite-canvas-viewport='true']"),
+    ),
+  );
+}
+
 export {
   focusInfiniteCanvasCommandSurface,
+  focusInfiniteCanvasCommandSurfaceFrom,
   registerInfiniteCanvasHotkeys,
   shouldHandleInfiniteCanvasKeyboardEvent,
 };

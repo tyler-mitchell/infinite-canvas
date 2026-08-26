@@ -475,6 +475,11 @@ it isn't.
 **`keyboard`**
 
 - `focusInfiniteCanvasCommandSurface`
+- `focusInfiniteCanvasCommandSurfaceFrom` — hand the keyboard back to the canvas from any element
+  inside it. Hotkeys only fire for events landing in the command surface, so chrome that takes
+  focus and does not return it leaves focus on `<body>`, where every shortcut silently stops
+  working. The counterpart to `focusInfiniteCanvasCommandSurface`, which needs the surface element
+  and therefore needs the consumer to know this framework's DOM contract.
 - `registerInfiniteCanvasHotkeys`
 - `shouldHandleInfiniteCanvasKeyboardEvent`
 

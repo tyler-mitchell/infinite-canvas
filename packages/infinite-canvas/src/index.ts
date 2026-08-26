@@ -221,6 +221,7 @@ export type {
 } from "./offscreen";
 export {
   focusInfiniteCanvasCommandSurface,
+  focusInfiniteCanvasCommandSurfaceFrom,
   registerInfiniteCanvasHotkeys,
   shouldHandleInfiniteCanvasKeyboardEvent,
 } from "./keyboard";
