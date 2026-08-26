@@ -1,6 +1,4 @@
-import tgpu from "typegpu";
-import * as d from "typegpu/data";
-import * as std from "typegpu/std";
+import { d, std, tgpu } from "typegpu";
 
 /**
  * The field's shader, in TypeScript.
@@ -45,8 +43,9 @@ const layout = tgpu.bindGroupLayout({
   uniforms: { uniform: FieldUniforms },
 });
 
-const uniforms = layout.bound.uniforms;
-const masses = layout.bound.masses;
+// `layout.$` — `layout.bound` was removed in 0.12.
+const uniforms = layout.$.uniforms;
+const masses = layout.$.masses;
 
 const random = tgpu.fn(
   [d.vec2f],
@@ -87,7 +86,7 @@ const rectPull = tgpu.fn(
 
   const mass = std.sqrt(rect.z * rect.w) / 265;
   const pull =
-    (uniforms.$[GRAVITY].y * mass) / (1 + std.pow(distanceToRect / uniforms.$[GRAVITY].x, 2));
+    (uniforms[GRAVITY].y * mass) / (1 + std.pow(distanceToRect / uniforms[GRAVITY].x, 2));
 
   return std.mul(std.normalize(delta), pull * strength);
 });
@@ -101,10 +100,10 @@ const fieldPull = tgpu.fn(
   let total = d.vec2f();
 
   for (let index = 0; index < MAX_RECTS; index++) {
-    total = std.add(total, rectPull(point, masses.$[index].rect, masses.$[index].strength));
+    total = std.add(total, rectPull(point, masses[index].rect, masses[index].strength));
   }
 
-  const ceiling = uniforms.$[GRAVITY].z;
+  const ceiling = uniforms[GRAVITY].z;
 
   return std.select(total, std.mul(std.normalize(total), ceiling), std.length(total) > ceiling);
 });
@@ -135,21 +134,21 @@ const fieldFragment = tgpu["~unstable"].fragmentFn({
   out: d.vec4f,
 })((input) => {
   "use gpu";
-  const frag = std.mul(input.uv, uniforms.$.resolution);
-  const gravity = uniforms.$[GRAVITY];
-  const intensity = uniforms.$.intensity;
-  const pointerActive = uniforms.$.pointerActive;
-  const hoverRadius = uniforms.$.hoverRadius;
+  const frag = std.mul(input.uv, uniforms.resolution);
+  const gravity = uniforms[GRAVITY];
+  const intensity = uniforms.intensity;
+  const pointerActive = uniforms.pointerActive;
+  const hoverRadius = uniforms.hoverRadius;
 
   // Sampling from further out than this pixel sits is what drags the lattice inward: the line
   // that belongs further away is drawn here, so the whole field leans into the mass.
   const pull = fieldPull(frag);
-  const warped = std.sub(std.add(frag, uniforms.$.latticeOffset), pull);
+  const warped = std.sub(std.add(frag, uniforms.latticeOffset), pull);
   // How deep in a well this pixel is, 0 at rest and 1 at the cap. Compression is the visible
   // signature of gravity, so this drives brightness rather than mere proximity.
   const depth = std.clamp(std.length(pull) / gravity.z, 0, 1);
 
-  const step = uniforms.$.latticeStep;
+  const step = uniforms.latticeStep;
   const halfStep = step * 0.5;
   const nearestLattice = std.mul(std.round(std.div(warped, step)), step);
   const dotDistance = std.length(std.sub(warped, nearestLattice));
@@ -174,9 +173,9 @@ const fieldFragment = tgpu["~unstable"].fragmentFn({
   // The lit region is measured in screen space, against the anchor brought back out of lattice
   // space. Measuring it in warped space instead let a nearby window drag the highlight off the
   // cursor — the warp is for the lattice, not for where the light is.
-  const anchorScreen = std.sub(uniforms.$.hoverAnchor, uniforms.$.latticeOffset);
+  const anchorScreen = std.sub(uniforms.hoverAnchor, uniforms.latticeOffset);
   const anchorDistance = std.length(std.div(std.sub(frag, anchorScreen), d.vec2f(1.08, 0.9)));
-  const pointerDistance = std.length(std.sub(frag, uniforms.$.pointer));
+  const pointerDistance = std.length(std.sub(frag, uniforms.pointer));
   const beam =
     std.pow(1 - std.smoothstep(hoverRadius * 0.136, hoverRadius, anchorDistance), 1.62) *
     pointerActive;
@@ -198,7 +197,7 @@ const fieldFragment = tgpu["~unstable"].fragmentFn({
       std.smoothstep(
         hoverRadius * 0.152,
         hoverRadius * 1.121,
-        std.length(std.div(std.sub(frag, uniforms.$.pointer), d.vec2f(1.1, 0.9))),
+        std.length(std.div(std.sub(frag, uniforms.pointer), d.vec2f(1.1, 0.9))),
       ),
     1.74,
   );
@@ -225,7 +224,7 @@ const fieldFragment = tgpu["~unstable"].fragmentFn({
   const sparseSeed = random(std.add(std.mul(nearestLattice, 0.037), d.vec2f(3.7, 8.1)));
   const sparseDot = (0.58 + std.pow(sparseSeed, 0.72) * 0.42) * (0.86 + mediumCell * 0.22);
   const shimmer =
-    0.9 + std.sin(uniforms.$.time * (0.74 + sparseSeed * 1.2) + sparseSeed * 6.2831853) * 0.1;
+    0.9 + std.sin(uniforms.time * (0.74 + sparseSeed * 1.2) + sparseSeed * 6.2831853) * 0.1;
   // Matter falling into a well gets denser, not fatter: dots tighten and brighten as they are
   // drawn in, and swell across the rim — the band where the field is stretched most, which is
   // mid-depth rather than at either end, hence the sine.
@@ -264,25 +263,24 @@ const fieldFragment = tgpu["~unstable"].fragmentFn({
   const fine =
     random(
       std.add(
-        std.mul(std.div(frag, std.max(uniforms.$.resolution, d.vec2f(1, 1))), 1000),
-        d.vec2f(uniforms.$.time * 0.1, uniforms.$.time * 0.1),
+        std.mul(std.div(frag, std.max(uniforms.resolution, d.vec2f(1, 1))), 1000),
+        d.vec2f(uniforms.time * 0.1, uniforms.time * 0.1),
       ),
     ) - 0.5;
   const coarse =
-    random(
-      std.floor(std.div(std.add(frag, d.vec2f(uniforms.$.time * 5, uniforms.$.time * 5)), 3)),
-    ) - 0.5;
+    random(std.floor(std.div(std.add(frag, d.vec2f(uniforms.time * 5, uniforms.time * 5)), 3))) -
+    0.5;
   const grain = (fine * 0.019 + coarse * 0.006) * intensity.z;
 
-  const ground = std.mul(uniforms.$.ground, 0.86 + vignette * 0.18);
+  const ground = std.mul(uniforms.ground, 0.86 + vignette * 0.18);
   const lineColor = std.mix(
-    uniforms.$.dotRest,
-    uniforms.$.dotLift,
+    uniforms.dotRest,
+    uniforms.dotLift,
     std.clamp(dynamic * 1.35 + hoverLineSignal * 1.44, 0, 1),
   );
   const dotColor = std.mix(
-    std.mix(uniforms.$.dotRest, d.vec3f(1, 1, 1), wellCore * 0.42),
-    uniforms.$.dotLift,
+    std.mix(uniforms.dotRest, d.vec3f(1, 1, 1), wellCore * 0.42),
+    uniforms.dotLift,
     std.clamp(dynamic * 0.42 + hoverDotSignal * 0.7, 0, 1),
   );
 
@@ -290,7 +288,7 @@ const fieldFragment = tgpu["~unstable"].fragmentFn({
   // reassignment would be writing through to whatever the reference points at.
   let color = d.vec3f(ground);
 
-  color = std.mix(color, uniforms.$.dotRest, std.clamp(halfLineAlpha, 0, 1));
+  color = std.mix(color, uniforms.dotRest, std.clamp(halfLineAlpha, 0, 1));
   color = std.mix(color, lineColor, std.clamp(lineAlpha, 0, 1));
   color = std.mix(color, dotColor, std.clamp(dotAlpha, 0, 1));
   // Added rather than mixed: the lit region has to gain light, not merely swap the colour of the
@@ -301,9 +299,9 @@ const fieldFragment = tgpu["~unstable"].fragmentFn({
   // stopped being a lift and became a hot amber tile sitting on the canvas.
   color = std.add(
     color,
-    std.mul(uniforms.$.dotLift, hoverLineSignal * std.max(majorLineCore, halfLineCore) * 0.09),
+    std.mul(uniforms.dotLift, hoverLineSignal * std.max(majorLineCore, halfLineCore) * 0.09),
   );
-  color = std.add(color, std.mul(uniforms.$.dotLift, hoverDot * 0.1));
+  color = std.add(color, std.mul(uniforms.dotLift, hoverDot * 0.1));
   color = std.add(color, d.vec3f(grain, grain, grain));
 
   return d.vec4f(color.x, color.y, color.z, 1);

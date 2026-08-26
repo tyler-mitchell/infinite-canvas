@@ -243,10 +243,13 @@ export function Field({ config = DEFAULT_FIELD_CONFIG }: Readonly<{ config?: Fie
         masses: massesBuffer,
         uniforms: uniformsBuffer,
       });
-      const pipeline = root["~unstable"]
-        .withVertex(fullScreenTriangle, {})
-        .withFragment(fieldFragment, { format })
-        .createPipeline();
+      // 0.12 removed the `withVertex(...).withFragment(...).createPipeline()` builder; the stages
+      // and their targets are passed to `createRenderPipeline` directly.
+      const pipeline = root.createRenderPipeline({
+        fragment: fieldFragment,
+        targets: { format },
+        vertex: fullScreenTriangle,
+      });
 
       const ground = readColor(canvas, "--ground");
       const dotRest = readColor(canvas, "--dot-rest");

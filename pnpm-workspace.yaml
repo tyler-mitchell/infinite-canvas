@@ -68,8 +68,8 @@ catalog:
   "@lexical/code": ^0.49.0
   # The field's shader. `unplugin-typegpu` is not optional — shaders authored in
   # TypeScript do not work at all without it.
-  typegpu: ^0.11.2
-  "unplugin-typegpu": ^0.11.0
+  typegpu: ^0.12.3
+  "unplugin-typegpu": ^0.12.0
   "@webgpu/types": ^0.1.66
 overrides:
   vite: "catalog:"
