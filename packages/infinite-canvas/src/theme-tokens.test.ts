@@ -64,15 +64,21 @@ test("every data-slot selector in theme.css exists in the styling contract", () 
 });
 
 /**
- * Two `--icx-*` tokens are **computed per window at runtime**, not declared in theme.css:
+ * Three `--icx-*` tokens are **computed per window at runtime**, not declared in theme.css:
  * `--icx-chrome-stroke`, which the frame widens in world units as zoom shrinks so a 1px border
- * never renders sub-pixel, and `--icx-resize-handle-size`, which sizes the grab targets.
+ * never renders sub-pixel; `--icx-resize-handle-size`, which sizes the grab targets; and
+ * `--icx-screen-px`, the world length of one screen pixel, which is the general form of the other
+ * two and the one a consumer sizes its own in-window controls against.
  *
  * They are therefore invisible to the bridging test above, and the failure mode if a refactor
  * drops the write is silent and exactly the bug the low-zoom chrome work fixed: `var()` falls
  * back to nothing, every stroke collapses at low zoom, and the canvas looks *almost* right.
  */
-const RUNTIME_WRITTEN_TOKENS = ["--icx-chrome-stroke", "--icx-resize-handle-size"] as const;
+const RUNTIME_WRITTEN_TOKENS = [
+  "--icx-chrome-stroke",
+  "--icx-resize-handle-size",
+  "--icx-screen-px",
+] as const;
 
 test("runtime-computed tokens are still written as inline custom properties", () => {
   const frameSource = readFileSync(

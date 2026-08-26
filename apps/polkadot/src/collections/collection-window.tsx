@@ -54,8 +54,21 @@ const collectionWindow = tv({
     /** The header for a question with no alternatives, shaped like the trigger but inert. */
     staticLabel:
       "flex items-center gap-1 px-1.5 py-0.5 text-[11px] font-medium tracking-[-0.005em] text-[var(--ink)]",
+    /*
+     * Sized in screen pixels, so it stays hittable when the canvas is zoomed out.
+     *
+     * A control inside a window lives under `transform: scale(zoom)`, so authored padding shrinks
+     * with everything else: this measured 28px tall at 100% and 14.9px at 0.53, which is the lowest
+     * zoom that still renders a body for a window this size. Below any reasonable target, and worst
+     * exactly when the user has zoomed out to work across several windows.
+     *
+     * `--icx-screen-px` is the world length of one screen pixel, published by the framework on the
+     * frame whose style is rewritten every tick anyway — so this holds its size with no subscription
+     * to zoom and no re-render. The type stays in world units deliberately: text that stopped
+     * scaling would make the header the only thing on the canvas ignoring the camera.
+     */
     trigger:
-      "flex items-center gap-1 rounded-[var(--radius-sm)] px-1.5 py-0.5 text-[11px] font-medium tracking-[-0.005em] text-[var(--ink)] transition-colors duration-100 ease-[var(--ease-swift)] hover:bg-[var(--surface-hover)]",
+      "flex min-h-[calc(var(--icx-screen-px)*24)] items-center gap-1 rounded-[var(--radius-sm)] px-[calc(var(--icx-screen-px)*6)] py-[calc(var(--icx-screen-px)*3)] text-[11px] font-medium tracking-[-0.005em] text-[var(--ink)] transition-colors duration-100 ease-[var(--ease-swift)] hover:bg-[var(--surface-hover)]",
     triggerIcon: "size-3 text-[var(--ink-faint)]",
   },
 });

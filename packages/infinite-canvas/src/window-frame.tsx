@@ -85,6 +85,25 @@ const RESIZE_HANDLE_SIZE_CSS_VARIABLE = "--icx-resize-handle-size";
  */
 const CHROME_STROKE_CSS_VARIABLE = "--icx-chrome-stroke";
 
+/**
+ * One screen pixel, in this frame's world units.
+ *
+ * The generalisation of the two variables above, and the one a *consumer* needs. Both of those
+ * answer a specific question — how big is a handle, how thick is a stroke — so an app sizing
+ * anything else of its own inside a window has neither, and the obvious alternative is to
+ * subscribe to `camera.zoom` and divide. That re-renders every such control on every zoom tick,
+ * which is precisely what this file's header says it exists to prevent: only the outer transform
+ * may change per tick, and everything inside is memoized on the window's own identity.
+ *
+ * Published here instead, on a style that is rewritten every tick regardless, so a control writes
+ * `calc(var(--icx-screen-px) * 8)` once and never re-renders to stay a constant size on screen.
+ *
+ * Found by a consumer whose in-window menu trigger measured 28px at 100% zoom and 15px at the
+ * lowest zoom that still draws a body — a control that shrinks out of reach exactly when the user
+ * has zoomed out to work across several windows at once.
+ */
+const SCREEN_PIXEL_CSS_VARIABLE = "--icx-screen-px";
+
 const CHROME_STROKE = `var(${CHROME_STROKE_CSS_VARIABLE})`;
 
 const RESIZE_HANDLE_EXTENT = `var(${RESIZE_HANDLE_SIZE_CSS_VARIABLE})`;
@@ -124,7 +143,8 @@ function isFrameOffscreen<Kind extends string>({
 /** React's `CSSProperties` has no slot for custom properties. Widen just this one. */
 type InfiniteCanvasFrameStyle = CSSProperties &
   Readonly<Record<typeof CHROME_STROKE_CSS_VARIABLE, string>> &
-  Readonly<Record<typeof RESIZE_HANDLE_SIZE_CSS_VARIABLE, string>>;
+  Readonly<Record<typeof RESIZE_HANDLE_SIZE_CSS_VARIABLE, string>> &
+  Readonly<Record<typeof SCREEN_PIXEL_CSS_VARIABLE, string>>;
 
 type InfiniteCanvasResizeHandleDescriptor = Readonly<{
   cursor: CSSProperties["cursor"];
@@ -308,6 +328,7 @@ function InfiniteCanvasWindowFrameContent<Kind extends string>({
   const articleStyle: InfiniteCanvasFrameStyle = {
     [CHROME_STROKE_CSS_VARIABLE]: `${getWorldLengthWithScreenFloor(chrome.borderWidth, screenTransform.scale)}px`,
     [RESIZE_HANDLE_SIZE_CSS_VARIABLE]: `${chrome.resizeHandleSize / screenTransform.scale}px`,
+    [SCREEN_PIXEL_CSS_VARIABLE]: `${1 / screenTransform.scale}px`,
     contain: "layout paint style",
     // Skipping a pan-away window's subtree, without unmounting it. `auto` and not `hidden`:
     // the browser forces skipped content back on when it takes focus or is found by
