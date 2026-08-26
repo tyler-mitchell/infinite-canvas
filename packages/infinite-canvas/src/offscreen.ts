@@ -33,12 +33,14 @@ import type { InfiniteCanvasPoint, InfiniteCanvasRect, InfiniteCanvasState } fro
  * collapsed fold are omitted *individually* but still counted through their group, which is
  * the thing you would navigate to.
  *
+ * Two targets that merely *look* like one are folded the same way, by where they land rather than
+ * by what they are: see `mergeWithinPx`. Drawing this in a browser is what turned that up — the
+ * rule had been written for groups and stopped there, so two unrelated windows on the same bearing
+ * still stacked.
+ *
  * @experimental Landed 2026-07-08. First drawn in a browser by Polkadot, which found the shape
  * sufficient: `angle` needs no sign correction to rotate a right-pointing glyph, `point` lands
- * where a chip should sit, and `rect` feeds `view.navigate` unchanged. One thing the consumer had
- * to solve itself, and it may belong here later: two separate windows at the same bearing put two
- * indicators on nearly the same pixel. Groups are already folded for exactly that reason; distinct
- * windows are not.
+ * where a chip should sit, and `rect` feeds `view.navigate` unchanged.
  */
 
 type InfiniteCanvasOffscreenTargetKind = "group" | "window";
@@ -68,6 +70,15 @@ type InfiniteCanvasOffscreenIndicator = Readonly<{
   point: InfiniteCanvasPoint;
   /** The target's world rect. Hand it to `navigateToRect`, or its centre to `navigateToPoint`. */
   rect: InfiniteCanvasRect;
+  /**
+   * How many offscreen targets this indicator stands for, including itself — `1` unless others
+   * landed on the same pixel and were folded into it.
+   *
+   * Given so a consumer can say "and two more behind this one" rather than draw one arrow and
+   * imply it is the only thing out there. The folded ones are not returned: their bearing and
+   * distance are, to a viewer, this one's.
+   */
+  targetCount: number;
 }>;
 
 type InfiniteCanvasOffscreenOptions = Readonly<{
@@ -91,9 +102,26 @@ type InfiniteCanvasOffscreenOptions = Readonly<{
    * returns an empty array.
    */
   marginPx?: number;
+  /**
+   * Fold indicators landing within this many screen pixels of a nearer one, in pixels.
+   *
+   * Two targets at the same bearing project to nearly the same point, and two arrows on the same
+   * pixel is not information — it is one arrow with a smudge. Groups are already folded for
+   * exactly this reason; this is the same rule applied to targets that merely *look* like one.
+   *
+   * Pixels rather than degrees, because the ring is a rectangle: the same angular separation is
+   * tens of pixels along an edge and almost nothing near a corner, and it is pixels that decide
+   * whether two chips overlap.
+   *
+   * The nearer target survives and carries the count. `0` disables folding.
+   */
+  mergeWithinPx?: number;
 }>;
 
 const DEFAULT_OFFSCREEN_INSET_PX = 24;
+
+/** Roughly a chip, which is what a consumer draws at each point. */
+const DEFAULT_OFFSCREEN_MERGE_WITHIN_PX = 28;
 
 /**
  * Project a ray from the viewport centre onto the inset viewport edge.
@@ -146,6 +174,7 @@ function getInfiniteCanvasOffscreenIndicators<Kind extends string>(
     insetPx = DEFAULT_OFFSCREEN_INSET_PX,
     limit = Number.POSITIVE_INFINITY,
     marginPx = 0,
+    mergeWithinPx = DEFAULT_OFFSCREEN_MERGE_WITHIN_PX,
   } = options;
   const { camera, viewport } = state;
   /*
@@ -198,7 +227,7 @@ function getInfiniteCanvasOffscreenIndicators<Kind extends string>(
     y: content.y + content.height / 2,
   };
 
-  return targets
+  const projected = targets
     .filter((target) => !isWorldRectWithinViewport(camera, viewport, target.rect, marginPx))
     .map((target) => {
       const targetCenter = worldPointToScreenPoint(camera, viewport, getRectCenter(target.rect));
@@ -209,10 +238,43 @@ function getInfiniteCanvasOffscreenIndicators<Kind extends string>(
         angle: Math.atan2(delta.y, delta.x),
         distancePx: Math.hypot(delta.x, delta.y),
         point: projectOntoEdge(screenCenter, delta, halfWidth, halfHeight),
+        targetCount: 1,
       };
     })
-    .sort((left, right) => left.distancePx - right.distancePx)
-    .slice(0, limit);
+    .sort((left, right) => left.distancePx - right.distancePx);
+
+  /*
+   * Fold what lands on the same pixel, nearest kept.
+   *
+   * Before the `limit` rather than after, or a cap of five spent on five arrows in one place
+   * would hide everything in every other direction — the opposite of what a cap is for.
+   *
+   * Linear in the number folded into, which is the count a consumer is willing to draw. The
+   * quadratic worst case needs every target at a distinct bearing, and that is the case where no
+   * folding happens at all.
+   */
+  const folded =
+    mergeWithinPx <= 0
+      ? projected
+      : projected.reduce<(typeof projected)[number][]>((kept, candidate) => {
+          const nearer = kept.find(
+            (indicator) =>
+              Math.hypot(
+                indicator.point.x - candidate.point.x,
+                indicator.point.y - candidate.point.y,
+              ) <= mergeWithinPx,
+          );
+
+          if (nearer === undefined) {
+            return [...kept, candidate];
+          }
+
+          nearer.targetCount += 1;
+
+          return kept;
+        }, []);
+
+  return folded.slice(0, limit);
 }
 
 export { getInfiniteCanvasOffscreenIndicators };

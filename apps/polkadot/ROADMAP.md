@@ -214,9 +214,15 @@ stays. What is missing is the field itself, and it is hours of careful work, not
       worth showing, and what a click does.
       Verified by driving it: pan both notes off-screen and two chips appear at −136° and −146°,
       both pointing up-and-left where the notes went; clicking one centres it in the visible region.
-      **Found while consuming it:** two separate windows at the same bearing stack on nearly the
-      same pixel. Groups are already folded for that reason, distinct windows are not — recorded on
-      the framework function rather than worked around here.
+      **Found while consuming it, then fixed generically:** two separate windows at the same
+      bearing stacked on nearly the same pixel. Groups were already folded for that reason and
+      distinct windows were not, so the framework folds by _where a target lands_ now rather than
+      by what it is — `mergeWithinPx`, in pixels because the ring is a rectangle and the same
+      angular gap is tens of pixels on an edge and almost nothing at a corner. The nearer target
+      survives and carries a `targetCount`, which the chip shows as a badge: one arrow over a
+      cluster of five should say five, or you do not go looking.
+      Folding is proven by unit test and mutation-checked; the browser has witnessed the
+      _non_-folding case — two chips 47px apart, correctly left alone — not a fold.
       **Still open:** the chips are peripheral by design and deliberately quiet, tuned by one look
       rather than by watching anyone use them.
 

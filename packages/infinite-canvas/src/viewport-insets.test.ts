@@ -240,3 +240,49 @@ test("fitCameraToWorldRect with insets — agrees with the framework's own scree
   expect(projected.x).toBeCloseTo(200, 6);
   expect(projected.y).toBeCloseTo(100, 6);
 });
+
+/**
+ * Folding, which is the half a consumer cannot do for itself.
+ *
+ * Two windows at the same bearing project to nearly the same pixel, and a consumer holding only
+ * the returned points cannot tell "two things over there" from "one thing, drawn twice".
+ */
+const atBearings = (...rects: readonly InfiniteCanvasRect[]) =>
+  createInfiniteCanvasState<"note">({
+    viewport: VIEWPORT,
+    windows: rects.map((rect, index) =>
+      createInfiniteCanvasWindow<"note">({ id: `w${String(index)}`, kind: "note", rect }),
+    ),
+  });
+
+const FAR_WEST: InfiniteCanvasRect = { height: 100, width: 100, x: -4000, y: 0 };
+/** Further along the same ray, so it projects onto the same edge point. */
+const FURTHER_WEST: InfiniteCanvasRect = { height: 100, width: 100, x: -9000, y: 0 };
+const FAR_EAST: InfiniteCanvasRect = { height: 100, width: 100, x: 4000, y: 0 };
+
+test("getInfiniteCanvasOffscreenIndicators — folds targets that land on the same pixel", () => {
+  const [indicator, ...rest] = getInfiniteCanvasOffscreenIndicators(
+    atBearings(FAR_WEST, FURTHER_WEST),
+  );
+
+  expect(rest).toHaveLength(0);
+  // The nearer one survives and carries the count.
+  expect(indicator?.id).toBe("w0");
+  expect(indicator?.targetCount).toBe(2);
+});
+
+test("getInfiniteCanvasOffscreenIndicators — leaves distinct bearings alone", () => {
+  expect(
+    getInfiniteCanvasOffscreenIndicators(atBearings(FAR_WEST, FAR_EAST)).map(
+      (indicator) => indicator.targetCount,
+    ),
+  ).toEqual([1, 1]);
+});
+
+test("getInfiniteCanvasOffscreenIndicators — mergeWithinPx 0 restores one arrow per target", () => {
+  expect(
+    getInfiniteCanvasOffscreenIndicators(atBearings(FAR_WEST, FURTHER_WEST), {
+      mergeWithinPx: 0,
+    }),
+  ).toHaveLength(2);
+});

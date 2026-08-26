@@ -38,6 +38,9 @@ const RING_INSET_PX = 26;
 const indicators = tv({
   slots: {
     arrow: "size-3",
+    /** Sits on the chip's shoulder, the way a notification count does. */
+    badge:
+      "pointer-events-none absolute -top-1 -right-1 grid h-3.5 min-w-3.5 place-items-center rounded-[var(--radius-pill)] bg-[var(--surface-raised)] px-1 font-mono text-[9px] leading-none tabular-nums text-[var(--ink-muted)]",
     /**
      * Centred on its own point, then the arrow alone is rotated.
      *
@@ -76,9 +79,16 @@ export function OffscreenIndicators() {
             ? (state.groups.find((group) => group.id === indicator.id)?.title ?? "Group")
             : (state.windows.find((window) => window.id === indicator.id)?.title ?? "Window");
 
+        // One string for the tooltip and the accessible name: a rail of unlabelled glyphs is the
+        // failure mode of every canvas tool, and two labels that drift is the next one.
+        const label =
+          indicator.targetCount > 1
+            ? `Go to ${title}, and ${String(indicator.targetCount - 1)} more this way`
+            : `Go to ${title}`;
+
         return (
           <button
-            aria-label={`Go to ${title}`}
+            aria-label={label}
             className={styles.chip({ active: indicator.isActive })}
             key={`${indicator.kind}:${indicator.id}`}
             onClick={() => {
@@ -95,7 +105,7 @@ export function OffscreenIndicators() {
             }}
             // Screen pixels from the framework; nothing here recomputes a projection.
             style={{ left: indicator.point.x, top: indicator.point.y }}
-            title={`Go to ${title}`}
+            title={label}
             type="button"
           >
             {/*
@@ -110,6 +120,14 @@ export function OffscreenIndicators() {
             >
               <path d="M2 6h7M6 3l3 3-3 3" fill="none" stroke="currentColor" strokeWidth="1.5" />
             </svg>
+            {/*
+              What this arrow stands for, when it stands for more than itself. Without it, one
+              chip over a cluster of five reads as "there is a note that way" rather than "there
+              are five", and the difference is whether you go looking.
+            */}
+            {indicator.targetCount > 1 ? (
+              <span className={styles.badge()}>{indicator.targetCount}</span>
+            ) : null}
           </button>
         );
       })}
