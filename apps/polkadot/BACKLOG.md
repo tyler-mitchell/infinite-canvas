@@ -113,8 +113,12 @@ one that did not. The schema already got this right; the app has not caught up.
 
 **Where it collides with canvas routing**, which is being designed now and should account for it:
 
-- The route is `/p/$projectId/c/$canvasId/…`, not `/c/$canvasId`. Deciding that now costs nothing
-  and avoids a migration of every link.
+- ~~The route is `/p/$projectId/c/$canvasId/…`, not `/c/$canvasId`.~~ **Decided the other way, and
+  this note was wrong.** A canvas belongs to exactly one project, so a project segment is
+  derivable data in the address — and derivable data in an address can contradict the record it
+  names, which buys a validation path and a mismatch failure mode in exchange for a shorter
+  migration that costs nothing today anyway. The route is `/canvas/$canvasId`; `fn::open_canvas`
+  returns the project flattened alongside the canvas so the shell can name both.
 - Switching projects is a _different_ motion from switching workspaces. A workspace switch is a
   filter on one canvas and keeps the camera; a project switch tears down the canvas store, the note
   store, and the persistence loop and builds new ones. They should not look alike in the UI, and
@@ -123,14 +127,22 @@ one that did not. The schema already got this right; the app has not caught up.
   first _real_ use of a command surface — `Mod+P` over projects and canvases, the way an editor
   switches workspaces.
 
-**Shape**
+**Landed:** `fn::list_projects`, `fn::create_project`, `fn::rename_project`, project-scoped
+`fn::list_canvases` and `fn::list_archived_canvases`, and a project switcher on the brand mark.
+Creating a project creates its first canvas with it, because the app addresses canvases and a
+project with none would be unreachable.
 
-- `fn::list_projects`, `fn::create_project`, `fn::open_canvas($project, $canvasId)` replacing the
-  hardcoded `fn::open_default_canvas`.
+**What remains, and why it was held back:** archiving and deleting a project. Unlike a canvas,
+this has a genuine cascade question — a project owns canvases _and_ `content_item` records, so
+deletion either destroys the notes inside it or orphans them, and that is a data-retention
+decision rather than a UI one. It deserves its own thinking rather than being tacked onto the
+slice that introduced projects.
+
+- Archive first: `archived_at` exists on all three tables, and `fn::list_projects` already filters
+  on it, so project archive is nearly free once the cascade rule is decided.
+- Permanent removal needs the same treatment canvases got — a confirmation stating real counts,
+  which for a project means canvases _and_ notes, and must say plainly which of them survive.
 - The note store is keyed by record id and needs no change; the records already carry `project`.
-- Deleting a project must be a real decision — archive first (`archived_at` already exists on all
-  three tables and nothing reads it yet), destructive delete behind a confirmation that names what
-  is being destroyed.
 
 **Open questions**
 

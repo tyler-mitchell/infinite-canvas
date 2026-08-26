@@ -131,7 +131,10 @@ Files: `src/workspace/project-library.tsx`, `src/workspace/canvas-library.tsx`,
 
 Tasks:
 
-- [ ] Create, open, rename, duplicate, archive, restore, and permanently remove projects.
+- [~] Create, open, and rename projects. Duplicate, archive, restore, and permanent removal are
+  not built: a project owns canvases and `content_item` records, so removing one either
+  destroys the notes inside it or orphans them, and that is a retention decision rather than
+  a UI one.
 - [x] Create, open, rename, duplicate, archive, restore, and permanently remove canvases.
 - [ ] Add recent and recovery collections with explicit empty and failure states.
 - [ ] Keep several canvas routes available as tabs without sharing stores.
