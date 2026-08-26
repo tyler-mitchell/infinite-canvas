@@ -574,11 +574,18 @@ open because it feels good to look at. Concretely, and these are enforced in rev
   to avoid. Driven: closing "Untitled 2" drops the connector to zero and raises one stub, which at
   zoom 0.50 draws with no count (5.5px is below the legibility floor) and at zoom 1.0 reads "1" at
   11px.
-  **Unwitnessed, and worth naming so nothing here is read as proof it is not:** the connector
-  available to drive has a symmetric route, so its routed midpoint and the average of its endpoints
-  are the same point. That case cannot tell the two apart. The label anchor uses the framework's
-  path, which is the one that holds when a route is asymmetric — but an asymmetric route was never
-  observed, so that is reasoning rather than evidence.
+  **That claim is evidence now, and it did not need an asymmetric connector on screen to get
+  there.** It stood here as "reasoning rather than evidence" because every connector available to
+  drive had a symmetric route, where the routed midpoint and the endpoint average coincide and the
+  case cannot tell them apart. The distinction is pure geometry, so it belongs in the framework's
+  tests rather than in a canvas someone has to arrange: `scene-layer-geometry.test.ts` walks an
+  elbow — `(0,0) → (100,0) → (100,50)` — and asserts the routed midpoint `(75, 0)` lies on a limb
+  while the endpoint average `(50, 25)` lies on none, sitting in the open space the corner encloses.
+  Proven to bite before being trusted: replacing the implementation with the endpoint average fails
+  it with exactly `(50, 25)`.
+  **Worth separating from the anchor question**, because the two get confused: this is about where
+  the middle of a _route_ is, and it holds even with nothing occluding the line. Which part of the
+  line is _visible_ is the different question below.
   **Still open:** a stub says how many connections are hidden and not which, and the count is per
   window rather than per neighbour, so two windows on the same note each repeat it.
   **Also still open, found by driving the whole flow rather than one feature:** a connector between
@@ -588,17 +595,30 @@ open because it feels good to look at. Concretely, and these are enforced in rev
   exposed segment measured 30px, and clicking its midpoint selected nothing because that midpoint
   was still inside a window. Nothing is wrong with the hit radius or the stacking; the geometry
   simply leaves nothing to hit. Two notes side by side are also the two most likely to be
-  connected, so this is not an edge case. A connector may need a grab area that survives occlusion —
-  the label already sits at the routed midpoint and is a candidate — but that is a design question
-  and no design has been chosen.
-  **Two objections to the label-as-grab-area idea, before anyone builds it.** The midpoint is
-  exactly the point measured as being _inside_ a window, so anchoring there inherits the problem it
-  was meant to solve. And a `relates` edge draws no label at all by design, so a label-shaped target
-  would give the least-annotated edges the smallest one — the opposite of what is wanted. What
-  actually survives occlusion is the longest run of the path no window rect covers, which is a
-  different query from "the middle of the path", and one the framework is better placed to answer
-  since it owns both the path segments and the window rects. "Which part of this line can be seen"
-  is not a Polkadot question.
+  connected, so this is not an edge case.
+  **A design was chosen and shipped, and this paragraph used to say none had been — read the code
+  before reopening it.** The rejected idea was a label-shaped grab area, on two grounds that still
+  hold: the routed midpoint is exactly the point measured as being _inside_ a window, so anchoring
+  there inherits the problem it was meant to solve, and a `relates` edge draws no label at all by
+  design, so a label-shaped target would give the least-annotated edges the smallest one. What
+  survives occlusion is the longest run of the path no window rect covers — a different query from
+  "the middle of the path", and the framework's to answer since it owns both the segments and the
+  window rects. "Which part of this line can be seen" is not a Polkadot question, and the framework
+  already answers it: `getInfiniteCanvasLongestUnoccludedSegment`, with `occlusion.test.ts` covering
+  the nearly-touching pair by name.
+  **So the marker goes to the middle of the clear run, or nowhere at all.**
+  `connector-geometry` anchors on `clear?.midpoint ?? null`, and the `null` is the deliberate half:
+  a fallback to the path midpoint was written, driven, and watched put the mark inside a window
+  every time two windows overlapped heavily. A fixed position that stops the anchor jumping is worth
+  nothing when the anchor is invisible in all of those positions.
+  **What remains true is narrower than what stood here, and it is a decision rather than a gap.**
+  When the clear run is a few pixels, that edge is effectively unselectable _on the canvas_ — the
+  resolver offers every segment as a target, windows correctly win wherever they cover, and the
+  geometry simply leaves almost nothing exposed. The answer is not a bigger target on the canvas: it
+  is that the library rail lists every connection whether or not it can be seen, cuts it in one
+  click, and needs neither end open to do so. That surface exists and is the one to reach for. An
+  edge nobody can see is a real thing about the arrangement, and inventing a hit area that floats
+  free of the line would be drawing something that is not there.
   **Cutting no longer waits on any of that.** The library rail lists every connection a note has,
   including ones whose other end is closed, and each row now says what the connection means and
   offers to cut it. That is the surface where acting on an edge does not depend on where its notes
