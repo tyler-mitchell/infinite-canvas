@@ -12,7 +12,7 @@ export default defineConfig({
     options: { typeAware: true, typeCheck: true },
     overrides: [
       {
-        files: ["apps/playground/**"],
+        files: ["apps/playground/**", "apps/polkadot/**"],
         plugins: ["typescript", "react"],
       },
     ],

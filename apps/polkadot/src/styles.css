@@ -1,0 +1,55 @@
+@layer theme, base, infinite-canvas, components, utilities;
+
+@import "@hyphened/infinite-canvas/theme.css";
+@import "tailwindcss";
+@import "@fontsource-variable/geist";
+
+@source "../../../packages/ui/src";
+
+:root {
+  color-scheme: dark;
+  font-family: "Geist Variable", ui-sans-serif, system-ui, sans-serif;
+
+  --background: #07080a;
+  --foreground: #f4f0e7;
+  --card: rgb(16 18 22 / 0.92);
+  --card-foreground: #f4f0e7;
+  --popover: rgb(10 12 15 / 0.94);
+  --popover-foreground: #f4f0e7;
+  --primary: #f1ead8;
+  --primary-foreground: #090a0c;
+  --secondary: #171a20;
+  --secondary-foreground: #ece7dc;
+  --muted: #15181d;
+  --muted-foreground: #979a95;
+  --accent: #20242b;
+  --accent-foreground: #f4f0e7;
+  --destructive: #e45f5f;
+  --destructive-foreground: #fff7f4;
+  --border: rgb(255 255 255 / 0.08);
+  --input: rgb(255 255 255 / 0.1);
+  --ring: #d5c59d;
+  --radius: 0.75rem;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  overflow: hidden;
+  background: var(--background);
+  color: var(--foreground);
+}
+
+button,
+input,
+textarea {
+  font: inherit;
+}

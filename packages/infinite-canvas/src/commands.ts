@@ -1993,15 +1993,13 @@ function getInfiniteCanvasHotkeyBindings(
   commandDescriptors: readonly InfiniteCanvasCommandDescriptor[] = DEFAULT_INFINITE_CANVAS_COMMAND_DESCRIPTORS,
 ) {
   return commandDescriptors.flatMap((descriptor) =>
-    descriptor.hotkeys.map(
-      (hotkey): InfiniteCanvasHotkeyBinding => ({
-        command: descriptor.command,
-        description: descriptor.description,
-        hotkey,
-        id: descriptor.id,
-        label: descriptor.label,
-      }),
-    ),
+    descriptor.hotkeys.map((hotkey): InfiniteCanvasHotkeyBinding => ({
+      command: descriptor.command,
+      description: descriptor.description,
+      hotkey,
+      id: descriptor.id,
+      label: descriptor.label,
+    })),
   );
 }
 

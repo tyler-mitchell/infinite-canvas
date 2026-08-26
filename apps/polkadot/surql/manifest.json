@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "stages": [
+    {
+      "name": "schema",
+      "files": ["schema/001_core.surql"]
+    },
+    {
+      "name": "functions",
+      "files": ["functions/001_canvas.surql"]
+    }
+  ],
+  "tests": ["tests/001_core.surql"]
+}

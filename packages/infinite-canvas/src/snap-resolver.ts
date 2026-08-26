@@ -119,16 +119,14 @@ function findAxisAdjustment(
   const matches: readonly SnapMatch[] = anchors.flatMap((anchor) =>
     candidates
       .filter((candidate) => isCompatibleCandidate(anchor, candidate))
-      .map(
-        (candidate): SnapMatch => ({
-          candidate,
-          delta: candidate.position - anchor.position,
-          distancePx: Math.abs((candidate.position - anchor.position) * zoom),
-          guide: toGuide(anchor, candidate),
-          sourceAnchor: anchor.sourceAnchor,
-          threshold: getCandidateThreshold(candidate, policy, engagedGuideIds),
-        }),
-      ),
+      .map((candidate): SnapMatch => ({
+        candidate,
+        delta: candidate.position - anchor.position,
+        distancePx: Math.abs((candidate.position - anchor.position) * zoom),
+        guide: toGuide(anchor, candidate),
+        sourceAnchor: anchor.sourceAnchor,
+        threshold: getCandidateThreshold(candidate, policy, engagedGuideIds),
+      })),
   );
   const reachableMatches = matches.filter((match) => match.distancePx <= match.threshold);
   const best = reachableMatches.reduce<SnapAdjustment | null>(

@@ -60,42 +60,41 @@ function registerInfiniteCanvasHotkeys<Kind extends string>({
   target,
 }: InfiniteCanvasHotkeyRegistrationInput<Kind>) {
   const manager = getHotkeyManager();
-  const handles = bindings.map(
-    (binding): HotkeyRegistrationHandle =>
-      manager.register(
-        binding.hotkey,
-        (event) => {
-          if (!shouldHandleInfiniteCanvasKeyboardEvent(event, target)) {
-            return;
-          }
+  const handles = bindings.map((binding): HotkeyRegistrationHandle =>
+    manager.register(
+      binding.hotkey,
+      (event) => {
+        if (!shouldHandleInfiniteCanvasKeyboardEvent(event, target)) {
+          return;
+        }
 
-          // The chord belongs to the canvas the moment it lands on the command
-          // surface, so swallow it even when the command is unavailable. Letting
-          // an unavailable binding fall through to the browser is how
-          // `Alt+ArrowLeft` at the left edge of your windows navigates Back and
-          // takes the document with it — the failure arrives exactly when the
-          // user is pressing hardest against a boundary.
-          event.preventDefault();
-          event.stopPropagation();
+        // The chord belongs to the canvas the moment it lands on the command
+        // surface, so swallow it even when the command is unavailable. Letting
+        // an unavailable binding fall through to the browser is how
+        // `Alt+ArrowLeft` at the left edge of your windows navigates Back and
+        // takes the document with it — the failure arrives exactly when the
+        // user is pressing hardest against a boundary.
+        event.preventDefault();
+        event.stopPropagation();
 
-          if (!isInfiniteCanvasCommandEnabled(getState(), binding.command)) {
-            return;
-          }
+        if (!isInfiniteCanvasCommandEnabled(getState(), binding.command)) {
+          return;
+        }
 
-          executeCommand(binding.command);
+        executeCommand(binding.command);
+      },
+      {
+        conflictBehavior: "warn",
+        ignoreInputs: true,
+        meta: {
+          description: binding.description,
+          name: binding.label,
         },
-        {
-          conflictBehavior: "warn",
-          ignoreInputs: true,
-          meta: {
-            description: binding.description,
-            name: binding.label,
-          },
-          preventDefault: false,
-          stopPropagation: false,
-          target,
-        },
-      ),
+        preventDefault: false,
+        stopPropagation: false,
+        target,
+      },
+    ),
   );
 
   return () => {

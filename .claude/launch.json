@@ -2,6 +2,12 @@
   "version": "0.0.1",
   "configurations": [
     {
+      "name": "polkadot",
+      "runtimeExecutable": "vp",
+      "runtimeArgs": ["run", "polkadot#dev"],
+      "port": 3000
+    },
+    {
       "name": "playground",
       "runtimeExecutable": "vp",
       "runtimeArgs": ["run", "playground#dev"],

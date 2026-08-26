@@ -132,15 +132,13 @@ function captureInfiniteCanvasRecipe<Kind extends string>(
     name: input.name,
     size: { height: bounds.height, width: bounds.width },
     version: INFINITE_CANVAS_RECIPE_VERSION,
-    windows: windows.map(
-      (window): InfiniteCanvasRecipeWindow => ({
-        isPinned: window.isPinned,
-        mode: window.mode,
-        rect: translateRect(window.rect, toOrigin),
-        windowId: window.id,
-        zIndex: window.zIndex,
-      }),
-    ),
+    windows: windows.map((window): InfiniteCanvasRecipeWindow => ({
+      isPinned: window.isPinned,
+      mode: window.mode,
+      rect: translateRect(window.rect, toOrigin),
+      windowId: window.id,
+      zIndex: window.zIndex,
+    })),
   };
 }
 

@@ -1,0 +1,38 @@
+{
+  "name": "polkadot",
+  "private": true,
+  "type": "module",
+  "imports": {
+    "#/*": "./src/*"
+  },
+  "scripts": {
+    "dev": "vp dev --port 3000",
+    "build": "vp build",
+    "preview": "vp preview"
+  },
+  "dependencies": {
+    "@fontsource-variable/geist": "catalog:",
+    "@hyphened/infinite-canvas": "workspace:*",
+    "@legendapp/state": "catalog:",
+    "@surrealdb/wasm": "workspace:*",
+    "@tanstack/pacer": "catalog:",
+    "@tanstack/react-router": "catalog:",
+    "arktype": "catalog:",
+    "react": "catalog:",
+    "react-dom": "catalog:",
+    "surrealdb": "catalog:",
+    "ui": "workspace:*"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "catalog:",
+    "@tanstack/router-plugin": "catalog:",
+    "@types/node": "catalog:",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "@vitejs/plugin-react": "catalog:",
+    "tailwindcss": "catalog:",
+    "typescript": "~6.0.2",
+    "vite": "catalog:",
+    "vite-plus": "catalog:"
+  }
+}

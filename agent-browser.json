@@ -1,0 +1,16 @@
+{
+  "$schema": "https://agent-browser.dev/schema.json",
+  "colorScheme": "dark",
+  "downloadPath": ".runtime/agent-browser/downloads",
+  "engine": "chrome",
+  "headed": false,
+  "idleTimeout": "15000",
+  "json": true,
+  "maxOutput": 12000,
+  "profile": ".runtime/agent-browser/profile",
+  "screenshotDir": ".runtime/agent-browser/screenshots",
+  "screenshotFormat": "png",
+  "screenshotQuality": 100,
+  "session": "browser-witness",
+  "webgpu": true
+}
