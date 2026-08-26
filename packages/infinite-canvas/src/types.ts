@@ -993,6 +993,21 @@ type InfiniteCanvasCommand =
    * invent which desktop. The surface listing the desktops is what supplies the argument.
    */
   | Readonly<{ type: "workspace.moveActiveWindow"; workspaceId: string }>
+  /**
+   * Go to a window, wherever it is.
+   *
+   * Every surface that names a window somewhere other than the canvas — a launcher, a search
+   * result, a backlink, an offscreen cue — wants this one verb, and each of them was composing it
+   * out of three: restore if minimized, focus, then move the camera. Desktops broke that
+   * composition without any of them changing. `getNavigableWindow` filters on `minimized` alone,
+   * so a window the active desktop hides is still a navigation target, and going to it panned the
+   * camera to a rect nothing renders — the window read as lost rather than elsewhere.
+   *
+   * So revealing switches desktops first, to one that admits the window, or to no desktop at all
+   * when none does. That is what going to a thing means, and it is the same rule that makes
+   * `workspace.create` also enter: a verb that leaves you short of its own object is unfinished.
+   */
+  | Readonly<{ type: "window.reveal"; windowId: string }>
   | Readonly<{ amountPx: number; type: "group.resizePane" }>
   | Readonly<{ type: "group.dissolve" }>
   | Readonly<{ type: "group.flipAxis" }>
@@ -1040,6 +1055,7 @@ type InfiniteCanvasCommandId =
   | "workspace.close"
   | "workspace.create"
   | "workspace.enter"
+  | "window.reveal"
   | "window.align.bottom"
   | "window.align.horizontal-center"
   | "window.align.left"

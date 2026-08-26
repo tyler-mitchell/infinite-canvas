@@ -13,6 +13,7 @@ import {
   Ban,
   Columns3,
   CornerDownLeft,
+  CornerUpRight,
   FilePlus2,
   FileText,
   FolderOpen,
@@ -105,6 +106,7 @@ const palette = tv({
   slots: {
     description: "truncate text-[12px] text-[var(--ink-faint)]",
     footerHint: "flex items-center gap-1.5 text-[11px] text-[var(--ink-faint)]",
+    footerIcon: "size-3",
     footerKey:
       "grid h-4 min-w-4 place-items-center rounded bg-[var(--surface-hover)] px-1 font-mono text-[10px] text-[var(--ink-muted)]",
     key: "grid h-5 min-w-5 place-items-center rounded-[5px] bg-[var(--surface-hover)] px-1.5 font-mono text-[10px] text-[var(--ink-muted)]",
@@ -221,6 +223,7 @@ function PaletteContent({
   const query = useValue(query$);
   const styles = palette();
   const windows = getInfiniteCanvasWindowPresence(state).windows;
+  const activeWindow = windows.find((window) => window.isActive);
   const contextual = getInfiniteCanvasContextualCommands(state);
   const available = contextual.filter((command) => command.enabled);
   const unavailable = contextual.filter((command) => !command.enabled);
@@ -305,13 +308,7 @@ function PaletteContent({
                 icon={Frame}
                 key={window.id}
                 onSelect={run(() => {
-                  // A minimized window has no rect to fly to, so restore before navigating.
-                  if (window.mode === "minimized") {
-                    actions.restoreWindow(window.id);
-                  }
-
-                  actions.focusWindow(window.id);
-                  actions.navigateToWindow({ windowId: window.id });
+                  actions.executeCommand({ type: "window.reveal", windowId: window.id });
                 })}
                 title={window.title}
                 trailing={
@@ -360,6 +357,28 @@ function PaletteContent({
                 value={`desktop ${workspace.title}`}
               />
             ))}
+            {/* A desktop you can make and enter but cannot put anything on is a desktop that stays
+                empty. `workspace.moveActiveWindow` is parameterized like the rest, so the row
+                carries the id — and the ones already holding this window are left out, since
+                sending it where it is does nothing. */}
+            {activeWindow === undefined
+              ? null
+              : state.workspaces
+                  .filter((workspace) => !workspace.windowIds.includes(activeWindow.id))
+                  .map((workspace) => (
+                    <Row
+                      icon={CornerUpRight}
+                      key={`send-${workspace.id}`}
+                      onSelect={run(() => {
+                        actions.executeCommand({
+                          type: "workspace.moveActiveWindow",
+                          workspaceId: workspace.id,
+                        });
+                      })}
+                      title={`Send “${activeWindow.title}” to ${workspace.title}`}
+                      value={`send move window ${activeWindow.title} ${workspace.title}`}
+                    />
+                  ))}
             {state.activeWorkspaceId === null ? null : (
               <Row
                 icon={Trash2}
@@ -544,7 +563,7 @@ function PaletteContent({
           Close
         </span>
         <span className={styles.footerHint()}>
-          <Search className="size-3" />
+          <Search className={styles.footerIcon()} />
           {windows.length + available.length + 1}
         </span>
       </CommandFooter>

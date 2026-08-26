@@ -462,6 +462,13 @@ const DEFAULT_INFINITE_CANVAS_COMMAND_DESCRIPTORS = [
     label: "Go to Desktop",
   },
   {
+    command: { type: "window.reveal", windowId: "" },
+    description: "Go to a window, switching desktops if it is on another one.",
+    hotkeys: [],
+    id: "window.reveal",
+    label: "Reveal Window",
+  },
+  {
     command: { type: "workspace.close", workspaceId: "" },
     description: "Remove a desktop. The windows on it stay open; only the grouping goes.",
     hotkeys: [],
@@ -996,6 +1003,42 @@ function focusWindowInDirection<Kind extends string>(
       behavior: FOCUS_CAMERA_NAVIGATION_BEHAVIOR,
       windowId: targetWindowId,
     },
+    zoomPolicy,
+  );
+}
+
+/**
+ * Reveal: switch to where the window is, restore it, focus it, bring the camera.
+ *
+ * The desktop switch has to come first. `focusWindow` reaches `getSelectableWindowIds`, which
+ * asks which desktop a window is on, so focusing one the active desktop hides is rejected — and
+ * the camera would then travel to a rect nothing renders.
+ *
+ * Prefers a desktop that already admits the window over showing everything, because a window
+ * filed on a desktop was filed there deliberately and arriving with every other window on screen
+ * discards that. When no desktop admits it, no desktop is the only view that shows it.
+ */
+function revealWindow<Kind extends string>(
+  state: InfiniteCanvasState<Kind>,
+  windowId: string,
+  zoomPolicy: InfiniteCanvasZoomPolicy,
+): InfiniteCanvasState<Kind> {
+  if (findWindow(state, windowId) === null) {
+    return state;
+  }
+
+  const host = isInfiniteCanvasWindowInActiveWorkspace(state, windowId)
+    ? state
+    : activateInfiniteCanvasWorkspace(
+        state,
+        state.workspaces.find((workspace) => workspace.windowIds.includes(windowId))?.id ?? null,
+      );
+  const restored =
+    findWindow(host, windowId)?.mode === "minimized" ? restoreWindow(host, windowId) : host;
+
+  return navigateCameraToWindow(
+    focusWindow(restored, windowId),
+    { behavior: FOCUS_CAMERA_NAVIGATION_BEHAVIOR, windowId },
     zoomPolicy,
   );
 }
@@ -1545,6 +1588,10 @@ function isInfiniteCanvasCommandEnabled<Kind extends string>(
       );
     case "workspace.close":
       return findInfiniteCanvasWorkspace(state, command.workspaceId) !== null;
+    // Same placeholder rule, and nothing more: the window you focused last can still be
+    // off-camera, so revealing the active one is not a no-op.
+    case "window.reveal":
+      return findWindow(state, command.windowId) !== null;
   }
 }
 
@@ -1716,6 +1763,7 @@ function getInfiniteCanvasCommandGroup(command: InfiniteCanvasCommand): Infinite
     case "window.distribute":
     case "window.swap":
     case "window.focusDirection":
+    case "window.reveal":
     case "window.nudge":
     case "window.place":
     case "window.resize":
@@ -1892,6 +1940,8 @@ function executeInfiniteCanvasCommand<Kind extends string>(
       return activateInfiniteCanvasWorkspace(state, command.workspaceId);
     case "workspace.close":
       return closeInfiniteCanvasWorkspace(state, command.workspaceId);
+    case "window.reveal":
+      return revealWindow(state, command.windowId, zoomPolicy);
     // Written first as a read-filter-write over `setInfiniteCanvasWorkspaceWindows`, which is
     // the exact race `equalizeInfiniteCanvasGroupChildren` exists to avoid: a window added to
     // this workspace between the read and the write would have been discarded by it.

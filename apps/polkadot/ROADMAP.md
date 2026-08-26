@@ -106,9 +106,13 @@ open because it feels good to look at. Concretely, and these are enforced in rev
   make "which set is this in" a destructive question.
   The identity rail names the desktop you are on and counts what is on it, because entering an
   empty one shows an empty canvas and that is indistinguishable from losing your work.
-  **Still open:** `moveActiveWindow` has a command but no surface, so windows can be sent nowhere;
-  desktops cannot be renamed or reordered; and nothing shows which desktop a window is on while
-  you are looking at another one.
+  Filing works from the launcher — `Send “<window>” to <desktop>` — and reaching a window on
+  another desktop is `window.reveal`, which found the second gap: navigation filtered on
+  `minimized` alone, so going to a hidden window panned the camera to a rect nothing renders and
+  the window read as lost rather than elsewhere.
+  **Still open:** desktops cannot be renamed or reordered; nothing shows which desktop a window is
+  on while you are looking at another one; and the only way to fill a desktop is one window at a
+  time, so "put these three on a new desktop" is three trips through the launcher.
 - [ ] **Grain and vignette.** Real material has noise.
 
 ## The living field — unstarted, and not to be attempted casually
@@ -155,6 +159,7 @@ Kept here because the list _is_ the incubator's output.
 | `chrome` demanded all five metrics, and the defaults are not exported                                    | `InfiniteCanvasChromeMetricsInput`, mirroring `zoomPolicy`                | landed |
 | No DOM layer between the backdrop and the windows: connectors meant losing the grid or taking on `three` | `renderUnderlay`, the counterpart to `renderBackdrop` and `renderOverlay` | landed |
 | Workspaces could be walked but never entered: no command made one, named which to go to, or closed one   | `workspace.create`, `workspace.enter`, `workspace.close`                  | landed |
+| Navigation was not desktop-aware: going to a window another desktop hid panned the camera to nothing     | `window.reveal` — go where the window is, restore it, focus it            | landed |
 
 **On the second row**, because it is the clearest thing the incubator has produced so far. Any
 consumer persisting a canvas needs to know when the stored shape changed. The obvious way to ask —
