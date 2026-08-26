@@ -77,11 +77,21 @@ function getPlacedRect(
   return getInfiniteCanvasVacantRect({
     bounds,
     gapPx: WINDOW_GAP,
-    // Minimized windows are in the dock rather than on the canvas, so the space they would occupy
-    // is free — placing around them would leave a hole nobody can see the reason for.
-    occupied: input.state.windows
-      .filter((window) => window.mode !== "minimized")
-      .map((window) => window.rect),
+    occupied: [
+      /*
+       * The shells, because a group takes up more room than its members do.
+       *
+       * A member's rect is the pane it was solved into, and the strip, the seams and the border
+       * are none of them — so the band a tab strip occupies was invisible here and a new window
+       * could open across it. The shell is the honest extent of a group.
+       */
+      ...input.state.groups.map((group) => group.rect),
+      // Minimized windows are in the dock rather than on the canvas, so the space they would occupy
+      // is free — placing around them would leave a hole nobody can see the reason for.
+      ...input.state.windows
+        .filter((window) => window.mode !== "minimized")
+        .map((window) => window.rect),
+    ],
     preferred: getInfiniteCanvasWindowPlacementRect(bounds, "center", input.size, input.minSize),
   });
 }
