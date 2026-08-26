@@ -7,6 +7,7 @@ import { useEffect, useRef } from "react";
 import { tv } from "ui/tv";
 
 import { editNote, ensureNoteLoaded, notes$, type NoteGateway } from "./note-store";
+import { openProject$ } from "../projects/open-project";
 import { projectNotes$ } from "./project-notes";
 import { connectItems } from "../relations/relation-store";
 import { NoteEditor } from "./note-editor";
@@ -101,15 +102,16 @@ export function NoteWindowBody({
 }: Readonly<{ gateway: NoteGateway; noteId: string; windowId: string; windowTitle: string }>) {
   const actions = useInfiniteCanvasActions();
   /*
-   * The project comes from the listing rather than from a prop.
+   * Two reads, of two different facts, which used to be one read of one.
    *
-   * `renderBody` hands a window and nothing else, and `projectNotes$` already carries the project
-   * it belongs to — threading an id through the window registry to arrive at a value the store
-   * holds would be carrying water past the tap.
+   * `renderBody` hands a window and nothing else, so both are read rather than passed. The listing
+   * is what a mention can name; the project is which project this window is in. This took both from
+   * `projectNotes$` because that carries a `projectId` and it was there — but that id is the notes
+   * cache's *staleness guard*, and using it as an authority made the answer depend on the notes
+   * having loaded. `openProject$` is the fact itself, and it is set before any query runs.
    */
-  const listing = useValue(projectNotes$);
-  const mentionable = listing?.notes ?? [];
-  const projectId = listing?.projectId;
+  const mentionable = useValue(projectNotes$)?.notes ?? [];
+  const projectId = useValue(openProject$);
   /*
    * The desktop root, not this window's.
    *
@@ -224,7 +226,7 @@ export function NoteWindowBody({
                * are where it is cut. A stated rule rather than an oversight.
                */
               onSelect: (mentionedId) => {
-                if (projectId !== undefined) {
+                if (projectId !== null) {
                   void connectItems({ projectId, source: noteId, target: mentionedId });
                 }
               },

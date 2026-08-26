@@ -13,7 +13,7 @@ import {
 import { tv } from "ui/tv";
 
 import type { WindowKind } from "../canvas/window-registry";
-import { projectNotes$ } from "../notes/project-notes";
+import { openProject$ } from "../projects/open-project";
 import {
   collections$,
   ensureCollectionLoaded,
@@ -73,19 +73,14 @@ const getListable = (kind: string) => LISTABLE_KINDS.find((entry) => entry.kind 
 export function CollectionWindowBody({ collectionId }: Readonly<{ collectionId: string }>) {
   const actions = useInfiniteCanvasActions<WindowKind>();
   const state = useInfiniteCanvasState<WindowKind>();
-  /*
-   * The project comes from the listing rather than from a prop, the same way the note body gets it:
-   * `renderBody` hands over a window and nothing else, and `projectNotes$` already carries which
-   * project is open. Reading a *notes* listing to learn the project id is the part worth flagging —
-   * three modules now hold that fact and one of them should own it.
-   */
-  const projectId = useValue(projectNotes$)?.projectId;
+  // `renderBody` hands over a window and nothing else, so the project is read rather than passed.
+  const projectId = useValue(openProject$);
   const entry = useValue(collections$[collectionId]);
   const items = useValue(resolved$[collectionId]) ?? [];
   const styles = collectionWindow();
 
   useEffect(() => {
-    if (projectId !== undefined) {
+    if (projectId !== null) {
       ensureCollectionLoaded(collectionId, projectId);
     }
   }, [collectionId, projectId]);
@@ -127,7 +122,7 @@ export function CollectionWindowBody({ collectionId }: Readonly<{ collectionId: 
             */}
             <DropdownMenuRadioGroup
               onValueChange={(value) => {
-                if (projectId !== undefined) {
+                if (projectId !== null) {
                   void setCollectionKind({ collectionId, listsKind: value, projectId });
                 }
               }}

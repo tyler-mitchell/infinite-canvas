@@ -1,6 +1,7 @@
 import { createFileRoute, useRouter } from "@tanstack/react-router";
 
 import { hydrateCanvasLayout } from "../canvas/canvas-document";
+import { setOpenProject } from "../projects/open-project";
 import { CanvasFailure, CanvasLoading } from "../workspace/canvas-states";
 import { WorkspaceCanvas } from "../workspace/workspace-canvas";
 
@@ -31,6 +32,17 @@ export const Route = createFileRoute("/canvas/$canvasId")({
     if (record === null) {
       throw new CanvasNotFoundError(params.canvasId);
     }
+
+    /*
+     * Which project is open, published before anything renders.
+     *
+     * Here rather than in an effect inside the workspace, because this is where the answer is
+     * *determined* — the route names a canvas, the canvas names its project, and everything below
+     * is a consumer of that. An effect would publish it after the first paint, so a window body
+     * mounting in that commit would read `null` and show "no project" for a frame rather than
+     * "not loaded yet".
+     */
+    setOpenProject(record.projectId);
 
     return {
       hydration: hydrateCanvasLayout(record.layout),
