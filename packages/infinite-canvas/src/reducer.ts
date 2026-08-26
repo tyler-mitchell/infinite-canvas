@@ -301,7 +301,7 @@ function applyInfiniteCanvasAction<Kind extends string>(
       return activateInfiniteCanvasWorkspace(state, action.workspaceId);
     case "workspace.addWindow":
       return addInfiniteCanvasWindowToWorkspace(state, action);
-    case "workspace.moveWindow":
+    case "workspace.moveWindows":
       return moveInfiniteCanvasWindowsToWorkspace(state, action);
     case "workspace.removeWindow":
       return removeInfiniteCanvasWindowFromWorkspace(state, action);

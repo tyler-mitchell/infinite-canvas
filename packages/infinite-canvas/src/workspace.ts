@@ -359,9 +359,49 @@ function reconcileInfiniteCanvasWorkspaces<Kind extends string>(
         };
   });
 
-  return reconciled.every((workspace, index) => workspace === state.workspaces[index])
+  const withWorkspaces = reconciled.every(
+    (workspace, index) => workspace === state.workspaces[index],
+  )
     ? state
     : { ...state, workspaces: reconciled };
+
+  return reconcileActiveAgainstMembership(withWorkspaces);
+}
+
+/**
+ * The live selection and active window, against the desktop you are standing on.
+ *
+ * `activateInfiniteCanvasWorkspace` already states this rule for the moment you *enter* a
+ * desktop: a window it does not admit "must not stay selected or active either: it is not on
+ * screen, and every verb keyed to the active window would act on something the user cannot see".
+ * Membership can change under a stationary camera too — file the active window onto another
+ * desktop and you are in the identical position without having moved — and nothing applied the
+ * rule in that direction. It stayed active and selected while the canvas stopped drawing it, so
+ * close, minimize, dock, place and resize all aimed at a window nobody could see.
+ *
+ * Here rather than in `moveWindow`, because every membership writer can do it: `moveWindow`,
+ * `removeWindow`, and `setWindows` all can, and the reducer already runs this reconciliation once
+ * for exactly that reason. The alternative is each writer remembering.
+ *
+ * Falls back the same way entering does — the selection's anchor, then the last selectable window,
+ * then nothing — so the canvas is never left with no active window while one is plainly available.
+ * Returns the identical state when nothing was admitted-out, since reference equality is the
+ * change test everywhere here.
+ */
+function reconcileActiveAgainstMembership<Kind extends string>(
+  state: InfiniteCanvasState<Kind>,
+): InfiniteCanvasState<Kind> {
+  const selection = normalizeSelection(state, state.selection);
+  const keepsActive =
+    state.activeWindowId !== null &&
+    isInfiniteCanvasWindowInActiveWorkspace(state, state.activeWindowId);
+  const activeWindowId = keepsActive
+    ? state.activeWindowId
+    : (selection.anchorWindowId ?? getSelectableWindowIds(state).at(-1) ?? null);
+
+  return selection === state.selection && activeWindowId === state.activeWindowId
+    ? state
+    : { ...state, activeWindowId, selection };
 }
 
 /**

@@ -749,7 +749,22 @@ open because it feels good to look at. Concretely, and these are enforced in rev
   `normalizeInfiniteCanvasWorkspaceWindowIds` already deduped, dropped ids naming no live window,
   and expanded each group, so the function that was written around a `Set` simply stopped being
   handed a set of one. `windowId` was replaced rather than joined by a plural — this repo keeps no
-  compatibility path for a shape it has replaced, and moving one window is a set of one.
+  compatibility path for a shape it has replaced, and moving one window is a set of one. The action
+  is `workspace.moveWindows`, matching `setWindows`: in this union a name is plural when it takes a
+  set.
+  **Building it opened a hole, and the hole was older than the feature.** Filing the *active* window
+  onto another desktop left it active and selected while the canvas stopped drawing it — so close,
+  minimize, dock, place and resize all aimed at a window nobody could see.
+  `activateInfiniteCanvasWorkspace` already states the rule for the moment you *enter* a desktop —
+  a window it does not admit "must not stay selected or active either" — and nothing applied it in
+  the other direction, where membership changes under a stationary camera. `removeWindow` could do
+  it too; the plural move just made it a one-click gesture.
+  Fixed where the reducer already reconciles workspaces once per action rather than in the writers
+  that can cause it, which is the same argument that file makes for reconciling group-completeness
+  there. The fallback matches entering exactly — the selection's anchor, then the last selectable
+  window, then nothing — so the canvas is never left with no active window while one is plainly
+  available, and a window the desktop still admits is untouched. That last half is what keeps it
+  from being a clear-everything hammer, and it is asserted rather than assumed.
   **And driving the second found that it could never have run.** "Bring N windows here" appeared
   only while a desktop was active, and it read the selection — but **entering a desktop clears the
   selection**. `activateInfiniteCanvasWorkspace` normalizes the incoming selection against the

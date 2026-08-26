@@ -57,7 +57,7 @@ const membership = (state: InfiniteCanvasState<Kind>, workspaceId: string) =>
 
 test("a moved window joins the target and leaves the one it was on", () => {
   const moved = reduceInfiniteCanvasState(twoDesktops(), {
-    type: "workspace.moveWindow",
+    type: "workspace.moveWindows",
     windowIds: ["a"],
     workspaceId: "writing",
   });
@@ -69,7 +69,7 @@ test("a moved window joins the target and leaves the one it was on", () => {
 test("moving is one edit, not a remove and an add", () => {
   const before = twoDesktops();
   const moved = reduceInfiniteCanvasState(before, {
-    type: "workspace.moveWindow",
+    type: "workspace.moveWindows",
     windowIds: ["a"],
     workspaceId: "writing",
   });
@@ -89,7 +89,7 @@ test("moving a docked pane takes its whole shell with it", () => {
   expect(docked.groups).toHaveLength(1);
 
   const moved = reduceInfiniteCanvasState(docked, {
-    type: "workspace.moveWindow",
+    type: "workspace.moveWindows",
     windowIds: ["a"],
     workspaceId: "writing",
   });
@@ -111,7 +111,7 @@ test("a move that changes nothing returns the identical document", () => {
 
   expect(
     reduceInfiniteCanvasState(state, {
-      type: "workspace.moveWindow",
+      type: "workspace.moveWindows",
       windowIds: ["a"],
       workspaceId: "research",
     }).workspaces,
@@ -123,7 +123,7 @@ test("moving to a desktop that does not exist changes nothing", () => {
 
   expect(
     reduceInfiniteCanvasState(state, {
-      type: "workspace.moveWindow",
+      type: "workspace.moveWindows",
       windowIds: ["a"],
       workspaceId: "nowhere",
     }),
@@ -138,7 +138,7 @@ test("a whole selection files in one edit, not one per window", () => {
    */
   const before = twoDesktops();
   const moved = reduceInfiniteCanvasState(before, {
-    type: "workspace.moveWindow",
+    type: "workspace.moveWindows",
     windowIds: ["a", "b", "c"],
     workspaceId: "writing",
   });
@@ -152,7 +152,7 @@ test("one undo puts a whole filed selection back", () => {
   // The half that matters to a person: the edit is one, so its reversal is one.
   const before = twoDesktops();
   const moved = reduceInfiniteCanvasState(before, {
-    type: "workspace.moveWindow",
+    type: "workspace.moveWindows",
     windowIds: ["a", "b", "c"],
     workspaceId: "writing",
   });
@@ -168,7 +168,7 @@ test("one undo puts a whole filed selection back", () => {
 test("the set is normalized as a whole: duplicates, dead ids, and an empty set", () => {
   const state = twoDesktops();
   const moved = reduceInfiniteCanvasState(state, {
-    type: "workspace.moveWindow",
+    type: "workspace.moveWindows",
     // "a" twice and a window that does not exist — neither should reach membership.
     windowIds: ["a", "a", "ghost"],
     workspaceId: "writing",
@@ -178,11 +178,38 @@ test("the set is normalized as a whole: duplicates, dead ids, and an empty set",
   // An empty set is a no-op rather than a move of nothing, so it lands no history entry.
   expect(
     reduceInfiniteCanvasState(state, {
-      type: "workspace.moveWindow",
+      type: "workspace.moveWindows",
       windowIds: [],
       workspaceId: "writing",
     }),
   ).toBe(state);
+});
+
+test("moving the active window off the desktop you are on does not leave it active", () => {
+  /*
+   * The rule `activateInfiniteCanvasWorkspace` already states, applied to the other direction.
+   * Entering a desktop drops an active window it does not admit, because "every verb keyed to the
+   * active window would act on something the user cannot see". Moving that window *away* while you
+   * stand still puts you in exactly the same position, and membership changes do not touch
+   * `activeWindowId` or the selection.
+   *
+   * Reachable in one click now that a selection can be filed onto another desktop.
+   */
+  const standing = {
+    ...twoDesktops(),
+    activeWindowId: "a",
+    activeWorkspaceId: "research",
+    selection: { anchorWindowId: "a", windowIds: ["a"] },
+  };
+  const moved = reduceInfiniteCanvasState(standing, {
+    type: "workspace.moveWindows",
+    windowIds: ["a"],
+    workspaceId: "writing",
+  });
+
+  expect(membership(moved, "writing")).toEqual(["a"]);
+  expect(moved.activeWindowId).not.toBe("a");
+  expect(moved.selection.windowIds).not.toContain("a");
 });
 
 test("the command sends the active window, and works from show-all", () => {

@@ -330,7 +330,7 @@ export function DesktopSwitcher() {
                     // One dispatch for one gesture. `workspace.moveWindow` takes the set, so this
                     // is a single edit and a single undo rather than one per window.
                     actions.dispatch({
-                      type: "workspace.moveWindow",
+                      type: "workspace.moveWindows",
                       windowIds: selectedWindowIds,
                       workspaceId: workspace.id,
                     });

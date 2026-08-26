@@ -1248,7 +1248,7 @@ type InfiniteCanvasAction<Kind extends string = string> =
    * dispatch at a time made it three undo entries with the desktop half-populated at each step.
    * Moving one window is a set of one.
    */
-  | Readonly<{ type: "workspace.moveWindow"; windowIds: readonly string[]; workspaceId: string }>
+  | Readonly<{ type: "workspace.moveWindows"; windowIds: readonly string[]; workspaceId: string }>
   | Readonly<{ type: "workspace.removeWindow"; windowId: string; workspaceId: string }>
   /** `toIndex` is the position in the final list, matching `group.reorderChild`. */
   | Readonly<{ toIndex: number; type: "workspace.reorder"; workspaceId: string }>
