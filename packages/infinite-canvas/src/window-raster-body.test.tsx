@@ -10,6 +10,7 @@
  * one the body actually renders. A `renderSummary` that never ran, or ran always, would satisfy
  * every policy test in the suite.
  */
+import type { CSSProperties } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { expect, test } from "vite-plus/test";
 
@@ -39,18 +40,25 @@ const noteWindow = createInfiniteCanvasWindow<Kind>({
 const BODY_MARKER = "FULL-BODY";
 const SUMMARY_MARKER = "SUMMARY-CARD";
 
-const registry = (withSummary: boolean) =>
+type RenderOptions = Readonly<{
+  overflowY?: CSSProperties["overflowY"];
+  withSummary?: boolean;
+  zoom: number;
+}>;
+
+const registry = (options: RenderOptions) =>
   defineInfiniteCanvasWindowRegistry<Kind>({
     note: {
       kind: "note",
+      overflowY: options.overflowY,
       renderBody: () => <p>{BODY_MARKER}</p>,
-      ...(withSummary && { renderSummary: () => <p>{SUMMARY_MARKER}</p> }),
+      ...((options.withSummary ?? true) && { renderSummary: () => <p>{SUMMARY_MARKER}</p> }),
     },
   });
 
-const renderAtZoom = (zoom: number, withSummary = true) => {
+const render = (options: RenderOptions) => {
   const state = createInfiniteCanvasState<Kind>({
-    camera: { center: { x: 150, y: 105 }, zoom },
+    camera: { center: { x: 150, y: 105 }, zoom: options.zoom },
     viewport: { height: 800, width: 1200 },
     windows: [noteWindow],
   });
@@ -69,7 +77,7 @@ const renderAtZoom = (zoom: number, withSummary = true) => {
         theme={DEFAULT_INFINITE_CANVAS_THEME}
         viewport={state.viewport}
         window={noteWindow}
-        windowDefinitions={registry(withSummary)}
+        windowDefinitions={registry(options)}
       />
     </InfiniteCanvasProvider>,
   );
@@ -78,7 +86,7 @@ const renderAtZoom = (zoom: number, withSummary = true) => {
 test("a window renders its full body at 100% zoom", () => {
   // The regression that shipped: 300x210 takes its smaller axis, 210, which sat under the old
   // 240px restore threshold and stranded every stock window as a card at the default zoom.
-  const markup = renderAtZoom(1);
+  const markup = render({ zoom: 1 });
 
   expect(markup).toContain(BODY_MARKER);
   expect(markup).not.toContain(SUMMARY_MARKER);
@@ -86,7 +94,7 @@ test("a window renders its full body at 100% zoom", () => {
 
 test("a window renders its summary once it is too small to read", () => {
   // extent = min(300, 210) * 0.4 = 84, below the 120px demote threshold.
-  const markup = renderAtZoom(0.4);
+  const markup = render({ zoom: 0.4 });
 
   expect(markup).toContain(SUMMARY_MARKER);
   expect(markup).not.toContain(BODY_MARKER);
@@ -95,7 +103,7 @@ test("a window renders its summary once it is too small to read", () => {
 test("a kind that declares no summary stays full detail at any zoom", () => {
   // The lane must cost nothing for windows that opted out — not a re-render, not a threshold
   // comparison that could ever flip.
-  const markup = renderAtZoom(0.1, false);
+  const markup = render({ withSummary: false, zoom: 0.1 });
 
   expect(markup).toContain(BODY_MARKER);
 });
@@ -117,20 +125,49 @@ test("a kind that declares no summary stays full detail at any zoom", () => {
  */
 const getStyles = (markup: string) => [...markup.matchAll(/style="([^"]*)"/g)].map(([, s]) => s);
 
+/** The frame carries `contain-intrinsic-size` too; the wrapper is the one sized in percentages. */
+const getWrapperStyle = (options: RenderOptions) =>
+  getStyles(render(options)).find(
+    (style) => style.includes("contain-intrinsic-size") && style.includes("width:100%"),
+  ) ?? "";
+
+/** `min-height:100%` contains `height:100%`, so the property boundary has to be anchored. */
+const hasHeight = (style: string) => /(?:^|;)height:100%/.test(style);
+
 test("the window body is a scroll container", () => {
-  expect(getStyles(renderAtZoom(1)).some((style) => style.includes("overflow-y:auto"))).toBe(true);
+  expect(getStyles(render({ zoom: 1 })).some((style) => style.includes("overflow-y:auto"))).toBe(
+    true,
+  );
 });
 
 test("the body's content wrapper may grow past the scroll container, not be locked to it", () => {
-  // The frame carries `contain-intrinsic-size` too, so that alone finds the wrong element. The
-  // wrapper is the one sized in percentages; the frame is sized in pixels.
-  const wrapper = getStyles(renderAtZoom(1)).find(
-    (style) => style.includes("contain-intrinsic-size") && style.includes("width:100%"),
-  );
+  const wrapper = getWrapperStyle({ zoom: 1 });
 
-  expect(wrapper).toBeDefined();
   expect(wrapper).toContain("min-height:100%");
-  // `min-height:100%` contains `height:100%` as a substring, so the negative has to anchor on the
-  // property boundary or it can never fail.
-  expect(/(?:^|;)height:100%/.test(wrapper ?? "")).toBe(false);
+  expect(hasHeight(wrapper)).toBe(false);
+});
+
+/**
+ * The mirror case, and the one that shipped broken.
+ *
+ * A growable wrapper is right only while there is something to scroll. A kind declaring `hidden`
+ * has said it will not scroll, and under `min-height` alone the wrapper's used height is `auto` —
+ * so a consumer's own `height: 100%` resolves against nothing and collapses to its content. Filling
+ * the window was impossible for exactly the kinds whose content is meant to fit it.
+ *
+ * Found on an image window: the picture's bed asked for the body's full height, silently got
+ * `auto`, and the picture overflowed the frame it was supposed to be letterboxed inside.
+ */
+test("a body that declares it will not scroll is pinned to its container instead", () => {
+  const wrapper = getWrapperStyle({ overflowY: "hidden", zoom: 1 });
+
+  expect(hasHeight(wrapper)).toBe(true);
+  expect(wrapper).not.toContain("min-height:100%");
+});
+
+test("only overflow values that actually scroll get a growable wrapper", () => {
+  // `visible` overflows rather than scrolls, so a taller wrapper would have nothing to reveal.
+  expect(hasHeight(getWrapperStyle({ overflowY: "scroll", zoom: 1 }))).toBe(false);
+  expect(hasHeight(getWrapperStyle({ overflowY: "clip", zoom: 1 }))).toBe(true);
+  expect(hasHeight(getWrapperStyle({ overflowY: "visible", zoom: 1 }))).toBe(true);
 });

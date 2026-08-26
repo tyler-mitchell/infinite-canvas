@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, type CSSProperties } from "react";
 
 import { getInfiniteCanvasWindowDetailLevel, type InfiniteCanvasDetailLevel } from "./detail-level";
 import { isWorldRectWithinViewport } from "./geometry";
@@ -146,6 +146,7 @@ function InfiniteCanvasWindowBody<Kind extends string>({
     isSelected,
     window,
   });
+  const bodyScrolls = isInfiniteCanvasScrollingOverflow(definition.overflowY);
 
   if (shouldUseSnapshot) {
     return (
@@ -171,14 +172,28 @@ function InfiniteCanvasWindowBody<Kind extends string>({
         contain: "layout paint style",
         containIntrinsicSize: `${window.rect.width}px ${getWindowBodyHeight(window, chrome)}px`,
         contentVisibility: shouldUseContentVisibility ? "auto" : "visible",
-        // `minHeight`, not `height`. The body slot above is the scroll container — it carries
-        // `overflowY: definition.overflowY ?? "auto"` — and a wrapper locked to exactly its height
-        // means that container can never have anything to scroll. A body taller than its window
-        // was silently unreachable: no scrollbar, no wheel, no keyboard, for every consumer. The
-        // minimum still fills the container when the content is short, which is all the height was
-        // ever doing. Containment is not the culprit and stays: with an auto height the wrapper
-        // grows to its content, so `paint` has nothing overflowing to clip.
-        minHeight: "100%",
+        /*
+         * Which of the two the kind gets is the kind's own `overflowY`, and both are wrong for the
+         * other case.
+         *
+         * `minHeight`, for a body that scrolls. The body slot above is the scroll container — it
+         * carries `overflowY: definition.overflowY ?? "auto"` — and a wrapper locked to exactly its
+         * height means that container can never have anything to scroll. A body taller than its
+         * window was silently unreachable: no scrollbar, no wheel, no keyboard, for every consumer.
+         *
+         * `height`, for a body that does not. A kind that declares `hidden` or `clip` has said it
+         * will not scroll, so there is no overflow to preserve — and under `minHeight` alone the
+         * wrapper's used height is `auto`, which means a consumer's own `height: 100%` resolves
+         * against nothing and collapses to its content. Filling the window was therefore impossible
+         * for exactly the kinds whose content is meant to fit it: found on an image window, where
+         * `height: 100%` on the picture's bed silently became `height: auto` and the picture
+         * overflowed the frame it was supposed to be letterboxed inside.
+         *
+         * Containment stays either way: with a pinned height `paint` clips what the kind already
+         * said to clip, and with an auto height there is nothing overflowing to clip.
+         */
+        height: bodyScrolls ? undefined : "100%",
+        minHeight: bodyScrolls ? "100%" : undefined,
         width: "100%",
       }}
     >
@@ -254,6 +269,23 @@ function getWindowBodyHeight<Kind extends string>(
   chrome: InfiniteCanvasChromeMetrics,
 ) {
   return Math.max(1, window.rect.height - chrome.headerHeight);
+}
+
+/**
+ * Whether a kind's `overflowY` makes its body slot a scroll container.
+ *
+ * Asked of the declaration rather than of the element, because the answer decides the wrapper's
+ * height and the element does not exist yet. Undefined resolves to `auto`, matching what the body
+ * slot itself falls back to — the two must agree, or the wrapper would pin a height on a container
+ * that does scroll.
+ *
+ * `visible` is deliberately on the non-scrolling side. It overflows rather than scrolls, so there
+ * is nothing for a taller wrapper to reveal.
+ */
+function isInfiniteCanvasScrollingOverflow(overflowY: CSSProperties["overflowY"]) {
+  const resolved = overflowY ?? "auto";
+
+  return resolved === "auto" || resolved === "scroll" || resolved === "overlay";
 }
 
 function getWindowCaptureDelayMs(windowId: string, policy: InfiniteCanvasRasterizationPolicy) {

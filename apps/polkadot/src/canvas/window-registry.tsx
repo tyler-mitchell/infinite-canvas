@@ -15,6 +15,7 @@ import { tv } from "ui/tv";
  * was deferring something already deferred, and cost a second place the note's read and save were
  * named.
  */
+import { ImageWindowBody } from "../images/image-window";
 import { noteGateway } from "../notes/note-gateway";
 import { NoteWindowBody } from "../notes/note-window";
 
@@ -24,14 +25,23 @@ import { NoteWindowBody } from "../notes/note-window";
  * This is separate from the workspace component because the route loader hydrates a saved layout
  * *before* anything mounts, and hydration has to know which kinds are registered in order to tell
  * a readable canvas from one referencing a window kind this build no longer has.
+ *
+ * Composition only. Each kind's schema, its content shape, and how it draws live with that kind —
+ * `notes/`, `images/` — and this file wires them to the framework. A registry that grew the bodies
+ * inline would put an image decoder and a rich-text editor in one module because they happen to
+ * share a canvas.
  */
 
-type WindowKind = "note";
+type WindowKind = "image" | "note";
 
 const NoteWindowData = type({ noteId: "string" });
 type NoteWindowData = typeof NoteWindowData.infer;
 
+const ImageWindowData = type({ imageId: "string" });
+type ImageWindowData = typeof ImageWindowData.infer;
+
 type WindowData = Readonly<{
+  image: ImageWindowData;
   note: NoteWindowData;
 }>;
 
@@ -80,6 +90,45 @@ function NoteSummary({ title }: Readonly<{ title: string }>) {
 }
 
 const windowDefinitions = defineInfiniteCanvasWindowRegistry<WindowKind, WindowData>({
+  /*
+   * An image's physics are the opposite of a note's on every axis the framework offers, which is
+   * the point of it being a separate kind rather than a note that happens to hold a picture.
+   *
+   * `wheelBehavior: "canvas-pan"` — there is nothing to scroll. A note is a column of text taller
+   * than its frame; a picture is letterboxed to fit, so a wheel over one has no local meaning and
+   * belongs to the camera. The framework's default is already this, but a kind whose whole identity
+   * is *not scrolling* should say so where the other kind says the reverse.
+   *
+   * `bodyPointerBehavior: "canvas-pan"` — a drag across a picture is a drag across the canvas.
+   * There is no caret to place and no words to select, so the alternative is a body that swallows
+   * drags and does nothing with them.
+   *
+   * `textSelection: "none"` — the same statement for the pointer that is not moving. Without it a
+   * double-click on a photo produces a selection highlight over nothing.
+   *
+   * No `renderSummary`, and that is a decision rather than an omission. The summary lane exists
+   * because small text stops being readable, and the framework's own contract says a window must
+   * then say something *different* rather than the same thing smaller. A picture at a tenth of the
+   * size is still the picture — recognisable by shape and colour when a paragraph has become grey
+   * noise — so the honest thing is to keep drawing it. Substituting a filename at far zoom would
+   * replace the one kind of content that survives the zoom with words that do not.
+   */
+  image: {
+    bodyPointerBehavior: "canvas-pan",
+    kind: "image",
+    overflowY: "hidden",
+    renderBody: ({ window }) => {
+      const data = getInfiniteCanvasWindowData(window, ImageWindowData.allows);
+
+      return data == null ? (
+        <div className={noteWindow().summary()}>This window is not bound to an image.</div>
+      ) : (
+        <ImageWindowBody imageId={data.imageId} />
+      );
+    },
+    textSelection: "none",
+    wheelBehavior: "canvas-pan",
+  },
   note: {
     kind: "note",
     overflowY: "auto",
@@ -103,5 +152,5 @@ const windowDefinitions = defineInfiniteCanvasWindowRegistry<WindowKind, WindowD
   },
 });
 
-export { NoteWindowData, windowDefinitions };
+export { ImageWindowData, NoteWindowData, windowDefinitions };
 export type { WindowData, WindowKind };

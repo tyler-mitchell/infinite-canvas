@@ -1,21 +1,13 @@
-import {
-  createInfiniteCanvasWindow,
-  getInfiniteCanvasWindowPlacementRect,
-  getVisibleWorldRect,
-  type InfiniteCanvasCommands,
-  type InfiniteCanvasState,
-} from "@hyphened/infinite-canvas";
-
-import type { WindowData, WindowKind } from "../canvas/window-registry";
+import { openContentWindow, type WindowPlacement } from "../canvas/open-window";
 import { noteGateway } from "./note-gateway";
 import { loadProjectNotes } from "./project-notes";
 
 /**
- * Put a note on the canvas, in the middle of what the user is looking at.
+ * Put a note on the canvas.
  *
- * One placement, three callers: the rail's button, the palette's new-note action, and the
- * palette's list of notes that have no window. Placement is the part that would drift if each
- * worked it out again.
+ * One placement, three callers: the rail's button, the palette's new-note action, and the palette's
+ * list of notes that have no window. Where the window lands is `openContentWindow`'s — this file
+ * owns what is a note's: how big one starts, how small it may get, and what the next one is called.
  */
 
 const NOTE_SIZE = { height: 240, width: 360 } as const;
@@ -35,32 +27,16 @@ const NOTE_SIZE = { height: 240, width: 360 } as const;
  */
 const NOTE_MINIMUM_SIZE = { height: 200, width: 240 } as const;
 
-type Placement = Readonly<{
-  actions: InfiniteCanvasCommands<WindowKind>;
-  state: InfiniteCanvasState<WindowKind>;
-}>;
-
-function openNoteWindow(input: Placement & Readonly<{ noteId: string; title: string }>) {
-  const ordinal = input.state.windows.length + 1;
-  // Cascade, so a run of openings does not stack into one silhouette.
-  const offset = ((ordinal - 1) % 6) * 28;
-  const baseRect = getInfiniteCanvasWindowPlacementRect(
-    getVisibleWorldRect(input.state.camera, input.state.viewport, 0),
-    "center",
-    NOTE_SIZE,
-    NOTE_MINIMUM_SIZE,
-  );
-
-  input.actions.openWindow(
-    createInfiniteCanvasWindow<WindowKind, WindowData["note"]>({
-      data: { noteId: input.noteId },
-      id: globalThis.crypto.randomUUID(),
-      kind: "note",
-      minSize: NOTE_MINIMUM_SIZE,
-      rect: { ...baseRect, x: baseRect.x + offset, y: baseRect.y + offset },
-      title: input.title,
-    }),
-  );
+function openNoteWindow(input: WindowPlacement & Readonly<{ noteId: string; title: string }>) {
+  openContentWindow({
+    actions: input.actions,
+    data: { noteId: input.noteId },
+    kind: "note",
+    minSize: NOTE_MINIMUM_SIZE,
+    size: NOTE_SIZE,
+    state: input.state,
+    title: input.title,
+  });
 }
 
 /**
@@ -95,7 +71,7 @@ function getNextUntitledTitle(titles: readonly string[]) {
   return `Untitled ${String(Math.max(0, ...used) + 1)}`;
 }
 
-async function openNewNote(input: Placement & Readonly<{ projectId: string }>) {
+async function openNewNote(input: WindowPlacement & Readonly<{ projectId: string }>) {
   const [offered, archived] = await Promise.all([
     noteGateway.list(input.projectId),
     noteGateway.listArchived(input.projectId),
