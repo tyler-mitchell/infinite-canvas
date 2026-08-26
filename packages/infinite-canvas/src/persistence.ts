@@ -57,6 +57,29 @@ function getInfiniteCanvasScopedStorageKey({
     : `${storageKey}${INFINITE_CANVAS_DOCUMENT_STORAGE_SEPARATOR}${encodeURIComponent(documentKey)}`;
 }
 
+/**
+ * The state fields that constitute the durable document.
+ *
+ * `interaction`, `viewport`, `snapPreview`, and `history` are deliberately absent: they change
+ * continuously and mean nothing to a reloaded canvas. Everything here is what a store must write
+ * down and what an external observer must watch.
+ *
+ * A `Record` rather than an array because `satisfies` then makes it exhaustive — adding a field to
+ * the serialized document without adding it here fails to compile, which is the only thing that
+ * keeps an observer from silently missing a field that persistence stores.
+ */
+const INFINITE_CANVAS_DOCUMENT_FIELDS = {
+  activeWindowId: true,
+  activeWorkspaceId: true,
+  camera: true,
+  groups: true,
+  selection: true,
+  windows: true,
+  workspaces: true,
+} as const satisfies Record<Exclude<keyof InfiniteCanvasSerializedState<string>, "version">, true>;
+
+type InfiniteCanvasDocumentField = keyof typeof INFINITE_CANVAS_DOCUMENT_FIELDS;
+
 function serializeInfiniteCanvasState<Kind extends string>(
   state: InfiniteCanvasState<Kind>,
 ): InfiniteCanvasSerializedState<Kind> {
@@ -222,6 +245,7 @@ function parseInfiniteCanvasStateJson<Kind extends string>(
 }
 
 export {
+  INFINITE_CANVAS_DOCUMENT_FIELDS,
   getInfiniteCanvasScopedStorageKey,
   parseInfiniteCanvasState,
   parseInfiniteCanvasStateJson,
@@ -229,4 +253,4 @@ export {
   stringifyInfiniteCanvasState,
 };
 
-export type { InfiniteCanvasStorageKeyInput };
+export type { InfiniteCanvasDocumentField, InfiniteCanvasStorageKeyInput };

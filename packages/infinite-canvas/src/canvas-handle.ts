@@ -4,7 +4,11 @@ import {
   DEFAULT_INFINITE_CANVAS_COMMAND_DESCRIPTORS,
   getAvailableInfiniteCanvasContextualCommands,
 } from "./commands";
-import { serializeInfiniteCanvasState } from "./persistence";
+import {
+  INFINITE_CANVAS_DOCUMENT_FIELDS,
+  serializeInfiniteCanvasState,
+  type InfiniteCanvasDocumentField,
+} from "./persistence";
 import type { InfiniteCanvasStore } from "./store";
 import type {
   InfiniteCanvasCommandDescriptor,
@@ -39,6 +43,25 @@ type InfiniteCanvasHandle<Kind extends string = string> = Readonly<{
   subscribe: <Value>(
     selector: (state: InfiniteCanvasState<Kind>) => Value,
     listener: (value: Value, previousValue: Value) => void,
+  ) => () => void;
+  /**
+   * Watch the durable document — everything `serializeInfiniteCanvasState` writes down, and
+   * nothing else. Returns a disposer.
+   *
+   * This exists because `subscribe` cannot express it. The store commits per field and never
+   * replaces the root, and Legend State is explicitly not immutable, so a root read returns the
+   * same object forever: `subscribe((state) => state, …)` compares that object to itself and
+   * never fires. Selecting a fresh object instead fires forever. Neither is a viable way to
+   * persist a canvas, and both fail silently — the first saves nothing, the second saves
+   * constantly.
+   *
+   * Runtime churn is excluded by construction rather than by the caller filtering it: pans,
+   * viewport resizes, snap previews, and history do not reach this listener at all. What remains
+   * is a signal that means "the thing you would store has changed", which is what an external
+   * store actually needs.
+   */
+  subscribeDocument: (
+    listener: (document: InfiniteCanvasSerializedState<Kind>) => void,
   ) => () => void;
 }>;
 
@@ -93,6 +116,35 @@ function createInfiniteCanvasHandle<Kind extends string>(
           }
         });
       });
+    },
+    subscribeDocument: (listener) => {
+      let hasPending = false;
+      // One action commits several fields inside a batch, and each field notifies separately.
+      // Collapsing on a microtask turns that into the one document change it actually was.
+      const notify = () => {
+        if (hasPending) {
+          return;
+        }
+
+        hasPending = true;
+        queueMicrotask(() => {
+          hasPending = false;
+          listener(serializeInfiniteCanvasState(getState()));
+        });
+      };
+      const disposers = Object.keys(INFINITE_CANVAS_DOCUMENT_FIELDS).map((field) =>
+        (
+          store.state$[field as InfiniteCanvasDocumentField] as unknown as {
+            onChange: (callback: () => void) => () => void;
+          }
+        ).onChange(notify),
+      );
+
+      return () => {
+        for (const dispose of disposers) {
+          dispose();
+        }
+      };
     },
   };
 }
