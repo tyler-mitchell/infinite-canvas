@@ -236,3 +236,38 @@ test("a window inside the viewport gets no indicator", () => {
 
   expect(getInfiniteCanvasOffscreenIndicators(onScreen)).toEqual([]);
 });
+
+/**
+ * A desktop filters the map, and the bounds it is scaled from.
+ *
+ * The third surface to need this correction, after `window.reveal` and the offscreen ring. The
+ * omission is worse here than in either, because a hidden window does not merely get drawn — it is
+ * unioned into `bounds`, so it changes the *scale*, and every window the user can actually see
+ * shrinks to make room for one they cannot.
+ *
+ * Both halves are asserted for that reason. Checking only the window list would pass while the map
+ * stayed silently zoomed out around content nothing renders.
+ */
+test("a desktop filters the map: a window it hides is neither drawn nor measured", () => {
+  const base = state();
+  const onDesktop: InfiniteCanvasState<Kind> = {
+    ...base,
+    activeWorkspaceId: "desk",
+    workspaces: [
+      {
+        camera: base.camera,
+        id: "desk",
+        selection: { anchorWindowId: null, windowIds: [] },
+        title: "Desk",
+        windowIds: ["a"],
+      },
+    ],
+  };
+
+  const everything = getInfiniteCanvasMinimapLayout(base, { height: 200, width: 200 });
+  const filtered = getInfiniteCanvasMinimapLayout(onDesktop, { height: 200, width: 200 });
+
+  expect(filtered?.windows.map((window) => window.windowId)).toEqual(["a"]);
+  // `b` sits at x 700..960 while `a` sits at x -400..-100, so dropping it must narrow the bounds.
+  expect(filtered?.bounds.width).toBeLessThan(everything?.bounds.width ?? 0);
+});

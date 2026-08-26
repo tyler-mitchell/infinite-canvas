@@ -1,6 +1,8 @@
 import { getVisibleWorldRect, isUsableViewport, unionRects } from "./geometry";
 import { getInfiniteCanvasGroupProjection } from "./group-state";
+import { getInfiniteCanvasGroupWindowIds } from "./group-tree";
 import { isWindowSelected } from "./selection";
+import { getInfiniteCanvasWorkspaceWindowIds } from "./workspace-membership";
 import type {
   InfiniteCanvasPoint,
   InfiniteCanvasRect,
@@ -112,13 +114,40 @@ function getInfiniteCanvasMinimapLayout<Kind extends string>(
   }
 
   const { hiddenWindowIds } = getInfiniteCanvasGroupProjection(state.groups);
+  /*
+   * A desktop hides windows, so the map may not draw them either.
+   *
+   * This filtered minimized windows and folded group members and stopped there, which made the
+   * overview the last surface still claiming a canvas holds everything in `state.windows`. Standing
+   * on a desktop drew a map of windows that are not rendered — and worse than drawing them, they
+   * are unioned into `bounds` below, so every window you *can* see shrinks to make room for ones
+   * you cannot. An empty desktop produced a map full of content over a blank canvas.
+   *
+   * This function's own docstring already stated the rule it was breaking: an overview is a map of
+   * what is on screen to be found. `window.reveal` and the offscreen ring each took this same
+   * correction; the map was the third surface filtering on `minimized` alone.
+   *
+   * `null` means no workspace is active and admits everything, so a canvas that never creates a
+   * desktop is unaffected.
+   */
+  const admitted = getInfiniteCanvasWorkspaceWindowIds(state);
   const drawnWindows = state.windows.filter(
-    (window) => window.mode !== "minimized" && !hiddenWindowIds.has(window.id),
+    (window) =>
+      window.mode !== "minimized" &&
+      !hiddenWindowIds.has(window.id) &&
+      (admitted === null || admitted.has(window.id)),
+  );
+  // Membership is group-complete — a workspace admits all of a group's windows or none — so one
+  // admitted member settles the group, matching how the offscreen ring reads the same set.
+  const drawnGroups = state.groups.filter(
+    (group) =>
+      admitted === null ||
+      getInfiniteCanvasGroupWindowIds(group.tree).some((windowId) => admitted.has(windowId)),
   );
   const visibleWorldRect = getVisibleWorldRect(state.camera, state.viewport, 0);
   const bounds = unionRects([
     ...drawnWindows.map((window) => window.rect),
-    ...state.groups.map((group) => group.rect),
+    ...drawnGroups.map((group) => group.rect),
     visibleWorldRect,
   ]);
 
@@ -137,7 +166,9 @@ function getInfiniteCanvasMinimapLayout<Kind extends string>(
 
   return {
     bounds,
-    groups: state.groups.map((group) => ({
+    // `drawnGroups`, not `state.groups` — a group excluded from the bounds above must also be
+    // excluded here, or the map draws a rect for a desktop it deliberately did not measure.
+    groups: drawnGroups.map((group) => ({
       groupId: group.id,
       rect: scaleRect(group.rect, bounds, scale, offset),
     })),
