@@ -123,6 +123,61 @@ test("with nothing clear it takes the least-covered spot, not the preferred one"
   expect(covered(placed)).toBeLessThan(covered(preferred));
 });
 
+/**
+ * `bounds` is a bound on the answer, not only on the search.
+ *
+ * The three below are one defect from three directions, and it is the docstring's own
+ * non-negotiable: a rect placed out of view is the "did it even open?" failure. The search was
+ * confined to `bounds` correctly, but `preferred` reached the return unexamined — cleared early
+ * when nothing covered it, and kept as the incumbent when nothing beat it — so a consumer that
+ * asked for a spot off-screen got exactly that back and the function was a no-op at the one moment
+ * it existed for. It happens whenever `preferred` is derived from something that has since moved:
+ * a stale camera, a pointer that left the canvas mid-drag, a rect saved before a pan.
+ *
+ * Overlap avoidance is a preference; being visible is not.
+ */
+test("a preferred spot outside the bounds is pulled inside them", () => {
+  // Nothing occupies anything, so overlap avoidance has no opinion — only containment does.
+  const placed = getInfiniteCanvasVacantRect({
+    bounds: BOUNDS,
+    occupied: [],
+    preferred: at(4000, 3000),
+  });
+
+  expect(placed.x + placed.width).toBeLessThanOrEqual(BOUNDS.x + BOUNDS.width);
+  expect(placed.y + placed.height).toBeLessThanOrEqual(BOUNDS.y + BOUNDS.height);
+  expect(placed.x).toBeGreaterThanOrEqual(BOUNDS.x);
+  expect(placed.y).toBeGreaterThanOrEqual(BOUNDS.y);
+});
+
+test("a preferred spot hanging over one edge is pulled back by exactly the overhang", () => {
+  // Nearest-inside, not re-centred: the consumer's policy still decides everything containment
+  // does not, so a rect 100 past the right edge comes back 100 and no further.
+  const placed = getInfiniteCanvasVacantRect({
+    bounds: BOUNDS,
+    occupied: [],
+    preferred: at(BOUNDS.width - SIZE.width + 100, 300),
+  });
+
+  expect(placed).toEqual(at(BOUNDS.width - SIZE.width, 300));
+});
+
+test("a rect larger than the bounds keeps its origin in view rather than centring", () => {
+  /*
+   * The one case containment cannot fully satisfy, so it satisfies the half that matters. A window
+   * wider than the visible region overflows whatever is done with it; putting its origin at
+   * `bounds` keeps the header — the part you drag and close by — reachable, where centring it would
+   * push the header off the top edge and leave nothing to grab.
+   */
+  const placed = getInfiniteCanvasVacantRect({
+    bounds: { height: 100, width: 200, x: 50, y: 60 },
+    occupied: [],
+    preferred: at(4000, 3000),
+  });
+
+  expect(placed).toEqual({ ...SIZE, x: 50, y: 60 });
+});
+
 test("occupants outside the preferred spot do not push it around", () => {
   // Looking, not counting: a canvas with windows elsewhere must not move a placement that is clear.
   const preferred = at(600, 400);

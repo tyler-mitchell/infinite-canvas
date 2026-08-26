@@ -147,6 +147,15 @@ function getInfiniteCanvasWindowPlacementRect(
  * on whatever happens to be in the middle. Watched: at 123% zoom the visible region holds six cells,
  * and the third opening onto a busy view landed with 56% of it behind an existing window while a
  * corner sat half free. Ties keep `preferred`, so a canvas with nothing on it is untouched.
+ *
+ * **`bounds` bounds the answer, not only the search.** The paragraph above called containment
+ * non-negotiable while `preferred` reached the return unexamined — cleared early when nothing
+ * covered it, kept as the incumbent when nothing beat it — so a `preferred` outside `bounds` came
+ * straight back and this was a no-op at the one moment it existed for. That is not exotic: it is
+ * any `preferred` derived from something that has since moved, a stale camera, a pointer that left
+ * the canvas mid-drag, a rect saved before a pan. Every rect that leaves here is now pulled inside
+ * `bounds` first, by the smallest move that fits, so the consumer's policy still decides everything
+ * containment does not. Overlap avoidance is a preference; being visible is not.
  */
 function getInfiniteCanvasVacantRect(
   input: Readonly<{
@@ -158,7 +167,26 @@ function getInfiniteCanvasVacantRect(
     preferred: InfiniteCanvasRect;
   }>,
 ): InfiniteCanvasRect {
-  const { bounds, gapPx = 0, occupied, preferred } = input;
+  const { bounds, gapPx = 0, occupied, preferred: requested } = input;
+  /**
+   * The nearest position inside `bounds` for a rect of this size.
+   *
+   * `min` first pulls a rect back from the far edge, `max` then pushes it off the near one, and the
+   * order matters only when the rect is larger than `bounds` on that axis: `min` drives the origin
+   * negative and `max` wins, pinning to `bounds`. That is deliberate rather than incidental — a
+   * window wider than the visible region overflows whatever is done with it, and putting its origin
+   * at the corner keeps the header reachable, where centring the overflow would push the one part
+   * you can drag and close off the top edge.
+   */
+  const containedRect = (rect: InfiniteCanvasRect): InfiniteCanvasRect => ({
+    height: rect.height,
+    width: rect.width,
+    x: Math.max(bounds.x, Math.min(rect.x, bounds.x + bounds.width - rect.width)),
+    y: Math.max(bounds.y, Math.min(rect.y, bounds.y + bounds.height - rect.height)),
+  });
+  // Everything below reasons about the spot the consumer can actually be given, never the one it
+  // asked for — including the distance ordering, so "nearest" stays nearest to a reachable rect.
+  const preferred = containedRect(requested);
   /**
    * How much of this candidate is covered, counting the gap as covered too.
    *
