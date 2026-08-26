@@ -34,6 +34,7 @@
     "react": "catalog:",
     "react-dom": "catalog:",
     "surrealdb": "catalog:",
+    "typegpu": "catalog:",
     "ui": "workspace:*"
   },
   "devDependencies": {
@@ -43,8 +44,10 @@
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
     "@vitejs/plugin-react": "catalog:",
+    "@webgpu/types": "catalog:",
     "tailwindcss": "catalog:",
     "typescript": "~6.0.2",
+    "unplugin-typegpu": "catalog:",
     "vite": "catalog:",
     "vite-plus": "catalog:"
   }

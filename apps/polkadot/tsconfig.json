@@ -9,7 +9,7 @@
       "@/*": ["./src/*"]
     },
     "lib": ["ES2023", "DOM", "DOM.Iterable"],
-    "types": ["vite-plus/client"],
+    "types": ["vite-plus/client", "@webgpu/types"],
 
     /* Bundler mode */
     "moduleResolution": "bundler",
