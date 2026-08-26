@@ -47,6 +47,19 @@ function getCascadedRect(
   return { ...baseRect, x: baseRect.x + offset, y: baseRect.y + offset };
 }
 
+/**
+ * Whether a window is already showing this content item.
+ *
+ * A structural read rather than the registry's ArkType schema, and deliberately so: importing
+ * `ContentWindowData` here would close a cycle, since the registry reaches for every kind's body
+ * and those bodies reach back for this opener. The shape being asked about is one field, and the
+ * guard is the whole of the check rather than a cast buried in a comparison.
+ */
+const showsItem = (data: unknown, itemId: string) =>
+  typeof data === "object" &&
+  data !== null &&
+  (data as Readonly<{ itemId?: unknown }>).itemId === itemId;
+
 function openContentWindow<Kind extends WindowKind>(
   input: WindowPlacement &
     Readonly<{
@@ -59,6 +72,29 @@ function openContentWindow<Kind extends WindowKind>(
       title: string;
     }>,
 ) {
+  /*
+   * Already open means go there, not open it twice.
+   *
+   * The library rail has always done this — it reveals when the note has a window and opens when it
+   * does not — but it did it *itself*, so the rule lived in one caller rather than in the opening.
+   * The moment a second surface opened items, collections, that surface did not have it: clicking a
+   * collection row for a note already on the canvas made a second window bound to the same record.
+   * Two windows on one note is not a feature this app offers; it is the state where editing in one
+   * and reading the other looks like the save failed.
+   *
+   * So the rule lives where the opening does, and every caller gets it — the rail, the palette,
+   * collections, and whatever opens items next. `window.reveal` rather than a bare focus, because
+   * the window may be minimized or on another desktop, and revealing is the framework's one verb
+   * for all of that.
+   */
+  const existing = input.state.windows.find((window) => showsItem(window.data, input.data.itemId));
+
+  if (existing !== undefined) {
+    input.actions.executeCommand({ type: "window.reveal", windowId: existing.id });
+
+    return;
+  }
+
   input.actions.openWindow(
     createInfiniteCanvasWindow<WindowKind, WindowData[Kind]>({
       data: input.data,

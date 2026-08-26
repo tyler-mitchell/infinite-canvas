@@ -330,6 +330,19 @@ open because it feels good to look at. Concretely, and these are enforced in rev
       expands in place — reaching a connected note costs one click whether or not it has a window,
       which is the thing the palette cannot do. Clicking a row is `window.reveal` when the note is
       open and `openNoteWindow` when it is not; neither is re-derived here.
+      **That rule has moved to where the opening happens, because keeping it here was the defect.**
+      The rail chose between reveal and open _itself_, so the rule lived in one caller rather than
+      in `openContentWindow`. The moment a second surface opened items — collections — that surface
+      did not have it: clicking a collection row for a note already on the canvas made a second
+      window bound to the same record, which is the state where editing in one and reading the other
+      looks like the save failed. Two windows on one note is not a feature this app offers, and
+      nothing else could reach that state, which is why it went unnoticed.
+      `openContentWindow` now reveals an existing window for the same item, so the rail, the palette,
+      collections and whatever opens items next all get it. Driven on the defect itself: a collection
+      row opened `connectable.png`, the window was minimized, and clicking the same row again
+      restored _that_ window — one window bound to the item, `mode` back to `normal`, focused —
+      rather than opening a fifth. Another instance of a derived surface having to ask the same
+      question the verb asks.
       The HUD is inset by the same number the camera is, so the identity rail stops sitting under
       the panel and the selection rail re-centres on what is visible. Verified in the browser:
       revealing a note centres it at x≈490 in a visible region whose centre is 486, where the
