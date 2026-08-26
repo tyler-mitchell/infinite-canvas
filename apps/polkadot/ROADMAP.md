@@ -770,6 +770,11 @@ open because it feels good to look at. Concretely, and these are enforced in rev
   would have left a surviving chip carrying a `targetCount` that counted windows on other desktops
   — a badge that lies — because `limit` and `mergeWithinPx` are applied inside. Pinned by a test
   that fails without the change with `expected [ 'near', 'far' ] to not include 'far'`.
+  **Witnessed in the app as a contrast rather than an absence**, because "no arrows" on its own
+  proves nothing — a canvas with everything on screen has none either. Camera parked far from every
+  window so all three are genuinely offscreen: on All windows the ring carries one chip reading
+  "Go to Notes, and 2 more this way"; entering the empty desktop with the camera untouched leaves
+  zero chips and zero windows drawn. That second reading is the one the audit recorded as a defect.
 - [x] **Grain and vignette.** Both are passes inside the field rather than an overlay on top of it,
       because material noise belongs to the surface: a two-scale grain plus a radial falloff, each
       on its own `intensity` knob. The windows themselves still have no grain.
