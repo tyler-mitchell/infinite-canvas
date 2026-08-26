@@ -14,6 +14,7 @@ import {
   Columns3,
   CornerDownLeft,
   FilePlus2,
+  FileText,
   FolderOpen,
   FolderPlus,
   Frame,
@@ -38,9 +39,9 @@ import { tv } from "ui/tv";
 
 import { initialLayout } from "../canvas/canvas-document";
 import type { WindowKind } from "../canvas/window-registry";
-import type { CanvasSummary, ProjectSummary } from "../database/database.client";
+import type { CanvasSummary, NoteRecord, ProjectSummary } from "../database/database.client";
 import * as database from "../database/operations";
-import { openNewNote } from "../notes/open-note";
+import { openNewNote, openNoteWindow } from "../notes/open-note";
 
 /**
  * One surface over three vocabularies: the windows on this canvas, what Polkadot can do, and what
@@ -206,7 +207,9 @@ function PaletteContent({
   const navigate = useNavigate();
   const canvases$ = useObservable<readonly CanvasSummary[]>([]);
   const projectList$ = useObservable<readonly ProjectSummary[]>([]);
+  const notes$ = useObservable<readonly NoteRecord[]>([]);
   const query$ = useObservable("");
+  const notes = useValue(notes$);
   const canvases = useValue(canvases$);
   const projectList = useValue(projectList$);
   const query = useValue(query$);
@@ -224,7 +227,25 @@ function PaletteContent({
     void database.projects.list().then((records) => {
       projectList$.set(records);
     });
-  }, [canvases$, projectId, projectList$]);
+    void database.notes.list(projectId).then((records) => {
+      notes$.set(records);
+    });
+  }, [canvases$, notes$, projectId, projectList$]);
+
+  /**
+   * Notes with no window on this canvas.
+   *
+   * Closing the last window on a note does not delete it — the note is a record, the window was a
+   * view of it — but until this, nothing could reach one again, so a note quietly became invisible
+   * while staying in the database forever. The ones already on the canvas are omitted because they
+   * appear above under Windows, where selecting them navigates rather than duplicates.
+   */
+  const openNoteIds = new Set(
+    state.windows
+      .map((window) => (window.data as { noteId?: string } | undefined)?.noteId)
+      .filter((noteId) => noteId !== undefined),
+  );
+  const closedNotes = notes.filter((note) => !openNoteIds.has(note.id));
 
   const run = (perform: () => void) => () => {
     perform();
@@ -268,6 +289,22 @@ function PaletteContent({
                   window.isActive ? <span className={styles.description()}>active</span> : null
                 }
                 value={`window ${window.title} ${window.kind}`}
+              />
+            ))}
+          </CommandGroup>
+        )}
+
+        {closedNotes.length === 0 ? null : (
+          <CommandGroup heading="Notes">
+            {closedNotes.map((note) => (
+              <Row
+                icon={FileText}
+                key={note.id}
+                onSelect={run(() => {
+                  openNoteWindow({ actions, noteId: note.id, state, title: note.title });
+                })}
+                title={note.title}
+                value={`note ${note.title}`}
               />
             ))}
           </CommandGroup>

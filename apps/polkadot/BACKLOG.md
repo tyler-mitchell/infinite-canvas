@@ -347,7 +347,15 @@ app shell are not production patterns. Take the editor architecture, not the sur
 
 ---
 
-## defect: notes become unreachable when their last window closes
+## defect: notes become unreachable when their last window closes — **reachability fixed**
+
+**Status: the data-loss shape is gone.** The command palette lists every note in the project with
+no window on the current canvas, under "Notes", and selecting one puts it back. Verified by
+closing the only window on the welcome note and reopening it from the palette with its text
+intact. What follows is the original entry, kept because the _browsing_ half is still true: search
+is not the same affordance as a library you can scan, and saved views do not exist at all.
+
+---
 
 Closing a window does not delete the note, which is correct — the note is a record and the window
 was a view of it. But there is no other way to reach a note, so closing the last window on one

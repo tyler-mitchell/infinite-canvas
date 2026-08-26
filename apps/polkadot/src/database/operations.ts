@@ -44,6 +44,7 @@ export const projects = {
 export const notes = {
   create: async (input: Readonly<{ projectId: string; text: string; title: string }>) =>
     (await client()).createNote(input),
+  list: async (projectId: string) => (await client()).listNotes(projectId),
   read: async (noteId: string) => (await client()).readNote(noteId),
   save: async (
     input: Readonly<{ noteId: string; revision: number; text: string; title: string }>,
