@@ -11,6 +11,8 @@ import type {
   InfiniteCanvasResizeHandle,
   InfiniteCanvasSize,
   InfiniteCanvasViewport,
+  InfiniteCanvasViewportInsets,
+  InfiniteCanvasViewportInsetsInput,
   InfiniteCanvasZoomPolicy,
 } from "./types";
 
@@ -376,26 +378,36 @@ function panCameraByScreenDelta(
   };
 }
 
+/**
+ * A camera that frames `rect` inside the part of the viewport nothing is covering.
+ *
+ * Both halves matter and they are separate: the zoom comes from the *size* of the unoccluded
+ * region, and the centre comes from its *position*. Solving only the first fits the rect to the
+ * right scale and still parks it behind the panel.
+ */
 function fitCameraToWorldRect(
   viewport: InfiniteCanvasViewport,
   rect: InfiniteCanvasRect,
   paddingPx = 80,
   zoomPolicy: InfiniteCanvasZoomPolicy = DEFAULT_INFINITE_CANVAS_ZOOM,
+  insets: InfiniteCanvasViewportInsets = NO_INFINITE_CANVAS_VIEWPORT_INSETS,
 ): InfiniteCanvasCamera | null {
   if (!isUsableViewport(viewport)) {
     return null;
   }
 
-  const availableWidth = Math.max(viewport.width - paddingPx * 2, 1);
-  const availableHeight = Math.max(viewport.height - paddingPx * 2, 1);
+  const content = getInfiniteCanvasContentViewport(viewport, insets);
+  const availableWidth = Math.max(content.width - paddingPx * 2, 1);
+  const availableHeight = Math.max(content.height - paddingPx * 2, 1);
   const requestedZoom = Math.min(
     availableWidth / Math.max(rect.width, 1),
     availableHeight / Math.max(rect.height, 1),
   );
+  const zoom = getConstrainedZoom(requestedZoom, zoomPolicy);
 
   return {
-    center: getRectCenter(rect),
-    zoom: getConstrainedZoom(requestedZoom, zoomPolicy),
+    center: getInfiniteCanvasInsetCameraCenter(getRectCenter(rect), zoom, insets),
+    zoom,
   };
 }
 
@@ -465,6 +477,68 @@ function getVisibleWorldRect(
     width: halfWidth * 2 + overscan * 2,
     x: camera.center.x - halfWidth - overscan,
     y: camera.center.y - halfHeight - overscan,
+  };
+}
+
+const NO_INFINITE_CANVAS_VIEWPORT_INSETS = {
+  bottom: 0,
+  left: 0,
+  right: 0,
+  top: 0,
+} satisfies InfiniteCanvasViewportInsets;
+
+/** Every edge optional, so a consumer with one panel names one edge. Mirrors the chrome metrics. */
+function resolveInfiniteCanvasViewportInsets(
+  input: InfiniteCanvasViewportInsetsInput = {},
+): InfiniteCanvasViewportInsets {
+  return {
+    bottom: input.bottom ?? 0,
+    left: input.left ?? 0,
+    right: input.right ?? 0,
+    top: input.top ?? 0,
+  };
+}
+
+/**
+ * The part of the viewport a consumer's chrome is **not** covering, in screen space.
+ *
+ * One primitive, because fitting, centring and placement are all the same question asked of
+ * different rects — where is the region the user can actually see. Deriving each of them from this
+ * is what keeps them from disagreeing.
+ *
+ * Clamped rather than allowed to invert: insets wider than the viewport describe chrome that covers
+ * everything, and a negative-width region would silently flip the sign of every camera it fed.
+ */
+function getInfiniteCanvasContentViewport(
+  viewport: InfiniteCanvasViewport,
+  insets: InfiniteCanvasViewportInsets = NO_INFINITE_CANVAS_VIEWPORT_INSETS,
+): InfiniteCanvasRect {
+  return {
+    height: Math.max(viewport.height - insets.top - insets.bottom, 1),
+    width: Math.max(viewport.width - insets.left - insets.right, 1),
+    x: insets.left,
+    y: insets.top,
+  };
+}
+
+/**
+ * Where a camera has to sit for `center` to land in the middle of the *unoccluded* region.
+ *
+ * A camera's centre is the world point at the middle of the whole viewport. When chrome covers one
+ * edge, the middle of what the user can see is somewhere else, and the difference is half the
+ * asymmetry between opposing insets — converted to world units, because insets are screen pixels
+ * and a camera lives in world space.
+ */
+function getInfiniteCanvasInsetCameraCenter(
+  center: InfiniteCanvasPoint,
+  zoom: number,
+  insets: InfiniteCanvasViewportInsets = NO_INFINITE_CANVAS_VIEWPORT_INSETS,
+): InfiniteCanvasPoint {
+  const scale = Math.max(zoom, Number.EPSILON);
+
+  return {
+    x: center.x - (insets.left - insets.right) / (2 * scale),
+    y: center.y - (insets.top - insets.bottom) / (2 * scale),
   };
 }
 
@@ -551,6 +625,8 @@ export {
   fitCameraToWorldRect,
   getAdaptiveGridSpacing,
   getConstrainedZoom,
+  getInfiniteCanvasContentViewport,
+  getInfiniteCanvasInsetCameraCenter,
   getRectFromPoints,
   getRectCenter,
   getViewportInsetWorldRect,
@@ -562,8 +638,10 @@ export {
   isUsableViewport,
   isWorldRectCulled,
   isWorldRectWithinViewport,
+  NO_INFINITE_CANVAS_VIEWPORT_INSETS,
   panCameraByScreenDelta,
   projectWorldRectToScreen,
+  resolveInfiniteCanvasViewportInsets,
   rectContainsPoint,
   rectsIntersect,
   resizeRectFromHandle,

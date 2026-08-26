@@ -45,6 +45,28 @@ type InfiniteCanvasCamera = Readonly<{
 
 type InfiniteCanvasViewport = InfiniteCanvasSize;
 
+/**
+ * Screen space a consumer's own chrome is covering, per edge.
+ *
+ * The canvas fills its element, and a consumer that puts a sidebar, an inspector, or a docked panel
+ * on top of it has no way to say so. Every inset the framework previously took was a single number
+ * applied to all four edges, which cannot express "320px on the left" — reserving it there reserved
+ * it on the right too, so fitting and centring split the difference and put content under the panel
+ * anyway.
+ *
+ * Insets are measurement, not document: like `viewport`, they describe the shape of the window the
+ * user is looking through rather than anything about the canvas, so they are never serialized.
+ */
+type InfiniteCanvasViewportInsets = Readonly<{
+  bottom: number;
+  left: number;
+  right: number;
+  top: number;
+}>;
+
+/** Every edge optional, because a consumer with one panel should name one edge. */
+type InfiniteCanvasViewportInsetsInput = Partial<InfiniteCanvasViewportInsets>;
+
 type InfiniteCanvasResizeHandle =
   | "north"
   | "south"
@@ -1583,6 +1605,8 @@ export type {
   InfiniteCanvasState,
   InfiniteCanvasTheme,
   InfiniteCanvasViewport,
+  InfiniteCanvasViewportInsets,
+  InfiniteCanvasViewportInsetsInput,
   InfiniteCanvasWindow,
   InfiniteCanvasWindowBodyPointerBehavior,
   InfiniteCanvasWindowDefinition,
