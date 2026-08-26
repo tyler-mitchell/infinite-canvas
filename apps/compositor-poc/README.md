@@ -63,6 +63,13 @@ skips a frame when a previous read is still in flight — the docs say to gate o
 `querySet.available` — so the callback simply did not land in the sampled frame.
 It rendered at 120 Hz; its GPU cost was not captured.
 
+> **The GPU instrument stopped landing samples once textures were added, and has
+> not been fixed.** The three geometry timings above were taken before that, on
+> the texture-free build, and stand. The current build reports `(0 samples)`
+> rather than a plausible-looking zero — that readout exists precisely so a dead
+> instrument cannot be mistaken for a fast frame. Diagnosing it is outstanding
+> work, not a solved problem.
+
 ### What this settles
 
 A workbench has hundreds of windows, maybe low thousands. At 100 000 the geometry

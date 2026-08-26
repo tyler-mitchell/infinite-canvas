@@ -210,12 +210,27 @@ const pipeline = root
   })
   .with(layout, bindGroup);
 
-const camera = { center: { x: 0, y: 0 }, zoom: 0.35 };
+// `?zoom=` so the fill-bound case can be reached deliberately: zoomed out, quads are tiny and the
+// instance count dominates; zoomed in, a handful of windows cover every pixel and overdraw does.
+const camera = {
+  center: { x: 0, y: 0 },
+  zoom: Math.max(Number(params.get("zoom") ?? 0.35), 0.01),
+};
 let gpuNanoseconds = 0;
 
+let gpuSamples = 0;
+
+// The query set skips a frame when a previous read is still in flight, so a reading of zero means
+// "no sample landed", not "it was free". Counting samples is what tells those apart — reporting
+// the zero as a measurement is how the 500 000 row first lied.
 const timed = hasTimestamps
   ? pipeline.withPerformanceCallback((start, end) => {
-      gpuNanoseconds = Number(end - start);
+      const elapsed = Number(end - start);
+
+      if (elapsed > 0) {
+        gpuNanoseconds = elapsed;
+        gpuSamples += 1;
+      }
     })
   : pipeline;
 
@@ -282,7 +297,7 @@ const frame = () => {
     `draw calls 1`,
     `frame      ${median.toFixed(2)} ms  (${(1000 / median).toFixed(0)} fps)`,
     hasTimestamps
-      ? `gpu        ${(gpuNanoseconds / 1e6).toFixed(3)} ms`
+      ? `gpu        ${(gpuNanoseconds / 1e6).toFixed(3)} ms   (${String(gpuSamples)} samples)`
       : `gpu        timestamp-query unavailable`,
     `textures   ${String(textureLayers)} x ${String(textureSize)}px  = ${(textureBytes / 1024 ** 2).toFixed(1)} MB`,
     `upload     ${uploadMs.toFixed(1)} ms  (${(textureBytes / 1024 ** 2 / (uploadMs / 1000)).toFixed(0)} MB/s)`,
