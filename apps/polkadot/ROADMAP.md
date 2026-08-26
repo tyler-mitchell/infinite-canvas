@@ -67,11 +67,14 @@ open because it feels good to look at. Concretely, and these are enforced in rev
   the 3px accent bar were all already tokenised and simply never set. The active window is now
   said with material (a 9% accent wash over the raised surface, plus `--lift-3`) rather than
   with a rule, and controls arrive on approach via opacity so the header never reflows.
-  **Still open: "a header that reads as part of the note."** The title is currently printed
-  twice — once in the chrome, once as the note body's own heading field — which at reading
-  zoom is the same string twice, sixty pixels apart. The fix is to make the chrome title the
-  single editable name and drop the body field; the framework already allows it, since
-  `InfiniteCanvasWindowFrameRenderContext` exposes frame slots that accept a `render`.
+  The header now reads as part of the note rather than labelling it: the chrome title is hidden
+  for the note kind, so the note's own first field is its name and the header is a slim bar
+  carrying only controls. `window.title` follows the record underneath, for the far-zoom summary
+  and the accessible name — which also fixed a defect where renaming a note left both showing
+  whatever it was called at creation.
+  **Still open:** that header is 40px of empty bar on a kind with no title to show, and
+  `headerHeight` is chrome metrics rather than CSS, so shrinking it means passing the `chrome`
+  prop. The specular hairline the palette describes is also not on the window yet.
 - [x] **Notes that are notes.** Lexical behind a `{ value, onChange }` boundary — the engine is
       named in exactly one file — with a debounced, revision-guarded write per note. Landed early,
       out of sequence with `IMPLEMENTATION_PHASES.md`, which is recorded in the audit rather than
