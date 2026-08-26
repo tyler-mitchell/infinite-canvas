@@ -128,7 +128,29 @@ open because it feels good to look at. Concretely, and these are enforced in rev
       real wheel input hangs the browser pane. What that proves is the listener and the measurement;
       what it assumes is that Chrome fires `scroll` on real user scrolling, which is the platform's
       guarantee rather than this code's.
-      **Still adjacent and unbuilt:** grain.
+      **Grain landed, and it needed no framework change.** The window surface was a flat fill; it is
+      a material now. `theme.css` already consumes `--icx-body-background`, `--icx-header-idle` and
+      `--icx-header-active` through the `background` *shorthand*, which takes an image layer over a
+      colour — so a noise layer composes into tokens this app already owns, and nothing about the
+      framework had to move. `background-color` could not have carried it, which is the whole reason
+      the composition belongs in `styles.css` rather than in a slot.
+      All three tokens carry it, so the window is one material rather than a grainy body under a
+      flat bar. The tiles do not align across those three elements and do not need to — noise has no
+      pattern to misalign, which is the property that makes this usable at all.
+      It scales with the camera. That is a decision, not an oversight: material grain belongs to the
+      surface, so magnifying the surface should magnify it, the way paper looks coarser under a
+      loupe. Screen-constant grain would need the zoom as a CSS variable inside the window
+      transform, which is a framework question nobody has had to ask yet.
+      **The strength is measured rather than chosen**, and the first number was wrong.
+      `feTurbulence` writes noise into the *alpha* channel as well as the colour ones, so the rect's
+      opacity multiplies against an alpha that already averages about half: at `0.035` the decoded
+      tile came back with a mean alpha of 4.5/255 — 1.75% effective, past subtle and into absent.
+      At `0.07` it measures 8.93/255, exactly the 3.5% intended. Verified by decoding the tile the
+      surface actually resolved and reading its pixels, because a malformed data URI still reports a
+      `url(…)` in `backgroundImage` while painting nothing at all.
+      **Unverified:** how it looks. 3.5% noise does not survive a downscaled screenshot, so this is
+      confirmed present and correctly weighted, not confirmed *good* — that judgement needs a real
+      display.
 - [x] **Notes that are notes.** Lexical behind a `{ value, onChange }` boundary — the engine is
       named in exactly one file — with a debounced, revision-guarded write per note. Landed early,
       out of sequence with `IMPLEMENTATION_PHASES.md`, which is recorded in the audit rather than

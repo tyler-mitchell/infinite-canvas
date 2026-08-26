@@ -6,6 +6,7 @@
 @import "@fontsource-variable/geist-mono";
 
 @source "../../../packages/ui/src";
+@source "../../../packages/surreal-inspector/src";
 
 /**
  * Polkadot's palette.
@@ -38,6 +39,28 @@
 
   /* The specular hairline along a surface's top edge. */
   --edge-light: oklch(1 0 0 / 0.07);
+
+  /*
+   * Grain — the surface is a material, not a fill.
+   *
+   * A layer, not a colour: every token it composes into is consumed through the `background`
+   * shorthand, which takes an image over a colour. `background-color` could not carry this, which
+   * is why the composition happens here rather than in a slot.
+   *
+   * `feTurbulence` rather than a PNG tile so the noise has no repeat to find, and `stitchTiles` so
+   * the 140px tile joins itself invisibly.
+   *
+   * The `0.07` is measured, not chosen. `feTurbulence` writes noise into the *alpha* channel as
+   * well as the colour ones, so the rect's opacity multiplies against an alpha that already
+   * averages about half — at `0.035` the decoded tile came back with a mean alpha of 4.5/255,
+   * around 1.75% effective, which is past subtle and into absent. Doubling it lands where the
+   * intent was. Grain that can be *seen* has stopped being grain and become texture.
+   *
+   * It scales with the camera, which is correct rather than incidental: material grain is a
+   * property of the surface, so magnifying the surface should magnify it — paper looks coarser
+   * under a loupe.
+   */
+  --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23g)' opacity='0.07'/%3E%3C/svg%3E");
 
   /* Ink — warm against the cool ground. */
   --ink: oklch(0.96 0.008 85);
@@ -150,9 +173,14 @@
  */
 [data-slot="viewport"] {
   --icx-background: transparent;
-  --icx-body-background: var(--surface);
-  --icx-header-idle: var(--surface);
-  --icx-header-active: var(--surface-raised);
+  /*
+   * Grain over each, so the whole window is one material rather than a grainy body under a flat
+   * bar. The tiles do not align across the three elements and do not need to — noise has no
+   * pattern to misalign, which is the property that makes it usable this way at all.
+   */
+  --icx-body-background: var(--grain), var(--surface);
+  --icx-header-idle: var(--grain), var(--surface);
+  --icx-header-active: var(--grain), var(--surface-raised);
   --icx-idle-border: transparent;
   --icx-active-border: transparent;
   --icx-active-accent: var(--accent);
