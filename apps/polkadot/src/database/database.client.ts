@@ -611,6 +611,17 @@ async function listContentItems(
   return ContentItemRecord.array().assert(records);
 }
 
+async function listRelatedContentItems(itemId: string): Promise<readonly ContentItemRecord[]> {
+  const client = await openLocalDatabase();
+  const [records] = await client
+    .query<[unknown]>("RETURN fn::list_related_content_items($item);", {
+      item: new StringRecordId(itemId),
+    })
+    .json();
+
+  return ContentItemRecord.array().assert(records);
+}
+
 /**
  * Archive and restore, together.
  *
@@ -870,6 +881,7 @@ export {
   listCanvases,
   listContentItems,
   listProjects,
+  listRelatedContentItems,
   listRelations,
   listSavedViews,
   readProjectRemovalSummary,

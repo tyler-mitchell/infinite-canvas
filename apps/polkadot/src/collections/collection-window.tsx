@@ -1,6 +1,6 @@
 import { useInfiniteCanvasActions, useInfiniteCanvasState } from "@hyphened/infinite-canvas";
 import { useValue } from "@legendapp/state/react";
-import { ChevronDown, FileText, Image as ImageIcon, Layers } from "lucide-react";
+import { ChevronDown, FileText, Image as ImageIcon, Layers, Link2 } from "lucide-react";
 import { useEffect } from "react";
 import {
   DropdownMenu,
@@ -13,12 +13,13 @@ import {
 import { tv } from "ui/tv";
 
 import type { WindowKind } from "../canvas/window-registry";
+import type { ContentItemRecord } from "../database/database.client";
 import { openProject$ } from "../projects/open-project";
 import {
   collections$,
   ensureCollectionLoaded,
   resolved$,
-  setCollectionKind,
+  setCollectionQuestion,
 } from "./collection-store";
 import { openItemWindow } from "./open-item";
 
@@ -50,6 +51,9 @@ const collectionWindow = tv({
     rowIcon: "size-3.5 shrink-0 text-[var(--ink-faint)]",
     rowTitle: "min-w-0 flex-1 truncate",
     rows: "flex flex-1 flex-col pb-2",
+    /** The header for a question with no alternatives, shaped like the trigger but inert. */
+    staticLabel:
+      "flex items-center gap-1 px-1.5 py-0.5 text-[11px] font-medium tracking-[-0.005em] text-[var(--ink)]",
     trigger:
       "flex items-center gap-1 rounded-[var(--radius-sm)] px-1.5 py-0.5 text-[11px] font-medium tracking-[-0.005em] text-[var(--ink)] transition-colors duration-100 ease-[var(--ease-swift)] hover:bg-[var(--surface-hover)]",
     triggerIcon: "size-3 text-[var(--ink-faint)]",
@@ -70,6 +74,49 @@ const LISTABLE_KINDS = [
 
 const getListable = (kind: string) => LISTABLE_KINDS.find((entry) => entry.kind === kind);
 
+/**
+ * The rows, shared by both questions.
+ *
+ * A kind icon per row rather than one for the whole list, because a connection collection is
+ * mixed — a note connected to a picture — and the header cannot say what each row is when the rows
+ * disagree.
+ */
+function ItemRows({
+  items,
+  onOpen,
+  styles,
+}: Readonly<{
+  items: readonly ContentItemRecord[];
+  onOpen: (item: ContentItemRecord) => void;
+  styles: ReturnType<typeof collectionWindow>;
+}>) {
+  return (
+    <div className={styles.rows()}>
+      {items.map((item) => {
+        const listable = getListable(item.kind);
+
+        return (
+          <button
+            className={styles.row()}
+            key={item.id}
+            onClick={() => {
+              onOpen(item);
+            }}
+            onPointerDown={(event) => {
+              event.stopPropagation();
+            }}
+            title={item.title}
+            type="button"
+          >
+            {listable === undefined ? null : <listable.icon className={styles.rowIcon()} />}
+            <span className={styles.rowTitle()}>{item.title}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 export function CollectionWindowBody({ collectionId }: Readonly<{ collectionId: string }>) {
   const actions = useInfiniteCanvasActions<WindowKind>();
   const state = useInfiniteCanvasState<WindowKind>();
@@ -78,6 +125,9 @@ export function CollectionWindowBody({ collectionId }: Readonly<{ collectionId: 
   const entry = useValue(collections$[collectionId]);
   const items = useValue(resolved$[collectionId]) ?? [];
   const styles = collectionWindow();
+  const openItem = (item: ContentItemRecord) => {
+    openItemWindow({ actions, item, state });
+  };
 
   useEffect(() => {
     if (projectId !== null) {
@@ -95,7 +145,35 @@ export function CollectionWindowBody({ collectionId }: Readonly<{ collectionId: 
     );
   }
 
-  const listsKind = entry.collection.content.listsKind;
+  const question = entry.collection.content;
+
+  /*
+   * A connection collection has no kind to pick, so it says what it is instead of offering a menu.
+   *
+   * The alternative was one header with a disabled menu, which would be a control that exists to
+   * be unusable. A collection asks one of two questions and the header is where it says which; the
+   * picker belongs to the question that has alternatives.
+   */
+  if ("connectedTo" in question) {
+    return (
+      <div className={styles.root()}>
+        <div className={styles.bar()}>
+          <span className={styles.staticLabel()}>
+            <Link2 className={styles.triggerIcon()} />
+            Connected
+          </span>
+          <span className={styles.count()}>{items.length}</span>
+        </div>
+        {items.length === 0 ? (
+          <div className={styles.empty()}>Not connected to anything yet.</div>
+        ) : (
+          <ItemRows items={items} onOpen={openItem} styles={styles} />
+        )}
+      </div>
+    );
+  }
+
+  const listsKind = question.listsKind;
   const listable = getListable(listsKind);
 
   return (
@@ -123,7 +201,11 @@ export function CollectionWindowBody({ collectionId }: Readonly<{ collectionId: 
             <DropdownMenuRadioGroup
               onValueChange={(value) => {
                 if (projectId !== null) {
-                  void setCollectionKind({ collectionId, listsKind: value, projectId });
+                  void setCollectionQuestion({
+                    collectionId,
+                    projectId,
+                    question: { listsKind: value },
+                  });
                 }
               }}
               value={listsKind}
@@ -143,25 +225,7 @@ export function CollectionWindowBody({ collectionId }: Readonly<{ collectionId: 
       {items.length === 0 ? (
         <div className={styles.empty()}>Nothing of this kind yet.</div>
       ) : (
-        <div className={styles.rows()}>
-          {items.map((item) => (
-            <button
-              className={styles.row()}
-              key={item.id}
-              onClick={() => {
-                openItemWindow({ actions, item, state });
-              }}
-              onPointerDown={(event) => {
-                event.stopPropagation();
-              }}
-              title={item.title}
-              type="button"
-            >
-              {listable === undefined ? null : <listable.icon className={styles.rowIcon()} />}
-              <span className={styles.rowTitle()}>{item.title}</span>
-            </button>
-          ))}
-        </div>
+        <ItemRows items={items} onOpen={openItem} styles={styles} />
       )}
     </div>
   );

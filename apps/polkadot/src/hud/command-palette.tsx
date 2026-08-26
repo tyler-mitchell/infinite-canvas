@@ -1,6 +1,7 @@
 import {
   focusInfiniteCanvasCommandSurface,
   getInfiniteCanvasContextualCommands,
+  getInfiniteCanvasWindowData,
   getInfiniteCanvasWindowPresence,
   useInfiniteCanvasActions,
   useInfiniteCanvasDesktopPortalRoot,
@@ -51,7 +52,7 @@ import { tv } from "ui/tv";
 
 import { initialLayout } from "../canvas/canvas-document";
 import { getSelectedRelations } from "../canvas/connector-geometry";
-import type { WindowKind } from "../canvas/window-registry";
+import { ContentWindowData, type WindowKind } from "../canvas/window-registry";
 import type { CanvasSummary, ContentRelation, ProjectSummary } from "../database/database.client";
 import { openNewCollection } from "../collections/open-collection";
 import * as database from "../database/operations";
@@ -347,6 +348,27 @@ function PaletteContent({
   const projectList = useValue(projectList$);
   const query = useValue(query$);
   const styles = palette();
+  /**
+   * The one selected window's content item, when there is exactly one.
+   *
+   * `undefined` for none, for several, and for a window bound to nothing — all three are cases
+   * where "what does this connect to" has no subject, and an action offered without one would have
+   * to invent which window it meant.
+   */
+  const connectionSubject = ((selected) => {
+    const data =
+      selected === undefined
+        ? null
+        : getInfiniteCanvasWindowData(selected, ContentWindowData.allows);
+
+    return selected === undefined || data == null
+      ? undefined
+      : { itemId: data.itemId, title: selected.title };
+  })(
+    state.selection.windowIds.length === 1
+      ? state.windows.find((window) => window.id === state.selection.windowIds[0])
+      : undefined,
+  );
   const windows = getInfiniteCanvasWindowPresence(state).windows;
   const activeWindow = windows.find((window) => window.isActive);
   const contextual = getInfiniteCanvasContextualCommands(state);
@@ -811,8 +833,8 @@ function PaletteContent({
             onSelect={run(() => {
               void openNewCollection({
                 actions,
-                listsKind: "note",
                 projectId,
+                question: { listsKind: "note" },
                 state,
                 title: "Notes",
               });
@@ -826,8 +848,8 @@ function PaletteContent({
             onSelect={run(() => {
               void openNewCollection({
                 actions,
-                listsKind: "image",
                 projectId,
+                question: { listsKind: "image" },
                 state,
                 title: "Images",
               });
@@ -836,6 +858,29 @@ function PaletteContent({
             keywords="create list all"
             title="Collection of images"
           />
+          {/*
+            Only offered when exactly one window is selected, because the question needs a subject.
+            Two selected windows would be two collections or an arbitrary choice between them, and
+            none would be a collection of what — the action is named for the thing it points at, so
+            it can only exist when there is one.
+          */}
+          {connectionSubject === undefined ? null : (
+            <Row
+              icon={Link2}
+              onSelect={run(() => {
+                void openNewCollection({
+                  actions,
+                  projectId,
+                  question: { connectedTo: connectionSubject.itemId },
+                  state,
+                  title: `Connected to ${connectionSubject.title}`,
+                });
+              })}
+              id="new-collection-connected"
+              keywords="create list graph related"
+              title={`Collection of what “${connectionSubject.title}” connects to`}
+            />
+          )}
           <Row
             icon={Columns3}
             onSelect={run(() => {

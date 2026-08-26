@@ -103,6 +103,8 @@ export const content = {
     (await client()).listContentItems(input),
   listArchived: async (input: Readonly<{ kind: string; projectId: string }>) =>
     (await client()).listArchivedContentItems(input),
+  /** Whatever this item is connected to, of any kind, in either direction. */
+  listRelated: async (itemId: string) => (await client()).listRelatedContentItems(itemId),
   read: async (itemId: string) => (await client()).readContentItem(itemId),
   restore: async (itemId: string) => (await client()).restoreContentItem(itemId),
   save: async (

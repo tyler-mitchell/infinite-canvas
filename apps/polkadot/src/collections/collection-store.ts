@@ -1,7 +1,11 @@
 import { observable } from "@legendapp/state";
 
 import type { ContentItemRecord } from "../database/database.client";
-import { collectionGateway, type CollectionRecord } from "./collection-gateway";
+import {
+  collectionGateway,
+  type CollectionQuestion,
+  type CollectionRecord,
+} from "./collection-gateway";
 
 /**
  * Open collections and what each one currently resolves to.
@@ -38,10 +42,13 @@ function getResolvedItems(collectionId: string) {
  * at it. Cheap enough to mean it — the listing is one indexed query per kind.
  */
 async function refreshCollection(
-  input: Readonly<{ collectionId: string; listsKind: string; projectId: string }>,
+  input: Readonly<{ collectionId: string; projectId: string; question: CollectionQuestion }>,
 ) {
   resolved$[input.collectionId].set(
-    await collectionGateway.resolve({ listsKind: input.listsKind, projectId: input.projectId }),
+    await collectionGateway.resolve({
+      projectId: input.projectId,
+      question: input.question,
+    }),
   );
 }
 
@@ -68,11 +75,7 @@ function ensureCollectionLoaded(collectionId: string, projectId: string) {
       }
 
       collections$[collectionId].set({ collection, error: null, status: "ready" });
-      await refreshCollection({
-        collectionId,
-        listsKind: collection.content.listsKind,
-        projectId,
-      });
+      await refreshCollection({ collectionId, projectId, question: collection.content });
     })
     .catch((error: unknown) => {
       loaded.delete(collectionId);
@@ -85,14 +88,14 @@ function ensureCollectionLoaded(collectionId: string, projectId: string) {
 }
 
 /**
- * Point a collection at a different kind, and re-resolve.
+ * Ask a different question, and re-resolve.
  *
  * The record's revision is folded back from the write, exactly as a note's is: the listing the user
  * is looking at is the source of truth for what is on screen, and the next write has to hold a
  * revision the database will still accept.
  */
-async function setCollectionKind(
-  input: Readonly<{ collectionId: string; listsKind: string; projectId: string }>,
+async function setCollectionQuestion(
+  input: Readonly<{ collectionId: string; projectId: string; question: CollectionQuestion }>,
 ) {
   const entry = collections$[input.collectionId].peek();
 
@@ -102,7 +105,7 @@ async function setCollectionKind(
 
   const saved = await collectionGateway.save({
     collectionId: input.collectionId,
-    listsKind: input.listsKind,
+    question: input.question,
     revision: entry.collection.revision,
     title: entry.collection.title,
   });
@@ -118,6 +121,6 @@ export {
   getResolvedItems,
   refreshCollection,
   resolved$,
-  setCollectionKind,
+  setCollectionQuestion,
 };
 export type { CollectionEntry };

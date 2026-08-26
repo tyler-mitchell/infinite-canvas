@@ -66,6 +66,30 @@ DEFINE FUNCTION OVERWRITE fn::read_content_item($item: record<content_item>) {
   RETURN SELECT id, kind, title, revision, content, updated_at FROM ONLY $item;
 };
 
+-- Whatever an item is connected to, of any kind, in either direction.
+--
+-- Undirected, matching every other reader of `relates_to`: `fn::unrelate_content_items` deletes an
+-- edge whichever way round it was drawn and `findRelation` finds it either way, because the user
+-- who dragged from one window to another did not choose a direction — which end the drag started
+-- at is an accident of where the pointer was.
+--
+-- Both halves are subqueries rather than a `LET`, so this stays one statement. The rule that
+-- matters is at the call site — SurrealDB answers with one result per statement, so a caller
+-- destructuring `[record]` off a `LET`-then-`RETURN` reads the `LET` — and a single expression here
+-- means no caller can get that wrong.
+--
+-- No project filter, deliberately: an edge already implies both ends are in one project, since
+-- `relates_to` is only ever written between two items of the same one. Filtering again would be
+-- restating an invariant the graph already holds.
+DEFINE FUNCTION OVERWRITE fn::list_related_content_items($item: record<content_item>) {
+  RETURN SELECT id, kind, title, revision, content, updated_at
+    FROM content_item
+    WHERE archived_at = NONE
+      AND (id IN (SELECT VALUE out FROM relates_to WHERE in = $item)
+        OR id IN (SELECT VALUE in FROM relates_to WHERE out = $item))
+    ORDER BY updated_at DESC;
+};
+
 -- Archiving is the reversible half of removal, exactly as it is for canvases and projects, and the
 -- listing functions have filtered on `archived_at` since the schema was written — so an archived
 -- item simply stops being offered without anything being destroyed.

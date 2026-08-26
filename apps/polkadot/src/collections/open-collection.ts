@@ -1,5 +1,5 @@
 import { openContentWindow, type WindowPlacement } from "../canvas/open-window";
-import { collectionGateway } from "./collection-gateway";
+import { collectionGateway, type CollectionQuestion } from "./collection-gateway";
 
 /**
  * Put a collection on the canvas.
@@ -21,11 +21,12 @@ const COLLECTION_SIZE = { height: 420, width: 300 } as const;
 const COLLECTION_MINIMUM_SIZE = { height: 220, width: 220 } as const;
 
 async function openNewCollection(
-  input: WindowPlacement & Readonly<{ listsKind: string; projectId: string; title: string }>,
+  input: WindowPlacement &
+    Readonly<{ projectId: string; question: CollectionQuestion; title: string }>,
 ) {
   const created = await collectionGateway.create({
-    listsKind: input.listsKind,
     projectId: input.projectId,
+    question: input.question,
     title: input.title,
   });
 
