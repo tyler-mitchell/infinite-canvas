@@ -54,6 +54,33 @@ export const relations = {
 };
 
 /**
+ * Saved views — named framings of one canvas.
+ *
+ * Keyed by canvas rather than by project, because the rect is in that canvas's world coordinates.
+ * The rect is spelled out here rather than imported so this module keeps costing nothing to load;
+ * every other group does the same.
+ */
+export const savedViews = {
+  create: async (
+    input: Readonly<{
+      canvasId: string;
+      rect: Readonly<{ height: number; width: number; x: number; y: number }>;
+      title: string;
+    }>,
+  ) => (await client()).createSavedView(input),
+  list: async (canvasId: string) => (await client()).listSavedViews(canvasId),
+  reframe: async (
+    input: Readonly<{
+      rect: Readonly<{ height: number; width: number; x: number; y: number }>;
+      viewId: string;
+    }>,
+  ) => (await client()).reframeSavedView(input),
+  remove: async (viewId: string) => (await client()).deleteSavedView(viewId),
+  rename: async (input: Readonly<{ title: string; viewId: string }>) =>
+    (await client()).renameSavedView(input),
+};
+
+/**
  * Content items, of any kind.
  *
  * Deliberately says nothing about what a note or an image is: this module's whole job is deferring

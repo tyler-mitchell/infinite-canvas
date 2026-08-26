@@ -734,6 +734,94 @@ async function unrelateNotes(input: Readonly<{ source: string; target: string }>
     .json();
 }
 
+/**
+ * A saved view is a world rect with a name on it.
+ *
+ * A rect rather than a camera, because a stored centre and zoom is only correct on the pane it was
+ * taken from — restore it at another size and the framing is wrong by the ratio between the two.
+ * Every framework entry point on this path takes a rect for the same reason.
+ */
+const SavedView = type({
+  id: "string",
+  rect: {
+    height: "number",
+    width: "number",
+    x: "number",
+    y: "number",
+  },
+  title: "string",
+}).onUndeclaredKey("delete");
+
+type SavedView = typeof SavedView.infer;
+
+type SavedViewRect = SavedView["rect"];
+
+async function listSavedViews(canvasId: string): Promise<readonly SavedView[]> {
+  const client = await openLocalDatabase();
+  const [records] = await client
+    .query<[unknown]>("RETURN fn::list_saved_views($canvas);", {
+      canvas: new StringRecordId(canvasId),
+    })
+    .json();
+
+  return SavedView.array().assert(records);
+}
+
+/**
+ * Returns the record it wrote, so the surface that asked for it can show the view without a second
+ * query — and without inventing the id itself, which is the database's to hand back.
+ */
+async function createSavedView(
+  input: Readonly<{ canvasId: string; rect: SavedViewRect; title: string }>,
+): Promise<SavedView> {
+  const client = await openLocalDatabase();
+  const [record] = await client
+    .query<[unknown]>("RETURN fn::create_saved_view($canvas, $title, $rect);", {
+      canvas: new StringRecordId(input.canvasId),
+      rect: input.rect,
+      title: input.title,
+    })
+    .json();
+
+  return SavedView.assert(record);
+}
+
+async function renameSavedView(input: Readonly<{ title: string; viewId: string }>): Promise<void> {
+  const client = await openLocalDatabase();
+  await client
+    .query<[unknown]>("RETURN fn::rename_saved_view($view, $title);", {
+      title: input.title,
+      view: new StringRecordId(input.viewId),
+    })
+    .json();
+}
+
+/** Re-aim an existing view at where the camera is now, keeping the name it was remembered by. */
+async function reframeSavedView(
+  input: Readonly<{ rect: SavedViewRect; viewId: string }>,
+): Promise<void> {
+  const client = await openLocalDatabase();
+  await client
+    .query<[unknown]>("RETURN fn::reframe_saved_view($view, $rect);", {
+      rect: input.rect,
+      view: new StringRecordId(input.viewId),
+    })
+    .json();
+}
+
+/**
+ * Deleted rather than archived, and the schema says why: a view is referenced by nothing, so
+ * removing one strands nothing and restoring one is retyping a name.
+ */
+async function deleteSavedView(viewId: string): Promise<void> {
+  const client = await openLocalDatabase();
+  await client
+    .query<[unknown]>("RETURN fn::delete_saved_view($view);", {
+      view: new StringRecordId(viewId),
+    })
+    .json();
+}
+
 class ContentRevisionConflictError extends Error {
   override readonly name = "ContentRevisionConflictError";
   readonly expectedRevision: number;
@@ -769,8 +857,10 @@ export {
   createCanvas,
   createContentItem,
   createProject,
+  createSavedView,
   deleteCanvas,
   deleteProject,
+  deleteSavedView,
   duplicateCanvas,
   listArchivedCanvases,
   listArchivedContentItems,
@@ -779,9 +869,12 @@ export {
   listContentItems,
   listProjects,
   listRelations,
+  listSavedViews,
   readProjectRemovalSummary,
+  reframeSavedView,
   relateNotes,
   renameProject,
+  renameSavedView,
   restoreContentItem,
   restoreProject,
   setRelationKind,
@@ -807,4 +900,6 @@ export type {
   NoteRelation,
   ProjectRemovalSummary,
   ProjectSummary,
+  SavedView,
+  SavedViewRect,
 };

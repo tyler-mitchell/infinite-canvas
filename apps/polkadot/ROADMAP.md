@@ -322,7 +322,49 @@ open because it feels good to look at. Concretely, and these are enforced in rev
   resolve before edges, correctly — so the aimable part can be a few pixels, and at one measured
   arrangement it was 30px with its midpoint inside a window. The rail knows every edge without
   needing either end on screen, so acting on one here does not depend on where the notes sit.
-  **Still open:** there is no saved-views concept yet.
+  **Still open: there is no saved-views concept yet — and the framework check settled what one is
+  before any of it gets built.** The first honest reading is that a saved view already exists and
+  is called a workspace: `workspace.ts` opens by defining one as "a named set of windows, with the
+  camera and selection you left it at", it is persisted at version 3, and `DesktopSwitcher` already
+  surfaces it. Building a second named-camera model beside that would be two models over one
+  concept.
+  **It is not the same thing, and the framework says so in the same paragraph.** A workspace's
+  camera is "a snapshot taken on the way out … stale by design — writing through on every pan
+  would make each frame a workspace mutation, and workspace mutations are undo checkpoints." That
+  is _resume where I left off_. A saved view is the opposite intent: a framing you return to
+  precisely because it does **not** move while you work. Implementing views as workspaces gives one
+  of two defects and there is no third option — either the camera writes through, and every pan
+  becomes an undo entry, or it does not, and the bookmark silently drifts away from the thing it
+  was pointing at.
+  **So the split is: the framework owns _going_ there, the app owns _naming_ it.**
+  `navigateToRect` and `getFitCamera` already take a world rect and are exported, so nothing is
+  missing on the camera side and this asks the framework for nothing. A named rect is project data
+  — it belongs in the database beside notes, with a title someone typed, the way every other named
+  thing here does. That also passes the rule at the top of this file: "a list of bookmarks" is not
+  a canvas affordance, and a `savedViews` prop would be the same feature and the wrong one.
+  **What must not be built:** saved views as a second workspace, or a view that stores a camera
+  (a centre and a zoom) rather than a world rect. A stored zoom is wrong on a different display or
+  a resized pane; a rect re-fits to whatever window it is asked into, which is why every framework
+  entry point on this path takes one.
+  **The database spine landed and is driven, and no surface has been built on it yet** — said
+  plainly because a half-built surface is the failure this file opens by warning about, and the
+  honest state is that this is a spine and not a feature. `saved_view` is a `SCHEMAFULL` table
+  keyed to a `canvas_document`, with `list` / `create` / `rename` / `reframe` / `delete` in
+  `functions/006_views.surql`, an ArkType boundary in `database.client`, and a `savedViews` group
+  on the lazy `operations` module. `reframe` is the verb no other table here has, and the one that
+  makes a bookmark honest: a framing goes stale as soon as what it points at moves, and without it
+  the only repair is delete-and-recreate, which loses the name that was the point.
+  **Driven against the running database rather than typechecked**, through `window.__surreal.query`:
+  an empty canvas lists `[]`; two views created out of alphabetical order come back in title order,
+  so the ordering is observed rather than assumed; `reframe` replaces the rect and leaves the title,
+  `rename` the reverse; `delete` drops the row. Both schema assertions were made to fire — a
+  zero-width rect and an all-whitespace title were each refused with the assertion's own message —
+  which is the part the SurQL test file cannot reach, since a thrown assertion aborts the script.
+  The rows were removed afterwards; the table is empty.
+  **What is left is the surface**, and it is the whole of the remaining design: where a view is
+  saved from, how it is named, and where the list lives. The rail is the obvious home, and
+  `navigateToRect` is already the way back — the same call this session used to bring four windows
+  into view when the camera had drifted off them.
   **Rename and create landed.** Double-click a row and it becomes an input — Enter commits, Escape
   abandons, blur commits, because clicking away from a field you have typed into and losing it is
   what nobody expects. This is the rail's own justification made concrete: this file already
