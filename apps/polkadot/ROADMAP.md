@@ -40,9 +40,11 @@ open because it feels good to look at. Concretely, and these are enforced in rev
   changes are swift. `--ease-settle` and `--ease-swift` exist so this is not decided per-site.
 - **The ground is alive.** The dot field responds to the pointer and is displaced by windows.
   A canvas whose background is wallpaper is a canvas you do not believe in. **This bar is not
-  currently met** — the field is built and deliberately unmounted for cost, so the running app has
-  wallpaper. Stated here rather than only in the item below, because a bar that quietly stops
-  applying is worse than one that was never written down.
+  currently met** — the field is built and deliberately unmounted at the owner's call, so the
+  running app has wallpaper. Stated here rather than only in the item below, because a bar that
+  quietly stops applying is worse than one that was never written down. Read the item before acting
+  on this: the cost that first took it off screen was fixed, and what keeps it off is a decision
+  about where the field belongs, which is not an agent's to reverse.
 - **Every class comes from a `tv` slot.** No Tailwind strings in JSX, ever. Global CSS is
   tokens, resets, and imports only.
 - **Nothing hand-rolled that a maintained library owns.** TanStack (Router, Pacer, Hotkeys,
@@ -64,11 +66,29 @@ open because it feels good to look at. Concretely, and these are enforced in rev
 - [x] Framework tokens for window radius and elevation (`--icx-surface-radius`, `--icx-surface-shadow`)
 - [x] **The living field.** Written once as a flat lattice, deleted, and now built for real — see
       below for what it actually is, because the description that stood here was wrong.
-      **Currently unmounted.** `workspace-canvas.tsx` passes no `renderBackdrop`, so what the
-      running app shows is the framework's default grid. It was disabled deliberately — it cost too
-      much frame time — and it stays that way until that is fixed rather than hidden. The code is
-      intact in `canvas/field.tsx`; nothing has been lost. But anyone reading this file and then
-      opening the app would otherwise conclude the field was broken.
+      **Currently unmounted, and not because the cost is still unfixed.** `workspace-canvas.tsx`
+      passes no `renderBackdrop`, so what the running app shows is the framework's default grid.
+      This line used to say it stays off "until that is fixed", which sent the next reader at the
+      wrong work: the three known fixes all landed in `91b0fa0` — an idle gate measured at 0 draw
+      calls at rest, one rect walk instead of two, and one device pixel per CSS pixel. It went off
+      again in `d2af707` **at Tyler's call**, on two grounds: those numbers were measured in the dev
+      browser pane rather than on the machine and display it has to feel good on, and the field
+      belongs in the compositor the scene layer is heading toward rather than as a lone WebGPU
+      canvas bolted to the backdrop slot. Remounting it is therefore the owner's decision, not a
+      defect to be fixed.
+      **What this line said next — "the code is intact and one line remounts it" — was false, and
+      it was the most expensive kind of false, because it aimed the owner at a one-line change.**
+      Nothing imports `field.tsx`, so nothing had ever executed `field-shader.ts`, and that module
+      threw on import: `layout.$.uniforms` and `layout.$.masses` were aliased at module scope, where
+      the proxy raises "Direct access to buffer values is possible only as part of a compute
+      dispatch or draw call". `layout.bound` could be captured that way and `layout.$`, which
+      replaced it in 0.12, cannot — so the port left behind two lines that no typecheck and no test
+      could catch, and only running it would. The accessors are read inside each shader body now,
+      which is where TypeGPU turns them into WGSL pointers (`let uniforms = (&uniforms_1);`).
+      Witnessed by building the real pipeline in a real browser through the TypeGPU inspector:
+      one render pipeline, one bind group layout, 7.7 kB of WGSL, zero compilation errors — against
+      a hard throw on import beforehand. Remounting remains the owner's call. It is now a line that
+      would work.
 
 ## Next
 
@@ -196,9 +216,19 @@ open because it feels good to look at. Concretely, and these are enforced in rev
   selection target, so clicking one goes through the same machinery that selects a window, modifiers
   included; the palette cuts what is selected. Connector geometry is derived once for both the layer
   that draws it and the resolver that hit-tests it, so they cannot disagree about where an edge is.
-  **Still open:** labels and typed kinds, since every edge is currently `relates`; a keyboard cut,
-  since removal is palette-only; and no way to see an edge whose notes are not both open, which is
-  where the library rail would earn its place.
+  **Backspace cuts it now**, and finding the gap that made that possible is the more useful half.
+  `hotkeyBindings` was the documented way to claim an unclaimed chord — the arrange and dock verbs
+  ship with none and say to use it — but it is a _default parameter_, so a consumer taking that
+  advice traded the entire canvas keymap for the one chord it wanted, silently. And a binding
+  carries an `InfiniteCanvasCommand`, so it could only ever re-chord a verb the canvas already had:
+  a connector could be selected by the framework and then acted on by nothing. `hotkeyActions`
+  closes both — consumer verbs registered _alongside_ the default keymap, with the command surface,
+  the exclusion list and the swallow rule staying the framework's. That last part is the whole
+  reason it is not a `window` listener: Backspace inside a note body still deletes a character.
+  Witnessed rather than reasoned — the edge is gone after a reload, Backspace on empty canvas does
+  nothing, "abcd" in a note body backspaces to "abc", and `Shift+1` still fits all afterwards.
+  **Still open:** labels and typed kinds, since every edge is currently `relates`; and no way to see
+  an edge whose notes are not both open, which is where the library rail would earn its place.
 - [~] **Workspaces** as the organizing spine. The framework's workspace model was reachable only by
   a consumer reaching past the command layer: `cycle` walks desktops that exist and does nothing
   when there are none, so nothing could make the first one, name which one to enter, or take one
@@ -248,9 +278,12 @@ spotlight, each drawn separately. The recovered shader had drifted off that anch
 pixel from the pointer instead; the anchor is restored here because the study names it as the
 reason the highlight feels deliberate.
 
-Raw WebGL2, no dependency — a fullscreen triangle and one program need no scene graph. All tuning
-is one `FieldConfig`: the reference's five near-duplicate hover radii and three influence radii
-were each fixed ratios of a single real number, so one knob moves each family together.
+**WebGPU through TypeGPU**, not the raw WebGL2 this line claimed until now — the port landed in
+`a20bb77` and the shader has been TypeScript in `field-shader.ts` ever since, validated against a
+real device through the inspector. Still a fullscreen triangle and one program, which need no scene
+graph. All tuning is one `FieldConfig`: the reference's five near-duplicate hover radii and three
+influence radii were each fixed ratios of a single real number, so one knob moves each family
+together.
 
 **Still open:** the lattice ignores zoom entirely — spacing is screen-space and only the phase
 follows the camera, so zooming out does not make the ground finer and the field has no sense of
