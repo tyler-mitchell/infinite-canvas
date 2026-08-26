@@ -219,13 +219,20 @@ const camera = {
 let gpuNanoseconds = 0;
 
 let gpuSamples = 0;
+let gpuCallbacks = 0;
 
 // The query set skips a frame when a previous read is still in flight, so a reading of zero means
 // "no sample landed", not "it was free". Counting samples is what tells those apart — reporting
 // the zero as a measurement is how the 500 000 row first lied.
+//
+// Callbacks and samples are counted separately because they fail differently: no callbacks at all
+// means the timing path is not wired, while callbacks carrying zeros means the query resolved
+// empty. Collapsing them into one counter hides which.
 const timed = hasTimestamps
   ? pipeline.withPerformanceCallback((start, end) => {
       const elapsed = Number(end - start);
+
+      gpuCallbacks += 1;
 
       if (elapsed > 0) {
         gpuNanoseconds = elapsed;
@@ -297,7 +304,7 @@ const frame = () => {
     `draw calls 1`,
     `frame      ${median.toFixed(2)} ms  (${(1000 / median).toFixed(0)} fps)`,
     hasTimestamps
-      ? `gpu        ${(gpuNanoseconds / 1e6).toFixed(3)} ms   (${String(gpuSamples)} samples)`
+      ? `gpu        ${(gpuNanoseconds / 1e6).toFixed(3)} ms   (${String(gpuSamples)} samples / ${String(gpuCallbacks)} callbacks)`
       : `gpu        timestamp-query unavailable`,
     `textures   ${String(textureLayers)} x ${String(textureSize)}px  = ${(textureBytes / 1024 ** 2).toFixed(1)} MB`,
     `upload     ${uploadMs.toFixed(1)} ms  (${(textureBytes / 1024 ** 2 / (uploadMs / 1000)).toFixed(0)} MB/s)`,

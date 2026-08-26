@@ -45,36 +45,36 @@ anything other than the measurement.
 **One instanced draw is enough, by three orders of magnitude.**
 
 Apple GPU (`metal-3`), Chrome 151, one `draw(6, n)` per frame, rects read from a
-readonly storage buffer by `$instanceIndex`:
+readonly storage buffer by `$instanceIndex`, **every quad sampling its own layer
+of a texture array**:
 
-| quads   | draw calls | GPU time    | frame           |
-| ------- | ---------- | ----------- | --------------- |
-| 2 000   | 1          | 0.066 ms    | 11.9 ms         |
-| 20 000  | 1          | 0.131 ms    | 8.7 ms (115fps) |
-| 100 000 | 1          | 0.918 ms    | 8.2 ms (122fps) |
-| 500 000 | 1          | _see below_ | 8.3 ms (120fps) |
+| quads   | draw calls | GPU time | samples | frame           |
+| ------- | ---------- | -------- | ------- | --------------- |
+| 20 000  | 1          | 0.262 ms | 2       | 8.3 ms (120fps) |
+| 100 000 | 1          | 1.180 ms | 99      | 8.3 ms (120fps) |
+| 500 000 | 1          | 1.638 ms | 1186    | 8.4 ms (119fps) |
 
 GPU time is a real timestamp query (`withPerformanceCallback`), not a frame
 delta. Frame time is pinned at the display's 120 Hz throughout, so it says only
 that nothing here comes close to the budget.
 
-**The 500 000 row reads `0.000 ms` and that number is not real.** The query set
-skips a frame when a previous read is still in flight — the docs say to gate on
-`querySet.available` — so the callback simply did not land in the sampled frame.
-It rendered at 120 Hz; its GPU cost was not captured.
+The sample column is there because it has already caught two mistakes. Early
+readings showed `0.000 ms` and were briefly written up as "the instrument broke
+when textures were added" — wrong twice over. The callback simply had not fired
+yet in the seconds before the screenshot; once warmed it fires freely, 1186 times
+at half a million quads. **A zero from this readout means no sample landed, never
+that a frame was free**, and the counter is what makes the difference visible
+rather than a matter of trust.
 
-> **The GPU instrument stopped landing samples once textures were added, and has
-> not been fixed.** The three geometry timings above were taken before that, on
-> the texture-free build, and stand. The current build reports `(0 samples)`
-> rather than a plausible-looking zero — that readout exists precisely so a dead
-> instrument cannot be mistaken for a fast frame. Diagnosing it is outstanding
-> work, not a solved problem.
+For comparison, the same counts before textures were added measured 0.131 ms at
+20 000 and 0.918 ms at 100 000 — so sampling a per-window texture roughly doubles
+a cost that was already negligible.
 
 ### What this settles
 
-A workbench has hundreds of windows, maybe low thousands. At 100 000 the geometry
-costs under a millisecond in a single draw. **There is no scene graph to miss**,
-and `three`'s contribution to this workload is zero — which is what the
+A workbench has hundreds of windows, maybe low thousands. **Half a million
+textured quads cost 1.6 ms in a single draw call.** There is no scene graph to
+miss, and `three`'s contribution to this workload is zero — which is what the
 compositor plan assumed and had not proven.
 
 ## Result — question 3, and it inverts the picture
