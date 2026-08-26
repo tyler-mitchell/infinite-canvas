@@ -6,7 +6,7 @@ import {
 } from "@hyphened/infinite-canvas";
 import { useObservable, useValue } from "@legendapp/state/react";
 import { PanelLeft, Plus } from "lucide-react";
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { Button } from "ui";
 import { tv } from "ui/tv";
 
@@ -14,6 +14,7 @@ import type { CanvasPersistenceStatus } from "../canvas/canvas-persistence";
 import { CANVAS_CHROME } from "../canvas/chrome";
 import { ConnectorDraft } from "../canvas/connector-draft";
 import { getConnectorEdgeTargets } from "../canvas/connector-geometry";
+import { getConnectorHotkeyActions } from "../canvas/connector-hotkeys";
 import { ConnectorLayer } from "../canvas/connector-layer";
 import { useCanvasRuntime } from "../canvas/use-canvas-runtime";
 import { windowDefinitions, type WindowKind } from "../canvas/window-registry";
@@ -184,6 +185,12 @@ export function WorkspaceCanvas({ canvas }: Readonly<{ canvas: LoadedCanvas }>) 
   const library$ = useObservable(true);
   const libraryOpen = useValue(library$);
   const styles = workspace();
+  // Memoized because the viewport re-registers its keymap whenever this array's identity changes,
+  // and a fresh array every render would tear down and rebuild thirty-odd chords per frame.
+  const hotkeyActions = useMemo(
+    () => getConnectorHotkeyActions(canvas.projectId),
+    [canvas.projectId],
+  );
 
   useEffect(() => {
     void loadRelations(canvas.projectId);
@@ -206,6 +213,15 @@ export function WorkspaceCanvas({ canvas }: Readonly<{ canvas: LoadedCanvas }>) 
             left: libraryOpen ? RAIL_INSET : 0,
             top: TOP_INSET,
           }}
+          /*
+           * Backspace and Delete, for the one thing on this canvas the framework cannot name.
+           *
+           * Added to the canvas keymap rather than replacing it — the framework leaves both chords
+           * unclaimed and takes consumer verbs alongside its own, so undo, the arrows, and the fits
+           * all keep working. Scoping is the framework's too, which is why Backspace inside a note
+           * still deletes a character.
+           */
+          hotkeyActions={hotkeyActions}
           // Beneath the windows: a connector should pass under the note it joins, not across it.
           renderUnderlay={() => <ConnectorLayer />}
           spatialTargetResolvers={spatialTargetResolvers}
