@@ -1,6 +1,7 @@
 import type {
   InfiniteCanvasCamera,
   InfiniteCanvasChromeMetrics,
+  InfiniteCanvasChromeMetricsInput,
   InfiniteCanvasInputPolicy,
   InfiniteCanvasSnapPolicy,
   InfiniteCanvasStackBands,
@@ -24,6 +25,15 @@ const DEFAULT_INFINITE_CANVAS_CHROME: InfiniteCanvasChromeMetrics = {
   headerHeight: 40,
   resizeHandleSize: 16,
 };
+
+function resolveInfiniteCanvasChromeMetrics(
+  chrome: InfiniteCanvasChromeMetricsInput = {},
+): InfiniteCanvasChromeMetrics {
+  return {
+    ...DEFAULT_INFINITE_CANVAS_CHROME,
+    ...chrome,
+  };
+}
 
 const MIN_RENDERABLE_INFINITE_CANVAS_ZOOM = 0.01;
 
@@ -89,5 +99,6 @@ export {
   DEFAULT_INFINITE_CANVAS_THEME,
   DEFAULT_INFINITE_CANVAS_ZOOM,
   MIN_RENDERABLE_INFINITE_CANVAS_ZOOM,
+  resolveInfiniteCanvasChromeMetrics,
   resolveInfiniteCanvasZoomPolicy,
 };

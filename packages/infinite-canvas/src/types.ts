@@ -403,6 +403,10 @@ type InfiniteCanvasChromeMetrics = Readonly<{
   resizeHandleSize: number;
 }>;
 
+/** Any subset, merged over the defaults — the defaults are not exported, so requiring all five
+ * meant copying values that then drift. */
+type InfiniteCanvasChromeMetricsInput = Partial<InfiniteCanvasChromeMetrics>;
+
 type InfiniteCanvasZoomPolicy = Readonly<{
   defaultZoom: number;
   maxZoom: number;
@@ -1572,5 +1576,6 @@ export type {
   InfiniteCanvasWindowTextSelection,
   InfiniteCanvasWindowWheelBehavior,
   InfiniteCanvasZoomPolicy,
+  InfiniteCanvasChromeMetricsInput,
   InfiniteCanvasZoomPolicyInput,
 };

@@ -24,10 +24,10 @@ import { getInfiniteCanvasWindowFrameElementId, INFINITE_CANVAS_SLOTS } from "./
 import { getInfiniteCanvasWorkspaceWindowIds } from "./workspace";
 import { focusInfiniteCanvasContent } from "./focus-trap";
 import {
-  DEFAULT_INFINITE_CANVAS_CHROME,
   DEFAULT_INFINITE_CANVAS_INPUT_POLICY,
   DEFAULT_INFINITE_CANVAS_STACK_BANDS,
   DEFAULT_INFINITE_CANVAS_THEME,
+  resolveInfiniteCanvasChromeMetrics,
   resolveInfiniteCanvasZoomPolicy,
 } from "./constants";
 import {
@@ -129,6 +129,7 @@ import type {
   InfiniteCanvasTheme,
   InfiniteCanvasWindow,
   InfiniteCanvasWindowRegistry,
+  InfiniteCanvasChromeMetricsInput,
   InfiniteCanvasZoomPolicy,
   InfiniteCanvasZoomPolicyInput,
 } from "./types";
@@ -137,7 +138,7 @@ type InfiniteCanvasDesktopProps<
   Kind extends string,
   Payload = InfiniteCanvasDropPayload,
 > = Readonly<{
-  chrome?: InfiniteCanvasChromeMetrics;
+  chrome?: InfiniteCanvasChromeMetricsInput;
   className?: string;
   diagnostics?: InfiniteCanvasDiagnosticsPolicyInput;
   documentKey?: string;
@@ -184,7 +185,7 @@ type InfiniteCanvasViewportProps<
   Kind extends string,
   Payload = InfiniteCanvasDropPayload,
 > = Readonly<{
-  chrome?: InfiniteCanvasChromeMetrics;
+  chrome?: InfiniteCanvasChromeMetricsInput;
   className?: string;
   diagnostics?: InfiniteCanvasDiagnosticsPolicy;
   dropPolicy?: InfiniteCanvasDropPolicy<Kind, Payload>;
@@ -432,7 +433,8 @@ function useInfiniteCanvasDevicePixelRatio() {
 }
 
 function InfiniteCanvasDesktop<Kind extends string, Payload = InfiniteCanvasDropPayload>({
-  chrome = DEFAULT_INFINITE_CANVAS_CHROME,
+  // Forwarded unresolved; `Viewport` merges it over the defaults.
+  chrome,
   className,
   diagnostics,
   documentKey,
@@ -533,7 +535,7 @@ function InfiniteCanvasDesktop<Kind extends string, Payload = InfiniteCanvasDrop
  * changes; these defaults exist for the direct consumer it claimed to serve.
  */
 function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDropPayload>({
-  chrome = DEFAULT_INFINITE_CANVAS_CHROME,
+  chrome: chromeInput,
   className,
   diagnostics = DEFAULT_INFINITE_CANVAS_DIAGNOSTICS,
   dropPolicy,
@@ -559,6 +561,18 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
   // and the group tab's `aria-controls` that names it are computed from the same prefix. Two
   // canvases on one page get disjoint namespaces from their own `useId()`.
   const canvasInstanceId = useId();
+  // Field deps, not object identity: an inline `chrome={{ headerHeight: 32 }}` is a new object
+  // every render, and window geometry memoizes on this.
+  const chrome = useMemo(
+    () => resolveInfiniteCanvasChromeMetrics(chromeInput),
+    [
+      chromeInput?.borderWidth,
+      chromeInput?.cornerSize,
+      chromeInput?.headerAccentHeight,
+      chromeInput?.headerHeight,
+      chromeInput?.resizeHandleSize,
+    ],
+  );
   const rootRef = useRef<HTMLDivElement | null>(null);
   const commandSurfaceRef = useRef<HTMLDivElement | null>(null);
   const spacePanRef = useRef(false);

@@ -183,9 +183,10 @@
   --icx-hud-zoom-readout-fg: var(--ink-muted);
   --icx-hud-dock-item-fg: var(--ink-muted);
 
-  /* A window is an object resting on the field, not a rectangle drawn on it. */
+  /* A window is an object resting on the field, not a rectangle drawn on it. The inset hairline
+     is the specular the palette describes — the same one the rails carry. */
   --icx-surface-radius: 12px;
-  --icx-surface-shadow: var(--lift-2);
+  --icx-surface-shadow: inset 0 1px 0 0 var(--edge-light), var(--lift-2);
 
   /*
    * Window controls, unboxed.
@@ -311,7 +312,7 @@
 
 /* The active window lifts further and picks up the specular, like the shell's rails. */
 [data-slot="window"][data-active] {
-  --icx-surface-shadow: var(--lift-3);
+  --icx-surface-shadow: inset 0 1px 0 0 var(--edge-light), var(--lift-3);
 }
 
 * {

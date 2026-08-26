@@ -901,6 +901,7 @@ name.
 - `InfiniteCanvasCameraNavigationRequest`
 - `InfiniteCanvasCameraNavigationTarget`
 - `InfiniteCanvasChromeMetrics`
+- `InfiniteCanvasChromeMetricsInput`
 - `InfiniteCanvasCommand`
 - `InfiniteCanvasCommandDescriptor`
 - `InfiniteCanvasCommandGroup`

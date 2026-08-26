@@ -59,6 +59,8 @@ const workspace = tv({
   },
 });
 
+const CHROME = { headerHeight: 32 } as const;
+
 const noteSize = { height: 240, width: 360 } as const;
 const noteMinimumSize = { height: 160, width: 240 } as const;
 
@@ -159,6 +161,9 @@ export function WorkspaceCanvas({ canvas }: Readonly<{ canvas: LoadedCanvas }>) 
     <main className={styles.root()}>
       <InfiniteCanvas.Provider store={runtime.store}>
         <InfiniteCanvas.Viewport<WindowKind>
+          // A note names itself in its body, so its header carries only controls and does not
+          // need 40px to do it.
+          chrome={CHROME}
           hud={{
             cameraControls: true,
             minimizedDock: false,
