@@ -714,12 +714,26 @@ open because it feels good to look at. Concretely, and these are enforced in rev
   membership filter emptying the canvas; the menu listing All windows, the desktop with its window
   count and its check, with Move up and Move down confirmed `data-disabled` at a single desktop;
   rename changing the trigger and the row together and surviving a reload.
-  **Not witnessed, and the reason is the harness rather than the code:** select-on-open for the
-  rename field, reorder actually moving one, the "All windows" round trip, and Close this desktop.
-  `computer{action:"screenshot"}` dismisses a Base UI menu, and a coordinate click requires a
-  screenshot in the same batch — so screenshot-then-click-a-menu-item cancels itself. The rename
-  field's `select()` sits in the same effect whose hotkey registration was witnessed committing on
-  Enter, so it runs; that it _selects_ is inference, not observation.
+  **All four are witnessed now, and the harness explanation was wrong.** This said a Base UI menu
+  item could not be driven because a screenshot dismisses the menu and a coordinate click needs a
+  screenshot in the same batch, so the two cancel out. They do not: putting the screenshot and the
+  click in **one** `browser_batch` works, because the click reads the coordinates of the screenshot
+  taken immediately before it in that same batch and the menu is still open when it lands. The whole
+  section below was driven that way. Worth correcting rather than deleting — "the harness cannot"
+  kept four claims unverified for weeks, and it was a wrong belief about the tool rather than a
+  limit of it.
+  **Select-on-open**: the rename field arrives with `selectionStart: 0` and `selectionEnd` at the
+  full length, read off the focused input rather than judged from a screenshot; typing then replaced
+  the name instead of appending to it. This one had a fossil arguing the other way — the stored
+  desktop was called `Desktop 1ResearchResearch`, exactly the append-twice this guards against — and
+  reading that as a live defect would have been wrong. It is a leftover from before the `select()`
+  existed. **Reorder**: Move up on the second of two desktops turned `["Research", "Desktop 2"]`
+  into `["Desktop 2", "Research"]`, with Move up disabled at the top and Move down disabled at the
+  bottom. **"All windows" round trip**: entering a desktop emptied the canvas, returning restored
+  `activeWorkspaceId: null` with all three windows in state and all three in the DOM. **Close this
+  desktop**: the desktop went, the camera dropped back to All windows, and the window that had been
+  filed onto it survived — which is the claim that matters, since the framework refuses to delete
+  what a membership filter filters.
   **Both of the remaining two closed, in the switcher.** "Not on this desktop" lists every window
   the filter is hiding with the desktop it is on — or "no desktop", which is not an edge case but
   every window on the canvas the moment the first desktop is made. Clicking one is `window.reveal`.
@@ -729,11 +743,18 @@ open because it feels good to look at. Concretely, and these are enforced in rev
   membership edits in the product would restate the framework's rule about what a single edit is,
   and `workspace.moveWindow` taking a set is the framework's call to make. **Named as an ask, not
   built.**
-  **Not witnessed:** either menu section. This harness cannot reliably re-open a Base UI menu —
-  `computer{action:"screenshot"}` dismisses it, a coordinate click needs a screenshot cached in the
-  same batch, and a `ref` click does not open it at all. The last is not specific to this component:
-  a ref click on the canvas switcher does not open its menu either, so it is the click path rather
-  than the trigger. Both sections were typechecked and read, not driven.
+  **"Not on this desktop" is driven; "Bring N windows here" still is not.** The first renders its
+  label and a row per hidden window with the desktop each is on — "no desktop" for all of them
+  before anything is filed — and it correctly drops a window from the list once that window is on
+  the desktop you are standing on. The second needs a selection to appear and was not exercised;
+  the ask beneath it, `workspace.moveWindow` taking a set, is still named and not built.
+  **That section was one click from taking the canvas down, and nobody had ever opened it.**
+  `DropdownMenuLabel` is Base UI's _group_ label and reads `MenuGroupContext`, so a label outside a
+  `DropdownMenuGroup` throws rather than warns — straight to the error page. Both labels here sat
+  outside one; the "Desktops" label above them was always safe because a radio group supplies the
+  context. It would have fired the first time any window was on another desktop, which is the
+  ordinary case, and it survived this long precisely because "the harness cannot re-open the menu"
+  was believed. A section that is only ever typechecked is a section whose crash is waiting.
   **Still open, and found while looking at this:** the offscreen indicator ring points at windows
   that are not on the active desktop. `getInfiniteCanvasOffscreenIndicators` filters on `minimized`
   alone and never consults workspace membership, so entering a desktop fills the ring with arrows
