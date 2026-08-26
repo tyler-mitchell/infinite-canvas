@@ -81,8 +81,15 @@ open because it feels good to look at. Concretely, and these are enforced in rev
       named in exactly one file — with a debounced, revision-guarded write per note. Landed early,
       out of sequence with `IMPLEMENTATION_PHASES.md`, which is recorded in the audit rather than
       hidden. Rich text, mentions, and code blocks are still ahead of it.
-- [ ] **Command palette** on `Mod+K`, composed from `getInfiniteCanvasContextualCommands` and
-      `cmdk`. The framework already defines the vocabulary; do not restate it.
+- [x] **Command palette** on `Mod+K`, composed from `getInfiniteCanvasContextualCommands`,
+      `getInfiniteCanvasWindowPresence`, and `cmdk`. Nothing restated: the framework supplies the
+      vocabulary and enablement, cmdk the filtering and roving focus, Base UI the modality. Reaches
+      windows, canvases, projects, creation actions, and every enabled canvas command; unavailable
+      ones appear greyed once you type. Filtering is substring rather than cmdk's default
+      subsequence, which matched "undo" against "Nudge Left".
+      **Still open:** the palette cannot rename or delete — those have inline editors and typed
+      confirmations that a list row cannot host — and it has no recent-items memory, so the empty
+      state is ordered by group rather than by what you actually reach for.
 - [ ] **The library rail** — content, search, saved views. Currently an empty box making a promise.
 - [ ] **Connectors.** `getInfiniteCanvasWindowConnectorPath` and the spatial target resolvers
       exist; typed relations between notes are the first thing that makes this a _knowledge_
