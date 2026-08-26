@@ -1108,8 +1108,11 @@ Kept here because the list _is_ the incubator's output.
 | Group tabs were labelled with the window's UUID, and the label policy could not be replaced               | `groupTabLabel`, defaulting to the exported `getInfiniteCanvasGroupTabLabel`       | landed |
 | Group chrome sizes were a layer prop the reducer ignored, so setting them desynced chrome from panes      | `state.groupMetrics`, read by the solver and every derived view alike              | landed |
 | Group chrome had no tokens of its own: the seam read the border colour, tab ink read the grid colour      | `--icx-group-gutter`, `--icx-group-tab-fg`, `--icx-group-surface-radius`/`-shadow` | landed |
+| A horizontal accordion's headers ran their text across a 28px strip, so every one was a single glyph      | the header emits `data-axis`; the theme turns those labels with the strip          | landed |
+| `window.undock` and `group.dissolve` left freed members inside the shell, tab members exactly stacked     | both place through vacancy, bounded by the shell rather than the camera            | landed |
+| `presence.visible` meant "not minimized", so it held windows behind a tab and windows on another desktop  | `visible` means on screen; items carry `isHidden` and `isAdmitted`                 | landed |
 
-**On the three group rows, because nobody had ever made a group.** The framework's
+**On the group rows, because nobody had ever made a group.** The framework's
 largest feature shipped complete — gesture, keyboard path, persistence, rendering — and no
 consumer had exercised it, so every defect above survived typechecks and a 600-test suite. The
 first dock this app ever performed put UUIDs on both tabs. What the run found is not three bugs
