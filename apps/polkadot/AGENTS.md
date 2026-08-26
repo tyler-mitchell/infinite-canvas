@@ -85,6 +85,13 @@ When you find something Polkadot cannot do:
 
 - Every class comes from a `tv` slot. There are no Tailwind strings in JSX. None.
 - Global CSS is imports, tokens, and document-level resets.
+- **Every rule in `src/styles.css` lives inside `@layer components`.** Only `:root` is exempt,
+  because it declares custom properties and nothing else. An unlayered rule outranks every layered
+  rule in the document, so one bare selector at the top level of that file is a ceiling over the
+  whole of `@layer utilities` — which is not hypothetical: it has happened twice, most recently to
+  the entire file. The layer order is declared on line 1, and `components` sits after the
+  framework's `infinite-canvas` and before `utilities`, so a slot override still beats the
+  framework's theme and a utility still beats a slot override.
 - Depth comes from surface lightness and layered shadow, not from 1px borders.
 - Tokens live in `src/styles.css` and are the only source of colour, elevation, and easing.
 
@@ -126,6 +133,43 @@ Framework changes also need the package's own check, its 489 tests, and both bui
 thing is good. Open the preview, hover the canvas, drag a window, watch the field react. The one
 defect that mattered most in this app's history — every workspace action being silently dropped —
 survived a full test suite and died the first time someone loaded the page.
+
+### Measuring a style instead of looking at one
+
+The most expensive defect class in this app is **a declaration that is present, generated, and
+never wins** — four instances, no error, no failing typecheck, no obviously broken pixel. A
+screenshot cannot find one. One of them was in fact read off a screenshot as correct and was not.
+So after any visual change, read the computed value back and compare it against what you declared:
+
+```js
+getComputedStyle(el).fontWeight; // what actually happened
+```
+
+Two mechanisms produce this class, and knowing only the first will miss the second:
+
+- **Cascade order.** An unlayered rule beats every layered one; a layer's position is fixed by
+  where it is first established, so import order decides who wins.
+- **Specificity origin.** An inline `style` beats every stylesheet rule at any layer. The framework
+  writes several properties inline, and no amount of CSS reaches them — the fix is to move the
+  property into `theme.css`, not to out-specify it.
+
+**A probe that traverses the CSSOM wrongly reports the app clean.** This was got wrong three
+separate times while writing one sweep, and every mistake produced a false all-clear:
+
+- Rules inside `@layer` blocks are in `CSSLayerBlockRule.cssRules`. Iterating `sheet.cssRules`
+  without recursing finds none of them, and the app has exactly one unlayered rule.
+- A `CSSStyleRule` also has a `cssRules` list, usually empty. Recursing on `if (r.cssRules)` before
+  checking `r.selectorText` walks past every style rule into its empty children and collects
+  nothing.
+- Tailwind v4 nests: `.group-hover\:opacity-100` is a rule whose _declarations_ live in a nested
+  `&:is(:where(.group):hover *)` inside `@media (hover: hover)`. The outer rule declares nothing,
+  so reading only `r.style` says the utility is empty when it is fine.
+
+So: check `selectorText` first, recurse into everything that has `cssRules` including style rules,
+and confirm the probe finds a rule you know exists before trusting it to say a rule is missing.
+
+`document.styleSheets` is also empty mid-reload, which reads as "no rules at all". If a probe
+returns zero of something, prove the page is loaded before believing it.
 
 ### Clicking by coordinate
 
