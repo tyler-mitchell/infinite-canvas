@@ -1,6 +1,7 @@
 import {
   getInfiniteCanvasConnectionPreviewPath,
   getInfiniteCanvasContentViewport,
+  getInfiniteCanvasGroupProjection,
   getInfiniteCanvasLongestUnoccludedSegment,
   getInfiniteCanvasRectConnectorPath,
   getInfiniteCanvasSegmentsWithinRect,
@@ -62,6 +63,23 @@ const CONNECTOR_TARGET_KIND = "relation";
  * without having to say what kind it is.
  */
 function getConnectorRectsByItem(state: InfiniteCanvasState<WindowKind>) {
+  /*
+   * The third way a window can be on the canvas without being on screen.
+   *
+   * Minimized was handled and desktop membership was handled; a window behind another tab was not.
+   * Its `mode` is `"normal"`, it is admitted by the workspace, and its `rect` is the shell's whole
+   * content rect — the rect it would occupy if revealed — so it looked like an ordinary visible
+   * window to everything here. Both members of a tab pair therefore report the *same* rect, and a
+   * connector routed between one of them and anything else collapsed: watched, a polyline with a
+   * single point at 987.18, 383.07. The edge simply vanished, and no stub was drawn either,
+   * because the item counted as shown.
+   *
+   * `hiddenWindowIds` is the framework's answer and the minimap, the offscreen ring and focus
+   * traversal already read it. This is the fourth surface to learn the same rule: a derived view
+   * has to ask the question the verb asks.
+   */
+  const { hiddenWindowIds } = getInfiniteCanvasGroupProjection(state.groups, state.groupMetrics);
+
   // An item can be open in more than one window, so an edge joins every pair showing it.
   return state.windows.reduce<Map<string, InfiniteCanvasRect[]>>((rects, window) => {
     const data = getInfiniteCanvasWindowData(window, ContentWindowData.allows);
@@ -82,6 +100,7 @@ function getConnectorRectsByItem(state: InfiniteCanvasState<WindowKind>) {
      */
     return data == null ||
       window.mode === "minimized" ||
+      hiddenWindowIds.has(window.id) ||
       !isInfiniteCanvasWindowInActiveWorkspace(state, window.id)
       ? rects
       : rects.set(data.itemId, [...(rects.get(data.itemId) ?? []), window.rect]);
