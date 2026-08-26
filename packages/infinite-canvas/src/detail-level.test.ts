@@ -23,7 +23,7 @@ test("a window larger than the demote threshold renders in full", () => {
 });
 
 test("a window smaller than the demote threshold drops to its summary", () => {
-  // 400 world units at 0.25 zoom is 100 screen px, under the 180 floor.
+  // 400 world units at 0.25 zoom is 100 screen px, under the 120 floor.
   expect(getInfiniteCanvasWindowDetailLevel(rect(400, 400), 0.25)).toBe("summary");
 });
 
@@ -40,6 +40,35 @@ test("the smaller axis decides, so a wide sliver still demotes", () => {
   // 4000 x 100 at zoom 1 is 4000 px wide and 100 px tall. Taking the larger axis would keep a
   // sliver at full detail; nothing readable fits in 100 px of height.
   expect(getInfiniteCanvasWindowDetailLevel(rect(4000, 100), 1)).toBe("summary");
+});
+
+test("a short card is stranded in summary by its height, not demoted by it", () => {
+  /*
+   * The consumer-facing edge of the rule above, and the one that shapes a product decision. It is
+   * also not the failure it first looks like, which is why it is pinned rather than described.
+   *
+   * A 360×128 card renders in full at 100% zoom — 128 clears the 120 demote floor, so a window
+   * that has never been demoted stays full. The trap is the *other* threshold: returning needs
+   * more than 160, so the first zoom-out demotes it permanently and the card is a summary at 100%
+   * zoom forever after, depending on where the camera has been. Same window, same zoom, different
+   * content — which is the exact defect the 180/240 defaults shipped with and were changed to
+   * escape.
+   *
+   * So a kind whose natural shape is wide and short must clear `fullAbovePx`, not `summaryBelowPx`,
+   * or declare no summary and keep its body at every zoom. 200 clears it by the band's own width,
+   * which is the margin the note floor was raised to for this reason.
+   */
+  const card = rect(360, 128);
+
+  expect(getInfiniteCanvasWindowDetailLevel(card, 1, "full")).toBe("full");
+  expect(getInfiniteCanvasWindowDetailLevel(card, 0.5, "full")).toBe("summary");
+  expect(getInfiniteCanvasWindowDetailLevel(card, 1, "summary")).toBe("summary");
+
+  // Cleared, the same round trip comes home.
+  const tallEnough = rect(360, 200);
+
+  expect(getInfiniteCanvasWindowDetailLevel(tallEnough, 0.5, "full")).toBe("summary");
+  expect(getInfiniteCanvasWindowDetailLevel(tallEnough, 1, "summary")).toBe("full");
 });
 
 test("a full window holds until it crosses the demote threshold", () => {

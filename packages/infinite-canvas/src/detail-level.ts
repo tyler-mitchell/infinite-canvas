@@ -25,9 +25,21 @@ type InfiniteCanvasDetailLevel = "full" | "summary";
 
 type InfiniteCanvasDetailPolicy = Readonly<{
   /**
-   * Screen pixels. A window whose on-screen width **and** height both fall below this drops to
-   * `summary`. Both axes, not either: a wide, short window is still readable, and demoting it
-   * because it is short would hide content the user can plainly see.
+   * Screen pixels. A window whose on-screen width **or** height falls below this drops to
+   * `summary` — the smaller axis decides, because a window is unreadable as soon as either one
+   * collapses and taking the larger would keep a 600×20 sliver at full detail.
+   *
+   * **This said "both axes, not either" until 2026-08-26, which was the opposite of what the
+   * function has always done** and of what `detail-level.test.ts` has always asserted. The
+   * sentence it justified itself with — "a wide, short window is still readable" — is the case
+   * the rule deliberately does not make an exception for, so a consumer reading the type would
+   * size a 400×100 card expecting it to stay full and watch it summarise at 100% zoom.
+   *
+   * The consequence is real but it is `fullAbovePx` that bites, not this: a card just above this
+   * floor renders in full until the first zoom-out demotes it, and then never returns, because
+   * returning is the other threshold's rule. So a kind whose natural shape is wide and short — a
+   * link card, a status strip — must clear **`fullAbovePx`** on its short axis, or declare no
+   * `renderSummary` at all, which leaves the lane inert and always draws the body.
    */
   summaryBelowPx?: number;
   /**
