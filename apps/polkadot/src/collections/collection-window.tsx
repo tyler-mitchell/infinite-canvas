@@ -1,6 +1,6 @@
 import { useInfiniteCanvasActions, useInfiniteCanvasState } from "@hyphened/infinite-canvas";
 import { useValue } from "@legendapp/state/react";
-import { ChevronDown, FileText, Image as ImageIcon, Layers, Link2 } from "lucide-react";
+import { ChevronDown, Layers, Link2 } from "lucide-react";
 import { useEffect } from "react";
 import {
   DropdownMenu,
@@ -22,6 +22,7 @@ import {
   setCollectionQuestion,
 } from "./collection-store";
 import { openItemWindow } from "../canvas/open-item";
+import { getListableKind, LISTABLE_KINDS } from "./listable-kinds";
 
 /**
  * A window that lists what else is in this project.
@@ -74,20 +75,6 @@ const collectionWindow = tv({
 });
 
 /**
- * What a collection can list, and how each reads.
- *
- * A lookup rather than a switch, and deliberately not derived from the window registry: a
- * collection lists *content kinds*, and the registry is the set of kinds that happen to have a
- * window today. They agree right now and there is no reason they must.
- */
-const LISTABLE_KINDS = [
-  { icon: FileText, kind: "note", label: "Notes" },
-  { icon: ImageIcon, kind: "image", label: "Images" },
-] as const;
-
-const getListable = (kind: string) => LISTABLE_KINDS.find((entry) => entry.kind === kind);
-
-/**
  * The rows, shared by both questions.
  *
  * A kind icon per row rather than one for the whole list, because a connection collection is
@@ -106,7 +93,7 @@ function ItemRows({
   return (
     <div className={styles.rows()}>
       {items.map((item) => {
-        const listable = getListable(item.kind);
+        const listable = getListableKind(item.kind);
 
         return (
           <button
@@ -187,7 +174,7 @@ export function CollectionWindowBody({ collectionId }: Readonly<{ collectionId: 
   }
 
   const listsKind = question.listsKind;
-  const listable = getListable(listsKind);
+  const listable = getListableKind(listsKind);
 
   return (
     <div className={styles.root()}>

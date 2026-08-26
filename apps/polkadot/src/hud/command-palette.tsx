@@ -24,8 +24,6 @@ import {
   FolderOpen,
   FolderPlus,
   Frame,
-  Images,
-  Layers,
   LayoutGrid,
   Link2,
   MousePointerSquareDashed,
@@ -54,6 +52,7 @@ import { initialLayout } from "../canvas/canvas-document";
 import { getSelectedRelations } from "../canvas/connector-geometry";
 import { ContentWindowData, type WindowKind } from "../canvas/window-registry";
 import type { CanvasSummary, ContentRelation, ProjectSummary } from "../database/database.client";
+import { LISTABLE_KINDS } from "../collections/listable-kinds";
 import { openNewCollection } from "../collections/open-collection";
 import * as database from "../database/operations";
 import { noteGateway, type NoteRecord } from "../notes/note-gateway";
@@ -827,37 +826,30 @@ function PaletteContent({
             would put the user in a window with nothing in it and a menu to find; "Collection of
             notes" is already the thing they wanted, and switching what it lists is one click away
             in the window itself.
+
+            One row per listable kind rather than two written out. The hand-written pair covered
+            `note` and `image` and was already a copy of the list the collection window's own kind
+            picker holds — so `link` was droppable, openable, and impossible to collect, because
+            adding a kind meant finding two places and only one was obvious.
           */}
-          <Row
-            icon={Layers}
-            onSelect={run(() => {
-              void openNewCollection({
-                actions,
-                projectId,
-                question: { listsKind: "note" },
-                state,
-                title: "Notes",
-              });
-            })}
-            id="new-collection-notes"
-            keywords="create list all"
-            title="Collection of notes"
-          />
-          <Row
-            icon={Images}
-            onSelect={run(() => {
-              void openNewCollection({
-                actions,
-                projectId,
-                question: { listsKind: "image" },
-                state,
-                title: "Images",
-              });
-            })}
-            id="new-collection-images"
-            keywords="create list all"
-            title="Collection of images"
-          />
+          {LISTABLE_KINDS.map(({ icon: KindIcon, kind, label }) => (
+            <Row
+              icon={KindIcon}
+              key={kind}
+              onSelect={run(() => {
+                void openNewCollection({
+                  actions,
+                  projectId,
+                  question: { listsKind: kind },
+                  state,
+                  title: label,
+                });
+              })}
+              id={`new-collection-${kind}`}
+              keywords="create list all"
+              title={`Collection of ${label.toLowerCase()}`}
+            />
+          ))}
           {/*
             Only offered when exactly one window is selected, because the question needs a subject.
             Two selected windows would be two collections or an arbitrary choice between them, and
