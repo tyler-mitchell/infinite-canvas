@@ -442,6 +442,17 @@ export type {
   InfiniteCanvasState,
   InfiniteCanvasTheme,
   InfiniteCanvasViewport as InfiniteCanvasViewportSize,
+  /*
+   * The resolved four edges, and the partial a consumer writes.
+   *
+   * Public for the same reason `getInfiniteCanvasContentViewport` is, and the omission was the
+   * other half of that one: the viewport takes `viewportInsets`, `state.viewportInsets` holds the
+   * resolved form, and that function accepts it — three public surfaces trafficking in a type
+   * consumers had no name for. Anything storing or passing insets had to re-declare the shape,
+   * which is the drift the framework owning the type exists to prevent.
+   */
+  InfiniteCanvasViewportInsets,
+  InfiniteCanvasViewportInsetsInput,
   InfiniteCanvasWindow,
   InfiniteCanvasWindowBodyPointerBehavior,
   InfiniteCanvasWindowDefinition,

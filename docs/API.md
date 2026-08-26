@@ -1014,7 +1014,7 @@ name.
 
 **`types`**
 
-<details><summary>types (87)</summary>
+<details><summary>types (89)</summary>
 
 - `InfiniteCanvasAction`
 - `InfiniteCanvasCamera`
@@ -1089,6 +1089,7 @@ name.
 - `InfiniteCanvasState`
 - `InfiniteCanvasTheme`
 - `InfiniteCanvasViewport as InfiniteCanvasViewportSize`
+- `InfiniteCanvasViewportInsets`, `InfiniteCanvasViewportInsetsInput`
 - `InfiniteCanvasWindow`
 - `InfiniteCanvasWindowBodyPointerBehavior`
 - `InfiniteCanvasWindowDefinition`

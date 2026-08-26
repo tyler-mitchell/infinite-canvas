@@ -371,14 +371,55 @@ open because it feels good to look at. Concretely, and these are enforced in rev
   rail is open must frame what you can actually see, not what is behind the panel — and the camera
   converts it. `getVisibleWorldRect` is the padded whole-viewport answer and is the wrong one here
   for that reason.
-  **Placement is genuinely undecided and should not be settled casually.** The rail is what this
-  item's title assumes, and it is where a list you rename and prune belongs — a palette row cannot
-  host an inline editor, which is the argument that put note renaming here. Against it: the rail is
-  a _content_ browser (presence dots, connection counts, archive) and a view is navigation, so a
-  third mode means two unrelated domains in one 599-line component. The palette is the app's jump
-  surface and now has pages, so it can name things — but management costs a page per verb.
-  **Whichever wins, removal ships with it.** A view list that only grows is the same defect this
-  file already refuses for mentions: something that accumulates with no story for taking it away.
+  **Placement was decided against both of the obvious candidates.** The rail is what this item's
+  title assumed, and it is where a list you rename and prune belongs — a palette row cannot host an
+  inline editor, which is the argument that put note renaming there. Against it, and decisive: the
+  rail browses _content_ (presence dots, connection counts, archive) and a framing is navigation, so
+  a third mode would put two unrelated domains in one 599-line component. The palette was the other
+  candidate and is where you go already knowing the name, which is the opposite of a list you want
+  visible.
+  **So it sits fourth in the identity rail, after project ▸ canvas ▸ desktop.** That chain is
+  already three switchers whose name _is_ the control, and this asks the same shape of question —
+  which of these named things do I want. `SavedViewMenu` follows `DesktopSwitcher` part for part:
+  the same trigger, the same rename-in-place input, the same Enter/Escape through the hotkey
+  manager scoped to the field.
+  **It is not a switcher, and that is why there is no radio group.** Entering a desktop is a mode
+  you stay in, so that control marks which one you are on. Going to a view is a jump — the moment
+  the camera arrives you are free to pan away, and nothing is "on" afterwards. Marking one current
+  would be a claim that goes stale on the next scroll.
+  **Removal shipped with it**, because a view list that only grows is the same defect this file
+  refuses for mentions. It is a mode rather than a control on each row: a trailing button inside a
+  menu item is the obvious shape and the wrong one, since the item owns the click and the button
+  either never fires or fires alongside the jump. Removing is one action per row, keyboard
+  reachable, and says what it is about to do before the click rather than after. The mode never
+  survives the menu closing — one you return to without knowing is one where the next click deletes
+  instead of goes.
+  **Rename and reframe are deliberately not built.** `fn::rename_saved_view` and
+  `fn::reframe_saved_view` exist and are driven; no surface calls them yet. Delete-and-re-save
+  covers both, so the capability is whole without them rather than half-built — but reframe is the
+  better verb and should get a surface, since it is the one that keeps a name attached to a framing
+  that has drifted.
+  **One framework gap fell out of building it, and it is fixed generically.**
+  `getInfiniteCanvasContentViewport` is public and takes resolved insets, `InfiniteCanvas.Viewport`
+  accepts `viewportInsets`, and `state.viewportInsets` holds the resolved form — three public
+  surfaces trafficking in a type with no public name, so any consumer with chrome had to re-declare
+  the shape. `InfiniteCanvasViewportInsets` and `InfiniteCanvasViewportInsetsInput` are exported
+  now, with `docs/API.md` updated. The same omission the comment above that function already
+  describes for `resolveInfiniteCanvasChromeMetrics`, which is what made it recognisable.
+  **Not driven in a browser, and not yet mounted — the honest state of the surface.** Both modules
+  are committed and typecheck, and the database half underneath them is witnessed, but nothing has
+  clicked any of it. **`SavedViewMenu` is not rendered anywhere yet**: the one line that mounts it
+  belongs in `IdentityRail` in `workspace-canvas.tsx`, and that file imports `notes/relations`,
+  which another session was moving to `relations/relation-store` while this landed. Committing the
+  wiring would have meant committing a file that does not resolve, so the wiring waits for that move
+  rather than racing it. It is one line, and it is the next thing to do.
+  The canvas route was also down at the time, on the same session's refactor —
+  `window-registry.tsx` renamed `NoteWindowData` to `ContentWindowData` and `connector-draft.tsx`
+  is half migrated — so the app did not boot to be looked at either. **Do not tick this item on the
+  strength of a typecheck.** What needs watching once it mounts: that the saved rect is the region
+  the chrome leaves rather than the whole viewport, which is the one thing here that is easy to get
+  wrong and invisible in code — save a view with the rail open, pan away, come back, and check the
+  thing you framed is not sitting under the panel.
   **Rename and create landed.** Double-click a row and it becomes an input — Enter commits, Escape
   abandons, blur commits, because clicking away from a field you have typed into and losing it is
   what nobody expects. This is the rail's own justification made concrete: this file already
