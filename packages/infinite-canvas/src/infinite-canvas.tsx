@@ -1301,6 +1301,21 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
           {/* Outside every transform, so `position: fixed` in portalled content
             resolves against the viewport rather than a scaled window frame. */}
           <div
+            /*
+             * Outside the canvas's keyboard scope too, not only its transform.
+             *
+             * This root exists for command palettes, modals, and drag ghosts — and a modal's
+             * defining property is that it owns the keyboard while it is up. But the root lives
+             * inside the viewport element, so without this, every chord typed into portalled
+             * content is a chord "inside the canvas": the canvas swallows Escape for
+             * `desktop.cancel` before the dialog beneath it ever sees one, and the modal cannot be
+             * closed by the key every modal is closed by.
+             *
+             * Found by portalling a real command palette in here and being unable to get out of it.
+             * Marking the root once fixes it for every consumer, rather than making each one
+             * rediscover the trap and remember an incantation on the content they mount.
+             */
+            data-infinite-canvas-command-scope="ignore"
             data-slot={INFINITE_CANVAS_SLOTS.portalRoot}
             ref={setDesktopPortalRoot}
             style={{
