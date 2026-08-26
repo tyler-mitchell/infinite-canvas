@@ -507,6 +507,49 @@ async function listNotes(projectId: string): Promise<readonly NoteRecord[]> {
   return NoteRecord.array().assert(records);
 }
 
+const NoteRelation = type({
+  id: "string",
+  kind: "string",
+  source: "string",
+  target: "string",
+}).onUndeclaredKey("delete");
+
+type NoteRelation = typeof NoteRelation.infer;
+
+async function listRelations(projectId: string): Promise<readonly NoteRelation[]> {
+  const client = await openLocalDatabase();
+  const [records] = await client
+    .query<[unknown]>("RETURN fn::list_relations($project);", {
+      project: new StringRecordId(projectId),
+    })
+    .json();
+
+  return NoteRelation.array().assert(records);
+}
+
+async function relateNotes(
+  input: Readonly<{ kind: string; source: string; target: string }>,
+): Promise<void> {
+  const client = await openLocalDatabase();
+  await client
+    .query<[unknown]>("RETURN fn::relate_notes($source, $target, $kind);", {
+      kind: input.kind,
+      source: new StringRecordId(input.source),
+      target: new StringRecordId(input.target),
+    })
+    .json();
+}
+
+async function unrelateNotes(input: Readonly<{ source: string; target: string }>): Promise<void> {
+  const client = await openLocalDatabase();
+  await client
+    .query<[unknown]>("RETURN fn::unrelate_notes($source, $target);", {
+      source: new StringRecordId(input.source),
+      target: new StringRecordId(input.target),
+    })
+    .json();
+}
+
 class NoteRevisionConflictError extends Error {
   override readonly name = "NoteRevisionConflictError";
   readonly expectedRevision: number;
@@ -547,9 +590,12 @@ export {
   listCanvases,
   listNotes,
   listProjects,
+  listRelations,
   readProjectRemovalSummary,
+  relateNotes,
   renameProject,
   restoreProject,
+  unrelateNotes,
   readCanvasRemovalSummary,
   restoreCanvas,
   NoteRevisionConflictError,
@@ -569,6 +615,7 @@ export type {
   CanvasRevision,
   CanvasSummary,
   NoteRecord,
+  NoteRelation,
   ProjectRemovalSummary,
   ProjectSummary,
 };

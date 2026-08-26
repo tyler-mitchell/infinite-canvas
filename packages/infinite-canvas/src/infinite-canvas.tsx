@@ -163,6 +163,8 @@ type InfiniteCanvasDesktopProps<
    * a scene layer or a spatial target resolver instead.
    */
   renderBackdrop?: (context: InfiniteCanvasOverlayReadContext<Kind, Payload>) => ReactNode;
+  /** World content beneath the windows: connectors, annotations, ink. Above the backdrop. */
+  renderUnderlay?: (context: InfiniteCanvasOverlayReadContext<Kind, Payload>) => ReactNode;
   renderOverlay?: (context: InfiniteCanvasOverlayRenderContext<Kind, Payload>) => ReactNode;
   sceneLayers?: readonly InfiniteCanvasSceneLayer<Kind, Payload>[];
   /**
@@ -207,6 +209,8 @@ type InfiniteCanvasViewportProps<
    * a scene layer or a spatial target resolver instead.
    */
   renderBackdrop?: (context: InfiniteCanvasOverlayReadContext<Kind, Payload>) => ReactNode;
+  /** World content beneath the windows: connectors, annotations, ink. Above the backdrop. */
+  renderUnderlay?: (context: InfiniteCanvasOverlayReadContext<Kind, Payload>) => ReactNode;
   renderOverlay?: (context: InfiniteCanvasOverlayRenderContext<Kind, Payload>) => ReactNode;
   sceneLayers?: readonly InfiniteCanvasSceneLayer<Kind, Payload>[];
   sceneSurface?: InfiniteCanvasSceneSurface<Kind, Payload>;
@@ -226,6 +230,14 @@ const SCENE_SCREEN_UNDERLAY_Z_INDEX = 1;
  * solver gives tab strips and gutters their own rects and places members in what
  * is left, so the two are disjoint by construction.
  */
+/**
+ * DOM content in the world, beneath the windows.
+ *
+ * Above both scene underlays, below the group and window layers. Connectors, annotations, and ink
+ * all want this band, and without it a consumer had two options: replace the whole backdrop and
+ * lose the grid, or take on `three` for the scene surface.
+ */
+const UNDERLAY_Z_INDEX = 2;
 const GROUP_LAYER_Z_INDEX = 5;
 /** Above every band, because portalled content is what escapes the window plane. */
 const PORTAL_ROOT_Z_INDEX = DEFAULT_INFINITE_CANVAS_STACK_BANDS.overlay + 1;
@@ -447,6 +459,7 @@ function InfiniteCanvasDesktop<Kind extends string, Payload = InfiniteCanvasDrop
   rasterization,
   renderBackdrop,
   renderOverlay,
+  renderUnderlay,
   sceneLayers = [],
   sceneSurface,
   snapPolicy,
@@ -503,6 +516,7 @@ function InfiniteCanvasDesktop<Kind extends string, Payload = InfiniteCanvasDrop
             icons={icons}
             inputPolicy={inputPolicy}
             renderBackdrop={renderBackdrop}
+            renderUnderlay={renderUnderlay}
             renderOverlay={renderOverlay}
             sceneLayers={sceneLayers}
             sceneSurface={sceneSurface}
@@ -545,6 +559,7 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
   inputPolicy = DEFAULT_INFINITE_CANVAS_INPUT_POLICY,
   renderBackdrop,
   renderOverlay,
+  renderUnderlay,
   sceneLayers = [],
   sceneSurface: SceneSurface,
   snapPolicy,
@@ -1236,6 +1251,19 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
               theme={resolvedTheme}
               zIndex={SCENE_SCREEN_UNDERLAY_Z_INDEX}
             />
+          )}
+          {renderUnderlay === undefined ? null : (
+            <div
+              data-slot={INFINITE_CANVAS_SLOTS.underlay}
+              style={{
+                inset: 0,
+                pointerEvents: "none",
+                position: "absolute",
+                zIndex: UNDERLAY_Z_INDEX,
+              }}
+            >
+              {renderUnderlay(overlayContext)}
+            </div>
           )}
           <InfiniteCanvasGroupLayer
             canvasInstanceId={canvasInstanceId}

@@ -131,6 +131,7 @@ test("INFINITE_CANVAS_SLOTS is the complete slot vocabulary", () => {
     selectionBounds: "selection-bounds",
     snapGuide: "snap-guide",
     snapPreview: "snap-preview",
+    underlay: "underlay",
     viewport: "viewport",
     window: "window",
     windowBody: "window-body",

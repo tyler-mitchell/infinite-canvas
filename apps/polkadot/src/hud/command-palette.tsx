@@ -18,11 +18,13 @@ import {
   FolderOpen,
   FolderPlus,
   Frame,
+  Link2,
   MousePointerSquareDashed,
   Move3d,
   Search,
   SquareStack,
   Undo2,
+  Unlink2,
 } from "lucide-react";
 import { useEffect, type ComponentType, type ReactNode } from "react";
 import {
@@ -42,6 +44,7 @@ import type { WindowKind } from "../canvas/window-registry";
 import type { CanvasSummary, NoteRecord, ProjectSummary } from "../database/database.client";
 import * as database from "../database/operations";
 import { openNewNote, openNoteWindow } from "../notes/open-note";
+import { connectNotes, disconnectNotes, findRelation, relations$ } from "../notes/relations";
 
 /**
  * One surface over three vocabularies: the windows on this canvas, what Polkadot can do, and what
@@ -210,6 +213,7 @@ function PaletteContent({
   const notes$ = useObservable<readonly NoteRecord[]>([]);
   const query$ = useObservable("");
   const notes = useValue(notes$);
+  const relations = useValue(relations$);
   const canvases = useValue(canvases$);
   const projectList = useValue(projectList$);
   const query = useValue(query$);
@@ -246,6 +250,29 @@ function PaletteContent({
       .filter((noteId) => noteId !== undefined),
   );
   const closedNotes = notes.filter((note) => !openNoteIds.has(note.id));
+
+  /**
+   * Connecting works on the selection, not on a new gesture.
+   *
+   * Selecting two windows is something the canvas already does, so the first way to author an edge
+   * costs no new interaction. Drag-to-connect is a gesture sprint of its own.
+   */
+  const selectedNoteIds = state.selection.windowIds
+    .map(
+      (windowId) =>
+        (
+          state.windows.find((window) => window.id === windowId)?.data as
+            | { noteId?: string }
+            | undefined
+        )?.noteId,
+    )
+    .filter((noteId): noteId is string => noteId !== undefined);
+  const connectedPair =
+    selectedNoteIds.length === 2 &&
+    selectedNoteIds[0] !== undefined &&
+    selectedNoteIds[1] !== undefined
+      ? findRelation(relations, selectedNoteIds[0], selectedNoteIds[1])
+      : undefined;
 
   const run = (perform: () => void) => () => {
     perform();
@@ -372,6 +399,32 @@ function PaletteContent({
             title="New canvas"
             value="new canvas create"
           />
+          {selectedNoteIds.length === 2 ? (
+            <Row
+              icon={connectedPair === undefined ? Link2 : Unlink2}
+              onSelect={run(() => {
+                const [source, target] = selectedNoteIds;
+
+                if (source === undefined || target === undefined) {
+                  return;
+                }
+
+                void (connectedPair === undefined
+                  ? connectNotes({ projectId, source, target })
+                  : disconnectNotes({ projectId, source, target }));
+              })}
+              title={
+                connectedPair === undefined
+                  ? "Connect the two selected notes"
+                  : "Disconnect the two selected notes"
+              }
+              value={
+                connectedPair === undefined
+                  ? "connect relate link notes"
+                  : "disconnect unrelate unlink notes"
+              }
+            />
+          ) : null}
           <Row
             icon={FolderPlus}
             onSelect={run(() => {

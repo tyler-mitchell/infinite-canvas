@@ -11,7 +11,8 @@
         "functions/001_canvas.surql",
         "functions/002_notes.surql",
         "functions/003_canvases.surql",
-        "functions/004_projects.surql"
+        "functions/004_projects.surql",
+        "functions/005_relations.surql"
       ]
     }
   ],

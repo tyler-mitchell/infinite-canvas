@@ -4,15 +4,18 @@ import {
   type InfiniteCanvasState,
 } from "@hyphened/infinite-canvas";
 import { Plus } from "lucide-react";
+import { useEffect } from "react";
 import { Button } from "ui";
 import { tv } from "ui/tv";
 
 import type { CanvasPersistenceStatus } from "../canvas/canvas-persistence";
+import { ConnectorLayer } from "../canvas/connector-layer";
 import { useCanvasRuntime } from "../canvas/use-canvas-runtime";
 import { windowDefinitions, type WindowKind } from "../canvas/window-registry";
 import { CanvasHud } from "../hud/canvas-hud";
 import { CommandPalette } from "../hud/command-palette";
 import { openNewNote } from "../notes/open-note";
+import { loadRelations } from "../notes/relations";
 import { CanvasSwitcher } from "./canvas-switcher";
 import { ProjectSwitcher } from "./project-switcher";
 
@@ -126,6 +129,10 @@ export function WorkspaceCanvas({ canvas }: Readonly<{ canvas: LoadedCanvas }>) 
   const runtime = useCanvasRuntime(canvas);
   const styles = workspace();
 
+  useEffect(() => {
+    void loadRelations(canvas.projectId);
+  }, [canvas.projectId]);
+
   return (
     <main className={styles.root()}>
       <InfiniteCanvas.Provider store={runtime.store}>
@@ -133,6 +140,8 @@ export function WorkspaceCanvas({ canvas }: Readonly<{ canvas: LoadedCanvas }>) 
           // A note names itself in its body, so its header carries only controls and does not
           // need 40px to do it.
           chrome={CHROME}
+          // Beneath the windows: a connector should pass under the note it joins, not across it.
+          renderUnderlay={() => <ConnectorLayer />}
           hud={{
             cameraControls: true,
             minimizedDock: false,

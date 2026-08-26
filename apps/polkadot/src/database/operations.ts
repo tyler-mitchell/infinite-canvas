@@ -41,6 +41,14 @@ export const projects = {
   restore: async (projectId: string) => (await client()).restoreProject(projectId),
 };
 
+export const relations = {
+  connect: async (input: Readonly<{ kind: string; source: string; target: string }>) =>
+    (await client()).relateNotes(input),
+  disconnect: async (input: Readonly<{ source: string; target: string }>) =>
+    (await client()).unrelateNotes(input),
+  list: async (projectId: string) => (await client()).listRelations(projectId),
+};
+
 export const notes = {
   create: async (input: Readonly<{ projectId: string; text: string; title: string }>) =>
     (await client()).createNote(input),
