@@ -1000,6 +1000,30 @@ Kept here because the list _is_ the incubator's output.
 | A dock item's padding was an inline style and its text was uppercased, over a `window.title`             | both moved into `theme.css`, where a consumer can reach them                    | landed |
 | A body wrapper fixed at `min-height: 100%` made `height: 100%` impossible for its own content            | the wrapper follows the kind's `overflowY`: growable if it scrolls, else pinned | landed |
 | The drop system was pointer-only, so a file dragged in from the OS could reach none of it                | the viewport bridges native drag events into the same drop interaction          | landed |
+| Six surfaces answered "which windows" without asking which desktop, so each offered what one hides       | every derived view reads the same membership the verb does                      | landed |
+
+**On the last row, because the count is the finding.** One omission repeated six
+times: `window.reveal` panned to a rect nothing renders, the offscreen ring aimed arrows at hidden
+windows, the minimap drew them _and_ let them set its scale, the dock offered to restore them,
+"Fit all visible" was enabled by them, and `activeWindowId` kept naming one after it was filed
+away — so close, minimize, dock and place all acted on a window nobody could see.
+
+Five were found by sweeping for `mode !== "minimized"` and asking what else that filter should
+have said. The sixth was invisible to that sweep and is the one worth remembering: it is not an
+enumeration at all, it is `activeWindowId` itself, which the membership _writers_ never touched.
+A sweep finds the shape you searched for.
+
+The rule underneath is worth more than the six fixes: **a derived view must ask the same question
+the verb asks.** The fit-all button is the clean instance — it now calls `getSelectableWindowIds`,
+the set `view.fitAll` unions, instead of a filter that agreed with it by coincidence until it did
+not. The minimap is the nastiest, because a hidden window setting the scale reads as "the map is
+wrong" rather than "the map is honest about the wrong set".
+
+Driven, on a canvas with four windows and a desktop admitting two: the minimap drew two on the
+desktop and three showing all; the dock was empty on the desktop and listed the minimized window
+showing all; the ring pointed only at admitted windows; and on an empty desktop "Fit all visible"
+and "Center active window" were both disabled where they would previously have been live and done
+nothing.
 
 **On the fourth-from-last row**, because it is the one a consumer cannot work around. The wrapper
 was pinned to `height: 100%` once, which gave its scroll container nothing to scroll and made a
