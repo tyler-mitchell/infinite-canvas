@@ -1,6 +1,6 @@
 import { openContentWindow, type WindowPlacement } from "../canvas/open-window";
 import { noteGateway } from "./note-gateway";
-import { loadProjectNotes } from "./project-notes";
+import { loadProjectContent } from "../content/project-content";
 
 /**
  * Put a note on the canvas.
@@ -80,7 +80,7 @@ async function openNewNote(input: WindowPlacement & Readonly<{ projectId: string
   const created = await noteGateway.create({ projectId: input.projectId, text: "", title });
 
   openNoteWindow({ actions: input.actions, noteId: created.id, state: input.state, title });
-  await loadProjectNotes(input.projectId);
+  await loadProjectContent(input.projectId);
 }
 
 export { openNewNote, openNoteWindow };

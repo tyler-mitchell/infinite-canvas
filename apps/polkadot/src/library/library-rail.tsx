@@ -18,18 +18,22 @@ import { useEffect } from "react";
 import { Button } from "ui";
 import { tv } from "ui/tv";
 
+import { openItemWindow } from "../canvas/open-item";
 import type { WindowKind } from "../canvas/window-registry";
-import { noteGateway, type NoteRecord } from "../notes/note-gateway";
+import { getListableKind } from "../collections/listable-kinds";
+import type { ContentItemRecord } from "../database/database.client";
+import { content } from "../database/operations";
+import { noteGateway, toNote } from "../notes/note-gateway";
 import { renameNote } from "../notes/note-store";
-import { openNewNote, openNoteWindow } from "../notes/open-note";
+import { openNewNote } from "../notes/open-note";
 import {
-  archiveProjectNote,
-  getProjectNotes,
-  loadProjectNotes,
-  projectNotes$,
-  restoreProjectNote,
-  setProjectNoteTitle,
-} from "../notes/project-notes";
+  archiveProjectItem,
+  getProjectContent,
+  loadProjectContent,
+  projectContent$,
+  restoreProjectItem,
+  setProjectItemTitle,
+} from "../content/project-content";
 import {
   disconnectItems,
   findRelation,
@@ -113,6 +117,7 @@ const rail = tv({
      */
     gutter: "flex w-2 shrink-0 justify-center",
     header: "flex items-center gap-1 px-1.5 pt-1.5 pb-1",
+    kindGlyph: "size-3.5 shrink-0 text-[var(--ink-faint)]",
     heading: "flex-1 pl-1.5 text-[12px] font-medium tracking-[-0.005em] text-[var(--ink-muted)]",
     presence: "size-1.5 rounded-full bg-[var(--accent)]",
     root: "flex w-[264px] flex-col rounded-[var(--radius-lg)] bg-[var(--surface)] shadow-[var(--lift-2)] inset-ring-1 inset-ring-[var(--edge-light)] backdrop-blur-2xl",
@@ -174,6 +179,14 @@ function getNeighbourIds(
   );
 }
 
+/** What kind a row is, since the rail lists all of them and a title alone does not say. */
+function KindGlyph({ kind }: Readonly<{ kind: string }>) {
+  const Icon = getListableKind(kind)?.icon;
+  const styles = rail();
+
+  return Icon === undefined ? null : <Icon className={styles.kindGlyph()} />;
+}
+
 export function LibraryRail({
   onCollapse,
   projectId,
@@ -189,7 +202,7 @@ export function LibraryRail({
    * observable would give it two meanings, which is the confusion the heading guard below exists to
    * prevent. `null` until a read answers; see `emptyState` for why that is not `[]`.
    */
-  const archivedNotes$ = useObservable<readonly NoteRecord[] | null>(null);
+  const archivedNotes$ = useObservable<readonly ContentItemRecord[] | null>(null);
   const query$ = useObservable("");
   const expanded$ = useObservable<string | null>(null);
   /** The note being renamed, and the text so far. `null` when nothing is being edited. */
@@ -203,7 +216,7 @@ export function LibraryRail({
   const editing = useValue(editing$);
   const archived = useValue(archived$);
   const relations = useValue(relations$);
-  const reachableListing = getProjectNotes(useValue(projectNotes$), projectId);
+  const reachableListing = getProjectContent(useValue(projectContent$), projectId);
   const listing = archived ? archivedListing : reachableListing;
   const notes = listing ?? [];
   const styles = rail();
@@ -223,14 +236,14 @@ export function LibraryRail({
    */
   useEffect(() => {
     if (!archived) {
-      void loadProjectNotes(projectId);
+      void loadProjectContent(projectId);
 
       return;
     }
 
     archivedNotes$.set(null);
 
-    void noteGateway.listArchived(projectId).then((listed) => {
+    void content.listArchived({ projectId }).then((listed) => {
       if (archived$.peek()) {
         archivedNotes$.set(listed);
       }
@@ -264,7 +277,7 @@ export function LibraryRail({
   const emptyMessage =
     notes.length > 0
       ? "Nothing matches that."
-      : { archived: "Nothing archived.", reachable: "No notes yet." }[rowMode];
+      : { archived: "Nothing archived.", reachable: "Nothing here yet." }[rowMode];
 
   /**
    * What an empty body says — and, while the first read is still out, nothing at all.
@@ -287,7 +300,7 @@ export function LibraryRail({
      * expects. `stopPropagation` on keys so the canvas does not read this as its own shortcuts
      * while a name is being typed.
      */
-    editing: (note: NoteRecord) => (
+    editing: (note: ContentItemRecord) => (
       <input
         autoFocus
         className={styles.editor()}
@@ -318,10 +331,10 @@ export function LibraryRail({
      * offers it — the one state that makes "archived" mean nothing. Restore first, then it is a
      * note again.
      */
-    archived: (note: NoteRecord) => (
+    archived: (note: ContentItemRecord) => (
       <span className={styles.title({ open: false })}>{note.title}</span>
     ),
-    reachable: (note: NoteRecord) => (
+    reachable: (note: ContentItemRecord) => (
       <button
         className={styles.title({ open: openNoteIds.has(note.id) })}
         // Double-click to rename, the way every sidebar in every file manager does. A visible
@@ -330,10 +343,11 @@ export function LibraryRail({
           editing$.set({ id: note.id, title: note.title });
         }}
         onClick={(event) => {
-          reach(event.currentTarget, note.id, note.title);
+          reach(event.currentTarget, note);
         }}
         type="button"
       >
+        <KindGlyph kind={note.kind} />
         {note.title}
       </button>
     ),
@@ -349,11 +363,12 @@ export function LibraryRail({
    * hand went wrong in exactly the way that is invisible: navigating to a window another desktop
    * hid panned the camera to a rect nothing renders.
    */
-  const reach = (from: HTMLElement, noteId: string, title: string) => {
-    const windowId = windowIdByNoteId.get(noteId);
+  const reach = (from: HTMLElement, item: ContentItemRecord) => {
+    const windowId = windowIdByNoteId.get(item.id);
 
     if (windowId === undefined) {
-      openNoteWindow({ actions, noteId, state, title });
+      // Whatever kind it is. The rail lists every kind now, so it cannot open only notes.
+      openItemWindow({ actions, item, state });
     } else {
       actions.executeCommand({ type: "window.reveal", windowId });
     }
@@ -377,7 +392,7 @@ export function LibraryRail({
    * happened. `setWindowTitle` keeps any window showing this note in step, which is what stops a
    * renamed note from carrying its old name at far zoom and in the accessible name.
    */
-  const commitRename = (note: NoteRecord, title: string) => {
+  const commitRename = (note: ContentItemRecord, title: string) => {
     const next = title.trim();
 
     editing$.set(null);
@@ -386,8 +401,18 @@ export function LibraryRail({
       return;
     }
 
-    renameNote(note, next, noteGateway);
-    setProjectNoteTitle(note.id, next);
+    /*
+     * Only a note has a writer that can rename it; other kinds rename through the window chrome.
+     *
+     * The record is converted rather than spread, because `renameNote` seeds its store from what it
+     * is handed and then saves that content — passing a stub `{ text: "" }` would erase the note's
+     * body. `toNote` asserts the real stored content, which is what this listing actually holds.
+     */
+    if (note.kind === "note") {
+      renameNote(toNote(note), next, noteGateway);
+    }
+
+    setProjectItemTitle(note.id, next);
 
     const windowId = windowIdByNoteId.get(note.id);
 
@@ -418,19 +443,19 @@ export function LibraryRail({
    * The window closes with it. A note that is no longer offered anywhere but is still sitting open
    * on the canvas is the state where "archived" stops meaning anything.
    */
-  const archive = async (noteId: string) => {
-    const windowId = windowIdByNoteId.get(noteId);
+  const archive = async (itemId: string) => {
+    const windowId = windowIdByNoteId.get(itemId);
 
     if (windowId !== undefined) {
       actions.closeWindow(windowId);
     }
 
-    await archiveProjectNote({ noteId, projectId });
+    await archiveProjectItem({ itemId, projectId });
   };
 
-  const restore = async (noteId: string) => {
-    await restoreProjectNote({ noteId, projectId });
-    archivedNotes$.set(await noteGateway.listArchived(projectId));
+  const restore = async (itemId: string) => {
+    await restoreProjectItem({ itemId, projectId });
+    archivedNotes$.set(await content.listArchived({ projectId }));
   };
 
   return (
@@ -473,7 +498,7 @@ export function LibraryRail({
           onChange={(event) => {
             query$.set(event.target.value);
           }}
-          placeholder="Search notes…"
+          placeholder="Search this project…"
           type="search"
           value={query}
         />
@@ -547,7 +572,7 @@ export function LibraryRail({
                             <button
                               className={styles.connection()}
                               onClick={(event) => {
-                                reach(event.currentTarget, neighbour.id, neighbour.title);
+                                reach(event.currentTarget, neighbour);
                               }}
                               type="button"
                             >
@@ -556,6 +581,7 @@ export function LibraryRail({
                                   <span className={styles.presence()} />
                                 ) : null}
                               </span>
+                              <KindGlyph kind={neighbour.kind} />
                               <span className={styles.connectionTitle()}>{neighbour.title}</span>
                               {getRelationLabel(relation) === undefined ? null : (
                                 <span className={styles.connectionKind()}>

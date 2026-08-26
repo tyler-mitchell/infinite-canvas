@@ -93,5 +93,5 @@ export const noteGateway = {
     ),
 };
 
-export { NOTE_KIND, NoteContent };
+export { NOTE_KIND, NoteContent, toNote };
 export type { NoteRecord };

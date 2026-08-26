@@ -51,20 +51,25 @@ import { tv } from "ui/tv";
 import { initialLayout } from "../canvas/canvas-document";
 import { getSelectedRelations } from "../canvas/connector-geometry";
 import { ContentWindowData, type WindowKind } from "../canvas/window-registry";
-import type { CanvasSummary, ContentRelation, ProjectSummary } from "../database/database.client";
+import type {
+  CanvasSummary,
+  ContentItemRecord,
+  ContentRelation,
+  ProjectSummary,
+} from "../database/database.client";
 import { LISTABLE_KINDS } from "../collections/listable-kinds";
 import { openNewCollection } from "../collections/open-collection";
 import * as database from "../database/operations";
-import { noteGateway, type NoteRecord } from "../notes/note-gateway";
+import { noteGateway, toNote } from "../notes/note-gateway";
 import { renameNote } from "../notes/note-store";
 import { openNewNote, openNoteWindow } from "../notes/open-note";
 import {
-  archiveProjectNote,
-  getProjectNotes,
-  loadProjectNotes,
-  projectNotes$,
-  setProjectNoteTitle,
-} from "../notes/project-notes";
+  archiveProjectItem,
+  getProjectContentOfKind,
+  loadProjectContent,
+  projectContent$,
+  setProjectItemTitle,
+} from "../content/project-content";
 import { recentNoteIds$, rememberNote } from "../notes/recent-notes";
 import {
   connectItems,
@@ -161,7 +166,7 @@ const searchWords = (parts: readonly (string | undefined)[]) =>
  */
 type PalettePage =
   | Readonly<{ kind: "label"; relation: ContentRelation }>
-  | Readonly<{ kind: "rename"; note: NoteRecord }>;
+  | Readonly<{ kind: "rename"; note: ContentItemRecord }>;
 
 /** The framework groups every command; the glyph follows that rather than being decoration. */
 const GROUP_ICON: Record<InfiniteCanvasCommandGroup, ComponentType> = {
@@ -339,9 +344,10 @@ function PaletteContent({
    * put that defect straight back — renaming from here would keep the rail honest and the palette's
    * own list wrong.
    */
-  const projectNotes = useValue(projectNotes$);
+  const projectListing = useValue(projectContent$);
   const query$ = useObservable("");
-  const notes = getProjectNotes(projectNotes, projectId) ?? [];
+  // The palette's note rows stay notes for now; the rail is where every kind is browsed.
+  const notes = getProjectContentOfKind(projectListing, projectId, "note") ?? [];
   const relations = useValue(relations$);
   const canvases = useValue(canvases$);
   const projectList = useValue(projectList$);
@@ -382,7 +388,7 @@ function PaletteContent({
     void database.projects.list().then((records) => {
       projectList$.set(records);
     });
-    void loadProjectNotes(projectId);
+    void loadProjectContent(projectId);
   }, [canvases$, projectId, projectList$]);
 
   /**
@@ -446,9 +452,11 @@ function PaletteContent({
    * focusing and moving the camera — and `openNoteWindow` when it does not. Neither is re-derived
    * here; the rail reaches a note exactly this way.
    */
-  const reachNote = (note: NoteRecord) => {
+  const reachNote = (note: Readonly<{ id: string; title: string }>) => {
+    // `itemId`, not `noteId` — this read was left behind when window data became one shape for
+    // every kind, so it matched nothing and every reach opened rather than revealed.
     const windowId = state.windows.find(
-      (window) => (window.data as { noteId?: string } | undefined)?.noteId === note.id,
+      (window) => (window.data as { itemId?: string } | undefined)?.itemId === note.id,
     )?.id;
 
     rememberNote(note.id);
@@ -552,7 +560,9 @@ function PaletteContent({
           }
         : {
             commit: () => {
-              renameNote(page.note, draft, noteGateway);
+              // Converted, not spread: `renameNote` seeds its store from this and saves that
+              // content, so a stub would erase the note's text.
+              renameNote(toNote(page.note), draft, noteGateway);
               /*
                * A rename lands in three places, because three of them write the old name down.
                * `note-store` owns the save. The project listing is what the library rail reads, and
@@ -560,7 +570,7 @@ function PaletteContent({
                * witnessed, not guessed. `window.title` is the far-zoom summary and the accessible
                * name.
                */
-              setProjectNoteTitle(page.note.id, draft);
+              setProjectItemTitle(page.note.id, draft);
 
               const windowId = state.windows.find(
                 (window) =>
@@ -974,7 +984,7 @@ function PaletteContent({
                   actions.closeWindow(windowId);
                 }
 
-                void archiveProjectNote({ noteId: activeNote.id, projectId });
+                void archiveProjectItem({ itemId: activeNote.id, projectId });
               })}
               title={`Archive “${activeNote.title}”`}
             />

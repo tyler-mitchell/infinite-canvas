@@ -597,8 +597,9 @@ async function saveContentItem(
   return ContentItemRecord.assert(record);
 }
 
+/** No `kind` means every kind, which is what a library asks for and a collection does not. */
 async function listContentItems(
-  input: Readonly<{ kind: string; projectId: string }>,
+  input: Readonly<{ kind?: string; projectId: string }>,
 ): Promise<readonly ContentItemRecord[]> {
   const client = await openLocalDatabase();
   const [records] = await client
@@ -645,7 +646,7 @@ async function restoreContentItem(itemId: string): Promise<void> {
 }
 
 async function listArchivedContentItems(
-  input: Readonly<{ kind: string; projectId: string }>,
+  input: Readonly<{ kind?: string; projectId: string }>,
 ): Promise<readonly ContentItemRecord[]> {
   const client = await openLocalDatabase();
   const [records] = await client

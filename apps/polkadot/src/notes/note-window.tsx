@@ -8,7 +8,7 @@ import { tv } from "ui/tv";
 
 import { editNote, ensureNoteLoaded, notes$, type NoteGateway } from "./note-store";
 import { openProject$ } from "../projects/open-project";
-import { projectNotes$ } from "./project-notes";
+import { getProjectContentOfKind, projectContent$ } from "../content/project-content";
 import { connectItems } from "../relations/relation-store";
 import { NoteEditor } from "./note-editor";
 
@@ -110,8 +110,10 @@ export function NoteWindowBody({
    * cache's *staleness guard*, and using it as an authority made the answer depend on the notes
    * having loaded. `openProject$` is the fact itself, and it is set before any query runs.
    */
-  const mentionable = useValue(projectNotes$)?.notes ?? [];
   const projectId = useValue(openProject$);
+  // Notes only: a mention names a note. The listing holds every kind now.
+  const mentionable =
+    getProjectContentOfKind(useValue(projectContent$), projectId ?? "", "note") ?? [];
   /*
    * The desktop root, not this window's.
    *

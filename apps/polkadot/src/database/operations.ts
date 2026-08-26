@@ -99,9 +99,10 @@ export const content = {
       title: string;
     }>,
   ) => (await client()).createContentItem(input),
-  list: async (input: Readonly<{ kind: string; projectId: string }>) =>
+  /** Omit `kind` for everything in the project. */
+  list: async (input: Readonly<{ kind?: string; projectId: string }>) =>
     (await client()).listContentItems(input),
-  listArchived: async (input: Readonly<{ kind: string; projectId: string }>) =>
+  listArchived: async (input: Readonly<{ kind?: string; projectId: string }>) =>
     (await client()).listArchivedContentItems(input),
   /** Whatever this item is connected to, of any kind, in either direction. */
   listRelated: async (itemId: string) => (await client()).listRelatedContentItems(itemId),
