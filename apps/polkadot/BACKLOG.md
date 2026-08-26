@@ -228,3 +228,107 @@ abstracting over the difference rather than the shared mechanism.
 
 **Status:** written once during an unrelated correction and removed rather than landed, because it
 was started mid-course-correction. The duplication is real and still there.
+
+---
+
+## spike: an icon set that is not `lucide-react`
+
+Lucide is the default in every shadcn-derived product, which makes it invisible in the wrong way:
+it reads as "a React app" rather than as this product. The ask is a set that carries some
+identity of its own.
+
+**What the canvas actually needs from icons**, which narrows the field more than coverage counts do:
+
+- **State expression.** Half the HUD verbs are toggles — pinned, locked, snapped, minimized. A set
+  with a paired line/fill weight expresses those states with the same glyph instead of two
+  different glyphs, which is the difference between reading a rail and decoding it. Lucide has
+  effectively one weight, so today `Pin` looks the same pinned or not.
+- **Optical size at 14px.** HUD glyphs render at 14px on a dark, blurred surface. Sets drawn on a
+  24px grid with 1.5px strokes go muddy there; sets with a small-size variant do not.
+- **Spatial vocabulary.** Align, distribute, group, fit, layer, and lasso are unusual verbs. Most
+  sets cover them thinly.
+
+**Candidates, in the order they are worth trying:**
+
+1. **Phosphor** (`@phosphor-icons/react`) — six weights including `fill` and `duotone`, ~9,000
+   glyphs, per-icon ESM. The weight axis is the reason it leads: `<Pin weight={pinned ? "fill" :
+"regular"} />` is one component expressing a state. Visually distinct from Lucide.
+2. **Solar** or **Iconoir** via `unplugin-icons` — compiled to inline SVG at build time, so no
+   runtime and no bundle cost per set. Lets several sets be trialled without committing.
+3. **Untitled UI icons** — drawn for product UI at small sizes specifically.
+
+Explicitly not: **Tabler** and **Feather**, which share Lucide's 24px/2px stroke lineage and would
+be a lateral move.
+
+**Migration surface is small and now is the cheap moment:** eight glyphs across two files
+(`Plus`, `AlignStartVertical`, `AlignHorizontalSpaceAround`, `Pin`, `Scan`, `Trash2`,
+`TriangleAlert`, `X`).
+
+**Framework-first question that has to be answered first (icons):** `InfiniteCanvasHud` renders its own
+zoom and camera controls, and if it ships its own glyphs then a product-side set change produces a
+canvas with two icon languages on it. Check what the framework draws before choosing. If it does
+ship glyphs, the generic fix is for the framework to accept icon slots rather than for Polkadot to
+match whatever the framework happens to use — a framework should not dictate a consumer's icon
+set. That is the real framework gap this spike is likely to surface.
+
+---
+
+## feature: code blocks with syntax highlighting
+
+**Editing and displaying code are different problems, and the answer is probably both engines.**
+
+`@lexical/code` is already a dependency and already ships `CodeNode`, `CodeHighlightNode`, and a
+Prism tokenizer wired for **incremental** re-highlighting on keystroke. That incremental property
+is the whole reason it exists: re-tokenizing a whole block per character is what makes naive
+editor highlighting janky. Replacing it wholesale with Shiki means reimplementing that, which is
+the expensive half.
+
+Shiki's advantage is fidelity — TextMate grammars and real VS Code themes, so a block looks the
+way the same code looks in an editor rather than approximately. That matters most where the text
+is _read_, not typed: the far-zoom summary rendering, and eventually export.
+
+**Likely shape:** keep `@lexical/code`'s Prism tokenizer for the live editing surface, add Shiki
+for read-only rendering. Revisit only if the two look different enough to be jarring.
+
+**Constraints that will decide the integration:**
+
+- **No second WASM blob on the critical path.** The app already loads an 11 MB SurrealDB engine.
+  Use `shiki/core` with `createHighlighterCore`, explicit language and theme imports, and the
+  **JavaScript RegExp engine** (`createJavaScriptRegexEngine`) rather than the Oniguruma WASM one.
+  The full `shiki` bundle imports every grammar and is not an option.
+- **Theme must come from the design tokens.** Shiki's `cssVariables` theme emits `var(--shiki-…)`
+  rather than baked hex, so colours resolve from `styles.css` and there is still one source of
+  colour. A hardcoded VS Code theme next to an oklch palette will look foreign.
+- Language loading should be lazy and per-language, since a note might contain one TypeScript
+  block and nothing else.
+
+---
+
+## spike: a maximalist Lexical composer to read and borrow from
+
+**Start with `facebook/lexical` → `packages/lexical-playground`.** It is the most complete Lexical
+implementation that exists, maintained by the team that maintains Lexical, and it already contains
+nearly everything on this backlog: mentions with a typeahead, tables, images with resizing, code
+blocks, equations, polls, sticky notes, comments, collaborative editing, and a floating format
+toolbar. When a Lexical question has a good answer, it is usually demonstrated there first.
+
+**The most serious production integration outside Meta is Payload CMS**
+(`payloadcms/payload`, `packages/richtext-lexical`). Worth reading for a different reason: it
+solves _packaging_ — a plugin/feature architecture where nodes, toolbar entries, and serialization
+travel together, plus server-side schema for the editor state. That is the shape a long-lived
+integration needs and the playground deliberately does not have.
+
+**For mentions specifically**, `lexical-beautiful-mentions` is a focused, maintained
+implementation and is directly relevant to the mentions item above.
+
+**What to actually borrow:**
+
+- The node registry and plugin composition shape — how nodes, commands, and toolbar state are
+  registered together rather than scattered.
+- Toolbar state derivation from `$getSelection`, which almost everyone re-derives badly.
+- Floating-toolbar and typeahead anchor positioning. Relevant here beyond the usual, because our
+  editors live inside a `transform: scale()` subtree and must portal through
+  `InfiniteCanvasPortal` — see the trap noted under mentions.
+
+**What not to borrow:** the playground is a demo application. Its state management, styling, and
+app shell are not production patterns. Take the editor architecture, not the surroundings.
