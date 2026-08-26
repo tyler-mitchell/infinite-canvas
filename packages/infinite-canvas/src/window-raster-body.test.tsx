@@ -99,3 +99,38 @@ test("a kind that declares no summary stays full detail at any zoom", () => {
 
   expect(markup).toContain(BODY_MARKER);
 });
+
+/**
+ * A body taller than its window has to be reachable.
+ *
+ * This shipped broken and no test noticed, because every test here asks *what* renders and none
+ * asked whether you could get to it. `overflowY` is a documented property of a window definition
+ * and the body slot honours it, so the scroll container was always there — but the wrapper this
+ * module puts inside it carried `height: "100%"`, which locks it to the container's exact height.
+ * A container whose only child can never exceed it has nothing to scroll, so the overflow was
+ * unreachable by wheel, scrollbar, or keyboard, for every consumer of the framework.
+ *
+ * Asserted on the emitted style rather than on layout because this package's test environment has
+ * no DOM: `scrollHeight` is not available, and the invariant is anyway about what this module
+ * declares, not about what a browser then does with it. The pairing is the whole point — the
+ * container without a growable child is exactly the shape of the bug.
+ */
+const getStyles = (markup: string) => [...markup.matchAll(/style="([^"]*)"/g)].map(([, s]) => s);
+
+test("the window body is a scroll container", () => {
+  expect(getStyles(renderAtZoom(1)).some((style) => style.includes("overflow-y:auto"))).toBe(true);
+});
+
+test("the body's content wrapper may grow past the scroll container, not be locked to it", () => {
+  // The frame carries `contain-intrinsic-size` too, so that alone finds the wrong element. The
+  // wrapper is the one sized in percentages; the frame is sized in pixels.
+  const wrapper = getStyles(renderAtZoom(1)).find(
+    (style) => style.includes("contain-intrinsic-size") && style.includes("width:100%"),
+  );
+
+  expect(wrapper).toBeDefined();
+  expect(wrapper).toContain("min-height:100%");
+  // `min-height:100%` contains `height:100%` as a substring, so the negative has to anchor on the
+  // property boundary or it can never fail.
+  expect(/(?:^|;)height:100%/.test(wrapper ?? "")).toBe(false);
+});
