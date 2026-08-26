@@ -63,9 +63,15 @@ open because it feels good to look at. Concretely, and these are enforced in rev
 
 ## Next
 
-- [ ] **Window chrome.** The frame still wears the framework's default. It needs Polkadot's
-      material: floating surface, no outline, controls that arrive on approach rather than
-      sitting there, a header that reads as part of the note.
+- [~] **Window chrome.** Outlines gone — the boxed controls, corner brackets, frame stroke, and
+  the 3px accent bar were all already tokenised and simply never set. The active window is now
+  said with material (a 9% accent wash over the raised surface, plus `--lift-3`) rather than
+  with a rule, and controls arrive on approach via opacity so the header never reflows.
+  **Still open: "a header that reads as part of the note."** The title is currently printed
+  twice — once in the chrome, once as the note body's own heading field — which at reading
+  zoom is the same string twice, sixty pixels apart. The fix is to make the chrome title the
+  single editable name and drop the body field; the framework already allows it, since
+  `InfiniteCanvasWindowFrameRenderContext` exposes frame slots that accept a `render`.
 - [x] **Notes that are notes.** Lexical behind a `{ value, onChange }` boundary — the engine is
       named in exactly one file — with a debounced, revision-guarded write per note. Landed early,
       out of sequence with `IMPLEMENTATION_PHASES.md`, which is recorded in the audit rather than
