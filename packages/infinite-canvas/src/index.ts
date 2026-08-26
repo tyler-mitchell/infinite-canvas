@@ -323,7 +323,7 @@ export type {
   InfiniteCanvasDiagnosticsPolicy,
   InfiniteCanvasDiagnosticsPolicyInput,
 } from "./diagnostics";
-export type { InfiniteCanvasHotkeyRegistrationInput } from "./keyboard";
+export type { InfiniteCanvasHotkeyAction, InfiniteCanvasHotkeyRegistrationInput } from "./keyboard";
 export type { InfiniteCanvasStateValidator, InfiniteCanvasStore } from "./store";
 export type {
   InfiniteCanvasRasterDisplayMode,

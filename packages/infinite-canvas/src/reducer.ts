@@ -12,6 +12,7 @@ import {
   reconcileInfiniteCanvasWorkspaces,
   removeInfiniteCanvasWindowFromWorkspace,
   renameInfiniteCanvasWorkspace,
+  reorderInfiniteCanvasWorkspace,
   detachInfiniteCanvasWindowFromWorkspaces,
   setInfiniteCanvasWorkspaceWindows,
 } from "./workspace";
@@ -304,6 +305,8 @@ function applyInfiniteCanvasAction<Kind extends string>(
       return moveInfiniteCanvasWindowToWorkspace(state, action);
     case "workspace.removeWindow":
       return removeInfiniteCanvasWindowFromWorkspace(state, action);
+    case "workspace.reorder":
+      return reorderInfiniteCanvasWorkspace(state, action);
     case "workspace.setWindows":
       return setInfiniteCanvasWorkspaceWindows(state, action);
     case "group.setTitle":

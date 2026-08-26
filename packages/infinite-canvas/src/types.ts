@@ -1220,6 +1220,8 @@ type InfiniteCanvasAction<Kind extends string = string> =
    */
   | Readonly<{ type: "workspace.moveWindow"; windowId: string; workspaceId: string }>
   | Readonly<{ type: "workspace.removeWindow"; windowId: string; workspaceId: string }>
+  /** `toIndex` is the position in the final list, matching `group.reorderChild`. */
+  | Readonly<{ toIndex: number; type: "workspace.reorder"; workspaceId: string }>
   | Readonly<{
       type: "workspace.setWindows";
       windowIds: readonly string[];
@@ -1393,6 +1395,7 @@ type InfiniteCanvasCommands<Kind extends string = string> = Readonly<{
   reorderGroupChild: (
     input: Readonly<{ childId: string; groupId: string; toIndex: number }>,
   ) => void;
+  reorderWorkspace: (input: Readonly<{ toIndex: number; workspaceId: string }>) => void;
   setGroupActiveChild: (
     input: Readonly<{ childId: string; containerId: string; groupId: string }>,
   ) => void;

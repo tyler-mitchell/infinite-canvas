@@ -194,6 +194,12 @@ function createInfiniteCanvasStore<Kind extends string>(
         type: "group.reorderChild",
       });
     },
+    reorderWorkspace: (input) => {
+      dispatch({
+        ...input,
+        type: "workspace.reorder",
+      });
+    },
     setGroupActiveChild: (input) => {
       dispatch({
         ...input,

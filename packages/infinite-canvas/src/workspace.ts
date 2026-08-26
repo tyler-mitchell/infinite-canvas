@@ -154,6 +154,47 @@ function renameInfiniteCanvasWorkspace<Kind extends string>(
 }
 
 /**
+ * Moving a workspace to another position in the list.
+ *
+ * `state.workspaces` is ordered and every consumer renders it in order, but until now the order was
+ * whatever `createInfiniteCanvasWorkspace` appended and nothing could ever change it. A desktop
+ * strip you cannot reorder is one where the desktop you use most stays wherever it happened to be
+ * created, which is the same defect as a tab bar with no drag — hence `toIndex`, matching
+ * `group.reorderChild` rather than inventing a second vocabulary for the same motion.
+ *
+ * The index is clamped rather than rejected, because the callers are gestures: a drag that runs
+ * past the end of the strip means "put it last", not "do nothing". Removing before inserting is
+ * what makes `toIndex` mean the position in the *final* list, which is what a dragging finger is
+ * pointing at.
+ */
+function reorderInfiniteCanvasWorkspace<Kind extends string>(
+  state: InfiniteCanvasState<Kind>,
+  input: Readonly<{ toIndex: number; workspaceId: string }>,
+): InfiniteCanvasState<Kind> {
+  const fromIndex = state.workspaces.findIndex((workspace) => workspace.id === input.workspaceId);
+
+  if (fromIndex === -1) {
+    return state;
+  }
+
+  const remaining = state.workspaces.filter((workspace) => workspace.id !== input.workspaceId);
+  const toIndex = Math.min(Math.max(Math.trunc(input.toIndex), 0), remaining.length);
+
+  if (toIndex === fromIndex) {
+    return state;
+  }
+
+  const moved = state.workspaces[fromIndex];
+
+  return moved === undefined
+    ? state
+    : {
+        ...state,
+        workspaces: [...remaining.slice(0, toIndex), moved, ...remaining.slice(toIndex)],
+      };
+}
+
+/**
  * Membership as a delta, which is the difference between a verb and a race.
  *
  * `setInfiniteCanvasWorkspaceWindows` takes the whole list, so a caller wanting "put this
@@ -415,5 +456,6 @@ export {
   moveInfiniteCanvasWindowToWorkspace,
   removeInfiniteCanvasWindowFromWorkspace,
   renameInfiniteCanvasWorkspace,
+  reorderInfiniteCanvasWorkspace,
   setInfiniteCanvasWorkspaceWindows,
 };

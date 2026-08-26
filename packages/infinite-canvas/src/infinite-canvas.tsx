@@ -62,6 +62,7 @@ import {
   withInfiniteCanvasPointerMode,
 } from "./input-policy";
 import { focusInfiniteCanvasCommandSurface, registerInfiniteCanvasHotkeys } from "./keyboard";
+import type { InfiniteCanvasHotkeyAction } from "./keyboard";
 import { getInfiniteCanvasContextualCommands } from "./commands";
 import type { InfiniteCanvasHotkeyBinding } from "./commands";
 import {
@@ -144,6 +145,16 @@ type InfiniteCanvasDesktopProps<
   diagnostics?: InfiniteCanvasDiagnosticsPolicyInput;
   documentKey?: string;
   dropPolicy?: InfiniteCanvasDropPolicy<Kind, Payload>;
+  /**
+   * Chords this consumer claims for verbs the canvas does not have.
+   *
+   * Added to the canvas's own keymap rather than replacing it, which is what separates this from
+   * `hotkeyBindings`. Reach for it whenever the thing a key should act on is yours — a connector,
+   * an annotation, a region — since the canvas can select those and has no idea what to do with
+   * one. The scope rules are the canvas's either way: a chord that lands inside a window body or
+   * mid-composition is not yours, and this will not fire there.
+   */
+  hotkeyActions?: readonly InfiniteCanvasHotkeyAction<Kind>[];
   hotkeyBindings?: readonly InfiniteCanvasHotkeyBinding[];
   hud?: InfiniteCanvasHudPolicyInput;
   icons?: InfiniteCanvasIcons;
@@ -201,6 +212,8 @@ type InfiniteCanvasViewportProps<
    */
   viewportInsets?: InfiniteCanvasViewportInsetsInput;
   dropPolicy?: InfiniteCanvasDropPolicy<Kind, Payload>;
+  /** Chords this consumer claims for verbs the canvas does not have. Added to its keymap, never replacing it. */
+  hotkeyActions?: readonly InfiniteCanvasHotkeyAction<Kind>[];
   hotkeyBindings?: readonly InfiniteCanvasHotkeyBinding[];
   hud?: InfiniteCanvasHudPolicyInput;
   icons?: InfiniteCanvasIcons;
@@ -461,6 +474,7 @@ function InfiniteCanvasDesktop<Kind extends string, Payload = InfiniteCanvasDrop
   diagnostics,
   documentKey,
   dropPolicy,
+  hotkeyActions,
   hotkeyBindings,
   hud,
   icons,
@@ -520,6 +534,7 @@ function InfiniteCanvasDesktop<Kind extends string, Payload = InfiniteCanvasDrop
             className={className}
             diagnostics={resolvedDiagnosticsPolicy}
             dropPolicy={dropPolicy}
+            hotkeyActions={hotkeyActions}
             hotkeyBindings={hotkeyBindings}
             hud={hud}
             snapPolicy={snapPolicy}
@@ -563,6 +578,7 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
   className,
   diagnostics = DEFAULT_INFINITE_CANVAS_DIAGNOSTICS,
   dropPolicy,
+  hotkeyActions,
   hotkeyBindings,
   hud,
   icons,
@@ -856,12 +872,13 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
     return node === null
       ? undefined
       : registerInfiniteCanvasHotkeys({
+          actions: hotkeyActions,
           executeCommand: actions.executeCommand,
           getState: () => store.state$.peek() as InfiniteCanvasState<Kind>,
           bindings: hotkeyBindings,
           target: node,
         });
-  }, [actions, hotkeyBindings, store]);
+  }, [actions, hotkeyActions, hotkeyBindings, store]);
 
   useEffect(() => {
     const node = rootRef.current;

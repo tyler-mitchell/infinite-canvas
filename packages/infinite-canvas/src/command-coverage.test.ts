@@ -106,6 +106,10 @@ const ACTION_COMMAND_COVERAGE: Readonly<
   "workspace.addWindow": "parameterized",
   "workspace.moveWindow": "workspace.moveActiveWindow",
   "workspace.removeWindow": "workspace.removeActiveWindow",
+  // A destination index is something only a drag knows. There is no state-resolved form of
+  // "put this desktop third" the way there is for "move the active window", so unlike its
+  // `workspace.moveWindow` neighbour this one has no command representative.
+  "workspace.reorder": "parameterized",
   "workspace.setWindows": "parameterized",
   "window.close": "activeWindow.close",
   "window.focus": "window.focus.left",

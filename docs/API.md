@@ -141,6 +141,14 @@ the camera is not — panning is not an edit, but changing which desktop you are
 
 - `findInfiniteCanvasWorkspace` — one workspace by id, or `null`.
 
+The verbs are actions rather than exported functions, reached through
+`useInfiniteCanvasActions`. `reorderWorkspace({ toIndex, workspaceId })` moves a
+desktop within the list — `toIndex` is the position in the _final_ order, matching
+`reorderGroupChild`, and out-of-range values clamp rather than refuse because the
+caller is a drag: running past the end of a strip means "put it last". Until it
+existed, `workspaces` was ordered but nothing could reorder it, so a desktop stayed
+wherever creation happened to put it.
+
 **`workspace-membership`** — the reader, kept apart from the verbs because `selection` needs
 it and `workspace` needs `selection`.
 
@@ -485,11 +493,21 @@ it isn't.
   focus and does not return it leaves focus on `<body>`, where every shortcut silently stops
   working. The counterpart to `focusInfiniteCanvasCommandSurface`, which needs the surface element
   and therefore needs the consumer to know this framework's DOM contract.
-- `registerInfiniteCanvasHotkeys`
+- `registerInfiniteCanvasHotkeys` — bind the canvas's own commands, and any verbs the consumer
+  claims, to one keyboard scope. `bindings` **replaces** the default keymap; `actions` is **added**
+  to it. That asymmetry is the API: swapping the whole keymap is a coherent thing to want, losing
+  it because you wanted one more chord is not.
 - `shouldHandleInfiniteCanvasKeyboardEvent`
 
-<details><summary>types (1)</summary>
+<details><summary>types (2)</summary>
 
+- `InfiniteCanvasHotkeyAction` — a chord a consumer claims for a verb this canvas does not have.
+  The canvas can already hold a consumer's own objects and select them — `spatialTargetResolvers`
+  resolves a pointer to one, `selection.targets` holds it — and knows nothing about what they are,
+  so it can offer no verb over them. Supply `hotkeys`, a `run(state)`, and an `isEnabled(state)`
+  when the verb only sometimes applies; the command surface, the exclusion list, and the swallow
+  rule stay the framework's. Distinct from `InfiniteCanvasHotkeyBinding`, which re-chords a command
+  the canvas already owns and is gated by `isInfiniteCanvasCommandEnabled`.
 - `InfiniteCanvasHotkeyRegistrationInput`
 
 </details>
