@@ -91,9 +91,13 @@ open because it feels good to look at. Concretely, and these are enforced in rev
       confirmations that a list row cannot host — and it has no recent-items memory, so the empty
       state is ordered by group rather than by what you actually reach for.
 - [ ] **The library rail** — content, search, saved views. Currently an empty box making a promise.
-- [ ] **Connectors.** `getInfiniteCanvasWindowConnectorPath` and the spatial target resolvers
-      exist; typed relations between notes are the first thing that makes this a _knowledge_
-      workbench rather than a note board.
+- [~] **Connectors.** `relates_to` is written for the first time, and edges render between the
+  windows showing their notes — framework geometry throughout, drawn in the new
+  `renderUnderlay` band so a connector passes beneath the note rather than across it.
+  Authoring is "connect the two selected windows" from the palette, which costs no new gesture.
+  **Still open:** drag-to-connect, which is a gesture sprint; edge selection, labels, and typed
+  kinds, since every edge is currently `relates`; and no way to see an edge whose notes are not
+  both open, which is where the library rail would earn its place.
 - [ ] **Workspaces** as the organizing spine, with `workspace.moveActiveWindow`.
 - [ ] **Grain and vignette.** Real material has noise.
 
@@ -133,12 +137,13 @@ stays. What is missing is the field itself, and it is hours of careful work, not
 
 Kept here because the list _is_ the incubator's output.
 
-| Gap                                                                   | Generic affordance                                           | State  |
-| --------------------------------------------------------------------- | ------------------------------------------------------------ | ------ |
-| Backdrop was hardcoded                                                | `renderBackdrop`, mirroring `renderOverlay`                  | landed |
-| No way to observe "the durable document changed"                      | `InfiniteCanvasHandle.subscribeDocument`                     | landed |
-| Hydration adopted a fallback's unusable viewport                      | `desktop.hydrate` keeps a usable viewport over the payload's | landed |
-| `chrome` demanded all five metrics, and the defaults are not exported | `InfiniteCanvasChromeMetricsInput`, mirroring `zoomPolicy`   | landed |
+| Gap                                                                                                      | Generic affordance                                                        | State  |
+| -------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- | ------ |
+| Backdrop was hardcoded                                                                                   | `renderBackdrop`, mirroring `renderOverlay`                               | landed |
+| No way to observe "the durable document changed"                                                         | `InfiniteCanvasHandle.subscribeDocument`                                  | landed |
+| Hydration adopted a fallback's unusable viewport                                                         | `desktop.hydrate` keeps a usable viewport over the payload's              | landed |
+| `chrome` demanded all five metrics, and the defaults are not exported                                    | `InfiniteCanvasChromeMetricsInput`, mirroring `zoomPolicy`                | landed |
+| No DOM layer between the backdrop and the windows: connectors meant losing the grid or taking on `three` | `renderUnderlay`, the counterpart to `renderBackdrop` and `renderOverlay` | landed |
 
 **On the second row**, because it is the clearest thing the incubator has produced so far. Any
 consumer persisting a canvas needs to know when the stored shape changed. The obvious way to ask —
