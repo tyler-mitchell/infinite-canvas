@@ -149,6 +149,10 @@ open because it feels good to look at. Concretely, and these are enforced in rev
   consumed by nothing here. Not a framework gap — a coverage gap in the app meant to be the
   framework's showcase, and offscreen indicators answer the rail's own question: where is the
   note this one connects to, when it is not on screen.
+  **Two of the three are now drawn.** Offscreen indicators landed first; the minimap landed
+  second, in `hud/minimap.tsx` — see its own item below. `getInfiniteCanvasWorldPath` is the
+  one still consumed by nothing, and it is deliberate: it is built for tours, which this file
+  keeps under "Later".
   **Landed:** the framework affordance, and a first rail against it. Every note in the project,
   searchable, with a presence dot for the ones already on the canvas and a connection count that
   expands in place — reaching a connected note costs one click whether or not it has a window,
@@ -260,8 +264,27 @@ open because it feels good to look at. Concretely, and these are enforced in rev
   Driven: select the edge, `Label this connection…`, type "blocks the review", Enter — the row
   previews the exact text rather than being filtered away, and the connector then reads "blocks the
   review" at 11px in place of "supports".
-  **Still open:** there is no way to see an edge whose notes are not both open, which is where the
-  library rail would earn its place.
+  **An edge with one end closed is no longer invisible.** A connector was drawn only when *both*
+  ends had a rect, so closing one note silently removed the line — the note kept its connections and
+  the canvas stopped mentioning them, which on screen is indistinguishable from having none. Each
+  window whose note has neighbours the canvas is not showing now grows a short dashed stub off its
+  right edge carrying the count. Dashed because the drag preview already established that vocabulary
+  for an end that is not a window, and quiet at 25% opacity because it reports an absence and a
+  canvas that shouts about what is missing is worse than one that stays silent. Routed by
+  `getInfiniteCanvasConnectionPreviewPath`, the same function the drag preview uses, since the far
+  end is a bare point in both cases and inventing a rect would be inventing a position for a note
+  that has none. Deliberately not clickable: the rail already opens a connected note in one click,
+  and a second hit-testing path competing with the framework's is what `connector-layer` was written
+  to avoid. Driven: closing "Untitled 2" drops the connector to zero and raises one stub, which at
+  zoom 0.50 draws with no count (5.5px is below the legibility floor) and at zoom 1.0 reads "1" at
+  11px.
+  **Unwitnessed, and worth naming so nothing here is read as proof it is not:** the connector
+  available to drive has a symmetric route, so its routed midpoint and the average of its endpoints
+  are the same point. That case cannot tell the two apart. The label anchor uses the framework's
+  path, which is the one that holds when a route is asymmetric — but an asymmetric route was never
+  observed, so that is reasoning rather than evidence.
+  **Still open:** a stub says how many connections are hidden and not which, and the count is per
+  window rather than per neighbour, so two windows on the same note each repeat it.
 - [~] **Workspaces** as the organizing spine. The framework's workspace model was reachable only by
   a consumer reaching past the command layer: `cycle` walks desktops that exist and does nothing
   when there are none, so nothing could make the first one, name which one to enter, or take one
@@ -397,6 +420,30 @@ stays. What is missing is the field itself, and it is hours of careful work, not
       building the affordance and then using a quarter of it.
       **Still open:** the chips are peripheral by design and deliberately quiet, tuned by one look
       rather than by watching anyone use them.
+
+- [x] **The map.** `getInfiniteCanvasMinimapLayout` and `getInfiniteCanvasMinimapWorldPoint` had
+      been exported and drawn by nobody since 2026-07-08, and `docs/API.md` still carried the whole
+      module as _unobserved_ on that ground. Drawn now, in `hud/minimap.tsx`. It answers the one
+      question neither the rail nor the offscreen chips do — not "what exists" and not "which way
+      is that one", but what shape the canvas is, which is what you want while moving rather than
+      after arriving.
+      Nothing here projects anything. Two of the framework's own decisions are the ones a
+      hand-rolled map gets wrong, and both were visible while driving it: the camera's visible rect
+      is unioned into the bounds, so panning into empty space shrinks the content into a corner
+      rather than pushing the indicator out of the box — the exact moment you looked at it — and
+      the scale is uniform, because a map that lies about aspect ratio is worse than no map.
+      **Placement is the decision that cost something, and it is declared rather than taken
+      quietly.** Bottom-right above the framework's navigation rail, with the app's bottom inset
+      growing while it is open, the same shape the library rail uses. Understating that would drop
+      a note under the map on every fit and reveal. It closes, and closing returns the band.
+      The right edge is left alone on purpose: a right inset would cost a strip down the whole
+      viewport for a corner-sized surface, which is per-edge scalars failing to describe a corner.
+      Witnessed: content sitting low-left of an offset viewport frame after a pan, clicking it
+      centring the camera there, and a drag scrubbing the camera continuously in the drag's
+      direction.
+      **Still open:** closing and reopening was not witnessed — the app remounted under another
+      session's HMR reload mid-click. And `docs/API.md` should move `minimap` off _unobserved_ by
+      its own stated rule, which is the framework's edit to make, not this app's.
 
 ## Later, deliberately
 

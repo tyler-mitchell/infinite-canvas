@@ -386,7 +386,34 @@ function applyInfiniteCanvasAction<Kind extends string>(
       return restoreWindow(state, action.windowId);
     case "window.togglePinned":
       return toggleWindowPinned(state, action.windowId);
+    default:
+      return assertUnknownInfiniteCanvasAction(action);
   }
+}
+
+/**
+ * An action type the reducer does not know, said out loud.
+ *
+ * The switch above is exhaustive over `InfiniteCanvasAction`, and TypeScript enforces that: adding
+ * a case to the union without handling it here stops compiling. Taking `never` keeps that exactly —
+ * a new unhandled action is not assignable and fails the build the same way it always did.
+ *
+ * What was missing was the runtime half. Type exhaustiveness is a compile-time promise, and the
+ * actions that break it arrive at runtime: replayed from a document written by another version,
+ * sent by a consumer that is not using TypeScript, or typed into a console. Any of those fell out
+ * of the switch and returned `undefined`, and the caller then read `.groups` off it — so the
+ * message a developer got was "Cannot read properties of undefined (reading 'groups')", naming a
+ * field with nothing to do with what went wrong, three layers below where it did.
+ *
+ * This throws rather than returning `state` unchanged, and the choice is narrower than it looks:
+ * the previous behaviour already crashed. The only question was whether the crash names the cause.
+ * A silent no-op would be a third thing — a mistyped command doing nothing with no signal at all —
+ * which is worst of all for the console and agent callers this exists to serve.
+ */
+function assertUnknownInfiniteCanvasAction(action: never): never {
+  throw new Error(
+    `Unknown infinite canvas action type: ${String((action as { type?: unknown }).type)}`,
+  );
 }
 
 export { reduceInfiniteCanvasState };
