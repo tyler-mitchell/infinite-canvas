@@ -95,6 +95,21 @@ When you find something Polkadot cannot do:
 - Depth comes from surface lightness and layered shadow, not from 1px borders.
 - Tokens live in `src/styles.css` and are the only source of colour, elevation, and easing.
 
+## Reading a window's data
+
+**`window.data` is `unknown`. Read it through `getInfiniteCanvasWindowData(window, guard)`, never
+with a property access or a cast.** The framework types it `unknown` on purpose and ships the guard
+to close that boundary; reaching past it is the only way to get this wrong.
+
+It has been got wrong four times, all the same way. `window.data.noteId` survived the day window
+data became one `{ itemId }` for every kind — the cast still compiled, and the read simply matched
+nothing forever. Consequences: every palette reach opened a window instead of revealing one, a
+rename never reached `setWindowTitle` so the far-zoom summary kept the old name, open notes were
+listed as closed, and the recent-notes dedup never fired. Not one of them errored.
+
+Through the guard, a shape that no longer validates fails at the boundary, loudly, where the
+mismatch is. Past it, `undefined === "x"` is false and the app carries on being subtly wrong.
+
 ## Libraries
 
 Never hand-roll what a maintained library owns. In practice: TanStack Router, Pacer, Hotkeys,
