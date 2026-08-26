@@ -512,6 +512,35 @@ async function listNotes(projectId: string): Promise<readonly NoteRecord[]> {
   return NoteRecord.array().assert(records);
 }
 
+/**
+ * Archive and restore, together.
+ *
+ * Never one without the other: an archive that cannot be undone is a delete wearing a gentler word,
+ * and this is the same pairing canvases and projects already ship.
+ */
+async function archiveNote(noteId: string): Promise<void> {
+  const client = await openLocalDatabase();
+
+  await client.query("RETURN fn::archive_note($note);", { note: new StringRecordId(noteId) });
+}
+
+async function restoreNote(noteId: string): Promise<void> {
+  const client = await openLocalDatabase();
+
+  await client.query("RETURN fn::restore_note($note);", { note: new StringRecordId(noteId) });
+}
+
+async function listArchivedNotes(projectId: string): Promise<readonly NoteRecord[]> {
+  const client = await openLocalDatabase();
+  const [records] = await client
+    .query<[unknown]>("RETURN fn::list_archived_notes($project);", {
+      project: new StringRecordId(projectId),
+    })
+    .json();
+
+  return NoteRecord.array().assert(records);
+}
+
 const NoteRelation = type({
   id: "string",
   kind: "string",
@@ -581,6 +610,7 @@ async function closeLocalDatabase() {
 
 export {
   archiveCanvas,
+  archiveNote,
   archiveProject,
   bootstrapCanvas,
   CanvasRevisionConflictError,
@@ -594,12 +624,14 @@ export {
   listArchivedCanvases,
   listArchivedProjects,
   listCanvases,
+  listArchivedNotes,
   listNotes,
   listProjects,
   listRelations,
   readProjectRemovalSummary,
   relateNotes,
   renameProject,
+  restoreNote,
   restoreProject,
   unrelateNotes,
   readCanvasRemovalSummary,

@@ -50,10 +50,13 @@ export const relations = {
 };
 
 export const notes = {
+  archive: async (noteId: string) => (await client()).archiveNote(noteId),
   create: async (input: Readonly<{ projectId: string; text: string; title: string }>) =>
     (await client()).createNote(input),
   list: async (projectId: string) => (await client()).listNotes(projectId),
+  listArchived: async (projectId: string) => (await client()).listArchivedNotes(projectId),
   read: async (noteId: string) => (await client()).readNote(noteId),
+  restore: async (noteId: string) => (await client()).restoreNote(noteId),
   save: async (
     input: Readonly<{ noteId: string; revision: number; text: string; title: string }>,
   ) => (await client()).saveNote(input),

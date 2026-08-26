@@ -4,7 +4,15 @@ import {
   useInfiniteCanvasState,
 } from "@hyphened/infinite-canvas";
 import { useObservable, useValue } from "@legendapp/state/react";
-import { ChevronRight, Link2, PanelLeftClose, Plus, Search } from "lucide-react";
+import {
+  Archive,
+  ArchiveRestore,
+  ChevronRight,
+  Link2,
+  PanelLeftClose,
+  Plus,
+  Search,
+} from "lucide-react";
 import { useEffect } from "react";
 import { Button } from "ui";
 import { tv } from "ui/tv";
@@ -77,6 +85,19 @@ const rail = tv({
     title:
       "min-w-0 flex-1 truncate py-1.5 text-left text-[12.5px] transition-colors duration-100 ease-[var(--ease-swift)]",
     total: "px-1 font-mono text-[10px] tabular-nums text-[var(--ink-faint)]",
+    /**
+     * Arrives on approach rather than sitting on every row.
+     *
+     * Five permanent glyphs down the side would compete for the width the titles need, and a row
+     * is mostly read rather than acted on. Focus reveals it too, so it is reachable without a
+     * pointer.
+     */
+    rowAction:
+      "shrink-0 rounded-[var(--radius-sm)] p-1 text-[var(--ink-faint)] opacity-0 transition-opacity duration-100 ease-[var(--ease-swift)] group-hover:opacity-100 hover:text-[var(--ink)] focus-visible:opacity-100",
+    rowActionIcon: "size-3",
+    /** A quiet switch between two lists rather than a mode the rail announces. */
+    viewToggle:
+      "rounded-[var(--radius-sm)] px-1.5 py-0.5 text-[11px] text-[var(--ink-faint)] transition-colors duration-100 ease-[var(--ease-swift)] hover:bg-[var(--surface-hover)] hover:text-[var(--ink)]",
   },
   variants: {
     expanded: {
@@ -121,19 +142,24 @@ export function LibraryRail({
   const expanded$ = useObservable<string | null>(null);
   /** The note being renamed, and the text so far. `null` when nothing is being edited. */
   const editing$ = useObservable<Readonly<{ id: string; title: string }> | null>(null);
+  /** Which list the rail is showing. Archived notes are still notes, just not offered. */
+  const archived$ = useObservable(false);
 
   const notes = useValue(notes$);
   const query = useValue(query$);
   const expanded = useValue(expanded$);
   const editing = useValue(editing$);
+  const archived = useValue(archived$);
   const relations = useValue(relations$);
   const styles = rail();
 
   useEffect(() => {
-    void database.notes.list(projectId).then((listed) => {
-      notes$.set(listed);
-    });
-  }, [notes$, projectId]);
+    void (archived ? database.notes.listArchived(projectId) : database.notes.list(projectId)).then(
+      (listed) => {
+        notes$.set(listed);
+      },
+    );
+  }, [archived, notes$, projectId]);
 
   /**
    * Which note each window is showing, in one pass.
@@ -155,7 +181,73 @@ export function LibraryRail({
   );
   const openNoteIds = new Set(windowIdByNoteId.keys());
 
+  const listed = new Set(notes.map((note) => note.id));
   const terms = query.trim().toLowerCase();
+  /** What a row that is not being renamed does. Loop-invariant, so it is decided once. */
+  const rowMode = archived ? "archived" : "reachable";
+  const emptyMessage = archived ? "Nothing archived." : "No notes yet.";
+
+  /** The three things the title cell can be, chosen by name rather than by stacked conditions. */
+  const titleCell = {
+    /*
+     * The thing a palette row cannot host.
+     *
+     * Enter commits and Escape abandons, which are the two answers; blur commits too, because
+     * clicking away from a field you have typed into and losing it is the behaviour nobody
+     * expects. `stopPropagation` on keys so the canvas does not read this as its own shortcuts
+     * while a name is being typed.
+     */
+    editing: (note: NoteRecord) => (
+      <input
+        autoFocus
+        className={styles.editor()}
+        onBlur={() => {
+          commitRename(note, editing?.title ?? note.title);
+        }}
+        onChange={(event) => {
+          editing$.set({ id: note.id, title: event.target.value });
+        }}
+        onKeyDown={(event) => {
+          event.stopPropagation();
+
+          if (event.key === "Enter") {
+            commitRename(note, editing?.title ?? note.title);
+          }
+
+          if (event.key === "Escape") {
+            editing$.set(null);
+          }
+        }}
+        value={editing?.title ?? note.title}
+      />
+    ),
+    /*
+     * Archived notes read, they do not open.
+     *
+     * A title that still opened would put a note back on the canvas while the library no longer
+     * offers it — the one state that makes "archived" mean nothing. Restore first, then it is a
+     * note again.
+     */
+    archived: (note: NoteRecord) => (
+      <span className={styles.title({ open: false })}>{note.title}</span>
+    ),
+    reachable: (note: NoteRecord) => (
+      <button
+        className={styles.title({ open: openNoteIds.has(note.id) })}
+        // Double-click to rename, the way every sidebar in every file manager does. A visible
+        // pencil on every row would be five affordances competing for the width the titles need.
+        onDoubleClick={() => {
+          editing$.set({ id: note.id, title: note.title });
+        }}
+        onClick={(event) => {
+          reach(event.currentTarget, note.id, note.title);
+        }}
+        type="button"
+      >
+        {note.title}
+      </button>
+    ),
+  };
   const visible =
     terms === "" ? notes : notes.filter((note) => note.title.toLowerCase().includes(terms));
 
@@ -230,12 +322,49 @@ export function LibraryRail({
     notes$.set(await database.notes.list(projectId));
   };
 
+  /**
+   * Archive, which is the reversible half of removal and the only half that exists.
+   *
+   * Not a delete. A note carries `relates_to` edges, and deleting it would have to take them with
+   * it or leave the graph pointing at nothing — archiving leaves both intact, so restoring puts
+   * back everything that was there. The same pairing canvases and projects already ship, and the
+   * reason this needs no typed confirmation: nothing is destroyed, so nothing has to be weighed.
+   *
+   * The window closes with it. A note that is no longer offered anywhere but is still sitting open
+   * on the canvas is the state where "archived" stops meaning anything.
+   */
+  const archive = async (noteId: string) => {
+    const windowId = windowIdByNoteId.get(noteId);
+
+    if (windowId !== undefined) {
+      actions.closeWindow(windowId);
+    }
+
+    await database.notes.archive(noteId);
+    notes$.set(await database.notes.list(projectId));
+  };
+
+  const restore = async (noteId: string) => {
+    await database.notes.restore(noteId);
+    notes$.set(await database.notes.listArchived(projectId));
+  };
+
   return (
     <div className={styles.root()}>
       <div className={styles.header()}>
-        <span className={styles.heading()}>Library</span>
+        <span className={styles.heading()}>{archived ? "Archived" : "Library"}</span>
         {/* The count is the answer to "is this everything?", which a list alone never gives. */}
         <span className={styles.total()}>{notes.length}</span>
+        <button
+          aria-pressed={archived}
+          className={styles.viewToggle()}
+          onClick={() => {
+            archived$.set(!archived);
+          }}
+          type="button"
+        >
+          {archived ? "Notes" : "Archive"}
+        </button>
         <Button
           aria-label="New note"
           onClick={() => {
@@ -266,11 +395,13 @@ export function LibraryRail({
       <div className={styles.body()}>
         {visible.length === 0 ? (
           <p className={styles.empty()}>
-            {notes.length === 0 ? "No notes yet." : "Nothing matches that."}
+            {notes.length > 0 ? "Nothing matches that." : emptyMessage}
           </p>
         ) : (
           visible.map((note) => {
-            const neighbours = getNeighbourIds(relations, note.id);
+            // Only neighbours this rail can actually show. An archived neighbour still has its
+            // edge, so counting it unfiltered promised a row that expanding could never produce.
+            const neighbours = getNeighbourIds(relations, note.id).filter((id) => listed.has(id));
             const isExpanded = expanded === note.id;
 
             return (
@@ -279,54 +410,7 @@ export function LibraryRail({
                   <span className={styles.gutter()}>
                     {openNoteIds.has(note.id) ? <span className={styles.presence()} /> : null}
                   </span>
-                  {editing?.id === note.id ? (
-                    /*
-                     * The thing a palette row cannot host.
-                     *
-                     * Enter commits and Escape abandons, which are the two answers; blur commits
-                     * too, because clicking away from a field you have typed into and losing it is
-                     * the behaviour nobody expects. `stopPropagation` on keys so the canvas does
-                     * not read this as its own shortcuts while a name is being typed.
-                     */
-                    <input
-                      autoFocus
-                      className={styles.editor()}
-                      onBlur={() => {
-                        commitRename(note, editing.title);
-                      }}
-                      onChange={(event) => {
-                        editing$.set({ id: note.id, title: event.target.value });
-                      }}
-                      onKeyDown={(event) => {
-                        event.stopPropagation();
-
-                        if (event.key === "Enter") {
-                          commitRename(note, editing.title);
-                        }
-
-                        if (event.key === "Escape") {
-                          editing$.set(null);
-                        }
-                      }}
-                      value={editing.title}
-                    />
-                  ) : (
-                    <button
-                      className={styles.title({ open: openNoteIds.has(note.id) })}
-                      // Double-click to rename, the way every sidebar in every file manager does.
-                      // A visible pencil on every row would be five affordances competing for the
-                      // width the titles need.
-                      onDoubleClick={() => {
-                        editing$.set({ id: note.id, title: note.title });
-                      }}
-                      onClick={(event) => {
-                        reach(event.currentTarget, note.id, note.title);
-                      }}
-                      type="button"
-                    >
-                      {note.title}
-                    </button>
-                  )}
+                  {titleCell[editing?.id === note.id ? "editing" : rowMode](note)}
                   {neighbours.length === 0 ? null : (
                     <button
                       aria-expanded={isExpanded}
@@ -342,6 +426,28 @@ export function LibraryRail({
                       {neighbours.length}
                     </button>
                   )}
+                  {/*
+                    Last, so it sits at the row's outer edge rather than between a title and the
+                    count that describes it. It is rendered on every row whether or not it is
+                    visible — the same reason the presence gutter is: a control that appears only on
+                    hover and takes width when it does would move everything beside it as the
+                    pointer crosses the row.
+                  */}
+                  <button
+                    aria-label={archived ? `Restore ${note.title}` : `Archive ${note.title}`}
+                    className={styles.rowAction()}
+                    onClick={() => {
+                      void (archived ? restore(note.id) : archive(note.id));
+                    }}
+                    title={archived ? "Restore" : "Archive"}
+                    type="button"
+                  >
+                    {archived ? (
+                      <ArchiveRestore className={styles.rowActionIcon()} />
+                    ) : (
+                      <Archive className={styles.rowActionIcon()} />
+                    )}
+                  </button>
                 </div>
                 {/*
                   The thing a modal cannot do: an edge whose other end is not open is invisible on
