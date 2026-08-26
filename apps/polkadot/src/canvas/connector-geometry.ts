@@ -1,8 +1,10 @@
 import {
   getInfiniteCanvasRectConnectorPath,
   getInfiniteCanvasWindowData,
+  getSelectionTargets,
   type InfiniteCanvasPoint,
   type InfiniteCanvasRect,
+  type InfiniteCanvasSelection,
   type InfiniteCanvasState,
   type InfiniteCanvasWorldSegment,
 } from "@hyphened/infinite-canvas";
@@ -83,5 +85,25 @@ function getConnectorEdgeTargets(
   );
 }
 
-export { CONNECTOR_TARGET_KIND, getConnectorEdgeTargets, getDrawnConnectors };
+/**
+ * The relations the pointer has selected — a different question from which windows are selected.
+ *
+ * `selection.targets` is the framework's model for selected things that are not windows, and it
+ * fills with these because the viewport registers an edge resolver for connectors: clicking a line
+ * goes through the same selection machinery, modifiers included, that selects a note.
+ *
+ * Here rather than at either call site because two of them ask — the palette's cut row and the
+ * keyboard's cut action — and a selection the keyboard reads differently from the one the palette
+ * reads is a bug nobody would find until they cut the wrong edge.
+ */
+function getSelectedRelations(
+  selection: InfiniteCanvasSelection,
+  relations: readonly NoteRelation[],
+): readonly NoteRelation[] {
+  return getSelectionTargets(selection)
+    .filter((target) => target.type === "edge" && target.kind === CONNECTOR_TARGET_KIND)
+    .flatMap((target) => relations.filter((relation) => relation.id === target.id));
+}
+
+export { CONNECTOR_TARGET_KIND, getConnectorEdgeTargets, getDrawnConnectors, getSelectedRelations };
 export type { DrawnConnector };

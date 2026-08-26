@@ -2,8 +2,8 @@ import {
   focusInfiniteCanvasCommandSurface,
   getInfiniteCanvasContextualCommands,
   getInfiniteCanvasWindowPresence,
-  getSelectionTargets,
   useInfiniteCanvasActions,
+  useInfiniteCanvasDesktopPortalRoot,
   useInfiniteCanvasState,
   type InfiniteCanvasCommandGroup,
 } from "@hyphened/infinite-canvas";
@@ -44,7 +44,7 @@ import {
 import { tv } from "ui/tv";
 
 import { initialLayout } from "../canvas/canvas-document";
-import { CONNECTOR_TARGET_KIND } from "../canvas/connector-geometry";
+import { getSelectedRelations } from "../canvas/connector-geometry";
 import type { WindowKind } from "../canvas/window-registry";
 import type { CanvasSummary, NoteRecord, ProjectSummary } from "../database/database.client";
 import * as database from "../database/operations";
@@ -102,6 +102,20 @@ const matchCommand = (value: string, search: string) => {
   return 1 / (1 + Math.min(...terms.map((term) => haystack.indexOf(term))));
 };
 
+/**
+ * What a row is searchable by, with its own title always first.
+ *
+ * Rows used to carry a hand-written bag of synonyms as their whole search value, and nothing made
+ * that bag contain the words printed on the row. "Cut the selected connection" was searchable as
+ * "cut disconnect unlink connection edge", so typing the label you were reading returned "Nothing
+ * matches that" — the one query a palette must never fail. Callers now supply only the synonyms
+ * they want *added*; they cannot forget the title because they never write it.
+ *
+ * Title first also ranks it, since `matchCommand` scores by earliest match: a hit on what is
+ * displayed beats a hit on a synonym.
+ */
+const searchValue = (parts: readonly (string | undefined)[]) => parts.filter(Boolean).join(" ");
+
 /** The framework groups every command; the glyph follows that rather than being decoration. */
 const GROUP_ICON: Record<InfiniteCanvasCommandGroup, ComponentType> = {
   canvas: Frame,
@@ -147,9 +161,21 @@ export function CommandPalette({ projectId }: Readonly<{ projectId: string }>) {
     isOpen$.set(false);
     returnFocusToCanvas();
   };
+  const portalRoot = useInfiniteCanvasDesktopPortalRoot();
 
   return (
     <CommandDialog
+      /*
+       * Into the canvas's own portal root, not `<body>`.
+       *
+       * The framework's HUD band sits at a z-index of one billion, and Base UI portals a dialog to
+       * `<body>` at 50 — so the palette opened *underneath* the library rail, with its left half
+       * hidden behind an opaque panel. The desktop portal root exists for exactly this and says so:
+       * "overlays that should escape the window entirely mount here: command palettes, modals, drag
+       * ghosts." Bidding the dialog's z-index up against the framework's would have been a guess
+       * that breaks the next time the band moves.
+       */
+      container={portalRoot}
       description="Search windows, actions, and canvas commands"
       filter={matchCommand}
       onOpenChange={(open) => {
@@ -173,23 +199,24 @@ function Row({
   description,
   icon: Icon,
   keys,
+  keywords,
   onSelect,
   title,
   trailing,
-  value,
 }: Readonly<{
   description?: string;
   icon: ComponentType;
   keys?: readonly string[];
+  /** Words to find this row by *beyond* what it displays. The title is always searchable. */
+  keywords?: string;
   onSelect: () => void;
   title: string;
   trailing?: ReactNode;
-  value: string;
 }>) {
   const styles = palette();
 
   return (
-    <CommandItem onSelect={onSelect} value={value}>
+    <CommandItem onSelect={onSelect} value={searchValue([title, description, keywords])}>
       <span className={styles.tile()} data-slot="command-item-icon">
         <Icon />
       </span>
@@ -292,13 +319,10 @@ function PaletteContent({
   /*
    * A connector the pointer selected, which is a different question from two selected windows.
    *
-   * `selection.targets` is the framework's model for selected things that are not windows, and it
-   * fills with these because the canvas registers an edge resolver for connectors — so clicking a
-   * line selects it through the same selection machinery, modifiers included, that selects a note.
+   * Derived in `connector-geometry` rather than here, because the Backspace action asks the same
+   * question and the two must not be able to answer it differently.
    */
-  const selectedRelations = getSelectionTargets(state.selection)
-    .filter((target) => target.type === "edge" && target.kind === CONNECTOR_TARGET_KIND)
-    .flatMap((target) => relations.filter((relation) => relation.id === target.id));
+  const selectedRelations = getSelectedRelations(state.selection, relations);
 
   const run = (perform: () => void) => () => {
     perform();
@@ -331,11 +355,11 @@ function PaletteContent({
                 onSelect={run(() => {
                   actions.executeCommand({ type: "window.reveal", windowId: window.id });
                 })}
+                keywords={`window ${window.kind}`}
                 title={window.title}
                 trailing={
                   window.isActive ? <span className={styles.description()}>active</span> : null
                 }
-                value={`window ${window.title} ${window.kind}`}
               />
             ))}
           </CommandGroup>
@@ -350,8 +374,8 @@ function PaletteContent({
                 onSelect={run(() => {
                   openNoteWindow({ actions, noteId: note.id, state, title: note.title });
                 })}
+                keywords="note"
                 title={note.title}
-                value={`note ${note.title}`}
               />
             ))}
           </CommandGroup>
@@ -369,13 +393,13 @@ function PaletteContent({
                 onSelect={run(() => {
                   actions.executeCommand({ type: "workspace.enter", workspaceId: workspace.id });
                 })}
+                keywords="desktop"
                 title={workspace.title}
                 trailing={
                   workspace.id === state.activeWorkspaceId ? (
                     <span className={styles.description()}>here</span>
                   ) : null
                 }
-                value={`desktop ${workspace.title}`}
               />
             ))}
             {/* A desktop you can make and enter but cannot put anything on is a desktop that stays
@@ -396,8 +420,8 @@ function PaletteContent({
                           workspaceId: workspace.id,
                         });
                       })}
+                      keywords="move window desktop"
                       title={`Send “${activeWindow.title}” to ${workspace.title}`}
-                      value={`send move window ${activeWindow.title} ${workspace.title}`}
                     />
                   ))}
             {state.activeWorkspaceId === null ? null : (
@@ -409,8 +433,8 @@ function PaletteContent({
                     workspaceId: state.activeWorkspaceId ?? "",
                   });
                 })}
+                keywords="remove workspace"
                 title="Close this desktop"
-                value="close remove desktop workspace"
               />
             )}
           </CommandGroup>
@@ -425,8 +449,8 @@ function PaletteContent({
                 onSelect={run(() => {
                   openCanvas(canvas.id);
                 })}
+                keywords="canvas"
                 title={canvas.title}
-                value={`canvas ${canvas.title}`}
               />
             ))}
           </CommandGroup>
@@ -446,8 +470,8 @@ function PaletteContent({
                     }
                   });
                 })}
+                keywords="project"
                 title={project.title}
-                value={`project ${project.title}`}
               />
             ))}
           </CommandGroup>
@@ -459,8 +483,8 @@ function PaletteContent({
             onSelect={run(() => {
               void openNewNote({ actions, projectId, state });
             })}
+            keywords="create"
             title="New note"
-            value="new note create"
           />
           <Row
             icon={Columns3}
@@ -475,12 +499,15 @@ function PaletteContent({
                   openCanvas(created.id);
                 });
             })}
+            keywords="create"
             title="New canvas"
-            value="new canvas create"
           />
           {selectedRelations.length === 0 ? null : (
             <Row
               icon={Unlink2}
+              // The row is where you learn the key exists. A shortcut only reachable by pressing it
+              // is a shortcut for the person who wrote it.
+              keys={["⌫"]}
               onSelect={run(() => {
                 for (const relation of selectedRelations) {
                   void disconnectNotes({
@@ -490,12 +517,12 @@ function PaletteContent({
                   });
                 }
               })}
+              keywords="disconnect unlink edge relation"
               title={
                 selectedRelations.length === 1
                   ? "Cut the selected connection"
                   : `Cut ${String(selectedRelations.length)} selected connections`
               }
-              value="cut disconnect unlink connection edge"
             />
           )}
           {selectedNoteIds.length === 2 ? (
@@ -512,15 +539,13 @@ function PaletteContent({
                   ? connectNotes({ projectId, source, target })
                   : disconnectNotes({ projectId, source, target }));
               })}
+              keywords={
+                connectedPair === undefined ? "relate link edge" : "unrelate unlink cut edge"
+              }
               title={
                 connectedPair === undefined
                   ? "Connect the two selected notes"
                   : "Disconnect the two selected notes"
-              }
-              value={
-                connectedPair === undefined
-                  ? "connect relate link notes"
-                  : "disconnect unrelate unlink notes"
               }
             />
           ) : null}
@@ -533,8 +558,8 @@ function PaletteContent({
                 workspaceId: globalThis.crypto.randomUUID(),
               });
             })}
+            keywords="workspace create"
             title="New desktop"
-            value="new desktop workspace create"
           />
           <Row
             icon={FolderPlus}
@@ -545,8 +570,8 @@ function PaletteContent({
                   openCanvas(created.id);
                 });
             })}
+            keywords="create"
             title="New project"
-            value="new project create"
           />
         </CommandGroup>
 
@@ -557,11 +582,11 @@ function PaletteContent({
               icon={GROUP_ICON[command.group]}
               key={command.id}
               keys={command.hotkeys.map((hotkey) => formatForDisplay(hotkey))}
+              keywords={command.id}
               onSelect={run(() => {
                 actions.executeCommand(command.command);
               })}
               title={command.label}
-              value={`${command.label} ${command.description} ${command.id}`}
             />
           ))}
         </CommandGroup>
@@ -573,7 +598,11 @@ function PaletteContent({
         {query.trim() === "" || unavailable.length === 0 ? null : (
           <CommandGroup heading="Unavailable right now">
             {unavailable.map((command) => (
-              <CommandItem disabled key={command.id} value={`${command.label} ${command.id}`}>
+              <CommandItem
+                disabled
+                key={command.id}
+                value={searchValue([command.label, command.description, command.id])}
+              >
                 <span className={styles.tile()}>
                   <Ban />
                 </span>

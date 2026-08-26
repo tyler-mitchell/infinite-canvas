@@ -96,6 +96,13 @@ open because it feels good to look at. Concretely, and these are enforced in rev
       windows, canvases, projects, creation actions, and every enabled canvas command; unavailable
       ones appear greyed once you type. Filtering is substring rather than cmdk's default
       subsequence, which matched "undo" against "Nudge Left".
+      **A row is now searchable by what it says.** Each row used to carry a hand-written bag of
+      synonyms as its whole search value, and nothing bound that bag to the row's own title — so
+      "Cut the selected connection" was searchable as `cut disconnect unlink connection edge`, and
+      typing the label printed in front of you returned "Nothing matches that". `Row` derives the
+      value from title, description, and synonyms now; a caller supplies only the synonyms, so it
+      cannot forget the title because it never writes it. Witnessed rather than reasoned: with a
+      connector selected, "cut the selected" finds the row it names.
       **Still open:** the palette cannot rename or delete — those have inline editors and typed
       confirmations that a list row cannot host — and it has no recent-items memory, so the empty
       state is ordered by group rather than by what you actually reach for.
@@ -134,6 +141,14 @@ open because it feels good to look at. Concretely, and these are enforced in rev
   inferred: authoring `relates_to` from the palette draws the connector on the canvas, both rows
   grow a count, the count expands in place with the neighbour indented under it, and the nested
   row reaches the note it names.
+  **The rail no longer claims a project is empty before it has looked.** `notes$` started as `[]`,
+  so "nobody has asked yet" and "the answer was nothing" were one value, and a fresh load greeted
+  three notes with "No notes yet." for as long as the first query took — which reads as data loss,
+  not as loading. It is `null` until answered now, and the count and the message both stay blank
+  until there is something to say. The same conflation mislabelled a list: switching to Archive left
+  the notes under the heading "Archived" until the second query landed. Witnessed by recording the
+  rail's own DOM across both toggles: the settled list is preceded by a state carrying the new
+  heading with no count, no message, and no rows.
   **Still open:** there is no saved-views concept yet, and connections cannot be cut from here.
   **Rename and create landed.** Double-click a row and it becomes an input — Enter commits, Escape
   abandons, blur commits, because clicking away from a field you have typed into and losing it is

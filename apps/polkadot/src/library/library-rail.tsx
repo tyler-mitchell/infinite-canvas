@@ -137,7 +137,8 @@ export function LibraryRail({
 }: Readonly<{ onCollapse: () => void; projectId: string }>) {
   const actions = useInfiniteCanvasActions<WindowKind>();
   const state = useInfiniteCanvasState<WindowKind>();
-  const notes$ = useObservable<readonly NoteRecord[]>([]);
+  /** `null` until the first read answers. See `emptyState` for why that is not the same as `[]`. */
+  const notes$ = useObservable<readonly NoteRecord[] | null>(null);
   const query$ = useObservable("");
   const expanded$ = useObservable<string | null>(null);
   /** The note being renamed, and the text so far. `null` when nothing is being edited. */
@@ -145,7 +146,8 @@ export function LibraryRail({
   /** Which list the rail is showing. Archived notes are still notes, just not offered. */
   const archived$ = useObservable(false);
 
-  const notes = useValue(notes$);
+  const listing = useValue(notes$);
+  const notes = listing ?? [];
   const query = useValue(query$);
   const expanded = useValue(expanded$);
   const editing = useValue(editing$);
@@ -153,13 +155,26 @@ export function LibraryRail({
   const relations = useValue(relations$);
   const styles = rail();
 
+  /**
+   * Ask, and show nothing until the answer comes back.
+   *
+   * Clearing to `null` first is what keeps the list and the heading in step. Toggling to Archive
+   * used to leave the *notes* sitting there under the word "Archived" until the second query
+   * landed — a list labelled as something it is not, which is worse than a list that is briefly
+   * absent. The guard drops an answer to a question no longer being asked, so switching back and
+   * forth cannot let a slow first query overwrite the second.
+   */
   useEffect(() => {
+    notes$.set(null);
+
     void (archived ? database.notes.listArchived(projectId) : database.notes.list(projectId)).then(
       (listed) => {
-        notes$.set(listed);
+        if (archived$.peek() === archived) {
+          notes$.set(listed);
+        }
       },
     );
-  }, [archived, notes$, projectId]);
+  }, [archived, archived$, notes$, projectId]);
 
   /**
    * Which note each window is showing, in one pass.
@@ -185,7 +200,21 @@ export function LibraryRail({
   const terms = query.trim().toLowerCase();
   /** What a row that is not being renamed does. Loop-invariant, so it is decided once. */
   const rowMode = archived ? "archived" : "reachable";
-  const emptyMessage = archived ? "Nothing archived." : "No notes yet.";
+  const emptyMessage =
+    notes.length > 0
+      ? "Nothing matches that."
+      : { archived: "Nothing archived.", reachable: "No notes yet." }[rowMode];
+
+  /**
+   * What an empty body says — and, while the first read is still out, nothing at all.
+   *
+   * `[]` used to mean two different things: nobody has asked yet, and the answer was nothing. The
+   * rail asserted the second whenever the first was true, so a project holding thirty notes greeted
+   * you with "No notes yet." for as long as its first query took — which reads as data loss rather
+   * than as loading, and is the one thing a local-first app must never imply. An empty state is a
+   * claim about the world; it needs an answer behind it.
+   */
+  const emptyState = listing === null ? null : <p className={styles.empty()}>{emptyMessage}</p>;
 
   /** The three things the title cell can be, chosen by name rather than by stacked conditions. */
   const titleCell = {
@@ -353,8 +382,10 @@ export function LibraryRail({
     <div className={styles.root()}>
       <div className={styles.header()}>
         <span className={styles.heading()}>{archived ? "Archived" : "Library"}</span>
-        {/* The count is the answer to "is this everything?", which a list alone never gives. */}
-        <span className={styles.total()}>{notes.length}</span>
+        {/* The count is the answer to "is this everything?", which a list alone never gives — and
+            it is blank rather than 0 until there is an answer, for the same reason `emptyState` is
+            blank: a 0 nobody has counted yet is a wrong number, not a pending one. */}
+        <span className={styles.total()}>{listing === null ? null : notes.length}</span>
         <button
           aria-pressed={archived}
           className={styles.viewToggle()}
@@ -393,94 +424,90 @@ export function LibraryRail({
         />
       </div>
       <div className={styles.body()}>
-        {visible.length === 0 ? (
-          <p className={styles.empty()}>
-            {notes.length > 0 ? "Nothing matches that." : emptyMessage}
-          </p>
-        ) : (
-          visible.map((note) => {
-            // Only neighbours this rail can actually show. An archived neighbour still has its
-            // edge, so counting it unfiltered promised a row that expanding could never produce.
-            const neighbours = getNeighbourIds(relations, note.id).filter((id) => listed.has(id));
-            const isExpanded = expanded === note.id;
+        {visible.length === 0
+          ? emptyState
+          : visible.map((note) => {
+              // Only neighbours this rail can actually show. An archived neighbour still has its
+              // edge, so counting it unfiltered promised a row that expanding could never produce.
+              const neighbours = getNeighbourIds(relations, note.id).filter((id) => listed.has(id));
+              const isExpanded = expanded === note.id;
 
-            return (
-              <div key={note.id}>
-                <div className={styles.row()}>
-                  <span className={styles.gutter()}>
-                    {openNoteIds.has(note.id) ? <span className={styles.presence()} /> : null}
-                  </span>
-                  {titleCell[editing?.id === note.id ? "editing" : rowMode](note)}
-                  {neighbours.length === 0 ? null : (
-                    <button
-                      aria-expanded={isExpanded}
-                      aria-label={`${String(neighbours.length)} connected`}
-                      className={styles.count()}
-                      onClick={() => {
-                        expanded$.set(isExpanded ? null : note.id);
-                      }}
-                      type="button"
-                    >
-                      <ChevronRight className={rail({ expanded: isExpanded }).disclosure()} />
-                      <Link2 className={styles.countIcon()} />
-                      {neighbours.length}
-                    </button>
-                  )}
-                  {/*
+              return (
+                <div key={note.id}>
+                  <div className={styles.row()}>
+                    <span className={styles.gutter()}>
+                      {openNoteIds.has(note.id) ? <span className={styles.presence()} /> : null}
+                    </span>
+                    {titleCell[editing?.id === note.id ? "editing" : rowMode](note)}
+                    {neighbours.length === 0 ? null : (
+                      <button
+                        aria-expanded={isExpanded}
+                        aria-label={`${String(neighbours.length)} connected`}
+                        className={styles.count()}
+                        onClick={() => {
+                          expanded$.set(isExpanded ? null : note.id);
+                        }}
+                        type="button"
+                      >
+                        <ChevronRight className={rail({ expanded: isExpanded }).disclosure()} />
+                        <Link2 className={styles.countIcon()} />
+                        {neighbours.length}
+                      </button>
+                    )}
+                    {/*
                     Last, so it sits at the row's outer edge rather than between a title and the
                     count that describes it. It is rendered on every row whether or not it is
                     visible — the same reason the presence gutter is: a control that appears only on
                     hover and takes width when it does would move everything beside it as the
                     pointer crosses the row.
                   */}
-                  <button
-                    aria-label={archived ? `Restore ${note.title}` : `Archive ${note.title}`}
-                    className={styles.rowAction()}
-                    onClick={() => {
-                      void (archived ? restore(note.id) : archive(note.id));
-                    }}
-                    title={archived ? "Restore" : "Archive"}
-                    type="button"
-                  >
-                    {archived ? (
-                      <ArchiveRestore className={styles.rowActionIcon()} />
-                    ) : (
-                      <Archive className={styles.rowActionIcon()} />
-                    )}
-                  </button>
-                </div>
-                {/*
+                    <button
+                      aria-label={archived ? `Restore ${note.title}` : `Archive ${note.title}`}
+                      className={styles.rowAction()}
+                      onClick={() => {
+                        void (archived ? restore(note.id) : archive(note.id));
+                      }}
+                      title={archived ? "Restore" : "Archive"}
+                      type="button"
+                    >
+                      {archived ? (
+                        <ArchiveRestore className={styles.rowActionIcon()} />
+                      ) : (
+                        <Archive className={styles.rowActionIcon()} />
+                      )}
+                    </button>
+                  </div>
+                  {/*
                   The thing a modal cannot do: an edge whose other end is not open is invisible on
                   the canvas, and reaching it here costs one click rather than a search you can
                   only run if you already know the name.
                 */}
-                {isExpanded
-                  ? neighbours.map((neighbourId) => {
-                      const neighbour = notes.find((candidate) => candidate.id === neighbourId);
+                  {isExpanded
+                    ? neighbours.map((neighbourId) => {
+                        const neighbour = notes.find((candidate) => candidate.id === neighbourId);
 
-                      return neighbour === undefined ? null : (
-                        <button
-                          className={styles.connection()}
-                          key={neighbourId}
-                          onClick={(event) => {
-                            reach(event.currentTarget, neighbour.id, neighbour.title);
-                          }}
-                          type="button"
-                        >
-                          <span className={styles.gutter()}>
-                            {openNoteIds.has(neighbour.id) ? (
-                              <span className={styles.presence()} />
-                            ) : null}
-                          </span>
-                          <span className={styles.connectionTitle()}>{neighbour.title}</span>
-                        </button>
-                      );
-                    })
-                  : null}
-              </div>
-            );
-          })
-        )}
+                        return neighbour === undefined ? null : (
+                          <button
+                            className={styles.connection()}
+                            key={neighbourId}
+                            onClick={(event) => {
+                              reach(event.currentTarget, neighbour.id, neighbour.title);
+                            }}
+                            type="button"
+                          >
+                            <span className={styles.gutter()}>
+                              {openNoteIds.has(neighbour.id) ? (
+                                <span className={styles.presence()} />
+                              ) : null}
+                            </span>
+                            <span className={styles.connectionTitle()}>{neighbour.title}</span>
+                          </button>
+                        );
+                      })
+                    : null}
+                </div>
+              );
+            })}
       </div>
     </div>
   );
