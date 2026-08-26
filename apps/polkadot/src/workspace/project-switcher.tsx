@@ -1,11 +1,12 @@
 import { useObservable, useValue } from "@legendapp/state/react";
 import { getHotkeyManager } from "@tanstack/hotkeys";
 import { useNavigate, useRouter } from "@tanstack/react-router";
-import { FolderPlus, PencilLine } from "lucide-react";
+import { Archive, ArchiveRestore, FolderPlus, PencilLine, Trash2 } from "lucide-react";
 import { useEffect, useRef } from "react";
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuRadioGroup,
@@ -17,6 +18,7 @@ import { tv } from "ui/tv";
 
 import { initialLayout } from "../canvas/canvas-document";
 import type { ProjectSummary } from "../database/database.client";
+import { ProjectRemovalDialog } from "./project-removal-dialog";
 
 /**
  * The project, wearing the brand mark.
@@ -41,13 +43,18 @@ const projectSwitcher = tv({
 });
 
 const projectGateway = {
+  archive: async (projectId: string) =>
+    (await import("../database/database.client")).archiveProject(projectId),
   create: async (title: string) =>
     (await import("../database/database.client")).createProject({ layout: initialLayout, title }),
   firstCanvasOf: async (projectId: string) =>
     (await import("../database/database.client")).listCanvases(projectId),
   list: async () => (await import("../database/database.client")).listProjects(),
+  listArchived: async () => (await import("../database/database.client")).listArchivedProjects(),
   rename: async (projectId: string, title: string) =>
     (await import("../database/database.client")).renameProject({ projectId, title }),
+  restore: async (projectId: string) =>
+    (await import("../database/database.client")).restoreProject(projectId),
 };
 
 export function ProjectSwitcher({
@@ -57,11 +64,21 @@ export function ProjectSwitcher({
   const navigate = useNavigate();
   const router = useRouter();
   const projects$ = useObservable<readonly ProjectSummary[]>([]);
+  const archived$ = useObservable<readonly ProjectSummary[]>([]);
   const draftTitle$ = useObservable<string | null>(null);
+  const isRemoving$ = useObservable(false);
   const projects = useValue(projects$);
+  const archived = useValue(archived$);
   const draftTitle = useValue(draftTitle$);
+  const isRemoving = useValue(isRemoving$);
   const inputRef = useRef<HTMLInputElement>(null);
   const styles = projectSwitcher();
+
+  // `/` re-resolves the most recent canvas across whatever projects remain, and bootstraps a
+  // fresh one when the last is gone — so leaving a destroyed project needs no destination logic.
+  const leaveRemovedProject = () => {
+    void navigate({ to: "/" });
+  };
 
   const openProject = (nextProjectId: string) => {
     if (nextProjectId === projectId) {
@@ -135,54 +152,103 @@ export function ProjectSwitcher({
   }
 
   return (
-    <DropdownMenu
-      onOpenChange={(open) => {
-        if (open) {
-          void projectGateway.list().then((records) => {
-            projects$.set(records);
-          });
-        }
-      }}
-    >
-      <DropdownMenuTrigger
-        aria-label={`Project: ${projectTitle}`}
-        className={styles.mark()}
-        onPointerDown={(event) => {
-          event.stopPropagation();
+    <>
+      <ProjectRemovalDialog
+        onOpenChange={(open) => {
+          isRemoving$.set(open);
         }}
-        title={projectTitle}
-      >
-        {projectTitle.trim().slice(0, 1).toUpperCase()}
-      </DropdownMenuTrigger>
-      <DropdownMenuContent>
-        <DropdownMenuRadioGroup onValueChange={openProject} value={projectId}>
-          <DropdownMenuLabel>Projects</DropdownMenuLabel>
-          {projects.map((project) => (
-            <DropdownMenuRadioItem key={project.id} value={project.id}>
-              <span className={styles.itemTitle()}>{project.title}</span>
-            </DropdownMenuRadioItem>
-          ))}
-        </DropdownMenuRadioGroup>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem
-          onClick={() => {
-            draftTitle$.set(projectTitle);
-          }}
-        >
-          <PencilLine />
-          Rename project
-        </DropdownMenuItem>
-        <DropdownMenuItem
-          onClick={() => {
-            void projectGateway.create(`Project ${projects.length + 1}`).then((created) => {
-              void navigate({ params: { canvasId: created.id }, to: "/canvas/$canvasId" });
+        onRemoved={leaveRemovedProject}
+        open={isRemoving}
+        projectId={projectId}
+      />
+      <DropdownMenu
+        onOpenChange={(open) => {
+          if (open) {
+            void projectGateway.list().then((records) => {
+              projects$.set(records);
             });
+            void projectGateway.listArchived().then((records) => {
+              archived$.set(records);
+            });
+          }
+        }}
+      >
+        <DropdownMenuTrigger
+          aria-label={`Project: ${projectTitle}`}
+          className={styles.mark()}
+          onPointerDown={(event) => {
+            event.stopPropagation();
           }}
+          title={projectTitle}
         >
-          <FolderPlus />
-          New project
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+          {projectTitle.trim().slice(0, 1).toUpperCase()}
+        </DropdownMenuTrigger>
+        <DropdownMenuContent>
+          <DropdownMenuRadioGroup onValueChange={openProject} value={projectId}>
+            <DropdownMenuLabel>Projects</DropdownMenuLabel>
+            {projects.map((project) => (
+              <DropdownMenuRadioItem key={project.id} value={project.id}>
+                <span className={styles.itemTitle()}>{project.title}</span>
+              </DropdownMenuRadioItem>
+            ))}
+          </DropdownMenuRadioGroup>
+          {archived.length > 0 ? (
+            <DropdownMenuGroup>
+              <DropdownMenuLabel>Archived</DropdownMenuLabel>
+              {archived.map((project) => (
+                <DropdownMenuItem
+                  key={project.id}
+                  onClick={() => {
+                    void projectGateway.restore(project.id).then(() => {
+                      openProject(project.id);
+                    });
+                  }}
+                >
+                  <ArchiveRestore />
+                  <span className={styles.itemTitle()}>{project.title}</span>
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuGroup>
+          ) : null}
+          <DropdownMenuSeparator />
+          <DropdownMenuItem
+            onClick={() => {
+              draftTitle$.set(projectTitle);
+            }}
+          >
+            <PencilLine />
+            Rename project
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            onClick={() => {
+              void projectGateway.create(`Project ${projects.length + 1}`).then((created) => {
+                void navigate({ params: { canvasId: created.id }, to: "/canvas/$canvasId" });
+              });
+            }}
+          >
+            <FolderPlus />
+            New project
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem
+            onClick={() => {
+              void projectGateway.archive(projectId).then(leaveRemovedProject);
+            }}
+          >
+            <Archive />
+            Archive project
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            onClick={() => {
+              isRemoving$.set(true);
+            }}
+            variant="destructive"
+          >
+            <Trash2 />
+            Delete project…
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </>
   );
 }

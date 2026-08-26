@@ -308,6 +308,70 @@ async function createProject(
   return CanvasRef.assert(record);
 }
 
+const ProjectRemovalSummary = type({
+  canvases: "number.integer >= 0",
+  notes: "number.integer >= 0",
+  title: "string",
+}).onUndeclaredKey("delete");
+
+type ProjectRemovalSummary = typeof ProjectRemovalSummary.infer;
+
+async function listArchivedProjects(): Promise<readonly ProjectSummary[]> {
+  const client = await openLocalDatabase();
+  const [records] = await client.query<[unknown]>("RETURN fn::list_archived_projects();").json();
+
+  return ProjectSummary.array().assert(records);
+}
+
+async function archiveProject(projectId: string): Promise<ProjectSummary> {
+  const client = await openLocalDatabase();
+  const [record] = await client
+    .query<[unknown]>("RETURN fn::archive_project($project);", {
+      project: new StringRecordId(projectId),
+    })
+    .json();
+
+  return ProjectSummary.assert(record);
+}
+
+async function restoreProject(projectId: string): Promise<ProjectSummary> {
+  const client = await openLocalDatabase();
+  const [record] = await client
+    .query<[unknown]>("RETURN fn::restore_project($project);", {
+      project: new StringRecordId(projectId),
+    })
+    .json();
+
+  return ProjectSummary.assert(record);
+}
+
+async function readProjectRemovalSummary(projectId: string): Promise<ProjectRemovalSummary> {
+  const client = await openLocalDatabase();
+  const [record] = await client
+    .query<[unknown]>("RETURN fn::project_removal_summary($project);", {
+      project: new StringRecordId(projectId),
+    })
+    .json();
+
+  return ProjectRemovalSummary.assert(record);
+}
+
+/**
+ * The most destructive act in the application.
+ *
+ * A canvas is an arrangement whose notes outlive it. A project owns its content outright, so this
+ * cascade genuinely destroys writing — which is why the surface that calls it asks for the
+ * project's name to be typed rather than for a click.
+ */
+async function deleteProject(projectId: string): Promise<void> {
+  const client = await openLocalDatabase();
+  await client
+    .query<[unknown]>("RETURN fn::delete_project($project);", {
+      project: new StringRecordId(projectId),
+    })
+    .json();
+}
+
 async function renameProject(
   input: Readonly<{ projectId: string; title: string }>,
 ): Promise<ProjectSummary> {
@@ -459,18 +523,23 @@ async function closeLocalDatabase() {
 
 export {
   archiveCanvas,
+  archiveProject,
   CanvasRevisionConflictError,
   closeLocalDatabase,
   createCanvas,
   createNote,
-  deleteCanvas,
   createProject,
+  deleteCanvas,
+  deleteProject,
   duplicateCanvas,
   listArchivedCanvases,
+  listArchivedProjects,
   listCanvases,
   listNotes,
   listProjects,
+  readProjectRemovalSummary,
   renameProject,
+  restoreProject,
   readCanvasRemovalSummary,
   restoreCanvas,
   NoteRevisionConflictError,
@@ -490,5 +559,6 @@ export type {
   CanvasRevision,
   CanvasSummary,
   NoteRecord,
+  ProjectRemovalSummary,
   ProjectSummary,
 };

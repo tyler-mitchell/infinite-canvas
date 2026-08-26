@@ -9,10 +9,14 @@
 -- error, and `FROM ONLY` makes the zero-row case ambiguous at the call site.
 -- `updated_at` is projected because SurrealDB requires an ORDER BY idiom to appear in the
 -- selection; `CanvasRecord` drops the undeclared key on the way through ArkType.
+--
+-- The project's own `archived_at` is checked as well as the canvas's. Archiving a project does
+-- not touch its canvases, so filtering only on the canvas would let `/` route straight back into
+-- the project that was just archived — which is what it did until this line existed.
 DEFINE FUNCTION OVERWRITE fn::most_recent_canvas() {
   RETURN SELECT id, title, revision, layout, updated_at
     FROM canvas_document
-    WHERE archived_at = NONE
+    WHERE archived_at = NONE AND project.archived_at = NONE
     ORDER BY updated_at DESC
     LIMIT 1;
 };
