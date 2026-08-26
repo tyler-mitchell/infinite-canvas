@@ -245,9 +245,23 @@ open because it feels good to look at. Concretely, and these are enforced in rev
   are joined. A _selected_ edge draws its label at any zoom, because there is exactly one of it and
   you asked for it. Driven, not reasoned: at 39% deselected the DOM holds no label; at 39% selected
   it is there at the 8px floor; at 100% it is there at 11px.
-  **Still open:** free-text `label` is deliberately unwritten and unread — a palette row cannot host
-  a text field — and there is still no way to see an edge whose notes are not both open, which is
-  where the library rail would earn its place.
+  **Free-text labels landed too, and the reasoning that deferred them was wrong.** The claim here
+  was that a palette row cannot host a text field. A palette _row_ cannot — but a palette can, and
+  cmdk documents exactly this as a "page": the same input is told to mean something else and the
+  list becomes the one row that commits it. No new dialog, no new component, and nothing in `ui`
+  changed. The one thing the page needs is that the typed text stops being a query — a sentence is
+  not a search, and left filtering it would eliminate its own row — so `filter` is mode-aware, which
+  is why the mode lives in `CommandPalette` beside it rather than in the content.
+  A label wins over the kind, because someone who typed a sentence was being more specific than five
+  verbs allow; the kind stays underneath as the queryable category. Empty clears rather than storing
+  `""`, and the row says so in the state where it applies — "Clear the label, leaving _supports_" —
+  so clearing is visibly the same act as writing, not a destructive verb hidden elsewhere. Offered
+  only for a single selected edge: one sentence written onto four connections is true of none.
+  Driven: select the edge, `Label this connection…`, type "blocks the review", Enter — the row
+  previews the exact text rather than being filtered away, and the connector then reads "blocks the
+  review" at 11px in place of "supports".
+  **Still open:** there is no way to see an edge whose notes are not both open, which is where the
+  library rail would earn its place.
 - [~] **Workspaces** as the organizing spine. The framework's workspace model was reachable only by
   a consumer reaching past the command layer: `cycle` walks desktops that exist and does nothing
   when there are none, so nothing could make the first one, name which one to enter, or take one
@@ -284,11 +298,27 @@ open because it feels good to look at. Concretely, and these are enforced in rev
   screenshot in the same batch — so screenshot-then-click-a-menu-item cancels itself. The rename
   field's `select()` sits in the same effect whose hotkey registration was witnessed committing on
   Enter, so it runs; that it _selects_ is inference, not observation.
-  **Still open:** nothing shows which desktop a window is on while you are looking at another one;
-  and the only way to fill a desktop is one window at a time, so "put these three on a new desktop"
-  is three trips through the launcher — which is a framework question rather than a product one,
-  since `workspace.moveWindow` is per window and the framework's own note on it says two dispatches
-  would be two undo entries with the window on both desktops in between.
+  **Both of the remaining two closed, in the switcher.** "Not on this desktop" lists every window
+  the filter is hiding with the desktop it is on — or "no desktop", which is not an edge case but
+  every window on the canvas the moment the first desktop is made. Clicking one is `window.reveal`.
+  And "Bring N windows here" files a whole selection at once, so "put these three on a new desktop"
+  is select, enter, click rather than three round trips through a modal.
+  That last one is N dispatches, which is N undo entries for one gesture. Deliberate: batching
+  membership edits in the product would restate the framework's rule about what a single edit is,
+  and `workspace.moveWindow` taking a set is the framework's call to make. **Named as an ask, not
+  built.**
+  **Not witnessed:** either menu section. This harness cannot reliably re-open a Base UI menu —
+  `computer{action:"screenshot"}` dismisses it, a coordinate click needs a screenshot cached in the
+  same batch, and a `ref` click does not open it at all. The last is not specific to this component:
+  a ref click on the canvas switcher does not open its menu either, so it is the click path rather
+  than the trigger. Both sections were typechecked and read, not driven.
+  **Still open, and found while looking at this:** the offscreen indicator ring points at windows
+  that are not on the active desktop. `getInfiniteCanvasOffscreenIndicators` filters on `minimized`
+  alone and never consults workspace membership, so entering a desktop fills the ring with arrows
+  aimed at windows the canvas is not drawing — the accessibility tree on an empty desktop carries a
+  "Go to Untitled 3" chip for a note filtered off it. This is the same correction `window.reveal`
+  already received and `offscreen.ts` never got, it is framework-owned, and the audit records why
+  the product cannot fix it without either a lying `targetCount` or restating the membership rule.
 - [x] **Grain and vignette.** Both are passes inside the field rather than an overlay on top of it,
       because material noise belongs to the surface: a two-scale grain plus a radial falloff, each
       on its own `intensity` knob. The windows themselves still have no grain.
