@@ -432,6 +432,14 @@ move is a tiling manager, which risk R5 exists to prevent.
   knows what "left half" means, so pointer and keyboard cannot disagree. **Placement never
   snaps**: a left half nudged to align with its neighbour is no longer a left half, and the
   shortcut pressed twice would give two different rects.
+- `getInfiniteCanvasVacantRect` — `{ bounds, occupied, preferred, gapPx? }` → the nearest rect of
+  the same size that overlaps nothing, or `preferred` unchanged when it is already clear or when
+  `bounds` has no room at all. **Where a new window wants to be stays the consumer's policy**; this
+  answers only whether that spot is free. A cascade is a bounded desktop's answer — it offsets by
+  the _count_ of windows and so never learns where any of them are, which on an infinite canvas
+  means overlapping while empty space sits one screen away. Falling back to `preferred` rather than
+  placing outside `bounds` is deliberate: a window put out of view to avoid an overlap is the "did
+  it open?" failure.
 
 Driven by the `window.place` command (`Mod+Shift+Arrow` for halves, `Mod+Shift+Enter` to fill).
 Centring and the quarters have no default chord and stay dispatchable by region: the canvas

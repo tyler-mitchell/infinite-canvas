@@ -1,5 +1,6 @@
 import {
   createInfiniteCanvasWindow,
+  getInfiniteCanvasVacantRect,
   getInfiniteCanvasWindowPlacementRect,
   getVisibleWorldRect,
   type InfiniteCanvasCommands,
@@ -25,26 +26,43 @@ type WindowPlacement = Readonly<{
   state: InfiniteCanvasState<WindowKind>;
 }>;
 
+/** Room enough to read one window as separate from the next, rather than merely not overlapping. */
+const WINDOW_GAP = 24;
+
 /**
- * The centred, cascading rect a window gets when nobody said where to put it.
+ * The rect a window gets when nobody said where to put it: the middle of the view, moved to the
+ * nearest free spot if something is already there.
  *
- * The cascade is what keeps a run of openings from stacking into one silhouette, and it is only
- * right for openings the user did not aim: a drop landed somewhere on purpose, and nudging it 28px
- * because it happens to be the fourth window would move it away from the pointer that placed it.
+ * **This used to cascade, and a cascade is a bounded desktop's answer.** Offsetting each opening
+ * 28px from the last is right where space is scarce and a neat pile is honest. Here space is the
+ * one thing there is no shortage of, and the result was a 92% overlap on the second note and a
+ * wrap back onto the first on the seventh — watched, not reasoned: two notes fitted to 123% sat
+ * almost exactly on top of each other.
+ *
+ * The deeper flaw was that it counted rather than looked. The offset came from how many windows
+ * existed, never from where they were, so opening into a corner the user had already filled
+ * overlapped regardless of the empty canvas beside it.
+ *
+ * The policy is still this app's — a new window wants the middle of what you are looking at — and
+ * `getInfiniteCanvasVacantRect` only answers whether that spot is free and which nearby one is.
+ * Aimed openings still bypass this entirely: a drop landed somewhere on purpose, and moving it
+ * because a window happens to be there would take it away from the pointer that placed it.
  */
-function getCascadedRect(
+function getPlacedRect(
   input: WindowPlacement & Readonly<{ minSize: WindowSize; size: WindowSize }>,
 ) {
-  const ordinal = input.state.windows.length + 1;
-  const offset = ((ordinal - 1) % 6) * 28;
-  const baseRect = getInfiniteCanvasWindowPlacementRect(
-    getVisibleWorldRect(input.state.camera, input.state.viewport, 0),
-    "center",
-    input.size,
-    input.minSize,
-  );
+  const bounds = getVisibleWorldRect(input.state.camera, input.state.viewport, 0);
 
-  return { ...baseRect, x: baseRect.x + offset, y: baseRect.y + offset };
+  return getInfiniteCanvasVacantRect({
+    bounds,
+    gapPx: WINDOW_GAP,
+    // Minimized windows are in the dock rather than on the canvas, so the space they would occupy
+    // is free — placing around them would leave a hole nobody can see the reason for.
+    occupied: input.state.windows
+      .filter((window) => window.mode !== "minimized")
+      .map((window) => window.rect),
+    preferred: getInfiniteCanvasWindowPlacementRect(bounds, "center", input.size, input.minSize),
+  });
 }
 
 /**
@@ -101,7 +119,7 @@ function openContentWindow<Kind extends WindowKind>(
       id: globalThis.crypto.randomUUID(),
       kind: input.kind,
       minSize: input.minSize,
-      rect: input.rect ?? getCascadedRect(input),
+      rect: input.rect ?? getPlacedRect(input),
       title: input.title,
     }),
   );

@@ -599,8 +599,21 @@ open because it feels good to look at. Concretely, and these are enforced in rev
   **Worth separating from the anchor question**, because the two get confused: this is about where
   the middle of a _route_ is, and it holds even with nothing occluding the line. Which part of the
   line is _visible_ is the different question below.
-  **Still open:** a stub says how many connections are hidden and not which, and the count is per
-  window rather than per neighbour, so two windows on the same note each repeat it.
+  **Half of this is settled and the other half is deliberate.** The duplication worry —
+  "the count is per window rather than per neighbour, so two windows on the same note each repeat
+  it" — describes a state the app can no longer reach: every opener routes through
+  `openContentWindow`, which reveals an existing window for the same item rather than opening a
+  second, so one item has at most one window. Drops and new collections mint fresh records, so they
+  cannot collide either. A persisted layout written before that fix could still hold a pair; nothing
+  makes one now.
+  **That a stub says how many and not which is the design, not a gap.** A stub reports an absence
+  and is drawn at 25% opacity for that reason; names on it would be the canvas shouting about what
+  it is not showing, in the one place there is no room for them. The rail already answers "which" —
+  it lists every connection whether or not either end is open, reaches one in a click, and cuts it
+  — and stubs are deliberately not clickable so there is no second hit-testing path competing with
+  the framework's. Witnessed at 97%: a dotted line trailing off the window's right edge ending in a
+  small "1", and at 0.697 the count is gone while the line remains, which is the 8px legibility
+  floor doing its job rather than a rendering failure.
   **Also still open, found by driving the whole flow rather than one feature:** a connector between
   two windows that nearly touch is almost entirely behind them. Windows resolve before edges, which
   is right — clicking a note should select the note — but the consequence is that the only part of

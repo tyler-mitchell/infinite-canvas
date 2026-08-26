@@ -196,7 +196,15 @@ export {
   getInfiniteCanvasWindowNearestCameraCenter,
   isInfiniteCanvasWindowFullyVisible,
 } from "./window-focus";
-export { getInfiniteCanvasWindowPlacementRect } from "./window-placement";
+export {
+  /*
+   * Public because an infinite canvas has no reason to stack windows, and a consumer avoiding that
+   * by hand would be re-deriving rect geometry the framework owns. Placement policy — where a new
+   * window *wants* to be — stays the consumer's; this answers only whether that spot is free.
+   */
+  getInfiniteCanvasVacantRect,
+  getInfiniteCanvasWindowPlacementRect,
+} from "./window-placement";
 export type { InfiniteCanvasWindowPlacementRegion } from "./window-placement";
 export {
   getInfiniteCanvasAlignedRects,
