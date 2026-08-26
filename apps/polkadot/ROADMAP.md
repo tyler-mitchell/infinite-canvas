@@ -608,7 +608,16 @@ open because it feels good to look at. Concretely, and these are enforced in rev
   makes one now.
   **That a stub says how many and not which is the design, not a gap.** A stub reports an absence
   and is drawn at 25% opacity for that reason; names on it would be the canvas shouting about what
-  it is not showing, in the one place there is no room for them. The rail already answers "which" —
+  it is not showing, in the one place there is no room for them. **The count was drawn badly and
+  that is now fixed**, which is a different complaint from the one recorded here and was only
+  visible by looking: the digit was centred on `stub.endpoint`, the point where the line stops, so
+  the dashes ran into it and through it. It read as a line that failed to finish with a stray number
+  beside it rather than as a count terminating a line. It is anchored `start` past the end now —
+  measured at 100%, the line ends at x 922 and the digit begins at 928 — and the offset is in screen
+  pixels like the text, so a world-space gap cannot close up as the camera pulls back, which is
+  exactly where the mark is already hardest to read. `start` also means a two-digit count grows
+  rightwards into empty canvas instead of creeping back over the dashes.
+  The rail already answers "which" —
   it lists every connection whether or not either end is open, reaches one in a click, and cuts it
   — and stubs are deliberately not clickable so there is no second hit-testing path competing with
   the framework's. Witnessed at 97%: a dotted line trailing off the window's right edge ending in a

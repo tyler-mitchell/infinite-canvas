@@ -198,13 +198,26 @@ export function ConnectorLayer() {
               points={points}
             />
             {isLabelLegible ? (
+              /*
+               * Past the end of the line, not on it.
+               *
+               * This was centred on `stub.endpoint`, which is where the line stops — so the dashes
+               * ran into the digit and through it. On screen that reads as a line that failed to
+               * finish with a stray number beside it, rather than as a count terminating a line,
+               * and it is the whole reason the stub looked like debris at 100%.
+               *
+               * `start` rather than `middle` so a two-digit count grows rightwards into empty canvas
+               * instead of creeping back over the dashes, and the gap is in screen pixels because
+               * the text is: a world-space offset would close up as the camera pulls back, exactly
+               * where the mark is already hardest to read.
+               */
               <text
                 className={connectors().label()}
                 data-hidden-count={stub.itemId}
                 dominantBaseline="central"
                 fontSize={labelSize}
-                textAnchor="middle"
-                x={anchor.x}
+                textAnchor="start"
+                x={anchor.x + labelSize * 0.55}
                 y={anchor.y}
               >
                 {stub.count}
