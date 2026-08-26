@@ -123,14 +123,32 @@ const bindGroup = root.createBindGroup(layout, {
 const columns = Math.ceil(Math.sqrt(quadCount));
 const rects = new Float32Array(quadCount * 4);
 const tints = new Float32Array(quadCount * 4);
+/**
+ * `?overdraw=1` stacks every quad over the whole visible world instead of tiling them.
+ *
+ * The grid layout is instance-count-bound: zoomed out, each quad covers a handful of pixels and
+ * the shading is nearly free, so it measures how many instances the GPU can chew. Stacking is the
+ * opposite test — every fragment is written `n` times, which is the fill-rate case and the one
+ * thing that could still make "quads and passes" the wrong shape.
+ */
+const overdraw = params.get("overdraw") === "1";
 
 for (let index = 0; index < quadCount; index++) {
   const offset = index * 4;
 
-  rects[offset] = (index % columns) * 420 + ((index * 97) % 140);
-  rects[offset + 1] = Math.floor(index / columns) * 320 + ((index * 53) % 110);
-  rects[offset + 2] = 300;
-  rects[offset + 3] = 220;
+  if (overdraw) {
+    // Far larger than any visible region, so every instance covers every pixel at any sane zoom.
+    rects[offset] = -20000;
+    rects[offset + 1] = -20000;
+    rects[offset + 2] = 40000;
+    rects[offset + 3] = 40000;
+  } else {
+    rects[offset] = (index % columns) * 420 + ((index * 97) % 140);
+    rects[offset + 1] = Math.floor(index / columns) * 320 + ((index * 53) % 110);
+    rects[offset + 2] = 300;
+    rects[offset + 3] = 220;
+  }
+
   tints[offset] = 0.55 + ((index * 17) % 100) / 400;
   tints[offset + 1] = 0.45 + ((index * 31) % 100) / 300;
   tints[offset + 2] = 0.7;
@@ -300,7 +318,7 @@ const frame = () => {
   const textureBytes = textureSize * textureSize * 4 * textureLayers;
 
   readout.textContent = [
-    `quads      ${String(quadCount)}`,
+    `quads      ${String(quadCount)}${overdraw ? "  (stacked — fill test)" : ""}`,
     `draw calls 1`,
     `frame      ${median.toFixed(2)} ms  (${(1000 / median).toFixed(0)} fps)`,
     hasTimestamps
