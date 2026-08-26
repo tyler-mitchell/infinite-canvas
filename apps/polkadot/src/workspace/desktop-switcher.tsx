@@ -7,6 +7,7 @@ import { useObservable, useValue } from "@legendapp/state/react";
 import { getHotkeyManager } from "@tanstack/hotkeys";
 import {
   ArrowDown,
+  ArrowDownToLine,
   ArrowUp,
   CornerUpRight,
   Layers,
@@ -101,6 +102,9 @@ export function DesktopSwitcher() {
     WindowKind,
     readonly InfiniteCanvasWindow<WindowKind>[]
   >((state) => state.windows);
+  const selectedWindowIds = useInfiniteCanvasSelector<WindowKind, readonly string[]>(
+    (state) => state.selection.windowIds,
+  );
   const activeIndex = workspaces.findIndex((workspace) => workspace.id === activeWorkspaceId);
   const active = workspaces[activeIndex];
   const styles = desktopSwitcher({ filtered: active !== undefined });
@@ -132,6 +136,11 @@ export function DesktopSwitcher() {
             title: window.title,
             where: desktopByWindowId.get(window.id) ?? "no desktop",
           }));
+  /** The selected windows this desktop does not already hold — what "bring here" would move. */
+  const selectedElsewhere =
+    active === undefined
+      ? []
+      : selectedWindowIds.filter((windowId) => !active.windowIds.includes(windowId));
 
   const commitRename = () => {
     const title = (draftTitle$.peek() ?? "").trim();
@@ -275,6 +284,33 @@ export function DesktopSwitcher() {
         {active === undefined ? null : (
           <>
             <DropdownMenuSeparator />
+            {/*
+              Filing a whole selection at once, which until now was one trip through the launcher
+              per window: select three notes, enter the desktop you want them on, one click.
+
+              N dispatches rather than one, and that costs N undo entries for what the user did as
+              one gesture. Taken deliberately: the alternative is the product batching moves itself,
+              and a consumer that batches membership edits is restating the framework's own rule
+              about what a single edit is. `workspace.moveWindow` taking a set is the framework's
+              call to make — the same shape as its own note that two dispatches would be two undo
+              entries with a window on both desktops in between.
+            */}
+            {selectedElsewhere.length === 0 ? null : (
+              <DropdownMenuItem
+                onClick={() => {
+                  selectedElsewhere.forEach((windowId) => {
+                    actions.dispatch({
+                      type: "workspace.moveWindow",
+                      windowId,
+                      workspaceId: active.id,
+                    });
+                  });
+                }}
+              >
+                <ArrowDownToLine />
+                Bring {describeWindowCount(selectedElsewhere.length)} here
+              </DropdownMenuItem>
+            )}
             <DropdownMenuItem
               onClick={() => {
                 draftTitle$.set(active.title);
