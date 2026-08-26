@@ -3,33 +3,112 @@
 @import "@hyphened/infinite-canvas/theme.css";
 @import "tailwindcss";
 @import "@fontsource-variable/geist";
+@import "@fontsource-variable/geist-mono";
 
 @source "../../../packages/ui/src";
 
+/**
+ * Polkadot's palette.
+ *
+ * Two rules carry most of the look, and both are the opposite of what a default dark theme does:
+ *
+ * **Depth comes from light, not from lines.** Surfaces separate by being lighter than the ground
+ * and by casting a real shadow, with a single hairline of white along the top edge standing in
+ * for a specular. There is no `border: 1px solid white/8%` anywhere — that reads as a wireframe,
+ * and it is why most dark tools look like diagrams of an app rather than an app.
+ *
+ * **The neutrals are not neutral.** The ground carries a trace of blue and the foreground a trace
+ * of amber, so text sits *warm* on a *cool* field. Pure grey on pure black is the default nobody
+ * chose; this is a decision, and it is most of why the result reads as designed.
+ */
 :root {
   color-scheme: dark;
-  font-family: "Geist Variable", ui-sans-serif, system-ui, sans-serif;
 
-  --background: #07080a;
-  --foreground: #f4f0e7;
-  --card: rgb(16 18 22 / 0.92);
-  --card-foreground: #f4f0e7;
-  --popover: rgb(10 12 15 / 0.94);
-  --popover-foreground: #f4f0e7;
-  --primary: #f1ead8;
-  --primary-foreground: #090a0c;
-  --secondary: #171a20;
-  --secondary-foreground: #ece7dc;
-  --muted: #15181d;
-  --muted-foreground: #979a95;
-  --accent: #20242b;
-  --accent-foreground: #f4f0e7;
-  --destructive: #e45f5f;
-  --destructive-foreground: #fff7f4;
-  --border: rgb(255 255 255 / 0.08);
-  --input: rgb(255 255 255 / 0.1);
-  --ring: #d5c59d;
+  --font-sans: "Geist Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "Geist Mono Variable", ui-monospace, monospace;
+
+  /* Ground — near-black, faintly blue. */
+  --ground: oklch(0.155 0.008 265);
+  --ground-sunken: oklch(0.128 0.008 265);
+
+  /* Surfaces, by elevation. Each step is lighter, never outlined. */
+  --surface: oklch(0.205 0.009 265);
+  --surface-raised: oklch(0.238 0.01 265);
+  --surface-hover: oklch(0.268 0.011 265);
+
+  /* The specular hairline along a surface's top edge. */
+  --edge-light: oklch(1 0 0 / 0.07);
+
+  /* Ink — warm against the cool ground. */
+  --ink: oklch(0.96 0.008 85);
+  --ink-muted: oklch(0.72 0.012 265);
+  --ink-faint: oklch(0.55 0.012 265);
+
+  /* The signature. A luminous apricot, warm where every dev tool is cyan. */
+  --accent: oklch(0.78 0.15 55);
+  --accent-strong: oklch(0.84 0.16 60);
+  --accent-wash: oklch(0.78 0.15 55 / 0.12);
+
+  /* States, kept cool so they never compete with the accent. */
+  --positive: oklch(0.8 0.13 165);
+  --danger: oklch(0.68 0.19 22);
+
+  /* The dot field reads these directly; Canvas 2D needs concrete channels. */
+  --dot-rest: rgb(116 126 146);
+  --dot-lift: rgb(255 186 122);
+
+  /* Elevation. Layered rather than one blurry drop, so edges stay crisp. */
+  --lift-1: 0 1px 2px oklch(0 0 0 / 0.4), 0 4px 12px oklch(0 0 0 / 0.28);
+  --lift-2: 0 2px 4px oklch(0 0 0 / 0.44), 0 12px 32px oklch(0 0 0 / 0.36);
+  --lift-3: 0 4px 8px oklch(0 0 0 / 0.5), 0 24px 64px oklch(0 0 0 / 0.44);
+
+  /* Motion. `swift` for state, `settle` for anything that moves in space. */
+  --ease-swift: cubic-bezier(0.32, 0.72, 0, 1);
+  --ease-settle: cubic-bezier(0.16, 1, 0.3, 1);
+
   --radius: 0.75rem;
+  --radius-pill: 999px;
+
+  /* shadcn/Base UI compatibility for the shared `ui` primitives. */
+  --background: var(--ground);
+  --foreground: var(--ink);
+  --card: var(--surface);
+  --card-foreground: var(--ink);
+  --popover: var(--surface-raised);
+  --popover-foreground: var(--ink);
+  --primary: var(--accent);
+  --primary-foreground: oklch(0.16 0.02 55);
+  --secondary: var(--surface);
+  --secondary-foreground: var(--ink);
+  --muted: var(--surface);
+  --muted-foreground: var(--ink-muted);
+  --accent-foreground: var(--ink);
+  --destructive: var(--danger);
+  --destructive-foreground: var(--ink);
+  --border: oklch(1 0 0 / 0.06);
+  --input: oklch(1 0 0 / 0.08);
+  --ring: var(--accent);
+}
+
+/**
+ * The canvas chrome, retuned onto the palette above.
+ *
+ * The framework draws its own window frames and reads these tokens, so a window belongs to the
+ * same material system as the shell instead of arriving in the framework's default look.
+ */
+[data-slot="viewport"] {
+  --icx-background: transparent;
+  --icx-body-background: var(--surface);
+  --icx-header-idle: var(--surface);
+  --icx-header-active: var(--surface-raised);
+  --icx-idle-border: transparent;
+  --icx-active-border: transparent;
+  --icx-active-accent: var(--accent);
+  --icx-selection-border: var(--accent);
+  --icx-selection-bounds: var(--accent-wash);
+  --icx-color-foreground: var(--ink);
+  --icx-color-accent: var(--accent);
+  --icx-color-surface-raised: var(--surface-raised);
 }
 
 * {
@@ -44,8 +123,12 @@ body {
 body {
   margin: 0;
   overflow: hidden;
-  background: var(--background);
-  color: var(--foreground);
+  background: var(--ground);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  /* Optical, not decorative: it removes the mechanical evenness of default hinting. */
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 
 button,

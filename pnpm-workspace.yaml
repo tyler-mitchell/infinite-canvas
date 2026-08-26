@@ -52,6 +52,7 @@ catalog:
   "@arethetypeswrong/core": ^0.18.5
   execa: ^10.0.1
   "@varlock/bumpy": 1.18.1
+  "@fontsource-variable/geist-mono": ^5.3.0
 overrides:
   vite: "catalog:"
   vitest: "catalog:"
@@ -76,6 +77,7 @@ minimumReleaseAgeExclude:
   - "@tanstack/start-plugin-core@1.171.39"
   - "@tanstack/start-server-core@1.169.31"
   - "@tanstack/start-storage-context@1.167.29"
+
 # WASM 2.6.1 is the last IndexedDB-capable line and predates SurrealDB's Vite
 # worker fix. This is the exact upstream beb9d00 backport; remove it only when a
 # published release provides both IndexedDB and injected-worker support.

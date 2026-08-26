@@ -1,62 +1,62 @@
-# Polkadot implementation gates
+# Working on Polkadot
 
-These rules are an admission gate for every change under `apps/polkadot`.
-Feature work does not begin until the relevant row in `AFFORDANCE_AUDIT.md`
-contains evidence and an accepted implementation authority.
+Read `ROADMAP.md` first — it holds the bar, the order, and the framework gaps found so far.
 
-## Framework-first decision gate
+## The one rule that is not negotiable
 
-Before implementing a capability:
+Polkadot is the framework's incubator. When you find something Polkadot cannot do:
 
-1. Use Type Atlas to inspect the infinite-canvas public API, implementation,
-   tests, and canonical playground consumers.
-2. Record the applicable framework affordance in `AFFORDANCE_AUDIT.md`.
-3. If the framework already owns the invariant, consume it directly.
-4. If a reusable canvas invariant is missing, implement and test the ergonomic
-   framework affordance first, then keep Polkadot as a thin consumer.
-5. For non-canvas infrastructure, inspect current official package docs and
-   installed source before choosing a maintained library-native API.
-6. Product-owned code is limited to Polkadot domain policy and composition.
+1. Check whether `@hyphened/infinite-canvas` already does it. Use Type Atlas — `list_module_exports`
+   on the barrel, then `inspect_symbol`. The surface is 199 exports and most guesses about what is
+   missing are wrong.
+2. If the framework owns it, consume it. Do not restate its model.
+3. If it is genuinely missing, add it to the framework **generically**, then consume it from here.
+   The test: could another consumer with a different product want this exact affordance? If the
+   answer needs the word "Polkadot", the design is wrong.
+4. Product code owns domain policy and composition. Nothing else.
 
-An unverified or rejected audit row closes the development gate for that area.
-The record is written before implementation. A post-hoc justification does not
-satisfy the gate.
+## Styling
 
-## Sequence gate
+- Every class comes from a `tv` slot. There are no Tailwind strings in JSX. None.
+- Global CSS is imports, tokens, and document-level resets.
+- Depth comes from surface lightness and layered shadow, not from 1px borders.
+- Tokens live in `src/styles.css` and are the only source of colour, elevation, and easing.
 
-Work only on the earliest phase whose exit conditions remain open. A later
-phase may contribute the minimum code required to prove the current spine; the
-reason and bounded scope must be recorded in `AFFORDANCE_AUDIT.md` first. Do not
-build later-phase product surfaces merely because their framework helpers are
-already available.
+## Libraries
 
-## Enforced implementation authorities
+Never hand-roll what a maintained library owns. In practice: TanStack Router, Pacer, Hotkeys,
+Form, Virtual, DB; Base UI and `cmdk` for modals, menus, and command surfaces; ArkType for runtime
+validation; Legend State for ephemeral reactive state; `motion` for animation; `tailwind-variants`
+for styling. Reach for the framework's own affordance before any of them for anything spatial.
 
-- Canvas state, geometry, interaction, commands, focus, navigation, presence,
-  serialization, and overlays come from `@hyphened/infinite-canvas`.
-- React keyboard registration uses `@tanstack/react-hotkeys`. Canvas commands
-  remain on the framework command path. Product code never parses key events or
-  installs keyboard listeners.
-- Modal, focus, list-navigation, and command-menu behavior comes from shared
-  `ui` primitives backed by Base UI and `cmdk`.
-- Component styling is declared with `tv` from `ui/tv`. Literal or assembled
-  Tailwind class strings do not belong in Polkadot JSX. Global CSS is limited to
-  imports, tokens, and document-wide base rules.
-- Debouncing, throttling, queuing, and retry behavior comes from TanStack Pacer.
-  Product source never owns timers or promise queues.
-- Browser-persisted records use SurrealDB WASM. Runtime input validation uses
-  ArkType. Ephemeral reactive product state uses Legend State.
-- IDs use Web Crypto unless the domain requires a different maintained format.
+Before writing infrastructure, read the library's current docs. Not its `dist`, not its types —
+what its authors published, especially the examples.
 
-## Verification gate
+## Architecture that is already decided
 
-Before an audited area is accepted:
+- **Canvas state, geometry, interaction, commands, focus, persistence, overlays** — the framework.
+  The store is parent-owned; `createInfiniteCanvasHandle` is the external observation boundary.
+- **Layout durability** is the framework's (`serializeInfiniteCanvasState`). The database owns
+  domain content — notes, relations, regions — and never the layout.
+- **The database is SurrealDB WASM** on `indxdb://`, vendored at `packages/surrealdb-wasm` because
+  the published builds either lack IndexedDB or lack the Vite worker fix. It loads on demand; the
+  canvas paints before it resolves and must keep doing so.
+- **This is an SPA.** TanStack Start was removed: the data layer is client-only, so SSR renders
+  nothing useful, and Start's dev middleware never mounted because `vite` here is aliased to
+  `vite-plus-core`, whose version fails Start's peer range.
+- **SurrealDB queries return one result per statement.** `LET $x = …; RETURN $x;` gives two, and
+  `[0]` is the `LET`. Use a single `RETURN`.
+
+## Verifying
 
 ```sh
 vp -C apps/polkadot check
 vp -C apps/polkadot build
 ```
 
-Any framework or shared UI change also requires the repository-wide check,
-tests, and builds. Passing tools cannot substitute for the framework-first
-evidence gate above. Browser witnessing remains disabled until that gate closes.
+Framework changes also need the package's own check, its 489 tests, and both builds.
+
+**Look at it.** This is a design-led product; a passing typecheck says nothing about whether the
+thing is good. Open the preview, hover the canvas, drag a window, watch the field react. The one
+defect that mattered most in this app's history — every workspace action being silently dropped —
+survived a full test suite and died the first time someone loaded the page.

@@ -115,6 +115,7 @@ import type {
   InfiniteCanvasInteraction,
   InfiniteCanvasInputPolicy,
   InfiniteCanvasMarqueeMode,
+  InfiniteCanvasOverlayReadContext,
   InfiniteCanvasOverlayRenderContext,
   InfiniteCanvasPoint,
   InfiniteCanvasPointerMode,
@@ -147,6 +148,20 @@ type InfiniteCanvasDesktopProps<
   initialState: InfiniteCanvasState<Kind>;
   inputPolicy?: InfiniteCanvasInputPolicy;
   rasterization?: InfiniteCanvasRasterizationPolicyInput | boolean;
+  /**
+   * Replaces the default grid, beneath every window.
+   *
+   * `renderOverlay`'s counterpart: same context, opposite side of the window plane. Without it
+   * the canvas draws `InfiniteCanvasGridBackdrop`, which is a plain adaptive lattice — right for
+   * most canvases and wrong for any consumer whose ground *is* the product: a map's tiles, a
+   * document's page, a photographic reference, a field that reacts to what sits on it.
+   *
+   * Rendered inside the viewport and outside the world transform, so a consumer projects with
+   * `worldPointToScreenPoint` and friends rather than inheriting a scale. It never takes pointer
+   * events — the canvas beneath must stay grabbable — so a backdrop that needs interaction wants
+   * a scene layer or a spatial target resolver instead.
+   */
+  renderBackdrop?: (context: InfiniteCanvasOverlayReadContext<Kind, Payload>) => ReactNode;
   renderOverlay?: (context: InfiniteCanvasOverlayRenderContext<Kind, Payload>) => ReactNode;
   sceneLayers?: readonly InfiniteCanvasSceneLayer<Kind, Payload>[];
   /**
@@ -177,6 +192,20 @@ type InfiniteCanvasViewportProps<
   hud?: InfiniteCanvasHudPolicyInput;
   icons?: InfiniteCanvasIcons;
   inputPolicy?: InfiniteCanvasInputPolicy;
+  /**
+   * Replaces the default grid, beneath every window.
+   *
+   * `renderOverlay`'s counterpart: same context, opposite side of the window plane. Without it
+   * the canvas draws `InfiniteCanvasGridBackdrop`, which is a plain adaptive lattice — right for
+   * most canvases and wrong for any consumer whose ground *is* the product: a map's tiles, a
+   * document's page, a photographic reference, a field that reacts to what sits on it.
+   *
+   * Rendered inside the viewport and outside the world transform, so a consumer projects with
+   * `worldPointToScreenPoint` and friends rather than inheriting a scale. It never takes pointer
+   * events — the canvas beneath must stay grabbable — so a backdrop that needs interaction wants
+   * a scene layer or a spatial target resolver instead.
+   */
+  renderBackdrop?: (context: InfiniteCanvasOverlayReadContext<Kind, Payload>) => ReactNode;
   renderOverlay?: (context: InfiniteCanvasOverlayRenderContext<Kind, Payload>) => ReactNode;
   sceneLayers?: readonly InfiniteCanvasSceneLayer<Kind, Payload>[];
   sceneSurface?: InfiniteCanvasSceneSurface<Kind, Payload>;
@@ -414,6 +443,7 @@ function InfiniteCanvasDesktop<Kind extends string, Payload = InfiniteCanvasDrop
   initialState,
   inputPolicy = DEFAULT_INFINITE_CANVAS_INPUT_POLICY,
   rasterization,
+  renderBackdrop,
   renderOverlay,
   sceneLayers = [],
   sceneSurface,
@@ -470,6 +500,7 @@ function InfiniteCanvasDesktop<Kind extends string, Payload = InfiniteCanvasDrop
             snapPolicy={snapPolicy}
             icons={icons}
             inputPolicy={inputPolicy}
+            renderBackdrop={renderBackdrop}
             renderOverlay={renderOverlay}
             sceneLayers={sceneLayers}
             sceneSurface={sceneSurface}
@@ -510,6 +541,7 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
   hud,
   icons,
   inputPolicy = DEFAULT_INFINITE_CANVAS_INPUT_POLICY,
+  renderBackdrop,
   renderOverlay,
   sceneLayers = [],
   sceneSurface: SceneSurface,
@@ -1154,7 +1186,16 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
               zIndex: PORTAL_ROOT_Z_INDEX,
             }}
           />
-          <InfiniteCanvasGridBackdrop />
+          {renderBackdrop === undefined ? (
+            <InfiniteCanvasGridBackdrop />
+          ) : (
+            <div
+              data-slot={INFINITE_CANVAS_SLOTS.grid}
+              style={{ inset: 0, pointerEvents: "none", position: "absolute" }}
+            >
+              {renderBackdrop(overlayContext)}
+            </div>
+          )}
           {SceneSurface === undefined ||
           (underlayWorldSceneLayers.length === 0 && !diagnostics.frustum) ? null : (
             <SceneSurface
