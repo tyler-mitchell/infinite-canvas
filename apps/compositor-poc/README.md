@@ -440,6 +440,35 @@ A third kind, in the instrument rather than the thing: the readback was gated on
 and that array caps at 90 — so it ran on every frame once warm and pushed a hover from 2.6 ms to
 26 ms. A measurement that changed what it measured.
 
+### Semantic zoom, from the window's own measured structure
+
+The signature also carries a profile: ink density across eight horizontal bands, so the canvas knows
+_where_ each window's rows of content are, not just how much there is.
+
+Shrinking real text below legibility does not degrade gracefully — it becomes grey noise, which is
+why every infinite canvas turns into a field of grey rectangles when you pull back. Far away, a
+window is drawn instead as its own ground banded with its own content colour at the densities really
+measured. Not a placeholder: a reduction of the thing itself.
+
+The blend is keyed on the window's **on-screen size**, not the camera's zoom — fully abstract under
+70 device pixels wide, fully real over 190. Zoom is the wrong signal: a large window at low zoom can
+still be legible while a small one at the same zoom is not, and legibility is what the abstraction
+stands in for.
+
+At zoom 0.13, a hundred windows read as a hundred documents with visible structure and identity. At
+0.9 they are their own pixels. Nothing switches; it crosses over.
+
+### The black band nobody had questioned
+
+Every window had a black strip under it from the first capture onward, and it read as a design
+choice. It was the note being 512 wide and whatever tall its content came to — around 215 — while
+its layer was square, so more than half of every texture was never written. A window's texture and a
+window's box are the same rectangle or the difference shows.
+
+Sizing the element from outside after mount fixed the band and forced a relayout that pushed a
+single-window repaint from 4 ms to **136 ms**. A window's own size belongs to the window: it is a
+prop now, and the repaint is back to 5.4 ms.
+
 ### Why the fake tint had to go
 
 Each quad used to carry a `tint` that multiplied its captured pixels, left over from before there

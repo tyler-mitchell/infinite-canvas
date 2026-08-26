@@ -2,7 +2,7 @@ import { common, d, std, tgpu } from "typegpu";
 
 import { createLightField, lightLayout } from "./light-field.ts";
 import { Camera, Quad } from "./scene.ts";
-import { analyzeWindows, signatureLayout } from "./signature.ts";
+import { analyzeWindows, BANDS, Signature, signatureLayout } from "./signature.ts";
 
 /**
  * Three passes over one texture array: analyse, light, draw.
@@ -40,6 +40,7 @@ const layout = tgpu.bindGroupLayout({
   camera: { uniform: Camera },
   quads: { storage: d.arrayOf(Quad), access: "readonly" },
   sampler: { sampler: "filtering" },
+  signatures: { access: "readonly", storage: d.arrayOf(Signature) },
   windows: { texture: d.texture2dArray() },
 });
 
@@ -148,7 +149,7 @@ if (captureNative) {
         Fragment,
         null,
         Array.from({ length: textureLayers }, (_, layer) =>
-          createElement(Note, { index: layer, key: layer }),
+          createElement(Note, { index: layer, key: layer, size: textureSize }),
         ),
       ),
     );
@@ -554,20 +555,20 @@ if (!nativeDirectToTexture) {
 
 const uploadMs = nativeDirectToTexture ? 0 : performance.now() - uploadStarted;
 
+/**
+ * What the canvas knows about its own content, written by a compute pass that reads the captured
+ * pixels: each window's content colour, ink, ground, and the profile of where its rows are. Read by
+ * both render passes — the light field for colour and reach, the window pass for semantic zoom.
+ */
+const signaturesBuffer = root.createBuffer(d.arrayOf(Signature, textureLayers)).$usage("storage");
+
 const bindGroup = root.createBindGroup(layout, {
   camera: cameraBuffer,
   quads: quadsBuffer,
   sampler: root.createSampler({ magFilter: "linear", minFilter: "linear" }),
+  signatures: signaturesBuffer,
   windows: windowTextures,
 });
-
-/**
- * What the canvas knows about its own content: one `vec4f` per window, colour in `xyz` and ink in
- * `w`, written by a compute pass that reads the captured pixels and read by the light field.
- */
-const signaturesBuffer = root
-  .createBuffer(d.arrayOf(d.vec4f, textureLayers))
-  .$usage("storage", "uniform");
 
 const analyze = root.createComputePipeline({ compute: analyzeWindows }).with(
   signatureLayout,
@@ -665,7 +666,13 @@ common.writeSoA(quadsBuffer, { rect: rects, tint: tints });
  */
 const vertex = tgpu.vertexFn({
   in: { instanceIndex: d.builtin.instanceIndex, vertexIndex: d.builtin.vertexIndex },
-  out: { layer: d.interpolate("flat", d.f32), pos: d.builtin.position, tint: d.vec4f, uv: d.vec2f },
+  out: {
+    layer: d.interpolate("flat", d.f32),
+    pos: d.builtin.position,
+    screenWidth: d.interpolate("flat", d.f32),
+    tint: d.vec4f,
+    uv: d.vec2f,
+  },
 })((input) => {
   "use gpu";
   const corners = [
@@ -691,23 +698,29 @@ const vertex = tgpu.vertexFn({
     // Flat: a layer index must not be interpolated across the quad.
     layer: d.f32(input.instanceIndex % textureLayers),
     pos: d.vec4f(clip.x, -clip.y, 0, 1),
+    /*
+     * How many device pixels wide this window is right now.
+     *
+     * The right signal for semantic zoom is the window's *on-screen size*, not the camera's zoom:
+     * a large window at low zoom can still be legible while a small one at the same zoom is not,
+     * and it is legibility the abstraction stands in for.
+     */
+    screenWidth: quad.rect.z * camera.zoom,
     tint: quad.tint,
     uv: corner,
   };
 });
 
 const fragment = tgpu.fragmentFn({
-  in: { layer: d.interpolate("flat", d.f32), tint: d.vec4f, uv: d.vec2f },
+  in: {
+    layer: d.interpolate("flat", d.f32),
+    screenWidth: d.interpolate("flat", d.f32),
+    tint: d.vec4f,
+    uv: d.vec2f,
+  },
   out: d.vec4f,
 })((input) => {
   "use gpu";
-  const captured = std.textureSample(
-    layout.$.windows,
-    layout.$.sampler,
-    input.uv,
-    d.u32(input.layer),
-  );
-
   /*
    * The captured pixels, untinted.
    *
@@ -716,7 +729,36 @@ const fragment = tgpu.fragmentFn({
    * lie: it changed what a window looked like without changing anything the compute pass could
    * see, so the light and the window it came from disagreed. Windows carry their own accent now.
    */
-  return d.vec4f(captured.xyz, 1);
+  const captured = std.textureSample(
+    layout.$.windows,
+    layout.$.sampler,
+    input.uv,
+    d.u32(input.layer),
+  );
+
+  /*
+   * Semantic zoom, from the window's own measured structure.
+   *
+   * Shrinking real text below legibility does not degrade gracefully — it becomes grey noise, which
+   * is why every infinite canvas turns into a field of grey rectangles when you pull back. The
+   * profile the compute pass extracted says where this window's rows of content actually are, so
+   * far away it can be drawn as those rows: its ground, banded with its own content colour at the
+   * densities really measured. Not a placeholder — a reduction of the thing itself.
+   */
+  const signature = layout.$.signatures[d.u32(input.layer)];
+  const band = std.clamp(d.i32(input.uv.y * BANDS), 0, BANDS - 1);
+  const density = signature.bands[band];
+  // Inset, so bands read as rows of content rather than as full-bleed stripes.
+  const margin = std.smoothstep(0.04, 0.09, input.uv.x) * std.smoothstep(0.96, 0.91, input.uv.x);
+  const abstract = std.add(
+    signature.ground.xyz,
+    std.mul(signature.tint.xyz, density * margin * 0.85),
+  );
+
+  // Fully abstract under 70 device pixels wide, fully real over 190, and a blend between.
+  const legibility = std.smoothstep(70, 190, input.screenWidth);
+
+  return d.vec4f(std.mix(abstract, captured.xyz, legibility), 1);
 });
 
 const pipeline = root
@@ -855,7 +897,7 @@ const frame = () => {
     void signaturesBuffer.read().then((values) => {
       signatureReport = values
         .slice(0, 4)
-        .map((value) => value.w.toFixed(2))
+        .map((value) => value.tint.w.toFixed(2))
         .join("  ");
       signatureReading = false;
     });

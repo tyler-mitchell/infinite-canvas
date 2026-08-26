@@ -1,6 +1,7 @@
 import { d, std, tgpu } from "typegpu";
 
 import { Camera, Quad } from "./scene.ts";
+import { Signature } from "./signature.ts";
 
 /**
  * The canvas lit by what is inside its windows.
@@ -22,7 +23,7 @@ import { Camera, Quad } from "./scene.ts";
 export const lightLayout = tgpu.bindGroupLayout({
   camera: { uniform: Camera },
   quads: { access: "readonly", storage: d.arrayOf(Quad) },
-  signatures: { access: "readonly", storage: d.arrayOf(d.vec4f) },
+  signatures: { access: "readonly", storage: d.arrayOf(Signature) },
 });
 
 /** How far past a window's own bounds its light reaches, as a multiple of the window's size. */
@@ -84,7 +85,7 @@ export const createLightField = (signatureCount: number) => ({
     const corner = corners[input.vertexIndex];
     const quad = lightLayout.$.quads[input.instanceIndex];
     const camera = lightLayout.$.camera;
-    const signature = lightLayout.$.signatures[input.instanceIndex % signatureCount];
+    const signature = lightLayout.$.signatures[input.instanceIndex % signatureCount].tint;
 
     // The quad grows with the window's ink, so a busy window's light reaches further than a quiet
     // one's — the spread carries information, not just the brightness.

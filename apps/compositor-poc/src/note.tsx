@@ -23,15 +23,26 @@ import { useState } from "react";
  */
 const ACCENTS = [28, 68, 152, 202, 272, 326];
 
-export const Note = ({ index }: { index: number }) => {
+export const Note = ({ index, size }: { index: number; size: number }) => {
   const [done, setDone] = useState(false);
   const [draft, setDraft] = useState("");
   // Chroma kept modest on purpose: the light field amplifies whatever hue it finds, so a garish
   // accent becomes a garish room.
   const accent = `oklch(0.79 0.15 ${String(ACCENTS[index % ACCENTS.length])})`;
 
+  /*
+   * The window sizes itself to its layer.
+   *
+   * Not a detail: a note that is 512 wide and whatever tall its content came to leaves most of a
+   * square layer unwritten, and the quad draws that as a black band. Setting it from outside after
+   * mount worked but forced a relayout that pushed a single-window repaint from 4 ms to 136 ms —
+   * a window's own size belongs to the window.
+   */
   return (
-    <div className="note" style={{ "--accent": accent } as React.CSSProperties}>
+    <div
+      className="note"
+      style={{ "--accent": accent, height: size, width: size } as React.CSSProperties}
+    >
       <div className="note-chrome" />
       <div className="note-body">
         <span className="note-tag">{done ? "done" : "open"}</span>
