@@ -471,8 +471,24 @@ body {
   text-rendering: optimizeLegibility;
 }
 
-button,
-input,
-textarea {
-  font: inherit;
-}
+/*
+ * No form-control font reset here, and its absence is the fix rather than an omission.
+ *
+ * This file ended with an unlayered `button, input, textarea { font: inherit }`. It reads like the
+ * most ordinary reset there is, and it silently killed every font-size and font-weight utility on
+ * every button, input and textarea in the app: **unlayered styles beat every layered style**, so
+ * one bare selector outranked all of `@layer utilities` declared at the top of this file.
+ *
+ * What that cost: the note's title is `text-[15px] font-medium`, and it rendered at 16px/400 — the
+ * document default, inherited. The class was on the element and the rule was generated; it simply
+ * never won. Nothing errored, nothing looked obviously broken, and every typography utility on a
+ * form control in this app was dead.
+ *
+ * Deleting rather than moving it into `@layer base`, because Tailwind's preflight already declares
+ * `font: inherit` on exactly this set — plus `select`, `optgroup` and `::file-selector-button` —
+ * and does it *in* `@layer base`, where utilities can beat it. Keeping a second copy would be two
+ * places saying one thing, with the layered one always losing to whichever copy drifted.
+ *
+ * The rule for anything added below: a document-level reset belongs in a layer. An unlayered
+ * selector in this file outranks the entire utility system.
+ */

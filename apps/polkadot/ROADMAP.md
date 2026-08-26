@@ -46,7 +46,20 @@ open because it feels good to look at. Concretely, and these are enforced in rev
   on this: the cost that first took it off screen was fixed, and what keeps it off is a decision
   about where the field belongs, which is not an agent's to reverse.
 - **Every class comes from a `tv` slot.** No Tailwind strings in JSX, ever. Global CSS is
-  tokens, resets, and imports only.
+  tokens, resets, and imports only — **and every reset in it belongs inside a layer.** That last
+  clause used to stop at "resets", and the licence it granted cost the app its typography:
+  `styles.css` ended with an unlayered `button, input, textarea { font: inherit }`, which in the CSS
+  cascade **outranks every layered style**, including the whole of `@layer utilities` this file
+  declares on line 1. One bare selector beat the utility system. Every font-size and font-weight
+  utility on every button, input and textarea rendered at the document default: the note title
+  declared `text-[15px] font-medium` and drew at 16px/400, rail rows declared 12.5px and drew at
+  16px, the rail search declared 12px and drew at 16px. The classes were on the elements and the
+  rules were generated — they simply never won, so nothing errored and nothing looked broken enough
+  to chase.
+  Found by measuring a computed style against its declaration rather than by looking, which is the
+  only way this is visible; a screenshot of it reads as "the rail seems a bit loose". Deleted rather
+  than layered, because Tailwind's preflight already declares `font: inherit` on that set inside
+  `@layer base` where utilities can beat it.
 - **Nothing hand-rolled that a maintained library owns.** TanStack (Router, Pacer, Hotkeys,
   Form, Virtual, DB), Base UI, cmdk, ArkType, Legend State, motion, tailwind-variants.
 
