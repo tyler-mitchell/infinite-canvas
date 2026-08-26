@@ -110,6 +110,36 @@ async function openDefaultCanvas(initialLayout: object): Promise<CanvasRecord> {
   return CanvasRecord.assert(record);
 }
 
+/**
+ * The canvas a bare `/` should open, or `null` when the database has never been written to.
+ *
+ * Empty is a normal state rather than a failure — it is what a first run looks like — so the
+ * caller decides between bootstrapping and reporting, and this stays a read.
+ */
+async function readMostRecentCanvas(): Promise<CanvasRecord | null> {
+  const client = await openLocalDatabase();
+  const [records] = await client.query<[unknown]>("RETURN fn::most_recent_canvas();").json();
+  const [record] = CanvasRecord.array().assert(records);
+
+  return record ?? null;
+}
+
+/**
+ * `null` means the route named a canvas that is not there — a stale bookmark or a deleted
+ * document — which is a different outcome from the database itself failing, and the route
+ * distinguishes them.
+ */
+async function openCanvas(canvasId: string): Promise<CanvasRecord | null> {
+  const client = await openLocalDatabase();
+  const [record] = await client
+    .query<[unknown]>("RETURN fn::open_canvas($canvas);", {
+      canvas: new StringRecordId(canvasId),
+    })
+    .json();
+
+  return record === null || record === undefined ? null : CanvasRecord.assert(record);
+}
+
 async function saveCanvas(
   input: Readonly<{
     canvasId: string;
@@ -227,8 +257,10 @@ export {
   createNote,
   listNotes,
   NoteRevisionConflictError,
+  openCanvas,
   openDefaultCanvas,
   openLocalDatabase,
+  readMostRecentCanvas,
   readNote,
   saveCanvas,
   saveNote,

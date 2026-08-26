@@ -1,66 +1,32 @@
 import {
   InfiniteCanvas,
-  createInfiniteCanvasHandle,
-  createInfiniteCanvasState,
-  createInfiniteCanvasStore,
   createInfiniteCanvasWindow,
-  defineInfiniteCanvasWindowRegistry,
-  getInfiniteCanvasWindowData,
   getInfiniteCanvasWindowPlacementRect,
   getVisibleWorldRect,
-  normalizeInfiniteCanvasStateForWindowRegistry,
-  parseInfiniteCanvasState,
-  serializeInfiniteCanvasState,
   type InfiniteCanvasOverlayReadContext,
+  type InfiniteCanvasState,
 } from "@hyphened/infinite-canvas";
-import { useObservable, useValue } from "@legendapp/state/react";
-import { type } from "arktype";
+import { Plus } from "lucide-react";
 import { Button } from "ui";
-import { useEffect, useState } from "react";
 import { tv } from "ui/tv";
 
-import { Plus } from "lucide-react";
-
+import type { CanvasPersistenceStatus } from "../canvas/canvas-persistence";
+import { useCanvasRuntime } from "../canvas/use-canvas-runtime";
+import { windowDefinitions, type WindowData, type WindowKind } from "../canvas/window-registry";
 import { CanvasHud } from "../hud/canvas-hud";
-import { NoteWindowBody } from "../notes/note-window";
-import type { NoteGateway } from "../notes/note-store";
-import {
-  startCanvasPersistence,
-  type CanvasPersistenceStatus,
-  type CanvasSaveInput,
-} from "../canvas/canvas-persistence";
 
-type WindowKind = "note";
-
-const NoteWindowData = type({ noteId: "string" });
-type NoteWindowData = typeof NoteWindowData.infer;
-
-type WindowData = Readonly<{
-  note: NoteWindowData;
-}>;
-
-type DatabaseAdmission = Readonly<{
+type SaveAdmission = Readonly<{
   message: string;
   status: "error" | "ready" | "starting";
 }>;
 
-const noteWindow = tv({
-  slots: {
-    summary:
-      "grid h-full place-items-center px-4 text-center text-[12px] leading-[1.5] text-[var(--ink-faint)]",
-  },
-});
-
-/**
- * The database, as the note layer sees it.
- *
- * Passed to the window body rather than imported by it, so the body stays renderable without
- * pulling an 11 MB WebAssembly engine into a test or a summary.
- */
-const noteGateway: NoteGateway = {
-  read: async (noteId) => (await import("../database/database.client")).readNote(noteId),
-  save: async (input) => (await import("../database/database.client")).saveNote(input),
-};
+type LoadedCanvas = Readonly<{
+  droppedKinds?: readonly string[];
+  id: string;
+  revision: number;
+  state: InfiniteCanvasState<WindowKind>;
+  title: string;
+}>;
 
 /**
  * The shell.
@@ -84,7 +50,7 @@ const workspace = tv({
     statusIndicator: "size-1.5 rounded-full bg-current",
   },
   variants: {
-    databaseStatus: {
+    saveStatus: {
       error: { status: "text-[var(--danger)]" },
       ready: { status: "text-[var(--ink-faint)]" },
       starting: { status: "text-[var(--ink-faint)]" },
@@ -95,32 +61,13 @@ const workspace = tv({
 const noteSize = { height: 240, width: 360 } as const;
 const noteMinimumSize = { height: 160, width: 240 } as const;
 
-/**
- * The engine is loaded on demand rather than at module scope.
- *
- * It is an 11 MB WebAssembly binary, and the canvas must paint before it resolves — the shell,
- * the framework runtime, and every window render without it. A static import would put the whole
- * engine on the critical path of the first frame for no benefit.
- */
-const openCanvas = async (initialLayout: object) => {
-  const database = await import("../database/database.client");
-
-  return database.openDefaultCanvas(initialLayout);
-};
-
 const createNoteRecord = async (input: Readonly<{ text: string; title: string }>) => {
   const database = await import("../database/database.client");
 
   return database.createNote(input);
 };
 
-const saveCanvas = async (input: CanvasSaveInput<WindowKind>) => {
-  const database = await import("../database/database.client");
-
-  return database.saveCanvas(input);
-};
-
-function getPersistenceAdmission(status: CanvasPersistenceStatus): DatabaseAdmission {
+function getSaveAdmission(status: CanvasPersistenceStatus): SaveAdmission {
   if (status.status === "error") {
     return {
       message: status.error instanceof Error ? status.error.message : "Local save failed",
@@ -133,71 +80,33 @@ function getPersistenceAdmission(status: CanvasPersistenceStatus): DatabaseAdmis
     : { message: "Local canvas saved", status: "ready" };
 }
 
-const windowDefinitions = defineInfiniteCanvasWindowRegistry<WindowKind, WindowData>({
-  note: {
-    kind: "note",
-    overflowY: "auto",
-    renderBody: ({ window }) => {
-      const data = getInfiniteCanvasWindowData(window, NoteWindowData.allows);
-
-      return data == null ? (
-        <div className={noteWindow().summary()}>This window is not bound to a note.</div>
-      ) : (
-        <NoteWindowBody gateway={noteGateway} noteId={data.noteId} />
-      );
-    },
-    renderSummary: ({ window }) => {
-      const styles = noteWindow();
-
-      return <div className={styles.summary()}>{window.title}</div>;
-    },
-    textSelection: "native",
-    wheelBehavior: "native-scroll",
-  },
-});
-
-const initialState = createInfiniteCanvasState<WindowKind>({
-  camera: { center: { x: 0, y: 0 }, zoom: 1 },
-  windows: [
-    createInfiniteCanvasWindow<WindowKind, WindowData["note"]>({
-      // Seeded by `fn::open_default_canvas`, so the layout references a record that exists.
-      data: { noteId: "content_item:welcome" },
-      id: "welcome",
-      kind: "note",
-      minSize: { height: 180, width: 280 },
-      rect: { height: 300, width: 460, x: -230, y: -150 },
-      title: "Welcome",
-    }),
-  ],
-});
-const initialLayout = serializeInfiniteCanvasState(initialState);
-
 /**
- * Identity: who and where, plus whether the work is safe.
+ * Identity: which canvas this is, and whether the work is safe.
  *
- * The save state lives here rather than in its own corner because it answers a question about
- * *this canvas*, and separating it from the canvas's name makes the user assemble that
- * relationship themselves.
+ * The save state lives beside the canvas's name rather than in its own corner because it answers a
+ * question about *this canvas*, and separating them makes the user assemble that relationship.
  */
 function IdentityRail({
   canvas,
-  databaseAdmission,
+  saveAdmission,
+  title,
 }: Readonly<{
   canvas: InfiniteCanvasOverlayReadContext<WindowKind>;
-  databaseAdmission: DatabaseAdmission;
+  saveAdmission: SaveAdmission;
+  title: string;
 }>) {
-  const styles = workspace({ databaseStatus: databaseAdmission.status });
+  const styles = workspace({ saveStatus: saveAdmission.status });
 
   return (
     <div className={styles.rail()}>
       <div className={styles.brand()}>
         <div className={styles.brandMark()}>P</div>
-        <div className={styles.brandTitle()}>Polkadot</div>
+        <div className={styles.brandTitle()}>{title}</div>
       </div>
       <span className={styles.divider()} />
-      <div className={styles.status()} data-database-status={databaseAdmission.status}>
+      <div className={styles.status()} data-save-status={saveAdmission.status}>
         <span className={styles.statusIndicator()} />
-        {databaseAdmission.message}
+        {saveAdmission.message}
       </div>
       <span className={styles.divider()} />
       <Button
@@ -235,70 +144,13 @@ function IdentityRail({
   );
 }
 
-export function WorkspaceCanvas() {
-  const [store] = useState(() => createInfiniteCanvasStore(initialState));
-  const [handle] = useState(() => createInfiniteCanvasHandle(store));
-  const runtime$ = useObservable<DatabaseAdmission>({
-    message: "Opening local database",
-    status: "starting",
-  });
-  const databaseAdmission = useValue(runtime$);
+export function WorkspaceCanvas({ canvas }: Readonly<{ canvas: LoadedCanvas }>) {
+  const runtime = useCanvasRuntime(canvas);
   const styles = workspace();
-
-  useEffect(() => {
-    const lifecycle: { disposed: boolean; stopPersistence?: () => void } = { disposed: false };
-
-    void openCanvas(initialLayout)
-      .then((canvas) => {
-        if (lifecycle.disposed) {
-          return;
-        }
-
-        const hydratedState = parseInfiniteCanvasState(canvas.layout, initialState);
-
-        if (hydratedState === null) {
-          throw new Error("The saved canvas layout is invalid");
-        }
-
-        const normalizedState = normalizeInfiniteCanvasStateForWindowRegistry(
-          hydratedState,
-          windowDefinitions,
-        );
-
-        if (normalizedState === null) {
-          throw new Error("The saved canvas has no registered window kinds");
-        }
-
-        store.commands.hydrate(normalizedState);
-        lifecycle.stopPersistence = startCanvasPersistence({
-          canvasId: canvas.id,
-          handle,
-          onStatus: (status) => {
-            runtime$.set(getPersistenceAdmission(status));
-          },
-          revision: canvas.revision,
-          save: saveCanvas,
-        });
-        runtime$.set({ message: "Local canvas saved", status: "ready" });
-      })
-      .catch((error: unknown) => {
-        if (!lifecycle.disposed) {
-          runtime$.set({
-            message: error instanceof Error ? error.message : "Local database failed",
-            status: "error",
-          });
-        }
-      });
-
-    return () => {
-      lifecycle.disposed = true;
-      lifecycle.stopPersistence?.();
-    };
-  }, [handle, runtime$, store]);
 
   return (
     <main className={styles.root()}>
-      <InfiniteCanvas.Provider store={store}>
+      <InfiniteCanvas.Provider store={runtime.store}>
         <InfiniteCanvas.Viewport<WindowKind>
           hud={{
             cameraControls: true,
@@ -307,12 +159,19 @@ export function WorkspaceCanvas() {
             statusCard: false,
             zoomControls: true,
           }}
-          renderOverlay={(canvas) => (
+          renderOverlay={(context) => (
             <CanvasHud
-              identity={<IdentityRail canvas={canvas} databaseAdmission={databaseAdmission} />}
+              droppedKinds={canvas.droppedKinds}
+              identity={
+                <IdentityRail
+                  canvas={context}
+                  saveAdmission={getSaveAdmission(runtime.saveStatus)}
+                  title={canvas.title}
+                />
+              }
             />
           )}
-          title="Polkadot workspace"
+          title={canvas.title}
           windowDefinitions={windowDefinitions}
         />
       </InfiniteCanvas.Provider>

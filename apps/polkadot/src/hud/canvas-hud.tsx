@@ -3,8 +3,16 @@ import {
   useInfiniteCanvasSelector,
   type InfiniteCanvasCommand,
 } from "@hyphened/infinite-canvas";
-import { AlignHorizontalSpaceAround, AlignStartVertical, Pin, Scan, Trash2 } from "lucide-react";
-import type { ComponentType, ReactNode } from "react";
+import {
+  AlignHorizontalSpaceAround,
+  AlignStartVertical,
+  Pin,
+  Scan,
+  Trash2,
+  TriangleAlert,
+  X,
+} from "lucide-react";
+import { useState, type ComponentType, type ReactNode } from "react";
 import { Button } from "ui";
 import { tv } from "ui/tv";
 
@@ -32,6 +40,11 @@ const canvasHud = tv({
   slots: {
     count: "px-1.5 font-mono text-[11px] tracking-[0.02em] text-[var(--ink-faint)] tabular-nums",
     divider: "mx-0.5 h-4 w-px bg-[var(--border)]",
+    noticeIcon: "size-3.5 shrink-0 text-[var(--danger)]",
+    noticeKinds: "font-mono text-[11px] text-[var(--ink-faint)]",
+    noticeRail:
+      "flex items-center gap-2 rounded-[var(--radius-pill)] bg-[var(--surface)] py-1 pr-1 pl-2.5 shadow-[var(--lift-2)] inset-ring-1 inset-ring-[var(--edge-light)] backdrop-blur-2xl",
+    noticeText: "text-[11.5px] tracking-[-0.005em] text-[var(--ink-muted)]",
     rail: "flex items-center gap-0.5 rounded-[var(--radius-pill)] bg-[var(--surface)] p-1 shadow-[var(--lift-2)] inset-ring-1 inset-ring-[var(--edge-light)] backdrop-blur-2xl",
   },
 });
@@ -120,12 +133,54 @@ function SelectionRail() {
   );
 }
 
-export function CanvasHud({ identity }: Readonly<{ identity: ReactNode }>) {
+/**
+ * What was left behind when this canvas opened.
+ *
+ * A layout can name a window kind this build does not register — a canvas saved by a newer
+ * version, or one whose kind was removed. The framework drops those and keeps everything else, so
+ * the canvas opens normally; without a notice the loss would be silent and read as data missing.
+ *
+ * Dismissible, because it describes something that already happened and cannot be acted on here.
+ */
+function RecoveryNotice({ droppedKinds }: Readonly<{ droppedKinds: readonly string[] }>) {
+  const [dismissed, setDismissed] = useState(false);
+  const styles = canvasHud();
+
+  return (
+    <HudSurface anchor="top-right" present={droppedKinds.length > 0 && !dismissed}>
+      <div className={styles.noticeRail()} role="status">
+        <TriangleAlert className={styles.noticeIcon()} />
+        <span className={styles.noticeText()}>
+          {droppedKinds.length === 1 ? "One window kind" : `${droppedKinds.length} window kinds`}{" "}
+          could not be opened:
+        </span>
+        <span className={styles.noticeKinds()}>{droppedKinds.join(", ")}</span>
+        <Button
+          aria-label="Dismiss"
+          onClick={() => {
+            setDismissed(true);
+          }}
+          size="icon-sm"
+          title="Dismiss"
+          variant="ghost"
+        >
+          <X />
+        </Button>
+      </div>
+    </HudSurface>
+  );
+}
+
+export function CanvasHud({
+  droppedKinds,
+  identity,
+}: Readonly<{ droppedKinds?: readonly string[]; identity: ReactNode }>) {
   return (
     <HudRoot>
       <HudSurface anchor="top-left" persistent>
         {identity}
       </HudSurface>
+      {droppedKinds === undefined ? null : <RecoveryNotice droppedKinds={droppedKinds} />}
       <SelectionRail />
     </HudRoot>
   );
