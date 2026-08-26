@@ -50,15 +50,22 @@ export const createLightField = (signatureCount: number) => ({
      * tight core gives it a source. With a single exponent the glow read either as a hard disc or
      * as fog.
      */
-    const falloff = std.pow(reach, 1.2) * 0.22 + std.pow(reach, 3) * 0.75 + std.pow(reach, 9) * 1.1;
+    const falloff =
+      std.pow(reach, 1.15) * 0.26 + std.pow(reach, 3.5) * 0.55 + std.pow(reach, 10) * 0.4;
 
-    // Pushed hard away from its own grey. The measured colour is honest but muted, because even a
-    // chroma-weighted average of a mostly-monochrome window lands close to neutral, and light that
-    // is nearly neutral reads as fog rather than as coming from somewhere.
+    /*
+     * Nudged away from its own grey, not shoved.
+     *
+     * The measured colour is honest but muted — even a chroma-weighted average of a mostly
+     * monochrome window lands near neutral, and near-neutral light reads as fog rather than as
+     * coming from somewhere. But the first correction went far past that and turned six accent
+     * colours into raw red, green and blue: unmistakable, and cheap-looking. The value below keeps
+     * each window's hue identifiable while leaving it a colour rather than a channel.
+     */
     const grey = std.dot(input.glow.xyz, d.vec3f(0.3333, 0.3333, 0.3333));
-    const colour = std.max(std.mix(d.vec3f(grey, grey, grey), input.glow.xyz, 3.4), d.vec3f(0));
+    const colour = std.max(std.mix(d.vec3f(grey, grey, grey), input.glow.xyz, 2.55), d.vec3f(0));
 
-    return d.vec4f(std.mul(colour, falloff * input.glow.w * 1.15), 1);
+    return d.vec4f(std.mul(colour, falloff * input.glow.w * 0.88), 1);
   }),
 
   vertex: tgpu.vertexFn({

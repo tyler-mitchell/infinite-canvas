@@ -389,10 +389,10 @@ Three passes now, in the order `docs/compositor.md` describes:
 Clicking **Mark as done** turns a note's button into a large block of its accent colour. Nothing
 tells the light field this happened:
 
-|          | measured ink | the space around it                    |
-| -------- | ------------ | -------------------------------------- |
-| open     | 0.86         | dim, neutral                           |
-| **done** | **1.24**     | **blooms rose, the note's own accent** |
+|          | measured ink | the space around it                 |
+| -------- | ------------ | ----------------------------------- |
+| open     | 0.86         | dim, neutral                        |
+| **done** | **1.26**     | **blooms in the note's own accent** |
 
 The compositor dispatched a click, React re-rendered, the browser repainted, the copy landed in the
 texture layer, and the _next frame's compute pass saw different pixels_. No event bus, no state
@@ -430,7 +430,13 @@ Both were caught by putting the measured ink in the readout, which is the only r
   chroma weight lets the accents carry the hue, and each note got a real accent colour so there was
   something true to find.
 
-A third, in the instrument rather than the thing: the readback was gated on `frames.length % 30`,
+- **Loud is not the same as good.** Corrected too far the other way and six accent colours became
+  raw red, green and blue — unmistakable, and cheap-looking. Then correcting _that_ dropped accent
+  chroma, saturation and brightness all at once and the light went nearly invisible. Three knobs
+  moved together cannot be read; the settled values sit between the two extremes, and the accents
+  themselves are deliberately modest because the light field amplifies whatever hue it finds.
+
+A third kind, in the instrument rather than the thing: the readback was gated on `frames.length % 30`,
 and that array caps at 90 — so it ran on every frame once warm and pushed a hover from 2.6 ms to
 26 ms. A measurement that changed what it measured.
 

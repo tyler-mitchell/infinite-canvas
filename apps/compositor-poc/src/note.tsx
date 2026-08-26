@@ -21,12 +21,14 @@ import { useState } from "react";
  * text on the same ground and the light field could only ever produce a grey wash — the measurement
  * was correct and the thing it measured was uniform.
  */
-const ACCENTS = [24, 62, 148, 196, 268, 322];
+const ACCENTS = [28, 68, 152, 202, 272, 326];
 
 export const Note = ({ index }: { index: number }) => {
   const [done, setDone] = useState(false);
   const [draft, setDraft] = useState("");
-  const accent = `oklch(0.78 0.17 ${String(ACCENTS[index % ACCENTS.length])})`;
+  // Chroma kept modest on purpose: the light field amplifies whatever hue it finds, so a garish
+  // accent becomes a garish room.
+  const accent = `oklch(0.79 0.15 ${String(ACCENTS[index % ACCENTS.length])})`;
 
   return (
     <div className="note" style={{ "--accent": accent } as React.CSSProperties}>
