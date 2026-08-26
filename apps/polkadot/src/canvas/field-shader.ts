@@ -57,16 +57,6 @@ const random = tgpu.fn(
   return std.fract(std.sin(std.dot(st, d.vec2f(12.9898, 78.233))) * 43758.5453123);
 });
 
-const rectDistance = tgpu.fn(
-  [d.vec2f, d.vec4f],
-  d.f32,
-)((point, rect) => {
-  "use gpu";
-  const closest = std.clamp(point, rect.xy, std.add(rect.xy, rect.zw));
-
-  return std.length(std.sub(point, closest));
-});
-
 /**
  * A window's pull on the lattice.
  *
@@ -117,22 +107,6 @@ const fieldPull = tgpu.fn(
   const ceiling = uniforms.$[GRAVITY].z;
 
   return std.select(total, std.mul(std.normalize(total), ceiling), std.length(total) > ceiling);
-});
-
-const nearestRectDistance = tgpu.fn(
-  [d.vec2f],
-  d.f32,
-)((point) => {
-  "use gpu";
-  let nearest = d.f32(100000);
-
-  for (let index = 0; index < MAX_RECTS; index++) {
-    if (masses.$[index].strength > 0.001 && masses.$[index].rect.z > 0) {
-      nearest = std.min(nearest, rectDistance(point, masses.$[index].rect));
-    }
-  }
-
-  return nearest;
 });
 
 const lineMask = tgpu.fn(
@@ -189,13 +163,13 @@ const fieldFragment = tgpu["~unstable"].fragmentFn({
     std.abs(warped.y - nearestHalf.y),
   );
 
-  // Measured from the lattice point rather than the pixel, so a whole cell brightens together as
-  // a window approaches instead of the brightening sweeping across it.
-  const rectNear = nearestRectDistance(std.sub(nearestLattice, uniforms.$.latticeOffset));
-  // Two readings of the same well: the steep one lights the rim a window sits in, the broad one
-  // carries the long gravitational tail out across the canvas.
-  const wellCore = std.max(1 - std.pow(std.min(rectNear / (gravity.x * 0.75), 1), 2), depth);
-  const wellTail = std.max(1 - std.min(rectNear / (gravity.x * 2.6), 1), depth * 0.6);
+  // Brightness reads the field's own strength rather than asking a second time how far the
+  // nearest window is. That query walked all eight rects again, doubling the per-pixel cost for
+  // a number `pull` already contains — the pull *is* distance and mass, which is the physical
+  // quantity brightness should follow anyway. Two curves off the one depth: the steep one lights
+  // the rim a window sits in, the flatter one carries the long tail out across the canvas.
+  const wellCore = depth * depth;
+  const wellTail = depth;
 
   // The lit region is measured in screen space, against the anchor brought back out of lattice
   // space. Measuring it in warped space instead let a nearby window drag the highlight off the
@@ -253,8 +227,9 @@ const fieldFragment = tgpu["~unstable"].fragmentFn({
   const shimmer =
     0.9 + std.sin(uniforms.$.time * (0.74 + sparseSeed * 1.2) + sparseSeed * 6.2831853) * 0.1;
   // Matter falling into a well gets denser, not fatter: dots tighten and brighten as they are
-  // drawn in, and swell across the rim of the well where the field is stretched instead.
-  const rim = std.sin(std.min(rectNear / (gravity.x * 1.6), 1) * 3.14159265);
+  // drawn in, and swell across the rim — the band where the field is stretched most, which is
+  // mid-depth rather than at either end, hence the sine.
+  const rim = std.sin(depth * 3.14159265);
   const dotRadius = std.max(
     0.34,
     std.mix(0.52, 0.42 + rim * 0.62, std.clamp(wellTail + dynamic, 0, 1)) - depth * 0.22,
@@ -320,14 +295,15 @@ const fieldFragment = tgpu["~unstable"].fragmentFn({
   color = std.mix(color, dotColor, std.clamp(dotAlpha, 0, 1));
   // Added rather than mixed: the lit region has to gain light, not merely swap the colour of the
   // few pixels a line already covered.
+  //
+  // Deliberately *not* scaled by the ink intensities. These terms are already gated by the line
+  // and dot masks, so multiplying by them again compounded — at a line weight of 2.4 the hover
+  // stopped being a lift and became a hot amber tile sitting on the canvas.
   color = std.add(
     color,
-    std.mul(
-      uniforms.$.dotLift,
-      hoverLineSignal * std.max(majorLineCore, halfLineCore) * 0.2 * intensity.x,
-    ),
+    std.mul(uniforms.$.dotLift, hoverLineSignal * std.max(majorLineCore, halfLineCore) * 0.09),
   );
-  color = std.add(color, std.mul(uniforms.$.dotLift, hoverDot * 0.2 * intensity.y));
+  color = std.add(color, std.mul(uniforms.$.dotLift, hoverDot * 0.1));
   color = std.add(color, d.vec3f(grain, grain, grain));
 
   return d.vec4f(color.x, color.y, color.z, 1);

@@ -65,22 +65,43 @@ type FieldConfig = Readonly<{
   intensity: Readonly<{ dot: number; grain: number; line: number; vignette: number }>;
   /** Screen pixels between lattice lines. Faint traces sit on the half-step. */
   latticeStep: number;
+  /**
+   * Device pixels drawn per CSS pixel.
+   *
+   * The default is `1` rather than the display's ratio, which on a retina screen is a straight
+   * four-fold cut in a cost that is entirely per-pixel. The field is a soft, low-frequency image
+   * and its lines are meant to read as one CSS pixel wide, so drawing it at device resolution buys
+   * crispness the design never asked for at four times the price.
+   */
+  renderScale: number;
   /** How the rects chase the real windows. Low gain and high damping is a heavy, settling field. */
   settle: Readonly<{ damping: number; gain: number; strengthEase: number }>;
 }>;
 
 const DEFAULT_FIELD_CONFIG: FieldConfig = {
-  // Reach and ceiling are raised well past the reference's shove: an inverse-square well is
-  // supposed to be felt across the canvas, and a timid one just looks like a smudge.
-  gravity: { ceiling: 26, mass: 22, reach: 260 },
+  // A third of a cell of displacement at the rim, falling away by roughly two window-widths. Set
+  // to 26 at first, which bent the whole canvas into a fisheye rather than denting it.
+  gravity: { ceiling: 13, mass: 14, reach: 210 },
   hover: { anchorEase: 0.2, ease: 0.18, radius: 132, snapReset: 96 },
   // Loud enough that the wells read, quiet enough to stay ground. At the reference's 1 the
   // gravity was geometrically present and completely invisible; past about 4 it becomes a
   // wireframe, which is the look the bar explicitly bans.
   intensity: { dot: 1.9, grain: 1, line: 2.4, vignette: 1 },
   latticeStep: 40,
+  renderScale: 1,
   settle: { damping: 0.75, gain: 0.08, strengthEase: 0.15 },
 };
+
+/**
+ * The thresholds below which a frame could not change a pixel.
+ *
+ * An exponential ease never arrives, so a gate on exact equality repaints forever chasing the
+ * last thousandth. These are set where the motion is smaller than half a pixel — invisible, and
+ * therefore not worth the whole viewport.
+ */
+const SETTLED_VELOCITY = 0.05;
+const SETTLED_ANCHOR = 0.5;
+const SETTLED_STRENGTH = 0.004;
 
 const TARGET_FRAME_RATE = 60;
 
@@ -237,6 +258,8 @@ export function Field({ config = DEFAULT_FIELD_CONFIG }: Readonly<{ config?: Fie
       let hoverStrength = 0;
       let started = 0;
       let previous = 0;
+      let lastOffset = { x: Number.NaN, y: Number.NaN };
+      let lastPointer = { x: Number.NaN, y: Number.NaN };
 
       const onPointerMove = (event: PointerEvent) => {
         const bounds = canvas.getBoundingClientRect();
@@ -250,14 +273,20 @@ export function Field({ config = DEFAULT_FIELD_CONFIG }: Readonly<{ config?: Fie
       };
 
       const resize = () => {
-        const ratio = Math.min(globalThis.devicePixelRatio, 2);
+        // Device pixels per CSS pixel, outright — not a multiplier on the display's ratio, which
+        // would quietly reinstate the 4× retina cost this exists to avoid.
+        const ratio = configRef.current.renderScale;
         const width = Math.max(Math.round(canvas.clientWidth * ratio), 1);
         const height = Math.max(Math.round(canvas.clientHeight * ratio), 1);
 
-        if (canvas.width !== width || canvas.height !== height) {
-          canvas.width = width;
-          canvas.height = height;
+        if (canvas.width === width && canvas.height === height) {
+          return false;
         }
+
+        canvas.width = width;
+        canvas.height = height;
+
+        return true;
       };
 
       const observer = new ResizeObserver(resize);
@@ -284,7 +313,7 @@ export function Field({ config = DEFAULT_FIELD_CONFIG }: Readonly<{ config?: Fie
         const ratio = frameRatio(previous === 0 ? 1000 / TARGET_FRAME_RATE : now - previous);
 
         previous = now;
-        resize();
+        const resized = resize();
 
         // Retarget: every window on screen chases its real rect, and one that has gone fades its
         // influence out rather than snapping the field flat.
@@ -347,6 +376,14 @@ export function Field({ config = DEFAULT_FIELD_CONFIG }: Readonly<{ config?: Fie
           }
         }
 
+        const stillMoving = [...rects.values()].some(
+          (rect) =>
+            Math.abs(rect.velocityX) > SETTLED_VELOCITY ||
+            Math.abs(rect.velocityY) > SETTLED_VELOCITY ||
+            Math.abs(rect.velocityWidth) > SETTLED_VELOCITY ||
+            Math.abs(rect.velocityHeight) > SETTLED_VELOCITY ||
+            Math.abs(rect.targetStrength - rect.strength) > SETTLED_STRENGTH,
+        );
         const live = [...rects.values()].slice(0, MAX_RECTS);
 
         massesBuffer.write(
@@ -387,6 +424,44 @@ export function Field({ config = DEFAULT_FIELD_CONFIG }: Readonly<{ config?: Fie
           anchor.x = jumped ? targetX : anchor.x + (targetX - anchor.x) * anchorAlpha;
           anchor.y = jumped ? targetY : anchor.y + (targetY - anchor.y) * anchorAlpha;
         }
+
+        /**
+         * Nothing to redraw means nothing is drawn.
+         *
+         * The shimmer and grain are driven by time, so without this the field repaints the whole
+         * viewport forever: reading a note with the pointer parked cost exactly as much as
+         * dragging a window.
+         *
+         * The gate is *change*, not presence. Gating on `pointer.active` looked right and idled
+         * never — it latches true on the first move and only `pointerleave` on the window clears
+         * it, which does not fire while the cursor is simply sitting still on the canvas. A
+         * stationary pointer over a settled highlight has nothing left to draw.
+         *
+         * Every source of change is enumerated rather than assumed: the rects settling, the
+         * pointer moving, its brightness and its anchor still easing, the camera, and a resize.
+         * Skipping leaves the last frame up, which is exactly what a still field looks like.
+         */
+        const pointerMoved = pointer.x !== lastPointer.x || pointer.y !== lastPointer.y;
+        const hoverSettling = Math.abs(hoverStrength - (pointer.active ? 1 : 0)) > SETTLED_STRENGTH;
+        const anchorSettling =
+          pointer.active &&
+          Math.hypot(snap(pointer.x + offset.x) - anchor.x, snap(pointer.y + offset.y) - anchor.y) >
+            SETTLED_ANCHOR;
+        const cameraMoved = offset.x !== lastOffset.x || offset.y !== lastOffset.y;
+
+        if (
+          !stillMoving &&
+          !pointerMoved &&
+          !hoverSettling &&
+          !anchorSettling &&
+          !cameraMoved &&
+          !resized
+        ) {
+          return;
+        }
+
+        lastOffset = offset;
+        lastPointer = { x: pointer.x, y: pointer.y };
 
         uniformsBuffer.write({
           dotLift,
