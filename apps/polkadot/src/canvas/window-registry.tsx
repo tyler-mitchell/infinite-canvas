@@ -15,6 +15,7 @@ import { tv } from "ui/tv";
  * was deferring something already deferred, and cost a second place the note's read and save were
  * named.
  */
+import { CollectionWindowBody } from "../collections/collection-window";
 import { ImageWindowBody } from "../images/image-window";
 import { noteGateway } from "../notes/note-gateway";
 import { NoteWindowBody } from "../notes/note-window";
@@ -32,7 +33,7 @@ import { NoteWindowBody } from "../notes/note-window";
  * share a canvas.
  */
 
-type WindowKind = "image" | "note";
+type WindowKind = "collection" | "image" | "note";
 
 /**
  * What every window on this canvas carries: the id of the content item it shows.
@@ -52,6 +53,7 @@ const ContentWindowData = type({ itemId: "string" });
 type ContentWindowData = typeof ContentWindowData.infer;
 
 type WindowData = Readonly<{
+  collection: ContentWindowData;
   image: ContentWindowData;
   note: ContentWindowData;
 }>;
@@ -101,6 +103,34 @@ function NoteSummary({ title }: Readonly<{ title: string }>) {
 }
 
 const windowDefinitions = defineInfiniteCanvasWindowRegistry<WindowKind, WindowData>({
+  /*
+   * A collection scrolls like a note and selects like neither.
+   *
+   * `textSelection: "none"` because its rows are buttons rather than prose — a drag across a list
+   * of destinations should not paint a text highlight over them. `native-scroll` because the list
+   * is genuinely taller than the frame and the wheel belongs to it, which is the note's answer and
+   * the opposite of the image's.
+   *
+   * No `renderSummary`: at far zoom a list of titles is exactly the small text the lane exists to
+   * replace, and the framework's contract asks for something *different* rather than the same thing
+   * smaller. What that different thing should be — a count, an icon — is a real design question and
+   * inventing an answer to satisfy the field would be worse than leaving the body to shrink.
+   */
+  collection: {
+    kind: "collection",
+    overflowY: "auto",
+    renderBody: ({ window }) => {
+      const data = getInfiniteCanvasWindowData(window, ContentWindowData.allows);
+
+      return data == null ? (
+        <div className={noteWindow().summary()}>This window is not bound to a collection.</div>
+      ) : (
+        <CollectionWindowBody collectionId={data.itemId} />
+      );
+    },
+    textSelection: "none",
+    wheelBehavior: "native-scroll",
+  },
   /*
    * An image's physics are the opposite of a note's on every axis the framework offers, which is
    * the point of it being a separate kind rather than a note that happens to hold a picture.
