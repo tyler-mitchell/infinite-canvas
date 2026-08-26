@@ -67,14 +67,16 @@ function startCanvasPersistence<Kind extends string>(
     { wait: 250 },
   );
 
-  const unsubscribe = input.handle.subscribe(
-    (state) => state,
-    (state) => {
-      if (state.interaction === null) {
-        saveDebouncer.maybeExecute(input.handle.snapshot());
-      }
-    },
-  );
+  // `subscribeDocument` rather than `subscribe`: the store commits per field and never replaces
+  // the root, so selecting the root state compares an object to itself and never fires — this
+  // loop wrote nothing at all until that was found. The document subscription also excludes
+  // pans, viewport resizes, and snap previews, so nothing here has to filter runtime churn.
+  //
+  // A drag needs no guard either. The debounce is trailing, so continuous movement produces no
+  // write until it settles, and then exactly one.
+  const unsubscribe = input.handle.subscribeDocument((document) => {
+    saveDebouncer.maybeExecute(document);
+  });
 
   return () => {
     lifecycle.disposed = true;
