@@ -141,10 +141,12 @@ function getInfiniteCanvasWindowPlacementRect(
  * candidates are ordered by distance from `preferred`, because the nearest free spot is the one
  * that best respects the policy that chose it.
  *
- * **Returns `preferred` unchanged when nothing within `bounds` is clear**, rather than placing the
- * window outside the region. A window put somewhere out of view to avoid an overlap is the "did it
- * open?" failure, which is worse than the overlap — and on a canvas this full, overlapping where
- * the user is looking is what they would expect anyway.
+ * **When nothing is clear it takes the least-covered spot rather than giving up on `preferred`.**
+ * Staying inside `bounds` is not negotiable — a window put out of view to dodge an overlap is the
+ * "did it open?" failure, worse than any overlap — but "no room" is not a reason to drop the window
+ * on whatever happens to be in the middle. Watched: at 123% zoom the visible region holds six cells,
+ * and the third opening onto a busy view landed with 56% of it behind an existing window while a
+ * corner sat half free. Ties keep `preferred`, so a canvas with nothing on it is untouched.
  */
 function getInfiniteCanvasVacantRect(
   input: Readonly<{
@@ -157,16 +159,27 @@ function getInfiniteCanvasVacantRect(
   }>,
 ): InfiniteCanvasRect {
   const { bounds, gapPx = 0, occupied, preferred } = input;
-  const isClear = (candidate: InfiniteCanvasRect) =>
-    occupied.every(
-      (taken) =>
-        candidate.x + candidate.width + gapPx <= taken.x ||
-        taken.x + taken.width + gapPx <= candidate.x ||
-        candidate.y + candidate.height + gapPx <= taken.y ||
-        taken.y + taken.height + gapPx <= candidate.y,
-    );
+  /**
+   * How much of this candidate is covered, counting the gap as covered too.
+   *
+   * `0` is the clear case and the only one that matters most of the time; the magnitude only
+   * decides between bad options when nothing is clear. Measured with the gap included on both axes
+   * so that "nearly touching" scores worse than "comfortably apart", which is what makes the
+   * least-covered fallback pick something readable rather than something merely legal.
+   */
+  const coveredArea = (candidate: InfiniteCanvasRect) =>
+    occupied.reduce((total, taken) => {
+      const width =
+        Math.min(candidate.x + candidate.width + gapPx, taken.x + taken.width) -
+        Math.max(candidate.x - gapPx, taken.x);
+      const height =
+        Math.min(candidate.y + candidate.height + gapPx, taken.y + taken.height) -
+        Math.max(candidate.y - gapPx, taken.y);
 
-  if (isClear(preferred)) {
+      return total + (width > 0 && height > 0 ? width * height : 0);
+    }, 0);
+
+  if (coveredArea(preferred) === 0) {
     return preferred;
   }
 
@@ -188,7 +201,16 @@ function getInfiniteCanvasVacantRect(
       ((right.x - preferred.x) ** 2 + (right.y - preferred.y) ** 2),
   );
 
-  return candidates.find(isClear) ?? preferred;
+  /*
+   * Nearest clear cell if there is one; otherwise the least-covered, still nearest-first because
+   * `candidates` is already ordered that way and `reduce` keeps the incumbent on a tie. `preferred`
+   * starts as the incumbent so a bounds with no cells at all — or one where every cell is worse —
+   * returns the consumer's own choice rather than something arbitrary.
+   */
+  return candidates.reduce(
+    (best, candidate) => (coveredArea(candidate) < coveredArea(best) ? candidate : best),
+    preferred,
+  );
 }
 
 export { getInfiniteCanvasVacantRect, getInfiniteCanvasWindowPlacementRect };

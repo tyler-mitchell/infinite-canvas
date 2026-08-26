@@ -80,11 +80,10 @@ test("a gap is honoured, so windows do not land edge to edge", () => {
   expect(Math.max(horizontalGap, verticalGap)).toBeGreaterThanOrEqual(24);
 });
 
-test("a region with no room returns the preferred rect rather than placing it out of view", () => {
+test("a region with exactly one spot returns it rather than placing the window out of view", () => {
   /*
-   * The deliberate fallback. Putting the window somewhere out of `bounds` to avoid an overlap is
-   * the "did it even open?" failure, which is worse than the overlap — and on a canvas this full,
-   * overlapping where the user is looking is what they would expect.
+   * Staying inside `bounds` is not negotiable: a window put somewhere out of view to avoid an
+   * overlap is the "did it even open?" failure, which is worse than any overlap.
    */
   const tight: InfiniteCanvasRect = { height: 200, width: 300, x: 0, y: 0 };
   const preferred = at(0, 0);
@@ -92,6 +91,36 @@ test("a region with no room returns the preferred rect rather than placing it ou
   expect(getInfiniteCanvasVacantRect({ bounds: tight, occupied: [at(0, 0)], preferred })).toEqual(
     preferred,
   );
+});
+
+test("with nothing clear it takes the least-covered spot, not the preferred one", () => {
+  /*
+   * The refinement driving it produced. "No room" is not a reason to drop the window on whatever is
+   * in the middle: at 123% zoom the visible region held six cells and the third opening landed with
+   * 56% of itself behind an existing window while a corner sat half free.
+   *
+   * Here the preferred spot is buried under a large occupant and one cell is only clipped by a
+   * sliver, so the sliver must win.
+   */
+  const bounds: InfiniteCanvasRect = { height: 500, width: 660, x: 0, y: 0 };
+  const preferred = at(0, 0);
+  // Covers the preferred cell completely and only clips the row beneath it.
+  const occupied = [{ height: 260, width: 660, x: 0, y: 0 }];
+  const placed = getInfiniteCanvasVacantRect({ bounds, occupied, preferred });
+  const covered = (rect: InfiniteCanvasRect) =>
+    occupied.reduce((total, taken) => {
+      const width =
+        Math.min(rect.x + rect.width, taken.x + taken.width) - Math.max(rect.x, taken.x);
+      const height =
+        Math.min(rect.y + rect.height, taken.y + taken.height) - Math.max(rect.y, taken.y);
+
+      return total + (width > 0 && height > 0 ? width * height : 0);
+    }, 0);
+
+  // Nothing here is clear, so the assertion is comparative rather than absolute: whatever it chose
+  // has to be less buried than the spot policy asked for.
+  expect(placed).not.toEqual(preferred);
+  expect(covered(placed)).toBeLessThan(covered(preferred));
 });
 
 test("occupants outside the preferred spot do not push it around", () => {
