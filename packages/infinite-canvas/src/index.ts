@@ -55,12 +55,17 @@ export type {
 export {
   findInfiniteCanvasGroup,
   getInfiniteCanvasGroupProjection,
+  getInfiniteCanvasGroupTabLabel,
   getInfiniteCanvasGroupedWindowIds,
   getInfiniteCanvasWindowGroup,
   isInfiniteCanvasWindowGrouped,
   reconcileInfiniteCanvasGroups,
 } from "./group-state";
-export type { InfiniteCanvasGroupProjection } from "./group-state";
+export type {
+  InfiniteCanvasGroupProjection,
+  InfiniteCanvasGroupTabLabel,
+  InfiniteCanvasGroupTabLabelContext,
+} from "./group-state";
 export {
   EMPTY_INFINITE_CANVAS_HISTORY,
   INFINITE_CANVAS_HISTORY_LIMIT,

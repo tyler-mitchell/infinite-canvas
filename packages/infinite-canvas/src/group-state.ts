@@ -784,6 +784,33 @@ function applyInfiniteCanvasDockPreview<Kind extends string>(
   });
 }
 
+/** What a tab or accordion header is called. Replace via the desktop's `groupTabLabel`. */
+type InfiniteCanvasGroupTabLabelContext = Readonly<{
+  /** A window node, or a container nested inside a tab. */
+  childId: string;
+  group: InfiniteCanvasGroup;
+  windows: readonly InfiniteCanvasState<string>["windows"][number][];
+}>;
+
+type InfiniteCanvasGroupTabLabel = (context: InfiniteCanvasGroupTabLabelContext) => string;
+
+/** Window: its title. Nested tabs/accordion: what it is showing. Split: the group's title. */
+function getInfiniteCanvasGroupTabLabel(context: InfiniteCanvasGroupTabLabelContext): string {
+  const node = findInfiniteCanvasGroupNode(context.group.tree, context.childId);
+
+  if (node === null) {
+    return context.group.title;
+  }
+
+  if (node.kind === "window") {
+    return context.windows.find((window) => window.id === node.id)?.title ?? node.id;
+  }
+
+  return node.activeChildId === null
+    ? context.group.title
+    : getInfiniteCanvasGroupTabLabel({ ...context, childId: node.activeChildId });
+}
+
 export {
   DEFAULT_INFINITE_CANVAS_GROUP_TITLE,
   applyInfiniteCanvasDockPreview,
@@ -794,6 +821,7 @@ export {
   equalizeInfiniteCanvasGroupChildrenInState,
   findInfiniteCanvasGroup,
   getInfiniteCanvasGroupProjection,
+  getInfiniteCanvasGroupTabLabel,
   getInfiniteCanvasGroupedWindowIds,
   getInfiniteCanvasWindowGroup,
   isInfiniteCanvasWindowGrouped,
@@ -810,4 +838,8 @@ export {
   syncInfiniteCanvasGroupWindowRects,
   undockInfiniteCanvasWindowFromGroup,
 };
-export type { InfiniteCanvasGroupProjection };
+export type {
+  InfiniteCanvasGroupProjection,
+  InfiniteCanvasGroupTabLabel,
+  InfiniteCanvasGroupTabLabelContext,
+};

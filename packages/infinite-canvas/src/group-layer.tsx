@@ -24,6 +24,7 @@ import {
   getInfiniteCanvasGroupWindowIds,
   isInfiniteCanvasGroupContainer,
 } from "./group-tree";
+import { getInfiniteCanvasGroupTabLabel, type InfiniteCanvasGroupTabLabel } from "./group-state";
 import { getInfiniteCanvasWorkspaceWindowIds } from "./workspace-membership";
 import { capturePointer, isPrimaryButton, releasePointer } from "./runtime";
 import { useInfiniteCanvasActions, useInfiniteCanvasSelector } from "./store";
@@ -322,6 +323,7 @@ function InfiniteCanvasGroupShell({
   group,
   metrics,
   resizeHandleSize,
+  tabLabel,
   viewport,
 }: Readonly<{
   camera: InfiniteCanvasCamera;
@@ -330,6 +332,7 @@ function InfiniteCanvasGroupShell({
   group: InfiniteCanvasGroup;
   metrics: InfiniteCanvasGroupMetrics;
   resizeHandleSize: number;
+  tabLabel: InfiniteCanvasGroupTabLabel;
   viewport: InfiniteCanvasViewport;
 }>) {
   const actions = useInfiniteCanvasActions();
@@ -506,10 +509,16 @@ function InfiniteCanvasGroupShell({
           group={group}
           key={strip.containerId}
           style={getLocalRectStyle(strip.rect, group.rect)}
+          tabLabel={tabLabel}
         />
       ))}
       {accordionsByContainer.map(([containerId, headers]) => (
-        <InfiniteCanvasGroupAccordionHeaders group={group} headers={headers} key={containerId} />
+        <InfiniteCanvasGroupAccordionHeaders
+          group={group}
+          headers={headers}
+          key={containerId}
+          tabLabel={tabLabel}
+        />
       ))}
     </div>
   );
@@ -531,16 +540,15 @@ function InfiniteCanvasGroupShell({
 function InfiniteCanvasGroupAccordionHeaders({
   group,
   headers,
+  tabLabel,
 }: Readonly<{
   group: InfiniteCanvasGroup;
   headers: readonly InfiniteCanvasGroupAccordionHeader[];
+  tabLabel: InfiniteCanvasGroupTabLabel;
 }>) {
   const actions = useInfiniteCanvasActions();
   const headersRef = useRef<HTMLDivElement>(null);
   const [focusedChildId, setFocusedChildId] = useState<string | null>(null);
-  // The whole list rather than one title: a header label is resolved inside `headers.map`, where
-  // a hook cannot go. Selecting the array keeps the reference stable while nothing about the
-  // windows changes, which selecting a freshly-built lookup would not.
   const windows = useInfiniteCanvasSelector((state) => state.windows);
   const childIds = headers.map((header) => header.childId);
   const expandedChildId = headers.find((header) => header.isExpanded)?.childId;
@@ -600,7 +608,7 @@ function InfiniteCanvasGroupAccordionHeaders({
           tabIndex={header.childId === tabStopChildId ? 0 : -1}
           type="button"
         >
-          {getTabLabel(group, header.childId, windows)}
+          {tabLabel({ childId: header.childId, group, windows })}
         </button>
       ))}
     </div>
@@ -643,6 +651,7 @@ function InfiniteCanvasGroupTabStrip({
   containerId,
   group,
   style,
+  tabLabel,
 }: Readonly<{
   activeChildId: string;
   canvasInstanceId: string;
@@ -650,6 +659,7 @@ function InfiniteCanvasGroupTabStrip({
   containerId: string;
   group: InfiniteCanvasGroup;
   style: CSSProperties;
+  tabLabel: InfiniteCanvasGroupTabLabel;
 }>) {
   const stripRef = useRef<HTMLDivElement>(null);
   const [focusedChildId, setFocusedChildId] = useState<string | null>(null);
@@ -691,6 +701,7 @@ function InfiniteCanvasGroupTabStrip({
           isTabStop={childId === tabStopChildId}
           key={childId}
           onFocus={setFocusedChildId}
+          tabLabel={tabLabel}
         />
       ))}
     </div>
@@ -705,6 +716,7 @@ function InfiniteCanvasGroupTab({
   isActive,
   isTabStop,
   onFocus,
+  tabLabel,
 }: Readonly<{
   canvasInstanceId: string;
   childId: string;
@@ -713,6 +725,7 @@ function InfiniteCanvasGroupTab({
   isActive: boolean;
   isTabStop: boolean;
   onFocus: (childId: string) => void;
+  tabLabel: InfiniteCanvasGroupTabLabel;
 }>) {
   const actions = useInfiniteCanvasActions();
   const tabDrag = useInfiniteCanvasTabDrag(actions, group, childId);
@@ -748,7 +761,7 @@ function InfiniteCanvasGroupTab({
       tabIndex={isTabStop ? 0 : -1}
       type="button"
     >
-      {getTabLabel(group, childId, windows)}
+      {tabLabel({ childId, group, windows })}
     </button>
   );
 }
@@ -764,41 +777,12 @@ function getLocalRectStyle(rect: InfiniteCanvasRect, shell: InfiniteCanvasRect):
   };
 }
 
-/**
- * A tab names a window when it is one, and a container otherwise — a split or
- * accordion nested inside a tab has no title of its own, so it borrows the
- * group's. Consumers who want richer labels replace this layer wholesale.
- *
- * It returned `node.id` for the window case, which is a UUID. So every tab and
- * every accordion header in every consumer read
- * `be96a1a6-e719-43f6-849a-2850f3d9c06e` rather than the window's name — the
- * first thing anyone sees on docking two windows, and the paragraph above says
- * plainly that it should not. A group node carries `{ id, kind, weight }` and
- * has never carried a title, so the title has to come from the window.
- *
- * Falls back to the id if no window answers to it, which is a dangling child
- * rather than an untitled one: `title` is required on a window. Rendering the
- * id there is not a label anyone wants, but it names the thing that is wrong.
- */
-function getTabLabel(
-  group: InfiniteCanvasGroup,
-  childId: string,
-  windows: readonly Readonly<{ id: string; title: string }>[],
-): string {
-  const node = findInfiniteCanvasGroupNode(group.tree, childId);
-
-  if (node === null || node.kind !== "window") {
-    return group.title;
-  }
-
-  return windows.find((window) => window.id === node.id)?.title ?? node.id;
-}
-
 function InfiniteCanvasGroupLayer({
   canvasInstanceId,
   devicePixelRatio,
   metrics = DEFAULT_INFINITE_CANVAS_GROUP_METRICS,
   resizeHandleSize,
+  tabLabel = getInfiniteCanvasGroupTabLabel,
   zIndex,
 }: Readonly<{
   /** Per-canvas token, shared with the window layer, so a tab's `aria-controls` matches a frame id. */
@@ -806,6 +790,7 @@ function InfiniteCanvasGroupLayer({
   devicePixelRatio: number;
   metrics?: InfiniteCanvasGroupMetrics;
   resizeHandleSize: number;
+  tabLabel?: InfiniteCanvasGroupTabLabel;
   zIndex: number;
 }>) {
   const camera = useInfiniteCanvasSelector((state) => state.camera);
@@ -840,6 +825,7 @@ function InfiniteCanvasGroupLayer({
           key={group.id}
           metrics={metrics}
           resizeHandleSize={resizeHandleSize}
+          tabLabel={tabLabel}
           viewport={viewport}
         />
       ))}
@@ -847,8 +833,4 @@ function InfiniteCanvasGroupLayer({
   );
 }
 
-// `getTabLabel` is exported for its test only, and stays out of `index.ts` — it is the label
-// policy, not a public affordance. Worth a test despite that: its failure mode renders a UUID,
-// which reads as data rather than as a bug, and it shipped that way behind a docstring saying
-// otherwise.
-export { InfiniteCanvasGroupLayer, getTabLabel };
+export { InfiniteCanvasGroupLayer };

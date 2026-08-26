@@ -48,7 +48,11 @@ import {
 import { getInfiniteCanvasNativeDropPayload } from "./native-drop";
 import { InfiniteCanvasGridBackdrop } from "./grid-backdrop";
 import { InfiniteCanvasGroupLayer } from "./group-layer";
-import { getInfiniteCanvasGroupProjection } from "./group-state";
+import {
+  getInfiniteCanvasGroupProjection,
+  getInfiniteCanvasGroupTabLabel,
+  type InfiniteCanvasGroupTabLabel,
+} from "./group-state";
 import {
   DEFAULT_INFINITE_CANVAS_ICONS,
   InfiniteCanvasIconsContext,
@@ -213,6 +217,14 @@ type InfiniteCanvasViewportProps<
    */
   viewportInsets?: InfiniteCanvasViewportInsetsInput;
   dropPolicy?: InfiniteCanvasDropPolicy<Kind, Payload>;
+  /**
+   * Names a group's tabs and accordion headers.
+   *
+   * Defaults to `getInfiniteCanvasGroupTabLabel`, which uses the window's `title`. Replace it to
+   * label by kind, by a domain record the window's `data` points at, or by anything else — a
+   * consumer's titles are its own, and a tab strip is where they are read most.
+   */
+  groupTabLabel?: InfiniteCanvasGroupTabLabel;
   /** Chords this consumer claims for verbs the canvas does not have. Added to its keymap, never replacing it. */
   hotkeyActions?: readonly InfiniteCanvasHotkeyAction<Kind>[];
   hotkeyBindings?: readonly InfiniteCanvasHotkeyBinding[];
@@ -603,6 +615,7 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
   className,
   diagnostics = DEFAULT_INFINITE_CANVAS_DIAGNOSTICS,
   dropPolicy,
+  groupTabLabel = getInfiniteCanvasGroupTabLabel,
   hotkeyActions,
   hotkeyBindings,
   hud,
@@ -1758,6 +1771,7 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
             canvasInstanceId={canvasInstanceId}
             devicePixelRatio={devicePixelRatio}
             resizeHandleSize={chrome.resizeHandleSize}
+            tabLabel={groupTabLabel}
             zIndex={GROUP_LAYER_Z_INDEX}
           />
           <InfiniteCanvasWindowLayer

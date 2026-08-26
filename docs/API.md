@@ -334,12 +334,18 @@ buttons, and programmatic drivers share one mutation path.
 
 - `findInfiniteCanvasGroup`, `getInfiniteCanvasWindowGroup`, `isInfiniteCanvasWindowGrouped`
 - `getInfiniteCanvasGroupedWindowIds`, `getInfiniteCanvasGroupProjection`, `reconcileInfiniteCanvasGroups`
+- `getInfiniteCanvasGroupTabLabel` — what a tab or accordion header is called: the window's
+  `title`, or for a nested tabs/accordion container whatever it is currently showing. A split has
+  no single occupant and takes the group's title. Pass `groupTabLabel` to the desktop to replace
+  it — label by kind, by a domain record the window's `data` points at, by anything.
 
-<details><summary>types (3)</summary>
+<details><summary>types (5)</summary>
 
 - `InfiniteCanvasDockPreview`
 - `InfiniteCanvasGroup` — a group shell: a world object owning a local layout
 - `InfiniteCanvasGroupProjection`
+- `InfiniteCanvasGroupTabLabel` — the `groupTabLabel` prop's signature
+- `InfiniteCanvasGroupTabLabelContext` — the child being named, its group, and the canvas's windows
 
 </details>
 
