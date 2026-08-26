@@ -36,7 +36,7 @@ about this repository rather than a feeling about the code.
 
 | Reason             | Meaning                                                                                                                                                                                   | Modules                                                                                   |
 | ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
-| **unobserved**     | Shipped, typechecked, gated — never watched running.                                                                                                                                      | `canvas-handle`, `minimap`                                                                |
+| **unobserved**     | Shipped, typechecked, gated — never watched running.                                                                                                                                      | `canvas-handle`                                                                           |
 | **off-by-default** | Behind a policy prop that no default configuration turns on, so nothing exercises the shipped path.                                                                                       | `rasterization-layer`, `visibility`, `diagnostics`                                        |
 | **r3f-canary**     | Reachable only through `@hyphened/infinite-canvas/scene`, whose `@react-three/fiber` peer range admits a v10 canary. The framework cannot promise stability across someone else's canary. | `scene-surface`, `scene:scene-surface`, `scene:visibility-probes`, `scene:webgpu-surface` |
 
@@ -60,6 +60,21 @@ incubator app's persistence spine: Polkadot's autosave runs on
 unobserved is the rest of the surface — `subscribe`, `snapshot`, and
 `getContextualCommands` are driven by nothing — and the handle may still grow
 spatial queries. Experimental for what is untested, not for what it is.
+
+`minimap` followed the same path on 2026-08-26. Its entry had read "landed
+2026-07-08. No minimap has been drawn in a browser" for seven weeks, which is a
+long time for a module to sit in the public surface untested by any design.
+Polkadot drew one, and both exported functions were driven:
+`getInfiniteCanvasMinimapLayout` placed windows and the viewport frame with the
+camera panned away from content, and `getInfiniteCanvasMinimapWorldPoint` turned
+a click into a camera move and a drag into continuous scrubbing.
+
+Consuming it also produced the finding that reading it never would: the map is a
+corner-sized surface, and `viewportInsets` can only describe it as a full-width
+band. Declaring the band overstates it; declaring a right inset loses a column
+down the whole viewport. Per-edge scalars cannot express a corner. Recorded
+rather than acted on — one consumer is not enough to reshape a prop, and this is
+the second time this app has met that edge.
 
 `offscreen` was **unobserved** until Polkadot drew its indicator ring and the
 arrows were watched tracking offscreen notes in a browser. It moved to stable the
