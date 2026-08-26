@@ -477,6 +477,78 @@ that tint was a lie: it changed what a window looked like without changing anyth
 could see, so the light and the window it came from disagreed. Windows carry their own accent now
 and the fragment returns the captured pixels untouched.
 
+## Result — shader materials on individual components
+
+A window is captured as one texture layer, and **every component inside it is a sub-rectangle of
+that layer**. That is the whole trick: no per-component texture, no second capture. A UV rect is the
+handle, and the compositor already computes those rects because it needs them to route a pointer
+into a captured window.
+
+So a component declares a material in its own markup:
+
+```tsx
+<button className="note-action" data-radius="8" data-surface="sheen">
+```
+
+The compositor collects it during the walk it was doing anyway, and one instanced draw per material
+paints every component that asked for it:
+
+```
+surfaces   12 instances / 2 draws  (sheen 6, edge 6)
+```
+
+**Draw calls scale with the size of the material library on screen, not with the number of
+components.** A thousand buttons sharing a material is one draw. Against 500 000 quads in a single
+draw measured further up, a few dozen materials is not a budget worth thinking about.
+
+### Materials add light; they never replace pixels
+
+Additive blending, deliberately. If a material overwrote a component's rectangle the text inside it
+would vanish, so drawing over the captured pixels means text, layout and accessibility survive
+untouched and the GPU only contributes what the DOM cannot. Replacing would have to be opt-in.
+
+### Hover costs nothing now, and that is the point
+
+Hover used to set an attribute on the source element and re-capture that window — **2.6 ms of paint
+and copy to produce a flat colour swap**, which is exactly how it looked. It is a material now: one
+float per instance, eased toward its target each frame.
+
+After hovering a control, the `respond` readout still says _"interact with a window to test"_.
+**Zero captures.** Nothing was repainted, and the transition runs at display rate rather than at
+capture rate — so it can be a specular that sweeps across on entry and settles into a rim, which is
+not a thing a captured surface can do at all.
+
+That reframes the earlier sections. Capture cadence is the design **for content**; anything that is
+presentation rather than content should never touch the capture path.
+
+### The cheap API is the expensive one — I had this backwards
+
+A cascading custom property (`--surface: sheen`, inherited like any CSS) is the version that would
+feel native, and it needs `getComputedStyle` on every element in every window. An attribute
+(`[data-surface]`) is a cheap selector. I expected the cascade to be the costly one. Measured:
+
+| collection method                     | cost           |
+| ------------------------------------- | -------------- |
+| `[data-surface]` walk + geometry      | **3.1–4.3 ms** |
+| `getComputedStyle` over every element | **0.00 ms**    |
+
+**The geometry is the cost, not the style lookup.** `getBoundingClientRect` forces layout; reading a
+custom property off already-computed styles is free. So the nicer API is also the affordable one,
+and the thing to optimise is how often boxes are re-measured — not how materials are declared.
+
+The 0.00 is below this timer's resolution at six windows, not a claim that it is free at scale.
+
+### What this does not answer
+
+- **Rounded corners are passed as a number, not read.** `data-radius` duplicates what CSS already
+  knows. Reading `border-radius` from computed style would fix it; transforms and clipping would
+  not be fixed so easily, and a component with either would have a UV rect that does not match its
+  real shape.
+- **Nothing refracts yet.** Glass needs to sample what is already drawn, which means the compositor
+  ping-pongs two colour targets and hands the material a backdrop. Not built.
+- **The instance count is capped** at 128 window-instances, and the readout says when that
+  truncated. A real compositor would emit materials only for visible windows.
+
 ### Why the layout host stays one canvas
 
 Earlier notes in this file claimed the direct-child rule forces **one canvas per window**. It does

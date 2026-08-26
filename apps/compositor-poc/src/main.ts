@@ -3,6 +3,7 @@ import { common, d, std, tgpu } from "typegpu";
 import { createLightField, lightLayout } from "./light-field.ts";
 import { Camera, Quad } from "./scene.ts";
 import { analyzeWindows, BANDS, Signature, signatureLayout } from "./signature.ts";
+import { edgeFragment, sheenFragment, Surface, surfaceLayout, surfaceVertex } from "./surface.ts";
 
 /**
  * Three passes over one texture array: analyse, light, draw.
@@ -72,6 +73,22 @@ const paint = painted.getContext("2d") as CanvasRenderingContext2D;
 const captures: ImageBitmap[] = [];
 
 /**
+ * A CSS colour as linear-ish RGB, by letting the browser do the conversion.
+ *
+ * Parsing `oklch()` by hand was tried and produced a bright blue ground, because the components
+ * were read as if they were RGB. Painting one pixel and reading it back cannot be wrong about a
+ * colour space the browser already implements.
+ */
+const readColour = (value: string) => {
+  paint.fillStyle = value.trim() === "" ? "#ffffff" : value;
+  paint.fillRect(0, 0, 1, 1);
+
+  const pixel = paint.getImageData(0, 0, 1, 1).data;
+
+  return [(pixel[0] ?? 0) / 255, (pixel[1] ?? 0) / 255, (pixel[2] ?? 0) / 255] as const;
+};
+
+/**
  * `?html=1` rasterises a real DOM subtree per layer instead of painting shapes.
  *
  * This is the difference between measuring the *upload* and measuring the whole capture path.
@@ -115,6 +132,29 @@ let interactionResult = "click a window to test";
  */
 const responses: Record<string, string> = {};
 
+/**
+ * A component that asked for a shader material, and where it sits inside its window.
+ *
+ * The box is stored as a *fraction* of the window rather than in pixels, because the same window
+ * texture is drawn at many sizes and positions — one collection serves every instance of it.
+ */
+type SurfaceSource = {
+  readonly box: readonly [number, number, number, number];
+  readonly element: HTMLElement;
+  readonly layer: number;
+  readonly material: string;
+  readonly radius: number;
+  readonly tint: readonly [number, number, number];
+};
+
+let surfaceSources: readonly SurfaceSource[] = [];
+let collectSurfaces: (() => void) | null = null;
+let hoveredElement: HTMLElement | null = null;
+/** Hover per element, kept outside the source list so a re-collection does not reset a transition. */
+const hoverAmounts = new Map<HTMLElement, number>();
+let surfaceCollectMs = 0;
+let cascadeProbeMs = 0;
+
 if (captureNative) {
   const paintCanvas = document.createElement("canvas");
 
@@ -156,6 +196,71 @@ if (captureNative) {
   });
 
   const windowElements = Array.from(paintCanvas.querySelectorAll<HTMLElement>(":scope > .note"));
+
+  /**
+   * Turn `data-surface` declarations into geometry the GPU can draw.
+   *
+   * This is the same subtree walk the hit-test already does — the compositor needs every control's
+   * box either way — so a material system costs one more field per element rather than a second
+   * traversal. What comes out is each component's box as a *fraction* of its window, which is what
+   * makes one collection serve every quad that shows that window.
+   */
+  collectSurfaces = () => {
+    const started = performance.now();
+    const found: SurfaceSource[] = [];
+
+    for (const [layer, element] of windowElements.entries()) {
+      const box = element.getBoundingClientRect();
+      const accent = readColour(getComputedStyle(element).getPropertyValue("--accent"));
+
+      for (const node of element.querySelectorAll<HTMLElement>("[data-surface]")) {
+        const material = node.dataset["surface"];
+        const nodeBox = node.getBoundingClientRect();
+
+        if (material === undefined || box.width === 0) {
+          continue;
+        }
+
+        found.push({
+          box: [
+            (nodeBox.left - box.left) / box.width,
+            (nodeBox.top - box.top) / box.height,
+            nodeBox.width / box.width,
+            nodeBox.height / box.height,
+          ],
+          element: node,
+          layer,
+          material,
+          // Declared in the element's own pixels; carried as a fraction like everything else.
+          radius: Number(node.dataset["radius"] ?? 8) / box.width,
+          tint: accent,
+        });
+      }
+    }
+
+    surfaceCollectMs = performance.now() - started;
+    surfaceSources = found;
+  };
+
+  /*
+   * What the nicer API would cost.
+   *
+   * A custom property — `--surface: sheen` — would inherit through the CSS cascade, which is the
+   * version that would feel native. It cannot be found by a selector though: it needs
+   * `getComputedStyle` on every element in every window. Measured once here so the difference
+   * between the cheap API and the good one is a number rather than an opinion.
+   */
+  const probeStarted = performance.now();
+
+  for (const element of windowElements) {
+    for (const node of element.querySelectorAll<HTMLElement>("*")) {
+      getComputedStyle(node).getPropertyValue("--surface");
+    }
+  }
+
+  cascadeProbeMs = performance.now() - probeStarted;
+
+  collectSurfaces();
 
   // Required even though nothing is ever drawn into it: `copyElementImageToTexture` refuses with
   // "containing canvas does not have a rendering context". The canvas is a layout host, but it
@@ -403,7 +508,6 @@ if (captureNative) {
    * Only a *change* of hovered control repaints. Repainting per pointer event would pay ~3 ms a
    * move for pixels that are already correct.
    */
-  let hovered: { control: HTMLElement; layer: number } | null = null;
   /** The focused field, tracked because its ring is drawn by the compositor rather than captured. */
   let focused: HTMLElement | null = null;
 
@@ -420,21 +524,15 @@ if (captureNative) {
     // waiting on a paint.
     canvas.style.cursor = control === null ? "default" : "pointer";
 
-    if ((hovered?.control ?? null) === control) {
-      return;
-    }
-
-    const stale = hovered;
-
-    hovered = control === null || found === null ? null : { control, layer: found.layer };
-
-    stale?.control.removeAttribute("data-hover");
-
-    if (hovered) {
-      hovered.control.dataset["hover"] = "true";
-    }
-
-    markDirty([...(stale ? [stale.layer] : []), ...(hovered ? [hovered.layer] : [])], "hover");
+    /*
+     * Hover no longer touches the DOM, and does not repaint anything.
+     *
+     * It used to set an attribute on the source element and re-capture that window: 2.6 ms for a
+     * flat colour swap, which is exactly how it looked. Now it names an element and the material
+     * pass animates it — one float, no capture in the path. A captured surface can only step
+     * between states at capture rate; a material moves at display rate.
+     */
+    hoveredElement = control;
   });
 
   /**
@@ -578,6 +676,81 @@ const analyze = root.createComputePipeline({ compute: analyzeWindows }).with(
   }),
 );
 
+/**
+ * Every material instance on the canvas, laid out once and grouped by material.
+ *
+ * Built here rather than per frame because only `hover` changes between frames — a component's box,
+ * colour and radius are fixed until the next capture. Grouping by material at build time is what
+ * makes each material a contiguous instance range, so a batch is a range rather than a filter.
+ *
+ * `surfaceQuads` bounds how many *instances of a window* get materials. The readout reports when
+ * that bound truncated, because a silent cap reads as "everything is covered" when it is not.
+ */
+const surfaceQuads = Math.min(quadCount, 128);
+const surfacePlan: Array<{ element: HTMLElement; material: string }> = [];
+const surfaceBatches: Array<{ count: number; first: number; material: string }> = [];
+
+for (const material of ["sheen", "edge"]) {
+  const first = surfacePlan.length;
+
+  for (const source of surfaceSources.filter((candidate) => candidate.material === material)) {
+    for (let quad = 0; quad < surfaceQuads; quad++) {
+      if (quad % textureLayers === source.layer) {
+        surfacePlan.push({ element: source.element, material });
+      }
+    }
+  }
+
+  if (surfacePlan.length > first) {
+    surfaceBatches.push({ count: surfacePlan.length - first, first, material });
+  }
+}
+
+const surfaceCount = Math.max(surfacePlan.length, 1);
+const surfaceAtlas = new Float32Array(surfaceCount * 4);
+const surfaceParams = new Float32Array(surfaceCount * 4);
+const surfaceTint = new Float32Array(surfaceCount * 4);
+const surfaceWorld = new Float32Array(surfaceCount * 4);
+const surfacesBuffer = root.createBuffer(d.arrayOf(Surface, surfaceCount)).$usage("storage");
+
+const surfaceBindGroup = root.createBindGroup(surfaceLayout, {
+  camera: cameraBuffer,
+  sampler: root.createSampler({ magFilter: "linear", minFilter: "linear" }),
+  surfaces: surfacesBuffer,
+  windows: windowTextures,
+});
+
+/**
+ * One pipeline per material, which is what makes materials the draw-call boundary.
+ *
+ * Components sharing a material draw together however many there are, so a thousand buttons is one
+ * draw and the count scales with the size of the material *library* rather than with the UI. At
+ * 500 000 quads in a single draw measured earlier, a few dozen materials is not a budget worth
+ * thinking about.
+ */
+const materials = { edge: edgeFragment, sheen: sheenFragment };
+const materialPipelines = Object.fromEntries(
+  Object.entries(materials).map(([name, fragment]) => [
+    name,
+    root
+      .createRenderPipeline({
+        fragment,
+        primitive: { topology: "triangle-list" },
+        targets: {
+          // Additive, so a material adds light to captured pixels instead of covering them. Text
+          // inside a component survives untouched, which is the rule that keeps this usable.
+          blend: {
+            alpha: { dstFactor: "one", operation: "add", srcFactor: "one" },
+            color: { dstFactor: "one", operation: "add", srcFactor: "one" },
+          },
+          format: navigator.gpu.getPreferredCanvasFormat(),
+        },
+        vertex: surfaceVertex,
+      })
+      .with(surfaceLayout, surfaceBindGroup),
+  ]),
+);
+
 const light = createLightField(textureLayers);
 const lightPipeline = root
   .createRenderPipeline({
@@ -649,6 +822,46 @@ for (let index = 0; index < quadCount; index++) {
 }
 
 common.writeSoA(quadsBuffer, { rect: rects, tint: tints });
+
+/*
+ * The static half of every material instance, written once.
+ *
+ * A component's box, colour and radius do not change between frames — only its hover does — so the
+ * per-frame work is one float per instance rather than a rebuild. Each instance maps a component's
+ * fractional box onto one quad's world rect, which is what lets a single collection serve every
+ * instance of a window.
+ */
+{
+  let slot = 0;
+
+  for (const material of ["sheen", "edge"]) {
+    for (const source of surfaceSources.filter((candidate) => candidate.material === material)) {
+      for (let quad = 0; quad < surfaceQuads; quad++) {
+        if (quad % textureLayers !== source.layer) {
+          continue;
+        }
+
+        const offset = quad * 4;
+        const x = rects[offset] ?? 0;
+        const y = rects[offset + 1] ?? 0;
+        const width = rects[offset + 2] ?? 0;
+        const height = rects[offset + 3] ?? 0;
+        const field = slot * 4;
+
+        surfaceAtlas.set(source.box, field);
+        surfaceParams[field + 1] = source.radius * width;
+        surfaceParams[field + 2] = source.layer;
+        surfaceTint.set(source.tint, field);
+        surfaceTint[field + 3] = 1;
+        surfaceWorld[field] = x + source.box[0] * width;
+        surfaceWorld[field + 1] = y + source.box[1] * height;
+        surfaceWorld[field + 2] = source.box[2] * width;
+        surfaceWorld[field + 3] = source.box[3] * height;
+        slot += 1;
+      }
+    }
+  }
+}
 
 /**
  * One instanced draw for every quad.
@@ -890,6 +1103,41 @@ const frame = () => {
     })
     .draw(6, quadCount);
 
+  /*
+   * Materials, batched by material, drawn over the windows.
+   *
+   * Hover is animated here — one float per component, eased toward its target every frame. Nothing
+   * is captured, nothing is repainted, and the transition runs at display rate rather than at
+   * capture rate. That difference is the entire argument for materials.
+   */
+  for (const [index, instance] of surfacePlan.entries()) {
+    const target = instance.element === hoveredElement ? 1 : 0;
+    const current = hoverAmounts.get(instance.element) ?? 0;
+    // Eased rather than stepped: this is the whole difference from the capture-based version, which
+    // could only ever snap between two states because each one cost a repaint.
+    const hover = current + (target - current) * 0.14;
+
+    hoverAmounts.set(instance.element, hover);
+    surfaceParams[index * 4] = hover;
+  }
+
+  if (surfacePlan.length > 0) {
+    common.writeSoA(surfacesBuffer, {
+      atlas: surfaceAtlas,
+      params: surfaceParams,
+      tint: surfaceTint,
+      world: surfaceWorld,
+    });
+
+    // One draw per material, over a contiguous instance range. The count here is the size of the
+    // material library on screen, never the number of components.
+    for (const batch of surfaceBatches) {
+      materialPipelines[batch.material]
+        ?.withColorAttachment({ loadOp: "load", storeOp: "store", view: context })
+        .draw(6, batch.count, 0, batch.first);
+    }
+  }
+
   frameCount += 1;
 
   if (lit && !signatureReading && frameCount % 45 === 0) {
@@ -918,6 +1166,15 @@ const frame = () => {
     `textures   ${String(textureLayers)} x ${String(textureSize)}px  = ${(textureBytes / 1024 ** 2).toFixed(1)} MB`,
     `capture    ${captureLabel}`,
     ...(lit ? [`ink        ${signatureReport}   (measured from the captured pixels)`] : []),
+    ...(surfacePlan.length > 0
+      ? [
+          `surfaces   ${String(surfacePlan.length)} instances / ${String(surfaceBatches.length)} draws  (${surfaceBatches.map((batch) => `${batch.material} ${String(batch.count)}`).join(", ")})`,
+          `collect    ${surfaceCollectMs.toFixed(2)} ms attribute walk   ${cascadeProbeMs.toFixed(2)} ms if it were a cascading custom property`,
+          ...(quadCount > surfaceQuads
+            ? [`           capped at ${String(surfaceQuads)} of ${String(quadCount)} quads`]
+            : []),
+        ]
+      : []),
     ...(captureNative
       ? [
           `${String(dirtyWindows)} dirty    ${incrementalMs.toFixed(2)} ms in one paint   (${(incrementalMs / dirtyWindows).toFixed(2)} ms/window)`,

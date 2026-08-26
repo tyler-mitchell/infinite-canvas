@@ -162,11 +162,6 @@
         width: 100%;
       }
 
-      .note-field:hover,
-      .note-field[data-hover="true"] {
-        border-color: oklch(0.42 0.02 265);
-      }
-
       /*
        * Focus is marked by the compositor too, and for a second reason beyond hover's: a focus ring
        * is drawn by the browser's own compositor, not by the page, so it is not in the pixels a
@@ -180,31 +175,17 @@
       }
 
       /*
-       * Hover is marked by the compositor, not by `:hover`.
+       * There is no hover rule here any more, and its absence is the point.
        *
-       * This subtree is never under the user's pointer — the pointer is over the WebGPU canvas the
-       * whole time — so the browser's own hover state can never fire. The compositor resolves what
-       * is under the pointer and sets the attribute. `:hover` is kept alongside only so the source
-       * DOM still behaves normally when it is looked at directly.
-       *
-       * No `transition`: a captured surface only advances when it is repainted, so an animated
-       * state would freeze at whatever frame the paint happened to catch.
+       * Hover used to be an attribute the compositor set on this element, which meant a repaint and
+       * a re-copy — 2.6 ms to produce a flat colour swap, and it looked exactly as lifeless as that
+       * description sounds. It is a shader material now: `data-surface` on the button, one float
+       * per instance, no capture in the path at all. A captured surface can only ever step between
+       * states at capture rate; a material moves at display rate.
        */
-      .note-action:hover,
-      .note-action[data-hover="true"] {
-        background: oklch(0.35 0.015 265);
-        box-shadow: inset 0 0 0 1px oklch(0.5 0.02 265);
-      }
-
       .note-action[data-done="true"] {
         background: var(--accent);
         color: oklch(0.16 0.02 55);
-      }
-
-      .note-action[data-done="true"]:hover,
-      .note-action[data-done="true"][data-hover="true"] {
-        box-shadow: inset 0 0 0 1px oklch(0.98 0.02 85);
-        filter: brightness(1.12);
       }
 
       .note-meta {

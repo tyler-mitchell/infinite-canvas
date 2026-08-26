@@ -45,7 +45,16 @@ export const Note = ({ index, size }: { index: number; size: number }) => {
     >
       <div className="note-chrome" />
       <div className="note-body">
-        <span className="note-tag">{done ? "done" : "open"}</span>
+        {/*
+          The whole declaration a shader material needs, on the element it applies to.
+
+          `data-surface` names the material and `data-radius` its corner, both read by the
+          compositor while it is already walking this subtree for hit-test geometry. The component
+          says what it *is*; nothing here reaches for a canvas, a ref, or a renderer.
+        */}
+        <span className="note-tag" data-radius="999" data-surface="edge">
+          {done ? "done" : "open"}
+        </span>
         <h2>Meeting notes {index}</h2>
         <p>
           The compositor&rsquo;s constraint is texture residency, not draw calls. Half a million
@@ -68,6 +77,8 @@ export const Note = ({ index, size }: { index: number; size: number }) => {
         <button
           className="note-action"
           data-done={done ? "true" : undefined}
+          data-radius="8"
+          data-surface="sheen"
           onClick={() => {
             setDone(!done);
           }}
