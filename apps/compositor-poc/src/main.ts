@@ -132,21 +132,37 @@ if (captureNative) {
   document.body.append(paintCanvas);
 
   /**
-   * Every window as a sibling child of **one** canvas.
+   * Every window as a sibling child of **one** canvas, rendered by React.
    *
    * The immediate-child rule is about layout, so it does not force a canvas per window — this is
    * the arrangement that claim rests on, and hosting all of them here is what tests it.
+   *
+   * React renders straight *into* the canvas rather than into a host element per window, so each
+   * `.note` really is an immediate child and the layout rule holds unchanged. One root for every
+   * window, which is the arrangement a real app has; N roots would have proven something weaker.
+   *
+   * `flushSync` because the elements have to exist before the first paint is asked for — React's
+   * default async commit would hand back an empty canvas to capture.
    */
-  const windowElements = Array.from({ length: textureLayers }, (_, layer) => {
-    const element = captureSource.cloneNode(true) as HTMLElement;
-
-    (element.querySelector("h2") as HTMLElement).textContent = `Meeting notes ${String(layer)}`;
-    paintCanvas.append(element);
-
-    return element;
-  });
+  const { createRoot } = await import("react-dom/client");
+  const { flushSync } = await import("react-dom");
+  const { Note } = await import("./note.tsx");
+  const { createElement, Fragment } = await import("react");
 
   captureSource.remove();
+  flushSync(() => {
+    createRoot(paintCanvas).render(
+      createElement(
+        Fragment,
+        null,
+        Array.from({ length: textureLayers }, (_, layer) =>
+          createElement(Note, { index: layer, key: layer }),
+        ),
+      ),
+    );
+  });
+
+  const windowElements = Array.from(paintCanvas.querySelectorAll<HTMLElement>(":scope > .note"));
 
   // Required even though nothing is ever drawn into it: `copyElementImageToTexture` refuses with
   // "containing canvas does not have a rendering context". The canvas is a layout host, but it
@@ -214,6 +230,10 @@ if (captureNative) {
    * is asked what it considers changed. If `changedElements` narrows to that element and the pass
    * costs a fraction of the full one, capture is a solved problem rather than a scheduling one —
    * because nothing else gets under the per-window rasterisation floor.
+   *
+   * Written straight into the DOM rather than through React, because what is being measured is the
+   * browser's repaint cost and a state round trip would only add noise. React restores the heading
+   * the next time that window renders — which is itself the ownership boundary showing its teeth.
    */
   const dirtyCount = Math.min(Math.max(Number(params.get("dirty") ?? 1), 1), textureLayers);
   const dirty = windowElements.slice(0, dirtyCount);
@@ -425,66 +445,42 @@ if (captureNative) {
   });
 
   /**
-   * What activating a control means, per kind of control.
+   * Clicking a captured window and having React respond.
    *
-   * A button changes its own state; a field takes focus. Keyed on the tag rather than branched,
-   * because this is the table a compositor grows — every new control kind is a row, not a limb.
-   */
-  const activate: Readonly<Record<string, (control: HTMLElement) => string>> = {
-    BUTTON: (control) => {
-      const done = control.dataset["done"] !== "true";
-
-      control.dataset["done"] = String(done);
-      control.textContent = done ? "Done ✓" : "Mark as done";
-
-      return "control activated";
-    },
-    /**
-     * Real focus, not a synthesised one.
-     *
-     * The keyboard is a channel the compositor does not own and should not try to: once the browser
-     * has focus on the field, keystrokes, selection and IME all reach it natively. The compositor's
-     * whole job here is the geometry that decides *which* field — everything after that is the
-     * platform's.
-     */
-    INPUT: (control) => {
-      control.focus();
-
-      return "field focused — type";
-    },
-  };
-
-  /**
-   * Clicking a captured window and having the source DOM respond.
+   * The compositor's authority ends at geometry. It resolves which element the pointer landed on
+   * and then dispatches a **real** click, which bubbles to React's delegated listener on the root
+   * container exactly as a click on an ordinary page would — so the component's own handler runs
+   * and the component decides what its state becomes.
    *
-   * The window stays the authority for its own state. Nothing here reaches into the scene; the hit
-   * resolves to a control, the control does its own thing, and the changed window is repainted and
-   * re-copied into its layer.
+   * That boundary is the load-bearing part. Synthesising the state change instead would have made
+   * the compositor a second authority over window content, and every window would then need to be
+   * written to expect one.
    */
   canvas.addEventListener("click", (event) => {
     const found = resolvePointer(event.clientX, event.clientY);
     const control = found?.control ?? null;
+
+    // The focus ring is the compositor's to draw: the browser paints one on its own compositor,
+    // above the page, so it is simply not in the pixels a capture returns.
+    focused?.removeAttribute("data-focus");
+    focused = control?.tagName === "INPUT" ? control : null;
+    focused?.setAttribute("data-focus", "true");
 
     if (found === null || control === null) {
       interactionResult =
         found === null
           ? "no window under the pointer"
           : `window ${String(found.layer)} — hit, no control at ${found.local.x.toFixed(0)},${found.local.y.toFixed(0)}`;
-      focused?.removeAttribute("data-focus");
-      focused = null;
 
       return;
     }
 
-    const outcome = activate[control.tagName]?.(control) ?? "control has no behaviour";
+    // Focus is the platform's channel, not the compositor's: once the browser has it, keystrokes,
+    // selection and IME reach the field natively without anything here in the path.
+    control.focus();
+    control.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
 
-    // The focus ring is the compositor's to draw: the browser paints one on its own compositor,
-    // above the page, so it is simply not in the pixels a capture returns.
-    focused?.removeAttribute("data-focus");
-    focused = control.tagName === "INPUT" ? control : null;
-    focused?.setAttribute("data-focus", "true");
-
-    interactionResult = `window ${String(found.layer)} — ${outcome}`;
+    interactionResult = `window ${String(found.layer)} — ${control.tagName.toLowerCase()} clicked`;
 
     markDirty([found.layer], "click");
   });

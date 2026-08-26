@@ -36,9 +36,14 @@ their own, and cost less to answer.
 
 ## What it is allowed to be
 
-Ugly, hard-coded, and deleted. No React, deliberately — a reconciler is the thing
-being removed, so bringing one in would prove nothing. No abstraction earned by
-anything other than the measurement.
+Ugly, hard-coded, and deleted. No abstraction earned by anything other than the
+measurement.
+
+The geometry results below were taken with no React at all, deliberately: a
+reconciler driving GPU objects is the thing being removed, so those numbers had
+to stand without one. React arrived later for the opposite end of the pipe — it
+renders the source DOM that gets captured, which is the job React has always had
+and the one the real app needs. The two never meet.
 
 ## Result — question 2 answered, question 1 answered for geometry
 
@@ -332,6 +337,38 @@ when it lands, one more paint covers everything that accumulated:
 **Thirty-six keystrokes for the price of one paint.** Capture rate self-tunes to whatever the
 pipeline can sustain, so cost is bounded by the paint rate rather than the event rate — which is
 what makes input cost independent of how fast the user is.
+
+## Result — React renders the windows, and owns their state
+
+Every window is now a real React component with real `useState`. One root renders straight _into_
+the layout canvas, so each `.note` is still an immediate child and the layout rule holds unchanged.
+`flushSync` on mount, because the elements have to exist before the first paint is asked for.
+
+The loop closes: **state → render → browser paint → GPU texture.**
+
+| interaction  | React                       | static HTML (before) |
+| ------------ | --------------------------- | -------------------- |
+| hover        | 2.70 ms (1 event → 1 layer) | 1.90 ms              |
+| click        | 5.40 ms (1 → 1)             | 4.10 ms              |
+| typing burst | **9.90 ms (31 → 1)**        | 5.10 ms              |
+
+React roughly doubles the coalesced cost and stays comfortably inside a frame. The typed text and
+the character count both appear on the canvas, and the count is the tell — it is rendered from
+state, so a controlled input echoing keystrokes could not produce it.
+
+### The compositor dispatches events; it does not set state
+
+The click handler resolves which element the pointer landed on and then dispatches a **real**
+`MouseEvent`, which bubbles to React's delegated listener on the root container exactly as a click
+on an ordinary page would. The component's own handler runs and the component decides what happens.
+
+This is the boundary the whole architecture rests on. Synthesising the state change instead would
+have made the compositor a second authority over window content, and every window in the app would
+then have to be written expecting one. As it stands, `Note` does not know it is being captured —
+which is the only version of this that survives contact with a real codebase.
+
+Focus works the same way: the compositor calls `focus()` and stops. Keystrokes, selection and IME
+reach the field through the platform's own channels with nothing of ours in the path.
 
 ### Why the layout host stays one canvas
 

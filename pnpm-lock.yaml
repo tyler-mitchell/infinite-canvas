@@ -183,6 +183,12 @@ importers:
       '@zumer/snapdom':
         specifier: 'catalog:'
         version: 2.12.8
+      react:
+        specifier: 'catalog:'
+        version: 19.2.7
+      react-dom:
+        specifier: 'catalog:'
+        version: 19.2.7(react@19.2.7)
       typegpu:
         specifier: 'catalog:'
         version: 0.12.3
@@ -190,6 +196,15 @@ importers:
       '@types/node':
         specifier: 'catalog:'
         version: 24.13.3
+      '@types/react':
+        specifier: 'catalog:'
+        version: 19.2.17
+      '@types/react-dom':
+        specifier: 'catalog:'
+        version: 19.2.3(@types/react@19.2.17)
+      '@vitejs/plugin-react':
+        specifier: 'catalog:'
+        version: 6.0.2(@voidzero-dev/vite-plus-core@0.2.9(@arethetypeswrong/core@0.18.5)(@types/node@24.13.3)(jiti@2.7.0)(publint@0.3.23)(typescript@6.0.3)(yaml@2.9.0))
       '@webgpu/types':
         specifier: 'catalog:'
         version: 0.1.72
