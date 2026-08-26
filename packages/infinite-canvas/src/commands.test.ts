@@ -35,6 +35,7 @@ const commandState: InfiniteCanvasState<CommandTestWindowKind> = {
     height: 600,
     width: 800,
   },
+  viewportInsets: { bottom: 0, left: 0, right: 0, top: 0 },
   windows: [
     {
       id: "alpha",

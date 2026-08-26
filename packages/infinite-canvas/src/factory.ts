@@ -1,4 +1,5 @@
 import { DEFAULT_INFINITE_CANVAS_CAMERA } from "./constants";
+import { resolveInfiniteCanvasViewportInsets } from "./geometry";
 import { reconcileInfiniteCanvasGroups } from "./group-state";
 import { EMPTY_INFINITE_CANVAS_HISTORY } from "./history";
 import { normalizeSelection } from "./selection";
@@ -11,6 +12,7 @@ import type {
   InfiniteCanvasSize,
   InfiniteCanvasState,
   InfiniteCanvasViewport,
+  InfiniteCanvasViewportInsetsInput,
   InfiniteCanvasWindow,
   InfiniteCanvasWindowDefinition,
   InfiniteCanvasWindowCapabilities,
@@ -41,6 +43,7 @@ type InfiniteCanvasStateInput<Kind extends string> = Readonly<{
   groups?: readonly InfiniteCanvasGroup[];
   selection?: InfiniteCanvasSelection | readonly string[];
   viewport?: InfiniteCanvasViewport;
+  viewportInsets?: InfiniteCanvasViewportInsetsInput;
   windows: readonly InfiniteCanvasWindow<Kind>[];
 }>;
 
@@ -146,6 +149,7 @@ function createInfiniteCanvasState<Kind extends string>({
   groups = [],
   selection,
   viewport = DEFAULT_INFINITE_CANVAS_VIEWPORT,
+  viewportInsets,
   windows,
   workspaces = [],
 }: InfiniteCanvasStateInput<Kind>): InfiniteCanvasState<Kind> {
@@ -174,6 +178,9 @@ function createInfiniteCanvasState<Kind extends string>({
     selection: readSelectionInput(selection, resolvedActiveWindowId),
     snapPreview: null,
     viewport: cloneSize(viewport),
+    // No chrome until a consumer says otherwise, so a canvas that never sets them behaves exactly
+    // as it did before insets existed.
+    viewportInsets: resolveInfiniteCanvasViewportInsets(viewportInsets),
     windows: uniqueWindows.map((window) =>
       createInfiniteCanvasWindow({
         ...window,

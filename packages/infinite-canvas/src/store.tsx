@@ -5,6 +5,7 @@ import { useSelector, useValue } from "@legendapp/state/react";
 import { createContext, useContext, useEffect, useRef, type ReactNode } from "react";
 
 import { resolveInfiniteCanvasZoomPolicy } from "./constants";
+import { resolveInfiniteCanvasViewportInsets } from "./geometry";
 import {
   getInfiniteCanvasScopedStorageKey,
   parseInfiniteCanvasStateJson,
@@ -396,6 +397,12 @@ function createInfiniteCanvasStore<Kind extends string>(
       dispatch({
         type: "viewport.set",
         viewport,
+      });
+    },
+    setViewportInsets: (insets) => {
+      dispatch({
+        insets: resolveInfiniteCanvasViewportInsets(insets),
+        type: "viewportInsets.set",
       });
     },
     startMarquee: ({ mode, pointerId, point }) => {

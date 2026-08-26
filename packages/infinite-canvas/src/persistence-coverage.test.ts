@@ -42,6 +42,10 @@ const PERSISTENCE: Readonly<Record<keyof InfiniteCanvasState<Kind>, NotPersisted
   // Measured from the DOM on mount. Restoring the old one would fight the first resize
   // observation and could hydrate a canvas sized for someone else's monitor.
   viewport: "measured",
+  // The consumer's own chrome, declared by the consumer on mount. Restoring it would be worse
+  // than restoring a viewport: a layout saved while a sidebar was open would keep reserving that
+  // space in a build where the sidebar no longer exists.
+  viewportInsets: "measured",
   windows: "persisted",
   workspaces: "persisted",
 };

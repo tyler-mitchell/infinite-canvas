@@ -91,6 +91,9 @@ const ACTION_COMMAND_COVERAGE: Readonly<
   "selection.targets.toggle": "parameterized",
   "selection.toggle": "parameterized",
   "viewport.set": "lifecycle",
+  // Same category as measuring the viewport: the host declares how much of it its own chrome
+  // covers. A palette entry cannot know, and a user cannot want to invoke it.
+  "viewportInsets.set": "lifecycle",
   // Creating and titling a set stays the consumer's: a palette entry cannot invent which set,
   // any more than it can invent which window to open. Switching and editing membership do
   // resolve from state — cycle, show all, take the active window off this desktop — and those

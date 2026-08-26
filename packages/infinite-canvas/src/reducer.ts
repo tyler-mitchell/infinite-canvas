@@ -285,6 +285,11 @@ function applyInfiniteCanvasAction<Kind extends string>(
         ...state,
         viewport: action.viewport,
       };
+    case "viewportInsets.set":
+      return {
+        ...state,
+        viewportInsets: action.insets,
+      };
     case "workspace.create":
       return createInfiniteCanvasWorkspace(state, action);
     case "workspace.setTitle":

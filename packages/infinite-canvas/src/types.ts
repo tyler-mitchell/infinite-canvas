@@ -389,6 +389,11 @@ type InfiniteCanvasState<Kind extends string = string> = Readonly<{
   selection: InfiniteCanvasSelection;
   snapPreview: InfiniteCanvasSnapPreview | null;
   viewport: InfiniteCanvasViewport;
+  /**
+   * Screen space the consumer's own chrome covers. Measured, never serialized — for exactly the
+   * reason `viewport` is not: it describes the window being looked through, not the canvas.
+   */
+  viewportInsets: InfiniteCanvasViewportInsets;
   windows: readonly InfiniteCanvasWindow<Kind>[];
   workspaces: readonly InfiniteCanvasWorkspace[];
 }>;
@@ -1347,6 +1352,7 @@ type InfiniteCanvasAction<Kind extends string = string> =
     }>
   | Readonly<{ type: "selection.toggle"; windowIds: readonly string[] }>
   | Readonly<{ type: "viewport.set"; viewport: InfiniteCanvasViewport }>
+  | Readonly<{ insets: InfiniteCanvasViewportInsets; type: "viewportInsets.set" }>
   | Readonly<{ title: string; type: "window.setTitle"; windowId: string }>
   | Readonly<{ type: "window.close"; windowId: string }>
   | Readonly<{ type: "window.focus"; windowId: string }>
@@ -1490,6 +1496,8 @@ type InfiniteCanvasCommands<Kind extends string = string> = Readonly<{
   setTargetSelection: (targets: readonly InfiniteCanvasSelectionTarget[]) => void;
   setSelection: (windowIds: readonly string[]) => void;
   setViewport: (viewport: InfiniteCanvasViewport) => void;
+  /** Tell the canvas which edges the consumer's own chrome is covering. */
+  setViewportInsets: (insets: InfiniteCanvasViewportInsetsInput) => void;
   startMarquee: (
     input: Readonly<{
       mode: InfiniteCanvasMarqueeMode;

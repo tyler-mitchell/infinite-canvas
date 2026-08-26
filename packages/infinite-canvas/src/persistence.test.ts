@@ -55,6 +55,7 @@ const state: InfiniteCanvasState<PersistedWindowKind> = {
     height: 700,
     width: 900,
   },
+  viewportInsets: { bottom: 0, left: 0, right: 0, top: 0 },
   windows: [
     {
       id: "demo-window",
@@ -111,6 +112,7 @@ test("serializing layout strips volatile interaction and viewport state on parse
       height: 0,
       width: 0,
     },
+    viewportInsets: { bottom: 0, left: 0, right: 0, top: 0 },
   });
 
   expect(restored?.activeWindowId).toBe("demo-window");

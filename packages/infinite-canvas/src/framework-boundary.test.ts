@@ -140,6 +140,7 @@ test("window proxies expose read-only window projection for R3F layers", () => {
       height: 600,
       width: 800,
     },
+    viewportInsets: { bottom: 0, left: 0, right: 0, top: 0 },
     windows: [
       demoWindow,
       {
@@ -223,6 +224,7 @@ test("window proxies use the same device-pixel-snapped screen projection as DOM 
       height: 600,
       width: 800,
     },
+    viewportInsets: { bottom: 0, left: 0, right: 0, top: 0 },
     windows: [
       {
         ...demoWindow,
@@ -376,6 +378,7 @@ test("registry normalization drops stale persisted window kinds", () => {
       height: 0,
       width: 0,
     },
+    viewportInsets: { bottom: 0, left: 0, right: 0, top: 0 },
     windows: [
       {
         ...demoWindow,

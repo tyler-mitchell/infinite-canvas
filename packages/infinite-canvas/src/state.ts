@@ -97,6 +97,7 @@ function cloneInfiniteCanvasState<Kind extends string>(
     groups: state.groups.map(cloneGroup),
     selection: cloneSelection(state.selection),
     viewport: cloneSize(state.viewport),
+    viewportInsets: { ...state.viewportInsets },
     windows: state.windows.map(cloneWindow),
     workspaces: state.workspaces.map(cloneWorkspace),
   };

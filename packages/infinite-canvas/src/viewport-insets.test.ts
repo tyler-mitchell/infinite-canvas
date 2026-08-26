@@ -1,5 +1,7 @@
 import { expect, test } from "vite-plus/test";
 
+import { navigateCameraToWindow } from "./camera-navigation";
+import { createInfiniteCanvasState, createInfiniteCanvasWindow } from "./factory";
 import {
   fitCameraToWorldRect,
   getInfiniteCanvasContentViewport,
@@ -7,6 +9,7 @@ import {
   resolveInfiniteCanvasViewportInsets,
   screenPointToWorldPoint,
 } from "./geometry";
+import { reduceInfiniteCanvasState } from "./reducer";
 import type { InfiniteCanvasRect, InfiniteCanvasViewport } from "./types";
 
 /**
@@ -133,6 +136,68 @@ test("fitCameraToWorldRect with insets — is unchanged when no insets are given
       top: 0,
     }),
   );
+});
+
+/**
+ * The wiring, not the maths.
+ *
+ * The geometry above can be perfectly right while nothing reads it — which is the more likely
+ * failure, since a helper nobody calls still passes its own tests. These drive the state the
+ * commands actually use.
+ */
+test("navigateCamera — centring a window accounts for chrome on one edge", () => {
+  const base = createInfiniteCanvasState<"note">({
+    viewport: VIEWPORT,
+    viewportInsets: { left: 400 },
+    windows: [
+      createInfiniteCanvasWindow<"note">({
+        id: "note",
+        kind: "note",
+        rect: { height: 200, width: 400, x: 1000, y: 500 },
+      }),
+    ],
+  });
+  const navigated = navigateCameraToWindow(base, { windowId: "note" });
+  const screen = screenPointOf(navigated.camera, { x: 1200, y: 600 });
+
+  // The middle of what is visible: 400 + (1200 - 400) / 2.
+  expect(screen.x).toBeCloseTo(800, 6);
+  expect(screen.y).toBeCloseTo(400, 6);
+});
+
+test("navigateCamera — a canvas that never sets insets is unchanged", () => {
+  const windows = [
+    createInfiniteCanvasWindow<"note">({
+      id: "note",
+      kind: "note",
+      rect: { height: 200, width: 400, x: 1000, y: 500 },
+    }),
+  ];
+
+  expect(
+    navigateCameraToWindow(createInfiniteCanvasState<"note">({ viewport: VIEWPORT, windows }), {
+      windowId: "note",
+    }).camera,
+  ).toEqual(
+    navigateCameraToWindow(
+      createInfiniteCanvasState<"note">({
+        viewport: VIEWPORT,
+        viewportInsets: { bottom: 0, left: 0, right: 0, top: 0 },
+        windows,
+      }),
+      { windowId: "note" },
+    ).camera,
+  );
+});
+
+test("viewportInsets.set — the store's action reaches state, with unnamed edges filled", () => {
+  const base = createInfiniteCanvasState<"note">({ viewport: VIEWPORT, windows: [] });
+  const next = reduceInfiniteCanvasState(base, {
+    insets: resolveInfiniteCanvasViewportInsets({ left: 320 }),
+    type: "viewportInsets.set",
+  });
+
+  expect(next.viewportInsets).toEqual({ bottom: 0, left: 320, right: 0, top: 0 });
 });
 
 test("fitCameraToWorldRect with insets — agrees with the framework's own screen projection", () => {

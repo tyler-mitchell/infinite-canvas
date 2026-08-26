@@ -2,6 +2,7 @@ import { DEFAULT_INFINITE_CANVAS_ZOOM } from "./constants";
 import {
   fitCameraToWorldRect,
   getConstrainedZoom,
+  getInfiniteCanvasInsetCameraCenter,
   getRectCenter,
   isUsableViewport,
 } from "./geometry";
@@ -73,6 +74,7 @@ function getFitCamera(
     rect,
     behavior.paddingPx ?? 80,
     zoomPolicy,
+    state.viewportInsets,
   );
   const maxZoom = getFiniteNumberOrFallback(behavior.maxZoom, Number.POSITIVE_INFINITY);
 
@@ -90,22 +92,32 @@ function getCameraNavigationFrame(
   behavior: InfiniteCanvasCameraNavigationBehavior = DEFAULT_INFINITE_CANVAS_CAMERA_NAVIGATION_BEHAVIOR,
   zoomPolicy: InfiniteCanvasZoomPolicy = DEFAULT_INFINITE_CANVAS_ZOOM,
 ): InfiniteCanvasCamera | null {
+  /*
+   * Centred in what the user can see, not in the element.
+   *
+   * With chrome on an edge, the middle of the viewport is behind it. Both branches below shift by
+   * the inset asymmetry — and both must, because `centerAtZoom` changes the zoom and the shift is
+   * measured in world units, so the same screen offset is a different world offset at each zoom.
+   */
   const center = getRectCenter(rect);
 
   switch (behavior.type) {
     case "center":
       return {
         ...state.camera,
-        center,
+        center: getInfiniteCanvasInsetCameraCenter(center, state.camera.zoom, state.viewportInsets),
       };
-    case "centerAtZoom":
+    case "centerAtZoom": {
+      const zoom = getConstrainedZoom(
+        getFiniteNumberOrFallback(behavior.zoom, state.camera.zoom),
+        zoomPolicy,
+      );
+
       return {
-        center,
-        zoom: getConstrainedZoom(
-          getFiniteNumberOrFallback(behavior.zoom, state.camera.zoom),
-          zoomPolicy,
-        ),
+        center: getInfiniteCanvasInsetCameraCenter(center, zoom, state.viewportInsets),
+        zoom,
       };
+    }
     case "fit":
       return getFitCamera(state, rect, behavior, zoomPolicy);
   }
