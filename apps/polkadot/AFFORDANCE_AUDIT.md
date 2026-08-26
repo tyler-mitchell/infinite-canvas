@@ -1,11 +1,11 @@
 # Polkadot affordance admission record
 
-Implementation gate: **open for Phase 2 runtime load and canvas hydration**
+Implementation gate: **open for Phase 2b project and canvas library**
 
-Phase 1 is closed: the local database spine was proven in the browser — a note
-was typed, the page was reloaded, and the text came back from IndexedDB.
-Phase 3's note body landed early, out of sequence, and is recorded as such
-below. The admitted work is Phase 2 as written in `IMPLEMENTATION_PHASES.md`.
+Phases 1 and 2 are closed against browser witnesses recorded in
+`IMPLEMENTATION_PHASES.md`, with one box left unticked there rather than claimed.
+Phase 3's note body landed early, out of sequence, and is recorded as such below.
+The admitted work is Phase 2b: canvas lifecycle first, then projects.
 
 This record is the required evidence boundary between a product need and an
 implementation. Every row must identify the existing authority or prove a
