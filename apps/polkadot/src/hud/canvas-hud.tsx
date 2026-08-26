@@ -1,6 +1,7 @@
 import {
   getInfiniteCanvasGroupParent,
   getInfiniteCanvasWindowGroup,
+  isInfiniteCanvasGroupContainer,
   useInfiniteCanvasActions,
   useInfiniteCanvasSelector,
   useInfiniteCanvasStore,
@@ -78,17 +79,21 @@ function Verb({
   icon: Icon,
   label,
   onPress,
+  pressed,
   variant = "ghost",
 }: Readonly<{
   disabled?: boolean;
   icon: ComponentType<Readonly<{ className?: string }>>;
   label: string;
   onPress: () => void;
+  /** Set on a verb that is one of a set and can be the current one. Omitted on a plain action. */
+  pressed?: boolean;
   variant?: "destructive" | "ghost" | "secondary";
 }>) {
   return (
     <Button
       aria-label={label}
+      aria-pressed={pressed}
       disabled={disabled}
       onClick={onPress}
       onPointerDown={(event) => {
@@ -193,23 +198,41 @@ const GROUP_LAYOUTS = [
 function GroupRail() {
   const actions = useInfiniteCanvasActions();
   const styles = canvasHud();
-  // The container's own layout, not the group's — a nested split inside a tabbed group is the case
-  // where those differ, and the buttons must describe the pane the active window is actually in.
-  const layout = useInfiniteCanvasSelector<WindowKind, InfiniteCanvasGroupLayoutMode | null>(
-    (state) => {
-      const tree =
-        state.activeWindowId === null
-          ? undefined
-          : getInfiniteCanvasWindowGroup(state, state.activeWindowId)?.tree;
+  /*
+   * Two questions, and conflating them hid the rail.
+   *
+   * Presence is "is the active window in a group" — when ungroup and undock mean anything. Layout
+   * is the *container* holding it, a different node: a nested split inside a tabbed group is where
+   * those differ, and the buttons must describe the pane the window is actually in.
+   *
+   * `getInfiniteCanvasGroupParent` answers `null` for a member that is the tree root — its own doc
+   * says so and this keyed presence on it anyway, so grouping produced a group with no rail to
+   * manage it. Watched rather than reasoned: the verb made the group, the camera fitted it, and
+   * nothing appeared.
+   */
+  const group = useInfiniteCanvasSelector<
+    WindowKind,
+    Readonly<{ inGroup: boolean; layout: InfiniteCanvasGroupLayoutMode | null }>
+  >((state) => {
+    const windowId = state.activeWindowId;
+    const tree =
+      windowId === null ? undefined : getInfiniteCanvasWindowGroup(state, windowId)?.tree;
 
-      return tree === undefined || state.activeWindowId === null
-        ? null
-        : (getInfiniteCanvasGroupParent(tree, state.activeWindowId)?.layout ?? null);
-    },
-  );
+    if (tree === undefined || windowId === null) {
+      return { inGroup: false, layout: null };
+    }
+
+    const container = getInfiniteCanvasGroupParent(tree, windowId);
+
+    return {
+      inGroup: true,
+      layout: container?.layout ?? (isInfiniteCanvasGroupContainer(tree) ? tree.layout : null),
+    };
+  });
+  const layout = group.layout;
 
   return (
-    <HudSurface anchor="bottom-center-above" present={layout !== null}>
+    <HudSurface anchor="bottom-center-above" present={group.inGroup}>
       <div className={styles.rail()}>
         {GROUP_LAYOUTS.map((entry) => (
           <Verb
@@ -219,6 +242,12 @@ function GroupRail() {
             onPress={() => {
               actions.executeCommand({ layout: entry.layout, type: "group.setLayout" });
             }}
+            /*
+             * Which one is live was said in colour and nowhere else — three buttons that read as
+             * three identical unrelated actions to anything not looking at them, in the control
+             * whose whole job is showing which shape the container is in.
+             */
+            pressed={entry.layout === layout}
             variant={entry.layout === layout ? "secondary" : "ghost"}
           />
         ))}
