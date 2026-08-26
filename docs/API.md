@@ -36,7 +36,7 @@ about this repository rather than a feeling about the code.
 
 | Reason             | Meaning                                                                                                                                                                                   | Modules                                                                                   |
 | ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
-| **unobserved**     | Shipped, typechecked, gated — never watched running.                                                                                                                                      | `canvas-handle`, `minimap`, `offscreen`                                                   |
+| **unobserved**     | Shipped, typechecked, gated — never watched running.                                                                                                                                      | `canvas-handle`, `minimap`                                                                |
 | **off-by-default** | Behind a policy prop that no default configuration turns on, so nothing exercises the shipped path.                                                                                       | `rasterization-layer`, `visibility`, `diagnostics`                                        |
 | **r3f-canary**     | Reachable only through `@hyphened/infinite-canvas/scene`, whose `@react-three/fiber` peer range admits a v10 canary. The framework cannot promise stability across someone else's canary. | `scene-surface`, `scene:scene-surface`, `scene:visibility-probes`, `scene:webgpu-surface` |
 
@@ -52,6 +52,11 @@ that day rather than given a tier. The package has never been published, so the
 removal broke no one. `window-scene-shell.ts` stays on disk because `window-proxy`
 calls one function from it, and it is re-exportable in a minor if a consumer ever
 asks — a promise not yet made is cheaper to keep than one made and withdrawn.
+
+`offscreen` was **unobserved** until Polkadot drew its indicator ring and the
+arrows were watched tracking offscreen notes in a browser. It moved to stable the
+day that stopped being true, which is the only thing that should ever move an
+entry: these reasons are facts with expiry dates, not permanent labels.
 
 ### What is deliberately _not_ experimental
 
@@ -589,6 +594,45 @@ pointer is down, which is when chrome should recede.
 - `getInfiniteCanvasInteractionCursor`
 - `getInfiniteCanvasPointerMode`
 - `withInfiniteCanvasPointerMode`
+
+## Connection authoring
+
+Dragging from one window to another to declare a relationship between them. The
+framework owns the gesture — where the handles sit, when they appear, when they
+must not disappear, and what the far end is at this instant — because all of it
+is a question about windows and a camera. A consumer supplies only whether a
+given pair may be joined and what to write when it is; nothing here knows what a
+connection means.
+
+**`window-connection`**
+
+- `DEFAULT_CONNECTION_HANDLE_OFFSET_PX`
+- `DEFAULT_CONNECTION_HANDLE_RADIUS_PX`
+- `getInfiniteCanvasConnectionAffordanceRect`
+- `getInfiniteCanvasConnectionAffordanceWindowId`
+- `getInfiniteCanvasConnectionHandles`
+- `getInfiniteCanvasConnectionPreviewPath`
+
+<details><summary>types (3)</summary>
+
+- `InfiniteCanvasConnectionEdge`
+- `InfiniteCanvasConnectionHandle`
+- `InfiniteCanvasConnectionHandleOptions`
+
+</details>
+
+`getInfiniteCanvasConnectionAffordanceWindowId` is the one that is easy to get
+wrong. Handles sit _outside_ a window, so visibility driven by "is the pointer
+over the window" makes them vanish the instant anyone moves toward one — the
+pointer leaves the rect on its way to the thing the rect revealed. Pass the
+previously-showing window back in on every pointer move: the affordance is held
+while the pointer is anywhere in the ring the handles occupy, and handed over
+only when the pointer is properly inside a different window, so a neighbour
+cannot steal it mid-reach.
+
+`getInfiniteCanvasConnectionPreviewPath` accepts a point or a rect as its far
+end and routes both identically, so the line shown during a drag is the line
+that will be committed rather than one that resembles it.
 
 ## Scene layer helpers
 

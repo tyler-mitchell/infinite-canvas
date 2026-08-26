@@ -69,6 +69,8 @@
     "window-focus",
     "window-placement",
     "window-presence",
+    "offscreen",
+    "window-connection",
     "window-proxy",
     "workspace",
     "workspace-membership"
@@ -77,7 +79,6 @@
     "canvas-handle": "unobserved \u2014 a debug and automation seam, not a consumer API. Its shape follows whatever drives it.",
     "diagnostics": "off-by-default \u2014 this policy exists to switch on the frustum probe layer, and nothing switches it on.",
     "minimap": "unobserved \u2014 landed 2026-07-08. No minimap has been drawn in a browser.",
-    "offscreen": "unobserved \u2014 landed 2026-07-08. No arrow has been drawn in a browser.",
     "rasterization-layer": "off-by-default \u2014 the policy, scheduler, and snapshot capture ship behind the rasterization prop. P7 intends to rebuild the capture lane on html-in-canvas.",
     "visibility": "off-by-default \u2014 reads the store only the frustum probe layer writes, so every reading is null unless /scene is mounted with diagnostics.frustum.",
     "scene-surface": "r3f-canary \u2014 the surface contract the /scene entry implements.",

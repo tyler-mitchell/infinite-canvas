@@ -1,13 +1,15 @@
 import {
-  getInfiniteCanvasRectConnectorPath,
+  getInfiniteCanvasConnectionAffordanceWindowId,
+  getInfiniteCanvasConnectionHandles,
+  getInfiniteCanvasConnectionPreviewPath,
   getInfiniteCanvasWindowData,
   resolveInfiniteCanvasSpatialTarget,
   screenPointToWorldPoint,
   useInfiniteCanvasState,
   worldPointToScreenPoint,
-  worldRectToScreenRect,
   type InfiniteCanvasPoint,
-  type InfiniteCanvasRect,
+  type InfiniteCanvasState,
+  type InfiniteCanvasWindow,
 } from "@hyphened/infinite-canvas";
 import { useObservable, useValue } from "@legendapp/state/react";
 import { useEffect, useRef } from "react";
@@ -20,30 +22,20 @@ import { NoteWindowData, type WindowKind } from "./window-registry";
 /**
  * Authoring a connection by dragging one note onto another.
  *
- * Until this, an edge could only be made from the command palette with both notes open *and*
- * selected — so the rail could show you a graph you had no way to build, and connecting two things
- * you were already looking at cost a modal.
+ * Everything about *the gesture* now lives in the framework — where the handles are, when they
+ * appear, when they must not disappear, and what the far end is at this instant — because none of
+ * it is a Polkadot idea. What is left here is the only part that is: which windows are showing
+ * notes, whether two notes may be joined, and what to write when they are.
  *
- * Composed, not restated. `resolveInfiniteCanvasSpatialTarget` is the framework's single answer to
- * "what is under this pointer", including which window and which part of it, so nothing here walks
- * the window list or compares rects. `getInfiniteCanvasRectConnectorPath` routes the preview, and
- * routes it *the same way the committed edge is routed* — see `pointRect` for why that works with
- * a pointer that is not a window yet.
- *
- * Drawn above the windows rather than beneath them like `ConnectorLayer`: a settled connector
- * belongs to the scene and should pass under the note you are reading, but a line you are actively
- * dragging is the thing you are looking at, and hiding it behind a window you are dragging over is
- * the one moment it has to be visible.
+ * The first version of this hand-rolled the gesture and shipped a handle that vanished the moment
+ * you reached for it, because visibility asked "is the pointer over the window" while the handle
+ * sat outside it. `getInfiniteCanvasConnectionAffordanceWindowId` is that fix, generically: it
+ * holds a window's affordance while the pointer is anywhere in the ring the handles occupy, and
+ * hands it over only when the pointer is properly inside a different window.
  */
-
-/** Screen pixels from the window's edge to the handle's centre. */
-const HANDLE_OFFSET = 14;
-
-const HANDLE_RADIUS = 7;
 
 const draft = tv({
   slots: {
-    /** Sits on the world, so it scales with nothing — a handle is chrome, not scenery. */
     handle:
       "pointer-events-auto absolute -translate-x-1/2 -translate-y-1/2 cursor-crosshair rounded-full bg-[var(--surface-raised)] shadow-[var(--lift-1)] inset-ring-1 inset-ring-[var(--edge-light)] transition-colors duration-100 ease-[var(--ease-swift)] hover:bg-[var(--accent)]",
     handleCore: "absolute inset-[3px] rounded-full bg-[var(--accent)]",
@@ -53,42 +45,48 @@ const draft = tv({
   },
   variants: {
     landing: {
-      // Dashed while the far end is only a pointer, solid once it is over a note it can join.
-      // The line answers "will this commit?" without a second affordance.
+      // Dashed while the far end is only a pointer, solid once it is over a note it can join. The
+      // line answers "will this commit?" without a second affordance.
       false: { path: "opacity-50 [stroke-dasharray:4_4]" },
       true: { path: "opacity-90" },
     },
   },
 });
 
-/**
- * A pointer, as a rect the connector geometry accepts.
- *
- * `getInfiniteCanvasRectConnectorPath` takes two rects, and a drag has one rect and one bare
- * point — but a zero-extent rect *is* that point to this geometry, exactly rather than
- * approximately: its centre is the point, and the edge anchor it computes for a zero half-size
- * scales to zero and lands back on the centre. So the preview is routed by the same function, with
- * the same elbow, as the edge it is about to become. No parallel path maths, and no framework
- * change to admit a point.
- */
-function pointRect(point: InfiniteCanvasPoint): InfiniteCanvasRect {
-  return { height: 0, width: 0, x: point.x, y: point.y };
-}
-
 type Draft = Readonly<{
-  /** Viewport coordinates, which is what the spatial resolver reads. */
+  /** Viewport coordinates, which is what the framework's resolvers read. */
   pointer: InfiniteCanvasPoint;
   sourceNoteId: string;
   sourceWindowId: string;
 }>;
 
+function getNoteId(window: InfiniteCanvasWindow<WindowKind> | undefined) {
+  return window === undefined
+    ? undefined
+    : getInfiniteCanvasWindowData(window, NoteWindowData.allows)?.noteId;
+}
+
+/** Whatever window a drag is currently over, through the framework's one answer for that. */
+function getLandingWindow(
+  state: InfiniteCanvasState<WindowKind>,
+  viewportPoint: InfiniteCanvasPoint,
+) {
+  const target = resolveInfiniteCanvasSpatialTarget<WindowKind>({
+    chrome: CANVAS_CHROME,
+    state,
+    viewportPoint,
+  });
+
+  return target.type === "window" ? target.window : undefined;
+}
+
 export function ConnectorDraft({ projectId }: Readonly<{ projectId: string }>) {
   const state = useInfiniteCanvasState<WindowKind>();
   const relations = useValue(relations$);
   const rootRef = useRef<HTMLDivElement | null>(null);
-  const hovered$ = useObservable<string | null>(null);
+  const affordance$ = useObservable<string | null>(null);
   const draft$ = useObservable<Draft | null>(null);
-  const hovered = useValue(hovered$);
+  const affordanceWindowId = useValue(affordance$);
   const dragging = useValue(draft$);
   const isDragging = dragging !== null;
   const styles = draft();
@@ -102,20 +100,14 @@ export function ConnectorDraft({ projectId }: Readonly<{ projectId: string }>) {
    * untouched.
    */
   useEffect(() => {
-    const toViewportPoint = (event: PointerEvent) => {
+    const onPointerMove = (event: PointerEvent) => {
       const bounds = rootRef.current?.getBoundingClientRect();
 
-      return bounds === undefined
-        ? null
-        : { x: event.clientX - bounds.left, y: event.clientY - bounds.top };
-    };
-
-    const onPointerMove = (event: PointerEvent) => {
-      const pointer = toViewportPoint(event);
-
-      if (pointer === null) {
+      if (bounds === undefined) {
         return;
       }
+
+      const pointer = { x: event.clientX - bounds.left, y: event.clientY - bounds.top };
 
       if (draft$.peek() !== null) {
         draft$.pointer.set(pointer);
@@ -123,13 +115,11 @@ export function ConnectorDraft({ projectId }: Readonly<{ projectId: string }>) {
         return;
       }
 
-      const target = resolveInfiniteCanvasSpatialTarget<WindowKind>({
-        chrome: CANVAS_CHROME,
-        state,
-        viewportPoint: pointer,
-      });
-
-      hovered$.set(target.type === "window" ? target.windowId : null);
+      // The previous window is passed back in, which is what makes the affordance survive the
+      // journey to a handle instead of unmounting under the cursor.
+      affordance$.set(
+        getInfiniteCanvasConnectionAffordanceWindowId(state, pointer, affordance$.peek()),
+      );
     };
 
     window.addEventListener("pointermove", onPointerMove);
@@ -137,16 +127,15 @@ export function ConnectorDraft({ projectId }: Readonly<{ projectId: string }>) {
     return () => {
       window.removeEventListener("pointermove", onPointerMove);
     };
-  }, [draft$, hovered$, state]);
+  }, [affordance$, draft$, state]);
 
   /*
    * Release and abandon, on `window` for the same reason a drag is: the pointer will leave this
    * layer, the window, and often the viewport before it is let go.
    *
    * Bound to *whether* a drag is open rather than to the draft itself, and the draft is read with
-   * `peek` inside the handler. The draft carries the live pointer, so depending on it would tear
-   * these listeners down and rebuild them on every single pointermove — hundreds of add/remove
-   * pairs across one gesture, to end up with the same two listeners.
+   * `peek` inside the handler. The draft carries the live pointer, so depending on it would rebuild
+   * these listeners on every pointermove to end up with the same two.
    */
   useEffect(() => {
     if (!isDragging) {
@@ -163,15 +152,12 @@ export function ConnectorDraft({ projectId }: Readonly<{ projectId: string }>) {
         return;
       }
 
-      const landing = resolveInfiniteCanvasSpatialTarget<WindowKind>({
-        chrome: CANVAS_CHROME,
-        state,
-        viewportPoint: { x: event.clientX - bounds.left, y: event.clientY - bounds.top },
-      });
-      const noteId =
-        landing.type === "window"
-          ? getInfiniteCanvasWindowData(landing.window, NoteWindowData.allows)?.noteId
-          : undefined;
+      const noteId = getNoteId(
+        getLandingWindow(state, {
+          x: event.clientX - bounds.left,
+          y: event.clientY - bounds.top,
+        }),
+      );
 
       if (
         noteId === undefined ||
@@ -199,42 +185,22 @@ export function ConnectorDraft({ projectId }: Readonly<{ projectId: string }>) {
     };
   }, [draft$, isDragging, projectId, relations, state]);
 
-  const sourceWindowId = dragging?.sourceWindowId ?? hovered;
+  const sourceWindowId = dragging?.sourceWindowId ?? affordanceWindowId;
   const sourceWindow = state.windows.find((candidate) => candidate.id === sourceWindowId);
-  const sourceNoteId =
-    sourceWindow === undefined
-      ? undefined
-      : getInfiniteCanvasWindowData(sourceWindow, NoteWindowData.allows)?.noteId;
+  const sourceNoteId = getNoteId(sourceWindow);
 
-  if (
-    sourceWindow === undefined ||
-    sourceNoteId === undefined ||
-    sourceWindow.mode === "minimized"
-  ) {
+  if (sourceWindow === undefined || sourceNoteId === undefined) {
     return <div className={styles.root()} data-slot="connector-draft" ref={rootRef} />;
   }
-
-  const screenRect = worldRectToScreenRect(state.camera, state.viewport, sourceWindow.rect);
 
   /*
    * What the far end is right now: a note the pointer is over, or the pointer itself.
    *
-   * Resolved from the live pointer rather than tracked in the drag state, so the preview and the
-   * commit read the same answer from the same function and cannot disagree about where the drag
-   * would land.
+   * Resolved from the live pointer rather than remembered in the drag state, so the preview and the
+   * commit read the same answer and cannot disagree about where the drag would land.
    */
-  const landing =
-    dragging === null
-      ? null
-      : resolveInfiniteCanvasSpatialTarget<WindowKind>({
-          chrome: CANVAS_CHROME,
-          state,
-          viewportPoint: dragging.pointer,
-        });
-  const landingNoteId =
-    landing?.type === "window"
-      ? getInfiniteCanvasWindowData(landing.window, NoteWindowData.allows)?.noteId
-      : undefined;
+  const landing = dragging === null ? undefined : getLandingWindow(state, dragging.pointer);
+  const landingNoteId = getNoteId(landing);
   const isJoinable =
     landingNoteId !== undefined &&
     landingNoteId !== sourceNoteId &&
@@ -242,11 +208,11 @@ export function ConnectorDraft({ projectId }: Readonly<{ projectId: string }>) {
   const preview =
     dragging === null
       ? null
-      : getInfiniteCanvasRectConnectorPath(
+      : getInfiniteCanvasConnectionPreviewPath(
           sourceWindow.rect,
-          isJoinable && landing?.type === "window"
-            ? landing.window.rect
-            : pointRect(screenPointToWorldPoint(state.camera, state.viewport, dragging.pointer)),
+          isJoinable && landing !== undefined
+            ? landing.rect
+            : screenPointToWorldPoint(state.camera, state.viewport, dragging.pointer),
           { route: "orthogonal" },
         ).points.map((point) => worldPointToScreenPoint(state.camera, state.viewport, point));
 
@@ -260,35 +226,47 @@ export function ConnectorDraft({ projectId }: Readonly<{ projectId: string }>) {
           />
         </svg>
       )}
-      <button
-        aria-label="Drag to connect this note to another"
-        className={styles.handle()}
-        onPointerDown={(event) => {
-          event.preventDefault();
-          event.stopPropagation();
+      {/*
+        One handle per edge, so a connection starts on the side facing where it is going rather
+        than on whichever side the framework happened to pick. Hidden mid-drag: the line already
+        says what is happening, and four dots orbiting the source is noise.
+      */}
+      {isDragging
+        ? null
+        : getInfiniteCanvasConnectionHandles(sourceWindow, state.camera, state.viewport).map(
+            (handle) => (
+              <button
+                aria-label={`Drag to connect this note from its ${handle.edge} edge`}
+                className={styles.handle()}
+                key={handle.edge}
+                onPointerDown={(event) => {
+                  event.preventDefault();
+                  event.stopPropagation();
 
-          const bounds = rootRef.current?.getBoundingClientRect();
+                  const bounds = rootRef.current?.getBoundingClientRect();
 
-          if (bounds === undefined) {
-            return;
-          }
+                  if (bounds === undefined) {
+                    return;
+                  }
 
-          draft$.set({
-            pointer: { x: event.clientX - bounds.left, y: event.clientY - bounds.top },
-            sourceNoteId,
-            sourceWindowId: sourceWindow.id,
-          });
-        }}
-        style={{
-          height: HANDLE_RADIUS * 2,
-          left: screenRect.left + screenRect.width + HANDLE_OFFSET,
-          top: screenRect.top + screenRect.height / 2,
-          width: HANDLE_RADIUS * 2,
-        }}
-        type="button"
-      >
-        <span className={styles.handleCore()} />
-      </button>
+                  draft$.set({
+                    pointer: { x: event.clientX - bounds.left, y: event.clientY - bounds.top },
+                    sourceNoteId,
+                    sourceWindowId: sourceWindow.id,
+                  });
+                }}
+                style={{
+                  height: handle.radiusPx * 2,
+                  left: handle.point.x,
+                  top: handle.point.y,
+                  width: handle.radiusPx * 2,
+                }}
+                type="button"
+              >
+                <span className={styles.handleCore()} />
+              </button>
+            ),
+          )}
     </div>
   );
 }

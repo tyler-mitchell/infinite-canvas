@@ -225,6 +225,19 @@ export {
   registerInfiniteCanvasHotkeys,
   shouldHandleInfiniteCanvasKeyboardEvent,
 } from "./keyboard";
+export {
+  DEFAULT_CONNECTION_HANDLE_OFFSET_PX,
+  DEFAULT_CONNECTION_HANDLE_RADIUS_PX,
+  getInfiniteCanvasConnectionAffordanceRect,
+  getInfiniteCanvasConnectionAffordanceWindowId,
+  getInfiniteCanvasConnectionHandles,
+  getInfiniteCanvasConnectionPreviewPath,
+} from "./window-connection";
+export type {
+  InfiniteCanvasConnectionEdge,
+  InfiniteCanvasConnectionHandle,
+  InfiniteCanvasConnectionHandleOptions,
+} from "./window-connection";
 export { cloneInfiniteCanvasState, resetInfiniteCanvasState } from "./state";
 export {
   DEFAULT_INFINITE_CANVAS_ZOOM,

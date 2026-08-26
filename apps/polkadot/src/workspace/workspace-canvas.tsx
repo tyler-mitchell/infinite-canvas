@@ -1,4 +1,5 @@
 import {
+  createInfiniteCanvasEdgeTargetResolver,
   InfiniteCanvas,
   type InfiniteCanvasOverlayReadContext,
   type InfiniteCanvasState,
@@ -12,6 +13,7 @@ import { tv } from "ui/tv";
 import type { CanvasPersistenceStatus } from "../canvas/canvas-persistence";
 import { CANVAS_CHROME } from "../canvas/chrome";
 import { ConnectorDraft } from "../canvas/connector-draft";
+import { getConnectorEdgeTargets } from "../canvas/connector-geometry";
 import { ConnectorLayer } from "../canvas/connector-layer";
 import { useCanvasRuntime } from "../canvas/use-canvas-runtime";
 import { windowDefinitions, type WindowKind } from "../canvas/window-registry";
@@ -19,7 +21,7 @@ import { CanvasHud } from "../hud/canvas-hud";
 import { CommandPalette } from "../hud/command-palette";
 import { LibraryRail, RAIL_INSET } from "../library/library-rail";
 import { openNewNote } from "../notes/open-note";
-import { loadRelations } from "../notes/relations";
+import { loadRelations, relations$ } from "../notes/relations";
 import { CanvasSwitcher } from "./canvas-switcher";
 import { DesktopIndicator } from "./desktop-indicator";
 import { ProjectSwitcher } from "./project-switcher";
@@ -158,6 +160,25 @@ function IdentityRail({
   );
 }
 
+/**
+ * Connectors, as things the pointer can land on.
+ *
+ * Registered once at module scope rather than rebuilt per render: it reads its targets from a
+ * callback, so the resolver itself never goes stale, and the viewport memoizes on this array's
+ * identity. `relations$.peek()` rather than a subscription because the callback runs *during* a
+ * pointer event, when the current value is what matters and a re-render is not.
+ *
+ * This is what makes a connector selectable at all. The framework turns a resolved edge into a
+ * selection target on pointerdown — with modifier handling — so clicking one is the framework's
+ * own selection model rather than anything invented here.
+ */
+const spatialTargetResolvers = [
+  createInfiniteCanvasEdgeTargetResolver<WindowKind>({
+    id: "note-relations",
+    targets: (context) => getConnectorEdgeTargets(context.state, relations$.peek()),
+  }),
+];
+
 export function WorkspaceCanvas({ canvas }: Readonly<{ canvas: LoadedCanvas }>) {
   const runtime = useCanvasRuntime(canvas);
   const library$ = useObservable(true);
@@ -187,6 +208,7 @@ export function WorkspaceCanvas({ canvas }: Readonly<{ canvas: LoadedCanvas }>) 
           }}
           // Beneath the windows: a connector should pass under the note it joins, not across it.
           renderUnderlay={() => <ConnectorLayer />}
+          spatialTargetResolvers={spatialTargetResolvers}
           hud={{
             cameraControls: true,
             minimizedDock: false,

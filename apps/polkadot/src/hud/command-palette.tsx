@@ -2,6 +2,7 @@ import {
   focusInfiniteCanvasCommandSurface,
   getInfiniteCanvasContextualCommands,
   getInfiniteCanvasWindowPresence,
+  getSelectionTargets,
   useInfiniteCanvasActions,
   useInfiniteCanvasState,
   type InfiniteCanvasCommandGroup,
@@ -43,6 +44,7 @@ import {
 import { tv } from "ui/tv";
 
 import { initialLayout } from "../canvas/canvas-document";
+import { CONNECTOR_TARGET_KIND } from "../canvas/connector-geometry";
 import type { WindowKind } from "../canvas/window-registry";
 import type { CanvasSummary, NoteRecord, ProjectSummary } from "../database/database.client";
 import * as database from "../database/operations";
@@ -264,10 +266,11 @@ function PaletteContent({
   const closedNotes = notes.filter((note) => !openNoteIds.has(note.id));
 
   /**
-   * Connecting works on the selection, not on a new gesture.
+   * Connecting from the selection, which is the keyboard's way in.
    *
-   * Selecting two windows is something the canvas already does, so the first way to author an edge
-   * costs no new interaction. Drag-to-connect is a gesture sprint of its own.
+   * Dragging between two notes is the direct gesture and is what most people will use; this stays
+   * because it is the only route that needs no pointer at all, and because selecting two windows is
+   * something the canvas already does.
    */
   const selectedNoteIds = state.selection.windowIds
     .map(
@@ -285,6 +288,17 @@ function PaletteContent({
     selectedNoteIds[1] !== undefined
       ? findRelation(relations, selectedNoteIds[0], selectedNoteIds[1])
       : undefined;
+
+  /*
+   * A connector the pointer selected, which is a different question from two selected windows.
+   *
+   * `selection.targets` is the framework's model for selected things that are not windows, and it
+   * fills with these because the canvas registers an edge resolver for connectors — so clicking a
+   * line selects it through the same selection machinery, modifiers included, that selects a note.
+   */
+  const selectedRelations = getSelectionTargets(state.selection)
+    .filter((target) => target.type === "edge" && target.kind === CONNECTOR_TARGET_KIND)
+    .flatMap((target) => relations.filter((relation) => relation.id === target.id));
 
   const run = (perform: () => void) => () => {
     perform();
@@ -464,6 +478,26 @@ function PaletteContent({
             title="New canvas"
             value="new canvas create"
           />
+          {selectedRelations.length === 0 ? null : (
+            <Row
+              icon={Unlink2}
+              onSelect={run(() => {
+                for (const relation of selectedRelations) {
+                  void disconnectNotes({
+                    projectId,
+                    source: relation.source,
+                    target: relation.target,
+                  });
+                }
+              })}
+              title={
+                selectedRelations.length === 1
+                  ? "Cut the selected connection"
+                  : `Cut ${String(selectedRelations.length)} selected connections`
+              }
+              value="cut disconnect unlink connection edge"
+            />
+          )}
           {selectedNoteIds.length === 2 ? (
             <Row
               icon={connectedPair === undefined ? Link2 : Unlink2}

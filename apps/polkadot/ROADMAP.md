@@ -169,9 +169,21 @@ open because it feels good to look at. Concretely, and these are enforced in rev
   while `resolveInfiniteCanvasSpatialTarget` demands complete chrome metrics and the viewport takes
   a partial override — so an app with shortened headers could not hit-test against the chrome it
   was drawing.
-  **Still open:** edge selection, labels, and typed kinds, since every edge is currently `relates`;
-  cutting an edge, which has a database verb but no gesture; and no way to see an edge whose notes
-  are not both open, which is where the library rail would earn its place.
+  **The gesture was hand-rolled here first, and that was wrong.** It shipped a handle that vanished
+  when you reached for it — it sat outside the window while visibility asked "is the pointer over
+  the window" — and the only reason verification passed is that it dispatched `pointerdown` straight
+  at the element, the one path a real pointer never takes. It has moved to the framework as
+  `window-connection`, which is where it belonged: nothing about handle placement, reveal, or
+  hit-tolerance is a Polkadot idea. `getInfiniteCanvasConnectionAffordanceWindowId` holds a window's
+  affordance across the whole reach and refuses to let a neighbour steal it mid-reach, and the test
+  that proves it walks a pointer there one step at a time rather than teleporting.
+  **Selecting and cutting landed.** Registering an edge resolver makes a connector a framework
+  selection target, so clicking one goes through the same machinery that selects a window, modifiers
+  included; the palette cuts what is selected. Connector geometry is derived once for both the layer
+  that draws it and the resolver that hit-tests it, so they cannot disagree about where an edge is.
+  **Still open:** labels and typed kinds, since every edge is currently `relates`; a keyboard cut,
+  since removal is palette-only; and no way to see an edge whose notes are not both open, which is
+  where the library rail would earn its place.
 - [~] **Workspaces** as the organizing spine. The framework's workspace model was reachable only by
   a consumer reaching past the command layer: `cycle` walks desktops that exist and does nothing
   when there are none, so nothing could make the first one, name which one to enter, or take one
