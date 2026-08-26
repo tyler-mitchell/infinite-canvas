@@ -2,6 +2,7 @@ import { expect, test } from "vite-plus/test";
 
 import {
   getInfiniteCanvasLongestUnoccludedSegment,
+  getInfiniteCanvasSegmentsWithinRect,
   getInfiniteCanvasUnoccludedSegments,
   getInfiniteCanvasWorldPath,
 } from "./scene-layer-geometry";
@@ -94,6 +95,40 @@ test("the longest run is the one returned, not the first", () => {
   // 0→20 comes first; 50→100 is longer. Returning the first would pass a symmetric fixture.
   expect(Math.round(longest?.start.x ?? -1)).toBe(50);
   expect(Math.round(longest?.length ?? -1)).toBe(50);
+});
+
+/**
+ * Clipping *to* a rect, which is the other half of "can this be seen".
+ *
+ * A canvas that reserves bands along its edges for chrome hides a line by leaving it outside what
+ * remains, not by putting something on top of it. That is a different operation, and asserting it
+ * separately is what stops the two being conflated — a rect passed to the wrong one produces
+ * exactly the inverse answer, silently.
+ */
+test("clipping to a rect keeps the inside, where occluding would keep the outside", () => {
+  const line = path([0, 0], [100, 0]);
+  const window = rect(20, -5, 30, 10);
+
+  expect(spans(getInfiniteCanvasSegmentsWithinRect(line.segments, window))).toEqual([[20, 50]]);
+  expect(spans(getInfiniteCanvasUnoccludedSegments(line.segments, [window]))).toEqual([
+    [0, 20],
+    [50, 100],
+  ]);
+});
+
+test("a line wholly outside the rect is clipped away entirely", () => {
+  const line = path([0, 40], [100, 40]);
+
+  expect(getInfiniteCanvasSegmentsWithinRect(line.segments, rect(0, -10, 100, 20))).toEqual([]);
+});
+
+test("an elbow is clipped limb by limb", () => {
+  const elbow = path([0, 0], [50, 0], [50, 40], [100, 40]);
+  const within = getInfiniteCanvasSegmentsWithinRect(elbow.segments, rect(-10, -10, 70, 25));
+
+  // The horizontal limb survives whole, the vertical one is cut at y=15, the last is outside.
+  expect(within.length).toBe(2);
+  expect(Math.round(within[1]?.end.y ?? -1)).toBe(15);
 });
 
 test("a fully hidden line has no longest run", () => {

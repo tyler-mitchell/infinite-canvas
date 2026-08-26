@@ -590,6 +590,7 @@ legitimately need, plus the default policies.
 
 **`geometry`**
 
+- `getInfiniteCanvasContentViewport`
 - `getRectCenter`
 - `getVisibleWorldRect`
 - `isUsableViewport`
@@ -687,6 +688,7 @@ these over hand-rolled path maths.
 - `getInfiniteCanvasRectConnectorPath`
 - `getInfiniteCanvasRectConnectorPoint`
 - `getInfiniteCanvasRectConnectorSegment`
+- `getInfiniteCanvasSegmentsWithinRect`
 - `getInfiniteCanvasUnoccludedSegments`
 - `getInfiniteCanvasViewportScreenRect`
 - `getInfiniteCanvasWindowConnectorPath`

@@ -268,6 +268,39 @@ function getInfiniteCanvasUnoccludedSegments(
 }
 
 /**
+ * The parts of a path that fall inside a rect — the other half of "can this be seen".
+ *
+ * `getInfiniteCanvasUnoccludedSegments` removes what is covered; this keeps what is within. A
+ * consumer needs both, because a line is invisible either by having something on top of it or by
+ * being somewhere nobody is looking, and those are different geometry.
+ *
+ * The case that asked for it: a canvas whose chrome reserves bands along its edges through
+ * `viewportInsets`. A connector anchor landing in one of those bands is behind a panel just as
+ * surely as behind a window, but a band is not an occluder — it is the complement of the region
+ * that remains, and clipping to that region is the operation that expresses it.
+ *
+ * Uses the same parametric span as the occlusion clip, taken the other way round: there the span
+ * inside the rect is the hole, here it is the whole answer.
+ */
+function getInfiniteCanvasSegmentsWithinRect(
+  segments: readonly InfiniteCanvasWorldSegment[],
+  bounds: InfiniteCanvasRect,
+): readonly InfiniteCanvasWorldSegment[] {
+  return segments.flatMap((segment) => {
+    const span = getSegmentRectSpan(segment, bounds);
+
+    return span === null || span.to <= span.from
+      ? []
+      : [
+          getInfiniteCanvasWorldSegment(
+            interpolatePoint(segment.start, segment.end, span.from),
+            interpolatePoint(segment.start, segment.end, span.to),
+          ),
+        ];
+  });
+}
+
+/**
  * The longest run of a path that nothing covers, or `null` when every part of it is hidden.
  *
  * What a consumer almost always wants from the above: one place to put the thing that has to be
@@ -468,6 +501,7 @@ export {
   getInfiniteCanvasRectConnectorPath,
   getInfiniteCanvasRectConnectorPoint,
   getInfiniteCanvasRectConnectorSegment,
+  getInfiniteCanvasSegmentsWithinRect,
   getInfiniteCanvasUnoccludedSegments,
   getInfiniteCanvasViewportScreenRect,
   getInfiniteCanvasWindowConnectorPoint,

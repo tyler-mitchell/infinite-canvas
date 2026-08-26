@@ -176,6 +176,7 @@ export {
   getInfiniteCanvasRectConnectorPath,
   getInfiniteCanvasRectConnectorPoint,
   getInfiniteCanvasRectConnectorSegment,
+  getInfiniteCanvasSegmentsWithinRect,
   getInfiniteCanvasUnoccludedSegments,
   getInfiniteCanvasViewportScreenRect,
   getInfiniteCanvasWindowConnectorPoint,
@@ -261,6 +262,13 @@ export {
 // Pure projection and rect helpers that consumer overlays/scene layers
 // legitimately need (drop outlines, custom guides, hit affordances).
 export {
+  /*
+   * Public because a consumer that declares `viewportInsets` needs the region they leave, and
+   * cannot compute it without re-deriving what the camera already does. Same shape of omission as
+   * `resolveInfiniteCanvasChromeMetrics`: the framework asks a consumer to describe its chrome and
+   * then kept the answer to itself.
+   */
+  getInfiniteCanvasContentViewport,
   getRectCenter,
   getVisibleWorldRect,
   isUsableViewport,

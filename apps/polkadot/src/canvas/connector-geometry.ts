@@ -1,7 +1,10 @@
 import {
   getInfiniteCanvasConnectionPreviewPath,
+  getInfiniteCanvasContentViewport,
   getInfiniteCanvasLongestUnoccludedSegment,
   getInfiniteCanvasRectConnectorPath,
+  getInfiniteCanvasSegmentsWithinRect,
+  screenPointToWorldPoint,
   getInfiniteCanvasWindowData,
   getSelectionTargets,
   isInfiniteCanvasWindowInActiveWorkspace,
@@ -87,6 +90,33 @@ function getDrawnConnectors(
    * endpoint does.
    */
   const occluders = [...rectsByNote.values()].flat();
+  /*
+   * The part of the world this app's own chrome is not sitting on.
+   *
+   * A marker is just as hidden behind the library rail as behind a window, and the rail is not an
+   * occluder — it is screen-space furniture, and what it leaves is the *complement* of a band. This
+   * app already declares every such band through `viewportInsets`, `getInfiniteCanvasContentViewport`
+   * turns those into the screen region that remains, and two corners projected back give the world
+   * rect an anchor has to fall inside.
+   *
+   * Found by watching a connector's mark render at x=174 — behind the rail, on a canvas where the
+   * connector itself was perfectly visible further along.
+   */
+  const contentViewport = getInfiniteCanvasContentViewport(state.viewport, state.viewportInsets);
+  const topLeft = screenPointToWorldPoint(state.camera, state.viewport, {
+    x: contentViewport.x,
+    y: contentViewport.y,
+  });
+  const bottomRight = screenPointToWorldPoint(state.camera, state.viewport, {
+    x: contentViewport.x + contentViewport.width,
+    y: contentViewport.y + contentViewport.height,
+  });
+  const anchorBounds: InfiniteCanvasRect = {
+    height: bottomRight.y - topLeft.y,
+    width: bottomRight.x - topLeft.x,
+    x: topLeft.x,
+    y: topLeft.y,
+  };
 
   return relations.flatMap((relation) =>
     (rectsByNote.get(relation.source) ?? []).flatMap((fromRect) =>
@@ -111,7 +141,10 @@ function getDrawnConnectors(
          * canvas shows what is visible, and the library rail lists every connection whether or not
          * it is. That is the surface for an edge you cannot find, and it already exists.
          */
-        const clear = getInfiniteCanvasLongestUnoccludedSegment(path.segments, occluders);
+        const clear = getInfiniteCanvasLongestUnoccludedSegment(
+          getInfiniteCanvasSegmentsWithinRect(path.segments, anchorBounds),
+          occluders,
+        );
 
         return {
           anchor: clear?.midpoint ?? null,
