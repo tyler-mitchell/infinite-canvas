@@ -798,18 +798,21 @@ stays. What is missing is the field itself, and it is hours of careful work, not
       header — with all three drag events `defaultPrevented`; a `.txt` showed `dropEffect: "none"`
       and created nothing; two pictures dropped 409×449 client pixels apart landed 408×451 world
       units apart at zoom 1; and five images came back decoded after a reload.
-      **Still open:** a connector between a picture and a note is confirmed at the geometry layer —
-      `getDrawnConnectors` returns a four-point path for that pair, where it returned nothing
-      before — but the line has not been _watched painting_. The canvas route was down under
-      another session's in-flight edit at the moment that check came due. It is one screenshot, and
-      it is owed.
+      **A picture is connected to a note and the line is drawn**, which is the whole point of the
+      change and was witnessed rather than inferred: `connectItems` wrote the `relates_to` edge,
+      `getDrawnConnectors` returned a four-point path for a pair it would have returned nothing for
+      before, and the canvas painted a `polyline` in `--accent` between the two windows with its
+      anchor dot on the clear stretch. Worth recording that the first check reported `pathCount: 0`
+      while the connector was on screen the whole time — the layer draws `polyline`, not `path`,
+      and a query written against the wrong element name is indistinguishable from a feature that
+      does not work until you look at the screen.
       **Cost, stated rather than buried:** windows saved before this carried `{ noteId }`, which no
       longer validates, so an existing canvas shows its windows as unbound. The records are
       untouched and reopen from the library; the repo keeps no compatibility path for a shape it
       has replaced.
 
 - [x] **Minimizing is no longer a one-way door.** The chrome always offered it and `mode:
-  "minimized"` is what it set, but with no dock nothing on the canvas said where the window
+"minimized"` is what it set, but with no dock nothing on the canvas said where the window
       went — the only route back was a library rail row, which reveals the _note_ rather than the
       window and is absent when the rail is collapsed. `minimizedDock: false` had sat uncommented
       in the HUD policy while every other line in that object was argued for, which is what marks
