@@ -21,7 +21,7 @@ import {
   resolved$,
   setCollectionQuestion,
 } from "./collection-store";
-import { openItemWindow } from "./open-item";
+import { openItemWindow } from "../canvas/open-item";
 
 /**
  * A window that lists what else is in this project.
