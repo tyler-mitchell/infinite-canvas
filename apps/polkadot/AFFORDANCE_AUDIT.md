@@ -75,6 +75,8 @@ reusable gap before product code is admitted.
 
 | Returning focus to the canvas | `focusInfiniteCanvasCommandSurface(element)` is exported but takes the surface element; finding it means the selector `[data-infinite-canvas-command-scope='surface']`. The framework's own `focusCommandSurfaceFrom(element)` walks up from any element inside the canvas and does exactly this, and is internal | Genuine gap, found by driving the library rail: after reaching a note from the rail, focus sat on `<body>` and `Mod+K` was dead — the failure `focusCommandSurfaceFrom`'s own comment describes. The palette already restates the framework's DOM contract to work around it, and the rail would have been the second copy | `focusInfiniteCanvasCommandSurfaceFrom` exported generically. Product-neutral: any consumer whose chrome takes focus — a rail, an inspector, a dialog — must hand it back | recorded before code |
 
+| Offscreen navigation | `getInfiniteCanvasOffscreenIndicators` returns every drawn thing that does not overlap the viewport — nearest first, with an id, kind, angle, distance, and a point on an inset ring — and now places that ring inside the region a consumer's chrome leaves | Framework-native and complete as geometry. It deliberately stops short of a widget, which is the right line: where an arrow sits is canvas maths, what it looks like is product taste. The gap was only that nothing here consumed it | Consumed as-is. Polkadot draws the indicators and decides their look; no angle, distance, or edge projection is computed in product code | accepted |
+
 ## External implementation authorities
 
 - TanStack Hotkeys React guide: <https://tanstack.com/hotkeys/latest/docs/framework/react/guides/hotkeys>

@@ -135,8 +135,7 @@ open because it feels good to look at. Concretely, and these are enforced in rev
   grow a count, the count expands in place with the neighbour indented under it, and the nested
   row reaches the note it names.
   **Still open:** the rail cannot create, rename, or delete; there is no saved-views concept
-  yet; connections cannot be authored or cut from here; and it does not yet draw the offscreen
-  indicators, which is the other half of "where is the note this connects to".
+  yet; and connections cannot be authored or cut from here.
 - [~] **Connectors.** `relates_to` is written for the first time, and edges render between the
   windows showing their notes — framework geometry throughout, drawn in the new
   `renderUnderlay` band so a connector passes beneath the note rather than across it.
@@ -206,6 +205,20 @@ needed for that are already computed and unused.
 
 `renderBackdrop` exists in the framework and is the correct seam for it. That part was right and
 stays. What is missing is the field itself, and it is hours of careful work, not a pass.
+
+- [x] **Offscreen indicators.** `getInfiniteCanvasOffscreenIndicators` had been exported and drawn
+      by nobody — its own docstring said so. Polkadot draws it now: up to five chips on the ring the
+      framework projects, each pointing at something that has fallen off the viewport, clicking one
+      centres it. Every number is the framework's — bearing, distance ordering, the ring that
+      respects viewport insets — and the product owns only what an arrow looks like, how many are
+      worth showing, and what a click does.
+      Verified by driving it: pan both notes off-screen and two chips appear at −136° and −146°,
+      both pointing up-and-left where the notes went; clicking one centres it in the visible region.
+      **Found while consuming it:** two separate windows at the same bearing stack on nearly the
+      same pixel. Groups are already folded for that reason, distinct windows are not — recorded on
+      the framework function rather than worked around here.
+      **Still open:** the chips are peripheral by design and deliberately quiet, tuned by one look
+      rather than by watching anyone use them.
 
 ## Later, deliberately
 

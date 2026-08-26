@@ -16,6 +16,7 @@ import { useState, type ComponentType, type ReactNode } from "react";
 import { Button } from "ui";
 import { tv } from "ui/tv";
 
+import { OffscreenIndicators } from "../canvas/offscreen-indicators";
 import { HudRoot, HudSurface } from "./hud-surfaces";
 
 /**
@@ -202,6 +203,12 @@ export function CanvasHud({
           </HudSurface>
         </HudRoot>
       )}
+      {/*
+        Not inside the inset root: the framework already projects these onto a ring that respects
+        the insets, and the points it returns are in the canvas element's own screen space. Putting
+        them in a shifted box would move them a second time.
+      */}
+      <OffscreenIndicators />
       <HudRoot insetLeft={libraryInset}>
         <HudSurface anchor="top-left" persistent>
           {identity}

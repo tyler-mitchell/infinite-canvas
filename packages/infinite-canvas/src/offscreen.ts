@@ -33,7 +33,12 @@ import type { InfiniteCanvasPoint, InfiniteCanvasRect, InfiniteCanvasState } fro
  * collapsed fold are omitted *individually* but still counted through their group, which is
  * the thing you would navigate to.
  *
- * @experimental Landed 2026-07-08 and no arrow has been drawn in a browser. The shape may change.
+ * @experimental Landed 2026-07-08. First drawn in a browser by Polkadot, which found the shape
+ * sufficient: `angle` needs no sign correction to rotate a right-pointing glyph, `point` lands
+ * where a chip should sit, and `rect` feeds `view.navigate` unchanged. One thing the consumer had
+ * to solve itself, and it may belong here later: two separate windows at the same bearing put two
+ * indicators on nearly the same pixel. Groups are already folded for exactly that reason; distinct
+ * windows are not.
  */
 
 type InfiniteCanvasOffscreenTargetKind = "group" | "window";
