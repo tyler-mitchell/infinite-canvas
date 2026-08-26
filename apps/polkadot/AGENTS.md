@@ -15,6 +15,16 @@ is how an entire mission once ran with no enforcement at all.
 is the modified working tree rather than your index — commit two files while another session has
 five uncommitted and you will commit seven, under your message.
 
+There is a second route to the same place, and it needs no hook at all: **`git commit` commits the
+index, and the index is one file that both sessions share.** Anything you `git add` is visible to
+the other session's very next commit, whoever typed it. So the window between staging and
+committing is the exposure, and it is the part you control.
+
+**Stage and commit in one command** — `git add <paths> && git commit …` — and never leave work
+sitting in the index while you go and read something. That does not close the hook's route above,
+which is why the check below is still required, but it removes the case where your own half-staged
+work is what gets carried off.
+
 This has happened twice, in both directions, and neither time was noticed until afterwards. Once
 a commit swept a staged deletion whose replacement was still untracked, which left `HEAD` naming
 a SurQL file it did not contain and the database unable to open from a clean clone. Once a
