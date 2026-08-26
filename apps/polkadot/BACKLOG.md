@@ -200,3 +200,31 @@ feature; the half that matters on an infinite canvas is _going somewhere_.
   `focusInfiniteCanvasCommandSurface`, or every hotkey silently stops working — the framework
   documents this trap and Base UI's focus restore does not know about it.
 - `Mod+P` for projects and canvases later, once projects exist.
+
+---
+
+## refactor: one ordered writer, not two
+
+`canvas-persistence.ts` and `note-store.ts` each hand-compose the same three parts:
+
+1. `Debouncer` to collapse a burst — a drag, a sentence — into one write.
+2. `AsyncQueuer` at concurrency one to keep writes **ordered**.
+3. A revision-guarded save, with the returned revision folded back.
+
+Step 2 is the one that is easy to omit and expensive to get wrong. Both stores guard writes with a
+revision, so two saves in flight together race: the second reads a revision the first has not yet
+incremented and the database rejects it as a conflict on a change the same user just made.
+Ordering is what makes optimistic concurrency usable instead of a source of spurious conflicts —
+and it is currently asserted twice, by hand, in two files.
+
+TanStack Pacer ships `Debouncer` and `AsyncQueuer` separately and has no combined primitive, so
+composing them is genuinely ours. Two concrete call sites is the threshold where extracting is
+consolidation rather than speculation.
+
+**Shape:** `createOrderedWriter({ save, wait, onError, onStarted, onSettled })` returning
+`{ write, stop }`. Reading and folding the revision stays inside each caller's `save` — the canvas
+holds its revision in a closure, a note reads its own from the store, and pulling that in would be
+abstracting over the difference rather than the shared mechanism.
+
+**Status:** written once during an unrelated correction and removed rather than landed, because it
+was started mid-course-correction. The duplication is real and still there.
