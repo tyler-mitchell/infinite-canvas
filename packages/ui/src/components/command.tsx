@@ -46,6 +46,7 @@ function Command({ className, ...props }: ComponentProps<typeof CommandPrimitive
 function CommandDialog({
   children,
   className,
+  container,
   description,
   filter,
   onOpenChange,
@@ -54,6 +55,8 @@ function CommandDialog({
 }: Readonly<{
   children: React.ReactNode;
   className?: string;
+  /** Where to portal. Defaults to `<body>`; pass a host's own root when it stacks chrome above it. */
+  container?: ComponentProps<typeof DialogContent>["container"];
   description: string;
   filter?: ComponentProps<typeof CommandPrimitive>["filter"];
   onOpenChange: (open: boolean) => void;
@@ -64,7 +67,7 @@ function CommandDialog({
 
   return (
     <Dialog onOpenChange={onOpenChange} open={open}>
-      <DialogContent className={cn(styles.dialogContent(), className)}>
+      <DialogContent className={cn(styles.dialogContent(), className)} container={container}>
         <DialogTitle className="sr-only">{title}</DialogTitle>
         <DialogDescription className="sr-only">{description}</DialogDescription>
         <Command filter={filter}>{children}</Command>

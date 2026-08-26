@@ -38,11 +38,21 @@ function DialogClose({ ...props }: DialogPrimitive.Close.Props) {
   return <DialogPrimitive.Close data-slot="dialog-close" {...props} />;
 }
 
-function DialogContent({ children, className, ...props }: DialogPrimitive.Popup.Props) {
+/**
+ * `container` is forwarded because Base UI portals to `<body>` by default, and a host that stacks
+ * its own chrome high enough will paint over a modal that landed there. Passing the host's own
+ * portal root is the fix — raising the dialog's z-index instead only starts a bidding war.
+ */
+function DialogContent({
+  children,
+  className,
+  container,
+  ...props
+}: DialogPrimitive.Popup.Props & Pick<DialogPrimitive.Portal.Props, "container">) {
   const styles = dialog();
 
   return (
-    <DialogPrimitive.Portal>
+    <DialogPrimitive.Portal container={container}>
       <DialogPrimitive.Backdrop className={styles.backdrop()} data-slot="dialog-backdrop" />
       <DialogPrimitive.Popup
         className={cn(styles.content(), className)}
