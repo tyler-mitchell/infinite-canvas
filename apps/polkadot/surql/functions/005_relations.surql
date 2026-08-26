@@ -9,14 +9,30 @@ DEFINE FUNCTION OVERWRITE fn::list_relations($project: record<project>) {
     WHERE in.project = $project;
 };
 
--- Idempotent: relating twice is the same statement the user already made, and a duplicate edge
--- would draw a second line on top of the first.
+-- Idempotent, and undirected — which it was not, and the difference was a duplicate edge.
+--
+-- This checked only `in = $source AND out = $target`, so connecting A to B and then B to A stored
+-- two edges between the same pair. Every other part of the system already treats an edge as
+-- undirected: `unrelate_notes` deletes it whichever way round it was drawn, `findRelation` finds it
+-- either way, and the rail counts a neighbour once regardless of direction. Only the guard against
+-- creating one had a direction, so the one operation that could produce the inconsistency was the
+-- one that did not check for it.
+--
+-- The user never chose a direction. They dragged from one note to another, and which end the drag
+-- started at is an accident of where their pointer was — not a second, different relationship.
+--
+-- Reproduced before fixing: connect A→B, connect B→A, and `list_relations` returned two rows for
+-- the same pair. Both then drew, one on top of the other, and cutting removed both at once because
+-- `unrelate_notes` was already undirected — so the second edge was invisible until something
+-- counted.
 DEFINE FUNCTION OVERWRITE fn::relate_notes(
   $source: record<content_item>,
   $target: record<content_item>,
   $kind: string
 ) {
-  LET $existing = SELECT id FROM relates_to WHERE in = $source AND out = $target;
+  LET $existing = SELECT id FROM relates_to
+    WHERE (in = $source AND out = $target)
+       OR (in = $target AND out = $source);
 
   IF array::len($existing) > 0 {
     RETURN $existing[0];
