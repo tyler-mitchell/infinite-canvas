@@ -264,7 +264,7 @@ open because it feels good to look at. Concretely, and these are enforced in rev
   Driven: select the edge, `Label this connection…`, type "blocks the review", Enter — the row
   previews the exact text rather than being filtered away, and the connector then reads "blocks the
   review" at 11px in place of "supports".
-  **An edge with one end closed is no longer invisible.** A connector was drawn only when *both*
+  **An edge with one end closed is no longer invisible.** A connector was drawn only when _both_
   ends had a rect, so closing one note silently removed the line — the note kept its connections and
   the canvas stopped mentioning them, which on screen is indistinguishable from having none. Each
   window whose note has neighbours the canvas is not showing now grows a short dashed stub off its

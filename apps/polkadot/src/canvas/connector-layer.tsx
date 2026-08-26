@@ -8,7 +8,7 @@ import { useValue } from "@legendapp/state/react";
 import { tv } from "ui/tv";
 
 import { getRelationLabel, relations$ } from "../notes/relations";
-import { getDrawnConnectors } from "./connector-geometry";
+import { getDrawnConnectors, getHiddenConnectorStubs } from "./connector-geometry";
 import type { WindowKind } from "./window-registry";
 
 /**
@@ -44,6 +44,12 @@ const connectors = tv({
     label:
       "select-none fill-[var(--ink-muted)] stroke-[var(--ground)] stroke-[3px] font-medium [paint-order:stroke]",
     path: "fill-none stroke-[var(--accent)] transition-[stroke-width,opacity] duration-100 ease-[var(--ease-swift)]",
+    /*
+     * Dashed, which is the vocabulary the drag preview already established: a broken line is an end
+     * that is not a window. Quieter than a real connector too — it reports something absent, and a
+     * canvas that shouts about what is missing is worse than one that stays silent about it.
+     */
+    stub: "fill-none stroke-[var(--accent)] stroke-[1.5] opacity-25 [stroke-dasharray:3_5]",
     svg: "pointer-events-none absolute inset-0 h-full w-full overflow-visible",
   },
   variants: {
@@ -77,10 +83,11 @@ export function ConnectorLayer() {
   const state = useInfiniteCanvasState<WindowKind>();
   const relations = useValue(relations$);
   const drawn = getDrawnConnectors(state, relations);
+  const stubs = getHiddenConnectorStubs(state, relations);
   const labelSize = LABEL_BASE_PX * state.camera.zoom;
   const isLabelLegible = labelSize >= LABEL_MIN_PX;
 
-  return drawn.length === 0 ? null : (
+  return drawn.length === 0 && stubs.length === 0 ? null : (
     <svg className={connectors().svg()} data-slot="connector-layer">
       {drawn.map((connector, index) => {
         const selected = isSelectionTargetSelected(state, {
@@ -116,6 +123,42 @@ export function ConnectorLayer() {
                 {label}
               </text>
             )}
+          </g>
+        );
+      })}
+      {/*
+        What this note connects to that the canvas is not showing.
+
+        Drawn after the connectors so a stub never sits under a real edge, and given the count
+        rather than a name: naming even one of several would be picking a favourite, and the number
+        is what tells you whether opening the rail is worth it.
+      */}
+      {stubs.map((stub, index) => {
+        const points = toPoints(
+          stub.points.map((point) => worldPointToScreenPoint(state.camera, state.viewport, point)),
+        );
+        const anchor = worldPointToScreenPoint(state.camera, state.viewport, stub.endpoint);
+
+        return (
+          <g key={`${stub.noteId}:hidden:${String(index)}`}>
+            <polyline
+              className={connectors().stub()}
+              data-hidden-stub={stub.noteId}
+              points={points}
+            />
+            {isLabelLegible ? (
+              <text
+                className={connectors().label()}
+                data-hidden-count={stub.noteId}
+                dominantBaseline="central"
+                fontSize={labelSize}
+                textAnchor="middle"
+                x={anchor.x}
+                y={anchor.y}
+              >
+                {stub.count}
+              </text>
+            ) : null}
           </g>
         );
       })}

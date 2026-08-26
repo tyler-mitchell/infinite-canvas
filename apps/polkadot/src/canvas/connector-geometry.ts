@@ -1,4 +1,5 @@
 import {
+  getInfiniteCanvasConnectionPreviewPath,
   getInfiniteCanvasRectConnectorPath,
   getInfiniteCanvasWindowData,
   getInfiniteCanvasWorldPath,
@@ -96,6 +97,60 @@ function getDrawnConnectors(
 }
 
 /**
+ * How far a stub reaches past the window, in world units.
+ *
+ * Long enough to read as a line going somewhere and short enough that it cannot be mistaken for a
+ * connector to an offscreen note. It scales with the camera like everything else in world space.
+ */
+const HIDDEN_STUB_LENGTH = 56;
+
+/**
+ * The connections a window has that this canvas is not showing.
+ *
+ * An edge is drawn only when both ends have a rect, so closing one note silently removes the line —
+ * the note keeps its connections and the canvas stops mentioning them, which is indistinguishable
+ * from having none. This is the stub that says otherwise.
+ *
+ * Routed by `getInfiniteCanvasConnectionPreviewPath`, the same function the drag preview uses,
+ * because the far end is a bare point in both cases: there is no rect to aim at, and inventing one
+ * would be inventing a position for a note that has none.
+ */
+function getHiddenConnectorStubs(
+  state: InfiniteCanvasState<WindowKind>,
+  relations: readonly NoteRelation[],
+) {
+  const rectsByNote = getConnectorRectsByNote(state);
+
+  return [...rectsByNote].flatMap(([noteId, rects]) => {
+    const neighbourIds = new Set(
+      relations
+        .filter((relation) => relation.source === noteId || relation.target === noteId)
+        .map((relation) => (relation.source === noteId ? relation.target : relation.source)),
+    );
+    const hiddenCount = [...neighbourIds].filter((id) => !rectsByNote.has(id)).length;
+
+    return hiddenCount === 0
+      ? []
+      : rects.map((rect) => {
+          // Off the right edge, at the vertical centre. Any edge is arbitrary without a target to
+          // aim at; one consistent side keeps a canvas of stubs from reading as noise.
+          const endpoint = {
+            x: rect.x + rect.width + HIDDEN_STUB_LENGTH,
+            y: rect.y + rect.height / 2,
+          };
+
+          return {
+            count: hiddenCount,
+            endpoint,
+            noteId,
+            points: getInfiniteCanvasConnectionPreviewPath(rect, endpoint, { route: "orthogonal" })
+              .points,
+          };
+        });
+  });
+}
+
+/**
  * Every segment of every connector, as something the pointer can land on.
  *
  * All segments of one relation share the relation's id, so clicking any part of an elbow selects
@@ -137,5 +192,11 @@ function getSelectedRelations(
     .flatMap((target) => relations.filter((relation) => relation.id === target.id));
 }
 
-export { CONNECTOR_TARGET_KIND, getConnectorEdgeTargets, getDrawnConnectors, getSelectedRelations };
+export {
+  CONNECTOR_TARGET_KIND,
+  getConnectorEdgeTargets,
+  getDrawnConnectors,
+  getHiddenConnectorStubs,
+  getSelectedRelations,
+};
 export type { DrawnConnector };
