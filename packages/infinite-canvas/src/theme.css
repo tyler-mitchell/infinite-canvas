@@ -196,8 +196,11 @@
     --icx-host-surface-shadow: 0 20px 80px -56px
       color-mix(in srgb, var(--icx-color-accent) 55%, transparent);
 
-    /* The seam between two split panes (src/group-layer.tsx). A control, not a border. */
+    /* Group chrome (src/group-layer.tsx). The seam is a control, not a border. */
     --icx-group-gutter: var(--icx-idle-border);
+    --icx-group-tab-fg: var(--icx-grid-major);
+    --icx-group-surface-radius: 2px;
+    --icx-group-surface-shadow: none;
 
     /* Snap overlay (src/canvas-overlays.tsx). */
     --icx-snap-guide: color-mix(in srgb, var(--icx-color-accent) 55%, transparent);
@@ -644,10 +647,16 @@
      Sizes come from the solver, not from CSS, so nothing here sets width or
      height -- doing so would make the DOM disagree with the canonical layout. */
 
+  /*
+   * Radius and shadow are tokens rather than literals. A shell is a surface holding surfaces, so a
+   * consumer whose windows are rounded and lifted had square unlifted corners under them and no
+   * way to say otherwise. Defaults are what the literals were.
+   */
   [data-slot="group-shell"] {
     background: var(--icx-body-background);
     border: 1px solid var(--icx-idle-border);
-    border-radius: 2px;
+    border-radius: var(--icx-group-surface-radius, 2px);
+    box-shadow: var(--icx-group-surface-shadow, none);
   }
 
   /*
@@ -668,11 +677,17 @@
     gap: 1px;
   }
 
+  /*
+   * An unselected tab's ink read `--icx-grid-major` — the backdrop's coarse lattice. Coherent
+   * while a consumer keeps the default grid, and nonsense the moment one replaces the backdrop
+   * through `renderBackdrop`: the token keeps whatever the default happened to be, and the label
+   * renders in a leftover colour nobody chose. Named, defaulting to what it read before.
+   */
   [data-slot="group-tab"],
   [data-slot="group-accordion-header"] {
     background: transparent;
     border: 0;
-    color: var(--icx-grid-major);
+    color: var(--icx-group-tab-fg, var(--icx-grid-major));
     cursor: pointer;
     font: inherit;
     overflow: hidden;
