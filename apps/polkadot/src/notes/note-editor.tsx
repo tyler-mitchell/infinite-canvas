@@ -15,6 +15,9 @@ import { CodeNode } from "@lexical/code";
 import type { EditorState, LexicalEditor } from "lexical";
 import { tv } from "ui/tv";
 
+import { MentionNode } from "./mention-node";
+import { MentionPlugin, type Mentionable } from "./mention-plugin";
+
 /**
  * The only place the editor engine is named.
  *
@@ -56,12 +59,36 @@ const noteEditor = tv({
  */
 const EDITOR_THEME = {};
 
-const EDITOR_NODES = [HeadingNode, QuoteNode, ListNode, ListItemNode, LinkNode, CodeNode];
+const EDITOR_NODES = [
+  HeadingNode,
+  QuoteNode,
+  ListNode,
+  ListItemNode,
+  LinkNode,
+  CodeNode,
+  MentionNode,
+];
 
+/**
+ * `mentions` keeps this file's boundary intact.
+ *
+ * The editor is handed a list of things that can be named and a callback for when one is — it is
+ * told nothing about notes, relations or the database, so the engine stays the only thing this file
+ * knows about. Whoever supplies the options decides what a mention *means*.
+ */
 export function NoteEditor({
+  mentions,
   onChange,
   value,
-}: Readonly<{ onChange: (value: string) => void; value: string }>) {
+}: Readonly<{
+  mentions: Readonly<{
+    onSelect: (id: string) => void;
+    options: readonly Mentionable[];
+    portalRoot: HTMLElement | null;
+  }>;
+  onChange: (value: string) => void;
+  value: string;
+}>) {
   const styles = noteEditor();
 
   return (
@@ -88,6 +115,11 @@ export function NoteEditor({
         <ListPlugin />
         <LinkPlugin />
         <MarkdownShortcutPlugin transformers={TRANSFORMERS} />
+        <MentionPlugin
+          notes={mentions.options}
+          onMention={mentions.onSelect}
+          portalRoot={mentions.portalRoot}
+        />
         <OnChangePlugin
           ignoreSelectionChange
           onChange={(editorState: EditorState, _editor: LexicalEditor) => {

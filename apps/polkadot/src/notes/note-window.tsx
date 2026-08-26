@@ -1,9 +1,14 @@
-import { useInfiniteCanvasActions } from "@hyphened/infinite-canvas";
+import {
+  useInfiniteCanvasActions,
+  useInfiniteCanvasDesktopPortalRoot,
+} from "@hyphened/infinite-canvas";
 import { useObservable, useValue } from "@legendapp/state/react";
 import { useEffect, useRef } from "react";
 import { tv } from "ui/tv";
 
 import { editNote, ensureNoteLoaded, notes$, type NoteGateway } from "./note-store";
+import { projectNotes$ } from "./project-notes";
+import { connectNotes } from "./relations";
 import { NoteEditor } from "./note-editor";
 
 /**
@@ -95,6 +100,25 @@ export function NoteWindowBody({
   windowTitle,
 }: Readonly<{ gateway: NoteGateway; noteId: string; windowId: string; windowTitle: string }>) {
   const actions = useInfiniteCanvasActions();
+  /*
+   * The project comes from the listing rather than from a prop.
+   *
+   * `renderBody` hands a window and nothing else, and `projectNotes$` already carries the project
+   * it belongs to — threading an id through the window registry to arrive at a value the store
+   * holds would be carrying water past the tap.
+   */
+  const listing = useValue(projectNotes$);
+  const mentionable = listing?.notes ?? [];
+  const projectId = listing?.projectId;
+  /*
+   * The desktop root, not this window's.
+   *
+   * A note renders inside `transform: scale(zoom)`, so a menu positioned against the viewport
+   * resolves against the scaled frame and lands wrong. The desktop root sits outside every
+   * transform, and unlike the per-window root it needs no `portalRoot` opt-in — which a window that
+   * only occasionally opens a menu should not be paying for on every camera tick.
+   */
+  const portalRoot = useInfiniteCanvasDesktopPortalRoot();
   const entry = useValue(notes$[noteId]);
   const rootRef = useRef<HTMLDivElement>(null);
   /*
@@ -185,6 +209,29 @@ export function NoteWindowBody({
         />
         <div className={styles.editor()}>
           <NoteEditor
+            mentions={{
+              /*
+               * A mention authors the connection; it does not own it.
+               *
+               * Deriving edges from the text — the way an app whose links *are* text does — cannot
+               * work here, and not only because a connection can also be dragged between two
+               * windows with no text anywhere. An edge in this app carries state of its own: a
+               * kind, and a label someone wrote on it. Recomputing edges from a body would mean
+               * rewording a sentence silently discards the label you put on that connection. The
+               * sentence is how the claim got made, not what the claim now is.
+               *
+               * So removing a mention leaves the connection standing, and the rail and the canvas
+               * are where it is cut. A stated rule rather than an oversight.
+               */
+              onSelect: (mentionedId) => {
+                if (projectId !== undefined) {
+                  void connectNotes({ projectId, source: noteId, target: mentionedId });
+                }
+              },
+              // Never itself: `relate_notes` refuses a self-edge, so offering one offers a no-op.
+              options: mentionable.filter((candidate) => candidate.id !== noteId),
+              portalRoot,
+            }}
             onChange={(text) => {
               editNote(noteId, { text, title: note.title }, gateway);
             }}

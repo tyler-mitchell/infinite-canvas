@@ -457,10 +457,38 @@ open because it feels good to look at. Concretely, and these are enforced in rev
   offers to cut it. That is the surface where acting on an edge does not depend on where its notes
   happen to sit — the occluded-connector problem stays open for _selecting_ one on the canvas, but
   it no longer blocks removing one.
-- [ ] **Mentions.** The third way to author an edge, and the one `relations.ts` has named as the
-      natural one since it was written. Not started — this entry exists because the design has a hazard
-      that decides its scope, and finding that out after writing the typeahead would be finding it out
-      too late.
+- [~] **Mentions.** The third way to author an edge, and the one `relations.ts` has named as the
+      natural one since it was written. **Built, and half of it is witnessed — read the last
+      paragraph before trusting the other half.**
+      **The design question below is settled, and the answer is the second option.** A mention
+      *authors* a connection; it does not own it. Deriving edges from the text fails here for a
+      reason stronger than the dragged-edge hazard that first stopped it: an edge in this app carries
+      state of its own — a kind, and a label someone wrote on it. Recomputing edges from a note's
+      body would mean rewording a sentence silently discards the label you put on that connection.
+      The sentence is how the claim got made, not what the claim now is. So removing a mention leaves
+      the connection standing, and the rail and the canvas are where it is cut. No schema change, no
+      origin field.
+      **What is built:** `MentionNode`, a `TextNode` subclass rather than a decorator — a mention
+      *is* text, so it wraps, selects and deletes like a word, where a decorator would be an island
+      the caret has to step around. The note's id travels with the node, so the reference survives a
+      rename and nothing resolves the note by the string that was typed. `MentionPlugin` composes
+      `LexicalTypeaheadMenuPlugin`; the trigger, query lifecycle and keyboard traversal are the
+      library's. The editor's contract holds — it is handed options and a callback, and told nothing
+      about notes or relations.
+      **Witnessed:** typing `@` opens the menu, it filters as you type, it lists the project's notes
+      and omits the note you are writing in, and it portals into the framework's root rather than
+      `document.body` (`portalParent: "portal-root"`) — the specific trap `note-editor.tsx` warns
+      about, since a note lives inside `transform: scale(zoom)`. Selecting an option replaces the
+      trigger with a mention chip, and **the mention survives a reload**, so the node's
+      `exportJSON`/`importJSON` round-trip is real rather than assumed.
+      **Not witnessed, and it is the half that matters most:** that selecting a mention actually
+      writes the `relates_to` edge. The first attempt used a pair that was already connected, where
+      `relate_notes` is idempotent and an unchanged count proves nothing; every attempt after that
+      lost to browser choreography — a click landing on the HUD instead of the editor, a camera that
+      had drifted, an editor that stopped rendering. The call is unconditional in `onSelectOption`
+      and `connectNotes` is verified elsewhere in this app, so there is good reason to think it
+      works. Good reason is not a witness. **Confirm it first:** make a new note, mention a note it
+      is not already connected to, and watch that note's count in the rail rise by one.
       **Library-first is already settled:** `@lexical/react` is installed and ships
       `LexicalTypeaheadMenuPlugin`, so the trigger, the menu, keyboard traversal and the query lifecycle
       are the library's. Anything hand-rolled there is a defect. The product owns what the menu lists —
