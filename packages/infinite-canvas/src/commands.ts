@@ -78,7 +78,7 @@ import {
   detachInfiniteCanvasWindowFromWorkspaces,
   findInfiniteCanvasWorkspace,
   isInfiniteCanvasWindowInActiveWorkspace,
-  moveInfiniteCanvasWindowToWorkspace,
+  moveInfiniteCanvasWindowsToWorkspace,
   removeInfiniteCanvasWindowFromWorkspace,
 } from "./workspace";
 import type {
@@ -1957,8 +1957,8 @@ function executeInfiniteCanvasCommand<Kind extends string>(
     case "workspace.moveActiveWindow":
       return state.activeWindowId === null
         ? state
-        : moveInfiniteCanvasWindowToWorkspace(state, {
-            windowId: state.activeWindowId,
+        : moveInfiniteCanvasWindowsToWorkspace(state, {
+            windowIds: [state.activeWindowId],
             workspaceId: command.workspaceId,
           });
     case "selection.removeActive":

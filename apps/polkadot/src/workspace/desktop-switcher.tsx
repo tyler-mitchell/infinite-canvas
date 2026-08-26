@@ -299,22 +299,20 @@ export function DesktopSwitcher() {
               Filing a whole selection at once, which until now was one trip through the launcher
               per window: select three notes, enter the desktop you want them on, one click.
 
-              N dispatches rather than one, and that costs N undo entries for what the user did as
-              one gesture. Taken deliberately: the alternative is the product batching moves itself,
-              and a consumer that batches membership edits is restating the framework's own rule
-              about what a single edit is. `workspace.moveWindow` taking a set is the framework's
-              call to make — the same shape as its own note that two dispatches would be two undo
-              entries with a window on both desktops in between.
+              One dispatch, and that is the framework's doing rather than this file's. It used to be
+              N — one per window — which cost N undo entries for what the user did as one gesture,
+              and left the desktop half-populated at every step in between. Batching it here would
+              have restated the framework's own rule about what a single edit is, so it was recorded
+              as an ask instead. `workspace.moveWindow` takes `windowIds` now, so the gesture and
+              the edit are the same size.
             */}
             {selectedElsewhere.length === 0 ? null : (
               <DropdownMenuItem
                 onClick={() => {
-                  selectedElsewhere.forEach((windowId) => {
-                    actions.dispatch({
-                      type: "workspace.moveWindow",
-                      windowId,
-                      workspaceId: active.id,
-                    });
+                  actions.dispatch({
+                    type: "workspace.moveWindow",
+                    windowIds: selectedElsewhere,
+                    workspaceId: active.id,
                   });
                 }}
               >

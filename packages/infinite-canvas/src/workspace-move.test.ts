@@ -58,7 +58,7 @@ const membership = (state: InfiniteCanvasState<Kind>, workspaceId: string) =>
 test("a moved window joins the target and leaves the one it was on", () => {
   const moved = reduceInfiniteCanvasState(twoDesktops(), {
     type: "workspace.moveWindow",
-    windowId: "a",
+    windowIds: ["a"],
     workspaceId: "writing",
   });
 
@@ -70,7 +70,7 @@ test("moving is one edit, not a remove and an add", () => {
   const before = twoDesktops();
   const moved = reduceInfiniteCanvasState(before, {
     type: "workspace.moveWindow",
-    windowId: "a",
+    windowIds: ["a"],
     workspaceId: "writing",
   });
 
@@ -90,7 +90,7 @@ test("moving a docked pane takes its whole shell with it", () => {
 
   const moved = reduceInfiniteCanvasState(docked, {
     type: "workspace.moveWindow",
-    windowId: "a",
+    windowIds: ["a"],
     workspaceId: "writing",
   });
   const shell = docked.groups[0];
@@ -112,7 +112,7 @@ test("a move that changes nothing returns the identical document", () => {
   expect(
     reduceInfiniteCanvasState(state, {
       type: "workspace.moveWindow",
-      windowId: "a",
+      windowIds: ["a"],
       workspaceId: "research",
     }).workspaces,
   ).toBe(state.workspaces);
@@ -124,8 +124,63 @@ test("moving to a desktop that does not exist changes nothing", () => {
   expect(
     reduceInfiniteCanvasState(state, {
       type: "workspace.moveWindow",
-      windowId: "a",
+      windowIds: ["a"],
       workspaceId: "nowhere",
+    }),
+  ).toBe(state);
+});
+
+test("a whole selection files in one edit, not one per window", () => {
+  /*
+   * The reason this verb takes a set. Filing three windows used to be three dispatches, which is
+   * three undo entries for one gesture — and the desktop is half-populated at each step, so undoing
+   * "put these on that desktop" takes three undos and passes through two states nobody asked for.
+   */
+  const before = twoDesktops();
+  const moved = reduceInfiniteCanvasState(before, {
+    type: "workspace.moveWindow",
+    windowIds: ["a", "b", "c"],
+    workspaceId: "writing",
+  });
+
+  expect(membership(moved, "writing")).toEqual(["a", "b", "c"]);
+  expect(membership(moved, "research")).toEqual([]);
+  expect(moved.history.past).toHaveLength(before.history.past.length + 1);
+});
+
+test("one undo puts a whole filed selection back", () => {
+  // The half that matters to a person: the edit is one, so its reversal is one.
+  const before = twoDesktops();
+  const moved = reduceInfiniteCanvasState(before, {
+    type: "workspace.moveWindow",
+    windowIds: ["a", "b", "c"],
+    workspaceId: "writing",
+  });
+  const undone = reduceInfiniteCanvasState(moved, {
+    command: { type: "history.undo" },
+    type: "command.execute",
+  });
+
+  expect(membership(undone, "research")).toEqual(["a", "b", "c"]);
+  expect(membership(undone, "writing")).toEqual([]);
+});
+
+test("the set is normalized as a whole: duplicates, dead ids, and an empty set", () => {
+  const state = twoDesktops();
+  const moved = reduceInfiniteCanvasState(state, {
+    type: "workspace.moveWindow",
+    // "a" twice and a window that does not exist — neither should reach membership.
+    windowIds: ["a", "a", "ghost"],
+    workspaceId: "writing",
+  });
+
+  expect(membership(moved, "writing")).toEqual(["a"]);
+  // An empty set is a no-op rather than a move of nothing, so it lands no history entry.
+  expect(
+    reduceInfiniteCanvasState(state, {
+      type: "workspace.moveWindow",
+      windowIds: [],
+      workspaceId: "writing",
     }),
   ).toBe(state);
 });

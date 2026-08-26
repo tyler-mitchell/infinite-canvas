@@ -391,24 +391,32 @@ function detachInfiniteCanvasWindowFromWorkspaces<Kind extends string>(
 }
 
 /**
- * Move a window to a desktop: it leaves every other one and joins this one, as a single edit.
+ * Move windows to a desktop: they leave every other one and join this one, as a single edit.
  *
  * The operation a virtual desktop exists for, and the one thing `addWindow` and `removeWindow`
  * could not express between them. Two dispatches would also be two undo entries, and a window
  * would be on both desktops in between.
  *
+ * **A set rather than one id, because the gesture is a set.** "Put these three on that desktop"
+ * is one thing a person did, and filing them one dispatch at a time made it three undo entries
+ * that have to be undone three times — with the desktop half-populated at each step. A consumer
+ * looping this verb was the previous answer and it restated, badly, the framework's own rule
+ * about what a single edit is. Moving one window is a set of one; nothing needed a second verb.
+ *
  * **The whole group moves, and it has to.** Membership is group-complete, and
  * `reconcileInfiniteCanvasWorkspaces` re-expands every workspace after every action — so moving
  * one pane of a docked shell while its siblings stayed behind would have reconcile pull the
  * moved pane straight back into the desktop it just left. Naming the group-complete set up
- * front is what makes the move stick.
+ * front is what makes the move stick, and it is why the set is normalized as a whole rather than
+ * per id: `normalizeInfiniteCanvasWorkspaceWindowIds` already dedupes, drops ids naming no live
+ * window, and expands each group, so the plural form needed no new logic at all.
  *
  * Returns the identical state when the move would change nothing, so a no-op lands no history
- * entry.
+ * entry — including an empty set, or one naming only windows already here.
  */
-function moveInfiniteCanvasWindowToWorkspace<Kind extends string>(
+function moveInfiniteCanvasWindowsToWorkspace<Kind extends string>(
   state: InfiniteCanvasState<Kind>,
-  input: Readonly<{ windowId: string; workspaceId: string }>,
+  input: Readonly<{ windowIds: readonly string[]; workspaceId: string }>,
 ): InfiniteCanvasState<Kind> {
   const target = findInfiniteCanvasWorkspace(state, input.workspaceId);
 
@@ -416,7 +424,7 @@ function moveInfiniteCanvasWindowToWorkspace<Kind extends string>(
     return state;
   }
 
-  const moving = new Set(normalizeInfiniteCanvasWorkspaceWindowIds(state, [input.windowId]));
+  const moving = new Set(normalizeInfiniteCanvasWorkspaceWindowIds(state, input.windowIds));
 
   if (moving.size === 0) {
     return state;
@@ -453,7 +461,7 @@ export {
   findInfiniteCanvasWorkspace,
   getInfiniteCanvasWorkspaceWindowIds,
   isInfiniteCanvasWindowInActiveWorkspace,
-  moveInfiniteCanvasWindowToWorkspace,
+  moveInfiniteCanvasWindowsToWorkspace,
   removeInfiniteCanvasWindowFromWorkspace,
   renameInfiniteCanvasWorkspace,
   reorderInfiniteCanvasWorkspace,

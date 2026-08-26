@@ -739,15 +739,23 @@ open because it feels good to look at. Concretely, and these are enforced in rev
   every window on the canvas the moment the first desktop is made. Clicking one is `window.reveal`.
   And "Bring N windows here" files a whole selection at once, so "put these three on a new desktop"
   is select, enter, click rather than three round trips through a modal.
-  That last one is N dispatches, which is N undo entries for one gesture. Deliberate: batching
-  membership edits in the product would restate the framework's rule about what a single edit is,
-  and `workspace.moveWindow` taking a set is the framework's call to make. **Named as an ask, not
-  built.**
+  That last one used to be N dispatches, which is N undo entries for one gesture, and the desktop
+  was half-populated at every step in between — so undoing "put these three there" took three
+  undos and passed through two states nobody asked for. Batching it in the product would have
+  restated the framework's rule about what a single edit is, so it was recorded as an ask instead.
+  **The ask is built.** `workspace.moveWindow` takes `windowIds` now, the gesture and the edit are
+  the same size, and the app dispatches once. The plural needed no new logic:
+  `normalizeInfiniteCanvasWorkspaceWindowIds` already deduped, dropped ids naming no live window,
+  and expanded each group, so the function that was written around a `Set` simply stopped being
+  handed a set of one. `windowId` was replaced rather than joined by a plural — this repo keeps no
+  compatibility path for a shape it has replaced, and moving one window is a set of one.
   **"Not on this desktop" is driven; "Bring N windows here" still is not.** The first renders its
   label and a row per hidden window with the desktop each is on — "no desktop" for all of them
   before anything is filed — and it correctly drops a window from the list once that window is on
-  the desktop you are standing on. The second needs a selection to appear and was not exercised;
-  the ask beneath it, `workspace.moveWindow` taking a set, is still named and not built.
+  the desktop you are standing on. The second needs a selection to appear and was not exercised on
+  screen — though the verb underneath it is now covered by tests: filing three windows lands one
+  history entry, one undo puts all three back, and a set carrying a duplicate and a dead id
+  normalizes to the one real window.
   **That section was one click from taking the canvas down, and nobody had ever opened it.**
   `DropdownMenuLabel` is Base UI's _group_ label and reads `MenuGroupContext`, so a label outside a
   `DropdownMenuGroup` throws rather than warns — straight to the error page. Both labels here sat

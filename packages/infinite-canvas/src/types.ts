@@ -1237,14 +1237,18 @@ type InfiniteCanvasAction<Kind extends string = string> =
   | Readonly<{ type: "workspace.activate"; workspaceId: string | null }>
   | Readonly<{ type: "workspace.addWindow"; windowId: string; workspaceId: string }>
   /**
-   * Move a window to a desktop: it leaves every other one and joins this one, as one edit.
+   * Move windows to a desktop: they leave every other one and join this one, as one edit.
    *
    * `addWindow` and `removeWindow` cannot express this between them — two dispatches are two
    * undo entries, and the window sits on both desktops in between. The whole group moves,
    * because membership is group-complete and leaving siblings behind would have reconciliation
    * pull the window straight back.
+   *
+   * A set, because "put these three on that desktop" is one thing a person did: filing them one
+   * dispatch at a time made it three undo entries with the desktop half-populated at each step.
+   * Moving one window is a set of one.
    */
-  | Readonly<{ type: "workspace.moveWindow"; windowId: string; workspaceId: string }>
+  | Readonly<{ type: "workspace.moveWindow"; windowIds: readonly string[]; workspaceId: string }>
   | Readonly<{ type: "workspace.removeWindow"; windowId: string; workspaceId: string }>
   /** `toIndex` is the position in the final list, matching `group.reorderChild`. */
   | Readonly<{ toIndex: number; type: "workspace.reorder"; workspaceId: string }>
