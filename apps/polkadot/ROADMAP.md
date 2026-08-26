@@ -774,6 +774,48 @@ stays. What is missing is the field itself, and it is hours of careful work, not
       session's HMR reload mid-click. And `docs/API.md` should move `minimap` off _unobserved_ by
       its own stated rule, which is the framework's edit to make, not this app's.
 
+- [x] **A canvas holds more than one kind of thing.** `type WindowKind = "note"` was the single
+      line behind most of the framework going unexercised: the dock, groups, docking, and drop
+      placement are all built for a canvas with variety, and there was none. An image is the second
+      kind, and it was chosen because its physics are the _opposite_ of a note's on every axis the
+      window definition offers — a wheel over it belongs to the camera rather than to a scroll
+      container, a drag across it pans rather than selects, and it declares no summary, because a
+      picture at a tenth of the size is still the picture while a paragraph is grey noise.
+      **The database never needed changing, which is the finding.** There has never been a `note`
+      table: a note is a `content_item` with `kind = "note"`, `content` is FLEXIBLE, and
+      `relates_to` is `IN content_item OUT content_item`. Only the layer above claimed otherwise,
+      and it claimed it in every name — `fn::relate_notes`, `connectNotes`,
+      `getConnectorRectsByNote`. So the SurrealQL functions took their kind as a parameter, the
+      relation store moved out of `notes/`, and window data became one `{ itemId }` for every kind,
+      since `window.kind` already says which sort of item it is. Two id names were why nothing
+      could ask a window what it was bound to without knowing its kind first.
+      **Dropping a file on the canvas is how a picture gets there**, and it is the framework's own
+      drop pipeline: the viewport hears the native drag events and translates them into the
+      interaction the pointer path already produces, so `canDrop`, snapping, guides, and the
+      preview all work with no coordinate maths in the app. Inert without a `dropPolicy`, so a
+      canvas that was never told what a file means leaves the browser's handling alone.
+      Driven: a 400×400 PNG dropped at 60%/55% of the viewport opened at 360×392 — square plus the
+      header — with all three drag events `defaultPrevented`; a `.txt` showed `dropEffect: "none"`
+      and created nothing; two pictures dropped 409×449 client pixels apart landed 408×451 world
+      units apart at zoom 1; and five images came back decoded after a reload.
+      **Still open:** a connector between a picture and a note is confirmed at the geometry layer —
+      `getDrawnConnectors` returns a four-point path for that pair, where it returned nothing
+      before — but the line has not been _watched painting_. The canvas route was down under
+      another session's in-flight edit at the moment that check came due. It is one screenshot, and
+      it is owed.
+      **Cost, stated rather than buried:** windows saved before this carried `{ noteId }`, which no
+      longer validates, so an existing canvas shows its windows as unbound. The records are
+      untouched and reopen from the library; the repo keeps no compatibility path for a shape it
+      has replaced.
+
+- [x] **Minimizing is no longer a one-way door.** The chrome always offered it and `mode:
+  "minimized"` is what it set, but with no dock nothing on the canvas said where the window
+      went — the only route back was a library rail row, which reveals the _note_ rather than the
+      window and is absent when the rail is collapsed. `minimizedDock: false` had sat uncommented
+      in the HUD policy while every other line in that object was argued for, which is what marks
+      it as an unexamined default rather than a decision. Turning it on found four framework
+      defects, all in the table below.
+
 ## Later, deliberately
 
 - **Tours** — `getInfiniteCanvasWorldPath` and `…PointAtProgress` are built for guided paths
@@ -787,15 +829,30 @@ stays. What is missing is the field itself, and it is hours of careful work, not
 
 Kept here because the list _is_ the incubator's output.
 
-| Gap                                                                                                      | Generic affordance                                                        | State  |
-| -------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- | ------ |
-| Backdrop was hardcoded                                                                                   | `renderBackdrop`, mirroring `renderOverlay`                               | landed |
-| No way to observe "the durable document changed"                                                         | `InfiniteCanvasHandle.subscribeDocument`                                  | landed |
-| Hydration adopted a fallback's unusable viewport                                                         | `desktop.hydrate` keeps a usable viewport over the payload's              | landed |
-| `chrome` demanded all five metrics, and the defaults are not exported                                    | `InfiniteCanvasChromeMetricsInput`, mirroring `zoomPolicy`                | landed |
-| No DOM layer between the backdrop and the windows: connectors meant losing the grid or taking on `three` | `renderUnderlay`, the counterpart to `renderBackdrop` and `renderOverlay` | landed |
-| Workspaces could be walked but never entered: no command made one, named which to go to, or closed one   | `workspace.create`, `workspace.enter`, `workspace.close`                  | landed |
-| Navigation was not desktop-aware: going to a window another desktop hid panned the camera to nothing     | `window.reveal` — go where the window is, restore it, focus it            | landed |
+| Gap                                                                                                      | Generic affordance                                                              | State  |
+| -------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- | ------ |
+| Backdrop was hardcoded                                                                                   | `renderBackdrop`, mirroring `renderOverlay`                                     | landed |
+| No way to observe "the durable document changed"                                                         | `InfiniteCanvasHandle.subscribeDocument`                                        | landed |
+| Hydration adopted a fallback's unusable viewport                                                         | `desktop.hydrate` keeps a usable viewport over the payload's                    | landed |
+| `chrome` demanded all five metrics, and the defaults are not exported                                    | `InfiniteCanvasChromeMetricsInput`, mirroring `zoomPolicy`                      | landed |
+| No DOM layer between the backdrop and the windows: connectors meant losing the grid or taking on `three` | `renderUnderlay`, the counterpart to `renderBackdrop` and `renderOverlay`       | landed |
+| Workspaces could be walked but never entered: no command made one, named which to go to, or closed one   | `workspace.create`, `workspace.enter`, `workspace.close`                        | landed |
+| Navigation was not desktop-aware: going to a window another desktop hid panned the camera to nothing     | `window.reveal` — go where the window is, restore it, focus it                  | landed |
+| The HUD pinned itself to the element's edges, ignoring the bands every camera verb already respects      | `canvas-hud` insets its root by `viewportInsets`, per edge                      | landed |
+| The HUD's bottom edge was two absolutes pinned to opposite sides, free to grow into each other           | one flex row: the dock shrinks and wraps, the controls hold their size          | landed |
+| A dock item's padding was an inline style and its text was uppercased, over a `window.title`             | both moved into `theme.css`, where a consumer can reach them                    | landed |
+| A body wrapper fixed at `min-height: 100%` made `height: 100%` impossible for its own content            | the wrapper follows the kind's `overflowY`: growable if it scrolls, else pinned | landed |
+| The drop system was pointer-only, so a file dragged in from the OS could reach none of it                | the viewport bridges native drag events into the same drop interaction          | landed |
+
+**On the fourth-from-last row**, because it is the one a consumer cannot work around. The wrapper
+was pinned to `height: 100%` once, which gave its scroll container nothing to scroll and made a
+long note unreachable; the fix was `min-height`, and that fix was right for every kind that
+scrolls. It was silently wrong for every kind that does not: with `min-height` alone the wrapper's
+used height is `auto`, so a consumer asking for `height: 100%` resolves against nothing and
+collapses to its content. An image window's picture overflowed the frame it was supposed to be
+letterboxed inside. One rule cannot serve both, and the definition already says which case it is
+in — the kind's own `overflowY`. Both directions now have a test, and both were confirmed to fail
+with the fix reverted, because a test that cannot fail is not evidence.
 
 **On the second row**, because it is the clearest thing the incubator has produced so far. Any
 consumer persisting a canvas needs to know when the stored shape changed. The obvious way to ask —

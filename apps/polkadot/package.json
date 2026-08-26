@@ -33,6 +33,7 @@
     "motion": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:",
+    "surreal-inspector": "workspace:*",
     "surrealdb": "catalog:",
     "typegpu": "catalog:",
     "ui": "workspace:*"
