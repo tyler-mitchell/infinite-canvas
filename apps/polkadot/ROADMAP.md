@@ -172,8 +172,22 @@ open because it feels good to look at. Concretely, and these are enforced in rev
       `content_item:4s9rw…` and `content_item:70ere…`. Search still narrows — "new can" leaves
       exactly `New canvas` — and "content_item" now matches **nothing**, which is the proof that the
       identity never reached the haystack.
-      **Still open:** the palette cannot delete, which genuinely does need a typed confirmation
-      rather than a text field.
+      **"The palette cannot delete" was reasoning about a verb that does not exist.** This line said
+      delete was the one thing a page could not host, because it needs a typed confirmation rather
+      than a text field. There is no note delete in this app and there never was: a note carries
+      `relates_to` edges, so deleting one would have to cascade them or leave the graph pointing at
+      nothing, and the removal the schema settled on is archive. Archive destroys nothing — restore
+      returns the note _and_ its edges — so there is nothing to weigh and nothing to confirm, and a
+      plain row is the whole affordance. `Archive “<note>”` acts on the active note's window and
+      closes that window as it goes, exactly as the rail does, because a note the library no longer
+      offers but that is still open on the canvas is where "archived" stops meaning anything.
+      Recents needed no cleanup, which is the earlier design paying for itself: they are ids
+      resolved against a listing that excludes archived notes, so the row stops rendering by itself.
+      Driven: the rail goes from `Library 5 … Untitled 5` to `Library 4` without it, and the window
+      count drops from two to one in the same step.
+      **Still open on the palette:** nothing named. Projects and canvases have their own destructive
+      removals with typed confirmations, and those are genuinely not page-shaped — but no line here
+      has ever asked the palette to host them.
 - [~] **The library rail** — content, search, saved views. This line said "currently an empty box
   making a promise", which overstated it: there is no box. `CanvasHud` renders the identity
   rail, the selection rail, the recovery notice and the launcher, and nothing else.

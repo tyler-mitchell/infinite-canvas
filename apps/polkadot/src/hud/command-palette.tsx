@@ -12,6 +12,7 @@ import { useObservable, useValue } from "@legendapp/state/react";
 import { createHotkeyHandler, formatForDisplay } from "@tanstack/hotkeys";
 import { useNavigate } from "@tanstack/react-router";
 import {
+  Archive,
   Ban,
   Columns3,
   CornerDownLeft,
@@ -59,6 +60,7 @@ import * as database from "../database/operations";
 import { renameNote } from "../notes/note-store";
 import { openNewNote, openNoteWindow } from "../notes/open-note";
 import {
+  archiveProjectNote,
   getProjectNotes,
   loadProjectNotes,
   projectNotes$,
@@ -873,6 +875,39 @@ function PaletteContent({
                 query$.set(activeNote.title);
               }}
               title={`Rename “${activeNote.title}”…`}
+            />
+          )}
+          {/*
+            Archive, which is the only removal a note has.
+
+            This was left undone on the grounds that the palette cannot delete because delete needs
+            a typed confirmation — reasoning about a verb that does not exist here. A note carries
+            `relates_to` edges, so the removal the schema settled on is archive: nothing is
+            destroyed, restore puts back the note *and* its edges, and there is nothing to weigh, so
+            there is nothing to confirm. A plain row is the whole affordance.
+
+            The window closes with it, exactly as the rail does it. A note the library no longer
+            offers but that is still sitting open on the canvas is the state where "archived" stops
+            meaning anything.
+          */}
+          {activeNote === undefined ? null : (
+            <Row
+              icon={Archive}
+              id="archive-note"
+              keywords="archive remove delete hide note"
+              onSelect={run(() => {
+                const windowId = state.windows.find(
+                  (window) =>
+                    (window.data as { noteId?: string } | undefined)?.noteId === activeNote.id,
+                )?.id;
+
+                if (windowId !== undefined) {
+                  actions.closeWindow(windowId);
+                }
+
+                void archiveProjectNote({ noteId: activeNote.id, projectId });
+              })}
+              title={`Archive “${activeNote.title}”`}
             />
           )}
           {/* Only for a single edge: a sentence written onto four connections at once is a
