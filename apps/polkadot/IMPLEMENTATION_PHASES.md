@@ -132,19 +132,33 @@ Files: `src/workspace/project-library.tsx`, `src/workspace/canvas-library.tsx`,
 Tasks:
 
 - [ ] Create, open, rename, duplicate, archive, restore, and permanently remove projects.
-- [ ] Create, open, rename, duplicate, archive, restore, and permanently remove canvases.
+- [x] Create, open, rename, duplicate, archive, restore, and permanently remove canvases.
 - [ ] Add recent and recovery collections with explicit empty and failure states.
 - [ ] Keep several canvas routes available as tabs without sharing stores.
 - [ ] Add route breadcrumbs and browser back/forward behavior.
-- [ ] Require explicit confirmation and record counts before permanent removal.
+- [x] Require explicit confirmation and record counts before permanent removal.
 
 Verification:
 
-- [ ] Every lifecycle command changes one database authority and returns a receipt.
-- [ ] Duplicate canvas copies layout and view references while preserving shared content identity.
-- [ ] Archive is reversible and permanent removal follows the declared content-retention policy.
+- [x] Every lifecycle command changes one database authority and returns a receipt.
+- [x] Duplicate canvas copies layout and view references while preserving shared content identity.
+- [x] Archive is reversible and permanent removal follows the declared content-retention policy.
 - [ ] Tab and browser navigation dispose and restore runtimes without duplicate subscriptions.
-- [ ] The last-opened canvas becomes the deterministic root-route destination.
+- [x] The last-opened canvas becomes the deterministic root-route destination.
+
+Witnessed in the browser:
+
+- Duplicating produced a copy whose windows reference the same `content_item:welcome`
+  as the source, so content identity is shared rather than forked.
+- Archiving removed the canvas from the switcher, placed it under an "Archived"
+  group, and navigated off it; restoring returned it to the active list.
+- The removal confirmation read the live count — "and its 1 window", correctly
+  singular — and after confirming, `content_item:welcome` still held its text.
+
+Left open deliberately: the switcher lists canvases but has no "recent" collection
+and no empty or failure state, since the list is only ever reached with at least one
+canvas present. Tabs and breadcrumbs are untouched. Projects are the remaining half
+of this phase and are not started — everything still hardcodes `project:default`.
 
 Exit: users can manage the project and canvas documents that contain the daily workflow.
 
