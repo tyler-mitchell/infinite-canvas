@@ -112,8 +112,16 @@ const returnFocusToCanvas = () => {
  * "Focus Down" — every word containing u, n, d, o in order. Requiring each term to appear whole
  * costs nothing and stops the list from arguing with you. Earlier matches rank higher.
  */
-const matchCommand = (value: string, search: string) => {
-  const haystack = value.toLowerCase();
+const matchCommand = (value: string, search: string, keywords?: readonly string[]) => {
+  /*
+   * Searched against the words, not against the value.
+   *
+   * cmdk hands the filter both, because they are different jobs: `value` identifies a row and
+   * `keywords` describe it. Matching on `value` conflated them — a row had to be searchable to be
+   * distinguishable, so two windows showing notes with the same title became one row as far as
+   * selection was concerned, since it compares `state.value` to the item's value and both matched.
+   */
+  const haystack = (keywords ?? [value]).join(" ").toLowerCase();
   const terms = search.toLowerCase().split(/\s+/).filter(Boolean);
 
   if (terms.length === 0) {
@@ -139,7 +147,8 @@ const matchCommand = (value: string, search: string) => {
  * Title first also ranks it, since `matchCommand` scores by earliest match: a hit on what is
  * displayed beats a hit on a synonym.
  */
-const searchValue = (parts: readonly (string | undefined)[]) => parts.filter(Boolean).join(" ");
+const searchWords = (parts: readonly (string | undefined)[]) =>
+  parts.filter((part): part is string => part !== undefined && part !== "");
 
 /**
  * A page the palette has gone into, or `null` for the list.
@@ -246,6 +255,7 @@ function Row({
   description,
   disabled,
   icon: Icon,
+  id,
   keys,
   keywords,
   onSelect,
@@ -256,6 +266,15 @@ function Row({
   /** Shown and greyed rather than hidden, so a row can say why it cannot run yet. */
   disabled?: boolean;
   icon: ComponentType;
+  /**
+   * What makes this row *this* row — never what makes it findable.
+   *
+   * cmdk compares `state.value` to an item's value to decide what is selected, so two rows sharing
+   * one are both selected and arrow keys cannot separate them. Titles are not unique — two notes
+   * can be called "Untitled 3" — so identity comes from a record id and search comes from
+   * `keywords`, which is the split cmdk's own API already draws.
+   */
+  id: string;
   keys?: readonly string[];
   /** Words to find this row by *beyond* what it displays. The title is always searchable. */
   keywords?: string;
@@ -268,8 +287,9 @@ function Row({
   return (
     <CommandItem
       disabled={disabled}
+      keywords={searchWords([title, description, keywords])}
       onSelect={onSelect}
-      value={searchValue([title, description, keywords])}
+      value={id}
     >
       <span className={styles.tile()} data-slot="command-item-icon">
         <Icon />
@@ -567,6 +587,7 @@ function PaletteContent({
             <Row
               disabled={!spec.enabled}
               icon={spec.icon}
+              id="page-commit"
               onSelect={run(() => {
                 spec.commit();
                 page$.set(null);
@@ -611,6 +632,7 @@ function PaletteContent({
               <Row
                 icon={FileText}
                 key={note.id}
+                id={note.id}
                 keywords="recent note"
                 onSelect={run(() => {
                   reachNote(note);
@@ -641,6 +663,7 @@ function PaletteContent({
 
                   actions.executeCommand({ type: "window.reveal", windowId: window.id });
                 })}
+                id={window.id}
                 keywords={`window ${window.kind}`}
                 title={window.title}
                 trailing={
@@ -660,6 +683,7 @@ function PaletteContent({
                 onSelect={run(() => {
                   reachNote(note);
                 })}
+                id={note.id}
                 keywords="note"
                 title={note.title}
               />
@@ -679,6 +703,7 @@ function PaletteContent({
                 onSelect={run(() => {
                   actions.executeCommand({ type: "workspace.enter", workspaceId: workspace.id });
                 })}
+                id={workspace.id}
                 keywords="desktop"
                 title={workspace.title}
                 trailing={
@@ -706,6 +731,7 @@ function PaletteContent({
                           workspaceId: workspace.id,
                         });
                       })}
+                      id={`send-to-${workspace.id}`}
                       keywords="move window desktop"
                       title={`Send “${activeWindow.title}” to ${workspace.title}`}
                     />
@@ -719,6 +745,7 @@ function PaletteContent({
                     workspaceId: state.activeWorkspaceId ?? "",
                   });
                 })}
+                id="workspace-close"
                 keywords="remove workspace"
                 title="Close this desktop"
               />
@@ -735,6 +762,7 @@ function PaletteContent({
                 onSelect={run(() => {
                   openCanvas(canvas.id);
                 })}
+                id={canvas.id}
                 keywords="canvas"
                 title={canvas.title}
               />
@@ -756,6 +784,7 @@ function PaletteContent({
                     }
                   });
                 })}
+                id={project.id}
                 keywords="project"
                 title={project.title}
               />
@@ -769,6 +798,7 @@ function PaletteContent({
             onSelect={run(() => {
               void openNewNote({ actions, projectId, state });
             })}
+            id="new-note"
             keywords="create"
             title="New note"
           />
@@ -785,6 +815,7 @@ function PaletteContent({
                   openCanvas(created.id);
                 });
             })}
+            id="new-canvas"
             keywords="create"
             title="New canvas"
           />
@@ -805,6 +836,7 @@ function PaletteContent({
                 <Row
                   icon={kind === DEFAULT_RELATION_KIND ? Link2 : Tag}
                   key={kind}
+                  id={`relation-kind-${kind}`}
                   keywords="mark kind meaning label edge relation"
                   onSelect={run(() => {
                     for (const relation of selectedRelations) {
@@ -834,6 +866,7 @@ function PaletteContent({
           {activeNote === undefined ? null : (
             <Row
               icon={FileText}
+              id="rename-note"
               keywords="rename title name note"
               onSelect={() => {
                 page$.set({ kind: "rename", note: activeNote });
@@ -847,6 +880,7 @@ function PaletteContent({
           {selectedRelations.length === 1 && selectedRelations[0] !== undefined ? (
             <Row
               icon={Tag}
+              id="label-connection"
               keywords="label name text say describe edge relation"
               onSelect={() => {
                 const relation = selectedRelations[0];
@@ -874,6 +908,7 @@ function PaletteContent({
                   });
                 }
               })}
+              id="cut-connection"
               keywords="disconnect unlink edge relation"
               title={
                 selectedRelations.length === 1
@@ -896,6 +931,7 @@ function PaletteContent({
                   ? connectNotes({ projectId, source, target })
                   : disconnectNotes({ projectId, source, target }));
               })}
+              id="connect-selected-notes"
               keywords={
                 connectedPair === undefined ? "relate link edge" : "unrelate unlink cut edge"
               }
@@ -915,6 +951,7 @@ function PaletteContent({
                 workspaceId: globalThis.crypto.randomUUID(),
               });
             })}
+            id="new-desktop"
             keywords="workspace create"
             title="New desktop"
           />
@@ -927,6 +964,7 @@ function PaletteContent({
                   openCanvas(created.id);
                 });
             })}
+            id="new-project"
             keywords="create"
             title="New project"
           />
@@ -939,6 +977,7 @@ function PaletteContent({
               icon={GROUP_ICON[command.group]}
               key={command.id}
               keys={command.hotkeys.map((hotkey) => formatForDisplay(hotkey))}
+              id={command.id}
               keywords={command.id}
               onSelect={run(() => {
                 actions.executeCommand(command.command);
@@ -958,7 +997,8 @@ function PaletteContent({
               <CommandItem
                 disabled
                 key={command.id}
-                value={searchValue([command.label, command.description, command.id])}
+                keywords={searchWords([command.label, command.description, command.id])}
+                value={command.id}
               >
                 <span className={styles.tile()}>
                   <Ban />

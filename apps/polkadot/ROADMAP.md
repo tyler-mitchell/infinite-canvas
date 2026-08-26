@@ -156,11 +156,24 @@ open because it feels good to look at. Concretely, and these are enforced in rev
       their home groups unconditionally, which meant that once you typed — when `Recent` is hidden —
       those notes disappeared from search entirely. A note becoming unfindable _because_ you had
       just used it is the exact inverse of the feature. The lift-out is now conditional on browsing.
+      **Identity and search are now separate, which fixes a bug that had been there all along.**
+      Two notes can both be called "Untitled 3", and a row's cmdk value was its searchable text — so
+      those two rows carried the same value, and cmdk decides what is selected by comparing
+      `state.value` against each item's value. Both matched. Arrow keys could not separate them and
+      running one was a coin toss. This predates the search-value work; the value before it was
+      `window <title> <kind>`, equally identical.
+      The fix is not a longer value. cmdk already draws this line: `CommandItem` takes `keywords`
+      alongside `value`, and the filter is handed both — `filter(value, search, keywords)` — because
+      one identifies a row and the other describes it. A row's value is now its record id and its
+      words are `keywords`, so titles no longer have to be unique to be usable. Appending the id to
+      the value would have "worked" and been wrong: ids read `content_item:…`, so typing "item"
+      would have matched every note on the canvas.
+      Driven: 29 rows, zero duplicate values, and the two "Untitled 3" rows now carry
+      `content_item:4s9rw…` and `content_item:70ere…`. Search still narrows — "new can" leaves
+      exactly `New canvas` — and "content_item" now matches **nothing**, which is the proof that the
+      identity never reached the haystack.
       **Still open:** the palette cannot delete, which genuinely does need a typed confirmation
-      rather than a text field. And a latent one this made visible rather than caused: two windows
-      showing notes with the same title produce two rows with the same cmdk value, which selection
-      cannot tell apart. That predates the search-value work — the old value was
-      `window <title> <kind>`, equally identical — and nothing here fixes it.
+      rather than a text field.
 - [~] **The library rail** — content, search, saved views. This line said "currently an empty box
   making a promise", which overstated it: there is no box. `CanvasHud` renders the identity
   rail, the selection rail, the recovery notice and the launcher, and nothing else.
@@ -320,6 +333,16 @@ open because it feels good to look at. Concretely, and these are enforced in rev
   observed, so that is reasoning rather than evidence.
   **Still open:** a stub says how many connections are hidden and not which, and the count is per
   window rather than per neighbour, so two windows on the same note each repeat it.
+  **Also still open, found by driving the whole flow rather than one feature:** a connector between
+  two windows that nearly touch is almost entirely behind them. Windows resolve before edges, which
+  is right — clicking a note should select the note — but the consequence is that the only part of
+  such an edge you can aim at is the few pixels crossing the gap. At one arrangement the longest
+  exposed segment measured 30px, and clicking its midpoint selected nothing because that midpoint
+  was still inside a window. Nothing is wrong with the hit radius or the stacking; the geometry
+  simply leaves nothing to hit. Two notes side by side are also the two most likely to be
+  connected, so this is not an edge case. A connector may need a grab area that survives occlusion —
+  the label already sits at the routed midpoint and is a candidate — but that is a design question
+  and no design has been chosen.
 - [~] **Workspaces** as the organizing spine. The framework's workspace model was reachable only by
   a consumer reaching past the command layer: `cycle` walks desktops that exist and does nothing
   when there are none, so nothing could make the first one, name which one to enter, or take one
