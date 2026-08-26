@@ -178,12 +178,14 @@ export function CanvasHud({
   identity,
   library,
   libraryInset = 0,
+  minimap,
 }: Readonly<{
   commandPalette?: ReactNode;
   droppedKinds?: readonly string[];
   identity: ReactNode;
   library?: ReactNode;
   libraryInset?: number;
+  minimap?: ReactNode;
 }>) {
   return (
     <>
@@ -215,6 +217,9 @@ export function CanvasHud({
         </HudSurface>
         {droppedKinds === undefined ? null : <RecoveryNotice droppedKinds={droppedKinds} />}
         <SelectionRail />
+        {/* Inside the inset root, unlike the offscreen ring: this is an ordinary corner surface,
+            and it should sit inside whatever the library leaves rather than under it. */}
+        {minimap}
         {/* Outside the anchored surfaces: it is a modal, not a corner. */}
         {commandPalette}
       </HudRoot>

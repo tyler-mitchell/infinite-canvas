@@ -20,6 +20,7 @@ import { useCanvasRuntime } from "../canvas/use-canvas-runtime";
 import { windowDefinitions, type WindowKind } from "../canvas/window-registry";
 import { CanvasHud } from "../hud/canvas-hud";
 import { CommandPalette } from "../hud/command-palette";
+import { Minimap, MINIMAP_INSET } from "../hud/minimap";
 import { LibraryRail, RAIL_INSET } from "../library/library-rail";
 import { openNewNote } from "../notes/open-note";
 import { loadRelations, relations$ } from "../notes/relations";
@@ -184,6 +185,16 @@ export function WorkspaceCanvas({ canvas }: Readonly<{ canvas: LoadedCanvas }>) 
   const runtime = useCanvasRuntime(canvas);
   const library$ = useObservable(true);
   const libraryOpen = useValue(library$);
+  /**
+   * Open by default, and refundable.
+   *
+   * The map costs real camera room — it is the one surface here whose inset is worth arguing with
+   * — so it is closable, and closing it hands the band straight back. Open by default because a
+   * canvas affordance nobody discovers is one nobody has, and this is the only surface that
+   * answers "what shape is my canvas".
+   */
+  const minimap$ = useObservable(true);
+  const minimapOpen = useValue(minimap$);
   const styles = workspace();
   // Memoized because the viewport re-registers its keymap whenever this array's identity changes,
   // and a fresh array every render would tear down and rebuild thirty-odd chords per frame.
@@ -209,7 +220,11 @@ export function WorkspaceCanvas({ canvas }: Readonly<{ canvas: LoadedCanvas }>) 
            * that fights every camera command while looking finished.
            */
           viewportInsets={{
-            bottom: BOTTOM_INSET,
+            // The map is a corner surface described as a band, because an inset is one number per
+            // edge. Overstating it costs a strip of empty canvas; understating it would put a note
+            // under the map every time the camera fits or reveals, which is the bug insets exist
+            // to prevent.
+            bottom: minimapOpen ? MINIMAP_INSET : BOTTOM_INSET,
             left: libraryOpen ? RAIL_INSET : 0,
             top: TOP_INSET,
           }}
@@ -244,6 +259,17 @@ export function WorkspaceCanvas({ canvas }: Readonly<{ canvas: LoadedCanvas }>) 
                 commandPalette={<CommandPalette projectId={canvas.projectId} />}
                 droppedKinds={canvas.droppedKinds}
                 libraryInset={libraryOpen ? RAIL_INSET : 0}
+                minimap={
+                  <Minimap
+                    onClose={() => {
+                      minimap$.set(false);
+                    }}
+                    onOpen={() => {
+                      minimap$.set(true);
+                    }}
+                    open={minimapOpen}
+                  />
+                }
                 library={
                   libraryOpen ? (
                     <LibraryRail

@@ -36,6 +36,14 @@ const hud = tv({
       "bottom-center": { surface: "bottom-4 left-1/2 -translate-x-1/2" },
       "bottom-right": { surface: "right-4 bottom-4" },
       /**
+       * Clear of the framework's own navigation rail, which puts itself in that corner.
+       *
+       * The offset is not decoration: the rail is the framework's and this app does not get to
+       * move it, so a surface sharing the corner has to sit above it or overlap something the
+       * consumer does not own.
+       */
+      "bottom-right-above": { surface: "right-4 bottom-16" },
+      /**
        * A full-height edge, for a surface you work *against* rather than reach for.
        *
        * `items-stretch` rather than the shared `items-center`: a rail this tall has internal
