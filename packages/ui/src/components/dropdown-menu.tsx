@@ -86,6 +86,10 @@ function DropdownMenuItem({
   );
 }
 
+function DropdownMenuGroup({ ...props }: MenuPrimitive.Group.Props) {
+  return <MenuPrimitive.Group data-slot="dropdown-menu-group" {...props} />;
+}
+
 function DropdownMenuLabel({ className, ...props }: MenuPrimitive.GroupLabel.Props) {
   const styles = dropdownMenu();
 
@@ -136,6 +140,7 @@ function DropdownMenuSeparator({ className, ...props }: MenuPrimitive.Separator.
 export {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuRadioGroup,

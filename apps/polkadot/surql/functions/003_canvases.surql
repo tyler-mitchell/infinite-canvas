@@ -43,3 +43,48 @@ DEFINE FUNCTION OVERWRITE fn::create_canvas($title: string, $layout: object) {
 DEFINE FUNCTION OVERWRITE fn::rename_canvas($canvas: record<canvas_document>, $title: string) {
   RETURN UPDATE ONLY $canvas SET title = $title;
 };
+
+-- Archiving is the reversible half of removal, and every list already filters on `archived_at`,
+-- so an archived canvas simply stops being offered without anything being destroyed.
+DEFINE FUNCTION OVERWRITE fn::archive_canvas($canvas: record<canvas_document>) {
+  RETURN UPDATE ONLY $canvas SET archived_at = time::now();
+};
+
+DEFINE FUNCTION OVERWRITE fn::restore_canvas($canvas: record<canvas_document>) {
+  RETURN UPDATE ONLY $canvas SET archived_at = NONE;
+};
+
+DEFINE FUNCTION OVERWRITE fn::list_archived_canvases() {
+  RETURN SELECT id, title, revision, archived_at
+    FROM canvas_document
+    WHERE archived_at != NONE
+    ORDER BY archived_at DESC;
+};
+
+-- The copy shares content. A window carries a `content_item` id, so the duplicate shows the same
+-- notes rather than forked copies of them — editing one updates both, which is the point of
+-- separating layout from content in the first place.
+DEFINE FUNCTION OVERWRITE fn::duplicate_canvas($canvas: record<canvas_document>, $title: string) {
+  LET $source = SELECT * FROM ONLY $canvas;
+
+  RETURN CREATE ONLY canvas_document CONTENT {
+    project: $source.project,
+    title: $title,
+    layout: $source.layout
+  };
+};
+
+-- What a permanent removal actually costs, so the confirmation can state it rather than warn
+-- vaguely. Windows are lost; the notes they point at are separate records and are not touched.
+DEFINE FUNCTION OVERWRITE fn::canvas_removal_summary($canvas: record<canvas_document>) {
+  LET $source = SELECT * FROM ONLY $canvas;
+
+  RETURN {
+    title: $source.title,
+    windows: array::len($source.layout.windows)
+  };
+};
+
+DEFINE FUNCTION OVERWRITE fn::delete_canvas($canvas: record<canvas_document>) {
+  RETURN DELETE ONLY $canvas RETURN BEFORE;
+};

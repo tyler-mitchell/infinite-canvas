@@ -190,6 +190,80 @@ async function renameCanvas(
   return CanvasSummary.assert(record);
 }
 
+const CanvasRemovalSummary = type({
+  title: "string",
+  windows: "number.integer >= 0",
+}).onUndeclaredKey("delete");
+
+type CanvasRemovalSummary = typeof CanvasRemovalSummary.infer;
+
+async function archiveCanvas(canvasId: string): Promise<CanvasSummary> {
+  const client = await openLocalDatabase();
+  const [record] = await client
+    .query<[unknown]>("RETURN fn::archive_canvas($canvas);", {
+      canvas: new StringRecordId(canvasId),
+    })
+    .json();
+
+  return CanvasSummary.assert(record);
+}
+
+async function restoreCanvas(canvasId: string): Promise<CanvasSummary> {
+  const client = await openLocalDatabase();
+  const [record] = await client
+    .query<[unknown]>("RETURN fn::restore_canvas($canvas);", {
+      canvas: new StringRecordId(canvasId),
+    })
+    .json();
+
+  return CanvasSummary.assert(record);
+}
+
+async function listArchivedCanvases(): Promise<readonly CanvasSummary[]> {
+  const client = await openLocalDatabase();
+  const [records] = await client.query<[unknown]>("RETURN fn::list_archived_canvases();").json();
+
+  return CanvasSummary.array().assert(records);
+}
+
+async function duplicateCanvas(
+  input: Readonly<{ canvasId: string; title: string }>,
+): Promise<CanvasRecord> {
+  const client = await openLocalDatabase();
+  const [record] = await client
+    .query<[unknown]>("RETURN fn::duplicate_canvas($canvas, $title);", {
+      canvas: new StringRecordId(input.canvasId),
+      title: input.title,
+    })
+    .json();
+
+  return CanvasRecord.assert(record);
+}
+
+async function readCanvasRemovalSummary(canvasId: string): Promise<CanvasRemovalSummary> {
+  const client = await openLocalDatabase();
+  const [record] = await client
+    .query<[unknown]>("RETURN fn::canvas_removal_summary($canvas);", {
+      canvas: new StringRecordId(canvasId),
+    })
+    .json();
+
+  return CanvasRemovalSummary.assert(record);
+}
+
+/**
+ * Permanent. The notes the canvas showed are `content_item` records and are untouched — this
+ * removes an arrangement, not the work.
+ */
+async function deleteCanvas(canvasId: string): Promise<void> {
+  const client = await openLocalDatabase();
+  await client
+    .query<[unknown]>("RETURN fn::delete_canvas($canvas);", {
+      canvas: new StringRecordId(canvasId),
+    })
+    .json();
+}
+
 async function saveCanvas(
   input: Readonly<{
     canvasId: string;
@@ -302,12 +376,18 @@ async function closeLocalDatabase() {
 }
 
 export {
+  archiveCanvas,
   CanvasRevisionConflictError,
   closeLocalDatabase,
   createCanvas,
   createNote,
+  deleteCanvas,
+  duplicateCanvas,
+  listArchivedCanvases,
   listCanvases,
   listNotes,
+  readCanvasRemovalSummary,
+  restoreCanvas,
   NoteRevisionConflictError,
   openCanvas,
   openDefaultCanvas,
@@ -318,4 +398,4 @@ export {
   saveCanvas,
   saveNote,
 };
-export type { CanvasRecord, CanvasSummary, NoteRecord };
+export type { CanvasRecord, CanvasRemovalSummary, CanvasSummary, NoteRecord };

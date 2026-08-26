@@ -50,7 +50,12 @@ open because it feels good to look at. Concretely, and these are enforced in rev
 - [x] Vendored working `@surrealdb/wasm` 3.0.4 with `indxdb://`; deleted the 2.6.1 patch
 - [x] SPA on TanStack Router; TanStack Start removed (its dev middleware never mounted, and the
       data layer is client-only so SSR bought nothing)
-- [x] Local canvas open, autosave, reload — verified in a browser, `indexedDB` holds `polkadot`
+- [x] Local canvas open, autosave, reload — `indexedDB` holds `polkadot`. **This line was ticked
+      for weeks while autosave wrote nothing.** The loop subscribed with `(state) => state`, which
+      the store's per-field commit makes a constant, so no canvas ever left revision 0 — and the
+      save-status pill read "Local canvas saved" throughout, because that is its initial value.
+      What had actually been witnessed was the _note_ round-trip, which persists by a different
+      path. Now genuinely verified: revision advanced 0 → 1 → 2 and a reload restored the camera.
 - [x] Framework: `renderBackdrop`, the counterpart to `renderOverlay`
 - [x] Design tokens: palette, elevation, motion, type
 - [x] Framework tokens for window radius and elevation (`--icx-surface-radius`, `--icx-surface-shadow`)
@@ -61,8 +66,10 @@ open because it feels good to look at. Concretely, and these are enforced in rev
 - [ ] **Window chrome.** The frame still wears the framework's default. It needs Polkadot's
       material: floating surface, no outline, controls that arrive on approach rather than
       sitting there, a header that reads as part of the note.
-- [ ] **Notes that are notes.** The body is static text. It wants real editing, and the editor
-      is a library decision (Tiptap or Lexical), not a hand-rolled contenteditable.
+- [x] **Notes that are notes.** Lexical behind a `{ value, onChange }` boundary — the engine is
+      named in exactly one file — with a debounced, revision-guarded write per note. Landed early,
+      out of sequence with `IMPLEMENTATION_PHASES.md`, which is recorded in the audit rather than
+      hidden. Rich text, mentions, and code blocks are still ahead of it.
 - [ ] **Command palette** on `Mod+K`, composed from `getInfiniteCanvasContextualCommands` and
       `cmdk`. The framework already defines the vocabulary; do not restate it.
 - [ ] **The library rail** — content, search, saved views. Currently an empty box making a promise.
@@ -108,6 +115,21 @@ stays. What is missing is the field itself, and it is hours of careful work, not
 
 Kept here because the list _is_ the incubator's output.
 
-| Gap                    | Generic affordance                          | State  |
-| ---------------------- | ------------------------------------------- | ------ |
-| Backdrop was hardcoded | `renderBackdrop`, mirroring `renderOverlay` | landed |
+| Gap                                              | Generic affordance                                           | State  |
+| ------------------------------------------------ | ------------------------------------------------------------ | ------ |
+| Backdrop was hardcoded                           | `renderBackdrop`, mirroring `renderOverlay`                  | landed |
+| No way to observe "the durable document changed" | `InfiniteCanvasHandle.subscribeDocument`                     | landed |
+| Hydration adopted a fallback's unusable viewport | `desktop.hydrate` keeps a usable viewport over the payload's | landed |
+
+**On the second row**, because it is the clearest thing the incubator has produced so far. Any
+consumer persisting a canvas needs to know when the stored shape changed. The obvious way to ask —
+`subscribe((state) => state, …)` — can never fire, because the store commits per field and never
+replaces the root and Legend State is explicitly not immutable, so the root read is the same
+object forever. The documented alternative, selecting a fresh object, fires forever instead. Both
+fail silently and in opposite directions: one store saves nothing, the other saves constantly.
+Polkadot shipped the first for weeks without noticing.
+
+The fix is not a Polkadot persistence helper. It is that the framework should be able to say
+"the thing you would store has changed", which it now does — scoped to exactly the fields
+`serializeInfiniteCanvasState` writes, with the field list made exhaustive at compile time so an
+observer cannot drift from what persistence stores.

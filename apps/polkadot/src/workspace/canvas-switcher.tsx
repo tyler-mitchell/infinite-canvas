@@ -1,11 +1,20 @@
 import { useObservable, useValue } from "@legendapp/state/react";
 import { getHotkeyManager } from "@tanstack/hotkeys";
 import { useNavigate, useRouter } from "@tanstack/react-router";
-import { ChevronDown, PencilLine, Plus } from "lucide-react";
+import {
+  Archive,
+  ArchiveRestore,
+  ChevronDown,
+  CopyPlus,
+  PencilLine,
+  Plus,
+  Trash2,
+} from "lucide-react";
 import { useEffect, useRef } from "react";
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuRadioGroup,
@@ -17,6 +26,7 @@ import { tv } from "ui/tv";
 
 import { initialLayout } from "../canvas/canvas-document";
 import type { CanvasSummary } from "../database/database.client";
+import { CanvasRemovalDialog } from "./canvas-removal-dialog";
 
 /**
  * Which canvas this is, and how to reach another one.
@@ -44,20 +54,31 @@ const canvasSwitcher = tv({
 });
 
 const canvasGateway = {
+  archive: async (canvasId: string) =>
+    (await import("../database/database.client")).archiveCanvas(canvasId),
   create: async (title: string) =>
     (await import("../database/database.client")).createCanvas({ layout: initialLayout, title }),
+  duplicate: async (canvasId: string, title: string) =>
+    (await import("../database/database.client")).duplicateCanvas({ canvasId, title }),
   list: async () => (await import("../database/database.client")).listCanvases(),
+  listArchived: async () => (await import("../database/database.client")).listArchivedCanvases(),
   rename: async (canvasId: string, title: string) =>
     (await import("../database/database.client")).renameCanvas({ canvasId, title }),
+  restore: async (canvasId: string) =>
+    (await import("../database/database.client")).restoreCanvas(canvasId),
 };
 
 export function CanvasSwitcher({ canvasId, title }: Readonly<{ canvasId: string; title: string }>) {
   const navigate = useNavigate();
   const router = useRouter();
   const canvases$ = useObservable<readonly CanvasSummary[]>([]);
+  const archived$ = useObservable<readonly CanvasSummary[]>([]);
   const draftTitle$ = useObservable<string | null>(null);
+  const isRemoving$ = useObservable(false);
   const canvases = useValue(canvases$);
+  const archived = useValue(archived$);
   const draftTitle = useValue(draftTitle$);
+  const isRemoving = useValue(isRemoving$);
   const inputRef = useRef<HTMLInputElement>(null);
   const styles = canvasSwitcher();
 
@@ -65,6 +86,17 @@ export function CanvasSwitcher({ canvasId, title }: Readonly<{ canvasId: string;
     if (nextCanvasId !== canvasId) {
       void navigate({ params: { canvasId: nextCanvasId }, to: "/canvas/$canvasId" });
     }
+  };
+
+  /**
+   * Leaving the canvas that just stopped existing.
+   *
+   * `/` re-resolves the most recent remaining canvas, and bootstraps one when the last is gone,
+   * so archiving or deleting the open canvas does not need to decide where to land — the root
+   * route already answers that question for every other entry into the app.
+   */
+  const leaveRemovedCanvas = () => {
+    void navigate({ to: "/" });
   };
 
   const commitRename = () => {
@@ -136,60 +168,121 @@ export function CanvasSwitcher({ canvasId, title }: Readonly<{ canvasId: string;
   }
 
   return (
-    <DropdownMenu
-      onOpenChange={(open) => {
-        if (open) {
-          void canvasGateway.list().then((records) => {
-            canvases$.set(records);
-          });
-        }
-      }}
-    >
-      <DropdownMenuTrigger
-        className={styles.trigger()}
-        onPointerDown={(event) => {
-          // Without this the press also reaches the canvas root and starts a marquee underneath.
-          event.stopPropagation();
+    <>
+      <CanvasRemovalDialog
+        canvasId={canvasId}
+        onOpenChange={(open) => {
+          isRemoving$.set(open);
+        }}
+        onRemoved={leaveRemovedCanvas}
+        open={isRemoving}
+      />
+      <DropdownMenu
+        onOpenChange={(open) => {
+          if (open) {
+            void canvasGateway.list().then((records) => {
+              canvases$.set(records);
+            });
+            void canvasGateway.listArchived().then((records) => {
+              archived$.set(records);
+            });
+          }
         }}
       >
-        {title}
-        <ChevronDown className={styles.chevron()} />
-      </DropdownMenuTrigger>
-      <DropdownMenuContent>
-        {/* The label names the radio group, and Base UI requires that literally: `GroupLabel`
+        <DropdownMenuTrigger
+          className={styles.trigger()}
+          onPointerDown={(event) => {
+            // Without this the press also reaches the canvas root and starts a marquee underneath.
+            event.stopPropagation();
+          }}
+        >
+          {title}
+          <ChevronDown className={styles.chevron()} />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent>
+          {/* The label names the radio group, and Base UI requires that literally: `GroupLabel`
             reads a context only `Group` and `RadioGroup` provide. */}
-        <DropdownMenuRadioGroup onValueChange={openCanvas} value={canvasId}>
-          <DropdownMenuLabel>Canvases</DropdownMenuLabel>
-          {canvases.length === 0 ? (
-            <div className={styles.empty()}>Loading…</div>
-          ) : (
-            canvases.map((canvas) => (
-              <DropdownMenuRadioItem key={canvas.id} value={canvas.id}>
-                <span className={styles.itemTitle()}>{canvas.title}</span>
-              </DropdownMenuRadioItem>
-            ))
-          )}
-        </DropdownMenuRadioGroup>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem
-          onClick={() => {
-            draftTitle$.set(title);
-          }}
-        >
-          <PencilLine />
-          Rename
-        </DropdownMenuItem>
-        <DropdownMenuItem
-          onClick={() => {
-            void canvasGateway.create(`Canvas ${canvases.length + 1}`).then((created) => {
-              openCanvas(created.id);
-            });
-          }}
-        >
-          <Plus />
-          New canvas
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+          <DropdownMenuRadioGroup onValueChange={openCanvas} value={canvasId}>
+            <DropdownMenuLabel>Canvases</DropdownMenuLabel>
+            {canvases.length === 0 ? (
+              <div className={styles.empty()}>Loading…</div>
+            ) : (
+              canvases.map((canvas) => (
+                <DropdownMenuRadioItem key={canvas.id} value={canvas.id}>
+                  <span className={styles.itemTitle()}>{canvas.title}</span>
+                </DropdownMenuRadioItem>
+              ))
+            )}
+          </DropdownMenuRadioGroup>
+          {archived.length > 0 ? (
+            <DropdownMenuGroup>
+              <DropdownMenuLabel>Archived</DropdownMenuLabel>
+              {archived.map((canvas) => (
+                <DropdownMenuItem
+                  key={canvas.id}
+                  onClick={() => {
+                    void canvasGateway.restore(canvas.id).then(() => {
+                      openCanvas(canvas.id);
+                    });
+                  }}
+                >
+                  <ArchiveRestore />
+                  <span className={styles.itemTitle()}>{canvas.title}</span>
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuGroup>
+          ) : null}
+          <DropdownMenuSeparator />
+          <DropdownMenuItem
+            onClick={() => {
+              draftTitle$.set(title);
+            }}
+          >
+            <PencilLine />
+            Rename
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            onClick={() => {
+              void canvasGateway.duplicate(canvasId, `${title} copy`).then((created) => {
+                openCanvas(created.id);
+              });
+            }}
+          >
+            <CopyPlus />
+            Duplicate
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            onClick={() => {
+              void canvasGateway.create(`Canvas ${canvases.length + 1}`).then((created) => {
+                openCanvas(created.id);
+              });
+            }}
+          >
+            <Plus />
+            New canvas
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          {/* Archive first, delete second, and the reversible one is not marked destructive —
+            they are different decisions and should not look like the same one twice. */}
+          <DropdownMenuItem
+            onClick={() => {
+              void canvasGateway.archive(canvasId).then(leaveRemovedCanvas);
+            }}
+          >
+            <Archive />
+            Archive
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            onClick={() => {
+              isRemoving$.set(true);
+            }}
+            variant="destructive"
+          >
+            <Trash2 />
+            Delete…
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </>
   );
 }
