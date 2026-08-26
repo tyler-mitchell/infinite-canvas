@@ -59,7 +59,8 @@ open because it feels good to look at. Concretely, and these are enforced in rev
 - [x] Framework: `renderBackdrop`, the counterpart to `renderOverlay`
 - [x] Design tokens: palette, elevation, motion, type
 - [x] Framework tokens for window radius and elevation (`--icx-surface-radius`, `--icx-surface-shadow`)
-- [ ] ~~The dot field~~ — **written, then deleted.** See "The living field" below.
+- [x] **The living field.** Written once as a flat lattice, deleted, and now built for real — see
+      below for what it actually is, because the description that stood here was wrong.
 
 ## Next
 
@@ -113,26 +114,49 @@ open because it feels good to look at. Concretely, and these are enforced in rev
   **Still open:** desktops cannot be renamed or reordered; nothing shows which desktop a window is
   on while you are looking at another one; and the only way to fill a desktop is one window at a
   time, so "put these three on a new desktop" is three trips through the launcher.
-- [ ] **Grain and vignette.** Real material has noise.
+- [x] **Grain and vignette.** Both are passes inside the field rather than an overlay on top of it,
+      because material noise belongs to the surface: a two-scale grain plus a radial falloff, each
+      on its own `intensity` knob. The windows themselves still have no grain.
 
-## The living field — unstarted, and not to be attempted casually
+## The living field — built, in `canvas/field.tsx`
 
 An earlier attempt shipped a flat dot lattice with a radial brightness falloff and called it the
-signature. It was deleted. A caricature occupying the slot is worse than an empty slot, because it
-reads as finished.
+signature. It was deleted. What replaced it is a **gravity field**: a window is a mass resting on
+the surface and the lattice falls into it, draping the way a rubber sheet does around a weight.
 
-The real behaviour is specified in `reference/infinite-canvas-dynamic-grid/GRID_MOTION_STUDY.md`,
-recovered from a working implementation. It is not "dots that light up near the cursor":
+That is deliberately not what the reference does. `GRID_MOTION_STUDY.md` describes windows pushing
+the lattice _aside_ — which reads as a box shoving wallpaper rather than as something with weight —
+so the sign is flipped and the linear ramp is replaced by a softened inverse square, `mass /
+(1 + (distance / reach)^2)`, giving a real well with a long tail. Mass grows with the window's
+footprint, so a wide window bends more of the canvas than a note.
 
-- Lattice points are **simulated**, not drawn from a formula — integration gain `0.08`, damping
-  `0.75`, so the field has momentum and settles rather than snapping.
-- Window rects apply a force of `(1 - min(distance / 400, 1))^2 * 25` over a 400px radius, with
-  the rect targets themselves smoothed before they reach the field.
-- Node influence strength eases at `0.15` per frame.
-- The pointer highlight eases between **lattice intersections**, not to raw cursor coordinates —
-  it snaps to the grid and glides, which is most of why it feels intentional.
-- The highlight is composed, not one glow: thin centre lines, faint adjacent-cell traces, and a
-  lifted intersection dot, each drawn separately.
+**Two things this section previously got wrong, both worth keeping visible:**
+
+- It said lattice points are simulated. They are not, and never were in the recovered
+  implementation. The field is a formula evaluated per pixel in _warped_ space — each pixel
+  displaces its own sample position by the pull of the nearby rects and then measures its distance
+  to a lattice line. The study says as much: the original canvas version moved persistent particles,
+  and the working implementation replaced it with a shader.
+- The momentum is in the **rects**. Gain `0.08`, damping `0.75`, influence easing `0.15` — those
+  constants smooth the rect targets on the CPU before they reach the shader, which is why a window
+  that stops moving leaves the field still settling behind it.
+
+What is carried over from the study unchanged: the 40px lattice with traces on the half-step, and
+a pointer highlight that eases between **lattice intersections** rather than following the cursor —
+composed of thin centre lines, faint half-step traces, a lifted intersection dot, and a soft radial
+spotlight, each drawn separately. The recovered shader had drifted off that anchor and snapped per
+pixel from the pointer instead; the anchor is restored here because the study names it as the
+reason the highlight feels deliberate.
+
+Raw WebGL2, no dependency — a fullscreen triangle and one program need no scene graph. All tuning
+is one `FieldConfig`: the reference's five near-duplicate hover radii and three influence radii
+were each fixed ratios of a single real number, so one knob moves each family together.
+
+**Still open:** the lattice ignores zoom entirely — spacing is screen-space and only the phase
+follows the camera, so zooming out does not make the ground finer and the field has no sense of
+scale. A window being dragged should also pull harder than one at rest, and the rect velocities
+needed for that are already computed and unused.
+
 - A grain pass over the whole field: `fract(sin(dot(st, vec2(12.9898, 78.233))) * 43758.5453123)`.
 
 `renderBackdrop` exists in the framework and is the correct seam for it. That part was right and
