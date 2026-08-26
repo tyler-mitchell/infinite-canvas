@@ -65,22 +65,18 @@ Two facts make the change cheaper than it looks:
   `getVisibleWorldRect`, `isWorldRectWithinViewport`, and the window proxies are
   framework code with no renderer in them. A compositor inherits them.
 
-### A third option, which is not this one
+### A fork that was considered and is closed
 
-Reading TypeGPU's docs turned up `@typegpu/three`: TypeGPU functions compiled to
-TSL nodes and plugged into Three.js materials. That keeps `three`, keeps R3F, and
-still gets shaders written in TypeScript — far less work than replacing a
-renderer.
+`@typegpu/three` compiles TypeGPU functions to TSL nodes inside Three.js
+materials — keep `three`, keep R3F, still write shaders in TypeScript. It was a
+real alternative while the workload was unproven.
 
-It is the right answer if the scene graph turns out to be load-bearing. It is the
-wrong answer here only because the scene graph is precisely the part not being
-used, and because it does not help the direction this is heading: HTML surfaces
-composited with effects want a pass graph, not materials on meshes. Worth stating
-because it is a real fork, not a strawman — and worth revisiting if the proof of
-concept says quads-and-passes is not the whole workload.
-
-Note also that `@typegpu/three` carries the same WebGPU-only caveat, by its own
-documentation.
+It is closed now. The proof of concept measured the thing it hung on: the scene
+graph contributes nothing, and native html-in-canvas writes DOM **straight into a
+TypeGPU texture array** with `copyElementImageToTexture`. Routing that through
+three's material system would add a layer to get back to where the direct path
+already is. The decision is TypeGPU plus html-in-canvas, and this fork is
+recorded as considered rather than left open.
 
 ## The contract
 
@@ -166,10 +162,30 @@ Two of those change the design rather than its performance:
   difference between a compositor and a screenshot gallery. The window being
   edited stays live DOM; capture is for the ones nobody is touching.
 
-**None of these primitives exist in the Chrome available here** (probed: no
-`requestPaint`, no `drawElementImage`, no `captureElementImage`). They need a
-flagged build or the origin trial. Until then 16 ms is the number to plan
-against, and it is the wrong number to design around.
+**All of these now measured, in a Chrome 151 that has them.** DOM written straight
+into a TypeGPU texture array layer, one instanced draw over the lot:
+
+| path                                       | per window  | upload   |
+| ------------------------------------------ | ----------- | -------- |
+| snapdom fallback                           | 16.0 ms     | +0.7 ms  |
+| native `copyElementImageToTexture` → layer | **4.06 ms** | **none** |
+
+Four times faster, and the upload step disappears entirely. The revealing detail
+is that going direct saved only 0.04 ms over painting into a canvas and
+round-tripping an `ImageBitmap` — **the ~4 ms is the browser laying out and
+rasterising the subtree**, so transfer was never the cost and no pipeline work
+gets under it. What gets under it is not capturing at all: `changedElements`
+means an unchanged window is never re-rasterised, and a window that merely
+_moved_ never enters this path.
+
+Two constraints the API imposes, both structural:
+
+- The element must be an **immediate child of a `layoutsubtree` canvas** — but
+  that is a layout requirement, not a texture one. One canvas hosts every
+  window's subtree, each copying into its own array layer. It does **not** force
+  a canvas per window; only the `CanvasTexture` route does that.
+- That canvas needs a rendering context even though nothing draws into it, or the
+  copy refuses. It is a layout host that still has to be a canvas.
 
 ```ts
 type CompositorResource = Readonly<{

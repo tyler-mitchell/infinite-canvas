@@ -147,6 +147,51 @@ is noise next to this.
   capture is for the ones you are _not_ touching. That is the html-in-canvas
   hybrid, and this number is why it has to be one.
 
+## Result — native html-in-canvas, measured
+
+`?native=1`, run in a Chrome that has the primitives. **TypeGPU's texture array with DOM written
+straight into it, one instanced draw.** No canvas backing store, no `ImageBitmap`, no upload step.
+
+| path                                                 | per window  | upload   |
+| ---------------------------------------------------- | ----------- | -------- |
+| snapdom → `ImageBitmap` → `write`                    | 16.0 ms     | +0.7 ms  |
+| native `drawElementImage` → `ImageBitmap` → `write`  | 4.10 ms     | +0.7 ms  |
+| **native `copyElementImageToTexture` → array layer** | **4.06 ms** | **none** |
+
+**Four times faster than the fallback, and the upload disappears.**
+
+The most useful number here is the one that barely moved. Going direct to the texture saved
+0.04 ms over painting into a canvas and round-tripping through an `ImageBitmap` — so **the ~4 ms is
+the browser laying out and rasterising the subtree**, and transfer was never the cost. That is the
+floor for this note at 512², and no amount of pipeline cleverness gets under it. What gets under it
+is not capturing: `changedElements` on the `paint` event means a window that did not change is
+never re-rasterised, and a window that only _moved_ never touches this path at all.
+
+### What the API actually requires
+
+```ts
+queue.copyElementImageToTexture(
+  { source: element },
+  { destination: { texture, origin: [0, 0, layer] } },
+);
+```
+
+Learned by probing rather than from docs, because both constraints are load-bearing:
+
+- **The element must be an immediate child of a `layoutsubtree` canvas.** The error says so
+  outright. But this is a _layout_ requirement, not a texture one — **one canvas can host every
+  window's subtree**, each copying into its own array layer. This corrects an earlier note in this
+  file: the native lane does **not** force one canvas per window. The `CanvasTexture` route does;
+  this route does not.
+- **That canvas needs a rendering context** even though nothing is ever drawn into it, or the copy
+  fails with "containing canvas does not have a rendering context". It is a layout host that still
+  has to be a canvas.
+
+### Why the fallback is not the plan
+
+snapdom was a baseline, not a candidate — it existed here to establish that the native path is
+worth having, which at 4× it is. Nothing in the compositor design should be shaped around it.
+
 ### The native lane is not a faster capture — it is not a capture at all
 
 **Everything above measures the fallback.** The primary lane is Chrome's

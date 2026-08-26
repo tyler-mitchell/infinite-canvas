@@ -91,7 +91,15 @@ open because it feels good to look at. Concretely, and these are enforced in rev
       **Still open:** the palette cannot rename or delete — those have inline editors and typed
       confirmations that a list row cannot host — and it has no recent-items memory, so the empty
       state is ordered by group rather than by what you actually reach for.
-- [ ] **The library rail** — content, search, saved views. Currently an empty box making a promise.
+- [ ] **The library rail** — content, search, saved views. This line said "currently an empty box
+      making a promise", which overstated it: there is no box. `CanvasHud` renders the identity
+      rail, the selection rail, the recovery notice and the launcher, and nothing else.
+      **What it has to be worth:** the launcher already opens a closed note, so a rail that only
+      lists notes is a worse palette that is always on screen. Its case is the three things a
+      modal cannot do — browsing without knowing what you want, seeing relationships between
+      notes rather than one at a time, and staying put while you work against it. The connector
+      item below is blocked on exactly that: an edge whose notes are not both open is currently
+      invisible, and no amount of palette fixes it.
 - [~] **Connectors.** `relates_to` is written for the first time, and edges render between the
   windows showing their notes — framework geometry throughout, drawn in the new
   `renderUnderlay` band so a connector passes beneath the note rather than across it.

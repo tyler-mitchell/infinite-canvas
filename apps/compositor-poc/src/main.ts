@@ -93,10 +93,88 @@ const captures: ImageBitmap[] = [];
  * establishes by how much.
  */
 const captureHtml = params.get("html") === "1";
+/**
+ * `?native=1` uses Chrome's html-in-canvas instead of snapdom.
+ *
+ * Not a faster capture — a different mechanism. The canvas carries `layoutsubtree` and the window's
+ * DOM is a *direct child* of it, so the browser lays the subtree out itself; `requestPaint()` asks
+ * for a paint, a `paint` event says what changed, and `drawElementImage` puts the browser's own
+ * rasterisation into the canvas backing store. No DOM walk, no style inlining, no SVG round trip.
+ */
+const captureNative = params.get("native") === "1";
 const captureSource = document.querySelector("#capture-source .note") as HTMLElement;
 let captureMs = 0;
+let captureLabel = "canvas-painted (no DOM)";
+/** When the native path writes layers itself, there is no separate upload step left to time. */
+let nativeDirectToTexture = false;
 
-if (captureHtml) {
+if (captureNative) {
+  const paintCanvas = document.createElement("canvas");
+
+  paintCanvas.width = textureSize;
+  paintCanvas.height = textureSize;
+  paintCanvas.toggleAttribute("layoutsubtree", true);
+  // The proposal requires drawable content to be a descendant of the canvas, so the note moves
+  // inside it. This is the structural constraint that makes the native lane one canvas per window
+  // rather than one array with a layer each.
+  paintCanvas.append(captureSource);
+  document.body.append(paintCanvas);
+
+  // Required even though nothing is ever drawn into it: `copyElementImageToTexture` refuses with
+  // "containing canvas does not have a rendering context". The canvas is a layout host, but it
+  // still has to be a canvas.
+  paintCanvas.getContext("2d");
+
+  const requestPaint = (paintCanvas as HTMLCanvasElement & { requestPaint: () => void })
+    .requestPaint;
+  /**
+   * DOM straight into a texture-array layer. No canvas backing store, no `ImageBitmap`, no
+   * `write()`.
+   *
+   * The element must be an immediate child of a `layoutsubtree` canvas — the API says so in as
+   * many words — but that is a *layout* requirement, not a texture one. One canvas can host every
+   * window's subtree and each child copies into its own array layer, so this does not force a
+   * canvas per window the way the `CanvasTexture` route does.
+   */
+  const copyElementImageToTexture = (
+    root.device.queue as GPUQueue & {
+      copyElementImageToTexture: (
+        source: Readonly<{ source: Element }>,
+        destination: Readonly<{
+          destination: Readonly<{ origin: readonly number[]; texture: GPUTexture }>;
+        }>,
+      ) => void;
+    }
+  ).copyElementImageToTexture.bind(root.device.queue);
+  const rawTexture = root.unwrap(windowTextures);
+
+  await document.fonts.ready;
+
+  const captureStarted = performance.now();
+
+  for (let layer = 0; layer < textureLayers; layer++) {
+    const heading = captureSource.querySelector("h2") as HTMLElement;
+
+    heading.textContent = `Meeting notes ${String(layer)}`;
+
+    await new Promise<void>((done) => {
+      paintCanvas.addEventListener("paint", () => done(), { once: true });
+      requestPaint.call(paintCanvas);
+    });
+
+    copyElementImageToTexture(
+      { source: captureSource },
+      { destination: { origin: [0, 0, layer], texture: rawTexture } },
+    );
+  }
+
+  await root.device.queue.onSubmittedWorkDone();
+
+  captureMs = performance.now() - captureStarted;
+  captureLabel = `native copyElementImageToTexture  (${(captureMs / textureLayers).toFixed(2)} ms/window)`;
+  nativeDirectToTexture = true;
+  paintCanvas.remove();
+} else if (captureHtml) {
   await document.fonts.ready;
 
   const { snapdom } = await import("@zumer/snapdom");
@@ -118,6 +196,7 @@ if (captureHtml) {
   }
 
   captureMs = performance.now() - captureStarted;
+  captureLabel = `snapdom fallback  (${(captureMs / textureLayers).toFixed(1)} ms/window)`;
 } else {
   for (let layer = 0; layer < textureLayers; layer++) {
     paint.fillStyle = `oklch(0.24 0.03 ${String((layer * 37) % 360)})`;
@@ -142,10 +221,14 @@ if (captureHtml) {
  */
 const uploadStarted = performance.now();
 
-windowTextures.write(captures);
-await root.device.queue.onSubmittedWorkDone();
+// Nothing to upload when the native path already wrote each layer straight from the DOM. That
+// absence *is* the finding: the whole capture-then-upload pipeline collapses into one call.
+if (!nativeDirectToTexture) {
+  windowTextures.write(captures);
+  await root.device.queue.onSubmittedWorkDone();
+}
 
-const uploadMs = performance.now() - uploadStarted;
+const uploadMs = nativeDirectToTexture ? 0 : performance.now() - uploadStarted;
 
 const bindGroup = root.createBindGroup(layout, {
   camera: cameraBuffer,
@@ -367,10 +450,10 @@ const frame = () => {
       ? `gpu        ${(gpuNanoseconds / 1e6).toFixed(3)} ms   (${String(gpuSamples)} samples / ${String(gpuCallbacks)} callbacks)`
       : `gpu        timestamp-query unavailable`,
     `textures   ${String(textureLayers)} x ${String(textureSize)}px  = ${(textureBytes / 1024 ** 2).toFixed(1)} MB`,
-    captureHtml
-      ? `capture    ${captureMs.toFixed(0)} ms snapdom  (${(captureMs / textureLayers).toFixed(1)} ms/window)`
-      : `capture    canvas-painted (no DOM)`,
-    `upload     ${uploadMs.toFixed(1)} ms  (${(textureBytes / 1024 ** 2 / (uploadMs / 1000)).toFixed(0)} MB/s)`,
+    `capture    ${captureLabel}`,
+    nativeDirectToTexture
+      ? `upload     none — DOM written straight into the texture array`
+      : `upload     ${uploadMs.toFixed(1)} ms  (${(textureBytes / 1024 ** 2 / (uploadMs / 1000)).toFixed(0)} MB/s)`,
     `zoom       ${camera.zoom.toFixed(2)}   drag to pan, wheel to zoom`,
   ].join("\n");
 
