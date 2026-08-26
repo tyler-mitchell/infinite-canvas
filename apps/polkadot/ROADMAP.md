@@ -130,7 +130,7 @@ open because it feels good to look at. Concretely, and these are enforced in rev
       guarantee rather than this code's.
       **Grain landed, and it needed no framework change.** The window surface was a flat fill; it is
       a material now. `theme.css` already consumes `--icx-body-background`, `--icx-header-idle` and
-      `--icx-header-active` through the `background` *shorthand*, which takes an image layer over a
+      `--icx-header-active` through the `background` _shorthand_, which takes an image layer over a
       colour — so a noise layer composes into tokens this app already owns, and nothing about the
       framework had to move. `background-color` could not have carried it, which is the whole reason
       the composition belongs in `styles.css` rather than in a slot.
@@ -142,15 +142,37 @@ open because it feels good to look at. Concretely, and these are enforced in rev
       loupe. Screen-constant grain would need the zoom as a CSS variable inside the window
       transform, which is a framework question nobody has had to ask yet.
       **The strength is measured rather than chosen**, and the first number was wrong.
-      `feTurbulence` writes noise into the *alpha* channel as well as the colour ones, so the rect's
+      `feTurbulence` writes noise into the _alpha_ channel as well as the colour ones, so the rect's
       opacity multiplies against an alpha that already averages about half: at `0.035` the decoded
       tile came back with a mean alpha of 4.5/255 — 1.75% effective, past subtle and into absent.
       At `0.07` it measures 8.93/255, exactly the 3.5% intended. Verified by decoding the tile the
       surface actually resolved and reading its pixels, because a malformed data URI still reports a
       `url(…)` in `backgroundImage` while painting nothing at all.
       **Unverified:** how it looks. 3.5% noise does not survive a downscaled screenshot, so this is
-      confirmed present and correctly weighted, not confirmed *good* — that judgement needs a real
+      confirmed present and correctly weighted, not confirmed _good_ — that judgement needs a real
       display.
+      **A latent trap door in the far-zoom lane, closed — and the bug I first reported was not
+      real.** `getInfiniteCanvasWindowDetailLevel` measures a window's _smaller_ on-screen axis and
+      restores a summarised window only when that axis is **strictly greater** than `fullAbovePx`,
+      default 160. `NOTE_MINIMUM_SIZE` was `{ height: 160, width: 240 }` — exactly the boundary,
+      where `160 > 160` is false. A window created at that floor would demote on zooming out and
+      never come back at 100%, which is the trap door `detail-level.ts` describes in its own comment
+      and changed its defaults to escape. Proven by executing the framework's pure function: at
+      `240×160` a window goes full → summary at 0.4 zoom and is still summary back at 1.0, while
+      `240×200` returns to full. The floor is 200 now, clearing the threshold by 40px — the width of
+      the hysteresis band, so the margin is the framework's own unit rather than a guess.
+      **What this does not fix, because it was never broken:** notes on the running canvas are
+      360×240, since `NOTE_MINIMUM_SIZE` is a floor and placement returns something larger. Their
+      extent is 240, well clear, and driving the real app confirms it — body → summary at 0.3 zoom
+      and back to body at 1.0. This entry first claimed the app had the stuck-summary defect; that
+      was a measurement error, reading a 360×240 window at an unsettled ~0.667 zoom as a 240×160
+      window at 1.0. The floor only bites where placement actually falls back to it, which is a
+      small viewport. Closing it is cheap insurance, not a repair.
+      **Found while looking at something else, and worth recording:** the summary renders
+      `text-[12px]` in world units, so at the zooms where the lane is engaged it is 3–6 screen
+      pixels. The lane exists because the body is unreadable, and the summary is unreadable too. No
+      design chosen — constant screen size would overflow a 60px-wide window, so the answer is
+      probably fewer words rather than larger ones, and that is a decision rather than a fix.
 - [x] **Notes that are notes.** Lexical behind a `{ value, onChange }` boundary — the engine is
       named in exactly one file — with a debounced, revision-guarded write per note. Landed early,
       out of sequence with `IMPLEMENTATION_PHASES.md`, which is recorded in the audit rather than

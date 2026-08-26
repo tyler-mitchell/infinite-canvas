@@ -19,7 +19,21 @@ import { loadProjectNotes } from "./project-notes";
  */
 
 const NOTE_SIZE = { height: 240, width: 360 } as const;
-const NOTE_MINIMUM_SIZE = { height: 160, width: 240 } as const;
+/**
+ * 200, and the number is load-bearing rather than taste.
+ *
+ * The framework's semantic-LOD band measures a window's **smaller** on-screen axis and restores a
+ * summarised window only when that axis is strictly greater than `fullAbovePx`, which defaults to
+ * 160. This was `height: 160`, so a note's extent at 100% zoom was exactly 160 — and `160 > 160`
+ * is false. Zoom out far enough to demote a note and it stayed a summary all the way back in,
+ * returning only past 100%. The same note at the same zoom showed different content depending on
+ * where the camera had been.
+ *
+ * That is the trap door `detail-level.ts` describes and fixed its own defaults to escape; this app
+ * walked back into it by picking exactly the boundary. 200 clears it by 40px — the width of the
+ * hysteresis band itself, so the margin is the framework's own unit rather than a guess.
+ */
+const NOTE_MINIMUM_SIZE = { height: 200, width: 240 } as const;
 
 type Placement = Readonly<{
   actions: InfiniteCanvasCommands<WindowKind>;
