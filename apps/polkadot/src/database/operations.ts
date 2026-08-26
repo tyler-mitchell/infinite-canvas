@@ -49,6 +49,8 @@ export const relations = {
   list: async (projectId: string) => (await client()).listRelations(projectId),
   setKind: async (input: Readonly<{ kind: string; relationId: string }>) =>
     (await client()).setRelationKind(input),
+  setLabel: async (input: Readonly<{ label: string | null; relationId: string }>) =>
+    (await client()).setRelationLabel(input),
 };
 
 export const notes = {

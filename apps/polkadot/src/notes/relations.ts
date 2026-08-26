@@ -30,8 +30,16 @@ type RelationKind = (typeof RELATION_KINDS)[number];
 
 const DEFAULT_RELATION_KIND: RelationKind = "relates";
 
-/** What a connector says, or nothing when it makes no claim beyond existing. */
-const getRelationLabel = (kind: string) => (kind === DEFAULT_RELATION_KIND ? undefined : kind);
+/**
+ * What a connector says, or nothing when it makes no claim beyond existing.
+ *
+ * A written label wins over the kind, because someone who typed a sentence on this edge was being
+ * more specific than the five verbs allow — "blocks the review" says something `contradicts` only
+ * gestures at. The kind stays underneath either way: it is the queryable category, and the label is
+ * how this one edge reads. Clearing the label falls back to the kind rather than to silence.
+ */
+const getRelationLabel = (relation: NoteRelation) =>
+  relation.label?.trim() || (relation.kind === DEFAULT_RELATION_KIND ? undefined : relation.kind);
 
 async function loadRelations(projectId: string) {
   relations$.set(await database.relations.list(projectId));
@@ -59,6 +67,17 @@ async function setRelationKind(
   input: Readonly<{ kind: RelationKind; projectId: string; relationId: string }>,
 ) {
   await database.relations.setKind({ kind: input.kind, relationId: input.relationId });
+  await loadRelations(input.projectId);
+}
+
+/** Empty is not a label, it is the absence of one, so it clears rather than storing `""`. */
+async function setRelationLabel(
+  input: Readonly<{ label: string; projectId: string; relationId: string }>,
+) {
+  await database.relations.setLabel({
+    label: input.label.trim() === "" ? null : input.label.trim(),
+    relationId: input.relationId,
+  });
   await loadRelations(input.projectId);
 }
 
@@ -92,5 +111,6 @@ export {
   RELATION_KINDS,
   relations$,
   setRelationKind,
+  setRelationLabel,
 };
 export type { RelationKind };

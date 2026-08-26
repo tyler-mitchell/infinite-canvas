@@ -17,6 +17,29 @@ const modules = import.meta.glob("../../surql/**/*.surql", {
 const lifecycle: { promise?: Promise<Surreal> } = {};
 
 /**
+ * The SurQL this database installs, in the order it installs it, with each file's source attached.
+ *
+ * The install is additive: every statement in the corpus is guarded by `IF NOT EXISTS`, so a
+ * definition that changes in the source is never applied to a database that already holds the old
+ * one. Nothing records which files ran and there is no schema-version row to consult — so the only
+ * way to know whether a database still matches the source is to compare the two, and this is the
+ * side of that comparison the database cannot supply.
+ */
+const installedSurql = {
+  stages: manifest.stages.map((stage) => ({
+    files: stage.files.map((file) => ({
+      path: file,
+      source: modules[`../../surql/${file}`] ?? "",
+    })),
+    name: stage.name,
+  })),
+  version: manifest.version,
+};
+
+/** The connection string this module opens, which is also the IndexedDB database's name. */
+const localDatabaseEndpoint = { database, endpoint, namespace };
+
+/**
  * An open canvas, with its project flattened alongside it.
  *
  * The route names a canvas and a canvas belongs to exactly one project, so the project is
@@ -618,6 +641,8 @@ async function listArchivedNotes(projectId: string): Promise<readonly NoteRecord
 const NoteRelation = type({
   id: "string",
   kind: "string",
+  /** Absent for every edge written before labels existed, and `null` once one is cleared. */
+  "label?": "string | null",
   source: "string",
   target: "string",
 }).onUndeclaredKey("delete");
@@ -655,6 +680,19 @@ async function setRelationKind(
   await client
     .query<[unknown]>("RETURN fn::set_relation_kind($relation, $kind);", {
       kind: input.kind,
+      relation: new StringRecordId(input.relationId),
+    })
+    .json();
+}
+
+/** `null` clears it: an edge goes back to saying only what its kind says. */
+async function setRelationLabel(
+  input: Readonly<{ label: string | null; relationId: string }>,
+): Promise<void> {
+  const client = await openLocalDatabase();
+  await client
+    .query<[unknown]>("RETURN fn::set_relation_label($relation, $label);", {
+      label: input.label,
       relation: new StringRecordId(input.relationId),
     })
     .json();
@@ -707,6 +745,8 @@ export {
   deleteCanvas,
   deleteProject,
   duplicateCanvas,
+  installedSurql,
+  localDatabaseEndpoint,
   listArchivedCanvases,
   listArchivedProjects,
   listCanvases,
@@ -720,6 +760,7 @@ export {
   restoreNote,
   restoreProject,
   setRelationKind,
+  setRelationLabel,
   unrelateNotes,
   readCanvasRemovalSummary,
   restoreCanvas,

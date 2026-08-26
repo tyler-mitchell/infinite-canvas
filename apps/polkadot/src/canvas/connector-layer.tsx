@@ -93,7 +93,7 @@ export function ConnectorLayer() {
             worldPointToScreenPoint(state.camera, state.viewport, point),
           ),
         );
-        const label = getRelationLabel(connector.relation.kind);
+        const label = getRelationLabel(connector.relation);
         const anchor = worldPointToScreenPoint(state.camera, state.viewport, connector.midpoint);
 
         return (

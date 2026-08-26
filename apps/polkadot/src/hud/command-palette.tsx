@@ -7,6 +7,7 @@ import {
   useInfiniteCanvasState,
   type InfiniteCanvasCommandGroup,
 } from "@hyphened/infinite-canvas";
+import type { Observable } from "@legendapp/state";
 import { useObservable, useValue } from "@legendapp/state/react";
 import { createHotkeyHandler, formatForDisplay } from "@tanstack/hotkeys";
 import { useNavigate } from "@tanstack/react-router";
@@ -15,6 +16,7 @@ import {
   Columns3,
   CornerDownLeft,
   CornerUpRight,
+  Eraser,
   FilePlus2,
   FileText,
   FolderOpen,
@@ -47,7 +49,12 @@ import { tv } from "ui/tv";
 import { initialLayout } from "../canvas/canvas-document";
 import { getSelectedRelations } from "../canvas/connector-geometry";
 import type { WindowKind } from "../canvas/window-registry";
-import type { CanvasSummary, NoteRecord, ProjectSummary } from "../database/database.client";
+import type {
+  CanvasSummary,
+  NoteRecord,
+  NoteRelation,
+  ProjectSummary,
+} from "../database/database.client";
 import * as database from "../database/operations";
 import { openNewNote, openNoteWindow } from "../notes/open-note";
 import {
@@ -58,6 +65,7 @@ import {
   RELATION_KINDS,
   relations$,
   setRelationKind,
+  setRelationLabel,
 } from "../notes/relations";
 
 /**
@@ -152,6 +160,14 @@ const palette = tv({
 export function CommandPalette({ projectId }: Readonly<{ projectId: string }>) {
   const isOpen$ = useObservable(false);
   const isOpen = useValue(isOpen$);
+  /**
+   * The connection being labelled, if any — cmdk's "page" pattern, which is consumer state rather
+   * than an API: the same input becomes a text field, and the list becomes the one row that commits
+   * it. Held here rather than inside the content because `filter` is declared here and has to know
+   * it must stop filtering; a typed sentence is not a query and must not eliminate its own row.
+   */
+  const labelling$ = useObservable<NoteRelation | null>(null);
+  const labelling = useValue(labelling$);
 
   useEffect(() => {
     const handleKeyDown = createHotkeyHandler(PALETTE_HOTKEY, (event) => {
@@ -168,6 +184,7 @@ export function CommandPalette({ projectId }: Readonly<{ projectId: string }>) {
 
   const close = () => {
     isOpen$.set(false);
+    labelling$.set(null);
     returnFocusToCanvas();
   };
   const portalRoot = useInfiniteCanvasDesktopPortalRoot();
@@ -186,7 +203,8 @@ export function CommandPalette({ projectId }: Readonly<{ projectId: string }>) {
        */
       container={portalRoot}
       description="Search windows, actions, and canvas commands"
-      filter={matchCommand}
+      // While a label is being typed the text is content, not a query, so nothing is eliminated.
+      filter={labelling === null ? matchCommand : () => 1}
       onOpenChange={(open) => {
         if (open) {
           isOpen$.set(true);
@@ -199,7 +217,9 @@ export function CommandPalette({ projectId }: Readonly<{ projectId: string }>) {
     >
       {/* Mounted only while open. `useInfiniteCanvasState` re-renders on every camera tick, and a
           palette nobody opened has no business reconciling while the user pans. */}
-      {isOpen ? <PaletteContent onClose={close} projectId={projectId} /> : null}
+      {isOpen ? (
+        <PaletteContent labelling$={labelling$} onClose={close} projectId={projectId} />
+      ) : null}
     </CommandDialog>
   );
 }
@@ -251,9 +271,15 @@ function Row({
 }
 
 function PaletteContent({
+  labelling$,
   onClose,
   projectId,
-}: Readonly<{ onClose: () => void; projectId: string }>) {
+}: Readonly<{
+  labelling$: Observable<NoteRelation | null>;
+  onClose: () => void;
+  projectId: string;
+}>) {
+  const labelling = useValue(labelling$);
   const state = useInfiniteCanvasState<WindowKind>();
   const actions = useInfiniteCanvasActions<WindowKind>();
   const navigate = useNavigate();
@@ -341,6 +367,72 @@ function PaletteContent({
   const openCanvas = (canvasId: string) => {
     void navigate({ params: { canvasId }, to: "/canvas/$canvasId" });
   };
+
+  /*
+   * The page where the input is a sentence rather than a search.
+   *
+   * cmdk calls these pages and supplies no component for one — it is the same input and the same
+   * list, told to mean something else, which is why this is a branch here rather than a second
+   * dialog. Escape goes back rather than closing: the palette is already the second thing you
+   * opened, and dropping you all the way out for changing your mind about a word is a punishment.
+   *
+   * One row, and it is the whole affordance: it previews what will be stored, so committing is the
+   * same Enter that runs every other row, and clearing is visibly the same act as writing rather
+   * than a separate destructive verb hidden somewhere else.
+   */
+  if (labelling !== null) {
+    const draft = query.trim();
+
+    return (
+      <>
+        <CommandInput
+          autoFocus
+          onKeyDown={(event) => {
+            if (event.key === "Escape") {
+              event.preventDefault();
+              event.stopPropagation();
+              labelling$.set(null);
+              query$.set("");
+            }
+          }}
+          onValueChange={(value) => {
+            query$.set(value);
+          }}
+          placeholder="What does this connection say?"
+          value={query}
+        />
+        <CommandList>
+          <CommandGroup heading={`Connection · ${labelling.kind}`}>
+            <Row
+              icon={draft === "" ? Eraser : Tag}
+              onSelect={run(() => {
+                void setRelationLabel({ label: draft, projectId, relationId: labelling.id });
+                labelling$.set(null);
+                query$.set("");
+              })}
+              title={
+                draft === ""
+                  ? `Clear the label, leaving “${labelling.kind}”`
+                  : `Label this connection “${draft}”`
+              }
+            />
+          </CommandGroup>
+        </CommandList>
+        <CommandFooter>
+          <span className={styles.footerHint()}>
+            <kbd className={styles.footerKey()}>
+              <CornerDownLeft />
+            </kbd>
+            Save
+          </span>
+          <span className={styles.footerHint()}>
+            <kbd className={styles.footerKey()}>esc</kbd>
+            Back
+          </span>
+        </CommandFooter>
+      </>
+    );
+  }
 
   return (
     <>
@@ -541,6 +633,19 @@ function PaletteContent({
                   }
                 />
               ))}
+          {/* Only for a single edge: a sentence written onto four connections at once is a
+              sentence that was true of none of them. */}
+          {selectedRelations.length === 1 && selectedRelations[0] !== undefined ? (
+            <Row
+              icon={Tag}
+              keywords="label name text say describe edge relation"
+              onSelect={() => {
+                labelling$.set(selectedRelations[0] ?? null);
+                query$.set(selectedRelations[0]?.label ?? "");
+              }}
+              title="Label this connection…"
+            />
+          ) : null}
           {selectedRelations.length === 0 ? null : (
             <Row
               icon={Unlink2}
