@@ -155,7 +155,9 @@ Two of those change the design rather than its performance:
 
 - **`copyElementImageToTexture` is the path this compositor wants.** The
   canvas-as-`CanvasTexture` route forces one canvas per window, which is
-  incompatible with an array or atlas; a direct copy into a layer is not.
+  incompatible with an array or atlas; a direct copy into a layer is not. Every
+  window can be a sibling child of one canvas — verified with 64 of them — so the
+  immediate-child rule costs nothing structurally.
 - **Transform synchronization is what keeps windows real.** The source DOM stays
   the authority for layout, focus, and accessibility while its pixels live on the
   GPU. For a workbench — where windows are edited, not decorative — that is the
@@ -170,13 +172,27 @@ into a TypeGPU texture array layer, one instanced draw over the lot:
 | snapdom fallback                           | 16.0 ms     | +0.7 ms  |
 | native `copyElementImageToTexture` → layer | **4.06 ms** | **none** |
 
-Four times faster, and the upload step disappears entirely. The revealing detail
-is that going direct saved only 0.04 ms over painting into a canvas and
-round-tripping an `ImageBitmap` — **the ~4 ms is the browser laying out and
-rasterising the subtree**, so transfer was never the cost and no pipeline work
-gets under it. What gets under it is not capturing at all: `changedElements`
-means an unchanged window is never re-rasterised, and a window that merely
-_moved_ never enters this path.
+Four times faster, and the upload step disappears entirely.
+
+Hosting every window as a sibling in **one** canvas and taking a single paint
+changes the shape again, and yields the real cost model:
+
+```
+paint round trip   ~3.0 ms   fixed, per paint — not per window
+rasterisation      ~0.7 ms   marginal, per window actually repainted
+transfer            0        copyElementImageToTexture — no upload step
+```
+
+Measured: 64 windows in one paint cost 45 ms total, 0.70 ms each; one changed
+window costs 3.70 ms. **The 4.06 ms above was mostly a fixed round trip paid 64
+times over**, not rasterisation.
+
+So capture is a **batching** problem rather than a per-window one. Coalesce every
+dirty window into a single paint — one dirty window is 3.7 ms, twenty are about
+`3 + 20 × 0.7 ≈ 17 ms`. And `changedElements` reports exactly the element that
+changed (verified: 1 of 64), so the engine already tracks dirtiness and the
+compositor must not duplicate it. A window that merely _moved_ never enters this
+path at all.
 
 Two constraints the API imposes, both structural:
 

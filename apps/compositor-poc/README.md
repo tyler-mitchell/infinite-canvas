@@ -160,12 +160,39 @@ straight into it, one instanced draw.** No canvas backing store, no `ImageBitmap
 
 **Four times faster than the fallback, and the upload disappears.**
 
-The most useful number here is the one that barely moved. Going direct to the texture saved
-0.04 ms over painting into a canvas and round-tripping through an `ImageBitmap` — so **the ~4 ms is
-the browser laying out and rasterising the subtree**, and transfer was never the cost. That is the
-floor for this note at 512², and no amount of pipeline cleverness gets under it. What gets under it
-is not capturing: `changedElements` on the `paint` event means a window that did not change is
-never re-rasterised, and a window that only _moved_ never touches this path at all.
+### The 4 ms was mostly round trip, not rasterisation
+
+Those numbers give each window its own `requestPaint` → `paint` cycle. Hosting all 64 windows as
+siblings of **one** canvas and taking a single paint gives a very different shape:
+
+| arrangement                         | total   | per window  |
+| ----------------------------------- | ------- | ----------- |
+| one paint cycle per window          | —       | 4.06 ms     |
+| **all 64 in one canvas, one paint** | 45 ms   | **0.70 ms** |
+| one window changed, one paint       | 3.70 ms | 3.70 ms     |
+
+Which resolves into a straightforward cost model:
+
+```
+paint round trip   ~3.0 ms   fixed, per paint — not per window
+rasterisation      ~0.7 ms   marginal, per window actually repainted
+transfer            0        copyElementImageToTexture — no upload step at all
+```
+
+**So "the 4 ms is rasterisation" was wrong.** Rasterising a window is ~0.7 ms; the rest was paying
+a fixed round trip 64 times over. The design consequence inverts with it: do not paint per window,
+**coalesce every dirty window into one paint**. One dirty window costs 3.7 ms; twenty cost about
+`3 + 20 × 0.7 ≈ 17 ms`. The fixed cost is the thing to amortise, and batching is what amortises it.
+
+### `changedElements` narrows correctly
+
+Editing one heading among 64 and asking the paint event what changed: **1 element reported.** The
+browser scopes invalidation to the element that actually changed, so a compositor does not need to
+track dirtiness itself — the engine already knows and says so.
+
+Together those give the capture budget its real shape at 60 Hz: one paint round trip plus roughly
+nineteen re-rasterised windows fits in a frame. A window that merely _moved_ costs nothing at all,
+because it never enters this path.
 
 ### What the API actually requires
 

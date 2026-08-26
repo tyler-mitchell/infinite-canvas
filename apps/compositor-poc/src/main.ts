@@ -107,6 +107,10 @@ let captureMs = 0;
 let captureLabel = "canvas-painted (no DOM)";
 /** When the native path writes layers itself, there is no separate upload step left to time. */
 let nativeDirectToTexture = false;
+/** Cost of re-capturing after exactly one window changed, against the full pass as control. */
+let incrementalMs = 0;
+let changedElementCount = 0;
+let changedElementsReported = false;
 
 if (captureNative) {
   const paintCanvas = document.createElement("canvas");
@@ -114,11 +118,24 @@ if (captureNative) {
   paintCanvas.width = textureSize;
   paintCanvas.height = textureSize;
   paintCanvas.toggleAttribute("layoutsubtree", true);
-  // The proposal requires drawable content to be a descendant of the canvas, so the note moves
-  // inside it. This is the structural constraint that makes the native lane one canvas per window
-  // rather than one array with a layer each.
-  paintCanvas.append(captureSource);
   document.body.append(paintCanvas);
+
+  /**
+   * Every window as a sibling child of **one** canvas.
+   *
+   * The immediate-child rule is about layout, so it does not force a canvas per window — this is
+   * the arrangement that claim rests on, and hosting all of them here is what tests it.
+   */
+  const windowElements = Array.from({ length: textureLayers }, (_, layer) => {
+    const element = captureSource.cloneNode(true) as HTMLElement;
+
+    (element.querySelector("h2") as HTMLElement).textContent = `Meeting notes ${String(layer)}`;
+    paintCanvas.append(element);
+
+    return element;
+  });
+
+  captureSource.remove();
 
   // Required even though nothing is ever drawn into it: `copyElementImageToTexture` refuses with
   // "containing canvas does not have a rendering context". The canvas is a layout host, but it
@@ -150,20 +167,26 @@ if (captureNative) {
 
   await document.fonts.ready;
 
-  const captureStarted = performance.now();
-
-  for (let layer = 0; layer < textureLayers; layer++) {
-    const heading = captureSource.querySelector("h2") as HTMLElement;
-
-    heading.textContent = `Meeting notes ${String(layer)}`;
-
-    await new Promise<void>((done) => {
-      paintCanvas.addEventListener("paint", () => done(), { once: true });
+  /** One paint of the whole subtree; resolves with whatever the browser says changed. */
+  const paintOnce = async () =>
+    new Promise<readonly Element[]>((done) => {
+      paintCanvas.addEventListener(
+        "paint",
+        (event) => {
+          done((event as Event & { changedElements?: readonly Element[] }).changedElements ?? []);
+        },
+        { once: true },
+      );
       requestPaint.call(paintCanvas);
     });
 
+  const captureStarted = performance.now();
+
+  await paintOnce();
+
+  for (const [layer, element] of windowElements.entries()) {
     copyElementImageToTexture(
-      { source: captureSource },
+      { source: element },
       { destination: { origin: [0, 0, layer], texture: rawTexture } },
     );
   }
@@ -171,6 +194,34 @@ if (captureNative) {
   await root.device.queue.onSubmittedWorkDone();
 
   captureMs = performance.now() - captureStarted;
+
+  /**
+   * The question the whole capture story hangs on: when **one** window changes, does the browser
+   * re-rasterise only that one?
+   *
+   * The full pass above is the control. Here a single note's heading is edited, and the paint event
+   * is asked what it considers changed. If `changedElements` narrows to that element and the pass
+   * costs a fraction of the full one, capture is a solved problem rather than a scheduling one —
+   * because nothing else gets under the per-window rasterisation floor.
+   */
+  const edited = windowElements[0];
+
+  if (edited) {
+    (edited.querySelector("h2") as HTMLElement).textContent = "Edited just now";
+
+    const incrementalStarted = performance.now();
+    const changed = await paintOnce();
+
+    copyElementImageToTexture(
+      { source: edited },
+      { destination: { origin: [0, 0, 0], texture: rawTexture } },
+    );
+    await root.device.queue.onSubmittedWorkDone();
+
+    incrementalMs = performance.now() - incrementalStarted;
+    changedElementCount = changed.length;
+    changedElementsReported = changed.length > 0;
+  }
   captureLabel = `native copyElementImageToTexture  (${(captureMs / textureLayers).toFixed(2)} ms/window)`;
   nativeDirectToTexture = true;
   paintCanvas.remove();
@@ -451,6 +502,12 @@ const frame = () => {
       : `gpu        timestamp-query unavailable`,
     `textures   ${String(textureLayers)} x ${String(textureSize)}px  = ${(textureBytes / 1024 ** 2).toFixed(1)} MB`,
     `capture    ${captureLabel}`,
+    ...(captureNative
+      ? [
+          `1 changed  ${incrementalMs.toFixed(2)} ms   vs ${captureMs.toFixed(0)} ms for all ${String(textureLayers)}`,
+          `changedEls ${changedElementsReported ? `${String(changedElementCount)} reported` : "not reported by the paint event"}`,
+        ]
+      : []),
     nativeDirectToTexture
       ? `upload     none — DOM written straight into the texture array`
       : `upload     ${uploadMs.toFixed(1)} ms  (${(textureBytes / 1024 ** 2 / (uploadMs / 1000)).toFixed(0)} MB/s)`,
