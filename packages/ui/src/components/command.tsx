@@ -47,6 +47,7 @@ function CommandDialog({
   children,
   className,
   description,
+  filter,
   onOpenChange,
   open,
   title,
@@ -54,6 +55,7 @@ function CommandDialog({
   children: React.ReactNode;
   className?: string;
   description: string;
+  filter?: ComponentProps<typeof CommandPrimitive>["filter"];
   onOpenChange: (open: boolean) => void;
   open: boolean;
   title: string;
@@ -65,7 +67,7 @@ function CommandDialog({
       <DialogContent className={cn(styles.dialogContent(), className)}>
         <DialogTitle className="sr-only">{title}</DialogTitle>
         <DialogDescription className="sr-only">{description}</DialogDescription>
-        <Command>{children}</Command>
+        <Command filter={filter}>{children}</Command>
       </DialogContent>
     </Dialog>
   );

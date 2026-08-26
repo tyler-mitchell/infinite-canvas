@@ -8,9 +8,14 @@ import {
 } from "@hyphened/infinite-canvas";
 import { useObservable, useValue } from "@legendapp/state/react";
 import { createHotkeyHandler, formatForDisplay } from "@tanstack/hotkeys";
+import { useNavigate } from "@tanstack/react-router";
 import {
+  Ban,
+  Columns3,
   CornerDownLeft,
   FilePlus2,
+  FolderOpen,
+  FolderPlus,
   Frame,
   MousePointerSquareDashed,
   Move3d,
@@ -31,7 +36,10 @@ import {
 } from "ui";
 import { tv } from "ui/tv";
 
+import { initialLayout } from "../canvas/canvas-document";
 import type { WindowKind } from "../canvas/window-registry";
+import type { CanvasSummary, ProjectSummary } from "../database/database.client";
+import * as database from "../database/operations";
 import { openNewNote } from "../notes/open-note";
 
 /**
@@ -54,6 +62,28 @@ const returnFocusToCanvas = () => {
   focusInfiniteCanvasCommandSurface(
     document.querySelector<HTMLElement>("[data-infinite-canvas-command-scope='surface']"),
   );
+};
+
+/**
+ * Substring, not fuzzy.
+ *
+ * cmdk's default scorer matches subsequences, so "undo" surfaced "Nudge Left", "Dock Up", and
+ * "Focus Down" — every word containing u, n, d, o in order. Requiring each term to appear whole
+ * costs nothing and stops the list from arguing with you. Earlier matches rank higher.
+ */
+const matchCommand = (value: string, search: string) => {
+  const haystack = value.toLowerCase();
+  const terms = search.toLowerCase().split(/\s+/).filter(Boolean);
+
+  if (terms.length === 0) {
+    return 1;
+  }
+
+  if (!terms.every((term) => haystack.includes(term))) {
+    return 0;
+  }
+
+  return 1 / (1 + Math.min(...terms.map((term) => haystack.indexOf(term))));
 };
 
 /** The framework groups every command; the glyph follows that rather than being decoration. */
@@ -104,6 +134,7 @@ export function CommandPalette({ projectId }: Readonly<{ projectId: string }>) {
   return (
     <CommandDialog
       description="Search windows, actions, and canvas commands"
+      filter={matchCommand}
       onOpenChange={(open) => {
         if (open) {
           isOpen$.set(true);
@@ -172,18 +203,48 @@ function PaletteContent({
 }: Readonly<{ onClose: () => void; projectId: string }>) {
   const state = useInfiniteCanvasState<WindowKind>();
   const actions = useInfiniteCanvasActions<WindowKind>();
+  const navigate = useNavigate();
+  const canvases$ = useObservable<readonly CanvasSummary[]>([]);
+  const projectList$ = useObservable<readonly ProjectSummary[]>([]);
+  const query$ = useObservable("");
+  const canvases = useValue(canvases$);
+  const projectList = useValue(projectList$);
+  const query = useValue(query$);
   const styles = palette();
   const windows = getInfiniteCanvasWindowPresence(state).windows;
-  const available = getInfiniteCanvasContextualCommands(state).filter((command) => command.enabled);
+  const contextual = getInfiniteCanvasContextualCommands(state);
+  const available = contextual.filter((command) => command.enabled);
+  const unavailable = contextual.filter((command) => !command.enabled);
+
+  // Loaded on open, which is the only time this component exists.
+  useEffect(() => {
+    void database.canvases.list(projectId).then((records) => {
+      canvases$.set(records);
+    });
+    void database.projects.list().then((records) => {
+      projectList$.set(records);
+    });
+  }, [canvases$, projectId, projectList$]);
 
   const run = (perform: () => void) => () => {
     perform();
     onClose();
   };
 
+  const openCanvas = (canvasId: string) => {
+    void navigate({ params: { canvasId }, to: "/canvas/$canvasId" });
+  };
+
   return (
     <>
-      <CommandInput autoFocus placeholder="Search windows, actions, and commands…" />
+      <CommandInput
+        autoFocus
+        onValueChange={(value) => {
+          query$.set(value);
+        }}
+        placeholder="Search windows, actions, and commands…"
+        value={query}
+      />
       <CommandList>
         <CommandEmpty>Nothing matches that.</CommandEmpty>
 
@@ -212,6 +273,43 @@ function PaletteContent({
           </CommandGroup>
         )}
 
+        {canvases.length < 2 ? null : (
+          <CommandGroup heading="Canvases">
+            {canvases.map((canvas) => (
+              <Row
+                icon={Columns3}
+                key={canvas.id}
+                onSelect={run(() => {
+                  openCanvas(canvas.id);
+                })}
+                title={canvas.title}
+                value={`canvas ${canvas.title}`}
+              />
+            ))}
+          </CommandGroup>
+        )}
+
+        {projectList.length < 2 ? null : (
+          <CommandGroup heading="Projects">
+            {projectList.map((project) => (
+              <Row
+                icon={FolderOpen}
+                key={project.id}
+                onSelect={run(() => {
+                  // A project is entered through its most recent canvas, the same rule `/` uses.
+                  void database.canvases.list(project.id).then(([first]) => {
+                    if (first !== undefined) {
+                      openCanvas(first.id);
+                    }
+                  });
+                })}
+                title={project.title}
+                value={`project ${project.title}`}
+              />
+            ))}
+          </CommandGroup>
+        )}
+
         <CommandGroup heading="Actions">
           <Row
             icon={FilePlus2}
@@ -220,6 +318,34 @@ function PaletteContent({
             })}
             title="New note"
             value="new note create"
+          />
+          <Row
+            icon={Columns3}
+            onSelect={run(() => {
+              void database.canvases
+                .create({
+                  layout: initialLayout,
+                  projectId,
+                  title: `Canvas ${canvases.length + 1}`,
+                })
+                .then((created) => {
+                  openCanvas(created.id);
+                });
+            })}
+            title="New canvas"
+            value="new canvas create"
+          />
+          <Row
+            icon={FolderPlus}
+            onSelect={run(() => {
+              void database.projects
+                .create({ layout: initialLayout, title: `Project ${projectList.length + 1}` })
+                .then((created) => {
+                  openCanvas(created.id);
+                });
+            })}
+            title="New project"
+            value="new project create"
           />
         </CommandGroup>
 
@@ -238,6 +364,26 @@ function PaletteContent({
             />
           ))}
         </CommandGroup>
+
+        {/* Greyed and inert, and only once something has been typed. Hiding them entirely would
+            make the palette lie about what the canvas can do, and letting you run them would make
+            it lie about what it can do now — but on an empty query most commands are unavailable,
+            and seventy inert rows under your results is padding rather than teaching. */}
+        {query.trim() === "" || unavailable.length === 0 ? null : (
+          <CommandGroup heading="Unavailable right now">
+            {unavailable.map((command) => (
+              <CommandItem disabled key={command.id} value={`${command.label} ${command.id}`}>
+                <span className={styles.tile()}>
+                  <Ban />
+                </span>
+                <span className={styles.titleRow()}>
+                  <span className={styles.title()}>{command.label}</span>
+                  <span className={styles.description()}>{command.description}</span>
+                </span>
+              </CommandItem>
+            ))}
+          </CommandGroup>
+        )}
       </CommandList>
 
       <CommandFooter>

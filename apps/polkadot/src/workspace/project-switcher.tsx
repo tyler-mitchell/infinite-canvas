@@ -18,6 +18,7 @@ import { tv } from "ui/tv";
 
 import { initialLayout } from "../canvas/canvas-document";
 import type { ProjectSummary } from "../database/database.client";
+import * as database from "../database/operations";
 import { ProjectRemovalDialog } from "./project-removal-dialog";
 
 /**
@@ -41,21 +42,6 @@ const projectSwitcher = tv({
     mark: "grid size-6 shrink-0 place-items-center rounded-[7px] bg-[var(--accent)] font-mono text-[11px] font-semibold text-[var(--primary-foreground)] transition-[filter,transform] duration-150 ease-[var(--ease-swift)] outline-none hover:brightness-110 focus-visible:brightness-110 data-popup-open:brightness-110",
   },
 });
-
-const projectGateway = {
-  archive: async (projectId: string) =>
-    (await import("../database/database.client")).archiveProject(projectId),
-  create: async (title: string) =>
-    (await import("../database/database.client")).createProject({ layout: initialLayout, title }),
-  firstCanvasOf: async (projectId: string) =>
-    (await import("../database/database.client")).listCanvases(projectId),
-  list: async () => (await import("../database/database.client")).listProjects(),
-  listArchived: async () => (await import("../database/database.client")).listArchivedProjects(),
-  rename: async (projectId: string, title: string) =>
-    (await import("../database/database.client")).renameProject({ projectId, title }),
-  restore: async (projectId: string) =>
-    (await import("../database/database.client")).restoreProject(projectId),
-};
 
 export function ProjectSwitcher({
   projectId,
@@ -87,7 +73,7 @@ export function ProjectSwitcher({
 
     // A project is entered through one of its canvases, most recent first — the same rule `/`
     // uses, so entering a project and entering the app land in the same place.
-    void projectGateway.firstCanvasOf(nextProjectId).then((canvases) => {
+    void database.canvases.list(nextProjectId).then((canvases) => {
       const [first] = canvases;
 
       if (first !== undefined) {
@@ -102,7 +88,9 @@ export function ProjectSwitcher({
     draftTitle$.set(null);
 
     if (nextTitle.length > 0 && nextTitle !== projectTitle) {
-      void projectGateway.rename(projectId, nextTitle).then(() => router.invalidate());
+      void database.projects
+        .rename({ projectId, title: nextTitle })
+        .then(() => router.invalidate());
     }
   };
 
@@ -164,10 +152,10 @@ export function ProjectSwitcher({
       <DropdownMenu
         onOpenChange={(open) => {
           if (open) {
-            void projectGateway.list().then((records) => {
+            void database.projects.list().then((records) => {
               projects$.set(records);
             });
-            void projectGateway.listArchived().then((records) => {
+            void database.projects.listArchived().then((records) => {
               archived$.set(records);
             });
           }
@@ -199,7 +187,7 @@ export function ProjectSwitcher({
                 <DropdownMenuItem
                   key={project.id}
                   onClick={() => {
-                    void projectGateway.restore(project.id).then(() => {
+                    void database.projects.restore(project.id).then(() => {
                       openProject(project.id);
                     });
                   }}
@@ -221,9 +209,11 @@ export function ProjectSwitcher({
           </DropdownMenuItem>
           <DropdownMenuItem
             onClick={() => {
-              void projectGateway.create(`Project ${projects.length + 1}`).then((created) => {
-                void navigate({ params: { canvasId: created.id }, to: "/canvas/$canvasId" });
-              });
+              void database.projects
+                .create({ layout: initialLayout, title: `Project ${projects.length + 1}` })
+                .then((created) => {
+                  void navigate({ params: { canvasId: created.id }, to: "/canvas/$canvasId" });
+                });
             }}
           >
             <FolderPlus />
@@ -232,7 +222,7 @@ export function ProjectSwitcher({
           <DropdownMenuSeparator />
           <DropdownMenuItem
             onClick={() => {
-              void projectGateway.archive(projectId).then(leaveRemovedProject);
+              void database.projects.archive(projectId).then(leaveRemovedProject);
             }}
           >
             <Archive />

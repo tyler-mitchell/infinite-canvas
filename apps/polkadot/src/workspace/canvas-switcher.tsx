@@ -26,6 +26,7 @@ import { tv } from "ui/tv";
 
 import { initialLayout } from "../canvas/canvas-document";
 import type { CanvasSummary } from "../database/database.client";
+import * as database from "../database/operations";
 import { CanvasRemovalDialog } from "./canvas-removal-dialog";
 
 /**
@@ -52,27 +53,6 @@ const canvasSwitcher = tv({
       "group/switcher flex items-center gap-1.5 rounded-md px-1.5 py-0.5 text-[13px] font-medium tracking-[-0.01em] text-[var(--ink)] transition-colors duration-150 ease-[var(--ease-swift)] outline-none hover:bg-[var(--surface-hover)] focus-visible:bg-[var(--surface-hover)] data-popup-open:bg-[var(--surface-hover)]",
   },
 });
-
-const canvasGateway = {
-  archive: async (canvasId: string) =>
-    (await import("../database/database.client")).archiveCanvas(canvasId),
-  create: async (projectId: string, title: string) =>
-    (await import("../database/database.client")).createCanvas({
-      layout: initialLayout,
-      projectId,
-      title,
-    }),
-  duplicate: async (canvasId: string, title: string) =>
-    (await import("../database/database.client")).duplicateCanvas({ canvasId, title }),
-  list: async (projectId: string) =>
-    (await import("../database/database.client")).listCanvases(projectId),
-  listArchived: async (projectId: string) =>
-    (await import("../database/database.client")).listArchivedCanvases(projectId),
-  rename: async (canvasId: string, title: string) =>
-    (await import("../database/database.client")).renameCanvas({ canvasId, title }),
-  restore: async (canvasId: string) =>
-    (await import("../database/database.client")).restoreCanvas(canvasId),
-};
 
 export function CanvasSwitcher({
   canvasId,
@@ -117,7 +97,7 @@ export function CanvasSwitcher({
     if (nextTitle.length > 0 && nextTitle !== title) {
       // The title on screen comes from the route loader, so the rename is only visible once that
       // loader runs again.
-      void canvasGateway.rename(canvasId, nextTitle).then(() => router.invalidate());
+      void database.canvases.rename({ canvasId, title: nextTitle }).then(() => router.invalidate());
     }
   };
 
@@ -190,10 +170,10 @@ export function CanvasSwitcher({
       <DropdownMenu
         onOpenChange={(open) => {
           if (open) {
-            void canvasGateway.list(projectId).then((records) => {
+            void database.canvases.list(projectId).then((records) => {
               canvases$.set(records);
             });
-            void canvasGateway.listArchived(projectId).then((records) => {
+            void database.canvases.listArchived(projectId).then((records) => {
               archived$.set(records);
             });
           }
@@ -231,7 +211,7 @@ export function CanvasSwitcher({
                 <DropdownMenuItem
                   key={canvas.id}
                   onClick={() => {
-                    void canvasGateway.restore(canvas.id).then(() => {
+                    void database.canvases.restore(canvas.id).then(() => {
                       openCanvas(canvas.id);
                     });
                   }}
@@ -253,9 +233,11 @@ export function CanvasSwitcher({
           </DropdownMenuItem>
           <DropdownMenuItem
             onClick={() => {
-              void canvasGateway.duplicate(canvasId, `${title} copy`).then((created) => {
-                openCanvas(created.id);
-              });
+              void database.canvases
+                .duplicate({ canvasId, title: `${title} copy` })
+                .then((created) => {
+                  openCanvas(created.id);
+                });
             }}
           >
             <CopyPlus />
@@ -263,8 +245,12 @@ export function CanvasSwitcher({
           </DropdownMenuItem>
           <DropdownMenuItem
             onClick={() => {
-              void canvasGateway
-                .create(projectId, `Canvas ${canvases.length + 1}`)
+              void database.canvases
+                .create({
+                  layout: initialLayout,
+                  projectId,
+                  title: `Canvas ${canvases.length + 1}`,
+                })
                 .then((created) => {
                   openCanvas(created.id);
                 });
@@ -278,7 +264,7 @@ export function CanvasSwitcher({
             they are different decisions and should not look like the same one twice. */}
           <DropdownMenuItem
             onClick={() => {
-              void canvasGateway.archive(canvasId).then(leaveRemovedCanvas);
+              void database.canvases.archive(canvasId).then(leaveRemovedCanvas);
             }}
           >
             <Archive />
