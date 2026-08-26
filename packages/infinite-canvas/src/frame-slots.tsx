@@ -291,6 +291,23 @@ function InfiniteCanvasWindowFrameHeaderSlot({
         releasePointer(event.currentTarget, event.pointerId);
         actions.finishInteraction(event.pointerId);
       },
+      /*
+       * What is inline is what a consumer must not be able to break.
+       *
+       * The header is positioned against the frame and sized from chrome metrics; those are the
+       * geometry the hit-testing and the body offset are computed from, so they stay here where
+       * nothing can outrank them.
+       *
+       * `justifyContent` was here too and is not geometry — it is a layout choice, and it moved to
+       * `theme.css` on 2026-08-26 because an inline style is unreachable. Polkadot hides the title
+       * for kinds whose body names themselves, which leaves one child that `space-between` parks at
+       * the start, and its rule to fix that had never once applied: measured at x=12 of a 376px
+       * header. Same finding as the dock item whose padding was inline and whose label was
+       * uppercased in JavaScript — a consumer could see the result and reach nothing.
+       *
+       * The rule for the next one: geometry the framework computes stays inline, appearance a
+       * consumer could reasonably disagree with belongs in the theme sheet.
+       */
       style: {
         alignItems: "center",
         borderBottomWidth: `max(${chrome.headerAccentHeight}px, var(--icx-chrome-stroke))`,
@@ -298,7 +315,6 @@ function InfiniteCanvasWindowFrameHeaderSlot({
         display: "flex",
         gap: "12px",
         height: `${chrome.headerHeight}px`,
-        justifyContent: "space-between",
         left: 0,
         paddingLeft: "12px",
         paddingRight: "12px",
