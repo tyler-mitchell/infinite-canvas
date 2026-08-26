@@ -362,9 +362,23 @@ open because it feels good to look at. Concretely, and these are enforced in rev
   which is the part the SurQL test file cannot reach, since a thrown assertion aborts the script.
   The rows were removed afterwards; the table is empty.
   **What is left is the surface**, and it is the whole of the remaining design: where a view is
-  saved from, how it is named, and where the list lives. The rail is the obvious home, and
-  `navigateToRect` is already the way back — the same call this session used to bring four windows
-  into view when the camera had drifted off them.
+  saved from, how it is named, and where the list lives.
+  **The framework check for that half ran too, and it also asks for nothing.** Going back is
+  `navigateToRect` — the same call this session used to bring four windows into view after the
+  camera had drifted off them. Capturing the current framing composes two exports that already
+  exist: `getInfiniteCanvasContentViewport(viewport, insets)` gives the screen region the app's own
+  chrome leaves, which is the right region rather than the whole viewport — a view saved while the
+  rail is open must frame what you can actually see, not what is behind the panel — and the camera
+  converts it. `getVisibleWorldRect` is the padded whole-viewport answer and is the wrong one here
+  for that reason.
+  **Placement is genuinely undecided and should not be settled casually.** The rail is what this
+  item's title assumes, and it is where a list you rename and prune belongs — a palette row cannot
+  host an inline editor, which is the argument that put note renaming here. Against it: the rail is
+  a _content_ browser (presence dots, connection counts, archive) and a view is navigation, so a
+  third mode means two unrelated domains in one 599-line component. The palette is the app's jump
+  surface and now has pages, so it can name things — but management costs a page per verb.
+  **Whichever wins, removal ships with it.** A view list that only grows is the same defect this
+  file already refuses for mentions: something that accumulates with no story for taking it away.
   **Rename and create landed.** Double-click a row and it becomes an input — Enter commits, Escape
   abandons, blur commits, because clicking away from a field you have typed into and losing it is
   what nobody expects. This is the rail's own justification made concrete: this file already
