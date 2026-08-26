@@ -3,41 +3,9 @@ import WorkerAgent from "@surrealdb/wasm/worker?worker";
 import { type } from "arktype";
 import { StringRecordId, Surreal } from "surrealdb";
 
-import manifest from "../../surql/manifest.json";
-
-const namespace = "polkadot";
-const database = "polkadot";
-const endpoint = "indxdb://polkadot";
-const modules = import.meta.glob("../../surql/**/*.surql", {
-  eager: true,
-  import: "default",
-  query: "?raw",
-}) as Readonly<Record<string, string>>;
+import { database, endpoint, manifest, modules, namespace } from "./local-database";
 
 const lifecycle: { promise?: Promise<Surreal> } = {};
-
-/**
- * The SurQL this database installs, in the order it installs it, with each file's source attached.
- *
- * The install is additive: every statement in the corpus is guarded by `IF NOT EXISTS`, so a
- * definition that changes in the source is never applied to a database that already holds the old
- * one. Nothing records which files ran and there is no schema-version row to consult — so the only
- * way to know whether a database still matches the source is to compare the two, and this is the
- * side of that comparison the database cannot supply.
- */
-const installedSurql = {
-  stages: manifest.stages.map((stage) => ({
-    files: stage.files.map((file) => ({
-      path: file,
-      source: modules[`../../surql/${file}`] ?? "",
-    })),
-    name: stage.name,
-  })),
-  version: manifest.version,
-};
-
-/** The connection string this module opens, which is also the IndexedDB database's name. */
-const localDatabaseEndpoint = { database, endpoint, namespace };
 
 /**
  * An open canvas, with its project flattened alongside it.
@@ -685,14 +653,31 @@ async function setRelationKind(
     .json();
 }
 
-/** `null` clears it: an edge goes back to saying only what its kind says. */
+/**
+ * `null` clears it: an edge goes back to saying only what its kind says.
+ *
+ * Sent to SurrealDB as `undefined`, not `null`, and the difference is the whole function working.
+ * `fn::set_relation_label` declares `$label: option<string>`, and SurrealQL's `option` means
+ * "a string or NONE" — `NULL` is a *third*, distinct value it does not accept. The driver maps
+ * JS `undefined` to NONE and JS `null` to NULL, so passing the `null` this signature advertises
+ * made every clear throw:
+ *
+ *     Failed to coerce argument `$label`: Expected `none | string` but found `NULL`
+ *
+ * `null` stays the app-facing spelling because it is what "deliberately absent" looks like in the
+ * rest of this codebase, and the caller should not have to know a storage engine's opinion about
+ * two kinds of nothing. Converting here is the one place that knows about both.
+ *
+ * Found by clearing a label while verifying something else. Setting one was exercised repeatedly
+ * today and always worked; clearing had never once been run.
+ */
 async function setRelationLabel(
   input: Readonly<{ label: string | null; relationId: string }>,
 ): Promise<void> {
   const client = await openLocalDatabase();
   await client
     .query<[unknown]>("RETURN fn::set_relation_label($relation, $label);", {
-      label: input.label,
+      label: input.label ?? undefined,
       relation: new StringRecordId(input.relationId),
     })
     .json();
@@ -745,8 +730,6 @@ export {
   deleteCanvas,
   deleteProject,
   duplicateCanvas,
-  installedSurql,
-  localDatabaseEndpoint,
   listArchivedCanvases,
   listArchivedProjects,
   listCanvases,

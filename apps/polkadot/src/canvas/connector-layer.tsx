@@ -43,6 +43,23 @@ const connectors = tv({
      */
     label:
       "select-none fill-[var(--ink-muted)] stroke-[var(--ground)] stroke-[3px] font-medium [paint-order:stroke]",
+    /*
+     * What an unlabelled connector shows instead of a word: one small mark, in the same place.
+     *
+     * A `relates` edge draws no label by design — the default means only "these belong together",
+     * which the line already says. But that left the least-annotated edges with nothing at all to
+     * aim at, which is the opposite of what is wanted: those are the ones whose only visible
+     * feature is a hairline, and on a canvas where two notes nearly touch the hairline is a few
+     * pixels long.
+     *
+     * Label or mark, never both. Every connector gets exactly one thing on its visible run, at the
+     * anchor the occlusion query already chose, so "where do I aim" has a single answer whether or
+     * not anyone wrote a sentence on the edge.
+     *
+     * Ground-coloured stroke for the same reason the label has one: it knocks the line out from
+     * behind the mark rather than boxing it, so nothing here needs a second surface.
+     */
+    mark: "fill-[var(--accent)] stroke-[var(--ground)] stroke-[2px] [paint-order:stroke]",
     path: "fill-none stroke-[var(--accent)] transition-[stroke-width,opacity] duration-100 ease-[var(--ease-swift)]",
     /*
      * Dashed, which is the vocabulary the drag preview already established: a broken line is an end
@@ -56,7 +73,11 @@ const connectors = tv({
     selected: {
       false: { path: "stroke-[1.5] opacity-40" },
       // Selection has to read at a glance on a hairline, so it takes both weight and light.
-      true: { path: "stroke-[2.5] opacity-100", label: "fill-[var(--ink)]" },
+      true: {
+        label: "fill-[var(--ink)]",
+        mark: "fill-[var(--ink)]",
+        path: "stroke-[2.5] opacity-100",
+      },
     },
   },
 });
@@ -101,7 +122,17 @@ export function ConnectorLayer() {
           ),
         );
         const label = getRelationLabel(connector.relation);
-        const anchor = worldPointToScreenPoint(state.camera, state.viewport, connector.midpoint);
+        /*
+         * `null` when every part of this connector is behind a window.
+         *
+         * Neither a mark nor a label is drawn then. Both exist to be aimed at, and one placed where
+         * nothing can be seen is a promise the canvas cannot keep — the rail lists that edge and
+         * can act on it, which is where it belongs.
+         */
+        const anchor =
+          connector.anchor === null
+            ? null
+            : worldPointToScreenPoint(state.camera, state.viewport, connector.anchor);
 
         return (
           <g key={`${connector.relation.id}:${String(index)}`}>
@@ -110,7 +141,27 @@ export function ConnectorLayer() {
               data-relation-id={connector.relation.id}
               points={points}
             />
-            {label === undefined || !(isLabelLegible || selected) ? null : (
+            {label === undefined && anchor !== null ? (
+              /*
+               * The mark holds the anchor for an edge that says nothing beyond existing.
+               *
+               * Sized against the label rather than fixed, so it shrinks with the canvas on the
+               * same curve the words do and never becomes the loudest thing at low zoom. Unlike a
+               * label it is not dropped when small: a dot at two pixels is still a place to aim,
+               * where two-pixel text is only noise.
+               */
+              <circle
+                className={styles.mark()}
+                cx={anchor.x}
+                cy={anchor.y}
+                data-relation-mark={connector.relation.id}
+                r={Math.max(labelSize * 0.18, 1.5)}
+              />
+            ) : null}
+            {/* Exclusive with the mark above by construction: one carries a label, the other
+                exists precisely because there is none. Two flat conditions rather than one nested
+                pair, which this codebase does not allow and which would read worse anyway. */}
+            {label !== undefined && anchor !== null && (isLabelLegible || selected) ? (
               <text
                 className={styles.label()}
                 data-relation-label={connector.relation.id}
@@ -122,7 +173,7 @@ export function ConnectorLayer() {
               >
                 {label}
               </text>
-            )}
+            ) : null}
           </g>
         );
       })}

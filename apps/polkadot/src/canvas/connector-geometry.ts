@@ -3,8 +3,6 @@ import {
   getInfiniteCanvasLongestUnoccludedSegment,
   getInfiniteCanvasRectConnectorPath,
   getInfiniteCanvasWindowData,
-  getInfiniteCanvasWorldPath,
-  getInfiniteCanvasWorldPathPointAtProgress,
   getSelectionTargets,
   isInfiniteCanvasWindowInActiveWorkspace,
   type InfiniteCanvasPoint,
@@ -33,14 +31,16 @@ import { NoteWindowData, type WindowKind } from "./window-registry";
 
 type DrawnConnector = Readonly<{
   /**
-   * Where a label sits: the midpoint of the *routed* path, not of its endpoints.
+   * Where a marker sits, or `null` when there is nowhere it could be seen.
    *
-   * An orthogonal connector is three segments, so the average of its two ends is a point in open
-   * space beside the elbow rather than anywhere on the line. `getInfiniteCanvasWorldPath` measures
-   * the polyline and `…PointAtProgress` walks half its length along it, which lands on the drawn
-   * line whatever shape the route takes.
+   * The middle of the longest stretch of this connector that no window covers. Not the midpoint of
+   * the routed path, which is the obvious choice and lands inside a window whenever the two notes
+   * nearly touch — the exact arrangement in which an edge most needs something to aim at.
+   *
+   * `null` means every stretch is covered. The connector then draws no marker rather than one
+   * nobody can see, and the library rail is where that edge is reachable.
    */
-  midpoint: InfiniteCanvasPoint;
+  anchor: InfiniteCanvasPoint | null;
   points: readonly InfiniteCanvasPoint[];
   relation: NoteRelation;
   segments: readonly InfiniteCanvasWorldSegment[];
@@ -93,28 +93,32 @@ function getDrawnConnectors(
       (rectsByNote.get(relation.target) ?? []).map((toRect) => {
         const path = getInfiniteCanvasRectConnectorPath(fromRect, toRect, { route: "orthogonal" });
         /*
-         * Where the label goes: the middle of the longest stretch nothing covers.
+         * Where a marker goes: the middle of the longest stretch nothing covers, or nowhere.
          *
          * It used to be the midpoint of the routed path, which is the obvious anchor and the wrong
          * one — connectors are drawn beneath the windows they join, so between two notes that
          * nearly touch the midpoint is *inside* a window and the label is simply not there. Nothing
-         * about that failure is visible in the code: the label renders, it has the right text, and
-         * a window is painted over it.
+         * about that failure shows in the code: the label renders, it has the right text, and a
+         * window is painted over it.
          *
-         * `getInfiniteCanvasLongestUnoccludedSegment` answers the question that anchor actually
-         * needs, and answers it in the framework, which owns both the path segments and the window
-         * rects and should not have either re-derived here.
+         * `null` when every stretch is covered, and the connector draws no marker at all. That
+         * replaces a fallback to the path midpoint which I wrote and then watched fail: on a canvas
+         * where two windows overlap heavily, the fallback put the mark inside a window every time.
+         * The reason given for it — that a fixed position stops the anchor jumping as windows move
+         * — is worth nothing when the anchor is invisible in every one of those positions.
          *
-         * Falling back to the path midpoint when every stretch is covered is deliberate. A label
-         * with nowhere legible to sit is going to be hidden wherever it goes, and putting it in a
-         * defined place keeps it from jumping about as windows move over the last visible pixels.
+         * A connector nothing can see has no place to put a marker, and saying so is honest: the
+         * canvas shows what is visible, and the library rail lists every connection whether or not
+         * it is. That is the surface for an edge you cannot find, and it already exists.
          */
         const clear = getInfiniteCanvasLongestUnoccludedSegment(path.segments, occluders);
-        const midpoint =
-          clear?.midpoint ??
-          getInfiniteCanvasWorldPathPointAtProgress(getInfiniteCanvasWorldPath(path.points), 0.5);
 
-        return { midpoint, points: path.points, relation, segments: path.segments };
+        return {
+          anchor: clear?.midpoint ?? null,
+          points: path.points,
+          relation,
+          segments: path.segments,
+        };
       }),
     ),
   );
