@@ -1,7 +1,9 @@
 import {
+  DEFAULT_INFINITE_CANVAS_GROUP_TITLE,
   focusInfiniteCanvasCommandSurface,
   getInfiniteCanvasContextualCommands,
   getInfiniteCanvasWindowData,
+  getInfiniteCanvasWindowGroup,
   getInfiniteCanvasWindowPresence,
   useInfiniteCanvasActions,
   useInfiniteCanvasDesktopPortalRoot,
@@ -165,6 +167,7 @@ const searchWords = (parts: readonly (string | undefined)[]) =>
  * the mode has to be readable where `filter` is declared, and one page at a time is the whole rule.
  */
 type PalettePage =
+  | Readonly<{ groupId: string; kind: "group"; title: string }>
   | Readonly<{ kind: "label"; relation: ContentRelation }>
   | Readonly<{ kind: "rename"; note: ContentItemRecord }>;
 
@@ -491,12 +494,19 @@ function PaletteContent({
    * the caller already holds — handing it a title alone would mean a round trip for data the
    * palette has loaded anyway.
    */
-  const activeNoteId = (
-    state.windows.find((window) => window.id === state.activeWindowId)?.data as
-      | { noteId?: string }
-      | undefined
-  )?.noteId;
+  // Through the guard, not a cast: `noteId` stopped existing when window data became one
+  // `{ itemId }` for every kind, so this matched nothing and the active note was always undefined.
+  const activeStateWindow = state.windows.find((window) => window.id === state.activeWindowId);
+  const activeNoteId =
+    activeStateWindow === undefined
+      ? undefined
+      : getInfiniteCanvasWindowData(activeStateWindow, ContentWindowData.allows)?.itemId;
   const activeNote = notes.find((note) => note.id === activeNoteId);
+  /** The group holding the active window, which is the only one a person could mean to name. */
+  const activeGroup =
+    state.activeWindowId === null
+      ? undefined
+      : getInfiniteCanvasWindowGroup(state, state.activeWindowId);
 
   /**
    * Connecting from the selection, which is the keyboard's way in.
@@ -559,63 +569,80 @@ function PaletteContent({
      * copy of the same JSX, which is what keeps them behaving identically.
      */
     const spec =
-      page.kind === "label"
+      page.kind === "group"
         ? {
             commit: () => {
-              void setRelationLabel({ label: draft, projectId, relationId: page.relation.id });
-            },
-            // Empty is a real choice here: it clears the label and the edge falls back to its kind.
-            enabled: true,
-            heading: `Connection · ${page.relation.kind}`,
-            icon: draft === "" ? Eraser : Tag,
-            placeholder: "What does this connection say?",
-            title:
-              draft === ""
-                ? `Clear the label, leaving “${page.relation.kind}”`
-                : `Label this connection “${draft}”`,
-          }
-        : {
-            commit: () => {
-              // Converted, not spread: `renameNote` seeds its store from this and saves that
-              // content, so a stub would erase the note's text.
-              renameNote(toNote(page.note), draft, noteGateway);
-              /*
-               * A rename lands in three places, because three of them write the old name down.
-               * `note-store` owns the save. The project listing is what the library rail reads, and
-               * without this it went on showing the previous name until something else re-listed —
-               * witnessed, not guessed. `window.title` is the far-zoom summary and the accessible
-               * name.
-               */
-              setProjectItemTitle(page.note.id, draft);
-
-              /*
-               * Through the guard, not a cast. This read `data.noteId`, a field that stopped
-               * existing when window data became one `{ itemId }` for every kind — so it matched
-               * nothing and the third place a rename lands was never written. The cast is what
-               * hid it: `data` is `unknown` by design, and asserting a shape onto it turns a dead
-               * read into a silent one.
-               */
-              const windowId = state.windows.find(
-                (window) =>
-                  getInfiniteCanvasWindowData(window, ContentWindowData.allows)?.itemId ===
-                  page.note.id,
-              )?.id;
-
-              if (windowId !== undefined) {
-                actions.setWindowTitle({ title: draft, windowId });
-              }
+              actions.setGroupTitle({ groupId: page.groupId, title: draft });
             },
             /*
-             * Empty is not a choice here, it is a hole. The schema asserts a non-empty title, so a
-             * blank rename would be refused by the database after the palette had already closed and
-             * told you it worked. The row says why instead of failing silently later.
+             * Empty restores the framework's default rather than being refused, unlike a note.
+             * A group's name is a convenience — it has one without you, and clearing it back to
+             * "Group" is a thing someone can reasonably want. A note has no name but the one it
+             * is given.
              */
-            enabled: draft !== "",
-            heading: "Note",
-            icon: FileText,
-            placeholder: "What is this note called?",
-            title: draft === "" ? "A note needs a name" : `Rename to “${draft}”`,
-          };
+            enabled: true,
+            heading: "Group",
+            icon: draft === "" ? Eraser : SquareStack,
+            placeholder: "What is this group called?",
+            title: draft === "" ? "Clear the name back to “Group”" : `Name this group “${draft}”`,
+          }
+        : page.kind === "label"
+          ? {
+              commit: () => {
+                void setRelationLabel({ label: draft, projectId, relationId: page.relation.id });
+              },
+              // Empty is a real choice here: it clears the label and the edge falls back to its kind.
+              enabled: true,
+              heading: `Connection · ${page.relation.kind}`,
+              icon: draft === "" ? Eraser : Tag,
+              placeholder: "What does this connection say?",
+              title:
+                draft === ""
+                  ? `Clear the label, leaving “${page.relation.kind}”`
+                  : `Label this connection “${draft}”`,
+            }
+          : {
+              commit: () => {
+                // Converted, not spread: `renameNote` seeds its store from this and saves that
+                // content, so a stub would erase the note's text.
+                renameNote(toNote(page.note), draft, noteGateway);
+                /*
+                 * A rename lands in three places, because three of them write the old name down.
+                 * `note-store` owns the save. The project listing is what the library rail reads, and
+                 * without this it went on showing the previous name until something else re-listed —
+                 * witnessed, not guessed. `window.title` is the far-zoom summary and the accessible
+                 * name.
+                 */
+                setProjectItemTitle(page.note.id, draft);
+
+                /*
+                 * Through the guard, not a cast. This read `data.noteId`, a field that stopped
+                 * existing when window data became one `{ itemId }` for every kind — so it matched
+                 * nothing and the third place a rename lands was never written. The cast is what
+                 * hid it: `data` is `unknown` by design, and asserting a shape onto it turns a dead
+                 * read into a silent one.
+                 */
+                const windowId = state.windows.find(
+                  (window) =>
+                    getInfiniteCanvasWindowData(window, ContentWindowData.allows)?.itemId ===
+                    page.note.id,
+                )?.id;
+
+                if (windowId !== undefined) {
+                  actions.setWindowTitle({ title: draft, windowId });
+                }
+              },
+              /*
+               * Empty is not a choice here, it is a hole. The schema asserts a non-empty title, so a
+               * blank rename would be refused by the database after the palette had already closed and
+               * told you it worked. The row says why instead of failing silently later.
+               */
+              enabled: draft !== "",
+              heading: "Note",
+              icon: FileText,
+              placeholder: "What is this note called?",
+              title: draft === "" ? "A note needs a name" : `Rename to “${draft}”`,
+            };
 
     return (
       <>
@@ -971,6 +998,42 @@ function PaletteContent({
                 query$.set(activeNote.title);
               }}
               title={`Rename “${activeNote.title}”…`}
+            />
+          )}
+          {/*
+            A group could not be named at all. `group.setTitle` takes a string only a person has, so
+            it is `parameterized` in the framework's coverage map and no palette row could offer it
+            — which left every group called "Group", the framework's own default, forever.
+
+            The same shell as the two renames beside it, which is what makes a third page an entry
+            rather than a third copy.
+          */}
+          {activeGroup === undefined || activeGroup === null ? null : (
+            <Row
+              icon={SquareStack}
+              id="rename-group"
+              keywords="rename title name group dock"
+              onSelect={() => {
+                page$.set({ groupId: activeGroup.id, kind: "group", title: activeGroup.title });
+                /*
+                 * Seeded empty while the name is still the framework's default.
+                 *
+                 * A note rename seeds the current title because you are editing a name someone
+                 * chose. A group has one whether or not anyone chose it — "Group" is a placeholder
+                 * wearing a value — so pre-filling it makes the first act clearing it. Watched: a
+                 * name typed straight in came out "GroupReading list".
+                 */
+                query$.set(
+                  activeGroup.title === DEFAULT_INFINITE_CANVAS_GROUP_TITLE
+                    ? ""
+                    : activeGroup.title,
+                );
+              }}
+              title={
+                activeGroup.title === DEFAULT_INFINITE_CANVAS_GROUP_TITLE
+                  ? "Name this group…"
+                  : `Rename “${activeGroup.title}”…`
+              }
             />
           )}
           {/*
