@@ -4,7 +4,7 @@ import {
   useInfiniteCanvasState,
 } from "@hyphened/infinite-canvas";
 import { useObservable, useValue } from "@legendapp/state/react";
-import { ChevronRight, Link2, PanelLeftClose, Search } from "lucide-react";
+import { ChevronRight, Link2, PanelLeftClose, Plus, Search } from "lucide-react";
 import { useEffect } from "react";
 import { Button } from "ui";
 import { tv } from "ui/tv";
@@ -12,7 +12,8 @@ import { tv } from "ui/tv";
 import type { WindowKind } from "../canvas/window-registry";
 import type { NoteRecord } from "../database/database.client";
 import * as database from "../database/operations";
-import { openNoteWindow } from "../notes/open-note";
+import { renameNote } from "../notes/note-store";
+import { openNewNote, openNoteWindow } from "../notes/open-note";
 import { relations$ } from "../notes/relations";
 
 /**
@@ -43,6 +44,9 @@ const rail = tv({
     connection:
       "flex w-full items-center gap-2 rounded-[var(--radius-sm)] py-1 pr-2 pl-5 text-left text-[12px] text-[var(--ink-muted)] transition-colors duration-100 ease-[var(--ease-swift)] hover:bg-[var(--surface-hover)] hover:text-[var(--ink)]",
     connectionTitle: "min-w-0 truncate",
+    /** Sized and weighted exactly like the title it replaces, so committing does not jump. */
+    editor:
+      "min-w-0 flex-1 rounded-[var(--radius-sm)] bg-[var(--surface-raised)] px-1 py-1.5 text-[12.5px] text-[var(--ink)] outline-none inset-ring-1 inset-ring-[var(--accent)]",
     count:
       "flex shrink-0 items-center gap-1 rounded-[var(--radius-sm)] px-1 py-0.5 font-mono text-[10px] tabular-nums text-[var(--ink-faint)] transition-colors duration-100 ease-[var(--ease-swift)] hover:bg-[var(--surface-raised)] hover:text-[var(--ink-muted)]",
     countIcon: "size-3",
@@ -115,10 +119,13 @@ export function LibraryRail({
   const notes$ = useObservable<readonly NoteRecord[]>([]);
   const query$ = useObservable("");
   const expanded$ = useObservable<string | null>(null);
+  /** The note being renamed, and the text so far. `null` when nothing is being edited. */
+  const editing$ = useObservable<Readonly<{ id: string; title: string }> | null>(null);
 
   const notes = useValue(notes$);
   const query = useValue(query$);
   const expanded = useValue(expanded$);
+  const editing = useValue(editing$);
   const relations = useValue(relations$);
   const styles = rail();
 
@@ -180,12 +187,66 @@ export function LibraryRail({
     focusInfiniteCanvasCommandSurfaceFrom(from);
   };
 
+  /**
+   * Rename, committed to the same writer that owns typing.
+   *
+   * The list updates immediately rather than after a re-read: the record is already correct here,
+   * and a rename that visibly lags the keystroke that made it reads as a save that might not have
+   * happened. `setWindowTitle` keeps any window showing this note in step, which is what stops a
+   * renamed note from carrying its old name at far zoom and in the accessible name.
+   */
+  const commitRename = (note: NoteRecord, title: string) => {
+    const next = title.trim();
+
+    editing$.set(null);
+
+    if (next === "" || next === note.title) {
+      return;
+    }
+
+    renameNote(note, next, { read: database.notes.read, save: database.notes.save });
+    notes$.set(
+      notes.map((candidate) =>
+        candidate.id === note.id ? { ...candidate, title: next } : candidate,
+      ),
+    );
+
+    const windowId = windowIdByNoteId.get(note.id);
+
+    if (windowId !== undefined) {
+      actions.setWindowTitle({ title: next, windowId });
+    }
+  };
+
+  /**
+   * Create where you are already looking.
+   *
+   * The identity rail can make a note too, but from here you watch it join the list you are
+   * browsing — and land in rename, because a note called "Untitled 4" is a note you have to come
+   * back to.
+   */
+  const create = async () => {
+    await openNewNote({ actions, projectId, state });
+    notes$.set(await database.notes.list(projectId));
+  };
+
   return (
     <div className={styles.root()}>
       <div className={styles.header()}>
         <span className={styles.heading()}>Library</span>
         {/* The count is the answer to "is this everything?", which a list alone never gives. */}
         <span className={styles.total()}>{notes.length}</span>
+        <Button
+          aria-label="New note"
+          onClick={() => {
+            void create();
+          }}
+          size="icon-sm"
+          title="New note"
+          variant="ghost"
+        >
+          <Plus />
+        </Button>
         <Button aria-label="Collapse library" onClick={onCollapse} size="icon-sm" variant="ghost">
           <PanelLeftClose />
         </Button>
@@ -218,15 +279,54 @@ export function LibraryRail({
                   <span className={styles.gutter()}>
                     {openNoteIds.has(note.id) ? <span className={styles.presence()} /> : null}
                   </span>
-                  <button
-                    className={styles.title({ open: openNoteIds.has(note.id) })}
-                    onClick={(event) => {
-                      reach(event.currentTarget, note.id, note.title);
-                    }}
-                    type="button"
-                  >
-                    {note.title}
-                  </button>
+                  {editing?.id === note.id ? (
+                    /*
+                     * The thing a palette row cannot host.
+                     *
+                     * Enter commits and Escape abandons, which are the two answers; blur commits
+                     * too, because clicking away from a field you have typed into and losing it is
+                     * the behaviour nobody expects. `stopPropagation` on keys so the canvas does
+                     * not read this as its own shortcuts while a name is being typed.
+                     */
+                    <input
+                      autoFocus
+                      className={styles.editor()}
+                      onBlur={() => {
+                        commitRename(note, editing.title);
+                      }}
+                      onChange={(event) => {
+                        editing$.set({ id: note.id, title: event.target.value });
+                      }}
+                      onKeyDown={(event) => {
+                        event.stopPropagation();
+
+                        if (event.key === "Enter") {
+                          commitRename(note, editing.title);
+                        }
+
+                        if (event.key === "Escape") {
+                          editing$.set(null);
+                        }
+                      }}
+                      value={editing.title}
+                    />
+                  ) : (
+                    <button
+                      className={styles.title({ open: openNoteIds.has(note.id) })}
+                      // Double-click to rename, the way every sidebar in every file manager does.
+                      // A visible pencil on every row would be five affordances competing for the
+                      // width the titles need.
+                      onDoubleClick={() => {
+                        editing$.set({ id: note.id, title: note.title });
+                      }}
+                      onClick={(event) => {
+                        reach(event.currentTarget, note.id, note.title);
+                      }}
+                      type="button"
+                    >
+                      {note.title}
+                    </button>
+                  )}
                   {neighbours.length === 0 ? null : (
                     <button
                       aria-expanded={isExpanded}

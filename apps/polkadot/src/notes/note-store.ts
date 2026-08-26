@@ -135,6 +135,33 @@ function editNote(noteId: string, draft: NoteDraft, gateway: NoteGateway) {
   writer.debouncer.maybeExecute(draft);
 }
 
+/**
+ * Rename a note, whether or not it is open.
+ *
+ * Through the same writer as typing, deliberately. The library rail holds full records from
+ * `listNotes`, so it could save directly — and that would be a second writer racing this one
+ * whenever the note is also open, because the listed revision goes stale the moment someone types.
+ * One authority for note writes, or the revision guard guards nothing.
+ *
+ * Seeded from the record the caller already has rather than read again: a rename must not wait on
+ * a round trip for data that is already in hand, and `ensureNoteLoaded` would resolve after the
+ * user had moved on.
+ */
+function renameNote(note: NoteRecord, title: string, gateway: NoteGateway) {
+  if (notes$[note.id].peek() === undefined) {
+    loaded.add(note.id);
+    notes$[note.id].set({ error: null, note, status: "ready" });
+  }
+
+  const entry = notes$[note.id].peek();
+
+  if (entry?.note == null) {
+    return;
+  }
+
+  editNote(note.id, { text: entry.note.content.text, title }, gateway);
+}
+
 function stopNoteWriters() {
   for (const writer of writers.values()) {
     writer.stop();
@@ -144,5 +171,5 @@ function stopNoteWriters() {
   loaded.clear();
 }
 
-export { editNote, ensureNoteLoaded, getNoteEntry, notes$, stopNoteWriters };
+export { editNote, ensureNoteLoaded, getNoteEntry, notes$, renameNote, stopNoteWriters };
 export type { NoteDraft, NoteEntry, NoteGateway };

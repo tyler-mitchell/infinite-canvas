@@ -136,6 +136,18 @@ open because it feels good to look at. Concretely, and these are enforced in rev
   row reaches the note it names.
   **Still open:** the rail cannot create, rename, or delete; there is no saved-views concept
   yet; and connections cannot be authored or cut from here.
+  **Rename and create landed.** Double-click a row and it becomes an input — Enter commits, Escape
+  abandons, blur commits, because clicking away from a field you have typed into and losing it is
+  what nobody expects. This is the rail's own justification made concrete: this file already
+  recorded that the palette cannot rename because a _palette_ row cannot host an inline editor, and
+  a rail row can, being persistent rather than modal. The write goes through `note-store` rather
+  than straight to the database, so the revision guard still has one authority — the rail holds
+  full records from `listNotes` and could have saved directly, which would race a note that is also
+  open and being typed into. `setWindowTitle` keeps the window's own title following the record.
+  `+` in the header creates where you are already looking and the list updates in place.
+  **Delete is not built and needs schema work first:** `database.notes` has no delete, and removing
+  a note has to take its `relates_to` edges with it — the same cascade `fn::delete_project` already
+  does for a project.
 - [~] **Connectors.** `relates_to` is written for the first time, and edges render between the
   windows showing their notes — framework geometry throughout, drawn in the new
   `renderUnderlay` band so a connector passes beneath the note rather than across it.
