@@ -288,6 +288,49 @@
 }
 
 /*
+ * The command launcher, on Polkadot's material.
+ *
+ * `ui` gives the structure; the look belongs here, the same split the window chrome uses. The
+ * panel is a raised surface with the specular hairline and the deepest lift, so it reads as an
+ * object in front of the canvas rather than a card drawn on it.
+ */
+[data-slot="dialog-content"]:has([data-slot="command"]) {
+  background: var(--surface-raised);
+  border-radius: 14px;
+  box-shadow:
+    inset 0 1px 0 0 var(--edge-light),
+    var(--lift-3);
+}
+
+[data-slot="dialog-backdrop"] {
+  background: oklch(0.09 0.006 265 / 0.55);
+}
+
+/* Separation by light, not a rule: the list sits on a faintly darker ground than the input. */
+[data-slot="command-list"] {
+  background: oklch(0 0 0 / 0.12);
+  box-shadow: inset 0 1px 0 0 var(--edge-light);
+}
+
+[data-slot="command-footer"] {
+  background: oklch(0 0 0 / 0.18);
+  box-shadow: inset 0 1px 0 0 var(--edge-light);
+}
+
+/*
+ * The selected row is the accent's job. A row that is merely a lighter grey makes the user hunt
+ * for where Enter will land.
+ */
+[data-slot="command-item"][data-selected="true"] {
+  background: var(--accent-wash);
+}
+
+[data-slot="command-item"][data-selected="true"] [data-slot="command-item-icon"] {
+  background: var(--accent);
+  color: var(--primary-foreground);
+}
+
+/*
  * A note names itself.
  *
  * The note body's first field is the title, and the chrome was printing the same string again

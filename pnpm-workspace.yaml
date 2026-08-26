@@ -36,6 +36,7 @@ catalog:
   lucide-react: ^0.577.0
   # Playground / UI kit stack.
   "@base-ui/react": ^1.4.0
+  cmdk: ^1.1.1
   "@tanstack/react-router": 1.170.32
   "@tanstack/router-plugin": ^1.167.32
   "@tanstack/router-cli": ^1.167.33

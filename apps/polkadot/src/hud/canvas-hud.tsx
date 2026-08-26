@@ -172,9 +172,14 @@ function RecoveryNotice({ droppedKinds }: Readonly<{ droppedKinds: readonly stri
 }
 
 export function CanvasHud({
+  commandPalette,
   droppedKinds,
   identity,
-}: Readonly<{ droppedKinds?: readonly string[]; identity: ReactNode }>) {
+}: Readonly<{
+  commandPalette?: ReactNode;
+  droppedKinds?: readonly string[];
+  identity: ReactNode;
+}>) {
   return (
     <HudRoot>
       <HudSurface anchor="top-left" persistent>
@@ -182,6 +187,8 @@ export function CanvasHud({
       </HudSurface>
       {droppedKinds === undefined ? null : <RecoveryNotice droppedKinds={droppedKinds} />}
       <SelectionRail />
+      {/* Outside the anchored surfaces: it is a modal, not a corner. */}
+      {commandPalette}
     </HudRoot>
   );
 }

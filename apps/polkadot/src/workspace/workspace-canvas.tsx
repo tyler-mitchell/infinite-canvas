@@ -1,8 +1,5 @@
 import {
   InfiniteCanvas,
-  createInfiniteCanvasWindow,
-  getInfiniteCanvasWindowPlacementRect,
-  getVisibleWorldRect,
   type InfiniteCanvasOverlayReadContext,
   type InfiniteCanvasState,
 } from "@hyphened/infinite-canvas";
@@ -12,8 +9,10 @@ import { tv } from "ui/tv";
 
 import type { CanvasPersistenceStatus } from "../canvas/canvas-persistence";
 import { useCanvasRuntime } from "../canvas/use-canvas-runtime";
-import { windowDefinitions, type WindowData, type WindowKind } from "../canvas/window-registry";
+import { windowDefinitions, type WindowKind } from "../canvas/window-registry";
 import { CanvasHud } from "../hud/canvas-hud";
+import { CommandPalette } from "../hud/command-palette";
+import { openNewNote } from "../notes/open-note";
 import { CanvasSwitcher } from "./canvas-switcher";
 import { ProjectSwitcher } from "./project-switcher";
 
@@ -60,15 +59,6 @@ const workspace = tv({
 });
 
 const CHROME = { headerHeight: 32 } as const;
-
-const noteSize = { height: 240, width: 360 } as const;
-const noteMinimumSize = { height: 160, width: 240 } as const;
-
-const createNoteRecord = async (input: Readonly<{ text: string; title: string }>) => {
-  const database = await import("../database/database.client");
-
-  return database.createNote(input);
-};
 
 function getSaveAdmission(status: CanvasPersistenceStatus): SaveAdmission {
   if (status.status === "error") {
@@ -120,28 +110,7 @@ function IdentityRail({
       <span className={styles.divider()} />
       <Button
         onClick={() => {
-          const state = canvas.state;
-          const ordinal = state.windows.length + 1;
-          const offset = ((ordinal - 1) % 6) * 28;
-          const baseRect = getInfiniteCanvasWindowPlacementRect(
-            getVisibleWorldRect(state.camera, state.viewport, 0),
-            "center",
-            noteSize,
-            noteMinimumSize,
-          );
-
-          void createNoteRecord({ text: "", title: `Untitled ${ordinal}` }).then((created) => {
-            canvas.actions.openWindow(
-              createInfiniteCanvasWindow<WindowKind, WindowData["note"]>({
-                data: { noteId: created.id },
-                id: globalThis.crypto.randomUUID(),
-                kind: "note",
-                minSize: noteMinimumSize,
-                rect: { ...baseRect, x: baseRect.x + offset, y: baseRect.y + offset },
-                title: `Untitled ${ordinal}`,
-              }),
-            );
-          });
+          void openNewNote({ actions: canvas.actions, projectId, state: canvas.state });
         }}
         size="sm"
         variant="ghost"
@@ -173,6 +142,7 @@ export function WorkspaceCanvas({ canvas }: Readonly<{ canvas: LoadedCanvas }>) 
           }}
           renderOverlay={(context) => (
             <CanvasHud
+              commandPalette={<CommandPalette projectId={canvas.projectId} />}
               droppedKinds={canvas.droppedKinds}
               identity={
                 <IdentityRail

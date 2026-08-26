@@ -452,10 +452,16 @@ const NoteRecord = type({
 
 type NoteRecord = typeof NoteRecord.infer;
 
-async function createNote(input: Readonly<{ text: string; title: string }>): Promise<NoteRecord> {
+async function createNote(
+  input: Readonly<{ projectId: string; text: string; title: string }>,
+): Promise<NoteRecord> {
   const client = await openLocalDatabase();
   const [record] = await client
-    .query<[unknown]>("RETURN fn::create_note($title, $text);", input)
+    .query<[unknown]>("RETURN fn::create_note($project, $title, $text);", {
+      project: new StringRecordId(input.projectId),
+      text: input.text,
+      title: input.title,
+    })
     .json();
 
   return NoteRecord.assert(record);
@@ -490,9 +496,13 @@ async function saveNote(
   return NoteRecord.assert(record);
 }
 
-async function listNotes(): Promise<readonly NoteRecord[]> {
+async function listNotes(projectId: string): Promise<readonly NoteRecord[]> {
   const client = await openLocalDatabase();
-  const [records] = await client.query<[unknown]>("RETURN fn::list_notes();").json();
+  const [records] = await client
+    .query<[unknown]>("RETURN fn::list_notes($project);", {
+      project: new StringRecordId(projectId),
+    })
+    .json();
 
   return NoteRecord.array().assert(records);
 }
