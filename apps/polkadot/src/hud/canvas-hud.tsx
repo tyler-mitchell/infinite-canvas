@@ -1,7 +1,6 @@
 import {
   getInfiniteCanvasGroupParent,
   getInfiniteCanvasWindowGroup,
-  getSelectedWindowBounds,
   useInfiniteCanvasActions,
   useInfiniteCanvasSelector,
   useInfiniteCanvasStore,
@@ -26,6 +25,10 @@ import { useState, type ComponentType, type ReactNode } from "react";
 import { Button } from "ui";
 import { tv } from "ui/tv";
 
+import { useValue } from "@legendapp/state/react";
+
+import { getAppAction, isAppActionEnabled } from "../app-actions";
+import { openProject$ } from "../projects/open-project";
 import { OffscreenIndicators } from "../canvas/offscreen-indicators";
 import type { WindowKind } from "../canvas/window-registry";
 import { HudRoot, HudSurface } from "./hud-surfaces";
@@ -107,37 +110,28 @@ function Verb({
  * whose buttons move is harder to aim at than one whose buttons grey.
  */
 function SelectionRail() {
-  const actions = useInfiniteCanvasActions();
-  const store = useInfiniteCanvasStore();
+  const actions = useInfiniteCanvasActions<WindowKind>();
+  const store = useInfiniteCanvasStore<WindowKind>();
+  const projectId = useValue(openProject$) ?? "";
   const selectedCount = useInfiniteCanvasSelector((state) => state.selection.windowIds.length);
   const styles = canvasHud();
   const run = (command: InfiniteCanvasCommand) => () => {
     actions.executeCommand(command);
   };
   /*
-   * The only thing in the app that invites docking.
+   * The verb is in `app-actions`, not here. This is the control that calls it.
    *
-   * The framework has had the whole group model since before this app had a second window kind —
-   * the Alt-drag gesture, the palette's dock commands, tabs and splits — and Polkadot never offered
-   * a way in. A capability reachable only by a modifier nobody presses speculatively, or a palette
-   * row nobody searches for, is a capability nobody has.
-   *
-   * Read from a peek rather than a selector: the bounds are a fresh object every call, so selecting
-   * them would re-render this rail on every camera tick to compute a rect only a click needs.
+   * State is peeked rather than selected: the action reads a rect that is a fresh object every
+   * call, so subscribing would re-render this rail on every camera tick for something only a click
+   * needs.
    */
   const group = () => {
-    const state = store.state$.peek();
-    const rect = getSelectedWindowBounds(state);
+    const action = getAppAction("group.createFromSelection");
+    const context = { actions, projectId, state: store.state$.peek() };
 
-    if (rect === null) {
-      return;
+    if (action !== undefined && isAppActionEnabled(action, context)) {
+      action.run(context);
     }
-
-    actions.createGroup({
-      groupId: globalThis.crypto.randomUUID(),
-      rect,
-      windowIds: state.selection.windowIds,
-    });
   };
 
   return (

@@ -57,12 +57,12 @@ import type {
   ContentRelation,
   ProjectSummary,
 } from "../database/database.client";
-import { LISTABLE_KINDS } from "../collections/listable-kinds";
+import { APP_ACTIONS, isAppActionEnabled } from "../app-actions";
 import { openNewCollection } from "../collections/open-collection";
 import * as database from "../database/operations";
 import { noteGateway, toNote } from "../notes/note-gateway";
 import { renameNote } from "../notes/note-store";
-import { openNewNote, openNoteWindow } from "../notes/open-note";
+import { openNoteWindow } from "../notes/open-note";
 import {
   archiveProjectItem,
   getProjectContentOfKind,
@@ -175,6 +175,21 @@ const GROUP_ICON: Record<InfiniteCanvasCommandGroup, ComponentType> = {
   selection: MousePointerSquareDashed,
   view: Move3d,
   window: SquareStack,
+};
+
+/**
+ * A glyph per app action.
+ *
+ * Here rather than on the action, because an icon is this surface's business — the vocabulary is
+ * meant to be renderable by a rail, a palette, or a tool registry that draws nothing at all.
+ */
+const ACTION_ICON: Readonly<Record<string, ComponentType>> = {
+  "collection.create.collection": SquareStack,
+  "collection.create.image": Frame,
+  "collection.create.link": Link2,
+  "collection.create.note": FileText,
+  "group.createFromSelection": Columns3,
+  "note.create": FilePlus2,
 };
 
 const palette = tv({
@@ -831,49 +846,42 @@ function PaletteContent({
         )}
 
         <CommandGroup heading="Actions">
-          <Row
-            icon={FilePlus2}
-            onSelect={run(() => {
-              void openNewNote({ actions, projectId, state });
-            })}
-            id="new-note"
-            keywords="create"
-            title="New note"
-          />
           {/*
-            Named for what it lists rather than offering an empty one to configure. "New collection"
-            would put the user in a window with nothing in it and a menu to find; "Collection of
-            notes" is already the thing they wanted, and switching what it lists is one click away
-            in the window itself.
+            Rendered from `app-actions`, not written out here.
 
-            One row per listable kind rather than two written out. The hand-written pair covered
-            `note` and `image` and was already a copy of the list the collection window's own kind
-            picker holds — so `link` was droppable, openable, and impossible to collect, because
-            adding a kind meant finding two places and only one was obvious.
+            Every row was a `void someCreator({...})` inside its own `onSelect`, which is a
+            capability only a pointer can reach — it cannot be listed, described or invoked by
+            anything else. The vocabulary carries the label, the description and the enablement,
+            and this maps it to rows. A collection is named for what it lists rather than offering
+            an empty one to configure: "Collection of notes" is already the thing they wanted.
           */}
-          {LISTABLE_KINDS.map(({ icon: KindIcon, kind, label }) => (
-            <Row
-              icon={KindIcon}
-              key={kind}
-              onSelect={run(() => {
-                void openNewCollection({
-                  actions,
-                  projectId,
-                  question: { listsKind: kind },
-                  state,
-                  title: label,
-                });
-              })}
-              id={`new-collection-${kind}`}
-              keywords="create list all"
-              title={`Collection of ${label.toLowerCase()}`}
-            />
-          ))}
+          {APP_ACTIONS.map((action) => {
+            const context = { actions, projectId, state };
+
+            return (
+              <Row
+                description={action.description}
+                disabled={!isAppActionEnabled(action, context)}
+                icon={ACTION_ICON[action.id] ?? FilePlus2}
+                key={action.id}
+                onSelect={run(() => {
+                  action.run(context);
+                })}
+                id={action.id}
+                keywords="create list all"
+                title={action.label}
+              />
+            );
+          })}
           {/*
             Only offered when exactly one window is selected, because the question needs a subject.
             Two selected windows would be two collections or an arbitrary choice between them, and
             none would be a collection of what — the action is named for the thing it points at, so
             it can only exist when there is one.
+
+            Not in `app-actions`, and it is the case that shape does not cover: the vocabulary is
+            one entry per argument value, which cannot enumerate "connected to *this* item". It
+            wants a real input schema, which is the open question the WebMCP spike names.
           */}
           {connectionSubject === undefined ? null : (
             <Row
