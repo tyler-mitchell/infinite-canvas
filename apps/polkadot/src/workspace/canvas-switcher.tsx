@@ -1,0 +1,195 @@
+import { useObservable, useValue } from "@legendapp/state/react";
+import { getHotkeyManager } from "@tanstack/hotkeys";
+import { useNavigate, useRouter } from "@tanstack/react-router";
+import { ChevronDown, PencilLine, Plus } from "lucide-react";
+import { useEffect, useRef } from "react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "ui";
+import { tv } from "ui/tv";
+
+import { initialLayout } from "../canvas/canvas-document";
+import type { CanvasSummary } from "../database/database.client";
+
+/**
+ * Which canvas this is, and how to reach another one.
+ *
+ * The canvas's name is the control rather than a label beside one. A route already names exactly
+ * one document, so the thing that says which document you are looking at is the natural place to
+ * change it — the same move a code editor makes with its branch name.
+ *
+ * The list loads when the menu opens rather than with the canvas. It is small, it goes stale the
+ * moment another canvas is created, and paying for it on every canvas load would put a database
+ * round trip in front of a surface most sessions never open.
+ */
+
+const canvasSwitcher = tv({
+  slots: {
+    chevron:
+      "size-3 text-[var(--ink-faint)] transition-transform duration-150 ease-[var(--ease-swift)] group-data-popup-open/switcher:rotate-180",
+    empty: "px-1.5 py-1 text-[12px] text-[var(--ink-faint)]",
+    input:
+      "w-40 rounded-md bg-[var(--ground-sunken)] px-1.5 py-0.5 text-[13px] font-medium tracking-[-0.01em] text-[var(--ink)] outline-none inset-ring-1 inset-ring-[var(--accent)]",
+    itemTitle: "truncate",
+    trigger:
+      "group/switcher flex items-center gap-1.5 rounded-md px-1.5 py-0.5 text-[13px] font-medium tracking-[-0.01em] text-[var(--ink)] transition-colors duration-150 ease-[var(--ease-swift)] outline-none hover:bg-[var(--surface-hover)] focus-visible:bg-[var(--surface-hover)] data-popup-open:bg-[var(--surface-hover)]",
+  },
+});
+
+const canvasGateway = {
+  create: async (title: string) =>
+    (await import("../database/database.client")).createCanvas({ layout: initialLayout, title }),
+  list: async () => (await import("../database/database.client")).listCanvases(),
+  rename: async (canvasId: string, title: string) =>
+    (await import("../database/database.client")).renameCanvas({ canvasId, title }),
+};
+
+export function CanvasSwitcher({ canvasId, title }: Readonly<{ canvasId: string; title: string }>) {
+  const navigate = useNavigate();
+  const router = useRouter();
+  const canvases$ = useObservable<readonly CanvasSummary[]>([]);
+  const draftTitle$ = useObservable<string | null>(null);
+  const canvases = useValue(canvases$);
+  const draftTitle = useValue(draftTitle$);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const styles = canvasSwitcher();
+
+  const openCanvas = (nextCanvasId: string) => {
+    if (nextCanvasId !== canvasId) {
+      void navigate({ params: { canvasId: nextCanvasId }, to: "/canvas/$canvasId" });
+    }
+  };
+
+  const commitRename = () => {
+    const nextTitle = (draftTitle$.peek() ?? "").trim();
+
+    draftTitle$.set(null);
+
+    if (nextTitle.length > 0 && nextTitle !== title) {
+      // The title on screen comes from the route loader, so the rename is only visible once that
+      // loader runs again.
+      void canvasGateway.rename(canvasId, nextTitle).then(() => router.invalidate());
+    }
+  };
+
+  /**
+   * Enter and Escape go through the hotkey manager, not an `onKeyDown`.
+   *
+   * `ignoreInputs: false` because the target *is* the input — the default exists to stop global
+   * chords firing while someone types, which is the opposite of what these two are for. Scoping
+   * to the element means they exist only while the field does, and the manager owns conflict
+   * detection rather than each field deciding for itself.
+   */
+  useEffect(() => {
+    const node = inputRef.current;
+
+    if (node === null) {
+      return;
+    }
+
+    const manager = getHotkeyManager();
+    const handles = [
+      manager.register("Enter", commitRename, { ignoreInputs: false, target: node }),
+      manager.register(
+        "Escape",
+        () => {
+          draftTitle$.set(null);
+        },
+        { ignoreInputs: false, target: node },
+      ),
+    ];
+
+    return () => {
+      for (const handle of handles) {
+        if (handle.isActive) {
+          handle.unregister();
+        }
+      }
+    };
+    // Re-registers when the field appears or disappears, not on every keystroke.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [canvasId, draftTitle !== null, draftTitle$, router, title]);
+
+  // Renaming replaces the trigger rather than opening a dialog. The name is already here and
+  // already the right size; a modal to change one word is ceremony.
+  if (draftTitle !== null) {
+    return (
+      <input
+        aria-label="Canvas name"
+        autoFocus
+        className={styles.input()}
+        onBlur={commitRename}
+        onChange={(event) => {
+          draftTitle$.set(event.target.value);
+        }}
+        ref={inputRef}
+        value={draftTitle}
+      />
+    );
+  }
+
+  return (
+    <DropdownMenu
+      onOpenChange={(open) => {
+        if (open) {
+          void canvasGateway.list().then((records) => {
+            canvases$.set(records);
+          });
+        }
+      }}
+    >
+      <DropdownMenuTrigger
+        className={styles.trigger()}
+        onPointerDown={(event) => {
+          // Without this the press also reaches the canvas root and starts a marquee underneath.
+          event.stopPropagation();
+        }}
+      >
+        {title}
+        <ChevronDown className={styles.chevron()} />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent>
+        {/* The label names the radio group, and Base UI requires that literally: `GroupLabel`
+            reads a context only `Group` and `RadioGroup` provide. */}
+        <DropdownMenuRadioGroup onValueChange={openCanvas} value={canvasId}>
+          <DropdownMenuLabel>Canvases</DropdownMenuLabel>
+          {canvases.length === 0 ? (
+            <div className={styles.empty()}>Loading…</div>
+          ) : (
+            canvases.map((canvas) => (
+              <DropdownMenuRadioItem key={canvas.id} value={canvas.id}>
+                <span className={styles.itemTitle()}>{canvas.title}</span>
+              </DropdownMenuRadioItem>
+            ))
+          )}
+        </DropdownMenuRadioGroup>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem
+          onClick={() => {
+            draftTitle$.set(title);
+          }}
+        >
+          <PencilLine />
+          Rename
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          onClick={() => {
+            void canvasGateway.create(`Canvas ${canvases.length + 1}`).then((created) => {
+              openCanvas(created.id);
+            });
+          }}
+        >
+          <Plus />
+          New canvas
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}

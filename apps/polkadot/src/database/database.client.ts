@@ -140,6 +140,56 @@ async function openCanvas(canvasId: string): Promise<CanvasRecord | null> {
   return record === null || record === undefined ? null : CanvasRecord.assert(record);
 }
 
+/**
+ * A canvas without its layout.
+ *
+ * The switcher needs names, not arrangements — projecting `layout` would put every window of
+ * every canvas into a menu that renders a list of titles.
+ */
+const CanvasSummary = type({
+  id: "string",
+  revision: "number.integer >= 0",
+  title: "string > 0",
+}).onUndeclaredKey("delete");
+
+type CanvasSummary = typeof CanvasSummary.infer;
+
+async function listCanvases(): Promise<readonly CanvasSummary[]> {
+  const client = await openLocalDatabase();
+  const [records] = await client.query<[unknown]>("RETURN fn::list_canvases();").json();
+
+  return CanvasSummary.array().assert(records);
+}
+
+async function createCanvas(
+  input: Readonly<{ layout: object; title: string }>,
+): Promise<CanvasRecord> {
+  const client = await openLocalDatabase();
+  const [record] = await client
+    .query<[unknown]>("RETURN fn::create_canvas($title, $layout);", input)
+    .json();
+
+  return CanvasRecord.assert(record);
+}
+
+/**
+ * A rename touches `title` and nothing else, so it never collides with the layout autosave — the
+ * two write disjoint fields and `revision` guards only the layout.
+ */
+async function renameCanvas(
+  input: Readonly<{ canvasId: string; title: string }>,
+): Promise<CanvasSummary> {
+  const client = await openLocalDatabase();
+  const [record] = await client
+    .query<[unknown]>("RETURN fn::rename_canvas($canvas, $title);", {
+      canvas: new StringRecordId(input.canvasId),
+      title: input.title,
+    })
+    .json();
+
+  return CanvasSummary.assert(record);
+}
+
 async function saveCanvas(
   input: Readonly<{
     canvasId: string;
@@ -254,7 +304,9 @@ async function closeLocalDatabase() {
 export {
   CanvasRevisionConflictError,
   closeLocalDatabase,
+  createCanvas,
   createNote,
+  listCanvases,
   listNotes,
   NoteRevisionConflictError,
   openCanvas,
@@ -262,7 +314,8 @@ export {
   openLocalDatabase,
   readMostRecentCanvas,
   readNote,
+  renameCanvas,
   saveCanvas,
   saveNote,
 };
-export type { CanvasRecord, NoteRecord };
+export type { CanvasRecord, CanvasSummary, NoteRecord };

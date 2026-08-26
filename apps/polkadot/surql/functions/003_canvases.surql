@@ -20,3 +20,26 @@ DEFINE FUNCTION OVERWRITE fn::most_recent_canvas() {
 DEFINE FUNCTION OVERWRITE fn::open_canvas($canvas: record<canvas_document>) {
   RETURN SELECT id, title, revision, layout FROM ONLY $canvas;
 };
+
+-- The switcher's list. `layout` is deliberately not projected: a list of canvases would otherwise
+-- carry every window of every canvas, which is the whole database in a menu.
+DEFINE FUNCTION OVERWRITE fn::list_canvases() {
+  RETURN SELECT id, title, revision, updated_at
+    FROM canvas_document
+    WHERE archived_at = NONE
+    ORDER BY updated_at DESC;
+};
+
+-- `project:default` is referenced rather than bootstrapped. `fn::open_default_canvas` is the one
+-- place a new install is created, and reaching this function means the app already opened.
+DEFINE FUNCTION OVERWRITE fn::create_canvas($title: string, $layout: object) {
+  RETURN CREATE ONLY canvas_document CONTENT {
+    project: project:default,
+    title: $title,
+    layout: $layout
+  };
+};
+
+DEFINE FUNCTION OVERWRITE fn::rename_canvas($canvas: record<canvas_document>, $title: string) {
+  RETURN UPDATE ONLY $canvas SET title = $title;
+};

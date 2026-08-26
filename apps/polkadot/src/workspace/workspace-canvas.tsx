@@ -14,6 +14,7 @@ import type { CanvasPersistenceStatus } from "../canvas/canvas-persistence";
 import { useCanvasRuntime } from "../canvas/use-canvas-runtime";
 import { windowDefinitions, type WindowData, type WindowKind } from "../canvas/window-registry";
 import { CanvasHud } from "../hud/canvas-hud";
+import { CanvasSwitcher } from "./canvas-switcher";
 
 type SaveAdmission = Readonly<{
   message: string;
@@ -38,10 +39,9 @@ type LoadedCanvas = Readonly<{
  */
 const workspace = tv({
   slots: {
-    brand: "flex items-center gap-2.5 pr-1 pl-1.5",
+    brand: "flex items-center gap-1.5 pr-1 pl-1.5",
     brandMark:
       "grid size-6 place-items-center rounded-[7px] bg-[var(--accent)] font-mono text-[11px] font-semibold text-[var(--primary-foreground)]",
-    brandTitle: "text-[13px] font-medium tracking-[-0.01em] text-[var(--ink)]",
     divider: "mx-1 h-4 w-px bg-[var(--border)]",
     rail: "flex items-center gap-1 rounded-[var(--radius-pill)] bg-[var(--surface)] p-1 shadow-[var(--lift-2)] inset-ring-1 inset-ring-[var(--edge-light)] backdrop-blur-2xl",
     root: "relative h-dvh min-h-0 overflow-hidden bg-[var(--ground)]",
@@ -88,10 +88,12 @@ function getSaveAdmission(status: CanvasPersistenceStatus): SaveAdmission {
  */
 function IdentityRail({
   canvas,
+  canvasId,
   saveAdmission,
   title,
 }: Readonly<{
   canvas: InfiniteCanvasOverlayReadContext<WindowKind>;
+  canvasId: string;
   saveAdmission: SaveAdmission;
   title: string;
 }>) {
@@ -101,7 +103,7 @@ function IdentityRail({
     <div className={styles.rail()}>
       <div className={styles.brand()}>
         <div className={styles.brandMark()}>P</div>
-        <div className={styles.brandTitle()}>{title}</div>
+        <CanvasSwitcher canvasId={canvasId} title={title} />
       </div>
       <span className={styles.divider()} />
       <div className={styles.status()} data-save-status={saveAdmission.status}>
@@ -165,6 +167,7 @@ export function WorkspaceCanvas({ canvas }: Readonly<{ canvas: LoadedCanvas }>) 
               identity={
                 <IdentityRail
                   canvas={context}
+                  canvasId={canvas.id}
                   saveAdmission={getSaveAdmission(runtime.saveStatus)}
                   title={canvas.title}
                 />

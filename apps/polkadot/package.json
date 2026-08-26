@@ -24,6 +24,7 @@
     "@lexical/selection": "catalog:",
     "@lexical/utils": "catalog:",
     "@surrealdb/wasm": "workspace:*",
+    "@tanstack/hotkeys": "catalog:",
     "@tanstack/pacer": "catalog:",
     "@tanstack/react-router": "catalog:",
     "arktype": "catalog:",
