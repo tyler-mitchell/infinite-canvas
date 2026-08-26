@@ -44,8 +44,18 @@ function getHostInitial(host: string): string {
 const linkWindow = tv({
   slots: {
     address: "truncate text-[11px] leading-[1.3] text-[var(--ink-faint)]",
-    bar: "flex shrink-0 items-center gap-2.5 px-2.5 py-2",
-    frame: "min-h-0 flex-1 border-0 bg-[var(--ground-sunken)]",
+    bar: "flex shrink-0 items-center gap-2.5 px-2.5 pt-2 pb-1.5",
+    /*
+     * Inset and rounded, so the page sits *in* the window rather than being it.
+     *
+     * Edge to edge, a light page is a white slab bleeding into the window's own corners — and half
+     * the web is a light page, so this is the normal case and not the failure one. It reads worst
+     * when the page refuses to embed and Chrome paints its own white error document, which cannot
+     * be styled from here and cannot be detected either: a refused frame and a loaded cross-origin
+     * frame both fire `load` and both throw `SecurityError` on every property worth reading.
+     * Measured, not assumed.
+     */
+    frame: "mx-2 mb-2 min-h-0 flex-1 rounded-[var(--radius-sm)] border-0 bg-[var(--ground-sunken)]",
     identity: "flex min-w-0 flex-1 flex-col gap-0.5",
     // Lit tile of the host's hue, glyph in a brighter tint. No ring: light, not wireframe.
     mark: "grid size-7 shrink-0 place-items-center rounded-[8px] text-[12px] leading-none font-semibold",
