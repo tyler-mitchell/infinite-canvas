@@ -98,7 +98,17 @@ open because it feels good to look at. Concretely, and these are enforced in rev
   **Still open:** drag-to-connect, which is a gesture sprint; edge selection, labels, and typed
   kinds, since every edge is currently `relates`; and no way to see an edge whose notes are not
   both open, which is where the library rail would earn its place.
-- [ ] **Workspaces** as the organizing spine, with `workspace.moveActiveWindow`.
+- [~] **Workspaces** as the organizing spine. The framework's workspace model was reachable only by
+  a consumer reaching past the command layer: `cycle` walks desktops that exist and does nothing
+  when there are none, so nothing could make the first one, name which one to enter, or take one
+  away. `workspace.create`, `workspace.enter`, and `workspace.close` close that. Creating also
+  enters, and closing keeps the windows — a membership filter that deleted what it filtered would
+  make "which set is this in" a destructive question.
+  The identity rail names the desktop you are on and counts what is on it, because entering an
+  empty one shows an empty canvas and that is indistinguishable from losing your work.
+  **Still open:** `moveActiveWindow` has a command but no surface, so windows can be sent nowhere;
+  desktops cannot be renamed or reordered; and nothing shows which desktop a window is on while
+  you are looking at another one.
 - [ ] **Grain and vignette.** Real material has noise.
 
 ## The living field — unstarted, and not to be attempted casually
@@ -144,6 +154,7 @@ Kept here because the list _is_ the incubator's output.
 | Hydration adopted a fallback's unusable viewport                                                         | `desktop.hydrate` keeps a usable viewport over the payload's              | landed |
 | `chrome` demanded all five metrics, and the defaults are not exported                                    | `InfiniteCanvasChromeMetricsInput`, mirroring `zoomPolicy`                | landed |
 | No DOM layer between the backdrop and the windows: connectors meant losing the grid or taking on `three` | `renderUnderlay`, the counterpart to `renderBackdrop` and `renderOverlay` | landed |
+| Workspaces could be walked but never entered: no command made one, named which to go to, or closed one   | `workspace.create`, `workspace.enter`, `workspace.close`                  | landed |
 
 **On the second row**, because it is the clearest thing the incubator has produced so far. Any
 consumer persisting a canvas needs to know when the stored shape changed. The obvious way to ask —
