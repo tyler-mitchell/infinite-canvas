@@ -229,6 +229,18 @@
    * lifted surfaces, which is the same way every other separation here is made.
    */
     --icx-group-gutter: var(--ground);
+    /*
+   * The rest of a group's chrome, on this app's material.
+   *
+   * A shell is a surface holding surfaces and had none of that: square 2px corners under 12px
+   * windows, no shadow, and unselected tab ink reading `--icx-grid-major` — the framework's
+   * default cyan lattice, which this app never sets because it draws its own ground. That
+   * rendered the inactive tab at rgba(61, 102, 112, 0.24) on a dark surface, which is not a
+   * colour anyone chose and is barely legible.
+   */
+    --icx-group-tab-fg: var(--ink-faint);
+    --icx-group-surface-radius: var(--radius);
+    --icx-group-surface-shadow: var(--lift-2);
     --icx-active-accent: var(--accent);
     --icx-selection-border: var(--accent);
     --icx-selection-bounds: var(--accent-wash);

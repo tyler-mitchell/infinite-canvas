@@ -1072,24 +1072,37 @@ stays. What is missing is the field itself, and it is hours of careful work, not
 
 Kept here because the list _is_ the incubator's output.
 
-| Gap                                                                                                       | Generic affordance                                                              | State  |
-| --------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- | ------ |
-| Backdrop was hardcoded                                                                                    | `renderBackdrop`, mirroring `renderOverlay`                                     | landed |
-| No way to observe "the durable document changed"                                                          | `InfiniteCanvasHandle.subscribeDocument`                                        | landed |
-| Hydration adopted a fallback's unusable viewport                                                          | `desktop.hydrate` keeps a usable viewport over the payload's                    | landed |
-| `chrome` demanded all five metrics, and the defaults are not exported                                     | `InfiniteCanvasChromeMetricsInput`, mirroring `zoomPolicy`                      | landed |
-| No DOM layer between the backdrop and the windows: connectors meant losing the grid or taking on `three`  | `renderUnderlay`, the counterpart to `renderBackdrop` and `renderOverlay`       | landed |
-| Workspaces could be walked but never entered: no command made one, named which to go to, or closed one    | `workspace.create`, `workspace.enter`, `workspace.close`                        | landed |
-| Navigation was not desktop-aware: going to a window another desktop hid panned the camera to nothing      | `window.reveal` — go where the window is, restore it, focus it                  | landed |
-| The HUD pinned itself to the element's edges, ignoring the bands every camera verb already respects       | `canvas-hud` insets its root by `viewportInsets`, per edge                      | landed |
-| The HUD's bottom edge was two absolutes pinned to opposite sides, free to grow into each other            | one flex row: the dock shrinks and wraps, the controls hold their size          | landed |
-| A dock item's padding was an inline style and its text was uppercased, over a `window.title`              | both moved into `theme.css`, where a consumer can reach them                    | landed |
-| A body wrapper fixed at `min-height: 100%` made `height: 100%` impossible for its own content             | the wrapper follows the kind's `overflowY`: growable if it scrolls, else pinned | landed |
-| The drop system was pointer-only, so a file dragged in from the OS could reach none of it                 | the viewport bridges native drag events into the same drop interaction          | landed |
-| Six surfaces answered "which windows" without asking which desktop, so each offered what one hides        | every derived view reads the same membership the verb does                      | landed |
-| `theme.css` promised a cascade position it cannot hold, so importing it after Tailwind beat every utility | the contract documented as it is, plus a test that no rule escapes the layer    | landed |
+| Gap                                                                                                       | Generic affordance                                                                 | State  |
+| --------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- | ------ |
+| Backdrop was hardcoded                                                                                    | `renderBackdrop`, mirroring `renderOverlay`                                        | landed |
+| No way to observe "the durable document changed"                                                          | `InfiniteCanvasHandle.subscribeDocument`                                           | landed |
+| Hydration adopted a fallback's unusable viewport                                                          | `desktop.hydrate` keeps a usable viewport over the payload's                       | landed |
+| `chrome` demanded all five metrics, and the defaults are not exported                                     | `InfiniteCanvasChromeMetricsInput`, mirroring `zoomPolicy`                         | landed |
+| No DOM layer between the backdrop and the windows: connectors meant losing the grid or taking on `three`  | `renderUnderlay`, the counterpart to `renderBackdrop` and `renderOverlay`          | landed |
+| Workspaces could be walked but never entered: no command made one, named which to go to, or closed one    | `workspace.create`, `workspace.enter`, `workspace.close`                           | landed |
+| Navigation was not desktop-aware: going to a window another desktop hid panned the camera to nothing      | `window.reveal` — go where the window is, restore it, focus it                     | landed |
+| The HUD pinned itself to the element's edges, ignoring the bands every camera verb already respects       | `canvas-hud` insets its root by `viewportInsets`, per edge                         | landed |
+| The HUD's bottom edge was two absolutes pinned to opposite sides, free to grow into each other            | one flex row: the dock shrinks and wraps, the controls hold their size             | landed |
+| A dock item's padding was an inline style and its text was uppercased, over a `window.title`              | both moved into `theme.css`, where a consumer can reach them                       | landed |
+| A body wrapper fixed at `min-height: 100%` made `height: 100%` impossible for its own content             | the wrapper follows the kind's `overflowY`: growable if it scrolls, else pinned    | landed |
+| The drop system was pointer-only, so a file dragged in from the OS could reach none of it                 | the viewport bridges native drag events into the same drop interaction             | landed |
+| Six surfaces answered "which windows" without asking which desktop, so each offered what one hides        | every derived view reads the same membership the verb does                         | landed |
+| `theme.css` promised a cascade position it cannot hold, so importing it after Tailwind beat every utility | the contract documented as it is, plus a test that no rule escapes the layer       | landed |
+| Group tabs were labelled with the window's UUID, and the label policy could not be replaced               | `groupTabLabel`, defaulting to the exported `getInfiniteCanvasGroupTabLabel`       | landed |
+| Group chrome sizes were a layer prop the reducer ignored, so setting them desynced chrome from panes      | `state.groupMetrics`, read by the solver and every derived view alike              | landed |
+| Group chrome had no tokens of its own: the seam read the border colour, tab ink read the grid colour      | `--icx-group-gutter`, `--icx-group-tab-fg`, `--icx-group-surface-radius`/`-shadow` | landed |
 
-**On the last row, because the count is the finding.** One omission repeated six
+**On the three group rows, because nobody had ever made a group.** The framework's
+largest feature shipped complete — gesture, keyboard path, persistence, rendering — and no
+consumer had exercised it, so every defect above survived typechecks and a 600-test suite. The
+first dock this app ever performed put UUIDs on both tabs. What the run found is not three bugs
+but the shape of an unexercised surface: **the defaults are coherent only with each other.** Every
+one of these is a value that is correct while a consumer accepts the whole default look and wrong
+the moment it diverges — a tab named by an id nobody displays, chrome sized by a prop the reducer
+never saw, a seam coloured by the border token you just turned off, tab ink coloured by a grid you
+replaced. An unexercised feature is not untested; it is tested only against itself.
+
+**On the row above them, because the count is the finding.** One omission repeated six
 times: `window.reveal` panned to a rect nothing renders, the offscreen ring aimed arrows at hidden
 windows, the minimap drew them _and_ let them set its scale, the dock offered to restore them,
 "Fit all visible" was enabled by them, and `activeWindowId` kept naming one after it was filed
