@@ -67,11 +67,81 @@
         color: var(--ink-faint);
         font-weight: 400;
       }
+
+      /* Parked off-screen rather than hidden: `display: none` has no layout, and a subtree with no
+         layout rasterises to nothing. */
+      #capture-source {
+        left: -10000px;
+        position: absolute;
+        top: 0;
+      }
+
+      .note {
+        background: oklch(0.205 0.009 265);
+        border-radius: 12px;
+        overflow: hidden;
+        width: 512px;
+      }
+
+      .note-chrome {
+        background: oklch(0.238 0.01 265);
+        height: 32px;
+      }
+
+      .note-body {
+        padding: 18px 20px 22px;
+      }
+
+      .note-body h2 {
+        font-size: 17px;
+        font-weight: 500;
+        margin-bottom: 10px;
+      }
+
+      .note-body p {
+        color: oklch(0.72 0.012 265);
+        font-size: 13px;
+        margin-bottom: 12px;
+      }
+
+      .note-body ul {
+        color: oklch(0.72 0.012 265);
+        font-size: 13px;
+        margin: 0 0 12px 18px;
+      }
+
+      .note-meta {
+        color: oklch(0.55 0.012 265) !important;
+        font-size: 11px !important;
+      }
     </style>
   </head>
   <body>
     <canvas id="surface"></canvas>
     <pre id="readout">starting…</pre>
+    <!--
+      A real DOM subtree, laid out and styled by the browser, that gets rasterised and uploaded as
+      a window's texture. Off-screen but not `display: none` — a hidden subtree has no layout, and
+      capturing something with no layout measures nothing.
+    -->
+    <div id="capture-source" aria-hidden="true">
+      <div class="note">
+        <div class="note-chrome"></div>
+        <div class="note-body">
+          <h2>Meeting notes</h2>
+          <p>
+            The compositor's constraint is texture residency, not draw calls. Half a million
+            textured quads cost 1.6 ms in a single instanced draw.
+          </p>
+          <ul>
+            <li>256 layers is the hard array cap</li>
+            <li>An 8192² atlas holds ~341 windows</li>
+            <li>Re-capture is a scheduling problem</li>
+          </ul>
+          <p class="note-meta">edited 2 minutes ago · 3 links</p>
+        </div>
+      </div>
+    </div>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

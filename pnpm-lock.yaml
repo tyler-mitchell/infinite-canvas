@@ -180,6 +180,9 @@ importers:
 
   apps/compositor-poc:
     dependencies:
+      '@zumer/snapdom':
+        specifier: 'catalog:'
+        version: 2.12.8
       typegpu:
         specifier: 'catalog:'
         version: 0.12.3

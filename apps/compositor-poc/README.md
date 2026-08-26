@@ -115,6 +115,51 @@ None of that argues against the compositor. It argues that the interesting desig
 work is the **resource** half of the contract — `scale`, residency, eviction —
 rather than the pass ordering, which was the easy part to write down.
 
+## Result — real HTML capture, and it dwarfs everything else
+
+`?html=1` rasterises an actual DOM subtree per window — a styled note with a
+heading, paragraphs and a list, laid out by the browser — instead of painting
+shapes. The heading is mutated per layer so nothing can be cached away.
+
+**16.0 ms per window.**
+
+Which puts the whole pipeline in proportion, per window at 512²:
+
+| stage                           | cost per window |
+| ------------------------------- | --------------- |
+| **capture** (snapdom, real DOM) | **16.0 ms**     |
+| upload (1 MB at ~1500 MB/s)     | ~0.7 ms         |
+| draw (amortised over 500 000)   | ~0.000003 ms    |
+
+Capture is **twenty times** the upload and six orders of magnitude past the draw.
+One window re-capture costs a whole frame at 60 Hz. Everything the earlier
+sections agonised over — instance counts, fill rate, even texture residency —
+is noise next to this.
+
+### What this changes
+
+- **Capture cadence is the design.** Re-capturing on a schedule is impossible;
+  it has to be event-driven, on actual content change, and coalesced. A window
+  being dragged must not re-capture at all — its texture is still valid, only its
+  transform changed, which is exactly what the compositor is for.
+- **Live-editing a window cannot go through capture.** At 16 ms a keystroke would
+  drop a frame. The window being edited stays real DOM on top of the canvas;
+  capture is for the ones you are _not_ touching. That is the html-in-canvas
+  hybrid, and this number is why it has to be one.
+
+### The number that is missing
+
+**This is the fallback lane, not the primary one.**
+`CanvasRenderingContext2D.drawElement` — Chrome's native HTML-in-canvas API — is
+`undefined` in the browser here (Chrome 148, no flag), so what is measured is
+snapdom: a DOM walk, style inlining, and an SVG foreign-object rasterisation.
+
+The native path should be dramatically cheaper, because it is the browser
+rasterising its own layout rather than a library reconstructing it. **How much
+cheaper is unmeasured, and it is the single most valuable number still missing**
+— it decides whether capture stays a scheduling problem or stops being a problem.
+Getting it needs Chrome launched with the feature enabled.
+
 ## What is still not settled
 
 - **Fill rate.** Every run above is at zoom 0.35 with most quads small or
@@ -124,6 +169,5 @@ rather than the pass ordering, which was the easy part to write down.
 - **Culling.** Not implemented. The GPU processes all N instances every frame,
   including those far offscreen — so the geometry numbers are a conservative
   worst case, but no real compositor would do this.
-- **Real HTML capture.** The layers are painted with 2D canvas calls, which is a
-  fair stand-in for the _upload_ (snapdom hands back a canvas either way) but
-  says nothing about what rasterising real DOM costs, or how often it must happen.
+- **The native capture lane.** Measured above with snapdom only;
+  `ctx.drawElement` needs a flagged Chrome and is the number that matters most.

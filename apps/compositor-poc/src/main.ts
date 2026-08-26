@@ -78,16 +78,58 @@ painted.height = textureSize;
 const paint = painted.getContext("2d") as CanvasRenderingContext2D;
 const captures: ImageBitmap[] = [];
 
-for (let layer = 0; layer < textureLayers; layer++) {
-  paint.fillStyle = `oklch(0.24 0.03 ${String((layer * 37) % 360)})`;
-  paint.fillRect(0, 0, textureSize, textureSize);
-  paint.fillStyle = `oklch(0.85 0.12 ${String((layer * 37 + 40) % 360)})`;
-  paint.fillRect(12, 12, textureSize - 24, 26);
-  paint.fillStyle = "oklch(0.95 0.01 85)";
-  paint.font = "13px ui-sans-serif, system-ui, sans-serif";
-  paint.fillText(`window ${String(layer)}`, 16, 62);
+/**
+ * `?html=1` rasterises a real DOM subtree per layer instead of painting shapes.
+ *
+ * This is the difference between measuring the *upload* and measuring the whole capture path.
+ * Painting with 2D canvas calls is a fair stand-in for the former — a rasteriser hands back a
+ * canvas either way — and tells you nothing about the latter, which is the part that decides
+ * whether HTML can be a graphics-engine substrate.
+ *
+ * **Chrome's native lane is not what runs here.** `CanvasRenderingContext2D.drawElement` is the
+ * primary capture lane and is undefined in this browser without a flagged build, so what is
+ * measured below is the *fallback*: snapdom, which walks the DOM, inlines styles, and rasterises
+ * through an SVG foreign object. Expect the native path to be materially faster; nothing here
+ * establishes by how much.
+ */
+const captureHtml = params.get("html") === "1";
+const captureSource = document.querySelector("#capture-source .note") as HTMLElement;
+let captureMs = 0;
 
-  captures.push(await createImageBitmap(painted));
+if (captureHtml) {
+  await document.fonts.ready;
+
+  const { snapdom } = await import("@zumer/snapdom");
+  const captureStarted = performance.now();
+
+  for (let layer = 0; layer < textureLayers; layer++) {
+    // Mutated per layer so nothing can be cached away — every window shows different pixels, and a
+    // capture path that only pays once is not the path a real canvas walks.
+    const heading = captureSource.querySelector("h2") as HTMLElement;
+
+    heading.textContent = `Meeting notes ${String(layer)}`;
+
+    const shot = await snapdom(captureSource, { backgroundColor: "transparent" });
+    const image = await shot.toCanvas();
+
+    paint.clearRect(0, 0, textureSize, textureSize);
+    paint.drawImage(image, 0, 0, textureSize, textureSize);
+    captures.push(await createImageBitmap(painted));
+  }
+
+  captureMs = performance.now() - captureStarted;
+} else {
+  for (let layer = 0; layer < textureLayers; layer++) {
+    paint.fillStyle = `oklch(0.24 0.03 ${String((layer * 37) % 360)})`;
+    paint.fillRect(0, 0, textureSize, textureSize);
+    paint.fillStyle = `oklch(0.85 0.12 ${String((layer * 37 + 40) % 360)})`;
+    paint.fillRect(12, 12, textureSize - 24, 26);
+    paint.fillStyle = "oklch(0.95 0.01 85)";
+    paint.font = "13px ui-sans-serif, system-ui, sans-serif";
+    paint.fillText(`window ${String(layer)}`, 16, 62);
+
+    captures.push(await createImageBitmap(painted));
+  }
 }
 
 /**
@@ -325,6 +367,9 @@ const frame = () => {
       ? `gpu        ${(gpuNanoseconds / 1e6).toFixed(3)} ms   (${String(gpuSamples)} samples / ${String(gpuCallbacks)} callbacks)`
       : `gpu        timestamp-query unavailable`,
     `textures   ${String(textureLayers)} x ${String(textureSize)}px  = ${(textureBytes / 1024 ** 2).toFixed(1)} MB`,
+    captureHtml
+      ? `capture    ${captureMs.toFixed(0)} ms snapdom  (${(captureMs / textureLayers).toFixed(1)} ms/window)`
+      : `capture    canvas-painted (no DOM)`,
     `upload     ${uploadMs.toFixed(1)} ms  (${(textureBytes / 1024 ** 2 / (uploadMs / 1000)).toFixed(0)} MB/s)`,
     `zoom       ${camera.zoom.toFixed(2)}   drag to pan, wheel to zoom`,
   ].join("\n");
