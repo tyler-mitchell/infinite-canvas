@@ -17,6 +17,7 @@ import { CommandPalette } from "../hud/command-palette";
 import { openNewNote } from "../notes/open-note";
 import { loadRelations } from "../notes/relations";
 import { CanvasSwitcher } from "./canvas-switcher";
+import { DesktopIndicator } from "./desktop-indicator";
 import { ProjectSwitcher } from "./project-switcher";
 
 type SaveAdmission = Readonly<{
@@ -104,6 +105,7 @@ function IdentityRail({
       <div className={styles.brand()}>
         <ProjectSwitcher projectId={projectId} projectTitle={projectTitle} />
         <CanvasSwitcher canvasId={canvasId} projectId={projectId} title={title} />
+        <DesktopIndicator />
       </div>
       <span className={styles.divider()} />
       <div className={styles.status()} data-save-status={saveAdmission.status}>

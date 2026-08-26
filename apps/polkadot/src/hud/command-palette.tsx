@@ -18,11 +18,13 @@ import {
   FolderOpen,
   FolderPlus,
   Frame,
+  LayoutGrid,
   Link2,
   MousePointerSquareDashed,
   Move3d,
   Search,
   SquareStack,
+  Trash2,
   Undo2,
   Unlink2,
 } from "lucide-react";
@@ -337,6 +339,43 @@ function PaletteContent({
           </CommandGroup>
         )}
 
+        {/* The surface the framework said was missing: `workspace.create` and `workspace.enter`
+            are parameterized because a palette cannot invent which desktop, so this supplies the
+            id. Desktops are subsets of one canvas, each remembering its own camera. */}
+        {state.workspaces.length === 0 ? null : (
+          <CommandGroup heading="Desktops">
+            {state.workspaces.map((workspace) => (
+              <Row
+                icon={LayoutGrid}
+                key={workspace.id}
+                onSelect={run(() => {
+                  actions.executeCommand({ type: "workspace.enter", workspaceId: workspace.id });
+                })}
+                title={workspace.title}
+                trailing={
+                  workspace.id === state.activeWorkspaceId ? (
+                    <span className={styles.description()}>here</span>
+                  ) : null
+                }
+                value={`desktop ${workspace.title}`}
+              />
+            ))}
+            {state.activeWorkspaceId === null ? null : (
+              <Row
+                icon={Trash2}
+                onSelect={run(() => {
+                  actions.executeCommand({
+                    type: "workspace.close",
+                    workspaceId: state.activeWorkspaceId ?? "",
+                  });
+                })}
+                title="Close this desktop"
+                value="close remove desktop workspace"
+              />
+            )}
+          </CommandGroup>
+        )}
+
         {canvases.length < 2 ? null : (
           <CommandGroup heading="Canvases">
             {canvases.map((canvas) => (
@@ -425,6 +464,18 @@ function PaletteContent({
               }
             />
           ) : null}
+          <Row
+            icon={LayoutGrid}
+            onSelect={run(() => {
+              actions.executeCommand({
+                title: `Desktop ${state.workspaces.length + 1}`,
+                type: "workspace.create",
+                workspaceId: globalThis.crypto.randomUUID(),
+              });
+            })}
+            title="New desktop"
+            value="new desktop workspace create"
+          />
           <Row
             icon={FolderPlus}
             onSelect={run(() => {
