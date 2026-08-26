@@ -110,6 +110,27 @@
   --icx-color-accent: var(--accent);
   --icx-color-surface-raised: var(--surface-raised);
 
+  /*
+   * The framework's HUD, on Polkadot's material.
+   *
+   * Its zoom and camera controls are consumed rather than rebuilt — they already carry
+   * enablement, keyboard reachability, and the live announcer — so what is left is making them
+   * belong to the same surface system as the rest of the chrome: a floating panel with a
+   * specular edge, no outline, and the accent reserved for the active state.
+   */
+  --icx-hud-panel-bg: var(--surface);
+  --icx-hud-panel-border: transparent;
+  --icx-hud-divider: var(--border);
+  --icx-hud-button-fg: var(--ink-muted);
+  --icx-hud-button-hover-fg: var(--ink);
+  --icx-hud-button-hover-bg: var(--surface-hover);
+  --icx-hud-button-hover-border: transparent;
+  --icx-hud-button-active-fg: var(--accent);
+  --icx-hud-button-active-bg: var(--accent-wash);
+  --icx-hud-button-disabled-fg: var(--ink-faint);
+  --icx-hud-zoom-readout-fg: var(--ink-muted);
+  --icx-hud-dock-item-fg: var(--ink-muted);
+
   /* A window is an object resting on the field, not a rectangle drawn on it. */
   --icx-surface-radius: 12px;
   --icx-surface-shadow: var(--lift-2);

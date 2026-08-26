@@ -1,4 +1,3 @@
-import { useObservable, useValue } from "@legendapp/state/react";
 import {
   InfiniteCanvas,
   createInfiniteCanvasHandle,
@@ -14,11 +13,15 @@ import {
   serializeInfiniteCanvasState,
   type InfiniteCanvasOverlayReadContext,
 } from "@hyphened/infinite-canvas";
+import { useObservable, useValue } from "@legendapp/state/react";
 import { type } from "arktype";
-import { useEffect, useState } from "react";
 import { Button } from "ui";
+import { useEffect, useState } from "react";
 import { tv } from "ui/tv";
 
+import { Plus } from "lucide-react";
+
+import { CanvasHud } from "../hud/canvas-hud";
 import { NoteWindowBody } from "../notes/note-window";
 import type { NoteGateway } from "../notes/note-store";
 import {
@@ -73,16 +76,8 @@ const workspace = tv({
     brandMark:
       "grid size-6 place-items-center rounded-[7px] bg-[var(--accent)] font-mono text-[11px] font-semibold text-[var(--primary-foreground)]",
     brandTitle: "text-[13px] font-medium tracking-[-0.01em] text-[var(--ink)]",
-    controls: "pointer-events-auto flex items-center gap-1",
     divider: "mx-1 h-4 w-px bg-[var(--border)]",
-    header:
-      "pointer-events-none absolute inset-x-0 top-0 z-80 flex items-start justify-between p-3",
-    library:
-      "pointer-events-auto absolute top-18 bottom-4 left-4 z-70 w-60 rounded-[14px] bg-[var(--surface)] p-1.5 shadow-[var(--lift-2)] inset-ring-1 inset-ring-[var(--edge-light)] backdrop-blur-2xl",
-    libraryDescription: "px-2.5 pb-2 text-[12px] leading-[1.65] text-[var(--ink-faint)]",
-    libraryLabel:
-      "px-2.5 pt-2 pb-1.5 font-mono text-[10px] tracking-[0.14em] text-[var(--ink-faint)] uppercase",
-    rail: "pointer-events-auto flex items-center gap-1 rounded-[var(--radius-pill)] bg-[var(--surface)] p-1 shadow-[var(--lift-2)] inset-ring-1 inset-ring-[var(--edge-light)] backdrop-blur-2xl",
+    rail: "flex items-center gap-1 rounded-[var(--radius-pill)] bg-[var(--surface)] p-1 shadow-[var(--lift-2)] inset-ring-1 inset-ring-[var(--edge-light)] backdrop-blur-2xl",
     root: "relative h-dvh min-h-0 overflow-hidden bg-[var(--ground)]",
     status:
       "flex items-center gap-2 rounded-[var(--radius-pill)] py-1 pr-3 pl-2.5 text-[11px] tracking-[-0.005em] transition-colors duration-200 ease-[var(--ease-swift)]",
@@ -177,91 +172,66 @@ const initialState = createInfiniteCanvasState<WindowKind>({
 });
 const initialLayout = serializeInfiniteCanvasState(initialState);
 
-function WorkspaceOverlay({
+/**
+ * Identity: who and where, plus whether the work is safe.
+ *
+ * The save state lives here rather than in its own corner because it answers a question about
+ * *this canvas*, and separating it from the canvas's name makes the user assemble that
+ * relationship themselves.
+ */
+function IdentityRail({
   canvas,
   databaseAdmission,
 }: Readonly<{
   canvas: InfiniteCanvasOverlayReadContext<WindowKind>;
   databaseAdmission: DatabaseAdmission;
 }>) {
-  const chrome$ = useObservable({ railOpen: true });
-  const railOpen = useValue(chrome$.railOpen);
   const styles = workspace({ databaseStatus: databaseAdmission.status });
 
   return (
-    <>
-      <header className={styles.header()}>
-        <div className={styles.rail()}>
-          <div className={styles.brand()}>
-            <div className={styles.brandMark()}>P</div>
-            <div className={styles.brandTitle()}>Polkadot</div>
-          </div>
-          <span className={styles.divider()} />
-          <div className={styles.status()} data-database-status={databaseAdmission.status}>
-            <span className={styles.statusIndicator()} />
-            {databaseAdmission.message}
-          </div>
-        </div>
-        <div className={styles.controls()}>
-          <div className={styles.rail()}>
-            <Button
-              onClick={() => {
-                chrome$.railOpen.set(!chrome$.railOpen.peek());
-              }}
-              size="sm"
-              variant="ghost"
-            >
-              {railOpen ? "Hide library" : "Show library"}
-            </Button>
-            <Button
-              disabled={databaseAdmission.status !== "ready"}
-              onClick={() => {
-                const state = canvas.state;
-                const ordinal = state.windows.length + 1;
-                const offset = ((ordinal - 1) % 6) * 28;
-                const baseRect = getInfiniteCanvasWindowPlacementRect(
-                  getVisibleWorldRect(state.camera, state.viewport, 0),
-                  "center",
-                  noteSize,
-                  noteMinimumSize,
-                );
+    <div className={styles.rail()}>
+      <div className={styles.brand()}>
+        <div className={styles.brandMark()}>P</div>
+        <div className={styles.brandTitle()}>Polkadot</div>
+      </div>
+      <span className={styles.divider()} />
+      <div className={styles.status()} data-database-status={databaseAdmission.status}>
+        <span className={styles.statusIndicator()} />
+        {databaseAdmission.message}
+      </div>
+      <span className={styles.divider()} />
+      <Button
+        onClick={() => {
+          const state = canvas.state;
+          const ordinal = state.windows.length + 1;
+          const offset = ((ordinal - 1) % 6) * 28;
+          const baseRect = getInfiniteCanvasWindowPlacementRect(
+            getVisibleWorldRect(state.camera, state.viewport, 0),
+            "center",
+            noteSize,
+            noteMinimumSize,
+          );
 
-                void createNoteRecord({ text: "", title: `Untitled ${ordinal}` }).then(
-                  (created) => {
-                    canvas.actions.openWindow(
-                      createInfiniteCanvasWindow<WindowKind, WindowData["note"]>({
-                        data: { noteId: created.id },
-                        id: globalThis.crypto.randomUUID(),
-                        kind: "note",
-                        minSize: noteMinimumSize,
-                        rect: {
-                          ...baseRect,
-                          x: baseRect.x + offset,
-                          y: baseRect.y + offset,
-                        },
-                        title: `Untitled ${ordinal}`,
-                      }),
-                    );
-                  },
-                );
-              }}
-              size="sm"
-            >
-              New note
-            </Button>
-          </div>
-        </div>
-      </header>
-      {railOpen ? (
-        <aside className={styles.library()}>
-          <div className={styles.libraryLabel()}>Library</div>
-          <div className={styles.libraryDescription()}>
-            Content, assets, search, and saved views will live here. The canvas remains the work
-            area.
-          </div>
-        </aside>
-      ) : null}
-    </>
+          void createNoteRecord({ text: "", title: `Untitled ${ordinal}` }).then((created) => {
+            canvas.actions.openWindow(
+              createInfiniteCanvasWindow<WindowKind, WindowData["note"]>({
+                data: { noteId: created.id },
+                id: globalThis.crypto.randomUUID(),
+                kind: "note",
+                minSize: noteMinimumSize,
+                rect: { ...baseRect, x: baseRect.x + offset, y: baseRect.y + offset },
+                title: `Untitled ${ordinal}`,
+              }),
+            );
+          });
+        }}
+        size="sm"
+        variant="ghost"
+      >
+        <Plus />
+        New note
+      </Button>
+    </div>
   );
 }
 
@@ -330,9 +300,17 @@ export function WorkspaceCanvas() {
     <main className={styles.root()}>
       <InfiniteCanvas.Provider store={store}>
         <InfiniteCanvas.Viewport<WindowKind>
-          hud={false}
+          hud={{
+            cameraControls: true,
+            minimizedDock: false,
+            pointerModeControls: false,
+            statusCard: false,
+            zoomControls: true,
+          }}
           renderOverlay={(canvas) => (
-            <WorkspaceOverlay canvas={canvas} databaseAdmission={databaseAdmission} />
+            <CanvasHud
+              identity={<IdentityRail canvas={canvas} databaseAdmission={databaseAdmission} />}
+            />
           )}
           title="Polkadot workspace"
           windowDefinitions={windowDefinitions}

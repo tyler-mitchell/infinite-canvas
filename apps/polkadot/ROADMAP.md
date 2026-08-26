@@ -10,6 +10,22 @@ not in the framework at all. `renderBackdrop` exists because Polkadot wanted a r
 field and the dynamic-grid experiment wanted a shader — the affordance is "replace the ground",
 which is product-neutral. A `dotField` prop would have been the same feature and the wrong one.
 
+## How this is paced
+
+**Every item below is a sprint, not a checkbox.** Mentions is a sprint. The HUD is a sprint. The
+living field is a sprint. A session is not expected to deliver more than one of them properly, and
+delivering three of them badly is strictly worse than delivering none — a half-built surface reads
+as finished, so nobody revisits it, and the next person builds on top of a foundation that was
+never poured.
+
+This has already happened twice here and both are instructive. The dot field was written in one
+pass, looked plausible, and was a caricature of a simulated field; it had to be deleted. The first
+design pass was a token swap presented as an identity. In both cases the cost was not the wasted
+time — it was that the slot looked occupied.
+
+So: pick one, do it to the standard below, verify it in a browser, and stop. Leave the rest
+untouched rather than started.
+
 ## The bar
 
 Not "a working canvas app". The reference points are Linear, Raycast, and Arc: software people

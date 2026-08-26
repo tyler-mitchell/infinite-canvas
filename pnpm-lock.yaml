@@ -301,6 +301,9 @@ importers:
       lexical:
         specifier: 'catalog:'
         version: 0.49.0(typescript@6.0.3)
+      lucide-react:
+        specifier: 'catalog:'
+        version: 0.577.0(react@19.2.7)
       motion:
         specifier: 'catalog:'
         version: 12.40.0(react-dom@19.2.7(react@19.2.7))(react@19.2.7)

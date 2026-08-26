@@ -28,6 +28,7 @@
     "@tanstack/react-router": "catalog:",
     "arktype": "catalog:",
     "lexical": "catalog:",
+    "lucide-react": "catalog:",
     "motion": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:",

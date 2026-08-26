@@ -11,7 +11,21 @@ is how an entire mission once ran with no enforcement at all.
 
 ## The one rule that is not negotiable
 
-Polkadot is the framework's incubator. When you find something Polkadot cannot do:
+**Check the framework first. This is a hard precondition on every capability, with no exception
+and no judgment call.** It is the premise of the project, not a best practice: Polkadot exists to
+find gaps in `@hyphened/infinite-canvas`, and that only works if the check happens every time,
+before anything is written, with evidence recorded in `AFFORDANCE_AUDIT.md`.
+
+It has already failed once, and the shape of the failure is worth knowing because it will look
+identical next time. A HUD was written from scratch — zoom controls, camera controls, a button
+primitive — while `InfiniteCanvasHud` and `ui`'s `Button` already existed and had been _seen
+earlier in the same session_. Nothing errored. It compiled, rendered, and looked like progress.
+The duplicate only became visible when both versions appeared on the canvas at once.
+
+An agent under time pressure skips this check to produce visible output and does not notice it
+skipped. Write the audit row first; that is the only reliable defence.
+
+When you find something Polkadot cannot do:
 
 1. Check whether `@hyphened/infinite-canvas` already does it. Use Type Atlas — `list_module_exports`
    on the barrel, then `inspect_symbol`. The surface is 199 exports and most guesses about what is

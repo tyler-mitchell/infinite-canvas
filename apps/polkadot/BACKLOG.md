@@ -141,3 +141,62 @@ content_item` with no project constraint, so cross-project edges are currently _
   probably should not be.
 - What the empty state is. A workbench with no projects is the true first-run experience and it is
   currently unimagined.
+
+---
+
+## bug: resize handle hit area is too small
+
+Reported from use: "I can barely hover over them to drag to resize."
+
+**Diagnosed, not fixed.** `resizeHandleSize` is 16 and the handle straddles the frame edge
+(`RESIZE_HANDLE_OVERHANG = extent / -2`), so the whole grab target is 8px outside the window and
+8px inside — the bottom of what a pointer reliably hits. Two things compound it: edge handles are
+inset by a full extent at each end so corners can own the corners, and the window surface now has
+a 12px radius, so near a corner the visible edge curves away from the square handle and the aim
+point diverges from the target exactly where the target is smallest.
+
+**Why this is not a one-number change.** Raising the size symmetrically steals from the header's
+drag area — a spatial-target test caught that immediately. The right shape is to weight the band
+_outward_: outside the window is empty canvas nothing else claims, inside competes with the header
+and the body, and a pointer approaches an edge from outside anyway.
+
+**And the reason that alone is not enough:** the rendered handle geometry
+(`RESIZE_HANDLE_DESCRIPTORS` in `window-frame.tsx`, expressed in CSS) and the hit classification
+(`getWindowResizeHandleAtPoint` in `spatial-target.ts`, computed in TypeScript) are **two separate
+implementations of the same geometry**. Changing the CSS overhang did not move the classification
+at all. Any real fix has to make one of them the source of truth, which is a framework change with
+its own tests — a sprint, not a drive-by.
+
+---
+
+## feature: command prompt / launcher bar (cmdk)
+
+`Mod+K`. The full canvas vocabulary, plus content, in one surface.
+
+**Most of it already exists and must not be rebuilt.**
+`getInfiniteCanvasContextualCommands` returns the commands with their labels, descriptions,
+groups, hotkeys, and — critically — their _enablement_ for the current state.
+`getAvailableInfiniteCanvasContextualCommands` returns only the enabled ones. The framework owns
+the vocabulary; the launcher renders it. Restating any of that here creates a second source of
+truth that drifts, which the playground palette already proves unnecessary — it is built entirely
+on these and gets new commands for free.
+
+`cmdk` supplies filtering, roving selection, and grouping. Base UI supplies the dialog, focus
+trap, and restore. Both are already project dependencies and neither should be hand-rolled.
+
+**What makes it _spatial_ rather than a generic palette**, and the reason this is worth doing
+properly: results are not only commands. Searching should also return notes, and choosing one
+should **navigate the camera to it** rather than open a dialog — `navigateCameraToWindow` and
+`getCameraNavigationFrame` exist for this. A launcher that can only run commands is half the
+feature; the half that matters on an infinite canvas is _going somewhere_.
+
+**Shape**
+
+- One surface, three result kinds: commands (from the framework), notes (from `fn::list_notes`,
+  which already lowercases `search_text` on write), and navigation targets (windows, workspaces).
+- Enablement comes from the framework. Disabled commands stay visible and dimmed rather than being
+  filtered out, so the vocabulary is discoverable rather than appearing to change.
+- Closing must return focus to the canvas command surface via
+  `focusInfiniteCanvasCommandSurface`, or every hotkey silently stops working — the framework
+  documents this trap and Base UI's focus restore does not know about it.
+- `Mod+P` for projects and canvases later, once projects exist.
