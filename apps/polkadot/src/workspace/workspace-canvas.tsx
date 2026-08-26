@@ -10,6 +10,7 @@ import { tv } from "ui/tv";
 
 import type { CanvasPersistenceStatus } from "../canvas/canvas-persistence";
 import { ConnectorLayer } from "../canvas/connector-layer";
+import { Field } from "../canvas/field";
 import { useCanvasRuntime } from "../canvas/use-canvas-runtime";
 import { windowDefinitions, type WindowKind } from "../canvas/window-registry";
 import { CanvasHud } from "../hud/canvas-hud";
@@ -142,6 +143,9 @@ export function WorkspaceCanvas({ canvas }: Readonly<{ canvas: LoadedCanvas }>) 
           // A note names itself in its body, so its header carries only controls and does not
           // need 40px to do it.
           chrome={CHROME}
+          // The ground, replacing the framework's grid. It reacts to the pointer and is pushed
+          // aside by the windows, so the canvas reads as a surface rather than a backdrop.
+          renderBackdrop={() => <Field />}
           // Beneath the windows: a connector should pass under the note it joins, not across it.
           renderUnderlay={() => <ConnectorLayer />}
           hud={{
