@@ -3,7 +3,8 @@ import { expect, test } from "vite-plus/test";
 
 import type { WindowKind } from "../canvas/window-registry";
 import type { ContentItemRecord } from "../database/database.client";
-import { renameProjectItem } from "./rename-item";
+import { LISTABLE_KINDS } from "../collections/listable-kinds";
+import { RENAMEABLE_KINDS, renameProjectItem } from "./rename-item";
 
 /**
  * The rules that had drifted, now in one place and held to.
@@ -39,6 +40,41 @@ const item = (kind: string, title: string): ContentItemRecord =>
 
 const rename = (record: ContentItemRecord, title: string) =>
   renameProjectItem({ actions, item: record, state, title });
+
+/**
+ * Every kind the library lists can be renamed, and this is the rule three separate bugs broke.
+ *
+ * The guard started note-only, so collections were refused a rename `collectionGateway.save` could
+ * always have stored. Then images and links were refused with a message naming their own window —
+ * which has no title control, and for an image no controls at all. Each time the guard was inherited
+ * from the surface before it rather than checked against what the gateways can actually do.
+ *
+ * A person cannot be relied on to remember this when a fifth kind arrives; the listing can. If a
+ * kind appears in the library and nothing can save a title for it, that is either a missing writer
+ * or a kind that should not be listed — and both are worth failing a suite over, because the symptom
+ * otherwise is a rename that looks right until the next read.
+ */
+test("every kind the library lists has something that can save its title", () => {
+  const unrenameable = LISTABLE_KINDS.filter((kind) => !RENAMEABLE_KINDS.includes(kind.kind));
+
+  // Guards the guard: an empty listing would make the filter vacuously pass.
+  expect(LISTABLE_KINDS.length).toBeGreaterThan(3);
+  expect(
+    unrenameable.map((kind) => kind.kind),
+    "listed in the library but nothing can save a new title for them",
+  ).toStrictEqual([]);
+});
+
+test("the writers are exactly the listed kinds, so neither list quietly grows past the other", () => {
+  /*
+   * The other direction, which matters less but is cheap: a writer for a kind the library never
+   * lists is dead code that reads as coverage. Sorted rather than compared as sets, since the
+   * assertion message is more useful when it names what differs.
+   */
+  expect([...RENAMEABLE_KINDS].sort()).toStrictEqual(
+    LISTABLE_KINDS.map((kind) => kind.kind).sort(),
+  );
+});
 
 test("a blank name is refused, and whitespace is blank", () => {
   // The palette committed the raw draft, so "   " could become an item's name — a title that reads

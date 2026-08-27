@@ -137,4 +137,14 @@ const renameProjectItem = (
   return undefined;
 };
 
-export { renameProjectItem };
+/**
+ * The kinds something can save a new title for.
+ *
+ * Derived from the map rather than listed beside it, so the two cannot disagree — a second list
+ * would be a fourth place this rule could be wrong, and it has already been wrong three times.
+ * Exported for the guard in `rename-item.test.ts`, which is the only reader: asserting the rule
+ * through `renameProjectItem` would mean performing a real write for every kind that has a writer.
+ */
+const RENAMEABLE_KINDS: readonly string[] = Object.keys(TITLE_WRITERS);
+
+export { RENAMEABLE_KINDS, renameProjectItem };
