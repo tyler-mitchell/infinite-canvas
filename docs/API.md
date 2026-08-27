@@ -1,6 +1,6 @@
 # API Reference
 
-The public surface of `@hyphened/infinite-canvas`: 192 values and 164 types across
+The public surface of `@hyphened/infinite-canvas`: 222 values and 186 types across
 two entries. Anything not exported from a barrel is internal and unstable —
 including every `data-infinite-canvas-*` attribute, which is a behavioural hook
 for hit-testing, not a styling contract.
@@ -11,6 +11,11 @@ first month of its life, while drifting by 43 names. `verify-api-doc.mjs` now
 asserts every export appears here, and `verify-api-stability.mjs` asserts every
 exporting module is classified below. Neither writes a word of prose; both fail
 the build when the prose stops matching the code.
+
+The count in the sentence above is checked too, as of 2026-08-27. It had read 192
+and 164 against an actual 222 and 186 — a drift of 52, in the first line a reader
+sees, in a document whose next paragraph is a monument to a drift of 43. The gate
+had both numbers all along and only printed them.
 
 The `@hyphened/infinite-canvas/scene` entry is documented separately below. It is
 the only entry that pulls in `three` and `@react-three/fiber`.

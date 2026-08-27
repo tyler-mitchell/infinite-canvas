@@ -153,6 +153,34 @@ for (const { entry, path } of BARRELS) {
   }
 }
 
+/**
+ * The doc's own headline count, which was the last number here nothing checked.
+ *
+ * It opens by naming the size of the surface and then, two paragraphs later, tells the
+ * story of having claimed to be generated "so it cannot drift" while drifting by 43
+ * names. On 2026-08-27 the headline itself read 192 values and 164 types against an
+ * actual 222 and 186 — a drift of 52, larger than the one the paragraph is a monument
+ * to, in the first sentence a consumer reads.
+ *
+ * The gate had both numbers the whole time and printed them to a terminal nobody was
+ * comparing against the file. Asserting costs nothing and is the cheapest possible
+ * version of the check this document says it wants.
+ */
+const headline = /^The public surface of `[^`]+`: (\d+) values and (\d+) types\b/m.exec(apiDoc);
+
+if (headline === null) {
+  failures.push(
+    "docs/API.md no longer opens with its headline count — this gate reads " +
+      '"The public surface of `pkg`: N values and M types" from the first paragraph. ' +
+      "Restore the sentence or teach the gate the new wording; do not drop the count.",
+  );
+} else if (Number(headline[1]) !== totalValues || Number(headline[2]) !== totalTypes) {
+  failures.push(
+    `docs/API.md opens with ${headline[1]} values and ${headline[2]} types; the barrels ` +
+      `export ${totalValues} and ${totalTypes}. Update the first sentence.`,
+  );
+}
+
 if (failures.length > 0) {
   console.error("Public API documentation verification FAILED:\n");
   for (const failure of failures) console.error(`  ✗ ${failure}`);
