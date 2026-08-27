@@ -53,7 +53,7 @@ import {
   getInfiniteCanvasGroupTabLabel,
   type InfiniteCanvasGroupTabLabel,
 } from "./group-state";
-import type { InfiniteCanvasGroupMetricsInput } from "./types";
+import type { InfiniteCanvasGroup, InfiniteCanvasGroupMetricsInput } from "./types";
 import {
   DEFAULT_INFINITE_CANVAS_ICONS,
   InfiniteCanvasIconsContext,
@@ -241,6 +241,21 @@ type InfiniteCanvasViewportProps<
    * avoids by construction.
    */
   groupMetrics?: InfiniteCanvasGroupMetricsInput;
+  /**
+   * Names the frame label drawn above a group.
+   *
+   * Defaults to `getInfiniteCanvasGroupTitle`, which uses a named group's title and otherwise names
+   * it after its members. `groupTabLabel` had this and the frame did not, so the frame's policy was
+   * the framework's alone — and the two are not always the same question. Over a tab strip the
+   * default repeats the strip verbatim, since the strip already lists exactly those member names,
+   * and a consumer had no way to say so.
+   *
+   * Returning `""` draws no label for that group, which is how to opt out per group rather than
+   * turning every label off with `chrome.groupLabelSize`.
+   */
+  groupLabel?: (
+    context: Readonly<{ group: InfiniteCanvasGroup; windows: readonly InfiniteCanvasWindow[] }>,
+  ) => string;
   /**
    * Names a group's tabs and accordion headers.
    *
@@ -640,6 +655,7 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
   diagnostics = DEFAULT_INFINITE_CANVAS_DIAGNOSTICS,
   dropPolicy,
   groupMetrics,
+  groupLabel,
   groupTabLabel = getInfiniteCanvasGroupTabLabel,
   hotkeyActions,
   hotkeyBindings,
@@ -1823,6 +1839,7 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
           <InfiniteCanvasGroupLayer
             canvasInstanceId={canvasInstanceId}
             devicePixelRatio={devicePixelRatio}
+            groupLabel={groupLabel}
             labelSize={chrome.groupLabelSize}
             resizeHandleSize={chrome.resizeHandleSize}
             tabLabel={groupTabLabel}

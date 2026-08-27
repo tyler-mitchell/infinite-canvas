@@ -38,6 +38,7 @@ import type {
   InfiniteCanvasGroupMetrics,
   InfiniteCanvasRect,
   InfiniteCanvasResizeHandle,
+  InfiniteCanvasWindow,
   InfiniteCanvasViewport,
   InfiniteCanvasViewportInsets,
 } from "./types";
@@ -890,6 +891,7 @@ function getLocalRectStyle(rect: InfiniteCanvasRect, shell: InfiniteCanvasRect):
 function InfiniteCanvasGroupLayer({
   canvasInstanceId,
   devicePixelRatio,
+  groupLabel = ({ group, windows }) => getInfiniteCanvasGroupTitle(group, windows),
   labelSize,
   resizeHandleSize,
   tabLabel = getInfiniteCanvasGroupTabLabel,
@@ -898,6 +900,21 @@ function InfiniteCanvasGroupLayer({
   /** Per-canvas token, shared with the window layer, so a tab's `aria-controls` matches a frame id. */
   canvasInstanceId: string;
   devicePixelRatio: number;
+  /**
+   * What the frame label above a group says.
+   *
+   * The counterpart to `tabLabel`, and it was missing. A consumer could replace what a *tab* is
+   * called and not what the *frame* is called, so the frame's policy was the framework's alone —
+   * `getInfiniteCanvasGroupTitle`, which names an unnamed group after its members. That reads well
+   * over a split and repeats itself over tabs, where the strip beneath already lists exactly those
+   * names, and a consumer had no way to say so.
+   *
+   * Returning `""` draws no label, which is how a consumer opts out per group rather than turning
+   * every label off with `labelSize`.
+   */
+  groupLabel?: (
+    context: Readonly<{ group: InfiniteCanvasGroup; windows: readonly InfiniteCanvasWindow[] }>,
+  ) => string;
   /** Screen pixels the group label holds at every zoom. `0` draws none. */
   labelSize: number;
   resizeHandleSize: number;
@@ -958,7 +975,7 @@ function InfiniteCanvasGroupLayer({
           metrics={metrics}
           resizeHandleSize={resizeHandleSize}
           tabLabel={tabLabel}
-          title={getInfiniteCanvasGroupTitle(group, windows)}
+          title={groupLabel({ group, windows })}
           viewport={viewport}
         />
       ))}

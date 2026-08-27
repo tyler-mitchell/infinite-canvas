@@ -1,5 +1,6 @@
 import {
   createInfiniteCanvasEdgeTargetResolver,
+  getInfiniteCanvasGroupTitle,
   InfiniteCanvas,
   type InfiniteCanvasOverlayReadContext,
   type InfiniteCanvasState,
@@ -308,6 +309,23 @@ export function WorkspaceCanvas({ canvas }: Readonly<{ canvas: LoadedCanvas }>) 
             statusCard: false,
             zoomControls: true,
           }}
+          /*
+           * A tab strip already names the members, so the frame above it says nothing.
+           *
+           * An unnamed group is named after what it holds, which reads well over a split — there is
+           * no other place those names appear. Over tabs it is the strip's own list, one row higher:
+           * seen on a two-member tabbed group reading "Untitled 1 & Untitled 2" directly above tabs
+           * reading "Untitled 1" and "Untitled 2".
+           *
+           * A group somebody *named* keeps its label in every layout. The name is then a fact about
+           * the group rather than a restatement of its contents, and it is the only place that fact
+           * appears.
+           */
+          groupLabel={({ group, windows }) =>
+            group.title === null && group.tree.kind === "container" && group.tree.layout !== "split"
+              ? ""
+              : getInfiniteCanvasGroupTitle(group, windows)
+          }
           renderOverlay={(context) => (
             <>
               {/*
