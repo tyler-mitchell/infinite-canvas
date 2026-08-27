@@ -218,6 +218,41 @@ test("every HUD panel offers an elevation token, not only a border", () => {
   expect(withoutElevation).toEqual([]);
 });
 
+/**
+ * Motion is themeable, and the check is that nothing goes back to inlining it.
+ *
+ * Three rules hardcoded 150ms and `cubic-bezier(0.4, 0, 0.2, 1)` — a utility framework's default
+ * `ease-in-out`, not a value chosen here — so an app with its own motion system ran two. Measured
+ * on the incubator: 117 live transitions on its easing token, 34 on this one, the 34 being window
+ * controls and HUD buttons beside controls that moved differently.
+ *
+ * A literal timing function anywhere in this file is that state returning, and it is invisible in
+ * review because a curve reads like a value rather than like a decision somebody else should own.
+ */
+test("no rule inlines a timing function or a duration that a token should carry", () => {
+  const body = themeCss.replaceAll(/\/\*[\s\S]*?\*\//gu, "");
+  /*
+   * The lookbehind is the correctness of this scan, and its absence is what the first run caught:
+   * `transition-duration` is a substring of `--icx-transition-duration`, so the check flagged the
+   * very token it exists to install. A guard that reports its own fix as the defect is worse than
+   * no guard, because the obvious response is to undo the fix.
+   */
+  const declarations = [
+    ...body.matchAll(/(?<![-\w])transition-(?:duration|timing-function)\s*:\s*([^;]+);/gu),
+  ]
+    .map((match) => (match[1] ?? "").trim())
+    .filter((value) => !value.startsWith("var("));
+
+  expect(declarations).toEqual([]);
+});
+
+test("the motion tokens default to the values they replaced, so nothing moves differently", () => {
+  const tokens = getDeclaredThemeTokens(themeCss);
+
+  expect(tokens.get("--icx-transition-duration")).toBe("150ms");
+  expect(tokens.get("--icx-transition-timing")).toBe("cubic-bezier(0.4, 0, 0.2, 1)");
+});
+
 test("the shadow defaults to nothing, so an existing consumer sees no change", () => {
   // The border stays the shipped answer. A default of anything else would restyle every canvas
   // that has never heard of this token, which is not what adding an affordance may cost.

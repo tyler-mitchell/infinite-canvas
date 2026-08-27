@@ -256,6 +256,22 @@
      * first consumer here did — was left paying for a filter that composites a layer and cannot be
      * seen, with no token to turn it off. `0` is a valid value and is the whole point of the token.
      */
+    /*
+     * How the framework's own chrome moves, which was the one thing about it a consumer could not
+     * change.
+     *
+     * Three rules — the window controls, the HUD buttons, the dock items — each hardcoded 150ms and
+     * `cubic-bezier(0.4, 0, 0.2, 1)`, which is a utility framework's default `ease-in-out` and not a
+     * value anybody here chose. An app with a motion system of its own therefore had two: measured
+     * on the incubator, 117 live transitions ran on its own easing token and 34 ran on this one,
+     * with the framework's window controls and HUD buttons sitting directly beside controls that
+     * moved differently.
+     *
+     * Motion is a design axis like colour and elevation, and every other axis here is a token. The
+     * defaults are exactly the values that were inlined, so an existing consumer sees no change.
+     */
+    --icx-transition-duration: 150ms;
+    --icx-transition-timing: cubic-bezier(0.4, 0, 0.2, 1);
     --icx-hud-blur: 8px;
     /*
      * The HUD's type size, shared by the status card, the dock's labels and the zoom readout.
@@ -431,8 +447,8 @@
     transition-property:
       color, background-color, border-color, outline-color, text-decoration-color, fill, stroke,
       opacity, box-shadow, transform, translate, scale, rotate, filter, backdrop-filter;
-    transition-duration: 150ms;
-    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+    transition-duration: var(--icx-transition-duration);
+    transition-timing-function: var(--icx-transition-timing);
   }
 
   /* The pin glyph renders rotated; pinned state tints it with the accent. */
@@ -653,8 +669,8 @@
     transition-property:
       color, background-color, border-color, outline-color, text-decoration-color, fill, stroke,
       opacity, box-shadow, transform, translate, scale, rotate, filter, backdrop-filter;
-    transition-duration: 150ms;
-    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+    transition-duration: var(--icx-transition-duration);
+    transition-timing-function: var(--icx-transition-timing);
   }
 
   [data-slot="hud-dock-item"]:hover {
@@ -702,8 +718,8 @@
     transition-property:
       color, background-color, border-color, outline-color, text-decoration-color, fill, stroke,
       opacity, box-shadow, transform, translate, scale, rotate, filter, backdrop-filter;
-    transition-duration: 150ms;
-    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+    transition-duration: var(--icx-transition-duration);
+    transition-timing-function: var(--icx-transition-timing);
   }
 
   /*
