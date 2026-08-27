@@ -90,13 +90,35 @@ function describeCanvas(state: InfiniteCanvasState<WindowKind>): string {
     (group) => `"${getInfiniteCanvasGroupTitle(group, state.windows)}" [${group.id}]`,
   );
 
+  /*
+   * That other desktops exist at all, which this did not say.
+   *
+   * The window list is filtered to the active desktop, and that filtering is right — "what is on
+   * the canvas" means the one in front of you. Saying nothing about the rest is not: a caller was
+   * shown a partial canvas described as the whole of it, with no way to learn otherwise and no
+   * reason to ask. An omission a reader cannot detect is worse than a longer sentence.
+   *
+   * Only mentioned when there are any. `state.workspaces` is empty until somebody makes a desktop,
+   * and "0 desktops" would invent a concept for every canvas that has never used one — the same
+   * reason the framework treats no-workspaces as "everything is visible" rather than as a desktop.
+   */
+  const desktops = state.workspaces.map(
+    (workspace) =>
+      `"${workspace.title}" [${workspace.id}]${workspace.id === state.activeWorkspaceId ? " (current)" : ""}`,
+  );
+
   return [
     `Zoom ${Math.round(state.camera.zoom * 100)}%.`,
+    desktops.length === 0
+      ? null
+      : `${desktops.length} desktop(s), showing only the current one's windows: ${desktops.join(", ")}.`,
     windows.length === 0
       ? "No windows open."
       : `${windows.length} window(s): ${windows.join("; ")}.`,
     groups.length === 0 ? "No groups." : `${groups.length} group(s): ${groups.join(", ")}.`,
-  ].join(" ");
+  ]
+    .filter((sentence) => sentence !== null)
+    .join(" ");
 }
 
 export { describeCanvas };

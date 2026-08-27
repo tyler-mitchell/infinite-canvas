@@ -28,6 +28,7 @@ import {
 import { tv } from "ui/tv";
 
 import type { WindowKind } from "../canvas/window-registry";
+import { createDesktop } from "./create-desktop";
 import { useInlineRename } from "./use-inline-rename";
 
 /**
@@ -91,7 +92,7 @@ function describeWindowCount(count: number) {
 const ELSEWHERE_LIMIT = 6;
 
 export function DesktopSwitcher() {
-  const actions = useInfiniteCanvasActions();
+  const actions = useInfiniteCanvasActions<WindowKind>();
   const activeWorkspaceId = useInfiniteCanvasSelector((state) => state.activeWorkspaceId);
   const workspaces = useInfiniteCanvasSelector((state) => state.workspaces);
   const windows = useInfiniteCanvasSelector<
@@ -318,10 +319,10 @@ export function DesktopSwitcher() {
         <DropdownMenuSeparator />
         <DropdownMenuItem
           onClick={() => {
-            actions.executeCommand({
-              title: `Desktop ${String(workspaces.length + 1)}`,
-              type: "workspace.create",
-              workspaceId: globalThis.crypto.randomUUID(),
+            // The verb owns the naming. This is the control that calls it.
+            createDesktop({
+              actions,
+              existingTitles: workspaces.map((workspace) => workspace.title),
             });
           }}
         >

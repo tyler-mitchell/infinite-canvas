@@ -411,6 +411,109 @@ test("an empty title is accepted, because it returns a group to being named by i
   ]);
 });
 
+/**
+ * Desktops, which the framework publishes only as templates.
+ *
+ * Its four `workspace.*` descriptors carry `workspaceId: ""`, so `published-commands.ts` holds them
+ * back rather than offer a verb that acts on a workspace called `""`. These supply the argument.
+ */
+const workspaceState = (workspaces: readonly Readonly<{ id: string; title: string }>[]) =>
+  createInfiniteCanvasState<WindowKind>({
+    activeWindowId: "note-1",
+    viewport: { height: 800, width: 1200 },
+    windows: [
+      createInfiniteCanvasWindow<WindowKind>({
+        id: "note-1",
+        kind: "note",
+        rect: { height: 200, width: 320, x: 0, y: 0 },
+        title: "Sources",
+      }),
+    ],
+    workspaces: workspaces.map((workspace) => ({ ...workspace, windowIds: [] })) as never,
+  });
+
+const runWorkspaceVerb = (
+  id: string,
+  input: unknown,
+  workspaces: readonly Readonly<{ id: string; title: string }>[] = [
+    { id: "desk-1", title: "Desktop 1" },
+  ],
+) => {
+  const commands: InfiniteCanvasCommand[] = [];
+  const actions = {
+    executeCommand: (command: InfiniteCanvasCommand) => {
+      commands.push(command);
+    },
+  } as unknown as InfiniteCanvasCommands<WindowKind>;
+
+  getAppAction(id)?.run(
+    { actions, projectId: "project-1", state: workspaceState(workspaces) },
+    input,
+  );
+
+  return commands;
+};
+
+test("a new desktop is numbered past the highest name taken, never by a count", () => {
+  /*
+   * The rule `titles.ts` exists for, and the switcher and the palette both had the count form.
+   * Close "Desktop 2" of three and a count hands out "Desktop 3" while a "Desktop 3" is still open
+   * — on a thing you switch to *by name*, which is where that hurts most.
+   */
+  const created = runWorkspaceVerb("workspace.create", {}, [
+    { id: "a", title: "Desktop 1" },
+    { id: "c", title: "Desktop 3" },
+  ]);
+
+  expect(created[0]).toMatchObject({ title: "Desktop 4", type: "workspace.create" });
+});
+
+test("a desktop somebody names keeps that name", () => {
+  expect(runWorkspaceVerb("workspace.create", { title: "Reading" })[0]).toMatchObject({
+    title: "Reading",
+  });
+});
+
+test("entering, closing and moving all refuse an id no desktop answers to", () => {
+  for (const id of ["workspace.enter", "workspace.close", "workspace.moveActiveWindow"]) {
+    expect(runWorkspaceVerb(id, { workspaceId: "desk-1" })).toHaveLength(1);
+    expect(runWorkspaceVerb(id, { workspaceId: "never-existed" })).toStrictEqual([]);
+  }
+});
+
+test("moving the active window needs one, not just a desktop", () => {
+  // Both facts are checked because either alone is a no-op that would report success.
+  const noActiveWindow = createInfiniteCanvasState<WindowKind>({
+    viewport: { height: 800, width: 1200 },
+    windows: [],
+    workspaces: [{ id: "desk-1", title: "Desktop 1", windowIds: [] }] as never,
+  });
+  const commands: InfiniteCanvasCommand[] = [];
+  const actions = {
+    executeCommand: (command: InfiniteCanvasCommand) => commands.push(command),
+  } as unknown as InfiniteCanvasCommands<WindowKind>;
+
+  getAppAction("workspace.moveActiveWindow")?.run(
+    { actions, projectId: "project-1", state: noActiveWindow },
+    { workspaceId: "desk-1" },
+  );
+
+  expect(commands).toStrictEqual([]);
+});
+
+test("the four desktop verbs shadow the framework templates they complete", () => {
+  // Same relationship `window.reveal` has: the framework publishes the shape, the app supplies the
+  // argument, and `published-commands.ts` keeps the template out so one name means one tool.
+  for (const id of [
+    "workspace.create",
+    "workspace.enter",
+    "workspace.close",
+    "workspace.moveActiveWindow",
+  ]) {
+    expect(getAppAction(id)?.input).toBeDefined();
+  }
+});
+
 test("the verbs that take nothing publish no input, so they stay palette rows", () => {
   expect(getAppAction("note.create")?.input).toBeUndefined();
   expect(getAppAction("group.createFromSelection")?.input).toBeUndefined();

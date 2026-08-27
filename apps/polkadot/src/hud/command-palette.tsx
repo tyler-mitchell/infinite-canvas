@@ -52,6 +52,7 @@ import { tv } from "ui/tv";
 import { getActionIcon } from "./action-icons";
 import { getSelectedRelations } from "../canvas/connector-geometry";
 import { createCanvas } from "../workspace/create-canvas";
+import { createDesktop } from "../workspace/create-desktop";
 import { createProject } from "../workspace/create-project";
 import {
   ContentWindowData,
@@ -1125,10 +1126,10 @@ function PaletteContent({
           <Row
             icon={LayoutGrid}
             onSelect={run(() => {
-              actions.executeCommand({
-                title: `Desktop ${state.workspaces.length + 1}`,
-                type: "workspace.create",
-                workspaceId: globalThis.crypto.randomUUID(),
+              // Same verb the switcher calls, so the naming rule is one decision rather than three.
+              createDesktop({
+                actions,
+                existingTitles: state.workspaces.map((workspace) => workspace.title),
               });
             })}
             id="new-desktop"

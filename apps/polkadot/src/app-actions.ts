@@ -1,5 +1,6 @@
 import {
   findInfiniteCanvasGroup,
+  findInfiniteCanvasWorkspace,
   getSelectedWindowBounds,
   isInfiniteCanvasGroupContainer,
   type InfiniteCanvasCommands,
@@ -14,6 +15,7 @@ import { LISTABLE_KINDS } from "./collections/listable-kinds";
 import { getProjectContent, projectContent$ } from "./content/project-content";
 import { openNewCollection } from "./collections/open-collection";
 import { openNewNote } from "./notes/open-note";
+import { createDesktop } from "./workspace/create-desktop";
 import {
   connectItems,
   disconnectItems,
@@ -224,7 +226,106 @@ const resolveGroupContainer = (state: InfiniteCanvasState<WindowKind>, groupId: 
     : { containerId: group.tree.id, groupId: group.id };
 };
 
+/**
+ * Desktops, which the framework can do and publishes only as templates.
+ *
+ * `workspace.create`, `workspace.enter`, `workspace.close` and `workspace.moveActiveWindow` all
+ * carry `workspaceId: ""` in their descriptors — a shape waiting for an argument, which is why
+ * `published-commands.ts` holds them back rather than offering a verb that acts on a workspace
+ * called `""`. These are the `AppAction`s that supply the argument, the same relationship
+ * `window.reveal` already has with the framework command of that name, and they take the id the
+ * canvas description publishes.
+ */
+const DESKTOP_INPUT = type({ workspaceId: "string" });
+
+/** A name is optional: absent means number it after the desktops that exist. */
+const DESKTOP_CREATE_INPUT = type({ "title?": "string" });
+
+/** Refusing an id no desktop answers to, rather than switching to nothing and reporting success. */
+const hasWorkspace = (state: InfiniteCanvasState<WindowKind>, workspaceId: string) =>
+  findInfiniteCanvasWorkspace(state, workspaceId) !== null;
+
 const APP_ACTIONS: readonly AppAction[] = [
+  {
+    description:
+      "Make a new desktop. Without a title it is numbered after the desktops that exist.",
+    id: "workspace.create",
+    input: DESKTOP_CREATE_INPUT,
+    label: "New desktop",
+    run: ({ actions, state }, input) => {
+      const parsed = DESKTOP_CREATE_INPUT(input);
+
+      if (parsed instanceof type.errors) {
+        return;
+      }
+
+      createDesktop({
+        actions,
+        existingTitles: state.workspaces.map((workspace) => workspace.title),
+        title: parsed.title,
+      });
+    },
+  },
+  {
+    description:
+      "Switch to a desktop, showing its windows and hiding the rest. The id comes from the canvas description.",
+    id: "workspace.enter",
+    input: DESKTOP_INPUT,
+    label: "Go to a desktop",
+    run: ({ actions, state }, input) => {
+      const parsed = DESKTOP_INPUT(input);
+
+      if (parsed instanceof type.errors) {
+        return;
+      }
+
+      if (hasWorkspace(state, parsed.workspaceId)) {
+        actions.executeCommand({ type: "workspace.enter", workspaceId: parsed.workspaceId });
+      }
+    },
+  },
+  {
+    description:
+      "Close a desktop. Its windows stay on the canvas — a desktop is a filter over them, not a container.",
+    id: "workspace.close",
+    input: DESKTOP_INPUT,
+    label: "Close a desktop",
+    run: ({ actions, state }, input) => {
+      const parsed = DESKTOP_INPUT(input);
+
+      if (parsed instanceof type.errors) {
+        return;
+      }
+
+      if (hasWorkspace(state, parsed.workspaceId)) {
+        actions.executeCommand({ type: "workspace.close", workspaceId: parsed.workspaceId });
+      }
+    },
+  },
+  {
+    description: "Move the active window to a desktop.",
+    id: "workspace.moveActiveWindow",
+    input: DESKTOP_INPUT,
+    label: "Move the window to a desktop",
+    run: ({ actions, state }, input) => {
+      const parsed = DESKTOP_INPUT(input);
+
+      if (parsed instanceof type.errors) {
+        return;
+      }
+
+      /*
+       * Both facts are checked, because either alone makes this a no-op that looks like a success:
+       * a desktop that is not there, and no active window to move.
+       */
+      if (hasWorkspace(state, parsed.workspaceId) && state.activeWindowId !== null) {
+        actions.executeCommand({
+          type: "workspace.moveActiveWindow",
+          workspaceId: parsed.workspaceId,
+        });
+      }
+    },
+  },
   {
     description:
       "Arrange a group's panes side by side, folded, or as tabs. The group id comes from the canvas description.",
