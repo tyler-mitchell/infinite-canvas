@@ -301,6 +301,116 @@ test("disconnecting names the pair and nothing else", () => {
   expect(input?.({})).toBeInstanceOf(type.errors);
 });
 
+/**
+ * Naming a container, which the contextual `group.*` commands cannot do.
+ *
+ * Those act on the active window's container — right for a keyboard, where "the group" is the one
+ * you are in. A caller that cannot see the screen is in none, and had to reveal a member window
+ * first and hope it landed in the container it meant.
+ *
+ * These verbs call the framework facade synchronously and touch no database, so unlike the relation
+ * verbs their behaviour is assertable rather than only their schemas — the calls are recorded here.
+ */
+const groupState = (tree: unknown) =>
+  createInfiniteCanvasState<WindowKind>({
+    groups: [
+      {
+        id: "group-1",
+        rect: { height: 400, width: 600, x: 0, y: 0 },
+        title: "Reading list",
+        tree,
+        zIndex: 0,
+      },
+    ] as never,
+    viewport: { height: 800, width: 1200 },
+    windows: [
+      createInfiniteCanvasWindow<WindowKind>({
+        id: "a",
+        kind: "note",
+        rect: { height: 200, width: 320, x: 0, y: 0 },
+        title: "Sources",
+      }),
+      createInfiniteCanvasWindow<WindowKind>({
+        id: "b",
+        kind: "note",
+        rect: { height: 200, width: 320, x: 400, y: 0 },
+        title: "Draft",
+      }),
+    ],
+  });
+
+const CONTAINER_TREE = {
+  activeChildId: "a",
+  axis: "horizontal",
+  children: [
+    { id: "a", kind: "window", weight: 1 },
+    { id: "b", kind: "window", weight: 1 },
+  ],
+  id: "container-1",
+  kind: "container",
+  layout: "split",
+  weight: 1,
+};
+
+/** A group holding one window is a leaf, not a container — there is no shape to arrange. */
+const LEAF_TREE = { id: "a", kind: "window", weight: 1 };
+
+const runGroupVerb = (id: string, input: unknown, tree: unknown = CONTAINER_TREE) => {
+  const calls: unknown[] = [];
+  const actions = {
+    closeGroup: (groupId: string) => calls.push({ closeGroup: groupId }),
+    setGroupLayoutMode: (value: unknown) => calls.push({ setGroupLayoutMode: value }),
+    setGroupTitle: (value: unknown) => calls.push({ setGroupTitle: value }),
+  } as unknown as InfiniteCanvasCommands<WindowKind>;
+
+  getAppAction(id)?.run({ actions, projectId: "project-1", state: groupState(tree) }, input);
+
+  return calls;
+};
+
+test("a group is arranged by its own id, not by whichever window happens to be active", () => {
+  expect(runGroupVerb("group.setLayout", { groupId: "group-1", layout: "tabs" })).toStrictEqual([
+    { setGroupLayoutMode: { containerId: "container-1", groupId: "group-1", layout: "tabs" } },
+  ]);
+});
+
+test("the container id is resolved here, because it is a fact about the tree", () => {
+  // A caller holds the group id the canvas description publishes. Making it carry a container id
+  // would be making it carry the shape of a tree it cannot see.
+  const calls = runGroupVerb("group.setLayout", { containerId: "container-1", groupId: "group-1" });
+
+  expect(calls).toStrictEqual([]);
+});
+
+test("arranging a group that holds one window does nothing, as the framework already reports", () => {
+  expect(
+    runGroupVerb("group.setLayout", { groupId: "group-1", layout: "tabs" }, LEAF_TREE),
+  ).toStrictEqual([]);
+});
+
+test("only the three modes the framework implements are accepted", () => {
+  expect(runGroupVerb("group.setLayout", { groupId: "group-1", layout: "grid" })).toStrictEqual([]);
+});
+
+test("renaming and ungrouping take the same handle, and refuse an id naming no group", () => {
+  expect(runGroupVerb("group.rename", { groupId: "group-1", title: "Sources" })).toStrictEqual([
+    { setGroupTitle: { groupId: "group-1", title: "Sources" } },
+  ]);
+  expect(runGroupVerb("group.dissolve", { groupId: "group-1" })).toStrictEqual([
+    { closeGroup: "group-1" },
+  ]);
+  expect(runGroupVerb("group.rename", { groupId: "nope", title: "x" })).toStrictEqual([]);
+  expect(runGroupVerb("group.dissolve", { groupId: "nope" })).toStrictEqual([]);
+});
+
+test("an empty title is accepted, because it returns a group to being named by its members", () => {
+  // `InfiniteCanvasGroup.title` uses that to mean "named after what it holds", so clearing is a
+  // thing to want rather than a malformed input.
+  expect(runGroupVerb("group.rename", { groupId: "group-1", title: "" })).toStrictEqual([
+    { setGroupTitle: { groupId: "group-1", title: "" } },
+  ]);
+});
+
 test("the verbs that take nothing publish no input, so they stay palette rows", () => {
   expect(getAppAction("note.create")?.input).toBeUndefined();
   expect(getAppAction("group.createFromSelection")?.input).toBeUndefined();

@@ -83,7 +83,11 @@ function describeCanvas(state: InfiniteCanvasState<WindowKind>): string {
    * the canvas, for anything reading rather than looking.
    */
   const groups = state.groups.map(
-    (group) => `"${getInfiniteCanvasGroupTitle(group, state.windows)}"`,
+    // Handled like the windows above, and for the same reason: `group.setLayout`, `group.rename`
+    // and `group.dissolve` all take a group id, and a name is not one. Two groups can carry the
+    // same title as easily as two windows can — more easily, since an unnamed group is titled from
+    // its members and two containers holding notes called the same thing compose the same string.
+    (group) => `"${getInfiniteCanvasGroupTitle(group, state.windows)}" [${group.id}]`,
   );
 
   return [

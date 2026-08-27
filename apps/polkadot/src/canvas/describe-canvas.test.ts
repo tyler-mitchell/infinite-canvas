@@ -147,6 +147,17 @@ test("a group somebody named is described by that name", () => {
   expect(describeWithGroup("Reading list")).toContain('"Reading list"');
 });
 
+test("a group carries the handle its verbs take, named or not", () => {
+  /*
+   * `group.setLayout`, `group.rename` and `group.dissolve` take a group id, so the report has to
+   * give one — the same rule the windows follow. An unnamed group needs it most: its title is
+   * composed from its members, so two containers holding notes with the same titles compose the
+   * same string and are otherwise indistinguishable.
+   */
+  expect(describeWithGroup("Reading list")).toContain('"Reading list" [group-1]');
+  expect(describeWithGroup(null)).toContain('"Sources & Draft" [group-1]');
+});
+
 /**
  * A report you can act on names its entries.
  *

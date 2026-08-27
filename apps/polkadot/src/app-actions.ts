@@ -1,10 +1,13 @@
 import {
+  findInfiniteCanvasGroup,
   getSelectedWindowBounds,
+  isInfiniteCanvasGroupContainer,
   type InfiniteCanvasCommands,
   type InfiniteCanvasState,
 } from "@hyphened/infinite-canvas";
 import { type, type Type } from "arktype";
 
+import { GROUP_LAYOUT_MODES } from "./canvas/group-layout-modes";
 import { openItemWindow } from "./canvas/open-item";
 import type { WindowKind } from "./canvas/window-registry";
 import { LISTABLE_KINDS } from "./collections/listable-kinds";
@@ -184,7 +187,102 @@ const resolveEndpoints = (
     : { source: source.id, target: target.id };
 };
 
+/**
+ * Naming a container, which the framework supports and its contextual commands do not expose.
+ *
+ * `group.setLayout.tabs` and its siblings act on *the active window's container* — the right shape
+ * for a keyboard, where "the group" means the one you are in. A caller that cannot see the screen is
+ * not in one, and had to reveal a member window first and hope it landed in the container it meant.
+ *
+ * The framework's own facade takes explicit ids — `setGroupLayoutMode({ containerId, groupId,
+ * layout })`, `setGroupTitle`, `closeGroup` — so nothing here is a gap it needed to fill. What the
+ * app adds is only the resolution: a caller holds the group id the canvas description publishes, and
+ * the container id is a fact about that group's tree rather than something a caller should carry.
+ */
+const GROUP_LAYOUT_INPUT = type({
+  groupId: "string",
+  layout: type.enumerated(...GROUP_LAYOUT_MODES),
+});
+
+const GROUP_RENAME_INPUT = type({ groupId: "string", title: "string" });
+
+const GROUP_INPUT = type({ groupId: "string" });
+
+/**
+ * The container a layout verb acts on, or `null` when the group has no shape to set.
+ *
+ * A group holding one window is a leaf rather than a container, and arranging one pane is not a
+ * thing — the framework already reports every layout verb as unavailable there, measured on a live
+ * canvas. Refusing here rather than reaching for `tree.id` regardless keeps the verb's answer the
+ * same as the framework's.
+ */
+const resolveGroupContainer = (state: InfiniteCanvasState<WindowKind>, groupId: string) => {
+  const group = findInfiniteCanvasGroup(state, groupId);
+
+  return group === null || !isInfiniteCanvasGroupContainer(group.tree)
+    ? null
+    : { containerId: group.tree.id, groupId: group.id };
+};
+
 const APP_ACTIONS: readonly AppAction[] = [
+  {
+    description:
+      "Arrange a group's panes side by side, folded, or as tabs. The group id comes from the canvas description.",
+    id: "group.setLayout",
+    input: GROUP_LAYOUT_INPUT,
+    label: "Arrange a group",
+    run: ({ actions, state }, input) => {
+      const parsed = GROUP_LAYOUT_INPUT(input);
+
+      if (parsed instanceof type.errors) {
+        return;
+      }
+
+      const target = resolveGroupContainer(state, parsed.groupId);
+
+      if (target !== null) {
+        actions.setGroupLayoutMode({ ...target, layout: parsed.layout });
+      }
+    },
+  },
+  {
+    description: "Rename a group. An empty title returns it to being named after what it holds.",
+    id: "group.rename",
+    input: GROUP_RENAME_INPUT,
+    label: "Rename a group",
+    run: ({ actions, state }, input) => {
+      const parsed = GROUP_RENAME_INPUT(input);
+
+      if (parsed instanceof type.errors) {
+        return;
+      }
+
+      /*
+       * Checked against state rather than dispatched blind, so an id naming no group does nothing
+       * instead of writing a title into a record that is not there.
+       */
+      if (findInfiniteCanvasGroup(state, parsed.groupId) !== null) {
+        actions.setGroupTitle({ groupId: parsed.groupId, title: parsed.title });
+      }
+    },
+  },
+  {
+    description: "Ungroup a container, leaving its windows on the canvas where they were.",
+    id: "group.dissolve",
+    input: GROUP_INPUT,
+    label: "Ungroup",
+    run: ({ actions, state }, input) => {
+      const parsed = GROUP_INPUT(input);
+
+      if (parsed instanceof type.errors) {
+        return;
+      }
+
+      if (findInfiniteCanvasGroup(state, parsed.groupId) !== null) {
+        actions.closeGroup(parsed.groupId);
+      }
+    },
+  },
   {
     description:
       "Connect two items, optionally saying what the connection means. Ids come from content.list.",

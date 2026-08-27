@@ -2,6 +2,8 @@ import type { InfiniteCanvasGroupLayoutMode } from "@hyphened/infinite-canvas";
 import { Columns2, Rows3, SquareSplitHorizontal } from "lucide-react";
 import type { ComponentType } from "react";
 
+import { GROUP_LAYOUT_MODES } from "../canvas/group-layout-modes";
+
 /**
  * How a container's three shapes are shown, wherever they are offered.
  *
@@ -17,12 +19,19 @@ import type { ComponentType } from "react";
  * stacked, one at a time. Reading left to right on the rail and clockwise on the wheel, they should
  * escalate the same way, because they are the same three things.
  */
-export const GROUP_LAYOUTS = [
-  { icon: SquareSplitHorizontal, label: "Side by side", layout: "split" },
-  { icon: Rows3, label: "Folded", layout: "accordion" },
-  { icon: Columns2, label: "Tabbed", layout: "tabs" },
-] as const satisfies readonly Readonly<{
-  icon: ComponentType<Readonly<{ className?: string }>>;
-  label: string;
-  layout: InfiniteCanvasGroupLayoutMode;
-}>[];
+/**
+ * How each mode is shown. Keyed by mode so it cannot fall out of step with the list itself: a mode
+ * added to `GROUP_LAYOUT_MODES` and not given a face here is a type error rather than a gap.
+ */
+const FACE: Readonly<
+  Record<
+    InfiniteCanvasGroupLayoutMode,
+    Readonly<{ icon: ComponentType<Readonly<{ className?: string }>>; label: string }>
+  >
+> = {
+  accordion: { icon: Rows3, label: "Folded" },
+  split: { icon: SquareSplitHorizontal, label: "Side by side" },
+  tabs: { icon: Columns2, label: "Tabbed" },
+};
+
+export const GROUP_LAYOUTS = GROUP_LAYOUT_MODES.map((layout) => ({ ...FACE[layout], layout }));
