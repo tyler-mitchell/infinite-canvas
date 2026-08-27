@@ -1,6 +1,7 @@
 import { createInfiniteCanvasState, createInfiniteCanvasWindow } from "@hyphened/infinite-canvas";
 import { expect, test } from "vite-plus/test";
 
+import { getAppAction } from "../app-actions";
 import { describeCanvas } from "./describe-canvas";
 import type { WindowKind } from "./window-registry";
 
@@ -50,8 +51,8 @@ test("the live window is distinguishable from the rest", () => {
     }),
   );
 
-  expect(described).toContain('note "Second", active');
-  expect(described).not.toContain('note "First", active');
+  expect(described).toContain('note "Second" [b], active');
+  expect(described).not.toContain('note "First" [a], active');
 });
 
 /**
@@ -91,8 +92,8 @@ test("a window behind a tab is said to be behind a tab", () => {
   );
 
   // Fails if the projection is not consulted: both read as plain, visible windows.
-  expect(described).toContain('note "Behind", behind a tab');
-  expect(described).not.toContain('note "Front", behind a tab');
+  expect(described).toContain('note "Behind" [b], behind a tab');
+  expect(described).not.toContain('note "Front" [a], behind a tab');
 });
 
 /**
@@ -144,6 +145,64 @@ test("an unnamed group is described by its members, never as null", () => {
 
 test("a group somebody named is described by that name", () => {
   expect(describeWithGroup("Reading list")).toContain('"Reading list"');
+});
+
+/**
+ * A report you can act on names its entries.
+ *
+ * This report is what a caller reads before deciding anything, and `window.reveal` is what it calls
+ * afterwards. If the report does not carry the handle the verb takes, the two halves do not
+ * compose — which is not hypothetical: the report said `kind "title"`, the verb took a title and
+ * first-matched, and a live canvas held two windows both called "Links". A caller could see both
+ * entries and had no way to name the second. It revealed an arbitrary one and reported success.
+ */
+const twoWindowsSharingATitle = () =>
+  createInfiniteCanvasState<WindowKind>({
+    viewport: { height: 800, width: 1200 },
+    windows: [
+      windowAt("window-one", "note", "Links", 0),
+      windowAt("window-two", "note", "Links", 400),
+    ],
+  });
+
+/** Every `[handle]` the report publishes, in order. */
+const getReportedHandles = (report: string) =>
+  [...report.matchAll(/\[([^\]]+)\]/g)].map((match) => match[1]);
+
+test("the report names every window with a handle, even when titles collide", () => {
+  expect(getReportedHandles(describeCanvas(twoWindowsSharingATitle()))).toStrictEqual([
+    "window-one",
+    "window-two",
+  ]);
+});
+
+test("two windows with one title are distinguishable by their own handle", () => {
+  const entries = describeCanvas(twoWindowsSharingATitle())
+    .split(";")
+    .filter((entry) => entry.includes('"Links"'));
+
+  expect(entries).toHaveLength(2);
+  /*
+   * Each entry carries *its own* id, rather than merely differing from the other.
+   *
+   * The weaker form — asserting the two entries are unlike — passed with the handles removed,
+   * because one window happened to be the active one and said so. A test that holds for a reason
+   * unrelated to its name is worse than no test: it reports the seam as covered while it is open.
+   */
+  expect(entries[0]).toContain("window-one");
+  expect(entries[1]).toContain("window-two");
+});
+
+test("a handle from the report is accepted by the verb that consumes it", () => {
+  // Through the action's own ArkType declaration rather than a copy, because that declaration is
+  // also what `model-context` turns into the tool schema a caller is offered.
+  const reveal = getAppAction("window.reveal");
+
+  expect(reveal?.input).toBeDefined();
+
+  for (const handle of getReportedHandles(describeCanvas(twoWindowsSharingATitle()))) {
+    expect(reveal?.input?.({ windowId: handle })).toStrictEqual({ windowId: handle });
+  }
 });
 
 test("zoom is reported as a percentage, the way the canvas shows it", () => {

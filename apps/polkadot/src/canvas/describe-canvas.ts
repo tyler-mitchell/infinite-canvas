@@ -51,7 +51,19 @@ function describeCanvas(state: InfiniteCanvasState<WindowKind>): string {
     .filter((window) => isInfiniteCanvasWindowInActiveWorkspace(state, window.id))
     .map((window) =>
       [
-        `${window.kind} "${window.title}"`,
+        /*
+         * The id is reported because it is the handle `window.reveal` takes, and it has to be.
+         *
+         * This said only `kind "title"`, on the belief — written down in `describe-content.ts` and
+         * wrong — that titles distinguish open windows even though they do not distinguish stored
+         * items. They do not distinguish either. Measured on a live canvas: two windows both titled
+         * "Links", reported identically, and `window.reveal` took a title and revealed whichever
+         * came first. A caller could see two entries and had no way to name the second one.
+         *
+         * Same `[id]` shape as the content listing, because it is the same act: a report you can
+         * order from names its entries.
+         */
+        `${window.kind} "${window.title}" [${window.id}]`,
         window.id === state.activeWindowId ? "active" : null,
         selected.has(window.id) ? "selected" : null,
         hiddenWindowIds.has(window.id) ? "behind a tab" : null,

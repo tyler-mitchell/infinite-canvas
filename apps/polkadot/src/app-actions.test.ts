@@ -16,8 +16,13 @@ import { projectContent$, type ProjectContent } from "./content/project-content"
  * Every other entry is callable with nothing, so "does it run" and "does it accept the right
  * shape" were the same question. `window.reveal` separates them, and the thing worth pinning is
  * that its published schema and its validation are the same declaration — a caller offered
- * `{ title: string }` and a verb that quietly accepted something else is the failure this shape
+ * `{ windowId: string }` and a verb that quietly accepted something else is the failure this shape
  * exists to prevent, and nothing about it shows in a typecheck.
+ *
+ * Both windows in the fixture are called "Untitled", deliberately. This verb used to take a title
+ * and first-match, and the test that covered it used two windows with different titles — so it
+ * passed while the ambiguity it should have caught went untested. A fixture where the titles
+ * collide cannot be satisfied by anything except an identity.
  */
 
 const state = createInfiniteCanvasState<WindowKind>({
@@ -27,7 +32,7 @@ const state = createInfiniteCanvasState<WindowKind>({
       id: "note-1",
       kind: "note",
       rect: { height: 200, width: 320, x: 0, y: 0 },
-      title: "Quarterly notes",
+      title: "Untitled",
     }),
     createInfiniteCanvasWindow<WindowKind>({
       id: "note-2",
@@ -51,37 +56,49 @@ const runReveal = (input: unknown) => {
   return commands;
 };
 
-test("a window is reached by the title a caller can actually see", () => {
-  expect(runReveal({ title: "Quarterly notes" })).toStrictEqual([
+test("each window is reached by its own handle, though both answer to one name", () => {
+  expect(runReveal({ windowId: "note-1" })).toStrictEqual([
     { type: "window.reveal", windowId: "note-1" },
+  ]);
+  expect(runReveal({ windowId: "note-2" })).toStrictEqual([
+    { type: "window.reveal", windowId: "note-2" },
   ]);
 });
 
 test("reveal, not focus, so a minimized or tabbed window is actually shown", () => {
   // Focusing alone leaves a window behind a tab exactly where it was. The command matters.
-  expect(runReveal({ title: "Untitled" })[0]?.type).toBe("window.reveal");
+  expect(runReveal({ windowId: "note-2" })[0]?.type).toBe("window.reveal");
 });
 
-test("a title no window answers to does nothing rather than reaching for the wrong one", () => {
-  expect(runReveal({ title: "Nothing is called this" })).toStrictEqual([]);
+test("an id no window answers to does nothing rather than reaching for the wrong one", () => {
+  expect(runReveal({ windowId: "never-existed" })).toStrictEqual([]);
+});
+
+test("a title is refused, because a name is not an identity", () => {
+  // The verb took this shape until two windows on one canvas were both called "Links" and it
+  // revealed whichever came first. Refusing it is what keeps that from being reintroduced quietly.
+  expect(runReveal({ title: "Untitled" })).toStrictEqual([]);
 });
 
 test("input that does not match the published schema is refused", () => {
   // The point of one declaration serving both halves: these are exactly the shapes
   // `toJsonSchema()` tells a caller are unacceptable, and the verb has to agree.
   expect(runReveal({})).toStrictEqual([]);
-  expect(runReveal({ title: 7 })).toStrictEqual([]);
+  expect(runReveal({ windowId: 7 })).toStrictEqual([]);
   expect(runReveal(undefined)).toStrictEqual([]);
-  expect(runReveal("Quarterly notes")).toStrictEqual([]);
+  expect(runReveal("note-1")).toStrictEqual([]);
 });
 
 test("the published schema is the one the verb validates against", () => {
   const schema = getAppAction("window.reveal")?.input?.toJsonSchema() as
-    | Readonly<{ properties: Readonly<{ title: Readonly<{ type: string }> }>; required: string[] }>
+    | Readonly<{
+        properties: Readonly<{ windowId: Readonly<{ type: string }> }>;
+        required: string[];
+      }>
     | undefined;
 
-  expect(schema?.properties.title.type).toBe("string");
-  expect(schema?.required).toStrictEqual(["title"]);
+  expect(schema?.properties.windowId.type).toBe("string");
+  expect(schema?.required).toStrictEqual(["windowId"]);
 });
 
 /**
@@ -112,8 +129,8 @@ const stored: ProjectContent = {
 };
 
 test("an item is opened by the id the listing gave, not by a title that repeats", () => {
-  // Both records are called "Untitled". Only the id can say which one, which is the whole reason
-  // this verb takes an id where `window.reveal` takes a title.
+  // Both records are called "Untitled". Only the id can say which one — the same rule `window.reveal`
+  // now follows, after a spell taking a title on the belief that windows were somehow different.
   expect(runOpen({ itemId: "item-2" }, stored)).toStrictEqual(["item-2"]);
 });
 

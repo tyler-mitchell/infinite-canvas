@@ -56,12 +56,18 @@ type AppAction = Readonly<{
 }>;
 
 /**
- * A window is addressed by its title, because that is the handle a caller actually holds.
+ * A window is addressed by its id, for the same reason a stored item is.
  *
- * `describeCanvas` reports titles; window ids are uuids that appear nowhere a caller can read.
- * Offering an id would be offering a key nothing has.
+ * This took a title, arguing that ids were "a key nothing has" because `describeCanvas` reported
+ * only titles. The premise was true and the conclusion was backwards: the fix is to report the id,
+ * not to address by something that does not identify. Titles do not identify a window — measured,
+ * two on one canvas both titled "Links" — so first-match revealed an arbitrary one of them, and a
+ * caller reading the description had no way to say which it meant.
+ *
+ * `describeCanvas` now reports `[id]` per window, exactly as `content.list` does, so the handle is
+ * one a caller holds by the time it can want it.
  */
-const REVEAL_INPUT = type({ title: "string" });
+const REVEAL_INPUT = type({ windowId: "string" });
 
 /**
  * A stored item is addressed by id, and the difference from `window.reveal` is the point.
@@ -147,10 +153,11 @@ const APP_ACTIONS: readonly AppAction[] = [
     },
   },
   {
-    description: "Bring the window with this title into view and make it the active one.",
+    description:
+      "Bring the window with this id into view and make it the active one. Ids are reported by the canvas description.",
     id: "window.reveal",
     input: REVEAL_INPUT,
-    label: "Reveal a window by title",
+    label: "Reveal a window by id",
     run: ({ actions, state }, input) => {
       const parsed = REVEAL_INPUT(input);
 
@@ -159,11 +166,11 @@ const APP_ACTIONS: readonly AppAction[] = [
       }
 
       /*
-       * Titles are not unique — two untitled notes are both "Untitled". The first match is the
-       * honest answer to an ambiguous question, and the alternative, refusing whenever a title
-       * repeats, would make the verb useless on exactly the canvases where it is most needed.
+       * Resolved against the state the description was built from, so what a caller can read and
+       * what it can reveal are one set — the same coherence `content.open` keeps with `content.list`.
+       * An id naming no window does nothing, rather than revealing something else.
        */
-      const target = state.windows.find((window) => window.title === parsed.title);
+      const target = state.windows.find((window) => window.id === parsed.windowId);
 
       if (target !== undefined) {
         // `window.reveal` rather than `focusWindow`: the framework's verb already handles a window

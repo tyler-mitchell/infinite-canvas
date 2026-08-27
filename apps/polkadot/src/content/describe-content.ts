@@ -52,10 +52,15 @@ function describeProjectContent(
 
   const open = getOpenItemIds(input.state);
   /*
-   * The id is reported because it is the handle `content.open` takes, and it has to be: titles do
-   * not distinguish stored items the way they distinguish open windows — a project holds five
-   * "Untitled" notes without complaint. A listing whose entries could not be named back would be a
-   * catalogue with no way to order from it.
+   * The id is reported because it is the handle `content.open` takes, and it has to be: a project
+   * holds five "Untitled" notes without complaint. A listing whose entries could not be named back
+   * would be a catalogue with no way to order from it.
+   *
+   * This used to add "the way they distinguish open windows", and that clause was false. Two
+   * windows on one canvas were both titled "Links", `describeCanvas` reported them identically, and
+   * `window.reveal` took a title and revealed whichever came first. The rule is not about stored
+   * items at all — a title is a name, not an identity, wherever it appears — and the window half of
+   * the vocabulary now reports and takes an id for exactly this reason.
    */
   const described = items.map(
     (item) => `${item.kind} "${item.title}" [${item.id}]${open.has(item.id) ? " (open)" : ""}`,
