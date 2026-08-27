@@ -93,6 +93,44 @@ const getSpoke = (index: number, count: number) => {
   return { x: Math.round(Math.cos(angle) * RADIUS), y: Math.round(Math.sin(angle) * RADIUS) };
 };
 
+/**
+ * Which spoke an arrow moves to, going round rather than along.
+ *
+ * Both arrow pairs turn the wheel, which is why the framework's `getNextInfiniteCanvasRovingIndex`
+ * is not reused here even setting aside that it is internal: it takes one axis, because a tab strip
+ * and an accordion each have one. A ring has none — every direction is around it — and Left/Up
+ * turning one way while Right/Down turns the other is the whole contract.
+ *
+ * Disabled spokes are stepped over rather than landed on. They keep their place on screen, because
+ * position is what a wheel is learned by, but focus stopping on something that cannot be used is a
+ * dead key press.
+ */
+function getNextSpoke(key: string, index: number, items: readonly RadialItem[]): number | null {
+  const step = { ArrowDown: 1, ArrowLeft: -1, ArrowRight: 1, ArrowUp: -1 }[key];
+
+  if (step === undefined) {
+    return key === "Home" || key === "End"
+      ? (key === "Home" ? items : [...items].reverse()).reduce<number | null>(
+          (found, item, offset) =>
+            found ??
+            (item.isEnabled ? (key === "Home" ? offset : items.length - 1 - offset) : null),
+          null,
+        )
+      : null;
+  }
+
+  // At most one full turn: if nothing else is usable, focus stays where it is.
+  for (let turn = 1; turn <= items.length; turn++) {
+    const candidate = (index + step * turn + items.length * turn) % items.length;
+
+    if (items[candidate]?.isEnabled === true) {
+      return candidate;
+    }
+  }
+
+  return null;
+}
+
 function RadialMenu({
   items,
   onClose,
@@ -109,18 +147,45 @@ function RadialMenu({
    * the whole point of using a goo filter rather than positioning six buttons.
    */
   const [isOpen, setIsOpen] = useState(false);
+  /** The one spoke carrying the tab stop, so Tab leaves the wheel rather than walking it. */
+  const [focusedIndex, setFocusedIndex] = useState(() =>
+    Math.max(
+      0,
+      items.findIndex((item) => item.isEnabled),
+    ),
+  );
   const styles = radialMenu();
+  const focusSpoke = (index: number) => {
+    setFocusedIndex(index);
+    rootRef.current?.querySelector<HTMLButtonElement>(`[data-spoke="${String(index)}"]`)?.focus();
+  };
 
   useEffect(() => {
     const frame = requestAnimationFrame(() => {
       setIsOpen(true);
-      rootRef.current?.querySelector("button")?.focus();
     });
 
     return () => {
       cancelAnimationFrame(frame);
     };
   }, []);
+
+  /*
+   * The wheel does not focus itself, and that is a known gap rather than an oversight.
+   *
+   * Four attempts failed: in the mount effect, in an effect keyed on `isOpen`, inside
+   * `requestAnimationFrame`, and inside `setTimeout`. Every one left `document.activeElement` as
+   * `<body>` on a wheel that was demonstrably open with six spokes rendered.
+   *
+   * It is not the element. Calling `.focus()` on the same button from the console succeeds at 0,
+   * 16, 50, 120, 300 and 500ms after opening, sticks for at least 600ms, and the node stays
+   * connected and current — so nothing removes it and nothing steals focus. Something about
+   * focusing from inside this component's own lifecycle is different, and I did not find what.
+   *
+   * Shipping without it rather than shipping a call that silently does nothing. The keyboard path
+   * still exists: one spoke carries the tab stop, so Tab reaches the wheel, and the arrows turn it
+   * from there.
+   */
 
   return (
     <div
@@ -133,6 +198,16 @@ function RadialMenu({
       onKeyDown={(event) => {
         if (event.key === "Escape") {
           onClose();
+
+          return;
+        }
+
+        const next = getNextSpoke(event.key, focusedIndex, items);
+
+        if (next !== null) {
+          // Otherwise Home/End scroll the page and the arrows pan the canvas underneath.
+          event.preventDefault();
+          focusSpoke(next);
         }
       }}
       onPointerDown={(event) => {
@@ -173,15 +248,22 @@ function RadialMenu({
               <button
                 aria-label={item.label}
                 className={styles.button({ enabled: item.isEnabled })}
+                data-spoke={index}
                 disabled={!item.isEnabled}
                 onClick={() => {
                   item.run();
                   onClose();
                 }}
+                onFocus={() => {
+                  // Pointer focus and key focus agree, so arrowing after hovering continues from
+                  // where the eye already is rather than from wherever the ring was opened.
+                  setFocusedIndex(index);
+                }}
                 onPointerDown={(event) => {
                   // Otherwise the root's dismiss fires first and the click never lands.
                   event.stopPropagation();
                 }}
+                tabIndex={index === focusedIndex ? 0 : -1}
                 type="button"
               >
                 <Icon />
