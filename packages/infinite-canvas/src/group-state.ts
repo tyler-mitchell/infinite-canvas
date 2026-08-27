@@ -982,7 +982,17 @@ type InfiniteCanvasGroupTabLabelContext = Readonly<{
   /** A window node, or a container nested inside a tab. */
   childId: string;
   group: InfiniteCanvasGroup;
-  windows: readonly InfiniteCanvasState<string>["windows"][number][];
+  /**
+   * Spelled `InfiniteCanvasWindow` rather than `InfiniteCanvasState<string>["windows"][number]`,
+   * which is the same type by a longer road and the only place in the package that reached for a
+   * window through an indexed access.
+   *
+   * Not generic in `Kind`, deliberately. It would let a consumer's labeller switch exhaustively on
+   * `window.kind`, and the cost is genericising five components in `group-layer` that have no other
+   * reason to be — for a narrowing the framework does not otherwise ask for, since a window's
+   * payload is read through `getInfiniteCanvasWindowData` and its guard rather than through `kind`.
+   */
+  windows: readonly InfiniteCanvasWindow[];
 }>;
 
 type InfiniteCanvasGroupTabLabel = (context: InfiniteCanvasGroupTabLabelContext) => string;
