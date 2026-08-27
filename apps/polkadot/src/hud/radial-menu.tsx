@@ -57,6 +57,30 @@ const WHEEL_SIZE = RADIUS * 2 + ITEM_SIZE;
 /** Twelve o'clock, so the first verb is where the eye starts rather than wherever a loop began. */
 const START_ANGLE = -Math.PI / 2;
 
+/** Breathing room past the ring's own extent, so a clamped wheel is not flush to the edge. */
+const EDGE_MARGIN = 8;
+
+/**
+ * The wheel opens where you pressed, unless that would put spokes outside the window.
+ *
+ * Measured before it was fixed: a press 20px from the bottom-right corner of an 812×998 viewport
+ * put all six spokes off-screen — the ring reaches 100px in every direction and the press was 22px
+ * from two edges, so most of the menu simply was not there.
+ *
+ * Clamped rather than flipped. A dropdown flips because it hangs off one corner and has a natural
+ * other side; a ring has no sides, so moving it inward keeps every verb at the angle it was learned
+ * at. The cost is that a cornered wheel is no longer centred on the pointer, and that is the right
+ * trade against spokes nobody can reach.
+ */
+const clampToViewport = (origin: Readonly<{ x: number; y: number }>) => {
+  const inset = WHEEL_SIZE / 2 + EDGE_MARGIN;
+
+  return {
+    x: Math.min(Math.max(origin.x, inset), Math.max(inset, window.innerWidth - inset)),
+    y: Math.min(Math.max(origin.y, inset), Math.max(inset, window.innerHeight - inset)),
+  };
+};
+
 const radialMenu = tv({
   slots: {
     button:
@@ -155,6 +179,8 @@ function RadialMenu({
     ),
   );
   const styles = radialMenu();
+  // Read at open. The wheel is transient, so a resize under it is not a case worth carrying state for.
+  const [centre] = useState(() => clampToViewport(origin));
   const focusSpoke = (index: number) => {
     setFocusedIndex(index);
     rootRef.current?.querySelector<HTMLButtonElement>(`[data-spoke="${String(index)}"]`)?.focus();
@@ -225,8 +251,8 @@ function RadialMenu({
         shadow="0 8px 24px rgba(0,0,0,0.45)"
         style={{
           height: WHEEL_SIZE,
-          left: origin.x - WHEEL_SIZE / 2,
-          top: origin.y - WHEEL_SIZE / 2,
+          left: centre.x - WHEEL_SIZE / 2,
+          top: centre.y - WHEEL_SIZE / 2,
           width: WHEEL_SIZE,
         }}
       >
