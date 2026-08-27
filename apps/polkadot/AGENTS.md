@@ -314,12 +314,43 @@ vp -C apps/polkadot check
 vp -C apps/polkadot build
 ```
 
-Framework changes also need the package's own check, its 489 tests, and both builds.
+Framework changes also need the package's own check, its 691 tests, and both builds. (The app's own
+suite is 215. Both numbers move; if one here is stale, the count in the run output is the truth.)
 
 **Look at it.** This is a design-led product; a passing typecheck says nothing about whether the
 thing is good. Open the preview, hover the canvas, drag a window, watch the field react. The one
 defect that mattered most in this app's history — every workspace action being silently dropped —
 survived a full test suite and died the first time someone loaded the page.
+
+### Writing a source scan, and the way it goes wrong
+
+Several rules here are enforced by tests that read source rather than run it — no Tailwind string in
+JSX, every field named, nothing escaping its cascade layer, no timing function inlined. They earn
+their place: two of them caught real defects the moment they were written, and one found fields a
+runtime walk could not, because those fields render only while a menu is open.
+
+**A scan's first run flagging code you believe is correct is evidence about the scan, not the code.**
+Eight were written on 2026-08-27 and four were wrong on their first run — every time by being
+incomplete, never by the source being at fault:
+
+- **It knew one spelling of "correct".** A name check demanded `aria-label` and flagged the removal
+  dialog, which is named by a visible `<label htmlFor>` — the better mechanism, since the name is on
+  screen as well as in the tree. The same check later flagged Base UI's `render={<Button />}`
+  composition, where the button is a prop value and the wrapper's children are merged onto it. This
+  is the dangerous shape: the obvious response is to "fix" the source, and doing so damages it.
+- **A fixed window instead of a real boundary.** Reading 120 characters after a tag to find its props
+  cut off the same dialog's `id`, because `id` sorts after `className`. Read to the end of the
+  construct.
+- **A substring of a longer name.** `transition-duration` matches inside `--icx-transition-duration`,
+  so a scan banning inlined timings flagged the token it exists to install. A guard reporting its own
+  fix as the defect is worse than no guard.
+- **The rendered value where the source interpolates.** Asserting `16px` failed against
+  `${BARE_CORNER_PX}px`. Assert the constant's name; that also catches a number being inlined over
+  it, which is what you actually care about.
+
+Every scan needs its discrimination tests — one proving it fires on the thing, one proving it does
+not fire on each shape that is legitimately different. Those are what caught three of the four
+above, and they cost less than the ten minutes spent believing a false positive.
 
 ### Measuring a style instead of looking at one
 
