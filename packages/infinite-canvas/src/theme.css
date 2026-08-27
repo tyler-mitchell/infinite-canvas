@@ -671,6 +671,19 @@
     background: var(--icx-group-gutter, var(--icx-idle-border));
   }
 
+  /*
+   * A group's name, drawn above its top edge the way a frame is labelled — outside the shell, so
+   * it reserves no room the solver would have to give it and can never sit over a pane.
+   */
+  [data-slot="group-label"] {
+    align-items: end;
+    color: var(--icx-group-label-fg, var(--icx-group-tab-fg, var(--icx-grid-major)));
+    display: flex;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
   [data-slot="group-tab-strip"] {
     background: var(--icx-header-idle);
     border-bottom: 1px solid var(--icx-idle-border);

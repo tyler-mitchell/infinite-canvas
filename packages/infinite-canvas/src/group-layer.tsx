@@ -414,6 +414,23 @@ function InfiniteCanvasGroupShell({
       role="group"
       style={shellStyle}
     >
+      {group.title === "" ? null : (
+        <div
+          /* The shell's `aria-label` already says this; a second copy would read the name twice. */
+          aria-hidden="true"
+          data-slot={INFINITE_CANVAS_SLOTS.groupLabel}
+          style={{
+            // Clear of the north handle, which sits one handle-extent above the same edge.
+            bottom: `calc(100% + ${SHELL_RESIZE_HANDLE_EXTENT})`,
+            height: `${metrics.tabStripSize}px`,
+            left: 0,
+            maxWidth: "100%",
+            position: "absolute",
+          }}
+        >
+          {group.title}
+        </div>
+      )}
       {(handleDetail === "full" ? SHELL_RESIZE_HANDLE_DESCRIPTORS : []).map((descriptor) => (
         <div
           data-handle={descriptor.handle}
