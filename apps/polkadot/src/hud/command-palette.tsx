@@ -470,20 +470,19 @@ function PaletteContent({
   /**
    * Reach a note wherever it is, and remember that you did.
    *
-   * `window.reveal` when it already has a window — one verb for switching desktop, restoring,
-   * focusing and moving the camera — and `openNoteWindow` when it does not. Neither is re-derived
-   * here; the rail reaches a note exactly this way.
+   * Whether that means revealing an existing window or opening a new one is not decided here.
+   * `openContentWindow` owns it, and its docstring already says so — the rule moved there
+   * precisely so "every caller gets it — the rail, the palette, collections". This surface kept
+   * its own copy anyway, so the claim was true of the rail and the collections and not of the
+   * palette, which reached past the opener and answered the question a second time.
+   *
+   * Two answers to one question is the shape this app keeps finding: they agreed here, but they
+   * were separate derivations — `getContentWindowItemId` against the opener's own `showsItem` —
+   * and nothing made them stay agreed.
    */
   const reachNote = (note: Readonly<{ id: string; title: string }>) => {
-    const windowId = state.windows.find((window) => getContentWindowItemId(window) === note.id)?.id;
-
     rememberNote(note.id);
-
-    if (windowId === undefined) {
-      openNoteWindow({ actions, noteId: note.id, state, title: note.title });
-    } else {
-      actions.executeCommand({ type: "window.reveal", windowId });
-    }
+    openNoteWindow({ actions, noteId: note.id, state, title: note.title });
   };
 
   /**
