@@ -110,6 +110,32 @@ listed as closed, and the recent-notes dedup never fired. Not one of them errore
 Through the guard, a shape that no longer validates fails at the boundary, loudly, where the
 mismatch is. Past it, `undefined === "x"` is false and the app carries on being subtly wrong.
 
+## Verifying in the browser
+
+Driving the running app is the only way to find most of what is wrong here, and the instruments
+lie. Five did on 2026-08-26 alone. Each of these is a measured failure, not a caution:
+
+- **A screenshot is authoritative about content and unreliable about layering.** Twice, from
+  unrelated directions, a capture showed content that the DOM says is not in that element — a
+  window's rows through an opaque rail, and one window's text inside another's frame. Window
+  bodies composite through native html-in-canvas, and a GPU layer can flatten differently under
+  capture than it paints. Ask `elementFromPoint` and computed backgrounds, not a picture.
+- **`getComputedStyle` returns the value mid-transition, not the declared one.** `transition-all`
+  sits in the shared Button base. Reading a hover gave `oklab(0 0 0 / 0)` — stable across 500ms of
+  sampling and across reloads, with every property of a real finding, and entirely wrong. Move the
+  pointer somewhere else first, then onto the target, or no transition is triggered to wait on.
+- **The network panel records same-origin requests only.** A cross-origin iframe's document load is
+  invisible to it, and a refused frame is indistinguishable from a loaded one — same `load`, same
+  null `contentDocument`. You cannot tell whether an embedded page arrived.
+- **`navigator.clipboard` is permission-denied.** Real copy formats cannot be observed; dispatch a
+  synthetic `ClipboardEvent` with the formats you want to test instead.
+- **`commands` take positional arguments.** `setSelection([id])`, not `setSelection({ windowIds })`.
+  The object form throws or silently no-ops, and a "selection is 0" reading is usually the call.
+
+The rule the day actually taught: **when two or three hypotheses fail in a row, stop theorising and
+suspect the instrument.** A long stretch went into a hover "defect" that did not exist, and the
+signal was there early — each explanation falsified, and a fourth reached for anyway.
+
 ## Agents are a consumer, not an afterthought
 
 **WebMCP is a requirement, so every capability has to exist somewhere an agent can call.** A page
