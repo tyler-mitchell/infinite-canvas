@@ -79,7 +79,29 @@
    */
   --ink: oklch(0.96 0.008 85);
   --ink-muted: oklch(0.72 0.012 85);
-  --ink-faint: oklch(0.55 0.012 85);
+  /*
+   * Recessive, and legible — 0.55 was only the first.
+   *
+   * Measured in the running app on 2026-08-27: 0.55 renders 3.4:1 against `--surface-raised`, the
+   * lightest ground this ink has to work on, where text under 24px needs 4.5. Three pieces of
+   * ordinary UI were below the line — the note editor's "Write something…", the library's item
+   * count, and the "Archive" button — none of them decorative, all of them things somebody is
+   * meant to read. 0.62 is the first step that clears it, at 4.54.
+   *
+   * The ramp tightens at the bottom, 0.96 / 0.72 / 0.62 instead of 0.55, and that is the trade:
+   * this ink's job is to recede, not to be unreadable, and it was doing the second in the name of
+   * the first. It is still unmistakably the faintest of the three.
+   */
+  --ink-faint: oklch(0.62 0.012 85);
+  /*
+   * Where dimness is the message rather than a rank.
+   *
+   * A disabled control is *supposed* to be hard to read — WCAG exempts it from contrast minimums
+   * for exactly that reason — so brightening it along with the rest would have made disabled look
+   * enabled. It keeps the value `--ink-faint` used to hold, which is why this is a new token and
+   * not a second thought about the old one.
+   */
+  --ink-disabled: oklch(0.55 0.012 85);
 
   /* The signature. A luminous apricot, warm where every dev tool is cyan. */
   --accent: oklch(0.78 0.15 55);
@@ -265,7 +287,8 @@
     --icx-hud-button-hover-border: transparent;
     --icx-hud-button-active-fg: var(--accent);
     --icx-hud-button-active-bg: var(--accent-wash);
-    --icx-hud-button-disabled-fg: var(--ink-faint);
+    /* Dimness is the message here, so this keeps the darker ink `--ink-faint` gave up. */
+    --icx-hud-button-disabled-fg: var(--ink-disabled);
     --icx-hud-zoom-readout-fg: var(--ink-muted);
     --icx-hud-dock-item-fg: var(--ink-muted);
 
