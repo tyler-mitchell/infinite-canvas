@@ -245,7 +245,32 @@
 
     /* HUD panels, buttons, status card, dock (src/canvas-hud.tsx). */
     --icx-hud-panel-bg: color-mix(in srgb, var(--icx-color-surface-raised) 92%, transparent);
+    /*
+     * The frosting behind those panels, which was the one HUD value a consumer could not change.
+     *
+     * It pairs with the 92% above: the fill is deliberately translucent so the blur has something to
+     * do. A consumer that themes the fill opaque — which is an ordinary thing to want, and what the
+     * first consumer here did — was left paying for a filter that composites a layer and cannot be
+     * seen, with no token to turn it off. `0` is a valid value and is the whole point of the token.
+     */
+    --icx-hud-blur: 8px;
     --icx-hud-panel-border: color-mix(in srgb, var(--icx-color-foreground) 10%, transparent);
+    /*
+     * The elevation a HUD panel carries, and the reason it defaults to nothing.
+     *
+     * Every HUD panel — the control groups, a standalone button, the status card, a dock item —
+     * said its edge with `--icx-hud-panel-border` and nothing else. That is one way to separate a
+     * surface from a canvas, and a consumer whose design language rejects outlines has no second
+     * way: setting the border transparent left a flat fill with no edge at all. Measured in the
+     * incubator, whose own rails carry a specular inset ring and a layered shadow — its four
+     * floating surfaces reported `insetRing: true` and the framework's HUD rails beside them
+     * reported `false`, the only panel on screen without one.
+     *
+     * `none` by default, so an existing consumer sees no change; the border remains the shipped
+     * answer. `--icx-surface-shadow` and `--icx-group-surface-shadow` are the same affordance for
+     * windows and group shells, and this was the surface that had been left without it.
+     */
+    --icx-hud-panel-shadow: none;
     --icx-hud-divider: color-mix(in srgb, var(--icx-color-foreground) 8%, transparent);
     --icx-hud-button-fg: color-mix(in srgb, var(--icx-color-foreground) 68%, transparent);
     --icx-hud-button-hover-fg: var(--icx-color-foreground);
@@ -553,9 +578,10 @@
     padding: 12px 16px;
     border: 1px solid var(--icx-hud-panel-border);
     background: var(--icx-hud-status-bg);
+    box-shadow: var(--icx-hud-panel-shadow);
     color: var(--icx-hud-status-fg);
     font-size: 11px;
-    backdrop-filter: blur(8px);
+    backdrop-filter: blur(var(--icx-hud-blur));
   }
 
   [data-slot="hud-title"] {
@@ -580,6 +606,7 @@
     padding: 8px 12px;
     border: 1px solid var(--icx-hud-panel-border);
     background: var(--icx-hud-panel-bg);
+    box-shadow: var(--icx-hud-panel-shadow);
     color: var(--icx-hud-dock-item-fg);
     font-size: 11px;
     font-weight: 500;
@@ -604,12 +631,14 @@
   [data-slot="hud-group"] {
     border: 1px solid var(--icx-hud-panel-border);
     background: var(--icx-hud-panel-bg);
-    backdrop-filter: blur(8px);
+    box-shadow: var(--icx-hud-panel-shadow);
+    backdrop-filter: blur(var(--icx-hud-blur));
   }
 
   [data-slot="hud-button"] {
     border: 1px solid var(--icx-hud-panel-border);
     background: var(--icx-hud-panel-bg);
+    box-shadow: var(--icx-hud-panel-shadow);
     color: var(--icx-hud-button-fg);
     transition-property:
       color, background-color, border-color, outline-color, text-decoration-color, fill, stroke,
@@ -618,10 +647,15 @@
     transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
   }
 
+  /*
+   * A button inside a group is not a panel — the group is. It gives up its fill, its border and its
+   * elevation so the row reads as one surface with divisions rather than as a row of chips.
+   */
   [data-slot="hud-group"] [data-slot="hud-button"] {
     border-width: 0;
     border-color: var(--icx-hud-divider);
     background: transparent;
+    box-shadow: none;
   }
 
   [data-slot="hud-button"][data-action="center-active"],
