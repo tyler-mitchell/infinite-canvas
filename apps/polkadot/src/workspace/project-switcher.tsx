@@ -15,6 +15,7 @@ import {
 import { tv } from "ui/tv";
 
 import { createProject } from "./create-project";
+import { getProjectEntryCanvas } from "../projects/enter-project";
 import { useInlineRename } from "./use-inline-rename";
 import type { ProjectSummary } from "../database/database.client";
 import * as database from "../database/operations";
@@ -64,20 +65,16 @@ export function ProjectSwitcher({
     void navigate({ to: "/" });
   };
 
+  // Where a project opens is the verb's decision, including whether it is a move at all. This is
+  // the control that calls it.
   const openProject = (nextProjectId: string) => {
-    if (nextProjectId === projectId) {
-      return;
-    }
-
-    // A project is entered through one of its canvases, most recent first — the same rule `/`
-    // uses, so entering a project and entering the app land in the same place.
-    void database.canvases.list(nextProjectId).then((canvases) => {
-      const [first] = canvases;
-
-      if (first !== undefined) {
-        void navigate({ params: { canvasId: first.id }, to: "/canvas/$canvasId" });
-      }
-    });
+    void getProjectEntryCanvas({ openProjectId: projectId, projectId: nextProjectId }).then(
+      (canvasId) => {
+        if (canvasId !== null) {
+          void navigate({ params: { canvasId }, to: "/canvas/$canvasId" });
+        }
+      },
+    );
   };
 
   const rename = useInlineRename({

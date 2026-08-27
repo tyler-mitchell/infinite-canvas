@@ -54,6 +54,7 @@ import { getSelectedRelations } from "../canvas/connector-geometry";
 import { createCanvas } from "../workspace/create-canvas";
 import { createDesktop } from "../workspace/create-desktop";
 import { createProject } from "../workspace/create-project";
+import { getProjectEntryCanvas } from "../projects/enter-project";
 import { getContentWindowItemId, type WindowKind } from "../canvas/window-registry";
 import type {
   CanvasSummary,
@@ -891,10 +892,15 @@ function PaletteContent({
                 icon={FolderOpen}
                 key={project.id}
                 onSelect={run(() => {
-                  // A project is entered through its most recent canvas, the same rule `/` uses.
-                  void database.canvases.list(project.id).then(([first]) => {
-                    if (first !== undefined) {
-                      openCanvas(first.id);
+                  // Where a project opens is the verb's decision, and so is whether it is a move.
+                  // This row used to enter the project you were already in, which walked you to
+                  // whichever of its canvases you had last typed in.
+                  void getProjectEntryCanvas({
+                    openProjectId: projectId,
+                    projectId: project.id,
+                  }).then((canvasId) => {
+                    if (canvasId !== null) {
+                      openCanvas(canvasId);
                     }
                   });
                 })}

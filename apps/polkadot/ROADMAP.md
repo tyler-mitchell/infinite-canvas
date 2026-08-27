@@ -297,14 +297,27 @@ open because it feels good to look at. Concretely, and these are enforced in rev
       is a route change, and `AppActionContext` carries `actions`, `projectId` and `state` with no way
       to reach the router — which is a local `const` in `main.tsx`, not exported. The duplication says
       the same thing: `openCanvas` is written twice as a component-local function, in
-      `command-palette.tsx` and `canvas-switcher.tsx`, and "enter a project through its most recent
-      canvas" is written three times, in the palette, the project switcher and the `/` loader. That is
-      a capability living in click handlers, which `AGENTS.md` names as the shape to avoid, and it is
-      the same finding as the naming rules fixed in the commit above — one level up.
-      Whoever takes this should do the seam first: TanStack's documented way to navigate outside a
-      component is a router instance exported from its own module, which is also what lets one
-      `openCanvas` and one `openProject` exist at all. The verbs are cheap afterwards; they are not
-      cheap before, and splitting them out is how the slot ends up looking occupied.
+      `command-palette.tsx` and `canvas-switcher.tsx`. That is a capability living in click handlers,
+      which `AGENTS.md` names as the shape to avoid, and it is the same finding as the naming rules
+      fixed in the commit above — one level up.
+      **Two corrections to this entry, made the same day it was written.**
+      It said "enter a project through its most recent canvas" was written three times, counting the
+      `/` loader as the third. It is not one: `/` calls `readMostRecentCanvas()`, which is the most
+      recent canvas across _every_ project and answers "where does the app open", not "where does
+      this project open". There were two copies, they disagreed, and they are now one —
+      `getProjectEntryCanvas` in `projects/enter-project.ts`, with the defect that disagreement
+      caused fixed.
+      And it proposed the wrong seam. It said to export the router from its own module, citing that
+      as TanStack's documented way to navigate outside a component. That deadlocks here: such a
+      module must import `routeTree.gen`, which reaches the route files, `workspace-canvas`,
+      `canvas-hud` and `command-palette` — and the palette importing back runs
+      `createRouter({ routeTree })` against a binding that is still initialising. The pattern is
+      sound where the importers sit outside the route graph; every caller here sits inside it.
+      So navigation belongs on `AppActionContext`, supplied by the four sites that construct one and
+      already hold a router by hook. That is the seam to do first, and `getProjectEntryCanvas` is
+      the shape the rest should follow: the _rule_ is a module function that needs no router, and
+      only the final `navigate` call needs one. Split that way, most of each verb is testable without
+      a browser and the router-shaped part stays one line.
 
 - [x] **Window chrome.** Outlines gone — the boxed controls, corner brackets, frame stroke, and
       the 3px accent bar were all already tokenised and simply never set. The active window is now
