@@ -36,6 +36,7 @@ import {
   restoreProjectItem,
   setProjectItemTitle,
 } from "../content/project-content";
+import { ConnectionRemovalDialog } from "../relations/connection-removal-dialog";
 import {
   disconnectItems,
   findRelation,
@@ -211,12 +212,26 @@ export function LibraryRail({
   const editing$ = useObservable<Readonly<{ id: string; title: string }> | null>(null);
   /** Which list the rail is showing. Archived notes are still notes, just not offered. */
   const archived$ = useObservable(false);
+  /**
+   * A cut waiting to be confirmed, held only for an edge that says something.
+   *
+   * Carries the claim and the ends rather than the relation, because the dialog is open across
+   * renders and a relation object read now can be replaced by a reload before the answer comes.
+   * The ends are what `disconnectItems` takes and they do not go stale.
+   */
+  const pendingCut$ = useObservable<Readonly<{
+    claim: string;
+    source: string;
+    target: string;
+    title: string;
+  }> | null>(null);
 
   const archivedListing = useValue(archivedNotes$);
   const query = useValue(query$);
   const expanded = useValue(expanded$);
   const editing = useValue(editing$);
   const archived = useValue(archived$);
+  const pendingCut = useValue(pendingCut$);
   const relations = useValue(relations$);
   const reachableListing = getProjectContent(useValue(projectContent$), projectId);
   const listing = archived ? archivedListing : reachableListing;
@@ -661,10 +676,33 @@ export function LibraryRail({
                               aria-label={`Cut the connection to ${neighbour.title}`}
                               className={styles.connectionAction()}
                               onClick={() => {
-                                void disconnectItems({
-                                  projectId,
+                                /*
+                                 * Confirm only when the edge says something, which is the same test
+                                 * the connector draws by and the label above is already computed
+                                 * from. A default `relates` edge with no label asserts nothing
+                                 * beyond the pairing the row states by existing, so a dialog for it
+                                 * would be a dialog for nothing — and would teach the answer "yes"
+                                 * for the case that matters.
+                                 *
+                                 * The one that does say something is destroying a sentence someone
+                                 * wrote, with no undo anywhere: `history.undo` is the canvas's and
+                                 * does not reach the database.
+                                 */
+                                if (relationLabel === undefined) {
+                                  void disconnectItems({
+                                    projectId,
+                                    source: relation.source,
+                                    target: relation.target,
+                                  });
+
+                                  return;
+                                }
+
+                                pendingCut$.set({
+                                  claim: relationLabel,
                                   source: relation.source,
                                   target: relation.target,
+                                  title: neighbour.title,
                                 });
                               }}
                               title="Cut this connection"
@@ -680,6 +718,29 @@ export function LibraryRail({
               );
             })}
       </div>
+      {/*
+        One dialog for the rail rather than one per row: only one cut can be pending, and mounting a
+        dialog inside every connection row would put one in the tree for every edge on screen.
+      */}
+      {pendingCut === null ? null : (
+        <ConnectionRemovalDialog
+          claim={pendingCut.claim}
+          onConfirm={() => {
+            void disconnectItems({
+              projectId,
+              source: pendingCut.source,
+              target: pendingCut.target,
+            });
+          }}
+          onOpenChange={(next) => {
+            if (!next) {
+              pendingCut$.set(null);
+            }
+          }}
+          open
+          title={pendingCut.title}
+        />
+      )}
     </div>
   );
 }
