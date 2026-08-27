@@ -21,7 +21,6 @@ import {
   CornerDownLeft,
   CornerUpRight,
   Eraser,
-  FilePlus2,
   FileText,
   FolderOpen,
   FolderPlus,
@@ -50,6 +49,7 @@ import {
 } from "ui";
 import { tv } from "ui/tv";
 
+import { getActionIcon } from "./action-icons";
 import { getSelectedRelations } from "../canvas/connector-geometry";
 import { createCanvas } from "../workspace/create-canvas";
 import { createProject } from "../workspace/create-project";
@@ -182,21 +182,6 @@ const GROUP_ICON: Record<InfiniteCanvasCommandGroup, ComponentType> = {
   selection: MousePointerSquareDashed,
   view: Move3d,
   window: SquareStack,
-};
-
-/**
- * A glyph per app action.
- *
- * Here rather than on the action, because an icon is this surface's business — the vocabulary is
- * meant to be renderable by a rail, a palette, or a tool registry that draws nothing at all.
- */
-const ACTION_ICON: Readonly<Record<string, ComponentType>> = {
-  "collection.create.collection": SquareStack,
-  "collection.create.image": Frame,
-  "collection.create.link": Link2,
-  "collection.create.note": FileText,
-  "group.createFromSelection": Columns3,
-  "note.create": FilePlus2,
 };
 
 const palette = tv({
@@ -894,7 +879,7 @@ function PaletteContent({
               <Row
                 description={action.description}
                 disabled={!isAppActionEnabled(action, context)}
-                icon={ACTION_ICON[action.id] ?? FilePlus2}
+                icon={getActionIcon(action.id)}
                 key={action.id}
                 onSelect={run(() => {
                   action.run(context);

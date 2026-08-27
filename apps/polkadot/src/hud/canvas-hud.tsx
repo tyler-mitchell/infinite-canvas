@@ -11,12 +11,9 @@ import {
 import {
   AlignHorizontalSpaceAround,
   AlignStartVertical,
-  Columns2,
   Grip,
   Pin,
-  Rows3,
   Scan,
-  SquareSplitHorizontal,
   Trash2,
   TriangleAlert,
   Ungroup,
@@ -33,7 +30,9 @@ import { getAppAction, isAppActionEnabled } from "../app-actions";
 import { openProject$ } from "../projects/open-project";
 import { OffscreenIndicators } from "../canvas/offscreen-indicators";
 import type { WindowKind } from "../canvas/window-registry";
+import { getActionIcon } from "./action-icons";
 import { CanvasContextMenu } from "./canvas-context-menu";
+import { GROUP_LAYOUTS } from "./group-layouts";
 import { HudRoot, HudSurface } from "./hud-surfaces";
 
 /**
@@ -132,12 +131,22 @@ function SelectionRail() {
    * call, so subscribing would re-render this rail on every camera tick for something only a click
    * needs.
    */
+  const groupAction = getAppAction("group.createFromSelection");
+  /*
+   * Whether it is offered is asked of the verb, never restated here. This button used to carry its
+   * own `selectedCount < 2`, which is the same threshold `group.createFromSelection` already owns
+   * and explains — two copies of one rule, the rail's copy silently wrong the moment the action's
+   * changed. Peeked rather than selected for the same reason `run` peeks: the rail already
+   * re-renders on selection, which is the only thing this rule reads.
+   */
+  const canGroup =
+    groupAction !== undefined &&
+    isAppActionEnabled(groupAction, { actions, projectId, state: store.state$.peek() });
   const group = () => {
-    const action = getAppAction("group.createFromSelection");
     const context = { actions, projectId, state: store.state$.peek() };
 
-    if (action !== undefined && isAppActionEnabled(action, context)) {
-      action.run(context);
+    if (groupAction !== undefined && isAppActionEnabled(groupAction, context)) {
+      groupAction.run(context);
     }
   };
 
@@ -158,8 +167,13 @@ function SelectionRail() {
           onPress={run({ distribution: "horizontal", type: "window.distribute" })}
         />
         {/* Same rule as the spatial verbs above: visible and dim below two, rather than appearing
-            and moving the buttons beside it. */}
-        <Verb disabled={selectedCount < 2} icon={Columns2} label="Group selected" onPress={group} />
+            and moving the buttons beside it. Word and glyph both come from the verb. */}
+        <Verb
+          disabled={!canGroup}
+          icon={getActionIcon("group.createFromSelection")}
+          label={groupAction?.label ?? "Group selected"}
+          onPress={group}
+        />
         <span className={styles.divider()} />
         <Verb icon={Pin} label="Pin or unpin" onPress={run({ type: "selection.togglePinned" })} />
         <Verb icon={Scan} label="Fit selection" onPress={run({ type: "view.fitSelection" })} />
@@ -174,17 +188,6 @@ function SelectionRail() {
     </HudSurface>
   );
 }
-
-/** The three shapes a container can take, in the order they escalate: apart, stacked, one at a time. */
-const GROUP_LAYOUTS = [
-  { icon: SquareSplitHorizontal, label: "Side by side", layout: "split" },
-  { icon: Rows3, label: "Folded", layout: "accordion" },
-  { icon: Columns2, label: "Tabbed", layout: "tabs" },
-] as const satisfies readonly Readonly<{
-  icon: ComponentType<Readonly<{ className?: string }>>;
-  label: string;
-  layout: InfiniteCanvasGroupLayoutMode;
-}>[];
 
 /**
  * Which shape the container is in, said in something you can actually see.
