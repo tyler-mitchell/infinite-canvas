@@ -8,6 +8,9 @@ import { AnimatePresence, motion } from "motion/react";
 import type { ReactNode } from "react";
 import { tv } from "ui/tv";
 
+import { BOTTOM_INSET } from "./chrome-insets";
+import { getBuiltInHudClearance } from "./hud-clearance";
+
 /**
  * The HUD's frame: where surfaces sit, and when they are allowed to be there.
  *
@@ -43,8 +46,13 @@ const hud = tv({
        * The offset is not decoration: the rail is the framework's and this app does not get to
        * move it, so a surface sharing the corner has to sit above it or overlap something the
        * consumer does not own.
+       *
+       * No `bottom-*` here, because that was the bug. This said `bottom-16` and the rail's top edge
+       * measures 122px, so the map spanned 60–164 with the rail sitting inside it — 36% of a control
+       * covered, and its lower third dead to the click it advertises. `useBuiltInHudClearance`
+       * measures the rail instead of restating its height.
        */
-      "bottom-right-above": { surface: "right-4 bottom-16" },
+      "bottom-right-above": { surface: "right-4" },
       /**
        * A full-height edge, for a surface you work *against* rather than reach for.
        *
@@ -96,6 +104,11 @@ function HudSurface({
           animate={{ opacity: receded ? 0.25 : 1, scale: 1, y: 0 }}
           className={styles.surface()}
           data-activity={activity}
+          style={
+            anchor === "bottom-right-above"
+              ? { bottom: getBuiltInHudClearance(BOTTOM_INSET) }
+              : undefined
+          }
           exit={{ opacity: 0, scale: 0.96, y: 4 }}
           initial={{ opacity: 0, scale: 0.96, y: 6 }}
           // Opacity alone during a drag: no spring, because a surface springing while the user is

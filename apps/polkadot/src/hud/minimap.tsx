@@ -46,17 +46,23 @@ const MINIMAP_SIZE = { height: 104, width: 156 } as const;
 /** Breathing room inside the box, so a window on the rim is not clipped by its own border. */
 const MINIMAP_PADDING_PX = 6;
 
-/**
- * The band the app reserves along the bottom while the map is open — now only the framework's own
- * navigation rail, not the map.
+/*
+ * The map reserves no band at all, and that is the end of a three-step retreat worth recording.
  *
- * This used to be `MINIMAP_SIZE.height + 64`, because `viewportInsets` takes one number per edge
- * and so could only describe the map as a full-width strip. Overstating it wrote off 168 of 900
- * pixels — 19% of the viewport — to reserve room for a box covering about 1%. The map declares its
- * own rect through `viewportOccluders` now, so what remains here is the part that genuinely does
- * span the edge.
+ * It began as `MINIMAP_SIZE.height + 64` in `viewportInsets`, because an inset is one number per
+ * edge and a corner has no other way to be said — 168 of 900 pixels, 19% of the viewport, reserved
+ * for a box covering about 1%. `viewportOccluders` gave the corner its real shape and this dropped
+ * to 64, which read as the framework's navigation rail rather than the map.
+ *
+ * That last 64 was still wrong twice over. It was not the map's to declare — the occluder already
+ * says where the map is — and the framework's HUD insets itself by the app's bottom inset, so
+ * carrying a number that changed when the map opened moved the framework's own zoom rail 8px on
+ * every toggle. Measured: the rail's top sat at 122px from the bottom with the map open and 114px
+ * with it closed.
+ *
+ * Where the map sits relative to that rail is now `useBuiltInHudClearance`, which measures the rail
+ * rather than restating its height.
  */
-const MINIMAP_INSET = 64;
 
 const minimap = tv({
   slots: {
@@ -245,5 +251,3 @@ export function Minimap({
     </HudSurface>
   );
 }
-
-export { MINIMAP_INSET };

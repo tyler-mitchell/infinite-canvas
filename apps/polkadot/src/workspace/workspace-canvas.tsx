@@ -21,9 +21,10 @@ import { ConnectorLayer } from "../canvas/connector-layer";
 import { useCanvasRuntime } from "../canvas/use-canvas-runtime";
 import { windowDefinitions, type WindowKind } from "../canvas/window-registry";
 import { CanvasHud } from "../hud/canvas-hud";
+import { BOTTOM_INSET, TOP_INSET } from "../hud/chrome-insets";
 import { CommandPalette } from "../hud/command-palette";
 import { useHudOccluders } from "../hud/hud-occluders";
-import { Minimap, MINIMAP_INSET } from "../hud/minimap";
+import { Minimap } from "../hud/minimap";
 import { LibraryRail, RAIL_INSET } from "../library/library-rail";
 import { ModelContextTools } from "../model-context";
 import { openNewNote } from "../notes/open-note";
@@ -74,19 +75,6 @@ const workspace = tv({
     },
   },
 });
-
-/**
- * What this app's own chrome covers, per edge.
- *
- * The library rail is the obvious one, but it is not the only one: the identity rail sits along
- * the top and the zoom and selection rails along the bottom, and until they were named here the
- * camera centred content underneath them and the offscreen indicators projected their ring onto
- * an edge that has a pill rail sitting on it — an arrow appeared behind the "New note" button.
- *
- * Declaring one edge and forgetting the others is the same bug as declaring none, just quieter.
- */
-const TOP_INSET = 56;
-const BOTTOM_INSET = 56;
 
 function getSaveAdmission(status: CanvasPersistenceStatus): SaveAdmission {
   /*
@@ -252,11 +240,20 @@ export function WorkspaceCanvas({ canvas }: Readonly<{ canvas: LoadedCanvas }>) 
            * that fights every camera command while looking finished.
            */
           viewportInsets={{
-            // Only what genuinely spans an edge. The map used to be in this number as a full-width
-            // band, because an inset is one number per edge and a corner has no other way to be
-            // said — 168 of 900 pixels reserved for a box covering about 1% of them. It declares
-            // its own rect through `viewportOccluders` now.
-            bottom: minimapOpen ? MINIMAP_INSET : BOTTOM_INSET,
+            /*
+             * Only what genuinely spans an edge. The map used to be in this number as a full-width
+             * band, because an inset is one number per edge and a corner has no other way to be
+             * said — 168 of 900 pixels reserved for a box covering about 1% of them. It declares
+             * its own rect through `viewportOccluders` now.
+             *
+             * **And so it no longer belongs here at all.** This kept `minimapOpen ? 64 : 56`, the
+             * last 8px of that old arrangement, and the framework's HUD insets itself by this
+             * number — so opening or closing the map moved the framework's own zoom rail 8px.
+             * Measured across a toggle: the rail's top edge sat at 122px from the bottom with the
+             * map open and 114px with it closed. Chrome that twitches when an unrelated panel opens
+             * is the tell that two things are sharing one number.
+             */
+            bottom: BOTTOM_INSET,
             left: libraryOpen ? RAIL_INSET : 0,
             top: TOP_INSET,
           }}
