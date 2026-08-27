@@ -1,0 +1,72 @@
+import type { InfiniteCanvasSerializedState } from "@hyphened/infinite-canvas";
+
+import type { WindowKind } from "../canvas/window-registry";
+import * as database from "../database/operations";
+import { getNextRepeatTitle } from "../titles";
+
+/**
+ * Keep a conflicted arrangement by giving it a canvas of its own.
+ *
+ * The naming was `${canvasTitle} (recovered)`, written inline where the button is, and it was the
+ * same rule `create-canvas.ts` already exists to stop being written inline — whose docstring ends
+ * "`open-note.ts` found and recorded exactly this for notes; the lesson stayed with notes." It
+ * stayed with `createCanvas` too. This is the third copy of the mistake and the second file to fix
+ * it the same way.
+ *
+ * Two failures, both reachable in a normal session:
+ *
+ * A second conflict on the same canvas produced a second "Main canvas (recovered)" — two canvases
+ * with one name, in the switcher that exists to tell them apart. `getNextRepeatTitle` is the rule
+ * for a label that is already a real name: bare first, numbered after, which is what every file
+ * manager does.
+ *
+ * And forking a fork compounded the mark — "Main canvas (recovered) (recovered)" — because the
+ * suffix was appended to whatever the title happened to be. A recovery of a recovery is still a
+ * recovery *of the original*, so the mark is stripped before it is reapplied and the numbering
+ * carries the difference.
+ */
+
+/**
+ * A title with any recovery mark taken off, including a numbered one.
+ *
+ * Both forms have to go: `(recovered)` from the first fork and `(recovered) 2` from the next, or
+ * the base grows a segment per conflict and the numbering restarts against a label nothing else
+ * shares.
+ */
+const stripRecoveryMark = (title: string) => title.replace(/ \(recovered\)(?: \d+)?$/, "");
+
+/** What a fork of this canvas is called, given the names already taken. */
+function getForkedCanvasTitle(canvasTitle: string, takenTitles: readonly string[]): string {
+  return getNextRepeatTitle(`${stripRecoveryMark(canvasTitle)} (recovered)`, takenTitles);
+}
+
+/**
+ * Archived canvases are asked about too, for the reason `createCanvas` gives: they keep their
+ * titles, so a name skipped here collides the moment someone restores one — a defect that surfaces
+ * long after the action that caused it.
+ */
+async function forkCanvas(
+  input: Readonly<{
+    canvasTitle: string;
+    /** `handle.snapshot()` — the same serializer the write loop uses, so the fork holds exactly
+     * what would have been saved had the revision still been good. */
+    layout: InfiniteCanvasSerializedState<WindowKind>;
+    projectId: string;
+  }>,
+) {
+  const [offered, archived] = await Promise.all([
+    database.canvases.list(input.projectId),
+    database.canvases.listArchived(input.projectId),
+  ]);
+
+  return database.canvases.create({
+    layout: input.layout,
+    projectId: input.projectId,
+    title: getForkedCanvasTitle(
+      input.canvasTitle,
+      [...offered, ...archived].map((canvas) => canvas.title),
+    ),
+  });
+}
+
+export { forkCanvas, getForkedCanvasTitle, stripRecoveryMark };

@@ -5,7 +5,7 @@ import { CopyPlus, RotateCcw, TriangleAlert } from "lucide-react";
 import { Button } from "ui";
 import { tv } from "ui/tv";
 
-import { canvases } from "../database/operations";
+import { forkCanvas } from "../workspace/fork-canvas";
 import type { WindowKind } from "./window-registry";
 
 /**
@@ -64,11 +64,10 @@ export function CanvasConflictNotice({
     busy$.set(true);
 
     try {
-      const created = await canvases.create({
-        layout: handle.snapshot(),
-        projectId,
-        title: `${canvasTitle} (recovered)`,
-      });
+      // Naming is `forkCanvas`'s, not this button's — it was `${canvasTitle} (recovered)` here, so
+      // a second conflict made a second canvas with the same name and forking a fork compounded
+      // the mark. Creating and navigating stay apart, the same split `createCanvas` keeps.
+      const created = await forkCanvas({ canvasTitle, layout: handle.snapshot(), projectId });
 
       await navigate({ params: { canvasId: created.id }, to: "/canvas/$canvasId" });
     } finally {
