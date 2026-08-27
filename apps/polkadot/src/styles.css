@@ -142,7 +142,21 @@
   --popover-foreground: var(--ink);
   --primary: var(--accent);
   --primary-foreground: oklch(0.16 0.02 55);
-  --secondary: var(--surface);
+  /*
+   * `--surface-hover`, not `--surface`, and the difference has already cost twice.
+   *
+   * A shadcn `secondary` is a filled low-emphasis control, so it has to read as a shape on whatever
+   * it sits on. Aliased to `--surface` it did not: the app's own panels are `--surface`, so a
+   * secondary button on one was the same colour as its background — that is the group rail's active
+   * segment, "applied, correct, and invisible" — and on `--ground` it measured 1.09:1 against the
+   * 3:1 a UI boundary needs, which is what the canvas-failure screen's "Try again" was.
+   *
+   * `--surface-hover` is the top of the ramp and still only reaches 1.29:1 on ground, so this is a
+   * floor rather than a fix: a filled control that must be seen unaided wants `--accent`. What it
+   * does buy is that `secondary` is no longer *identical* to the surfaces it is drawn on, which is
+   * the failure that actually shipped.
+   */
+  --secondary: var(--surface-hover);
   --secondary-foreground: var(--ink);
   --muted: var(--surface);
   --muted-foreground: var(--ink-muted);
