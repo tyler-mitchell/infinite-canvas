@@ -19,7 +19,7 @@ import { Button } from "ui";
 import { tv } from "ui/tv";
 
 import { openItemWindow } from "../canvas/open-item";
-import type { WindowKind } from "../canvas/window-registry";
+import { getContentWindowItemId, type WindowKind } from "../canvas/window-registry";
 import { getListableKind } from "../collections/listable-kinds";
 import type { ContentItemRecord } from "../database/database.client";
 import { content } from "../database/operations";
@@ -251,24 +251,36 @@ export function LibraryRail({
   }, [archived, archived$, archivedNotes$, projectId]);
 
   /**
-   * Which note each window is showing, in one pass.
+   * Which content items are on the canvas, for the presence dot beside each row.
    *
    * `getInfiniteCanvasWindowPresence` is the framework's enumeration and the palette's source, but
-   * it reports identity and mode rather than payload — so it cannot answer "which note is this
+   * it reports identity and mode rather than payload — so it cannot answer "which item is this
    * window showing", which is the only question the rail has. Reading `windows` directly is the
    * honest route rather than looking each id back up through presence to reach the same array.
    *
-   * `state.windows` rather than the active desktop's subset on purpose: a note open on another
+   * `state.windows` rather than the active desktop's subset on purpose: an item open on another
    * desktop is open, and `window.reveal` can reach it.
+   *
+   * Read through the registry's schema rather than cast. This was `window.data as { noteId?: string
+   * }`, and window data became `{ itemId }` when every kind got one shape — so the guard was a cast
+   * against a field nothing writes, the set was empty, and no row has shown its dot since. Measured
+   * on 2026-08-27: five notes open, zero dots. A cast cannot fail, which is the whole problem; the
+   * guard would have.
+   *
+   * The dot was the least of it. `archive` closes the item's window through this map and
+   * `commitRename` retitles it — so archiving left the window sitting open on the canvas, which is
+   * the state its own docstring calls "archived stops meaning anything", and a rename left the
+   * window carrying its old name. Notes hid the second one, because `NoteWindowBody` syncs its own
+   * title from the store; no other kind does.
    */
-  const windowIdByNoteId = new Map(
+  const windowIdByItemId = new Map(
     state.windows.flatMap((window) => {
-      const data = window.data as Readonly<{ noteId?: string }> | undefined;
+      const itemId = getContentWindowItemId(window);
 
-      return data?.noteId === undefined ? [] : [[data.noteId, window.id] as const];
+      return itemId === null ? [] : [[itemId, window.id] as const];
     }),
   );
-  const openNoteIds = new Set(windowIdByNoteId.keys());
+  const openItemIds = new Set(windowIdByItemId.keys());
 
   const listed = new Set(notes.map((note) => note.id));
   const terms = query.trim().toLowerCase();
@@ -336,7 +348,7 @@ export function LibraryRail({
     ),
     reachable: (note: ContentItemRecord) => (
       <button
-        className={styles.title({ open: openNoteIds.has(note.id) })}
+        className={styles.title({ open: openItemIds.has(note.id) })}
         // Double-click to rename, the way every sidebar in every file manager does. A visible
         // pencil on every row would be five affordances competing for the width the titles need.
         onDoubleClick={() => {
@@ -356,22 +368,17 @@ export function LibraryRail({
     terms === "" ? notes : notes.filter((note) => note.title.toLowerCase().includes(terms));
 
   /**
-   * Reach a note wherever it is.
+   * Reach an item wherever it is. Whatever kind it is — the rail lists every kind now.
    *
-   * `window.reveal` is one verb for what used to be three — switch to the desktop that admits it,
-   * restore it if minimized, focus it, move the camera — and it exists because composing those by
-   * hand went wrong in exactly the way that is invisible: navigating to a window another desktop
-   * hid panned the camera to a rect nothing renders.
+   * One branch, because the opening owns the choice. `openContentWindow` reveals when a window
+   * already shows the item and opens when none does, and its own docstring records that the rule
+   * moved there *from here*, so that collections and the palette would get it too. This kept a
+   * second copy that had to agree, and it stopped agreeing the moment window data was rekeyed: the
+   * lookup missed every time, so both branches led to the opener anyway. Two authorities where one
+   * silently does all the work is worse than one — the dead half looks like the live half.
    */
   const reach = (from: HTMLElement, item: ContentItemRecord) => {
-    const windowId = windowIdByNoteId.get(item.id);
-
-    if (windowId === undefined) {
-      // Whatever kind it is. The rail lists every kind now, so it cannot open only notes.
-      openItemWindow({ actions, item, state });
-    } else {
-      actions.executeCommand({ type: "window.reveal", windowId });
-    }
+    openItemWindow({ actions, item, state });
 
     /*
      * Give the keyboard back.
@@ -414,7 +421,7 @@ export function LibraryRail({
 
     setProjectItemTitle(note.id, next);
 
-    const windowId = windowIdByNoteId.get(note.id);
+    const windowId = windowIdByItemId.get(note.id);
 
     if (windowId !== undefined) {
       actions.setWindowTitle({ title: next, windowId });
@@ -444,7 +451,7 @@ export function LibraryRail({
    * on the canvas is the state where "archived" stops meaning anything.
    */
   const archive = async (itemId: string) => {
-    const windowId = windowIdByNoteId.get(itemId);
+    const windowId = windowIdByItemId.get(itemId);
 
     if (windowId !== undefined) {
       actions.closeWindow(windowId);
@@ -516,7 +523,7 @@ export function LibraryRail({
                 <div key={note.id}>
                   <div className={styles.row()}>
                     <span className={styles.gutter()}>
-                      {openNoteIds.has(note.id) ? <span className={styles.presence()} /> : null}
+                      {openItemIds.has(note.id) ? <span className={styles.presence()} /> : null}
                     </span>
                     {titleCell[editing?.id === note.id ? "editing" : rowMode](note)}
                     {neighbours.length === 0 ? null : (
@@ -577,7 +584,7 @@ export function LibraryRail({
                               type="button"
                             >
                               <span className={styles.gutter()}>
-                                {openNoteIds.has(neighbour.id) ? (
+                                {openItemIds.has(neighbour.id) ? (
                                   <span className={styles.presence()} />
                                 ) : null}
                               </span>

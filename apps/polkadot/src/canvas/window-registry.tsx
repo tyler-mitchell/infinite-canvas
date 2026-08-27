@@ -54,6 +54,17 @@ type WindowKind = "collection" | "image" | "link" | "note";
 const ContentWindowData = type({ itemId: "string" });
 type ContentWindowData = typeof ContentWindowData.infer;
 
+/**
+ * The content item a window shows, or `null` when it is bound to none.
+ *
+ * One expression, in one place, because the field name has moved once and every surface that had
+ * spelled it out for itself kept compiling and stopped working. Through the schema rather than a
+ * cast: an assertion about `unknown` cannot fail at runtime, it just yields `undefined` forever.
+ * `window-data-reads.test.ts` holds the line.
+ */
+const getContentWindowItemId = (window: Readonly<{ data?: unknown }>) =>
+  getInfiniteCanvasWindowData(window, ContentWindowData.allows)?.itemId ?? null;
+
 type WindowData = Readonly<{
   collection: ContentWindowData;
   image: ContentWindowData;
@@ -230,5 +241,5 @@ const windowDefinitions = defineInfiniteCanvasWindowRegistry<WindowKind, WindowD
   },
 });
 
-export { ContentWindowData, windowDefinitions };
+export { ContentWindowData, getContentWindowItemId, windowDefinitions };
 export type { WindowData, WindowKind };

@@ -52,7 +52,11 @@ import { tv } from "ui/tv";
 
 import { initialLayout } from "../canvas/canvas-document";
 import { getSelectedRelations } from "../canvas/connector-geometry";
-import { ContentWindowData, type WindowKind } from "../canvas/window-registry";
+import {
+  ContentWindowData,
+  getContentWindowItemId,
+  type WindowKind,
+} from "../canvas/window-registry";
 import type {
   CanvasSummary,
   ContentItemRecord,
@@ -472,11 +476,7 @@ function PaletteContent({
    * here; the rail reaches a note exactly this way.
    */
   const reachNote = (note: Readonly<{ id: string; title: string }>) => {
-    // `itemId`, not `noteId` — this read was left behind when window data became one shape for
-    // every kind, so it matched nothing and every reach opened rather than revealed.
-    const windowId = state.windows.find(
-      (window) => (window.data as { itemId?: string } | undefined)?.itemId === note.id,
-    )?.id;
+    const windowId = state.windows.find((window) => getContentWindowItemId(window) === note.id)?.id;
 
     rememberNote(note.id);
 
@@ -1062,8 +1062,7 @@ function PaletteContent({
               keywords="archive remove delete hide note"
               onSelect={run(() => {
                 const windowId = state.windows.find(
-                  (window) =>
-                    (window.data as { noteId?: string } | undefined)?.noteId === activeNote.id,
+                  (window) => getContentWindowItemId(window) === activeNote.id,
                 )?.id;
 
                 if (windowId !== undefined) {
