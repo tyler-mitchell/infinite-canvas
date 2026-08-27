@@ -54,6 +54,47 @@ test("the live window is distinguishable from the rest", () => {
   expect(described).not.toContain('note "First", active');
 });
 
+/**
+ * The two ways a window is on the canvas without being on screen.
+ *
+ * Both were reported as ordinary windows until 2026-08-26, found by fitting a real canvas and
+ * reading the rects: a note and a collection with byte-identical geometry, one of them drawn.
+ * Telling a caller that cannot see the screen it has two things in front of it, when one is
+ * behind the other, is worse than omitting it.
+ */
+test("a window behind a tab is said to be behind a tab", () => {
+  const described = describeCanvas(
+    createInfiniteCanvasState<WindowKind>({
+      groups: [
+        {
+          id: "group-1",
+          rect: { height: 400, width: 600, x: 0, y: 0 },
+          title: "Reading list",
+          tree: {
+            activeChildId: "a",
+            axis: "horizontal",
+            children: [
+              { id: "a", kind: "window", weight: 1 },
+              { id: "b", kind: "window", weight: 1 },
+            ],
+            id: "container-1",
+            kind: "container",
+            layout: "tabs",
+            weight: 1,
+          },
+          zIndex: 0,
+        },
+      ],
+      viewport: { height: 800, width: 1200 },
+      windows: [windowAt("a", "note", "Front", 0), windowAt("b", "note", "Behind", 0)],
+    }),
+  );
+
+  // Fails if the projection is not consulted: both read as plain, visible windows.
+  expect(described).toContain('note "Behind", behind a tab');
+  expect(described).not.toContain('note "Front", behind a tab');
+});
+
 test("zoom is reported as a percentage, the way the canvas shows it", () => {
   const described = describeCanvas(
     createInfiniteCanvasState<WindowKind>({

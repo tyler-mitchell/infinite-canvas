@@ -1,4 +1,8 @@
-import type { InfiniteCanvasState } from "@hyphened/infinite-canvas";
+import {
+  getInfiniteCanvasGroupProjection,
+  isInfiniteCanvasWindowInActiveWorkspace,
+  type InfiniteCanvasState,
+} from "@hyphened/infinite-canvas";
 
 import type { WindowKind } from "./window-registry";
 
@@ -21,17 +25,41 @@ import type { WindowKind } from "./window-registry";
  */
 function describeCanvas(state: InfiniteCanvasState<WindowKind>): string {
   const selected = new Set(state.selection.windowIds);
-  const windows = state.windows.map((window) =>
-    [
-      `${window.kind} "${window.title}"`,
-      window.id === state.activeWindowId ? "active" : null,
-      selected.has(window.id) ? "selected" : null,
-      // `normal` is the unremarkable case and saying it on every window would bury the others.
-      window.mode === "normal" ? null : window.mode,
-    ]
-      .filter((part) => part !== null)
-      .join(", "),
-  );
+  /*
+   * The two ways a window is on the canvas without being on screen, and this asked about neither.
+   *
+   * `mode` catches minimized and nothing else. A window behind a tab reports `mode: "normal"` and
+   * carries the shell's whole content rect — measured here on a real canvas, a note and a
+   * collection with byte-identical rects, of which one is drawn. A window on another desktop is
+   * likewise ordinary to `state.windows`, which is every window on the canvas rather than every
+   * window on the desktop you are looking at.
+   *
+   * Reported to a caller that cannot see the screen, both are worse than an omission: it is told
+   * two things are in front of it and one of them is not. The framework answers both questions —
+   * `hiddenWindowIds` and `isInfiniteCanvasWindowInActiveWorkspace` — and the connector layer,
+   * the minimap, the offscreen ring and focus traversal all already ask them. This makes the same
+   * mistake those made, one surface later, which is why the rule is worth restating here: a
+   * derived view must ask the same question the verb asks.
+   *
+   * Another desktop's windows are dropped rather than labelled, because "what is on the canvas"
+   * means the canvas in front of you; a tab's hidden sibling is labelled, because it is on this
+   * canvas and one keystroke away.
+   */
+  const { hiddenWindowIds } = getInfiniteCanvasGroupProjection(state.groups, state.groupMetrics);
+  const windows = state.windows
+    .filter((window) => isInfiniteCanvasWindowInActiveWorkspace(state, window.id))
+    .map((window) =>
+      [
+        `${window.kind} "${window.title}"`,
+        window.id === state.activeWindowId ? "active" : null,
+        selected.has(window.id) ? "selected" : null,
+        hiddenWindowIds.has(window.id) ? "behind a tab" : null,
+        // `normal` is the unremarkable case and saying it on every window would bury the others.
+        window.mode === "normal" ? null : window.mode,
+      ]
+        .filter((part) => part !== null)
+        .join(", "),
+    );
   const groups = state.groups.map((group) => `"${group.title}"`);
 
   return [
