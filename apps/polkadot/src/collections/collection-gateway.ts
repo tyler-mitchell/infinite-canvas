@@ -112,5 +112,7 @@ export const collectionGateway = {
     ),
 };
 
-export { COLLECTION_KIND, CollectionContent };
+// `toCollection` joins the exports for the reason `toNote` is one: converting a listing record into
+// the kind's own shape is what a caller outside this file needs before it can compose a save.
+export { COLLECTION_KIND, CollectionContent, toCollection };
 export type { CollectionQuestion, CollectionRecord };

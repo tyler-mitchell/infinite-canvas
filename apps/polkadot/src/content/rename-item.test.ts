@@ -64,11 +64,15 @@ test("a kind with no writer is refused rather than half-renamed", () => {
    *
    * Refusing is not conservatism: `content.save` needs the record's content, revision and search
    * text, which only a kind's own gateway holds, and `setProjectItemTitle` writes to the cached
-   * listing rather than to storage. A non-note renamed here would look right until the next read.
+   * listing rather than to storage. A kind with no writer would look renamed until the next read.
+   *
+   * **Images and links only.** "collection" was in this list until the gateways were read: it has a
+   * `save` that takes a title, so it was being refused a rename the database would have stored. The
+   * image and link gateways expose `create`, `list` and `read` and nothing else.
    */
-  for (const kind of ["image", "link", "collection"]) {
+  for (const kind of ["image", "link"]) {
     expect(rename(item(kind, "Untitled 1"), "Better name"), kind).toContain(
-      "renamed from its window",
+      "renamed from its own window",
     );
   }
 
@@ -82,10 +86,10 @@ test("a kind with no writer is refused rather than half-renamed", () => {
 });
 
 test("the refusal names the kind, so a caller knows which window to go to", () => {
-  // Quoted rather than given an article: the first version of this message read "a image", caught
-  // by this test. Choosing "a" or "an" from the first letter would be a rule to keep for four words.
-  expect(rename(item("image", "photo.png"), "Cover")).toContain('This is a "image"');
-  expect(rename(item("collection", "Links"), "Sources")).toContain('This is a "collection"');
+  // Quoted rather than given an article: an earlier version read "a image", caught by this test.
+  // Choosing "a" or "an" from the first letter would be a rule to keep for a handful of words.
+  expect(rename(item("image", "photo.png"), "Cover")).toContain('a "image"');
+  expect(rename(item("link", "example.com"), "Source")).toContain('a "link"');
 });
 
 test("blank is checked before kind, so the worse answer is not given for the smaller mistake", () => {
