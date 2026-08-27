@@ -99,6 +99,26 @@ open because it feels good to look at. Concretely, and these are enforced in rev
 
 ## Now
 
+- [ ] **Agents reach the product through WebMCP.** Spiked by Tyler on 2026-08-26. The app half is
+      built and tested: `app-actions.ts` is the capability vocabulary, entries whose argument cannot
+      be enumerated carry an ArkType `input` whose `toJsonSchema()` is what a caller is offered and
+      whose type is what the verb validates with, and `describeCanvas` / `describeProjectContent`
+      are the reporting half — because a verb-only vocabulary is complete for a pointer, which gets
+      its answer by looking, and half a vocabulary for anything that cannot see the screen.
+      `model-context.tsx` registers all of it, feature-detected against `document.modelContext` and
+      the pre-150 `navigator.modelContext`.
+      **The registration has never executed, and cannot be made to from here.** WebMCP sits behind
+      `enable-webmcp-testing` in Chrome 146 and moves to an origin trial from 149; the dev browser
+      is 148, where the API is absent under both names. Enabling it is owner-gated twice over: the
+      flag needs a browser relaunch, and the origin-trial token needs the origin registered with
+      Google. What is verified is only that the registration is inert and harmless — the app loads,
+      detection reports `undefined`, nothing errors. Treat it as a draft that typechecks.
+      **What is not gated, and is the next real work:** the parameterized verbs have no human
+      surface. `content.open` takes an id, so the palette skips it — a row has nowhere to type an
+      argument — and no rail calls it, so today it is reachable by nothing at all. The palette
+      already has three pages (rename, label, group naming); a page that picks an argument is the
+      same shape and would make every parameterized verb drivable by hand rather than waiting on a
+      browser flag.
 - [x] Vendored working `@surrealdb/wasm` 3.0.4 with `indxdb://`; deleted the 2.6.1 patch
 - [x] SPA on TanStack Router; TanStack Start removed (its dev middleware never mounted, and the
       data layer is client-only so SSR bought nothing)
