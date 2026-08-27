@@ -442,16 +442,26 @@ function PaletteContent({
    */
   const openNoteIds = new Set(
     state.windows
-      .map((window) => getInfiniteCanvasWindowData(window, ContentWindowData.allows)?.itemId)
-      .filter((itemId) => itemId !== undefined),
+      .map((window) => getContentWindowItemId(window))
+      .filter((itemId) => itemId !== null),
   );
   const recentIds = new Set(useValue(recentNoteIds$));
   /** A window whose note is in `Recent` is reachable from there; showing it twice says nothing. */
+  /*
+   * Only windows that show something, so a lookup miss means one thing.
+   *
+   * This mapped every window, binding the ones bound to nothing to an absent value — so `.get()`
+   * answered the same way for "no such window" and "that window shows nothing", and both readers
+   * below guard with `!== undefined`. Routing this through `getContentWindowItemId`, which answers
+   * `null` rather than `undefined`, is what surfaced it: the guard would have passed for a window
+   * showing nothing and handed `null` to `rememberNote`.
+   */
   const noteIdByWindowId = new Map(
-    state.windows.map(
-      (window) =>
-        [window.id, getInfiniteCanvasWindowData(window, ContentWindowData.allows)?.itemId] as const,
-    ),
+    state.windows.flatMap((window) => {
+      const itemId = getContentWindowItemId(window);
+
+      return itemId === null ? [] : [[window.id, itemId] as const];
+    }),
   );
   /**
    * Lifted out of their home group only while `Recent` is on screen.

@@ -2,7 +2,6 @@ import {
   getInfiniteCanvasConnectionAffordanceWindowId,
   getInfiniteCanvasConnectionHandles,
   getInfiniteCanvasConnectionPreviewPath,
-  getInfiniteCanvasWindowData,
   resolveInfiniteCanvasSpatialTarget,
   screenPointToWorldPoint,
   useInfiniteCanvasState,
@@ -17,7 +16,7 @@ import { tv } from "ui/tv";
 
 import { connectItems, findRelation, relations$ } from "../relations/relation-store";
 import { CANVAS_CHROME } from "./chrome";
-import { ContentWindowData, type WindowKind } from "./window-registry";
+import { getContentWindowItemId, type WindowKind } from "./window-registry";
 
 /**
  * Authoring a connection by dragging one note onto another.
@@ -62,9 +61,7 @@ type Draft = Readonly<{
 
 /** Whatever content item a window is bound to, whichever kind of window it is. */
 function getItemId(window: InfiniteCanvasWindow<WindowKind> | undefined) {
-  return window === undefined
-    ? undefined
-    : getInfiniteCanvasWindowData(window, ContentWindowData.allows)?.itemId;
+  return window === undefined ? null : getContentWindowItemId(window);
 }
 
 /** Whatever window a drag is currently over, through the framework's one answer for that. */
@@ -161,7 +158,7 @@ export function ConnectorDraft({ projectId }: Readonly<{ projectId: string }>) {
       );
 
       if (
-        itemId === undefined ||
+        itemId === null ||
         itemId === source.sourceItemId ||
         findRelation(relations, source.sourceItemId, itemId) !== undefined
       ) {
@@ -190,7 +187,7 @@ export function ConnectorDraft({ projectId }: Readonly<{ projectId: string }>) {
   const sourceWindow = state.windows.find((candidate) => candidate.id === sourceWindowId);
   const sourceItemId = getItemId(sourceWindow);
 
-  if (sourceWindow === undefined || sourceItemId === undefined) {
+  if (sourceWindow === undefined || sourceItemId === null) {
     return <div className={styles.root()} data-slot="connector-draft" ref={rootRef} />;
   }
 
@@ -203,7 +200,7 @@ export function ConnectorDraft({ projectId }: Readonly<{ projectId: string }>) {
   const landing = dragging === null ? undefined : getLandingWindow(state, dragging.pointer);
   const landingItemId = getItemId(landing);
   const isJoinable =
-    landingItemId !== undefined &&
+    landingItemId !== null &&
     landingItemId !== sourceItemId &&
     findRelation(relations, sourceItemId, landingItemId) === undefined;
   const preview =

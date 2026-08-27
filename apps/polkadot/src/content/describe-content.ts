@@ -1,6 +1,6 @@
-import { getInfiniteCanvasWindowData, type InfiniteCanvasState } from "@hyphened/infinite-canvas";
+import type { InfiniteCanvasState } from "@hyphened/infinite-canvas";
 
-import { ContentWindowData, type WindowKind } from "../canvas/window-registry";
+import { getContentWindowItemId, type WindowKind } from "../canvas/window-registry";
 import type { ContentRelation } from "../database/database.client";
 import { getProjectContent, type ProjectContent } from "./project-content";
 
@@ -33,8 +33,8 @@ type ProjectContentItems = NonNullable<ReturnType<typeof getProjectContent>>;
 const getOpenItemIds = (state: InfiniteCanvasState<WindowKind>) =>
   new Set(
     state.windows
-      .map((window) => getInfiniteCanvasWindowData(window, ContentWindowData.allows)?.itemId)
-      .filter((itemId) => itemId !== undefined),
+      .map((window) => getContentWindowItemId(window))
+      .filter((itemId) => itemId !== null),
   );
 
 /**
