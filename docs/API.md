@@ -61,10 +61,25 @@ asks — a promise not yet made is cheaper to keep than one made and withdrawn.
 `canvas-handle` is a narrower case than the others and its entry used to say the
 wrong thing — "a debug and automation seam, not a consumer API". It is in fact the
 incubator app's persistence spine: Polkadot's autosave runs on
-`subscribeDocument`, and that path has been watched working. What remains
-unobserved is the rest of the surface — `subscribe`, `snapshot`, and
-`getContextualCommands` are driven by nothing — and the handle may still grow
-spatial queries. Experimental for what is untested, not for what it is.
+`subscribeDocument`, and that path has been watched working. Experimental for what
+is untested, not for what it is.
+
+The list of what remains unobserved shrank on 2026-08-27, and one entry on it was
+already wrong when written. **`snapshot` is driven**, and by a product path rather
+than a test: the conflict notice's "Keep mine" calls it to fork a canvas whose
+revision has gone stale, so what lands in the new document is exactly what the
+write loop would have saved. `getState` and `commands` are driven too — the app
+publishes the handle for console and agent use, which is how this session drove the
+canvas all day.
+
+**`subscribe` is the one with no caller at all** — nothing in either package
+selects a slice through it, and persistence uses `subscribeDocument` instead, which
+exists precisely because `subscribe` cannot express a document. `getContextualCommands`
+is unused _as a handle method_; the capability under it is not, since the radial
+menu asks `getAvailableInfiniteCanvasContextualCommands` directly. That distinction
+is worth keeping rather than rounding off: the question a tier answers is whether
+the shipped path has been exercised, and a pure function reached another way is not
+the same path.
 
 `minimap` followed the same path on 2026-08-26. Its entry had read "landed
 2026-07-08. No minimap has been drawn in a browser" for seven weeks, which is a
