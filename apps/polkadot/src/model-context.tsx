@@ -56,15 +56,31 @@ import { relations$ } from "./relations/relation-store";
  * because it is what a 146 flag build exposes. Confirmed absent under the `navigator` name on 152.
  */
 
+/**
+ * What a tool call answers with. The spec's `content` array, and only the part of it used here.
+ */
+type ToolResult = Readonly<{ content: readonly Readonly<{ text: string; type: "text" }>[] }>;
+
+type ModelContextTool = Readonly<{
+  description: string;
+  execute: (input?: unknown) => Promise<ToolResult>;
+  inputSchema: object;
+  name: string;
+}>;
+
+/**
+ * The slice of `document.modelContext` this app is a provider for.
+ *
+ * `registerTool` returns a promise resolving to nothing — **not** a disposer, which this file
+ * assumed until the explainer was read. Unregistering is the `AbortSignal`'s job, which is why the
+ * options argument is not optional here even though it is in the IDL: forgetting it is exactly the
+ * mistake that left the old cleanup loop dead.
+ */
 type ModelContextRegistry = Readonly<{
-  registerTool: (tool: {
-    description: string;
-    execute: (
-      input?: unknown,
-    ) => Promise<Readonly<{ content: readonly Readonly<{ text: string; type: "text" }>[] }>>;
-    inputSchema: object;
-    name: string;
-  }) => unknown;
+  registerTool: (
+    tool: ModelContextTool,
+    options: Readonly<{ signal: AbortSignal }>,
+  ) => Promise<void>;
 }>;
 
 /** A verb that takes nothing still has to say so; an absent schema is not the same as an empty one. */
@@ -100,8 +116,21 @@ function ModelContextTools({ projectId }: Readonly<{ projectId: string }>) {
       return;
     }
 
+    /*
+     * One controller for every tool, aborted on unmount. This is the spec's unregistration
+     * mechanism and the file had none.
+     *
+     * What stood here read the return of `registerTool` and called it if it was a function. It never
+     * was: `registerTool` resolves to `undefined`, confirmed against Chrome 152 and against the
+     * explainer, so the loop was dead and nothing was ever unregistered. The effect re-runs whenever
+     * `projectId` changes, which would have re-registered ninety-seven names over ninety-seven
+     * live ones — invisible, because the registry would simply have kept the newer.
+     */
+    const controller = new AbortController();
+    const tools: ModelContextTool[] = [];
+
     // The one tool that reports rather than acts, so a caller can find out what it is looking at.
-    const describe = registry.registerTool({
+    tools.push({
       description:
         "Describe what is on the canvas: zoom, the open windows and their kinds, groups, and the selection.",
       execute: async () => ({
@@ -112,7 +141,7 @@ function ModelContextTools({ projectId }: Readonly<{ projectId: string }>) {
     });
     // The companion question: what exists that the canvas is not showing. Closing a window does
     // not delete the record, so without this everything not open is invisible to a caller.
-    const list = registry.registerTool({
+    tools.push({
       description:
         "List everything this project holds and how it is connected, saying which items are already open on the canvas.",
       execute: async () => ({
@@ -153,8 +182,8 @@ function ModelContextTools({ projectId }: Readonly<{ projectId: string }>) {
      * them avoids registering two different tools under that one name. The four `workspace.*` verbs
      * are the gap this leaves, and it is a named one rather than an oversight.
      */
-    const canvasVerbs = getPublishedCanvasCommands(store.state$.peek()).map((descriptor) =>
-      registry.registerTool({
+    tools.push(
+      ...getPublishedCanvasCommands(store.state$.peek()).map((descriptor) => ({
         description: descriptor.description,
         execute: async () => {
           /*
@@ -176,12 +205,12 @@ function ModelContextTools({ projectId }: Readonly<{ projectId: string }>) {
         },
         inputSchema: NO_INPUT,
         name: descriptor.id,
-      }),
+      })),
     );
-    const disposers = APP_ACTIONS.map((action) =>
-      registry.registerTool({
+    tools.push(
+      ...APP_ACTIONS.map((action) => ({
         description: action.description,
-        execute: async (input) => {
+        execute: async (input?: unknown) => {
           const context = { actions, projectId, state: store.state$.peek() };
 
           if (!isAppActionEnabled(action, context)) {
@@ -213,16 +242,33 @@ function ModelContextTools({ projectId }: Readonly<{ projectId: string }>) {
         // one thing rather than two that have to be kept in step.
         inputSchema: action.input?.toJsonSchema() ?? NO_INPUT,
         name: action.id,
-      }),
+      })),
     );
 
-    return () => {
-      // The spec's disposal shape is one of the things this has never run to find out.
-      for (const disposer of [describe, list, ...canvasVerbs, ...disposers]) {
-        if (typeof disposer === "function") {
-          (disposer as () => void)();
-        }
+    /*
+     * Awaited, because `registerTool` rejects and the rejections say something.
+     *
+     * These were fired and dropped — ninety-seven floating promises. The explainer names a rejection
+     * this page can actually meet: a `tools` permissions policy that is off rejects with
+     * `NotAllowedError`, which as unhandled rejections would have meant a page that silently offers
+     * nothing. Aborting during registration rejects too, which is ordinary teardown rather than a
+     * fault, so it is not reported.
+     */
+    void Promise.allSettled(
+      tools.map((tool) => registry.registerTool(tool, { signal: controller.signal })),
+    ).then((settled) => {
+      const failures = settled.filter((outcome) => outcome.status === "rejected");
+
+      if (failures.length > 0 && !controller.signal.aborted) {
+        console.error(
+          `WebMCP: ${String(failures.length)} of ${String(tools.length)} tools did not register.`,
+          failures[0]?.reason,
+        );
       }
+    });
+
+    return () => {
+      controller.abort();
     };
   }, [actions, projectId, store]);
 
