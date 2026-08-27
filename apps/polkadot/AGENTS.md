@@ -144,7 +144,7 @@ wolf is worse than none.
 ## Verifying in the browser
 
 Driving the running app is the only way to find most of what is wrong here, and the instruments
-lie. Seven did on 2026-08-26 alone. Each of these is a measured failure, not a caution:
+lie. Eight did on 2026-08-26 alone. Each of these is a measured failure, not a caution:
 
 - **A screenshot is authoritative about content and unreliable about layering.** Twice, from
   unrelated directions, a capture showed content that the DOM says is not in that element — a
@@ -172,6 +172,21 @@ lie. Seven did on 2026-08-26 alone. Each of these is a measured failure, not a c
 - **A background tab has a zero-size viewport.** `innerWidth` and `innerHeight` both read `0`, and
   every `elementFromPoint` returns `null`, so a probe looks like a page with nothing on it. Front
   the tab and set a viewport before measuring anything positional.
+- **Animation driven by `requestAnimationFrame` does not run in this pane, and fronting the tab does
+  not fix it.** `document.visibilityState` reports `hidden` even after `tabs_select` says the tab is
+  fronted, so rAF is suspended: the radial menu's six items were measured at `0,0` — fully closed —
+  on a menu whose buttons were present, focusable and clickable, and a screenshot showed a collapsed
+  pill where a ring of six belonged. An earlier read caught frozen mid-flight offsets, which is
+  worse, because partial values look like a layout bug rather than a stopped clock. Check
+  `document.hidden` before believing any animated geometry, and treat spring or transition end
+  states as unverifiable here. Behaviour that does not need a frame — focus, enablement, dispatch,
+  hit-testing — measures fine.
+
+**The probe discipline that would have prevented three of these.** Open the thing and read it in the
+_same_ evaluation. Every split probe here produced a confident wrong answer: a second `contextmenu`
+dispatched at an already-open wheel closed it, so focus was read on a menu that no longer existed —
+and that reading was written into a source comment claiming auto-focus was impossible. It was not.
+It worked on the first honest measurement.
 
 The rule the day actually taught: **when two or three hypotheses fail in a row, stop theorising and
 suspect the instrument.** A long stretch went into a hover "defect" that did not exist, and the
