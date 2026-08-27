@@ -63,8 +63,7 @@ import type {
   ContentRelation,
   ProjectSummary,
 } from "../database/database.client";
-import { APP_ACTIONS, isAppActionEnabled } from "../app-actions";
-import { openNewCollection } from "../collections/open-collection";
+import { APP_ACTIONS, getAppAction, isAppActionEnabled } from "../app-actions";
 import * as database from "../database/operations";
 import { noteGateway, toNote } from "../notes/note-gateway";
 import { renameNote } from "../notes/note-store";
@@ -912,21 +911,24 @@ function PaletteContent({
             none would be a collection of what — the action is named for the thing it points at, so
             it can only exist when there is one.
 
-            Not in `app-actions`, and it is the case that shape does not cover: the vocabulary is
-            one entry per argument value, which cannot enumerate "connected to *this* item". It
-            wants a real input schema, which is the open question the WebMCP spike names.
+            The verb is `collection.create.connectedTo`; this row supplies its argument. It sat
+            outside the vocabulary while "one entry per argument value" was the only shape there
+            was, because that shape cannot enumerate "connected to *this* item" — the note above
+            used to say so and named it as the WebMCP spike's open question. Entries carry an
+            ArkType `input` now, so the row is a control again rather than a capability.
+
+            Rendered here rather than by the loop above, which skips input-taking entries: a row
+            has nowhere to type an argument, and this one does not need anywhere — the selection
+            already is the argument.
           */}
           {connectionSubject === undefined ? null : (
             <Row
               icon={Link2}
               onSelect={run(() => {
-                void openNewCollection({
-                  actions,
-                  projectId,
-                  question: { connectedTo: connectionSubject.itemId },
-                  state,
-                  title: `Connected to ${connectionSubject.title}`,
-                });
+                getAppAction("collection.create.connectedTo")?.run(
+                  { actions, projectId, state },
+                  { itemId: connectionSubject.itemId },
+                );
               })}
               id="new-collection-connected"
               keywords="create list graph related"
