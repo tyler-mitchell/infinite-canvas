@@ -144,7 +144,7 @@ wolf is worse than none.
 ## Verifying in the browser
 
 Driving the running app is the only way to find most of what is wrong here, and the instruments
-lie. Ten did on 2026-08-26 alone. Each of these is a measured failure, not a caution:
+lie. Eleven did on 2026-08-26 alone. Each of these is a measured failure, not a caution:
 
 - **A screenshot is authoritative about content and unreliable about layering.** Twice, from
   unrelated directions, a capture showed content that the DOM says is not in that element — a
@@ -195,6 +195,12 @@ lie. Ten did on 2026-08-26 alone. Each of these is a measured failure, not a cau
   to a different module identity than the app's own `/src/app-actions.ts` and hands back a second,
   freshly-initialised copy: every observable on it reads empty, which looks exactly like an app with
   no data rather than like the wrong instance. Import `/src/…` to reach what is actually running.
+
+- **A probe that mutates canvas state loses its own return value.** Every call that dispatched a
+  command failed with `Promise was collected` — the canvas re-renders and the evaluation's promise
+  is discarded before it resolves. The mutation lands; only the answer is thrown away, so this reads
+  as "the call failed" when nothing failed. Dispatch in one probe and read the result in the next,
+  and never conclude from the error alone that the command did not run.
 
 **The probe discipline that would have prevented three of these.** Open the thing and read it in the
 _same_ evaluation. Every split probe here produced a confident wrong answer: a second `contextmenu`
