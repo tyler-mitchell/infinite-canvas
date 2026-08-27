@@ -189,6 +189,41 @@ test("every --icx-* token the API doc names is declared in theme.css or written 
   expect(named.filter((token) => token !== undefined && !declared.has(token))).toEqual([]);
 });
 
+/**
+ * A HUD panel that can be given an edge is one that can be given *its own* edge.
+ *
+ * Four rules make a HUD panel — the control group, a standalone button, the status card, a dock
+ * item — and each said its edge with `--icx-hud-panel-border` alone. A consumer whose language
+ * rejects outlines turns that border off and is left with a flat fill: measured in the incubator,
+ * whose own four floating surfaces carry a specular inset ring while the framework's HUD rails
+ * beside them carried none.
+ *
+ * `--icx-hud-panel-shadow` is the second way, and it was applied to those four by hand. A fifth
+ * panel added later would be missed silently, so the rule is stated instead of remembered: a
+ * selector that reaches for the border token is a panel, and a panel takes the shadow token too.
+ */
+test("every HUD panel offers an elevation token, not only a border", () => {
+  const rules = [...themeCss.matchAll(/\[data-slot="hud-[a-z-]+"\][^{]*\{([^}]*)\}/g)].map(
+    (match) => ({
+      selector: match[0].slice(0, match[0].indexOf("{")).trim(),
+      body: match[1] ?? "",
+    }),
+  );
+  const panels = rules.filter((rule) => rule.body.includes("--icx-hud-panel-border"));
+  const withoutElevation = panels
+    .filter((rule) => !rule.body.includes("--icx-hud-panel-shadow"))
+    .map((rule) => rule.selector);
+
+  expect(panels.length).toBeGreaterThan(0);
+  expect(withoutElevation).toEqual([]);
+});
+
+test("the shadow defaults to nothing, so an existing consumer sees no change", () => {
+  // The border stays the shipped answer. A default of anything else would restyle every canvas
+  // that has never heard of this token, which is not what adding an affordance may cost.
+  expect(getDeclaredThemeTokens(themeCss).get("--icx-hud-panel-shadow")).toBe("none");
+});
+
 test("no component references an --icx-* token that nothing defines or writes", () => {
   // The dangling-token check. A `var(--icx-typo)` renders as nothing and styles silently vanish.
   //

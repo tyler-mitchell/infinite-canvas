@@ -99,22 +99,20 @@
      * sRGB yields that colour at the given alpha — so every derived token
      * below holds its previous computed value to the bit.
      *
-     * SIX DO NOT DERIVE, and they are left literal and marked rather than
-     * bent to fit: the host chrome's shadow and border tints are a hand-tuned
-     * family of NEAR-accent colours (215 251 255, 190 244 255, 148 224 236,
-     * 160 210 220), the host fill sits on its own near-black, and the active
-     * HUD button's foreground is its own tint. Deriving them from the accent
-     * would have silently restyled the frame while claiming to refactor it.
+     * Six did not derive from the accent, and this paragraph used to end by
+     * calling naming them "the next step". That step was taken — see the ramp
+     * block below — so what stood here as an open finding is now a description
+     * of work already done, and is corrected rather than left to send the next
+     * reader after it.
      *
-     * **Those six are the finding**, not an oversight: they are precisely
-     * what will fight a light theme, because they encode "light tint over a
-     * dark surface" in their values rather than in a token. Giving each a
-     * semantic home is the next step and wants an eye on the result, which is
-     * why it is not done blind here.
+     * The insight it carried is still true and now lives with the rungs: the
+     * ramp runs *brighter* than the accent because it sits on a dark surface,
+     * which is exactly what a light theme inverts.
      *
-     * Consumers retheme by overriding the six below (plus the eleven bridged
-     * tokens above, which the `theme` prop also reaches). A light theme is
-     * that override and little more; it belongs in consumer CSS rather than
+     * Consumers retheme by overriding the semantic layer — the six knobs
+     * immediately below plus the five ramp rungs after them — and the eleven
+     * bridged tokens above, which the `theme` prop also reaches. A light theme
+     * is that override and little more; it belongs in consumer CSS rather than
      * here, because a theme the framework ships is not proof that a theme a
      * consumer writes would work.
      */
@@ -166,6 +164,8 @@
 
     /* Window title (src/frame-slots.tsx, text-white/58). */
     --icx-title-fg: color-mix(in srgb, var(--icx-color-foreground) 58%, transparent);
+    /* Its size, for the same reason the HUD's is a token: colour was themeable and size was not. */
+    --icx-title-font-size: 10px;
 
     /* Window control buttons (src/frame-slots.tsx). */
     --icx-control-fg: color-mix(in srgb, var(--icx-color-foreground) 46%, transparent);
@@ -254,6 +254,15 @@
      * seen, with no token to turn it off. `0` is a valid value and is the whole point of the token.
      */
     --icx-hud-blur: 8px;
+    /*
+     * The HUD's type size, shared by the status card, the dock's labels and the zoom readout.
+     *
+     * Three rules carried `11px` separately, which made the HUD's type the one part of it a
+     * consumer could not bring into their own scale — every colour was themeable and the size was
+     * not. The first consumer here happens to use 11px in its own rails, so the two agreed by
+     * coincidence rather than by contract, which is the state this token replaces.
+     */
+    --icx-hud-font-size: 11px;
     --icx-hud-panel-border: color-mix(in srgb, var(--icx-color-foreground) 10%, transparent);
     /*
      * The elevation a HUD panel carries, and the reason it defaults to nothing.
@@ -580,7 +589,7 @@
     background: var(--icx-hud-status-bg);
     box-shadow: var(--icx-hud-panel-shadow);
     color: var(--icx-hud-status-fg);
-    font-size: 11px;
+    font-size: var(--icx-hud-font-size);
     backdrop-filter: blur(var(--icx-hud-blur));
   }
 
@@ -608,7 +617,7 @@
     background: var(--icx-hud-panel-bg);
     box-shadow: var(--icx-hud-panel-shadow);
     color: var(--icx-hud-dock-item-fg);
-    font-size: 11px;
+    font-size: var(--icx-hud-font-size);
     font-weight: 500;
     transition-property:
       color, background-color, border-color, outline-color, text-decoration-color, fill, stroke,
@@ -671,7 +680,7 @@
 
   [data-slot="hud-button"][data-action="zoom-reset"] {
     color: var(--icx-hud-zoom-readout-fg);
-    font-size: 11px;
+    font-size: var(--icx-hud-font-size);
     font-weight: 500;
     text-transform: uppercase;
   }
