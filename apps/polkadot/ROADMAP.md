@@ -99,7 +99,52 @@ open because it feels good to look at. Concretely, and these are enforced in rev
 
 ## Now
 
-- [ ] **Agents reach the product through WebMCP.** Spiked by Tyler on 2026-08-26. The app half is
+- [x] **Disconnecting two items destroys authored content, and nothing can bring it back.**
+      **Closed in `2baf603`, and the scoping below is left as written because the route it proposed
+      was not the one taken.** Read it before trusting it: the schema change it describes is not
+      needed. An edge is entirely described by its two ends, its kind and its label, so an inverse
+      that reconnects with all four restores everything a reader can observe — the soft delete buys
+      only the row's identity, and nothing addresses an edge by id across a cut, since every surface
+      resolves by endpoint pair. `disconnectItems` reads the edge before the write and registers its
+      own reversal with `rememberUndoableAction`, which is the caller this entry correctly said the
+      work was waiting for and which did not exist when it was written. Driven in exactly the
+      sequence recorded below: connect as `supports`, label "load-bearing evidence", disconnect, take
+      the palette's undo row — the edge returns carrying both.
+      What is still open is smaller and named in `connection-removal-dialog.tsx`: undo is one step
+      and expires when the next reversible act replaces it, where the archive list is permanent, so
+      whether a reversible cut still warrants its confirmation dialog is a judgement nobody has made.
+      Found on 2026-08-27 by asking whether an agent driving this app can do irreversible harm —
+      a question WebMCP made worth asking, since the spec has no `destructiveHint` and
+      `selection.close` and `canvas.describe` are indistinguishable to a caller.
+      Canvas harm is fine: closing three windows through `selection.close` and calling
+      `history.undo` restored exactly the same three ids. The database is the half that history
+      does not reach. Driven: connect two notes as `supports`, label the edge "load-bearing
+      evidence", `relation.disconnect`, then `history.undo` — which answers **"Undo is not
+      available right now."** Reconnecting gives a bare `relates` edge. The kind and the label a
+      person typed are gone for good.
+      **This contradicts the app's own stated rule**, written on `archiveProjectItem`: removal is
+      archiving precisely because "nothing is destroyed, so nothing has to be weighed", and that is
+      why archiving needs no typed confirmation. `database.relations.disconnect` deletes the row,
+      so the one removal that _does_ destroy something is the one with no confirmation, no undo and
+      no archive.
+      **Half done in `b708a53`, and the half that is done is the smaller one.** `relation.disconnect`
+      now reads the edge before the write and reports what went — `contradicts 'blocks the review'` —
+      naming the two verbs that rebuild it. A default `relates` edge carrying no label stays quiet,
+      because it says nothing beyond existing and reporting it would train a caller to ignore the
+      report that matters.
+      **What is still owed is the part that helps a person.** Someone cutting a connection in the
+      library rail gets no report and no undo; the string only exists for a caller that reads tool
+      output. Making the loss _reversible_ rather than legible means an edge carries the same
+      reversible removal a content item has — a stored flag every read filters, across the rail, two
+      palette rows, the connector hotkeys and `app-actions` — and `fn::unrelate_content_items` stops
+      deleting the row. That is a schema change plus a filtered column serving a list nobody browses,
+      which is exactly why it wants a deliberate decision rather than a late-session one.
+      A returning `disconnectItems` and a `restoreRelation` were written and then deleted: no caller
+      used either, so both were speculative machinery. Whoever takes the reversible route should
+      write them again _with_ the caller that needs them, most likely an undo affordance on the
+      rail's cut control.
+
+- [x] **Agents reach the product through WebMCP.** Spiked by Tyler on 2026-08-26. The app half is
       built and tested: `app-actions.ts` is the capability vocabulary, entries whose argument cannot
       be enumerated carry an ArkType `input` whose `toJsonSchema()` is what a caller is offered and
       whose type is what the verb validates with, and `describeCanvas` / `describeProjectContent`
@@ -107,18 +152,45 @@ open because it feels good to look at. Concretely, and these are enforced in rev
       its answer by looking, and half a vocabulary for anything that cannot see the screen.
       `model-context.tsx` registers all of it, feature-detected against `document.modelContext` and
       the pre-150 `navigator.modelContext`.
-      **The registration has never executed, and cannot be made to from here.** WebMCP sits behind
-      `enable-webmcp-testing` in Chrome 146 and moves to an origin trial from 149; the dev browser
-      is 148, where the API is absent under both names. Enabling it is owner-gated twice over: the
-      flag needs a browser relaunch, and the origin-trial token needs the origin registered with
-      Google. What is verified is only that the registration is inert and harmless — the app loads,
-      detection reports `undefined`, nothing errors. Treat it as a draft that typechecks.
-      **What is not gated, and is the next real work:** the parameterized verbs have no human
-      surface. `content.open` takes an id, so the palette skips it — a row has nowhere to type an
-      argument — and no rail calls it, so today it is reachable by nothing at all. The palette
-      already has three pages (rename, label, group naming); a page that picks an argument is the
-      same shape and would make every parameterized verb drivable by hand rather than waiting on a
-      browser flag.
+      **It has now run, on 2026-08-27.** This entry said the registration had never executed and
+      could not be made to from here; both halves are obsolete. Chrome 152 with
+      `--enable-blink-features=WebMCP`, reached through `chrome-devtools-mcp
+--categoryExperimentalWebmcp`, registers **97 tools** — 75 framework verbs, 20 app verbs, 2
+      reporters. No origin-trial token was needed: the flag alone is enough on a local origin, and
+      the browser is launched by the MCP server rather than relaunched by hand.
+      Driven end to end: `canvas.describe` on an empty canvas, `note.create`, `canvas.describe`
+      again naming the window that appeared, `content.list` agreeing about the record behind it. A
+      sweep of all 83 no-argument verbs threw nothing — 41 acted, 40 refused on genuinely unmet
+      preconditions, 2 report.
+      **One correction to the tooling's own documentation.** `chrome-devtools-mcp --help` says
+      WebMCP needs `--enable-features=WebMCP`. On 152 that flag does not expose the API;
+      `--enable-blink-features=WebMCP` does. Both are passed, since they disagree and the cost is
+      nothing.
+      Two defects only running it could find, both fixed: every argument-taking verb reported
+      "done" when it had refused, because `run` returned `void` and collapsed three outcomes into
+      one; and nothing was ever unregistered, because the cleanup loop looked for a disposer return
+      that `registerTool` does not have — the spec's mechanism is an `AbortSignal`.
+      Still unverified: the declarative (`<form>`-annotation) half of WebMCP, cross-origin
+      `exposedTo`, and behaviour under a real browser-integrated agent rather than a DevTools
+      client.
+      **`untrustedContentHint` does not exist.** `docs/research/spikes.md` cites it as the reason to
+      think about security here, and it appears nowhere in the explainer — the security surface WebMCP
+      actually defines is the `tools` permissions policy, `exposedTo`, and secure-context origins.
+      The real open question, named as such in the spec, is user confirmation for consequential tool
+      calls: there is no `destructiveHint` and no elicitation mechanism, so `selection.close` and
+      `canvas.describe` are indistinguishable to a caller. This app renders third-party content and
+      registers verbs that close windows; that pairing is worth a decision before any agent beyond a
+      developer's own DevTools client is pointed at it.
+      **A correction to what this entry said one commit ago, because it was wrong and it would have
+      sent the next reader to build a surface nothing needs.** It claimed the parameterized verbs
+      have no human surface and that `content.open` is "reachable by nothing at all", and proposed a
+      palette page that picks an argument. The verb is invoked by no UI, which is true; the
+      capability it names is reachable by pointer through the library rail, which browses every kind
+      and opens what you click — driven, opening `image.png` from it. A palette page would be a
+      second way to do what the rail already does, which is the duplication this app has spent the
+      day removing rather than adding.
+      `content.open` exists for the caller that cannot point at a rail row. That is the whole reason
+      it takes an id and the reason no control invokes it, and both are correct rather than a gap.
 - [x] Vendored working `@surrealdb/wasm` 3.0.4 with `indxdb://`; deleted the 2.6.1 patch
 - [x] SPA on TanStack Router; TanStack Start removed (its dev middleware never mounted, and the
       data layer is client-only so SSR bought nothing)
@@ -198,6 +270,41 @@ open because it feels good to look at. Concretely, and these are enforced in rev
       would work.
 
 ## Next
+
+- [ ] **An agent cannot reach the document level.** Found on 2026-08-27 by reading the whole of
+      `app-actions.ts` before adding to it. The vocabulary is twenty verbs and there is no `canvas.*`
+      and no `project.*` among them: nothing creates a canvas, duplicates one, switches to one,
+      renames or archives one, and neither reporter mentions that any canvas exists but the open one.
+      An agent is confined to whichever canvas the page happened to load, with no way to learn there
+      are others.
+      **The asymmetry is what makes it plain.** `workspace.create` is an `AppAction`, so an agent can
+      make a _desktop_ — which is a filter over the windows within one canvas — while the canvas that
+      the filter is over is unreachable. `/canvas/$canvasId` is the app's primary unit and it is the
+      one thing the vocabulary cannot name.
+      **Checked against this file's own correction above, which is the test that matters here:** that
+      paragraph was written because a gap was claimed for `content.open` when the _capability_ was
+      reachable by pointer through the rail. This one survives that test. Palette rows and switcher
+      menu items are not registered as tools, and no framework command creates a canvas, because a
+      canvas is a database record rather than anything the framework models. The capability is
+      reachable by pointer and by nothing else.
+      **It is one sprint rather than three, and the reason is the reason it has not been done.** The
+      creating half is trivial now — `createCanvas`, `duplicateCanvas` and `createProject` are all
+      module functions taking the project and holding the naming lock. But a verb that makes a canvas
+      an agent can neither observe nor travel to hands back an id for something it cannot use, which
+      is the shape `AppAction.run`'s docstring is about: a caller with no second source acting on a
+      success it was told about and cannot check. So the reader and the travelling are not follow-ups.
+      **The blocker is navigation, and it is a seam rather than a missing feature.** Changing canvas
+      is a route change, and `AppActionContext` carries `actions`, `projectId` and `state` with no way
+      to reach the router — which is a local `const` in `main.tsx`, not exported. The duplication says
+      the same thing: `openCanvas` is written twice as a component-local function, in
+      `command-palette.tsx` and `canvas-switcher.tsx`, and "enter a project through its most recent
+      canvas" is written three times, in the palette, the project switcher and the `/` loader. That is
+      a capability living in click handlers, which `AGENTS.md` names as the shape to avoid, and it is
+      the same finding as the naming rules fixed in the commit above — one level up.
+      Whoever takes this should do the seam first: TanStack's documented way to navigate outside a
+      component is a router instance exported from its own module, which is also what lets one
+      `openCanvas` and one `openProject` exist at all. The verbs are cheap afterwards; they are not
+      cheap before, and splitting them out is how the slot ends up looking occupied.
 
 - [x] **Window chrome.** Outlines gone — the boxed controls, corner brackets, frame stroke, and
       the 3px accent bar were all already tokenised and simply never set. The active window is now
@@ -1109,29 +1216,42 @@ stays. What is missing is the field itself, and it is hours of careful work, not
 
 Kept here because the list _is_ the incubator's output.
 
-| Gap                                                                                                       | Generic affordance                                                                   | State  |
-| --------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ | ------ |
-| Backdrop was hardcoded                                                                                    | `renderBackdrop`, mirroring `renderOverlay`                                          | landed |
-| No way to observe "the durable document changed"                                                          | `InfiniteCanvasHandle.subscribeDocument`                                             | landed |
-| Hydration adopted a fallback's unusable viewport                                                          | `desktop.hydrate` keeps a usable viewport over the payload's                         | landed |
-| `chrome` demanded all five metrics, and the defaults are not exported                                     | `InfiniteCanvasChromeMetricsInput`, mirroring `zoomPolicy`                           | landed |
-| No DOM layer between the backdrop and the windows: connectors meant losing the grid or taking on `three`  | `renderUnderlay`, the counterpart to `renderBackdrop` and `renderOverlay`            | landed |
-| Workspaces could be walked but never entered: no command made one, named which to go to, or closed one    | `workspace.create`, `workspace.enter`, `workspace.close`                             | landed |
-| Navigation was not desktop-aware: going to a window another desktop hid panned the camera to nothing      | `window.reveal` — go where the window is, restore it, focus it                       | landed |
-| The HUD pinned itself to the element's edges, ignoring the bands every camera verb already respects       | `canvas-hud` insets its root by `viewportInsets`, per edge                           | landed |
-| The HUD's bottom edge was two absolutes pinned to opposite sides, free to grow into each other            | one flex row: the dock shrinks and wraps, the controls hold their size               | landed |
-| A dock item's padding was an inline style and its text was uppercased, over a `window.title`              | both moved into `theme.css`, where a consumer can reach them                         | landed |
-| A body wrapper fixed at `min-height: 100%` made `height: 100%` impossible for its own content             | the wrapper follows the kind's `overflowY`: growable if it scrolls, else pinned      | landed |
-| The drop system was pointer-only, so a file dragged in from the OS could reach none of it                 | the viewport bridges native drag events into the same drop interaction               | landed |
-| Six surfaces answered "which windows" without asking which desktop, so each offered what one hides        | every derived view reads the same membership the verb does                           | landed |
-| `theme.css` promised a cascade position it cannot hold, so importing it after Tailwind beat every utility | the contract documented as it is, plus a test that no rule escapes the layer         | landed |
-| Group tabs were labelled with the window's UUID, and the label policy could not be replaced               | `groupTabLabel`, defaulting to the exported `getInfiniteCanvasGroupTabLabel`         | landed |
-| Group chrome sizes were a layer prop the reducer ignored, so setting them desynced chrome from panes      | `state.groupMetrics`, read by the solver and every derived view alike                | landed |
-| Group chrome had no tokens of its own: the seam read the border colour, tab ink read the grid colour      | `--icx-group-gutter`, `--icx-group-tab-fg`, `--icx-group-surface-radius`/`-shadow`   | landed |
-| A horizontal accordion's headers ran their text across a 28px strip, so every one was a single glyph      | the header emits `data-axis`; the theme turns those labels with the strip            | landed |
-| `window.undock` and `group.dissolve` left freed members inside the shell, tab members exactly stacked     | both place through vacancy, bounded by the shell rather than the camera              | landed |
-| `presence.visible` meant "not minimized", so it held windows behind a tab and windows on another desktop  | `visible` means on screen; items carry `isHidden` and `isAdmitted`                   | landed |
-| A group's `title` was modelled, persisted and settable, and drawn nowhere — naming one was write-only     | the shell draws a frame label, sized in screen units and configurable by `labelSize` | landed |
+| Gap                                                                                                       | Generic affordance                                                                         | State  |
+| --------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ | ------ |
+| Backdrop was hardcoded                                                                                    | `renderBackdrop`, mirroring `renderOverlay`                                                | landed |
+| No way to observe "the durable document changed"                                                          | `InfiniteCanvasHandle.subscribeDocument`                                                   | landed |
+| Hydration adopted a fallback's unusable viewport                                                          | `desktop.hydrate` keeps a usable viewport over the payload's                               | landed |
+| `chrome` demanded all five metrics, and the defaults are not exported                                     | `InfiniteCanvasChromeMetricsInput`, mirroring `zoomPolicy`                                 | landed |
+| No DOM layer between the backdrop and the windows: connectors meant losing the grid or taking on `three`  | `renderUnderlay`, the counterpart to `renderBackdrop` and `renderOverlay`                  | landed |
+| Workspaces could be walked but never entered: no command made one, named which to go to, or closed one    | `workspace.create`, `workspace.enter`, `workspace.close`                                   | landed |
+| Navigation was not desktop-aware: going to a window another desktop hid panned the camera to nothing      | `window.reveal` — go where the window is, restore it, focus it                             | landed |
+| The HUD pinned itself to the element's edges, ignoring the bands every camera verb already respects       | `canvas-hud` insets its root by `viewportInsets`, per edge                                 | landed |
+| The HUD's bottom edge was two absolutes pinned to opposite sides, free to grow into each other            | one flex row: the dock shrinks and wraps, the controls hold their size                     | landed |
+| A dock item's padding was an inline style and its text was uppercased, over a `window.title`              | both moved into `theme.css`, where a consumer can reach them                               | landed |
+| A body wrapper fixed at `min-height: 100%` made `height: 100%` impossible for its own content             | the wrapper follows the kind's `overflowY`: growable if it scrolls, else pinned            | landed |
+| The drop system was pointer-only, so a file dragged in from the OS could reach none of it                 | the viewport bridges native drag events into the same drop interaction                     | landed |
+| Six surfaces answered "which windows" without asking which desktop, so each offered what one hides        | every derived view reads the same membership the verb does                                 | landed |
+| `theme.css` promised a cascade position it cannot hold, so importing it after Tailwind beat every utility | the contract documented as it is, plus a test that no rule escapes the layer               | landed |
+| Group tabs were labelled with the window's UUID, and the label policy could not be replaced               | `groupTabLabel`, defaulting to the exported `getInfiniteCanvasGroupTabLabel`               | landed |
+| Group chrome sizes were a layer prop the reducer ignored, so setting them desynced chrome from panes      | `state.groupMetrics`, read by the solver and every derived view alike                      | landed |
+| Group chrome had no tokens of its own: the seam read the border colour, tab ink read the grid colour      | `--icx-group-gutter`, `--icx-group-tab-fg`, `--icx-group-surface-radius`/`-shadow`         | landed |
+| A horizontal accordion's headers ran their text across a 28px strip, so every one was a single glyph      | the header emits `data-axis`; the theme turns those labels with the strip                  | landed |
+| `window.undock` and `group.dissolve` left freed members inside the shell, tab members exactly stacked     | both place through vacancy, bounded by the shell rather than the camera                    | landed |
+| `presence.visible` meant "not minimized", so it held windows behind a tab and windows on another desktop  | `visible` means on screen; items carry `isHidden` and `isAdmitted`                         | landed |
+| A group's `title` was modelled, persisted and settable, and drawn nowhere — naming one was write-only     | the shell draws a frame label, sized in screen units and configurable by `labelSize`       | landed |
+| `window.undock` counted the shell it was leaving as occupied, so a last member was thrown clear of it     | a shell is an obstacle only when it survives being left; `group.dissolve` already agreed   | landed |
+| A consumer placing a corner surface cannot ask where the canvas's own HUD ended up, so it guesses         | `--icx-hud-extent-bottom`/`-top`, written on the viewport — the mirror of `viewportInsets` | landed |
+| A group's frame label had no policy prop, so over a tab strip it repeated the strip's own list of members | `groupLabel`, mirroring `groupTabLabel`, defaulting to `getInfiniteCanvasGroupTitle`       | landed |
+
+**On the label row, because it is the tab-label row again and nobody noticed for the weeks between.**
+`groupTabLabel` landed when tabs were found labelled with a UUID, and the fix was the right shape: a
+policy prop with an exported default. The frame label shipped later with `labelSize` and no policy
+at all — so the same class of gap existed in the same feature, one control over, and the table above
+already described it in a row somebody had written by hand. What found it was looking at a tabbed
+group, seeing "Untitled 1 & Untitled 2" sitting directly above tabs reading "Untitled 1" and
+"Untitled 2", and asking which of the two a consumer could change. The answer was the tabs.
+The general shape is worth stating: **when a value gets a policy prop, every other place that value
+is rendered needs one too, or the next surface inherits the framework's opinion silently.**
 
 **On the group rows, because nobody had ever made a group.** The framework's
 largest feature shipped complete — gesture, keyboard path, persistence, rendering — and no
@@ -1154,6 +1274,43 @@ said so, because by every one of those measures the feature was complete. **A va
 persisted, commanded and announced, and still never reach a pixel** — and the naming feature that
 had shipped a few commits earlier was therefore write-only from the day it landed. The only
 instrument that finds this class is going and looking at the thing.
+
+**On that row, which stood here as the list's first unbuilt entry for about an hour.**
+`viewportInsets` and `viewportOccluders` both flow consumer → canvas: here is what my chrome covers,
+aim around it. Nothing flows the other way, so a consumer wanting the bottom-right corner — where
+the canvas puts its own navigation and zoom rails — has to guess where those rails end. Polkadot
+guessed 64px against an actual 114, and the map spent an unknown number of weeks with 37% of itself
+under a rail that swallowed its clicks.
+Four attempts to measure the rail from the DOM instead are recorded in `hud-clearance.ts`, and they
+are the argument for the affordance: the consumer is trying to observe, from outside, a layout the
+canvas performs — mounting after it, moving when insets apply, and doing neither in a way the
+platform reports. The canvas knows the answer at the moment it renders, so it says so now:
+`InfiniteCanvasHud` writes `--icx-hud-extent-bottom` and `-top` on the viewport in the same frame it
+lays itself out in, and `bottom: calc(var(--icx-hud-extent-bottom, 16px) + 8px)` is the whole
+consumer story. Measured against a change rather than once: with Polkadot's bottom inset at 56 the
+property reads 114px and the band's top edge measures 114; moved to 96 it reads 154 and the band
+measures 154 — derived from the layout rather than restated from it.
+The top extent is witnessed too, and it took turning something on to see it: Polkadot runs with
+`statusCard: false`, so that property publishes `0px` here and the non-zero path was reasoning
+rather than evidence. Enabling the card temporarily, `--icx-hud-extent-top` read 123px against a
+status card whose bottom edge measured 123 from the viewport's top. Reverted; the app still ships
+without the card.
+
+**Not a row, because it is a boundary rather than a gap — and it was found as a false claim.**
+`reconcileInfiniteCanvasGroups` said by name and date that it heals a canvas saved holding a decayed
+shell, citing this app's own layout on 2026-08-27. It does not. Decay is "more than one member
+before, one after", `before` is the tree the pass receives, and a tree saved already collapsed to one
+loses nothing during the pass — so the rule cannot fire. The existing hydration test constructs the
+other shape, a tree still naming a window that has been deleted, and passes. This canvas still holds
+the shell across a full reload: one member, 544×720, named "Untitled 6 & Connected to Untitled 6"
+after Untitled 6 had gone.
+It cannot be repaired by dissolving every single-member group, which is the obvious fix and the
+wrong one: `undock` produces that shape deliberately under DOCK-006 and `serializeInfiniteCanvasState`
+writes it — measured as `{"tree":{"id":"east","kind":"window","weight":1}}`, the same bytes a decayed
+shell writes. The document carries nothing to tell the two apart, so dissolving on sight would delete
+part of an arrangement someone made. What changed is the comment and the tests, which now say what
+the code guarantees; relaxing the predicate fails exactly one test in the package, and before this it
+failed none.
 
 **On the row above them, because the count is the finding.** One omission repeated six
 times: `window.reveal` panned to a rect nothing renders, the offscreen ring aimed arrows at hidden
