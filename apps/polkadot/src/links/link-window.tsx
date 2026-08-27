@@ -123,6 +123,19 @@ export function LinkWindowBody({ linkId }: Readonly<{ linkId: string }>) {
       {isAddress ? (
         <iframe
           className={styles.frame()}
+          /*
+           * Deferred until the window is near the viewport, because a canvas is a surface built to
+           * hold many of these at once. Eager is the default and was the only line in this element
+           * nothing had argued for: opening a canvas with a dozen link windows fetched a dozen
+           * pages, each running its own scripts, including windows parked somewhere the camera may
+           * never go.
+           *
+           * The framework's culling does not cover this and is not meant to: `content-visibility`
+           * skips *rendering* work for an offscreen frame, and a document still loads. Laziness is
+           * the browser's own answer to the other half, and it reads the frame's real position, so
+           * a window transformed offscreen counts as offscreen.
+           */
+          loading="lazy"
           referrerPolicy="no-referrer"
           // `allow-same-origin` keeps the embedded page on its own origin, which most sites need to
           // run at all. It is not this document's origin, so it grants nothing here.
