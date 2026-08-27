@@ -11,6 +11,7 @@ import { LISTABLE_KINDS } from "./collections/listable-kinds";
 import { getProjectContent, projectContent$ } from "./content/project-content";
 import { openNewCollection } from "./collections/open-collection";
 import { openNewNote } from "./notes/open-note";
+import { connectItems, disconnectItems, RELATION_KINDS } from "./relations/relation-store";
 
 /**
  * What this app can do, as a vocabulary rather than a set of click handlers.
@@ -89,7 +90,93 @@ const OPEN_INPUT = type({ itemId: "string" });
  */
 const CONNECTED_INPUT = type({ itemId: "string" });
 
+/**
+ * Joining two items, and the one place the entry-per-value rule is deliberately not applied.
+ *
+ * That rule — `collection.create.link` rather than a create verb taking a kind — exists to remove an
+ * argument, so it pays wherever the values are the *only* argument. Here they are not: the endpoints
+ * cannot be enumerated, so this verb takes input whichever way `kind` is expressed, and splitting it
+ * five ways would publish five tools differing by one word while still requiring input. The enum
+ * carries the same information in one place, and `toJsonSchema()` puts the five values in front of a
+ * caller exactly as five entries would.
+ *
+ * Both ends are item ids, not window ids: an edge joins records, and the pair need not be open.
+ */
+const CONNECT_INPUT = type({
+  "kind?": type.enumerated(...RELATION_KINDS),
+  sourceItemId: "string",
+  targetItemId: "string",
+});
+
+/** No kind, because disconnecting does not need to know what the edge claimed. */
+const DISCONNECT_INPUT = type({ sourceItemId: "string", targetItemId: "string" });
+
+/**
+ * Both ends resolved against the same cache `content.list` reads, so what a caller can list is what
+ * it can join — the coherence `content.open` already keeps.
+ *
+ * An item joined to itself is refused rather than stored. The gesture cannot express it, because a
+ * drag starts on one window and ends on another, so it has never been reachable; a verb that can
+ * express it should not be the way a self-edge first enters the database.
+ */
+const resolveEndpoints = (
+  projectId: string,
+  ends: Readonly<{ sourceItemId: string; targetItemId: string }>,
+) => {
+  const items = getProjectContent(projectContent$.peek(), projectId);
+  const source = items?.find((candidate) => candidate.id === ends.sourceItemId);
+  const target = items?.find((candidate) => candidate.id === ends.targetItemId);
+
+  return source === undefined || target === undefined || source.id === target.id
+    ? null
+    : { source: source.id, target: target.id };
+};
+
 const APP_ACTIONS: readonly AppAction[] = [
+  {
+    description:
+      "Connect two items, optionally saying what the connection means. Ids come from content.list.",
+    id: "relation.connect",
+    input: CONNECT_INPUT,
+    label: "Connect two items",
+    run: ({ projectId }, input) => {
+      const parsed = CONNECT_INPUT(input);
+
+      if (parsed instanceof type.errors) {
+        return;
+      }
+
+      const ends = resolveEndpoints(projectId, parsed);
+
+      if (ends !== null) {
+        void connectItems({ kind: parsed.kind, projectId, ...ends });
+      }
+    },
+  },
+  {
+    description: "Remove the connection between two items, if they are connected.",
+    id: "relation.disconnect",
+    input: DISCONNECT_INPUT,
+    label: "Disconnect two items",
+    run: ({ projectId }, input) => {
+      const parsed = DISCONNECT_INPUT(input);
+
+      if (parsed instanceof type.errors) {
+        return;
+      }
+
+      const ends = resolveEndpoints(projectId, parsed);
+
+      /*
+       * Undirected, matching `findRelation`: a caller naming the pair in the other order means the
+       * same edge. `database.relations.disconnect` removes the pair however it was stored, so the
+       * order a caller happens to say is not a way to fail.
+       */
+      if (ends !== null) {
+        void disconnectItems({ projectId, ...ends });
+      }
+    },
+  },
   {
     description:
       "Open a window listing everything connected to the item with this id, as listed by content.list.",

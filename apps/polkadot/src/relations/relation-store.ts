@@ -88,11 +88,20 @@ async function loadRelations(projectId: string) {
   }
 }
 
+/**
+ * `kind` is optional because the pointer gesture cannot express one.
+ *
+ * Dragging a line between two windows says they belong together and nothing more, so the drag
+ * stores the default and the connector's menu says what it means afterwards. A caller that is not
+ * dragging is under no such limit — `database.relations.connect` has always taken a kind, and this
+ * hardcoded the default over it, which left the typed half of the model reachable only by editing
+ * an edge that already existed.
+ */
 async function connectItems(
-  input: Readonly<{ projectId: string; source: string; target: string }>,
+  input: Readonly<{ kind?: RelationKind; projectId: string; source: string; target: string }>,
 ) {
   await database.relations.connect({
-    kind: DEFAULT_RELATION_KIND,
+    kind: input.kind ?? DEFAULT_RELATION_KIND,
     source: input.source,
     target: input.target,
   });

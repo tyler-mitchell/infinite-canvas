@@ -4,9 +4,11 @@ import {
   type InfiniteCanvasCommand,
   type InfiniteCanvasCommands,
 } from "@hyphened/infinite-canvas";
+import { type } from "arktype";
 import { expect, test } from "vite-plus/test";
 
 import { getAppAction } from "./app-actions";
+import { RELATION_KINDS } from "./relations/relation-store";
 import type { WindowKind } from "./canvas/window-registry";
 import { projectContent$, type ProjectContent } from "./content/project-content";
 
@@ -179,6 +181,71 @@ test("a connected-to collection refuses an id it cannot resolve", () => {
   attempt(undefined, stored);
 
   expect(opened).toStrictEqual([]);
+});
+
+/**
+ * Joining two items was reachable by a pointer and by nothing else.
+ *
+ * `connectItems` and `disconnectItems` existed as module functions, called from a drag gesture and
+ * from palette rows — so on a canvas whose point is relating things, relating was the one capability
+ * an agent could not perform. The report now says how the project is joined; these are the verbs
+ * that let a caller act on what it read.
+ *
+ * Only the schema is asserted, for the reason the connected-to verb above gives: the success path
+ * writes to the database before anything is observable, so a synchronous assertion would be checking
+ * a mock rather than the code. The schema is not a mock — it is the same declaration the verb
+ * narrows with and the one `model-context` publishes, so a caller is offered exactly this.
+ */
+const relationInput = (id: string) => getAppAction(id)?.input;
+
+test("connecting takes two item ids, because an edge joins records rather than windows", () => {
+  const input = relationInput("relation.connect");
+
+  expect(input?.({ sourceItemId: "item-1", targetItemId: "item-2" })).toStrictEqual({
+    sourceItemId: "item-1",
+    targetItemId: "item-2",
+  });
+  expect(input?.({ sourceItemId: "item-1" })).toBeInstanceOf(type.errors);
+  expect(input?.({ windowId: "note-1" })).toBeInstanceOf(type.errors);
+});
+
+test("a connection can say what it means, and only in the words the model has", () => {
+  const input = relationInput("relation.connect");
+
+  expect(
+    input?.({ kind: "supports", sourceItemId: "item-1", targetItemId: "item-2" }),
+  ).toStrictEqual({ kind: "supports", sourceItemId: "item-1", targetItemId: "item-2" });
+  // Not one of RELATION_KINDS. Accepting it would store a kind nothing renders and nothing queries.
+  expect(
+    input?.({ kind: "vaguely about", sourceItemId: "item-1", targetItemId: "item-2" }),
+  ).toBeInstanceOf(type.errors);
+});
+
+test("the kind is optional, because the drag gesture cannot express one either", () => {
+  expect(
+    relationInput("relation.connect")?.({ sourceItemId: "item-1", targetItemId: "item-2" }),
+  ).not.toBeInstanceOf(type.errors);
+});
+
+test("the published schema offers the five kinds, so a caller need not guess them", () => {
+  const schema = relationInput("relation.connect")?.toJsonSchema() as
+    | Readonly<{ properties: Readonly<{ kind: Readonly<{ enum?: readonly string[] }> }> }>
+    | undefined;
+
+  // Compared as a set: ArkType emits the values sorted, and a JSON Schema enum is a set anyway.
+  expect([...(schema?.properties.kind.enum ?? [])].sort()).toStrictEqual(
+    [...RELATION_KINDS].sort(),
+  );
+});
+
+test("disconnecting names the pair and nothing else", () => {
+  const input = relationInput("relation.disconnect");
+
+  expect(input?.({ sourceItemId: "item-1", targetItemId: "item-2" })).toStrictEqual({
+    sourceItemId: "item-1",
+    targetItemId: "item-2",
+  });
+  expect(input?.({})).toBeInstanceOf(type.errors);
 });
 
 test("the verbs that take nothing publish no input, so they stay palette rows", () => {
