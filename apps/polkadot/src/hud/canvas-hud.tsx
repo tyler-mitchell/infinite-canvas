@@ -314,13 +314,29 @@ function GroupRail() {
   return (
     <HudSurface anchor="bottom-center-above" present={group.inGroup}>
       <div className={styles.rail()}>
-        <LayoutSelector
-          layout={layout}
-          onSelect={(next) => {
-            actions.executeCommand({ layout: next, type: "group.setLayout" });
-          }}
-        />
-        <span className={styles.divider()} />
+        {/*
+          Absent when the group has no arrangement, rather than shown with nothing selected.
+
+          A group can hold one window — undock one member of a pair and the survivor's tree root is
+          the window node itself. The framework then drops every `group.setLayout` verb from its
+          contextual list; measured on a live canvas, not merely disabled but absent. This rail drew
+          the selector anyway: three segments, all `aria-pressed="false"`, none of which did
+          anything, and nothing on screen saying why.
+
+          Undock and ungroup stay — both are still enabled for a lone grouped window, and both mean
+          something: one frees it, the other dissolves the group around it.
+        */}
+        {layout === null ? null : (
+          <>
+            <LayoutSelector
+              layout={layout}
+              onSelect={(next) => {
+                actions.executeCommand({ layout: next, type: "group.setLayout" });
+              }}
+            />
+            <span className={styles.divider()} />
+          </>
+        )}
         <Verb
           icon={Grip}
           label="Undock this window"
