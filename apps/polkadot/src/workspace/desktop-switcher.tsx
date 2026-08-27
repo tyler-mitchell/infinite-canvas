@@ -3,8 +3,6 @@ import {
   useInfiniteCanvasSelector,
   type InfiniteCanvasWindow,
 } from "@hyphened/infinite-canvas";
-import { useObservable, useValue } from "@legendapp/state/react";
-import { getHotkeyManager } from "@tanstack/hotkeys";
 import {
   ArrowDown,
   ArrowDownToLine,
@@ -16,7 +14,6 @@ import {
   Plus,
   X,
 } from "lucide-react";
-import { useEffect, useRef } from "react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -31,6 +28,7 @@ import {
 import { tv } from "ui/tv";
 
 import type { WindowKind } from "../canvas/window-registry";
+import { useInlineRename } from "./use-inline-rename";
 
 /**
  * Which desktop you are on, and every way of changing that.
@@ -96,9 +94,6 @@ export function DesktopSwitcher() {
   const actions = useInfiniteCanvasActions();
   const activeWorkspaceId = useInfiniteCanvasSelector((state) => state.activeWorkspaceId);
   const workspaces = useInfiniteCanvasSelector((state) => state.workspaces);
-  const draftTitle$ = useObservable<string | null>(null);
-  const draftTitle = useValue(draftTitle$);
-  const inputRef = useRef<HTMLInputElement>(null);
   const windows = useInfiniteCanvasSelector<
     WindowKind,
     readonly InfiniteCanvasWindow<WindowKind>[]
@@ -151,56 +146,14 @@ export function DesktopSwitcher() {
           selectedWindowIds.some((windowId) => !workspace.windowIds.includes(windowId)),
         );
 
-  const commitRename = () => {
-    const title = (draftTitle$.peek() ?? "").trim();
-
-    draftTitle$.set(null);
-
-    if (active !== undefined && title.length > 0 && title !== active.title) {
-      actions.setWorkspaceTitle({ title, workspaceId: active.id });
-    }
-  };
-
-  /**
-   * Enter and Escape through the hotkey manager, scoped to the field — the same bargain the canvas
-   * switcher strikes. `ignoreInputs: false` because the target *is* an input, and the manager owns
-   * conflict detection rather than each field deciding for itself.
-   */
-  useEffect(() => {
-    const node = inputRef.current;
-
-    if (node === null) {
-      return;
-    }
-
-    // Selected on arrival, because renaming a desktop is replacing its name far more often than
-    // editing it. `autoFocus` alone leaves the caret at the end, so the first thing typed lands
-    // after the old name — "Desktop 1Research". Here rather than in `onFocus`, which React's
-    // `autoFocus` beats to the element.
-    node.select();
-
-    const manager = getHotkeyManager();
-    const handles = [
-      manager.register("Enter", commitRename, { ignoreInputs: false, target: node }),
-      manager.register(
-        "Escape",
-        () => {
-          draftTitle$.set(null);
-        },
-        { ignoreInputs: false, target: node },
-      ),
-    ];
-
-    return () => {
-      for (const handle of handles) {
-        if (handle.isActive) {
-          handle.unregister();
-        }
+  const rename = useInlineRename({
+    current: active?.title,
+    onRename: (title) => {
+      if (active !== undefined) {
+        actions.setWorkspaceTitle({ title, workspaceId: active.id });
       }
-    };
-    // Re-registers when the field appears or disappears, not on every keystroke.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [active?.id, draftTitle !== null, draftTitle$]);
+    },
+  });
 
   // No desktops means no question to answer. The first one is made from the palette, and a switcher
   // over an empty set is a control that teaches nothing while taking rail space forever.
@@ -210,20 +163,8 @@ export function DesktopSwitcher() {
 
   // Renaming replaces the trigger rather than opening a dialog: the name is already here and
   // already the right size.
-  if (draftTitle !== null) {
-    return (
-      <input
-        aria-label="Desktop name"
-        autoFocus
-        className={styles.input()}
-        onBlur={commitRename}
-        onChange={(event) => {
-          draftTitle$.set(event.target.value);
-        }}
-        ref={inputRef}
-        value={draftTitle}
-      />
-    );
+  if (rename.draft !== null) {
+    return <input aria-label="Desktop name" className={styles.input()} {...rename.inputProps} />;
   }
 
   return (
@@ -346,11 +287,7 @@ export function DesktopSwitcher() {
         {active === undefined ? null : (
           <>
             <DropdownMenuSeparator />
-            <DropdownMenuItem
-              onClick={() => {
-                draftTitle$.set(active.title);
-              }}
-            >
+            <DropdownMenuItem onClick={rename.start}>
               <PencilLine />
               Rename
             </DropdownMenuItem>

@@ -1,5 +1,4 @@
 import { useObservable, useValue } from "@legendapp/state/react";
-import { getHotkeyManager } from "@tanstack/hotkeys";
 import { useNavigate, useRouter } from "@tanstack/react-router";
 import {
   Archive,
@@ -10,7 +9,6 @@ import {
   Plus,
   Trash2,
 } from "lucide-react";
-import { useEffect, useRef } from "react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -27,6 +25,7 @@ import { tv } from "ui/tv";
 import type { CanvasSummary } from "../database/database.client";
 import * as database from "../database/operations";
 import { CanvasRemovalDialog } from "./canvas-removal-dialog";
+import { useInlineRename } from "./use-inline-rename";
 import { createCanvas } from "./create-canvas";
 
 /**
@@ -63,13 +62,10 @@ export function CanvasSwitcher({
   const router = useRouter();
   const canvases$ = useObservable<readonly CanvasSummary[]>([]);
   const archived$ = useObservable<readonly CanvasSummary[]>([]);
-  const draftTitle$ = useObservable<string | null>(null);
   const isRemoving$ = useObservable(false);
   const canvases = useValue(canvases$);
   const archived = useValue(archived$);
-  const draftTitle = useValue(draftTitle$);
   const isRemoving = useValue(isRemoving$);
-  const inputRef = useRef<HTMLInputElement>(null);
   const styles = canvasSwitcher();
 
   const openCanvas = (nextCanvasId: string) => {
@@ -89,78 +85,19 @@ export function CanvasSwitcher({
     void navigate({ to: "/" });
   };
 
-  const commitRename = () => {
-    const nextTitle = (draftTitle$.peek() ?? "").trim();
-
-    draftTitle$.set(null);
-
-    if (nextTitle.length > 0 && nextTitle !== title) {
-      // The title on screen comes from the route loader, so the rename is only visible once that
-      // loader runs again.
+  const rename = useInlineRename({
+    current: title,
+    // The title on screen comes from the route loader, so the rename is only visible once that
+    // loader runs again.
+    onRename: (nextTitle) => {
       void database.canvases.rename({ canvasId, title: nextTitle }).then(() => router.invalidate());
-    }
-  };
-
-  /**
-   * Enter and Escape go through the hotkey manager, not an `onKeyDown`.
-   *
-   * `ignoreInputs: false` because the target *is* the input — the default exists to stop global
-   * chords firing while someone types, which is the opposite of what these two are for. Scoping
-   * to the element means they exist only while the field does, and the manager owns conflict
-   * detection rather than each field deciding for itself.
-   */
-  useEffect(() => {
-    const node = inputRef.current;
-
-    if (node === null) {
-      return;
-    }
-
-    // Selected on arrival, for the reason `desktop-switcher` records: renaming is replacing far
-    // more often than editing, and `autoFocus` alone leaves the caret at the end, so the first
-    // thing typed lands *after* the old name — "Main canvasQ3". That fix was made for desktops and
-    // stayed there; this field and the project's had the same shape and neither had it.
-    node.select();
-
-    const manager = getHotkeyManager();
-    const handles = [
-      manager.register("Enter", commitRename, { ignoreInputs: false, target: node }),
-      manager.register(
-        "Escape",
-        () => {
-          draftTitle$.set(null);
-        },
-        { ignoreInputs: false, target: node },
-      ),
-    ];
-
-    return () => {
-      for (const handle of handles) {
-        if (handle.isActive) {
-          handle.unregister();
-        }
-      }
-    };
-    // Re-registers when the field appears or disappears, not on every keystroke.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [canvasId, draftTitle !== null, draftTitle$, router, title]);
+    },
+  });
 
   // Renaming replaces the trigger rather than opening a dialog. The name is already here and
   // already the right size; a modal to change one word is ceremony.
-  if (draftTitle !== null) {
-    return (
-      <input
-        aria-label="Canvas name"
-        autoFocus
-        className={styles.input()}
-        onBlur={commitRename}
-        onChange={(event) => {
-          draftTitle$.set(event.target.value);
-        }}
-        ref={inputRef}
-        value={draftTitle}
-      />
-    );
+  if (rename.draft !== null) {
+    return <input aria-label="Canvas name" className={styles.input()} {...rename.inputProps} />;
   }
 
   return (
@@ -229,11 +166,7 @@ export function CanvasSwitcher({
             </DropdownMenuGroup>
           ) : null}
           <DropdownMenuSeparator />
-          <DropdownMenuItem
-            onClick={() => {
-              draftTitle$.set(title);
-            }}
-          >
+          <DropdownMenuItem onClick={rename.start}>
             <PencilLine />
             Rename
           </DropdownMenuItem>

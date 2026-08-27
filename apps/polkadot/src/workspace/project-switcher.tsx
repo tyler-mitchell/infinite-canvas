@@ -1,8 +1,6 @@
 import { useObservable, useValue } from "@legendapp/state/react";
-import { getHotkeyManager } from "@tanstack/hotkeys";
 import { useNavigate, useRouter } from "@tanstack/react-router";
 import { Archive, ArchiveRestore, FolderPlus, PencilLine, Trash2 } from "lucide-react";
-import { useEffect, useRef } from "react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -17,6 +15,7 @@ import {
 import { tv } from "ui/tv";
 
 import { initialLayout } from "../canvas/canvas-document";
+import { useInlineRename } from "./use-inline-rename";
 import type { ProjectSummary } from "../database/database.client";
 import * as database from "../database/operations";
 import { ProjectRemovalDialog } from "./project-removal-dialog";
@@ -51,13 +50,10 @@ export function ProjectSwitcher({
   const router = useRouter();
   const projects$ = useObservable<readonly ProjectSummary[]>([]);
   const archived$ = useObservable<readonly ProjectSummary[]>([]);
-  const draftTitle$ = useObservable<string | null>(null);
   const isRemoving$ = useObservable(false);
   const projects = useValue(projects$);
   const archived = useValue(archived$);
-  const draftTitle = useValue(draftTitle$);
   const isRemoving = useValue(isRemoving$);
-  const inputRef = useRef<HTMLInputElement>(null);
   const styles = projectSwitcher();
 
   // `/` re-resolves the most recent canvas across whatever projects remain, and bootstraps a
@@ -82,65 +78,17 @@ export function ProjectSwitcher({
     });
   };
 
-  const commitRename = () => {
-    const nextTitle = (draftTitle$.peek() ?? "").trim();
-
-    draftTitle$.set(null);
-
-    if (nextTitle.length > 0 && nextTitle !== projectTitle) {
+  const rename = useInlineRename({
+    current: projectTitle,
+    onRename: (nextTitle) => {
       void database.projects
         .rename({ projectId, title: nextTitle })
         .then(() => router.invalidate());
-    }
-  };
+    },
+  });
 
-  useEffect(() => {
-    const node = inputRef.current;
-
-    if (node === null) {
-      return;
-    }
-
-    // Selected on arrival — see `desktop-switcher`, where this was found and fixed. Without it
-    // `autoFocus` leaves the caret past the seeded name and the first keystroke appends to it.
-    node.select();
-
-    const manager = getHotkeyManager();
-    const handles = [
-      manager.register("Enter", commitRename, { ignoreInputs: false, target: node }),
-      manager.register(
-        "Escape",
-        () => {
-          draftTitle$.set(null);
-        },
-        { ignoreInputs: false, target: node },
-      ),
-    ];
-
-    return () => {
-      for (const handle of handles) {
-        if (handle.isActive) {
-          handle.unregister();
-        }
-      }
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [draftTitle !== null, draftTitle$, projectId, projectTitle, router]);
-
-  if (draftTitle !== null) {
-    return (
-      <input
-        aria-label="Project name"
-        autoFocus
-        className={styles.input()}
-        onBlur={commitRename}
-        onChange={(event) => {
-          draftTitle$.set(event.target.value);
-        }}
-        ref={inputRef}
-        value={draftTitle}
-      />
-    );
+  if (rename.draft !== null) {
+    return <input aria-label="Project name" className={styles.input()} {...rename.inputProps} />;
   }
 
   return (
@@ -203,11 +151,7 @@ export function ProjectSwitcher({
             </DropdownMenuGroup>
           ) : null}
           <DropdownMenuSeparator />
-          <DropdownMenuItem
-            onClick={() => {
-              draftTitle$.set(projectTitle);
-            }}
-          >
+          <DropdownMenuItem onClick={rename.start}>
             <PencilLine />
             Rename project
           </DropdownMenuItem>
