@@ -10,6 +10,7 @@ import {
   type InfiniteCanvasState,
 } from "@hyphened/infinite-canvas";
 
+import { showsContentItem } from "./content-window-data";
 import type { WindowData, WindowKind } from "./window-registry";
 
 /**
@@ -127,19 +128,6 @@ function getPlacedRect(
   });
 }
 
-/**
- * Whether a window is already showing this content item.
- *
- * A structural read rather than the registry's ArkType schema, and deliberately so: importing
- * `ContentWindowData` here would close a cycle, since the registry reaches for every kind's body
- * and those bodies reach back for this opener. The shape being asked about is one field, and the
- * guard is the whole of the check rather than a cast buried in a comparison.
- */
-const showsItem = (data: unknown, itemId: string) =>
-  typeof data === "object" &&
-  data !== null &&
-  (data as Readonly<{ itemId?: unknown }>).itemId === itemId;
-
 function openContentWindow<Kind extends WindowKind>(
   input: WindowPlacement &
     Readonly<{
@@ -167,7 +155,9 @@ function openContentWindow<Kind extends WindowKind>(
    * the window may be minimized or on another desktop, and revealing is the framework's one verb
    * for all of that.
    */
-  const existing = input.state.windows.find((window) => showsItem(window.data, input.data.itemId));
+  const existing = input.state.windows.find((window) =>
+    showsContentItem(window, input.data.itemId),
+  );
 
   if (existing !== undefined) {
     input.actions.executeCommand({ type: "window.reveal", windowId: existing.id });

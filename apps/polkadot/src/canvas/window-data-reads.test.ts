@@ -48,22 +48,21 @@ const WINDOW_DATA_CAST = /\bdata\s+as\s+(?:Readonly\s*<|\{|[A-Z])/;
 const isComment = (line: string) => /^\s*(?:\/\/|\/\*|\*)/.test(line);
 
 /**
- * The one structural read that stays.
+ * There are no exemptions, and there was one.
  *
- * `showsItem` in `open-window.ts` cannot import the registry's schema — the registry reaches every
- * kind's body and those bodies reach back for the opener, so the import would close a cycle. Its
- * own docstring says so, and it reads the current field. Named here rather than pattern-matched,
- * so adding a second exemption is a decision somebody writes down.
+ * `showsItem` in `open-window.ts` held the app's last structural cast because it could not import
+ * the registry's schema: the registry reaches every kind's body and those bodies reach back for the
+ * opener, so a value import would have closed a cycle. That was a true constraint about where the
+ * schema *lived*, not about the opener — moving `ContentWindowData` into a module that imports
+ * nothing let the opener guard like everything else, and this test is what noticed, since an
+ * exemption whose file no longer holds the read fails rather than passing quietly.
+ *
+ * If a second one is ever needed, it goes back as a named set with the same failing check beside
+ * it, so an exemption for a read that has since been fixed cannot outlive it.
  */
-const EXEMPT = new Set(["canvas/open-window.ts"]);
-
 test("no source casts a window's data payload instead of guarding it", () => {
   const offenders = sources.flatMap((path) => {
     const relative = path.slice(sourceRoot.length);
-
-    if (EXEMPT.has(relative)) {
-      return [];
-    }
 
     return readFileSync(path, "utf8")
       .split("\n")
@@ -77,13 +76,16 @@ test("no source casts a window's data payload instead of guarding it", () => {
   expect(offenders).toEqual([]);
 });
 
-test("the exemption names a file that exists and still holds the read it is exempt for", () => {
-  // An exemption for a file that has moved is an exemption for nothing, and it fails open.
-  for (const relative of EXEMPT) {
-    const source = readFileSync(join(sourceRoot, relative), "utf8");
+test("the opener guards rather than casts, which is what removed the last exemption", () => {
+  /*
+   * Named rather than left to the scan above, because the scan passing is also what a deleted file
+   * looks like. The opener is the one place a cast survived on a structural argument, so it is worth
+   * asserting it still reads the payload and reads it through the schema.
+   */
+  const opener = readFileSync(join(sourceRoot, "canvas/open-window.ts"), "utf8");
 
-    expect(source.split("\n").some((line) => WINDOW_DATA_CAST.test(line))).toBe(true);
-  }
+  expect(opener).toContain("showsContentItem");
+  expect(opener.split("\n").some((line) => WINDOW_DATA_CAST.test(line))).toBe(false);
 });
 
 test("the check bites on the exact cast that was there", () => {

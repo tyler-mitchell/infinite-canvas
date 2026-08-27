@@ -2,8 +2,16 @@ import {
   defineInfiniteCanvasWindowRegistry,
   getInfiniteCanvasWindowData,
 } from "@hyphened/infinite-canvas";
-import { type } from "arktype";
 import { tv } from "ui/tv";
+
+/*
+ * The payload schema is a leaf module rather than a definition here, and the reason is structural.
+ *
+ * This file imports every kind's body and those bodies import `open-window`, so the opener could
+ * never import a *value* from here — it kept a hand-rolled structural cast instead, the only one
+ * left in the app. Moving the schema somewhere that imports nothing lets the opener reach it.
+ */
+import { ContentWindowData, getContentWindowItemId } from "./content-window-data";
 
 /*
  * Imported rather than wrapped in a lazy `await import`, which is what used to sit here.
@@ -36,34 +44,6 @@ import { NoteWindowBody } from "../notes/note-window";
  */
 
 type WindowKind = "collection" | "image" | "link" | "note";
-
-/**
- * What every window on this canvas carries: the id of the content item it shows.
- *
- * One schema for every kind, and the second kind is what proved it had to be. These were
- * `{ noteId }` and `{ imageId }` — the same fact under two names, since `window.kind` already says
- * which sort of item it is. Two names cost more than tidiness: nothing could ask a window what it
- * was bound to without knowing its kind first, so the connector layer resolved notes and only
- * notes, and an image could not be connected to anything even though `relates_to` has admitted any
- * content item to any other since the first migration.
- *
- * A canvas saved before this reads `{ noteId }`, which no longer validates — those windows say they
- * are unbound and the note is reopened from the library. The records themselves are untouched; only
- * the binding is, and the repo keeps no compatibility path for a shape it has replaced.
- */
-const ContentWindowData = type({ itemId: "string" });
-type ContentWindowData = typeof ContentWindowData.infer;
-
-/**
- * The content item a window shows, or `null` when it is bound to none.
- *
- * One expression, in one place, because the field name has moved once and every surface that had
- * spelled it out for itself kept compiling and stopped working. Through the schema rather than a
- * cast: an assertion about `unknown` cannot fail at runtime, it just yields `undefined` forever.
- * `window-data-reads.test.ts` holds the line.
- */
-const getContentWindowItemId = (window: Readonly<{ data?: unknown }>) =>
-  getInfiniteCanvasWindowData(window, ContentWindowData.allows)?.itemId ?? null;
 
 type WindowData = Readonly<{
   collection: ContentWindowData;
