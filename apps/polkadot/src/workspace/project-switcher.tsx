@@ -101,6 +101,10 @@ export function ProjectSwitcher({
       return;
     }
 
+    // Selected on arrival — see `desktop-switcher`, where this was found and fixed. Without it
+    // `autoFocus` leaves the caret past the seeded name and the first keystroke appends to it.
+    node.select();
+
     const manager = getHotkeyManager();
     const handles = [
       manager.register("Enter", commitRename, { ignoreInputs: false, target: node }),

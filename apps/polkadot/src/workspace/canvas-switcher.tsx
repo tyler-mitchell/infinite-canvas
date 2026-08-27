@@ -116,6 +116,12 @@ export function CanvasSwitcher({
       return;
     }
 
+    // Selected on arrival, for the reason `desktop-switcher` records: renaming is replacing far
+    // more often than editing, and `autoFocus` alone leaves the caret at the end, so the first
+    // thing typed lands *after* the old name — "Main canvasQ3". That fix was made for desktops and
+    // stayed there; this field and the project's had the same shape and neither had it.
+    node.select();
+
     const manager = getHotkeyManager();
     const handles = [
       manager.register("Enter", commitRename, { ignoreInputs: false, target: node }),
