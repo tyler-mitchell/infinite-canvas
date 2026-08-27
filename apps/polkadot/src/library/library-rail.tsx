@@ -478,8 +478,22 @@ export function LibraryRail({
             it is blank rather than 0 until there is an answer, for the same reason `emptyState` is
             blank: a 0 nobody has counted yet is a wrong number, not a pending one. */}
         <span className={styles.total()}>{listing === null ? null : notes.length}</span>
+        {/*
+          The word on this button is where it takes you, so it cannot also be a pressed state.
+
+          It carried `aria-pressed={archived}` alongside a label that names the *destination*, and
+          the two halves said opposite things: standing in the archive, the button reads "Notes" and
+          announced itself pressed — "Notes, toggle button, pressed" — which claims Notes is the
+          view you are in when Archived is. Sighted review cannot catch it, because the visible word
+          is the right one.
+
+          A destination label makes this an action, not a toggle, so the state claim goes and the
+          name says what pressing it does. Which view you are in is the heading beside it, and that
+          is where it belongs. `aria-label` keeps the visible word inside it, so speaking "archive"
+          still reaches this button.
+        */}
         <button
-          aria-pressed={archived}
+          aria-label={archived ? "Show notes" : "Show archive"}
           className={styles.viewToggle()}
           onClick={() => {
             archived$.set(!archived);

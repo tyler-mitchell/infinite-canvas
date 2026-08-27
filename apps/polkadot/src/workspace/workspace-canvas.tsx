@@ -131,10 +131,16 @@ function IdentityRail({
 
   return (
     <div className={styles.rail()}>
-      {/* The way back when the rail is collapsed, and a second way out while it is open. */}
+      {/*
+        The way back when the rail is collapsed, and a second way out while it is open.
+
+        No `aria-pressed`, for the reason the rail's own view toggle lost it: the name here is the
+        action, so a state claim beside it contradicts it. With the library showing, this read
+        "Hide library, toggle button, pressed" — announcing that hiding is engaged while the library
+        is on screen. A name that already says what pressing does needs no second opinion about it.
+      */}
       <Button
         aria-label={libraryOpen ? "Hide library" : "Show library"}
-        aria-pressed={libraryOpen}
         onClick={onToggleLibrary}
         size="icon-sm"
         title={libraryOpen ? "Hide library" : "Show library"}
