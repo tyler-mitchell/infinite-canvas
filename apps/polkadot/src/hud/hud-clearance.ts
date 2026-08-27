@@ -30,6 +30,17 @@
  * observer here.
  */
 
+/*
+ * It does not depend on the viewport, and that was worth checking rather than assuming.
+ *
+ * The published extent is measured from the viewport's own bottom edge, so the arithmetic is the
+ * same at any size — but the four failed attempts above were all things that looked
+ * size-independent and were not. Driven at 1440×900, 900×600 and 640×420: the property reads 114px
+ * at each, the band's top edge measures 114 at each, and the map overlaps neither the canvas HUD nor
+ * the library rail. At the smallest of those the rail is 41% of the width, which is the arrangement
+ * most likely to have collided.
+ */
+
 /** Where a corner surface sits when the canvas draws no HUD at all — the ordinary corner offset. */
 const BARE_CORNER_PX = 16;
 

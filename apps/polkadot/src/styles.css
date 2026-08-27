@@ -121,7 +121,22 @@
   --lift-2: 0 2px 4px oklch(0 0 0 / 0.44), 0 12px 32px oklch(0 0 0 / 0.36);
   --lift-3: 0 4px 8px oklch(0 0 0 / 0.5), 0 24px 64px oklch(0 0 0 / 0.44);
 
-  /* Motion. `swift` for state, `settle` for anything that moves in space. */
+  /*
+   * Motion. `swift` for state, `settle` for anything that moves in space.
+   *
+   * **`settle` has no consumer, and that is the honest state of it.** Counted: it appears twice in
+   * this repo, here and in a comment naming it. Every CSS transition in the running app — all 151 —
+   * resolves to `swift`, because everything CSS animates here is a state change: a colour, an
+   * opacity, a fill. `swift` is also the default curve now, so an unspecified transition takes it.
+   *
+   * Nothing moves in space by CSS. The things that do — a HUD surface arriving, the layout
+   * selector's indicator travelling between segments — are sprung through `motion`, and a real
+   * spring is better at that than any bezier, so this curve is not waiting for them.
+   *
+   * Kept rather than deleted because `ROADMAP.md` names the pair as the bar, and a token vanishing
+   * from under a document that describes it is worse than an unused one. Recorded here so the next
+   * reader learns it from the declaration instead of from a search that comes back empty.
+   */
   --ease-swift: cubic-bezier(0.32, 0.72, 0, 1);
   --ease-settle: cubic-bezier(0.16, 1, 0.3, 1);
 
