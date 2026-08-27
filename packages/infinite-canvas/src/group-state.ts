@@ -187,6 +187,32 @@ function getNextInfiniteCanvasGroupZIndex<Kind extends string>(
 }
 
 /**
+ * What a group is called when nobody named it: what is in it.
+ *
+ * The default was the literal string "Group", which said nothing and was invisible for as long as
+ * nothing drew a group's name. Now that the shell renders it, every group anyone makes draws the
+ * word "Group" over itself — and a canvas of them is a canvas of identical labels.
+ *
+ * Windows carry a required `title`, so the framework can do better than a placeholder without
+ * knowing anything about a consumer's content. Two are joined; beyond that the first is named and
+ * the rest counted, which is how every mail client writes a thread and degrades at any width.
+ * `DEFAULT_INFINITE_CANVAS_GROUP_TITLE` remains the answer when there is nothing to name.
+ */
+function getInfiniteCanvasGroupMemberTitle(titles: readonly string[]): string {
+  const [first, second] = titles;
+
+  if (first === undefined) {
+    return DEFAULT_INFINITE_CANVAS_GROUP_TITLE;
+  }
+
+  if (second === undefined) {
+    return first;
+  }
+
+  return titles.length === 2 ? `${first} & ${second}` : `${first} and ${titles.length - 1} more`;
+}
+
+/**
  * Build a group from floating windows. Members are laid out as one horizontal
  * split, in the order given, sharing the shell equally.
  *
@@ -249,7 +275,15 @@ function createInfiniteCanvasGroup<Kind extends string>(
       {
         id: groupId,
         rect,
-        title: title ?? DEFAULT_INFINITE_CANVAS_GROUP_TITLE,
+        title:
+          title ??
+          getInfiniteCanvasGroupMemberTitle(
+            members.map(
+              (windowId) =>
+                state.windows.find((window) => window.id === windowId)?.title ??
+                DEFAULT_INFINITE_CANVAS_GROUP_TITLE,
+            ),
+          ),
         tree: normalized,
         zIndex: getNextInfiniteCanvasGroupZIndex(state),
       },
@@ -769,17 +803,35 @@ function applyInfiniteCanvasDockPreview<Kind extends string>(
   const seeded = createInfiniteCanvasGroup(state, {
     groupId,
     rect: target.rect,
-    title: target.title,
+    // No title here on purpose. The group is minted with one member and gains the second on the
+    // very next line, so any name chosen now is a name for half of it — this passed `target.title`
+    // and left a pair called after whichever window was stood on.
     windowIds: [target.id],
   });
-
-  return dockInfiniteCanvasWindowIntoGroup(seeded, {
+  const docked = dockInfiniteCanvasWindowIntoGroup(seeded, {
     containerId: preview.containerId,
     edge: preview.edge,
     groupId,
     targetId: preview.targetId,
     windowId: preview.windowId,
   });
+  const group = findInfiniteCanvasGroup(docked, groupId);
+
+  // Named once the membership is settled, and only for a group this call just created — docking
+  // into an existing one goes down the branch above and never reaches here, so a name a user chose
+  // is never overwritten.
+  return group === null
+    ? docked
+    : renameInfiniteCanvasGroup(docked, {
+        groupId,
+        title: getInfiniteCanvasGroupMemberTitle(
+          getInfiniteCanvasGroupWindowIds(group.tree).map(
+            (windowId) =>
+              docked.windows.find((window) => window.id === windowId)?.title ??
+              DEFAULT_INFINITE_CANVAS_GROUP_TITLE,
+          ),
+        ),
+      });
 }
 
 /**

@@ -62,7 +62,9 @@ test("a commanded undock leaves the window clear of the shell it left", () => {
   const freed = after.windows.find((window) => window.id === "guest");
   const shell = after.groups[0];
 
-  expect(JSON.stringify(after.groups)).not.toContain("guest");
+  // The tree, not the whole group: a group's *title* may legitimately still name a former member,
+  // and stringifying the lot made this pass or fail on that rather than on membership.
+  expect(JSON.stringify(after.groups.map((group) => group.tree))).not.toContain("guest");
   expect(freed).toBeDefined();
   expect(shell).toBeDefined();
   expect(overlaps(freed?.rect ?? shell!.rect, shell!.rect)).toBe(false);
