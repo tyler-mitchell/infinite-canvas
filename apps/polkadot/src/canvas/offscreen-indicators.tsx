@@ -7,6 +7,7 @@ import {
 } from "@hyphened/infinite-canvas";
 import { tv } from "ui/tv";
 
+import { FLOATING_SURFACE } from "../material";
 import type { WindowKind } from "./window-registry";
 
 /**
@@ -71,7 +72,7 @@ const indicators = tv({
      * Rotating the chip would rotate its text and its shadow with it — the shadow is what makes it
      * read as floating above the canvas, and a shadow pointing sideways reads as a mistake.
      */
-    chip: "pointer-events-auto absolute grid size-6 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-[var(--radius-pill)] bg-[var(--surface)] text-[var(--ink-faint)] shadow-[var(--lift-1)] inset-ring-1 inset-ring-[var(--edge-light)] backdrop-blur-2xl transition-colors duration-100 ease-[var(--ease-swift)] hover:text-[var(--ink)]",
+    chip: `pointer-events-auto absolute grid size-6 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-[var(--radius-pill)] ${FLOATING_SURFACE} text-[var(--ink-faint)] shadow-[var(--lift-1)] transition-colors duration-100 ease-[var(--ease-swift)] hover:text-[var(--ink)]`,
     root: "pointer-events-none absolute inset-0 z-70",
   },
   variants: {

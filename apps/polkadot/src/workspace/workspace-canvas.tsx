@@ -26,6 +26,7 @@ import { CommandPalette } from "../hud/command-palette";
 import { useHudOccluders } from "../hud/hud-occluders";
 import { Minimap } from "../hud/minimap";
 import { LibraryRail, RAIL_INSET } from "../library/library-rail";
+import { FLOATING_SURFACE } from "../material";
 import { ModelContextTools } from "../model-context";
 import { openNewNote } from "../notes/open-note";
 import { loadRelations, relations$ } from "../relations/relation-store";
@@ -61,7 +62,7 @@ const workspace = tv({
   slots: {
     brand: "flex items-center gap-1.5 pr-1 pl-1.5",
     divider: "mx-1 h-4 w-px bg-[var(--border)]",
-    rail: "flex items-center gap-1 rounded-[var(--radius-pill)] bg-[var(--surface)] p-1 shadow-[var(--lift-2)] inset-ring-1 inset-ring-[var(--edge-light)]",
+    rail: `flex items-center gap-1 rounded-[var(--radius-pill)] ${FLOATING_SURFACE} p-1 shadow-[var(--lift-2)]`,
     root: "relative h-dvh min-h-0 overflow-hidden bg-[var(--ground)]",
     status:
       "flex items-center gap-2 rounded-[var(--radius-pill)] py-1 pr-3 pl-2.5 text-[11px] tracking-[-0.005em] transition-colors duration-200 ease-[var(--ease-swift)]",

@@ -27,6 +27,7 @@ import { tv } from "ui/tv";
 import { useValue } from "@legendapp/state/react";
 
 import { getAppAction, isAppActionEnabled } from "../app-actions";
+import { FLOATING_SURFACE } from "../material";
 import { openProject$ } from "../projects/open-project";
 import { OffscreenIndicators } from "../canvas/offscreen-indicators";
 import type { WindowKind } from "../canvas/window-registry";
@@ -63,10 +64,9 @@ const canvasHud = tv({
     layoutRow: "relative flex items-center gap-0.5",
     noticeIcon: "size-3.5 shrink-0 text-[var(--danger)]",
     noticeKinds: "font-mono text-[11px] text-[var(--ink-faint)]",
-    noticeRail:
-      "flex items-center gap-2 rounded-[var(--radius-pill)] bg-[var(--surface)] py-1 pr-1 pl-2.5 shadow-[var(--lift-2)] inset-ring-1 inset-ring-[var(--edge-light)]",
+    noticeRail: `flex items-center gap-2 rounded-[var(--radius-pill)] ${FLOATING_SURFACE} py-1 pr-1 pl-2.5 shadow-[var(--lift-2)]`,
     noticeText: "text-[11.5px] tracking-[-0.005em] text-[var(--ink-muted)]",
-    rail: "flex items-center gap-0.5 rounded-[var(--radius-pill)] bg-[var(--surface)] p-1 shadow-[var(--lift-2)] inset-ring-1 inset-ring-[var(--edge-light)]",
+    rail: `flex items-center gap-0.5 rounded-[var(--radius-pill)] ${FLOATING_SURFACE} p-1 shadow-[var(--lift-2)]`,
   },
 });
 

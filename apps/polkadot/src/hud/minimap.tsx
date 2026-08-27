@@ -11,6 +11,7 @@ import { Button } from "ui";
 import { tv } from "ui/tv";
 
 import type { WindowKind } from "../canvas/window-registry";
+import { FLOATING_SURFACE } from "../material";
 import { useHudOccluder } from "./hud-occluders";
 import { HudSurface } from "./hud-surfaces";
 
@@ -68,8 +69,7 @@ const minimap = tv({
   slots: {
     /** The map itself is not a button, so its own close control has to opt back in. */
     close: "absolute top-1 right-1 z-10",
-    frame:
-      "relative overflow-hidden rounded-[var(--radius-md)] bg-[var(--surface)] shadow-[var(--lift-2)] inset-ring-1 inset-ring-[var(--edge-light)]",
+    frame: `relative overflow-hidden rounded-[var(--radius-md)] ${FLOATING_SURFACE} shadow-[var(--lift-2)]`,
     group: "fill-[var(--surface-hover)]",
     /** Cross-hatched with the ground so the map reads as a window onto the canvas, not a card. */
     plate: "block cursor-crosshair touch-none bg-[var(--ground)]",
