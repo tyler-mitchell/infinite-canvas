@@ -24,6 +24,7 @@ import { CanvasHud } from "../hud/canvas-hud";
 import { CommandPalette } from "../hud/command-palette";
 import { Minimap, MINIMAP_INSET } from "../hud/minimap";
 import { LibraryRail, RAIL_INSET } from "../library/library-rail";
+import { ModelContextTools } from "../model-context";
 import { openNewNote } from "../notes/open-note";
 import { loadRelations, relations$ } from "../relations/relation-store";
 import { SavedViewMenu } from "../views/saved-view-menu";
@@ -299,6 +300,8 @@ export function WorkspaceCanvas({ canvas }: Readonly<{ canvas: LoadedCanvas }>) 
                 are looking at.
               */}
               <ConnectorDraft projectId={canvas.projectId} />
+              {/* Renders nothing; registers the app's verbs for an agent. Inert without WebMCP. */}
+              <ModelContextTools projectId={canvas.projectId} />
               <CanvasHud
                 commandPalette={<CommandPalette projectId={canvas.projectId} />}
                 conflict={
