@@ -22,6 +22,7 @@ import { useCanvasRuntime } from "../canvas/use-canvas-runtime";
 import { windowDefinitions, type WindowKind } from "../canvas/window-registry";
 import { CanvasHud } from "../hud/canvas-hud";
 import { CommandPalette } from "../hud/command-palette";
+import { useHudOccluders } from "../hud/hud-occluders";
 import { Minimap, MINIMAP_INSET } from "../hud/minimap";
 import { LibraryRail, RAIL_INSET } from "../library/library-rail";
 import { ModelContextTools } from "../model-context";
@@ -202,6 +203,8 @@ export function WorkspaceCanvas({ canvas }: Readonly<{ canvas: LoadedCanvas }>) 
   const runtime = useCanvasRuntime(canvas);
   const library$ = useObservable(true);
   const libraryOpen = useValue(library$);
+  // What the HUD's floating surfaces are covering, each measured from its own element.
+  const occluders = useHudOccluders();
   /**
    * Open by default, and refundable.
    *
@@ -249,14 +252,23 @@ export function WorkspaceCanvas({ canvas }: Readonly<{ canvas: LoadedCanvas }>) 
            * that fights every camera command while looking finished.
            */
           viewportInsets={{
-            // The map is a corner surface described as a band, because an inset is one number per
-            // edge. Overstating it costs a strip of empty canvas; understating it would put a note
-            // under the map every time the camera fits or reveals, which is the bug insets exist
-            // to prevent.
+            // Only what genuinely spans an edge. The map used to be in this number as a full-width
+            // band, because an inset is one number per edge and a corner has no other way to be
+            // said — 168 of 900 pixels reserved for a box covering about 1% of them. It declares
+            // its own rect through `viewportOccluders` now.
             bottom: minimapOpen ? MINIMAP_INSET : BOTTOM_INSET,
             left: libraryOpen ? RAIL_INSET : 0,
             top: TOP_INSET,
           }}
+          /*
+           * The chrome that sits *inside* the canvas rather than bracketing it.
+           *
+           * Each surface measures itself and reports its rect, so this is what is actually covered
+           * rather than a second copy of the layout that positions it. Framing still aims at the
+           * whole content region — a corner should not shrink what the camera fills — while
+           * placement steps around the real shape.
+           */
+          viewportOccluders={occluders}
           /*
            * Backspace and Delete, for the one thing on this canvas the framework cannot name.
            *

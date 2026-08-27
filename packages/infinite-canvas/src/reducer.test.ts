@@ -19,6 +19,7 @@ const baseState: InfiniteCanvasState<TestWindowKind> = {
   activeWorkspaceId: null,
   groupMetrics: DEFAULT_INFINITE_CANVAS_GROUP_METRICS,
   groups: [],
+  viewportOccluders: [],
   workspaces: [],
   history: { future: [], past: [] },
   interaction: null,

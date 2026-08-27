@@ -291,6 +291,7 @@ export {
    * the framework's to own.
    */
   getInfiniteCanvasContentWorldRect,
+  getInfiniteCanvasOccluderWorldRects,
   getRectCenter,
   getVisibleWorldRect,
   isUsableViewport,
@@ -479,6 +480,7 @@ export type {
    */
   InfiniteCanvasViewportInsets,
   InfiniteCanvasViewportInsetsInput,
+  InfiniteCanvasViewportOccluder,
   InfiniteCanvasWindow,
   InfiniteCanvasWindowBodyPointerBehavior,
   InfiniteCanvasWindowDefinition,

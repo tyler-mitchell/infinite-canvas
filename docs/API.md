@@ -1,6 +1,6 @@
 # API Reference
 
-The public surface of `@hyphened/infinite-canvas`: 223 values and 186 types across
+The public surface of `@hyphened/infinite-canvas`: 224 values and 187 types across
 two entries. Anything not exported from a barrel is internal and unstable —
 including every `data-infinite-canvas-*` attribute, which is a behavioural hook
 for hit-testing, not a styling contract.
@@ -628,6 +628,14 @@ legitimately need, plus the default policies.
 
 - `getInfiniteCanvasContentViewport`
 - `getInfiniteCanvasContentWorldRect`
+- `getInfiniteCanvasOccluderWorldRects` — where the consumer's in-content chrome falls in the
+  world. **Insets cannot express a corner**: one number per edge describes a band, so a minimap in
+  a corner has to be overstated as a full-width strip or left undeclared. The incubator measured
+  that at 168 of 900 pixels — 19% of the viewport reserved for a box covering about 1% of it.
+  Screen rects in, world rects out, so the result drops into the `occupied` list
+  `getInfiniteCanvasVacantRect` already takes: chrome the camera flies over is an occupant, not an
+  edge. Deliberately not used for framing — a corner should not shrink the rect the camera fills,
+  which would reintroduce the same overstatement one layer down
 - `getRectCenter`
 - `getVisibleWorldRect`
 - `isUsableViewport`
@@ -1202,6 +1210,9 @@ name.
 - `InfiniteCanvasTheme`
 - `InfiniteCanvasViewport as InfiniteCanvasViewportSize`
 - `InfiniteCanvasViewportInsets`, `InfiniteCanvasViewportInsetsInput`
+- `InfiniteCanvasViewportOccluder` — a rect of the viewport the consumer's chrome covers, in
+  **screen** pixels. Its own name rather than a bare rect because the space is the point: every
+  other rect in this API is world units
 - `InfiniteCanvasWindow`
 - `InfiniteCanvasWindowBodyPointerBehavior`
 - `InfiniteCanvasWindowDefinition`

@@ -13,6 +13,7 @@ import type {
   InfiniteCanvasSize,
   InfiniteCanvasViewport,
   InfiniteCanvasViewportInsets,
+  InfiniteCanvasViewportOccluder,
   InfiniteCanvasZoomPolicy,
 } from "./types";
 
@@ -581,6 +582,42 @@ function getInfiniteCanvasContentWorldRect(
   };
 }
 
+/**
+ * Where a consumer's in-content chrome falls in the world right now.
+ *
+ * The companion to the function above, for the question insets cannot answer. An inset is one
+ * number per edge, so it describes a *band*; chrome that sits inside the content area — a corner
+ * minimap, a floating toolbar — has to be either overstated as a full-width strip or left
+ * undeclared. The incubator measured that trade at 168 of 900 pixels, 19% of the viewport written
+ * off to describe a 140×80 map.
+ *
+ * Screen rects in, world rects out, so the result drops straight into the `occupied` list a
+ * placement search already takes: chrome the camera flies over is an occupant, not an edge.
+ *
+ * Deliberately *not* used for framing. A corner occluder should not shrink the rect the camera
+ * fills, or fitting content would leave a margin as wide as the map — the overstatement this
+ * exists to remove, reintroduced one layer down. The two questions differ: "what region should I
+ * aim at" reads insets, "is this exact spot covered" reads both.
+ */
+function getInfiniteCanvasOccluderWorldRects(
+  camera: InfiniteCanvasCamera,
+  viewport: InfiniteCanvasViewport,
+  occluders: readonly InfiniteCanvasViewportOccluder[],
+): readonly InfiniteCanvasRect[] {
+  const scale = Math.max(camera.zoom, Number.EPSILON);
+
+  return occluders.map((occluder) => {
+    const origin = screenPointToWorldPoint(camera, viewport, { x: occluder.x, y: occluder.y });
+
+    return {
+      height: occluder.height / scale,
+      width: occluder.width / scale,
+      x: origin.x,
+      y: origin.y,
+    };
+  });
+}
+
 function getAdaptiveGridSpacing(zoom: number) {
   const exponent = clamp(Math.floor(Math.log2(1 / zoom)), -2, 4);
 
@@ -644,6 +681,7 @@ export {
   getConstrainedZoom,
   getInfiniteCanvasContentViewport,
   getInfiniteCanvasContentWorldRect,
+  getInfiniteCanvasOccluderWorldRects,
   getInfiniteCanvasInsetCameraCenter,
   getRectFromPoints,
   getRectCenter,

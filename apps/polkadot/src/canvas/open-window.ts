@@ -1,6 +1,7 @@
 import {
   createInfiniteCanvasWindow,
   getInfiniteCanvasContentWorldRect,
+  getInfiniteCanvasOccluderWorldRects,
   getInfiniteCanvasVacantRect,
   getInfiniteCanvasWindowPlacementRect,
   isInfiniteCanvasWindowInActiveWorkspace,
@@ -79,6 +80,20 @@ function getPlacedRect(
     bounds,
     gapPx: WINDOW_GAP,
     occupied: [
+      /*
+       * The app's own floating chrome, as occupants rather than as an edge.
+       *
+       * The minimap is a corner, and `bounds` above is derived from insets — one number per edge,
+       * so it can only describe a band. Declaring the map as a band reserved a full-width strip
+       * nothing was covering; declaring it here is the other half of that trade, and the reason
+       * the strip could be given back. A window is as hidden behind the map as behind another
+       * window, which is exactly what an occupant means.
+       */
+      ...getInfiniteCanvasOccluderWorldRects(
+        input.state.camera,
+        input.state.viewport,
+        input.state.viewportOccluders,
+      ),
       /*
        * The shells, because a group takes up more room than its members do.
        *

@@ -99,6 +99,8 @@ function cloneInfiniteCanvasState<Kind extends string>(
     selection: cloneSelection(state.selection),
     viewport: cloneSize(state.viewport),
     viewportInsets: { ...state.viewportInsets },
+    // The rects too, not just the array: a consumer hands these over and keeps the objects.
+    viewportOccluders: state.viewportOccluders.map((occluder) => ({ ...occluder })),
     windows: state.windows.map(cloneWindow),
     workspaces: state.workspaces.map(cloneWorkspace),
   };

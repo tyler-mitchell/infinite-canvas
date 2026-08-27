@@ -94,6 +94,9 @@ const ACTION_COMMAND_COVERAGE: Readonly<
   // Same category as measuring the viewport: the host declares how much of it its own chrome
   // covers. A palette entry cannot know, and a user cannot want to invoke it.
   "viewportInsets.set": "lifecycle",
+  // The same declaration in the shape an inset cannot describe — a corner map, a floating bar.
+  // Still the host's measurement of its own chrome, so still nothing a palette could offer.
+  "viewportOccluders.set": "lifecycle",
   // The host's chrome sizes, declared on mount alongside the insets. Same reasoning.
   "groupMetrics.set": "lifecycle",
   // Creating and titling a set stays the consumer's: a palette entry cannot invent which set,

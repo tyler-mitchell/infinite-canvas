@@ -6,10 +6,12 @@ import {
   type InfiniteCanvasMinimapLayout,
 } from "@hyphened/infinite-canvas";
 import { Map, X } from "lucide-react";
+import { useRef } from "react";
 import { Button } from "ui";
 import { tv } from "ui/tv";
 
 import type { WindowKind } from "../canvas/window-registry";
+import { useHudOccluder } from "./hud-occluders";
 import { HudSurface } from "./hud-surfaces";
 
 /**
@@ -45,14 +47,16 @@ const MINIMAP_SIZE = { height: 104, width: 156 } as const;
 const MINIMAP_PADDING_PX = 6;
 
 /**
- * What the open map covers, measured from the viewport's bottom edge.
+ * The band the app reserves along the bottom while the map is open — now only the framework's own
+ * navigation rail, not the map.
  *
- * The map's own height, the gap it sits above the framework's navigation rail, and that rail's
- * own band. Declared as one number because `viewportInsets` takes one number per edge — the
- * consequence being that the map has to be described as a full-width band along the bottom rather
- * than as the corner it actually occupies.
+ * This used to be `MINIMAP_SIZE.height + 64`, because `viewportInsets` takes one number per edge
+ * and so could only describe the map as a full-width strip. Overstating it wrote off 168 of 900
+ * pixels — 19% of the viewport — to reserve room for a box covering about 1%. The map declares its
+ * own rect through `viewportOccluders` now, so what remains here is the part that genuinely does
+ * span the edge.
  */
-const MINIMAP_INSET = MINIMAP_SIZE.height + 64;
+const MINIMAP_INSET = 64;
 
 const minimap = tv({
   slots: {
@@ -112,6 +116,16 @@ export function Minimap({
   const actions = useInfiniteCanvasActions<WindowKind>();
   const state = useInfiniteCanvasState<WindowKind>();
   const styles = minimap();
+  /*
+   * The map declares the rect it covers, which is what stops it being described as a band.
+   *
+   * Only while it is open: closed, it is a single icon button that windows may sit under happily,
+   * and reserving a corner for a thing that is not there is the same overstatement in miniature.
+   */
+  const frameRef = useRef<HTMLDivElement>(null);
+
+  useHudOccluder("minimap", frameRef, open);
+
   const layout = open
     ? getInfiniteCanvasMinimapLayout(state, MINIMAP_SIZE, {
         paddingPx: MINIMAP_PADDING_PX,
@@ -163,7 +177,7 @@ export function Minimap({
         make the reserved gap read as a bug rather than as a panel. It is also the surface most
         worth having while the camera is moving, which is when every other surface recedes.
       */}
-      <div className={styles.frame()}>
+      <div className={styles.frame()} ref={frameRef}>
         <Button
           aria-label="Hide the map"
           className={styles.close()}

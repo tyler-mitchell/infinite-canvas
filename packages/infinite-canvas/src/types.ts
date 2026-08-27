@@ -434,6 +434,23 @@ type InfiniteCanvasState<Kind extends string = string> = Readonly<{
    * reason `viewport` is not: it describes the window being looked through, not the canvas.
    */
   viewportInsets: InfiniteCanvasViewportInsets;
+  /**
+   * Chrome that sits *inside* the content area rather than bracketing it — a corner minimap, a
+   * floating toolbar — as screen-space rects.
+   *
+   * **Insets cannot express a corner**, and that is the whole reason this exists. One number per
+   * edge describes a band, so a 140×80 map in the bottom-right has to be declared as a full-width
+   * strip across the bottom. The incubator wrote that trade down three separate times before this
+   * was built: overstating costs a strip of empty canvas — measured at 168 of 900 pixels, 19% of
+   * the viewport — and understating puts a window under the map.
+   *
+   * The split is by *question*, not by chrome. Framing reads insets alone: a corner occluder should
+   * not shrink the rect the camera fills, or fitting content would leave a margin the width of the
+   * whole map. Placement and anchoring read both, because "is this exact spot covered" is a
+   * different question from "what region should I aim at", and only the first one cares about a
+   * corner. Not serialized, for the same reason insets are not.
+   */
+  viewportOccluders: readonly InfiniteCanvasViewportOccluder[];
   windows: readonly InfiniteCanvasWindow<Kind>[];
   workspaces: readonly InfiniteCanvasWorkspace[];
 }>;
@@ -461,6 +478,15 @@ type InfiniteCanvasSerializedState<Kind extends string = string> = Readonly<{
   windows: readonly InfiniteCanvasWindow<Kind>[];
   workspaces?: readonly InfiniteCanvasWorkspace[];
 }>;
+
+/**
+ * A rect of the viewport a consumer's chrome covers, in **screen** pixels from the viewport's
+ * top-left — the same space `viewport` and `viewportInsets` are measured in.
+ *
+ * Its own name rather than a bare rect, because the space is the whole point: every other rect in
+ * this API is world units, and a screen rect handed to a world consumer is wrong by the camera.
+ */
+type InfiniteCanvasViewportOccluder = InfiniteCanvasRect;
 
 type InfiniteCanvasChromeMetrics = Readonly<{
   borderWidth: number;
@@ -1477,6 +1503,10 @@ type InfiniteCanvasAction<Kind extends string = string> =
   | Readonly<{ type: "viewport.set"; viewport: InfiniteCanvasViewport }>
   | Readonly<{ metrics: InfiniteCanvasGroupMetrics; type: "groupMetrics.set" }>
   | Readonly<{ insets: InfiniteCanvasViewportInsets; type: "viewportInsets.set" }>
+  | Readonly<{
+      occluders: readonly InfiniteCanvasViewportOccluder[];
+      type: "viewportOccluders.set";
+    }>
   | Readonly<{ title: string; type: "window.setTitle"; windowId: string }>
   | Readonly<{ type: "window.close"; windowId: string }>
   | Readonly<{ type: "window.focus"; windowId: string }>
@@ -1747,6 +1777,7 @@ export type {
   InfiniteCanvasViewport,
   InfiniteCanvasViewportInsets,
   InfiniteCanvasViewportInsetsInput,
+  InfiniteCanvasViewportOccluder,
   InfiniteCanvasWindow,
   InfiniteCanvasWindowBodyPointerBehavior,
   InfiniteCanvasWindowDefinition,

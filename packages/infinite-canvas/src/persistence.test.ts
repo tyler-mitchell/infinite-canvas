@@ -20,6 +20,7 @@ const state: InfiniteCanvasState<PersistedWindowKind> = {
     zoom: 1.5,
   },
   activeWorkspaceId: null,
+  viewportOccluders: [],
   groupMetrics: DEFAULT_INFINITE_CANVAS_GROUP_METRICS,
   groups: [],
   workspaces: [],

@@ -14,6 +14,7 @@ import type {
   InfiniteCanvasState,
   InfiniteCanvasViewport,
   InfiniteCanvasViewportInsetsInput,
+  InfiniteCanvasViewportOccluder,
   InfiniteCanvasWindow,
   InfiniteCanvasWindowDefinition,
   InfiniteCanvasWindowCapabilities,
@@ -46,6 +47,7 @@ type InfiniteCanvasStateInput<Kind extends string> = Readonly<{
   selection?: InfiniteCanvasSelection | readonly string[];
   viewport?: InfiniteCanvasViewport;
   viewportInsets?: InfiniteCanvasViewportInsetsInput;
+  viewportOccluders?: readonly InfiniteCanvasViewportOccluder[];
   windows: readonly InfiniteCanvasWindow<Kind>[];
 }>;
 
@@ -153,6 +155,7 @@ function createInfiniteCanvasState<Kind extends string>({
   selection,
   viewport = DEFAULT_INFINITE_CANVAS_VIEWPORT,
   viewportInsets,
+  viewportOccluders = [],
   windows,
   workspaces = [],
 }: InfiniteCanvasStateInput<Kind>): InfiniteCanvasState<Kind> {
@@ -185,6 +188,9 @@ function createInfiniteCanvasState<Kind extends string>({
     // No chrome until a consumer says otherwise, so a canvas that never sets them behaves exactly
     // as it did before insets existed.
     viewportInsets: resolveInfiniteCanvasViewportInsets(viewportInsets),
+    // Chrome that sits inside the content area rather than bracketing it. Empty by default: a
+    // canvas that declares none behaves exactly as it did before occluders existed.
+    viewportOccluders,
     windows: uniqueWindows.map((window) =>
       createInfiniteCanvasWindow({
         ...window,

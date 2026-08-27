@@ -138,6 +138,7 @@ import type {
   InfiniteCanvasWindowRegistry,
   InfiniteCanvasChromeMetricsInput,
   InfiniteCanvasViewportInsetsInput,
+  InfiniteCanvasViewportOccluder,
   InfiniteCanvasZoomPolicy,
   InfiniteCanvasZoomPolicyInput,
 } from "./types";
@@ -217,6 +218,19 @@ type InfiniteCanvasViewportProps<
    * what the user can actually see.
    */
   viewportInsets?: InfiniteCanvasViewportInsetsInput;
+  /**
+   * Chrome drawn *inside* the content area rather than bracketing it, as screen-space rects.
+   *
+   * An inset is one number per edge, so it can only describe a band. A minimap in a corner or a
+   * toolbar floating over the middle has to be overstated as a full-width strip — which writes off
+   * a band of canvas nothing is actually covering — or left undeclared, which puts windows under
+   * it. Name the rect instead and placement steps around the real shape while framing keeps aiming
+   * at the whole content region.
+   *
+   * Memoize an inline array, the same rule `windowDefinitions` carries: this is depended on by
+   * identity, because a list of rects has no fixed set of fields to depend on one at a time.
+   */
+  viewportOccluders?: readonly InfiniteCanvasViewportOccluder[];
   dropPolicy?: InfiniteCanvasDropPolicy<Kind, Payload>;
   /**
    * The sizes a group's chrome is solved from: tab strip height, split seam width, accordion
@@ -645,6 +659,7 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
   theme,
   title = "",
   viewportInsets,
+  viewportOccluders,
   windowDefinitions,
   zoomPolicy = resolveInfiniteCanvasZoomPolicy(),
 }: InfiniteCanvasViewportProps<Kind, Payload>) {
@@ -1104,6 +1119,19 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
     viewportInsets?.right,
     viewportInsets?.top,
   ]);
+
+  /*
+   * Identity, not fields, unlike the insets above.
+   *
+   * Insets are four numbers and can be depended on one at a time, which is what stops an inline
+   * object literal re-dispatching every render. A list of rects has no fixed shape to enumerate, so
+   * the contract is the other way round: a consumer passing an inline array must memoize it, the
+   * same rule `windowDefinitions` already carries. The dispatch is idempotent in the reducer, so the
+   * cost of getting it wrong is a re-render rather than a loop.
+   */
+  useEffect(() => {
+    actions.dispatch({ occluders: viewportOccluders ?? [], type: "viewportOccluders.set" });
+  }, [actions, viewportOccluders]);
 
   useEffect(() => {
     const node = commandSurfaceRef.current;

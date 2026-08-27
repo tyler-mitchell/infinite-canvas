@@ -48,6 +48,10 @@ const PERSISTENCE: Readonly<Record<keyof InfiniteCanvasState<Kind>, NotPersisted
   // than restoring a viewport: a layout saved while a sidebar was open would keep reserving that
   // space in a build where the sidebar no longer exists.
   viewportInsets: "measured",
+  // The same chrome, in the shape an inset cannot describe. Measured for the same reason and with
+  // a sharper version of it: an occluder is a screen rect, so a persisted one would be restored at
+  // coordinates from someone else's window size and cover a region nothing is drawn over.
+  viewportOccluders: "measured",
   windows: "persisted",
   workspaces: "persisted",
 };
