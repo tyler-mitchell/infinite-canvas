@@ -199,6 +199,9 @@
     /* Group chrome (src/group-layer.tsx). The seam is a control, not a border. */
     --icx-group-gutter: var(--icx-idle-border);
     --icx-group-tab-fg: var(--icx-grid-major);
+    --icx-group-label-fg: var(--icx-group-tab-fg);
+    /* The shell the active window is in. Named so it can be quieter than the accent, or louder. */
+    --icx-group-label-fg-active: var(--icx-color-accent);
     --icx-group-surface-radius: 2px;
     --icx-group-surface-shadow: none;
 
@@ -682,6 +685,18 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+
+  /*
+   * The shell holding the active window says so, and its name is how it says it.
+   *
+   * A consumer's group controls act on the container the active window is in, and until the shell
+   * carried that state nothing on the canvas identified which of several groups that was. Said in
+   * the label rather than with an outline, because a group has no border to light and the name is
+   * already the thing a reader looks at to tell one shell from another.
+   */
+  [data-slot="group-shell"][data-active] [data-slot="group-label"] {
+    color: var(--icx-group-label-fg-active, var(--icx-color-accent));
   }
 
   [data-slot="group-tab-strip"] {

@@ -320,6 +320,7 @@ function InfiniteCanvasGroupShell({
   canvasInstanceId,
   devicePixelRatio,
   group,
+  isActive,
   metrics,
   resizeHandleSize,
   tabLabel,
@@ -329,6 +330,8 @@ function InfiniteCanvasGroupShell({
   canvasInstanceId: string;
   devicePixelRatio: number;
   group: InfiniteCanvasGroup;
+  /** Whether the active window is one of this shell's members. */
+  isActive: boolean;
   metrics: InfiniteCanvasGroupMetrics;
   resizeHandleSize: number;
   tabLabel: InfiniteCanvasGroupTabLabel;
@@ -408,7 +411,18 @@ function InfiniteCanvasGroupShell({
   return (
     <div
       aria-label={group.title}
+      /*
+       * Which group the active window is in, said on the group.
+       *
+       * A consumer's group controls act on the container holding the active window, and nothing on
+       * the canvas identified that container — so a rail could offer to reshape or dissolve a group
+       * the user had no way to pick out of several. `aria-current` rather than `aria-selected`, for
+       * the reason the window frame gives: a `group` role ignores `aria-selected`, and "the current
+       * one of a set" is exactly what this means.
+       */
+      aria-current={isActive ? "true" : undefined}
       aria-roledescription="window group"
+      data-active={isActive ? "" : undefined}
       data-infinite-canvas-group-id={group.id}
       data-slot={INFINITE_CANVAS_SLOTS.groupShell}
       role="group"
@@ -814,6 +828,7 @@ function InfiniteCanvasGroupLayer({
   const camera = useInfiniteCanvasSelector((state) => state.camera);
   const viewport = useInfiniteCanvasSelector((state) => state.viewport);
   const allGroups = useInfiniteCanvasSelector((state) => state.groups);
+  const activeWindowId = useInfiniteCanvasSelector((state) => state.activeWindowId);
   // From state, never a prop: the reducer solves member rects from the same value, and chrome
   // drawn at a height the panes were not placed for is the whole reason this is not local.
   const metrics = useInfiniteCanvasSelector((state) => state.groupMetrics);
@@ -843,6 +858,10 @@ function InfiniteCanvasGroupLayer({
           canvasInstanceId={canvasInstanceId}
           devicePixelRatio={devicePixelRatio}
           group={group}
+          isActive={
+            activeWindowId !== null &&
+            getInfiniteCanvasGroupWindowIds(group.tree).includes(activeWindowId)
+          }
           key={group.id}
           metrics={metrics}
           resizeHandleSize={resizeHandleSize}
