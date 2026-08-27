@@ -882,7 +882,13 @@ function PaletteContent({
             and this maps it to rows. A collection is named for what it lists rather than offering
             an empty one to configure: "Collection of notes" is already the thing they wanted.
           */}
-          {APP_ACTIONS.map((action) => {
+          {/*
+            Entries taking an argument are not rows. A row is a name you pick, with nowhere to put
+            a title or an id — the palette's own pages are how that would be asked for, and none
+            exists for these yet. Skipped here rather than filtered out of the vocabulary, because
+            a caller that can supply an argument still gets them.
+          */}
+          {APP_ACTIONS.filter((action) => action.input === undefined).map((action) => {
             const context = { actions, projectId, state };
 
             return (

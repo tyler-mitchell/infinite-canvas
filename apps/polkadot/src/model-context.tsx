@@ -14,10 +14,14 @@ import type { WindowKind } from "./canvas/window-registry";
  * vocabulary first and a control calls it, so the pointer, the palette and an agent all reach the
  * same verb. This file is the third caller, and it adds no capability of its own.
  *
- * Every entry in `APP_ACTIONS` takes no arguments, because the vocabulary uses one entry per
- * argument value the way the framework's own commands do (`view.pan.right`, `group.setLayout.tabs`).
- * That is what lets this register with an empty input schema. Actions whose argument is open-ended
- * — a note id, a title — have no entry yet and are the next piece of work, not an oversight.
+ * Most entries take no argument, because the vocabulary uses one entry per argument value the way
+ * the framework's own commands do (`view.pan.right`, `group.setLayout.tabs`). The ones whose
+ * argument cannot be enumerated carry an ArkType `input`, and its `toJsonSchema()` is what a caller
+ * is offered — the same declaration the verb narrows with, so the promised shape and the accepted
+ * shape are one thing.
+ *
+ * `canvas.describe` is registered here too and is not an `AppAction`: it reports rather than acts,
+ * and `APP_ACTIONS` is rendered as palette rows where a row that only returns text does nothing.
  *
  * UNVERIFIED, and deliberately shipped that way. WebMCP is behind `enable-webmcp-testing` in
  * Chrome 146 and in an origin trial from 149; the browser this was written against is 148, where
@@ -30,13 +34,16 @@ import type { WindowKind } from "./canvas/window-registry";
 type ModelContextRegistry = Readonly<{
   registerTool: (tool: {
     description: string;
-    execute: () => Promise<
-      Readonly<{ content: readonly Readonly<{ text: string; type: "text" }>[] }>
-    >;
-    inputSchema: Readonly<{ properties: Readonly<Record<string, never>>; type: "object" }>;
+    execute: (
+      input?: unknown,
+    ) => Promise<Readonly<{ content: readonly Readonly<{ text: string; type: "text" }>[] }>>;
+    inputSchema: object;
     name: string;
   }) => unknown;
 }>;
+
+/** A verb that takes nothing still has to say so; an absent schema is not the same as an empty one. */
+const NO_INPUT = { properties: {}, type: "object" } as const;
 
 const getModelContext = (): ModelContextRegistry | null => {
   if (typeof document === "undefined") {
@@ -75,13 +82,13 @@ function ModelContextTools({ projectId }: Readonly<{ projectId: string }>) {
       execute: async () => ({
         content: [{ text: describeCanvas(store.state$.peek()), type: "text" as const }],
       }),
-      inputSchema: { properties: {}, type: "object" },
+      inputSchema: NO_INPUT,
       name: "canvas.describe",
     });
     const disposers = APP_ACTIONS.map((action) =>
       registry.registerTool({
         description: action.description,
-        execute: async () => {
+        execute: async (input) => {
           const context = { actions, projectId, state: store.state$.peek() };
 
           if (!isAppActionEnabled(action, context)) {
@@ -92,11 +99,15 @@ function ModelContextTools({ projectId }: Readonly<{ projectId: string }>) {
             };
           }
 
-          action.run(context);
+          // Passed through unchecked: the verb narrows with the same type this schema came from,
+          // so checking here as well would be two places to disagree about one shape.
+          action.run(context, input);
 
           return { content: [{ text: `${action.label} done.`, type: "text" as const }] };
         },
-        inputSchema: { properties: {}, type: "object" },
+        // The verb's own declaration, so what a caller is offered and what the verb accepts are
+        // one thing rather than two that have to be kept in step.
+        inputSchema: action.input?.toJsonSchema() ?? NO_INPUT,
         name: action.id,
       }),
     );

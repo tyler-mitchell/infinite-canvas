@@ -3,6 +3,7 @@ import {
   type InfiniteCanvasCommands,
   type InfiniteCanvasState,
 } from "@hyphened/infinite-canvas";
+import { type, type Type } from "arktype";
 
 import type { WindowKind } from "./canvas/window-registry";
 import { LISTABLE_KINDS } from "./collections/listable-kinds";
@@ -19,8 +20,13 @@ import { openNewNote } from "./notes/open-note";
  *
  * One entry per argument value rather than one entry taking an argument — `collection.create.link`
  * instead of a create-collection action with a kind. That is the framework's own shape
- * (`view.pan.right`, `group.setLayout.tabs`), and it means every entry is callable with no input
- * schema at all.
+ * (`view.pan.right`, `group.setLayout.tabs`), and it is right wherever the values can be listed.
+ *
+ * `input` is for the arguments that cannot: a title, an id, anything drawn from the document rather
+ * than from a fixed set. One ArkType declaration serves both halves — `toJsonSchema()` is what a
+ * tool caller is offered, and the same type validates what comes back — so the shape a caller is
+ * promised and the shape the verb accepts cannot drift apart. An entry with `input` is deliberately
+ * not a palette row: a row has no way to supply an argument.
  */
 
 type AppActionContext = Readonly<{
@@ -32,13 +38,56 @@ type AppActionContext = Readonly<{
 type AppAction = Readonly<{
   description: string;
   id: string;
+  /** Absent means the verb takes no argument, which is most of them. */
+  input?: Type<object>;
   /** Absent means always available. Read against live state, like the framework's own. */
   isEnabled?: (context: AppActionContext) => boolean;
   label: string;
-  run: (context: AppActionContext) => void;
+  /**
+   * `input` arrives unvalidated and the verb narrows it with its own `input` type.
+   *
+   * One validation site rather than two: a caller that checked first and handed over a trusted
+   * object would need a cast here, and a cast is where the schema and the code start disagreeing
+   * silently. Verbs with no `input` ignore the parameter.
+   */
+  run: (context: AppActionContext, input?: unknown) => void;
 }>;
 
+/**
+ * A window is addressed by its title, because that is the handle a caller actually holds.
+ *
+ * `describeCanvas` reports titles; window ids are uuids that appear nowhere a caller can read.
+ * Offering an id would be offering a key nothing has.
+ */
+const REVEAL_INPUT = type({ title: "string" });
+
 const APP_ACTIONS: readonly AppAction[] = [
+  {
+    description: "Bring the window with this title into view and make it the active one.",
+    id: "window.reveal",
+    input: REVEAL_INPUT,
+    label: "Reveal a window by title",
+    run: ({ actions, state }, input) => {
+      const parsed = REVEAL_INPUT(input);
+
+      if (parsed instanceof type.errors) {
+        return;
+      }
+
+      /*
+       * Titles are not unique — two untitled notes are both "Untitled". The first match is the
+       * honest answer to an ambiguous question, and the alternative, refusing whenever a title
+       * repeats, would make the verb useless on exactly the canvases where it is most needed.
+       */
+      const target = state.windows.find((window) => window.title === parsed.title);
+
+      if (target !== undefined) {
+        // `window.reveal` rather than `focusWindow`: the framework's verb already handles a window
+        // that is minimized, behind a tab, or on another desktop. Focusing alone reaches none of those.
+        actions.executeCommand({ type: "window.reveal", windowId: target.id });
+      }
+    },
+  },
   {
     description: "Put a new, empty note on the canvas.",
     id: "note.create",
