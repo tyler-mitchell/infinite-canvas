@@ -22,7 +22,8 @@ import {
   Ungroup,
   X,
 } from "lucide-react";
-import { useState, type ComponentType, type ReactNode } from "react";
+import { Liquid } from "liquid-gooey";
+import { useEffect, useRef, useState, type ComponentType, type ReactNode } from "react";
 import { Button } from "ui";
 import { tv } from "ui/tv";
 
@@ -88,7 +89,7 @@ function Verb({
   onPress: () => void;
   /** Set on a verb that is one of a set and can be the current one. Omitted on a plain action. */
   pressed?: boolean;
-  variant?: "destructive" | "ghost" | "secondary";
+  variant?: "destructive" | "ghost";
 }>) {
   return (
     <Button
@@ -185,6 +186,80 @@ const GROUP_LAYOUTS = [
 }>[];
 
 /**
+ * Which shape the container is in, said in something you can actually see.
+ *
+ * The active segment carried `variant="secondary"`, and measured on the live rail that paints
+ * `oklch(0.205 0.009 265)` onto a pill painted `oklch(0.205 0.009 265)` — the app's `--secondary`
+ * and `--surface` are the same colour, so the state was applied, correct, and invisible. Same
+ * family as the header's `justify-content`: present, generated, and no visible effect.
+ *
+ * The indicator is liquid rather than a static pill because the control is a set of three and the
+ * useful thing is watching the surface *travel* between them. `liquid-gooey`'s move effect is built
+ * for exactly this — the element is moved by CSS and the liquid trails it on a spring. Screen space
+ * only: it measures DOM rects in device pixels, so it must never go inside the camera transform.
+ */
+function LayoutSelector({
+  layout,
+  onSelect,
+}: Readonly<{
+  layout: InfiniteCanvasGroupLayoutMode | null;
+  onSelect: (layout: InfiniteCanvasGroupLayoutMode) => void;
+}>) {
+  const rowRef = useRef<HTMLDivElement>(null);
+  const [spot, setSpot] = useState<Readonly<{ height: number; width: number; x: number }> | null>(
+    null,
+  );
+
+  // The three segments are the only buttons in the row, so index answers without tagging them.
+  useEffect(() => {
+    const row = rowRef.current;
+    const active =
+      row?.querySelectorAll("button")[GROUP_LAYOUTS.findIndex((entry) => entry.layout === layout)];
+
+    if (row == null || active == null) {
+      return;
+    }
+
+    const rowRect = row.getBoundingClientRect();
+    const rect = active.getBoundingClientRect();
+
+    setSpot({ height: rect.height, width: rect.width, x: rect.x - rowRect.x });
+  }, [layout]);
+
+  return (
+    <Liquid
+      className="relative flex items-center gap-0.5"
+      fill="var(--surface-raised)"
+      ref={rowRef}
+    >
+      {spot === null ? null : (
+        <Liquid.Item effect="move" move={{ springiness: 0.55, trail: 0.5 }}>
+          <div
+            className="pointer-events-none absolute top-0 left-0 rounded-[var(--radius-pill)]"
+            style={{
+              height: spot.height,
+              transform: `translateX(${spot.x}px)`,
+              width: spot.width,
+            }}
+          />
+        </Liquid.Item>
+      )}
+      {GROUP_LAYOUTS.map((entry) => (
+        <Verb
+          icon={entry.icon}
+          key={entry.layout}
+          label={entry.label}
+          onPress={() => {
+            onSelect(entry.layout);
+          }}
+          pressed={entry.layout === layout}
+        />
+      ))}
+    </Liquid>
+  );
+}
+
+/**
  * What a person does with a group once they have one.
  *
  * Creating a group was the discoverability gap; this is the rest of it. A group could be made and
@@ -234,23 +309,12 @@ function GroupRail() {
   return (
     <HudSurface anchor="bottom-center-above" present={group.inGroup}>
       <div className={styles.rail()}>
-        {GROUP_LAYOUTS.map((entry) => (
-          <Verb
-            icon={entry.icon}
-            key={entry.layout}
-            label={entry.label}
-            onPress={() => {
-              actions.executeCommand({ layout: entry.layout, type: "group.setLayout" });
-            }}
-            /*
-             * Which one is live was said in colour and nowhere else — three buttons that read as
-             * three identical unrelated actions to anything not looking at them, in the control
-             * whose whole job is showing which shape the container is in.
-             */
-            pressed={entry.layout === layout}
-            variant={entry.layout === layout ? "secondary" : "ghost"}
-          />
-        ))}
+        <LayoutSelector
+          layout={layout}
+          onSelect={(next) => {
+            actions.executeCommand({ layout: next, type: "group.setLayout" });
+          }}
+        />
         <span className={styles.divider()} />
         <Verb
           icon={Grip}
