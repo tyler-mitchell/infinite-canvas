@@ -203,6 +203,19 @@ and confirm the probe finds a rule you know exists before trusting it to say a r
 `document.styleSheets` is also empty mid-reload, which reads as "no rules at all". If a probe
 returns zero of something, prove the page is loaded before believing it.
 
+**Two traps specific to measuring a `:hover` rule**, both of which produced confident wrong
+conclusions in one sitting:
+
+- `getComputedStyle` reports the element's _current_ state. There is no second argument for
+  `:hover`, so reading a button that nothing is pointing at returns its resting value and looks
+  like the hover rule doing nothing. Actually hover it — `computer{action:"hover"}` — and assert
+  `el.matches(":hover")` in the same call before believing the number.
+- **`!important` does not win against a transition.** CSS Cascade 5 orders transition declarations
+  _above_ author-important, so setting `background-color: red !important` and reading in the same
+  tick returns the transition's start value, not red. This looked like "an inline important literal
+  computes transparent, which is impossible" and sent three probes down a dead end. Suppress the
+  transition first, or wait past its duration, before treating an inline write as ground truth.
+
 ### Clicking by coordinate
 
 **A coordinate click is in the screenshot's pixels, not the page's.** The pane scales the viewport
