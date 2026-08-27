@@ -172,13 +172,13 @@ function getNeighbourIds(
   relations: readonly Readonly<{ source: string; target: string }>[],
   noteId: string,
 ): readonly string[] {
-  return relations.flatMap((relation) =>
-    relation.source === noteId
-      ? [relation.target]
-      : relation.target === noteId
-        ? [relation.source]
-        : [],
-  );
+  return relations.flatMap((relation) => {
+    if (relation.source === noteId) {
+      return [relation.target];
+    }
+
+    return relation.target === noteId ? [relation.source] : [];
+  });
 }
 
 /** What kind a row is, since the rail lists all of them and a title alone does not say. */
@@ -474,10 +474,19 @@ export function LibraryRail({
     <div className={styles.root()}>
       <div className={styles.header()}>
         <span className={styles.heading()}>{archived ? "Archived" : "Library"}</span>
-        {/* The count is the answer to "is this everything?", which a list alone never gives — and
-            it is blank rather than 0 until there is an answer, for the same reason `emptyState` is
-            blank: a 0 nobody has counted yet is a wrong number, not a pending one. */}
-        <span className={styles.total()}>{listing === null ? null : notes.length}</span>
+        {/*
+          The count is the answer to "is this everything?", which a list alone never gives — and it
+          is blank rather than 0 until there is an answer, for the same reason `emptyState` is
+          blank: a 0 nobody has counted yet is a wrong number, not a pending one.
+
+          It counts what is *shown*, which is the same number until a search narrows the list and the
+          right one after that. It counted the whole listing before, so typing left the header saying
+          27 above a single row — and, when nothing matched, saying 27 directly above the words
+          "Nothing matches that." A count that describes a different set from the list beneath it
+          cannot answer the question it is there for: you could not tell one match out of
+          twenty-seven from twenty-six more rows below the fold.
+        */}
+        <span className={styles.total()}>{listing === null ? null : visible.length}</span>
         {/*
           The word on this button is where it takes you, so it cannot also be a pressed state.
 
