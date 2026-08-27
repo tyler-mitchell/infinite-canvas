@@ -39,6 +39,7 @@ import type {
   InfiniteCanvasRect,
   InfiniteCanvasResizeHandle,
   InfiniteCanvasViewport,
+  InfiniteCanvasViewportInsets,
 } from "./types";
 
 /**
@@ -331,6 +332,7 @@ function InfiniteCanvasGroupShell({
   canvasInstanceId,
   devicePixelRatio,
   group,
+  insets,
   isActive,
   labelSize,
   metrics,
@@ -343,6 +345,8 @@ function InfiniteCanvasGroupShell({
   canvasInstanceId: string;
   devicePixelRatio: number;
   group: InfiniteCanvasGroup;
+  /** What the consumer's chrome covers, so a pinned label stops at its edge rather than the raw one. */
+  insets: InfiniteCanvasViewportInsets;
   /** Whether the active window is one of this shell's members. */
   isActive: boolean;
   /** Screen pixels the label holds at every zoom. `0` draws none. */
@@ -376,12 +380,49 @@ function InfiniteCanvasGroupShell({
 
     return [...byContainer];
   }, [layout.accordionHeaders]);
-  const { screenTransform } = projectWorldRectToScreen(
+  const { screenRect, screenTransform } = projectWorldRectToScreen(
     camera,
     viewport,
     group.rect,
     devicePixelRatio,
   );
+  /**
+   * How far the label has to slide down its shell to stay in view, in world units.
+   *
+   * A label is drawn above the shell's top edge, so it leaves the viewport before the group does:
+   * measured at 100% zoom with a shell 16px from the top, the label sat at y = -18.5 while the
+   * group it names filled most of the screen. A legend you cannot read when you are looking
+   * straight at the thing it labels is the same defect as one too small to read, one step along.
+   *
+   * So it pins, the way a sticky header or a map label does — held inside the region the consumer's
+   * chrome leaves, and never past its own shell's bottom edge, because a name that outlives the
+   * group's footprint has stopped labelling anything. `0` while the natural position is already in
+   * view, which is almost always.
+   */
+  const labelPinOffset = useMemo(() => {
+    const scale = screenTransform.scale;
+
+    if (scale <= 0) {
+      return 0;
+    }
+
+    const naturalTop = screenRect.top - resizeHandleSize - labelSize;
+    // Below the consumer's own top chrome, not the raw viewport edge: pinning under an app's
+    // header would trade an invisible label for one behind a panel.
+    const held = Math.max(naturalTop, insets.top);
+    // Never past its own shell's bottom edge — a name that outlives the group's footprint has
+    // stopped labelling anything, so a shell scrolled fully off takes its label with it.
+    const pinned = Math.min(held, screenRect.top + screenRect.height - labelSize);
+
+    return Math.max(0, pinned - naturalTop) / scale;
+  }, [
+    insets.top,
+    labelSize,
+    resizeHandleSize,
+    screenRect.height,
+    screenRect.top,
+    screenTransform.scale,
+  ]);
   const shellStyle: InfiniteCanvasGroupShellStyle = {
     ...getWorldRectStyle(camera, viewport, group.rect, devicePixelRatio),
     // The shell's box is in world units and `scale` maps it to the screen, so the handles
@@ -456,8 +497,12 @@ function InfiniteCanvasGroupShell({
           aria-hidden="true"
           data-slot={INFINITE_CANVAS_SLOTS.groupLabel}
           style={{
-            // Clear of the north handle, which sits one handle-extent above the same edge.
-            bottom: `calc(100% + ${SHELL_RESIZE_HANDLE_EXTENT})`,
+            /*
+             * Clear of the north handle, which sits one handle-extent above the same edge — less
+             * however far the label has had to slide down to stay in view. `bottom` grows upward,
+             * so subtracting the pin offset pushes it down the shell.
+             */
+            bottom: `calc(100% + ${SHELL_RESIZE_HANDLE_EXTENT} - ${String(labelPinOffset)}px)`,
             /*
              * A constant screen height, not `metrics.tabStripSize`.
              *
@@ -870,6 +915,9 @@ function InfiniteCanvasGroupLayer({
    * camera tick, so a second array subscription is not what decides its cost.
    */
   const windows = useInfiniteCanvasSelector((state) => state.windows);
+  // Where a pinned label stops. A group whose top edge has scrolled off holds its name inside what
+  // the consumer's chrome leaves, rather than riding the shell out of the viewport.
+  const insets = useInfiniteCanvasSelector((state) => state.viewportInsets);
   const activeWindowId = useInfiniteCanvasSelector((state) => state.activeWindowId);
   // From state, never a prop: the reducer solves member rects from the same value, and chrome
   // drawn at a height the panes were not placed for is the whole reason this is not local.
@@ -904,6 +952,7 @@ function InfiniteCanvasGroupLayer({
             activeWindowId !== null &&
             getInfiniteCanvasGroupWindowIds(group.tree).includes(activeWindowId)
           }
+          insets={insets}
           key={group.id}
           labelSize={labelSize}
           metrics={metrics}
