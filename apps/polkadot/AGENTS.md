@@ -263,6 +263,30 @@ conclusions in one sitting:
   computes transparent, which is impossible" and sent three probes down a dead end. Suppress the
   transition first, or wait past its duration, before treating an inline write as ground truth.
 
+**A computed colour here is `oklch(…)`, and its numbers are not RGB.** Every ink and surface token
+is authored in oklch and Chrome keeps it that way in `getComputedStyle`, so a probe that pulls the
+first three numbers out and treats them as channels computes nonsense from valid input. A contrast
+sweep written that way returned 2.28 for every string on the page — colours from lightness 0.55 to
+0.96 reporting identical contrast, which is impossible and is the only reason it was caught.
+Resolve through a canvas instead, and assert a known pair before believing any of it:
+
+```js
+ctx.fillStyle = "#000";
+ctx.fillStyle = someComputedColor; // invalid input leaves the previous value
+ctx.fillRect(0, 0, 1, 1);
+ctx.getImageData(0, 0, 1, 1).data; // real channels
+// then: white-on-black must be 21:1, or the instrument is wrong, not the app
+```
+
+**The frozen-transition value is not a hover problem — it is an HMR one.** The `oklab(…)`
+serialisation described above turned up again on a plain `color`, nothing hovered: after a hot
+style swap, elements carrying `transition-colors` reported the _old_ value while the custom
+property above them already held the new one. It reads exactly like a token that did not apply, and
+two of them survived a re-measure before a full reload resolved every one. **A computed style read
+during or shortly after an HMR swap is not the style.** Reload before concluding anything about a
+value that changed, and treat an `oklab(…)` serialisation of a colour you authored in oklch as the
+tell that you are reading an interpolation rather than a result.
+
 **A hover measured in the automated pane is not evidence about the product.** Two sessions spent
 real time on "no rail button shows hover feedback", measured properly — pointer on the element,
 `matches(":hover")` asserted, waited well past the 150ms transition. Every hovered element in the
