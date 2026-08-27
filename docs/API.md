@@ -77,9 +77,16 @@ a click into a camera move and a drag into continuous scrubbing.
 Consuming it also produced the finding that reading it never would: the map is a
 corner-sized surface, and `viewportInsets` can only describe it as a full-width
 band. Declaring the band overstates it; declaring a right inset loses a column
-down the whole viewport. Per-edge scalars cannot express a corner. Recorded
-rather than acted on — one consumer is not enough to reshape a prop, and this is
-the second time this app has met that edge.
+down the whole viewport. Per-edge scalars cannot express a corner.
+
+That paragraph ended "recorded rather than acted on — one consumer is not enough
+to reshape a prop, and this is the second time this app has met that edge" until
+2026-08-27, when it was met a third time and measured: the band cost 168 of 900
+pixels, 19% of the viewport, to reserve room for a box covering about 1% of it.
+`viewportOccluders` is the shape that fits, and the incubator's bottom inset fell
+to 64 the day it landed. The rule the waiting produced is worth keeping even though
+the wait ended — a prop reshaped for one consumer is a guess; the third sighting
+is what turned it into a measurement.
 
 `offscreen` was **unobserved** until Polkadot drew its indicator ring and the
 arrows were watched tracking offscreen notes in a browser. It moved to stable the
@@ -1209,7 +1216,9 @@ name.
 - `InfiniteCanvasState`
 - `InfiniteCanvasTheme`
 - `InfiniteCanvasViewport as InfiniteCanvasViewportSize`
-- `InfiniteCanvasViewportInsets`, `InfiniteCanvasViewportInsetsInput`
+- `InfiniteCanvasViewportInsets`, `InfiniteCanvasViewportInsetsInput` — chrome that _brackets_ the
+  canvas, one number per edge: a rail down one side, a bar across the top. Chrome that sits inside
+  the content area instead is an occluder, not an inset
 - `InfiniteCanvasViewportOccluder` — a rect of the viewport the consumer's chrome covers, in
   **screen** pixels. Its own name rather than a bare rect because the space is the point: every
   other rect in this API is world units
