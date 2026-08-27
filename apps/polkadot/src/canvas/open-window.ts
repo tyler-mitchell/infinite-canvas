@@ -3,6 +3,7 @@ import {
   getInfiniteCanvasContentWorldRect,
   getInfiniteCanvasVacantRect,
   getInfiniteCanvasWindowPlacementRect,
+  isInfiniteCanvasWindowInActiveWorkspace,
   type InfiniteCanvasCommands,
   type InfiniteCanvasRect,
   type InfiniteCanvasState,
@@ -86,10 +87,25 @@ function getPlacedRect(
        * could open across it. The shell is the honest extent of a group.
        */
       ...input.state.groups.map((group) => group.rect),
-      // Minimized windows are in the dock rather than on the canvas, so the space they would occupy
-      // is free — placing around them would leave a hole nobody can see the reason for.
+      /*
+       * Minimized windows are in the dock rather than on the canvas, so the space they would occupy
+       * is free — placing around them would leave a hole nobody can see the reason for.
+       *
+       * That reason is not about minimizing. It is about whether the window is *there*, and a
+       * window on another desktop is not there either: `state.windows` is every window on the
+       * canvas rather than every window on the desktop being looked at, so this reserved space on
+       * behalf of windows the user cannot see and left exactly the unexplained hole the line above
+       * exists to prevent. Found by the guard in `window-visibility-reads.test.ts`.
+       *
+       * Windows hidden behind a tab need no filter here and would be wrong to add one for: their
+       * rect is the pane inside a shell, and the shell's own rect is already in this list above.
+       */
       ...input.state.windows
-        .filter((window) => window.mode !== "minimized")
+        .filter(
+          (window) =>
+            window.mode !== "minimized" &&
+            isInfiniteCanvasWindowInActiveWorkspace(input.state, window.id),
+        )
         .map((window) => window.rect),
     ],
     preferred: getInfiniteCanvasWindowPlacementRect(bounds, "center", input.size, input.minSize),
