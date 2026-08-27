@@ -35,6 +35,8 @@ import { ProjectRemovalDialog } from "./project-removal-dialog";
 
 const projectSwitcher = tv({
   slots: {
+    /** Says the list has not answered yet. An empty label with nothing under it says the wrong thing. */
+    empty: "px-1.5 py-1 text-[12px] text-[var(--ink-faint)]",
     input:
       "w-36 rounded-md bg-[var(--ground-sunken)] px-1.5 py-0.5 text-[13px] font-medium tracking-[-0.01em] text-[var(--ink)] outline-none inset-ring-1 inset-ring-[var(--accent)]",
     itemTitle: "truncate",
@@ -126,11 +128,24 @@ export function ProjectSwitcher({
         <DropdownMenuContent>
           <DropdownMenuRadioGroup onValueChange={openProject} value={projectId}>
             <DropdownMenuLabel>Projects</DropdownMenuLabel>
-            {projects.map((project) => (
-              <DropdownMenuRadioItem key={project.id} value={project.id}>
-                <span className={styles.itemTitle()}>{project.title}</span>
-              </DropdownMenuRadioItem>
-            ))}
+            {/*
+              "Loading…" rather than nothing, the same as the canvas switcher beside it.
+
+              The list is fetched when the menu opens, so `[]` on the first open means "nobody has
+              asked yet" — and rendering a "Projects" heading with nothing under it answers a
+              question that has not been asked, saying you have no projects while you are standing
+              in one. `library-rail` states the rule it comes from: an empty state is a claim about
+              the world and needs an answer behind it. The canvas switcher had this; this did not.
+            */}
+            {projects.length === 0 ? (
+              <div className={styles.empty()}>Loading…</div>
+            ) : (
+              projects.map((project) => (
+                <DropdownMenuRadioItem key={project.id} value={project.id}>
+                  <span className={styles.itemTitle()}>{project.title}</span>
+                </DropdownMenuRadioItem>
+              ))
+            )}
           </DropdownMenuRadioGroup>
           {archived.length > 0 ? (
             <DropdownMenuGroup>
