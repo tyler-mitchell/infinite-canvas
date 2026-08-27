@@ -8,6 +8,7 @@ import {
   dockInfiniteCanvasGroupWindow,
   equalizeInfiniteCanvasGroupChildren,
   findInfiniteCanvasGroupNode,
+  getInfiniteCanvasGroupParent,
   getInfiniteCanvasGroupWindowIds,
   normalizeInfiniteCanvasGroupTree,
   reorderInfiniteCanvasGroupChild,
@@ -781,6 +782,43 @@ function applyInfiniteCanvasDockPreview<Kind extends string>(
   });
 }
 
+/**
+ * Make every container between a window and its group's root show that window.
+ *
+ * Activating one container is not revealing: docking onto a member of a tabs container nests a
+ * container inside it, so a window two levels down became the active child of its own parent while
+ * that parent stayed the hidden sibling. Watched — `window.reveal` set `activeWindowId`, set the
+ * inner `activeChildId`, moved the camera, and the window was still not rendered.
+ *
+ * Walks the chain from the original tree before writing, because only `activeChildId` changes and
+ * the structure the walk read stays true for every step.
+ */
+function revealInfiniteCanvasGroupWindow<Kind extends string>(
+  state: InfiniteCanvasState<Kind>,
+  windowId: string,
+): InfiniteCanvasState<Kind> {
+  const group = getInfiniteCanvasWindowGroup(state, windowId);
+
+  if (group === null) {
+    return state;
+  }
+
+  const chain: { childId: string; containerId: string }[] = [];
+
+  for (
+    let childId = windowId, parent = getInfiniteCanvasGroupParent(group.tree, childId);
+    parent !== null;
+    childId = parent.id, parent = getInfiniteCanvasGroupParent(group.tree, childId)
+  ) {
+    chain.push({ childId, containerId: parent.id });
+  }
+
+  return chain.reduce(
+    (next, step) => setInfiniteCanvasGroupActiveChildInState(next, { ...step, groupId: group.id }),
+    state,
+  );
+}
+
 /** What a tab or accordion header is called. Replace via the desktop's `groupTabLabel`. */
 type InfiniteCanvasGroupTabLabelContext = Readonly<{
   /** A window node, or a container nested inside a tab. */
@@ -824,6 +862,7 @@ export {
   isInfiniteCanvasWindowGrouped,
   reconcileInfiniteCanvasGroups,
   renameInfiniteCanvasGroup,
+  revealInfiniteCanvasGroupWindow,
   reorderInfiniteCanvasGroupChildInState,
   resolveInfiniteCanvasDockPreview,
   resolveInfiniteCanvasDockPreviewForTarget,

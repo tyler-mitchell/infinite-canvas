@@ -28,6 +28,7 @@ import {
   isInfiniteCanvasWindowGrouped,
   reorderInfiniteCanvasGroupChildInState,
   resolveInfiniteCanvasDockPreviewForTarget,
+  revealInfiniteCanvasGroupWindow,
   setInfiniteCanvasGroupAxisInState,
   setInfiniteCanvasGroupChildWeightsInState,
   setInfiniteCanvasGroupLayoutModeInState,
@@ -1058,9 +1059,13 @@ function revealWindow<Kind extends string>(
       );
   const restored =
     findWindow(host, windowId)?.mode === "minimized" ? restoreWindow(host, windowId) : host;
+  // The fourth way a window is out of view, and the one this verb did not know: behind a tab, or
+  // inside a container that is itself behind one. Without it reveal focused the window, moved the
+  // camera, and left it unrendered.
+  const shown = revealInfiniteCanvasGroupWindow(restored, windowId);
 
   return navigateCameraToWindow(
-    focusWindow(restored, windowId),
+    focusWindow(shown, windowId),
     { behavior: FOCUS_CAMERA_NAVIGATION_BEHAVIOR, windowId },
     zoomPolicy,
   );
