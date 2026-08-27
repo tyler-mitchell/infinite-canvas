@@ -2,6 +2,8 @@ import { Liquid } from "liquid-gooey";
 import { useEffect, useRef, useState, type ComponentType } from "react";
 import { tv } from "ui/tv";
 
+import { clampToViewport, getSpoke, ITEM_SIZE, WHEEL_SIZE } from "./radial-geometry";
+
 /**
  * A wheel of verbs, blooming from where you pressed.
  *
@@ -32,55 +34,6 @@ type RadialItem = Readonly<{
   run: () => void;
 }>;
 
-/**
- * How far the items sit from the press, in screen pixels.
- *
- * Far enough that the blob has visibly split rather than bulged — under roughly twice the item's
- * own size the goo never necks apart and the wheel reads as one lump. Near enough that the whole
- * ring stays inside a modest window.
- */
-const RADIUS = 78;
-
-/** A spoke's own extent, matching the button's `size-11`. */
-const ITEM_SIZE = 44;
-
-/**
- * The group's box, and it has to contain the whole open ring.
- *
- * The library draws the goo into an SVG the size of the group, so a group sized to the press point
- * has nowhere to paint — the buttons still render, because they are real DOM on the layer above,
- * and the liquid simply does not appear. Which is exactly what the first attempt looked like: six
- * icons floating with nothing behind them.
- */
-const WHEEL_SIZE = RADIUS * 2 + ITEM_SIZE;
-
-/** Twelve o'clock, so the first verb is where the eye starts rather than wherever a loop began. */
-const START_ANGLE = -Math.PI / 2;
-
-/** Breathing room past the ring's own extent, so a clamped wheel is not flush to the edge. */
-const EDGE_MARGIN = 8;
-
-/**
- * The wheel opens where you pressed, unless that would put spokes outside the window.
- *
- * Measured before it was fixed: a press 20px from the bottom-right corner of an 812×998 viewport
- * put all six spokes off-screen — the ring reaches 100px in every direction and the press was 22px
- * from two edges, so most of the menu simply was not there.
- *
- * Clamped rather than flipped. A dropdown flips because it hangs off one corner and has a natural
- * other side; a ring has no sides, so moving it inward keeps every verb at the angle it was learned
- * at. The cost is that a cornered wheel is no longer centred on the pointer, and that is the right
- * trade against spokes nobody can reach.
- */
-const clampToViewport = (origin: Readonly<{ x: number; y: number }>) => {
-  const inset = WHEEL_SIZE / 2 + EDGE_MARGIN;
-
-  return {
-    x: Math.min(Math.max(origin.x, inset), Math.max(inset, window.innerWidth - inset)),
-    y: Math.min(Math.max(origin.y, inset), Math.max(inset, window.innerHeight - inset)),
-  };
-};
-
 const radialMenu = tv({
   slots: {
     button:
@@ -109,13 +62,6 @@ const radialMenu = tv({
     },
   },
 });
-
-/** Where item `index` of `count` sits, relative to the wheel's centre. */
-const getSpoke = (index: number, count: number) => {
-  const angle = START_ANGLE + (index / count) * Math.PI * 2;
-
-  return { x: Math.round(Math.cos(angle) * RADIUS), y: Math.round(Math.sin(angle) * RADIUS) };
-};
 
 /**
  * Which spoke an arrow moves to, going round rather than along.
@@ -180,7 +126,9 @@ function RadialMenu({
   );
   const styles = radialMenu();
   // Read at open. The wheel is transient, so a resize under it is not a case worth carrying state for.
-  const [centre] = useState(() => clampToViewport(origin));
+  const [centre] = useState(() =>
+    clampToViewport(origin, { height: window.innerHeight, width: window.innerWidth }),
+  );
   const focusSpoke = (index: number) => {
     setFocusedIndex(index);
     rootRef.current?.querySelector<HTMLButtonElement>(`[data-spoke="${String(index)}"]`)?.focus();
