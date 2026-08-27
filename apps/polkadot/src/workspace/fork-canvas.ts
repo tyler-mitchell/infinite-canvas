@@ -3,7 +3,7 @@ import type { InfiniteCanvasSerializedState } from "@hyphened/infinite-canvas";
 import type { WindowKind } from "../canvas/window-registry";
 import * as database from "../database/operations";
 import { withNamingLock } from "../naming-lock";
-import { getNextRepeatTitle } from "../titles";
+import { getNextSuffixedTitle } from "../titles";
 
 /**
  * Keep a conflicted arrangement by giving it a canvas of its own.
@@ -28,17 +28,14 @@ import { getNextRepeatTitle } from "../titles";
  */
 
 /**
- * A title with any recovery mark taken off, including a numbered one.
+ * What a fork of this canvas is called, given the names already taken.
  *
- * Both forms have to go: `(recovered)` from the first fork and `(recovered) 2` from the next, or
- * the base grows a segment per conflict and the numbering restarts against a label nothing else
- * shares.
+ * Both failures above are the ones any appended mark has, so the rule is `titles.ts`'s rather than
+ * this file's: the canvas switcher's "Duplicate" had written the same two bugs out again under a
+ * different word. This owns the word; the numbering and the stripping are shared.
  */
-const stripRecoveryMark = (title: string) => title.replace(/ \(recovered\)(?: \d+)?$/, "");
-
-/** What a fork of this canvas is called, given the names already taken. */
 function getForkedCanvasTitle(canvasTitle: string, takenTitles: readonly string[]): string {
-  return getNextRepeatTitle(`${stripRecoveryMark(canvasTitle)} (recovered)`, takenTitles);
+  return getNextSuffixedTitle({ mark: "(recovered)", takenTitles, title: canvasTitle });
 }
 
 /**
@@ -74,4 +71,4 @@ async function forkCanvas(
   });
 }
 
-export { forkCanvas, getForkedCanvasTitle, stripRecoveryMark };
+export { forkCanvas, getForkedCanvasTitle };

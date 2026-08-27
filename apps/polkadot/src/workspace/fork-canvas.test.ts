@@ -1,6 +1,6 @@
 import { expect, test } from "vite-plus/test";
 
-import { getForkedCanvasTitle, stripRecoveryMark } from "./fork-canvas";
+import { getForkedCanvasTitle } from "./fork-canvas";
 
 /**
  * What a fork of a conflicted canvas is called.
@@ -61,17 +61,21 @@ test("archived names count as taken, which is why the caller asks for both lists
 });
 
 test("a canvas whose own name contains parentheses is not mistaken for a fork", () => {
-  // `titles.ts` escapes its label for this reason; the strip has to be as careful. "Q3 (draft)"
-  // is somebody's name, not a mark this code put there.
-  expect(stripRecoveryMark("Q3 (draft)")).toBe("Q3 (draft)");
+  // `titles.ts` escapes the mark for this reason; the strip has to be as careful. "Q3 (draft)" is
+  // somebody's name, not a mark this code put there, so it survives into the fork's name.
   expect(getForkedCanvasTitle("Q3 (draft)", [])).toBe("Q3 (draft) (recovered)");
+  expect(getForkedCanvasTitle("Q3 (draft)", ["Q3 (draft) (recovered)"])).toBe(
+    "Q3 (draft) (recovered) 2",
+  );
 });
 
 test("the mark is only stripped from the end", () => {
   // A canvas someone deliberately called "(recovered) notes" keeps its name.
-  expect(stripRecoveryMark("(recovered) notes")).toBe("(recovered) notes");
+  expect(getForkedCanvasTitle("(recovered) notes", [])).toBe("(recovered) notes (recovered)");
 });
 
-test("stripping is idempotent, so a base is stable however often it is forked", () => {
-  expect(stripRecoveryMark(stripRecoveryMark("Main canvas (recovered) 4"))).toBe("Main canvas");
+test("a numbered fork still forks from the original base", () => {
+  // Was "Main canvas (recovered) 4 (recovered)" — a segment per fork. With the bare name free it
+  // is taken back, which is the point: the base is the original however deep the chain went.
+  expect(getForkedCanvasTitle("Main canvas (recovered) 4", [])).toBe("Main canvas (recovered)");
 });

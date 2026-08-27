@@ -1,6 +1,6 @@
 import { expect, test } from "vite-plus/test";
 
-import { getNextNumberedTitle, getNextRepeatTitle } from "./titles";
+import { getNextNumberedTitle, getNextRepeatTitle, getNextSuffixedTitle } from "./titles";
 
 /**
  * The scan three kinds share, and the one property that is the whole reason it exists.
@@ -31,6 +31,59 @@ test("a real label keeps itself first and numbers only repeats", () => {
 test("a name that merely starts the same is not a repeat", () => {
   expect(getNextNumberedTitle("Canvas", ["Canvas archive", "Canvasx 9"])).toBe("Canvas 1");
   expect(getNextRepeatTitle("Links", ["Linkstwo"])).toBe("Links");
+});
+
+/**
+ * The third policy: a title wearing a mark.
+ *
+ * Two callers, one rule. A recovery and a copy were written inline in different files under
+ * different words, and each carried the same two bugs — a repeat that collided, and a mark that
+ * compounded when applied to something already marked.
+ */
+
+test("a mark applied to a marked title replaces it rather than stacking", () => {
+  // "Q3 copy copy" and "Main canvas (recovered) (recovered)" were both live.
+  expect(getNextSuffixedTitle({ mark: "copy", takenTitles: ["Q3 copy"], title: "Q3 copy" })).toBe(
+    "Q3 copy 2",
+  );
+  expect(
+    getNextSuffixedTitle({
+      mark: "(recovered)",
+      takenTitles: ["Main canvas (recovered)"],
+      title: "Main canvas (recovered)",
+    }),
+  ).toBe("Main canvas (recovered) 2");
+});
+
+test("a numbered mark comes off too, so the base does not grow a segment per repeat", () => {
+  expect(
+    getNextSuffixedTitle({
+      mark: "copy",
+      takenTitles: ["Q3 copy", "Q3 copy 2"],
+      title: "Q3 copy 2",
+    }),
+  ).toBe("Q3 copy 3");
+});
+
+test("the mark is escaped on the way into the strip", () => {
+  /*
+   * The reason this is shared rather than hand-written per caller. `(recovered)` unescaped is a
+   * group, so " (recovered)" would strip the letters off any title ending in them — and every
+   * added mark is another chance to forget. Here "Q3 (draft)" keeps its own parentheses.
+   */
+  expect(getNextSuffixedTitle({ mark: "(recovered)", takenTitles: [], title: "Q3 (draft)" })).toBe(
+    "Q3 (draft) (recovered)",
+  );
+  expect(getNextSuffixedTitle({ mark: "a.b", takenTitles: [], title: "Q3 axb" })).toBe(
+    "Q3 axb a.b",
+  );
+});
+
+test("a title that merely ends in the mark's letters is not marked", () => {
+  // The strip requires the separating space: "Photocopy" is somebody's name.
+  expect(getNextSuffixedTitle({ mark: "copy", takenTitles: [], title: "Photocopy" })).toBe(
+    "Photocopy copy",
+  );
 });
 
 test("a label carrying regex punctuation is matched literally", () => {

@@ -12,16 +12,18 @@
  */
 
 /**
- * The ordinals already spoken for under `label`, ignoring anything that merely starts the same.
+ * A label made safe to put in a pattern.
  *
- * The label is escaped because it is not always a constant: a collection can be named after an
- * item the user titled, so `Notes (2024)` would otherwise compile to a group matching `Notes 2024`,
- * and a `.` would match any character.
+ * None of these labels is a constant: a collection is named after an item the user titled, and a
+ * mark is applied to whatever a canvas is called. Unescaped, `Notes (2024)` compiles to a group
+ * matching `Notes 2024`, and a `.` matches any character.
  */
+const escapeForPattern = (label: string) =>
+  label.replaceAll(/[.*+?^${}()|[\]\\]/gu, String.raw`\$&`);
+
+/** The ordinals already spoken for under `label`, ignoring anything that merely starts the same. */
 function getUsedOrdinals(label: string, titles: readonly string[]): readonly number[] {
-  const pattern = new RegExp(
-    `^${label.replaceAll(/[.*+?^${}()|[\]\\]/gu, String.raw`\$&`)} (\\d+)$`,
-  );
+  const pattern = new RegExp(`^${escapeForPattern(label)} (\\d+)$`, "u");
 
   return titles.flatMap((title) => {
     const ordinal = pattern.exec(title)?.[1];
@@ -54,4 +56,32 @@ function getNextRepeatTitle(label: string, titles: readonly string[]): string {
     : label;
 }
 
-export { getNextNumberedTitle, getNextRepeatTitle };
+/**
+ * A title wearing a mark — for making one thing from another and saying so.
+ *
+ * A recovery and a copy are the same shape, and both were written inline before they were written
+ * here: `${canvasTitle} (recovered)` on the conflict button, `${title} copy` in the canvas
+ * switcher. Each carried the same two failures, and the second is the one an appended suffix
+ * always has.
+ *
+ * A repeat collides. Duplicate a canvas twice and both are "Q3 copy", in the switcher that exists
+ * to tell them apart, so repeats are numbered — bare first, `2` after, which is what every file
+ * manager does.
+ *
+ * And a mark applied to a marked title compounds: "Q3 copy copy", "Q3 (recovered) (recovered)". A
+ * copy of a copy is still a copy *of the original*, so the mark is stripped before it is reapplied
+ * and the numbering carries the difference — the same answer Finder gives, "Q3 copy 2".
+ *
+ * The mark is escaped on the way into the strip for the reason above; `(recovered)` is parentheses
+ * to a pattern, and a hand-written regex per mark is exactly where that gets forgotten.
+ */
+function getNextSuffixedTitle(
+  input: Readonly<{ mark: string; takenTitles: readonly string[]; title: string }>,
+): string {
+  // Both forms come off: the bare mark, and a numbered one from a repeat.
+  const marked = new RegExp(` ${escapeForPattern(input.mark)}(?: \\d+)?$`, "u");
+
+  return getNextRepeatTitle(`${input.title.replace(marked, "")} ${input.mark}`, input.takenTitles);
+}
+
+export { getNextNumberedTitle, getNextRepeatTitle, getNextSuffixedTitle };

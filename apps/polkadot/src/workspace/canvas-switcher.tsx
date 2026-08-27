@@ -27,6 +27,7 @@ import * as database from "../database/operations";
 import { CanvasRemovalDialog } from "./canvas-removal-dialog";
 import { useInlineRename } from "./use-inline-rename";
 import { createCanvas } from "./create-canvas";
+import { duplicateCanvas } from "./duplicate-canvas";
 
 /**
  * Which canvas this is, and how to reach another one.
@@ -172,11 +173,10 @@ export function CanvasSwitcher({
           </DropdownMenuItem>
           <DropdownMenuItem
             onClick={() => {
-              void database.canvases
-                .duplicate({ canvasId, title: `${title} copy` })
-                .then((created) => {
-                  openCanvas(created.id);
-                });
+              // The verb owns the naming, the same as "New canvas" below. This is the control.
+              void duplicateCanvas({ canvasId, canvasTitle: title, projectId }).then((created) => {
+                openCanvas(created.id);
+              });
             }}
           >
             <CopyPlus />

@@ -14,7 +14,7 @@ import {
 } from "ui";
 import { tv } from "ui/tv";
 
-import { initialLayout } from "../canvas/canvas-document";
+import { createProject } from "./create-project";
 import { useInlineRename } from "./use-inline-rename";
 import type { ProjectSummary } from "../database/database.client";
 import * as database from "../database/operations";
@@ -172,11 +172,17 @@ export function ProjectSwitcher({
           </DropdownMenuItem>
           <DropdownMenuItem
             onClick={() => {
-              void database.projects
-                .create({ layout: initialLayout, title: `Project ${projects.length + 1}` })
-                .then((created) => {
-                  void navigate({ params: { canvasId: created.id }, to: "/canvas/$canvasId" });
-                });
+              /*
+               * The verb owns the naming. This is the control that calls it.
+               *
+               * `Project ${projects.length + 1}` stood here, and `projects` is the *offered* list
+               * — so the count could not see the archived ones listed a few rows above, and a new
+               * project took a name an archived one still held. Restoring it from this same menu
+               * then put two of one name in the switcher that exists to tell them apart.
+               */
+              void createProject().then((created) => {
+                void navigate({ params: { canvasId: created.id }, to: "/canvas/$canvasId" });
+              });
             }}
           >
             <FolderPlus />
