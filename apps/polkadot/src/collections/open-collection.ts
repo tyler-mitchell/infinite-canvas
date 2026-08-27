@@ -1,4 +1,5 @@
 import { openContentWindow, type WindowPlacement } from "../canvas/open-window";
+import { content } from "../database/operations";
 import { collectionGateway, type CollectionQuestion } from "./collection-gateway";
 
 /**
@@ -14,14 +15,64 @@ const COLLECTION_SIZE = { height: 420, width: 300 } as const;
  * it has one, it is the only reason zooming out and back leaves a collection readable. */
 const COLLECTION_MINIMUM_SIZE = { height: 220, width: 220 } as const;
 
+/**
+ * The next name nothing in this project is already using.
+ *
+ * A collection is named for what it lists — "Links", "Notes" — so every link collection ever made
+ * was called "Links", and the library rail showed five identical rows with nothing to tell them
+ * apart. Watched, on a project with four of them.
+ *
+ * `open-note.ts` already solved this for notes and its docstring records the same symptom in the
+ * same words: a second note "indistinguishable in the library from the first". Its policy differs
+ * on one point deliberately and this does not copy it. "Untitled" alone says nothing, so a note is
+ * numbered from the first one; "Links" alone is a real name, so the first keeps it and only
+ * repeats are numbered — the convention every file manager uses.
+ *
+ * Archived titles count, which is the reason to ask twice rather than read the cached listing.
+ * Archived items keep their titles, so a name skipped here collides the moment someone restores —
+ * a defect that surfaces long after the action that caused it, in a surface neither was in. That
+ * is `open-note.ts`'s finding; taking the cheap read would have been shipping a known bug.
+ */
+function getNextCollectionTitle(label: string, titles: readonly string[]) {
+  const taken = new Set(titles);
+
+  if (!taken.has(label)) {
+    return label;
+  }
+
+  /*
+   * Escaped, because the label is not always a constant. A connected-to collection is named after
+   * an item the user titled, so `Notes (2024)` would otherwise compile to a pattern matching
+   * `Notes 2024` and a title containing `.` would match any character.
+   */
+  const pattern = new RegExp(
+    `^${label.replaceAll(/[.*+?^${}()|[\]\\]/gu, String.raw`\$&`)} (\\d+)$`,
+  );
+  const used = titles.flatMap((title) => {
+    const ordinal = pattern.exec(title)?.[1];
+
+    return ordinal === undefined ? [] : [Number(ordinal)];
+  });
+
+  // The bare label is the first, so the next repeat is at least 2.
+  return `${label} ${String(Math.max(1, ...used) + 1)}`;
+}
+
 async function openNewCollection(
   input: WindowPlacement &
     Readonly<{ projectId: string; question: CollectionQuestion; title: string }>,
 ) {
+  const [offered, archived] = await Promise.all([
+    content.list({ projectId: input.projectId }),
+    content.listArchived({ projectId: input.projectId }),
+  ]);
   const created = await collectionGateway.create({
     projectId: input.projectId,
     question: input.question,
-    title: input.title,
+    title: getNextCollectionTitle(
+      input.title,
+      [...offered, ...archived].map((item) => item.title),
+    ),
   });
 
   openCollectionWindow({
@@ -55,4 +106,10 @@ function openCollectionWindow(
   });
 }
 
-export { COLLECTION_MINIMUM_SIZE, COLLECTION_SIZE, openCollectionWindow, openNewCollection };
+export {
+  COLLECTION_MINIMUM_SIZE,
+  COLLECTION_SIZE,
+  getNextCollectionTitle,
+  openCollectionWindow,
+  openNewCollection,
+};
