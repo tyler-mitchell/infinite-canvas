@@ -1,6 +1,7 @@
 import {
   getInfiniteCanvasGroupProjection,
   getInfiniteCanvasGroupTitle,
+  getInfiniteCanvasGroupWindowIds,
   isInfiniteCanvasWindowInActiveWorkspace,
   type InfiniteCanvasState,
 } from "@hyphened/infinite-canvas";
@@ -82,13 +83,28 @@ function describeCanvas(state: InfiniteCanvasState<WindowKind>): string {
    * one that cannot see the screen. Which is the whole point of this file: the described canvas is
    * the canvas, for anything reading rather than looking.
    */
-  const groups = state.groups.map(
+  /*
+   * What each group holds, which the group list did not say.
+   *
+   * Read back as a caller receives it, the two lists did not meet: twelve windows, three groups, and
+   * nothing joining them. That is not just untidy — it makes the group verbs unusable on purpose.
+   * `group.setLayout` does nothing to a group holding one window, correctly and by the framework's
+   * own reckoning, and on this canvas two of the three hold exactly one. A caller could only find
+   * that out by trying it and watching nothing happen.
+   *
+   * Members are named by handle rather than by title, because the titles are already in the window
+   * list above and repeating them would double the report's length to say nothing new — and because
+   * two of the windows here are both called "Links", so a title would not have said which.
+   */
+  const groups = state.groups.map((group) => {
     // Handled like the windows above, and for the same reason: `group.setLayout`, `group.rename`
     // and `group.dissolve` all take a group id, and a name is not one. Two groups can carry the
     // same title as easily as two windows can — more easily, since an unnamed group is titled from
     // its members and two containers holding notes called the same thing compose the same string.
-    (group) => `"${getInfiniteCanvasGroupTitle(group, state.windows)}" [${group.id}]`,
-  );
+    const members = getInfiniteCanvasGroupWindowIds(group.tree);
+
+    return `"${getInfiniteCanvasGroupTitle(group, state.windows)}" [${group.id}] holding ${members.map((windowId) => `[${windowId}]`).join(", ")}`;
+  });
 
   /*
    * That other desktops exist at all, which this did not say.

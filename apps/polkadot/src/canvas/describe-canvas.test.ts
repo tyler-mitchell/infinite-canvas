@@ -147,6 +147,19 @@ test("a group somebody named is described by that name", () => {
   expect(describeWithGroup("Reading list")).toContain('"Reading list"');
 });
 
+test("a group says what it holds, so its verbs can be used on purpose", () => {
+  /*
+   * Read back as a caller receives it, the window list and the group list did not meet. That is not
+   * untidiness: `group.setLayout` does nothing to a group holding one window — correctly, and by
+   * the framework's own reckoning — so without membership a caller can only discover that by trying
+   * it and watching nothing happen.
+   *
+   * By handle rather than title: the titles are already in the window list, and repeating them
+   * would double the report to say nothing new.
+   */
+  expect(describeWithGroup("Reading list")).toContain("[group-1] holding [a], [b]");
+});
+
 test("a group carries the handle its verbs take, named or not", () => {
   /*
    * `group.setLayout`, `group.rename` and `group.dissolve` take a group id, so the report has to
