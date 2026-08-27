@@ -1,6 +1,7 @@
 import { openContentWindow, type WindowPlacement } from "../canvas/open-window";
 import { noteGateway } from "./note-gateway";
 import { loadProjectContent } from "../content/project-content";
+import { getNextNumberedTitle } from "../titles";
 
 /**
  * Put a note on the canvas.
@@ -61,15 +62,8 @@ function openNoteWindow(input: WindowPlacement & Readonly<{ noteId: string; titl
  * while archived, so skipping them hands out a name that collides the moment someone restores —
  * a defect that appears long after the action that caused it, in a surface neither of them was in.
  */
-function getNextUntitledTitle(titles: readonly string[]) {
-  const used = titles.flatMap((title) => {
-    const ordinal = /^Untitled (\d+)$/.exec(title)?.[1];
-
-    return ordinal === undefined ? [] : [Number(ordinal)];
-  });
-
-  return `Untitled ${String(Math.max(0, ...used) + 1)}`;
-}
+const getNextUntitledTitle = (titles: readonly string[]) =>
+  getNextNumberedTitle("Untitled", titles);
 
 async function openNewNote(input: WindowPlacement & Readonly<{ projectId: string }>) {
   const [offered, archived] = await Promise.all([

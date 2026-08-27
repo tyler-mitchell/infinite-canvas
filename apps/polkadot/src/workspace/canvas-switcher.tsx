@@ -24,10 +24,10 @@ import {
 } from "ui";
 import { tv } from "ui/tv";
 
-import { initialLayout } from "../canvas/canvas-document";
 import type { CanvasSummary } from "../database/database.client";
 import * as database from "../database/operations";
 import { CanvasRemovalDialog } from "./canvas-removal-dialog";
+import { createCanvas } from "./create-canvas";
 
 /**
  * Which canvas this is, and how to reach another one.
@@ -245,15 +245,9 @@ export function CanvasSwitcher({
           </DropdownMenuItem>
           <DropdownMenuItem
             onClick={() => {
-              void database.canvases
-                .create({
-                  layout: initialLayout,
-                  projectId,
-                  title: `Canvas ${canvases.length + 1}`,
-                })
-                .then((created) => {
-                  openCanvas(created.id);
-                });
+              void createCanvas(projectId).then((created) => {
+                openCanvas(created.id);
+              });
             }}
           >
             <Plus />

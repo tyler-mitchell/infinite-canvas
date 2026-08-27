@@ -1,5 +1,6 @@
 import { openContentWindow, type WindowPlacement } from "../canvas/open-window";
 import { content } from "../database/operations";
+import { getNextRepeatTitle } from "../titles";
 import { collectionGateway, type CollectionQuestion } from "./collection-gateway";
 
 /**
@@ -33,30 +34,8 @@ const COLLECTION_MINIMUM_SIZE = { height: 220, width: 220 } as const;
  * a defect that surfaces long after the action that caused it, in a surface neither was in. That
  * is `open-note.ts`'s finding; taking the cheap read would have been shipping a known bug.
  */
-function getNextCollectionTitle(label: string, titles: readonly string[]) {
-  const taken = new Set(titles);
-
-  if (!taken.has(label)) {
-    return label;
-  }
-
-  /*
-   * Escaped, because the label is not always a constant. A connected-to collection is named after
-   * an item the user titled, so `Notes (2024)` would otherwise compile to a pattern matching
-   * `Notes 2024` and a title containing `.` would match any character.
-   */
-  const pattern = new RegExp(
-    `^${label.replaceAll(/[.*+?^${}()|[\]\\]/gu, String.raw`\$&`)} (\\d+)$`,
-  );
-  const used = titles.flatMap((title) => {
-    const ordinal = pattern.exec(title)?.[1];
-
-    return ordinal === undefined ? [] : [Number(ordinal)];
-  });
-
-  // The bare label is the first, so the next repeat is at least 2.
-  return `${label} ${String(Math.max(1, ...used) + 1)}`;
-}
+const getNextCollectionTitle = (label: string, titles: readonly string[]) =>
+  getNextRepeatTitle(label, titles);
 
 async function openNewCollection(
   input: WindowPlacement &
