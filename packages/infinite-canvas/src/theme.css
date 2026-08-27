@@ -39,6 +39,31 @@
  * - The 11 `--icx-*` tokens bridged from DEFAULT_INFINITE_CANVAS_THEME in
  *   ./constants.ts must match those values verbatim (enforced by
  *   ./theme-tokens.test.ts).
+ *
+ * Two `--icx-*` properties run the OTHER WAY, and they are not declared in
+ * this file on purpose:
+ *
+ *   --icx-hud-extent-bottom   how far the built-in HUD reaches up from the
+ *                             viewport's bottom edge
+ *   --icx-hud-extent-top      the same from the top edge
+ *
+ * Every other token here is an input — a consumer overrides it and the
+ * framework reads it. These are outputs. `InfiniteCanvasHud` measures its own
+ * chrome and writes them onto the viewport element as an INLINE style, in the
+ * frame it lays itself out in, so a consumer can place its own corner surface
+ * clear of the framework's dock and zoom controls:
+ *
+ *   bottom: calc(var(--icx-hud-extent-bottom, 16px) + 8px);
+ *
+ * The fallback matters: a canvas whose HUD policy is off never writes them,
+ * and the ordinary corner offset is then the right answer.
+ *
+ * **Overriding them does nothing, and the failure is silent.** An inline style
+ * outranks every stylesheet rule in every layer, so a consumer rule for either
+ * property is present, generated, and beaten on every render — the exact class
+ * of defect the `justify-content` note above describes. They are not declared
+ * here for the same reason: a default in this file could never win either, so
+ * writing one would only make the contract look like something it is not.
  */
 
 @layer infinite-canvas {

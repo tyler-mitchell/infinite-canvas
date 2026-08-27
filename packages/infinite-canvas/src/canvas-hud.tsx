@@ -89,6 +89,16 @@ const HUD_GROUP_STYLE = {
  * controls hold their intrinsic size, and `marginLeft: auto` keeps the controls right even when
  * there is no dock beside them — which `justify-content: space-between` would get wrong.
  */
+const HUD_BOTTOM_BAND_STYLE = {
+  alignItems: "flex-end",
+  bottom: "16px",
+  display: "flex",
+  gap: "8px",
+  left: "16px",
+  position: "absolute",
+  right: "16px",
+} satisfies CSSProperties;
+
 /**
  * How far the HUD's own chrome reaches in from an edge, published for the consumer to read.
  *
@@ -104,24 +114,18 @@ const HUD_GROUP_STYLE = {
  * Polkadot's `hud-clearance.ts`; each shipped a wrong number that typechecked.
  *
  * Written where it renders, which is the one moment the answer is known for certain. A consumer
- * then writes `bottom: calc(var(--icx-hud-extent-bottom, 0px) + 8px)` and is done — no observers,
+ * then writes `bottom: calc(var(--icx-hud-extent-bottom, 16px) + 8px)` and is done — no observers,
  * no timing, and the fallback covers a canvas whose HUD is turned off.
  *
  * Measured from the viewport's edge rather than from the inset, because that is the box a
  * consumer's own absolutely-positioned chrome resolves against.
+ *
+ * Exported for `hud-extent-contract.test.ts` and deliberately not re-exported from the barrel yet:
+ * a consumer reads these from CSS, so a typed constant buys nothing until it can be interpolated
+ * into a style, and promoting them is a public-API change that wants its own pass.
  */
 const HUD_EXTENT_BOTTOM_PROPERTY = "--icx-hud-extent-bottom";
 const HUD_EXTENT_TOP_PROPERTY = "--icx-hud-extent-top";
-
-const HUD_BOTTOM_BAND_STYLE = {
-  alignItems: "flex-end",
-  bottom: "16px",
-  display: "flex",
-  gap: "8px",
-  left: "16px",
-  position: "absolute",
-  right: "16px",
-} satisfies CSSProperties;
 
 const HUD_DOCK_STYLE = {
   alignItems: "center",
@@ -587,4 +591,10 @@ function InfiniteCanvasZoomControls({
   );
 }
 
-export { DEFAULT_INFINITE_CANVAS_HUD_POLICY, InfiniteCanvasHud, resolveInfiniteCanvasHudPolicy };
+export {
+  DEFAULT_INFINITE_CANVAS_HUD_POLICY,
+  HUD_EXTENT_BOTTOM_PROPERTY,
+  HUD_EXTENT_TOP_PROPERTY,
+  InfiniteCanvasHud,
+  resolveInfiniteCanvasHudPolicy,
+};

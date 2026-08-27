@@ -60,8 +60,8 @@ const MINIMAP_PADDING_PX = 6;
  * every toggle. Measured: the rail's top sat at 122px from the bottom with the map open and 114px
  * with it closed.
  *
- * Where the map sits relative to that rail is now `useBuiltInHudClearance`, which measures the rail
- * rather than restating its height.
+ * Where the map sits relative to that rail is not this file's business either. The canvas publishes
+ * `--icx-hud-extent-bottom` as it lays its own HUD out, and `hud-surfaces` adds a gap to it.
  */
 
 const minimap = tv({
@@ -69,7 +69,7 @@ const minimap = tv({
     /** The map itself is not a button, so its own close control has to opt back in. */
     close: "absolute top-1 right-1 z-10",
     frame:
-      "relative overflow-hidden rounded-[var(--radius-md)] bg-[var(--surface)] shadow-[var(--lift-2)] inset-ring-1 inset-ring-[var(--edge-light)] backdrop-blur-2xl",
+      "relative overflow-hidden rounded-[var(--radius-md)] bg-[var(--surface)] shadow-[var(--lift-2)] inset-ring-1 inset-ring-[var(--edge-light)]",
     group: "fill-[var(--surface-hover)]",
     /** Cross-hatched with the ground so the map reads as a window onto the canvas, not a card. */
     plate: "block cursor-crosshair touch-none bg-[var(--ground)]",
