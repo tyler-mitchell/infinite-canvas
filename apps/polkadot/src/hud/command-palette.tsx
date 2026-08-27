@@ -1,7 +1,7 @@
 import {
-  DEFAULT_INFINITE_CANVAS_GROUP_TITLE,
   focusInfiniteCanvasCommandSurface,
   getInfiniteCanvasContextualCommands,
+  getInfiniteCanvasGroupTitle,
   getInfiniteCanvasWindowData,
   getInfiniteCanvasWindowGroup,
   getInfiniteCanvasWindowPresence,
@@ -50,8 +50,9 @@ import {
 } from "ui";
 import { tv } from "ui/tv";
 
-import { initialLayout } from "../canvas/canvas-document";
 import { getSelectedRelations } from "../canvas/connector-geometry";
+import { createCanvas } from "../workspace/create-canvas";
+import { createProject } from "../workspace/create-project";
 import {
   ContentWindowData,
   getContentWindowItemId,
@@ -937,15 +938,9 @@ function PaletteContent({
           <Row
             icon={Columns3}
             onSelect={run(() => {
-              void database.canvases
-                .create({
-                  layout: initialLayout,
-                  projectId,
-                  title: `Canvas ${canvases.length + 1}`,
-                })
-                .then((created) => {
-                  openCanvas(created.id);
-                });
+              void createCanvas(projectId).then((created) => {
+                openCanvas(created.id);
+              });
             })}
             id="new-canvas"
             keywords="create"
@@ -1021,25 +1016,25 @@ function PaletteContent({
               id="rename-group"
               keywords="rename title name group dock"
               onSelect={() => {
-                page$.set({ groupId: activeGroup.id, kind: "group", title: activeGroup.title });
+                page$.set({
+                  groupId: activeGroup.id,
+                  kind: "group",
+                  title: getInfiniteCanvasGroupTitle(activeGroup, state.windows),
+                });
                 /*
-                 * Seeded empty while the name is still the framework's default.
+                 * Seeded empty unless somebody named it, which `title === null` says exactly.
                  *
                  * A note rename seeds the current title because you are editing a name someone
-                 * chose. A group has one whether or not anyone chose it — "Group" is a placeholder
-                 * wearing a value — so pre-filling it makes the first act clearing it. Watched: a
-                 * name typed straight in came out "GroupReading list".
+                 * chose. A derived group name is a description wearing a value, so pre-filling it
+                 * makes the first act clearing it — watched, a name typed straight in came out
+                 * "GroupReading list". This compared against the framework's default string, which
+                 * was the closest thing to provenance available and got the case wrong the moment a
+                 * derived name was anything other than "Group".
                  */
-                query$.set(
-                  activeGroup.title === DEFAULT_INFINITE_CANVAS_GROUP_TITLE
-                    ? ""
-                    : activeGroup.title,
-                );
+                query$.set(activeGroup.title ?? "");
               }}
               title={
-                activeGroup.title === DEFAULT_INFINITE_CANVAS_GROUP_TITLE
-                  ? "Name this group…"
-                  : `Rename “${activeGroup.title}”…`
+                activeGroup.title === null ? "Name this group…" : `Rename “${activeGroup.title}”…`
               }
             />
           )}
@@ -1158,11 +1153,9 @@ function PaletteContent({
           <Row
             icon={FolderPlus}
             onSelect={run(() => {
-              void database.projects
-                .create({ layout: initialLayout, title: `Project ${projectList.length + 1}` })
-                .then((created) => {
-                  openCanvas(created.id);
-                });
+              void createProject().then((created) => {
+                openCanvas(created.id);
+              });
             })}
             id="new-project"
             keywords="create"

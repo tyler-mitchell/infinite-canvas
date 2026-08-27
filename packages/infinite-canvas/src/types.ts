@@ -302,7 +302,25 @@ type InfiniteCanvasInteraction =
 type InfiniteCanvasGroup = Readonly<{
   id: string;
   rect: InfiniteCanvasRect;
-  title: string;
+  /**
+   * The name somebody gave this group, or `null` to be named after what is in it.
+   *
+   * **Absence is the provenance.** This was a plain `string` snapshotted from the members at
+   * creation, which made a derived name and a chosen one the same thing the instant it was
+   * written — so nothing downstream could tell whether it was safe to update. A group named
+   * "Untitled 6 & Connected to Untitled 6" kept saying that after Untitled 6 left, and a group
+   * named after a note kept the note's old name after a rename, because re-deriving would have
+   * silently overwritten whatever a user had typed.
+   *
+   * `null` costs no extra field and cannot fall out of sync with a flag: read through
+   * `getInfiniteCanvasGroupTitle`, a derived name is computed from current membership every time,
+   * so it follows renames and departures for free, and a given name is returned untouched.
+   *
+   * A persisted `string` therefore reads as *given* and freezes, which is the conservative
+   * direction: a name that was in fact derived stops updating, rather than a name someone chose
+   * being thrown away.
+   */
+  title: string | null;
   tree: InfiniteCanvasGroupNode;
   zIndex: number;
 }>;
@@ -353,7 +371,8 @@ type InfiniteCanvasRecipeWindow = Readonly<{
 type InfiniteCanvasRecipeGroup = Readonly<{
   groupId: string;
   rect: InfiniteCanvasRect;
-  title: string;
+  /** `null` carries "named after its members" through a recipe, so a dropped copy names its own. */
+  title: string | null;
   tree: InfiniteCanvasGroupNode;
   zIndex: number;
 }>;

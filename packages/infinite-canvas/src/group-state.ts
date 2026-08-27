@@ -30,6 +30,7 @@ import type {
   InfiniteCanvasPoint,
   InfiniteCanvasRect,
   InfiniteCanvasState,
+  InfiniteCanvasWindow,
 } from "./types";
 
 /**
@@ -267,6 +268,34 @@ function getInfiniteCanvasGroupMemberTitle(titles: readonly string[]): string {
 }
 
 /**
+ * What to call a group: the name somebody gave it, or what is in it right now.
+ *
+ * The one read for a group's name, and the reason `title` can be `null`. A given name comes back
+ * untouched — including an empty one, which is a consumer saying "draw no label" rather than
+ * "derive". A `null` name is computed from the members the tree currently holds, so it follows a
+ * window being renamed, docked in, or taken away with no invalidation step to forget.
+ *
+ * Takes the windows rather than the whole state so the group layer can call it from the selector
+ * it already has, instead of subscribing to everything to read two fields.
+ */
+function getInfiniteCanvasGroupTitle<Kind extends string>(
+  group: InfiniteCanvasGroup,
+  windows: readonly InfiniteCanvasWindow<Kind>[],
+): string {
+  if (group.title !== null) {
+    return group.title;
+  }
+
+  return getInfiniteCanvasGroupMemberTitle(
+    getInfiniteCanvasGroupWindowIds(group.tree).map(
+      (windowId) =>
+        windows.find((window) => window.id === windowId)?.title ??
+        DEFAULT_INFINITE_CANVAS_GROUP_TITLE,
+    ),
+  );
+}
+
+/**
  * Build a group from floating windows. Members are laid out as one horizontal
  * split, in the order given, sharing the shell equally.
  *
@@ -329,15 +358,10 @@ function createInfiniteCanvasGroup<Kind extends string>(
       {
         id: groupId,
         rect,
-        title:
-          title ??
-          getInfiniteCanvasGroupMemberTitle(
-            members.map(
-              (windowId) =>
-                state.windows.find((window) => window.id === windowId)?.title ??
-                DEFAULT_INFINITE_CANVAS_GROUP_TITLE,
-            ),
-          ),
+        // `null` rather than a snapshot of the members' names: a group nobody named is named after
+        // what is in it, and `getInfiniteCanvasGroupTitle` answers that from current membership so
+        // the name follows a rename or a departure instead of going stale the moment it is written.
+        title: title ?? null,
         tree: normalized,
         zIndex: getNextInfiniteCanvasGroupZIndex(state),
       },
@@ -898,30 +922,22 @@ function applyInfiniteCanvasDockPreview<Kind extends string>(
     // and left a pair called after whichever window was stood on.
     windowIds: [target.id],
   });
-  const docked = dockInfiniteCanvasWindowIntoGroup(seeded, {
+  /*
+   * No naming step. The group is minted `title: null` and stays that way, so it is named after
+   * whatever it holds whenever somebody reads it.
+   *
+   * This used to re-derive and write a name here, *after* the dock had settled, because the group
+   * is created with one member and gains the second on the very next line — so anything written at
+   * creation named half of it. That ordering problem is what a stored derived name always turns
+   * into, and it does not exist once the name is computed on read instead of chosen on write.
+   */
+  return dockInfiniteCanvasWindowIntoGroup(seeded, {
     containerId: preview.containerId,
     edge: preview.edge,
     groupId,
     targetId: preview.targetId,
     windowId: preview.windowId,
   });
-  const group = findInfiniteCanvasGroup(docked, groupId);
-
-  // Named once the membership is settled, and only for a group this call just created — docking
-  // into an existing one goes down the branch above and never reaches here, so a name a user chose
-  // is never overwritten.
-  return group === null
-    ? docked
-    : renameInfiniteCanvasGroup(docked, {
-        groupId,
-        title: getInfiniteCanvasGroupMemberTitle(
-          getInfiniteCanvasGroupWindowIds(group.tree).map(
-            (windowId) =>
-              docked.windows.find((window) => window.id === windowId)?.title ??
-              DEFAULT_INFINITE_CANVAS_GROUP_TITLE,
-          ),
-        ),
-      });
 }
 
 /**
@@ -976,7 +992,7 @@ function getInfiniteCanvasGroupTabLabel(context: InfiniteCanvasGroupTabLabelCont
   const node = findInfiniteCanvasGroupNode(context.group.tree, context.childId);
 
   if (node === null) {
-    return context.group.title;
+    return getInfiniteCanvasGroupTitle(context.group, context.windows);
   }
 
   if (node.kind === "window") {
@@ -984,7 +1000,7 @@ function getInfiniteCanvasGroupTabLabel(context: InfiniteCanvasGroupTabLabelCont
   }
 
   return node.activeChildId === null
-    ? context.group.title
+    ? getInfiniteCanvasGroupTitle(context.group, context.windows)
     : getInfiniteCanvasGroupTabLabel({ ...context, childId: node.activeChildId });
 }
 
@@ -994,6 +1010,7 @@ export {
   closeInfiniteCanvasGroup,
   createInfiniteCanvasGroup,
   detachInfiniteCanvasWindowFromGroups,
+  getInfiniteCanvasGroupTitle,
   dockInfiniteCanvasWindowIntoGroup,
   equalizeInfiniteCanvasGroupChildrenInState,
   findInfiniteCanvasGroup,

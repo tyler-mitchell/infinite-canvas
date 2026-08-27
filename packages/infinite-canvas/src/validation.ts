@@ -389,7 +389,21 @@ function parseInfiniteCanvasWorkspace(value: unknown): InfiniteCanvasWorkspace |
 }
 
 function parseInfiniteCanvasGroup(value: unknown): InfiniteCanvasGroup | null {
-  if (!isRecord(value) || typeof value.id !== "string" || typeof value.title !== "string") {
+  if (!isRecord(value) || typeof value.id !== "string") {
+    return null;
+  }
+
+  /*
+   * `null` and a missing key both mean "named after its members".
+   *
+   * A payload written before names had provenance carries a string, and that string is read as a
+   * name somebody gave — the conservative direction. A name that was in fact derived stops
+   * following its members, rather than a name a user typed being thrown away by a migration that
+   * cannot tell the two apart.
+   */
+  const title = value.title ?? null;
+
+  if (title !== null && typeof title !== "string") {
     return null;
   }
 
@@ -400,7 +414,7 @@ function parseInfiniteCanvasGroup(value: unknown): InfiniteCanvasGroup | null {
     return null;
   }
 
-  return { id: value.id, rect, title: value.title, tree, zIndex: value.zIndex };
+  return { id: value.id, rect, title, tree, zIndex: value.zIndex };
 }
 
 /**
@@ -432,7 +446,16 @@ function parseInfiniteCanvasRecipeWindow(value: unknown): InfiniteCanvasRecipeWi
 }
 
 function parseInfiniteCanvasRecipeGroup(value: unknown): InfiniteCanvasRecipeGroup | null {
-  if (!isRecord(value) || typeof value.groupId !== "string" || typeof value.title !== "string") {
+  // `null` is a title: it means "named after its members". A payload missing the key entirely is
+  // read the same way, so a recipe written before names had provenance restores a live name rather
+  // than being rejected outright.
+  const title = value !== null && isRecord(value) ? (value.title ?? null) : null;
+
+  if (!isRecord(value) || typeof value.groupId !== "string") {
+    return null;
+  }
+
+  if (title !== null && typeof title !== "string") {
     return null;
   }
 
@@ -441,7 +464,7 @@ function parseInfiniteCanvasRecipeGroup(value: unknown): InfiniteCanvasRecipeGro
 
   return rect === null || tree === null || !isSafeNumber(value.zIndex)
     ? null
-    : { groupId: value.groupId, rect, title: value.title, tree, zIndex: value.zIndex };
+    : { groupId: value.groupId, rect, title, tree, zIndex: value.zIndex };
 }
 
 function parseInfiniteCanvasRecipe(value: unknown): InfiniteCanvasRecipe | null {

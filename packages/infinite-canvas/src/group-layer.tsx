@@ -22,7 +22,11 @@ import {
   getInfiniteCanvasGroupWindowIds,
   isInfiniteCanvasGroupContainer,
 } from "./group-tree";
-import { getInfiniteCanvasGroupTabLabel, type InfiniteCanvasGroupTabLabel } from "./group-state";
+import {
+  getInfiniteCanvasGroupTabLabel,
+  getInfiniteCanvasGroupTitle,
+  type InfiniteCanvasGroupTabLabel,
+} from "./group-state";
 import { getInfiniteCanvasWorkspaceWindowIds } from "./workspace-membership";
 import { capturePointer, isPrimaryButton, releasePointer } from "./runtime";
 import { useInfiniteCanvasActions, useInfiniteCanvasSelector } from "./store";
@@ -332,6 +336,7 @@ function InfiniteCanvasGroupShell({
   metrics,
   resizeHandleSize,
   tabLabel,
+  title,
   viewport,
 }: Readonly<{
   camera: InfiniteCanvasCamera;
@@ -345,6 +350,8 @@ function InfiniteCanvasGroupShell({
   metrics: InfiniteCanvasGroupMetrics;
   resizeHandleSize: number;
   tabLabel: InfiniteCanvasGroupTabLabel;
+  /** Resolved by the layer, which holds the windows a derived name is composed from. */
+  title: string;
   viewport: InfiniteCanvasViewport;
 }>) {
   const actions = useInfiniteCanvasActions();
@@ -425,7 +432,7 @@ function InfiniteCanvasGroupShell({
 
   return (
     <div
-      aria-label={group.title}
+      aria-label={title}
       /*
        * Which group the active window is in, said on the group.
        *
@@ -443,7 +450,7 @@ function InfiniteCanvasGroupShell({
       role="group"
       style={shellStyle}
     >
-      {group.title === "" || labelSize <= 0 ? null : (
+      {title === "" || labelSize <= 0 ? null : (
         <div
           /* The shell's `aria-label` already says this; a second copy would read the name twice. */
           aria-hidden="true"
@@ -466,7 +473,7 @@ function InfiniteCanvasGroupShell({
             position: "absolute",
           }}
         >
-          {group.title}
+          {title}
         </div>
       )}
       {(handleDetail === "full" ? SHELL_RESIZE_HANDLE_DESCRIPTORS : []).map((descriptor) => (
@@ -855,6 +862,14 @@ function InfiniteCanvasGroupLayer({
   const camera = useInfiniteCanvasSelector((state) => state.camera);
   const viewport = useInfiniteCanvasSelector((state) => state.viewport);
   const allGroups = useInfiniteCanvasSelector((state) => state.groups);
+  /*
+   * For the names, and only the names.
+   *
+   * A group titled `null` is named after its members, so drawing one means reading their titles —
+   * which is also what makes the name follow a rename. This layer already re-renders on every
+   * camera tick, so a second array subscription is not what decides its cost.
+   */
+  const windows = useInfiniteCanvasSelector((state) => state.windows);
   const activeWindowId = useInfiniteCanvasSelector((state) => state.activeWindowId);
   // From state, never a prop: the reducer solves member rects from the same value, and chrome
   // drawn at a height the panes were not placed for is the whole reason this is not local.
@@ -894,6 +909,7 @@ function InfiniteCanvasGroupLayer({
           metrics={metrics}
           resizeHandleSize={resizeHandleSize}
           tabLabel={tabLabel}
+          title={getInfiniteCanvasGroupTitle(group, windows)}
           viewport={viewport}
         />
       ))}

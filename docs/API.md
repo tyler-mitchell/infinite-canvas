@@ -1,6 +1,6 @@
 # API Reference
 
-The public surface of `@hyphened/infinite-canvas`: 222 values and 186 types across
+The public surface of `@hyphened/infinite-canvas`: 223 values and 186 types across
 two entries. Anything not exported from a barrel is internal and unstable —
 including every `data-infinite-canvas-*` attribute, which is a behavioural hook
 for hit-testing, not a styling contract.
@@ -343,9 +343,19 @@ buttons, and programmatic drivers share one mutation path.
 
 - `findInfiniteCanvasGroup`, `getInfiniteCanvasWindowGroup`, `isInfiniteCanvasWindowGrouped`
 - `getInfiniteCanvasGroupedWindowIds`, `getInfiniteCanvasGroupProjection`, `reconcileInfiniteCanvasGroups`
-- `DEFAULT_INFINITE_CANVAS_GROUP_TITLE` — what a group is called when nobody named it. Exported so
-  a consumer can tell an unnamed group from a named one, which is the difference between offering
-  "Name this group" and offering "Rename"
+- `getInfiniteCanvasGroupTitle` — what a group is called: the name somebody gave it, or, when
+  `title` is `null`, a name composed from the windows it currently holds. **The one read for a
+  group's name.** A group's `title` was a plain `string` snapshotted at creation, which made a
+  derived name and a chosen one the same thing the moment it was written — so a group kept naming a
+  window that had left, and kept a member's old name after a rename, because nothing downstream
+  could tell whether refreshing it would destroy something a user typed. `null` costs no extra
+  field and cannot fall out of sync with a flag: derived names are computed on read and follow
+  membership for free, given names are returned untouched. A persisted string reads as _given_,
+  which is the conservative direction
+- `DEFAULT_INFINITE_CANVAS_GROUP_TITLE` — what a group is called when it holds nothing to name it
+  after. `title === null` — not a comparison against this string — is how a consumer tells an
+  unnamed group from a named one, which is the difference between offering "Name this group" and
+  offering "Rename"
 - `getInfiniteCanvasGroupTabLabel` — what a tab or accordion header is called: the window's
   `title`, or for a nested tabs/accordion container whatever it is currently showing. A split has
   no single occupant and takes the group's title. Pass `groupTabLabel` to the desktop to replace
