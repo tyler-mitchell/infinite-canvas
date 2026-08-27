@@ -69,6 +69,19 @@ test("every item is named by kind and title", () => {
   expect(described).toContain('image "swatch.png"');
 });
 
+test("every item carries the id that content.open takes, or the listing cannot be ordered from", () => {
+  // Titles do not distinguish stored items — five "Untitled" notes are ordinary — so the id is
+  // the only handle that names one item. A listing without it is a catalogue with no order form.
+  const described = describeProjectContent({
+    listing,
+    projectId: "project-1",
+    state: stateShowing([]),
+  });
+
+  expect(described).toContain("[one]");
+  expect(described).toContain("[two]");
+});
+
 test("items already on the canvas are marked, and the rest are counted", () => {
   // The actionable number: what is closed is what a caller might want to open.
   const described = describeProjectContent({
@@ -77,7 +90,7 @@ test("items already on the canvas are marked, and the rest are counted", () => {
     state: stateShowing(["one"]),
   });
 
-  expect(described).toContain('note "Quarterly notes" (open)');
-  expect(described).not.toContain('image "swatch.png" (open)');
+  expect(described).toContain('note "Quarterly notes" [one] (open)');
+  expect(described).not.toContain("[two] (open)");
   expect(described).toContain("2 item(s), 1 not open");
 });

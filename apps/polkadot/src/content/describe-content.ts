@@ -51,8 +51,14 @@ function describeProjectContent(
   }
 
   const open = getOpenItemIds(input.state);
+  /*
+   * The id is reported because it is the handle `content.open` takes, and it has to be: titles do
+   * not distinguish stored items the way they distinguish open windows — a project holds five
+   * "Untitled" notes without complaint. A listing whose entries could not be named back would be a
+   * catalogue with no way to order from it.
+   */
   const described = items.map(
-    (item) => `${item.kind} "${item.title}"${open.has(item.id) ? " (open)" : ""}`,
+    (item) => `${item.kind} "${item.title}" [${item.id}]${open.has(item.id) ? " (open)" : ""}`,
   );
   const closedCount = items.filter((item) => !open.has(item.id)).length;
 

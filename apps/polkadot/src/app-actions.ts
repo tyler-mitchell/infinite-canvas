@@ -5,8 +5,10 @@ import {
 } from "@hyphened/infinite-canvas";
 import { type, type Type } from "arktype";
 
+import { openItemWindow } from "./canvas/open-item";
 import type { WindowKind } from "./canvas/window-registry";
 import { LISTABLE_KINDS } from "./collections/listable-kinds";
+import { getProjectContent, projectContent$ } from "./content/project-content";
 import { openNewCollection } from "./collections/open-collection";
 import { openNewNote } from "./notes/open-note";
 
@@ -61,7 +63,47 @@ type AppAction = Readonly<{
  */
 const REVEAL_INPUT = type({ title: "string" });
 
+/**
+ * A stored item is addressed by id, and the difference from `window.reveal` is the point.
+ *
+ * A caller revealing a window is pointing at something it can see, and titles are what it sees. A
+ * caller opening a stored record is pointing into a listing where titles are not distinguishing —
+ * a project holds five "Untitled" notes without complaint, and first-match would open an arbitrary
+ * one. `content.list` reports the id for exactly this reason.
+ */
+const OPEN_INPUT = type({ itemId: "string" });
+
 const APP_ACTIONS: readonly AppAction[] = [
+  {
+    description:
+      "Open a stored item on the canvas by its id, as listed by content.list. Reveals it if a window already shows it.",
+    id: "content.open",
+    input: OPEN_INPUT,
+    label: "Open an item by id",
+    run: ({ actions, projectId, state }, input) => {
+      const parsed = OPEN_INPUT(input);
+
+      if (parsed instanceof type.errors) {
+        return;
+      }
+
+      /*
+       * Resolved against the same cache `content.list` reads, rather than re-queried. That is not
+       * an optimisation — it is what makes the pair coherent: what a caller can list and what it
+       * can open are one set, and an id that listed a moment ago cannot fail here for having come
+       * from a different read.
+       */
+      const item = getProjectContent(projectContent$.peek(), projectId)?.find(
+        (candidate) => candidate.id === parsed.itemId,
+      );
+
+      if (item !== undefined) {
+        // Already handles the record being open: `openContentWindow` reveals the existing window
+        // rather than binding a second one to it, which is the rule the library rail learned first.
+        openItemWindow({ actions, item, state });
+      }
+    },
+  },
   {
     description: "Bring the window with this title into view and make it the active one.",
     id: "window.reveal",
