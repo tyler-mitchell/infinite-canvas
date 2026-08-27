@@ -1,5 +1,6 @@
 import { initialLayout } from "../canvas/canvas-document";
 import * as database from "../database/operations";
+import { withNamingLock } from "../naming-lock";
 import { getNextNumberedTitle } from "../titles";
 
 /**
@@ -14,18 +15,21 @@ import { getNextNumberedTitle } from "../titles";
  * `createProject` returns and why: the app addresses canvases, so a project with no canvas would
  * be unreachable, and creating one and landing on it is a single act.
  */
+// Locked for the reason `createCanvas` is: reading the taken names and claiming one are two awaits.
 async function createProject() {
-  const [offered, archived] = await Promise.all([
-    database.projects.list(),
-    database.projects.listArchived(),
-  ]);
+  return withNamingLock(async () => {
+    const [offered, archived] = await Promise.all([
+      database.projects.list(),
+      database.projects.listArchived(),
+    ]);
 
-  return database.projects.create({
-    layout: initialLayout,
-    title: getNextNumberedTitle(
-      "Project",
-      [...offered, ...archived].map((project) => project.title),
-    ),
+    return database.projects.create({
+      layout: initialLayout,
+      title: getNextNumberedTitle(
+        "Project",
+        [...offered, ...archived].map((project) => project.title),
+      ),
+    });
   });
 }
 

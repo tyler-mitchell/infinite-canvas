@@ -1,5 +1,6 @@
 import { initialLayout } from "../canvas/canvas-document";
 import * as database from "../database/operations";
+import { withNamingLock } from "../naming-lock";
 import { getNextNumberedTitle } from "../titles";
 
 /**
@@ -22,19 +23,23 @@ import { getNextNumberedTitle } from "../titles";
  * Creating and navigating stay apart: the switcher and the palette both open what they made, but
  * they reach the route differently, and where you go afterwards is not a fact about the canvas.
  */
+// Locked, because the list and the create are separate awaits: two canvases made at once both read
+// the same names and both take the next one. See `naming-lock.ts` for the note that found it.
 async function createCanvas(projectId: string) {
-  const [offered, archived] = await Promise.all([
-    database.canvases.list(projectId),
-    database.canvases.listArchived(projectId),
-  ]);
+  return withNamingLock(async () => {
+    const [offered, archived] = await Promise.all([
+      database.canvases.list(projectId),
+      database.canvases.listArchived(projectId),
+    ]);
 
-  return database.canvases.create({
-    layout: initialLayout,
-    projectId,
-    title: getNextNumberedTitle(
-      "Canvas",
-      [...offered, ...archived].map((canvas) => canvas.title),
-    ),
+    return database.canvases.create({
+      layout: initialLayout,
+      projectId,
+      title: getNextNumberedTitle(
+        "Canvas",
+        [...offered, ...archived].map((canvas) => canvas.title),
+      ),
+    });
   });
 }
 

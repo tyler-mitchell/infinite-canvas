@@ -1,5 +1,6 @@
 import { openContentWindow, type WindowPlacement } from "../canvas/open-window";
 import { content } from "../database/operations";
+import { withNamingLock } from "../naming-lock";
 import { getNextRepeatTitle } from "../titles";
 import { collectionGateway, type CollectionQuestion } from "./collection-gateway";
 
@@ -41,24 +42,28 @@ async function openNewCollection(
   input: WindowPlacement &
     Readonly<{ projectId: string; question: CollectionQuestion; title: string }>,
 ) {
-  const [offered, archived] = await Promise.all([
-    content.list({ projectId: input.projectId }),
-    content.listArchived({ projectId: input.projectId }),
-  ]);
-  const created = await collectionGateway.create({
-    projectId: input.projectId,
-    question: input.question,
-    title: getNextCollectionTitle(
-      input.title,
-      [...offered, ...archived].map((item) => item.title),
-    ),
-  });
+  // Locked for the reason `openNewNote` is, and it matters more here: a collection's first one keeps
+  // the bare label, so two at once would both be "Links" rather than differing by a number.
+  return withNamingLock(async () => {
+    const [offered, archived] = await Promise.all([
+      content.list({ projectId: input.projectId }),
+      content.listArchived({ projectId: input.projectId }),
+    ]);
+    const created = await collectionGateway.create({
+      projectId: input.projectId,
+      question: input.question,
+      title: getNextCollectionTitle(
+        input.title,
+        [...offered, ...archived].map((item) => item.title),
+      ),
+    });
 
-  openCollectionWindow({
-    actions: input.actions,
-    collectionId: created.id,
-    state: input.state,
-    title: created.title,
+    openCollectionWindow({
+      actions: input.actions,
+      collectionId: created.id,
+      state: input.state,
+      title: created.title,
+    });
   });
 }
 

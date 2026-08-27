@@ -1,6 +1,7 @@
 import { openContentWindow, type WindowPlacement } from "../canvas/open-window";
 import { noteGateway } from "./note-gateway";
 import { loadProjectContent } from "../content/project-content";
+import { withNamingLock } from "../naming-lock";
 import { getNextNumberedTitle } from "../titles";
 
 /**
@@ -65,16 +66,26 @@ function openNoteWindow(input: WindowPlacement & Readonly<{ noteId: string; titl
 const getNextUntitledTitle = (titles: readonly string[]) =>
   getNextNumberedTitle("Untitled", titles);
 
+/*
+ * Locked, and this is the path the collision was actually seen on.
+ *
+ * Two notes made in quick succession left the library reading "Untitled 2", "Untitled 2",
+ * "Untitled 1" — both creations listed before either wrote, so both chose the same name. The window
+ * and the listing refresh are inside the lock too: they follow from the create, and letting the next
+ * creation start before the listing catches up would hand it a stale set of names again.
+ */
 async function openNewNote(input: WindowPlacement & Readonly<{ projectId: string }>) {
-  const [offered, archived] = await Promise.all([
-    noteGateway.list(input.projectId),
-    noteGateway.listArchived(input.projectId),
-  ]);
-  const title = getNextUntitledTitle([...offered, ...archived].map((note) => note.title));
-  const created = await noteGateway.create({ projectId: input.projectId, text: "", title });
+  return withNamingLock(async () => {
+    const [offered, archived] = await Promise.all([
+      noteGateway.list(input.projectId),
+      noteGateway.listArchived(input.projectId),
+    ]);
+    const title = getNextUntitledTitle([...offered, ...archived].map((note) => note.title));
+    const created = await noteGateway.create({ projectId: input.projectId, text: "", title });
 
-  openNoteWindow({ actions: input.actions, noteId: created.id, state: input.state, title });
-  await loadProjectContent(input.projectId);
+    openNoteWindow({ actions: input.actions, noteId: created.id, state: input.state, title });
+    await loadProjectContent(input.projectId);
+  });
 }
 
 export { openNewNote, openNoteWindow };

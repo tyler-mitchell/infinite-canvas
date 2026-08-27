@@ -2,6 +2,7 @@ import type { InfiniteCanvasSerializedState } from "@hyphened/infinite-canvas";
 
 import type { WindowKind } from "../canvas/window-registry";
 import * as database from "../database/operations";
+import { withNamingLock } from "../naming-lock";
 import { getNextRepeatTitle } from "../titles";
 
 /**
@@ -54,18 +55,22 @@ async function forkCanvas(
     projectId: string;
   }>,
 ) {
-  const [offered, archived] = await Promise.all([
-    database.canvases.list(input.projectId),
-    database.canvases.listArchived(input.projectId),
-  ]);
+  // Locked like every other default-named create. A fork happens on a save conflict, which is
+  // exactly when a second tab may be doing the same thing to the same canvas.
+  return withNamingLock(async () => {
+    const [offered, archived] = await Promise.all([
+      database.canvases.list(input.projectId),
+      database.canvases.listArchived(input.projectId),
+    ]);
 
-  return database.canvases.create({
-    layout: input.layout,
-    projectId: input.projectId,
-    title: getForkedCanvasTitle(
-      input.canvasTitle,
-      [...offered, ...archived].map((canvas) => canvas.title),
-    ),
+    return database.canvases.create({
+      layout: input.layout,
+      projectId: input.projectId,
+      title: getForkedCanvasTitle(
+        input.canvasTitle,
+        [...offered, ...archived].map((canvas) => canvas.title),
+      ),
+    });
   });
 }
 
