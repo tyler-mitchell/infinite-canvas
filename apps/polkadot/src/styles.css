@@ -292,7 +292,20 @@
    * belong to the same surface system as the rest of the chrome: a floating panel with a
    * specular edge, no outline, and the accent reserved for the active state.
    */
-    --icx-hud-panel-bg: var(--surface);
+    /*
+   * Translucent, because the framework's HUD blurs what is behind it and this override was
+   * cancelling that.
+   *
+   * `theme.css` declares `--icx-hud-panel-bg` as `color-mix(… 92%, transparent)` and pairs it with
+   * `backdrop-filter: blur(8px)` on the panel — a deliberate frosted material. Overriding it with a
+   * flat `var(--surface)` made the fill opaque, and nothing shows through an opaque fill: measured
+   * on the running canvas, two `[data-slot="hud-group"]` rails reported `blur(8px)` over
+   * `oklch(0.205 0.009 265)`, compositing a blur that could not be seen.
+   *
+   * The 92% is the framework's number, not one invented here — this is its own expression with
+   * Polkadot's surface substituted, which is what theming these tokens is supposed to mean.
+   */
+    --icx-hud-panel-bg: color-mix(in srgb, var(--surface) 92%, transparent);
     --icx-hud-panel-border: transparent;
     --icx-hud-divider: var(--border);
     --icx-hud-button-fg: var(--ink-muted);
@@ -512,7 +525,6 @@
     box-shadow:
       inset 0 1px 0 0 var(--edge-light),
       var(--lift-2);
-    backdrop-filter: blur(24px);
   }
 
   /*

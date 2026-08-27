@@ -93,6 +93,20 @@ When you find something Polkadot cannot do:
   framework's `infinite-canvas` and before `utilities`, so a slot override still beats the
   framework's theme and a utility still beats a slot override.
 - Depth comes from surface lightness and layered shadow, not from 1px borders.
+- **No `backdrop-blur` behind an opaque fill.** Six slots and one CSS rule paired
+  `bg-[var(--surface)]` — which has no alpha — with `backdrop-blur-2xl`, so every HUD rail, the
+  library rail, the minimap, the conflict notice and the dock composited a 40px blur that is
+  invisible by definition: nothing shows through an opaque background. Measured on four live
+  surfaces, all reporting `backdrop-filter: blur(40px)` over `oklch(0.205 0.009 265)`. The frosted
+  look those were reaching for needs a translucent surface, which is a real design decision — it
+  makes text contrast depend on whatever canvas content is behind — not a class you add on top.
+- **On this ground, the elevation model is thinner than it looks, and knowing the numbers stops you
+  trusting it.** Measured: `--surface` against `--ground` is 1.09:1, the `--edge-light` inset ring
+  composites to `rgb(37,39,43)` for 1.31:1, and `--lift-2`'s darkest stop lands on `rgb(6,7,9)` for
+  1.03:1 — a black shadow cannot darken a near-black ground, so the shadows contribute almost
+  nothing and the hairline ring is doing all the separating. That is fine for a panel over a busy
+  canvas and not fine for a control that has to be found unaided, which is why the failure screen's
+  only button is `--accent` rather than a surface.
 - Tokens live in `src/styles.css` and are the only source of colour, elevation, and easing.
 
 ## Reading a window's data

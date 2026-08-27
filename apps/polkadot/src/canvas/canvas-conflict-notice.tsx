@@ -34,7 +34,7 @@ const conflictNotice = tv({
     body: "min-w-0",
     detail: "text-[11px] text-[var(--ink-faint)]",
     icon: "size-4 shrink-0 text-[var(--danger)]",
-    rail: "flex max-w-[26rem] items-center gap-2.5 rounded-[var(--radius-lg)] bg-[var(--surface)] py-2 pr-2 pl-3 shadow-[var(--lift-3)] inset-ring-1 inset-ring-[var(--edge-light)] backdrop-blur-2xl",
+    rail: "flex max-w-[26rem] items-center gap-2.5 rounded-[var(--radius-lg)] bg-[var(--surface)] py-2 pr-2 pl-3 shadow-[var(--lift-3)] inset-ring-1 inset-ring-[var(--edge-light)]",
     title: "text-[12.5px] font-medium text-[var(--ink)]",
   },
 });

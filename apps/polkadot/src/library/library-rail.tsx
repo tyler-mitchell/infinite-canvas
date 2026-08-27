@@ -121,7 +121,7 @@ const rail = tv({
     kindGlyph: "size-3.5 shrink-0 text-[var(--ink-faint)]",
     heading: "flex-1 pl-1.5 text-[12px] font-medium tracking-[-0.005em] text-[var(--ink-muted)]",
     presence: "size-1.5 rounded-full bg-[var(--accent)]",
-    root: "flex w-[264px] flex-col rounded-[var(--radius-lg)] bg-[var(--surface)] shadow-[var(--lift-2)] inset-ring-1 inset-ring-[var(--edge-light)] backdrop-blur-2xl",
+    root: "flex w-[264px] flex-col rounded-[var(--radius-lg)] bg-[var(--surface)] shadow-[var(--lift-2)] inset-ring-1 inset-ring-[var(--edge-light)]",
     /** The whole row lights up, though the reach target and the disclosure are separate controls. */
     row: "group flex w-full items-center gap-2 rounded-[var(--radius-sm)] pr-1 pl-1.5 transition-colors duration-100 ease-[var(--ease-swift)] hover:bg-[var(--surface-hover)]",
     search:

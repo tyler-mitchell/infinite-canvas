@@ -64,9 +64,9 @@ const canvasHud = tv({
     noticeIcon: "size-3.5 shrink-0 text-[var(--danger)]",
     noticeKinds: "font-mono text-[11px] text-[var(--ink-faint)]",
     noticeRail:
-      "flex items-center gap-2 rounded-[var(--radius-pill)] bg-[var(--surface)] py-1 pr-1 pl-2.5 shadow-[var(--lift-2)] inset-ring-1 inset-ring-[var(--edge-light)] backdrop-blur-2xl",
+      "flex items-center gap-2 rounded-[var(--radius-pill)] bg-[var(--surface)] py-1 pr-1 pl-2.5 shadow-[var(--lift-2)] inset-ring-1 inset-ring-[var(--edge-light)]",
     noticeText: "text-[11.5px] tracking-[-0.005em] text-[var(--ink-muted)]",
-    rail: "flex items-center gap-0.5 rounded-[var(--radius-pill)] bg-[var(--surface)] p-1 shadow-[var(--lift-2)] inset-ring-1 inset-ring-[var(--edge-light)] backdrop-blur-2xl",
+    rail: "flex items-center gap-0.5 rounded-[var(--radius-pill)] bg-[var(--surface)] p-1 shadow-[var(--lift-2)] inset-ring-1 inset-ring-[var(--edge-light)]",
   },
 });
 
