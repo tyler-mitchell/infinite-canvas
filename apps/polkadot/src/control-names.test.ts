@@ -92,6 +92,68 @@ const unnamedFields = (source: string, file: string) =>
       .map(() => `${file}: ${tag} with no accessible name`),
   );
 
+/**
+ * Whether anything between a button's tags is a word, as opposed to a glyph.
+ *
+ * A button with text in it is named by that text and needs nothing else — demanding `aria-label`
+ * everywhere would be the same overreach that flagged the visible `<label>`. A button holding only
+ * an icon has nothing to be named by, and that is the case worth guarding: "a rail of unlabelled
+ * glyphs is the failure mode of every canvas tool" is this app's own phrasing, in the file that
+ * builds its rails.
+ *
+ * Elements, expressions and comments come out; whatever letters remain were typed to be read. The
+ * brace pass repeats because expressions nest — `{open ? <A /> : <B />}` is one expression holding
+ * two more — and a single non-greedy sweep would leave the outer braces behind.
+ */
+const hasVisibleText = (children: string) => {
+  const withoutTags = children.replaceAll(/<[^>]*>/gu, " ");
+  const withoutComments = withoutTags.replaceAll(/\/\*[\s\S]*?\*\//gu, " ");
+  const flattenBraces = (text: string): string => {
+    const next = text.replaceAll(/\{[^{}]*\}/gu, " ");
+
+    return next === text ? next : flattenBraces(next);
+  };
+
+  return /\p{L}/u.test(flattenBraces(withoutComments));
+};
+
+/** The children of the first `<Button …>` / `<button …>` in each chunk, tag excluded. */
+const buttonChildren = (rest: string, closer: string) => {
+  const opened = rest.indexOf(">");
+  const closed = rest.indexOf(closer);
+
+  // Self-closing, so there are no children at all — an icon-only button by construction.
+  return opened === -1 || closed === -1 || closed < opened ? "" : rest.slice(opened + 1, closed);
+};
+
+/**
+ * A button handed to a `render` prop is not the element whose children matter.
+ *
+ * Base UI composes by passing an element as a prop — `<DialogClose render={<Button variant="ghost" />}>Cancel</DialogClose>`
+ * — and merges the wrapper's children onto it, so the rendered button says "Cancel" while the
+ * `<Button />` in the source is self-closing and looks like a bare glyph. Flagging it would have
+ * argued for an `aria-label` duplicating text that is already on screen, which is the same overreach
+ * that flagged the visible `<label>`.
+ */
+const isComposedIntoAWrapper = (before: string) => before.trimEnd().endsWith("render={");
+
+const unnamedButtons = (source: string, file: string) =>
+  (
+    [
+      ["<Button", "</Button>"],
+      ["<button", "</button>"],
+    ] as const
+  ).flatMap(([tag, closer]) => {
+    const parts = source.split(tag);
+
+    return parts
+      .slice(1)
+      .filter((_rest, index) => !isComposedIntoAWrapper(parts[index] ?? ""))
+      .filter((rest) => !openingTag(rest).includes("aria-label"))
+      .filter((rest) => !hasVisibleText(buttonChildren(rest, closer)))
+      .map(() => `${file}: ${tag} with only a glyph and no aria-label`);
+  });
+
 test("no field is rendered without an accessible name", () => {
   const offenders = sources().flatMap((file) =>
     unnamedFields(readFileSync(`${SRC}${file}`, "utf8"), file),
@@ -122,4 +184,31 @@ test("an id nothing points at is not a name", () => {
   const orphaned = `<input id="confirm" className={styles.input()} />`;
 
   expect(unnamedFields(orphaned, "orphaned.tsx")).toHaveLength(1);
+});
+
+test("no button is a glyph with nothing to call it", () => {
+  const offenders = sources().flatMap((file) =>
+    unnamedButtons(readFileSync(`${SRC}${file}`, "utf8"), file),
+  );
+
+  expect(offenders).toEqual([]);
+});
+
+test.each([
+  ["an icon and nothing else", `<Button size="icon-sm">\n  <Plus />\n</Button>`],
+  ["a self-closing button", `<Button onClick={run} size="icon-sm" />`],
+])("the scan notices %s", (_shape, planted) => {
+  expect(unnamedButtons(planted, "planted.tsx")).toHaveLength(1);
+});
+
+test.each([
+  ["a word beside its icon", `<Button size="sm">\n  <Plus />\n  New note\n</Button>`],
+  ["an explicit label", `<Button aria-label="New note" size="icon-sm">\n  <Plus />\n</Button>`],
+  ["interpolated text", `<Button size="sm">\n  {label}\n  Archive\n</Button>`],
+  [
+    "one composed into a wrapper that carries the words",
+    `<DialogClose render={<Button variant="ghost" />}>Cancel</DialogClose>`,
+  ],
+])("it accepts %s", (_shape, allowed) => {
+  expect(unnamedButtons(allowed, "allowed.tsx")).toEqual([]);
 });
