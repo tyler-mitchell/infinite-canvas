@@ -31,6 +31,17 @@ test("the published property names are what consumers were told to read", () => 
   expect(HUD_EXTENT_TOP_PROPERTY).toBe("--icx-hud-extent-top");
 });
 
+/**
+ * Both values have been read off a real canvas, which this file cannot do — jsdom performs no
+ * layout, so every rect here would be zero and an assertion on one would pass for the wrong reason.
+ *
+ * Driven in a browser on 2026-08-27 at 1440×900, against a change rather than once:
+ * `--icx-hud-extent-bottom` read 114px with the consumer's bottom inset at 56 and 154px at 96, the
+ * band's own top edge measuring 114 and 154 to match. `--icx-hud-extent-top` needed the status card
+ * turned on, since the incubator ships with `statusCard: false` and it publishes 0px otherwise; with
+ * the card it read 123px against a card whose bottom edge measured 123 from the viewport's top.
+ */
+
 test("the stylesheet documents both, since that is where a consumer looks for a token", () => {
   const theme = readFileSync(THEME, "utf8");
 
