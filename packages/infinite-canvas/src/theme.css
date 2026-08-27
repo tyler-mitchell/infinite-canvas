@@ -385,7 +385,7 @@
   /* ------------------------------------------------------------------ */
   [data-slot="window-title"] {
     color: var(--icx-title-fg);
-    font-size: 10px;
+    font-size: var(--icx-title-font-size);
     font-weight: 500;
     text-transform: uppercase;
   }
