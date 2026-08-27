@@ -24,6 +24,13 @@ import type { InfiniteCanvasGroup, InfiniteCanvasRect } from "./types";
  * Asserted on the `bottom` the shell writes rather than a measured pixel, for the reason the label
  * sizing tests give: the shell is drawn under a world→screen scale, so the whole mechanism is
  * arithmetic in world units, and a rendered position would only restate it.
+ *
+ * Both bounds were then watched in the incubator, which the commit that landed this could not say
+ * because the app was throwing on another session's in-flight work at the time. With the shell's
+ * top edge 433 pixels above the viewport and the shell still on screen, the label held at y = 57 —
+ * one pixel below the app's 56-pixel header, where unpinned it would have been at -461. Panning
+ * until the shell left entirely (bottom edge at -4) took the label with it to -23, rather than
+ * leaving a name at the top of the screen labelling nothing.
  */
 
 type Kind = "note";
