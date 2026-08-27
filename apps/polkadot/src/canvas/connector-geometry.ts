@@ -6,7 +6,6 @@ import {
   getInfiniteCanvasRectConnectorPath,
   getInfiniteCanvasSegmentsWithinRect,
   screenPointToWorldPoint,
-  getInfiniteCanvasWindowData,
   getSelectionTargets,
   isInfiniteCanvasWindowInActiveWorkspace,
   type InfiniteCanvasPoint,
@@ -17,7 +16,7 @@ import {
 } from "@hyphened/infinite-canvas";
 
 import type { ContentRelation } from "../database/database.client";
-import { ContentWindowData, type WindowKind } from "./window-registry";
+import { getContentWindowItemId, type WindowKind } from "./window-registry";
 
 /**
  * Where every connector actually is, in world space.
@@ -82,7 +81,9 @@ function getConnectorRectsByItem(state: InfiniteCanvasState<WindowKind>) {
 
   // An item can be open in more than one window, so an edge joins every pair showing it.
   return state.windows.reduce<Map<string, InfiniteCanvasRect[]>>((rects, window) => {
-    const data = getInfiniteCanvasWindowData(window, ContentWindowData.allows);
+    // Through the shared reader, which is the only thing that knows where the id lives — the field
+    // has moved once already and every surface spelling it out kept compiling and stopped working.
+    const itemId = getContentWindowItemId(window);
 
     /*
      * Desktop membership, which this used to ignore.
@@ -98,12 +99,12 @@ function getConnectorRectsByItem(state: InfiniteCanvasState<WindowKind>) {
      * case that matters most: with no workspace active it admits everything, so a canvas that never
      * creates a desktop behaves exactly as it did before.
      */
-    return data == null ||
+    return itemId === null ||
       window.mode === "minimized" ||
       hiddenWindowIds.has(window.id) ||
       !isInfiniteCanvasWindowInActiveWorkspace(state, window.id)
       ? rects
-      : rects.set(data.itemId, [...(rects.get(data.itemId) ?? []), window.rect]);
+      : rects.set(itemId, [...(rects.get(itemId) ?? []), window.rect]);
   }, new Map());
 }
 
