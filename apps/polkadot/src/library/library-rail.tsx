@@ -560,10 +560,24 @@ export function LibraryRail({
                       {openItemIds.has(note.id) ? <span className={styles.presence()} /> : null}
                     </span>
                     {titleCell[editing?.id === note.id ? "editing" : rowMode](note)}
+                    {/*
+                      The count button is named after the row it belongs to, because nothing else
+                      here is.
+
+                      It announced "1 connected" and nothing more, which six rows on this canvas
+                      said identically — a name that cannot separate two things is not a name. The
+                      note titles had the same fault earlier and the window around them answered it,
+                      being a `role="group"` named after the note. A rail row has no such grouping:
+                      measured, the nearest ancestor carrying a role is none at all, so there is no
+                      context to recover the subject from and the name has to carry it.
+
+                      The count stays at the front so the visible text is still inside the accessible
+                      name, which is what keeps the button reachable by speaking it.
+                    */}
                     {neighbours.length === 0 ? null : (
                       <button
                         aria-expanded={isExpanded}
-                        aria-label={`${String(neighbours.length)} connected`}
+                        aria-label={`${String(neighbours.length)} connected to ${note.title}`}
                         className={styles.count()}
                         onClick={() => {
                           expanded$.set(isExpanded ? null : note.id);
@@ -607,6 +621,10 @@ export function LibraryRail({
                     ? neighbours.map((neighbourId) => {
                         const neighbour = notes.find((candidate) => candidate.id === neighbourId);
                         const relation = findRelation(relations, note.id, neighbourId);
+                        // Asked once. It was called twice — to test for a label and then to print
+                        // it — which is two chances for the branch and the text to disagree.
+                        const relationLabel =
+                          relation === undefined ? undefined : getRelationLabel(relation);
 
                         return neighbour === undefined || relation === undefined ? null : (
                           <div className={styles.connectionRow()} key={neighbourId}>
@@ -624,10 +642,8 @@ export function LibraryRail({
                               </span>
                               <KindGlyph kind={neighbour.kind} />
                               <span className={styles.connectionTitle()}>{neighbour.title}</span>
-                              {getRelationLabel(relation) === undefined ? null : (
-                                <span className={styles.connectionKind()}>
-                                  {getRelationLabel(relation)}
-                                </span>
+                              {relationLabel === undefined ? null : (
+                                <span className={styles.connectionKind()}>{relationLabel}</span>
                               )}
                             </button>
                             {/*
