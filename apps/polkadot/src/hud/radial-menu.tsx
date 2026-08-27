@@ -199,13 +199,15 @@ function RadialMenu({
   /*
    * Escape is heard on the document, not on the overlay.
    *
-   * The overlay's own key handler only runs when focus is already inside the wheel, and the wheel
-   * does not take focus when it opens (see below). Measured: a wheel open with six spokes, Escape
-   * pressed, six spokes still there — the most reflexive way out of a menu did nothing at all.
-   *
    * Dismissal is not focus-scoped the way arrowing between spokes is. Turning the wheel is a
    * question about the thing you are already in; closing it is a question about the whole screen,
    * and the same reasoning already puts the `contextmenu` listener that opens it on the document.
+   *
+   * The wheel does take focus on open, so the overlay's own handler would usually hear Escape —
+   * but "usually" is the problem. Focus leaves for ordinary reasons, and an event whose target is
+   * `<body>` never enters the React root at all, so no component handler can see it. Measured:
+   * an ArrowRight aimed at the document left focus where it was, while the same key aimed at a
+   * spoke moved it. A menu that can only be dismissed from inside itself is a trap.
    *
    * Capture, so the wheel answers first. The framework binds Escape too — cancelling an
    * interaction, clearing a selection — and dismissing a menu should not also undo something
@@ -227,21 +229,26 @@ function RadialMenu({
   }, [onClose]);
 
   /*
-   * The wheel does not focus itself, and that is a known gap rather than an oversight.
+   * The wheel takes focus when it opens.
    *
-   * Four attempts failed: in the mount effect, in an effect keyed on `isOpen`, inside
-   * `requestAnimationFrame`, and inside `setTimeout`. Every one left `document.activeElement` as
-   * `<body>` on a wheel that was demonstrably open with six spokes rendered.
+   * A menu you just opened is the thing you are working in, so the arrows should turn it and
+   * Escape should close it without first pressing Tab to get in. Without this the wheel is
+   * reachable only after a tab stop nobody thinks to look for.
    *
-   * It is not the element. Calling `.focus()` on the same button from the console succeeds at 0,
-   * 16, 50, 120, 300 and 500ms after opening, sticks for at least 600ms, and the node stays
-   * connected and current — so nothing removes it and nothing steals focus. Something about
-   * focusing from inside this component's own lifecycle is different, and I did not find what.
+   * It asks the DOM which spoke carries the tab stop rather than reading `focusedIndex`, so the
+   * effect depends on nothing and runs once. Keying it to the index would re-run on every arrow
+   * press and fight the very navigation it exists to enable.
    *
-   * Shipping without it rather than shipping a call that silently does nothing. The keyboard path
-   * still exists: one spoke carries the tab stop, so Tab reaches the wheel, and the arrows turn it
-   * from there.
+   * A previous version of this comment said auto-focus was impossible here, citing four attempts
+   * that left `document.activeElement` as `<body>`. That was wrong, and it was measurement rather
+   * than behaviour: each probe dispatched a second `contextmenu` at an already-open wheel, the
+   * dismiss handler closed it, and the reading was taken on a menu that no longer existed. Opening
+   * and reading in one probe shows focus landing on the first enabled spoke and still there half a
+   * second later, on the canvas ring and the window ring alike.
    */
+  useEffect(() => {
+    rootRef.current?.querySelector<HTMLButtonElement>('[data-spoke][tabindex="0"]')?.focus();
+  }, []);
 
   return (
     <div
