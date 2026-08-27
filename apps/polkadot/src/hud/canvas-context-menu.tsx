@@ -5,7 +5,19 @@ import {
   type InfiniteCanvasCommandId,
 } from "@hyphened/infinite-canvas";
 import { useValue } from "@legendapp/state/react";
-import { FilePlus2, Columns3, Maximize, MousePointerSquareDashed, Scan, Undo2 } from "lucide-react";
+import {
+  Columns3,
+  FilePlus2,
+  Grip,
+  Maximize,
+  Maximize2,
+  Minus,
+  MousePointerSquareDashed,
+  Pin,
+  Scan,
+  Undo2,
+  X,
+} from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { getAppAction, isAppActionEnabled } from "../app-actions";
@@ -38,11 +50,29 @@ const wantsNativeMenu = (target: EventTarget | null) =>
   target instanceof Element &&
   target.closest("input, textarea, select, [contenteditable='true'], a[href]") !== null;
 
+/**
+ * The window under the press, or `null` for bare canvas.
+ *
+ * `data-infinite-canvas-window-id` is the framework's own behavioural attribute — the contract
+ * `data-attributes.ts` keeps deliberately separate from the `data-slot` styling one — so this reads
+ * the identity the framework publishes rather than inventing a way to ask.
+ */
+const getWindowUnderPointer = (target: EventTarget | null) =>
+  target instanceof Element
+    ? (target
+        .closest("[data-infinite-canvas-window-id]")
+        ?.getAttribute("data-infinite-canvas-window-id") ?? null)
+    : null;
+
 function CanvasContextMenu() {
   const actions = useInfiniteCanvasActions<WindowKind>();
   const store = useInfiniteCanvasStore<WindowKind>();
   const projectId = useValue(openProject$) ?? "";
-  const [origin, setOrigin] = useState<Readonly<{ x: number; y: number }> | null>(null);
+  const [press, setPress] = useState<Readonly<{
+    windowId: string | null;
+    x: number;
+    y: number;
+  }> | null>(null);
 
   useEffect(() => {
     const handleContextMenu = (event: MouseEvent) => {
@@ -51,7 +81,11 @@ function CanvasContextMenu() {
       }
 
       event.preventDefault();
-      setOrigin({ x: event.clientX, y: event.clientY });
+      setPress({
+        windowId: getWindowUnderPointer(event.target),
+        x: event.clientX,
+        y: event.clientY,
+      });
     };
 
     document.addEventListener("contextmenu", handleContextMenu);
@@ -61,7 +95,23 @@ function CanvasContextMenu() {
     };
   }, []);
 
-  if (origin === null) {
+  /*
+   * Pressing a window makes it the active one, which is what every desktop does and what the
+   * framework's `activeWindow.*` verbs need in order to be about the thing you pressed rather than
+   * whatever was focused before.
+   *
+   * In an effect rather than in the render that follows the press: dispatching a command while
+   * rendering is a side effect in render, and React is entitled to run that twice.
+   */
+  const pressedWindowId = press?.windowId ?? null;
+
+  useEffect(() => {
+    if (pressedWindowId !== null) {
+      actions.focusWindow(pressedWindowId);
+    }
+  }, [actions, pressedWindowId]);
+
+  if (press === null) {
     return null;
   }
 
@@ -96,20 +146,40 @@ function CanvasContextMenu() {
     };
   };
 
+  /*
+   * Two rings, chosen by what was pressed rather than one ring that tries to serve both.
+   *
+   * A window's verbs and the canvas's barely overlap — closing and pinning mean nothing on bare
+   * canvas, and creating a note has nothing to do with the window you pressed. Offering all twelve
+   * would be a list wearing a wheel's shape, and offering six that change meaning by context would
+   * put a different verb under the same angle, which is precisely what a wheel must not do.
+   */
+  const items =
+    press.windowId === null
+      ? [
+          appVerb("note.create", FilePlus2, "New note"),
+          appVerb("group.createFromSelection", Columns3, "Group selected"),
+          canvasVerb("view.fitSelection", Scan, "Fit selection"),
+          canvasVerb("view.fitAll", Maximize, "Fit all"),
+          canvasVerb("selection.selectAllVisible", MousePointerSquareDashed, "Select all"),
+          canvasVerb("history.undo", Undo2, "Undo"),
+        ]
+      : [
+          canvasVerb("activeWindow.toggleMaximized", Maximize2, "Maximize"),
+          canvasVerb("activeWindow.togglePinned", Pin, "Pin"),
+          canvasVerb("window.undock", Grip, "Undock"),
+          canvasVerb("activeWindow.close", X, "Close"),
+          canvasVerb("activeWindow.minimize", Minus, "Minimize"),
+          canvasVerb("view.fitSelection", Scan, "Fit"),
+        ];
+
   return (
     <RadialMenu
-      items={[
-        appVerb("note.create", FilePlus2, "New note"),
-        appVerb("group.createFromSelection", Columns3, "Group selected"),
-        canvasVerb("view.fitSelection", Scan, "Fit selection"),
-        canvasVerb("view.fitAll", Maximize, "Fit all"),
-        canvasVerb("selection.selectAllVisible", MousePointerSquareDashed, "Select all"),
-        canvasVerb("history.undo", Undo2, "Undo"),
-      ]}
+      items={items}
       onClose={() => {
-        setOrigin(null);
+        setPress(null);
       }}
-      origin={origin}
+      origin={press}
     />
   );
 }
