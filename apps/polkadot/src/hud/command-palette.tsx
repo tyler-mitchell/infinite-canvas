@@ -84,6 +84,7 @@ import {
   DEFAULT_RELATION_KIND,
   disconnectItems,
   findRelation,
+  getRelationLabel,
   RELATION_KINDS,
   relations$,
   setRelationKind,
@@ -563,6 +564,28 @@ function PaletteContent({
     selectedNoteIds[1] !== undefined
       ? findRelation(relations, selectedNoteIds[0], selectedNoteIds[1])
       : undefined;
+  /**
+   * What disconnecting these two would destroy, when it would destroy anything.
+   *
+   * This row acts on an edge nobody is looking at: two *windows* are selected, the connector between
+   * them is not, and it may be off screen entirely. So unlike the Backspace action — which cuts a
+   * connector the pointer selected, with its label drawn on the line — the person choosing this row
+   * has no way to see what the connection claims.
+   *
+   * The rail answers the same problem with a dialog. A palette row cannot: it is a keyboard surface
+   * and `run` closes the palette, so a modal on the way out would interrupt the one flow this exists
+   * to make fast. Saying it in the row is the proportionate form — it arrives before the choice
+   * rather than after it, which is the argument `saved-view-menu` already makes for a removal mode
+   * over a confirm dialog.
+   *
+   * `getRelationLabel` is the same test the connector draws by and the rail confirms on; an edge with
+   * the default kind and no label claims nothing beyond the pairing, and its title stays plain.
+   */
+  const connectionClaim = connectedPair === undefined ? undefined : getRelationLabel(connectedPair);
+  const disconnectPairTitle =
+    connectionClaim === undefined
+      ? "Disconnect the two selected notes"
+      : `Disconnect the two selected notes — loses “${connectionClaim}”`;
 
   /*
    * A connector the pointer selected, which is a different question from two selected windows.
@@ -1164,9 +1187,7 @@ function PaletteContent({
                 connectedPair === undefined ? "relate link edge" : "unrelate unlink cut edge"
               }
               title={
-                connectedPair === undefined
-                  ? "Connect the two selected notes"
-                  : "Disconnect the two selected notes"
+                connectedPair === undefined ? "Connect the two selected notes" : disconnectPairTitle
               }
             />
           ) : null}
