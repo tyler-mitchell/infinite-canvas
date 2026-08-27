@@ -62,20 +62,21 @@ const VISUALLY_HIDDEN_STYLE = {
   width: "1px",
 } satisfies CSSProperties;
 
-const HUD_ICON_BUTTON_STYLE = {
-  alignItems: "center",
-  display: "flex",
-  height: "40px",
-  justifyContent: "center",
-  width: "40px",
-} satisfies CSSProperties;
-
-const HUD_GROUP_STYLE = {
-  alignItems: "center",
-  display: "flex",
-  overflow: "hidden",
-  pointerEvents: "auto",
-} satisfies CSSProperties;
+/*
+ * The buttons carry no inline style, and the groups carry exactly one property.
+ *
+ * Their boxes and centring were written here, which is the strongest form of unreachable: an inline
+ * style outranks every stylesheet rule in every layer, so a consumer's rule for any of them was
+ * present, generated, and beaten on every render. They live in `theme.css` now, sized by
+ * `--icx-hud-button-size` — the number a consumer is most likely to need, since 40px is a desktop
+ * pointer's target and a touch canvas wants a different one.
+ *
+ * `pointer-events` stayed, and the distinction is the whole point rather than a leftover. The HUD
+ * root is `none` and each group opts back in, so it is load-bearing: a consumer overriding it would
+ * switch the HUD off. The scope note in `theme.css` lists pointer-events among what components keep
+ * for that reason, alongside positions, sizes and z-index that something else derives from.
+ */
+const HUD_INTERACTIVE_STYLE = { pointerEvents: "auto" } satisfies CSSProperties;
 
 /**
  * The bottom edge is one row, not two corners.
@@ -343,10 +344,7 @@ function InfiniteCanvasHud({
                   onClick={() => {
                     actions.reset();
                   }}
-                  style={{
-                    ...HUD_ICON_BUTTON_STYLE,
-                    pointerEvents: "auto",
-                  }}
+                  style={HUD_INTERACTIVE_STYLE}
                   type="button"
                 >
                   <ResetIcon />
@@ -396,7 +394,7 @@ function InfiniteCanvasCameraNavigationControls() {
       data-infinite-canvas-control="true"
       data-slot={INFINITE_CANVAS_SLOTS.hudGroup}
       role="group"
-      style={HUD_GROUP_STYLE}
+      style={HUD_INTERACTIVE_STYLE}
     >
       <button
         aria-label="Center active window"
@@ -415,7 +413,6 @@ function InfiniteCanvasCameraNavigationControls() {
             },
           });
         }}
-        style={HUD_ICON_BUTTON_STYLE}
         title="Center active window"
         type="button"
       >
@@ -436,7 +433,6 @@ function InfiniteCanvasCameraNavigationControls() {
             },
           });
         }}
-        style={HUD_ICON_BUTTON_STYLE}
         title="Fit selection"
         type="button"
       >
@@ -457,7 +453,6 @@ function InfiniteCanvasCameraNavigationControls() {
             },
           });
         }}
-        style={HUD_ICON_BUTTON_STYLE}
         title="Fit all visible windows"
         type="button"
       >
@@ -484,7 +479,7 @@ function InfiniteCanvasPointerModeControls({
       data-infinite-canvas-control="true"
       data-slot={INFINITE_CANVAS_SLOTS.hudGroup}
       role="group"
-      style={HUD_GROUP_STYLE}
+      style={HUD_INTERACTIVE_STYLE}
     >
       <button
         aria-label="Use marquee selection mode"
@@ -495,7 +490,6 @@ function InfiniteCanvasPointerModeControls({
         onClick={() => {
           onModeChange("marquee");
         }}
-        style={HUD_ICON_BUTTON_STYLE}
         title="Marquee selection"
         type="button"
       >
@@ -510,7 +504,6 @@ function InfiniteCanvasPointerModeControls({
         onClick={() => {
           onModeChange("pan");
         }}
-        style={HUD_ICON_BUTTON_STYLE}
         title="Pan canvas"
         type="button"
       >
@@ -536,7 +529,7 @@ function InfiniteCanvasZoomControls({
   };
 
   return (
-    <div data-group="zoom" data-slot={INFINITE_CANVAS_SLOTS.hudGroup} style={HUD_GROUP_STYLE}>
+    <div data-group="zoom" data-slot={INFINITE_CANVAS_SLOTS.hudGroup} style={HUD_INTERACTIVE_STYLE}>
       <button
         aria-label="Zoom out"
         data-action="zoom-out"
@@ -548,7 +541,6 @@ function InfiniteCanvasZoomControls({
             zoom: state.camera.zoom / zoomPolicy.step,
           });
         }}
-        style={HUD_ICON_BUTTON_STYLE}
         type="button"
       >
         <ZoomOutIcon />
@@ -582,7 +574,6 @@ function InfiniteCanvasZoomControls({
             zoom: state.camera.zoom * zoomPolicy.step,
           });
         }}
-        style={HUD_ICON_BUTTON_STYLE}
         type="button"
       >
         <ZoomInIcon />

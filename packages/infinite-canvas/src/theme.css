@@ -266,6 +266,14 @@
      * coincidence rather than by contract, which is the state this token replaces.
      */
     --icx-hud-font-size: 11px;
+    /*
+     * The HUD's touch target, previously an inline `40px` on every button.
+     *
+     * This is the one a consumer is most likely to need: 40px is a desktop pointer's size, and a
+     * canvas built for touch or for a dense toolbar wants a different number. It was the only part
+     * of these buttons that could not be reached — every colour and transition already could.
+     */
+    --icx-hud-button-size: 40px;
     --icx-hud-panel-border: color-mix(in srgb, var(--icx-color-foreground) 10%, transparent);
     /*
      * The elevation a HUD panel carries, and the reason it defaults to nothing.
@@ -661,6 +669,18 @@
   /* grouped buttons are transparent with hairline dividers per action.   */
   /* ------------------------------------------------------------------ */
   [data-slot="hud-group"] {
+    /*
+     * Moved off an inline style, same finding as the window controls one slot over.
+     *
+     * `pointer-events: auto` did NOT come with them and stays in the component: the HUD root is
+     * `none` and each group opts back in, so it is load-bearing rather than a treatment — the scope
+     * note at the top of this file lists pointer-events among what components keep for exactly that
+     * reason. A consumer overriding it here would switch the HUD off.
+     */
+    align-items: center;
+    display: flex;
+    overflow: hidden;
+
     border: 1px solid var(--icx-hud-panel-border);
     background: var(--icx-hud-panel-bg);
     box-shadow: var(--icx-hud-panel-shadow);
@@ -668,6 +688,13 @@
   }
 
   [data-slot="hud-button"] {
+    /* Its box, previously inline and therefore unreachable. See `--icx-hud-button-size`. */
+    align-items: center;
+    display: flex;
+    height: var(--icx-hud-button-size);
+    justify-content: center;
+    width: var(--icx-hud-button-size);
+
     border: 1px solid var(--icx-hud-panel-border);
     background: var(--icx-hud-panel-bg);
     box-shadow: var(--icx-hud-panel-shadow);
