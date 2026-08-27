@@ -20,6 +20,7 @@ import {
 } from "./content/project-content";
 import { openNewCollection } from "./collections/open-collection";
 import { renameProjectItem } from "./content/rename-item";
+import type { ContentItemRecord } from "./database/database.client";
 import { openNewNote } from "./notes/open-note";
 import { createDesktop } from "./workspace/create-desktop";
 import {
@@ -252,6 +253,25 @@ const resolveRelation = (
 
   return findRelation(relations$.peek(), resolved.source, resolved.target) ?? NOT_CONNECTED;
 };
+
+/**
+ * One stored item by the id a caller was given, or the refusal saying why not.
+ *
+ * Four verbs resolve an item — open, archive, rename, and the connected-to collection — and each
+ * had written this out: read the listing, `find` by id, refuse if absent. Four copies of a lookup is
+ * how the rename capability came to have two implementations that disagreed, so the fourth appearing
+ * is the point to stop rather than the point to add a fifth.
+ *
+ * Resolved against the cache `content.list` reads rather than re-queried. That is not a saving — it
+ * is what makes the pair coherent: what a caller can list and what it can act on are one set, and an
+ * id that listed a moment ago cannot fail here for having come from a different read.
+ *
+ * Returns the refusal rather than `null`, matching `resolveEndpoints` beside it and `AppAction.run`
+ * above, so a verb passes the reason through instead of inventing its own words for it.
+ */
+const resolveItem = (projectId: string, itemId: string): ContentItemRecord | string =>
+  getProjectContent(projectContent$.peek(), projectId)?.find((item) => item.id === itemId) ??
+  NO_SUCH_ITEM;
 
 /**
  * Both ends resolved against the same cache `content.list` reads, so what a caller can list is what
@@ -663,12 +683,10 @@ const APP_ACTIONS: readonly AppAction[] = [
         return describeInvalidInput(parsed);
       }
 
-      const item = getProjectContent(projectContent$.peek(), projectId)?.find(
-        (candidate) => candidate.id === parsed.itemId,
-      );
+      const item = resolveItem(projectId, parsed.itemId);
 
-      if (item === undefined) {
-        return NO_SUCH_ITEM;
+      if (typeof item === "string") {
+        return item;
       }
 
       // The title comes from the record, not from the caller. A collection named for a subject the
@@ -697,18 +715,10 @@ const APP_ACTIONS: readonly AppAction[] = [
         return describeInvalidInput(parsed);
       }
 
-      /*
-       * Resolved against the same cache `content.list` reads, rather than re-queried. That is not
-       * an optimisation — it is what makes the pair coherent: what a caller can list and what it
-       * can open are one set, and an id that listed a moment ago cannot fail here for having come
-       * from a different read.
-       */
-      const item = getProjectContent(projectContent$.peek(), projectId)?.find(
-        (candidate) => candidate.id === parsed.itemId,
-      );
+      const item = resolveItem(projectId, parsed.itemId);
 
-      if (item === undefined) {
-        return NO_SUCH_ITEM;
+      if (typeof item === "string") {
+        return item;
       }
 
       // Already handles the record being open: `openContentWindow` reveals the existing window
@@ -762,12 +772,10 @@ const APP_ACTIONS: readonly AppAction[] = [
         return describeInvalidInput(parsed);
       }
 
-      const item = getProjectContent(projectContent$.peek(), projectId)?.find(
-        (candidate) => candidate.id === parsed.itemId,
-      );
+      const item = resolveItem(projectId, parsed.itemId);
 
-      if (item === undefined) {
-        return NO_SUCH_ITEM;
+      if (typeof item === "string") {
+        return item;
       }
 
       // The refusal is the module function's, passed through rather than restated: blank, unchanged
@@ -788,12 +796,10 @@ const APP_ACTIONS: readonly AppAction[] = [
         return describeInvalidInput(parsed);
       }
 
-      const item = getProjectContent(projectContent$.peek(), projectId)?.find(
-        (candidate) => candidate.id === parsed.itemId,
-      );
+      const item = resolveItem(projectId, parsed.itemId);
 
-      if (item === undefined) {
-        return NO_SUCH_ITEM;
+      if (typeof item === "string") {
+        return item;
       }
 
       /*
