@@ -120,12 +120,33 @@ first, and a control calls it. Not the reverse. An `onClick` that builds an argu
 is the shape to avoid — it is a capability that exists only for a pointer, and it cannot be
 described, enabled, or invoked.
 
-Two live examples of the wrong shape, both written this session: the selection rail's group verb
-composes `getSelectedWindowBounds` with `createGroup` inside a click handler, and the palette's
-collection rows compose a kind with `openNewCollection` in theirs. Neither is a command; neither
-can be driven except by a person. `getContextualCommands` already returns label, description and
-live enablement for everything the framework owns — that is the bar the app's own verbs should
-meet. See `docs/research/spikes.md`.
+Both examples this section used to cite as live are now fixed and are kept as the shape to
+recognise: the selection rail's group verb composed `getSelectedWindowBounds` with `createGroup`
+inside a click handler, and the palette's collection rows composed a kind with `openNewCollection`
+in theirs. Neither was a command; neither could be driven except by a person. `getContextualCommands`
+returns label, description and live enablement for everything the framework owns — that is the bar
+the app's own verbs meet in `app-actions.ts`. See `docs/research/spikes.md`.
+
+**Arguments.** Prefer one entry per argument value while the values can be listed — `collection.create.link`
+rather than a create-collection verb taking a kind, which is the framework's own shape
+(`view.pan.right`, `group.setLayout.tabs`) and needs no schema at all. When the argument is drawn
+from the document rather than a fixed set — a title, an id — the entry carries an ArkType `input`.
+One declaration serves both halves: `toJsonSchema()` is what a caller is offered, and the same type
+is what the verb narrows with, so the promised shape and the accepted shape cannot drift. Validate
+inside the verb, not in the caller: a caller that checked first and handed over a trusted object
+needs a cast at the other end, and the cast is where they start disagreeing silently.
+
+**Which handle.** An id and a title are not interchangeable, and the choice follows the caller.
+Reveal a _window_ by title, because a caller pointing at a window can see its title. Open a _stored
+record_ by id, because titles do not distinguish stored items — a project holds five "Untitled"
+notes without complaint — so whatever lists them must report the id it expects back.
+
+**Reading is a capability too.** A verb-only vocabulary is complete for a pointer, which gets its
+answer by looking, and half a vocabulary for anything that cannot see the screen: it can act and
+never learn whether it worked. `describeCanvas` and `describeProjectContent` are the reporting
+half. They are module functions rather than `AppAction`s deliberately — `APP_ACTIONS` is rendered as
+palette rows, and a row that only returns text does nothing when picked. That is what the "or a
+module function" in the rule above is for; it is not a loophole.
 
 ## Libraries
 

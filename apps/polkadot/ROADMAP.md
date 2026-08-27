@@ -1089,28 +1089,29 @@ stays. What is missing is the field itself, and it is hours of careful work, not
 
 Kept here because the list _is_ the incubator's output.
 
-| Gap                                                                                                       | Generic affordance                                                                 | State  |
-| --------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- | ------ |
-| Backdrop was hardcoded                                                                                    | `renderBackdrop`, mirroring `renderOverlay`                                        | landed |
-| No way to observe "the durable document changed"                                                          | `InfiniteCanvasHandle.subscribeDocument`                                           | landed |
-| Hydration adopted a fallback's unusable viewport                                                          | `desktop.hydrate` keeps a usable viewport over the payload's                       | landed |
-| `chrome` demanded all five metrics, and the defaults are not exported                                     | `InfiniteCanvasChromeMetricsInput`, mirroring `zoomPolicy`                         | landed |
-| No DOM layer between the backdrop and the windows: connectors meant losing the grid or taking on `three`  | `renderUnderlay`, the counterpart to `renderBackdrop` and `renderOverlay`          | landed |
-| Workspaces could be walked but never entered: no command made one, named which to go to, or closed one    | `workspace.create`, `workspace.enter`, `workspace.close`                           | landed |
-| Navigation was not desktop-aware: going to a window another desktop hid panned the camera to nothing      | `window.reveal` — go where the window is, restore it, focus it                     | landed |
-| The HUD pinned itself to the element's edges, ignoring the bands every camera verb already respects       | `canvas-hud` insets its root by `viewportInsets`, per edge                         | landed |
-| The HUD's bottom edge was two absolutes pinned to opposite sides, free to grow into each other            | one flex row: the dock shrinks and wraps, the controls hold their size             | landed |
-| A dock item's padding was an inline style and its text was uppercased, over a `window.title`              | both moved into `theme.css`, where a consumer can reach them                       | landed |
-| A body wrapper fixed at `min-height: 100%` made `height: 100%` impossible for its own content             | the wrapper follows the kind's `overflowY`: growable if it scrolls, else pinned    | landed |
-| The drop system was pointer-only, so a file dragged in from the OS could reach none of it                 | the viewport bridges native drag events into the same drop interaction             | landed |
-| Six surfaces answered "which windows" without asking which desktop, so each offered what one hides        | every derived view reads the same membership the verb does                         | landed |
-| `theme.css` promised a cascade position it cannot hold, so importing it after Tailwind beat every utility | the contract documented as it is, plus a test that no rule escapes the layer       | landed |
-| Group tabs were labelled with the window's UUID, and the label policy could not be replaced               | `groupTabLabel`, defaulting to the exported `getInfiniteCanvasGroupTabLabel`       | landed |
-| Group chrome sizes were a layer prop the reducer ignored, so setting them desynced chrome from panes      | `state.groupMetrics`, read by the solver and every derived view alike              | landed |
-| Group chrome had no tokens of its own: the seam read the border colour, tab ink read the grid colour      | `--icx-group-gutter`, `--icx-group-tab-fg`, `--icx-group-surface-radius`/`-shadow` | landed |
-| A horizontal accordion's headers ran their text across a 28px strip, so every one was a single glyph      | the header emits `data-axis`; the theme turns those labels with the strip          | landed |
-| `window.undock` and `group.dissolve` left freed members inside the shell, tab members exactly stacked     | both place through vacancy, bounded by the shell rather than the camera            | landed |
-| `presence.visible` meant "not minimized", so it held windows behind a tab and windows on another desktop  | `visible` means on screen; items carry `isHidden` and `isAdmitted`                 | landed |
+| Gap                                                                                                       | Generic affordance                                                                   | State  |
+| --------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ | ------ |
+| Backdrop was hardcoded                                                                                    | `renderBackdrop`, mirroring `renderOverlay`                                          | landed |
+| No way to observe "the durable document changed"                                                          | `InfiniteCanvasHandle.subscribeDocument`                                             | landed |
+| Hydration adopted a fallback's unusable viewport                                                          | `desktop.hydrate` keeps a usable viewport over the payload's                         | landed |
+| `chrome` demanded all five metrics, and the defaults are not exported                                     | `InfiniteCanvasChromeMetricsInput`, mirroring `zoomPolicy`                           | landed |
+| No DOM layer between the backdrop and the windows: connectors meant losing the grid or taking on `three`  | `renderUnderlay`, the counterpart to `renderBackdrop` and `renderOverlay`            | landed |
+| Workspaces could be walked but never entered: no command made one, named which to go to, or closed one    | `workspace.create`, `workspace.enter`, `workspace.close`                             | landed |
+| Navigation was not desktop-aware: going to a window another desktop hid panned the camera to nothing      | `window.reveal` — go where the window is, restore it, focus it                       | landed |
+| The HUD pinned itself to the element's edges, ignoring the bands every camera verb already respects       | `canvas-hud` insets its root by `viewportInsets`, per edge                           | landed |
+| The HUD's bottom edge was two absolutes pinned to opposite sides, free to grow into each other            | one flex row: the dock shrinks and wraps, the controls hold their size               | landed |
+| A dock item's padding was an inline style and its text was uppercased, over a `window.title`              | both moved into `theme.css`, where a consumer can reach them                         | landed |
+| A body wrapper fixed at `min-height: 100%` made `height: 100%` impossible for its own content             | the wrapper follows the kind's `overflowY`: growable if it scrolls, else pinned      | landed |
+| The drop system was pointer-only, so a file dragged in from the OS could reach none of it                 | the viewport bridges native drag events into the same drop interaction               | landed |
+| Six surfaces answered "which windows" without asking which desktop, so each offered what one hides        | every derived view reads the same membership the verb does                           | landed |
+| `theme.css` promised a cascade position it cannot hold, so importing it after Tailwind beat every utility | the contract documented as it is, plus a test that no rule escapes the layer         | landed |
+| Group tabs were labelled with the window's UUID, and the label policy could not be replaced               | `groupTabLabel`, defaulting to the exported `getInfiniteCanvasGroupTabLabel`         | landed |
+| Group chrome sizes were a layer prop the reducer ignored, so setting them desynced chrome from panes      | `state.groupMetrics`, read by the solver and every derived view alike                | landed |
+| Group chrome had no tokens of its own: the seam read the border colour, tab ink read the grid colour      | `--icx-group-gutter`, `--icx-group-tab-fg`, `--icx-group-surface-radius`/`-shadow`   | landed |
+| A horizontal accordion's headers ran their text across a 28px strip, so every one was a single glyph      | the header emits `data-axis`; the theme turns those labels with the strip            | landed |
+| `window.undock` and `group.dissolve` left freed members inside the shell, tab members exactly stacked     | both place through vacancy, bounded by the shell rather than the camera              | landed |
+| `presence.visible` meant "not minimized", so it held windows behind a tab and windows on another desktop  | `visible` means on screen; items carry `isHidden` and `isAdmitted`                   | landed |
+| A group's `title` was modelled, persisted and settable, and drawn nowhere — naming one was write-only     | the shell draws a frame label, sized in screen units and configurable by `labelSize` | landed |
 
 **On the group rows, because nobody had ever made a group.** The framework's
 largest feature shipped complete — gesture, keyboard path, persistence, rendering — and no
@@ -1121,6 +1122,18 @@ one of these is a value that is correct while a consumer accepts the whole defau
 the moment it diverges — a tab named by an id nobody displays, chrome sized by a prop the reducer
 never saw, a seam coloured by the border token you just turned off, tab ink coloured by a grid you
 replaced. An unexercised feature is not untested; it is tested only against itself.
+
+**On the group title row, because its failure mode is not any of the above.** That value was
+modelled, persisted through the document, defaulted by an exported constant, settable by a command
+the palette already called, and announced to assistive technology through the shell's `aria-label`.
+Every layer a feature normally needs was present and correct. It was drawn nowhere — the only other
+site was `getInfiniteCanvasGroupTabLabel`'s fallback for a tab whose child is a nested split, which
+is not the group. Measured before it was believed: a two-member split named "Reading list" rendered
+that string zero times. Nothing in a typecheck, a test suite, or an accessibility audit could have
+said so, because by every one of those measures the feature was complete. **A value can be modelled,
+persisted, commanded and announced, and still never reach a pixel** — and the naming feature that
+had shipped a few commits earlier was therefore write-only from the day it landed. The only
+instrument that finds this class is going and looking at the thing.
 
 **On the row above them, because the count is the finding.** One omission repeated six
 times: `window.reveal` panned to a rect nothing renders, the offscreen ring aimed arrows at hidden
