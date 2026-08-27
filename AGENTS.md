@@ -26,6 +26,18 @@ release. Add a tool name to select part of the graph. For example, run
 
 <!--VITE PLUS END-->
 
+## Configurability in `infinite-canvas`
+
+**Anything that can be made configurable in `@hyphened/infinite-canvas` should be made
+configurable.** It is a library: every hardcoded size, colour, label, threshold, policy or
+behaviour is a decision taken on behalf of every consumer that will ever exist, and it reads as
+correct right up until one of them needs it to be different. Give it a default, expose it as an
+input, and document it in `docs/API.md`.
+
+A value that is only correct because the consumer accepted the whole default look is not
+configurable — it is coincidentally right. Consumers find these by diverging; the framework's job
+is to have already asked.
+
 ## Shared Agent Workflow
 
 - Daily branch: `main`
