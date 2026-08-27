@@ -2,6 +2,7 @@ import { observable } from "@legendapp/state";
 
 import type { ContentItemRecord } from "../database/database.client";
 import { content } from "../database/operations";
+import { rememberUndoableAction } from "./undoable-action";
 
 /**
  * Everything this project holds — one authority, because it has several writers.
@@ -50,10 +51,31 @@ async function loadProjectContent(projectId: string) {
 /**
  * Archive, then re-ask. Closing whatever window it was open in is the caller's — what a canvas does
  * about a record that stopped being offered is a canvas decision.
+ *
+ * **It remembers how to undo itself, here rather than at the call sites.** Archiving is reversible
+ * and `restoreProjectItem` is the reversal, so this function is the only thing that has to know
+ * both — the same reason a verb returns its own refusal instead of letting a caller guess at one.
+ * Two callers archive (the rail and the palette) and one calls restore (the rail's archive list),
+ * so before this the palette could archive a note and leave no way back except finding the rail,
+ * switching lists, and looking for it.
+ *
+ * The title is read before the write, because afterwards the item is gone from this listing.
  */
 async function archiveProjectItem(input: Readonly<{ itemId: string; projectId: string }>) {
+  const archived = getProjectContent(projectContent$.peek(), input.projectId)?.find(
+    (item) => item.id === input.itemId,
+  );
+
   await content.archive(input.itemId);
   await loadProjectContent(input.projectId);
+
+  rememberUndoableAction({
+    describe:
+      archived === undefined ? "Undo archiving" : `Undo archiving “${archived.title.trim()}”`,
+    undo: async () => {
+      await restoreProjectItem(input);
+    },
+  });
 }
 
 async function restoreProjectItem(input: Readonly<{ itemId: string; projectId: string }>) {

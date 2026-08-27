@@ -78,6 +78,7 @@ import {
   projectContent$,
   setProjectItemTitle,
 } from "../content/project-content";
+import { undoableAction$, undoLastAction } from "../content/undoable-action";
 import { recentNoteIds$, rememberNote } from "../notes/recent-notes";
 import {
   connectItems,
@@ -390,6 +391,7 @@ function PaletteContent({
   // The palette's note rows stay notes for now; the rail is where every kind is browsed.
   const notes = getProjectContentOfKind(projectListing, projectId, "note") ?? [];
   const relations = useValue(relations$);
+  const undoableAction = useValue(undoableAction$);
   const canvases = useValue(canvases$);
   const projectList = useValue(projectList$);
   const query = useValue(query$);
@@ -1107,6 +1109,29 @@ function PaletteContent({
             offers but that is still sitting open on the canvas is the state where "archived" stops
             meaning anything.
           */}
+          {/*
+            Taking back the last thing done to the library, which the canvas's own undo cannot.
+
+            `history.undo` covers windows, groups and the camera; archiving happens in the database,
+            outside anything the framework's history knows about. Two surfaces archive and only the
+            rail's archive list restores, so a note archived from here used to leave no way back
+            except finding the rail, switching lists, and looking for it.
+
+            The row names the act rather than saying "Undo", because the palette already offers the
+            canvas's Undo and two rows reading the same word are two controls with one name. Naming
+            it also makes it searchable by what was archived.
+          */}
+          {undoableAction === null ? null : (
+            <Row
+              icon={Undo2}
+              id="undo-content-action"
+              keywords="undo restore back revert mistake"
+              onSelect={run(() => {
+                void undoLastAction();
+              })}
+              title={undoableAction.describe}
+            />
+          )}
           {activeNote === undefined ? null : (
             <Row
               icon={Archive}
