@@ -124,18 +124,21 @@ export function LinkWindowBody({ linkId }: Readonly<{ linkId: string }>) {
         <iframe
           className={styles.frame()}
           /*
-           * Deferred until the window is near the viewport, because a canvas is a surface built to
-           * hold many of these at once. Eager is the default and was the only line in this element
-           * nothing had argued for: opening a canvas with a dozen link windows fetched a dozen
-           * pages, each running its own scripts, including windows parked somewhere the camera may
-           * never go.
+           * Eager, deliberately, and `loading="lazy"` must not come back without solving what broke
+           * it. Tried on 2026-08-26 to avoid fetching a page per link window on canvas open; the
+           * page then did not appear at all.
            *
-           * The framework's culling does not cover this and is not meant to: `content-visibility`
-           * skips *rendering* work for an offscreen frame, and a document still loads. Laziness is
-           * the browser's own answer to the other half, and it reads the frame's real position, so
-           * a window transformed offscreen counts as offscreen.
+           * The reason is the thing that made it look safe. Laziness is resolved against the
+           * frame's position relative to the viewport, and these frames do not sit in the page the
+           * way that calculation assumes: a window lives under the canvas's world→screen transform,
+           * inside a subtree the framework may mark `content-visibility: auto`. A frame the user is
+           * looking at is not necessarily a frame the intersection logic calls near, so the deferral
+           * never resolves and the document is never requested.
+           *
+           * The cost this was trying to avoid is real — a canvas is built to hold many of these,
+           * and eager means a cross-origin document and its scripts per window. Whatever replaces
+           * it has to key on the canvas's own idea of what is on screen rather than the browser's.
            */
-          loading="lazy"
           referrerPolicy="no-referrer"
           // `allow-same-origin` keeps the embedded page on its own origin, which most sites need to
           // run at all. It is not this document's origin, so it grants nothing here.
