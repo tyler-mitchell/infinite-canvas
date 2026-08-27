@@ -11,6 +11,16 @@ import { getAppAction } from "./app-actions";
 import { RELATION_KINDS } from "./relations/relation-store";
 import type { WindowKind } from "./canvas/window-registry";
 import { projectContent$, type ProjectContent } from "./content/project-content";
+import { openCanvasId$, openCanvasTitle$ } from "./workspace/open-canvas";
+
+/**
+ * Every context carries one, and no verb exercised here calls it.
+ *
+ * Changing canvas is a route change, so the context supplies it rather than the verb reaching for a
+ * router. The verbs under test are the parameterized ones, none of which navigates — a canvas verb
+ * that did would want its own fixture asserting where it went.
+ */
+const goToCanvas = () => undefined;
 
 /**
  * The vocabulary's parameterized half.
@@ -53,7 +63,7 @@ const runReveal = (input: unknown) => {
     },
   } as unknown as InfiniteCanvasCommands<WindowKind>;
 
-  getAppAction("window.reveal")?.run({ actions, projectId: "project-1", state }, input);
+  getAppAction("window.reveal")?.run({ actions, goToCanvas, projectId: "project-1", state }, input);
 
   return commands;
 };
@@ -117,7 +127,7 @@ const runOpen = (input: unknown, listing: ProjectContent | null) => {
   } as unknown as InfiniteCanvasCommands<WindowKind>;
 
   projectContent$.set(listing);
-  getAppAction("content.open")?.run({ actions, projectId: "project-1", state }, input);
+  getAppAction("content.open")?.run({ actions, goToCanvas, projectId: "project-1", state }, input);
 
   return opened;
 };
@@ -170,7 +180,7 @@ test("a connected-to collection refuses an id it cannot resolve", () => {
   const attempt = (input: unknown, listing: ProjectContent | null) => {
     projectContent$.set(listing);
     getAppAction("collection.create.connectedTo")?.run(
-      { actions, projectId: "project-1", state },
+      { actions, goToCanvas, projectId: "project-1", state },
       input,
     );
   };
@@ -363,7 +373,10 @@ const runGroupVerb = (id: string, input: unknown, tree: unknown = CONTAINER_TREE
     setGroupTitle: (value: unknown) => calls.push({ setGroupTitle: value }),
   } as unknown as InfiniteCanvasCommands<WindowKind>;
 
-  getAppAction(id)?.run({ actions, projectId: "project-1", state: groupState(tree) }, input);
+  getAppAction(id)?.run(
+    { actions, goToCanvas, projectId: "project-1", state: groupState(tree) },
+    input,
+  );
 
   return calls;
 };
@@ -447,7 +460,7 @@ const runWorkspaceVerb = (
   } as unknown as InfiniteCanvasCommands<WindowKind>;
 
   getAppAction(id)?.run(
-    { actions, projectId: "project-1", state: workspaceState(workspaces) },
+    { actions, goToCanvas, projectId: "project-1", state: workspaceState(workspaces) },
     input,
   );
 
@@ -494,11 +507,76 @@ test("moving the active window needs one, not just a desktop", () => {
   } as unknown as InfiniteCanvasCommands<WindowKind>;
 
   getAppAction("workspace.moveActiveWindow")?.run(
-    { actions, projectId: "project-1", state: noActiveWindow },
+    { actions, goToCanvas, projectId: "project-1", state: noActiveWindow },
     { workspaceId: "desk-1" },
   );
 
   expect(commands).toStrictEqual([]);
+});
+
+/**
+ * The document level, which the vocabulary could not name until now.
+ *
+ * Only the parts that need no database are asserted, the same line `collection.create.connectedTo`
+ * draws above: creating a canvas writes a record before anything is observable, so a synchronous
+ * assertion there would be checking the mock. What is checkable is where a verb decides to send
+ * you, and every one of these decisions was previously unreachable by anything but a pointer.
+ */
+
+const documentContext = (goTo: (canvasId: string) => void) => ({
+  actions: { executeCommand: () => undefined } as unknown as InfiniteCanvasCommands<WindowKind>,
+  goToCanvas: goTo,
+  projectId: "project-1",
+  state,
+});
+
+test("going to a canvas navigates to the id it was handed, and nowhere else", () => {
+  const visited: string[] = [];
+
+  getAppAction("canvas.open")?.run(
+    documentContext((id) => visited.push(id)),
+    {
+      canvasId: "canvas-7",
+    },
+  );
+
+  expect(visited).toStrictEqual(["canvas-7"]);
+});
+
+test("duplicating refuses when no canvas is open rather than copying nothing", () => {
+  /*
+   * The verb reads which canvas is open from the route's published fact rather than taking it as an
+   * argument. With nothing published there is no subject, and a caller that cannot see the screen
+   * needs telling that — silently doing nothing is the failure `AppAction.run` returns a string for.
+   */
+  openCanvasId$.set(null);
+  openCanvasTitle$.set(null);
+
+  const refusal = getAppAction("canvas.duplicate")?.run(documentContext(() => undefined));
+
+  expect(refusal).toMatch(/^Refused: /);
+  expect(refusal).toContain("canvas.list");
+});
+
+test("going to the project you are already in does not move the canvas", async () => {
+  /*
+   * The same rule the switcher and the palette ask, reached through the same function — so the verb
+   * cannot drift from them. Before that rule was shared, this walked you to whichever canvas of
+   * that project was written last.
+   */
+  const visited: string[] = [];
+
+  getAppAction("project.open")?.run(
+    documentContext((id) => visited.push(id)),
+    {
+      projectId: "project-1",
+    },
+  );
+
+  // The verb answers through a promise; nothing here touches a database, so one turn settles it.
+  await new Promise((resolve) => setTimeout(resolve, 0));
+
+  expect(visited).toStrictEqual([]);
 });
 
 test("the four desktop verbs shadow the framework templates they complete", () => {

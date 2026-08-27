@@ -271,12 +271,26 @@ open because it feels good to look at. Concretely, and these are enforced in rev
 
 ## Next
 
-- [ ] **An agent cannot reach the document level.** Found on 2026-08-27 by reading the whole of
-      `app-actions.ts` before adding to it. The vocabulary is twenty verbs and there is no `canvas.*`
-      and no `project.*` among them: nothing creates a canvas, duplicates one, switches to one,
-      renames or archives one, and neither reporter mentions that any canvas exists but the open one.
-      An agent is confined to whichever canvas the page happened to load, with no way to learn there
-      are others.
+- [x] **An agent cannot reach the document level.** Found on 2026-08-27 by reading the whole of
+      `app-actions.ts` before adding to it, and closed the same day. The vocabulary was twenty verbs
+      with no `canvas.*` and no `project.*` among them: nothing created a canvas, duplicated one,
+      switched to one, or mentioned that any canvas existed but the open one. An agent was confined
+      to whichever canvas the page happened to load, with no way to learn there were others.
+      **Built:** `canvas.create`, `canvas.duplicate`, `canvas.open`, `project.create` and
+      `project.open`, with `canvas.list` and `project.list` as the reporters that publish the ids
+      they take — a verb taking a handle nothing reports is half a capability, which is the same
+      argument `describeCanvas` and `describeProjectContent` were written under.
+      `AppActionContext` gained `goToCanvas` and nothing else: a verb needs one destination, and
+      handing the vocabulary a router would let any verb go anywhere. Which canvas is open is
+      published by the route into `workspace/open-canvas.ts`, the way `open-project.ts` already
+      publishes the project, because the rail and the context menu sit too deep to be handed it.
+      **Not driven through WebMCP.** The refusals and each verb's choice of destination are covered
+      by tests needing no browser, and three of them were mutation-checked. What is unwitnessed is a
+      real caller registering the seven and a route changing underneath one. `model-context.tsx`
+      still records 97 tools, which is the measured figure from before these existed.
+      **Still missing at this level:** renaming or archiving a canvas or project. Both are pointer-only
+      in the switchers. `canvas.create` and `project.create` take an optional title, so a caller can
+      name what it makes, but nothing can rename what it already made.
       **The asymmetry is what makes it plain.** `workspace.create` is an `AppAction`, so an agent can
       make a _desktop_ — which is a filter over the windows within one canvas — while the canvas that
       the filter is over is unreachable. `/canvas/$canvasId` is the app's primary unit and it is the

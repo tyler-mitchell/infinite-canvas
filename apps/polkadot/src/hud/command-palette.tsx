@@ -929,7 +929,7 @@ function PaletteContent({
             a caller that can supply an argument still gets them.
           */}
           {APP_ACTIONS.filter((action) => action.input === undefined).map((action) => {
-            const context = { actions, projectId, state };
+            const context = { actions, goToCanvas: openCanvas, projectId, state };
 
             return (
               <Row
@@ -967,7 +967,7 @@ function PaletteContent({
               icon={Link2}
               onSelect={run(() => {
                 getAppAction("collection.create.connectedTo")?.run(
-                  { actions, projectId, state },
+                  { actions, goToCanvas: openCanvas, projectId, state },
                   { itemId: connectionSubject.itemId },
                 );
               })}
@@ -979,7 +979,7 @@ function PaletteContent({
           <Row
             icon={Columns3}
             onSelect={run(() => {
-              void createCanvas(projectId).then((created) => {
+              void createCanvas({ projectId }).then((created) => {
                 openCanvas(created.id);
               });
             })}

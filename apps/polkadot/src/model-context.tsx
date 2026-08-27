@@ -3,6 +3,7 @@ import {
   useInfiniteCanvasActions,
   useInfiniteCanvasStore,
 } from "@hyphened/infinite-canvas";
+import { useNavigate } from "@tanstack/react-router";
 import { useEffect } from "react";
 
 import { APP_ACTIONS, isAppActionEnabled } from "./app-actions";
@@ -10,9 +11,14 @@ import { describeCanvas } from "./canvas/describe-canvas";
 import type { WindowKind } from "./canvas/window-registry";
 import { describeProjectContent } from "./content/describe-content";
 import { projectContent$ } from "./content/project-content";
-import { content } from "./database/operations";
+import {
+  canvases as canvasRecords,
+  content,
+  projects as projectRecords,
+} from "./database/operations";
 import { getPublishedCanvasCommands } from "./published-commands";
 import { relations$ } from "./relations/relation-store";
+import { openCanvasId$ } from "./workspace/open-canvas";
 
 /**
  * The app's vocabulary, offered to an agent running in the browser.
@@ -29,12 +35,12 @@ import { relations$ } from "./relations/relation-store";
  * is offered — the same declaration the verb narrows with, so the promised shape and the accepted
  * shape are one thing.
  *
- * `canvas.describe` is registered here too and is not an `AppAction`: it reports rather than acts,
- * and `APP_ACTIONS` is rendered as palette rows where a row that only returns text does nothing.
+ * The reporters registered here are not `AppAction`s: they report rather than act, and `APP_ACTIONS`
+ * is rendered as palette rows where a row that only returns text does nothing.
  *
  * The framework's own verbs are published alongside them — see `published-commands.ts` for which
- * and why. That is most of what a caller can do: this app contributes sixteen verbs and the canvas
- * contributes seventy-five, and for a while only the sixteen were offered.
+ * and why. That is most of what a caller can do: the canvas contributes seventy-five, and for a
+ * while only this app's own were offered.
  *
  * DRIVEN, on 2026-08-27, against Chrome 152 with `--enable-blink-features=WebMCP`, reached through
  * `chrome-devtools-mcp --categoryExperimentalWebmcp`. This said for a while that none of the
@@ -55,6 +61,13 @@ import { relations$ } from "./relations/relation-store";
  *
  * `document.modelContext` is the current home; `navigator.modelContext` is the pre-150 name, kept
  * because it is what a 146 flag build exposes. Confirmed absent under the `navigator` name on 152.
+ *
+ * **The 97 above is the measurement, and it is now out of date.** Five document verbs — `canvas.create`,
+ * `canvas.duplicate`, `canvas.open`, `project.create`, `project.open` — and the two reporters
+ * `canvas.list` and `project.list` were added after that run and have **not** been driven through
+ * WebMCP. Their refusals and their choice of destination are covered by tests that need no browser;
+ * what is unwitnessed is a real caller registering them and a route actually changing underneath one.
+ * The number is left as measured rather than updated to a figure nobody has counted.
  */
 
 /**
@@ -109,8 +122,17 @@ const getModelContext = (): ModelContextRegistry | null => {
 function ModelContextTools({ projectId }: Readonly<{ projectId: string }>) {
   const actions = useInfiniteCanvasActions<WindowKind>();
   const store = useInfiniteCanvasStore<WindowKind>();
+  const navigate = useNavigate();
 
   useEffect(() => {
+    /*
+     * The one act a verb cannot reach through `actions`, because a different canvas is a different
+     * route and a different store. Declared inside the effect so it is not a fresh identity every
+     * render, which would re-register ninety-odd tools whenever anything above this re-rendered.
+     */
+    const goToCanvas = (canvasId: string) => {
+      void navigate({ params: { canvasId }, to: "/canvas/$canvasId" });
+    };
     const registry = getModelContext();
 
     if (registry === null) {
@@ -197,6 +219,73 @@ function ModelContextTools({ projectId }: Readonly<{ projectId: string }>) {
       name: "content.listArchived",
     });
     /*
+     * The document level, which nothing reported.
+     *
+     * `canvas.describe` answers what is *on* this canvas and `content.list` what the project holds,
+     * and between them they never said that another canvas exists. A caller was confined to
+     * whichever one the page loaded, with no id to go anywhere else — so the two open verbs beside
+     * these would have taken handles nothing published.
+     *
+     * Which one is open is marked rather than left out. A list where the current document is
+     * missing reads as "you are nowhere", and a caller that cannot see the screen has no second
+     * source for where it already is.
+     */
+    tools.push({
+      description:
+        "List the canvases in this project, with the ids canvas.open takes, marking the open one.",
+      execute: async () => {
+        const canvases = await canvasRecords.list(projectId);
+        const openId = openCanvasId$.peek();
+
+        return {
+          content: [
+            {
+              text:
+                canvases.length === 0
+                  ? "This project holds no canvases."
+                  : canvases
+                      .map(
+                        (canvas) =>
+                          `"${canvas.title}" [${canvas.id}]${canvas.id === openId ? " — open" : ""}`,
+                      )
+                      .join("; "),
+              type: "text" as const,
+            },
+          ],
+        };
+      },
+      inputSchema: NO_INPUT,
+      name: "canvas.list",
+    });
+    tools.push({
+      description:
+        "List the projects in this browser, with the ids project.open takes, marking the open one.",
+      execute: async () => {
+        const projects = await projectRecords.list();
+
+        return {
+          content: [
+            {
+              text:
+                projects.length === 0
+                  ? "There are no projects."
+                  : projects
+                      .map(
+                        (project) =>
+                          `"${project.title}" [${project.id}]${
+                            project.id === projectId ? " — open" : ""
+                          }`,
+                      )
+                      .join("; "),
+              type: "text" as const,
+            },
+          ],
+        };
+      },
+      inputSchema: NO_INPUT,
+      name: "project.list",
+    });
+    /*
      * The canvas's own vocabulary, which was registered nowhere and reachable by nothing.
      *
      * This file offered the app's verbs and stopped there, so an agent could make a note and could
@@ -246,7 +335,7 @@ function ModelContextTools({ projectId }: Readonly<{ projectId: string }>) {
       ...APP_ACTIONS.map((action) => ({
         description: action.description,
         execute: async (input?: unknown) => {
-          const context = { actions, projectId, state: store.state$.peek() };
+          const context = { actions, goToCanvas, projectId, state: store.state$.peek() };
 
           if (!isAppActionEnabled(action, context)) {
             return {
@@ -305,7 +394,7 @@ function ModelContextTools({ projectId }: Readonly<{ projectId: string }>) {
     return () => {
       controller.abort();
     };
-  }, [actions, projectId, store]);
+  }, [actions, navigate, projectId, store]);
 
   return null;
 }

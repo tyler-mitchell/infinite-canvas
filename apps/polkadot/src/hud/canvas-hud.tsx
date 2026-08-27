@@ -25,6 +25,7 @@ import { Button } from "ui";
 import { tv } from "ui/tv";
 
 import { useValue } from "@legendapp/state/react";
+import { useNavigate } from "@tanstack/react-router";
 
 import { getAppAction, isAppActionEnabled } from "../app-actions";
 import { FLOATING_SURFACE } from "../material";
@@ -122,6 +123,7 @@ function Verb({
 function SelectionRail() {
   const actions = useInfiniteCanvasActions<WindowKind>();
   const store = useInfiniteCanvasStore<WindowKind>();
+  const navigate = useNavigate();
   const projectId = useValue(openProject$) ?? "";
   const selectedCount = useInfiniteCanvasSelector((state) => state.selection.windowIds.length);
   const styles = canvasHud();
@@ -143,11 +145,21 @@ function SelectionRail() {
    * changed. Peeked rather than selected for the same reason `run` peeks: the rail already
    * re-renders on selection, which is the only thing this rule reads.
    */
+  // Supplied because the vocabulary now holds verbs that change canvas, and a context is one shape
+  // wherever it is built. This rail offers none of them; that is the verb's business, not its own.
+  const goToCanvas = (canvasId: string) => {
+    void navigate({ params: { canvasId }, to: "/canvas/$canvasId" });
+  };
   const canGroup =
     groupAction !== undefined &&
-    isAppActionEnabled(groupAction, { actions, projectId, state: store.state$.peek() });
+    isAppActionEnabled(groupAction, {
+      actions,
+      goToCanvas,
+      projectId,
+      state: store.state$.peek(),
+    });
   const group = () => {
-    const context = { actions, projectId, state: store.state$.peek() };
+    const context = { actions, goToCanvas, projectId, state: store.state$.peek() };
 
     if (groupAction !== undefined && isAppActionEnabled(groupAction, context)) {
       groupAction.run(context);

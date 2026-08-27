@@ -22,19 +22,40 @@ import { getNextNumberedTitle } from "../titles";
  *
  * Creating and navigating stay apart: the switcher and the palette both open what they made, but
  * they reach the route differently, and where you go afterwards is not a fact about the canvas.
+ *
+ * A chosen name skips the scan entirely, the same shape `createDesktop` already has. Reading which
+ * names are taken answers "what should this be called", and a caller who said what to call it has
+ * not asked that question — a person may name two canvases the same thing on purpose, and only the
+ * default has to be unique enough to tell apart in a switcher.
  */
 // Locked, because the list and the create are separate awaits: two canvases made at once both read
 // the same names and both take the next one. See `naming-lock.ts` for the note that found it.
-async function createCanvas(projectId: string) {
+async function createCanvas(
+  input: Readonly<{
+    projectId: string;
+    /** A name somebody chose. Absent means number it after the canvases that exist. */
+    title?: string;
+  }>,
+) {
   return withNamingLock(async () => {
+    const chosen = input.title?.trim();
+
+    if (chosen !== undefined && chosen !== "") {
+      return database.canvases.create({
+        layout: initialLayout,
+        projectId: input.projectId,
+        title: chosen,
+      });
+    }
+
     const [offered, archived] = await Promise.all([
-      database.canvases.list(projectId),
-      database.canvases.listArchived(projectId),
+      database.canvases.list(input.projectId),
+      database.canvases.listArchived(input.projectId),
     ]);
 
     return database.canvases.create({
       layout: initialLayout,
-      projectId,
+      projectId: input.projectId,
       title: getNextNumberedTitle(
         "Canvas",
         [...offered, ...archived].map((canvas) => canvas.title),

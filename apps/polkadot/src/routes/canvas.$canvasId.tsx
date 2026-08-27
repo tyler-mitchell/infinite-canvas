@@ -2,6 +2,7 @@ import { createFileRoute, useRouter } from "@tanstack/react-router";
 
 import { hydrateCanvasLayout } from "../canvas/canvas-document";
 import { setOpenProject } from "../projects/open-project";
+import { setOpenCanvas } from "../workspace/open-canvas";
 import { CanvasFailure, CanvasLoading } from "../workspace/canvas-states";
 import { WorkspaceCanvas } from "../workspace/workspace-canvas";
 
@@ -43,6 +44,9 @@ export const Route = createFileRoute("/canvas/$canvasId")({
      * "not loaded yet".
      */
     setOpenProject(record.projectId);
+    // The canvas half of the same fact, published from the same place and for the same reason: the
+    // rail and the context menu sit too deep to be handed it, and a verb has to name what it acts on.
+    setOpenCanvas({ id: record.id, title: record.title });
 
     return {
       hydration: hydrateCanvasLayout(record.layout),

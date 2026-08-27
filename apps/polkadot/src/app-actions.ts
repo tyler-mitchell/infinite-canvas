@@ -22,7 +22,12 @@ import { openNewCollection } from "./collections/open-collection";
 import { renameProjectItem } from "./content/rename-item";
 import type { ContentItemRecord } from "./database/database.client";
 import { openNewNote } from "./notes/open-note";
+import { getProjectEntryCanvas } from "./projects/enter-project";
+import { createCanvas } from "./workspace/create-canvas";
 import { createDesktop } from "./workspace/create-desktop";
+import { createProject } from "./workspace/create-project";
+import { duplicateCanvas } from "./workspace/duplicate-canvas";
+import { openCanvasId$, openCanvasTitle$ } from "./workspace/open-canvas";
 import {
   connectItems,
   DEFAULT_RELATION_KIND,
@@ -55,6 +60,18 @@ import {
 
 type AppActionContext = Readonly<{
   actions: InfiniteCanvasCommands<WindowKind>;
+  /**
+   * Go to a canvas by id — the one act no verb can reach through `actions`.
+   *
+   * Changing canvas is a route change, not a canvas command: a different canvas is a different
+   * store, keyed by the route. So this is supplied by whoever builds the context, all four of whom
+   * are components holding a router.
+   *
+   * It is not a general navigator on purpose. A verb needs exactly one destination, and handing the
+   * vocabulary a router would let any verb go anywhere in an app whose other routes are a failure
+   * screen and a redirect.
+   */
+  goToCanvas: (canvasId: string) => void;
   projectId: string;
   state: InfiniteCanvasState<WindowKind>;
 }>;
@@ -365,7 +382,147 @@ const DESKTOP_CREATE_INPUT = type({ "title?": "string" });
 const hasWorkspace = (state: InfiniteCanvasState<WindowKind>, workspaceId: string) =>
   findInfiniteCanvasWorkspace(state, workspaceId) !== null;
 
+/**
+ * The document level, which the vocabulary could not name at all.
+ *
+ * Twenty verbs and not one `canvas.*` or `project.*`: nothing made a canvas, copied one, went to
+ * one, or reported that any existed but the open one. An agent could make a *desktop* — a filter
+ * over the windows inside a canvas — while the canvas the filter is over was unreachable, and
+ * `/canvas/$canvasId` is what this app is addressed by.
+ *
+ * It was pointer-only rather than merely unbuilt: the switchers and the palette hold these
+ * capabilities in click handlers, and no framework command makes a canvas, because a canvas is a
+ * database record rather than anything the framework models.
+ *
+ * The ids come from the two reporters `model-context` registers beside these. Neither open verb
+ * checks its id against a cache first, for the reason `content.restore` gives: nothing caches the
+ * canvas or project lists, and inventing a cache so a verb could refuse locally would be machinery
+ * bought to improve one error message. A bad id lands on the route's own "that canvas is not here".
+ */
+const CANVAS_OPEN_INPUT = type({ canvasId: "string" });
+
+const PROJECT_OPEN_INPUT = type({ projectId: "string" });
+
+/** Optional throughout, matching `workspace.create`: absent means number it after what exists. */
+const DOCUMENT_CREATE_INPUT = type({ "title?": "string" });
+
+const NO_OPEN_CANVAS =
+  "Refused: no canvas is open, so there is nothing to copy. `canvas.list` names the canvases in this project.";
+
 const APP_ACTIONS: readonly AppAction[] = [
+  {
+    description:
+      "Make a new canvas in this project and go to it. Without a title it is numbered after the canvases that exist.",
+    id: "canvas.create",
+    input: DOCUMENT_CREATE_INPUT,
+    label: "New canvas",
+    run: ({ goToCanvas, projectId }, input) => {
+      const parsed = DOCUMENT_CREATE_INPUT(input);
+
+      if (parsed instanceof type.errors) {
+        return describeInvalidInput(parsed);
+      }
+
+      void createCanvas({ projectId, title: parsed.title }).then((created) => {
+        goToCanvas(created.id);
+      });
+
+      return undefined;
+    },
+  },
+  {
+    description:
+      "Copy the open canvas, with everything on it, and go to the copy. It is named after the original.",
+    id: "canvas.duplicate",
+    label: "Duplicate this canvas",
+    run: ({ goToCanvas, projectId }) => {
+      /*
+       * Read from the published route fact rather than taken as an argument. "The canvas I am in"
+       * is not something a caller should have to carry, and a caller that carried it could name a
+       * canvas it is not looking at — which is a different verb.
+       */
+      const canvasId = openCanvasId$.peek();
+      const canvasTitle = openCanvasTitle$.peek();
+
+      if (canvasId === null || canvasTitle === null) {
+        return NO_OPEN_CANVAS;
+      }
+
+      void duplicateCanvas({ canvasId, canvasTitle, projectId }).then((created) => {
+        goToCanvas(created.id);
+      });
+
+      return undefined;
+    },
+  },
+  {
+    description: "Go to a canvas in this project. The id comes from canvas.list.",
+    id: "canvas.open",
+    input: CANVAS_OPEN_INPUT,
+    label: "Go to a canvas",
+    run: ({ goToCanvas }, input) => {
+      const parsed = CANVAS_OPEN_INPUT(input);
+
+      if (parsed instanceof type.errors) {
+        return describeInvalidInput(parsed);
+      }
+
+      goToCanvas(parsed.canvasId);
+
+      return undefined;
+    },
+  },
+  {
+    description:
+      "Make a new project and go to it. Without a title it is numbered after the projects that exist.",
+    id: "project.create",
+    input: DOCUMENT_CREATE_INPUT,
+    label: "New project",
+    run: ({ goToCanvas }, input) => {
+      const parsed = DOCUMENT_CREATE_INPUT(input);
+
+      if (parsed instanceof type.errors) {
+        return describeInvalidInput(parsed);
+      }
+
+      // A project is reached through a canvas, so creating one and landing on it is a single act —
+      // `createProject` returns the first canvas for exactly this reason.
+      void createProject({ title: parsed.title }).then((created) => {
+        goToCanvas(created.id);
+      });
+
+      return undefined;
+    },
+  },
+  {
+    description:
+      "Go to another project, entering it through its most recent canvas. The id comes from project.list.",
+    id: "project.open",
+    input: PROJECT_OPEN_INPUT,
+    label: "Go to a project",
+    run: ({ goToCanvas, projectId }, input) => {
+      const parsed = PROJECT_OPEN_INPUT(input);
+
+      if (parsed instanceof type.errors) {
+        return describeInvalidInput(parsed);
+      }
+
+      /*
+       * The same rule the switcher and the palette ask, including whether it is a move: going to
+       * the project you are already in resolves to nothing rather than walking you to whichever of
+       * its canvases was last written.
+       */
+      void getProjectEntryCanvas({ openProjectId: projectId, projectId: parsed.projectId }).then(
+        (canvasId) => {
+          if (canvasId !== null) {
+            goToCanvas(canvasId);
+          }
+        },
+      );
+
+      return undefined;
+    },
+  },
   {
     description:
       "Make a new desktop. Without a title it is numbered after the desktops that exist.",

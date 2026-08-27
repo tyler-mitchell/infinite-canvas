@@ -5,6 +5,7 @@ import {
   useInfiniteCanvasStore,
 } from "@hyphened/infinite-canvas";
 import { useValue } from "@legendapp/state/react";
+import { useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 
 import { getAppAction, isAppActionEnabled } from "../app-actions";
@@ -72,6 +73,7 @@ const getGroupUnderPointer = (target: EventTarget | null) =>
 function CanvasContextMenu() {
   const actions = useInfiniteCanvasActions<WindowKind>();
   const store = useInfiniteCanvasStore<WindowKind>();
+  const navigate = useNavigate();
   const projectId = useValue(openProject$) ?? "";
   const [press, setPress] = useState<Readonly<{
     groupId: string | null;
@@ -147,7 +149,12 @@ function CanvasContextMenu() {
    * and subscribing would re-render the ring mid-animation on every camera tick.
    */
   const state = store.state$.peek();
-  const context = { actions, projectId, state };
+  // Supplied because a context is one shape wherever it is built. The ring is a fixed six and holds
+  // no canvas verb; whether one is offered here is `context-menu-rings`' choice, not this object's.
+  const goToCanvas = (canvasId: string) => {
+    void navigate({ params: { canvasId }, to: "/canvas/$canvasId" });
+  };
+  const context = { actions, goToCanvas, projectId, state };
   /*
    * The framework's own descriptor for each verb: its command, its live enablement, its word.
    *

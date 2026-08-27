@@ -184,7 +184,7 @@ export function CanvasSwitcher({
           </DropdownMenuItem>
           <DropdownMenuItem
             onClick={() => {
-              void createCanvas(projectId).then((created) => {
+              void createCanvas({ projectId }).then((created) => {
                 openCanvas(created.id);
               });
             }}

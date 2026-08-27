@@ -55,10 +55,23 @@ const stored: ProjectContent = {
   projectId: "project-1",
 };
 
+/** Where a refused verb tried to send us, which must be nowhere. */
+const visited: string[] = [];
+
 const refuse = (id: string, input: unknown) => {
   projectContent$.set(stored);
+  visited.length = 0;
 
-  return getAppAction(id)?.run({ actions, projectId: "project-1", state }, input);
+  /*
+   * A navigation that records rather than a no-op, because two of the verbs this sweep now covers
+   * change canvas. Nothing asserts on it here — this file is about refusals — but a verb that
+   * refused and navigated anyway would be exactly the defect this file exists for, and a silent
+   * stub could not tell the difference.
+   */
+  return getAppAction(id)?.run(
+    { actions, goToCanvas: (canvasId) => visited.push(canvasId), projectId: "project-1", state },
+    input,
+  );
 };
 
 /**

@@ -16,8 +16,17 @@ import { getNextNumberedTitle } from "../titles";
  * be unreachable, and creating one and landing on it is a single act.
  */
 // Locked for the reason `createCanvas` is: reading the taken names and claiming one are two awaits.
-async function createProject() {
+async function createProject(
+  /** A name somebody chose. Absent means number it after the projects that exist. */
+  input: Readonly<{ title?: string }> = {},
+) {
   return withNamingLock(async () => {
+    const chosen = input.title?.trim();
+
+    if (chosen !== undefined && chosen !== "") {
+      return database.projects.create({ layout: initialLayout, title: chosen });
+    }
+
     const [offered, archived] = await Promise.all([
       database.projects.list(),
       database.projects.listArchived(),
