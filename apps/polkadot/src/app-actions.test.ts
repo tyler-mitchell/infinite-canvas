@@ -132,6 +132,38 @@ test("content.open refuses input its published schema does not accept", () => {
   expect(runOpen(undefined, stored)).toStrictEqual([]);
 });
 
+/**
+ * Only the refusals are asserted, and the omission is deliberate rather than an oversight.
+ *
+ * `openNewCollection` creates the collection record before it opens anything, so nothing this verb
+ * does on the success path is observable without a database — a synchronous assertion that a window
+ * appeared would be asserting against the mock rather than against the code. The refusals need no
+ * database, because they never get that far: that is exactly what makes them worth pinning here.
+ */
+test("a connected-to collection refuses an id it cannot resolve", () => {
+  const opened: string[] = [];
+  const actions = {
+    executeCommand: () => undefined,
+    openWindow: () => {
+      opened.push("opened");
+    },
+  } as unknown as InfiniteCanvasCommands<WindowKind>;
+  const attempt = (input: unknown, listing: ProjectContent | null) => {
+    projectContent$.set(listing);
+    getAppAction("collection.create.connectedTo")?.run(
+      { actions, projectId: "project-1", state },
+      input,
+    );
+  };
+
+  attempt({ itemId: "never-existed" }, stored);
+  attempt({ itemId: "item-1" }, null);
+  attempt({}, stored);
+  attempt(undefined, stored);
+
+  expect(opened).toStrictEqual([]);
+});
+
 test("the verbs that take nothing publish no input, so they stay palette rows", () => {
   expect(getAppAction("note.create")?.input).toBeUndefined();
   expect(getAppAction("group.createFromSelection")?.input).toBeUndefined();

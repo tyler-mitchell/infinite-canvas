@@ -73,7 +73,49 @@ const REVEAL_INPUT = type({ title: "string" });
  */
 const OPEN_INPUT = type({ itemId: "string" });
 
+/**
+ * The question the one-entry-per-value shape could not ask.
+ *
+ * `collection.create.note` enumerates a kind, and there are four kinds. "Connected to *this* item"
+ * enumerates nothing — the subject is whatever the caller is looking at — so this capability lived
+ * only inside a palette row's `onClick`, reachable by a pointer and by nothing else. It is the case
+ * `input` was added for.
+ */
+const CONNECTED_INPUT = type({ itemId: "string" });
+
 const APP_ACTIONS: readonly AppAction[] = [
+  {
+    description:
+      "Open a window listing everything connected to the item with this id, as listed by content.list.",
+    id: "collection.create.connectedTo",
+    input: CONNECTED_INPUT,
+    label: "Collection of what an item connects to",
+    run: ({ actions, projectId, state }, input) => {
+      const parsed = CONNECTED_INPUT(input);
+
+      if (parsed instanceof type.errors) {
+        return;
+      }
+
+      const item = getProjectContent(projectContent$.peek(), projectId)?.find(
+        (candidate) => candidate.id === parsed.itemId,
+      );
+
+      if (item === undefined) {
+        return;
+      }
+
+      // The title comes from the record, not from the caller. A collection named for a subject the
+      // caller merely asserted could disagree with the subject it actually lists.
+      void openNewCollection({
+        actions,
+        projectId,
+        question: { connectedTo: item.id },
+        state,
+        title: `Connected to ${item.title}`,
+      });
+    },
+  },
   {
     description:
       "Open a stored item on the canvas by its id, as listed by content.list. Reveals it if a window already shows it.",
