@@ -57,6 +57,10 @@ const canvasHud = tv({
   slots: {
     count: "px-1.5 font-mono text-[11px] tracking-[0.02em] text-[var(--ink-faint)] tabular-nums",
     divider: "mx-0.5 h-4 w-px bg-[var(--border)]",
+    /** The travelling surface behind the active segment. Positioned by `style`, shaped here. */
+    layoutIndicator: "pointer-events-none absolute top-0 left-0 rounded-[var(--radius-pill)]",
+    /** `relative`, because the indicator above is absolutely placed against this row. */
+    layoutRow: "relative flex items-center gap-0.5",
     noticeIcon: "size-3.5 shrink-0 text-[var(--danger)]",
     noticeKinds: "font-mono text-[11px] text-[var(--ink-faint)]",
     noticeRail:
@@ -210,6 +214,7 @@ function LayoutSelector({
   onSelect: (layout: InfiniteCanvasGroupLayoutMode) => void;
 }>) {
   const rowRef = useRef<HTMLDivElement>(null);
+  const styles = canvasHud();
   const [spot, setSpot] = useState<Readonly<{ height: number; width: number; x: number }> | null>(
     null,
   );
@@ -231,15 +236,11 @@ function LayoutSelector({
   }, [layout]);
 
   return (
-    <Liquid
-      className="relative flex items-center gap-0.5"
-      fill="var(--surface-raised)"
-      ref={rowRef}
-    >
+    <Liquid className={styles.layoutRow()} fill="var(--surface-raised)" ref={rowRef}>
       {spot === null ? null : (
         <Liquid.Item effect="move" move={{ springiness: 0.55, trail: 0.5 }}>
           <div
-            className="pointer-events-none absolute top-0 left-0 rounded-[var(--radius-pill)]"
+            className={styles.layoutIndicator()}
             style={{
               height: spot.height,
               transform: `translateX(${spot.x}px)`,
