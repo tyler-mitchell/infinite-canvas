@@ -216,6 +216,18 @@ conclusions in one sitting:
   computes transparent, which is impossible" and sent three probes down a dead end. Suppress the
   transition first, or wait past its duration, before treating an inline write as ground truth.
 
+**A hover measured in the automated pane is not evidence about the product.** Two sessions spent
+real time on "no rail button shows hover feedback", measured properly — pointer on the element,
+`matches(":hover")` asserted, waited well past the 150ms transition. Every hovered element in the
+app returns a background parked at its transition's _start_: `oklab(0 0 0 / 0)` where the token
+resolves to `oklch(0.268 0.011 265)`. It reproduces across three independent styling systems —
+`packages/ui`'s `tv` variants, the framework's `theme.css`, and a rail row's arbitrary
+`hover:bg-[var(--surface-hover)]` — which is far too broad to be a defect in any of them. The
+oklab serialisation is the tell: Chrome serialises an in-flight transition in its interpolation
+space, so a transition is running and never advancing, which is what a pane not producing frames
+looks like. **Confirm a hover finding in a real browser window before acting on it**, and suspect
+the instrument first when a defect spans systems that share nothing but the page.
+
 ### Clicking by coordinate
 
 **A coordinate click is in the screenshot's pixels, not the page's.** The pane scales the viewport
