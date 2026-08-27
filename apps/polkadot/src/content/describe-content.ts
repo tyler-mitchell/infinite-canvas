@@ -1,7 +1,11 @@
 import { getInfiniteCanvasWindowData, type InfiniteCanvasState } from "@hyphened/infinite-canvas";
 
 import { ContentWindowData, type WindowKind } from "../canvas/window-registry";
+import type { ContentRelation } from "../database/database.client";
 import { getProjectContent, type ProjectContent } from "./project-content";
+
+/** What `getProjectContent` hands back once it has an answer. */
+type ProjectContentItems = NonNullable<ReturnType<typeof getProjectContent>>;
 
 /**
  * What this project holds, and which of it is not on the canvas.
@@ -33,10 +37,54 @@ const getOpenItemIds = (state: InfiniteCanvasState<WindowKind>) =>
       .filter((itemId) => itemId !== undefined),
   );
 
+/**
+ * What the connections say, in the same terms the listing above uses.
+ *
+ * A caller that cannot see the screen was told what this project holds and nothing about how any of
+ * it is joined — which on a canvas whose whole point is relating things is most of the content. The
+ * lines are drawn, they carry a word, and none of it was readable except by looking.
+ *
+ * Reported here rather than with the canvas, because `relates_to` is `IN content_item OUT
+ * content_item`: an edge joins two *records* and goes on existing when neither is open. Putting it
+ * in the canvas report would have described a thing by its drawing, and said nothing at all about
+ * the connections between two items that are merely closed.
+ *
+ * The stored order is kept. `findRelation` is undirected so the same pair cannot be joined twice in
+ * reverse, but the kinds are not symmetric — "supports" and "refines" read source to target — so
+ * reversing the pair here would silently reverse the claim.
+ *
+ * The default kind is named rather than hidden. `getRelationLabel` drops "relates" because an
+ * unlabelled line already says it on screen; a reader with no line has nothing to infer it from.
+ */
+const describeRelations = (
+  relations: readonly ContentRelation[],
+  items: ProjectContentItems,
+): string => {
+  if (relations.length === 0) {
+    return "No connections.";
+  }
+
+  const titleOf = (itemId: string) => {
+    const item = items.find((candidate) => candidate.id === itemId);
+
+    // An endpoint the listing does not hold is still reported. An edge with one end missing is a
+    // fact worth surfacing, and dropping it would under-report the project rather than simplify it.
+    return item === undefined ? `[${itemId}]` : `"${item.title}" [${item.id}]`;
+  };
+
+  const described = relations.map(
+    (relation) =>
+      `${titleOf(relation.source)} ${relation.label?.trim() || relation.kind} ${titleOf(relation.target)}`,
+  );
+
+  return `${relations.length} connection(s): ${described.join("; ")}.`;
+};
+
 function describeProjectContent(
   input: Readonly<{
     listing: ProjectContent | null;
     projectId: string;
+    relations: readonly ContentRelation[];
     state: InfiniteCanvasState<WindowKind>;
   }>,
 ): string {
@@ -67,7 +115,10 @@ function describeProjectContent(
   );
   const closedCount = items.filter((item) => !open.has(item.id)).length;
 
-  return `${items.length} item(s), ${closedCount} not open: ${described.join("; ")}.`;
+  return [
+    `${items.length} item(s), ${closedCount} not open: ${described.join("; ")}.`,
+    describeRelations(input.relations, items),
+  ].join(" ");
 }
 
 export { describeProjectContent };

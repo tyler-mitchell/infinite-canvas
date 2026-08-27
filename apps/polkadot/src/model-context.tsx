@@ -6,6 +6,7 @@ import { describeCanvas } from "./canvas/describe-canvas";
 import type { WindowKind } from "./canvas/window-registry";
 import { describeProjectContent } from "./content/describe-content";
 import { projectContent$ } from "./content/project-content";
+import { relations$ } from "./relations/relation-store";
 
 /**
  * The app's vocabulary, offered to an agent running in the browser.
@@ -91,13 +92,15 @@ function ModelContextTools({ projectId }: Readonly<{ projectId: string }>) {
     // not delete the record, so without this everything not open is invisible to a caller.
     const list = registry.registerTool({
       description:
-        "List everything this project holds, saying which items are already open on the canvas.",
+        "List everything this project holds and how it is connected, saying which items are already open on the canvas.",
       execute: async () => ({
         content: [
           {
             text: describeProjectContent({
               listing: projectContent$.peek(),
               projectId,
+              // Peeked like the rest: a tool call wants the edges as they are at call time.
+              relations: relations$.peek(),
               state: store.state$.peek(),
             }),
             type: "text" as const,
