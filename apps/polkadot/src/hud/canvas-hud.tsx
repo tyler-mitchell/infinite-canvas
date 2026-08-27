@@ -33,6 +33,7 @@ import { getAppAction, isAppActionEnabled } from "../app-actions";
 import { openProject$ } from "../projects/open-project";
 import { OffscreenIndicators } from "../canvas/offscreen-indicators";
 import type { WindowKind } from "../canvas/window-registry";
+import { CanvasContextMenu } from "./canvas-context-menu";
 import { HudRoot, HudSurface } from "./hud-surfaces";
 
 /**
@@ -434,6 +435,8 @@ export function CanvasHud({
         )}
         <GroupRail />
         <SelectionRail />
+        {/* Opens where the pointer is, so it is not anchored like the rails above. */}
+        <CanvasContextMenu />
         {/* Inside the inset root, unlike the offscreen ring: this is an ordinary corner surface,
             and it should sit inside whatever the library leaves rather than under it. */}
         {minimap}
