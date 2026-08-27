@@ -150,6 +150,29 @@ test("the containment check fails on a rule written outside the layer", () => {
   ).toStrictEqual(["@layer infinite-canvas", '[data-slot="viewport"]']);
 });
 
+/**
+ * Every `--icx-*` token `docs/API.md` names is one this stylesheet declares.
+ *
+ * The doc did not name a single token until 2026-08-26, which made the whole theming surface
+ * reachable only by reading this file. Naming them creates the other failure: a documented token
+ * that was renamed or never existed, which a consumer discovers by writing an override that does
+ * nothing. The direction is deliberately one-way — a token may exist undocumented, since the doc
+ * names the layers a consumer overrides rather than enumerating derivations that would go stale.
+ */
+test("every --icx-* token the API doc names is declared in theme.css", () => {
+  const apiDoc = readFileSync(
+    fileURLToPath(new URL("../../../docs/API.md", import.meta.url)),
+    "utf8",
+  );
+  const declared = new Set(
+    [...themeCss.matchAll(/(--icx-[a-z0-9-]+)\s*:/g)].map((match) => match[1] as string),
+  );
+  const named = [...new Set([...apiDoc.matchAll(/`(--icx-[a-z0-9-]+)`/g)].map((m) => m[1]))];
+
+  expect(named.length).toBeGreaterThan(0);
+  expect(named.filter((token) => token !== undefined && !declared.has(token))).toEqual([]);
+});
+
 test("no component references an --icx-* token that nothing defines or writes", () => {
   // The dangling-token check. A `var(--icx-typo)` renders as nothing and styles silently vanish.
   //

@@ -1003,6 +1003,35 @@ Slot overrides then belong in a layer between the two. Written unlayered they
 still beat the theme, but they also beat the consumer's own utilities, which is
 the same defect facing the other way.
 
+### The `--icx-*` tokens
+
+`theme.css` declares scores of them and this file named none, so the whole
+theming surface was reachable only by reading the stylesheet. They are not a
+flat list —
+they compose in three layers, and a consumer overriding the wrong one either
+changes nothing or changes far more than intended:
+
+1. **Eleven bridged tokens** mirror `DEFAULT_INFINITE_CANVAS_THEME` field for
+   field, and the `theme` prop writes the same values. `theme-tokens.test.ts`
+   fails if the two ever disagree.
+2. **The semantic layer** is what a retheme is made of: `--icx-color-foreground`,
+   `--icx-color-accent`, `--icx-color-shadow`, `--icx-color-surface-raised`,
+   `--icx-color-surface-sunken`, `--icx-color-accent-muted`,
+   `--icx-color-accent-surface`, and the ramp
+   `--icx-color-accent-bright` / `-soft` / `-dim` / `-faint`. The ramp runs
+   _brighter_ than the accent because it sits on a dark surface, which is the
+   thing a light theme inverts.
+3. **Per-slot tokens** derive from the layer above — the control, host-chrome,
+   snap, marquee, HUD and group families. Override one to disagree with the
+   derivation for one slot; `theme.css` is the enumeration and stays the
+   authority, because a list here would go stale the first time one is added.
+
+Three of the per-slot ones exist because a slot was borrowing a token that meant
+something else, which is worth knowing before reaching for a neighbour's:
+`--icx-group-gutter` (a seam is a control, not a border), `--icx-group-tab-fg`
+(unselected tab ink was reading the backdrop's lattice colour), and
+`--icx-group-label-fg-active` (the shell holding the active window).
+
 **`data-attributes`**
 
 - `INFINITE_CANVAS_SLOTS`
