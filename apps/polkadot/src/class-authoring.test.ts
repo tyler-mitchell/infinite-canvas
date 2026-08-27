@@ -23,8 +23,19 @@ const sources = (): readonly string[] =>
     .filter((entry) => entry.endsWith(".tsx") && !entry.endsWith(".test.tsx"))
     .map((entry) => entry.replaceAll("\\", "/"));
 
-/** `className="…"` — a literal, as opposed to `className={…}` which is an expression. */
-const LITERAL_CLASS_NAME = /className="[^"]*"/g;
+/**
+ * A class list written out rather than called for, in the three spellings that are the same thing.
+ *
+ * `className="…"` is the obvious one. `className={"…"}` and a template literal are the same string
+ * wearing braces, and a guard that caught only the first would be bypassed by a keystroke — not
+ * maliciously, just by whoever reaches for interpolation to append one modifier.
+ *
+ * **The boundary, stated because it is not zero.** A literal smuggled through a call —
+ * `className={cn(styles.row(), "mt-1")}` — is not caught, and neither is a class string exported
+ * from a `.ts` file. Both are real, and both need a heuristic for "looks like Tailwind" that would
+ * fire on ordinary prose. This catches the spellings that can be recognised exactly.
+ */
+const LITERAL_CLASS_NAME = /className=(?:"[^"]*"|\{\s*(?:"[^"]*"|'[^']*'|`[^`]*`)\s*\})/g;
 
 test("no component writes a class list by hand", () => {
   const offenders = sources().flatMap((file) => {
@@ -36,14 +47,18 @@ test("no component writes a class list by hand", () => {
   expect(offenders).toEqual([]);
 });
 
-test("the scan would notice one being added", () => {
-  const planted = `<div className="flex items-center gap-2" />`;
-
-  expect(planted.match(LITERAL_CLASS_NAME)).toEqual([`className="flex items-center gap-2"`]);
+test.each([
+  ["a bare attribute", '<div className="flex items-center gap-2" />'],
+  ["the same string in braces", '<div className={"flex items-center gap-2"} />'],
+  ["a template literal", "<div className={`flex items-center gap-2`} />"],
+])("the scan notices %s", (_spelling, planted) => {
+  expect(planted.match(LITERAL_CLASS_NAME)).toHaveLength(1);
 });
 
-test("it does not mistake a slot call for a literal", () => {
-  const allowed = `<div className={styles.row()} />`;
-
+test.each([
+  ["a slot call", "<div className={styles.row()} />"],
+  ["a slot call with a variant", "<div className={styles.chip({ active: true })} />"],
+  ["a className passed through from props", "<Icon className={className} />"],
+])("it does not mistake %s for a literal", (_shape, allowed) => {
   expect(allowed.match(LITERAL_CLASS_NAME)).toBeNull();
 });
