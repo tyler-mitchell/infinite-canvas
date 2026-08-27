@@ -213,6 +213,23 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
+
+  /*
+   * The curve every bare `transition-*` uses, which is where motion was still being decided by
+   * default rather than by anyone.
+   *
+   * `transition-all` and friends resolve their easing from this theme variable, and Tailwind ships
+   * it as `cubic-bezier(0.4, 0, 0.2, 1)`. So the shared `ui` primitives — which are written against
+   * shadcn's vocabulary and cannot know about this palette, exactly as the block above says — moved
+   * on a curve nobody here chose. Measured after the framework's own chrome was tokenised: 140 live
+   * transitions on `--ease-swift` and 11 still on the default, all of them one `Button`.
+   *
+   * Set here rather than in the component, because a component asking for a named curve is the
+   * per-site decision the bar rejects, and reaching into `ui` with a Polkadot token would give a
+   * shared package knowledge of this app. Configuring the default is the library's own answer:
+   * anything that wants the settling curve still says so.
+   */
+  --default-transition-timing-function: var(--ease-swift);
 }
 
 /**
