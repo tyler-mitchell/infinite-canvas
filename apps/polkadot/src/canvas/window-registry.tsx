@@ -1,7 +1,4 @@
-import {
-  defineInfiniteCanvasWindowRegistry,
-  getInfiniteCanvasWindowData,
-} from "@hyphened/infinite-canvas";
+import { defineInfiniteCanvasWindowRegistry } from "@hyphened/infinite-canvas";
 import { tv } from "ui/tv";
 
 /*
@@ -79,19 +76,19 @@ const windowDefinitions = defineInfiniteCanvasWindowRegistry<WindowKind, WindowD
     kind: "collection",
     overflowY: "auto",
     renderBody: ({ window }) => {
-      const data = getInfiniteCanvasWindowData(window, ContentWindowData.allows);
+      const itemId = getContentWindowItemId(window);
 
-      return data == null ? (
+      return itemId === null ? (
         <div className={noteWindow().summary()}>This window is not bound to a collection.</div>
       ) : (
-        <CollectionWindowBody collectionId={data.itemId} />
+        <CollectionWindowBody collectionId={itemId} />
       );
     },
     renderSummary: ({ window }) => {
-      const data = getInfiniteCanvasWindowData(window, ContentWindowData.allows);
+      const itemId = getContentWindowItemId(window);
 
-      return data == null ? null : (
-        <CollectionSummary collectionId={data.itemId} title={window.title} />
+      return itemId === null ? null : (
+        <CollectionSummary collectionId={itemId} title={window.title} />
       );
     },
     textSelection: "none",
@@ -125,12 +122,12 @@ const windowDefinitions = defineInfiniteCanvasWindowRegistry<WindowKind, WindowD
     kind: "image",
     overflowY: "hidden",
     renderBody: ({ window }) => {
-      const data = getInfiniteCanvasWindowData(window, ContentWindowData.allows);
+      const itemId = getContentWindowItemId(window);
 
-      return data == null ? (
+      return itemId === null ? (
         <div className={noteWindow().summary()}>This window is not bound to an image.</div>
       ) : (
-        <ImageWindowBody imageId={data.itemId} />
+        <ImageWindowBody imageId={itemId} />
       );
     },
     textSelection: "none",
@@ -151,12 +148,12 @@ const windowDefinitions = defineInfiniteCanvasWindowRegistry<WindowKind, WindowD
     kind: "link",
     overflowY: "hidden",
     renderBody: ({ window }) => {
-      const data = getInfiniteCanvasWindowData(window, ContentWindowData.allows);
+      const itemId = getContentWindowItemId(window);
 
-      return data == null ? (
+      return itemId === null ? (
         <div className={noteWindow().summary()}>This window is not bound to a link.</div>
       ) : (
-        <LinkWindowBody linkId={data.itemId} />
+        <LinkWindowBody linkId={itemId} />
       );
     },
     textSelection: "native",
@@ -166,24 +163,24 @@ const windowDefinitions = defineInfiniteCanvasWindowRegistry<WindowKind, WindowD
     kind: "note",
     overflowY: "auto",
     renderBody: ({ window }) => {
-      const data = getInfiniteCanvasWindowData(window, ContentWindowData.allows);
+      const itemId = getContentWindowItemId(window);
 
-      return data == null ? (
+      return itemId === null ? (
         <div className={noteWindow().summary()}>This window is not bound to a note.</div>
       ) : (
         <NoteWindowBody
           gateway={noteGateway}
-          noteId={data.itemId}
+          noteId={itemId}
           windowId={window.id}
           windowTitle={window.title}
         />
       );
     },
     renderSummary: ({ window }) => {
-      const data = getInfiniteCanvasWindowData(window, ContentWindowData.allows);
+      const itemId = getContentWindowItemId(window);
 
-      return data == null ? null : (
-        <NoteSummary gateway={noteGateway} noteId={data.itemId} title={window.title} />
+      return itemId === null ? null : (
+        <NoteSummary gateway={noteGateway} noteId={itemId} title={window.title} />
       );
     },
     textSelection: "native",

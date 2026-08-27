@@ -2,7 +2,6 @@ import {
   focusInfiniteCanvasCommandSurface,
   getInfiniteCanvasContextualCommands,
   getInfiniteCanvasGroupTitle,
-  getInfiniteCanvasWindowData,
   getInfiniteCanvasWindowGroup,
   getInfiniteCanvasWindowPresence,
   useInfiniteCanvasActions,
@@ -55,11 +54,7 @@ import { getSelectedRelations } from "../canvas/connector-geometry";
 import { createCanvas } from "../workspace/create-canvas";
 import { createDesktop } from "../workspace/create-desktop";
 import { createProject } from "../workspace/create-project";
-import {
-  ContentWindowData,
-  getContentWindowItemId,
-  type WindowKind,
-} from "../canvas/window-registry";
+import { getContentWindowItemId, type WindowKind } from "../canvas/window-registry";
 import type {
   CanvasSummary,
   ContentItemRecord,
@@ -402,14 +397,11 @@ function PaletteContent({
    * to invent which window it meant.
    */
   const connectionSubject = ((selected) => {
-    const data =
-      selected === undefined
-        ? null
-        : getInfiniteCanvasWindowData(selected, ContentWindowData.allows);
+    const itemId = selected === undefined ? null : getContentWindowItemId(selected);
 
-    return selected === undefined || data == null
+    return selected === undefined || itemId === null
       ? undefined
-      : { itemId: data.itemId, title: selected.title };
+      : { itemId, title: selected.title };
   })(
     state.selection.windowIds.length === 1
       ? state.windows.find((window) => window.id === state.selection.windowIds[0])
@@ -526,9 +518,7 @@ function PaletteContent({
   // `{ itemId }` for every kind, so this matched nothing and the active note was always undefined.
   const activeStateWindow = state.windows.find((window) => window.id === state.activeWindowId);
   const activeNoteId =
-    activeStateWindow === undefined
-      ? undefined
-      : getInfiniteCanvasWindowData(activeStateWindow, ContentWindowData.allows)?.itemId;
+    activeStateWindow === undefined ? undefined : getContentWindowItemId(activeStateWindow);
   const activeNote = notes.find((note) => note.id === activeNoteId);
   /** The group holding the active window, which is the only one a person could mean to name. */
   const activeGroup =

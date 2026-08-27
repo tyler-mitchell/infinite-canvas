@@ -111,6 +111,42 @@ test("the check does not fire on the guarded read that replaced it", () => {
  * If `ContentWindowData` ever grew `noteId` back as optional, every guarded read above would start
  * passing on a stale payload and the source check would still be green.
  */
+/**
+ * One module reads the payload, and everything else asks it.
+ *
+ * Forbidding casts was the first half and it is not enough: a *correct* guarded read, open-coded,
+ * still spells the field name out. Nine of them were, and they had already diverged — the helper
+ * answers `null`, the hand-written ones answered `undefined`, and one reader guarding `!== undefined`
+ * would have handed `null` to `rememberNote`.
+ *
+ * Worth saying how the last three were found, because it says what this test is for. A structural
+ * search for `getInfiniteCanvasWindowData(window, …)` missed them: they were written against
+ * `activeStateWindow` and `selected`, so the query matched on a *parameter name* and reported six
+ * sites when there were nine. A count that depends on what everyone happened to call their variable
+ * is not a count. This asks the only question that does not: who imports the reader.
+ */
+test("only the payload module reads a window's data directly", () => {
+  const callers = sources.filter((path) => {
+    const relative = path.slice(sourceRoot.length);
+
+    return (
+      relative !== "canvas/content-window-data.ts" &&
+      /getInfiniteCanvasWindowData\s*\(/.test(readFileSync(path, "utf8"))
+    );
+  });
+
+  expect(
+    callers.map((path) => path.slice(sourceRoot.length)),
+    "these read the payload themselves instead of asking `getContentWindowItemId`",
+  ).toStrictEqual([]);
+});
+
+test("the payload module does read it, or the check above passes by covering nothing", () => {
+  const owner = readFileSync(join(sourceRoot, "canvas/content-window-data.ts"), "utf8");
+
+  expect(/getInfiniteCanvasWindowData\s*\(/.test(owner)).toBe(true);
+});
+
 test("the schema admits the current payload and refuses the one it replaced", () => {
   const withItem = { data: { itemId: "content_item:abc" } };
   const withNote = { data: { noteId: "note:abc" } };
