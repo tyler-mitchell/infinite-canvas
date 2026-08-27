@@ -2,6 +2,7 @@ import { useInfiniteCanvasActions, useInfiniteCanvasStore } from "@hyphened/infi
 import { useEffect } from "react";
 
 import { APP_ACTIONS, isAppActionEnabled } from "./app-actions";
+import { describeCanvas } from "./canvas/describe-canvas";
 import type { WindowKind } from "./canvas/window-registry";
 
 /**
@@ -67,6 +68,16 @@ function ModelContextTools({ projectId }: Readonly<{ projectId: string }>) {
       return;
     }
 
+    // The one tool that reports rather than acts, so a caller can find out what it is looking at.
+    const describe = registry.registerTool({
+      description:
+        "Describe what is on the canvas: zoom, the open windows and their kinds, groups, and the selection.",
+      execute: async () => ({
+        content: [{ text: describeCanvas(store.state$.peek()), type: "text" as const }],
+      }),
+      inputSchema: { properties: {}, type: "object" },
+      name: "canvas.describe",
+    });
     const disposers = APP_ACTIONS.map((action) =>
       registry.registerTool({
         description: action.description,
@@ -92,7 +103,7 @@ function ModelContextTools({ projectId }: Readonly<{ projectId: string }>) {
 
     return () => {
       // The spec's disposal shape is one of the things this has never run to find out.
-      for (const disposer of disposers) {
+      for (const disposer of [describe, ...disposers]) {
         if (typeof disposer === "function") {
           (disposer as () => void)();
         }
