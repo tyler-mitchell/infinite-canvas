@@ -1,7 +1,9 @@
 import {
+  getInfiniteCanvasGroupTitle,
   getInfiniteCanvasOffscreenIndicators,
   useInfiniteCanvasActions,
   useInfiniteCanvasState,
+  type InfiniteCanvasState,
 } from "@hyphened/infinite-canvas";
 import { tv } from "ui/tv";
 
@@ -35,6 +37,28 @@ const INDICATOR_LIMIT = 5;
 /** Pulled in far enough that a chip sits fully inside the edge rather than half over it. */
 const RING_INSET_PX = 26;
 
+/**
+ * What an arrow is pointing at, said in one string.
+ *
+ * A group's name comes from the resolver rather than from `title`, which is `null` when nobody
+ * named one. Read raw, `?? "Group"` swallowed that into the framework's placeholder and a ring of
+ * arrows pointing at unnamed groups all read "Go to Group" — the canvas-of-identical-labels that
+ * composing a name from the members exists to prevent. The placeholder stays for a lookup that
+ * finds nothing at all, which is a different thing from a group with no name of its own.
+ */
+function getIndicatorTitle(
+  indicator: Readonly<{ id: string; kind: string }>,
+  state: InfiniteCanvasState<WindowKind>,
+): string {
+  if (indicator.kind !== "group") {
+    return state.windows.find((window) => window.id === indicator.id)?.title ?? "Window";
+  }
+
+  const group = state.groups.find((candidate) => candidate.id === indicator.id);
+
+  return group === undefined ? "Group" : getInfiniteCanvasGroupTitle(group, state.windows);
+}
+
 const indicators = tv({
   slots: {
     arrow: "size-3",
@@ -58,6 +82,8 @@ const indicators = tv({
   },
 });
 
+export { getIndicatorTitle };
+
 export function OffscreenIndicators() {
   const actions = useInfiniteCanvasActions<WindowKind>();
   const state = useInfiniteCanvasState<WindowKind>();
@@ -74,10 +100,7 @@ export function OffscreenIndicators() {
   return (
     <div className={styles.root()}>
       {offscreen.map((indicator) => {
-        const title =
-          indicator.kind === "group"
-            ? (state.groups.find((group) => group.id === indicator.id)?.title ?? "Group")
-            : (state.windows.find((window) => window.id === indicator.id)?.title ?? "Window");
+        const title = getIndicatorTitle(indicator, state);
 
         // One string for the tooltip and the accessible name: a rail of unlabelled glyphs is the
         // failure mode of every canvas tool, and two labels that drift is the next one.

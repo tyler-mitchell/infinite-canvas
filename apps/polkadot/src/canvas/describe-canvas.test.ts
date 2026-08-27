@@ -95,6 +95,57 @@ test("a window behind a tab is said to be behind a tab", () => {
   expect(described).not.toContain('note "Front", behind a tab');
 });
 
+/**
+ * A group nobody named is described by what is in it, not by the word "null".
+ *
+ * `InfiniteCanvasGroup.title` became `string | null` on 2026-08-27, where `null` means "named
+ * after its members" and `getInfiniteCanvasGroupTitle` composes that from current membership. This
+ * file read `title` raw and interpolated it, so an unnamed group reported itself as the literal
+ * string `"null"` — reproduced in the running app before the fix, alongside a named group, reading
+ * `"Untitled 6 & Connected to Untitled 6", "null"`.
+ *
+ * A template accepts `null`, so the typechecker had nothing to say, and the only reader affected
+ * cannot see the screen — the exact combination this file exists to defend against.
+ */
+const groupOf = (title: string | null) => ({
+  id: "group-1",
+  rect: { height: 400, width: 600, x: 0, y: 0 },
+  title,
+  tree: {
+    activeChildId: null,
+    axis: "horizontal" as const,
+    children: [
+      { id: "a", kind: "window" as const, weight: 1 },
+      { id: "b", kind: "window" as const, weight: 1 },
+    ],
+    id: "container-1",
+    kind: "container" as const,
+    layout: "split" as const,
+    weight: 1,
+  },
+  zIndex: 0,
+});
+
+const describeWithGroup = (title: string | null) =>
+  describeCanvas(
+    createInfiniteCanvasState<WindowKind>({
+      groups: [groupOf(title)],
+      viewport: { height: 800, width: 1200 },
+      windows: [windowAt("a", "note", "Sources", 0), windowAt("b", "note", "Draft", 400)],
+    }),
+  );
+
+test("an unnamed group is described by its members, never as null", () => {
+  const described = describeWithGroup(null);
+
+  expect(described).not.toContain("null");
+  expect(described).toContain('"Sources & Draft"');
+});
+
+test("a group somebody named is described by that name", () => {
+  expect(describeWithGroup("Reading list")).toContain('"Reading list"');
+});
+
 test("zoom is reported as a percentage, the way the canvas shows it", () => {
   const described = describeCanvas(
     createInfiniteCanvasState<WindowKind>({

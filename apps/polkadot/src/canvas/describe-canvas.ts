@@ -1,5 +1,6 @@
 import {
   getInfiniteCanvasGroupProjection,
+  getInfiniteCanvasGroupTitle,
   isInfiniteCanvasWindowInActiveWorkspace,
   type InfiniteCanvasState,
 } from "@hyphened/infinite-canvas";
@@ -60,7 +61,18 @@ function describeCanvas(state: InfiniteCanvasState<WindowKind>): string {
         .filter((part) => part !== null)
         .join(", "),
     );
-  const groups = state.groups.map((group) => `"${group.title}"`);
+  /*
+   * Through the resolver, because a group's `title` is `null` when nobody named one.
+   *
+   * `null` means "named after what is in it" and `getInfiniteCanvasGroupTitle` composes that from
+   * current membership. Read raw and interpolated, it produced the literal string `"null"` — a
+   * template accepts it, so the typechecker had nothing to say, and the only reader affected is
+   * one that cannot see the screen. Which is the whole point of this file: the described canvas is
+   * the canvas, for anything reading rather than looking.
+   */
+  const groups = state.groups.map(
+    (group) => `"${getInfiniteCanvasGroupTitle(group, state.windows)}"`,
+  );
 
   return [
     `Zoom ${Math.round(state.camera.zoom * 100)}%.`,
