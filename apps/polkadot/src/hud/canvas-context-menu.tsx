@@ -1,9 +1,8 @@
 import {
+  getInfiniteCanvasContextualCommands,
   getInfiniteCanvasGroupWindowIds,
-  isInfiniteCanvasCommandEnabled,
   useInfiniteCanvasActions,
   useInfiniteCanvasStore,
-  type InfiniteCanvasCommand,
   type InfiniteCanvasCommandId,
 } from "@hyphened/infinite-canvas";
 import { useValue } from "@legendapp/state/react";
@@ -163,28 +162,33 @@ function CanvasContextMenu() {
   const state = store.state$.peek();
   const context = { actions, projectId, state };
   /*
-   * One command object, asked and then run — the strongest form of the rule that a view must ask
-   * the same question the verb answers, because here it is literally the same value.
+   * The framework's own descriptor for each verb: its command, its live enablement, its word.
    *
-   * `isInfiniteCanvasCommandEnabled` rather than membership in the contextual list. That list is a
-   * curated "what can be done right now" for a palette, and it does not carry the view verbs at
-   * all: measured on a canvas of twelve windows with one selected, it returned zero `view.*` ids,
-   * so "Fit selection", "Fit all" and the window ring's "Fit" were dimmed permanently — three dead
-   * spokes that looked like considered enablement. The predicate answers for any command.
+   * This ring used to fabricate `{ type: id }` and cast it to a command. An id is not a command.
+   * `group.setLayout.split` is the id of `{ type: "group.setLayout", layout: "split" }`, and the
+   * fabricated version throws `Unknown infinite canvas command type` — so the three layout spokes
+   * had never worked, from the day the ring was written. The cast is what hid it: it silenced
+   * exactly the type error that describes the bug.
    *
-   * It takes a zoom policy because a zoom step is offered only when it would move. This app passes
-   * no policy, so the default is the one in force, and no ring carries a zoom step regardless — a
-   * wheel that ever gains one has to thread the app's policy through here.
+   * Unfiltered, so a verb that is currently unavailable still has a descriptor to render dim.
+   * The available-only list cannot answer for a spoke that keeps its place when it cannot be used,
+   * which is the whole contract of a wheel.
    */
-  const canvasVerb = (id: InfiniteCanvasCommandId, icon: RadialItem["icon"], label: string) => {
-    const command = { type: id } as InfiniteCanvasCommand;
+  const descriptors = new Map(
+    getInfiniteCanvasContextualCommands(state).map((command) => [command.id, command]),
+  );
+  const canvasVerb = (id: InfiniteCanvasCommandId, icon: RadialItem["icon"]) => {
+    const descriptor = descriptors.get(id);
 
     return {
       icon,
-      isEnabled: isInfiniteCanvasCommandEnabled(state, command),
-      label,
+      isEnabled: descriptor?.enabled === true,
+      // The framework's word for its own verb. A missing id shows itself, the way an app verb does.
+      label: descriptor?.label ?? id,
       run: () => {
-        actions.executeCommand(command);
+        if (descriptor !== undefined) {
+          actions.executeCommand(descriptor.command);
+        }
       },
     };
   };
@@ -233,11 +237,11 @@ function CanvasContextMenu() {
            * read left-to-right on one control in the order they read clockwise on the other.
            */
           ...GROUP_LAYOUTS.map((entry) =>
-            canvasVerb(`group.setLayout.${entry.layout}`, entry.icon, entry.label),
+            canvasVerb(`group.setLayout.${entry.layout}`, entry.icon),
           ),
-          canvasVerb("group.flipAxis", FlipHorizontal, "Flip axis"),
-          canvasVerb("group.equalizeChildren", AlignHorizontalSpaceAround, "Equalize"),
-          canvasVerb("group.dissolve", Ungroup, "Ungroup"),
+          canvasVerb("group.flipAxis", FlipHorizontal),
+          canvasVerb("group.equalizeChildren", AlignHorizontalSpaceAround),
+          canvasVerb("group.dissolve", Ungroup),
         ]}
         onClose={() => {
           setPress(null);
@@ -252,18 +256,18 @@ function CanvasContextMenu() {
       ? [
           appVerb("note.create"),
           appVerb("group.createFromSelection"),
-          canvasVerb("view.fitSelection", Scan, "Fit selection"),
-          canvasVerb("view.fitAll", Maximize, "Fit all"),
-          canvasVerb("selection.selectAllVisible", MousePointerSquareDashed, "Select all"),
-          canvasVerb("history.undo", Undo2, "Undo"),
+          canvasVerb("view.fitSelection", Scan),
+          canvasVerb("view.fitAll", Maximize),
+          canvasVerb("selection.selectAllVisible", MousePointerSquareDashed),
+          canvasVerb("history.undo", Undo2),
         ]
       : [
-          canvasVerb("activeWindow.toggleMaximized", Maximize2, "Maximize"),
-          canvasVerb("activeWindow.togglePinned", Pin, "Pin"),
-          canvasVerb("window.undock", Grip, "Undock"),
-          canvasVerb("activeWindow.close", X, "Close"),
-          canvasVerb("activeWindow.minimize", Minus, "Minimize"),
-          canvasVerb("view.fitSelection", Scan, "Fit"),
+          canvasVerb("activeWindow.toggleMaximized", Maximize2),
+          canvasVerb("activeWindow.togglePinned", Pin),
+          canvasVerb("window.undock", Grip),
+          canvasVerb("activeWindow.close", X),
+          canvasVerb("activeWindow.minimize", Minus),
+          canvasVerb("view.fitSelection", Scan),
         ];
 
   return (
