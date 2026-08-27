@@ -1,16 +1,14 @@
 import {
-  getAvailableInfiniteCanvasContextualCommands,
   getInfiniteCanvasGroupWindowIds,
+  isInfiniteCanvasCommandEnabled,
   useInfiniteCanvasActions,
   useInfiniteCanvasStore,
+  type InfiniteCanvasCommand,
   type InfiniteCanvasCommandId,
 } from "@hyphened/infinite-canvas";
 import { useValue } from "@legendapp/state/react";
 import {
   AlignHorizontalSpaceAround,
-  Columns2,
-  Columns3,
-  FilePlus2,
   FlipHorizontal,
   Grip,
   Maximize,
@@ -18,9 +16,7 @@ import {
   Minus,
   MousePointerSquareDashed,
   Pin,
-  Rows3,
   Scan,
-  SquareSplitHorizontal,
   Undo2,
   Ungroup,
   X,
@@ -30,6 +26,8 @@ import { useEffect, useState } from "react";
 import { getAppAction, isAppActionEnabled } from "../app-actions";
 import type { WindowKind } from "../canvas/window-registry";
 import { openProject$ } from "../projects/open-project";
+import { getActionIcon } from "./action-icons";
+import { GROUP_LAYOUTS } from "./group-layouts";
 import { RadialMenu, type RadialItem } from "./radial-menu";
 
 /**
@@ -164,24 +162,48 @@ function CanvasContextMenu() {
    */
   const state = store.state$.peek();
   const context = { actions, projectId, state };
-  const available = new Set(
-    getAvailableInfiniteCanvasContextualCommands(state).map((command) => command.id),
-  );
-  const canvasVerb = (id: InfiniteCanvasCommandId, icon: RadialItem["icon"], label: string) => ({
-    icon,
-    isEnabled: available.has(id),
-    label,
-    run: () => {
-      actions.executeCommand({ type: id } as Parameters<typeof actions.executeCommand>[0]);
-    },
-  });
-  const appVerb = (id: string, icon: RadialItem["icon"], label: string) => {
-    const action = getAppAction(id);
+  /*
+   * One command object, asked and then run — the strongest form of the rule that a view must ask
+   * the same question the verb answers, because here it is literally the same value.
+   *
+   * `isInfiniteCanvasCommandEnabled` rather than membership in the contextual list. That list is a
+   * curated "what can be done right now" for a palette, and it does not carry the view verbs at
+   * all: measured on a canvas of twelve windows with one selected, it returned zero `view.*` ids,
+   * so "Fit selection", "Fit all" and the window ring's "Fit" were dimmed permanently — three dead
+   * spokes that looked like considered enablement. The predicate answers for any command.
+   *
+   * It takes a zoom policy because a zoom step is offered only when it would move. This app passes
+   * no policy, so the default is the one in force, and no ring carries a zoom step regardless — a
+   * wheel that ever gains one has to thread the app's policy through here.
+   */
+  const canvasVerb = (id: InfiniteCanvasCommandId, icon: RadialItem["icon"], label: string) => {
+    const command = { type: id } as InfiniteCanvasCommand;
 
     return {
       icon,
-      isEnabled: action !== undefined && isAppActionEnabled(action, context),
+      isEnabled: isInfiniteCanvasCommandEnabled(state, command),
       label,
+      run: () => {
+        actions.executeCommand(command);
+      },
+    };
+  };
+  /*
+   * The id is the only thing this ring chooses. The word comes from the action and the glyph from
+   * the shared map, so a verb renamed or re-drawn is renamed and re-drawn everywhere it is offered
+   * — which is not hypothetical: this ring and the selection rail had already drifted to two
+   * different glyphs for `group.createFromSelection`.
+   *
+   * An unknown id falls back to showing itself. It renders disabled either way, and a visible id is
+   * how a typo announces itself instead of leaving a blank spoke.
+   */
+  const appVerb = (id: string) => {
+    const action = getAppAction(id);
+
+    return {
+      icon: getActionIcon(id),
+      isEnabled: action !== undefined && isAppActionEnabled(action, context),
+      label: action?.label ?? id,
       run: () => {
         action?.run(context);
       },
@@ -205,9 +227,14 @@ function CanvasContextMenu() {
     return (
       <RadialMenu
         items={[
-          canvasVerb("group.setLayout.split", SquareSplitHorizontal, "Side by side"),
-          canvasVerb("group.setLayout.tabs", Columns2, "Tabbed"),
-          canvasVerb("group.setLayout.accordion", Rows3, "Folded"),
+          /*
+           * The rail's own list, in the rail's own order. Shared so the same shape cannot end up
+           * with one glyph on the rail and another on the wheel — and so a container's three states
+           * read left-to-right on one control in the order they read clockwise on the other.
+           */
+          ...GROUP_LAYOUTS.map((entry) =>
+            canvasVerb(`group.setLayout.${entry.layout}`, entry.icon, entry.label),
+          ),
           canvasVerb("group.flipAxis", FlipHorizontal, "Flip axis"),
           canvasVerb("group.equalizeChildren", AlignHorizontalSpaceAround, "Equalize"),
           canvasVerb("group.dissolve", Ungroup, "Ungroup"),
@@ -223,8 +250,8 @@ function CanvasContextMenu() {
   const items =
     press.windowId === null
       ? [
-          appVerb("note.create", FilePlus2, "New note"),
-          appVerb("group.createFromSelection", Columns3, "Group selected"),
+          appVerb("note.create"),
+          appVerb("group.createFromSelection"),
           canvasVerb("view.fitSelection", Scan, "Fit selection"),
           canvasVerb("view.fitAll", Maximize, "Fit all"),
           canvasVerb("selection.selectAllVisible", MousePointerSquareDashed, "Select all"),

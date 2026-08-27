@@ -197,6 +197,36 @@ function RadialMenu({
   }, []);
 
   /*
+   * Escape is heard on the document, not on the overlay.
+   *
+   * The overlay's own key handler only runs when focus is already inside the wheel, and the wheel
+   * does not take focus when it opens (see below). Measured: a wheel open with six spokes, Escape
+   * pressed, six spokes still there — the most reflexive way out of a menu did nothing at all.
+   *
+   * Dismissal is not focus-scoped the way arrowing between spokes is. Turning the wheel is a
+   * question about the thing you are already in; closing it is a question about the whole screen,
+   * and the same reasoning already puts the `contextmenu` listener that opens it on the document.
+   *
+   * Capture, so the wheel answers first. The framework binds Escape too — cancelling an
+   * interaction, clearing a selection — and dismissing a menu should not also undo something
+   * behind it.
+   */
+  useEffect(() => {
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.stopPropagation();
+        onClose();
+      }
+    };
+
+    document.addEventListener("keydown", handleEscape, true);
+
+    return () => {
+      document.removeEventListener("keydown", handleEscape, true);
+    };
+  }, [onClose]);
+
+  /*
    * The wheel does not focus itself, and that is a known gap rather than an oversight.
    *
    * Four attempts failed: in the mount effect, in an effect keyed on `isOpen`, inside
@@ -222,12 +252,7 @@ function RadialMenu({
         onClose();
       }}
       onKeyDown={(event) => {
-        if (event.key === "Escape") {
-          onClose();
-
-          return;
-        }
-
+        // Escape is handled on the document above, so this is only about turning the wheel.
         const next = getNextSpoke(event.key, focusedIndex, items);
 
         if (next !== null) {

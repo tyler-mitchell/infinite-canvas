@@ -144,7 +144,7 @@ wolf is worse than none.
 ## Verifying in the browser
 
 Driving the running app is the only way to find most of what is wrong here, and the instruments
-lie. Five did on 2026-08-26 alone. Each of these is a measured failure, not a caution:
+lie. Seven did on 2026-08-26 alone. Each of these is a measured failure, not a caution:
 
 - **A screenshot is authoritative about content and unreliable about layering.** Twice, from
   unrelated directions, a capture showed content that the DOM says is not in that element — a
@@ -162,6 +162,16 @@ lie. Five did on 2026-08-26 alone. Each of these is a measured failure, not a ca
   synthetic `ClipboardEvent` with the formats you want to test instead.
 - **`commands` take positional arguments.** `setSelection([id])`, not `setSelection({ windowIds })`.
   The object form throws or silently no-ops, and a "selection is 0" reading is usually the call.
+- **The browser tool's key press does not reach the page.** A probe recording every `keydown` on
+  `document`, in both phases, caught nothing at all from a tool-driven Escape. So "I pressed the key
+  and nothing happened" is not evidence about the app — it is the default outcome. Dispatch a
+  `KeyboardEvent` at the element you mean to test, and be exact about the target: an event aimed at
+  `document` has `BODY` as its target, which is outside the React root, so no `onKeyDown` on any
+  component can hear it. That difference is a finding in its own right, not an artefact to route
+  around — a handler that only fires for a focused subtree is a handler most users never reach.
+- **A background tab has a zero-size viewport.** `innerWidth` and `innerHeight` both read `0`, and
+  every `elementFromPoint` returns `null`, so a probe looks like a page with nothing on it. Front
+  the tab and set a viewport before measuring anything positional.
 
 The rule the day actually taught: **when two or three hypotheses fail in a row, stop theorising and
 suspect the instrument.** A long stretch went into a hover "defect" that did not exist, and the
