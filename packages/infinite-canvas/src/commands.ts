@@ -2166,23 +2166,43 @@ function executeInfiniteCanvasCommand<Kind extends string>(
 
       const freed = findWindow(state, state.activeWindowId);
 
-      return freed === null || freed === undefined
-        ? state
-        : undockInfiniteCanvasWindowFromGroup(state, {
-            rect: getInfiniteCanvasVacantRect({
-              bounds: getInfiniteCanvasRoomAround(
-                getInfiniteCanvasWindowGroup(state, freed.id)?.rect ?? freed.rect,
-              ),
-              occupied: [
-                ...state.groups.map((group) => group.rect),
-                ...state.windows
-                  .filter((window) => window.mode !== "minimized" && window.id !== freed.id)
-                  .map((window) => window.rect),
-              ],
-              preferred: freed.rect,
-            }),
-            windowId: state.activeWindowId,
-          });
+      if (freed === null || freed === undefined) {
+        return state;
+      }
+
+      const shell = getInfiniteCanvasWindowGroup(state, freed.id);
+      /*
+       * The shell being left is an obstacle only if it survives being left.
+       *
+       * `occupied` took every group rect, this one included, so the sole member of a shell was
+       * pushed clear of a footprint DOCK-005 drops in the same breath — it landed a full shell-width
+       * away from where it had been sitting, with nothing there to avoid. Measured: a 544×720 shell
+       * at x=0 sent its only member to x=-544 on a canvas holding nothing else nearby.
+       *
+       * `group.dissolve` already draws this line and says so in its own branch — the shell is gone,
+       * so its footprint is free. The two verbs end the same way for a solitary member and now agree
+       * on where it lands.
+       */
+      const emptiedShellId =
+        shell !== null && getInfiniteCanvasGroupWindowIds(shell.tree).length === 1
+          ? shell.id
+          : null;
+
+      return undockInfiniteCanvasWindowFromGroup(state, {
+        rect: getInfiniteCanvasVacantRect({
+          bounds: getInfiniteCanvasRoomAround(shell?.rect ?? freed.rect),
+          occupied: [
+            ...state.groups
+              .filter((group) => group.id !== emptiedShellId)
+              .map((group) => group.rect),
+            ...state.windows
+              .filter((window) => window.mode !== "minimized" && window.id !== freed.id)
+              .map((window) => window.rect),
+          ],
+          preferred: freed.rect,
+        }),
+        windowId: state.activeWindowId,
+      });
     }
     case "window.align":
     case "window.distribute":
