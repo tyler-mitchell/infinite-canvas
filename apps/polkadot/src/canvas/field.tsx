@@ -1,5 +1,6 @@
 import {
   getInfiniteCanvasGroupProjection,
+  isInfiniteCanvasWindowInActiveWorkspace,
   useInfiniteCanvasSelector,
   worldPointToScreenPoint,
   type InfiniteCanvasCamera,
@@ -130,6 +131,16 @@ type RectState = {
 };
 
 type FieldInput = Readonly<{
+  /**
+   * The windows this desktop admits.
+   *
+   * `state.windows` is every window on the canvas rather than every window on the desktop being
+   * looked at, so without this the field was displaced by windows nobody could see — the same
+   * omission `ROADMAP.md` records seven other surfaces making, and this was the eighth. It went
+   * unnoticed because the field is unmounted: a bug nothing renders is still a bug, and it would
+   * have arrived looking like the field was pulling toward nothing.
+   */
+  admittedWindowIds: ReadonlySet<string>;
   camera: InfiniteCanvasCamera;
   /** Members a group is not drawing — behind a tab, or a collapsed fold. */
   hiddenWindowIds: ReadonlySet<string>;
@@ -168,7 +179,13 @@ const readColor = (element: Element, name: string) => {
  * the pull falls away with the square of the distance. Minimized windows are excluded because they
  * have no rect on screen to pull with.
  */
-const getScreenRects = ({ camera, hiddenWindowIds, viewport, windows }: FieldInput) => {
+const getScreenRects = ({
+  admittedWindowIds,
+  camera,
+  hiddenWindowIds,
+  viewport,
+  windows,
+}: FieldInput) => {
   const centre = { x: viewport.width / 2, y: viewport.height / 2 };
   const distanceFromCentre = (
     rect: Readonly<{ height: number; width: number; x: number; y: number }>,
@@ -177,12 +194,23 @@ const getScreenRects = ({ camera, hiddenWindowIds, viewport, windows }: FieldInp
   return (
     windows
       /*
-       * A hidden tab member has no rect on screen to pull with either — which is this filter's own
-       * stated reason for dropping minimized windows, and it did not know the second case. Its `mode`
-       * is `"normal"` and its `rect` is the shell's whole content rect, so both members of a tab pair
-       * displaced the field at the same place and one visible shell pulled twice.
+       * Three ways a window is on the canvas without being on screen, and this knew one.
+       *
+       * A hidden tab member has no rect to pull with — its `mode` is `"normal"` and its `rect` is
+       * the shell's whole content rect, so both members of a tab pair displaced the field at the
+       * same place and one visible shell pulled twice. A window on another desktop has no rect on
+       * *this* screen at all, and that one was still missing: `state.windows` is every window on the
+       * canvas rather than every window on the desktop you are looking at.
+       *
+       * Asking all three is the rule `ROADMAP.md` records seven surfaces breaking. Asking one of
+       * them is what let this be the eighth.
        */
-      .filter((window) => window.mode !== "minimized" && !hiddenWindowIds.has(window.id))
+      .filter(
+        (window) =>
+          window.mode !== "minimized" &&
+          !hiddenWindowIds.has(window.id) &&
+          admittedWindowIds.has(window.id),
+      )
       .map((window) => {
         const origin = worldPointToScreenPoint(camera, viewport, {
           x: window.rect.x,
@@ -215,10 +243,28 @@ export function Field({ config = DEFAULT_FIELD_CONFIG }: Readonly<{ config?: Fie
   const hiddenWindowIds = useInfiniteCanvasSelector<WindowKind, ReadonlySet<string>>(
     (state) => getInfiniteCanvasGroupProjection(state.groups, state.groupMetrics).hiddenWindowIds,
   );
-  const inputRef = useRef<FieldInput>({ camera, hiddenWindowIds, viewport, windows });
+  /*
+   * Selected as a set, the way `hiddenWindowIds` is, rather than filtered where it is used: the
+   * membership answer is the framework's and asking it per window inside the render loop would put
+   * a state lookup on every frame the field draws.
+   */
+  const admittedWindowIds = useInfiniteCanvasSelector<WindowKind, ReadonlySet<string>>((state) => {
+    const admitted = state.windows.filter((window) =>
+      isInfiniteCanvasWindowInActiveWorkspace(state, window.id),
+    );
+
+    return new Set(admitted.map((window) => window.id));
+  });
+  const inputRef = useRef<FieldInput>({
+    admittedWindowIds,
+    camera,
+    hiddenWindowIds,
+    viewport,
+    windows,
+  });
   const configRef = useRef<FieldConfig>(config);
 
-  inputRef.current = { camera, hiddenWindowIds, viewport, windows };
+  inputRef.current = { admittedWindowIds, camera, hiddenWindowIds, viewport, windows };
   configRef.current = config;
   const styles = field();
 
