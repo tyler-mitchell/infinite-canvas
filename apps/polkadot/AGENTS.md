@@ -160,6 +160,15 @@ wolf is worse than none.
 Driving the running app is the only way to find most of what is wrong here, and the instruments
 lie. Eleven did on 2026-08-26 alone. Each of these is a measured failure, not a caution:
 
+**Read this list before driving, not after being confused by it.** On 2026-08-27 an agent built a
+`requestAnimationFrame` retry loop to find an element, watched it silently never run, and shipped a
+wrong number twice before checking `document.hidden` — which the rAF entry below has said to check
+since the day it was written. The same session then spent two attempts on a tool-driven `Mod+K`
+that the key-press entry says cannot reach the page. Neither was a new discovery; both were this
+file going unread by someone who had already opened it for something else. The traps here are cheap
+to read and expensive to rediscover, and the cost lands as a value that typechecks, passes review,
+and is wrong.
+
 - **A screenshot is authoritative about content and unreliable about layering.** Twice, from
   unrelated directions, a capture showed content that the DOM says is not in that element — a
   window's rows through an opaque rail, and one window's text inside another's frame. Window
@@ -195,6 +204,15 @@ lie. Eleven did on 2026-08-26 alone. Each of these is a measured failure, not a 
   `document.hidden` before believing any animated geometry, and treat spring or transition end
   states as unverifiable here. Behaviour that does not need a frame — focus, enablement, dispatch,
   hit-testing — measures fine.
+
+- **Opening a focus-trapped surface from a probe wedges the pane, and the pane does not come back.**
+  A loop that clicked each `[aria-haspopup="menu"]` trigger in turn — to walk the menus for unnamed
+  controls — hung the evaluator: `javascript_tool` timed out after 30s reporting the pane stuck, and
+  every later call in that tab failed the same way. Dispatching `Escape` did not release it, which
+  follows from the key-press entry above. Recovery is `tabs_close` then a fresh `preview_start`; the
+  tab is not salvageable. So a menu, dialog or palette cannot be audited by opening it here. Read its
+  source instead — a static scan found two fields a runtime walk had missed anyway, because both
+  render only while open.
 
 - **A module observable read from a console probe is not a window onto the database.** Driving the
   relation verbs, four separate reads said the write had not happened; an explicit
