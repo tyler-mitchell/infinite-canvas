@@ -19,9 +19,18 @@ import { tv } from "ui/tv";
  * and a project gets a typed confirmation. The doctrine is that confirmation is proportional to
  * what is lost — and disconnecting had none at all while destroying a sentence someone wrote.
  *
- * `fn::unrelate_content_items` deletes the row, and the canvas's `history.undo` does not reach the
- * database. Driven on 2026-08-27: undo answers "not available right now", and reconnecting gives
- * back a bare `relates`. So the kind and the label do not come back by any route.
+ * **The premise this was built on has since changed, and that is worth deciding rather than
+ * inheriting.** `fn::unrelate_content_items` still deletes the row, but `disconnectItems` now
+ * remembers its own inverse and offers it through the palette's undo — driven, a cut `supports`
+ * edge labelled "load-bearing evidence" came back with both. So the loss is recoverable for one
+ * step, where it previously was not by any route.
+ *
+ * By this app's own doctrine that is an argument for removing this dialog: archiving needs no
+ * confirmation precisely because it is reversible. The counter-argument is that undo is one step
+ * and expires when the next reversible act replaces it, whereas the archive list is permanent — so
+ * a cut is *briefly* recoverable rather than reversible the way archiving is. That is a real
+ * difference and a judgement call about a control someone else designed, so it is named here rather
+ * than settled unilaterally. What is fixed below is only the sentence that had become false.
  *
  * **Only for an edge that says something.** `getRelationLabel` is the test, and it is the same one
  * the connector draws by: an edge with the default kind and no label asserts nothing beyond the
@@ -64,7 +73,8 @@ export function ConnectionRemovalDialog({
           <DialogDescription>
             The connection to <span className={styles.claim()}>{title}</span> says{" "}
             <span className={styles.claim()}>{claim}</span>. Both notes stay exactly as they are —
-            this removes what the connection claimed, and that cannot be brought back.
+            this removes what the connection claimed. Undo will bring it back, until the next thing
+            you undo takes its place.
           </DialogDescription>
         </DialogHeader>
         <DialogFooter>

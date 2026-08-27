@@ -188,11 +188,14 @@ test("two items that exist but are not joined is its own answer", () => {
 /**
  * The other thing a verb can have to say, which is not a refusal.
  *
- * `relation.disconnect` succeeds and still owes the caller a sentence, because it is the one removal
- * in this app that destroys something. `archiveProjectItem` is reversible on purpose — its docstring
- * is where the rule is written — while `fn::unrelate_content_items` deletes the row, and the canvas's
- * `history.undo` does not reach the database. Driven on 2026-08-27: undo answers "not available right
- * now", and reconnecting gives back a bare `relates`.
+ * `relation.disconnect` succeeds and still owes the caller a sentence. It used to be because the cut
+ * was unrecoverable — `fn::unrelate_content_items` deletes the row and the canvas's `history.undo`
+ * does not reach the database — and that is no longer why. `disconnectItems` now remembers its own
+ * inverse, so a person can take the cut back from the palette.
+ *
+ * The sentence is still owed because the undo it registers is a palette row, which a caller reading
+ * tool output cannot press. Naming what went is the only way something without a pointer learns what
+ * it removed, and the two verbs that rebuild it are the only way it acts on that.
  */
 const seedEdge = (relation: Readonly<{ kind: string; label: string | null }>) => {
   relations$.set([
@@ -200,14 +203,17 @@ const seedEdge = (relation: Readonly<{ kind: string; label: string | null }>) =>
   ] as unknown as Parameters<typeof relations$.set>[0]);
 };
 
-test("disconnecting names the kind and label it destroyed, and says they cannot be undone", () => {
+test("disconnecting names what went with it, and how to put it back", () => {
   seedEdge({ kind: "supports", label: "load-bearing evidence" });
 
   const said = refuse("relation.disconnect", { sourceItemId: "item-1", targetItemId: "item-2" });
 
   expect(said).toContain("supports");
   expect(said).toContain("load-bearing evidence");
-  expect(said).toContain("cannot be undone");
+  // The recovery route, not a warning. This asserted "cannot be undone" until the cut became
+  // reversible; a test pinning that sentence would now be pinning a false claim.
+  expect(said).toContain("relation.connect");
+  expect(said).toContain("relation.setLabel");
   // Not a refusal: it ran. The distinction matters because the adapter shows both the same way.
   expect(said).not.toMatch(/^Refused: /);
 });

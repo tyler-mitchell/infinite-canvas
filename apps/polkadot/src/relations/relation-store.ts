@@ -1,5 +1,6 @@
 import { observable } from "@legendapp/state";
 
+import { rememberUndoableAction } from "../content/undoable-action";
 import type { ContentRelation } from "../database/database.client";
 import * as database from "../database/operations";
 
@@ -133,11 +134,79 @@ async function setRelationLabel(
   await loadRelations(input.projectId);
 }
 
+/**
+ * Cutting a connection, and remembering how to put it back.
+ *
+ * This was the one removal in the app that destroyed something. `fn::unrelate_content_items` deletes
+ * the row and the canvas's `history.undo` does not reach the database — driven, it answers "Undo is
+ * not available right now" — so a kind someone chose and a sentence someone typed left for good.
+ * That contradicted the app's own rule, written on `archiveProjectItem`: removal is archiving
+ * *because* nothing is destroyed, which is why archiving needs no confirmation.
+ *
+ * **Rebuilt rather than un-deleted, and the difference is worth stating.** ROADMAP scoped the
+ * reversible route as a stored flag every read filters plus a schema change — a soft delete. It is
+ * not needed: an edge is entirely described by its two ends, its kind and its label, so an inverse
+ * that reconnects with all four restores everything a reader can observe. What it does not restore
+ * is the row's identity; the rebuilt edge has a new id. Nothing addresses an edge by id across a
+ * cut — the rail, the palette, the hotkeys and `app-actions` all resolve by endpoint pair, and
+ * `setRelationKind` takes an id only after `findRelation` has just produced one — so the new id is
+ * unobservable. A soft delete would preserve it and cost a filtered column serving a list nobody
+ * browses.
+ *
+ * **Written with its caller, which is the thing that was missing.** A returning `disconnectItems`
+ * and a `restoreRelation` were written and deleted earlier the same day for being speculative: no
+ * caller used either. `rememberUndoableAction` is that caller, and it arrived afterwards — its own
+ * docstring names "one day cutting a connection" as the case it was built for. So the reversal is a
+ * closure it already knows how to offer rather than a new surface.
+ *
+ * Read before the write, because afterwards there is nothing left to read.
+ */
 async function disconnectItems(
   input: Readonly<{ projectId: string; source: string; target: string }>,
 ) {
+  const cut = findRelation(relations$.peek(), input.source, input.target);
+
   await database.relations.disconnect({ source: input.source, target: input.target });
   await loadRelations(input.projectId);
+
+  if (cut === undefined) {
+    return;
+  }
+
+  const claim = getRelationLabel(cut);
+
+  rememberUndoableAction({
+    // Named by what it said when it said anything, for the reason the removal dialog quotes it:
+    // "the connection" is every connection, and the one you just cut is the only one you mean.
+    describe: claim === undefined ? "Undo cutting the connection" : `Undo cutting “${claim}”`,
+    undo: async () => {
+      await connectItems({
+        kind: cut.kind as RelationKind,
+        projectId: input.projectId,
+        source: cut.source,
+        target: cut.target,
+      });
+
+      if (cut.label === null || cut.label === undefined) {
+        return;
+      }
+
+      /*
+       * The label needs the *new* edge's id, which only exists once the reconnect has landed.
+       * `connectItems` reloads before it resolves, so `relations$` already holds the rebuilt edge
+       * here — this is a lookup rather than a second round trip.
+       */
+      const rebuilt = findRelation(relations$.peek(), cut.source, cut.target);
+
+      if (rebuilt !== undefined) {
+        await setRelationLabel({
+          label: cut.label,
+          projectId: input.projectId,
+          relationId: rebuilt.id,
+        });
+      }
+    },
+  });
 }
 
 /** Undirected, because a user who connected two things did not choose a direction. */

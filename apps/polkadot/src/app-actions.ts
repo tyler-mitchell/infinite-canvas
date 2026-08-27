@@ -646,19 +646,20 @@ const APP_ACTIONS: readonly AppAction[] = [
       /*
        * Say what went, because this is the one removal in the app that destroys something.
        *
-       * `archiveProjectItem` is reversible on purpose, and its docstring is where the rule is
-       * written: archiving needs no confirmation because nothing is destroyed, so nothing has to be
-       * weighed. `fn::unrelate_content_items` deletes the row, and the canvas's `history.undo` does
-       * not reach the database — driven on 2026-08-27, undo answers "not available right now" and
-       * reconnecting yields a bare `relates`. So a kind someone chose and a sentence someone typed
-       * leave without a trace, and this string is the only trace there is.
+       * `fn::unrelate_content_items` deletes the row and the canvas's `history.undo` does not reach
+       * the database, so for a while this string was the only trace a cut edge left. It is no longer
+       * the only one — `disconnectItems` remembers its own inverse — but it is still the only trace
+       * a *caller* gets, since the undo it registers is a palette row for a person.
        *
        * A default `relates` edge carrying no label says nothing beyond existing, so losing it costs
        * nothing to report — the same rule the connector draws by, and the reason `getRelationLabel`
        * renders that case as nothing at all.
        *
-       * This does not make the loss reversible, and for the person cutting a connection in the rail
-       * it does nothing at all: they get no report. That half is still owed and ROADMAP carries it.
+       * **This said "cannot be undone" and that is no longer true.** `disconnectItems` now remembers
+       * its own inverse, so the cut is reversible from the palette's undo row for a person and by
+       * reconnecting for a caller. The sentence is kept because what went is still worth naming —
+       * an agent that reads "supports 'load-bearing evidence'" learns what it removed, which is the
+       * half of this that was always about legibility rather than recovery.
        */
       const lost = [
         removed?.kind === undefined || removed.kind === DEFAULT_RELATION_KIND ? null : removed.kind,
@@ -667,7 +668,7 @@ const APP_ACTIONS: readonly AppAction[] = [
 
       return lost.length === 0
         ? undefined
-        : `Disconnected. This went with it and cannot be undone: ${lost.join(" ")}. Restore it with relation.connect, then relation.setLabel.`;
+        : `Disconnected, taking ${lost.join(" ")} with it. Reversible: relation.connect rebuilds the edge and relation.setLabel restores what it said.`;
     },
   },
   {
