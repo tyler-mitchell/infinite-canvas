@@ -203,7 +203,17 @@ export function NoteWindowBody({
           and stayed invisible. */}
       <div className={noteWindow({ edge: "top" }).fade()} style={{ opacity: above ? 1 : 0 }} />
       <div className={styles.body()}>
+        {/*
+          Named, because a placeholder is not a name.
+
+          `placeholder` is the last fallback in the accessible-name computation, so this field did
+          have a name and the name was "Untitled" — the same string on every note, including the
+          ones already titled. Three notes open announced three identical fields. The window around
+          it is `role="group"` named after the note, so "which note" is already answered and this
+          only has to say which field it is; qualifying it further would announce the title twice.
+        */}
         <input
+          aria-label="Note title"
           className={styles.title()}
           onChange={(event) => {
             editNote(noteId, { text: note.content.text, title: event.target.value }, gateway);

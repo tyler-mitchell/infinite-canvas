@@ -106,8 +106,17 @@ export function NoteEditor({
       }}
     >
       <div className={styles.root()}>
+        {/*
+          The editable region is named, which it was not.
+
+          `role="textbox"`, editable, and nothing to say what it edits. Unlike the title field there
+          was not even a fallback to fall back to: Lexical draws its placeholder as a sibling `div`
+          rather than a `placeholder` attribute, so the name computation had nothing to reach for.
+          The window around it is `role="group"` named after the note, so this says which field it
+          is and no more — repeating the note's name here would announce it twice.
+        */}
         <RichTextPlugin
-          contentEditable={<ContentEditable className={styles.content()} />}
+          contentEditable={<ContentEditable aria-label="Note" className={styles.content()} />}
           ErrorBoundary={LexicalErrorBoundary}
           placeholder={<div className={styles.placeholder()}>Write something…</div>}
         />

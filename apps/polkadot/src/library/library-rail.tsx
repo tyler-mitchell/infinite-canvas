@@ -315,6 +315,8 @@ export function LibraryRail({
      */
     editing: (note: ContentItemRecord) => (
       <input
+        // Named after the row it replaced, since the row's own text is gone while this is showing.
+        aria-label={`Rename ${note.title}`}
         autoFocus
         className={styles.editor()}
         onBlur={() => {
@@ -502,7 +504,13 @@ export function LibraryRail({
       </div>
       <div className={styles.searchRow()}>
         <Search className={styles.searchIcon()} />
+        {/*
+          The name is the placeholder without its ellipsis, which is not a redundancy: a placeholder
+          is only the last resort of the accessible-name computation, and it disappears from view
+          the moment anything is typed while the name has to stay.
+        */}
         <input
+          aria-label="Search this project"
           className={styles.search()}
           onChange={(event) => {
             query$.set(event.target.value);
