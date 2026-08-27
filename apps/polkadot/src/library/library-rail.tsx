@@ -24,9 +24,8 @@ import { getListableKind } from "../collections/listable-kinds";
 import type { ContentItemRecord } from "../database/database.client";
 import { content } from "../database/operations";
 import { FLOATING_SURFACE } from "../material";
-import { noteGateway, toNote } from "../notes/note-gateway";
-import { renameNote } from "../notes/note-store";
 import { openNewNote } from "../notes/open-note";
+import { renameProjectItem } from "../content/rename-item";
 import { matchesContentSearch } from "../content/searchable-text";
 import {
   archiveProjectItem,
@@ -34,7 +33,6 @@ import {
   loadProjectContent,
   projectContent$,
   restoreProjectItem,
-  setProjectItemTitle,
 } from "../content/project-content";
 import { ConnectionRemovalDialog } from "../relations/connection-removal-dialog";
 import {
@@ -424,28 +422,9 @@ export function LibraryRail({
 
     editing$.set(null);
 
-    if (next === "" || next === note.title) {
-      return;
-    }
-
-    /*
-     * Only a note has a writer that can rename it; other kinds rename through the window chrome.
-     *
-     * The record is converted rather than spread, because `renameNote` seeds its store from what it
-     * is handed and then saves that content — passing a stub `{ text: "" }` would erase the note's
-     * body. `toNote` asserts the real stored content, which is what this listing actually holds.
-     */
-    if (note.kind === "note") {
-      renameNote(toNote(note), next, noteGateway);
-    }
-
-    setProjectItemTitle(note.id, next);
-
-    const windowId = windowIdByItemId.get(note.id);
-
-    if (windowId !== undefined) {
-      actions.setWindowTitle({ title: next, windowId });
-    }
+    // Everywhere a name is written down is `renameProjectItem`'s to know. This composed it inline,
+    // and so did the palette, and the two had drifted — see that file for what each was missing.
+    renameProjectItem({ actions, item: note, state, title: next });
   };
 
   /**

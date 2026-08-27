@@ -68,15 +68,13 @@ import type {
 } from "../database/database.client";
 import { APP_ACTIONS, getAppAction, isAppActionEnabled } from "../app-actions";
 import * as database from "../database/operations";
-import { noteGateway, toNote } from "../notes/note-gateway";
-import { renameNote } from "../notes/note-store";
 import { openNoteWindow } from "../notes/open-note";
+import { renameProjectItem } from "../content/rename-item";
 import {
   archiveProjectItem,
   getProjectContentOfKind,
   loadProjectContent,
   projectContent$,
-  setProjectItemTitle,
 } from "../content/project-content";
 import { undoableAction$, undoLastAction } from "../content/undoable-action";
 import { recentNoteIds$, rememberNote } from "../notes/recent-notes";
@@ -660,34 +658,13 @@ function PaletteContent({
             }
           : {
               commit: () => {
-                // Converted, not spread: `renameNote` seeds its store from this and saves that
-                // content, so a stub would erase the note's text.
-                renameNote(toNote(page.note), draft, noteGateway);
                 /*
-                 * A rename lands in three places, because three of them write the old name down.
-                 * `note-store` owns the save. The project listing is what the library rail reads, and
-                 * without this it went on showing the previous name until something else re-listed —
-                 * witnessed, not guessed. `window.title` is the far-zoom summary and the accessible
-                 * name.
+                 * One rename, wherever it is asked for. This composed the three writes inline and so
+                 * did the library rail, and the two had drifted: this one committed the raw draft,
+                 * so whitespace could become a title, and it handed any kind to `toNote` — which
+                 * runs `NoteContent.assert` and throws on anything that is not a note.
                  */
-                setProjectItemTitle(page.note.id, draft);
-
-                /*
-                 * Through the guard, not a cast. This read `data.noteId`, a field that stopped
-                 * existing when window data became one `{ itemId }` for every kind — so it matched
-                 * nothing and the third place a rename lands was never written. The cast is what
-                 * hid it: `data` is `unknown` by design, and asserting a shape onto it turns a dead
-                 * read into a silent one.
-                 */
-                const windowId = state.windows.find(
-                  (window) =>
-                    getInfiniteCanvasWindowData(window, ContentWindowData.allows)?.itemId ===
-                    page.note.id,
-                )?.id;
-
-                if (windowId !== undefined) {
-                  actions.setWindowTitle({ title: draft, windowId });
-                }
+                renameProjectItem({ actions, item: page.note, state, title: draft });
               },
               /*
                * Empty is not a choice here, it is a hole. The schema asserts a non-empty title, so a

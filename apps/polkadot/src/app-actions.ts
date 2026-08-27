@@ -19,6 +19,7 @@ import {
   restoreProjectItem,
 } from "./content/project-content";
 import { openNewCollection } from "./collections/open-collection";
+import { renameProjectItem } from "./content/rename-item";
 import { openNewNote } from "./notes/open-note";
 import { createDesktop } from "./workspace/create-desktop";
 import {
@@ -172,6 +173,16 @@ const CONNECTED_INPUT = type({ itemId: "string" });
  * heading, and a report that mixed them would hand a caller ids it cannot act on with either verb.
  */
 const ARCHIVE_INPUT = type({ itemId: "string" });
+
+/**
+ * Giving something a name, which is the verb an agent needs most and had least.
+ *
+ * Everything this vocabulary creates is called "Untitled 7" — `note.create` takes no title, because
+ * the next number is a fact about the project rather than something a caller should have to compute.
+ * So an agent could fill a library and never make one entry of it findable, while the capability sat
+ * in two click handlers.
+ */
+const RENAME_INPUT = type({ itemId: "string", title: "string" });
 
 /**
  * Joining two items, and the one place the entry-per-value rule is deliberately not applied.
@@ -736,6 +747,32 @@ const APP_ACTIONS: readonly AppAction[] = [
       actions.executeCommand({ type: "window.reveal", windowId: target.id });
 
       return undefined;
+    },
+  },
+  {
+    description:
+      "Rename an item. The id comes from content.list. Only notes can be renamed this way; other kinds are renamed from their window.",
+    id: "content.rename",
+    input: RENAME_INPUT,
+    label: "Rename an item",
+    run: ({ actions, projectId, state }, input) => {
+      const parsed = RENAME_INPUT(input);
+
+      if (parsed instanceof type.errors) {
+        return describeInvalidInput(parsed);
+      }
+
+      const item = getProjectContent(projectContent$.peek(), projectId)?.find(
+        (candidate) => candidate.id === parsed.itemId,
+      );
+
+      if (item === undefined) {
+        return NO_SUCH_ITEM;
+      }
+
+      // The refusal is the module function's, passed through rather than restated: blank, unchanged
+      // and wrong-kind are its rules, and the controls that call it enforce exactly the same ones.
+      return renameProjectItem({ actions, item, state, title: parsed.title });
     },
   },
   {
