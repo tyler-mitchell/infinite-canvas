@@ -3,31 +3,16 @@ import {
   getInfiniteCanvasGroupWindowIds,
   useInfiniteCanvasActions,
   useInfiniteCanvasStore,
-  type InfiniteCanvasCommandId,
 } from "@hyphened/infinite-canvas";
 import { useValue } from "@legendapp/state/react";
-import {
-  AlignHorizontalSpaceAround,
-  FlipHorizontal,
-  Grip,
-  Maximize,
-  Maximize2,
-  Minus,
-  MousePointerSquareDashed,
-  Pin,
-  Scan,
-  Undo2,
-  Ungroup,
-  X,
-} from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { getAppAction, isAppActionEnabled } from "../app-actions";
 import type { WindowKind } from "../canvas/window-registry";
 import { openProject$ } from "../projects/open-project";
 import { getActionIcon } from "./action-icons";
-import { GROUP_LAYOUTS } from "./group-layouts";
-import { RadialMenu, type RadialItem } from "./radial-menu";
+import { getRing, type CanvasRingEntry } from "./context-menu-rings";
+import { RadialMenu } from "./radial-menu";
 
 /**
  * Right-click on the canvas opens a wheel of verbs where the pointer already is.
@@ -40,9 +25,11 @@ import { RadialMenu, type RadialItem } from "./radial-menu";
  * palette; a wheel is for the handful you reach for without looking.
  *
  * Enablement still comes from the framework rather than being re-derived:
- * `getAvailableInfiniteCanvasContextualCommands` answers which of its own verbs are live against
- * this state, and `isAppActionEnabled` answers for this app's. A dimmed spoke is a fact about now,
- * not a guess.
+ * `getInfiniteCanvasContextualCommands` answers which of its own verbs are live against this state,
+ * and `isAppActionEnabled` answers for this app's. A dimmed spoke is a fact about now, not a guess.
+ *
+ * The rings themselves are data, in `context-menu-rings.ts`, so a test can read the verbs a spoke
+ * names. This file is the half that interprets them against live state.
  *
  * The framework has no context-menu affordance — no `contextmenu` handling anywhere in it — so the
  * listener is here. It is on the document for the same reason the framework's paste listener is:
@@ -173,18 +160,20 @@ function CanvasContextMenu() {
    * Unfiltered, so a verb that is currently unavailable still has a descriptor to render dim.
    * The available-only list cannot answer for a spoke that keeps its place when it cannot be used,
    * which is the whole contract of a wheel.
+   *
+   * Behaviour only. The word stays the ring's, because the framework writes for a palette row —
+   * "Layout: Split", "Flip Pane Orientation" — and a wheel labels a picture, not an index entry.
    */
   const descriptors = new Map(
     getInfiniteCanvasContextualCommands(state).map((command) => [command.id, command]),
   );
-  const canvasVerb = (id: InfiniteCanvasCommandId, icon: RadialItem["icon"]) => {
-    const descriptor = descriptors.get(id);
+  const canvasVerb = (entry: CanvasRingEntry) => {
+    const descriptor = descriptors.get(entry.id);
 
     return {
-      icon,
+      icon: entry.icon,
       isEnabled: descriptor?.enabled === true,
-      // The framework's word for its own verb. A missing id shows itself, the way an app verb does.
-      label: descriptor?.label ?? id,
+      label: entry.label,
       run: () => {
         if (descriptor !== undefined) {
           actions.executeCommand(descriptor.command);
@@ -214,65 +203,11 @@ function CanvasContextMenu() {
     };
   };
 
-  /*
-   * Three rings, chosen by what was pressed, rather than one ring trying to serve all of them.
-   *
-   * The three vocabularies barely overlap — closing and pinning mean nothing on bare canvas,
-   * creating a note has nothing to do with the window you pressed, and reshaping a container means
-   * nothing without one. Offering all eighteen would be a list wearing a wheel's shape, and reusing
-   * six angles with different meanings would put a different verb under the same direction, which
-   * is precisely what a wheel must never do.
-   *
-   * Group chrome is checked only where no window was pressed. The framework draws the two as
-   * disjoint layers, so a press lands on a pane or on the shell around it and never ambiguously on
-   * both — but reading it in this order says which one wins if that ever stops being true.
-   */
-  if (press.windowId === null && press.groupId !== null) {
-    return (
-      <RadialMenu
-        items={[
-          /*
-           * The rail's own list, in the rail's own order. Shared so the same shape cannot end up
-           * with one glyph on the rail and another on the wheel — and so a container's three states
-           * read left-to-right on one control in the order they read clockwise on the other.
-           */
-          ...GROUP_LAYOUTS.map((entry) =>
-            canvasVerb(`group.setLayout.${entry.layout}`, entry.icon),
-          ),
-          canvasVerb("group.flipAxis", FlipHorizontal),
-          canvasVerb("group.equalizeChildren", AlignHorizontalSpaceAround),
-          canvasVerb("group.dissolve", Ungroup),
-        ]}
-        onClose={() => {
-          setPress(null);
-        }}
-        origin={press}
-      />
-    );
-  }
-
-  const items =
-    press.windowId === null
-      ? [
-          appVerb("note.create"),
-          appVerb("group.createFromSelection"),
-          canvasVerb("view.fitSelection", Scan),
-          canvasVerb("view.fitAll", Maximize),
-          canvasVerb("selection.selectAllVisible", MousePointerSquareDashed),
-          canvasVerb("history.undo", Undo2),
-        ]
-      : [
-          canvasVerb("activeWindow.toggleMaximized", Maximize2),
-          canvasVerb("activeWindow.togglePinned", Pin),
-          canvasVerb("window.undock", Grip),
-          canvasVerb("activeWindow.close", X),
-          canvasVerb("activeWindow.minimize", Minus),
-          canvasVerb("view.fitSelection", Scan),
-        ];
+  const ring = getRing(press);
 
   return (
     <RadialMenu
-      items={items}
+      items={ring.map((entry) => (entry.source === "app" ? appVerb(entry.id) : canvasVerb(entry)))}
       onClose={() => {
         setPress(null);
       }}
