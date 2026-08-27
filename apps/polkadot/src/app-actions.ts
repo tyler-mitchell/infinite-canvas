@@ -11,7 +11,15 @@ import { LISTABLE_KINDS } from "./collections/listable-kinds";
 import { getProjectContent, projectContent$ } from "./content/project-content";
 import { openNewCollection } from "./collections/open-collection";
 import { openNewNote } from "./notes/open-note";
-import { connectItems, disconnectItems, RELATION_KINDS } from "./relations/relation-store";
+import {
+  connectItems,
+  disconnectItems,
+  findRelation,
+  relations$,
+  RELATION_KINDS,
+  setRelationKind,
+  setRelationLabel,
+} from "./relations/relation-store";
 
 /**
  * What this app can do, as a vocabulary rather than a set of click handlers.
@@ -112,6 +120,50 @@ const CONNECT_INPUT = type({
 const DISCONNECT_INPUT = type({ sourceItemId: "string", targetItemId: "string" });
 
 /**
+ * Changing what an existing edge says, named by its ends rather than by its id.
+ *
+ * `setRelationKind` takes a relation id because a person clicked a specific connector — "there is
+ * nothing to resolve", as its own comment puts it. A caller that cannot see the canvas has clicked
+ * nothing; it holds the item ids `content.list` gave it, and `findRelation` already turns a pair
+ * into the edge between them. Addressing by pair also keeps the report honest: publishing a relation
+ * id would be adding a handle purely so a verb could take it, when the handles already published
+ * answer the question.
+ *
+ * `kind` is required here, unlike on `relation.connect`. Connecting without saying what it means is
+ * a real intent — that is what the drag does — but re-typing an edge to nothing is not.
+ */
+const SET_KIND_INPUT = type({
+  kind: type.enumerated(...RELATION_KINDS),
+  sourceItemId: "string",
+  targetItemId: "string",
+});
+
+/** Empty clears the label rather than storing `""`, which is the store's own rule, not a new one. */
+const SET_LABEL_INPUT = type({
+  label: "string",
+  sourceItemId: "string",
+  targetItemId: "string",
+});
+
+/**
+ * The edge between two items, or `null` when they are not joined.
+ *
+ * Refusing rather than creating one is the whole distinction from `relation.connect`: a caller
+ * asking what a connection means has asserted that it exists, and quietly inventing it would turn a
+ * mistaken belief into a stored fact.
+ */
+const resolveRelation = (
+  projectId: string,
+  ends: Readonly<{ sourceItemId: string; targetItemId: string }>,
+) => {
+  const resolved = resolveEndpoints(projectId, ends);
+
+  return resolved === null
+    ? null
+    : (findRelation(relations$.peek(), resolved.source, resolved.target) ?? null);
+};
+
+/**
  * Both ends resolved against the same cache `content.list` reads, so what a caller can list is what
  * it can join — the coherence `content.open` already keeps.
  *
@@ -150,6 +202,46 @@ const APP_ACTIONS: readonly AppAction[] = [
 
       if (ends !== null) {
         void connectItems({ kind: parsed.kind, projectId, ...ends });
+      }
+    },
+  },
+  {
+    description:
+      "Say what an existing connection between two items means. Refuses if they are not connected.",
+    id: "relation.setKind",
+    input: SET_KIND_INPUT,
+    label: "Set what a connection means",
+    run: ({ projectId }, input) => {
+      const parsed = SET_KIND_INPUT(input);
+
+      if (parsed instanceof type.errors) {
+        return;
+      }
+
+      const relation = resolveRelation(projectId, parsed);
+
+      if (relation !== null) {
+        void setRelationKind({ kind: parsed.kind, projectId, relationId: relation.id });
+      }
+    },
+  },
+  {
+    description:
+      "Write a label on an existing connection between two items. An empty label clears it.",
+    id: "relation.setLabel",
+    input: SET_LABEL_INPUT,
+    label: "Label a connection",
+    run: ({ projectId }, input) => {
+      const parsed = SET_LABEL_INPUT(input);
+
+      if (parsed instanceof type.errors) {
+        return;
+      }
+
+      const relation = resolveRelation(projectId, parsed);
+
+      if (relation !== null) {
+        void setRelationLabel({ label: parsed.label, projectId, relationId: relation.id });
       }
     },
   },

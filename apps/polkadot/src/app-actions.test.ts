@@ -238,6 +238,59 @@ test("the published schema offers the five kinds, so a caller need not guess the
   );
 });
 
+test("re-typing an existing connection insists on a kind, unlike connecting", () => {
+  const input = relationInput("relation.setKind");
+
+  expect(
+    input?.({ kind: "refines", sourceItemId: "item-1", targetItemId: "item-2" }),
+  ).toStrictEqual({ kind: "refines", sourceItemId: "item-1", targetItemId: "item-2" });
+  // Connecting without a kind is a real intent — it is what the drag does. Re-typing to nothing
+  // is not, so the field that is optional there is required here.
+  expect(input?.({ sourceItemId: "item-1", targetItemId: "item-2" })).toBeInstanceOf(type.errors);
+});
+
+test("a connection is addressed by its ends, not by a relation id", () => {
+  /*
+   * The store's own functions take a relation id, because a person clicked a connector. Copying
+   * that signature here would have published a handle no report gives a caller.
+   *
+   * The first assertion is the decisive one, and it is decisive because both ends are valid: the
+   * undeclared key is the only thing wrong with that input, so it passing proves the schema is
+   * exact rather than merely permissive about shapes it does not mention.
+   */
+  const ends = { sourceItemId: "item-1", targetItemId: "item-2" };
+
+  expect(relationInput("relation.setKind")?.({ ...ends, relationId: "r-1" })).toBeInstanceOf(
+    type.errors,
+  );
+  expect(relationInput("relation.setLabel")?.({ label: "x", relationId: "r-1" })).toBeInstanceOf(
+    type.errors,
+  );
+});
+
+test("an empty label is accepted, because clearing one is a thing to want", () => {
+  expect(
+    relationInput("relation.setLabel")?.({
+      label: "",
+      sourceItemId: "item-1",
+      targetItemId: "item-2",
+    }),
+  ).not.toBeInstanceOf(type.errors);
+});
+
+test("the four verbs an edge needs are all published", () => {
+  // Make one, say what it means, write on it, cut it. A vocabulary missing any of these leaves a
+  // capability the pointer has and a caller does not.
+  for (const id of [
+    "relation.connect",
+    "relation.setKind",
+    "relation.setLabel",
+    "relation.disconnect",
+  ]) {
+    expect(getAppAction(id)?.input).toBeDefined();
+  }
+});
+
 test("disconnecting names the pair and nothing else", () => {
   const input = relationInput("relation.disconnect");
 
