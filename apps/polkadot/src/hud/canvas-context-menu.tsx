@@ -1,21 +1,28 @@
 import {
   getAvailableInfiniteCanvasContextualCommands,
+  getInfiniteCanvasGroupWindowIds,
   useInfiniteCanvasActions,
   useInfiniteCanvasStore,
   type InfiniteCanvasCommandId,
 } from "@hyphened/infinite-canvas";
 import { useValue } from "@legendapp/state/react";
 import {
+  AlignHorizontalSpaceAround,
+  Columns2,
   Columns3,
   FilePlus2,
+  FlipHorizontal,
   Grip,
   Maximize,
   Maximize2,
   Minus,
   MousePointerSquareDashed,
   Pin,
+  Rows3,
   Scan,
+  SquareSplitHorizontal,
   Undo2,
+  Ungroup,
   X,
 } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -64,11 +71,26 @@ const getWindowUnderPointer = (target: EventTarget | null) =>
         ?.getAttribute("data-infinite-canvas-window-id") ?? null)
     : null;
 
+/**
+ * The group whose chrome was pressed — a gutter, a tab strip, an accordion header.
+ *
+ * Not the group a *pane* belongs to. The framework draws group chrome and window frames as disjoint
+ * layers on purpose, so a press either lands on a member window or on the shell around it, and the
+ * two can be asked separately without either shadowing the other.
+ */
+const getGroupUnderPointer = (target: EventTarget | null) =>
+  target instanceof Element
+    ? (target
+        .closest("[data-infinite-canvas-group-id]")
+        ?.getAttribute("data-infinite-canvas-group-id") ?? null)
+    : null;
+
 function CanvasContextMenu() {
   const actions = useInfiniteCanvasActions<WindowKind>();
   const store = useInfiniteCanvasStore<WindowKind>();
   const projectId = useValue(openProject$) ?? "";
   const [press, setPress] = useState<Readonly<{
+    groupId: string | null;
     windowId: string | null;
     x: number;
     y: number;
@@ -82,6 +104,7 @@ function CanvasContextMenu() {
 
       event.preventDefault();
       setPress({
+        groupId: getGroupUnderPointer(event.target),
         windowId: getWindowUnderPointer(event.target),
         x: event.clientX,
         y: event.clientY,
@@ -104,12 +127,31 @@ function CanvasContextMenu() {
    * rendering is a side effect in render, and React is entitled to run that twice.
    */
   const pressedWindowId = press?.windowId ?? null;
+  const pressedGroupId = press?.groupId ?? null;
 
   useEffect(() => {
     if (pressedWindowId !== null) {
       actions.focusWindow(pressedWindowId);
+
+      return;
     }
-  }, [actions, pressedWindowId]);
+
+    /*
+     * A group's chrome is not a window, and every `group.*` verb acts on the *active window's*
+     * container — the same rule the group rail follows. Pressing a shell while some other group's
+     * member was active would otherwise reshape that other group, silently and somewhere else on
+     * the canvas. Any member identifies the container, so the first one settles it.
+     */
+    if (pressedGroupId !== null) {
+      const group = store.state$.peek().groups.find((candidate) => candidate.id === pressedGroupId);
+      const member =
+        group === undefined ? undefined : getInfiniteCanvasGroupWindowIds(group.tree)[0];
+
+      if (member !== undefined) {
+        actions.focusWindow(member);
+      }
+    }
+  }, [actions, pressedGroupId, pressedWindowId, store]);
 
   if (press === null) {
     return null;
@@ -147,13 +189,37 @@ function CanvasContextMenu() {
   };
 
   /*
-   * Two rings, chosen by what was pressed rather than one ring that tries to serve both.
+   * Three rings, chosen by what was pressed, rather than one ring trying to serve all of them.
    *
-   * A window's verbs and the canvas's barely overlap — closing and pinning mean nothing on bare
-   * canvas, and creating a note has nothing to do with the window you pressed. Offering all twelve
-   * would be a list wearing a wheel's shape, and offering six that change meaning by context would
-   * put a different verb under the same angle, which is precisely what a wheel must not do.
+   * The three vocabularies barely overlap — closing and pinning mean nothing on bare canvas,
+   * creating a note has nothing to do with the window you pressed, and reshaping a container means
+   * nothing without one. Offering all eighteen would be a list wearing a wheel's shape, and reusing
+   * six angles with different meanings would put a different verb under the same direction, which
+   * is precisely what a wheel must never do.
+   *
+   * Group chrome is checked only where no window was pressed. The framework draws the two as
+   * disjoint layers, so a press lands on a pane or on the shell around it and never ambiguously on
+   * both — but reading it in this order says which one wins if that ever stops being true.
    */
+  if (press.windowId === null && press.groupId !== null) {
+    return (
+      <RadialMenu
+        items={[
+          canvasVerb("group.setLayout.split", SquareSplitHorizontal, "Side by side"),
+          canvasVerb("group.setLayout.tabs", Columns2, "Tabbed"),
+          canvasVerb("group.setLayout.accordion", Rows3, "Folded"),
+          canvasVerb("group.flipAxis", FlipHorizontal, "Flip axis"),
+          canvasVerb("group.equalizeChildren", AlignHorizontalSpaceAround, "Equalize"),
+          canvasVerb("group.dissolve", Ungroup, "Ungroup"),
+        ]}
+        onClose={() => {
+          setPress(null);
+        }}
+        origin={press}
+      />
+    );
+  }
+
   const items =
     press.windowId === null
       ? [
