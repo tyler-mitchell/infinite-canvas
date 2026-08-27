@@ -36,7 +36,7 @@ import {
   Undo2,
   Unlink2,
 } from "lucide-react";
-import { useEffect, type ComponentType, type ReactNode } from "react";
+import { useCallback, useEffect, type ComponentType, type ReactNode } from "react";
 import {
   CommandDialog,
   CommandEmpty,
@@ -215,10 +215,45 @@ export function CommandPalette({ projectId }: Readonly<{ projectId: string }>) {
   const page$ = useObservable<PalettePage | null>(null);
   const page = useValue(page$);
 
+  /**
+   * The one way this palette closes, whatever asked it to.
+   *
+   * Three things have to happen and only one of them is obvious. The page has to be dropped, or
+   * reopening lands you back on a rename field for whichever note you were on last. And focus has to
+   * go back to the canvas, because the dialog restores focus to whatever opened it and a hotkey is
+   * not an element — so it lands on `<body>`, where every canvas shortcut is silently dead.
+   *
+   * Stable across renders: the observables it closes over are, so the hotkey effect below can depend
+   * on it without tearing down and re-registering its listener on every render.
+   */
+  const close = useCallback(() => {
+    isOpen$.set(false);
+    page$.set(null);
+    returnFocusToCanvas();
+  }, [isOpen$, page$]);
+
+  /*
+   * The hotkey dismisses through `close`, which it did not.
+   *
+   * It toggled `isOpen$` directly, and a controlled `open` prop going false does not make Base UI
+   * call `onOpenChange` — that fires for a user gesture the dialog itself handles, not for a prop
+   * update. So closing with the same key that opened it skipped both of the other two steps.
+   *
+   * Measured: dismissing with `Mod+K` left `document.activeElement` on `<body>`, while dismissing
+   * with Escape left it on the canvas command surface. Everything on the canvas keyboard — undo,
+   * fit, nudge, delete — was dead until the canvas was clicked, and nothing on screen said so.
+   */
   useEffect(() => {
     const handleKeyDown = createHotkeyHandler(PALETTE_HOTKEY, (event) => {
       event.preventDefault();
-      isOpen$.set(!isOpen$.peek());
+
+      if (isOpen$.peek()) {
+        close();
+
+        return;
+      }
+
+      isOpen$.set(true);
     });
 
     window.addEventListener("keydown", handleKeyDown);
@@ -226,13 +261,7 @@ export function CommandPalette({ projectId }: Readonly<{ projectId: string }>) {
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [isOpen$]);
-
-  const close = () => {
-    isOpen$.set(false);
-    page$.set(null);
-    returnFocusToCanvas();
-  };
+  }, [close, isOpen$]);
   const portalRoot = useInfiniteCanvasDesktopPortalRoot();
 
   return (
