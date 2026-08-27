@@ -38,6 +38,20 @@ A value that is only correct because the consumer accepted the whole default loo
 configurable — it is coincidentally right. Consumers find these by diverging; the framework's job
 is to have already asked.
 
+**The worst case is an inline style, and it is worth knowing why.** An inline style outranks every
+stylesheet rule in every layer, so a property written there is not merely defaulted — a consumer's
+rule for it is present, generated, and beaten on every render, with nothing to see and nothing
+logged. `theme.css` draws the line: treatments belong in the stylesheet, and what the framework
+_computes_ stays in the component because its own layout and hit-testing read it back.
+
+**Do not expect a lint to find these.** A check keyed on property names was tried and deleted: it
+flagged twenty lines that were almost all correct. `cursor: "ns-resize"` on a resize handle is not a
+preference, it says which way that handle resizes; the HUD's flex row is load-bearing; `transparent`
+on the raster surface means "do not paint"; and one match was a lookup table, not a style at all.
+The distinction is whether a value is a treatment or is bound to what the element does, and that is
+not decidable from a property name. Read for it instead — three real instances were found that way,
+and each took one look at a file nobody had audited.
+
 ## Shared Agent Workflow
 
 - Daily branch: `main`
