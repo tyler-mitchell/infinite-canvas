@@ -49,6 +49,7 @@ import {
 } from "ui";
 import { tv } from "ui/tv";
 
+import { getSearchTerms, matchesSearchTerms } from "../text-search";
 import { getActionIcon } from "./action-icons";
 import { getSelectedRelations } from "../canvas/connector-geometry";
 import { createCanvas } from "../workspace/create-canvas";
@@ -135,16 +136,18 @@ const matchCommand = (value: string, search: string, keywords?: readonly string[
    * selection was concerned, since it compares `state.value` to the item's value and both matched.
    */
   const haystack = (keywords ?? [value]).join(" ").toLowerCase();
-  const terms = search.toLowerCase().split(/\s+/).filter(Boolean);
+  const terms = getSearchTerms(search);
 
   if (terms.length === 0) {
     return 1;
   }
 
-  if (!terms.every((term) => haystack.includes(term))) {
+  if (!matchesSearchTerms(haystack, terms)) {
     return 0;
   }
 
+  // Ranking is this surface's own: the palette shows one list ordered by relevance, where the rail
+  // filters a tree whose order belongs to the library. Only "does this match" is shared.
   return 1 / (1 + Math.min(...terms.map((term) => haystack.indexOf(term))));
 };
 

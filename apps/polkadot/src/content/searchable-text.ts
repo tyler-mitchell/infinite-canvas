@@ -1,5 +1,6 @@
 import { getNoteText } from "../notes/note-text";
 import type { ContentItemRecord } from "../database/database.client";
+import { getSearchTerms, matchesSearchTerms } from "../text-search";
 
 /**
  * The words a listed item can be found by.
@@ -95,15 +96,15 @@ function getContentSearchText(record: ContentItemRecord): string {
  * query does not give, since that requires the words in the typed order and adjacent.
  */
 function matchesContentSearch(record: ContentItemRecord, query: string): boolean {
-  const terms = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
+  const terms = getSearchTerms(query);
 
   if (terms.length === 0) {
     return true;
   }
 
-  const haystack = getContentSearchText(record);
-
-  return terms.every((term) => haystack.includes(term));
+  // Derived only once the query is non-empty: an empty box matches everything without paying for a
+  // thousand notes' worth of editor state.
+  return matchesSearchTerms(getContentSearchText(record), terms);
 }
 
 export { getContentSearchText, matchesContentSearch };
