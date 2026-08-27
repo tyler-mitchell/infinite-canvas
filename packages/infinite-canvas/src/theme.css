@@ -167,6 +167,9 @@
     /* Its size, for the same reason the HUD's is a token: colour was themeable and size was not. */
     --icx-title-font-size: 10px;
 
+    /* A window control's touch target. Was an inline `24px`, so no consumer could enlarge it. */
+    --icx-control-size: 24px;
+
     /* Window control buttons (src/frame-slots.tsx). */
     --icx-control-fg: color-mix(in srgb, var(--icx-color-foreground) 46%, transparent);
     --icx-control-bg: color-mix(in srgb, var(--icx-color-foreground) 3%, transparent);
@@ -394,6 +397,26 @@
   /* Window control buttons (src/frame-slots.tsx Controls slot).          */
   /* ------------------------------------------------------------------ */
   [data-slot="window-control"] {
+    /*
+     * These six were an inline style on the button, which is the strongest form of unreachable.
+     *
+     * The scope note at the top of this file describes exactly this and had already been corrected
+     * once for `justify-content` on the header: an inline style outranks every stylesheet rule in
+     * every layer, so a property written there is not defaulted — a consumer's rule for it is
+     * present, generated, and beaten on every render. Nothing derives from any of them. The size is
+     * a constant rather than something the framework computes, and hit-testing reads the chrome
+     * metrics, never a control's box.
+     *
+     * Same values, so the default look is unchanged; what changes is that a consumer can now put a
+     * larger touch target or a different cursor on these at all.
+     */
+    align-items: center;
+    cursor: pointer;
+    display: flex;
+    height: var(--icx-control-size);
+    justify-content: center;
+    width: var(--icx-control-size);
+
     border: 1px solid var(--icx-control-border);
     background: var(--icx-control-bg);
     color: var(--icx-control-fg);

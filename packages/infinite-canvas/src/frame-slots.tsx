@@ -120,14 +120,19 @@ function InfiniteCanvasWindowFrameTitleSlot({
   );
 }
 
-const WINDOW_CONTROL_BUTTON_STYLE = {
-  alignItems: "center",
-  cursor: "pointer",
-  display: "flex",
-  height: "24px",
-  justifyContent: "center",
-  width: "24px",
-} satisfies CSSProperties;
+/*
+ * The control buttons carry no inline style, and that is the point rather than an omission.
+ *
+ * Their box, cursor and centring were six properties written here, which is the strongest form of
+ * unreachable: an inline style outranks every stylesheet rule in every layer, so a consumer's rule
+ * for any of them was present, generated, and beaten on every render. The scope note in `theme.css`
+ * names that failure and had already been corrected once for `justify-content` on the header; this
+ * is the same finding one slot over. They live in `[data-slot="window-control"]` now, sized by
+ * `--icx-control-size`.
+ *
+ * None of it was computed, which is what made it safe to move: the size was a constant, and
+ * hit-testing reads the chrome metrics rather than a control's box.
+ */
 
 function InfiniteCanvasWindowFrameControlsSlot({
   render,
@@ -167,7 +172,6 @@ function InfiniteCanvasWindowFrameControlsSlot({
         onPointerDown={(event) => {
           event.stopPropagation();
         }}
-        style={WINDOW_CONTROL_BUTTON_STYLE}
         type="button"
       >
         <PinIcon />
@@ -187,7 +191,6 @@ function InfiniteCanvasWindowFrameControlsSlot({
         onPointerDown={(event) => {
           event.stopPropagation();
         }}
-        style={WINDOW_CONTROL_BUTTON_STYLE}
         type="button"
       >
         <MinimizeIcon />
@@ -209,7 +212,6 @@ function InfiniteCanvasWindowFrameControlsSlot({
         onPointerDown={(event) => {
           event.stopPropagation();
         }}
-        style={WINDOW_CONTROL_BUTTON_STYLE}
         type="button"
       >
         <MaximizeIcon />
@@ -229,7 +231,6 @@ function InfiniteCanvasWindowFrameControlsSlot({
         onPointerDown={(event) => {
           event.stopPropagation();
         }}
-        style={WINDOW_CONTROL_BUTTON_STYLE}
         type="button"
       >
         <CloseIcon />
