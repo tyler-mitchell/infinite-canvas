@@ -167,6 +167,7 @@ function createFrameRenderContext(
     chrome: {
       borderWidth: 1,
       cornerSize: 8,
+      groupLabelSize: 16,
       headerAccentHeight: 1,
       headerHeight: 28,
       resizeHandleSize: 12,

@@ -202,6 +202,8 @@
     --icx-group-label-fg: var(--icx-group-tab-fg);
     /* The shell the active window is in. Named so it can be quieter than the accent, or louder. */
     --icx-group-label-fg-active: var(--icx-color-accent);
+    /* Text as a fraction of the label band. The band itself is `chrome.groupLabelSize`, in code. */
+    --icx-group-label-text-scale: 0.62;
     --icx-group-surface-radius: 2px;
     --icx-group-surface-shadow: none;
 
@@ -677,11 +679,26 @@
   /*
    * A group's name, drawn above its top edge the way a frame is labelled — outside the shell, so
    * it reserves no room the solver would have to give it and can never sit over a pane.
+   *
+   * `--icx-group-label-size` is written per shell as a *world* length that holds a constant screen
+   * size, so the band and its text stay legible at any zoom. Sizing the text off the band rather
+   * than off `font-size` directly is what makes it follow: a plain `px` here would be world units
+   * and would shrink to nothing exactly when the name is the only thing still worth reading.
    */
   [data-slot="group-label"] {
-    align-items: end;
     color: var(--icx-group-label-fg, var(--icx-group-tab-fg, var(--icx-grid-major)));
-    display: flex;
+    /*
+     * A block, not a flex box. `text-overflow` applies to a block container's own inline content
+     * and to nothing else, so under `display: flex` the ellipsis declared below was inert: the
+     * name hard-clipped mid-word with no mark that anything had been cut. Measured at 12% zoom on
+     * 2026-08-27 — 1700 units of title in a 542-unit box, ending on "&".
+     *
+     * `line-height` at the band height is what replaces the flex alignment, and centres the name
+     * in its band rather than sitting it flush on the shell's edge.
+     */
+    display: block;
+    font-size: calc(var(--icx-group-label-size) * var(--icx-group-label-text-scale, 0.62));
+    line-height: var(--icx-group-label-size);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;

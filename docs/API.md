@@ -640,6 +640,15 @@ metrics: a consumer that overrides one metric on the viewport and then spreads
 the defaults by hand at each hit-test call site will drift from what the viewport
 draws the moment a metric is added.
 
+Two of its six metrics are **screen** pixels and the rest are world units.
+`resizeHandleSize` holds a screen size so a grab target stays hittable as the
+camera pulls back; `groupLabelSize` holds one so a group's name stays _readable_
+when the panes inside it no longer are — a legend sized in world units goes
+illegible exactly when it becomes the only thing worth reading. Set
+`groupLabelSize: 0` to draw no label. Group tab strips and accordion headers are
+deliberately the other way round: they are hit targets sized against the panes
+they head, so they stay in world units and shrink with the group.
+
 **`activity`**
 
 What the canvas is _doing_, for chrome that must respond to it — distinct from
@@ -1031,6 +1040,16 @@ something else, which is worth knowing before reaching for a neighbour's:
 `--icx-group-gutter` (a seam is a control, not a border), `--icx-group-tab-fg`
 (unselected tab ink was reading the backdrop's lattice colour), and
 `--icx-group-label-fg-active` (the shell holding the active window).
+
+A few tokens are **written at runtime** rather than declared in `theme.css`,
+because their value depends on the camera: `--icx-chrome-stroke`,
+`--icx-resize-handle-size` and `--icx-screen-px` on a window frame, and
+`--icx-group-label-size` on a group shell. Each is a _world_ length recomputed
+per frame so the thing it sizes holds a constant size on screen. Read them in an
+override; do not declare them, since the next camera tick overwrites the
+element's inline value either way. `--icx-group-label-text-scale` is the
+declared companion to the last of them — the label's text as a fraction of its
+band, so a consumer can retune the type without touching the geometry.
 
 **`data-attributes`**
 

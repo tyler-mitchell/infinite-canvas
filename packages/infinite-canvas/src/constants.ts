@@ -23,6 +23,8 @@ const DEFAULT_INFINITE_CANVAS_CAMERA: InfiniteCanvasCamera = {
 const DEFAULT_INFINITE_CANVAS_CHROME: InfiniteCanvasChromeMetrics = {
   borderWidth: 2,
   cornerSize: 10,
+  // Below a window header, which it is not — a group label names a shell, it does not head one.
+  groupLabelSize: 20,
   headerAccentHeight: 3,
   headerHeight: 40,
   resizeHandleSize: 16,

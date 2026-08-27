@@ -446,12 +446,27 @@ type InfiniteCanvasSerializedState<Kind extends string = string> = Readonly<{
 type InfiniteCanvasChromeMetrics = Readonly<{
   borderWidth: number;
   cornerSize: number;
+  /**
+   * Screen pixels the group label holds at every zoom — the second of the two metrics here
+   * measured on screen rather than in the world, alongside `resizeHandleSize`.
+   *
+   * A group label is a legend, not layout. It sits outside the shell, reserves nothing from the
+   * layout solver, and is `aria-hidden` because the shell's own `aria-label` already says it. Its
+   * whole job is to name a shell from far enough away that the panes inside are no longer
+   * readable — so sizing it in world units, as the tab strips and accordion headers correctly
+   * are, makes it vanish exactly when it becomes the only thing worth reading.
+   *
+   * Set to `0` to draw no label. The tab strips are the opposite case and stay in world units:
+   * they are hit targets sized against the panes they head.
+   */
+  groupLabelSize: number;
   headerAccentHeight: number;
   headerHeight: number;
+  /** Screen pixels. Grab targets hold their size as zoom changes, so they stay hittable. */
   resizeHandleSize: number;
 }>;
 
-/** Any subset, merged over the defaults — the defaults are not exported, so requiring all five
+/** Any subset, merged over the defaults — the defaults are not exported, so requiring all six
  * meant copying values that then drift. */
 type InfiniteCanvasChromeMetricsInput = Partial<InfiniteCanvasChromeMetrics>;
 

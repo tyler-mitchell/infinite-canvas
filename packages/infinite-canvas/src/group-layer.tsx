@@ -57,6 +57,8 @@ import type {
 const SHELL_RESIZE_HANDLE_SIZE_CSS_VARIABLE = "--icx-resize-handle-size";
 const SHELL_RESIZE_HANDLE_EXTENT = `var(${SHELL_RESIZE_HANDLE_SIZE_CSS_VARIABLE})`;
 const SHELL_RESIZE_HANDLE_OUTSET = `calc(${SHELL_RESIZE_HANDLE_EXTENT} * -1)`;
+const SHELL_LABEL_SIZE_CSS_VARIABLE = "--icx-group-label-size";
+const SHELL_LABEL_EXTENT = `var(${SHELL_LABEL_SIZE_CSS_VARIABLE})`;
 
 type InfiniteCanvasShellResizeHandleDescriptor = Readonly<{
   cursor: CSSProperties["cursor"];
@@ -64,9 +66,14 @@ type InfiniteCanvasShellResizeHandleDescriptor = Readonly<{
   style: CSSProperties;
 }>;
 
-/** React's `CSSProperties` has no slot for custom properties. Widen just this one. */
+/** React's `CSSProperties` has no slot for custom properties. Widen just these two. */
 type InfiniteCanvasGroupShellStyle = CSSProperties &
-  Readonly<Record<typeof SHELL_RESIZE_HANDLE_SIZE_CSS_VARIABLE, string>>;
+  Readonly<
+    Record<
+      typeof SHELL_LABEL_SIZE_CSS_VARIABLE | typeof SHELL_RESIZE_HANDLE_SIZE_CSS_VARIABLE,
+      string
+    >
+  >;
 
 /**
  * A shell's handles sit **entirely outside** its rect, unlike a window frame's, which
@@ -321,6 +328,7 @@ function InfiniteCanvasGroupShell({
   devicePixelRatio,
   group,
   isActive,
+  labelSize,
   metrics,
   resizeHandleSize,
   tabLabel,
@@ -332,6 +340,8 @@ function InfiniteCanvasGroupShell({
   group: InfiniteCanvasGroup;
   /** Whether the active window is one of this shell's members. */
   isActive: boolean;
+  /** Screen pixels the label holds at every zoom. `0` draws none. */
+  labelSize: number;
   metrics: InfiniteCanvasGroupMetrics;
   resizeHandleSize: number;
   tabLabel: InfiniteCanvasGroupTabLabel;
@@ -373,6 +383,11 @@ function InfiniteCanvasGroupShell({
     // themselves referentially stable.
     [SHELL_RESIZE_HANDLE_SIZE_CSS_VARIABLE]: `${
       screenTransform.scale <= 0 ? resizeHandleSize : resizeHandleSize / screenTransform.scale
+    }px`,
+    // Same world-length conversion, for the same reason and with the opposite intent: the handle
+    // holds a screen size so it stays *hittable*, the label so it stays *readable*.
+    [SHELL_LABEL_SIZE_CSS_VARIABLE]: `${
+      screenTransform.scale <= 0 ? labelSize : labelSize / screenTransform.scale
     }px`,
     // A shell is gutters, tab strips, accordion headers and eight resize handles, all of which
     // are only reachable where the shell is drawn — so an offscreen group's chrome is skipped
@@ -428,7 +443,7 @@ function InfiniteCanvasGroupShell({
       role="group"
       style={shellStyle}
     >
-      {group.title === "" ? null : (
+      {group.title === "" || labelSize <= 0 ? null : (
         <div
           /* The shell's `aria-label` already says this; a second copy would read the name twice. */
           aria-hidden="true"
@@ -436,7 +451,16 @@ function InfiniteCanvasGroupShell({
           style={{
             // Clear of the north handle, which sits one handle-extent above the same edge.
             bottom: `calc(100% + ${SHELL_RESIZE_HANDLE_EXTENT})`,
-            height: `${metrics.tabStripSize}px`,
+            /*
+             * A constant screen height, not `metrics.tabStripSize`.
+             *
+             * Borrowing the strip's size made a group's name shrink with the world: measured at
+             * 28% zoom on 2026-08-26, a 30-unit band rendered 8.4px tall with 4.5px text, so the
+             * one element that could still say what a cluster of illegible panes *was* went
+             * illegible first. It also coupled two unrelated numbers — retuning the tab strip
+             * silently resized every label, including on split groups that have no strip.
+             */
+            height: SHELL_LABEL_EXTENT,
             left: 0,
             maxWidth: "100%",
             position: "absolute",
@@ -814,6 +838,7 @@ function getLocalRectStyle(rect: InfiniteCanvasRect, shell: InfiniteCanvasRect):
 function InfiniteCanvasGroupLayer({
   canvasInstanceId,
   devicePixelRatio,
+  labelSize,
   resizeHandleSize,
   tabLabel = getInfiniteCanvasGroupTabLabel,
   zIndex,
@@ -821,6 +846,8 @@ function InfiniteCanvasGroupLayer({
   /** Per-canvas token, shared with the window layer, so a tab's `aria-controls` matches a frame id. */
   canvasInstanceId: string;
   devicePixelRatio: number;
+  /** Screen pixels the group label holds at every zoom. `0` draws none. */
+  labelSize: number;
   resizeHandleSize: number;
   tabLabel?: InfiniteCanvasGroupTabLabel;
   zIndex: number;
@@ -863,6 +890,7 @@ function InfiniteCanvasGroupLayer({
             getInfiniteCanvasGroupWindowIds(group.tree).includes(activeWindowId)
           }
           key={group.id}
+          labelSize={labelSize}
           metrics={metrics}
           resizeHandleSize={resizeHandleSize}
           tabLabel={tabLabel}

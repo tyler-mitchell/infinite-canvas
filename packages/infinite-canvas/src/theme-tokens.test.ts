@@ -80,19 +80,31 @@ const RUNTIME_WRITTEN_TOKENS = [
   "--icx-screen-px",
 ] as const;
 
-test("runtime-computed tokens are still written as inline custom properties", () => {
-  const frameSource = readFileSync(
-    fileURLToPath(new URL("./window-frame.tsx", import.meta.url)),
-    "utf8",
-  );
+/**
+ * `--icx-group-label-size` is a fourth, written by the group shell rather than the window frame.
+ *
+ * It is the label's band height as a world length that holds a constant *screen* size, and
+ * theme.css derives the label's `font-size` from it. So losing the write costs both: `calc()` on
+ * an undefined property is invalid, the declaration is dropped, and the name renders at whatever
+ * the shell inherits — which is the world-scaled size this replaced.
+ */
+const RUNTIME_WRITTEN_TOKENS_BY_SOURCE = [
+  ["window-frame.tsx", RUNTIME_WRITTEN_TOKENS],
+  ["group-layer.tsx", ["--icx-group-label-size", "--icx-resize-handle-size"]],
+] as const;
 
-  for (const token of RUNTIME_WRITTEN_TOKENS) {
-    // Declared as a named constant, then written into a style object by that name. Asserting the
-    // literal appears is deliberately weak — it cannot prove the write reaches the DOM — but it
-    // is strong enough to fail when the token is renamed or the write deleted outright, which is
-    // how it would actually be lost.
-    expect(frameSource).toContain(`"${token}"`);
-    expect(getDeclaredThemeTokens(themeCss).has(token)).toBe(false);
+test("runtime-computed tokens are still written as inline custom properties", () => {
+  for (const [file, tokens] of RUNTIME_WRITTEN_TOKENS_BY_SOURCE) {
+    const source = readFileSync(fileURLToPath(new URL(`./${file}`, import.meta.url)), "utf8");
+
+    for (const token of tokens) {
+      // Declared as a named constant, then written into a style object by that name. Asserting the
+      // literal appears is deliberately weak — it cannot prove the write reaches the DOM — but it
+      // is strong enough to fail when the token is renamed or the write deleted outright, which is
+      // how it would actually be lost.
+      expect(source).toContain(`"${token}"`);
+      expect(getDeclaredThemeTokens(themeCss).has(token)).toBe(false);
+    }
   }
 });
 
@@ -159,14 +171,18 @@ test("the containment check fails on a rule written outside the layer", () => {
  * nothing. The direction is deliberately one-way — a token may exist undocumented, since the doc
  * names the layers a consumer overrides rather than enumerating derivations that would go stale.
  */
-test("every --icx-* token the API doc names is declared in theme.css", () => {
+test("every --icx-* token the API doc names is declared in theme.css or written at runtime", () => {
   const apiDoc = readFileSync(
     fileURLToPath(new URL("../../../docs/API.md", import.meta.url)),
     "utf8",
   );
-  const declared = new Set(
-    [...themeCss.matchAll(/(--icx-[a-z0-9-]+)\s*:/g)].map((match) => match[1] as string),
-  );
+  const declared = new Set([
+    ...[...themeCss.matchAll(/(--icx-[a-z0-9-]+)\s*:/g)].map((match) => match[1] as string),
+    // The camera-dependent ones. A consumer reads these in an override, so the doc must be able to
+    // name them; declaring them here would be wrong, since the next camera tick overwrites the
+    // element's inline value regardless. Their existence is asserted by the write checks above.
+    ...RUNTIME_WRITTEN_TOKENS_BY_SOURCE.flatMap(([, tokens]) => tokens),
+  ]);
   const named = [...new Set([...apiDoc.matchAll(/`(--icx-[a-z0-9-]+)`/g)].map((m) => m[1]))];
 
   expect(named.length).toBeGreaterThan(0);

@@ -659,6 +659,7 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
     [
       chromeInput?.borderWidth,
       chromeInput?.cornerSize,
+      chromeInput?.groupLabelSize,
       chromeInput?.headerAccentHeight,
       chromeInput?.headerHeight,
       chromeInput?.resizeHandleSize,
@@ -1794,6 +1795,7 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
           <InfiniteCanvasGroupLayer
             canvasInstanceId={canvasInstanceId}
             devicePixelRatio={devicePixelRatio}
+            labelSize={chrome.groupLabelSize}
             resizeHandleSize={chrome.resizeHandleSize}
             tabLabel={groupTabLabel}
             zIndex={GROUP_LAYER_Z_INDEX}
