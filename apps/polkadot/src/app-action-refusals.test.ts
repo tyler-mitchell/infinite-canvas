@@ -8,6 +8,7 @@ import { expect, test } from "vite-plus/test";
 import { APP_ACTIONS, getAppAction } from "./app-actions";
 import type { WindowKind } from "./canvas/window-registry";
 import { projectContent$, type ProjectContent } from "./content/project-content";
+import { relations$ } from "./relations/relation-store";
 
 /**
  * A verb that refuses has to say so, and these are the assertions that make that true.
@@ -49,6 +50,7 @@ const actions = {
 const stored: ProjectContent = {
   items: [
     { archived: false, id: "item-1", kind: "note", projectId: "project-1", title: "Untitled" },
+    { archived: false, id: "item-2", kind: "note", projectId: "project-1", title: "Untitled" },
   ] as unknown as ProjectContent["items"],
   projectId: "project-1",
 };
@@ -180,6 +182,46 @@ test("two items that exist but are not joined is its own answer", () => {
   });
 
   expect(refusal).toMatch(/^Refused: /);
+});
+
+/**
+ * The other thing a verb can have to say, which is not a refusal.
+ *
+ * `relation.disconnect` succeeds and still owes the caller a sentence, because it is the one removal
+ * in this app that destroys something. `archiveProjectItem` is reversible on purpose — its docstring
+ * is where the rule is written — while `fn::unrelate_content_items` deletes the row, and the canvas's
+ * `history.undo` does not reach the database. Driven on 2026-08-27: undo answers "not available right
+ * now", and reconnecting gives back a bare `relates`.
+ */
+const seedEdge = (relation: Readonly<{ kind: string; label: string | null }>) => {
+  relations$.set([
+    { id: "rel-1", source: "item-1", target: "item-2", ...relation },
+  ] as unknown as Parameters<typeof relations$.set>[0]);
+};
+
+test("disconnecting names the kind and label it destroyed, and says they cannot be undone", () => {
+  seedEdge({ kind: "supports", label: "load-bearing evidence" });
+
+  const said = refuse("relation.disconnect", { sourceItemId: "item-1", targetItemId: "item-2" });
+
+  expect(said).toContain("supports");
+  expect(said).toContain("load-bearing evidence");
+  expect(said).toContain("cannot be undone");
+  // Not a refusal: it ran. The distinction matters because the adapter shows both the same way.
+  expect(said).not.toMatch(/^Refused: /);
+});
+
+test("a default edge with no label says nothing, because losing it costs nothing", () => {
+  /*
+   * `relates` with no label is the connector's own "says nothing beyond existing" case, which
+   * `getRelationLabel` renders as nothing at all. Reporting its loss would train a caller to ignore
+   * the report that matters.
+   */
+  seedEdge({ kind: "relates", label: null });
+
+  expect(
+    refuse("relation.disconnect", { sourceItemId: "item-1", targetItemId: "item-2" }),
+  ).toBeUndefined();
 });
 
 test("a verb that ran returns nothing, so the adapter can tell the two apart", () => {

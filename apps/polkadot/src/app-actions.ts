@@ -18,6 +18,7 @@ import { openNewNote } from "./notes/open-note";
 import { createDesktop } from "./workspace/create-desktop";
 import {
   connectItems,
+  DEFAULT_RELATION_KIND,
   disconnectItems,
   findRelation,
   relations$,
@@ -66,7 +67,12 @@ type AppAction = Readonly<{
    * object would need a cast here, and a cast is where the schema and the code start disagreeing
    * silently. Verbs with no `input` ignore the parameter.
    *
-   * **Returns why it refused, or nothing when it ran.** This was `void`, and the cost was measured
+   * **Returns what the caller needs told, or nothing when "done" covers it.** Usually that is why it
+   * refused. It is not only that: `relation.disconnect` runs successfully and still has something to
+   * say, because it destroyed a kind and a label that nothing can bring back. A verb knows when the
+   * default report is a lie by omission; this is how it says so.
+   *
+   * The refusal half was `void`, and the cost was measured
    * rather than reasoned about: driven through WebMCP, `content.open` with an id naming nothing and
    * `window.reveal` with an id naming nothing both answered "done." The verb knew — it is the thing
    * that computed `parsed instanceof type.errors` and `item === undefined` — and threw that away at
@@ -581,9 +587,36 @@ const APP_ACTIONS: readonly AppAction[] = [
         return ends;
       }
 
+      // Read before the write, because afterwards there is nothing left to read.
+      const removed = findRelation(relations$.peek(), ends.source, ends.target);
+
       void disconnectItems({ projectId, ...ends });
 
-      return undefined;
+      /*
+       * Say what went, because this is the one removal in the app that destroys something.
+       *
+       * `archiveProjectItem` is reversible on purpose, and its docstring is where the rule is
+       * written: archiving needs no confirmation because nothing is destroyed, so nothing has to be
+       * weighed. `fn::unrelate_content_items` deletes the row, and the canvas's `history.undo` does
+       * not reach the database — driven on 2026-08-27, undo answers "not available right now" and
+       * reconnecting yields a bare `relates`. So a kind someone chose and a sentence someone typed
+       * leave without a trace, and this string is the only trace there is.
+       *
+       * A default `relates` edge carrying no label says nothing beyond existing, so losing it costs
+       * nothing to report — the same rule the connector draws by, and the reason `getRelationLabel`
+       * renders that case as nothing at all.
+       *
+       * This does not make the loss reversible, and for the person cutting a connection in the rail
+       * it does nothing at all: they get no report. That half is still owed and ROADMAP carries it.
+       */
+      const lost = [
+        removed?.kind === undefined || removed.kind === DEFAULT_RELATION_KIND ? null : removed.kind,
+        removed?.label?.trim() ? `'${removed.label.trim()}'` : null,
+      ].filter((part) => part !== null);
+
+      return lost.length === 0
+        ? undefined
+        : `Disconnected. This went with it and cannot be undone: ${lost.join(" ")}. Restore it with relation.connect, then relation.setLabel.`;
     },
   },
   {
