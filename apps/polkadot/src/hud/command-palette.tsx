@@ -532,16 +532,31 @@ function PaletteContent({
    * because it is the only route that needs no pointer at all, and because selecting two windows is
    * something the canvas already does.
    */
+  /*
+   * Through the guard, not a cast — the third and last place in this file reading a field that
+   * stopped existing.
+   *
+   * Window data became one `{ itemId }` for every kind, and two comments in this file already record
+   * `data.noteId` going dead: once for the active note, once for the rename's third write. This read
+   * survived both corrections, so `selectedNoteIds` was permanently `[]`, `connectedPair` permanently
+   * `undefined`, and the rows below that need two selected notes could not appear. The docstring
+   * above calls this "the only route that needs no pointer at all"; it had not worked since the
+   * rekey.
+   *
+   * Measured on the running canvas: reading `data.noteId` off two windows returns nothing, and
+   * reading them through the guard returns both content ids.
+   *
+   * `data` is `unknown` by design, so a cast onto it cannot fail — which is exactly why all three of
+   * these were silent. `getContentWindowItemId` is the app's one answer to this question and is what
+   * the rail and the recents already use.
+   */
   const selectedNoteIds = state.selection.windowIds
-    .map(
-      (windowId) =>
-        (
-          state.windows.find((window) => window.id === windowId)?.data as
-            | { noteId?: string }
-            | undefined
-        )?.noteId,
-    )
-    .filter((noteId): noteId is string => noteId !== undefined);
+    .map((windowId) => {
+      const selected = state.windows.find((window) => window.id === windowId);
+
+      return selected === undefined ? null : getContentWindowItemId(selected);
+    })
+    .filter((itemId): itemId is string => itemId !== null);
   const connectedPair =
     selectedNoteIds.length === 2 &&
     selectedNoteIds[0] !== undefined &&

@@ -90,6 +90,67 @@ test("the check does not fire on the lookup that replaced it, or on an id narrow
  * and this guard would be ceremony. It is not: the framework ships verbs whose id encodes an
  * argument, and asserting past that is what reaches the reducer with a type it has never heard of.
  */
+/**
+ * The same lesson, on the other value this app asserts shapes onto: a window's `data`.
+ *
+ * `data` is `unknown` by design — the framework cannot know what a consumer stores — so a cast onto
+ * it can never fail. That is the whole problem: it turns a read that no longer matches anything into
+ * a read that silently yields `undefined`, and every branch downstream quietly takes the empty path.
+ *
+ * Window data became one `{ itemId }` for every kind, and `data as { noteId?: string }` outlived the
+ * change **four times**, each found separately and none by a typecheck:
+ *
+ * - the library rail's presence set was empty, so no row showed its dot;
+ * - archiving through that same map left the window open on the canvas;
+ * - the palette's active note was always `undefined`;
+ * - and `selectedNoteIds` was permanently `[]`, so connecting two selected notes from the keyboard —
+ *   which its own docstring calls the only route needing no pointer — had not worked since the rekey.
+ *
+ * `getInfiniteCanvasWindowData(window, ContentWindowData.allows)` and `getContentWindowItemId` are
+ * the narrowings that fail loudly instead. The ban is on the assertion rather than on the field
+ * name, for the reason the command ban is: a guard that chases the wrong shape has to be updated
+ * every time the shape changes, and this defect is *about* the shape changing.
+ */
+const WINDOW_DATA_CAST = /\.data\s+as\b/;
+
+test("no source asserts a shape onto a window's data", () => {
+  const offenders = sources.flatMap((path) => {
+    const relative = path.slice(sourceRoot.length);
+
+    return readFileSync(path, "utf8")
+      .split("\n")
+      .flatMap((line, index) =>
+        WINDOW_DATA_CAST.test(line) && !isComment(line)
+          ? [`${relative}:${String(index + 1)}: ${line.trim()}`]
+          : [],
+      );
+  });
+
+  expect(offenders).toStrictEqual([]);
+});
+
+test("that check bites on all four spellings this repo actually shipped", () => {
+  for (const line of [
+    "  const data = window.data as { noteId?: string };",
+    "        state.windows.find((window) => window.id === windowId)?.data as",
+    "  const itemId = (win.data as { itemId?: string } | undefined)?.itemId;",
+    "      const noteId = w.data as Record<string, string>;",
+  ]) {
+    expect(WINDOW_DATA_CAST.test(line)).toBe(true);
+  }
+});
+
+test("it does not fire on the narrowings that replaced them", () => {
+  for (const line of [
+    "      getInfiniteCanvasWindowData(window, ContentWindowData.allows)?.itemId;",
+    "      return selected === undefined ? null : getContentWindowItemId(selected);",
+    // A cast on something that merely ends in the word data is not a window's payload.
+    '  const parsed = metadata as { kind: "note" };',
+  ]) {
+    expect(WINDOW_DATA_CAST.test(line)).toBe(false);
+  }
+});
+
 test("the framework really does ship verbs whose id is not their command type", () => {
   const encodesAnArgument = DEFAULT_INFINITE_CANVAS_COMMAND_DESCRIPTORS.filter(
     (descriptor) => descriptor.command.type !== descriptor.id,
