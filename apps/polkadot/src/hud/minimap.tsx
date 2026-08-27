@@ -75,7 +75,7 @@ const minimap = tv({
     plate: "block cursor-crosshair touch-none bg-[var(--ground)]",
     window: "transition-[fill] duration-100 ease-[var(--ease-swift)]",
     /**
-     * Where the camera is looking.
+     * Where the camera is looking, and the only thing on this surface wearing the accent.
      *
      * A stroked outline rather than a filled box: the viewport covers most of the map at ordinary
      * zoom, and a fill would hide the very windows the map exists to show. This is the one place
@@ -84,10 +84,22 @@ const minimap = tv({
     viewport: "fill-none stroke-[var(--accent)] stroke-[1.5]",
   },
   variants: {
+    /**
+     * A value ramp, not a hue change, and the accent is deliberately absent.
+     *
+     * The active window used to fill with `--accent` — the same colour the viewport frame is
+     * stroked in. Two unrelated facts wearing one hue inside a box 156px wide, and when the active
+     * window sat inside the visible rect, which is most of the time, the map showed an accent
+     * rectangle inside an accent outline. Neither read as itself.
+     *
+     * The frame keeps the hue because "where am I" is the question only a minimap answers; which
+     * window is active is legible from the canvas, where that window is the one with chrome and
+     * focus. Brightness still ranks them, so the active window is still the first thing found.
+     */
     state: {
-      active: { window: "fill-[var(--accent)]" },
+      active: { window: "fill-[var(--ink)]" },
       idle: { window: "fill-[var(--ink-faint)]" },
-      selected: { window: "fill-[var(--ink)]" },
+      selected: { window: "fill-[var(--ink-muted)]" },
     },
   },
 });
