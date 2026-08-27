@@ -2194,7 +2194,32 @@ function executeInfiniteCanvasCommand<Kind extends string>(
       return placeActiveWindow(state, command);
     case "window.resize":
       return resizeActiveWindow(state, command);
+    default:
+      return assertUnknownInfiniteCanvasCommand(command);
   }
+}
+
+/**
+ * A command type this facade does not know, said out loud.
+ *
+ * `reducer.ts` gained this guard for *actions* and the command switch never got it, so the hole
+ * stayed open one layer up: an unrecognised command fell out of the switch, returned `undefined`,
+ * and the reducer then read `.groups` off it. The message a caller got was "Cannot read properties
+ * of undefined (reading 'groups')" — naming a field with nothing to do with what went wrong.
+ *
+ * Commands are the surface where this matters most. Actions are dispatched by the framework's own
+ * code; commands are invoked *by id* from a palette, a hotkey table, a console, and — per this
+ * repo's WebMCP requirement — by an agent that was handed a list of names. Every one of those can
+ * supply a name that no longer exists.
+ *
+ * Throws rather than returning `state`, for the reason the action guard gives: the old behaviour
+ * already crashed, so the only question was whether the crash names its cause. A silent no-op
+ * would be worse than either — a mistyped command doing nothing, with no signal at all.
+ */
+function assertUnknownInfiniteCanvasCommand(command: never): never {
+  throw new Error(
+    `Unknown infinite canvas command type: ${String((command as { type?: unknown }).type)}`,
+  );
 }
 
 function getInfiniteCanvasHotkeyBindings(
