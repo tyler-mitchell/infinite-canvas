@@ -4,6 +4,8 @@ import { useEffect } from "react";
 import { APP_ACTIONS, isAppActionEnabled } from "./app-actions";
 import { describeCanvas } from "./canvas/describe-canvas";
 import type { WindowKind } from "./canvas/window-registry";
+import { describeProjectContent } from "./content/describe-content";
+import { projectContent$ } from "./content/project-content";
 
 /**
  * The app's vocabulary, offered to an agent running in the browser.
@@ -85,6 +87,26 @@ function ModelContextTools({ projectId }: Readonly<{ projectId: string }>) {
       inputSchema: NO_INPUT,
       name: "canvas.describe",
     });
+    // The companion question: what exists that the canvas is not showing. Closing a window does
+    // not delete the record, so without this everything not open is invisible to a caller.
+    const list = registry.registerTool({
+      description:
+        "List everything this project holds, saying which items are already open on the canvas.",
+      execute: async () => ({
+        content: [
+          {
+            text: describeProjectContent({
+              listing: projectContent$.peek(),
+              projectId,
+              state: store.state$.peek(),
+            }),
+            type: "text" as const,
+          },
+        ],
+      }),
+      inputSchema: NO_INPUT,
+      name: "content.list",
+    });
     const disposers = APP_ACTIONS.map((action) =>
       registry.registerTool({
         description: action.description,
@@ -114,7 +136,7 @@ function ModelContextTools({ projectId }: Readonly<{ projectId: string }>) {
 
     return () => {
       // The spec's disposal shape is one of the things this has never run to find out.
-      for (const disposer of [describe, ...disposers]) {
+      for (const disposer of [describe, list, ...disposers]) {
         if (typeof disposer === "function") {
           (disposer as () => void)();
         }
