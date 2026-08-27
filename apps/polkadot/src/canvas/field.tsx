@@ -1,6 +1,6 @@
 import {
   getInfiniteCanvasGroupProjection,
-  isInfiniteCanvasWindowInActiveWorkspace,
+  getInfiniteCanvasWorkspaceWindowIds,
   useInfiniteCanvasSelector,
   worldPointToScreenPoint,
   type InfiniteCanvasCamera,
@@ -132,7 +132,7 @@ type RectState = {
 
 type FieldInput = Readonly<{
   /**
-   * The windows this desktop admits.
+   * The windows this desktop admits, or `null` when no desktop is active and all of them are.
    *
    * `state.windows` is every window on the canvas rather than every window on the desktop being
    * looked at, so without this the field was displaced by windows nobody could see — the same
@@ -140,7 +140,7 @@ type FieldInput = Readonly<{
    * unnoticed because the field is unmounted: a bug nothing renders is still a bug, and it would
    * have arrived looking like the field was pulling toward nothing.
    */
-  admittedWindowIds: ReadonlySet<string>;
+  admittedWindowIds: ReadonlySet<string> | null;
   camera: InfiniteCanvasCamera;
   /** Members a group is not drawing — behind a tab, or a collapsed fold. */
   hiddenWindowIds: ReadonlySet<string>;
@@ -209,7 +209,7 @@ const getScreenRects = ({
         (window) =>
           window.mode !== "minimized" &&
           !hiddenWindowIds.has(window.id) &&
-          admittedWindowIds.has(window.id),
+          (admittedWindowIds === null || admittedWindowIds.has(window.id)),
       )
       .map((window) => {
         const origin = worldPointToScreenPoint(camera, viewport, {
@@ -248,13 +248,20 @@ export function Field({ config = DEFAULT_FIELD_CONFIG }: Readonly<{ config?: Fie
    * membership answer is the framework's and asking it per window inside the render loop would put
    * a state lookup on every frame the field draws.
    */
-  const admittedWindowIds = useInfiniteCanvasSelector<WindowKind, ReadonlySet<string>>((state) => {
-    const admitted = state.windows.filter((window) =>
-      isInfiniteCanvasWindowInActiveWorkspace(state, window.id),
-    );
-
-    return new Set(admitted.map((window) => window.id));
-  });
+  /*
+   * The framework's set, not one built by asking about each window.
+   *
+   * `getInfiniteCanvasWorkspaceWindowIds` says which to use and this first reached for the other:
+   * "the set is right for a render pass asking about every window once; it is wrong for a single
+   * lookup". This is that render pass. Building it from `isInfiniteCanvasWindowInActiveWorkspace`
+   * ran the single-lookup form once per window, which is the inversion its docstring exists to
+   * prevent — and the minimap, asking the same question for the same reason, already reads the set.
+   *
+   * `null` means no desktop is active, which admits everything rather than nothing.
+   */
+  const admittedWindowIds = useInfiniteCanvasSelector<WindowKind, ReadonlySet<string> | null>(
+    (state) => getInfiniteCanvasWorkspaceWindowIds(state),
+  );
   const inputRef = useRef<FieldInput>({
     admittedWindowIds,
     camera,
