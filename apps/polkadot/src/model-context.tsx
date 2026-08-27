@@ -35,20 +35,25 @@ import { relations$ } from "./relations/relation-store";
  * and why. That is most of what a caller can do: this app contributes sixteen verbs and the canvas
  * contributes seventy-five, and for a while only the sixteen were offered.
  *
- * PARTLY VERIFIED, and the line between the halves is worth keeping straight. WebMCP is behind
- * `enable-webmcp-testing` in Chrome 146 and in an origin trial from 149; the browser this was
- * written against is 148, where the API is absent under both names, so `getModelContext` returns
- * null and none of the `registerTool` calls below have ever run.
+ * DRIVEN, on 2026-08-27, against Chrome 152 with `--enable-blink-features=WebMCP`, reached through
+ * `chrome-devtools-mcp --categoryExperimentalWebmcp`. This said for a while that none of the
+ * `registerTool` calls below had ever run, which was true and is no longer: the effect registers
+ * **97 tools** — seventy-five framework verbs, twenty app verbs and the two reporters — and calls
+ * against them were executed and their effects read back. `canvas.describe` on an empty canvas,
+ * `note.create`, then `canvas.describe` again naming the window that appeared, with `content.list`
+ * agreeing about the record behind it.
  *
- * What *has* been driven, against the live canvas, is what they would register: the published list
- * resolves to seventy-five framework verbs and sixteen app verbs, carrying the framework's own
- * descriptions and live enablement, with the argument-taking templates held back and no name
- * appearing twice. So the contents are measured and the handing-over is not. An attempt to force
- * the effect to re-run against a stand-in registry did not remount the component, and rather than
- * keep pushing on that, this says so.
+ * Two corrections that the first real run produced, recorded because both were invisible until then:
+ *
+ * - `--enable-features=WebMCP` is what the tooling documents and it does **not** expose the API.
+ *   `--enable-blink-features=WebMCP` does. Measured on 152; both are passed, since the cost is
+ *   nothing and the two disagree.
+ * - Every argument-taking verb reported success when it had refused. That was this file's doing —
+ *   it said `${action.label} done.` unconditionally — and the fix is `AppAction.run` returning the
+ *   refusal, which is read below.
  *
  * `document.modelContext` is the current home; `navigator.modelContext` is the pre-150 name, kept
- * because it is what a 146 flag build exposes.
+ * because it is what a 146 flag build exposes. Confirmed absent under the `navigator` name on 152.
  */
 
 type ModelContextRegistry = Readonly<{
@@ -189,9 +194,20 @@ function ModelContextTools({ projectId }: Readonly<{ projectId: string }>) {
 
           // Passed through unchecked: the verb narrows with the same type this schema came from,
           // so checking here as well would be two places to disagree about one shape.
-          action.run(context, input);
+          const refusal = action.run(context, input);
 
-          return { content: [{ text: `${action.label} done.`, type: "text" as const }] };
+          /*
+           * The verb's own answer, because it is the only thing that knows why.
+           *
+           * This said "done" unconditionally, and driving it through WebMCP is what exposed the
+           * cost: `content.open` with an id naming nothing, and `window.reveal` with an id naming
+           * nothing, both reported success. A caller with no way to look at the screen then acts
+           * against a window that was never opened, and the first visible symptom is several calls
+           * downstream of the mistake.
+           */
+          return {
+            content: [{ text: refusal ?? `${action.label} done.`, type: "text" as const }],
+          };
         },
         // The verb's own declaration, so what a caller is offered and what the verb accepts are
         // one thing rather than two that have to be kept in step.

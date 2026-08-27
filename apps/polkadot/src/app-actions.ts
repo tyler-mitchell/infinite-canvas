@@ -65,9 +65,53 @@ type AppAction = Readonly<{
    * One validation site rather than two: a caller that checked first and handed over a trusted
    * object would need a cast here, and a cast is where the schema and the code start disagreeing
    * silently. Verbs with no `input` ignore the parameter.
+   *
+   * **Returns why it refused, or nothing when it ran.** This was `void`, and the cost was measured
+   * rather than reasoned about: driven through WebMCP, `content.open` with an id naming nothing and
+   * `window.reveal` with an id naming nothing both answered "done." The verb knew — it is the thing
+   * that computed `parsed instanceof type.errors` and `item === undefined` — and threw that away at
+   * the `return`, leaving the caller to report success for a no-op.
+   *
+   * That is worse than an unhelpful message. A caller that cannot see the screen has no second
+   * source; told the item opened, it goes on to act against a window that is not there, and the
+   * first real symptom is several steps from the cause. A refusal string is the only way it finds
+   * out. Enablement stays separate and stays where it is: `isEnabled` answers without an argument,
+   * because palette rows need it before one exists, and this answers about the argument.
    */
-  run: (context: AppActionContext, input?: unknown) => void;
+  run: (context: AppActionContext, input?: unknown) => string | undefined;
 }>;
+
+/**
+ * The refusal every verb with an `input` shares, so they cannot word it eleven different ways.
+ *
+ * Named for the caller's question rather than for ArkType: what reaches a verb is whatever the
+ * caller sent, and `summary` is the part that says which field was wrong.
+ */
+const describeInvalidInput = (errors: type.errors) => `Refused: ${errors.summary}`;
+
+/**
+ * The refusals that are about the world rather than the shape, each naming where a good value comes
+ * from.
+ *
+ * Saying only "not found" tells a caller it was wrong and not what to do instead, which for
+ * something that cannot see the screen is most of the answer missing. Every id this app accepts is
+ * published by one of the two reporting verbs, so the refusal names which one.
+ */
+const NO_SUCH_DESKTOP = "Refused: no desktop has that id. `canvas.describe` lists the desktops.";
+const NO_SUCH_GROUP = "Refused: no group has that id. `canvas.describe` lists the groups.";
+const NO_SUCH_ITEM = "Refused: no item has that id. `content.list` lists this project's items.";
+const NO_SUCH_WINDOW = "Refused: no window has that id. `canvas.describe` lists the open windows.";
+const NO_ACTIVE_WINDOW = "Refused: no window is active, so there is nothing to move.";
+/** Distinct from `NO_SUCH_ITEM`: both ends exist, the edge between them does not. */
+const NOT_CONNECTED =
+  "Refused: those two items are not connected. `relation.connect` joins them first.";
+/**
+ * A group of one is a leaf, and arranging a single pane is not a thing.
+ *
+ * The framework already reports every layout verb as unavailable there, so refusing here keeps this
+ * verb's answer the same as the framework's rather than inventing a second rule.
+ */
+const GROUP_HAS_NO_PANES = "Refused: that group holds one window, so it has no arrangement to set.";
 
 /**
  * A window is addressed by its id, for the same reason a stored item is.
@@ -163,9 +207,13 @@ const resolveRelation = (
 ) => {
   const resolved = resolveEndpoints(projectId, ends);
 
-  return resolved === null
-    ? null
-    : (findRelation(relations$.peek(), resolved.source, resolved.target) ?? null);
+  // The endpoints' own refusal passes through: "no such item" and "not connected" are different
+  // corrections, and flattening them would send a caller to fix the wrong one.
+  if (typeof resolved === "string") {
+    return resolved;
+  }
+
+  return findRelation(relations$.peek(), resolved.source, resolved.target) ?? NOT_CONNECTED;
 };
 
 /**
@@ -175,17 +223,32 @@ const resolveRelation = (
  * An item joined to itself is refused rather than stored. The gesture cannot express it, because a
  * drag starts on one window and ends on another, so it has never been reachable; a verb that can
  * express it should not be the way a self-edge first enters the database.
+ *
+ * **Returns the refusal rather than `null`, because the three ways to fail are not one fact.** A
+ * missing source, a missing target and a self-edge collapsed into a single `null`, so every caller
+ * of this could only say "no such item" — which is a lie for the self-edge, and half an answer when
+ * one of two ids is wrong and the caller is not told which.
  */
 const resolveEndpoints = (
   projectId: string,
   ends: Readonly<{ sourceItemId: string; targetItemId: string }>,
-) => {
+): Readonly<{ source: string; target: string }> | string => {
   const items = getProjectContent(projectContent$.peek(), projectId);
   const source = items?.find((candidate) => candidate.id === ends.sourceItemId);
   const target = items?.find((candidate) => candidate.id === ends.targetItemId);
 
-  return source === undefined || target === undefined || source.id === target.id
-    ? null
+  if (source === undefined || target === undefined) {
+    // Which end, by name. A caller holding two ids and told only "not found" has to guess.
+    const missing = [
+      source === undefined ? `source ${ends.sourceItemId}` : null,
+      target === undefined ? `target ${ends.targetItemId}` : null,
+    ].filter((part) => part !== null);
+
+    return `Refused: no item has ${missing.join(" or ")}. \`content.list\` lists this project's items.`;
+  }
+
+  return source.id === target.id
+    ? "Refused: an item cannot be connected to itself."
     : { source: source.id, target: target.id };
 };
 
@@ -256,7 +319,7 @@ const APP_ACTIONS: readonly AppAction[] = [
       const parsed = DESKTOP_CREATE_INPUT(input);
 
       if (parsed instanceof type.errors) {
-        return;
+        return describeInvalidInput(parsed);
       }
 
       createDesktop({
@@ -264,6 +327,8 @@ const APP_ACTIONS: readonly AppAction[] = [
         existingTitles: state.workspaces.map((workspace) => workspace.title),
         title: parsed.title,
       });
+
+      return undefined;
     },
   },
   {
@@ -276,12 +341,16 @@ const APP_ACTIONS: readonly AppAction[] = [
       const parsed = DESKTOP_INPUT(input);
 
       if (parsed instanceof type.errors) {
-        return;
+        return describeInvalidInput(parsed);
       }
 
-      if (hasWorkspace(state, parsed.workspaceId)) {
-        actions.executeCommand({ type: "workspace.enter", workspaceId: parsed.workspaceId });
+      if (!hasWorkspace(state, parsed.workspaceId)) {
+        return NO_SUCH_DESKTOP;
       }
+
+      actions.executeCommand({ type: "workspace.enter", workspaceId: parsed.workspaceId });
+
+      return undefined;
     },
   },
   {
@@ -294,12 +363,16 @@ const APP_ACTIONS: readonly AppAction[] = [
       const parsed = DESKTOP_INPUT(input);
 
       if (parsed instanceof type.errors) {
-        return;
+        return describeInvalidInput(parsed);
       }
 
-      if (hasWorkspace(state, parsed.workspaceId)) {
-        actions.executeCommand({ type: "workspace.close", workspaceId: parsed.workspaceId });
+      if (!hasWorkspace(state, parsed.workspaceId)) {
+        return NO_SUCH_DESKTOP;
       }
+
+      actions.executeCommand({ type: "workspace.close", workspaceId: parsed.workspaceId });
+
+      return undefined;
     },
   },
   {
@@ -311,19 +384,27 @@ const APP_ACTIONS: readonly AppAction[] = [
       const parsed = DESKTOP_INPUT(input);
 
       if (parsed instanceof type.errors) {
-        return;
+        return describeInvalidInput(parsed);
       }
 
       /*
-       * Both facts are checked, because either alone makes this a no-op that looks like a success:
-       * a desktop that is not there, and no active window to move.
+       * Both facts are checked, and separately, because either alone makes this a no-op — and a
+       * caller told only "refused" would not know which of the two to fix.
        */
-      if (hasWorkspace(state, parsed.workspaceId) && state.activeWindowId !== null) {
-        actions.executeCommand({
-          type: "workspace.moveActiveWindow",
-          workspaceId: parsed.workspaceId,
-        });
+      if (!hasWorkspace(state, parsed.workspaceId)) {
+        return NO_SUCH_DESKTOP;
       }
+
+      if (state.activeWindowId === null) {
+        return NO_ACTIVE_WINDOW;
+      }
+
+      actions.executeCommand({
+        type: "workspace.moveActiveWindow",
+        workspaceId: parsed.workspaceId,
+      });
+
+      return undefined;
     },
   },
   {
@@ -336,14 +417,23 @@ const APP_ACTIONS: readonly AppAction[] = [
       const parsed = GROUP_LAYOUT_INPUT(input);
 
       if (parsed instanceof type.errors) {
-        return;
+        return describeInvalidInput(parsed);
+      }
+
+      if (findInfiniteCanvasGroup(state, parsed.groupId) === null) {
+        return NO_SUCH_GROUP;
       }
 
       const target = resolveGroupContainer(state, parsed.groupId);
 
-      if (target !== null) {
-        actions.setGroupLayoutMode({ ...target, layout: parsed.layout });
+      // The group is there but holds one window, which is a different answer from "no such group".
+      if (target === null) {
+        return GROUP_HAS_NO_PANES;
       }
+
+      actions.setGroupLayoutMode({ ...target, layout: parsed.layout });
+
+      return undefined;
     },
   },
   {
@@ -355,16 +445,20 @@ const APP_ACTIONS: readonly AppAction[] = [
       const parsed = GROUP_RENAME_INPUT(input);
 
       if (parsed instanceof type.errors) {
-        return;
+        return describeInvalidInput(parsed);
       }
 
       /*
-       * Checked against state rather than dispatched blind, so an id naming no group does nothing
+       * Checked against state rather than dispatched blind, so an id naming no group says so
        * instead of writing a title into a record that is not there.
        */
-      if (findInfiniteCanvasGroup(state, parsed.groupId) !== null) {
-        actions.setGroupTitle({ groupId: parsed.groupId, title: parsed.title });
+      if (findInfiniteCanvasGroup(state, parsed.groupId) === null) {
+        return NO_SUCH_GROUP;
       }
+
+      actions.setGroupTitle({ groupId: parsed.groupId, title: parsed.title });
+
+      return undefined;
     },
   },
   {
@@ -376,12 +470,16 @@ const APP_ACTIONS: readonly AppAction[] = [
       const parsed = GROUP_INPUT(input);
 
       if (parsed instanceof type.errors) {
-        return;
+        return describeInvalidInput(parsed);
       }
 
-      if (findInfiniteCanvasGroup(state, parsed.groupId) !== null) {
-        actions.closeGroup(parsed.groupId);
+      if (findInfiniteCanvasGroup(state, parsed.groupId) === null) {
+        return NO_SUCH_GROUP;
       }
+
+      actions.closeGroup(parsed.groupId);
+
+      return undefined;
     },
   },
   {
@@ -394,14 +492,18 @@ const APP_ACTIONS: readonly AppAction[] = [
       const parsed = CONNECT_INPUT(input);
 
       if (parsed instanceof type.errors) {
-        return;
+        return describeInvalidInput(parsed);
       }
 
       const ends = resolveEndpoints(projectId, parsed);
 
-      if (ends !== null) {
-        void connectItems({ kind: parsed.kind, projectId, ...ends });
+      if (typeof ends === "string") {
+        return ends;
       }
+
+      void connectItems({ kind: parsed.kind, projectId, ...ends });
+
+      return undefined;
     },
   },
   {
@@ -414,14 +516,18 @@ const APP_ACTIONS: readonly AppAction[] = [
       const parsed = SET_KIND_INPUT(input);
 
       if (parsed instanceof type.errors) {
-        return;
+        return describeInvalidInput(parsed);
       }
 
       const relation = resolveRelation(projectId, parsed);
 
-      if (relation !== null) {
-        void setRelationKind({ kind: parsed.kind, projectId, relationId: relation.id });
+      if (typeof relation === "string") {
+        return relation;
       }
+
+      void setRelationKind({ kind: parsed.kind, projectId, relationId: relation.id });
+
+      return undefined;
     },
   },
   {
@@ -434,14 +540,18 @@ const APP_ACTIONS: readonly AppAction[] = [
       const parsed = SET_LABEL_INPUT(input);
 
       if (parsed instanceof type.errors) {
-        return;
+        return describeInvalidInput(parsed);
       }
 
       const relation = resolveRelation(projectId, parsed);
 
-      if (relation !== null) {
-        void setRelationLabel({ label: parsed.label, projectId, relationId: relation.id });
+      if (typeof relation === "string") {
+        return relation;
       }
+
+      void setRelationLabel({ label: parsed.label, projectId, relationId: relation.id });
+
+      return undefined;
     },
   },
   {
@@ -453,7 +563,7 @@ const APP_ACTIONS: readonly AppAction[] = [
       const parsed = DISCONNECT_INPUT(input);
 
       if (parsed instanceof type.errors) {
-        return;
+        return describeInvalidInput(parsed);
       }
 
       const ends = resolveEndpoints(projectId, parsed);
@@ -462,10 +572,18 @@ const APP_ACTIONS: readonly AppAction[] = [
        * Undirected, matching `findRelation`: a caller naming the pair in the other order means the
        * same edge. `database.relations.disconnect` removes the pair however it was stored, so the
        * order a caller happens to say is not a way to fail.
+       *
+       * Removing an edge that is not there is not refused. Unlike `relation.setKind`, this verb's
+       * intent is a state rather than an act — "these two are not connected" — and that state
+       * already holds, so reporting failure would be reporting the opposite of the truth.
        */
-      if (ends !== null) {
-        void disconnectItems({ projectId, ...ends });
+      if (typeof ends === "string") {
+        return ends;
       }
+
+      void disconnectItems({ projectId, ...ends });
+
+      return undefined;
     },
   },
   {
@@ -478,7 +596,7 @@ const APP_ACTIONS: readonly AppAction[] = [
       const parsed = CONNECTED_INPUT(input);
 
       if (parsed instanceof type.errors) {
-        return;
+        return describeInvalidInput(parsed);
       }
 
       const item = getProjectContent(projectContent$.peek(), projectId)?.find(
@@ -486,7 +604,7 @@ const APP_ACTIONS: readonly AppAction[] = [
       );
 
       if (item === undefined) {
-        return;
+        return NO_SUCH_ITEM;
       }
 
       // The title comes from the record, not from the caller. A collection named for a subject the
@@ -498,6 +616,8 @@ const APP_ACTIONS: readonly AppAction[] = [
         state,
         title: `Connected to ${item.title}`,
       });
+
+      return undefined;
     },
   },
   {
@@ -510,7 +630,7 @@ const APP_ACTIONS: readonly AppAction[] = [
       const parsed = OPEN_INPUT(input);
 
       if (parsed instanceof type.errors) {
-        return;
+        return describeInvalidInput(parsed);
       }
 
       /*
@@ -523,11 +643,15 @@ const APP_ACTIONS: readonly AppAction[] = [
         (candidate) => candidate.id === parsed.itemId,
       );
 
-      if (item !== undefined) {
-        // Already handles the record being open: `openContentWindow` reveals the existing window
-        // rather than binding a second one to it, which is the rule the library rail learned first.
-        openItemWindow({ actions, item, state });
+      if (item === undefined) {
+        return NO_SUCH_ITEM;
       }
+
+      // Already handles the record being open: `openContentWindow` reveals the existing window
+      // rather than binding a second one to it, which is the rule the library rail learned first.
+      openItemWindow({ actions, item, state });
+
+      return undefined;
     },
   },
   {
@@ -540,21 +664,25 @@ const APP_ACTIONS: readonly AppAction[] = [
       const parsed = REVEAL_INPUT(input);
 
       if (parsed instanceof type.errors) {
-        return;
+        return describeInvalidInput(parsed);
       }
 
       /*
        * Resolved against the state the description was built from, so what a caller can read and
        * what it can reveal are one set — the same coherence `content.open` keeps with `content.list`.
-       * An id naming no window does nothing, rather than revealing something else.
+       * An id naming no window says so, rather than revealing something else.
        */
       const target = state.windows.find((window) => window.id === parsed.windowId);
 
-      if (target !== undefined) {
-        // `window.reveal` rather than `focusWindow`: the framework's verb already handles a window
-        // that is minimized, behind a tab, or on another desktop. Focusing alone reaches none of those.
-        actions.executeCommand({ type: "window.reveal", windowId: target.id });
+      if (target === undefined) {
+        return NO_SUCH_WINDOW;
       }
+
+      // `window.reveal` rather than `focusWindow`: the framework's verb already handles a window
+      // that is minimized, behind a tab, or on another desktop. Focusing alone reaches none of those.
+      actions.executeCommand({ type: "window.reveal", windowId: target.id });
+
+      return undefined;
     },
   },
   {
@@ -563,6 +691,8 @@ const APP_ACTIONS: readonly AppAction[] = [
     label: "New note",
     run: ({ actions, projectId, state }) => {
       void openNewNote({ actions, projectId, state });
+
+      return undefined;
     },
   },
   ...LISTABLE_KINDS.map((kind) => ({
@@ -577,6 +707,8 @@ const APP_ACTIONS: readonly AppAction[] = [
         state,
         title: kind.label,
       });
+
+      return undefined;
     },
   })),
   {
@@ -588,8 +720,10 @@ const APP_ACTIONS: readonly AppAction[] = [
     run: ({ actions, state }) => {
       const rect = getSelectedWindowBounds(state);
 
+      // `isEnabled` already refuses fewer than two, so reaching this means the selection moved
+      // between the check and the call — rare, and still not something to report as done.
       if (rect === null) {
-        return;
+        return "Refused: the selection no longer holds two windows to group.";
       }
 
       actions.createGroup({
@@ -608,6 +742,8 @@ const APP_ACTIONS: readonly AppAction[] = [
        * centring one that does not fit shows you its middle.
        */
       actions.navigateToRect({ behavior: { paddingPx: 64, type: "fit" }, rect });
+
+      return undefined;
     },
   },
 ];
