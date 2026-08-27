@@ -42,12 +42,49 @@ const CONTENT_WORDS: Readonly<
       .join(" "),
 };
 
+/**
+ * The last text derived for each item, so a keystroke does not re-derive the whole library.
+ *
+ * Deriving a note's words means `JSON.parse` over its entire serialized editor state and a walk of
+ * the tree, and the rail filters every item on every keystroke. Measured before adding this: 0.10
+ * ms per keystroke at 25 notes, 1.33 ms at 200, and **13.16 ms at 1000 notes holding 5.4 MB of
+ * editor state** — about 80% of a 16.7 ms frame, on the main thread, between one letter and the
+ * next. The first two are free and the third drops frames while you type.
+ *
+ * Keyed by id and holding the inputs, rather than keyed by `id:revision`. A content item's revision
+ * advances on every save, so keying on the pair would leave a dead entry per edit and grow without
+ * bound over a session; one entry per item, replaced when its inputs move, is bounded by the size
+ * of the library — which is already in memory.
+ *
+ * **It validates on the title as well as the revision, and that is not belt-and-braces.** Revision
+ * is the obvious key and it is not sufficient: `setProjectItemTitle` folds a committed rename into
+ * the cached listing in place, `{ ...item, title }`, deliberately leaving revision alone so the
+ * rename does not race the kind's own writer. So a renamed note keeps its revision, and a cache
+ * trusting revision alone would serve the old title and leave the note unfindable by its new name
+ * until a reload. Validating on exactly the two fields the text is derived from cannot drift from
+ * how the text is built.
+ */
+const derived = new Map<string, Readonly<{ revision: number; text: string; title: string }>>();
+
 /** Everything one listed item can be matched against, lowercased once for the caller's loop. */
 function getContentSearchText(record: ContentItemRecord): string {
+  const cached = derived.get(record.id);
+
+  if (
+    cached !== undefined &&
+    cached.revision === record.revision &&
+    cached.title === record.title
+  ) {
+    return cached.text;
+  }
+
   const words = CONTENT_WORDS[record.kind];
   const extra = words === undefined ? "" : words(record.content as Record<string, unknown>);
+  const text = `${record.title} ${extra}`.toLowerCase();
 
-  return `${record.title} ${extra}`.toLowerCase();
+  derived.set(record.id, { revision: record.revision, text, title: record.title });
+
+  return text;
 }
 
 /**
