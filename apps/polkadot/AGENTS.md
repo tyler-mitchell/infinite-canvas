@@ -144,7 +144,7 @@ wolf is worse than none.
 ## Verifying in the browser
 
 Driving the running app is the only way to find most of what is wrong here, and the instruments
-lie. Eight did on 2026-08-26 alone. Each of these is a measured failure, not a caution:
+lie. Ten did on 2026-08-26 alone. Each of these is a measured failure, not a caution:
 
 - **A screenshot is authoritative about content and unreliable about layering.** Twice, from
   unrelated directions, a capture showed content that the DOM says is not in that element — a
@@ -181,6 +181,20 @@ lie. Eight did on 2026-08-26 alone. Each of these is a measured failure, not a c
   `document.hidden` before believing any animated geometry, and treat spring or transition end
   states as unverifiable here. Behaviour that does not need a frame — focus, enablement, dispatch,
   hit-testing — measures fine.
+
+- **A module observable read from a console probe is not a window onto the database.** Driving the
+  relation verbs, four separate reads said the write had not happened; an explicit
+  `loadRelations(projectId)` then showed it had, with exactly the value the verb wrote. Between
+  probes the app clears and repopulates `relations$` — `loadRelations` empties it whenever the
+  project id it holds differs — so a `peek()` can return `[]` moments after returning two rows,
+  and "the verb did nothing" is the reading that produces. Verify a write by calling the loader and
+  reading after it, never by watching the observable settle. The same probes also showed
+  `setTimeout` throttled to roughly one tick per second in this hidden pane, which turns a "wait 3
+  seconds" into a couple of ticks — do not build a verdict on a timed wait here.
+- **Import the app's own module URL, not the file path.** `import("/@fs/…/app-actions.ts")` resolves
+  to a different module identity than the app's own `/src/app-actions.ts` and hands back a second,
+  freshly-initialised copy: every observable on it reads empty, which looks exactly like an app with
+  no data rather than like the wrong instance. Import `/src/…` to reach what is actually running.
 
 **The probe discipline that would have prevented three of these.** Open the thing and read it in the
 _same_ evaluation. Every split probe here produced a confident wrong answer: a second `contextmenu`
