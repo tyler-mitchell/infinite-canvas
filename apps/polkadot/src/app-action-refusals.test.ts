@@ -106,6 +106,7 @@ test("a schema refusal names the field, so a caller can correct it rather than g
  */
 const HANDLE_VERBS: readonly Readonly<{ id: string; input: object }>[] = [
   { id: "content.open", input: { itemId: "never-existed" } },
+  { id: "content.archive", input: { itemId: "never-existed" } },
   { id: "window.reveal", input: { windowId: "never-existed" } },
   { id: "collection.create.connectedTo", input: { itemId: "never-existed" } },
   { id: "group.dissolve", input: { groupId: "never-existed" } },
@@ -222,6 +223,19 @@ test("a default edge with no label says nothing, because losing it costs nothing
   expect(
     refuse("relation.disconnect", { sourceItemId: "item-1", targetItemId: "item-2" }),
   ).toBeUndefined();
+});
+
+test("restore does not pretend to check an id it has no way to check", () => {
+  /*
+   * The deliberate exception to the table above, stated so it reads as a decision rather than an
+   * omission. Archived items are absent from `projectContent$` — that observable is what the library
+   * shows — so there is no local set to resolve against. Refusing would mean caching archived items
+   * purely so one verb could word an error better, and `content.restore` on an id naming nothing is
+   * a no-op in the database rather than a corruption.
+   */
+  expect(refuse("content.restore", { itemId: "never-existed" })).toBeUndefined();
+  // The shape is still checked, because that costs nothing and the schema is the caller's contract.
+  expect(refuse("content.restore", 42)).toMatch(/^Refused: /);
 });
 
 test("a verb that ran returns nothing, so the adapter can tell the two apart", () => {

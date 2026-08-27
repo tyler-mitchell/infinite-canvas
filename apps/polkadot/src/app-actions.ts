@@ -10,9 +10,14 @@ import { type, type Type } from "arktype";
 
 import { GROUP_LAYOUT_MODES } from "./canvas/group-layout-modes";
 import { openItemWindow } from "./canvas/open-item";
-import type { WindowKind } from "./canvas/window-registry";
+import { getContentWindowItemId, type WindowKind } from "./canvas/window-registry";
 import { LISTABLE_KINDS } from "./collections/listable-kinds";
-import { getProjectContent, projectContent$ } from "./content/project-content";
+import {
+  archiveProjectItem,
+  getProjectContent,
+  projectContent$,
+  restoreProjectItem,
+} from "./content/project-content";
 import { openNewCollection } from "./collections/open-collection";
 import { openNewNote } from "./notes/open-note";
 import { createDesktop } from "./workspace/create-desktop";
@@ -152,6 +157,21 @@ const OPEN_INPUT = type({ itemId: "string" });
  * `input` was added for.
  */
 const CONNECTED_INPUT = type({ itemId: "string" });
+
+/**
+ * Taking something out of the library, and putting it back.
+ *
+ * The vocabulary was lopsided and the tool list proved it: ninety-seven registered tools, and an
+ * agent could make a note, a collection and a connection while being unable to remove any of them.
+ * Archiving existed only behind the rail's button and a palette row — a capability a pointer can
+ * reach and nothing else, which `AGENTS.md` names as the shape to avoid.
+ *
+ * Archive takes an id from `content.list`; restore takes one from `content.listArchived`, which
+ * exists for exactly that reason. The two lists stay separate rather than one list with a flag,
+ * following the rail: it holds them apart so a set of items can never be read under the other's
+ * heading, and a report that mixed them would hand a caller ids it cannot act on with either verb.
+ */
+const ARCHIVE_INPUT = type({ itemId: "string" });
 
 /**
  * Joining two items, and the one place the entry-per-value rule is deliberately not applied.
@@ -714,6 +734,72 @@ const APP_ACTIONS: readonly AppAction[] = [
       // `window.reveal` rather than `focusWindow`: the framework's verb already handles a window
       // that is minimized, behind a tab, or on another desktop. Focusing alone reaches none of those.
       actions.executeCommand({ type: "window.reveal", windowId: target.id });
+
+      return undefined;
+    },
+  },
+  {
+    description:
+      "Archive an item, taking it out of the library. Reversible with content.restore. The id comes from content.list.",
+    id: "content.archive",
+    input: ARCHIVE_INPUT,
+    label: "Archive an item",
+    run: ({ actions, projectId, state }, input) => {
+      const parsed = ARCHIVE_INPUT(input);
+
+      if (parsed instanceof type.errors) {
+        return describeInvalidInput(parsed);
+      }
+
+      const item = getProjectContent(projectContent$.peek(), projectId)?.find(
+        (candidate) => candidate.id === parsed.itemId,
+      );
+
+      if (item === undefined) {
+        return NO_SUCH_ITEM;
+      }
+
+      /*
+       * The window closes with it, which is the rail's rule rather than a new one: an item no
+       * longer offered anywhere but still sitting open on the canvas is the state where "archived"
+       * stops meaning anything.
+       */
+      const openWindow = state.windows.find(
+        (window) => getContentWindowItemId(window) === parsed.itemId,
+      );
+
+      if (openWindow !== undefined) {
+        actions.closeWindow(openWindow.id);
+      }
+
+      void archiveProjectItem({ itemId: parsed.itemId, projectId });
+
+      return undefined;
+    },
+  },
+  {
+    description:
+      "Put an archived item back in the library. The id comes from content.listArchived.",
+    id: "content.restore",
+    input: ARCHIVE_INPUT,
+    label: "Restore an archived item",
+    run: ({ projectId }, input) => {
+      const parsed = ARCHIVE_INPUT(input);
+
+      if (parsed instanceof type.errors) {
+        return describeInvalidInput(parsed);
+      }
+
+      /*
+       * Not resolved against a cached listing, unlike every other id-taking verb here.
+       *
+       * Archived items are deliberately absent from `projectContent$` — that observable is what the
+       * library shows — so there is nothing local to check an id against. `content.restore` on an id
+       * naming nothing is a no-op in the database rather than a corruption, and inventing a second
+       * cache of archived items so this verb could refuse locally would be machinery bought to
+       * improve one error message.
+       */
+      void restoreProjectItem({ itemId: parsed.itemId, projectId });
 
       return undefined;
     },

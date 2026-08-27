@@ -10,6 +10,7 @@ import { describeCanvas } from "./canvas/describe-canvas";
 import type { WindowKind } from "./canvas/window-registry";
 import { describeProjectContent } from "./content/describe-content";
 import { projectContent$ } from "./content/project-content";
+import { content } from "./database/operations";
 import { getPublishedCanvasCommands } from "./published-commands";
 import { relations$ } from "./relations/relation-store";
 
@@ -160,6 +161,40 @@ function ModelContextTools({ projectId }: Readonly<{ projectId: string }>) {
       }),
       inputSchema: NO_INPUT,
       name: "content.list",
+    });
+    /*
+     * What has been taken out of the library, so `content.restore` has ids to be given.
+     *
+     * A separate report rather than a flag on `content.list`, following the rail: it holds the two
+     * lists apart so a set of items can never be read under the other's heading, and mixing them
+     * here would hand a caller ids that `content.open` refuses — archived items are deliberately
+     * absent from the listing the library shows.
+     *
+     * Read from the database rather than an observable, because nothing caches archived items. That
+     * is the same reason `content.restore` cannot refuse a bad id locally.
+     */
+    tools.push({
+      description:
+        "List the items archived out of this project, with the ids content.restore takes.",
+      execute: async () => {
+        const items = await content.listArchived({ projectId });
+
+        return {
+          content: [
+            {
+              text:
+                items.length === 0
+                  ? "Nothing is archived in this project."
+                  : `${String(items.length)} archived: ${items
+                      .map((item) => `${item.kind} "${item.title}" [${item.id}]`)
+                      .join("; ")}.`,
+              type: "text" as const,
+            },
+          ],
+        };
+      },
+      inputSchema: NO_INPUT,
+      name: "content.listArchived",
     });
     /*
      * The canvas's own vocabulary, which was registered nowhere and reachable by nothing.
