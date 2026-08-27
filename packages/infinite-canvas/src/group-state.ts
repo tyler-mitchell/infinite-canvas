@@ -10,6 +10,7 @@ import {
   findInfiniteCanvasGroupNode,
   getInfiniteCanvasGroupParent,
   getInfiniteCanvasGroupWindowIds,
+  isInfiniteCanvasGroupContainer,
   normalizeInfiniteCanvasGroupTree,
   reorderInfiniteCanvasGroupChild,
   setInfiniteCanvasGroupActiveChild,
@@ -166,6 +167,37 @@ function isSameRect(left: InfiniteCanvasRect, right: InfiniteCanvasRect): boolea
   );
 }
 
+/**
+ * The window a group has decayed to, or `null` if it has not decayed.
+ *
+ * A group is a container for more than one window. Take it down to a single member and the
+ * container is gone — `normalizeInfiniteCanvasGroupTree` collapses a one-child split to its child —
+ * and what is left is one window wearing a shell: a border, eight resize handles, a label, and a
+ * footprint several times the window's own. Watched in the incubator on 2026-08-27: archiving a
+ * note closed its pane's window and left a 544×720 shell around the one that remained, still
+ * labelled "Untitled 6 & Connected to Untitled 6" after Untitled 6 had gone.
+ *
+ * **Decayed, not merely single.** A group deliberately created around one window is a supported
+ * state and a useful one — `createInfiniteCanvasGroup` has an explicit branch building that tree,
+ * so a consumer can make a shell and then dock into it. The two are indistinguishable from the
+ * resulting tree alone, which is why this compares against the group as it stands: more than one
+ * member before and one after is decay; one before and one after is what the caller asked for.
+ *
+ * A one-*tab* group survives either way, and that is the normalizer's rule rather than an exception
+ * here: a tabs container with one child is still a container, so it never reaches this at all. It
+ * has a strip you can drop onto, which is what makes a shell worth its chrome.
+ */
+function getInfiniteCanvasDecayedGroupMemberId(
+  group: InfiniteCanvasGroup,
+  tree: InfiniteCanvasGroupNode | null,
+): string | null {
+  if (tree === null || isInfiniteCanvasGroupContainer(tree)) {
+    return null;
+  }
+
+  return getInfiniteCanvasGroupWindowIds(group.tree).length > 1 ? tree.id : null;
+}
+
 /** Replace one group, or drop it when its tree emptied out (DOCK-005). */
 function withInfiniteCanvasGroupTree<Kind extends string>(
   state: InfiniteCanvasState<Kind>,
@@ -178,6 +210,28 @@ function withInfiniteCanvasGroupTree<Kind extends string>(
       : state.groups.map((group) => (group.id === groupId ? { ...group, tree } : group));
 
   return syncInfiniteCanvasGroupWindowRects({ ...state, groups });
+}
+
+/**
+ * Dissolve a shell whose last companion was taken away rather than moved out.
+ *
+ * A survivor takes the group's rect, which is the answer `group.dissolve` already gives — members
+ * inherit the space the shell held, and with one member there is no packing to do: it gets all of
+ * it. Keeping the pane rect would leave the window at half the footprint the user sized, beside an
+ * empty hole where the other pane was.
+ */
+function dissolveInfiniteCanvasDecayedGroup<Kind extends string>(
+  state: InfiniteCanvasState<Kind>,
+  group: InfiniteCanvasGroup,
+  memberId: string,
+): InfiniteCanvasState<Kind> {
+  return syncInfiniteCanvasGroupWindowRects({
+    ...state,
+    groups: state.groups.filter((candidate) => candidate.id !== group.id),
+    windows: state.windows.map((window) =>
+      window.id === memberId ? { ...window, rect: group.rect } : window,
+    ),
+  });
 }
 
 function getNextInfiniteCanvasGroupZIndex<Kind extends string>(
@@ -412,6 +466,14 @@ function undockInfiniteCanvasWindowFromGroup<Kind extends string>(
  * Drop a window out of every group that claims it, without giving it a rect.
  * Closing and minimizing both need this: a window that is gone, or collapsed to
  * the dock, cannot keep occupying a layout slot.
+ *
+ * **A shell left holding one member dissolves here, and deliberately not in `undock`.** Both end
+ * with one window in a shell; only one of them is something the user asked for. Undocking is
+ * rearrangement — the shell is the workspace being rearranged within, and keeping it is what lets
+ * a window be pulled out and another dropped back in, which is why `DOCK-006` asserts the shell
+ * survives. Detaching is not rearrangement: the window was closed or minimized, nobody touched the
+ * group, and a shell around the survivor is scaffolding left standing after the thing it was
+ * scaffolding for went away.
  */
 function detachInfiniteCanvasWindowFromGroups<Kind extends string>(
   state: InfiniteCanvasState<Kind>,
@@ -423,11 +485,12 @@ function detachInfiniteCanvasWindowFromGroups<Kind extends string>(
     return state;
   }
 
-  return withInfiniteCanvasGroupTree(
-    state,
-    group.id,
-    undockInfiniteCanvasGroupWindow(group.tree, windowId),
-  );
+  const tree = undockInfiniteCanvasGroupWindow(group.tree, windowId);
+  const decayedMemberId = getInfiniteCanvasDecayedGroupMemberId(group, tree);
+
+  return decayedMemberId === null
+    ? withInfiniteCanvasGroupTree(state, group.id, tree)
+    : dissolveInfiniteCanvasDecayedGroup(state, group, decayedMemberId);
 }
 
 function setInfiniteCanvasGroupActiveChildInState<Kind extends string>(
@@ -570,6 +633,8 @@ function reconcileInfiniteCanvasGroups<Kind extends string>(
   );
   const groups: InfiniteCanvasGroup[] = [];
   const claimedWindowIds = new Set<string>();
+  /** Survivors of a shell that decayed here, and the footprint each inherits. */
+  const freedRects = new Map<string, InfiniteCanvasRect>();
 
   for (const group of state.groups) {
     let tree: InfiniteCanvasGroupNode | null = group.tree;
@@ -586,12 +651,37 @@ function reconcileInfiniteCanvasGroups<Kind extends string>(
       tree = tree === null ? null : undockInfiniteCanvasGroupWindow(tree, windowId);
     }
 
+    /*
+     * The same rule `detach` applies, for the same reason and on the same cause.
+     *
+     * Reconciliation runs when a window a tree names is gone — dead on hydration because its kind
+     * left the registry, minimized into the dock, or claimed by an earlier group. Nobody touched
+     * the group in any of those, so a shell left holding one member is residue here exactly as it
+     * is there. Without this, a canvas saved while decayed reopens still decayed, which is how the
+     * incubator's own saved layout looked on 2026-08-27: one member, a full shell, and a name
+     * describing two windows.
+     */
+    const decayedMemberId = getInfiniteCanvasDecayedGroupMemberId(group, tree);
+
+    if (decayedMemberId !== null) {
+      freedRects.set(decayedMemberId, group.rect);
+      continue;
+    }
+
     if (tree !== null) {
       groups.push({ ...group, tree });
     }
   }
 
-  return syncInfiniteCanvasGroupWindowRects({ ...state, groups });
+  return syncInfiniteCanvasGroupWindowRects({
+    ...state,
+    groups,
+    windows: state.windows.map((window) => {
+      const rect = freedRects.get(window.id);
+
+      return rect === undefined ? window : { ...window, rect };
+    }),
+  });
 }
 
 /**
