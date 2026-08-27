@@ -26,6 +26,7 @@ import { content } from "../database/operations";
 import { noteGateway, toNote } from "../notes/note-gateway";
 import { renameNote } from "../notes/note-store";
 import { openNewNote } from "../notes/open-note";
+import { matchesContentSearch } from "../content/searchable-text";
 import {
   archiveProjectItem,
   getProjectContent,
@@ -364,8 +365,9 @@ export function LibraryRail({
       </button>
     ),
   };
-  const visible =
-    terms === "" ? notes : notes.filter((note) => note.title.toLowerCase().includes(terms));
+  // Title *and* content. This matched titles alone, so a phrase visibly on screen in a note's body
+  // returned "Nothing matches that" — in an app whose notes are called "Untitled 7" by default.
+  const visible = terms === "" ? notes : notes.filter((note) => matchesContentSearch(note, terms));
 
   /**
    * Reach an item wherever it is. Whatever kind it is — the rail lists every kind now.

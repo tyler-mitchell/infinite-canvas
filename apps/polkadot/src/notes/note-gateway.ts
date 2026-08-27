@@ -2,6 +2,7 @@ import { type } from "arktype";
 
 import type { ContentItemRecord } from "../database/database.client";
 import { content } from "../database/operations";
+import { getNoteText } from "./note-text";
 
 /**
  * A note, as the note layer sees a content item.
@@ -43,9 +44,14 @@ function toNote(record: ContentItemRecord): NoteRecord {
  * up. No expression over an arbitrary `content` object could find the words — an image's
  * searchable text is its description, and the two shapes share no field — so the kind that knows
  * hands them over.
+ *
+ * `draft.text` is a serialized editor state, and this used to interpolate it whole. So the index
+ * entry for a note reading "see @Untitled 7" was 445 characters of `type`, `format`, `version`,
+ * `paragraph`, `normal` and a raw record id, with fifteen characters of prose in it — every note
+ * matching every one of those words, and none of them matching what the note is about.
  */
 function getNoteSearchText(draft: Readonly<{ text: string; title: string }>) {
-  return `${draft.title} ${draft.text}`;
+  return `${draft.title} ${getNoteText(draft.text)}`;
 }
 
 /**
