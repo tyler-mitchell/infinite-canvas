@@ -110,6 +110,37 @@ listed as closed, and the recent-notes dedup never fired. Not one of them errore
 Through the guard, a shape that no longer validates fails at the boundary, loudly, where the
 mismatch is. Past it, `undefined === "x"` is false and the app carries on being subtly wrong.
 
+`window-data-reads.test.ts` fails the build on a cast of a window payload anywhere in the app. It
+bit on its first run and found two live instances nobody had noticed.
+
+## When a framework field gains `null`
+
+**The typechecker will not find the readers.** `InfiniteCanvasGroup.title` became `string | null`
+on 2026-08-27 — `null` meaning "named after its members" — and two readers survived a clean
+typecheck and a full suite:
+
+- A template. `` `"${group.title}"` `` accepts `null` and renders the literal string `"null"`. This
+  shipped in `describe-canvas.ts`, which is the half of the app's vocabulary an agent depends on
+  entirely, so the wrong sentence was invisible to anyone who could see the screen.
+- A `??` fallback. `group.title ?? "Group"` swallowed the `null` into the framework's placeholder,
+  so every offscreen arrow pointing at an unnamed group read "Go to Group". Worse than the first
+  for being plausible: `"null"` is obviously broken, a placeholder just looks like a label.
+
+So after widening a type, find the readers by hand — `mcp__type-atlas__references` on the property
+itself, not a text search — and read each one for interpolation and for a fallback that now
+absorbs a meaningful value.
+
+**There is no lint rule for this here, and that was checked rather than assumed.**
+`typescript/restrict-template-expressions` is the typescript-eslint rule that would catch the
+first case; this toolchain's oxlint does not implement it. Enabling it in `vite.config.ts` produced
+no diagnostic on an isolated `string | null` interpolation and no complaint about an unknown rule
+either — unknown names are ignored silently, so a rule listed in config is not evidence a rule
+runs. Prove it fires on a case you construct before trusting it.
+
+A text guard was considered for the read side and rejected: the palette legitimately interpolates
+`.title` inside a null-checked branch, so a scan would flag correct code, and a guard that cries
+wolf is worse than none.
+
 ## Verifying in the browser
 
 Driving the running app is the only way to find most of what is wrong here, and the instruments
