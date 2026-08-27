@@ -34,18 +34,55 @@
  */
 
 /**
+ * How long the chain waits for one creation before letting the next go.
+ *
+ * **This exists because the lock made a failure worse.** Before it, a creation that never settled
+ * cost one dead click. Chained, it would hold `tail` forever and every later creation in the tab
+ * would wait behind it — one dead click became a permanently dead button, for the session.
+ *
+ * Not a hypothetical: a creation that never completes was watched in one browser on 2026-08-27, and
+ * `indexedDB` blocks indefinitely by design when another tab holds a version change open. A lock
+ * whose worst case is "this feature stops working until reload" is worse than the duplicate name it
+ * was added to prevent.
+ *
+ * Ten seconds is far past any local write and far short of a person deciding the app is broken.
+ * When it elapses the guarantee is given up rather than the app: the stalled work is still running
+ * and may yet write, so the next creation can pick a name that collides — which is exactly the
+ * behaviour before this file existed. Degrading to the old bug beats degrading to no feature.
+ */
+const NAMING_LOCK_TIMEOUT_MS = 10_000;
+
+/**
  * The tail of the chain. Rejections are swallowed *for the chain only*, so one failed creation does
  * not poison every later one; the original promise still rejects for its own caller.
  */
 let tail: Promise<unknown> = Promise.resolve();
 
-/** Run `work` once everything already claimed has finished, and hand back its own promise. */
-const withNamingLock = <T>(work: () => Promise<T>): Promise<T> => {
+/**
+ * Run `work` once everything already claimed has finished, and hand back its own promise.
+ *
+ * The caller's promise is `next` itself — untimed and unswallowed. Only the *chain* gives up
+ * waiting, because the caller asked for this creation and is owed its real outcome, however long
+ * that takes or however it fails.
+ */
+const withNamingLock = <T>(
+  work: () => Promise<T>,
+  timeoutMs = NAMING_LOCK_TIMEOUT_MS,
+): Promise<T> => {
   const next = tail.then(work, work);
 
-  tail = next.catch(() => undefined);
+  tail = Promise.race([
+    next.catch(() => undefined),
+    new Promise((resolve) => {
+      const timer = setTimeout(resolve, timeoutMs);
+
+      // Never hold the process open for a lock nobody is waiting on. Node's timer has `unref`;
+      // the browser's number does not, so this is guarded rather than assumed.
+      (timer as unknown as { unref?: () => void }).unref?.();
+    }),
+  ]);
 
   return next;
 };
 
-export { withNamingLock };
+export { NAMING_LOCK_TIMEOUT_MS, withNamingLock };

@@ -91,6 +91,36 @@ test("one failure does not poison the creations after it", async () => {
   await expect(withNamingLock(create)).resolves.toBe("Untitled 1");
 });
 
+test("a creation that never settles does not hold every later one behind it", async () => {
+  /*
+   * The regression the lock itself introduced, and the reason for the timeout.
+   *
+   * Unchained, a hung create costs one dead click. Chained without a bound, it holds the tail
+   * forever and the button is dead for the rest of the session. A short timeout is passed here so
+   * the test measures the mechanism rather than waiting ten seconds for it.
+   */
+  const store: string[] = [];
+  const create = makeCreator(store);
+
+  // Never resolves. Its own caller is left waiting, correctly — it genuinely did not finish.
+  void withNamingLock(() => new Promise<string>(() => undefined), 20);
+
+  await expect(withNamingLock(create, 20)).resolves.toBe("Untitled 1");
+});
+
+test("the stalled caller is still waiting, because its work really did not finish", async () => {
+  // The other half: the chain gives up, the caller does not get a fabricated answer.
+  let settled = false;
+  const stalled = withNamingLock(() => new Promise<string>(() => undefined), 20);
+
+  void stalled.then(() => {
+    settled = true;
+  });
+  await withNamingLock(async () => "moved on", 20);
+
+  expect(settled).toBe(false);
+});
+
 test("a rejection reaches its own caller rather than being swallowed", async () => {
   // The other half: silencing the chain must not silence the person who asked.
   await expect(
