@@ -7,6 +7,8 @@ import {
   toCollection,
 } from "../collections/collection-gateway";
 import type { ContentItemRecord } from "../database/database.client";
+import { IMAGE_KIND, imageGateway } from "../images/image-gateway";
+import { LINK_KIND, linkGateway } from "../links/link-gateway";
 import { NOTE_KIND, noteGateway, toNote } from "../notes/note-gateway";
 import { renameNote } from "../notes/note-store";
 import { setProjectItemTitle } from "./project-content";
@@ -43,6 +45,12 @@ const TITLE_WRITERS: Readonly<Record<string, (item: ContentItemRecord, title: st
       revision: collection.revision,
       title,
     });
+  },
+  [IMAGE_KIND]: (item, title) => {
+    void imageGateway.rename({ item, title });
+  },
+  [LINK_KIND]: (item, title) => {
+    void linkGateway.rename({ item, title });
   },
   /*
    * Converted rather than spread: `renameNote` seeds its store from what it is handed and then saves
@@ -102,11 +110,17 @@ const renameProjectItem = (
 
   if (write === undefined) {
     /*
-     * The kind is stated rather than given an article. Interpolating after "a" produced "a image",
-     * which a caller reads as carelessness in the one sentence telling it what to do instead — and
-     * picking the article from the first letter would be a rule to maintain for a handful of words.
+     * Unreachable for every kind this app currently has, and kept anyway.
+     *
+     * It used to fire for images and links, telling a caller to rename them "from its own window" —
+     * a route that did not exist, since an image window has no controls at all and a link window has
+     * exactly one, "Open in browser". Rather than correct the sentence, both gateways grew a
+     * `rename`, so the message is now what it always should have been: a report about a kind nobody
+     * has taught this app to save, which is a thing only a fifth kind can be.
+     *
+     * The kind is quoted rather than given an article; interpolating after "a" produced "a image".
      */
-    return `Refused: nothing can save a new title for a "${input.item.kind}", so it is renamed from its own window instead.`;
+    return `Refused: nothing here can save a new title for a "${input.item.kind}" — its kind has no writer yet.`;
   }
 
   write(input.item, next);

@@ -71,6 +71,31 @@ export const linkGateway = {
 
     return record === null ? null : toLink(record);
   },
+  /**
+   * A new name, keeping the address it points at.
+   *
+   * Added for the reason `imageGateway.rename` was: without it a link's title could not be changed
+   * anywhere, and `content.rename` refused with a message naming the link's own window — which
+   * offers exactly one control, "Open in browser".
+   *
+   * The address stays in the search text, which is the rule `create` already set: half of finding a
+   * link is remembering where it went. `host` is recomputed from nothing — the url has not changed,
+   * so the stored host is still right, and deriving it again would risk `getLinkHost` disagreeing
+   * with itself across versions for a value nobody edited.
+   */
+  rename: async (input: Readonly<{ item: ContentItemRecord; title: string }>) => {
+    const link = toLink(input.item);
+
+    return toLink(
+      await content.save({
+        content: link.content,
+        itemId: link.id,
+        revision: link.revision,
+        searchText: `${input.title} ${link.content.url}`,
+        title: input.title,
+      }),
+    );
+  },
 };
 
 export { getLinkHost, LINK_KIND, LinkContent };

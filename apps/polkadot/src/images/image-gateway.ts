@@ -74,6 +74,37 @@ export const imageGateway = {
 
     return record === null ? null : toImage(record);
   },
+  /**
+   * A new name, and nothing else.
+   *
+   * This gateway had `create`, `list` and `read`, so an image's title could not be changed anywhere
+   * in the app: the library rail refused it, and `content.rename` told a caller to use the image's
+   * own window — which has no title control, and no controls at all. The message named a route that
+   * did not exist.
+   *
+   * Narrower than `save` on purpose. `content.save` replaces the whole record, and the only other
+   * thing an image holds is its `description` — the `alt` text, which is separate from the title
+   * deliberately, since renaming a window to "Reference" should not claim the picture depicts the
+   * word Reference. A `save` here would invite passing one without the other; taking only a title
+   * cannot.
+   *
+   * The description stays in the search text. It is what makes an image findable at all — there are
+   * no words in a picture — so dropping it to index the new title alone would trade one name for
+   * another rather than adding one.
+   */
+  rename: async (input: Readonly<{ item: ContentItemRecord; title: string }>) => {
+    const image = toImage(input.item);
+
+    return toImage(
+      await content.save({
+        content: image.content,
+        itemId: image.id,
+        revision: image.revision,
+        searchText: `${input.title} ${image.content.description}`,
+        title: input.title,
+      }),
+    );
+  },
 };
 
 export { IMAGE_KIND, ImageContent };

@@ -59,22 +59,17 @@ test("renaming something to what it is already called is not a rename", () => {
 
 test("a kind with no writer is refused rather than half-renamed", () => {
   /*
-   * The palette threw here. `toNote` asserts a note's content shape, so handing it an image raised
-   * out of a click handler with nothing to catch it.
+   * No kind this app ships reaches this any more, which is the point of the history.
    *
-   * Refusing is not conservatism: `content.save` needs the record's content, revision and search
-   * text, which only a kind's own gateway holds, and `setProjectItemTitle` writes to the cached
-   * listing rather than to storage. A kind with no writer would look renamed until the next read.
+   * "collection" was refused until the gateways were read — it had a `save` taking a title all
+   * along. Then images and links were refused with a message naming a route that did not exist: an
+   * image window has no controls and a link window has one, "Open in browser". Both gateways grew a
+   * `rename` rather than the sentence being corrected.
    *
-   * **Images and links only.** "collection" was in this list until the gateways were read: it has a
-   * `save` that takes a title, so it was being refused a rename the database would have stored. The
-   * image and link gateways expose `create`, `list` and `read` and nothing else.
+   * So this now guards a fifth kind added without a writer, which would otherwise look renamed until
+   * the next read — `setProjectItemTitle` writes to the cached listing, not to storage.
    */
-  for (const kind of ["image", "link"]) {
-    expect(rename(item(kind, "Untitled 1"), "Better name"), kind).toContain(
-      "renamed from its own window",
-    );
-  }
+  expect(rename(item("diagram", "Untitled 1"), "Better name")).toContain("has no writer yet");
 
   /*
    * Deliberately not asserting that a *note* passes this guard. Doing so runs the real write —
@@ -85,15 +80,15 @@ test("a kind with no writer is refused rather than half-renamed", () => {
    */
 });
 
-test("the refusal names the kind, so a caller knows which window to go to", () => {
+test("the refusal names the kind it could not save", () => {
   // Quoted rather than given an article: an earlier version read "a image", caught by this test.
   // Choosing "a" or "an" from the first letter would be a rule to keep for a handful of words.
-  expect(rename(item("image", "photo.png"), "Cover")).toContain('a "image"');
-  expect(rename(item("link", "example.com"), "Source")).toContain('a "link"');
+  expect(rename(item("diagram", "sketch"), "Cover")).toContain('a "diagram"');
+  expect(rename(item("recording", "take 1"), "Interview")).toContain('a "recording"');
 });
 
 test("blank is checked before kind, so the worse answer is not given for the smaller mistake", () => {
-  // An empty rename of an image is an empty rename. Telling someone to go to the window chrome to
-  // type nothing would send them somewhere for no reason.
-  expect(rename(item("image", "photo.png"), "  ")).toBe("Refused: a name cannot be blank.");
+  // An empty rename is an empty rename whatever the kind. Reporting a missing writer for it would
+  // answer a question the caller did not ask and hide the one it got wrong.
+  expect(rename(item("diagram", "sketch"), "  ")).toBe("Refused: a name cannot be blank.");
 });
