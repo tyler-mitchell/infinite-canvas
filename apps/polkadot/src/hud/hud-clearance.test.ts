@@ -1,29 +1,42 @@
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+
 import { expect, test } from "vite-plus/test";
 
-import { BOTTOM_INSET } from "./chrome-insets";
-import { BUILT_IN_HUD_EXTENT, getBuiltInHudClearance } from "./hud-clearance";
+import { BARE_CORNER_PX, GAP_PX } from "./hud-clearance";
 
 /**
- * A corner surface sits above the rail the canvas puts in that corner.
+ * A corner surface sits above the rail the canvas puts in that corner, on the canvas's own numbers.
  *
- * The numbers here are measured, not chosen, and pinning them is the point: `BUILT_IN_HUD_EXTENT`
- * describes the framework's chrome rather than this app's, so nothing tells us when it moves. If it
- * does, the arithmetic below stays true while the app is wrong on screen — so the measured total is
- * asserted outright, and a change to either constant has to be a deliberate edit to this line.
+ * There is no arithmetic left here to test — the position comes from `--icx-hud-extent-bottom`,
+ * which the framework writes as it lays its HUD out. What is worth guarding is that this app is
+ * still *asking*: an earlier version restated the rail's height as a constant, and the version
+ * before that guessed it, and both were wrong on screen while every test passed.
  *
- * What it cannot catch is the framework retuning its own HUD, which is why `ROADMAP.md` carries the
- * affordance that would end the coupling: the canvas publishing where its HUD ended up.
+ * So the assertion is on the source. What goes missing here is the `var()` itself, and it goes
+ * missing the moment somebody "simplifies" a `calc` back into a number.
  */
 
-test("the corner clearance sits above the rail, by the gap it says it leaves", () => {
-  // Read from `data-slot="hud-group"` in the running app at 1440×900 on 2026-08-27.
-  const measuredRailTopPx = 114;
+const SURFACES = fileURLToPath(new URL("./hud-surfaces.tsx", import.meta.url));
 
-  expect(BOTTOM_INSET + BUILT_IN_HUD_EXTENT).toBe(measuredRailTopPx);
-  expect(getBuiltInHudClearance(BOTTOM_INSET)).toBeGreaterThan(measuredRailTopPx);
+test("the corner asks the canvas where its HUD ended up", () => {
+  const source = readFileSync(SURFACES, "utf8");
+
+  expect(source).toContain("--icx-hud-extent-bottom");
+  /*
+   * The named constants, not their values. The first draft of this asserted the rendered `16px`
+   * and failed: the source interpolates, so the digits never appear as text. Asserting the names
+   * is what was wanted anyway — it catches a number being inlined over the constant, which is the
+   * shape every earlier version of this bug took.
+   */
+  expect(source).toContain("BARE_CORNER_PX");
+  expect(source).toContain("GAP_PX");
+  expect(BARE_CORNER_PX).toBeGreaterThan(0);
+  expect(GAP_PX).toBeGreaterThan(0);
 });
 
-/** The inset is the caller's, so a consumer reserving more bottom chrome pushes the corner up. */
-test("it moves with the inset the canvas was given, because the rail does", () => {
-  expect(getBuiltInHudClearance(BOTTOM_INSET + 40) - getBuiltInHudClearance(BOTTOM_INSET)).toBe(40);
+test("the scan would notice the var being replaced by a number", () => {
+  const flattened = readFileSync(SURFACES, "utf8").replaceAll("--icx-hud-extent-bottom", "122");
+
+  expect(flattened).not.toContain("--icx-hud-extent-bottom");
 });

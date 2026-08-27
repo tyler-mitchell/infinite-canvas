@@ -1,6 +1,6 @@
 "use client";
 
-import type { CSSProperties } from "react";
+import { useLayoutEffect, useRef, type CSSProperties } from "react";
 
 import { DEFAULT_INFINITE_CANVAS_STACK_BANDS } from "./constants";
 import { INFINITE_CANVAS_SLOTS } from "./data-attributes";
@@ -89,6 +89,30 @@ const HUD_GROUP_STYLE = {
  * controls hold their intrinsic size, and `marginLeft: auto` keeps the controls right even when
  * there is no dock beside them — which `justify-content: space-between` would get wrong.
  */
+/**
+ * How far the HUD's own chrome reaches in from an edge, published for the consumer to read.
+ *
+ * `viewportInsets` runs consumer → canvas: here is what my chrome covers, aim around it. Nothing
+ * ran the other way, so an app wanting the bottom-right corner — where this HUD puts its dock and
+ * its zoom controls — had to guess where they end. Polkadot guessed 64px against an actual 114 and
+ * spent weeks with 37% of its minimap under a rail that swallowed the clicks.
+ *
+ * A consumer cannot compute this. The rails are placed against an inset the consumer supplied, so
+ * the answer depends on the consumer's own input; and observing it from outside means racing a
+ * layout this component performs — mounting after the consumer's surfaces, moving when insets
+ * apply, and doing neither in a way the platform reports. Four attempts at that are recorded in
+ * Polkadot's `hud-clearance.ts`; each shipped a wrong number that typechecked.
+ *
+ * Written where it renders, which is the one moment the answer is known for certain. A consumer
+ * then writes `bottom: calc(var(--icx-hud-extent-bottom, 0px) + 8px)` and is done — no observers,
+ * no timing, and the fallback covers a canvas whose HUD is turned off.
+ *
+ * Measured from the viewport's edge rather than from the inset, because that is the box a
+ * consumer's own absolutely-positioned chrome resolves against.
+ */
+const HUD_EXTENT_BOTTOM_PROPERTY = "--icx-hud-extent-bottom";
+const HUD_EXTENT_TOP_PROPERTY = "--icx-hud-extent-top";
+
 const HUD_BOTTOM_BAND_STYLE = {
   alignItems: "flex-end",
   bottom: "16px",
@@ -168,6 +192,48 @@ function InfiniteCanvasHud({
    * every app has to discover it independently.
    */
   const showDock = resolvedPolicy.minimizedDock && minimizedWindows.length > 0;
+  const rootRef = useRef<HTMLDivElement>(null);
+
+  /*
+   * Re-measured on every render, deliberately without a dependency array.
+   *
+   * What moves these rails is not any one value this component could depend on: the consumer's
+   * insets, the dock gaining a window, the viewport resizing, a policy turning a control off. Every
+   * one of them re-renders this component, so running after each render is both the cheapest
+   * correct trigger and the only one that cannot go stale — and `useLayoutEffect` reads the box in
+   * the same frame it was laid out in, so no consumer ever sees a value from the render before.
+   *
+   * Observers were the obvious alternative and are the wrong tool here: their delivery is tied to
+   * rendering opportunities, which a hidden document does not have, so a canvas in a background tab
+   * would publish nothing until it was looked at.
+   */
+  useLayoutEffect(() => {
+    const root = rootRef.current;
+    const viewport = root?.closest(`[data-slot="${INFINITE_CANVAS_SLOTS.viewport}"]`);
+
+    if (root === null || !(viewport instanceof HTMLElement)) {
+      return;
+    }
+
+    const bounds = viewport.getBoundingClientRect();
+    const band = root.querySelector(`[data-slot="${INFINITE_CANVAS_SLOTS.hudBand}"]`);
+    const status = root.querySelector(`[data-slot="${INFINITE_CANVAS_SLOTS.hudStatus}"]`);
+    const reach = (edge: number) => `${String(Math.max(0, Math.round(edge)))}px`;
+
+    viewport.style.setProperty(
+      HUD_EXTENT_BOTTOM_PROPERTY,
+      reach(band === null ? 0 : bounds.bottom - band.getBoundingClientRect().top),
+    );
+    viewport.style.setProperty(
+      HUD_EXTENT_TOP_PROPERTY,
+      reach(status === null ? 0 : status.getBoundingClientRect().bottom - bounds.top),
+    );
+
+    return () => {
+      viewport.style.removeProperty(HUD_EXTENT_BOTTOM_PROPERTY);
+      viewport.style.removeProperty(HUD_EXTENT_TOP_PROPERTY);
+    };
+  });
 
   if (!showControlsRow && !showDock && !resolvedPolicy.statusCard) {
     return null;
@@ -176,6 +242,7 @@ function InfiniteCanvasHud({
   return (
     <div
       data-slot={INFINITE_CANVAS_SLOTS.hud}
+      ref={rootRef}
       /*
        * Inset by whatever the consumer said its own chrome covers, rather than pinned to the
        * element's edges.
@@ -220,7 +287,7 @@ function InfiniteCanvasHud({
         </div>
       ) : null}
       {showDock || showControlsRow ? (
-        <div style={HUD_BOTTOM_BAND_STYLE}>
+        <div data-slot={INFINITE_CANVAS_SLOTS.hudBand} style={HUD_BOTTOM_BAND_STYLE}>
           {showDock ? (
             <div data-slot={INFINITE_CANVAS_SLOTS.hudDock} style={HUD_DOCK_STYLE}>
               {minimizedWindows.map((window) => (

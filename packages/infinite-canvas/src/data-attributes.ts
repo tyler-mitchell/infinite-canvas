@@ -23,6 +23,8 @@ const INFINITE_CANVAS_SLOTS = {
   groupTab: "group-tab",
   groupTabStrip: "group-tab-strip",
   hud: "hud",
+  /** The single flex row along the bottom edge: the dock on the left, the controls on the right. */
+  hudBand: "hud-band",
   hudButton: "hud-button",
   hudDock: "hud-dock",
   hudDockItem: "hud-dock-item",

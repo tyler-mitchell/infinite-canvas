@@ -8,8 +8,7 @@ import { AnimatePresence, motion } from "motion/react";
 import type { ReactNode } from "react";
 import { tv } from "ui/tv";
 
-import { BOTTOM_INSET } from "./chrome-insets";
-import { getBuiltInHudClearance } from "./hud-clearance";
+import { BARE_CORNER_PX, GAP_PX } from "./hud-clearance";
 
 /**
  * The HUD's frame: where surfaces sit, and when they are allowed to be there.
@@ -104,9 +103,16 @@ function HudSurface({
           animate={{ opacity: receded ? 0.25 : 1, scale: 1, y: 0 }}
           className={styles.surface()}
           data-activity={activity}
+          /*
+           * The canvas says where its own chrome ended up; this only adds the gap.
+           *
+           * `--icx-hud-extent-bottom` is written by the HUD in the frame it lays itself out in, so
+           * there is nothing here to observe, race, or restate. The fallback is for a canvas whose
+           * HUD is turned off, where the ordinary corner offset is the right answer.
+           */
           style={
             anchor === "bottom-right-above"
-              ? { bottom: getBuiltInHudClearance(BOTTOM_INSET) }
+              ? { bottom: `calc(var(--icx-hud-extent-bottom, ${BARE_CORNER_PX}px) + ${GAP_PX}px)` }
               : undefined
           }
           exit={{ opacity: 0, scale: 0.96, y: 4 }}

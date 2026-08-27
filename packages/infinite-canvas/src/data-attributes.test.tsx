@@ -118,6 +118,7 @@ test("INFINITE_CANVAS_SLOTS is the complete slot vocabulary", () => {
     groupTab: "group-tab",
     groupTabStrip: "group-tab-strip",
     hud: "hud",
+    hudBand: "hud-band",
     hudButton: "hud-button",
     hudDock: "hud-dock",
     hudDockItem: "hud-dock-item",
@@ -365,6 +366,12 @@ test("hud emits status, dock, groups, buttons, and the zoom readout", () => {
   expect(markup).toContain('data-slot="hud-subtitle"');
   expect(markup).toContain('data-slot="hud-dock"');
   expect(countOccurrences(markup, 'data-slot="hud-dock-item"')).toBe(1);
+  /*
+   * The band is what a consumer measures against, so it has to be findable rather than the
+   * unlabelled div it was. One, not two: the dock and the controls share a single row precisely so
+   * they cannot overlap, and a second band would mean that rule had been undone.
+   */
+  expect(countOccurrences(markup, 'data-slot="hud-band"')).toBe(1);
 
   expect(countOccurrences(markup, 'data-slot="hud-group"')).toBe(3);
   for (const group of ["camera", "pointer-mode", "zoom"]) {
