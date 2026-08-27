@@ -19,6 +19,13 @@ import { expect, test } from "vite-plus/test";
  * Comparing resolved values rather than contrast, deliberately: the ramp is designed so adjacent
  * surfaces are close, and a threshold would either fail the whole ramp or pass the exact identity
  * that shipped. Identity is the defect this file exists to catch.
+ *
+ * **`--muted` is the same shape and is deliberately not asserted.** It is also `var(--surface)`, so
+ * `bg-muted` on a card would be invisible in exactly the same way — but the only `bg-muted` in the
+ * shared primitives is the default `Tabs` list, and Polkadot renders no `Tabs` at all. It is latent
+ * rather than broken. Adding it here would force a colour to be chosen for a region nothing draws,
+ * and whether a muted well should read as raised or as recessed is a decision for whoever first
+ * needs one to look right. If a `Tabs` arrives, this is the paragraph that says what to check.
  */
 
 const source = readFileSync(fileURLToPath(new URL("styles.css", import.meta.url)), "utf8");
