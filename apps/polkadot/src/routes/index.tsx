@@ -27,12 +27,26 @@ export const Route = createFileRoute("/")({
   pendingMs: 200,
 });
 
+/**
+ * One sentence, whoever wrote the first half.
+ *
+ * This appended `.` to `error.message`, and `database.client`'s own docstring asks every thrower to
+ * leave its message unpunctuated for exactly that reason. Three of the five errors that reach here
+ * end in `${getErrorMessage(error)}` — the driver's words, not this repo's — so the rule was being
+ * asked of code nobody here writes, and a driver that ends its own sentence produced "…did not
+ * start.. Your work is stored".
+ *
+ * Trimming at the join is the same move as every other rule this app moved out of the callers: the
+ * one place that knows a sentence is being continued is the place doing the continuing.
+ */
+const asClause = (message: string) => message.replace(/[\s.!?]+$/u, "");
+
 function RootFailure({ error }: Readonly<{ error: Error }>) {
   const router = useRouter();
 
   return (
     <CanvasFailure
-      detail={`${error.message}. Your work is stored in this browser, so it is still here — the engine that reads it did not start.`}
+      detail={`${asClause(error.message)}. Your work is stored in this browser, so it is still here — the engine that reads it did not start.`}
       onRetry={() => {
         void router.invalidate();
       }}
