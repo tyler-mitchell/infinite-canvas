@@ -242,3 +242,72 @@ test("no component references an --icx-* token that nothing defines or writes", 
 
   expect([...new Set(dangling)]).toEqual([]);
 });
+
+/**
+ * The rule from the repo's `AGENTS.md`, made mechanical where it can be.
+ *
+ * "Anything that can be made configurable should be made configurable" is a judgement call almost
+ * everywhere — but inside this stylesheet it is checkable: a value written into a rule body is a
+ * value a consumer cannot reach, because overriding a token is the only lever the theme contract
+ * gives them. Both of these were true findings before they were tests. The HUD's frosting was
+ * `blur(8px)` written twice, so a consumer theming the panel fill opaque paid for a filter that
+ * could not be seen and had no way to switch it off. Its type size was `11px` written three times,
+ * which agreed with the first consumer's own scale by coincidence rather than by contract.
+ *
+ * Geometry is deliberately not covered. Padding and border widths are still literal here, and the
+ * file's own scope note draws that line — nothing has diverged on them, and a token per padding
+ * would be the speculative reading of the rule rather than the useful one.
+ */
+/**
+ * Rule bodies only: comments and token declarations both come out first.
+ *
+ * Comments have to go, and finding out why is the point. The first run of this flagged seven
+ * "violations", every one of them prose — the history above narrating the literals it replaced,
+ * `rgb(183 244 255)` and `#d7fbff` quoted as the values that used to be there. A file that
+ * documents its own defects would otherwise fail a check aimed at those defects, which is the kind
+ * of guard that gets deleted rather than fixed. Blank lines are kept so the reported line numbers
+ * stay the file's own.
+ */
+const getRuleBodies = (css: string) =>
+  css
+    .replaceAll(/\/\*[\s\S]*?\*\//g, (comment) => comment.replaceAll(/[^\n]/g, " "))
+    .replaceAll(/--icx-[a-z0-9-]+\s*:[^;]+;/g, "");
+
+test("no colour is written into a rule body, where a consumer cannot reach it", () => {
+  // Hex and `rgb()` only: `color-mix(in oklab, var(--icx-…) 18%, transparent)` names a colour
+  // *space*, and its colour comes from a token, so it is the shape this rule wants rather than a
+  // violation of it.
+  const literals = getRuleBodies(themeCss)
+    .split("\n")
+    .flatMap((line, index) =>
+      /#[0-9a-fA-F]{3,8}\b|\brgba?\(/.test(line) ? [`${String(index + 1)}: ${line.trim()}`] : [],
+    );
+
+  expect(literals).toStrictEqual([]);
+});
+
+test("no type size is written into a rule body", () => {
+  // `var(…)` and `calc(…)` both pass: the group label's size is a calc over two tokens, which is a
+  // consumer-reachable value expressed as arithmetic rather than a literal.
+  const sizes = getRuleBodies(themeCss)
+    .split("\n")
+    .flatMap((line, index) =>
+      /font-size:\s*[0-9]/.test(line) ? [`${String(index + 1)}: ${line.trim()}`] : [],
+    );
+
+  expect(sizes).toStrictEqual([]);
+});
+
+test("the checks bite on the values that were actually there", () => {
+  // The two lines this pair exists because of, verbatim. A guard nobody has watched fail may be
+  // matching nothing at all.
+  expect(/font-size:\s*[0-9]/.test("    font-size: 11px;")).toBe(true);
+  expect(/#[0-9a-fA-F]{3,8}\b|\brgba?\(/.test("    color: #d7fbff;")).toBe(true);
+  // And do not fire on the forms that are correct.
+  expect(/font-size:\s*[0-9]/.test("    font-size: var(--icx-hud-font-size);")).toBe(false);
+  expect(
+    /#[0-9a-fA-F]{3,8}\b|\brgba?\(/.test(
+      "    background: color-mix(in oklab, var(--icx-active-accent) 18%, transparent);",
+    ),
+  ).toBe(false);
+});
