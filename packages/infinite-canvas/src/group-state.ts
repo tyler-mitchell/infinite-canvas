@@ -689,9 +689,19 @@ function reconcileInfiniteCanvasGroups<Kind extends string>(
      * Reconciliation runs when a window a tree names is gone — dead on hydration because its kind
      * left the registry, minimized into the dock, or claimed by an earlier group. Nobody touched
      * the group in any of those, so a shell left holding one member is residue here exactly as it
-     * is there. Without this, a canvas saved while decayed reopens still decayed, which is how the
-     * incubator's own saved layout looked on 2026-08-27: one member, a full shell, and a name
-     * describing two windows.
+     * is there.
+     *
+     * **What this cannot reach, stated because the obvious reading of it is wrong.** Decay is
+     * "more than one member before, one after", and `before` is `group.tree` as this pass received
+     * it. So the rule fires for a tree that loses a member *here* and never for a tree that arrived
+     * already collapsed to one. A canvas saved that way therefore reopens exactly as it was saved,
+     * and no predicate in this pass can change that: `serializeInfiniteCanvasState` writes an
+     * undocked shell as `{"tree":{"id":"east","kind":"window","weight":1}}`, which is the same
+     * bytes a decayed one writes. The document has no signal to read.
+     *
+     * That is a boundary rather than a bug, and dissolving every single-member group here would be
+     * the wrong repair: `undock` produces this shape deliberately under DOCK-006 and it is a real
+     * part of a saved arrangement. `group-decay.test.ts` pins both directions.
      */
     const decayedMemberId = getInfiniteCanvasDecayedGroupMemberId(group, tree);
 

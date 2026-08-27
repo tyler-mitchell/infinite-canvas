@@ -4,6 +4,7 @@ import { executeInfiniteCanvasCommand } from "./commands";
 import { createInfiniteCanvasState, createInfiniteCanvasWindow } from "./factory";
 import { createInfiniteCanvasGroup, reconcileInfiniteCanvasGroups } from "./group-state";
 import { getInfiniteCanvasGroupWindowIds } from "./group-tree";
+import { serializeInfiniteCanvasState } from "./persistence";
 import { reduceInfiniteCanvasState } from "./reducer";
 import type { InfiniteCanvasRect, InfiniteCanvasState } from "./types";
 
@@ -133,12 +134,15 @@ test("closing the last member still drops the shell, as DOCK-005 always did", ()
 });
 
 /**
- * Hydration cleans up residue a previous session saved.
+ * Hydration cleans up one kind of residue a previous session saved, and not the other.
  *
- * The rule has to hold here as well as on the removal, and the incubator is why: its saved canvas
- * on 2026-08-27 already held a decayed shell, so fixing only the live path left every reopened
- * canvas exactly as wrong as before. Same cause both times — a window a tree names is gone and
- * nobody touched the group.
+ * The kind it reaches is a tree still *naming* a window that is gone — the window left the state
+ * without going through any group verb, so the tree loses a member during the pass and that is
+ * decay by the same definition `detach` uses.
+ *
+ * The kind it cannot reach is a tree that was already collapsed to one member before the save. The
+ * pair below is the whole statement, and the second half was written after watching the first half
+ * pass while the incubator's own canvas stayed wrong.
  */
 test("a persisted group naming a window that no longer exists dissolves on reconciliation", () => {
   const grouped = groupOf(["west", "east"]);
@@ -159,4 +163,35 @@ test("a persisted group that still has two live windows survives reconciliation"
 
   expect(after.groups).toHaveLength(1);
   expect(getInfiniteCanvasGroupWindowIds(after.groups[0]!.tree)).toEqual(["west", "east"]);
+});
+
+/**
+ * The other half, and the one that is easy to read as a bug.
+ *
+ * A canvas saved holding a single-member shell reopens holding it. Decay is "more than one member
+ * before, one after", `before` is the tree the pass received, and a tree that arrived collapsed
+ * loses nothing during the pass — so the rule cannot fire, no matter how the group got that way.
+ *
+ * It cannot be fixed by dissolving every single-member group here, and the test below is why:
+ * `undock` produces this shape on purpose under DOCK-006, `serializeInfiniteCanvasState` writes it,
+ * and what it writes is indistinguishable from what a decayed shell writes. Dissolving on sight
+ * would delete part of an arrangement the user made.
+ *
+ * Written after watching the incubator's own canvas keep a 544×720 shell around one window across
+ * a full reload while every test above was green.
+ */
+test("a group saved already collapsed to one live member reopens still collapsed", () => {
+  const after = reconcileInfiniteCanvasGroups(groupOf(["west"]));
+
+  expect(after.groups).toHaveLength(1);
+  expect(getInfiniteCanvasGroupWindowIds(after.groups[0]!.tree)).toEqual(["west"]);
+});
+
+test("an undocked shell is written to the document, which is what makes the two indistinguishable", () => {
+  const undocked = executeInfiniteCanvasCommand(docked(), { type: "window.undock" });
+  const stored = serializeInfiniteCanvasState(undocked).groups;
+
+  // One member, no container — the same tree a decayed shell leaves behind.
+  expect(stored).toHaveLength(1);
+  expect(stored[0]?.tree).toEqual({ id: "east", kind: "window", weight: 1 });
 });
