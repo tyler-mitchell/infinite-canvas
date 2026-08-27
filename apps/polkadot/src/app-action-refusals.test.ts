@@ -69,7 +69,14 @@ const refuse = (id: string, input: unknown) => {
    * stub could not tell the difference.
    */
   return getAppAction(id)?.run(
-    { actions, goToCanvas: (canvasId) => visited.push(canvasId), projectId: "project-1", state },
+    {
+      actions,
+      canvasId: "canvas-1",
+      canvasTitle: "Main canvas",
+      goToCanvas: (canvasId) => visited.push(canvasId),
+      projectId: "project-1",
+      state,
+    },
     input,
   );
 };

@@ -5,7 +5,7 @@ import {
   useInfiniteCanvasStore,
 } from "@hyphened/infinite-canvas";
 import { useValue } from "@legendapp/state/react";
-import { useNavigate } from "@tanstack/react-router";
+import { useLoaderData, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 
 import { getAppAction, isAppActionEnabled } from "../app-actions";
@@ -74,6 +74,7 @@ function CanvasContextMenu() {
   const actions = useInfiniteCanvasActions<WindowKind>();
   const store = useInfiniteCanvasStore<WindowKind>();
   const navigate = useNavigate();
+  const canvas = useLoaderData({ from: "/canvas/$canvasId" });
   const projectId = useValue(openProject$) ?? "";
   const [press, setPress] = useState<Readonly<{
     groupId: string | null;
@@ -154,7 +155,14 @@ function CanvasContextMenu() {
   const goToCanvas = (canvasId: string) => {
     void navigate({ params: { canvasId }, to: "/canvas/$canvasId" });
   };
-  const context = { actions, goToCanvas, projectId, state };
+  const context = {
+    actions,
+    canvasId: canvas.id,
+    canvasTitle: canvas.title,
+    goToCanvas,
+    projectId,
+    state,
+  };
   /*
    * The framework's own descriptor for each verb: its command, its live enablement, its word.
    *

@@ -27,7 +27,6 @@ import { createCanvas } from "./workspace/create-canvas";
 import { createDesktop } from "./workspace/create-desktop";
 import { createProject } from "./workspace/create-project";
 import { duplicateCanvas } from "./workspace/duplicate-canvas";
-import { openCanvasId$, openCanvasTitle$ } from "./workspace/open-canvas";
 import {
   connectItems,
   DEFAULT_RELATION_KIND,
@@ -60,6 +59,16 @@ import {
 
 type AppActionContext = Readonly<{
   actions: InfiniteCanvasCommands<WindowKind>;
+  /**
+   * The canvas the verb is standing in, and what it is called.
+   *
+   * Read from the route's own loader data by whoever builds the context, never copied into state of
+   * its own. `/canvas/$canvasId` means the router already holds this — a module observable beside it
+   * would be a second answer to a question the URL settles, free to go stale against it. That is the
+   * one thing `openProject$` cannot be, since no route names a project.
+   */
+  canvasId: string;
+  canvasTitle: string;
   /**
    * Go to a canvas by id — the one act no verb can reach through `actions`.
    *
@@ -406,9 +415,6 @@ const PROJECT_OPEN_INPUT = type({ projectId: "string" });
 /** Optional throughout, matching `workspace.create`: absent means number it after what exists. */
 const DOCUMENT_CREATE_INPUT = type({ "title?": "string" });
 
-const NO_OPEN_CANVAS =
-  "Refused: no canvas is open, so there is nothing to copy. `canvas.list` names the canvases in this project.";
-
 const APP_ACTIONS: readonly AppAction[] = [
   {
     description:
@@ -435,19 +441,9 @@ const APP_ACTIONS: readonly AppAction[] = [
       "Copy the open canvas, with everything on it, and go to the copy. It is named after the original.",
     id: "canvas.duplicate",
     label: "Duplicate this canvas",
-    run: ({ goToCanvas, projectId }) => {
-      /*
-       * Read from the published route fact rather than taken as an argument. "The canvas I am in"
-       * is not something a caller should have to carry, and a caller that carried it could name a
-       * canvas it is not looking at — which is a different verb.
-       */
-      const canvasId = openCanvasId$.peek();
-      const canvasTitle = openCanvasTitle$.peek();
-
-      if (canvasId === null || canvasTitle === null) {
-        return NO_OPEN_CANVAS;
-      }
-
+    // No argument: "the canvas I am in" is the route's answer, and a caller that carried it could
+    // name a canvas it is not looking at — which is a different verb.
+    run: ({ canvasId, canvasTitle, goToCanvas, projectId }) => {
       void duplicateCanvas({ canvasId, canvasTitle, projectId }).then((created) => {
         goToCanvas(created.id);
       });

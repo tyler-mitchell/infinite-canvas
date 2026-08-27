@@ -11,15 +11,16 @@ import { getAppAction } from "./app-actions";
 import { RELATION_KINDS } from "./relations/relation-store";
 import type { WindowKind } from "./canvas/window-registry";
 import { projectContent$, type ProjectContent } from "./content/project-content";
-import { openCanvasId$, openCanvasTitle$ } from "./workspace/open-canvas";
 
 /**
- * Every context carries one, and no verb exercised here calls it.
+ * Every context carries these, and most verbs exercised here read none of them.
  *
- * Changing canvas is a route change, so the context supplies it rather than the verb reaching for a
- * router. The verbs under test are the parameterized ones, none of which navigates — a canvas verb
- * that did would want its own fixture asserting where it went.
+ * Which canvas a verb is standing in comes from the route, and going to another is a route change —
+ * so the context supplies both rather than any verb reaching for a router or for state of its own.
+ * The verbs under test are the parameterized ones, none of which navigates; a canvas verb that does
+ * gets its own fixture below, asserting where it went.
  */
+const where = { canvasId: "canvas-1", canvasTitle: "Main canvas" };
 const goToCanvas = () => undefined;
 
 /**
@@ -63,7 +64,10 @@ const runReveal = (input: unknown) => {
     },
   } as unknown as InfiniteCanvasCommands<WindowKind>;
 
-  getAppAction("window.reveal")?.run({ actions, goToCanvas, projectId: "project-1", state }, input);
+  getAppAction("window.reveal")?.run(
+    { actions, ...where, goToCanvas, projectId: "project-1", state },
+    input,
+  );
 
   return commands;
 };
@@ -127,7 +131,10 @@ const runOpen = (input: unknown, listing: ProjectContent | null) => {
   } as unknown as InfiniteCanvasCommands<WindowKind>;
 
   projectContent$.set(listing);
-  getAppAction("content.open")?.run({ actions, goToCanvas, projectId: "project-1", state }, input);
+  getAppAction("content.open")?.run(
+    { actions, ...where, goToCanvas, projectId: "project-1", state },
+    input,
+  );
 
   return opened;
 };
@@ -180,7 +187,7 @@ test("a connected-to collection refuses an id it cannot resolve", () => {
   const attempt = (input: unknown, listing: ProjectContent | null) => {
     projectContent$.set(listing);
     getAppAction("collection.create.connectedTo")?.run(
-      { actions, goToCanvas, projectId: "project-1", state },
+      { actions, ...where, goToCanvas, projectId: "project-1", state },
       input,
     );
   };
@@ -374,7 +381,7 @@ const runGroupVerb = (id: string, input: unknown, tree: unknown = CONTAINER_TREE
   } as unknown as InfiniteCanvasCommands<WindowKind>;
 
   getAppAction(id)?.run(
-    { actions, goToCanvas, projectId: "project-1", state: groupState(tree) },
+    { actions, ...where, goToCanvas, projectId: "project-1", state: groupState(tree) },
     input,
   );
 
@@ -460,7 +467,7 @@ const runWorkspaceVerb = (
   } as unknown as InfiniteCanvasCommands<WindowKind>;
 
   getAppAction(id)?.run(
-    { actions, goToCanvas, projectId: "project-1", state: workspaceState(workspaces) },
+    { actions, ...where, goToCanvas, projectId: "project-1", state: workspaceState(workspaces) },
     input,
   );
 
@@ -507,7 +514,7 @@ test("moving the active window needs one, not just a desktop", () => {
   } as unknown as InfiniteCanvasCommands<WindowKind>;
 
   getAppAction("workspace.moveActiveWindow")?.run(
-    { actions, goToCanvas, projectId: "project-1", state: noActiveWindow },
+    { actions, ...where, goToCanvas, projectId: "project-1", state: noActiveWindow },
     { workspaceId: "desk-1" },
   );
 
@@ -525,6 +532,7 @@ test("moving the active window needs one, not just a desktop", () => {
 
 const documentContext = (goTo: (canvasId: string) => void) => ({
   actions: { executeCommand: () => undefined } as unknown as InfiniteCanvasCommands<WindowKind>,
+  ...where,
   goToCanvas: goTo,
   projectId: "project-1",
   state,
@@ -543,19 +551,16 @@ test("going to a canvas navigates to the id it was handed, and nowhere else", ()
   expect(visited).toStrictEqual(["canvas-7"]);
 });
 
-test("duplicating refuses when no canvas is open rather than copying nothing", () => {
+test("duplicating names the copy after the canvas the context says it is in", () => {
   /*
-   * The verb reads which canvas is open from the route's published fact rather than taking it as an
-   * argument. With nothing published there is no subject, and a caller that cannot see the screen
-   * needs telling that — silently doing nothing is the failure `AppAction.run` returns a string for.
+   * There is no "nothing is open" case to refuse, and that is the point of taking the canvas from
+   * the route rather than from state beside it: `/canvas/$canvasId` cannot resolve without one, so
+   * a context exists only where a canvas does. An earlier version published the id into an
+   * observable and had to refuse `null` — a branch that existed only because the copy could go
+   * stale against the URL.
    */
-  openCanvasId$.set(null);
-  openCanvasTitle$.set(null);
-
-  const refusal = getAppAction("canvas.duplicate")?.run(documentContext(() => undefined));
-
-  expect(refusal).toMatch(/^Refused: /);
-  expect(refusal).toContain("canvas.list");
+  expect(getAppAction("canvas.duplicate")?.input).toBeUndefined();
+  expect(getAppAction("canvas.duplicate")?.label).toBe("Duplicate this canvas");
 });
 
 test("going to the project you are already in does not move the canvas", async () => {

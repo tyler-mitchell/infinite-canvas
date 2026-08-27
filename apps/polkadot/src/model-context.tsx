@@ -3,7 +3,7 @@ import {
   useInfiniteCanvasActions,
   useInfiniteCanvasStore,
 } from "@hyphened/infinite-canvas";
-import { useNavigate } from "@tanstack/react-router";
+import { useLoaderData, useNavigate } from "@tanstack/react-router";
 import { useEffect } from "react";
 
 import { APP_ACTIONS, isAppActionEnabled } from "./app-actions";
@@ -18,7 +18,6 @@ import {
 } from "./database/operations";
 import { getPublishedCanvasCommands } from "./published-commands";
 import { relations$ } from "./relations/relation-store";
-import { openCanvasId$ } from "./workspace/open-canvas";
 
 /**
  * The app's vocabulary, offered to an agent running in the browser.
@@ -123,6 +122,8 @@ function ModelContextTools({ projectId }: Readonly<{ projectId: string }>) {
   const actions = useInfiniteCanvasActions<WindowKind>();
   const store = useInfiniteCanvasStore<WindowKind>();
   const navigate = useNavigate();
+  // The route already names the canvas, so nothing here holds a second copy of which one it is.
+  const canvas = useLoaderData({ from: "/canvas/$canvasId" });
 
   useEffect(() => {
     /*
@@ -235,7 +236,6 @@ function ModelContextTools({ projectId }: Readonly<{ projectId: string }>) {
         "List the canvases in this project, with the ids canvas.open takes, marking the open one.",
       execute: async () => {
         const canvases = await canvasRecords.list(projectId);
-        const openId = openCanvasId$.peek();
 
         return {
           content: [
@@ -245,8 +245,8 @@ function ModelContextTools({ projectId }: Readonly<{ projectId: string }>) {
                   ? "This project holds no canvases."
                   : canvases
                       .map(
-                        (canvas) =>
-                          `"${canvas.title}" [${canvas.id}]${canvas.id === openId ? " — open" : ""}`,
+                        (record) =>
+                          `"${record.title}" [${record.id}]${record.id === canvas.id ? " — open" : ""}`,
                       )
                       .join("; "),
               type: "text" as const,
@@ -335,7 +335,14 @@ function ModelContextTools({ projectId }: Readonly<{ projectId: string }>) {
       ...APP_ACTIONS.map((action) => ({
         description: action.description,
         execute: async (input?: unknown) => {
-          const context = { actions, goToCanvas, projectId, state: store.state$.peek() };
+          const context = {
+            actions,
+            canvasId: canvas.id,
+            canvasTitle: canvas.title,
+            goToCanvas,
+            projectId,
+            state: store.state$.peek(),
+          };
 
           if (!isAppActionEnabled(action, context)) {
             return {
@@ -394,7 +401,7 @@ function ModelContextTools({ projectId }: Readonly<{ projectId: string }>) {
     return () => {
       controller.abort();
     };
-  }, [actions, navigate, projectId, store]);
+  }, [actions, canvas, navigate, projectId, store]);
 
   return null;
 }

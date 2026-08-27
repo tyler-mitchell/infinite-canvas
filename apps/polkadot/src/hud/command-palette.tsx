@@ -12,7 +12,7 @@ import {
 import type { Observable } from "@legendapp/state";
 import { useObservable, useValue } from "@legendapp/state/react";
 import { createHotkeyHandler, formatForDisplay } from "@tanstack/hotkeys";
-import { useNavigate } from "@tanstack/react-router";
+import { useLoaderData, useNavigate } from "@tanstack/react-router";
 import {
   Archive,
   Ban,
@@ -604,6 +604,8 @@ function PaletteContent({
   const openCanvas = (canvasId: string) => {
     void navigate({ params: { canvasId }, to: "/canvas/$canvasId" });
   };
+  // Which canvas this is, from the route rather than from state of its own — the URL already says.
+  const canvas = useLoaderData({ from: "/canvas/$canvasId" });
 
   /*
    * The page where the input is a sentence rather than a search.
@@ -929,7 +931,14 @@ function PaletteContent({
             a caller that can supply an argument still gets them.
           */}
           {APP_ACTIONS.filter((action) => action.input === undefined).map((action) => {
-            const context = { actions, goToCanvas: openCanvas, projectId, state };
+            const context = {
+              actions,
+              canvasId: canvas.id,
+              canvasTitle: canvas.title,
+              goToCanvas: openCanvas,
+              projectId,
+              state,
+            };
 
             return (
               <Row
@@ -967,7 +976,14 @@ function PaletteContent({
               icon={Link2}
               onSelect={run(() => {
                 getAppAction("collection.create.connectedTo")?.run(
-                  { actions, goToCanvas: openCanvas, projectId, state },
+                  {
+                    actions,
+                    canvasId: canvas.id,
+                    canvasTitle: canvas.title,
+                    goToCanvas: openCanvas,
+                    projectId,
+                    state,
+                  },
                   { itemId: connectionSubject.itemId },
                 );
               })}

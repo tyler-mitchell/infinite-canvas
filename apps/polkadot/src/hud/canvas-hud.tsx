@@ -25,7 +25,7 @@ import { Button } from "ui";
 import { tv } from "ui/tv";
 
 import { useValue } from "@legendapp/state/react";
-import { useNavigate } from "@tanstack/react-router";
+import { useLoaderData, useNavigate } from "@tanstack/react-router";
 
 import { getAppAction, isAppActionEnabled } from "../app-actions";
 import { FLOATING_SURFACE } from "../material";
@@ -124,6 +124,9 @@ function SelectionRail() {
   const actions = useInfiniteCanvasActions<WindowKind>();
   const store = useInfiniteCanvasStore<WindowKind>();
   const navigate = useNavigate();
+  // The route's own answer to which canvas this is. `openProject$` exists because no route names a
+  // project; this one does, so there is nothing to publish.
+  const canvas = useLoaderData({ from: "/canvas/$canvasId" });
   const projectId = useValue(openProject$) ?? "";
   const selectedCount = useInfiniteCanvasSelector((state) => state.selection.windowIds.length);
   const styles = canvasHud();
@@ -154,12 +157,21 @@ function SelectionRail() {
     groupAction !== undefined &&
     isAppActionEnabled(groupAction, {
       actions,
+      canvasId: canvas.id,
+      canvasTitle: canvas.title,
       goToCanvas,
       projectId,
       state: store.state$.peek(),
     });
   const group = () => {
-    const context = { actions, goToCanvas, projectId, state: store.state$.peek() };
+    const context = {
+      actions,
+      canvasId: canvas.id,
+      canvasTitle: canvas.title,
+      goToCanvas,
+      projectId,
+      state: store.state$.peek(),
+    };
 
     if (groupAction !== undefined && isAppActionEnabled(groupAction, context)) {
       groupAction.run(context);

@@ -280,10 +280,16 @@ open because it feels good to look at. Concretely, and these are enforced in rev
       `project.open`, with `canvas.list` and `project.list` as the reporters that publish the ids
       they take — a verb taking a handle nothing reports is half a capability, which is the same
       argument `describeCanvas` and `describeProjectContent` were written under.
-      `AppActionContext` gained `goToCanvas` and nothing else: a verb needs one destination, and
-      handing the vocabulary a router would let any verb go anywhere. Which canvas is open is
-      published by the route into `workspace/open-canvas.ts`, the way `open-project.ts` already
-      publishes the project, because the rail and the context menu sit too deep to be handed it.
+      `AppActionContext` gained `goToCanvas`, `canvasId` and `canvasTitle`: a verb needs one
+      destination, and handing the vocabulary a router would let any verb go anywhere.
+      **The first version of this published which canvas is open into a `workspace/open-canvas.ts`
+      module, mirroring `open-project.ts`, and that was wrong — it was deleted the same day.**
+      `open-project.ts` earns its place because no route names a project. A route does name a
+      canvas, so that module was a second answer to a question `/canvas/$canvasId` already settles,
+      free to go stale against the URL — and it forced a "no canvas is open" refusal that could only
+      ever fire if the copy disagreed with the route. All four context sites read
+      `useLoaderData({ from: "/canvas/$canvasId" })` instead, which is the same fact from the thing
+      that owns it, and the refusal is gone with the branch that needed it.
       **Not driven through WebMCP.** The refusals and each verb's choice of destination are covered
       by tests needing no browser, and three of them were mutation-checked. What is unwitnessed is a
       real caller registering the seven and a route changing underneath one. `model-context.tsx`
