@@ -19,6 +19,13 @@ import { useCallback } from "react";
  * reaching for a router — which is why the exported-router-instance this was once scoped as is not
  * needed and was never built.
  *
+ * **Takes an object, because this is `navigate` for canvases and navigation is not one value.** A
+ * destination is only the first of its dimensions — `replace`, `search`, `state`, `viewTransition`
+ * — and a bare-string signature cannot grow into any of them without editing every call site it
+ * exists to have unified. It is also what every neighbour here takes: `duplicateCanvas`,
+ * `forkCanvas`, `createDesktop` and `openContentWindow` are all `Readonly<{…}>`. No options are
+ * declared yet, deliberately; the shape is convention, an unused `replace?` would be speculation.
+ *
  * Returns the router's promise rather than swallowing it. Navigation is asynchronous and one caller
  * genuinely awaits it — the conflict notice, which must land on the recovered canvas before it lets
  * the old one go.
@@ -33,7 +40,8 @@ const useGoToCanvas = () => {
   const navigate = useNavigate();
 
   return useCallback(
-    (canvasId: string) => navigate({ params: { canvasId }, to: "/canvas/$canvasId" }),
+    (input: Readonly<{ canvasId: string }>) =>
+      navigate({ params: { canvasId: input.canvasId }, to: "/canvas/$canvasId" }),
     [navigate],
   );
 };

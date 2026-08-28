@@ -104,6 +104,30 @@ function setProjectItemTitle(itemId: string, title: string) {
   });
 }
 
+/**
+ * The same fold, for what an item *says* rather than what it is called.
+ *
+ * `note.read` resolves against this listing, exactly as every other id-taking verb does, and the
+ * listing is only re-read on create, archive and restore. So writing a note left the cache holding
+ * the old prose and the reader answering with it — measured: `note.write` reported "done" and
+ * `note.read` on the same id immediately answered "is empty".
+ *
+ * That is the write-blind shape the read verb was added to prevent, reappearing one layer down. A
+ * caller checking its own work is the case this pair exists for, so the check has to see the write.
+ */
+function setProjectItemContent(itemId: string, content: object) {
+  const listing = projectContent$.peek();
+
+  if (listing === null) {
+    return;
+  }
+
+  projectContent$.set({
+    ...listing,
+    items: listing.items.map((item) => (item.id === itemId ? { ...item, content } : item)),
+  });
+}
+
 export {
   archiveProjectItem,
   getProjectContent,
@@ -111,6 +135,7 @@ export {
   loadProjectContent,
   projectContent$,
   restoreProjectItem,
+  setProjectItemContent,
   setProjectItemTitle,
 };
 export type { ProjectContent };

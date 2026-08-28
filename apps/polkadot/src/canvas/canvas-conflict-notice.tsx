@@ -71,7 +71,7 @@ export function CanvasConflictNotice({
       // the mark. Creating and navigating stay apart, the same split `createCanvas` keeps.
       const created = await forkCanvas({ canvasTitle, layout: handle.snapshot(), projectId });
 
-      await goToCanvas(created.id);
+      await goToCanvas({ canvasId: created.id });
     } finally {
       busy$.set(false);
     }

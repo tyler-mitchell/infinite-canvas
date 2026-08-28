@@ -6,7 +6,13 @@ import { useObservable, useValue } from "@legendapp/state/react";
 import { useEffect, useRef } from "react";
 import { tv } from "ui/tv";
 
-import { editNote, ensureNoteLoaded, notes$, type NoteGateway } from "./note-store";
+import {
+  editNote,
+  ensureNoteLoaded,
+  externalWrites$,
+  notes$,
+  type NoteGateway,
+} from "./note-store";
 import { openProject$ } from "../projects/open-project";
 import { getProjectContentOfKind, projectContent$ } from "../content/project-content";
 import { connectItems } from "../relations/relation-store";
@@ -124,6 +130,9 @@ export function NoteWindowBody({
    */
   const portalRoot = useInfiniteCanvasDesktopPortalRoot();
   const entry = useValue(notes$[noteId]);
+  // A primitive, for the reason the fades below are two booleans rather than one object: a root read
+  // on an object observable can be subscribed to something that never changes.
+  const externalWrites = useValue(externalWrites$[noteId]) ?? 0;
   const rootRef = useRef<HTMLDivElement>(null);
   /*
    * Two booleans, not one object.
@@ -223,6 +232,15 @@ export function NoteWindowBody({
         />
         <div className={styles.editor()}>
           <NoteEditor
+            /*
+             * Rebuilt when something other than this editor rewrote the note.
+             *
+             * Lexical takes its state at mount, so an external write — a tool call today, a sync
+             * later — leaves an open editor showing the old prose, and its next keystroke saves
+             * that back over the write. Keyed on the count rather than on the text, which changes
+             * on every keystroke and would remount mid-sentence.
+             */
+            key={externalWrites}
             mentions={{
               /*
                * A mention authors the connection; it does not own it.

@@ -877,7 +877,7 @@ function PaletteContent({
                 icon={Columns3}
                 key={canvas.id}
                 onSelect={run(() => {
-                  void openCanvas(canvas.id);
+                  void openCanvas({ canvasId: canvas.id });
                 })}
                 id={canvas.id}
                 keywords="canvas"
@@ -902,7 +902,7 @@ function PaletteContent({
                     projectId: project.id,
                   }).then((canvasId) => {
                     if (canvasId !== null) {
-                      void openCanvas(canvasId);
+                      void openCanvas({ canvasId });
                     }
                   });
                 })}
@@ -998,7 +998,7 @@ function PaletteContent({
             icon={Columns3}
             onSelect={run(() => {
               void createCanvas({ projectId }).then((created) => {
-                void openCanvas(created.id);
+                void openCanvas({ canvasId: created.id });
               });
             })}
             id="new-canvas"
@@ -1234,7 +1234,7 @@ function PaletteContent({
             icon={FolderPlus}
             onSelect={run(() => {
               void createProject().then((created) => {
-                void openCanvas(created.id);
+                void openCanvas({ canvasId: created.id });
               });
             })}
             id="new-project"

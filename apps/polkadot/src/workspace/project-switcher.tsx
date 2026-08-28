@@ -74,7 +74,7 @@ export function ProjectSwitcher({
     void getProjectEntryCanvas({ openProjectId: projectId, projectId: nextProjectId }).then(
       (canvasId) => {
         if (canvasId !== null) {
-          void goToCanvas(canvasId);
+          void goToCanvas({ canvasId });
         }
       },
     );
@@ -181,7 +181,7 @@ export function ProjectSwitcher({
                * then put two of one name in the switcher that exists to tell them apart.
                */
               void createProject().then((created) => {
-                void goToCanvas(created.id);
+                void goToCanvas({ canvasId: created.id });
               });
             }}
           >

@@ -17,11 +17,15 @@ import {
   getProjectContent,
   projectContent$,
   restoreProjectItem,
+  setProjectItemContent,
 } from "./content/project-content";
 import { openNewCollection } from "./collections/open-collection";
 import { RENAMEABLE_KINDS, renameProjectItem } from "./content/rename-item";
 import type { ContentItemRecord } from "./database/database.client";
 import * as database from "./database/operations";
+import { NOTE_KIND, noteGateway, toNote } from "./notes/note-gateway";
+import { writeNote } from "./notes/note-store";
+import { getNoteText, toSerializedNote } from "./notes/note-text";
 import { openNewNote } from "./notes/open-note";
 import { getProjectEntryCanvas } from "./projects/enter-project";
 import { createCanvas } from "./workspace/create-canvas";
@@ -81,7 +85,7 @@ type AppActionContext = Readonly<{
    * vocabulary a router would let any verb go anywhere in an app whose other routes are a failure
    * screen and a redirect.
    */
-  goToCanvas: (canvasId: string) => void;
+  goToCanvas: (input: Readonly<{ canvasId: string }>) => void;
   projectId: string;
   /**
    * Re-read what the route loaded, for the verbs that change it.
@@ -445,6 +449,25 @@ const DOCUMENT_CREATE_INPUT = type({ "title?": "string" });
  * caller tidying up names is usually not standing in the canvas it is renaming, and the switcher
  * offers the same reach.
  */
+/**
+ * What a note says, which the vocabulary could create and never fill in.
+ *
+ * `note.create` makes an empty one and `content.rename` names it, so a caller could build a library
+ * of titled blank pages in a workbench whose whole subject is prose. Measured: 110 registered tools
+ * and not one of them wrote a word.
+ *
+ * Plain text in, plain text out. The stored form is a serialized editor state — `note-text.ts`
+ * already read it without an engine and now writes it the same way — and a caller should no more
+ * compose that JSON than a person should type it.
+ *
+ * The pair is deliberate. A write with no read is the write-blind shape `AppAction.run` returns
+ * refusals to prevent: a caller replaces a note's contents, is told "done", and has no way to learn
+ * what it destroyed or whether the words arrived.
+ */
+const NOTE_WRITE_INPUT = type({ itemId: "string", text: "string" });
+
+const NOTE_READ_INPUT = type({ itemId: "string" });
+
 const CANVAS_RENAME_INPUT = type({ canvasId: "string", title: "string" });
 
 const PROJECT_RENAME_INPUT = type({ projectId: "string", title: "string" });
@@ -464,7 +487,7 @@ const APP_ACTIONS: readonly AppAction[] = [
       }
 
       void createCanvas({ projectId, title: parsed.title }).then((created) => {
-        goToCanvas(created.id);
+        goToCanvas({ canvasId: created.id });
       });
 
       return undefined;
@@ -479,7 +502,7 @@ const APP_ACTIONS: readonly AppAction[] = [
     // name a canvas it is not looking at — which is a different verb.
     run: ({ canvasId, canvasTitle, goToCanvas, projectId }) => {
       void duplicateCanvas({ canvasId, canvasTitle, projectId }).then((created) => {
-        goToCanvas(created.id);
+        goToCanvas({ canvasId: created.id });
       });
 
       return undefined;
@@ -497,7 +520,7 @@ const APP_ACTIONS: readonly AppAction[] = [
         return describeInvalidInput(parsed);
       }
 
-      goToCanvas(parsed.canvasId);
+      goToCanvas({ canvasId: parsed.canvasId });
 
       return undefined;
     },
@@ -549,7 +572,7 @@ const APP_ACTIONS: readonly AppAction[] = [
       // A project is reached through a canvas, so creating one and landing on it is a single act —
       // `createProject` returns the first canvas for exactly this reason.
       void createProject({ title: parsed.title }).then((created) => {
-        goToCanvas(created.id);
+        goToCanvas({ canvasId: created.id });
       });
 
       return undefined;
@@ -576,7 +599,7 @@ const APP_ACTIONS: readonly AppAction[] = [
       void getProjectEntryCanvas({ openProjectId: projectId, projectId: parsed.projectId }).then(
         (canvasId) => {
           if (canvasId !== null) {
-            goToCanvas(canvasId);
+            goToCanvas({ canvasId });
           }
         },
       );
@@ -1100,6 +1123,76 @@ const APP_ACTIONS: readonly AppAction[] = [
       void restoreProjectItem({ itemId: parsed.itemId, projectId });
 
       return undefined;
+    },
+  },
+  {
+    description:
+      "Replace what a note says, as plain text. One line per paragraph. The id comes from content.list.",
+    id: "note.write",
+    input: NOTE_WRITE_INPUT,
+    label: "Write a note",
+    run: ({ projectId }, input) => {
+      const parsed = NOTE_WRITE_INPUT(input);
+
+      if (parsed instanceof type.errors) {
+        return describeInvalidInput(parsed);
+      }
+
+      const item = resolveItem(projectId, parsed.itemId);
+
+      if (typeof item === "string") {
+        return item;
+      }
+
+      if (item.kind !== NOTE_KIND) {
+        return `Refused: "${item.title}" is a ${item.kind}, and only a note holds prose.`;
+      }
+
+      const stored = toSerializedNote(parsed.text);
+
+      // Through the note store, not the gateway: it is the single writer, and the revision guard is
+      // only a guard if everything goes through it. `toNote` is safe here because the kind is checked.
+      writeNote(toNote(item), stored, noteGateway);
+      // And into the listing `note.read` resolves against, the same fold a rename does. Without it
+      // a caller checking its own write reads the prose it just replaced.
+      setProjectItemContent(item.id, { text: stored });
+
+      return undefined;
+    },
+  },
+  {
+    description:
+      "Read what a note says, as plain text. The id comes from content.list. Titles are in the listing already.",
+    id: "note.read",
+    input: NOTE_READ_INPUT,
+    label: "Read a note",
+    run: ({ projectId }, input) => {
+      const parsed = NOTE_READ_INPUT(input);
+
+      if (parsed instanceof type.errors) {
+        return describeInvalidInput(parsed);
+      }
+
+      const item = resolveItem(projectId, parsed.itemId);
+
+      if (typeof item === "string") {
+        return item;
+      }
+
+      if (item.kind !== NOTE_KIND) {
+        return `Refused: "${item.title}" is a ${item.kind}, and only a note holds prose.`;
+      }
+
+      /*
+       * The answer, returned rather than reported as "done" — which `AppAction.run` allows for
+       * exactly this: "what the caller needs told, or nothing when done covers it".
+       *
+       * Read from the listing rather than the note store, because the store holds only notes some
+       * window has opened. A caller reading a note it has never opened is the ordinary case.
+       */
+      const text = getNoteText(toNote(item).content.text);
+
+      return text === "" ? `"${item.title}" is empty.` : text;
     },
   },
   {

@@ -534,7 +534,7 @@ test("moving the active window needs one, not just a desktop", () => {
  * you, and every one of these decisions was previously unreachable by anything but a pointer.
  */
 
-const documentContext = (goTo: (canvasId: string) => void) => ({
+const documentContext = (goTo: (input: Readonly<{ canvasId: string }>) => void) => ({
   actions: { executeCommand: () => undefined } as unknown as InfiniteCanvasCommands<WindowKind>,
   ...where,
   goToCanvas: goTo,
@@ -546,7 +546,7 @@ test("going to a canvas navigates to the id it was handed, and nowhere else", ()
   const visited: string[] = [];
 
   getAppAction("canvas.open")?.run(
-    documentContext((id) => visited.push(id)),
+    documentContext(({ canvasId }) => visited.push(canvasId)),
     {
       canvasId: "canvas-7",
     },
@@ -576,7 +576,7 @@ test("going to the project you are already in does not move the canvas", async (
   const visited: string[] = [];
 
   getAppAction("project.open")?.run(
-    documentContext((id) => visited.push(id)),
+    documentContext(({ canvasId }) => visited.push(canvasId)),
     {
       projectId: "project-1",
     },

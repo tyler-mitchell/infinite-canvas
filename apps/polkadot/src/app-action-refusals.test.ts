@@ -73,7 +73,7 @@ const refuse = (id: string, input: unknown) => {
       actions,
       canvasId: "canvas-1",
       canvasTitle: "Main canvas",
-      goToCanvas: (canvasId) => visited.push(canvasId),
+      goToCanvas: ({ canvasId }) => visited.push(canvasId),
       projectId: "project-1",
       refreshRoute: () => undefined,
       state,

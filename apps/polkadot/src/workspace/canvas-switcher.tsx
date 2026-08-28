@@ -75,7 +75,7 @@ export function CanvasSwitcher({
   // including the row you are already on, and re-entering the canvas you are in is not a move.
   const openCanvas = (nextCanvasId: string) => {
     if (nextCanvasId !== canvasId) {
-      void goToCanvas(nextCanvasId);
+      void goToCanvas({ canvasId: nextCanvasId });
     }
   };
 
