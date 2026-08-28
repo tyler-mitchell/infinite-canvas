@@ -36,12 +36,28 @@ type DrawnConnector = Readonly<{
   /**
    * Where a marker sits, or `null` when there is nowhere it could be seen.
    *
-   * The middle of the longest stretch of this connector that no window covers. Not the midpoint of
-   * the routed path, which is the obvious choice and lands inside a window whenever the two notes
-   * nearly touch — the exact arrangement in which an edge most needs something to aim at.
+   * Meant to be the middle of the longest stretch of this connector that no window covers — not the
+   * midpoint of the routed path, which is the obvious choice and lands inside a window whenever the
+   * two notes nearly touch, the exact arrangement in which an edge most needs something to aim at.
    *
    * `null` means every stretch is covered. The connector then draws no marker rather than one
    * nobody can see, and the library rail is where that edge is reachable.
+   *
+   * **It is not actually the middle of the stretch, and the gap is the framework's.**
+   * `getInfiniteCanvasLongestUnoccludedSegment` promises "the longest run of a path that nothing
+   * covers" and returns the longest *segment*, never merging contiguous ones. An elbow splits a
+   * fully visible path into three, so the marker lands on the midpoint of one leg — a quarter of
+   * the way along the run rather than half.
+   *
+   * Measured in the browser on 2026-08-27, two notes stacked with a 34px gap: the connector ran
+   * y296–330 and the label centred at y321.5 instead of 313, ending 2px from the lower window with
+   * 19px of clearance above it. Off by a quarter of the path, every time, and worst exactly where
+   * this anchor exists to help — a short run between near-touching windows.
+   *
+   * Not worked around here. Merging runs is path geometry the canvas owns, and the two docstrings
+   * on that function already say "run"; a copy in this file would be the re-derivation they warn
+   * against and would be deleted the day the framework agrees with itself. Recorded in `ROADMAP.md`
+   * as a framework gap instead.
    */
   anchor: InfiniteCanvasPoint | null;
   points: readonly InfiniteCanvasPoint[];
