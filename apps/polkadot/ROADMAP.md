@@ -231,6 +231,14 @@ the open ones.
 | The camera frames a target once and cannot follow a moving one                                         | a sustained follow with a release rule                          |
 | A selected scene object that no longer exists is never pruned, and `selection` is a durable field      | the same consumer-knowledge surface the rows above want         |
 
+**Announcements landed.** The canvas held one `aria-live` region, inside the HUD, which returns
+`null` when a consumer turns off its controls, dock, and status card — so whether the canvas could
+speak depended on visual policy. It also carried one hardcoded message with no way in.
+`InfiniteCanvasAnnouncer` mounts it at the viewport and `useInfiniteCanvasAnnounce` gives consumers
+a second region. Polkadot's undo notice announces both halves through it, driven end to end: the
+offer, then `Undone.` when it is taken. No screen reader has been run against it; what is verified
+is the DOM contract.
+
 **Both remaining rows are one architectural fact.** The framework's pure surface takes `state`, and
 `state` is serializable. Consumer knowledge is not — an object's bounds and whether it still exists
 both live in props, as closures. Every gap where the framework must ask the consumer something lands
