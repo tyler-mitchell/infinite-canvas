@@ -58,13 +58,6 @@ and each took one look at a file nobody had audited.
   **No new comment may exceed 100 characters.** Whole comment, not per line — a docblock counts as
   one. Longer than that means it belongs in `docs/`, a bump file, or nowhere.
 
-`verify-comment-budget.mjs` enforces this on commit, because the written rule did not. It has
-existed in the global instructions throughout, in stronger wordings than this one, and the tree
-still holds **2077 comments over the limit across 354 files** — every one written by an agent
-reading that rule. The gate records those per file and fails when a file's count rises, so the
-standing debt does not block a commit and nothing can be added beside it. After a real comment
-pass, `--update` records the lower floor.
-
 A comment states what the code does, or why a non-obvious choice was made, in the plainest
 sentence that carries it. If it is not a fact about the code, delete it.
 
