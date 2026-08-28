@@ -156,13 +156,8 @@ function getWindow(state: InfiniteCanvasState<CardKind>, windowId: string) {
 }
 
 /**
- * Resolved against the links that exist, not read straight off the selection.
- *
- * The canvas never prunes `selection.targets` — it has no idea what a consumer's edges are — and
- * `selection` is part of the durable document, so a target naming a deleted link is kept and
- * restored. Returning `target.id` unchecked made "Delete link" appear for a link that is not on
- * this board: switching workspaces swaps `connections` without clearing the selection, so the id
- * survived into a board that never had it, and the button deleted nothing.
+ * Resolved against the links that exist. The canvas never prunes `selection.targets`, so a target
+ * naming a deleted link survives — and switching boards would leave "Delete link" pointing at one.
  */
 function selectedConnectionId(
   state: InfiniteCanvasState<CardKind>,
