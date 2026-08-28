@@ -148,13 +148,124 @@ const getAppActionTools = (createContext: () => AppActionContext): readonly AppT
     name: action.id,
   }));
 
-function getAppTools(
+/**
+ * What is available right now, which the tool list itself cannot say.
+ *
+ * WebMCP publishes a fixed set of tools and carries no enablement, so a caller holding a hundred
+ * names has no way to tell which apply to this canvas and this selection. Without this it has to
+ * invoke one and read "is not available right now" — discovery by failed attempt.
+ *
+ * Enablement is already computed for every entry, by the framework for its own verbs and by
+ * `isAppActionEnabled` for this app's. This reports it rather than deriving it a second way.
+ */
+const getAvailabilityTool = (
   input: Readonly<{ createContext: () => AppActionContext; projectId: string }>,
+): AppTool =>
+  report(
+    "List the verbs that can run right now, given what is open and selected. Names are the tool names.",
+    "command.list",
+    async () => {
+      const context = input.createContext();
+      const live = [
+        ...published(input).map((entry) => ({ enabled: entry.enabled, name: entry.id })),
+        ...APP_ACTIONS.map((action) => ({
+          enabled: isAppActionEnabled(action, context),
+          name: action.id,
+        })),
+      ];
+      const available = live.filter((entry) => entry.enabled).map((entry) => entry.name);
+      const blocked = live.filter((entry) => !entry.enabled).map((entry) => entry.name);
+
+      return `Available now: ${available.join(", ")}. Not available right now: ${
+        blocked.length === 0 ? "nothing" : blocked.join(", ")
+      }.`;
+    },
+  );
+
+/**
+ * Reading the database directly, which no published verb does or should.
+ *
+ * Every verb answers from the app's own state and returns once its write lands. That is the right
+ * contract and it is not enough to *check* one: confirming a write means asking the database what
+ * it holds, and the only thing that could was `window.__surreal` — a console affordance an agent
+ * driving WebMCP cannot reach.
+ *
+ * Development only, and this is the reason the tier exists. `query` runs arbitrary SurQL, so it
+ * bypasses every schema, refusal and revision guard the vocabulary enforces. Shipping it would make
+ * those guards optional for anything that could reach this list.
+ *
+ * Imported inside `execute` rather than at module scope, the same way `inspector-handle` defers
+ * `database.client`: the branch below is eliminated from a production build, a top-level import
+ * would not be, and the inspector pulls the engine in behind it.
+ */
+const getDevelopmentTools = (): readonly AppTool[] => {
+  const connect = async () => {
+    const [{ createSurrealInspectorHandle }, { localDatabaseSources }] = await Promise.all([
+      import("surreal-inspector"),
+      import("./database/inspector-handle"),
+    ]);
+
+    return createSurrealInspectorHandle(localDatabaseSources);
+  };
+
+  return [
+    {
+      description:
+        "Development only. Run SurQL against the local database and return its rows. Use it to confirm what a verb actually wrote.",
+      execute: async (raw?: unknown) => {
+        const statement = (raw as Readonly<{ statement?: unknown }> | undefined)?.statement;
+
+        if (typeof statement !== "string" || statement.trim() === "") {
+          return "Refused: statement must be a non-empty string of SurQL.";
+        }
+
+        const outcome = await (await connect()).query(statement);
+
+        return outcome.error === null
+          ? JSON.stringify(outcome.results)
+          : `Refused: ${outcome.error}`;
+      },
+      inputSchema: {
+        properties: { statement: { type: "string" } },
+        required: ["statement"],
+        type: "object",
+      },
+      name: "database.query",
+    },
+    report(
+      "Development only. Report the local database: its tables, their row counts, and whether the installed schema matches the source.",
+      "database.report",
+      async () => JSON.stringify(await (await connect()).report()),
+    ),
+  ];
+};
+
+/**
+ * One interface for every caller, with availability a property of a tool rather than of a door.
+ *
+ * The verbs below already reach production through WebMCP. A second transport for the same list —
+ * a `window` global — would be reachable by any script on a page that renders third-party content,
+ * where WebMCP is mediated by an agent and gated by a permissions policy. So the development-only
+ * half is registered here, on the same interface, rather than exposed beside it.
+ *
+ * `development` is passed in rather than read from `import.meta.env` here. A gate this module
+ * decided for itself could not be exercised from a test — `DEV` is true under `vp test`, so an
+ * assertion would pass whether or not the gate existed. The caller holds the environment; this
+ * holds the rule.
+ */
+function getAppTools(
+  input: Readonly<{
+    createContext: () => AppActionContext;
+    development: boolean;
+    projectId: string;
+  }>,
 ): readonly AppTool[] {
   return [
     ...getReportingTools(input),
+    getAvailabilityTool(input),
     ...getCanvasCommandTools(input),
     ...getAppActionTools(input.createContext),
+    ...(input.development ? getDevelopmentTools() : []),
   ];
 }
 

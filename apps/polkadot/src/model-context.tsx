@@ -2,7 +2,6 @@ import { useInfiniteCanvasActions, useInfiniteCanvasStore } from "@hyphened/infi
 import { useLoaderData } from "@tanstack/react-router";
 import { useEffect } from "react";
 
-import { useAppHandle } from "./app-handle";
 import { getAppTools } from "./app-tools";
 import type { WindowKind } from "./canvas/window-registry";
 import { useGoToCanvas } from "./workspace/use-go-to-canvas";
@@ -61,8 +60,6 @@ const getModelContext = (): ModelContextRegistry | null => {
  * time, and subscribing would re-run this on every camera tick.
  */
 function ModelContextTools({ projectId }: Readonly<{ projectId: string }>) {
-  useAppHandle(projectId);
-
   const actions = useInfiniteCanvasActions<WindowKind>();
   const store = useInfiniteCanvasStore<WindowKind>();
   // The route already names the canvas, so nothing here holds a second copy of which one it is.
@@ -86,6 +83,8 @@ function ModelContextTools({ projectId }: Readonly<{ projectId: string }>) {
     // The spec's unregistration mechanism. `registerTool` resolves to `undefined`, not a disposer.
     const controller = new AbortController();
     const tools: ModelContextTool[] = getAppTools({
+      // The environment is this file's to know. `getAppTools` holds the rule about what it gates.
+      development: import.meta.env.DEV,
       createContext: () => ({
         actions,
         canvasId: canvas.id,
