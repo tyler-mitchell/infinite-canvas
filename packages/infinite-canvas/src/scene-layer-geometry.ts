@@ -301,11 +301,87 @@ function getInfiniteCanvasSegmentsWithinRect(
 }
 
 /**
- * The longest run of a path that nothing covers, or `null` when every part of it is hidden.
+ * Two clipped pieces meet when the joint closes, within a hair.
  *
- * What a consumer almost always wants from the above: one place to put the thing that has to be
- * seen or hit. Returning the whole set and leaving each caller to sort it would have every caller
- * write the same three lines and eventually disagree about ties.
+ * The clip is arithmetic on parametric spans, so a piece ending exactly where the next begins comes
+ * back with the last bit of float error between them. Comparing points exactly would split a run
+ * that is visibly continuous.
+ */
+const RUN_JOIN_TOLERANCE = 0.001;
+
+/**
+ * The contiguous runs of a path that nothing covers.
+ *
+ * `getInfiniteCanvasUnoccludedSegments` answers per input segment and stops there, so a path with
+ * an elbow comes back as separate pieces even where nothing covers the corner. Every rect-to-rect
+ * connector has an elbow, which makes "the longest visible piece" and "the longest visible stretch"
+ * different answers for nearly every real path — and the second is the one this module's docstrings
+ * have been promising.
+ *
+ * A run is a `WorldPath` rather than a new type, because that is what a run is: a polyline with a
+ * length and bounds. It carries the routed length, so picking the longest and walking to a point
+ * along it are the arithmetic this module already does, rather than a second set of it.
+ *
+ * Adjacency is decided on the joint rather than on which input segment a piece came from: a clip
+ * can end exactly where the next begins without the two having been neighbours in the input, and a
+ * run is about the line being continuous, not about how it was described.
+ */
+function getInfiniteCanvasUnoccludedRuns(
+  segments: readonly InfiniteCanvasWorldSegment[],
+  occluders: readonly InfiniteCanvasRect[],
+): readonly InfiniteCanvasWorldPath[] {
+  const runs: InfiniteCanvasPoint[][] = [];
+
+  for (const piece of getInfiniteCanvasUnoccludedSegments(segments, occluders)) {
+    const open = runs.at(-1);
+    const joint = open?.at(-1);
+    const joins =
+      joint !== undefined &&
+      Math.abs(joint.x - piece.start.x) <= RUN_JOIN_TOLERANCE &&
+      Math.abs(joint.y - piece.start.y) <= RUN_JOIN_TOLERANCE;
+
+    if (open !== undefined && joins) {
+      open.push(piece.end);
+    } else {
+      runs.push([piece.start, piece.end]);
+    }
+  }
+
+  return runs.map((points) => getInfiniteCanvasWorldPath(points));
+}
+
+/**
+ * The longest contiguous run of a path that nothing covers, or `null` when all of it is hidden.
+ *
+ * What a consumer almost always wants: one stretch to put the thing that has to be seen or hit, and
+ * `getInfiniteCanvasWorldPathPointAtProgress(run, 0.5)` is then the anchor. Walking rather than
+ * averaging the run's ends matters here even though it does not for a whole orthogonal path — that
+ * path is a symmetric Z whose endpoint average already lands on the middle segment, but a run is a
+ * clipped piece of it and carries none of that symmetry.
+ */
+function getInfiniteCanvasLongestUnoccludedRun(
+  segments: readonly InfiniteCanvasWorldSegment[],
+  occluders: readonly InfiniteCanvasRect[],
+): InfiniteCanvasWorldPath | null {
+  return getInfiniteCanvasUnoccludedRuns(
+    segments,
+    occluders,
+  ).reduce<InfiniteCanvasWorldPath | null>(
+    (longest, run) => (longest === null || run.length > longest.length ? run : longest),
+    null,
+  );
+}
+
+/**
+ * The longest single unoccluded **segment**, or `null` when every part of the path is hidden.
+ *
+ * Says segment and means it. This promised "the longest run" and could not deliver one: it reduces
+ * over the per-segment clips and never merges adjacent pieces, so on any path with an elbow — which
+ * is every rect-to-rect connector — the answer is one leg, and anything anchored at its midpoint
+ * lands a quarter along the visible stretch instead of halfway.
+ *
+ * Kept because it is a real and cheaper query when the path is a single line, where a run and a
+ * segment are the same thing. Reach for `getInfiniteCanvasLongestUnoccludedRun` on anything routed.
  */
 function getInfiniteCanvasLongestUnoccludedSegment(
   segments: readonly InfiniteCanvasWorldSegment[],
@@ -497,11 +573,13 @@ function getVisibleInfiniteCanvasWindowProxies<Kind extends string>(
 }
 
 export {
+  getInfiniteCanvasLongestUnoccludedRun,
   getInfiniteCanvasLongestUnoccludedSegment,
   getInfiniteCanvasRectConnectorPath,
   getInfiniteCanvasRectConnectorPoint,
   getInfiniteCanvasRectConnectorSegment,
   getInfiniteCanvasSegmentsWithinRect,
+  getInfiniteCanvasUnoccludedRuns,
   getInfiniteCanvasUnoccludedSegments,
   getInfiniteCanvasViewportScreenRect,
   getInfiniteCanvasWindowConnectorPoint,

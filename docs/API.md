@@ -1,6 +1,6 @@
 # API Reference
 
-The public surface of `@hyphened/infinite-canvas`: 224 values and 187 types across
+The public surface of `@hyphened/infinite-canvas`: 226 values and 187 types across
 two entries. Anything not exported from a barrel is internal and unstable —
 including every `data-infinite-canvas-*` attribute, which is a behavioural hook
 for hit-testing, not a styling contract.
@@ -760,11 +760,13 @@ these over hand-rolled path maths.
 
 **`scene-layer-geometry`**
 
+- `getInfiniteCanvasLongestUnoccludedRun`
 - `getInfiniteCanvasLongestUnoccludedSegment`
 - `getInfiniteCanvasRectConnectorPath`
 - `getInfiniteCanvasRectConnectorPoint`
 - `getInfiniteCanvasRectConnectorSegment`
 - `getInfiniteCanvasSegmentsWithinRect`
+- `getInfiniteCanvasUnoccludedRuns`
 - `getInfiniteCanvasUnoccludedSegments`
 - `getInfiniteCanvasViewportScreenRect`
 - `getInfiniteCanvasWindowConnectorPath`

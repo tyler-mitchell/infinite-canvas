@@ -2,10 +2,9 @@ import {
   getInfiniteCanvasConnectionPreviewPath,
   getInfiniteCanvasContentViewport,
   getInfiniteCanvasGroupProjection,
+  getInfiniteCanvasLongestUnoccludedRun,
   getInfiniteCanvasRectConnectorPath,
   getInfiniteCanvasSegmentsWithinRect,
-  getInfiniteCanvasUnoccludedSegments,
-  getInfiniteCanvasWorldPath,
   getInfiniteCanvasWorldPathPointAtProgress,
   screenPointToWorldPoint,
   getSelectionTargets,
@@ -71,77 +70,26 @@ type DrawnConnector = Readonly<{
 const CONNECTOR_TARGET_KIND = "relation";
 
 /**
- * Two clipped ends count as touching, in world units.
+ * The middle of the longest contiguous visible stretch, measured along the line.
  *
- * Adjacent visible pieces meet at an elbow vertex both sides interpolated from the same point, so
- * they agree to within float noise rather than exactly — `a + (b - a) * 1` is not always `b`. Far
- * below anything a person could see at any zoom, and far above the error.
+ * The merge that used to live here is `getInfiniteCanvasLongestUnoccludedRun` now. It was written
+ * here because the framework's only run query returned the longest *segment* while its docstring
+ * promised a run — an orthogonal connector is three segments, so a path nothing covers is still
+ * three, and the marker landed a quarter along instead of halfway. That is path geometry the canvas
+ * owns, and both of its docstrings already said so, which is why this became a framework export
+ * rather than staying a local workaround.
+ *
+ * What is left is the composition: clip to what a run means for *this* consumer, then take the
+ * point halfway along it. `null` when nothing is visible — a connector nobody can see has nowhere
+ * to put a mark.
  */
-const RUN_JOIN_TOLERANCE = 0.001;
-
-/**
- * The middle of the longest *contiguous* visible stretch, measured along the line.
- *
- * `getInfiniteCanvasLongestUnoccludedSegment` is the obvious call and returns the longest
- * **segment**, never merging adjacent ones — while its own docstring, and the one above it, both
- * promise "the longest run". An orthogonal connector is three segments, so a path with nothing
- * covering any of it is still three, and the marker lands on the midpoint of one leg: a quarter
- * along instead of halfway. Measured at two notes with a 34px gap — label at y321.5 against a
- * centre of 313, two pixels off the lower window with nineteen of clearance above.
- *
- * Merging is set logic over pieces, not geometry, and every actual measurement stays the canvas's:
- * `getInfiniteCanvasWorldPath` builds the run and `getInfiniteCanvasWorldPathPointAtProgress` walks
- * half its *routed* length.
- *
- * **Walking rather than averaging the run's endpoints, and the usual reason for that is false here.**
- * `ROADMAP.md` said averaging "lands in open space beside the line", and the first version of this
- * comment repeated it. `getOrthogonalConnectorPathPoints` always returns a symmetric Z crossing at
- * the exact halfway point, so for a whole path the endpoint average is `(midX, midY)` — on the
- * middle segment, always — and the walk arrives at the same point. Measured: a fixture built to
- * separate them put the average zero units off the line.
- * The walk is still the right call, because a *run* is a clipped piece of that path and carries
- * none of the symmetry the whole one has. It costs nothing and stays correct where averaging stops
- * being equivalent.
- *
- * `null` when nothing is visible, unchanged: a connector nobody can see has nowhere to put a mark.
- */
-function getVisibleRunMidpoint(
+function getRunAnchor(
   segments: readonly InfiniteCanvasWorldSegment[],
   occluders: readonly InfiniteCanvasRect[],
 ): InfiniteCanvasPoint | null {
-  const runs: InfiniteCanvasWorldSegment[][] = [];
+  const run = getInfiniteCanvasLongestUnoccludedRun(segments, occluders);
 
-  for (const piece of getInfiniteCanvasUnoccludedSegments(segments, occluders)) {
-    const open = runs.at(-1);
-    const last = open?.at(-1);
-    const joins =
-      last !== undefined &&
-      Math.abs(last.end.x - piece.start.x) <= RUN_JOIN_TOLERANCE &&
-      Math.abs(last.end.y - piece.start.y) <= RUN_JOIN_TOLERANCE;
-
-    if (open !== undefined && joins) {
-      open.push(piece);
-    } else {
-      runs.push([piece]);
-    }
-  }
-
-  const measure = (run: readonly InfiniteCanvasWorldSegment[]) =>
-    run.reduce((total, piece) => total + piece.length, 0);
-  const longest = runs.reduce<readonly InfiniteCanvasWorldSegment[] | null>(
-    (best, run) => (best === null || measure(run) > measure(best) ? run : best),
-    null,
-  );
-  const start = longest?.[0]?.start;
-
-  if (longest === null || start === undefined) {
-    return null;
-  }
-
-  return getInfiniteCanvasWorldPathPointAtProgress(
-    getInfiniteCanvasWorldPath([start, ...longest.map((piece) => piece.end)]),
-    0.5,
-  );
+  return run === null ? null : getInfiniteCanvasWorldPathPointAtProgress(run, 0.5);
 }
 
 /**
@@ -263,7 +211,7 @@ function getDrawnConnectors(
          * it is. That is the surface for an edge you cannot find, and it already exists.
          */
         return {
-          anchor: getVisibleRunMidpoint(
+          anchor: getRunAnchor(
             getInfiniteCanvasSegmentsWithinRect(path.segments, anchorBounds),
             occluders,
           ),
