@@ -1495,6 +1495,14 @@ camera, the pan handler or `getVisibleWindowBounds` reads `isPinned`; `activeWin
 `activeWindow.toggleMaximized` and `selection.minimize` all silently undock; and `group.dissolve`
 claimed members are left where they were, which is true of a split and false of everything else.
 
+The `group.dissolve` one was a live defect rather than a wording fault, and the only one of the ten
+that was. The placement that saves tab members from landing on top of each other lived in the
+_command_ and the `group.close` action called `closeInfiniteCanvasGroup` bare — so the door a real
+"ungroup this" control takes, the one Polkadot's own verb takes, was the broken one. Driven through
+that verb after the fix: three tabbed windows sharing the rect `[-432, -364, 1228, 484]` came apart
+to three distinct origins, the first keeping the shell's footprint and the other two placed clear,
+all three visible on screen. It now lives in `closeInfiniteCanvasGroup` where both doors reach it.
+
 Two families came out clean, which is worth recording so nobody re-reads them looking for a fault.
 The four `selection.extend` and four `window.focus` verbs move the camera when the target is not
 already fully visible and none says so — left deliberately, because a view following the thing you
