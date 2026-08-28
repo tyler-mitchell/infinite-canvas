@@ -47,6 +47,13 @@ Not "a working canvas app". The reference points are Linear, Raycast, and Arc. E
 Swept 2026-08-28: every arbitrary `text-[Npx]`, `justify-*` and `font-*` compared against its
 computed value, zero mismatches. Semantic zoom driven at its boundary the same day and it holds.
 
+Swept again the same day over the slots added with the archive timestamps and the code-block
+chrome — `archivedCell`, `archivedWhen`, `itemWhen` in both switchers, `copied`, `failed`. Zero
+mismatches: `text-[10.5px]` wins over the menu item's `14px`, `ml-auto` resolves, and both icon
+colours read back as exactly `--accent` and `--danger`. The sweep's own hazard showed up twice —
+a probe that measured the wrong element reported a false failure both times, so read back what the
+selector actually matched before believing a mismatch.
+
 **A new window kind that declares a summary must set a minimum short axis above 160.** The detail
 band is `summaryBelowPx: 120` / `fullAbovePx: 160` on the smaller on-screen axis, and restore is
 strictly greater than 160 — a kind sitting exactly on it demotes and never returns. `note` and
