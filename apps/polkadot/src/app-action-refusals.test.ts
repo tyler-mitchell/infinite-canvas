@@ -75,11 +75,45 @@ const refuse = (id: string, input: unknown) => {
       canvasTitle: "Main canvas",
       goToCanvas: (canvasId) => visited.push(canvasId),
       projectId: "project-1",
+      refreshRoute: () => undefined,
       state,
     },
     input,
   );
 };
+
+/**
+ * A name that is only spaces is not a name, and the schema cannot say so.
+ *
+ * `title: "string"` accepts `"   "` — it is a string. A canvas answers by name in the switcher, so
+ * storing one called "" or " " makes a row nobody can point at and two of them indistinguishable.
+ * The same rule `renameProjectItem` already enforces for an item, which is why the sentence is
+ * shared rather than worded twice.
+ *
+ * Not covered by the sweep above: that sends `42`, which the schema itself rejects. This is the
+ * case that gets *past* the schema and has to be refused by the verb.
+ */
+test("renaming a document refuses a name that is blank once trimmed", () => {
+  for (const [id, input] of [
+    ["canvas.rename", { canvasId: "canvas-1", title: "   " }],
+    ["project.rename", { projectId: "project-1", title: "" }],
+  ] as const) {
+    expect(`${id}: ${String(refuse(id, input))}`).toBe(`${id}: Refused: a name cannot be blank.`);
+  }
+});
+
+test("renaming a document accepts a real name, so the guard above is not refusing everything", () => {
+  /*
+   * The discrimination half — a verb refusing unconditionally would satisfy the test above.
+   *
+   * This one reaches the database boundary and deliberately stops there: the verb returns before
+   * its write resolves, so what is asserted is the synchronous answer, and the `void`ed promise
+   * fails harmlessly against an engine no test starts. That is the whole reason the *write* is not
+   * asserted here and is driven in a browser instead.
+   */
+  expect(refuse("canvas.rename", { canvasId: "canvas-1", title: "Q3 planning" })).toBeUndefined();
+  expect(refuse("project.rename", { projectId: "project-1", title: "Atlas" })).toBeUndefined();
+});
 
 /**
  * The property, over the whole vocabulary rather than sixteen hand-written cases.

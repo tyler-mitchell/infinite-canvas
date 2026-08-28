@@ -31,6 +31,7 @@ import { getAppAction, isAppActionEnabled } from "../app-actions";
 import { FLOATING_SURFACE } from "../material";
 import { openProject$ } from "../projects/open-project";
 import { useGoToCanvas } from "../workspace/use-go-to-canvas";
+import { useRefreshRoute } from "../workspace/use-refresh-route";
 import { OffscreenIndicators } from "../canvas/offscreen-indicators";
 import type { WindowKind } from "../canvas/window-registry";
 import { getActionIcon } from "./action-icons";
@@ -151,6 +152,7 @@ function SelectionRail() {
   // Supplied because the vocabulary now holds verbs that change canvas, and a context is one shape
   // wherever it is built. This rail offers none of them; that is the verb's business, not its own.
   const goToCanvas = useGoToCanvas();
+  const refreshRoute = useRefreshRoute();
   const canGroup =
     groupAction !== undefined &&
     isAppActionEnabled(groupAction, {
@@ -159,6 +161,7 @@ function SelectionRail() {
       canvasTitle: canvas.title,
       goToCanvas,
       projectId,
+      refreshRoute,
       state: store.state$.peek(),
     });
   const group = () => {
@@ -168,6 +171,7 @@ function SelectionRail() {
       canvasTitle: canvas.title,
       goToCanvas,
       projectId,
+      refreshRoute,
       state: store.state$.peek(),
     };
 

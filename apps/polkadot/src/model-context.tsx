@@ -19,6 +19,7 @@ import {
 import { getPublishedCanvasCommands } from "./published-commands";
 import { relations$ } from "./relations/relation-store";
 import { useGoToCanvas } from "./workspace/use-go-to-canvas";
+import { useRefreshRoute } from "./workspace/use-refresh-route";
 
 /**
  * The app's vocabulary, offered to an agent running in the browser.
@@ -144,6 +145,8 @@ function ModelContextTools({ projectId }: Readonly<{ projectId: string }>) {
    * because this effect registers a hundred-odd tools and would otherwise redo it every render.
    */
   const goToCanvas = useGoToCanvas();
+  // Stable for the same reason, and it is in this effect's dependencies below.
+  const refreshRoute = useRefreshRoute();
 
   useEffect(() => {
     const registry = getModelContext();
@@ -353,6 +356,7 @@ function ModelContextTools({ projectId }: Readonly<{ projectId: string }>) {
             canvasTitle: canvas.title,
             goToCanvas,
             projectId,
+            refreshRoute,
             state: store.state$.peek(),
           };
 
@@ -413,7 +417,7 @@ function ModelContextTools({ projectId }: Readonly<{ projectId: string }>) {
     return () => {
       controller.abort();
     };
-  }, [actions, canvas, goToCanvas, projectId, store]);
+  }, [actions, canvas, goToCanvas, projectId, refreshRoute, store]);
 
   return null;
 }

@@ -20,7 +20,11 @@ import { projectContent$, type ProjectContent } from "./content/project-content"
  * The verbs under test are the parameterized ones, none of which navigates; a canvas verb that does
  * gets its own fixture below, asserting where it went.
  */
-const where = { canvasId: "canvas-1", canvasTitle: "Main canvas" };
+const where = {
+  canvasId: "canvas-1",
+  canvasTitle: "Main canvas",
+  refreshRoute: () => undefined,
+};
 const goToCanvas = () => undefined;
 
 /**

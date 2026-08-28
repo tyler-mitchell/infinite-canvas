@@ -21,6 +21,7 @@ import {
 import { openNewCollection } from "./collections/open-collection";
 import { RENAMEABLE_KINDS, renameProjectItem } from "./content/rename-item";
 import type { ContentItemRecord } from "./database/database.client";
+import * as database from "./database/operations";
 import { openNewNote } from "./notes/open-note";
 import { getProjectEntryCanvas } from "./projects/enter-project";
 import { createCanvas } from "./workspace/create-canvas";
@@ -82,6 +83,15 @@ type AppActionContext = Readonly<{
    */
   goToCanvas: (canvasId: string) => void;
   projectId: string;
+  /**
+   * Re-read what the route loaded, for the verbs that change it.
+   *
+   * The route's loader holds the open canvas's title and its project's, so a rename that only
+   * writes leaves the switchers showing the old name — the same write-without-re-read that left
+   * three creation paths absent from the library. Supplied rather than reached for, like
+   * `goToCanvas`: `router.invalidate` needs a router, and the vocabulary is not given one.
+   */
+  refreshRoute: () => void;
   state: InfiniteCanvasState<WindowKind>;
 }>;
 
@@ -151,6 +161,14 @@ const NOT_CONNECTED =
  * verb's answer the same as the framework's rather than inventing a second rule.
  */
 const GROUP_HAS_NO_PANES = "Refused: that group holds one window, so it has no arrangement to set.";
+/**
+ * The same rule `renameProjectItem` states for an item, said once for the two documents.
+ *
+ * A blank name is refused rather than stored: a canvas answers by name in the switcher, so one
+ * called "" is a row you cannot point at. Trimmed first, because " " is blank and looks like a name
+ * in a JSON payload.
+ */
+const BLANK_TITLE = "Refused: a name cannot be blank.";
 
 /**
  * A window is addressed by its id, for the same reason a stored item is.
@@ -415,6 +433,22 @@ const PROJECT_OPEN_INPUT = type({ projectId: "string" });
 /** Optional throughout, matching `workspace.create`: absent means number it after what exists. */
 const DOCUMENT_CREATE_INPUT = type({ "title?": "string" });
 
+/**
+ * Renaming, which was the one thing at this level a pointer could do and a caller could not.
+ *
+ * The creating verbs take an optional title, so a caller could name what it made and never rename
+ * it afterwards — and a canvas is the thing you name *after* the work tells you what it is. Both
+ * switchers already do this through `useInlineRename`; the capability existed and only a pointer
+ * could reach it, which `AGENTS.md` names as the shape to avoid.
+ *
+ * By id rather than "the one I am in", unlike `canvas.duplicate`: the reporters publish every id, a
+ * caller tidying up names is usually not standing in the canvas it is renaming, and the switcher
+ * offers the same reach.
+ */
+const CANVAS_RENAME_INPUT = type({ canvasId: "string", title: "string" });
+
+const PROJECT_RENAME_INPUT = type({ projectId: "string", title: "string" });
+
 const APP_ACTIONS: readonly AppAction[] = [
   {
     description:
@@ -469,6 +503,37 @@ const APP_ACTIONS: readonly AppAction[] = [
     },
   },
   {
+    description: "Rename a canvas in this project. The id comes from canvas.list.",
+    id: "canvas.rename",
+    input: CANVAS_RENAME_INPUT,
+    label: "Rename a canvas",
+    run: ({ refreshRoute }, input) => {
+      const parsed = CANVAS_RENAME_INPUT(input);
+
+      if (parsed instanceof type.errors) {
+        return describeInvalidInput(parsed);
+      }
+
+      const title = parsed.title.trim();
+
+      if (title === "") {
+        return BLANK_TITLE;
+      }
+
+      /*
+       * Re-read after the write, because the route holds the title the switcher draws.
+       *
+       * Renaming without it is the shape that had three creation paths missing from the library:
+       * the record changes and the surface showing it never asks again. Refreshed whichever canvas
+       * was renamed rather than only the open one — `invalidate` re-runs one loader, and deciding
+       * "was that the one I am looking at" here would be a second copy of a fact the route owns.
+       */
+      void database.canvases.rename({ canvasId: parsed.canvasId, title }).then(refreshRoute);
+
+      return undefined;
+    },
+  },
+  {
     description:
       "Make a new project and go to it. Without a title it is numbered after the projects that exist.",
     id: "project.create",
@@ -515,6 +580,30 @@ const APP_ACTIONS: readonly AppAction[] = [
           }
         },
       );
+
+      return undefined;
+    },
+  },
+  {
+    description: "Rename a project. The id comes from project.list.",
+    id: "project.rename",
+    input: PROJECT_RENAME_INPUT,
+    label: "Rename a project",
+    run: ({ refreshRoute }, input) => {
+      const parsed = PROJECT_RENAME_INPUT(input);
+
+      if (parsed instanceof type.errors) {
+        return describeInvalidInput(parsed);
+      }
+
+      const title = parsed.title.trim();
+
+      if (title === "") {
+        return BLANK_TITLE;
+      }
+
+      // The route carries `projectTitle` beside the canvas's own, so the same re-read covers both.
+      void database.projects.rename({ projectId: parsed.projectId, title }).then(refreshRoute);
 
       return undefined;
     },

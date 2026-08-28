@@ -8,6 +8,7 @@ import { useValue } from "@legendapp/state/react";
 import { useLoaderData } from "@tanstack/react-router";
 
 import { useGoToCanvas } from "../workspace/use-go-to-canvas";
+import { useRefreshRoute } from "../workspace/use-refresh-route";
 import { useEffect, useState } from "react";
 
 import { getAppAction, isAppActionEnabled } from "../app-actions";
@@ -154,12 +155,14 @@ function CanvasContextMenu() {
   // Supplied because a context is one shape wherever it is built. The ring is a fixed six and holds
   // no canvas verb; whether one is offered here is `context-menu-rings`' choice, not this object's.
   const goToCanvas = useGoToCanvas();
+  const refreshRoute = useRefreshRoute();
   const context = {
     actions,
     canvasId: canvas.id,
     canvasTitle: canvas.title,
     goToCanvas,
     projectId,
+    refreshRoute,
     state,
   };
   /*

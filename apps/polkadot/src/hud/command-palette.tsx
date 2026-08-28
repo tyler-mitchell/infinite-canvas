@@ -55,6 +55,7 @@ import { createCanvas } from "../workspace/create-canvas";
 import { createDesktop } from "../workspace/create-desktop";
 import { createProject } from "../workspace/create-project";
 import { useGoToCanvas } from "../workspace/use-go-to-canvas";
+import { useRefreshRoute } from "../workspace/use-refresh-route";
 import { getProjectEntryCanvas } from "../projects/enter-project";
 import { getContentWindowItemId, type WindowKind } from "../canvas/window-registry";
 import type {
@@ -602,6 +603,7 @@ function PaletteContent({
   };
 
   const openCanvas = useGoToCanvas();
+  const refreshRoute = useRefreshRoute();
   // Which canvas this is, from the route rather than from state of its own — the URL already says.
   const canvas = useLoaderData({ from: "/canvas/$canvasId" });
 
@@ -935,6 +937,7 @@ function PaletteContent({
               canvasTitle: canvas.title,
               goToCanvas: openCanvas,
               projectId,
+              refreshRoute,
               state,
             };
 
@@ -980,6 +983,7 @@ function PaletteContent({
                     canvasTitle: canvas.title,
                     goToCanvas: openCanvas,
                     projectId,
+                    refreshRoute,
                     state,
                   },
                   { itemId: connectionSubject.itemId },
