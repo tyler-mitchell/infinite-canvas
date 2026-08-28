@@ -1385,6 +1385,18 @@ Measured, so the shape of the ask is grounded rather than imagined:
   prunes exactly what it can verify and keeps exactly what it cannot, and a consumer reading only
   the target half would reasonably assume selection is cleaned uniformly. Those assertions pin a
   contract rather than a bug, and want rewriting rather than deleting on the day the surface lands.
+  **This app is not exposed to it, and the reason is the mitigation worth copying.** Cutting an edge
+  leaves its target in the selection — `disconnectItems` writes, reloads and registers the undo, and
+  never touches the canvas, across all six of its callers. It does not need to: every reader of edge
+  selection goes through `getSelectedRelations`, which resolves each target by id against the
+  relations that currently exist, so a dead one matches nothing and contributes nothing. Derive on
+  read, the same discipline `getInfiniteCanvasGroupTitle` chose. The persisted document does
+  accumulate dead ids, which is real and cheap and invisible; what would make it expensive is
+  trusting `targets` as a list of edges, so `selected-relations-resolve.test.ts` pins the resolving
+  rather than the accumulation.
+  Recorded because the first reading of this was wrong: it was written up as a live product defect
+  for Polkadot to fix, on the strength of the framework behaviour alone, without checking what the
+  app does with a target once it has one.
 
 Storing the answers in state instead is the tempting shortcut and is wrong by this file's own
 standards: a rect copied onto a selection target is stale the moment the object moves, and
