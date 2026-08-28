@@ -19,18 +19,24 @@ import { tv } from "ui/tv";
  * and a project gets a typed confirmation. The doctrine is that confirmation is proportional to
  * what is lost — and disconnecting had none at all while destroying a sentence someone wrote.
  *
- * **The premise this was built on has since changed, and that is worth deciding rather than
- * inheriting.** `fn::unrelate_content_items` still deletes the row, but `disconnectItems` now
- * remembers its own inverse and offers it through the palette's undo — driven, a cut `supports`
- * edge labelled "load-bearing evidence" came back with both. So the loss is recoverable for one
- * step, where it previously was not by any route.
+ * **Settled 2026-08-28: it stays, and the recoverability argument is not why.**
  *
- * By this app's own doctrine that is an argument for removing this dialog: archiving needs no
- * confirmation precisely because it is reversible. The counter-argument is that undo is one step
- * and expires when the next reversible act replaces it, whereas the archive list is permanent — so
- * a cut is *briefly* recoverable rather than reversible the way archiving is. That is a real
- * difference and a judgement call about a control someone else designed, so it is named here rather
- * than settled unilaterally. What is fixed below is only the sentence that had become false.
+ * The premise did change. `disconnectItems` remembers its own inverse, `UndoNotice` now offers that
+ * inverse on screen at the moment of the cut rather than only as a palette row, and by this app's
+ * doctrine — archiving needs no confirmation *precisely because* it is reversible — that is a good
+ * argument for deleting this file. Whether one undo step is "reversible enough" against a permanent
+ * archive list is genuinely arguable, and it is not the deciding question.
+ *
+ * The deciding question is what the dialog carries. It is not friction in front of a known act: it
+ * quotes the claim, and the claim is the thing being destroyed. A connector on a canvas draws its
+ * label at some zooms and not others, the Backspace gesture works on a selected edge with no label
+ * in view, and the palette row says "Disconnect the two selected notes" without saying what they
+ * assert. So a person can reach this act without the sentence they are about to lose being anywhere
+ * on screen — and an undo cannot give that back, because it restores the edge only if you already
+ * knew there was something worth restoring.
+ *
+ * Confirmation proportional to what is lost is the doctrine. Here what is lost is a line of the
+ * person's own writing, and this is the only surface that shows it to them first.
  *
  * **Only for an edge that says something.** `getRelationLabel` is the test, and it is the same one
  * the connector draws by: an edge with the default kind and no label asserts nothing beyond the

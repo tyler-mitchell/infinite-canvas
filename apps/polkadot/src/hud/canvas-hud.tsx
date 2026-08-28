@@ -13,6 +13,7 @@ import {
   AlignStartVertical,
   Grip,
   Pin,
+  RotateCcw,
   Scan,
   Trash2,
   TriangleAlert,
@@ -28,6 +29,7 @@ import { useValue } from "@legendapp/state/react";
 import { useLoaderData } from "@tanstack/react-router";
 
 import { getAppAction, isAppActionEnabled } from "../app-actions";
+import { undoableAction$, undoLastAction } from "../content/undoable-action";
 import { FLOATING_SURFACE } from "../material";
 import { openProject$ } from "../projects/open-project";
 import { useGoToCanvas } from "../workspace/use-go-to-canvas";
@@ -70,6 +72,8 @@ const canvasHud = tv({
     noticeRail: `flex items-center gap-2 rounded-[var(--radius-pill)] ${FLOATING_SURFACE} py-1 pr-1 pl-2.5 shadow-[var(--lift-2)]`,
     noticeText: "text-[11.5px] tracking-[-0.005em] text-[var(--ink-muted)]",
     rail: `flex items-center gap-0.5 rounded-[var(--radius-pill)] ${FLOATING_SURFACE} p-1 shadow-[var(--lift-2)]`,
+    // Not `--danger` like the notice icon beside it: nothing is wrong, something is offered.
+    undoIcon: "size-3.5 shrink-0 text-[var(--ink-faint)]",
   },
 });
 
@@ -383,6 +387,75 @@ function GroupRail() {
 }
 
 /**
+ * The last reversible thing you did, offered where you just did it.
+ *
+ * `undoableAction$` has existed since archiving became reversible and its only surface was a
+ * palette row — so the app's whole confirmation doctrine ("no dialog, because it is reversible")
+ * rested on a recovery nobody could see. Archive a note and nothing tells you it can come back;
+ * you have to already know to open the palette and read the rows.
+ *
+ * The button's label *is* `describe`, rather than a sentence plus an "Undo". One phrasing serves
+ * both surfaces — this is the palette row, shown transiently — so the two can never word one act
+ * differently, which is the same rule the action's own docstring gives for carrying its inverse.
+ *
+ * **Transient, while the palette row stays.** Eight seconds is long enough to notice and act on and
+ * short enough not to become furniture; after it, the row is still there for someone who went
+ * looking. The notice is the discovery path, not the only one. Keyed on the action object, so a
+ * second reversible act shows fresh rather than inheriting the first one's remaining time.
+ */
+function UndoNotice() {
+  const action = useValue(undoableAction$);
+  const [spent, setSpent] = useState(false);
+  const styles = canvasHud();
+
+  useEffect(() => {
+    if (action === null) {
+      return;
+    }
+
+    // Cleared here rather than held per action: the effect keys on the action, so a second
+    // reversible act runs this again and shows fresh instead of inheriting the first one's clock.
+    setSpent(false);
+
+    const timer = setTimeout(() => {
+      setSpent(true);
+    }, 8000);
+
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [action]);
+
+  return (
+    <HudSurface anchor="bottom-center-above" present={action !== null && !spent}>
+      <div className={styles.noticeRail()} role="status">
+        <RotateCcw className={styles.undoIcon()} />
+        <Button
+          onClick={() => {
+            void undoLastAction();
+          }}
+          size="sm"
+          variant="ghost"
+        >
+          {action?.describe ?? ""}
+        </Button>
+        <Button
+          aria-label="Dismiss"
+          onClick={() => {
+            setSpent(true);
+          }}
+          size="icon-sm"
+          title="Dismiss"
+          variant="ghost"
+        >
+          <X />
+        </Button>
+      </div>
+    </HudSurface>
+  );
+}
+
+/**
  * What was left behind when this canvas opened.
  *
  * A layout can name a window kind this build does not register — a canvas saved by a newer
@@ -481,6 +554,9 @@ export function CanvasHud({
         )}
         <GroupRail />
         <SelectionRail />
+        {/* Above the selection rail rather than beside it, which is what that anchor exists for:
+            neither moves when the other appears. */}
+        <UndoNotice />
         {/* Opens where the pointer is, so it is not anchored like the rails above. */}
         <CanvasContextMenu />
         {/* Inside the inset root, unlike the offscreen ring: this is an ordinary corner surface,

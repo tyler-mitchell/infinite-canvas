@@ -90,10 +90,16 @@ view` as a menu mode, and `view.save` / `list` / `open` / `reframe` / `remove` a
   What is left pointer-only is deletion, which is the item above, and the two removal _dialogs_,
   which are confirmations rather than capabilities.
 
-- **Whether a reversible cut still needs its confirmation dialog.** `disconnectItems` registers its
-  own reversal now, so cutting a connection is undoable. Undo is one step and expires when the next
-  reversible act replaces it, where the archive list is permanent. Nobody has made this judgement —
-  named in `connection-removal-dialog.tsx`.
+- **Reversibility is legible now; whether eight seconds is the right window is not measured.**
+  `undoableAction$` existed since archiving became reversible and its only surface was a palette
+  row, so the doctrine "no dialog, because it is reversible" rested on a recovery nobody could see.
+  `UndoNotice` puts it above the selection rail — driven, archiving surfaced
+  `Undo archiving "Untitled 1"` and pressing it put the note back. Eight seconds is a guess nobody
+  has watched anyone use, and it is the only number in that surface.
+  The cut dialog was decided rather than left open: it stays, because it quotes the claim, and a
+  person can reach that act by Backspace or by a palette row with the label nowhere on screen. Undo
+  restores the edge only for someone who already knew there was something to restore. Written where
+  it applies.
 
 - **Surfaces are one rule now, and the interior is not a defect.** Every inset shadow in the app
   measures `oklch(1 0 0 / 0.07) 0 1px 0 0 inset` — window frames, Polkadot's rails, the framework's
