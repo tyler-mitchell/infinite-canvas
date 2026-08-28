@@ -1,5 +1,3 @@
-import { isInfiniteCanvasCommandEnabled } from "@hyphened/infinite-canvas";
-
 import { APP_ACTIONS, isAppActionEnabled, type AppActionContext } from "./app-actions";
 import { describeCanvas } from "./canvas/describe-canvas";
 import { describeProjectContent } from "./content/describe-content";
@@ -99,23 +97,37 @@ const getReportingTools = (
   ),
 ];
 
-/** Enablement is asked at call time: a list is built once and the canvas changes under it. */
-const getCanvasCommandTools = (createContext: () => AppActionContext): readonly AppTool[] =>
-  getPublishedCanvasCommands(createContext().state).map((descriptor) => ({
-    description: descriptor.description,
-    execute: async () => {
-      const context = createContext();
+const published = (
+  input: Readonly<{ createContext: () => AppActionContext; projectId: string }>,
+) => {
+  const context = input.createContext();
 
-      if (!isInfiniteCanvasCommandEnabled(context.state, descriptor.command)) {
-        return `${descriptor.label} is not available right now.`;
+  return getPublishedCanvasCommands({
+    actions: context.actions,
+    projectId: input.projectId,
+    state: context.state,
+  });
+};
+
+/** Enablement is re-derived at call time: a list is built once and the canvas changes under it. */
+const getCanvasCommandTools = (
+  input: Readonly<{ createContext: () => AppActionContext; projectId: string }>,
+): readonly AppTool[] =>
+  published(input).map((entry) => ({
+    description: entry.description,
+    execute: async () => {
+      const live = published(input).find((candidate) => candidate.id === entry.id);
+
+      if (live === undefined || !live.enabled) {
+        return `${entry.label} is not available right now.`;
       }
 
-      context.actions.executeCommand(descriptor.command);
+      live.run();
 
-      return `${descriptor.label} done.`;
+      return `${entry.label} done.`;
     },
     inputSchema: NO_INPUT,
-    name: descriptor.id,
+    name: entry.id,
   }));
 
 const getAppActionTools = (createContext: () => AppActionContext): readonly AppTool[] =>
@@ -140,7 +152,7 @@ function getAppTools(
 ): readonly AppTool[] {
   return [
     ...getReportingTools(input),
-    ...getCanvasCommandTools(input.createContext),
+    ...getCanvasCommandTools(input),
     ...getAppActionTools(input.createContext),
   ];
 }
