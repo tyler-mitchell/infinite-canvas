@@ -3,6 +3,7 @@ import { type } from "arktype";
 
 import { getContentWindowItemId, type WindowKind } from "../canvas/window-registry";
 import { COLLECTION_KIND, CollectionContent } from "../collections/collection-gateway";
+import { LINK_KIND, LinkContent } from "../links/link-gateway";
 import type { ContentRelation } from "../database/database.client";
 import { getProjectContent, type ProjectContent } from "./project-content";
 
@@ -83,43 +84,57 @@ const describeRelations = (
 };
 
 /**
- * What a collection is a collection *of*, which the listing could not say.
+ * What a kind carries that its title does not say, or absent when the title is the whole of it.
  *
- * Every other kind carries its subject in its title — a note called "Quarterly notes" is about
- * quarterly notes. A collection's title is a name and its *question* is the content, so
- * `collection "Reading list" [id]` told a caller nothing about what is in it. Renaming one makes it
- * worse: the default names coincide with the kind they list, so the gap is invisible until somebody
- * calls one something else, which is exactly when a caller most needs telling.
+ * A map keyed by kind rather than a chain of conditions, which is the shape `TITLE_WRITERS` in
+ * `rename-item.ts` already uses for the same reason: the entries *are* the rule, and a kind that
+ * grows a subject gets reported by adding a line rather than by finding the condition to widen.
  *
- * Read through `CollectionContent` rather than reaching into `content`, and non-throwing: this is a
- * report, and the two callers of the report have no sensible response to an exception. A record
- * this cannot parse is described without a subject rather than not described at all.
+ * Two kinds have one. A collection's title is a name and its *question* is the content, so
+ * `collection "Reading list" [id]` said nothing about what is in it. A link's title is often not
+ * the address at all — `getDraggedLinkName` takes a dragged tab's own title — so where it points
+ * was unreportable. A note's prose is `note.read`'s, and an image's description is already its
+ * title.
  *
- * The connected-to branch names its subject by title, resolved against the same listing the rest of
- * the report uses, so a caller reads one vocabulary throughout.
+ * **Both gaps hide behind default naming**, which is why neither surfaced until something was
+ * renamed. A collection of links is called "Links" and a typed link is called "example.com/path",
+ * so in the ordinary case the subject repeats the title and reads as redundant. It stops repeating
+ * exactly when somebody renames one, and that is when a caller has no other way to know.
+ *
+ * Read through each kind's own schema rather than reaching into `content`, and non-throwing: this
+ * is a report, and its callers are tool output with no response to an exception except rendering
+ * nothing, which would lose the whole project over one field. A record whose content will not parse
+ * is described without a subject rather than not described at all.
  */
-const describeCollectionSubject = (
-  item: ProjectContentItems[number],
-  items: ProjectContentItems,
-): string | null => {
-  if (item.kind !== COLLECTION_KIND) {
-    return null;
-  }
+const SUBJECT_READERS: Readonly<
+  Record<string, (item: ProjectContentItems[number], items: ProjectContentItems) => string | null>
+> = {
+  [COLLECTION_KIND]: (item, items) => {
+    const question = CollectionContent(item.content);
 
-  const question = CollectionContent(item.content);
+    if (question instanceof type.errors) {
+      return null;
+    }
 
-  if (question instanceof type.errors) {
-    return null;
-  }
+    if ("connectedTo" in question) {
+      // By title, against the same listing the rest of the report uses, so a caller reads one
+      // vocabulary throughout — falling back to the id the way a half-resolved edge does.
+      const subject = items.find((candidate) => candidate.id === question.connectedTo);
 
-  if ("connectedTo" in question) {
-    const subject = items.find((candidate) => candidate.id === question.connectedTo);
+      return `lists what ${subject === undefined ? `[${question.connectedTo}]` : `"${subject.title}"`} connects to`;
+    }
 
-    return `lists what ${subject === undefined ? `[${question.connectedTo}]` : `"${subject.title}"`} connects to`;
-  }
+    return `lists every ${question.listsKind} in this project`;
+  },
+  [LINK_KIND]: (item) => {
+    const link = LinkContent(item.content);
 
-  return `lists every ${question.listsKind} in this project`;
+    return link instanceof type.errors ? null : `points at ${link.url}`;
+  },
 };
+
+const describeSubject = (item: ProjectContentItems[number], items: ProjectContentItems) =>
+  SUBJECT_READERS[item.kind]?.(item, items) ?? null;
 
 function describeProjectContent(
   input: Readonly<{
@@ -153,10 +168,9 @@ function describeProjectContent(
    */
   const described = items.map((item) => {
     // Open-state first, because it is true of every kind; the subject only of one.
-    const notes = [
-      open.has(item.id) ? "open" : null,
-      describeCollectionSubject(item, items),
-    ].filter((note) => note !== null);
+    const notes = [open.has(item.id) ? "open" : null, describeSubject(item, items)].filter(
+      (note) => note !== null,
+    );
 
     return `${item.kind} "${item.title}" [${item.id}]${notes.length === 0 ? "" : ` (${notes.join(", ")})`}`;
   });

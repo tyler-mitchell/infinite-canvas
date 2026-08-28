@@ -11,15 +11,17 @@ import { describeProjectContent } from "./describe-content";
 import type { ProjectContent } from "./project-content";
 
 /**
- * What a collection is a collection *of*.
+ * What an item carries that its title does not say.
  *
- * Every other kind carries its subject in its title. A collection's title is a name and its
- * question is the content, so the listing said `collection "Reading list" [id]` and left a caller
- * to open it to find out what was inside.
+ * Two kinds have something. A collection's title is a name and its *question* is the content, so
+ * the listing said `collection "Reading list" [id]` and left a caller to open it to find out what
+ * was inside. A link's title is often not its address — a dragged tab brings its own page title —
+ * so where it points was unreportable.
  *
- * The gap hides behind the default naming: a collection of links is called "Links", so the title
- * and the subject coincide until somebody renames one — which is exactly when a caller most needs
- * telling, and exactly the case driven in the browser that turned this up.
+ * **Both hide behind default naming**, which is why neither surfaced until something was renamed:
+ * a collection of links is called "Links" and a typed link is called "example.com/path", so the
+ * subject repeats the title until it does not. That is exactly when a caller has no other way to
+ * know, and exactly the case driven in the browser that turned the first one up.
  *
  * A separate file from `describe-content.test.ts` deliberately: that one is being edited elsewhere,
  * and adding to it would mean committing somebody's unfinished work along with this.
@@ -101,6 +103,33 @@ test("open-state and subject read together rather than one replacing the other",
   expect(describe([item("c4", "collection", "Links", { listsKind: "link" })], showing)).toContain(
     "[c4] (open, lists every link in this project)",
   );
+});
+
+test("a link says where it points, which its title often does not", () => {
+  /*
+   * The case that is not a coincidence. A typed link is named after its own address, so the subject
+   * repeats the title — but `getDraggedLinkName` names one from the dragged tab's *page title*, and
+   * then nothing in the report said where it went.
+   */
+  expect(
+    describe([
+      item("l1", "link", "Infinite Canvas — Docs", {
+        host: "example.com",
+        url: "https://example.com/docs/canvas?v=2",
+      }),
+    ]),
+  ).toContain('link "Infinite Canvas — Docs" [l1] (points at https://example.com/docs/canvas?v=2)');
+});
+
+test("a kind with nothing beyond its title says nothing extra", () => {
+  // The map is the rule: notes and images have no entry, so they read exactly as they did.
+  const described = describe([
+    item("n2", "note", "Quarterly notes"),
+    item("i1", "image", "swatch.png"),
+  ]);
+
+  expect(described).toContain('note "Quarterly notes" [n2];');
+  expect(described).toContain('image "swatch.png" [i1].');
 });
 
 test("a collection whose stored question cannot be read is still listed", () => {
