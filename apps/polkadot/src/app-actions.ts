@@ -2,8 +2,10 @@ import {
   DEFAULT_INFINITE_CANVAS_COMMAND_DESCRIPTORS,
   findInfiniteCanvasGroup,
   findInfiniteCanvasWorkspace,
-  getSelectedWindowBounds,
+  getInfiniteCanvasVisibleWindowItems,
+  getWindowBounds,
   isInfiniteCanvasGroupContainer,
+  isInfiniteCanvasWindowGrouped,
   type InfiniteCanvasCommandId,
   type InfiniteCanvasCommands,
   type InfiniteCanvasState,
@@ -143,6 +145,33 @@ type AppAction = Readonly<{
  * caller sent, and `summary` is the part that says which field was wrong.
  */
 const describeInvalidInput = (errors: type.errors) => `Refused: ${errors.summary}`;
+
+/**
+ * The selected windows `createGroup` would actually take.
+ *
+ * Enablement and the shell rect both need this set, and reading it twice from one function is what
+ * keeps the offer and the result agreeing — the same reason the framework asks its pure modules
+ * whether an arrange verb would change anything before offering it.
+ *
+ * Asked of the framework rather than restated. The first version copied
+ * `createInfiniteCanvasGroup`'s own predicate — not minimized, not already grouped — which is the
+ * drift this file has been paying for elsewhere: a rule owned upstream and duplicated here goes
+ * stale the moment upstream refines it, silently and in the direction of offering a verb that does
+ * nothing. `getInfiniteCanvasVisibleWindowItems` answers "on screen" as one question, covering
+ * minimized, behind a tab, and on another desktop together.
+ *
+ * Selection order, not stack order, because members are laid out in the order given and the order a
+ * person picked windows in is the one they expect to see.
+ */
+const getGroupableWindowIds = (state: InfiniteCanvasState<WindowKind>): readonly string[] => {
+  const groupable = new Set(
+    getInfiniteCanvasVisibleWindowItems(state)
+      .filter((item) => !isInfiniteCanvasWindowGrouped(state, item.id))
+      .map((item) => item.id),
+  );
+
+  return state.selection.windowIds.filter((windowId) => groupable.has(windowId));
+};
 
 /**
  * What a verb does is quoted from the framework; only its argument is described here.
@@ -1350,16 +1379,35 @@ const APP_ACTIONS: readonly AppAction[] = [
     },
   })),
   {
-    description: "Dock the selected windows together into one group.",
+    description:
+      "Dock the selected windows together into one group. Windows already in a group, and minimized ones, are left where they are.",
     id: "group.createFromSelection",
-    // Two is where a group means anything, and the framework refuses fewer.
-    isEnabled: ({ state }) => state.selection.windowIds.length >= 2,
+    /*
+     * Counted against what the framework will actually take, not against the raw selection.
+     *
+     * `createInfiniteCanvasGroup` drops members that are minimized or already in a group — dropped
+     * rather than stolen, since a window lives in at most one tree. So a selection of two panes of
+     * one shell offered this verb, produced no surviving members, and came back as the identical
+     * state while the verb reported "done" — and the camera flew to a shell that was never made.
+     *
+     * Two is this verb's floor rather than the framework's. The framework refuses only *zero*
+     * survivors: one survivor makes a real single-pane group, which is not what a person choosing
+     * several windows asked for. Both facts are pinned in `group-from-selection.test.ts`.
+     */
+    isEnabled: ({ state }) => getGroupableWindowIds(state).length >= 2,
     label: "Group selected",
     run: ({ actions, state }) => {
-      const rect = getSelectedWindowBounds(state);
+      const windowIds = getGroupableWindowIds(state);
 
-      // `isEnabled` already refuses fewer than two, so reaching this means the selection moved
-      // between the check and the call — rare, and still not something to report as done.
+      if (windowIds.length < 2) {
+        return "Refused: grouping needs two selected windows that are not already grouped or minimized.";
+      }
+
+      // The bounds of what is being grouped, not of the selection. Measuring the selection drew the
+      // shell around windows the framework was about to drop, so a mixed selection produced a
+      // container visibly larger than its contents.
+      const rect = getWindowBounds(state, windowIds);
+
       if (rect === null) {
         return "Refused: the selection no longer holds two windows to group.";
       }
@@ -1367,7 +1415,7 @@ const APP_ACTIONS: readonly AppAction[] = [
       actions.createGroup({
         groupId: globalThis.crypto.randomUUID(),
         rect,
-        windowIds: state.selection.windowIds,
+        windowIds,
       });
       /*
        * Then look at it. Grouping does not move the windows — where they are is the whole point of
