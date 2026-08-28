@@ -82,9 +82,13 @@ strictly greater than 160 — a kind sitting exactly on it demotes and never ret
   equivalent of typing a name, and WebMCP has no elicitation mechanism to build one, so this is
   blocked on the confirmation item above rather than on effort.
 
-- **Reframe has no surface.** `fn::reframe_saved_view` exists and is driven; nothing calls it.
-  Delete-and-re-save covers it, so the capability is whole rather than half-built — but reframe is
-  the verb that keeps a name attached to a framing that has drifted.
+- **Saved views are not reachable by an agent.** Reframe landed — `Reframe a view` is a mode in the
+  views menu, beside removal and following the same rule that file already argues for: one action
+  per row, announced before the click rather than confirmed after it. Driven end to end, the stored
+  rect went 1009.83 wide to 807.87 on one zoom step with the id and the name unchanged.
+  What has no vocabulary at all is the whole surface: saving, jumping to, reframing and removing a
+  view are pointer-only, so a caller can arrange a canvas and cannot name the framing it made. The
+  four verbs are the same shape as the canvas triple that just landed.
 
 - **Whether a reversible cut still needs its confirmation dialog.** `disconnectItems` registers its
   own reversal now, so cutting a connection is undoable. Undo is one step and expires when the next

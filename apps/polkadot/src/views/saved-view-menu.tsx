@@ -1,8 +1,8 @@
 import { useInfiniteCanvasActions, useInfiniteCanvasSelector } from "@hyphened/infinite-canvas";
 import { useObservable, useValue } from "@legendapp/state/react";
 import { getHotkeyManager } from "@tanstack/hotkeys";
-import { Bookmark, BookmarkPlus, Check, Crosshair, Trash2 } from "lucide-react";
-import { useEffect, useRef } from "react";
+import { Bookmark, BookmarkPlus, Check, Crosshair, Frame, Trash2 } from "lucide-react";
+import { useEffect, useRef, type ReactNode } from "react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -18,6 +18,7 @@ import {
   getCurrentFraming,
   getSavedViews,
   loadSavedViews,
+  reframeView,
   removeSavedView,
   savedViews$,
   saveView,
@@ -54,12 +55,37 @@ const savedViewMenu = tv({
       "flex items-center gap-1.5 rounded-md px-1.5 py-0.5 text-[12px] text-[var(--ink)] transition-colors duration-150 ease-[var(--ease-swift)] outline-none hover:bg-[var(--surface-hover)] focus-visible:bg-[var(--surface-hover)] data-popup-open:bg-[var(--surface-hover)]",
   },
   variants: {
-    removing: {
-      // Removal is a mode, and a mode you cannot see you are in is how a jump becomes a deletion.
-      true: { trigger: "bg-[var(--accent-wash)]" },
+    /*
+     * One mode, not two booleans — "removing and reframing at once" is a state this list must not
+     * be able to hold, and a union cannot express it.
+     *
+     * Both working modes tint the trigger, because the hazard is the same shape: a mode you cannot
+     * see you are in turns a jump into a deletion, or into overwriting the framing you meant to
+     * travel to.
+     */
+    mode: {
+      browse: {},
+      reframe: { trigger: "bg-[var(--accent-wash)]" },
+      remove: { trigger: "bg-[var(--accent-wash)]" },
     },
   },
 });
+
+type SavedViewMode = "browse" | "reframe" | "remove";
+
+/** What the list is asking, which is the only reliable way to know which mode you are in. */
+const MODE_PROMPT: Readonly<Record<SavedViewMode, string>> = {
+  browse: "Saved views",
+  reframe: "Reframe which view?",
+  remove: "Remove which view?",
+};
+
+/** What a row is about to do, on the row itself. Browsing shows where a click takes you. */
+const MODE_ICON: Readonly<Record<SavedViewMode, ReactNode>> = {
+  browse: <Crosshair />,
+  reframe: <Frame />,
+  remove: <Trash2 />,
+};
 
 /**
  * The next "View n" this canvas is not already using.
@@ -94,11 +120,11 @@ export function SavedViewMenu({ canvasId }: Readonly<{ canvasId: string }>) {
    */
   const draft$ = useObservable<Readonly<{ rect: SavedViewRect; title: string }> | null>(null);
   const draft = useValue(draft$);
-  const removing$ = useObservable(false);
-  const removing = useValue(removing$);
+  const mode$ = useObservable<SavedViewMode>("browse");
+  const mode = useValue(mode$);
   const inputRef = useRef<HTMLInputElement>(null);
   const views = getSavedViews(listing, canvasId) ?? [];
-  const styles = savedViewMenu({ removing });
+  const styles = savedViewMenu({ mode });
 
   useEffect(() => {
     void loadSavedViews(canvasId);
@@ -177,10 +203,11 @@ export function SavedViewMenu({ canvasId }: Readonly<{ canvasId: string }>) {
   return (
     <DropdownMenu
       onOpenChange={(open) => {
-        // Removal never survives the menu closing. A mode that outlives the surface that announced
-        // it is one you return to without knowing, and the next click deletes instead of going.
+        // Neither mode survives the menu closing. A mode that outlives the surface that announced
+        // it is one you return to without knowing, and the next click deletes or overwrites
+        // instead of going.
         if (!open) {
-          removing$.set(false);
+          mode$.set("browse");
         }
       }}
     >
@@ -203,7 +230,7 @@ export function SavedViewMenu({ canvasId }: Readonly<{ canvasId: string }>) {
           Found by opening this menu; the typecheck had nothing to say about it.
         */}
         <DropdownMenuGroup>
-          <DropdownMenuLabel>{removing ? "Remove which view?" : "Saved views"}</DropdownMenuLabel>
+          <DropdownMenuLabel>{MODE_PROMPT[mode]}</DropdownMenuLabel>
           {/* Blank rather than "none yet" until a read answers: an empty state is a claim about the
               world, and a claim nobody has checked is the one thing a local-first app must not make. */}
           {views.length === 0 ? (
@@ -215,8 +242,23 @@ export function SavedViewMenu({ canvasId }: Readonly<{ canvasId: string }>) {
               <DropdownMenuItem
                 key={view.id}
                 onClick={() => {
-                  if (removing) {
+                  if (mode === "remove") {
                     void removeSavedView({ canvasId, viewId: view.id });
+
+                    return;
+                  }
+
+                  /*
+                   * The same rect "Save this view" would store, so a reframed view and a freshly
+                   * saved one are the same framing — and the zero-padding note below is why that
+                   * matters: a view re-saved from itself must not drift wider each trip.
+                   */
+                  if (mode === "reframe") {
+                    void reframeView({
+                      canvasId,
+                      rect: getCurrentFraming({ camera, insets, viewport }),
+                      viewId: view.id,
+                    });
 
                     return;
                   }
@@ -242,18 +284,18 @@ export function SavedViewMenu({ canvasId }: Readonly<{ canvasId: string }>) {
                   });
                 }}
               >
-                {removing ? <Trash2 /> : <Crosshair />}
+                {MODE_ICON[mode]}
                 <span className={styles.itemTitle()}>{view.title}</span>
               </DropdownMenuItem>
             ))
           )}
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
-        {removing ? (
+        {mode !== "browse" ? (
           <DropdownMenuItem
             closeOnClick={false}
             onClick={() => {
-              removing$.set(false);
+              mode$.set("browse");
             }}
           >
             <Check />
@@ -283,15 +325,31 @@ export function SavedViewMenu({ canvasId }: Readonly<{ canvasId: string }>) {
               is why this needs no second confirmation.
             */}
             {views.length === 0 ? null : (
-              <DropdownMenuItem
-                closeOnClick={false}
-                onClick={() => {
-                  removing$.set(true);
-                }}
-              >
-                <Trash2 />
-                Remove a view
-              </DropdownMenuItem>
+              <>
+                {/*
+                  Above removal, because it is the one you reach for far more often and the two sit
+                  one row apart. A framing drifts every time the canvas grows; a name rarely stops
+                  being wanted.
+                */}
+                <DropdownMenuItem
+                  closeOnClick={false}
+                  onClick={() => {
+                    mode$.set("reframe");
+                  }}
+                >
+                  <Frame />
+                  Reframe a view
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  closeOnClick={false}
+                  onClick={() => {
+                    mode$.set("remove");
+                  }}
+                >
+                  <Trash2 />
+                  Remove a view
+                </DropdownMenuItem>
+              </>
             )}
           </>
         )}

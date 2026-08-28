@@ -59,6 +59,23 @@ async function removeSavedView(input: Readonly<{ canvasId: string; viewId: strin
 }
 
 /**
+ * Point a name at what is on screen now, when the framing it meant has drifted.
+ *
+ * Remove-and-save-again reaches the same rect and loses the name on the way — you retype it, and
+ * the list reorders around a row that is new rather than moved. The name is the durable half of a
+ * saved view; the four numbers are the part expected to go stale.
+ *
+ * `fn::reframe_saved_view` and the client call have existed since saved views landed, reachable
+ * from nothing. This is the layer that was missing, not the capability.
+ */
+async function reframeView(
+  input: Readonly<{ canvasId: string; rect: SavedViewRect; viewId: string }>,
+) {
+  await viewGateway.reframe({ rect: input.rect, viewId: input.viewId });
+  await loadSavedViews(input.canvasId);
+}
+
+/**
  * What is on screen right now, in world coordinates — the rect a new view stores.
  *
  * **The inset region, not the whole viewport.** This app declares `viewportInsets` for the library
@@ -82,5 +99,13 @@ function getCurrentFraming(
   return getInfiniteCanvasContentWorldRect(input.camera, input.viewport, input.insets);
 }
 
-export { getCurrentFraming, getSavedViews, loadSavedViews, removeSavedView, savedViews$, saveView };
+export {
+  getCurrentFraming,
+  getSavedViews,
+  loadSavedViews,
+  reframeView,
+  removeSavedView,
+  savedViews$,
+  saveView,
+};
 export type { SavedView, SavedViewRect };
