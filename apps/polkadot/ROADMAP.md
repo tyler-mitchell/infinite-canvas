@@ -1370,6 +1370,17 @@ Measured by drawing it: two notes stacked with a 34px gap, connector running y29
 at y321.5 rather than 313 — two pixels off the lower window with nineteen of clearance above. Off by
 a quarter of the run, and worst in exactly the case the anchor exists for, a short stretch between
 windows that nearly touch.
+**Closed the same way it was found.** Two adjacent notes at 90% zoom, a 5.38px visible gap and a
+two-segment path across it: the label draws at x915.40 against a halfway-along-the-run of x915.40 —
+delta zero — where the midpoint of the longest segment is x914.2, still a quarter along and still on
+the wrong side of centre, now on a stretch small enough that a pixel is most of it.
+Two things the live pass established that the unit tests could not, and one it could not establish.
+A whole orthogonal path is a symmetric Z, so halfway-along-the-run and midpoint-of-longest-segment
+agree exactly on an unoccluded elbow — measured identical at (785.12, 434.63). And a connector whose
+every point is behind a window draws neither mark nor label, which is the documented behaviour and
+reads as a missing label until you check what is covering it. What the live pass did **not** reach is
+a partially-occluded elbow, where a clipped run has none of the whole path's symmetry; that case is
+covered by `unoccluded-runs.test.ts` and has not been seen drawn.
 The fix is a merge pass plus a midpoint taken along path length rather than straight-line, which is
 why it could not be the same return type: a run of three segments is not a segment, and a synthetic
 straight segment across it puts the point in the empty corner of an L. So it wanted new exports, and
