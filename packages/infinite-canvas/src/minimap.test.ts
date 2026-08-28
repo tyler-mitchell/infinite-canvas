@@ -40,6 +40,55 @@ const state = (): InfiniteCanvasState<Kind> => ({
 });
 
 /**
+ * A canvas with nothing on it, which the docstring promised `null` for and did not give.
+ *
+ * The camera's rect is unioned into `bounds` unconditionally — the right call, and the reason the
+ * "empty canvas" early return never fired: `bounds` is never empty, so a canvas with no windows
+ * returned a layout carrying only the viewport indicator. By construction that indicator then
+ * filled the whole box, since `bounds` *is* the visible rect, so the map could show one thing at
+ * every zoom and every position and answer nothing.
+ *
+ * Found by drawing the map in a browser for the first time. These assert the contract the file
+ * already documented rather than a new opinion.
+ */
+test("a canvas with no windows has no map", () => {
+  const empty = {
+    ...createInfiniteCanvasState<Kind>({
+      camera: { center: { x: 0, y: 0 }, zoom: 1 },
+      windows: [],
+    }),
+    viewport: { height: 800, width: 1200 },
+  };
+
+  expect(getInfiniteCanvasMinimapLayout(empty, { height: 104, width: 156 })).toBeNull();
+});
+
+test("a desktop admitting none of the canvas's windows has no map either", () => {
+  /*
+   * The distinction the fix turns on: "nothing to map" is this function's own filtered set, not
+   * `state.windows`. A full canvas seen from an empty desktop draws nothing, so it maps nothing —
+   * the same correction `window.reveal` and the offscreen ring each took.
+   */
+  const populated = state();
+  const elsewhere: InfiniteCanvasState<Kind> = {
+    ...populated,
+    activeWorkspaceId: "empty",
+    workspaces: [
+      {
+        camera: { center: { x: 0, y: 0 }, zoom: 1 },
+        id: "empty",
+        selection: { anchorWindowId: null, windowIds: [] },
+        title: "Empty",
+        windowIds: [],
+      },
+    ],
+  };
+
+  expect(getInfiniteCanvasMinimapLayout(populated, { height: 104, width: 156 })).not.toBeNull();
+  expect(getInfiniteCanvasMinimapLayout(elsewhere, { height: 104, width: 156 })).toBeNull();
+});
+
+/**
  * Windows placed genuinely outside the visible rect.
  *
  * The first draft of the offscreen tests reused the fixture above and asserted that both of its

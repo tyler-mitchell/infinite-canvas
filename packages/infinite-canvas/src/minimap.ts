@@ -97,8 +97,12 @@ const scaleRect = (
  * into a rect, but nothing draws them, and an overview is a map of what is on screen to be
  * found. A minimized window has no rect at all.
  *
- * Returns `null` for an unmeasured (`0 × 0`) viewport, an empty canvas, or a box too small to
- * hold its own padding. Rendering nothing beats rendering a degenerate projection.
+ * Returns `null` for an unmeasured (`0 × 0`) viewport, a canvas with nothing drawn on this
+ * desktop, or a box too small to hold its own padding. Rendering nothing beats rendering a
+ * degenerate projection.
+ *
+ * "Nothing drawn" is this function's own filtered set, not `state.windows`: a desktop holding none
+ * of the canvas's windows has nothing to map even though the canvas is full.
  */
 function getInfiniteCanvasMinimapLayout<Kind extends string>(
   state: InfiniteCanvasState<Kind>,
@@ -144,6 +148,25 @@ function getInfiniteCanvasMinimapLayout<Kind extends string>(
       admitted === null ||
       getInfiniteCanvasGroupWindowIds(group.tree).some((windowId) => admitted.has(windowId)),
   );
+  /*
+   * Nothing to map is not a map, and this function said so before it did so.
+   *
+   * The docstring below promised `null` for an empty canvas and the code could not deliver it: the
+   * camera's rect is unioned into `bounds` unconditionally — correctly, so a traveller is never
+   * pushed out of the box — which also means `bounds` is never empty and the early return below
+   * never fired. A canvas with no windows produced a layout whose only content was the viewport
+   * indicator, and by construction that indicator then filled the entire box: `bounds` *is* the
+   * visible rect, so the projection maps it onto the whole inner area, every time, at every zoom.
+   *
+   * That is the degenerate projection the rule at the bottom of this docstring exists to refuse. It
+   * conveys nothing — it cannot move, cannot shrink, and answers "where am I in it" with "there is
+   * no it". Found by drawing this in a browser for the first time, which is also the first time
+   * anybody could have seen it.
+   */
+  if (drawnWindows.length === 0 && drawnGroups.length === 0) {
+    return null;
+  }
+
   const visibleWorldRect = getVisibleWorldRect(state.camera, state.viewport, 0);
   const bounds = unionRects([
     ...drawnWindows.map((window) => window.rect),

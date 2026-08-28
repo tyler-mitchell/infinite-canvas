@@ -34,6 +34,14 @@ import { HudSurface } from "./hud-surfaces";
  *
  * This is the first time either function has been drawn by anything; `docs/API.md` carries the
  * `minimap` module as *unobserved* on exactly that ground.
+ *
+ * **Drawing it found one thing, which is the argument for drawing things.** On a canvas with no
+ * windows the layout was not `null` — the docstring said it would be — because the camera's rect is
+ * unioned into the bounds unconditionally, so the bounds are never empty. The map rendered a box
+ * whose viewport outline filled it exactly, at every zoom and every position, since the bounds
+ * *were* the visible rect. A control that can show one thing forever. Fixed in the framework, where
+ * the contract was already written; this file now takes `null` as "there is no map to offer" and
+ * renders nothing at all, button included.
  */
 
 /**
@@ -142,13 +150,35 @@ export function Minimap({
    */
   const frameRef = useRef<HTMLDivElement>(null);
 
-  useHudOccluder("minimap", frameRef, open);
+  /*
+   * Projected whether or not the map is open, because `null` is what decides it is offered at all.
+   *
+   * The framework returns `null` when this desktop has nothing drawn on it, and that is the answer
+   * to "is there a map" rather than merely "what is in it" — asked of the same filtered set the map
+   * would draw, so a full canvas seen from an empty desktop is correctly nothing.
+   */
+  const layout = getInfiniteCanvasMinimapLayout(state, MINIMAP_SIZE, {
+    paddingPx: MINIMAP_PADDING_PX,
+  });
 
-  const layout = open
-    ? getInfiniteCanvasMinimapLayout(state, MINIMAP_SIZE, {
-        paddingPx: MINIMAP_PADDING_PX,
-      })
-    : null;
+  useHudOccluder("minimap", frameRef, open && layout !== null);
+
+  /*
+   * No map, and no button offering one.
+   *
+   * A canvas with nothing on it drew a box whose viewport outline filled it completely, at every
+   * zoom and every position, because the bounds *were* the visible rect. It answered "where am I in
+   * it" with "there is no it", and scrubbing it centred on nothing. The framework refuses the
+   * degenerate projection now; this refuses the chrome around it, on the rule the library rail
+   * states beside it — an empty state is a claim about the world and needs an answer behind it.
+   *
+   * The whole surface goes rather than a dimmed button, matching the selection rail: a rail's own
+   * buttons dim rather than move, and the rail itself is present only when it has something to be
+   * about.
+   */
+  if (layout === null) {
+    return null;
+  }
 
   /**
    * Centre the camera where the pointer is, and keep centring while it moves.
@@ -161,10 +191,6 @@ export function Minimap({
    * *there*, and rescaling their canvas to answer a "where" gesture is a bigger edit than they made.
    */
   const navigate = (event: React.PointerEvent<SVGSVGElement>) => {
-    if (layout === null) {
-      return;
-    }
-
     actions.executeCommand({
       request: {
         behavior: { type: "center" },
@@ -223,41 +249,39 @@ export function Minimap({
           role="img"
           width={MINIMAP_SIZE.width}
         >
-          {layout === null
-            ? null
-            : [
-                ...layout.groups.map((group) => (
-                  <rect
-                    className={styles.group()}
-                    height={group.rect.height}
-                    key={`group:${group.groupId}`}
-                    rx={1}
-                    width={group.rect.width}
-                    x={group.rect.x}
-                    y={group.rect.y}
-                  />
-                )),
-                ...layout.windows.map((window) => (
-                  <rect
-                    className={styles.window({ state: getWindowState(window) })}
-                    height={Math.max(window.rect.height, 1.5)}
-                    key={`window:${window.windowId}`}
-                    rx={1}
-                    width={Math.max(window.rect.width, 1.5)}
-                    x={window.rect.x}
-                    y={window.rect.y}
-                  />
-                )),
-                <rect
-                  className={styles.viewport()}
-                  height={layout.viewport.height}
-                  key="viewport"
-                  rx={2}
-                  width={layout.viewport.width}
-                  x={layout.viewport.x}
-                  y={layout.viewport.y}
-                />,
-              ]}
+          {[
+            ...layout.groups.map((group) => (
+              <rect
+                className={styles.group()}
+                height={group.rect.height}
+                key={`group:${group.groupId}`}
+                rx={1}
+                width={group.rect.width}
+                x={group.rect.x}
+                y={group.rect.y}
+              />
+            )),
+            ...layout.windows.map((window) => (
+              <rect
+                className={styles.window({ state: getWindowState(window) })}
+                height={Math.max(window.rect.height, 1.5)}
+                key={`window:${window.windowId}`}
+                rx={1}
+                width={Math.max(window.rect.width, 1.5)}
+                x={window.rect.x}
+                y={window.rect.y}
+              />
+            )),
+            <rect
+              className={styles.viewport()}
+              height={layout.viewport.height}
+              key="viewport"
+              rx={2}
+              width={layout.viewport.width}
+              x={layout.viewport.x}
+              y={layout.viewport.y}
+            />,
+          ]}
         </svg>
       </div>
     </HudSurface>
