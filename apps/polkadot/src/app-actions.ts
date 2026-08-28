@@ -591,9 +591,12 @@ const DOCUMENT_CREATE_INPUT = type({ "title?": "string" });
  * of titled blank pages in a workbench whose whole subject is prose. Measured: 110 registered tools
  * and not one of them wrote a word.
  *
- * Plain text in, plain text out. The stored form is a serialized editor state — `note-text.ts`
- * already read it without an engine and now writes it the same way — and a caller should no more
- * compose that JSON than a person should type it.
+ * Markdown in, markdown out. The stored form is a serialized editor state, which a caller should no
+ * more compose than a person should type it. It was plain text until the round trip was measured:
+ * one line became one paragraph, so a caller fixing a typo replaced every code block, heading, list
+ * and quote in the note with a paragraph. `note-markdown.ts` runs the editor headlessly over the
+ * same `TRANSFORMERS` the typing shortcuts use, so what a caller writes is parsed the way typing it
+ * would be, and a mention survives as a link to its record.
  *
  * The pair is deliberate. A write with no read is the write-blind shape `AppAction.run` returns
  * refusals to prevent: a caller replaces a note's contents, is told "done", and has no way to learn
