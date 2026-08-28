@@ -82,14 +82,13 @@ strictly greater than 160 — a kind sitting exactly on it demotes and never ret
   equivalent of typing a name, and WebMCP has no elicitation mechanism to build one, so this is
   blocked on the confirmation item above rather than on effort.
 
-- **Desktops are the last pointer-only documents.** Saved views are done on both halves: `Reframe a
-view` is a mode in the menu beside removal, and `view.save` / `list` / `open` / `reframe` /
-  `remove` are registered. All five driven — numbering carried across from the menu's own helper so
-  a verb-saved view and a pointer-saved one land in the same sequence, and a removed id refuses
-  immediately after.
-  `workspace.create` / `enter` / `close` / `moveActiveWindow` exist, but a desktop cannot be renamed
-  by a caller where `desktop-switcher.tsx` renames one inline. Same shape as the canvas rename that
-  landed earlier, and the same reason it matters: a thing you can make and cannot name.
+- **Every document a caller can make, it can now name.** Saved views got both halves — `Reframe a
+view` as a menu mode, and `view.save` / `list` / `open` / `reframe` / `remove` as verbs, all five
+  driven, with the numbering carried across from the menu's own helper so a verb-saved view and a
+  pointer-saved one land in one sequence. `workspace.rename` closed the last gap; driven, and its
+  blank refusal matches the rule `useInlineRename` enforces for the pointer.
+  What is left pointer-only is deletion, which is the item above, and the two removal _dialogs_,
+  which are confirmations rather than capabilities.
 
 - **Whether a reversible cut still needs its confirmation dialog.** `disconnectItems` registers its
   own reversal now, so cutting a connection is undoable. Undo is one step and expires when the next

@@ -183,6 +183,7 @@ const HANDLE_VERBS: readonly Readonly<{ id: string; input: object }>[] = [
   { id: "group.rename", input: { groupId: "never-existed", title: "x" } },
   { id: "group.setLayout", input: { groupId: "never-existed", layout: "tabs" } },
   { id: "workspace.enter", input: { workspaceId: "never-existed" } },
+  { id: "workspace.rename", input: { title: "x", workspaceId: "never-existed" } },
   { id: "workspace.close", input: { workspaceId: "never-existed" } },
   { id: "workspace.moveActiveWindow", input: { workspaceId: "never-existed" } },
   /*

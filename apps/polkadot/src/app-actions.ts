@@ -542,6 +542,8 @@ const DESKTOP_INPUT = type({ workspaceId: "string" });
 /** A name is optional: absent means number it after the desktops that exist. */
 const DESKTOP_CREATE_INPUT = type({ "title?": "string" });
 
+const DESKTOP_RENAME_INPUT = type({ title: "string", workspaceId: "string" });
+
 /** Refusing an id no desktop answers to, rather than switching to nothing and reporting success. */
 const hasWorkspace = (state: InfiniteCanvasState<WindowKind>, workspaceId: string) =>
   findInfiniteCanvasWorkspace(state, workspaceId) !== null;
@@ -1143,6 +1145,42 @@ const APP_ACTIONS: readonly AppAction[] = [
       }
 
       actions.executeCommand({ type: "workspace.close", workspaceId: parsed.workspaceId });
+
+      return undefined;
+    },
+  },
+  {
+    /*
+     * The last document a caller could make and not name.
+     *
+     * `setWorkspaceTitle` is a framework command rather than a database write, so this returns
+     * nothing to await — a desktop lives in canvas state, and the autosave that carries the rest of
+     * that state carries this too. Same shape as `group.rename` next door for the same reason.
+     */
+    description: "Rename a desktop. The id comes from `canvas.describe`.",
+    id: "workspace.rename",
+    input: DESKTOP_RENAME_INPUT,
+    label: "Rename a desktop",
+    run: ({ actions, state }, input) => {
+      const parsed = DESKTOP_RENAME_INPUT(input);
+
+      if (parsed instanceof type.errors) {
+        return describeInvalidInput(parsed);
+      }
+
+      if (!hasWorkspace(state, parsed.workspaceId)) {
+        return NO_SUCH_DESKTOP;
+      }
+
+      const title = parsed.title.trim();
+
+      // The rule `useInlineRename` already enforces for the pointer: an empty result cancels rather
+      // than renaming to nothing, and a desktop is switched to *by name*.
+      if (title === "") {
+        return BLANK_TITLE;
+      }
+
+      actions.setWorkspaceTitle({ title, workspaceId: parsed.workspaceId });
 
       return undefined;
     },
