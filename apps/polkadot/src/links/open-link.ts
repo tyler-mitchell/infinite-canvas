@@ -1,6 +1,7 @@
 import type { InfiniteCanvasPoint, InfiniteCanvasRect } from "@hyphened/infinite-canvas";
 
 import { openContentWindow, type WindowPlacement } from "../canvas/open-window";
+import { loadProjectContent } from "../content/project-content";
 import { getLinkHost, linkGateway } from "./link-gateway";
 
 /**
@@ -56,6 +57,9 @@ async function openNewLink(
     state: input.state,
     title: created.title,
   });
+  // The listing, re-asked, for the reason `open-note.ts` gives. Three of the four creation paths
+  // had omitted it; a dragged link was on the canvas and missing from the library until a reload.
+  await loadProjectContent(input.projectId);
 }
 
 function openLinkWindow(

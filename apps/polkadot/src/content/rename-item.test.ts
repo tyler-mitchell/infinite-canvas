@@ -3,6 +3,7 @@ import { expect, test } from "vite-plus/test";
 
 import type { WindowKind } from "../canvas/window-registry";
 import type { ContentItemRecord } from "../database/database.client";
+import { getAppAction } from "../app-actions";
 import { LISTABLE_KINDS } from "../collections/listable-kinds";
 import { RENAMEABLE_KINDS, renameProjectItem } from "./rename-item";
 
@@ -19,6 +20,31 @@ import { RENAMEABLE_KINDS, renameProjectItem } from "./rename-item";
  * all: the successful path writes through a kind's gateway and this app has no database tests. So
  * this covers the rules, not the write — and the write is what driving it in a browser is for.
  */
+
+/**
+ * What the verb tells a caller it can rename, against what it can.
+ *
+ * The description read "only notes can be renamed this way; other kinds are renamed from their
+ * window" — true when written, and quietly false from the moment collections, images and links each
+ * grew a writer. A caller that cannot see the screen has nothing but that sentence to decide whether
+ * to try, so an out-of-date one hides the capability as thoroughly as never having built it: an
+ * agent holding an image reads it and does not ask.
+ *
+ * Asserted against the same map the saving reads, which is the whole point — the description
+ * interpolates `RENAMEABLE_KINDS`, so this can only fail if someone writes the list by hand again.
+ */
+test("the verb names every kind it can actually rename", () => {
+  const description = getAppAction("content.rename")?.description ?? "";
+
+  for (const kind of RENAMEABLE_KINDS) {
+    expect(description).toContain(kind);
+  }
+
+  // Guards the guard: if the map ever held one kind, "contains every kind" would pass against the
+  // sentence this exists to prevent.
+  expect(RENAMEABLE_KINDS.length).toBeGreaterThan(1);
+  expect(description.toLowerCase()).not.toContain("only notes");
+});
 
 const state = createInfiniteCanvasState<WindowKind>({
   viewport: { height: 800, width: 1200 },

@@ -2,6 +2,7 @@ import type { InfiniteCanvasPoint, InfiniteCanvasRect } from "@hyphened/infinite
 
 import { CANVAS_CHROME } from "../canvas/chrome";
 import { openContentWindow, type WindowPlacement, type WindowSize } from "../canvas/open-window";
+import { loadProjectContent } from "../content/project-content";
 import { imageGateway } from "./image-gateway";
 
 /**
@@ -121,6 +122,10 @@ async function openNewImage(
     state: input.state,
     title: created.title,
   });
+  // The listing, re-asked. Without it a dropped picture is on the canvas and absent from the
+  // library — see `open-note.ts`, which states the rule, and `open-collection.ts`, which missed it
+  // the same way. A dropped file is the likeliest one to notice: you are looking at the rail.
+  await loadProjectContent(input.projectId);
 }
 
 function openImageWindow(

@@ -1,4 +1,5 @@
 import { openContentWindow, type WindowPlacement } from "../canvas/open-window";
+import { loadProjectContent } from "../content/project-content";
 import { content } from "../database/operations";
 import { withNamingLock } from "../naming-lock";
 import { getNextRepeatTitle } from "../titles";
@@ -64,6 +65,19 @@ async function openNewCollection(
       state: input.state,
       title: created.title,
     });
+    /*
+     * The listing, re-asked, which is what makes creating one whole.
+     *
+     * `open-note.ts` says this in its own docstring — "refreshing the listing here is what makes
+     * creation whole" — and the lesson stayed with notes. Without it a collection existed, had a
+     * window open on the canvas, and was absent from the library rail and from `content.list`
+     * until a reload: the exact symptom that file records, one kind over. Driven, on a project
+     * whose rail read "Nothing here yet." beside an open collection window.
+     *
+     * It also matters more than for a note. Nothing can be given an id that nothing reports, so
+     * `content.rename` and `content.archive` could not reach a collection at all.
+     */
+    await loadProjectContent(input.projectId);
   });
 }
 

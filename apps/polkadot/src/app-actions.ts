@@ -19,7 +19,7 @@ import {
   restoreProjectItem,
 } from "./content/project-content";
 import { openNewCollection } from "./collections/open-collection";
-import { renameProjectItem } from "./content/rename-item";
+import { RENAMEABLE_KINDS, renameProjectItem } from "./content/rename-item";
 import type { ContentItemRecord } from "./database/database.client";
 import { openNewNote } from "./notes/open-note";
 import { getProjectEntryCanvas } from "./projects/enter-project";
@@ -914,8 +914,20 @@ const APP_ACTIONS: readonly AppAction[] = [
     },
   },
   {
-    description:
-      "Rename an item. The id comes from content.list. Only notes can be renamed this way; other kinds are renamed from their window.",
+    /*
+     * The kinds are read from the writer map rather than written out here.
+     *
+     * This said "only notes can be renamed this way; other kinds are renamed from their window",
+     * which was true when it was written and false by the time `rename-item.ts` gave collections,
+     * images and links a writer each. A description is the only thing a caller has to decide
+     * whether to try, so an out-of-date one hides a capability as effectively as not having it —
+     * an agent holding an image reads that sentence and does not ask.
+     *
+     * `RENAMEABLE_KINDS` is derived from the map that does the saving, so the sentence cannot
+     * outlive the fact again. Same reason the `input` types are the schema: one declaration, both
+     * halves.
+     */
+    description: `Rename an item, by the id content.list gives. Kinds that can be renamed: ${RENAMEABLE_KINDS.join(", ")}.`,
     id: "content.rename",
     input: RENAME_INPUT,
     label: "Rename an item",
