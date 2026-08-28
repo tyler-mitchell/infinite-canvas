@@ -77,6 +77,14 @@ a comment that repeats them is noise in every search result and symbol lookup th
 
 This applies to prose in tests exactly as it does to source.
 
+## Reporting
+
+Never announce a passing test count, a clean typecheck, or "green". Run them — they are a floor,
+not a result — and say nothing unless something failed. A count reads as "this works" when it means
+"the assertions that executed held", which is a false sense of security about unverified behaviour.
+
+Report what was witnessed running, and name separately what was not.
+
 ## Naming
 
 A parameter, property or local takes its name from its type or from the prop that already carries
