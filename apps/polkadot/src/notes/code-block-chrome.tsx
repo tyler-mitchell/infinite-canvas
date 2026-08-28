@@ -37,6 +37,7 @@ const chrome = tv({
   slots: {
     /** Spans the block so the controls can sit in its corner without measuring a width. */
     frame: "pointer-events-none absolute",
+    copied: "text-[var(--accent)]",
     label: "font-mono text-[11px] text-[var(--ink-muted)]",
     languageRow: "flex max-h-[18rem] flex-col overflow-hidden",
     row: `${FLOATING_SURFACE} pointer-events-auto absolute top-1.5 right-1.5 flex items-center gap-0.5 rounded-[8px] p-0.5 opacity-0 transition-opacity duration-100 ease-[var(--ease-swift)] group-hover/note:opacity-100 focus-within:opacity-100`,
@@ -136,6 +137,46 @@ function LanguagePicker({ editor, nodeKey }: Readonly<{ editor: LexicalEditor; n
   );
 }
 
+function CopyButton({ editor, nodeKey }: Readonly<{ editor: LexicalEditor; nodeKey: string }>) {
+  const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    if (!copied) {
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      setCopied(false);
+    }, 1200);
+
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [copied]);
+
+  return (
+    <Button
+      aria-label={copied ? "Code copied" : "Copy code"}
+      onClick={() => {
+        const text = editor.read("latest", () => {
+          const node = $getNodeByKey(nodeKey);
+
+          return $isCodeNode(node) ? node.getTextContent() : "";
+        });
+
+        void navigator.clipboard.writeText(text).then(() => {
+          setCopied(true);
+        });
+      }}
+      size="icon-sm"
+      title="Copy code"
+      variant="ghost"
+    >
+      {copied ? <Check className={styles.copied()} /> : <Copy />}
+    </Button>
+  );
+}
+
 function BlockMenu({ editor, nodeKey }: Readonly<{ editor: LexicalEditor; nodeKey: string }>) {
   return (
     <DropdownMenu>
@@ -223,23 +264,7 @@ export function CodeBlockChrome() {
         >
           <div className={styles.row()}>
             <LanguagePicker editor={editor} nodeKey={placement.key} />
-            <Button
-              aria-label="Copy code"
-              onClick={() => {
-                const text = editor.read("latest", () => {
-                  const node = $getNodeByKey(placement.key);
-
-                  return $isCodeNode(node) ? node.getTextContent() : "";
-                });
-
-                void navigator.clipboard.writeText(text);
-              }}
-              size="icon-sm"
-              title="Copy code"
-              variant="ghost"
-            >
-              <Copy />
-            </Button>
+            <CopyButton editor={editor} nodeKey={placement.key} />
             <BlockMenu editor={editor} nodeKey={placement.key} />
           </div>
         </div>
