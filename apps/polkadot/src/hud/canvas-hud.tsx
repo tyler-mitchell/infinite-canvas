@@ -4,6 +4,7 @@ import {
   isInfiniteCanvasGroupContainer,
   useInfiniteCanvasActions,
   useInfiniteCanvasAnnounce,
+  useInfiniteCanvasState,
   useInfiniteCanvasSelector,
   useInfiniteCanvasStore,
   type InfiniteCanvasCommand,
@@ -19,6 +20,7 @@ import {
   Trash2,
   TriangleAlert,
   Ungroup,
+  Unlink2,
   X,
 } from "lucide-react";
 import { Liquid } from "liquid-gooey";
@@ -28,7 +30,9 @@ import { tv } from "ui/tv";
 
 import { useValue } from "@legendapp/state/react";
 
+import { getSelectedRelations } from "../canvas/connector-geometry";
 import { actionFailure$, watchForUnhandledRejections } from "../content/action-failure";
+import { disconnectRelations, relations$ } from "../relations/relation-store";
 import { useLoaderData } from "@tanstack/react-router";
 
 import { getAppAction, isAppActionEnabled } from "../app-actions";
@@ -218,6 +222,44 @@ function SelectionRail() {
           icon={Trash2}
           label="Close selected"
           onPress={run({ type: "selection.close" })}
+          variant="destructive"
+        />
+      </div>
+    </HudSurface>
+  );
+}
+
+/**
+ * What a selected connector offers.
+ *
+ * Clicking a connector selects it and the stroke goes to full opacity, but every control withdrew
+ * at that moment: `SelectionRail` renders on `selection.windowIds.length`, which an edge selection
+ * leaves empty, and "Fit selection" disables itself because `view.fitSelection` is enabled by
+ * `getSelectedWindowBounds`. The one thing that visibly answered the click had nothing attached.
+ *
+ * Cutting was already reachable by Backspace and by a palette row. This is the same act at the
+ * place the selection happened, so it takes the same immediate-and-undoable form rather than the
+ * removal dialog the library rail raises — a confirmation on one of two identical gestures would
+ * make them different acts.
+ */
+function ConnectorRail() {
+  const state = useInfiniteCanvasState<WindowKind>();
+  const relations = useValue(relations$);
+  const { projectId } = useLoaderData({ from: "/canvas/$canvasId" });
+  const styles = canvasHud();
+  const selected = getSelectedRelations(state.selection, relations);
+
+  return (
+    <HudSurface anchor="bottom-center" present={selected.length > 0}>
+      <div className={styles.rail()}>
+        <span className={styles.count()}>{selected.length}</span>
+        <Verb
+          icon={Unlink2}
+          label={selected.length === 1 ? "Cut connection" : "Cut connections"}
+          // One act, so cutting several offers one undo that restores all of them.
+          onPress={() => {
+            void disconnectRelations({ projectId, relations: selected });
+          }}
           variant="destructive"
         />
       </div>
@@ -631,6 +673,9 @@ export function CanvasHud({
         )}
         <GroupRail />
         <SelectionRail />
+        {/* Same anchor as the selection rail, and they cannot both stand: selecting a connector
+            clears the window selection, which is what leaves that rail with nothing to show. */}
+        <ConnectorRail />
         {/* Above the selection rail rather than beside it, which is what that anchor exists for:
             neither moves when the other appears. */}
         <UndoNotice />

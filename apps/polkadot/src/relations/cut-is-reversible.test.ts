@@ -1,7 +1,7 @@
 import { expect, test } from "vite-plus/test";
 
 import { undoableAction$ } from "../content/undoable-action";
-import { DEFAULT_RELATION_KIND, getRelationLabel } from "./relation-store";
+import { DEFAULT_RELATION_KIND, describeCut } from "./relation-store";
 import type { ContentRelation } from "../database/database.client";
 
 /**
@@ -24,28 +24,50 @@ import type { ContentRelation } from "../database/database.client";
  * description survives the reasons an edge might carry nothing.
  */
 
-const edge = (kind: string, label: string | null): ContentRelation =>
-  ({ id: "rel-1", kind, label, source: "item-1", target: "item-2" }) as unknown as ContentRelation;
+const edge = (
+  kind: string,
+  label: string | null,
+  ends: Readonly<{ source: string; target: string }> = { source: "item-1", target: "item-2" },
+): ContentRelation =>
+  ({ id: `rel-${ends.source}`, kind, label, ...ends }) as unknown as ContentRelation;
 
-/** The sentence `disconnectItems` puts on the undo row, from the edge it just read. */
-const describeCut = (relation: ContentRelation) => {
-  const claim = getRelationLabel(relation);
-
-  return claim === undefined ? "Undo cutting the connection" : `Undo cutting “${claim}”`;
-};
+/** The sentence the store puts on the undo row, for one cut edge. */
+const describeOne = (relation: ContentRelation) => describeCut([relation]);
 
 test("the offer quotes the claim, because one connection is every connection otherwise", () => {
   // Named for the same reason the removal dialog quotes it: "the connection" does not say which.
-  expect(describeCut(edge(DEFAULT_RELATION_KIND, "load-bearing evidence"))).toBe(
+  expect(describeOne(edge(DEFAULT_RELATION_KIND, "load-bearing evidence"))).toBe(
     "Undo cutting “load-bearing evidence”",
   );
-  expect(describeCut(edge("contradicts", "blocks the review"))).toBe(
+  expect(describeOne(edge("contradicts", "blocks the review"))).toBe(
     "Undo cutting “blocks the review”",
   );
 });
 
 test("an edge that says only what its kind says is named by the kind", () => {
-  expect(describeCut(edge("supports", null))).toBe("Undo cutting “supports”");
+  expect(describeOne(edge("supports", null))).toBe("Undo cutting “supports”");
+});
+
+test("cutting several is one offer that covers all of them, not one per edge", () => {
+  /*
+   * The slot holds one entry, so a caller cutting in a loop would leave an offer naming the last
+   * edge while the others went with nothing — what the connector rail did when it was added, and
+   * what `edge-destruction-sites` caught. Counted rather than quoted: three sentences on one row is
+   * a paragraph, and the offer restores all three either way.
+   */
+  const cuts = [
+    edge("supports", "load-bearing evidence"),
+    edge("contradicts", "blocks the review", { source: "item-3", target: "item-4" }),
+    edge(DEFAULT_RELATION_KIND, null, { source: "item-5", target: "item-6" }),
+  ];
+
+  expect(describeCut(cuts)).toBe("Undo cutting 3 connections");
+});
+
+test("cutting nothing says nothing", () => {
+  // `disconnectRelations` returns before remembering anything, so this string is never shown. It is
+  // pinned so an empty selection cannot start describing a cut that did not happen.
+  expect(describeCut([])).toBe("");
 });
 
 test("a bare edge is still offered, without inventing a claim for it", () => {
@@ -55,8 +77,8 @@ test("a bare edge is still offered, without inventing a claim for it", () => {
    * matters — but undo is not a report. Someone who cut the wrong line wants it back whether or not
    * it carried a word.
    */
-  expect(describeCut(edge(DEFAULT_RELATION_KIND, null))).toBe("Undo cutting the connection");
-  expect(describeCut(edge(DEFAULT_RELATION_KIND, "   "))).toBe("Undo cutting the connection");
+  expect(describeOne(edge(DEFAULT_RELATION_KIND, null))).toBe("Undo cutting the connection");
+  expect(describeOne(edge(DEFAULT_RELATION_KIND, "   "))).toBe("Undo cutting the connection");
 });
 
 test("the palette shows one offer at a time, so a cut replaces what was there", () => {
@@ -70,7 +92,7 @@ test("the palette shows one offer at a time, so a cut replaces what was there", 
   expect(undoableAction$.peek()?.describe).toBe("Undo archiving “Quarterly”");
 
   undoableAction$.set({
-    describe: describeCut(edge("supports", null)),
+    describe: describeOne(edge("supports", null)),
     undo: async () => undefined,
   });
   expect(undoableAction$.peek()?.describe).toBe("Undo cutting “supports”");

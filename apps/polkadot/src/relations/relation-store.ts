@@ -135,78 +135,107 @@ async function setRelationLabel(
 }
 
 /**
- * Cutting a connection, and remembering how to put it back.
+ * What the undo row says for a cut.
  *
- * This was the one removal in the app that destroyed something. `fn::unrelate_content_items` deletes
- * the row and the canvas's `history.undo` does not reach the database — driven, it answers "Undo is
- * not available right now" — so a kind someone chose and a sentence someone typed left for good.
- * That contradicted the app's own rule, written on `archiveProjectItem`: removal is archiving
- * *because* nothing is destroyed, which is why archiving needs no confirmation.
+ * A single edge is named by what it claimed, for the reason the removal dialog quotes it: "the
+ * connection" is every connection, and the one just cut is the only one meant. Several are named by
+ * how many, because a row listing three sentences is a paragraph.
+ */
+const describeCut = (cuts: readonly ContentRelation[]) => {
+  const [only] = cuts;
+
+  if (only === undefined) {
+    return "";
+  }
+
+  if (cuts.length > 1) {
+    return `Undo cutting ${cuts.length} connections`;
+  }
+
+  const claim = getRelationLabel(only);
+
+  return claim === undefined ? "Undo cutting the connection" : `Undo cutting “${claim}”`;
+};
+
+/**
+ * Cut a set of connections as one act, offering one undo that restores all of them.
  *
- * **Rebuilt rather than un-deleted, and the difference is worth stating.** ROADMAP scoped the
- * reversible route as a stored flag every read filters plus a schema change — a soft delete. It is
- * not needed: an edge is entirely described by its two ends, its kind and its label, so an inverse
- * that reconnects with all four restores everything a reader can observe. What it does not restore
- * is the row's identity; the rebuilt edge has a new id. Nothing addresses an edge by id across a
- * cut — the rail, the palette, the hotkeys and `app-actions` all resolve by endpoint pair, and
- * `setRelationKind` takes an id only after `findRelation` has just produced one — so the new id is
- * unobservable. A soft delete would preserve it and cost a filtered column serving a list nobody
- * browses.
+ * The undo slot holds one entry. Cutting in a loop overwrote it per edge, so a multi-edge cut
+ * offered to restore the last one and the rest went silently — the failure `edge-destruction-sites`
+ * exists to catch. Every caller that can cut more than one edge comes here.
  *
- * **Written with its caller, which is the thing that was missing.** A returning `disconnectItems`
- * and a `restoreRelation` were written and deleted earlier the same day for being speculative: no
- * caller used either. `rememberUndoableAction` is that caller, and it arrived afterwards — its own
- * docstring names "one day cutting a connection" as the case it was built for. So the reversal is a
- * closure it already knows how to offer rather than a new surface.
+ * Restored by rebuilding rather than un-deleting: an edge is its two ends, its kind and its label,
+ * so reconnecting with all four gives back everything a reader can observe. The rebuilt edge has a
+ * new id, and nothing addresses an edge by id across a cut.
  *
  * Read before the write, because afterwards there is nothing left to read.
+ */
+async function disconnectRelations(
+  input: Readonly<{ projectId: string; relations: readonly ContentRelation[] }>,
+) {
+  const cuts = input.relations;
+
+  if (cuts.length === 0) {
+    return;
+  }
+
+  await Promise.all(
+    cuts.map((cut) => database.relations.disconnect({ source: cut.source, target: cut.target })),
+  );
+  await loadRelations(input.projectId);
+
+  rememberUndoableAction({
+    describe: describeCut(cuts),
+    undo: async () => {
+      await Promise.all(
+        cuts.map((cut) =>
+          database.relations.connect({
+            kind: (cut.kind as RelationKind | undefined) ?? DEFAULT_RELATION_KIND,
+            source: cut.source,
+            target: cut.target,
+          }),
+        ),
+      );
+      // Labels need the rebuilt edges' ids, which exist only once the reconnects have landed.
+      await loadRelations(input.projectId);
+
+      const rebuilt = relations$.peek();
+
+      await Promise.all(
+        cuts.flatMap((cut) => {
+          const edge =
+            cut.label === null || cut.label === undefined
+              ? undefined
+              : findRelation(rebuilt, cut.source, cut.target);
+
+          return edge === undefined || cut.label == null
+            ? []
+            : [database.relations.setLabel({ label: cut.label, relationId: edge.id })];
+        }),
+      );
+      await loadRelations(input.projectId);
+    },
+  });
+}
+
+/**
+ * Cut the connection between two items, whichever way round it was stored.
+ *
+ * Resolves the pair to an edge so the cut goes through `disconnectRelations` and carries the same
+ * undo. A pair the held list does not know about is still cut, in case the list is behind.
  */
 async function disconnectItems(
   input: Readonly<{ projectId: string; source: string; target: string }>,
 ) {
   const cut = findRelation(relations$.peek(), input.source, input.target);
 
-  await database.relations.disconnect({ source: input.source, target: input.target });
-  await loadRelations(input.projectId);
-
-  if (cut === undefined) {
+  if (cut !== undefined) {
+    await disconnectRelations({ projectId: input.projectId, relations: [cut] });
     return;
   }
 
-  const claim = getRelationLabel(cut);
-
-  rememberUndoableAction({
-    // Named by what it said when it said anything, for the reason the removal dialog quotes it:
-    // "the connection" is every connection, and the one you just cut is the only one you mean.
-    describe: claim === undefined ? "Undo cutting the connection" : `Undo cutting “${claim}”`,
-    undo: async () => {
-      await connectItems({
-        kind: cut.kind as RelationKind,
-        projectId: input.projectId,
-        source: cut.source,
-        target: cut.target,
-      });
-
-      if (cut.label === null || cut.label === undefined) {
-        return;
-      }
-
-      /*
-       * The label needs the *new* edge's id, which only exists once the reconnect has landed.
-       * `connectItems` reloads before it resolves, so `relations$` already holds the rebuilt edge
-       * here — this is a lookup rather than a second round trip.
-       */
-      const rebuilt = findRelation(relations$.peek(), cut.source, cut.target);
-
-      if (rebuilt !== undefined) {
-        await setRelationLabel({
-          label: cut.label,
-          projectId: input.projectId,
-          relationId: rebuilt.id,
-        });
-      }
-    },
-  });
+  await database.relations.disconnect({ source: input.source, target: input.target });
+  await loadRelations(input.projectId);
 }
 
 /** Undirected, because a user who connected two things did not choose a direction. */
@@ -225,7 +254,9 @@ function findRelation(
 export {
   connectItems,
   DEFAULT_RELATION_KIND,
+  describeCut,
   disconnectItems,
+  disconnectRelations,
   findRelation,
   getRelationLabel,
   loadRelations,

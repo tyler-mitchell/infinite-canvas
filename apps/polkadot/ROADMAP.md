@@ -326,6 +326,11 @@ on `selection.windowIds.length`, and the framework's HUD "Fit selection" is `dis
 to frame it withdrawn. That is one measured defect rather than an enumeration API nobody asked for,
 and it moves this row from "nobody has reported it" to a need with a witness.
 
+**Half of that is now closed, and it is the half Polkadot owns.** A connector rail renders on the
+edge selection and cuts what is selected, so a selected connector has a control again. Framing it
+still does not: "Fit selection" reads `getSelectedWindowBounds`, which an edge selection cannot
+answer, so the witness above stands for the framework half unchanged.
+
 **It is still the pure-surface boundary that makes it expensive, and that has not changed.**
 Enablement is a pure function of serializable `state`; an edge's geometry is consumer knowledge held
 in a closure. Threading a provider into that surface is the architectural decision this table's

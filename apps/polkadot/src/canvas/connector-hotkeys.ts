@@ -1,6 +1,6 @@
 import type { InfiniteCanvasHotkeyAction, InfiniteCanvasState } from "@hyphened/infinite-canvas";
 
-import { disconnectItems, relations$ } from "../relations/relation-store";
+import { disconnectRelations, relations$ } from "../relations/relation-store";
 import { getSelectedRelations } from "./connector-geometry";
 import type { WindowKind } from "./window-registry";
 
@@ -43,10 +43,9 @@ function getConnectorHotkeyActions(
       id: "connection.cut",
       isEnabled: (state) => getRelationsToCut(state).length > 0,
       label: "Cut Connection",
+      // One act, so cutting several offers one undo that restores all of them rather than the last.
       run: (state) => {
-        getRelationsToCut(state).forEach((relation) => {
-          void disconnectItems({ projectId, source: relation.source, target: relation.target });
-        });
+        void disconnectRelations({ projectId, relations: getRelationsToCut(state) });
       },
     },
   ];
