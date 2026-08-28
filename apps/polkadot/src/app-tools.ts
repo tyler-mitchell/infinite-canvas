@@ -168,7 +168,15 @@ const getCanvasCommandTools = (
         return `${entry.label} is not available right now.`;
       }
 
-      live.run();
+      /*
+       * Awaited, for the reason the app-action half above states: "done" has to mean done, because
+       * a caller reading back has no second source.
+       *
+       * A framework command routes through the reducer and is finished when it returns, so this
+       * awaits nothing for those. A consumer verb published here may be a write — `connection.cut`
+       * is — and this answered before the write landed until `run` could return a promise.
+       */
+      await live.run();
 
       return `${entry.label} done.`;
     },

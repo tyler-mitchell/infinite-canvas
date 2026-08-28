@@ -34,7 +34,15 @@ type InfiniteCanvasHotkeyAction<Kind extends string = string> = Readonly<{
   /** Whether the verb applies to the canvas as it stands. Absent means always. */
   isEnabled?: (state: InfiniteCanvasState<Kind>) => boolean;
   label: string;
-  run: (state: InfiniteCanvasState<Kind>) => void;
+  /**
+   * May return a promise, so a caller that reports completion can wait for it.
+   *
+   * A consumer verb over a consumer's own objects is often a write — cutting a relation, renaming a
+   * region — and `=> void` gave it no way to say when that write landed. A keypress does not care
+   * and ignores the result. A surface that answers "done" to something which cannot see the screen
+   * does care, and was answering before the write returned.
+   */
+  run: (state: InfiniteCanvasState<Kind>) => Promise<void> | void;
 }>;
 
 type InfiniteCanvasHotkeyRegistrationInput<Kind extends string> = Readonly<{

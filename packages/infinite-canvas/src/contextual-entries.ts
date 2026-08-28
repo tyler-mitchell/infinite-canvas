@@ -19,7 +19,14 @@ type InfiniteCanvasContextualEntry = Readonly<{
   hotkeys: readonly RegisterableHotkey[];
   id: string;
   label: string;
-  run: () => void;
+  /**
+   * Carries the consumer verb's promise through, when it has one.
+   *
+   * A canvas command routes through the reducer and is finished when it returns, so this is `void`
+   * for every framework entry. A consumer verb may be a write, and a caller reporting "done" has to
+   * be able to wait for it — see `InfiniteCanvasHotkeyAction.run`.
+   */
+  run: () => Promise<void> | void;
 }>;
 
 /**
@@ -67,6 +74,8 @@ function getInfiniteCanvasContextualEntries<Kind extends string>(
       hotkeys: action.hotkeys,
       id: action.id,
       label: action.label,
+      // Returned rather than discarded: this is the only place the consumer's promise can reach a
+      // caller, and dropping it here would make the widened return type unobservable.
       run: () => action.run(state),
     })),
   ];

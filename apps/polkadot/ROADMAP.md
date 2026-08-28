@@ -61,6 +61,31 @@ strictly greater than 160 — a kind sitting exactly on it demotes and never ret
 
 ## Open
 
+- **A published verb answered "done" before its write landed, and the framework's type is why.**
+  `getCanvasCommandTools` calls `run()` and returns `"<label> done."`. That is right for a canvas
+  command, which routes through the reducer and is finished when it returns. It is wrong for a
+  consumer verb, and Polkadot publishes one: `connection.cut` reaches an agent through
+  `hotkeyActions`, deletes a row and reloads. A caller was told the cut had happened and could read
+  back a connection still there — the exact failure the app-action half of that file guards against
+  with "Awaited so a write verb's 'done' means written".
+
+  Polkadot could not fix this alone. `InfiniteCanvasHotkeyAction.run` was `(state) => void`, so a
+  consumer verb had no way to say when its work finished, and `InfiniteCanvasContextualEntry.run`
+  dropped it in turn. Both return `Promise<void> | void` now, the entry carries the consumer's
+  promise through, and the tool awaits it. A keypress and a palette row ignore the result, which is
+  what they did before.
+
+  **Not purely additive, which was assumed and wrong.** `=> void` is special in TypeScript: it
+  accepts an implementation returning anything. A union does not, so an expression-bodied
+  `run: () => arr.push(x)` stops compiling. Two of the framework's own tests did; the fix is braces
+  and the compiler names every site. The type says something true now that it could not say before.
+
+  **The first test of this passed against the broken code.** It used `await Promise.resolve()`, and
+  a dropped promise still leaves `await undefined` yielding one microtask — enough slack for a
+  microtask-only consumer to finish first, so the ordering came out right either way. Work that
+  needs a macrotask separates carrying the promise from dropping it; verified by dropping it again
+  and watching the test fail.
+
 - **`canvas.describe` promised the selection and reported half of it.** The tool is registered as
   "zoom, the open windows and their kinds, groups, and the selection", and the selection it described
   was `selection.windowIds`. A connector fills `selection.targets` and leaves `windowIds` empty —

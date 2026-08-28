@@ -43,10 +43,14 @@ function getConnectorHotkeyActions(
       id: "connection.cut",
       isEnabled: (state) => getRelationsToCut(state).length > 0,
       label: "Cut Connection",
-      // One act, so cutting several offers one undo that restores all of them rather than the last.
-      run: (state) => {
-        void disconnectRelations({ projectId, relations: getRelationsToCut(state) });
-      },
+      /*
+       * One act, so cutting several offers one undo that restores all of them rather than the last.
+       *
+       * Returned rather than `void`ed: a keypress ignores it, and the tool surface that publishes
+       * this verb answers "done" to a caller which cannot see the screen. That answer was arriving
+       * before the write did — `run` had no way to say otherwise until it could return a promise.
+       */
+      run: (state) => disconnectRelations({ projectId, relations: getRelationsToCut(state) }),
     },
   ];
 }
