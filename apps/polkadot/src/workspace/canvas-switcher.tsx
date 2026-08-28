@@ -22,6 +22,7 @@ import {
 } from "ui";
 import { tv } from "ui/tv";
 
+import { formatRelativeTimeNarrow } from "../content/relative-time";
 import type { CanvasSummary } from "../database/database.client";
 import * as database from "../database/operations";
 import { CanvasRemovalDialog } from "./canvas-removal-dialog";
@@ -47,6 +48,8 @@ const canvasSwitcher = tv({
     chevron:
       "size-3 text-[var(--ink-faint)] transition-transform duration-150 ease-[var(--ease-swift)] group-data-popup-open/switcher:rotate-180",
     empty: "px-1.5 py-1 text-[12px] text-[var(--ink-faint)]",
+    /** Pushed to the row's outer edge, so the titles stay a column the eye can run down. */
+    itemWhen: "ml-auto pl-3 text-[10.5px] text-[var(--ink-faint)] tabular-nums",
     input:
       "w-40 rounded-md bg-[var(--ground-sunken)] px-1.5 py-0.5 text-[13px] font-medium tracking-[-0.01em] text-[var(--ink)] outline-none inset-ring-1 inset-ring-[var(--accent)]",
     itemTitle: "truncate",
@@ -67,6 +70,8 @@ export function CanvasSwitcher({
   const isRemoving$ = useObservable(false);
   const canvases = useValue(canvases$);
   const archived = useValue(archived$);
+  // One instant for every row in a pass, so two rows archived together never disagree.
+  const now = Date.now();
   const isRemoving = useValue(isRemoving$);
   const styles = canvasSwitcher();
 
@@ -166,6 +171,11 @@ export function CanvasSwitcher({
                 >
                   <ArchiveRestore />
                   <span className={styles.itemTitle()}>{canvas.title}</span>
+                  {canvas.archived_at === undefined ? null : (
+                    <span className={styles.itemWhen()}>
+                      {formatRelativeTimeNarrow({ iso: canvas.archived_at, now })}
+                    </span>
+                  )}
                 </DropdownMenuItem>
               ))}
             </DropdownMenuGroup>

@@ -14,6 +14,7 @@ import {
 } from "ui";
 import { tv } from "ui/tv";
 
+import { formatRelativeTimeNarrow } from "../content/relative-time";
 import { createProject } from "./create-project";
 import { useGoToCanvas } from "./use-go-to-canvas";
 import { getProjectEntryCanvas } from "../projects/enter-project";
@@ -42,6 +43,8 @@ const projectSwitcher = tv({
     input:
       "w-36 rounded-md bg-[var(--ground-sunken)] px-1.5 py-0.5 text-[13px] font-medium tracking-[-0.01em] text-[var(--ink)] outline-none inset-ring-1 inset-ring-[var(--accent)]",
     itemTitle: "truncate",
+    /** Pushed to the row's outer edge, so the titles stay a column the eye can run down. */
+    itemWhen: "ml-auto pl-3 text-[10.5px] text-[var(--ink-faint)] tabular-nums",
     mark: "grid size-6 shrink-0 place-items-center rounded-[7px] bg-[var(--accent)] font-mono text-[11px] font-semibold text-[var(--primary-foreground)] transition-[filter,transform] duration-150 ease-[var(--ease-swift)] outline-none hover:brightness-110 focus-visible:brightness-110 data-popup-open:brightness-110",
   },
 });
@@ -57,6 +60,8 @@ export function ProjectSwitcher({
   const isRemoving$ = useObservable(false);
   const projects = useValue(projects$);
   const archived = useValue(archived$);
+  // One instant for every row in a pass, so two rows archived together never disagree.
+  const now = Date.now();
   const isRemoving = useValue(isRemoving$);
   const styles = projectSwitcher();
 
@@ -161,6 +166,11 @@ export function ProjectSwitcher({
                 >
                   <ArchiveRestore />
                   <span className={styles.itemTitle()}>{project.title}</span>
+                  {project.archived_at === undefined ? null : (
+                    <span className={styles.itemWhen()}>
+                      {formatRelativeTimeNarrow({ iso: project.archived_at, now })}
+                    </span>
+                  )}
                 </DropdownMenuItem>
               ))}
             </DropdownMenuGroup>

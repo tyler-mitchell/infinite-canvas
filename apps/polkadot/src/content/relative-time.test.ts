@@ -1,6 +1,6 @@
 import { expect, test } from "vite-plus/test";
 
-import { formatRelativeTime } from "./relative-time";
+import { formatRelativeTime, formatRelativeTimeNarrow } from "./relative-time";
 
 /**
  * Pinned to a fixed instant, which is the whole reason `now` is an argument.
@@ -29,4 +29,14 @@ test("three days ago counts three, so the number is not lost with the unit", () 
 /** A row whose timestamp never arrived should render nothing, not `Invalid Date`. */
 test("an unparseable instant formats to nothing", () => {
   expect(formatRelativeTime({ iso: "not a date", now: NOW })).toBe("");
+  expect(formatRelativeTimeNarrow({ iso: "not a date", now: NOW })).toBe("");
+});
+
+/** The narrow form is for menu rows, so what matters is that it is shorter and still counts. */
+test("the narrow form says the same span in less room", () => {
+  const at = { iso: "2026-08-25T12:00:00.000Z", now: NOW };
+  const narrow = formatRelativeTimeNarrow(at);
+
+  expect(narrow).toContain("3");
+  expect(narrow.length).toBeLessThan(formatRelativeTime(at).length);
 });

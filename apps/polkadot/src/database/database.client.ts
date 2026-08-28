@@ -244,6 +244,8 @@ async function openCanvas(canvasId: string): Promise<CanvasRecord | null> {
  * every canvas into a menu that renders a list of titles.
  */
 const CanvasSummary = type({
+  // Only `fn::list_archived_canvases` selects it, and it orders by it.
+  "archived_at?": "string.date.iso",
   id: "string",
   revision: "number.integer >= 0",
   title: "string > 0",
@@ -350,6 +352,8 @@ async function duplicateCanvas(
 }
 
 const ProjectSummary = type({
+  // Only `fn::list_archived_projects` selects it, and it orders by it.
+  "archived_at?": "string.date.iso",
   id: "string",
   title: "string > 0",
 }).onUndeclaredKey("delete");
