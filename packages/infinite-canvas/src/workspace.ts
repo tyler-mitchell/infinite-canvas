@@ -8,20 +8,16 @@ import {
 import type { InfiniteCanvasState, InfiniteCanvasWorkspace } from "./types";
 
 /**
- * Workspaces — virtual desktops for an infinite canvas.
+ * Virtual desktops: one canvas plus a membership filter. A workspace is a named set of windows
+ * with the camera and selection it was left at. Not a nested canvas, which would need a second
+ * camera and input plane.
  *
- * **Deliberately not nested canvases.** A canvas inside a canvas means a second camera and a
- * second input plane, which is a different program. A workspace is *one* canvas plus a
- * membership filter: a named set of windows, with the camera and selection you left it at.
+ * Opt-in. `workspaces: []` with `activeWorkspaceId: null` applies no filtering, so a canvas that
+ * creates none is unaffected and no persisted document needs migrating.
  *
- * They are opt-in the way groups are. `workspaces: []` with `activeWorkspaceId: null` means
- * no filtering at all, so a canvas that never creates one behaves exactly as it did before
- * they existed and no persisted document needs rewriting.
- *
- * The camera and selection stored on a workspace are a *snapshot taken on the way out*.
- * While a workspace is active, `state.camera` is the live one and the stored copy is stale by
- * design — writing through on every pan would make each frame a workspace mutation, and
- * workspace mutations are undo checkpoints.
+ * The stored camera and selection are a snapshot taken on exit. While a workspace is active,
+ * `state.camera` is live and the stored copy is intentionally stale — writing through on every pan
+ * would make each frame a workspace mutation, and those are undo checkpoints.
  */
 
 function findInfiniteCanvasWorkspace<Kind extends string>(
@@ -57,9 +53,8 @@ function createInfiniteCanvasWorkspace<Kind extends string>(
 }
 
 /**
- * Closing a workspace never closes its windows. A membership filter that deleted what it
- * filtered would make "which set is this in" a destructive question, and a window in no
- * workspace is simply one every workspace-less view shows.
+ * Closing a workspace does not close its windows. A window in no workspace is one every
+ * unfiltered view shows.
  */
 function closeInfiniteCanvasWorkspace<Kind extends string>(
   state: InfiniteCanvasState<Kind>,
@@ -77,11 +72,8 @@ function closeInfiniteCanvasWorkspace<Kind extends string>(
 }
 
 /**
- * Switch, saving on the way out and restoring on the way in.
- *
- * The save is what makes the exit criterion hold — "switching preserves each workspace's
- * camera and selection". Without it the outgoing workspace would keep whatever camera it had
- * when it was *created*, and returning to it would throw away everything the user did there.
+ * Switches workspace, saving the outgoing camera and selection and restoring the incoming ones.
+ * Without the save, a workspace would keep the camera it had when created.
  */
 function activateInfiniteCanvasWorkspace<Kind extends string>(
   state: InfiniteCanvasState<Kind>,
@@ -154,18 +146,10 @@ function renameInfiniteCanvasWorkspace<Kind extends string>(
 }
 
 /**
- * Moving a workspace to another position in the list.
+ * Moves a workspace to another position. `toIndex` matches `group.reorderChild`.
  *
- * `state.workspaces` is ordered and every consumer renders it in order, but until now the order was
- * whatever `createInfiniteCanvasWorkspace` appended and nothing could ever change it. A desktop
- * strip you cannot reorder is one where the desktop you use most stays wherever it happened to be
- * created, which is the same defect as a tab bar with no drag — hence `toIndex`, matching
- * `group.reorderChild` rather than inventing a second vocabulary for the same motion.
- *
- * The index is clamped rather than rejected, because the callers are gestures: a drag that runs
- * past the end of the strip means "put it last", not "do nothing". Removing before inserting is
- * what makes `toIndex` mean the position in the *final* list, which is what a dragging finger is
- * pointing at.
+ * The index is clamped rather than rejected, since callers are drag gestures and running past the
+ * end means "last". Removing before inserting makes `toIndex` the position in the final list.
  */
 function reorderInfiniteCanvasWorkspace<Kind extends string>(
   state: InfiniteCanvasState<Kind>,
@@ -195,16 +179,9 @@ function reorderInfiniteCanvasWorkspace<Kind extends string>(
 }
 
 /**
- * Membership as a delta, which is the difference between a verb and a race.
- *
- * `setInfiniteCanvasWorkspaceWindows` takes the whole list, so a caller wanting "put this
- * window on that desktop" has to read the membership, append, and write it back — and a
- * window added by anything else between the read and the write is discarded. That is the same
- * defect `equalizeInfiniteCanvasGroupChildren` exists to avoid, where the record is keyed by
- * child id and a pane docked mid-flight keeps its old weight.
- *
- * Both forms stay. The absolute one is what a recipe or a restore needs; this is what a
- * gesture needs.
+ * Adds one window as a delta. `setInfiniteCanvasWorkspaceWindows` takes the whole list, so a
+ * read-append-write caller discards anything added in between. Both forms stay: the absolute one
+ * for recipes and restores, this one for gestures.
  */
 function addInfiniteCanvasWindowToWorkspace<Kind extends string>(
   state: InfiniteCanvasState<Kind>,
@@ -279,18 +256,12 @@ function setInfiniteCanvasWorkspaceWindows<Kind extends string>(
 }
 
 /**
- * Membership is a set of ids that exist — deduplicated, never naming a closed window — and
- * **group-complete**.
+ * Membership is a deduplicated set of live window ids, and group-complete: naming any member of a
+ * group names them all. Admitting half a group would draw a gutter beside an absent pane and a tab
+ * controlling a panel on another workspace.
  *
- * A group is one world object: a shell with a rect, gutters between its panes, and a tab
- * strip across them. Letting a workspace admit half of one would render a gutter between a
- * visible pane and an absent one, and a tab controlling a panel on another desktop. So naming
- * any member names them all, which is the same reasoning that makes the group the source of
- * truth and a member's rect its projection.
- *
- * This is an expansion rather than a rejection for the same reason `createInfiniteCanvasGroup`
- * drops rather than steals: the user's gesture was "put this on that desktop", and the honest
- * reading of it includes the thing the window is docked into.
+ * Expands rather than rejects, since "put this on that workspace" reasonably includes whatever the
+ * window is docked into.
  */
 function normalizeInfiniteCanvasWorkspaceWindowIds<Kind extends string>(
   state: InfiniteCanvasState<Kind>,
@@ -308,18 +279,11 @@ function normalizeInfiniteCanvasWorkspaceWindowIds<Kind extends string>(
 }
 
 /**
- * Re-expand every workspace's membership so it stays group-complete.
+ * Re-expands every workspace's membership so it stays group-complete.
  *
- * `normalizeInfiniteCanvasWorkspaceWindowIds` establishes that invariant when membership is
- * *written*, and several things change groups without touching membership at all: docking a
- * window into a group whose members are on a workspace, applying a recipe that rebuilds
- * groups from a stored layout, undocking one back out. Each would leave a workspace holding
- * part of a group, which is the state the invariant exists to forbid — a gutter between a
- * visible pane and an absent one.
- *
- * Called once from the reducer rather than from the dozen actions that can move a window
- * between trees, the same way the document is checkpointed once around the transition
- * instead of inside forty cases that would each have to remember.
+ * Normalization establishes the invariant when membership is written, but docking, undocking, and
+ * applying a layout recipe all change groups without touching membership, leaving a workspace
+ * holding part of a group. Called once from the reducer rather than from each of those actions.
  */
 function reconcileInfiniteCanvasWorkspaces<Kind extends string>(
   state: InfiniteCanvasState<Kind>,
@@ -376,24 +340,15 @@ function reconcileInfiniteCanvasWorkspaces<Kind extends string>(
 }
 
 /**
- * The live selection and active window, against the desktop you are standing on.
+ * Clears the active window and selection when membership stops admitting them, so verbs keyed to
+ * the active window do not aim at something the canvas no longer draws.
  *
- * `activateInfiniteCanvasWorkspace` already states this rule for the moment you *enter* a
- * desktop: a window it does not admit "must not stay selected or active either: it is not on
- * screen, and every verb keyed to the active window would act on something the user cannot see".
- * Membership can change under a stationary camera too — file the active window onto another
- * desktop and you are in the identical position without having moved — and nothing applied the
- * rule in that direction. It stayed active and selected while the canvas stopped drawing it, so
- * close, minimize, dock, place and resize all aimed at a window nobody could see.
+ * Activation applies this rule on entry, but membership can also change under a stationary camera.
+ * Placed here rather than in `moveWindow` because `removeWindow` and `setWindows` can do it too,
+ * and the reducer already runs this reconciliation once.
  *
- * Here rather than in `moveWindow`, because every membership writer can do it: `moveWindow`,
- * `removeWindow`, and `setWindows` all can, and the reducer already runs this reconciliation once
- * for exactly that reason. The alternative is each writer remembering.
- *
- * Falls back the same way entering does — the selection's anchor, then the last selectable window,
- * then nothing — so the canvas is never left with no active window while one is plainly available.
- * Returns the identical state when nothing was admitted-out, since reference equality is the
- * change test everywhere here.
+ * Falls back to the selection anchor, then the last selectable window, then nothing. Returns the
+ * identical state when nothing changed.
  */
 function reconcileActiveAgainstMembership<Kind extends string>(
   state: InfiniteCanvasState<Kind>,
@@ -412,9 +367,8 @@ function reconcileActiveAgainstMembership<Kind extends string>(
 }
 
 /**
- * Drop a window from every workspace. Called where `detachInfiniteCanvasWindowFromGroups` is:
- * a closed window cannot keep a membership, and a later workspace naming it would resurrect a
- * dead id into the filter.
+ * Drops a window from every workspace. Called alongside `detachInfiniteCanvasWindowFromGroups`,
+ * since a membership naming a closed window would put a dead id back into the filter.
  */
 function detachInfiniteCanvasWindowFromWorkspaces<Kind extends string>(
   state: InfiniteCanvasState<Kind>,
@@ -438,28 +392,19 @@ function detachInfiniteCanvasWindowFromWorkspaces<Kind extends string>(
 }
 
 /**
- * Move windows to a desktop: they leave every other one and join this one, as a single edit.
+ * Moves windows to a workspace as a single edit: they leave every other one and join this one.
+ * `addWindow` and `removeWindow` cannot express this between them — two dispatches would be two
+ * undo entries with the window on both workspaces in between.
  *
- * The operation a virtual desktop exists for, and the one thing `addWindow` and `removeWindow`
- * could not express between them. Two dispatches would also be two undo entries, and a window
- * would be on both desktops in between.
+ * Takes a set rather than one id, so moving three windows is one undo entry rather than three.
+ * Moving one window is a set of one.
  *
- * **A set rather than one id, because the gesture is a set.** "Put these three on that desktop"
- * is one thing a person did, and filing them one dispatch at a time made it three undo entries
- * that have to be undone three times — with the desktop half-populated at each step. A consumer
- * looping this verb was the previous answer and it restated, badly, the framework's own rule
- * about what a single edit is. Moving one window is a set of one; nothing needed a second verb.
+ * The whole group moves. Membership is group-complete and reconciliation re-expands it after every
+ * action, so moving one pane without its siblings would be pulled straight back. Normalizing the
+ * set as a whole handles this, since it already dedupes, drops dead ids, and expands groups.
  *
- * **The whole group moves, and it has to.** Membership is group-complete, and
- * `reconcileInfiniteCanvasWorkspaces` re-expands every workspace after every action — so moving
- * one pane of a docked shell while its siblings stayed behind would have reconcile pull the
- * moved pane straight back into the desktop it just left. Naming the group-complete set up
- * front is what makes the move stick, and it is why the set is normalized as a whole rather than
- * per id: `normalizeInfiniteCanvasWorkspaceWindowIds` already dedupes, drops ids naming no live
- * window, and expands each group, so the plural form needed no new logic at all.
- *
- * Returns the identical state when the move would change nothing, so a no-op lands no history
- * entry — including an empty set, or one naming only windows already here.
+ * Returns the identical state when nothing would change, including for an empty set or one naming
+ * only windows already here, so a no-op lands no history entry.
  */
 function moveInfiniteCanvasWindowsToWorkspace<Kind extends string>(
   state: InfiniteCanvasState<Kind>,
