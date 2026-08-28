@@ -40,7 +40,7 @@ test("no surface re-inlines the material instead of composing it", () => {
     return readFileSync(path, "utf8")
       .split("\n")
       .flatMap((line, index) =>
-        line.includes("bg-[var(--surface)]") && line.includes("inset-ring-[var(--edge-light)]")
+        line.includes("bg-[var(--surface)]") && line.includes("var(--edge-light)")
           ? [`${relative}:${String(index + 1)}`]
           : [],
       );
@@ -50,15 +50,27 @@ test("no surface re-inlines the material instead of composing it", () => {
 });
 
 test("the recipe is both halves, or the scan above is looking for the wrong thing", () => {
-  // If the material ever stops being "surface fill plus specular ring", this fails and the check
-  // gets rewritten deliberately rather than silently matching nothing.
+  // If the material ever stops being "surface fill plus specular hairline", this fails and the
+  // check gets rewritten deliberately rather than silently matching nothing.
   expect(FLOATING_SURFACE).toContain("bg-[var(--surface)]");
-  expect(FLOATING_SURFACE).toContain("inset-ring-[var(--edge-light)]");
+  expect(FLOATING_SURFACE).toContain("var(--edge-light)");
+});
+
+/**
+ * A hairline on the top edge, not an outline on four.
+ *
+ * `inset-ring-1` measured as `oklch(1 0 0 / 0.07) 0 0 0 1px inset` — the `border: 1px solid
+ * white/8%` the bar names and forbids — while window frames drew `0 1px 0 0 inset` all along.
+ * Pinning the offsets is what keeps the two families drawn by one rule.
+ */
+test("the light falls on the top edge only", () => {
+  expect(FLOATING_SURFACE).toContain("inset-shadow-[0_1px_0_0_");
+  expect(FLOATING_SURFACE).not.toContain("inset-ring");
 });
 
 test("elevation stays out of the recipe, because it is the part that differs", () => {
   // The notice lifts higher than a rail because it interrupts. Folding lift in would mean a variant
   // per combination — a worse duplication wearing a tidier shape.
-  expect(FLOATING_SURFACE).not.toContain("shadow-");
+  expect(FLOATING_SURFACE).not.toContain("--lift-");
   expect(FLOATING_SURFACE).not.toContain("rounded-");
 });

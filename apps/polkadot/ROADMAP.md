@@ -68,9 +68,9 @@ strictly greater than 160 — a kind sitting exactly on it demotes and never ret
   Still unverified: the declarative (`<form>`-annotation) half of WebMCP, cross-origin `exposedTo`,
   and behaviour under a real browser-integrated agent.
 
-- **A canvas or project cannot be renamed or archived by an agent.** Both are pointer-only in the
-  switchers. `canvas.create` and `project.create` take an optional title, so a caller can name what
-  it makes and cannot rename what it already made.
+- **A canvas or project cannot be archived by an agent.** Renaming landed — `canvas.rename` and
+  `project.rename` are registered and driven. Archiving is still pointer-only in the switchers, so a
+  caller can make a canvas it has no way to retire.
 
 - **Reframe has no surface.** `fn::reframe_saved_view` exists and is driven; nothing calls it.
   Delete-and-re-save covers it, so the capability is whole rather than half-built — but reframe is
@@ -81,12 +81,13 @@ strictly greater than 160 — a kind sitting exactly on it demotes and never ret
   reversible act replaces it, where the archive list is permanent. Nobody has made this judgement —
   named in `connection-removal-dialog.tsx`.
 
-- **HUD surfaces do not follow the bar's own surface rule.** Window frames separate by light —
-  measured at `oklch(0 0 0 / 0.44) 0 2px 4px` plus `oklch(0 0 0 / 0.36) 0 12px 32px`. The library
-  rail and the overview sit on `--surface` with a full `inset-ring-1` at `oklch(1 0 0 / 0.07)` and no
-  shadow: a ring on four sides rather than a hairline on one, which is nearer the treatment the bar
-  forbids than the one it prescribes. That may be a deliberate screen-space versus world-space
-  distinction. Nothing writes it down either way.
+- **The light on a note's own body is flat.** Fixed the surfaces: every inset shadow in the app now
+  measures `oklch(1 0 0 / 0.07) 0 1px 0 0 inset`, one rule across window frames, Polkadot's rails
+  and the framework's HUD groups. The claim this item used to make — that the rails had _no shadow_
+  — was wrong; they carried `--lift-2` all along, and the defect was only the hairline being a
+  four-sided ring, which `material.ts` had described correctly and emitted incorrectly since it was
+  written. What remains unexamined is the interior: a note body is one flat fill from title to
+  bottom edge, where the bar's own logic would give it the same top-down light its frame has.
 
 - **Rich text and code blocks in notes.** Lexical is behind a `{ value, onChange }` boundary and
   mentions have landed. These have not.
@@ -96,29 +97,12 @@ strictly greater than 160 — a kind sitting exactly on it demotes and never ret
   screenshot. The warm ink change is hue-only, so contrast is provably unchanged, but no before-and-
   after comparison was obtainable in the dev pane. Both want an eye on a real display.
 
-- **A write verb answers "done" before it has written.** `AppAction.run` returns
-  `string | undefined` synchronously, so every database write in the vocabulary is `void`-ed —
-  `void connectItems(...)` is the measured case. Driven: `relation.connect` answered
-  "Connect two items done." and `relates_to` was empty; the row appeared a moment later.
-  A pointer does not care, because the store updates reactively and a person is looking at the
-  screen. A caller with no second source does: it reads back and gets a listing that disagrees with
-  what it was just told, several steps from the cause. That is the failure `AppAction.run`'s own
-  docstring exists to prevent, and returning the refusal fixed only half of it.
-  The fix is to let `run` return a promise and have `app-tools` await it. It wants doing in one
-  pass across every write verb — a vocabulary where some verbs await and some do not is worse than
-  one where none do, because nothing tells a caller which it is holding.
-
-- **Driving the palette needs JS, and that is worth writing down.** Neither coordinate nor `ref`
-  clicks from the browser tooling fire cmdk's `onSelect`, and `Cmd+K` sent as a synthetic key only
-  works when a real click has already focused the canvas. Both have working substitutes, found by
-  elimination: `element.click()` on a `[cmdk-item]` runs the row, and dispatching a
-  `KeyboardEvent("keydown", { key: "k", metaKey: true })` at
-  `[data-infinite-canvas-command-scope="surface"]` opens the palette without touching the canvas —
-  which matters because clicking empty canvas clears the selection most rows depend on.
-  The measurement that separated them: `Select All Windows` clicked by the tool leaves
-  `selection.windowIds` empty, while the same row clicked from JS selects both. Two claims were
-  filed against the product on the strength of tool clicks and both were false — connect writes
-  correctly, and the row fires correctly.
+- **Writes cannot be asserted outside a browser.** The WASM engine does not start under `vp test` —
+  `connect("mem://")` hangs rather than rejecting, and the non-worker engine rules out the Worker as
+  the cause. Recorded as a skipped test in `database/in-memory-engine.test.ts`. The refusal suite's
+  own comment used to claim a `void`ed write "fails harmlessly against an engine no test starts";
+  it did not fail, it dangled forever, and the suite called that passing. Node tests assert
+  decisions and rules; a write is a browser's question.
 
 - **Two HUD surfaces shipped tuned by one look.** The offscreen chips are peripheral by design and
   deliberately quiet; nobody has watched anyone use them. And the minimap's close-and-reopen was
@@ -137,29 +121,26 @@ strictly greater than 160 — a kind sitting exactly on it demotes and never ret
 The list is the incubator's output. Landed rows live in `docs/API.md` and the changelog; these are
 the open ones.
 
-| Gap                                                                                                     | Generic affordance                                              |
-| ------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
-| A consumer's verbs reach the keyboard and nothing else: `hotkeyActions` never join contextual discovery | consumer verbs enter the same list the framework's do           |
-| A selected scene object carries identity and no geometry, so nothing spatial downstream can act on one  | a bounds provider keyed by selection target, answered on demand |
-| The camera frames a target once and cannot follow a moving one                                          | a sustained follow with a release rule                          |
-| A selected scene object that no longer exists is never pruned, and `selection` is a durable field       | the same consumer-knowledge surface the rows above want         |
+| Gap                                                                                                    | Generic affordance                                              |
+| ------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------- |
+| A selected scene object carries identity and no geometry, so nothing spatial downstream can act on one | a bounds provider keyed by selection target, answered on demand |
+| The camera frames a target once and cannot follow a moving one                                         | a sustained follow with a release rule                          |
+| A selected scene object that no longer exists is never pruned, and `selection` is a durable field      | the same consumer-knowledge surface the rows above want         |
 
-**Three of these are one architectural fact.** The framework's pure surface takes `state`, and
-`state` is serializable. Consumer knowledge is not — a consumer's verbs, its objects' bounds, and
-whether one of its objects still exists all live in props, as closures. Every gap where the framework
-must ask the consumer something lands on that boundary. Storing the answers in state is the tempting
-shortcut and is wrong: a rect copied onto a selection target is stale the moment the object moves.
-The answer is a lookup the framework can call, not a value it can hold.
+**Both remaining rows are one architectural fact.** The framework's pure surface takes `state`, and
+`state` is serializable. Consumer knowledge is not — an object's bounds and whether it still exists
+both live in props, as closures. Every gap where the framework must ask the consumer something lands
+on that boundary. Storing the answers in state is the tempting shortcut and is wrong: a rect copied
+onto a selection target is stale the moment the object moves. The answer is a lookup the framework
+can call, not a value it can hold.
 
-**Discovery is the largest and has evidence rather than an argument.** `app-actions.ts` is roughly
-1400 lines that exist because the framework has no consumer-verb registry, and it reinvents
-description, label, live enablement, an argument schema and a refusal string before
-`published-commands.ts` and `model-context.tsx` merge the two vocabularies and police name collisions.
-It is not a slice: `InfiniteCanvasContextualCommand` is a `CommandDescriptor` plus `enabled` and
-`group`, and a descriptor is keyed on a `command` from the framework's own union, from which `group`
-is derived. A consumer verb has a `run` closure and no command, so joining that list means either
-widening the union or making it a union of two entry types. Both are real design decisions.
-`InfiniteCanvasHotkeyAction` already carries `id`, `label`, `description`, `isEnabled` and `run`.
+**Discovery landed and is the worked example.** `getInfiniteCanvasContextualEntries` merges both
+vocabularies into one uniform list with a bound `run`, so a consumer verb reaches contextual
+discovery without widening the command union. The shape that made it work: the framework's own verbs
+keep `group`, a consumer verb has none, and the merge — not the caller — decides what `run` means.
+Callers branch on nothing. `published-commands.ts` is now the filter it was always meant to be.
+What it did **not** do is shrink `app-actions.ts`, which is still ~1400 lines: the argument schema
+and the refusal string are this app's own, and no framework affordance is asking for them.
 
 **Bounds is cheaper than it looks and is still not being built.**
 `createInfiniteCanvasEdgeTargetResolver` and `…SceneObjectTargetResolver` take a `targets` source
