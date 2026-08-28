@@ -143,7 +143,20 @@ const DEFAULT_INFINITE_CANVAS_COMMAND_DESCRIPTORS = [
     command: {
       type: "selection.selectAllVisible",
     },
-    description: "Select every visible window on the canvas.",
+    /*
+     * "Visible" is this framework's word and not a caller's, so the description says the rule
+     * instead of the word.
+     *
+     * A caller reading "every visible window" takes it as "every window I can see", which is a
+     * reasonable reading and the wrong one: `getSelectableWindowIds` filters on `mode` and
+     * workspace membership and never consults the camera. Driven through WebMCP against a canvas
+     * panned away from one window — it was selected along with the two on screen, and the caller
+     * had no way to know from the name or the sentence.
+     *
+     * A window behind a tab is selected too, which is why this does not say "on screen" either:
+     * `isSelectableWindow` tests `mode !== "minimized"` and nothing about group projection.
+     */
+    description: "Select every window on this desktop that is not minimized.",
     hotkeys: ["Mod+A"],
     id: "selection.selectAllVisible",
     label: "Select All Windows",
@@ -152,7 +165,10 @@ const DEFAULT_INFINITE_CANVAS_COMMAND_DESCRIPTORS = [
     command: {
       type: "view.fitAll",
     },
-    description: "Fit all visible windows inside the viewport.",
+    // The same set as `selection.selectAllVisible`, and the same word avoided for the same reason.
+    // Under the camera reading this verb would be a no-op — it frames windows you *cannot* see,
+    // which is the whole point of it.
+    description: "Fit every window on this desktop that is not minimized inside the viewport.",
     hotkeys: ["Shift+1"],
     id: "view.fitAll",
     label: "Fit All",

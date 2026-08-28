@@ -18,12 +18,20 @@ function isSelectableWindow(window: Pick<InfiniteCanvasWindow, "mode">) {
 }
 
 /**
- * Selectable means on screen, and a workspace is what decides that as much as `mode` is.
+ * Selectable means not minimized and on this desktop — and a workspace decides it as much as
+ * `mode` does.
  *
  * Without the membership test, `selection.selectAllVisible` would select windows on other
  * desktops — invisible things an arrange verb would then move — and `view.fitAll`, which
  * unions these bounds, would zoom out to frame windows the user cannot see. Both were true
  * for one commit after workspaces landed.
+ *
+ * **This said "selectable means on screen", and that is two words too strong.** Neither test
+ * consults the camera, so a window panned off the edge is selectable; and `isSelectableWindow`
+ * tests `mode` alone, so a window behind a tab is selectable too. Both are the right behaviour —
+ * making selection depend on where you are looking would mean panning silently changes what
+ * "select all" means — but "on screen" is what a caller then reads into the command's own
+ * description, and two of those descriptions said it until they were measured.
  */
 function getSelectableWindowIds<Kind extends string>(state: InfiniteCanvasState<Kind>) {
   return state.windows
