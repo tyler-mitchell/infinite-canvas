@@ -121,15 +121,31 @@ test("a link says where it points, which its title often does not", () => {
   ).toContain('link "Infinite Canvas — Docs" [l1] (points at https://example.com/docs/canvas?v=2)');
 });
 
-test("a kind with nothing beyond its title says nothing extra", () => {
-  // The map is the rule: notes and images have no entry, so they read exactly as they did.
-  const described = describe([
-    item("n2", "note", "Quarterly notes"),
-    item("i1", "image", "swatch.png"),
-  ]);
+test("an image says how it is described, which is the only words a picture has", () => {
+  /*
+   * `description` is the alt text and is kept apart from the title on purpose — renaming a window
+   * to "Reference" must not claim the picture depicts the word Reference — so the two diverge the
+   * moment either is edited and only the title was reportable.
+   */
+  expect(
+    describe([
+      item("i1", "image", "Reference", {
+        description: "whiteboard, March",
+        source: "data:image/png;base64,AAAA",
+      }),
+    ]),
+  ).toContain('image "Reference" [i1] (described as "whiteboard, March")');
+});
 
-  expect(described).toContain('note "Quarterly notes" [n2];');
-  expect(described).toContain('image "swatch.png" [i1].');
+test("a note says nothing extra, because its content is not a phrase", () => {
+  /*
+   * The map is the rule and a note has no entry. Its prose is `note.read`'s: folding an opening
+   * line in here would duplicate the summary card and grow a listing without bound. Asserted so the
+   * omission reads as a decision rather than as a kind somebody forgot.
+   */
+  expect(describe([item("n2", "note", "Quarterly notes")])).toContain(
+    'note "Quarterly notes" [n2].',
+  );
 });
 
 test("a collection whose stored question cannot be read is still listed", () => {

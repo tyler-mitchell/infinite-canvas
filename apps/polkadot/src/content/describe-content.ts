@@ -3,6 +3,7 @@ import { type } from "arktype";
 
 import { getContentWindowItemId, type WindowKind } from "../canvas/window-registry";
 import { COLLECTION_KIND, CollectionContent } from "../collections/collection-gateway";
+import { IMAGE_KIND, ImageContent } from "../images/image-gateway";
 import { LINK_KIND, LinkContent } from "../links/link-gateway";
 import type { ContentRelation } from "../database/database.client";
 import { getProjectContent, type ProjectContent } from "./project-content";
@@ -90,11 +91,14 @@ const describeRelations = (
  * `rename-item.ts` already uses for the same reason: the entries *are* the rule, and a kind that
  * grows a subject gets reported by adding a line rather than by finding the condition to widen.
  *
- * Two kinds have one. A collection's title is a name and its *question* is the content, so
- * `collection "Reading list" [id]` said nothing about what is in it. A link's title is often not
- * the address at all — `getDraggedLinkName` takes a dragged tab's own title — so where it points
- * was unreportable. A note's prose is `note.read`'s, and an image's description is already its
- * title.
+ * Three kinds have one, and the fourth is deliberately absent. A collection's title is a name and
+ * its *question* is the content. A link's title is often not the address at all —
+ * `getDraggedLinkName` takes a dragged tab's own title. An image's `description` is its alt text,
+ * kept apart from the title on purpose, and the only words a picture has.
+ *
+ * A note has no entry because its content is prose of any length: `note.read` returns it whole, and
+ * folding an opening line in here would duplicate the summary card and grow a listing without
+ * bound. The distinction is length, not importance.
  *
  * **Both gaps hide behind default naming**, which is why neither surfaced until something was
  * renamed. A collection of links is called "Links" and a typed link is called "example.com/path",
@@ -125,6 +129,20 @@ const SUBJECT_READERS: Readonly<
     }
 
     return `lists every ${question.listsKind} in this project`;
+  },
+  /*
+   * An image's words, which are the only words it has.
+   *
+   * `description` is the alt text and `image-gateway` keeps it apart from the title deliberately —
+   * "renaming the window to Reference should not claim the picture depicts the word Reference" — so
+   * the two diverge the moment either is edited, and only one of them was reportable. The dimensions
+   * would be the other obvious thing to report and are not stored at all: `open-image` decodes them
+   * from the bytes each time rather than keeping a second copy of what the picture already carries.
+   */
+  [IMAGE_KIND]: (item) => {
+    const image = ImageContent(item.content);
+
+    return image instanceof type.errors ? null : `described as "${image.description}"`;
   },
   [LINK_KIND]: (item) => {
     const link = LinkContent(item.content);
