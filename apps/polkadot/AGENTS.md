@@ -223,6 +223,15 @@ and is wrong.
   reading after it, never by watching the observable settle. The same probes also showed
   `setTimeout` throttled to roughly one tick per second in this hidden pane, which turns a "wait 3
   seconds" into a couple of ticks — do not build a verdict on a timed wait here.
+- **The editor's DOM is not the editor's state, and synthetic typing separates them.** The tool's
+  `type` action does not produce the `beforeinput` Lexical guards on, so text can land in the
+  contenteditable that the editor then refuses. Driven on 2026-08-28: typing after a mention showed
+  `@Untitled 1 x @Un` in the DOM while the stored state held one clean segmented `@Untitled 1` with
+  its id — the state never changed, so no save fired, and the DOM simply stayed unreconciled. That
+  was read as "typing is absorbed into the mention" and a defect was written into `mention-node.ts`
+  and committed before the state was checked. Read the serialized state — `editor.getEditorState()`
+  or the stored row — before believing anything about an editor, and never conclude a node's shape
+  from `textContent`.
 - **Import the app's own module URL, not the file path.** `import("/@fs/…/app-actions.ts")` resolves
   to a different module identity than the app's own `/src/app-actions.ts` and hands back a second,
   freshly-initialised copy: every observable on it reads empty, which looks exactly like an app with
