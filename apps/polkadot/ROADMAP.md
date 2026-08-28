@@ -61,6 +61,27 @@ strictly greater than 160 — a kind sitting exactly on it demotes and never ret
 
 ## Open
 
+- **A mention now reaches the note it names, which it had never done.** The chip drew
+  `cursor-pointer` and wrote `data-note-id` from the day it was built, and `mention-node.ts`'s own
+  docstring described "the click handler that reaches the note" — nothing anywhere read the
+  attribute. `MentionNode` is referenced by three files and none of them is a listener. So the
+  pointer changed shape over a destination that did not exist, which is this app's declaration-that-
+  never-wins class in its interaction form: no error, no failing test, a promise the product does not
+  keep.
+
+  The handler sits on the note window rather than in `note-editor`, which is told nothing about
+  notes, and resolves against the listing already loaded for the typeahead. A plain click, not a
+  modifier: the node is `segmented`, so a click selects the whole mention and can never place a caret
+  inside it — there is no editing gesture being shadowed. Driven: with the mentioned note's window
+  closed, clicking `@Untitled 1` opened it and made it active; clicking again revealed the same
+  window rather than opening a second.
+
+  **Links may be the same shape, and this is a reading rather than a measurement.**
+  `EDITOR_EXTENSIONS` mounts `LinkExtension` but not `ClickableLinkExtension`, which is the one that
+  registers the click. No note in the test project holds a link, so this was not driven and is not
+  claimed as a defect. Left alone either way: following a URL out of a canvas is a navigation
+  decision, not something to close quietly alongside this.
+
 - **The living field.** Built in `canvas/field.tsx` and deliberately unmounted —
   `workspace-canvas.tsx` passes no `renderBackdrop`, so the app runs on the framework's default
   grid. The three known costs were fixed (idle gate at 0 draw calls at rest, one rect walk, one
@@ -168,9 +189,15 @@ var(--surface)` — the same material as its frame and its idle header, uniform 
   doc recommends ArkType for the `parse` function, which this repo already uses. The migration
   guide's Keyword example is the same shape as our mention (TextNode, `isTextEntity`,
   `canInsertTextBefore`), and its all-in version drops React entirely via `registerLexicalTextEntity`
-  from `@lexical/text`. It also moves the class name into extension `config`, which gets the
-  hardcoded Tailwind string out of `mention-node.ts`'s `createDOM` — a `tv`-slot violation that had
-  no fix until now.
+  from `@lexical/text`.
+
+  **The `tv`-slot violation this row claimed was already gone, and the real problem was next to it.**
+  `mention-node.ts` held a `tv` slot rather than a raw string, so no rule was being broken — but it
+  styled itself, which made a second home for what a note looks like and put `ui/tv` inside a Lexical
+  node. `EDITOR_THEME`'s own docstring states the rule it was breaking: values come from `tv` slots
+  so classes have one home. The class is a theme key now, read in `createDOM`, and the node imports
+  no styling at all. Measured after: the chip reads back exactly `--accent-wash` at 0.12, `--accent`,
+  4px radius, 1px/4px padding.
 
   **Highlighting moved packages.** `registerCodeHighlighting`, `PrismTokenizer` and the language
   helpers are deprecated at 0.49. It is `CodePrismExtension` (`@lexical/code-prism`) or
@@ -235,15 +262,22 @@ var(--surface)` — the same material as its frame and its idle header, uniform 
   highlighting, and a Notion-style language picker and copy control on each block. What is left is
   one cost and two gaps.
 
-  **Shiki bakes presentation into stored content, and that was not known when it was chosen.** Every
+  **Shiki bakes presentation into stored content. Measured, and the answer is to keep it.** Every
   token serializes with its own hex colour — `"style":"color:#CB7676"` — and the code node stores
-  `"theme":"vitesse-dark"`. So a long block writes hundreds of nodes each carrying a colour, and
-  changing theme later leaves every existing note on the old palette until its blocks are
-  re-tokenized. This is how `@lexical/code-shiki` works rather than a defect: it means a note renders
-  correctly with no highlighter loaded. The open question is whether a notes app wants theme in its
-  documents, and the alternative is Prism, whose `CodeHighlightNode` stores a token _type_ that the
-  `codeHighlight` theme map turns into a class at render — smaller, themeable after the fact, and
-  paid for with a hand-written token map and far fewer languages.
+  `"theme":"vitesse-dark"`. This is how `@lexical/code-shiki` works rather than a defect: it means a
+  note renders correctly with no highlighter loaded.
+
+  Measured 2026-08-28 on a stored note holding one code line: 122 characters of code become 2678
+  bytes across 21 `code-highlight` nodes, against 206–445 bytes for the prose notes beside it. Of
+  that, 545 bytes — 20% — is literally presentation, the hex colours plus the theme name.
+
+  **That corrects what this row implied.** The colours are a fifth of the cost; the other four
+  fifths is one Lexical node per token, and Prism's `CodeHighlightNode` is also one node per token,
+  so switching would save the 20% and keep the rest. The real difference is themeability, not size —
+  and the app declares `color-scheme: dark` with no theme switch, so the "existing notes stranded on
+  the old palette" cost is unrealized. Against that, Prism costs a hand-written token map and far
+  fewer languages today. Keeping Shiki. Revisit if a light theme ships, which is the event that
+  would make the stranding real.
 
   **The overflow menu and wrap landed, and both are measured rather than assumed.** The `…` menu
   carries Wrap lines, Duplicate and Delete, and wrap is a `NodeState`, so a block keeps its setting

@@ -7,8 +7,6 @@ import {
   type EditorConfig,
   type LexicalNode,
 } from "lexical";
-import { tv } from "ui/tv";
-
 /**
  * A note named inside another note's text.
  *
@@ -39,10 +37,6 @@ import { tv } from "ui/tv";
  * become one declaration. `RubyNode` in Lexical's playground is the same shape.
  */
 
-const mention = tv({
-  base: "cursor-pointer rounded-[4px] bg-[var(--accent-wash)] px-1 py-px text-[var(--accent)]",
-});
-
 /** Default `""` so a node that never carried an id serializes without the key. */
 const noteIdState = createState("noteId", {
   parse: (value) => (typeof value === "string" ? value : ""),
@@ -64,11 +58,16 @@ class MentionNode extends TextNode {
    * `data-note-id` rather than a class alone, because the click handler that reaches the note reads
    * it straight off the event target — the DOM is where a click already is, and looking the node up
    * through Lexical to answer "which note is this" would be the longer way round to the same string.
+   *
+   * The class comes from the theme, like every other node's. Deciding it here made a second home for
+   * what a note looks like and gave a Lexical node a styling dependency; the editor that mounts this
+   * node is the thing that knows how its notes look. Empty when no theme supplies the key, which is
+   * the headless editor `note-markdown` runs and where nothing renders anyway.
    */
   override createDOM(config: EditorConfig): HTMLElement {
     const dom = super.createDOM(config);
 
-    dom.className = mention();
+    dom.className = typeof config.theme.mention === "string" ? config.theme.mention : "";
     dom.dataset.noteId = this.getNoteId();
 
     return dom;

@@ -1,6 +1,8 @@
 import {
   useInfiniteCanvasActions,
   useInfiniteCanvasDesktopPortalRoot,
+  useInfiniteCanvasStore,
+  type InfiniteCanvasState,
 } from "@hyphened/infinite-canvas";
 import { useObservable, useValue } from "@legendapp/state/react";
 import { useEffect, useRef } from "react";
@@ -15,6 +17,8 @@ import {
 } from "./note-store";
 import { useLoaderData } from "@tanstack/react-router";
 
+import { openItemWindow } from "../canvas/open-item";
+import type { WindowKind } from "../canvas/window-registry";
 import { getProjectContentOfKind, projectContent$ } from "../content/project-content";
 import { connectItems } from "../relations/relation-store";
 import { NoteEditor } from "./note-editor";
@@ -108,6 +112,14 @@ export function NoteWindowBody({
   windowTitle,
 }: Readonly<{ gateway: NoteGateway; noteId: string; windowId: string; windowTitle: string }>) {
   const actions = useInfiniteCanvasActions();
+  /*
+   * The store, read at click time rather than subscribed to.
+   *
+   * Placement needs the current windows, and `useInfiniteCanvasState` would re-render every open
+   * note on every camera tick to answer a question only a click asks. `peek` is the same bargain
+   * the connector resolvers and the hotkey gate already strike.
+   */
+  const store = useInfiniteCanvasStore();
   /*
    * The route, which is the only thing that knows.
    *
@@ -231,7 +243,39 @@ export function NoteWindowBody({
           placeholder="Untitled"
           value={note.title}
         />
-        <div className={styles.editor()}>
+        {/*
+          A mention says where to go, and now it goes there.
+
+          The chip has always drawn `cursor-pointer` and written `data-note-id` for a reader that
+          was never built — an affordance promising a destination and a plain text node underneath.
+          Clicking one did nothing at all.
+
+          Here rather than in `note-editor`, which is told nothing about notes: the editor renders
+          the node, and the window is what knows a note id can be opened. The listing is already
+          loaded for the typeahead, so reaching one costs no read.
+
+          A plain click rather than a modifier. The node is `segmented`, so a click selects the whole
+          mention and can never place a caret inside it — there is no editing gesture to shadow.
+        */}
+        <div
+          className={styles.editor()}
+          onClick={(event) => {
+            const chip =
+              event.target instanceof Element ? event.target.closest("[data-note-id]") : null;
+            const mentionedId = chip?.getAttribute("data-note-id") ?? "";
+            const item = mentionable.find((candidate) => candidate.id === mentionedId);
+
+            if (item !== undefined) {
+              // Cast for the same reason the framework casts its own `peek`: Legend State unwraps to
+              // a structurally equal type that is not the declared `Readonly` one.
+              openItemWindow({
+                actions,
+                item,
+                state: store.state$.peek() as InfiniteCanvasState<WindowKind>,
+              });
+            }
+          }}
+        >
           <NoteEditor
             /*
              * Rebuilt when something other than this editor rewrote the note.

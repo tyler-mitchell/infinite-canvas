@@ -65,6 +65,8 @@ const noteEditor = tv({
     inlineCode:
       "rounded-[4px] bg-[var(--surface-hover)] px-1 py-0.5 font-mono text-[12px] text-[var(--ink)]",
     link: "text-[var(--accent)] underline underline-offset-2",
+    /** A name, not a link: a wash behind it rather than an underline, so a sentence stays readable. */
+    mention: "cursor-pointer rounded-[4px] bg-[var(--accent-wash)] px-1 py-px text-[var(--accent)]",
     listItem: "my-0.5",
     ol: "my-2 list-decimal pl-5",
     /** Spacing belongs between paragraphs, so it is the sibling that gets it, not every one. */
@@ -95,6 +97,14 @@ const EDITOR_THEME: EditorThemeClasses = {
   heading: { h1: styles.h1(), h2: styles.h2() },
   link: styles.link(),
   list: { listitem: styles.listItem(), ol: styles.ol(), ul: styles.ul() },
+  /*
+   * A custom node's key, read by `MentionNode.createDOM`.
+   *
+   * It kept its own `tv` and styled itself, which made two homes for what a note looks like and put
+   * a styling dependency inside a Lexical node. A theme key is the library's own answer and is the
+   * rule this mapping already states.
+   */
+  mention: styles.mention(),
   paragraph: styles.paragraph(),
   quote: styles.quote(),
   text: { bold: styles.bold(), code: styles.inlineCode() },
