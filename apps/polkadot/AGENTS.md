@@ -308,8 +308,15 @@ what its authors published, especially the examples.
 - **Layout durability** is the framework's (`serializeInfiniteCanvasState`). The database owns
   domain content — notes, relations, regions — and never the layout.
 - **The database is SurrealDB WASM** on `indxdb://`, vendored at `packages/surrealdb-wasm` because
-  the published builds either lack IndexedDB or lack the Vite worker fix. It loads on demand; the
-  canvas paints before it resolves and must keep doing so.
+  the published builds either lack IndexedDB or lack the Vite worker fix. It is imported lazily, by
+  the route loaders that need it.
+- **The canvas does not paint before the database resolves, and that is deliberate.** This said the
+  opposite — "the canvas paints before it resolves and must keep doing so" — and no code has done
+  that for as long as the routes have had loaders. Both `/` and `/canvas/$canvasId` `await` the
+  client and then the read, and show `CanvasLoading` until it lands. `canvas.$canvasId.tsx` gives the
+  reason: the loader hydrates as well as reads, so the component is handed valid state and nothing
+  renders an empty canvas that fills in a moment later. Read from the routes on 2026-08-28; the old
+  claim was structural, not a timing question, so no measurement was needed to refute it.
 - **This is an SPA.** TanStack Start was removed: the data layer is client-only, so SSR renders
   nothing useful, and Start's dev middleware never mounted because `vite` here is aliased to
   `vite-plus-core`, whose version fails Start's peer range.
