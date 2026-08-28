@@ -245,8 +245,22 @@ var(--surface)` — the same material as its frame and its idle header, uniform 
   `codeHighlight` theme map turns into a class at render — smaller, themeable after the fact, and
   paid for with a hand-written token map and far fewer languages.
 
-  Not built: the `…` overflow menu Notion carries beside the picker (caption, wrap, delete), and
-  word wrap. Unverified: the copy button writes to the clipboard but nothing reads it back.
+  **The overflow menu and wrap landed, and both are measured rather than assumed.** The `…` menu
+  carries Wrap lines, Duplicate and Delete, and wrap is a `NodeState`, so a block keeps its setting
+  through storage. Driven 2026-08-28: `data-wrap="false"` computes `white-space: pre` at 43px tall
+  with the long line scrolling under `overflow-x: auto`; `true` computes `pre-wrap` with
+  `word-break: break-word` at 101px and `scrollWidth` equal to `clientWidth`, so nothing overflows.
+  The same read shows the block at `display: block`, which closes the inline-pill defect above by
+  measurement and not by inspection of the theme string.
+
+  **Copy is verified in both directions.** A trusted press changes the OS clipboard and the button
+  reads `Code copied` with a check glyph; a programmatic press rejects for want of a user gesture and
+  reads `Could not copy the code` with the danger glyph, which is exactly the silent case the
+  two-argument `then` was written for. Both reset to idle. Reading the clipboard back inside the page
+  is refused by permission, so what is witnessed is the write landing and both rendered outcomes —
+  not a string comparison against the block's text.
+
+  Still not built: the caption Notion carries in the same menu.
 
 - **Two things are confirmed present and correctly weighted, not confirmed good.** Window grain
   measures 8.93/255 mean alpha — the 3.5% intended — and 3.5% noise does not survive a downscaled
