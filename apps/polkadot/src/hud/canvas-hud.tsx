@@ -27,6 +27,8 @@ import { Button } from "ui";
 import { tv } from "ui/tv";
 
 import { useValue } from "@legendapp/state/react";
+
+import { actionFailure$, watchForUnhandledRejections } from "../content/action-failure";
 import { useLoaderData } from "@tanstack/react-router";
 
 import { getAppAction, isAppActionEnabled } from "../app-actions";
@@ -513,6 +515,46 @@ function RecoveryNotice({ droppedKinds }: Readonly<{ droppedKinds: readonly stri
   );
 }
 
+/**
+ * An action that did not finish, said once.
+ *
+ * Dismissible rather than timed, unlike the undo offer beside it: the offer expires because taking
+ * it late is worse than not taking it, while this is a fact about work that did not happen and
+ * stays true until it is read. Only the latest is held — a burst of rejections is one failure to
+ * the person watching.
+ */
+function FailureNotice() {
+  const failure = useValue(actionFailure$);
+  const announce = useInfiniteCanvasAnnounce();
+  const styles = canvasHud();
+
+  useEffect(() => {
+    if (failure !== null) {
+      announce(failure);
+    }
+  }, [announce, failure]);
+
+  return (
+    <HudSurface anchor="top-right" present={failure !== null}>
+      <div className={styles.noticeRail()} role="status">
+        <TriangleAlert className={styles.noticeIcon()} />
+        <span className={styles.noticeText()}>{failure}</span>
+        <Button
+          aria-label="Dismiss"
+          onClick={() => {
+            actionFailure$.set(null);
+          }}
+          size="icon-sm"
+          title="Dismiss"
+          variant="ghost"
+        >
+          <X />
+        </Button>
+      </div>
+    </HudSurface>
+  );
+}
+
 export function CanvasHud({
   commandPalette,
   conflict,
@@ -535,6 +577,11 @@ export function CanvasHud({
   libraryInset?: number;
   minimap?: ReactNode;
 }>) {
+  const failure = useValue(actionFailure$);
+
+  // Installed here because this is the surface that shows one; nothing else needs to know.
+  useEffect(watchForUnhandledRejections, []);
+
   return (
     <>
       {/*
@@ -563,9 +610,20 @@ export function CanvasHud({
         <HudSurface anchor="top-left" persistent>
           {identity}
         </HudSurface>
+        {/*
+          One corner, three claims on it, in order of what is still true.
+
+          The conflict takes it outright while it stands. A failure is next: it names work that did
+          not happen, which the reader can still act on. The recovery notice is last because it is
+          historical — it describes what a canvas opened without, and nothing done now changes it.
+        */}
         {conflict === undefined || conflict === null ? (
-          droppedKinds === undefined ? null : (
-            <RecoveryNotice droppedKinds={droppedKinds} />
+          failure === null ? (
+            droppedKinds === undefined ? null : (
+              <RecoveryNotice droppedKinds={droppedKinds} />
+            )
+          ) : (
+            <FailureNotice />
           )
         ) : (
           <HudSurface anchor="top-right" persistent present>
