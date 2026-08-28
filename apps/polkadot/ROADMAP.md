@@ -176,10 +176,23 @@ var(--surface)` — the same material as its frame and its idle header, uniform 
   node must never contain `'\n'` — that is `LineBreakNode`, which `note-text.ts`'s block-type split
   should be checked against.
 
-  Order: theme keys first — fixes the code block, reversible, no new dependency. Then
-  `LexicalExtensionComposer` in its minimal form, which the guide shows as a drop-in. Then
-  dependencies one at a time. Then `MentionNode` onto `$config` + `NodeState`. Highlighting last,
-  since it needs a package that is not installed.
+  **All of that landed on 2026-08-28** — node-keyed theme, `LexicalExtensionComposer`, four plugins
+  converted to dependencies, `MentionNode` on `$config` + `NodeState` at byte-identical JSON, Shiki
+  highlighting, and a Notion-style language picker and copy control on each block. What is left is
+  one cost and two gaps.
+
+  **Shiki bakes presentation into stored content, and that was not known when it was chosen.** Every
+  token serializes with its own hex colour — `"style":"color:#CB7676"` — and the code node stores
+  `"theme":"vitesse-dark"`. So a long block writes hundreds of nodes each carrying a colour, and
+  changing theme later leaves every existing note on the old palette until its blocks are
+  re-tokenized. This is how `@lexical/code-shiki` works rather than a defect: it means a note renders
+  correctly with no highlighter loaded. The open question is whether a notes app wants theme in its
+  documents, and the alternative is Prism, whose `CodeHighlightNode` stores a token _type_ that the
+  `codeHighlight` theme map turns into a class at render — smaller, themeable after the fact, and
+  paid for with a hand-written token map and far fewer languages.
+
+  Not built: the `…` overflow menu Notion carries beside the picker (caption, wrap, delete), and
+  word wrap. Unverified: the copy button writes to the clipboard but nothing reads it back.
 
 - **Two things are confirmed present and correctly weighted, not confirmed good.** Window grain
   measures 8.93/255 mean alpha — the 3.5% intended — and 3.5% noise does not survive a downscaled
