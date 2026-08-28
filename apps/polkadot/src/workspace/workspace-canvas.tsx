@@ -312,10 +312,20 @@ export function WorkspaceCanvas({ canvas }: Readonly<{ canvas: LoadedCanvas }>) 
           /*
            * A tab strip already names the members, so the frame above it says nothing.
            *
-           * An unnamed group is named after what it holds, which reads well over a split — there is
-           * no other place those names appear. Over tabs it is the strip's own list, one row higher:
-           * seen on a two-member tabbed group reading "Untitled 1 & Untitled 2" directly above tabs
-           * reading "Untitled 1" and "Untitled 2".
+           * Over tabs the composed title is the strip's own list, one row higher: seen on a
+           * two-member tabbed group reading "Untitled 1 & Untitled 2" directly above tabs reading
+           * "Untitled 1" and "Untitled 2".
+           *
+           * **This said the names "appear nowhere else" over a split, and that is false.** Every
+           * kind shows its own title inside its pane — a note in its first field, the others in the
+           * chrome header — and the LOD summary keeps showing it as the panes shrink. Driven at
+           * 128%, 66% and 34% on a three-pane split: the member titles are legible at all three and
+           * the frame label repeats them throughout.
+           *
+           * The split case is kept anyway, for the reason the false one was standing in for: the
+           * label names the *cluster*, which no member title does, and it is sized in screen units
+           * so it stays the one legible name as the panes fall away. What it repeats over a split is
+           * one member's name plus a count; what it repeated over tabs was the whole list verbatim.
            *
            * A group somebody *named* keeps its label in every layout. The name is then a fact about
            * the group rather than a restatement of its contents, and it is the only place that fact
