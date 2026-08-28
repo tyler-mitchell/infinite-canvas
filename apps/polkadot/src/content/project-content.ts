@@ -131,6 +131,19 @@ function setProjectItemTitle(input: Readonly<{ itemId: string; title: string }>)
  *
  * That is the write-blind shape the read verb was added to prevent, reappearing one layer down. A
  * caller checking its own work is the case this pair exists for, so the check has to see the write.
+ *
+ * **Anything that changes an item's content must call this, and a rename is why it is not optional.**
+ * `rename-item.ts` reads content off the listing item and writes it straight back — deliberately, so
+ * that renaming does not empty what it renames — so a listing holding superseded content does not
+ * merely answer stale, it *restores* the stale value to storage on the next rename. Both mutable
+ * kinds were broken this way and fixed on 2026-08-28: typing in a note left a visible word
+ * unfindable, and changing a collection's question then renaming it put the old question back.
+ * Images and links are safe only because nothing edits their content after creation; a writer for
+ * either is a writer that has to fold here too.
+ *
+ * A title has one owner and cannot be forgotten — `renameProjectItem` writes storage, listing and
+ * window title together. Content has no such place, because each kind owns its own debounce and
+ * revision guard, so the obligation is stated here rather than enforced.
  */
 function setProjectItemContent(itemId: string, content: object) {
   const listing = projectContent$.peek();
