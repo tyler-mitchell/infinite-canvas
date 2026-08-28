@@ -124,7 +124,7 @@ const renameProjectItem = (
   }
 
   write(input.item, next);
-  setProjectItemTitle(input.item.id, next);
+  setProjectItemTitle({ itemId: input.item.id, title: next });
 
   const windowId = input.state.windows.find(
     (window) => getContentWindowItemId(window) === input.item.id,

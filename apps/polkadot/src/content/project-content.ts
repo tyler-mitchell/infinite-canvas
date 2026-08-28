@@ -35,9 +35,21 @@ function getProjectContent(listing: ProjectContent | null, projectId: string) {
   return listing?.projectId === projectId ? listing.items : null;
 }
 
-/** The same listing narrowed to one kind, for a surface that means one — mentions link notes. */
-function getProjectContentOfKind(listing: ProjectContent | null, projectId: string, kind: string) {
-  return getProjectContent(listing, projectId)?.filter((item) => item.kind === kind) ?? null;
+/**
+ * The same listing narrowed to one kind, for a surface that means one — mentions link notes.
+ *
+ * Named rather than positional because two of the three arguments were plain strings in a row:
+ * `(listing, projectId, kind)` and `(listing, kind, projectId)` both compile, and the wrong one
+ * returns an empty list, which reads as "this project holds no notes" rather than as a mistake.
+ * The object is what the rest of this app already passes, for this reason.
+ */
+function getProjectContentOfKind(
+  input: Readonly<{ kind: string; listing: ProjectContent | null; projectId: string }>,
+) {
+  return (
+    getProjectContent(input.listing, input.projectId)?.filter((item) => item.kind === input.kind) ??
+    null
+  );
 }
 
 async function loadProjectContent(projectId: string) {
@@ -91,7 +103,10 @@ async function restoreProjectItem(input: Readonly<{ itemId: string; projectId: s
  * In place because a rename that visibly lags the keystroke reads as a save that might not have
  * happened.
  */
-function setProjectItemTitle(itemId: string, title: string) {
+// Named for the same reason as above: two adjacent strings, and transposing them writes nothing and
+// says nothing. `setProjectItemContent` beside it never had the problem — its second argument is an
+// object — which is the shape both now share.
+function setProjectItemTitle(input: Readonly<{ itemId: string; title: string }>) {
   const listing = projectContent$.peek();
 
   if (listing === null) {
@@ -100,7 +115,9 @@ function setProjectItemTitle(itemId: string, title: string) {
 
   projectContent$.set({
     ...listing,
-    items: listing.items.map((item) => (item.id === itemId ? { ...item, title } : item)),
+    items: listing.items.map((item) =>
+      item.id === input.itemId ? { ...item, title: input.title } : item,
+    ),
   });
 }
 

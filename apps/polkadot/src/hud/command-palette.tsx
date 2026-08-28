@@ -384,7 +384,7 @@ function PaletteContent({
   const projectListing = useValue(projectContent$);
   const query$ = useObservable("");
   // The palette's note rows stay notes for now; the rail is where every kind is browsed.
-  const notes = getProjectContentOfKind(projectListing, projectId, "note") ?? [];
+  const notes = getProjectContentOfKind({ kind: "note", listing: projectListing, projectId }) ?? [];
   const relations = useValue(relations$);
   const undoableAction = useValue(undoableAction$);
   const canvases = useValue(canvases$);

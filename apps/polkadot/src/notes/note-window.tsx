@@ -119,7 +119,11 @@ export function NoteWindowBody({
   const projectId = useValue(openProject$);
   // Notes only: a mention names a note. The listing holds every kind now.
   const mentionable =
-    getProjectContentOfKind(useValue(projectContent$), projectId ?? "", "note") ?? [];
+    getProjectContentOfKind({
+      kind: "note",
+      listing: useValue(projectContent$),
+      projectId: projectId ?? "",
+    }) ?? [];
   /*
    * The desktop root, not this window's.
    *

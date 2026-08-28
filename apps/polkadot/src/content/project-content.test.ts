@@ -48,11 +48,15 @@ test("every kind is listed, which is what makes it a library rather than a note 
 test("narrowing to a kind keeps the project guard", () => {
   // Mentions ask for notes. Asking the wrong project must still answer null rather than an empty
   // mention menu, which reads as "this note has no neighbours".
-  expect(getProjectContentOfKind(listing, "project:one", "note")).toHaveLength(2);
-  expect(getProjectContentOfKind(listing, "project:two", "note")).toBeNull();
+  expect(getProjectContentOfKind({ kind: "note", listing, projectId: "project:one" })).toHaveLength(
+    2,
+  );
+  expect(getProjectContentOfKind({ kind: "note", listing, projectId: "project:two" })).toBeNull();
 });
 
 test("a kind nothing matches is an empty list, not a missing answer", () => {
   // The project answered; it has no collections. That is a real "none", unlike the guard above.
-  expect(getProjectContentOfKind(listing, "project:one", "collection")).toEqual([]);
+  expect(
+    getProjectContentOfKind({ kind: "collection", listing, projectId: "project:one" }),
+  ).toEqual([]);
 });
