@@ -1,9 +1,9 @@
 import { ListItemNode, ListNode } from "@lexical/list";
 import { LinkNode } from "@lexical/link";
 import { TRANSFORMERS } from "@lexical/markdown";
-import { LexicalComposer } from "@lexical/react/LexicalComposer";
 import { ContentEditable } from "@lexical/react/LexicalContentEditable";
 import { LexicalErrorBoundary } from "@lexical/react/LexicalErrorBoundary";
+import { LexicalExtensionComposer } from "@lexical/react/LexicalExtensionComposer";
 import { HistoryPlugin } from "@lexical/react/LexicalHistoryPlugin";
 import { LinkPlugin } from "@lexical/react/LexicalLinkPlugin";
 import { ListPlugin } from "@lexical/react/LexicalListPlugin";
@@ -12,7 +12,13 @@ import { OnChangePlugin } from "@lexical/react/LexicalOnChangePlugin";
 import { RichTextPlugin } from "@lexical/react/LexicalRichTextPlugin";
 import { HeadingNode, QuoteNode } from "@lexical/rich-text";
 import { CodeNode } from "@lexical/code";
-import type { EditorState, EditorThemeClasses, LexicalEditor } from "lexical";
+import {
+  defineExtension,
+  type EditorState,
+  type EditorThemeClasses,
+  type LexicalEditor,
+} from "lexical";
+import { useState } from "react";
 import { tv } from "ui/tv";
 
 import { MentionNode } from "./mention-node";
@@ -122,20 +128,27 @@ export function NoteEditor({
   onChange: (value: string) => void;
   value: string;
 }>) {
+  /*
+   * Built once, from the value at mount.
+   *
+   * `LexicalExtensionComposer` recreates the editor whenever this reference changes, and `value`
+   * changes on every keystroke — an inline object would rebuild the editor mid-word.
+   * `LexicalComposer` read its config once and hid that. Remounting stays the caller's job through
+   * `key`, which is what it already does for an external write.
+   */
+  const [extension] = useState(() =>
+    defineExtension({
+      $initialEditorState: value === "" ? null : value,
+      name: "polkadot-note",
+      namespace: "polkadot-note",
+      nodes: () => EDITOR_NODES,
+      theme: EDITOR_THEME,
+    }),
+  );
+
   return (
-    <LexicalComposer
-      initialConfig={{
-        // Keyed by the note, so opening a different note in the same window rebuilds the editor
-        // with that note's state instead of keeping the previous one.
-        editorState: value === "" ? null : value,
-        namespace: "polkadot-note",
-        nodes: EDITOR_NODES,
-        onError: (error: Error) => {
-          throw error;
-        },
-        theme: EDITOR_THEME,
-      }}
-    >
+    // `contentEditable={null}`: the one below is ours, inside `RichTextPlugin`.
+    <LexicalExtensionComposer contentEditable={null} extension={extension}>
       <div className={styles.root()}>
         {/*
           The editable region is named, which it was not.
@@ -167,6 +180,6 @@ export function NoteEditor({
           }}
         />
       </div>
-    </LexicalComposer>
+    </LexicalExtensionComposer>
   );
 }
