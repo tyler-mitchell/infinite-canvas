@@ -83,16 +83,21 @@ export function CanvasMinimap() {
         />
       ))}
 
-      {/* Drawn last: where you are is the thing you are looking for. */}
-      <div
-        className="pointer-events-none absolute border border-emerald-300/80 bg-emerald-300/5"
-        style={{
-          height: layout.viewport.height,
-          left: layout.viewport.x,
-          top: layout.viewport.y,
-          width: layout.viewport.width,
-        }}
-      />
+      {/*
+        Drawn last: where you are is the thing you are looking for — and `null` when the camera
+        contains everything drawn, where this would trace the map's own edge and say nothing.
+      */}
+      {layout.viewport === null ? null : (
+        <div
+          className="pointer-events-none absolute border border-emerald-300/80 bg-emerald-300/5"
+          style={{
+            height: layout.viewport.height,
+            left: layout.viewport.x,
+            top: layout.viewport.y,
+            width: layout.viewport.width,
+          }}
+        />
+      )}
     </div>
   );
 }

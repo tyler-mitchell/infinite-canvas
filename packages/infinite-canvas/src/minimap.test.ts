@@ -173,13 +173,20 @@ test("the camera's visible rect is inside the box even when it looks at empty sp
     camera: { center: { x: 90_000, y: 90_000 }, zoom: 0.75 },
   };
   const layout = getInfiniteCanvasMinimapLayout(lost, MINIMAP_SIZE)!;
+  const { viewport } = layout;
 
-  expect(layout.viewport.x).toBeGreaterThanOrEqual(-0.001);
-  expect(layout.viewport.y).toBeGreaterThanOrEqual(-0.001);
-  expect(layout.viewport.x + layout.viewport.width).toBeLessThanOrEqual(MINIMAP_SIZE.width + 0.001);
-  expect(layout.viewport.y + layout.viewport.height).toBeLessThanOrEqual(
-    MINIMAP_SIZE.height + 0.001,
-  );
+  // Non-null is half the claim now: the marker is withheld when the camera contains everything
+  // drawn, and this is the opposite case — it must keep its marker, inside the box.
+  expect(viewport).not.toBeNull();
+
+  if (viewport === null) {
+    return;
+  }
+
+  expect(viewport.x).toBeGreaterThanOrEqual(-0.001);
+  expect(viewport.y).toBeGreaterThanOrEqual(-0.001);
+  expect(viewport.x + viewport.width).toBeLessThanOrEqual(MINIMAP_SIZE.width + 0.001);
+  expect(viewport.y + viewport.height).toBeLessThanOrEqual(MINIMAP_SIZE.height + 0.001);
 });
 
 test("an unmeasured viewport yields no layout rather than a degenerate one", () => {

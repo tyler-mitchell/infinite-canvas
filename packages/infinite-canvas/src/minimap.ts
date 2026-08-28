@@ -60,8 +60,20 @@ type InfiniteCanvasMinimapLayout = Readonly<{
   offset: InfiniteCanvasPoint;
   /** World units → overview pixels. Uniform on both axes: an overview must not distort. */
   scale: number;
-  /** Where the camera is looking, in overview pixels. Always inside the box, by construction. */
-  viewport: InfiniteCanvasRect;
+  /**
+   * Where the camera is looking, in overview pixels — or `null` when saying so is saying nothing.
+   *
+   * Inside the box by construction, because the camera's rect is unioned into `bounds`. That same
+   * union is why this is nullable: when the camera contains everything drawn, `bounds` *is* the
+   * camera, and the projection maps the indicator onto the whole inner area. It then traces the
+   * box's own edge — it cannot move and cannot shrink, so it carries no information at any zoom,
+   * and it reads as a border around the overview rather than as a position within it.
+   *
+   * `null` there rather than a full-box rect, so a consumer cannot draw the meaningless one by
+   * accident. The empty-canvas rule one level up is the same rule: rendering nothing beats
+   * rendering a degenerate projection.
+   */
+  viewport: InfiniteCanvasRect | null;
   windows: readonly InfiniteCanvasMinimapWindow[];
 }>;
 
@@ -168,11 +180,15 @@ function getInfiniteCanvasMinimapLayout<Kind extends string>(
   }
 
   const visibleWorldRect = getVisibleWorldRect(state.camera, state.viewport, 0);
-  const bounds = unionRects([
+  // Content and camera unioned separately, because whether the camera already contains the content
+  // is what decides if the indicator can say anything. Unioning in one pass loses that.
+  const contentBounds = unionRects([
     ...drawnWindows.map((window) => window.rect),
     ...drawnGroups.map((group) => group.rect),
-    visibleWorldRect,
   ]);
+  const bounds = unionRects(
+    contentBounds === null ? [visibleWorldRect] : [contentBounds, visibleWorldRect],
+  );
 
   if (bounds === null || bounds.width <= 0 || bounds.height <= 0) {
     return null;
@@ -197,7 +213,19 @@ function getInfiniteCanvasMinimapLayout<Kind extends string>(
     })),
     offset,
     scale,
-    viewport: scaleRect(visibleWorldRect, bounds, scale, offset),
+    /*
+     * Exact equality, not a tolerance: `bounds` is a union, so when the camera contains the content
+     * every one of these four numbers came from `visibleWorldRect` unchanged. A tolerance would
+     * additionally swallow the case where the camera is a hair larger than the content, which is a
+     * real position worth drawing.
+     */
+    viewport:
+      bounds.x === visibleWorldRect.x &&
+      bounds.y === visibleWorldRect.y &&
+      bounds.width === visibleWorldRect.width &&
+      bounds.height === visibleWorldRect.height
+        ? null
+        : scaleRect(visibleWorldRect, bounds, scale, offset),
     windows: drawnWindows.map((window) => ({
       isActive: state.activeWindowId === window.id,
       isSelected: isWindowSelected(state, window.id),
