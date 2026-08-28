@@ -96,6 +96,18 @@ strictly greater than 160 — a kind sitting exactly on it demotes and never ret
   screenshot. The warm ink change is hue-only, so contrast is provably unchanged, but no before-and-
   after comparison was obtainable in the dev pane. Both want an eye on a real display.
 
+- **A write verb answers "done" before it has written.** `AppAction.run` returns
+  `string | undefined` synchronously, so every database write in the vocabulary is `void`-ed —
+  `void connectItems(...)` is the measured case. Driven: `relation.connect` answered
+  "Connect two items done." and `relates_to` was empty; the row appeared a moment later.
+  A pointer does not care, because the store updates reactively and a person is looking at the
+  screen. A caller with no second source does: it reads back and gets a listing that disagrees with
+  what it was just told, several steps from the cause. That is the failure `AppAction.run`'s own
+  docstring exists to prevent, and returning the refusal fixed only half of it.
+  The fix is to let `run` return a promise and have `app-tools` await it. It wants doing in one
+  pass across every write verb — a vocabulary where some verbs await and some do not is worse than
+  one where none do, because nothing tells a caller which it is holding.
+
 - **Driving the palette needs JS, and that is worth writing down.** Neither coordinate nor `ref`
   clicks from the browser tooling fire cmdk's `onSelect`, and `Cmd+K` sent as a synthetic key only
   works when a real click has already focused the canvas. Both have working substitutes, found by
