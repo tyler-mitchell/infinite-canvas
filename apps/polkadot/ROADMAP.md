@@ -108,10 +108,12 @@ strictly greater than 160 — a kind sitting exactly on it demotes and never ret
   it did not fail, it dangled forever, and the suite called that passing. Node tests assert
   decisions and rules; a write is a browser's question.
 
-- **Two HUD surfaces shipped tuned by one look.** The offscreen chips are peripheral by design and
-  deliberately quiet; nobody has watched anyone use them. And the minimap's close-and-reopen was
-  never witnessed — the app remounted under another session's HMR reload mid-click. `docs/API.md`
-  should also move `minimap` off _unobserved_ now that it is drawn, which is the framework's edit.
+- **The offscreen chips shipped tuned by one look.** Peripheral by design and deliberately quiet;
+  nobody has watched anyone use them. The minimap's half of this is closed: close-and-reopen is
+  witnessed at 1440x900 — the map goes, `Show the map` takes its place, reopening restores it with
+  its plate and hairline intact, and the framework's zoom rail top stays at 113px from the bottom
+  across the toggle, so "reserves no band" holds through a real one. `docs/API.md` had already moved
+  `minimap` off _unobserved_ on 2026-08-26; this item was stale on that half too.
 
 - **An occluded connector is effectively unselectable on the canvas.** Two windows that nearly touch
   hide almost all of the line between them; windows resolve before edges, which is correct. At one
