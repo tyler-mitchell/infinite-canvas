@@ -1,6 +1,6 @@
 # API Reference
 
-The public surface of `@hyphened/infinite-canvas`: 228 values and 189 types across
+The public surface of `@hyphened/infinite-canvas`: 228 values and 188 types across
 two entries. Anything not exported from a barrel is internal and unstable —
 including every `data-infinite-canvas-*` attribute, which is a behavioural hook
 for hit-testing, not a styling contract.
@@ -327,17 +327,16 @@ A consumer's own verbs reach the keyboard through `hotkeyActions` and nothing el
 surface that offers verbs — a palette, a context menu, a tool registry — had to merge two
 vocabularies itself and police id collisions by hand.
 `getInfiniteCanvasContextualEntries` returns both, resolving each consumer verb's `isEnabled`
-against live state. Entries are discriminated by `source`; a consumer verb sharing an id with a
-canvas command replaces it. Branch on `source` to invoke — a canvas entry carries a `command` for
-`executeCommand`, a consumer entry carries its own `run`, and the union makes the wrong one a type
-error.
+against live state and binding every entry's `run` — a canvas verb routes through the reducer and a
+consumer verb does not, which is the merge's to know rather than each caller's to branch on. Takes
+the same `hotkeyActions` array the viewport does. A consumer verb sharing an id with a canvas
+command replaces it, and only canvas entries carry `group`.
 
 - `getInfiniteCanvasContextualEntries`
 
-<details><summary>types (2)</summary>
+<details><summary>types (1)</summary>
 
-- `InfiniteCanvasContextualAction` — a consumer verb, resolved against live state
-- `InfiniteCanvasContextualEntry` — `InfiniteCanvasContextualCommand | InfiniteCanvasContextualAction`, tagged by `source`
+- `InfiniteCanvasContextualEntry` — id, label, description, enablement, hotkeys and a bound `run`
 
 </details>
 

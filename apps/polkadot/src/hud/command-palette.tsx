@@ -189,8 +189,8 @@ const GROUP_ICON: Record<InfiniteCanvasCommandGroup, ComponentType> = {
 };
 
 /** A consumer verb has no framework group, so this app supplies the glyph. */
-const entryIcon = (entry: InfiniteCanvasContextualEntry<WindowKind>): ComponentType =>
-  entry.source === "canvas" ? GROUP_ICON[entry.group] : Unlink2;
+const entryIcon = (entry: InfiniteCanvasContextualEntry): ComponentType =>
+  entry.group === undefined ? Unlink2 : GROUP_ICON[entry.group];
 
 const palette = tv({
   slots: {
@@ -420,7 +420,8 @@ function PaletteContent({
   // The canvas's verbs and this app's in one list, so a consumer verb is searchable rather than
   // reachable only by the chord it declares.
   const contextual = getInfiniteCanvasContextualEntries(state, {
-    actions: getConnectorHotkeyActions(projectId),
+    actions,
+    hotkeyActions: getConnectorHotkeyActions(projectId),
   });
   const available = contextual.filter((command) => command.enabled);
   const unavailable = contextual.filter((command) => !command.enabled);
@@ -1240,13 +1241,7 @@ function PaletteContent({
               keys={command.hotkeys.map((hotkey) => formatForDisplay(hotkey))}
               id={command.id}
               keywords={command.id}
-              onSelect={run(() => {
-                if (command.source === "consumer") {
-                  command.run(state);
-                } else {
-                  actions.executeCommand(command.command);
-                }
-              })}
+              onSelect={run(command.run)}
               title={command.label}
             />
           ))}
