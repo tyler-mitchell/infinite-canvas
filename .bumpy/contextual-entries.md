@@ -10,4 +10,4 @@ A consumer's verbs can join contextual discovery instead of reaching only the ke
 
 Only canvas entries carry `group` — the five groups are the framework's taxonomy of its own verbs, so filing a consumer verb under one would be a false statement in the data rather than a missing one. A consumer verb sharing an id with a canvas command replaces it, which is what a consumer re-declaring a verb to take an argument already means.
 
-Experimental, `unobserved`: unit-tested and consumed by nothing. Polkadot builds this merge by hand today and is the migration that will exercise it.
+Stable rather than experimental, because it has been watched running. Driven in Polkadot: two notes connected, the edge selected as a target, `connection.cut` — a consumer verb that reached only the keyboard before — resolving to enabled through this merge and deleting the edge from the palette.

@@ -96,15 +96,25 @@ strictly greater than 160 — a kind sitting exactly on it demotes and never ret
   screenshot. The warm ink change is hue-only, so contrast is provably unchanged, but no before-and-
   after comparison was obtainable in the dev pane. Both want an eye on a real display.
 
-- **No palette row has ever been driven.** Neither coordinate nor `ref` clicks fire cmdk's
-  `onSelect` through the browser tooling, and `Cmd+K` only opens the palette after a real click has
-  given the canvas focus — a programmatic `.focus()` on the command surface is not enough. Measured
-  rather than assumed: `Select All Windows` through the palette leaves `selection.windowIds` empty,
-  while `window.__canvas.commands.selectAllVisibleWindows()` selects both windows immediately. The
-  command is fine; the row never fires.
-  Everything the palette is credited with above was read out of the DOM — labels, descriptions,
-  enablement, `aria-disabled` — which is real but is not the same as running one. Until a driving
-  path exists, no claim that a palette row _works_ is evidence, including `connection.cut`.
+- **The app's own vocabulary has no dev handle.** `window.__canvas` answers for the framework and
+  `window.__surreal` for the database; Polkadot's ~28 `AppAction`s and the merged contextual list
+  are reachable only through WebMCP, which needs a Chrome flag and an experimental client. So in an
+  ordinary browser nothing can ask what this app can do right now, or invoke one of its verbs —
+  verifying any of them means clicking DOM rows and reading `aria-disabled`.
+  `window.__canvas.getContextualCommands()` is the shape to follow and is not a substitute: it
+  returns the framework's list, not the merged one a person actually sees.
+
+- **Driving the palette needs JS, and that is worth writing down.** Neither coordinate nor `ref`
+  clicks from the browser tooling fire cmdk's `onSelect`, and `Cmd+K` sent as a synthetic key only
+  works when a real click has already focused the canvas. Both have working substitutes, found by
+  elimination: `element.click()` on a `[cmdk-item]` runs the row, and dispatching a
+  `KeyboardEvent("keydown", { key: "k", metaKey: true })` at
+  `[data-infinite-canvas-command-scope="surface"]` opens the palette without touching the canvas —
+  which matters because clicking empty canvas clears the selection most rows depend on.
+  The measurement that separated them: `Select All Windows` clicked by the tool leaves
+  `selection.windowIds` empty, while the same row clicked from JS selects both. Two claims were
+  filed against the product on the strength of tool clicks and both were false — connect writes
+  correctly, and the row fires correctly.
 
 - **Two HUD surfaces shipped tuned by one look.** The offscreen chips are peripheral by design and
   deliberately quiet; nobody has watched anyone use them. And the minimap's close-and-reopen was
