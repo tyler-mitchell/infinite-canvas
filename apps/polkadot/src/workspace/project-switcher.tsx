@@ -15,6 +15,7 @@ import {
 import { tv } from "ui/tv";
 
 import { createProject } from "./create-project";
+import { useGoToCanvas } from "./use-go-to-canvas";
 import { getProjectEntryCanvas } from "../projects/enter-project";
 import { useInlineRename } from "./use-inline-rename";
 import type { ProjectSummary } from "../database/database.client";
@@ -59,6 +60,8 @@ export function ProjectSwitcher({
   const isRemoving = useValue(isRemoving$);
   const styles = projectSwitcher();
 
+  const goToCanvas = useGoToCanvas();
+
   // `/` re-resolves the most recent canvas across whatever projects remain, and bootstraps a
   // fresh one when the last is gone — so leaving a destroyed project needs no destination logic.
   const leaveRemovedProject = () => {
@@ -71,7 +74,7 @@ export function ProjectSwitcher({
     void getProjectEntryCanvas({ openProjectId: projectId, projectId: nextProjectId }).then(
       (canvasId) => {
         if (canvasId !== null) {
-          void navigate({ params: { canvasId }, to: "/canvas/$canvasId" });
+          void goToCanvas(canvasId);
         }
       },
     );
@@ -178,7 +181,7 @@ export function ProjectSwitcher({
                * then put two of one name in the switcher that exists to tell them apart.
                */
               void createProject().then((created) => {
-                void navigate({ params: { canvasId: created.id }, to: "/canvas/$canvasId" });
+                void goToCanvas(created.id);
               });
             }}
           >

@@ -5,7 +5,9 @@ import {
   useInfiniteCanvasStore,
 } from "@hyphened/infinite-canvas";
 import { useValue } from "@legendapp/state/react";
-import { useLoaderData, useNavigate } from "@tanstack/react-router";
+import { useLoaderData } from "@tanstack/react-router";
+
+import { useGoToCanvas } from "../workspace/use-go-to-canvas";
 import { useEffect, useState } from "react";
 
 import { getAppAction, isAppActionEnabled } from "../app-actions";
@@ -73,7 +75,6 @@ const getGroupUnderPointer = (target: EventTarget | null) =>
 function CanvasContextMenu() {
   const actions = useInfiniteCanvasActions<WindowKind>();
   const store = useInfiniteCanvasStore<WindowKind>();
-  const navigate = useNavigate();
   const canvas = useLoaderData({ from: "/canvas/$canvasId" });
   const projectId = useValue(openProject$) ?? "";
   const [press, setPress] = useState<Readonly<{
@@ -152,9 +153,7 @@ function CanvasContextMenu() {
   const state = store.state$.peek();
   // Supplied because a context is one shape wherever it is built. The ring is a fixed six and holds
   // no canvas verb; whether one is offered here is `context-menu-rings`' choice, not this object's.
-  const goToCanvas = (canvasId: string) => {
-    void navigate({ params: { canvasId }, to: "/canvas/$canvasId" });
-  };
+  const goToCanvas = useGoToCanvas();
   const context = {
     actions,
     canvasId: canvas.id,

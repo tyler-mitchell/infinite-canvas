@@ -291,10 +291,12 @@ open because it feels good to look at. Concretely, and these are enforced in rev
       ever fire if the copy disagreed with the route. All four context sites read
       `useLoaderData({ from: "/canvas/$canvasId" })` instead, which is the same fact from the thing
       that owns it, and the refusal is gone with the branch that needed it.
-      **Not driven through WebMCP.** The refusals and each verb's choice of destination are covered
-      by tests needing no browser, and three of them were mutation-checked. What is unwitnessed is a
-      real caller registering the seven and a route changing underneath one. `model-context.tsx`
-      still records 97 tools, which is the measured figure from before these existed.
+      **Driven, on a clean profile.** `project.list` named the open project; `canvas.create` with a
+      title made and travelled to a canvas the switcher then showed by that name; `canvas.duplicate`
+      gave "Second copy" and duplicating _that_ gave "Second copy 2" rather than "Second copy copy";
+      `canvas.open` by id went back; and `project.open` on the project already open left the route
+      alone while the most recent canvas was a different one — the case a missing guard would have
+      moved somebody in. The registry reports 108 tools, counted from `getTools()`.
       **Still missing at this level:** renaming or archiving a canvas or project. Both are pointer-only
       in the switchers. `canvas.create` and `project.create` take an optional title, so a caller can
       name what it makes, but nothing can rename what it already made.
@@ -314,13 +316,22 @@ open because it feels good to look at. Concretely, and these are enforced in rev
       an agent can neither observe nor travel to hands back an id for something it cannot use, which
       is the shape `AppAction.run`'s docstring is about: a caller with no second source acting on a
       success it was told about and cannot check. So the reader and the travelling are not follow-ups.
-      **The blocker is navigation, and it is a seam rather than a missing feature.** Changing canvas
-      is a route change, and `AppActionContext` carries `actions`, `projectId` and `state` with no way
-      to reach the router — which is a local `const` in `main.tsx`, not exported. The duplication says
-      the same thing: `openCanvas` is written twice as a component-local function, in
-      `command-palette.tsx` and `canvas-switcher.tsx`. That is a capability living in click handlers,
-      which `AGENTS.md` names as the shape to avoid, and it is the same finding as the naming rules
-      fixed in the commit above — one level up.
+      **The blocker was navigation, and the fix was smaller than this entry first claimed.** It said
+      the seam wanted a router instance exported from its own module, because `main.tsx` keeps it as
+      a local `const` and nothing outside a component could reach it. That premise died with the
+      design: the context carries `goToCanvas`, so nothing outside a component navigates, and no
+      router singleton was built or needed.
+      What was real is the duplication, and supplying `goToCanvas` to four context sites made it
+      worse before it made it better — `{ params: { canvasId }, to: "/canvas/$canvasId" }` ended up
+      written **eight** times across seven files: the palette, three HUD surfaces, both switchers,
+      the conflict notice and the tool registry. `useGoToCanvas` is the one place now. It is a hook
+      rather than a module function because navigating is `useNavigate`'s job, and it returns the
+      router's promise rather than swallowing it, so the one caller that must land before it acts —
+      the conflict notice — can await it and the rest are made to say `void` out loud.
+      It is a `useCallback` for a reason worth keeping: `model-context` lists it in the dependencies
+      of the effect that registers a hundred-odd tools, and a fresh identity per render would tear
+      those down and rebuild them on every render above it. That file had a comment saying exactly
+      that and kept its own inline copy to dodge it, which is how the hazard was found.
       **Two corrections to this entry, made the same day it was written.**
       It said "enter a project through its most recent canvas" was written three times, counting the
       `/` loader as the third. It is not one: `/` calls `readMostRecentCanvas()`, which is the most

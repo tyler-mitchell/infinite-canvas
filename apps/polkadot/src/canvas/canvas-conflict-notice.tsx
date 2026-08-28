@@ -1,5 +1,5 @@
 import type { InfiniteCanvasHandle } from "@hyphened/infinite-canvas";
-import { useNavigate } from "@tanstack/react-router";
+import { useGoToCanvas } from "../workspace/use-go-to-canvas";
 import { useObservable, useValue } from "@legendapp/state/react";
 import { CopyPlus, RotateCcw, TriangleAlert } from "lucide-react";
 import { Button } from "ui";
@@ -50,7 +50,7 @@ export function CanvasConflictNotice({
   handle: InfiniteCanvasHandle<WindowKind>;
   projectId: string;
 }>) {
-  const navigate = useNavigate();
+  const goToCanvas = useGoToCanvas();
   const busy$ = useObservable(false);
   const busy = useValue(busy$);
   const styles = conflictNotice();
@@ -71,7 +71,7 @@ export function CanvasConflictNotice({
       // the mark. Creating and navigating stay apart, the same split `createCanvas` keeps.
       const created = await forkCanvas({ canvasTitle, layout: handle.snapshot(), projectId });
 
-      await navigate({ params: { canvasId: created.id }, to: "/canvas/$canvasId" });
+      await goToCanvas(created.id);
     } finally {
       busy$.set(false);
     }

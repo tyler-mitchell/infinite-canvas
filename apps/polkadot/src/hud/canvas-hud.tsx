@@ -25,11 +25,12 @@ import { Button } from "ui";
 import { tv } from "ui/tv";
 
 import { useValue } from "@legendapp/state/react";
-import { useLoaderData, useNavigate } from "@tanstack/react-router";
+import { useLoaderData } from "@tanstack/react-router";
 
 import { getAppAction, isAppActionEnabled } from "../app-actions";
 import { FLOATING_SURFACE } from "../material";
 import { openProject$ } from "../projects/open-project";
+import { useGoToCanvas } from "../workspace/use-go-to-canvas";
 import { OffscreenIndicators } from "../canvas/offscreen-indicators";
 import type { WindowKind } from "../canvas/window-registry";
 import { getActionIcon } from "./action-icons";
@@ -123,7 +124,6 @@ function Verb({
 function SelectionRail() {
   const actions = useInfiniteCanvasActions<WindowKind>();
   const store = useInfiniteCanvasStore<WindowKind>();
-  const navigate = useNavigate();
   // The route's own answer to which canvas this is. `openProject$` exists because no route names a
   // project; this one does, so there is nothing to publish.
   const canvas = useLoaderData({ from: "/canvas/$canvasId" });
@@ -150,9 +150,7 @@ function SelectionRail() {
    */
   // Supplied because the vocabulary now holds verbs that change canvas, and a context is one shape
   // wherever it is built. This rail offers none of them; that is the verb's business, not its own.
-  const goToCanvas = (canvasId: string) => {
-    void navigate({ params: { canvasId }, to: "/canvas/$canvasId" });
-  };
+  const goToCanvas = useGoToCanvas();
   const canGroup =
     groupAction !== undefined &&
     isAppActionEnabled(groupAction, {

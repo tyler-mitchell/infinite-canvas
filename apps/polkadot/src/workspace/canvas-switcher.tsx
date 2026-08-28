@@ -28,6 +28,7 @@ import { CanvasRemovalDialog } from "./canvas-removal-dialog";
 import { useInlineRename } from "./use-inline-rename";
 import { createCanvas } from "./create-canvas";
 import { duplicateCanvas } from "./duplicate-canvas";
+import { useGoToCanvas } from "./use-go-to-canvas";
 
 /**
  * Which canvas this is, and how to reach another one.
@@ -69,9 +70,12 @@ export function CanvasSwitcher({
   const isRemoving = useValue(isRemoving$);
   const styles = canvasSwitcher();
 
+  const goToCanvas = useGoToCanvas();
+  // The guard is this surface's, not the hook's: the radio group hands back whatever is picked,
+  // including the row you are already on, and re-entering the canvas you are in is not a move.
   const openCanvas = (nextCanvasId: string) => {
     if (nextCanvasId !== canvasId) {
-      void navigate({ params: { canvasId: nextCanvasId }, to: "/canvas/$canvasId" });
+      void goToCanvas(nextCanvasId);
     }
   };
 

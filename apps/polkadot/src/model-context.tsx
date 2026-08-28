@@ -3,7 +3,7 @@ import {
   useInfiniteCanvasActions,
   useInfiniteCanvasStore,
 } from "@hyphened/infinite-canvas";
-import { useLoaderData, useNavigate } from "@tanstack/react-router";
+import { useLoaderData } from "@tanstack/react-router";
 import { useEffect } from "react";
 
 import { APP_ACTIONS, isAppActionEnabled } from "./app-actions";
@@ -18,6 +18,7 @@ import {
 } from "./database/operations";
 import { getPublishedCanvasCommands } from "./published-commands";
 import { relations$ } from "./relations/relation-store";
+import { useGoToCanvas } from "./workspace/use-go-to-canvas";
 
 /**
  * The app's vocabulary, offered to an agent running in the browser.
@@ -135,19 +136,16 @@ const getModelContext = (): ModelContextRegistry | null => {
 function ModelContextTools({ projectId }: Readonly<{ projectId: string }>) {
   const actions = useInfiniteCanvasActions<WindowKind>();
   const store = useInfiniteCanvasStore<WindowKind>();
-  const navigate = useNavigate();
   // The route already names the canvas, so nothing here holds a second copy of which one it is.
   const canvas = useLoaderData({ from: "/canvas/$canvasId" });
+  /*
+   * The one act a verb cannot reach through `actions`, because a different canvas is a different
+   * route and a different store. Stable by construction — see the hook, which owns that specifically
+   * because this effect registers a hundred-odd tools and would otherwise redo it every render.
+   */
+  const goToCanvas = useGoToCanvas();
 
   useEffect(() => {
-    /*
-     * The one act a verb cannot reach through `actions`, because a different canvas is a different
-     * route and a different store. Declared inside the effect so it is not a fresh identity every
-     * render, which would re-register ninety-odd tools whenever anything above this re-rendered.
-     */
-    const goToCanvas = (canvasId: string) => {
-      void navigate({ params: { canvasId }, to: "/canvas/$canvasId" });
-    };
     const registry = getModelContext();
 
     if (registry === null) {
@@ -415,7 +413,7 @@ function ModelContextTools({ projectId }: Readonly<{ projectId: string }>) {
     return () => {
       controller.abort();
     };
-  }, [actions, canvas, navigate, projectId, store]);
+  }, [actions, canvas, goToCanvas, projectId, store]);
 
   return null;
 }

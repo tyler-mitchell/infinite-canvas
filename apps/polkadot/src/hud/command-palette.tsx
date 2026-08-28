@@ -12,7 +12,7 @@ import {
 import type { Observable } from "@legendapp/state";
 import { useObservable, useValue } from "@legendapp/state/react";
 import { createHotkeyHandler, formatForDisplay } from "@tanstack/hotkeys";
-import { useLoaderData, useNavigate } from "@tanstack/react-router";
+import { useLoaderData } from "@tanstack/react-router";
 import {
   Archive,
   Ban,
@@ -54,6 +54,7 @@ import { getSelectedRelations } from "../canvas/connector-geometry";
 import { createCanvas } from "../workspace/create-canvas";
 import { createDesktop } from "../workspace/create-desktop";
 import { createProject } from "../workspace/create-project";
+import { useGoToCanvas } from "../workspace/use-go-to-canvas";
 import { getProjectEntryCanvas } from "../projects/enter-project";
 import { getContentWindowItemId, type WindowKind } from "../canvas/window-registry";
 import type {
@@ -369,7 +370,6 @@ function PaletteContent({
   const page = useValue(page$);
   const state = useInfiniteCanvasState<WindowKind>();
   const actions = useInfiniteCanvasActions<WindowKind>();
-  const navigate = useNavigate();
   const canvases$ = useObservable<readonly CanvasSummary[]>([]);
   const projectList$ = useObservable<readonly ProjectSummary[]>([]);
   /*
@@ -601,9 +601,7 @@ function PaletteContent({
     onClose();
   };
 
-  const openCanvas = (canvasId: string) => {
-    void navigate({ params: { canvasId }, to: "/canvas/$canvasId" });
-  };
+  const openCanvas = useGoToCanvas();
   // Which canvas this is, from the route rather than from state of its own — the URL already says.
   const canvas = useLoaderData({ from: "/canvas/$canvasId" });
 
@@ -877,7 +875,7 @@ function PaletteContent({
                 icon={Columns3}
                 key={canvas.id}
                 onSelect={run(() => {
-                  openCanvas(canvas.id);
+                  void openCanvas(canvas.id);
                 })}
                 id={canvas.id}
                 keywords="canvas"
@@ -902,7 +900,7 @@ function PaletteContent({
                     projectId: project.id,
                   }).then((canvasId) => {
                     if (canvasId !== null) {
-                      openCanvas(canvasId);
+                      void openCanvas(canvasId);
                     }
                   });
                 })}
@@ -996,7 +994,7 @@ function PaletteContent({
             icon={Columns3}
             onSelect={run(() => {
               void createCanvas({ projectId }).then((created) => {
-                openCanvas(created.id);
+                void openCanvas(created.id);
               });
             })}
             id="new-canvas"
@@ -1232,7 +1230,7 @@ function PaletteContent({
             icon={FolderPlus}
             onSelect={run(() => {
               void createProject().then((created) => {
-                openCanvas(created.id);
+                void openCanvas(created.id);
               });
             })}
             id="new-project"
