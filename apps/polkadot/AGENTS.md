@@ -84,6 +84,12 @@ When you find something Polkadot cannot do:
 ## Styling
 
 - Every class comes from a `tv` slot. There are no Tailwind strings in JSX. None.
+- **And none assigned onto a DOM node either.** `class-authoring.test.ts` scans `.tsx` for a literal
+  `className` attribute and every source file for a literal on the right of `.className =`. The
+  second exists because the first named `.ts` as its boundary and that boundary was real: a Lexical
+  node builds its own element in `createDOM`, and `mention-node.ts` carried a hardcoded class string
+  there. It reads the editor theme now. An assignment is exact, so neither scan needs a "looks like
+  Tailwind" heuristic — a call on the right is a slot or a theme key, which is what the rule asks for.
 - Global CSS is imports, tokens, and document-level resets.
 - **Every rule in `src/styles.css` lives inside `@layer components`.** Only `:root` is exempt,
   because it declares custom properties and nothing else. An unlayered rule outranks every layered
