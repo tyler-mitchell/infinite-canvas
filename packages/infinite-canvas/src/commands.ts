@@ -120,6 +120,24 @@ function getInfiniteCanvasRoomAround(shell: InfiniteCanvasRect): InfiniteCanvasR
   };
 }
 
+/**
+ * What the two selection-moving families do with a docked pane — and they disagree on purpose.
+ *
+ * A nudge translates the pane's whole **shell**, because a member's rect is its group's projection
+ * and writing it directly would be undone by the next solve; nudging is the keyboard twin of
+ * dragging that member's header, which moves the shell too. An arrange verb **skips** the pane
+ * instead, on `getArrangeableWindows`' stated ground that moving the shell there "would mean a
+ * single command that sometimes moves one window and sometimes moves five".
+ *
+ * Both choices are deliberate and neither is guessable, so each family says which it made. Written
+ * once and interpolated rather than typed out seventeen times: a caller reads one description, so
+ * every one of them has to carry it, and seventeen hand-copied clauses is how the app layer's
+ * descriptions drifted from these.
+ */
+const NUDGE_GROUP_RULE =
+  "A docked window moves its whole group, which moves once however many of its panes are selected.";
+const ARRANGE_GROUP_RULE = "Docked windows are skipped; only floating ones move.";
+
 const DEFAULT_INFINITE_CANVAS_COMMAND_DESCRIPTORS = [
   {
     command: {
@@ -188,7 +206,7 @@ const DEFAULT_INFINITE_CANVAS_COMMAND_DESCRIPTORS = [
       direction: "left",
       type: "window.nudge",
     },
-    description: "Nudge the current selection left by one screen pixel.",
+    description: `Nudge the current selection left by one screen pixel. ${NUDGE_GROUP_RULE}`,
     hotkeys: ["ArrowLeft"],
     id: "window.nudge.left",
     label: "Nudge Left",
@@ -199,7 +217,7 @@ const DEFAULT_INFINITE_CANVAS_COMMAND_DESCRIPTORS = [
       direction: "right",
       type: "window.nudge",
     },
-    description: "Nudge the current selection right by one screen pixel.",
+    description: `Nudge the current selection right by one screen pixel. ${NUDGE_GROUP_RULE}`,
     hotkeys: ["ArrowRight"],
     id: "window.nudge.right",
     label: "Nudge Right",
@@ -210,7 +228,7 @@ const DEFAULT_INFINITE_CANVAS_COMMAND_DESCRIPTORS = [
       direction: "up",
       type: "window.nudge",
     },
-    description: "Nudge the current selection up by one screen pixel.",
+    description: `Nudge the current selection up by one screen pixel. ${NUDGE_GROUP_RULE}`,
     hotkeys: ["ArrowUp"],
     id: "window.nudge.up",
     label: "Nudge Up",
@@ -221,7 +239,7 @@ const DEFAULT_INFINITE_CANVAS_COMMAND_DESCRIPTORS = [
       direction: "down",
       type: "window.nudge",
     },
-    description: "Nudge the current selection down by one screen pixel.",
+    description: `Nudge the current selection down by one screen pixel. ${NUDGE_GROUP_RULE}`,
     hotkeys: ["ArrowDown"],
     id: "window.nudge.down",
     label: "Nudge Down",
@@ -232,7 +250,7 @@ const DEFAULT_INFINITE_CANVAS_COMMAND_DESCRIPTORS = [
       direction: "left",
       type: "window.nudge",
     },
-    description: "Nudge the current selection left by ten screen pixels.",
+    description: `Nudge the current selection left by ten screen pixels. ${NUDGE_GROUP_RULE}`,
     hotkeys: ["Shift+ArrowLeft"],
     id: "window.nudge.left.large",
     label: "Nudge Left Large",
@@ -243,7 +261,7 @@ const DEFAULT_INFINITE_CANVAS_COMMAND_DESCRIPTORS = [
       direction: "right",
       type: "window.nudge",
     },
-    description: "Nudge the current selection right by ten screen pixels.",
+    description: `Nudge the current selection right by ten screen pixels. ${NUDGE_GROUP_RULE}`,
     hotkeys: ["Shift+ArrowRight"],
     id: "window.nudge.right.large",
     label: "Nudge Right Large",
@@ -254,7 +272,7 @@ const DEFAULT_INFINITE_CANVAS_COMMAND_DESCRIPTORS = [
       direction: "up",
       type: "window.nudge",
     },
-    description: "Nudge the current selection up by ten screen pixels.",
+    description: `Nudge the current selection up by ten screen pixels. ${NUDGE_GROUP_RULE}`,
     hotkeys: ["Shift+ArrowUp"],
     id: "window.nudge.up.large",
     label: "Nudge Up Large",
@@ -265,7 +283,7 @@ const DEFAULT_INFINITE_CANVAS_COMMAND_DESCRIPTORS = [
       direction: "down",
       type: "window.nudge",
     },
-    description: "Nudge the current selection down by ten screen pixels.",
+    description: `Nudge the current selection down by ten screen pixels. ${NUDGE_GROUP_RULE}`,
     hotkeys: ["Shift+ArrowDown"],
     id: "window.nudge.down.large",
     label: "Nudge Down Large",
@@ -340,42 +358,42 @@ const DEFAULT_INFINITE_CANVAS_COMMAND_DESCRIPTORS = [
   // beginning. You align, and then the windows are where you put them.
   {
     command: { alignment: "left", type: "window.align" },
-    description: "Align the selected windows to the left edge of their collective bounds.",
+    description: `Align the selected windows to the left edge of their collective bounds. ${ARRANGE_GROUP_RULE}`,
     hotkeys: [],
     id: "window.align.left",
     label: "Align Left",
   },
   {
     command: { alignment: "right", type: "window.align" },
-    description: "Align the selected windows to the right edge of their collective bounds.",
+    description: `Align the selected windows to the right edge of their collective bounds. ${ARRANGE_GROUP_RULE}`,
     hotkeys: [],
     id: "window.align.right",
     label: "Align Right",
   },
   {
     command: { alignment: "top", type: "window.align" },
-    description: "Align the selected windows to the top edge of their collective bounds.",
+    description: `Align the selected windows to the top edge of their collective bounds. ${ARRANGE_GROUP_RULE}`,
     hotkeys: [],
     id: "window.align.top",
     label: "Align Top",
   },
   {
     command: { alignment: "bottom", type: "window.align" },
-    description: "Align the selected windows to the bottom edge of their collective bounds.",
+    description: `Align the selected windows to the bottom edge of their collective bounds. ${ARRANGE_GROUP_RULE}`,
     hotkeys: [],
     id: "window.align.bottom",
     label: "Align Bottom",
   },
   {
     command: { alignment: "horizontal-center", type: "window.align" },
-    description: "Align the selected windows on a shared vertical centreline.",
+    description: `Align the selected windows on a shared vertical centreline. ${ARRANGE_GROUP_RULE}`,
     hotkeys: [],
     id: "window.align.horizontal-center",
     label: "Align Horizontal Centers",
   },
   {
     command: { alignment: "vertical-center", type: "window.align" },
-    description: "Align the selected windows on a shared horizontal centreline.",
+    description: `Align the selected windows on a shared horizontal centreline. ${ARRANGE_GROUP_RULE}`,
     hotkeys: [],
     id: "window.align.vertical-center",
     label: "Align Vertical Centers",
@@ -794,22 +812,21 @@ const DEFAULT_INFINITE_CANVAS_COMMAND_DESCRIPTORS = [
   },
   {
     command: { type: "window.swap" },
-    description:
-      "Swap the two selected windows, each keeping its own size. Centres are exchanged rather than corners, so windows of different sizes visibly trade places.",
+    description: `Swap the two selected windows, each keeping its own size. Centres are exchanged rather than corners, so windows of different sizes visibly trade places. ${ARRANGE_GROUP_RULE}`,
     hotkeys: [],
     id: "window.swap",
     label: "Swap Windows",
   },
   {
     command: { distribution: "horizontal", type: "window.distribute" },
-    description: "Even out the horizontal gaps between the selected windows.",
+    description: `Even out the horizontal gaps between the selected windows. ${ARRANGE_GROUP_RULE}`,
     hotkeys: [],
     id: "window.distribute.horizontal",
     label: "Distribute Horizontally",
   },
   {
     command: { distribution: "vertical", type: "window.distribute" },
-    description: "Even out the vertical gaps between the selected windows.",
+    description: `Even out the vertical gaps between the selected windows. ${ARRANGE_GROUP_RULE}`,
     hotkeys: [],
     id: "window.distribute.vertical",
     label: "Distribute Vertically",
