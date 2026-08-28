@@ -1,17 +1,13 @@
-import { ListItemNode, ListNode } from "@lexical/list";
-import { LinkNode } from "@lexical/link";
+import { CodeExtension } from "@lexical/code";
+import { LinkExtension } from "@lexical/link";
+import { ListExtension } from "@lexical/list";
 import { TRANSFORMERS } from "@lexical/markdown";
 import { ContentEditable } from "@lexical/react/LexicalContentEditable";
-import { LexicalErrorBoundary } from "@lexical/react/LexicalErrorBoundary";
 import { LexicalExtensionComposer } from "@lexical/react/LexicalExtensionComposer";
 import { HistoryPlugin } from "@lexical/react/LexicalHistoryPlugin";
-import { LinkPlugin } from "@lexical/react/LexicalLinkPlugin";
-import { ListPlugin } from "@lexical/react/LexicalListPlugin";
 import { MarkdownShortcutPlugin } from "@lexical/react/LexicalMarkdownShortcutPlugin";
 import { OnChangePlugin } from "@lexical/react/LexicalOnChangePlugin";
-import { RichTextPlugin } from "@lexical/react/LexicalRichTextPlugin";
-import { HeadingNode, QuoteNode } from "@lexical/rich-text";
-import { CodeNode } from "@lexical/code";
+import { RichTextExtension } from "@lexical/rich-text";
 import {
   defineExtension,
   type EditorState,
@@ -98,15 +94,14 @@ const EDITOR_THEME: EditorThemeClasses = {
   text: { bold: styles.bold(), code: styles.inlineCode() },
 };
 
-const EDITOR_NODES = [
-  HeadingNode,
-  QuoteNode,
-  ListNode,
-  ListItemNode,
-  LinkNode,
-  CodeNode,
-  MentionNode,
-];
+/**
+ * Only what no extension already brings.
+ *
+ * `RichTextExtension` ships heading and quote, `ListExtension` the list pair, `LinkExtension` the
+ * link, `CodeExtension` the code pair. Each also registers its own behaviour, which is what a
+ * mounted plugin used to do separately — the split the extensions doc calls easy to get wrong.
+ */
+const EDITOR_EXTENSIONS = [RichTextExtension, ListExtension, LinkExtension, CodeExtension];
 
 /**
  * `mentions` keeps this file's boundary intact.
@@ -139,9 +134,10 @@ export function NoteEditor({
   const [extension] = useState(() =>
     defineExtension({
       $initialEditorState: value === "" ? null : value,
+      dependencies: EDITOR_EXTENSIONS,
       name: "polkadot-note",
       namespace: "polkadot-note",
-      nodes: () => EDITOR_NODES,
+      nodes: () => [MentionNode],
       theme: EDITOR_THEME,
     }),
   );
@@ -159,14 +155,18 @@ export function NoteEditor({
           The window around it is `role="group"` named after the note, so this says which field it
           is and no more — repeating the note's name here would announce it twice.
         */}
-        <RichTextPlugin
-          contentEditable={<ContentEditable aria-label="Note" className={styles.content()} />}
-          ErrorBoundary={LexicalErrorBoundary}
+        {/*
+          `ContentEditable` owns the placeholder now, and demands `aria-placeholder` beside it.
+          It used to be a loose sibling `div` with nothing naming it — which the comment above
+          describes as having no fallback for the name computation. This is that fallback.
+        */}
+        <ContentEditable
+          aria-label="Note"
+          aria-placeholder="Write something…"
+          className={styles.content()}
           placeholder={<div className={styles.placeholder()}>Write something…</div>}
         />
         <HistoryPlugin />
-        <ListPlugin />
-        <LinkPlugin />
         <MarkdownShortcutPlugin transformers={TRANSFORMERS} />
         <MentionPlugin
           notes={mentions.options}
