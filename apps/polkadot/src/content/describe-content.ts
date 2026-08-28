@@ -1,6 +1,8 @@
 import type { InfiniteCanvasState } from "@hyphened/infinite-canvas";
+import { type } from "arktype";
 
 import { getContentWindowItemId, type WindowKind } from "../canvas/window-registry";
+import { COLLECTION_KIND, CollectionContent } from "../collections/collection-gateway";
 import type { ContentRelation } from "../database/database.client";
 import { getProjectContent, type ProjectContent } from "./project-content";
 
@@ -80,6 +82,45 @@ const describeRelations = (
   return `${relations.length} connection(s): ${described.join("; ")}.`;
 };
 
+/**
+ * What a collection is a collection *of*, which the listing could not say.
+ *
+ * Every other kind carries its subject in its title — a note called "Quarterly notes" is about
+ * quarterly notes. A collection's title is a name and its *question* is the content, so
+ * `collection "Reading list" [id]` told a caller nothing about what is in it. Renaming one makes it
+ * worse: the default names coincide with the kind they list, so the gap is invisible until somebody
+ * calls one something else, which is exactly when a caller most needs telling.
+ *
+ * Read through `CollectionContent` rather than reaching into `content`, and non-throwing: this is a
+ * report, and the two callers of the report have no sensible response to an exception. A record
+ * this cannot parse is described without a subject rather than not described at all.
+ *
+ * The connected-to branch names its subject by title, resolved against the same listing the rest of
+ * the report uses, so a caller reads one vocabulary throughout.
+ */
+const describeCollectionSubject = (
+  item: ProjectContentItems[number],
+  items: ProjectContentItems,
+): string | null => {
+  if (item.kind !== COLLECTION_KIND) {
+    return null;
+  }
+
+  const question = CollectionContent(item.content);
+
+  if (question instanceof type.errors) {
+    return null;
+  }
+
+  if ("connectedTo" in question) {
+    const subject = items.find((candidate) => candidate.id === question.connectedTo);
+
+    return `lists what ${subject === undefined ? `[${question.connectedTo}]` : `"${subject.title}"`} connects to`;
+  }
+
+  return `lists every ${question.listsKind} in this project`;
+};
+
 function describeProjectContent(
   input: Readonly<{
     listing: ProjectContent | null;
@@ -110,9 +151,15 @@ function describeProjectContent(
    * items at all — a title is a name, not an identity, wherever it appears — and the window half of
    * the vocabulary now reports and takes an id for exactly this reason.
    */
-  const described = items.map(
-    (item) => `${item.kind} "${item.title}" [${item.id}]${open.has(item.id) ? " (open)" : ""}`,
-  );
+  const described = items.map((item) => {
+    // Open-state first, because it is true of every kind; the subject only of one.
+    const notes = [
+      open.has(item.id) ? "open" : null,
+      describeCollectionSubject(item, items),
+    ].filter((note) => note !== null);
+
+    return `${item.kind} "${item.title}" [${item.id}]${notes.length === 0 ? "" : ` (${notes.join(", ")})`}`;
+  });
   const closedCount = items.filter((item) => !open.has(item.id)).length;
 
   return [
