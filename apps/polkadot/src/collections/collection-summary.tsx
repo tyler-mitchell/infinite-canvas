@@ -1,6 +1,5 @@
 import { useInfiniteCanvasSelector } from "@hyphened/infinite-canvas";
 import { useValue } from "@legendapp/state/react";
-import { useEffect } from "react";
 import { tv } from "ui/tv";
 
 import type { WindowKind } from "../canvas/window-registry";
@@ -8,7 +7,7 @@ import { useLoaderData } from "@tanstack/react-router";
 
 import { projectContent$ } from "../content/project-content";
 import { relations$ } from "../relations/relation-store";
-import { collections$, ensureCollectionLoaded, resolveCollectionItems } from "./collection-store";
+import { getCollectionEntry, resolveCollectionItems } from "./collection-store";
 
 /**
  * What a collection says when it is too small to read.
@@ -52,34 +51,25 @@ export function CollectionSummary({
 }: Readonly<{ collectionId: string; title: string }>) {
   const zoom = useInfiniteCanvasSelector<WindowKind, number>((state) => state.camera.zoom);
   const { projectId } = useLoaderData({ from: "/canvas/$canvasId" });
-  const question = useValue(collections$[collectionId])?.collection?.content;
   const listing = useValue(projectContent$);
   const relations = useValue(relations$);
+  const question = getCollectionEntry({ collectionId, listing, projectId }).collection?.content;
   const styles = collectionSummary();
-  // `undefined` until the record answers, which is what keeps the count off the card rather than
-  // drawing a confident zero for a collection nobody has read yet.
+  // `undefined` until the listing answers, which keeps the count off the card rather than drawing a
+  // confident zero for a project nobody has read yet.
   const items =
     question === undefined
       ? undefined
       : resolveCollectionItems({ listing, projectId, question, relations });
 
   /*
-   * The summary loads, and the first version of this deliberately did not.
+   * The summary no longer loads anything, and the argument for loading is what disappeared.
    *
-   * The argument against was "a query behind every thumbnail", which sounded right and was wrong in
-   * a way only driving it showed: the framework mounts the body *or* the summary, so a canvas
-   * reloaded while zoomed out never mounts the body, nothing ever resolves, and the card renders
-   * its title with no number — which is the window's own chrome header, said twice. A summary that
-   * says only what the title bar says is not a summary.
-   *
-   * The cost is bounded rather than absent: `ensureCollectionLoaded` is guarded by a set, so this
-   * is one indexed query per distinct collection per session, not one per render and not one per
-   * frame. Both halves of the lane share `resolved$`, so zooming in after this costs nothing.
+   * It used to fetch, because the framework mounts the body *or* the summary — so a canvas reloaded
+   * while zoomed out never mounted the body, nothing resolved, and the card drew its title with no
+   * number, which is the window's own chrome header said twice. The listing the route already loads
+   * answers both halves now, so the card is complete on first paint with no query behind it.
    */
-  useEffect(() => {
-    ensureCollectionLoaded(collectionId);
-  }, [collectionId]);
-
   return (
     <div className={styles.root()} style={{ fontSize: SUMMARY_SCREEN_PX / zoom }}>
       <span className={styles.title()}>{title}</span>

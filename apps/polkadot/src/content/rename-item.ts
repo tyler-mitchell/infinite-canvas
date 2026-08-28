@@ -11,7 +11,7 @@ import { IMAGE_KIND, imageGateway } from "../images/image-gateway";
 import { LINK_KIND, linkGateway } from "../links/link-gateway";
 import { NOTE_KIND, noteGateway, toNote } from "../notes/note-gateway";
 import { renameNote } from "../notes/note-store";
-import { setProjectItemTitle } from "./project-content";
+import { setProjectItemRevision, setProjectItemTitle } from "./project-content";
 
 /**
  * How each kind saves a new title, or absent when nothing can save one for it.
@@ -30,28 +30,41 @@ import { setProjectItemTitle } from "./project-content";
  * A kind that grows a writer gets renaming by adding a line here, rather than by finding the
  * condition that excluded it.
  */
-const TITLE_WRITERS: Readonly<Record<string, (item: ContentItemRecord, title: string) => void>> = {
+/**
+ * Returns the record the write earned, or `null` for a kind whose store folds its own.
+ *
+ * The three direct writers used to `void` their save, so the revision the rename earned was
+ * discarded and the listing stayed one behind. `setProjectItemRevision` says what that costs, and
+ * driving it produced exactly that: renaming a collection and then changing what it lists failed
+ * with `ContentRevisionConflictError ... changed after revision 4` while storage sat at 5, the
+ * question unchanged and nothing on screen saying so.
+ *
+ * A note returns `null` because `renameNote` goes through the note store's queue, which folds the
+ * revision when its write lands — folding again here would race it.
+ */
+type TitleWriter = (
+  item: ContentItemRecord,
+  title: string,
+) => Promise<Readonly<{ id: string; revision: number }>> | null;
+
+const TITLE_WRITERS: Readonly<Record<string, TitleWriter>> = {
+  /*
+   * The question is passed back unchanged. `content.save` replaces the whole record, so composing
+   * a save without it would rename the collection and empty it in the same write — the same trap
+   * `renameNote` documents for a note's text.
+   */
   [COLLECTION_KIND]: (item, title) => {
-    /*
-     * The question is passed back unchanged. `content.save` replaces the whole record, so composing
-     * a save without it would rename the collection and empty it in the same write — the same trap
-     * `renameNote` documents for a note's text.
-     */
     const collection = toCollection(item);
 
-    void collectionGateway.save({
+    return collectionGateway.save({
       collectionId: collection.id,
       question: collection.content,
       revision: collection.revision,
       title,
     });
   },
-  [IMAGE_KIND]: (item, title) => {
-    void imageGateway.rename({ item, title });
-  },
-  [LINK_KIND]: (item, title) => {
-    void linkGateway.rename({ item, title });
-  },
+  [IMAGE_KIND]: (item, title) => imageGateway.rename({ item, title }),
+  [LINK_KIND]: (item, title) => linkGateway.rename({ item, title }),
   /*
    * Converted rather than spread: `renameNote` seeds its store from what it is handed and then saves
    * that content, so a stub `{ text: "" }` would erase the note's body. `toNote` asserts the real
@@ -60,6 +73,8 @@ const TITLE_WRITERS: Readonly<Record<string, (item: ContentItemRecord, title: st
    */
   [NOTE_KIND]: (item, title) => {
     renameNote(toNote(item), title, noteGateway);
+
+    return null;
   },
 };
 
@@ -123,8 +138,19 @@ const renameProjectItem = (
     return `Refused: nothing here can save a new title for a "${input.item.kind}" — its kind has no writer yet.`;
   }
 
-  write(input.item, next);
+  const saved = write(input.item, next);
+
   setProjectItemTitle({ itemId: input.item.id, title: next });
+  /*
+   * The revision, when the write is one this function owns.
+   *
+   * A failure here is still only an unhandled rejection, which is what it was before and is a
+   * separate gap: this function answers synchronously, so it has no way to hand a caller a reason
+   * that arrives later.
+   */
+  void saved?.then((record) => {
+    setProjectItemRevision(record.id, record.revision);
+  });
 
   const windowId = input.state.windows.find(
     (window) => getContentWindowItemId(window) === input.item.id,

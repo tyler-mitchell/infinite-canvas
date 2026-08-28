@@ -77,18 +77,15 @@ export const collectionGateway = {
         title: input.title,
       }),
     ),
-  read: async (collectionId: string) => {
-    const record = await content.read(collectionId);
-
-    return record === null ? null : toCollection(record);
-  },
   /*
-   * `resolve` was here and is gone, with the query behind it.
+   * `read` and `resolve` were here and are gone, with the two queries behind them.
    *
-   * It answered the collection's question from the database and its answer was cached, which made a
-   * collection show the project as it was when the window opened. `resolveCollectionItems` answers
-   * the same question from `projectContent$` and `relations$` — both already live — so there is
-   * nothing to refresh and nothing to forget to refresh.
+   * Both answered from the database and both answers were cached: `resolve` gave what the collection
+   * lists, which went stale the moment anything in the project changed, and `read` gave the record,
+   * which went stale on a rename and then sent that stale revision back on the next write.
+   *
+   * The record and the list both come out of `projectContent$` now — with `relations$` for the
+   * connection question — so a collection holds nothing of its own and has nothing to refresh.
    */
   save: async (
     input: Readonly<{

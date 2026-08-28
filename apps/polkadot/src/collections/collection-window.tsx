@@ -1,7 +1,6 @@
 import { useInfiniteCanvasActions, useInfiniteCanvasState } from "@hyphened/infinite-canvas";
 import { useValue } from "@legendapp/state/react";
 import { ChevronDown, Layers, Link2 } from "lucide-react";
-import { useEffect } from "react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -19,8 +18,7 @@ import { useLoaderData } from "@tanstack/react-router";
 import { projectContent$ } from "../content/project-content";
 import { relations$ } from "../relations/relation-store";
 import {
-  collections$,
-  ensureCollectionLoaded,
+  getCollectionEntry,
   resolveCollectionItems,
   setCollectionQuestion,
 } from "./collection-store";
@@ -125,7 +123,6 @@ export function CollectionWindowBody({ collectionId }: Readonly<{ collectionId: 
   const state = useInfiniteCanvasState<WindowKind>();
   // `renderBody` hands over a window and nothing else, so the route is read rather than passed.
   const { projectId } = useLoaderData({ from: "/canvas/$canvasId" });
-  const entry = useValue(collections$[collectionId]);
   /*
    * Derived from the two live authorities rather than a cache of its own.
    *
@@ -135,26 +132,24 @@ export function CollectionWindowBody({ collectionId }: Readonly<{ collectionId: 
    */
   const listing = useValue(projectContent$);
   const relations = useValue(relations$);
+  const entry = getCollectionEntry({ collectionId, listing, projectId });
   const styles = collectionWindow();
   const openItem = (item: ContentItemRecord) => {
     openItemWindow({ actions, item, state });
   };
 
-  useEffect(() => {
-    ensureCollectionLoaded(collectionId);
-  }, [collectionId]);
-
-  if (entry === undefined || entry.status === "loading") {
+  if (entry.status === "loading") {
     return <div className={styles.notice()}>Loading…</div>;
   }
 
-  if (entry.status === "error" || entry.collection === null) {
+  if (entry.collection === null) {
     return (
       <div className={styles.notice()}>{entry.error ?? "Could not open this collection."}</div>
     );
   }
 
-  const question = entry.collection.content;
+  const collection = entry.collection;
+  const question = collection.content;
   const items = resolveCollectionItems({ listing, projectId, question, relations });
 
   /*
@@ -210,11 +205,7 @@ export function CollectionWindowBody({ collectionId }: Readonly<{ collectionId: 
             */}
             <DropdownMenuRadioGroup
               onValueChange={(value) => {
-                void setCollectionQuestion({
-                  collectionId,
-                  projectId,
-                  question: { listsKind: value },
-                });
+                void setCollectionQuestion({ collection, question: { listsKind: value } });
               }}
               value={listsKind}
             >

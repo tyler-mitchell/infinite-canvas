@@ -84,6 +84,25 @@ strictly greater than 160 — a kind sitting exactly on it demotes and never ret
   two observables, and the kind branch is what was witnessed live; no connection collection was open
   to watch an edge being cut.
 
+  **The record was the same cache one layer up, and it was worse.** `collections$` held the
+  collection's title and revision, while a rename writes storage and folds the _listing_ — so this
+  copy kept both stale. Driven: renaming a collection and then changing what it lists failed with
+  `ContentRevisionConflictError ... changed after revision 4` against storage at 5, the question
+  unchanged and nothing on screen saying so; the only trace was an unhandled rejection.
+
+  Two causes, both fixed. `renameProjectItem` `void`ed the collection, image and link writes, so the
+  revision each rename earned was discarded — `TITLE_WRITERS` now return the saved record and the
+  revision is folded, which is what `setProjectItemRevision` exists for. And the record derives from
+  the listing, so there is no second copy to go stale. `collections$`, `ensureCollectionLoaded` and
+  `collectionGateway.read` are gone with it; a collection now holds nothing of its own.
+
+  Driven after: rename took revision 5 to 6, the question change took 6 to 7 and landed, the title
+  stayed, and no rejection fired.
+
+  **A rename that fails is still silent**, which is untouched and separate: `renameProjectItem`
+  answers synchronously, so a rejection arriving later has nowhere to go. It was an unhandled
+  rejection before this and still is.
+
 - **A mention now reaches the note it names, which it had never done.** The chip drew
   `cursor-pointer` and wrote `data-note-id` from the day it was built, and `mention-node.ts`'s own
   docstring described "the click handler that reaches the note" — nothing anywhere read the

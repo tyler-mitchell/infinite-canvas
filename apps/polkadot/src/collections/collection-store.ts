@@ -1,4 +1,4 @@
-import { observable } from "@legendapp/state";
+import { type } from "arktype";
 
 import {
   getProjectContent,
@@ -9,15 +9,24 @@ import {
 import type { ContentItemRecord, ContentRelation } from "../database/database.client";
 import {
   collectionGateway,
+  CollectionContent,
   type CollectionQuestion,
   type CollectionRecord,
 } from "./collection-gateway";
 
 /**
- * Open collections, by which this file means the record — the question and its revision.
+ * A collection holds nothing of its own. Both halves come from the project listing.
  *
- * What the question *resolves to* is not held here and is not held anywhere. It was, in a second
- * observable beside this one, and that cache is the defect `resolveCollectionItems` describes.
+ * There were two observables here — the record and what it resolved to — and both were caches of
+ * facts `projectContent$` already held. The resolved half showed the project as it was when the
+ * window opened. The record half was worse: a rename writes storage and folds the *listing*, so this
+ * copy kept the old title and the old revision, and the next question change sent the stale one.
+ * Driven 2026-08-28 — renaming a collection and then changing what it lists failed with
+ * `ContentRevisionConflictError ... changed after revision 4` against storage at 5, the question
+ * unchanged and nothing on screen saying so.
+ *
+ * `project-content`'s header calls a title's single owner the thing that "cannot be forgotten". This
+ * file was the place that forgot it, by keeping a second one.
  */
 
 type CollectionEntry = Readonly<{
@@ -26,11 +35,45 @@ type CollectionEntry = Readonly<{
   status: "error" | "loading" | "ready";
 }>;
 
-const collections$ = observable<Record<string, CollectionEntry>>({});
-const loaded = new Set<string>();
+/**
+ * The record, read out of the listing.
+ *
+ * `null` listing is "nobody has asked yet", which is not "no such collection" — the same distinction
+ * `projectContent$` draws for itself, and the reason a missing item is only an error once the
+ * listing has actually answered.
+ *
+ * The question is parsed rather than asserted: `toCollection` throws, and this runs during render.
+ * A record whose content cannot be read says so instead of taking the window down.
+ */
+function getCollectionEntry(
+  input: Readonly<{ collectionId: string; listing: ProjectContent | null; projectId: string }>,
+): CollectionEntry {
+  const items = getProjectContent(input.listing, input.projectId);
 
-function getCollectionEntry(collectionId: string) {
-  return collections$[collectionId];
+  if (items === null) {
+    return { collection: null, error: null, status: "loading" };
+  }
+
+  const item = items.find((candidate) => candidate.id === input.collectionId);
+
+  if (item === undefined) {
+    return { collection: null, error: "This collection no longer exists.", status: "error" };
+  }
+
+  const question = CollectionContent(item.content);
+
+  return question instanceof type.errors
+    ? { collection: null, error: "This collection's question could not be read.", status: "error" }
+    : {
+        collection: {
+          content: question,
+          id: item.id,
+          revision: item.revision,
+          title: item.title,
+        },
+        error: null,
+        status: "ready",
+      };
 }
 
 /**
@@ -86,79 +129,28 @@ function resolveCollectionItems(
 }
 
 /**
- * Loads a collection's record once per id. What it lists is derived, not loaded.
+ * Ask a different question.
  *
- * `projectId` is no longer used and no longer taken: it existed to scope the resolve this function
- * used to trigger, and a parameter nothing reads is a claim that this still depends on the project.
- */
-function ensureCollectionLoaded(collectionId: string) {
-  if (loaded.has(collectionId)) {
-    return;
-  }
-
-  loaded.add(collectionId);
-  collections$[collectionId].set({ collection: null, error: null, status: "loading" });
-
-  void collectionGateway
-    .read(collectionId)
-    .then((collection) => {
-      collections$[collectionId].set(
-        collection === null
-          ? { collection: null, error: "This collection no longer exists.", status: "error" }
-          : { collection, error: null, status: "ready" },
-      );
-    })
-    .catch((error: unknown) => {
-      loaded.delete(collectionId);
-      collections$[collectionId].set({
-        collection: null,
-        error: error instanceof Error ? error.message : "Could not open this collection.",
-        status: "error",
-      });
-    });
-}
-
-/**
- * Ask a different question. Nothing re-resolves, because nothing was resolved.
+ * Takes the record rather than an id, because the caller already derived one and re-deriving here
+ * would be a second read of the same listing that could disagree with what the picker was showing.
  *
- * The record's revision is folded back from the write, exactly as a note's is: the listing the user
- * is looking at is the source of truth for what is on screen, and the next write has to hold a
- * revision the database will still accept.
+ * Both halves of the write are folded back: the question, because a rename reads it out of the
+ * listing and passes it through unchanged — so a listing holding the superseded one would restore
+ * it — and the revision, because the next write has to hold one the database will still accept.
  */
 async function setCollectionQuestion(
-  input: Readonly<{ collectionId: string; projectId: string; question: CollectionQuestion }>,
+  input: Readonly<{ collection: CollectionRecord; question: CollectionQuestion }>,
 ) {
-  const entry = collections$[input.collectionId].peek();
-
-  if (entry?.collection == null) {
-    return;
-  }
-
   const saved = await collectionGateway.save({
-    collectionId: input.collectionId,
+    collectionId: input.collection.id,
     question: input.question,
-    revision: entry.collection.revision,
-    title: entry.collection.title,
+    revision: input.collection.revision,
+    title: input.collection.title,
   });
 
-  collections$[input.collectionId].collection.set(saved);
-  /*
-   * And into the listing, because a rename reads the question back out of it.
-   *
-   * `rename-item.ts` passes `question: collection.content` through unchanged, so that renaming does
-   * not empty the collection in the same write — and it takes that item from the project listing.
-   * With the listing holding the question this write replaced, changing a question and then renaming
-   * put the old one back, silently. The note store folds here for the same reason one layer over.
-   */
-  setProjectItemContent(input.collectionId, saved.content);
-  setProjectItemRevision(input.collectionId, saved.revision);
+  setProjectItemContent(saved.id, saved.content);
+  setProjectItemRevision(saved.id, saved.revision);
 }
 
-export {
-  collections$,
-  ensureCollectionLoaded,
-  getCollectionEntry,
-  resolveCollectionItems,
-  setCollectionQuestion,
-};
+export { getCollectionEntry, resolveCollectionItems, setCollectionQuestion };
 export type { CollectionEntry };
