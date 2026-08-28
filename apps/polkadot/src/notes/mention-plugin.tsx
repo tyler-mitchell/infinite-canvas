@@ -99,6 +99,16 @@ export function MentionPlugin({
                     <button
                       aria-selected={index === selectedIndex}
                       className={styles.option({ highlighted: index === selectedIndex })}
+                      /*
+                       * The id `aria-activedescendant` already points at.
+                       *
+                       * `LexicalMenu` writes `typeahead-item-${index}` onto the editor root as the
+                       * highlight moves, and these rows carried no id — so the reference resolved to
+                       * nothing and a screen reader arrowing the list was told nothing. Measured with
+                       * the menu open: the root said `typeahead-item-0` while no such element
+                       * existed. The format is Lexical's, not a choice.
+                       */
+                      id={`typeahead-item-${String(index)}`}
                       key={option.key}
                       onClick={() => {
                         setHighlightedIndex(index);
