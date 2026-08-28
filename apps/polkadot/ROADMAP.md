@@ -114,6 +114,24 @@ a Framer spring (`damping: 30, mass: 0.6, stiffness: 420`) and the field integra
 term, so "things that move in space settle, state changes are swift" is satisfied by two mechanisms
 rather than one, and only one of them is visible to `getComputedStyle`.
 
+**Semantic zoom driven at its boundary on the same day, and it holds.** The detail band is
+`summaryBelowPx: 120` / `fullAbovePx: 160` on a window's _smaller_ on-screen axis, so this app's
+484-tall windows have a dead zone around 25–33% zoom. Walked through it: at 195px extent full, at
+98px summary — notes drop to title plus first line and a collection to title plus count, which is
+the rule's own point that a far window says something _different_ rather than the same thing
+smaller. Then back up to 140px, **inside** the band, and it stayed summary; past 174px it returned.
+That is the hysteresis working, and it is worth having driven because the thing it prevents is a
+trap door: `detail-level.ts` records a period when the band straddled zoom 1 and a window showed
+different content at the same zoom depending on where the camera had been.
+
+Every kind is on the right side of it, and the two that needed to be say why in their own files.
+`note` and `collection` declare a summary and set minimum short axes of 200 and 220 — clear of the
+160 restore threshold, the note's by exactly the band's own width. `link` and `image` declare no
+summary at all, which is the escape `detail-level.ts` prescribes for a kind whose natural shape is
+wide and short, and it leaves the lane inert so the body always draws. Nothing here needed changing;
+it is recorded so the next person does not re-derive it, and so a new kind that declares a summary
+without checking its minimum size has somewhere to be caught.
+
 **One question this bar does not answer, left open rather than decided.** It says surfaces separate
 by "being lighter than the ground, casting a layered shadow, and carrying a specular hairline on the
 top edge". Window frames do exactly that — measured at `oklch(0 0 0 / 0.44) 0 2px 4px` plus
