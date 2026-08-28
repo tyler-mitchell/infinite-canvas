@@ -1311,6 +1311,7 @@ Kept here because the list _is_ the incubator's output.
 | A consumer's own verbs reach the keyboard and nothing else: `hotkeyActions` never join contextual discovery                                | consumer verbs enter the same list the framework's do — id, label, description, enablement, invoke            | open   |
 | A selected scene object carries identity and no geometry, so nothing spatial downstream of selection can act on one                        | a bounds provider keyed by selection target, answered on demand                                               | open   |
 | The camera frames a target once and cannot follow a moving one                                                                             | a sustained follow with a release rule, or a camera setter if the release policy is the consumer's            | open   |
+| A selected scene object that no longer exists is never pruned, and `selection` is a durable document field                                 | the same consumer-knowledge surface the rows above want — "does this still exist"                             | open   |
 | What `createGroup` will accept cannot be asked before dispatching it                                                                       | `getInfiniteCanvasGroupableWindowIds` — the rule it already applies, asked in advance                         | landed |
 
 **On the three landed rows above, because they are one finding.** All three were found by asking
@@ -1355,6 +1356,34 @@ which was built from documented semantics and still had this app deciding what t
 then the rule itself, extracted from `createInfiniteCanvasGroup` and exported. A consumer needing to
 predict a framework function's behaviour is the framework's problem to solve, and the two wrong
 turns were both consumers solving it locally.
+
+**Four of these open rows are one architectural fact, and it is worth stating once.** The
+framework's pure surface takes `state`, and `state` is serializable — it is the durable document.
+Consumer knowledge is not: a consumer's verbs, its objects' bounds, and whether one of its objects
+still exists all live in props, as closures. Every gap where the framework must _ask the consumer
+something_ lands on that boundary, and none of them is a small fix because the answer is the same
+missing thing each time — a declared surface through which a consumer answers questions about its
+own objects, reachable from the pure functions rather than only from the component.
+
+Measured, so the shape of the ask is grounded rather than imagined:
+
+- **Verbs.** `hotkeyActions` is a prop; `getInfiniteCanvasContextualCommands` takes state. The
+  consumer's verbs reach the keyboard and nothing else.
+- **Bounds.** `getSelectedWindowBounds(state)` reads window rects, and `view.fitSelection` is
+  executed by `executeInfiniteCanvasCommand(state, command, zoomPolicy)` — state-only, all the way
+  down. There is nowhere for a consumer's bounds to enter, which is why "implement the bounds lookup
+  and see whether `fitSelection` consumes it" resolves to _no_ rather than to a patch.
+- **Existence.** `selection` is in `INFINITE_CANVAS_DOCUMENT_FIELDS`, and
+  `parseInfiniteCanvasSelectionTargets` restores targets on hydrate.
+  `normalizeSelectionTargets` only dedupes, and `reconcileInfiniteCanvasWorkspaces` cleans a stored
+  selection's `windowIds` and `anchorWindowId` and never its `targets`. So a selected scene object
+  that no longer exists survives every reload — the exact failure reconciliation's own comment says
+  it exists to prevent, stated there about windows.
+
+Storing the answers in state instead is the tempting shortcut and is wrong by this file's own
+standards: a rect copied onto a selection target is stale the moment the object moves, and
+`getInfiniteCanvasGroupTitle` already chose `null`-and-derive over a snapshot for exactly that
+reason. The answer is a lookup the framework can call, not a value it can hold.
 
 **On the discovery row, and why it is not a slice.** `InfiniteCanvasContextualCommand` is a
 `CommandDescriptor` plus `enabled` and `group`, and a descriptor is keyed on a `command` from the
