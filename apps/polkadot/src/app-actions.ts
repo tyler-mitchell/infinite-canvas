@@ -1,8 +1,10 @@
 import {
+  DEFAULT_INFINITE_CANVAS_COMMAND_DESCRIPTORS,
   findInfiniteCanvasGroup,
   findInfiniteCanvasWorkspace,
   getSelectedWindowBounds,
   isInfiniteCanvasGroupContainer,
+  type InfiniteCanvasCommandId,
   type InfiniteCanvasCommands,
   type InfiniteCanvasState,
 } from "@hyphened/infinite-canvas";
@@ -141,6 +143,37 @@ type AppAction = Readonly<{
  * caller sent, and `summary` is the part that says which field was wrong.
  */
 const describeInvalidInput = (errors: type.errors) => `Refused: ${errors.summary}`;
+
+/**
+ * What a verb does is quoted from the framework; only its argument is described here.
+ *
+ * Five framework descriptors are templates carrying an empty-string id, so `published-commands`
+ * holds them back and each is re-declared below with an `input`. The wrapper still answers for the
+ * same verb, and restating what that verb does made two sentences for one thing — which then
+ * drifted. Measured: the framework's `workspace.moveActiveWindow` grew "leaving the one it is on. A
+ * docked window takes its whole group with it" and the copy here still read "Move the active window
+ * to a desktop.", so the only description a WebMCP caller could see was the stale one.
+ *
+ * The framework says so itself where those descriptors are declared — they exist "so the verb has a
+ * label and a description in one place rather than being re-invented by every consumer that builds a
+ * switcher".
+ *
+ * Throws rather than falling back, because a miss means the framework renamed a command and this
+ * file has not caught up. A silently truncated description is the failure this exists to end.
+ */
+const describeWrappedCommand = (
+  input: Readonly<{ argument: string; id: InfiniteCanvasCommandId }>,
+): string => {
+  const descriptor = DEFAULT_INFINITE_CANVAS_COMMAND_DESCRIPTORS.find(
+    (candidate) => candidate.id === input.id,
+  );
+
+  if (descriptor === undefined) {
+    throw new Error(`No framework command is called "${input.id}".`);
+  }
+
+  return `${descriptor.description} ${input.argument}`;
+};
 
 /**
  * The refusals that are about the world rather than the shape, each naming where a good value comes
@@ -695,8 +728,10 @@ const APP_ACTIONS: readonly AppAction[] = [
     },
   },
   {
-    description:
-      "Make a new desktop. Without a title it is numbered after the desktops that exist.",
+    description: describeWrappedCommand({
+      argument: "Without a title it is numbered after the desktops that exist.",
+      id: "workspace.create",
+    }),
     id: "workspace.create",
     input: DESKTOP_CREATE_INPUT,
     label: "New desktop",
@@ -717,8 +752,11 @@ const APP_ACTIONS: readonly AppAction[] = [
     },
   },
   {
-    description:
-      "Switch to a desktop, showing its windows and hiding the rest. The id comes from the canvas description.",
+    description: describeWrappedCommand({
+      argument:
+        "It shows that desktop's windows and hides the rest. The id comes from `canvas.describe`.",
+      id: "workspace.enter",
+    }),
     id: "workspace.enter",
     input: DESKTOP_INPUT,
     label: "Go to a desktop",
@@ -739,8 +777,11 @@ const APP_ACTIONS: readonly AppAction[] = [
     },
   },
   {
-    description:
-      "Close a desktop. Its windows stay on the canvas — a desktop is a filter over them, not a container.",
+    description: describeWrappedCommand({
+      argument:
+        "A desktop is a filter over windows, not a container. The id comes from `canvas.describe`.",
+      id: "workspace.close",
+    }),
     id: "workspace.close",
     input: DESKTOP_INPUT,
     label: "Close a desktop",
@@ -761,7 +802,10 @@ const APP_ACTIONS: readonly AppAction[] = [
     },
   },
   {
-    description: "Move the active window to a desktop.",
+    description: describeWrappedCommand({
+      argument: "The id comes from `canvas.describe`.",
+      id: "workspace.moveActiveWindow",
+    }),
     id: "workspace.moveActiveWindow",
     input: DESKTOP_INPUT,
     label: "Move the window to a desktop",
@@ -847,7 +891,17 @@ const APP_ACTIONS: readonly AppAction[] = [
     },
   },
   {
-    description: "Ungroup a container, leaving its windows on the canvas where they were.",
+    /*
+     * Its own sentence, and deliberately not the framework's.
+     *
+     * This shares an id with a framework command and is not the same verb: `group.dissolve` there
+     * breaks up the group holding the *active window* and takes no argument, while this dissolves
+     * whichever group the id names. Quoting the framework's description here produced a sentence
+     * that contradicted itself — "the group holding the active window" followed by where to get an
+     * id — which is why `describeWrappedCommand` is not used and a test holds the distinction.
+     */
+    description:
+      "Ungroup a container, leaving its windows on the canvas where they were. The id comes from `canvas.describe`.",
     id: "group.dissolve",
     input: GROUP_INPUT,
     label: "Ungroup",
@@ -1058,8 +1112,10 @@ const APP_ACTIONS: readonly AppAction[] = [
     },
   },
   {
-    description:
-      "Bring the window with this id into view and make it the active one. Ids are reported by the canvas description.",
+    description: describeWrappedCommand({
+      argument: "The id comes from `canvas.describe`.",
+      id: "window.reveal",
+    }),
     id: "window.reveal",
     input: REVEAL_INPUT,
     label: "Reveal a window by id",
