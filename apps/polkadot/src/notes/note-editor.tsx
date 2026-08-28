@@ -18,6 +18,7 @@ import {
 import { useState } from "react";
 import { tv } from "ui/tv";
 
+import { CodeBlockChrome } from "./code-block-chrome";
 import { MentionNode } from "./mention-node";
 import { MentionPlugin, type Mentionable } from "./mention-plugin";
 
@@ -71,7 +72,8 @@ const noteEditor = tv({
     placeholder:
       "pointer-events-none absolute inset-0 text-[13.5px] leading-[1.7] text-[var(--ink-faint)] select-none",
     quote: "my-2 border-l-2 border-[var(--accent)] pl-3 text-[var(--ink-faint)]",
-    root: "relative flex flex-1 flex-col",
+    /** `group/note` is what reveals each code block's chrome; `relative` is what positions it. */
+    root: "group/note relative flex flex-1 flex-col",
     ul: "my-2 list-disc pl-5",
   },
 });
@@ -187,6 +189,7 @@ export function NoteEditor({
         />
         <HistoryPlugin />
         <MarkdownShortcutPlugin transformers={TRANSFORMERS} />
+        <CodeBlockChrome />
         <MentionPlugin
           notes={mentions.options}
           onMention={mentions.onSelect}
