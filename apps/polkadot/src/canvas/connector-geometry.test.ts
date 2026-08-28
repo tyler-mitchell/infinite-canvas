@@ -48,6 +48,55 @@ const relation = (source: string, target: string, id = `relates_to:${source}-${t
 const A = { height: 150, width: 200, x: 100, y: 100 };
 const B = { height: 150, width: 200, x: 700, y: 100 };
 
+/**
+ * Two windows stacked with a gap, the arrangement the anchor exists for.
+ *
+ * Offset horizontally by a little, because that is what puts an elbow in the path — and the elbow
+ * is the whole subject. Perfectly aligned windows route straight and cannot tell the two answers
+ * apart, which is why the defect below survived: every fixture here joined windows side by side.
+ */
+const STACKED_TOP = { height: 150, width: 200, x: 300, y: 100 };
+const STACKED_BOTTOM = { height: 150, width: 200, x: 312, y: 290 };
+
+test("a marker sits halfway along the visible run, not halfway along one of its legs", () => {
+  /*
+   * Measured in the browser first: two notes with a 34px gap put the label at y321.5 against a
+   * true centre of 313 — two pixels off the lower window with nineteen of clearance above it.
+   *
+   * The cause is that `getInfiniteCanvasLongestUnoccludedSegment` returns the longest *segment*
+   * while promising "the longest run". An orthogonal connector is three segments, so a path with
+   * nothing covering any of it is still three, and the longest is one leg — a quarter along.
+   *
+   * Asserted as "centred in the gap" rather than against a number: the y is the midpoint between
+   * the two windows' facing edges, which is what a person sees and what the number was wrong about.
+   */
+  const [connector] = getDrawnConnectors(
+    canvas([
+      contentWindow({ id: "top", itemId: "a", rect: STACKED_TOP }),
+      contentWindow({ id: "bottom", itemId: "b", rect: STACKED_BOTTOM }),
+    ]),
+    [relation("a", "b")],
+  );
+  const gapMidpoint = (STACKED_TOP.y + STACKED_TOP.height + STACKED_BOTTOM.y) / 2;
+
+  expect(connector?.anchor).not.toBeNull();
+  expect(connector?.anchor?.y).toBeCloseTo(gapMidpoint, 5);
+});
+
+test("the path really does elbow, so the test above is not measuring a straight line", () => {
+  // Guards the guard. With the two windows aligned the route is straight, one leg, and the old
+  // behaviour and the new one agree — which is exactly how this went unnoticed.
+  const [connector] = getDrawnConnectors(
+    canvas([
+      contentWindow({ id: "top", itemId: "a", rect: STACKED_TOP }),
+      contentWindow({ id: "bottom", itemId: "b", rect: STACKED_BOTTOM }),
+    ]),
+    [relation("a", "b")],
+  );
+
+  expect(connector?.segments.length).toBeGreaterThan(1);
+});
+
 const canvas = (
   windows: readonly ReturnType<typeof contentWindow>[],
 ): InfiniteCanvasState<WindowKind> =>

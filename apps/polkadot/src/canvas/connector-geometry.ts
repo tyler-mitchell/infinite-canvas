@@ -2,9 +2,11 @@ import {
   getInfiniteCanvasConnectionPreviewPath,
   getInfiniteCanvasContentViewport,
   getInfiniteCanvasGroupProjection,
-  getInfiniteCanvasLongestUnoccludedSegment,
   getInfiniteCanvasRectConnectorPath,
   getInfiniteCanvasSegmentsWithinRect,
+  getInfiniteCanvasUnoccludedSegments,
+  getInfiniteCanvasWorldPath,
+  getInfiniteCanvasWorldPathPointAtProgress,
   screenPointToWorldPoint,
   getSelectionTargets,
   isInfiniteCanvasWindowInActiveWorkspace,
@@ -67,6 +69,71 @@ type DrawnConnector = Readonly<{
 
 /** The kind every connector target carries, so a selected edge can be told apart from a shape. */
 const CONNECTOR_TARGET_KIND = "relation";
+
+/**
+ * Two clipped ends count as touching, in world units.
+ *
+ * Adjacent visible pieces meet at an elbow vertex both sides interpolated from the same point, so
+ * they agree to within float noise rather than exactly — `a + (b - a) * 1` is not always `b`. Far
+ * below anything a person could see at any zoom, and far above the error.
+ */
+const RUN_JOIN_TOLERANCE = 0.001;
+
+/**
+ * The middle of the longest *contiguous* visible stretch, measured along the line.
+ *
+ * `getInfiniteCanvasLongestUnoccludedSegment` is the obvious call and returns the longest
+ * **segment**, never merging adjacent ones — while its own docstring, and the one above it, both
+ * promise "the longest run". An orthogonal connector is three segments, so a path with nothing
+ * covering any of it is still three, and the marker lands on the midpoint of one leg: a quarter
+ * along instead of halfway. Measured at two notes with a 34px gap — label at y321.5 against a
+ * centre of 313, two pixels off the lower window with nineteen of clearance above.
+ *
+ * Merging is set logic over pieces, not geometry, and every actual measurement stays the canvas's:
+ * `getInfiniteCanvasWorldPath` builds the run and `getInfiniteCanvasWorldPathPointAtProgress` walks
+ * half its *routed* length. Averaging the run's endpoints would be the cheap version and lands in
+ * the empty corner of an L, which is the same mistake one level down.
+ *
+ * `null` when nothing is visible, unchanged: a connector nobody can see has nowhere to put a mark.
+ */
+function getVisibleRunMidpoint(
+  segments: readonly InfiniteCanvasWorldSegment[],
+  occluders: readonly InfiniteCanvasRect[],
+): InfiniteCanvasPoint | null {
+  const runs: InfiniteCanvasWorldSegment[][] = [];
+
+  for (const piece of getInfiniteCanvasUnoccludedSegments(segments, occluders)) {
+    const open = runs.at(-1);
+    const last = open?.at(-1);
+    const joins =
+      last !== undefined &&
+      Math.abs(last.end.x - piece.start.x) <= RUN_JOIN_TOLERANCE &&
+      Math.abs(last.end.y - piece.start.y) <= RUN_JOIN_TOLERANCE;
+
+    if (open !== undefined && joins) {
+      open.push(piece);
+    } else {
+      runs.push([piece]);
+    }
+  }
+
+  const measure = (run: readonly InfiniteCanvasWorldSegment[]) =>
+    run.reduce((total, piece) => total + piece.length, 0);
+  const longest = runs.reduce<readonly InfiniteCanvasWorldSegment[] | null>(
+    (best, run) => (best === null || measure(run) > measure(best) ? run : best),
+    null,
+  );
+  const start = longest?.[0]?.start;
+
+  if (longest === null || start === undefined) {
+    return null;
+  }
+
+  return getInfiniteCanvasWorldPathPointAtProgress(
+    getInfiniteCanvasWorldPath([start, ...longest.map((piece) => piece.end)]),
+    0.5,
+  );
+}
 
 /**
  * Every content item on this desktop and the windows showing it — of any kind.
@@ -186,13 +253,11 @@ function getDrawnConnectors(
          * canvas shows what is visible, and the library rail lists every connection whether or not
          * it is. That is the surface for an edge you cannot find, and it already exists.
          */
-        const clear = getInfiniteCanvasLongestUnoccludedSegment(
-          getInfiniteCanvasSegmentsWithinRect(path.segments, anchorBounds),
-          occluders,
-        );
-
         return {
-          anchor: clear?.midpoint ?? null,
+          anchor: getVisibleRunMidpoint(
+            getInfiniteCanvasSegmentsWithinRect(path.segments, anchorBounds),
+            occluders,
+          ),
           points: path.points,
           relation,
           segments: path.segments,
