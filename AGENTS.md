@@ -54,6 +54,9 @@ and each took one look at a file nobody had audited.
 
 ## Comments
 
+**No new comment may exceed 100 characters.** Whole comment, not per line — a docblock counts as
+one. Longer than that means it belongs in `docs/`, a bump file, or nowhere.
+
 A comment states what the code does, or why a non-obvious choice was made, in the plainest
 sentence that carries it. If it is not a fact about the code, delete it.
 

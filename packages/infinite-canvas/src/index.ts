@@ -138,6 +138,14 @@ export {
   isInfiniteCanvasCommandEnabled,
 } from "./commands";
 export {
+  getInfiniteCanvasContextualEntries,
+  runInfiniteCanvasContextualEntry,
+} from "./contextual-entries";
+export type {
+  InfiniteCanvasContextualAction,
+  InfiniteCanvasContextualEntry,
+} from "./contextual-entries";
+export {
   DEFAULT_INFINITE_CANVAS_CAMERA_NAVIGATION_BEHAVIOR,
   getCameraNavigationFrame,
   getCameraNavigationTargetRect,

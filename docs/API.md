@@ -1,6 +1,6 @@
 # API Reference
 
-The public surface of `@hyphened/infinite-canvas`: 227 values and 187 types across
+The public surface of `@hyphened/infinite-canvas`: 229 values and 189 types across
 two entries. Anything not exported from a barrel is internal and unstable —
 including every `data-infinite-canvas-*` attribute, which is a behavioural hook
 for hit-testing, not a styling contract.
@@ -41,7 +41,7 @@ about this repository rather than a feeling about the code.
 
 | Reason             | Meaning                                                                                                                                                                                   | Modules                                                                                   |
 | ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
-| **unobserved**     | Shipped, typechecked, gated — never watched running.                                                                                                                                      | `canvas-handle`                                                                           |
+| **unobserved**     | Shipped, typechecked, gated — never watched running.                                                                                                                                      | `canvas-handle`, `contextual-entries`                                                     |
 | **off-by-default** | Behind a policy prop that no default configuration turns on, so nothing exercises the shipped path.                                                                                       | `rasterization-layer`, `visibility`, `diagnostics`, `native-drop`                         |
 | **r3f-canary**     | Reachable only through `@hyphened/infinite-canvas/scene`, whose `@react-three/fiber` peer range admits a v10 canary. The framework cannot promise stability across someone else's canary. | `scene-surface`, `scene:scene-surface`, `scene:visibility-probes`, `scene:webgpu-surface` |
 
@@ -320,6 +320,26 @@ buttons, and programmatic drivers share one mutation path.
 - `getInfiniteCanvasContextualCommands`
 - `getInfiniteCanvasHotkeyBindings`
 - `isInfiniteCanvasCommandEnabled`
+
+**`contextual-entries`** — the canvas's verbs and a consumer's, in one list
+
+A consumer's own verbs reach the keyboard through `hotkeyActions` and nothing else, so every
+surface that offers verbs — a palette, a context menu, a tool registry — had to merge two
+vocabularies itself and police id collisions by hand.
+`getInfiniteCanvasContextualEntries` returns both, resolving each consumer verb's `isEnabled`
+against live state. Entries are discriminated by `source`; a consumer verb sharing an id with a
+canvas command replaces it. `runInfiniteCanvasContextualEntry` invokes either without the caller
+branching, which matters because a consumer verb must not go through `executeCommand`.
+
+- `getInfiniteCanvasContextualEntries`
+- `runInfiniteCanvasContextualEntry`
+
+<details><summary>types (2)</summary>
+
+- `InfiniteCanvasContextualAction` — a consumer verb, resolved against live state
+- `InfiniteCanvasContextualEntry` — `InfiniteCanvasContextualCommand | InfiniteCanvasContextualAction`, tagged by `source`
+
+</details>
 
 **`group-tree`** — the n-ary container tree a group shell owns
 
