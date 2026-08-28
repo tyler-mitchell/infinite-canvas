@@ -748,7 +748,7 @@ const DEFAULT_INFINITE_CANVAS_COMMAND_DESCRIPTORS = [
   {
     command: { amountPx: 24, type: "group.resizePane" },
     description:
-      "Give the active window a larger share of its container, taking it from the pane beside it.",
+      "Give the active window a larger share of its container, taking it from the next pane along — or from the previous one when the active window is last.",
     hotkeys: [],
     id: "group.growPane",
     label: "Grow Pane",
@@ -756,7 +756,7 @@ const DEFAULT_INFINITE_CANVAS_COMMAND_DESCRIPTORS = [
   {
     command: { amountPx: -24, type: "group.resizePane" },
     description:
-      "Give the active window a smaller share of its container, returning it to the pane beside it.",
+      "Give the active window a smaller share of its container, returning it to the next pane along — or to the previous one when the active window is last.",
     hotkeys: [],
     id: "group.shrinkPane",
     label: "Shrink Pane",
