@@ -82,17 +82,14 @@ export const collectionGateway = {
 
     return record === null ? null : toCollection(record);
   },
-  /**
-   * The question, answered fresh.
+  /*
+   * `resolve` was here and is gone, with the query behind it.
    *
-   * The two branches take different arguments and that is the point of the union: listing a kind
-   * needs a project to scope it, and listing what something connects to needs nothing but the
-   * thing — an edge already implies both ends share a project.
+   * It answered the collection's question from the database and its answer was cached, which made a
+   * collection show the project as it was when the window opened. `resolveCollectionItems` answers
+   * the same question from `projectContent$` and `relations$` — both already live — so there is
+   * nothing to refresh and nothing to forget to refresh.
    */
-  resolve: async (input: Readonly<{ projectId: string; question: CollectionQuestion }>) =>
-    "connectedTo" in input.question
-      ? content.listRelated(input.question.connectedTo)
-      : content.list({ kind: input.question.listsKind, projectId: input.projectId }),
   save: async (
     input: Readonly<{
       collectionId: string;

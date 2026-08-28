@@ -61,6 +61,29 @@ strictly greater than 160 — a kind sitting exactly on it demotes and never ret
 
 ## Open
 
+- **A collection showed the project as it was when the window opened, and now derives instead.**
+  `resolved$` cached each collection's answer and `refreshCollection` filled it on open and on
+  question change — nowhere else. Driven 2026-08-28: four notes stored, three rows drawn, the fourth
+  created after the window was. Its own docstring named this as the one thing a collection must never
+  do.
+
+  Adding a refresh to the six writers that change the answer — create, archive, restore, rename,
+  connect, disconnect — is the fix that does not work, which `project-content`'s header already says
+  about the rail's own cache: the next writer forgets too. So the cache is gone and so is the query.
+  `resolveCollectionItems` is pure and answers from `projectContent$` and `relations$`, both already
+  live and already authoritative. Driven after: a note created with the collection open appears in it
+  on the same tick, no reload.
+
+  It deleted more than it added — `resolved$`, `refreshCollection`, `collectionGateway.resolve`,
+  `content.listRelated` and `listRelatedContentItems` are all gone, and the resolution became unit
+  testable, which a database query never was. `fn::list_related_content_items` stays in the schema;
+  removing it is a migration, and it is a client that stopped needing it rather than a function that
+  stopped being correct.
+
+  **The connection question is covered by test rather than by driving.** Both branches read the same
+  two observables, and the kind branch is what was witnessed live; no connection collection was open
+  to watch an edge being cut.
+
 - **A mention now reaches the note it names, which it had never done.** The chip drew
   `cursor-pointer` and wrote `data-note-id` from the day it was built, and `mention-node.ts`'s own
   docstring described "the click handler that reaches the note" — nothing anywhere read the

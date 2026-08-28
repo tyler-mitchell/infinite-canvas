@@ -6,7 +6,9 @@ import { tv } from "ui/tv";
 import type { WindowKind } from "../canvas/window-registry";
 import { useLoaderData } from "@tanstack/react-router";
 
-import { ensureCollectionLoaded, resolved$ } from "./collection-store";
+import { projectContent$ } from "../content/project-content";
+import { relations$ } from "../relations/relation-store";
+import { collections$, ensureCollectionLoaded, resolveCollectionItems } from "./collection-store";
 
 /**
  * What a collection says when it is too small to read.
@@ -50,8 +52,16 @@ export function CollectionSummary({
 }: Readonly<{ collectionId: string; title: string }>) {
   const zoom = useInfiniteCanvasSelector<WindowKind, number>((state) => state.camera.zoom);
   const { projectId } = useLoaderData({ from: "/canvas/$canvasId" });
-  const items = useValue(resolved$[collectionId]);
+  const question = useValue(collections$[collectionId])?.collection?.content;
+  const listing = useValue(projectContent$);
+  const relations = useValue(relations$);
   const styles = collectionSummary();
+  // `undefined` until the record answers, which is what keeps the count off the card rather than
+  // drawing a confident zero for a collection nobody has read yet.
+  const items =
+    question === undefined
+      ? undefined
+      : resolveCollectionItems({ listing, projectId, question, relations });
 
   /*
    * The summary loads, and the first version of this deliberately did not.
@@ -67,8 +77,8 @@ export function CollectionSummary({
    * frame. Both halves of the lane share `resolved$`, so zooming in after this costs nothing.
    */
   useEffect(() => {
-    ensureCollectionLoaded(collectionId, projectId);
-  }, [collectionId, projectId]);
+    ensureCollectionLoaded(collectionId);
+  }, [collectionId]);
 
   return (
     <div className={styles.root()} style={{ fontSize: SUMMARY_SCREEN_PX / zoom }}>

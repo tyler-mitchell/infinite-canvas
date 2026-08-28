@@ -1,7 +1,12 @@
 import { observable } from "@legendapp/state";
 
-import { setProjectItemContent, setProjectItemRevision } from "../content/project-content";
-import type { ContentItemRecord } from "../database/database.client";
+import {
+  getProjectContent,
+  setProjectItemContent,
+  setProjectItemRevision,
+  type ProjectContent,
+} from "../content/project-content";
+import type { ContentItemRecord, ContentRelation } from "../database/database.client";
 import {
   collectionGateway,
   type CollectionQuestion,
@@ -9,12 +14,10 @@ import {
 } from "./collection-gateway";
 
 /**
- * Open collections and what each one currently resolves to.
+ * Open collections, by which this file means the record — the question and its revision.
  *
- * Two observables rather than one nested entry, because they are invalidated by different things:
- * the record changes when someone edits the collection, and the resolved list changes whenever
- * *anything else in the project* is created, archived or renamed. Folding them together would make
- * every content write look like an edit to the collection itself.
+ * What the question *resolves to* is not held here and is not held anywhere. It was, in a second
+ * observable beside this one, and that cache is the defect `resolveCollectionItems` describes.
  */
 
 type CollectionEntry = Readonly<{
@@ -24,37 +27,71 @@ type CollectionEntry = Readonly<{
 }>;
 
 const collections$ = observable<Record<string, CollectionEntry>>({});
-const resolved$ = observable<Record<string, readonly ContentItemRecord[]>>({});
 const loaded = new Set<string>();
 
 function getCollectionEntry(collectionId: string) {
   return collections$[collectionId];
 }
 
-function getResolvedItems(collectionId: string) {
-  return resolved$[collectionId];
+/**
+ * The collection's question, answered from what is already known.
+ *
+ * This was a query whose answer was cached in `resolved$`, refreshed when the collection opened and
+ * when its question changed — and nowhere else. So the one thing its own docstring said a collection
+ * must never do is exactly what it did: creating a note left an open collection listing the project
+ * as it was when the window opened. Measured 2026-08-28 — four notes stored, three rows drawn.
+ *
+ * **Refreshing at the sites that forgot is the fix that does not work**, which `project-content`
+ * already says in its header about the rail's own cache: the next writer forgets too. Connecting,
+ * disconnecting, archiving, restoring, renaming and creating all change the answer, and a second
+ * cache means six places to remember.
+ *
+ * So there is no cache and no query. Both inputs are already live and already authoritative:
+ * `projectContent$` is the project's items — every kind, archived excluded — and `relations$` is its
+ * edges, reloaded by `connectItems` and `disconnectItems`. Derived on read, a collection cannot be
+ * stale, because there is nothing to go stale.
+ *
+ * An edge whose other end is archived contributes nothing, because the listing has no record for it.
+ * That is the same answer the query gave and it now needs no separate rule.
+ */
+function resolveCollectionItems(
+  input: Readonly<{
+    listing: ProjectContent | null;
+    projectId: string;
+    question: CollectionQuestion;
+    relations: readonly ContentRelation[];
+  }>,
+): readonly ContentItemRecord[] {
+  const items = getProjectContent(input.listing, input.projectId) ?? [];
+
+  if (!("connectedTo" in input.question)) {
+    const listsKind = input.question.listsKind;
+
+    return items.filter((item) => item.kind === listsKind);
+  }
+
+  const connectedTo = input.question.connectedTo;
+  // Undirected, matching `findRelation`: whichever end this collection is, the other is a neighbour.
+  const neighbours = new Set(
+    input.relations.flatMap((relation) =>
+      relation.source === connectedTo
+        ? [relation.target]
+        : relation.target === connectedTo
+          ? [relation.source]
+          : [],
+    ),
+  );
+
+  return items.filter((item) => neighbours.has(item.id));
 }
 
 /**
- * Answer the collection's question again.
+ * Loads a collection's record once per id. What it lists is derived, not loaded.
  *
- * Public and called on every open rather than cached across them: a collection is a live listing,
- * and the one thing it must never do is show a project the way it was the last time someone looked
- * at it. Cheap enough to mean it — the listing is one indexed query per kind.
+ * `projectId` is no longer used and no longer taken: it existed to scope the resolve this function
+ * used to trigger, and a parameter nothing reads is a claim that this still depends on the project.
  */
-async function refreshCollection(
-  input: Readonly<{ collectionId: string; projectId: string; question: CollectionQuestion }>,
-) {
-  resolved$[input.collectionId].set(
-    await collectionGateway.resolve({
-      projectId: input.projectId,
-      question: input.question,
-    }),
-  );
-}
-
-/** Loads a collection once per id, then resolves what it lists. */
-function ensureCollectionLoaded(collectionId: string, projectId: string) {
+function ensureCollectionLoaded(collectionId: string) {
   if (loaded.has(collectionId)) {
     return;
   }
@@ -64,19 +101,12 @@ function ensureCollectionLoaded(collectionId: string, projectId: string) {
 
   void collectionGateway
     .read(collectionId)
-    .then(async (collection) => {
-      if (collection === null) {
-        collections$[collectionId].set({
-          collection: null,
-          error: "This collection no longer exists.",
-          status: "error",
-        });
-
-        return;
-      }
-
-      collections$[collectionId].set({ collection, error: null, status: "ready" });
-      await refreshCollection({ collectionId, projectId, question: collection.content });
+    .then((collection) => {
+      collections$[collectionId].set(
+        collection === null
+          ? { collection: null, error: "This collection no longer exists.", status: "error" }
+          : { collection, error: null, status: "ready" },
+      );
     })
     .catch((error: unknown) => {
       loaded.delete(collectionId);
@@ -89,7 +119,7 @@ function ensureCollectionLoaded(collectionId: string, projectId: string) {
 }
 
 /**
- * Ask a different question, and re-resolve.
+ * Ask a different question. Nothing re-resolves, because nothing was resolved.
  *
  * The record's revision is folded back from the write, exactly as a note's is: the listing the user
  * is looking at is the source of truth for what is on screen, and the next write has to hold a
@@ -122,16 +152,13 @@ async function setCollectionQuestion(
    */
   setProjectItemContent(input.collectionId, saved.content);
   setProjectItemRevision(input.collectionId, saved.revision);
-  await refreshCollection(input);
 }
 
 export {
   collections$,
   ensureCollectionLoaded,
   getCollectionEntry,
-  getResolvedItems,
-  refreshCollection,
-  resolved$,
+  resolveCollectionItems,
   setCollectionQuestion,
 };
 export type { CollectionEntry };

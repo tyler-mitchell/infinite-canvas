@@ -16,10 +16,12 @@ import type { WindowKind } from "../canvas/window-registry";
 import type { ContentItemRecord } from "../database/database.client";
 import { useLoaderData } from "@tanstack/react-router";
 
+import { projectContent$ } from "../content/project-content";
+import { relations$ } from "../relations/relation-store";
 import {
   collections$,
   ensureCollectionLoaded,
-  resolved$,
+  resolveCollectionItems,
   setCollectionQuestion,
 } from "./collection-store";
 import { openItemWindow } from "../canvas/open-item";
@@ -124,15 +126,23 @@ export function CollectionWindowBody({ collectionId }: Readonly<{ collectionId: 
   // `renderBody` hands over a window and nothing else, so the route is read rather than passed.
   const { projectId } = useLoaderData({ from: "/canvas/$canvasId" });
   const entry = useValue(collections$[collectionId]);
-  const items = useValue(resolved$[collectionId]) ?? [];
+  /*
+   * Derived from the two live authorities rather than a cache of its own.
+   *
+   * Both are already subscribed to here, so a note created anywhere, an item archived, or a
+   * connection cut redraws this list on the same tick that changed it. There is nothing to
+   * invalidate and no writer that has to remember this window exists.
+   */
+  const listing = useValue(projectContent$);
+  const relations = useValue(relations$);
   const styles = collectionWindow();
   const openItem = (item: ContentItemRecord) => {
     openItemWindow({ actions, item, state });
   };
 
   useEffect(() => {
-    ensureCollectionLoaded(collectionId, projectId);
-  }, [collectionId, projectId]);
+    ensureCollectionLoaded(collectionId);
+  }, [collectionId]);
 
   if (entry === undefined || entry.status === "loading") {
     return <div className={styles.notice()}>Loading…</div>;
@@ -145,6 +155,7 @@ export function CollectionWindowBody({ collectionId }: Readonly<{ collectionId: 
   }
 
   const question = entry.collection.content;
+  const items = resolveCollectionItems({ listing, projectId, question, relations });
 
   /*
    * A connection collection has no kind to pick, so it says what it is instead of offering a menu.

@@ -619,16 +619,14 @@ async function listContentItems(
   return ContentItemRecord.array().assert(records);
 }
 
-async function listRelatedContentItems(itemId: string): Promise<readonly ContentItemRecord[]> {
-  const client = await openLocalDatabase();
-  const [records] = await client
-    .query<[unknown]>("RETURN fn::list_related_content_items($item);", {
-      item: new StringRecordId(itemId),
-    })
-    .json();
-
-  return ContentItemRecord.array().assert(records);
-}
+/*
+ * `listRelatedContentItems` was here and is gone, with `content.listRelated` above it.
+ *
+ * Its only caller resolved a connection collection, which now derives from `relations$` and the
+ * project listing rather than asking. `fn::list_related_content_items` is left in the schema —
+ * removing it is a migration, and this is a client that stopped needing it rather than a function
+ * that stopped being correct.
+ */
 
 /**
  * Archive and restore, together.
@@ -889,7 +887,6 @@ export {
   listCanvases,
   listContentItems,
   listProjects,
-  listRelatedContentItems,
   listRelations,
   listSavedViews,
   readProjectRemovalSummary,
