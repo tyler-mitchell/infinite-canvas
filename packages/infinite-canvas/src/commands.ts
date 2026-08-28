@@ -704,7 +704,8 @@ const DEFAULT_INFINITE_CANVAS_COMMAND_DESCRIPTORS = [
   },
   {
     command: { type: "activeWindow.minimize" },
-    description: "Collapse the active window into the dock.",
+    description:
+      "Collapse the active window into the dock. A docked window leaves its group on the way, since a pane in the dock cannot hold a layout slot.",
     hotkeys: [],
     id: "activeWindow.minimize",
     label: "Minimize Window",
@@ -712,14 +713,19 @@ const DEFAULT_INFINITE_CANVAS_COMMAND_DESCRIPTORS = [
   {
     command: { type: "activeWindow.toggleMaximized" },
     description:
-      "Maximize the active window to fill the viewport, or restore it to the size it had before.",
+      "Maximize the active window to fill the viewport, or restore it to the size it had before. Maximizing takes a docked window out of its group, and restoring does not put it back.",
     hotkeys: [],
     id: "activeWindow.toggleMaximized",
     label: "Maximize / Restore Window",
   },
   {
     command: { type: "activeWindow.togglePinned" },
-    description: "Pin the active window so panning and fit-all leave it in place, or unpin it.",
+    // Said what pinning was imagined to do rather than what it does. Nothing in the camera, the pan
+    // handler or `getVisibleWindowBounds` reads `isPinned` — fit-all measures every window that is
+    // not minimized, pinned or not — so neither half of "panning and fit-all leave it in place" was
+    // true. What `toggleWindowPinned` actually does is move the window into the pinned stacking
+    // band, above every unpinned one.
+    description: "Pin the active window so it stacks above every unpinned one, or unpin it.",
     hotkeys: [],
     id: "activeWindow.togglePinned",
     label: "Pin / Unpin Window",
