@@ -429,6 +429,38 @@ const resolveEndpoints = (
 };
 
 /**
+ * Archive and restore resolve their id by reading, because these documents have no local cache.
+ *
+ * Every other id-taking verb resolves against `projectContent$`. Canvases and projects have no
+ * equivalent — the switchers query when they open — so this is a read rather than a lookup.
+ *
+ * Not a nicety. A well-formed id naming nothing reaches `fn::archive_project`, which answers NONE,
+ * and the `ProjectSummary.assert` behind it throws on `undefined`. Driven before this existed, the
+ * caller got `{"status":"Error","errorText":""}` — an empty box where a sentence belongs, which is
+ * the exact failure this vocabulary's refusals exist to prevent.
+ *
+ * The pointer surfaces never provoked it: a menu only ever passes an id it just listed.
+ */
+const retireDocument = async (
+  input: Readonly<{
+    act: () => Promise<unknown>;
+    among: Promise<readonly Readonly<{ id: string }>[]>;
+    id: string;
+    refusal: string;
+    reload: () => void;
+  }>,
+) => {
+  if (!(await input.among).some((record) => record.id === input.id)) {
+    return input.refusal;
+  }
+
+  await input.act();
+  input.reload();
+
+  return undefined;
+};
+
+/**
  * What a cut edge said, or nothing when it said nothing worth reporting.
  *
  * Separate from the verb because the verb answers only once its write lands, and no test in this
@@ -749,6 +781,139 @@ const APP_ACTIONS: readonly AppAction[] = [
         refreshRoute();
 
         return undefined;
+      });
+    },
+  },
+  /*
+   * Retiring what a caller made, which it could do to an item and not to the documents holding one.
+   *
+   * The database has had all six of these since the switchers were built — `archive`, `restore` and
+   * `listArchived` on both `canvases` and `projects`. Only the verbs were missing, so this consumes
+   * what is there rather than adding a layer.
+   *
+   * **Archiving the document you are looking at is refused, deliberately.** The pointer path
+   * navigates to `/` and lets the root route re-resolve, which is a router concern
+   * `AppActionContext` does not carry — it holds `goToCanvas`, which needs an id. Rather than widen
+   * the context so a verb can guess where a caller lands, the caller moves first and chooses. That
+   * is one extra call and strictly more control than the menu offers.
+   */
+  {
+    description:
+      "Archive a canvas, taking it out of the switcher. Reversible with canvas.restore. The id comes from canvas.list.",
+    id: "canvas.archive",
+    input: CANVAS_OPEN_INPUT,
+    label: "Archive a canvas",
+    run: ({ canvasId, projectId, refreshRoute }, input) => {
+      const parsed = CANVAS_OPEN_INPUT(input);
+
+      if (parsed instanceof type.errors) {
+        return describeInvalidInput(parsed);
+      }
+
+      const wrongKind = describeWrongRecordId("canvas", parsed.canvasId);
+
+      if (wrongKind !== null) {
+        return wrongKind;
+      }
+
+      if (parsed.canvasId === canvasId) {
+        return "Refused: that is the open canvas. `canvas.open` another one first, so you choose where you land.";
+      }
+
+      return retireDocument({
+        act: () => database.canvases.archive(parsed.canvasId),
+        among: database.canvases.list(projectId),
+        id: parsed.canvasId,
+        refusal: `Refused: no canvas in this project has ${parsed.canvasId}. \`canvas.list\` names them.`,
+        reload: refreshRoute,
+      });
+    },
+  },
+  {
+    description:
+      "Put an archived canvas back in the switcher. The id comes from canvas.listArchived.",
+    id: "canvas.restore",
+    input: CANVAS_OPEN_INPUT,
+    label: "Restore an archived canvas",
+    run: ({ projectId, refreshRoute }, input) => {
+      const parsed = CANVAS_OPEN_INPUT(input);
+
+      if (parsed instanceof type.errors) {
+        return describeInvalidInput(parsed);
+      }
+
+      const wrongKind = describeWrongRecordId("canvas", parsed.canvasId);
+
+      if (wrongKind !== null) {
+        return wrongKind;
+      }
+
+      return retireDocument({
+        act: () => database.canvases.restore(parsed.canvasId),
+        among: database.canvases.listArchived(projectId),
+        id: parsed.canvasId,
+        refusal: `Refused: no archived canvas has ${parsed.canvasId}. \`canvas.listArchived\` names them.`,
+        reload: refreshRoute,
+      });
+    },
+  },
+  {
+    description:
+      "Archive a project, taking it out of the switcher. Reversible with project.restore. The id comes from project.list.",
+    id: "project.archive",
+    input: PROJECT_OPEN_INPUT,
+    label: "Archive a project",
+    run: ({ projectId, refreshRoute }, input) => {
+      const parsed = PROJECT_OPEN_INPUT(input);
+
+      if (parsed instanceof type.errors) {
+        return describeInvalidInput(parsed);
+      }
+
+      const wrongKind = describeWrongRecordId("project", parsed.projectId);
+
+      if (wrongKind !== null) {
+        return wrongKind;
+      }
+
+      if (parsed.projectId === projectId) {
+        return "Refused: that is the open project. `project.open` another one first, so you choose where you land.";
+      }
+
+      return retireDocument({
+        act: () => database.projects.archive(parsed.projectId),
+        among: database.projects.list(),
+        id: parsed.projectId,
+        refusal: `Refused: no project has ${parsed.projectId}. \`project.list\` names them.`,
+        reload: refreshRoute,
+      });
+    },
+  },
+  {
+    description:
+      "Put an archived project back in the switcher. The id comes from project.listArchived.",
+    id: "project.restore",
+    input: PROJECT_OPEN_INPUT,
+    label: "Restore an archived project",
+    run: ({ refreshRoute }, input) => {
+      const parsed = PROJECT_OPEN_INPUT(input);
+
+      if (parsed instanceof type.errors) {
+        return describeInvalidInput(parsed);
+      }
+
+      const wrongKind = describeWrongRecordId("project", parsed.projectId);
+
+      if (wrongKind !== null) {
+        return wrongKind;
+      }
+
+      return retireDocument({
+        act: () => database.projects.restore(parsed.projectId),
+        among: database.projects.listArchived(),
+        id: parsed.projectId,
+        refusal: `Refused: no archived project has ${parsed.projectId}. \`project.listArchived\` names them.`,
+        reload: refreshRoute,
       });
     },
   },

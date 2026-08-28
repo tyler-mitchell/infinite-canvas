@@ -168,6 +168,11 @@ test("a schema refusal names the field, so a caller can correct it rather than g
  * Worth being explicit about why this table exists at all: mutating one verb's not-found branch back
  * to silence left the schema-refusal property test above **green**, because `42` never reaches the
  * lookup. The two paths need two tests, and only the first one generalizes.
+ *
+ * `canvas.archive`, `canvas.restore`, `project.archive` and `project.restore` are absent by
+ * necessity, not oversight. Canvases and projects have no local cache, so their not-found check is
+ * a database *read* — which hangs here. Driven in a browser instead, where all four answer
+ * "no archived canvas has …" rather than the empty error they threw before the check existed.
  */
 const HANDLE_VERBS: readonly Readonly<{ id: string; input: object }>[] = [
   { id: "content.open", input: { itemId: "never-existed" } },

@@ -80,6 +80,28 @@ const getReportingTools = (
     },
   ),
   report(
+    "List the canvases archived out of this project, with the ids canvas.restore takes.",
+    "canvas.listArchived",
+    async () => {
+      const records = await canvases.listArchived(input.projectId);
+
+      return records.length === 0
+        ? "No canvases are archived in this project."
+        : records.map((record) => `"${record.title}" [${record.id}]`).join("; ");
+    },
+  ),
+  report(
+    "List the projects archived in this browser, with the ids project.restore takes.",
+    "project.listArchived",
+    async () => {
+      const records = await projects.listArchived();
+
+      return records.length === 0
+        ? "No projects are archived."
+        : records.map((record) => `"${record.title}" [${record.id}]`).join("; ");
+    },
+  ),
+  report(
     "List the projects in this browser, with the ids project.open takes, marking the open one.",
     "project.list",
     async () => {

@@ -68,9 +68,13 @@ strictly greater than 160 — a kind sitting exactly on it demotes and never ret
   Still unverified: the declarative (`<form>`-annotation) half of WebMCP, cross-origin `exposedTo`,
   and behaviour under a real browser-integrated agent.
 
-- **A canvas or project cannot be archived by an agent.** Renaming landed — `canvas.rename` and
-  `project.rename` are registered and driven. Archiving is still pointer-only in the switchers, so a
-  caller can make a canvas it has no way to retire.
+- **Deleting a canvas or project is still pointer-only, and should stay that way for now.**
+  Archiving landed: `canvas.archive` / `restore` / `listArchived` and the project triple, driven end
+  to end. The database had all six since the switchers were built; only the verbs were missing.
+  Delete is the other half and is genuinely destructive — `deleteProject` cascades and destroys
+  writing, which is why its surface asks for the project's name to be typed. A verb has no
+  equivalent of typing a name, and WebMCP has no elicitation mechanism to build one, so this is
+  blocked on the confirmation item above rather than on effort.
 
 - **Reframe has no surface.** `fn::reframe_saved_view` exists and is driven; nothing calls it.
   Delete-and-re-save covers it, so the capability is whole rather than half-built — but reframe is
