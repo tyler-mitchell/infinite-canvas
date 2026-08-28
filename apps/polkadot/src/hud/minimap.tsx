@@ -85,8 +85,21 @@ const minimap = tv({
     close: "absolute top-1 right-1 z-10",
     frame: `relative overflow-hidden rounded-[var(--radius-md)] ${FLOATING_SURFACE} shadow-[var(--lift-2)]`,
     group: "fill-[var(--surface-hover)]",
-    /** Cross-hatched with the ground so the map reads as a window onto the canvas, not a card. */
-    plate: "block cursor-crosshair touch-none bg-[var(--ground)]",
+    /** The frame's specular edge, drawn in the plate — see where it is rendered for why. */
+    hairline: "fill-[var(--edge-light)]",
+    /**
+     * A well sunk into the panel, not a hole cut through it.
+     *
+     * This was `--ground`, to read as a window onto the canvas rather than a card. The metaphor is
+     * right and the value was not: painted the same colour as the ground it floats on, the map
+     * cannot separate from it, and at 1440x900 it read as debris — two grey rectangles and a close
+     * button on nothing. Measured: the plate covered the frame edge to edge, so `FLOATING_SURFACE`'s
+     * fill never won a pixel and the hairline had no body to sit on.
+     *
+     * `--ground-sunken` keeps the metaphor and restores the depth: darker than the canvas, so it
+     * reads as recessed, under a lit top edge. Every mark on it gains contrast rather than losing it.
+     */
+    plate: "block cursor-crosshair touch-none bg-[var(--ground-sunken)]",
     window: "transition-[fill] duration-100 ease-[var(--ease-swift)]",
     /**
      * Where the camera is looking, and the only thing on this surface wearing the accent.
@@ -288,6 +301,21 @@ export function Minimap({
                 y={layout.viewport.y}
               />
             ),
+            /*
+             * The panel's lit edge, drawn last so it sits above everything on the plate.
+             *
+             * It belongs to the frame and cannot live there: an inset box-shadow paints under an
+             * element's children, and the plate covers the frame edge to edge. So the one surface
+             * in the app that declared the hairline never showed it.
+             */
+            <rect
+              className={styles.hairline()}
+              height={1}
+              key="hairline"
+              width={MINIMAP_SIZE.width}
+              x={0}
+              y={0}
+            />,
           ]}
         </svg>
       </div>
