@@ -28,7 +28,7 @@ import type { ContentItemRecord } from "./database/database.client";
 import * as database from "./database/operations";
 import { NOTE_KIND, noteGateway, toNote } from "./notes/note-gateway";
 import { writeNote } from "./notes/note-store";
-import { getNoteText, toSerializedNote } from "./notes/note-text";
+import { markdownToNote, noteToMarkdown } from "./notes/note-markdown";
 import { openNewNote } from "./notes/open-note";
 import { getProjectEntryCanvas } from "./projects/enter-project";
 import {
@@ -1617,17 +1617,17 @@ const APP_ACTIONS: readonly AppAction[] = [
   },
   {
     /*
-     * The description says what the write costs, because a caller cannot see it.
+     * Markdown, because read-edit-write is the shape a caller edits in.
      *
-     * Every line becomes a paragraph, so a note read and written back keeps its words and loses its
-     * blocks: a code block, heading, list item or quote all return as paragraphs.
-     * `note-text-round-trip.test.ts` pins that. A caller doing read-edit-write to fix one word would
-     * flatten the rest of the note and had no way to know.
+     * Plain text made a paragraph of every line, so fixing one word replaced every code block,
+     * heading, list and quote with a paragraph — and the description could only warn about it.
+     * `note-markdown.ts` runs the editor's own `TRANSFORMERS` headlessly, so what a caller writes is
+     * parsed the way typing it would be.
      */
     description:
-      "Replace what a note says, as plain text. One line per paragraph. This replaces the whole " +
-      "note, so any code block, heading, list or quote in it comes back as a paragraph. The id " +
-      "comes from content.list.",
+      "Replace what a note says, as markdown. Headings, lists, quotes and fenced code are kept, " +
+      "and note.read returns the same markdown. This replaces the whole note. The id comes from " +
+      "content.list.",
     id: "note.write",
     input: NOTE_WRITE_INPUT,
     label: "Write a note",
@@ -1648,7 +1648,7 @@ const APP_ACTIONS: readonly AppAction[] = [
         return `Refused: "${item.title}" is a ${item.kind}, and only a note holds prose.`;
       }
 
-      const stored = toSerializedNote(parsed.text);
+      const stored = markdownToNote(parsed.text);
 
       /*
        * Through the note store, not the gateway: it is the single writer, and the revision guard is
@@ -1670,7 +1670,9 @@ const APP_ACTIONS: readonly AppAction[] = [
   },
   {
     description:
-      "Read what a note says, as plain text. The id comes from content.list. Titles are in the listing already.",
+      "Read what a note says, as markdown. Headings, lists, quotes and fenced code come back as " +
+      "markdown and note.write takes the same, so a read, an edit and a write keep the note's " +
+      "blocks. The id comes from content.list. Titles are in the listing already.",
     id: "note.read",
     input: NOTE_READ_INPUT,
     label: "Read a note",
@@ -1698,7 +1700,7 @@ const APP_ACTIONS: readonly AppAction[] = [
        * Read from the listing rather than the note store, because the store holds only notes some
        * window has opened. A caller reading a note it has never opened is the ordinary case.
        */
-      const text = getNoteText(toNote(item).content.text);
+      const text = noteToMarkdown(toNote(item).content.text);
 
       return text === "" ? `"${item.title}" is empty.` : text;
     },

@@ -18,6 +18,7 @@
     "@legendapp/state": "catalog:",
     "@lexical/code": "catalog:",
     "@lexical/code-shiki": "catalog:",
+    "@lexical/headless": "catalog:",
     "@lexical/link": "catalog:",
     "@lexical/list": "catalog:",
     "@lexical/markdown": "catalog:",

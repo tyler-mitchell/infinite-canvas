@@ -3,15 +3,17 @@ import { expect, test } from "vite-plus/test";
 import { getNoteText, toSerializedNote } from "./note-text";
 
 /**
- * What `note.read` then `note.write` costs a note, which is the shape an agent edits in.
+ * What the plain-text pair costs a note, and why the vocabulary no longer uses it.
  *
- * The vocabulary reads a note as text and writes it as text: `note.write` runs its argument through
- * `toSerializedNote`, which splits on newlines and makes a paragraph of each line. So an agent asked
- * to fix a typo — read, change one word, write — replaces every block in the note with paragraphs,
- * and nothing tells it or the reader that happened.
+ * `toSerializedNote` splits on newlines and makes a paragraph of each line, so anything round
+ * tripped through it keeps its words and loses its blocks. `note.read` and `note.write` were built
+ * on this pair, which meant a caller fixing one typo replaced every code block, heading, list and
+ * quote with a paragraph. They run on `note-markdown.ts` now — `note-markdown.test.ts` holds the
+ * round trip that survives.
  *
- * These are characterization tests. They assert the loss rather than a fix, so the cost is stated
- * and a change that stops it fails them loudly instead of passing quietly.
+ * These stay as characterization tests because the pair itself stays: `getNoteText` feeds the search
+ * index and the far-zoom summary, which want the words and no engine. What is pinned here is the
+ * cost of using it for anything else.
  */
 
 /** A note the editor would produce from ```` ```js ```` plus a fenced line. */
