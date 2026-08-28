@@ -1407,6 +1407,13 @@ Measured, so the shape of the ask is grounded rather than imagined:
   a link that is not on the board: switching workspaces swaps the connections without clearing the
   selection, and the id survived into a board that never had it. Fixed there by resolving, because
   a showcase is where a consumer learns the pattern, and it was teaching the unresolved one.
+  **The reachable path in the framework is narrower than it first looked, and the guess was wrong.**
+  It is not that a target rides along when you switch desktops: entering one restores _that_
+  desktop's stored selection, so nothing arrives somewhere it never was. It is that the desktop you
+  _left_ stores the selection you left it with, targets included, and hands them back on return —
+  so an object deleted while you were elsewhere comes back selected. Pinned in
+  `workspace-selection-targets.test.ts`, including the same asymmetry one level in: closing a window
+  cleans it out of a _stored_ workspace selection's `windowIds` while the target beside it stays.
 
 Storing the answers in state instead is the tempting shortcut and is wrong by this file's own
 standards: a rect copied onto a selection target is stale the moment the object moves, and
