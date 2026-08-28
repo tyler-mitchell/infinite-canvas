@@ -152,6 +152,19 @@ const rail = tv({
     expanded: {
       true: { disclosure: "rotate-90" },
     },
+    /**
+     * In the archive the control cannot wait for a pointer.
+     *
+     * `rowAction` hides until hover because a library row is mostly read, and the row itself is what
+     * you press to open the note — the glyph is a second, lesser action. An archived row is neither:
+     * it is not a button, nothing opens, and restoring is the only thing it offers. Measured at
+     * `opacity: 0`, so the archive presented a list of names with no visible way to act on any of
+     * them, and none at all on a touch device.
+     */
+    rowMode: {
+      archived: { rowAction: "opacity-100" },
+      reachable: {},
+    },
     open: {
       false: { title: "text-[var(--ink-muted)] group-hover:text-[var(--ink)]" },
       // A note already on the canvas is present rather than a destination, and reads brighter.
@@ -592,7 +605,7 @@ export function LibraryRail({
                   */}
                     <button
                       aria-label={archived ? `Restore ${note.title}` : `Archive ${note.title}`}
-                      className={styles.rowAction()}
+                      className={rail({ rowMode }).rowAction()}
                       onClick={() => {
                         void (archived ? restore(note.id) : archive(note.id));
                       }}
