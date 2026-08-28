@@ -95,8 +95,8 @@ const refuse = (id: string, input: unknown) => {
  */
 test("renaming a document refuses a name that is blank once trimmed", () => {
   for (const [id, input] of [
-    ["canvas.rename", { canvasId: "canvas-1", title: "   " }],
-    ["project.rename", { projectId: "project-1", title: "" }],
+    ["canvas.rename", { canvasId: "canvas_document:canvas-1", title: "   " }],
+    ["project.rename", { projectId: "project:project-1", title: "" }],
   ] as const) {
     expect(`${id}: ${String(refuse(id, input))}`).toBe(`${id}: Refused: a name cannot be blank.`);
   }
@@ -111,8 +111,12 @@ test("renaming a document accepts a real name, so the guard above is not refusin
    * fails harmlessly against an engine no test starts. That is the whole reason the *write* is not
    * asserted here and is driven in a browser instead.
    */
-  expect(refuse("canvas.rename", { canvasId: "canvas-1", title: "Q3 planning" })).toBeUndefined();
-  expect(refuse("project.rename", { projectId: "project-1", title: "Atlas" })).toBeUndefined();
+  expect(
+    refuse("canvas.rename", { canvasId: "canvas_document:canvas-1", title: "Q3 planning" }),
+  ).toBeUndefined();
+  expect(
+    refuse("project.rename", { projectId: "project:project-1", title: "Atlas" }),
+  ).toBeUndefined();
 });
 
 /**
@@ -293,7 +297,15 @@ test("restore does not pretend to check an id it has no way to check", () => {
    * purely so one verb could word an error better, and `content.restore` on an id naming nothing is
    * a no-op in the database rather than a corruption.
    */
-  expect(refuse("content.restore", { itemId: "never-existed" })).toBeUndefined();
+  expect(refuse("content.restore", { itemId: "content_item:never-existed" })).toBeUndefined();
+  /*
+   * The half it *can* check, which is new: an id names its table whether or not anything holds the
+   * record, so a canvas id here is refusable where an unknown archived item id is not. Two different
+   * mistakes, and only one of them is knowable from a cache this verb deliberately does not keep.
+   */
+  expect(refuse("content.restore", { itemId: "canvas_document:not-an-item" })).toMatch(
+    /^Refused: .*wrong kind of id/,
+  );
   // The shape is still checked, because that costs nothing and the schema is the caller's contract.
   expect(refuse("content.restore", 42)).toMatch(/^Refused: /);
 });

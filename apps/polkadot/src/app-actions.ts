@@ -175,6 +175,42 @@ const GROUP_HAS_NO_PANES = "Refused: that group holds one window, so it has no a
 const BLANK_TITLE = "Refused: a name cannot be blank.";
 
 /**
+ * A record id names its own table, so an id of the wrong kind is refusable before anything acts.
+ *
+ * Every id this vocabulary takes is a SurrealDB record id — `canvas_document:xyz`, `project:abc`,
+ * `content_item:def` — and the schema leans on that: `record<project>` and `record<canvas_document>`
+ * are declared field types. The kinds are structurally distinct and nothing was checking.
+ *
+ * What that cost a caller is a misleading answer rather than a missing one. Handing `content.open` a
+ * canvas id got "no item has that id", which is true and points at the wrong mistake; handing
+ * `canvas.open` a project id navigated, failed the route's own lookup, and rendered "That canvas is
+ * not here" about a canvas that exists. A caller with no screen reads both as "the record is gone"
+ * and goes looking for it.
+ *
+ * Checked in the verb rather than in the ArkType input, which is the split this file already makes:
+ * the schema says what shape arrives, the verb says what is true of the world. It also keeps
+ * `toJsonSchema()` honest — a narrow is not expressible in JSON Schema, so putting it there would
+ * either be dropped from what a caller is offered or break the publishing that reads it.
+ *
+ * Window and group ids are deliberately absent: those are framework UUIDs, not records, and have no
+ * table to name.
+ */
+const RECORD_KINDS = {
+  canvas: { reporter: "canvas.list", table: "canvas_document" },
+  item: { reporter: "content.list", table: "content_item" },
+  project: { reporter: "project.list", table: "project" },
+} as const;
+
+const describeWrongRecordId = (kind: keyof typeof RECORD_KINDS, id: string) => {
+  const spec = RECORD_KINDS[kind];
+
+  // No article before the kind: "a item" is the same trap `renameProjectItem` records for "a image".
+  return id.startsWith(`${spec.table}:`)
+    ? null
+    : `Refused: "${id}" is the wrong kind of id here — this takes ${kind} ids, which \`${spec.reporter}\` reports.`;
+};
+
+/**
  * A window is addressed by its id, for the same reason a stored item is.
  *
  * This took a title, arguing that ids were "a key nothing has" because `describeCanvas` reported
@@ -318,6 +354,9 @@ const resolveRelation = (
  * above, so a verb passes the reason through instead of inventing its own words for it.
  */
 const resolveItem = (projectId: string, itemId: string): ContentItemRecord | string =>
+  // The kind first: "that is a canvas id" is a different correction from "no item has that id", and
+  // one lookup answering both would send a caller to fix the wrong thing.
+  describeWrongRecordId("item", itemId) ??
   getProjectContent(projectContent$.peek(), projectId)?.find((item) => item.id === itemId) ??
   NO_SUCH_ITEM;
 
@@ -520,6 +559,12 @@ const APP_ACTIONS: readonly AppAction[] = [
         return describeInvalidInput(parsed);
       }
 
+      const wrongKind = describeWrongRecordId("canvas", parsed.canvasId);
+
+      if (wrongKind !== null) {
+        return wrongKind;
+      }
+
       goToCanvas({ canvasId: parsed.canvasId });
 
       return undefined;
@@ -535,6 +580,12 @@ const APP_ACTIONS: readonly AppAction[] = [
 
       if (parsed instanceof type.errors) {
         return describeInvalidInput(parsed);
+      }
+
+      const wrongKind = describeWrongRecordId("canvas", parsed.canvasId);
+
+      if (wrongKind !== null) {
+        return wrongKind;
       }
 
       const title = parsed.title.trim();
@@ -591,6 +642,12 @@ const APP_ACTIONS: readonly AppAction[] = [
         return describeInvalidInput(parsed);
       }
 
+      const wrongKind = describeWrongRecordId("project", parsed.projectId);
+
+      if (wrongKind !== null) {
+        return wrongKind;
+      }
+
       /*
        * The same rule the switcher and the palette ask, including whether it is a move: going to
        * the project you are already in resolves to nothing rather than walking you to whichever of
@@ -617,6 +674,12 @@ const APP_ACTIONS: readonly AppAction[] = [
 
       if (parsed instanceof type.errors) {
         return describeInvalidInput(parsed);
+      }
+
+      const wrongKind = describeWrongRecordId("project", parsed.projectId);
+
+      if (wrongKind !== null) {
+        return wrongKind;
       }
 
       const title = parsed.title.trim();
@@ -1119,7 +1182,16 @@ const APP_ACTIONS: readonly AppAction[] = [
        * naming nothing is a no-op in the database rather than a corruption, and inventing a second
        * cache of archived items so this verb could refuse locally would be machinery bought to
        * improve one error message.
+       *
+       * The *kind* is still checkable without one, and is: an id names its table whether or not
+       * anything holds the record, so a canvas id here is refusable where a wrong archived id is not.
        */
+      const wrongKind = describeWrongRecordId("item", parsed.itemId);
+
+      if (wrongKind !== null) {
+        return wrongKind;
+      }
+
       void restoreProjectItem({ itemId: parsed.itemId, projectId });
 
       return undefined;

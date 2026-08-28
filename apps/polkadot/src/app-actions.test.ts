@@ -21,7 +21,9 @@ import { projectContent$, type ProjectContent } from "./content/project-content"
  * gets its own fixture below, asserting where it went.
  */
 const where = {
-  canvasId: "canvas-1",
+  // Real record ids, because the verbs refuse an id of the wrong kind and a fixture that is not one
+  // would be testing against a shape the app never sees — the lesson `note-text.test.ts` records.
+  canvasId: "canvas_document:canvas-1",
   canvasTitle: "Main canvas",
   refreshRoute: () => undefined,
 };
@@ -145,8 +147,20 @@ const runOpen = (input: unknown, listing: ProjectContent | null) => {
 
 const stored: ProjectContent = {
   items: [
-    { archived: false, id: "item-1", kind: "note", projectId: "project-1", title: "Untitled" },
-    { archived: false, id: "item-2", kind: "note", projectId: "project-1", title: "Untitled" },
+    {
+      archived: false,
+      id: "content_item:item-1",
+      kind: "note",
+      projectId: "project-1",
+      title: "Untitled",
+    },
+    {
+      archived: false,
+      id: "content_item:item-2",
+      kind: "note",
+      projectId: "project-1",
+      title: "Untitled",
+    },
   ] as unknown as ProjectContent["items"],
   projectId: "project-1",
 };
@@ -154,16 +168,18 @@ const stored: ProjectContent = {
 test("an item is opened by the id the listing gave, not by a title that repeats", () => {
   // Both records are called "Untitled". Only the id can say which one — the same rule `window.reveal`
   // now follows, after a spell taking a title on the belief that windows were somehow different.
-  expect(runOpen({ itemId: "item-2" }, stored)).toStrictEqual(["item-2"]);
+  expect(runOpen({ itemId: "content_item:item-2" }, stored)).toStrictEqual(["content_item:item-2"]);
 });
 
 test("an id from another project's listing opens nothing", () => {
-  expect(runOpen({ itemId: "item-1" }, { ...stored, projectId: "elsewhere" })).toStrictEqual([]);
+  expect(
+    runOpen({ itemId: "content_item:item-1" }, { ...stored, projectId: "elsewhere" }),
+  ).toStrictEqual([]);
 });
 
 test("an id in no listing opens nothing rather than the nearest thing", () => {
-  expect(runOpen({ itemId: "never-existed" }, stored)).toStrictEqual([]);
-  expect(runOpen({ itemId: "item-1" }, null)).toStrictEqual([]);
+  expect(runOpen({ itemId: "content_item:never-existed" }, stored)).toStrictEqual([]);
+  expect(runOpen({ itemId: "content_item:item-1" }, null)).toStrictEqual([]);
 });
 
 test("content.open refuses input its published schema does not accept", () => {
@@ -197,7 +213,7 @@ test("a connected-to collection refuses an id it cannot resolve", () => {
   };
 
   attempt({ itemId: "never-existed" }, stored);
-  attempt({ itemId: "item-1" }, null);
+  attempt({ itemId: "content_item:item-1" }, null);
   attempt({}, stored);
   attempt(undefined, stored);
 
@@ -222,11 +238,13 @@ const relationInput = (id: string) => getAppAction(id)?.input;
 test("connecting takes two item ids, because an edge joins records rather than windows", () => {
   const input = relationInput("relation.connect");
 
-  expect(input?.({ sourceItemId: "item-1", targetItemId: "item-2" })).toStrictEqual({
-    sourceItemId: "item-1",
-    targetItemId: "item-2",
+  expect(
+    input?.({ sourceItemId: "content_item:item-1", targetItemId: "content_item:item-2" }),
+  ).toStrictEqual({
+    sourceItemId: "content_item:item-1",
+    targetItemId: "content_item:item-2",
   });
-  expect(input?.({ sourceItemId: "item-1" })).toBeInstanceOf(type.errors);
+  expect(input?.({ sourceItemId: "content_item:item-1" })).toBeInstanceOf(type.errors);
   expect(input?.({ windowId: "note-1" })).toBeInstanceOf(type.errors);
 });
 
@@ -234,17 +252,32 @@ test("a connection can say what it means, and only in the words the model has", 
   const input = relationInput("relation.connect");
 
   expect(
-    input?.({ kind: "supports", sourceItemId: "item-1", targetItemId: "item-2" }),
-  ).toStrictEqual({ kind: "supports", sourceItemId: "item-1", targetItemId: "item-2" });
+    input?.({
+      kind: "supports",
+      sourceItemId: "content_item:item-1",
+      targetItemId: "content_item:item-2",
+    }),
+  ).toStrictEqual({
+    kind: "supports",
+    sourceItemId: "content_item:item-1",
+    targetItemId: "content_item:item-2",
+  });
   // Not one of RELATION_KINDS. Accepting it would store a kind nothing renders and nothing queries.
   expect(
-    input?.({ kind: "vaguely about", sourceItemId: "item-1", targetItemId: "item-2" }),
+    input?.({
+      kind: "vaguely about",
+      sourceItemId: "content_item:item-1",
+      targetItemId: "content_item:item-2",
+    }),
   ).toBeInstanceOf(type.errors);
 });
 
 test("the kind is optional, because the drag gesture cannot express one either", () => {
   expect(
-    relationInput("relation.connect")?.({ sourceItemId: "item-1", targetItemId: "item-2" }),
+    relationInput("relation.connect")?.({
+      sourceItemId: "content_item:item-1",
+      targetItemId: "content_item:item-2",
+    }),
   ).not.toBeInstanceOf(type.errors);
 });
 
@@ -263,11 +296,21 @@ test("re-typing an existing connection insists on a kind, unlike connecting", ()
   const input = relationInput("relation.setKind");
 
   expect(
-    input?.({ kind: "refines", sourceItemId: "item-1", targetItemId: "item-2" }),
-  ).toStrictEqual({ kind: "refines", sourceItemId: "item-1", targetItemId: "item-2" });
+    input?.({
+      kind: "refines",
+      sourceItemId: "content_item:item-1",
+      targetItemId: "content_item:item-2",
+    }),
+  ).toStrictEqual({
+    kind: "refines",
+    sourceItemId: "content_item:item-1",
+    targetItemId: "content_item:item-2",
+  });
   // Connecting without a kind is a real intent — it is what the drag does. Re-typing to nothing
   // is not, so the field that is optional there is required here.
-  expect(input?.({ sourceItemId: "item-1", targetItemId: "item-2" })).toBeInstanceOf(type.errors);
+  expect(
+    input?.({ sourceItemId: "content_item:item-1", targetItemId: "content_item:item-2" }),
+  ).toBeInstanceOf(type.errors);
 });
 
 test("a connection is addressed by its ends, not by a relation id", () => {
@@ -279,7 +322,7 @@ test("a connection is addressed by its ends, not by a relation id", () => {
    * undeclared key is the only thing wrong with that input, so it passing proves the schema is
    * exact rather than merely permissive about shapes it does not mention.
    */
-  const ends = { sourceItemId: "item-1", targetItemId: "item-2" };
+  const ends = { sourceItemId: "content_item:item-1", targetItemId: "content_item:item-2" };
 
   expect(relationInput("relation.setKind")?.({ ...ends, relationId: "r-1" })).toBeInstanceOf(
     type.errors,
@@ -293,8 +336,8 @@ test("an empty label is accepted, because clearing one is a thing to want", () =
   expect(
     relationInput("relation.setLabel")?.({
       label: "",
-      sourceItemId: "item-1",
-      targetItemId: "item-2",
+      sourceItemId: "content_item:item-1",
+      targetItemId: "content_item:item-2",
     }),
   ).not.toBeInstanceOf(type.errors);
 });
@@ -315,9 +358,11 @@ test("the four verbs an edge needs are all published", () => {
 test("disconnecting names the pair and nothing else", () => {
   const input = relationInput("relation.disconnect");
 
-  expect(input?.({ sourceItemId: "item-1", targetItemId: "item-2" })).toStrictEqual({
-    sourceItemId: "item-1",
-    targetItemId: "item-2",
+  expect(
+    input?.({ sourceItemId: "content_item:item-1", targetItemId: "content_item:item-2" }),
+  ).toStrictEqual({
+    sourceItemId: "content_item:item-1",
+    targetItemId: "content_item:item-2",
   });
   expect(input?.({})).toBeInstanceOf(type.errors);
 });
@@ -548,11 +593,11 @@ test("going to a canvas navigates to the id it was handed, and nowhere else", ()
   getAppAction("canvas.open")?.run(
     documentContext(({ canvasId }) => visited.push(canvasId)),
     {
-      canvasId: "canvas-7",
+      canvasId: "canvas_document:canvas-7",
     },
   );
 
-  expect(visited).toStrictEqual(["canvas-7"]);
+  expect(visited).toStrictEqual(["canvas_document:canvas-7"]);
 });
 
 test("duplicating names the copy after the canvas the context says it is in", () => {
