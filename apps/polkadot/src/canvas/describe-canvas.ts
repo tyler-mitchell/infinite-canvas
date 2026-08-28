@@ -3,6 +3,7 @@ import {
   getInfiniteCanvasGroupTitle,
   getInfiniteCanvasGroupWindowIds,
   isInfiniteCanvasWindowInActiveWorkspace,
+  isWorldRectWithinViewport,
   type InfiniteCanvasState,
 } from "@hyphened/infinite-canvas";
 
@@ -68,6 +69,22 @@ function describeCanvas(state: InfiniteCanvasState<WindowKind>): string {
         window.id === state.activeWindowId ? "active" : null,
         selected.has(window.id) ? "selected" : null,
         hiddenWindowIds.has(window.id) ? "behind a tab" : null,
+        /*
+         * The fourth way a window is on the canvas without being on screen, and the comment above
+         * counted three.
+         *
+         * Minimized, behind a tab and on another desktop are all *states*. This one is the camera:
+         * a window can be admitted, normal and unhidden and still be a mile off the edge, and the
+         * report said "3 window(s)" with no hint that none of them was in front of you. A caller
+         * that cannot see the screen has then no reason to call `window.reveal`, which exists for
+         * precisely this and takes the id reported two lines up.
+         *
+         * `isWorldRectWithinViewport` is the framework's own frustum test — the same predicate the
+         * offscreen ring draws its chips from, so the sentence and the arrows cannot disagree.
+         * Reported last because it is the most transient: it changes with every pan, where the
+         * others change only when somebody acts.
+         */
+        isWorldRectWithinViewport(state.camera, state.viewport, window.rect) ? null : "offscreen",
         // `normal` is the unremarkable case and saying it on every window would bury the others.
         window.mode === "normal" ? null : window.mode,
       ]
