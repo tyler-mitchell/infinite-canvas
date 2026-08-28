@@ -109,42 +109,77 @@ view` as a menu mode, and `view.save` / `list` / `open` / `reframe` / `remove` a
 var(--surface)` — the same material as its frame and its idle header, uniform on purpose.
   Lighting it from within would be decoration, not depth, so nothing here is owed.
 
-- **The note editor is built on Lexical's superseded architecture.** Found by reading the docs for
-  the first time on 2026-08-28, after driving the editor to check what actually worked.
+- **The note editor is two generations behind Lexical, and nobody had read its docs.** Established
+  2026-08-28 by cloning `facebook/lexical` into `reference/` and reading the docs tree. Everything
+  below is from the shipped docs rather than from an API listing.
 
   Rich text is **not** the gap this item used to claim. Typed into a live note: `# ` produced `<h1>`,
   `- ` produced `<ul><li>`, and ` ```js ` produced a `CodeNode`. Headings, lists, links, quotes and
   markdown shortcuts all work.
 
-  What is wrong is one measured defect and three architectural facts.
+  **The measured defect.** A code block computes `display: inline` with pill padding — the
+  `[&_code]` rule for inline code landing on a code block. Lexical keys `code` and `text.code`
+  separately because they are different nodes. `EDITOR_THEME = {}` and styling by tag cannot express
+  that. The comment defending the empty theme produced a place that cannot say what the editor says.
 
-  **The defect.** A code block computes `display: inline` with `padding: 2px 4px` and a pill
-  background — the `[&_code]` rule written for _inline_ code landing on a code _block_. Lexical's
-  theme has `code` and `text.code` as separate keys precisely because they are different nodes;
-  `note-editor.tsx` sets `EDITOR_THEME = {}` and styles by tag instead, so the distinction cannot be
-  expressed. The comment defending the empty theme — "one place decides what a note looks like" —
-  produced a place that cannot say what the editor says. Element is a lossy projection of node, and
-  anything keyed on tags keeps hitting this.
+  **Theme keys nobody knew existed**, from the theming doc: `list.olDepth` (per-depth ordered
+  markers), `list.nested.listitem`, `listitemChecked` / `Unchecked`, `hr` / `hrSelected`,
+  `blockCursor`, `text.highlight`, `text.capitalize` / `lowercase` / `uppercase`, `codeHighlight`
+  (a Prism token map), `tableSelection`.
 
-  **`registerCodeHighlighting` is deprecated** at 0.49, with `PrismTokenizer`, `CODE_LANGUAGE_MAP`
-  and the language helpers. The obvious fix for missing highlighting lands on a dead API.
-  `CodeExtension` and `CodeIndentExtension` are the live path.
+  **`@lexical/tailwind` exists** (experimental) and answers the 804-char class string directly: it is
+  a theme whose values _are_ Tailwind class strings, keyed per node. That is the shape ours should
+  take — node-keyed, not tag-keyed — and it keeps one place deciding what a note looks like.
 
-  **The Extension API supersedes `LexicalComposer`.** Lexical's docs: prefer extensions over plugins
-  and migrate any project still using `LexicalComposer`. Their shipped `AGENTS.md` says the same.
-  `defineExtension` and `configExtension` come from `lexical` core, so no new dependency. Installed
-  and available at 0.49: `RichTextExtension`, `ListExtension`, `CheckListExtension`, `LinkExtension`,
-  `AutoLinkExtension`, `ClickableLinkExtension`, `CodeExtension`, `HistoryExtension`,
-  `TabIndentationExtension`, `LexicalExtensionComposer`.
+  **`MentionNode` is the documented "before" example.** The nodes doc says outright that on v0.26+
+  you should prefer `NodeState` to properties on subclasses. `$config()` with
+  `stateConfigs: [{flat: true, stateConfig}]` gives byte-identical wire JSON with no hand-written
+  `clone` / `importJSON` / `exportJSON` / `updateFromJSON` — ours has all four plus `__noteId`. The
+  doc recommends ArkType for the `parse` function, which this repo already uses. The migration
+  guide's Keyword example is the same shape as our mention (TextNode, `isTextEntity`,
+  `canInsertTextBefore`), and its all-in version drops React entirely via `registerLexicalTextEntity`
+  from `@lexical/text`. It also moves the class name into extension `config`, which gets the
+  hardcoded Tailwind string out of `mention-node.ts`'s `createDOM` — a `tv`-slot violation that had
+  no fix until now.
 
-  **It can be done incrementally.** `ReactPluginHostExtension` and `mountReactPluginComponent` host
-  legacy React plugins inside an extension editor, so `MentionPlugin` — ours — and
-  `MarkdownShortcutPlugin`, which has no extension yet, both stay put during the move.
-  `OnChangePlugin` becomes a subscription to `EditorStateExtension`.
+  **Highlighting moved packages.** `registerCodeHighlighting`, `PrismTokenizer` and the language
+  helpers are deprecated at 0.49. It is `CodePrismExtension` (`@lexical/code-prism`) or
+  `CodeShikiExtension` (`@lexical/code-shiki`) now, neither installed.
 
-  Order: theme keys first, since that alone fixes the code block and is reversible. Then the
-  composer migration. Then `CodeExtension` for highlighting, which the theme's `codeHighlight` token
-  map is already shaped for.
+  **Markdown: do not move yet.** `@lexical/mdast` is spec-compliant CommonMark+GFM with one grammar
+  shared by import and typing shortcuts, and syntax preserved through `NodeState`. The doc is
+  explicit that `@lexical/markdown` remains the supported default for apps not tracking an
+  experimental API, and mdast costs ~26 kB. Track it; do not adopt it.
+
+  **The Extension API supersedes `LexicalComposer`.** The docs and Lexical's own `AGENTS.md` both say
+  migrate. `defineExtension` and `configExtension` are in `lexical` core, so no new dependency.
+  Installed at 0.49: `RichTextExtension`, `ListExtension`, `CheckListExtension`, `LinkExtension`,
+  `AutoLinkExtension`, `ClickableLinkExtension`, `CodeExtension`, `CodeIndentExtension`,
+  `HistoryExtension`, `TabIndentationExtension`, `LexicalExtensionComposer`. The migration guide's
+  minimal form is a drop-in: `LexicalExtensionComposer` with `contentEditable={null}` and every
+  existing plugin still a child. Extensions also carry `conflictsWith`, optional `peerDependencies`,
+  and `config` / `build` / `register` / `afterRegistration` phases.
+
+  **Packages worth evaluating that we do not use.** `@lexical/a11y` — `FocusManagerExtension`
+  (Alt+F10 to a toolbar, Escape back), `RovingTabIndexExtension`, `AriaLiveRegionExtension`,
+  `HistoryAnnounceExtension`; a canvas of floating editors has real focus-management needs and none
+  of this is built. `SelectBlockExtension` — Cmd+A selects the nearest block first and the document
+  on a second press, which matters in a note living inside a canvas that has its own select-all.
+  `ClickAfterLastBlockExtension`, `EditorStateExtension` (a signal instead of `OnChangePlugin`),
+  `RootElementExtension`, `WatchEditableExtension`, `IMEExtension`. `@lexical/headless` may replace
+  `note-text.ts`, which hand-parses serialized JSON structurally. `@lexical/eslint-plugin` lints
+  `$`-function misuse.
+
+  **Correctness notes from the concepts docs, unverified against our code.** Nested updates are
+  "very strongly discouraged" and run deferred. `editor.read` takes
+  `'force-commit' | 'pending' | 'latest'` and the default is not always what a reader wants. A text
+  node must never contain `'\n'` — that is `LineBreakNode`, which `note-text.ts`'s block-type split
+  should be checked against.
+
+  Order: theme keys first — fixes the code block, reversible, no new dependency. Then
+  `LexicalExtensionComposer` in its minimal form, which the guide shows as a drop-in. Then
+  dependencies one at a time. Then `MentionNode` onto `$config` + `NodeState`. Highlighting last,
+  since it needs a package that is not installed.
 
 - **Two things are confirmed present and correctly weighted, not confirmed good.** Window grain
   measures 8.93/255 mean alpha — the 3.5% intended — and 3.5% noise does not survive a downscaled
