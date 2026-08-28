@@ -97,6 +97,32 @@ open because it feels good to look at. Concretely, and these are enforced in rev
 - **Nothing hand-rolled that a maintained library owns.** TanStack (Router, Pacer, Hotkeys,
   Form, Virtual, DB), Base UI, cmdk, ArkType, Legend State, motion, tailwind-variants.
 
+**Swept in the running app on 2026-08-28, and the measurable half of this bar is met.** Recorded
+because "nobody measured" is how the four cascade defects above survived, and a dated clean sweep is
+worth more than the next reader assuming one happened.
+
+Every element carrying an arbitrary `text-[Npx]`, a `justify-*` or a `font-*` utility was compared
+against its own computed value: **zero mismatches**, across the three shapes all four instances took.
+The rail rows in particular draw at the 12.5px they declare, which is the exact regression the
+`font: inherit` reset caused, so that fix has held.
+
+Motion holds too, and the first reading of it was wrong. Every CSS transition in the live DOM uses
+`cubic-bezier(0.32, 0.72, 0, 1)` — `--ease-swift`, from `--default-transition-timing-function` —
+and none uses a linear ramp. `--ease-settle` appears in no computed style, which looks like a dead
+token and is not: spatial motion does not run on CSS transitions at all. `HudSurface` animates with
+a Framer spring (`damping: 30, mass: 0.6, stiffness: 420`) and the field integrates its own settle
+term, so "things that move in space settle, state changes are swift" is satisfied by two mechanisms
+rather than one, and only one of them is visible to `getComputedStyle`.
+
+**One question this bar does not answer, left open rather than decided.** It says surfaces separate
+by "being lighter than the ground, casting a layered shadow, and carrying a specular hairline on the
+top edge". Window frames do exactly that — measured at `oklch(0 0 0 / 0.44) 0 2px 4px` plus
+`oklch(0 0 0 / 0.36) 0 12px 32px`. HUD surfaces do not: the library rail and the overview both sit on
+`--surface` with a full `inset-ring-1` at `oklch(1 0 0 / 0.07)` and no shadow at all — a ring on four
+sides rather than a hairline on one, which is nearer the `border: 1px solid white/8%` this bar
+forbids than the treatment it prescribes. That may be a deliberate screen-space-versus-world-space
+distinction; nothing writes it down either way, which is the only reason it is here.
+
 ## Now
 
 - [x] **Disconnecting two items destroys authored content, and nothing can bring it back.**
