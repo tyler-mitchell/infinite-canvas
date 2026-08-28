@@ -1,5 +1,6 @@
 import { observable } from "@legendapp/state";
 
+import { setProjectItemContent } from "../content/project-content";
 import type { ContentItemRecord } from "../database/database.client";
 import {
   collectionGateway,
@@ -111,6 +112,15 @@ async function setCollectionQuestion(
   });
 
   collections$[input.collectionId].collection.set(saved);
+  /*
+   * And into the listing, because a rename reads the question back out of it.
+   *
+   * `rename-item.ts` passes `question: collection.content` through unchanged, so that renaming does
+   * not empty the collection in the same write — and it takes that item from the project listing.
+   * With the listing holding the question this write replaced, changing a question and then renaming
+   * put the old one back, silently. The note store folds here for the same reason one layer over.
+   */
+  setProjectItemContent(input.collectionId, saved.content);
   await refreshCollection(input);
 }
 
