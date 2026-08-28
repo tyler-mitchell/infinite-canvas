@@ -29,6 +29,7 @@ import type { WindowKind } from "./window-registry";
 type Recorder = Readonly<{
   actions: InfiniteCanvasCommands<WindowKind>;
   commands: InfiniteCanvasCommand[];
+  navigations: unknown[];
   opened: InfiniteCanvasWindow<WindowKind>[];
 }>;
 
@@ -41,14 +42,17 @@ type Recorder = Readonly<{
  */
 const recorder = (): Recorder => {
   const commands: InfiniteCanvasCommand[] = [];
+  const navigations: unknown[] = [];
   const opened: InfiniteCanvasWindow<WindowKind>[] = [];
 
   return {
     actions: {
       executeCommand: (command: InfiniteCanvasCommand) => commands.push(command),
+      navigateToRect: (request: unknown) => navigations.push(request),
       openWindow: (window: InfiniteCanvasWindow<WindowKind>) => opened.push(window),
     } as unknown as InfiniteCanvasCommands<WindowKind>,
     commands,
+    navigations,
     opened,
   };
 };
@@ -156,4 +160,38 @@ test("a caller that knows where the window goes keeps that rect exactly", () => 
   });
 
   expect(opened[0]?.rect).toEqual(rect);
+});
+
+test("a window that would open too small to use brings the camera with it", () => {
+  // At 36% a 360×240 note is 86px on its short axis: summary, so no editor.
+  const { actions, navigations } = recorder();
+  const zoomedOut = { ...canvasWith([]), camera: { center: { x: 0, y: 0 }, zoom: 0.36 } };
+
+  openContentWindow({
+    actions,
+    data: { itemId: "content_item:tiny" },
+    kind: "note",
+    minSize: MIN_SIZE,
+    size: SIZE,
+    state: zoomedOut,
+    title: "Tiny",
+  });
+
+  expect(navigations).toHaveLength(1);
+});
+
+test("a window that opens readable is left where the camera already was", () => {
+  const { actions, navigations } = recorder();
+
+  openContentWindow({
+    actions,
+    data: { itemId: "content_item:readable" },
+    kind: "note",
+    minSize: MIN_SIZE,
+    size: SIZE,
+    state: canvasWith([]),
+    title: "Readable",
+  });
+
+  expect(navigations).toEqual([]);
 });

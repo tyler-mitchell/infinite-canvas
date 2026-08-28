@@ -3,6 +3,7 @@ import {
   getInfiniteCanvasContentWorldRect,
   getInfiniteCanvasOccluderWorldRects,
   getInfiniteCanvasVacantRect,
+  getInfiniteCanvasWindowDetailLevel,
   getInfiniteCanvasWindowPlacementRect,
   isInfiniteCanvasWindowInActiveWorkspace,
   type InfiniteCanvasCommands,
@@ -165,16 +166,24 @@ function openContentWindow<Kind extends WindowKind>(
     return;
   }
 
+  const rect = input.rect ?? getPlacedRect(input);
+
   input.actions.openWindow(
     createInfiniteCanvasWindow<WindowKind, WindowData[Kind]>({
       data: input.data,
       id: globalThis.crypto.randomUUID(),
       kind: input.kind,
       minSize: input.minSize,
-      rect: input.rect ?? getPlacedRect(input),
+      rect,
       title: input.title,
     }),
   );
+
+  // Zoomed out far enough and the new window renders its summary — a note with no editor in it.
+  // Capped at 1 because fitting a note edge to edge is 300%.
+  if (getInfiniteCanvasWindowDetailLevel(rect, input.state.camera.zoom) === "summary") {
+    input.actions.navigateToRect({ behavior: { maxZoom: 1, paddingPx: 64, type: "fit" }, rect });
+  }
 }
 
 export { openContentWindow };
