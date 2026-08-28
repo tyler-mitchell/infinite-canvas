@@ -3,8 +3,17 @@ import { observable } from "@legendapp/state";
 /**
  * Read a content item once, however many windows show it.
  *
- * Read-only on purpose: `note-store` and `collection-store` hold records too, but they have
- * debounced revision-guarded writers. This is for kinds whose content never changes after creation.
+ * Read-only on purpose: `note-store` holds records too, but it has a debounced revision-guarded
+ * writer. This is for kinds whose content never changes after creation.
+ *
+ * **Read `content` from here. Never read `title`.** The record this caches carries a title, and that
+ * title *does* change: a rename writes storage, folds `projectContent$` and sets the window chrome,
+ * and nothing tells this cache — it is read-once by design. `link-window` drew its name from here
+ * and, once renamed, showed the old one in its own bar while the chrome directly above it showed the
+ * new one. Driven 2026-08-28: storage and chrome said "Third Name", the bar said "New Link Name".
+ *
+ * The listing is where a title has its single owner, which `renameProjectItem` states and this is
+ * the fourth place that quietly held one anyway.
  */
 
 type ContentEntry<Item> = Readonly<{

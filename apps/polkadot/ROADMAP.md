@@ -61,6 +61,24 @@ strictly greater than 160 — a kind sitting exactly on it demotes and never ret
 
 ## Open
 
+- **A renamed link kept its old name in its own bar, and the accessible name with it.**
+  `createContentCache` is read-once — right for the bytes of a picture and the address of a link, and
+  wrong for a title, which a rename changes. A rename writes storage, folds `projectContent$` and
+  sets the window chrome; nothing tells the cache. `renameProjectItem` counts three places that hold
+  a name and calls missing one "right in some surfaces and stale in others". The cache was a fourth.
+
+  Driven 2026-08-28: storage and the window chrome read "Third Name" while the link's own bar, one
+  line below the chrome, read "New Link Name". Proven by reverting the fix and renaming again.
+
+  The name comes from the listing now, with no fallback to the cached one — a fallback is the same
+  stale name by a quieter route, and the two states it would cover are the two the guards already
+  answer. An unanswered listing is "Loading", and an item the listing has answered and does not hold
+  is gone, which is the collection window's rule too.
+
+  **The scan found a second one the fix had missed**: the `iframe`'s `title`, the frame's accessible
+  name, still read the cached record — the half nobody would ever have seen go stale. Images are
+  clean: that window renders `content.description` and `content.source` and never a title.
+
 - **A collection showed the project as it was when the window opened, and now derives instead.**
   `resolved$` cached each collection's answer and `refreshCollection` filled it on open and on
   question change — nowhere else. Driven 2026-08-28: four notes stored, three rows drawn, the fourth

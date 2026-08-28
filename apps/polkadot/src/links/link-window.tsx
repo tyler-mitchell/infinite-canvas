@@ -4,6 +4,9 @@ import { useEffect } from "react";
 import { Button } from "ui";
 import { tv } from "ui/tv";
 
+import { useLoaderData } from "@tanstack/react-router";
+
+import { getProjectContent, projectContent$ } from "../content/project-content";
 import { createContentCache } from "../database/content-cache";
 import { linkGateway, type LinkRecord } from "./link-gateway";
 
@@ -67,21 +70,47 @@ const linkWindow = tv({
 
 export function LinkWindowBody({ linkId }: Readonly<{ linkId: string }>) {
   const entry = useValue(links.entries$[linkId]);
+  // `renderBody` hands over a window and nothing else, so the route is read rather than passed.
+  const { projectId } = useLoaderData({ from: "/canvas/$canvasId" });
+  const listing = useValue(projectContent$);
   const styles = linkWindow();
 
   useEffect(() => {
     links.ensureLoaded(linkId);
   }, [linkId]);
 
-  if (entry === undefined || entry.status === "loading") {
+  const items = getProjectContent(listing, projectId);
+
+  if (entry === undefined || entry.status === "loading" || items === null) {
     return <div className={styles.notice()}>Loading…</div>;
   }
 
-  if (entry.status === "error" || entry.record === null) {
-    return <div className={styles.notice()}>{entry.error ?? "Could not open this link."}</div>;
+  /*
+   * The listing decides whether this link is still here, the cache decides whether it could be read.
+   *
+   * An item the listing has answered and does not hold is archived or gone, which is the collection
+   * window's rule too — and it is what lets the name below come from one place.
+   */
+  const listed = items.find((item) => item.id === linkId);
+
+  if (entry.status === "error" || entry.record === null || listed === undefined) {
+    return <div className={styles.notice()}>{entry.error ?? "This link no longer exists."}</div>;
   }
 
   const { host, url } = entry.record.content;
+  /*
+   * The name comes from the listing, and only from there.
+   *
+   * `createContentCache` is read-once — right for an address, which never changes, and wrong for a
+   * title, which does. A rename writes storage, folds the listing and sets the window chrome, and
+   * nothing tells the cache; the bar then said the old name while the chrome directly above it said
+   * the new one. Driven: storage and chrome read "Third Name", this bar read "New Link Name".
+   *
+   * No fallback to the cached title. A fallback is the same stale name arriving by a quieter route,
+   * and the two states it would cover — the listing unanswered, the item gone — are the two the
+   * guards above already answer.
+   */
+  const title = listed.title;
   const hue = getHostHue(host);
   // No host means the string never parsed, so there is nothing to load and nowhere to open.
   const isAddress = host !== "";
@@ -100,7 +129,7 @@ export function LinkWindowBody({ linkId }: Readonly<{ linkId: string }>) {
           {isAddress ? getHostInitial(host) : "?"}
         </span>
         <span className={styles.identity()}>
-          <span className={styles.name()}>{entry.record.title}</span>
+          <span className={styles.name()}>{title}</span>
           <span className={styles.address()}>{isAddress ? url : "Not a link"}</span>
         </span>
         {isAddress ? (
@@ -147,7 +176,9 @@ export function LinkWindowBody({ linkId }: Readonly<{ linkId: string }>) {
           // A page that refuses to embed, or fails to resolve, paints the browser's own blank
           // document. Dark keeps that from flashing white on a dark canvas.
           style={{ colorScheme: "dark" }}
-          title={entry.record.title}
+          // The frame's accessible name, from the same one owner as the visible one above it. This
+          // read the cached record and was the half nobody would have seen going stale.
+          title={title}
         />
       ) : null}
     </div>
