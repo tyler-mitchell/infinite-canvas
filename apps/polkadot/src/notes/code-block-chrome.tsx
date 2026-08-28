@@ -1,12 +1,12 @@
-import { $isCodeNode, CodeNode } from "@lexical/code";
+import { $createCodeNode, $isCodeNode, CodeNode } from "@lexical/code";
 import {
   getCodeLanguageOptions,
   loadCodeLanguage,
   normalizeCodeLanguage,
 } from "@lexical/code-shiki";
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
-import { $getNodeByKey, $getRoot, type LexicalEditor } from "lexical";
-import { Check, ChevronDown, Copy } from "lucide-react";
+import { $createTextNode, $getNodeByKey, $getRoot, type LexicalEditor } from "lexical";
+import { Check, ChevronDown, Copy, CopyPlus, MoreHorizontal, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import {
   Button,
@@ -17,9 +17,12 @@ import {
   CommandList,
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuItem,
   DropdownMenuTrigger,
 } from "ui";
 import { tv } from "ui/tv";
+
+import { FLOATING_SURFACE } from "#/material";
 
 /**
  * The language picker and copy control a code block carries, in the corner Notion puts them.
@@ -36,7 +39,7 @@ const chrome = tv({
     frame: "pointer-events-none absolute",
     label: "font-mono text-[11px] text-[var(--ink-muted)]",
     languageRow: "flex max-h-[18rem] flex-col overflow-hidden",
-    row: "pointer-events-auto absolute top-1.5 right-1.5 flex items-center gap-0.5 opacity-0 transition-opacity duration-100 ease-[var(--ease-swift)] group-hover/note:opacity-100 focus-within:opacity-100",
+    row: `${FLOATING_SURFACE} pointer-events-auto absolute top-1.5 right-1.5 flex items-center gap-0.5 rounded-[8px] p-0.5 opacity-0 transition-opacity duration-100 ease-[var(--ease-swift)] group-hover/note:opacity-100 focus-within:opacity-100`,
     tick: "ml-auto size-3 text-[var(--accent)]",
   },
 });
@@ -133,6 +136,52 @@ function LanguagePicker({ editor, nodeKey }: Readonly<{ editor: LexicalEditor; n
   );
 }
 
+function BlockMenu({ editor, nodeKey }: Readonly<{ editor: LexicalEditor; nodeKey: string }>) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        render={
+          <Button aria-label="Code block options" size="icon-sm" variant="ghost">
+            <MoreHorizontal />
+          </Button>
+        }
+      />
+      <DropdownMenuContent align="end">
+        <DropdownMenuItem
+          onClick={() => {
+            editor.update(() => {
+              const node = $getNodeByKey(nodeKey);
+
+              if (!$isCodeNode(node)) {
+                return;
+              }
+
+              const copy = $createCodeNode(node.getLanguage());
+
+              copy.append($createTextNode(node.getTextContent()));
+              node.insertAfter(copy);
+            });
+          }}
+        >
+          <CopyPlus />
+          Duplicate
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          onClick={() => {
+            editor.update(() => {
+              $getNodeByKey(nodeKey)?.remove();
+            });
+          }}
+          variant="destructive"
+        >
+          <Trash2 />
+          Delete
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
 export function CodeBlockChrome() {
   const [editor] = useLexicalComposerContext();
   const [placements, setPlacements] = useState<readonly BlockPlacement[]>([]);
@@ -191,6 +240,7 @@ export function CodeBlockChrome() {
             >
               <Copy />
             </Button>
+            <BlockMenu editor={editor} nodeKey={placement.key} />
           </div>
         </div>
       ))}
