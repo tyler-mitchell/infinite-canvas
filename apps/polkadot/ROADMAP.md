@@ -1379,6 +1379,12 @@ Measured, so the shape of the ask is grounded rather than imagined:
   selection's `windowIds` and `anchorWindowId` and never its `targets`. So a selected scene object
   that no longer exists survives every reload — the exact failure reconciliation's own comment says
   it exists to prevent, stated there about windows.
+  Driven rather than read, in `selection-target-lifetime.test.ts`: a target naming nothing survives
+  `normalizeSelection` and a serialize-and-hydrate round trip, while a dead **window** id sitting in
+  the same selection is dropped on the way through. That asymmetry is the finding — the framework
+  prunes exactly what it can verify and keeps exactly what it cannot, and a consumer reading only
+  the target half would reasonably assume selection is cleaned uniformly. Those assertions pin a
+  contract rather than a bug, and want rewriting rather than deleting on the day the surface lands.
 
 Storing the answers in state instead is the tempting shortcut and is wrong by this file's own
 standards: a rect copied onto a selection target is stale the moment the object moves, and
