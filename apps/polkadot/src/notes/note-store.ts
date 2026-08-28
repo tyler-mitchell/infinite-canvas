@@ -133,8 +133,16 @@ function editNote(noteId: string, draft: NoteDraft, gateway: NoteGateway) {
         // Only the revision is folded back. Replacing the whole record would clobber whatever was
         // typed while the write was in flight.
         notes$[noteId].note.revision.set(saved.revision);
-        // And into the listing, which a rename reads the revision from — see
-        // `setProjectItemRevision`. Without it, writing a closed note then renaming it is refused.
+        /*
+         * And into the listing, which seeds this store for a note nothing has opened.
+         *
+         * Narrower than the collection case, and worth stating exactly: a note already in `notes$`
+         * writes with the store's revision, so most renames never consult the listing at all.
+         * `seedFromHeldRecord` reads it only when the store has no entry — a fresh session, or after
+         * `stopNoteWriters` — and then a stale listing revision is what the first write carries.
+         * Not observed: constructing it needs a store reset between two writes, and the collection
+         * path is where the conflict was actually measured.
+         */
         setProjectItemRevision(noteId, saved.revision);
       },
       {
