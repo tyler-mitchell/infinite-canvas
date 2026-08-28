@@ -155,11 +155,26 @@ function getWindow(state: InfiniteCanvasState<CardKind>, windowId: string) {
   return state.windows.find((window) => window.id === windowId) ?? null;
 }
 
-function selectedConnectionId(state: InfiniteCanvasState<CardKind>): string | null {
+/**
+ * Resolved against the links that exist, not read straight off the selection.
+ *
+ * The canvas never prunes `selection.targets` — it has no idea what a consumer's edges are — and
+ * `selection` is part of the durable document, so a target naming a deleted link is kept and
+ * restored. Returning `target.id` unchecked made "Delete link" appear for a link that is not on
+ * this board: switching workspaces swaps `connections` without clearing the selection, so the id
+ * survived into a board that never had it, and the button deleted nothing.
+ */
+function selectedConnectionId(
+  state: InfiniteCanvasState<CardKind>,
+  connections: readonly Connection[],
+): string | null {
   const target = getSelectionTargets(state.selection).find(
     (candidate) => candidate.type === "edge" && candidate.kind === "workflow-link",
   );
-  return target?.id ?? null;
+
+  return connections.some((connection) => connection.id === target?.id)
+    ? (target?.id ?? null)
+    : null;
 }
 
 function WorkflowBoardShowcase() {
@@ -189,7 +204,7 @@ function WorkflowBoardShowcase() {
           frameloop: "demand",
           id: "workflow-links",
           render: (context) => {
-            const selectedId = selectedConnectionId(context.state);
+            const selectedId = selectedConnectionId(context.state, connections);
             return (
               <group>
                 {connections.map((connection) => {
@@ -298,7 +313,7 @@ function BoardOverlay({
   workspaceId: WorkspaceId;
 }) {
   exposeCanvasDevHandle(context);
-  const selectedId = selectedConnectionId(context.state);
+  const selectedId = selectedConnectionId(context.state, connections);
 
   return (
     <div className="pointer-events-none absolute inset-0 z-[65]">

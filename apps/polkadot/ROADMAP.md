@@ -1397,6 +1397,16 @@ Measured, so the shape of the ask is grounded rather than imagined:
   Recorded because the first reading of this was wrong: it was written up as a live product defect
   for Polkadot to fix, on the strength of the framework behaviour alone, without checking what the
   app does with a target once it has one.
+  The audit that followed is short and worth keeping. Polkadot reads edge selection in exactly two
+  places and both are safe by different mechanisms — `getSelectedRelations` resolves target ids
+  against live relations, and the connector layer asks `isSelectionTargetSelected` about a relation
+  it is already drawing, so a dead target is never enumerated. It registers no scene-object
+  resolver at all, so that half of the target model does not arise here.
+  **The playground was the one exposed, which is worse than the app being exposed.** Its
+  `selectedConnectionId` returned the target's id unchecked, so a "Delete link" button appeared for
+  a link that is not on the board: switching workspaces swaps the connections without clearing the
+  selection, and the id survived into a board that never had it. Fixed there by resolving, because
+  a showcase is where a consumer learns the pattern, and it was teaching the unresolved one.
 
 Storing the answers in state instead is the tempting shortcut and is wrong by this file's own
 standards: a rect copied onto a selection target is stale the moment the object moves, and
