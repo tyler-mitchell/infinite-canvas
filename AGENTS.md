@@ -77,6 +77,12 @@ a comment that repeats them is noise in every search result and symbol lookup th
 
 This applies to prose in tests exactly as it does to source.
 
+## Naming
+
+A parameter, property or local takes its name from its type or from the prop that already carries
+the same value. `readonly InfiniteCanvasHotkeyAction[]` is `hotkeyActions`, which is what the
+viewport prop is called. Never coin a new word for a thing already named.
+
 ## Commit messages
 
 [Conventional Commits](https://www.conventionalcommits.org/), read as written.

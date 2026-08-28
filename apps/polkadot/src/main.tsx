@@ -2,6 +2,7 @@ import { RouterProvider, createRouter } from "@tanstack/react-router";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 
+import { installLocalDatabaseHandle } from "./database/inspector-handle";
 import { routeTree } from "./routeTree.gen";
 import "./styles.css";
 
@@ -29,6 +30,9 @@ declare module "@tanstack/react-router" {
     router: typeof router;
   }
 }
+
+// Dev only, and before render: an agent asking the database a question should not have to navigate.
+installLocalDatabaseHandle();
 
 const root = document.getElementById("root");
 
