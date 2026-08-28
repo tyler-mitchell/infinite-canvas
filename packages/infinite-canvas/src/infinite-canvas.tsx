@@ -153,13 +153,8 @@ type InfiniteCanvasDesktopProps<
   documentKey?: string;
   dropPolicy?: InfiniteCanvasDropPolicy<Kind, Payload>;
   /**
-   * Chords this consumer claims for verbs the canvas does not have.
-   *
-   * Added to the canvas's own keymap rather than replacing it, which is what separates this from
-   * `hotkeyBindings`. Reach for it whenever the thing a key should act on is yours — a connector,
-   * an annotation, a region — since the canvas can select those and has no idea what to do with
-   * one. The scope rules are the canvas's either way: a chord that lands inside a window body or
-   * mid-composition is not yours, and this will not fire there.
+   * Chords for verbs the canvas does not have. Added to its keymap, unlike `hotkeyBindings` which
+   * replaces. Canvas scope rules apply, so a chord in a window body does not fire.
    */
   hotkeyActions?: readonly InfiniteCanvasHotkeyAction<Kind>[];
   hotkeyBindings?: readonly InfiniteCanvasHotkeyBinding[];
@@ -169,17 +164,8 @@ type InfiniteCanvasDesktopProps<
   inputPolicy?: InfiniteCanvasInputPolicy;
   rasterization?: InfiniteCanvasRasterizationPolicyInput | boolean;
   /**
-   * Replaces the default grid, beneath every window.
-   *
-   * `renderOverlay`'s counterpart: same context, opposite side of the window plane. Without it
-   * the canvas draws `InfiniteCanvasGridBackdrop`, which is a plain adaptive lattice — right for
-   * most canvases and wrong for any consumer whose ground *is* the product: a map's tiles, a
-   * document's page, a photographic reference, a field that reacts to what sits on it.
-   *
-   * Rendered inside the viewport and outside the world transform, so a consumer projects with
-   * `worldPointToScreenPoint` and friends rather than inheriting a scale. It never takes pointer
-   * events — the canvas beneath must stay grabbable — so a backdrop that needs interaction wants
-   * a scene layer or a spatial target resolver instead.
+   * Replaces the default grid, beneath every window. Outside the world transform, so project with
+   * `worldPointToScreenPoint`. Takes no pointer events.
    */
   renderBackdrop?: (context: InfiniteCanvasOverlayReadContext<Kind, Payload>) => ReactNode;
   /** World content beneath the windows: connectors, annotations, ink. Above the backdrop. */
@@ -187,9 +173,9 @@ type InfiniteCanvasDesktopProps<
   renderOverlay?: (context: InfiniteCanvasOverlayRenderContext<Kind, Payload>) => ReactNode;
   sceneLayers?: readonly InfiniteCanvasSceneLayer<Kind, Payload>[];
   /**
-   * The component that paints `sceneLayers`. Pass
-   * `InfiniteCanvasWebGpuSurface` from `@hyphened/infinite-canvas/scene`; without
-   * it, scene layers are inert and `three` never enters your bundle.
+   * Paints `sceneLayers`. Pass `InfiniteCanvasWebGpuSurface` from
+   * `@hyphened/infinite-canvas/scene`. Without it, scene layers are inert and `three` stays out
+   * of the bundle.
    */
   sceneSurface?: InfiniteCanvasSceneSurface<Kind, Payload>;
   snapPolicy?: InfiniteCanvasSnapPolicy;
@@ -209,79 +195,39 @@ type InfiniteCanvasViewportProps<
   chrome?: InfiniteCanvasChromeMetricsInput;
   className?: string;
   diagnostics?: InfiniteCanvasDiagnosticsPolicy;
-  /**
-   * Screen space this consumer's own chrome covers, per edge.
-   *
-   * The canvas fills its element, so a sidebar, an inspector, or a docked panel drawn on top of it
-   * is invisible to every camera decision — fitting and centring aim at the middle of the element
-   * and put content behind the panel. Naming the edges here is what lets them aim at the middle of
-   * what the user can actually see.
-   */
+  /** Screen space the consumer's chrome covers, per edge. Without it, fitting aims at the element
+   * middle and puts content behind a panel. */
   viewportInsets?: InfiniteCanvasViewportInsetsInput;
   /**
-   * Chrome drawn *inside* the content area rather than bracketing it, as screen-space rects.
-   *
-   * An inset is one number per edge, so it can only describe a band. A minimap in a corner or a
-   * toolbar floating over the middle has to be overstated as a full-width strip — which writes off
-   * a band of canvas nothing is actually covering — or left undeclared, which puts windows under
-   * it. Name the rect instead and placement steps around the real shape while framing keeps aiming
-   * at the whole content region.
-   *
-   * Memoize an inline array, the same rule `windowDefinitions` carries: this is depended on by
-   * identity, because a list of rects has no fixed set of fields to depend on one at a time.
+   * Chrome inside the content area, as screen rects. An inset is one number per edge and only
+   * describes a band, so a floating minimap needs this. Placement steps around these; framing
+   * ignores them. Memoize an inline array — depended on by identity.
    */
   viewportOccluders?: readonly InfiniteCanvasViewportOccluder[];
   dropPolicy?: InfiniteCanvasDropPolicy<Kind, Payload>;
   /**
-   * The sizes a group's chrome is solved from: tab strip height, split seam width, accordion
-   * header extent. Each optional.
-   *
-   * Reaches the store rather than the layer, because the reducer places member windows from the
-   * same value — a strip drawn at one height over panes placed for another is the failure this
-   * avoids by construction.
+   * Tab strip height, split seam width, accordion header extent. Goes to the store, not the layer
+   * — the reducer places member windows from the same value.
    */
   groupMetrics?: InfiniteCanvasGroupMetricsInput;
   /**
-   * Names the frame label drawn above a group.
-   *
-   * Defaults to `getInfiniteCanvasGroupTitle`, which uses a named group's title and otherwise names
-   * it after its members. `groupTabLabel` had this and the frame did not, so the frame's policy was
-   * the framework's alone — and the two are not always the same question. Over a tab strip the
-   * default repeats the strip verbatim, since the strip already lists exactly those member names,
-   * and a consumer had no way to say so.
-   *
-   * Returning `""` draws no label for that group, which is how to opt out per group rather than
-   * turning every label off with `chrome.groupLabelSize`.
+   * Frame label above a group. Defaults to `getInfiniteCanvasGroupTitle`. Return `""` for no
+   * label; `chrome.groupLabelSize` turns them all off.
    */
   groupLabel?: (
     context: Readonly<{ group: InfiniteCanvasGroup; windows: readonly InfiniteCanvasWindow[] }>,
   ) => string;
-  /**
-   * Names a group's tabs and accordion headers.
-   *
-   * Defaults to `getInfiniteCanvasGroupTabLabel`, which uses the window's `title`. Replace it to
-   * label by kind, by a domain record the window's `data` points at, or by anything else — a
-   * consumer's titles are its own, and a tab strip is where they are read most.
-   */
+  /** Tab and accordion header names. Defaults to the window's `title`. */
   groupTabLabel?: InfiniteCanvasGroupTabLabel;
-  /** Chords this consumer claims for verbs the canvas does not have. Added to its keymap, never replacing it. */
+  /** Chords for verbs the canvas does not have. Added to its keymap, never replacing it. */
   hotkeyActions?: readonly InfiniteCanvasHotkeyAction<Kind>[];
   hotkeyBindings?: readonly InfiniteCanvasHotkeyBinding[];
   hud?: InfiniteCanvasHudPolicyInput;
   icons?: InfiniteCanvasIcons;
   inputPolicy?: InfiniteCanvasInputPolicy;
   /**
-   * Replaces the default grid, beneath every window.
-   *
-   * `renderOverlay`'s counterpart: same context, opposite side of the window plane. Without it
-   * the canvas draws `InfiniteCanvasGridBackdrop`, which is a plain adaptive lattice — right for
-   * most canvases and wrong for any consumer whose ground *is* the product: a map's tiles, a
-   * document's page, a photographic reference, a field that reacts to what sits on it.
-   *
-   * Rendered inside the viewport and outside the world transform, so a consumer projects with
-   * `worldPointToScreenPoint` and friends rather than inheriting a scale. It never takes pointer
-   * events — the canvas beneath must stay grabbable — so a backdrop that needs interaction wants
-   * a scene layer or a spatial target resolver instead.
+   * Replaces the default grid, beneath every window. Outside the world transform, so project with
+   * `worldPointToScreenPoint`. Takes no pointer events.
    */
   renderBackdrop?: (context: InfiniteCanvasOverlayReadContext<Kind, Payload>) => ReactNode;
   /** World content beneath the windows: connectors, annotations, ink. Above the backdrop. */
@@ -300,27 +246,15 @@ type InfiniteCanvasViewportProps<
 }>;
 
 const SCENE_SCREEN_UNDERLAY_Z_INDEX = 1;
-/**
- * Group chrome sits under the windows. It never fights them for stacking: the
- * solver gives tab strips and gutters their own rects and places members in what
- * is left, so the two are disjoint by construction.
- */
-/**
- * DOM content in the world, beneath the windows.
- *
- * Above both scene underlays, below the group and window layers. Connectors, annotations, and ink
- * all want this band, and without it a consumer had two options: replace the whole backdrop and
- * lose the grid, or take on `three` for the scene surface.
- */
+/** Connectors, annotations, ink. */
 const UNDERLAY_Z_INDEX = 2;
 const GROUP_LAYER_Z_INDEX = 5;
-/** Above every band, because portalled content is what escapes the window plane. */
 const PORTAL_ROOT_Z_INDEX = DEFAULT_INFINITE_CANVAS_STACK_BANDS.overlay + 1;
 const WINDOW_LAYER_Z_INDEX = 10;
 const SCENE_OVERLAY_Z_INDEX = DEFAULT_INFINITE_CANVAS_STACK_BANDS.overlay - 10;
 const SCENE_SCREEN_OVERLAY_Z_INDEX = DEFAULT_INFINITE_CANVAS_STACK_BANDS.overlay - 9;
 
-/** Theme field → `--icx-*` custom property, mirroring theme.css's bridged token block. */
+/** Mirrors theme.css's bridged token block. */
 const INFINITE_CANVAS_THEME_VARIABLES: Readonly<Record<keyof InfiniteCanvasTheme, string>> = {
   activeAccent: "--icx-active-accent",
   activeBorder: "--icx-active-border",
@@ -335,11 +269,6 @@ const INFINITE_CANVAS_THEME_VARIABLES: Readonly<Record<keyof InfiniteCanvasTheme
   selectionBounds: "--icx-selection-bounds",
 };
 
-/**
- * Inline `--icx-*` overrides for exactly the theme keys the consumer
- * provided. The default look stays in theme.css, so no vars are emitted
- * when the theme prop is omitted.
- */
 function getInfiniteCanvasThemeVariables(
   theme: Partial<InfiniteCanvasTheme> | undefined,
 ): CSSProperties | undefined {
@@ -362,11 +291,6 @@ function getInfiniteCanvasThemeVariables(
   return variables;
 }
 
-/**
- * Scene layers without a `sceneSurface` render nothing, and nothing about that
- * is obvious from the outside — the windows still work, the layers just never
- * appear. Pure so it can be tested without a renderer.
- */
 function getInfiniteCanvasMissingSceneSurfaceWarning(
   sceneLayerCount: number,
   frustumDiagnostics: boolean,
@@ -394,23 +318,9 @@ function getInfiniteCanvasMissingSceneSurfaceWarning(
   return null;
 }
 
-/**
- * The one `process` reference in the package, declared locally rather than inherited.
- *
- * This module's tsconfig carries `"types": ["node"]`, so `process` resolved here and the
- * package typechecked — while **leaking a `@types/node` requirement onto every consumer that
- * typechecks this source**. The playground does exactly that (the package is source-linked), and
- * its build failed on `TS2591: Cannot find name 'process'` while the package's own `vp check`
- * stayed green. A browser library must not make its consumers install node types to compile.
- *
- * Declared in module scope, so it shadows the global where one is typed and supplies the type
- * where none is. The literal `process.env.NODE_ENV` token survives, which is the point: every
- * bundler replaces it, and `import.meta.env.DEV` would have traded a node dependency for a
- * Vite one.
- */
+// Local, so the package does not leak a `@types/node` requirement onto consumers.
 declare const process: Readonly<{ env: Readonly<{ NODE_ENV?: string }> }>;
 
-/** Say it once, in development, rather than letting it read as a bug in the layer. */
 function useInfiniteCanvasSceneSurfaceWarning(
   sceneLayerCount: number,
   frustumDiagnostics: boolean,
@@ -611,31 +521,12 @@ function InfiniteCanvasDesktop<Kind extends string, Payload = InfiniteCanvasDrop
 }
 
 /**
- * The canvas itself, mountable without `InfiniteCanvasDesktop`.
- *
- * **Every policy prop defaults here as well as on `Desktop`**, and that duplication is the
- * point rather than an oversight. Until 2026-08-12 nine of them were *required* in their
- * already-resolved form — `chrome`, `diagnostics`, `inputPolicy`, `zoomPolicy`,
- * `sceneLayers`, `spatialTargetResolvers`, `title`, `subtitle`, `windowDefinitions` — while
- * every default and every `resolve*` call lived inside `Desktop`. So this component was
- * documented as exported "for custom shells" and could not actually be mounted by one: a
- * consumer composing `Provider` + `Viewport` had to re-implement `Desktop`'s internals to
- * produce the values it demanded.
- *
- * `Desktop` still passes its own resolved values explicitly, so nothing about mounting it
- * changes; these defaults exist for the direct consumer it claimed to serve.
- */
-/**
- * A drag from outside the page has no pointer, and the drop machinery is keyed by one.
- *
- * Negative because every real `pointerId` is not: the pointer handlers all compare against
- * `current.pointerId`, so a sentinel no device can produce is what keeps a mouse moving during a
- * native drag from being mistaken for that drag.
+ * A drag from outside the page has no pointer, and the drop machinery is keyed by one. Negative
+ * because no real `pointerId` is, so a mouse moving during a native drag cannot be mistaken for it.
  */
 const NATIVE_DROP_POINTER_ID = -1;
 const NATIVE_DROP_INTERACTION_ID = "__infinite-canvas-native-drop__";
 
-/** Where a paste belongs to something else: a field, or anything the user can type into. */
 function isEditableEventTarget(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) {
     return false;
@@ -649,6 +540,7 @@ function isEditableEventTarget(target: EventTarget | null): boolean {
   );
 }
 
+/** The canvas itself, mountable without `InfiniteCanvasDesktop`. Every policy prop defaults here. */
 function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDropPayload>({
   chrome: chromeInput,
   className,
@@ -668,8 +560,6 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
   sceneLayers = [],
   sceneSurface: SceneSurface,
   snapPolicy,
-  // HUD copy, not viewport geometry. Required until 2026-08-12, which meant a consumer
-  // mounting a bare canvas had to invent a product name for it before it would compile.
   subtitle = "",
   spatialTargetResolvers = [],
   theme,
@@ -679,9 +569,6 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
   windowDefinitions,
   zoomPolicy = resolveInfiniteCanvasZoomPolicy(),
 }: InfiniteCanvasViewportProps<Kind, Payload>) {
-  // One token per mounted canvas, shared by the window and group layers so a frame's DOM `id`
-  // and the group tab's `aria-controls` that names it are computed from the same prefix. Two
-  // canvases on one page get disjoint namespaces from their own `useId()`.
   const canvasInstanceId = useId();
   // Field deps, not object identity: an inline `chrome={{ headerHeight: 32 }}` is a new object
   // every render, and window geometry memoizes on this.
@@ -700,7 +587,7 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
   const commandSurfaceRef = useRef<HTMLDivElement | null>(null);
   const spacePanRef = useRef(false);
   const dragCaptureTargetRef = useRef<HTMLElement | null>(null);
-  /** Last pointer position over this viewport, so a paste lands where the user is looking. */
+  /** Last pointer position, so a paste lands where the user is looking. */
   const pastePointRef = useRef<InfiniteCanvasPoint | null>(null);
   const configuredPointerMode = getInfiniteCanvasPointerMode(inputPolicy);
   const [pointerModeOverride, setPointerModeOverride] = useState<InfiniteCanvasPointerMode | null>(
@@ -718,9 +605,6 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
     (state) => state.interaction,
   );
   const pointerMode = pointerModeOverride ?? configuredPointerMode;
-  // Full theme object for the consumers that still need JS color values
-  // (scene layer context, WebGPU surface, host-chrome); DOM styling reads
-  // the `--icx-*` tokens from theme.css instead.
   const resolvedTheme = useMemo<InfiniteCanvasTheme>(
     () => ({ ...DEFAULT_INFINITE_CANVAS_THEME, ...theme }),
     [theme],
@@ -735,14 +619,8 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
         : withInfiniteCanvasPointerMode(inputPolicy, pointerModeOverride),
     [inputPolicy, pointerModeOverride],
   );
-  /*
-   * Whether the idle pointer is over something a consumer registered, tracked here rather than in
-   * the store.
-   *
-   * A store write per pointermove would make every mouse movement across the canvas a state
-   * mutation — and workspace and window mutations are undo checkpoints, so this is the wrong
-   * neighbourhood entirely. It is local, and it only leaves this component as a cursor string.
-   */
+  // Local rather than in the store: a store write per pointermove would make every mouse movement
+  // a state mutation, and mutations are undo checkpoints. Leaves this component as a cursor string.
   const [isOverSelectableTarget, setIsOverSelectableTarget] = useState(false);
   const cursor = getCanvasCursor(
     interaction,
@@ -880,15 +758,8 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
     },
     [chrome, dropPolicy, spatialTargetResolvers, store],
   );
-  /**
-   * Rebuilding a file drag's interaction from a native drag event.
-   *
-   * The same shape as `createDropInteractionFromPointer` and deliberately not folded into it: that
-   * one carries the payload forward from the drag it started, which is right for a consumer's
-   * payload and wrong for this one. A file drag's payload changes between the last `dragover` and
-   * the `drop` — the browser withholds file contents until then — so it is re-read from the
-   * transfer every time rather than remembered.
-   */
+  // Separate from `createDropInteractionFromPointer`, which carries its payload forward. File
+  // contents are withheld until the drop, so the payload is re-read each event.
   const createDropInteractionFromNativeDrag = useCallback(
     (
       current: Extract<InfiniteCanvasDropInteraction<Payload, Kind>, { status: "dragging" }>,
@@ -1011,7 +882,7 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
         viewportPoint,
       });
 
-      // Refused, so the browser keeps its paste rather than the canvas swallowing it.
+      // Refused. Leave the paste to the browser.
       if (interaction.status !== "dragging" || interaction.dropTarget.status !== "valid") {
         return;
       }
@@ -1030,12 +901,6 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
     },
     [actions, chrome, dropPolicy, snapPolicy, spatialTargetResolvers, store],
   );
-  /**
-   * No pointer capture to release, unlike `cancelDropDrag`.
-   *
-   * A native drag never captured one — `NATIVE_DROP_POINTER_ID` is a sentinel no real pointer uses,
-   * and releasing it would throw.
-   */
   const cancelNativeDrag = useCallback(() => {
     dropInteractionRef.current = EMPTY_INFINITE_CANVAS_DROP;
     setDropInteraction(EMPTY_INFINITE_CANVAS_DROP);
@@ -1101,13 +966,7 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
     };
   }, [actions]);
 
-  /*
-   * The consumer's own chrome, declared rather than dispatched.
-   *
-   * Field deps for the same reason `chrome` uses them: an inline `viewportInsets={{ left: 320 }}`
-   * is a new object every render, and this writes to the store — identity deps would dispatch on
-   * every render forever.
-   */
+  // Field deps: an inline object is new every render, and this writes to the store.
   useEffect(() => {
     actions.setGroupMetrics({
       accordionHeaderSize: groupMetrics?.accordionHeaderSize,
@@ -1136,15 +995,8 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
     viewportInsets?.top,
   ]);
 
-  /*
-   * Identity, not fields, unlike the insets above.
-   *
-   * Insets are four numbers and can be depended on one at a time, which is what stops an inline
-   * object literal re-dispatching every render. A list of rects has no fixed shape to enumerate, so
-   * the contract is the other way round: a consumer passing an inline array must memoize it, the
-   * same rule `windowDefinitions` already carries. The dispatch is idempotent in the reducer, so the
-   * cost of getting it wrong is a re-render rather than a loop.
-   */
+  // Identity deps, unlike the insets: a list of rects has no fixed fields. Consumer must memoize.
+  // Dispatch is idempotent, so failing to costs a re-render, not a loop.
   useEffect(() => {
     actions.dispatch({ occluders: viewportOccluders ?? [], type: "viewportOccluders.set" });
   }, [actions, viewportOccluders]);
@@ -1172,18 +1024,13 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
 
     const handleWheel = (event: WheelEvent) => {
       const state = store.state$.peek() as InfiniteCanvasState<Kind>;
-      // A macOS trackpad pinch arrives as a wheel event with `ctrlKey` synthesized,
-      // which is why pinch and Ctrl+wheel are the same code path and always have
-      // been. `metaKey` catches Cmd+wheel on macOS, where the browser would
-      // otherwise page-zoom the whole document out from under the canvas.
+      // A macOS trackpad pinch arrives as a wheel event with `ctrlKey` synthesized, so pinch and
+      // Ctrl+wheel are one path. `metaKey` catches Cmd+wheel, which would otherwise page-zoom.
       const isZoomGesture = event.ctrlKey || event.metaKey;
       const isCanvasTarget = isCanvasWheelTarget(event.target, node);
 
-      // Zoom outranks a scrollable body. An unmodified wheel over a
-      // `native-scroll` body scrolls it; a zoom gesture over that same body zooms
-      // the canvas. Anything else would strand the user: pinch inside a long list
-      // and nothing zooms, with no affordance saying why. The body still owns the
-      // plain wheel, which is the gesture it is actually for.
+      // Zoom outranks a scrollable body: a plain wheel over a `native-scroll` body scrolls it, a
+      // zoom gesture over the same body zooms the canvas.
       if (
         state.viewport.width <= 0 ||
         state.viewport.height <= 0 ||
@@ -1253,17 +1100,9 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
   }, []);
 
   useEffect(() => {
-    // Mount-scoped, and deliberately NOT gated on `interaction`. Gating on it
-    // attaches the listeners only after React commits the pointerdown, so a
-    // pointermove arriving in the same frame is dropped and the window never
-    // moves. Humans never notice — the gap is one frame — but every synthetic
-    // driver does: a `down -> move -> up` sequence in one synchronous block is
-    // exactly how browser-mode tests and automation drive this canvas, and it
-    // silently did nothing. The drop-drag path was fixed this way already.
-    //
-    // `commitInfiniteCanvasState` batches synchronously, so peeking the store at
-    // event time is the only read of the interaction that is never a frame
-    // stale. The handlers no-op while the canvas is idle.
+    // Mount-scoped, not gated on `interaction`. Gating attaches listeners only after React commits
+    // the pointerdown, so a synchronous `down -> move -> up` loses the move. Peeking the store is
+    // the only read that is never a frame stale.
     const getInteractionForPointer = (pointerId: number) => {
       const current = (store.state$.peek() as InfiniteCanvasState<Kind>).interaction;
 
@@ -1318,10 +1157,7 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
   }, [actions, store]);
 
   useEffect(() => {
-    // Mount-scoped, not gated on drag status: startDrag writes
-    // dropInteractionRef synchronously, so pointer events arriving in the
-    // same frame (before React commits the state) must already be heard.
-    // The handlers no-op unless the ref says a drag is active.
+    // Mount-scoped for the same reason: `startDrag` writes the ref synchronously.
     const handlePointerMove = (event: PointerEvent) => {
       const current = dropInteractionRef.current;
 
@@ -1350,7 +1186,7 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
           actions,
           dropTarget: finalDropInteraction.dropTarget,
           payload: finalDropInteraction.payload,
-          // The same object the preview was drawing, not a fresh computation.
+          // The object the preview drew, not a fresh computation.
           placement: finalDropInteraction.placement,
           state: latestState,
           target: finalDropInteraction.dropTarget.target,
@@ -1393,57 +1229,19 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
   ]);
 
   useEffect(() => {
-    /*
-     * A drag from outside the page — files, or a link — through the same pipeline as everything
-     * else.
-     *
-     * The drop system above is driven by pointer events, and a native drag fires none: the browser
-     * sends `dragover` and `drop` carrying a `DataTransfer`, captures no pointer, and handles
-     * cancellation itself. Everything downstream of "a payload is over this world point" is
-     * identical, though — `canDrop`, `placement`, snapping, the guides, the preview a consumer
-     * draws from `drag` — so this translates the native events into the interaction the rest of the
-     * file already understands rather than growing a second pipeline beside it.
-     *
-     * **Which drags count is not decided here.** This admits anything
-     * `getInfiniteCanvasNativeDropPayload` can describe and lets `canDrop` refuse the rest in
-     * flight, which is what it already does for an unwanted file type. Deciding it here instead
-     * meant link drags were swallowed before any policy saw them, and no consumer could opt in.
-     *
-     * Attached to the viewport element, not the window: a file dropped on the app's own chrome is
-     * not a drop on the canvas, and `getViewportPoint` is only meaningful inside this node anyway.
-     */
+    // Native drags become the same interaction the pointer path produces, so `canDrop`,
+    // placement, and snapping work unchanged. On the viewport element, not the window.
     const node = rootRef.current;
 
-    /*
-     * Inert without a `dropPolicy`, and that gate is load-bearing rather than an optimisation.
-     *
-     * With no policy, `canDrop` is absent and validation defaults to accepted — so every canvas
-     * that never asked for file drops would light up as a valid target for any file dragged over
-     * it. Worse, `dragover` has to call `preventDefault` to keep the browser from navigating away
-     * to the dropped file, which would silently take that default away from consumers who have no
-     * handler to replace it with. A canvas that was not told what to do with a file should let the
-     * browser do whatever it did before this existed.
-     */
+    // Inert without a `dropPolicy`: validation defaults to accepted, and `dragover` must
+    // `preventDefault` or the browser navigates to the file.
     if (node === null || dropPolicy === undefined) {
       return;
     }
 
-    /*
-     * `dragenter` and `dragleave` fire for every element the cursor crosses *inside* the canvas, so
-     * a single leave means nothing — dragging across a window fires leave-then-enter and would
-     * cancel the drag mid-flight. Counting depth is the standard answer: the drag is over the
-     * canvas while more enters than leaves have arrived.
-     */
+    // `dragenter`/`dragleave` fire per element crossed inside the canvas, so count depth.
     let depth = 0;
-    /*
-     * One read of the transfer per event, and it decides everything.
-     *
-     * `null` means the drag carries nothing this can describe, and every handler treats that as
-     * "not mine" — which is the whole of the gate. It used to be a separate predicate beside the
-     * builder, and two functions that both answer "does this drag count" can disagree: the
-     * predicate would admit a drag the builder then rendered as an empty payload, and the policy
-     * would be asked about nothing.
-     */
+    // The only gate. `null` means the drag carries nothing describable.
     const readPayload = (event: DragEvent) =>
       getInfiniteCanvasNativeDropPayload(event.dataTransfer) as Payload | null;
     const updateFromDragEvent = (event: DragEvent, payload: Payload) => {
@@ -1453,11 +1251,6 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
         return null;
       }
 
-      /*
-       * The payload is re-read each event rather than carried, because it is not the same object
-       * twice: contents are withheld until the drop, when the browser finally hands them over.
-       * Reusing the drag-time payload on commit would deliver an empty list and an empty string.
-       */
       const next = createDropInteractionFromNativeDrag(current, event, payload);
 
       dropInteractionRef.current = next;
@@ -1486,15 +1279,13 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
         return;
       }
 
-      // Without this the browser handles the drop itself — navigating away to the dropped file or
-      // link, replacing the app.
+      // Or the browser navigates to the file, replacing the app.
       event.preventDefault();
 
       const next = updateFromDragEvent(event, payload);
 
       if (event.dataTransfer !== null) {
-        // What the cursor says the drop will do. `none` is what turns a rejected type into a
-        // cursor that says so, instead of a promise the drop then breaks.
+        // `none` makes the cursor show a rejected type as rejected.
         event.dataTransfer.dropEffect =
           next?.status === "dragging" && next.dropTarget.status === "valid" ? "copy" : "none";
       }
@@ -1538,8 +1329,8 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
       cancelNativeDrag();
     };
 
-    // On the document, since the canvas is not focusable. The editable guard is what keeps a paste
-    // inside a window's editor from being stolen by the canvas.
+    // On the document, since the canvas is not focusable. The editable guard stops the canvas
+    // stealing a paste from a window's editor.
     const handlePaste = (event: ClipboardEvent) => {
       if (event.defaultPrevented || isEditableEventTarget(event.target)) {
         return;
@@ -1603,17 +1394,7 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
           onPointerLeave={() => {
             setIsOverSelectableTarget(false);
           }}
-          /*
-           * Hover feedback for consumer-registered targets, and nothing else.
-           *
-           * Bound only when there are resolvers, so a canvas that registers none never resolves a
-           * thing on pointermove and pays exactly what it did before this existed. Skipped mid-drag
-           * too — during an interaction the cursor is the interaction's, and hit-testing the thing
-           * under a pointer that is busy moving a window answers a question nobody asked.
-           *
-           * The resolve itself is rect tests; the React work is gated on the boolean actually
-           * changing, so sweeping across empty canvas costs no renders.
-           */
+          // Only bound when resolvers exist. Skipped mid-drag.
           onPointerMove={
             spatialTargetResolvers.length === 0
               ? undefined
@@ -1685,24 +1466,8 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
               });
             }
           }}
-          // No `onPointerMove` here, deliberately. This element is an ancestor of every
-          // window frame, so a header drag bubbles into it, and a second
-          // `interaction.step` for the one physical pointermove is dispatched from a
-          // handler that knows nothing about `event.altKey`. `dockIntent` then resolves
-          // to `false` and wipes the `dockPreview` the header just resolved — Alt+drag
-          // silently refuses to dock, decided by whichever of three handlers ran last.
-          //
-          // The mount-scoped `window` listener above is the single source for interaction
-          // steps: it fires for every captured pointer, in one coordinate space, and it
-          // carries the modifier. That was already the intent of the mount-scoped
-          // listener fix; this React handler was the leftover it failed to remove.
-          //
-          // This paragraph was false when it was written, and stayed false for a month.
-          // Four more `onPointerMove` handlers survived that fix — the window header, the
-          // window resize handle, the group resize handle, and the group gutter — so every
-          // pointermove during a drag dispatched twice, and three of the four omitted
-          // `dockIntent`. Removed 2026-08-12, and `single-dispatcher.test.ts` now enforces
-          // what this comment could only assert.
+          // No `onPointerMove`. Window listener is the single dispatcher and carries `dockIntent`.
+          // Second handler double-dispatches. See `single-dispatcher.test.ts`.
           onPointerUp={(event) => {
             releasePointer(event.currentTarget, event.pointerId);
             actions.finishInteraction(event.pointerId);
@@ -1726,15 +1491,8 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
           <div
             data-infinite-canvas-command-scope="surface"
             onKeyDown={(event) => {
-              // `Tab` at the desktop enters the active window's content, and only its content
-              // (FR-9). Left to the browser it would walk document order instead: out of the
-              // active window, through an inactive one's buttons, into a third window's form
-              // — with nothing on screen saying where focus went, because an inactive window
-              // looks inactive either way. `Escape` inside the body brings it back here.
-              //
-              // Shift+Tab is deliberately not claimed. Backing out of the canvas to whatever
-              // precedes it on the page is the one direction a user cannot accomplish any
-              // other way, and a canvas that swallows it is a keyboard trap for the document.
+              // Tab enters the active window's body (FR-9). Escape returns here. Shift+Tab
+              // unclaimed, or the canvas is a keyboard trap.
               if (event.key !== "Tab" || event.shiftKey || state.activeWindowId === null) {
                 return;
               }
@@ -1759,23 +1517,9 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
             }}
             tabIndex={-1}
           />
-          {/* Outside every transform, so `position: fixed` in portalled content
-            resolves against the viewport rather than a scaled window frame. */}
+          {/* Outside every transform, so `position: fixed` resolves against the viewport. */}
           <div
-            /*
-             * Outside the canvas's keyboard scope too, not only its transform.
-             *
-             * This root exists for command palettes, modals, and drag ghosts — and a modal's
-             * defining property is that it owns the keyboard while it is up. But the root lives
-             * inside the viewport element, so without this, every chord typed into portalled
-             * content is a chord "inside the canvas": the canvas swallows Escape for
-             * `desktop.cancel` before the dialog beneath it ever sees one, and the modal cannot be
-             * closed by the key every modal is closed by.
-             *
-             * Found by portalling a real command palette in here and being unable to get out of it.
-             * Marking the root once fixes it for every consumer, rather than making each one
-             * rediscover the trap and remember an incantation on the content they mount.
-             */
+            // Outside the canvas keyboard scope, so a portalled modal gets Escape.
             data-infinite-canvas-command-scope="ignore"
             data-slot={INFINITE_CANVAS_SLOTS.portalRoot}
             ref={setDesktopPortalRoot}
@@ -1915,11 +1659,7 @@ function InfiniteCanvasWindowLayer<Kind extends string>({
   windowDefinitions,
   zIndex = WINDOW_LAYER_Z_INDEX,
 }: Readonly<{
-  /**
-   * Per-canvas token namespacing each frame's DOM `id`, for a group tab's `aria-controls`.
-   * `InfiniteCanvasViewport` mints one with `useId()` and shares it with the group layer so the
-   * two agree. Optional so a standalone `InfiniteCanvasWindowLayer` still works — it mints its own.
-   */
+  /** Namespaces each frame's DOM `id` for a tab's `aria-controls`. Mints its own if omitted. */
   canvasInstanceId?: string;
   chrome: InfiniteCanvasChromeMetrics;
   devicePixelRatio: number;
@@ -1931,12 +1671,8 @@ function InfiniteCanvasWindowLayer<Kind extends string>({
   const fallbackInstanceId = useId();
   const resolvedInstanceId = canvasInstanceId ?? fallbackInstanceId;
   const state = useInfiniteCanvasState<Kind>();
-  // Behind an inactive tab or a collapsed accordion fold. Still members of their
-  // group and still addressable — they simply have no rect to be drawn at.
-  // `windowRects` keys every window a group tree places, which is exactly the set that
-  // must not draw resize handles: the reducer refuses to resize a grouped window, and the
-  // handles straddle its edges, so two adjacent panes would bury the gutter between them
-  // under dead controls and eat the seam drag.
+  // `windowRects` keys every grouped window. Those get no resize handles — handles straddle pane
+  // edges and would bury the gutter.
   const { hiddenWindowIds, windowRects } = useMemo(
     () => getInfiniteCanvasGroupProjection(state.groups, state.groupMetrics),
     [state.groupMetrics, state.groups],
@@ -1952,8 +1688,7 @@ function InfiniteCanvasWindowLayer<Kind extends string>({
         (window): window is InfiniteCanvasWindow<Kind> =>
           window.mode !== "minimized" &&
           !hiddenWindowIds.has(window.id) &&
-          // A workspace is a membership filter and nothing more. `null` admits everything,
-          // so a canvas that never creates one renders exactly what it did before.
+          // `null` means no active workspace, which admits everything.
           (admittedWindowIds === null || admittedWindowIds.has(window.id)) &&
           isRegisteredInfiniteCanvasWindow(windowDefinitions, window),
       ),
@@ -2066,27 +1801,11 @@ function isViewportEventTarget(target: EventTarget | null, viewport: HTMLElement
   return target instanceof Element ? viewport.contains(target) : target === viewport;
 }
 
-/**
- * A line, in pixels, for browsers that report wheel deltas in lines.
- *
- * Not a text line height. It is a *calibration* between two browsers that
- * disagree about what a wheel notch is: Firefox reports `deltaMode = 1` with
- * `deltaY ≈ 3` per notch, Chrome reports pixels at roughly 100 per notch. At the
- * 16 this used to be, one notch moved the canvas 48px in Firefox and ~100px in
- * Chrome — the same physical gesture, half the travel. 40 is the value
- * `normalize-wheel` settled on for exactly this (3 × 40 = 120), and it is the
- * number to change if the feel is wrong, not the arithmetic around it.
- */
+/** Not a text line height. Firefox reports ~3 per notch, Chrome ~100px. 40 matches
+ * `normalize-wheel`. Change this if the feel is wrong. */
 const WHEEL_LINE_HEIGHT_PX = 40;
 
-/**
- * Wheel deltas, in screen pixels, whatever unit the browser chose to report.
- *
- * Page mode is scaled by the viewport rather than by a constant: a page notch
- * should move the canvas by a page. Zoom clamps the result through
- * `zoomPolicy.wheelMaxExponent`, so a page-mode notch saturates to one maximum
- * zoom step instead of teleporting.
- */
+/** Wheel deltas in screen pixels, whatever unit the browser reported. */
 function getWheelScreenDelta(
   event: Pick<WheelEvent, "deltaMode" | "deltaX" | "deltaY">,
   viewport: InfiniteCanvasState["viewport"],
@@ -2121,25 +1840,13 @@ function getCanvasCursor(
   isOverSelectableTarget = false,
 ): CSSProperties["cursor"] {
   if (interaction === null) {
-    /*
-     * A consumer's own object, saying it can be clicked.
-     *
-     * The canvas lets a consumer register hit-testable objects and selects them on pointerdown, so
-     * they behave like scenery you can act on — but nothing said so before the click. A connector
-     * you can select and cut looked exactly like a connector you cannot, which is the difference
-     * between an affordance and a secret.
-     *
-     * Windows need no equivalent because their chrome is DOM and carries its own cursors; these
-     * targets are drawn by the consumer and have no element under the pointer to hang one on.
-     */
+    // Consumer targets are drawn, not DOM, so they have no element to hang a cursor on.
     return isOverSelectableTarget
       ? "pointer"
       : getInfiniteCanvasIdleCursor(inputPolicy, pointerMode);
   }
 
-  // Resize handles and group chrome carry structural cursors, like a gutter's
-  // seam. Only pan / move / marquee are the consumer's to re-map, which is what
-  // `InfiniteCanvasCursorInteraction` enumerates.
+  // Structural cursors. Only pan/move/marquee are the consumer's to re-map.
   if (
     interaction.kind === "resize" ||
     interaction.kind === "groupMove" ||

@@ -75,30 +75,14 @@ This applies to prose in tests exactly as it does to source.
 
 ## Commit messages
 
-[Conventional Commits](https://www.conventionalcommits.org/) — `type(scope): description`.
+[Conventional Commits](https://www.conventionalcommits.org/), read as written.
 
-Types: `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `build`, `ci`, `chore`,
-`revert`. Scope is the package or area, e.g. `polkadot`, `infinite-canvas`, `release`.
+The subject states what the change does. This repo has drifted into metaphor and personification
+that names no change — "the vocabulary learns to name the canvas it is standing in" — which is the
+one thing to avoid.
 
-The description is imperative mood, lowercase, no trailing period, and says what the change does:
-
-```
-fix(polkadot): fit the camera to a window opened below the summary threshold
-feat(infinite-canvas): add getInfiniteCanvasUnoccludedRuns
-refactor(surreal-inspector): fold the read ledger into the reader
-```
-
-Not this, which is the register to avoid — it neither states the change nor reads as a subject
-line:
-
-```
-feat(polkadot): the vocabulary learns to name the canvas it is standing in
-fix(polkadot): going to the project you are in stops moving you somewhere else
-```
-
-The body explains why, and carries what a reader cannot get from the diff: the defect's symptom,
-the constraint that forced the approach, what remains unverified. Same prose rules as comments.
-Breaking changes take a `BREAKING CHANGE:` footer.
+Most commits need no body. Add one only for what the diff cannot show, in a sentence or two, and
+never to enumerate the changes.
 
 ## Shared Agent Workflow
 
