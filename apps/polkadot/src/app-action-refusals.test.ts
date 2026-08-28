@@ -5,10 +5,9 @@ import {
 } from "@hyphened/infinite-canvas";
 import { expect, test } from "vite-plus/test";
 
-import { APP_ACTIONS, getAppAction } from "./app-actions";
+import { APP_ACTIONS, describeCutRelation, getAppAction } from "./app-actions";
 import type { WindowKind } from "./canvas/window-registry";
 import { projectContent$, type ProjectContent } from "./content/project-content";
-import { relations$ } from "./relations/relation-store";
 
 /**
  * A verb that refuses has to say so, and these are the assertions that make that true.
@@ -58,6 +57,13 @@ const stored: ProjectContent = {
 /** Where a refused verb tried to send us, which must be nowhere. */
 const visited: string[] = [];
 
+/**
+ * The verb's decision, returned as it comes back.
+ *
+ * A refusal is synchronous — it happens before any write — so awaiting one is a no-op and every
+ * refusal assertion below reads normally. A verb that *ran* returns its pending write instead, and
+ * that promise never settles here, so success is asserted by shape rather than by awaiting it.
+ */
 const refuse = (id: string, input: unknown) => {
   projectContent$.set(stored);
   visited.length = 0;
@@ -93,30 +99,31 @@ const refuse = (id: string, input: unknown) => {
  * Not covered by the sweep above: that sends `42`, which the schema itself rejects. This is the
  * case that gets *past* the schema and has to be refused by the verb.
  */
-test("renaming a document refuses a name that is blank once trimmed", () => {
+test("renaming a document refuses a name that is blank once trimmed", async () => {
   for (const [id, input] of [
     ["canvas.rename", { canvasId: "canvas_document:canvas-1", title: "   " }],
     ["project.rename", { projectId: "project:project-1", title: "" }],
   ] as const) {
-    expect(`${id}: ${String(refuse(id, input))}`).toBe(`${id}: Refused: a name cannot be blank.`);
+    expect(`${id}: ${String(await refuse(id, input))}`).toBe(
+      `${id}: Refused: a name cannot be blank.`,
+    );
   }
 });
 
-test("renaming a document accepts a real name, so the guard above is not refusing everything", () => {
+test("renaming a document accepts a real name, so the guard above is not refusing everything", async () => {
   /*
    * The discrimination half — a verb refusing unconditionally would satisfy the test above.
    *
-   * This one reaches the database boundary and deliberately stops there: the verb returns before
-   * its write resolves, so what is asserted is the synchronous answer, and the `void`ed promise
-   * fails harmlessly against an engine no test starts. That is the whole reason the *write* is not
-   * asserted here and is driven in a browser instead.
+   * Both reach the database and stop there. Not awaited, because the write never settles under
+   * `vp test` — `in-memory-engine.test.ts` records that the WASM engine does not start here at
+   * all, so the write landing is a browser's question. Not-a-string is the claim: it did not refuse.
    */
   expect(
-    refuse("canvas.rename", { canvasId: "canvas_document:canvas-1", title: "Q3 planning" }),
-  ).toBeUndefined();
+    typeof refuse("canvas.rename", { canvasId: "canvas_document:canvas-1", title: "Q3 planning" }),
+  ).not.toBe("string");
   expect(
-    refuse("project.rename", { projectId: "project:project-1", title: "Atlas" }),
-  ).toBeUndefined();
+    typeof refuse("project.rename", { projectId: "project:project-1", title: "Atlas" }),
+  ).not.toBe("string");
 });
 
 /**
@@ -127,7 +134,7 @@ test("renaming a document accepts a real name, so the guard above is not refusin
  * over. `42` rather than `{}`: every schema here is an object, but `workspace.create`'s fields are
  * all optional, so `{}` is *valid* input for it and would not exercise a refusal at all.
  */
-test("every verb that takes an argument says why it refused a malformed one", () => {
+test("every verb that takes an argument says why it refused a malformed one", async () => {
   const parameterized = APP_ACTIONS.filter((action) => action.input !== undefined);
 
   // Guards the guard: if the vocabulary lost its parameterized half, the loop below would pass by
@@ -135,17 +142,17 @@ test("every verb that takes an argument says why it refused a malformed one", ()
   expect(parameterized.length).toBeGreaterThan(10);
 
   for (const action of parameterized) {
-    const refusal = refuse(action.id, 42);
+    const refusal = await refuse(action.id, 42);
 
     expect(typeof refusal, `${action.id} answered ${String(refusal)}`).toBe("string");
     expect(refusal, `${action.id} refused without saying why`).toMatch(/^Refused: /);
   }
 });
 
-test("a schema refusal names the field, so a caller can correct it rather than guess", () => {
+test("a schema refusal names the field, so a caller can correct it rather than guess", async () => {
   // ArkType's own summary, passed through rather than reworded — it already names every bad field
   // at once, which a hand-written message would have to keep in step with the declaration.
-  const refusal = refuse("relation.connect", { sourceItemId: 123 });
+  const refusal = await refuse("relation.connect", { sourceItemId: 123 });
 
   expect(refusal).toContain("sourceItemId must be a string");
   expect(refusal).toContain("targetItemId must be a string");
@@ -185,33 +192,33 @@ const HANDLE_VERBS: readonly Readonly<{ id: string; input: object }>[] = [
   },
 ];
 
-test("a handle that names nothing is refused, by every verb that takes one", () => {
+test("a handle that names nothing is refused, by every verb that takes one", async () => {
   /*
    * `content.open` and `window.reveal` are the exact pair that reported "done" when driven through
    * WebMCP. A caller told an item opened goes on to act against a window that is not there, and the
    * first visible symptom is several calls downstream of the mistake.
    */
   for (const verb of HANDLE_VERBS) {
-    const refusal = refuse(verb.id, verb.input);
+    const refusal = await refuse(verb.id, verb.input);
 
     expect(typeof refusal, `${verb.id} answered ${String(refusal)}`).toBe("string");
     expect(refusal, `${verb.id} refused without saying why`).toMatch(/^Refused: /);
   }
 });
 
-test("the refusal says where good handles come from, not just that this one was bad", () => {
+test("the refusal says where good handles come from, not just that this one was bad", async () => {
   // Naming the reporting verb is the correction. "Not found" alone tells a caller it was wrong and
   // not what to do instead, which for something that cannot see the screen is most of the answer.
-  expect(refuse("content.open", { itemId: "never-existed" })).toContain("content.list");
-  expect(refuse("window.reveal", { windowId: "never-existed" })).toContain("canvas.describe");
-  expect(refuse("group.dissolve", { groupId: "never-existed" })).toContain("canvas.describe");
+  expect(await refuse("content.open", { itemId: "never-existed" })).toContain("content.list");
+  expect(await refuse("window.reveal", { windowId: "never-existed" })).toContain("canvas.describe");
+  expect(await refuse("group.dissolve", { groupId: "never-existed" })).toContain("canvas.describe");
 });
 
-test("which end of a connection was wrong, rather than that one of them was", () => {
+test("which end of a connection was wrong, rather than that one of them was", async () => {
   // `resolveEndpoints` collapsed a missing source, a missing target and a self-edge into one `null`,
   // so every caller of it could only say "no such item" — a lie for the self-edge, and half an
   // answer when a caller holding two ids is not told which one to fix.
-  const missingTarget = refuse("relation.connect", {
+  const missingTarget = await refuse("relation.connect", {
     sourceItemId: "item-1",
     targetItemId: "ghost",
   });
@@ -220,21 +227,21 @@ test("which end of a connection was wrong, rather than that one of them was", ()
   expect(missingTarget).not.toContain("source item-1");
 });
 
-test("joining an item to itself is refused as itself, not as a missing item", () => {
+test("joining an item to itself is refused as itself, not as a missing item", async () => {
   /*
    * Both ends resolve, so "no such item" would send a caller to check ids that are fine. The drag
    * cannot express this — it starts on one window and ends on another — so a verb that can express
    * it should not be how a self-edge first enters the database.
    */
-  expect(refuse("relation.connect", { sourceItemId: "item-1", targetItemId: "item-1" })).toBe(
+  expect(await refuse("relation.connect", { sourceItemId: "item-1", targetItemId: "item-1" })).toBe(
     "Refused: an item cannot be connected to itself.",
   );
 });
 
-test("two items that exist but are not joined is its own answer", () => {
+test("two items that exist but are not joined is its own answer", async () => {
   // Distinct from "no such item": both ends are right and the edge is what is missing, so the
   // correction is `relation.connect` rather than a different id.
-  const refusal = refuse("relation.setLabel", {
+  const refusal = await refuse("relation.setLabel", {
     label: "because",
     sourceItemId: "item-1",
     targetItemId: "item-1",
@@ -255,16 +262,13 @@ test("two items that exist but are not joined is its own answer", () => {
  * tool output cannot press. Naming what went is the only way something without a pointer learns what
  * it removed, and the two verbs that rebuild it are the only way it acts on that.
  */
-const seedEdge = (relation: Readonly<{ kind: string; label: string | null }>) => {
-  relations$.set([
-    { id: "rel-1", source: "item-1", target: "item-2", ...relation },
-  ] as unknown as Parameters<typeof relations$.set>[0]);
-};
+const cutEdge = (relation: Readonly<{ kind: string; label: string | null }>) =>
+  ({ id: "rel-1", source: "item-1", target: "item-2", ...relation }) as unknown as Parameters<
+    typeof describeCutRelation
+  >[0];
 
 test("disconnecting names what went with it, and how to put it back", () => {
-  seedEdge({ kind: "supports", label: "load-bearing evidence" });
-
-  const said = refuse("relation.disconnect", { sourceItemId: "item-1", targetItemId: "item-2" });
+  const said = describeCutRelation(cutEdge({ kind: "supports", label: "load-bearing evidence" }));
 
   expect(said).toContain("supports");
   expect(said).toContain("load-bearing evidence");
@@ -282,14 +286,10 @@ test("a default edge with no label says nothing, because losing it costs nothing
    * `getRelationLabel` renders as nothing at all. Reporting its loss would train a caller to ignore
    * the report that matters.
    */
-  seedEdge({ kind: "relates", label: null });
-
-  expect(
-    refuse("relation.disconnect", { sourceItemId: "item-1", targetItemId: "item-2" }),
-  ).toBeUndefined();
+  expect(describeCutRelation(cutEdge({ kind: "relates", label: null }))).toBeUndefined();
 });
 
-test("restore does not pretend to check an id it has no way to check", () => {
+test("restore does not pretend to check an id it has no way to check", async () => {
   /*
    * The deliberate exception to the table above, stated so it reads as a decision rather than an
    * omission. Archived items are absent from `projectContent$` — that observable is what the library
@@ -297,22 +297,27 @@ test("restore does not pretend to check an id it has no way to check", () => {
    * purely so one verb could word an error better, and `content.restore` on an id naming nothing is
    * a no-op in the database rather than a corruption.
    */
-  expect(refuse("content.restore", { itemId: "content_item:never-existed" })).toBeUndefined();
+  // Not awaited: restoring writes, and the write it returns never settles here. Not-a-string is
+  // the whole claim — it did not refuse.
+  expect(typeof refuse("content.restore", { itemId: "content_item:never-existed" })).not.toBe(
+    "string",
+  );
   /*
    * The half it *can* check, which is new: an id names its table whether or not anything holds the
    * record, so a canvas id here is refusable where an unknown archived item id is not. Two different
    * mistakes, and only one of them is knowable from a cache this verb deliberately does not keep.
    */
-  expect(refuse("content.restore", { itemId: "canvas_document:not-an-item" })).toMatch(
+  expect(await refuse("content.restore", { itemId: "canvas_document:not-an-item" })).toMatch(
     /^Refused: .*wrong kind of id/,
   );
   // The shape is still checked, because that costs nothing and the schema is the caller's contract.
-  expect(refuse("content.restore", 42)).toMatch(/^Refused: /);
+  expect(await refuse("content.restore", 42)).toMatch(/^Refused: /);
 });
 
-test("a verb that ran returns nothing, so the adapter can tell the two apart", () => {
+test("a verb that ran returns nothing, so the adapter can tell the two apart", async () => {
   // The other half of the contract. If success also returned a string the adapter would have to
   // parse it to know what happened, which is the ambiguity this shape exists to remove.
-  expect(refuse("note.create", undefined)).toBeUndefined();
-  expect(refuse("window.reveal", { windowId: "note-1" })).toBeUndefined();
+  // `note.create` writes, so it answers with its pending write rather than with `undefined`.
+  expect(typeof refuse("note.create", undefined)).not.toBe("string");
+  expect(await refuse("window.reveal", { windowId: "note-1" })).toBeUndefined();
 });

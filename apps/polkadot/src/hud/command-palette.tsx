@@ -959,7 +959,8 @@ function PaletteContent({
                 icon={getActionIcon(action.id)}
                 key={action.id}
                 onSelect={run(() => {
-                  action.run(context);
+                  // The palette closes on select; a write verb's promise is nobody's to wait for.
+                  void action.run(context);
                 })}
                 id={action.id}
                 keywords="create list all"
@@ -987,7 +988,7 @@ function PaletteContent({
             <Row
               icon={Link2}
               onSelect={run(() => {
-                getAppAction("collection.create.connectedTo")?.run(
+                void getAppAction("collection.create.connectedTo")?.run(
                   {
                     actions,
                     canvasId: canvas.id,

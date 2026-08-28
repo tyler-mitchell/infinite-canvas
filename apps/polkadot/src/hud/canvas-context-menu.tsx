@@ -214,8 +214,10 @@ function CanvasContextMenu() {
       icon: getActionIcon(id),
       isEnabled: action !== undefined && isAppActionEnabled(action, context),
       label: action?.label ?? id,
+      // A write verb returns its promise; a wheel does not wait, because the store updates
+      // reactively and the person is looking at the canvas.
       run: () => {
-        action?.run(context);
+        void action?.run(context);
       },
     };
   };

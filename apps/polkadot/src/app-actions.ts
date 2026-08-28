@@ -133,8 +133,15 @@ type AppAction = Readonly<{
    * first real symptom is several steps from the cause. A refusal string is the only way it finds
    * out. Enablement stays separate and stays where it is: `isEnabled` answers without an argument,
    * because palette rows need it before one exists, and this answers about the argument.
+   *
+   * **A verb that writes returns its promise**, so "done" means written rather than started. A
+   * pointer can ignore it — the store updates reactively and a person is watching — but a caller
+   * reading back immediately would otherwise get a listing that disagrees with what it was told.
    */
-  run: (context: AppActionContext, input?: unknown) => string | undefined;
+  run: (
+    context: AppActionContext,
+    input?: unknown,
+  ) => Promise<string | undefined> | string | undefined;
 }>;
 
 /**
@@ -422,6 +429,27 @@ const resolveEndpoints = (
 };
 
 /**
+ * What a cut edge said, or nothing when it said nothing worth reporting.
+ *
+ * Separate from the verb because the verb answers only once its write lands, and no test in this
+ * app can resolve a write — `in-memory-engine.test.ts` records why. This rule is the half worth
+ * pinning and it depends on nothing but the edge that was read before the cut.
+ *
+ * A default `relates` edge carrying no label says nothing beyond existing, so losing it costs
+ * nothing to report — the same rule the connector draws by.
+ */
+const describeCutRelation = (removed: ReturnType<typeof findRelation>) => {
+  const lost = [
+    removed?.kind === undefined || removed.kind === DEFAULT_RELATION_KIND ? null : removed.kind,
+    removed?.label?.trim() ? `'${removed.label.trim()}'` : null,
+  ].filter((part) => part !== null);
+
+  return lost.length === 0
+    ? undefined
+    : `Disconnected, taking ${lost.join(" ")} with it. Reversible: relation.connect rebuilds the edge and relation.setLabel restores what it said.`;
+};
+
+/**
  * Naming a container, which the framework supports and its contextual commands do not expose.
  *
  * `group.setLayout.tabs` and its siblings act on *the active window's container* — the right shape
@@ -550,11 +578,11 @@ const APP_ACTIONS: readonly AppAction[] = [
         return describeInvalidInput(parsed);
       }
 
-      void createCanvas({ projectId, title: parsed.title }).then((created) => {
+      return createCanvas({ projectId, title: parsed.title }).then((created) => {
         goToCanvas({ canvasId: created.id });
-      });
 
-      return undefined;
+        return undefined;
+      });
     },
   },
   {
@@ -565,11 +593,11 @@ const APP_ACTIONS: readonly AppAction[] = [
     // No argument: "the canvas I am in" is the route's answer, and a caller that carried it could
     // name a canvas it is not looking at — which is a different verb.
     run: ({ canvasId, canvasTitle, goToCanvas, projectId }) => {
-      void duplicateCanvas({ canvasId, canvasTitle, projectId }).then((created) => {
+      return duplicateCanvas({ canvasId, canvasTitle, projectId }).then((created) => {
         goToCanvas({ canvasId: created.id });
-      });
 
-      return undefined;
+        return undefined;
+      });
     },
   },
   {
@@ -627,9 +655,11 @@ const APP_ACTIONS: readonly AppAction[] = [
        * was renamed rather than only the open one — `invalidate` re-runs one loader, and deciding
        * "was that the one I am looking at" here would be a second copy of a fact the route owns.
        */
-      void database.canvases.rename({ canvasId: parsed.canvasId, title }).then(refreshRoute);
+      return database.canvases.rename({ canvasId: parsed.canvasId, title }).then(() => {
+        refreshRoute();
 
-      return undefined;
+        return undefined;
+      });
     },
   },
   {
@@ -647,11 +677,11 @@ const APP_ACTIONS: readonly AppAction[] = [
 
       // A project is reached through a canvas, so creating one and landing on it is a single act —
       // `createProject` returns the first canvas for exactly this reason.
-      void createProject({ title: parsed.title }).then((created) => {
+      return createProject({ title: parsed.title }).then((created) => {
         goToCanvas({ canvasId: created.id });
-      });
 
-      return undefined;
+        return undefined;
+      });
     },
   },
   {
@@ -678,15 +708,16 @@ const APP_ACTIONS: readonly AppAction[] = [
        * the project you are already in resolves to nothing rather than walking you to whichever of
        * its canvases was last written.
        */
-      void getProjectEntryCanvas({ openProjectId: projectId, projectId: parsed.projectId }).then(
-        (canvasId) => {
-          if (canvasId !== null) {
-            goToCanvas({ canvasId });
-          }
-        },
-      );
+      return getProjectEntryCanvas({
+        openProjectId: projectId,
+        projectId: parsed.projectId,
+      }).then((canvasId) => {
+        if (canvasId !== null) {
+          goToCanvas({ canvasId });
+        }
 
-      return undefined;
+        return undefined;
+      });
     },
   },
   {
@@ -714,9 +745,11 @@ const APP_ACTIONS: readonly AppAction[] = [
       }
 
       // The route carries `projectTitle` beside the canvas's own, so the same re-read covers both.
-      void database.projects.rename({ projectId: parsed.projectId, title }).then(refreshRoute);
+      return database.projects.rename({ projectId: parsed.projectId, title }).then(() => {
+        refreshRoute();
 
-      return undefined;
+        return undefined;
+      });
     },
   },
   {
@@ -925,9 +958,7 @@ const APP_ACTIONS: readonly AppAction[] = [
         return ends;
       }
 
-      void connectItems({ kind: parsed.kind, projectId, ...ends });
-
-      return undefined;
+      return connectItems({ kind: parsed.kind, projectId, ...ends }).then(() => undefined);
     },
   },
   {
@@ -949,9 +980,9 @@ const APP_ACTIONS: readonly AppAction[] = [
         return relation;
       }
 
-      void setRelationKind({ kind: parsed.kind, projectId, relationId: relation.id });
-
-      return undefined;
+      return setRelationKind({ kind: parsed.kind, projectId, relationId: relation.id }).then(
+        () => undefined,
+      );
     },
   },
   {
@@ -973,9 +1004,9 @@ const APP_ACTIONS: readonly AppAction[] = [
         return relation;
       }
 
-      void setRelationLabel({ label: parsed.label, projectId, relationId: relation.id });
-
-      return undefined;
+      return setRelationLabel({ label: parsed.label, projectId, relationId: relation.id }).then(
+        () => undefined,
+      );
     },
   },
   {
@@ -1008,7 +1039,7 @@ const APP_ACTIONS: readonly AppAction[] = [
       // Read before the write, because afterwards there is nothing left to read.
       const removed = findRelation(relations$.peek(), ends.source, ends.target);
 
-      void disconnectItems({ projectId, ...ends });
+      const cut = disconnectItems({ projectId, ...ends });
 
       /*
        * Say what went, because this is the one removal in the app that destroys something.
@@ -1028,14 +1059,7 @@ const APP_ACTIONS: readonly AppAction[] = [
        * an agent that reads "supports 'load-bearing evidence'" learns what it removed, which is the
        * half of this that was always about legibility rather than recovery.
        */
-      const lost = [
-        removed?.kind === undefined || removed.kind === DEFAULT_RELATION_KIND ? null : removed.kind,
-        removed?.label?.trim() ? `'${removed.label.trim()}'` : null,
-      ].filter((part) => part !== null);
-
-      return lost.length === 0
-        ? undefined
-        : `Disconnected, taking ${lost.join(" ")} with it. Reversible: relation.connect rebuilds the edge and relation.setLabel restores what it said.`;
+      return cut.then(() => describeCutRelation(removed));
     },
   },
   {
@@ -1059,15 +1083,13 @@ const APP_ACTIONS: readonly AppAction[] = [
 
       // The title comes from the record, not from the caller. A collection named for a subject the
       // caller merely asserted could disagree with the subject it actually lists.
-      void openNewCollection({
+      return openNewCollection({
         actions,
         projectId,
         question: { connectedTo: item.id },
         state,
         title: `Connected to ${item.title}`,
-      });
-
-      return undefined;
+      }).then(() => undefined);
     },
   },
   {
@@ -1197,9 +1219,7 @@ const APP_ACTIONS: readonly AppAction[] = [
         actions.closeWindow(openWindow.id);
       }
 
-      void archiveProjectItem({ itemId: parsed.itemId, projectId });
-
-      return undefined;
+      return archiveProjectItem({ itemId: parsed.itemId, projectId }).then(() => undefined);
     },
   },
   {
@@ -1233,9 +1253,7 @@ const APP_ACTIONS: readonly AppAction[] = [
         return wrongKind;
       }
 
-      void restoreProjectItem({ itemId: parsed.itemId, projectId });
-
-      return undefined;
+      return restoreProjectItem({ itemId: parsed.itemId, projectId }).then(() => undefined);
     },
   },
   {
@@ -1263,8 +1281,16 @@ const APP_ACTIONS: readonly AppAction[] = [
 
       const stored = toSerializedNote(parsed.text);
 
-      // Through the note store, not the gateway: it is the single writer, and the revision guard is
-      // only a guard if everything goes through it. `toNote` is safe here because the kind is checked.
+      /*
+       * Through the note store, not the gateway: it is the single writer, and the revision guard is
+       * only a guard if everything goes through it. `toNote` is safe here because the kind is
+       * checked.
+       *
+       * The one write in this vocabulary that answers before the database has it. Every other verb
+       * returns its promise so "done" means stored; this one cannot, because the gateway debounces.
+       * It is honest anyway: the store and the listing below are both updated first, so the very
+       * next `note.read` sees the new text. What a caller can observe is already true.
+       */
       writeNote(toNote(item), stored, noteGateway);
       // And into the listing `note.read` resolves against, the same fold a rename does. Without it
       // a caller checking its own write reads the prose it just replaced.
@@ -1312,27 +1338,21 @@ const APP_ACTIONS: readonly AppAction[] = [
     description: "Put a new, empty note on the canvas.",
     id: "note.create",
     label: "New note",
-    run: ({ actions, projectId, state }) => {
-      void openNewNote({ actions, projectId, state });
-
-      return undefined;
-    },
+    run: ({ actions, projectId, state }) =>
+      openNewNote({ actions, projectId, state }).then(() => undefined),
   },
   ...LISTABLE_KINDS.map((kind) => ({
     description: `Open a window listing every ${kind.label.toLowerCase().replace(/s$/, "")} in this project.`,
     id: `collection.create.${kind.kind}`,
     label: `Collection of ${kind.label.toLowerCase()}`,
-    run: ({ actions, projectId, state }: AppActionContext) => {
-      void openNewCollection({
+    run: ({ actions, projectId, state }: AppActionContext) =>
+      openNewCollection({
         actions,
         projectId,
         question: { listsKind: kind.kind },
         state,
         title: kind.label,
-      });
-
-      return undefined;
-    },
+      }).then(() => undefined),
   })),
   {
     description:
@@ -1384,5 +1404,5 @@ const getAppAction = (id: string) => APP_ACTIONS.find((action) => action.id === 
 const isAppActionEnabled = (action: AppAction, context: AppActionContext) =>
   action.isEnabled?.(context) ?? true;
 
-export { APP_ACTIONS, getAppAction, isAppActionEnabled };
+export { APP_ACTIONS, describeCutRelation, getAppAction, isAppActionEnabled };
 export type { AppAction, AppActionContext };

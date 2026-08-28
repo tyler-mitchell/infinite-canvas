@@ -176,7 +176,7 @@ function SelectionRail() {
     };
 
     if (groupAction !== undefined && isAppActionEnabled(groupAction, context)) {
-      groupAction.run(context);
+      void groupAction.run(context);
     }
   };
 

@@ -140,8 +140,9 @@ const getAppActionTools = (createContext: () => AppActionContext): readonly AppT
         return `${action.label} is not available right now.`;
       }
 
-      // Unchecked here: the verb narrows with the same type this schema came from.
-      return action.run(context, raw) ?? `${action.label} done.`;
+      // Unchecked here: the verb narrows with the same type this schema came from. Awaited so a
+      // write verb's "done" means written — a caller reading back has no second source.
+      return (await action.run(context, raw)) ?? `${action.label} done.`;
     },
     inputSchema: action.input?.toJsonSchema() ?? NO_INPUT,
     name: action.id,
