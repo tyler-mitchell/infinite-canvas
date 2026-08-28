@@ -918,7 +918,7 @@ const APP_ACTIONS: readonly AppAction[] = [
      * id — which is why `describeWrappedCommand` is not used and a test holds the distinction.
      */
     description:
-      "Ungroup a container, leaving its windows on the canvas where they were. The id comes from `canvas.describe`.",
+      "Ungroup a container. A split's panes stay exactly where they were; tabbed or folded ones share one rect, so they are placed clear of each other. The id comes from `canvas.describe`.",
     id: "group.dissolve",
     input: GROUP_INPUT,
     label: "Ungroup",

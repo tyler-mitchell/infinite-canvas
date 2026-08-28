@@ -21,6 +21,7 @@ import {
 import {
   applyInfiniteCanvasDockPreview,
   closeInfiniteCanvasGroup,
+  getInfiniteCanvasRoomAround,
   detachInfiniteCanvasWindowFromGroups,
   equalizeInfiniteCanvasGroupChildrenInState,
   findInfiniteCanvasGroup,
@@ -94,31 +95,12 @@ import type {
   InfiniteCanvasContextualCommand,
   InfiniteCanvasDirection,
   InfiniteCanvasHotkeyBinding,
-  InfiniteCanvasRect,
   InfiniteCanvasState,
   InfiniteCanvasWindowCapability,
   InfiniteCanvasWindowMode,
   InfiniteCanvasZoomPolicy,
 } from "./types";
 import { isInfiniteCanvasWindowCapable } from "./window-capabilities";
-
-/**
- * Where a window freed from a group is allowed to land: around the shell, not around the camera.
- *
- * Freeing a member is not a camera verb. Bounding the search by what is on screen pulls a window
- * that was legitimately off the right edge back into view — measured, when a split pane at x=553
- * moved to x=429 for no reason a user asked for. A rect centred on the shell and one shell wider
- * in every direction contains every member already (they live inside it) so nothing that is fine
- * moves, and leaves a ring to fan out into when something has to.
- */
-function getInfiniteCanvasRoomAround(shell: InfiniteCanvasRect): InfiniteCanvasRect {
-  return {
-    height: shell.height * 3,
-    width: shell.width * 3,
-    x: shell.x - shell.width,
-    y: shell.y - shell.height,
-  };
-}
 
 /**
  * What the two selection-moving families do with a docked pane — and they disagree on purpose.
@@ -782,7 +764,7 @@ const DEFAULT_INFINITE_CANVAS_COMMAND_DESCRIPTORS = [
   {
     command: { type: "group.dissolve" },
     description:
-      "Break up the group holding the active window, leaving every member floating where it was drawn.",
+      "Break up the group holding the active window. A split's panes stay exactly where they were; tabbed or folded ones share one rect, so they are placed clear of each other.",
     hotkeys: [],
     id: "group.dissolve",
     label: "Ungroup Panes",
@@ -2101,58 +2083,17 @@ function executeInfiniteCanvasCommand<Kind extends string>(
             weights,
           });
     }
+    // The placement that used to live here moved into `closeInfiniteCanvasGroup`, because the
+    // `group.close` action called that bare and left tab members stacked — the same operation
+    // behaving differently by door. All this case owns now is resolving the group from the active
+    // window, which is the only thing the command adds over the action.
     case "group.dissolve": {
       const group =
         state.activeWindowId === null
           ? null
           : getInfiniteCanvasWindowGroup(state, state.activeWindowId);
 
-      /*
-       * Members keep the rect the solver last gave them, which comes apart correctly for a split
-       * and stacks for tabs: every tab member carries the shell's whole content rect, so five
-       * tabs dissolved into five windows at identical coordinates — four of them invisible and
-       * reachable only through the dock.
-       *
-       * That was recorded as faithful rather than desirable, and deferred as "a separate
-       * decision about shared semantics". Taken now, and it lands the same way `window.undock`
-       * does: a member freed by a command has to be somewhere it can be seen, because a verb
-       * whose whole effect is invisible reads as not having run.
-       *
-       * Each freed rect goes through vacancy placement with itself as `preferred`, folded so
-       * each sees the ones already placed. A split is unchanged by construction — its panes are
-       * already clear of one another, so every one of them is returned untouched.
-       */
-      if (group === null) {
-        return state;
-      }
-
-      const bounds = getInfiniteCanvasRoomAround(group.rect);
-      const freedIds = new Set(getInfiniteCanvasGroupWindowIds(group.tree));
-      const dissolved = closeInfiniteCanvasGroup(state, group.id);
-      const settled: InfiniteCanvasRect[] = dissolved.windows
-        .filter((window) => !freedIds.has(window.id) && window.mode !== "minimized")
-        .map((window) => window.rect);
-
-      return {
-        ...dissolved,
-        windows: dissolved.windows.map((window) => {
-          if (!freedIds.has(window.id)) {
-            return window;
-          }
-
-          const rect = getInfiniteCanvasVacantRect({
-            bounds,
-            // The shell is gone, so its footprint is free — but only for the first member to
-            // claim it, which is what keeps a one-member dissolve exactly where it was.
-            occupied: settled,
-            preferred: window.rect,
-          });
-
-          settled.push(rect);
-
-          return { ...window, rect };
-        }),
-      };
+      return group === null ? state : closeInfiniteCanvasGroup(state, group.id);
     }
     case "group.moveChild": {
       const index = getActiveInfiniteCanvasGroupChildIndex(state);
