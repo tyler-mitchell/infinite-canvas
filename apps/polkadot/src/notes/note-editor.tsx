@@ -1,4 +1,5 @@
 import { CodeExtension } from "@lexical/code";
+import { CodePrismExtension } from "@lexical/code-prism";
 import { LinkExtension } from "@lexical/link";
 import { ListExtension } from "@lexical/list";
 import { TRANSFORMERS } from "@lexical/markdown";
@@ -62,6 +63,16 @@ const noteEditor = tv({
     link: "text-[var(--accent)] underline underline-offset-2",
     listItem: "my-0.5",
     ol: "my-2 list-decimal pl-5",
+    /*
+     * Four tones and the accent, not a rainbow.
+     *
+     * The palette carries one hue. Inventing six for syntax would break "warm ink on a cool ground"
+     * in the smallest surface the app has. Identifiers keep the block's own `--ink`.
+     */
+    tokenComment: "text-[var(--ink-faint)] italic",
+    tokenKeyword: "text-[var(--accent)]",
+    tokenPunctuation: "text-[var(--ink-faint)]",
+    tokenString: "text-[var(--ink-muted)]",
     /** Spacing belongs between paragraphs, so it is the sibling that gets it, not every one. */
     paragraph: "[&+p]:mt-3",
     placeholder:
@@ -84,8 +95,32 @@ const styles = noteEditor();
  *
  * Values come from `tv` slots, so classes still have one home and this stays a mapping.
  */
+/** Prism's token names, folded onto the four tones above. Anything absent keeps `--ink`. */
+const CODE_HIGHLIGHT: Readonly<Record<string, string>> = {
+  atrule: styles.tokenKeyword(),
+  attr: styles.tokenKeyword(),
+  boolean: styles.tokenKeyword(),
+  builtin: styles.tokenKeyword(),
+  cdata: styles.tokenComment(),
+  char: styles.tokenString(),
+  comment: styles.tokenComment(),
+  doctype: styles.tokenComment(),
+  important: styles.tokenKeyword(),
+  inserted: styles.tokenString(),
+  keyword: styles.tokenKeyword(),
+  operator: styles.tokenPunctuation(),
+  prolog: styles.tokenComment(),
+  punctuation: styles.tokenPunctuation(),
+  regex: styles.tokenString(),
+  selector: styles.tokenKeyword(),
+  string: styles.tokenString(),
+  tag: styles.tokenKeyword(),
+  url: styles.tokenString(),
+};
+
 const EDITOR_THEME: EditorThemeClasses = {
   code: styles.codeBlock(),
+  codeHighlight: CODE_HIGHLIGHT,
   heading: { h1: styles.h1(), h2: styles.h2() },
   link: styles.link(),
   list: { listitem: styles.listItem(), ol: styles.ol(), ul: styles.ul() },
@@ -101,7 +136,13 @@ const EDITOR_THEME: EditorThemeClasses = {
  * link, `CodeExtension` the code pair. Each also registers its own behaviour, which is what a
  * mounted plugin used to do separately — the split the extensions doc calls easy to get wrong.
  */
-const EDITOR_EXTENSIONS = [RichTextExtension, ListExtension, LinkExtension, CodeExtension];
+const EDITOR_EXTENSIONS = [
+  RichTextExtension,
+  ListExtension,
+  LinkExtension,
+  CodeExtension,
+  CodePrismExtension,
+];
 
 /**
  * `mentions` keeps this file's boundary intact.
