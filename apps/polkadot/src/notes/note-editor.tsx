@@ -1,5 +1,5 @@
 import { CodeShikiExtension, ShikiTokenizer } from "@lexical/code-shiki";
-import { LinkExtension } from "@lexical/link";
+import { ClickableLinkExtension, LinkExtension } from "@lexical/link";
 import { ListExtension } from "@lexical/list";
 import { TRANSFORMERS } from "@lexical/markdown";
 import { ContentEditable } from "@lexical/react/LexicalContentEditable";
@@ -121,6 +121,24 @@ const EDITOR_EXTENSIONS = [
   RichTextExtension,
   ListExtension,
   LinkExtension,
+  /*
+   * A link that cannot be followed is a dead end, and it was one.
+   *
+   * `LinkExtension` brings the node, the toggle command and paste handling; it does not make a link
+   * clickable. Driven 2026-08-28: a real `LinkNode` rendered with `--accent` and an underline —
+   * every convention saying "follow me" — and clicking it did nothing at all. Lexical's own note on
+   * this extension is that the click otherwise just moves the selection.
+   *
+   * `newTab` because the canvas is the workspace. Following a reference must never navigate the
+   * whole app away from the windows someone arranged; `_self` would do exactly that.
+   *
+   * **The cost, stated rather than discovered later.** This fires on a plain click and does not ask
+   * whether the editor is editable, so a caret can no longer be placed inside link text by pointer.
+   * Selecting across it still works — the handler returns early on a non-collapsed selection — and
+   * the keyboard reaches it normally. Reading a note is the common act and following a link is part
+   * of it; editing the words inside one is rare and still possible.
+   */
+  configExtension(ClickableLinkExtension, { newTab: true }),
   /*
    * Shiki brings `CodeExtension` and `CodeIndentExtension` with it, so the nodes and Tab handling
    * arrive too. Its default theme is `one-light`, which would be a white slab on this ground.

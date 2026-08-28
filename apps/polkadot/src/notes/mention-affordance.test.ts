@@ -4,7 +4,10 @@ import { fileURLToPath } from "node:url";
 import { expect, test } from "vite-plus/test";
 
 /**
- * The mention chip promises a destination, so something has to take you there.
+ * A note draws two things that say "this goes somewhere": a mention and a link. Both must.
+ *
+ * They failed the same way and were found the same day. Neither is visible to a typecheck, a
+ * render, or any test that does not click.
  *
  * `MentionNode.createDOM` writes `data-note-id` and the theme gives the chip `cursor-pointer`. Both
  * are promises to the person reading the note: this is a thing, and clicking it goes somewhere. From
@@ -50,6 +53,27 @@ test("the note id a mention writes is read by something", () => {
     readers,
     "the mention chip draws a pointer cursor and writes a note id that nothing reads — clicking one does nothing",
   ).not.toStrictEqual([]);
+});
+
+test("a link in a note can be followed, not just drawn as one", () => {
+  /*
+   * The same failure as the mention, one node over. `LinkExtension` brings the node, the toggle
+   * command and paste handling — it does not register the click, which is `ClickableLinkExtension`'s
+   * job and Lexical says so on the extension itself. Without it a link renders with the accent
+   * colour and an underline and does nothing at all when clicked.
+   *
+   * The pair is what matters: mounting the node without the click is the dead end. Removing either
+   * breaks this rather than going quiet.
+   */
+  const editor = readFileSync(`${SRC}notes/note-editor.tsx`, "utf8");
+
+  expect(editor.includes("LinkExtension"), "links are not mounted at all").toBe(true);
+  expect(
+    editor.includes("ClickableLinkExtension"),
+    "a note renders links that cannot be followed",
+  ).toBe(true);
+  // The canvas is the workspace: `_self` would navigate away from the arranged windows.
+  expect(editor.includes("newTab: true")).toBe(true);
 });
 
 test("the mention's appearance comes from the editor theme, not from the node", () => {

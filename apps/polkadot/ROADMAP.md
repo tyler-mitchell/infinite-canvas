@@ -76,11 +76,25 @@ strictly greater than 160 — a kind sitting exactly on it demotes and never ret
   closed, clicking `@Untitled 1` opened it and made it active; clicking again revealed the same
   window rather than opening a second.
 
-  **Links may be the same shape, and this is a reading rather than a measurement.**
-  `EDITOR_EXTENSIONS` mounts `LinkExtension` but not `ClickableLinkExtension`, which is the one that
-  registers the click. No note in the test project holds a link, so this was not driven and is not
-  claimed as a defect. Left alone either way: following a URL out of a canvas is a navigation
-  decision, not something to close quietly alongside this.
+  **Links were the same shape, measured, and are fixed.** `EDITOR_EXTENSIONS` mounted
+  `LinkExtension` — which brings the node, the toggle command and paste handling — but not
+  `ClickableLinkExtension`, which is what registers the click; Lexical says so on the extension
+  itself. Driven 2026-08-28 with a real `LinkNode`: it rendered with `--accent` and an underline and
+  clicking it did nothing. `configExtension(ClickableLinkExtension, { newTab: true })` closes it, and
+  the click was witnessed calling `window.open("https://example.com", "_blank")`.
+
+  `newTab` because the canvas is the workspace: `_self` would navigate away from the arranged
+  windows. **The cost is stated rather than left to be discovered.** The handler fires on a plain
+  click and does not ask whether the editor is editable, so a caret can no longer be placed inside
+  link text by pointer. Selecting across it still works — the handler returns early on a non-collapsed
+  selection — and the keyboard reaches it normally.
+
+  **Getting a link in there is itself worth recording.** Markdown shortcuts could not be driven with
+  the browser tool: typing `[Example](https://example.com)` and even `# Heading` left literal text,
+  while `MarkdownShortcutPlugin` is mounted with the full `TRANSFORMERS` and the ROADMAP has `# `
+  measured as working. So the input method is what differs, not the app — the calibration is the only
+  reason that was not filed as a defect. The link was created by writing a serialized editor state
+  straight to the record instead.
 
 - **The living field.** Built in `canvas/field.tsx` and deliberately unmounted —
   `workspace-canvas.tsx` passes no `renderBackdrop`, so the app runs on the framework's default
