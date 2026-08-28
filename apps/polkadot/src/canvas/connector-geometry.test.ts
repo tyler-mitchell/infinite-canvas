@@ -1,6 +1,7 @@
 import {
   createInfiniteCanvasState,
   createInfiniteCanvasWindow,
+  getInfiniteCanvasUnoccludedSegments,
   type InfiniteCanvasPoint,
   type InfiniteCanvasRect,
   type InfiniteCanvasState,
@@ -153,6 +154,72 @@ test("on a real elbow the marker lands on the line rather than in the corner", (
 
   expect(
     Math.hypot(anchor!.x - longestLeg.midpoint.x, anchor!.y - longestLeg.midpoint.y),
+  ).toBeGreaterThan(1);
+});
+
+test("a run clipped at one end is where walking stops agreeing with averaging", () => {
+  /*
+   * The case that makes the walk load-bearing instead of free, and it was an argument until now.
+   *
+   * On a whole path the two answers coincide, because the router's Z is symmetric — that is the
+   * correction recorded above. A run is a *clipped* piece of that path, and clipping one end
+   * destroys the symmetry: the remaining stretch is short-leg, long-leg, long-leg, so half its
+   * length falls somewhere the straight line between its own two ends does not pass.
+   *
+   * A third window over the first leg is the clip. It joins nothing; it is only in the way, which
+   * is exactly what an occluder is.
+   */
+  /*
+   * Kept inside the default visible world rect — roughly x -600..600, y -400..400 for this
+   * viewport. The first draft put the windows at x700 and the anchor came back clipped by
+   * `anchorBounds` rather than by the blocker, which looked like the fix misbehaving and was the
+   * fixture leaving the screen.
+   */
+  const state = canvas([
+    contentWindow({ id: "from", itemId: "a", rect: { height: 120, width: 180, x: -400, y: -300 } }),
+    contentWindow({ id: "to", itemId: "b", rect: { height: 120, width: 180, x: 200, y: 100 } }),
+    // On the first leg, which leaves the window's bottom-right corner at y-180 rather than its
+    // centre at y-240 — the second thing the first draft of this fixture got wrong.
+    contentWindow({
+      id: "blocker",
+      itemId: "c",
+      rect: { height: 60, width: 110, x: -230, y: -210 },
+    }),
+  ]);
+  const [connector] = getDrawnConnectors(state, [relation("a", "b")]);
+  const anchor = connector?.anchor;
+  const segments = connector?.segments ?? [];
+
+  expect(anchor).not.toBeNull();
+
+  // Still on the drawn line, which is the property that must survive any clipping.
+  expect(Math.min(...segments.map((segment) => distanceToSegment(anchor!, segment)))).toBeLessThan(
+    0.001,
+  );
+
+  /*
+   * And now the two answers differ. Averaging the visible run's own endpoints leaves the line
+   * entirely — the claim the previous fixture could not support, measured here rather than argued.
+   */
+  const visible = getInfiniteCanvasUnoccludedSegments(
+    segments,
+    state.windows.map((window) => window.rect),
+  );
+  const first = visible[0];
+  const last = visible.at(-1);
+
+  expect(first).toBeDefined();
+  expect(last).toBeDefined();
+
+  const averaged = {
+    x: (first!.start.x + last!.end.x) / 2,
+    y: (first!.start.y + last!.end.y) / 2,
+  };
+
+  // Measured: the blocker clips the first leg to start at x-120, the walk lands at (-10, 10) on
+  // the vertical leg, and averaging that run's ends gives (40, -40) — off the connector entirely.
+  expect(
+    Math.min(...segments.map((segment) => distanceToSegment(averaged, segment))),
   ).toBeGreaterThan(1);
 });
 
