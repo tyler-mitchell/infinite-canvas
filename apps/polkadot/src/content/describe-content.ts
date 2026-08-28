@@ -61,10 +61,24 @@ const getOpenItemIds = (state: InfiniteCanvasState<WindowKind>) =>
  * unlabelled line already says it on screen; a reader with no line has nothing to infer it from.
  */
 const describeRelations = (
-  relations: readonly ContentRelation[],
+  relations: readonly ContentRelation[] | null,
   items: ProjectContentItems,
   selected: ReadonlySet<string>,
 ): string => {
+  /*
+   * "Not answered yet" is not "there are none", which is the distinction this file already draws
+   * for the listing and had collapsed for the edges.
+   *
+   * `relations$` holds `[]` before its first query lands as well as when a project has none, and
+   * that is the right answer for a reader that draws — the next frame corrects it. A sentence has
+   * no next frame. `loadRelations` runs from an effect and nothing awaits it, so a caller asking
+   * straight after opening a project was inside that window and was told the project had no
+   * connections while it had several.
+   */
+  if (relations === null) {
+    return "The project's connections have not loaded yet.";
+  }
+
   if (relations.length === 0) {
     return "No connections.";
   }
@@ -169,7 +183,8 @@ function describeProjectContent(
   input: Readonly<{
     listing: ProjectContent | null;
     projectId: string;
-    relations: readonly ContentRelation[];
+    /** `null` until a query has answered for this project — not the same as none. */
+    relations: readonly ContentRelation[] | null;
     state: InfiniteCanvasState<WindowKind>;
   }>,
 ): string {

@@ -127,6 +127,25 @@ test("a project with no edges says so, rather than saying nothing about edges", 
   expect(describeWith([])).toContain("No connections.");
 });
 
+test("edges that have not loaded are not reported as no edges", () => {
+  /*
+   * The same distinction this file guards for the listing, which the edges had collapsed.
+   * `relations$` holds `[]` before its first query lands as well as when a project has none — right
+   * for a connector layer, which the next frame corrects, and a lie in a sentence. `loadRelations`
+   * runs from an effect and nothing awaits it, so a caller asking straight after opening a project
+   * is inside that window.
+   */
+  const described = describeProjectContent({
+    listing,
+    projectId: "project-1",
+    relations: null,
+    state: stateShowing([]),
+  });
+
+  expect(described).toContain("The project's connections have not loaded yet.");
+  expect(described).not.toContain("No connections.");
+});
+
 test("a connection names both ends by the handle content.open takes", () => {
   const described = describeWith([relation("one", "two", "supports")]);
 

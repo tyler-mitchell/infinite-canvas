@@ -4,7 +4,7 @@ import { describeProjectContent } from "./content/describe-content";
 import { projectContent$ } from "./content/project-content";
 import { canvases, content, projects } from "./database/operations";
 import { getPublishedCanvasCommands } from "./published-commands";
-import { relations$ } from "./relations/relation-store";
+import { getLoadedRelations } from "./relations/relation-store";
 import { getSavedViews, loadSavedViews, savedViews$ } from "./views/saved-views";
 
 /**
@@ -46,7 +46,9 @@ const getReportingTools = (
       describeProjectContent({
         listing: projectContent$.peek(),
         projectId: input.projectId,
-        relations: relations$.peek(),
+        // Not `relations$.peek()`: that is `[]` both before the first query lands and when there
+        // are none, and this report turns the answer into a sentence a caller cannot second-guess.
+        relations: getLoadedRelations(input.projectId),
         state: input.createContext().state,
       }),
   ),

@@ -61,6 +61,24 @@ strictly greater than 160 — a kind sitting exactly on it demotes and never ret
 
 ## Open
 
+- **`content.list` could say a project had no connections while it had several.** `relations$` is an
+  array starting empty, so "nobody has asked yet" and "there are none" share one value. Its own
+  docstring calls that empty "the honest interim answer" and is right about the readers it was
+  written for: a connector layer drawing nothing for a frame is corrected by the next one. A
+  sentence has no next frame. `loadRelations` runs from an effect and nothing awaits it, so a caller
+  asking straight after `project.open` was inside that window and was told the project had none.
+
+  `project-content` refuses exactly this collapse — "nobody has asked yet is not there are none" —
+  and encodes it with a nullable observable. Doing that here would change twelve readers, eleven of
+  which draw or resolve a click and genuinely want the interim empty. So the store answers the extra
+  question instead of changing its shape: `getLoadedRelations` returns `null` until a query has
+  landed for that project, and only the reporter asks it.
+
+  **Half of it is not testable here.** Whether the flag flips when a query lands needs
+  `loadRelations`, which needs the database, and the WASM engine does not start under `vp test` —
+  the skip in `in-memory-engine.test.ts`. Pinned instead: the initial answer, that it is keyed to the
+  project, and that the reporter says "not loaded yet" rather than "No connections."
+
 - **A published verb answered "done" before its write landed, and the framework's type is why.**
   `getCanvasCommandTools` calls `run()` and returns `"<label> done."`. That is right for a canvas
   command, which routes through the reducer and is finished when it returns. It is wrong for a

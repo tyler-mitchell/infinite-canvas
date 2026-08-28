@@ -56,7 +56,27 @@ const getRelationLabel = (relation: ContentRelation) =>
  * five call sites at once, two of which are being edited right now. This is the same guarantee at
  * the one place it is enforced.
  */
-const loadedProject = { id: null as string | null };
+const loadedProject = { answered: false, id: null as string | null };
+
+/**
+ * The edges, or `null` while nobody has answered for this project yet.
+ *
+ * `relations$` holds `[]` both before the first query lands and when a project genuinely has no
+ * connections, and the docstring below argues that is honest — which it is for a reader that
+ * *draws*: a connector layer showing nothing for a moment is briefly incomplete, and the next frame
+ * corrects it.
+ *
+ * It stops being honest at the moment something turns that array into a sentence.
+ * `describeProjectContent` says "No connections." to a caller that cannot see the screen and has no
+ * next frame to correct it — the same collapse `project-content` refuses when it keeps "nobody has
+ * asked yet" apart from "there are none". An agent calling `content.list` straight after
+ * `project.open` is inside that window: `loadRelations` runs from an effect and nothing awaits it.
+ *
+ * So this is for readers that report. The eleven that draw or resolve a click keep reading
+ * `relations$` directly, because for them the interim empty is the right answer rather than a lie.
+ */
+const getLoadedRelations = (projectId: string): readonly ContentRelation[] | null =>
+  loadedProject.id === projectId && loadedProject.answered ? relations$.peek() : null;
 
 /**
  * Ask again, and stop answering with another project's edges while the asking is in flight.
@@ -77,6 +97,9 @@ const loadedProject = { id: null as string | null };
 async function loadRelations(projectId: string) {
   if (loadedProject.id !== projectId) {
     loadedProject.id = projectId;
+    // Unanswered until this query lands, which is the fact `getLoadedRelations` reports and the
+    // empty array cannot: `[]` is both "not yet" and "none".
+    loadedProject.answered = false;
     relations$.set([]);
   }
 
@@ -85,6 +108,7 @@ async function loadRelations(projectId: string) {
   // Another navigation may have overtaken this query. Landing now would put the project we just
   // left back on screen — the defect this function exists to close, arriving by a slower route.
   if (loadedProject.id === projectId) {
+    loadedProject.answered = true;
     relations$.set(loaded);
   }
 }
@@ -258,6 +282,7 @@ export {
   disconnectItems,
   disconnectRelations,
   findRelation,
+  getLoadedRelations,
   getRelationLabel,
   loadRelations,
   RELATION_KINDS,
