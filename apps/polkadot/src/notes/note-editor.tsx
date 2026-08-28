@@ -1,5 +1,4 @@
-import { CodeExtension } from "@lexical/code";
-import { CodePrismExtension } from "@lexical/code-prism";
+import { CodeShikiExtension, ShikiTokenizer } from "@lexical/code-shiki";
 import { LinkExtension } from "@lexical/link";
 import { ListExtension } from "@lexical/list";
 import { TRANSFORMERS } from "@lexical/markdown";
@@ -10,6 +9,7 @@ import { MarkdownShortcutPlugin } from "@lexical/react/LexicalMarkdownShortcutPl
 import { OnChangePlugin } from "@lexical/react/LexicalOnChangePlugin";
 import { RichTextExtension } from "@lexical/rich-text";
 import {
+  configExtension,
   defineExtension,
   type EditorState,
   type EditorThemeClasses,
@@ -49,9 +49,12 @@ const noteEditor = tv({
      *
      * Lexical renders both a code block and inline code as `<code>`, so a `[&_code]` rule hit both
      * and a fenced block drew as a pill: measured `display: inline` with `padding: 2px 4px`.
+     *
+     * No background or text colour: Shiki writes both as inline styles from its theme, and a
+     * declaration that always loses is the defect this app's bar names first.
      */
     codeBlock:
-      "my-2 block overflow-x-auto rounded-[6px] bg-[var(--ground)] p-3 font-mono text-[12px] leading-[1.6] break-words whitespace-pre-wrap text-[var(--ink)]",
+      "my-2 block overflow-x-auto rounded-[6px] p-3 font-mono text-[12px] leading-[1.6] break-words whitespace-pre-wrap",
     // `flex-1` rather than `h-full`: a flex item keeps `min-height: auto`, so it fills the column
     // when the note is short and grows past it when the note is long. A height locks out the
     // second case, which is how a note longer than its window became unreadable.
@@ -63,16 +66,6 @@ const noteEditor = tv({
     link: "text-[var(--accent)] underline underline-offset-2",
     listItem: "my-0.5",
     ol: "my-2 list-decimal pl-5",
-    /*
-     * Four tones and the accent, not a rainbow.
-     *
-     * The palette carries one hue. Inventing six for syntax would break "warm ink on a cool ground"
-     * in the smallest surface the app has. Identifiers keep the block's own `--ink`.
-     */
-    tokenComment: "text-[var(--ink-faint)] italic",
-    tokenKeyword: "text-[var(--accent)]",
-    tokenPunctuation: "text-[var(--ink-faint)]",
-    tokenString: "text-[var(--ink-muted)]",
     /** Spacing belongs between paragraphs, so it is the sibling that gets it, not every one. */
     paragraph: "[&+p]:mt-3",
     placeholder:
@@ -95,32 +88,8 @@ const styles = noteEditor();
  *
  * Values come from `tv` slots, so classes still have one home and this stays a mapping.
  */
-/** Prism's token names, folded onto the four tones above. Anything absent keeps `--ink`. */
-const CODE_HIGHLIGHT: Readonly<Record<string, string>> = {
-  atrule: styles.tokenKeyword(),
-  attr: styles.tokenKeyword(),
-  boolean: styles.tokenKeyword(),
-  builtin: styles.tokenKeyword(),
-  cdata: styles.tokenComment(),
-  char: styles.tokenString(),
-  comment: styles.tokenComment(),
-  doctype: styles.tokenComment(),
-  important: styles.tokenKeyword(),
-  inserted: styles.tokenString(),
-  keyword: styles.tokenKeyword(),
-  operator: styles.tokenPunctuation(),
-  prolog: styles.tokenComment(),
-  punctuation: styles.tokenPunctuation(),
-  regex: styles.tokenString(),
-  selector: styles.tokenKeyword(),
-  string: styles.tokenString(),
-  tag: styles.tokenKeyword(),
-  url: styles.tokenString(),
-};
-
 const EDITOR_THEME: EditorThemeClasses = {
   code: styles.codeBlock(),
-  codeHighlight: CODE_HIGHLIGHT,
   heading: { h1: styles.h1(), h2: styles.h2() },
   link: styles.link(),
   list: { listitem: styles.listItem(), ol: styles.ol(), ul: styles.ul() },
@@ -140,8 +109,17 @@ const EDITOR_EXTENSIONS = [
   RichTextExtension,
   ListExtension,
   LinkExtension,
-  CodeExtension,
-  CodePrismExtension,
+  /*
+   * Shiki brings `CodeExtension` and `CodeIndentExtension` with it, so the nodes and Tab handling
+   * arrive too. Its default theme is `one-light`, which would be a white slab on this ground.
+   *
+   * `vitesse-dark` is the least saturated dark theme Shiki bundles — warm greys rather than the
+   * six-hue rainbow most editor themes use, which is the closest a real grammar gets to this app's
+   * one-hue palette. Grammars load on demand, so nothing is bundled for a language nobody types.
+   */
+  configExtension(CodeShikiExtension, {
+    tokenizer: { ...ShikiTokenizer, defaultTheme: "vitesse-dark" },
+  }),
 ];
 
 /**

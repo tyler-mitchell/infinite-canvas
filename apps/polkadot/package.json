@@ -17,7 +17,7 @@
     "@hyphened/infinite-canvas": "workspace:*",
     "@legendapp/state": "catalog:",
     "@lexical/code": "catalog:",
-    "@lexical/code-prism": "catalog:",
+    "@lexical/code-shiki": "catalog:",
     "@lexical/link": "catalog:",
     "@lexical/list": "catalog:",
     "@lexical/markdown": "catalog:",
