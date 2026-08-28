@@ -112,3 +112,70 @@ test("the database tool refuses input its schema would let through", async () =>
     "Refused:",
   );
 });
+
+/**
+ * A description that sends a caller to another tool has to send it somewhere.
+ *
+ * Half these descriptions are wayfinding — "with the ids `content.restore` takes", "Ids come from
+ * `content.list`" — which is the only way a caller learns the order to call things in. A renamed or
+ * removed verb leaves the sentence pointing at a name that no longer resolves, and the caller finds
+ * out by invoking it. Nothing else here would notice: the description is a string, and a string
+ * cannot be wrong at compile time.
+ *
+ * This is the same failure that was live one commit ago, in its other form — `canvas.describe`
+ * described a selection it did not report. That half cannot be checked mechanically. This half can.
+ *
+ * **Namespaces come from the tool names themselves rather than a list kept here**, so the scan
+ * cannot drift from the vocabulary it checks, and prose is safe by construction: a dotted word is
+ * only examined when its prefix is already a real tool namespace, which "e.g." and "import.meta"
+ * are not.
+ */
+const DOTTED = /\b[a-z]+\.[a-zA-Z]+\b/g;
+
+test("every tool a description names is a tool that exists", () => {
+  const all = tools();
+  const names = new Set(all.map((tool) => tool.name));
+  const namespaces = new Set(all.map((tool) => tool.name.split(".")[0]));
+
+  const dangling = all.flatMap((tool) =>
+    (tool.description.match(DOTTED) ?? [])
+      .filter((token) => namespaces.has(token.split(".")[0] ?? "") && !names.has(token))
+      .map((token) => `${tool.name} sends a caller to ${token}`),
+  );
+
+  expect(dangling).toStrictEqual([]);
+});
+
+test.each([
+  ["a renamed verb", "with the ids content.restoreItem takes"],
+  ["a removed one", "Ids come from content.listEverything."],
+])("the scan notices %s", (_case, description) => {
+  const names = new Set(tools().map((tool) => tool.name));
+  const namespaces = new Set(tools().map((tool) => tool.name.split(".")[0]));
+  const flagged = (description.match(DOTTED) ?? []).filter(
+    (token) => namespaces.has(token.split(".")[0] ?? "") && !names.has(token),
+  );
+
+  expect(flagged).toHaveLength(1);
+});
+
+test("a report that points at another tool points at a real one", () => {
+  /*
+   * The scan above reads descriptions. `describeCanvas` names a tool in its *output* — "content.list
+   * names them", because the canvas report counts selected connections and the content report is
+   * what identifies them — and output cannot be scanned without building a context for every
+   * reporter. This is that one reference, asserted where the names live: rename the tool and this
+   * fails, naming the sentence that has to move with it.
+   */
+  expect(tools().map((tool) => tool.name)).toContain("content.list");
+});
+
+test("it does not read ordinary prose as a tool reference", () => {
+  // Neither prefix is a tool namespace, so neither token is examined at all.
+  const prose = "Development only. Run SurQL, e.g. against import.meta paths.";
+  const namespaces = new Set(tools().map((tool) => tool.name.split(".")[0]));
+
+  expect(
+    (prose.match(DOTTED) ?? []).filter((token) => namespaces.has(token.split(".")[0] ?? "")),
+  ).toStrictEqual([]);
+});

@@ -78,6 +78,18 @@ strictly greater than 160 — a kind sitting exactly on it demotes and never ret
   agent. What was measured live is the state they read: clicking a connector fills
   `selection.targets` with `type: "edge"` and empties `windowIds`.
 
+  **The other half of that class is now guarded.** Half these descriptions are wayfinding — "with
+  the ids `content.restore` takes", "Ids come from `content.list`" — and that is the only way a
+  caller learns what order to call things in. A renamed verb leaves the sentence pointing at a name
+  that no longer resolves, and the caller finds out by invoking it; a description is a string and
+  cannot be wrong at compile time. Every cross-reference is checked against the live tool list now,
+  with the namespaces derived from the tool names themselves so prose stays safe by construction and
+  the scan cannot drift from the vocabulary. Every reference resolves today; verified by planting a
+  renamed one and watching it name both ends.
+
+  What a scan still cannot check is the half that was actually broken: whether a description matches
+  what its function _does_. That was caught by reading.
+
 - **A renamed link kept its old name in its own bar, and the accessible name with it.**
   `createContentCache` is read-once — right for the bytes of a picture and the address of a link, and
   wrong for a title, which a rename changes. A rename writes storage, folds `projectContent$` and
