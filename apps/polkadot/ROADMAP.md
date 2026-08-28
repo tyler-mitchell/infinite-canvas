@@ -1278,33 +1278,87 @@ stays. What is missing is the field itself, and it is hours of careful work, not
 
 Kept here because the list _is_ the incubator's output.
 
-| Gap                                                                                                                                        | Generic affordance                                                                         | State  |
-| ------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------ | ------ |
-| Backdrop was hardcoded                                                                                                                     | `renderBackdrop`, mirroring `renderOverlay`                                                | landed |
-| No way to observe "the durable document changed"                                                                                           | `InfiniteCanvasHandle.subscribeDocument`                                                   | landed |
-| Hydration adopted a fallback's unusable viewport                                                                                           | `desktop.hydrate` keeps a usable viewport over the payload's                               | landed |
-| `chrome` demanded all five metrics, and the defaults are not exported                                                                      | `InfiniteCanvasChromeMetricsInput`, mirroring `zoomPolicy`                                 | landed |
-| No DOM layer between the backdrop and the windows: connectors meant losing the grid or taking on `three`                                   | `renderUnderlay`, the counterpart to `renderBackdrop` and `renderOverlay`                  | landed |
-| Workspaces could be walked but never entered: no command made one, named which to go to, or closed one                                     | `workspace.create`, `workspace.enter`, `workspace.close`                                   | landed |
-| Navigation was not desktop-aware: going to a window another desktop hid panned the camera to nothing                                       | `window.reveal` — go where the window is, restore it, focus it                             | landed |
-| The HUD pinned itself to the element's edges, ignoring the bands every camera verb already respects                                        | `canvas-hud` insets its root by `viewportInsets`, per edge                                 | landed |
-| The HUD's bottom edge was two absolutes pinned to opposite sides, free to grow into each other                                             | one flex row: the dock shrinks and wraps, the controls hold their size                     | landed |
-| A dock item's padding was an inline style and its text was uppercased, over a `window.title`                                               | both moved into `theme.css`, where a consumer can reach them                               | landed |
-| A body wrapper fixed at `min-height: 100%` made `height: 100%` impossible for its own content                                              | the wrapper follows the kind's `overflowY`: growable if it scrolls, else pinned            | landed |
-| The drop system was pointer-only, so a file dragged in from the OS could reach none of it                                                  | the viewport bridges native drag events into the same drop interaction                     | landed |
-| Six surfaces answered "which windows" without asking which desktop, so each offered what one hides                                         | every derived view reads the same membership the verb does                                 | landed |
-| `theme.css` promised a cascade position it cannot hold, so importing it after Tailwind beat every utility                                  | the contract documented as it is, plus a test that no rule escapes the layer               | landed |
-| Group tabs were labelled with the window's UUID, and the label policy could not be replaced                                                | `groupTabLabel`, defaulting to the exported `getInfiniteCanvasGroupTabLabel`               | landed |
-| Group chrome sizes were a layer prop the reducer ignored, so setting them desynced chrome from panes                                       | `state.groupMetrics`, read by the solver and every derived view alike                      | landed |
-| Group chrome had no tokens of its own: the seam read the border colour, tab ink read the grid colour                                       | `--icx-group-gutter`, `--icx-group-tab-fg`, `--icx-group-surface-radius`/`-shadow`         | landed |
-| A horizontal accordion's headers ran their text across a 28px strip, so every one was a single glyph                                       | the header emits `data-axis`; the theme turns those labels with the strip                  | landed |
-| `window.undock` and `group.dissolve` left freed members inside the shell, tab members exactly stacked                                      | both place through vacancy, bounded by the shell rather than the camera                    | landed |
-| `presence.visible` meant "not minimized", so it held windows behind a tab and windows on another desktop                                   | `visible` means on screen; items carry `isHidden` and `isAdmitted`                         | landed |
-| A group's `title` was modelled, persisted and settable, and drawn nowhere — naming one was write-only                                      | the shell draws a frame label, sized in screen units and configurable by `labelSize`       | landed |
-| `window.undock` counted the shell it was leaving as occupied, so a last member was thrown clear of it                                      | a shell is an obstacle only when it survives being left; `group.dissolve` already agreed   | landed |
-| A consumer placing a corner surface cannot ask where the canvas's own HUD ended up, so it guesses                                          | `--icx-hud-extent-bottom`/`-top`, written on the viewport — the mirror of `viewportInsets` | landed |
-| A group's frame label had no policy prop, so over a tab strip it repeated the strip's own list of members                                  | `groupLabel`, mirroring `groupTabLabel`, defaulting to `getInfiniteCanvasGroupTitle`       | landed |
-| "Longest unoccluded run" returns the longest unoccluded _segment_, so an elbow puts a connector's label a quarter along instead of halfway | merge contiguous unoccluded segments into runs, and take the midpoint by path length       | open   |
+| Gap                                                                                                                                        | Generic affordance                                                                                 | State  |
+| ------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------- | ------ |
+| Backdrop was hardcoded                                                                                                                     | `renderBackdrop`, mirroring `renderOverlay`                                                        | landed |
+| No way to observe "the durable document changed"                                                                                           | `InfiniteCanvasHandle.subscribeDocument`                                                           | landed |
+| Hydration adopted a fallback's unusable viewport                                                                                           | `desktop.hydrate` keeps a usable viewport over the payload's                                       | landed |
+| `chrome` demanded all five metrics, and the defaults are not exported                                                                      | `InfiniteCanvasChromeMetricsInput`, mirroring `zoomPolicy`                                         | landed |
+| No DOM layer between the backdrop and the windows: connectors meant losing the grid or taking on `three`                                   | `renderUnderlay`, the counterpart to `renderBackdrop` and `renderOverlay`                          | landed |
+| Workspaces could be walked but never entered: no command made one, named which to go to, or closed one                                     | `workspace.create`, `workspace.enter`, `workspace.close`                                           | landed |
+| Navigation was not desktop-aware: going to a window another desktop hid panned the camera to nothing                                       | `window.reveal` — go where the window is, restore it, focus it                                     | landed |
+| The HUD pinned itself to the element's edges, ignoring the bands every camera verb already respects                                        | `canvas-hud` insets its root by `viewportInsets`, per edge                                         | landed |
+| The HUD's bottom edge was two absolutes pinned to opposite sides, free to grow into each other                                             | one flex row: the dock shrinks and wraps, the controls hold their size                             | landed |
+| A dock item's padding was an inline style and its text was uppercased, over a `window.title`                                               | both moved into `theme.css`, where a consumer can reach them                                       | landed |
+| A body wrapper fixed at `min-height: 100%` made `height: 100%` impossible for its own content                                              | the wrapper follows the kind's `overflowY`: growable if it scrolls, else pinned                    | landed |
+| The drop system was pointer-only, so a file dragged in from the OS could reach none of it                                                  | the viewport bridges native drag events into the same drop interaction                             | landed |
+| Six surfaces answered "which windows" without asking which desktop, so each offered what one hides                                         | every derived view reads the same membership the verb does                                         | landed |
+| `theme.css` promised a cascade position it cannot hold, so importing it after Tailwind beat every utility                                  | the contract documented as it is, plus a test that no rule escapes the layer                       | landed |
+| Group tabs were labelled with the window's UUID, and the label policy could not be replaced                                                | `groupTabLabel`, defaulting to the exported `getInfiniteCanvasGroupTabLabel`                       | landed |
+| Group chrome sizes were a layer prop the reducer ignored, so setting them desynced chrome from panes                                       | `state.groupMetrics`, read by the solver and every derived view alike                              | landed |
+| Group chrome had no tokens of its own: the seam read the border colour, tab ink read the grid colour                                       | `--icx-group-gutter`, `--icx-group-tab-fg`, `--icx-group-surface-radius`/`-shadow`                 | landed |
+| A horizontal accordion's headers ran their text across a 28px strip, so every one was a single glyph                                       | the header emits `data-axis`; the theme turns those labels with the strip                          | landed |
+| `window.undock` and `group.dissolve` left freed members inside the shell, tab members exactly stacked                                      | both place through vacancy, bounded by the shell rather than the camera                            | landed |
+| `presence.visible` meant "not minimized", so it held windows behind a tab and windows on another desktop                                   | `visible` means on screen; items carry `isHidden` and `isAdmitted`                                 | landed |
+| A group's `title` was modelled, persisted and settable, and drawn nowhere — naming one was write-only                                      | the shell draws a frame label, sized in screen units and configurable by `labelSize`               | landed |
+| `window.undock` counted the shell it was leaving as occupied, so a last member was thrown clear of it                                      | a shell is an obstacle only when it survives being left; `group.dissolve` already agreed           | landed |
+| A consumer placing a corner surface cannot ask where the canvas's own HUD ended up, so it guesses                                          | `--icx-hud-extent-bottom`/`-top`, written on the viewport — the mirror of `viewportInsets`         | landed |
+| A group's frame label had no policy prop, so over a tab strip it repeated the strip's own list of members                                  | `groupLabel`, mirroring `groupTabLabel`, defaulting to `getInfiniteCanvasGroupTitle`               | landed |
+| "Longest unoccluded run" returns the longest unoccluded _segment_, so an elbow puts a connector's label a quarter along instead of halfway | merge contiguous unoccluded segments into runs, and take the midpoint by path length               | open   |
+| `workspace.removeActiveWindow` did nothing to a docked window: it dropped one id and reconciliation put it straight back                   | the removal half expands to the group-complete set, as the move half already did                   | landed |
+| The minimap's viewport indicator filled the whole box whenever the camera contained everything drawn                                       | `viewport` is nullable, so a consumer cannot draw the frame that traces the box's own edge         | landed |
+| Published command descriptions understated their own verbs, and a consumer's copies of them drifted                                        | the descriptions say what the verb does; a consumer quotes the descriptor instead of restating it  | landed |
+| A consumer's own verbs reach the keyboard and nothing else: `hotkeyActions` never join contextual discovery                                | consumer verbs enter the same list the framework's do — id, label, description, enablement, invoke | open   |
+| A selected scene object carries identity and no geometry, so nothing spatial downstream of selection can act on one                        | a bounds provider keyed by selection target, answered on demand                                    | open   |
+| The camera frames a target once and cannot follow a moving one                                                                             | a sustained follow with a release rule, or a camera setter if the release policy is the consumer's | open   |
+| What `createGroup` will accept cannot be asked before dispatching it                                                                       | the acceptance rule as a query, so enablement and the shell rect stop composing it by hand         | open   |
+
+**On the three landed rows above, because they are one finding.** All three were found by asking
+what a caller is actually told, and all three had passed every typecheck and a 700-test suite. The
+description row is four instances of one shape: `selection.selectAllVisible` and `view.fitAll` called
+a presence-based set "visible" when the predicate never consults the camera; `window.reveal` named
+one of the four things it does; `workspace.moveActiveWindow` and `removeActiveWindow` never mentioned
+that a docked window takes its whole group; and the seventeen nudge and arrange verbs never mentioned
+that they make **opposite** choices about a docked pane — nudge moves the whole shell, align skips it
+entirely, and both are deliberate. A caller with one docked window in a four-window selection gets
+opposite treatment from two verbs that read as siblings.
+The consumer half of that row is its own lesson: Polkadot re-declares five template verbs as app
+actions and had restated each description rather than quoting the descriptor, so improving the
+framework's sentence left the only sentence a WebMCP caller can see untouched. The framework says as
+much where those descriptors are declared — they exist "so the verb has a label and a description in
+one place rather than being re-invented by every consumer that builds a switcher."
+
+**On the four open rows, and what would settle each.** They are ordered by how much a consumer has
+to build without them.
+The discovery row is the largest and has evidence rather than an argument: `app-actions.ts` is
+roughly 1400 lines that exist because the framework has no consumer-verb registry, and it reinvents
+description, label, live enablement, an argument schema and a refusal string before
+`published-commands.ts` and `model-context.tsx` merge the two vocabularies and police name collisions
+between them. The framework already diagnosed this exact shape for its own lifecycle verbs and called
+it an authority failure. It needs no knowledge of WebMCP — only that one list holds both vocabularies.
+The scene-target row is one gap wearing four faces. `InfiniteCanvasSelectionTarget` is
+`{data?, id, kind, type}` and the framework already admits `"scene-object"` and `"edge"` into
+selection — but `view.fitSelection` reads window bounds, the minimap draws windows and groups, the
+offscreen ring points at windows, and directional focus walks windows. Settle it by implementing only
+the bounds lookup and checking whether `fitSelection` consumes it with no other change; the other
+three already take rects.
+The camera row is smaller than it looks: `viewportInsets` already exists and is threaded into
+`fitCameraToWorldRect`, and targets are already `point | rect | selection | visibleWindows | window`.
+Only continuity is missing, and the deciding question is cancellation rather than tracking — if a
+user gesture releasing the follow is the one right answer, it belongs here, because otherwise every
+consumer reimplements the same release against the pointer interaction.
+The `createGroup` row is the mildest and is routed around rather than blocked: a consumer can compose
+`getInfiniteCanvasVisibleWindowItems` with `isInfiniteCanvasWindowGrouped` from documented public
+semantics. It is recorded because the first attempt copied the framework's internal predicate
+instead, which is the drift the description row above is about.
+
+**Two wording nits found in the same sweep and deliberately not made rows,** because neither names a
+missing affordance. `group.growPane` and `group.shrinkPane` say a pane takes from "the pane beside
+it" without saying which side; `resolveInfiniteCanvasPaneSeam` is precise — the sibling _after_ it,
+except the last pane, which takes from the one before. And the HUD's own button still reads "Fit all
+visible windows", the same overloaded word the two command descriptions were corrected for; it stays
+because a person clicking it watches the camera move and learns immediately, where a caller reading
+a description cannot.
 
 **On that row, which is the minimap row again in a different function.**
 `getInfiniteCanvasLongestUnoccludedSegment` says "the longest **run** of a path that nothing
