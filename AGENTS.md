@@ -102,6 +102,32 @@ one thing to avoid.
 Most commits need no body. Add one only for what the diff cannot show, in a sentence or two, and
 never to enumerate the changes.
 
+## Driving the app
+
+Every contributor drives Polkadot the same way: through the WebMCP tools the
+app publishes. Not the DOM, not synthetic events, not a console global.
+
+Chrome needs `--enable-blink-features=WebMCP` (not `--enable-features`). Load a
+canvas route first — the tools register inside the canvas provider, so the
+index answers "no WebMCP tools available".
+
+- `command.list` says what can run right now. Ask it before invoking, rather
+  than invoking and reading "is not available right now".
+- Verbs return once their write lands, so the answer can be trusted
+  immediately. `note.write` is the stated exception and says so in place.
+- `database.query` confirms what a verb actually wrote. Development only, along
+  with `database.report` — it runs arbitrary SurQL and bypasses every schema,
+  refusal and revision guard, so it is gated in `getAppTools`.
+
+If you find yourself clicking a `[cmdk-item]`, dispatching a `KeyboardEvent`,
+hand-building a selection target, or waiting on a `setTimeout` for a write,
+stop: that is a missing affordance, not a technique. Add the tool.
+
+Writes cannot be driven from a node test — the WASM engine does not start under
+`vp test` at all, so an awaited write hangs rather than failing. See
+`apps/polkadot/src/database/in-memory-engine.test.ts`. Assert decisions and
+rules there; assert writes in a browser.
+
 ## Shared Agent Workflow
 
 - Daily branch: `main`

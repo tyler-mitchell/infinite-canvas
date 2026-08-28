@@ -12,9 +12,9 @@ import type { WindowKind } from "./canvas/window-registry";
  * half is registered on the same list rather than beside it on a `window` global. A second
  * transport would be reachable by any script on a page that renders third-party content.
  *
- * `import.meta.env.DEV` is true under test, so the development tier is present here. That is what
- * makes the membership assertion below meaningful — it pins which tools are gated, and the gate
- * itself is one branch in `getAppTools`.
+ * The tier is an argument, so both sides of the gate are reachable from here. Reading it from
+ * `import.meta.env.DEV` inside `getAppTools` would have made it untestable: `DEV` is true under
+ * `vp test`, so an assertion would have passed whether or not the gate existed.
  */
 
 const createContext = (): AppActionContext => ({
