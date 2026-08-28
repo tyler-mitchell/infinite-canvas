@@ -690,7 +690,8 @@ const DEFAULT_INFINITE_CANVAS_COMMAND_DESCRIPTORS = [
   },
   {
     command: { type: "selection.minimize" },
-    description: "Collapse every selected window that can be minimized, as a single undoable edit.",
+    description:
+      "Collapse every selected window that can be minimized, as a single undoable edit. Docked windows leave their groups on the way, so minimizing a whole group empties its shell.",
     hotkeys: [],
     id: "selection.minimize",
     label: "Minimize Selected Windows",
