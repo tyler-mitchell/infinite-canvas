@@ -1,6 +1,11 @@
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+
 import { expect, test } from "vite-plus/test";
 
 import { markdownToNote, noteToMarkdown } from "./note-markdown";
+
+const SRC = fileURLToPath(new URL(".", import.meta.url));
 
 /**
  * The round trip `note-text-round-trip.test.ts` says the plain-text path cannot make.
@@ -62,6 +67,36 @@ test("a quote stays a quote", () => {
 
   expect(typesIn(written)).toEqual(["quote"]);
   expect(typesIn(markdownToNote(noteToMarkdown(written)))).toEqual(["quote"]);
+});
+
+test("a link survives the round trip, url and all", () => {
+  const written = markdownToNote("see [Example](https://example.com)");
+  const link = (nodeIn(written, 0).children as readonly Record<string, unknown>[])[1] ?? {};
+
+  expect(link.type).toBe("link");
+  expect(link.url).toBe("https://example.com");
+  // The url is the half a caller cannot retype from memory, so it is the half worth asserting.
+  expect(noteToMarkdown(written)).toContain("[Example](https://example.com)");
+});
+
+/**
+ * Autolink is off, and turning it on costs more than adding the node back.
+ *
+ * `LINK.export` returns `null` for an `AutoLinkNode`, so an autolinked URL exports as its bare text
+ * with the link gone — silently, to every caller of `note.read`. That is the loss `note-markdown`
+ * exists to close, so mounting `AutoLinkExtension` also owes a transformer for the node.
+ *
+ * Written as an agreement rather than a ban: change either side and this fails, which is the moment
+ * to decide the rest.
+ */
+test("the editor and the markdown node list agree about autolink", () => {
+  const mounts = readFileSync(`${SRC}note-editor.tsx`, "utf8").includes("AutoLinkExtension");
+  const lists = readFileSync(`${SRC}note-markdown.ts`, "utf8").includes("AutoLinkNode,");
+
+  expect(
+    lists,
+    "AutoLinkNode is listed for the headless editor but nothing can produce one — or autolink was mounted and note.read now drops those urls",
+  ).toBe(mounts);
 });
 
 /** The edit a caller actually makes: read, change a word, write, and keep everything else. */

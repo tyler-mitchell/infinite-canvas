@@ -89,6 +89,17 @@ strictly greater than 160 — a kind sitting exactly on it demotes and never ret
   link text by pointer. Selecting across it still works — the handler returns early on a non-collapsed
   selection — and the keyboard reaches it normally.
 
+  **Autolink stays off, and the reason is stronger than "not built".** `NOTE_NODES` listed
+  `AutoLinkNode` for the headless editor while `AutoLinkExtension` was never mounted and
+  `TRANSFORMERS`' `LINK` builds a `LinkNode` — so nothing could produce one, and the list's own
+  docstring claim to mirror the editor was false. Removed.
+
+  Mounting autolink costs more than adding the node back: `LINK.export` returns `null` for an
+  autolink, so an autolinked URL would export as its bare text with the URL gone — silently, to every
+  caller of `note.read`, which is the loss `note-markdown` exists to close. Whoever mounts it owes a
+  transformer for the node too. Written as an agreement between the two files rather than a ban, so
+  changing either side fails loudly at the moment the rest has to be decided.
+
   **Getting a link in there is itself worth recording.** Markdown shortcuts could not be driven with
   the browser tool: typing `[Example](https://example.com)` and even `# Heading` left literal text,
   while `MarkdownShortcutPlugin` is mounted with the full `TRANSFORMERS` and the ROADMAP has `# `

@@ -1,6 +1,6 @@
 import { CodeHighlightNode, CodeNode } from "@lexical/code";
 import { createHeadlessEditor } from "@lexical/headless";
-import { AutoLinkNode, LinkNode } from "@lexical/link";
+import { LinkNode } from "@lexical/link";
 import { ListItemNode, ListNode } from "@lexical/list";
 import {
   $convertFromMarkdownString,
@@ -34,8 +34,19 @@ import { $createMentionNode, $isMentionNode, MentionNode } from "./mention-node"
  * This is the other job — the document rather than the words — and pays an editor for it.
  */
 
+/**
+ * No `AutoLinkNode`, and that is a coupling rather than an omission.
+ *
+ * Nothing can produce one: `AutoLinkExtension` is not mounted, and `TRANSFORMERS`' `LINK` builds a
+ * `LinkNode`. Listing a node the editor cannot make said this list mirrored the editor when it did
+ * not.
+ *
+ * **Mounting autolink means more than adding it back.** `LINK.export` returns `null` for an
+ * autolink, so an autolinked URL would export as its bare text with the link gone — silently, to
+ * every caller of `note.read`, which is the loss this module exists to close. Whoever mounts it owes
+ * a transformer for the node as well.
+ */
 const NOTE_NODES = [
-  AutoLinkNode,
   CodeHighlightNode,
   CodeNode,
   HeadingNode,
