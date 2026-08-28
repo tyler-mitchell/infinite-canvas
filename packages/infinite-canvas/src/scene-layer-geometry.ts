@@ -170,13 +170,9 @@ type ParametricSpan = Readonly<{ from: number; to: number }>;
 /**
  * Where along a segment it passes through a rect, as a `0…1` span, or `null` if it never does.
  *
- * Liang–Barsky: the segment is inside on the intersection of four half-plane constraints, one per
- * rect edge, each of which either bounds the entry or the exit depending on the sign of the
- * direction. A zero denominator means the segment is parallel to that pair of edges, in which case
- * it is either wholly within that band or wholly outside it — no clipping to do either way.
- *
- * The low-level-mathematics exception to this codebase's no-`let` rule applies here, which is why
- * the accumulation is a `reduce` rather than a loop with mutable bounds. `null` short-circuits.
+ * Liang–Barsky: four half-plane constraints, one per rect edge, each bounding entry or exit by the
+ * sign of the direction. A zero denominator means the segment is parallel to that pair of edges,
+ * so it is wholly inside or wholly outside that band and there is nothing to clip.
  */
 function getSegmentRectSpan(
   segment: InfiniteCanvasWorldSegment,
@@ -233,19 +229,13 @@ function getUncoveredSpans(covered: readonly ParametricSpan[]): readonly Paramet
 }
 
 /**
- * The parts of a path no rect covers.
+ * The parts of a path no rect covers, per input segment.
  *
- * Answers "which of this line can actually be seen", which a consumer drawing connectors beneath
- * windows cannot answer for itself without re-deriving geometry the canvas already owns — it holds
- * both the path segments and the window rects, and they must not be computed twice.
+ * A connector between two windows that nearly touch is almost entirely behind them, so a label
+ * anchored at the path's midpoint lands inside a window. Use this to find somewhere visible.
  *
- * The case that motivated it: a connector between two windows that nearly touch is almost entirely
- * behind them, and anything anchored at the path's midpoint — a label, a grab target — lands inside
- * a window and is invisible. The midpoint is the obvious anchor and the wrong one. The longest run
- * returned here is the right one, and it is a different query.
- *
- * Rects are consumed as opaque occluders rather than as windows, so a consumer can pass whatever
- * actually covers the line: windows, its own overlays, a HUD panel's world footprint.
+ * Rects are treated as opaque occluders rather than as windows, so a consumer can pass anything
+ * that covers the line: windows, overlays, a HUD panel's world footprint.
  */
 function getInfiniteCanvasUnoccludedSegments(
   segments: readonly InfiniteCanvasWorldSegment[],
@@ -268,19 +258,11 @@ function getInfiniteCanvasUnoccludedSegments(
 }
 
 /**
- * The parts of a path that fall inside a rect — the other half of "can this be seen".
+ * The parts of a path that fall inside a rect. The inverse of
+ * `getInfiniteCanvasUnoccludedSegments`, which removes what is covered.
  *
- * `getInfiniteCanvasUnoccludedSegments` removes what is covered; this keeps what is within. A
- * consumer needs both, because a line is invisible either by having something on top of it or by
- * being somewhere nobody is looking, and those are different geometry.
- *
- * The case that asked for it: a canvas whose chrome reserves bands along its edges through
- * `viewportInsets`. A connector anchor landing in one of those bands is behind a panel just as
- * surely as behind a window, but a band is not an occluder — it is the complement of the region
- * that remains, and clipping to that region is the operation that expresses it.
- *
- * Uses the same parametric span as the occlusion clip, taken the other way round: there the span
- * inside the rect is the hole, here it is the whole answer.
+ * Use this for a region a consumer wants to stay within, such as the content area left by
+ * `viewportInsets`. Chrome bands are not occluders; the region that remains is what to clip to.
  */
 function getInfiniteCanvasSegmentsWithinRect(
   segments: readonly InfiniteCanvasWorldSegment[],
@@ -300,13 +282,12 @@ function getInfiniteCanvasSegmentsWithinRect(
   });
 }
 
-/** Clipping is float arithmetic, so a closed joint lands a hair apart rather than exactly. */
+/** Clipping is float arithmetic, so a closed joint lands slightly apart rather than exactly. */
 const RUN_JOIN_TOLERANCE = 0.001;
 
 /**
- * The contiguous runs of a path that nothing covers, as `WorldPath`s — which is what a run is, a
- * polyline with a length. `getInfiniteCanvasUnoccludedSegments` answers per input segment, so an
- * elbow comes back in pieces even where nothing covers the corner.
+ * The contiguous unoccluded runs of a path, as `WorldPath`s. `getInfiniteCanvasUnoccludedSegments`
+ * answers per input segment, so an elbow comes back in pieces even where nothing covers the corner.
  */
 function getInfiniteCanvasUnoccludedRuns(
   segments: readonly InfiniteCanvasWorldSegment[],
@@ -333,9 +314,9 @@ function getInfiniteCanvasUnoccludedRuns(
 }
 
 /**
- * The longest contiguous run, or `null` when all of it is hidden. Anchor a label with
- * `getInfiniteCanvasWorldPathPointAtProgress(run, 0.5)` — a clipped run has none of a whole
- * orthogonal path's symmetry, so walking it and averaging its ends are different points.
+ * The longest contiguous run, or `null` when the whole path is covered. Anchor a label with
+ * `getInfiniteCanvasWorldPathPointAtProgress(run, 0.5)`; a clipped run is not symmetric, so
+ * walking it and averaging its ends give different points.
  */
 function getInfiniteCanvasLongestUnoccludedRun(
   segments: readonly InfiniteCanvasWorldSegment[],
@@ -351,8 +332,8 @@ function getInfiniteCanvasLongestUnoccludedRun(
 }
 
 /**
- * The longest single unoccluded **segment** — the cheaper query, and the same answer as a run only
- * on a straight line. Use `getInfiniteCanvasLongestUnoccludedRun` for anything routed.
+ * The longest single unoccluded segment. Cheaper than the run query and gives the same answer only
+ * on a straight line; use `getInfiniteCanvasLongestUnoccludedRun` for a routed path.
  */
 function getInfiniteCanvasLongestUnoccludedSegment(
   segments: readonly InfiniteCanvasWorldSegment[],

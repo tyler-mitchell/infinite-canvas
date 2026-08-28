@@ -37,24 +37,15 @@ import type {
 /**
  * Groups, projected onto canvas state.
  *
- * One rule governs this file: **the group is the source of truth, and a member
- * window's `rect` is its projection.** After every mutation that can move a
- * member — docking, undocking, retitling a tab as active, dragging a gutter,
- * moving the shell — `syncInfiniteCanvasGroupWindowRects` re-solves every group
- * and writes the result back onto `window.rect`.
+ * The rule for this file: the group is the source of truth and a member window's `rect` is its
+ * projection. After every mutation that can move a member,
+ * `syncInfiniteCanvasGroupWindowRects` re-solves every group and writes the result onto
+ * `window.rect`. Snapping, selection bounds, camera framing, the window layer, persistence, and
+ * the scene-layer proxies then all read `window.rect` without knowing groups exist.
  *
- * That is what keeps the rest of the framework group-blind. Snapping, selection
- * bounds, camera framing, the window layer, persistence, and the scene-layer
- * window proxies all read `window.rect` and none of them need to learn what a
- * group is. The alternative — teaching each of them to ask "are you grouped?" —
- * is how a window manager grows a dozen places that can disagree about where a
- * window actually is.
- *
- * A window hidden behind an inactive tab or a collapsed fold is still solved — it
- * takes the rect it would occupy if revealed. Nothing renders it, but a tear-out
- * frees it at its own size rather than swelling it to fill the shell, and
- * anything that unions window rects (fit-all, selection bounds) sees the truth
- * instead of a stale rect from before it was docked.
+ * A window hidden behind an inactive tab or a collapsed fold is still solved, taking the rect it
+ * would occupy if revealed. Nothing renders it, but a tear-out frees it at its own size, and
+ * anything unioning window rects gets a current value rather than a pre-dock one.
  */
 
 const DEFAULT_INFINITE_CANVAS_GROUP_TITLE = "Group";
@@ -102,11 +93,8 @@ const EMPTY_INFINITE_CANVAS_GROUP_PROJECTION: InfiniteCanvasGroupProjection = {
 };
 
 /**
- * Solve every group and flatten the answer into a lookup.
- *
- * Takes `groups` rather than the whole state so a caller can memoize on exactly
- * what it reads — a camera tick must not re-solve a layout that cannot have
- * changed.
+ * Solves every group and flattens the result into a lookup. Takes `groups` rather than the whole
+ * state so a caller can memoize on exactly what it reads, and a camera tick does not re-solve.
  */
 function getInfiniteCanvasGroupProjection(
   groups: readonly InfiniteCanvasGroup[],
@@ -138,8 +126,8 @@ function getInfiniteCanvasGroupProjection(
 }
 
 /**
- * Re-project every group onto its members' rects. Every mutation in this file
- * ends here, so `window.rect` is never allowed to disagree with the tree.
+ * Re-projects every group onto its members' rects. Every mutation in this file ends here, so
+ * `window.rect` cannot disagree with the tree.
  */
 function syncInfiniteCanvasGroupWindowRects<Kind extends string>(
   state: InfiniteCanvasState<Kind>,
@@ -170,24 +158,12 @@ function isSameRect(left: InfiniteCanvasRect, right: InfiniteCanvasRect): boolea
 }
 
 /**
- * The window a group has decayed to, or `null` if it has not decayed.
+ * The window a group has decayed to, or `null` if it has not decayed. Decay is more than one
+ * member before and one after; a group deliberately created around a single window is supported
+ * and not decay, which is why this compares against the group as it stands.
  *
- * A group is a container for more than one window. Take it down to a single member and the
- * container is gone — `normalizeInfiniteCanvasGroupTree` collapses a one-child split to its child —
- * and what is left is one window wearing a shell: a border, eight resize handles, a label, and a
- * footprint several times the window's own. Watched in the incubator on 2026-08-27: archiving a
- * note closed its pane's window and left a 544×720 shell around the one that remained, still
- * labelled "Untitled 6 & Connected to Untitled 6" after Untitled 6 had gone.
- *
- * **Decayed, not merely single.** A group deliberately created around one window is a supported
- * state and a useful one — `createInfiniteCanvasGroup` has an explicit branch building that tree,
- * so a consumer can make a shell and then dock into it. The two are indistinguishable from the
- * resulting tree alone, which is why this compares against the group as it stands: more than one
- * member before and one after is decay; one before and one after is what the caller asked for.
- *
- * A one-*tab* group survives either way, and that is the normalizer's rule rather than an exception
- * here: a tabs container with one child is still a container, so it never reaches this at all. It
- * has a strip you can drop onto, which is what makes a shell worth its chrome.
+ * A tabs container with one child is still a container and never reaches this, since it keeps a
+ * strip that can be dropped onto.
  */
 function getInfiniteCanvasDecayedGroupMemberId(
   group: InfiniteCanvasGroup,
@@ -215,12 +191,8 @@ function withInfiniteCanvasGroupTree<Kind extends string>(
 }
 
 /**
- * Dissolve a shell whose last companion was taken away rather than moved out.
- *
- * A survivor takes the group's rect, which is the answer `group.dissolve` already gives — members
- * inherit the space the shell held, and with one member there is no packing to do: it gets all of
- * it. Keeping the pane rect would leave the window at half the footprint the user sized, beside an
- * empty hole where the other pane was.
+ * Dissolves a shell left holding one member. The survivor takes the group's rect, matching what
+ * `group.dissolve` does; keeping the pane rect would leave it at half the sized footprint.
  */
 function dissolveInfiniteCanvasDecayedGroup<Kind extends string>(
   state: InfiniteCanvasState<Kind>,
@@ -243,16 +215,9 @@ function getNextInfiniteCanvasGroupZIndex<Kind extends string>(
 }
 
 /**
- * What a group is called when nobody named it: what is in it.
- *
- * The default was the literal string "Group", which said nothing and was invisible for as long as
- * nothing drew a group's name. Now that the shell renders it, every group anyone makes draws the
- * word "Group" over itself — and a canvas of them is a canvas of identical labels.
- *
- * Windows carry a required `title`, so the framework can do better than a placeholder without
- * knowing anything about a consumer's content. Two are joined; beyond that the first is named and
- * the rest counted, which is how every mail client writes a thread and degrades at any width.
- * `DEFAULT_INFINITE_CANVAS_GROUP_TITLE` remains the answer when there is nothing to name.
+ * Composes a group's name from its members' titles, so unnamed groups do not all render the same
+ * placeholder. Two titles are joined; beyond that the first is named and the rest counted.
+ * `DEFAULT_INFINITE_CANVAS_GROUP_TITLE` is used when there is nothing to name.
  */
 function getInfiniteCanvasGroupMemberTitle(titles: readonly string[]): string {
   const [first, second] = titles;
@@ -269,23 +234,16 @@ function getInfiniteCanvasGroupMemberTitle(titles: readonly string[]): string {
 }
 
 /**
- * What to call a group: the name somebody gave it, or what is in it right now.
+ * A group's name: the one it was given, or one derived from its current members. This is the only
+ * read for a group's name, and why `title` can be `null`.
  *
- * The one read for a group's name, and the reason `title` can be `null`. A given name comes back
- * untouched — including an empty one, which is a consumer saying "draw no label" rather than
- * "derive". A `null` name is computed from the members the tree currently holds, so it follows a
- * window being renamed, docked in, or taken away with no invalidation step to forget.
+ * A given name is returned untouched, including an empty string, which means "draw no label"
+ * rather than "derive". A `null` name is recomputed from the tree, so it follows renames and
+ * docking with no invalidation step.
  *
- * Takes the windows rather than the whole state so the group layer can call it from the selector
- * it already has, instead of subscribing to everything to read two fields.
- *
- * **A `find` per member, deliberately left alone.** The group layer calls this inside `groups.map`
- * and re-renders on every camera tick, so the scan is O(members × windows) per frame and looks
- * like it wants a `Map`. Measured before assuming: 0.004 ms/frame at 20 windows and 4 groups,
- * 0.035 ms at 200 windows and 20 groups, 0.233 ms at 1000 windows and 50 groups of 8 — the worst
- * of those being 1.4% of a 16.7 ms frame. Building an index every render to save that would cost
- * more than it saves and add a structure to keep correct. Recorded as a number so the next reader
- * can skip re-deriving it; revisit only if a real canvas ever gets an order of magnitude larger.
+ * The `find` per member is deliberate. Measured at 0.004 ms/frame with 20 windows, 0.233 ms with
+ * 1000 windows and 50 groups of 8 — 1.4% of a 16.7 ms frame at the worst. An index rebuilt each
+ * render would cost more than it saves.
  */
 function getInfiniteCanvasGroupTitle<Kind extends string>(
   group: InfiniteCanvasGroup,
@@ -305,17 +263,9 @@ function getInfiniteCanvasGroupTitle<Kind extends string>(
 }
 
 /**
- * Build a group from floating windows. Members are laid out as one horizontal
- * split, in the order given, sharing the shell equally.
- *
- * Windows that are missing, minimized, or already inside another group are
- * dropped rather than stolen — a window lives in at most one tree, and grouping
- * is a user gesture, not a place to throw.
- */
-/**
- * Which of these windows `createInfiniteCanvasGroup` would take, in the order given — so a "group
- * these" control can decide whether to offer itself. Missing, minimized and already-grouped are
- * dropped rather than stolen.
+ * Which of these windows `createInfiniteCanvasGroup` would take, in the order given, so a "group
+ * these" control can decide whether to enable itself. Missing, minimized, and already-grouped
+ * windows are dropped rather than stolen.
  */
 function getInfiniteCanvasGroupableWindowIds<Kind extends string>(
   state: InfiniteCanvasState<Kind>,
@@ -332,6 +282,11 @@ function getInfiniteCanvasGroupableWindowIds<Kind extends string>(
   });
 }
 
+/**
+ * Builds a group from floating windows, laid out as one horizontal split in the order given,
+ * sharing the shell equally. Applies the same filtering as
+ * `getInfiniteCanvasGroupableWindowIds`.
+ */
 function createInfiniteCanvasGroup<Kind extends string>(
   state: InfiniteCanvasState<Kind>,
   input: Readonly<{
@@ -390,12 +345,7 @@ function createInfiniteCanvasGroup<Kind extends string>(
   });
 }
 
-/**
- * Dissolve a group, leaving its members floating exactly where they were drawn.
- * Their rects are already the solved ones — that is the invariant — so there is
- * nothing to restore and nothing jumps.
- */
-/** Renaming a shell, under the same rule window renames follow. */
+/** Renames a shell, under the same rule window renames follow. */
 function renameInfiniteCanvasGroup<Kind extends string>(
   state: InfiniteCanvasState<Kind>,
   input: Readonly<{ groupId: string; title: string }>,
@@ -414,8 +364,8 @@ function renameInfiniteCanvasGroup<Kind extends string>(
 }
 
 /**
- * Room to fan freed members into: around the shell, not around the camera. Bounding by what is on
- * screen would pull a window that was legitimately off the right edge back into view.
+ * Room to place freed members into, bounded around the shell rather than the camera. Bounding by
+ * the viewport would pull a window that was legitimately off screen back into view.
  */
 function getInfiniteCanvasRoomAround(shell: InfiniteCanvasRect): InfiniteCanvasRect {
   return {
@@ -427,9 +377,9 @@ function getInfiniteCanvasRoomAround(shell: InfiniteCanvasRect): InfiniteCanvasR
 }
 
 /**
- * Break up a shell, leaving every member somewhere it can be seen. Tab members all carry the
- * shell's content rect, so freeing them untouched drops them at identical coordinates. A split is
- * unchanged: its panes are already clear of one another.
+ * Breaks up a shell and places its members through vacancy. Tab members all carry the shell's
+ * content rect, so releasing them unchanged would stack them at identical coordinates. A split's
+ * panes are already clear of one another and are left alone.
  */
 function closeInfiniteCanvasGroup<Kind extends string>(
   state: InfiniteCanvasState<Kind>,
@@ -517,11 +467,9 @@ function dockInfiniteCanvasWindowIntoGroup<Kind extends string>(
 }
 
 /**
- * Tear a window out of whatever group holds it. It lands on `rect`, or — with no
- * rect supplied — stays exactly where it was drawn, which is what a tear-out
- * gesture wants: the window does not jump before the user starts dragging it.
- *
- * Removing the last member destroys the shell.
+ * Tears a window out of whatever group holds it. It lands on `rect`, or stays where it was drawn
+ * when no rect is supplied, so a tear-out gesture does not make the window jump before the drag
+ * begins. Removing the last member destroys the shell.
  */
 function undockInfiniteCanvasWindowFromGroup<Kind extends string>(
   state: InfiniteCanvasState<Kind>,
@@ -553,17 +501,12 @@ function undockInfiniteCanvasWindowFromGroup<Kind extends string>(
 }
 
 /**
- * Drop a window out of every group that claims it, without giving it a rect.
- * Closing and minimizing both need this: a window that is gone, or collapsed to
- * the dock, cannot keep occupying a layout slot.
+ * Drops a window out of every group that claims it, without giving it a rect. Closing and
+ * minimizing both need this, since neither can keep occupying a layout slot.
  *
- * **A shell left holding one member dissolves here, and deliberately not in `undock`.** Both end
- * with one window in a shell; only one of them is something the user asked for. Undocking is
- * rearrangement — the shell is the workspace being rearranged within, and keeping it is what lets
- * a window be pulled out and another dropped back in, which is why `DOCK-006` asserts the shell
- * survives. Detaching is not rearrangement: the window was closed or minimized, nobody touched the
- * group, and a shell around the survivor is scaffolding left standing after the thing it was
- * scaffolding for went away.
+ * A shell left holding one member dissolves here but not in `undock`. Undocking is rearrangement
+ * and keeping the shell is what lets another window be dropped back in, which `DOCK-006` asserts.
+ * Detaching is not: the window was closed or minimized and nobody touched the group.
  */
 function detachInfiniteCanvasWindowFromGroups<Kind extends string>(
   state: InfiniteCanvasState<Kind>,
@@ -706,10 +649,9 @@ function reorderInfiniteCanvasGroupChildInState<Kind extends string>(
 }
 
 /**
- * Drop group members that no longer name a live, non-minimized window, and drop
- * groups that empty out. Hydration and registry normalization both need this:
- * a persisted tree can name a window whose `kind` was since removed from the
- * registry, and a tree that outlives its windows would lay out ghosts.
+ * Drops group members that no longer name a live, non-minimized window, and drops groups that
+ * empty out. Hydration and registry normalization both need it: a persisted tree can name a window
+ * whose `kind` is no longer registered.
  */
 function reconcileInfiniteCanvasGroups<Kind extends string>(
   state: InfiniteCanvasState<Kind>,
@@ -785,21 +727,15 @@ function reconcileInfiniteCanvasGroups<Kind extends string>(
 }
 
 /**
- * Docking, resolved from the canonical model.
- *
- * A drop target is found by asking the group solver where its members are and
- * the window list where the floating ones are — never by hit-testing the DOM. A
- * target read from `getBoundingClientRect` would disagree with the tree the
- * moment a transform, a scroll, or a zoom got involved, and the user would drop
- * a window somewhere other than where the overlay promised.
+ * Docking, resolved from the group tree and the window list rather than by hit-testing the DOM. A
+ * target read from `getBoundingClientRect` would disagree with the tree under any transform,
+ * scroll, or zoom, dropping the window somewhere other than the overlay showed.
  */
 
 /**
- * Container and group ids are derived from the target rather than generated, so
- * the operation stays pure and an undo replay rebuilds the identical tree. Two
- * live containers can never share an id: a container is named for the node it
- * wraps and the edge it wraps it on, and node ids are window ids, which are
- * unique across the canvas.
+ * Container and group ids are derived from the target rather than generated, so the operation is
+ * pure and an undo replay rebuilds the identical tree. Ids collide only if two containers wrap the
+ * same node on the same edge, and node ids are window ids, which are canvas-unique.
  */
 function getInfiniteCanvasDockContainerId(targetId: string, edge: string): string {
   return `${targetId}::${edge}`;
@@ -841,11 +777,9 @@ function rectContainsPoint(rect: InfiniteCanvasRect, point: InfiniteCanvasPoint)
 }
 
 /**
- * Where a window would land if the drag ended now, or `null` over empty canvas.
- *
- * Groups are searched before floating windows, and both topmost-first, so the
- * answer matches what the user sees stacked under the cursor. The dragged window
- * and anything already grouped are never targets.
+ * Where a window would land if the drag ended now, or `null` over empty canvas. Groups are
+ * searched before floating windows, both topmost-first, matching the visible stacking order. The
+ * dragged window and anything already grouped are never targets.
  */
 function resolveInfiniteCanvasDockPreview<Kind extends string>(
   state: InfiniteCanvasState<Kind>,
@@ -909,18 +843,12 @@ function resolveInfiniteCanvasDockPreview<Kind extends string>(
 }
 
 /**
- * The same preview, resolved from a named target rather than from a pointer.
+ * The same preview, resolved from a named target rather than a pointer, so docking is reachable
+ * without a mouse. Produces the same `InfiniteCanvasDockPreview`, so both gestures commit through
+ * `applyInfiniteCanvasDockPreview` and cannot diverge.
  *
- * Docking was pointer-only until 2026-08-12: `resolveInfiniteCanvasDockPreview` reads a
- * world point, so the whole group model — the library's largest feature — was unreachable
- * without a mouse. This is the second targeting policy, and it deliberately produces the
- * *same* `InfiniteCanvasDockPreview` so both gestures commit through
- * `applyInfiniteCanvasDockPreview`. A keyboard dock and a dropped drag are then the same
- * operation by construction, rather than two implementations that have to be kept agreeing.
- *
- * The caller supplies the edge, because the two policies derive it differently: a drag
- * reads which half of the target the pointer is over, while a keyboard gesture takes the
- * side the window arrives from.
+ * The caller supplies the edge: a drag reads which half of the target the pointer is over, a
+ * keyboard gesture takes the side the window arrives from.
  */
 function resolveInfiniteCanvasDockPreviewForTarget<Kind extends string>(
   state: InfiniteCanvasState<Kind>,
@@ -964,10 +892,9 @@ function resolveInfiniteCanvasDockPreviewForTarget<Kind extends string>(
 }
 
 /**
- * Commit a resolved preview. Docking onto a floating window first wraps that
- * window in a group occupying exactly the rect it already had, then docks the
- * dragged window against it — so the pair lands where the target was standing
- * and nothing else on the canvas shifts (DOCK-001).
+ * Commits a resolved preview. Docking onto a floating window wraps that window in a group
+ * occupying the rect it already had, then docks against it, so the pair lands where the target was
+ * and nothing else shifts (DOCK-001).
  */
 function applyInfiniteCanvasDockPreview<Kind extends string>(
   state: InfiniteCanvasState<Kind>,
@@ -1017,15 +944,12 @@ function applyInfiniteCanvasDockPreview<Kind extends string>(
 }
 
 /**
- * Make every container between a window and its group's root show that window.
+ * Makes every container between a window and its group's root show that window. Activating only
+ * the innermost container is not enough: a window nested two levels down becomes its parent's
+ * active child while that parent stays the hidden sibling.
  *
- * Activating one container is not revealing: docking onto a member of a tabs container nests a
- * container inside it, so a window two levels down became the active child of its own parent while
- * that parent stayed the hidden sibling. Watched — `window.reveal` set `activeWindowId`, set the
- * inner `activeChildId`, moved the camera, and the window was still not rendered.
- *
- * Walks the chain from the original tree before writing, because only `activeChildId` changes and
- * the structure the walk read stays true for every step.
+ * Walks the chain from the original tree before writing, since only `activeChildId` changes and
+ * the structure stays valid for every step.
  */
 function revealInfiniteCanvasGroupWindow<Kind extends string>(
   state: InfiniteCanvasState<Kind>,
@@ -1059,14 +983,9 @@ type InfiniteCanvasGroupTabLabelContext = Readonly<{
   childId: string;
   group: InfiniteCanvasGroup;
   /**
-   * Spelled `InfiniteCanvasWindow` rather than `InfiniteCanvasState<string>["windows"][number]`,
-   * which is the same type by a longer road and the only place in the package that reached for a
-   * window through an indexed access.
-   *
-   * Not generic in `Kind`, deliberately. It would let a consumer's labeller switch exhaustively on
-   * `window.kind`, and the cost is genericising five components in `group-layer` that have no other
-   * reason to be — for a narrowing the framework does not otherwise ask for, since a window's
-   * payload is read through `getInfiniteCanvasWindowData` and its guard rather than through `kind`.
+   * Not generic in `Kind`. Making it so would let a labeller switch exhaustively on `window.kind`,
+   * at the cost of genericising five `group-layer` components that have no other reason to be —
+   * and window payloads are read through `getInfiniteCanvasWindowData`, not through `kind`.
    */
   windows: readonly InfiniteCanvasWindow[];
 }>;
