@@ -306,7 +306,11 @@ what its authors published, especially the examples.
 - **Canvas state, geometry, interaction, commands, focus, persistence, overlays** — the framework.
   The store is parent-owned; `createInfiniteCanvasHandle` is the external observation boundary.
 - **Layout durability** is the framework's (`serializeInfiniteCanvasState`). The database owns
-  domain content — notes, relations, regions — and never the layout.
+  domain content — notes, relations, regions — and stores the layout without modelling it, with one
+  exception: `fn::canvas_removal_summary` does `array::len($source.layout.windows)` so a delete can
+  say what it costs. That is SurQL reaching into a shape the framework owns, and a rename upstream
+  would answer 0 with no error — a destructive confirmation reporting that nothing is lost.
+  `canvas/layout-shape.test.ts` pins the path from this side, and was checked by breaking it.
 - **The database is SurrealDB WASM** on `indxdb://`, vendored at `packages/surrealdb-wasm` because
   the published builds either lack IndexedDB or lack the Vite worker fix. It is imported lazily, by
   the route loaders that need it.
