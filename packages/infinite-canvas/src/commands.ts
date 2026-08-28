@@ -102,7 +102,7 @@ import type {
 } from "./types";
 import { isInfiniteCanvasWindowCapable } from "./window-capabilities";
 
-/** Nudge moves a docked pane's shell; arrange skips the pane. Both deliberate, neither guessable. */
+/** Nudge moves a docked pane's shell; arrange skips the pane. Both are intentional. */
 const NUDGE_GROUP_RULE =
   "A docked window moves its whole group, which moves once however many of its panes are selected.";
 const ARRANGE_GROUP_RULE = "Docked windows are skipped; only floating ones move.";
@@ -1463,25 +1463,13 @@ function isInfiniteCanvasCommandEnabled<Kind extends string>(
     case "window.place":
     case "window.resize":
       return getActiveFloatingWindowId(state) !== null;
-    // Two windows is the floor for an alignment and three for a distribution, and the pure
-    // module is the one that knows which — asking it is how the enabled state and the result
-    // stay in agreement rather than drifting into two definitions of "enough windows".
-    // Enabled only where it can change something: a container with at least two panes
-    // that are not already equal. Offering it on an untouched split would present a verb
-    // that appears to do nothing.
-    // Asking the resolver is how the enabled state and the result stay in agreement: the
-    // command is offered exactly when a dock would actually land somewhere.
+    // Asking the resolver keeps the enabled state and the result in agreement.
     case "window.dockDirection":
       return resolveInfiniteCanvasDirectionalDock(state, command.direction) !== null;
     case "window.undock":
       return (
         state.activeWindowId !== null && isInfiniteCanvasWindowGrouped(state, state.activeWindowId)
       );
-    // A lifecycle verb needs something to act on and nothing more: every one of them is
-    // meaningful in any mode the active window can actually be in. `restore` is deliberately
-    // absent from this family — minimizing hands `activeWindowId` to the next visible window,
-    // so a restore keyed to the active window could never be enabled. Bringing a minimized
-    // window back is a "which one?" choice, and belongs to the presence surface.
     case "selection.extendDirection":
       return getInfiniteCanvasDirectionalFocusTarget(state, command.direction) !== null;
     case "selection.removeActive":
@@ -1490,10 +1478,9 @@ function isInfiniteCanvasCommandEnabled<Kind extends string>(
       return getNextInfiniteCanvasWorkspaceId(state, command.direction) !== state.activeWorkspaceId;
     case "workspace.showAll":
       return state.activeWorkspaceId !== null;
-    // Only reachable in one direction, and that is not a limitation: a window absent from the
-    // active workspace is not rendered, so it cannot be the active window to begin with.
-    // Offered whenever there is an active window and a desktop to send it to, including from
-    // "show all" — a window on no desktop is the one you most want to file onto one.
+    // Offered whenever there is an active window and a workspace to send it to, including from
+    // "show all". Only reachable in one direction, since a window the active workspace does not
+    // admit is not rendered and so cannot be active.
     case "workspace.moveActiveWindow":
       return (
         state.activeWindowId !== null &&
@@ -1507,9 +1494,8 @@ function isInfiniteCanvasCommandEnabled<Kind extends string>(
       );
     case "view.pan":
       return isUsableViewport(state.viewport);
-    // Offered only where it would move: at the policy's floor or ceiling a further step
-    // clamps to the same zoom, and a command that visibly does nothing is worse than one
-    // that is greyed out.
+    // Offered only where it would move. At the policy's floor or ceiling a further step clamps to
+    // the same zoom.
     case "view.zoomBy":
       return (
         isUsableViewport(state.viewport) &&
@@ -1521,13 +1507,11 @@ function isInfiniteCanvasCommandEnabled<Kind extends string>(
           zoomPolicy,
         ).zoom !== state.camera.zoom
       );
-    // Offered when at least one selected window would actually close. A selection of five
-    // unclosable windows must not present an enabled verb that does nothing.
+    // Offered when at least one selected window would actually close.
     case "selection.close":
       return getInfiniteCanvasCapableSelection(state, "closable").length > 0;
     case "selection.minimize":
-      // A window already in the dock is not minimizable again, so an all-minimized selection
-      // offers nothing rather than offering a verb that would not move.
+      // A window already in the dock cannot be minimized again.
       return getInfiniteCanvasCapableSelection(state, "minimizable").some(
         (windowId) => findWindow(state, windowId)?.mode !== "minimized",
       );
@@ -1543,8 +1527,7 @@ function isInfiniteCanvasCommandEnabled<Kind extends string>(
         return false;
       }
 
-      // Pinning is not a capability: it is the window's own state, and nothing about a
-      // fixed-size or unclosable window implies it cannot be pinned in place.
+      // Pinning is not a capability — it is the window's own state — so it maps to `null`.
       const required = INFINITE_CANVAS_LIFECYCLE_CAPABILITY[command.type];
 
       return required === null || isInfiniteCanvasWindowCapable(active, required);
@@ -1555,8 +1538,7 @@ function isInfiniteCanvasCommandEnabled<Kind extends string>(
       return (
         state.activeWindowId !== null && isInfiniteCanvasWindowGrouped(state, state.activeWindowId)
       );
-    // Clamped rather than wrapping: a pane at the end that jumped to the front would read as
-    // a bug, and the drag this mirrors cannot wrap either. So the ends are simply not offered.
+    // Clamped rather than wrapping, matching the drag it mirrors, so the ends are not offered.
     case "group.moveChild": {
       const index = getActiveInfiniteCanvasGroupChildIndex(state);
 
@@ -1572,8 +1554,8 @@ function isInfiniteCanvasCommandEnabled<Kind extends string>(
 
       return active !== null && active.container.layout !== command.layout;
     }
-    // Axis partitions a split and stacks an accordion; a tab strip always lays out
-    // horizontally whatever its container's axis says, so flipping one is invisible.
+    // Axis partitions a split and stacks an accordion. A tab strip lays out horizontally whatever
+    // its axis says, so flipping one has no visible effect.
     case "group.flipAxis": {
       const active = getActiveInfiniteCanvasGroupContainer(state);
 
@@ -1607,9 +1589,8 @@ function isInfiniteCanvasCommandEnabled<Kind extends string>(
 
       return arranged !== rects;
     }
-    // All three follow `moveActiveWindow`: a parameterized descriptor carries a placeholder id,
-    // and a placeholder cannot run. Without this the descriptor's own `workspaceId: ""` is offered
-    // as enabled, and would make a desktop nothing can name or enter one that is not there.
+    // A parameterized descriptor carries a placeholder id, which cannot run. Without the `""`
+    // check the descriptor's own `workspaceId: ""` would be offered as enabled.
     case "workspace.create":
       return (
         command.workspaceId !== "" &&
@@ -1622,33 +1603,16 @@ function isInfiniteCanvasCommandEnabled<Kind extends string>(
       );
     case "workspace.close":
       return findInfiniteCanvasWorkspace(state, command.workspaceId) !== null;
-    // Same placeholder rule, and nothing more: the window you focused last can still be
-    // off-camera, so revealing the active one is not a no-op.
+    // Same placeholder rule. Revealing the active window is not a no-op, since it can be
+    // off-camera.
     case "window.reveal":
       return findWindow(state, command.windowId) !== null;
   }
 }
 
 /**
- * The window a placement or resize command acts on, or `null` when there is none.
- *
- * The **active** window, not the selection: "left half" applied to three selected windows
- * would stack all three in the same rect, and a tiling shortcut that silently buries two of
- * your windows is worse than one that does nothing. Resize follows placement here rather than
- * following `nudge`, because growing three windows by the same delta about their own origins
- * is a mess nobody asked for.
- *
- * A grouped window is refused, for the same reason `interaction.startResize` refuses it — a
- * member's rect is its group's projection, and a pane placed in the left half of the screen
- * would be snapped back the moment the tree re-solved. Place the shell, or undock first.
- *
- * An unmeasured viewport has no halves, and no pixels to convert a resize through.
- */
-/**
- * The container whose panes the active window shares — its immediate parent in the tree,
- * not the root. Equalizing the row you are looking at is the predictable reading of the
- * verb; balancing every container in the group at once is a different, coarser gesture and
- * would belong to its own command.
+ * The container whose panes the active window shares: its immediate parent in the tree, not the
+ * root. Balancing every container in the group at once would be a separate, coarser command.
  */
 function getActiveInfiniteCanvasGroupContainer<Kind extends string>(
   state: InfiniteCanvasState<Kind>,
@@ -1670,6 +1634,15 @@ function getActiveInfiniteCanvasGroupContainer<Kind extends string>(
   return container === null ? null : { container, groupId: group.id };
 }
 
+/**
+ * The window a placement or resize command acts on, or `null` when there is none.
+ *
+ * The active window rather than the selection: "left half" over three selected windows would stack
+ * all three in the same rect.
+ *
+ * A grouped window is refused, since a member's rect is its group's projection and would be
+ * re-solved back. Place the shell, or undock first. An unmeasured viewport has no halves.
+ */
 function getActiveFloatingWindowId<Kind extends string>(
   state: InfiniteCanvasState<Kind>,
 ): string | null {
@@ -1699,8 +1672,7 @@ function placeActiveWindow<Kind extends string>(
     return state;
   }
 
-  // The visible region, in world units. "Left half" means the left half of what you can
-  // see: an unbounded world has no halves.
+  // "Left half" means half of the visible region; an unbounded world has no halves.
   const bounds = getViewportInsetWorldRect(state.camera, state.viewport, 0);
 
   return updateWindowRect(
@@ -1711,16 +1683,11 @@ function placeActiveWindow<Kind extends string>(
 }
 
 /**
- * Grow or shrink the active window's east and south edges, leaving its origin where it is.
+ * Grows or shrinks the active window's east and south edges, leaving its origin fixed. Routes
+ * through `resizeRectFromHandle` so the `minSize` clamp has one definition.
  *
- * `resizeRectFromHandle` already does exactly this for the `east` and `south` handles, clamps
- * against `minSize`, and is exercised by every pointer resize. Reimplementing the arithmetic
- * here would be a second definition of what a resize means, and the two would eventually
- * disagree about the floor.
- *
- * The delta converts through the camera, as a nudge does: ten screen pixels stays ten screen
- * pixels at any zoom, which is what a keyboard user is asking for. Ten *world* units would
- * shrink to nothing zoomed out and fly off the screen zoomed in.
+ * The delta converts through the camera, as a nudge does, so ten screen pixels stays ten screen
+ * pixels at any zoom.
  */
 function resizeActiveWindow<Kind extends string>(
   state: InfiniteCanvasState<Kind>,
@@ -1833,22 +1800,8 @@ function executeInfiniteCanvasCommand<Kind extends string>(
   zoomPolicy: InfiniteCanvasZoomPolicy = DEFAULT_INFINITE_CANVAS_ZOOM,
 ): InfiniteCanvasState<Kind> {
   switch (command.type) {
-    /**
-     * One fold, so one document, so one undo entry.
-     *
-     * This is the whole reason the verb exists rather than a loop over `window.close` at the
-     * call site: every document change is a history checkpoint, so five dispatches would be
-     * five entries and undoing a mistaken close would mean pressing undo five times. Reducing
-     * over the ids produces a single next document, and the checkpoint is taken once.
-     *
-     * Each id is detached from its groups and its workspaces exactly as a single close is —
-     * `applyInfiniteCanvasWindowLifecycle` is not reused because it reads the *active* window's
-     * mode, and folding needs the id in hand.
-     */
-    /**
-     * Same fold, same single history entry, and the same reason: one document change is one
-     * checkpoint, so a loop at the call site would bury the stack under one entry per window.
-     */
+    // Folded into one document so the whole selection is one undo entry. A loop at the call site
+    // would be one entry per window.
     case "selection.minimize":
       return getInfiniteCanvasCapableSelection(state, "minimizable").reduce<
         InfiniteCanvasState<Kind>
@@ -1857,12 +1810,8 @@ function executeInfiniteCanvasCommand<Kind extends string>(
           detachInfiniteCanvasWindowFromGroups(minimizeWindow(current, windowId), windowId),
         state,
       );
-    /**
-     * Bring them all to the same state, choosing the one that is not already universal.
-     *
-     * Toggling each window independently would leave a mixed selection exactly as mixed as it
-     * started, merely inverted, which is not what pressing one control on five windows means.
-     */
+    // Brings the whole selection to one state. Toggling each window independently would leave a
+    // mixed selection just as mixed, only inverted.
     case "selection.togglePinned": {
       const selected = getInfiniteCanvasCapableSelection(state, null);
       const shouldPin = selected.some((windowId) => findWindow(state, windowId)?.isPinned !== true);
@@ -1944,15 +1893,6 @@ function executeInfiniteCanvasCommand<Kind extends string>(
       return focusWindowInDirection(state, command.direction, zoomPolicy, "replace");
     case "selection.extendDirection":
       return focusWindowInDirection(state, command.direction, zoomPolicy, "extend");
-    // Not a toggle, and the difference is the model's. `applySelection` sets the active
-    // window *from* the selection's anchor — the two are one concept here, joined
-    // deliberately — so a window cannot leave the selection and stay active, and a verb
-    // claiming to toggle would be one-way: nothing left to toggle back.
-    //
-    // Dropping works with the grain instead. `normalizeSelection` falls the anchor back to
-    // `windowIds.at(-1)` when it leaves the selection, which for an insertion-ordered
-    // selection is the window added before this one. Extending focuses what it adds, so
-    // repeating this retraces the extends exactly.
     case "workspace.cycle":
       return activateInfiniteCanvasWorkspace(
         state,
@@ -1960,8 +1900,7 @@ function executeInfiniteCanvasCommand<Kind extends string>(
       );
     case "workspace.showAll":
       return activateInfiniteCanvasWorkspace(state, null);
-    // Create then enter: a desktop you made and were not taken to is a desktop you have to go
-    // find, and every surface that creates one would have to pair the two calls itself.
+    // Creates then enters, so every surface that creates a workspace does not pair the two calls.
     case "workspace.create":
       return activateInfiniteCanvasWorkspace(
         createInfiniteCanvasWorkspace(state, {
@@ -1976,9 +1915,8 @@ function executeInfiniteCanvasCommand<Kind extends string>(
       return closeInfiniteCanvasWorkspace(state, command.workspaceId);
     case "window.reveal":
       return revealWindow(state, command.windowId, zoomPolicy);
-    // Written first as a read-filter-write over `setInfiniteCanvasWorkspaceWindows`, which is
-    // the exact race `equalizeInfiniteCanvasGroupChildren` exists to avoid: a window added to
-    // this workspace between the read and the write would have been discarded by it.
+    // Uses the delta form, not read-filter-write over `setInfiniteCanvasWorkspaceWindows`, which
+    // would discard anything added between the read and the write.
     case "workspace.removeActiveWindow":
       return state.activeWorkspaceId === null || state.activeWindowId === null
         ? state
@@ -1986,8 +1924,7 @@ function executeInfiniteCanvasCommand<Kind extends string>(
             windowId: state.activeWindowId,
             workspaceId: state.activeWorkspaceId,
           });
-    // Reachable from "show all" as well as from a desktop, unlike `removeActiveWindow`: a
-    // window on no desktop is exactly the one you most want to file onto one.
+    // Reachable from "show all" as well as from a workspace, unlike `removeActiveWindow`.
     case "workspace.moveActiveWindow":
       return state.activeWindowId === null
         ? state
@@ -1995,11 +1932,13 @@ function executeInfiniteCanvasCommand<Kind extends string>(
             windowIds: [state.activeWindowId],
             workspaceId: command.workspaceId,
           });
+    // Drops rather than toggles: `applySelection` sets the active window from the selection's
+    // anchor, so a window cannot leave the selection and stay active, and there would be nothing
+    // to toggle back. `normalizeSelection` falls the anchor back to the previously added window.
     case "selection.removeActive":
       return state.activeWindowId === null ? state : removeSelection(state, [state.activeWindowId]);
-    // The reducer's lifecycle cases detach the window from its group before acting — a pane
-    // that closes or maximizes cannot keep occupying a layout slot. Calling the same helpers
-    // in the same order is what keeps that true here rather than only there.
+    // Routes through the same helper the reducer's lifecycle cases use, which detaches the window
+    // from its group before acting.
     case "activeWindow.close":
     case "activeWindow.minimize":
     case "activeWindow.toggleMaximized":
@@ -2021,12 +1960,8 @@ function executeInfiniteCanvasCommand<Kind extends string>(
           getDirectionalScreenDelta(command.direction, command.amountPx),
         ),
       };
-    // `zoomCameraAtScreenPoint` takes an absolute requested zoom, so the step multiplies
-    // rather than passing the factor through — a factor handed straight to it would set the
-    // zoom *to* 1.25 from wherever you were.
-    //
-    // Anchored at the viewport centre rather than a pointer, because there is no pointer:
-    // what the user is looking at stays put while the scale changes around it.
+    // `zoomCameraAtScreenPoint` takes an absolute zoom, so the factor is multiplied rather than
+    // passed through. Anchored at the viewport centre because a keyboard gesture has no pointer.
     case "view.zoomBy":
       return {
         ...state,
@@ -2045,8 +1980,8 @@ function executeInfiniteCanvasCommand<Kind extends string>(
         return state;
       }
 
-      // `availableExtent` is in the world units the layout was solved in, so the travel has
-      // to be too — the same conversion the drag makes, from the other end.
+      // `availableExtent` is in the world units the layout was solved in, so the travel converts
+      // through the camera too.
       const weights = getInfiniteCanvasGroupGutterWeights(seam.container, seam.gutter, {
         availableExtent: seam.gutter.availableExtent,
         delta: (command.amountPx * seam.grows) / state.camera.zoom,
@@ -2109,17 +2044,10 @@ function executeInfiniteCanvasCommand<Kind extends string>(
 
       return preview === null ? state : applyInfiniteCanvasDockPreview(state, preview);
     }
-    /*
-     * A commanded undock has to place the window; a dragged one must not.
-     *
-     * `undockInfiniteCanvasWindowFromGroup` leaves the window where the solver drew it when given
-     * no rect, which is right for a tear-out — the pointer is already carrying it and a jump would
-     * fight the drag. Invoked from a palette there is no pointer, so the window stayed inside the
-     * shell's footprint, under the tab strip it had just left. It reads as nothing having
-     * happened, which is the failure `getInfiniteCanvasVacantRect` exists to prevent.
-     *
-     * `preferred` is where it already is, so it moves the shortest distance that clears.
-     */
+    // A commanded undock places the window; a dragged one must not, since the pointer already
+    // carries it. Without a rect the window stays inside the shell's footprint, under the tab
+    // strip it just left. `preferred` is its current rect, so it moves the shortest clearing
+    // distance.
     case "window.undock": {
       if (state.activeWindowId === null) {
         return state;
@@ -2132,18 +2060,8 @@ function executeInfiniteCanvasCommand<Kind extends string>(
       }
 
       const shell = getInfiniteCanvasWindowGroup(state, freed.id);
-      /*
-       * The shell being left is an obstacle only if it survives being left.
-       *
-       * `occupied` took every group rect, this one included, so the sole member of a shell was
-       * pushed clear of a footprint DOCK-005 drops in the same breath — it landed a full shell-width
-       * away from where it had been sitting, with nothing there to avoid. Measured: a 544×720 shell
-       * at x=0 sent its only member to x=-544 on a canvas holding nothing else nearby.
-       *
-       * `group.dissolve` already draws this line and says so in its own branch — the shell is gone,
-       * so its footprint is free. The two verbs end the same way for a solitary member and now agree
-       * on where it lands.
-       */
+      // A shell that empties out is dropped by DOCK-005, so its rect is not an obstacle. Counting
+      // it pushed a sole member a full shell-width away from a footprint that no longer existed.
       const emptiedShellId =
         shell !== null && getInfiniteCanvasGroupWindowIds(shell.tree).length === 1
           ? shell.id
