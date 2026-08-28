@@ -83,6 +83,79 @@ test("a marker sits halfway along the visible run, not halfway along one of its 
   expect(connector?.anchor?.y).toBeCloseTo(gapMidpoint, 5);
 });
 
+/** Distance from a point to a segment, so "is the marker on the line" is a measurement. */
+const distanceToSegment = (
+  point: InfiniteCanvasPoint,
+  segment: Readonly<{ end: InfiniteCanvasPoint; start: InfiniteCanvasPoint }>,
+) => {
+  const dx = segment.end.x - segment.start.x;
+  const dy = segment.end.y - segment.start.y;
+  const squared = dx * dx + dy * dy;
+  const along =
+    squared === 0
+      ? 0
+      : Math.max(
+          0,
+          Math.min(
+            1,
+            ((point.x - segment.start.x) * dx + (point.y - segment.start.y) * dy) / squared,
+          ),
+        );
+
+  return Math.hypot(
+    point.x - (segment.start.x + along * dx),
+    point.y - (segment.start.y + along * dy),
+  );
+};
+
+test("on a real elbow the marker lands on the line rather than in the corner", () => {
+  /*
+   * Two windows offset on both axes, so the route has two long legs rather than the near-vertical
+   * one the stacked fixture makes. Walking a path by length can only put the point somewhere the
+   * path actually goes if the path was assembled in order, and this is the arrangement where an
+   * out-of-order assembly would show.
+   *
+   * Asserted as a distance to the drawn segments rather than against coordinates: "the marker is
+   * on the line" is the property, and it holds whatever the router decides the corner should be.
+   */
+  const [connector] = getDrawnConnectors(
+    canvas([
+      contentWindow({ id: "left", itemId: "a", rect: { height: 120, width: 180, x: 100, y: 100 } }),
+      contentWindow({ id: "far", itemId: "b", rect: { height: 120, width: 180, x: 620, y: 460 } }),
+    ]),
+    [relation("a", "b")],
+  );
+  const anchor = connector?.anchor;
+  const segments = connector?.segments ?? [];
+
+  expect(anchor).not.toBeNull();
+  expect(segments.length).toBeGreaterThan(1);
+
+  const onLine = Math.min(...segments.map((segment) => distanceToSegment(anchor!, segment)));
+
+  expect(onLine).toBeLessThan(0.001);
+
+  /*
+   * The discrimination half, and the assertion this test was first written with was the wrong one.
+   *
+   * It claimed averaging the run's endpoints puts the point off the line, and measured zero. The
+   * router explains why: `getOrthogonalConnectorPathPoints` always returns a symmetric Z crossing
+   * at the exact halfway point, so the endpoint average is `(midX, midY)` — on the middle segment,
+   * always — and walking half the routed length arrives there too. For a whole unclipped path the
+   * two answers are the same point, and no fixture can separate them.
+   *
+   * What this fix is actually about is the leg. Asserting the anchor is away from the longest
+   * single segment's midpoint is what tells the merged run from the old answer.
+   */
+  const longestLeg = segments.reduce((best, segment) =>
+    segment.length > best.length ? segment : best,
+  );
+
+  expect(
+    Math.hypot(anchor!.x - longestLeg.midpoint.x, anchor!.y - longestLeg.midpoint.y),
+  ).toBeGreaterThan(1);
+});
+
 test("the path really does elbow, so the test above is not measuring a straight line", () => {
   // Guards the guard. With the two windows aligned the route is straight, one leg, and the old
   // behaviour and the new one agree — which is exactly how this went unnoticed.

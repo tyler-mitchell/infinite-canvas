@@ -91,8 +91,17 @@ const RUN_JOIN_TOLERANCE = 0.001;
  *
  * Merging is set logic over pieces, not geometry, and every actual measurement stays the canvas's:
  * `getInfiniteCanvasWorldPath` builds the run and `getInfiniteCanvasWorldPathPointAtProgress` walks
- * half its *routed* length. Averaging the run's endpoints would be the cheap version and lands in
- * the empty corner of an L, which is the same mistake one level down.
+ * half its *routed* length.
+ *
+ * **Walking rather than averaging the run's endpoints, and the usual reason for that is false here.**
+ * `ROADMAP.md` said averaging "lands in open space beside the line", and the first version of this
+ * comment repeated it. `getOrthogonalConnectorPathPoints` always returns a symmetric Z crossing at
+ * the exact halfway point, so for a whole path the endpoint average is `(midX, midY)` — on the
+ * middle segment, always — and the walk arrives at the same point. Measured: a fixture built to
+ * separate them put the average zero units off the line.
+ * The walk is still the right call, because a *run* is a clipped piece of that path and carries
+ * none of the symmetry the whole one has. It costs nothing and stays correct where averaging stops
+ * being equivalent.
  *
  * `null` when nothing is visible, unchanged: a connector nobody can see has nowhere to put a mark.
  */

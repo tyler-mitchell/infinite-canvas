@@ -785,9 +785,19 @@ open because it feels good to look at. Concretely, and these are enforced in rev
   an edge that already supports is a row that does nothing. The stored kind and the drawn word are
   one string, so they cannot drift apart; `relates` draws nothing, since an unlabelled line already
   says "these belong together" and printing the word would label every edge with what the line says.
-  The anchor is the framework's — `getInfiniteCanvasWorldPathPointAtProgress(path, 0.5)` over
-  `getInfiniteCanvasWorldPath(points)` — so it walks half the _routed_ length rather than averaging
-  the endpoints, which for an orthogonal elbow lands in open space beside the line.
+  The anchor is the framework's — `getInfiniteCanvasWorldPathPointAtProgress` over
+  `getInfiniteCanvasWorldPath` — so it walks half the _routed_ length rather than averaging the
+  endpoints.
+  **Two corrections to that sentence, both measured.** It said the anchor is taken over the whole
+  `path`; it is not, and has not been since the marker started avoiding windows — it is taken over
+  the longest stretch nothing covers, because between two notes that nearly touch the midpoint of
+  the whole path is _inside_ a window. And it justified walking by saying that averaging the
+  endpoints "lands in open space beside the line", which is false for this router:
+  `getOrthogonalConnectorPathPoints` always returns a symmetric Z crossing at the exact halfway
+  point, so the endpoint average is `(midX, midY)` — on the middle segment, always — and the walk
+  arrives at the same point. A fixture built to separate the two measured the average zero units
+  off the line. The walk is still right, because a clipped _run_ carries none of that symmetry;
+  the reason given for it was not.
   **What a label does when it cannot be read:** it scales with the camera, because it belongs to the
   edge and one held at a fixed size would detach from the line and compete with the HUD. Below 8px
   it is dropped rather than shrunk — sub-8px text carries nothing, and the line still says the notes
