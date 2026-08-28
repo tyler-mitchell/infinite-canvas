@@ -32,9 +32,15 @@ Not "a working canvas app". The reference points are Linear, Raycast, and Arc. E
   and imports only, and every rule lives inside a layer. Only `:root` is exempt.
 - **Every declaration must be shown to win.** This app's most expensive defect class is a
   declaration that is present, generated, and never wins. It emits no error, fails no typecheck, and
-  produces no obviously broken pixel. Four instances so far — three cascade-layer, one inline style
-  the framework writes. A screenshot finds none of them. Read the computed value back with
-  `getComputedStyle` and compare it against what was declared, once per visual change.
+  produces no obviously broken pixel. Seven instances so far — three cascade-layer, one inline style
+  the framework writes, and three found on 2026-08-28: `material.ts` describing a hairline and
+  emitting a four-sided ring, the minimap's plate occluding both the fill and the hairline of its
+  own frame, and `--icx-header-active` declared twice on one selector so the later won and dropped
+  the grain. A screenshot finds none of them. Read the computed value back with `getComputedStyle`
+  and compare it against what was declared, once per visual change.
+  **Two of the three were duplicates of a property, not a losing cascade.** `awk` over `styles.css`
+  for custom properties declared more than once is a cheap sweep and currently reports one survivor,
+  `--icx-surface-shadow`, whose two declarations are genuinely different selectors.
 - **Nothing hand-rolled that a maintained library owns.** TanStack (Router, Pacer, Hotkeys, Form,
   Virtual, DB), Base UI, cmdk, ArkType, Legend State, motion, tailwind-variants.
 
@@ -85,13 +91,13 @@ strictly greater than 160 — a kind sitting exactly on it demotes and never ret
   reversible act replaces it, where the archive list is permanent. Nobody has made this judgement —
   named in `connection-removal-dialog.tsx`.
 
-- **The light on a note's own body is flat.** Fixed the surfaces: every inset shadow in the app now
-  measures `oklch(1 0 0 / 0.07) 0 1px 0 0 inset`, one rule across window frames, Polkadot's rails
-  and the framework's HUD groups. The claim this item used to make — that the rails had _no shadow_
-  — was wrong; they carried `--lift-2` all along, and the defect was only the hairline being a
-  four-sided ring, which `material.ts` had described correctly and emitted incorrectly since it was
-  written. What remains unexamined is the interior: a note body is one flat fill from title to
-  bottom edge, where the bar's own logic would give it the same top-down light its frame has.
+- **Surfaces are one rule now, and the interior is not a defect.** Every inset shadow in the app
+  measures `oklch(1 0 0 / 0.07) 0 1px 0 0 inset` — window frames, Polkadot's rails, the framework's
+  HUD groups, the minimap. This item twice claimed something that measurement did not support: that
+  the rails had _no shadow_ (they carried `--lift-2` throughout; only the hairline was wrong), and
+  that a note's body was a flat fill wanting top-down light. The body is `var(--grain),
+var(--surface)` — the same material as its frame and its idle header, uniform on purpose.
+  Lighting it from within would be decoration, not depth, so nothing here is owed.
 
 - **Rich text and code blocks in notes.** Lexical is behind a `{ value, onChange }` boundary and
   mentions have landed. These have not.
