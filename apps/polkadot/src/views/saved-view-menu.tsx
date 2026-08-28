@@ -16,13 +16,13 @@ import { tv } from "ui/tv";
 
 import {
   getCurrentFraming,
+  getNextViewTitle,
   getSavedViews,
   loadSavedViews,
   reframeView,
   removeSavedView,
   savedViews$,
   saveView,
-  type SavedView,
   type SavedViewRect,
 } from "./saved-views";
 
@@ -86,24 +86,6 @@ const MODE_ICON: Readonly<Record<SavedViewMode, ReactNode>> = {
   reframe: <Frame />,
   remove: <Trash2 />,
 };
-
-/**
- * The next "View n" this canvas is not already using.
- *
- * Max-ordinal rather than `length + 1`, which is the defect `open-note` already had to fix: a count
- * frees a number as soon as anything is removed, so deleting the second of three and saving again
- * produces a second "View 3" — two rows with one name, in the one surface whose job is telling them
- * apart.
- */
-function getNextViewTitle(views: readonly SavedView[]) {
-  const used = views.flatMap((view) => {
-    const ordinal = /^View (\d+)$/.exec(view.title)?.[1];
-
-    return ordinal === undefined ? [] : [Number(ordinal)];
-  });
-
-  return `View ${String(Math.max(0, ...used) + 1)}`;
-}
 
 export function SavedViewMenu({ canvasId }: Readonly<{ canvasId: string }>) {
   const actions = useInfiniteCanvasActions();

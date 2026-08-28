@@ -185,6 +185,14 @@ const HANDLE_VERBS: readonly Readonly<{ id: string; input: object }>[] = [
   { id: "workspace.enter", input: { workspaceId: "never-existed" } },
   { id: "workspace.close", input: { workspaceId: "never-existed" } },
   { id: "workspace.moveActiveWindow", input: { workspaceId: "never-existed" } },
+  /*
+   * These three resolve against `savedViews$`, a real local cache, so their not-found branch is
+   * synchronous and belongs here — the distinction that keeps `canvas.archive` and its siblings out
+   * of this table, since theirs is a database read that hangs under `vp test`.
+   */
+  { id: "view.open", input: { viewId: "never-existed" } },
+  { id: "view.reframe", input: { viewId: "never-existed" } },
+  { id: "view.remove", input: { viewId: "never-existed" } },
   { id: "relation.connect", input: { sourceItemId: "ghost-a", targetItemId: "ghost-b" } },
   { id: "relation.disconnect", input: { sourceItemId: "ghost-a", targetItemId: "ghost-b" } },
   {

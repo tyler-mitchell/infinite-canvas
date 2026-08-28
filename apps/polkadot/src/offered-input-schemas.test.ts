@@ -41,6 +41,13 @@ test("an advertised schema says which properties are required", () => {
     .map((entry) => entry.id)
     .sort();
 
-  // The three that make a named thing and name their own fallback, so an empty call is a real one.
-  expect(allOptional).toStrictEqual(["canvas.create", "project.create", "workspace.create"]);
+  // The four that make a named thing and name their own fallback, so an empty call is a real one.
+  // `view.save` joins them by the same rule: the framing is read from the camera, never passed in,
+  // so the only argument it could take is the name it already numbers for you.
+  expect(allOptional).toStrictEqual([
+    "canvas.create",
+    "project.create",
+    "view.save",
+    "workspace.create",
+  ]);
 });

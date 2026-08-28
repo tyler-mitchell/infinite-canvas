@@ -82,13 +82,14 @@ strictly greater than 160 — a kind sitting exactly on it demotes and never ret
   equivalent of typing a name, and WebMCP has no elicitation mechanism to build one, so this is
   blocked on the confirmation item above rather than on effort.
 
-- **Saved views are not reachable by an agent.** Reframe landed — `Reframe a view` is a mode in the
-  views menu, beside removal and following the same rule that file already argues for: one action
-  per row, announced before the click rather than confirmed after it. Driven end to end, the stored
-  rect went 1009.83 wide to 807.87 on one zoom step with the id and the name unchanged.
-  What has no vocabulary at all is the whole surface: saving, jumping to, reframing and removing a
-  view are pointer-only, so a caller can arrange a canvas and cannot name the framing it made. The
-  four verbs are the same shape as the canvas triple that just landed.
+- **Desktops are the last pointer-only documents.** Saved views are done on both halves: `Reframe a
+view` is a mode in the menu beside removal, and `view.save` / `list` / `open` / `reframe` /
+  `remove` are registered. All five driven — numbering carried across from the menu's own helper so
+  a verb-saved view and a pointer-saved one land in the same sequence, and a removed id refuses
+  immediately after.
+  `workspace.create` / `enter` / `close` / `moveActiveWindow` exist, but a desktop cannot be renamed
+  by a caller where `desktop-switcher.tsx` renames one inline. Same shape as the canvas rename that
+  landed earlier, and the same reason it matters: a thing you can make and cannot name.
 
 - **Whether a reversible cut still needs its confirmation dialog.** `disconnectItems` registers its
   own reversal now, so cutting a connection is undoable. Undo is one step and expires when the next

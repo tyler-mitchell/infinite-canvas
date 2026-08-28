@@ -59,6 +59,28 @@ async function removeSavedView(input: Readonly<{ canvasId: string; viewId: strin
 }
 
 /**
+ * The next "View n" this canvas is not already using.
+ *
+ * Max-ordinal rather than `length + 1`, which is the defect `open-note` already had to fix: a count
+ * frees a number as soon as anything is removed, so deleting the second of three and saving again
+ * produces a second "View 3" — two rows with one name, in the one surface whose job is telling them
+ * apart.
+ *
+ * Here rather than in the menu because the menu is no longer the only thing that names a view:
+ * `view.save` takes an optional title and needs the same default, and two numberings that could
+ * disagree is the collision this function exists to prevent.
+ */
+function getNextViewTitle(views: readonly SavedView[]) {
+  const used = views.flatMap((view) => {
+    const ordinal = /^View (\d+)$/.exec(view.title)?.[1];
+
+    return ordinal === undefined ? [] : [Number(ordinal)];
+  });
+
+  return `View ${String(Math.max(0, ...used) + 1)}`;
+}
+
+/**
  * Point a name at what is on screen now, when the framing it meant has drifted.
  *
  * Remove-and-save-again reaches the same rect and loses the name on the way — you retype it, and
@@ -101,6 +123,7 @@ function getCurrentFraming(
 
 export {
   getCurrentFraming,
+  getNextViewTitle,
   getSavedViews,
   loadSavedViews,
   reframeView,

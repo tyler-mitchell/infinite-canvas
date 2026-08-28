@@ -31,6 +31,15 @@ import { writeNote } from "./notes/note-store";
 import { getNoteText, toSerializedNote } from "./notes/note-text";
 import { openNewNote } from "./notes/open-note";
 import { getProjectEntryCanvas } from "./projects/enter-project";
+import {
+  getCurrentFraming,
+  getNextViewTitle,
+  getSavedViews,
+  reframeView,
+  removeSavedView,
+  savedViews$,
+  saveView,
+} from "./views/saved-views";
 import { createCanvas } from "./workspace/create-canvas";
 import { createDesktop } from "./workspace/create-desktop";
 import { createProject } from "./workspace/create-project";
@@ -596,6 +605,27 @@ const CANVAS_RENAME_INPUT = type({ canvasId: "string", title: "string" });
 
 const PROJECT_RENAME_INPUT = type({ projectId: "string", title: "string" });
 
+const VIEW_INPUT = type({ viewId: "string" });
+
+/**
+ * A saved view by id, resolved against the listing the menu keeps warm.
+ *
+ * Synchronous, unlike the canvas and project equivalents: `savedViews$` is a real local cache,
+ * loaded when the views menu mounts with the canvas, so this is the `resolveItem` shape rather than
+ * the read `retireDocument` has to do. Which is also why these verbs can be covered by the refusal
+ * suite's not-found table and those cannot.
+ *
+ * `null` from `getSavedViews` means the listing belongs to another canvas or nothing is held yet —
+ * indistinguishable here from "no such view", and the correction is the same either way.
+ */
+const resolveSavedView = (canvasId: string, viewId: string) => {
+  const view = (getSavedViews(savedViews$.peek(), canvasId) ?? []).find(
+    (candidate) => candidate.id === viewId,
+  );
+
+  return view ?? `Refused: no saved view on this canvas has ${viewId}. \`view.list\` names them.`;
+};
+
 const APP_ACTIONS: readonly AppAction[] = [
   {
     description:
@@ -797,6 +827,132 @@ const APP_ACTIONS: readonly AppAction[] = [
    * the context so a verb can guess where a caller lands, the caller moves first and chooses. That
    * is one extra call and strictly more control than the menu offers.
    */
+  /*
+   * Framings, which a caller could arrange and never name.
+   *
+   * Every one of these existed behind the views menu and nowhere else, so a caller could compose a
+   * canvas, put the camera exactly where the arrangement reads, and have no way to keep it. The
+   * store functions are the menu's own — one authority, so a view saved by a verb and one saved by
+   * the pointer are the same row with the same numbering.
+   */
+  {
+    description:
+      "Save the current framing as a named view on this canvas. Without a title it is numbered after the views that exist.",
+    id: "view.save",
+    input: DOCUMENT_CREATE_INPUT,
+    label: "Save this view",
+    run: ({ canvasId, state }, input) => {
+      const parsed = DOCUMENT_CREATE_INPUT(input);
+
+      if (parsed instanceof type.errors) {
+        return describeInvalidInput(parsed);
+      }
+
+      const title = parsed.title?.trim();
+
+      if (title === "") {
+        return BLANK_TITLE;
+      }
+
+      /*
+       * The framing is taken here rather than passed in. A rect is four numbers in this canvas's
+       * world coordinates, and a caller with no way to read them would be guessing at the one
+       * argument that matters — `getCurrentFraming` is the same call the menu makes.
+       */
+      return saveView({
+        canvasId,
+        rect: getCurrentFraming({
+          camera: state.camera,
+          insets: state.viewportInsets,
+          viewport: state.viewport,
+        }),
+        title: title ?? getNextViewTitle(getSavedViews(savedViews$.peek(), canvasId) ?? []),
+      }).then(() => undefined);
+    },
+  },
+  {
+    description: "Go to a saved framing on this canvas. The id comes from view.list.",
+    id: "view.open",
+    input: VIEW_INPUT,
+    label: "Go to a saved view",
+    run: ({ actions, canvasId }, input) => {
+      const parsed = VIEW_INPUT(input);
+
+      if (parsed instanceof type.errors) {
+        return describeInvalidInput(parsed);
+      }
+
+      const view = resolveSavedView(canvasId, parsed.viewId);
+
+      if (typeof view === "string") {
+        return view;
+      }
+
+      // `fit` at zero padding, which is the menu's own rule and the reason it is not the default:
+      // the stored rect is already the inset region, so padding it again widens a view every trip.
+      actions.navigateToRect({ behavior: { paddingPx: 0, type: "fit" }, rect: view.rect });
+
+      return undefined;
+    },
+  },
+  {
+    description:
+      "Point a saved view at the current framing, keeping its name. The id comes from view.list.",
+    id: "view.reframe",
+    input: VIEW_INPUT,
+    label: "Reframe a saved view",
+    run: ({ canvasId, state }, input) => {
+      const parsed = VIEW_INPUT(input);
+
+      if (parsed instanceof type.errors) {
+        return describeInvalidInput(parsed);
+      }
+
+      const view = resolveSavedView(canvasId, parsed.viewId);
+
+      if (typeof view === "string") {
+        return view;
+      }
+
+      return reframeView({
+        canvasId,
+        rect: getCurrentFraming({
+          camera: state.camera,
+          insets: state.viewportInsets,
+          viewport: state.viewport,
+        }),
+        viewId: view.id,
+      }).then(() => undefined);
+    },
+  },
+  {
+    description: "Forget a saved framing. The id comes from view.list.",
+    id: "view.remove",
+    input: VIEW_INPUT,
+    label: "Remove a saved view",
+    run: ({ canvasId }, input) => {
+      const parsed = VIEW_INPUT(input);
+
+      if (parsed instanceof type.errors) {
+        return describeInvalidInput(parsed);
+      }
+
+      const view = resolveSavedView(canvasId, parsed.viewId);
+
+      if (typeof view === "string") {
+        return view;
+      }
+
+      /*
+       * Deleted rather than archived, which the schema decided: a view is referenced by nothing, so
+       * removing one strands nothing and restoring one is retyping a name. Said here because a
+       * caller cannot see that and `content.archive` next door is reversible.
+       */
+      return removeSavedView({ canvasId, viewId: view.id }).then(
+        () => `Removed "${view.title}". Nothing else referenced it; view.save stores a new one.`,
+      );
+    },
+  },
   {
     description:
       "Archive a canvas, taking it out of the switcher. Reversible with canvas.restore. The id comes from canvas.list.",

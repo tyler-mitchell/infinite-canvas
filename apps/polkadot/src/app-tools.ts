@@ -5,6 +5,7 @@ import { projectContent$ } from "./content/project-content";
 import { canvases, content, projects } from "./database/operations";
 import { getPublishedCanvasCommands } from "./published-commands";
 import { relations$ } from "./relations/relation-store";
+import { getSavedViews, loadSavedViews, savedViews$ } from "./views/saved-views";
 
 /**
  * Everything a caller can do or ask, by name.
@@ -77,6 +78,29 @@ const getReportingTools = (
                 `"${record.title}" [${record.id}]${record.id === openId ? " — open" : ""}`,
             )
             .join("; ");
+    },
+  ),
+  /*
+   * Loaded rather than peeked, unlike `content.list`.
+   *
+   * This is the entry point the other four `view.*` verbs send a caller to, and they resolve
+   * synchronously against `savedViews$`. Reading through `loadSavedViews` means calling this warms
+   * the cache they depend on, so the documented flow — list, then act on an id — works from cold
+   * rather than only after the views menu has been opened by a person.
+   */
+  report(
+    "List the framings saved on this canvas, with the ids view.open, view.reframe and view.remove take.",
+    "view.list",
+    async () => {
+      const context = input.createContext();
+
+      await loadSavedViews(context.canvasId);
+
+      const views = getSavedViews(savedViews$.peek(), context.canvasId) ?? [];
+
+      return views.length === 0
+        ? "No views are saved on this canvas."
+        : views.map((view) => `"${view.title}" [${view.id}]`).join("; ");
     },
   ),
   report(
