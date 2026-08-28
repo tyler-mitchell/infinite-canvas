@@ -155,9 +155,16 @@ open because it feels good to look at. Concretely, and these are enforced in rev
       **It has now run, on 2026-08-27.** This entry said the registration had never executed and
       could not be made to from here; both halves are obsolete. Chrome 152 with
       `--enable-blink-features=WebMCP`, reached through `chrome-devtools-mcp
---categoryExperimentalWebmcp`, registers **108 tools** — 75 framework verbs, 28 app verbs, 5
-      reporters, counted from `getTools()`. It was 97 until the document verbs landed; nothing
-      asserts the number, so a stale one here is this file's fault rather than the registry's. No origin-trial token was needed: the flag alone is enough on a local origin, and
+--categoryExperimentalWebmcp`, registers the whole vocabulary, counted from `getTools()`: **112
+      tools** on 2026-08-28, of which 5 are reporters and 25 take an argument.
+      The number written here has now been wrong twice — 97, then 108 — which is the argument
+      against writing it down at all rather than an argument for updating it more often. It is kept
+      as a dated measurement, and what actually holds the registry together is asserted instead:
+      `published-commands.test.ts` pins that every framework exclusion is derived rather than
+      listed and that no published verb shares a name with an app verb, and
+      `offered-input-schemas.test.ts` pins that every argument-taking verb advertises a schema a
+      caller can fill in. A count nobody can act on is prose; those are the properties a caller
+      depends on. No origin-trial token was needed: the flag alone is enough on a local origin, and
       the browser is launched by the MCP server rather than relaunched by hand.
       Driven end to end: `canvas.describe` on an empty canvas, `note.create`, `canvas.describe`
       again naming the window that appeared, `content.list` agreeing about the record behind it. A
@@ -296,7 +303,7 @@ open because it feels good to look at. Concretely, and these are enforced in rev
       gave "Second copy" and duplicating _that_ gave "Second copy 2" rather than "Second copy copy";
       `canvas.open` by id went back; and `project.open` on the project already open left the route
       alone while the most recent canvas was a different one — the case a missing guard would have
-      moved somebody in. The registry reports 108 tools, counted from `getTools()`.
+      moved somebody in.
       **Still missing at this level:** renaming or archiving a canvas or project. Both are pointer-only
       in the switchers. `canvas.create` and `project.create` take an optional title, so a caller can
       name what it makes, but nothing can rename what it already made.
