@@ -4,7 +4,6 @@ import { getInfiniteCanvasContextualCommands } from "./commands";
 import type { InfiniteCanvasHotkeyAction } from "./keyboard";
 import type {
   InfiniteCanvasCommandDescriptor,
-  InfiniteCanvasCommands,
   InfiniteCanvasContextualCommand,
   InfiniteCanvasState,
   InfiniteCanvasZoomPolicy,
@@ -59,19 +58,5 @@ function getInfiniteCanvasContextualEntries<Kind extends string>(
   ];
 }
 
-/** Canvas commands go through `executeCommand`; consumer verbs must not. */
-function runInfiniteCanvasContextualEntry<Kind extends string>(
-  entry: InfiniteCanvasContextualEntry<Kind>,
-  input: Readonly<{ actions: InfiniteCanvasCommands<Kind>; state: InfiniteCanvasState<Kind> }>,
-): void {
-  if (entry.source === "consumer") {
-    entry.run(input.state);
-
-    return;
-  }
-
-  input.actions.executeCommand(entry.command);
-}
-
-export { getInfiniteCanvasContextualEntries, runInfiniteCanvasContextualEntry };
+export { getInfiniteCanvasContextualEntries };
 export type { InfiniteCanvasContextualAction, InfiniteCanvasContextualEntry };

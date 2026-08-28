@@ -1,6 +1,6 @@
 import {
   focusInfiniteCanvasCommandSurface,
-  getInfiniteCanvasContextualCommands,
+  getInfiniteCanvasContextualEntries,
   getInfiniteCanvasGroupTitle,
   getInfiniteCanvasWindowGroup,
   getInfiniteCanvasWindowPresence,
@@ -8,6 +8,7 @@ import {
   useInfiniteCanvasDesktopPortalRoot,
   useInfiniteCanvasState,
   type InfiniteCanvasCommandGroup,
+  type InfiniteCanvasContextualEntry,
 } from "@hyphened/infinite-canvas";
 import type { Observable } from "@legendapp/state";
 import { useObservable, useValue } from "@legendapp/state/react";
@@ -50,6 +51,7 @@ import { tv } from "ui/tv";
 
 import { getSearchTerms, matchesSearchTerms } from "../text-search";
 import { getActionIcon } from "./action-icons";
+import { getConnectorHotkeyActions } from "../canvas/connector-hotkeys";
 import { getSelectedRelations } from "../canvas/connector-geometry";
 import { createCanvas } from "../workspace/create-canvas";
 import { createDesktop } from "../workspace/create-desktop";
@@ -185,6 +187,10 @@ const GROUP_ICON: Record<InfiniteCanvasCommandGroup, ComponentType> = {
   view: Move3d,
   window: SquareStack,
 };
+
+/** A consumer verb has no framework group, so this app supplies the glyph. */
+const entryIcon = (entry: InfiniteCanvasContextualEntry<WindowKind>): ComponentType =>
+  entry.source === "canvas" ? GROUP_ICON[entry.group] : Unlink2;
 
 const palette = tv({
   slots: {
@@ -411,7 +417,11 @@ function PaletteContent({
   );
   const windows = getInfiniteCanvasWindowPresence(state).windows;
   const activeWindow = windows.find((window) => window.isActive);
-  const contextual = getInfiniteCanvasContextualCommands(state);
+  // The canvas's verbs and this app's in one list, so a consumer verb is searchable rather than
+  // reachable only by the chord it declares.
+  const contextual = getInfiniteCanvasContextualEntries(state, {
+    actions: getConnectorHotkeyActions(projectId),
+  });
   const available = contextual.filter((command) => command.enabled);
   const unavailable = contextual.filter((command) => !command.enabled);
 
@@ -1170,30 +1180,8 @@ function PaletteContent({
               title="Label this connection…"
             />
           ) : null}
-          {selectedRelations.length === 0 ? null : (
-            <Row
-              icon={Unlink2}
-              // The row is where you learn the key exists. A shortcut only reachable by pressing it
-              // is a shortcut for the person who wrote it.
-              keys={["⌫"]}
-              onSelect={run(() => {
-                for (const relation of selectedRelations) {
-                  void disconnectItems({
-                    projectId,
-                    source: relation.source,
-                    target: relation.target,
-                  });
-                }
-              })}
-              id="cut-connection"
-              keywords="disconnect unlink edge relation"
-              title={
-                selectedRelations.length === 1
-                  ? "Cut the selected connection"
-                  : `Cut ${String(selectedRelations.length)} selected connections`
-              }
-            />
-          )}
+          {/* Cutting a connection is `connection.cut` in the Canvas group above, which is the
+              same declaration the keyboard binds. */}
           {selectedNoteIds.length === 2 ? (
             <Row
               icon={connectedPair === undefined ? Link2 : Unlink2}
@@ -1247,13 +1235,17 @@ function PaletteContent({
           {available.map((command) => (
             <Row
               description={command.description}
-              icon={GROUP_ICON[command.group]}
+              icon={entryIcon(command)}
               key={command.id}
               keys={command.hotkeys.map((hotkey) => formatForDisplay(hotkey))}
               id={command.id}
               keywords={command.id}
               onSelect={run(() => {
-                actions.executeCommand(command.command);
+                if (command.source === "consumer") {
+                  command.run(state);
+                } else {
+                  actions.executeCommand(command.command);
+                }
               })}
               title={command.label}
             />

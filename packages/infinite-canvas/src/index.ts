@@ -137,10 +137,7 @@ export {
   getInfiniteCanvasHotkeyBindings,
   isInfiniteCanvasCommandEnabled,
 } from "./commands";
-export {
-  getInfiniteCanvasContextualEntries,
-  runInfiniteCanvasContextualEntry,
-} from "./contextual-entries";
+export { getInfiniteCanvasContextualEntries } from "./contextual-entries";
 export type {
   InfiniteCanvasContextualAction,
   InfiniteCanvasContextualEntry,

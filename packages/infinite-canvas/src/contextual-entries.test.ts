@@ -1,12 +1,9 @@
 import { expect, test } from "vite-plus/test";
 
-import {
-  getInfiniteCanvasContextualEntries,
-  runInfiniteCanvasContextualEntry,
-} from "./contextual-entries";
+import { getInfiniteCanvasContextualEntries } from "./contextual-entries";
 import { createInfiniteCanvasState, createInfiniteCanvasWindow } from "./factory";
 import type { InfiniteCanvasHotkeyAction } from "./keyboard";
-import type { InfiniteCanvasCommands, InfiniteCanvasState } from "./types";
+import type { InfiniteCanvasState } from "./types";
 
 type Kind = "note";
 
@@ -94,35 +91,21 @@ test("every id is unique across both vocabularies", () => {
   expect(new Set(entries.map((entry) => entry.id)).size).toBe(entries.length);
 });
 
-test("running a consumer entry calls its own run and never the reducer", () => {
-  const ran: string[] = [];
-  const dispatched: unknown[] = [];
-  const actions = {
-    executeCommand: (command: unknown) => dispatched.push(command),
-  } as unknown as InfiniteCanvasCommands<Kind>;
+test("a canvas entry carries its command and a consumer entry carries its run", () => {
   const state = canvas();
+  const ran: string[] = [];
   const entries = getInfiniteCanvasContextualEntries(state, {
     actions: [{ ...cutRelation(), run: () => ran.push("cut") }],
   });
   const cut = entries.find((entry) => entry.id === "relation.cut");
+  const fitAll = entries.find((entry) => entry.id === "view.fitAll");
 
-  runInfiniteCanvasContextualEntry(cut!, { actions, state });
+  if (cut?.source !== "consumer" || fitAll?.source !== "canvas") {
+    throw new Error("the union did not discriminate");
+  }
+
+  cut.run(state);
 
   expect(ran).toEqual(["cut"]);
-  expect(dispatched).toHaveLength(0);
-});
-
-test("running a canvas entry dispatches its command", () => {
-  const dispatched: unknown[] = [];
-  const actions = {
-    executeCommand: (command: unknown) => dispatched.push(command),
-  } as unknown as InfiniteCanvasCommands<Kind>;
-  const state = canvas();
-  const fitAll = getInfiniteCanvasContextualEntries(state).find(
-    (entry) => entry.id === "view.fitAll",
-  );
-
-  runInfiniteCanvasContextualEntry(fitAll!, { actions, state });
-
-  expect(dispatched).toEqual([{ type: "view.fitAll" }]);
+  expect(fitAll.command).toEqual({ type: "view.fitAll" });
 });

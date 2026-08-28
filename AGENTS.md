@@ -52,10 +52,11 @@ The distinction is whether a value is a treatment or is bound to what the elemen
 not decidable from a property name. Read for it instead — three real instances were found that way,
 and each took one look at a file nobody had audited.
 
-## Comments
+## Comments / Documentation
 
-**No new comment may exceed 100 characters.** Whole comment, not per line — a docblock counts as
-one. Longer than that means it belongs in `docs/`, a bump file, or nowhere.
+- ALL prose (docs, comments) MUST be terse and use the bare minumum number of words required to explain.
+  **No new comment may exceed 100 characters.** Whole comment, not per line — a docblock counts as
+  one. Longer than that means it belongs in `docs/`, a bump file, or nowhere.
 
 A comment states what the code does, or why a non-obvious choice was made, in the plainest
 sentence that carries it. If it is not a fact about the code, delete it.

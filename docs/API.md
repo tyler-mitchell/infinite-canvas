@@ -1,6 +1,6 @@
 # API Reference
 
-The public surface of `@hyphened/infinite-canvas`: 229 values and 189 types across
+The public surface of `@hyphened/infinite-canvas`: 228 values and 189 types across
 two entries. Anything not exported from a barrel is internal and unstable —
 including every `data-infinite-canvas-*` attribute, which is a behavioural hook
 for hit-testing, not a styling contract.
@@ -328,11 +328,11 @@ surface that offers verbs — a palette, a context menu, a tool registry — had
 vocabularies itself and police id collisions by hand.
 `getInfiniteCanvasContextualEntries` returns both, resolving each consumer verb's `isEnabled`
 against live state. Entries are discriminated by `source`; a consumer verb sharing an id with a
-canvas command replaces it. `runInfiniteCanvasContextualEntry` invokes either without the caller
-branching, which matters because a consumer verb must not go through `executeCommand`.
+canvas command replaces it. Branch on `source` to invoke — a canvas entry carries a `command` for
+`executeCommand`, a consumer entry carries its own `run`, and the union makes the wrong one a type
+error.
 
 - `getInfiniteCanvasContextualEntries`
-- `runInfiniteCanvasContextualEntry`
 
 <details><summary>types (2)</summary>
 
