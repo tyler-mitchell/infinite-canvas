@@ -96,14 +96,6 @@ strictly greater than 160 — a kind sitting exactly on it demotes and never ret
   screenshot. The warm ink change is hue-only, so contrast is provably unchanged, but no before-and-
   after comparison was obtainable in the dev pane. Both want an eye on a real display.
 
-- **The app's own vocabulary has no dev handle.** `window.__canvas` answers for the framework and
-  `window.__surreal` for the database; Polkadot's ~28 `AppAction`s and the merged contextual list
-  are reachable only through WebMCP, which needs a Chrome flag and an experimental client. So in an
-  ordinary browser nothing can ask what this app can do right now, or invoke one of its verbs —
-  verifying any of them means clicking DOM rows and reading `aria-disabled`.
-  `window.__canvas.getContextualCommands()` is the shape to follow and is not a substitute: it
-  returns the framework's list, not the merged one a person actually sees.
-
 - **Driving the palette needs JS, and that is worth writing down.** Neither coordinate nor `ref`
   clicks from the browser tooling fire cmdk's `onSelect`, and `Cmd+K` sent as a synthetic key only
   works when a real click has already focused the canvas. Both have working substitutes, found by
