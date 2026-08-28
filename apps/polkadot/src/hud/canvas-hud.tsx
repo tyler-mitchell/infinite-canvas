@@ -409,6 +409,22 @@ function UndoNotice() {
   const [spent, setSpent] = useState(false);
   const styles = canvasHud();
   const announce = useInfiniteCanvasAnnounce();
+  const offered = useRef(action);
+
+  /*
+   * Taking the offer is the half nothing said out loud.
+   *
+   * `undoLastAction` clears the observable before it reverses, and a replacement always sets a new
+   * one — so non-null to null means taken, wherever it was pressed. Watching the transition here
+   * covers the palette row and the notice's own button without either knowing about the other.
+   */
+  useEffect(() => {
+    if (offered.current !== null && action === null) {
+      announce("Undone.");
+    }
+
+    offered.current = action;
+  }, [action, announce]);
 
   useEffect(() => {
     if (action === null) {
