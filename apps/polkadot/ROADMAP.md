@@ -74,20 +74,28 @@ strictly greater than 160 — a kind sitting exactly on it demotes and never ret
   finer and the field has no sense of scale — and a window being dragged should pull harder than one
   at rest, for which the rect velocities are already computed and unused.
 
-- **The mention typeahead answered "No note by that name" for `@Unti` with three "Untitled" notes
-  open, and this is an observation rather than a diagnosis.** Seen 2026-08-28 in a note window after
-  switching projects and back. What is established by reading: three surfaces consume
-  `projectContent$` through the same `listing?.projectId === projectId` guard, and they do not agree
-  on where `projectId` comes from — the library rail and the command palette take it as a prop from
-  the route loader, and `note-window.tsx` reads `openProject$`. The rail and the palette were both
-  listing notes at the time; only the mention list was empty. That is a correlation, not a cause.
-  What could not be established: whether `openProject$` actually disagreed. It is set once in the
-  canvas route loader and never cleared, so it should not. Console probes were no help and
-  contradicted each other — one read a real project id out of `openProject$` (which a fresh module
-  instance could not produce, its initial value being `null`) while reading `projectContent$` as
-  `null` in the same call, which the rail's own rows disprove. `AGENTS.md` warns about exactly this
-  module-identity trap. Reproducing it wants a second pair of eyes or a test that drives the
-  navigation, not another probe.
+- **The mention typeahead answered "No note by that name" with three "Untitled" notes open, once,
+  and the mechanism was never found.** Seen 2026-08-28 in a note window after switching projects and
+  back. It has not reproduced since.
+
+  What chasing it did establish is a real seam, and that is fixed: three surfaces consumed
+  `projectContent$` through the same `listing?.projectId === projectId` guard while disagreeing about
+  where `projectId` came from. The rail and the palette took the route loader's prop; the note
+  window, both collection surfaces and two HUD surfaces read `openProject$` — a copy of the same
+  fact, republished from the same loader. `SelectionRail` read both, with `canvas.projectId` unused
+  on the line above. `openProject$` is deleted: a window body is inside the route's tree and reads
+  the loader like anything else.
+
+  **That is not a claim to have fixed the symptom.** The note was cleared and the page reloaded in
+  the same sequence that made mentions work again, so nothing attributes it. The refactor stands on
+  one-owner grounds alone. If the empty list returns, the guard is still where to look — but the
+  argument it is given now has a single source.
+
+  Console probes were useless here and contradicted each other: one read a real project id out of
+  `openProject$` (which a fresh module instance cannot produce, its initial value being `null`) while
+  reading `projectContent$` as `null` in the same call, which the rail's own rows disprove.
+  `AGENTS.md` warns about exactly that module-identity trap. Whatever reproduces this will be a test
+  that drives the navigation, not another probe.
 
 - **Agent confirmation for consequential WebMCP calls.** The spec has no `destructiveHint` and no
   elicitation mechanism, so `selection.close` and `canvas.describe` are indistinguishable to a
