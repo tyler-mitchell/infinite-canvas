@@ -6,10 +6,11 @@ import {
   $convertFromMarkdownString,
   $convertToMarkdownString,
   TRANSFORMERS,
+  type TextMatchTransformer,
 } from "@lexical/markdown";
 import { HeadingNode, QuoteNode } from "@lexical/rich-text";
 
-import { MentionNode } from "./mention-node";
+import { $createMentionNode, $isMentionNode, MentionNode } from "./mention-node";
 
 /**
  * A note as markdown, through the editor rather than beside it.
@@ -45,6 +46,46 @@ const NOTE_NODES = [
   QuoteNode,
 ];
 
+/**
+ * A mention, as an ordinary markdown link to the note's record.
+ *
+ * Without this the export writes the words and the import reads them back as text, so a caller
+ * round-tripping a note turned every mention in it into plain words and the notes stopped being
+ * connected. `TRANSFORMERS` has no transformer for it, and text-match is the documented seam.
+ *
+ * **The syntax is markdown's own link, not a new one.** `[@Quarterly](content_item:xyz)` reads as a
+ * link anywhere else, which is the honest degradation for a reference to a record only this app can
+ * resolve. The import is keyed to a `content_item:` destination rather than to the bracket shape, so
+ * a real link whose text happens to start with `@` stays a link. It is listed before `TRANSFORMERS`
+ * because `LINK` would otherwise claim the same text first.
+ *
+ * A mention carrying no id — the state's default — exports as `null` and falls through to its words,
+ * because a link to nothing is worse than the text.
+ */
+const MENTION: TextMatchTransformer = {
+  dependencies: [MentionNode],
+  export: (node) => {
+    if (!$isMentionNode(node) || node.getNoteId() === "") {
+      return null;
+    }
+
+    return `[${node.getTextContent()}](${node.getNoteId()})`;
+  },
+  importRegExp: /\[([^\]]+)\]\((content_item:[\dA-Za-z]+)\)/,
+  regExp: /\[([^\]]+)\]\((content_item:[\dA-Za-z]+)\)$/,
+  replace: (textNode, match) => {
+    const [, text, noteId] = match;
+
+    if (text !== undefined && noteId !== undefined) {
+      textNode.replace($createMentionNode(noteId, text));
+    }
+  },
+  trigger: ")",
+  type: "text-match",
+};
+
+const NOTE_TRANSFORMERS = [MENTION, ...TRANSFORMERS];
+
 const readInEditor = <Result>(input: Readonly<{ act: () => Result; state?: string }>): Result => {
   const editor = createHeadlessEditor({
     nodes: NOTE_NODES,
@@ -72,7 +113,7 @@ const readInEditor = <Result>(input: Readonly<{ act: () => Result; state?: strin
 
 /** What the editor would export, so a caller reads the note rather than its envelope. */
 const noteToMarkdown = (serialized: string): string =>
-  readInEditor({ act: () => $convertToMarkdownString(TRANSFORMERS), state: serialized });
+  readInEditor({ act: () => $convertToMarkdownString(NOTE_TRANSFORMERS), state: serialized });
 
 /** The inverse, so a fenced block comes back a code block and a `#` line comes back a heading. */
 const markdownToNote = (markdown: string): string => {
@@ -85,7 +126,7 @@ const markdownToNote = (markdown: string): string => {
 
   editor.update(
     () => {
-      $convertFromMarkdownString(markdown, TRANSFORMERS);
+      $convertFromMarkdownString(markdown, NOTE_TRANSFORMERS);
     },
     { discrete: true },
   );
