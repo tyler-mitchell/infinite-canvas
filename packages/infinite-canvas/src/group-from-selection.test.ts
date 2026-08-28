@@ -5,8 +5,8 @@ import { reduceInfiniteCanvasState } from "./reducer";
 import type { InfiniteCanvasState } from "./types";
 
 /**
- * `createGroup` drops members that are missing, minimized or already grouped. These pin what a
- * caller can observe of that, since enablement is built on it.
+ * `createGroup` drops members that are missing, minimized, or already grouped. Command enablement
+ * depends on that filtering, so these pin what a caller can observe of it.
  */
 
 type Kind = "note";

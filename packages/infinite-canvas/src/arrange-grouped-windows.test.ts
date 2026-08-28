@@ -5,8 +5,8 @@ import { reduceInfiniteCanvasState } from "./reducer";
 import type { InfiniteCanvasState } from "./types";
 
 /**
- * Nudge moves a docked pane's whole shell; align, distribute and swap skip the pane. Both
- * deliberate, so an attempt to make them agree has to argue with a test.
+ * Nudge moves a docked pane's whole shell. Align, distribute, and swap skip docked panes entirely.
+ * Both behaviours are intentional and pinned here so they are not made to agree by accident.
  */
 
 type Kind = "note";

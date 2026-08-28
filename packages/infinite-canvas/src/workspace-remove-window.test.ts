@@ -5,8 +5,8 @@ import { reduceInfiniteCanvasState } from "./reducer";
 import type { InfiniteCanvasState } from "./types";
 
 /**
- * Membership is group-complete, so removing one pane alone is pulled straight back by
- * reconciliation. The whole shell comes off instead — the mirror of what `workspace-move` guards.
+ * Membership is group-complete, so removing one pane on its own is restored by reconciliation.
+ * The whole shell is removed instead.
  */
 
 type Kind = "note";

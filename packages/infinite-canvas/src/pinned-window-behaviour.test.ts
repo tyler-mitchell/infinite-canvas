@@ -6,8 +6,9 @@ import { getVisibleWindowBounds } from "./selection";
 import type { InfiniteCanvasState } from "./types";
 
 /**
- * Pinning moves a window into the pinned stacking band and nothing else. Its description claimed
- * panning and fit-all leave it in place; neither reads `isPinned`.
+ * Pinning moves a window into the pinned stacking band and does nothing else. The command
+ * description previously claimed panning and fit-all leave a pinned window in place; neither
+ * reads `isPinned`.
  */
 
 type Kind = "note";

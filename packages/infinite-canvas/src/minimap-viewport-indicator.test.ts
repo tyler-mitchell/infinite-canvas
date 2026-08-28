@@ -5,8 +5,8 @@ import { getInfiniteCanvasMinimapLayout } from "./minimap";
 import type { InfiniteCanvasState } from "./types";
 
 /**
- * `bounds` unions the camera in, so a camera containing everything drawn *is* the bounds and the
- * indicator traces the box's own edge. The empty-canvas rule refused the same projection.
+ * `bounds` includes the camera's visible rect, so a camera containing everything drawn becomes the
+ * bounds and the indicator projects onto the whole inner area. It is withheld in that case.
  */
 
 type Kind = "note";
@@ -45,17 +45,14 @@ test("a camera containing everything drawn gets none", () => {
 });
 
 test("the indicator that is withheld is exactly the one that filled the box", () => {
-  /*
-   * Guards the reason rather than the rule. Were the condition wrong, this would still be a rect
-   * spanning the whole inner area — which is what the old code drew, and what looked like a border
-   * on the overview panel in the running app.
-   */
+  // If the condition were wrong, this would be a rect spanning the whole inner area, which is what
+  // the previous code drew.
   const zoomedOut = canvasAt(200, 100, 0.1);
   const layout = getInfiniteCanvasMinimapLayout(zoomedOut, size);
   const padding = 8;
 
   expect(layout).not.toBeNull();
-  // Every drawn window sits inside the padded box, so there was a real map to keep.
+  // Every drawn window is inside the padded box, so a usable map remained.
   for (const window of layout?.windows ?? []) {
     expect(window.rect.x).toBeGreaterThanOrEqual(padding - 0.001);
     expect(window.rect.y).toBeGreaterThanOrEqual(padding - 0.001);
@@ -63,11 +60,8 @@ test("the indicator that is withheld is exactly the one that filled the box", ()
 });
 
 test("panning away from every window still gets an indicator", () => {
-  /*
-   * The case the camera union exists for, and the one this change must not break: travel far
-   * enough and the content shrinks while the indicator stays findable. The camera does not contain
-   * the windows here, so it has somewhere to be inside the box.
-   */
+  // The case the camera union exists for. The camera does not contain the windows here, so the
+  // indicator has a position inside the box.
   const layout = getInfiniteCanvasMinimapLayout(canvasAt(9000, 9000, 1), size);
 
   expect(layout).not.toBeNull();

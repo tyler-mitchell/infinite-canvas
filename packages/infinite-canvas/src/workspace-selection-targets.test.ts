@@ -5,9 +5,9 @@ import { reduceInfiniteCanvasState } from "./reducer";
 import type { InfiniteCanvasState } from "./types";
 
 /**
- * A desktop stores the selection you left it with, targets included, and reconciliation cleans its
- * `windowIds` but never its `targets`. Entering restores that desktop's own selection, so nothing
- * rides along — the leak is what the one you left keeps.
+ * A workspace stores the selection it was left with, targets included. Reconciliation prunes its
+ * `windowIds` but not its `targets`. Entering a workspace restores that workspace's own selection,
+ * so stale targets stay on the workspace that holds them rather than carrying across.
  */
 
 type Kind = "note";

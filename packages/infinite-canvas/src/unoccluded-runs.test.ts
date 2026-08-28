@@ -10,8 +10,8 @@ import {
 import type { InfiniteCanvasRect } from "./types";
 
 /**
- * A run is a contiguous visible stretch; a segment is one leg. Both queries are correct — these pin
- * the difference so a reader can tell which they want.
+ * A run is a contiguous visible stretch across segments; a segment is one leg. Both queries exist;
+ * these pin the difference between them.
  */
 
 const rect = (x: number, y: number, width: number, height: number): InfiniteCanvasRect => ({
@@ -54,11 +54,11 @@ test("the anchor moves from a quarter along to halfway", () => {
 });
 
 test("an occluder in the middle splits one run into two", () => {
-  // A band across the top leg leaves a stub before it and everything after it.
+  // A band across the top leg leaves a stub before it and the remainder after it.
   const runs = getInfiniteCanvasUnoccludedRuns(elbow.segments, [rect(40, -5, 20, 10)]);
 
   expect(runs).toHaveLength(2);
-  // The far side is longer: 40 units of top leg remaining plus the whole 100-unit descent.
+  // The far side is longer: 40 units of remaining top leg plus the 100-unit descent.
   expect(
     getInfiniteCanvasLongestUnoccludedRun(elbow.segments, [rect(40, -5, 20, 10)])?.length,
   ).toBeCloseTo(140);
@@ -72,7 +72,7 @@ test("a path hidden along its whole length has no run", () => {
 });
 
 test("on a straight line a run and a segment are the same answer", () => {
-  // Which is why the cheaper segment query is kept.
+  // Which is why the cheaper segment query is still exported.
   const line = getInfiniteCanvasWorldPath([
     { x: 0, y: 0 },
     { x: 100, y: 0 },

@@ -58,7 +58,7 @@ test("a middle pane grows at the expense of the next one along, not the previous
 
   expect(after.b).toBeGreaterThan(before.b);
   expect(after.c).toBeLessThan(before.c);
-  // The half a caller cannot guess: the pane on the other side is untouched.
+  // The pane on the other side is untouched.
   expect(after.a).toBe(before.a);
 });
 

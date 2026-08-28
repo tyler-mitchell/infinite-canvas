@@ -5,9 +5,8 @@ import { reduceInfiniteCanvasState } from "./reducer";
 import type { InfiniteCanvasState } from "./types";
 
 /**
- * Tab members share the shell's content rect, so freeing them untouched stacks them at one point.
- * The command placed them through vacancy and the action did not — and a consumer holding a group
- * id comes through the action.
+ * Tab members share the shell's content rect, so releasing them unchanged leaves them stacked at
+ * one point. The command applied vacancy placement and the `group.close` action did not.
  */
 
 type Kind = "note";
@@ -52,7 +51,7 @@ const distinctOrigins = (state: InfiniteCanvasState<Kind>) =>
   new Set(rects(state).map((rect) => `${String(rect?.x)},${String(rect?.y)}`)).size;
 
 test("tab members share one rect while they are docked", () => {
-  // The premise, and the reason freeing them needs to move anything at all.
+  // The premise: without this, dissolving would not need to move anything.
   expect(distinctOrigins(tabbedShell())).toBe(1);
 });
 

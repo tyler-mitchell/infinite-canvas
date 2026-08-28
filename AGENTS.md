@@ -52,6 +52,54 @@ The distinction is whether a value is a treatment or is bound to what the elemen
 not decidable from a property name. Read for it instead — three real instances were found that way,
 and each took one look at a file nobody had audited.
 
+## Comments
+
+A comment states what the code does, or why a non-obvious choice was made, in the plainest
+sentence that carries it. If it is not a fact about the code, delete it.
+
+Banned outright, because these are the forms the drift takes:
+
+- Headline openers that name a theme instead of describing behaviour — "What the schema could not
+  stop", "The database, drivable from a console".
+- Aphorisms and value judgements — "a report that cannot tell those apart is worse than no report".
+- Sentences about how a reader will feel or what they will do — "a panel people learn to avoid".
+- Personification and metaphor — code does not learn, know, want, remember, or decide.
+- Narrating the next statement, which the statement already says.
+- Incident history and rationale essays. Those belong in a bump file, a commit body, or `docs/`.
+
+Length is a signal, not a rule: a docblock past six lines is usually carrying something that
+belongs elsewhere. Default to no comment. Type names and function names are the documentation, and
+a comment that repeats them is noise in every search result and symbol lookup that returns it.
+
+This applies to prose in tests exactly as it does to source.
+
+## Commit messages
+
+[Conventional Commits](https://www.conventionalcommits.org/) — `type(scope): description`.
+
+Types: `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `build`, `ci`, `chore`,
+`revert`. Scope is the package or area, e.g. `polkadot`, `infinite-canvas`, `release`.
+
+The description is imperative mood, lowercase, no trailing period, and says what the change does:
+
+```
+fix(polkadot): fit the camera to a window opened below the summary threshold
+feat(infinite-canvas): add getInfiniteCanvasUnoccludedRuns
+refactor(surreal-inspector): fold the read ledger into the reader
+```
+
+Not this, which is the register to avoid — it neither states the change nor reads as a subject
+line:
+
+```
+feat(polkadot): the vocabulary learns to name the canvas it is standing in
+fix(polkadot): going to the project you are in stops moving you somewhere else
+```
+
+The body explains why, and carries what a reader cannot get from the diff: the defect's symptom,
+the constraint that forced the approach, what remains unverified. Same prose rules as comments.
+Breaking changes take a `BREAKING CHANGE:` footer.
+
 ## Shared Agent Workflow
 
 - Daily branch: `main`

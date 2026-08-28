@@ -7,9 +7,9 @@ import { normalizeSelection } from "./selection";
 import type { InfiniteCanvasState } from "./types";
 
 /**
- * `windowIds` are pruned; `targets` cannot be, since the framework does not know what a consumer's
- * scene objects are. `selection` is a document field, so a dead target survives every reload. A
- * contract rather than a bug — rewrite these when a consumer can answer "does this still exist".
+ * `windowIds` are pruned. `targets` are not, because the framework cannot know whether a
+ * consumer's scene object still exists. `selection` is persisted, so a stale target survives a
+ * reload. This is the current contract, not a defect.
  */
 
 type Kind = "note";

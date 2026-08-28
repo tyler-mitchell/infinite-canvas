@@ -5,8 +5,8 @@ import { reduceInfiniteCanvasState } from "./reducer";
 import type { InfiniteCanvasState } from "./types";
 
 /**
- * Tabs overwrite each member's rect, so a layout round trip looks destructive. It is not: the
- * proportions live on the tree's child weights, and only the rects are re-solved.
+ * Tabs overwrite each member's rect, so a layout round trip appears destructive. It is not: the
+ * proportions are held on the tree's child weights, and only the rects are re-solved.
  */
 
 type Kind = "note";

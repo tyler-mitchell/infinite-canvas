@@ -11,12 +11,11 @@ import type { InfiniteCanvasPoint, InfiniteCanvasRect, InfiniteCanvasState } fro
 import { getInfiniteCanvasWorkspaceWindowIds } from "./workspace-membership";
 
 /**
- * Edge indicators for what has fallen off the viewport, as geometry rather than as a widget.
- * Pure, like `minimap.ts` — the projection is the hard part, the arrowhead is not.
+ * Computes edge indicators for windows outside the viewport. Returns geometry, not markup.
  *
- * A group is one indicator, not one per pane. Minimized windows are omitted; tab-hidden ones are
- * omitted individually but counted through their group. Targets landing on the same pixel fold
- * together, see `mergeWithinPx`.
+ * A group produces one indicator rather than one per pane. Minimized windows are omitted.
+ * Tab-hidden windows are omitted individually but counted through their group. Indicators landing
+ * on the same pixel are merged; see `mergeWithinPx`.
  *
  * @experimental Landed 2026-07-08.
  */
@@ -29,30 +28,30 @@ type InfiniteCanvasOffscreenIndicator = Readonly<{
    * grows clockwise; rotate a right-pointing arrow by this and it aims at the target.
    */
   angle: number;
-  /** Screen pixels from the viewport centre to the target's centre — the sort key, nearest first. */
+  /** Screen pixels from the viewport centre to the target's centre. The sort key, nearest first. */
   distancePx: number;
   /** The window id or the group id, per `kind`. */
   id: string;
-  /** The active window, or the group holding it. At most one indicator carries `true`. */
+  /** True for the active window, or the group containing it. At most one indicator is true. */
   isActive: boolean;
   kind: InfiniteCanvasOffscreenTargetKind;
-  /** Where to draw, in screen pixels: on the inset viewport edge, along `angle`. */
+  /** Draw position in screen pixels: on the inset viewport edge, along `angle`. */
   point: InfiniteCanvasPoint;
-  /** The target's world rect. Hand it to `navigateToRect`, or its centre to `navigateToPoint`. */
+  /** The target's world rect. Pass to `navigateToRect`, or its centre to `navigateToPoint`. */
   rect: InfiniteCanvasRect;
   /**
-   * How many targets this indicator stands for, itself included, so a consumer can say "and two
-   * more behind this one". The folded ones are not returned.
+   * How many targets this indicator represents, including itself. Merged targets are not returned
+   * separately.
    */
   targetCount: number;
 }>;
 
 type InfiniteCanvasOffscreenOptions = Readonly<{
-  /** Screen pixels to pull the ring in from the viewport edge, so an arrow is not half-clipped. */
+  /** Screen pixels to inset the indicator ring from the viewport edge, so arrows are not clipped. */
   insetPx?: number;
   /**
-   * Cap on indicators returned, nearest first. Unbounded by default. A capping consumer should say
-   * so in its UI — a silent cap reads as "that's everything".
+   * Maximum indicators returned, nearest first. Unbounded by default. A consumer that caps should
+   * indicate so in its UI, since the result otherwise looks complete.
    */
   limit?: number;
   /**
@@ -62,26 +61,26 @@ type InfiniteCanvasOffscreenOptions = Readonly<{
    */
   marginPx?: number;
   /**
-   * Fold indicators landing within this many screen pixels of a nearer one; the nearer survives
-   * and carries the count. `0` disables folding.
+   * Merge indicators landing within this many screen pixels of a nearer one, which keeps the count.
+   * `0` disables merging.
    *
-   * Pixels rather than degrees because the ring is a rectangle — the same angular separation is
-   * tens of pixels along an edge and almost nothing near a corner.
+   * Measured in pixels rather than degrees because the ring is a rectangle, so the same angular
+   * separation spans tens of pixels along an edge and almost none near a corner.
    */
   mergeWithinPx?: number;
 }>;
 
 const DEFAULT_OFFSCREEN_INSET_PX = 24;
 
-/** Roughly a chip, which is what a consumer draws at each point. */
+/** Approximately the size of a chip, which is what consumers draw at each point. */
 const DEFAULT_OFFSCREEN_MERGE_WITHIN_PX = 28;
 
 /**
- * Project a ray from the viewport centre onto the inset edge. `t` is the smaller axis crossing —
- * the ray exits whichever edge it reaches first.
+ * Projects a ray from the viewport centre onto the inset edge. `t` is the smaller of the two axis
+ * crossings, since the ray exits whichever edge it reaches first.
  *
- * A zero `delta` has no bearing and would multiply out to `NaN`. Unreachable in principle, but
- * `NaN` in a transform is a silently blank arrow, so it is answered.
+ * A zero `delta` has no direction and would produce `NaN`. It should be unreachable, but `NaN` in a
+ * transform renders nothing, so it returns the centre instead.
  */
 const projectOntoEdge = (
   center: InfiniteCanvasPoint,
@@ -104,10 +103,10 @@ const projectOntoEdge = (
 };
 
 /**
- * Every drawn thing that does not overlap the viewport, nearest first.
+ * Returns every drawn target that does not overlap the viewport, nearest first.
  *
- * Empty for an unmeasured (`0 × 0`) viewport and for an `insetPx` that eats the viewport whole.
- * Both mean "draw nothing" — a phantom arrow is worse than no arrow.
+ * Returns empty for an unmeasured (`0 × 0`) viewport, and for an `insetPx` larger than the
+ * viewport, since neither leaves a ring to place indicators on.
  */
 function getInfiniteCanvasOffscreenIndicators<Kind extends string>(
   state: InfiniteCanvasState<Kind>,
@@ -120,7 +119,7 @@ function getInfiniteCanvasOffscreenIndicators<Kind extends string>(
     mergeWithinPx = DEFAULT_OFFSCREEN_MERGE_WITHIN_PX,
   } = options;
   const { camera, viewport } = state;
-  // Inset from what the user can see, not from the element — chrome would hide half the ring.
+  // Inset from the visible content area, not the element, or chrome would cover part of the ring.
   const content = getInfiniteCanvasContentViewport(viewport, state.viewportInsets);
   const halfWidth = content.width / 2 - insetPx;
   const halfHeight = content.height / 2 - insetPx;
@@ -138,12 +137,12 @@ function getInfiniteCanvasOffscreenIndicators<Kind extends string>(
           getInfiniteCanvasGroupWindowIds(group.tree).includes(activeWindowId),
         )?.id ?? null);
 
-  // An arrow may only point at something the canvas draws, so a desktop filters the ring too.
-  // `null` admits everything.
+  // Indicators point only at what the canvas draws, so the active workspace filters them too.
+  // `null` means no workspace is active, which admits everything.
   const admitted = getInfiniteCanvasWorkspaceWindowIds(state);
   const targets = [
-    // Membership is group-complete, so one admitted member settles the group. `some` not `every`:
-    // an empty group has nothing to admit and no rect worth pointing at.
+    // Membership is group-complete, so one admitted member settles the group. `some` rather than
+    // `every` because an empty group admits nothing and has no rect to point at.
     ...state.groups
       .filter(
         (group) =>

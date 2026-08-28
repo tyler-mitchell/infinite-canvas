@@ -6,8 +6,8 @@ import { reduceInfiniteCanvasState } from "./reducer";
 import type { InfiniteCanvasState } from "./types";
 
 /**
- * The lifecycle verbs detach a docked pane before acting. Maximize is the one that matters:
- * restoring does not re-attach, so a toggle is a one-way door for a pane.
+ * The lifecycle verbs detach a docked pane before acting. Maximize is not symmetric: restoring
+ * does not re-attach, so toggling it twice leaves the pane out of its group.
  */
 
 type Kind = "note";
