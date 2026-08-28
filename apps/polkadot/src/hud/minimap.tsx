@@ -71,6 +71,12 @@ const MINIMAP_PADDING_PX = 6;
  *
  * Where the map sits relative to that rail is not this file's business either. The canvas publishes
  * `--icx-hud-extent-bottom` as it lays its own HUD out, and `hud-surfaces` adds a gap to it.
+ *
+ * **A third state now exists — no map at all — and it was measured rather than assumed**, because
+ * the retreat above was caused by exactly this: a number that changed when the map toggled moved
+ * the framework's rail. With a window on the canvas and without one, `--icx-hud-extent-bottom`
+ * reads 114px both times and the zoom button's top edge sits 113px from the bottom both times.
+ * Nothing moves, which is what "reserves no band" has to mean to be worth claiming.
  */
 
 const minimap = tv({
