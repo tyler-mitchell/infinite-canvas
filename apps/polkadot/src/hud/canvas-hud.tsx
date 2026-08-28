@@ -3,6 +3,7 @@ import {
   getInfiniteCanvasWindowGroup,
   isInfiniteCanvasGroupContainer,
   useInfiniteCanvasActions,
+  useInfiniteCanvasAnnounce,
   useInfiniteCanvasSelector,
   useInfiniteCanvasStore,
   type InfiniteCanvasCommand,
@@ -407,11 +408,14 @@ function UndoNotice() {
   const action = useValue(undoableAction$);
   const [spent, setSpent] = useState(false);
   const styles = canvasHud();
+  const announce = useInfiniteCanvasAnnounce();
 
   useEffect(() => {
     if (action === null) {
       return;
     }
+
+    announce(action.describe);
 
     // Cleared here rather than held per action: the effect keys on the action, so a second
     // reversible act runs this again and shows fresh instead of inheriting the first one's clock.
@@ -424,7 +428,7 @@ function UndoNotice() {
     return () => {
       clearTimeout(timer);
     };
-  }, [action]);
+  }, [action, announce]);
 
   return (
     <HudSurface anchor="bottom-center-above" present={action !== null && !spent}>

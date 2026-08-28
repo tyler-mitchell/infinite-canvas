@@ -1,6 +1,6 @@
 # API Reference
 
-The public surface of `@hyphened/infinite-canvas`: 228 values and 188 types across
+The public surface of `@hyphened/infinite-canvas`: 229 values and 188 types across
 two entries. Anything not exported from a barrel is internal and unstable —
 including every `data-infinite-canvas-*` attribute, which is a behavioural hook
 for hit-testing, not a styling contract.
@@ -1138,6 +1138,17 @@ band, so a consumer can retune the type without touching the geometry.
 
 - `DEFAULT_INFINITE_CANVAS_HUD_POLICY`
 - `resolveInfiniteCanvasHudPolicy`
+
+## Announcements
+
+One `aria-live` region per canvas, mounted for as long as the canvas is, so it
+does not depend on whether the HUD draws any chrome.
+
+**`announcer`**
+
+- `useInfiniteCanvasAnnounce` — say something to a screen reader from anywhere
+  inside a canvas. Repeating the current message does not speak it again;
+  outside a canvas it is a no-op.
 
 ## Icons
 

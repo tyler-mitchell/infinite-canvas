@@ -12,6 +12,7 @@ import {
   type ReactNode,
 } from "react";
 
+import { InfiniteCanvasAnnouncer } from "./announcer";
 import { InfiniteCanvasHud } from "./canvas-hud";
 import {
   InfiniteCanvasDockPreviewOverlay,
@@ -1378,273 +1379,277 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
   return (
     <InfiniteCanvasDesktopPortalContext.Provider value={desktopPortalRoot}>
       <InfiniteCanvasIconsContext.Provider value={resolvedIcons}>
-        <section
-          aria-label={title}
-          className={className}
-          data-infinite-canvas-viewport="true"
-          data-interaction={interaction?.kind}
-          data-pointer-mode={pointerMode}
-          data-slot={INFINITE_CANVAS_SLOTS.viewport}
-          onLostPointerCapture={(event) => {
-            actions.finishInteraction(event.pointerId);
-          }}
-          onPointerCancel={(event) => {
-            actions.finishInteraction(event.pointerId);
-          }}
-          onPointerLeave={() => {
-            setIsOverSelectableTarget(false);
-          }}
-          // Only bound when resolvers exist. Skipped mid-drag.
-          onPointerMove={
-            spatialTargetResolvers.length === 0
-              ? undefined
-              : (event) => {
-                  if (interaction !== null) {
-                    return;
+        <InfiniteCanvasAnnouncer>
+          <section
+            aria-label={title}
+            className={className}
+            data-infinite-canvas-viewport="true"
+            data-interaction={interaction?.kind}
+            data-pointer-mode={pointerMode}
+            data-slot={INFINITE_CANVAS_SLOTS.viewport}
+            onLostPointerCapture={(event) => {
+              actions.finishInteraction(event.pointerId);
+            }}
+            onPointerCancel={(event) => {
+              actions.finishInteraction(event.pointerId);
+            }}
+            onPointerLeave={() => {
+              setIsOverSelectableTarget(false);
+            }}
+            // Only bound when resolvers exist. Skipped mid-drag.
+            onPointerMove={
+              spatialTargetResolvers.length === 0
+                ? undefined
+                : (event) => {
+                    if (interaction !== null) {
+                      return;
+                    }
+
+                    const target = resolveSpatialTarget(
+                      getViewportPoint(event.currentTarget, getClientPoint(event)),
+                    );
+
+                    setIsOverSelectableTarget(
+                      getInfiniteCanvasSelectableTargetFromSpatialTarget(target) !== null,
+                    );
                   }
+            }
+            onPointerDown={(event) => {
+              if (!isCanvasPointerGesture(event)) {
+                return;
+              }
 
-                  const target = resolveSpatialTarget(
-                    getViewportPoint(event.currentTarget, getClientPoint(event)),
-                  );
+              const point = getViewportPoint(event.currentTarget, getClientPoint(event));
 
-                  setIsOverSelectableTarget(
-                    getInfiniteCanvasSelectableTargetFromSpatialTarget(target) !== null,
-                  );
+              if (!isCanvasPanGesture(event, spacePanRef.current)) {
+                const selectableTarget = getInfiniteCanvasSelectableTargetFromSpatialTarget(
+                  resolveSpatialTarget(point),
+                );
+
+                if (selectableTarget !== null) {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  clearNativeTextSelection();
+                  focusInfiniteCanvasCommandSurface(commandSurfaceRef.current);
+                  applyModifiedPointerTargetSelection(actions, event, selectableTarget);
+
+                  return;
                 }
-          }
-          onPointerDown={(event) => {
-            if (!isCanvasPointerGesture(event)) {
-              return;
-            }
+              }
 
-            const point = getViewportPoint(event.currentTarget, getClientPoint(event));
-
-            if (!isCanvasPanGesture(event, spacePanRef.current)) {
-              const selectableTarget = getInfiniteCanvasSelectableTargetFromSpatialTarget(
-                resolveSpatialTarget(point),
+              const selectionExists = getState().selection.windowIds.length > 0;
+              const emptyCanvasDragIntent = getEmptyCanvasDragIntent(
+                activeInputPolicy,
+                event,
+                spacePanRef.current,
+                selectionExists,
               );
 
-              if (selectableTarget !== null) {
-                event.preventDefault();
-                event.stopPropagation();
-                clearNativeTextSelection();
-                focusInfiniteCanvasCommandSurface(commandSurfaceRef.current);
-                applyModifiedPointerTargetSelection(actions, event, selectableTarget);
-
-                return;
-              }
-            }
-
-            const selectionExists = getState().selection.windowIds.length > 0;
-            const emptyCanvasDragIntent = getEmptyCanvasDragIntent(
-              activeInputPolicy,
-              event,
-              spacePanRef.current,
-              selectionExists,
-            );
-
-            if (!isCanvasPanTarget(event.target, event.currentTarget, emptyCanvasDragIntent)) {
-              return;
-            }
-
-            event.preventDefault();
-            clearNativeTextSelection();
-            focusInfiniteCanvasCommandSurface(commandSurfaceRef.current);
-            capturePointer(event.currentTarget, event.pointerId);
-
-            if (emptyCanvasDragIntent === "pan") {
-              actions.startPan({
-                clearSelection: shouldClearSelectionOnPanStart(event, spacePanRef.current),
-                pointerId: event.pointerId,
-                point,
-              });
-            } else {
-              actions.startMarquee({
-                mode: getMarqueeMode(event),
-                pointerId: event.pointerId,
-                point,
-              });
-            }
-          }}
-          // No `onPointerMove`. Window listener is the single dispatcher and carries `dockIntent`.
-          // Second handler double-dispatches. See `single-dispatcher.test.ts`.
-          onPointerUp={(event) => {
-            releasePointer(event.currentTarget, event.pointerId);
-            actions.finishInteraction(event.pointerId);
-          }}
-          ref={rootRef}
-          style={{
-            ...themeVariables,
-            cursor,
-            display: "flex",
-            flex: "1 1 0%",
-            height: "100%",
-            minHeight: 0,
-            minWidth: 0,
-            overflow: "hidden",
-            position: "relative",
-            touchAction: "none",
-            userSelect: interaction === null ? undefined : "none",
-            width: "100%",
-          }}
-        >
-          <div
-            data-infinite-canvas-command-scope="surface"
-            onKeyDown={(event) => {
-              // Tab enters the active window's body (FR-9). Escape returns here. Shift+Tab
-              // unclaimed, or the canvas is a keyboard trap.
-              if (event.key !== "Tab" || event.shiftKey || state.activeWindowId === null) {
+              if (!isCanvasPanTarget(event.target, event.currentTarget, emptyCanvasDragIntent)) {
                 return;
               }
 
-              const frame = document.getElementById(
-                getInfiniteCanvasWindowFrameElementId(canvasInstanceId, state.activeWindowId),
-              );
-              const body = frame?.querySelector<HTMLElement>("[data-infinite-canvas-body='true']");
+              event.preventDefault();
+              clearNativeTextSelection();
+              focusInfiniteCanvasCommandSurface(commandSurfaceRef.current);
+              capturePointer(event.currentTarget, event.pointerId);
 
-              if (body !== null && body !== undefined && focusInfiniteCanvasContent(body)) {
-                event.preventDefault();
+              if (emptyCanvasDragIntent === "pan") {
+                actions.startPan({
+                  clearSelection: shouldClearSelectionOnPanStart(event, spacePanRef.current),
+                  pointerId: event.pointerId,
+                  point,
+                });
+              } else {
+                actions.startMarquee({
+                  mode: getMarqueeMode(event),
+                  pointerId: event.pointerId,
+                  point,
+                });
               }
             }}
-            ref={commandSurfaceRef}
-            style={{
-              height: 1,
-              opacity: 0,
-              outline: "none",
-              pointerEvents: "none",
-              position: "absolute",
-              width: 1,
+            // No `onPointerMove`. Window listener is the single dispatcher and carries `dockIntent`.
+            // Second handler double-dispatches. See `single-dispatcher.test.ts`.
+            onPointerUp={(event) => {
+              releasePointer(event.currentTarget, event.pointerId);
+              actions.finishInteraction(event.pointerId);
             }}
-            tabIndex={-1}
-          />
-          {/* Outside every transform, so `position: fixed` resolves against the viewport. */}
-          <div
-            // Outside the canvas keyboard scope, so a portalled modal gets Escape.
-            data-infinite-canvas-command-scope="ignore"
-            data-slot={INFINITE_CANVAS_SLOTS.portalRoot}
-            ref={setDesktopPortalRoot}
+            ref={rootRef}
             style={{
-              inset: 0,
-              pointerEvents: "none",
-              position: "absolute",
-              zIndex: PORTAL_ROOT_Z_INDEX,
+              ...themeVariables,
+              cursor,
+              display: "flex",
+              flex: "1 1 0%",
+              height: "100%",
+              minHeight: 0,
+              minWidth: 0,
+              overflow: "hidden",
+              position: "relative",
+              touchAction: "none",
+              userSelect: interaction === null ? undefined : "none",
+              width: "100%",
             }}
-          />
-          {renderBackdrop === undefined ? (
-            <InfiniteCanvasGridBackdrop />
-          ) : (
+          >
             <div
-              data-slot={INFINITE_CANVAS_SLOTS.grid}
-              style={{ inset: 0, pointerEvents: "none", position: "absolute" }}
-            >
-              {renderBackdrop(overlayContext)}
-            </div>
-          )}
-          {SceneSurface === undefined ||
-          (underlayWorldSceneLayers.length === 0 && !diagnostics.frustum) ? null : (
-            <SceneSurface
-              chrome={chrome}
-              devicePixelRatio={devicePixelRatio}
-              diagnostics={diagnostics}
-              dropInteraction={dropInteraction}
-              sceneLayers={underlayWorldSceneLayers}
-              space="world"
-              spatialTargetResolvers={spatialTargetResolvers}
-              theme={resolvedTheme}
-              zIndex={SCENE_UNDERLAY_Z_INDEX}
+              data-infinite-canvas-command-scope="surface"
+              onKeyDown={(event) => {
+                // Tab enters the active window's body (FR-9). Escape returns here. Shift+Tab
+                // unclaimed, or the canvas is a keyboard trap.
+                if (event.key !== "Tab" || event.shiftKey || state.activeWindowId === null) {
+                  return;
+                }
+
+                const frame = document.getElementById(
+                  getInfiniteCanvasWindowFrameElementId(canvasInstanceId, state.activeWindowId),
+                );
+                const body = frame?.querySelector<HTMLElement>(
+                  "[data-infinite-canvas-body='true']",
+                );
+
+                if (body !== null && body !== undefined && focusInfiniteCanvasContent(body)) {
+                  event.preventDefault();
+                }
+              }}
+              ref={commandSurfaceRef}
+              style={{
+                height: 1,
+                opacity: 0,
+                outline: "none",
+                pointerEvents: "none",
+                position: "absolute",
+                width: 1,
+              }}
+              tabIndex={-1}
             />
-          )}
-          {SceneSurface === undefined || underlayScreenSceneLayers.length === 0 ? null : (
-            <SceneSurface
-              chrome={chrome}
-              devicePixelRatio={devicePixelRatio}
-              diagnostics={DEFAULT_INFINITE_CANVAS_DIAGNOSTICS}
-              dropInteraction={dropInteraction}
-              sceneLayers={underlayScreenSceneLayers}
-              space="screen"
-              spatialTargetResolvers={spatialTargetResolvers}
-              theme={resolvedTheme}
-              zIndex={SCENE_SCREEN_UNDERLAY_Z_INDEX}
-            />
-          )}
-          {renderUnderlay === undefined ? null : (
+            {/* Outside every transform, so `position: fixed` resolves against the viewport. */}
             <div
-              data-slot={INFINITE_CANVAS_SLOTS.underlay}
+              // Outside the canvas keyboard scope, so a portalled modal gets Escape.
+              data-infinite-canvas-command-scope="ignore"
+              data-slot={INFINITE_CANVAS_SLOTS.portalRoot}
+              ref={setDesktopPortalRoot}
               style={{
                 inset: 0,
                 pointerEvents: "none",
                 position: "absolute",
-                zIndex: UNDERLAY_Z_INDEX,
+                zIndex: PORTAL_ROOT_Z_INDEX,
               }}
-            >
-              {renderUnderlay(overlayContext)}
-            </div>
-          )}
-          <InfiniteCanvasGroupLayer
-            canvasInstanceId={canvasInstanceId}
-            devicePixelRatio={devicePixelRatio}
-            groupLabel={groupLabel}
-            labelSize={chrome.groupLabelSize}
-            resizeHandleSize={chrome.resizeHandleSize}
-            tabLabel={groupTabLabel}
-            zIndex={GROUP_LAYER_Z_INDEX}
-          />
-          <InfiniteCanvasWindowLayer
-            canvasInstanceId={canvasInstanceId}
-            chrome={chrome}
-            devicePixelRatio={devicePixelRatio}
-            stackBands={DEFAULT_INFINITE_CANVAS_STACK_BANDS}
-            theme={resolvedTheme}
-            windowDefinitions={windowDefinitions}
-            zIndex={WINDOW_LAYER_Z_INDEX}
-          />
-          {SceneSurface === undefined || overlayWorldSceneLayers.length === 0 ? null : (
-            <SceneSurface
+            />
+            {renderBackdrop === undefined ? (
+              <InfiniteCanvasGridBackdrop />
+            ) : (
+              <div
+                data-slot={INFINITE_CANVAS_SLOTS.grid}
+                style={{ inset: 0, pointerEvents: "none", position: "absolute" }}
+              >
+                {renderBackdrop(overlayContext)}
+              </div>
+            )}
+            {SceneSurface === undefined ||
+            (underlayWorldSceneLayers.length === 0 && !diagnostics.frustum) ? null : (
+              <SceneSurface
+                chrome={chrome}
+                devicePixelRatio={devicePixelRatio}
+                diagnostics={diagnostics}
+                dropInteraction={dropInteraction}
+                sceneLayers={underlayWorldSceneLayers}
+                space="world"
+                spatialTargetResolvers={spatialTargetResolvers}
+                theme={resolvedTheme}
+                zIndex={SCENE_UNDERLAY_Z_INDEX}
+              />
+            )}
+            {SceneSurface === undefined || underlayScreenSceneLayers.length === 0 ? null : (
+              <SceneSurface
+                chrome={chrome}
+                devicePixelRatio={devicePixelRatio}
+                diagnostics={DEFAULT_INFINITE_CANVAS_DIAGNOSTICS}
+                dropInteraction={dropInteraction}
+                sceneLayers={underlayScreenSceneLayers}
+                space="screen"
+                spatialTargetResolvers={spatialTargetResolvers}
+                theme={resolvedTheme}
+                zIndex={SCENE_SCREEN_UNDERLAY_Z_INDEX}
+              />
+            )}
+            {renderUnderlay === undefined ? null : (
+              <div
+                data-slot={INFINITE_CANVAS_SLOTS.underlay}
+                style={{
+                  inset: 0,
+                  pointerEvents: "none",
+                  position: "absolute",
+                  zIndex: UNDERLAY_Z_INDEX,
+                }}
+              >
+                {renderUnderlay(overlayContext)}
+              </div>
+            )}
+            <InfiniteCanvasGroupLayer
+              canvasInstanceId={canvasInstanceId}
+              devicePixelRatio={devicePixelRatio}
+              groupLabel={groupLabel}
+              labelSize={chrome.groupLabelSize}
+              resizeHandleSize={chrome.resizeHandleSize}
+              tabLabel={groupTabLabel}
+              zIndex={GROUP_LAYER_Z_INDEX}
+            />
+            <InfiniteCanvasWindowLayer
+              canvasInstanceId={canvasInstanceId}
               chrome={chrome}
               devicePixelRatio={devicePixelRatio}
-              diagnostics={DEFAULT_INFINITE_CANVAS_DIAGNOSTICS}
-              dropInteraction={dropInteraction}
-              sceneLayers={overlayWorldSceneLayers}
-              space="world"
-              spatialTargetResolvers={spatialTargetResolvers}
+              stackBands={DEFAULT_INFINITE_CANVAS_STACK_BANDS}
               theme={resolvedTheme}
-              zIndex={SCENE_OVERLAY_Z_INDEX}
+              windowDefinitions={windowDefinitions}
+              zIndex={WINDOW_LAYER_Z_INDEX}
             />
-          )}
-          {SceneSurface === undefined || overlayScreenSceneLayers.length === 0 ? null : (
-            <SceneSurface
-              chrome={chrome}
+            {SceneSurface === undefined || overlayWorldSceneLayers.length === 0 ? null : (
+              <SceneSurface
+                chrome={chrome}
+                devicePixelRatio={devicePixelRatio}
+                diagnostics={DEFAULT_INFINITE_CANVAS_DIAGNOSTICS}
+                dropInteraction={dropInteraction}
+                sceneLayers={overlayWorldSceneLayers}
+                space="world"
+                spatialTargetResolvers={spatialTargetResolvers}
+                theme={resolvedTheme}
+                zIndex={SCENE_OVERLAY_Z_INDEX}
+              />
+            )}
+            {SceneSurface === undefined || overlayScreenSceneLayers.length === 0 ? null : (
+              <SceneSurface
+                chrome={chrome}
+                devicePixelRatio={devicePixelRatio}
+                diagnostics={DEFAULT_INFINITE_CANVAS_DIAGNOSTICS}
+                dropInteraction={dropInteraction}
+                sceneLayers={overlayScreenSceneLayers}
+                space="screen"
+                spatialTargetResolvers={spatialTargetResolvers}
+                theme={resolvedTheme}
+                zIndex={SCENE_SCREEN_OVERLAY_Z_INDEX}
+              />
+            )}
+            <InfiniteCanvasSelectionBoundsOverlay devicePixelRatio={devicePixelRatio} />
+            <InfiniteCanvasDockPreviewOverlay devicePixelRatio={devicePixelRatio} />
+            <InfiniteCanvasSnapOverlay devicePixelRatio={devicePixelRatio} />
+            <InfiniteCanvasDropSnapOverlay
               devicePixelRatio={devicePixelRatio}
-              diagnostics={DEFAULT_INFINITE_CANVAS_DIAGNOSTICS}
-              dropInteraction={dropInteraction}
-              sceneLayers={overlayScreenSceneLayers}
-              space="screen"
-              spatialTargetResolvers={spatialTargetResolvers}
-              theme={resolvedTheme}
-              zIndex={SCENE_SCREEN_OVERLAY_Z_INDEX}
+              drop={dropInteraction}
             />
-          )}
-          <InfiniteCanvasSelectionBoundsOverlay devicePixelRatio={devicePixelRatio} />
-          <InfiniteCanvasDockPreviewOverlay devicePixelRatio={devicePixelRatio} />
-          <InfiniteCanvasSnapOverlay devicePixelRatio={devicePixelRatio} />
-          <InfiniteCanvasDropSnapOverlay
-            devicePixelRatio={devicePixelRatio}
-            drop={dropInteraction}
-          />
-          <InfiniteCanvasMarqueeOverlay />
-          {renderOverlay?.(overlayContext)}
-          <InfiniteCanvasHud
-            onPointerModeChange={setPointerModeOverride}
-            pointerMode={pointerMode}
-            policy={hud}
-            subtitle={subtitle}
-            title={title}
-            zoomPolicy={zoomPolicy}
-          />
-          <InfiniteCanvasRasterSchedulerGate paused={interaction !== null} />
-          <InfiniteCanvasDiagnosticsOverlay policy={diagnostics} />
-          <InfiniteCanvasRasterHud />
-        </section>
+            <InfiniteCanvasMarqueeOverlay />
+            {renderOverlay?.(overlayContext)}
+            <InfiniteCanvasHud
+              onPointerModeChange={setPointerModeOverride}
+              pointerMode={pointerMode}
+              policy={hud}
+              subtitle={subtitle}
+              title={title}
+              zoomPolicy={zoomPolicy}
+            />
+            <InfiniteCanvasRasterSchedulerGate paused={interaction !== null} />
+            <InfiniteCanvasDiagnosticsOverlay policy={diagnostics} />
+            <InfiniteCanvasRasterHud />
+          </section>
+        </InfiniteCanvasAnnouncer>
       </InfiniteCanvasIconsContext.Provider>
     </InfiniteCanvasDesktopPortalContext.Provider>
   );

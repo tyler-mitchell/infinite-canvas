@@ -49,19 +49,6 @@ function resolveInfiniteCanvasHudPolicy(
   };
 }
 
-// Screen-reader-only treatment for the live announcer (Tailwind sr-only).
-const VISUALLY_HIDDEN_STYLE = {
-  borderWidth: 0,
-  clip: "rect(0, 0, 0, 0)",
-  height: "1px",
-  margin: "-1px",
-  overflow: "hidden",
-  padding: 0,
-  position: "absolute",
-  whiteSpace: "nowrap",
-  width: "1px",
-} satisfies CSSProperties;
-
 /*
  * The buttons carry no inline style, and the groups carry exactly one property.
  *
@@ -166,7 +153,6 @@ function InfiniteCanvasHud({
   const actions = useInfiniteCanvasActions();
   const { reset: ResetIcon } = useInfiniteCanvasIcons();
   const resolvedPolicy = resolveInfiniteCanvasHudPolicy(policy);
-  const activeWindow = state.windows.find((window) => window.id === state.activeWindowId);
   /*
    * The dock holds what *this desktop* put away.
    *
@@ -272,9 +258,6 @@ function InfiniteCanvasHud({
         zIndex: DEFAULT_INFINITE_CANVAS_STACK_BANDS.overlay,
       }}
     >
-      <div aria-live="polite" style={VISUALLY_HIDDEN_STYLE}>
-        Active window {activeWindow?.title ?? "none"}.
-      </div>
       {resolvedPolicy.statusCard ? (
         <div
           data-slot={INFINITE_CANVAS_SLOTS.hudStatus}

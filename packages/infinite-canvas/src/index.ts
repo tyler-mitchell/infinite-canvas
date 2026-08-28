@@ -9,6 +9,7 @@ export { INFINITE_CANVAS_SLOTS, getInfiniteCanvasWindowStateAttributes } from ".
 export type { InfiniteCanvasSceneSurface, InfiniteCanvasSceneSurfaceProps } from "./scene-surface";
 export type { InfiniteCanvasSlot } from "./data-attributes";
 export { DEFAULT_INFINITE_CANVAS_HUD_POLICY, resolveInfiniteCanvasHudPolicy } from "./canvas-hud";
+export { useInfiniteCanvasAnnounce } from "./announcer";
 export { DEFAULT_INFINITE_CANVAS_ICONS, useInfiniteCanvasIcons } from "./icons";
 export type { InfiniteCanvasIconName, InfiniteCanvasIconProps, InfiniteCanvasIcons } from "./icons";
 export {
