@@ -78,10 +78,12 @@ DEFINE FUNCTION OVERWRITE fn::read_content_item($item: record<content_item>) {
 -- who dragged from one window to another did not choose a direction — which end the drag started
 -- at is an accident of where the pointer was.
 --
--- Both halves are subqueries rather than a `LET`, so this stays one statement. The rule that
--- matters is at the call site — SurrealDB answers with one result per statement, so a caller
--- destructuring `[record]` off a `LET`-then-`RETURN` reads the `LET` — and a single expression here
--- means no caller can get that wrong.
+-- Both halves are subqueries rather than a `LET`, which reads well here and is not the safety
+-- argument this used to give. It claimed a caller destructuring `[record]` off a `LET`-then-`RETURN`
+-- function would read the `LET`. Measured on 2026-08-28: it does not. A `LET` inside a function body
+-- is internal, and `fn::canvas_removal_summary` — which is exactly `LET`-then-`RETURN` — answers a
+-- caller with one result. The one-result-per-statement rule is about the *top level* of a query:
+-- `LET $a = 1; RETURN $a;` sent to `query()` gives `[null, 1]`.
 --
 -- No project filter, deliberately: an edge already implies both ends are in one project, since
 -- `relates_to` is only ever written between two items of the same one. Filtering again would be

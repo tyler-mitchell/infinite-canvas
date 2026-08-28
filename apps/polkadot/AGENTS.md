@@ -320,8 +320,12 @@ what its authors published, especially the examples.
 - **This is an SPA.** TanStack Start was removed: the data layer is client-only, so SSR renders
   nothing useful, and Start's dev middleware never mounted because `vite` here is aliased to
   `vite-plus-core`, whose version fails Start's peer range.
-- **SurrealDB queries return one result per statement.** `LET $x = …; RETURN $x;` gives two, and
-  `[0]` is the `LET`. Use a single `RETURN`.
+- **SurrealDB queries return one result per statement, and that means the top level of the query.**
+  `LET $x = …; RETURN $x;` sent to `query()` gives two, and `[0]` is the `LET` — measured, it is
+  `[null, 1]`. So a caller sends a single `RETURN`. A `LET` **inside a function body** is internal
+  and adds no result: `fn::canvas_removal_summary` is `LET`-then-`RETURN` and answers with one.
+  Measured 2026-08-28, because a comment in `002_content.surql` had argued the opposite and was
+  shaping how functions there were written.
 
 ## Verifying
 
