@@ -109,8 +109,42 @@ view` as a menu mode, and `view.save` / `list` / `open` / `reframe` / `remove` a
 var(--surface)` — the same material as its frame and its idle header, uniform on purpose.
   Lighting it from within would be decoration, not depth, so nothing here is owed.
 
-- **Rich text and code blocks in notes.** Lexical is behind a `{ value, onChange }` boundary and
-  mentions have landed. These have not.
+- **The note editor is built on Lexical's superseded architecture.** Found by reading the docs for
+  the first time on 2026-08-28, after driving the editor to check what actually worked.
+
+  Rich text is **not** the gap this item used to claim. Typed into a live note: `# ` produced `<h1>`,
+  `- ` produced `<ul><li>`, and ` ```js ` produced a `CodeNode`. Headings, lists, links, quotes and
+  markdown shortcuts all work.
+
+  What is wrong is one measured defect and three architectural facts.
+
+  **The defect.** A code block computes `display: inline` with `padding: 2px 4px` and a pill
+  background — the `[&_code]` rule written for _inline_ code landing on a code _block_. Lexical's
+  theme has `code` and `text.code` as separate keys precisely because they are different nodes;
+  `note-editor.tsx` sets `EDITOR_THEME = {}` and styles by tag instead, so the distinction cannot be
+  expressed. The comment defending the empty theme — "one place decides what a note looks like" —
+  produced a place that cannot say what the editor says. Element is a lossy projection of node, and
+  anything keyed on tags keeps hitting this.
+
+  **`registerCodeHighlighting` is deprecated** at 0.49, with `PrismTokenizer`, `CODE_LANGUAGE_MAP`
+  and the language helpers. The obvious fix for missing highlighting lands on a dead API.
+  `CodeExtension` and `CodeIndentExtension` are the live path.
+
+  **The Extension API supersedes `LexicalComposer`.** Lexical's docs: prefer extensions over plugins
+  and migrate any project still using `LexicalComposer`. Their shipped `AGENTS.md` says the same.
+  `defineExtension` and `configExtension` come from `lexical` core, so no new dependency. Installed
+  and available at 0.49: `RichTextExtension`, `ListExtension`, `CheckListExtension`, `LinkExtension`,
+  `AutoLinkExtension`, `ClickableLinkExtension`, `CodeExtension`, `HistoryExtension`,
+  `TabIndentationExtension`, `LexicalExtensionComposer`.
+
+  **It can be done incrementally.** `ReactPluginHostExtension` and `mountReactPluginComponent` host
+  legacy React plugins inside an extension editor, so `MentionPlugin` — ours — and
+  `MarkdownShortcutPlugin`, which has no extension yet, both stay put during the move.
+  `OnChangePlugin` becomes a subscription to `EditorStateExtension`.
+
+  Order: theme keys first, since that alone fixes the code block and is reversible. Then the
+  composer migration. Then `CodeExtension` for highlighting, which the theme's `codeHighlight` token
+  map is already shaped for.
 
 - **Two things are confirmed present and correctly weighted, not confirmed good.** Window grain
   measures 8.93/255 mean alpha — the 3.5% intended — and 3.5% noise does not survive a downscaled
