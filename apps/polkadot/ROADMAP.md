@@ -173,15 +173,39 @@ var(--surface)` — the same material as its frame and its idle header, uniform 
   of this is built. `SelectBlockExtension` — Cmd+A selects the nearest block first and the document
   on a second press, which matters in a note living inside a canvas that has its own select-all.
   `ClickAfterLastBlockExtension`, `EditorStateExtension` (a signal instead of `OnChangePlugin`),
-  `RootElementExtension`, `WatchEditableExtension`, `IMEExtension`. `@lexical/headless` may replace
-  `note-text.ts`, which hand-parses serialized JSON structurally. `@lexical/eslint-plugin` lints
+  `RootElementExtension`, `WatchEditableExtension`, `IMEExtension`. `@lexical/eslint-plugin` lints
   `$`-function misuse.
+
+  **`@lexical/headless` landed, and it replaced the writing half rather than `note-text.ts`.**
+  `note-markdown.ts` runs the real editor with no DOM over the same `TRANSFORMERS` the typing
+  shortcuts use, and `note.read` / `note.write` speak markdown through it. `toSerializedNote` is
+  deleted: it composed the storage format by hand so a note could be written without an engine, and
+  `note.write` was its only caller. The reading half is untouched and keeps its no-Lexical boundary,
+  because it runs per keystroke over the whole library and wants the words rather than the document.
+  A mention needed a text-match transformer of its own — `TRANSFORMERS` has none — and goes out as
+  an ordinary markdown link to its record.
+
+  **`@lexical/a11y` was evaluated and is not being adopted.** Three of its four extensions are
+  toolbar- or modal-shaped — `FocusManagerExtension` is Alt+F10 to a toolbar, `RovingTabIndexExtension`
+  is toolbar arrows, `FocusTrapExtension` is a modal trap — and this app has no toolbar and uses Base
+  UI dialogs, which trap focus already. `AriaLiveRegionExtension` was the applicable one and is now
+  redundant: the canvas owns the announcement channel, so Polkadot announces through
+  `useInfiniteCanvasAnnounce` rather than a second region inside each editor.
 
   **Correctness notes from the concepts docs, unverified against our code.** Nested updates are
   "very strongly discouraged" and run deferred. `editor.read` takes
   `'force-commit' | 'pending' | 'latest'` and the default is not always what a reader wants. A text
   node must never contain `'\n'` — that is `LineBreakNode`, which `note-text.ts`'s block-type split
   should be checked against.
+
+  **`isTextEntity` is inert here, which `mention-node.ts` used to claim otherwise.** Core reads it
+  nowhere; only `registerLexicalTextEntity` does, and this app uses `LexicalTypeaheadMenuPlugin`.
+  What actually holds a mention together is `segmented` mode —
+  `$shouldInsertTextAfterOrBeforeTextNode` returns true for a segmented node before consulting
+  anything else. Found while chasing a defect that turned out not to exist: synthetic typing left the
+  DOM reading `@Untitled 1 x @Un` while the stored state held one clean mention, because the tool's
+  `type` skips the `beforeinput` path the guards sit on. The false claim reached a commit before the
+  state was checked; the trap is in `AGENTS.md` now.
 
   **All of that landed on 2026-08-28** — node-keyed theme, `LexicalExtensionComposer`, four plugins
   converted to dependencies, `MentionNode` on `$config` + `NodeState` at byte-identical JSON, Shiki
