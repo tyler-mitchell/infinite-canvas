@@ -285,7 +285,15 @@
    */
     --icx-body-background: var(--grain), var(--surface);
     --icx-header-idle: var(--grain), var(--surface);
-    --icx-header-active: var(--grain), var(--surface-raised);
+    /*
+   * The accent tint lives here rather than beside the border rule that motivates it, because it
+   * was declared twice on this same selector — `var(--grain), var(--surface-raised)` here and the
+   * `color-mix` below — and the later one won silently, dropping the grain. Measured: an active
+   * header read `oklab(0.28678 …)` with `background-image: none`, so focusing a window made its
+   * header go smooth while its own body and every idle header stayed grained. The comment directly
+   * above had been describing something untrue since the second declaration was added.
+   */
+    --icx-header-active: var(--grain), color-mix(in oklab, var(--accent) 9%, var(--surface-raised));
     --icx-idle-border: transparent;
     --icx-active-border: transparent;
     /*
@@ -434,14 +442,14 @@
  * The token is deliberately not blanked: `--icx-active-accent` also tints the pinned control and
  * the snap preview, which are semantic uses of the accent and should stay. Only the header's
  * border is neutralised, which is why this targets the border rather than the colour.
+ *
+ * The tint itself is declared with the other header backgrounds above, not here. It sat here once
+ * and was a second declaration of a property this selector already set, so it won on source order
+ * and dropped the grain without saying so.
  */
   [data-slot="window"] [data-slot="window-header"],
   [data-slot="window"][data-active] [data-slot="window-header"] {
     border-bottom-color: transparent;
-  }
-
-  [data-slot="viewport"] {
-    --icx-header-active: color-mix(in oklab, var(--accent) 9%, var(--surface-raised));
   }
 
   /* Rounded to match the rails, and roomy enough that the glyph is not the whole target. */
