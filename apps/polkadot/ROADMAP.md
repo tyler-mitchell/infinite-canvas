@@ -155,8 +155,9 @@ open because it feels good to look at. Concretely, and these are enforced in rev
       **It has now run, on 2026-08-27.** This entry said the registration had never executed and
       could not be made to from here; both halves are obsolete. Chrome 152 with
       `--enable-blink-features=WebMCP`, reached through `chrome-devtools-mcp
---categoryExperimentalWebmcp`, registers **97 tools** — 75 framework verbs, 20 app verbs, 2
-      reporters. No origin-trial token was needed: the flag alone is enough on a local origin, and
+--categoryExperimentalWebmcp`, registers **108 tools** — 75 framework verbs, 28 app verbs, 5
+      reporters, counted from `getTools()`. It was 97 until the document verbs landed; nothing
+      asserts the number, so a stale one here is this file's fault rather than the registry's. No origin-trial token was needed: the flag alone is enough on a local origin, and
       the browser is launched by the MCP server rather than relaunched by hand.
       Driven end to end: `canvas.describe` on an empty canvas, `note.create`, `canvas.describe`
       again naming the window that appeared, `content.list` agreeing about the record behind it. A

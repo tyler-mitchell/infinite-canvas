@@ -44,10 +44,24 @@ import { relations$ } from "./relations/relation-store";
  * DRIVEN, on 2026-08-27, against Chrome 152 with `--enable-blink-features=WebMCP`, reached through
  * `chrome-devtools-mcp --categoryExperimentalWebmcp`. This said for a while that none of the
  * `registerTool` calls below had ever run, which was true and is no longer: the effect registers
- * **97 tools** — seventy-five framework verbs, twenty app verbs and the two reporters — and calls
- * against them were executed and their effects read back. `canvas.describe` on an empty canvas,
- * `note.create`, then `canvas.describe` again naming the window that appeared, with `content.list`
- * agreeing about the record behind it.
+ * **108 tools** — seventy-five framework verbs, twenty-eight app verbs and five reporters, counted
+ * from `getTools()` rather than from this list — and calls against them were executed and their
+ * effects read back. `canvas.describe` on an empty canvas, `note.create`, then `canvas.describe`
+ * again naming the window that appeared, with `content.list` agreeing about the record behind it.
+ * The document verbs were driven the same way: `canvas.create` with a title made and travelled to a
+ * canvas the switcher then showed by that name, `canvas.list` marked it open, and `canvas.open` by
+ * id went back. The count is asserted nowhere, so treat a stale figure here as this file's fault
+ * rather than the registry's — it was 97 for exactly as long as it took to add seven verbs.
+ *
+ * **The driving browser keeps no database between launches, and this reads as a data-layer defect.**
+ * `chrome-devtools-mcp` runs with `--isolated`, which is a fresh temporary profile per launch, and
+ * IndexedDB is per-profile — so every canvas, project and note made in a driven session dies with
+ * the browser. Met head-on: a canvas id that `canvas.list` had reported minutes earlier answered
+ * "That canvas is not here" after a relaunch, which is the route's correct behaviour for a record
+ * that genuinely is not there. An agent driving a fresh browser and finding an empty library is
+ * looking at a new profile, not at a broken store — and `/` bootstraps a canvas, so the empty state
+ * is never what you land in. It also means driven sessions cannot verify anything about durability
+ * across a restart; that needs the ordinary dev browser, which keeps its profile.
  *
  * Two corrections that the first real run produced, recorded because both were invisible until then:
  *
