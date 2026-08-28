@@ -5,14 +5,9 @@ import { reduceInfiniteCanvasState } from "./reducer";
 import type { InfiniteCanvasState } from "./types";
 
 /**
- * Dissolving a tabbed group leaves its members somewhere they can be seen — by either route.
- *
- * Every tab member carries the shell's whole content rect, so freeing them without moving anything
- * drops five windows at identical coordinates: four invisible, reachable only through the dock. The
- * `group.dissolve` *command* solves that by placing each freed rect through vacancy. The
- * `group.close` *action* called `closeInfiniteCanvasGroup` bare and did not, so the same operation
- * behaved differently depending on which door a consumer came through — and a consumer with a group
- * id in hand comes through the action, since the command reads the active window.
+ * Tab members share the shell's content rect, so freeing them untouched stacks them at one point.
+ * The command placed them through vacancy and the action did not — and a consumer holding a group
+ * id comes through the action.
  */
 
 type Kind = "note";
@@ -72,11 +67,6 @@ test("the command leaves three windows somewhere each can be seen", () => {
 });
 
 test("the action does too, which is the parity that was missing", () => {
-  /*
-   * A consumer holding a group id dissolves through this door — the command resolves its group from
-   * the active window and cannot be told which one to break up. So this is the path a "ungroup
-   * this" control actually takes, and it was the one leaving members stacked.
-   */
   const dissolved = reduceInfiniteCanvasState(tabbedShell(), {
     groupId: "shell",
     type: "group.close",
@@ -87,10 +77,7 @@ test("the action does too, which is the parity that was missing", () => {
 });
 
 test("a split's panes are not moved by either route", () => {
-  /*
-   * The other half of the rule, and the reason the fix is vacancy placement rather than a fan-out:
-   * a split's panes are already clear of one another, so every one is returned untouched.
-   */
+  // Vacancy placement rather than a fan-out: a split's panes are already clear of one another.
   const base = {
     ...createInfiniteCanvasState<Kind>({ windows: [pane("a", 0), pane("b", 400), pane("c", 800)] }),
     viewport: { height: 800, width: 1200 },

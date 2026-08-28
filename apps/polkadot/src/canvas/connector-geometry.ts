@@ -69,20 +69,7 @@ type DrawnConnector = Readonly<{
 /** The kind every connector target carries, so a selected edge can be told apart from a shape. */
 const CONNECTOR_TARGET_KIND = "relation";
 
-/**
- * The middle of the longest contiguous visible stretch, measured along the line.
- *
- * The merge that used to live here is `getInfiniteCanvasLongestUnoccludedRun` now. It was written
- * here because the framework's only run query returned the longest *segment* while its docstring
- * promised a run — an orthogonal connector is three segments, so a path nothing covers is still
- * three, and the marker landed a quarter along instead of halfway. That is path geometry the canvas
- * owns, and both of its docstrings already said so, which is why this became a framework export
- * rather than staying a local workaround.
- *
- * What is left is the composition: clip to what a run means for *this* consumer, then take the
- * point halfway along it. `null` when nothing is visible — a connector nobody can see has nowhere
- * to put a mark.
- */
+/** Halfway along the longest visible stretch. `null` when the whole connector is covered. */
 function getRunAnchor(
   segments: readonly InfiniteCanvasWorldSegment[],
   occluders: readonly InfiniteCanvasRect[],

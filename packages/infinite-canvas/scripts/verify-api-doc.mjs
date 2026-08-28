@@ -1,35 +1,10 @@
 /**
- * Docs gate: assert `docs/API.md` still describes the public surface.
+ * Docs gate: every barrel export must own an entry in `docs/API.md` — a leading backticked name
+ * on a bullet or heading, alone or in a comma-separated family. Being quoted inside another
+ * entry's prose does not count.
  *
- * `README.md` points consumers at `docs/API.md` for "the full export surface", and
- * `SHIP_PLAN.md` once described that file as "generated from the barrel". It is neither
- * generated nor self-checking, and on 2026-07-08 it had silently drifted by 43 names:
- * undo/redo, layout recipes, and portals had no section in it *at all*, though each is a
- * headline feature in `CHANGELOG.md`. Nothing caught it, because nothing was looking.
- *
- * This looks. Every name the barrels export must own an **entry**: it appears in the
- * leading backticked name-list of a bullet or heading, before that entry's prose. Both
- * house styles satisfy that — a name on its own bullet, and the grouped
- * `` - `A`, `B` — shared description `` form used for families.
- *
- * Requiring an entry rather than a mere mention is the 2026-08-12 tightening. The check
- * was "the name appears somewhere in the document", which a name satisfies by being
- * quoted inside a *different* export's description — so an entry that was deleted, or
- * absorbed into its neighbour during an edit, kept passing. All 365 exports already
- * satisfied the stricter rule when it was introduced, so it costs nothing today and
- * catches that drift tomorrow.
- *
- * What it still does not check, stated plainly because a gate that overclaims is worse
- * than no gate: that an entry's prose is *correct*, or even that the prose sitting under
- * a name is about that name. On 2026-08-12 an edit spliced one entry's description into
- * its neighbour's, leaving the first bare — every name still had an entry, and this gate
- * passed. Nor does it check the reverse direction; the doc names types and options that
- * are not themselves exports.
- *
- * Reads source rather than `dist/`, so it runs without a build and can gate `vp check`.
- * Both barrels are exclusively re-export blocks (`export { … } from`, `export type { … }
- * from`) with no `export *` and no direct declarations, which is what makes this parse
- * sound. It fails loudly if that ever stops being true.
+ * Does not check that an entry's prose is correct or even about that name, and does not check the
+ * reverse direction. Reads source, not `dist/`, so it gates `vp check` without a build.
  *
  * Run: node ./scripts/verify-api-doc.mjs
  */
@@ -78,10 +53,8 @@ const getBarrelExports = (source) => {
 };
 
 /**
- * The backticked names an entry declares itself to be about: the run at its start, before
- * any prose. `` `A`, `B` — … `` declares both; a name quoted later in the prose declares
- * nothing. A renamed re-export documents itself as `` `Source as Published` ``, so both
- * sides of an `as` count.
+ * The backticked run at an entry's start, before any prose. A name quoted later declares nothing.
+ * Both sides of `` `Source as Published` `` count.
  */
 const getEntryNames = (text) => {
   const names = [];
@@ -122,9 +95,8 @@ let totalTypes = 0;
 for (const { entry, path } of BARRELS) {
   const source = readFileSync(path, "utf8");
 
-  // The parse above only understands re-export blocks. A direct `export const`/`export
-  // function`, or an `export * from`, would be silently invisible to it — the gate would
-  // pass while documenting nothing. Refuse to run rather than lie.
+  // The parse only understands re-export blocks; anything else would be invisible to it and the
+  // gate would pass while documenting nothing. Refuse to run rather than lie.
   const stripped = stripComments(source);
   for (const line of stripped.split("\n")) {
     const isBlockExport = /^export\s+(type\s+)?\{/.test(line.trim());
@@ -153,19 +125,7 @@ for (const { entry, path } of BARRELS) {
   }
 }
 
-/**
- * The doc's own headline count, which was the last number here nothing checked.
- *
- * It opens by naming the size of the surface and then, two paragraphs later, tells the
- * story of having claimed to be generated "so it cannot drift" while drifting by 43
- * names. On 2026-08-27 the headline itself read 192 values and 164 types against an
- * actual 222 and 186 — a drift of 52, larger than the one the paragraph is a monument
- * to, in the first sentence a consumer reads.
- *
- * The gate had both numbers the whole time and printed them to a terminal nobody was
- * comparing against the file. Asserting costs nothing and is the cheapest possible
- * version of the check this document says it wants.
- */
+/** The doc's headline count, which drifted by 52 before anything compared it. */
 const headline = /^The public surface of `[^`]+`: (\d+) values and (\d+) types\b/m.exec(apiDoc);
 
 if (headline === null) {

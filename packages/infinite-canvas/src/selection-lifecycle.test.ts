@@ -6,15 +6,8 @@ import { reduceInfiniteCanvasState } from "./reducer";
 import type { InfiniteCanvasState } from "./types";
 
 /**
- * The two claims `selection.close` and `selection.minimize` make, and the one they left out.
- *
- * Both say "as a single undoable edit", which is checkable and true: each is one `command.execute`,
- * and the reducer checkpoints once per action however many windows the reduce walks.
- *
- * What `selection.minimize` did not say is that it detaches each window from its group on the way,
- * the same as `activeWindow.minimize`. Over a selection it is the sharper version of that: select a
- * whole group, minimize, and the shell is emptied rather than collapsed. Its description says so
- * now, and this is the assertion behind the sentence.
+ * `selection.close` and `selection.minimize` each checkpoint once, not once per window. Minimize
+ * also detaches every pane it touches, so minimizing a whole group empties the shell.
  */
 
 type Kind = "note";
@@ -61,7 +54,7 @@ test("minimizing a selection takes its docked panes out of their group", () => {
 });
 
 test("every minimizable window in the selection ends up minimized", () => {
-  // The premise, so the detach assertions above are about a verb that ran.
+  // The premise: the detach assertions above are about a verb that ran.
   const minimized = minimizeSelection(withShell());
 
   for (const id of ["a", "b", "c"]) {
@@ -70,11 +63,7 @@ test("every minimizable window in the selection ends up minimized", () => {
 });
 
 test("minimizing a whole selection is one undoable edit, not one per window", () => {
-  /*
-   * The claim both descriptions make. Three windows collapse and the stack grows by one, so undoing
-   * puts all three back in a single press rather than leaving the user pressing until they guess
-   * how many there were.
-   */
+  // Three windows collapse, the stack grows by one, so one undo puts all three back.
   const before = withShell();
   const after = minimizeSelection(before);
 

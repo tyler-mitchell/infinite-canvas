@@ -10,15 +10,8 @@ import {
 import type { InfiniteCanvasRect } from "./types";
 
 /**
- * A run is a contiguous visible stretch; a segment is one leg of the description.
- *
- * `getInfiniteCanvasLongestUnoccludedSegment` promised "the longest run" and returned the longest
- * *segment*, never merging adjacent pieces. Every rect-to-rect connector is routed as an elbow, so
- * a path nothing covers is still three segments and the "longest" is one leg — putting anything
- * anchored at its midpoint a quarter along the visible stretch instead of halfway.
- *
- * These pin the difference rather than the fix, because the two functions are both correct now and
- * a reader has to be able to tell which one they want.
+ * A run is a contiguous visible stretch; a segment is one leg. Both queries are correct — these pin
+ * the difference so a reader can tell which they want.
  */
 
 const rect = (x: number, y: number, width: number, height: number): InfiniteCanvasRect => ({
@@ -47,16 +40,12 @@ test("the longest run is the whole elbow where the longest segment is one leg", 
   const run = getInfiniteCanvasLongestUnoccludedRun(elbow.segments, []);
   const segment = getInfiniteCanvasLongestUnoccludedSegment(elbow.segments, []);
 
-  // The discrepancy the run query exists to close, stated as one comparison.
   expect(run?.length).toBeCloseTo(200);
   expect(segment?.length).toBeCloseTo(100);
 });
 
 test("the anchor moves from a quarter along to halfway", () => {
-  /*
-   * What a consumer actually reads off these. Halfway along a 200-unit elbow is the corner at
-   * (100, 0); halfway along the longest *segment* is (50, 0) — a quarter of the way along the run.
-   */
+  // Halfway along the elbow is its corner (100, 0); halfway along the longest leg is (50, 0).
   const run = getInfiniteCanvasLongestUnoccludedRun(elbow.segments, []);
   const anchor = run === null ? null : getInfiniteCanvasWorldPathPointAtProgress(run, 0.5);
 
@@ -83,8 +72,7 @@ test("a path hidden along its whole length has no run", () => {
 });
 
 test("on a straight line a run and a segment are the same answer", () => {
-  // Which is why the segment query is kept rather than deleted: it is the cheaper one where the
-  // distinction does not exist.
+  // Which is why the cheaper segment query is kept.
   const line = getInfiniteCanvasWorldPath([
     { x: 0, y: 0 },
     { x: 100, y: 0 },

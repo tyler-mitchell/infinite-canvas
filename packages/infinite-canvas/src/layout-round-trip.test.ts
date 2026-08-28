@@ -5,16 +5,8 @@ import { reduceInfiniteCanvasState } from "./reducer";
 import type { InfiniteCanvasState } from "./types";
 
 /**
- * Changing a group's layout and changing it back does not cost the panes their shares.
- *
- * Switching to tabs gives every member the shell's whole content rect, because that is what a tab
- * strip draws — and `syncInfiniteCanvasGroupWindowRects` writes solved rects onto the windows, so
- * the individual sizes are genuinely overwritten rather than merely hidden. The question a consumer
- * has is whether that is destructive, and the answer turns on where the proportions live: on the
- * tree's child weights, not on the rects.
- *
- * Worth pinning rather than reasoning about, because "the layout is a projection" is exactly the
- * kind of claim that stays true right up until something stores a rect.
+ * Tabs overwrite each member's rect, so a layout round trip looks destructive. It is not: the
+ * proportions live on the tree's child weights, and only the rects are re-solved.
  */
 
 type Kind = "note";
@@ -77,11 +69,7 @@ test("tabs overwrite those widths, which is what makes the question real", () =>
 });
 
 test("switching back to a split restores the shares", () => {
-  /*
-   * The proportions survive because they live on the tree's child weights, and only the rects are
-   * re-solved. If a layout change ever wrote weights instead of reading them, this is what would
-   * catch it — and the failure would be silent, since the tabbed view looks correct either way.
-   */
+  // Catches a layout change that ever writes weights instead of reading them.
   const before = uneven(splitShell());
   const roundTripped = setLayout(setLayout(before, "tabs"), "split");
 

@@ -125,6 +125,8 @@ reusable gap before product code is admitted.
 | The canvas's own verbs reaching a caller | `getInfiniteCanvasContextualCommands` returns, per verb, an id, a description, live enablement and the command to run, and `isInfiniteCanvasCommandEnabled` answers for one at any moment. That is a tool registry in all but name, and it is the framework's — so the work here is a loop over it, never a list of this app's own | **The file whose job is publishing capabilities was the one omitting most of them.** `model-context.tsx` registered sixteen app verbs and stopped, so a caller could create a note and could not fit the view, undo, clear a selection, nudge a window, or move between desktops. Seventy-five verbs the palette lists for a person were reachable by keystroke and by nothing else, against an `AGENTS.md` rule that a capability must exist somewhere an agent can call. Not a framework gap in any part: everything needed was exported and had been all along | The framework's list is published rather than restated, so a verb added upstream arrives without an edit here, and enablement is asked at call time because a tool list is built once while a canvas changes under it. Two exclusions live in `published-commands.ts` where a test reads them: a descriptor carrying an empty string is a template awaiting an argument — `{ type: "workspace.enter", workspaceId: "" }` would act on a workspace called `""` — and a framework id this app already wraps stays the app's, so `window.reveal` is one tool rather than two. Driven live: 75 framework verbs and 16 app verbs, framework descriptions and live enablement intact, templates held back, no duplicate names. **The four `workspace.*` templates are the gap this leaves**, and each needs an `AppAction` with an input the way `window.reveal` has one. **Measured contents, unmeasured handover:** WebMCP is absent in this browser so no `registerTool` call has run, and forcing the effect to re-run against a stand-in registry did not remount the component | accepted |
 | Desktops, said and switched to without clicking | The framework owns all of it: `workspace.create`, `workspace.enter`, `workspace.close` and `workspace.moveActiveWindow` are published commands, `findInfiniteCanvasWorkspace` resolves one, and `isInfiniteCanvasWindowInActiveWorkspace` already decides what the report lists. Each of the four descriptors carries `workspaceId: ""` — a template awaiting an argument, which is why `published-commands.ts` holds them back | **The report was lying by omission, and driving it showed how.** The window list is filtered to the active desktop, which is correct — "what is on the canvas" means the one in front of you — but it said nothing about the rest. Measured: creating a desktop made the report read "No windows open" while twelve windows sat on the canvas, because a new desktop starts empty. A caller had no way to learn that and no reason to ask. **And a live defect alongside it:** the switcher and the palette both wrote `Desktop ${workspaces.length + 1}` inline — the same duplicated expression `create-canvas.ts` was written to remove, wrong the same way. A count is not a fact about which names are taken, and a desktop is a thing you switch to _by name_ | Four `AppAction`s supply the missing argument, shadowing the framework template ids the way `window.reveal` does, and each refuses an id no desktop answers to; moving also requires an active window, since either absence alone is a no-op that would report success. `describeCanvas` says how many desktops exist, which is current, and that only the current one's windows are listed — and says nothing when there are none, because "0 desktops" would invent the concept for every canvas that never used one. `createDesktop` owns the naming through the `titles.ts` scan and both controls call it. Driven live and restored: create named "Desktop 1" and the sentence appeared, close removed it and twelve windows were reported again. **`workspace.enter` and `workspace.moveActiveWindow` were not driven** — both need a desktop standing, and leaving one on a real canvas to prove a dispatch the unit tests already assert was not worth it | accepted |
 
+| A group's frame label says something the tab strip already said | `groupTabLabel` is a prop on `InfiniteCanvasViewportProps` and lets a consumer replace what a tab or accordion header is called, defaulting to the exported `getInfiniteCanvasGroupTabLabel`. The frame label above the shell takes `chrome.groupLabelSize`, which sets its _size_; its text is `getInfiniteCanvasGroupTitle(group, windows)` at `group-layer.tsx:961` and nothing else reaches it. `list_module_exports` on the barrel, then `occurrences` on `groupTabLabel`, `labelSize` and `groupLabel` — the third had no declaration anywhere | **A genuine gap, and the same one the gap table already records one control over.** Found by looking at a tabbed group rather than by reading: the frame read "Untitled 1 & Untitled 2" directly above tabs reading "Untitled 1" and "Untitled 2". An unnamed group is named after its members, which is right over a split — those names appear nowhere else — and is the strip's own list over tabs. The framework owned that policy outright, so Polkadot could see the duplication and had no way to say so. **This row was written after the change rather than before it, which is the order this file exists to prevent** | `groupLabel` added to `InfiniteCanvasViewportProps`, mirroring `groupTabLabel` and defaulting to the behaviour that was there, so nothing changes for a consumer that omits it; `""` draws no label for that group. Typed inline rather than as an exported `InfiniteCanvasGroupLabel`, because every exported name needs a `docs/API.md` entry and that file holds another session's staged work — the gate still reports 224 values and 187 types. Polkadot consumes it in `workspace-canvas.tsx`: an unnamed group in tabs or accordion says nothing, a split keeps its label, and a _named_ group keeps its label in every layout | accepted |
+
 ## External implementation authorities
 
 - TanStack Hotkeys React guide: <https://tanstack.com/hotkeys/latest/docs/framework/react/guides/hotkeys>
@@ -136,22 +138,38 @@ reusable gap before product code is admitted.
 
 ## Current source verification
 
+Measured on 2026-08-27. **Per package, never workspace-wide** — a root check is unbounded, and the
+two commands this block used to prescribe (`vp check` and `vp run -r test`) are exactly that.
+
 ```sh
 vp -C apps/polkadot check --fix
-# pass: formatting, lint, and type checks
+# pass: 150 formatted files, 134 linted and type-checked
+
+vp -C apps/polkadot test --run
+# pass: 39 files, 268 tests
 
 vp -C apps/polkadot build
-# pass: TanStack Start client and server builds
+# pass: a client bundle, and only a client bundle
 
-vp check
-# pass: 243 formatted files and 174 linted/type-checked files
+vp -C packages/infinite-canvas check --fix
+# pass: 163 formatted files, 158 linted and type-checked
 
-vp run -r test
-# pass: 55 framework files and 489 tests
+vp -C packages/infinite-canvas test --run
+# pass: 81 files, 695 tests
 
-vp run -r build
-# pass: framework package, playground, and Polkadot client/server builds
-
-vp -C apps/polkadot preview --port 3001
-# root, injected worker, and hashed WASM asset each return HTTP 200
+vp -C packages/infinite-canvas run build
+# pass: vp pack, then attw and publint clean
+# `vp build` is wrong here and fails with "Cannot resolve entry module index.html":
+# it builds an app, and this is a library.
 ```
+
+**Two claims above were false rather than merely old, which is why the numbers moved so far.** This
+said `vp -C apps/polkadot build` passes "TanStack Start client and server builds" — there is no
+server build. Start was removed: the data layer is client-only so SSR rendered nothing useful, and
+its dev middleware never mounted because `vite` here is aliased to `vite-plus-core`, whose version
+fails Start's peer range. `ROADMAP.md` records that under _Architecture that is already decided_.
+The workspace-wide counts were from a tree with a playground package that is no longer built here.
+
+A count in a document is stale the day after it is written; what it is for is catching a change of
+_shape_ — a suite that halves, a package that stops building. Read it that way rather than as a
+number to match.

@@ -91,16 +91,8 @@ const minimap = tv({
     /**
      * Where the camera is looking, and the only thing on this surface wearing the accent.
      *
-     * A stroked outline rather than a filled box: the viewport covers much of the map whenever the
-     * camera is close in, and a fill would hide the very windows the map exists to show. This is
-     * the one place an outline is right — it is a frame around content, not a surface pretending to
-     * have edges.
-     *
-     * It used to cover *most* of the map at ordinary zoom, which this comment recorded as a
-     * styling constraint. It was a projection defect: the camera's rect is unioned into the map's
-     * bounds, so a camera containing everything drawn made the frame the box, and it read as a
-     * border on the panel. The framework now returns `null` there, so what is left is only the
-     * frames that mean something.
+     * Stroked rather than filled: it covers much of the map when the camera is close in, and a
+     * fill would hide the windows the map exists to show.
      */
     viewport: "fill-none stroke-[var(--accent)] stroke-[1.5]",
   },
@@ -285,9 +277,6 @@ export function Minimap({
                 y={window.rect.y}
               />
             )),
-            // `null` when the camera contains everything drawn, where the frame would trace the
-            // box's own edge and say nothing. The framework withholds it rather than handing over a
-            // full-box rect, so there is nothing here to draw by accident.
             layout.viewport === null ? null : (
               <rect
                 className={styles.viewport()}

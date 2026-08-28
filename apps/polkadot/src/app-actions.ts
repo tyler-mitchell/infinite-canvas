@@ -145,38 +145,13 @@ type AppAction = Readonly<{
  */
 const describeInvalidInput = (errors: type.errors) => `Refused: ${errors.summary}`;
 
-/**
- * The selected windows `createGroup` would actually take.
- *
- * Enablement and the shell rect both need this set, and reading it twice from one function is what
- * keeps the offer and the result agreeing.
- *
- * The rule is asked of the framework rather than restated here, and it took two tries to get that
- * right. The first version copied `createInfiniteCanvasGroup`'s predicate outright. The second
- * composed `getInfiniteCanvasVisibleWindowItems` with a grouped check — closer, since it was built
- * from documented semantics rather than a copy, but still this app deciding what the canvas accepts.
- * `getInfiniteCanvasGroupableWindowIds` is that rule, and it preserves the order given, which
- * matters because members lay out in the order they arrive.
- */
+/** Enablement and the shell rect both need this set, and must not disagree about it. */
 const getGroupableWindowIds = (state: InfiniteCanvasState<WindowKind>): readonly string[] =>
   getInfiniteCanvasGroupableWindowIds(state, state.selection.windowIds);
 
 /**
- * What a verb does is quoted from the framework; only its argument is described here.
- *
- * Five framework descriptors are templates carrying an empty-string id, so `published-commands`
- * holds them back and each is re-declared below with an `input`. The wrapper still answers for the
- * same verb, and restating what that verb does made two sentences for one thing — which then
- * drifted. Measured: the framework's `workspace.moveActiveWindow` grew "leaving the one it is on. A
- * docked window takes its whole group with it" and the copy here still read "Move the active window
- * to a desktop.", so the only description a WebMCP caller could see was the stale one.
- *
- * The framework says so itself where those descriptors are declared — they exist "so the verb has a
- * label and a description in one place rather than being re-invented by every consumer that builds a
- * switcher".
- *
- * Throws rather than falling back, because a miss means the framework renamed a command and this
- * file has not caught up. A silently truncated description is the failure this exists to end.
+ * Quote the framework's sentence for a verb re-declared here to take an argument, and add only
+ * what the argument needs. Restating it instead is how the two drifted apart.
  */
 const describeWrappedCommand = (
   input: Readonly<{ argument: string; id: InfiniteCanvasCommandId }>,
@@ -908,15 +883,8 @@ const APP_ACTIONS: readonly AppAction[] = [
     },
   },
   {
-    /*
-     * Its own sentence, and deliberately not the framework's.
-     *
-     * This shares an id with a framework command and is not the same verb: `group.dissolve` there
-     * breaks up the group holding the *active window* and takes no argument, while this dissolves
-     * whichever group the id names. Quoting the framework's description here produced a sentence
-     * that contradicted itself — "the group holding the active window" followed by where to get an
-     * id — which is why `describeWrappedCommand` is not used and a test holds the distinction.
-     */
+    // Not `describeWrappedCommand`: the framework's `group.dissolve` acts on the active window's
+    // group and takes no id, so quoting it here contradicts itself.
     description:
       "Ungroup a container. A split's panes stay exactly where they were; tabbed or folded ones share one rect, so they are placed clear of each other. The id comes from `canvas.describe`.",
     id: "group.dissolve",
@@ -1370,18 +1338,8 @@ const APP_ACTIONS: readonly AppAction[] = [
     description:
       "Dock the selected windows together into one group. Windows already in a group, and minimized ones, are left where they are.",
     id: "group.createFromSelection",
-    /*
-     * Counted against what the framework will actually take, not against the raw selection.
-     *
-     * `createInfiniteCanvasGroup` drops members that are minimized or already in a group — dropped
-     * rather than stolen, since a window lives in at most one tree. So a selection of two panes of
-     * one shell offered this verb, produced no surviving members, and came back as the identical
-     * state while the verb reported "done" — and the camera flew to a shell that was never made.
-     *
-     * Two is this verb's floor rather than the framework's. The framework refuses only *zero*
-     * survivors: one survivor makes a real single-pane group, which is not what a person choosing
-     * several windows asked for. Both facts are pinned in `group-from-selection.test.ts`.
-     */
+    // Against what the framework will take, not the raw selection: two panes of one shell are both
+    // dropped. Two is this verb's floor; the framework itself refuses only zero.
     isEnabled: ({ state }) => getGroupableWindowIds(state).length >= 2,
     label: "Group selected",
     run: ({ actions, state }) => {
@@ -1391,9 +1349,7 @@ const APP_ACTIONS: readonly AppAction[] = [
         return "Refused: grouping needs two selected windows that are not already grouped or minimized.";
       }
 
-      // The bounds of what is being grouped, not of the selection. Measuring the selection drew the
-      // shell around windows the framework was about to drop, so a mixed selection produced a
-      // container visibly larger than its contents.
+      // Bounds of what is being grouped, not of the selection — dropped members are not in it.
       const rect = getWindowBounds(state, windowIds);
 
       if (rect === null) {

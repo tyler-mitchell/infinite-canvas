@@ -5,16 +5,8 @@ import { reduceInfiniteCanvasState } from "./reducer";
 import type { InfiniteCanvasState } from "./types";
 
 /**
- * Taking a window off a desktop, when that window is docked into a shell.
- *
- * The mirror of the trap `workspace-move.test.ts` guards. Membership is group-complete and
- * `reconcileInfiniteCanvasWorkspaces` re-expands every workspace after every action, so removing
- * one pane while its siblings stayed behind has reconciliation pull the pane straight back — the
- * remove appears to do nothing at all, and nothing in the command's sentence says it would.
- *
- * Whole shell rather than a refusal, for the reason `normalizeInfiniteCanvasWorkspaceWindowIds`
- * already gives about the other direction: the honest reading of "take this off the desktop"
- * includes the thing the window is docked into.
+ * Membership is group-complete, so removing one pane alone is pulled straight back by
+ * reconciliation. The whole shell comes off instead — the mirror of what `workspace-move` guards.
  */
 
 type Kind = "note";
@@ -74,15 +66,13 @@ test("removing a docked pane takes its whole shell off with it", () => {
     type: "command.execute",
   });
 
-  // The failure this guards is not a wrong set — it is the pane reappearing, so the command
-  // reads as broken.
+  // The failure guarded is the pane reappearing, not a wrong set.
   expect(membership(removed, "research")).not.toContain("a");
   expect(membership(removed, "research")).toEqual(["c"]);
 });
 
 test("what comes off the desktop stays open on the canvas", () => {
-  // A membership filter that deleted what it filtered would make "which set is this in" a
-  // destructive question.
+  // A membership filter must not delete what it filters.
   const removed = reduceInfiniteCanvasState(withShell(), {
     command: { type: "workspace.removeActiveWindow" },
     type: "command.execute",
@@ -93,8 +83,7 @@ test("what comes off the desktop stays open on the canvas", () => {
 });
 
 test("a window removed from the desktop you are standing on does not stay active", () => {
-  // The rule `reconcileActiveAgainstMembership` states: every verb keyed to the active window
-  // would otherwise aim at something the canvas has stopped drawing.
+  // Otherwise every verb keyed to the active window aims at something no longer drawn.
   const removed = reduceInfiniteCanvasState(
     { ...withShell(), selection: { anchorWindowId: "a", windowIds: ["a"] } },
     { command: { type: "workspace.removeActiveWindow" }, type: "command.execute" },

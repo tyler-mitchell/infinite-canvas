@@ -6,15 +6,8 @@ import { getVisibleWindowBounds } from "./selection";
 import type { InfiniteCanvasState } from "./types";
 
 /**
- * What pinning does, and the two things its description claimed it did.
- *
- * `activeWindow.togglePinned` read "Pin the active window so panning and fit-all leave it in
- * place". Neither half held: nothing in the camera, the pan handler or `getVisibleWindowBounds`
- * reads `isPinned`. Pinning moves a window into the pinned stacking band, and that is all.
- *
- * Asserted rather than argued because a wrong description is invisible — it fails no typecheck and
- * breaks no test, and the only way it gets caught is somebody reading the sentence against the
- * code. These make the next wrong version fail instead.
+ * Pinning moves a window into the pinned stacking band and nothing else. Its description claimed
+ * panning and fit-all leave it in place; neither reads `isPinned`.
  */
 
 type Kind = "note";

@@ -5,18 +5,9 @@ import { reduceInfiniteCanvasState } from "./reducer";
 import type { InfiniteCanvasState } from "./types";
 
 /**
- * A desktop stores the selection you left it with, targets included.
- *
- * `selection-target-lifetime.test.ts` pins that the framework never prunes `selection.targets`,
- * because it cannot know what a consumer's scene objects are. This is the path by which that
- * becomes reachable rather than theoretical: switching desktops *saves* the outgoing selection onto
- * the outgoing workspace, and `reconcileInfiniteCanvasWorkspaces` cleans a stored selection's
- * `windowIds` and `anchorWindowId` and never its `targets`. Come back, and a target naming an
- * object deleted while you were away is restored with the rest.
- *
- * The switch itself is not the leak, which is worth being exact about — entering a desktop restores
- * *that* desktop's stored selection, so a target does not ride along into somewhere it never was.
- * The leak is that the one left behind keeps its targets through everything that cleans the rest.
+ * A desktop stores the selection you left it with, targets included, and reconciliation cleans its
+ * `windowIds` but never its `targets`. Entering restores that desktop's own selection, so nothing
+ * rides along — the leak is what the one you left keeps.
  */
 
 type Kind = "note";
@@ -85,11 +76,6 @@ test("leaving a desktop does not carry its targets to the next one", () => {
 });
 
 test("the desktop you left keeps the target, and hands it back on return", () => {
-  /*
-   * The reachable path. Nothing between here and the return prunes it — not the switch, not
-   * reconciliation, not a reload — so an object deleted while you were on the other desktop comes
-   * back selected.
-   */
   const away = enter(withSelectedEdge(), "writing");
   const stored = away.workspaces.find((workspace) => workspace.id === "research");
 
@@ -98,12 +84,6 @@ test("the desktop you left keeps the target, and hands it back on return", () =>
 });
 
 test("a stored window id is cleaned while the stored target beside it is not", () => {
-  /*
-   * The asymmetry again, this time inside a *stored* workspace selection rather than the live one.
-   * `reconcileInfiniteCanvasWorkspaces` states its own reason for cleaning: "a window closed once
-   * leaves its name in a document forever". That reason applies word for word to the target, and
-   * the framework cannot act on it.
-   */
   const away = enter(withSelectedEdge(), "writing");
   const closed = reduceInfiniteCanvasState(away, { type: "window.close", windowId: "a" });
   const stored = closed.workspaces.find((workspace) => workspace.id === "research");

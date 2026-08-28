@@ -6,16 +6,8 @@ import { reduceInfiniteCanvasState } from "./reducer";
 import type { InfiniteCanvasState } from "./types";
 
 /**
- * What the lifecycle verbs do to a window that is docked into a group.
- *
- * `applyInfiniteCanvasWindowLifecycle` detaches before acting — a pane in the dock, or one filling
- * the viewport, cannot hold a layout slot. Their descriptions now say so, and these are the
- * assertions behind those sentences rather than a reading of the switch.
- *
- * The one worth having is the round trip. Maximizing detaches; restoring does not re-attach, and
- * nothing else does either, so a pane that visits maximize is out of its shell for good. That is a
- * one-way door written as a toggle, which is exactly the kind of thing a description has to carry
- * because the name promises the opposite.
+ * The lifecycle verbs detach a docked pane before acting. Maximize is the one that matters:
+ * restoring does not re-attach, so a toggle is a one-way door for a pane.
  */
 
 type Kind = "note";

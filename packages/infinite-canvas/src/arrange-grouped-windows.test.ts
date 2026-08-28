@@ -5,20 +5,8 @@ import { reduceInfiniteCanvasState } from "./reducer";
 import type { InfiniteCanvasState } from "./types";
 
 /**
- * What the selection verbs do when the selection holds a docked pane — and they disagree.
- *
- * `nudgeSelectedWindows` translates the pane's whole **shell**, because a member's rect is its
- * group's projection and writing it directly would be undone by the next solve; nudging is the
- * keyboard twin of dragging that member's header, which moves the shell too (DOCK-003).
- *
- * `getArrangeableWindows` takes the opposite route for align, distribute and swap: a docked pane is
- * **skipped**, and moving the shell instead is refused on the stated ground that it "would mean a
- * single command that sometimes moves one window and sometimes moves five".
- *
- * Both are defensible and both are deliberate. Neither is guessable from a description, and a
- * caller acting on a mixed selection gets opposite treatment from two verbs that read as siblings.
- * Pinned here so the asymmetry is a fact rather than a pair of comments, and so that a later attempt
- * to make them agree has to argue with a test.
+ * Nudge moves a docked pane's whole shell; align, distribute and swap skip the pane. Both
+ * deliberate, so an attempt to make them agree has to argue with a test.
  */
 
 type Kind = "note";
@@ -63,19 +51,14 @@ test("nudging a selection moves a docked pane's whole shell", () => {
     type: "command.execute",
   });
 
-  // Every member of the shell moved, including "b", which the nudge never named directly — it
-  // moved because its shell did.
+  // "b" moved too, and the nudge never named it.
   for (const id of ["a", "b", "c", "d"]) {
     expect(rectOf(after, id)?.x).toBeGreaterThan(rectOf(before, id)?.x ?? 0);
   }
 });
 
 test("a group moves once however many of its members are selected", () => {
-  /*
-   * The trap the shell-first pass exists to avoid. `setInfiniteCanvasGroupRect` re-projects every
-   * member, so a window pass that also translated members would move a two-member shell twice as
-   * far as the floating windows beside it.
-   */
+  // The shell-first pass exists so members are not translated twice.
   const before = withShellAndFloaters();
   const after = reduceInfiniteCanvasState(before, {
     command: { amountPx: 10, direction: "right", type: "window.nudge" },
@@ -101,8 +84,7 @@ test("aligning the same selection skips the docked panes entirely", () => {
 });
 
 test("the two families genuinely disagree about the same window", () => {
-  // Stated as one assertion rather than inferred across two tests, because the disagreement is the
-  // thing worth knowing: "a" is the same window, in the same selection, under two sibling verbs.
+  // Same window, same selection, two sibling verbs.
   const before = withShellAndFloaters();
   const nudged = reduceInfiniteCanvasState(before, {
     command: { amountPx: 10, direction: "right", type: "window.nudge" },

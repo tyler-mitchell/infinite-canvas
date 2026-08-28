@@ -313,18 +313,9 @@ function getInfiniteCanvasGroupTitle<Kind extends string>(
  * is a user gesture, not a place to throw.
  */
 /**
- * Which of these windows `createInfiniteCanvasGroup` would actually take, in the order given.
- *
- * The rule it applies, asked before dispatching rather than discovered afterwards. A member that is
- * missing, minimized, or already inside another group is dropped rather than stolen — a window lives
- * in at most one tree — and until this was exported a consumer had no way to know that in advance.
- *
- * What that cost is enablement. A "group these" control counting its own selection offers itself
- * when nothing would happen: two panes of one shell are both dropped, no members survive, and the
- * call returns the identical state while the control reports success. A consumer that guessed the
- * rule instead had a copy of it, free to drift the moment this one is refined.
- *
- * Order is the caller's, because members are laid out in the order given.
+ * Which of these windows `createInfiniteCanvasGroup` would take, in the order given — so a "group
+ * these" control can decide whether to offer itself. Missing, minimized and already-grouped are
+ * dropped rather than stolen.
  */
 function getInfiniteCanvasGroupableWindowIds<Kind extends string>(
   state: InfiniteCanvasState<Kind>,
@@ -423,12 +414,8 @@ function renameInfiniteCanvasGroup<Kind extends string>(
 }
 
 /**
- * Room to fan freed members into: around the shell, not around the camera.
- *
- * Freeing a member is not a camera verb. Bounding the search by what is on screen pulls a window
- * that was legitimately off the right edge back into view. A rect centred on the shell and one
- * shell wider in every direction already contains every member, so nothing that is fine moves, and
- * leaves a ring to fan out into when something has to.
+ * Room to fan freed members into: around the shell, not around the camera. Bounding by what is on
+ * screen would pull a window that was legitimately off the right edge back into view.
  */
 function getInfiniteCanvasRoomAround(shell: InfiniteCanvasRect): InfiniteCanvasRect {
   return {
@@ -440,21 +427,9 @@ function getInfiniteCanvasRoomAround(shell: InfiniteCanvasRect): InfiniteCanvasR
 }
 
 /**
- * Break up a shell, leaving every member somewhere it can be seen.
- *
- * Members keep the rect the solver last gave them, which comes apart correctly for a split and
- * stacks for tabs: every tab member carries the shell's whole content rect, so five tabs dissolved
- * into five windows at identical coordinates — four invisible and reachable only through the dock.
- *
- * **The placement used to live in the `group.dissolve` command and only there.** The `group.close`
- * action called this bare, so the same operation behaved differently depending on which door a
- * consumer came through — and a consumer holding a group id comes through the action, since the
- * command resolves its group from the active window and cannot be told which one to break up. So
- * the door a real "ungroup this" control takes was the one leaving members stacked.
- *
- * Each freed rect goes through vacancy placement with itself as `preferred`, folded so each sees
- * the ones already placed. A split is unchanged by construction — its panes are already clear of
- * one another, so every one of them is returned untouched.
+ * Break up a shell, leaving every member somewhere it can be seen. Tab members all carry the
+ * shell's content rect, so freeing them untouched drops them at identical coordinates. A split is
+ * unchanged: its panes are already clear of one another.
  */
 function closeInfiniteCanvasGroup<Kind extends string>(
   state: InfiniteCanvasState<Kind>,
@@ -469,8 +444,7 @@ function closeInfiniteCanvasGroup<Kind extends string>(
   const bounds = getInfiniteCanvasRoomAround(group.rect);
   const freedIds = new Set(getInfiniteCanvasGroupWindowIds(group.tree));
   const dissolved = { ...state, groups: state.groups.filter((entry) => entry.id !== groupId) };
-  // The shell is gone, so its footprint is free — but only for the first member to claim it, which
-  // is what keeps a one-member dissolve exactly where it was.
+  // The shell's footprint is free, but only for the first member to claim it.
   const settled: InfiniteCanvasRect[] = dissolved.windows
     .filter((window) => !freedIds.has(window.id) && window.mode !== "minimized")
     .map((window) => window.rect);
@@ -1130,8 +1104,7 @@ export {
   getInfiniteCanvasGroupTabLabel,
   getInfiniteCanvasGroupableWindowIds,
   getInfiniteCanvasGroupedWindowIds,
-  // Not in the barrel: `window.undock` frees a member the same way and needs the same ring, so the
-  // two share one definition rather than drifting as two identical ones.
+  // Not in the barrel: shared with `window.undock`, which frees a member the same way.
   getInfiniteCanvasRoomAround,
   getInfiniteCanvasWindowGroup,
   isInfiniteCanvasWindowGrouped,

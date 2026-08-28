@@ -5,15 +5,8 @@ import { getInfiniteCanvasMinimapLayout } from "./minimap";
 import type { InfiniteCanvasState } from "./types";
 
 /**
- * The viewport indicator is drawn only when it can say where you are.
- *
- * `bounds` unions the camera's rect in unconditionally, so a camera that contains everything drawn
- * *is* the bounds — and the projection then maps the indicator onto the whole inner area. It traces
- * the box's own edge, cannot move, cannot shrink, and reads as a border around the overview.
- *
- * The empty-canvas rule already refused that projection for the case where there is no content at
- * all. This is the same degeneracy with content present, which is far more common: every fit-all
- * lands in it.
+ * `bounds` unions the camera in, so a camera containing everything drawn *is* the bounds and the
+ * indicator traces the box's own edge. The empty-canvas rule refused the same projection.
  */
 
 type Kind = "note";

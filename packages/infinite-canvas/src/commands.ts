@@ -102,20 +102,7 @@ import type {
 } from "./types";
 import { isInfiniteCanvasWindowCapable } from "./window-capabilities";
 
-/**
- * What the two selection-moving families do with a docked pane — and they disagree on purpose.
- *
- * A nudge translates the pane's whole **shell**, because a member's rect is its group's projection
- * and writing it directly would be undone by the next solve; nudging is the keyboard twin of
- * dragging that member's header, which moves the shell too. An arrange verb **skips** the pane
- * instead, on `getArrangeableWindows`' stated ground that moving the shell there "would mean a
- * single command that sometimes moves one window and sometimes moves five".
- *
- * Both choices are deliberate and neither is guessable, so each family says which it made. Written
- * once and interpolated rather than typed out seventeen times: a caller reads one description, so
- * every one of them has to carry it, and seventeen hand-copied clauses is how the app layer's
- * descriptions drifted from these.
- */
+/** Nudge moves a docked pane's shell; arrange skips the pane. Both deliberate, neither guessable. */
 const NUDGE_GROUP_RULE =
   "A docked window moves its whole group, which moves once however many of its panes are selected.";
 const ARRANGE_GROUP_RULE = "Docked windows are skipped; only floating ones move.";
@@ -503,8 +490,6 @@ const DEFAULT_INFINITE_CANVAS_COMMAND_DESCRIPTORS = [
   },
   {
     command: { type: "window.reveal", windowId: "" },
-    // All four things `revealWindow` does. It named only the desktop switch, so a caller had no
-    // way to know a minimized window comes back or that the window ends up active.
     description:
       "Go to a window: switch desktops if it is on another one, restore it if minimized, make it active, and bring the camera to it.",
     hotkeys: [],
@@ -524,8 +509,6 @@ const DEFAULT_INFINITE_CANVAS_COMMAND_DESCRIPTORS = [
   // re-invented by every consumer that builds a switcher.
   {
     command: { type: "workspace.moveActiveWindow", workspaceId: "" },
-    // Both this and `removeActiveWindow` name the group rule, because a caller reads one
-    // description and not the pair.
     description:
       "Send the active window to another desktop, leaving the one it is on. A docked window takes its whole group with it.",
     hotkeys: [],
@@ -703,11 +686,6 @@ const DEFAULT_INFINITE_CANVAS_COMMAND_DESCRIPTORS = [
   },
   {
     command: { type: "activeWindow.togglePinned" },
-    // Said what pinning was imagined to do rather than what it does. Nothing in the camera, the pan
-    // handler or `getVisibleWindowBounds` reads `isPinned` — fit-all measures every window that is
-    // not minimized, pinned or not — so neither half of "panning and fit-all leave it in place" was
-    // true. What `toggleWindowPinned` actually does is move the window into the pinned stacking
-    // band, above every unpinned one.
     description: "Pin the active window so it stacks above every unpinned one, or unpin it.",
     hotkeys: [],
     id: "activeWindow.togglePinned",
@@ -2083,10 +2061,6 @@ function executeInfiniteCanvasCommand<Kind extends string>(
             weights,
           });
     }
-    // The placement that used to live here moved into `closeInfiniteCanvasGroup`, because the
-    // `group.close` action called that bare and left tab members stacked — the same operation
-    // behaving differently by door. All this case owns now is resolving the group from the active
-    // window, which is the only thing the command adds over the action.
     case "group.dissolve": {
       const group =
         state.activeWindowId === null

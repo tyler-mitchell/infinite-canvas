@@ -5,16 +5,8 @@ import { reduceInfiniteCanvasState } from "./reducer";
 import type { InfiniteCanvasState } from "./types";
 
 /**
- * What `createGroup` does with members it will not take.
- *
- * `createInfiniteCanvasGroup` drops windows that are missing, minimized, or already inside another
- * group — "dropped rather than stolen — a window lives in at most one tree, and grouping is a user
- * gesture, not a place to throw". That rule is right and is not what these pin.
- *
- * What they pin is what a *caller* can observe, because a consumer builds its enablement on top of
- * this and can only do so correctly if the outcomes are known. A caller counting its own selection
- * cannot predict the result, and the two extremes are both reachable: enough members survive and a
- * group appears, or none do and the call changes nothing at all while looking like it worked.
+ * `createGroup` drops members that are missing, minimized or already grouped. These pin what a
+ * caller can observe of that, since enablement is built on it.
  */
 
 type Kind = "note";
@@ -64,11 +56,7 @@ test("grouping two floating windows makes a group", () => {
 });
 
 test("grouping windows that are all already docked changes nothing", () => {
-  /*
-   * The outcome a consumer has to know about. Every named window is dropped, no members survive,
-   * and the state comes back identical — so a verb that checked only "two or more selected" reports
-   * success for a call that did nothing.
-   */
+  // No members survive, so the state comes back identical.
   const before = withShell();
   const after = group(before, ["a", "b"]);
 
@@ -86,14 +74,7 @@ test("a mixed selection groups only the windows that were free", () => {
 });
 
 test("one surviving member still makes a group, so two selected is not the floor", () => {
-  /*
-   * Worth stating because a consumer asserted the opposite in a comment — "two is where a group
-   * means anything, and the framework refuses fewer". The framework refuses *zero* members. One
-   * survivor produces a single-window group, which is a real group with a shell and a title.
-   *
-   * Reachable from a two-window selection whenever one of the two is already docked, so the
-   * consumer's `>= 2` check does not stand in for this.
-   */
+  // The framework refuses zero, not fewer than two. Reachable whenever one of two is docked.
   const made = group(withShell(), ["a", "c"]);
 
   expect(made.groups).toHaveLength(2);

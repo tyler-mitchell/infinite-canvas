@@ -7,22 +7,9 @@ import { normalizeSelection } from "./selection";
 import type { InfiniteCanvasState } from "./types";
 
 /**
- * How long a selected scene object outlives the object.
- *
- * The framework prunes a selection's `windowIds` — `normalizeSelectionWindowIds` drops ids naming
- * no live window, and `reconcileInfiniteCanvasWorkspaces` cleans a *stored* workspace selection for
- * the reason written there: "a window closed once leaves its name in a document forever".
- *
- * It cannot do the same for `targets`, and this pins how far that goes rather than arguing about
- * it. `selection` is in `INFINITE_CANVAS_DOCUMENT_FIELDS`, so targets are written down and restored;
- * `normalizeSelectionTargets` only deduplicates. A scene object the consumer has deleted stays
- * selected across every reload.
- *
- * **This is a contract, not a bug to fix here.** The framework has no idea what a consumer's scene
- * objects are — that is the whole point of `spatialTargetResolvers` — so it cannot know which
- * targets are dead. What these assert is that the consumer owns the pruning, and what a
- * consumer-knowledge surface would have to answer if the framework is ever to own it. They should
- * be rewritten, not deleted, on the day it lands.
+ * `windowIds` are pruned; `targets` cannot be, since the framework does not know what a consumer's
+ * scene objects are. `selection` is a document field, so a dead target survives every reload. A
+ * contract rather than a bug — rewrite these when a consumer can answer "does this still exist".
  */
 
 type Kind = "note";
@@ -63,10 +50,7 @@ test("normalizing does not prune a target naming nothing", () => {
 });
 
 test("a dead target survives a serialize and hydrate round trip", () => {
-  /*
-   * The half that makes it permanent rather than session-local. A window id in the same position is
-   * dropped on the way back in, because the framework can check it against `windows`.
-   */
+  // What makes it permanent rather than session-local.
   const selected = withSelectedOrphan();
   const restored = parseInfiniteCanvasStateJson(stringifyInfiniteCanvasState(selected), selected);
 
@@ -76,11 +60,7 @@ test("a dead target survives a serialize and hydrate round trip", () => {
 });
 
 test("a window id in the same selection is pruned, which is the contrast", () => {
-  /*
-   * Stated as one comparison, because the asymmetry is the finding: the framework prunes exactly
-   * what it can verify and keeps exactly what it cannot. A consumer reading only the target half
-   * would reasonably assume selection is cleaned uniformly.
-   */
+  // The asymmetry in one comparison: pruned where verifiable, kept where not.
   const selected = {
     ...withSelectedOrphan(),
     selection: {

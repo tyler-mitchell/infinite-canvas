@@ -228,19 +228,9 @@ function addInfiniteCanvasWindowToWorkspace<Kind extends string>(
 }
 
 /**
- * The removal half of the delta, and it takes the whole shell.
- *
- * Dropping the named id alone was defeated by the invariant rather than merely redundant with
- * it. `reconcileInfiniteCanvasWorkspaces` re-expands membership to whole groups after every
- * action, so removing one docked pane while its siblings stayed had reconciliation pull the pane
- * straight back — `workspace.removeActiveWindow` was a silent no-op on anything docked, which is
- * the failure that looks like the command being broken.
- *
- * Expanding is the same answer `normalizeInfiniteCanvasWorkspaceWindowIds` gives in the other
- * direction: the honest reading of "take this off the desktop" includes the thing the window is
- * docked into. Its counterpart `addInfiniteCanvasWindowToWorkspace` needs no such expansion —
- * reconciliation completes an under-filled membership, so adding a pane already brings its
- * siblings.
+ * Removes the whole shell, because reconciliation re-expands membership to whole groups — dropping
+ * one docked pane alone would be pulled straight back. `addInfiniteCanvasWindowToWorkspace` needs
+ * no such expansion: reconciliation completes an under-filled membership on its own.
  */
 function removeInfiniteCanvasWindowFromWorkspace<Kind extends string>(
   state: InfiniteCanvasState<Kind>,
