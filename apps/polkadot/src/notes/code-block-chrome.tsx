@@ -33,12 +33,10 @@ import { tv } from "ui/tv";
 import { FLOATING_SURFACE } from "#/material";
 
 /**
- * The language picker and copy control a code block carries, in the corner Notion puts them.
+ * Controls a code block carries: language, copy, and an overflow menu.
  *
- * Positioned from `offsetTop` and `offsetLeft`, never `getBoundingClientRect`. Lexical's own
- * playground menu uses client rects, which are in post-transform pixels — inside this app's scaled
- * canvas those would place the chrome further from the block the further you zoom. Offsets are
- * layout coordinates and a CSS transform does not touch them.
+ * Positioned from `offsetTop` and `offsetLeft`. `getBoundingClientRect` gives post-transform
+ * pixels, which the canvas scale would then apply a second time.
  */
 
 const chrome = tv({
