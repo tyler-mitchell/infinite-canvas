@@ -1616,8 +1616,18 @@ const APP_ACTIONS: readonly AppAction[] = [
     },
   },
   {
+    /*
+     * The description says what the write costs, because a caller cannot see it.
+     *
+     * Every line becomes a paragraph, so a note read and written back keeps its words and loses its
+     * blocks: a code block, heading, list item or quote all return as paragraphs.
+     * `note-text-round-trip.test.ts` pins that. A caller doing read-edit-write to fix one word would
+     * flatten the rest of the note and had no way to know.
+     */
     description:
-      "Replace what a note says, as plain text. One line per paragraph. The id comes from content.list.",
+      "Replace what a note says, as plain text. One line per paragraph. This replaces the whole " +
+      "note, so any code block, heading, list or quote in it comes back as a paragraph. The id " +
+      "comes from content.list.",
     id: "note.write",
     input: NOTE_WRITE_INPUT,
     label: "Write a note",
