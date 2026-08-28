@@ -317,6 +317,21 @@ command: select a connector, press fit-selection, nothing happens. Nobody has re
 an enumeration API so the minimap and the offscreen ring could consume it later is speculative
 machinery. It gets built when a second consumer needs it.
 
+**Reported now, and the symptom is worse than "nothing happens".** Driven 2026-08-28: clicking the
+connector between two notes selects it — its stroke goes from `0.4` opacity to `1` — with
+`selection.windowIds` empty. At that point Polkadot's selection rail _disappears_, because it renders
+on `selection.windowIds.length`, and the framework's HUD "Fit selection" is `disabled`, because
+`isInfiniteCanvasCommandEnabled` answers `getSelectedWindowBounds(state) !== null` for
+`view.fitSelection`. So there is no control to press at all: a visibly selected thing with every way
+to frame it withdrawn. That is one measured defect rather than an enumeration API nobody asked for,
+and it moves this row from "nobody has reported it" to a need with a witness.
+
+**It is still the pure-surface boundary that makes it expensive, and that has not changed.**
+Enablement is a pure function of serializable `state`; an edge's geometry is consumer knowledge held
+in a closure. Threading a provider into that surface is the architectural decision this table's
+closing paragraph describes, and it is not a thing to half-build — a partly-wired provider would read
+as finished and is exactly what `Pacing` warns about.
+
 **Existence: the framework prunes what it can verify and keeps what it cannot.** A selection target
 naming nothing survives `normalizeSelection` and a hydrate round trip, while a dead window id in the
 same selection is dropped. Polkadot is not exposed — every reader of edge selection resolves target
