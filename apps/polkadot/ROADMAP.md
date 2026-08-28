@@ -61,6 +61,23 @@ strictly greater than 160 — a kind sitting exactly on it demotes and never ret
 
 ## Open
 
+- **`canvas.describe` promised the selection and reported half of it.** The tool is registered as
+  "zoom, the open windows and their kinds, groups, and the selection", and the selection it described
+  was `selection.windowIds`. A connector fills `selection.targets` and leaves `windowIds` empty —
+  measured on the live canvas — so a caller was told nothing was selected while one was, highlighted
+  on screen with a rail attached to it. The rail was built this session; the report never caught up.
+
+  Split across the two reports rather than fixed in one. `describeRelations` already states why:
+  an edge joins two _records_ and outlives both windows, so describing one on the canvas would
+  describe it by its drawing. The canvas report counts selected connections and points at
+  `content.list`; the content report, which already owns the pair that names an edge and already
+  takes `state`, marks which one. No signature changed.
+
+  **Not driven.** There is no dev handle for the reporting tools and `navigator.modelContext` is
+  undefined in this browser, so the sentences are pinned by test rather than read out of a running
+  agent. What was measured live is the state they read: clicking a connector fills
+  `selection.targets` with `type: "edge"` and empties `windowIds`.
+
 - **A renamed link kept its old name in its own bar, and the accessible name with it.**
   `createContentCache` is read-once — right for the bytes of a picture and the address of a link, and
   wrong for a title, which a rename changes. A rename writes storage, folds `projectContent$` and

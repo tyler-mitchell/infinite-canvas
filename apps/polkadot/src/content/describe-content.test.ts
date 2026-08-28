@@ -164,3 +164,39 @@ test("an edge to something the listing does not hold is still reported", () => {
 
   expect(described).toContain('"Quarterly notes" [one] refines [gone]');
 });
+
+/**
+ * Which connection is selected, which `canvas.describe` says one is and cannot say.
+ *
+ * A connector fills `selection.targets` and leaves `windowIds` empty, so the canvas report counts
+ * them and points here. The pair that names an edge lives in this report, so the mark does too.
+ */
+const stateSelecting = (relationId: string) =>
+  createInfiniteCanvasState<WindowKind>({
+    selection: {
+      anchorTarget: { id: relationId, kind: "relation", type: "edge" },
+      anchorWindowId: null,
+      targets: [{ id: relationId, kind: "relation", type: "edge" }],
+      windowIds: [],
+    },
+    viewport: { height: 800, width: 1200 },
+    windows: [],
+  });
+
+test("the selected connection is marked, and only that one", () => {
+  const described = describeProjectContent({
+    listing,
+    projectId: "project-1",
+    relations: [relation("one", "two", "supports"), relation("two", "one", "refines")],
+    state: stateSelecting("one-two"),
+  });
+
+  expect(described).toContain('"Quarterly notes" [one] supports "swatch.png" [two] (selected)');
+  expect(described).toContain('"swatch.png" [two] refines "Quarterly notes" [one]');
+  expect(described).not.toContain("[one] (selected)");
+});
+
+test("nothing selected marks nothing, rather than saying so on every line", () => {
+  // The longer report of the two; "not selected" on every edge is the same fact spelled out N times.
+  expect(describeWith([relation("one", "two", "supports")])).not.toContain("selected");
+});

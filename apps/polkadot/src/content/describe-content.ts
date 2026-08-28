@@ -1,4 +1,4 @@
-import type { InfiniteCanvasState } from "@hyphened/infinite-canvas";
+import { getSelectionTargets, type InfiniteCanvasState } from "@hyphened/infinite-canvas";
 import { type } from "arktype";
 
 import { getContentWindowItemId, type WindowKind } from "../canvas/window-registry";
@@ -63,6 +63,7 @@ const getOpenItemIds = (state: InfiniteCanvasState<WindowKind>) =>
 const describeRelations = (
   relations: readonly ContentRelation[],
   items: ProjectContentItems,
+  selected: ReadonlySet<string>,
 ): string => {
   if (relations.length === 0) {
     return "No connections.";
@@ -76,9 +77,19 @@ const describeRelations = (
     return item === undefined ? `[${itemId}]` : `"${item.title}" [${item.id}]`;
   };
 
+  /*
+   * Which one is selected, because `canvas.describe` says one is and cannot say which.
+   *
+   * A connector fills `selection.targets` and leaves `windowIds` empty, so the canvas report counts
+   * them and stops there — an edge joins two records and outlives both windows, which is the reason
+   * this file owns connections at all. The pair that names it is here, so the mark belongs here too.
+   *
+   * Said only when something is selected. Marking every other line "not selected" would be the same
+   * fact spelled longer, on the report that is already the longer of the two.
+   */
   const described = relations.map(
     (relation) =>
-      `${titleOf(relation.source)} ${relation.label?.trim() || relation.kind} ${titleOf(relation.target)}`,
+      `${titleOf(relation.source)} ${relation.label?.trim() || relation.kind} ${titleOf(relation.target)}${selected.has(relation.id) ? " (selected)" : ""}`,
   );
 
   return `${relations.length} connection(s): ${described.join("; ")}.`;
@@ -194,9 +205,17 @@ function describeProjectContent(
   });
   const closedCount = items.filter((item) => !open.has(item.id)).length;
 
+  // The framework's own model for a selected thing that is not a window; the connector rail and the
+  // Backspace action read the same set, so the report and the verbs cannot disagree about it.
+  const selectedRelationIds = new Set(
+    getSelectionTargets(input.state.selection)
+      .filter((target) => target.type === "edge")
+      .map((target) => target.id),
+  );
+
   return [
     `${items.length} item(s), ${closedCount} not open: ${described.join("; ")}.`,
-    describeRelations(input.relations, items),
+    describeRelations(input.relations, items, selectedRelationIds),
   ].join(" ");
 }
 

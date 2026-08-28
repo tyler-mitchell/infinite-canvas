@@ -240,3 +240,50 @@ test("zoom is reported as a percentage, the way the canvas shows it", () => {
 
   expect(described).toContain("Zoom 64%.");
 });
+
+/**
+ * A selected connector, which the report did not mention and its tool description promised.
+ *
+ * `canvas.describe` is registered as reporting "the selection", and the selection it described was
+ * `selection.windowIds` only. Clicking a connector fills `selection.targets` and leaves `windowIds`
+ * empty — measured on the live canvas — so a caller was told nothing was selected while one was,
+ * highlighted on screen with a rail attached to it.
+ */
+const EDGE_TARGET = {
+  id: "relates_to:one",
+  kind: "relation",
+  type: "edge",
+} as const;
+
+test("a selected connector is reported, when the window selection is empty", () => {
+  const described = describeCanvas(
+    createInfiniteCanvasState<WindowKind>({
+      selection: {
+        anchorTarget: EDGE_TARGET,
+        anchorWindowId: null,
+        targets: [EDGE_TARGET],
+        windowIds: [],
+      },
+      viewport: { height: 800, width: 1200 },
+      windows: [windowAt("a", "note", "First", 0)],
+    }),
+  );
+
+  expect(described).toContain("1 connection(s) selected");
+  // Named elsewhere on purpose: an edge joins two records and outlives both windows, which is why
+  // `describeProjectContent` owns connections. This says one is selected and points at that report.
+  expect(described).toContain("content.list names them");
+});
+
+test("a canvas with nothing selected does not mention connections at all", () => {
+  // The desktop line's rule: naming a concept on a canvas that has never used one teaches it as a
+  // thing to think about.
+  const described = describeCanvas(
+    createInfiniteCanvasState<WindowKind>({
+      viewport: { height: 800, width: 1200 },
+      windows: [windowAt("a", "note", "First", 0)],
+    }),
+  );
+
+  expect(described).not.toContain("connection");
+});

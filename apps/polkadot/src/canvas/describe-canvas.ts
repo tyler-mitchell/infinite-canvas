@@ -2,6 +2,7 @@ import {
   getInfiniteCanvasGroupProjection,
   getInfiniteCanvasGroupTitle,
   getInfiniteCanvasGroupWindowIds,
+  getSelectionTargets,
   isInfiniteCanvasWindowInActiveWorkspace,
   isWorldRectWithinViewport,
   type InfiniteCanvasState,
@@ -140,6 +141,24 @@ function describeCanvas(state: InfiniteCanvasState<WindowKind>): string {
       `"${workspace.title}" [${workspace.id}]${workspace.id === state.activeWorkspaceId ? " (current)" : ""}`,
   );
 
+  /*
+   * That a connection is selected, which the report did not say and its own tool description
+   * promised.
+   *
+   * `canvas.describe` is registered as "zoom, the open windows and their kinds, groups, and the
+   * selection", and the selection it described was the window half only. A connector fills
+   * `selection.targets` and leaves `windowIds` empty, so a caller reading this was told nothing is
+   * selected while one was — highlighted on screen, with a rail attached to it.
+   *
+   * Counted rather than named, and the split is deliberate. `describeRelations` states why a
+   * connection belongs in the content report: an edge joins two *records* and outlives both
+   * windows, so describing one here would describe it by its drawing. Which connection it is
+   * belongs there, and that report marks it; that one is selected is a fact about this canvas.
+   */
+  const selectedConnections = getSelectionTargets(state.selection).filter(
+    (target) => target.type === "edge",
+  ).length;
+
   return [
     `Zoom ${Math.round(state.camera.zoom * 100)}%.`,
     desktops.length === 0
@@ -149,6 +168,11 @@ function describeCanvas(state: InfiniteCanvasState<WindowKind>): string {
       ? "No windows open."
       : `${windows.length} window(s): ${windows.join("; ")}.`,
     groups.length === 0 ? "No groups." : `${groups.length} group(s): ${groups.join(", ")}.`,
+    // Only when there are any, for the reason the desktop line is: naming a concept on every canvas
+    // that has never used one teaches it as a thing to think about.
+    selectedConnections === 0
+      ? null
+      : `${selectedConnections} connection(s) selected; content.list names them.`,
   ]
     .filter((sentence) => sentence !== null)
     .join(" ");
