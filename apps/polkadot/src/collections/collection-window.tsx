@@ -131,9 +131,7 @@ export function CollectionWindowBody({ collectionId }: Readonly<{ collectionId: 
   };
 
   useEffect(() => {
-    if (projectId !== null) {
-      ensureCollectionLoaded(collectionId, projectId);
-    }
+    ensureCollectionLoaded(collectionId, projectId);
   }, [collectionId, projectId]);
 
   if (entry === undefined || entry.status === "loading") {
@@ -201,13 +199,11 @@ export function CollectionWindowBody({ collectionId }: Readonly<{ collectionId: 
             */}
             <DropdownMenuRadioGroup
               onValueChange={(value) => {
-                if (projectId !== null) {
-                  void setCollectionQuestion({
-                    collectionId,
-                    projectId,
-                    question: { listsKind: value },
-                  });
-                }
+                void setCollectionQuestion({
+                  collectionId,
+                  projectId,
+                  question: { listsKind: value },
+                });
               }}
               value={listsKind}
             >

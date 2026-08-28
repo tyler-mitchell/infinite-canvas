@@ -67,9 +67,7 @@ export function CollectionSummary({
    * frame. Both halves of the lane share `resolved$`, so zooming in after this costs nothing.
    */
   useEffect(() => {
-    if (projectId !== null) {
-      ensureCollectionLoaded(collectionId, projectId);
-    }
+    ensureCollectionLoaded(collectionId, projectId);
   }, [collectionId, projectId]);
 
   return (
