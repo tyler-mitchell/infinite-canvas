@@ -4,7 +4,8 @@ import { useEffect } from "react";
 import { tv } from "ui/tv";
 
 import type { WindowKind } from "../canvas/window-registry";
-import { openProject$ } from "../projects/open-project";
+import { useLoaderData } from "@tanstack/react-router";
+
 import { ensureCollectionLoaded, resolved$ } from "./collection-store";
 
 /**
@@ -48,7 +49,7 @@ export function CollectionSummary({
   title,
 }: Readonly<{ collectionId: string; title: string }>) {
   const zoom = useInfiniteCanvasSelector<WindowKind, number>((state) => state.camera.zoom);
-  const projectId = useValue(openProject$);
+  const { projectId } = useLoaderData({ from: "/canvas/$canvasId" });
   const items = useValue(resolved$[collectionId]);
   const styles = collectionSummary();
 

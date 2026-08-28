@@ -14,7 +14,8 @@ import { tv } from "ui/tv";
 
 import type { WindowKind } from "../canvas/window-registry";
 import type { ContentItemRecord } from "../database/database.client";
-import { openProject$ } from "../projects/open-project";
+import { useLoaderData } from "@tanstack/react-router";
+
 import {
   collections$,
   ensureCollectionLoaded,
@@ -120,8 +121,8 @@ function ItemRows({
 export function CollectionWindowBody({ collectionId }: Readonly<{ collectionId: string }>) {
   const actions = useInfiniteCanvasActions<WindowKind>();
   const state = useInfiniteCanvasState<WindowKind>();
-  // `renderBody` hands over a window and nothing else, so the project is read rather than passed.
-  const projectId = useValue(openProject$);
+  // `renderBody` hands over a window and nothing else, so the route is read rather than passed.
+  const { projectId } = useLoaderData({ from: "/canvas/$canvasId" });
   const entry = useValue(collections$[collectionId]);
   const items = useValue(resolved$[collectionId]) ?? [];
   const styles = collectionWindow();

@@ -4,7 +4,6 @@ import {
   useInfiniteCanvasActions,
   useInfiniteCanvasStore,
 } from "@hyphened/infinite-canvas";
-import { useValue } from "@legendapp/state/react";
 import { useLoaderData } from "@tanstack/react-router";
 
 import { useGoToCanvas } from "../workspace/use-go-to-canvas";
@@ -13,7 +12,6 @@ import { useEffect, useState } from "react";
 
 import { getAppAction, isAppActionEnabled } from "../app-actions";
 import type { WindowKind } from "../canvas/window-registry";
-import { openProject$ } from "../projects/open-project";
 import { getActionIcon } from "./action-icons";
 import { getRing, type CanvasRingEntry } from "./context-menu-rings";
 import { RadialMenu } from "./radial-menu";
@@ -77,7 +75,7 @@ function CanvasContextMenu() {
   const actions = useInfiniteCanvasActions<WindowKind>();
   const store = useInfiniteCanvasStore<WindowKind>();
   const canvas = useLoaderData({ from: "/canvas/$canvasId" });
-  const projectId = useValue(openProject$) ?? "";
+  const projectId = canvas.projectId;
   const [press, setPress] = useState<Readonly<{
     groupId: string | null;
     windowId: string | null;

@@ -13,7 +13,8 @@ import {
   notes$,
   type NoteGateway,
 } from "./note-store";
-import { openProject$ } from "../projects/open-project";
+import { useLoaderData } from "@tanstack/react-router";
+
 import { getProjectContentOfKind, projectContent$ } from "../content/project-content";
 import { connectItems } from "../relations/relation-store";
 import { NoteEditor } from "./note-editor";
@@ -108,22 +109,18 @@ export function NoteWindowBody({
 }: Readonly<{ gateway: NoteGateway; noteId: string; windowId: string; windowTitle: string }>) {
   const actions = useInfiniteCanvasActions();
   /*
-   * Two reads, of two different facts, which used to be one read of one.
+   * The route, which is the only thing that knows.
    *
-   * `renderBody` hands a window and nothing else, so both are read rather than passed. The listing
-   * is what a mention can name; the project is which project this window is in. This took both from
-   * `projectNotes$` because that carries a `projectId` and it was there — but that id is the notes
-   * cache's *staleness guard*, and using it as an authority made the answer depend on the notes
-   * having loaded. `openProject$` is the fact itself, and it is set before any query runs.
+   * `renderBody` hands a window and nothing else, so this is read rather than passed — but a window
+   * body is inside the route's tree like any other component, so it reads the loader the way
+   * `SelectionRail` already does. It read `openProject$` before: a copy of this same fact, published
+   * from this same loader, which the rail and the palette never used. Three consumers of one guard
+   * and two authorities for its argument, which is one more than can ever agree.
    */
-  const projectId = useValue(openProject$);
+  const { projectId } = useLoaderData({ from: "/canvas/$canvasId" });
   // Notes only: a mention names a note. The listing holds every kind now.
   const mentionable =
-    getProjectContentOfKind({
-      kind: "note",
-      listing: useValue(projectContent$),
-      projectId: projectId ?? "",
-    }) ?? [];
+    getProjectContentOfKind({ kind: "note", listing: useValue(projectContent$), projectId }) ?? [];
   /*
    * The desktop root, not this window's.
    *
@@ -260,9 +257,7 @@ export function NoteWindowBody({
                * are where it is cut. A stated rule rather than an oversight.
                */
               onSelect: (mentionedId) => {
-                if (projectId !== null) {
-                  void connectItems({ projectId, source: noteId, target: mentionedId });
-                }
+                void connectItems({ projectId, source: noteId, target: mentionedId });
               },
               // Never itself: `relate_notes` refuses a self-edge, so offering one offers a no-op.
               options: mentionable.filter((candidate) => candidate.id !== noteId),

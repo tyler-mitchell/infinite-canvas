@@ -34,7 +34,6 @@ import { useLoaderData } from "@tanstack/react-router";
 import { getAppAction, isAppActionEnabled } from "../app-actions";
 import { undoableAction$, undoLastAction } from "../content/undoable-action";
 import { FLOATING_SURFACE } from "../material";
-import { openProject$ } from "../projects/open-project";
 import { useGoToCanvas } from "../workspace/use-go-to-canvas";
 import { useRefreshRoute } from "../workspace/use-refresh-route";
 import { OffscreenIndicators } from "../canvas/offscreen-indicators";
@@ -135,7 +134,7 @@ function SelectionRail() {
   // The route's own answer to which canvas this is. `openProject$` exists because no route names a
   // project; this one does, so there is nothing to publish.
   const canvas = useLoaderData({ from: "/canvas/$canvasId" });
-  const projectId = useValue(openProject$) ?? "";
+  const projectId = canvas.projectId;
   const selectedCount = useInfiniteCanvasSelector((state) => state.selection.windowIds.length);
   const styles = canvasHud();
   const run = (command: InfiniteCanvasCommand) => () => {
