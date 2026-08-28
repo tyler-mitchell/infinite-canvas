@@ -110,7 +110,7 @@ function LanguagePicker({ editor, nodeKey }: Readonly<{ editor: LexicalEditor; n
     <DropdownMenu>
       <DropdownMenuTrigger
         render={
-          <Button size="sm" variant="ghost">
+          <Button aria-label={`Code language: ${label}`} size="sm" variant="ghost">
             <span className={styles.label()}>{label}</span>
             <ChevronDown />
           </Button>
