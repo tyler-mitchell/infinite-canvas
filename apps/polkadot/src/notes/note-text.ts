@@ -128,61 +128,16 @@ const getNoteText = (serialized: string) => getNoteLines(serialized).join("\n");
 const getNoteOpeningLine = (serialized: string): string | null =>
   getNoteLines(serialized)[0] ?? null;
 
-/**
- * Prose back into the shape the editor stores, which is the inverse of everything above.
+/*
+ * `toSerializedNote` was here and is gone.
  *
- * The same argument this file already makes, run the other way: the serialized state is plain JSON
- * with a documented shape, so **writing** it needs a walk rather than an engine. Importing Lexical
- * to compose one paragraph would put the editor in the dependency graph of every caller that has a
- * sentence and no DOM — a tool call, a test, a future importer — and `note-editor.tsx` stays the one
- * file that names the engine.
+ * It composed the storage format by hand so a note could be *written* without an engine, and its one
+ * caller was `note.write`. That verb takes markdown now and goes through `note-markdown.ts`, which
+ * runs the real editor headlessly — a caller writing a note gets the editor's own parse rather than
+ * a second one that can drift. Nothing else ever wrote a state: a new note is created with `""`.
  *
- * One paragraph per line, which is what pressing return produces.
- *
- * **The fields are copied from a state the engine actually emitted**, not from memory of the format
- * — `note-text.test.ts` keeps such a state as a fixture and says why: writing one by hand is how a
- * parser passes its own tests and fails on the only input that matters. So `direction` is `null`
- * rather than `"ltr"` (Lexical computes direction from content and writes null until it has), and a
- * paragraph carries `textFormat` and `textStyle`. The first draft of this had guessed `"ltr"` and
- * omitted `textStyle`, which the fixture beside it immediately contradicted.
- *
- * Round-trips through `getNoteText` exactly for text whose lines are non-blank and untrimmed-clean.
- * Blank lines and leading whitespace do not survive, because the reader drops them by design — a
- * summary card and a search index both want prose rather than layout. Stated here because it is a
- * real limit of the pair rather than a bug in either half.
+ * The reading half is untouched and keeps its no-Lexical boundary, which is the half that runs per
+ * keystroke over the whole library. The builder lives in `note-text.test.ts` now, where it is a
+ * fixture rather than a second writer.
  */
-const toSerializedNote = (text: string): string =>
-  JSON.stringify({
-    root: {
-      children: text.split("\n").map((line) => ({
-        children:
-          line === ""
-            ? []
-            : [
-                {
-                  detail: 0,
-                  format: 0,
-                  mode: "normal",
-                  style: "",
-                  text: line,
-                  type: "text",
-                  version: 1,
-                },
-              ],
-        direction: null,
-        format: "",
-        indent: 0,
-        textFormat: 0,
-        textStyle: "",
-        type: "paragraph",
-        version: 1,
-      })),
-      direction: null,
-      format: "",
-      indent: 0,
-      type: "root",
-      version: 1,
-    },
-  });
-
-export { getNoteLines, getNoteOpeningLine, getNoteText, toSerializedNote };
+export { getNoteLines, getNoteOpeningLine, getNoteText };

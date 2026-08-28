@@ -1,6 +1,49 @@
 import { expect, test } from "vite-plus/test";
 
-import { getNoteLines, getNoteOpeningLine, getNoteText, toSerializedNote } from "./note-text";
+import { getNoteLines, getNoteOpeningLine, getNoteText } from "./note-text";
+
+/**
+ * The writer these tests read back, kept here because nothing ships it any more.
+ *
+ * It was production code until `note.write` moved to markdown; now its only job is to build states
+ * for the reader to walk. **The fields are copied from a state the engine actually emitted**, not
+ * from memory of the format — the fixture further down is that state, and it is what caught the
+ * first draft guessing `direction: "ltr"` (Lexical writes `null` until content gives it one) and
+ * omitting `textStyle`.
+ */
+const toSerializedNote = (text: string): string =>
+  JSON.stringify({
+    root: {
+      children: text.split("\n").map((line) => ({
+        children:
+          line === ""
+            ? []
+            : [
+                {
+                  detail: 0,
+                  format: 0,
+                  mode: "normal",
+                  style: "",
+                  text: line,
+                  type: "text",
+                  version: 1,
+                },
+              ],
+        direction: null,
+        format: "",
+        indent: 0,
+        textFormat: 0,
+        textStyle: "",
+        type: "paragraph",
+        version: 1,
+      })),
+      direction: null,
+      format: "",
+      indent: 0,
+      type: "root",
+      version: 1,
+    },
+  });
 
 /**
  * The pair, round-tripped — which is the only thing that makes writing without the engine safe.
