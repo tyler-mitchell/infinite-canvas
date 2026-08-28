@@ -503,7 +503,10 @@ const DEFAULT_INFINITE_CANVAS_COMMAND_DESCRIPTORS = [
   },
   {
     command: { type: "window.reveal", windowId: "" },
-    description: "Go to a window, switching desktops if it is on another one.",
+    // All four things `revealWindow` does. It named only the desktop switch, so a caller had no
+    // way to know a minimized window comes back or that the window ends up active.
+    description:
+      "Go to a window: switch desktops if it is on another one, restore it if minimized, make it active, and bring the camera to it.",
     hotkeys: [],
     id: "window.reveal",
     label: "Reveal Window",
@@ -521,7 +524,10 @@ const DEFAULT_INFINITE_CANVAS_COMMAND_DESCRIPTORS = [
   // re-invented by every consumer that builds a switcher.
   {
     command: { type: "workspace.moveActiveWindow", workspaceId: "" },
-    description: "Send the active window to another desktop, leaving the one it is on.",
+    // Both this and `removeActiveWindow` name the group rule, because a caller reads one
+    // description and not the pair.
+    description:
+      "Send the active window to another desktop, leaving the one it is on. A docked window takes its whole group with it.",
     hotkeys: [],
     id: "workspace.moveActiveWindow",
     label: "Move Window to Desktop",
@@ -529,7 +535,7 @@ const DEFAULT_INFINITE_CANVAS_COMMAND_DESCRIPTORS = [
   {
     command: { type: "workspace.removeActiveWindow" },
     description:
-      "Take the active window off this workspace. The window stays open; it is no longer on this desktop.",
+      "Take the active window off this workspace. The window stays open; it is no longer on this desktop. A docked window takes its whole group with it.",
     hotkeys: [],
     id: "workspace.removeActiveWindow",
     label: "Remove Window From Workspace",
