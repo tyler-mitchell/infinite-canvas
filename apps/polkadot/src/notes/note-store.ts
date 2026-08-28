@@ -1,6 +1,7 @@
 import { observable } from "@legendapp/state";
 import { AsyncQueuer, Debouncer } from "@tanstack/pacer";
 
+import { setProjectItemContent } from "../content/project-content";
 import type { NoteRecord } from "./note-gateway";
 
 /**
@@ -98,6 +99,18 @@ function editNote(noteId: string, draft: NoteDraft, gateway: NoteGateway) {
   }
 
   notes$[noteId].note.set({ ...current.note, ...draft, content: { text: draft.text } });
+  /*
+   * And into the listing, which is what the rail searches and what `note.read` resolves against.
+   *
+   * `setProjectItemContent`'s own docstring records this defect one layer up: `note.write` folded
+   * here so a caller checking its own work could see it. Typing did not, so a word visible on screen
+   * was unfindable until the listing was re-read — measured 2026-08-28, the database held
+   * `search_text` containing "zebrafish" while the rail answered "Nothing matches that".
+   *
+   * Here rather than at each caller because this is the single writer for note content; every path
+   * that reaches it — typing, `note.write`, a rename — keeps the listing current by arriving.
+   */
+  setProjectItemContent(noteId, { text: draft.text });
 
   let writer = writers.get(noteId);
 

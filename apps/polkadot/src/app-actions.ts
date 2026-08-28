@@ -20,7 +20,6 @@ import {
   getProjectContent,
   projectContent$,
   restoreProjectItem,
-  setProjectItemContent,
 } from "./content/project-content";
 import { openNewCollection } from "./collections/open-collection";
 import { RENAMEABLE_KINDS, renameProjectItem } from "./content/rename-item";
@@ -1663,10 +1662,9 @@ const APP_ACTIONS: readonly AppAction[] = [
        * It is honest anyway: the store and the listing below are both updated first, so the very
        * next `note.read` sees the new text. What a caller can observe is already true.
        */
+      // The listing fold happens inside `editNote`, which every write reaches — including typing,
+      // which used to skip it and left a word on screen unfindable by the rail's search.
       writeNote(toNote(item), stored, noteGateway);
-      // And into the listing `note.read` resolves against, the same fold a rename does. Without it
-      // a caller checking its own write reads the prose it just replaced.
-      setProjectItemContent(item.id, { text: stored });
 
       return undefined;
     },
