@@ -1,11 +1,13 @@
 import {
+  $create,
+  $getState,
+  $setState,
+  createState,
   TextNode,
   type EditorConfig,
   type LexicalNode,
-  type NodeKey,
-  type SerializedTextNode,
-  type Spread,
 } from "lexical";
+import { tv } from "ui/tv";
 
 /**
  * A note named inside another note's text.
@@ -21,41 +23,33 @@ import {
  *
  * `isTextEntity` is what makes it behave as one unit — Lexical stops merging neighbouring text into
  * it, so typing after a mention writes a new node instead of silently extending the name.
+ *
+ * **The id is `NodeState`, not a property.** Lexical's nodes doc says to prefer it on v0.26+, and
+ * `flat: true` keeps `noteId` at the top of the serialized node — byte-identical to the hand-written
+ * `exportJSON` this replaced, so stored notes round-trip untouched. `$config` installs `clone` and
+ * `importJSON`, and the base `exportJSON` carries the state, so four overrides and a constructor
+ * become one declaration. `RubyNode` in Lexical's playground is the same shape.
  */
 
-type SerializedMentionNode = Spread<{ noteId: string }, SerializedTextNode>;
+const mention = tv({
+  base: "cursor-pointer rounded-[4px] bg-[var(--accent-wash)] px-1 py-px text-[var(--accent)]",
+});
 
-const MENTION_TYPE = "mention";
+/** Default `""` so a node that never carried an id serializes without the key. */
+const noteIdState = createState("noteId", {
+  parse: (value) => (typeof value === "string" ? value : ""),
+});
 
 class MentionNode extends TextNode {
-  readonly __noteId: string;
-
-  constructor(noteId: string, text: string, key?: NodeKey) {
-    super(text, key);
-    this.__noteId = noteId;
+  $config() {
+    return this.config("mention", {
+      extends: TextNode,
+      stateConfigs: [{ flat: true, stateConfig: noteIdState }],
+    });
   }
 
-  static override getType(): string {
-    return MENTION_TYPE;
-  }
-
-  static override clone(node: MentionNode): MentionNode {
-    return new MentionNode(node.__noteId, node.__text, node.__key);
-  }
-
-  static override importJSON(serialized: SerializedMentionNode): MentionNode {
-    const node = new MentionNode(serialized.noteId, serialized.text);
-
-    node.setFormat(serialized.format);
-    node.setDetail(serialized.detail);
-    node.setMode(serialized.mode);
-    node.setStyle(serialized.style);
-
-    return node;
-  }
-
-  override exportJSON(): SerializedMentionNode {
-    return { ...super.exportJSON(), noteId: this.__noteId };
+  getNoteId(): string {
+    return $getState(this, noteIdState);
   }
 
   /**
@@ -66,9 +60,8 @@ class MentionNode extends TextNode {
   override createDOM(config: EditorConfig): HTMLElement {
     const dom = super.createDOM(config);
 
-    dom.className =
-      "cursor-pointer rounded-[4px] bg-[var(--accent-wash)] px-1 py-px text-[var(--accent)]";
-    dom.dataset.noteId = this.__noteId;
+    dom.className = mention();
+    dom.dataset.noteId = this.getNoteId();
 
     return dom;
   }
@@ -87,10 +80,9 @@ class MentionNode extends TextNode {
 }
 
 const $createMentionNode = (noteId: string, text: string) =>
-  new MentionNode(noteId, text).setMode("segmented");
+  $setState($create(MentionNode).setTextContent(text).setMode("segmented"), noteIdState, noteId);
 
 const $isMentionNode = (node: LexicalNode | null | undefined): node is MentionNode =>
   node instanceof MentionNode;
 
 export { $createMentionNode, $isMentionNode, MentionNode };
-export type { SerializedMentionNode };
