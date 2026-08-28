@@ -1464,6 +1464,24 @@ standards: a rect copied onto a selection target is stale the moment the object 
 `getInfiniteCanvasGroupTitle` already chose `null`-and-derive over a snapshot for exactly that
 reason. The answer is a lookup the framework can call, not a value it can hold.
 
+**Correction, after actually reading the resolver layer: the bounds row is not blocked on any of
+that.** A consumer already hands its geometry over declaratively.
+`createInfiniteCanvasEdgeTargetResolver` and `…SceneObjectTargetResolver` take a `targets` source
+whose entries carry their own geometry — a `rect`, or a `start` and `end` — and both real consumers
+in this repo supply it as `(context) => …context.state…`, reading nothing but state.
+`getSpatialTargetList` is two lines. So the framework can enumerate every registered target's
+geometry from state alone; the only thing stopping it is that the source's context type demands a
+pointer position no consumer uses.
+That makes the bounds row far cheaper than the paragraph above implies, and it is **still not being
+built**, for a different and better reason than "it is a sprint". The concrete need today is one
+command: select a connector, press fit-selection, nothing happens, because `getSelectedWindowBounds`
+reads window rects. Nobody has reported that. Adding an enumeration API so the minimap and the
+offscreen ring _could_ consume it later is speculative machinery, and the rule against that outranks
+the tidiness of closing a row. It gets built when a second consumer needs it, or when the
+fit-selection hole is worth its own small fix — not before.
+Existence and verb discovery are unaffected: neither is answerable from declared geometry, and both
+still want the surface described above.
+
 **On the discovery row, and why it is not a slice.** `InfiniteCanvasContextualCommand` is a
 `CommandDescriptor` plus `enabled` and `group`, and a descriptor is keyed on a `command` from the
 framework's own union — `group` is _derived_ from that command by
