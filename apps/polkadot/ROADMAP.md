@@ -96,6 +96,16 @@ strictly greater than 160 — a kind sitting exactly on it demotes and never ret
   screenshot. The warm ink change is hue-only, so contrast is provably unchanged, but no before-and-
   after comparison was obtainable in the dev pane. Both want an eye on a real display.
 
+- **No palette row has ever been driven.** Neither coordinate nor `ref` clicks fire cmdk's
+  `onSelect` through the browser tooling, and `Cmd+K` only opens the palette after a real click has
+  given the canvas focus — a programmatic `.focus()` on the command surface is not enough. Measured
+  rather than assumed: `Select All Windows` through the palette leaves `selection.windowIds` empty,
+  while `window.__canvas.commands.selectAllVisibleWindows()` selects both windows immediately. The
+  command is fine; the row never fires.
+  Everything the palette is credited with above was read out of the DOM — labels, descriptions,
+  enablement, `aria-disabled` — which is real but is not the same as running one. Until a driving
+  path exists, no claim that a palette row _works_ is evidence, including `connection.cut`.
+
 - **Two HUD surfaces shipped tuned by one look.** The offscreen chips are peripheral by design and
   deliberately quiet; nobody has watched anyone use them. And the minimap's close-and-reopen was
   never witnessed — the app remounted under another session's HMR reload mid-click. `docs/API.md`
