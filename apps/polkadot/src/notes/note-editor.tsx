@@ -12,7 +12,7 @@ import { OnChangePlugin } from "@lexical/react/LexicalOnChangePlugin";
 import { RichTextPlugin } from "@lexical/react/LexicalRichTextPlugin";
 import { HeadingNode, QuoteNode } from "@lexical/rich-text";
 import { CodeNode } from "@lexical/code";
-import type { EditorState, LexicalEditor } from "lexical";
+import type { EditorState, EditorThemeClasses, LexicalEditor } from "lexical";
 import { tv } from "ui/tv";
 
 import { MentionNode } from "./mention-node";
@@ -40,24 +40,57 @@ import { MentionPlugin, type Mentionable } from "./mention-plugin";
 
 const noteEditor = tv({
   slots: {
+    bold: "font-medium text-[var(--ink)]",
+    /**
+     * A recessed well, not the inline pill.
+     *
+     * Lexical renders both a code block and inline code as `<code>`, so a `[&_code]` rule hit both
+     * and a fenced block drew as a pill: measured `display: inline` with `padding: 2px 4px`.
+     */
+    codeBlock:
+      "my-2 block overflow-x-auto rounded-[6px] bg-[var(--ground)] p-3 font-mono text-[12px] leading-[1.6] break-words whitespace-pre-wrap text-[var(--ink)]",
     // `flex-1` rather than `h-full`: a flex item keeps `min-height: auto`, so it fills the column
     // when the note is short and grows past it when the note is long. A height locks out the
     // second case, which is how a note longer than its window became unreadable.
-    content:
-      "flex-1 text-[13.5px] leading-[1.7] text-[var(--ink-muted)] outline-none [&_a]:text-[var(--accent)] [&_a]:underline [&_a]:underline-offset-2 [&_blockquote]:my-2 [&_blockquote]:border-l-2 [&_blockquote]:border-[var(--accent)] [&_blockquote]:pl-3 [&_blockquote]:text-[var(--ink-faint)] [&_code]:rounded-[4px] [&_code]:bg-[var(--surface-hover)] [&_code]:px-1 [&_code]:py-0.5 [&_code]:font-mono [&_code]:text-[12px] [&_code]:text-[var(--ink)] [&_h1]:mt-0 [&_h1]:mb-2 [&_h1]:text-[17px] [&_h1]:font-medium [&_h1]:tracking-[-0.015em] [&_h1]:text-[var(--ink)] [&_h2]:mt-4 [&_h2]:mb-1.5 [&_h2]:text-[14px] [&_h2]:font-medium [&_h2]:text-[var(--ink)] [&_li]:my-0.5 [&_ol]:my-2 [&_ol]:list-decimal [&_ol]:pl-5 [&_p+p]:mt-3 [&_strong]:font-medium [&_strong]:text-[var(--ink)] [&_ul]:my-2 [&_ul]:list-disc [&_ul]:pl-5",
+    content: "flex-1 text-[13.5px] leading-[1.7] text-[var(--ink-muted)] outline-none",
+    h1: "mt-0 mb-2 text-[17px] font-medium tracking-[-0.015em] text-[var(--ink)]",
+    h2: "mt-4 mb-1.5 text-[14px] font-medium text-[var(--ink)]",
+    inlineCode:
+      "rounded-[4px] bg-[var(--surface-hover)] px-1 py-0.5 font-mono text-[12px] text-[var(--ink)]",
+    link: "text-[var(--accent)] underline underline-offset-2",
+    listItem: "my-0.5",
+    ol: "my-2 list-decimal pl-5",
+    /** Spacing belongs between paragraphs, so it is the sibling that gets it, not every one. */
+    paragraph: "[&+p]:mt-3",
     placeholder:
       "pointer-events-none absolute inset-0 text-[13.5px] leading-[1.7] text-[var(--ink-faint)] select-none",
+    quote: "my-2 border-l-2 border-[var(--accent)] pl-3 text-[var(--ink-faint)]",
     root: "relative flex flex-1 flex-col",
+    ul: "my-2 list-disc pl-5",
   },
 });
 
+const styles = noteEditor();
+
 /**
- * Theme classes Lexical stamps onto its own DOM.
+ * What Lexical stamps on each node it renders.
  *
- * Empty on purpose: the slot styles above target the rendered elements directly, so there is one
- * place that decides what a note looks like rather than two.
+ * This was `{}`, with the slot above styling rendered elements by tag. Tags cannot say what the
+ * editor says: `code` and `text.code` are separate keys because they are separate nodes, and one
+ * `[&_code]` rule collapsed them. Keying by node is the library's own mechanism — `@lexical/tailwind`
+ * is a theme of Tailwind strings shaped exactly this way.
+ *
+ * Values come from `tv` slots, so classes still have one home and this stays a mapping.
  */
-const EDITOR_THEME = {};
+const EDITOR_THEME: EditorThemeClasses = {
+  code: styles.codeBlock(),
+  heading: { h1: styles.h1(), h2: styles.h2() },
+  link: styles.link(),
+  list: { listitem: styles.listItem(), ol: styles.ol(), ul: styles.ul() },
+  paragraph: styles.paragraph(),
+  quote: styles.quote(),
+  text: { bold: styles.bold(), code: styles.inlineCode() },
+};
 
 const EDITOR_NODES = [
   HeadingNode,
@@ -89,8 +122,6 @@ export function NoteEditor({
   onChange: (value: string) => void;
   value: string;
 }>) {
-  const styles = noteEditor();
-
   return (
     <LexicalComposer
       initialConfig={{
