@@ -7,7 +7,11 @@ import { INFINITE_CANVAS_SLOTS } from "./data-attributes";
 import { getConstrainedZoom } from "./geometry";
 import { useInfiniteCanvasIcons } from "./icons";
 import { getSelectableWindowIds } from "./selection";
-import { useInfiniteCanvasActions, useInfiniteCanvasState } from "./store";
+import {
+  useInfiniteCanvasActions,
+  useInfiniteCanvasSelectionBounds,
+  useInfiniteCanvasState,
+} from "./store";
 import type {
   InfiniteCanvasHudPolicy,
   InfiniteCanvasHudPolicyInput,
@@ -368,7 +372,15 @@ function InfiniteCanvasCameraNavigationControls() {
    * `getSelectableWindowIds` rather than a fourth hand-rolled filter, so the two cannot drift again.
    */
   const visibleWindowExists = getSelectableWindowIds(state).length > 0;
-  const selectionExists = state.selection.windowIds.length > 0;
+  /*
+   * The same reasoning one paragraph up, for the other button.
+   *
+   * This asked `selection.windowIds.length`, so selecting a connector — which fills
+   * `selection.targets` and leaves `windowIds` empty — disabled the one control that would have
+   * framed it. `getSelectionBounds` is what `view.fitSelection` itself resolves, so the button and
+   * the command now answer from one place.
+   */
+  const selectionExists = useInfiniteCanvasSelectionBounds() !== null;
 
   return (
     <div

@@ -6,7 +6,7 @@ import {
   isInfiniteCanvasCommandEnabled,
   type InfiniteCanvasHotkeyBinding,
 } from "./commands";
-import type { InfiniteCanvasCommand, InfiniteCanvasState } from "./types";
+import type { InfiniteCanvasCommand, InfiniteCanvasRect, InfiniteCanvasState } from "./types";
 
 /**
  * A chord a consumer claims for a verb this canvas does not have.
@@ -47,6 +47,13 @@ type InfiniteCanvasHotkeyRegistrationInput<Kind extends string> = Readonly<{
   actions?: readonly InfiniteCanvasHotkeyAction<Kind>[];
   bindings?: readonly InfiniteCanvasHotkeyBinding[];
   executeCommand: (command: InfiniteCanvasCommand) => void;
+  /**
+   * Where the selection is, for the bindings whose availability depends on it.
+   *
+   * The store's own lookup, passed in so a chord and the command it runs answer alike. Omitted, the
+   * gate sees the windows only — which is what a canvas with no target resolvers has anyway.
+   */
+  getSelectionBounds?: (state: InfiniteCanvasState<Kind>) => InfiniteCanvasRect | null;
   getState: () => InfiniteCanvasState<Kind>;
   target: HTMLElement;
 }>;
@@ -112,16 +119,24 @@ function resolveInfiniteCanvasHotkeys<Kind extends string>({
   actions = [],
   bindings = getInfiniteCanvasHotkeyBindings(),
   executeCommand,
+  getSelectionBounds,
 }: Pick<
   InfiniteCanvasHotkeyRegistrationInput<Kind>,
-  "actions" | "bindings" | "executeCommand"
+  "actions" | "bindings" | "executeCommand" | "getSelectionBounds"
 >): readonly ResolvedHotkey<Kind>[] {
   return [
     ...bindings.map((binding) => ({
       description: binding.description,
       hotkey: binding.hotkey,
+      // Asked the same question the dispatch will ask, so a chord is never offered a fit the
+      // command would then decline.
       isEnabled: (state: InfiniteCanvasState<Kind>) =>
-        isInfiniteCanvasCommandEnabled(state, binding.command),
+        isInfiniteCanvasCommandEnabled(
+          state,
+          binding.command,
+          undefined,
+          getSelectionBounds?.(state),
+        ),
       label: binding.label,
       run: () => {
         executeCommand(binding.command);
@@ -143,46 +158,51 @@ function registerInfiniteCanvasHotkeys<Kind extends string>({
   actions,
   bindings,
   executeCommand,
+  getSelectionBounds,
   getState,
   target,
 }: InfiniteCanvasHotkeyRegistrationInput<Kind>) {
   const manager = getHotkeyManager();
-  const handles = resolveInfiniteCanvasHotkeys({ actions, bindings, executeCommand }).map(
-    (entry): HotkeyRegistrationHandle =>
-      manager.register(
-        entry.hotkey,
-        (event) => {
-          if (!shouldHandleInfiniteCanvasKeyboardEvent(event, target)) {
-            return;
-          }
+  const handles = resolveInfiniteCanvasHotkeys({
+    actions,
+    bindings,
+    executeCommand,
+    getSelectionBounds,
+  }).map((entry): HotkeyRegistrationHandle =>
+    manager.register(
+      entry.hotkey,
+      (event) => {
+        if (!shouldHandleInfiniteCanvasKeyboardEvent(event, target)) {
+          return;
+        }
 
-          // The chord belongs to the canvas the moment it lands on the command
-          // surface, so swallow it even when the command is unavailable. Letting
-          // an unavailable binding fall through to the browser is how
-          // `Alt+ArrowLeft` at the left edge of your windows navigates Back and
-          // takes the document with it — the failure arrives exactly when the
-          // user is pressing hardest against a boundary.
-          event.preventDefault();
-          event.stopPropagation();
+        // The chord belongs to the canvas the moment it lands on the command
+        // surface, so swallow it even when the command is unavailable. Letting
+        // an unavailable binding fall through to the browser is how
+        // `Alt+ArrowLeft` at the left edge of your windows navigates Back and
+        // takes the document with it — the failure arrives exactly when the
+        // user is pressing hardest against a boundary.
+        event.preventDefault();
+        event.stopPropagation();
 
-          const state = getState();
+        const state = getState();
 
-          if (entry.isEnabled(state)) {
-            entry.run(state);
-          }
+        if (entry.isEnabled(state)) {
+          entry.run(state);
+        }
+      },
+      {
+        conflictBehavior: "warn",
+        ignoreInputs: true,
+        meta: {
+          description: entry.description,
+          name: entry.label,
         },
-        {
-          conflictBehavior: "warn",
-          ignoreInputs: true,
-          meta: {
-            description: entry.description,
-            name: entry.label,
-          },
-          preventDefault: false,
-          stopPropagation: false,
-          target,
-        },
-      ),
+        preventDefault: false,
+        stopPropagation: false,
+        target,
+      },
+    ),
   );
 
   return () => {

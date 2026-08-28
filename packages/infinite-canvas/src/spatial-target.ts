@@ -1,5 +1,6 @@
 import { DEFAULT_INFINITE_CANVAS_CHROME } from "./constants";
-import { rectContainsPoint, screenPointToWorldPoint } from "./geometry";
+import { rectContainsPoint, screenPointToWorldPoint, unionRects } from "./geometry";
+import { getSelectedWindowBounds, getSelectionTargets } from "./selection";
 import { sortWindowsByStack } from "./stacking";
 import type {
   InfiniteCanvasChromeMetrics,
@@ -8,6 +9,7 @@ import type {
   InfiniteCanvasResolvedSpatialTarget,
   InfiniteCanvasResizeHandle,
   InfiniteCanvasSpatialTarget,
+  InfiniteCanvasSpatialTargetGeometryContext,
   InfiniteCanvasSpatialTargetResolver,
   InfiniteCanvasSpatialTargetResolverContext,
   InfiniteCanvasSpatialWindowArea,
@@ -23,9 +25,17 @@ type InfiniteCanvasSpatialTargetInput<Kind extends string = string> = Readonly<{
   viewportPoint: InfiniteCanvasPoint;
 }>;
 
+/**
+ * Takes the pointer-free context, so the same source answers a hit test and a geometry question.
+ *
+ * A resolver context satisfies this, so nothing changes at the hit-testing call sites. What it
+ * rules out is a source that reads `worldPoint` to decide *which* targets exist — that source could
+ * not be asked where a target is without inventing a pointer position, and a target list that
+ * depends on the cursor is not a list of things that are there.
+ */
 type InfiniteCanvasSpatialTargetSource<Target, Kind extends string = string> =
   | readonly Target[]
-  | ((context: InfiniteCanvasSpatialTargetResolverContext<Kind>) => readonly Target[]);
+  | ((context: InfiniteCanvasSpatialTargetGeometryContext<Kind>) => readonly Target[]);
 
 type InfiniteCanvasSpatialRectTarget = Readonly<{
   data?: unknown;
@@ -143,9 +153,36 @@ function getWindowResizeHandleAtPoint<Kind extends string>(
 
 function getSpatialTargetList<Target, Kind extends string>(
   targets: InfiniteCanvasSpatialTargetSource<Target, Kind>,
-  context: InfiniteCanvasSpatialTargetResolverContext<Kind>,
+  context: InfiniteCanvasSpatialTargetGeometryContext<Kind>,
 ) {
   return typeof targets === "function" ? targets(context) : targets;
+}
+
+/**
+ * Finds the target a selection names, by the same identity the selection compares on.
+ *
+ * `kind` is part of it because two resolvers may both own ids from their own namespace, and `type`
+ * because a resolver answers for one type only — an edge resolver asked about a scene object is
+ * being asked about somebody else's target.
+ */
+function findSpatialTargetById<Target extends Readonly<{ id: string; kind: string }>>(
+  targets: readonly Target[],
+  target: InfiniteCanvasSelectionTarget,
+  type: InfiniteCanvasSelectionTarget["type"],
+) {
+  return target.type !== type
+    ? undefined
+    : targets.find((candidate) => candidate.id === target.id && candidate.kind === target.kind);
+}
+
+/** A segment's bounding box. Flat for an axis-aligned edge, which `fitCameraToWorldRect` clamps. */
+function getSpatialEdgeTargetRect(target: InfiniteCanvasSpatialEdgeTarget): InfiniteCanvasRect {
+  return {
+    height: Math.abs(target.end.y - target.start.y),
+    width: Math.abs(target.end.x - target.start.x),
+    x: Math.min(target.start.x, target.end.x),
+    y: Math.min(target.start.y, target.end.y),
+  };
 }
 
 function createSpatialRectTargetResolver<Kind extends string>({
@@ -162,6 +199,21 @@ function createSpatialRectTargetResolver<Kind extends string>({
   usePoint: (context: InfiniteCanvasSpatialTargetResolverContext<Kind>) => InfiniteCanvasPoint;
 }>): InfiniteCanvasSpatialTargetResolver<Kind> {
   return {
+    /*
+     * An overlay measures in viewport pixels, so it cannot answer a world-space question and does
+     * not offer to. Its targets are unselectable anyway — `getInfiniteCanvasSelectableTargetFromSpatialTarget`
+     * returns null for them — so nothing can ask.
+     */
+    ...(type === "overlay"
+      ? {}
+      : {
+          getTargetRect: (
+            target: InfiniteCanvasSelectionTarget,
+            context: InfiniteCanvasSpatialTargetGeometryContext<Kind>,
+          ) =>
+            findSpatialTargetById(getSpatialTargetList(targets, context), target, type)?.rect ??
+            null,
+        }),
     id,
     phase: defaultPhase,
     resolve: (context) => {
@@ -280,6 +332,11 @@ function createInfiniteCanvasEdgeTargetResolver<Kind extends string = string>({
   Kind
 >): InfiniteCanvasSpatialTargetResolver<Kind> {
   return {
+    getTargetRect: (target, context) => {
+      const found = findSpatialTargetById(getSpatialTargetList(targets, context), target, "edge");
+
+      return found === undefined ? null : getSpatialEdgeTargetRect(found);
+    },
     id,
     phase,
     resolve: (context) => {
@@ -415,6 +472,56 @@ function resolveInfiniteCanvasSpatialTarget<Kind extends string>({
   };
 }
 
+type InfiniteCanvasSelectionBoundsInput<Kind extends string = string> = Readonly<{
+  chrome?: InfiniteCanvasChromeMetrics;
+  resolvers?: readonly InfiniteCanvasSpatialTargetResolver<Kind>[];
+  state: InfiniteCanvasState<Kind>;
+}>;
+
+/**
+ * Where the selected non-window targets are, asked of the resolvers that own them.
+ *
+ * A target nothing answers for contributes nothing, rather than counting as the origin. That covers
+ * both a resolver the consumer has unmounted and a target whose object is gone — the second being
+ * why this is a lookup and not a rect stored on the selection, which would be stale the moment the
+ * object moved.
+ */
+function getInfiniteCanvasSelectionTargetBounds<Kind extends string>({
+  chrome = DEFAULT_INFINITE_CANVAS_CHROME,
+  resolvers = [],
+  state,
+}: InfiniteCanvasSelectionBoundsInput<Kind>): InfiniteCanvasRect | null {
+  const context = { chrome, state } satisfies InfiniteCanvasSpatialTargetGeometryContext<Kind>;
+
+  return unionRects(
+    getSelectionTargets(state.selection).flatMap((target) => {
+      const rect = resolvers.reduce<InfiniteCanvasRect | null>(
+        (found, resolver) => found ?? resolver.getTargetRect?.(target, context) ?? null,
+        null,
+      );
+
+      return rect === null ? [] : [rect];
+    }),
+  );
+}
+
+/**
+ * Everything the selection covers: the windows, and the targets the resolvers can place.
+ *
+ * This is what "fit the selection" means once a selection can hold things that are not windows.
+ * With no resolvers it is exactly `getSelectedWindowBounds`, so a consumer that registers none is
+ * unaffected.
+ */
+function getInfiniteCanvasSelectionBounds<Kind extends string>(
+  input: InfiniteCanvasSelectionBoundsInput<Kind>,
+): InfiniteCanvasRect | null {
+  return unionRects(
+    [getSelectedWindowBounds(input.state), getInfiniteCanvasSelectionTargetBounds(input)].flatMap(
+      (rect) => (rect === null ? [] : [rect]),
+    ),
+  );
+}
+
 function getInfiniteCanvasSelectableTargetFromSpatialTarget<Kind extends string>(
   target: InfiniteCanvasSpatialTarget<Kind>,
 ): InfiniteCanvasSelectionTarget | null {
@@ -439,10 +546,13 @@ export {
   createInfiniteCanvasOverlayTargetResolver,
   createInfiniteCanvasSceneObjectTargetResolver,
   getInfiniteCanvasSelectableTargetFromSpatialTarget,
+  getInfiniteCanvasSelectionBounds,
+  getInfiniteCanvasSelectionTargetBounds,
   resolveInfiniteCanvasSpatialTarget,
 };
 
 export type {
+  InfiniteCanvasSelectionBoundsInput,
   InfiniteCanvasSpatialEdgeTarget,
   InfiniteCanvasSpatialRectTarget,
   InfiniteCanvasSpatialTargetInput,

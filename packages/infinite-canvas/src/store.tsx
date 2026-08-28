@@ -12,6 +12,7 @@ import {
   stringifyInfiniteCanvasState,
 } from "./persistence";
 import { reduceInfiniteCanvasState } from "./reducer";
+import { getInfiniteCanvasSelectionBounds } from "./spatial-target";
 import { cloneInfiniteCanvasState } from "./state";
 import type {
   InfiniteCanvasAction,
@@ -21,8 +22,10 @@ import type {
   InfiniteCanvasCommand,
   InfiniteCanvasCommands,
   InfiniteCanvasInteraction,
+  InfiniteCanvasRect,
   InfiniteCanvasSelection,
   InfiniteCanvasSnapPolicy,
+  InfiniteCanvasSpatialTargetResolver,
   InfiniteCanvasState,
   InfiniteCanvasViewport,
   InfiniteCanvasWindow,
@@ -32,11 +35,37 @@ import type {
 type InfiniteCanvasStore<Kind extends string = string> = Readonly<{
   commands: InfiniteCanvasCommands<Kind>;
   dispatch: (action: InfiniteCanvasAction<Kind>) => void;
+  /**
+   * Where the selection is: the windows, and whatever the resolvers can place.
+   *
+   * Exposed rather than kept private because enablement is asked in three places the store does not
+   * run — the HUD's fit button, the hotkey gate, and a consumer's own palette — and all three must
+   * answer the same as the dispatch that follows them.
+   */
+  getSelectionBounds: (state: InfiniteCanvasState<Kind>) => InfiniteCanvasRect | null;
   initialState: InfiniteCanvasState<Kind>;
+  /**
+   * The viewport tells the store what can be selected, because that is where the resolvers are.
+   *
+   * The store is built above the viewport and every command that frames a selection is dispatched
+   * through it, so the geometry has to travel upward. Registering keeps one source: a resolver added
+   * to the viewport is the same resolver the fit uses, with no second place to update and no way for
+   * the two to disagree. Ignored when the store was built with its own `getSelectionBounds`.
+   */
+  setSpatialTargetResolvers: (
+    resolvers: readonly InfiniteCanvasSpatialTargetResolver<Kind>[],
+  ) => void;
   state$: Observable<InfiniteCanvasState<Kind>>;
 }>;
 
 type InfiniteCanvasStoreOptions<Kind extends string> = Readonly<{
+  /**
+   * Where the selection is when it holds more than windows.
+   *
+   * Every command that frames the selection asks this. Without it the canvas frames the windows,
+   * which is all `state` can describe — an edge's geometry belongs to whoever draws it.
+   */
+  getSelectionBounds?: (state: InfiniteCanvasState<Kind>) => InfiniteCanvasRect | null;
   onReset?: (state: InfiniteCanvasState<Kind>) => void;
   snapPolicy?: InfiniteCanvasSnapPolicy;
   zoomPolicy?: InfiniteCanvasZoomPolicyInput;
@@ -106,10 +135,23 @@ function createInfiniteCanvasStore<Kind extends string>(
 ): InfiniteCanvasStore<Kind> {
   const baselineState = cloneInfiniteCanvasState(initialState);
   const zoomPolicy = resolveInfiniteCanvasZoomPolicy(options.zoomPolicy);
+  const registeredResolvers = {
+    current: [] as readonly InfiniteCanvasSpatialTargetResolver<Kind>[],
+  };
+  /*
+   * A store built with its own lookup keeps it — a parent that constructed the store may know
+   * something the viewport does not. Otherwise the answer comes from whatever the viewport
+   * registered, which with no resolvers is exactly the window bounds.
+   */
+  const getSelectionBounds =
+    options.getSelectionBounds ??
+    ((state: InfiniteCanvasState<Kind>) =>
+      getInfiniteCanvasSelectionBounds({ resolvers: registeredResolvers.current, state }));
   const state$ = observable<InfiniteCanvasState<Kind>>(cloneInfiniteCanvasState(baselineState));
   const dispatch = (action: InfiniteCanvasAction<Kind>) => {
     const currentState = state$.peek() as InfiniteCanvasState<Kind>;
     const nextState = reduceInfiniteCanvasState(currentState, action, {
+      getSelectionBounds,
       zoomPolicy,
     });
 
@@ -491,7 +533,11 @@ function createInfiniteCanvasStore<Kind extends string>(
   return {
     commands,
     dispatch,
+    getSelectionBounds,
     initialState: baselineState,
+    setSpatialTargetResolvers: (resolvers) => {
+      registeredResolvers.current = resolvers;
+    },
     state$,
   };
 }
@@ -634,6 +680,19 @@ function useInfiniteCanvasStore<Kind extends string = string>() {
   return store as unknown as InfiniteCanvasStore<Kind>;
 }
 
+/**
+ * Where the selection is, windows and consumer targets together.
+ *
+ * The question every surface that frames or measures a selection should ask, so a control's enabled
+ * state and the command behind it cannot disagree — which is what `selection.windowIds.length` got
+ * wrong for a selected connector.
+ */
+function useInfiniteCanvasSelectionBounds<Kind extends string = string>() {
+  const store = useInfiniteCanvasStore<Kind>();
+
+  return store.getSelectionBounds(useInfiniteCanvasState<Kind>());
+}
+
 function useInfiniteCanvasState$<Kind extends string = string>() {
   return useInfiniteCanvasStore<Kind>().state$;
 }
@@ -659,6 +718,7 @@ export {
   commitInfiniteCanvasState,
   createInfiniteCanvasStore,
   useInfiniteCanvasActions,
+  useInfiniteCanvasSelectionBounds,
   useInfiniteCanvasSelector,
   useInfiniteCanvasState,
   useInfiniteCanvasState$,

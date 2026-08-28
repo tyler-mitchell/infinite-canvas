@@ -95,6 +95,7 @@ import type {
   InfiniteCanvasContextualCommand,
   InfiniteCanvasDirection,
   InfiniteCanvasHotkeyBinding,
+  InfiniteCanvasRect,
   InfiniteCanvasState,
   InfiniteCanvasWindowCapability,
   InfiniteCanvasWindowMode,
@@ -1428,6 +1429,7 @@ function isInfiniteCanvasCommandEnabled<Kind extends string>(
   state: InfiniteCanvasState<Kind>,
   command: InfiniteCanvasCommand,
   zoomPolicy: InfiniteCanvasZoomPolicy = DEFAULT_INFINITE_CANVAS_ZOOM,
+  selectionBounds?: InfiniteCanvasRect | null,
 ) {
   switch (command.type) {
     case "desktop.cancel":
@@ -1446,10 +1448,10 @@ function isInfiniteCanvasCommandEnabled<Kind extends string>(
       return (
         state.viewport.width > 0 &&
         state.viewport.height > 0 &&
-        getSelectedWindowBounds(state) !== null
+        (selectionBounds ?? getSelectedWindowBounds(state)) !== null
       );
     case "view.navigate":
-      return isCameraNavigationAvailable(state, command.request);
+      return isCameraNavigationAvailable(state, command.request, selectionBounds);
     case "view.resetZoom":
       return state.viewport.width > 0 && state.viewport.height > 0;
     case "history.redo":
@@ -1776,10 +1778,11 @@ function getInfiniteCanvasContextualCommands<Kind extends string>(
   state: InfiniteCanvasState<Kind>,
   commandDescriptors: readonly InfiniteCanvasCommandDescriptor[] = DEFAULT_INFINITE_CANVAS_COMMAND_DESCRIPTORS,
   zoomPolicy: InfiniteCanvasZoomPolicy = DEFAULT_INFINITE_CANVAS_ZOOM,
+  selectionBounds?: InfiniteCanvasRect | null,
 ): readonly InfiniteCanvasContextualCommand[] {
   return commandDescriptors.map((descriptor) => ({
     ...descriptor,
-    enabled: isInfiniteCanvasCommandEnabled(state, descriptor.command, zoomPolicy),
+    enabled: isInfiniteCanvasCommandEnabled(state, descriptor.command, zoomPolicy, selectionBounds),
     group: getInfiniteCanvasCommandGroup(descriptor.command),
   }));
 }
@@ -1788,16 +1791,21 @@ function getAvailableInfiniteCanvasContextualCommands<Kind extends string>(
   state: InfiniteCanvasState<Kind>,
   commandDescriptors: readonly InfiniteCanvasCommandDescriptor[] = DEFAULT_INFINITE_CANVAS_COMMAND_DESCRIPTORS,
   zoomPolicy: InfiniteCanvasZoomPolicy = DEFAULT_INFINITE_CANVAS_ZOOM,
+  selectionBounds?: InfiniteCanvasRect | null,
 ) {
-  return getInfiniteCanvasContextualCommands(state, commandDescriptors, zoomPolicy).filter(
-    (command) => command.enabled,
-  );
+  return getInfiniteCanvasContextualCommands(
+    state,
+    commandDescriptors,
+    zoomPolicy,
+    selectionBounds,
+  ).filter((command) => command.enabled);
 }
 
 function executeInfiniteCanvasCommand<Kind extends string>(
   state: InfiniteCanvasState<Kind>,
   command: InfiniteCanvasCommand,
   zoomPolicy: InfiniteCanvasZoomPolicy = DEFAULT_INFINITE_CANVAS_ZOOM,
+  selectionBounds?: InfiniteCanvasRect | null,
 ): InfiniteCanvasState<Kind> {
   switch (command.type) {
     // Folded into one document so the whole selection is one undo entry. A loop at the call site
@@ -1868,9 +1876,10 @@ function executeInfiniteCanvasCommand<Kind extends string>(
           },
         },
         zoomPolicy,
+        selectionBounds,
       );
     case "view.navigate":
-      return navigateCamera(state, command.request, zoomPolicy);
+      return navigateCamera(state, command.request, zoomPolicy, selectionBounds);
     case "view.resetZoom":
       return {
         ...state,

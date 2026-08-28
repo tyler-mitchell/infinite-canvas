@@ -77,10 +77,24 @@ import {
   toggleWindowPinned,
 } from "./stacking";
 import { resetInfiniteCanvasState } from "./state";
-import type { InfiniteCanvasAction, InfiniteCanvasState, InfiniteCanvasZoomPolicy } from "./types";
+import type {
+  InfiniteCanvasAction,
+  InfiniteCanvasRect,
+  InfiniteCanvasState,
+  InfiniteCanvasZoomPolicy,
+} from "./types";
 import { isInfiniteCanvasWindowCapable } from "./window-capabilities";
 
-type InfiniteCanvasReducerOptions = Readonly<{
+type InfiniteCanvasReducerOptions<Kind extends string = string> = Readonly<{
+  /**
+   * Where the whole selection is, including the parts that are not windows.
+   *
+   * A lookup rather than a rect, for the reason a rect on the selection would be wrong: it goes
+   * stale the moment the object moves. Only the consumer knows where its edges and scene objects
+   * are, so the store builds this from the spatial target resolvers it was handed. Absent, the
+   * canvas frames the windows, which is all `state` can describe on its own.
+   */
+  getSelectionBounds?: (state: InfiniteCanvasState<Kind>) => InfiniteCanvasRect | null;
   zoomPolicy?: InfiniteCanvasZoomPolicy;
 }>;
 
@@ -96,7 +110,7 @@ type InfiniteCanvasReducerOptions = Readonly<{
 function reduceInfiniteCanvasState<Kind extends string>(
   state: InfiniteCanvasState<Kind>,
   action: InfiniteCanvasAction<Kind>,
-  options: InfiniteCanvasReducerOptions = {},
+  options: InfiniteCanvasReducerOptions<Kind> = {},
 ): InfiniteCanvasState<Kind> {
   const applied = applyInfiniteCanvasAction(state, action, options);
   // Workspace membership is group-complete, and a dozen actions move a window between trees
@@ -126,11 +140,16 @@ function reduceInfiniteCanvasState<Kind extends string>(
 function applyInfiniteCanvasAction<Kind extends string>(
   state: InfiniteCanvasState<Kind>,
   action: InfiniteCanvasAction<Kind>,
-  options: InfiniteCanvasReducerOptions = {},
+  options: InfiniteCanvasReducerOptions<Kind> = {},
 ): InfiniteCanvasState<Kind> {
   switch (action.type) {
     case "camera.navigate":
-      return navigateCamera(state, action.request, options.zoomPolicy);
+      return navigateCamera(
+        state,
+        action.request,
+        options.zoomPolicy,
+        options.getSelectionBounds?.(state),
+      );
     case "camera.panBy":
       return {
         ...state,
@@ -148,7 +167,12 @@ function applyInfiniteCanvasAction<Kind extends string>(
         ),
       };
     case "command.execute":
-      return executeInfiniteCanvasCommand(state, action.command, options.zoomPolicy);
+      return executeInfiniteCanvasCommand(
+        state,
+        action.command,
+        options.zoomPolicy,
+        options.getSelectionBounds?.(state),
+      );
     /**
      * Hydration replaces the document but never the measurement.
      *

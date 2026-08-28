@@ -1,6 +1,6 @@
 # API Reference
 
-The public surface of `@hyphened/infinite-canvas`: 229 values and 188 types across
+The public surface of `@hyphened/infinite-canvas`: 232 values and 190 types across
 two entries. Anything not exported from a barrel is internal and unstable —
 including every `data-infinite-canvas-*` attribute, which is a behavioural hook
 for hit-testing, not a styling contract.
@@ -250,6 +250,10 @@ by the ordinary debounce rather than flushed immediately. Pass `onReset` to
 - `InfiniteCanvasProvider`
 - `createInfiniteCanvasStore`
 - `useInfiniteCanvasActions`
+- `useInfiniteCanvasSelectionBounds` — where the selection is, windows and
+  consumer targets together. Ask this rather than `selection.windowIds.length`
+  wherever a control frames or measures a selection, so the control and the
+  command behind it cannot disagree.
 - `useInfiniteCanvasSelector`
 - `useInfiniteCanvasState`
 - `useInfiniteCanvasState$`
@@ -850,10 +854,18 @@ objects, and edges.
 - `createInfiniteCanvasOverlayTargetResolver`
 - `createInfiniteCanvasSceneObjectTargetResolver`
 - `getInfiniteCanvasSelectableTargetFromSpatialTarget`
+- `getInfiniteCanvasSelectionBounds` — everything the selection covers: the
+  windows, plus the edges and scene objects the resolvers can place. This is what
+  "fit the selection" means once a selection can hold things that are not
+  windows. With no resolvers it equals `getSelectedWindowBounds`.
+- `getInfiniteCanvasSelectionTargetBounds` — the non-window half alone. A target
+  no resolver answers for contributes nothing, which covers both an unmounted
+  resolver and an object that has been removed.
 - `resolveInfiniteCanvasSpatialTarget`
 
-<details><summary>types (5)</summary>
+<details><summary>types (6)</summary>
 
+- `InfiniteCanvasSelectionBoundsInput`
 - `InfiniteCanvasSpatialEdgeTarget`
 - `InfiniteCanvasSpatialRectTarget`
 - `InfiniteCanvasSpatialTargetInput`
@@ -1259,6 +1271,7 @@ name.
 - `InfiniteCanvasSnapPolicy`
 - `InfiniteCanvasSnapPreview`
 - `InfiniteCanvasSpatialTarget`
+- `InfiniteCanvasSpatialTargetGeometryContext`
 - `InfiniteCanvasSpatialTargetResolver`
 - `InfiniteCanvasSpatialTargetResolverContext`
 - `InfiniteCanvasSpatialTargetResolverPhase`

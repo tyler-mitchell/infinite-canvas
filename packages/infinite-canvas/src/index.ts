@@ -98,6 +98,7 @@ export {
   InfiniteCanvasProvider,
   createInfiniteCanvasStore,
   useInfiniteCanvasActions,
+  useInfiniteCanvasSelectionBounds,
   useInfiniteCanvasSelector,
   useInfiniteCanvasState,
   useInfiniteCanvasState$,
@@ -334,8 +335,11 @@ export {
   createInfiniteCanvasOverlayTargetResolver,
   createInfiniteCanvasSceneObjectTargetResolver,
   getInfiniteCanvasSelectableTargetFromSpatialTarget,
+  getInfiniteCanvasSelectionBounds,
+  getInfiniteCanvasSelectionTargetBounds,
   resolveInfiniteCanvasSpatialTarget,
 } from "./spatial-target";
+export type { InfiniteCanvasSelectionBoundsInput } from "./spatial-target";
 export {
   DEFAULT_INFINITE_CANVAS_RASTERIZATION,
   resolveInfiniteCanvasRasterizationPolicy,
@@ -464,6 +468,7 @@ export type {
   InfiniteCanvasSelectionTargetType,
   InfiniteCanvasSize,
   InfiniteCanvasSpatialTarget,
+  InfiniteCanvasSpatialTargetGeometryContext,
   InfiniteCanvasSpatialTargetResolver,
   InfiniteCanvasSpatialTargetResolverContext,
   InfiniteCanvasSpatialTargetResolverPhase,

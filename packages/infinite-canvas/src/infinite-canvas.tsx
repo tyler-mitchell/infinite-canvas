@@ -602,6 +602,15 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
   const store = useInfiniteCanvasStore<Kind>();
   const actions = useInfiniteCanvasActions<Kind>();
   const state = useInfiniteCanvasState<Kind>();
+
+  /*
+   * Told to the store during render rather than in an effect.
+   *
+   * The HUD is a child of this component and asks for the selection bounds while it renders, so an
+   * effect would leave the first paint answering from an empty list — the fit button disabled on a
+   * selection that does have a place. Assigning a ref during render is safe; nothing subscribes.
+   */
+  store.setSpatialTargetResolvers(spatialTargetResolvers);
   const interaction = useInfiniteCanvasSelector<Kind, InfiniteCanvasInteraction>(
     (state) => state.interaction,
   );
@@ -1010,6 +1019,7 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
       : registerInfiniteCanvasHotkeys({
           actions: hotkeyActions,
           executeCommand: actions.executeCommand,
+          getSelectionBounds: store.getSelectionBounds,
           getState: () => store.state$.peek() as InfiniteCanvasState<Kind>,
           bindings: hotkeyBindings,
           target: node,

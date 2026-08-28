@@ -628,16 +628,43 @@ type InfiniteCanvasResolvedSpatialTarget<Kind extends string = string> = Exclude
   { type: "empty-world" }
 >;
 
-type InfiniteCanvasSpatialTargetResolverContext<Kind extends string = string> = Readonly<{
+/**
+ * What a resolver knows without a pointer.
+ *
+ * Hit-testing needs a position; asking where a target *is* does not. Splitting the two is what lets
+ * the canvas ask a consumer for a selected target's geometry outside a pointer event — the answer
+ * to "fit the selection" when the selection is not a window.
+ */
+type InfiniteCanvasSpatialTargetGeometryContext<Kind extends string = string> = Readonly<{
   chrome: InfiniteCanvasChromeMetrics;
   state: InfiniteCanvasState<Kind>;
-  viewportPoint: InfiniteCanvasPoint;
-  worldPoint: InfiniteCanvasPoint;
 }>;
+
+type InfiniteCanvasSpatialTargetResolverContext<Kind extends string = string> =
+  InfiniteCanvasSpatialTargetGeometryContext<Kind> &
+    Readonly<{
+      viewportPoint: InfiniteCanvasPoint;
+      worldPoint: InfiniteCanvasPoint;
+    }>;
 
 type InfiniteCanvasSpatialTargetResolverPhase = "after-windows" | "before-windows";
 
 type InfiniteCanvasSpatialTargetResolver<Kind extends string = string> = Readonly<{
+  /**
+   * Where one of this resolver's targets sits in the world, or `null` if it does not own that
+   * target — including a target that has since stopped existing.
+   *
+   * Optional because a resolver that only hit-tests is still a valid resolver. The three factories
+   * fill it in from the geometry their target source already carries, so a consumer using them gets
+   * this for free; a hand-written resolver opts in by answering.
+   *
+   * World units. An overlay resolver measures in viewport pixels and must not answer, which is why
+   * only the edge and scene-object factories do.
+   */
+  getTargetRect?: (
+    target: InfiniteCanvasSelectionTarget,
+    context: InfiniteCanvasSpatialTargetGeometryContext<Kind>,
+  ) => InfiniteCanvasRect | null;
   id: string;
   phase?: InfiniteCanvasSpatialTargetResolverPhase;
   resolve: (
@@ -1764,6 +1791,7 @@ export type {
   InfiniteCanvasSelectionTargetType,
   InfiniteCanvasSize,
   InfiniteCanvasSpatialTarget,
+  InfiniteCanvasSpatialTargetGeometryContext,
   InfiniteCanvasSpatialTargetResolver,
   InfiniteCanvasSpatialTargetResolverContext,
   InfiniteCanvasSpatialTargetResolverPhase,

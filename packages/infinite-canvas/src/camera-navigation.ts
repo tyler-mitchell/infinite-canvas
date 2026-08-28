@@ -40,9 +40,17 @@ function getNavigableWindow<Kind extends string>(
   );
 }
 
+/**
+ * `selectionBounds` is what the windows alone cannot say.
+ *
+ * A selection can hold edges and scene objects, whose geometry lives with the consumer rather than
+ * in `state`. A caller that has asked the resolvers passes the answer in; one that has not gets the
+ * window bounds, which is what this could always compute on its own.
+ */
 function getCameraNavigationTargetRect<Kind extends string>(
   state: InfiniteCanvasState<Kind>,
   target: InfiniteCanvasCameraNavigationTarget,
+  selectionBounds?: InfiniteCanvasRect | null,
 ): InfiniteCanvasRect | null {
   switch (target.type) {
     case "point":
@@ -55,7 +63,7 @@ function getCameraNavigationTargetRect<Kind extends string>(
     case "rect":
       return target.rect;
     case "selection":
-      return getSelectedWindowBounds(state);
+      return selectionBounds ?? getSelectedWindowBounds(state);
     case "visibleWindows":
       return getVisibleWindowBounds(state);
     case "window":
@@ -126,8 +134,9 @@ function getCameraNavigationFrame(
 function isCameraNavigationAvailable<Kind extends string>(
   state: InfiniteCanvasState<Kind>,
   request: InfiniteCanvasCameraNavigationRequest,
+  selectionBounds?: InfiniteCanvasRect | null,
 ) {
-  const rect = getCameraNavigationTargetRect(state, request.target);
+  const rect = getCameraNavigationTargetRect(state, request.target, selectionBounds);
   const behavior = request.behavior ?? DEFAULT_INFINITE_CANVAS_CAMERA_NAVIGATION_BEHAVIOR;
 
   return rect !== null && (behavior.type !== "fit" || isUsableViewport(state.viewport));
@@ -137,8 +146,9 @@ function navigateCamera<Kind extends string>(
   state: InfiniteCanvasState<Kind>,
   request: InfiniteCanvasCameraNavigationRequest,
   zoomPolicy: InfiniteCanvasZoomPolicy = DEFAULT_INFINITE_CANVAS_ZOOM,
+  selectionBounds?: InfiniteCanvasRect | null,
 ): InfiniteCanvasState<Kind> {
-  const rect = getCameraNavigationTargetRect(state, request.target);
+  const rect = getCameraNavigationTargetRect(state, request.target, selectionBounds);
   const camera =
     rect === null
       ? null

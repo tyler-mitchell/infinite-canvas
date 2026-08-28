@@ -293,11 +293,10 @@ var(--surface)` — the same material as its frame and its idle header, uniform 
 The list is the incubator's output. Landed rows live in `docs/API.md` and the changelog; these are
 the open ones.
 
-| Gap                                                                                                    | Generic affordance                                              |
-| ------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------- |
-| A selected scene object carries identity and no geometry, so nothing spatial downstream can act on one | a bounds provider keyed by selection target, answered on demand |
-| The camera frames a target once and cannot follow a moving one                                         | a sustained follow with a release rule                          |
-| A selected scene object that no longer exists is never pruned, and `selection` is a durable field      | the same consumer-knowledge surface the rows above want         |
+| Gap                                                                                               | Generic affordance                                      |
+| ------------------------------------------------------------------------------------------------- | ------------------------------------------------------- |
+| The camera frames a target once and cannot follow a moving one                                    | a sustained follow with a release rule                  |
+| A selected scene object that no longer exists is never pruned, and `selection` is a durable field | a prune that runs on the surface `getTargetRect` opened |
 
 **Announcements landed.** The canvas held one `aria-live` region, inside the HUD, which returns
 `null` when a consumer turns off its controls, dock, and status card — so whether the canvas could
@@ -306,6 +305,13 @@ speak depended on visual policy. It also carried one hardcoded message with no w
 a second region. Polkadot's undo notice announces both halves through it, driven end to end: the
 offer, then `Undone.` when it is taken. No screen reader has been run against it; what is verified
 is the DOM contract.
+
+**Pruning is now a decision rather than a missing surface.** `getTargetRect` answers `null` for a
+target no resolver owns, which is exactly what a removed object looks like, so the framework can
+tell. Whether it should _edit the selection_ on that basis is the open half: a resolver that has not
+mounted yet is indistinguishable from an object that is gone, and pruning on the first frame would
+silently drop a live selection. Deriving on read — which is what every Polkadot reader already
+does — stays correct meanwhile.
 
 **Both remaining rows are one architectural fact.** The framework's pure surface takes `state`, and
 `state` is serializable. Consumer knowledge is not — an object's bounds and whether it still exists
@@ -322,14 +328,23 @@ Callers branch on nothing. `published-commands.ts` is now the filter it was alwa
 What it did **not** do is shrink `app-actions.ts`, which is still ~1400 lines: the argument schema
 and the refusal string are this app's own, and no framework affordance is asking for them.
 
-**Bounds is cheaper than it looks and is still not being built.**
+**Bounds landed, and it was as cheap as this row said.** The diagnosis held exactly:
 `createInfiniteCanvasEdgeTargetResolver` and `…SceneObjectTargetResolver` take a `targets` source
-whose entries carry their own geometry, and both real consumers supply it reading nothing but state —
-so the framework can already enumerate every registered target's geometry. The only blocker is that
-the source's context type demands a pointer position no consumer uses. The concrete need is one
-command: select a connector, press fit-selection, nothing happens. Nobody has reported it. Building
-an enumeration API so the minimap and the offscreen ring could consume it later is speculative
-machinery. It gets built when a second consumer needs it.
+whose entries already carry their geometry, and the only blocker was that the source's context type
+demanded a pointer position no consumer uses. Splitting that context —
+`InfiniteCanvasSpatialTargetGeometryContext` is `{ chrome, state }`, and the resolver context extends
+it — let a resolver be asked where a target is outside a pointer event.
+
+Each factory now fills in `getTargetRect` from the source it already has, so a consumer using them
+gets this without writing anything. The overlay factory deliberately does not: it measures in
+viewport pixels, and its targets are unselectable anyway. `getInfiniteCanvasSelectionBounds` unions
+the selected windows with the targets the resolvers can place, and the store answers it — the
+viewport registers its resolvers upward rather than the consumer passing the same array to two
+props, so the one source cannot go out of sync.
+
+Nothing was built for the minimap or the offscreen ring. The rect is what "fit the selection" needs
+and no more; an enumeration API for consumers that have not asked is still the speculative machinery
+this row refused.
 
 **Reported now, and the symptom is worse than "nothing happens".** Driven 2026-08-28: clicking the
 connector between two notes selects it — its stroke goes from `0.4` opacity to `1` — with
@@ -340,10 +355,14 @@ on `selection.windowIds.length`, and the framework's HUD "Fit selection" is `dis
 to frame it withdrawn. That is one measured defect rather than an enumeration API nobody asked for,
 and it moves this row from "nobody has reported it" to a need with a witness.
 
-**Half of that is now closed, and it is the half Polkadot owns.** A connector rail renders on the
-edge selection and cuts what is selected, so a selected connector has a control again. Framing it
-still does not: "Fit selection" reads `getSelectedWindowBounds`, which an edge selection cannot
-answer, so the witness above stands for the framework half unchanged.
+**Both halves are closed.** A connector rail renders on the edge selection and cuts what is
+selected, so a selected connector has a control again. Framing works too: the HUD button asks
+`useInfiniteCanvasSelectionBounds` rather than `selection.windowIds.length`, which is the same
+question `view.fitSelection` resolves, so the control and the command cannot disagree.
+
+Driven 2026-08-28 with one labelled connector and no windows selected: the fit button was enabled
+with `windowIds` empty, and pressing it took the camera from zoom 1 to 2.8 centred on the connector,
+its label readable. Polkadot needed no change for this — it already passed the resolvers.
 
 **It is still the pure-surface boundary that makes it expensive, and that has not changed.**
 Enablement is a pure function of serializable `state`; an edge's geometry is consumer knowledge held
