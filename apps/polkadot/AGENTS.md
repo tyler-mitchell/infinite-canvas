@@ -223,6 +223,11 @@ and is wrong.
   reading after it, never by watching the observable settle. The same probes also showed
   `setTimeout` throttled to roughly one tick per second in this hidden pane, which turns a "wait 3
   seconds" into a couple of ticks — do not build a verdict on a timed wait here.
+- **`getComputedStyle` answers for an element that is not rendered.** A `display: none` node still
+  reports a real `fontSize`, so "the note shows its name at 11px in the chrome" was read off a title
+  the note kind hides — measured 2026-08-28, and the note's own docstring said so. Read `display` and
+  the bounding rect beside any value you are about to compare, or a hidden element will happily
+  supply the number that makes your theory work.
 - **The editor's DOM is not the editor's state, and synthetic typing separates them.** The tool's
   `type` action does not produce the `beforeinput` Lexical guards on, so text can land in the
   contenteditable that the editor then refuses. Driven on 2026-08-28: typing after a mention showed
