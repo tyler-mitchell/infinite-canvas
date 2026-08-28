@@ -145,6 +145,32 @@ function setProjectItemTitle(input: Readonly<{ itemId: string; title: string }>)
  * window title together. Content has no such place, because each kind owns its own debounce and
  * revision guard, so the obligation is stated here rather than enforced.
  */
+/**
+ * The revision that write earned, which the listing also holds.
+ *
+ * Folding content alone is half the job and the half that fails quietly. A rename reads `revision`
+ * off the same listing item and hands it to the gateway's optimistic-concurrency guard, so a listing
+ * one revision behind makes the next rename refuse with `ContentRevisionConflictError` — measured
+ * 2026-08-28 by changing a collection's question and then renaming it: the rail and the window title
+ * both showed the new name while the database kept the old one, and nothing said so until the
+ * unhandled-rejection notice caught it.
+ *
+ * Separate from the content fold because they do not arrive together: a note's content is folded on
+ * the keystroke and its revision only when the debounced write returns.
+ */
+function setProjectItemRevision(itemId: string, revision: number) {
+  const listing = projectContent$.peek();
+
+  if (listing === null) {
+    return;
+  }
+
+  projectContent$.set({
+    ...listing,
+    items: listing.items.map((item) => (item.id === itemId ? { ...item, revision } : item)),
+  });
+}
+
 function setProjectItemContent(itemId: string, content: object) {
   const listing = projectContent$.peek();
 
@@ -166,6 +192,7 @@ export {
   projectContent$,
   restoreProjectItem,
   setProjectItemContent,
+  setProjectItemRevision,
   setProjectItemTitle,
 };
 export type { ProjectContent };

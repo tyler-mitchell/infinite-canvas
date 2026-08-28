@@ -1,6 +1,6 @@
 import { observable } from "@legendapp/state";
 
-import { setProjectItemContent } from "../content/project-content";
+import { setProjectItemContent, setProjectItemRevision } from "../content/project-content";
 import type { ContentItemRecord } from "../database/database.client";
 import {
   collectionGateway,
@@ -121,6 +121,7 @@ async function setCollectionQuestion(
    * put the old one back, silently. The note store folds here for the same reason one layer over.
    */
   setProjectItemContent(input.collectionId, saved.content);
+  setProjectItemRevision(input.collectionId, saved.revision);
   await refreshCollection(input);
 }
 

@@ -1,7 +1,7 @@
 import { observable } from "@legendapp/state";
 import { AsyncQueuer, Debouncer } from "@tanstack/pacer";
 
-import { setProjectItemContent } from "../content/project-content";
+import { setProjectItemContent, setProjectItemRevision } from "../content/project-content";
 import type { NoteRecord } from "./note-gateway";
 
 /**
@@ -133,6 +133,9 @@ function editNote(noteId: string, draft: NoteDraft, gateway: NoteGateway) {
         // Only the revision is folded back. Replacing the whole record would clobber whatever was
         // typed while the write was in flight.
         notes$[noteId].note.revision.set(saved.revision);
+        // And into the listing, which a rename reads the revision from — see
+        // `setProjectItemRevision`. Without it, writing a closed note then renaming it is refused.
+        setProjectItemRevision(noteId, saved.revision);
       },
       {
         onError: (error) => {
