@@ -80,12 +80,24 @@ export function MentionPlugin({
         anchorRef.current === null
           ? null
           : createPortal(
-              <div className={styles.menu()} data-slot="mention-menu">
+              /*
+               * `presentation` on the box, `option` on each row.
+               *
+               * This renders into the element Lexical gives it, which is a `role="listbox"`. A
+               * listbox owns `option`s, and this put a plain `div` in between holding `button`s —
+               * measured live: the listbox reported zero options while showing one note, so what a
+               * screen reader was handed was an empty list. The wrapper is the styling box and says
+               * so; the rows say what they are and which one is current.
+               */
+              <div className={styles.menu()} data-slot="mention-menu" role="presentation">
                 {options.length === 0 ? (
-                  <p className={styles.empty()}>No note by that name.</p>
+                  <p className={styles.empty()} role="presentation">
+                    No note by that name.
+                  </p>
                 ) : (
                   options.map((option, index) => (
                     <button
+                      aria-selected={index === selectedIndex}
                       className={styles.option({ highlighted: index === selectedIndex })}
                       key={option.key}
                       onClick={() => {
@@ -98,6 +110,7 @@ export function MentionPlugin({
                       ref={(element) => {
                         option.setRefElement(element);
                       }}
+                      role="option"
                       type="button"
                     >
                       {option.note.title}

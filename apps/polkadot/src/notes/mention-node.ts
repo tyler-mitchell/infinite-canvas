@@ -21,8 +21,15 @@ import { tv } from "ui/tv";
  * The note's id travels with the node so the reference survives a rename: the text is only what the
  * note was called when it was mentioned, and nothing downstream resolves the note by that string.
  *
- * `isTextEntity` is what makes it behave as one unit — Lexical stops merging neighbouring text into
- * it, so typing after a mention writes a new node instead of silently extending the name.
+ * `isTextEntity` and `canInsertTextBefore`/`After` are meant to make it behave as one unit, so that
+ * typing after a mention writes a new node instead of extending the name.
+ *
+ * **They do not, and this claimed they did.** Driven on 2026-08-28: with the caret after a mention,
+ * typing ` x @Un` left one node whose text was `@Untitled 1 x @Un`, still carrying the original id.
+ * So the label stops being the note's name, and the `@` never reaches the typeahead — a second
+ * mention cannot be started straight after a first. Real typing reaches the DOM before Lexical, and
+ * the mutation is read back into the node the caret was in; these hooks guard the command paths, not
+ * that one. Unfixed: the fix is a transform or a segmented-boundary guard, and neither is written.
  *
  * **The id is `NodeState`, not a property.** Lexical's nodes doc says to prefer it on v0.26+, and
  * `flat: true` keeps `noteId` at the top of the serialized node — byte-identical to the hand-written
