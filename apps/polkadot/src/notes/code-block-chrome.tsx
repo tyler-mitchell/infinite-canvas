@@ -5,8 +5,16 @@ import {
   normalizeCodeLanguage,
 } from "@lexical/code-shiki";
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
-import { $createTextNode, $getNodeByKey, $getRoot, type LexicalEditor } from "lexical";
-import { Check, ChevronDown, Copy, CopyPlus, MoreHorizontal, Trash2 } from "lucide-react";
+import {
+  $createTextNode,
+  $getNodeByKey,
+  $getRoot,
+  $getState,
+  $setState,
+  createState,
+  type LexicalEditor,
+} from "lexical";
+import { Check, ChevronDown, Copy, CopyPlus, MoreHorizontal, Trash2, WrapText } from "lucide-react";
 import { useEffect, useState } from "react";
 import {
   Button,
@@ -50,12 +58,16 @@ const styles = chrome();
 /** `[id, displayName]`, from Shiki's bundled grammar list rather than a table kept here. */
 const LANGUAGES = getCodeLanguageOptions();
 
+/** Wrapping is on unless a block was told otherwise, which is what a narrow window wants. */
+const wrapState = createState("wrap", { parse: (value) => value !== false });
+
 type BlockPlacement = Readonly<{
   height: number;
   key: string;
   left: number;
   top: number;
   width: number;
+  wrap: boolean;
 }>;
 
 const readPlacements = (editor: LexicalEditor): readonly BlockPlacement[] =>
@@ -78,6 +90,7 @@ const readPlacements = (editor: LexicalEditor): readonly BlockPlacement[] =>
                 left: element.offsetLeft,
                 top: element.offsetTop,
                 width: element.offsetWidth,
+                wrap: $getState(child, wrapState),
               },
             ];
       }),
@@ -177,7 +190,11 @@ function CopyButton({ editor, nodeKey }: Readonly<{ editor: LexicalEditor; nodeK
   );
 }
 
-function BlockMenu({ editor, nodeKey }: Readonly<{ editor: LexicalEditor; nodeKey: string }>) {
+function BlockMenu({
+  editor,
+  nodeKey,
+  wrap,
+}: Readonly<{ editor: LexicalEditor; nodeKey: string; wrap: boolean }>) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
@@ -188,6 +205,21 @@ function BlockMenu({ editor, nodeKey }: Readonly<{ editor: LexicalEditor; nodeKe
         }
       />
       <DropdownMenuContent align="end">
+        <DropdownMenuItem
+          onClick={() => {
+            editor.update(() => {
+              const node = $getNodeByKey(nodeKey);
+
+              if ($isCodeNode(node)) {
+                $setState(node, wrapState, !wrap);
+              }
+            });
+          }}
+        >
+          <WrapText />
+          Wrap lines
+          {wrap ? <Check className={styles.tick()} /> : null}
+        </DropdownMenuItem>
         <DropdownMenuItem
           onClick={() => {
             editor.update(() => {
@@ -237,6 +269,17 @@ export function CodeBlockChrome() {
     return editor.registerUpdateListener(sync);
   }, [editor]);
 
+  // Lexical does not observe attributes, so this survives until the element itself is rebuilt.
+  useEffect(() => {
+    for (const placement of placements) {
+      const element = editor.getElementByKey(placement.key);
+
+      if (element !== null) {
+        element.dataset.wrap = String(placement.wrap);
+      }
+    }
+  }, [editor, placements]);
+
   useEffect(
     () =>
       editor.registerMutationListener(
@@ -265,7 +308,7 @@ export function CodeBlockChrome() {
           <div className={styles.row()}>
             <LanguagePicker editor={editor} nodeKey={placement.key} />
             <CopyButton editor={editor} nodeKey={placement.key} />
-            <BlockMenu editor={editor} nodeKey={placement.key} />
+            <BlockMenu editor={editor} nodeKey={placement.key} wrap={placement.wrap} />
           </div>
         </div>
       ))}

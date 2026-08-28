@@ -55,7 +55,7 @@ const noteEditor = tv({
      * declaration that always loses is the defect this app's bar names first.
      */
     codeBlock:
-      "my-2 block overflow-x-auto rounded-[6px] p-3 font-mono text-[12px] leading-[1.6] break-words whitespace-pre-wrap",
+      "my-2 block overflow-x-auto rounded-[6px] p-3 font-mono text-[12px] leading-[1.6] break-words whitespace-pre-wrap data-[wrap=false]:break-normal data-[wrap=false]:whitespace-pre",
     // `flex-1` rather than `h-full`: a flex item keeps `min-height: auto`, so it fills the column
     // when the note is short and grows past it when the note is long. A height locks out the
     // second case, which is how a note longer than its window became unreadable.
