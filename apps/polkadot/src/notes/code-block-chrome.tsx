@@ -14,7 +14,16 @@ import {
   createState,
   type LexicalEditor,
 } from "lexical";
-import { Check, ChevronDown, Copy, CopyPlus, MoreHorizontal, Trash2, WrapText } from "lucide-react";
+import {
+  Check,
+  ChevronDown,
+  Copy,
+  CopyPlus,
+  MoreHorizontal,
+  Trash2,
+  WrapText,
+  X,
+} from "lucide-react";
 import { useEffect, useState } from "react";
 import {
   Button,
@@ -44,6 +53,7 @@ const chrome = tv({
     /** Spans the block so the controls can sit in its corner without measuring a width. */
     frame: "pointer-events-none absolute",
     copied: "text-[var(--accent)]",
+    failed: "text-[var(--danger)]",
     label: "font-mono text-[11px] text-[var(--ink-muted)]",
     languageRow: "flex max-h-[18rem] flex-col overflow-hidden",
     row: `${FLOATING_SURFACE} pointer-events-auto absolute top-1.5 right-1.5 flex items-center gap-0.5 rounded-[8px] p-0.5 opacity-0 transition-opacity duration-100 ease-[var(--ease-swift)] group-hover/note:opacity-100 focus-within:opacity-100`,
@@ -148,26 +158,42 @@ function LanguagePicker({ editor, nodeKey }: Readonly<{ editor: LexicalEditor; n
   );
 }
 
+/** Named by outcome so the label, the glyph, and what a screen reader hears cannot disagree. */
+const COPY_LABEL = {
+  copied: "Code copied",
+  failed: "Could not copy the code",
+  idle: "Copy code",
+} as const;
+
+/*
+ * The failing half was silent.
+ *
+ * `writeText` rejects for reasons the page does not control — an unfocused document is the common
+ * one, and it is exactly what a programmatic press produces. With only a `then`, the press changed
+ * nothing at all: no glyph, no message, and a reader who believes the code is on the clipboard.
+ * The label carries the outcome, and focus is on this button when it changes, so the outcome is
+ * spoken without a second announcement for it.
+ */
 function CopyButton({ editor, nodeKey }: Readonly<{ editor: LexicalEditor; nodeKey: string }>) {
-  const [copied, setCopied] = useState(false);
+  const [outcome, setOutcome] = useState<keyof typeof COPY_LABEL>("idle");
 
   useEffect(() => {
-    if (!copied) {
+    if (outcome === "idle") {
       return;
     }
 
     const timer = setTimeout(() => {
-      setCopied(false);
+      setOutcome("idle");
     }, 1200);
 
     return () => {
       clearTimeout(timer);
     };
-  }, [copied]);
+  }, [outcome]);
 
   return (
     <Button
-      aria-label={copied ? "Code copied" : "Copy code"}
+      aria-label={COPY_LABEL[outcome]}
       onClick={() => {
         const text = editor.read("latest", () => {
           const node = $getNodeByKey(nodeKey);
@@ -175,15 +201,22 @@ function CopyButton({ editor, nodeKey }: Readonly<{ editor: LexicalEditor; nodeK
           return $isCodeNode(node) ? node.getTextContent() : "";
         });
 
-        void navigator.clipboard.writeText(text).then(() => {
-          setCopied(true);
-        });
+        void navigator.clipboard.writeText(text).then(
+          () => {
+            setOutcome("copied");
+          },
+          () => {
+            setOutcome("failed");
+          },
+        );
       }}
       size="icon-sm"
-      title="Copy code"
+      title={COPY_LABEL[outcome]}
       variant="ghost"
     >
-      {copied ? <Check className={styles.copied()} /> : <Copy />}
+      {outcome === "copied" ? <Check className={styles.copied()} /> : null}
+      {outcome === "failed" ? <X className={styles.failed()} /> : null}
+      {outcome === "idle" ? <Copy /> : null}
     </Button>
   );
 }
