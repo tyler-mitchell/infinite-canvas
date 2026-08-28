@@ -1,6 +1,7 @@
 import {
   focusInfiniteCanvasCommandSurfaceFrom,
   useInfiniteCanvasActions,
+  useInfiniteCanvasAnnounce,
   useInfiniteCanvasState,
 } from "@hyphened/infinite-canvas";
 import { useObservable, useValue } from "@legendapp/state/react";
@@ -237,6 +238,7 @@ export function LibraryRail({
     title: string;
   }> | null>(null);
 
+  const announce = useInfiniteCanvasAnnounce();
   const archivedListing = useValue(archivedNotes$);
   const query = useValue(query$);
   const expanded = useValue(expanded$);
@@ -472,9 +474,20 @@ export function LibraryRail({
     await archiveProjectItem({ itemId, projectId });
   };
 
+  /*
+   * Said out loud, because restoring offers no undo to say it for you.
+   *
+   * Archiving is announced by the undo notice it raises. Restoring raises none, so the item simply
+   * leaves one list and joins another — visible, and silent to anything that cannot see the lists.
+   * The title is read before the write, for the reason `archiveProjectItem` gives: afterwards the
+   * item is gone from this listing.
+   */
   const restore = async (itemId: string) => {
+    const restored = archivedListing?.find((item) => item.id === itemId);
+
     await restoreProjectItem({ itemId, projectId });
     archivedNotes$.set(await content.listArchived({ projectId }));
+    announce(restored === undefined ? "Restored." : `Restored “${restored.title.trim()}”`);
   };
 
   return (
