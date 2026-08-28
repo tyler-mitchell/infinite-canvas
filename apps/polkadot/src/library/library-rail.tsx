@@ -27,6 +27,7 @@ import { content } from "../database/operations";
 import { FLOATING_SURFACE } from "../material";
 import { openNewNote } from "../notes/open-note";
 import { renameProjectItem } from "../content/rename-item";
+import { formatRelativeTime } from "../content/relative-time";
 import { matchesContentSearch } from "../content/searchable-text";
 import {
   archiveProjectItem,
@@ -66,6 +67,9 @@ const RAIL_INSET = RAIL_WIDTH + 24;
 
 const rail = tv({
   slots: {
+    /** Stacks a title over when it was archived, which the reachable rows have no second line for. */
+    archivedCell: "flex min-w-0 flex-1 flex-col gap-0.5 py-1",
+    archivedWhen: "pl-[18px] text-[10.5px] text-[var(--ink-faint)] tabular-nums",
     body: "min-h-0 flex-1 overflow-y-auto overscroll-contain px-1.5 pb-1.5",
     /** Indented past the parent's gutter, so a connection reads as belonging to the row above it. */
     connection:
@@ -239,6 +243,8 @@ export function LibraryRail({
   }> | null>(null);
 
   const announce = useInfiniteCanvasAnnounce();
+  // Read once per render: every row in one pass should measure "ago" from the same instant.
+  const now = Date.now();
   const archivedListing = useValue(archivedNotes$);
   const query = useValue(query$);
   const expanded = useValue(expanded$);
@@ -375,8 +381,25 @@ export function LibraryRail({
      * offers it — the one state that makes "archived" mean nothing. Restore first, then it is a
      * note again.
      */
+    /*
+     * The kind glyph stays, and when it left is said.
+     *
+     * Dropping the glyph made an archived note a different kind of thing from a note, which it is
+     * not. The listing is ordered by `archived_at` and nothing said so, which is the one question an
+     * archive is asked — the field was already being fetched and deleted at the client boundary.
+     */
     archived: (note: ContentItemRecord) => (
-      <span className={styles.title({ open: false })}>{note.title}</span>
+      <span className={styles.archivedCell()}>
+        <span className={styles.title({ open: false })}>
+          <KindGlyph kind={note.kind} />
+          {note.title}
+        </span>
+        {note.archived_at === undefined ? null : (
+          <span className={styles.archivedWhen()}>
+            Archived {formatRelativeTime({ iso: note.archived_at, now })}
+          </span>
+        )}
+      </span>
     ),
     reachable: (note: ContentItemRecord) => (
       <button

@@ -518,6 +518,9 @@ async function saveCanvas(
  * layer that validates it on the way back out.
  */
 const ContentItemRecord = type({
+  // Only the archived listing selects it, so it is optional rather than absent: undeclared keys are
+  // deleted here, and this one was being fetched and then thrown away on the way in.
+  "archived_at?": "string.date.iso",
   content: "object",
   id: "string",
   kind: "string",
