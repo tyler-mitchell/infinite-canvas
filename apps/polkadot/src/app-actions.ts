@@ -2,10 +2,9 @@ import {
   DEFAULT_INFINITE_CANVAS_COMMAND_DESCRIPTORS,
   findInfiniteCanvasGroup,
   findInfiniteCanvasWorkspace,
-  getInfiniteCanvasVisibleWindowItems,
+  getInfiniteCanvasGroupableWindowIds,
   getWindowBounds,
   isInfiniteCanvasGroupContainer,
-  isInfiniteCanvasWindowGrouped,
   type InfiniteCanvasCommandId,
   type InfiniteCanvasCommands,
   type InfiniteCanvasState,
@@ -150,28 +149,17 @@ const describeInvalidInput = (errors: type.errors) => `Refused: ${errors.summary
  * The selected windows `createGroup` would actually take.
  *
  * Enablement and the shell rect both need this set, and reading it twice from one function is what
- * keeps the offer and the result agreeing — the same reason the framework asks its pure modules
- * whether an arrange verb would change anything before offering it.
+ * keeps the offer and the result agreeing.
  *
- * Asked of the framework rather than restated. The first version copied
- * `createInfiniteCanvasGroup`'s own predicate — not minimized, not already grouped — which is the
- * drift this file has been paying for elsewhere: a rule owned upstream and duplicated here goes
- * stale the moment upstream refines it, silently and in the direction of offering a verb that does
- * nothing. `getInfiniteCanvasVisibleWindowItems` answers "on screen" as one question, covering
- * minimized, behind a tab, and on another desktop together.
- *
- * Selection order, not stack order, because members are laid out in the order given and the order a
- * person picked windows in is the one they expect to see.
+ * The rule is asked of the framework rather than restated here, and it took two tries to get that
+ * right. The first version copied `createInfiniteCanvasGroup`'s predicate outright. The second
+ * composed `getInfiniteCanvasVisibleWindowItems` with a grouped check — closer, since it was built
+ * from documented semantics rather than a copy, but still this app deciding what the canvas accepts.
+ * `getInfiniteCanvasGroupableWindowIds` is that rule, and it preserves the order given, which
+ * matters because members lay out in the order they arrive.
  */
-const getGroupableWindowIds = (state: InfiniteCanvasState<WindowKind>): readonly string[] => {
-  const groupable = new Set(
-    getInfiniteCanvasVisibleWindowItems(state)
-      .filter((item) => !isInfiniteCanvasWindowGrouped(state, item.id))
-      .map((item) => item.id),
-  );
-
-  return state.selection.windowIds.filter((windowId) => groupable.has(windowId));
-};
+const getGroupableWindowIds = (state: InfiniteCanvasState<WindowKind>): readonly string[] =>
+  getInfiniteCanvasGroupableWindowIds(state, state.selection.windowIds);
 
 /**
  * What a verb does is quoted from the framework; only its argument is described here.

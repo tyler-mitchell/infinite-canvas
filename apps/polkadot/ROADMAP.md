@@ -1311,7 +1311,7 @@ Kept here because the list _is_ the incubator's output.
 | A consumer's own verbs reach the keyboard and nothing else: `hotkeyActions` never join contextual discovery                                | consumer verbs enter the same list the framework's do — id, label, description, enablement, invoke            | open   |
 | A selected scene object carries identity and no geometry, so nothing spatial downstream of selection can act on one                        | a bounds provider keyed by selection target, answered on demand                                               | open   |
 | The camera frames a target once and cannot follow a moving one                                                                             | a sustained follow with a release rule, or a camera setter if the release policy is the consumer's            | open   |
-| What `createGroup` will accept cannot be asked before dispatching it                                                                       | the acceptance rule as a query, so enablement and the shell rect stop composing it by hand                    | open   |
+| What `createGroup` will accept cannot be asked before dispatching it                                                                       | `getInfiniteCanvasGroupableWindowIds` — the rule it already applies, asked in advance                         | landed |
 
 **On the three landed rows above, because they are one finding.** All three were found by asking
 what a caller is actually told, and all three had passed every typecheck and a 700-test suite. The
@@ -1347,10 +1347,25 @@ The camera row is smaller than it looks: `viewportInsets` already exists and is 
 Only continuity is missing, and the deciding question is cancellation rather than tracking — if a
 user gesture releasing the follow is the one right answer, it belongs here, because otherwise every
 consumer reimplements the same release against the pointer interaction.
-The `createGroup` row is the mildest and is routed around rather than blocked: a consumer can compose
-`getInfiniteCanvasVisibleWindowItems` with `isInfiniteCanvasWindowGrouped` from documented public
-semantics. It is recorded because the first attempt copied the framework's internal predicate
-instead, which is the drift the description row above is about.
+The `createGroup` row was the mildest and is now closed. It took three attempts to arrive at the
+obvious answer, which is the part worth keeping: first a copy of the framework's internal predicate
+— caught by `window-visibility-reads.test.ts`, since a copy of that rule decides visibility from
+`mode` alone; then a composition of `getInfiniteCanvasVisibleWindowItems` with a grouped check,
+which was built from documented semantics and still had this app deciding what the canvas accepts;
+then the rule itself, extracted from `createInfiniteCanvasGroup` and exported. A consumer needing to
+predict a framework function's behaviour is the framework's problem to solve, and the two wrong
+turns were both consumers solving it locally.
+
+**On the discovery row, and why it is not a slice.** `InfiniteCanvasContextualCommand` is a
+`CommandDescriptor` plus `enabled` and `group`, and a descriptor is keyed on a `command` from the
+framework's own union — `group` is _derived_ from that command by
+`getInfiniteCanvasCommandGroup`. A consumer verb has a `run` closure and no command, so it cannot be
+one of these without either widening the union to carry a consumer variant or introducing a second
+entry type the list is a union of. Both are real design decisions with surface area, and the pacing
+rule at the top of this file applies: a half-built merged vocabulary reads as finished, so the next
+consumer builds on it. `InfiniteCanvasHotkeyAction` already carries everything else needed — `id`,
+`label`, `description`, `isEnabled`, `run` — which is what makes the gap worth naming precisely
+rather than starting badly.
 
 **Two wording nits found in the same sweep and deliberately not made rows,** because neither names a
 missing affordance. `group.growPane` and `group.shrinkPane` say a pane takes from "the pane beside

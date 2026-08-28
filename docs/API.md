@@ -1,6 +1,6 @@
 # API Reference
 
-The public surface of `@hyphened/infinite-canvas`: 226 values and 187 types across
+The public surface of `@hyphened/infinite-canvas`: 227 values and 187 types across
 two entries. Anything not exported from a barrel is internal and unstable —
 including every `data-infinite-canvas-*` attribute, which is a behavioural hook
 for hit-testing, not a styling contract.
@@ -365,6 +365,12 @@ buttons, and programmatic drivers share one mutation path.
 
 - `findInfiniteCanvasGroup`, `getInfiniteCanvasWindowGroup`, `isInfiniteCanvasWindowGrouped`
 - `getInfiniteCanvasGroupedWindowIds`, `getInfiniteCanvasGroupProjection`, `reconcileInfiniteCanvasGroups`
+- `getInfiniteCanvasGroupableWindowIds` — which of these windows `createInfiniteCanvasGroup` would
+  actually take, in the order given. The rule it already applies — missing, minimized, or already in
+  another group is dropped rather than stolen — asked before dispatching rather than discovered
+  after. A "group these" control that counts its own selection instead offers itself when nothing
+  would happen: two panes of one shell are both dropped, no members survive, and the call returns the
+  identical state while the control reports success.
 - `getInfiniteCanvasGroupTitle` — what a group is called: the name somebody gave it, or, when
   `title` is `null`, a name composed from the windows it currently holds. **The one read for a
   group's name.** A group's `title` was a plain `string` snapshotted at creation, which made a

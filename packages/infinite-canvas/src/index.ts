@@ -58,6 +58,7 @@ export {
   getInfiniteCanvasGroupProjection,
   getInfiniteCanvasGroupTabLabel,
   getInfiniteCanvasGroupTitle,
+  getInfiniteCanvasGroupableWindowIds,
   getInfiniteCanvasGroupedWindowIds,
   getInfiniteCanvasWindowGroup,
   isInfiniteCanvasWindowGrouped,

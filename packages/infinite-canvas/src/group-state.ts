@@ -311,6 +311,35 @@ function getInfiniteCanvasGroupTitle<Kind extends string>(
  * dropped rather than stolen — a window lives in at most one tree, and grouping
  * is a user gesture, not a place to throw.
  */
+/**
+ * Which of these windows `createInfiniteCanvasGroup` would actually take, in the order given.
+ *
+ * The rule it applies, asked before dispatching rather than discovered afterwards. A member that is
+ * missing, minimized, or already inside another group is dropped rather than stolen — a window lives
+ * in at most one tree — and until this was exported a consumer had no way to know that in advance.
+ *
+ * What that cost is enablement. A "group these" control counting its own selection offers itself
+ * when nothing would happen: two panes of one shell are both dropped, no members survive, and the
+ * call returns the identical state while the control reports success. A consumer that guessed the
+ * rule instead had a copy of it, free to drift the moment this one is refined.
+ *
+ * Order is the caller's, because members are laid out in the order given.
+ */
+function getInfiniteCanvasGroupableWindowIds<Kind extends string>(
+  state: InfiniteCanvasState<Kind>,
+  windowIds: readonly string[],
+): readonly string[] {
+  return windowIds.filter((windowId) => {
+    const window = state.windows.find((candidate) => candidate.id === windowId);
+
+    return (
+      window !== undefined &&
+      window.mode !== "minimized" &&
+      !isInfiniteCanvasWindowGrouped(state, windowId)
+    );
+  });
+}
+
 function createInfiniteCanvasGroup<Kind extends string>(
   state: InfiniteCanvasState<Kind>,
   input: Readonly<{
@@ -326,15 +355,7 @@ function createInfiniteCanvasGroup<Kind extends string>(
     return state;
   }
 
-  const members = windowIds.filter((windowId) => {
-    const window = state.windows.find((candidate) => candidate.id === windowId);
-
-    return (
-      window !== undefined &&
-      window.mode !== "minimized" &&
-      !isInfiniteCanvasWindowGrouped(state, windowId)
-    );
-  });
+  const members = getInfiniteCanvasGroupableWindowIds(state, windowIds);
 
   if (members.length === 0) {
     return state;
@@ -1044,6 +1065,7 @@ export {
   findInfiniteCanvasGroup,
   getInfiniteCanvasGroupProjection,
   getInfiniteCanvasGroupTabLabel,
+  getInfiniteCanvasGroupableWindowIds,
   getInfiniteCanvasGroupedWindowIds,
   getInfiniteCanvasWindowGroup,
   isInfiniteCanvasWindowGrouped,
