@@ -23,56 +23,14 @@ import { getProjectContentOfKind, projectContent$ } from "../content/project-con
 import { connectItems } from "../relations/relation-store";
 import { NoteEditor } from "./note-editor";
 
-/**
- * A window body bound to a note record.
- *
- * The window carries only `{ noteId }`. Everything shown here comes from the store, so two windows
- * on the same note stay in step and closing a window never risks the text.
- *
- * The database module is passed in rather than imported, because it pulls an 11 MB WebAssembly
- * engine and this component must be renderable — in a test, in a summary, in a story — without it.
- *
- * The note's name is written here and nowhere else; the chrome title is hidden for this kind.
- * `window.title` still follows it, for the far-zoom summary and the accessible name.
- */
-
 const noteWindow = tv({
   slots: {
-    /*
-     * `min-h-full`, never `h-full`.
-     *
-     * The frame body the framework draws is already a scroll container — it declares
-     * `overflowY: auto` and this kind asks for `native-scroll`. Pinning the content to exactly
-     * that height meant the container could never have anything to scroll, so a note longer than
-     * its window was clipped with no way to reach the rest of it. Growing past the frame is what
-     * hands the overflow back to the one scroller that exists.
-     */
     body: "flex flex-1 flex-col gap-2 px-5 pt-3.5 pb-4",
     editor: "flex flex-1 flex-col",
-    /*
-     * The edge of the text, said with light rather than with a bar.
-     *
-     * Scrolling worked and nothing announced it: a note taller than its window simply began or
-     * ended mid-sentence, and macOS overlay scrollbars show nothing at rest, so the only cue
-     * arrived after you had already guessed there was more. A gradient into the body's own colour
-     * reads as the text passing under an edge, which is what is happening — a rule or a scrollbar
-     * track would be the outline-drawn chrome the bar bans.
-     *
-     * `sticky` because the fade has to hold still against the *frame* while the content moves, and
-     * the scroll container is the framework's, not this file's; the negative margin cancels the
-     * height it would otherwise add so the strips cost the layout nothing.
-     */
+    // Sticky fades mark text beyond the visible scroll area.
     fade: "pointer-events-none sticky z-10 h-6 shrink-0 transition-opacity duration-150 ease-[var(--ease-swift)]",
     notice: "grid h-full place-items-center px-6 text-center text-[12.5px] text-[var(--ink-faint)]",
-    /*
-     * `min-h-full`, never `h-full`.
-     *
-     * The frame body the framework draws is already a scroll container — it declares
-     * `overflowY: auto` and this kind asks for `native-scroll`. Pinning the content to exactly
-     * that height meant the container could never have anything to scroll, so a note longer than
-     * its window was clipped with no way to reach the rest of it. Growing past the frame is what
-     * hands the overflow back to the one scroller that exists.
-     */
+    // min-h-full keeps the framework body as the only scroll container.
     root: "flex min-h-full flex-col",
     title:
       "w-full bg-transparent text-[15px] font-medium tracking-[-0.015em] text-[var(--ink)] outline-none placeholder:text-[var(--ink-faint)]",
@@ -85,14 +43,7 @@ const noteWindow = tv({
   },
 });
 
-/**
- * The nearest ancestor that actually scrolls.
- *
- * Found rather than owned: the window body is the framework's element, and a consumer rendered
- * inside it has no handle on it. Matched on the declared `overflow-y` instead of on whether it
- * currently overflows, because at mount a short note overflows nothing and the listener would
- * never be attached to the container the note later grows past.
- */
+// Find the framework scroll container before the note grows beyond it.
 const findScrollParent = (element: HTMLElement | null): HTMLElement | null => {
   const parent = element?.parentElement ?? null;
 
@@ -112,50 +63,18 @@ export function NoteWindowBody({
   windowTitle,
 }: Readonly<{ gateway: NoteGateway; noteId: string; windowId: string; windowTitle: string }>) {
   const actions = useInfiniteCanvasActions();
-  /*
-   * The store, read at click time rather than subscribed to.
-   *
-   * Placement needs the current windows, and `useInfiniteCanvasState` would re-render every open
-   * note on every camera tick to answer a question only a click asks. `peek` is the same bargain
-   * the connector resolvers and the hotkey gate already strike.
-   */
+  // Read canvas state only when a mention opens.
   const store = useInfiniteCanvasStore();
-  /*
-   * The route, which is the only thing that knows.
-   *
-   * `renderBody` hands a window and nothing else, so this is read rather than passed — but a window
-   * body is inside the route's tree like any other component, so it reads the loader the way
-   * `SelectionRail` already does. It read `openProject$` before: a copy of this same fact, published
-   * from this same loader, which the rail and the palette never used. Three consumers of one guard
-   * and two authorities for its argument, which is one more than can ever agree.
-   */
   const { projectId } = useLoaderData({ from: "/canvas/$canvasId" });
-  // Notes only: a mention names a note. The listing holds every kind now.
   const mentionable =
     getProjectContentOfKind({ kind: "note", listing: useValue(projectContent$), projectId }) ?? [];
-  /*
-   * The desktop root, not this window's.
-   *
-   * A note renders inside `transform: scale(zoom)`, so a menu positioned against the viewport
-   * resolves against the scaled frame and lands wrong. The desktop root sits outside every
-   * transform, and unlike the per-window root it needs no `portalRoot` opt-in — which a window that
-   * only occasionally opens a menu should not be paying for on every camera tick.
-   */
+  // The menu portal stays outside canvas transforms.
   const portalRoot = useInfiniteCanvasDesktopPortalRoot();
   const entry = useValue(notes$[noteId]);
-  // A primitive, for the reason the fades below are two booleans rather than one object: a root read
-  // on an object observable can be subscribed to something that never changes.
+  // Primitive observables update independently in Legend State.
   const externalWrites = useValue(externalWrites$[noteId]) ?? 0;
   const rootRef = useRef<HTMLDivElement>(null);
-  /*
-   * Two booleans, not one object.
-   *
-   * Legend State commits per field and does not replace the root, so a component reading the root
-   * of an object observable can be subscribed to something that never changes — the same trap that
-   * once left this app's autosave subscribed to a constant and writing nothing for weeks. Written
-   * here as `{ above, below }` first, and the fades never moved: `set` updated the fields and the
-   * root read stayed identical. Primitives have no root to go stale.
-   */
+  // Separate booleans prevent a stale root-object subscription.
   const above$ = useObservable(false);
   const below$ = useObservable(false);
   const above = useValue(above$);
@@ -167,13 +86,7 @@ export function NoteWindowBody({
     ensureNoteLoaded(noteId, gateway);
   }, [gateway, noteId]);
 
-  /*
-   * Re-measured on scroll and on either box changing size.
-   *
-   * The resize half is not optional: typing grows the content without scrolling it, and dragging
-   * the window's corner changes the frame without touching either — both are ways to cross the
-   * threshold where a fade should appear, and a scroll listener alone sees neither.
-   */
+  // Scroll and resize changes both update the edge fades.
   useEffect(() => {
     const content = rootRef.current;
     const scroller = findScrollParent(content);
@@ -199,8 +112,7 @@ export function NoteWindowBody({
     };
   }, [above$, below$, entry?.status]);
 
-  // `window.title` was written once at open and never again, so renames went stale in the summary
-  // and the accessible name. Empty titles are skipped; the framework refuses them.
+  // Keep the window summary and accessible name in sync with the note title.
   useEffect(() => {
     if (noteTitle !== undefined && noteTitle.trim().length > 0 && noteTitle !== windowTitle) {
       actions.setWindowTitle({ title: noteTitle, windowId });
@@ -219,21 +131,10 @@ export function NoteWindowBody({
 
   return (
     <div className={styles.root()} ref={rootRef}>
-      {/* Opacity is a computed number, not a state a class can name — the same reason a chart's
-          font size is a prop rather than a utility. A `data-` attribute plus a variant was the
-          first attempt and the utility was never generated, so the fade matched its own selector
-          and stayed invisible. */}
+      {/* Inline opacity carries the measured scroll state. */}
       <div className={noteWindow({ edge: "top" }).fade()} style={{ opacity: above ? 1 : 0 }} />
       <div className={styles.body()}>
-        {/*
-          Named, because a placeholder is not a name.
-
-          `placeholder` is the last fallback in the accessible-name computation, so this field did
-          have a name and the name was "Untitled" — the same string on every note, including the
-          ones already titled. Three notes open announced three identical fields. The window around
-          it is `role="group"` named after the note, so "which note" is already answered and this
-          only has to say which field it is; qualifying it further would announce the title twice.
-        */}
+        {/* The title field has a persistent accessible name. */}
         <input
           aria-label="Note title"
           className={styles.title()}
@@ -243,20 +144,7 @@ export function NoteWindowBody({
           placeholder="Untitled"
           value={note.title}
         />
-        {/*
-          A mention says where to go, and now it goes there.
-
-          The chip has always drawn `cursor-pointer` and written `data-note-id` for a reader that
-          was never built — an affordance promising a destination and a plain text node underneath.
-          Clicking one did nothing at all.
-
-          Here rather than in `note-editor`, which is told nothing about notes: the editor renders
-          the node, and the window is what knows a note id can be opened. The listing is already
-          loaded for the typeahead, so reaching one costs no read.
-
-          A plain click rather than a modifier. The node is `segmented`, so a click selects the whole
-          mention and can never place a caret inside it — there is no editing gesture to shadow.
-        */}
+        {/* Mention clicks open the referenced note. */}
         <div
           className={styles.editor()}
           onClick={(event) => {
@@ -266,8 +154,7 @@ export function NoteWindowBody({
             const item = mentionable.find((candidate) => candidate.id === mentionedId);
 
             if (item !== undefined) {
-              // Cast for the same reason the framework casts its own `peek`: Legend State unwraps to
-              // a structurally equal type that is not the declared `Readonly` one.
+              // Legend State unwraps to a mutable structural type.
               openItemWindow({
                 actions,
                 item,
@@ -277,33 +164,14 @@ export function NoteWindowBody({
           }}
         >
           <NoteEditor
-            /*
-             * Rebuilt when something other than this editor rewrote the note.
-             *
-             * Lexical takes its state at mount, so an external write — a tool call today, a sync
-             * later — leaves an open editor showing the old prose, and its next keystroke saves
-             * that back over the write. Keyed on the count rather than on the text, which changes
-             * on every keystroke and would remount mid-sentence.
-             */
+            /* External writes remount Lexical before stale text can overwrite them. */
             key={externalWrites}
             mentions={{
-              /*
-               * A mention authors the connection; it does not own it.
-               *
-               * Deriving edges from the text — the way an app whose links *are* text does — cannot
-               * work here, and not only because a connection can also be dragged between two
-               * windows with no text anywhere. An edge in this app carries state of its own: a
-               * kind, and a label someone wrote on it. Recomputing edges from a body would mean
-               * rewording a sentence silently discards the label you put on that connection. The
-               * sentence is how the claim got made, not what the claim now is.
-               *
-               * So removing a mention leaves the connection standing, and the rail and the canvas
-               * are where it is cut. A stated rule rather than an oversight.
-               */
+              /* Mentions add relations. Removing mention text does not remove a relation. */
               onSelect: (mentionedId) => {
                 void connectItems({ projectId, source: noteId, target: mentionedId });
               },
-              // Never itself: `relate_notes` refuses a self-edge, so offering one offers a no-op.
+              // Exclude the current note because self-relations are invalid.
               options: mentionable.filter((candidate) => candidate.id !== noteId),
               portalRoot,
             }}

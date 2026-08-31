@@ -3,10 +3,7 @@ import { dirname, resolve } from "node:path";
 
 import type { SurrealMigrationManifest } from "surreal-inspector";
 
-/**
- * Loads a manifest and the contents of the files it names. Paths resolve relative to the manifest
- * rather than the working directory, so the command runs from anywhere.
- */
+/** The loader resolves each listed SurQL file relative to the manifest. */
 
 type ManifestFile = Readonly<{
   stages: readonly Readonly<{ files: readonly string[]; name: string }>[];

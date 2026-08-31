@@ -10,20 +10,7 @@ import { tv } from "ui/tv";
 
 import { $createMentionNode } from "./mention-node";
 
-/**
- * Naming another note from inside a note.
- *
- * Everything about the interaction is `@lexical/react`'s: `useBasicTypeaheadTriggerMatch` decides
- * what counts as a trigger, `LexicalTypeaheadMenuPlugin` owns the query lifecycle, the keyboard
- * traversal and the anchor positioning. What is written here is only what the menu lists and what
- * choosing one does — hand-rolling any of the rest would be reimplementing a first-party plugin.
- *
- * **The menu is portalled into the framework's root, not `document.body`.** A note is rendered
- * inside `transform: scale(zoom)`, so anything positioned against the viewport resolves against the
- * scaled frame instead and lands in the wrong place at the wrong size — the trap `note-editor.tsx`
- * names in its own header. The plugin takes a `parent`, which is exactly that seam.
- */
-
+// The menu portal stays outside the canvas transform.
 const mentions = tv({
   slots: {
     empty: "px-3 py-2 text-[12px] text-[var(--ink-faint)]",
@@ -38,7 +25,6 @@ const mentions = tv({
   },
 });
 
-/** How many notes the menu offers before it stops being a menu and becomes a list to read. */
 const MENTION_LIMIT = 6;
 
 type Mentionable = Readonly<{ id: string; title: string }>;
@@ -58,7 +44,6 @@ export function MentionPlugin({
   portalRoot,
 }: Readonly<{
   notes: readonly Mentionable[];
-  /** Called with the mentioned note once the mention is in the document. */
   onMention: (noteId: string) => void;
   portalRoot: HTMLElement | null;
 }>) {
@@ -66,7 +51,7 @@ export function MentionPlugin({
   const query$ = useObservable<string | null>(null);
   const query = useValue(query$);
   const styles = mentions();
-  // Whitespace allowed, so a note called "Weekly review" is reachable without typing it as one word.
+  // Multiword note titles can match.
   const triggerFn = useBasicTypeaheadTriggerMatch("@", { allowWhitespace: true, minLength: 0 });
   const terms = (query ?? "").trim().toLowerCase();
   const options = notes
@@ -80,15 +65,7 @@ export function MentionPlugin({
         anchorRef.current === null
           ? null
           : createPortal(
-              /*
-               * `presentation` on the box, `option` on each row.
-               *
-               * This renders into the element Lexical gives it, which is a `role="listbox"`. A
-               * listbox owns `option`s, and this put a plain `div` in between holding `button`s —
-               * measured live: the listbox reported zero options while showing one note, so what a
-               * screen reader was handed was an empty list. The wrapper is the styling box and says
-               * so; the rows say what they are and which one is current.
-               */
+              /* The listbox owns each option. This wrapper is presentational. */
               <div className={styles.menu()} data-slot="mention-menu" role="presentation">
                 {options.length === 0 ? (
                   <p className={styles.empty()} role="presentation">
@@ -99,15 +76,7 @@ export function MentionPlugin({
                     <button
                       aria-selected={index === selectedIndex}
                       className={styles.option({ highlighted: index === selectedIndex })}
-                      /*
-                       * The id `aria-activedescendant` already points at.
-                       *
-                       * `LexicalMenu` writes `typeahead-item-${index}` onto the editor root as the
-                       * highlight moves, and these rows carried no id — so the reference resolved to
-                       * nothing and a screen reader arrowing the list was told nothing. Measured with
-                       * the menu open: the root said `typeahead-item-0` while no such element
-                       * existed. The format is Lexical's, not a choice.
-                       */
+                      /* Lexical points aria-activedescendant at this id. */
                       id={`typeahead-item-${String(index)}`}
                       key={option.key}
                       onClick={() => {
@@ -146,12 +115,7 @@ export function MentionPlugin({
           mention.selectNext();
         });
 
-        /*
-         * After the edit, not inside it. The write is a database round trip and `editor.update` is
-         * a synchronous transaction — starting async work from inside one couples the document's
-         * commit to a network reply, and a failed write would leave the text and the graph
-         * disagreeing with no way to tell which one lost.
-         */
+        // Start the database write after the editor transaction commits.
         onMention(option.note.id);
         closeMenu();
       }}

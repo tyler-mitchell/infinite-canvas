@@ -7,12 +7,7 @@ import { tv } from "tailwind-variants";
 import { cn } from "../lib/utils";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "./dialog";
 
-/**
- * A command surface on `cmdk`, presented through the Base UI dialog.
- *
- * Filtering, ranking, roving focus, and the combobox/listbox roles belong to `cmdk`; modality,
- * focus trap and restore, and dismissal belong to the dialog. What is here is styling.
- */
+/** `cmdk` owns command behavior. Base UI owns modal behavior. */
 const command = tv({
   slots: {
     dialogContent: "gap-0 overflow-hidden p-0 sm:max-w-xl",
@@ -39,10 +34,7 @@ function Command({ className, ...props }: ComponentProps<typeof CommandPrimitive
   );
 }
 
-/**
- * `description` is required, not optional: the dialog announces itself, and a palette that opens
- * with no accessible description is a modal a screen reader cannot explain.
- */
+/** `description` is required for the modal accessibility label. */
 function CommandDialog({
   children,
   className,
@@ -55,7 +47,7 @@ function CommandDialog({
 }: Readonly<{
   children: React.ReactNode;
   className?: string;
-  /** Where to portal. Defaults to `<body>`; pass a host's own root when it stacks chrome above it. */
+  /** This value sets the portal target for hosts that render chrome above `<body>`. */
   container?: ComponentProps<typeof DialogContent>["container"];
   description: string;
   filter?: ComponentProps<typeof CommandPrimitive>["filter"];
@@ -161,7 +153,6 @@ function CommandShortcut({ className, ...props }: ComponentProps<"span">) {
   );
 }
 
-/** The hint bar. Most of what makes a launcher feel finished is telling you what the keys do. */
 function CommandFooter({ className, ...props }: ComponentProps<"div">) {
   const styles = command();
 

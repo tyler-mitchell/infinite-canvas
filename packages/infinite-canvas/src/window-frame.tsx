@@ -42,90 +42,24 @@ import type {
 } from "./types";
 import { isInfiniteCanvasWindowCapable } from "./window-capabilities";
 
-/**
- * A window frame is the hot path: every camera tick re-renders one of these per
- * window, and at stress scale that is the interactive frame budget. The rule
- * this file is built around is that **only the outer transform may change per
- * tick.** Everything inside — chrome, body, resize handles — is memoized on the
- * window's own identity, so React bails out of the subtree on pan and zoom and
- * the work collapses to a single style write per window.
- *
- * Two consequences follow, and both are deliberate:
- *
- * 1. The frame never receives canvas state as a prop. It takes `camera` and
- *    `viewport` (what the transform needs) and reads the rest through the store
- *    at call time. Threading `state` down would make every memo below churn on
- *    every tick, which is exactly the cost this file exists to avoid.
- * 2. `renderFrame` is not re-invoked on camera movement. Implementations that
- *    need reactive state subscribe with `useInfiniteCanvasSelector` inside
- *    their own components, so invalidation stays scoped to what they read.
- *    This mirrors the contract `renderBody` already has.
- */
-
-/**
- * Resize handles must stay a constant *screen* size, but they live inside the
- * frame's zoom-scaled subtree, so their geometry is zoom-dependent. Publishing
- * that size as a custom property on the frame — whose inline style is rewritten
- * every tick regardless — lets the eight handle elements stay referentially
- * stable across zoom instead of being rebuilt with fresh inline styles.
- */
+/** Renders each window. Camera changes update only the outer transform. */
+/** World-space handle size that keeps a fixed screen size. */
 const RESIZE_HANDLE_SIZE_CSS_VARIABLE = "--icx-resize-handle-size";
 
-/**
- * Chrome strokes are drawn in world units inside a zoom-scaled frame, so a 1px
- * border renders as `1 × zoom` screen pixels. At 10% zoom that is a tenth of a
- * pixel: borders, the header rule, and the inner frame all thin to nothing and a
- * window becomes an unreadable blob exactly when the user has zoomed out to see
- * how their windows relate.
- *
- * So the stroke is published as a custom property, widened in world units by
- * however much the zoom is shrinking it, and never allowed to render thinner than
- * one screen pixel. Above 100% zoom this is inert: the authored width already
- * exceeds the floor, and a stroke that grows with the canvas is what you want.
- */
+/** World-space stroke width with a one-screen-pixel minimum. */
 const CHROME_STROKE_CSS_VARIABLE = "--icx-chrome-stroke";
 
-/**
- * One screen pixel, in this frame's world units.
- *
- * The generalisation of the two variables above, and the one a *consumer* needs. Both of those
- * answer a specific question — how big is a handle, how thick is a stroke — so an app sizing
- * anything else of its own inside a window has neither, and the obvious alternative is to
- * subscribe to `camera.zoom` and divide. That re-renders every such control on every zoom tick,
- * which is precisely what this file's header says it exists to prevent: only the outer transform
- * may change per tick, and everything inside is memoized on the window's own identity.
- *
- * Published here instead, on a style that is rewritten every tick regardless, so a control writes
- * `calc(var(--icx-screen-px) * 8)` once and never re-renders to stay a constant size on screen.
- *
- * Found by a consumer whose in-window menu trigger measured 28px at 100% zoom and 15px at the
- * lowest zoom that still draws a body — a control that shrinks out of reach exactly when the user
- * has zoomed out to work across several windows at once.
- */
+/** One screen pixel in current world units. */
 const SCREEN_PIXEL_CSS_VARIABLE = "--icx-screen-px";
 
 const CHROME_STROKE = `var(${CHROME_STROKE_CSS_VARIABLE})`;
 
 const RESIZE_HANDLE_EXTENT = `var(${RESIZE_HANDLE_SIZE_CSS_VARIABLE})`;
 
-/** Handles straddle the frame edge, so they hang half their extent outside it. */
+/** Half-extent outside the frame. */
 const RESIZE_HANDLE_OVERHANG = `calc(${RESIZE_HANDLE_EXTENT} / -2)`;
 
-/**
- * Whether this frame's subtree can be skipped this frame.
- *
- * The geometry is `isWorldRectCulled`, shared with the group layer. What this adds is one
- * exemption: the active window, which is where keyboard focus and every window-scoped command
- * land, and which is exactly one window however large the canvas is.
- *
- * **Selection is deliberately not exempt**, unlike in the rasterization policy beside this.
- * A selection is unbounded — `Mod+A` over 160 windows selects all 160 — so exempting it would
- * switch culling off entirely in the one scenario it exists for, and "select everything, then
- * arrange" is ordinary use rather than a corner. The exemption is safe to drop because
- * `content-visibility: auto` is not `hidden`: the browser un-skips a subtree that takes focus
- * or is found by find-in-page, and selection is a state concept that owes nothing to whether
- * the window is currently painted.
- */
+/** Culls inactive frames outside the viewport. */
 function isFrameOffscreen<Kind extends string>({
   camera,
   isActive,
@@ -140,7 +74,7 @@ function isFrameOffscreen<Kind extends string>({
   return !isActive && isWorldRectCulled(camera, viewport, window.rect);
 }
 
-/** React's `CSSProperties` has no slot for custom properties. Widen just this one. */
+/** Adds frame custom properties to React `CSSProperties`. */
 type InfiniteCanvasFrameStyle = CSSProperties &
   Readonly<Record<typeof CHROME_STROKE_CSS_VARIABLE, string>> &
   Readonly<Record<typeof RESIZE_HANDLE_SIZE_CSS_VARIABLE, string>> &
@@ -152,11 +86,7 @@ type InfiniteCanvasResizeHandleDescriptor = Readonly<{
   style: CSSProperties;
 }>;
 
-/**
- * Edge handles are inset by one extent at each end so the corner handles own
- * the corners. Every value is expressed against the CSS variable, which makes
- * this a module constant rather than a per-zoom allocation.
- */
+/** Static handle geometry expressed with CSS variables. */
 const RESIZE_HANDLE_DESCRIPTORS: readonly InfiniteCanvasResizeHandleDescriptor[] = [
   {
     cursor: "ns-resize",
@@ -255,22 +185,12 @@ function InfiniteCanvasWindowFrameContent<Kind extends string>({
   windowDefinitions,
 }: Readonly<{
   camera: InfiniteCanvasCamera;
-  /** Per-canvas token (`useId()` at the desktop root) that namespaces the frame's DOM `id`. */
+  /** Per-canvas namespace for the frame DOM ID. */
   canvasInstanceId: string;
   chrome: InfiniteCanvasChromeMetrics;
   devicePixelRatio: number;
   isActive: boolean;
-  /**
-   * A grouped window carries no resize handles.
-   *
-   * `interaction.startResize` refuses a grouped window outright — a pane is resized by
-   * its seam — so the handles were controls that could not do the thing their cursor
-   * promised. Worse, they straddle the frame edge and hang half their extent *outside*
-   * it, and the window plane draws above the group layer. Two adjacent panes therefore
-   * covered the gutter between them with dead handles and swallowed its pointerdown.
-   * Handle extent is constant in screen pixels while the gutter is fixed in world units,
-   * so the seam worked when zoomed in and quietly stopped working as you zoomed out.
-   */
+  /** Grouped panes use seams and do not render window resize handles. */
   isGrouped: boolean;
   isSelected: boolean;
   stackBands: InfiniteCanvasStackBands;
@@ -282,26 +202,7 @@ function InfiniteCanvasWindowFrameContent<Kind extends string>({
   const actions = useInfiniteCanvasActions<Kind>();
   const store = useInfiniteCanvasStore<Kind>();
   const definition = windowDefinitions[window.kind];
-  /**
-   * Chrome simplifies at far zoom, on the same band the body already uses.
-   *
-   * A stroke that survives low zoom is not the same as chrome that is legible there. Zoomed
-   * out to see how windows relate, a 300 × 200 window is tens of screen pixels: the title is
-   * unreadable, the four control buttons are under three pixels across and cannot be hit, and
-   * the eight resize handles — which are a constant *screen* size by design — are individually
-   * larger than the window they surround, so they stop being controls and become a smear that
-   * swallows the pointer.
-   *
-   * Unlike the body's summary lane this is not opt-in per kind. A body is the consumer's
-   * content and only they can say what its summary is; the chrome is the framework's own, and
-   * a window kind cannot meaningfully opt into having illegible buttons.
-   *
-   * `camera` is already a prop, so this needs no subscription of its own. The ref carries the
-   * previous answer, which is what lets `getInfiniteCanvasWindowDetailLevel` stay pure while
-   * the hysteresis band works; writing it during render is the documented caching use of a
-   * ref, and it is idempotent because inside the band the function returns what is already
-   * there.
-   */
+  // Keep chrome legible at far zoom with the body detail hysteresis.
   const chromeDetailRef = useRef<InfiniteCanvasDetailLevel>("full");
   const chromeDetail = getInfiniteCanvasWindowDetailLevel(
     window.rect,
@@ -323,18 +224,13 @@ function InfiniteCanvasWindowFrameContent<Kind extends string>({
     devicePixelRatio,
   );
 
-  // The frame's box is in world units; `scale` maps it to the screen. Handles
-  // therefore need a world-unit extent that shrinks as zoom grows.
+  // Convert screen-sized handle and stroke values to world units.
   const articleStyle: InfiniteCanvasFrameStyle = {
     [CHROME_STROKE_CSS_VARIABLE]: `${getWorldLengthWithScreenFloor(chrome.borderWidth, screenTransform.scale)}px`,
     [RESIZE_HANDLE_SIZE_CSS_VARIABLE]: `${chrome.resizeHandleSize / screenTransform.scale}px`,
     [SCREEN_PIXEL_CSS_VARIABLE]: `${1 / screenTransform.scale}px`,
     contain: "layout paint style",
-    // Skipping a pan-away window's subtree, without unmounting it. `auto` and not `hidden`:
-    // the browser forces skipped content back on when it takes focus or is found by
-    // find-in-page, which is what keeps a hotkey bound to a control inside an offscreen
-    // window alive. Unmounting instead would drop DOM focus to `<body>`, detach portal
-    // roots, and destroy body scroll, video playback, and uncontrolled input state.
+    // Keep offscreen DOM mounted while the browser skips layout and paint.
     containIntrinsicSize: `${screenTransform.width}px ${screenTransform.height}px`,
     contentVisibility: isFrameOffscreen({ camera, isActive, viewport, window })
       ? "auto"
@@ -392,7 +288,7 @@ function InfiniteCanvasWindowFrameContent<Kind extends string>({
       isActive,
       isSelected,
       renderDefaultFrame,
-      // Read at call time, never an invalidation source — see the file header.
+      // Read current state without camera-driven body invalidation.
       get state() {
         return store.state$.peek() as InfiniteCanvasState<Kind>;
       },
@@ -403,10 +299,7 @@ function InfiniteCanvasWindowFrameContent<Kind extends string>({
     return definition.renderFrame?.(frameContext) ?? renderDefaultFrame();
   }, [actions, chrome, definition, isActive, isHostLocalChrome, isSelected, store, theme, window]);
 
-  // Withheld rather than disabled, unlike the chrome buttons: a resize handle is an
-  // invisible hit target, not a labelled control, so there is no disabled state worth
-  // conveying — only a grip that must not be there. A grouped pane already withholds
-  // them, because it is resized by its seam.
+  // Hidden handles do not create dead hit targets.
   const isResizable = !isGrouped && isInfiniteCanvasWindowCapable(window, "resizable");
   const resizeHandles = useMemo(
     () =>
@@ -459,16 +352,12 @@ function InfiniteCanvasWindowFrameContent<Kind extends string>({
       <InfiniteCanvasWindowPortalContext.Provider value={windowPortalRoot}>
         <article
           aria-label={window.title}
-          // `aria-selected` is only valid on gridcell/option/row/tab/treeitem —
-          // never on `group`, where assistive tech ignores or misreports it.
-          // The active window is the "current item in a set", which is exactly
-          // what `aria-current` means and is valid on any element. Selection
-          // stays a styling concern via the `data-selected` contract.
+          // `aria-current` is valid for `role=group`. `aria-selected` is not.
           aria-current={isActive ? "true" : undefined}
           aria-roledescription="window"
           data-frame-chrome={isHostLocalChrome ? "host" : "dom"}
           data-infinite-canvas-window-id={window.id}
-          // A real DOM id so a group tab's `aria-controls` can name this panel (FR-9).
+          // The group tab uses this ID in `aria-controls`.
           id={getInfiniteCanvasWindowFrameElementId(canvasInstanceId, window.id)}
           data-kind={window.kind}
           data-mode={window.mode}
@@ -485,23 +374,8 @@ function InfiniteCanvasWindowFrameContent<Kind extends string>({
           {isResizable && chromeDetail === "full" ? resizeHandles : null}
         </article>
         {definition.portalRoot !== true ? null : (
-          // A sibling of the frame, not a child: it must sit outside the frame's
-          // transform, or content mounted here would be scaled by zoom and would resolve
-          // `position: fixed` against the frame. It tracks the window's *screen* rect
-          // instead, so a popover lands beside its anchor at natural size.
-          //
-          // **After the frame, and carrying the frame's own stack value.** Both are
-          // positioned, so paint order is decided first by `z-index` and then by document
-          // order. Rendered before the frame with no `z-index`, as this was until
-          // 2026-07-08, every portalled popover painted *underneath* the opaque window
-          // body it belonged to — present in the DOM, invisible on screen. Sharing the
-          // frame's stack value rather than adding to it keeps the popover above its own
-          // window and still below any window stacked higher, which is what "belongs to
-          // this window" has to mean.
-          //
-          // `pointer-events: none` so the root does not blanket the body it covers.
-          // Interactive portalled content sets `pointer-events: auto` on itself, the same
-          // contract `renderOverlay` uses.
+          // Keep the portal outside the transform and at the same stack level.
+          // Portalled controls can enable their own pointer events.
           <div
             data-infinite-canvas-window-id={window.id}
             data-slot={INFINITE_CANVAS_SLOTS.windowPortalRoot}
@@ -522,10 +396,7 @@ function InfiniteCanvasWindowFrameContent<Kind extends string>({
   );
 }
 
-/**
- * Chrome painted by the host: discrete layers the consumer can style
- * independently, stacked under the header and body.
- */
+/** Renders host chrome layers beneath header and body slots. */
 function InfiniteCanvasHostChromeFrame({
   chrome,
 }: Readonly<{
@@ -562,7 +433,7 @@ function InfiniteCanvasHostChromeFrame({
   );
 }
 
-/** Chrome painted by the slots themselves — the default. */
+/** Renders chrome through the default slots. */
 function InfiniteCanvasDomChromeFrame() {
   const { ActiveCorners, Body, Header, Surface } = DEFAULT_INFINITE_CANVAS_WINDOW_FRAME_SLOTS;
 
@@ -637,34 +508,10 @@ function InfiniteCanvasWindowHostChrome({
   );
 }
 
-/**
- * Props whose only effect on a culled frame is where it would be drawn.
- *
- * Everything else — the window, its chrome, whether it is active — changes what the frame
- * *is*, and must re-render it whether or not anyone can see it, so that it is already correct
- * the frame it comes back into view.
- */
+/** Props that only change a culled frame projection. */
 const FRAME_PROJECTION_PROPS: ReadonlySet<string> = new Set(["camera", "viewport"]);
 
-/**
- * A culled frame does not re-render when the camera moves.
- *
- * `content-visibility` is the browser's half of culling: it skips layout and paint for a
- * skipped subtree. It does nothing about React, which still re-renders every frame and
- * rebuilds its style object on every camera tick — and frame reconciliation is the dominant
- * remaining cost at high window counts, so at 160 windows the great majority of that work is
- * spent on windows nobody is looking at.
- *
- * Skipping it is sound precisely because the frame is not being drawn: a stale transform on a
- * subtree the browser is not painting is unobservable. The moment the camera brings it back
- * within the cull margin, `isFrameOffscreen(next)` is false, this returns false, and the frame
- * re-renders with the current camera before it can be seen.
- *
- * The comparison walks the props rather than listing them. Listing is how a memo comparator
- * goes stale: a prop added later would be absent from the list and silently stop propagating,
- * which is a far worse failure than a missed optimization — this file has already produced one
- * bug of exactly that shape, in `cloneInfiniteCanvasState`'s hand-listed fields.
- */
+/** Skips camera-only renders while both frame positions remain culled. */
 type InfiniteCanvasWindowFrameProps = Parameters<
   typeof InfiniteCanvasWindowFrameContent<string>
 >[0];

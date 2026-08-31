@@ -1,13 +1,4 @@
-/**
- * Publish gate: assert the built artifact is actually consumable.
- *
- * The workspace resolves `@hyphened/infinite-canvas` to `src/` via source-linked
- * exports, which hides every packaging bug from the dev loop and the test
- * suite. These invariants are only observable on `dist/`, so they are checked
- * here and wired into CI + `prepublishOnly`.
- *
- * Run: node ./scripts/verify-artifact.mjs   (after `vp pack`)
- */
+/** Examines the packed artifact after `vp pack`. */
 import { readFileSync, existsSync, readdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -16,7 +7,7 @@ const packageRoot = dirname(dirname(fileURLToPath(import.meta.url)));
 const dist = join(packageRoot, "dist");
 const manifest = JSON.parse(readFileSync(join(packageRoot, "package.json"), "utf8"));
 
-/** Bare specifiers statically imported by an ESM chunk, collapsed to package names. */
+/** Returns bare package names from static ESM imports. */
 const getStaticImports = (source) =>
   [...source.matchAll(/^import\s[^\n]*?from\s*["']([^"']+)["']/gm)]
     .map((match) => match[1])
@@ -37,10 +28,7 @@ if (!existsSync(dist)) {
   process.exit(1);
 }
 
-// 1. Every file promised by publishConfig.exports must exist on disk — and for
-//    every JS entry, so must the sibling declaration file that TypeScript's
-//    `bundler` resolution looks for. A missing one degrades the subpath to
-//    `any` without any build error.
+// Export targets and declaration siblings must exist.
 for (const [subpath, target] of Object.entries(manifest.publishConfig.exports)) {
   if (typeof target !== "string" || !target.startsWith("./dist")) continue;
   check(
@@ -59,12 +47,7 @@ check(
   'publishConfig.exports is missing "./scene" — the 3D entry consumers import',
 );
 
-// 1b. The legal and orienting files npm packs regardless of `files`, which it looks for in
-//     the *package* root rather than the repository root. `files` is `["dist"]`, so nothing
-//     else is carried explicitly, and a monorepo naturally puts LICENSE at the top where the
-//     tarball cannot see it. Publishing a package whose manifest declares MIT while shipping
-//     no licence text is not a cosmetic gap: MIT asks that the notice travel with "all copies
-//     or substantial portions of the Software", and the copy a consumer installs is one.
+// Package-root legal and orientation files must exist.
 for (const required of ["LICENSE", "README.md"]) {
   check(
     existsSync(join(packageRoot, required)),
@@ -78,10 +61,7 @@ check(
   "package.json declares no license",
 );
 
-// 1c. The quick-start in that README is what npm renders on the package page, and it is the
-//     first code anyone runs. Nothing checked that the names it imports still exist:
-//     `verify-api-doc.mjs` guards `docs/API.md`, which does not ship, while this file does.
-//     A rename would leave the front page telling every new consumer to import something gone.
+// README imports must exist in source barrels.
 const barrelExports = (entry) => {
   const source = readFileSync(join(packageRoot, "src", entry), "utf8")
     .replaceAll(/\/\*[\s\S]*?\*\//g, "")
@@ -131,25 +111,19 @@ for (const match of readme.matchAll(/import\s+(?:type\s+)?\{([^}]*)\}\s*from\s*"
 const bundle = readFileSync(join(dist, "index.mjs"), "utf8");
 const types = readFileSync(join(dist, "index.d.mts"), "utf8");
 
-// 2. This is a hooks/DOM/WebGPU client library. Without the directive as the
-//    bundle's first statement, React Server Component consumers break on
-//    import. The bundler flattens the per-file directives away.
+// Require the client directive as the first bundle statement.
 check(
   /^["']use client["'];/.test(bundle.trimStart()),
   '"use client" is not the first statement of dist/index.mjs (RSC consumers will break)',
 );
 
-// 3. snapdom must stay lazy — it is a heavy DOM-serialization fallback that
-//    most consumers never hit. A static import would pull it into every bundle.
+// Keep snapdom lazy.
 check(
   !/^import[^\n]*@zumer\/snapdom/m.test(bundle),
   "@zumer/snapdom became a static import; it must remain dynamically imported",
 );
 
-// 4. `three` and `@react-three/fiber` are declared optional peers. That promise
-//    holds only if the 3D engine is reachable from the ./scene entry and from
-//    nowhere else — not even a dynamic import(), because bundlers follow static
-//    specifiers into lazy chunks and fail to resolve the peer at build time.
+// Keep optional 3D peers isolated to the scene entry.
 const OPTIONAL_3D_PEERS = ["three", "@react-three/fiber"];
 const sceneBundle = readFileSync(join(dist, "scene.mjs"), "utf8");
 const entryImports = new Set(getStaticImports(bundle));
@@ -167,15 +141,13 @@ for (const peer of OPTIONAL_3D_PEERS) {
     manifest.peerDependenciesMeta?.[peer]?.optional === true,
     `peerDependenciesMeta["${peer}"].optional must be true`,
   );
-  // Vacuity guard: if ./scene stopped importing the engine, the check above
-  // would pass while proving nothing.
+  // Require the scene entry to import each optional 3D peer.
   check(
     sceneImports.has(peer),
     `dist/scene.mjs does not import "${peer}" — the ./scene entry is supposed to own the 3D engine`,
   );
 }
-// A dynamic import of the scene chunk from the main entry would re-couple them:
-// the bundler resolves the specifier eagerly even though the module loads late.
+// Keep the main entry independent of the scene chunk.
 check(
   ![...entryDynamicImports].some((specifier) => specifier.includes("scene")),
   "dist/index.mjs dynamically imports the scene chunk. Bundlers resolve dynamic-import " +
@@ -183,9 +155,7 @@ check(
     `${[...entryDynamicImports].join(", ")}`,
 );
 
-// 5. Nothing may be imported that consumers were not told to install — in *any*
-//    chunk, not just the entry. Lazy chunks resolve at runtime, so an undeclared
-//    import there is a crash the entry-only check would have missed.
+// Reject undeclared imports from all runtime chunks.
 const declared = new Set([
   ...Object.keys(manifest.dependencies ?? {}),
   ...Object.keys(manifest.peerDependencies ?? {}),
@@ -200,16 +170,13 @@ for (const chunk of chunks) {
   }
 }
 
-// 6. Type declarations must ship and resolve the public entry.
+// Public declarations must exist in emitted types.
 check(types.length > 0, "dist/index.d.mts is empty");
 check(
   /InfiniteCanvasDesktop/.test(types),
   "dist/index.d.mts does not declare InfiniteCanvasDesktop — dts emit is broken",
 );
-// Declarations share the bundler's output pipeline, so the "use client" banner
-// can silently leak into them. A directive prologue is a statement, and
-// statements are illegal in an ambient context: every consumer who has not set
-// `skipLibCheck` then fails to compile with TS1036.
+// Reject client directives in ambient declaration files.
 for (const declaration of readdirSync(dist).filter((file) => file.endsWith(".d.mts"))) {
   check(
     !/^["']use client["'];/.test(readFileSync(join(dist, declaration), "utf8").trimStart()),
@@ -218,7 +185,7 @@ for (const declaration of readdirSync(dist).filter((file) => file.endsWith(".d.m
   );
 }
 
-// 7. The npm name must be one we can actually publish.
+// Require a publishable scoped package name.
 check(manifest.name.startsWith("@"), `unscoped name "${manifest.name}" is taken on npm`);
 
 if (failures.length > 0) {

@@ -5,24 +5,16 @@ import { readCatalogue, type SurrealCatalogue } from "../core/catalogue";
 import { createSurrealReader, getErrorMessage, type SurrealReader } from "../core/reads";
 import type { SurrealInspectorSource } from "../core/source";
 
-/**
- * Connects one source and reads its catalogue.
- *
- * `source.connect` returns the host's existing client, so this hook opens and closes nothing. It
- * owns the reader and the catalogue, both discarded when the source changes.
- *
- * `catalogue` stays `null` until an answer arrives, so panels can distinguish "not read yet" from
- * "no tables".
- */
+/** The hook reuses the host client and clears state when the source changes. */
 
 type SurrealInspection = Readonly<{
   catalogue: SurrealCatalogue | null;
   client: Surreal | null;
   error: string | null;
   reader: SurrealReader | null;
-  /** Re-read everything, dropping the cache first. */
+  /** This method starts a new source read. */
   refresh: () => void;
-  /** Incremented by `refresh`, so panels with their own reads can depend on it. */
+  /** This value increases after each refresh. */
   revision: number;
 }>;
 

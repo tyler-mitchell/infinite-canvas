@@ -3,13 +3,6 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { expect, test } from "vite-plus/test";
 
-/**
- * The headless guarantee, enforced durably: framework components carry no
- * visual identity of their own. Appearance lives in theme.css (opt-in,
- * targeting the data-slot contract); components only forward consumer
- * className/style props. See docs/SHAPING_PLAN.md.
- */
-
 const srcDirectory = dirname(fileURLToPath(import.meta.url));
 
 const sourceFiles = readdirSync(srcDirectory)

@@ -307,18 +307,6 @@ test("world paths expose progress points and scene transforms", () => {
 });
 
 test("on an elbow, the routed midpoint is on the line and the endpoint average is not", () => {
-  /*
-   * The reason anything anchoring to "the middle of a connector" must walk the path.
-   *
-   * Averaging the two ends is the obvious midpoint and is wrong for any route that turns: for this
-   * elbow it lands at (50, 25), which is in the open space the corner encloses — beside the line
-   * rather than on it. A label placed there floats next to the connector it belongs to, and worse,
-   * it does so *only* on asymmetric routes, so a canvas whose connectors happen to be symmetric
-   * shows nothing wrong.
-   *
-   * The consuming app records this as reasoning rather than evidence, because the connector it had
-   * to hand was symmetric and could not tell the two apart. This is the case that can.
-   */
   const path = getInfiniteCanvasWorldPath([
     { x: 0, y: 0 },
     { x: 100, y: 0 },
@@ -332,8 +320,6 @@ test("on an elbow, the routed midpoint is on the line and the endpoint average i
       const withinX = spansX && point.x <= Math.max(segment.start.x, segment.end.x);
       const spansY = Math.min(segment.start.y, segment.end.y) <= point.y;
       const withinY = spansY && point.y <= Math.max(segment.start.y, segment.end.y);
-      // Every limb of an orthogonal route is axis-aligned, so "on it" is the box test plus the
-      // constant axis matching exactly.
       const straddles =
         segment.start.x === segment.end.x
           ? point.x === segment.start.x

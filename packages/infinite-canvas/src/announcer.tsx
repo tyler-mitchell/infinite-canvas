@@ -2,19 +2,8 @@ import { createContext, type CSSProperties, useCallback, useContext, useState } 
 
 import { useInfiniteCanvasState } from "./store";
 
-/**
- * The canvas's screen-reader announcement channel.
- *
- * One live region per canvas, mounted for as long as the canvas is. It used to live inside the HUD,
- * which returns `null` when a consumer turns off its controls, dock, and status card — so whether
- * the canvas could speak depended on unrelated visual policy.
- *
- * A consumer reaches it with {@link useInfiniteCanvasAnnounce}. The canvas announces the active
- * window through the same element it always did; a consumer message uses a second region so the
- * two never overwrite each other.
- */
+/** Provides separate live regions for active-window and consumer messages. */
 
-/** Screen-reader-only treatment (Tailwind sr-only). */
 const VISUALLY_HIDDEN_STYLE = {
   borderWidth: 0,
   clip: "rect(0, 0, 0, 0)",
@@ -29,13 +18,7 @@ const VISUALLY_HIDDEN_STYLE = {
 
 const InfiniteCanvasAnnouncerContext = createContext<((message: string) => void) | null>(null);
 
-/**
- * Say something to a screen reader, from anywhere inside a canvas.
- *
- * Announcing the same string twice mutates nothing, so a repeat of the current message is not
- * spoken again. Outside a canvas this is a no-op rather than a throw: an announcement is never
- * load-bearing enough to fail a render over.
- */
+/** Sends a message to the nearest canvas live region. Outside a canvas, it does nothing. */
 function useInfiniteCanvasAnnounce(): (message: string) => void {
   const announce = useContext(InfiniteCanvasAnnouncerContext);
 

@@ -4,16 +4,6 @@ import { createInfiniteCanvasState, createInfiniteCanvasWindow } from "./factory
 import { reduceInfiniteCanvasState } from "./reducer";
 import type { InfiniteCanvasState } from "./types";
 
-/**
- * Closing a selection is one edit.
- *
- * The lifecycle verbs act on the active window because the actions beneath them take a single
- * id, which left "select five windows and close them" with no verb at all. The reason it is one
- * command rather than a loop at the call site is undo: every document change is a history
- * checkpoint, so five dispatches would be five entries and recovering from a mistaken close
- * would mean pressing undo five times.
- */
-
 type Kind = "note";
 
 const pane = (id: string, closable = true) =>
@@ -25,7 +15,6 @@ const pane = (id: string, closable = true) =>
     title: id,
   });
 
-/** Four closable windows and one that refuses, all selected. */
 const seed = (): InfiniteCanvasState<Kind> => {
   const base = createInfiniteCanvasState<Kind>({
     windows: [pane("a"), pane("b"), pane("c"), pane("d"), pane("console", false)],
@@ -53,9 +42,6 @@ test("every closable window in the selection is closed", () => {
 });
 
 test("a window that refuses to close survives, rather than the whole verb refusing", () => {
-  // A selection mixing a pinned-open console with four scratch windows closes the four, which
-  // is what the user asked for. Refusing wholesale would make one unclosable window veto a verb
-  // aimed at five.
   const closed = closeSelection(seed());
 
   expect(closed.windows).toHaveLength(1);
@@ -63,9 +49,6 @@ test("a window that refuses to close survives, rather than the whole verb refusi
 });
 
 test("closing four windows is a single undo entry", () => {
-  // The whole reason this is one command. A loop over `window.close` at the call site would
-  // leave four entries here, and this assertion is what would catch someone rewriting it that
-  // way for readability.
   const before = seed();
   const closed = closeSelection(before);
 
@@ -73,7 +56,6 @@ test("closing four windows is a single undo entry", () => {
 });
 
 test("undo brings all four back at once", () => {
-  // The property the entry count is a proxy for.
   const closed = closeSelection(seed());
   const undone = reduceInfiniteCanvasState(closed, {
     command: { type: "history.undo" },
@@ -97,7 +79,5 @@ test("a selection of only unclosable windows changes nothing", () => {
     selection: { anchorWindowId: "console", windowIds: ["console"] },
   };
 
-  // Reference equality is the change test throughout this codebase: a command that cannot do
-  // anything must not produce a new document, or it would land a history entry for a no-op.
   expect(closeSelection(state).windows).toBe(state.windows);
 });

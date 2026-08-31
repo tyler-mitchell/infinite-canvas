@@ -11,12 +11,7 @@ import { useInfiniteCanvasVisibilityContext } from "./visibility";
 function InfiniteCanvasWindowFrustumProbeLayer<Kind extends string>() {
   const state = useInfiniteCanvasState<Kind>();
   const visibility = useInfiniteCanvasVisibilityContext();
-  // This layer re-renders on every camera tick, so both of these have to be memoized on
-  // the window list rather than rebuilt per render. Unmemoized, `probeWindowIds` was a
-  // fresh array each frame, which re-fired the retain effect on every pan step — a
-  // full sweep of the tracked set, every frame, inside the one subsystem that exists to
-  // measure frame cost. The reducers return the identical `state.windows` array when
-  // nothing changed, which is what makes this hold across a pan.
+  // Memoization prevents a retain pass on each camera tick.
   const probeWindows = useMemo(
     () => state.windows.filter(isWindowFrustumProbeEligible),
     [state.windows],

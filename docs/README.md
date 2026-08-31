@@ -1,80 +1,60 @@
-# Docs
+# Documentation
 
-Project-level documentation for the infinite-canvas framework.
+This directory contains project documents for the infinite-canvas framework.
 
-## Precedence
+## Source order
 
-When documents disagree, the order of truth is:
+If documents conflict, use this source order:
 
-1. **Code and tests** (`packages/infinite-canvas/`)
-2. **Implementation-era planning docs** (`reference/infinite-canvas/README.md`,
-   `FEATURE_TRACKER.md`, `RASTERIZATION_PLAN.md`,
-   `SELECTION_AND_KEYBOARD_PLAN.md`) — maintained through the latest
-   implementation work. **Local only**: `reference/` is on disk but excluded from
-   the repository, so these links resolve for the owner and not for a clone. See
-   [SHIP_PLAN.md](SHIP_PLAN.md) for why.
-3. **This directory** — requirements, policies, and forward-looking research
+1. Code and tests in `packages/infinite-canvas/`.
+2. Local implementation documents.
+3. Requirements, policies, plans, and research in this directory.
+
+The `reference/` directory is local and is not part of a clone. See
+[SHIP_PLAN.md](SHIP_PLAN.md) for the reason.
 
 ## Documents
 
-- [API.md](API.md) — the complete public surface (155 values, 131 types),
-  generated from the barrel
-- [SHIP_PLAN.md](SHIP_PLAN.md) — open-source / production blockers, with verified
-  findings
-- [ROADMAP.md](ROADMAP.md) — the large work programs (P1–P8) with scope,
-  exit criteria, dependencies, and the recommended spine
-- [ARCHITECTURE_PLAN.md](ARCHITECTURE_PLAN.md) — the porting/bring-up plan
-  that stood this repo up (2026-06-10; largely executed)
-- [SHAPING_PLAN.md](SHAPING_PLAN.md) — the html-in-canvas posture +
-  headless extraction plan (2026-06-10; executed)
-- [REQUIREMENTS.md](REQUIREMENTS.md) — what the framework must do, with
-  per-requirement status
-- [zoom-policy.md](zoom-policy.md) — the zoom model; mostly implemented,
-  open items marked
+- [API.md](API.md) lists 232 values and 190 types from the public barrels.
+- [SHIP_PLAN.md](SHIP_PLAN.md) lists blockers for production and public use.
+- [ROADMAP.md](ROADMAP.md) defines programs P1 through P8, their dependencies, and their exit criteria.
+- [ARCHITECTURE_PLAN.md](ARCHITECTURE_PLAN.md) records the port plan from 2026-06-10. Most work is completed.
+- [SHAPING_PLAN.md](SHAPING_PLAN.md) records the completed HTML-in-canvas and headless extraction plan from 2026-06-10.
+- [REQUIREMENTS.md](REQUIREMENTS.md) lists each framework requirement and its status.
+- [zoom-policy.md](zoom-policy.md) defines the zoom model and marks open work.
 
-### research/
+## Research
 
-Forward-looking specs and reference material, curated 2026-06-10 from the
-pre-implementation research corpus in kek-monorepo (authored 2026-04-22..24,
-the same days the official implementation began; runtime-descriptive docs
-from that corpus were dropped as stale — they described a predecessor
-architecture deleted on 2026-04-23). Each file carries its own provenance
-note and current status.
+These documents contain specifications and reference material for future work.
+The project copied them from kek-monorepo on 2026-06-10 and added a provenance note to each file.
 
-- [grouping-and-docking.md](research/grouping-and-docking.md) — the next
-  major tranche: group shells, n-ary container trees, split/tabs/accordion,
-  sequencing
-- [snapping.md](research/snapping.md) — hardening spec for the existing snap
-  subsystem: **hysteresis** (a tracked risk), docking-intent, spatial
-  indexing, organization commands
-- [state-focus-and-recipes.md](research/state-focus-and-recipes.md) — state
-  tier boundaries (implemented; protect), group-aware focus model, layout
-  recipes
-- [acceptance-scenarios.md](research/acceptance-scenarios.md) — 30+
-  architecture-level acceptance tests with coverage status
-- [body-content-contract.md](research/body-content-contract.md) — the unbuilt
-  window-body contract (portal roots, positioning, input ownership, a11y) and
-  low-zoom chrome findings
-- [risk-register.md](research/risk-register.md) — architectural risks with
-  mitigation status, including repo-era additions (headless regression,
-  dependency drift, interactive performance)
-- [api-friction-backlog.md](research/api-friction-backlog.md) — defects and
-  ergonomic gaps surfaced by the 2026-06-10 showcase-rebuild exercise, with
-  fixed/open status
-- [tooling-candidates.md](research/tooling-candidates.md) — ecosystem
-  packages with adoption triggers, corrected for decisions already made
-- [feature-landscape-2026.md](research/feature-landscape-2026.md) — near-
-  verbatim product survey of the infinite-canvas landscape (early 2026), for
-  roadmap positioning
+- [grouping-and-docking.md](research/grouping-and-docking.md) specifies group shells, container trees, layouts, and operation order.
+- [snapping.md](research/snapping.md) specifies hysteresis, docking intent, spatial indexing, and organization commands.
+- [state-focus-and-recipes.md](research/state-focus-and-recipes.md) defines state boundaries, group focus, and layout recipes.
+- [acceptance-scenarios.md](research/acceptance-scenarios.md) lists architecture acceptance tests and their coverage status.
+- [body-content-contract.md](research/body-content-contract.md) defines portal roots, positioning, input ownership, accessibility, and low-zoom chrome.
+- [risk-register.md](research/risk-register.md) lists architecture risks and their status.
+- [api-friction-backlog.md](research/api-friction-backlog.md) lists API defects and unresolved usability problems.
+- [tooling-candidates.md](research/tooling-candidates.md) lists packages and the conditions for their use.
+- [feature-landscape-2026.md](research/feature-landscape-2026.md) contains the early 2026 product survey.
 
-## Not carried over
+## Local and historical documents
 
-From the kek-monorepo doc corpus, the following were deliberately left behind
-as historical: `current-runtime-audit.md`, `implementation-roadmap.md`,
-`agent-handoff-report.md`, the old directory `README.md` (all describe the
-pre-framework `desktop-*` architecture or the crisis that ended it),
-`core-architecture.md` (absorbed into the implementation; its scene-owned
-chrome tenet was reversed), `state-management-evaluation.md` (Legend State
-decision absorbed), `handle-source-review.md` (lessons absorbed into
-`interaction.ts`), and corpus files 01/02/06/10 (settled rationale). They
-remain in kek-monorepo at `apps/web/reference/infinite-canvas/` if needed.
+The local implementation set contains `reference/infinite-canvas/README.md`, `FEATURE_TRACKER.md`, `RASTERIZATION_PLAN.md`, and `SELECTION_AND_KEYBOARD_PLAN.md`.
+
+The repository excludes these historical documents:
+
+- `current-runtime-audit.md`
+- `implementation-roadmap.md`
+- `agent-handoff-report.md`
+- The old `README.md`
+- `core-architecture.md`
+- `state-management-evaluation.md`
+- `handle-source-review.md`
+- Corpus files 01, 02, 06, and 10.
+
+The first four documents describe the replaced `desktop-*` architecture.
+`core-architecture.md` contains a scene-owned chrome rule that the current architecture reversed.
+`state-management-evaluation.md` ended with the current Legend State choice.
+`handle-source-review.md` informed the handle behavior in `interaction.ts`.
+The source documents remain at `apps/web/reference/infinite-canvas/` in kek-monorepo.

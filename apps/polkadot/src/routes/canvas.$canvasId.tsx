@@ -4,15 +4,7 @@ import { hydrateCanvasLayout } from "../canvas/canvas-document";
 import { CanvasFailure, CanvasLoading } from "../workspace/canvas-states";
 import { WorkspaceCanvas } from "../workspace/workspace-canvas";
 
-/**
- * One canvas document, addressed by record id.
- *
- * The loader does the reading *and* the hydration, so the component is handed state that is
- * already valid. Nothing renders an empty canvas that fills in a moment later, and the store is
- * never corrected after it exists — which is also what makes disposal simple, because the store's
- * whole life is the life of one route match.
- */
-
+// The loader hydrates the layout before the route component renders.
 class CanvasNotFoundError extends Error {
   override readonly name = "CanvasNotFoundError";
 
@@ -50,8 +42,7 @@ function CanvasRoute() {
   const canvas = Route.useLoaderData();
   const router = useRouter();
 
-  // Structurally not a canvas layout. Opening anything here would be inventing a workspace, and
-  // the notes are separate records, so they are untouched and still readable.
+  // Unreadable layout data does not affect separate content records.
   if (canvas.hydration.status === "unreadable") {
     return (
       <CanvasFailure
@@ -76,8 +67,7 @@ function CanvasRoute() {
         state: canvas.hydration.state,
         title: canvas.title,
       }}
-      // A different canvas is a different store. Keying the subtree makes that structural rather
-      // than something the runtime has to detect and tear down.
+      // A new canvas id creates a new store subtree.
       key={canvas.id}
     />
   );

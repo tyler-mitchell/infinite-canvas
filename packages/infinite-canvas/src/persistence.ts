@@ -36,12 +36,7 @@ type InfiniteCanvasStorageKeyInput = Readonly<{
 
 const INFINITE_CANVAS_DOCUMENT_STORAGE_SEPARATOR = "::document::";
 
-/**
- * Both inputs are optional, so the inferred return widened to `string | undefined`
- * even when a `storageKey` was supplied — and every caller wrote `?? storageKey` to
- * take it back. The overload states what the function already guaranteed: give it a
- * key and you get a key.
- */
+/** Returns a string when `storageKey` exists. */
 function getInfiniteCanvasScopedStorageKey(
   input: Readonly<{ documentKey?: string; storageKey: string }>,
 ): string;
@@ -57,17 +52,7 @@ function getInfiniteCanvasScopedStorageKey({
     : `${storageKey}${INFINITE_CANVAS_DOCUMENT_STORAGE_SEPARATOR}${encodeURIComponent(documentKey)}`;
 }
 
-/**
- * The state fields that constitute the durable document.
- *
- * `interaction`, `viewport`, `snapPreview`, and `history` are deliberately absent: they change
- * continuously and mean nothing to a reloaded canvas. Everything here is what a store must write
- * down and what an external observer must watch.
- *
- * A `Record` rather than an array because `satisfies` then makes it exhaustive — adding a field to
- * the serialized document without adding it here fails to compile, which is the only thing that
- * keeps an observer from silently missing a field that persistence stores.
- */
+/** Lists every serialized document field for observers. */
 const INFINITE_CANVAS_DOCUMENT_FIELDS = {
   activeWindowId: true,
   activeWorkspaceId: true,
@@ -106,8 +91,7 @@ function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
 function readInfiniteCanvasPersistenceEnvelope(
   value: unknown,
 ): InfiniteCanvasPersistenceEnvelope | null {
-  // `version: 1` predates groups and `2` predates workspaces; both migrate to none rather
-  // than being rejected.
+  // Versions 1 and 2 omit later fields and migrate to empty lists.
   if (
     !isRecord(value) ||
     (value.version !== 1 && value.version !== 2 && value.version !== 3) ||
@@ -174,17 +158,11 @@ function parseInfiniteCanvasState<Kind extends string>(
           anchorWindowId: activeWindowId,
           windowIds: [activeWindowId],
         });
-  // A malformed group is dropped, not fatal: it can only cost the user a layout,
-  // whereas rejecting the payload costs them every window on the canvas.
+  // Drop a malformed group without rejecting valid windows.
   const groups = envelope.groups
     .map((group) => parseInfiniteCanvasGroup(group))
     .filter((group): group is InfiniteCanvasGroup => group !== null);
-  // Same bargain as a group: a malformed workspace is dropped rather than fatal, because it
-  // can only cost the user a membership filter while rejecting the payload costs them every
-  // window on the canvas. Membership itself is left alone here and reconciled below — a
-  // hand-edited or older payload can name a window that did not survive, or half a group,
-  // and there should be one rule deciding what membership means rather than a copy of it
-  // living in the parser.
+  // Drop malformed workspaces. Reconcile their membership after parsing.
   const workspaces = envelope.workspaces
     .map((workspace) => parseInfiniteCanvasWorkspace(workspace))
     .filter((workspace) => workspace !== null);
@@ -204,27 +182,11 @@ function parseInfiniteCanvasState<Kind extends string>(
   } satisfies InfiniteCanvasState<Kind>;
   const selection = normalizeSelection(unnormalizedState, initialSelection);
 
-  // A persisted tree can name a window whose kind has since left the registry, or that a
-  // duplicate-id pass dropped. Reconciling here means no caller ever sees a group laying out
-  // a window that does not exist.
-  //
-  // Workspaces reconcile *after* groups, and through the same function the reducer uses:
-  // hydration is the one path that builds state without passing through it, so a payload
-  // could otherwise arrive holding half a group — the state the group-complete invariant
-  // forbids — and the keeper installed in the reducer would never see it. Groups first,
-  // because the expansion reads the trees that reconciliation may just have pruned.
+  // Reconcile groups before workspaces because membership reads group trees.
   return reconcileInfiniteCanvasWorkspaces(
     reconcileInfiniteCanvasGroups({
       ...unnormalizedState,
-      // The selection's anchor wins where there is one, because active-is-anchor is what
-      // `applySelection` maintains. Where there is none the hydrated id is kept rather than
-      // discarded, so a window focused *without* being selected survives a reload — a state
-      // the model produces on its own, when `minimizeWindow` hands focus on or entering a
-      // workspace with nothing selected picks something on that desktop.
-      //
-      // Only when the selection anchors nothing at all, though. A selection anchored on a
-      // non-window target — an edge, a scene object — has deliberately no active window, and
-      // an earlier version of this line restored one anyway.
+      // A non-window selection target excludes an active window.
       activeWindowId:
         selection.anchorWindowId ??
         (getSelectionAnchorTarget(selection) === null ? activeWindowId : null),

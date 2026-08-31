@@ -6,49 +6,11 @@ import { tv } from "tailwind-variants";
 
 import { cn } from "../lib/utils";
 
-/**
- * Modal dialogs, on Base UI.
- *
- * Focus trapping and restore, scroll locking, `aria-modal`, escape and outside-press dismissal,
- * and the title/description association all belong to the primitive.
- *
- * The footer separates by tone rather than by a rule: a hairline across a panel reads as a
- * wireframe of a dialog rather than a dialog, which is the same reason no surface here is
- * outlined.
- */
+/** Base UI owns modal behavior and accessibility. */
 const dialog = tv({
   slots: {
-    /*
-     * Transitions, not `animate-in` / `animate-out`.
-     *
-     * Those utilities come from an animation plugin this workspace does not install, so every one
-     * of them — `animate-in`, `fade-out-0`, `zoom-out-95` — compiled to nothing. That looked
-     * harmless, since a dialog appearing instantly is only a missing flourish. It was not harmless:
-     * Base UI holds a closing popup mounted until its exit animation finishes, and an exit
-     * animation that never starts never finishes.
-     *
-     * The result was a dialog stuck at `data-closed` with `data-ending-style` for as long as you
-     * left it — measured at twelve seconds and still mounted — and, far worse, its **backdrop**
-     * stuck with it at full opacity and `pointer-events: auto`. A zero-height dialog is invisible;
-     * an invisible full-screen backdrop swallows every click in the application.
-     *
-     * `opacity` and `scale` under the same `data-` variants are real properties, so the transition
-     * actually runs and `transitionend` actually fires. `data-starting-style` is what Base UI sets
-     * for one frame on entry, which is what gives the transition somewhere to come from.
-     */
-    /*
-     * `data-closed:pointer-events-none` is the load-bearing part, not the fade.
-     *
-     * A closed dialog must stop taking input the instant it is closed, whether or not it has
-     * finished leaving. Without this, a dismissed palette left a full-screen backdrop at
-     * `pointer-events: auto` over the whole application — `elementFromPoint` at the centre of the
-     * viewport returned the backdrop, so every click in the app went nowhere. Invisible and
-     * inert are different things, and only one of them is safe.
-     *
-     * It is written as a state rule rather than a cleanup because it cannot then depend on the
-     * exit completing. That is what went wrong before: the popup's mount was tied to an animation
-     * that never ran, so anything else tied to the same moment never happened either.
-     */
+    // CSS transitions must finish before Base UI unmounts closed dialogs.
+    // `pointer-events-none` makes a closed backdrop inert before unmount.
     backdrop:
       "fixed inset-0 isolate z-50 bg-black/40 transition-opacity duration-150 supports-backdrop-filter:backdrop-blur-sm data-closed:pointer-events-none data-closed:opacity-0 data-starting-style:opacity-0",
     content:
@@ -69,11 +31,7 @@ function DialogClose({ ...props }: DialogPrimitive.Close.Props) {
   return <DialogPrimitive.Close data-slot="dialog-close" {...props} />;
 }
 
-/**
- * `container` is forwarded because Base UI portals to `<body>` by default, and a host that stacks
- * its own chrome high enough will paint over a modal that landed there. Passing the host's own
- * portal root is the fix — raising the dialog's z-index instead only starts a bidding war.
- */
+/** A host portal target prevents its chrome from covering the dialog. */
 function DialogContent({
   children,
   className,

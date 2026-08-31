@@ -14,13 +14,7 @@ import {
 import { Code, Empty, Notice, Panel, Section } from "./chrome";
 import type { SurrealInspection } from "./use-inspection";
 
-/**
- * Runs a statement and shows the engine's query plan. `Iterate Index` means an index was used,
- * `Iterate Table` means a full scan. Kept separate from the Overview's read-cache counters, which
- * measure the inspector rather than the engine.
- *
- * Statements run as typed, including writes. Nothing is reported as a read that was not one.
- */
+/** The panel separates query plans from cache activity. Statements can write. */
 
 const query = tv({
   slots: {
@@ -77,7 +71,7 @@ function Query({ inspection }: Readonly<{ inspection: SurrealInspection }>) {
           setStatement(event.target.value);
         }}
         onKeyDown={(event) => {
-          // The canvas underneath claims plenty of chords; a statement being typed is not for it.
+          // The handler keeps editor shortcuts from reaching the canvas.
           event.stopPropagation();
 
           if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {

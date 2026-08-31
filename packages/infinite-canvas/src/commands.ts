@@ -103,7 +103,7 @@ import type {
 } from "./types";
 import { isInfiniteCanvasWindowCapable } from "./window-capabilities";
 
-/** Nudge moves a docked pane's shell; arrange skips the pane. Both are intentional. */
+/** Nudge moves a docked shell. Arrange commands skip docked panes. */
 const NUDGE_GROUP_RULE =
   "A docked window moves its whole group, which moves once however many of its panes are selected.";
 const ARRANGE_GROUP_RULE = "Docked windows are skipped; only floating ones move.";
@@ -131,19 +131,6 @@ const DEFAULT_INFINITE_CANVAS_COMMAND_DESCRIPTORS = [
     command: {
       type: "selection.selectAllVisible",
     },
-    /*
-     * "Visible" is this framework's word and not a caller's, so the description says the rule
-     * instead of the word.
-     *
-     * A caller reading "every visible window" takes it as "every window I can see", which is a
-     * reasonable reading and the wrong one: `getSelectableWindowIds` filters on `mode` and
-     * workspace membership and never consults the camera. Driven through WebMCP against a canvas
-     * panned away from one window — it was selected along with the two on screen, and the caller
-     * had no way to know from the name or the sentence.
-     *
-     * A window behind a tab is selected too, which is why this does not say "on screen" either:
-     * `isSelectableWindow` tests `mode !== "minimized"` and nothing about group projection.
-     */
     description: "Select every window on this desktop that is not minimized.",
     hotkeys: ["Mod+A"],
     id: "selection.selectAllVisible",
@@ -153,9 +140,6 @@ const DEFAULT_INFINITE_CANVAS_COMMAND_DESCRIPTORS = [
     command: {
       type: "view.fitAll",
     },
-    // The same set as `selection.selectAllVisible`, and the same word avoided for the same reason.
-    // Under the camera reading this verb would be a no-op — it frames windows you *cannot* see,
-    // which is the whole point of it.
     description: "Fit every window on this desktop that is not minimized inside the viewport.",
     hotkeys: ["Shift+1"],
     id: "view.fitAll",
@@ -316,16 +300,6 @@ const DEFAULT_INFINITE_CANVAS_COMMAND_DESCRIPTORS = [
     id: "history.redo",
     label: "Redo",
   },
-  // Arrange verbs ship with NO default chords, and that is a decision rather than an omission.
-  // Eight commands would need eight chords; the unclaimed space is nearly exhausted (see the
-  // rule below), and design tools do not agree on bindings for these anyway — they live in a
-  // toolbar or a palette, which is where a consumer should put them. `hotkeyBindings` takes
-  // them if a consumer disagrees.
-  //
-  // These act on the SELECTION and are one-shot. They are emphatically not a layout mode: a
-  // canvas that keeps things aligned as they move is a tiling manager, and risk R5 has flagged
-  // "global tiling semantics forced onto the infinite canvas" as live and standing since the
-  // beginning. You align, and then the windows are where you put them.
   {
     command: { alignment: "left", type: "window.align" },
     description: `Align the selected windows to the left edge of their collective bounds. ${ARRANGE_GROUP_RULE}`,
@@ -368,11 +342,6 @@ const DEFAULT_INFINITE_CANVAS_COMMAND_DESCRIPTORS = [
     id: "window.align.vertical-center",
     label: "Align Vertical Centers",
   },
-  // Docking without a pointer. Every group gesture was drag-only until 2026-08-12, which made
-  // the library's largest feature unreachable by keyboard — an accessibility failure, not just
-  // a missing convenience. These carry no default chords for the same reason the arrange verbs
-  // do not: the unclaimed chord space is nearly exhausted, and a consumer knows better than we
-  // do whether docking deserves four of it.
   {
     command: { direction: "left", type: "window.dockDirection" },
     description: "Dock the active window against the nearest window to its left.",
@@ -409,16 +378,6 @@ const DEFAULT_INFINITE_CANVAS_COMMAND_DESCRIPTORS = [
     id: "window.undock",
     label: "Undock Window",
   },
-  // Building a selection without a pointer. Every arrange verb — six aligns, two distributes,
-  // and swap — needs two or more selected windows, and until 2026-08-12 a keyboard user could
-  // not produce one: `window.focusDirection` calls `focusWindow`, which *replaces* the
-  // selection with the window it focuses, and the only other selection commands were "clear"
-  // and "select all visible". So the whole arrange family was reachable in the palette and
-  // unusable in practice, which is worse than absent.
-  //
-  // This is the keyboard's Ctrl+click. It targets through `getInfiniteCanvasDirectionalFocusTarget`,
-  // the same function ordinary focus uses, so extending reaches exactly the window focusing
-  // would — one notion of which window is to your left.
   {
     command: { direction: "left", type: "selection.extendDirection" },
     description:
@@ -449,9 +408,6 @@ const DEFAULT_INFINITE_CANVAS_COMMAND_DESCRIPTORS = [
     id: "selection.extend.down",
     label: "Extend Selection Down",
   },
-  // Workspaces, for the verbs that resolve from state. Creating and naming a set is the
-  // consumer's — a palette entry cannot invent which set — but cycling, showing everything,
-  // and taking the window you are looking at off this desktop all resolve without an argument.
   {
     command: { direction: "next", type: "workspace.cycle" },
     description: "Switch to the next workspace, wrapping at the end.",
@@ -473,8 +429,6 @@ const DEFAULT_INFINITE_CANVAS_COMMAND_DESCRIPTORS = [
     id: "workspace.showAll",
     label: "Show All Windows",
   },
-  // Parameterized like `moveActiveWindow`: the placeholder id is replaced by the surface that
-  // knows which desktop, and the label and description live here rather than in each consumer.
   {
     command: { type: "workspace.create", workspaceId: "" },
     description: "Make a new desktop and go to it. Windows stay where they are; none are moved.",
@@ -504,10 +458,6 @@ const DEFAULT_INFINITE_CANVAS_COMMAND_DESCRIPTORS = [
     id: "workspace.close",
     label: "Close Desktop",
   },
-  // Parameterized, like `workspace.create`: a palette entry cannot invent which desktop, so the
-  // descriptor carries a placeholder id and the surface listing the desktops supplies the real
-  // one. It is here so the verb has a label and a description in one place rather than being
-  // re-invented by every consumer that builds a switcher.
   {
     command: { type: "workspace.moveActiveWindow", workspaceId: "" },
     description:
@@ -532,19 +482,6 @@ const DEFAULT_INFINITE_CANVAS_COMMAND_DESCRIPTORS = [
     id: "selection.removeActive",
     label: "Remove Window From Selection",
   },
-  // Panning and zooming by keyboard. Until 2026-08-12 the camera had exactly three commands
-  // — fit-all, fit-selection, reset-zoom — so a keyboard user could jump the view but could
-  // not move or scale it. On an infinite canvas that is the primary interaction, and its
-  // absence is the substance of the FR-9 accessibility gap SHIP_PLAN calls the largest thing
-  // standing between here and an honest "production".
-  //
-  // No default chords, and this family is where that hurts most, so the reason is worth
-  // stating: every arrow combination is taken (plain nudges, Shift nudges large, Alt focuses,
-  // Alt+Shift resizes, Mod+Shift places), and the conventional zoom keys are the browser's
-  // own — `Mod+0`, `Mod+=`, `Mod+-` are not page-cancellable, which is the family this file
-  // has already been burned by twice. Choosing between the remaining chords is a decision
-  // about someone's whole application, so `hotkeyBindings` takes it. What was actually
-  // missing is a command to bind at all.
   {
     command: { amountPx: 200, direction: "left", type: "view.pan" },
     description: "Move the viewport left across the canvas.",
@@ -573,30 +510,6 @@ const DEFAULT_INFINITE_CANVAS_COMMAND_DESCRIPTORS = [
     id: "view.pan.down",
     label: "Pan Down",
   },
-  // The one camera family that could take a default chord, and it is the bare `=` / `-` pair
-  // every spatial editor already uses for zoom.
-  //
-  // **Not `Mod+=` / `Mod+-`.** Those are the browser's above the page: the keydown is delivered,
-  // `preventDefault()` returns without error, and the page zooms anyway. That rule is written
-  // down twice in this repository because it was learned twice, and `Shift+0` exists rather than
-  // `Mod+0` for the same reason.
-  //
-  // **And not `Shift+=` either**, which was the first choice here for consistency with the
-  // `Shift+0/1/2` view family. `@tanstack/hotkeys` refuses it at the type level, and its reason
-  // is better than the symmetry argument: `Shift` changes what a punctuation key *produces*
-  // (`Shift+=` is `+` on US layouts and something else elsewhere), so the chord is not stable
-  // across keyboard layouts. Digits are exempt from that, which is why `Shift+1` is registerable
-  // and `Shift+=` is not — the family the eye sees is not the family the type system models.
-  //
-  // Bare keys are safe here because registration sets `ignoreInputs`, so a chord that lands
-  // while a text field has focus is never delivered to the canvas.
-  //
-  // Pan keeps its empty `hotkeys`, and the reason is sharper than "the consumer decides". Every
-  // arrow combination is taken — bare by `window.nudge`, `Alt` by directional focus, `Shift` and
-  // `Alt+Shift` and `Mod+Shift` by their own families — and `Mod+Arrow` is the browser's history
-  // and scroll-to-end on macOS. Sharing the bare arrows with `window.nudge` does not work either:
-  // bindings register independently and the handler swallows the chord *before* testing
-  // enablement, so both would fire and an arrow would nudge a window and pan the canvas at once.
   {
     command: { factor: 1.25, type: "view.zoomBy" },
     description: "Zoom in one step, holding the centre of the viewport still.",
@@ -611,27 +524,6 @@ const DEFAULT_INFINITE_CANVAS_COMMAND_DESCRIPTORS = [
     id: "view.zoomOut",
     label: "Zoom Out",
   },
-  // Window lifecycle. Until 2026-08-12 these lived only as four `onClick` handlers on the
-  // chrome buttons in `frame-slots.tsx`, so they were absent from the one registry that is
-  // supposed to be the whole vocabulary. The buttons are real `<button>`s with labels, so this
-  // was never a keyboard-reachability failure — it was an authority failure, with three
-  // consequences: `getInfiniteCanvasHotkeyBindings` derives strictly from descriptors, so a
-  // consumer could not bind a chord to "close" even if they wanted one; no palette could list
-  // them; and a consumer who replaces the header slot — the entire point of the slot API — lost
-  // the capability unless they reached past the commands to the raw actions facade.
-  //
-  // `activeWindow.*` rather than `window.*` for two reasons. `window.close` and
-  // `window.togglePinned` are already *action* types, and actions and commands are otherwise
-  // disjoint sets; two switches over identical strings meaning different things is the kind of
-  // trap that costs a later reader an hour. And the namespace states the target, which the
-  // existing `window.*` family leaves ambiguous — `window.align` acts on the selection while
-  // `window.focusDirection` acts on the active window, and nothing in either name says so.
-  //
-  // These act on the ACTIVE window, not the selection, because the actions beneath them take a
-  // single id: closing a selection of five would be five dispatches and five undo entries.
-  //
-  // No default chords. `Mod+W` is the browser's tab-close and is not page-cancellable, which is
-  // the exact family the `Mod+0` post-mortem below is about.
   {
     command: { type: "activeWindow.close" },
     description: "Close the active window.",
@@ -639,14 +531,6 @@ const DEFAULT_INFINITE_CANVAS_COMMAND_DESCRIPTORS = [
     id: "activeWindow.close",
     label: "Close Window",
   },
-  // Acts on the selection, where the four above act on the active window — which is why it is
-  // named for the selection rather than joining the `activeWindow.*` family.
-  //
-  // No default chord, for the same reason `activeWindow.close` has none and one more of its own.
-  // `Mod+W` is the browser's; and `Delete`/`Backspace` — the chord every canvas editor uses for
-  // this — would put a destructive multi-window verb one keypress from a stray press. It is
-  // recoverable in one undo by construction, but that is an argument for offering the binding
-  // rather than for making it the default in someone else's application.
   {
     command: { type: "selection.close" },
     description: "Close every selected window that can be closed, as a single undoable edit.",
@@ -692,10 +576,6 @@ const DEFAULT_INFINITE_CANVAS_COMMAND_DESCRIPTORS = [
     id: "activeWindow.togglePinned",
     label: "Pin / Unpin Window",
   },
-  // Shape verbs. `setInfiniteCanvasGroupLayoutMode` was reachable only through the actions
-  // facade and `setInfiniteCanvasGroupAxis` was reachable by nothing at all — dead code since
-  // it was written. A user could dock windows into a split and then never change what that
-  // split was, which is half of what a tiling layout is for.
   {
     command: { layout: "split", type: "group.setLayout" },
     description: "Show the active window's panes side by side, sharing the container.",
@@ -717,13 +597,6 @@ const DEFAULT_INFINITE_CANVAS_COMMAND_DESCRIPTORS = [
     id: "group.setLayout.accordion",
     label: "Layout: Accordion",
   },
-  // The last pointer-only interaction to get a keyboard form. `groupGutter` — dragging the
-  // seam between two panes — had none, so a keyboard user could equalize a container (reset
-  // every pane to the same share) but could not make one pane bigger than another, which is
-  // the thing you most often want from a docked layout.
-  //
-  // Both descriptors drive one command with an inverted amount, the shape `view.zoomBy` and
-  // `window.nudge` already use.
   {
     command: { amountPx: 24, type: "group.resizePane" },
     description:
@@ -799,28 +672,7 @@ const DEFAULT_INFINITE_CANVAS_COMMAND_DESCRIPTORS = [
     id: "window.distribute.vertical",
     label: "Distribute Vertically",
   },
-  // ── The rule that governs every chord below, and one above. ──────────────────────────
-  //
-  // `registerInfiniteCanvasHotkeys` calls `preventDefault()` on any chord the canvas owns,
-  // the moment it lands — that is what stops `Alt+ArrowLeft` at the edge of your windows
-  // from navigating Back. It also means a default binding that shadows a browser or OS
-  // shortcut is not a nuisance, it is theft. And the shortcuts the browser reserves for
-  // itself are not always cancellable: on macOS `Cmd+Alt+Left/Right` switches tabs in
-  // Chrome, Safari, and Firefox, so binding it would have switched the tab *and* placed the
-  // window. `Cmd+Alt+C` opens DevTools; `Cmd+Shift+C` opens the inspector.
-  //
-  // Reset-zoom was `Mod+0` until 2026-07-08, which is the clearest violation of the rule
-  // this file states. The browser's zoom accelerators — `Mod` with `0`, `+`, and `-` — are
-  // handled above the page in Chrome, Firefox, and Safari alike: the keydown is delivered,
-  // `preventDefault()` returns without error, and the page zoom resets anyway. So `Mod+0`
-  // reset the canvas *and* the browser, two surprises for one keypress, and the canvas's
-  // reset was the one the user could not see happen.
-  //
-  // `Shift+0` joins the view family it belongs to — `Shift+1` fits all, `Shift+2` fits the
-  // selection — and is unclaimed. It also survives keyboard layout: `@tanstack/hotkeys`
-  // matches a single-character hotkey against `event.key` first, and when `Shift+0` yields
-  // `)` on a US layout it falls through to `event.code === "Digit0"`. The same path the two
-  // chords beside it have always taken.
+  // Default chords must not shadow browser or operating-system shortcuts.
   {
     command: {
       type: "view.resetZoom",
@@ -830,8 +682,6 @@ const DEFAULT_INFINITE_CANVAS_COMMAND_DESCRIPTORS = [
     id: "view.resetZoom",
     label: "Reset Zoom",
   },
-  // `Mod+Shift+Arrow` is unclaimed in the browsers' page context, and reads as "the bigger
-  // modifier moves the window further" beside `Shift+Arrow`'s ten-pixel nudge.
   {
     command: {
       region: "left",
@@ -888,21 +738,10 @@ const DEFAULT_INFINITE_CANVAS_COMMAND_DESCRIPTORS = [
       type: "window.place",
     },
     description: "Centre the active window at its current size.",
-    // No default chord. Every obvious candidate is taken: `Mod+Alt+C` and `Mod+Shift+C`
-    // both open browser devtools, and a canvas that swallows the inspector is a canvas
-    // nobody can debug. Bind it through `hotkeyBindings` if you want one.
     hotkeys: [],
     id: "window.place.center",
     label: "Centre Window",
   },
-  // The quarters have no default chord either — four more bindings would crowd the
-  // vocabulary for a placement most users reach for through a menu. They stay dispatchable
-  // as `{ region: "top-left", type: "window.place" }` and bindable through `hotkeyBindings`.
-  //
-  // Resize is `Alt+Shift+Arrow`, one modifier away from `Alt+Arrow`'s directional focus and
-  // unowned by any browser. `Shift+Arrow` is already the ten-pixel nudge, so the vocabulary
-  // reads: bare arrow moves a little, Shift moves a lot, Alt moves *focus*, Alt+Shift changes
-  // the shape. Ten pixels, not one — a one-pixel resize is a keystroke nobody wants twice.
   {
     command: {
       amountPx: 10,
@@ -953,16 +792,12 @@ const FIT_CAMERA_NAVIGATION_BEHAVIOR = {
   type: "fit",
 } satisfies InfiniteCanvasCameraNavigationBehavior;
 
-/** Keyboard focus keeps the user's zoom; it only recentres. */
+/** Keyboard focus changes the center and preserves zoom. */
 const FOCUS_CAMERA_NAVIGATION_BEHAVIOR = {
   type: "center",
 } satisfies InfiniteCanvasCameraNavigationBehavior;
 
-/**
- * A direction and a screen distance, as a screen-space delta. Shared by nudging a window and
- * panning the camera so the two can never disagree about which way "up" is — the world grows
- * downward like the DOM, so up is decreasing `y`.
- */
+/** Returns a screen direction for window nudging and camera panning. */
 const getViewportCentre = (viewport: InfiniteCanvasState<string>["viewport"]) => ({
   x: viewport.width / 2,
   y: viewport.height / 2,
@@ -993,15 +828,7 @@ function getDirectionalScreenDelta(direction: InfiniteCanvasDirection, amountPx:
   }
 }
 
-/**
- * Move focus to the neighbouring window, and bring the camera along only if the
- * target is not already fully on screen. Recentring on every arrow press would
- * be nauseating; never recentring would let focus escape offscreen, where the
- * user cannot see what they just selected.
- *
- * Focus reuses `focusWindow`, so a keyboard move raises and selects exactly as a
- * pointer click does — one canonical mutation, two input devices.
- */
+/** Focuses the next window and recenters only when the target is outside the viewport. */
 function focusWindowInDirection<Kind extends string>(
   state: InfiniteCanvasState<Kind>,
   direction: InfiniteCanvasDirection,
@@ -1014,10 +841,7 @@ function focusWindowInDirection<Kind extends string>(
     return state;
   }
 
-  // Added to the selection *before* focusing, not after: `focusWindowPreservingSelection`
-  // takes the new active window from the selection's anchor, and only moves that anchor to a
-  // window already in the selection. Focusing first would raise the target and leave the
-  // active window behind on whatever it was.
+  // Extend the selection before focus so the new target becomes the anchor.
   const focused =
     selection === "extend"
       ? focusWindowPreservingSelection(addSelection(state, [targetWindowId]), targetWindowId)
@@ -1038,17 +862,7 @@ function focusWindowInDirection<Kind extends string>(
   );
 }
 
-/**
- * Reveal: switch to where the window is, restore it, focus it, bring the camera.
- *
- * The desktop switch has to come first. `focusWindow` reaches `getSelectableWindowIds`, which
- * asks which desktop a window is on, so focusing one the active desktop hides is rejected — and
- * the camera would then travel to a rect nothing renders.
- *
- * Prefers a desktop that already admits the window over showing everything, because a window
- * filed on a desktop was filed there deliberately and arriving with every other window on screen
- * discards that. When no desktop admits it, no desktop is the only view that shows it.
- */
+/** Reveals a window by switching, restoring, focusing, and framing in that order. */
 function revealWindow<Kind extends string>(
   state: InfiniteCanvasState<Kind>,
   windowId: string,
@@ -1066,9 +880,7 @@ function revealWindow<Kind extends string>(
       );
   const restored =
     findWindow(host, windowId)?.mode === "minimized" ? restoreWindow(host, windowId) : host;
-  // The fourth way a window is out of view, and the one this verb did not know: behind a tab, or
-  // inside a container that is itself behind one. Without it reveal focused the window, moved the
-  // camera, and left it unrendered.
+  // Reveal all ancestor containers before focus.
   const shown = revealInfiniteCanvasGroupWindow(restored, windowId);
 
   return navigateCameraToWindow(
@@ -1078,16 +890,7 @@ function revealWindow<Kind extends string>(
   );
 }
 
-/**
- * Nudge the selection by one screen step.
- *
- * **A grouped window has no rect of its own to nudge.** Its `rect` is the projection of its
- * group's tree, and `command.execute` is not re-projected the way `interaction.step` is, so
- * writing to it directly detached the pane from its shell until some later mutation
- * re-solved the tree and silently snapped it back. Arrow-nudging a group member therefore
- * translates the **shell**, exactly as dragging that member's header does (DOCK-003), and
- * each group moves once however many of its members are selected.
- */
+/** Nudges floating windows and moves each selected group shell once. */
 function nudgeSelectedWindows<Kind extends string>(
   state: InfiniteCanvasState<Kind>,
   command: Extract<InfiniteCanvasCommand, { type: "window.nudge" }>,
@@ -1106,8 +909,7 @@ function nudgeSelectedWindows<Kind extends string>(
       .map((windowId) => getInfiniteCanvasWindowGroup(state, windowId)?.id)
       .filter((groupId) => groupId !== undefined),
   );
-  // Shells first: `setInfiniteCanvasGroupRect` re-projects every member, so the window map
-  // below must leave those members alone or it would translate them a second time.
+  // Move group shells first to prevent duplicate translation.
   const movedState = [...selectedGroupIds].reduce<InfiniteCanvasState<Kind>>(
     (currentState, groupId) => {
       const group = findInfiniteCanvasGroup(currentState, groupId);
@@ -1144,15 +946,7 @@ function nudgeSelectedWindows<Kind extends string>(
   };
 }
 
-/**
- * The selected windows an arrange verb may move: floating, not minimized.
- *
- * A **grouped** window is skipped rather than aligned, for the reason `window.place` refuses
- * one — a member's rect is its group's projection, so writing it would be overwritten by the
- * next solve. Aligning the group *shell* instead is coherent and is deliberately not done here:
- * it would mean a single command that sometimes moves one window and sometimes moves five, and
- * that ambiguity belongs in its own command rather than smuggled into this one.
- */
+/** Returns selected floating windows that an arrange command can move. */
 function getArrangeableWindows<Kind extends string>(state: InfiniteCanvasState<Kind>) {
   return state.windows.filter(
     (window) =>
@@ -1162,19 +956,7 @@ function getArrangeableWindows<Kind extends string>(state: InfiniteCanvasState<K
   );
 }
 
-/**
- * Apply an arrange verb to the selection.
- *
- * The arranged rects come back in the order the windows went in — `window-arrange.ts`
- * guarantees that — so pairing them by index is sound. Nothing is resized, so no `minSize`
- * clamping is needed: the constraint cannot be violated by a translation.
- */
-/**
- * The edge a keyboard dock lands on: the side the window arrives from, which is the
- * *opposite* of the direction it travels. Sending a window right, into the neighbour on its
- * right, puts it on that neighbour's west edge — the same result as dragging it onto that
- * neighbour's left half, so the two gestures agree about what "dock right" means.
- */
+/** Applies an arrange operation without resizing selected floating windows. */
 const INFINITE_CANVAS_ARRIVAL_EDGE = {
   down: "north",
   left: "east",
@@ -1182,13 +964,7 @@ const INFINITE_CANVAS_ARRIVAL_EDGE = {
   up: "south",
 } as const satisfies Readonly<Record<InfiniteCanvasDirection, InfiniteCanvasGroupDockEdge>>;
 
-/**
- * Resolve a keyboard dock to the same preview a drop would produce.
- *
- * Target selection reuses directional focus, so "dock left" reaches exactly the window
- * "focus left" would — one notion of which window is to your left, rather than a second one
- * that could disagree with the first.
- */
+/** Resolves a keyboard dock with the same target rules as directional focus. */
 function resolveInfiniteCanvasDirectionalDock<Kind extends string>(
   state: InfiniteCanvasState<Kind>,
   direction: InfiniteCanvasDirection,
@@ -1210,11 +986,7 @@ function resolveInfiniteCanvasDirectionalDock<Kind extends string>(
       });
 }
 
-/**
- * Which capability each lifecycle verb needs, or `null` where none applies. A maximize
- * toggle asks for `maximizable` in both directions: a window that cannot be maximized has
- * nothing to restore from either.
- */
+/** Required capability for each lifecycle command. `null` disables the capability gate. */
 const INFINITE_CANVAS_LIFECYCLE_CAPABILITY = {
   "activeWindow.close": "closable",
   "activeWindow.minimize": "minimizable",
@@ -1230,16 +1002,7 @@ const INFINITE_CANVAS_LIFECYCLE_CAPABILITY = {
   >
 >;
 
-/**
- * The selected windows a bulk verb would actually reach.
- *
- * Filtered by capability rather than refused wholesale: a selection mixing a pinned-open
- * console with four scratch windows should close the four, which is what the user asked for.
- * A `null` capability admits every live selected window — pinning is not a capability, since
- * nothing about a fixed-size or unclosable window implies it cannot be pinned in place.
- *
- * Order follows the selection, and duplicates cannot occur because a selection is normalized.
- */
+/** Returns selected windows that satisfy a bulk command capability. */
 function getInfiniteCanvasCapableSelection<Kind extends string>(
   state: InfiniteCanvasState<Kind>,
   capability: InfiniteCanvasWindowCapability | null,
@@ -1253,14 +1016,7 @@ function getInfiniteCanvasCapableSelection<Kind extends string>(
   });
 }
 
-/**
- * The lifecycle verbs, in one place.
- *
- * `toggleMaximized` is the reason this exists rather than four inline cases: the rule that a
- * maximized window restores and any other window maximizes was written inside the chrome
- * button in `frame-slots.tsx`, so every consumer replacing the header had to rediscover it.
- * It lives here now, and the button can read it back out.
- */
+/** Applies a lifecycle command after it detaches the window from its group. */
 function applyInfiniteCanvasWindowLifecycle<Kind extends string>(
   state: InfiniteCanvasState<Kind>,
   type:
@@ -1272,11 +1028,7 @@ function applyInfiniteCanvasWindowLifecycle<Kind extends string>(
   mode: InfiniteCanvasWindowMode,
 ): InfiniteCanvasState<Kind> {
   switch (type) {
-    // Detached from its workspaces as well as its group, matching the `window.close` action.
-    // The two diverged: workspaces and these lifecycle commands landed the same day and only the
-    // action path was updated, so closing from the palette left the id a phantom member of every
-    // workspace that held it — in a field that is part of the undo document and is persisted.
-    // Only close does this. A minimized window still belongs to its desktop.
+    // Closing also removes the window from each workspace.
     case "activeWindow.close":
       return detachInfiniteCanvasWindowFromWorkspaces(
         detachInfiniteCanvasWindowFromGroups(closeWindow(state, windowId), windowId),
@@ -1293,18 +1045,7 @@ function applyInfiniteCanvasWindowLifecycle<Kind extends string>(
   }
 }
 
-/**
- * The seam to push so the active window grows, and which way pushing it does that.
- *
- * A pane grows by taking from the sibling after it — so the seam that sits *after* the active
- * child, moved forward. The last pane has no such seam and takes from the one before it
- * instead, which means moving that seam backward: hence `grows`, which is `+1` or `-1`.
- *
- * The gutter comes from the solved layout rather than being re-derived, because it carries
- * `availableExtent`, and the layout module says plainly why: "re-deriving it at the call site
- * is how the seam drifts away from the cursor". A keyboard step has no cursor to drift from,
- * but it must land on the same weights the drag would, or the two gestures disagree.
- */
+/** Selects the adjacent gutter and direction that grows the active pane. */
 function resolveInfiniteCanvasPaneSeam<Kind extends string>(state: InfiniteCanvasState<Kind>) {
   const active = getActiveInfiniteCanvasGroupContainer(state);
   const windowId = state.activeWindowId;
@@ -1334,12 +1075,7 @@ function resolveInfiniteCanvasPaneSeam<Kind extends string>(state: InfiniteCanva
       };
 }
 
-/**
- * The workspace a cycle lands on. Wraps, and treats "no workspace" as a position in the ring
- * only when you are already there — entering from the unfiltered view goes to the first or
- * last set rather than making "all windows" a desktop you can cycle back into, which would
- * make the ring one longer than the number of workspaces and read as an off-by-one.
- */
+/** Returns the next workspace with wrapping. The unfiltered view is outside the ring. */
 function getNextInfiniteCanvasWorkspaceId<Kind extends string>(
   state: InfiniteCanvasState<Kind>,
   direction: "next" | "previous",
@@ -1359,7 +1095,6 @@ function getNextInfiniteCanvasWorkspaceId<Kind extends string>(
   return ids[(at + (direction === "next" ? 1 : ids.length - 1)) % ids.length] ?? null;
 }
 
-/** Where the active window sits in its container's order, and how many siblings it has. */
 function getActiveInfiniteCanvasGroupChildIndex<Kind extends string>(
   state: InfiniteCanvasState<Kind>,
 ): Readonly<{ at: number; childId: string; count: number; groupId: string }> | null {
@@ -1419,12 +1154,7 @@ function arrangeSelectedWindows<Kind extends string>(
   };
 }
 
-/**
- * Takes the zoom policy for the same reason `executeInfiniteCanvasCommand` does: a zoom step
- * is offered only when it would move, and whether it moves depends on the policy's floor and
- * ceiling. Computing enablement against the default while executing against a custom policy
- * would grey out a step that works, or offer one that does nothing.
- */
+/** Tests command availability with the same zoom policy that execution uses. */
 function isInfiniteCanvasCommandEnabled<Kind extends string>(
   state: InfiniteCanvasState<Kind>,
   command: InfiniteCanvasCommand,
@@ -1465,7 +1195,6 @@ function isInfiniteCanvasCommandEnabled<Kind extends string>(
     case "window.place":
     case "window.resize":
       return getActiveFloatingWindowId(state) !== null;
-    // Asking the resolver keeps the enabled state and the result in agreement.
     case "window.dockDirection":
       return resolveInfiniteCanvasDirectionalDock(state, command.direction) !== null;
     case "window.undock":
@@ -1480,9 +1209,6 @@ function isInfiniteCanvasCommandEnabled<Kind extends string>(
       return getNextInfiniteCanvasWorkspaceId(state, command.direction) !== state.activeWorkspaceId;
     case "workspace.showAll":
       return state.activeWorkspaceId !== null;
-    // Offered whenever there is an active window and a workspace to send it to, including from
-    // "show all". Only reachable in one direction, since a window the active workspace does not
-    // admit is not rendered and so cannot be active.
     case "workspace.moveActiveWindow":
       return (
         state.activeWindowId !== null &&
@@ -1496,8 +1222,6 @@ function isInfiniteCanvasCommandEnabled<Kind extends string>(
       );
     case "view.pan":
       return isUsableViewport(state.viewport);
-    // Offered only where it would move. At the policy's floor or ceiling a further step clamps to
-    // the same zoom.
     case "view.zoomBy":
       return (
         isUsableViewport(state.viewport) &&
@@ -1509,11 +1233,9 @@ function isInfiniteCanvasCommandEnabled<Kind extends string>(
           zoomPolicy,
         ).zoom !== state.camera.zoom
       );
-    // Offered when at least one selected window would actually close.
     case "selection.close":
       return getInfiniteCanvasCapableSelection(state, "closable").length > 0;
     case "selection.minimize":
-      // A window already in the dock cannot be minimized again.
       return getInfiniteCanvasCapableSelection(state, "minimizable").some(
         (windowId) => findWindow(state, windowId)?.mode !== "minimized",
       );
@@ -1529,7 +1251,6 @@ function isInfiniteCanvasCommandEnabled<Kind extends string>(
         return false;
       }
 
-      // Pinning is not a capability — it is the window's own state — so it maps to `null`.
       const required = INFINITE_CANVAS_LIFECYCLE_CAPABILITY[command.type];
 
       return required === null || isInfiniteCanvasWindowCapable(active, required);
@@ -1540,7 +1261,6 @@ function isInfiniteCanvasCommandEnabled<Kind extends string>(
       return (
         state.activeWindowId !== null && isInfiniteCanvasWindowGrouped(state, state.activeWindowId)
       );
-    // Clamped rather than wrapping, matching the drag it mirrors, so the ends are not offered.
     case "group.moveChild": {
       const index = getActiveInfiniteCanvasGroupChildIndex(state);
 
@@ -1550,14 +1270,11 @@ function isInfiniteCanvasCommandEnabled<Kind extends string>(
 
       return command.toward === "start" ? index.at > 0 : index.at < index.count - 1;
     }
-    // Offered only where it would change something, the same rule equalize follows.
     case "group.setLayout": {
       const active = getActiveInfiniteCanvasGroupContainer(state);
 
       return active !== null && active.container.layout !== command.layout;
     }
-    // Axis partitions a split and stacks an accordion. A tab strip lays out horizontally whatever
-    // its axis says, so flipping one has no visible effect.
     case "group.flipAxis": {
       const active = getActiveInfiniteCanvasGroupContainer(state);
 
@@ -1591,8 +1308,6 @@ function isInfiniteCanvasCommandEnabled<Kind extends string>(
 
       return arranged !== rects;
     }
-    // A parameterized descriptor carries a placeholder id, which cannot run. Without the `""`
-    // check the descriptor's own `workspaceId: ""` would be offered as enabled.
     case "workspace.create":
       return (
         command.workspaceId !== "" &&
@@ -1605,17 +1320,12 @@ function isInfiniteCanvasCommandEnabled<Kind extends string>(
       );
     case "workspace.close":
       return findInfiniteCanvasWorkspace(state, command.workspaceId) !== null;
-    // Same placeholder rule. Revealing the active window is not a no-op, since it can be
-    // off-camera.
     case "window.reveal":
       return findWindow(state, command.windowId) !== null;
   }
 }
 
-/**
- * The container whose panes the active window shares: its immediate parent in the tree, not the
- * root. Balancing every container in the group at once would be a separate, coarser command.
- */
+/** Returns the immediate group container of the active window. */
 function getActiveInfiniteCanvasGroupContainer<Kind extends string>(
   state: InfiniteCanvasState<Kind>,
 ): Readonly<{ container: InfiniteCanvasGroupContainerNode; groupId: string }> | null {
@@ -1636,15 +1346,7 @@ function getActiveInfiniteCanvasGroupContainer<Kind extends string>(
   return container === null ? null : { container, groupId: group.id };
 }
 
-/**
- * The window a placement or resize command acts on, or `null` when there is none.
- *
- * The active window rather than the selection: "left half" over three selected windows would stack
- * all three in the same rect.
- *
- * A grouped window is refused, since a member's rect is its group's projection and would be
- * re-solved back. Place the shell, or undock first. An unmeasured viewport has no halves.
- */
+/** Returns the active floating window for placement or resize commands. */
 function getActiveFloatingWindowId<Kind extends string>(
   state: InfiniteCanvasState<Kind>,
 ): string | null {
@@ -1674,7 +1376,7 @@ function placeActiveWindow<Kind extends string>(
     return state;
   }
 
-  // "Left half" means half of the visible region; an unbounded world has no halves.
+  // Placement requires a usable viewport.
   const bounds = getViewportInsetWorldRect(state.camera, state.viewport, 0);
 
   return updateWindowRect(
@@ -1684,13 +1386,7 @@ function placeActiveWindow<Kind extends string>(
   );
 }
 
-/**
- * Grows or shrinks the active window's east and south edges, leaving its origin fixed. Routes
- * through `resizeRectFromHandle` so the `minSize` clamp has one definition.
- *
- * The delta converts through the camera, as a nudge does, so ten screen pixels stays ten screen
- * pixels at any zoom.
- */
+/** Resizes east and south edges by a screen-space delta. */
 function resizeActiveWindow<Kind extends string>(
   state: InfiniteCanvasState<Kind>,
   command: Extract<InfiniteCanvasCommand, { type: "window.resize" }>,
@@ -1808,8 +1504,7 @@ function executeInfiniteCanvasCommand<Kind extends string>(
   selectionBounds?: InfiniteCanvasRect | null,
 ): InfiniteCanvasState<Kind> {
   switch (command.type) {
-    // Folded into one document so the whole selection is one undo entry. A loop at the call site
-    // would be one entry per window.
+    // One action keeps the bulk close in one undo entry.
     case "selection.minimize":
       return getInfiniteCanvasCapableSelection(state, "minimizable").reduce<
         InfiniteCanvasState<Kind>
@@ -1818,8 +1513,7 @@ function executeInfiniteCanvasCommand<Kind extends string>(
           detachInfiniteCanvasWindowFromGroups(minimizeWindow(current, windowId), windowId),
         state,
       );
-    // Brings the whole selection to one state. Toggling each window independently would leave a
-    // mixed selection just as mixed, only inverted.
+    // Set one target state for the complete selection.
     case "selection.togglePinned": {
       const selected = getInfiniteCanvasCapableSelection(state, null);
       const shouldPin = selected.some((windowId) => findWindow(state, windowId)?.isPinned !== true);
@@ -1909,7 +1603,7 @@ function executeInfiniteCanvasCommand<Kind extends string>(
       );
     case "workspace.showAll":
       return activateInfiniteCanvasWorkspace(state, null);
-    // Creates then enters, so every surface that creates a workspace does not pair the two calls.
+    // Create and activate the workspace in one command.
     case "workspace.create":
       return activateInfiniteCanvasWorkspace(
         createInfiniteCanvasWorkspace(state, {
@@ -1924,8 +1618,7 @@ function executeInfiniteCanvasCommand<Kind extends string>(
       return closeInfiniteCanvasWorkspace(state, command.workspaceId);
     case "window.reveal":
       return revealWindow(state, command.windowId, zoomPolicy);
-    // Uses the delta form, not read-filter-write over `setInfiniteCanvasWorkspaceWindows`, which
-    // would discard anything added between the read and the write.
+    // Apply a membership delta to preserve concurrent additions.
     case "workspace.removeActiveWindow":
       return state.activeWorkspaceId === null || state.activeWindowId === null
         ? state
@@ -1933,7 +1626,6 @@ function executeInfiniteCanvasCommand<Kind extends string>(
             windowId: state.activeWindowId,
             workspaceId: state.activeWorkspaceId,
           });
-    // Reachable from "show all" as well as from a workspace, unlike `removeActiveWindow`.
     case "workspace.moveActiveWindow":
       return state.activeWindowId === null
         ? state
@@ -1941,13 +1633,9 @@ function executeInfiniteCanvasCommand<Kind extends string>(
             windowIds: [state.activeWindowId],
             workspaceId: command.workspaceId,
           });
-    // Drops rather than toggles: `applySelection` sets the active window from the selection's
-    // anchor, so a window cannot leave the selection and stay active, and there would be nothing
-    // to toggle back. `normalizeSelection` falls the anchor back to the previously added window.
+    // Removing the active window also selects the prior anchor.
     case "selection.removeActive":
       return state.activeWindowId === null ? state : removeSelection(state, [state.activeWindowId]);
-    // Routes through the same helper the reducer's lifecycle cases use, which detaches the window
-    // from its group before acting.
     case "activeWindow.close":
     case "activeWindow.minimize":
     case "activeWindow.toggleMaximized":
@@ -1969,8 +1657,7 @@ function executeInfiniteCanvasCommand<Kind extends string>(
           getDirectionalScreenDelta(command.direction, command.amountPx),
         ),
       };
-    // `zoomCameraAtScreenPoint` takes an absolute zoom, so the factor is multiplied rather than
-    // passed through. Anchored at the viewport centre because a keyboard gesture has no pointer.
+    // Convert the zoom factor to an absolute center-anchored zoom.
     case "view.zoomBy":
       return {
         ...state,
@@ -1989,14 +1676,12 @@ function executeInfiniteCanvasCommand<Kind extends string>(
         return state;
       }
 
-      // `availableExtent` is in the world units the layout was solved in, so the travel converts
-      // through the camera too.
+      // Convert screen travel to the world units used by group layout.
       const weights = getInfiniteCanvasGroupGutterWeights(seam.container, seam.gutter, {
         availableExtent: seam.gutter.availableExtent,
         delta: (command.amountPx * seam.grows) / state.camera.zoom,
       });
 
-      // `{}` means the pair has no room left to move.
       return Object.keys(weights).length === 0
         ? state
         : setInfiniteCanvasGroupChildWeightsInState(state, {
@@ -2053,10 +1738,7 @@ function executeInfiniteCanvasCommand<Kind extends string>(
 
       return preview === null ? state : applyInfiniteCanvasDockPreview(state, preview);
     }
-    // A commanded undock places the window; a dragged one must not, since the pointer already
-    // carries it. Without a rect the window stays inside the shell's footprint, under the tab
-    // strip it just left. `preferred` is its current rect, so it moves the shortest clearing
-    // distance.
+    // Place command tear-outs. Pointer drags already supply their rect.
     case "window.undock": {
       if (state.activeWindowId === null) {
         return state;
@@ -2069,8 +1751,7 @@ function executeInfiniteCanvasCommand<Kind extends string>(
       }
 
       const shell = getInfiniteCanvasWindowGroup(state, freed.id);
-      // A shell that empties out is dropped by DOCK-005, so its rect is not an obstacle. Counting
-      // it pushed a sole member a full shell-width away from a footprint that no longer existed.
+      // Exclude an empty shell from placement obstacles.
       const emptiedShellId =
         shell !== null && getInfiniteCanvasGroupWindowIds(shell.tree).length === 1
           ? shell.id
@@ -2107,23 +1788,7 @@ function executeInfiniteCanvasCommand<Kind extends string>(
   }
 }
 
-/**
- * A command type this facade does not know, said out loud.
- *
- * `reducer.ts` gained this guard for *actions* and the command switch never got it, so the hole
- * stayed open one layer up: an unrecognised command fell out of the switch, returned `undefined`,
- * and the reducer then read `.groups` off it. The message a caller got was "Cannot read properties
- * of undefined (reading 'groups')" — naming a field with nothing to do with what went wrong.
- *
- * Commands are the surface where this matters most. Actions are dispatched by the framework's own
- * code; commands are invoked *by id* from a palette, a hotkey table, a console, and — per this
- * repo's WebMCP requirement — by an agent that was handed a list of names. Every one of those can
- * supply a name that no longer exists.
- *
- * Throws rather than returning `state`, for the reason the action guard gives: the old behaviour
- * already crashed, so the only question was whether the crash names its cause. A silent no-op
- * would be worse than either — a mistyped command doing nothing, with no signal at all.
- */
+/** Throws an error that names an unknown command type. */
 function assertUnknownInfiniteCanvasCommand(command: never): never {
   throw new Error(
     `Unknown infinite canvas command type: ${String((command as { type?: unknown }).type)}`,

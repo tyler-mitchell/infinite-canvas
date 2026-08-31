@@ -1,33 +1,11 @@
--- Typed edges between content items. `relates_to` has been in the schema since the first migration
--- as `TYPE RELATION IN content_item OUT content_item ENFORCED`, and these functions were named
--- `relate_notes` and `unrelate_content_items` anyway — a narrower name over a signature that was already
--- right. The second window kind is what made the misnomer cost something: an image and a note were
--- joinable here and not on the canvas, because every name along the path said notes.
-
--- `in` and `out` are projected under friendlier names; they are SurrealQL's edge endpoints, not a
--- vocabulary the application should have to speak.
+-- Relations join all content kinds and expose source and target endpoint names.
 DEFINE FUNCTION OVERWRITE fn::list_relations($project: record<project>) {
   RETURN SELECT id, in AS source, out AS target, kind, label
     FROM relates_to
     WHERE in.project = $project;
 };
 
--- Idempotent, and undirected — which it was not, and the difference was a duplicate edge.
---
--- This checked only `in = $source AND out = $target`, so connecting A to B and then B to A stored
--- two edges between the same pair. Every other part of the system already treats an edge as
--- undirected: `unrelate_content_items` deletes it whichever way round it was drawn, `findRelation` finds it
--- either way, and the rail counts a neighbour once regardless of direction. Only the guard against
--- creating one had a direction, so the one operation that could produce the inconsistency was the
--- one that did not check for it.
---
--- The user never chose a direction. They dragged from one note to another, and which end the drag
--- started at is an accident of where their pointer was — not a second, different relationship.
---
--- Reproduced before fixing: connect A→B, connect B→A, and `list_relations` returned two rows for
--- the same pair. Both then drew, one on top of the other, and cutting removed both at once because
--- `unrelate_content_items` was already undirected — so the second edge was invisible until something
--- counted.
+-- Relation identity is undirected and idempotent.
 DEFINE FUNCTION OVERWRITE fn::relate_content_items(
   $source: record<content_item>,
   $target: record<content_item>,
@@ -44,17 +22,12 @@ DEFINE FUNCTION OVERWRITE fn::relate_content_items(
   RETURN RELATE ONLY $source->relates_to->$target CONTENT { kind: $kind };
 };
 
--- What an edge means. `kind` has been a required field since the first migration and every writer
--- passed the literal "relates", so the column existed and said nothing.
---
--- Directed by id rather than by endpoints, unlike unrelate below: the caller has selected a
--- specific edge on the canvas, so there is nothing to resolve and no second edge to catch.
+-- A selected relation updates by id.
 DEFINE FUNCTION OVERWRITE fn::set_relation_kind($relation: record<relates_to>, $kind: string) {
   RETURN UPDATE ONLY $relation SET kind = $kind;
 };
 
--- A sentence where the five verbs do not fit. `label` is `option<string>`, so NONE is how an edge
--- goes back to saying only what its kind says — the field has to be clearable, not just settable.
+-- NONE clears the custom label.
 DEFINE FUNCTION OVERWRITE fn::set_relation_label(
   $relation: record<relates_to>,
   $label: option<string>
@@ -62,8 +35,7 @@ DEFINE FUNCTION OVERWRITE fn::set_relation_label(
   RETURN UPDATE ONLY $relation SET label = $label;
 };
 
--- Undirected from the user's point of view: they connected two notes, so disconnecting removes
--- the edge whichever way round it was drawn.
+-- Removal matches either endpoint order.
 DEFINE FUNCTION OVERWRITE fn::unrelate_content_items(
   $source: record<content_item>,
   $target: record<content_item>

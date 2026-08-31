@@ -1,47 +1,52 @@
 # Compositor
 
-Status: contract proposed, nothing built (2026-08-26). Proved in an isolated
-proof of concept before any framework code changes — see "This is proved in
-isolation first".
+Status: proposed contract from 2026-08-26. No framework implementation exists. An isolated proof of concept
+measured the design before framework changes.
 
-## What this replaces, and what it is called
+## Name and scope
 
-The framework currently paints scene content through
-`InfiniteCanvasWebGpuSurface`, which is built on `three` and `@react-three/fiber`.
-Replacing it is often described as "replacing R3F with TypeGPU". That phrasing
-skips the layer that actually has to be designed, because R3F is two things
-stacked and TypeGPU is neither of them:
+`InfiniteCanvasWebGpuSurface` currently uses `three` and `@react-three/fiber`. The proposed backend uses
+TypeGPU through a new compositor.
+The common description was "replacing R3F with TypeGPU".
 
-| Thing                      | What it is                                                                                     |
-| -------------------------- | ---------------------------------------------------------------------------------------------- |
-| `three`                    | A **renderer** — scene graph, camera, materials, draw calls. Its own word for itself.          |
-| `@react-three/fiber`       | A **React reconciler** — a "React renderer" in React's vocabulary, peer of `react-dom`.        |
-| The role they jointly play | The **render backend** behind the `InfiniteCanvasSceneSurface` seam.                           |
-| TypeGPU                    | A **GPU abstraction layer** — typed WebGPU. It sits where WebGPU sits, not where `three` sits. |
+The tools have different roles:
 
-So TypeGPU does not replace R3F. It is the substrate a replacement is built on,
-and the replacement is a **compositor**: it takes surfaces and geometry and
-composes them into one frame through an ordered set of **passes**, organised as
-a **render graph**. That is the browser's own vocabulary for this exact problem —
-layer trees, textured quads, compositing — and it is the correct one here because
-the workload is not 3D. It is textured quads, full-screen passes, and effects.
+| Thing                | Role                                                                       |
+| -------------------- | -------------------------------------------------------------------------- |
+| `three`              | A renderer with a scene graph, camera, materials, and draw calls.          |
+| `@react-three/fiber` | A React reconciler, or "React renderer", similar to `react-dom`.           |
+| Their combined role  | The render backend behind `InfiniteCanvasSceneSurface`.                    |
+| TypeGPU              | A typed WebGPU abstraction.                                                |
+| Compositor           | A render graph that combines surfaces and geometry through ordered passes. |
 
-This matters more, not less, as HTML-in-canvas becomes the direction. When a
-window's pixels are a texture captured from HTML, "the scene" stops being a scene
-graph and becomes a composite: a background pass, a set of quads, connector
-geometry, and post effects. A scene graph contributes nothing to that, which is
-precisely the part of `three` being paid for today.
+TypeGPU does not replace R3F by itself. The compositor replaces the combined render backend. TypeGPU supplies
+typed WebGPU access to that compositor. The target removes `three` from this backend.
 
-## The gap, precisely
+The target workload uses textured quads, full-screen passes, connector geometry, and effects. It does not
+require a 3D scene graph. The terms render graph, layer tree, textured quad, and compositing match browser
+terminology.
 
-`InfiniteCanvasSceneSurface` is described in its own source as "the contract
-between the viewport and **whatever** paints scene layers", and its inputs live up
-to that. `InfiniteCanvasSceneLayerRenderContext` is entirely engine-free: camera,
-viewport, chrome, device pixel ratio, theme, the visible world and screen rects,
-and window proxies carrying both world and screen geometry. None of it mentions
-`three`. It can be kept wholesale.
+HTML capture makes this distinction important. A captured window becomes a texture. At that point, "the scene"
+becomes a composite. The frame then contains a background pass, textured quads, connector geometry, and post
+effects. A scene graph adds no required
+capability to that frame.
 
-The output does not:
+## Existing seam
+
+The source calls `InfiniteCanvasSceneSurface` "the contract between the viewport and **whatever** paints scene layers".
+Its input type, `InfiniteCanvasSceneLayerRenderContext`, has no engine types.
+
+The context includes these values:
+
+- Camera state
+- Viewport state
+- Chrome values
+- Device pixel ratio
+- Theme values
+- Visible world and screen rectangles
+- Window proxies with world and screen geometry.
+
+The output type creates the engine dependency:
 
 ```ts
 type InfiniteCanvasSceneLayer = Readonly<{
@@ -50,45 +55,39 @@ type InfiniteCanvasSceneLayer = Readonly<{
 }>;
 ```
 
-`ReactNode` is engine-neutral as a type and engine-bound in fact: the only nodes
-that mean anything here are R3F's (`<mesh>`, `<planeGeometry>`), and the only
-thing that can interpret them is R3F. **A layer cannot express what it draws
-except as R3F JSX.** That single return type is the whole coupling, and it is the
-only part of the seam that has to change.
+`ReactNode` is neutral as a TypeScript type. In this seam, only R3F nodes such as `<mesh>` and
+`<planeGeometry>` have meaning. Only R3F can interpret those nodes. The render return type is the coupling
+that must change.
 
-Two facts make the change cheaper than it looks:
+Two existing facts reduce the change:
 
-- **The scene layer is already WebGPU-only.** `WebGpuGuard` throws when
-  `webGPUSupported === false`. There is no WebGL fallback to preserve, so the
-  usual objection to TypeGPU does not apply here.
-- **The camera and geometry are already pure.** `worldPointToScreenPoint`,
-  `getVisibleWorldRect`, `isWorldRectWithinViewport`, and the window proxies are
-  framework code with no renderer in them. A compositor inherits them.
+- The scene layer already requires WebGPU.
+  `WebGpuGuard` throws when `webGPUSupported === false`. There is no WebGL fallback to keep.
+- Camera and geometry functions are already pure framework code.
+  This includes `worldPointToScreenPoint`, `getVisibleWorldRect`, and `isWorldRectWithinViewport`. Window
+  proxies also have no renderer dependency.
 
-### A fork that was considered and is closed
+## Closed alternative
 
-`@typegpu/three` compiles TypeGPU functions to TSL nodes inside Three.js
-materials — keep `three`, keep R3F, still write shaders in TypeScript. It was a
-real alternative while the workload was unproven.
+`@typegpu/three` compiles TypeGPU functions to TSL nodes inside Three.js materials. This option keeps `three`,
+R3F, and TypeScript shader functions. It also keeps the `three` material system. It was a valid option before
+the workload evidence existed.
 
-It is closed now. The proof of concept measured the thing it hung on: the scene
-graph contributes nothing, and native html-in-canvas writes DOM **straight into a
-TypeGPU texture array** with `copyElementImageToTexture`. Routing that through
-three's material system would add a layer to get back to where the direct path
-already is. The decision is TypeGPU plus html-in-canvas, and this fork is
-recorded as considered rather than left open.
+The proof of concept wrote native HTML directly into a TypeGPU texture array. It used
+`copyElementImageToTexture`. A Three.js material layer adds an extra route to the same texture. The selected
+direction is TypeGPU with HTML-in-Canvas.
 
-## The contract
+The @typegpu/three option is closed.
 
-A layer stops returning nodes and starts **declaring draw work**. The unit is a
-pass; the graph orders passes and owns the resources they share.
+## Pass contract
 
-### Pass
+Status: target.
 
-A pass declares what it reads, what it writes, and what it needs. It never
-acquires its own device, canvas, or texture — the graph supplies them, which is
-what makes ordering and resource lifetime knowable ahead of execution rather than
-discovered during it.
+A layer declares draw work. A pass is the unit of work. The graph orders passes and owns shared resources.
+
+Each pass declares what it reads, what it writes, and what it requires. A pass never acquires its own device,
+canvas, or texture. The graph supplies these resources. This design makes order and lifetime known before
+execution.
 
 ```ts
 type CompositorPass = Readonly<{
@@ -108,74 +107,77 @@ type CompositorPass = Readonly<{
 type CompositorDraw = (context: InfiniteCanvasSceneLayerRenderContext) => void;
 ```
 
-`build` separates one-time cost from per-frame cost — pipelines, layouts, and
-buffers are created once, and the returned closure only writes uniforms and
-records draws. The current seam has no such split, which is why a scene layer
-today re-runs React reconciliation on every camera tick.
+`build` separates one-time work from frame work. It creates pipelines, layouts, and buffers once. The returned
+function updates uniforms and records draw calls for each frame.
 
-### Resource
+The current seam does not have this split. It uses React reconciliation for a scene layer after each camera change.
 
-Textures and buffers are declared, not allocated by whoever happens to need them
-first. The graph owns their lifetime and their size relative to the viewport.
+## Resource contract
 
-**This is the half that matters, and the proof of concept is why.** Geometry was
-never going to be the constraint — 100 000 quads draw in 0.9 ms in a single
-instanced call. Texture residency binds three orders of magnitude earlier: 256
-windows at 512² is 256 MB and 131 ms of upload, and `maxTextureArrayLayers` is
-**256**, so a single array cannot even hold a canvas's worth. An 8192² atlas holds
-about 341 windows at readable resolution.
+Status: target.
 
-So the resource contract has to carry residency, not just size: which windows
-have textures right now, at what scale, and what gets evicted when the budget is
-gone. That is what a browser compositor does with tiles. Pass ordering was the
-easy part to write down; this is the part that decides whether it works.
+The graph allocates declared textures and buffers. It owns their lifetime and size relative to the viewport.
 
-### Where the pixels come from
+The proof of concept measured geometry and texture limits:
 
-A window's texture is captured HTML, and the capture path is not a detail the
-resource contract can stay neutral about — it is the most expensive thing in the
-frame by two orders of magnitude.
+- One instanced call draws 100,000 quads in 0.9 ms.
+- 256 windows with 512-pixel square textures use 256 MB.
+- Uploading those textures takes 131 ms.
+- `maxTextureArrayLayers` is 256.
+- One 8192-pixel square atlas holds approximately 341 readable window textures.
 
-Measured: **16 ms per window** through the fallback (`snapdom` — a DOM walk,
-style inlining, and SVG foreign-object rasterisation), against ~0.7 ms to upload
-and effectively zero to draw. One re-capture costs a whole frame at 60 Hz.
+A single texture array cannot hold more than 256 windows. Texture residency reaches its limit before quad
+geometry. The contract must identify resident textures, their scale, and the eviction policy. This is the same
+tile-residency problem that a browser compositor manages.
 
-The [WICG html-in-canvas proposal](https://github.com/WICG/html-in-canvas)
-replaces that path rather than speeding it up:
+The pass order is simple. Residency determines whether the design works at the target scale.
 
-| primitive                            | what it gives the compositor                        |
-| ------------------------------------ | --------------------------------------------------- |
-| `layoutsubtree` + `drawElementImage` | browser paints its own layout into a canvas         |
-| `paint` event / `requestPaint`       | **browser-driven invalidation** — `changedElements` |
-| `copyElementImageToTexture` (WebGPU) | **DOM straight into a GPU texture, no canvas hop**  |
-| `captureElementImage`                | a snapshot handle rather than a live surface        |
-| transform synchronization            | source DOM stays hit-testable and accessible        |
+## HTML capture
 
-Two of those change the design rather than its performance:
+A window texture comes from captured HTML. Capture costs more than drawing or uploading. The resource contract
+must include the capture path.
 
-- **`copyElementImageToTexture` is the path this compositor wants.** The
-  canvas-as-`CanvasTexture` route forces one canvas per window, which is
-  incompatible with an array or atlas; a direct copy into a layer is not. Every
-  window can be a sibling child of one canvas — verified with 64 of them — so the
-  immediate-child rule costs nothing structurally.
-- **Transform synchronization is what keeps windows real.** The source DOM stays
-  the authority for layout, focus, and accessibility while its pixels live on the
-  GPU. For a workbench — where windows are edited, not decorative — that is the
-  difference between a compositor and a screenshot gallery. The window being
-  edited stays live DOM; capture is for the ones nobody is touching.
+The `snapdom` fallback took 16 ms for one window. It walks the DOM, writes styles, and rasterizes an SVG
+foreign object. The related upload took approximately 0.7 ms. The draw cost was effectively zero.
 
-**All of these now measured, in a Chrome 151 that has them.** DOM written straight
-into a TypeGPU texture array layer, one instanced draw over the lot:
+The [WICG html-in-canvas proposal](https://github.com/WICG/html-in-canvas) provides a different path:
+
+| Primitive                              | Compositor capability                                             |
+| -------------------------------------- | ----------------------------------------------------------------- |
+| `layoutsubtree` and `drawElementImage` | The browser paints its layout into a canvas.                      |
+| `paint` event and `requestPaint`       | `changedElements` supplies browser-owned invalidation.            |
+| `copyElementImageToTexture`            | The browser copies DOM directly into a WebGPU texture.            |
+| `captureElementImage`                  | The browser supplies a snapshot handle instead of a live surface. |
+| Transform synchronization              | The source DOM remains available for hit tests and accessibility. |
+
+`copyElementImageToTexture` matches the compositor resource model. A `CanvasTexture` route requires one canvas
+for each window. Each `CanvasTexture` also adds a canvas-to-texture step. That route does not fit a texture
+array or atlas.
+
+A direct copy can target one layer of an array.
+
+One canvas can host each window as an immediate sibling child. The proof of concept used 64 sibling windows.
+Thus, the immediate-child rule does not require one canvas for each window.
+
+Transform synchronization keeps the source DOM available. The source remains the authority for layout, focus,
+hit tests, and accessibility. The pixels can still live on the GPU.
+
+The window under edit stays as live DOM. Capture applies to windows that the user is not editing. This
+division supports an interactive workbench instead of a static screenshot view.
+
+Chrome 151 supplied all required primitives. The proof wrote DOM directly into a TypeGPU texture-array layer.
+One instanced draw rendered all layers.
+
+The measured paths were:
 
 | path                                       | per window  | upload   |
 | ------------------------------------------ | ----------- | -------- |
 | snapdom fallback                           | 16.0 ms     | +0.7 ms  |
 | native `copyElementImageToTexture` → layer | **4.06 ms** | **none** |
 
-Four times faster, and the upload step disappears entirely.
+The native path was four times faster. It also removed the upload step.
 
-Hosting every window as a sibling in **one** canvas and taking a single paint
-changes the shape again, and yields the real cost model:
+A shared canvas and one paint changed the cost model:
 
 ```
 paint round trip   ~3.0 ms   fixed, per paint — not per window
@@ -183,38 +185,35 @@ rasterisation      ~0.7 ms   marginal, per window actually repainted
 transfer            0        copyElementImageToTexture — no upload step
 ```
 
-Measured: 64 windows in one paint cost 45 ms total, 0.70 ms each; one changed
-window costs 3.70 ms. **The 4.06 ms above was mostly a fixed round trip paid 64
-times over**, not rasterisation.
+One paint for 64 windows took 45 ms. The marginal cost was 0.70 ms for each window. One changed window took
+3.70 ms.
 
-So capture is a **batching** problem rather than a per-window one, and the curve
-gives the scheduler its budget directly:
+The earlier 4.06 ms result paid the fixed paint round trip 64 times. Most of that result was fixed overhead,
+not rasterization.
+
+Capture is a batching problem. The scheduler can use this measured curve:
 
 | dirty windows | one coalesced paint | fits a 60 Hz frame? |
 | ------------- | ------------------- | ------------------- |
 | 1             | 3.70 ms             | yes                 |
 | 5             | 9.00 ms             | yes                 |
 | 20            | 11.20 ms            | yes                 |
-| 64            | 32.30 ms            | no — about two      |
+| 64            | 32.30 ms            | no, about two       |
 
-**Roughly twenty windows re-capture inside a single frame.** Past about thirty
-the work must spread across frames — which is what makes capture a scheduler
-rather than a policy, and it is the one component the compositor has to own that
-a renderer would not.
+Approximately 20 captures fit in one 60 Hz frame. More than approximately 30 captures must continue in later
+frames. This requirement makes capture scheduling a compositor responsibility.
 
-`changedElements` reported the dirty count exactly at every point on that curve
-(1, 5, 20, 64), so the engine already keeps the dirty set and the compositor must
-not keep a second one. A window that merely _moved_ never enters this path at
-all.
+`changedElements` reported exact dirty counts for 1, 5, 20, and 64 changed windows. The browser already keeps
+the dirty set. The compositor must not keep a second dirty set. Moving a window does not request a new
+capture.
 
-Two constraints the API imposes, both structural:
+The API has two structure constraints:
 
-- The element must be an **immediate child of a `layoutsubtree` canvas** — but
-  that is a layout requirement, not a texture one. One canvas hosts every
-  window's subtree, each copying into its own array layer. It does **not** force
-  a canvas per window; only the `CanvasTexture` route does that.
-- That canvas needs a rendering context even though nothing draws into it, or the
-  copy refuses. It is a layout host that still has to be a canvas.
+- A captured element must be an immediate child of a `layoutsubtree` canvas.
+  This is a layout rule and not a texture rule. One canvas can host all window subtrees. Each subtree can copy
+  into a separate array layer.
+- The canvas needs a rendering context.
+  A copy fails without the context, even when no pass draws into that canvas.
 
 ```ts
 type CompositorResource = Readonly<{
@@ -226,17 +225,16 @@ type CompositorResource = Readonly<{
 }>;
 ```
 
-`scale` is in the contract rather than left to each pass because it is a
-correctness concern, not an optimisation: the field's cost turned out to be
-entirely per-pixel, and the difference between one device pixel per CSS pixel and
-the display's native ratio was fourfold. A pass that decides this privately is a
-pass whose cost nobody can see.
+`scale` is part of the shared contract. The field cost was proportional to pixel count. One device pixel per
+CSS pixel cost one quarter of a native two-times pixel ratio. A private pass scale hides this cost from the
+graph.
 
-### Frame gating
+## Frame gating
 
-The graph decides whether to execute at all. A canvas at rest must cost nothing,
-and that cannot be each pass's private business — one pass animating forever
-defeats every other pass's restraint.
+Status: target.
+
+The graph decides whether it must draw a frame. An idle canvas must use no frame time. One pass with permanent
+animation keeps all passes active.
 
 ```ts
 type CompositorDraw = (context: InfiniteCanvasSceneLayerRenderContext) => void;
@@ -244,32 +242,38 @@ type CompositorDraw = (context: InfiniteCanvasSceneLayerRenderContext) => void;
 type CompositorInvalidation = () => boolean;
 ```
 
-This is load-bearing and was learned the hard way in `apps/polkadot`: a
-time-driven shimmer meant the field repainted the viewport forever, so reading a
-note cost exactly as much as dragging a window. The gate has to be **change**,
-not presence — an "is the pointer over the canvas" flag latches true on first
-move and never idles.
+This requirement comes from `apps/polkadot`. A time-based shimmer kept the field active. Reading a note then
+cost the same as dragging a window.
 
-## This is proved in isolation first
+The gate must report a change, not presence. The old label was "is the pointer over the canvas". A
+pointer-presence flag stays true after the first pointer movement. That flag does not permit the compositor to
+return to idle.
 
-**No framework changes until a standalone proof of concept answers the
-load-bearing question**, which is not "can TypeGPU draw" — the spike already
-showed it can — but _is the workload really quads and passes?_ If window proxies
-at real counts, with real HTML-derived textures, need something a scene graph
-provides, that is discovered in a throwaway, not halfway through replacing a
-surface the framework ships.
+## Isolated proof of concept
 
-The proof of concept lives outside `packages/infinite-canvas` and imports
-nothing from it. It is allowed to be ugly, hard-coded, and deleted. What it owes
-is one honest answer and one number: frames at a window count that matters.
+The contract required proof before framework changes. The source called this step "This is proved in isolation
+first". The first question was "can TypeGPU draw". TypeGPU draw ability was already known. The main question
+was whether "textured quads and passes" described the complete workload.
 
-Only two things carry over from it: the pass and graph contracts, if they
-survived contact, and the measurement.
+The proof used representative window proxies and HTML textures. It measured a window count that affects frame
+cost. The proof must expose any scene-graph requirement before backend replacement.
 
-## Structure, once it graduates
+The proof lived outside `packages/infinite-canvas`. It imported no framework code. Temporary code was
+hard-coded and disposable.
 
-Where this lands **if** the proof of concept earns it — not a directory to create
-now:
+The proof had two required outputs:
+
+- One answer about the complete workload
+- One frame measurement at a representative window count.
+
+Only two kinds of artifact can move into the framework:
+
+- Pass and graph contracts that survived the proof
+- Measurements from the proof.
+
+## Target module structure
+
+Status: target. The directories do not exist as a result of this document.
 
 ```
 packages/infinite-canvas/src/compositor/
@@ -279,66 +283,63 @@ packages/infinite-canvas/src/compositor/
   backend/        the only directory that names TypeGPU
 ```
 
-`pass.ts` importing no GPU library is what preserves the property the current
-seam has and must not lose: the viewport can decide _whether_ a compositor is
-needed, and lay out around one, without pulling a GPU stack into the module
-graph of a consumer that never renders scene content.
+`pass.ts` must not import a GPU library. The viewport can then decide whether it needs a compositor without
+importing the GPU stack.
 
-`InfiniteCanvasSceneSurface` stays as the seam and keeps its name. Consumers pass
-a surface; that a compositor now sits behind it instead of R3F is not their
-concern.
+`InfiniteCanvasSceneSurface` keeps its name and remains the seam. Consumers supply a surface. The backend
+behind that surface is not part of the consumer contract.
 
 ## Sequence
 
-Steps 1–3 are the proof of concept and touch no framework code.
+Steps 1 through 3 belong to the proof of concept. They do not change framework code.
 
-1. **The contracts, with no backend.** Pass, resource, and graph ordering are
-   testable without a GPU and are the part that outlives whichever backend wins.
-2. **One full-screen pass.** The field is the honest first subject: it already
-   exists, already runs on TypeGPU, and has no geometry to get wrong.
-3. **Window proxies as textured quads, at a window count that hurts.** This is
-   the whole question. Either "textured quads and passes" is the entire workload
-   or it is not, and this is where that stops being an assertion.
-4. **Graduate the contracts into the framework** — only if step 3 said yes.
-5. **Frustum culling onto the graph.** Already pure
-   (`isWorldRectWithinViewport`); it becomes a graph concern rather than a
-   renderer feature.
-6. **Delete the R3F surface.** Not before — but not "eventually" either. Two
-   backends behind one seam is the coexistence this repo bans elsewhere, and every
-   adapter written between them dies in the final state anyway.
+1. Define and test pass, resource, and graph-order contracts without a backend.
+2. Add one full-screen field pass.
+3. Add textured window proxies at a representative window count.
+4. Move the contracts into the framework only after step 3 supports the design.
+5. Move frustum culling into the graph with `isWorldRectWithinViewport`.
+6. Remove the R3F surface after the compositor replaces its required behavior.
 
-## Explicitly out of scope
+Removal cannot wait until "eventually". The project must not keep two permanent backends behind the same seam. Adapters between temporary backends do
+not belong in the final state.
 
-- **A scene graph.** No transforms hierarchy, no materials system, no lights. If a
-  future need genuinely wants those, that need argues for `three`, not for
-  growing this into a worse one.
-- **A React reconciler.** Passes are declared as data and built once. Nothing here
-  needs JSX, and a custom reconciler would reintroduce exactly the per-tick
-  reconciliation cost this replaces.
-- **WebGL.** The scene layer already refuses to run without WebGPU.
+## Outside scope
 
-  `@typegpu/gl` does offer an experimental WebGL 2 fallback, but its supported
-  surface rules it out for this: no storage buffers, no bind groups, no vertex or
-  index buffers, no compute. It targets "shader-driven effects that keep their
-  geometry in constants and their changing state in uniforms" — which describes
-  the _field_, and does not describe a compositor whose whole design is instanced
-  quads reading a buffer. A fallback for the field alone is possible; a fallback
-  for the compositor is not, and pretending otherwise would shape the contract
-  around a path that cannot run.
+### Scene graph
 
-## What is unproven
+The compositor has no transform hierarchy, material system, or lights. A future requirement for these features
+supports `three`. Such a requirement belongs in `three` instead of this compositor. It does not support adding
+a smaller scene graph to the compositor.
 
-TypeGPU has been validated here only as far as: the field's shader compiles to
-correct WGSL and creates a render pipeline against a real device, with zero
-compilation messages — **on 0.11**, before the port to 0.12. See
-`apps/polkadot/SPIKES.md`.
+### React reconciler
 
-Nothing about frame cost, quad batching at window counts that matter, or texture
-upload from HTML capture has been measured. The sequence above is ordered so that
-step 3 answers the load-bearing question — whether quads-and-passes really is the
-whole workload — before step 6 removes the alternative.
+Passes are data that the graph builds once. The compositor does not require JSX. A custom reconciler restores
+the frame reconciliation cost that this design removes.
 
-Frame cost is measurable and should not stay a guess: pipelines expose
-`.withPerformanceCallback((start, end) => …)`, giving GPU nanoseconds directly,
-provided the device is initialized with the `timestamp-query` feature. The proof
-of concept has no excuse for reporting frame times instead.
+### WebGL
+
+The current scene layer already requires WebGPU. The compositor does not add a WebGL backend.
+
+`@typegpu/gl` has an experimental WebGL 2 fallback. It does not support storage buffers, bind groups, vertex
+buffers, index buffers, or compute.
+
+Its target is "shader-driven effects that keep their geometry in constants and their changing state in
+uniforms." That description fits the field. It does not fit instanced quads that read a buffer. A field-only
+fallback is possible.
+
+A compositor fallback is not possible with this feature set.
+
+## Evidence limits
+
+Before the proof of concept, TypeGPU evidence covered only the field shader. The shader compiled to correct
+WGSL. A real device created the pipeline without compilation messages. That result used TypeGPU 0.11.
+
+It occurred before the port to TypeGPU 0.12. See `apps/polkadot/SPIKES.md`.
+
+At that time, the project had no frame-cost, quad-batching, or HTML-upload measurements. The proof sequence
+placed that evidence before removal of the existing surface.
+
+Frame cost must use GPU timestamps. Pipelines expose `.withPerformanceCallback((start, end) => …)`. This
+callback returns GPU nanoseconds. The device must enable the `timestamp-query` feature.
+
+The proof must not report CPU frame time as GPU time.

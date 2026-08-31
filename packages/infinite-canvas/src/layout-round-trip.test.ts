@@ -4,11 +4,6 @@ import { createInfiniteCanvasState, createInfiniteCanvasWindow } from "./factory
 import { reduceInfiniteCanvasState } from "./reducer";
 import type { InfiniteCanvasState } from "./types";
 
-/**
- * Tabs overwrite each member's rect, so a layout round trip appears destructive. It is not: the
- * proportions are held on the tree's child weights, and only the rects are re-solved.
- */
-
 type Kind = "note";
 
 const pane = (id: string, x: number) =>
@@ -42,7 +37,6 @@ const setLayout = (state: InfiniteCanvasState<Kind>, layout: "accordion" | "spli
     type: "group.setLayoutMode",
   });
 
-/** Give "a" a bigger share than "b", the way a seam drag would. */
 const uneven = (state: InfiniteCanvasState<Kind>) =>
   reduceInfiniteCanvasState(state, {
     containerId: "shell",
@@ -55,7 +49,6 @@ const widths = (state: InfiniteCanvasState<Kind>) =>
   ["a", "b"].map((id) => state.windows.find((window) => window.id === id)?.rect.width);
 
 test("a split gives its panes different widths once their weights differ", () => {
-  // The premise. Equal weights would make the round trip below prove nothing.
   const [first, second] = widths(uneven(splitShell()));
 
   expect(first).toBeDefined();
@@ -69,7 +62,6 @@ test("tabs overwrite those widths, which is what makes the question real", () =>
 });
 
 test("switching back to a split restores the shares", () => {
-  // Catches a layout change that ever writes weights instead of reading them.
   const before = uneven(splitShell());
   const roundTripped = setLayout(setLayout(before, "tabs"), "split");
 

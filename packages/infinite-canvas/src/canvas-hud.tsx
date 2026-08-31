@@ -53,34 +53,10 @@ function resolveInfiniteCanvasHudPolicy(
   };
 }
 
-/*
- * The buttons carry no inline style, and the groups carry exactly one property.
- *
- * Their boxes and centring were written here, which is the strongest form of unreachable: an inline
- * style outranks every stylesheet rule in every layer, so a consumer's rule for any of them was
- * present, generated, and beaten on every render. They live in `theme.css` now, sized by
- * `--icx-hud-button-size` — the number a consumer is most likely to need, since 40px is a desktop
- * pointer's target and a touch canvas wants a different one.
- *
- * `pointer-events` stayed, and the distinction is the whole point rather than a leftover. The HUD
- * root is `none` and each group opts back in, so it is load-bearing: a consumer overriding it would
- * switch the HUD off. The scope note in `theme.css` lists pointer-events among what components keep
- * for that reason, alongside positions, sizes and z-index that something else derives from.
- */
+// HUD groups restore the pointer events that the HUD root disables.
 const HUD_INTERACTIVE_STYLE = { pointerEvents: "auto" } satisfies CSSProperties;
 
-/**
- * The bottom edge is one row, not two corners.
- *
- * The dock and the controls used to be separate absolutely-positioned children, one pinned left and
- * one pinned right, each allowed to grow to `calc(100% - 2rem)`. Nothing kept them apart: minimize
- * two windows in an app with a left inset and the dock slides straight under the zoom controls.
- * Widths cannot be tuned out of this — the dock's width is however many windows the user minimized.
- *
- * As a flex row they cannot overlap at all. The dock shrinks and wraps within its own share, the
- * controls hold their intrinsic size, and `marginLeft: auto` keeps the controls right even when
- * there is no dock beside them — which `justify-content: space-between` would get wrong.
- */
+/** The dock and controls share one row so their bounds cannot overlap. */
 const HUD_BOTTOM_BAND_STYLE = {
   alignItems: "flex-end",
   bottom: "16px",
@@ -91,31 +67,7 @@ const HUD_BOTTOM_BAND_STYLE = {
   right: "16px",
 } satisfies CSSProperties;
 
-/**
- * How far the HUD's own chrome reaches in from an edge, published for the consumer to read.
- *
- * `viewportInsets` runs consumer → canvas: here is what my chrome covers, aim around it. Nothing
- * ran the other way, so an app wanting the bottom-right corner — where this HUD puts its dock and
- * its zoom controls — had to guess where they end. Polkadot guessed 64px against an actual 114 and
- * spent weeks with 37% of its minimap under a rail that swallowed the clicks.
- *
- * A consumer cannot compute this. The rails are placed against an inset the consumer supplied, so
- * the answer depends on the consumer's own input; and observing it from outside means racing a
- * layout this component performs — mounting after the consumer's surfaces, moving when insets
- * apply, and doing neither in a way the platform reports. Four attempts at that are recorded in
- * Polkadot's `hud-clearance.ts`; each shipped a wrong number that typechecked.
- *
- * Written where it renders, which is the one moment the answer is known for certain. A consumer
- * then writes `bottom: calc(var(--icx-hud-extent-bottom, 16px) + 8px)` and is done — no observers,
- * no timing, and the fallback covers a canvas whose HUD is turned off.
- *
- * Measured from the viewport's edge rather than from the inset, because that is the box a
- * consumer's own absolutely-positioned chrome resolves against.
- *
- * Exported for `hud-extent-contract.test.ts` and deliberately not re-exported from the barrel yet:
- * a consumer reads these from CSS, so a typed constant buys nothing until it can be interpolated
- * into a style, and promoting them is a public-API change that wants its own pass.
- */
+/** HUD extent properties measure from the viewport edge. */
 const HUD_EXTENT_BOTTOM_PROPERTY = "--icx-hud-extent-bottom";
 const HUD_EXTENT_TOP_PROPERTY = "--icx-hud-extent-top";
 
@@ -124,7 +76,7 @@ const HUD_DOCK_STYLE = {
   display: "flex",
   flexWrap: "wrap",
   gap: "8px",
-  // Below its content, so a long dock wraps instead of pushing the controls off the edge.
+  // The dock wraps before it can displace the controls.
   minWidth: 0,
 } satisfies CSSProperties;
 
@@ -157,19 +109,7 @@ function InfiniteCanvasHud({
   const actions = useInfiniteCanvasActions();
   const { reset: ResetIcon } = useInfiniteCanvasIcons();
   const resolvedPolicy = resolveInfiniteCanvasHudPolicy(policy);
-  /*
-   * The dock holds what *this desktop* put away.
-   *
-   * Minimizing and workspace membership are orthogonal — a window minimized on one desktop stays a
-   * member of it — so filtering on `mode` alone listed windows put away on desktops the user is not
-   * standing on. Restoring one from there is worse than a stale row: the window returns to a
-   * desktop this canvas is not drawing, so the dock item vanishes and nothing appears, which reads
-   * exactly like the control being broken.
-   *
-   * `getSelectableWindowIds` has filtered this way since workspaces landed, and `window.reveal`,
-   * the offscreen ring and the minimap have each since taken the same correction. This was the
-   * fourth surface reading `mode` and stopping.
-   */
+  // The dock lists minimized windows in the active workspace.
   const minimizedWindows = state.windows.filter(
     (window) =>
       window.mode === "minimized" && isInfiniteCanvasWindowInActiveWorkspace(state, window.id),
@@ -178,30 +118,10 @@ function InfiniteCanvasHud({
     resolvedPolicy.cameraControls ||
     resolvedPolicy.pointerModeControls ||
     resolvedPolicy.zoomControls;
-  /*
-   * Nothing minimized means no dock, not an empty one.
-   *
-   * A dock with no items in it is not a place — it is a container announcing a capability the user
-   * is not currently using. Rendering it anyway pushed the decision onto consumers, who reached for
-   * `:empty` to hide it; that only works while the framework happens to render no whitespace, and
-   * every app has to discover it independently.
-   */
   const showDock = resolvedPolicy.minimizedDock && minimizedWindows.length > 0;
   const rootRef = useRef<HTMLDivElement>(null);
 
-  /*
-   * Re-measured on every render, deliberately without a dependency array.
-   *
-   * What moves these rails is not any one value this component could depend on: the consumer's
-   * insets, the dock gaining a window, the viewport resizing, a policy turning a control off. Every
-   * one of them re-renders this component, so running after each render is both the cheapest
-   * correct trigger and the only one that cannot go stale — and `useLayoutEffect` reads the box in
-   * the same frame it was laid out in, so no consumer ever sees a value from the render before.
-   *
-   * Observers were the obvious alternative and are the wrong tool here: their delivery is tied to
-   * rendering opportunities, which a hidden document does not have, so a canvas in a background tab
-   * would publish nothing until it was looked at.
-   */
+  // Measure after each render because each render can change the HUD bounds.
   useLayoutEffect(() => {
     const root = rootRef.current;
     const viewport = root?.closest(`[data-slot="${INFINITE_CANVAS_SLOTS.viewport}"]`);
@@ -238,20 +158,6 @@ function InfiniteCanvasHud({
     <div
       data-slot={INFINITE_CANVAS_SLOTS.hud}
       ref={rootRef}
-      /*
-       * Inset by whatever the consumer said its own chrome covers, rather than pinned to the
-       * element's edges.
-       *
-       * `viewportInsets` exists because a canvas cannot see the panels an app floats over it, and
-       * every camera verb was taught to respect them — `view.fit`, `view.fitSelection` and
-       * `window.reveal` all aim at the region that is left. The HUD was not, so the framework's own
-       * controls kept being placed in bands the consumer had already declared as covered.
-       *
-       * Found the moment a consumer turned the minimized dock on: it renders bottom-left, the app
-       * has a library rail down the left edge, and the dock drew underneath it. The status card
-       * (top-left) had the same problem waiting. Fixing it at the root fixes every control the HUD
-       * places, now and later, instead of each one learning about insets separately.
-       */
       style={{
         bottom: state.viewportInsets.bottom,
         left: state.viewportInsets.left,
@@ -284,12 +190,6 @@ function InfiniteCanvasHud({
             <div data-slot={INFINITE_CANVAS_SLOTS.hudDock} style={HUD_DOCK_STYLE}>
               {minimizedWindows.map((window) => (
                 <button
-                  /*
-                   * The title alone is not a label. Every other HUD button names its action —
-                   * "Fit selection", "Reset desktop" — while a dock item announced only "Untitled
-                   * 2", which is also what a row in the consumer's own list announces. The visible
-                   * text stays inside the name, so speaking the title still reaches this button.
-                   */
                   aria-label={`Restore ${window.title}`}
                   data-slot={INFINITE_CANVAS_SLOTS.hudDockItem}
                   key={window.id}
@@ -297,12 +197,6 @@ function InfiniteCanvasHud({
                     actions.restoreWindow(window.id);
                   }}
                   style={{ pointerEvents: "auto" }}
-                  /*
-                   * A dock item is a title, and a title can be longer than a dock. Consumers
-                   * truncate these — the theme leaves the width alone but nothing stops an app from
-                   * clamping it — and a truncated title with no way to read the rest is a worse
-                   * affordance than a wide dock. The button already knows the full string.
-                   */
                   title={window.title}
                   type="button"
                 >
@@ -359,27 +253,7 @@ function InfiniteCanvasCameraNavigationControls() {
       window.mode !== "minimized" &&
       isInfiniteCanvasWindowInActiveWorkspace(state, window.id),
   );
-  /*
-   * Asked of the same set the verb acts on, which it was not.
-   *
-   * "Fit all visible windows" runs `view.fitAll`, which unions `getSelectableWindowIds` — and that
-   * has excluded other desktops since workspaces landed. This asked only about `mode`, so on a
-   * desktop holding nothing the button sat enabled because some *other* desktop had a window open,
-   * and pressing it did nothing at all. A control whose enabled state and whose action disagree is
-   * worse than a disabled one: the user concludes the feature is broken rather than that there is
-   * nothing to fit.
-   *
-   * `getSelectableWindowIds` rather than a fourth hand-rolled filter, so the two cannot drift again.
-   */
   const visibleWindowExists = getSelectableWindowIds(state).length > 0;
-  /*
-   * The same reasoning one paragraph up, for the other button.
-   *
-   * This asked `selection.windowIds.length`, so selecting a connector — which fills
-   * `selection.targets` and leaves `windowIds` empty — disabled the one control that would have
-   * framed it. `getSelectionBounds` is what `view.fitSelection` itself resolves, so the button and
-   * the command now answer from one place.
-   */
   const selectionExists = useInfiniteCanvasSelectionBounds() !== null;
 
   return (

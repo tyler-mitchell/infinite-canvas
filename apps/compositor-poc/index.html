@@ -32,15 +32,7 @@
         overflow: hidden;
       }
 
-      /*
-       * Fixed rather than sized against an ancestor: `100dvh` on `body` computed to 0 in the
-       * preview pane, which left the canvas 0×0 and nothing drew.
-       *
-       * The explicit `width`/`height` are load-bearing, not redundant with `inset`. A canvas has an
-       * intrinsic size, so `inset: 0` alone let the element size itself from its `width` attribute
-       * — and since the attribute is set from `clientWidth × dpr`, each frame doubled it. It
-       * reached 153600×76800 before anything looked wrong on screen.
-       */
+      /* Explicit CSS size prevents canvas attributes from resizing this box each frame. */
       #surface {
         display: block;
         height: 100%;
@@ -68,22 +60,14 @@
         font-weight: 400;
       }
 
-      /* Parked off-screen rather than hidden: `display: none` has no layout, and a subtree with no
-         layout rasterises to nothing. */
+      /* This source stays off-screen with layout because display: none prevents capture. */
       #capture-source {
         left: -10000px;
         position: absolute;
         top: 0;
       }
 
-      /*
-       * The html-in-canvas layout host, parked *behind* the opaque WebGPU surface rather than
-       * off-screen or detached.
-       *
-       * Same reason as above, twice over: a detached subtree has no layout, so `requestPaint()`
-       * rasterises nothing and `getBoundingClientRect()` reports zeros — which silently broke
-       * pointer hit-testing, since every control's box collapsed to a point.
-       */
+      /* This attached host supplies pixels for capture and boxes for hit-testing. */
       #paint-host {
         left: 0;
         position: fixed;
@@ -162,11 +146,7 @@
         width: 100%;
       }
 
-      /*
-       * Focus is marked by the compositor too, and for a second reason beyond hover's: a focus ring
-       * is drawn by the browser's own compositor, not by the page, so it is not in the pixels a
-       * capture returns. Drawing it in CSS is what puts it there.
-       */
+      /* CSS draws the focus ring because capture omits the browser focus ring. */
       .note-field:focus,
       .note-field[data-focus="true"] {
         border-color: oklch(0.62 0.14 265);
@@ -174,15 +154,6 @@
         outline: none;
       }
 
-      /*
-       * There is no hover rule here any more, and its absence is the point.
-       *
-       * Hover used to be an attribute the compositor set on this element, which meant a repaint and
-       * a re-copy — 2.6 ms to produce a flat colour swap, and it looked exactly as lifeless as that
-       * description sounds. It is a shader material now: `data-surface` on the button, one float
-       * per instance, no capture in the path at all. A captured surface can only ever step between
-       * states at capture rate; a material moves at display rate.
-       */
       .note-action[data-done="true"] {
         background: var(--accent);
         color: oklch(0.16 0.02 55);
@@ -197,11 +168,6 @@
   <body>
     <canvas id="surface"></canvas>
     <pre id="readout">starting…</pre>
-    <!--
-      A real DOM subtree, laid out and styled by the browser, that gets rasterised and uploaded as
-      a window's texture. Off-screen but not `display: none` — a hidden subtree has no layout, and
-      capturing something with no layout measures nothing.
-    -->
     <div id="capture-source" aria-hidden="true">
       <div class="note">
         <div class="note-chrome"></div>
@@ -216,8 +182,7 @@
             <li>An 8192² atlas holds ~341 windows</li>
             <li>Re-capture is a scheduling problem</li>
           </ul>
-          <!-- Real controls, so interaction can be proven rather than asserted. A text field is
-               the sharpest test there is: caret, selection and focus all live in one element. -->
+          <!-- These controls provide a test of focus, selection, and click routing. -->
           <input class="note-field" type="text" placeholder="Add a note…" />
           <button class="note-action" type="button">Mark as done</button>
           <p class="note-meta">edited 2 minutes ago · 3 links</p>

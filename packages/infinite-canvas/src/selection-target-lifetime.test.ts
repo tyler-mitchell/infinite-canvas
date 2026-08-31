@@ -6,12 +6,6 @@ import { reduceInfiniteCanvasState } from "./reducer";
 import { normalizeSelection } from "./selection";
 import type { InfiniteCanvasState } from "./types";
 
-/**
- * `windowIds` are pruned. `targets` are not, because the framework cannot know whether a
- * consumer's scene object still exists. `selection` is persisted, so a stale target survives a
- * reload. This is the current contract, not a defect.
- */
-
 type Kind = "note";
 
 const orphan = { id: "region-that-was-deleted", kind: "region", type: "scene-object" } as const;
@@ -35,7 +29,6 @@ const withSelectedOrphan = (): InfiniteCanvasState<Kind> => {
 };
 
 test("a scene object can be selected at all", () => {
-  // The premise. Without this every assertion below would pass on an empty target list.
   const selected = withSelectedOrphan();
 
   expect(selected.selection.targets ?? []).toHaveLength(1);
@@ -43,14 +36,12 @@ test("a scene object can be selected at all", () => {
 });
 
 test("normalizing does not prune a target naming nothing", () => {
-  // It cannot: nothing in `state` says which scene objects exist.
   const selected = withSelectedOrphan();
 
   expect(normalizeSelection(selected, selected.selection).targets ?? []).toHaveLength(1);
 });
 
 test("a dead target survives a serialize and hydrate round trip", () => {
-  // What makes it permanent rather than session-local.
   const selected = withSelectedOrphan();
   const restored = parseInfiniteCanvasStateJson(stringifyInfiniteCanvasState(selected), selected);
 
@@ -60,7 +51,6 @@ test("a dead target survives a serialize and hydrate round trip", () => {
 });
 
 test("a window id in the same selection is pruned, which is the contrast", () => {
-  // The asymmetry in one comparison: pruned where verifiable, kept where not.
   const selected = {
     ...withSelectedOrphan(),
     selection: {

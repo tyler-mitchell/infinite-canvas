@@ -28,14 +28,11 @@ function getElementViewport(element: HTMLElement): InfiniteCanvasViewport {
 }
 
 function capturePointer(element: Pick<HTMLElement, "setPointerCapture">, pointerId: number) {
-  // Pointer capture is best-effort: setPointerCapture throws NotFoundError
-  // when the pointer is no longer active (pen lifted between events) or when
-  // the event was dispatched synthetically (automated tests, agent drivers).
-  // Interaction state must still start/finish in those cases.
+  // Pointer capture can fail after release or for synthetic events.
   try {
     element.setPointerCapture(pointerId);
   } catch {
-    // Continue without capture; handlers track the pointer by id.
+    // Handlers still track the pointer by ID.
   }
 }
 

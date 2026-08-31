@@ -2,12 +2,7 @@ import { installSurrealInspectorHandle, type SurrealInspectorSource } from "surr
 
 import { installedSurql, localDatabaseEndpoint } from "./local-database";
 
-/**
- * Exposes `window.__surreal` in development: `report()`, `integrity()`, `query(surql)`.
- *
- * Installed at startup so querying does not require navigating to the inspector route. `connect`
- * is a thunk, so the WASM engine still loads only on the first read.
- */
+// Development installs window.__surreal without opening the WASM engine.
 const source: SurrealInspectorSource = {
   connect: async () => (await import("./database.client")).openLocalDatabase(),
   database: localDatabaseEndpoint.database,

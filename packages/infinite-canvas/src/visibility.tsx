@@ -22,7 +22,7 @@ type InfiniteCanvasVisibilitySummary = Readonly<{
 
 type InfiniteCanvasVisibilityContextValue = Readonly<{
   markWindowsFramed: (entries: readonly InfiniteCanvasWindowFrustumVisibilityEntry[]) => void;
-  /** Drops every tracked window *except* these. See {@link retainWindowFrustumVisibility}. */
+  /** Keeps only these tracked window IDs. */
   retainWindows: (windowIds: readonly string[]) => void;
   state$: Observable<InfiniteCanvasVisibilityState>;
 }>;
@@ -115,17 +115,7 @@ function setWindowsFrustumVisibility(
   };
 }
 
-/**
- * Keeps only the tracked windows named in `windowIds`, dropping the rest.
- *
- * `windowIds` is the set to **retain**, not the set to remove — it is the caller's live
- * window list. The old name for this was `pruneWindowFrustumVisibility`, which read as
- * exactly the inverse and would have deleted the entire canvas save one window the day
- * someone called it with the ids they meant to forget.
- *
- * Membership goes through a `Set`: this runs once per window-list change, over every
- * tracked window, and an `Array.includes` inside the filter made it quadratic.
- */
+/** Keeps tracked entries whose IDs exist in the input list. */
 function retainWindowFrustumVisibility(
   state: InfiniteCanvasVisibilityState,
   windowIds: readonly string[],
@@ -211,16 +201,7 @@ function useInfiniteCanvasVisibilityContext() {
   return useContext(InfiniteCanvasVisibilityContext);
 }
 
-/**
- * Live frustum-visibility for one window, or `null` when nothing is measuring it.
- *
- * @experimental Only the frustum probe layer writes this store, and that layer
- * ships behind `@hyphened/infinite-canvas/scene` and runs only when
- * `diagnostics.frustum` is on. Without both, every window reads as unmeasured —
- * `useInfiniteCanvasWindowFramed` will return its fallback forever, and a
- * culling decision built on it will silently keep everything. Treat a `null`
- * here as "unknown", never as "offscreen".
- */
+/** @experimental Returns frustum data or null when no probe measures this window. */
 function useInfiniteCanvasWindowFrustum(windowId: string) {
   const { state$ } = useInfiniteCanvasVisibilityContext();
 
@@ -230,28 +211,14 @@ function useInfiniteCanvasWindowFrustum(windowId: string) {
   );
 }
 
-/**
- * Whether a window is inside the camera frustum, falling back to `fallback` when
- * nothing is measuring it.
- *
- * @experimental See {@link useInfiniteCanvasWindowFrustum}: the probe that feeds
- * this lives behind the `/scene` entry and only runs under `diagnostics.frustum`.
- * The fallback defaults to `true` precisely so that an unmeasured canvas renders
- * everything rather than nothing.
- */
+/** @experimental Uses a fallback when no frustum probe measures this window. */
 function useInfiniteCanvasWindowFramed(windowId: string, fallback = true) {
   const visibility = useInfiniteCanvasWindowFrustum(windowId);
 
   return visibility?.isFramed ?? fallback;
 }
 
-/**
- * Aggregate frustum-visibility counts across the canvas.
- *
- * @experimental Reads the same probe-fed store as
- * {@link useInfiniteCanvasWindowFrustum}, so it reports zeros unless a scene
- * surface is mounted with `diagnostics.frustum` on.
- */
+/** @experimental Returns aggregate frustum counts from the probe store. */
 function useInfiniteCanvasVisibilitySummary() {
   const { state$ } = useInfiniteCanvasVisibilityContext();
 

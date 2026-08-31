@@ -42,24 +42,13 @@ import type {
 } from "./types";
 import { isInfiniteCanvasWindowCapable } from "./window-capabilities";
 
-/**
- * Everything a frame slot needs, and deliberately no canvas state: this value
- * is memoized on the window's own identity so the slot subtree does not
- * reconcile on camera ticks. Slots that need reactive state subscribe to it
- * directly — see `InfiniteCanvasWindowBody`.
- */
+/** Holds window data so slot subtrees do not rerender on camera updates. */
 type InfiniteCanvasWindowFrameRuntimeContextValue<Kind extends string> = Readonly<{
   actions: InfiniteCanvasCommands<Kind>;
   bodyPointerBehavior: InfiniteCanvasWindowBodyPointerBehavior;
   chrome: InfiniteCanvasChromeMetrics;
   definition: InfiniteCanvasWindowDefinition<Kind>;
-  /**
-   * How much chrome this window can usefully show at the current zoom.
-   *
-   * `summary` means the frame is a few tens of screen pixels: text is unreadable and a control
-   * is under three pixels across. Slots that draw labels or buttons should render nothing
-   * rather than render something nobody can read or hit.
-   */
+  /** At `summary` detail, slots must omit unreadable labels and controls. */
   detailLevel: InfiniteCanvasDetailLevel;
   isActive: boolean;
   isSelected: boolean;
@@ -107,9 +96,7 @@ function InfiniteCanvasWindowFrameTitleSlot({
     },
     consumerProps,
   );
-  // The framework's own default drops out at far zoom, where the title is a smear a few pixels
-  // tall. Consumer `children` are left alone: they were passed deliberately, and deciding they
-  // are illegible is not the framework's call to make on someone else's content.
+  // Keep consumer content because the framework does not own it.
   const defaultTitle = detailLevel === "summary" ? null : window.title;
   const content = children === undefined ? defaultTitle : children;
 
@@ -119,20 +106,6 @@ function InfiniteCanvasWindowFrameTitleSlot({
     render(props, { children: content })
   );
 }
-
-/*
- * The control buttons carry no inline style, and that is the point rather than an omission.
- *
- * Their box, cursor and centring were six properties written here, which is the strongest form of
- * unreachable: an inline style outranks every stylesheet rule in every layer, so a consumer's rule
- * for any of them was present, generated, and beaten on every render. The scope note in `theme.css`
- * names that failure and had already been corrected once for `justify-content` on the header; this
- * is the same finding one slot over. They live in `[data-slot="window-control"]` now, sized by
- * `--icx-control-size`.
- *
- * None of it was computed, which is what made it safe to move: the size was a constant, and
- * hit-testing reads the chrome metrics rather than a control's box.
- */
 
 function InfiniteCanvasWindowFrameControlsSlot({
   render,
@@ -184,7 +157,7 @@ function InfiniteCanvasWindowFrameControlsSlot({
         disabled={!isInfiniteCanvasWindowCapable(window, "minimizable")}
         onClick={(event) => {
           event.stopPropagation();
-          // This button is about to unmount with its window.
+          // Restore focus before this button unmounts.
           focusInfiniteCanvasCommandSurfaceFrom(event.currentTarget);
           actions.minimizeWindow(window.id);
         }}
@@ -224,7 +197,7 @@ function InfiniteCanvasWindowFrameControlsSlot({
         disabled={!isInfiniteCanvasWindowCapable(window, "closable")}
         onClick={(event) => {
           event.stopPropagation();
-          // This button is about to unmount with its window.
+          // Restore focus before this button unmounts.
           focusInfiniteCanvasCommandSurfaceFrom(event.currentTarget);
           actions.closeWindow(window.id);
         }}
@@ -238,10 +211,7 @@ function InfiniteCanvasWindowFrameControlsSlot({
     </>
   );
 
-  // Four buttons under three screen pixels across are not controls. They cannot be read, cannot
-  // be hit, and cost four SVGs per window on every canvas that has zoomed out to see the whole
-  // layout — which is the view with the most windows in it. The container stays so a consumer's
-  // `render` and styling still resolve against a real element.
+  // Keep the slot but omit default controls at summary detail.
   const rendered = detailLevel === "summary" ? null : content;
 
   return render === undefined ? (
@@ -292,23 +262,7 @@ function InfiniteCanvasWindowFrameHeaderSlot({
         releasePointer(event.currentTarget, event.pointerId);
         actions.finishInteraction(event.pointerId);
       },
-      /*
-       * What is inline is what a consumer must not be able to break.
-       *
-       * The header is positioned against the frame and sized from chrome metrics; those are the
-       * geometry the hit-testing and the body offset are computed from, so they stay here where
-       * nothing can outrank them.
-       *
-       * `justifyContent` was here too and is not geometry — it is a layout choice, and it moved to
-       * `theme.css` on 2026-08-26 because an inline style is unreachable. Polkadot hides the title
-       * for kinds whose body names themselves, which leaves one child that `space-between` parks at
-       * the start, and its rule to fix that had never once applied: measured at x=12 of a 376px
-       * header. Same finding as the dock item whose padding was inline and whose label was
-       * uppercased in JavaScript — a consumer could see the result and reach nothing.
-       *
-       * The rule for the next one: geometry the framework computes stays inline, appearance a
-       * consumer could reasonably disagree with belongs in the theme sheet.
-       */
+      // Keep computed geometry inline because hit testing uses the same metrics.
       style: {
         alignItems: "center",
         borderBottomWidth: `max(${chrome.headerAccentHeight}px, var(--icx-chrome-stroke))`,
@@ -368,11 +322,7 @@ function InfiniteCanvasWindowFrameBodySlot({
       "data-infinite-canvas-native-text-selection": textSelection === "native" ? "true" : undefined,
       "data-slot": INFINITE_CANVAS_SLOTS.windowBody,
       onKeyDown: (event: ReactKeyboardEvent<HTMLElement>) => {
-        // Focus containment (FR-9). A window body is a focus region the way an OS window is:
-        // Tab cycles what is inside it and stops at its edges, and Escape hands you back to
-        // the desktop. Without the Escape half a trap is a cage — the user would be inside a
-        // window with no keyboard way out, and every canvas hotkey would stay dead because the
-        // command surface never regains focus.
+        // Escape returns focus to the canvas command surface.
         if (event.key === "Escape") {
           event.preventDefault();
           event.stopPropagation();
@@ -414,10 +364,7 @@ function InfiniteCanvasWindowFrameBodySlot({
         top: `${chrome.headerHeight}px`,
         userSelect: textSelection === "native" ? undefined : "none",
       },
-      // Programmatically focusable, never a Tab stop. Entering a window is deliberate — the
-      // desktop's Tab order must not walk into window contents — but a body with no controls
-      // of its own still has to be enterable, or `Tab` from the command surface would look
-      // broken rather than empty.
+      // The body receives programmatic focus but stays outside the tab order.
       tabIndex: -1,
     },
     consumerProps,
@@ -478,8 +425,7 @@ function InfiniteCanvasWindowFrameSurfaceSlot({
     {
       "data-slot": INFINITE_CANVAS_SLOTS.windowSurface,
       style: {
-        // Never thinner than one screen pixel, however far the canvas is zoomed
-        // out. The frame publishes the widened world-unit value; see window-frame.
+        // Keep the border at least one screen pixel wide.
         borderWidth: "var(--icx-chrome-stroke)",
         inset: 0,
         overflow: "hidden",

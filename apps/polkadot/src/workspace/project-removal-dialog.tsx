@@ -15,18 +15,7 @@ import { tv } from "ui/tv";
 
 import type { ProjectRemovalSummary } from "../database/database.client";
 
-/**
- * The one confirmation in the app that asks for typing rather than a click.
- *
- * Deleting a canvas removes an arrangement and its notes survive, so a button is proportionate.
- * Deleting a project destroys the writing itself, and this is a local-first application — there
- * is no server-side trash to recover from and no undo that reaches across it. When the cost is
- * unrecoverable the friction belongs at the moment of destruction, not in an apology afterwards.
- *
- * Typing the name is also the only gate that cannot be passed by a misclick, which is the failure
- * this exists to prevent.
- */
-
+// Project deletion requires the exact current project title.
 const removalDialog = tv({
   slots: {
     count: "font-medium text-[var(--ink)] tabular-nums",
@@ -93,7 +82,7 @@ export function ProjectRemovalDialog({
     }
 
     const manager = getHotkeyManager();
-    // Enter only does anything once the name matches, so the shortcut cannot outrun the gate.
+    // Enter acts only after the title matches.
     const handle = manager.register(
       "Enter",
       () => {

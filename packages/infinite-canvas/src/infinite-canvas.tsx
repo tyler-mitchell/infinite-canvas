@@ -153,10 +153,7 @@ type InfiniteCanvasDesktopProps<
   diagnostics?: InfiniteCanvasDiagnosticsPolicyInput;
   documentKey?: string;
   dropPolicy?: InfiniteCanvasDropPolicy<Kind, Payload>;
-  /**
-   * Chords for verbs the canvas does not have. Added to its keymap, unlike `hotkeyBindings` which
-   * replaces. Canvas scope rules apply, so a chord in a window body does not fire.
-   */
+  /** Adds consumer actions to the keymap without replacing command bindings. */
   hotkeyActions?: readonly InfiniteCanvasHotkeyAction<Kind>[];
   hotkeyBindings?: readonly InfiniteCanvasHotkeyBinding[];
   hud?: InfiniteCanvasHudPolicyInput;
@@ -164,20 +161,13 @@ type InfiniteCanvasDesktopProps<
   initialState: InfiniteCanvasState<Kind>;
   inputPolicy?: InfiniteCanvasInputPolicy;
   rasterization?: InfiniteCanvasRasterizationPolicyInput | boolean;
-  /**
-   * Replaces the default grid, beneath every window. Outside the world transform, so project with
-   * `worldPointToScreenPoint`. Takes no pointer events.
-   */
+  /** Replaces the grid below windows with screen-space content. */
   renderBackdrop?: (context: InfiniteCanvasOverlayReadContext<Kind, Payload>) => ReactNode;
-  /** World content beneath the windows: connectors, annotations, ink. Above the backdrop. */
+  /** World content below windows and above the backdrop. */
   renderUnderlay?: (context: InfiniteCanvasOverlayReadContext<Kind, Payload>) => ReactNode;
   renderOverlay?: (context: InfiniteCanvasOverlayRenderContext<Kind, Payload>) => ReactNode;
   sceneLayers?: readonly InfiniteCanvasSceneLayer<Kind, Payload>[];
-  /**
-   * Paints `sceneLayers`. Pass `InfiniteCanvasWebGpuSurface` from
-   * `@hyphened/infinite-canvas/scene`. Without it, scene layers are inert and `three` stays out
-   * of the bundle.
-   */
+  /** Paints `sceneLayers`. Omit it to exclude scene dependencies from the bundle. */
   sceneSurface?: InfiniteCanvasSceneSurface<Kind, Payload>;
   snapPolicy?: InfiniteCanvasSnapPolicy;
   spatialTargetResolvers?: readonly InfiniteCanvasSpatialTargetResolver<Kind>[];
@@ -196,47 +186,33 @@ type InfiniteCanvasViewportProps<
   chrome?: InfiniteCanvasChromeMetricsInput;
   className?: string;
   diagnostics?: InfiniteCanvasDiagnosticsPolicy;
-  /** Screen space the consumer's chrome covers, per edge. Without it, fitting aims at the element
-   * middle and puts content behind a panel. */
+  /** Screen-edge bands that chrome covers. Camera framing uses the remaining region. */
   viewportInsets?: InfiniteCanvasViewportInsetsInput;
-  /**
-   * Chrome inside the content area, as screen rects. An inset is one number per edge and only
-   * describes a band, so a floating minimap needs this. Placement steps around these; framing
-   * ignores them. Memoize an inline array — depended on by identity.
-   */
+  /** In-content screen rects that placement treats as occupied. Memoize this array. */
   viewportOccluders?: readonly InfiniteCanvasViewportOccluder[];
   dropPolicy?: InfiniteCanvasDropPolicy<Kind, Payload>;
-  /**
-   * Tab strip height, split seam width, accordion header extent. Goes to the store, not the layer
-   * — the reducer places member windows from the same value.
-   */
+  /** Group chrome metrics shared by layout and the reducer. */
   groupMetrics?: InfiniteCanvasGroupMetricsInput;
-  /**
-   * Frame label above a group. Defaults to `getInfiniteCanvasGroupTitle`. Return `""` for no
-   * label; `chrome.groupLabelSize` turns them all off.
-   */
+  /** Resolves a group label. Return `""` to hide one label. */
   groupLabel?: (
     context: Readonly<{ group: InfiniteCanvasGroup; windows: readonly InfiniteCanvasWindow[] }>,
   ) => string;
-  /** Tab and accordion header names. Defaults to the window's `title`. */
+  /** Resolves tab and accordion labels. The default is the window title. */
   groupTabLabel?: InfiniteCanvasGroupTabLabel;
-  /** Chords for verbs the canvas does not have. Added to its keymap, never replacing it. */
+  /** Adds consumer actions without replacing canvas bindings. */
   hotkeyActions?: readonly InfiniteCanvasHotkeyAction<Kind>[];
   hotkeyBindings?: readonly InfiniteCanvasHotkeyBinding[];
   hud?: InfiniteCanvasHudPolicyInput;
   icons?: InfiniteCanvasIcons;
   inputPolicy?: InfiniteCanvasInputPolicy;
-  /**
-   * Replaces the default grid, beneath every window. Outside the world transform, so project with
-   * `worldPointToScreenPoint`. Takes no pointer events.
-   */
+  /** Replaces the grid below windows with screen-space content. */
   renderBackdrop?: (context: InfiniteCanvasOverlayReadContext<Kind, Payload>) => ReactNode;
-  /** World content beneath the windows: connectors, annotations, ink. Above the backdrop. */
+  /** World content below windows and above the backdrop. */
   renderUnderlay?: (context: InfiniteCanvasOverlayReadContext<Kind, Payload>) => ReactNode;
   renderOverlay?: (context: InfiniteCanvasOverlayRenderContext<Kind, Payload>) => ReactNode;
   sceneLayers?: readonly InfiniteCanvasSceneLayer<Kind, Payload>[];
   sceneSurface?: InfiniteCanvasSceneSurface<Kind, Payload>;
-  /** Reaches the store for move/resize; the viewport needs it to snap a drop too. */
+  /** Store used for move, resize, and drop snapping. */
   snapPolicy?: InfiniteCanvasSnapPolicy;
   subtitle?: string;
   spatialTargetResolvers?: readonly InfiniteCanvasSpatialTargetResolver<Kind>[];
@@ -247,7 +223,7 @@ type InfiniteCanvasViewportProps<
 }>;
 
 const SCENE_SCREEN_UNDERLAY_Z_INDEX = 1;
-/** Connectors, annotations, ink. */
+/** World content below windows. */
 const UNDERLAY_Z_INDEX = 2;
 const GROUP_LAYER_Z_INDEX = 5;
 const PORTAL_ROOT_Z_INDEX = DEFAULT_INFINITE_CANVAS_STACK_BANDS.overlay + 1;
@@ -255,7 +231,7 @@ const WINDOW_LAYER_Z_INDEX = 10;
 const SCENE_OVERLAY_Z_INDEX = DEFAULT_INFINITE_CANVAS_STACK_BANDS.overlay - 10;
 const SCENE_SCREEN_OVERLAY_Z_INDEX = DEFAULT_INFINITE_CANVAS_STACK_BANDS.overlay - 9;
 
-/** Mirrors theme.css's bridged token block. */
+/** Maps theme fields to matching CSS custom properties. */
 const INFINITE_CANVAS_THEME_VARIABLES: Readonly<Record<keyof InfiniteCanvasTheme, string>> = {
   activeAccent: "--icx-active-accent",
   activeBorder: "--icx-active-border",
@@ -319,7 +295,7 @@ function getInfiniteCanvasMissingSceneSurfaceWarning(
   return null;
 }
 
-// Local, so the package does not leak a `@types/node` requirement onto consumers.
+// Keep NodeJS types out of public declaration files.
 declare const process: Readonly<{ env: Readonly<{ NODE_ENV?: string }> }>;
 
 function useInfiniteCanvasSceneSurfaceWarning(
@@ -393,9 +369,7 @@ function resolveInfiniteCanvasDragDropTarget<Kind extends string, Payload>({
   const placementInput = dropPolicy?.placement?.(context) ?? null;
 
   return {
-    // Snapped against the same candidates a window move snaps against, using the
-    // same resolver. The guides were always being computed here; they were just
-    // never handed to anyone.
+    // Use the same snap result for the preview and the committed drop.
     placement:
       placementInput === null
         ? null
@@ -431,7 +405,7 @@ function useInfiniteCanvasDevicePixelRatio() {
 }
 
 function InfiniteCanvasDesktop<Kind extends string, Payload = InfiniteCanvasDropPayload>({
-  // Forwarded unresolved; `Viewport` merges it over the defaults.
+  // The viewport merges this partial value with its defaults.
   chrome,
   className,
   diagnostics,
@@ -521,10 +495,7 @@ function InfiniteCanvasDesktop<Kind extends string, Payload = InfiniteCanvasDrop
   );
 }
 
-/**
- * A drag from outside the page has no pointer, and the drop machinery is keyed by one. Negative
- * because no real `pointerId` is, so a mouse moving during a native drag cannot be mistaken for it.
- */
+/** Reserved pointer id for native drags. Browser pointer ids are nonnegative. */
 const NATIVE_DROP_POINTER_ID = -1;
 const NATIVE_DROP_INTERACTION_ID = "__infinite-canvas-native-drop__";
 
@@ -541,7 +512,7 @@ function isEditableEventTarget(target: EventTarget | null): boolean {
   );
 }
 
-/** The canvas itself, mountable without `InfiniteCanvasDesktop`. Every policy prop defaults here. */
+/** Mounts a canvas with default policies without `InfiniteCanvasDesktop`. */
 function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDropPayload>({
   chrome: chromeInput,
   className,
@@ -571,8 +542,7 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
   zoomPolicy = resolveInfiniteCanvasZoomPolicy(),
 }: InfiniteCanvasViewportProps<Kind, Payload>) {
   const canvasInstanceId = useId();
-  // Field deps, not object identity: an inline `chrome={{ headerHeight: 32 }}` is a new object
-  // every render, and window geometry memoizes on this.
+  // Depend on fields because consumers can pass a new inline object each render.
   const chrome = useMemo(
     () => resolveInfiniteCanvasChromeMetrics(chromeInput),
     [
@@ -588,7 +558,7 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
   const commandSurfaceRef = useRef<HTMLDivElement | null>(null);
   const spacePanRef = useRef(false);
   const dragCaptureTargetRef = useRef<HTMLElement | null>(null);
-  /** Last pointer position, so a paste lands where the user is looking. */
+  /** Last pointer position for paste placement. */
   const pastePointRef = useRef<InfiniteCanvasPoint | null>(null);
   const configuredPointerMode = getInfiniteCanvasPointerMode(inputPolicy);
   const [pointerModeOverride, setPointerModeOverride] = useState<InfiniteCanvasPointerMode | null>(
@@ -603,13 +573,7 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
   const actions = useInfiniteCanvasActions<Kind>();
   const state = useInfiniteCanvasState<Kind>();
 
-  /*
-   * Told to the store during render rather than in an effect.
-   *
-   * The HUD is a child of this component and asks for the selection bounds while it renders, so an
-   * effect would leave the first paint answering from an empty list — the fit button disabled on a
-   * selection that does have a place. Assigning a ref during render is safe; nothing subscribes.
-   */
+  // Set the resolver during render so HUD bounds are correct on first paint.
   store.setSpatialTargetResolvers(spatialTargetResolvers);
   const interaction = useInfiniteCanvasSelector<Kind, InfiniteCanvasInteraction>(
     (state) => state.interaction,
@@ -629,8 +593,7 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
         : withInfiniteCanvasPointerMode(inputPolicy, pointerModeOverride),
     [inputPolicy, pointerModeOverride],
   );
-  // Local rather than in the store: a store write per pointermove would make every mouse movement
-  // a state mutation, and mutations are undo checkpoints. Leaves this component as a cursor string.
+  // Keep cursor state local so pointer moves do not create store mutations.
   const [isOverSelectableTarget, setIsOverSelectableTarget] = useState(false);
   const cursor = getCanvasCursor(
     interaction,
@@ -768,8 +731,7 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
     },
     [chrome, dropPolicy, spatialTargetResolvers, store],
   );
-  // Separate from `createDropInteractionFromPointer`, which carries its payload forward. File
-  // contents are withheld until the drop, so the payload is re-read each event.
+  // Read native drag data on each event because browsers expose files only at drop.
   const createDropInteractionFromNativeDrag = useCallback(
     (
       current: Extract<InfiniteCanvasDropInteraction<Payload, Kind>, { status: "dragging" }>,
@@ -846,11 +808,7 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
     },
     [chrome, dropPolicy, snapPolicy, spatialTargetResolvers, store],
   );
-  /**
-   * A paste is a drop with no drag in front of it — same `DataTransfer`, so the same payload
-   * reader, but nothing to preview or cancel. Lands under the pointer, or at the middle of what is
-   * visible when the paste came from the keyboard alone.
-   */
+  /** Treats paste as a drop at the pointer or the visible-region center. */
   const commitPaste = useCallback(
     (event: ClipboardEvent, payload: Payload) => {
       const node = rootRef.current;
@@ -892,7 +850,6 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
         viewportPoint,
       });
 
-      // Refused. Leave the paste to the browser.
       if (interaction.status !== "dragging" || interaction.dropTarget.status !== "valid") {
         return;
       }
@@ -976,7 +933,7 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
     };
   }, [actions]);
 
-  // Field deps: an inline object is new every render, and this writes to the store.
+  // Depend on fields because this value writes to the store.
   useEffect(() => {
     actions.setGroupMetrics({
       accordionHeaderSize: groupMetrics?.accordionHeaderSize,
@@ -1005,8 +962,7 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
     viewportInsets?.top,
   ]);
 
-  // Identity deps, unlike the insets: a list of rects has no fixed fields. Consumer must memoize.
-  // Dispatch is idempotent, so failing to costs a re-render, not a loop.
+  // The consumer must memoize this array because updates depend on its identity.
   useEffect(() => {
     actions.dispatch({ occluders: viewportOccluders ?? [], type: "viewportOccluders.set" });
   }, [actions, viewportOccluders]);
@@ -1035,13 +991,11 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
 
     const handleWheel = (event: WheelEvent) => {
       const state = store.state$.peek() as InfiniteCanvasState<Kind>;
-      // A macOS trackpad pinch arrives as a wheel event with `ctrlKey` synthesized, so pinch and
-      // Ctrl+wheel are one path. `metaKey` catches Cmd+wheel, which would otherwise page-zoom.
+      // A trackpad pinch uses `ctrlKey`. `metaKey` also prevents page zoom on macOS.
       const isZoomGesture = event.ctrlKey || event.metaKey;
       const isCanvasTarget = isCanvasWheelTarget(event.target, node);
 
-      // Zoom outranks a scrollable body: a plain wheel over a `native-scroll` body scrolls it, a
-      // zoom gesture over the same body zooms the canvas.
+      // Zoom gestures take priority over scrolling inside window bodies.
       if (
         state.viewport.width <= 0 ||
         state.viewport.height <= 0 ||
@@ -1111,9 +1065,7 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
   }, []);
 
   useEffect(() => {
-    // Mount-scoped, not gated on `interaction`. Gating attaches listeners only after React commits
-    // the pointerdown, so a synchronous `down -> move -> up` loses the move. Peeking the store is
-    // the only read that is never a frame stale.
+    // Keep listeners mounted so synchronous pointer sequences cannot lose events.
     const getInteractionForPointer = (pointerId: number) => {
       const current = (store.state$.peek() as InfiniteCanvasState<Kind>).interaction;
 
@@ -1168,7 +1120,6 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
   }, [actions, store]);
 
   useEffect(() => {
-    // Mount-scoped for the same reason: `startDrag` writes the ref synchronously.
     const handlePointerMove = (event: PointerEvent) => {
       const current = dropInteractionRef.current;
 
@@ -1197,7 +1148,7 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
           actions,
           dropTarget: finalDropInteraction.dropTarget,
           payload: finalDropInteraction.payload,
-          // The object the preview drew, not a fresh computation.
+          // Commit the exact placement shown by the preview.
           placement: finalDropInteraction.placement,
           state: latestState,
           target: finalDropInteraction.dropTarget.target,
@@ -1240,19 +1191,17 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
   ]);
 
   useEffect(() => {
-    // Native drags become the same interaction the pointer path produces, so `canDrop`,
-    // placement, and snapping work unchanged. On the viewport element, not the window.
+    // Native drags use the same drop interaction as pointer drags.
     const node = rootRef.current;
 
-    // Inert without a `dropPolicy`: validation defaults to accepted, and `dragover` must
-    // `preventDefault` or the browser navigates to the file.
+    // Handle dragover only with a drop policy so rejected files cannot replace the page.
     if (node === null || dropPolicy === undefined) {
       return;
     }
 
-    // `dragenter`/`dragleave` fire per element crossed inside the canvas, so count depth.
+    // Count nested dragenter and dragleave events before the drag ends.
     let depth = 0;
-    // The only gate. `null` means the drag carries nothing describable.
+    // A `null` payload rejects the native drag.
     const readPayload = (event: DragEvent) =>
       getInfiniteCanvasNativeDropPayload(event.dataTransfer) as Payload | null;
     const updateFromDragEvent = (event: DragEvent, payload: Payload) => {
@@ -1290,13 +1239,13 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
         return;
       }
 
-      // Or the browser navigates to the file, replacing the app.
+      // Prevent the browser from replacing the page with the dropped file.
       event.preventDefault();
 
       const next = updateFromDragEvent(event, payload);
 
       if (event.dataTransfer !== null) {
-        // `none` makes the cursor show a rejected type as rejected.
+        // Show the rejected drop cursor.
         event.dataTransfer.dropEffect =
           next?.status === "dragging" && next.dropTarget.status === "valid" ? "copy" : "none";
       }
@@ -1340,8 +1289,7 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
       cancelNativeDrag();
     };
 
-    // On the document, since the canvas is not focusable. The editable guard stops the canvas
-    // stealing a paste from a window's editor.
+    // Listen on the document because the canvas is not focusable. Ignore editable targets.
     const handlePaste = (event: ClipboardEvent) => {
       if (event.defaultPrevented || isEditableEventTarget(event.target)) {
         return;
@@ -1406,7 +1354,6 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
             onPointerLeave={() => {
               setIsOverSelectableTarget(false);
             }}
-            // Only bound when resolvers exist. Skipped mid-drag.
             onPointerMove={
               spatialTargetResolvers.length === 0
                 ? undefined
@@ -1478,8 +1425,7 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
                 });
               }
             }}
-            // No `onPointerMove`. Window listener is the single dispatcher and carries `dockIntent`.
-            // Second handler double-dispatches. See `single-dispatcher.test.ts`.
+            // The window listener is the only pointer-move dispatcher.
             onPointerUp={(event) => {
               releasePointer(event.currentTarget, event.pointerId);
               actions.finishInteraction(event.pointerId);
@@ -1503,8 +1449,7 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
             <div
               data-infinite-canvas-command-scope="surface"
               onKeyDown={(event) => {
-                // Tab enters the active window's body (FR-9). Escape returns here. Shift+Tab
-                // unclaimed, or the canvas is a keyboard trap.
+                // Tab enters the active window. Shift+Tab remains available to leave the canvas.
                 if (event.key !== "Tab" || event.shiftKey || state.activeWindowId === null) {
                   return;
                 }
@@ -1531,9 +1476,9 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
               }}
               tabIndex={-1}
             />
-            {/* Outside every transform, so `position: fixed` resolves against the viewport. */}
+            {/* Keep fixed portals outside all canvas transforms. */}
             <div
-              // Outside the canvas keyboard scope, so a portalled modal gets Escape.
+              // This layer is outside the canvas keyboard scope, so modal Escape works.
               data-infinite-canvas-command-scope="ignore"
               data-slot={INFINITE_CANVAS_SLOTS.portalRoot}
               ref={setDesktopPortalRoot}
@@ -1674,7 +1619,7 @@ function InfiniteCanvasWindowLayer<Kind extends string>({
   windowDefinitions,
   zIndex = WINDOW_LAYER_Z_INDEX,
 }: Readonly<{
-  /** Namespaces each frame's DOM `id` for a tab's `aria-controls`. Mints its own if omitted. */
+  /** Canvas token that namespaces frame ids used by `aria-controls`. */
   canvasInstanceId?: string;
   chrome: InfiniteCanvasChromeMetrics;
   devicePixelRatio: number;
@@ -1686,8 +1631,7 @@ function InfiniteCanvasWindowLayer<Kind extends string>({
   const fallbackInstanceId = useId();
   const resolvedInstanceId = canvasInstanceId ?? fallbackInstanceId;
   const state = useInfiniteCanvasState<Kind>();
-  // `windowRects` keys every grouped window. Those get no resize handles — handles straddle pane
-  // edges and would bury the gutter.
+  // Grouped windows omit resize handles because handles can cover the gutter.
   const { hiddenWindowIds, windowRects } = useMemo(
     () => getInfiniteCanvasGroupProjection(state.groups, state.groupMetrics),
     [state.groupMetrics, state.groups],
@@ -1696,14 +1640,13 @@ function InfiniteCanvasWindowLayer<Kind extends string>({
     () => getInfiniteCanvasWorkspaceWindowIds(state),
     [state.activeWorkspaceId, state.workspaces],
   );
-  // Keep DOM order stable during focus changes; z-index owns visual stacking.
+  // Keep DOM order stable. The z-index controls visual stacking.
   const visibleWindows = useMemo(
     () =>
       state.windows.filter(
         (window): window is InfiniteCanvasWindow<Kind> =>
           window.mode !== "minimized" &&
           !hiddenWindowIds.has(window.id) &&
-          // `null` means no active workspace, which admits everything.
           (admittedWindowIds === null || admittedWindowIds.has(window.id)) &&
           isRegisteredInfiniteCanvasWindow(windowDefinitions, window),
       ),
@@ -1816,11 +1759,10 @@ function isViewportEventTarget(target: EventTarget | null, viewport: HTMLElement
   return target instanceof Element ? viewport.contains(target) : target === viewport;
 }
 
-/** Not a text line height. Firefox reports ~3 per notch, Chrome ~100px. 40 matches
- * `normalize-wheel`. Change this if the feel is wrong. */
+/** Screen-pixel wheel amount for one line-mode step. */
 const WHEEL_LINE_HEIGHT_PX = 40;
 
-/** Wheel deltas in screen pixels, whatever unit the browser reported. */
+/** Converts wheel delta units to screen pixels. */
 function getWheelScreenDelta(
   event: Pick<WheelEvent, "deltaMode" | "deltaX" | "deltaY">,
   viewport: InfiniteCanvasState["viewport"],
@@ -1855,13 +1797,13 @@ function getCanvasCursor(
   isOverSelectableTarget = false,
 ): CSSProperties["cursor"] {
   if (interaction === null) {
-    // Consumer targets are drawn, not DOM, so they have no element to hang a cursor on.
+    // Consumer targets have no DOM element for cursor styles.
     return isOverSelectableTarget
       ? "pointer"
       : getInfiniteCanvasIdleCursor(inputPolicy, pointerMode);
   }
 
-  // Structural cursors. Only pan/move/marquee are the consumer's to re-map.
+  // Consumers can override pan, move, and marquee cursors.
   if (
     interaction.kind === "resize" ||
     interaction.kind === "groupMove" ||

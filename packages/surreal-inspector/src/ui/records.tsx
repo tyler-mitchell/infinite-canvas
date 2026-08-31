@@ -9,11 +9,7 @@ import { countRecords, PAGE_SIZE, readRecordPage, type SurrealRecordPage } from 
 import { Code, Empty, Notice, Panel } from "./chrome";
 import type { SurrealInspection } from "./use-inspection";
 
-/**
- * Browses records a page at a time, rendered as JSON rather than a grid. SurrealDB rows are not
- * rectangular — `FLEXIBLE` objects, nested arrays, record links, and datetimes share a row — and a
- * grid would have to flatten or truncate them.
- */
+/** The panel uses JSON because SurrealDB records do not share one table shape. */
 
 const records = tv({
   slots: {
@@ -34,7 +30,7 @@ const records = tv({
 
 const styles = records();
 
-/** `.json()` returns record ids as strings, so a non-string `id` is not one. */
+/** The SDK JSON format uses strings for record IDs. */
 function readRecordId(row: unknown) {
   const id =
     typeof row === "object" && row !== null ? (row as Readonly<{ id?: unknown }>).id : undefined;

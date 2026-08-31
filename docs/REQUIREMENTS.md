@@ -1,248 +1,224 @@
-# Infinite Canvas Framework — Requirements
+# Infinite Canvas framework requirements
 
-> Provenance: adapted 2026-06-10 from kek-monorepo's `project-requirements.md`
-> (authored 2026-04-22, the day the official implementation began). Updated for
-> the standalone framework: stale POC sections dropped, statuses added, and the
-> chrome-ownership language corrected to match the architecture the framework
-> actually settled on (host-local DOM chrome, not scene-owned chrome).
+> Provenance: adapted on 2026-06-10 from `project-requirements.md` in the kek-monorepo.
+> The source document dates from 2026-04-22, when implementation started.
+> This version removes old proof-of-concept sections and adds status.
+> It also records DOM chrome as host-owned instead of scene-owned.
 
-## 1. Product Definition
+## 1. Product definition
 
-A general-purpose infinite-canvas window-management framework for React,
-general enough for any application that needs a spatial, multi-window canvas
-environment. The demo playground is a thin consumer, never a privileged one.
+The product is a general React framework for spatial applications with multiple windows. The playground is a
+normal consumer of the public API.
 
-## 2. Core Definition
+## 2. Core definition
 
-A desktop-like environment where:
-
-- the spatial surface is GPU-rendered with `@react-three/fiber` and WebGPU
-- application windows contain arbitrary React DOM content
-- window management is first-class
-- chrome, overlays, and effects are programmable
-- the consumer-facing API is React-native and composable
+`@react-three/fiber` and WebGPU render the spatial surface. React DOM renders application content inside
+windows. The framework manages windows, chrome, overlays, and effects. The public API uses React composition.
 
 ## 3. Scope
 
-### In Scope
+| Scope   | Capabilities                                                                                                    |
+| ------- | --------------------------------------------------------------------------------------------------------------- |
+| In      | Infinite 2D desktop behavior, movable and resizable windows, focus, z-order, snapping, docking, and tiling.     |
+| In      | Configurable surfaces and chrome, React DOM bodies, persistence, keyboard and pointer input, and accessibility. |
+| Outside | Diagram editing and node-edge editing are not product features. Connector helpers remain building blocks.       |
+| Outside | Whiteboards, freehand drawing, document editing, and 3D world navigation are not product features.              |
 
-- infinite 2D desktop canvas behavior
-- multiple movable and resizable windows
-- focus and z-order management
-- snapping, docking, and tiling behaviors
-- programmable desktop surface and window chrome
-- DOM-rendered window body content
-- layout persistence and restoration
-- keyboard and pointer interaction at desktop scope
-- accessibility foundations for windowed interaction
+## 4. Functional requirements
 
-### Out of Scope (as product features)
+Status values are `done`, `partial`, and `open`.
 
-- diagramming / node-edge graph editing as a product (graph _primitives_ such
-  as connector helpers are in scope as consumer building blocks)
-- whiteboarding, freehand drawing, document editing
-- 3D world navigation
+### FR-1 Correct infinite-canvas primitives: done
 
-## 4. Functional Requirements
+The framework uses an orthographic camera for pan, zoom, and world-to-screen projection. The DOM layer derives
+CSS and screen placement from the same camera. Device-pixel snapping is part of the projection contract. The
+projection must prevent drift, jitter, and precision loss across the supported zoom range.
 
-Status legend: `done` (implemented and test-covered), `partial`, `open`.
+### FR-2 First-class window management: done
 
-### FR-1 Correct Infinite Canvas Primitives — done
+The framework can open, close, focus, blur, pin, unpin, minimize, maximize, restore, move, and resize windows.
+It also manages z-order. Window state is explicit and subscribable. Renderer state cannot hide window state.
 
-Mathematically correct 2D canvas on an orthographic camera: pan, zoom,
-world↔screen projection, CSS/screen placement for DOM content. Stable across a
-wide zoom range without drift, jitter, or precision collapse (device-pixel
-snapping is part of the projection contract).
+### FR-3 Pure window operations: done
 
-### FR-2 First-Class Window Management — done
+Pure functions implement rectangle changes, focus transitions, stacking, snapping, and keyboard placement.
+Reducer, geometry, and snap tests do not require rendering.
 
-Open, close, focus, blur, pin/unpin, minimize, maximize, restore, move,
-resize, z-order. Window state is explicit, subscribable data — never hidden
-renderer state.
+### FR-4 Advanced spatial behavior: partial
 
-### FR-3 Pure Window Operations — done
+| Status | Behavior                                                                                                              |
+| ------ | --------------------------------------------------------------------------------------------------------------------- |
+| Done   | Edge, center, gap, and active-edge resize snapping. Multiple-window selection, group movement, and keyboard movement. |
+| Open   | Drag-to-edge tiling, halves, quarters, thirds, keyboard arrangement, group resize, and docking groups.                |
 
-Window-management behaviors are pure functions over state: rect updates, focus
-transitions, stacking, snap calculations, keyboard arrangement. Testable
-without rendering (the reducer/geometry/snap suites are the proof).
+See [research/grouping-and-docking.md](research/grouping-and-docking.md). Each behavior must remain a
+separate, composable module.
 
-### FR-4 Advanced Spatial Behaviors — partial
+### FR-5 Hybrid GPU and DOM rendering: done
 
-- done: edge/center/gap snapping, active-edge resize snapping, multi-window
-  selection, group move, keyboard nudge
-- open: drag-to-edge tiling, halves/quarters/thirds placement commands,
-  keyboard-driven arrange, group resize, docking groups (see
-  [research/grouping-and-docking.md](research/grouping-and-docking.md))
+WebGPU owns the programmable spatial and visual layer. React DOM owns window chrome and bodies. Both layers
+use the same camera.
 
-Behaviors must stay modular and composable, not one interaction monolith.
+DOM content does not enter the WebGPU render pass. Scene geometry cannot appear between DOM descendants.
+Full-frame GPU effects do not change DOM content.
 
-### FR-5 Hybrid GPU + DOM Rendering — done
+The source requirement placed chrome on the GPU layer. The implementation moved core chrome into the
+transformed DOM host. This change prevents drift between chrome and body content. Scene layers contain
+decorative content and world content.
 
-Explicit, documented boundary: the WebGPU surface owns the programmable
-spatial/visual layer; window chrome and bodies are DOM, projected from the
-same canonical camera. Hard constraints stay honest: arbitrary DOM content
-does not participate in the WebGPU render pass, cannot be depth-interleaved
-with scene geometry, and full-frame post-processing does not affect it.
+### FR-6 Programmable visual layer: partial
 
-(Original doc assigned chrome to the GPU layer; the implementation reversed
-this after cross-layer drift — core chrome must live in the same transformed
-DOM host as the body. Scene layers are for decorative/world content.)
+Consumers can configure desktop appearance, chrome, focus, hover, guides, previews, and shader effects without
+R3F internals.
 
-### FR-6 Programmable Visual Layer — partial
+| Status | API                                                                                                                    |
+| ------ | ---------------------------------------------------------------------------------------------------------------------- |
+| Done   | `renderFrame`, `sceneLayers`, and the `theme` color object.                                                            |
+| Open   | Headless and styled distributions, data-slot attributes, design tokens, theme.css, and guide and marquee theme inputs. |
 
-Extension points for desktop surface appearance, window chrome, focus/hover
-states, snap guides and tiling previews, shader-driven effects — without
-consumers needing R3F internals.
+### FR-7 React API: done
 
-- done: `renderFrame` slots, `sceneLayers`, `theme` color object
-- open: the headless extraction + styled distribution track (data-slot
-  attributes, design tokens, theme stylesheet); snap-guide/marquee theming
+Consumers mount one component and register window kinds. They can open windows through declarative and
+imperative APIs. Hooks expose state and documented extension points. Consumers do not need R3F, Three, WebGPU,
+or coordinate calculations.
 
-### FR-7 Clean React API — done
+### FR-8 Input ownership: partial
 
-Mount with one component, define/register window kinds, open windows
-declaratively or imperatively, subscribe through hooks, extend through
-documented points. Consumers don't need R3F/Three/WebGPU/coordinate math.
+The framework routes pointer input across GPU and DOM layers. It also manages keyboard input, focus handoff,
+pointer capture, and drag isolation.
 
-### FR-8 Input Event Unification — partial
+Input policy, the shortcut guard, and pointer capture are implemented. Open work covers body-focus handoff,
+pinch policy, and modifier zoom. See [zoom-policy.md](zoom-policy.md).
 
-Pointer events across GPU and DOM layers, keyboard at desktop scope, focus
-management between desktop and window contents, drag without DOM event
-interference. Largely implemented (input policy, shortcut guard, pointer
-capture); edge cases around body-content focus handoff and gesture routing
-(pinch policy, modifier zoom) remain — see [zoom-policy.md](zoom-policy.md).
+### FR-9 Accessibility: partial
 
-### FR-9 Accessibility Foundations — partial
+Windows use `role="group"` and `aria-roledescription="window"`. The active window uses `aria-current`.
+Framework buttons have accessible names. `src/accessibility.test.tsx` covers these semantics.
 
-- done: ARIA semantics for windows and framework chrome (`role="group"`,
-  `aria-roledescription="window"`, `aria-current` on the active window, an
-  accessible name on every framework button), locked by
-  `src/accessibility.test.tsx`
-- done: **directional window focus** (`Alt+Arrow`) — `window.focusDirection`
-  picks the nearest window strictly ahead along the arrow, preferring one whose
-  span overlaps yours on the cross axis so arrow keys never drift diagonally.
-  With nothing focused, any arrow enters at the window nearest the camera
-  center. Focus reuses `focusWindow`, so keyboard and pointer compile to the
-  same mutation, and the camera only recentres when the target is not already
-  fully on screen. Pure geometry in `src/window-focus.ts`.
-- done: the command surface swallows any chord it owns, even when the command is
-  unavailable — otherwise `Alt+ArrowLeft` at the edge of your windows falls
-  through to the browser's Back and takes the document with it.
-- done: focus restoration when the active window leaves. `closeWindow` and
-  `minimizeWindow` fall back to the topmost remaining window, and the Close and
-  Minimize controls hand DOM focus back to the command surface before they
-  unmount — otherwise focus falls to `<body>` and every hotkey silently stops
-  working, with no way for the user to tell why.
-- done: **group-local focus** (FOCUS-001). Inside a group the arrow searches the
-  group's own members first and only leaves it when nothing lies that way — a pane
-  docked beside you is the neighbour the user means, even when a floating window
-  sits geometrically closer. Windows behind an inactive tab or a collapsed fold are
-  never focus targets, because nothing draws them.
-- done: **group tab strips are one tab stop, not one per tab.** Every tab was a
-  natively focusable `<button>`, so Tab walked all of them — three groups of four
-  tabs put twelve stops between the user and anything else. The tablist now carries
-  a roving `tabIndex` and moves between tabs with Arrow / Home / End. Activation is
-  manual (Enter or Space, through the same `onClick` the pointer uses): arrowing
-  across a strip under automatic activation would mount and discard a window body
-  per tab.
-- done: **resize by keyboard** (`Alt+Shift+Arrow`), reusing `resizeRectFromHandle` so a
-  keyboard resize clamps against `minSize` exactly as a pointer resize does. The origin
-  never moves; only the east and south edges do. Ten screen pixels, converted through the
-  camera, so the step is zoom-invariant. With this, every verb in FR-9's exit criteria —
-  open, focus, move, resize, arrange, close — has a chord.
-- open: focus trapping policy, and a documented path to accessible controls
-  inside window content. **This is the last structural piece**, and the one that
-  genuinely wants a browser: focus behaviour is not something to land unverified.
-- done (2026-07-09): **`role="tab"` now carries `aria-controls`.** A window frame gains a real
-  DOM `id`, namespaced by a per-canvas token minted with React's `useId()` at the desktop root
-  and shared by the window and group layers, so `${instanceId}-window-${windowId}` is unique even
-  with two canvases on one page — the uniqueness question this item raised, answered. The tab's
-  `childId` is the window id, so a tab controls exactly its own window's panel. **Browser-verified**
-  in the preview: every tab emits a correctly-formed `aria-controls`, and the active tab's resolves
-  to its rendered frame. Inactive-tab panels are lazily mounted, so their reference resolves on
-  activation — the standard lazy-tabpanel pattern. The frame-id helper stays internal until the
-  wider focus-trapping work (above) lands with it.
+Directional focus is implemented through `window.focusDirection` and `Alt+Arrow`. The algorithm selects the
+nearest window that is strictly ahead. It prefers a window whose span overlaps on the cross axis. This rule
+prevents diagonal drift.
 
-The shortcut guard protects editable targets today.
+If no window has focus, an arrow selects the window nearest the camera center. The command uses `focusWindow`.
+Pointer and keyboard input use the same mutation. The camera moves only when the selected window is
+not fully visible. The pure geometry lives in `src/window-focus.ts`.
 
-### FR-10 Serializable and Restorable Desktop State — partial
+The command surface consumes each chord that it owns. It also consumes the chord when its command is
+unavailable. This rule prevents `Alt+ArrowLeft` from opening browser history at the edge of the window set.
 
-- done: JSON-serializable state (windows, rects, z-order, camera, selection),
-  versioned + validated persistence, document-scoped storage
-- open: undo/redo at the desktop level (command layer is transaction-ready;
-  coalescing is not built), saved layout recipes (see
-  [research/state-focus-and-recipes.md](research/state-focus-and-recipes.md))
+Close and minimize restore focus to the highest remaining window. `closeWindow` and `minimizeWindow` use that
+fallback. Their controls return DOM focus to the command surface before they unmount. Without this transfer,
+focus moves to `<body>` and hotkeys stop.
 
-## 5. Non-Functional Requirements
+FOCUS-001 group-local focus is implemented. Directional focus searches the current group first. It searches
+outside the group only when no member is in that direction. An inactive tab and a collapsed fold are not focus
+targets.
 
-### NFR-1 Performance — **met at its stated bar; unmeasured beyond it**
+Group tab strips use one tab stop. A tab remains a native `<button>`. A roving `tabIndex` moves with Arrow,
+Home, and End.
 
-At least 10 simultaneous windows without obvious frame-rate degradation during
-pan/zoom/move/resize. Background and unfocused windows throttleable (the
-rasterization lanes exist for this; the /stress showcase is the measuring
-stick).
+Enter or Space activates a tab through the same `onClick` as pointer input. Manual activation prevents each
+arrow key from mounting and removing a window body.
 
-**Corrected 2026-07-08.** This section read "failing as of 2026-06-10" and
-"interaction degrades at even ~20 live windows" for a month after the
-measurement that contradicted it. `962e42c` restored body-content memoization
-that afternoon and
-[research/performance-profile.md](research/performance-profile.md) recorded the
-result: at 20 windows, pan went 15.6 fps → **96.9 fps** and drag 4.4 fps → 58.3
-fps; at 40 windows, pan 8.2 fps → 52.1 fps. The bar this requirement actually
-states — ten windows — is cleared with headroom, and the document defining the
-requirement went on claiming otherwise. That is the drift this project keeps
-finding, in the file least able to afford it.
+Keyboard resize uses `Alt+Shift+Arrow`. It calls `resizeRectFromHandle` and obeys `minSize`. The origin stays
+fixed. Only the east and south edges move. The step is ten screen pixels.
 
-Three caveats, so the correction does not overshoot:
+The camera converts that step to
+world units. Thus, the step does not change with zoom.
 
-- Measured in the **embedded preview browser**, which underclocks `rAF` under
-  load. The ratios and slopes are the finding; absolute numbers want real
-  hardware.
-- **P2's target is not this bar.** 100 windows at 60 fps pan/zoom/drag is the
-  roadmap's exit criterion, and 80 windows currently pan at 21.3 fps. NFR-1
-  passing does not make P2 done.
-- **P2 tranche 1 (frame-chrome memoization) is landed and unmeasured.** No
-  number above reflects it. See
-  [research/performance-profile.md](research/performance-profile.md), which says
-  so in its own tranche-1 section.
+The frame traps Tab input inside the active window. Tab input from the command surface enters the active body.
+Escape returns focus to the command surface. Browser and screen-reader evidence remains open. Open, focus,
+move, resize, arrange, and close all have a chord.
 
-Tracked as risk R15 in
-[research/risk-register.md](research/risk-register.md).
+On 2026-07-09, `role="tab"` gained `aria-controls`. Each window frame has a DOM `id`. React `useId()` creates
+a canvas instance token at the desktop root. The window and group layers share that token. The format
+
+`${instanceId}-window-${windowId}` stays unique across two canvases.
+
+A tab uses its `childId` as the window identifier. Thus, each tab controls its related panel. The preview
+browser showed a valid `aria-controls` value for each tab. The active tab referenced its rendered frame.
+
+Inactive tab panels mount only after activation. Their references resolve after activation. This is the
+standard lazy-tabpanel pattern. The frame identifier helper remains internal. It supplies the current focus
+path.
+
+The shortcut guard protects editable targets.
+
+### FR-10 Serializable desktop state: partial
+
+| Status | Behavior                                                             |
+| ------ | -------------------------------------------------------------------- |
+| Done   | JSON state for windows, rectangles, z-order, camera, and selection.  |
+| Done   | Versioned, validated, document-scoped persistence.                   |
+| Open   | Desktop undo and redo, command coalescing, and saved layout recipes. |
+
+The command layer can support transactions. See
+[research/state-focus-and-recipes.md](research/state-focus-and-recipes.md).
+
+## 5. Non-functional requirements
+
+### NFR-1 Performance: met at its stated limit and unmeasured beyond it
+
+The stated limit is ten active windows without visible frame-rate loss. This limit applies to pan, zoom, move,
+and resize. Background and inactive windows must support throttling. The rasterization lanes provide this
+mechanism.
+
+The /stress route is the measurement surface.
+
+The document corrected this status on 2026-07-08. It previously said "failing as of 2026-06-10". It also said
+"interaction degrades at even ~20 live windows". Measurements from the same day contradicted those statements.
+
+Commit `962e42c` restored memoization for window body content. At 20 windows, pan changed from 15.6 fps to
+96.9 fps. At 20 windows, drag changed from 4.4 fps to 58.3 fps. At 40 windows, pan changed from 8.2 fps to
+52.1 fps.
+
+As a result, the ten-window requirement passed with additional capacity.
+
+The measurements used the embedded preview browser. That browser limits `rAF` under load. The ratios and
+slopes remain evidence. Absolute values require real hardware.
+
+P2 has a different target. It requires 100 windows at 60 fps for pan, zoom, and drag. At 80 windows, pan was
+21.3 fps. Passing NFR-1 does not complete P2.
+
+P2 tranche 1 added frame-chrome memoization. The listed measurements do not include that change. The change
+remains unmeasured.
+
+See [research/performance-profile.md](research/performance-profile.md). The same evidence source remains
+[research/performance-profile.md](research/performance-profile.md).
+
+Risk R15 tracks this work. See [research/risk-register.md](research/risk-register.md).
 
 ### NFR-2 Modularity
 
-No Godfiles. Separated boundaries: geometry/projection, pure reducers,
-rendering layers, input orchestration, consumer API. (The current
-`infinite-canvas.tsx` composition file is the one module trending against
-this; watch it during the headless extraction.)
+Geometry, projection, reducers, rendering, input, and the consumer API have separate boundaries. The
+`infinite-canvas.tsx` composition module did not meet this requirement. The headless extraction must prevent
+further growth.
 
-### NFR-3 Functional Core
+### NFR-3 Functional core
 
-Pure composable functions by default, immutable data flow, side effects pushed
-to boundaries.
+Core functions are pure and composable by default. They use immutable data flow. Side effects stay at system
+boundaries.
 
-### NFR-4 Browser Support
+### NFR-4 Browser support
 
-Baseline: Chromium. Firefox/Safari degradation must be graceful (the WebGPU
-surface guard exists; DOM plane works without it).
+Chromium is the baseline browser. When WebGPU is unavailable, Firefox and Safari must keep a usable DOM plane.
+The WebGPU guard already permits that behavior.
 
-## 6. Technical Constraints
+## 6. Technical constraints
 
-- React 19, TypeScript strict
-- `@react-three/fiber` v10 via the `/webgpu` entry (canary pin until stable)
-- Vite
-- state behind an adapter boundary — Legend State 3 is the current adapter;
-  the pure core must stay swappable (re-evaluation deferred, not abandoned)
-- no dependency on tldraw, React Flow, or similar canvas frameworks
+The framework uses React 19, strict TypeScript, and Vite. The scene entry uses `@react-three/fiber` v10 through
+`/webgpu`, with a canary pin until a stable release exists. Legend State 3 is the current adapter. The pure
+core must permit another adapter, and its review remains open.
 
-## 7. Success Criteria
+The framework does not depend on tldraw, React
+Flow, or similar canvas frameworks.
 
-The framework succeeds when a consumer with no knowledge of its internals can:
+## 7. Success criteria
 
-1. mount an infinite-canvas desktop with one component ✓
-2. define a window kind that renders their own React app inside it ✓
-3. open, close, move, resize, snap, and tile windows through UI and API
-   (tiling pending)
-4. apply a custom visual theme without touching R3F internals (theme track
-   pending)
-5. serialize and restore a complete desktop layout ✓
+A consumer with no internal framework knowledge can do these tasks:
+
+1. Mount an infinite-canvas desktop with one component. Status: done.
+2. Register a window kind that renders a React application. Status: done.
+3. Open, close, move, resize, snap, and tile windows. Status: tiling open.
+4. Apply a custom theme without R3F code. Status: theme work open.
+5. Serialize and restore a desktop layout. Status: done.

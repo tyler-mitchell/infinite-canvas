@@ -9,13 +9,7 @@ import { weighTable, type SurrealTableWeight } from "../core/records";
 import { Code, Empty, Notice, Panel, Section } from "./chrome";
 import type { SurrealInspection } from "./use-inspection";
 
-/**
- * Shows the schema as `DEFINE` statements, so asserts, defaults, and `READONLY` clauses appear as
- * declared. The structured columns beside each statement are for scanning.
- *
- * Record counts are read when a table is expanded, so listing table names costs no aggregate
- * queries.
- */
+/** The panel shows `DEFINE` statements and reads counts only for expanded tables. */
 
 const schema = tv({
   slots: {

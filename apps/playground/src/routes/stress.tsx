@@ -54,15 +54,11 @@ function StressShowcase() {
         rasterization={rasterization}
         renderOverlay={(context) => {
           exposeCanvasDevHandle(context);
-          // `window.__canvasBench.table()` in the console. This is the only route with
-          // enough windows for the numbers to mean anything.
+          // This route has enough windows for useful benchmark data.
           exposeCanvasBenchmark();
           return (
             <>
               <CommandPalette />
-              {/* At 160 windows you can pan into nothing. The map tells you where you are; the
-                  arrows tell you where everything else went. Central and peripheral halves of
-                  the same problem — pan hard in one direction and watch which one you use. */}
               <CanvasMinimap />
               <CanvasOffscreenIndicators />
               <div className="pointer-events-none absolute bottom-4 left-4 z-[70] flex items-center gap-1.5">

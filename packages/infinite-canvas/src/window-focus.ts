@@ -11,26 +11,8 @@ import type {
   InfiniteCanvasWindow,
 } from "./types";
 
-/**
- * Directional focus: which window an arrow key moves to (FR-9).
- *
- * The rule, and it is the one i3 and AeroSpace settled on: **arrow keys must not
- * drift diagonally.** A window that sits beside you — one whose span overlaps
- * yours on the cross axis — always beats a window that is merely nearer but off
- * to the side. Pressing Right twice and Left twice should return you where you
- * started, and that only holds if "beside" outranks "close".
- *
- * Everything here is pure geometry over `state.windows`. No DOM, no group model,
- * so this lands before P1 and keeps working after it.
- *
- * Focus is two-tiered (FOCUS-001). Inside a group, the arrow first looks at the
- * group's own members: a window docked beside you in a split is a nearer
- * neighbour, in the sense the user means, than a floating window that happens to
- * be geometrically closer. Only when the group has nothing in that direction does
- * the arrow leave it and search the whole canvas.
- */
-
-/** World space grows downward, matching the DOM — and matching `window.nudge`. */
+/** Resolves keyboard focus by group context and directional geometry. */
+/** World space grows down, as in the DOM. */
 const INFINITE_CANVAS_DIRECTION_VECTORS = {
   down: { x: 0, y: 1 },
   left: { x: -1, y: 0 },
@@ -38,7 +20,7 @@ const INFINITE_CANVAS_DIRECTION_VECTORS = {
   up: { x: 0, y: -1 },
 } as const satisfies Record<InfiniteCanvasDirection, InfiniteCanvasPoint>;
 
-/** How far `to` lies along `direction` from `from`. Negative means behind. */
+/** Returns signed distance along the movement direction. */
 function getDistanceAlongDirection(
   direction: InfiniteCanvasDirection,
   from: InfiniteCanvasPoint,
@@ -49,7 +31,7 @@ function getDistanceAlongDirection(
   return (to.x - from.x) * vector.x + (to.y - from.y) * vector.y;
 }
 
-/** How far `to` strays off the axis. The perpendicular of `(x, y)` is `(-y, x)`. */
+/** Returns distance across the movement direction. */
 function getDistanceAcrossDirection(
   direction: InfiniteCanvasDirection,
   from: InfiniteCanvasPoint,
@@ -64,7 +46,7 @@ function isHorizontalDirection(direction: InfiniteCanvasDirection): boolean {
   return direction === "left" || direction === "right";
 }
 
-/** The span both rects must share for the candidate to count as "beside" the source. */
+/** Returns whether rects overlap across the movement axis. */
 function overlapsAcrossDirection(
   direction: InfiniteCanvasDirection,
   source: InfiniteCanvasRect,
@@ -86,10 +68,7 @@ type InfiniteCanvasFocusCandidate = Readonly<{
   windowId: string;
 }>;
 
-/**
- * Beside beats near; near beats aligned; the window id breaks the last tie so a
- * focus move is never ambiguous for two windows stacked at the same point.
- */
+/** Ranks beside windows before near windows, with stable ID ties. */
 function compareInfiniteCanvasFocusCandidates(
   left: InfiniteCanvasFocusCandidate,
   right: InfiniteCanvasFocusCandidate,
@@ -109,18 +88,7 @@ function compareInfiniteCanvasFocusCandidates(
   return left.windowId < right.windowId ? -1 : 1;
 }
 
-/**
- * The smallest group whose rect contains `point`, or `null` (FOCUS-002).
- *
- * A floating window sitting over a shell has no membership, but it has a **contextual
- * parent**: the group it is spatially inside. Directional focus searches that group's
- * members before it searches the canvas, so a floating window does not need a keyboard
- * model of its own — which is the whole mitigation for the "focus model fragments" risk in
- * `research/state-focus-and-recipes.md`.
- *
- * Smallest wins, because group rects can overlap and the tighter one is the one the window
- * is really "in". Area ties break on group id, so an arrow key is never ambiguous.
- */
+/** Returns the smallest group that contains the point. */
 function getInfiniteCanvasContextualGroup<Kind extends string>(
   state: InfiniteCanvasState<Kind>,
   point: InfiniteCanvasPoint,
@@ -147,10 +115,7 @@ function getInfiniteCanvasContextualGroup<Kind extends string>(
   return contextualGroup;
 }
 
-/**
- * A window behind an inactive tab or a collapsed fold is solved into a rect, but
- * nothing draws it. Focusing it would move `aria-current` onto something invisible.
- */
+/** Excludes minimized and hidden group members. */
 function getFocusableInfiniteCanvasWindows<Kind extends string>(
   state: InfiniteCanvasState<Kind>,
 ): readonly InfiniteCanvasWindow<Kind>[] {
@@ -161,7 +126,7 @@ function getFocusableInfiniteCanvasWindows<Kind extends string>(
   );
 }
 
-/** The nearest window strictly ahead of `source`, among `candidates`, or `null`. */
+/** Returns the nearest candidate ahead of the source. */
 function getDirectionalTargetAmong<Kind extends string>(
   source: InfiniteCanvasWindow<Kind>,
   candidates: readonly InfiniteCanvasWindow<Kind>[],
@@ -178,8 +143,7 @@ function getDirectionalTargetAmong<Kind extends string>(
     const center = getRectCenter(window.rect);
     const distanceAlong = getDistanceAlongDirection(direction, sourceCenter, center);
 
-    // Strictly ahead. A window whose center sits level with ours is not "to the
-    // right" of us, however far right its far edge reaches.
+    // Require the candidate center to be ahead of the source center.
     if (distanceAlong <= 0) {
       continue;
     }
@@ -195,11 +159,7 @@ function getDirectionalTargetAmong<Kind extends string>(
   return ranked.sort(compareInfiniteCanvasFocusCandidates)[0]?.windowId ?? null;
 }
 
-/**
- * With nothing focused, an arrow key has no origin to move from. Entering at the
- * window nearest the camera's center means the keyboard always has a way in,
- * from wherever the user has panned to.
- */
+/** Returns the window nearest the camera center. */
 function getInfiniteCanvasWindowNearestCameraCenter<Kind extends string>(
   state: InfiniteCanvasState<Kind>,
   windows: readonly InfiniteCanvasWindow<Kind>[],
@@ -223,11 +183,7 @@ function getInfiniteCanvasWindowNearestCameraCenter<Kind extends string>(
   return nearestWindowId;
 }
 
-/**
- * The window an arrow key moves focus to, or `null` when there is nowhere to go.
- * Focus does not wrap: running out of windows to the right is a dead end, not a
- * jump back to the left edge of the world.
- */
+/** Returns the next focus target without wrapping. */
 function getInfiniteCanvasDirectionalFocusTarget<Kind extends string>(
   state: InfiniteCanvasState<Kind>,
   direction: InfiniteCanvasDirection,
@@ -239,13 +195,7 @@ function getInfiniteCanvasDirectionalFocusTarget<Kind extends string>(
     return getInfiniteCanvasWindowNearestCameraCenter(state, focusableWindows);
   }
 
-  // Group-local first (FOCUS-001). A pane docked beside you is the neighbour the
-  // user means, even when a floating window happens to sit geometrically closer.
-  //
-  // A floating window gets the same tier through its **contextual parent** — the smallest
-  // group its centre lies inside (FOCUS-002). Membership takes precedence and short-circuits
-  // the scan: group rects may overlap, so a member's centre can sit inside a group that is
-  // not its own, and its own tree is unambiguously the group it belongs to.
+  // Search the member group before the full canvas.
   const group =
     getInfiniteCanvasWindowGroup(state, source.id) ??
     getInfiniteCanvasContextualGroup(state, getRectCenter(source.rect));
@@ -266,14 +216,7 @@ function getInfiniteCanvasDirectionalFocusTarget<Kind extends string>(
   return getDirectionalTargetAmong(source, focusableWindows, direction);
 }
 
-/**
- * Whether a rect sits entirely inside what the camera can see right now. Used to
- * decide if focusing a window should also move the camera: recentring on every
- * arrow press would be nauseating, and never recentring would let focus escape
- * offscreen where the user cannot see what they selected.
- *
- * A zero-area viewport has not been measured yet, so nothing can be offscreen.
- */
+/** Returns full visibility. An unmeasured viewport returns true. */
 function isInfiniteCanvasWindowFullyVisible<Kind extends string>(
   state: InfiniteCanvasState<Kind>,
   rect: InfiniteCanvasRect,
@@ -292,20 +235,7 @@ function isInfiniteCanvasWindowFullyVisible<Kind extends string>(
   );
 }
 
-/**
- * Which sibling an Arrow / Home / End keypress moves focus to, or `null` to ignore the key.
- *
- * Arrows follow the axis the controls are laid out along. A tab strip is always horizontal, but
- * an accordion stacks its headers along its container's `axis` (ACC-001), and pressing Down to
- * walk a row of side-by-side headers is exactly the diagonal drift the directional focus rule
- * above refuses everywhere else. Home and End are axis-independent.
- *
- * It lives here rather than in `group-layer.tsx`, where it was written, because it is keyboard
- * geometry and holds no React: a `.tsx` render module was the wrong owner, and being unreachable
- * from a test is how ACC-001 stayed unasserted while every other roving-focus claim was checked.
- * Internal — the group layer is the only caller, and a consumer rebuilding a tab strip is
- * rebuilding the whole roving contract, not one index calculation.
- */
+/** Returns the next tab or accordion index for the pressed navigation key. */
 function getNextInfiniteCanvasRovingIndex(
   key: string,
   index: number,

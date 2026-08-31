@@ -105,14 +105,7 @@ type InfiniteCanvasRasterSummary = Readonly<{
 
 type InfiniteCanvasRasterContextValue = Readonly<{
   policy: InfiniteCanvasRasterizationPolicy;
-  /**
-   * `false` when the request was refused: the queue is at `maxPendingCaptures`.
-   *
-   * The caller must not record the request as made. A refused capture that the
-   * caller believes it made is a window that waits forever for a snapshot nobody
-   * is taking — and the only symptom is that one window stays live while its
-   * neighbours rasterize.
-   */
+  /** Returns false when the pending capture limit rejects the request. */
   queueCapture: (request: InfiniteCanvasRasterCaptureRequest) => boolean;
   setPaused: (paused: boolean) => void;
   setDisplayMode: (windowId: string, mode: InfiniteCanvasRasterDisplayMode) => void;
@@ -125,13 +118,7 @@ type InfiniteCanvasRasterWritableObservable = Observable<InfiniteCanvasRasterSto
     set: (state: InfiniteCanvasRasterStoreState) => void;
   }>;
 
-/**
- * @experimental Rasterization is partial: the policy, scheduler, and snapshot
- * capture exist and are off by default, but the capture lane is slated to be
- * rebuilt on `html-in-canvas` (P7), and semantic level-of-detail — the half of
- * far-zoom readability that snapshots cannot solve — is unbuilt. The policy
- * shape will change.
- */
+/** @experimental The raster API and capture path can change. */
 const DEFAULT_INFINITE_CANVAS_RASTERIZATION: InfiniteCanvasRasterizationPolicy = {
   adapter: "snapdom",
   cache: "full",
@@ -173,7 +160,7 @@ const createInitialRasterState = (): InfiniteCanvasRasterStoreState => ({
 const disabledRasterState$ = observable<InfiniteCanvasRasterStoreState>(createInitialRasterState());
 const DISABLED_INFINITE_CANVAS_RASTER_CONTEXT: InfiniteCanvasRasterContextValue = {
   policy: DEFAULT_INFINITE_CANVAS_RASTERIZATION,
-  // Refused, not satisfied. Nothing is going to capture anything here.
+  // The disabled context rejects every capture request.
   queueCapture: () => false,
   setPaused: () => {},
   setDisplayMode: () => {},
@@ -535,8 +522,7 @@ function InfiniteCanvasRasterizationProvider({
 
         const state = state$.peek() as InfiniteCanvasRasterStoreState;
 
-        // An equivalent snapshot is already queued, capturing, or ready. The
-        // caller's request is satisfied, so it may record it as made.
+        // An equivalent snapshot already satisfies this request.
         if (shouldSkipQueuedCapture(state.snapshots[request.windowId], request.signature)) {
           return true;
         }
@@ -648,21 +634,7 @@ function InfiniteCanvasRasterSchedulerGate({
   return null;
 }
 
-/**
- * Whether the capture queue would accept another request right now.
- *
- * The reason a refused window ever tries again. Selecting a boolean rather than the
- * queue depth means a subscriber re-renders only when the queue crosses
- * full ↔ not-full, and with the default `maxPendingCaptures: Infinity` the value is
- * permanently `true`.
- *
- * Pass `isWaiting: false` when the caller has nothing queued. The selector then
- * returns before reading `state$`, so Legend records no dependency and the caller
- * does not re-render on a crossing it does not care about — which is what keeps a
- * bounded queue from waking all 160 windows every time one capture completes. The
- * subscription re-arms on the render where `isWaiting` flips back to `true`, because
- * the selector runs on every render.
- */
+/** Returns queue capacity. Idle callers do not subscribe to queue changes. */
 function useInfiniteCanvasRasterCaptureCapacity(isWaiting: boolean): boolean {
   const { policy, state$ } = useInfiniteCanvasRasterContext();
 

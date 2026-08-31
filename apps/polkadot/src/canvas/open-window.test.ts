@@ -10,22 +10,6 @@ import { expect, test } from "vite-plus/test";
 import { openContentWindow } from "./open-window";
 import type { WindowKind } from "./window-registry";
 
-/**
- * The first test in this app, and the reason it is this one.
- *
- * `apps/polkadot` had no test file at all and no `test` script, so `vp run -r test` skipped it
- * entirely — every test written for this project so far went into the framework, while the app
- * grew three content gateways, a store, a drop policy and a per-kind opener with nothing covering
- * any of it. That is the wrong way round for the half that changes fastest.
- *
- * `openContentWindow` is where to start because it holds a *rule* rather than a translation, and
- * the rule has more than one caller. The library rail always revealed an already-open note instead
- * of opening a second window, but it did that itself — so the rule lived in one caller, and the
- * moment collections started opening items, that surface did not have it. Two windows bound to one
- * record is not a feature this app offers; it is the state where editing in one and reading the
- * other looks like the save failed.
- */
-
 type Recorder = Readonly<{
   actions: InfiniteCanvasCommands<WindowKind>;
   commands: InfiniteCanvasCommand[];
@@ -33,13 +17,6 @@ type Recorder = Readonly<{
   opened: InfiniteCanvasWindow<WindowKind>[];
 }>;
 
-/**
- * Only the two verbs this function reaches for.
- *
- * A cast rather than a full stub of the command surface: `InfiniteCanvasCommands` is forty-odd
- * verbs and building all of them would test the stub. What is asserted below is which of the two
- * it called, which is exactly what the rule is about.
- */
 const recorder = (): Recorder => {
   const commands: InfiniteCanvasCommand[] = [];
   const navigations: unknown[] = [];
@@ -112,12 +89,6 @@ test("an item already on the canvas is revealed, not opened twice", () => {
 });
 
 test("reveal rather than focus, because the window may be minimized or on another desktop", () => {
-  /*
-   * The distinction that makes this rule work at all. A bare focus on a minimized window leaves it
-   * minimized, and on a window filed onto another desktop it aims at something the canvas is not
-   * drawing — so clicking a collection row would appear to do nothing. `window.reveal` is the
-   * framework's one verb that goes there, restores it, and focuses it.
-   */
   const { actions, commands } = recorder();
 
   openContentWindow({
@@ -134,15 +105,7 @@ test("reveal rather than focus, because the window may be minimized or on anothe
 });
 
 test("a caller that knows where the window goes keeps that rect exactly", () => {
-  /*
-   * The drop path depends on this, and it is the half of placement that must not change when the
-   * other half does. Automatic placement is a policy that has already been rewritten once — a
-   * cascade counted windows, its replacement looks for a vacancy — and both would move this rect,
-   * one by an offset and one to the nearest free spot. Neither may: a drop landed under the
-   * pointer on purpose, and the two windows below sit exactly where it is going.
-   */
   const { actions, opened } = recorder();
-  // Deliberately on top of both windows below, which is the case a vacancy search exists to move.
   const rect = { height: 120, width: 360, x: 0, y: 0 };
 
   openContentWindow({
@@ -163,7 +126,6 @@ test("a caller that knows where the window goes keeps that rect exactly", () => 
 });
 
 test("a window that would open too small to use brings the camera with it", () => {
-  // At 36% a 360×240 note is 86px on its short axis: summary, so no editor.
   const { actions, navigations } = recorder();
   const zoomedOut = { ...canvasWith([]), camera: { center: { x: 0, y: 0 }, zoom: 0.36 } };
 

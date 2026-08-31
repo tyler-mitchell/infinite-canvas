@@ -20,23 +20,17 @@ import {
   type SurrealImportOutcome,
 } from "./core/transfer.ts";
 
-/**
- * Console-drivable access to the database, returning data rather than rendered output. The UI
- * panels are a view over the same functions.
- *
- * Development only. `query` and `importSurql` write, so this must not reach a shipped build.
- */
+/** This handle is development-only because its query and import methods can write. */
 
 type SurrealInspectorHandle = Readonly<{
   artifacts: () => readonly SurrealArtifact[];
   catalogue: (sourceId?: string) => Promise<SurrealCatalogue>;
   exportSurql: (sourceId?: string) => Promise<SurrealExport>;
-  /** Destructive. Runs the statements against the live database. */
+  /** This method writes the statements to the live database. */
   importSurql: (surql: string, sourceId?: string) => Promise<SurrealImportOutcome>;
   integrity: (sourceId?: string) => Promise<SurrealIntegrityReport>;
-  /** `null` when the source declares no manifest, leaving nothing to compare against. */
   migrations: (sourceId?: string) => Promise<SurrealMigrationReport | null>;
-  /** Exact logical payload bytes for one IndexedDB database. Walks every entry. */
+  /** This method reads every entry to count logical payload bytes. */
   payload: (databaseName: string) => Promise<SurrealPayloadMeasurement>;
   query: (
     statement: string,
@@ -53,12 +47,10 @@ type SurrealInspectorHandle = Readonly<{
     table: string,
     options?: Readonly<{ limit?: number; sourceId?: string; start?: number }>,
   ) => Promise<SurrealRecordPage>;
-  /** Everything, in one call. Start here. */
   report: (
     sourceId?: string,
     options?: Readonly<{ integrity?: boolean }>,
   ) => Promise<SurrealInspectorReport>;
-  /** Every declared source, without connecting to any of them. */
   sources: () => readonly Readonly<{
     database: string;
     endpoint: string;
@@ -67,15 +59,14 @@ type SurrealInspectorHandle = Readonly<{
     label: string;
     namespace: string;
   }>[];
-  /** IndexedDB and origin quota. Needs no engine, so it answers even when one will not start. */
+  /** This method reads IndexedDB and origin quota without a SurrealDB engine. */
   storage: () => Promise<SurrealStorageSurvey>;
-  /** Namespaces and databases visible to this connection, or the reason they could not be read. */
   topology: (sourceId?: string) => Promise<Awaited<ReturnType<typeof readTopology>>>;
 }>;
 
 declare global {
   interface Window {
-    /** Set in development builds only. See `installSurrealInspectorHandle`. */
+    /** Development builds install this property. */
     __surreal?: SurrealInspectorHandle;
   }
 }
@@ -87,7 +78,7 @@ function createSurrealInspectorHandle(
     throw new Error("createSurrealInspectorHandle needs at least one source");
   }
 
-  // One reader per source, kept for the handle's life. A fresh one per call would never hit cache.
+  // The handle reuses one reader per source so cached reads remain available.
   const readers = new Map<string, Promise<SurrealReader>>();
 
   const select = (sourceId?: string) => {
@@ -170,10 +161,7 @@ function createSurrealInspectorHandle(
   };
 }
 
-/**
- * Installs the handle on `window` and returns a function that removes it. Call at startup rather
- * than from the inspector route, so querying does not require navigating there.
- */
+/** Call this function at startup so tools work outside the inspector route. */
 function installSurrealInspectorHandle(sources: readonly SurrealInspectorSource[]) {
   window.__surreal = createSurrealInspectorHandle(sources);
 

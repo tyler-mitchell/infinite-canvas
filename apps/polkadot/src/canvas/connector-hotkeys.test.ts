@@ -26,7 +26,6 @@ test("cutting a connection is discoverable, not only bindable", () => {
 });
 
 test("the palette shows both chords the action declares", () => {
-  // The hand-built row this replaced showed only ⌫.
   expect(cut()?.hotkeys).toEqual(["Backspace", "Delete"]);
 });
 

@@ -31,24 +31,12 @@ import { createCanvas } from "./create-canvas";
 import { duplicateCanvas } from "./duplicate-canvas";
 import { useGoToCanvas } from "./use-go-to-canvas";
 
-/**
- * Which canvas this is, and how to reach another one.
- *
- * The canvas's name is the control rather than a label beside one. A route already names exactly
- * one document, so the thing that says which document you are looking at is the natural place to
- * change it — the same move a code editor makes with its branch name.
- *
- * The list loads when the menu opens rather than with the canvas. It is small, it goes stale the
- * moment another canvas is created, and paying for it on every canvas load would put a database
- * round trip in front of a surface most sessions never open.
- */
-
+// The menu loads canvas lists when it opens.
 const canvasSwitcher = tv({
   slots: {
     chevron:
       "size-3 text-[var(--ink-faint)] transition-transform duration-150 ease-[var(--ease-swift)] group-data-popup-open/switcher:rotate-180",
     empty: "px-1.5 py-1 text-[12px] text-[var(--ink-faint)]",
-    /** Pushed to the row's outer edge, so the titles stay a column the eye can run down. */
     itemWhen: "ml-auto pl-3 text-[10.5px] text-[var(--ink-faint)] tabular-nums",
     input:
       "w-40 rounded-md bg-[var(--ground-sunken)] px-1.5 py-0.5 text-[13px] font-medium tracking-[-0.01em] text-[var(--ink)] outline-none inset-ring-1 inset-ring-[var(--accent)]",
@@ -70,42 +58,31 @@ export function CanvasSwitcher({
   const isRemoving$ = useObservable(false);
   const canvases = useValue(canvases$);
   const archived = useValue(archived$);
-  // One instant for every row in a pass, so two rows archived together never disagree.
+  // All archive rows use the same time reference.
   const now = Date.now();
   const isRemoving = useValue(isRemoving$);
   const styles = canvasSwitcher();
 
   const goToCanvas = useGoToCanvas();
-  // The guard is this surface's, not the hook's: the radio group hands back whatever is picked,
-  // including the row you are already on, and re-entering the canvas you are in is not a move.
   const openCanvas = (nextCanvasId: string) => {
     if (nextCanvasId !== canvasId) {
       void goToCanvas({ canvasId: nextCanvasId });
     }
   };
 
-  /**
-   * Leaving the canvas that just stopped existing.
-   *
-   * `/` re-resolves the most recent remaining canvas, and bootstraps one when the last is gone,
-   * so archiving or deleting the open canvas does not need to decide where to land — the root
-   * route already answers that question for every other entry into the app.
-   */
+  // The root route selects the next available canvas.
   const leaveRemovedCanvas = () => {
     void navigate({ to: "/" });
   };
 
   const rename = useInlineRename({
     current: title,
-    // The title on screen comes from the route loader, so the rename is only visible once that
-    // loader runs again.
+    // Refresh the route after the stored title changes.
     onRename: (nextTitle) => {
       void database.canvases.rename({ canvasId, title: nextTitle }).then(() => router.invalidate());
     },
   });
 
-  // Renaming replaces the trigger rather than opening a dialog. The name is already here and
-  // already the right size; a modal to change one word is ceremony.
   if (rename.draft !== null) {
     return <input aria-label="Canvas name" className={styles.input()} {...rename.inputProps} />;
   }
@@ -135,7 +112,7 @@ export function CanvasSwitcher({
         <DropdownMenuTrigger
           className={styles.trigger()}
           onPointerDown={(event) => {
-            // Without this the press also reaches the canvas root and starts a marquee underneath.
+            // Stop the canvas from starting a marquee.
             event.stopPropagation();
           }}
         >
@@ -143,8 +120,7 @@ export function CanvasSwitcher({
           <ChevronDown className={styles.chevron()} />
         </DropdownMenuTrigger>
         <DropdownMenuContent>
-          {/* The label names the radio group, and Base UI requires that literally: `GroupLabel`
-            reads a context only `Group` and `RadioGroup` provide. */}
+          {/* Base UI requires DropdownMenuLabel inside a group. */}
           <DropdownMenuRadioGroup onValueChange={openCanvas} value={canvasId}>
             <DropdownMenuLabel>Canvases</DropdownMenuLabel>
             {canvases.length === 0 ? (
@@ -187,7 +163,6 @@ export function CanvasSwitcher({
           </DropdownMenuItem>
           <DropdownMenuItem
             onClick={() => {
-              // The verb owns the naming, the same as "New canvas" below. This is the control.
               void duplicateCanvas({ canvasId, canvasTitle: title, projectId }).then((created) => {
                 openCanvas(created.id);
               });
@@ -207,8 +182,7 @@ export function CanvasSwitcher({
             New canvas
           </DropdownMenuItem>
           <DropdownMenuSeparator />
-          {/* Archive first, delete second, and the reversible one is not marked destructive —
-            they are different decisions and should not look like the same one twice. */}
+          {/* Archive is reversible. Delete is destructive. */}
           <DropdownMenuItem
             onClick={() => {
               void database.canvases.archive(canvasId).then(leaveRemovedCanvas);

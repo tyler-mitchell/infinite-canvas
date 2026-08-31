@@ -5,23 +5,11 @@ import {
   useInfiniteCanvasState,
 } from "@hyphened/infinite-canvas";
 
-/**
- * A world overview, drawn from `getInfiniteCanvasMinimapLayout`.
- *
- * The framework hands over the projection and nothing else — no rounded corners, no colours,
- * no opinion about where the box sits. That is the same bargain `data-slot` strikes: the part
- * a consumer cannot easily get right is given, and the part they will want to own is left
- * alone. Everything below the `layout` call is this playground's taste.
- *
- * Click to fly there. `getInfiniteCanvasMinimapWorldPoint` is the exact inverse of the
- * projection, which is why the camera lands under the cursor rather than near it — re-deriving
- * the inverse by hand is how a minimap ends up half a window off at the edges.
- */
+/** The framework owns projection. The playground owns minimap UI. */
 const MINIMAP_SIZE = { height: 132, width: 200 } as const;
 
 export function CanvasMinimap() {
-  // The overview must follow the camera, so it subscribes to everything. That is correct for
-  // an overlay and wrong for a window body: an overlay is expected to re-render per frame.
+  // The minimap follows camera changes, so it subscribes to all state.
   const state = useInfiniteCanvasState();
   const actions = useInfiniteCanvasActions();
   const layout = getInfiniteCanvasMinimapLayout(state, MINIMAP_SIZE);
@@ -46,13 +34,11 @@ export function CanvasMinimap() {
       style={{ cursor: "crosshair", height: MINIMAP_SIZE.height, width: MINIMAP_SIZE.width }}
       title="Click to fly there"
     >
-      {/* Shells under their members, as on the canvas itself. */}
       {layout.groups.map((group) => (
         <div
           className="absolute rounded-[1px] border border-sky-400/30 bg-sky-400/5"
           key={group.groupId}
-          // Explicit, not `{...group.rect}`: an `InfiniteCanvasRect` carries `x`/`y`, which
-          // are not CSS properties and which React would pass straight through to the DOM.
+          // The style maps x and y to CSS positions instead of DOM attributes.
           style={{
             height: group.rect.height,
             left: group.rect.x,
@@ -76,17 +62,13 @@ export function CanvasMinimap() {
             height: Math.max(window.rect.height, 1.5),
             left: window.rect.x,
             top: window.rect.y,
-            // A window a third of a pixel tall is invisible. At 160 windows zoomed out, most
-            // of them are: the map exists to show you they are there.
+            // A 1.5-pixel minimum keeps small windows visible at low zoom.
             width: Math.max(window.rect.width, 1.5),
           }}
         />
       ))}
 
-      {/*
-        Drawn last: where you are is the thing you are looking for — and `null` when the camera
-        contains everything drawn, where this would trace the map's own edge and say nothing.
-      */}
+      {/* The viewport renders last so it stays visible above the map. */}
       {layout.viewport === null ? null : (
         <div
           className="pointer-events-none absolute border border-emerald-300/80 bg-emerald-300/5"

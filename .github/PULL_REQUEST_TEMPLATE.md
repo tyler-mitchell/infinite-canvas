@@ -1,43 +1,43 @@
-<!--
-Thanks for contributing. Keep the PR focused — one behavioral change reviews far
-better than five. See CONTRIBUTING.md for the full guide.
--->
+<!-- Keep the pull request to one behavioral change. Read CONTRIBUTING.md. -->
 
 ## What changed
 
-<!-- One or two sentences. What does this do, and why does it matter? -->
+<!-- Describe the behavior and its effect in one or two sentences. -->
 
 ## Why
 
-<!-- Link the issue this closes, or describe the problem. `Closes #123` -->
+<!-- Link the issue. If this change closes it, add `Closes #123`. -->
 
-## How to verify
+## Review steps
 
-<!-- The steps a reviewer takes to see it working. A playground showcase route is ideal. -->
-
----
+<!-- Give the steps that show the result. A playground route can provide evidence. -->
 
 ## Checklist
 
-- [ ] `pnpm exec vp check` passes (lint, format, typecheck).
+- [ ] `pnpm exec vp check` passes for lint, format, and the type check.
 - [ ] `pnpm exec vp run -r test` passes.
-- [ ] New behavior has a test; a bug fix has the failing case that now passes.
+- [ ] New behavior has a test. A bug fix includes the prior failing case.
 
-If this touches `packages/infinite-canvas/src/**`, also confirm:
+If this change touches `packages/infinite-canvas/src/**`, make sure that these statements are true:
 
-- [ ] **Headless boundary holds** — no icon-library import and no literal `className="…"` string in
-      framework source (so: no Tailwind utilities). Appearance lives in `src/theme.css`, keyed off the
-      `data-slot` contract in `src/data-attributes.ts`. New structural element? New slot in
-      `INFINITE_CANVAS_SLOTS`. _Verified by `src/headless-boundary.test.ts` and `src/theme-tokens.test.ts`._
-- [ ] **Framework boundary holds** — the pure core (geometry, reducer, selection, snapping, commands,
-      state, validation) still imports no React, no `three`, and no `@legendapp/state`, and still runs
-      without a renderer. _Verified by `src/framework-boundary.test.ts`._
-- [ ] **Packaging invariants hold** — `pnpm exec vp run @hyphened/infinite-canvas#verify` passes. Relevant
-      if you added an import, changed the entry point, or touched `exports` / `publishConfig`.
-      _Enforced by `packages/infinite-canvas/scripts/verify-artifact.mjs`, which also gates publish._
+- [ ] Framework source has no icon-library import or literal `className="…"` value.
+- [ ] New structural elements have entries in `INFINITE_CANVAS_SLOTS` in `src/data-attributes.ts`.
+- [ ] Appearance is in `src/theme.css` and uses the `data-slot` contract.
+- [ ] The pure core imports no React, `three`, `@react-three/fiber`, `@legendapp/state`, or `@zumer/snapdom`.
+- [ ] The pure core runs without a renderer.
+- [ ] `pnpm exec vp run @hyphened/infinite-canvas#verify` passes.
+- [ ] Changes to `exports` or `publishConfig` pass package verification.
 
-If this is user-facing:
+These files enforce the framework boundaries:
 
-- [ ] Added an entry under `## [Unreleased]` in `CHANGELOG.md`.
-- [ ] Public API, rendered DOM, `data-slot` contract, or serialized persistence shape changed? Say so
-      explicitly above — the package is `0.1.x`, but breaks should be deliberate.
+- `src/headless-boundary.test.ts`
+- `src/theme-tokens.test.ts`
+- `src/framework-boundary.test.ts`
+- `packages/infinite-canvas/scripts/verify-pure-core.mjs`
+- `packages/infinite-canvas/scripts/verify-artifact.mjs`.
+
+If this change affects consumers, make sure that these statements are true:
+
+- [ ] One bump file under `.bumpy` describes the change.
+- [ ] The bump file identifies changes to the public API, rendered DOM, `data-slot`, or persistence format.
+- [ ] Each breaking change is explicit. The package is `0.2.x`.

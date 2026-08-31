@@ -1,12 +1,6 @@
 import { FileText, Image, Layers, Link2, type LucideIcon } from "lucide-react";
 
-/**
- * What a collection can be a collection of.
- *
- * Not derived from the window registry: that is the set of kinds with a window, this is the set of
- * content kinds. They agree today and need not.
- */
-
+// This list contains content kinds, not all window kinds.
 type ListableKind = Readonly<{
   icon: LucideIcon;
   kind: string;

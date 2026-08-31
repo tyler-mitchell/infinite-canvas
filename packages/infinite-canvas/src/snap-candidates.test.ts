@@ -5,15 +5,6 @@ import { createInfiniteCanvasState, createInfiniteCanvasWindow } from "./factory
 import { buildSnapCandidates, getMoveSnapAnchors, getResizeSnapAnchors } from "./snap-candidates";
 import type { InfiniteCanvasState } from "./types";
 
-/**
- * Candidate generation — what a window is even allowed to snap to.
- *
- * `snap-resolver.test.ts` covers the *decision*: given anchors and candidates, which one catches
- * and when it lets go. It is blind to everything upstream. A candidate that is never generated
- * produces no failure anywhere — the snap simply does not happen, and the user assumes they
- * mis-aimed. That silence is why this is worth asserting separately from the resolver.
- */
-
 type Kind = "note";
 
 const windowAt = (id: string, x: number, y: number, width = 200, height = 100) =>
@@ -48,8 +39,6 @@ test("a moving window offers both edges and its centre on each axis", () => {
     "right",
     "top",
   ]);
-  // Centre is the midpoint, not the origin — an off-by-half here would misalign every
-  // centre-snapped window by half its size.
   expect(anchors.find((anchor) => anchor.sourceAnchor === "center")?.position).toBe(100);
   expect(anchors.find((anchor) => anchor.sourceAnchor === "middle")?.position).toBe(50);
 });
@@ -62,8 +51,6 @@ test("turning centre snapping off removes only the centre anchors", () => {
 });
 
 test("a resize offers only the edges the handle actually moves", () => {
-  // Resizing by the east handle must not snap the west edge: the origin is not moving, so
-  // offering it would drag the window sideways while the user is widening it.
   const east = getResizeSnapAnchors(RECT, "east").map((anchor) => anchor.sourceAnchor);
 
   expect(east).toContain("right");
@@ -84,14 +71,11 @@ test("another window contributes edge and centre candidates", () => {
   const fromWindows = candidates.filter((candidate) => candidate.from === "window");
 
   expect(fromWindows.length).toBeGreaterThan(0);
-  // The neighbour's left edge at 500 and its centre at 600 are both offered.
   expect(fromWindows.some((candidate) => candidate.position === 500)).toBe(true);
   expect(fromWindows.some((candidate) => candidate.position === 600)).toBe(true);
 });
 
 test("the moving window never snaps to itself", () => {
-  // Its own edges are at the same coordinates as its anchors, so a self-candidate would catch at
-  // distance zero and pin the window in place permanently.
   const candidates = buildSnapCandidates(stateWith(windowAt("a", 0, 0)), "a", RECT, POLICY);
 
   expect(candidates.filter((candidate) => candidate.from === "window")).toHaveLength(0);
@@ -113,9 +97,6 @@ test("viewport candidates are opt-in", () => {
 });
 
 test("a gap candidate appears only between two windows that leave room", () => {
-  // Equal-gap snapping needs a slot the moving window actually fits in, and the two neighbours
-  // have to overlap it on the cross axis — otherwise the "gap" is between things that are not
-  // side by side at all, and aligning to it looks arbitrary.
   const roomy = buildSnapCandidates(
     stateWith(windowAt("a", 0, 0), windowAt("left", -600, 0), windowAt("right", 600, 0)),
     "a",
@@ -125,7 +106,6 @@ test("a gap candidate appears only between two windows that leave room", () => {
 
   expect(roomy.some((candidate) => candidate.kind === "gap")).toBe(true);
 
-  // Same pair, moved far apart on the cross axis: no longer a row, so no gap to centre in.
   const misaligned = buildSnapCandidates(
     stateWith(windowAt("a", 0, 0), windowAt("left", -600, 0), windowAt("right", 600, 5_000)),
     "a",
@@ -151,7 +131,6 @@ test("turning gap snapping off removes gap candidates and nothing else", () => {
 });
 
 test("a minimized window is not a snap source", () => {
-  // It is not on screen, so aligning to where it would have been is aligning to nothing.
   const state = stateWith(windowAt("a", 0, 0), { ...windowAt("b", 500, 0), mode: "minimized" });
 
   expect(

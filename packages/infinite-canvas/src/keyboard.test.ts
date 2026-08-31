@@ -98,16 +98,6 @@ test("keyboard guard rejects composition events", () => {
   });
 });
 
-/**
- * Chords a consumer claims for verbs the canvas does not own.
- *
- * The first test is the whole point of the affordance and the one that fails against what shipped
- * before it. `hotkeyBindings` was documented as the way to claim an unclaimed chord — the arrange
- * and dock verbs ship with none and say so — but it is a *default parameter*, so a consumer taking
- * that advice silently traded every canvas shortcut for the one it wanted, with nothing to report
- * it. Actions are a separate input for that reason, and this asserts the union rather than the
- * replacement.
- */
 const STATE = createInfiniteCanvasState<"note">({ windows: [] });
 
 const cut = (
@@ -133,8 +123,6 @@ test("consumer actions are added to the canvas keymap, not swapped for it", () =
   });
   const defaults = getInfiniteCanvasHotkeyBindings();
 
-  // Every default chord survives, and both of the consumer's arrive: one entry per chord, the way
-  // a command descriptor's `hotkeys` flatten.
   expect(resolved).toHaveLength(defaults.length + 2);
   expect(resolved.map((entry) => entry.hotkey)).toContain("Mod+Z");
   expect(resolved.filter((entry) => entry.label === "Cut Connection").map((e) => e.hotkey)).toEqual(
@@ -160,7 +148,6 @@ test("a consumer action runs its own verb, and is gated by its own enablement", 
     }
   });
 
-  // Two chords, one verb each — pressing either does the thing.
   expect(ran).toEqual(["cut", "cut"]);
 });
 
@@ -178,9 +165,6 @@ test("an action with nothing to act on is disabled, and the canvas still swallow
     executeCommand: noCommands,
   });
 
-  // Disabled means "does nothing", never "is not registered": the entry is still here, so the
-  // handler still claims the keypress. A chord that fell through to the browser only while
-  // unavailable would be the same trap `Alt+ArrowLeft` was.
   expect(resolved).toHaveLength(2);
   resolved.forEach((entry) => {
     expect(entry.isEnabled(STATE)).toBe(false);

@@ -1,15 +1,12 @@
 import { measureJsonBytes } from "./bytes.ts";
 import type { SurrealReader } from "./reads.ts";
 
-/**
- * Reads rows a page at a time. Table names are bound through `type::table` rather than spliced
- * into the statement, because they come from `INFO FOR DB` and are not developer-supplied.
- */
+/** The query binds table names because database metadata supplies them. */
 
 const PAGE_SIZE = 50;
 
 type SurrealRecordPage = Readonly<{
-  /** Size of this page as JSON. A wire figure, not a storage figure. */
+  /** This value is the JSON payload size for this page. */
   bytes: number;
   rows: readonly unknown[];
   start: number;
@@ -41,10 +38,7 @@ async function readRecordPage(
   return { bytes: measureJsonBytes(rows), rows, start: input.start };
 }
 
-/**
- * Measures a table's wire size over a bounded sample rather than scanning it fully. Sample size
- * and row count are reported separately; their product is not a table size.
- */
+/** This function measures a bounded JSON sample, not full table storage. */
 type SurrealTableWeight = Readonly<{
   records: number;
   sampleBytes: number;

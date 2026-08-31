@@ -77,29 +77,7 @@ function beginMarqueeSelection<Kind extends string>(
   return mode === "replace" ? replaceSelection(nextState, []) : nextState;
 }
 
-/**
- * How far the pointer has travelled **in world units** since the drag began (FAIL-001).
- *
- * Every drag used to cache `zoom` at its start and divide the accumulated screen delta by
- * that one scalar. The wheel handler is not gated on an active interaction, so zooming
- * mid-drag converted the *whole* travel at a stale scale: grab at zoom 1, drag 100px right
- * (world +100), zoom to 2, drag 100px more, and `screenDelta / 1` says +200 where the
- * pointer has really moved 100 + 50 = 150. The window slid out from under the cursor and
- * kept sliding, unboundedly in the length of the drag.
- *
- * Projecting both ends instead — the origin pointer under the origin camera, the current
- * pointer under the current camera — asks the only question that matters: where in the
- * world was the pointer, and where is it now. It is correct across a zoom *and* a pan.
- *
- * This is a strict generalization, not a rewrite. `screenPointToWorldPoint` is
- * `center + (p - viewport/2) / zoom`, so when the camera has not moved the two `center`
- * and `viewport` terms cancel and the difference is exactly `(p - origin) / zoom` — the
- * expression it replaces, to the bit. A static camera is the overwhelmingly common case,
- * and it behaves identically.
- *
- * `pan` never had the bug: it has always stored `originCamera`, because a pan *is* a camera
- * change and could not have been written any other way. Every other drag now matches it.
- */
+/** Returns drag travel in world units across camera changes. */
 function getInteractionWorldDelta<Kind extends string>(
   state: InfiniteCanvasState<Kind>,
   interaction: Readonly<{
@@ -114,11 +92,7 @@ function getInteractionWorldDelta<Kind extends string>(
   );
 }
 
-/**
- * Drag a group shell by one of its members' headers. The whole group travels as
- * one world object (DOCK-003); the members follow because their rects are
- * re-derived from the shell, never stored.
- */
+/** Starts a group move from a member header. */
 function beginInfiniteCanvasGroupMove<Kind extends string>(
   state: InfiniteCanvasState<Kind>,
   pointerId: number,
@@ -139,15 +113,7 @@ function beginInfiniteCanvasGroupMove<Kind extends string>(
   };
 }
 
-/**
- * Drag a group shell's outer edge.
- *
- * `minSize` is measured by the caller, with the metrics it laid the shell out with, and
- * captured here for the whole drag. Two reasons it is not recomputed per step: the
- * reducer has no access to render-layer metrics (which is why `availableExtent` travels
- * on the gutter action too), and a mode change mid-drag would otherwise move the floor
- * under the pointer.
- */
+/** Starts a group resize with metrics captured for the complete drag. */
 function beginInfiniteCanvasGroupResize<Kind extends string>(
   state: InfiniteCanvasState<Kind>,
   pointerId: number,
@@ -172,15 +138,7 @@ function beginInfiniteCanvasGroupResize<Kind extends string>(
   };
 }
 
-/**
- * Resize from the rect the shell had when the drag began, never from its live rect.
- *
- * `resizeRectFromHandle` clamps against `minSize`, so once the shell is at its floor the
- * pointer can travel further without the rect moving — and travelling back must return it
- * step for step. Applying an incremental delta to the live rect would instead lose every
- * pixel spent past the clamp, and the edge would lag the cursor by however far it was
- * over-dragged. This is the same reason a gutter drag recomputes from `originContainer`.
- */
+/** Uses the original shell rect so travel past a clamp is recoverable. */
 function stepInfiniteCanvasGroupResize<Kind extends string>(
   state: InfiniteCanvasState<Kind>,
   interaction: InfiniteCanvasGroupResizeInteraction,
@@ -197,7 +155,7 @@ function stepInfiniteCanvasGroupResize<Kind extends string>(
   });
 }
 
-/** Drag the seam between two split panes. Everything a step needs is captured here. */
+/** Starts a split-seam drag with all values required by each step. */
 function beginInfiniteCanvasGroupGutterDrag<Kind extends string>(
   state: InfiniteCanvasState<Kind>,
   input: Omit<InfiniteCanvasGroupGutterInteraction, "kind" | "originCamera">,
@@ -230,26 +188,18 @@ function stepInfiniteCanvasGroupMove<Kind extends string>(
   });
 }
 
-/**
- * Recompute the pair's weights from the container as it stood when the drag
- * began, and the total pointer travel since. Deriving from the origin rather
- * than applying an incremental delta to live weights is what keeps the seam
- * exactly under the cursor instead of drifting as rounding accumulates.
- */
+/** Recomputes seam weights from the original container and total drag distance. */
 function stepInfiniteCanvasGroupGutterDrag<Kind extends string>(
   state: InfiniteCanvasState<Kind>,
   interaction: InfiniteCanvasGroupGutterInteraction,
   point: InfiniteCanvasPoint,
 ): InfiniteCanvasState<Kind> {
-  // `availableExtent` is in the same world units the layout was solved in, so the seam's
-  // travel has to be too.
   const worldDelta = getInteractionWorldDelta(state, interaction, point);
   const weights = getInfiniteCanvasGroupGutterWeights(interaction.originContainer, interaction, {
     availableExtent: interaction.availableExtent,
     delta: interaction.axis === "horizontal" ? worldDelta.x : worldDelta.y,
   });
 
-  // `{}` means the pair has no room left to move; the drag continues, nothing shifts.
   if (Object.keys(weights).length === 0) {
     return state;
   }
@@ -351,16 +301,6 @@ function stepCanvasInteraction<Kind extends string>(
   }
 
   if (interaction.kind === "pan") {
-    // Keep the world point grabbed at pan-start under the cursor, re-projected through the
-    // *current* zoom. The old form spread `...interaction.originCamera`, which forced zoom back
-    // to its pan-start value on every step — so a wheel-zoom fired mid-pan (the handler is not
-    // gated on an active interaction) was discarded on the very next pointermove.
-    //
-    // A strict generalization, not a rewrite, exactly as FAIL-001 was. With the zoom unchanged
-    // — pan without a concurrent zoom, the overwhelmingly common case — the `viewport/2` terms
-    // cancel and this reduces to `originCamera.center - screenDelta / originCamera.zoom`, the
-    // expression it replaces, to the bit. It differs only when the zoom moved under the pan,
-    // where the old code snapped it back and this respects it.
     const worldAtOrigin = screenPointToWorldPoint(
       interaction.originCamera,
       state.viewport,
@@ -410,10 +350,6 @@ function stepCanvasInteraction<Kind extends string>(
     return stepWindowResize(state, interaction, worldDelta, targetWindow.minSize, snapPolicy);
   }
 
-  // Docking is an explicit intent, never something a drag falls into. Without it
-  // a window could not be dragged over another to overlap it -- which is most of
-  // what an infinite canvas is for. A multi-window group move cannot dock either:
-  // there is no single window to seat against the target.
   const dockPreview =
     options.dockIntent === true && interaction.originRects.length === 1
       ? resolveInfiniteCanvasDockPreview(
@@ -422,9 +358,6 @@ function stepCanvasInteraction<Kind extends string>(
           interaction.windowId,
         )
       : null;
-  // Alignment guides and a dock region are contradictory affordances. Once the
-  // user is aiming at a drop target, stop offering to line them up with a
-  // neighbour instead (research/snapping.md, risk R3).
   const moved = stepWindowMove(
     state,
     interaction,
@@ -580,12 +513,6 @@ function stepWindowResize<Kind extends string>(
   };
 }
 
-/**
- * Releasing over a dock region commits the dock; releasing anywhere else simply
- * ends the drag, leaving the window where it was dropped. The preview the user
- * was looking at is exactly what gets applied — it is the same value, not a
- * re-resolution against a pointer that has since moved.
- */
 function finishCanvasInteraction<Kind extends string>(
   state: InfiniteCanvasState<Kind>,
   pointerId: number,

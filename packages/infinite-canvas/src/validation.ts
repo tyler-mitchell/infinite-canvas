@@ -17,18 +17,8 @@ import type {
   InfiniteCanvasWorkspace,
 } from "./types";
 
-/**
- * Structural parsers for untrusted persisted state. Each returns the parsed
- * value with unknown keys stripped, or `null` when the shape is invalid.
- *
- * These were an arktype schema, but `store -> persistence -> validation` puts
- * them on every consumer's render path, so the runtime type system shipped in
- * every bundle: 46 KB gzipped, 34% of the package, to validate eight small
- * shapes. Hand-rolled guards are behaviour-identical — ./validation.test.ts
- * characterizes the original semantics and passes unchanged against these.
- */
-
-/** Matches arktype's `number.safe`: finite, and within the safe-integer magnitude. */
+/** Parses untrusted persisted data and removes unknown keys. */
+/** Accepts finite numbers within safe-integer magnitude. */
 function isSafeNumber(value: unknown): value is number {
   return (
     typeof value === "number" &&
@@ -37,7 +27,7 @@ function isSafeNumber(value: unknown): value is number {
   );
 }
 
-/** Matches arktype's `number.safe > 0`. */
+/** Accepts positive safe numbers. */
 function isPositiveSafeNumber(value: unknown): value is number {
   return isSafeNumber(value) && value > 0;
 }
@@ -50,7 +40,6 @@ function isStringArray(value: unknown): value is readonly string[] {
   return Array.isArray(value) && value.every((entry) => typeof entry === "string");
 }
 
-/** Optional keys: `JSON.parse` never yields `undefined`, so treat it as absent. */
 function isAbsent(value: unknown): value is undefined {
   return value === undefined;
 }
@@ -179,14 +168,7 @@ const INFINITE_CANVAS_WINDOW_CAPABILITIES = [
   "resizable",
 ] as const;
 
-/**
- * `undefined` when absent, `null` when malformed — the parser's own convention, kept so a
- * corrupt capability set rejects the window rather than silently unlocking it.
- *
- * Only `false` is carried across. A capability set to `true` means the same as absent, so
- * dropping it keeps persisted state small and canonical: two documents that behave
- * identically serialize identically.
- */
+/** Returns undefined when absent and null when malformed. Stores only false flags. */
 function parseInfiniteCanvasWindowCapabilities(
   value: unknown,
 ): InfiniteCanvasWindowCapabilities | null | undefined {
@@ -290,29 +272,10 @@ function isGroupLayoutMode(value: unknown): value is InfiniteCanvasGroupLayoutMo
   return INFINITE_CANVAS_GROUP_LAYOUT_MODES.includes(value as InfiniteCanvasGroupLayoutMode);
 }
 
-/**
- * How deep a persisted tree may nest before it is rejected as malformed.
- *
- * Every framework-written tree is normalized first — single-child splits collapse, same-axis
- * splits inline — so a real tree's depth is bounded by its axis alternations and tab/accordion
- * folds, in the low tens even for a canvas of hundreds of windows. 256 is an order of magnitude
- * of headroom over anything the serializer emits, and it exists only to answer a *hand-crafted*
- * `localStorage` payload nested thousands deep. Without it, `parseInfiniteCanvasGroupNode`
- * recurses to exhaustion and throws `RangeError` — which violates the contract every parser in
- * this file states ("`null` when the shape is invalid"), and which the framework's own hydration
- * only survives because `parseInfiniteCanvasStateJson` wraps the whole parse in `try/catch`. A
- * consumer calling the exported parser on already-parsed JSON has no such net; "too deep to be
- * real" is an invalid shape, and this returns `null` for it like every other invalid shape.
- */
+/** Rejects persisted group trees deeper than 256 nodes. */
 const MAX_INFINITE_CANVAS_GROUP_TREE_DEPTH = 256;
 
-/**
- * A persisted layout tree. Recursive, so it is parsed recursively; a malformed
- * branch invalidates the whole tree rather than silently pruning members, since
- * a half-parsed group would lay out windows nobody asked it to.
- *
- * `depth` is internal — callers parse a tree root and leave it at `0`.
- */
+/** Parses a persisted group tree. A malformed branch rejects the full tree. */
 function parseInfiniteCanvasGroupNode(value: unknown, depth = 0): InfiniteCanvasGroupNode | null {
   if (depth > MAX_INFINITE_CANVAS_GROUP_TREE_DEPTH) {
     return null;
@@ -362,11 +325,7 @@ function parseInfiniteCanvasGroupNode(value: unknown, depth = 0): InfiniteCanvas
   };
 }
 
-/**
- * A workspace crossing storage. Membership is validated as a list of strings and nothing
- * more — whether those ids still name live windows is the reducer's business, and rejecting
- * a whole document because one window was closed elsewhere would lose the rest of the layout.
- */
+/** Parses workspace data. Reconciliation validates live membership later. */
 function parseInfiniteCanvasWorkspace(value: unknown): InfiniteCanvasWorkspace | null {
   if (!isRecord(value) || typeof value.id !== "string" || typeof value.title !== "string") {
     return null;
@@ -393,14 +352,7 @@ function parseInfiniteCanvasGroup(value: unknown): InfiniteCanvasGroup | null {
     return null;
   }
 
-  /*
-   * `null` and a missing key both mean "named after its members".
-   *
-   * A payload written before names had provenance carries a string, and that string is read as a
-   * name somebody gave — the conservative direction. A name that was in fact derived stops
-   * following its members, rather than a name a user typed being thrown away by a migration that
-   * cannot tell the two apart.
-   */
+  // A null or missing title derives from members.
   const title = value.title ?? null;
 
   if (title !== null && typeof title !== "string") {
@@ -417,11 +369,7 @@ function parseInfiniteCanvasGroup(value: unknown): InfiniteCanvasGroup | null {
   return { id: value.id, rect, title, tree, zIndex: value.zIndex };
 }
 
-/**
- * Recipes cross `localStorage` like persisted state does, so they are parsed
- * structurally rather than trusted. A malformed entry is `null`, never a
- * half-built arrangement that would place windows nobody asked it to.
- */
+/** Parses a recipe window from untrusted storage data. */
 function parseInfiniteCanvasRecipeWindow(value: unknown): InfiniteCanvasRecipeWindow | null {
   if (
     !isRecord(value) ||
@@ -446,9 +394,7 @@ function parseInfiniteCanvasRecipeWindow(value: unknown): InfiniteCanvasRecipeWi
 }
 
 function parseInfiniteCanvasRecipeGroup(value: unknown): InfiniteCanvasRecipeGroup | null {
-  // `null` is a title: it means "named after its members". A payload missing the key entirely is
-  // read the same way, so a recipe written before names had provenance restores a live name rather
-  // than being rejected outright.
+  // A null or missing title derives from members.
   const title = value !== null && isRecord(value) ? (value.title ?? null) : null;
 
   if (!isRecord(value) || typeof value.groupId !== "string") {
@@ -515,10 +461,7 @@ function parseInfiniteCanvasRecipe(value: unknown): InfiniteCanvasRecipe | null 
 function parseInfiniteCanvasSerializedState<Kind extends string>(
   value: unknown,
 ): InfiniteCanvasSerializedState<Kind> | null {
-  // `version: 1` predates groups and `2` predates workspaces; both migrate to none.
-  // Accepting them here rather than making the fields optional is what stops an older build
-  // from reading a newer payload, dropping the field it does not know, and writing back a
-  // layout with every group — or every workspace — silently deleted.
+  // Versions 1 and 2 migrate missing groups or workspaces to empty lists.
   if (!isRecord(value) || (value.version !== 1 && value.version !== 2 && value.version !== 3)) {
     return null;
   }
@@ -597,8 +540,7 @@ function parseInfiniteCanvasSerializedState<Kind extends string>(
 
   return {
     activeWindowId,
-    // A version-2 payload predates workspaces, so it carries neither field and migrates to
-    // none — the same bargain groups struck at version 2.
+    // Version 2 has no workspace fields.
     ...(value.version === 3 && typeof value.activeWorkspaceId === "string"
       ? { activeWorkspaceId: value.activeWorkspaceId }
       : {}),

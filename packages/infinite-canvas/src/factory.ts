@@ -97,9 +97,7 @@ function createInfiniteCanvasWindow<Kind extends string, Data = unknown>({
   zIndex = 0,
 }: InfiniteCanvasWindowInput<Kind, Data>): InfiniteCanvasWindow<Kind, Data> {
   return {
-    // Omitted rather than defaulted to an all-true object: absent already means permitted,
-    // and writing the default out would put a redundant record on every window in state and
-    // in every persisted document.
+    // Omit default capabilities to keep persisted windows small.
     ...(capabilities === undefined ? {} : { capabilities }),
     ...(data === undefined ? {} : { data }),
     id,
@@ -167,8 +165,6 @@ function createInfiniteCanvasState<Kind extends string>({
       : getFirstSelectableWindowId(uniqueWindows);
   const unnormalizedState = {
     activeWindowId: resolvedActiveWindowId,
-    // Opt-in, exactly as `groups` is: no workspace means no membership filter, and a canvas
-    // that never creates one behaves as it did before they existed.
     activeWorkspaceId: null,
     workspaces,
     camera: {
@@ -185,11 +181,7 @@ function createInfiniteCanvasState<Kind extends string>({
     selection: readSelectionInput(selection, resolvedActiveWindowId),
     snapPreview: null,
     viewport: cloneSize(viewport),
-    // No chrome until a consumer says otherwise, so a canvas that never sets them behaves exactly
-    // as it did before insets existed.
     viewportInsets: resolveInfiniteCanvasViewportInsets(viewportInsets),
-    // Chrome that sits inside the content area rather than bracketing it. Empty by default: a
-    // canvas that declares none behaves exactly as it did before occluders existed.
     viewportOccluders,
     windows: uniqueWindows.map((window) =>
       createInfiniteCanvasWindow({
@@ -202,9 +194,7 @@ function createInfiniteCanvasState<Kind extends string>({
   } satisfies InfiniteCanvasState<Kind>;
   const normalizedSelection = normalizeSelection(unnormalizedState, unnormalizedState.selection);
 
-  // Groups supplied by a consumer are untrusted the same way persisted ones are:
-  // reconcile drops members that name no live window, and projects the rest onto
-  // their windows' rects.
+  // Reconcile consumer groups before projecting their window rectangles.
   return reconcileInfiniteCanvasGroups({
     ...unnormalizedState,
     activeWindowId: normalizedSelection.anchorWindowId ?? resolvedActiveWindowId,
@@ -212,39 +202,7 @@ function createInfiniteCanvasState<Kind extends string>({
   });
 }
 
-/**
- * Define a window registry, optionally typing each kind's `data` payload.
- *
- * ```ts
- * type Kind = "chart" | "note";
- * type DataByKind = { chart: { series: number[] }; note: { text: string } };
- *
- * defineInfiniteCanvasWindowRegistry<Kind, DataByKind>({
- *   chart: { kind: "chart", renderBody: ({ window }) => plot(window.data?.series) },
- *   note: { kind: "note", renderBody: ({ window }) => <p>{window.data?.text}</p> },
- * });
- * ```
- *
- * `DataByKind` is used **while the literal is being written** and then erased. That
- * is the whole design, and it is deliberate:
- *
- * - `renderBody` *takes* a context, so `InfiniteCanvasWindowDefinition<K, Data>` is
- *   contravariant in `Data`. A registry typed per kind is therefore not assignable
- *   to the erased one, and threading `DataByKind` onward would force
- *   `InfiniteCanvasDesktop`, the viewport, the window layer, the frame, and every
- *   slot to carry a type parameter.
- * - It would buy nothing. `window.data` is genuinely `unknown` at runtime: it round
- *   trips through `JSON.parse` on hydration, and a tampered `localStorage` entry can
- *   put anything there. The framework cannot keep a promise about its shape.
- *
- * So `data` is typed where the author knows what they put in it, and stays `unknown`
- * where the framework hands it back. **For persisted canvases, validate on read** —
- * `getInfiniteCanvasWindowData(window, guard)` exists for exactly that, and a
- * `renderBody` that trusts `window.data` from `localStorage` is trusting a string a
- * user can edit.
- *
- * Calling it without `DataByKind` types every payload `unknown`, as before.
- */
+/** Defines a registry with per-kind authoring types. Persisted `data` remains unknown. */
 function defineInfiniteCanvasWindowRegistry<
   Kind extends string,
   DataByKind extends Readonly<Record<Kind, unknown>> = Readonly<Record<Kind, unknown>>,
@@ -265,19 +223,11 @@ function defineInfiniteCanvasWindowRegistry<
     );
   }
 
-  // The erasure. Every `renderBody` here was written against a `data` the author
-  // declared; at runtime it receives whatever `data` the window actually carries.
-  // That gap is the consumer's assertion, made explicit at one line rather than
-  // spread across the framework's internals as a type parameter that lies.
+  // This cast erases authoring types because runtime data remains unknown.
   return registry as unknown as InfiniteCanvasWindowRegistry<Kind>;
 }
 
-/**
- * Read a window's consumer-owned `data` payload through a type guard,
- * replacing the `typeof window.data === "object" && "field" in window.data`
- * boilerplate every renderBody otherwise repeats. Returns null when the
- * payload is absent or fails the guard.
- */
+/** Reads `data` through a guard and returns `null` when it is invalid. */
 function getInfiniteCanvasWindowData<Data>(
   window: Readonly<{ data?: unknown }>,
   guard: (candidate: unknown) => candidate is Data,

@@ -1,13 +1,6 @@
 import type { initialLayout } from "../canvas/canvas-document";
 
-/**
- * The database, reached lazily.
- *
- * `database.client` pulls an 11 MB WebAssembly engine, so it must not be on the critical path of
- * the first frame. Every surface that needs it was writing its own `await import(...)` wrapper;
- * this is that boundary in one place.
- */
-
+// This lazy import keeps the 11 MB WASM engine off the first-frame path.
 const client = () => import("./database.client");
 
 type Layout = typeof initialLayout;
@@ -53,13 +46,6 @@ export const relations = {
     (await client()).setRelationLabel(input),
 };
 
-/**
- * Saved views — named framings of one canvas.
- *
- * Keyed by canvas rather than by project, because the rect is in that canvas's world coordinates.
- * The rect is spelled out here rather than imported so this module keeps costing nothing to load;
- * every other group does the same.
- */
 export const savedViews = {
   create: async (
     input: Readonly<{
@@ -80,14 +66,7 @@ export const savedViews = {
     (await client()).renameSavedView(input),
 };
 
-/**
- * Content items, of any kind.
- *
- * Deliberately says nothing about what a note or an image is: this module's whole job is deferring
- * the WebAssembly import, and a `create` that knew to put text in `content.text` would be a second
- * place the note's shape is written down. Each kind builds its own operations on these — see
- * `notes/note-gateway`.
- */
+// Each content kind owns its stored shape.
 export const content = {
   archive: async (itemId: string) => (await client()).archiveContentItem(itemId),
   create: async (
@@ -99,7 +78,7 @@ export const content = {
       title: string;
     }>,
   ) => (await client()).createContentItem(input),
-  /** Omit `kind` for everything in the project. */
+  /** An omitted kind lists all content types. */
   list: async (input: Readonly<{ kind?: string; projectId: string }>) =>
     (await client()).listContentItems(input),
   listArchived: async (input: Readonly<{ kind?: string; projectId: string }>) =>

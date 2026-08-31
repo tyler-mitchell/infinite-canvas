@@ -1,134 +1,70 @@
-# API Reference
+# API reference
 
-The public surface of `@hyphened/infinite-canvas`: 232 values and 190 types across
-two entries. Anything not exported from a barrel is internal and unstable —
-including every `data-infinite-canvas-*` attribute, which is a behavioural hook
-for hit-testing, not a styling contract.
+The public surface of `@hyphened/infinite-canvas`: 232 values and 190 types across two entries.
+Anything absent from these barrels is internal and unstable.
+This rule includes each `data-infinite-canvas-*` attribute, which supports hit tests instead of styles.
 
-This document is **hand-maintained and machine-checked**, which is not the same
-as generated — it said "generated from the barrel, so it cannot drift" for the
-first month of its life, while drifting by 43 names. `verify-api-doc.mjs` now
-asserts every export appears here, and `verify-api-stability.mjs` asserts every
-exporting module is classified below. Neither writes a word of prose; both fail
-the build when the prose stops matching the code.
+The project maintains this document by hand.
+`verify-api-doc.mjs` makes sure that each export appears here.
+`verify-api-stability.mjs` makes sure that each export module has a stability class.
 
-The count in the sentence above is checked too, as of 2026-08-27. It had read 192
-and 164 against an actual 222 and 186 — a drift of 52, in the first line a reader
-sees, in a document whose next paragraph is a monument to a drift of 43. The gate
-had both numbers all along and only printed them.
+Only `@hyphened/infinite-canvas/scene` imports `three` and `@react-three/fiber`.
 
-The `@hyphened/infinite-canvas/scene` entry is documented separately below. It is
-the only entry that pulls in `three` and `@react-three/fiber`.
-
-> Pre-1.0: the API may change between minor versions.
+> Pre-1.0: the API can change between minor versions.
 
 ## Stability
 
-**Two tiers, assigned per module.** A change to a stable export is called out
-under `Changed` or `Removed` in the changelog. An experimental export may change
-or disappear in any release.
+Each module has a stable or experimental class.
+The changelog lists changes to stable exports under `Changed` or `Removed`.
+An experimental export can change or disappear in a release.
 
-Classification lives in
+The classifications are in
 [`packages/infinite-canvas/scripts/api-stability.json`](../packages/infinite-canvas/scripts/api-stability.json)
-and `verify-api-stability.mjs` enforces it: a barrel that re-exports from an
-unclassified module fails the build. **A new export inside an already-classified
-module inherits that module's tier**, which is the intended asymmetry — adding a
-function to `geometry.ts` should not require a manifest edit, and adding a whole
-module to the public surface should require a decision.
+and `verify-api-stability.mjs` enforces them.
+A barrel cannot export a module without a class.
+A new export inherits the class of its module.
 
-Every experimental entry names one of three reasons, and each reason is a fact
-about this repository rather than a feeling about the code.
+| Reason             | Meaning                                               | Modules                                                                                   |
+| ------------------ | ----------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| **unobserved**     | Product use does not exercise every exported path.    | `canvas-handle`                                                                           |
+| **off-by-default** | Default configuration does not enable the path.       | `rasterization-layer`, `visibility`, `diagnostics`, `native-drop`                         |
+| **r3f-canary**     | The path depends on the React Three Fiber v10 canary. | `scene-surface`, `scene:scene-surface`, `scene:visibility-probes`, `scene:webgpu-surface` |
 
-| Reason             | Meaning                                                                                                                                                                                   | Modules                                                                                   |
-| ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
-| **unobserved**     | Shipped, typechecked, gated — never watched running.                                                                                                                                      | `canvas-handle`                                                                           |
-| **off-by-default** | Behind a policy prop that no default configuration turns on, so nothing exercises the shipped path.                                                                                       | `rasterization-layer`, `visibility`, `diagnostics`, `native-drop`                         |
-| **r3f-canary**     | Reachable only through `@hyphened/infinite-canvas/scene`, whose `@react-three/fiber` peer range admits a v10 canary. The framework cannot promise stability across someone else's canary. | `scene-surface`, `scene:scene-surface`, `scene:visibility-probes`, `scene:webgpu-surface` |
+The `SceneLayer` types and `InfiniteCanvasSceneVector3` in `types.ts` also have the **r3f-canary** reason.
+`@hyphened/infinite-canvas/scene` uses the `@react-three/fiber` canary.
+The affected type group includes `InfiniteCanvasSceneLayer` beside stable geometry such as `InfiniteCanvasRect`.
 
-Plus six types in `types.ts`, which is a grab-bag holding
-`InfiniteCanvasSceneLayer` next to `InfiniteCanvasRect`: the `SceneLayer` family
-and `InfiniteCanvasSceneVector3`, all **r3f-canary**.
+The project removes exports that have no consumers.
+`window-scene-shell` and `scene-model` lost their public exports.
+`scene-model` duplicated `window-proxy`.
+`window-scene-shell.ts` remains internal because `window-proxy` calls one of its functions.
+`canvas-handle` is experimental because some methods have no product caller.
 
-There is no **unconsumed** tier, and the absence is deliberate: an export nothing
-uses is not classified, it is removed. `window-scene-shell` (fifteen names, called
-only by its own test) and `scene-model` (a re-export of `window-proxy` under
-pre-proxy names) were both public and both dead on 2026-07-08; they were unexported
-that day rather than given a tier. The package has never been published, so the
-removal broke no one. `window-scene-shell.ts` stays on disk because `window-proxy`
-calls one function from it, and it is re-exportable in a minor if a consumer ever
-asks — a promise not yet made is cheaper to keep than one made and withdrawn.
+Polkadot uses `subscribeDocument`, `snapshot`, `getState`, and `commands`.
+The handle method `subscribeDocument` supplies document changes.
+No caller uses `subscribe` or the `getContextualCommands` handle method.
+The slice method `subscribe` has no caller.
+The radial menu calls `getAvailableInfiniteCanvasContextualCommands` directly.
 
-`canvas-handle` is a narrower case than the others and its entry used to say the
-wrong thing — "a debug and automation seam, not a consumer API". It is in fact the
-incubator app's persistence spine: Polkadot's autosave runs on
-`subscribeDocument`, and that path has been watched working. Experimental for what
-is untested, not for what it is.
+`minimap` and `offscreen` have product consumers.
+`viewportInsets` describes edge bands, while `viewportOccluders` describes covered rectangles.
 
-The list of what remains unobserved shrank on 2026-08-27, and one entry on it was
-already wrong when written. **`snapshot` is driven**, and by a product path rather
-than a test: the conflict notice's "Keep mine" calls it to fork a canvas whose
-revision has gone stale, so what lands in the new document is exactly what the
-write loop would have saved. `getState` and `commands` are driven too — the app
-publishes the handle for console and agent use, which is how this session drove the
-canvas all day.
+### Stable geometry
 
-**`subscribe` is the one with no caller at all** — nothing in either package
-selects a slice through it, and persistence uses `subscribeDocument` instead, which
-exists precisely because `subscribe` cannot express a document. `getContextualCommands`
-is unused _as a handle method_; the capability under it is not, since the radial
-menu asks `getAvailableInfiniteCanvasContextualCommands` directly. That distinction
-is worth keeping rather than rounding off: the question a tier answers is whether
-the shipped path has been exercised, and a pure function reached another way is not
-the same path.
-
-`minimap` followed the same path on 2026-08-26. Its entry had read "landed
-2026-07-08. No minimap has been drawn in a browser" for seven weeks, which is a
-long time for a module to sit in the public surface untested by any design.
-Polkadot drew one, and both exported functions were driven:
-`getInfiniteCanvasMinimapLayout` placed windows and the viewport frame with the
-camera panned away from content, and `getInfiniteCanvasMinimapWorldPoint` turned
-a click into a camera move and a drag into continuous scrubbing.
-
-Consuming it also produced the finding that reading it never would: the map is a
-corner-sized surface, and `viewportInsets` can only describe it as a full-width
-band. Declaring the band overstates it; declaring a right inset loses a column
-down the whole viewport. Per-edge scalars cannot express a corner.
-
-That paragraph ended "recorded rather than acted on — one consumer is not enough
-to reshape a prop, and this is the second time this app has met that edge" until
-2026-08-27, when it was met a third time and measured: the band cost 168 of 900
-pixels, 19% of the viewport, to reserve room for a box covering about 1% of it.
-`viewportOccluders` is the shape that fits, and the incubator's bottom inset fell
-to 64 the day it landed. The rule the waiting produced is worth keeping even though
-the wait ended — a prop reshaped for one consumer is a guess; the third sighting
-is what turned it into a measurement.
-
-`offscreen` was **unobserved** until Polkadot drew its indicator ring and the
-arrows were watched tracking offscreen notes in a browser. It moved to stable the
-day that stopped being true, which is the only thing that should ever move an
-entry: these reasons are facts with expiry dates, not permanent labels.
-
-### What is deliberately _not_ experimental
-
-**Purity is not a stability reason and neither is size.** `scene-layer-geometry`,
-`spatial-target`, and `window-proxy` sound like 3D and are not: all three are
-pure-core roots — `verify-pure-core.mjs` proves none of them can reach `three` —
-and all three have consumers. They are stable, and they stay on the main entry,
-because a consumer drawing window connectors into an SVG overlay needs them with
-no 3D engine anywhere. Moving them behind `/scene` would force the 3D peers on
-someone who never asked for them.
+`scene-layer-geometry`, `spatial-target`, and `window-proxy` are pure modules with consumers.
+`geometry.ts` also remains in the main entry.
+`verify-pure-core.mjs` makes sure that they do not import `three`.
+They remain outside `/scene` so SVG overlays do not require the 3D peers.
 
 ## Components
 
-`InfiniteCanvasDesktop` is the one component most apps mount — a preset that
-supplies defaults and resolves policies around `InfiniteCanvasViewport`.
+`InfiniteCanvasDesktop` applies each `resolve*` default for `InfiniteCanvasViewport`.
+You can also compose the provider and viewport directly.
+`InfiniteCanvas.Viewport` uses the same completed policy values.
 
-**The parts compose without it**, which this file asserted for a month before it
-was true. Nine of `Viewport`'s props were required in their already-resolved
-form while every default and every `resolve*` call lived inside `Desktop`, so a
-"custom shell" had to re-implement `Desktop` to satisfy the component `Desktop`
-renders. Everything now defaults except `windowDefinitions`, which is genuinely
-required because a canvas cannot render a window kind it has never heard of:
+Direct composition does not require the `InfiniteCanvasDesktop` preset.
+`InfiniteCanvas` exposes the same components as namespace properties.
+Only `windowDefinitions` is required:
 
 ```tsx
 <InfiniteCanvasProvider initialState={state}>
@@ -136,10 +72,8 @@ required because a canvas cannot render a window kind it has never heard of:
 </InfiniteCanvasProvider>
 ```
 
-`compound-api.test.tsx` mounts exactly that and asserts windows and bodies
-render, so re-adding a required prop without a default breaks a test rather
-than a consumer. `InfiniteCanvas` is a namespace object bundling the same
-components — asserted identical, not a parallel set that could drift.
+`compound-api.test.tsx` covers this composition.
+`InfiniteCanvas` is a namespace object for the same components.
 
 **`infinite-canvas`**
 
@@ -156,104 +90,79 @@ components — asserted identical, not a parallel set that could drift.
 
 </details>
 
-## State & store
+## State and store
 
 The store adapts the pure reducer to Legend State signals.
-`InfiniteCanvasProvider` supplies it; the hooks read from it.
-`useInfiniteCanvasSelector` is the narrow subscription you want inside window
-bodies.
+`InfiniteCanvasProvider` supplies the store, and the hooks read it.
+Use `useInfiniteCanvasSelector` for a narrow subscription in a window body.
 
-**Declining chrome affordances.** A window may carry `capabilities` — `closable`,
-`maximizable`, `minimizable`, `resizable`, using AppKit's vocabulary rather than an
-invented one. Every field is optional and **absent means permitted**, so nothing
-existing changes and no persisted document needs migrating; read them through
-`isInfiniteCanvasWindowCapable`, which owns that default.
+A window can define `closable`, `maximizable`, `minimizable`, and `resizable` capabilities.
+Each field is optional, and an absent field permits the operation.
+`capabilities` uses the same default in the reducer and chrome.
+`isInfiniteCanvasWindowCapable` applies this default.
 
-They are enforced by the reducer, not merely respected by the chrome:
-`actions.closeWindow` on a `closable: false` window returns state unchanged, and
-`interaction.startResize` refuses an unresizable one exactly as it already refuses a
-grouped pane. An advisory flag would be a lie the UI tells. Withheld controls render
-`disabled` with `data-disabled` rather than disappearing, so the chrome keeps its
-shape; resize handles are withheld entirely, because an invisible hit target has no
-useful disabled state. A capability set to `true` is not serialized, since it means
-the same as absent and two canvases that behave alike should serialize alike.
+The reducer enforces each capability.
+`actions.closeWindow` returns unchanged state for a `closable: false` window.
+`interaction.startResize` refuses a window that does not permit resizing.
+Chrome controls remain present with `disabled` and `data-disabled`.
+Resize handles are absent for a window that does not permit resizing.
+Serialization omits a capability with the value `true` because absence has the same meaning.
 
 **`workspace`**
 
-Virtual desktops: a named set of windows with the camera and selection you left it at.
-Deliberately _not_ nested canvases — a canvas inside a canvas needs a second camera and a
-second input plane, which is a different program. Opt-in like groups: with no workspace
-active, nothing is filtered and a canvas behaves exactly as it did before they existed.
+Each workspace names a set of windows and stores its camera and selection.
+`workspace` operations manage the ordered `workspaces` list.
+If no workspace is active, the canvas shows all windows.
+A workspace switch stores the outgoing camera and selection. It then restores the incoming values.
 
-Switching saves the outgoing workspace's camera and selection and restores the incoming
-one's, which is why `activeWorkspaceId` and `workspaces` are part of the undo document while
-the camera is not — panning is not an edit, but changing which desktop you are on is.
+`activeWorkspaceId` and `workspaces` are part of the undo document.
+The top-level camera and selection remain view state. Each workspace stores its own camera and selection.
 
-- `findInfiniteCanvasWorkspace` — one workspace by id, or `null`.
+- `findInfiniteCanvasWorkspace`: Returns one workspace by ID, or `null`.
 
-The verbs are actions rather than exported functions, reached through
-`useInfiniteCanvasActions`. `reorderWorkspace({ toIndex, workspaceId })` moves a
-desktop within the list — `toIndex` is the position in the _final_ order, matching
-`reorderGroupChild`, and out-of-range values clamp rather than refuse because the
-caller is a drag: running past the end of a strip means "put it last". Until it
-existed, `workspaces` was ordered but nothing could reorder it, so a desktop stayed
-wherever creation happened to put it.
+`useInfiniteCanvasActions` provides the workspace operations.
+`reorderWorkspace({ toIndex, workspaceId })` moves a workspace to its final index.
+`toIndex` has the same final-order meaning as `reorderGroupChild`.
+An index outside the list is clamped.
 
-**`workspace-membership`** — the reader, kept apart from the verbs because `selection` needs
-it and `workspace` needs `selection`.
+**`workspace-membership`**
 
-- `getInfiniteCanvasWorkspaceWindowIds` — the ids the active workspace admits, or `null`
-  when none is active, which means "admits everything". Right for a render pass asking about
-  every window once.
-- `isInfiniteCanvasWindowInActiveWorkspace` — the same question about one window, without
-  building the set.
+- `getInfiniteCanvasWorkspaceWindowIds`: Returns the active workspace window IDs. When no workspace is active, it returns `null`.
+- `isInfiniteCanvasWindowInActiveWorkspace`: Reports whether one window is in the active workspace.
 
 <details><summary>types (1)</summary>
 
-- `InfiniteCanvasWorkspace` — `camera`, `id`, `selection`, `title`, `windowIds`.
+- `InfiniteCanvasWorkspace`: Contains `camera`, `id`, `selection`, `title`, and `windowIds`.
 
 </details>
 
 **`window-capabilities`**
 
-- `isInfiniteCanvasWindowCapable` — the one reader of a window's capabilities, owning the
-  "absent means permitted" default so the reducer, the command layer, the chrome, and a
-  consumer's replacement chrome cannot disagree about it.
+- `isInfiniteCanvasWindowCapable`: Reads one capability and treats an absent value as permitted.
 
 <details><summary>types (2)</summary>
 
-- `InfiniteCanvasWindowCapability` — one affordance: `"closable"`, `"maximizable"`,
-  `"minimizable"`, or `"resizable"`.
-- `InfiniteCanvasWindowCapabilities` — the optional set carried on a window; every field
-  may be omitted, and omission permits.
+- `InfiniteCanvasWindowCapability`: One of `"closable"`, `"maximizable"`, `"minimizable"`, or `"resizable"`.
+- `InfiniteCanvasWindowCapabilities`: The optional capability set for a window. An absent field permits its operation.
 
 </details>
 
-**Owning the store from outside.** `InfiniteCanvasProvider` takes either
-`initialState` or a `store` you built with `createInfiniteCanvasStore` — never both;
-supplying both is a compile error. Injecting one is how a parent reads, subscribes
-to, or drives a canvas it renders, and it is what makes `createInfiniteCanvasHandle`
-reachable at all: hold the store, and call the handle factory on it. Until
-2026-08-12 the provider always minted its own, so both of those exports were public
-and unusable, and the only way to reach the store was a child component that existed
-solely to read down into it.
+`InfiniteCanvasProvider` accepts either `initialState` or a `store` from `createInfiniteCanvasStore`.
+The two values together cause a compile error.
+An injected store gives the parent read, subscription, command, and handle access.
+Pass that store to `createInfiniteCanvasHandle` for a programmatic client.
 
-Persistence follows `storageKey`, not store ownership: an injected store with a
-`storageKey` is hydrated and persisted like any other, because wanting parent access
-is orthogonal to wanting the framework to persist. One difference — `onReset` can
-only be wired when a store is constructed, so a reset on an injected store is written
-by the ordinary debounce rather than flushed immediately. Pass `onReset` to
-`createInfiniteCanvasStore` yourself if you need that flush.
+`storageKey` enables persistence for internal and injected stores.
+Store ownership does not change `storageKey` behavior.
+For an immediate reset write, pass `onReset` to `createInfiniteCanvasStore`.
+Without `onReset`, the normal debounce writes the reset.
 
 **`store`**
 
 - `InfiniteCanvasProvider`
 - `createInfiniteCanvasStore`
 - `useInfiniteCanvasActions`
-- `useInfiniteCanvasSelectionBounds` — where the selection is, windows and
-  consumer targets together. Ask this rather than `selection.windowIds.length`
-  wherever a control frames or measures a selection, so the control and the
-  command behind it cannot disagree.
+- `useInfiniteCanvasSelectionBounds`: Returns bounds for selected windows and consumer targets.
 - `useInfiniteCanvasSelector`
 - `useInfiniteCanvasState`
 - `useInfiniteCanvasState$`
@@ -266,6 +175,8 @@ by the ordinary debounce rather than flushed immediately. Pass `onReset` to
 
 </details>
 
+When a control measures the full selection, use the selection bounds hook instead of `selection.windowIds.length`.
+
 **`state`**
 
 - `cloneInfiniteCanvasState`
@@ -273,10 +184,10 @@ by the ordinary debounce rather than flushed immediately. Pass `onReset` to
 
 ## Factories
 
-Construct canonical state without hand-filling volatile runtime fields.
-`defineInfiniteCanvasWindowRegistry` type-checks that every registry key equals
-its definition's `kind`. `getInfiniteCanvasWindowData` reads a window's opaque
-`data` payload through a type guard.
+Use these factories to construct canonical state.
+`defineInfiniteCanvasWindowRegistry` requires each registry key to equal its definition `kind`.
+`getInfiniteCanvasWindowData` reads an opaque `data` payload through a type guard.
+The registry input types each kind-specific `data` value before runtime erases it.
 
 **`factory`**
 
@@ -289,15 +200,14 @@ its definition's `kind`. `getInfiniteCanvasWindowData` reads a window's opaque
 
 - `InfiniteCanvasStateInput`
 - `InfiniteCanvasWindowInput`
-- `InfiniteCanvasWindowRegistryInput` — types each kind's `data` while the registry literal is written, then erases it
+- `InfiniteCanvasWindowRegistryInput`: Types each `data` value while you define the registry. Runtime state erases this type.
 
 </details>
 
 ## Registry
 
-Validate and normalize state against a window registry.
-`recoverInfiniteCanvasStateForWindowRegistry` drops windows whose `kind` no
-longer exists — how stale persisted layouts are made safe.
+These functions validate and normalize state against a window registry.
+`recoverInfiniteCanvasStateForWindowRegistry` removes windows with an unknown `kind`.
 
 **`registry`**
 
@@ -309,11 +219,11 @@ longer exists — how stale persisted layouts are made safe.
 - `normalizeInfiniteCanvasStateForWindowRegistry`
 - `recoverInfiniteCanvasStateForWindowRegistry`
 
-## Commands & keyboard
+## Commands and keyboard
 
-Every layout mutation resolves through a named command, so pointer, keyboard, UI
-buttons, and programmatic drivers share one mutation path.
-`getInfiniteCanvasContextualCommands` answers "what can be done right now".
+Every layout change uses a named command.
+Pointer input, keyboard input, controls, and programmatic clients share this command path.
+`getInfiniteCanvasContextualCommands` returns the commands that are available for the current state.
 
 **`commands`**
 
@@ -325,26 +235,23 @@ buttons, and programmatic drivers share one mutation path.
 - `getInfiniteCanvasHotkeyBindings`
 - `isInfiniteCanvasCommandEnabled`
 
-**`contextual-entries`** — the canvas's verbs and a consumer's, in one list
+**`contextual-entries`**
 
-A consumer's own verbs reach the keyboard through `hotkeyActions` and nothing else, so every
-surface that offers verbs — a palette, a context menu, a tool registry — had to merge two
-vocabularies itself and police id collisions by hand.
-`getInfiniteCanvasContextualEntries` returns both, resolving each consumer verb's `isEnabled`
-against live state and binding every entry's `run` — a canvas verb routes through the reducer and a
-consumer verb does not, which is the merge's to know rather than each caller's to branch on. Takes
-the same `hotkeyActions` array the viewport does. A consumer verb sharing an id with a canvas
-command replaces it, and only canvas entries carry `group`.
+`getInfiniteCanvasContextualEntries` combines canvas commands with consumer `hotkeyActions`.
+It evaluates each `isEnabled` function against current state and binds each `run` function.
+A consumer action replaces a canvas command with the same ID.
+Only canvas entries have a `group`.
+`isInfiniteCanvasCommandEnabled` controls canvas commands, while `hotkeyActions` supplies consumer actions.
 
 - `getInfiniteCanvasContextualEntries`
 
 <details><summary>types (1)</summary>
 
-- `InfiniteCanvasContextualEntry` — id, label, description, enablement, hotkeys and a bound `run`
+- `InfiniteCanvasContextualEntry`: Contains an ID, label, description, enablement, hotkeys, and a bound `run` function.
 
 </details>
 
-**`group-tree`** — the n-ary container tree a group shell owns
+**`group-tree`**
 
 - `createInfiniteCanvasGroupWindowNode`, `dockInfiniteCanvasGroupWindow`, `undockInfiniteCanvasGroupWindow`
 - `findInfiniteCanvasGroupNode`, `getInfiniteCanvasGroupParent`, `getInfiniteCanvasGroupWindowIds`
@@ -354,24 +261,25 @@ command replaces it, and only canvas entries carry `group`.
 
 - `InfiniteCanvasGroupAxis`
 - `InfiniteCanvasGroupContainerNode`
-- `InfiniteCanvasGroupLayoutMode` — `"accordion" | "split" | "tabs"`
+- `InfiniteCanvasGroupLayoutMode`: `"accordion" | "split" | "tabs"`
 - `InfiniteCanvasGroupNode`
 - `InfiniteCanvasGroupWindowNode`
 
 </details>
 
-**`group-layout`** — solving that tree into rects
+**`group-layout`**
 
-- `getInfiniteCanvasGroupLayout` — tree + shell rect → window rects, gutters, tab strips, accordion headers
-- `getInfiniteCanvasGroupDockEdgeAtPoint` — which edge a pointer docks against, from a _model_ rect
-- `getInfiniteCanvasGroupGutterWeights` — the reweighting a gutter drag produces
-- `getInfiniteCanvasGroupMinimumSize` — the smallest rect a tree solves into: gutters, strips, headers, panes. **Not** a member's `minSize`, which the solver has never consulted. Pass the metrics you laid the shell out with, and hand the result to `startGroupResize`
-- `resolveInfiniteCanvasGroupMetrics` — a partial to the three sizes, mirroring
-  `resolveInfiniteCanvasZoomPolicy` and `resolveInfiniteCanvasChromeMetrics`. Set them through the
-  desktop's `groupMetrics` prop, which lands in `state.groupMetrics`: the reducer places member
-  windows from that same value, so chrome cannot be drawn at a height the panes were not placed
-  for. Field by field rather than a spread, so an explicit `undefined` does not erase a default
+- `getInfiniteCanvasGroupLayout`: Converts a tree and shell rectangle into window rectangles, gutters, tab strips, and accordion headers.
+- `getInfiniteCanvasGroupDockEdgeAtPoint`: Returns the dock edge at a point in a model rectangle.
+- `getInfiniteCanvasGroupGutterWeights`: Returns the weights from a gutter drag.
+- `getInfiniteCanvasGroupMinimumSize`: Returns the smallest size for gutters, strips, headers, and panes. It does not use member `minSize` values.
+- `resolveInfiniteCanvasGroupMetrics`: Completes a partial `groupMetrics` value. The reducer and chrome use the result from `state.groupMetrics`.
 - `DEFAULT_INFINITE_CANVAS_GROUP_METRICS`, `MINIMUM_GROUP_PANE_EXTENT`
+
+Pass the minimum size to `startGroupResize`.
+This result does not clamp against a member `minSize`.
+This resolver follows `resolveInfiniteCanvasZoomPolicy` and `resolveInfiniteCanvasChromeMetrics`.
+An explicit `undefined` value does not erase a default.
 
 <details><summary>types (6)</summary>
 
@@ -384,50 +292,36 @@ command replaces it, and only canvas entries carry `group`.
 
 </details>
 
-**`group-state`** — groups projected onto canvas state
+**`group-state`**
 
 - `findInfiniteCanvasGroup`, `getInfiniteCanvasWindowGroup`, `isInfiniteCanvasWindowGrouped`
 - `getInfiniteCanvasGroupedWindowIds`, `getInfiniteCanvasGroupProjection`, `reconcileInfiniteCanvasGroups`
-- `getInfiniteCanvasGroupableWindowIds` — which of these windows `createInfiniteCanvasGroup` would
-  actually take, in the order given. The rule it already applies — missing, minimized, or already in
-  another group is dropped rather than stolen — asked before dispatching rather than discovered
-  after. A "group these" control that counts its own selection instead offers itself when nothing
-  would happen: two panes of one shell are both dropped, no members survive, and the call returns the
-  identical state while the control reports success.
-- `getInfiniteCanvasGroupTitle` — what a group is called: the name somebody gave it, or, when
-  `title` is `null`, a name composed from the windows it currently holds. **The one read for a
-  group's name.** A group's `title` was a plain `string` snapshotted at creation, which made a
-  derived name and a chosen one the same thing the moment it was written — so a group kept naming a
-  window that had left, and kept a member's old name after a rename, because nothing downstream
-  could tell whether refreshing it would destroy something a user typed. `null` costs no extra
-  field and cannot fall out of sync with a flag: derived names are computed on read and follow
-  membership for free, given names are returned untouched. A persisted string reads as _given_,
-  which is the conservative direction
-- `DEFAULT_INFINITE_CANVAS_GROUP_TITLE` — what a group is called when it holds nothing to name it
-  after. `title === null` — not a comparison against this string — is how a consumer tells an
-  unnamed group from a named one, which is the difference between offering "Name this group" and
-  offering "Rename"
-- `getInfiniteCanvasGroupTabLabel` — what a tab or accordion header is called: the window's
-  `title`, or for a nested tabs/accordion container whatever it is currently showing. A split has
-  no single occupant and takes the group's title. Pass `groupTabLabel` to the desktop to replace
-  it — label by kind, by a domain record the window's `data` points at, by anything.
+- `getInfiniteCanvasGroupableWindowIds`: Returns eligible window IDs in input order. It omits missing, minimized, and grouped windows.
+- `getInfiniteCanvasGroupTitle`: Returns a supplied title. If `title` is `null`, it derives a title from current members.
+- `DEFAULT_INFINITE_CANVAS_GROUP_TITLE`: Names an empty group. Use `title === null` to distinguish a derived title from a supplied title.
+- `getInfiniteCanvasGroupTabLabel`: Returns a window title or the visible child label. A split container uses the group title.
+
+This helper applies the same eligibility rules as `createInfiniteCanvasGroup`.
+A persisted `string` value in `title` remains a supplied title.
+A `title` value of `null` requests a derived title.
+Pass `groupTabLabel` to replace the default tab label.
 
 <details><summary>types (5)</summary>
 
 - `InfiniteCanvasDockPreview`
-- `InfiniteCanvasGroup` — a group shell: a world object owning a local layout
+- `InfiniteCanvasGroup`: A world object that owns a local layout.
 - `InfiniteCanvasGroupProjection`
-- `InfiniteCanvasGroupTabLabel` — the `groupTabLabel` prop's signature
-- `InfiniteCanvasGroupTabLabelContext` — the child being named, its group, and the canvas's windows
+- `InfiniteCanvasGroupTabLabel`: The signature of the `groupTabLabel` prop.
+- `InfiniteCanvasGroupTabLabelContext`: The child, its group, and the canvas windows.
 
 </details>
 
 **`window-focus`**
 
-- `getInfiniteCanvasDirectionalFocusTarget` — the window an arrow key moves focus to; searches the group's own members first (FOCUS-001), and a floating window's contextual parent (FOCUS-002)
-- `getInfiniteCanvasContextualGroup` — the smallest group whose rect contains a point. A floating window over a shell belongs to it for keyboard purposes, so floating windows need no separate keyboard model
-- `getInfiniteCanvasWindowNearestCameraCenter` — the keyboard's way into an unfocused canvas
-- `isInfiniteCanvasWindowFullyVisible` — whether focusing a window should also move the camera
+- `getInfiniteCanvasDirectionalFocusTarget`: Finds a focus target. It searches group members first, then the contextual group of a floating window.
+- `getInfiniteCanvasContextualGroup`: Returns the smallest group that contains a point.
+- `getInfiniteCanvasWindowNearestCameraCenter`: Returns the window nearest the camera center.
+- `isInfiniteCanvasWindowFullyVisible`: Reports whether focus can change without camera movement.
 
 <details><summary>types (1)</summary>
 
@@ -435,125 +329,93 @@ command replaces it, and only canvas entries carry `group`.
 
 </details>
 
-**`detail-level`** — what a window shows when it is too small to read (semantic LOD)
+**`detail-level`**
 
-The readability half of P7, and independent of the capture lane it was long filed beside.
-Rasterization cannot solve this and never could: **a rasterized paragraph is still a
-paragraph**, only blurrier. At far zoom a window has to say something _different_ — a title, an
-icon, a count — not the same thing smaller.
+Detail levels replace unreadable window content with a consumer summary.
+Rasterization changes the image but does not change its information.
 
-- `getInfiniteCanvasWindowDetailLevel` — rect + zoom + previous level → `"full" | "summary"`.
-- `DEFAULT_INFINITE_CANVAS_DETAIL_POLICY` — demote below 180 screen px, restore above 240.
+- `getInfiniteCanvasWindowDetailLevel`: Uses the rectangle, zoom, and previous level to return `"full" | "summary"`.
+- `DEFAULT_INFINITE_CANVAS_DETAIL_POLICY`: Uses summary below 180 screen pixels and full content above 240 screen pixels.
 
-The threshold is on **effective screen size, not zoom**. Zoom belongs to the camera and
-readability belongs to the window: at 20% zoom a 200px window is 40px and illegible while a
-1200px window is 240px and fine. Thresholding on zoom would demote both or neither.
+The policy uses effective screen size instead of zoom.
+The gap between thresholds supplies hysteresis.
+`previousLevel` supplies the current level while the size remains inside that gap.
 
-The gap between the two thresholds is a **hysteresis band**, and it is not optional — zoom is
-continuous, so a window sitting at a single threshold would flicker between its body and its
-summary for every pixel of zoom. The snap resolver carries hysteresis for exactly this reason.
-`previousLevel` is how the band works while the function stays pure: the caller holds the last
-answer and hands it back.
-
-Opt in per window kind with `renderSummary` on the definition. **A kind that declares none
-always renders its body at any zoom** — the framework cannot invent a meaningful summary for
-content it does not understand, and a generic one would be worse than small text, which at
-least still says what it says.
+Add `renderSummary` to a window definition to enable summaries for that kind.
+A window definition without a summary renderer always renders its body.
 
 <details><summary>types (2)</summary>
 
-- `InfiniteCanvasDetailLevel` — `"full" | "summary"`
-- `InfiniteCanvasDetailPolicy` — `summaryBelowPx`, `fullAbovePx`
+- `InfiniteCanvasDetailLevel`: `"full" | "summary"`
+- `InfiniteCanvasDetailPolicy`: `summaryBelowPx` and `fullAbovePx`.
 
 </details>
 
-**`window-arrange`** — aligning and distributing a set of windows
+**`window-arrange`**
 
-Sibling to `window-placement`, and the distinction is load-bearing: placement answers "where
-does _one_ window go inside a region", arrange answers "how do _these_ windows relate to each
-other". Alignment is relative to the windows' **own collective bounds**, never the viewport —
-aligning three windows left means "share the leftmost one's left edge", not "go to the left of
-the screen", which is `window.place`.
+Arrange functions align or distribute windows within their collective bounds.
+They translate rectangles without resizing them and preserve input order.
+They do not change a window size or its `minSize` constraint.
 
-- `getInfiniteCanvasAlignedRects` — rects + alignment → rects sharing an edge or centreline.
-- `getInfiniteCanvasDistributedRects` — rects + axis → rects with even **gaps**, holding the
-  outermost two still. Equal gaps rather than equal centres: with rects of differing size the
-  two differ, and equal gaps is what every design tool means by "distribute".
-- `getInfiniteCanvasSwappedRects` — exactly two rects trade **centres**, each keeping its own
-  size. Exchanging corners is the tiling-manager convention, but these windows float at
-  arbitrary sizes, so corner-swapping lands the smaller one somewhere nobody pointed at; for
-  equal sizes the two are identical. Fewer or more than two rects pass through unchanged,
-  which is what keeps the command unavailable rather than guessing a pair.
+- `getInfiniteCanvasAlignedRects`: Returns rectangles that share the selected edge or centerline.
+- `getInfiniteCanvasDistributedRects`: Returns rectangles with equal gaps and fixed outer rectangles.
+- `getInfiniteCanvasSwappedRects`: Exchanges the centers of exactly two rectangles. Each rectangle keeps its size.
 
-**These translate and never resize**, which is what makes them safe: a window cannot be pushed
-below its `minSize` by an arrange, so there is no clamping pass and no constraint to violate.
-Order in equals order out, so a caller pairing rects with window ids by index stays correct.
+With a different rectangle count, `getInfiniteCanvasSwappedRects` returns the input unchanged.
 
-Driven by the `window.align` and `window.distribute` commands, which act on the **selection**
-and ship with **no default chords** — eight commands would need eight chords, the unclaimed
-space is nearly exhausted, and design tools do not agree on bindings for these anyway. Bind
-them through `hotkeyBindings`, or put them in a toolbar. Grouped windows are skipped, as
-`window.place` refuses one, because a member's rect is its group's projection.
-
-They are one-shot commands, **not a layout mode**: a canvas that keeps windows aligned as they
-move is a tiling manager, which risk R5 exists to prevent.
+`window.align` and `window.distribute` operate on the selection.
+They omit grouped windows and have no default keyboard chords.
+Use `hotkeyBindings` or a control to expose them.
+These commands make one-time changes. They do not create a persistent layout mode.
 
 <details><summary>types (2)</summary>
 
-- `InfiniteCanvasAlignment` — `"left" | "right" | "top" | "bottom" | "horizontal-center" | "vertical-center"`
-- `InfiniteCanvasDistribution` — `"horizontal" | "vertical"`
+- `InfiniteCanvasAlignment`: `"left" | "right" | "top" | "bottom" | "horizontal-center" | "vertical-center"`
+- `InfiniteCanvasDistribution`: `"horizontal" | "vertical"`
 
 </details>
 
-**`window-placement`** — where a tiling shortcut puts a window (FOCUS-003)
+**`window-placement`**
 
-- `getInfiniteCanvasWindowPlacementRect` — bounds + region + size → rect. The only thing that
-  knows what "left half" means, so pointer and keyboard cannot disagree. **Placement never
-  snaps**: a left half nudged to align with its neighbour is no longer a left half, and the
-  shortcut pressed twice would give two different rects.
-- `getInfiniteCanvasVacantRect` — `{ bounds, occupied, preferred, gapPx? }` → the nearest rect of
-  the same size that overlaps nothing, or `preferred` unchanged when it is already clear or when
-  `bounds` has no room at all. **Where a new window wants to be stays the consumer's policy**; this
-  answers only whether that spot is free. A cascade is a bounded desktop's answer — it offsets by
-  the _count_ of windows and so never learns where any of them are, which on an infinite canvas
-  means overlapping while empty space sits one screen away. Falling back to `preferred` rather than
-  placing outside `bounds` is deliberate: a window put out of view to avoid an overlap is the "did
-  it open?" failure.
+- `getInfiniteCanvasWindowPlacementRect`: Places one size within a region of the supplied bounds. Placement does not snap.
+- `getInfiniteCanvasVacantRect`: Finds the nearest clear rectangle of the same size. If no bounded space is available, it returns `preferred`.
 
-Driven by the `window.place` command (`Mod+Shift+Arrow` for halves, `Mod+Shift+Enter` to fill).
-Centring and the quarters have no default chord and stay dispatchable by region: the canvas
-`preventDefault()`s any chord it owns, and the obvious centring keys (`Mod+Alt+C`,
-`Mod+Shift+C`) open browser devtools. `Mod+Alt+Arrow` switches browser tabs on macOS and is not
-page-cancellable, so it is not bound either. The command acts on the **active** window, not the
-selection — tiling three selected windows into one rect buries two of them — and refuses a
-grouped window, whose rect belongs to its tree.
+`window-placement` places one window within a region.
+The function accepts `{ bounds, occupied, preferred, gapPx? }`.
+If that rectangle is clear or `bounds` has no room, the function returns `preferred`.
+The function never places a rectangle outside `bounds`.
+
+The `window.place` command uses `Mod+Shift+Arrow` for halves and `Mod+Shift+Enter` for fill.
+`window.place` defines the shared placement policy.
+Center and quarter regions have no default chord.
+
+`preventDefault()` consumes each owned chord.
+`Mod+Alt+C` and `Mod+Shift+C` open browser developer tools, so the default map omits them.
+`Mod+Alt+Arrow` changes browser tabs on macOS, so the default map omits it.
+The command operates on the active window and refuses a grouped window.
 
 <details><summary>types (1)</summary>
 
-- `InfiniteCanvasWindowPlacementRegion` — `"left" | "right" | "top" | "bottom"`, the four
-  quarters, `"fill"`, `"center"`
+- `InfiniteCanvasWindowPlacementRegion`: Halves, quarters, `"fill"`, and `"center"`.
+
+The half regions are `"left" | "right" | "top" | "bottom"`.
 
 </details>
 
-**`minimap`** — a world overview, as geometry rather than as a widget
+**`minimap`**
 
-An infinite canvas has a failure mode nothing bounded does: you can pan into empty space and
-lose everything. Fit-all, directional focus, and recipes all recover you _after_ you are lost;
-an overview is the only affordance that answers "where is everything, and where am I in it"
-continuously. This module computes it and draws nothing — a minimap is almost entirely a
-projection problem, and the projection is the part a consumer cannot easily get right.
+This module returns minimap geometry and draws no user interface.
+`getInfiniteCanvasMinimapLayout` accepts `(state, size, options?)`.
+`getInfiniteCanvasMinimapWorldPoint` accepts `(layout, minimapPoint)`.
 
-- `getInfiniteCanvasMinimapLayout` — `(state, size, options?)`. Windows, groups, and the
-  camera's visible rect, projected into a box of `size` pixels. Uniform scale on both axes; the
-  camera's rect is **unioned into the bounds**, so panning away from every window shrinks the
-  content rather than pushing the viewport indicator out of the box. Returns `null` for an
-  unmeasured viewport or an empty canvas: rendering nothing beats rendering a degenerate
-  projection.
-- `getInfiniteCanvasMinimapWorldPoint` — `(layout, minimapPoint)`. The exact inverse, for
-  click-to-navigate. Hand the result to `navigateToPoint`.
+- `getInfiniteCanvasMinimapLayout`: Projects visible windows, groups, and the camera rectangle into a box. It uses one scale for both axes.
+- `getInfiniteCanvasMinimapWorldPoint`: Converts a minimap point to its world point.
 
-Windows behind an inactive tab or a collapsed fold are omitted, as are minimized ones: an
-overview is a map of what is on screen to be found.
+The layout includes the camera rectangle in the bounds.
+The `size` value sets the minimap pixel box.
+It returns `null` for an unmeasured viewport or an empty canvas.
+It omits minimized windows and content hidden by a tab or collapsed accordion.
+Pass the converted point to `navigateToPoint`.
 
 <details><summary>types (4)</summary>
 
@@ -564,28 +426,17 @@ overview is a map of what is on screen to be found.
 
 </details>
 
-**`offscreen`** — edge indicators for what has fallen off the viewport
+**`offscreen`**
 
-The minimap answers "where am I?" — you look at it. This answers "where did my window go?" — you
-don't. Peripheral rather than central, and on an infinite canvas both halves are load-bearing: a
-bounded document can only scroll, so a lost window is always one `Home` away. Here it can be
-anywhere, and fit-all is a blunt instrument that moves the camera off everything else to find one
-thing.
+- `getInfiniteCanvasOffscreenIndicators`: Returns offscreen targets from nearest to farthest.
 
-- `getInfiniteCanvasOffscreenIndicators` — `(state, options?)`. Every drawn thing that does not
-  overlap the viewport, nearest first, each with the `point` on the inset viewport edge where an
-  arrow belongs, the `angle` to rotate it by (radians, clockwise, `0` is right), the
-  `distancePx` it sorts on, and the `rect` to navigate to.
+The function accepts `(state, options?)`.
 
-A **group is one indicator, not one per pane** — four panes docked together share a bearing and a
-distance, and four arrows on one pixel is not information. Minimized windows are omitted; windows
-hidden behind a tab are omitted individually and counted through their group, which is the thing
-you would navigate to.
-
-`options.limit` is unbounded by default. A hundred and sixty windows means a hundred and forty
-arrows, which is a border rather than a hint — but only the consumer knows how big their canvas
-is, and a consumer who caps should say so, because a silent cap reads as "that's everything" when
-it isn't.
+Each result has an edge `point`, clockwise `angle`, `distancePx`, and navigation `rect`.
+The angle uses radians, and `0` points right.
+A group produces one indicator for its shell.
+The function omits minimized windows and members hidden by their group.
+`options.limit` has no default limit.
 
 <details><summary>types (3)</summary>
 
@@ -598,35 +449,30 @@ it isn't.
 **`keyboard`**
 
 - `focusInfiniteCanvasCommandSurface`
-- `focusInfiniteCanvasCommandSurfaceFrom` — hand the keyboard back to the canvas from any element
-  inside it. Hotkeys only fire for events landing in the command surface, so chrome that takes
-  focus and does not return it leaves focus on `<body>`, where every shortcut silently stops
-  working. The counterpart to `focusInfiniteCanvasCommandSurface`, which needs the surface element
-  and therefore needs the consumer to know this framework's DOM contract.
-- `registerInfiniteCanvasHotkeys` — bind the canvas's own commands, and any verbs the consumer
-  claims, to one keyboard scope. `bindings` **replaces** the default keymap; `actions` is **added**
-  to it. That asymmetry is the API: swapping the whole keymap is a coherent thing to want, losing
-  it because you wanted one more chord is not.
+- `focusInfiniteCanvasCommandSurfaceFrom`: Returns focus from a child element to its canvas command surface.
+- `registerInfiniteCanvasHotkeys`: Registers canvas commands and consumer actions in one keyboard scope.
 - `shouldHandleInfiniteCanvasKeyboardEvent`
+
+`bindings` replaces the default keymap.
+`actions` adds consumer actions to the keymap.
+`focusInfiniteCanvasCommandSurface` requires the command surface element.
+Without focus restoration, chrome can leave focus on `<body>`.
 
 <details><summary>types (2)</summary>
 
-- `InfiniteCanvasHotkeyAction` — a chord a consumer claims for a verb this canvas does not have.
-  The canvas can already hold a consumer's own objects and select them — `spatialTargetResolvers`
-  resolves a pointer to one, `selection.targets` holds it — and knows nothing about what they are,
-  so it can offer no verb over them. Supply `hotkeys`, a `run(state)`, and an `isEnabled(state)`
-  when the verb only sometimes applies; the command surface, the exclusion list, and the swallow
-  rule stay the framework's. Distinct from `InfiniteCanvasHotkeyBinding`, which re-chords a command
-  the canvas already owns and is gated by `isInfiniteCanvasCommandEnabled`.
+- `InfiniteCanvasHotkeyAction`: Defines `hotkeys`, `run(state)`, and optional `isEnabled(state)` for a consumer action.
 - `InfiniteCanvasHotkeyRegistrationInput`
+
+`spatialTargetResolvers` identifies a consumer object, and `selection.targets` stores its selection.
+`InfiniteCanvasHotkeyBinding` changes the chord of a canvas command.
 
 </details>
 
 ## Selection
 
-Selection is explicit state, distinct from focus. Window ids and typed non-
-window targets (scene objects, edges) are both first-class. All functions are
-pure.
+Selection is explicit state and is separate from focus.
+It contains window IDs and typed targets for scene objects or edges.
+All selection functions are pure.
 
 **`selection`**
 
@@ -657,8 +503,8 @@ pure.
 
 ## Camera navigation
 
-Frame a window, the selection, all visible windows, a world point, or an
-arbitrary rect, with `center`, `centerAtZoom`, or `fit` behaviour.
+These functions frame a window, selection, visible windows, world point, or rectangle.
+The available behaviors are `center`, `centerAtZoom`, and `fit`.
 
 **`camera-navigation`**
 
@@ -672,21 +518,13 @@ arbitrary rect, with `center`, `centerAtZoom`, or `fit` behaviour.
 
 ## Geometry helpers
 
-Pure projection and rect maths that consumer overlays and scene layers
-legitimately need, plus the default policies.
+These pure functions project points and rectangles for consumer overlays and scene layers.
 
 **`geometry`**
 
 - `getInfiniteCanvasContentViewport`
 - `getInfiniteCanvasContentWorldRect`
-- `getInfiniteCanvasOccluderWorldRects` — where the consumer's in-content chrome falls in the
-  world. **Insets cannot express a corner**: one number per edge describes a band, so a minimap in
-  a corner has to be overstated as a full-width strip or left undeclared. The incubator measured
-  that at 168 of 900 pixels — 19% of the viewport reserved for a box covering about 1% of it.
-  Screen rects in, world rects out, so the result drops into the `occupied` list
-  `getInfiniteCanvasVacantRect` already takes: chrome the camera flies over is an occupant, not an
-  edge. Deliberately not used for framing — a corner should not shrink the rect the camera fills,
-  which would reintroduce the same overstatement one layer down
+- `getInfiniteCanvasOccluderWorldRects`: Converts screen occluder rectangles to world rectangles for the `occupied` input of `getInfiniteCanvasVacantRect`.
 - `getRectCenter`
 - `getVisibleWorldRect`
 - `isUsableViewport`
@@ -698,6 +536,8 @@ legitimately need, plus the default policies.
 - `worldPointToScreenPoint`
 - `worldRectToScreenRect`
 
+Camera framing ignores these occluders because a corner occluder must not shrink the full frame target.
+
 **`constants`**
 
 - `DEFAULT_INFINITE_CANVAS_INPUT_POLICY`
@@ -707,28 +547,19 @@ legitimately need, plus the default policies.
 - `resolveInfiniteCanvasChromeMetrics`
 - `resolveInfiniteCanvasZoomPolicy`
 
-`resolveInfiniteCanvasChromeMetrics` merges a partial chrome override with the
-defaults, exactly as `InfiniteCanvas.Viewport` does with its `chrome` prop. Pass
-its result to `resolveInfiniteCanvasSpatialTarget`, which requires complete
-metrics: a consumer that overrides one metric on the viewport and then spreads
-the defaults by hand at each hit-test call site will drift from what the viewport
-draws the moment a metric is added.
+`resolveInfiniteCanvasChromeMetrics` completes a partial `chrome` value with the viewport defaults.
+Pass its result to `resolveInfiniteCanvasSpatialTarget`, which requires complete metrics.
 
-Two of its six metrics are **screen** pixels and the rest are world units.
-`resizeHandleSize` holds a screen size so a grab target stays hittable as the
-camera pulls back; `groupLabelSize` holds one so a group's name stays _readable_
-when the panes inside it no longer are — a legend sized in world units goes
-illegible exactly when it becomes the only thing worth reading. Set
-`groupLabelSize: 0` to draw no label. Group tab strips and accordion headers are
-deliberately the other way round: they are hit targets sized against the panes
-they head, so they stay in world units and shrink with the group.
+`resizeHandleSize` and `groupLabelSize` use screen pixels.
+The other four metrics use world units.
+Set `groupLabelSize: 0` to hide the label.
+Group tab strips and accordion headers use world units.
 
 **`activity`**
 
-What the canvas is _doing_, for chrome that must respond to it — distinct from
-`getInfiniteCanvasPointerMode`, which is the tool the user selected and does not change when a
-drag begins. `isInfiniteCanvasActivityTransient` separates the states that last only while a
-pointer is down, which is when chrome should recede.
+The activity value describes the current canvas operation.
+`getInfiniteCanvasPointerMode` returns the selected tool.
+`isInfiniteCanvasActivityTransient` reports whether the activity lasts only while a pointer is down.
 
 - `getInfiniteCanvasActivity`
 - `isInfiniteCanvasActivityTransient`
@@ -744,12 +575,9 @@ pointer is down, which is when chrome should recede.
 
 ## Connection authoring
 
-Dragging from one window to another to declare a relationship between them. The
-framework owns the gesture — where the handles sit, when they appear, when they
-must not disappear, and what the far end is at this instant — because all of it
-is a question about windows and a camera. A consumer supplies only whether a
-given pair may be joined and what to write when it is; nothing here knows what a
-connection means.
+These functions support a connection drag between two windows.
+The framework controls handle placement, handle visibility, and the live target.
+The consumer decides whether the connection is valid and writes its domain value.
 
 **`window-connection`**
 
@@ -768,24 +596,16 @@ connection means.
 
 </details>
 
-`getInfiniteCanvasConnectionAffordanceWindowId` is the one that is easy to get
-wrong. Handles sit _outside_ a window, so visibility driven by "is the pointer
-over the window" makes them vanish the instant anyone moves toward one — the
-pointer leaves the rect on its way to the thing the rect revealed. Pass the
-previously-showing window back in on every pointer move: the affordance is held
-while the pointer is anywhere in the ring the handles occupy, and handed over
-only when the pointer is properly inside a different window, so a neighbour
-cannot steal it mid-reach.
+Pass the previous window to `getInfiniteCanvasConnectionAffordanceWindowId` during each pointer move.
+The function keeps handles visible while the pointer is in their outer ring.
+It changes the window only after the pointer enters another window.
 
-`getInfiniteCanvasConnectionPreviewPath` accepts a point or a rect as its far
-end and routes both identically, so the line shown during a drag is the line
-that will be committed rather than one that resembles it.
+`getInfiniteCanvasConnectionPreviewPath` accepts a point or rectangle as the far endpoint.
+Both inputs use the same route logic.
 
 ## Scene layer helpers
 
-For `sceneLayers` content: projected window proxies, connector paths and
-orthogonal routes, world-segment scene transforms, frustum visibility. Prefer
-these over hand-rolled path maths.
+These helpers provide window proxies, connector routes, scene transforms, and frustum visibility for `sceneLayers`.
 
 **`scene-layer-geometry`**
 
@@ -844,9 +664,8 @@ these over hand-rolled path maths.
 
 ## Spatial targeting
 
-One answer to "what is under this pointer or drop point?" across windows, window
-areas, resize handles, empty world, and consumer-provided overlays, scene
-objects, and edges.
+These resolvers find the target under a pointer or drop point.
+Targets can include windows, window areas, handles, empty space, overlays, scene objects, and edges.
 
 **`spatial-target`**
 
@@ -854,13 +673,8 @@ objects, and edges.
 - `createInfiniteCanvasOverlayTargetResolver`
 - `createInfiniteCanvasSceneObjectTargetResolver`
 - `getInfiniteCanvasSelectableTargetFromSpatialTarget`
-- `getInfiniteCanvasSelectionBounds` — everything the selection covers: the
-  windows, plus the edges and scene objects the resolvers can place. This is what
-  "fit the selection" means once a selection can hold things that are not
-  windows. With no resolvers it equals `getSelectedWindowBounds`.
-- `getInfiniteCanvasSelectionTargetBounds` — the non-window half alone. A target
-  no resolver answers for contributes nothing, which covers both an unmounted
-  resolver and an object that has been removed.
+- `getInfiniteCanvasSelectionBounds`: Returns bounds for selected windows and targets. Without target resolvers, it equals `getSelectedWindowBounds`.
+- `getInfiniteCanvasSelectionTargetBounds`: Returns bounds for selected non-window targets. It omits a target without a resolver.
 - `resolveInfiniteCanvasSpatialTarget`
 
 <details><summary>types (6)</summary>
@@ -874,27 +688,19 @@ objects, and edges.
 
 </details>
 
-## Drag & drop
+## Drag and drop
 
-Typed, opaque payloads threaded through validation and commit.
-`getInfiniteCanvasDropPlacement` is the canonical pointer-anchored, snap-
-integrated placement shared by a drag preview and its commit.
+The drop policy carries a typed opaque payload through validation and commit.
+`getInfiniteCanvasDropPlacement` gives the preview and commit the same snapped placement.
 
-Drags from outside the page arrive through the same policy. The viewport listens
-for the native drag events on its own element and translates them into the
-interaction the pointer path already produces, so `canDrop`, `placement`,
-snapping, the guides, and the preview an overlay draws from `drag` all behave
-identically — a consumer writes no coordinate maths and no second placement. The
-payload for those is supplied by the framework rather than the consumer, since
-nobody starts an OS drag: widen your own payload with
-`InfiniteCanvasNativeDropPayload` and narrow on `payload.type`, which is
-`"files"` for a file drag and `"text"` for a dragged link or selection.
+Native and internal drags use the same `canDrop`, `placement`, guide, and preview paths.
+The framework sends each described drag to `canDrop`.
+The `drag` state supplies the overlay preview.
+The browser exposes only `types` before a native drop.
 
-The bridge does not decide which drags are interesting. Anything it can describe
-reaches `canDrop`, which refuses the rest in flight — from `types` alone, since
-the browser withholds contents until the drop. A drag it can describe nothing of
-is left alone entirely, so a canvas never takes the browser's own handling away
-from a page.
+Add `InfiniteCanvasNativeDropPayload` to the consumer payload type.
+Then narrow `payload.type` to `"files"` or `"text"`.
+The browser keeps control of a native drag that the framework cannot describe.
 
 **`drop-interaction`**
 
@@ -916,19 +722,18 @@ from a page.
 
 **`native-drop`**
 
-Reading a drag that started outside the page. The viewport uses this internally;
-it is public for a consumer wiring drops onto its own surface — a library rail, a
-sidebar — rather than onto the canvas. `null` means the drag carries nothing
-describable and should be left to the browser.
+The native-drop helper reads a drag that started outside the page.
+Use it to add native drops to a consumer surface.
+`null` means that the browser must control the drag.
 
 - `getInfiniteCanvasNativeDropPayload`
 - `URI_LIST_TYPE`
 
-## Persistence & validation
+## Persistence and validation
 
-Versioned JSON serialization with transient interaction state stripped, scoped
-by `documentKey`. The `parse*` functions are structural validators returning the
-value or `null`; unknown keys are stripped.
+Serialization uses versioned JSON and omits transient interaction state.
+`documentKey` scopes the stored value.
+Each `parse*` function validates the structure, removes unknown keys, and returns the value or `null`.
 
 **`persistence`**
 
@@ -948,25 +753,25 @@ value or `null`; unknown keys are stripped.
 
 - `parseInfiniteCanvasCamera`
 - `parseInfiniteCanvasPoint`
-- `parseInfiniteCanvasRecipe` — a recipe crossing storage is untrusted input
+- `parseInfiniteCanvasRecipe`: Parses an untrusted recipe from storage.
 - `parseInfiniteCanvasRect`
 - `parseInfiniteCanvasSelection`
 - `parseInfiniteCanvasSerializedState`
 - `parseInfiniteCanvasSize`
 - `parseInfiniteCanvasWindow`
 
-## History (undo / redo)
+## History (undo and redo)
 
-History is over the _document_ — the windows and the groups — because everything else
-is a view onto it. Panning is not an edit. A drag is one entry, checkpointed when the
-drag begins. Bounded at `INFINITE_CANVAS_HISTORY_LIMIT`, session-scoped, never
-serialized: a layout is a document, not its edit log.
+History contains changes to document windows and groups.
+Camera movement does not add an entry.
+A drag adds one entry from its start state.
+`INFINITE_CANVAS_HISTORY_LIMIT` limits session history, and serialization omits it.
 
 **`history`**
 
-- `canUndoInfiniteCanvas`, `canRedoInfiniteCanvas` — gate the commands
+- `canUndoInfiniteCanvas`, `canRedoInfiniteCanvas`: Report whether the commands are available.
 - `undoInfiniteCanvasHistory`, `redoInfiniteCanvasHistory`
-- `getInfiniteCanvasDocument` — the undoable half of the canvas
+- `getInfiniteCanvasDocument`: Returns the document state that enters history.
 - `EMPTY_INFINITE_CANVAS_HISTORY`, `INFINITE_CANVAS_HISTORY_LIMIT`
 
 <details><summary>types (2)</summary>
@@ -978,11 +783,9 @@ serialized: a layout is a document, not its edit log.
 
 ## Layout recipes
 
-A named arrangement — the selection, a named set, or the whole canvas — captured
-relative to its own origin so it drops into any region of an unbounded world. Recipes
-**translate rather than scale**: fitting an arrangement into a smaller region would
-push windows below their own `minSize`. They are plain serializable values the
-consumer owns and persists.
+A recipe stores a selection, named set, or full canvas relative to its own origin.
+A recipe application translates the arrangement and does not scale it.
+The consumer owns and persists these serializable values.
 
 **`recipes`**
 
@@ -1001,14 +804,14 @@ consumer owns and persists.
 
 ## Portals
 
-A window frame is `transform: scale(zoom)`, which makes it the containing block for
-`position: fixed` — so a popover inside a window body resolves against the _frame_ and
-is scaled by the zoom. These mount content outside every transform. The window root is
-opt-in per window kind (`portalRoot: true`).
+A window frame uses `transform: scale(zoom)`.
+This transform makes the frame the containing block for `position: fixed`.
+Portals mount content outside the frame transform.
+Set `portalRoot: true` on each window kind that requires a window portal.
 
 **`portal`**
 
-- `InfiniteCanvasPortal` — `scope="desktop"` escapes the window; `scope="window"` tracks it at natural size
+- `InfiniteCanvasPortal`: `scope="desktop"` escapes the window. `scope="window"` tracks it at natural size.
 - `useInfiniteCanvasPortalRoots`
 - `useInfiniteCanvasDesktopPortalRoot`
 - `useInfiniteCanvasWindowPortalRoot`
@@ -1021,8 +824,7 @@ opt-in per window kind (`portalRoot: true`).
 
 ## Presence
 
-Headless grouping of active / visible / pinned / minimized windows for docks,
-taskbars, and trays.
+These functions group active, visible, pinned, and minimized windows for docks, taskbars, and trays.
 
 **`window-presence`**
 
@@ -1040,8 +842,8 @@ taskbars, and trays.
 
 ## Rasterization
 
-Snapshot policy and scheduler for window bodies. Off by default; enable through
-the `rasterization` prop.
+These types define the snapshot policy and scheduler for window bodies.
+The `rasterization` prop enables this feature, which is off by default.
 
 **`rasterization-layer`**
 
@@ -1060,8 +862,7 @@ the `rasterization` prop.
 
 ## Diagnostics
 
-Developer overlays. They style themselves inline and render correctly without
-`theme.css`.
+Developer overlays use inline styles and do not require `theme.css`.
 
 **`diagnostics`**
 
@@ -1075,65 +876,53 @@ Developer overlays. They style themselves inline and render correctly without
 
 </details>
 
-## Theming & data attributes
+## Theming and data attributes
 
-The `data-slot` vocabulary is the public _styling_ selector contract, targeted
-by `theme.css` — separate from the behavioural `data-infinite-canvas-*`
-attributes, which are internal. `hud` policy resolution lives here.
+`data-slot` is the public selector contract for styles.
+`theme.css` targets these attributes.
+The `data-infinite-canvas-*` attributes are internal behavior hooks.
+`hud` policy resolution is part of this module group.
 
-`theme.css` is one cascade layer, `infinite-canvas`, and a layer's position is
-decided by where it is first established. Importing the theme after a utility
-framework therefore ranks it above `utilities`, and the theme wins against
-every utility class — with no symptom other than the class not applying. A
-consumer using cascade layers declares the order once, above the imports, and
-source order stops mattering:
+`theme.css` uses one `infinite-canvas` cascade layer.
+The `infinite-canvas` layer gets its order from its first declaration.
+Use `theme.css` as the full token inventory.
+If the application uses cascade layers, declare the order before the imports:
 
 ```css
 @layer infinite-canvas, components, utilities;
 ```
 
-Slot overrides then belong in a layer between the two. Written unlayered they
-still beat the theme, but they also beat the consumer's own utilities, which is
-the same defect facing the other way.
+This declaration keeps `utilities` after the canvas theme.
+Unlayered styles override all layers.
+If utilities must override them, put slot overrides in the middle layer.
 
 ### The `--icx-*` tokens
 
-`theme.css` declares scores of them and this file named none, so the whole
-theming surface was reachable only by reading the stylesheet. They are not a
-flat list —
-they compose in three layers, and a consumer overriding the wrong one either
-changes nothing or changes far more than intended:
+`theme.css` defines the full token list.
+The tokens have three groups:
 
-1. **Eleven bridged tokens** mirror `DEFAULT_INFINITE_CANVAS_THEME` field for
-   field, and the `theme` prop writes the same values. `theme-tokens.test.ts`
-   fails if the two ever disagree.
-2. **The semantic layer** is what a retheme is made of: `--icx-color-foreground`,
+1. Eleven bridged tokens mirror `DEFAULT_INFINITE_CANVAS_THEME`. The `theme` prop writes these values.
+2. Semantic color tokens include `--icx-color-foreground`,
    `--icx-color-accent`, `--icx-color-shadow`, `--icx-color-surface-raised`,
    `--icx-color-surface-sunken`, `--icx-color-accent-muted`,
    `--icx-color-accent-surface`, and the ramp
-   `--icx-color-accent-bright` / `-soft` / `-dim` / `-faint`. The ramp runs
-   _brighter_ than the accent because it sits on a dark surface, which is the
-   thing a light theme inverts.
-3. **Per-slot tokens** derive from the layer above — the control, host-chrome,
-   snap, marquee, HUD and group families. Override one to disagree with the
-   derivation for one slot; `theme.css` is the enumeration and stays the
-   authority, because a list here would go stale the first time one is added.
+   `--icx-color-accent-bright` / `-soft` / `-dim` / `-faint`.
+3. Per-slot tokens cover controls, host chrome, snapping, marquees, HUD elements, and groups.
 
-Three of the per-slot ones exist because a slot was borrowing a token that meant
-something else, which is worth knowing before reaching for a neighbour's:
-`--icx-group-gutter` (a seam is a control, not a border), `--icx-group-tab-fg`
-(unselected tab ink was reading the backdrop's lattice colour), and
-`--icx-group-label-fg-active` (the shell holding the active window).
+`theme-tokens.test.ts` compares the bridged tokens with the default theme.
+`--icx-group-gutter` styles a group seam.
+`--icx-group-tab-fg` styles inactive tab text.
+`--icx-group-label-fg-active` styles the label of the active group.
 
-A few tokens are **written at runtime** rather than declared in `theme.css`,
-because their value depends on the camera: `--icx-chrome-stroke`,
-`--icx-resize-handle-size` and `--icx-screen-px` on a window frame, and
-`--icx-group-label-size` on a group shell. Each is a _world_ length recomputed
-per frame so the thing it sizes holds a constant size on screen. Read them in an
-override; do not declare them, since the next camera tick overwrites the
-element's inline value either way. `--icx-group-label-text-scale` is the
-declared companion to the last of them — the label's text as a fraction of its
-band, so a consumer can retune the type without touching the geometry.
+The accent ramp is brighter than the accent for use on a dark surface.
+If one slot must differ from its semantic token, override its per-slot token.
+
+The runtime writes `--icx-chrome-stroke`, `--icx-resize-handle-size`, and `--icx-screen-px` on each window frame.
+It writes `--icx-group-label-size` on each group shell.
+These world lengths keep a constant screen size.
+Read these tokens in overrides.
+Do not declare these tokens because the next camera frame overwrites their inline values.
+`--icx-group-label-text-scale` controls the text size as a fraction of the label band.
 
 **`data-attributes`**
 
@@ -1153,19 +942,17 @@ band, so a consumer can retune the type without touching the geometry.
 
 ## Announcements
 
-One `aria-live` region per canvas, mounted for as long as the canvas is, so it
-does not depend on whether the HUD draws any chrome.
+Each canvas has one `aria-live` region for its full mount lifetime.
+This region does not depend on HUD chrome.
 
 **`announcer`**
 
-- `useInfiniteCanvasAnnounce` — say something to a screen reader from anywhere
-  inside a canvas. Repeating the current message does not speak it again;
-  outside a canvas it is a no-op.
+- `useInfiniteCanvasAnnounce`: Sends a message to a screen reader. It ignores duplicate messages and calls outside a canvas.
 
 ## Icons
 
-Built-in inline SVGs, overridable per action via the `icons` prop. The package
-has no icon-library dependency.
+The package includes inline SVG icons and has no icon library dependency.
+The `icons` prop overrides each action icon.
 
 **`icons`**
 
@@ -1182,9 +969,8 @@ has no icon-library dependency.
 
 ## Handle (experimental)
 
-`createInfiniteCanvasHandle(store)` — the programmatic consumer contract: state
-snapshot, typed commands, contextual command descriptors. Shape may change
-before 1.0.
+`createInfiniteCanvasHandle(store)` returns a state snapshot, typed commands, and contextual command descriptors.
+This experimental shape can change before 1.0.
 
 **`canvas-handle`**
 
@@ -1198,9 +984,8 @@ before 1.0.
 
 ## Types
 
-All public types. `InfiniteCanvasViewport` (the size type) is re-exported as
-`InfiniteCanvasViewportSize` to avoid colliding with the component of the same
-name.
+This section lists all public types.
+The size type `InfiniteCanvasViewport` is exported as `InfiniteCanvasViewportSize` to prevent a name conflict with the component.
 
 **`types`**
 
@@ -1233,8 +1018,7 @@ name.
 - `InfiniteCanvasEmptyCanvasDragMode`
 - `InfiniteCanvasHotkeyBinding`
 - `InfiniteCanvasGroupGutterInteraction`
-- `InfiniteCanvasGroupMetrics`, `InfiniteCanvasGroupMetricsInput` — the three chrome sizes, and the
-  partial a consumer writes. `state.groupMetrics` holds the resolved form
+- `InfiniteCanvasGroupMetrics`, `InfiniteCanvasGroupMetricsInput`: The three chrome sizes and their partial input. `state.groupMetrics` holds the completed value.
 - `InfiniteCanvasGroupMoveInteraction`
 - `InfiniteCanvasGroupResizeInteraction`
 - `InfiniteCanvasHudPolicy`
@@ -1245,7 +1029,7 @@ name.
 - `InfiniteCanvasMarqueeMode`
 - `InfiniteCanvasMoveInteraction`
 - `InfiniteCanvasMoveOriginRect`
-- `InfiniteCanvasOverlayReadContext` — covariant in `Payload`; a utility that only reads takes this
+- `InfiniteCanvasOverlayReadContext`: A read-only context that is covariant in `Payload`.
 - `InfiniteCanvasOverlayRenderContext`
 - `InfiniteCanvasPanInteraction`
 - `InfiniteCanvasPoint`
@@ -1282,12 +1066,8 @@ name.
 - `InfiniteCanvasState`
 - `InfiniteCanvasTheme`
 - `InfiniteCanvasViewport as InfiniteCanvasViewportSize`
-- `InfiniteCanvasViewportInsets`, `InfiniteCanvasViewportInsetsInput` — chrome that _brackets_ the
-  canvas, one number per edge: a rail down one side, a bar across the top. Chrome that sits inside
-  the content area instead is an occluder, not an inset
-- `InfiniteCanvasViewportOccluder` — a rect of the viewport the consumer's chrome covers, in
-  **screen** pixels. Its own name rather than a bare rect because the space is the point: every
-  other rect in this API is world units
+- `InfiniteCanvasViewportInsets`, `InfiniteCanvasViewportInsetsInput`: One chrome inset per viewport edge.
+- `InfiniteCanvasViewportOccluder`: A viewport rectangle covered by consumer chrome, in screen pixels.
 - `InfiniteCanvasWindow`
 - `InfiniteCanvasWindowBodyPointerBehavior`
 - `InfiniteCanvasWindowDefinition`
@@ -1301,10 +1081,10 @@ name.
 
 </details>
 
-### Slots are headless, not just unstyled
+### Headless slots
 
-Every frame slot takes **the element's own attributes** — `id`, `role`, `tabIndex`, every `aria-*`,
-every DOM event, `ref` — plus **`render`**, which replaces the element entirely:
+Each frame slot accepts `id`, `role`, `tabIndex`, `aria-*` attributes, DOM events, `ref`, and a replacement element.
+The `render` prop replaces the element:
 
 ```tsx
 renderFrame: ({ frame: { Header, Surface } }) => (
@@ -1314,18 +1094,21 @@ renderFrame: ({ frame: { Header, Surface } }) => (
 );
 ```
 
-The framework keeps its behaviour and gives up its tag. `ref` needs no `forwardRef` because React
-19 passes it as an ordinary prop.
+The framework keeps its behavior while the consumer selects the element.
+React 19 passes `ref` as an ordinary prop, so `forwardRef` is not necessary.
 
-**Merging is per-kind, not last-wins**, and the rules are Base UI's `mergeProps` semantics:
+The merge uses Base UI `mergeProps` rules:
 
-| Prop kind       | Rule                                                                                                                                                                                                                                                                                                     |
-| --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Event handlers  | **Both run, consumer first.** Passing `onPointerDown` to a header cannot silently disable window dragging. To decline the framework's behaviour, call `event.preventInfiniteCanvasHandler()` — deliberately not `preventDefault`, which means "skip the browser's default" and is a different intention. |
-| `className`     | Concatenated, consumer first.                                                                                                                                                                                                                                                                            |
-| `style`         | Shallow-merged, consumer last — overriding one declaration keeps the geometry the framework computed for the rest.                                                                                                                                                                                       |
-| `data-slot`     | **Framework-owned.** It is the styling contract's only anchor; a consumer who could set it would silently detach the stylesheet while everything still looked wired.                                                                                                                                     |
-| Everything else | Consumer-owned.                                                                                                                                                                                                                                                                                          |
+| Prop kind       | Rule                                                                                                          |
+| --------------- | ------------------------------------------------------------------------------------------------------------- |
+| Event handlers  | Both run, with the consumer first. Call `event.preventInfiniteCanvasHandler()` to skip the framework handler. |
+| `className`     | Values concatenate, with the consumer first.                                                                  |
+| `style`         | Values shallow-merge, with the consumer last.                                                                 |
+| `data-slot`     | The framework owns this value.                                                                                |
+| Everything else | The consumer owns the value.                                                                                  |
+
+An `onPointerDown` consumer handler runs before the framework handler.
+`preventDefault` controls the browser action, not the framework handler.
 
 - `InfiniteCanvasWindowFrameSurfaceProps`
 - `InfiniteCanvasWindowFrameTitleProps`
@@ -1342,10 +1125,10 @@ The framework keeps its behaviour and gives up its tag. `ref` needs no `forwardR
 
 ## `@hyphened/infinite-canvas/scene`
 
-A separate entry point, and the only one that imports `three` and
-`@react-three/fiber`. Import it to opt into a 3D engine, then pass the surface
-to `<InfiniteCanvasDesktop sceneSurface={...} />`. If you never import it, both
-peers can stay uninstalled and neither enters your bundle.
+This separate entry is the only entry that imports `three` and `@react-three/fiber`.
+Import this entry.
+Then pass its surface to `<InfiniteCanvasDesktop sceneSurface={...} />`.
+If the application does not import this entry, it does not require or bundle these peers.
 
 ```tsx
 import { InfiniteCanvasWebGpuSurface } from "@hyphened/infinite-canvas/scene";
@@ -1353,8 +1136,8 @@ import { InfiniteCanvasWebGpuSurface } from "@hyphened/infinite-canvas/scene";
 
 **`scene`**
 
-- `InfiniteCanvasWebGpuSurface` — the transparent WebGPU surface that paints `sceneLayers`
-- `InfiniteCanvasWindowFrustumProbeLayer` — the frustum-visibility probe used by `diagnostics.frustum`
+- `InfiniteCanvasWebGpuSurface`: The transparent WebGPU surface that paints `sceneLayers`.
+- `InfiniteCanvasWindowFrustumProbeLayer`: The frustum visibility probe for `diagnostics.frustum`.
 
 <details><summary>types (2)</summary>
 
@@ -1363,5 +1146,5 @@ import { InfiniteCanvasWebGpuSurface } from "@hyphened/infinite-canvas/scene";
 
 </details>
 
-Both types are also re-exported from the main entry, so you can type a
-`sceneSurface` prop without importing the scene entry.
+The main entry also exports both types.
+This lets a consumer type `sceneSurface` without importing the scene entry.

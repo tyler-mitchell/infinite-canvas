@@ -1,12 +1,5 @@
-/**
- * Surveys IndexedDB storage by querying the browser rather than SurrealDB. Opens no engine and
- * needs no connection, so it still reports on a database whose engine fails to start.
- *
- * Entry counts are exact. Byte figures are origin-level only: `quota` and `usage` cover the whole
- * origin, `usageDetails` is Chromium-only, and IndexedDB reports no per-store byte count.
- */
+/** The survey skips SurrealDB. Entry counts are exact. Byte totals are origin estimates. */
 
-/** Timeout for opening a database, so one held open elsewhere does not block the survey. */
 const OPEN_TIMEOUT_MS = 2000;
 
 type SurrealObjectStoreSurvey = Readonly<{
@@ -23,13 +16,13 @@ type SurrealDatabaseSurvey = Readonly<{
 
 type SurrealStorageSurvey = Readonly<{
   databases: readonly SurrealDatabaseSurvey[];
-  /** False when `indexedDB.databases()` is unavailable, meaning unknown rather than empty. */
+  /** This value is false when the browser cannot list IndexedDB databases. */
   enumerable: boolean;
   persisted: boolean | null;
   quotaBytes: number | null;
   unreadable: string | null;
   usageBytes: number | null;
-  /** Chromium's non-standard `usageDetails`. `null` elsewhere, meaning absent rather than zero. */
+  /** This value contains Chromium `usageDetails`, or `null` in other browsers. */
   usageByBackend: Readonly<Record<string, number>> | null;
 }>;
 
@@ -48,10 +41,7 @@ function toPromise<T>(request: IDBRequest<T>) {
   });
 }
 
-/**
- * Opens an existing database read-only. `open` without a version creates the database if absent,
- * so `upgradeneeded` firing means the name went stale, and the transaction is aborted instead.
- */
+/** The function aborts `upgradeneeded` because `open` creates a missing database. */
 function openExisting(name: string) {
   return new Promise<IDBDatabase>((resolve, reject) => {
     const request = indexedDB.open(name);
@@ -162,17 +152,10 @@ async function surveyStorage(): Promise<SurrealStorageSurvey> {
   }
 }
 
-/**
- * Exact byte count for one database, obtained by walking every entry and summing key and value
- * sizes. SurrealDB's `indxdb` store holds both as raw byte arrays, so the sum is what it wrote.
- *
- * This is a logical payload figure and undercounts disk usage, which also includes the storage
- * engine's own keys, journal, and unreclaimed space. The two are never combined. Not run
- * automatically, because it deserialises every value in the database.
- */
+/** This measurement excludes IndexedDB metadata, journals, and unused space. */
 type SurrealPayloadMeasurement = Readonly<{
   entries: number;
-  /** False when an entry was not a byte array and its size came from its JSON form instead. */
+  /** This value is false when JSON supplies an entry size. */
   exact: boolean;
   keyBytes: number;
   name: string;

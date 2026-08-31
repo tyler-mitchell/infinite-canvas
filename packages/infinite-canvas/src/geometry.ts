@@ -173,29 +173,7 @@ function worldRectToScreenRect(
   };
 }
 
-/**
- * Whether a world rect overlaps the viewport, expanded by `marginPx` screen pixels.
- *
- * The framework's frustum test: pure, synchronous, and derived from the camera alone.
- * Distinct from `useInfiniteCanvasWindowFramed`, which reads a store written by the R3F
- * probe layer — that ships behind the optional `/scene` entry and only runs under
- * `diagnostics.frustum`, so it cannot be the basis of a rendering decision.
- *
- * A non-finite `marginPx` means unbounded: every rect overlaps. That is how the
- * rasterization policy spells "no viewport limit".
- *
- * **An unmeasured (`0 × 0`) viewport overlaps nothing, and this returns `false`.** That
- * is the honest geometric answer, and it is a trap, because the right response to it
- * depends on what the caller does with a `false`:
- *
- * - A caller that **culls** on `false` must not cull before the first resize
- *   observation, or it paints an empty canvas and recovers only on the next camera
- *   change. Guard with {@link isUsableViewport} first.
- * - A caller that **rasterizes** on `true` wants exactly this `false`: a window whose
- *   viewport has never been measured should stay live DOM, not become a snapshot.
- *
- * Opposite defaults for the same uncertainty, so this function does not pick one.
- */
+/** Tests a rect against the viewport margin. An unusable viewport matches no rects. */
 function isWorldRectWithinViewport(
   camera: InfiniteCanvasCamera,
   viewport: InfiniteCanvasViewport,
@@ -216,29 +194,10 @@ function isWorldRectWithinViewport(
   );
 }
 
-/**
- * How far past the viewport edge content stays fully rendered, in screen pixels.
- *
- * A pan moves the camera every frame, so content culled the instant it crosses the edge would
- * be skipped and restored repeatedly during one gesture. The margin buys a band of frames
- * either side of the boundary. Screen pixels rather than world units, like every other
- * threshold in this framework: a world-unit band would shrink as you zoom out, which is
- * exactly when the most content sits near the edge.
- */
+/** Keeps content rendered across the viewport edge during camera movement. */
 const CULL_MARGIN_PX = 480;
 
-/**
- * Whether a world rect is far enough outside the viewport to skip rendering its subtree.
- *
- * The geometric half of culling, shared by the window and group layers so the two cannot
- * disagree about where the boundary is — a group shell culled on a different margin than the
- * windows inside it would drop its gutters and handles while the panes they belong to were
- * still being drawn.
- *
- * Defaults to **not** culled on an unusable viewport. A `0 × 0` viewport — the first frame,
- * before the resize observer has measured anything — overlaps nothing at all, so culling on it
- * would skip every window on the canvas and paint an empty page.
- */
+/** Returns `false` for an unusable viewport to prevent first-frame culling. */
 function isWorldRectCulled(
   camera: InfiniteCanvasCamera,
   viewport: InfiniteCanvasViewport,
@@ -264,24 +223,7 @@ function worldRectToScreenTransform(
   };
 }
 
-/**
- * A world-unit length widened so it never renders thinner than `minimumScreenPx`.
- *
- * Chrome is drawn in world units inside a zoom-scaled frame, so an authored 1px border renders as
- * `1 × scale` screen pixels — a tenth of a pixel at 10% zoom. Borders, the header rule, and the
- * inner frame all thinned to nothing and a window became an unreadable blob exactly when the user
- * zoomed out to see how their windows relate.
- *
- * Above 100% this is inert: the authored width already exceeds the floor, and a stroke that grows
- * with the canvas is what you want. A non-positive scale has no meaningful conversion, so the
- * authored width passes through rather than dividing by zero.
- *
- * Lives here rather than in `window-frame.tsx`, where it was written, because it is a world↔screen
- * conversion and holds no React — and because being unreachable from a test is how zoom arithmetic
- * ships wrong. Two defects of exactly this shape were found on 2026-08-12: a detail-level band
- * whose thresholds stranded every stock window, and a `hitRadius` measured in world units so edges
- * became unclickable as you zoomed out. Not exported from the barrel; the frame is its only caller.
- */
+/** Converts a world width with a minimum screen-pixel width. */
 function getWorldLengthWithScreenFloor(
   worldLength: number,
   scale: number,
@@ -379,13 +321,7 @@ function panCameraByScreenDelta(
   };
 }
 
-/**
- * A camera that frames `rect` inside the part of the viewport nothing is covering.
- *
- * Both halves matter and they are separate: the zoom comes from the *size* of the unoccluded
- * region, and the centre comes from its *position*. Solving only the first fits the rect to the
- * right scale and still parks it behind the panel.
- */
+/** Fits a world rect inside the viewport region that chrome does not cover. */
 function fitCameraToWorldRect(
   viewport: InfiniteCanvasViewport,
   rect: InfiniteCanvasRect,
@@ -481,16 +417,7 @@ function getVisibleWorldRect(
   };
 }
 
-/**
- * The part of the viewport a consumer's chrome is **not** covering, in screen space.
- *
- * One primitive, because fitting, centring and placement are all the same question asked of
- * different rects — where is the region the user can actually see. Deriving each of them from this
- * is what keeps them from disagreeing.
- *
- * Clamped rather than allowed to invert: insets wider than the viewport describe chrome that covers
- * everything, and a negative-width region would silently flip the sign of every camera it fed.
- */
+/** Returns the screen region that viewport insets do not cover. */
 function getInfiniteCanvasContentViewport(
   viewport: InfiniteCanvasViewport,
   insets: InfiniteCanvasViewportInsets = NO_INFINITE_CANVAS_VIEWPORT_INSETS,
@@ -503,14 +430,7 @@ function getInfiniteCanvasContentViewport(
   };
 }
 
-/**
- * Where a camera has to sit for `center` to land in the middle of the *unoccluded* region.
- *
- * A camera's centre is the world point at the middle of the whole viewport. When chrome covers one
- * edge, the middle of what the user can see is somewhere else, and the difference is half the
- * asymmetry between opposing insets — converted to world units, because insets are screen pixels
- * and a camera lives in world space.
- */
+/** Returns the camera center that puts a world point in the visible-region center. */
 function getInfiniteCanvasInsetCameraCenter(
   center: InfiniteCanvasPoint,
   zoom: number,
@@ -546,25 +466,7 @@ function getViewportInsetWorldRect(
   };
 }
 
-/**
- * The world rect of the region a consumer's chrome is **not** covering.
- *
- * The per-edge counterpart of `getViewportInsetWorldRect`, which takes one scalar and so cannot
- * describe a sidebar — the asymmetry is the whole point of the question. Chrome is almost never
- * symmetric: a rail down one edge and a status bar across the bottom leave a region whose centre
- * is not the viewport's centre, and every camera fed the symmetric answer lands off by half the
- * difference.
- *
- * Composed from `getInfiniteCanvasContentViewport` rather than repeating its arithmetic, so the
- * screen answer and the world answer cannot drift apart — including the clamp that stops chrome
- * wider than the viewport from inverting the rect.
- *
- * This exists because two consumers wrote it by hand first. Anything asking "what can actually be
- * seen right now" in world terms wants this: saving a framing to return to, fitting content into
- * the visible band, or culling against it. `getVisibleWorldRect` is the neighbour that looks right
- * and is not — it covers the whole viewport, takes a scalar overscan, and knows nothing about which
- * edges are covered, so a rect it returns includes the strip behind the sidebar.
- */
+/** Returns the visible world region after viewport insets. */
 function getInfiniteCanvasContentWorldRect(
   camera: InfiniteCanvasCamera,
   viewport: InfiniteCanvasViewport,
@@ -582,23 +484,7 @@ function getInfiniteCanvasContentWorldRect(
   };
 }
 
-/**
- * Where a consumer's in-content chrome falls in the world right now.
- *
- * The companion to the function above, for the question insets cannot answer. An inset is one
- * number per edge, so it describes a *band*; chrome that sits inside the content area — a corner
- * minimap, a floating toolbar — has to be either overstated as a full-width strip or left
- * undeclared. The incubator measured that trade at 168 of 900 pixels, 19% of the viewport written
- * off to describe a 140×80 map.
- *
- * Screen rects in, world rects out, so the result drops straight into the `occupied` list a
- * placement search already takes: chrome the camera flies over is an occupant, not an edge.
- *
- * Deliberately *not* used for framing. A corner occluder should not shrink the rect the camera
- * fills, or fitting content would leave a margin as wide as the map — the overstatement this
- * exists to remove, reintroduced one layer down. The two questions differ: "what region should I
- * aim at" reads insets, "is this exact spot covered" reads both.
- */
+/** Converts in-content screen occluders to world rectangles for placement. */
 function getInfiniteCanvasOccluderWorldRects(
   camera: InfiniteCanvasCamera,
   viewport: InfiniteCanvasViewport,

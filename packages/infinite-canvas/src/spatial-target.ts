@@ -25,14 +25,7 @@ type InfiniteCanvasSpatialTargetInput<Kind extends string = string> = Readonly<{
   viewportPoint: InfiniteCanvasPoint;
 }>;
 
-/**
- * Takes the pointer-free context, so the same source answers a hit test and a geometry question.
- *
- * A resolver context satisfies this, so nothing changes at the hit-testing call sites. What it
- * rules out is a source that reads `worldPoint` to decide *which* targets exist — that source could
- * not be asked where a target is without inventing a pointer position, and a target list that
- * depends on the cursor is not a list of things that are there.
- */
+/** Supplies target geometry without a pointer position. */
 type InfiniteCanvasSpatialTargetSource<Target, Kind extends string = string> =
   | readonly Target[]
   | ((context: InfiniteCanvasSpatialTargetGeometryContext<Kind>) => readonly Target[]);
@@ -47,23 +40,7 @@ type InfiniteCanvasSpatialRectTarget = Readonly<{
 type InfiniteCanvasSpatialEdgeTarget = Readonly<{
   data?: unknown;
   end: InfiniteCanvasPoint;
-  /**
-   * Pick distance from the segment in **screen pixels**, so an edge is equally easy to hit at
-   * every zoom.
-   *
-   * This was world units until 2026-08-12, and it was the framework's only threshold that was:
-   * snap's `threshold` and `releaseThreshold`, the detail-level band, the offscreen inset and
-   * margin, the tab-drag threshold, and the keyboard nudge step are all screen pixels mapped
-   * through the camera. World units make the hit area *shrink as you zoom out* — at 25% a
-   * 10-unit radius is 2.5 screen pixels, so edges become unclickable exactly when you have
-   * zoomed out to see the whole graph and most want to click one, and balloon to a sloppy 40px
-   * at 400%.
-   *
-   * That is risk R2 ("thresholds vary with zoom"), which the register records as *mitigated*
-   * for snapping and which was live here, and the same defect as the low-zoom chrome stroke
-   * that rendered at a tenth of a pixel. The default is unchanged at 10, so behaviour at zoom 1
-   * is identical and only the zoom curve differs.
-   */
+  /** Pick radius in screen pixels. */
   hitRadius?: number;
   id: string;
   kind: string;
@@ -158,13 +135,7 @@ function getSpatialTargetList<Target, Kind extends string>(
   return typeof targets === "function" ? targets(context) : targets;
 }
 
-/**
- * Finds the target a selection names, by the same identity the selection compares on.
- *
- * `kind` is part of it because two resolvers may both own ids from their own namespace, and `type`
- * because a resolver answers for one type only — an edge resolver asked about a scene object is
- * being asked about somebody else's target.
- */
+/** Finds a target by type, ID, and kind. */
 function findSpatialTargetById<Target extends Readonly<{ id: string; kind: string }>>(
   targets: readonly Target[],
   target: InfiniteCanvasSelectionTarget,
@@ -175,7 +146,7 @@ function findSpatialTargetById<Target extends Readonly<{ id: string; kind: strin
     : targets.find((candidate) => candidate.id === target.id && candidate.kind === target.kind);
 }
 
-/** A segment's bounding box. Flat for an axis-aligned edge, which `fitCameraToWorldRect` clamps. */
+/** Returns the segment bounding box. */
 function getSpatialEdgeTargetRect(target: InfiniteCanvasSpatialEdgeTarget): InfiniteCanvasRect {
   return {
     height: Math.abs(target.end.y - target.start.y),
@@ -199,11 +170,7 @@ function createSpatialRectTargetResolver<Kind extends string>({
   usePoint: (context: InfiniteCanvasSpatialTargetResolverContext<Kind>) => InfiniteCanvasPoint;
 }>): InfiniteCanvasSpatialTargetResolver<Kind> {
   return {
-    /*
-     * An overlay measures in viewport pixels, so it cannot answer a world-space question and does
-     * not offer to. Its targets are unselectable anyway — `getInfiniteCanvasSelectableTargetFromSpatialTarget`
-     * returns null for them — so nothing can ask.
-     */
+    // Overlay targets use viewport pixels and have no world rect.
     ...(type === "overlay"
       ? {}
       : {
@@ -274,8 +241,7 @@ function getNearestSpatialEdgeTarget(
     target: InfiniteCanvasSpatialEdgeTarget;
   }> | null>((nearest, target) => {
     const hitRadius = target.hitRadius ?? DEFAULT_INFINITE_CANVAS_EDGE_TARGET_HIT_RADIUS;
-    // World distance, compared in screen pixels — the same conversion `snap-resolver` applies to
-    // its own thresholds, so the two subsystems answer "close enough to catch" the same way.
+    // Compare world distance in screen pixels.
     const distance = getPointToSegmentDistance(point, target.start, target.end) * zoom;
 
     return distance > hitRadius
@@ -478,14 +444,7 @@ type InfiniteCanvasSelectionBoundsInput<Kind extends string = string> = Readonly
   state: InfiniteCanvasState<Kind>;
 }>;
 
-/**
- * Where the selected non-window targets are, asked of the resolvers that own them.
- *
- * A target nothing answers for contributes nothing, rather than counting as the origin. That covers
- * both a resolver the consumer has unmounted and a target whose object is gone — the second being
- * why this is a lookup and not a rect stored on the selection, which would be stale the moment the
- * object moved.
- */
+/** Returns world bounds for selected non-window targets. */
 function getInfiniteCanvasSelectionTargetBounds<Kind extends string>({
   chrome = DEFAULT_INFINITE_CANVAS_CHROME,
   resolvers = [],
@@ -505,13 +464,7 @@ function getInfiniteCanvasSelectionTargetBounds<Kind extends string>({
   );
 }
 
-/**
- * Everything the selection covers: the windows, and the targets the resolvers can place.
- *
- * This is what "fit the selection" means once a selection can hold things that are not windows.
- * With no resolvers it is exactly `getSelectedWindowBounds`, so a consumer that registers none is
- * unaffected.
- */
+/** Returns world bounds for all selected windows and targets. */
 function getInfiniteCanvasSelectionBounds<Kind extends string>(
   input: InfiniteCanvasSelectionBoundsInput<Kind>,
 ): InfiniteCanvasRect | null {

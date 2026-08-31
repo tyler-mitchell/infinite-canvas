@@ -86,38 +86,19 @@ import type {
 import { isInfiniteCanvasWindowCapable } from "./window-capabilities";
 
 type InfiniteCanvasReducerOptions<Kind extends string = string> = Readonly<{
-  /**
-   * Where the whole selection is, including the parts that are not windows.
-   *
-   * A lookup rather than a rect, for the reason a rect on the selection would be wrong: it goes
-   * stale the moment the object moves. Only the consumer knows where its edges and scene objects
-   * are, so the store builds this from the spatial target resolvers it was handed. Absent, the
-   * canvas frames the windows, which is all `state` can describe on its own.
-   */
+  /** Returns bounds for all selected windows and consumer targets. */
   getSelectionBounds?: (state: InfiniteCanvasState<Kind>) => InfiniteCanvasRect | null;
   zoomPolicy?: InfiniteCanvasZoomPolicy;
 }>;
 
-/**
- * The document is checkpointed here, once, around the pure transition — rather
- * than inside forty reducer cases that would each have to remember. A drag is one
- * entry: `interaction.step` never records, and the checkpoint is taken when the
- * drag begins.
- *
- * Hydrating or resetting the desktop discards the stack. Undoing across a
- * document you have never seen is not undo, it is a surprise.
- */
+/** Applies one action and records one checkpoint when the document changes. */
 function reduceInfiniteCanvasState<Kind extends string>(
   state: InfiniteCanvasState<Kind>,
   action: InfiniteCanvasAction<Kind>,
   options: InfiniteCanvasReducerOptions<Kind> = {},
 ): InfiniteCanvasState<Kind> {
   const applied = applyInfiniteCanvasAction(state, action, options);
-  // Workspace membership is group-complete, and a dozen actions move a window between trees
-  // without touching membership — docking, undocking, applying a recipe. Reconciling here,
-  // once, is the same choice the history checkpoint makes: the alternative is forty cases
-  // that each have to remember. Guarded on reference equality so an untouched canvas pays
-  // nothing.
+  // Reconcile group-complete workspace membership after all actions.
   const nextState =
     applied.groups === state.groups && applied.workspaces === state.workspaces
       ? applied
@@ -173,24 +154,7 @@ function applyInfiniteCanvasAction<Kind extends string>(
         options.zoomPolicy,
         options.getSelectionBounds?.(state),
       );
-    /**
-     * Hydration replaces the document but never the measurement.
-     *
-     * `viewport` is the one field that is measured from the DOM rather than authored, which is
-     * why `serializeInfiniteCanvasState` deliberately omits it — restoring a viewport would
-     * hydrate a canvas sized for someone else's monitor. The consequence was that hydrating
-     * *adopted* the incoming document's viewport, which for a parsed document is the fallback's,
-     * and that is `0 x 0`.
-     *
-     * A canvas in that state is not subtly wrong. World origin projects to screen origin instead
-     * of the viewport centre, so content lands off the top-left corner; `isUsableViewport` is
-     * false, so culling, `view.fitAll`, `view.fitSelection`, and viewport snapping are all inert.
-     * And it does not recover: the resize observer already fired at the real size, so it has no
-     * reason to fire again.
-     *
-     * Keeping the live measurement is therefore not a special case — it is the same rule
-     * persistence already follows, applied on the way back in.
-     */
+    // Keep the live viewport because persisted state does not own DOM measurements.
     case "desktop.hydrate":
       return isUsableViewport(state.viewport)
         ? { ...action.state, viewport: state.viewport }
@@ -201,9 +165,7 @@ function applyInfiniteCanvasAction<Kind extends string>(
       return finishCanvasInteraction(state, action.pointerId);
     case "interaction.startMarquee":
       return beginMarqueeSelection(state, action.pointerId, action.point, action.mode);
-    // Dragging a grouped window's header drags its shell: the group is one world
-    // object, and the member has no rect of its own to move (DOCK-003). Focus
-    // still lands on the window the user actually grabbed.
+    // A grouped window moves with its group.
     case "interaction.startMove": {
       const group = getInfiniteCanvasWindowGroup(state, action.windowId);
 
@@ -221,7 +183,7 @@ function applyInfiniteCanvasAction<Kind extends string>(
       const container =
         group === null ? null : findInfiniteCanvasGroupNode(group.tree, action.containerId);
 
-      // A stale seam -- the tree changed under the pointer -- is not worth throwing over.
+      // Ignore a seam that left the current tree.
       if (container === null || !isInfiniteCanvasGroupContainer(container)) {
         return state;
       }
@@ -241,7 +203,7 @@ function applyInfiniteCanvasAction<Kind extends string>(
     case "interaction.startGroupResize": {
       const group = findInfiniteCanvasGroup(state, action.groupId);
 
-      // A shell that closed under the pointer is not worth throwing over.
+      // Ignore a group that closed before the pointer event.
       if (group === null) {
         return state;
       }
@@ -257,9 +219,7 @@ function applyInfiniteCanvasAction<Kind extends string>(
     }
     case "interaction.startPan":
       return beginCanvasPan(state, action.pointerId, action.point, action.clearSelection);
-    // A grouped pane is resized by its seam, not its edge; a window that declares itself
-    // unresizable is not resized at all. Both refusals live here rather than inside
-    // `beginWindowResize` because the grouped one already did.
+    // Grouped panes use seams. Other windows must permit resize.
     case "interaction.startResize":
       if (
         isInfiniteCanvasWindowGrouped(state, action.windowId) ||
@@ -275,10 +235,7 @@ function applyInfiniteCanvasAction<Kind extends string>(
         action.handle,
         action.point,
       );
-    // Re-project after every step. A group-move drags several windows at once, and
-    // a selection can mix grouped and floating windows; rather than teaching the
-    // interaction layer which is which, the projection simply wins. It is a no-op
-    // when there are no groups.
+    // Reapply group projection after each interaction step.
     case "interaction.step":
       return syncInfiniteCanvasGroupWindowRects(
         stepCanvasInteraction(state, action.pointerId, action.point, action.snapPolicy, {
@@ -320,8 +277,7 @@ function applyInfiniteCanvasAction<Kind extends string>(
         ...state,
         viewportOccluders: action.occluders,
       };
-    // Re-solve immediately: every member's rect was placed against the old sizes, so a strip
-    // that grows without this draws over the pane beneath it until the next unrelated edit.
+    // Recompute member rects after chrome metrics change.
     case "groupMetrics.set":
       return syncInfiniteCanvasGroupWindowRects({
         ...state,
@@ -371,8 +327,6 @@ function applyInfiniteCanvasAction<Kind extends string>(
       return undockInfiniteCanvasWindowFromGroup(state, action);
     case "recipe.apply":
       return applyInfiniteCanvasRecipe(state, action.recipe, action.placement);
-    // A window that is gone, or collapsed into the dock, cannot keep occupying a
-    // layout slot. Detaching after the fact keeps `stacking` group-blind.
     case "window.setTitle":
       return renameWindow(state, action);
     case "window.close":
@@ -382,8 +336,7 @@ function applyInfiniteCanvasAction<Kind extends string>(
       );
     case "window.focus":
       return focusWindow(state, action.windowId);
-    // Maximizing a grouped window would have it cover its own shell. Tear it out
-    // first: the user asked for the whole viewport, not for a pane.
+    // Detach a grouped window before it fills the viewport.
     case "window.maximize":
       return maximizeWindow(
         detachInfiniteCanvasWindowFromGroups(state, action.windowId),
@@ -394,23 +347,7 @@ function applyInfiniteCanvasAction<Kind extends string>(
         minimizeWindow(state, action.windowId),
         action.windowId,
       );
-    /**
-     * A window opened while a desktop is active joins that desktop.
-     *
-     * Without this it joins none, and a workspace is a membership filter — so the window layer
-     * drops it on the very frame it was created and the user sees nothing happen. Every other
-     * path into `workspaces` removes ids (`detach`, `reconcile`) or moves them deliberately;
-     * nothing added one, so the only way a new window could ever become visible again was to
-     * leave the desktop entirely.
-     *
-     * "Where it was made" is the only defensible answer. The alternative — belonging to no
-     * desktop and appearing only under "show all" — makes creating a window a silent no-op in
-     * the one view the user is looking at.
-     *
-     * `addInfiniteCanvasWindowToWorkspace` is a no-op when no workspace is active, so a canvas
-     * that never creates one is untouched, and it refuses ids that are not live windows, which
-     * is why the open has to happen first.
-     */
+    // An opened window joins the active workspace.
     case "window.open":
       return state.activeWorkspaceId === null
         ? openWindow(state, action.window)
@@ -427,25 +364,7 @@ function applyInfiniteCanvasAction<Kind extends string>(
   }
 }
 
-/**
- * An action type the reducer does not know, said out loud.
- *
- * The switch above is exhaustive over `InfiniteCanvasAction`, and TypeScript enforces that: adding
- * a case to the union without handling it here stops compiling. Taking `never` keeps that exactly —
- * a new unhandled action is not assignable and fails the build the same way it always did.
- *
- * What was missing was the runtime half. Type exhaustiveness is a compile-time promise, and the
- * actions that break it arrive at runtime: replayed from a document written by another version,
- * sent by a consumer that is not using TypeScript, or typed into a console. Any of those fell out
- * of the switch and returned `undefined`, and the caller then read `.groups` off it — so the
- * message a developer got was "Cannot read properties of undefined (reading 'groups')", naming a
- * field with nothing to do with what went wrong, three layers below where it did.
- *
- * This throws rather than returning `state` unchanged, and the choice is narrower than it looks:
- * the previous behaviour already crashed. The only question was whether the crash names the cause.
- * A silent no-op would be a third thing — a mistyped command doing nothing with no signal at all —
- * which is worst of all for the console and agent callers this exists to serve.
- */
+/** Throws for an action type that bypassed compile-time exhaustiveness. */
 function assertUnknownInfiniteCanvasAction(action: never): never {
   throw new Error(
     `Unknown infinite canvas action type: ${String((action as { type?: unknown }).type)}`,

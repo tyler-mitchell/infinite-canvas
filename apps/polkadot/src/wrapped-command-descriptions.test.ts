@@ -3,12 +3,6 @@ import { expect, test } from "vite-plus/test";
 
 import { APP_ACTIONS } from "./app-actions";
 
-/**
- * A verb re-declared here must open with the framework's own sentence — the copy is what a WebMCP
- * caller reads, so a divergence hides the framework's. Prefix rather than equality: the wrapper
- * adds what its argument needs.
- */
-
 const FRAMEWORK_DESCRIPTIONS = new Map<string, string>(
   DEFAULT_INFINITE_CANVAS_COMMAND_DESCRIPTORS.map((descriptor) => [
     descriptor.id,
@@ -16,7 +10,6 @@ const FRAMEWORK_DESCRIPTIONS = new Map<string, string>(
   ]),
 );
 
-/** Same id, different verb: the framework's acts on the active window's group and takes no id. */
 const COLLIDING_IDS = new Set(["group.dissolve"]);
 
 const findAction = (id: string) => APP_ACTIONS.find((action) => action.id === id);
@@ -26,7 +19,6 @@ const wrappedActions = APP_ACTIONS.filter(
 );
 
 test("this app re-declares the framework verbs that take an argument", () => {
-  // A filter matching nothing would let every assertion below pass.
   expect(wrappedActions.map((action) => action.id).sort()).toEqual([
     "window.reveal",
     "workspace.close",
@@ -62,6 +54,5 @@ test("a verb that only shares an id with a framework command keeps its own sente
   expect(dissolve?.description.startsWith(FRAMEWORK_DESCRIPTIONS.get("group.dissolve") ?? "")).toBe(
     false,
   );
-  // Id-taking, which is what makes it a different verb rather than a copy.
   expect(dissolve?.input).toBeDefined();
 });

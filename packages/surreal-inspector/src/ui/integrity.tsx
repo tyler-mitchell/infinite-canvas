@@ -6,12 +6,7 @@ import { inspectIntegrity, OFFENDER_LIMIT, type SurrealIntegrityReport } from ".
 import { Empty, Notice, Panel, Section, Stat, StatRow } from "./chrome";
 import type { SurrealInspection } from "./use-inspection";
 
-/**
- * Runs the integrity checks on request rather than on open, because each one queries a real table.
- *
- * Checks the engine refused are listed under Gaps with the error, never counted as clean, so
- * "checked and found nothing" stays distinct from "did not check".
- */
+/** The panel runs table integrity queries only after the user requests them. */
 
 const integrity = tv({
   slots: {

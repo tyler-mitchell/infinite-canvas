@@ -1,9 +1,6 @@
 const encoder = new TextEncoder();
 
-/**
- * Size of a value as received, not its size on disk. Neither the embedded engine nor IndexedDB
- * reports per-record storage, so this is never presented as a storage figure.
- */
+/** This function measures the encoded JSON payload, not database storage. */
 function measureJsonBytes(value: unknown) {
   const encoded = JSON.stringify(value);
 
@@ -16,7 +13,7 @@ function measureTextBytes(text: string) {
 
 const SIZE_UNITS = ["B", "kB", "MB", "GB", "TB"] as const;
 
-/** Formats bytes using decimal units, matching what browser storage APIs report. */
+/** This function uses decimal units to match browser storage APIs. */
 function formatBytes(bytes: number | null): string {
   if (bytes === null) {
     return "—";

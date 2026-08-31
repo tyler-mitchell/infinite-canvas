@@ -1,10 +1,7 @@
 import type { ReactNode } from "react";
 import { tv } from "ui/tv";
 
-/**
- * Shared building blocks for the panels. Styled with shadcn tokens (`bg-card`,
- * `text-muted-foreground`) rather than fixed colours, so the host's theme applies.
- */
+/** The panel chrome uses host theme tokens. */
 
 const chrome = tv({
   slots: {
@@ -52,10 +49,6 @@ function Section({
   );
 }
 
-/**
- * A measured value with an optional note. Many figures here are approximate — origin-wide storage,
- * sampled byte counts — and the note says which, so a bare number is not read as exact.
- */
 function Stat({
   label,
   note,

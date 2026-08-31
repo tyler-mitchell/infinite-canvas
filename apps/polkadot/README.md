@@ -1,17 +1,17 @@
 # Polkadot
 
-A TanStack Start application built on the headless infinite-canvas framework.
-The initial route proves the product spine: a parent-owned Legend State canvas
-store, typed window registry, product-owned shell, and canonical window actions.
+Polkadot is a TanStack Start application built on the headless infinite-canvas framework.
+The first route proves the product structure with a parent-owned Legend State canvas store and typed window registry.
+It also proves the product-owned shell and canonical window actions.
 
 ```bash
 vp install
 vp -C apps/polkadot dev --port 3000
 ```
 
-The app runs at `http://localhost:3000`.
+The application runs at `http://localhost:3000`.
 
-Build the production app with:
+Use this command to build the production application:
 
 ```bash
 vp run polkadot#build

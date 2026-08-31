@@ -1,77 +1,8 @@
-/**
- * Opt-in theme stylesheet for the infinite-canvas headless distribution.
- *
- * Targets the `data-slot` styling contract from ./data-attributes.ts and
- * reproduces the default Tailwind/inline-style look exactly. Import it as
- * `infinite-canvas/theme.css`.
- *
- * Everything lives in one cascade layer, `infinite-canvas`, and where that
- * layer *sits* is not this file's decision to make. A layer takes its order
- * from wherever it is first established, so importing this file after a
- * utility framework puts `infinite-canvas` after `utilities` and this
- * stylesheet quietly outranks every utility class the consumer writes. The
- * failure is silent — the class is in the DOM, in the stylesheet, and loses.
- *
- * Unlayered consumer styles always win, unconditionally, because unlayered
- * beats every layer. Layered ones win only if the consumer says so:
- *
- *   @layer infinite-canvas, components, utilities;
- *
- * one statement, before any import, and source order stops mattering. Any
- * consumer using cascade layers wants that line; a consumer with no layers
- * at all needs nothing.
- *
- * Scope rules:
- * - Visual treatments only (color, background, border color/style/hairline
- *   widths, shadows, typography, filters, transitions, opacity).
- * - Geometry the framework *computes* stays in the components, because
- *   something else derives from it: positions, sizes, transforms, z-index,
- *   pointer-events, and the body offset and hit-testing that read them.
- *
- *   This line used to end at "flex", and that was drawn in the wrong place.
- *   An inline style outranks every stylesheet rule in every layer, so a
- *   property written there is not merely defaulted — it is unreachable, and a
- *   consumer's rule for it fails silently. Whether children sit at the start,
- *   the end or apart is a choice a consumer can reasonably disagree with and
- *   nothing derives from, so `justify-content` on the header belongs here.
- *   The distinction is what the framework computes, not which property group
- *   the name falls into.
- * - The 11 `--icx-*` tokens bridged from DEFAULT_INFINITE_CANVAS_THEME in
- *   ./constants.ts must match those values verbatim (enforced by
- *   ./theme-tokens.test.ts).
- *
- * Two `--icx-*` properties run the OTHER WAY, and they are not declared in
- * this file on purpose:
- *
- *   --icx-hud-extent-bottom   how far the built-in HUD reaches up from the
- *                             viewport's bottom edge
- *   --icx-hud-extent-top      the same from the top edge
- *
- * Every other token here is an input — a consumer overrides it and the
- * framework reads it. These are outputs. `InfiniteCanvasHud` measures its own
- * chrome and writes them onto the viewport element as an INLINE style, in the
- * frame it lays itself out in, so a consumer can place its own corner surface
- * clear of the framework's dock and zoom controls:
- *
- *   bottom: calc(var(--icx-hud-extent-bottom, 16px) + 8px);
- *
- * The fallback matters: a canvas whose HUD policy is off never writes them,
- * and the ordinary corner offset is then the right answer.
- *
- * **Overriding them does nothing, and the failure is silent.** An inline style
- * outranks every stylesheet rule in every layer, so a consumer rule for either
- * property is present, generated, and beaten on every render — the exact class
- * of defect the `justify-content` note above describes. They are not declared
- * here for the same reason: a default in this file could never win either, so
- * writing one would only make the contract look like something it is not.
- */
+/* Optional theme. Import `infinite-canvas/theme.css`. All rules use one cascade layer. */
 
 @layer infinite-canvas {
-  /* ------------------------------------------------------------------ */
-  /* Design tokens (component: all) — declared on the viewport root.     */
-  /* ------------------------------------------------------------------ */
   [data-slot="viewport"] {
-    /* Bridged 1:1 from DEFAULT_INFINITE_CANVAS_THEME (src/constants.ts). */
+    /* These tokens match `DEFAULT_INFINITE_CANVAS_THEME`. */
     --icx-active-accent: #b7f4ff;
     --icx-active-border: #e8fbff;
     --icx-background: #050607;
@@ -84,93 +15,30 @@
     --icx-selection-border: #5f858d;
     --icx-selection-bounds: rgba(115, 157, 165, 0.38);
 
-    /* ---------------------------------------------------------------- */
-    /* The semantic layer — the six knobs everything below derives from. */
-    /* ---------------------------------------------------------------- */
-    /*
-     * Auditing this file on 2026-08-12 found that most of the 48 "extended"
-     * tokens below were not independent decisions. The great majority were the
-     * same white at a different alpha, or the same cyan at a different alpha —
-     * and that cyan, rgb(183 244 255), is `--icx-active-accent` written out by
-     * hand. Restyling therefore meant overriding 48 values to change six.
-     *
-     * Those now derive. `color-mix(…, transparent)` is exactly equivalent to
-     * the `rgba()` literal it replaces — mixing a colour with `transparent` in
-     * sRGB yields that colour at the given alpha — so every derived token
-     * below holds its previous computed value to the bit.
-     *
-     * Six did not derive from the accent, and this paragraph used to end by
-     * calling naming them "the next step". That step was taken — see the ramp
-     * block below — so what stood here as an open finding is now a description
-     * of work already done, and is corrected rather than left to send the next
-     * reader after it.
-     *
-     * The insight it carried is still true and now lives with the rungs: the
-     * ramp runs *brighter* than the accent because it sits on a dark surface,
-     * which is exactly what a light theme inverts.
-     *
-     * Consumers retheme by overriding the semantic layer — the six knobs
-     * immediately below plus the five ramp rungs after them — and the eleven
-     * bridged tokens above, which the `theme` prop also reaches. A light theme
-     * is that override and little more; it belongs in consumer CSS rather than
-     * here, because a theme the framework ships is not proof that a theme a
-     * consumer writes would work.
-     */
     --icx-color-foreground: #ffffff;
     --icx-color-accent: var(--icx-active-accent);
     --icx-color-shadow: #000000;
-    /* Panels that float above the canvas rather than sitting in it. */
     --icx-color-surface-raised: rgb(12 16 22);
-    /* Chrome that reads as accent-tinted metal rather than as pure accent. */
     --icx-color-accent-muted: rgb(119 151 161);
-    /* The fill behind an active accent control. */
     --icx-color-accent-surface: rgb(20 33 38);
 
-    /*
-     * The accent ramp — resolved 2026-08-12, and it was five decisions wearing six coats.
-     *
-     * The block above used to end by naming six values that "do not derive", left literal
-     * because deriving them from the accent would have silently restyled the frame. That was the
-     * right call and the wrong conclusion: they do not derive *from the accent*, but they are not
-     * independent either. Reading them out revealed that
-     * `--icx-host-shadow-active`'s glow was `rgba(183, 244, 255, …)`, which is `--icx-active-accent`
-     * written by hand, and that `#d7fbff` appeared twice — once as the active ring, once as the
-     * active HUD foreground — as two separate literals for one colour.
-     *
-     * What is left is a genuine hand-tuned ramp of tints around the accent, and its rungs are
-     * named here rather than inlined so a theme overrides four values instead of hunting six
-     * literals through the file. This is the thing that fights a light theme: the ramp runs
-     * *brighter* than the accent because it sits on a dark surface, and a light theme inverts it.
-     * Naming the rungs is what makes that inversion a set of overrides rather than a fork.
-     *
-     * Every rewrite below is bit-for-bit: `color-mix(in srgb, X n%, transparent)` is exactly
-     * `rgba(X, n/100)`, verified against the computed `box-shadow` and `color` of a live probe
-     * before and after.
-     */
     --icx-color-accent-bright: #d7fbff;
     --icx-color-accent-soft: #bef4ff;
     --icx-color-accent-dim: #94e0ec;
     --icx-color-accent-faint: #a0d2dc;
-    /* The host frame's own near-black, distinct from --icx-background and --icx-body-background. */
     --icx-color-surface-sunken: #06080b;
 
-    /* Viewport shell (src/infinite-canvas.tsx). */
     --icx-viewport-fg: var(--icx-color-foreground);
     --icx-viewport-shadow: 0 36px 120px -64px
       color-mix(in srgb, var(--icx-color-shadow) 92%, transparent);
 
-    /* Window frame surface fallback (src/frame-slots.tsx, bg-[#07080b]). */
     --icx-frame-surface-bg: var(--icx-body-background);
 
-    /* Window title (src/frame-slots.tsx, text-white/58). */
     --icx-title-fg: color-mix(in srgb, var(--icx-color-foreground) 58%, transparent);
-    /* Its size, for the same reason the HUD's is a token: colour was themeable and size was not. */
     --icx-title-font-size: 10px;
 
-    /* A window control's touch target. Was an inline `24px`, so no consumer could enlarge it. */
     --icx-control-size: 24px;
 
-    /* Window control buttons (src/frame-slots.tsx). */
     --icx-control-fg: color-mix(in srgb, var(--icx-color-foreground) 46%, transparent);
     --icx-control-bg: color-mix(in srgb, var(--icx-color-foreground) 3%, transparent);
     --icx-control-border: color-mix(in srgb, var(--icx-color-foreground) 8%, transparent);
@@ -178,7 +46,6 @@
     --icx-control-hover-bg: color-mix(in srgb, var(--icx-color-foreground) 8%, transparent);
     --icx-control-hover-border: color-mix(in srgb, var(--icx-color-foreground) 20%, transparent);
 
-    /* Window control buttons, host-chrome variant (src/window-frame.tsx). */
     --icx-host-control-fg: color-mix(in srgb, var(--icx-color-foreground) 48%, transparent);
     --icx-host-control-bg: color-mix(in srgb, var(--icx-color-foreground) 3.5%, transparent);
     --icx-host-control-border: color-mix(in srgb, var(--icx-color-foreground) 10%, transparent);
@@ -189,10 +56,8 @@
       transparent
     );
 
-    /* Active window corners (src/frame-slots.tsx, border-white/25). */
     --icx-corner: color-mix(in srgb, var(--icx-color-foreground) 25%, transparent);
 
-    /* Host-local chrome tones (src/window-frame.tsx, getHostChromeTone). */
     --icx-host-fill:
       linear-gradient(
         180deg,
@@ -212,7 +77,6 @@
       transparent
     );
     --icx-host-inner-border-idle: color-mix(in srgb, var(--icx-color-foreground) 4.5%, transparent);
-    /* The active glow is the accent itself — it was `rgba(183, 244, 255, …)` spelled out. */
     --icx-host-shadow-active:
       0 0 0 1px color-mix(in srgb, var(--icx-color-accent-bright) 10%, transparent),
       0 18px 60px -44px color-mix(in srgb, var(--icx-color-accent) 70%, transparent);
@@ -224,88 +88,31 @@
     --icx-host-surface-shadow: 0 20px 80px -56px
       color-mix(in srgb, var(--icx-color-accent) 55%, transparent);
 
-    /* Group chrome (src/group-layer.tsx). The seam is a control, not a border. */
     --icx-group-gutter: var(--icx-idle-border);
     --icx-group-tab-fg: var(--icx-grid-major);
     --icx-group-label-fg: var(--icx-group-tab-fg);
-    /* The shell the active window is in. Named so it can be quieter than the accent, or louder. */
     --icx-group-label-fg-active: var(--icx-color-accent);
-    /* Text as a fraction of the label band. The band itself is `chrome.groupLabelSize`, in code. */
     --icx-group-label-text-scale: 0.62;
     --icx-group-surface-radius: 2px;
     --icx-group-surface-shadow: none;
 
-    /* Snap overlay (src/canvas-overlays.tsx). */
     --icx-snap-guide: color-mix(in srgb, var(--icx-color-accent) 55%, transparent);
     --icx-snap-preview-border: color-mix(in srgb, var(--icx-color-accent) 45%, transparent);
     --icx-snap-preview-bg: color-mix(in srgb, var(--icx-color-accent) 3.5%, transparent);
 
-    /* Marquee overlay (src/canvas-overlays.tsx). */
     --icx-marquee-border: color-mix(in srgb, var(--icx-color-accent) 80%, transparent);
     --icx-marquee-bg: color-mix(in srgb, var(--icx-color-accent) 10%, transparent);
     --icx-marquee-inset-shadow: inset 0 0 0 1px
       color-mix(in srgb, var(--icx-color-accent) 16%, transparent);
 
-    /* HUD panels, buttons, status card, dock (src/canvas-hud.tsx). */
+    /* Runtime sets --icx-hud-extent-top and --icx-hud-extent-bottom. */
     --icx-hud-panel-bg: color-mix(in srgb, var(--icx-color-surface-raised) 92%, transparent);
-    /*
-     * The frosting behind those panels, which was the one HUD value a consumer could not change.
-     *
-     * It pairs with the 92% above: the fill is deliberately translucent so the blur has something to
-     * do. A consumer that themes the fill opaque — which is an ordinary thing to want, and what the
-     * first consumer here did — was left paying for a filter that composites a layer and cannot be
-     * seen, with no token to turn it off. `0` is a valid value and is the whole point of the token.
-     */
-    /*
-     * How the framework's own chrome moves, which was the one thing about it a consumer could not
-     * change.
-     *
-     * Three rules — the window controls, the HUD buttons, the dock items — each hardcoded 150ms and
-     * `cubic-bezier(0.4, 0, 0.2, 1)`, which is a utility framework's default `ease-in-out` and not a
-     * value anybody here chose. An app with a motion system of its own therefore had two: measured
-     * on the incubator, 117 live transitions ran on its own easing token and 34 ran on this one,
-     * with the framework's window controls and HUD buttons sitting directly beside controls that
-     * moved differently.
-     *
-     * Motion is a design axis like colour and elevation, and every other axis here is a token. The
-     * defaults are exactly the values that were inlined, so an existing consumer sees no change.
-     */
     --icx-transition-duration: 150ms;
     --icx-transition-timing: cubic-bezier(0.4, 0, 0.2, 1);
     --icx-hud-blur: 8px;
-    /*
-     * The HUD's type size, shared by the status card, the dock's labels and the zoom readout.
-     *
-     * Three rules carried `11px` separately, which made the HUD's type the one part of it a
-     * consumer could not bring into their own scale — every colour was themeable and the size was
-     * not. The first consumer here happens to use 11px in its own rails, so the two agreed by
-     * coincidence rather than by contract, which is the state this token replaces.
-     */
     --icx-hud-font-size: 11px;
-    /*
-     * The HUD's touch target, previously an inline `40px` on every button.
-     *
-     * This is the one a consumer is most likely to need: 40px is a desktop pointer's size, and a
-     * canvas built for touch or for a dense toolbar wants a different number. It was the only part
-     * of these buttons that could not be reached — every colour and transition already could.
-     */
     --icx-hud-button-size: 40px;
     --icx-hud-panel-border: color-mix(in srgb, var(--icx-color-foreground) 10%, transparent);
-    /*
-     * The elevation a HUD panel carries, and the reason it defaults to nothing.
-     *
-     * Every HUD panel — the control groups, a standalone button, the status card, a dock item —
-     * said its edge with `--icx-hud-panel-border` and nothing else. That is one way to separate a
-     * surface from a canvas, and a consumer whose design language rejects outlines has no second
-     * way: setting the border transparent left a flat fill with no edge at all. Measured in the
-     * incubator, whose own rails carry a specular inset ring and a layered shadow — its four
-     * floating surfaces reported `insetRing: true` and the framework's HUD rails beside them
-     * reported `false`, the only panel on screen without one.
-     *
-     * `none` by default, so an existing consumer sees no change; the border remains the shipped
-     * answer. `--icx-surface-shadow` and `--icx-group-surface-shadow` are the same affordance for
-     * windows and group shells, and this was the surface that had been left without it.
-     */
     --icx-hud-panel-shadow: none;
     --icx-hud-divider: color-mix(in srgb, var(--icx-color-foreground) 8%, transparent);
     --icx-hud-button-fg: color-mix(in srgb, var(--icx-color-foreground) 68%, transparent);
@@ -323,9 +130,6 @@
     --icx-hud-zoom-readout-fg: color-mix(in srgb, var(--icx-color-foreground) 58%, transparent);
   }
 
-  /* ------------------------------------------------------------------ */
-  /* Viewport shell (src/infinite-canvas.tsx).                            */
-  /* ------------------------------------------------------------------ */
   [data-slot="viewport"] {
     background: var(--icx-background);
     color: var(--icx-viewport-fg);
@@ -333,29 +137,11 @@
     outline: none;
   }
 
-  /* ------------------------------------------------------------------ */
-  /* Grid backdrop (src/grid-backdrop.tsx). The grid line gradients are   */
-  /* zoom/camera dependent and stay inline; only the base color is here.  */
-  /* ------------------------------------------------------------------ */
+  /* Grid line geometry stays inline because it depends on camera state. */
   [data-slot="grid"] {
     background-color: var(--icx-background);
   }
 
-  /* ------------------------------------------------------------------ */
-  /* Window frame surface (src/frame-slots.tsx Surface slot).             */
-  /* Border-width comes from chrome metrics and stays inline.             */
-  /* Precedence (matches the JS conditional): active > selected > idle.   */
-  /* ------------------------------------------------------------------ */
-  /*
-   * `--icx-surface-radius` and `--icx-surface-shadow` default to the flat frame this theme has
-   * always drawn, so nothing changes for a consumer who does not set them. They exist because
-   * colour was the only thing a DOM-chrome window could be themed with: a product whose windows
-   * should read as physical objects — resting on the canvas with weight rather than being
-   * outlined on it — had no token to say so, and the `host` chrome variant already had one.
-   *
-   * The radius rounds the surface rather than the frame, so it composes with the resize handles,
-   * which straddle the frame edge and must stay square to stay grabbable.
-   */
   [data-slot="window-surface"] {
     background: var(--icx-body-background, var(--icx-frame-surface-bg));
     border-style: solid;
@@ -372,27 +158,15 @@
     border-color: var(--icx-active-border);
   }
 
-  /* Host-local chrome frames add a cyan halo on the surface (src/window-frame.tsx). */
   [data-slot="window"][data-frame-chrome="host"] [data-slot="window-surface"] {
     box-shadow: var(--icx-host-surface-shadow);
   }
 
-  /* ------------------------------------------------------------------ */
-  /* Window header (src/frame-slots.tsx Header slot).                     */
-  /* Border-bottom-width comes from chrome metrics and stays inline.      */
-  /* ------------------------------------------------------------------ */
   [data-slot="window-header"] {
     background: var(--icx-header-idle);
     border-bottom-style: solid;
     border-bottom-color: var(--icx-idle-border);
-    /*
-     * Here rather than in the slot's inline style, so a consumer can change it at all.
-     *
-     * A header holding a title and controls wants them at opposite ends. A consumer that hides the
-     * title — because its body names itself — has one child left, and space-between parks a lone
-     * child at the start, which is window controls on the wrong side. Polkadot carried a rule for
-     * exactly that and it had never applied: an inline style outranks every sheet, in every layer.
-     */
+    /* Consumers can override header child alignment in this layer. */
     justify-content: space-between;
   }
 
@@ -401,15 +175,11 @@
     border-bottom-color: var(--icx-active-accent);
   }
 
-  /* Host-local chrome paints the header in its own layers; the DOM header is transparent. */
   [data-slot="window"][data-frame-chrome="host"] [data-slot="window-header"] {
     background: transparent;
     border-bottom-color: transparent;
   }
 
-  /* ------------------------------------------------------------------ */
-  /* Window title (src/frame-slots.tsx Title slot).                       */
-  /* ------------------------------------------------------------------ */
   [data-slot="window-title"] {
     color: var(--icx-title-fg);
     font-size: var(--icx-title-font-size);
@@ -417,23 +187,7 @@
     text-transform: uppercase;
   }
 
-  /* ------------------------------------------------------------------ */
-  /* Window control buttons (src/frame-slots.tsx Controls slot).          */
-  /* ------------------------------------------------------------------ */
   [data-slot="window-control"] {
-    /*
-     * These six were an inline style on the button, which is the strongest form of unreachable.
-     *
-     * The scope note at the top of this file describes exactly this and had already been corrected
-     * once for `justify-content` on the header: an inline style outranks every stylesheet rule in
-     * every layer, so a property written there is not defaulted — a consumer's rule for it is
-     * present, generated, and beaten on every render. Nothing derives from any of them. The size is
-     * a constant rather than something the framework computes, and hit-testing reads the chrome
-     * metrics, never a control's box.
-     *
-     * Same values, so the default look is unchanged; what changes is that a consumer can now put a
-     * larger touch target or a different cursor on these at all.
-     */
     align-items: center;
     cursor: pointer;
     display: flex;
@@ -451,7 +205,6 @@
     transition-timing-function: var(--icx-transition-timing);
   }
 
-  /* The pin glyph renders rotated; pinned state tints it with the accent. */
   [data-slot="window-control"][data-action="pin"] svg {
     transform: rotate(45deg);
   }
@@ -460,7 +213,6 @@
     color: var(--icx-active-accent);
   }
 
-  /* Host-local chrome variant (src/window-frame.tsx [&>button] overrides). */
   [data-slot="window"][data-frame-chrome="host"] [data-slot="window-control"] {
     border-color: var(--icx-host-control-border);
     background: var(--icx-host-control-bg);
@@ -476,15 +228,10 @@
   [data-slot="window"][data-frame-chrome="host"] [data-slot="window-control"]:hover {
     border-color: var(--icx-host-control-hover-border);
     background: var(--icx-host-control-hover-bg);
-    /* Restate the shared hover color: the host idle rule above out-specifies
-       the generic [data-slot="window-control"]:hover rule. */
+    /* Restate hover color because the host idle selector has higher specificity. */
     color: var(--icx-control-hover-fg);
   }
 
-  /* ------------------------------------------------------------------ */
-  /* Active window corner brackets (src/frame-slots.tsx).                 */
-  /* Which two sides each bracket draws follows its data-corner position. */
-  /* ------------------------------------------------------------------ */
   [data-slot="window-corner"] {
     border: 0 solid var(--icx-corner);
   }
@@ -509,13 +256,7 @@
     border-right-width: 1px;
   }
 
-  /* ------------------------------------------------------------------ */
-  /* Host-local chrome layers (src/window-frame.tsx, getHostChromeTone).  */
-  /* Layer geometry (heights, offsets, frame border-width) stays inline. Strokes
-     drawn inside the frame's transform read --icx-chrome-stroke, which the frame
-     widens in world units as zoom shrinks so nothing renders sub-pixel.  */
-  /* Precedence (matches the JS conditional): active > selected > idle.   */
-  /* ------------------------------------------------------------------ */
+  /* Host strokes use the zoom-adjusted `--icx-chrome-stroke` value. */
   [data-slot="window-host-chrome"] [data-layer="fill"] {
     background: var(--icx-host-fill);
   }
@@ -563,8 +304,7 @@
     box-shadow: var(--icx-host-shadow-active);
   }
 
-  /* Inside the frame's zoom transform, so the width comes from the clamped stroke
-     rather than a literal pixel: a 1px rule vanishes below ~50% zoom. */
+  /* This stroke scales with zoom inside the frame transform. */
   [data-slot="window-host-chrome"] [data-layer="inner-frame"] {
     border-width: var(--icx-chrome-stroke);
     border-style: solid;
@@ -581,18 +321,10 @@
     border-color: var(--icx-host-inner-border-active);
   }
 
-  /* ------------------------------------------------------------------ */
-  /* Multi-selection bounds overlay (src/canvas-overlays.tsx).            */
-  /* ------------------------------------------------------------------ */
   [data-slot="selection-bounds"] {
     border: 1px dashed var(--icx-selection-bounds);
   }
 
-  /* ------------------------------------------------------------------ */
-  /* Snap preview + guides (src/canvas-overlays.tsx).                     */
-  /* Guide position/length are interaction-driven and stay inline; the    */
-  /* dash pattern keys off data-axis so the color can live on a token.    */
-  /* ------------------------------------------------------------------ */
   [data-slot="snap-preview"] {
     border: 1px solid var(--icx-snap-preview-border);
     background: var(--icx-snap-preview-bg);
@@ -618,18 +350,12 @@
     );
   }
 
-  /* ------------------------------------------------------------------ */
-  /* Marquee overlay (src/canvas-overlays.tsx).                           */
-  /* ------------------------------------------------------------------ */
   [data-slot="marquee"] {
     border: 1px solid var(--icx-marquee-border);
     background: var(--icx-marquee-bg);
     box-shadow: var(--icx-marquee-inset-shadow);
   }
 
-  /* ------------------------------------------------------------------ */
-  /* HUD status card (src/canvas-hud.tsx).                                */
-  /* ------------------------------------------------------------------ */
   [data-slot="hud-status"] {
     padding: 12px 16px;
     border: 1px solid var(--icx-hud-panel-border);
@@ -650,14 +376,7 @@
     color: var(--icx-hud-status-subtitle-fg);
   }
 
-  /* ------------------------------------------------------------------ */
-  /* HUD dock items — minimized windows (src/canvas-hud.tsx).             */
-  /*                                                                      */
-  /* Not uppercased, unlike `hud-title` above. That one labels the status  */
-  /* card and is the framework's own word; a dock item is `window.title`,  */
-  /* which belongs to the app and its user. Uppercasing it discards the    */
-  /* case a title was written in and cannot be undone downstream.          */
-  /* ------------------------------------------------------------------ */
+  /* Dock item text preserves the case of window titles. */
   [data-slot="hud-dock-item"] {
     padding: 8px 12px;
     border: 1px solid var(--icx-hud-panel-border);
@@ -679,20 +398,7 @@
     color: var(--icx-hud-button-hover-fg);
   }
 
-  /* ------------------------------------------------------------------ */
-  /* HUD button groups + buttons (src/canvas-hud.tsx).                    */
-  /* Standalone buttons (reset) carry their own panel border/background;  */
-  /* grouped buttons are transparent with hairline dividers per action.   */
-  /* ------------------------------------------------------------------ */
   [data-slot="hud-group"] {
-    /*
-     * Moved off an inline style, same finding as the window controls one slot over.
-     *
-     * `pointer-events: auto` did NOT come with them and stays in the component: the HUD root is
-     * `none` and each group opts back in, so it is load-bearing rather than a treatment — the scope
-     * note at the top of this file lists pointer-events among what components keep for exactly that
-     * reason. A consumer overriding it here would switch the HUD off.
-     */
     align-items: center;
     display: flex;
     overflow: hidden;
@@ -704,7 +410,6 @@
   }
 
   [data-slot="hud-button"] {
-    /* Its box, previously inline and therefore unreachable. See `--icx-hud-button-size`. */
     align-items: center;
     display: flex;
     height: var(--icx-hud-button-size);
@@ -722,10 +427,7 @@
     transition-timing-function: var(--icx-transition-timing);
   }
 
-  /*
-   * A button inside a group is not a panel — the group is. It gives up its fill, its border and its
-   * elevation so the row reads as one surface with divisions rather than as a row of chips.
-   */
+  /* The group owns panel border, fill, and shadow. */
   [data-slot="hud-group"] [data-slot="hud-button"] {
     border-width: 0;
     border-color: var(--icx-hud-divider);
@@ -756,7 +458,6 @@
     color: var(--icx-hud-dock-item-fg);
   }
 
-  /* Pointer-mode toggle, pressed state. */
   [data-slot="hud-button"][data-active] {
     background: var(--icx-hud-button-active-bg);
     color: var(--icx-hud-button-active-fg);
@@ -768,7 +469,7 @@
     color: var(--icx-hud-button-hover-fg);
   }
 
-  /* Grouped buttons keep their divider color on hover (no hover:border-*). */
+  /* Grouped buttons keep divider color on hover. */
   [data-slot="hud-group"] [data-slot="hud-button"]:hover {
     border-color: var(--icx-hud-divider);
     background: var(--icx-hud-button-hover-bg);
@@ -780,17 +481,7 @@
     cursor: not-allowed;
   }
 
-  /* ---- Group chrome -------------------------------------------------------
-     Group shells sit beneath the window plane. Their chrome never overlaps a
-     member window: the solver reserves each gutter and tab strip its own rect.
-     Sizes come from the solver, not from CSS, so nothing here sets width or
-     height -- doing so would make the DOM disagree with the canonical layout. */
-
-  /*
-   * Radius and shadow are tokens rather than literals. A shell is a surface holding surfaces, so a
-   * consumer whose windows are rounded and lifted had square unlifted corners under them and no
-   * way to say otherwise. Defaults are what the literals were.
-   */
+  /* Group chrome sizes come from the layout solver. */
   [data-slot="group-shell"] {
     background: var(--icx-body-background);
     border: 1px solid var(--icx-idle-border);
@@ -798,38 +489,15 @@
     box-shadow: var(--icx-group-surface-shadow, none);
   }
 
-  /*
-   * The seam has its own token, defaulting to the border colour it used to read directly.
-   *
-   * A gutter is not a border: it is a draggable control with a rect the solver reserved. Reading
-   * `--icx-idle-border` made those one decision, so a consumer suppressing window outlines — a
-   * deliberate, common choice — lost every seam and had a 6px invisible drag target. Named here,
-   * the default is unchanged and the two can disagree.
-   */
+  /* The gutter is a control, separate from window border color. */
   [data-slot="group-gutter"] {
     background: var(--icx-group-gutter, var(--icx-idle-border));
   }
 
-  /*
-   * A group's name, drawn above its top edge the way a frame is labelled — outside the shell, so
-   * it reserves no room the solver would have to give it and can never sit over a pane.
-   *
-   * `--icx-group-label-size` is written per shell as a *world* length that holds a constant screen
-   * size, so the band and its text stay legible at any zoom. Sizing the text off the band rather
-   * than off `font-size` directly is what makes it follow: a plain `px` here would be world units
-   * and would shrink to nothing exactly when the name is the only thing still worth reading.
-   */
+  /* The label size is a world length that stays constant on screen. */
   [data-slot="group-label"] {
     color: var(--icx-group-label-fg, var(--icx-group-tab-fg, var(--icx-grid-major)));
-    /*
-     * A block, not a flex box. `text-overflow` applies to a block container's own inline content
-     * and to nothing else, so under `display: flex` the ellipsis declared below was inert: the
-     * name hard-clipped mid-word with no mark that anything had been cut. Measured at 12% zoom on
-     * 2026-08-27 — 1700 units of title in a 542-unit box, ending on "&".
-     *
-     * `line-height` at the band height is what replaces the flex alignment, and centres the name
-     * in its band rather than sitting it flush on the shell's edge.
-     */
+    /* Block layout lets `text-overflow` apply to the label text. */
     display: block;
     font-size: calc(var(--icx-group-label-size) * var(--icx-group-label-text-scale, 0.62));
     line-height: var(--icx-group-label-size);
@@ -838,14 +506,7 @@
     white-space: nowrap;
   }
 
-  /*
-   * The shell holding the active window says so, and its name is how it says it.
-   *
-   * A consumer's group controls act on the container the active window is in, and until the shell
-   * carried that state nothing on the canvas identified which of several groups that was. Said in
-   * the label rather than with an outline, because a group has no border to light and the name is
-   * already the thing a reader looks at to tell one shell from another.
-   */
+  /* The active group uses its label as the state indicator. */
   [data-slot="group-shell"][data-active] [data-slot="group-label"] {
     color: var(--icx-group-label-fg-active, var(--icx-color-accent));
   }
@@ -856,12 +517,6 @@
     gap: 1px;
   }
 
-  /*
-   * An unselected tab's ink read `--icx-grid-major` — the backdrop's coarse lattice. Coherent
-   * while a consumer keeps the default grid, and nonsense the moment one replaces the backdrop
-   * through `renderBackdrop`: the token keeps whatever the default happened to be, and the label
-   * renders in a leftover colour nobody chose. Named, defaulting to what it read before.
-   */
   [data-slot="group-tab"],
   [data-slot="group-accordion-header"] {
     background: transparent;
@@ -875,14 +530,7 @@
     white-space: nowrap;
   }
 
-  /*
-   * A fold that stacks along the horizontal axis is a vertical strip, so its label turns with it.
-   *
-   * Measured before this existed: a 28px-wide header holding a label that wanted 92px, inside a
-   * box 479px tall. Every accordion header on that axis was one glyph and an ellipsis, and the
-   * room it needed was the dimension the text was not using. `padding-block` for the same reason —
-   * `padding-inline` runs along the text now, not across the strip.
-   */
+  /* Horizontal-axis accordion labels use vertical text. */
   [data-slot="group-accordion-header"][data-axis="horizontal"] {
     padding-block: 10px;
     padding-inline: 0;
@@ -896,8 +544,7 @@
     color: var(--icx-selection-border);
   }
 
-  /* The region a dragged window will fill when released. Shown only while docking
-     intent is held; a drop the user did not see coming is the failure mode. */
+  /* Shown only while dock intent is active. */
   [data-slot="dock-region"] {
     background: color-mix(in oklab, var(--icx-active-accent) 18%, transparent);
     border: 1px solid var(--icx-active-accent);
@@ -909,8 +556,7 @@
     border-color: var(--icx-selection-border);
   }
 
-  /* Portal roots are structural: they carry no look, only position. They must not
-     capture pointer events themselves, or an empty root would swallow the canvas. */
+  /* Portal roots do not capture pointer events. Their children can. */
   [data-slot="portal-root"],
   [data-slot="window-portal-root"] {
     pointer-events: none;

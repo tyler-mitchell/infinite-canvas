@@ -1,15 +1,6 @@
 "use client";
 
-/**
- * Built-in icon slots for the framework chrome (window controls + HUD).
- *
- * Each icon is a minimal inline SVG glyph: 24x24 viewBox, stroked with
- * `currentColor` so theme.css (or consumer CSS) owns the color, and tagged
- * `data-slot="icon"`. Consumers can replace any subset of glyphs through
- * the `icons` prop on the Desktop/Viewport; the resolved map is
- * distributed via context so frame slots and HUD buttons pick up
- * overrides anywhere inside the viewport.
- */
+/** Built-in SVG icons use `currentColor` and can be replaced through icon slots. */
 import { createContext, useContext, type ComponentType, type ReactNode } from "react";
 
 type InfiniteCanvasIconProps = Readonly<{

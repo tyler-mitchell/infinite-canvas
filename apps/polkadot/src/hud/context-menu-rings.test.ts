@@ -4,14 +4,6 @@ import { expect, test } from "vite-plus/test";
 import { APP_ACTIONS } from "../app-actions";
 import { CONTEXT_MENU_RINGS, getRing } from "./context-menu-rings";
 
-/**
- * The wheel's spokes name verbs in two vocabularies, and a name that stops resolving fails quietly.
- *
- * A spoke whose id no longer exists still draws, still animates into place, and labels itself with
- * the raw id — there is no crash and no warning. These tests are the noise that failure never makes
- * on its own.
- */
-
 const RING_NAMES = ["canvas", "group", "window"] as const;
 
 test("every framework verb on a ring is a command the framework still publishes", () => {
@@ -36,18 +28,6 @@ test("every app verb on a ring is one this app still defines", () => {
   expect(missing).toStrictEqual([]);
 });
 
-/**
- * The regression this file exists for.
- *
- * The ring used to build `{ type: id }` and cast it to a command. That works for most verbs and
- * throws for the ones whose id encodes an argument — `group.setLayout.split` is the id of
- * `{ type: "group.setLayout", layout: "split" }` — so three spokes threw on click while the rest
- * looked fine, and the cast silenced the type error that said so.
- *
- * Asserting that such a verb is *on* a ring keeps the trap live. If it ever stops being true, the
- * shortcut becomes safe and someone will take it; this test failing is the prompt to check whether
- * it is still a shortcut before allowing it.
- */
 test("a ring carries at least one verb whose id is not its command type", () => {
   const byId = new Map(
     DEFAULT_INFINITE_CANVAS_COMMAND_DESCRIPTORS.map((entry) => [entry.id, entry]),

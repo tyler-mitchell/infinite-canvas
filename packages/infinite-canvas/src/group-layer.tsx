@@ -43,22 +43,7 @@ import type {
   InfiniteCanvasViewportInsets,
 } from "./types";
 
-/**
- * Group chrome: the shell, the seams between split panes, tab strips, and
- * accordion headers.
- *
- * This is one layer beneath the window layer, and it never needs to fight it for
- * stacking. The solver gives a tab strip and a gutter each their own rect and
- * places member windows in what is left over, so group chrome and window frames
- * are disjoint by construction — no chrome is ever underneath a window it should
- * be drawn over.
- *
- * No rect here comes from the DOM. Every one comes from the same solver the reducer used
- * to place the windows, so the chrome cannot drift out of alignment with the panes it
- * separates. The single exception is `getTabDropIndex`, which hit-tests a tab strip during
- * a reorder drag: tab widths are flex content and no solver knows them. It decides *which
- * slot the pointer is over*, never where anything is drawn.
- */
+/** Solves group chrome from model geometry. Only tab hit tests read the DOM. */
 
 const SHELL_RESIZE_HANDLE_SIZE_CSS_VARIABLE = "--icx-resize-handle-size";
 const SHELL_RESIZE_HANDLE_EXTENT = `var(${SHELL_RESIZE_HANDLE_SIZE_CSS_VARIABLE})`;
@@ -72,7 +57,7 @@ type InfiniteCanvasShellResizeHandleDescriptor = Readonly<{
   style: CSSProperties;
 }>;
 
-/** React's `CSSProperties` has no slot for custom properties. Widen just these two. */
+/** Adds the two custom properties that `CSSProperties` omits. */
 type InfiniteCanvasGroupShellStyle = CSSProperties &
   Readonly<
     Record<
@@ -81,17 +66,7 @@ type InfiniteCanvasGroupShellStyle = CSSProperties &
     >
   >;
 
-/**
- * A shell's handles sit **entirely outside** its rect, unlike a window frame's, which
- * straddle the edge and hang half their extent out.
- *
- * Everything inside the shell is member-window DOM, and the window plane draws above the
- * group layer. An inward half would therefore be buried under a pane and never receive a
- * pointerdown — which is precisely the bug that made a grouped window's own handles eat
- * the gutter between two panes. Outside the shell there is nothing to be buried under.
- *
- * Corners come last so they paint over the edges they overlap and win the hit test.
- */
+/** Places shell handles outside the rect so panes cannot cover their hit areas. */
 const SHELL_RESIZE_HANDLE_DESCRIPTORS: readonly InfiniteCanvasShellResizeHandleDescriptor[] = [
   {
     cursor: "ns-resize",
@@ -175,7 +150,6 @@ const SHELL_RESIZE_HANDLE_DESCRIPTORS: readonly InfiniteCanvasShellResizeHandleD
   },
 ];
 
-/** World rect → the absolutely-positioned screen box that draws it. */
 function getWorldRectStyle(
   camera: InfiniteCanvasCamera,
   viewport: InfiniteCanvasViewport,
@@ -195,37 +169,10 @@ function getWorldRectStyle(
   };
 }
 
-/**
- * A tab travels a few pixels before it means anything. Below the threshold the gesture is
- * a click that activates the tab.
- *
- * Past it, **where the pointer goes decides what the drag is** (TAB-001, DOCK-004). Inside
- * the strip it reorders; leaving the strip tears the window out and hands the same pointer
- * to `interaction.startMove`, exactly as a floating window's header would have started it.
- * This is the rule every real tab bar uses, and until 2026-07-08 the strip did not have it:
- * *any* six pixels of travel tore the tab out, which made reordering unreachable by drag,
- * however hard you tried to slide a tab sideways.
- *
- * Tear-out hands the window no rect. It keeps the one the solver already gave it, which for
- * a hidden tab is the size it would have been revealed at, so nothing jumps and nothing
- * swells to fill the shell.
- *
- * Only a window can float. A tab whose child is a nested container has nowhere to go, so it
- * stays inside the strip — and, now, can still be reordered within it.
- */
+/** Reorders inside the strip and starts tear-out after the pointer leaves it. */
 const TAB_DRAG_THRESHOLD_PX = 6;
 
-/**
- * Where a tab dropped at `clientX` belongs, as an index among its *siblings*.
- *
- * The dragged tab is excluded from the scan because `reorderChild` splices it out before
- * inserting at `toIndex` — so the index it wants is an index into the others, and counting
- * the dragged tab's own slot would overshoot by one every time you dragged rightwards.
- *
- * This is the only place in this file that measures the DOM, and it measures a *hit test*,
- * never a layout: tab widths come from flex content, which no solver knows. Every rect that
- * decides where anything is drawn still comes from `group-layout.ts`.
- */
+/** Returns a sibling index and excludes the dragged tab from the scan. */
 function getTabDropIndex(siblings: readonly HTMLElement[], clientX: number): number {
   const index = siblings.findIndex((sibling) => {
     const rect = sibling.getBoundingClientRect();
@@ -251,7 +198,6 @@ function useInfiniteCanvasTabDrag(
         return;
       }
 
-      // Captured even when the child cannot float: a container tab still reorders.
       originRef.current = { x: event.clientX, y: event.clientY };
       capturePointer(event.currentTarget, event.pointerId);
     },
@@ -268,11 +214,7 @@ function useInfiniteCanvasTabDrag(
         return;
       }
 
-      // Leaving the strip has to cost the same six screen pixels that entering the drag
-      // did. The strip's height is fixed in *world* units, so at low zoom it is only a few
-      // screen pixels tall and a bare `clientY > bottom` would tear a tab out on the first
-      // downward wobble of a sideways drag. Same trap as the resize handles that used to
-      // straddle a world-sized gutter.
+      // Apply the drag threshold outside the strip to prevent low-zoom tear-out.
       const stripRect = strip.getBoundingClientRect();
       const hasLeftStrip =
         event.clientX < stripRect.left - TAB_DRAG_THRESHOLD_PX ||
@@ -297,9 +239,7 @@ function useInfiniteCanvasTabDrag(
         return;
       }
 
-      // Read the live DOM order rather than a `childIds` prop: a reorder dispatched on an
-      // earlier pointermove has already moved this tab, and the prop in this closure is a
-      // render behind.
+      // Read live tab order because an earlier pointer move can reorder it.
       const tabs = [
         ...strip.querySelectorAll<HTMLElement>(
           `:scope > [data-slot="${INFINITE_CANVAS_SLOTS.groupTab}"]`,
@@ -316,7 +256,6 @@ function useInfiniteCanvasTabDrag(
         event.clientX,
       );
 
-      // The pointer is still over the slot this tab already occupies.
       if (toIndex !== fromIndex) {
         actions.reorderGroupChild({ childId, groupId: group.id, toIndex });
       }
@@ -346,16 +285,15 @@ function InfiniteCanvasGroupShell({
   canvasInstanceId: string;
   devicePixelRatio: number;
   group: InfiniteCanvasGroup;
-  /** What the consumer's chrome covers, so a pinned label stops at its edge rather than the raw one. */
+  /** Viewport insets constrain pinned group labels. */
   insets: InfiniteCanvasViewportInsets;
-  /** Whether the active window is one of this shell's members. */
   isActive: boolean;
-  /** Screen pixels the label holds at every zoom. `0` draws none. */
+  /** Label height in screen pixels. A value of `0` hides labels. */
   labelSize: number;
   metrics: InfiniteCanvasGroupMetrics;
   resizeHandleSize: number;
   tabLabel: InfiniteCanvasGroupTabLabel;
-  /** Resolved by the layer, which holds the windows a derived name is composed from. */
+  /** Resolves a label with access to the current windows. */
   title: string;
   viewport: InfiniteCanvasViewport;
 }>) {
@@ -364,8 +302,7 @@ function InfiniteCanvasGroupShell({
     () => getInfiniteCanvasGroupLayout(group.tree, group.rect, metrics),
     [group.rect, group.tree, metrics],
   );
-  // The solver emits headers flat; each container is its own roving-focus scope, so they
-  // are regrouped by `containerId` with source order preserved inside each.
+  // Each container owns one roving-focus scope.
   const accordionsByContainer = useMemo(() => {
     const byContainer = new Map<string, InfiniteCanvasGroupAccordionHeader[]>();
 
@@ -387,19 +324,7 @@ function InfiniteCanvasGroupShell({
     group.rect,
     devicePixelRatio,
   );
-  /**
-   * How far the label has to slide down its shell to stay in view, in world units.
-   *
-   * A label is drawn above the shell's top edge, so it leaves the viewport before the group does:
-   * measured at 100% zoom with a shell 16px from the top, the label sat at y = -18.5 while the
-   * group it names filled most of the screen. A legend you cannot read when you are looking
-   * straight at the thing it labels is the same defect as one too small to read, one step along.
-   *
-   * So it pins, the way a sticky header or a map label does — held inside the region the consumer's
-   * chrome leaves, and never past its own shell's bottom edge, because a name that outlives the
-   * group's footprint has stopped labelling anything. `0` while the natural position is already in
-   * view, which is almost always.
-   */
+  /** Keeps a label within the visible part of its shell. */
   const labelPinOffset = useMemo(() => {
     const scale = screenTransform.scale;
 
@@ -408,11 +333,7 @@ function InfiniteCanvasGroupShell({
     }
 
     const naturalTop = screenRect.top - resizeHandleSize - labelSize;
-    // Below the consumer's own top chrome, not the raw viewport edge: pinning under an app's
-    // header would trade an invisible label for one behind a panel.
     const held = Math.max(naturalTop, insets.top);
-    // Never past its own shell's bottom edge — a name that outlives the group's footprint has
-    // stopped labelling anything, so a shell scrolled fully off takes its label with it.
     const pinned = Math.min(held, screenRect.top + screenRect.height - labelSize);
 
     return Math.max(0, pinned - naturalTop) / scale;
@@ -426,43 +347,20 @@ function InfiniteCanvasGroupShell({
   ]);
   const shellStyle: InfiniteCanvasGroupShellStyle = {
     ...getWorldRectStyle(camera, viewport, group.rect, devicePixelRatio),
-    // The shell's box is in world units and `scale` maps it to the screen, so the handles
-    // need a world extent that shrinks as zoom grows. Publishing it as a custom property
-    // on a style that is rewritten every camera tick anyway keeps the handle elements
-    // themselves referentially stable.
+    // Convert fixed screen sizes to world units for the scaled shell.
     [SHELL_RESIZE_HANDLE_SIZE_CSS_VARIABLE]: `${
       screenTransform.scale <= 0 ? resizeHandleSize : resizeHandleSize / screenTransform.scale
     }px`,
-    // Same world-length conversion, for the same reason and with the opposite intent: the handle
-    // holds a screen size so it stays *hittable*, the label so it stays *readable*.
     [SHELL_LABEL_SIZE_CSS_VARIABLE]: `${
       screenTransform.scale <= 0 ? labelSize : labelSize / screenTransform.scale
     }px`,
-    // A shell is gutters, tab strips, accordion headers and eight resize handles, all of which
-    // are only reachable where the shell is drawn — so an offscreen group's chrome is skipped
-    // on the same margin its panes are, and by the same predicate, so the two can never
-    // disagree and strand a gutter without the panes it divides. Purely geometric, unlike the
-    // window frame's: a group whose rect is a viewport away has nothing visible to preserve,
-    // and the active window inside it keeps its own frame live on its own policy.
+    // Cull shell chrome with the same viewport margin as its panes.
     contentVisibility: isWorldRectCulled(camera, viewport, group.rect) ? "auto" : "visible",
     pointerEvents: "none",
     zIndex: group.zIndex,
   };
 
-  /**
-   * The shell's handles simplify at far zoom, exactly as a window frame's do.
-   *
-   * These are the same defect one layer up: handle extent is `resizeHandleSize / scale`, a
-   * constant *screen* size, so it does not shrink with the group. Zoomed out, each of the eight
-   * is larger than the shell it surrounds and they close over the whole group — including the
-   * gutters between panes, which is the seam drag they already blanketed once before.
-   *
-   * Only the handles. The tab strips and accordion headers below stay at every zoom, and the
-   * difference is not cosmetic: they are sized in world units so they shrink with the group
-   * rather than swamping it, and they are focusable controls carrying roving `tabIndex` and the
-   * only means of switching a tab or a fold. Dropping those would be an accessibility
-   * regression wearing a performance argument.
-   */
+  // Hide resize handles at summary detail. Keep keyboard controls.
   const handleDetailRef = useRef<InfiniteCanvasDetailLevel>("full");
   const handleDetail = getInfiniteCanvasWindowDetailLevel(
     group.rect,
@@ -475,15 +373,7 @@ function InfiniteCanvasGroupShell({
   return (
     <div
       aria-label={title}
-      /*
-       * Which group the active window is in, said on the group.
-       *
-       * A consumer's group controls act on the container holding the active window, and nothing on
-       * the canvas identified that container — so a rail could offer to reshape or dissolve a group
-       * the user had no way to pick out of several. `aria-current` rather than `aria-selected`, for
-       * the reason the window frame gives: a `group` role ignores `aria-selected`, and "the current
-       * one of a set" is exactly what this means.
-       */
+      // Mark the group that contains the active window.
       aria-current={isActive ? "true" : undefined}
       aria-roledescription="window group"
       data-active={isActive ? "" : undefined}
@@ -494,25 +384,11 @@ function InfiniteCanvasGroupShell({
     >
       {title === "" || labelSize <= 0 ? null : (
         <div
-          /* The shell's `aria-label` already says this; a second copy would read the name twice. */
           aria-hidden="true"
           data-slot={INFINITE_CANVAS_SLOTS.groupLabel}
           style={{
-            /*
-             * Clear of the north handle, which sits one handle-extent above the same edge — less
-             * however far the label has had to slide down to stay in view. `bottom` grows upward,
-             * so subtracting the pin offset pushes it down the shell.
-             */
             bottom: `calc(100% + ${SHELL_RESIZE_HANDLE_EXTENT} - ${String(labelPinOffset)}px)`,
-            /*
-             * A constant screen height, not `metrics.tabStripSize`.
-             *
-             * Borrowing the strip's size made a group's name shrink with the world: measured at
-             * 28% zoom on 2026-08-26, a 30-unit band rendered 8.4px tall with 4.5px text, so the
-             * one element that could still say what a cluster of illegible panes *was* went
-             * illegible first. It also coupled two unrelated numbers — retuning the tab strip
-             * silently resized every label, including on split groups that have no strip.
-             */
+            // Keep group labels at a fixed screen height.
             height: SHELL_LABEL_EXTENT,
             left: 0,
             maxWidth: "100%",
@@ -545,8 +421,6 @@ function InfiniteCanvasGroupShell({
             actions.startGroupResize({
               groupId: group.id,
               handle: descriptor.handle,
-              // Measured with the metrics this shell was laid out with, not the defaults
-              // the reducer would otherwise have to assume.
               minSize: getInfiniteCanvasGroupMinimumSize(group.tree, metrics),
               point: getEventViewportPoint(event),
               pointerId: event.pointerId,
@@ -631,19 +505,7 @@ function InfiniteCanvasGroupShell({
   );
 }
 
-/**
- * One accordion's headers, and one tab stop between them (ACC-001).
- *
- * The same roving-`tabIndex` contract the tab strip uses, with one difference that is the
- * whole point of the scenario: **the arrows follow the container's axis.** An accordion
- * stacked vertically answers to Up/Down; one stacked horizontally answers to Left/Right.
- * Hard-coding Left/Right, as a tablist may, would make Down walk a row of side-by-side
- * headers — the diagonal drift that `window-focus.ts` refuses everywhere else.
- *
- * Each container is its own scope, so a shell holding two accordions has two tab stops,
- * not one. The wrapper exists only to make `:scope >` mean "this accordion's headers"; it
- * has no box and no role, and passes pointer events straight through.
- */
+/** Uses one tab stop per accordion and maps arrow keys to its axis. */
 function InfiniteCanvasGroupAccordionHeaders({
   group,
   headers,
@@ -659,8 +521,7 @@ function InfiniteCanvasGroupAccordionHeaders({
   const windows = useInfiniteCanvasSelector((state) => state.windows);
   const childIds = headers.map((header) => header.childId);
   const expandedChildId = headers.find((header) => header.isExpanded)?.childId;
-  // Falls back to the expanded fold when the header that held the stop has left the
-  // accordion, and to the first header when nothing is expanded.
+  // Use the active or first header when the prior tab stop leaves the accordion.
   const tabStopChildId =
     focusedChildId !== null && childIds.includes(focusedChildId)
       ? focusedChildId
@@ -680,7 +541,7 @@ function InfiniteCanvasGroupAccordionHeaders({
           return;
         }
 
-        // Home/End and the arrows would otherwise scroll the nearest scroll container.
+        // Prevent arrow and Home or End keys from scrolling the page.
         event.preventDefault();
         setFocusedChildId(childIds[nextIndex] ?? null);
         focusRovingSibling(
@@ -696,9 +557,7 @@ function InfiniteCanvasGroupAccordionHeaders({
         <button
           aria-expanded={header.isExpanded}
           data-active={header.isExpanded ? "" : undefined}
-          // A collapsed fold's header is a strip along the container's axis, so which axis decides
-          // which way its label has to run. The solver knows; nothing said so in the DOM, and a
-          // consumer cannot ask an element what shape it is.
+          // Header text follows the accordion axis.
           data-axis={header.axis}
           data-slot={INFINITE_CANVAS_SLOTS.groupAccordionHeader}
           key={header.childId}
@@ -726,35 +585,14 @@ function InfiniteCanvasGroupAccordionHeaders({
   );
 }
 
-/** Focus a roving sibling without scrolling ancestors to reveal it. */
+/** Focuses a direct sibling without scrolling its ancestors. */
 function focusRovingSibling(container: HTMLElement | null, slot: string, index: number) {
-  // Siblings are direct children in source order, so the index addresses the element
-  // without escaping a consumer-supplied id into a selector. `preventScroll` because the
-  // control lives inside the shell's `transform: scale(zoom)`: a plain `focus()` scrolls
-  // ancestors to reveal a control that is already exactly where the user can see it.
   container
     ?.querySelectorAll<HTMLButtonElement>(`:scope > [data-slot="${slot}"]`)
     [index]?.focus({ preventScroll: true });
 }
 
-/**
- * A tab strip is one tab stop, not one per tab.
- *
- * Every tab used to be a natively focusable `<button>`, so Tab walked all of them:
- * three groups of four tabs put twelve stops between the user and anything else on
- * the page. The ARIA Tabs pattern instead puts a single tab stop on the tablist and
- * moves between tabs with Arrow / Home / End — which is the roving `tabIndex` below.
- *
- * **Manual activation**: an arrow key moves focus without switching tabs; Enter or
- * Space activates, through the same `onClick` the pointer uses. APG allows either,
- * and recommends manual whenever activation reveals expensive content. Activating a
- * tab here mounts a window body, so arrowing across four tabs with automatic
- * activation would mount and discard three of them.
- *
- * The roving stop follows focus, so tabbing away and back returns you to the tab you
- * were last on rather than to the selected one. It falls back to the active tab when
- * the tab it was on has left the strip — a torn-out tab cannot keep the tab stop.
- */
+/** Uses one tab stop with manual activation for each tab strip. */
 function InfiniteCanvasGroupTabStrip({
   activeChildId,
   canvasInstanceId,
@@ -783,7 +621,6 @@ function InfiniteCanvasGroupTabStrip({
       data-slot={INFINITE_CANVAS_SLOTS.groupTabStrip}
       onKeyDown={(event) => {
         const index = childIds.indexOf(tabStopChildId);
-        // A tab strip always lays out horizontally, whatever its container's axis.
         const nextIndex =
           index === -1
             ? null
@@ -793,7 +630,6 @@ function InfiniteCanvasGroupTabStrip({
           return;
         }
 
-        // Home/End and the arrows would otherwise scroll the nearest scroll container.
         event.preventDefault();
         setFocusedChildId(childIds[nextIndex] ?? null);
         focusRovingSibling(stripRef.current, INFINITE_CANVAS_SLOTS.groupTab, nextIndex);
@@ -844,11 +680,7 @@ function InfiniteCanvasGroupTab({
 
   return (
     <button
-      // The tab's `childId` IS the window id, so it controls that window's frame panel (FR-9)
-      // — but only the *active* child of a tabs container is rendered. An inactive tab named a
-      // panel that was not in the document, and a dangling `aria-controls` is worse than an
-      // absent one: assistive technology follows it, finds nothing, and says nothing. APG
-      // recommends the reference where the panel exists; it does not ask for one that lies.
+      // Add `aria-controls` only when the active tab panel exists.
       aria-controls={
         isActive ? getInfiniteCanvasWindowFrameElementId(canvasInstanceId, childId) : undefined
       }
@@ -877,7 +709,6 @@ function InfiniteCanvasGroupTab({
   );
 }
 
-/** Chrome rects are solved in world space; the shell already carries that offset. */
 function getLocalRectStyle(rect: InfiniteCanvasRect, shell: InfiniteCanvasRect): CSSProperties {
   return {
     height: `${rect.height}px`,
@@ -897,25 +728,14 @@ function InfiniteCanvasGroupLayer({
   tabLabel = getInfiniteCanvasGroupTabLabel,
   zIndex,
 }: Readonly<{
-  /** Per-canvas token, shared with the window layer, so a tab's `aria-controls` matches a frame id. */
+  /** Per-canvas token used to match tab controls with frame ids. */
   canvasInstanceId: string;
   devicePixelRatio: number;
-  /**
-   * What the frame label above a group says.
-   *
-   * The counterpart to `tabLabel`, and it was missing. A consumer could replace what a *tab* is
-   * called and not what the *frame* is called, so the frame's policy was the framework's alone —
-   * `getInfiniteCanvasGroupTitle`, which names an unnamed group after its members. That reads well
-   * over a split and repeats itself over tabs, where the strip beneath already lists exactly those
-   * names, and a consumer had no way to say so.
-   *
-   * Returning `""` draws no label, which is how a consumer opts out per group rather than turning
-   * every label off with `labelSize`.
-   */
+  /** Resolves a group label. Return `""` to hide one label. */
   groupLabel?: (
     context: Readonly<{ group: InfiniteCanvasGroup; windows: readonly InfiniteCanvasWindow[] }>,
   ) => string;
-  /** Screen pixels the group label holds at every zoom. `0` draws none. */
+  /** Label height in screen pixels. A value of `0` hides labels. */
   labelSize: number;
   resizeHandleSize: number;
   tabLabel?: InfiniteCanvasGroupTabLabel;
@@ -924,25 +744,12 @@ function InfiniteCanvasGroupLayer({
   const camera = useInfiniteCanvasSelector((state) => state.camera);
   const viewport = useInfiniteCanvasSelector((state) => state.viewport);
   const allGroups = useInfiniteCanvasSelector((state) => state.groups);
-  /*
-   * For the names, and only the names.
-   *
-   * A group titled `null` is named after its members, so drawing one means reading their titles —
-   * which is also what makes the name follow a rename. This layer already re-renders on every
-   * camera tick, so a second array subscription is not what decides its cost.
-   */
   const windows = useInfiniteCanvasSelector((state) => state.windows);
-  // Where a pinned label stops. A group whose top edge has scrolled off holds its name inside what
-  // the consumer's chrome leaves, rather than riding the shell out of the viewport.
   const insets = useInfiniteCanvasSelector((state) => state.viewportInsets);
   const activeWindowId = useInfiniteCanvasSelector((state) => state.activeWindowId);
-  // From state, never a prop: the reducer solves member rects from the same value, and chrome
-  // drawn at a height the panes were not placed for is the whole reason this is not local.
+  // Use store metrics because the reducer uses them to place panes.
   const metrics = useInfiniteCanvasSelector((state) => state.groupMetrics);
-  // A group shell is chrome for its members, so it belongs on the desktops they are on.
-  // Rendering every group regardless would leave tab strips and gutters standing over
-  // windows the active workspace filtered out. Membership is group-complete, so asking about
-  // any one member answers for the shell.
+  // Render a shell only when the active workspace includes its members.
   const admittedWindowIds = useInfiniteCanvasSelector(getInfiniteCanvasWorkspaceWindowIds);
   const groups =
     admittedWindowIds === null

@@ -4,19 +4,6 @@ import { expect, test } from "vite-plus/test";
 import { getIndicatorTitle } from "./offscreen-indicators";
 import type { WindowKind } from "./window-registry";
 
-/**
- * What an offscreen arrow says it is pointing at.
- *
- * `InfiniteCanvasGroup.title` became `string | null` on 2026-08-27, `null` meaning "named after
- * its members". This file read it raw as `?.title ?? "Group"`, and the fallback swallowed the
- * `null` — so every arrow pointing at an unnamed group read "Go to Group", which is the
- * canvas-of-identical-labels that composing a name from the members exists to prevent.
- *
- * Quieter than the sibling regression in `describe-canvas`, which rendered the literal string
- * "null" and was obvious once seen. This one degrades to a plausible word, which is worse: nothing
- * about "Go to Group" looks like a bug until you notice every arrow says it.
- */
-
 const state = (groupTitle: string | null) =>
   createInfiniteCanvasState<WindowKind>({
     groups: [
@@ -67,7 +54,6 @@ test("a group somebody named is pointed at by that name", () => {
 });
 
 test("the placeholder is still there for a group the lookup does not find", () => {
-  // A different thing from a group with no name of its own, and the reason the fallback stays.
   expect(getIndicatorTitle({ id: "gone", kind: "group" }, state(null))).toBe("Group");
 });
 

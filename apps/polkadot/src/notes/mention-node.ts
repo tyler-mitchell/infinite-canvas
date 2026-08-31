@@ -7,37 +7,7 @@ import {
   type EditorConfig,
   type LexicalNode,
 } from "lexical";
-/**
- * A note named inside another note's text.
- *
- * A `TextNode` subclass rather than a `DecoratorNode`, which is the shape Lexical's own mention
- * example uses and the right one here: a mention *is* text — it wraps at the end of a line, a
- * selection can run through it, and backspace deletes it like any other word. A decorator would be
- * a React island the caret has to step around, which is what you want for an embed and wrong for a
- * name in a sentence.
- *
- * The note's id travels with the node so the reference survives a rename: the text is only what the
- * note was called when it was mentioned, and nothing downstream resolves the note by that string.
- *
- * `segmented` mode is what makes it behave as one unit, and it is the mode that carries the weight:
- * `$shouldInsertTextAfterOrBeforeTextNode` returns true for a segmented node before it consults
- * anything else, so typing at the boundary is inserted as a sibling rather than into the name.
- * `canInsertTextBefore`/`After` are the same rule stated on the node, and are also what
- * `$updateTextNodeFromDOMContent` checks when a DOM mutation is read back.
- *
- * `isTextEntity` is inert here. Measured 2026-08-28: core reads it nowhere — only
- * `registerLexicalTextEntity` does, and this app uses `LexicalTypeaheadMenuPlugin` instead. It is
- * kept because it is true of the node and the transform is the documented alternative to the menu,
- * but nothing consults it today.
- *
- * **The id is `NodeState`, not a property.** Lexical's nodes doc says to prefer it on v0.26+, and
- * `flat: true` keeps `noteId` at the top of the serialized node — byte-identical to the hand-written
- * `exportJSON` this replaced, so stored notes round-trip untouched. `$config` installs `clone` and
- * `importJSON`, and the base `exportJSON` carries the state, so four overrides and a constructor
- * become one declaration. `RubyNode` in Lexical's playground is the same shape.
- */
-
-/** Default `""` so a node that never carried an id serializes without the key. */
+// NodeState keeps noteId in serialized notes.
 const noteIdState = createState("noteId", {
   parse: (value) => (typeof value === "string" ? value : ""),
 });
@@ -54,16 +24,7 @@ class MentionNode extends TextNode {
     return $getState(this, noteIdState);
   }
 
-  /**
-   * `data-note-id` rather than a class alone, because the click handler that reaches the note reads
-   * it straight off the event target — the DOM is where a click already is, and looking the node up
-   * through Lexical to answer "which note is this" would be the longer way round to the same string.
-   *
-   * The class comes from the theme, like every other node's. Deciding it here made a second home for
-   * what a note looks like and gave a Lexical node a styling dependency; the editor that mounts this
-   * node is the thing that knows how its notes look. Empty when no theme supplies the key, which is
-   * the headless editor `note-markdown` runs and where nothing renders anyway.
-   */
+  // The click handler reads the note id from this DOM attribute.
   override createDOM(config: EditorConfig): HTMLElement {
     const dom = super.createDOM(config);
 

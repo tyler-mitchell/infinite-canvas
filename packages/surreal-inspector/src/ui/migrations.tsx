@@ -5,14 +5,7 @@ import type { SurrealInspectorSource } from "../core/source";
 import { Empty, Notice, Panel, Section, Stat, StatRow } from "./chrome";
 import type { SurrealInspection } from "./use-inspection";
 
-/**
- * Compares the manifest against the live schema. An embedded SurrealDB has no migration table, so
- * this is a comparison of current state, not a history of what ran.
- *
- * Both sides go through the same statement scanner. It is not a parser: `REMOVE` is not modelled,
- * and definitions built by runtime interpolation are invisible to it. Files containing `REMOVE`
- * are listed.
- */
+/** The panel compares live definitions with the manifest. It does not reconstruct history. */
 
 const migrations = tv({
   slots: {

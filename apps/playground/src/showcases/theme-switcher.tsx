@@ -1,19 +1,6 @@
 import { useEffect, useState } from "react";
 
-/**
- * Toggles the canvas between its two complete looks.
- *
- * The framework ships one theme and a token contract; the second look is consumer CSS
- * (`../canvas-light-theme.css`), which is the point — it demonstrates that a theme written from
- * outside the package can reach every colour. This control only sets an attribute; the whole
- * theme is the stylesheet.
- *
- * Written on `documentElement` rather than on the canvas so portalled content — which mounts
- * outside the window transform, and therefore outside the viewport element — is themed too. A
- * switcher that leaves popovers dark on a light canvas has not demonstrated a second look, it has
- * demonstrated a bug.
- */
-
+/** The document root owns theme tokens so portals inherit them. */
 const THEME_ATTRIBUTE = "data-canvas-theme";
 
 type CanvasTheme = "dark" | "light";
@@ -24,8 +11,7 @@ export function CanvasThemeSwitcher() {
   useEffect(() => {
     const root = document.documentElement;
 
-    // `dark` is the framework default and needs no attribute; removing it rather than writing
-    // `="dark"` keeps the default path identical to a consumer who never adopted a switcher.
+    // The framework default theme uses no attribute.
     if (theme === "light") {
       root.setAttribute(THEME_ATTRIBUTE, "light");
     } else {
@@ -44,8 +30,7 @@ export function CanvasThemeSwitcher() {
         setTheme((current) => (current === "dark" ? "light" : "dark"));
       }}
       onPointerDown={(event) => {
-        // The overlay sits inside the canvas's React tree; without this the pointerdown reaches
-        // the canvas root and starts a marquee behind the button.
+        // stopPropagation blocks the button event before the canvas can start a marquee.
         event.stopPropagation();
       }}
       title="Toggle the canvas theme. The light look is consumer CSS, not a framework export."

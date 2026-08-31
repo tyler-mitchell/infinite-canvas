@@ -14,16 +14,7 @@ import { Storage } from "./storage";
 import { Transfer } from "./transfer";
 import { useSurrealInspection } from "./use-inspection";
 
-/**
- * Inspector UI for an embedded SurrealDB.
- *
- * Uses the host's existing connection rather than opening its own, because an `indxdb://` database
- * is one IndexedDB store behind one WebAssembly engine and a second engine would be a second
- * writer.
- *
- * The storage panel is the exception: it queries the browser rather than the database, so it still
- * reports on a database whose engine fails to start.
- */
+/** The inspector uses the host connection to prevent a second IndexedDB writer. */
 
 const inspector = tv({
   slots: {
@@ -44,7 +35,6 @@ const inspector = tv({
 
 const styles = inspector();
 
-/** Tab order: identify the database, then its contents, then diagnostics. */
 const PANELS = [
   { label: "Overview", value: "overview" },
   { label: "Schema", value: "schema" },
@@ -67,10 +57,7 @@ function SurrealInspector({ sources }: Readonly<{ sources: readonly SurrealInspe
   return <Inspection key={source.id} onSelect={setSelectedId} source={source} sources={sources} />;
 }
 
-/**
- * Keyed by source id in the parent, so switching database remounts the subtree and discards the
- * previous reader, catalogue, and per-panel state without explicit cleanup.
- */
+/** A source change remounts this subtree and clears source-specific state. */
 function Inspection({
   onSelect,
   source,

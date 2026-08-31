@@ -4,12 +4,6 @@ import { createInfiniteCanvasState, createInfiniteCanvasWindow } from "./factory
 import { reduceInfiniteCanvasState } from "./reducer";
 import type { InfiniteCanvasState } from "./types";
 
-/**
- * A workspace stores the selection it was left with, targets included. Reconciliation prunes its
- * `windowIds` but not its `targets`. Entering a workspace restores that workspace's own selection,
- * so stale targets stay on the workspace that holds them rather than carrying across.
- */
-
 type Kind = "note";
 
 const edge = { id: "edge-that-gets-cut", kind: "relation", type: "edge" } as const;
@@ -58,7 +52,6 @@ const enter = (state: InfiniteCanvasState<Kind>, workspaceId: string) =>
 const targetIds = (state: InfiniteCanvasState<Kind>) =>
   (state.selection.targets ?? []).map((target) => target.id);
 
-/** On Research, with an edge selected. */
 const withSelectedEdge = () =>
   reduceInfiniteCanvasState(enter(twoDesktops(), "research"), {
     targets: [edge],
@@ -66,12 +59,10 @@ const withSelectedEdge = () =>
   });
 
 test("an edge can be selected on a desktop", () => {
-  // The premise, so nothing below passes on an empty target list.
   expect(targetIds(withSelectedEdge())).toStrictEqual([edge.id]);
 });
 
 test("leaving a desktop does not carry its targets to the next one", () => {
-  // Entering restores the *incoming* desktop's stored selection, which has none.
   expect(targetIds(enter(withSelectedEdge(), "writing"))).toStrictEqual([]);
 });
 

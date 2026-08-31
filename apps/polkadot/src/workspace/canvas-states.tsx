@@ -2,15 +2,6 @@ import { motion } from "motion/react";
 import { Button } from "ui";
 import { tv } from "ui/tv";
 
-/**
- * What the workspace looks like when there is no canvas to show yet, or never will be.
- *
- * These are full-ground surfaces rather than overlays: until a canvas is hydrated there is nothing
- * underneath for a dialog to sit on, and a spinner floating over a blank page reads as a failure
- * even when it is working. They share the workspace's own ground and type so the transition into
- * the canvas is a change of content rather than a change of application.
- */
-
 const canvasState = tv({
   slots: {
     action: "mt-1",
@@ -31,11 +22,6 @@ const canvasState = tv({
   },
 });
 
-/**
- * The local database is an 11 MB WebAssembly engine, so a first run has a real wait behind it.
- * The mark breathes rather than spins: a spinner claims indeterminate progress on something that
- * usually takes under a second, and reads as slower than the wait actually is.
- */
 function CanvasLoading() {
   const styles = canvasState();
 
@@ -75,19 +61,7 @@ function CanvasFailure({
         <div className={styles.mark()}>!</div>
         <div className={styles.title()}>{title}</div>
         <div className={styles.detail()}>{detail}</div>
-        {/*
-          The one action on the screen, so it is the primary one.
-
-          This was `variant="secondary"`, which paints `--secondary` — aliased to `--surface` — onto
-          this panel's `--ground`. Measured: `rgb(21,23,27)` on `rgb(11,12,16)`, a contrast of
-          1.09:1 against the 3:1 a UI boundary needs. The button was there, labelled, focusable and
-          shaped like nothing. No step of the surface ramp fixes it either — raised reaches 1.18 and
-          hover 1.29 — because those surfaces are meant to read through shadow and an inset ring,
-          which a bare secondary Button has neither of.
-
-          The accent reads 9.36:1 on the same ground, and is what this control actually is: when a
-          canvas has failed to open, trying again is not a secondary option.
-        */}
+        {/* Retry is the only action, so it uses the primary style. */}
         <div className={styles.action()}>
           <Button onClick={onRetry} size="sm">
             Try again

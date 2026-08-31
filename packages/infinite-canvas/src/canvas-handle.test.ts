@@ -51,7 +51,6 @@ test("handle lists enabled contextual commands with descriptors", () => {
   const store = createTestStore();
   const handle = createInfiniteCanvasHandle(store);
 
-  // Fit commands require a usable viewport; a headless store starts at 0x0.
   handle.commands.setViewport({ height: 800, width: 1200 });
 
   const commands = handle.getContextualCommands();

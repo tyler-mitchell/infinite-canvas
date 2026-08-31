@@ -10,18 +10,6 @@ import {
   getInfiniteCanvasSelectionTargetBounds,
 } from "./spatial-target";
 
-/**
- * A selection that is not windows still has a place, and the canvas can ask where.
- *
- * Selecting a connector filled `selection.targets`, left `windowIds` empty, and every control that
- * frames a selection withdrew: the HUD's fit button reads a selection's bounds, and bounds were
- * windows only. The geometry was never missing — the resolvers that hit-test an edge hold it — it
- * just could not be asked for outside a pointer event.
- *
- * A lookup rather than a rect kept on the target: a rect copied onto a selection goes stale the
- * moment the object moves, and an object that has been removed has no rect at all.
- */
-
 const EDGE_TARGET = {
   data: undefined,
   id: "edge-1",
@@ -96,11 +84,6 @@ test("several selected targets union, across resolvers", () => {
 });
 
 test("a target nothing answers for contributes nothing, rather than the origin", () => {
-  /*
-   * The removed-object case, and the unmounted-resolver case, are the same shape. Answering (0,0)
-   * for either would drag the fit to a corner nothing is in — worse than not offering the fit,
-   * because it looks like it worked.
-   */
   expect(
     getInfiniteCanvasSelectionTargetBounds({
       resolvers: [sceneResolver],
@@ -113,8 +96,6 @@ test("a target nothing answers for contributes nothing, rather than the origin",
 });
 
 test("an overlay resolver does not answer, because its rect is in viewport pixels", () => {
-  // Fitting a camera to a screen-space rect would frame a world position that means nothing. Its
-  // targets are unselectable anyway, so this is the type saying so rather than a runtime guard.
   expect(
     createInfiniteCanvasOverlayTargetResolver({
       id: "overlays",
@@ -124,8 +105,6 @@ test("an overlay resolver does not answer, because its rect is in viewport pixel
 });
 
 test("selection bounds covers the windows and the targets together", () => {
-  // A mixed selection is the case neither half answers alone: the window is at the origin, the edge
-  // ends at (300, 260), and framing either one on its own leaves the other off screen.
   const state = createInfiniteCanvasState({
     selection: {
       anchorTarget: EDGE_TARGET,
@@ -173,12 +152,6 @@ test("with no resolvers the answer is the window bounds, so a canvas without tar
 });
 
 test("fit-selection is offered for an edge-only selection, which is the defect this closes", () => {
-  /*
-   * The witness: a connector was selected, visibly, and the one control that would frame it was
-   * disabled — `view.fitSelection` asked `getSelectedWindowBounds`, which an edge selection cannot
-   * answer. Without the bounds argument it still cannot, which is what a caller that has not asked
-   * its resolvers should see.
-   */
   const state = stateWith([EDGE_TARGET]);
   const bounds = getInfiniteCanvasSelectionBounds({ resolvers: [edgeResolver], state });
 

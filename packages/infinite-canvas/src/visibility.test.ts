@@ -72,7 +72,6 @@ test("window frustum visibility retains only the windows that still have scene p
     false,
     200,
   );
-  // The argument is the set to keep, not the set to drop.
   const pruned = retainWindowFrustumVisibility(state, ["alpha"]);
 
   expect(pruned.revision).toBe(3);

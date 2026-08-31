@@ -23,7 +23,7 @@ const DEFAULT_INFINITE_CANVAS_CAMERA: InfiniteCanvasCamera = {
 const DEFAULT_INFINITE_CANVAS_CHROME: InfiniteCanvasChromeMetrics = {
   borderWidth: 2,
   cornerSize: 10,
-  // Below a window header, which it is not — a group label names a shell, it does not head one.
+  // Group labels sit outside the shell.
   groupLabelSize: 20,
   headerAccentHeight: 3,
   headerHeight: 40,
@@ -46,14 +46,7 @@ const NO_INFINITE_CANVAS_VIEWPORT_INSETS: InfiniteCanvasViewportInsets = {
   top: 0,
 };
 
-/**
- * Every edge optional, so a consumer with one panel names one edge.
- *
- * Here rather than beside the geometry that uses it, for the same reason the chrome metrics are:
- * `factory` and `store` both need it, and both are upstream of `geometry`. Putting it there made a
- * cycle that typechecked, passed 514 tests, and failed at runtime with the resolver undefined —
- * module initialisation order is not something a type system has an opinion about.
- */
+/** Optional screen-pixel insets for consumer chrome on each viewport edge. */
 function resolveInfiniteCanvasViewportInsets(
   insets: InfiniteCanvasViewportInsetsInput = {},
 ): InfiniteCanvasViewportInsets {

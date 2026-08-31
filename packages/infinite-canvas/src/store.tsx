@@ -35,23 +35,10 @@ import type {
 type InfiniteCanvasStore<Kind extends string = string> = Readonly<{
   commands: InfiniteCanvasCommands<Kind>;
   dispatch: (action: InfiniteCanvasAction<Kind>) => void;
-  /**
-   * Where the selection is: the windows, and whatever the resolvers can place.
-   *
-   * Exposed rather than kept private because enablement is asked in three places the store does not
-   * run — the HUD's fit button, the hotkey gate, and a consumer's own palette — and all three must
-   * answer the same as the dispatch that follows them.
-   */
+  /** Returns bounds for windows and resolver-owned targets. */
   getSelectionBounds: (state: InfiniteCanvasState<Kind>) => InfiniteCanvasRect | null;
   initialState: InfiniteCanvasState<Kind>;
-  /**
-   * The viewport tells the store what can be selected, because that is where the resolvers are.
-   *
-   * The store is built above the viewport and every command that frames a selection is dispatched
-   * through it, so the geometry has to travel upward. Registering keeps one source: a resolver added
-   * to the viewport is the same resolver the fit uses, with no second place to update and no way for
-   * the two to disagree. Ignored when the store was built with its own `getSelectionBounds`.
-   */
+  /** Sets the resolvers that supply selected target geometry. */
   setSpatialTargetResolvers: (
     resolvers: readonly InfiniteCanvasSpatialTargetResolver<Kind>[],
   ) => void;
@@ -59,12 +46,7 @@ type InfiniteCanvasStore<Kind extends string = string> = Readonly<{
 }>;
 
 type InfiniteCanvasStoreOptions<Kind extends string> = Readonly<{
-  /**
-   * Where the selection is when it holds more than windows.
-   *
-   * Every command that frames the selection asks this. Without it the canvas frames the windows,
-   * which is all `state` can describe — an edge's geometry belongs to whoever draws it.
-   */
+  /** Overrides selection bounds for consumer-owned targets. */
   getSelectionBounds?: (state: InfiniteCanvasState<Kind>) => InfiniteCanvasRect | null;
   onReset?: (state: InfiniteCanvasState<Kind>) => void;
   snapPolicy?: InfiniteCanvasSnapPolicy;
@@ -118,11 +100,7 @@ function commitInfiniteCanvasState<Kind extends string>(
   batch(() => {
     for (const field of Object.keys(nextState) as readonly (keyof InfiniteCanvasState<Kind>)[]) {
       if (currentState[field] !== nextState[field]) {
-        // The per-field observable is typed for its own field; the loop is generic over all of
-        // them, so this is the one place a cast is unavoidable. The reference comparison above
-        // is what keeps the write set minimal, which is the reason this writes fields at all
-        // rather than replacing the root: a `set` on the root would invalidate every observer
-        // on every action.
+        // Each field observable accepts its matching state field.
         (writableState$[field] as { set: (value: unknown) => void }).set(nextState[field]);
       }
     }
@@ -138,11 +116,7 @@ function createInfiniteCanvasStore<Kind extends string>(
   const registeredResolvers = {
     current: [] as readonly InfiniteCanvasSpatialTargetResolver<Kind>[],
   };
-  /*
-   * A store built with its own lookup keeps it — a parent that constructed the store may know
-   * something the viewport does not. Otherwise the answer comes from whatever the viewport
-   * registered, which with no resolvers is exactly the window bounds.
-   */
+  // Use the caller lookup or the current resolver set.
   const getSelectionBounds =
     options.getSelectionBounds ??
     ((state: InfiniteCanvasState<Kind>) =>
@@ -497,8 +471,7 @@ function createInfiniteCanvasStore<Kind extends string>(
         dockIntent,
         pointerId,
         point,
-        // Alignment guides and a dock region are contradictory affordances; the
-        // reducer drops the snap policy while docking intent is held.
+        // Dock intent suppresses alignment guides.
         snapPolicy: options.snapPolicy,
         type: "interaction.step",
       });
@@ -542,35 +515,13 @@ function createInfiniteCanvasStore<Kind extends string>(
   };
 }
 
-/**
- * Either state to build a store from, or a store built already — never both.
- *
- * `createInfiniteCanvasStore` and `createInfiniteCanvasHandle` were public exports that no
- * consumer could reach until 2026-08-12: the provider minted its own store internally and
- * took no `store` prop, and the handle's only argument source was `useInfiniteCanvasStore`
- * from *inside* the tree. So the handle's stated audience — "agents, E2E drivers, and
- * command palettes", all of them parent-side — could not obtain one, and a parent that
- * owned the canvas could not read it, subscribe to it, or drive it.
- *
- * Injecting the store is the whole fix, and it needs no second prop: a parent that built
- * the store can call `createInfiniteCanvasHandle(store)` on it directly.
- *
- * `store?: never` on one branch and `initialState?: never` on the other make supplying both
- * a compile error rather than a runtime precedence puzzle.
- */
+/** Accepts an initial state or an existing store. */
 type InfiniteCanvasProviderProps<Kind extends string> = Readonly<{
   children: ReactNode;
   documentKey?: string;
   snapPolicy?: InfiniteCanvasSnapPolicy;
   stateValidator?: InfiniteCanvasStateValidator<Kind>;
-  /**
-   * Persistence follows this key, not store ownership: an injected store with a
-   * `storageKey` is hydrated and persisted like any other, because wanting parent access to
-   * the store is orthogonal to wanting the framework to persist it. One difference is worth
-   * knowing — `onReset` can only be wired when a store is constructed, so a reset on an
-   * injected store is written by the ordinary 120ms debounce rather than flushed
-   * immediately. Pass `onReset` to `createInfiniteCanvasStore` yourself to restore that.
-   */
+  /** Persists an injected or provider-owned store with the same key. */
   storageKey?: string;
   zoomPolicy?: InfiniteCanvasZoomPolicyInput;
 }> &
@@ -589,9 +540,7 @@ function InfiniteCanvasProvider<Kind extends string>(props: InfiniteCanvasProvid
   });
 
   if (storeRef.current === null) {
-    // An injected store is adopted as-is. Only a store this provider constructs can carry
-    // `onReset`, which is the flush that writes a reset immediately instead of waiting out
-    // the debounce below.
+    // Only provider-owned stores can flush a reset immediately.
     storeRef.current =
       props.store === undefined
         ? createInfiniteCanvasStore(props.initialState, {
@@ -680,13 +629,7 @@ function useInfiniteCanvasStore<Kind extends string = string>() {
   return store as unknown as InfiniteCanvasStore<Kind>;
 }
 
-/**
- * Where the selection is, windows and consumer targets together.
- *
- * The question every surface that frames or measures a selection should ask, so a control's enabled
- * state and the command behind it cannot disagree — which is what `selection.windowIds.length` got
- * wrong for a selected connector.
- */
+/** Returns bounds for all selected windows and consumer targets. */
 function useInfiniteCanvasSelectionBounds<Kind extends string = string>() {
   const store = useInfiniteCanvasStore<Kind>();
 

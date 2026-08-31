@@ -8,55 +8,19 @@ import {
 import { createHotkeyHandler, formatForDisplay } from "@tanstack/hotkeys";
 import { useEffect, useMemo, useRef, useState } from "react";
 
-/**
- * A command palette over `getInfiniteCanvasContextualCommands`.
- *
- * That function has been public since the agent-handle work and **nothing consumed it**. Its
- * result already carries everything a palette needs — `label`, `description`, `hotkeys`,
- * `group`, and `enabled` computed against the live state — so this is roughly sixty lines over
- * an API that existed. The framework's whole command layer was documented and undiscoverable;
- * a palette makes it the former without making it the latter.
- *
- * Playground glue, not a framework export. A palette is UI, and this framework is headless.
- * What the framework owes it is the *vocabulary*, and that it already had.
- */
-
 const PALETTE_HOTKEY = "Mod+K";
 
-/**
- * Focus must go back to the canvas, never to `<body>`.
- *
- * The framework's own Close and Minimize controls hand focus back before they unmount, for
- * this exact reason: focus falling to `<body>` silently kills every hotkey, with nothing to
- * tell the user why. A palette that closes is the same unmount.
- */
+/** This function returns focus to the canvas so its hotkeys stay active. */
 const returnFocusToCanvas = (): void => {
   document.querySelector<HTMLElement>("[data-infinite-canvas-command-scope='surface']")?.focus();
 };
 
 type ContextualCommand = ReturnType<typeof getInfiniteCanvasContextualCommands>[number];
 
-/**
- * One navigable row. A discriminated union rather than two parallel lists, so the arrow keys
- * traverse a single sequence and `Enter` has exactly one thing to do with whatever is selected.
- */
 type PaletteEntry =
   | Readonly<{ command: ContextualCommand; kind: "command" }>
   | Readonly<{ kind: "window"; window: InfiniteCanvasWindowPresenceItem }>;
 
-/**
- * `formatForDisplay` from `@tanstack/hotkeys`, which is what this should always have been.
- *
- * This was a hand-rolled reducer over `{ mod, ctrl, meta, alt, shift, key }` producing
- * `"Mod+Shift+ArrowLeft"`. The package it was written beside already exports a formatter that
- * takes the exact `RegisterableHotkey` union the descriptors carry — the union the hand-rolled
- * version existed to flatten — and it is strictly better at the job: platform-aware, so macOS
- * gets `⌘ ⇧ ←` instead of the literal string `Mod+Shift+ArrowLeft`, and it knows that `Escape`
- * displays as `Esc`.
- *
- * Kept as a named wrapper only because `.map(formatHotkey)` reads better than an inline arrow
- * at the call site; it adds nothing and could be inlined.
- */
 const formatHotkey = (hotkey: ContextualCommand["hotkeys"][number]): string =>
   formatForDisplay(hotkey);
 
@@ -67,42 +31,18 @@ const matches = (command: ContextualCommand, query: string): boolean => {
 
   const haystack = `${command.label} ${command.description} ${command.id}`.toLowerCase();
 
-  // Substring, not fuzzy. Fuzzy ranking is taste, and taste belongs to the consumer — which,
-  // for this file, is the playground. A framework that shipped a matcher would be shipping an
-  // opinion nobody asked for.
   return query
     .toLowerCase()
     .split(/\s+/)
     .every((term) => haystack.includes(term));
 };
 
-/**
- * Owns `Mod+K` and nothing else.
- *
- * The dialog is a separate component so that a **closed** palette holds no subscription. The
- * framework's own rule — subscribe to what you read, not to the state — applies to overlays
- * too: `useInfiniteCanvasState` re-renders on every camera tick, and a palette nobody has
- * opened has no business reconciling sixty times a second while you pan.
- *
- * Takes no props. `contextualCommands` on the overlay context is exactly
- * `getInfiniteCanvasContextualCommands(state)`, and both are public, so the palette does not
- * need the context — which also sidesteps its invariance in `Payload` and lets one component
- * mount inside any canvas on any route.
- */
+/** The palette subscribes to canvas state only while it is open. */
 export function CommandPalette() {
   const [isOpen, setIsOpen] = useState(false);
 
   useEffect(() => {
-    // `createHotkeyHandler` from `@tanstack/hotkeys` rather than a hand-rolled
-    // `(metaKey || ctrlKey) && key.toLowerCase() === "k"`. The hand-rolled test was wrong in
-    // ways that only show on other people's keyboards: it treated Ctrl and Cmd as
-    // interchangeable on every platform, and it matched even when Alt or Shift were also held,
-    // so `Mod+Alt+K` opened the palette too. `Mod` is the package's own platform-resolved
-    // modifier, and its matcher compares every modifier rather than only the two it remembered.
-    //
-    // `Mod+K` is not a chord the canvas owns, and every web application with a palette binds it
-    // — which is the evidence that browsers let the page cancel it. `Mod+Alt+Arrow` is not, and
-    // would have switched the browser's tab as well as running the command.
+    // The hotkey package resolves Mod and requires exact modifiers.
     const handleKeyDown = createHotkeyHandler(PALETTE_HOTKEY, (event) => {
       event.preventDefault();
       setIsOpen((open) => !open);
@@ -138,22 +78,11 @@ function CommandPaletteDialog({ onClose }: { onClose: () => void }) {
 
   const contextualCommands = useMemo(() => getInfiniteCanvasContextualCommands(state), [state]);
   const filtered = contextualCommands.filter((command) => matches(command, query));
-  // Available first, and only the available ones are navigable. Hiding the rest would make the
-  // palette lie about what the framework can do; letting you run them would make it lie about
-  // what it can do *now*. Showing them, greyed and inert, is the only version that teaches.
+  // Only enabled commands can enter the keyboard navigation list.
   const available = filtered.filter((command) => command.enabled);
   const unavailable = filtered.filter((command) => !command.enabled);
 
-  /**
-   * The switcher half. `getInfiniteCanvasWindowPresence` has been public all along and this is
-   * the first thing to enumerate windows for navigation — the minimap answers "where am I"
-   * geometrically and the offscreen indicators answer it peripherally, but neither answers
-   * "where is the window called Notes", which is the question you actually have at 160 windows.
-   *
-   * Windows rank **above** commands, including on an empty query. In a spatial canvas the
-   * common intent is "take me to X", and it was until now the one thing the palette could not
-   * do. Sorted by stack order, so the palette agrees with what is on top.
-   */
+  /** The keyboard navigation list puts windows before commands. */
   const windows = useMemo(
     () =>
       getInfiniteCanvasWindowPresence(state).windows.filter(
@@ -162,9 +91,7 @@ function CommandPaletteDialog({ onClose }: { onClose: () => void }) {
     [query, state],
   );
 
-  // One flat navigable list so Arrow keys cross the section boundary without the user having to
-  // know there is one. Two independent indices would make Down stop dead at the end of a
-  // section, which is the sort of thing that reads as a bug rather than as a design.
+  // One list lets arrow keys move across both sections.
   const entries: readonly PaletteEntry[] = [
     ...windows.map((window) => ({ kind: "window" as const, window })),
     ...available.map((command) => ({ command, kind: "command" as const })),
@@ -175,8 +102,7 @@ function CommandPaletteDialog({ onClose }: { onClose: () => void }) {
     if (entry.kind === "command") {
       actions.executeCommand(entry.command.command);
     } else {
-      // A minimized window has no rect to navigate to, so restore before focusing — otherwise
-      // the camera flies to where the window is not, which is worse than not moving.
+      // The palette restores minimized windows before camera navigation.
       if (entry.window.mode === "minimized") {
         actions.restoreWindow(entry.window.id);
       }
@@ -192,9 +118,7 @@ function CommandPaletteDialog({ onClose }: { onClose: () => void }) {
     <div
       className="pointer-events-auto absolute inset-0 z-[100] flex items-start justify-center bg-black/40 pt-24 backdrop-blur-[2px]"
       onPointerDown={(event) => {
-        // The overlay is inside the canvas's React tree, so a pointerdown here bubbles to the
-        // canvas root, which would read it as an empty-canvas gesture and start a marquee
-        // behind the palette. Nothing in the canvas should hear a click on a modal.
+        // stopPropagation blocks the modal event before the canvas can start a marquee.
         event.stopPropagation();
 
         if (event.target === event.currentTarget) {
@@ -221,9 +145,7 @@ function CommandPaletteDialog({ onClose }: { onClose: () => void }) {
             }
 
             if (event.key === "ArrowDown" || event.key === "ArrowUp") {
-              // The canvas binds bare arrows to nudge. It ignores anything from an `input`
-              // (`ignoreInputs`, and `input` is in its exclusion selector), so this steals
-              // nothing — but `preventDefault` still stops the caret from jumping.
+              // preventDefault stops caret movement while the canvas ignores input events.
               event.preventDefault();
               setSelectedIndex((index) => {
                 const next = event.key === "ArrowDown" ? index + 1 : index - 1;

@@ -1,12 +1,6 @@
 import type { Surreal } from "surrealdb";
 
-/**
- * Records every read and whether it was answered from cache, so a panel can show whether it is
- * displaying current data.
- *
- * SurrealDB publishes no cache statistics, so "cache" here means only this cache, in front of the
- * engine. Planner behaviour comes from `EXPLAIN` instead.
- */
+/** This module records reads through the inspector cache, which is separate from SurrealDB. */
 
 type SurrealReadOutcome = "cached" | "failed" | "queried";
 
@@ -25,22 +19,21 @@ type SurrealReadLedger = Readonly<{
   queried: number;
 }>;
 
-/** Maximum events retained, so a long session does not grow the ledger without limit. */
 const LEDGER_LIMIT = 200;
 
 type SurrealReader = Readonly<{
-  /** Repeat calls with the same key are answered from memory and never reach the engine. */
+  /** This method returns repeated keys from memory without a SurrealDB query. */
   cached: (
     key: string,
     statement: string,
     bindings?: Readonly<Record<string, unknown>>,
   ) => Promise<unknown>;
-  /** Drop the cache. The next read of every key reaches the engine again. */
+  /** This method clears the read cache. */
   forget: () => void;
   ledger: () => SurrealReadLedger;
-  /** One statement, one result. Never cached. */
+  /** This method reads one uncached statement result. */
   read: (statement: string, bindings?: Readonly<Record<string, unknown>>) => Promise<unknown>;
-  /** Every statement's result, in order. Never cached. */
+  /** This method reads all uncached statement results in order. */
   readAll: (
     statement: string,
     bindings?: Readonly<Record<string, unknown>>,
@@ -51,10 +44,7 @@ function getErrorMessage(error: unknown) {
   return error instanceof Error ? error.message : String(error);
 }
 
-/**
- * Reads through `.json()` throughout. Record ids, datetimes, and durations otherwise arrive as SDK
- * value objects, so converting once here means panels do not each need to handle them.
- */
+/** This function converts SDK values once through `.json()` for all panel reads. */
 function createSurrealReader(client: Surreal): SurrealReader {
   const state = {
     cache: new Map<string, unknown>(),

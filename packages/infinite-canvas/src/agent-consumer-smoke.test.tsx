@@ -96,13 +96,6 @@ const windowRegistry = defineInfiniteCanvasWindowRegistry<ConsumerWindowKind>({
   },
 });
 
-/**
- * Every command, spied. A hand-written literal here has to be extended every time
- * the framework grows a command, and it broke on `closeGroup`, `redo`, `undo` and
- * nine others the moment groups and history landed. A proxy mints one `vi.fn()`
- * per property on first access and caches it, so `actions.focusWindow` is still a
- * stable spy and the mock never needs touching again.
- */
 function createActionSpyCommands(): InfiniteCanvasCommands<ConsumerWindowKind> {
   const spies = new Map<string, ReturnType<typeof vi.fn>>();
 

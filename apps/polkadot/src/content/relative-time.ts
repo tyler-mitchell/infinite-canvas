@@ -1,20 +1,12 @@
-/**
- * How long ago something happened, in words.
- *
- * `Intl.RelativeTimeFormat` is the platform's own, so there is no date library here and the wording
- * follows the reader's locale. `now` is an argument rather than a call inside, which keeps this a
- * pure function a test can pin to a fixed instant.
- */
-
+// Keep now as an argument so callers can use a fixed instant.
 const RELATIVE_TIME = new Intl.RelativeTimeFormat(undefined, { numeric: "auto" });
 
-/** `narrow` is `Intl`'s own short form — "3d ago" — for rows with no width for a sentence. */
 const RELATIVE_TIME_NARROW = new Intl.RelativeTimeFormat(undefined, {
   numeric: "auto",
   style: "narrow",
 });
 
-/** Largest unit that still counts at least one, so a three-day-old item reads days, not hours. */
+// Use the largest unit with an absolute value of at least one.
 const UNITS = [
   ["year", 31_536_000_000],
   ["month", 2_592_000_000],
@@ -44,7 +36,6 @@ const format = (
 const formatRelativeTime = (input: Readonly<{ iso: string; now: number }>): string =>
   format(RELATIVE_TIME, input);
 
-/** The same instant where a row has room for a stamp and not for a sentence. */
 const formatRelativeTimeNarrow = (input: Readonly<{ iso: string; now: number }>): string =>
   format(RELATIVE_TIME_NARROW, input);
 

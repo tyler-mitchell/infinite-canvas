@@ -5,58 +5,35 @@ import { parseInfiniteCanvasState, serializeInfiniteCanvasState } from "./persis
 import { reduceInfiniteCanvasState } from "./reducer";
 import type { InfiniteCanvasState } from "./types";
 
-/**
- * Which state survives a reload, decided at compile time rather than remembered.
- *
- * `serializeInfiniteCanvasState` enumerates the fields it writes and
- * `parseInfiniteCanvasState` enumerates the ones it reads back, so a new field is absent from
- * both by default and nothing says so. That is not hypothetical: `capabilities` was dropped on
- * every reload the day it landed, and `workspaces` was dropped twice on the way in — once by
- * the envelope and once by the state builder — each found only because a test happened to look.
- *
- * The map below is typed as a `Record` over the state's own keys, so **adding a field to
- * `InfiniteCanvasState` fails the typecheck until it is classified**: it either survives a
- * round trip, or it declares why it must not. The same inversion `command-coverage.test.ts`
- * applies to actions and `clone.test.ts` to shared references — the omission that used to be
- * silent now cannot compile.
- */
-
+/** Classifies every state field as persisted, derived, measured, or session-only. */
 type Kind = "note";
 
-/** Why a field is deliberately absent from a persisted document. */
 type NotPersisted = "derived" | "measured" | "session";
 
 const PERSISTENCE: Readonly<Record<keyof InfiniteCanvasState<Kind>, NotPersisted | "persisted">> = {
   activeWindowId: "persisted",
   activeWorkspaceId: "persisted",
   camera: "persisted",
-  // The consumer's chrome sizes, declared on mount for the same reason `viewportInsets` is.
+  // Measured consumer chrome.
   groupMetrics: "measured",
   groups: "persisted",
-  // "A layout is a document, not its edit log." Undoing across a reload would step into a
-  // document the user never edited in this session.
+  // Reloads start a new edit session.
   history: "session",
-  // A drag cannot survive a reload; there is no pointer on the other side of one.
+  // A pointer interaction cannot cross a reload.
   interaction: "session",
   selection: "persisted",
-  // Derived from an interaction, and dies with it.
+  // Derived from the current interaction.
   snapPreview: "derived",
-  // Measured from the DOM on mount. Restoring the old one would fight the first resize
-  // observation and could hydrate a canvas sized for someone else's monitor.
+  // Measured from the mounted element.
   viewport: "measured",
-  // The consumer's own chrome, declared by the consumer on mount. Restoring it would be worse
-  // than restoring a viewport: a layout saved while a sidebar was open would keep reserving that
-  // space in a build where the sidebar no longer exists.
+  // Measured consumer chrome.
   viewportInsets: "measured",
-  // The same chrome, in the shape an inset cannot describe. Measured for the same reason and with
-  // a sharper version of it: an occluder is a screen rect, so a persisted one would be restored at
-  // coordinates from someone else's window size and cover a region nothing is drawn over.
+  // Measured screen-space chrome.
   viewportOccluders: "measured",
   windows: "persisted",
   workspaces: "persisted",
 };
 
-/** Every persisted field set to something a default would not produce. */
 const distinctive = (): InfiniteCanvasState<Kind> => {
   const base = createInfiniteCanvasState<Kind>({
     windows: [
@@ -96,8 +73,6 @@ const distinctive = (): InfiniteCanvasState<Kind> => {
 };
 
 test("every field is classified as persisted or explicitly not", () => {
-  // The type does the work; this asserts the map is not empty of the interesting half, so a
-  // future edit that classified everything as `session` would not pass silently.
   expect(
     Object.values(PERSISTENCE).filter((value) => value === "persisted").length,
   ).toBeGreaterThan(5);
@@ -121,9 +96,6 @@ test("every field marked persisted survives a round trip", () => {
 });
 
 test("a field marked not-persisted is genuinely absent from the document", () => {
-  // The other direction. A field declared `session` that quietly serialized would mean the
-  // declaration was decoration, and an undo stack crossing a reload is a real surprise rather
-  // than a harmless extra.
   const serialized = serializeInfiniteCanvasState(distinctive()) as unknown as Record<
     string,
     unknown

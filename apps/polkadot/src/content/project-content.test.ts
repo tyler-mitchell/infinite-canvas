@@ -2,14 +2,6 @@ import { expect, test } from "vite-plus/test";
 
 import { getProjectContent, getProjectContentOfKind } from "./project-content";
 
-/**
- * The listing that decides what the library can show.
- *
- * Its project guard is the part worth pinning: this cache is a module singleton, so between
- * navigating to another project and its first query landing it still holds the previous project's
- * items — and a reader that trusted them would show one project's contents under another's name.
- */
-
 const item = (id: string, kind: string) => ({
   content: {},
   id,
@@ -29,12 +21,6 @@ test("a listing is returned for the project it belongs to", () => {
 });
 
 test("another project's listing reads as no answer, not as an empty one", () => {
-  /*
-   * `null` rather than `[]`, and the difference is the whole point: the rail draws "nothing here
-   * yet" for an empty answer and draws nothing at all for a missing one. Returning `[]` here would
-   * tell someone who just switched project that their new project is empty, in the moment before
-   * the query lands.
-   */
   expect(getProjectContent(listing, "project:two")).toBeNull();
   expect(getProjectContent(null, "project:one")).toBeNull();
 });
@@ -46,8 +32,6 @@ test("every kind is listed, which is what makes it a library rather than a note 
 });
 
 test("narrowing to a kind keeps the project guard", () => {
-  // Mentions ask for notes. Asking the wrong project must still answer null rather than an empty
-  // mention menu, which reads as "this note has no neighbours".
   expect(getProjectContentOfKind({ kind: "note", listing, projectId: "project:one" })).toHaveLength(
     2,
   );
@@ -55,7 +39,6 @@ test("narrowing to a kind keeps the project guard", () => {
 });
 
 test("a kind nothing matches is an empty list, not a missing answer", () => {
-  // The project answered; it has no collections. That is a real "none", unlike the guard above.
   expect(
     getProjectContentOfKind({ kind: "collection", listing, projectId: "project:one" }),
   ).toEqual([]);

@@ -5,14 +5,6 @@ import { reduceInfiniteCanvasState } from "./reducer";
 import type { InfiniteCanvasState } from "./types";
 import { isInfiniteCanvasWindowInActiveWorkspace } from "./workspace-membership";
 
-/**
- * Going to a window means going where it is.
- *
- * `getNavigableWindow` filters on `minimized` alone, so a window a desktop hides is still a
- * navigation target — the camera travelled to a rect nothing renders and the window read as lost.
- * Every consumer that names a window off-canvas hit this, and none of them had changed.
- */
-
 type Kind = "note";
 
 const pane = (id: string) =>
@@ -23,7 +15,6 @@ const pane = (id: string) =>
     title: id,
   });
 
-/** `sources` filed on Research, `draft` on Writing, and Writing is the one you are looking at. */
 const twoDesktops = (): InfiniteCanvasState<Kind> => {
   const research = reduceInfiniteCanvasState(
     createInfiniteCanvasState<Kind>({ windows: [pane("sources"), pane("draft")] }),
@@ -57,8 +48,6 @@ test("revealing a window on another desktop switches to that desktop", () => {
 });
 
 test("the revealed window is one the canvas will actually render", () => {
-  // The property the desktop switch is a proxy for, asserted through the predicate the window
-  // layer consults. Landing on the right desktop with the window still filtered out is the bug.
   const revealed = reveal(twoDesktops(), "sources");
 
   expect(isInfiniteCanvasWindowInActiveWorkspace(revealed, "sources")).toBe(true);
@@ -75,7 +64,6 @@ test("a window on no desktop is revealed by leaving the current one", () => {
     type: "window.open",
     window: pane("loose"),
   });
-  // Opening put it on Writing, so take it back off to model the window that belongs nowhere.
   const filed = reduceInfiniteCanvasState(orphan, {
     type: "workspace.setWindows",
     windowIds: ["draft"],

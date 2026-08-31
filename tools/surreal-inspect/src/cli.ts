@@ -10,19 +10,7 @@ import {
 
 import { loadManifest } from "./manifest.ts";
 
-/**
- * Offline inspector commands. An embedded SurrealDB lives in IndexedDB, which exists only inside a
- * page, so these operate on text: the SurQL corpus, an export, or a saved report.
- *
- * Live inspection is `window.__surreal` in the running app. `report` reads its output:
- *
- * ```sh
- * copy(JSON.stringify(await window.__surreal.report()))
- * surreal-inspect report --file report.json
- * ```
- *
- * Every command takes `--json`.
- */
+/** Offline commands inspect SurQL files and saved reports. */
 
 const jsonFlag = {
   description: "Emit the result as JSON rather than as text.",
@@ -63,10 +51,7 @@ const scan = defineCommand({
       }
     }
 
-    /*
-     * Two files defining the same thing is not automatically wrong — but with `IF NOT EXISTS` it
-     * means only the first one ever takes effect, so it is always worth knowing about.
-     */
+    // `IF NOT EXISTS` keeps the first repeated definition.
     const duplicates = [...seen.entries()]
       .filter(([, paths]) => paths.length > 1)
       .map(([id, paths]) => ({ id, paths }));
@@ -194,11 +179,7 @@ const report = defineCommand({
         (database) =>
           `  ${database.name}: ${database.stores.map((store) => `${store.name}=${String(store.entries ?? "?")}`).join(", ")}`,
       ),
-      /*
-       * Last, and never omitted when non-empty. Everything above can be absent for two reasons —
-       * there was nothing, or nothing could be established — and this is the only thing that tells
-       * them apart.
-       */
+      // Unavailable results distinguish absent data from unreadable data.
       ...(captured.unavailable.length === 0
         ? []
         : [

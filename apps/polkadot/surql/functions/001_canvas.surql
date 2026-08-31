@@ -9,22 +9,9 @@ DEFINE FUNCTION OVERWRITE fn::save_canvas(
     WHERE revision = $revision;
 };
 
--- What `/` opens when nothing is open yet.
---
--- This was built on three fixed ids — `project:default`, `content_item:welcome`,
--- `canvas_document:main` — which was right while there was one of everything, and wrong twice once
--- projects were real. Archiving your only project did not empty the app: bootstrap handed the
--- archived project straight back and the shell presented it as current. And seeding every new
--- canvas with one fixed note id meant a second project's first canvas showed the first project's
--- note, which `fn::read_note` would happily load because it takes a record id and asks no
--- questions.
---
--- Now it picks something usable and creates only what is missing. The layout it stores is whatever
--- the caller passes; it seeds no content, so no canvas can reference a note belonging to another
--- project.
+-- Bootstrap creates only missing active project and canvas records.
 DEFINE FUNCTION OVERWRITE fn::bootstrap_canvas($layout: object) {
-  -- `created_at` and `updated_at` are projected because SurrealDB requires an ORDER BY idiom to
-  -- appear in the selection, which also rules out `SELECT VALUE` here.
+  -- SurrealDB requires an ordered field in the selection.
   LET $existing = SELECT id, created_at FROM ONLY project
     WHERE archived_at = NONE
     ORDER BY created_at

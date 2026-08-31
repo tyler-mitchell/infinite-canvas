@@ -1,20 +1,4 @@
-/**
- * Architecture gate: the pure core stays pure.
- *
- * The framework's central claim is that every state transition is a plain
- * `(state, action)` function over serializable data — no React, no observable runtime,
- * no `three`. `README.md` and `CONTRIBUTING.md` both once said a test enforced this.
- * **No such test existed.** It held by construction and by reading, and nothing stopped
- * the next contributor from importing an observable into `reducer.ts`.
- *
- * This crawls the real import graph from each pure-core root and fails if any of them can
- * reach a runtime dependency. Type-only imports are ignored: `import type { … }` and
- * `import { type X }` erase before runtime, so they cannot drag a package into the core.
- *
- * Reads source, needs no build, resolves its own paths.
- *
- * Run: node ./scripts/verify-pure-core.mjs
- */
+/** Fails when a pure core module reaches a renderer runtime. */
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, join, normalize, relative } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -22,12 +6,7 @@ import { fileURLToPath } from "node:url";
 const packageRoot = dirname(dirname(fileURLToPath(import.meta.url)));
 const sourceRoot = join(packageRoot, "src");
 
-/**
- * A pure-core root is a module a consumer may drive headlessly: the reducer and everything
- * the reducer's vocabulary is built from. Anything that legitimately holds React or Legend
- * State — `store`, `rasterization`, `visibility`, `canvas-handle`, every `.tsx` — is simply
- * not a root, and reaching one of them from a root is itself the failure.
- */
+/** Modules that consumers can drive without a renderer. */
 const PURE_CORE_ROOTS = [
   "camera-navigation.ts",
   "commands.ts",
@@ -62,7 +41,7 @@ const PURE_CORE_ROOTS = [
   "window-proxy.ts",
 ];
 
-/** Runtime dependencies the core must never reach. Type-only use of these is fine. */
+/** Runtime packages forbidden from the core graph. */
 const FORBIDDEN_PACKAGES = new Set([
   "@legendapp/state",
   "@react-three/fiber",
@@ -72,26 +51,13 @@ const FORBIDDEN_PACKAGES = new Set([
   "three",
 ]);
 
-/**
- * The crawl must reach substantially more than its roots, or it proves nothing.
- *
- * `optional-peers.test.ts` shipped in this repo passing vacuously: its regex missed
- * `export … from`, so the barrel crawl reached exactly one module and asserted nothing
- * about the other forty-five. A coverage floor is the cheapest defence against repeating
- * that, and it fails loudly if a refactor quietly disconnects the graph.
- */
+/** Minimum graph size that prevents a vacuous crawl. */
 const MINIMUM_REACHED_MODULES = 25;
 
 const toPackageName = (specifier) =>
   specifier.startsWith("@") ? specifier.split("/").slice(0, 2).join("/") : specifier.split("/")[0];
 
-/**
- * Value-import specifiers only. A statement whose every binding is a type erases entirely.
- *
- * Matches `import … from "x"`, `export … from "x"`, and bare `import "x"` (side effects
- * are exactly what must not sneak in). Skips `import type { … } from "x"` outright, and
- * skips a brace clause in which every specifier is `type`-prefixed.
- */
+/** Returns value and side-effect import specifiers. */
 const getRuntimeImportSpecifiers = (source) => {
   const specifiers = [];
 
@@ -118,7 +84,7 @@ const getRuntimeImportSpecifiers = (source) => {
         .map((binding) => binding.trim())
         .filter((binding) => binding !== "");
 
-      // `export * from` has no braces; an all-`type` clause contributes no runtime edge.
+      // An all-type clause has no runtime edge.
       if (bindings.length > 0 && bindings.every((binding) => binding.startsWith("type "))) {
         continue;
       }
@@ -151,8 +117,7 @@ for (const root of PURE_CORE_ROOTS) {
     continue;
   }
 
-  // Depth-first, remembering how we got here: "reducer.ts imports @legendapp/state" is
-  // actionable, "something imports @legendapp/state" is not.
+  // Track import trails for actionable failures.
   const stack = [[rootPath, [root]]];
   const visited = new Set();
 

@@ -5,26 +5,6 @@ import { reduceInfiniteCanvasState } from "./reducer";
 import { createInfiniteCanvasStore } from "./store";
 import type { InfiniteCanvasAction, InfiniteCanvasState } from "./types";
 
-/**
- * The store's observable state is the reduced state. All of it.
- *
- * `commitInfiniteCanvasState` writes changed fields individually rather than replacing the root,
- * because a `set` on the root would invalidate every observer on every action. That is the right
- * design and it came with a hand-written list of fields — which went out of date the moment a
- * field was added, and did: `workspaces` and `activeWorkspaceId` were absent, so **every
- * workspace action was silently dropped by the store**.
- *
- * The reducer was correct the whole time. The bug lived only on the public path — and since
- * `reduceInfiniteCanvasState` is not exported, the store *is* the public path, which made the
- * entire workspaces feature unreachable for a consumer except through `initialState`. Every unit
- * test passed throughout, because they all drive the reducer directly.
- *
- * This is the third time a hand-listed enumeration of state fields dropped `workspaces` —
- * `cloneInfiniteCanvasState` and the persistence envelope were the first two. The commit loop is
- * now generic over the state's own keys, so there is no list left to forget, and these assert
- * the property rather than the list.
- */
-
 type Kind = "note";
 
 const pane = (id: string) =>
@@ -38,10 +18,6 @@ const pane = (id: string) =>
 const base = (): InfiniteCanvasState<Kind> =>
   createInfiniteCanvasState<Kind>({ windows: [pane("a"), pane("b")] });
 
-/**
- * One action per field the reducer can touch, so a field the commit forgets shows up here as a
- * disagreement rather than as a feature nobody can reach.
- */
 const ACTIONS: readonly InfiniteCanvasAction<Kind>[] = [
   { title: "Research", type: "workspace.create", windowIds: ["a"], workspaceId: "research" },
   { type: "workspace.activate", workspaceId: "research" },
@@ -54,8 +30,6 @@ const ACTIONS: readonly InfiniteCanvasAction<Kind>[] = [
 ];
 
 test("dispatching leaves the store holding exactly what the reducer produced", () => {
-  // The whole invariant in one assertion, and the one that would have caught the dropped
-  // workspaces on the day it landed: whatever the reducer returns is what an observer reads.
   const store = createInfiniteCanvasStore(base());
 
   const expected = ACTIONS.reduce<InfiniteCanvasState<Kind>>((state, action) => {
@@ -68,8 +42,6 @@ test("dispatching leaves the store holding exactly what the reducer produced", (
 });
 
 test("a workspace action reaches the store at all", () => {
-  // Stated separately and bluntly, because "the store equals the reducer" is the kind of
-  // assertion that can be satisfied by both sides being equally empty.
   const store = createInfiniteCanvasStore(base());
 
   store.commands.dispatch({
@@ -88,8 +60,6 @@ test("a workspace action reaches the store at all", () => {
 });
 
 test("an action that changes nothing writes nothing", () => {
-  // The reason the commit compares before writing. Focusing the already-active window is not an
-  // edit, and a store that wrote anyway would invalidate every observer on a no-op.
   const store = createInfiniteCanvasStore(base());
   const before = store.state$.peek();
 

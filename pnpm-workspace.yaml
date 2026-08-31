@@ -8,11 +8,7 @@ catalogMode: prefer
 catalog:
   "@types/node": ^24
   typescript: ^5
-  # Pinned exactly: these were `@latest`, so every `install` silently upgraded
-  # the whole toolchain. The original 0.1.24 pin could build TanStack Start but
-  # served every Start route as 404 in development. Version 0.2.9 is the first
-  # locally proven pin that admits Start's dev middleware; every future bump
-  # still requires the full `ready` gate.
+  # Keep these packages aligned. Version 0.1.24 served Start routes as 404.
   vite: npm:@voidzero-dev/vite-plus-core@0.2.9
   vitest: 4.1.10
   vite-plus: 0.2.9
@@ -21,7 +17,6 @@ catalog:
   "@types/react": ^19.2.17
   "@types/react-dom": ^19.2.3
   "@vitejs/plugin-react": ^6.0.2
-  # Framework stack — pinned to versions proven together in kek-monorepo.
   "@legendapp/state": 3.0.0-beta.47
   "@react-three/fiber": 10.0.0-canary.dbbe704
   "@react-three/drei": 10.7.7
@@ -34,7 +29,6 @@ catalog:
   arktype: ^2.2.0
   "@zumer/snapdom": ^2.9.0
   lucide-react: ^0.577.0
-  # Playground / UI kit stack.
   "@base-ui/react": ^1.4.0
   cmdk: ^1.1.1
   "@tanstack/react-router": 1.170.32
@@ -52,9 +46,7 @@ catalog:
   publint: ^0.3.23
   "@arethetypeswrong/core": ^0.18.5
   execa: ^10.0.1
-  # The house CLI framework. `tools/surreal-inspect` asked for `citty: "catalog:"`
-  # with no entry here, which fails `pnpm install` for every package in the
-  # workspace — so no `vp check` could run anywhere until this line existed.
+  # citty must stay in this catalog because tools/surreal-inspect uses `catalog:`.
   citty: ^0.1.6
   "@varlock/bumpy": 1.18.1
   "@fontsource-variable/geist-mono": ^5.3.0
@@ -71,11 +63,9 @@ catalog:
   "@lexical/selection": ^0.49.0
   "@lexical/code": ^0.49.0
   "@lexical/code-shiki": ^0.49.0
-  # Runs the real editor with no DOM, which is what makes a note's markdown the same markdown the
-  # editor would produce rather than a second parser that drifts from it.
+  # This package uses the editor's Markdown serializer without a DOM.
   "@lexical/headless": ^0.49.0
-  # The field's shader. `unplugin-typegpu` is not optional — shaders authored in
-  # TypeScript do not work at all without it.
+  # TypeGPU shaders require this build plugin.
   typegpu: ^0.12.3
   "unplugin-typegpu": ^0.12.0
   "@webgpu/types": ^0.1.66
@@ -104,7 +94,3 @@ minimumReleaseAgeExclude:
   - "@tanstack/start-plugin-core@1.171.39"
   - "@tanstack/start-server-core@1.169.31"
   - "@tanstack/start-storage-context@1.167.29"
-
-# WASM 2.6.1 is the last IndexedDB-capable line and predates SurrealDB's Vite
-# worker fix. This is the exact upstream beb9d00 backport; remove it only when a
-# published release provides both IndexedDB and injected-worker support.

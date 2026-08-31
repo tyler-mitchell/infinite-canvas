@@ -1,17 +1,4 @@
-/**
- * Public STYLING selector contract for the headless distribution.
- *
- * Every structural element the framework renders is tagged with
- * `data-slot="<slot>"` using the vocabulary below. Theme stylesheets
- * (theme.css and the future styled distribution) target these attributes
- * instead of utility classNames. This contract is purely presentational;
- * the `data-infinite-canvas-*` attributes are a separate behavioral
- * contract and must not be used for styling.
- *
- * Boolean window states are emitted as separate attributes
- * (`data-active`, `data-selected`, `data-pinned`) rather than a single
- * enum because window states co-occur.
- */
+/** Public `data-slot` names for styling. Behavioral attributes use a separate contract. */
 const INFINITE_CANVAS_SLOTS = {
   dockRegion: "dock-region",
   grid: "grid",
@@ -23,7 +10,7 @@ const INFINITE_CANVAS_SLOTS = {
   groupTab: "group-tab",
   groupTabStrip: "group-tab-strip",
   hud: "hud",
-  /** The single flex row along the bottom edge: the dock on the left, the controls on the right. */
+  /** Bottom row that contains the dock and controls. */
   hudBand: "hud-band",
   hudButton: "hud-button",
   hudDock: "hud-dock",
@@ -56,27 +43,12 @@ const INFINITE_CANVAS_SLOTS = {
 
 type InfiniteCanvasSlot = (typeof INFINITE_CANVAS_SLOTS)[keyof typeof INFINITE_CANVAS_SLOTS];
 
-/**
- * The DOM `id` of a window's frame element, namespaced by the canvas instance.
- *
- * A window frame needs a real `id` so a group tab's `aria-controls` can name the panel the tab
- * reveals (FR-9). A window id is unique within a canvas but not across two canvases on one page,
- * so the id is prefixed with a per-canvas instance token — mint one with React's `useId()` at the
- * desktop root and thread it down. The frame and the tab both compute the id through this one
- * function, so a rename cannot make them disagree.
- *
- * Not re-exported from the barrel yet: the `aria-controls` wiring it supports is unverified in a
- * browser, and this stays internal until it is.
- */
+/** Creates a canvas-scoped frame id for tab `aria-controls`. */
 function getInfiniteCanvasWindowFrameElementId(canvasInstanceId: string, windowId: string): string {
   return `${canvasInstanceId}-window-${windowId}`;
 }
 
-/**
- * Window state attributes for the styling contract. Present states render
- * as empty-string valued attributes (`data-active=""`); absent states are
- * `undefined`, which React omits from the DOM.
- */
+/** Returns empty attributes for active states and `undefined` for absent states. */
 function getInfiniteCanvasWindowStateAttributes({
   isActive,
   isPinned,

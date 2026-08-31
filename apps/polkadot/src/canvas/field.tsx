@@ -16,98 +16,44 @@ import { tv } from "ui/tv";
 import { fieldFragment, FieldUniforms, layout, MAX_RECTS, RectMass } from "./field-shader";
 import type { WindowKind } from "./window-registry";
 
-/**
- * The ground.
- *
- * A canvas whose background is wallpaper is a canvas you do not believe in, so this one is a
- * field the windows deform. The diegetic idea is gravity: a window is a mass resting on the
- * surface and the lattice falls into it, draping the way a rubber sheet does around a weight.
- *
- * **What is simulated is the rectangles, not the lattice.** The field itself is a formula
- * evaluated per pixel in warped space — see `field-shader.ts`, which owns all of it. The momentum
- * lives here instead: rect positions and sizes chase the real windows with gain `0.08` and damping
- * `0.75`, and influence eases in at `0.15`. That is why a window that stops moving leaves the
- * field still settling behind it.
- *
- * This file owns the CPU half — the settle, the pointer anchor, and the uniform writes. It holds
- * no shader source at all.
- */
-
 const field = tv({
   slots: {
     canvas: "absolute inset-0 h-full w-full",
   },
 });
 
-/**
- * The field's tuning, and the whole of it.
- *
- * The reference this is modelled on carried five near-duplicate hover radii and three influence
- * radii, each a fixed ratio of one real number. They are collapsed here: one hover radius and one
- * gravitational reach move their whole family together, which is the only way tuning the feel is
- * possible without unpicking which of five smoothsteps was the one that mattered.
- *
- * Everything a consumer would actually reach for while tuning is here. What is not: the ratios
- * themselves, and the eight-rect uniform array — the first is the field's identity rather than a
- * setting, and the second is a GPU cost decision no product should be making.
- */
 type FieldConfig = Readonly<{
-  /**
-   * What a window does to the field it sits on.
-   *
-   * `mass` is the pull of a default-sized note; bigger windows pull harder in proportion to the
-   * square root of their footprint. `reach` is where that pull has fallen to half, and because the
-   * falloff is inverse-square the tail runs well past it. `ceiling` caps the total displacement so
-   * overlapping wells cannot tear the lattice open.
-   */
+  /** These values control the pull, range, and displacement limit. */
   gravity: Readonly<{ ceiling: number; mass: number; reach: number }>;
-  /** How strongly the pointer's dots and lines lift, and how far that reaches in screen pixels. */
+  /** These values control pointer lift and its screen-space radius. */
   hover: Readonly<{ anchorEase: number; ease: number; radius: number; snapReset: number }>;
-  /** Ink weights. Raise `line` for a drafting surface, `dot` for a field of points. */
+  /** These values control line, dot, grain, and vignette strength. */
   intensity: Readonly<{ dot: number; grain: number; line: number; vignette: number }>;
-  /** Screen pixels between lattice lines. Faint traces sit on the half-step. */
+  /** This is the gap between lattice lines in screen pixels. */
   latticeStep: number;
-  /**
-   * Device pixels drawn per CSS pixel.
-   *
-   * The default is `1` rather than the display's ratio, which on a retina screen is a straight
-   * four-fold cut in a cost that is entirely per-pixel. The field is a soft, low-frequency image
-   * and its lines are meant to read as one CSS pixel wide, so drawing it at device resolution buys
-   * crispness the design never asked for at four times the price.
-   */
+  /** This is the number of device pixels per CSS pixel. */
   renderScale: number;
-  /** How the rects chase the real windows. Low gain and high damping is a heavy, settling field. */
+  /** These values control rectangle motion and fade. */
   settle: Readonly<{ damping: number; gain: number; strengthEase: number }>;
 }>;
 
 const DEFAULT_FIELD_CONFIG: FieldConfig = {
-  // A third of a cell of displacement at the rim, falling away by roughly two window-widths. Set
-  // to 26 at first, which bent the whole canvas into a fisheye rather than denting it.
   gravity: { ceiling: 13, mass: 14, reach: 210 },
   hover: { anchorEase: 0.2, ease: 0.18, radius: 132, snapReset: 96 },
-  // Loud enough that the wells read, quiet enough to stay ground. At the reference's 1 the
-  // gravity was geometrically present and completely invisible; past about 4 it becomes a
-  // wireframe, which is the look the bar explicitly bans.
   intensity: { dot: 1.9, grain: 1, line: 2.4, vignette: 1 },
   latticeStep: 40,
   renderScale: 1,
   settle: { damping: 0.75, gain: 0.08, strengthEase: 0.15 },
 };
 
-/**
- * The thresholds below which a frame could not change a pixel.
- *
- * An exponential ease never arrives, so a gate on exact equality repaints forever chasing the
- * last thousandth. These are set where the motion is smaller than half a pixel — invisible, and
- * therefore not worth the whole viewport.
- */
+// These thresholds stop frames that cannot change a pixel.
 const SETTLED_VELOCITY = 0.05;
 const SETTLED_ANCHOR = 0.5;
 const SETTLED_STRENGTH = 0.004;
 
 const TARGET_FRAME_RATE = 60;
 
-/** Easing constants are per-frame at 60Hz, so every one is re-based on the frame actually taken. */
+// These constants use a 60 Hz frame as their base.
 const frameRatio = (deltaMs: number) =>
   Math.min(Math.max(deltaMs / (1000 / TARGET_FRAME_RATE), 0), 2.5);
 const frameAlpha = (alpha: number, ratio: number) => 1 - (1 - alpha) ** ratio;
@@ -131,32 +77,16 @@ type RectState = {
 };
 
 type FieldInput = Readonly<{
-  /**
-   * The windows this desktop admits, or `null` when no desktop is active and all of them are.
-   *
-   * `state.windows` is every window on the canvas rather than every window on the desktop being
-   * looked at, so without this the field was displaced by windows nobody could see — the same
-   * omission `ROADMAP.md` records seven other surfaces making, and this was the eighth. It went
-   * unnoticed because the field is unmounted: a bug nothing renders is still a bug, and it would
-   * have arrived looking like the field was pulling toward nothing.
-   */
+  /** This set is null when no desktop is active. */
   admittedWindowIds: ReadonlySet<string> | null;
   camera: InfiniteCanvasCamera;
-  /** Members a group is not drawing — behind a tab, or a collapsed fold. */
+  /** This set contains members hidden by a group. */
   hiddenWindowIds: ReadonlySet<string>;
   viewport: InfiniteCanvasViewportSize;
   windows: readonly InfiniteCanvasWindow<WindowKind>[];
 }>;
 
-/**
- * A token's colour in the 0–1 channels a shader wants.
- *
- * Painted into a 1×1 canvas and read back rather than parsed, because `getPropertyValue` returns
- * the token's *text* and the palette is written in `oklch` — scraping three numbers out of
- * `oklch(0.155 0.008 265)` and calling them RGB turned the ground bright blue. Painting makes the
- * browser resolve whatever syntax a token happens to use, so the stylesheet stays the only place
- * colour is decided.
- */
+// The canvas converts CSS color syntax to RGB values for the shader.
 const readColor = (element: Element, name: string) => {
   const probe = document.createElement("canvas").getContext("2d");
 
@@ -172,13 +102,6 @@ const readColor = (element: Element, name: string) => {
   return d.vec3f(red / 255, green / 255, blue / 255);
 };
 
-/**
- * The windows nearest the viewport centre, in screen pixels.
- *
- * Only eight rects fit the uniform array, and a window far off screen contributes nothing anyway —
- * the pull falls away with the square of the distance. Minimized windows are excluded because they
- * have no rect on screen to pull with.
- */
 const getScreenRects = ({
   admittedWindowIds,
   camera,
@@ -191,43 +114,29 @@ const getScreenRects = ({
     rect: Readonly<{ height: number; width: number; x: number; y: number }>,
   ) => (rect.x + rect.width / 2 - centre.x) ** 2 + (rect.y + rect.height / 2 - centre.y) ** 2;
 
-  return (
-    windows
-      /*
-       * Three ways a window is on the canvas without being on screen, and this knew one.
-       *
-       * A hidden tab member has no rect to pull with — its `mode` is `"normal"` and its `rect` is
-       * the shell's whole content rect, so both members of a tab pair displaced the field at the
-       * same place and one visible shell pulled twice. A window on another desktop has no rect on
-       * *this* screen at all, and that one was still missing: `state.windows` is every window on the
-       * canvas rather than every window on the desktop you are looking at.
-       *
-       * Asking all three is the rule `ROADMAP.md` records seven surfaces breaking. Asking one of
-       * them is what let this be the eighth.
-       */
-      .filter(
-        (window) =>
-          window.mode !== "minimized" &&
-          !hiddenWindowIds.has(window.id) &&
-          (admittedWindowIds === null || admittedWindowIds.has(window.id)),
-      )
-      .map((window) => {
-        const origin = worldPointToScreenPoint(camera, viewport, {
-          x: window.rect.x,
-          y: window.rect.y,
-        });
+  return windows
+    .filter(
+      (window) =>
+        window.mode !== "minimized" &&
+        !hiddenWindowIds.has(window.id) &&
+        (admittedWindowIds === null || admittedWindowIds.has(window.id)),
+    )
+    .map((window) => {
+      const origin = worldPointToScreenPoint(camera, viewport, {
+        x: window.rect.x,
+        y: window.rect.y,
+      });
 
-        return {
-          height: window.rect.height * camera.zoom,
-          id: window.id,
-          width: window.rect.width * camera.zoom,
-          x: origin.x,
-          y: origin.y,
-        };
-      })
-      .sort((left, right) => distanceFromCentre(left) - distanceFromCentre(right))
-      .slice(0, MAX_RECTS)
-  );
+      return {
+        height: window.rect.height * camera.zoom,
+        id: window.id,
+        width: window.rect.width * camera.zoom,
+        x: origin.x,
+        y: origin.y,
+      };
+    })
+    .sort((left, right) => distanceFromCentre(left) - distanceFromCentre(right))
+    .slice(0, MAX_RECTS);
 };
 
 export function Field({ config = DEFAULT_FIELD_CONFIG }: Readonly<{ config?: FieldConfig }>) {
@@ -238,27 +147,9 @@ export function Field({ config = DEFAULT_FIELD_CONFIG }: Readonly<{ config?: Fie
     WindowKind,
     readonly InfiniteCanvasWindow<WindowKind>[]
   >((state) => state.windows);
-  // The loop reads the latest canvas through a ref rather than restarting on every camera frame:
-  // rebuilding the device and pipeline each pan would drop the field's own settling on the floor.
   const hiddenWindowIds = useInfiniteCanvasSelector<WindowKind, ReadonlySet<string>>(
     (state) => getInfiniteCanvasGroupProjection(state.groups, state.groupMetrics).hiddenWindowIds,
   );
-  /*
-   * Selected as a set, the way `hiddenWindowIds` is, rather than filtered where it is used: the
-   * membership answer is the framework's and asking it per window inside the render loop would put
-   * a state lookup on every frame the field draws.
-   */
-  /*
-   * The framework's set, not one built by asking about each window.
-   *
-   * `getInfiniteCanvasWorkspaceWindowIds` says which to use and this first reached for the other:
-   * "the set is right for a render pass asking about every window once; it is wrong for a single
-   * lookup". This is that render pass. Building it from `isInfiniteCanvasWindowInActiveWorkspace`
-   * ran the single-lookup form once per window, which is the inversion its docstring exists to
-   * prevent — and the minimap, asking the same question for the same reason, already reads the set.
-   *
-   * `null` means no desktop is active, which admits everything rather than nothing.
-   */
   const admittedWindowIds = useInfiniteCanvasSelector<WindowKind, ReadonlySet<string> | null>(
     (state) => getInfiniteCanvasWorkspaceWindowIds(state),
   );
@@ -289,8 +180,6 @@ export function Field({ config = DEFAULT_FIELD_CONFIG }: Readonly<{ config?: Fie
       disposed = true;
     };
 
-    // Requesting a device is async, and the canvas must paint before it resolves — the same rule
-    // the database follows. Until it does, the ground is the token colour behind this element.
     void (async () => {
       const root = await tgpu.init();
 
@@ -310,8 +199,6 @@ export function Field({ config = DEFAULT_FIELD_CONFIG }: Readonly<{ config?: Fie
         masses: massesBuffer,
         uniforms: uniformsBuffer,
       });
-      // 0.12 removed the `withVertex(...).withFragment(...).createPipeline()` builder; the stages
-      // and their targets are passed to `createRenderPipeline` directly.
       const pipeline = root.createRenderPipeline({
         fragment: fieldFragment,
         targets: { format },
@@ -343,8 +230,7 @@ export function Field({ config = DEFAULT_FIELD_CONFIG }: Readonly<{ config?: Fie
       };
 
       const resize = () => {
-        // Device pixels per CSS pixel, outright — not a multiplier on the display's ratio, which
-        // would quietly reinstate the 4× retina cost this exists to avoid.
+        // renderScale is the device-pixel count for one CSS pixel.
         const ratio = configRef.current.renderScale;
         const width = Math.max(Math.round(canvas.clientWidth * ratio), 1);
         const height = Math.max(Math.round(canvas.clientHeight * ratio), 1);
@@ -385,8 +271,6 @@ export function Field({ config = DEFAULT_FIELD_CONFIG }: Readonly<{ config?: Fie
         previous = now;
         const resized = resize();
 
-        // Retarget: every window on screen chases its real rect, and one that has gone fades its
-        // influence out rather than snapping the field flat.
         const present = new Set<string>();
 
         for (const rect of getScreenRects(inputRef.current)) {
@@ -469,8 +353,6 @@ export function Field({ config = DEFAULT_FIELD_CONFIG }: Readonly<{ config?: Fie
           }),
         );
 
-        // The lattice slides with the camera so the ground belongs to the world, but its spacing
-        // stays in screen pixels: a texture of the surface, not a ruler laid over it.
         const offset = {
           x: inputRef.current.camera.center.x * inputRef.current.camera.zoom,
           y: inputRef.current.camera.center.y * inputRef.current.camera.zoom,
@@ -485,8 +367,7 @@ export function Field({ config = DEFAULT_FIELD_CONFIG }: Readonly<{ config?: Fie
           const targetX = snap(pointer.x + offset.x);
           const targetY = snap(pointer.y + offset.y);
           const anchorAlpha = frameAlpha(settings.hover.anchorEase, ratio);
-          // Past the reset distance the anchor jumps rather than gliding, so flicking across the
-          // canvas does not drag a lit streak behind the cursor.
+          // A long pointer move resets the anchor to prevent a light trail.
           const jumped =
             anchor.x < -1000 ||
             Math.hypot(targetX - anchor.x, targetY - anchor.y) > settings.hover.snapReset;
@@ -495,22 +376,7 @@ export function Field({ config = DEFAULT_FIELD_CONFIG }: Readonly<{ config?: Fie
           anchor.y = jumped ? targetY : anchor.y + (targetY - anchor.y) * anchorAlpha;
         }
 
-        /**
-         * Nothing to redraw means nothing is drawn.
-         *
-         * The shimmer and grain are driven by time, so without this the field repaints the whole
-         * viewport forever: reading a note with the pointer parked cost exactly as much as
-         * dragging a window.
-         *
-         * The gate is *change*, not presence. Gating on `pointer.active` looked right and idled
-         * never — it latches true on the first move and only `pointerleave` on the window clears
-         * it, which does not fire while the cursor is simply sitting still on the canvas. A
-         * stationary pointer over a settled highlight has nothing left to draw.
-         *
-         * Every source of change is enumerated rather than assumed: the rects settling, the
-         * pointer moving, its brightness and its anchor still easing, the camera, and a resize.
-         * Skipping leaves the last frame up, which is exactly what a still field looks like.
-         */
+        // Skip a frame when no input can change the image.
         const pointerMoved = pointer.x !== lastPointer.x || pointer.y !== lastPointer.y;
         const hoverSettling = Math.abs(hoverStrength - (pointer.active ? 1 : 0)) > SETTLED_STRENGTH;
         const anchorSettling =
@@ -555,7 +421,6 @@ export function Field({ config = DEFAULT_FIELD_CONFIG }: Readonly<{ config?: Fie
         });
 
         pipeline
-          // The bind group carries its own layout; passing both is TypeGPU's outdated overload.
           .with(bindGroup)
           .withColorAttachment({
             clearValue: [0, 0, 0, 1],

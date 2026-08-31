@@ -5,11 +5,6 @@ import { isInfiniteCanvasWindowGrouped } from "./group-state";
 import { reduceInfiniteCanvasState } from "./reducer";
 import type { InfiniteCanvasState } from "./types";
 
-/**
- * The lifecycle verbs detach a docked pane before acting. Maximize is not symmetric: restoring
- * does not re-attach, so toggling it twice leaves the pane out of its group.
- */
-
 type Kind = "note";
 
 const pane = (id: string, x: number) =>
@@ -21,7 +16,6 @@ const pane = (id: string, x: number) =>
     title: id,
   });
 
-/** "a" docked rightward, which pulls "b" into a shell with it. */
 const withShell = (): InfiniteCanvasState<Kind> => {
   const base = {
     ...createInfiniteCanvasState<Kind>({ windows: [pane("a", 0), pane("b", 400), pane("c", 800)] }),
@@ -48,10 +42,6 @@ test("maximizing takes a docked pane out of its group", () => {
 });
 
 test("restoring does not put it back", () => {
-  /*
-   * The claim the description makes, and the reason it has to. `toggleMaximized` reads as
-   * reversible; for a docked pane it is not, and nothing between the two presses re-attaches.
-   */
   const restored = maximize(maximize(withShell()));
 
   expect(restored.windows.find((window) => window.id === "a")?.mode).not.toBe("maximized");
@@ -68,11 +58,6 @@ test("minimizing takes a docked pane out of its group too", () => {
 });
 
 test("pinning leaves a docked pane where it is", () => {
-  /*
-   * The sibling that does *not* detach — it routes straight to `toggleWindowPinned` with no group
-   * call. Asserted because the other three do, which makes "the lifecycle verbs detach" the obvious
-   * wrong generalisation to draw from this file.
-   */
   const pinned = reduceInfiniteCanvasState(withShell(), {
     command: { type: "activeWindow.togglePinned" },
     type: "command.execute",

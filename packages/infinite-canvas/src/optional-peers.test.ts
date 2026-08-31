@@ -5,36 +5,16 @@ import { expect, test } from "vite-plus/test";
 
 import { getInfiniteCanvasMissingSceneSurfaceWarning } from "./infinite-canvas";
 
-/**
- * `three` and `@react-three/fiber` are optional peers: a consumer that never
- * imports `@hyphened/infinite-canvas/scene` must never be asked to install a 3D
- * engine. That holds only while the engine is unreachable from the main
- * barrel — including through a dynamic `import()`, since bundlers resolve
- * static specifiers into lazy chunks at build time and fail there.
- *
- * The published artifact is checked by scripts/verify-artifact.mjs. This test
- * catches the regression at its source, because the workspace resolves the
- * package to src/ and packaging bugs are invisible in the dev loop.
- */
-
 const srcDirectory = dirname(fileURLToPath(import.meta.url));
 
 const OPTIONAL_3D_PEERS = ["three", "@react-three/fiber"];
 
-/**
- * Bare specifiers and relative paths pulled in by value-position static
- * imports. Matches `export … from` too: the barrel is nothing but re-exports,
- * so an import-only pattern would crawl exactly one module and prove nothing.
- * The clause body is restricted to characters legal in an import clause, which
- * keeps `export const x = …` from swallowing the statements after it.
- */
 function getStaticImports(text: string) {
   return [
     ...text.matchAll(/^(?:import|export)\s+(?!type\b)[\w\s{},*$]*?\bfrom\s*["']([^"']+)["']/gm),
   ].map((match) => match[1] as string);
 }
 
-/** Resolve a relative specifier against src/, trying the extensions we author in. */
 function resolveLocalModule(fromFile: string, specifier: string) {
   const base = join(dirname(fromFile), specifier);
 
@@ -45,7 +25,6 @@ function resolveLocalModule(fromFile: string, specifier: string) {
   return null;
 }
 
-/** Every module statically reachable from the barrel, plus the packages they pull in. */
 function crawlStaticGraph(entry: string) {
   const modules = new Set<string>();
   const packages = new Set<string>();
@@ -107,8 +86,7 @@ test("the public entry never dynamically imports the WebGPU surface either", () 
 test("the ./scene entry is what owns the 3D engine", () => {
   const { packages } = crawlStaticGraph(join(srcDirectory, "scene.ts"));
 
-  // Guards the tests above against passing vacuously: if ./scene stopped
-  // importing three, the reachability assertions would prove nothing.
+  // This assertion prevents a vacuous reachability test.
   expect(OPTIONAL_3D_PEERS.filter((peer) => packages.has(peer)).sort()).toEqual(
     [...OPTIONAL_3D_PEERS].sort(),
   );

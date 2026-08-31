@@ -4,29 +4,8 @@ import { loadProjectContent } from "../content/project-content";
 import { withNamingLock } from "../naming-lock";
 import { getNextNumberedTitle } from "../titles";
 
-/**
- * Put a note on the canvas.
- *
- * One placement, three callers: the rail's button, the palette's new-note action, and the palette's
- * list of notes that have no window. Where the window lands is `openContentWindow`'s — this file
- * owns what is a note's: how big one starts, how small it may get, and what the next one is called.
- */
-
 const NOTE_SIZE = { height: 240, width: 360 } as const;
-/**
- * 200, and the number is load-bearing rather than taste.
- *
- * The framework's semantic-LOD band measures a window's **smaller** on-screen axis and restores a
- * summarised window only when that axis is strictly greater than `fullAbovePx`, which defaults to
- * 160. This was `height: 160`, so a note's extent at 100% zoom was exactly 160 — and `160 > 160`
- * is false. Zoom out far enough to demote a note and it stayed a summary all the way back in,
- * returning only past 100%. The same note at the same zoom showed different content depending on
- * where the camera had been.
- *
- * That is the trap door `detail-level.ts` describes and fixed its own defaults to escape; this app
- * walked back into it by picking exactly the boundary. 200 clears it by 40px — the width of the
- * hysteresis band itself, so the margin is the framework's own unit rather than a guess.
- */
+// The minimum size stays above the LOD restore threshold.
 const NOTE_MINIMUM_SIZE = { height: 200, width: 240 } as const;
 
 function openNoteWindow(input: WindowPlacement & Readonly<{ noteId: string; title: string }>) {
@@ -41,39 +20,10 @@ function openNoteWindow(input: WindowPlacement & Readonly<{ noteId: string; titl
   });
 }
 
-/**
- * Refreshing the listing here is what makes creation whole, wherever it was asked for.
- *
- * This is already the one creation path — the rail's `+`, the palette's action, and the identity
- * rail's button all arrive here — so it is the only place that can promise the library shows a note
- * the moment it exists. It used to be the rail's own job, and the rail could only keep that promise
- * for notes it made itself: the other two callers left it reading "No notes yet." over a canvas
- * with the new note on it.
- */
-/**
- * The next "Untitled n" nothing in this project is already called.
- *
- * It used to be `windows.length + 1` — the number of windows open on the canvas, which is not a
- * fact about the notes at all. Closing a note freed its number for the next one, opening the same
- * note in two windows inflated the count, and windows sitting on another desktop were counted too.
- * Found by clicking "New note" on a canvas with two windows and three notes: the result was a
- * second note called "Untitled 3", indistinguishable in the library from the first.
- *
- * Archived notes are counted as well, and that is the point of asking twice. They hold their titles
- * while archived, so skipping them hands out a name that collides the moment someone restores —
- * a defect that appears long after the action that caused it, in a surface neither of them was in.
- */
 const getNextUntitledTitle = (titles: readonly string[]) =>
   getNextNumberedTitle("Untitled", titles);
 
-/*
- * Locked, and this is the path the collision was actually seen on.
- *
- * Two notes made in quick succession left the library reading "Untitled 2", "Untitled 2",
- * "Untitled 1" — both creations listed before either wrote, so both chose the same name. The window
- * and the listing refresh are inside the lock too: they follow from the create, and letting the next
- * creation start before the listing catches up would hand it a stale set of names again.
- */
+// The naming lock prevents concurrent notes from choosing the same title.
 async function openNewNote(input: WindowPlacement & Readonly<{ projectId: string }>) {
   return withNamingLock(async () => {
     const [offered, archived] = await Promise.all([

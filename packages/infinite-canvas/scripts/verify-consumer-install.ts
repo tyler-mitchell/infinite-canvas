@@ -1,22 +1,4 @@
-/**
- * Distribution gate: pack the real tarball, install it into a fresh consumer, and drive it.
- *
- * Every other check here reads this repository — the source, the manifest, the built `dist`.
- * None of them installs the package, and the difference is not academic: a `process.env.NODE_ENV`
- * reference once compiled green inside this package and broke the playground's build, because
- * the failure only exists on the other side of the packaging boundary.
- *
- * `publint` and `attw` cover the manifest and how types resolve, which is what they are for and
- * why nothing here reimplements them. What no off-the-shelf tool can do is answer whether *this*
- * package, installed the way npm would install it, imports and runs. That is this script's only
- * job, and it is modelled on the same check in the featuretype repository.
- *
- * Headless on purpose. The import is the risky part — a bad `exports` map, a missing file, an
- * optional peer that is not actually optional — and driving the pure core proves the module
- * graph resolved without needing a DOM.
- *
- * Run: pnpm --filter @hyphened/infinite-canvas run verify:consumer
- */
+/** Packs and runs the package from a fresh consumer project. */
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -27,13 +9,7 @@ const packageRoot = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const workspaceRoot = resolve(packageRoot, "../..");
 const temporaryDirectory = await mkdtemp(join(tmpdir(), "infinite-canvas-consumer-"));
 
-/**
- * What a consumer must be able to do with the installed package.
- *
- * Deliberately the headless core rather than a render: it exercises the barrel, the reducer,
- * and the workspace layer through the published entry point, and a DOM would add a failure mode
- * that belongs to the test rather than to the package.
- */
+/** Consumer program used to validate the installed public entry. */
 const CONSUMER_SOURCE = `
 import {
   createInfiniteCanvasHandle,
@@ -104,10 +80,7 @@ console.log("CONSUMER_OK");
 `;
 
 try {
-  // `pnpm pack` rather than `npm pack`: this package's real entry points come from
-  // `publishConfig.exports`, which only pnpm applies at pack time. Packing with npm produces a
-  // tarball whose exports still point at `src/`, which is how a check can report a package
-  // broken when it is fine — and, worse, fine when it is broken.
+  // Use pnpm pack because it applies publishConfig exports.
   const tarball = join(temporaryDirectory, "package.tgz");
 
   await execa("pnpm", ["--config.ignore-scripts=true", "pack", "--out", tarball], {
@@ -120,8 +93,7 @@ try {
   );
   await writeFile(join(temporaryDirectory, "consumer.mjs"), CONSUMER_SOURCE);
 
-  // React is a peer, so a real consumer installs it themselves. Resolved from the workspace so
-  // this does not depend on the network.
+  // Install React peers from the local workspace.
   await execa(
     "npm",
     ["install", "--ignore-scripts", "--no-audit", "--no-fund", tarball, "react", "react-dom"],

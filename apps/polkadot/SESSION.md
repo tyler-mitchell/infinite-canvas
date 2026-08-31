@@ -1,62 +1,79 @@
 # Polkadot session state
 
-Goal status: active. `ROADMAP.md` is the bar and the order; `AFFORDANCE_AUDIT.md` is the
-framework-first record. This file holds only what those two cannot: how work is actually running
-right now.
+Goal status: active.
+
+`ROADMAP.md` defines the quality bar and work order.
+`AFFORDANCE_AUDIT.md` records the framework-first evidence.
+This file describes the current work process that those files do not contain.
 
 ## This file was months out of date, and every line of it was load-bearing
 
-It is named "session state" and sits beside `AGENTS.md`, so it is one of the first things a new
-agent reads — and until this rewrite it would have sent that agent to redo work that was finished
-weeks earlier, against a dependency that has been deleted, with the one verification method the
-project now requires switched off. Recorded rather than quietly overwritten, because the same drift
-will happen again and the shape of it is worth recognising:
+This file is named "session state" and is next to `AGENTS.md`.
+New agents read it early.
 
-- It said the current stage was **"Phase 1 database admission"** and that the exit condition was
-  IndexedDB admission "under the compatible 2.6.1 worker engine". Phase 1 closed long ago, and
-  2.6.1 is gone — `@surrealdb/wasm` 3.0.4 is vendored at `packages/surrealdb-wasm` and the 2.6.1
-  patch was deleted. An agent following this file would have reinstalled a removed dependency.
-- It described a **TanStack Start scaffold** and a "production client/server build". Start was
-  removed; this is an SPA on TanStack Router, and there is no server build.
-- It said **"browser automation is paused"**. It is not paused — driving the real path in a browser
-  is the verification standard the whole project now turns on, and a green suite explicitly does
-  not substitute for it.
+Before this revision, its content was several months old.
+It directed agents toward completed work, a deleted dependency, and a disabled verification method.
+This section records that drift because the same type of drift can occur again.
+
+- The file named **"Phase 1 database admission"** as the current stage.
+  It named IndexedDB admission "under the compatible 2.6.1 worker engine" as the exit condition.
+  Phase 1 ended weeks before this revision.
+  The repository vendors `@surrealdb/wasm` 3.0.4 at `packages/surrealdb-wasm`.
+  The repository deleted the 2.6.1 patch.
+  The old instruction can make an agent install the deleted dependency again.
+- The file described a **TanStack Start scaffold** and a "production client/server build".
+  The application is an SPA on TanStack Router because the project removed Start.
+  The project has no server build.
+- The file said **"browser automation is paused"**.
+  Browser automation is active.
+  The project requires browser operation of the real path as its verification standard.
+  A passing suite does not replace this browser evidence.
 
 ## How work is running
 
-Several Claude sessions work `apps/polkadot` **in one shared working tree**, not in separate
-worktrees. That is an operating constraint, not a detail:
+Several Claude sessions edit `apps/polkadot` in one shared working tree.
+They do not use separate worktrees.
 
-- Files change under you mid-task. Re-read immediately before editing anything you did not just
-  write, and never `git add -A` — stage explicit paths.
-- Your uncommitted work can be committed by another session before you reach it. Check
-  `git log --oneline -5` before writing a commit message.
-- Another session's half-saved file reaches your dev server through HMR. An error page or a blank
-  render is often theirs. Read the console before diagnosing your own change, and check
-  `vp -C apps/polkadot check` — a type error in a file you never touched is the usual cause.
-- Port 3000 is normally taken. Add a `.claude/launch.json` entry on another port; a different port
-  is a different origin, so you also get your own IndexedDB and cannot corrupt anyone's canvas.
+Apply these rules:
 
-A coordinating session hands out file boundaries. Ask it rather than guessing when two tasks look
-like they touch the same files — two agents rewriting one file costs one of them the work.
+- Files can change during a task.
+  Before you edit a file that you did not write, read it again.
+  Stage explicit paths and never use `git add -A`.
+- Another session can commit your uncommitted work first.
+  Before you write a commit message, run `git log --oneline -5`.
+- HMR can load a partially saved file from another session into your development server.
+  An error page or blank render can come from that file.
+  Before you diagnose your change, read the console.
+  Then run `vp -C apps/polkadot check`.
+  A type error in an untouched file is the usual cause.
+- Port 3000 is normally in use.
+  Add a `.claude/launch.json` entry that uses another port.
+  Each port is a different origin and gets a separate IndexedDB database.
+  This separation prevents corruption of another session's canvas.
+
+A coordinating session assigns file boundaries.
+If two tasks can edit the same files, ask that session for the boundary.
+Two agents that rewrite one file cause one agent to lose its work.
 
 ## Authorities
 
-- The bar, the order, and the framework gaps found so far: `ROADMAP.md`
-- Framework-first admission, one row per capability, written **before** the code: `AFFORDANCE_AUDIT.md`
-- Rules that are not negotiable — `tv` slots, library-first, framework-first: `AGENTS.md`
-- Framework behaviour: `packages/infinite-canvas` source and tests, and `docs/API.md`
-- Repository workflow: root `AGENTS.md`
+- `ROADMAP.md` defines the quality bar, work order, and known framework gaps.
+- `AFFORDANCE_AUDIT.md` records one framework-first admission row for each capability before implementation.
+- `AGENTS.md` defines the required `tv` slot, library-first, and framework-first rules.
+- The source and tests in `packages/infinite-canvas` define framework behavior with `docs/API.md`.
+- The root `AGENTS.md` defines the repository workflow.
 
-`PRODUCT_PLAN.md` and `IMPLEMENTATION_PHASES.md` describe a phase sequence the project has since
-departed from — Phase 3's note body landed early and is recorded as such in the audit. Read them as
-history and intent, not as the current order.
+`PRODUCT_PLAN.md` and `IMPLEMENTATION_PHASES.md` describe the original phase sequence.
+The project later changed that sequence.
+Phase 3 note-body work arrived early, and the audit records this fact.
+Use these two files as history and intent.
+Use the roadmap for the current order.
 
 ## Constraints that are still true
 
-- The framework owns windows, groups, workspaces, geometry, and layout durability. The database
-  owns domain content — notes, relations, regions — and never the layout.
-- The editor is browser-rendered because IndexedDB and the WASM engine are client-only.
-- Remote features may never weaken the complete local-only product.
-- Shared live layout stays frontier work until personal view state and ordered document mutations
-  are proven.
+- The framework owns windows, groups, workspaces, geometry, and durable layout.
+- The database owns domain content, including notes, relations, and regions.
+- The database does not own layout.
+- The browser renders the editor because IndexedDB and the WASM engine are client-only.
+- Remote features must preserve the completed local-only product.
+- Shared live layout remains frontier work until personal view state and ordered document changes have proof.

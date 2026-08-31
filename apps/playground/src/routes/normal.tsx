@@ -31,8 +31,7 @@ function NormalShowcase() {
         renderOverlay={(context) => (
           <>
             <CommandPalette />
-            {/* The dock renders nothing until something is pinned or minimized; the palette
-                must not be hidden behind that condition. */}
+            {/* The palette must render even when the dock is empty. */}
             {renderSampleWindowDock(context)}
           </>
         )}

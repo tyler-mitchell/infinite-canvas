@@ -1,14 +1,3 @@
-/**
- * Accessibility contract for framework-rendered chrome.
- *
- * These are the invariants an automated a11y auditor (axe-core's
- * `aria-allowed-attr`, `button-name`, `aria-valid-attr-value`) would check,
- * asserted at the markup level so they cannot regress. Rendering uses
- * react-dom/server, matching ./data-attributes.test.tsx.
- *
- * Scope: the chrome the framework owns. Consumer `renderBody` content is the
- * consumer's responsibility.
- */
 import { renderToStaticMarkup } from "react-dom/server";
 import type { ReactNode } from "react";
 import { expect, test } from "vite-plus/test";
@@ -58,10 +47,6 @@ const state = createInfiniteCanvasState<Kind>({
   windows: [noteWindow, minimizedWindow],
 });
 
-/**
- * Nothing active, nothing selected. `activeWindowId` must be an explicit
- * `null` — omitting it makes the factory fall back to the first window.
- */
 const idleState = createInfiniteCanvasState<Kind>({
   activeWindowId: null,
   selection: [],
@@ -111,16 +96,10 @@ function renderHud(hudState: typeof state) {
 const hudMarkup = renderHud(state);
 const idleHudMarkup = renderHud(idleState);
 
-/** `<button ...>` openings, with their attribute text. */
 function buttonOpenings(markup: string): readonly string[] {
   return [...markup.matchAll(/<button\b[^>]*>/g)].map((match) => match[0]);
 }
 
-/**
- * A button's accessible name comes from `aria-label` OR its rendered text
- * content (the HUD dock lists windows by title). Icon-only buttons have no
- * text, so they must carry a label.
- */
 function unnamedButtons(markup: string): readonly string[] {
   return [...markup.matchAll(/<button\b([^>]*)>([\s\S]*?)<\/button>/g)]
     .filter(([, attributes, children]) => {
@@ -140,9 +119,6 @@ test("windows expose an accessible name, a role, and a role description", () => 
 });
 
 test("window frames and the HUD never emit aria-selected: invalid on role=group", () => {
-  // axe-core `aria-allowed-attr`. aria-selected is only supported on
-  // gridcell/option/row/tab/columnheader/rowheader/treeitem — which is why the
-  // group layer's `role="tab"` buttons DO carry it, and windows never may.
   for (const isSelected of [false, true]) {
     for (const isActive of [false, true]) {
       expect(renderFrame({ isActive, isSelected })).not.toContain("aria-selected");
@@ -166,14 +142,13 @@ test("selection is a styling concern, exposed only as a data attribute", () => {
 test("every framework-rendered button has an accessible name", () => {
   const frameMarkup = renderFrame({ isActive: true, isSelected: true });
 
-  expect(buttonOpenings(frameMarkup).length).toBe(4); // pin, minimize, maximize, close
+  expect(buttonOpenings(frameMarkup).length).toBe(4);
   expect(buttonOpenings(hudMarkup).length).toBeGreaterThan(4);
   expect(unnamedButtons(frameMarkup)).toEqual([]);
   expect(unnamedButtons(hudMarkup)).toEqual([]);
 });
 
 test("aria-pressed appears only on the pointer-mode toggle buttons", () => {
-  // aria-pressed is valid on `button`. Assert it never leaks onto a non-button.
   const pressed = [...hudMarkup.matchAll(/aria-pressed="(?:true|false)"/g)];
   expect(pressed.length).toBe(2);
 
@@ -186,7 +161,6 @@ test("aria-pressed appears only on the pointer-mode toggle buttons", () => {
 test("decorative chrome is hidden from assistive technology", () => {
   const markup = renderFrame({ isActive: true, isSelected: false });
 
-  // Active corners and the icon glyphs carry no information.
   expect(markup).toContain('aria-hidden="true"');
 });
 
@@ -194,13 +168,9 @@ test("unavailable HUD commands are exposed as disabled, not merely dimmed", () =
   const findAction = (markup: string, action: string) =>
     buttonOpenings(markup).find((opening) => opening.includes(`data-action="${action}"`));
 
-  // Idle: nothing active, nothing selected — both commands are unavailable and
-  // must be programmatically disabled, not just visually dimmed.
   expect(findAction(idleHudMarkup, "center-active")).toContain("disabled");
   expect(findAction(idleHudMarkup, "fit-selection")).toContain("disabled");
 
-  // Seeded: `createInfiniteCanvasState` seeds selection from activeWindowId,
-  // so the same commands become available. Proves `disabled` is state-driven.
   expect(findAction(hudMarkup, "center-active")).not.toContain("disabled");
   expect(findAction(hudMarkup, "fit-selection")).not.toContain("disabled");
 });

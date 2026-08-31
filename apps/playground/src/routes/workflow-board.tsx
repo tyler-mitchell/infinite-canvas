@@ -155,10 +155,7 @@ function getWindow(state: InfiniteCanvasState<CardKind>, windowId: string) {
   return state.windows.find((window) => window.id === windowId) ?? null;
 }
 
-/**
- * Resolved against the links that exist. The canvas never prunes `selection.targets`, so a target
- * naming a deleted link survives — and switching boards would leave "Delete link" pointing at one.
- */
+/** Ignore stale edge selections after a link or workspace changes. */
 function selectedConnectionId(
   state: InfiniteCanvasState<CardKind>,
   connections: readonly Connection[],

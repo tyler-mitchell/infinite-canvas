@@ -1,127 +1,105 @@
 # Spikes
 
-Investigations that are worth doing, deliberately not scheduled. Each entry states what would be
-proved, why it matters, and what would make it worth starting. Nothing here is in flight.
+These spikes have no schedule. Each section gives the required evidence and its start condition.
 
-## WebMCP: agents drive and observe the product as a first-class consumer
+## WebMCP product control
 
-**Raised by Tyler, 2026-08-26. A requirement rather than an option — the architectural consequence
-is recorded in `apps/polkadot/AGENTS.md`, since it binds every capability written from here on and
-not only this investigation.**
+Status: Required by Tyler on 2026-08-26. `apps/polkadot/AGENTS.md` contains the architectural requirement.
 
-WebMCP lets a page register tools an agent can call directly, instead of an agent simulating a
-user. `document.modelContext.registerTool({ name, description, inputSchema, execute })`, results
-serialized to JSON, a `toolchange` event when the set changes, gated behind a `tools` permissions
-policy defaulting to `['self']` and requiring a secure context.
+WebMCP lets a page register tools for direct agent use.
+The registration API is `document.modelContext.registerTool({ name, description, inputSchema, execute })`.
+Results use JSON. A `toolchange` event reports a changed tool set.
+The `tools` permissions policy defaults to `['self']`, and registration requires a secure context.
 
-**Why this app is unusually well placed.** Polkadot already exposes the surface. `window.__canvas`
-is an `InfiniteCanvasHandle` with `getState`, `commands`, `snapshot`, `subscribe`,
-`subscribeDocument` and `getContextualCommands` — and the last of those already returns every
-command with a label, a description and live enablement, which is the exact shape a tool descriptor
-wants. The adapter is plausibly a map from `getContextualCommands()` to `registerTool()`, plus a
-handful of read tools over `getState`. Almost nothing new has to be modelled.
+Polkadot already exposes `window.__canvas` as an `InfiniteCanvasHandle`.
+The handle supplies `getState`, `commands`, `snapshot`, `subscribe`, `subscribeDocument`, and `getContextualCommands`.
+`getContextualCommands` returns each command with its label, description, and current enabled state.
+This shape can provide most fields in a WebMCP tool descriptor.
 
-**Why it is worth proving rather than assuming.** Driving this app through the browser today means
-`javascript_exec`, synthetic DOM events and screenshot-space coordinates, and every one of those has
-cost real time this session: a coordinate space that is not the page's, a cmdk palette that ignores
-a synthetic `Enter` unless focus has settled first, HMR leaving a stale module while the probe reads
-the old one. Those are harness failures being mistaken for product failures, repeatedly. A typed
-tool call has none of them.
+Current browser control uses `javascript_exec`, synthetic DOM events, and screen coordinates.
+Observed browser coordinates did not match page coordinates.
+A synthetic cmdk `Enter` did not work until focus settled.
+HMR left a stale module while the probe read the old module.
+A typed tool call removes these three browser-driver dependencies.
 
-**What the spike must establish**
+The spike must establish:
 
-- That the handle maps cleanly onto tool descriptors — particularly whether `getContextualCommands`
-  enablement can be expressed, since a tool an agent may not call right now has no obvious encoding.
-- What a _read_ tool returns. `getState` is the whole canvas; an agent wants "what windows are
-  visible", "what is selected", "what does this window contain". Those are queries the handle does
-  not have, and inventing them is most of the work.
-- Whether the framework should own any of this. A canvas handle is generic; a tool registry over it
-  might be. If it needs the word Polkadot, it belongs in the app.
-- The security shape. `untrustedContentHint` exists for a reason, and this app renders third-party
-  pages in link windows.
+- How `getContextualCommands()` maps to `registerTool()`, including commands that are disabled at that time
+- Which read tools answer "what windows are visible", "what is selected", and "what does this window contain"
+- Whether the generic framework or Polkadot owns the registry
+- How tools mark third-party page content with `untrustedContentHint`.
 
-**What would make it worth starting:** it is already worth starting on the harness argument alone.
-The gate is availability rather than value — Draft Community Group Report as of 2026-08-26, not on
-the standards track, and the registration getter moved from `navigator.modelContext` to
-`document.modelContext` recently enough that Chrome 150 deprecated the old name. Pin the entry point
-behind one adapter module so that churn costs one file.
+`getState` returns the complete canvas, and the handle does not supply these focused read queries.
+Read tools can select specific values from `getState`.
+Polkadot link windows can render third-party pages, so read tools must identify untrusted content.
+A generic registry belongs to the framework. A registry that names Polkadot belongs to the application.
 
-## liquid-gooey for HUD state transitions
+Start condition: Browser support is available for the selected test environment.
+As of 2026-08-26, WebMCP was a Draft Community Group Report outside the standards track.
+The registration getter recently moved from `navigator.modelContext` to `document.modelContext`.
+Chrome 150 deprecated the old name.
+One adapter module must contain the entry point.
 
-**Raised by Tyler, 2026-08-26. Natural home is the HUD workstream, so this is the nearer of the
-two spikes.**
+## liquid-gooey HUD transitions
 
-`liquid-gooey` (`Jakubantalik/Libraries/packages/liquid-gooey`) provides liquid effects for React
-UI: **morph**, where touching pieces merge and change shape, and **move**, where surfaces trail a
-moving element like liquid rubber. The API is `<Liquid blur contrast fill>` wrapping
-`<Liquid.Item x y effect>`; it renders SVG silhouettes _beneath_ real DOM content, so the blur and
-shadow apply to the shape while text and images stay crisp — which is the part that makes it
-usable for chrome rather than only for decoration.
+Status: Tyler raised this candidate on 2026-08-26. The HUD workstream owns it.
 
-**Why it fits the HUD.** Polkadot's HUD is not one bar, it is a set of surfaces that change with
-what you are doing — idle, selecting, dragging, connecting, playing a tour. The transitions
-between those states are exactly where a canvas app either feels alive or feels like a toolbar
-that swapped its buttons. Candidates:
+`liquid-gooey` is at `Jakubantalik/Libraries/packages/liquid-gooey`.
+It supplies two React effects:
 
-- Pill rails that **merge into one mass** when a contextual group appears beside them, and split
-  back when it leaves.
-- A radial or dial menu blooming out of a single control, the way the dial-menu reference does.
-- Minimized windows melting into the dock rather than disappearing.
-- The selection count badge separating from the selection bounds as it settles.
+- **morph** merges touching shapes and changes their shape.
+- **move** adds a trailing shape to a moving item.
 
-**What the spike must establish**
+The API wraps `<Liquid.Item x y effect>` with `<Liquid blur contrast fill>`.
+It draws SVG silhouettes under real DOM content.
+Blur and shadow apply to the shape while text and images remain sharp.
 
-- That the SVG-silhouette approach composes with a `transform: scale()` canvas — the effect is
-  screen-space chrome, so it should live outside the world transform, but that needs proving.
-- Cost per frame with several `Liquid.Item`s live during a drag, since the HUD is on the hot path.
-- Whether it degrades gracefully: the HUD must stay usable if the filter is unsupported or
-  `prefers-reduced-motion` is set.
-- Whether the effect survives the pill rail's `backdrop-filter`, or whether the two fight.
+The Polkadot HUD changes across idle, selection, drag, connection, and tour states.
+Possible uses include pill rails that merge when a contextual group appears, then split when it leaves.
+Other uses include a radial menu that opens from one control and dock transitions for minimized windows.
+A selection-count badge can separate from the selection bounds when it settles.
 
-**What would make it worth starting:** the HUD state model existing at all. Applying a merge
-effect before there are states to merge between is decoration, and this project has already made
-that mistake once with the dot field.
+The spike must establish:
 
-## TypeGPU as the rendering harness, replacing react-three-fiber
+- Whether the SVG layer remains in screen space while the canvas uses `transform: scale()`
+- The frame cost of multiple active `Liquid.Item` values during a drag
+- A usable fallback for unsupported filters and `prefers-reduced-motion`
+- Whether the effect and the pill rail `backdrop-filter` operate together.
 
-**Raised by Tyler, 2026-08-26. Not to be started until the product layers above it are real — and
-possibly not at all this cycle.**
+Start condition: The HUD has explicit states and transitions between them.
+Before this condition, the effect has no product behavior to represent.
 
-TypeGPU recently shipped `@typegpu/gl`, which generates GLSL and provides an experimental WebGL 2
-backend for a subset of TypeGPU's render API. Two consequences:
+## TypeGPU render layer
 
-- A render effect can run in browsers **without** WebGPU, which is the constraint that has kept
-  the scene layer optional and unshippable as a default.
-- TypeGPU shader functions can be integrated into an **existing** WebGL renderer, so adoption does
-  not have to be all-or-nothing.
+Status: Tyler raised this candidate on 2026-08-26.
+Start condition: The product requires GPU output on hardware without WebGPU.
 
-**Why this is unusually well-suited to an infinite canvas**, and why it unlocks things
-react-three-fiber structurally cannot: r3f is a React reconciler over a scene graph of objects. A
-canvas does not want a scene graph — it wants a small number of large, data-driven surfaces
-(fields, connector meshes, window proxies, far-zoom overviews) whose contents change every frame
-with the camera. Expressing those as typed GPU functions composed in TypeScript is a different and
-better fit than instantiating and diffing three.js objects, and it removes `three` plus the
-reconciler from the dependency floor.
+`@typegpu/gl` generates GLSL and supplies an experimental WebGL 2 backend for part of the TypeGPU render API.
+A render effect can thus operate in a browser without WebGPU.
+TypeGPU shader functions can also operate in an existing WebGL renderer.
+These two paths permit incremental adoption.
+The WebGPU requirement keeps the scene layer optional.
+It prevents the scene layer from becoming the default.
 
-**The spike:** a proof of concept moving the framework away from r3f as the main rendering harness
-and toward TypeGPU, with `@typegpu/gl` as the fallback path for non-WebGPU browsers. It is a
-proof, not a migration.
+R3F uses React reconciliation over a three.js scene graph.
+The infinite canvas mainly needs a few data-driven render targets, such as fields, connectors, window proxies, and distant views.
+Their content changes with the camera in each frame.
+TypeGPU expresses these targets as typed GPU functions in TypeScript.
+This path can remove `three` and its reconciler from the dependency floor.
 
-**What it would have to establish**
+The spike tests TypeGPU as the main render layer and `@typegpu/gl` as its fallback.
+Status: Proof of concept. Migration is outside the scope.
+It must establish:
 
-- One existing scene-layer capability rendered end to end through TypeGPU, at parity.
-- The WebGL 2 fallback actually working in a browser without WebGPU, since that is the whole
-  premise.
-- Whether `getInfiniteCanvasWindowProxies` and the frustum work survive unchanged, or whether the
-  proxy model is r3f-shaped and needs rethinking.
-- Bundle and dependency-floor effect with `three` and `@react-three/fiber` removed from the
-  `/scene` entry.
+- One current scene capability through TypeGPU with behavior parity
+- The WebGL 2 fallback in a browser without WebGPU
+- Whether `getInfiniteCanvasWindowProxies` and frustum code remain unchanged
+- Whether the current proxy model depends on R3F concepts
+- The bundle and dependency change after removal of `three` and `@react-three/fiber` from `/scene`.
 
-**What would make it worth starting:** a product surface that needs GPU rendering on hardware
-without WebGPU. Until something real is blocked on that, this is an architecture preference rather
-than a requirement, and the framework already ships the scene layer as an optional entry that
-costs nothing when unused.
+The current /scene entry is optional and adds no cost when unused.
+Without a blocked product feature, this spike remains an architecture preference.
 
-**Local tooling note:** this repository has a TypeGPU inspector MCP available
-(`mcp__typegpu_inspector__*`) that validates TypeGPU modules in a real browser WebGPU runtime and
-returns structured diagnostics. A spike should drive that rather than eyeballing output.
+The repository contains the TypeGPU inspector tools at `mcp__typegpu_inspector__*`.
+They validate TypeGPU modules in a browser WebGPU runtime and return structured diagnostics.
+The spike uses these tools.

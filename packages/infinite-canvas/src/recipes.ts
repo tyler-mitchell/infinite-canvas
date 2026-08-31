@@ -11,28 +11,7 @@ import type {
   InfiniteCanvasState,
 } from "./types";
 
-/**
- * Layout recipes: a named arrangement you can save and put back.
- *
- * A recipe is a *relative* arrangement, stored with its origin at `(0, 0)` and a
- * `size`, so the same recipe drops into any region of an unbounded world. It
- * names windows by id rather than carrying them: applying it rearranges windows
- * that exist and silently skips ones that do not. A recipe restores where things
- * were, never what they were.
- *
- * **Recipes translate; they do not scale.** Fitting an arrangement into a smaller
- * region would shrink windows below their own `minSize`, and a recipe that
- * quietly violates a constraint the rest of the framework enforces is worse than
- * one that does not fit. An arrangement placed into a `rect` is centred in it at
- * its natural size.
- *
- * A group is captured only if *every* one of its members is. Half a group is not
- * a group: its tree would name windows the recipe never took, so those windows
- * are captured as floating instead. This is the same reason
- * `reconcileInfiniteCanvasGroups` runs on the way back in — a recipe saved before
- * a window was closed must not restore a shell laying out a ghost.
- */
-
+/** Captures and applies relative window arrangements without resizing windows. */
 const INFINITE_CANVAS_RECIPE_VERSION = 1;
 
 function getUnionRect(rects: readonly InfiniteCanvasRect[]): InfiniteCanvasRect | null {
@@ -64,11 +43,7 @@ function translateRect(rect: InfiniteCanvasRect, by: InfiniteCanvasPoint): Infin
   return { height: rect.height, width: rect.width, x: rect.x + by.x, y: rect.y + by.y };
 }
 
-/**
- * Which windows a capture takes: the ones asked for, else the selection, else
- * everything on the canvas that could be selected. Minimized windows are never
- * captured — they have no arrangement to remember.
- */
+/** Uses explicit IDs, then the selection, then all selectable windows. */
 function getInfiniteCanvasRecipeWindowIds<Kind extends string>(
   state: InfiniteCanvasState<Kind>,
   windowIds: readonly string[] | undefined,
@@ -81,10 +56,7 @@ function getInfiniteCanvasRecipeWindowIds<Kind extends string>(
   return requested.filter((windowId) => selectable.has(windowId));
 }
 
-/**
- * A group survives a capture only if the recipe took every one of its members.
- * Otherwise its tree would name a window that is not coming along.
- */
+/** Captures a group only when all members are present. */
 function getCapturableGroups(
   groups: readonly InfiniteCanvasGroup[],
   capturedWindowIds: ReadonlySet<string>,
@@ -117,7 +89,6 @@ function captureInfiniteCanvasRecipe<Kind extends string>(
     return null;
   }
 
-  // Store relative to the arrangement's own top-left, so it can be placed anywhere.
   const toOrigin = { x: -bounds.x, y: -bounds.y };
 
   return {
@@ -142,7 +113,7 @@ function captureInfiniteCanvasRecipe<Kind extends string>(
   };
 }
 
-/** Where the arrangement's top-left lands. A `rect` centres it; an `origin` pins it. */
+/** Places the recipe at an origin or centers it in a rect. */
 function getInfiniteCanvasRecipeOrigin(
   recipe: InfiniteCanvasRecipe,
   placement: InfiniteCanvasRecipePlacement,
@@ -159,14 +130,7 @@ function getInfiniteCanvasRecipeOrigin(
   };
 }
 
-/**
- * Put an arrangement back. Windows the recipe does not name are untouched; windows
- * it names but the canvas has lost are skipped.
- *
- * Any group currently holding a recipe window is dissolved first: the recipe is
- * the authority on how its windows are arranged, and leaving a stale shell around
- * them would leave two things claiming to own the same window's rect.
- */
+/** Applies a recipe to live windows and removes conflicting groups first. */
 function applyInfiniteCanvasRecipe<Kind extends string>(
   state: InfiniteCanvasState<Kind>,
   recipe: InfiniteCanvasRecipe,

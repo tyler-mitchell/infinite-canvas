@@ -38,22 +38,7 @@ function nearlyEqual(left: number, right: number) {
   return Math.abs(left - right) <= SNAP_DELTA_EPSILON;
 }
 
-/**
- * Snapping needs two thresholds, not one.
- *
- * With a single distance, a guide engages and releases at the same pointer
- * position: nudge one pixel across it and the window jumps to the guide, jump the
- * pointer back and it un-snaps, and it does that every frame the pointer sits on
- * the boundary. The window shivers, the guide strobes, and the user has no idea
- * what they did wrong. This is risk R3 in the register.
- *
- * A guide that has *caught* is stickier than one that has not: it holds until the
- * pointer travels `releaseThreshold` away, while an idle guide still engages at
- * `threshold`. The pointer must cross a band, not a line, and the flicker has
- * nowhere to happen. `Math.max` is not a clamp for tidiness — a `releaseThreshold`
- * below `threshold` would invert the hysteresis and make snapping *more* eager to
- * let go than to catch, which is worse than no hysteresis at all.
- */
+/** Uses the release threshold for guides that were active in the prior frame. */
 function getCandidateThreshold(
   candidate: SnapCandidate,
   policy: InfiniteCanvasSnapPolicy,
@@ -66,11 +51,7 @@ function getCandidateThreshold(
     : engageThreshold;
 }
 
-/**
- * The guides that were holding the window last frame. `state.snapPreview` is
- * already exactly this record, and a guide's id is its candidate's id — so
- * hysteresis needs no new state to remember what it caught.
- */
+/** Returns guide IDs held by the current window in the prior frame. */
 function getEngagedGuideIds<Kind extends string>(
   state: InfiniteCanvasState<Kind>,
   windowId: string,
@@ -331,8 +312,7 @@ function applyResizeSnapToRect<Kind extends string>(
     (candidate) => candidate.kind !== "gap",
   );
   const anchors = getResizeSnapAnchors(rect, handle);
-  // A resize edge that has caught a guide is as sticky as a moved one. Nothing
-  // about dragging a corner makes the flicker at the threshold more tolerable.
+  // Resize guides use the same hysteresis as move guides.
   const engagedGuideIds = getEngagedGuideIds(state, windowId);
   const xAdjustment = findAxisAdjustment(
     anchors.filter((anchor) => anchor.axis === "x"),

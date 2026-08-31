@@ -1,14 +1,5 @@
 #!/usr/bin/env bash
-# Stop hook: keep the agent working under its own judgment while real work remains.
-#
-# Emits Claude Code Stop-hook JSON on stdout:
-#   {"decision":"block","reason":"..."}  -> stopping is refused, reason is fed back
-#   (exit 0, no output)                  -> stopping is allowed
-#
-# Escape hatch, so this can never become an unstoppable loop: stopping is
-# allowed the moment the completion sentinel exists.
-#   touch .claude/.goal-complete
-# Tyler can also always interrupt directly.
+# This hook blocks a stop until .claude/.goal-complete exists.
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"

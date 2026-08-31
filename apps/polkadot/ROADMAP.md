@@ -1,576 +1,856 @@
 # Polkadot roadmap
 
-Polkadot is a spatial workbench on `@hyphened/infinite-canvas`. It is a real product — local-first,
-open source — and the framework's incubator, where a missing affordance shows up as something a real
-app cannot do.
+Polkadot is an open-source, local-first spatial workbench on `@hyphened/infinite-canvas`.
+It also exercises the framework through product requirements.
+A missing generic capability appears as an operation that the application cannot do.
 
-**One rule.** A gap Polkadot finds is fixed in the framework generically, or not in the framework at
-all. `renderBackdrop` exists because the affordance is "replace the ground", which is
-product-neutral. A `dotField` prop would have been the same feature and the wrong one.
+One ownership rule applies.
+Polkadot adds a discovered gap to the framework only through a generic capability.
+For example, `renderBackdrop` gives consumers the product-neutral operation "replace the ground".
+A `dotField` property encodes one product feature in the framework.
 
 ## Pacing
 
-Every item below is a sprint, not a checkbox. A session delivers one properly or none. Three
-delivered badly is worse than none — a half-built surface reads as finished, so nobody revisits it
-and the next person builds on a foundation that was never poured. This has happened twice here: the
-dot field was written in one pass and had to be deleted, and the first design pass was a token swap
-presented as an identity. The cost was not the wasted time, it was that the slot looked occupied.
+Each item that follows is one sprint.
+A session completes one item with its required proof or completes no item.
+
+An incomplete feature can appear completed.
+Later work then depends on behavior that has no full implementation.
+This problem occurred twice:
+
+- One pass implemented the dot field, and later work deleted it.
+- The first design pass changed tokens and presented that change as a product identity.
+
+In both cases, the incomplete work occupied the place of the real feature.
 
 ## The bar
 
-Not "a working canvas app". The reference points are Linear, Raycast, and Arc. Enforced in review:
+The product bar requires more than "a working canvas app".
+Linear, Raycast, and Arc are the reference products.
+Review enforces these rules:
 
-- **Depth from light, never lines.** No `border: 1px solid white/8%`. Surfaces separate by being
-  lighter than the ground, casting a layered shadow, and carrying a specular hairline on the top
-  edge.
-- **Warm ink on a cool ground.** Pure grey on pure black is the default nobody chose.
-- **Motion has weight.** Springs, not linear ramps. `--ease-settle` and `--ease-swift` exist so this
-  is not decided per site. Spatial motion uses springs, not CSS transitions.
-- **The ground is alive.** The dot field responds to the pointer and is displaced by windows.
-  **Not currently met** — see the open item below.
-- **Every class comes from a `tv` slot.** No Tailwind strings in JSX. Global CSS is tokens, resets
-  and imports only, and every rule lives inside a layer. Only `:root` is exempt.
-- **Every declaration must be shown to win.** This app's most expensive defect class is a
-  declaration that is present, generated, and never wins. It emits no error, fails no typecheck, and
-  produces no obviously broken pixel. Seven instances so far — three cascade-layer, one inline style
-  the framework writes, and three found on 2026-08-28: `material.ts` describing a hairline and
-  emitting a four-sided ring, the minimap's plate occluding both the fill and the hairline of its
-  own frame, and `--icx-header-active` declared twice on one selector so the later won and dropped
-  the grain. A screenshot finds none of them. Read the computed value back with `getComputedStyle`
-  and compare it against what was declared, once per visual change.
-  **Two of the three were duplicates of a property, not a losing cascade.** `awk` over `styles.css`
-  for custom properties declared more than once is a cheap sweep and currently reports one survivor,
-  `--icx-surface-shadow`, whose two declarations are genuinely different selectors.
-- **Nothing hand-rolled that a maintained library owns.** TanStack (Router, Pacer, Hotkeys, Form,
-  Virtual, DB), Base UI, cmdk, ArkType, Legend State, motion, tailwind-variants.
+- **Use light for depth.** Do not use `border: 1px solid white/8%`.
+  Make a surface lighter than the ground.
+  Add a layered shadow and a specular top-edge hairline.
+- **Use warm text on a cool ground.** Pure gray on pure black has no selected product identity.
+- **Use springs for spatial motion.** Do not use linear ramps or CSS transitions for that motion.
+  Use `--ease-settle` and `--ease-swift` so individual sites do not define the easing again.
+- **Keep the ground responsive.** The dot field responds to the pointer, and windows displace it.
+  The current application does not meet this rule.
+  See the open field item.
+- **Define every class through a `tv` slot.** Do not put Tailwind strings in JSX.
+  Global CSS contains only tokens, resets, and imports.
+  Every global rule is inside a layer, except `:root`.
+- **Prove that each visual declaration wins.** A generated declaration can lose without an error or type failure.
+  It can also produce a result that does not look broken.
+  The application found seven cases of this defect.
+  Three came from cascade layers, and one came from a framework inline style.
+  The project found three more cases on 2026-08-28.
 
-Swept 2026-08-28: every arbitrary `text-[Npx]`, `justify-*` and `font-*` compared against its
-computed value, zero mismatches. Semantic zoom driven at its boundary the same day and it holds.
+  `material.ts` described a hairline but produced a four-sided ring.
+  The minimap plate covered the fill and hairline of its frame.
+  One selector declared `--icx-header-active` twice, so the later value removed the grain.
+  A screenshot did not expose these defects.
+  After each visual change, read the computed value with `getComputedStyle` and compare it with the declaration.
 
-Swept again the same day over the slots added with the archive timestamps and the code-block
-chrome — `archivedCell`, `archivedWhen`, `itemWhen` in both switchers, `copied`, `failed`. Zero
-mismatches: `text-[10.5px]` wins over the menu item's `14px`, `ml-auto` resolves, and both icon
-colours read back as exactly `--accent` and `--danger`. The sweep's own hazard showed up twice —
-a probe that measured the wrong element reported a false failure both times, so read back what the
-selector actually matched before believing a mismatch.
+  Two of the last three defects were duplicate properties instead of cascade losses.
+  Run `awk` over `styles.css` to find custom properties that have more than one declaration.
+  The current scan reports one remaining duplicate, `--icx-surface-shadow`.
+  Its two declarations belong to different selectors and are both correct.
 
-**A new window kind that declares a summary must set a minimum short axis above 160.** The detail
-band is `summaryBelowPx: 120` / `fullAbovePx: 160` on the smaller on-screen axis, and restore is
-strictly greater than 160 — a kind sitting exactly on it demotes and never returns. `note` and
-`collection` use 200 and 220. `link` and `image` declare no summary, which leaves the lane inert.
+- **Use maintained libraries for owned behavior.** Use TanStack Router, Pacer, Hotkeys, Form, Virtual, and DB.
+  Also use Base UI, cmdk, ArkType, Legend State, motion, and tailwind-variants.
+
+The project ran a declaration scan on 2026-08-28.
+It compared every arbitrary `text-[Npx]`, `justify-*`, and `font-*` value with its computed value.
+The scan found zero differences.
+The project also exercised semantic zoom at its boundary that day, and the boundary held.
+
+Another scan covered the slots for archive timestamps and code-block controls.
+It included `archivedCell`, `archivedWhen`, and `itemWhen` in both switchers.
+It also included `copied` and `failed`.
+The scan found zero differences.
+
+`text-[10.5px]` overrides the menu item value of `14px`.
+`ml-auto` resolves correctly.
+Both icon colors resolve exactly to `--accent` and `--danger`.
+
+Twice, a probe measured the wrong element and reported a false failure.
+Before you accept a difference, make sure that the probe reads the element matched by the selector.
+
+A new window kind with a summary must set its minimum short axis to more than 160.
+The smaller on-screen axis uses `summaryBelowPx: 120` and `fullAbovePx: 160` for the detail band.
+Restore requires a value greater than 160.
+A kind at exactly that value changes to summary and does not return.
+`note` and `collection` use 200 and 220.
+`link` and `image` have no summary, so this detail lane has no effect on them.
 
 ## Open
 
-- **`content.list` could say a project had no connections while it had several.** `relations$` is an
-  array starting empty, so "nobody has asked yet" and "there are none" share one value. Its own
-  docstring calls that empty "the honest interim answer" and is right about the readers it was
-  written for: a connector layer drawing nothing for a frame is corrected by the next one. A
-  sentence has no next frame. `loadRelations` runs from an effect and nothing awaits it, so a caller
-  asking straight after `project.open` was inside that window and was told the project had none.
-
-  `project-content` refuses exactly this collapse — "nobody has asked yet is not there are none" —
-  and encodes it with a nullable observable. Doing that here would change twelve readers, eleven of
-  which draw or resolve a click and genuinely want the interim empty. So the store answers the extra
-  question instead of changing its shape: `getLoadedRelations` returns `null` until a query has
-  landed for that project, and only the reporter asks it.
-
-  **Half of it is not testable here.** Whether the flag flips when a query lands needs
-  `loadRelations`, which needs the database, and the WASM engine does not start under `vp test` —
-  the skip in `in-memory-engine.test.ts`. Pinned instead: the initial answer, that it is keyed to the
-  project, and that the reporter says "not loaded yet" rather than "No connections."
-
-- **A published verb answered "done" before its write landed, and the framework's type is why.**
-  `getCanvasCommandTools` calls `run()` and returns `"<label> done."`. That is right for a canvas
-  command, which routes through the reducer and is finished when it returns. It is wrong for a
-  consumer verb, and Polkadot publishes one: `connection.cut` reaches an agent through
-  `hotkeyActions`, deletes a row and reloads. A caller was told the cut had happened and could read
-  back a connection still there — the exact failure the app-action half of that file guards against
-  with "Awaited so a write verb's 'done' means written".
-
-  Polkadot could not fix this alone. `InfiniteCanvasHotkeyAction.run` was `(state) => void`, so a
-  consumer verb had no way to say when its work finished, and `InfiniteCanvasContextualEntry.run`
-  dropped it in turn. Both return `Promise<void> | void` now, the entry carries the consumer's
-  promise through, and the tool awaits it. A keypress and a palette row ignore the result, which is
-  what they did before.
-
-  **Not purely additive, which was assumed and wrong.** `=> void` is special in TypeScript: it
-  accepts an implementation returning anything. A union does not, so an expression-bodied
-  `run: () => arr.push(x)` stops compiling. Two of the framework's own tests did; the fix is braces
-  and the compiler names every site. The type says something true now that it could not say before.
-
-  **The first test of this passed against the broken code.** It used `await Promise.resolve()`, and
-  a dropped promise still leaves `await undefined` yielding one microtask — enough slack for a
-  microtask-only consumer to finish first, so the ordering came out right either way. Work that
-  needs a macrotask separates carrying the promise from dropping it; verified by dropping it again
-  and watching the test fail.
-
-- **`canvas.describe` promised the selection and reported half of it.** The tool is registered as
-  "zoom, the open windows and their kinds, groups, and the selection", and the selection it described
-  was `selection.windowIds`. A connector fills `selection.targets` and leaves `windowIds` empty —
-  measured on the live canvas — so a caller was told nothing was selected while one was, highlighted
-  on screen with a rail attached to it. The rail was built this session; the report never caught up.
-
-  Split across the two reports rather than fixed in one. `describeRelations` already states why:
-  an edge joins two _records_ and outlives both windows, so describing one on the canvas would
-  describe it by its drawing. The canvas report counts selected connections and points at
-  `content.list`; the content report, which already owns the pair that names an edge and already
-  takes `state`, marks which one. No signature changed.
-
-  **Not driven.** There is no dev handle for the reporting tools and `navigator.modelContext` is
-  undefined in this browser, so the sentences are pinned by test rather than read out of a running
-  agent. What was measured live is the state they read: clicking a connector fills
-  `selection.targets` with `type: "edge"` and empties `windowIds`.
-
-  **The other half of that class is now guarded.** Half these descriptions are wayfinding — "with
-  the ids `content.restore` takes", "Ids come from `content.list`" — and that is the only way a
-  caller learns what order to call things in. A renamed verb leaves the sentence pointing at a name
-  that no longer resolves, and the caller finds out by invoking it; a description is a string and
-  cannot be wrong at compile time. Every cross-reference is checked against the live tool list now,
-  with the namespaces derived from the tool names themselves so prose stays safe by construction and
-  the scan cannot drift from the vocabulary. Every reference resolves today; verified by planting a
-  renamed one and watching it name both ends.
-
-  What a scan still cannot check is the half that was actually broken: whether a description matches
-  what its function _does_. That was caught by reading.
-
-- **A renamed link kept its old name in its own bar, and the accessible name with it.**
-  `createContentCache` is read-once — right for the bytes of a picture and the address of a link, and
-  wrong for a title, which a rename changes. A rename writes storage, folds `projectContent$` and
-  sets the window chrome; nothing tells the cache. `renameProjectItem` counts three places that hold
-  a name and calls missing one "right in some surfaces and stale in others". The cache was a fourth.
-
-  Driven 2026-08-28: storage and the window chrome read "Third Name" while the link's own bar, one
-  line below the chrome, read "New Link Name". Proven by reverting the fix and renaming again.
-
-  The name comes from the listing now, with no fallback to the cached one — a fallback is the same
-  stale name by a quieter route, and the two states it would cover are the two the guards already
-  answer. An unanswered listing is "Loading", and an item the listing has answered and does not hold
-  is gone, which is the collection window's rule too.
-
-  **The scan found a second one the fix had missed**: the `iframe`'s `title`, the frame's accessible
-  name, still read the cached record — the half nobody would ever have seen go stale. Images are
-  clean: that window renders `content.description` and `content.source` and never a title.
-
-- **A collection showed the project as it was when the window opened, and now derives instead.**
-  `resolved$` cached each collection's answer and `refreshCollection` filled it on open and on
-  question change — nowhere else. Driven 2026-08-28: four notes stored, three rows drawn, the fourth
-  created after the window was. Its own docstring named this as the one thing a collection must never
-  do.
-
-  Adding a refresh to the six writers that change the answer — create, archive, restore, rename,
-  connect, disconnect — is the fix that does not work, which `project-content`'s header already says
-  about the rail's own cache: the next writer forgets too. So the cache is gone and so is the query.
-  `resolveCollectionItems` is pure and answers from `projectContent$` and `relations$`, both already
-  live and already authoritative. Driven after: a note created with the collection open appears in it
-  on the same tick, no reload.
-
-  It deleted more than it added — `resolved$`, `refreshCollection`, `collectionGateway.resolve`,
-  `content.listRelated` and `listRelatedContentItems` are all gone, and the resolution became unit
-  testable, which a database query never was. `fn::list_related_content_items` stays in the schema;
-  removing it is a migration, and it is a client that stopped needing it rather than a function that
-  stopped being correct.
-
-  **The connection question is covered by test rather than by driving.** Both branches read the same
-  two observables, and the kind branch is what was witnessed live; no connection collection was open
-  to watch an edge being cut.
-
-  **The record was the same cache one layer up, and it was worse.** `collections$` held the
-  collection's title and revision, while a rename writes storage and folds the _listing_ — so this
-  copy kept both stale. Driven: renaming a collection and then changing what it lists failed with
-  `ContentRevisionConflictError ... changed after revision 4` against storage at 5, the question
-  unchanged and nothing on screen saying so; the only trace was an unhandled rejection.
-
-  Two causes, both fixed. `renameProjectItem` `void`ed the collection, image and link writes, so the
-  revision each rename earned was discarded — `TITLE_WRITERS` now return the saved record and the
-  revision is folded, which is what `setProjectItemRevision` exists for. And the record derives from
-  the listing, so there is no second copy to go stale. `collections$`, `ensureCollectionLoaded` and
-  `collectionGateway.read` are gone with it; a collection now holds nothing of its own.
-
-  Driven after: rename took revision 5 to 6, the question change took 6 to 7 and landed, the title
-  stayed, and no rejection fired.
-
-  **A rename that fails is still silent**, which is untouched and separate: `renameProjectItem`
-  answers synchronously, so a rejection arriving later has nowhere to go. It was an unhandled
-  rejection before this and still is.
-
-- **A mention now reaches the note it names, which it had never done.** The chip drew
-  `cursor-pointer` and wrote `data-note-id` from the day it was built, and `mention-node.ts`'s own
-  docstring described "the click handler that reaches the note" — nothing anywhere read the
-  attribute. `MentionNode` is referenced by three files and none of them is a listener. So the
-  pointer changed shape over a destination that did not exist, which is this app's declaration-that-
-  never-wins class in its interaction form: no error, no failing test, a promise the product does not
-  keep.
-
-  The handler sits on the note window rather than in `note-editor`, which is told nothing about
-  notes, and resolves against the listing already loaded for the typeahead. A plain click, not a
-  modifier: the node is `segmented`, so a click selects the whole mention and can never place a caret
-  inside it — there is no editing gesture being shadowed. Driven: with the mentioned note's window
-  closed, clicking `@Untitled 1` opened it and made it active; clicking again revealed the same
-  window rather than opening a second.
-
-  **Links were the same shape, measured, and are fixed.** `EDITOR_EXTENSIONS` mounted
-  `LinkExtension` — which brings the node, the toggle command and paste handling — but not
-  `ClickableLinkExtension`, which is what registers the click; Lexical says so on the extension
-  itself. Driven 2026-08-28 with a real `LinkNode`: it rendered with `--accent` and an underline and
-  clicking it did nothing. `configExtension(ClickableLinkExtension, { newTab: true })` closes it, and
-  the click was witnessed calling `window.open("https://example.com", "_blank")`.
-
-  `newTab` because the canvas is the workspace: `_self` would navigate away from the arranged
-  windows. **The cost is stated rather than left to be discovered.** The handler fires on a plain
-  click and does not ask whether the editor is editable, so a caret can no longer be placed inside
-  link text by pointer. Selecting across it still works — the handler returns early on a non-collapsed
-  selection — and the keyboard reaches it normally.
-
-  **Autolink stays off, and the reason is stronger than "not built".** `NOTE_NODES` listed
-  `AutoLinkNode` for the headless editor while `AutoLinkExtension` was never mounted and
-  `TRANSFORMERS`' `LINK` builds a `LinkNode` — so nothing could produce one, and the list's own
-  docstring claim to mirror the editor was false. Removed.
-
-  Mounting autolink costs more than adding the node back: `LINK.export` returns `null` for an
-  autolink, so an autolinked URL would export as its bare text with the URL gone — silently, to every
-  caller of `note.read`, which is the loss `note-markdown` exists to close. Whoever mounts it owes a
-  transformer for the node too. Written as an agreement between the two files rather than a ban, so
-  changing either side fails loudly at the moment the rest has to be decided.
-
-  **Getting a link in there is itself worth recording.** Markdown shortcuts could not be driven with
-  the browser tool: typing `[Example](https://example.com)` and even `# Heading` left literal text,
-  while `MarkdownShortcutPlugin` is mounted with the full `TRANSFORMERS` and the ROADMAP has `# `
-  measured as working. So the input method is what differs, not the app — the calibration is the only
-  reason that was not filed as a defect. The link was created by writing a serialized editor state
-  straight to the record instead.
-
-- **The living field.** Built in `canvas/field.tsx` and deliberately unmounted —
-  `workspace-canvas.tsx` passes no `renderBackdrop`, so the app runs on the framework's default
-  grid. The three known costs were fixed (idle gate at 0 draw calls at rest, one rect walk, one
-  device pixel per CSS pixel), and it went off again at the owner's call on two grounds: those
-  numbers came from the dev browser pane rather than the real display, and the field belongs in the
-  compositor the scene layer is heading toward rather than bolted to the backdrop slot.
-  **Remounting is the owner's decision, not a defect to fix.** The code runs — a shader import throw
-  was fixed and the pipeline was built in a real browser.
-  Two things are unfinished in the field itself, whenever it comes back: the lattice ignores zoom
-  entirely — spacing is screen-space and only the phase follows the camera, so the ground never gets
-  finer and the field has no sense of scale — and a window being dragged should pull harder than one
-  at rest, for which the rect velocities are already computed and unused.
-
-- **The mention typeahead answered "No note by that name" with three "Untitled" notes open, once,
-  and the mechanism was never found.** Seen 2026-08-28 in a note window after switching projects and
-  back. It has not reproduced since.
-
-  What chasing it did establish is a real seam, and that is fixed: three surfaces consumed
-  `projectContent$` through the same `listing?.projectId === projectId` guard while disagreeing about
-  where `projectId` came from. The rail and the palette took the route loader's prop; the note
-  window, both collection surfaces and two HUD surfaces read `openProject$` — a copy of the same
-  fact, republished from the same loader. `SelectionRail` read both, with `canvas.projectId` unused
-  on the line above. `openProject$` is deleted: a window body is inside the route's tree and reads
-  the loader like anything else.
-
-  **That is not a claim to have fixed the symptom.** The note was cleared and the page reloaded in
-  the same sequence that made mentions work again, so nothing attributes it. The refactor stands on
-  one-owner grounds alone. If the empty list returns, the guard is still where to look — but the
-  argument it is given now has a single source.
-
-  Console probes were useless here and contradicted each other: one read a real project id out of
-  `openProject$` (which a fresh module instance cannot produce, its initial value being `null`) while
-  reading `projectContent$` as `null` in the same call, which the rail's own rows disprove.
-  `AGENTS.md` warns about exactly that module-identity trap. Whatever reproduces this will be a test
-  that drives the navigation, not another probe.
-
-- **Agent confirmation for consequential WebMCP calls.** The spec has no `destructiveHint` and no
-  elicitation mechanism, so `selection.close` and `canvas.describe` are indistinguishable to a
-  caller. This app renders third-party content and registers verbs that close windows. That pairing
-  wants a decision before any agent beyond a developer's own DevTools client is pointed at it.
-  Still unverified: the declarative (`<form>`-annotation) half of WebMCP, cross-origin `exposedTo`,
-  and behaviour under a real browser-integrated agent.
-
-- **Deleting a canvas or project is still pointer-only, and should stay that way for now.**
-  Archiving landed: `canvas.archive` / `restore` / `listArchived` and the project triple, driven end
-  to end. The database had all six since the switchers were built; only the verbs were missing.
-  Delete is the other half and is genuinely destructive — `deleteProject` cascades and destroys
-  writing, which is why its surface asks for the project's name to be typed. A verb has no
-  equivalent of typing a name, and WebMCP has no elicitation mechanism to build one, so this is
-  blocked on the confirmation item above rather than on effort.
-
-- **Every document a caller can make, it can now name.** Saved views got both halves — `Reframe a
-view` as a menu mode, and `view.save` / `list` / `open` / `reframe` / `remove` as verbs, all five
-  driven, with the numbering carried across from the menu's own helper so a verb-saved view and a
-  pointer-saved one land in one sequence. `workspace.rename` closed the last gap; driven, and its
-  blank refusal matches the rule `useInlineRename` enforces for the pointer.
-  What is left pointer-only is deletion, which is the item above, and the two removal _dialogs_,
-  which are confirmations rather than capabilities.
-
-- **Reversibility is legible now; whether eight seconds is the right window is not measured.**
-  `undoableAction$` existed since archiving became reversible and its only surface was a palette
-  row, so the doctrine "no dialog, because it is reversible" rested on a recovery nobody could see.
-  `UndoNotice` puts it above the selection rail — driven, archiving surfaced
-  `Undo archiving "Untitled 1"` and pressing it put the note back. Eight seconds is a guess nobody
-  has watched anyone use, and it is the only number in that surface.
-  The cut dialog was decided rather than left open: it stays, because it quotes the claim, and a
-  person can reach that act by Backspace or by a palette row with the label nowhere on screen. Undo
-  restores the edge only for someone who already knew there was something to restore. Written where
-  it applies.
-
-- **Surfaces are one rule now, and the interior is not a defect.** Every inset shadow in the app
-  measures `oklch(1 0 0 / 0.07) 0 1px 0 0 inset` — window frames, Polkadot's rails, the framework's
-  HUD groups, the minimap. This item twice claimed something that measurement did not support: that
-  the rails had _no shadow_ (they carried `--lift-2` throughout; only the hairline was wrong), and
-  that a note's body was a flat fill wanting top-down light. The body is `var(--grain),
-var(--surface)` — the same material as its frame and its idle header, uniform on purpose.
-  Lighting it from within would be decoration, not depth, so nothing here is owed.
-
-- **The note editor is two generations behind Lexical, and nobody had read its docs.** Established
-  2026-08-28 by cloning `facebook/lexical` into `reference/` and reading the docs tree. Everything
-  below is from the shipped docs rather than from an API listing.
-
-  Rich text is **not** the gap this item used to claim. Typed into a live note: `# ` produced `<h1>`,
-  `- ` produced `<ul><li>`, and ` ```js ` produced a `CodeNode`. Headings, lists, links, quotes and
-  markdown shortcuts all work.
-
-  **The measured defect.** A code block computes `display: inline` with pill padding — the
-  `[&_code]` rule for inline code landing on a code block. Lexical keys `code` and `text.code`
-  separately because they are different nodes. `EDITOR_THEME = {}` and styling by tag cannot express
-  that. The comment defending the empty theme produced a place that cannot say what the editor says.
-
-  **Theme keys nobody knew existed**, from the theming doc: `list.olDepth` (per-depth ordered
-  markers), `list.nested.listitem`, `listitemChecked` / `Unchecked`, `hr` / `hrSelected`,
-  `blockCursor`, `text.highlight`, `text.capitalize` / `lowercase` / `uppercase`, `codeHighlight`
-  (a Prism token map), `tableSelection`.
-
-  **`@lexical/tailwind` exists** (experimental) and answers the 804-char class string directly: it is
-  a theme whose values _are_ Tailwind class strings, keyed per node. That is the shape ours should
-  take — node-keyed, not tag-keyed — and it keeps one place deciding what a note looks like.
-
-  **`MentionNode` is the documented "before" example.** The nodes doc says outright that on v0.26+
-  you should prefer `NodeState` to properties on subclasses. `$config()` with
-  `stateConfigs: [{flat: true, stateConfig}]` gives byte-identical wire JSON with no hand-written
-  `clone` / `importJSON` / `exportJSON` / `updateFromJSON` — ours has all four plus `__noteId`. The
-  doc recommends ArkType for the `parse` function, which this repo already uses. The migration
-  guide's Keyword example is the same shape as our mention (TextNode, `isTextEntity`,
-  `canInsertTextBefore`), and its all-in version drops React entirely via `registerLexicalTextEntity`
-  from `@lexical/text`.
-
-  **The `tv`-slot violation this row claimed was already gone, and the real problem was next to it.**
-  `mention-node.ts` held a `tv` slot rather than a raw string, so no rule was being broken — but it
-  styled itself, which made a second home for what a note looks like and put `ui/tv` inside a Lexical
-  node. `EDITOR_THEME`'s own docstring states the rule it was breaking: values come from `tv` slots
-  so classes have one home. The class is a theme key now, read in `createDOM`, and the node imports
-  no styling at all. Measured after: the chip reads back exactly `--accent-wash` at 0.12, `--accent`,
-  4px radius, 1px/4px padding.
-
-  **Highlighting moved packages.** `registerCodeHighlighting`, `PrismTokenizer` and the language
-  helpers are deprecated at 0.49. It is `CodePrismExtension` (`@lexical/code-prism`) or
-  `CodeShikiExtension` (`@lexical/code-shiki`) now, neither installed.
-
-  **Markdown: do not move yet.** `@lexical/mdast` is spec-compliant CommonMark+GFM with one grammar
-  shared by import and typing shortcuts, and syntax preserved through `NodeState`. The doc is
-  explicit that `@lexical/markdown` remains the supported default for apps not tracking an
-  experimental API, and mdast costs ~26 kB. Track it; do not adopt it.
-
-  **The Extension API supersedes `LexicalComposer`.** The docs and Lexical's own `AGENTS.md` both say
-  migrate. `defineExtension` and `configExtension` are in `lexical` core, so no new dependency.
-  Installed at 0.49: `RichTextExtension`, `ListExtension`, `CheckListExtension`, `LinkExtension`,
-  `AutoLinkExtension`, `ClickableLinkExtension`, `CodeExtension`, `CodeIndentExtension`,
-  `HistoryExtension`, `TabIndentationExtension`, `LexicalExtensionComposer`. The migration guide's
-  minimal form is a drop-in: `LexicalExtensionComposer` with `contentEditable={null}` and every
-  existing plugin still a child. Extensions also carry `conflictsWith`, optional `peerDependencies`,
-  and `config` / `build` / `register` / `afterRegistration` phases.
-
-  **Packages worth evaluating that we do not use.** `@lexical/a11y` — `FocusManagerExtension`
-  (Alt+F10 to a toolbar, Escape back), `RovingTabIndexExtension`, `AriaLiveRegionExtension`,
-  `HistoryAnnounceExtension`; a canvas of floating editors has real focus-management needs and none
-  of this is built. `SelectBlockExtension` — Cmd+A selects the nearest block first and the document
-  on a second press, which matters in a note living inside a canvas that has its own select-all.
-  `ClickAfterLastBlockExtension`, `EditorStateExtension` (a signal instead of `OnChangePlugin`),
-  `RootElementExtension`, `WatchEditableExtension`, `IMEExtension`. `@lexical/eslint-plugin` lints
-  `$`-function misuse.
-
-  **`@lexical/headless` landed, and it replaced the writing half rather than `note-text.ts`.**
-  `note-markdown.ts` runs the real editor with no DOM over the same `TRANSFORMERS` the typing
-  shortcuts use, and `note.read` / `note.write` speak markdown through it. `toSerializedNote` is
-  deleted: it composed the storage format by hand so a note could be written without an engine, and
-  `note.write` was its only caller. The reading half is untouched and keeps its no-Lexical boundary,
-  because it runs per keystroke over the whole library and wants the words rather than the document.
-  A mention needed a text-match transformer of its own — `TRANSFORMERS` has none — and goes out as
-  an ordinary markdown link to its record.
-
-  **`@lexical/a11y` was evaluated and is not being adopted.** Three of its four extensions are
-  toolbar- or modal-shaped — `FocusManagerExtension` is Alt+F10 to a toolbar, `RovingTabIndexExtension`
-  is toolbar arrows, `FocusTrapExtension` is a modal trap — and this app has no toolbar and uses Base
-  UI dialogs, which trap focus already. `AriaLiveRegionExtension` was the applicable one and is now
-  redundant: the canvas owns the announcement channel, so Polkadot announces through
-  `useInfiniteCanvasAnnounce` rather than a second region inside each editor.
-
-  **Correctness notes from the concepts docs, unverified against our code.** Nested updates are
-  "very strongly discouraged" and run deferred. `editor.read` takes
-  `'force-commit' | 'pending' | 'latest'` and the default is not always what a reader wants. A text
-  node must never contain `'\n'` — that is `LineBreakNode`, which `note-text.ts`'s block-type split
-  should be checked against.
-
-  **`isTextEntity` is inert here, which `mention-node.ts` used to claim otherwise.** Core reads it
-  nowhere; only `registerLexicalTextEntity` does, and this app uses `LexicalTypeaheadMenuPlugin`.
-  What actually holds a mention together is `segmented` mode —
-  `$shouldInsertTextAfterOrBeforeTextNode` returns true for a segmented node before consulting
-  anything else. Found while chasing a defect that turned out not to exist: synthetic typing left the
-  DOM reading `@Untitled 1 x @Un` while the stored state held one clean mention, because the tool's
-  `type` skips the `beforeinput` path the guards sit on. The false claim reached a commit before the
-  state was checked; the trap is in `AGENTS.md` now.
-
-  **All of that landed on 2026-08-28** — node-keyed theme, `LexicalExtensionComposer`, four plugins
-  converted to dependencies, `MentionNode` on `$config` + `NodeState` at byte-identical JSON, Shiki
-  highlighting, and a Notion-style language picker and copy control on each block. What is left is
-  one cost and two gaps.
-
-  **Shiki bakes presentation into stored content. Measured, and the answer is to keep it.** Every
-  token serializes with its own hex colour — `"style":"color:#CB7676"` — and the code node stores
-  `"theme":"vitesse-dark"`. This is how `@lexical/code-shiki` works rather than a defect: it means a
-  note renders correctly with no highlighter loaded.
-
-  Measured 2026-08-28 on a stored note holding one code line: 122 characters of code become 2678
-  bytes across 21 `code-highlight` nodes, against 206–445 bytes for the prose notes beside it. Of
-  that, 545 bytes — 20% — is literally presentation, the hex colours plus the theme name.
-
-  **That corrects what this row implied.** The colours are a fifth of the cost; the other four
-  fifths is one Lexical node per token, and Prism's `CodeHighlightNode` is also one node per token,
-  so switching would save the 20% and keep the rest. The real difference is themeability, not size —
-  and the app declares `color-scheme: dark` with no theme switch, so the "existing notes stranded on
-  the old palette" cost is unrealized. Against that, Prism costs a hand-written token map and far
-  fewer languages today. Keeping Shiki. Revisit if a light theme ships, which is the event that
-  would make the stranding real.
-
-  **The overflow menu and wrap landed, and both are measured rather than assumed.** The `…` menu
-  carries Wrap lines, Duplicate and Delete, and wrap is a `NodeState`, so a block keeps its setting
-  through storage. Driven 2026-08-28: `data-wrap="false"` computes `white-space: pre` at 43px tall
-  with the long line scrolling under `overflow-x: auto`; `true` computes `pre-wrap` with
-  `word-break: break-word` at 101px and `scrollWidth` equal to `clientWidth`, so nothing overflows.
-  The same read shows the block at `display: block`, which closes the inline-pill defect above by
-  measurement and not by inspection of the theme string.
-
-  **Copy is verified in both directions.** A trusted press changes the OS clipboard and the button
-  reads `Code copied` with a check glyph; a programmatic press rejects for want of a user gesture and
-  reads `Could not copy the code` with the danger glyph, which is exactly the silent case the
-  two-argument `then` was written for. Both reset to idle. Reading the clipboard back inside the page
-  is refused by permission, so what is witnessed is the write landing and both rendered outcomes —
-  not a string comparison against the block's text.
-
-  Still not built: the caption Notion carries in the same menu.
-
-- **Two things are confirmed present and correctly weighted, not confirmed good.** Window grain
-  measures 8.93/255 mean alpha — the 3.5% intended — and 3.5% noise does not survive a downscaled
-  screenshot. The warm ink change is hue-only, so contrast is provably unchanged, but no before-and-
-  after comparison was obtainable in the dev pane. Both want an eye on a real display.
-
-- **Writes cannot be asserted outside a browser.** The WASM engine does not start under `vp test` —
-  `connect("mem://")` hangs rather than rejecting, and the non-worker engine rules out the Worker as
-  the cause. Recorded as a skipped test in `database/in-memory-engine.test.ts`. The refusal suite's
-  own comment used to claim a `void`ed write "fails harmlessly against an engine no test starts";
-  it did not fail, it dangled forever, and the suite called that passing. Node tests assert
-  decisions and rules; a write is a browser's question.
-
-- **The offscreen chips shipped tuned by one look.** Peripheral by design and deliberately quiet;
-  nobody has watched anyone use them. The minimap's half of this is closed: close-and-reopen is
-  witnessed at 1440x900 — the map goes, `Show the map` takes its place, reopening restores it with
-  its plate and hairline intact, and the framework's zoom rail top stays at 113px from the bottom
-  across the toggle, so "reserves no band" holds through a real one. `docs/API.md` had already moved
-  `minimap` off _unobserved_ on 2026-08-26; this item was stale on that half too.
-
-- **An occluded connector is effectively unselectable on the canvas.** Two windows that nearly touch
-  hide almost all of the line between them; windows resolve before edges, which is correct. At one
-  measured arrangement the exposed run was 30px with its midpoint inside a window. The marker anchors
-  on the longest clear run or draws nothing. **This is a decision, not a gap** — the rail lists every
-  connection whether or not either end is open and cuts it in one click. Inventing a hit area that
-  floats free of the line would be drawing something that is not there.
+- **`content.list` can report zero connections before relations load.**
+  `relations$` starts as an empty array.
+  Thus, "nobody has asked yet" and "there are none" use the same value.
+
+  Its docstring calls the empty array "the honest interim answer".
+  This answer is correct for the original visual readers.
+  A connector layer that draws no relation for one frame corrects itself on the next frame.
+  A generated sentence has no later frame.
+
+  An effect calls `loadRelations`, and no caller waits for that effect.
+  As a result, a caller that asks immediately after `project.open` can receive a false zero count.
+
+  `project-content` uses a nullable observable because "nobody has asked yet is not there are none".
+  The same change in this store affects twelve readers.
+  Eleven readers draw content or resolve a click, and they require the interim empty array.
+
+  As a result, the store answers the loading question through `getLoadedRelations`.
+  It returns `null` until a query for that project finishes.
+  Only the report uses this function.
+
+  One half of this behavior cannot run in the Node test process.
+  A state change after `loadRelations` requires the database.
+  The WASM engine does not start under `vp test`, as the skip in `in-memory-engine.test.ts` records.
+
+  Tests pin the initial result and project key.
+  They also pin the phrase "not loaded yet" instead of "No connections."
+
+- **A published verb reported "done" before its database write finished.**
+  The framework type caused this error.
+
+  `getCanvasCommandTools` calls `run()` and returns `"<label> done."`.
+  This sequence is correct for a canvas command because the reducer finishes before it returns.
+  It was incorrect for a consumer verb.
+
+  Polkadot publishes `connection.cut` to agents through `hotkeyActions`.
+  This action deletes a row and reloads the relations.
+  A caller received the completion message and then read a relation that still existed.
+  The application-action code already guards against this error with "Awaited so a write verb's 'done' means written".
+
+  Polkadot required a framework change.
+  `InfiniteCanvasHotkeyAction.run` previously used `(state) => void`.
+  As a result, a consumer action had no channel for its completion promise.
+  `InfiniteCanvasContextualEntry.run` then discarded that result.
+
+  Both functions return `Promise<void> | void`.
+  The contextual entry forwards the consumer promise, and the tool waits for it.
+  Keypress and palette callers continue to ignore the result.
+
+  This type change was not purely additive.
+  TypeScript gives `=> void` special assignability and accepts an implementation that returns any value.
+  A union does not have that rule.
+  As a result, `run: () => arr.push(x)` stopped compiling.
+
+  Two framework tests used that expression form.
+  Braces corrected those sites, and the compiler identifies every other incompatible site.
+  The new type represents the actual completion contract.
+
+  The first regression test passed with the broken implementation.
+  It used `await Promise.resolve()`.
+  Even a dropped promise leaves `await undefined`, which yields one microtask.
+  That delay let a microtask-only consumer finish before the assertion.
+
+  A macrotask separates promise forwarding from promise loss.
+  Dropping the promise again then caused the corrected test to fail.
+
+- **`canvas.describe` reported only the window part of the selection.**
+  Its registered description is "zoom, the open windows and their kinds, groups, and the selection".
+  The implementation described `selection.windowIds`.
+
+  A selected connector fills `selection.targets` and leaves `windowIds` empty.
+  A live canvas measurement proved this state.
+  As a result, the caller received an empty selection while the canvas highlighted a connector and showed its rail.
+  The rail arrived in the same session, but the report still used the old window-only model.
+
+  The correction uses two reports.
+  `describeRelations` already explains that an edge joins two records and can outlive both windows.
+  A canvas-only description identifies the drawing instead of the durable relation.
+
+  The canvas report counts selected connections and directs the caller to `content.list`.
+  The content report already owns the record pair that identifies an edge.
+  It also accepts `state`, so it marks the selected relation.
+  No function signature changed.
+
+  The report text has no live agent witness.
+  The development application exposes no handle for reporting tools.
+  `navigator.modelContext` is undefined in this browser.
+  Tests pin the generated sentences.
+
+  The state that those sentences read has a live witness.
+  Clicking a connector fills `selection.targets` with `type: "edge"` and clears `windowIds`.
+
+  Cross-references in tool descriptions have a guard.
+  Examples include "with the ids `content.restore` takes" and "Ids come from `content.list`".
+  These phrases tell a caller which operation supplies an input and which operation consumes it.
+
+  A renamed operation can leave such text with an invalid name.
+  The compiler cannot find this error because the description is a string.
+
+  A scan compares every cross-reference with the current tool list.
+  It derives namespaces from the tool names, so the scan uses the same vocabulary.
+  Every current reference resolves.
+  A deliberate rename made the scan identify both the source and destination names.
+
+  This scan cannot prove that a description matches function behavior.
+  Source reading found the original selection mismatch.
+
+- **A link rename left stale visible and accessible names.**
+  `createContentCache` reads once.
+  This policy is correct for image bytes and a link address because those values do not change.
+  It is incorrect for a title because rename changes that value.
+
+  Rename writes storage, updates `projectContent$`, and sets the window chrome.
+  It did not update the cache.
+  `renameProjectItem` identified three name locations and described an omitted location as "right in some surfaces and stale in others".
+  The cache was a fourth location.
+
+  A browser test ran on 2026-08-28.
+  Storage and the window chrome showed "Third Name".
+  The link bar directly below the chrome still showed "New Link Name".
+  Reverting the correction and renaming again reproduced the problem.
+
+  The link name comes only from the listing.
+  It does not fall back to the cached value because that value is stale.
+  Existing guards already define both listing states.
+
+  Before the listing answers, the UI says "Loading".
+  After the listing answers, an absent item is gone.
+  The collection window uses the same rule.
+
+  The scan found a second stale value that the first correction missed.
+  The `title` of the `iframe` still read the cached record.
+  This property supplies the accessible frame name, so the stale value was not visible.
+
+  Image windows do not read a title.
+  They render `content.description` and `content.source`, so they do not have this defect.
+
+- **A collection derives its result from live project state.**
+  Previously, `resolved$` cached each answer.
+  `refreshCollection` updated that cache only when the window opened or its question changed.
+
+  A browser test ran on 2026-08-28.
+  Storage contained four notes, while an open collection showed three rows.
+  The fourth note arrived after the collection window opened.
+  The collection docstring identifies stale results as behavior that a collection must prevent.
+
+  Six operations can change the answer: create, archive, restore, rename, connect, and disconnect.
+  Adding a refresh to all six operations leaves the next new writer unhandled.
+  The `project-content` header already states this problem for the rail cache.
+
+  The implementation removed the collection cache and database query.
+  Pure function `resolveCollectionItems` reads `projectContent$` and `relations$`.
+  Both observables are live authorities.
+
+  After the correction, a new note appeared in the open collection on the same tick.
+  The view did not require a reload.
+
+  The change removed `resolved$`, `refreshCollection`, `collectionGateway.resolve`, `content.listRelated`, and `listRelatedContentItems`.
+  Pure resolution also permits unit tests, while the database query did not.
+
+  `fn::list_related_content_items` remains in the schema.
+  Its removal requires a migration.
+  The client stopped using the function, but the function remains correct.
+
+  Tests cover relation-based collection changes.
+  Both collection branches read the same two observables.
+  The kind branch has a live witness.
+  No connection collection was open during an edge removal, so that branch has no browser witness.
+
+  A second cache held the collection record itself.
+  `collections$` stored the title and revision.
+  Rename wrote storage and updated the listing, so both cached values became stale.
+
+  A browser test renamed a collection and then changed its question.
+  The second write failed with `ContentRevisionConflictError ... changed after revision 4` while storage had revision 5.
+  The question did not change on screen.
+  An unhandled rejection was the only error signal.
+
+  The correction addressed two causes.
+  `renameProjectItem` used `void` for collection, image, and link writes, which discarded the returned revision.
+  `TITLE_WRITERS` return the saved record.
+  The caller stores that revision through `setProjectItemRevision`.
+
+  The collection record derives from the listing and has no stale local copy.
+  The change removed `collections$`, `ensureCollectionLoaded`, and `collectionGateway.read`.
+  A collection stores no record state of its own.
+
+  A later browser test moved rename from revision 5 to 6.
+  The question change moved revision 6 to 7 and finished.
+  The title remained, and no rejection occurred.
+
+  A failed rename still has no visible signal.
+  `renameProjectItem` returns synchronously, so a later rejection has no result channel.
+  This behavior produced an unhandled rejection before the correction and still does.
+
+- **A mention navigates to its target note.**
+  From its first implementation, the chip used `cursor-pointer` and wrote `data-note-id`.
+  The docstring in `mention-node.ts` described "the click handler that reaches the note".
+  No code read the attribute.
+
+  Three files reference `MentionNode`, and none previously registered a listener.
+  As a result, the pointer shape advertised a destination that did not exist.
+  This interaction defect produced no error or failing test.
+
+  The new handler belongs to the note window instead of `note-editor`.
+  The editor has no knowledge of notes.
+  The handler resolves the target through the listing that the typeahead already loaded.
+
+  A plain click activates the navigation.
+  The `segmented` node selects the complete mention and does not permit an internal caret.
+  As a result, navigation does not replace an available pointer-edit action.
+
+  The browser test started with the mentioned note window closed.
+  Clicking `@Untitled 1` opened the window and made it active.
+  A second click revealed the same window without opening a duplicate.
+
+  Links had the same missing interaction, and a browser test proved the correction.
+  `EDITOR_EXTENSIONS` mounted `LinkExtension`, which provides the node, toggle command, and paste behavior.
+  It did not mount `ClickableLinkExtension`, which registers link clicks according to Lexical.
+
+  On 2026-08-28, a real `LinkNode` rendered with an underline and `--accent`.
+  Clicking it had no effect.
+  `configExtension(ClickableLinkExtension, { newTab: true })` adds the missing behavior.
+  The witness observed `window.open("https://example.com", "_blank")`.
+
+  The configuration uses `newTab` because the canvas is the workspace.
+  `_self` leaves the current page and removes the arranged windows from view.
+
+  This choice has an editing cost.
+  A plain click activates the link without examining editor editability.
+  As a result, a pointer cannot place the caret inside link text.
+  Selection across the link still works because the handler ignores a non-collapsed selection.
+  Keyboard navigation can also move into the text normally.
+
+  Autolink remains disabled for more than the quoted "not built" reason.
+  `NOTE_NODES` included `AutoLinkNode` for the headless editor.
+  The application did not mount `AutoLinkExtension`.
+  In addition, `LINK` in `TRANSFORMERS` creates a `LinkNode`.
+  No current operation can create the autolink node.
+  As a result, the list did not mirror the editor, and the correction removed that node.
+
+  Autolink also requires an export transformer.
+  `LINK.export` returns `null` for an autolink.
+  Export emits bare text and loses the URL for every `note.read` caller.
+  `note-markdown` exists to prevent that loss.
+
+  The node list and transformer list define one agreement.
+  A future autolink change must add the node transformer at the same time.
+
+  Browser automation did not activate Markdown shortcuts.
+  Typing `[Example](https://example.com)` or `# Heading` left literal text.
+  But `MarkdownShortcutPlugin` is mounted with the complete `TRANSFORMERS` list.
+  The roadmap also records a working measurement for `# `.
+
+  This calibration identifies the automation input path as the difference.
+  The session did not file an application defect.
+  It created the test link by writing serialized editor state directly to the record.
+
+- **The living field remains implemented and unmounted.**
+  Its implementation is in `canvas/field.tsx`.
+  `workspace-canvas.tsx` does not supply `renderBackdrop`, so the application uses the default framework grid.
+
+  The implementation corrected three known costs:
+
+  - An idle gate produces 0 draw calls at rest.
+  - One rectangle pass supplies the field inputs.
+  - One device pixel represents one CSS pixel.
+
+  The owner disabled the field again for two reasons.
+  These measurements came from the development browser pane instead of the real display.
+  The field also belongs in the future scene compositor instead of the backdrop slot.
+
+  Remounting is an owner decision and does not represent a defect.
+  The code runs.
+  The implementation corrected a shader import error, and a real browser built the pipeline.
+
+  Two field behaviors remain incomplete.
+  Lattice spacing stays in screen space, while only phase follows the camera.
+  As a result, zoom does not make the ground finer or express canvas scale.
+
+  A dragged window also needs stronger pull than a stationary window.
+  Rectangle velocity already exists but has no consumer.
+
+- **The mention typeahead produced one unexplained empty result.**
+  On 2026-08-28, it said "No note by that name" while three "Untitled" notes were open.
+  The result appeared in a note window after a project switch away and back.
+  The problem has not appeared again, and its mechanism remains unknown.
+
+  The investigation found and corrected a separate ownership problem.
+  Three UI surfaces read `projectContent$` through `listing?.projectId === projectId`.
+  They did not get `projectId` from the same source.
+
+  The rail and palette used the route-loader property.
+  The note window, two collection surfaces, and two HUD surfaces used `openProject$`.
+  That observable republished the same loader value.
+
+  `SelectionRail` read both sources, and the line above contained an unused `canvas.projectId`.
+  The implementation deleted `openProject$`.
+  A window body is already inside the route tree and can read the loader directly.
+
+  This ownership correction does not prove a correction for the empty typeahead.
+  The same sequence cleared the note and reloaded the page before mentions worked again.
+  As a result, no change has a proven causal link to the symptom.
+
+  The refactor remains valid because one source owns project identity.
+  If the empty result returns, examine the same guard.
+  Its project argument has one source.
+
+  Console probes gave contradictory results in this investigation.
+  One probe read a real project ID from `openProject$`.
+  A fresh module instance starts that observable as `null`, so it cannot produce the observed value.
+
+  The same probe read `projectContent$` as `null` while the visible rail showed listing rows.
+  `AGENTS.md` describes this module-identity problem.
+  A future reproduction must use a test that navigates between projects.
+  Do not use another console probe.
+
+- **Consequential WebMCP calls require a confirmation policy.**
+  The specification has no `destructiveHint` and no elicitation mechanism.
+  As a result, a caller cannot distinguish the risk of `selection.close` from the risk of `canvas.describe`.
+
+  The application renders third-party content and publishes actions that close windows.
+  Define the confirmation policy before an agent beyond the developer's DevTools client can use those actions.
+
+  Three WebMCP areas still require proof:
+
+  - The declarative (`<form>`-annotation) path.
+  - Cross-origin `exposedTo` behavior.
+  - Behavior with a real browser-integrated agent.
+
+- **Canvas and project deletion remains pointer-only.**
+  Archive actions have landed and have an end-to-end witness.
+  They include `canvas.archive`, `restore`, and `listArchived`, plus the three project equivalents.
+
+  The database contained all six operations from the first switcher implementation.
+  Only the published actions were missing.
+
+  `deleteProject` is destructive because it cascades and removes writing.
+  Its pointer surface requires the exact project name.
+  A published action cannot reproduce this typed-name confirmation.
+  WebMCP also has no elicitation mechanism.
+
+  As a result, deletion waits for the confirmation policy instead of more implementation work.
+
+- **A caller can name every document that it can create.**
+  Saved views have a `Reframe a
+view` menu mode.
+  They also have `view.save`, `list`, `open`, `reframe`, and `remove` actions.
+
+  Browser tests exercised all five actions.
+  The action path uses the menu helper's numbering.
+  Thus, pointer-created and action-created views share one number sequence.
+
+  `workspace.rename` closed the remaining naming gap and has a browser witness.
+  Its blank-name refusal matches the pointer rule from `useInlineRename`.
+
+  Deletion remains pointer-only as the prior item describes.
+  The two removal dialogs are confirmations instead of independent capabilities.
+
+- **The UI makes reversible archive actions visible.**
+  The duration of the recovery offer remains unmeasured.
+
+  `undoableAction$` existed from the first reversible archive implementation.
+  A palette row was its only UI surface.
+  As a result, the rule "no dialog, because it is reversible" depended on an invisible recovery path.
+
+  `UndoNotice` appears above the selection rail.
+  A browser test archived a note and showed `Undo archiving "Untitled 1"`.
+  Activation restored the note.
+
+  The notice remains for eight seconds.
+  No usage observation supports that duration, and it is the only timing value in this UI.
+
+  The connection-cut dialog remains.
+  It quotes the relation claim before removal.
+  A user can also start the cut through Backspace or a palette row while the label is outside the viewport.
+  Undo helps only when the user already knows that an edge changed.
+  The dialog records this decision where it applies.
+
+- **All application surfaces use one inset-shadow rule.**
+  Every inset shadow measures `oklch(1 0 0 / 0.07) 0 1px 0 0 inset`.
+  This value applies to window frames, Polkadot rails, framework HUD groups, and the minimap.
+
+  Earlier versions of this item made two claims without measurement support.
+  The first claim said that the rails had no shadow.
+  They used `--lift-2` throughout, and only the hairline was incorrect.
+
+  The second claim described the note body as a flat fill that needed top-down light.
+  Its background is `var(--grain),
+var(--surface)`.
+  The frame and idle header use the same material.
+  This uniform interior is intentional.
+
+  Interior lighting adds decoration without depth.
+  This area requires no correction.
+
+- **The note editor was two Lexical generations behind the current API.**
+  Before 2026-08-28, no project work had examined the Lexical documentation.
+  That investigation cloned `facebook/lexical` into `reference/` and read its documentation tree.
+  The findings that follow come from the packaged documentation instead of an API-name list.
+
+  Rich-text support was already present.
+  In a live note, `# ` produced `<h1>`.
+  Input `- ` produced `<ul><li>`, and ` ```js ` produced a `CodeNode`.
+  Headings, lists, links, quotes, and Markdown shortcuts all worked.
+
+  The investigation found a code-block style defect.
+  A block computed `display: inline` and received pill padding.
+  The `[&_code]` selector for inline code also matched the block.
+
+  Lexical distinguishes the block key `code` from the inline key `text.code`.
+  The application used `EDITOR_THEME = {}` and selected by HTML tag.
+  Tag-based styling cannot express the Lexical node difference.
+  A comment defended the empty theme even though that theme had no way to represent the editor model.
+
+  The theming documentation lists additional keys:
+  `list.olDepth` gives markers for each ordered-list depth.
+  Other keys include `list.nested.listitem`, `listitemChecked`, `Unchecked`, `hr`, and `hrSelected`.
+  It also lists `blockCursor`, `text.highlight`, `text.capitalize`, `lowercase`, and `uppercase`.
+  `codeHighlight` is a Prism token map, and `tableSelection` styles table selection.
+
+  Experimental package `@lexical/tailwind` directly addresses the 804-character class string.
+  Its theme values are Tailwind class strings keyed by node.
+  The application needs this node-keyed form instead of tag-based styling.
+  It keeps one authority for note appearance.
+
+  The documentation uses `MentionNode` as its "before" example.
+  For Lexical v0.26 and later, the documentation directs users toward `NodeState` instead of subclass properties.
+
+  `$config()` with `stateConfigs: [{flat: true, stateConfig}]` preserves byte-identical wire JSON.
+  It removes handwritten `clone`, `importJSON`, `exportJSON`, and `updateFromJSON` methods.
+  The former project node contained all four methods and `__noteId`.
+
+  The documentation recommends ArkType for the `parse` function, which the repository already uses.
+  Its migration guide has a Keyword example with the same TextNode form.
+  The example uses `isTextEntity` and `canInsertTextBefore`.
+  Its complete version removes React through `registerLexicalTextEntity` from `@lexical/text`.
+
+  The claimed `tv`-slot violation was already absent.
+  `mention-node.ts` used a `tv` slot instead of a raw class string.
+  But the node still styled itself and created a second appearance authority.
+  It also imported `ui/tv` inside a Lexical node.
+
+  The `EDITOR_THEME` docstring already says that values come from `tv` slots so classes have one owner.
+  The mention class is a theme key that `createDOM` reads.
+  The node imports no style code.
+
+  After this change, the chip computed `--accent-wash` at 0.12 and used `--accent`.
+  It also measured a 4px radius and 1px/4px padding.
+
+  Syntax highlighting moved to new packages in Lexical 0.49.
+  `registerCodeHighlighting`, `PrismTokenizer`, and the language helpers are deprecated.
+  The current choices are `CodePrismExtension` from `@lexical/code-prism` and `CodeShikiExtension` from `@lexical/code-shiki`.
+  Neither package was installed at the time of this finding.
+
+  Do not migrate Markdown yet.
+  `@lexical/mdast` implements CommonMark and GFM through one grammar for import and typing shortcuts.
+  It preserves syntax through `NodeState`.
+  The documentation keeps `@lexical/markdown` as the supported default for applications that do not track an experimental API.
+  The mdast package also adds ~26 kB.
+  Continue to track it without adoption.
+
+  The Extension API replaces `LexicalComposer`.
+  Both the documentation and the Lexical `AGENTS.md` direct applications to migrate.
+  `defineExtension` and `configExtension` are part of `lexical` core, so migration adds no dependency.
+
+  Lexical 0.49 includes `RichTextExtension`, `ListExtension`, `CheckListExtension`, `LinkExtension`, and `AutoLinkExtension`.
+  It also includes `ClickableLinkExtension`, `CodeExtension`, `CodeIndentExtension`, and `HistoryExtension`.
+  The remaining installed parts are `TabIndentationExtension` and `LexicalExtensionComposer`.
+
+  The minimum migration keeps `LexicalExtensionComposer`, sets `contentEditable={null}`, and leaves each existing plugin as a child.
+  An extension can also define `conflictsWith` and optional `peerDependencies`.
+  Its lifecycle contains `config`, `build`, `register`, and `afterRegistration` phases.
+
+  Several unused packages remain candidates for evaluation.
+  `@lexical/a11y` provides `FocusManagerExtension`, which uses Alt+F10 to enter a toolbar and Escape to return.
+  It also provides `RovingTabIndexExtension`, `AriaLiveRegionExtension`, and `HistoryAnnounceExtension`.
+  A canvas with floating editors needs focus management, and none of these parts were implemented.
+
+  `SelectBlockExtension` makes the first Cmd+A select the closest block.
+  A second Cmd+A selects the document.
+  This behavior matters because the surrounding canvas has its own select-all action.
+
+  Other candidates are `ClickAfterLastBlockExtension`, `EditorStateExtension`, `RootElementExtension`, `WatchEditableExtension`, and `IMEExtension`.
+  The editor-state extension gives a signal instead of `OnChangePlugin`.
+  `@lexical/eslint-plugin` finds incorrect uses of `$` functions.
+
+  `@lexical/headless` owns note writing instead of `note-text.ts`.
+  `note-markdown.ts` runs the actual editor without a DOM.
+  It uses the same `TRANSFORMERS` as typing shortcuts.
+  `note.read` and `note.write` use Markdown through this editor.
+
+  The change deleted `toSerializedNote`.
+  That function constructed the storage format by hand so writing did not require an editor engine.
+  `note.write` was its only caller.
+
+  The read path keeps its boundary without Lexical.
+  It processes the complete library after each keystroke and needs words instead of document structure.
+
+  Mentions require their own text-match transformer because `TRANSFORMERS` does not provide one.
+  Export represents a mention as a normal Markdown link to its record.
+
+  The project evaluated `@lexical/a11y` and rejected adoption.
+  Three of four relevant extensions target toolbars or modals.
+  `FocusManagerExtension` moves focus to a toolbar with Alt+F10.
+  `RovingTabIndexExtension` adds toolbar arrow movement, and `FocusTrapExtension` traps a modal.
+
+  This application has no toolbar.
+  Base UI dialogs already trap focus.
+  `AriaLiveRegionExtension` was the applicable part, but the canvas owns announcements.
+  Polkadot uses `useInfiniteCanvasAnnounce` instead of a live region in every editor.
+
+  The concepts documentation also records unverified correctness constraints.
+  It says nested updates are "very strongly discouraged" and run later.
+  `editor.read` accepts `'force-commit' | 'pending' | 'latest'`.
+  Its default does not fit every reader.
+
+  A text node must never contain `'\n'` because `LineBreakNode` represents that content.
+  Examine the block-type split in `note-text.ts` against this rule.
+
+  `isTextEntity` has no effect in the current integration, despite the former claim in `mention-node.ts`.
+  Lexical core does not read it.
+  Only `registerLexicalTextEntity` uses it, while this application uses `LexicalTypeaheadMenuPlugin`.
+
+  The `segmented` mode keeps a mention together.
+  `$shouldInsertTextAfterOrBeforeTextNode` returns true for a segmented node before any other test.
+
+  This finding came from an investigation of a defect that did not exist.
+  Synthetic typing made the DOM show `@Untitled 1 x @Un`, while stored state contained one correct mention.
+  The automation action `type` omits the `beforeinput` path that contains the guards.
+
+  A commit included a false claim before the session examined stored state.
+  `AGENTS.md` records this automation limit.
+
+  The editor changes from this investigation landed on 2026-08-28.
+  They include the node-keyed theme and `LexicalExtensionComposer`.
+  Four plugins became extension dependencies.
+
+  `MentionNode` moved to `$config` and `NodeState` while it kept byte-identical JSON.
+  Shiki highlighting also landed.
+  Each code block received a Notion-style language picker and copy control.
+  One storage cost and two gaps remained.
+
+  Shiki stores presentation with the document, and measurement supports keeping that design.
+  Each token stores a hex color such as `"style":"color:#CB7676"`.
+  The code node also stores `"theme":"vitesse-dark"`.
+
+  This format is the defined behavior of `@lexical/code-shiki`.
+  It lets a note render correctly without a loaded highlighter.
+
+  A measurement on 2026-08-28 used one code line with 122 characters.
+  Storage used 2678 bytes across 21 `code-highlight` nodes.
+  Nearby prose notes used 206–445 bytes.
+
+  The hex colors and theme name used 545 bytes, or 20% of the code-note size.
+  This measurement corrected the earlier explanation.
+  One Lexical node for each token causes the other four fifths of the size.
+
+  Prism also creates one `CodeHighlightNode` for each token.
+  A switch to Prism removes the 20% presentation data and keeps the token-node cost.
+  The important difference is theme support rather than size.
+
+  The application declares `color-scheme: dark` and has no theme switch.
+  As a result, the quoted "existing notes stranded on the old palette" cost does not occur today.
+  Prism also requires a handwritten token map and currently supports fewer languages.
+
+  Keep Shiki.
+  If the application adds a light theme, revisit this decision because stored dark colors then become a real cost.
+
+  The overflow menu and wrapping also landed with measurements.
+  The `…` menu contains Wrap lines, Duplicate, and Delete.
+  Wrap uses `NodeState`, so storage preserves the block setting.
+
+  On 2026-08-28, `data-wrap="false"` computed `white-space: pre` and a height of 43px.
+  The long line scrolled under `overflow-x: auto`.
+  Value `true` computed `pre-wrap` and `word-break: break-word` at 101px.
+  `scrollWidth` equaled `clientWidth`, so the content did not overflow.
+
+  The same measurement found `display: block`.
+  This observed value closes the inline-pill defect without relying on the theme source.
+
+  Clipboard tests cover both outcomes.
+  A trusted press changes the operating-system clipboard.
+  The button then says `Code copied` with a check glyph.
+
+  A programmatic press has no user gesture and rejects.
+  The button then says `Could not copy the code` with the danger glyph.
+  The two-argument `then` handles this otherwise silent rejection.
+  Both outcomes return the button to its idle state.
+
+  Page permission blocks a clipboard read after the write.
+  The witness proves the write and both UI outcomes.
+  It does not compare clipboard text with the code-block text.
+
+  The Notion caption from the same menu remains unimplemented.
+
+- **Two visual treatments have correct measured weights but no quality approval.**
+  Window grain has a mean alpha of 8.93/255, which matches the intended 3.5%.
+  A downscaled screenshot does not show 3.5% noise.
+
+  The warm-text change modifies hue only, so its contrast value does not change.
+  The development pane did not provide a before-and-after visual comparison.
+  Both treatments require review on a real display.
+
+- **Database writes require browser tests.**
+  The WASM engine does not start under `vp test`.
+  `connect("mem://")` waits forever instead of rejecting.
+  The non-worker engine has the same behavior, so the Worker is not the cause.
+
+  `database/in-memory-engine.test.ts` records a skipped test for this limit.
+  A former refusal-suite comment said that a `void`ed write "fails harmlessly against an engine no test starts".
+  The write did not fail.
+  It remained pending forever, while the suite reported success.
+
+  Node tests can assert decisions and rules.
+  A database write needs a browser witness.
+
+- **Offscreen chips still lack usage observation.**
+  One visual review selected their current quiet peripheral treatment.
+  No session has observed a user working with them.
+
+  The minimap part of this item is closed.
+  A 1440x900 browser witness closed and reopened the map.
+  On close, `Show the map` replaced it.
+  Reopen restored the plate and hairline.
+
+  The framework zoom rail remained 113px from the bottom before and after the toggle.
+  Thus, the quoted "reserves no band" requirement has a browser witness.
+
+  `docs/API.md` removed the _unobserved_ status from `minimap` on 2026-08-26.
+  The minimap half of this roadmap item was already stale.
+
+- **A connector hidden by windows is effectively unavailable for canvas selection.**
+  Two nearly touching windows can cover almost all of the line between them.
+  Window targets resolve before edge targets, which is the correct priority.
+
+  One measured arrangement left a 30px visible segment and put the midpoint inside a window.
+  The marker uses the longest clear segment or draws nothing.
+
+  This behavior is an accepted decision instead of a framework gap.
+  The rail lists every relation whether its endpoint windows are open or closed.
+  It can remove the relation in one click.
+
+  A hit target outside the visible connector represents geometry that the UI does not draw.
 
 ## Framework gaps
 
-The list is the incubator's output. Landed rows live in `docs/API.md` and the changelog; these are
-the open ones.
+Polkadot found these open generic gaps through product work.
+Completed gaps are in `docs/API.md` and the changelog.
 
-| Gap                                                                                               | Generic affordance                                      |
-| ------------------------------------------------------------------------------------------------- | ------------------------------------------------------- |
-| The camera frames a target once and cannot follow a moving one                                    | a sustained follow with a release rule                  |
-| A selected scene object that no longer exists is never pruned, and `selection` is a durable field | a prune that runs on the surface `getTargetRect` opened |
+| Gap                                                                     | Generic affordance                                            |
+| ----------------------------------------------------------------------- | ------------------------------------------------------------- |
+| One camera action frames a target but cannot continue to follow it      | Sustained following with an explicit release rule             |
+| Durable `selection` retains a scene object after that object disappears | Pruning through the resolver lookup opened by `getTargetRect` |
 
-**Announcements landed.** The canvas held one `aria-live` region, inside the HUD, which returns
-`null` when a consumer turns off its controls, dock, and status card — so whether the canvas could
-speak depended on visual policy. It also carried one hardcoded message with no way in.
-`InfiniteCanvasAnnouncer` mounts it at the viewport and `useInfiniteCanvasAnnounce` gives consumers
-a second region. Polkadot's undo notice announces both halves through it, driven end to end: the
-offer, then `Undone.` when it is taken. No screen reader has been run against it; what is verified
-is the DOM contract.
+**Canvas announcements are implemented.**
+The canvas originally put one `aria-live` region inside the HUD.
+The HUD returns `null` when a consumer disables its controls, dock, and status card.
+As a result, announcement support depended on visual HUD policy.
+The region also exposed one fixed message and accepted no consumer message.
 
-**Pruning is now a decision rather than a missing surface.** `getTargetRect` answers `null` for a
-target no resolver owns, which is exactly what a removed object looks like, so the framework can
-tell. Whether it should _edit the selection_ on that basis is the open half: a resolver that has not
-mounted yet is indistinguishable from an object that is gone, and pruning on the first frame would
-silently drop a live selection. Deriving on read — which is what every Polkadot reader already
-does — stays correct meanwhile.
+`InfiniteCanvasAnnouncer` mounts the region at the viewport.
+`useInfiniteCanvasAnnounce` supplies a second region for consumers.
+Polkadot uses it for both parts of the undo notice.
+An end-to-end test observed the offer and then `Undone.` after activation.
 
-**Both remaining rows are one architectural fact.** The framework's pure surface takes `state`, and
-`state` is serializable. Consumer knowledge is not — an object's bounds and whether it still exists
-both live in props, as closures. Every gap where the framework must ask the consumer something lands
-on that boundary. Storing the answers in state is the tempting shortcut and is wrong: a rect copied
-onto a selection target is stale the moment the object moves. The answer is a lookup the framework
-can call, not a value it can hold.
+No screen-reader test exists.
+The current proof covers the DOM announcement contract only.
 
-**Discovery landed and is the worked example.** `getInfiniteCanvasContextualEntries` merges both
-vocabularies into one uniform list with a bound `run`, so a consumer verb reaches contextual
-discovery without widening the command union. The shape that made it work: the framework's own verbs
-keep `group`, a consumer verb has none, and the merge — not the caller — decides what `run` means.
-Callers branch on nothing. `published-commands.ts` is now the filter it was always meant to be.
-What it did **not** do is shrink `app-actions.ts`, which is still ~1400 lines: the argument schema
-and the refusal string are this app's own, and no framework affordance is asking for them.
+**Selection pruning still requires an ownership decision.**
+`getTargetRect` returns `null` for a target that no resolver owns.
+A removed object produces this result, so the framework can identify that shape.
 
-**Bounds landed, and it was as cheap as this row said.** The diagnosis held exactly:
-`createInfiniteCanvasEdgeTargetResolver` and `…SceneObjectTargetResolver` take a `targets` source
-whose entries already carry their geometry, and the only blocker was that the source's context type
-demanded a pointer position no consumer uses. Splitting that context —
-`InfiniteCanvasSpatialTargetGeometryContext` is `{ chrome, state }`, and the resolver context extends
-it — let a resolver be asked where a target is outside a pointer event.
+A resolver that has not mounted yet produces the same result.
+As a result, immediate pruning can remove a valid selection during the first frame.
+Until the states differ, Polkadot readers continue to derive live selection on read.
 
-Each factory now fills in `getTargetRect` from the source it already has, so a consumer using them
-gets this without writing anything. The overlay factory deliberately does not: it measures in
-viewport pixels, and its targets are unselectable anyway. `getInfiniteCanvasSelectionBounds` unions
-the selected windows with the targets the resolvers can place, and the store answers it — the
-viewport registers its resolvers upward rather than the consumer passing the same array to two
-props, so the one source cannot go out of sync.
+**Both open gaps cross the same architecture boundary.**
+The pure framework API accepts `state`, and `state` is serializable.
+Consumer knowledge remains in property closures.
+This knowledge includes current object bounds and object existence.
 
-Nothing was built for the minimap or the offscreen ring. The rect is what "fit the selection" needs
-and no more; an enumeration API for consumers that have not asked is still the speculative machinery
-this row refused.
+This boundary applies to every generic operation that uses consumer knowledge.
+Do not copy the answer into serialized state.
+A rectangle stored on a selection target becomes stale as soon as the object moves.
+The framework needs a callable lookup instead of a stored value.
 
-**Reported now, and the symptom is worse than "nothing happens".** Driven 2026-08-28: clicking the
-connector between two notes selects it — its stroke goes from `0.4` opacity to `1` — with
-`selection.windowIds` empty. At that point Polkadot's selection rail _disappears_, because it renders
-on `selection.windowIds.length`, and the framework's HUD "Fit selection" is `disabled`, because
-`isInfiniteCanvasCommandEnabled` answers `getSelectedWindowBounds(state) !== null` for
-`view.fitSelection`. So there is no control to press at all: a visibly selected thing with every way
-to frame it withdrawn. That is one measured defect rather than an enumeration API nobody asked for,
-and it moves this row from "nobody has reported it" to a need with a witness.
+**Contextual discovery is the completed example.**
+`getInfiniteCanvasContextualEntries` combines framework and consumer vocabularies into one list.
+Each entry has a bound `run`, so consumer actions enter discovery without expanding the framework command union.
 
-**Both halves are closed.** A connector rail renders on the edge selection and cuts what is
-selected, so a selected connector has a control again. Framing works too: the HUD button asks
-`useInfiniteCanvasSelectionBounds` rather than `selection.windowIds.length`, which is the same
-question `view.fitSelection` resolves, so the control and the command cannot disagree.
+Framework actions retain `group`, while consumer actions have no group.
+The merge defines what `run` means, so callers do not branch by action source.
+`published-commands.ts` has only its intended filter role.
 
-Driven 2026-08-28 with one labelled connector and no windows selected: the fit button was enabled
-with `windowIds` empty, and pressing it took the camera from zoom 1 to 2.8 centred on the connector,
-its label readable. Polkadot needed no change for this — it already passed the resolvers.
+This change did not reduce `app-actions.ts`, which remains ~1400 lines.
+The argument schemas and refusal strings belong to the product.
+No missing framework capability owns that application logic.
 
-**It is still the pure-surface boundary that makes it expensive, and that has not changed.**
-Enablement is a pure function of serializable `state`; an edge's geometry is consumer knowledge held
-in a closure. Threading a provider into that surface is the architectural decision this table's
-closing paragraph describes, and it is not a thing to half-build — a partly-wired provider would read
-as finished and is exactly what `Pacing` warns about.
+**Selection bounds are implemented.**
+The original diagnosis was correct.
+`createInfiniteCanvasEdgeTargetResolver` and `…SceneObjectTargetResolver` accept a `targets` source.
+Each target already includes its geometry.
 
-**Existence: the framework prunes what it can verify and keeps what it cannot.** A selection target
-naming nothing survives `normalizeSelection` and a hydrate round trip, while a dead window id in the
-same selection is dropped. Polkadot is not exposed — every reader of edge selection resolves target
-ids against live relations, so a dead one contributes nothing. Derive on read.
+The former context type also required a pointer position that no bounds consumer used.
+The implementation split that requirement.
+`InfiniteCanvasSpatialTargetGeometryContext` is `{ chrome, state }`, and the pointer resolver context extends it.
+As a result, a resolver can answer target position outside a pointer event.
+
+Each factory implements `getTargetRect` from its existing source.
+A consumer receives bounds without another implementation.
+The overlay factory does not provide bounds because it uses viewport pixels and its targets are not selectable.
+
+`getInfiniteCanvasSelectionBounds` combines selected-window rectangles with resolver target rectangles.
+The store exposes that result.
+The viewport registers its resolvers with the store.
+The consumer does not pass one resolver array to two properties, so those inputs cannot diverge.
+
+This work did not add minimap or offscreen-ring enumeration.
+The rectangle supplies exactly what "fit the selection" requires.
+No consumer requested an enumeration API.
+
+**A browser witness changed this item from a possible gap to a measured defect.**
+On 2026-08-28, a click selected the connector between two notes.
+Its stroke changed from `0.4` opacity to `1`, while `selection.windowIds` remained empty.
+
+The Polkadot selection rail then disappeared because it read `selection.windowIds.length`.
+The HUD "Fit selection" button became `disabled`.
+`isInfiniteCanvasCommandEnabled` used `getSelectedWindowBounds(state) !== null` for `view.fitSelection`.
+
+As a result, the UI showed a selected connector but removed every control that can frame it.
+This observed result is more specific than the earlier phrase "nothing happens".
+It also replaces the phrase "nobody has reported it" with a browser witness.
+
+**Both observed effects are corrected.**
+A connector rail appears for edge selection and can remove the selected connector.
+The HUD fit button reads `useInfiniteCanvasSelectionBounds` instead of `selection.windowIds.length`.
+The button and `view.fitSelection` ask the same question and cannot disagree.
+
+A browser test on 2026-08-28 selected one labeled connector and no windows.
+The fit button remained enabled with empty `windowIds`.
+Activation changed camera zoom from 1 to 2.8 and centered the connector with a readable label.
+Polkadot already supplied the resolvers, so this correction required no product change.
+
+**The pure API boundary still makes full enablement expensive.**
+Enablement is a pure function over serializable `state`.
+Edge geometry is consumer knowledge stored in a closure.
+
+Adding a provider to this pure API requires an architecture decision.
+Do not add a partial provider that appears complete.
+That outcome is the exact risk described in `Pacing`.
+
+**The framework prunes only targets whose absence it can prove.**
+A selection target without a resolver survives `normalizeSelection` and state hydration.
+A dead window ID in the same selection is removed.
+
+Polkadot readers resolve selected edge IDs against current relations.
+As a result, a dead relation contributes no selection behavior.
+Continue to derive this selection on read.
 
 ## Later, deliberately
 
-- **Tours.** `getInfiniteCanvasWorldPath` and `…PointAtProgress` are built for guided paths. Nothing
-  consumes them.
-- **The 3D layer.** Window proxies and frustum culling exist behind `/scene`. Far-zoom overview is
-  the honest use, not decoration.
-- **Sync.** Local-first is the whole product until it is not. SurrealDB is the choice when it becomes
-  a real need.
+- **Tours.** The framework provides `getInfiniteCanvasWorldPath` and `…PointAtProgress` for guided paths.
+  No current feature uses them.
+- **The 3D layer.** Window proxies and frustum culling exist behind `/scene`.
+  Their valid product use is a far-zoom overview instead of decoration.
+- **Sync.** The complete current product remains local-first.
+  When remote sync becomes a concrete need, the project will use SurrealDB.

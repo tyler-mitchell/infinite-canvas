@@ -1,4 +1,4 @@
-/** The headless half. Every panel is a view over these; nothing here imports React. */
+/** Core exports do not depend on React. */
 
 export { readEngineArtifacts } from "./artifacts.ts";
 export type { SurrealArtifact } from "./artifacts.ts";

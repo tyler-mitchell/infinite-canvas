@@ -2,8 +2,8 @@
 "@hyphened/infinite-canvas": minor
 ---
 
-A group draws its name.
+A group title appears above the group shell. The label does not consume layout space or cover a pane.
 
-`title` was modelled, persisted, and settable through `setGroupTitle`, but the only places it reached were the shell's `aria-label` and a fallback tab label for a nested split — so a named group looked exactly like an unnamed one. Measured in a browser: a two-member split named "Reading list" rendered that string zero times.
+The `group-label` slot and `--icx-group-label-fg` property control its appearance. An empty title hides the label.
 
-It is now drawn above the shell's top edge, the way a frame is labelled: outside the rect, so it reserves no room the layout solver would have to give it and can never sit over a pane. Styled through the new `group-label` slot and `--icx-group-label-fg`; a group whose title is empty draws nothing.
+The `title` value supplies the rendered text. `setGroupTitle` updates this value. The shell also keeps its `aria-label`.

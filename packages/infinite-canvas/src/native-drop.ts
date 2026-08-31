@@ -1,10 +1,6 @@
 import type { InfiniteCanvasNativeDropPayload } from "./types";
 
-/**
- * Reading a drag that started outside the page. Typed structurally rather than against
- * `DataTransfer` so it is testable without a DOM — and so `ClipboardEvent.clipboardData` fits too.
- */
-
+/** Reads external drag data without a DOM dependency. */
 type NativeDragTransfer = Readonly<{
   files?: ArrayLike<File> | null;
   getData?: ((format: string) => string) | null;
@@ -14,7 +10,7 @@ type NativeDragTransfer = Readonly<{
 
 const URI_LIST_TYPE = "text/uri-list";
 
-/** RFC 2483 permits `#` comment lines, and a dragged tab's title arrives in one. */
+/** RFC 2483 permits comment lines that start with `#`. */
 function getUriListEntries(text: string): readonly string[] {
   return text
     .split(/\r\n|\r|\n/)
@@ -22,14 +18,7 @@ function getUriListEntries(text: string): readonly string[] {
     .filter((line) => line.length > 0 && !line.startsWith("#"));
 }
 
-/**
- * What the drag carries, or `null` for one this understands nothing of — which is the caller's
- * signal to leave the browser alone.
- *
- * Files win over text: a file dragged from a file manager carries a `text/plain` of its path.
- * Contents are withheld until the drop, so `text` and `uris` are empty in flight; `types` reads
- * throughout, which is what `canDrop` judges by.
- */
+/** Returns supported drag data or null. Files take priority over text. */
 function getInfiniteCanvasNativeDropPayload(
   transfer: NativeDragTransfer | null | undefined,
 ): InfiniteCanvasNativeDropPayload | null {

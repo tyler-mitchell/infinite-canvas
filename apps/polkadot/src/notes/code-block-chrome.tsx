@@ -41,16 +41,9 @@ import { tv } from "ui/tv";
 
 import { FLOATING_SURFACE } from "#/material";
 
-/**
- * Controls a code block carries: language, copy, and an overflow menu.
- *
- * Positioned from `offsetTop` and `offsetLeft`. `getBoundingClientRect` gives post-transform
- * pixels, which the canvas scale would then apply a second time.
- */
-
+// Use layout offsets because canvas transforms already affect client rectangles.
 const chrome = tv({
   slots: {
-    /** Spans the block so the controls can sit in its corner without measuring a width. */
     frame: "pointer-events-none absolute",
     copied: "text-[var(--accent)]",
     failed: "text-[var(--danger)]",
@@ -63,10 +56,10 @@ const chrome = tv({
 
 const styles = chrome();
 
-/** `[id, displayName]`, from Shiki's bundled grammar list rather than a table kept here. */
+// Shiki supplies [id, displayName] pairs.
 const LANGUAGES = getCodeLanguageOptions();
 
-/** Wrapping is on unless a block was told otherwise, which is what a narrow window wants. */
+// Wrapping is enabled unless the block disables it.
 const wrapState = createState("wrap", { parse: (value) => value !== false });
 
 type BlockPlacement = Readonly<{
@@ -105,10 +98,7 @@ const readPlacements = (editor: LexicalEditor): readonly BlockPlacement[] =>
   );
 
 function LanguagePicker({ editor, nodeKey }: Readonly<{ editor: LexicalEditor; nodeKey: string }>) {
-  /*
-   * Normalised before the lookup. A fence writes its alias — ```js — and Shiki's options are keyed
-   * by canonical id, so matching the raw value labelled every JavaScript block "Plain text".
-   */
+  // Normalize aliases before matching a Shiki language id.
   const current = editor.read("latest", () => {
     const node = $getNodeByKey(nodeKey);
 
@@ -142,7 +132,7 @@ function LanguagePicker({ editor, nodeKey }: Readonly<{ editor: LexicalEditor; n
                       node.setLanguage(id);
                     }
                   });
-                  // Grammars arrive on demand; this marks the node dirty once one lands.
+                  // Load the grammar and mark the node dirty when it arrives.
                   void loadCodeLanguage(id, editor, nodeKey);
                 }}
                 value={name}
@@ -158,22 +148,13 @@ function LanguagePicker({ editor, nodeKey }: Readonly<{ editor: LexicalEditor; n
   );
 }
 
-/** Named by outcome so the label, the glyph, and what a screen reader hears cannot disagree. */
 const COPY_LABEL = {
   copied: "Code copied",
   failed: "Could not copy the code",
   idle: "Copy code",
 } as const;
 
-/*
- * The failing half was silent.
- *
- * `writeText` rejects for reasons the page does not control — an unfocused document is the common
- * one, and it is exactly what a programmatic press produces. With only a `then`, the press changed
- * nothing at all: no glyph, no message, and a reader who believes the code is on the clipboard.
- * The label carries the outcome, and focus is on this button when it changes, so the outcome is
- * spoken without a second announcement for it.
- */
+// The changed label announces the copy result while focus stays on this button.
 function CopyButton({ editor, nodeKey }: Readonly<{ editor: LexicalEditor; nodeKey: string }>) {
   const [outcome, setOutcome] = useState<keyof typeof COPY_LABEL>("idle");
 
@@ -300,7 +281,7 @@ export function CodeBlockChrome() {
     return editor.registerUpdateListener(sync);
   }, [editor]);
 
-  // Lexical does not observe attributes, so this survives until the element itself is rebuilt.
+  // Lexical observes this attribute only when it rebuilds the element.
   useEffect(() => {
     for (const placement of placements) {
       const element = editor.getElementByKey(placement.key);

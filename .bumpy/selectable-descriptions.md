@@ -2,16 +2,14 @@
 "@hyphened/infinite-canvas": patch
 ---
 
-`selection.selectAllVisible` and `view.fitAll` say what they select instead of calling it "visible".
+The descriptions for `selection.selectAllVisible` and `view.fitAll` state which windows each command includes. Both include every non-minimized window on the current desktop.
 
-The published descriptions read "Select every visible window on the canvas" and "Fit all visible windows inside the viewport". A caller reads "visible" as "what I can see", which is a reasonable reading and the wrong one: `getSelectableWindowIds` filters on `mode` and workspace membership and never consults the camera.
+This set includes offscreen windows and windows behind group tabs. Command behavior is unchanged.
 
-Measured through WebMCP on a canvas panned away from one of three windows — `selection.selectAllVisible` selected all three, and nothing in the command's name or its sentence said it would. The report that made it visible had to say "offscreen" first.
+The documentation for `getSelectableWindowIds` uses the same rule.
 
-They now read "every window on this desktop that is not minimized", which is the actual rule. Deliberately not "on screen": a window behind a tab is selected too, because `isSelectableWindow` tests `mode` alone and never asks the group projection.
+`getSelectableWindowIds` filters by `mode` and desktop membership. It does not read the camera.
 
-`getSelectableWindowIds`' own docstring said "selectable means on screen" and is corrected with them — that phrase is where both descriptions came from.
+`isSelectableWindow` also reads `mode` without the group projection.
 
-Behaviour is unchanged and correct as it stands. Making selection depend on the camera would mean panning silently changes what "select all" means, and an arrange verb would act on a different set depending on where somebody happened to be looking.
-
-Command ids are untouched. `selectAllVisible` still carries the word in its name, which is a rename and a breaking change; the description is what a caller actually reads and it can be right today.
+`selectAllVisible` keeps its existing command ID.

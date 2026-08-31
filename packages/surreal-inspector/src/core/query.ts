@@ -1,15 +1,6 @@
 import { getErrorMessage, type SurrealReader } from "./reads.ts";
 
-/**
- * Runs a statement and reads its query plan. `EXPLAIN` reports the engine's own planning, unlike
- * the read ledger, which measures the inspector's cache.
- *
- * `EXPLAIN` answers in two shapes and which one arrives is decided at runtime, because SurrealDB
- * 3's streaming planner falls back to the legacy executor without reporting it. The legacy shape is
- * a flat array of `{ operation, detail }` that names an index hit `Iterate Index`; the streaming
- * shape is a tree of `{ operator, attributes, children }` that names it `IndexScan`. Both are
- * normalised to one flat list.
- */
+/** This module normalizes both SurrealDB query-plan formats to one flat list. */
 
 type SurrealQueryOutcome = Readonly<{
   durationMs: number;
@@ -26,15 +17,13 @@ type SurrealPlanStep = Readonly<{
 
 type SurrealPlan = Readonly<{
   steps: readonly SurrealPlanStep[];
-  /** The plan verbatim, when the engine answered with text rather than structure. */
+  /** This field contains raw plan text when SurrealDB does not return structured data. */
   text: string | null;
-  /** Why no plan was read. `null` when `steps` or `text` holds the answer. */
+  /** This field explains why SurrealDB did not return a plan. */
   unavailable: string | null;
-  /** True when a step names an index rather than a scan, under either planner's naming. */
   usesIndex: boolean;
 }>;
 
-/** Both planners' names for "an index was used". */
 const INDEX_OPERATIONS = new Set(["Iterate Index", "Iterate Index Count", "IndexScan"]);
 
 async function runStatement(
@@ -57,10 +46,7 @@ async function runStatement(
   }
 }
 
-/**
- * `EXPLAIN` is a `SELECT` clause and cannot be appended to other statements. Returns `null` for
- * anything that is not a single select, so the console reports no plan instead of an engine error.
- */
+/** `EXPLAIN` accepts one `SELECT` statement. */
 function toExplainable(statement: string) {
   const trimmed = statement.trim().replace(/;\s*$/u, "");
 
@@ -73,7 +59,6 @@ function asObject(value: unknown) {
     : null;
 }
 
-/** Reads the legacy executor's shape: one flat row per step, already in order. */
 function readFlatPlan(rows: readonly unknown[]): readonly SurrealPlanStep[] {
   return rows.flatMap((row) => {
     const step = asObject(row);
@@ -83,10 +68,6 @@ function readFlatPlan(rows: readonly unknown[]): readonly SurrealPlanStep[] {
   });
 }
 
-/**
- * Reads the streaming planner's tree, outermost first. `depth` is retained so the panel can show
- * the original nesting.
- */
 function readTreePlan(node: unknown, depth = 0): readonly SurrealPlanStep[] {
   const step = asObject(node);
   const operator = step?.operator;

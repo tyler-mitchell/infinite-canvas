@@ -1,18 +1,3 @@
-/**
- * Characterization tests for the persisted-state parsers.
- *
- * These were written against the original arktype implementation and pass
- * unchanged against the hand-rolled guards that replaced it, which is the
- * evidence that removing arktype (34% of the shipped bundle, on every
- * consumer's path via store -> persistence -> validation) changed no behavior.
- *
- * Semantics locked here, verified empirically against arktype:
- *  - `number.safe`      -> finite number with |value| <= Number.MAX_SAFE_INTEGER
- *  - `number.safe > 0`  -> the above, and strictly positive
- *  - `version`           -> the numeric literal 1 or 2 (the string "1" is invalid).
- *                          `version: 1` predates groups and migrates to `groups: []`.
- *  - `"+": "delete"`    -> unknown keys are stripped from the result
- */
 import { expect, test } from "vite-plus/test";
 
 import {
@@ -181,8 +166,6 @@ test("serialized state accepts the numeric literals 1, 2 and 3, and migrates the
   expect(parseInfiniteCanvasSerializedState({ ...base, version: "1" })).toBeNull();
   expect(parseInfiniteCanvasSerializedState({ ...base, version: 4 })).toBeNull();
 
-  // A version-1 payload predates groups and a version-2 one predates workspaces; both
-  // migrate to none and are upgraded in place to the current envelope.
   expect(parseInfiniteCanvasSerializedState({ ...base, version: 1 })).toMatchObject({
     groups: [],
     version: 3,
@@ -199,9 +182,6 @@ test("serialized state strips unknown keys and defaults each window mode", () =>
     windows: [{ ...validWindow, extraWindowField: "deleted" }],
   });
 
-  // The input is `version: 1`, and the parser migrates it in place — so the output is a v3
-  // envelope with `groups: []`, exactly as the migration test above asserts. This expectation
-  // still described the pre-group envelope and had been failing since groups shipped.
   expect(parsed).toEqual({
     activeWindowId: "w1",
     camera: { center: { x: 0, y: 0 }, zoom: 1 },

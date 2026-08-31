@@ -10,78 +10,42 @@ import { getInfiniteCanvasGroupWindowIds } from "./group-tree";
 import type { InfiniteCanvasPoint, InfiniteCanvasRect, InfiniteCanvasState } from "./types";
 import { getInfiniteCanvasWorkspaceWindowIds } from "./workspace-membership";
 
-/**
- * Computes edge indicators for windows outside the viewport. Returns geometry, not markup.
- *
- * A group produces one indicator rather than one per pane. Minimized windows are omitted.
- * Tab-hidden windows are omitted individually but counted through their group. Indicators landing
- * on the same pixel are merged; see `mergeWithinPx`.
- *
- * @experimental Landed 2026-07-08.
- */
-
+/** @experimental Calculates edge indicators for offscreen groups and windows. */
 type InfiniteCanvasOffscreenTargetKind = "group" | "window";
 
 type InfiniteCanvasOffscreenIndicator = Readonly<{
-  /**
-   * Bearing from the viewport centre, in radians per `Math.atan2`. `0` points right and the angle
-   * grows clockwise; rotate a right-pointing arrow by this and it aims at the target.
-   */
+  /** Radians from the viewport center. Zero points right. */
   angle: number;
-  /** Screen pixels from the viewport centre to the target's centre. The sort key, nearest first. */
+  /** Screen-pixel distance from the viewport center. */
   distancePx: number;
-  /** The window id or the group id, per `kind`. */
   id: string;
-  /** True for the active window, or the group containing it. At most one indicator is true. */
+  /** True for the active window or its group. */
   isActive: boolean;
   kind: InfiniteCanvasOffscreenTargetKind;
-  /** Draw position in screen pixels: on the inset viewport edge, along `angle`. */
+  /** Screen-pixel position on the inset viewport edge. */
   point: InfiniteCanvasPoint;
-  /** The target's world rect. Pass to `navigateToRect`, or its centre to `navigateToPoint`. */
+  /** Target rect in world units. */
   rect: InfiniteCanvasRect;
-  /**
-   * How many targets this indicator represents, including itself. Merged targets are not returned
-   * separately.
-   */
+  /** Number of merged targets represented by this indicator. */
   targetCount: number;
 }>;
 
 type InfiniteCanvasOffscreenOptions = Readonly<{
-  /** Screen pixels to inset the indicator ring from the viewport edge, so arrows are not clipped. */
+  /** Screen-pixel inset from the viewport edge. */
   insetPx?: number;
-  /**
-   * Maximum indicators returned, nearest first. Unbounded by default. A consumer that caps should
-   * indicate so in its UI, since the result otherwise looks complete.
-   */
+  /** Maximum result count, sorted nearest first. */
   limit?: number;
-  /**
-   * Screen pixels of slack before a target counts as offscreen, matching
-   * `isWorldRectWithinViewport`. A non-finite margin means nothing is ever offscreen, and this
-   * returns an empty array.
-   */
+  /** Extra screen pixels before a target counts as offscreen. */
   marginPx?: number;
-  /**
-   * Merge indicators landing within this many screen pixels of a nearer one, which keeps the count.
-   * `0` disables merging.
-   *
-   * Measured in pixels rather than degrees because the ring is a rectangle, so the same angular
-   * separation spans tens of pixels along an edge and almost none near a corner.
-   */
+  /** Merge distance in screen pixels. Zero disables merging. */
   mergeWithinPx?: number;
 }>;
 
 const DEFAULT_OFFSCREEN_INSET_PX = 24;
 
-/** Approximately the size of a chip, which is what consumers draw at each point. */
 const DEFAULT_OFFSCREEN_MERGE_WITHIN_PX = 28;
 
-/**
- * Projects a ray from the viewport centre onto the inset edge. `t` is the smaller of the two axis
- * crossings, since the ray exits whichever edge it reaches first.
- *
- * A zero `delta` has no direction and would produce `NaN`. It should be unreachable, but `NaN` in a
- * transform renders nothing, so it returns the centre instead.
- */
+/** Projects a ray to the inset edge. A zero delta returns the center. */
 const projectOntoEdge = (
   center: InfiniteCanvasPoint,
   delta: InfiniteCanvasPoint,
@@ -102,12 +66,7 @@ const projectOntoEdge = (
   };
 };
 
-/**
- * Returns every drawn target that does not overlap the viewport, nearest first.
- *
- * Returns empty for an unmeasured (`0 × 0`) viewport, and for an `insetPx` larger than the
- * viewport, since neither leaves a ring to place indicators on.
- */
+/** Returns offscreen targets nearest first. Invalid geometry returns an empty list. */
 function getInfiniteCanvasOffscreenIndicators<Kind extends string>(
   state: InfiniteCanvasState<Kind>,
   options: InfiniteCanvasOffscreenOptions = {},
@@ -119,7 +78,7 @@ function getInfiniteCanvasOffscreenIndicators<Kind extends string>(
     mergeWithinPx = DEFAULT_OFFSCREEN_MERGE_WITHIN_PX,
   } = options;
   const { camera, viewport } = state;
-  // Inset from the visible content area, not the element, or chrome would cover part of the ring.
+  // Measure the visible content area because chrome can cover the element.
   const content = getInfiniteCanvasContentViewport(viewport, state.viewportInsets);
   const halfWidth = content.width / 2 - insetPx;
   const halfHeight = content.height / 2 - insetPx;
@@ -137,12 +96,10 @@ function getInfiniteCanvasOffscreenIndicators<Kind extends string>(
           getInfiniteCanvasGroupWindowIds(group.tree).includes(activeWindowId),
         )?.id ?? null);
 
-  // Indicators point only at what the canvas draws, so the active workspace filters them too.
-  // `null` means no workspace is active, which admits everything.
+  // Apply the active workspace filter to all targets.
   const admitted = getInfiniteCanvasWorkspaceWindowIds(state);
   const targets = [
-    // Membership is group-complete, so one admitted member settles the group. `some` rather than
-    // `every` because an empty group admits nothing and has no rect to point at.
+    // One admitted member admits its complete group.
     ...state.groups
       .filter(
         (group) =>
@@ -155,8 +112,7 @@ function getInfiniteCanvasOffscreenIndicators<Kind extends string>(
         kind: "group" as const,
         rect: group.rect,
       })),
-    // `windowRects` holds every window a group placed, tab-hidden ones included, so `has` is the
-    // membership test.
+    // Group projection owns all group member rects, including hidden tabs.
     ...state.windows
       .filter(
         (window) =>
@@ -193,8 +149,7 @@ function getInfiniteCanvasOffscreenIndicators<Kind extends string>(
     })
     .sort((left, right) => left.distancePx - right.distancePx);
 
-  // Fold what lands on the same pixel, nearest kept. Before `limit`, or a cap of five spent in one
-  // direction would hide every other.
+  // Merge before the limit so one direction cannot consume all slots.
   const folded =
     mergeWithinPx <= 0
       ? projected

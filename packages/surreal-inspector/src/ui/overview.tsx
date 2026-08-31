@@ -8,11 +8,6 @@ import type { SurrealInspectorSource } from "../core/source";
 import { Code, Notice, Panel, Section, Stat, StatRow } from "./chrome";
 import type { SurrealInspection } from "./use-inspection";
 
-/**
- * Identifies the connected database, the engine resources it loaded, and the read ledger. The
- * ledger is shown here because figures in other panels may have come from the cache.
- */
-
 const overview = tv({
   slots: {
     artifact: "flex items-baseline gap-2 rounded-md bg-card px-2.5 py-1.5 text-[11px]",

@@ -211,11 +211,6 @@ export {
   isInfiniteCanvasWindowFullyVisible,
 } from "./window-focus";
 export {
-  /*
-   * Public because an infinite canvas has no reason to stack windows, and a consumer avoiding that
-   * by hand would be re-deriving rect geometry the framework owns. Placement policy — where a new
-   * window *wants* to be — stays the consumer's; this answers only whether that spot is free.
-   */
   getInfiniteCanvasVacantRect,
   getInfiniteCanvasWindowPlacementRect,
 } from "./window-placement";
@@ -269,34 +264,12 @@ export {
   DEFAULT_INFINITE_CANVAS_INPUT_POLICY,
   MIN_RENDERABLE_INFINITE_CANVAS_ZOOM,
   DEFAULT_INFINITE_CANVAS_SNAP_POLICY,
-  /*
-   * Public for the same reason the viewport needs it: `resolveInfiniteCanvasSpatialTarget` asks for
-   * *complete* chrome metrics, while `InfiniteCanvas.Viewport` takes a partial override — so a
-   * consumer that shortens its window headers had no way to ask "what is under this pointer" using
-   * the metrics the viewport is actually drawing. Spreading the defaults by hand is not the answer:
-   * it re-implements this merge at every call site and drifts the moment a metric is added.
-   *
-   * Every sibling policy resolver was already exported. This one was the omission.
-   */
   resolveInfiniteCanvasChromeMetrics,
   resolveInfiniteCanvasZoomPolicy,
 } from "./constants";
-// Pure projection and rect helpers that consumer overlays/scene layers
-// legitimately need (drop outlines, custom guides, hit affordances).
+// Projection and rectangle helpers for consumer overlays and scene layers.
 export {
-  /*
-   * Public because a consumer that declares `viewportInsets` needs the region they leave, and
-   * cannot compute it without re-deriving what the camera already does. Same shape of omission as
-   * `resolveInfiniteCanvasChromeMetrics`: the framework asks a consumer to describe its chrome and
-   * then kept the answer to itself.
-   */
   getInfiniteCanvasContentViewport,
-  /*
-   * The same region as above, in world terms — the per-edge counterpart of
-   * `getViewportInsetWorldRect`, whose single scalar cannot describe a sidebar. Public because two
-   * consumers composed it by hand before it existed, which is the signal that the composition was
-   * the framework's to own.
-   */
   getInfiniteCanvasContentWorldRect,
   getInfiniteCanvasOccluderWorldRects,
   getRectCenter,
@@ -480,15 +453,6 @@ export type {
   InfiniteCanvasState,
   InfiniteCanvasTheme,
   InfiniteCanvasViewport as InfiniteCanvasViewportSize,
-  /*
-   * The resolved four edges, and the partial a consumer writes.
-   *
-   * Public for the same reason `getInfiniteCanvasContentViewport` is, and the omission was the
-   * other half of that one: the viewport takes `viewportInsets`, `state.viewportInsets` holds the
-   * resolved form, and that function accepts it — three public surfaces trafficking in a type
-   * consumers had no name for. Anything storing or passing insets had to re-declare the shape,
-   * which is the drift the framework owning the type exists to prevent.
-   */
   InfiniteCanvasViewportInsets,
   InfiniteCanvasViewportInsetsInput,
   InfiniteCanvasViewportOccluder,

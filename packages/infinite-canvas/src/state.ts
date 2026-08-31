@@ -55,20 +55,12 @@ function cloneSelection(selection: InfiniteCanvasSelection): InfiniteCanvasSelec
   };
 }
 
-/**
- * A group's tree is deeply immutable — every `group-tree` mutation returns fresh
- * nodes and shares the rest — so it is safe to carry by reference. Only `rect` is
- * a mutable-shaped value worth copying.
- */
+/** Copies group geometry and shares its immutable tree. */
 function cloneGroup(group: InfiniteCanvasGroup): InfiniteCanvasGroup {
   return { ...group, rect: cloneRect(group.rect) };
 }
 
-/**
- * A workspace's camera and selection are value objects a caller could hold and mutate; its
- * `windowIds` is rebuilt by every reducer that touches it, so it is shared the way
- * `cloneGroup` shares a tree.
- */
+/** Copies workspace camera and selection values. */
 function cloneWorkspace(workspace: InfiniteCanvasWorkspace): InfiniteCanvasWorkspace {
   return {
     ...workspace,
@@ -99,17 +91,14 @@ function cloneInfiniteCanvasState<Kind extends string>(
     selection: cloneSelection(state.selection),
     viewport: cloneSize(state.viewport),
     viewportInsets: { ...state.viewportInsets },
-    // The rects too, not just the array: a consumer hands these over and keeps the objects.
+    // Copy each rect because callers can retain input objects.
     viewportOccluders: state.viewportOccluders.map((occluder) => ({ ...occluder })),
     windows: state.windows.map(cloneWindow),
     workspaces: state.workspaces.map(cloneWorkspace),
   };
 }
 
-/**
- * Reset drops the undo stack. The document you would be undoing into is one the
- * user never edited — restoring it would be a surprise, not an undo.
- */
+/** Resets the document and keeps the measured viewport. */
 function resetInfiniteCanvasState<Kind extends string>(
   currentState: InfiniteCanvasState<Kind>,
   initialState: InfiniteCanvasState<Kind>,

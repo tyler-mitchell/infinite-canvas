@@ -8,65 +8,29 @@ import {
 } from "./commands";
 import type { InfiniteCanvasCommand, InfiniteCanvasRect, InfiniteCanvasState } from "./types";
 
-/**
- * A chord a consumer claims for a verb this canvas does not have.
- *
- * The canvas already lets a consumer put its own objects on the surface and *select* them —
- * `spatialTargetResolvers` resolves a pointer to one, `selection.targets` holds it, and the
- * framework's own pointerdown path selects it with modifiers intact. It knows nothing about what
- * those objects are, so it can offer no verb over them: cut this relation, rename this region,
- * collapse this lane. Those are the consumer's, and until this they had no keyboard at all.
- *
- * Distinct from {@link InfiniteCanvasHotkeyBinding}, which re-chords a command the canvas already
- * owns and is checked against `isInfiniteCanvasCommandEnabled`. Nothing here goes through the
- * command layer: `run` is the consumer's own, and `isEnabled` is the only thing that can answer
- * whether it applies right now. What the two share is everything about *when a keypress belongs to
- * the canvas* — the command surface, the exclusion list, the swallow rule — which is exactly the
- * part a consumer should not be restating.
- *
- * `hotkeys` is plural, mirroring {@link InfiniteCanvasCommandDescriptor}: Delete and Backspace mean
- * one thing to a user and it would be a strange API that made them two actions.
- */
+/** Consumer keyboard action that shares the canvas keyboard scope. */
 type InfiniteCanvasHotkeyAction<Kind extends string = string> = Readonly<{
   description: string;
   hotkeys: readonly RegisterableHotkey[];
   id: string;
-  /** Whether the verb applies to the canvas as it stands. Absent means always. */
+  /** Returns whether the action applies. The default is `true`. */
   isEnabled?: (state: InfiniteCanvasState<Kind>) => boolean;
   label: string;
-  /**
-   * May return a promise, so a caller that reports completion can wait for it.
-   *
-   * A consumer verb over a consumer's own objects is often a write — cutting a relation, renaming a
-   * region — and `=> void` gave it no way to say when that write landed. A keypress does not care
-   * and ignores the result. A surface that answers "done" to something which cannot see the screen
-   * does care, and was answering before the write returned.
-   */
+  /** Runs the action and can return a promise for completion tracking. */
   run: (state: InfiniteCanvasState<Kind>) => Promise<void> | void;
 }>;
 
 type InfiniteCanvasHotkeyRegistrationInput<Kind extends string> = Readonly<{
-  /**
-   * Consumer verbs, registered *alongside* `bindings` rather than in place of them.
-   *
-   * The asymmetry with `bindings` is deliberate and is the whole point. Replacing the canvas's
-   * keymap is a coherent thing to want; losing it because you wanted one extra chord is not.
-   */
+  /** Adds consumer actions without replacing canvas bindings. */
   actions?: readonly InfiniteCanvasHotkeyAction<Kind>[];
   bindings?: readonly InfiniteCanvasHotkeyBinding[];
   executeCommand: (command: InfiniteCanvasCommand) => void;
-  /**
-   * Where the selection is, for the bindings whose availability depends on it.
-   *
-   * The store's own lookup, passed in so a chord and the command it runs answer alike. Omitted, the
-   * gate sees the windows only — which is what a canvas with no target resolvers has anyway.
-   */
+  /** Resolves selection bounds for command availability. */
   getSelectionBounds?: (state: InfiniteCanvasState<Kind>) => InfiniteCanvasRect | null;
   getState: () => InfiniteCanvasState<Kind>;
   target: HTMLElement;
 }>;
 
-/** One chord, its handler, and whether it currently applies — the shape registration works over. */
 type ResolvedHotkey<Kind extends string> = Readonly<{
   description: string;
   hotkey: RegisterableHotkey;
@@ -113,16 +77,7 @@ function shouldHandleInfiniteCanvasKeyboardEvent(event: KeyboardEvent, surface: 
   );
 }
 
-/**
- * Canvas commands and consumer verbs, flattened to the one shape registration works over.
- *
- * Separate from the registration below because this package's test environment has no DOM. The
- * property that actually matters here — that supplying `actions` *adds* to the keymap rather than
- * replacing it — is a fact about this list, and inside the registration it would be unassertable
- * and free to regress in silence. What is left below is one handler shared by every entry, so the
- * scope guard, the swallow rule, and the enablement gate cannot come apart between a canvas chord
- * and a consumer's.
- */
+/** Combines command bindings and consumer actions for keyboard registration. */
 function resolveInfiniteCanvasHotkeys<Kind extends string>({
   actions = [],
   bindings = getInfiniteCanvasHotkeyBindings(),
@@ -136,8 +91,7 @@ function resolveInfiniteCanvasHotkeys<Kind extends string>({
     ...bindings.map((binding) => ({
       description: binding.description,
       hotkey: binding.hotkey,
-      // Asked the same question the dispatch will ask, so a chord is never offered a fit the
-      // command would then decline.
+      // Use the command gate that dispatch uses.
       isEnabled: (state: InfiniteCanvasState<Kind>) =>
         isInfiniteCanvasCommandEnabled(
           state,
@@ -184,12 +138,7 @@ function registerInfiniteCanvasHotkeys<Kind extends string>({
           return;
         }
 
-        // The chord belongs to the canvas the moment it lands on the command
-        // surface, so swallow it even when the command is unavailable. Letting
-        // an unavailable binding fall through to the browser is how
-        // `Alt+ArrowLeft` at the left edge of your windows navigates Back and
-        // takes the document with it — the failure arrives exactly when the
-        // user is pressing hardest against a boundary.
+        // Claim owned chords even when disabled so the browser cannot handle them.
         event.preventDefault();
         event.stopPropagation();
 
@@ -234,22 +183,7 @@ function getInfiniteCanvasCommandSurfaceElement(viewport: HTMLElement | null) {
   );
 }
 
-/**
- * Hand keyboard control back to the canvas from any element inside it.
- *
- * Hotkeys only fire for events that land inside the command surface, so whenever an element that
- * holds DOM focus is about to lose it — a control being removed, a panel finishing its job —
- * something must claim it first. Otherwise it falls to `<body>`, every shortcut silently stops
- * working, and the user has no way to know why except to click the canvas again.
- *
- * The counterpart to {@link focusInfiniteCanvasCommandSurface}, which takes the surface element
- * and so requires the caller to know this framework's DOM contract. This one walks up from
- * whatever it is given, so a consumer's own chrome can return focus without restating a selector
- * that is not theirs to know.
- *
- * Here rather than beside the frame slots that first needed it: it is a keyboard-focus concern,
- * uses no React, and belongs with the function it is the counterpart to.
- */
+/** Returns keyboard focus to the nearest canvas command surface. */
 function focusInfiniteCanvasCommandSurfaceFrom(element: HTMLElement) {
   focusInfiniteCanvasCommandSurface(
     getInfiniteCanvasCommandSurfaceElement(
@@ -262,8 +196,6 @@ export {
   focusInfiniteCanvasCommandSurface,
   focusInfiniteCanvasCommandSurfaceFrom,
   registerInfiniteCanvasHotkeys,
-  // Not in the barrel: the flattening is an implementation detail of registration, exported only
-  // so the property it carries is reachable from a test in a package with no DOM.
   resolveInfiniteCanvasHotkeys,
   shouldHandleInfiniteCanvasKeyboardEvent,
 };

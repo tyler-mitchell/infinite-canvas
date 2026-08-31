@@ -1,13 +1,4 @@
-/**
- * Docs gate: every barrel export must own an entry in `docs/API.md` — a leading backticked name
- * on a bullet or heading, alone or in a comma-separated family. Being quoted inside another
- * entry's prose does not count.
- *
- * Does not check that an entry's prose is correct or even about that name, and does not check the
- * reverse direction. Reads source, not `dist/`, so it gates `vp check` without a build.
- *
- * Run: node ./scripts/verify-api-doc.mjs
- */
+/** Fails when a barrel export has no API entry. */
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -24,12 +15,7 @@ const BARRELS = [
 const stripComments = (source) =>
   source.replaceAll(/\/\*[\s\S]*?\*\//g, "").replaceAll(/\/\/.*/g, "");
 
-/**
- * Exported names, split into values and types.
- *
- * `export type { A }` marks the whole block; `export { type A, b }` marks one specifier.
- * A renamed specifier (`x as y`) publishes `y`.
- */
+/** Returns exported value and type names from re-export blocks. */
 const getBarrelExports = (source) => {
   const values = new Set();
   const types = new Set();
@@ -52,10 +38,7 @@ const getBarrelExports = (source) => {
   return { types, values };
 };
 
-/**
- * The backticked run at an entry's start, before any prose. A name quoted later declares nothing.
- * Both sides of `` `Source as Published` `` count.
- */
+/** Returns names at the start of a bullet or heading. */
 const getEntryNames = (text) => {
   const names = [];
   let rest = text.trim();
@@ -95,8 +78,7 @@ let totalTypes = 0;
 for (const { entry, path } of BARRELS) {
   const source = readFileSync(path, "utf8");
 
-  // The parse only understands re-export blocks; anything else would be invisible to it and the
-  // gate would pass while documenting nothing. Refuse to run rather than lie.
+  // Reject export forms that this parser cannot read.
   const stripped = stripComments(source);
   for (const line of stripped.split("\n")) {
     const isBlockExport = /^export\s+(type\s+)?\{/.test(line.trim());
@@ -125,7 +107,7 @@ for (const { entry, path } of BARRELS) {
   }
 }
 
-/** The doc's headline count, which drifted by 52 before anything compared it. */
+// Compare the API headline count with barrel exports.
 const headline = /^The public surface of `[^`]+`: (\d+) values and (\d+) types\b/m.exec(apiDoc);
 
 if (headline === null) {

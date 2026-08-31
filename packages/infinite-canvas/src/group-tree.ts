@@ -1,39 +1,10 @@
-/**
- * The local layout tree owned by a group shell.
- *
- * A group shell is a world object that moves and resizes as one thing; inside
- * it, windows are arranged by an **n-ary container tree**. N-ary rather than
- * binary BSP: tab groups, sibling insertion, and third-child placement are all
- * awkward under binary trees, and the precedents that got this right (AeroSpace
- * containers, Dockview groups, react-mosaic) are all n-ary. See
- * docs/research/grouping-and-docking.md.
- *
- * Three invariants hold everywhere in this file, and everything else follows:
- *
- * 1. **A window node's id IS its window id.** A window lives in at most one
- *    slot of at most one tree, so it needs no separate identity. Container ids
- *    are supplied by the caller and must not collide with window ids.
- * 2. **Only weight ratios matter.** Weights are positive and never renormalized
- *    on mutation; the layout solver divides by the sibling sum. Removing a
- *    child therefore preserves the proportions of the survivors for free.
- * 3. **Every mutation returns a normalized tree, or `null` if it emptied.**
- *    Callers never see a redundant single-child split, a same-axis split nested
- *    in a same-axis split, an empty container, or a dangling `activeChildId`.
- *
- * Every function here is pure and total. Structural sharing is preserved:
- * only the containers on the path to a changed node are rebuilt.
- */
+/** Mutations normalize trees. Window node ids equal window ids. Weights are positive shares. */
 
 type InfiniteCanvasGroupAxis = "horizontal" | "vertical";
 
-/**
- * `split` partitions the container along `axis` by child weight. `tabs` shows
- * one child at a time behind a tab strip. `accordion` stacks child headers
- * along `axis` and expands the active one.
- */
+/** Split shows all children. Tabs and accordion show one active child. */
 type InfiniteCanvasGroupLayoutMode = "accordion" | "split" | "tabs";
 
-/** A window occupying a slot. Its `id` is the window's id — see invariant 1. */
 type InfiniteCanvasGroupWindowNode = Readonly<{
   id: string;
   kind: "window";
@@ -41,7 +12,7 @@ type InfiniteCanvasGroupWindowNode = Readonly<{
 }>;
 
 type InfiniteCanvasGroupContainerNode = Readonly<{
-  /** The visible child under `tabs` / `accordion`. Always `null` under `split`. */
+  /** Visible child for tabs and accordion. `null` for split. */
   activeChildId: string | null;
   axis: InfiniteCanvasGroupAxis;
   children: readonly InfiniteCanvasGroupNode[];
@@ -53,17 +24,11 @@ type InfiniteCanvasGroupContainerNode = Readonly<{
 
 type InfiniteCanvasGroupNode = InfiniteCanvasGroupContainerNode | InfiniteCanvasGroupWindowNode;
 
-/**
- * Where a dragged window lands relative to a target node. The four compass
- * edges create or extend a split; `center` merges into a tab group. This is the
- * whole docking vocabulary — pointer drags and keyboard commands both compile
- * down to it, so they can never diverge.
- */
+/** Edge positions split. The center position merges tabs. */
 type InfiniteCanvasGroupDockEdge = "center" | "east" | "north" | "south" | "west";
 
 const DEFAULT_INFINITE_CANVAS_GROUP_WEIGHT = 1;
 
-/** A weight must be a positive, finite share; anything else collapses layout. */
 function toGroupWeight(value: number): number {
   return Number.isFinite(value) && value > 0 ? value : DEFAULT_INFINITE_CANVAS_GROUP_WEIGHT;
 }
@@ -85,7 +50,6 @@ function isInfiniteCanvasGroupContainer(
   return node.kind === "container";
 }
 
-/** `tabs` and `accordion` show one child at a time; `split` shows all of them. */
 function hasInfiniteCanvasGroupActiveChild(container: InfiniteCanvasGroupContainerNode): boolean {
   return container.layout !== "split";
 }
@@ -119,7 +83,6 @@ function findInfiniteCanvasGroupNode(
   return null;
 }
 
-/** The container holding `nodeId`, or `null` when it is the root or absent. */
 function getInfiniteCanvasGroupParent(
   node: InfiniteCanvasGroupNode,
   nodeId: string,
@@ -143,22 +106,13 @@ function getInfiniteCanvasGroupParent(
   return null;
 }
 
-/** Window ids in layout order — left-to-right, top-to-bottom, tabs in tab order. */
 function getInfiniteCanvasGroupWindowIds(node: InfiniteCanvasGroupNode): readonly string[] {
   return isInfiniteCanvasGroupContainer(node)
     ? node.children.flatMap(getInfiniteCanvasGroupWindowIds)
     : [node.id];
 }
 
-/**
- * The single structural workhorse. `replace` receives the matched node and
- * returns its replacement, or `null` to delete it. Containers off the path are
- * returned by reference, so unchanged subtrees keep their identity — which is
- * what lets the renderer memoize on node identity.
- *
- * The result is NOT normalized: callers compose this with
- * `normalizeInfiniteCanvasGroupTree` so a mutation pays for exactly one pass.
- */
+/** Replaces one node with structural sharing. The caller normalizes the result. */
 function replaceInfiniteCanvasGroupNode(
   node: InfiniteCanvasGroupNode,
   nodeId: string,
@@ -190,12 +144,7 @@ function replaceInfiniteCanvasGroupNode(
   return hasChanged ? { ...node, children } : node;
 }
 
-/**
- * Inline a same-axis split child's grandchildren into the parent, rescaling
- * their weights so each keeps the share of the parent it had before. A split
- * inside a same-axis split is visually identical to a flat split, so the nested
- * form is pure noise: it makes sibling insertion churn and weights lie.
- */
+/** Flattens nested same-axis splits and preserves relative child weights. */
 function inlineSameAxisSplitChildren(
   container: InfiniteCanvasGroupContainerNode,
 ): readonly InfiniteCanvasGroupNode[] {
@@ -221,14 +170,7 @@ function inlineSameAxisSplitChildren(
   });
 }
 
-/**
- * Restore every invariant in one bottom-up pass, and return `null` when the
- * tree has emptied out (the caller then destroys the group shell — DOCK-005).
- *
- * Because children are normalized before their parent, a grandchild that was a
- * same-axis split has already been inlined into the child by the time the
- * parent looks at it. One pass therefore reaches a fixed point.
- */
+/** Restores tree invariants or returns `null` for an empty tree. */
 function normalizeInfiniteCanvasGroupTree(
   node: InfiniteCanvasGroupNode,
 ): InfiniteCanvasGroupNode | null {
@@ -245,8 +187,7 @@ function normalizeInfiniteCanvasGroupTree(
     return null;
   }
 
-  // A single-child split is its child. Tab and accordion shells are semantic —
-  // a one-tab group is still a tab group — so they survive at one child.
+  // Collapse a single-child split. Tabs and accordion retain their container.
   const [onlyChild] = children;
 
   if (children.length === 1 && node.layout === "split" && onlyChild !== undefined) {
@@ -260,11 +201,7 @@ function normalizeInfiniteCanvasGroupTree(
   };
 }
 
-/**
- * `split` shows every child, so it has no active one. Otherwise the active
- * child must still exist: after a removal the id can dangle, and the first
- * remaining child is the predictable landing spot (DOCK-004).
- */
+/** Clears split activation and repairs missing active child ids. */
 function resolveInfiniteCanvasGroupActiveChildId(
   container: InfiniteCanvasGroupContainerNode,
   children: readonly InfiniteCanvasGroupNode[],
@@ -284,18 +221,13 @@ function getInfiniteCanvasGroupDockAxis(
   return edge === "east" || edge === "west" ? "horizontal" : "vertical";
 }
 
-/** West and north put the incoming window before the target; east and south after. */
 function isInfiniteCanvasGroupLeadingEdge(
   edge: Exclude<InfiniteCanvasGroupDockEdge, "center">,
 ): boolean {
   return edge === "north" || edge === "west";
 }
 
-/**
- * Merge a window into `target` as a tab. An existing tab or accordion shell
- * absorbs it; anything else is wrapped in a new tab group. The incoming window
- * becomes active, because the user just dropped it there (DOCK-002).
- */
+/** Merges a window into tabs and makes the incoming window active. */
 function mergeInfiniteCanvasGroupWindowAsTab(
   target: InfiniteCanvasGroupNode,
   windowNode: InfiniteCanvasGroupWindowNode,
@@ -320,11 +252,7 @@ function mergeInfiniteCanvasGroupWindowAsTab(
   };
 }
 
-/**
- * Split `target` along the dock axis and seat the window beside it. The target
- * surrenders half its weight, so the pair together occupy exactly the space the
- * target held — neighbours never move because someone docked elsewhere.
- */
+/** Splits the target and gives both panes equal shares of its prior weight. */
 function splitInfiniteCanvasGroupNodeWithWindow(
   target: InfiniteCanvasGroupNode,
   windowNode: InfiniteCanvasGroupWindowNode,
@@ -348,11 +276,7 @@ function splitInfiniteCanvasGroupNodeWithWindow(
   };
 }
 
-/**
- * Seat the window beside `target` inside `parent`, which already splits along
- * the dock axis. Extending the existing split rather than nesting a new one is
- * what makes a third sibling cheap and stable (SPLIT-002).
- */
+/** Adds a sibling to an existing split on the same axis. */
 function insertInfiniteCanvasGroupWindowBesideSibling(
   parent: InfiniteCanvasGroupContainerNode,
   targetId: string,
@@ -379,15 +303,7 @@ function insertInfiniteCanvasGroupWindowBesideSibling(
   return { ...parent, children };
 }
 
-/**
- * Dock a window against a node already in the tree. Returns the tree unchanged
- * when the target is missing or the window is already seated — docking is a
- * user gesture, and a stale drop target is not an error worth throwing over.
- *
- * `containerId` names the container this may need to create; supplying it (per
- * action) rather than generating one keeps the operation pure and makes undo
- * replay reproduce exactly the same tree.
- */
+/** Docks a window without change when the target is stale or already contains it. */
 function dockInfiniteCanvasGroupWindow(
   root: InfiniteCanvasGroupNode,
   input: Readonly<{
@@ -438,11 +354,7 @@ function dockInfiniteCanvasGroupWindow(
   );
 }
 
-/**
- * Tear a window out of the tree. Returns `null` when it was the last one, which
- * is the signal to destroy the group shell (DOCK-005). Surviving siblings keep
- * their proportions, because only weight ratios matter.
- */
+/** Removes a window and returns `null` when the tree becomes empty. */
 function undockInfiniteCanvasGroupWindow(
   root: InfiniteCanvasGroupNode,
   windowId: string,
@@ -454,7 +366,7 @@ function undockInfiniteCanvasGroupWindow(
   return normalizeGroupTreeOrNull(replaceInfiniteCanvasGroupNode(root, windowId, () => null));
 }
 
-/** Move a child to a new index among its siblings — tab reorder (TAB-001). */
+/** Moves a child to a new sibling index. */
 function reorderInfiniteCanvasGroupChild(
   root: InfiniteCanvasGroupNode,
   input: Readonly<{ childId: string; toIndex: number }>,
@@ -490,12 +402,7 @@ function clampIndex(index: number, lastInsertableIndex: number): number {
   return Math.min(Math.max(Math.trunc(index), 0), lastInsertableIndex);
 }
 
-/**
- * Convert a container's layout mode. Membership and weights are untouched, so
- * tabs↔accordion round-trips exactly (TAB-002) and a group converted to tabs
- * and back to split restores the proportions it had (weights ride along on the
- * nodes even while the layout ignores them).
- */
+/** Changes container layout while preserving membership and weights. */
 function setInfiniteCanvasGroupLayoutMode(
   root: InfiniteCanvasGroupNode,
   input: Readonly<{ containerId: string; layout: InfiniteCanvasGroupLayoutMode }>,
@@ -509,7 +416,6 @@ function setInfiniteCanvasGroupLayoutMode(
   );
 }
 
-/** Reverse a split container's orientation without disturbing its children. */
 function setInfiniteCanvasGroupAxis(
   root: InfiniteCanvasGroupNode,
   input: Readonly<{ axis: InfiniteCanvasGroupAxis; containerId: string }>,
@@ -523,10 +429,7 @@ function setInfiniteCanvasGroupAxis(
   );
 }
 
-/**
- * Reveal a child of a tab or accordion group. A no-op on `split`, where every
- * child is already visible, and on ids that are not children of `containerId`.
- */
+/** Activates a direct child of a tabs or accordion container. */
 function setInfiniteCanvasGroupActiveChild(
   root: InfiniteCanvasGroupNode,
   input: Readonly<{ childId: string; containerId: string }>,
@@ -546,12 +449,7 @@ function setInfiniteCanvasGroupActiveChild(
   );
 }
 
-/**
- * Reassign weights among a container's children — this is what dragging a split
- * gutter does. Weights are keyed by child id rather than by position so a
- * concurrent reorder cannot silently resize the wrong pane (SPLIT-001: the
- * partition allocation changes, never a DOM width).
- */
+/** Applies child weights by id so reordering cannot resize the wrong pane. */
 function setInfiniteCanvasGroupChildWeights(
   root: InfiniteCanvasGroupNode,
   input: Readonly<{ containerId: string; weights: Readonly<Record<string, number>> }>,
@@ -576,18 +474,7 @@ function setInfiniteCanvasGroupChildWeights(
   );
 }
 
-/**
- * Reset a container's children to equal shares.
- *
- * This is a primitive rather than a `setInfiniteCanvasGroupChildWeights` call with a
- * caller-computed record, because that record is keyed by child id and so carries a
- * read-then-write race: a child docked between the read and the write is absent from the
- * record, keeps its old weight, and the panes come out unequal — the one thing the verb
- * exists to guarantee. Naming the container instead closes the gap.
- *
- * Weights are relative and `group-layout` divides each by their sum, so equal shares means
- * every weight identical; the value itself is arbitrary.
- */
+/** Gives all current children equal weights in one tree mutation. */
 function equalizeInfiniteCanvasGroupChildren(
   root: InfiniteCanvasGroupNode,
   containerId: string,
@@ -609,7 +496,6 @@ function equalizeInfiniteCanvasGroupChildren(
   );
 }
 
-/** `replaceInfiniteCanvasGroupNode` may empty the root; normalization only runs on a tree. */
 function normalizeGroupTreeOrNull(
   node: InfiniteCanvasGroupNode | null,
 ): InfiniteCanvasGroupNode | null {

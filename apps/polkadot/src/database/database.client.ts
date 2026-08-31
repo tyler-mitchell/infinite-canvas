@@ -7,13 +7,7 @@ import { database, endpoint, manifest, modules, namespace } from "./local-databa
 
 const lifecycle: { promise?: Promise<Surreal> } = {};
 
-/**
- * An open canvas, with its project flattened alongside it.
- *
- * The route names a canvas and a canvas belongs to exactly one project, so the project is
- * derivable — reading it here rather than putting it in the URL is what keeps the address from
- * carrying identity that could contradict the record.
- */
+// The route identifies a canvas. The record supplies its project.
 const CanvasRecord = type({
   id: "string",
   layout: "object",
@@ -25,13 +19,6 @@ const CanvasRecord = type({
 
 type CanvasRecord = typeof CanvasRecord.infer;
 
-/**
- * Just enough to navigate to a canvas.
- *
- * Creating, duplicating, and bootstrapping all end in "open this" and nothing else, so they
- * validate an id rather than a whole record — none of them project the flattened shape above and
- * requiring it would only force those queries to fetch what no caller reads.
- */
 const CanvasRef = type({ id: "string" }).onUndeclaredKey("delete");
 
 type CanvasRef = typeof CanvasRef.infer;
@@ -108,22 +95,13 @@ async function connectAndInstall() {
   }
 }
 
-/**
- * Long enough for a cold WASM worker and a full schema install on a slow machine; short enough
- * that nobody sits through it wondering.
- */
+// This timeout covers worker startup and schema installation.
 const LOCAL_DATABASE_OPEN_TIMEOUT_MS = 10_000;
 
 class LocalDatabaseUnavailableError extends Error {
   override readonly name = "LocalDatabaseUnavailableError";
 }
 
-/**
- * A rejection scheduled for later, and a way to call it off.
- *
- * The timer is cleared whichever way the race ends, so a successful open does not leave one armed
- * for ten seconds. `Promise.race` attaches to this, so the rejection is never unhandled.
- */
 function rejectAfter(ms: number, message: string) {
   const canceller = new AbortController();
 
@@ -143,36 +121,9 @@ function rejectAfter(ms: number, message: string) {
   };
 }
 
-/**
- * Opening the database, bounded in time.
- *
- * Every way this can *fail* is already named above with the step that produced it. The way it can
- * do neither was not. An open that never settles rejects nothing, so nothing is caught, and the
- * route's pending component spins forever with no error, no explanation, and no way out — a worse
- * outcome than a crash, because a crash at least tells you to stop waiting.
- *
- * Written after watching exactly that: the app sat on "Opening your workspace" indefinitely. The
- * cause turned out to be stale dev-server modules rather than anything in this file, and I could
- * not reproduce a hang from concurrent tabs — two open this database happily. So this is not a fix
- * for a diagnosed defect. It is the observation that an unbounded open has no way to *report*,
- * which is true regardless of what causes one.
- *
- * The driver offers no connect timeout — `ConnectOptions` carries retry, reconnect, and version
- * checking, and nothing that bounds the initial open — so the bound is composed here. It wraps the
- * whole open rather than just `connect`, since a half-alive connection can stall the schema import
- * too, and one deadline over the whole thing is both simpler and stricter.
- */
+// One timeout covers the connection and schema installation.
 function openLocalDatabase() {
   lifecycle.promise ??= (async () => {
-    /*
-     * No terminal punctuation, and no guess at the cause.
-     *
-     * `RootFailure` renders this as `${message}.` followed by its own sentence, so a message that
-     * punctuates itself reads with a doubled period. And the obvious-sounding cause — "another tab
-     * has it open" — is one I checked and disproved: two tabs open this database concurrently
-     * without complaint. Naming it would have sent whoever hit this to close tabs that were never
-     * the problem, which is worse than saying only what is known.
-     */
     const deadline = rejectAfter(
       LOCAL_DATABASE_OPEN_TIMEOUT_MS,
       `The local workspace did not respond within ${String(LOCAL_DATABASE_OPEN_TIMEOUT_MS / 1000)} seconds`,
@@ -191,15 +142,10 @@ function openLocalDatabase() {
   return lifecycle.promise;
 }
 
-/**
- * The canvas `/` opens when nothing is open yet: the first usable project and canvas, creating
- * only what is missing. Archived documents are not usable, so archiving everything gives a fresh
- * workspace rather than handing the archived one back.
- */
+// A new database gets one project and one canvas.
 async function bootstrapCanvas(initialLayout: object): Promise<CanvasRef> {
   const client = await openLocalDatabase();
-  // One statement, one result. `LET $x = …; RETURN $x;` is two statements, and SurrealDB answers
-  // with one result per statement — so destructuring `[record]` read the `LET`, which is NONE.
+  // SurrealDB returns one result per statement, so this query uses one statement.
   const [record] = await client
     .query<[unknown]>("RETURN fn::bootstrap_canvas($layout);", { layout: initialLayout })
     .json();
@@ -207,12 +153,7 @@ async function bootstrapCanvas(initialLayout: object): Promise<CanvasRef> {
   return CanvasRef.assert(record);
 }
 
-/**
- * The canvas a bare `/` should open, or `null` when the database has never been written to.
- *
- * Empty is a normal state rather than a failure — it is what a first run looks like — so the
- * caller decides between bootstrapping and reporting, and this stays a read.
- */
+// null means that the database has no canvas.
 async function readMostRecentCanvas(): Promise<CanvasRef | null> {
   const client = await openLocalDatabase();
   const [records] = await client.query<[unknown]>("RETURN fn::most_recent_canvas();").json();
@@ -221,11 +162,7 @@ async function readMostRecentCanvas(): Promise<CanvasRef | null> {
   return record ?? null;
 }
 
-/**
- * `null` means the route named a canvas that is not there — a stale bookmark or a deleted
- * document — which is a different outcome from the database itself failing, and the route
- * distinguishes them.
- */
+// null means that the canvas does not exist.
 async function openCanvas(canvasId: string): Promise<CanvasRecord | null> {
   const client = await openLocalDatabase();
   const [record] = await client
@@ -237,14 +174,8 @@ async function openCanvas(canvasId: string): Promise<CanvasRecord | null> {
   return record === null || record === undefined ? null : CanvasRecord.assert(record);
 }
 
-/**
- * A canvas without its layout.
- *
- * The switcher needs names, not arrangements — projecting `layout` would put every window of
- * every canvas into a menu that renders a list of titles.
- */
 const CanvasSummary = type({
-  // Only `fn::list_archived_canvases` selects it, and it orders by it.
+  // Archived listings include this field.
   "archived_at?": "string.date.iso",
   id: "string",
   revision: "number.integer >= 0",
@@ -279,10 +210,7 @@ async function createCanvas(
   return CanvasRef.assert(record);
 }
 
-/**
- * A rename touches `title` and nothing else, so it never collides with the layout autosave — the
- * two write disjoint fields and `revision` guards only the layout.
- */
+// Canvas title changes do not change the layout revision.
 async function renameCanvas(
   input: Readonly<{ canvasId: string; title: string }>,
 ): Promise<CanvasSummary> {
@@ -352,7 +280,7 @@ async function duplicateCanvas(
 }
 
 const ProjectSummary = type({
-  // Only `fn::list_archived_projects` selects it, and it orders by it.
+  // Archived listings include this field.
   "archived_at?": "string.date.iso",
   id: "string",
   title: "string > 0",
@@ -367,10 +295,7 @@ async function listProjects(): Promise<readonly ProjectSummary[]> {
   return ProjectSummary.array().assert(records);
 }
 
-/**
- * Returns the project's first canvas, not the project. A project with no canvas would be
- * unreachable — the app addresses canvases — so creating one and landing on it is the same act.
- */
+// A new project returns its first canvas.
 async function createProject(
   input: Readonly<{ layout: object; title: string }>,
 ): Promise<CanvasRef> {
@@ -430,13 +355,7 @@ async function readProjectRemovalSummary(projectId: string): Promise<ProjectRemo
   return ProjectRemovalSummary.assert(record);
 }
 
-/**
- * The most destructive act in the application.
- *
- * A canvas is an arrangement whose notes outlive it. A project owns its content outright, so this
- * cascade genuinely destroys writing — which is why the surface that calls it asks for the
- * project's name to be typed rather than for a click.
- */
+// Deleting a project also deletes its content and canvases.
 async function deleteProject(projectId: string): Promise<void> {
   const client = await openLocalDatabase();
   await client
@@ -471,10 +390,7 @@ async function readCanvasRemovalSummary(canvasId: string): Promise<CanvasRemoval
   return CanvasRemovalSummary.assert(record);
 }
 
-/**
- * Permanent. The notes the canvas showed are `content_item` records and are untouched — this
- * removes an arrangement, not the work.
- */
+// Deleting a canvas preserves its content items.
 async function deleteCanvas(canvasId: string): Promise<void> {
   const client = await openLocalDatabase();
   await client
@@ -510,20 +426,9 @@ async function saveCanvas(
   return CanvasRevision.assert(record);
 }
 
-/**
- * Everything a window can be bound to; a window only carries its id.
- *
- * The split is deliberate and it is the reason the canvas layout stays a layout: moving, docking,
- * grouping, or closing a window never touches what it shows. It also means the same item can appear
- * on more than one canvas without its content being copied.
- *
- * `content` is `object` and stays that way here. This layer knows an item has content and cannot
- * know its shape — a note's is `{ text }`, an image's is not — so the kind that wrote it is the
- * layer that validates it on the way back out.
- */
+// Each content kind validates its own content object.
 const ContentItemRecord = type({
-  // Only the archived listing selects it, so it is optional rather than absent: undeclared keys are
-  // deleted here, and this one was being fetched and then thrown away on the way in.
+  // Archived listings include this field.
   "archived_at?": "string.date.iso",
   content: "object",
   id: "string",
@@ -604,7 +509,7 @@ async function saveContentItem(
   return ContentItemRecord.assert(record);
 }
 
-/** No `kind` means every kind, which is what a library asks for and a collection does not. */
+// An omitted kind lists all content types.
 async function listContentItems(
   input: Readonly<{ kind?: string; projectId: string }>,
 ): Promise<readonly ContentItemRecord[]> {
@@ -619,21 +524,6 @@ async function listContentItems(
   return ContentItemRecord.array().assert(records);
 }
 
-/*
- * `listRelatedContentItems` was here and is gone, with `content.listRelated` above it.
- *
- * Its only caller resolved a connection collection, which now derives from `relations$` and the
- * project listing rather than asking. `fn::list_related_content_items` is left in the schema —
- * removing it is a migration, and this is a client that stopped needing it rather than a function
- * that stopped being correct.
- */
-
-/**
- * Archive and restore, together.
- *
- * Never one without the other: an archive that cannot be undone is a delete wearing a gentler word,
- * and this is the same pairing canvases and projects already ship.
- */
 async function archiveContentItem(itemId: string): Promise<void> {
   const client = await openLocalDatabase();
 
@@ -667,7 +557,7 @@ async function listArchivedContentItems(
 const ContentRelation = type({
   id: "string",
   kind: "string",
-  /** Absent for every edge written before labels existed, and `null` once one is cleared. */
+  /** Old relations omit label. A cleared label is null. */
   "label?": "string | null",
   source: "string",
   target: "string",
@@ -711,24 +601,7 @@ async function setRelationKind(
     .json();
 }
 
-/**
- * `null` clears it: an edge goes back to saying only what its kind says.
- *
- * Sent to SurrealDB as `undefined`, not `null`, and the difference is the whole function working.
- * `fn::set_relation_label` declares `$label: option<string>`, and SurrealQL's `option` means
- * "a string or NONE" — `NULL` is a *third*, distinct value it does not accept. The driver maps
- * JS `undefined` to NONE and JS `null` to NULL, so passing the `null` this signature advertises
- * made every clear throw:
- *
- *     Failed to coerce argument `$label`: Expected `none | string` but found `NULL`
- *
- * `null` stays the app-facing spelling because it is what "deliberately absent" looks like in the
- * rest of this codebase, and the caller should not have to know a storage engine's opinion about
- * two kinds of nothing. Converting here is the one place that knows about both.
- *
- * Found by clearing a label while verifying something else. Setting one was exercised repeatedly
- * today and always worked; clearing had never once been run.
- */
+// The driver maps undefined to SurrealDB NONE. null maps to rejected NULL.
 async function setRelationLabel(
   input: Readonly<{ label: string | null; relationId: string }>,
 ): Promise<void> {
@@ -753,13 +626,7 @@ async function unrelateContentItems(
     .json();
 }
 
-/**
- * A saved view is a world rect with a name on it.
- *
- * A rect rather than a camera, because a stored centre and zoom is only correct on the pane it was
- * taken from — restore it at another size and the framing is wrong by the ratio between the two.
- * Every framework entry point on this path takes a rect for the same reason.
- */
+// A rect keeps its framing when the viewport size changes.
 const SavedView = type({
   id: "string",
   rect: {
@@ -786,10 +653,6 @@ async function listSavedViews(canvasId: string): Promise<readonly SavedView[]> {
   return SavedView.array().assert(records);
 }
 
-/**
- * Returns the record it wrote, so the surface that asked for it can show the view without a second
- * query — and without inventing the id itself, which is the database's to hand back.
- */
 async function createSavedView(
   input: Readonly<{ canvasId: string; rect: SavedViewRect; title: string }>,
 ): Promise<SavedView> {
@@ -815,7 +678,6 @@ async function renameSavedView(input: Readonly<{ title: string; viewId: string }
     .json();
 }
 
-/** Re-aim an existing view at where the camera is now, keeping the name it was remembered by. */
 async function reframeSavedView(
   input: Readonly<{ rect: SavedViewRect; viewId: string }>,
 ): Promise<void> {
@@ -828,10 +690,6 @@ async function reframeSavedView(
     .json();
 }
 
-/**
- * Deleted rather than archived, and the schema says why: a view is referenced by nothing, so
- * removing one strands nothing and restoring one is retyping a name.
- */
 async function deleteSavedView(viewId: string): Promise<void> {
   const client = await openLocalDatabase();
   await client

@@ -9,20 +9,6 @@ import {
   getInfiniteCanvasConnectionPreviewPath,
 } from "./window-connection";
 
-/**
- * These exist because the first version of this gesture shipped broken in a way a typecheck, a
- * green suite, and a scripted click all missed.
- *
- * The handle sat outside the window and its visibility was driven by "is the pointer over the
- * window", so it disappeared the moment anyone moved toward it. The only reason it ever appeared to
- * work was that the test dispatched `pointerdown` straight at the element — the one path a real
- * pointer never takes, since a real pointer must *travel* there first.
- *
- * So the load-bearing test here is `reach`: it walks the pointer from inside a window to a handle,
- * one step at a time, and asserts the affordance survives every step. It fails against the
- * behaviour that shipped.
- */
-
 const VIEWPORT: InfiniteCanvasViewport = { height: 800, width: 1200 };
 
 function stateWith(
@@ -86,7 +72,6 @@ test("the pointer keeps a window's affordance the whole way to every handle", ()
   const start = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
 
   for (const handle of getInfiniteCanvasConnectionHandles(window, SINGLE.camera, SINGLE.viewport)) {
-    // Walk the pointer there rather than teleporting: the defect only appears in transit.
     const held = Array.from({ length: 41 }, (unused, step) => step / 40).reduce<string | null>(
       (previousWindowId, progress) =>
         getInfiniteCanvasConnectionAffordanceWindowId(
@@ -110,12 +95,6 @@ test("the affordance is not offered for a pointer nowhere near a window", () => 
   );
 });
 
-/**
- * Two windows a hair apart, so one's halo overlaps the other's rect.
- *
- * This is the case stickiness could break: holding on too eagerly would make a neighbour
- * unreachable, and holding on too weakly is the original bug.
- */
 const PAIR = stateWith([
   { height: 200, id: "a", width: 400, x: -400, y: -100 },
   { height: 200, id: "b", width: 400, x: 20, y: -100 },
@@ -149,7 +128,6 @@ test("a neighbour does not steal the affordance from a pointer merely passing ne
 
   const aRect = worldRectToScreenRect(PAIR.camera, PAIR.viewport, a.rect);
   const bRect = worldRectToScreenRect(PAIR.camera, PAIR.viewport, b.rect);
-  // In the gap: outside both rects, inside both halos, reaching for a's east handle.
   const between = {
     x: (aRect.left + aRect.width + bRect.left) / 2,
     y: aRect.top + aRect.height / 2,
@@ -178,10 +156,6 @@ test("a minimized window offers no affordance", () => {
   );
 });
 
-/**
- * The claim the preview rests on: a bare point routes exactly as a zero-extent rect, so the line
- * shown during a drag is the line that will be committed rather than one that resembles it.
- */
 test("a preview to a point ends exactly on that point", () => {
   const path = getInfiniteCanvasConnectionPreviewPath(
     { height: 200, width: 400, x: 0, y: 0 },

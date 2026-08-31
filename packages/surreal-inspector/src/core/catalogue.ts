@@ -2,18 +2,12 @@ import { escapeIdent } from "surrealdb";
 
 import type { SurrealReader } from "./reads.ts";
 
-/**
- * Reads the database's schema. `INFO FOR DB` returns each object as its `DEFINE` statement, so a
- * field can be displayed exactly as declared.
- *
- * `INFO FOR TABLE … STRUCTURE` is read alongside it because the integrity checks need a field's
- * `kind` as structured data rather than parsed out of the statement text.
- */
+/** These values combine `DEFINE` statements with structured field types. */
 
 type SurrealFieldDefinition = Readonly<{
   definition: string;
   flexible: boolean;
-  /** The declared type, e.g. `record<project>` or `option<datetime>`. `null` if not reported. */
+  /** This field contains the declared type, or `null` when SurrealDB omits it. */
   kind: string | null;
   name: string;
   readonly: boolean;
@@ -24,7 +18,6 @@ type SurrealTableDefinition = Readonly<{
   events: readonly string[];
   fields: readonly SurrealFieldDefinition[];
   indexes: readonly string[];
-  /** A `TYPE RELATION` table. Its records are graph edges with `in` and `out` fields. */
   isRelation: boolean;
   name: string;
 }>;
@@ -42,7 +35,6 @@ function asRecord(value: unknown): Readonly<Record<string, unknown>> {
     : {};
 }
 
-/** Flattens and sorts an `INFO FOR …` map of `{ name: "DEFINE …" }`. */
 function readDefinitionMap(value: unknown): readonly string[] {
   return Object.values(asRecord(value))
     .filter((definition): definition is string => typeof definition === "string")
@@ -113,10 +105,7 @@ async function readCatalogue(reader: SurrealReader): Promise<SurrealCatalogue> {
   };
 }
 
-/**
- * Namespaces and databases visible to this connection. Root introspection requires permission, so
- * a refusal is reported in `unreadable` rather than as an empty result.
- */
+/** The `unreadable` field records a permission error instead of an empty result. */
 type SurrealTopology = Readonly<{
   databases: readonly string[];
   namespaces: readonly string[];

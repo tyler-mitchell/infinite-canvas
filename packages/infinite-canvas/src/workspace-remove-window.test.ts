@@ -4,11 +4,6 @@ import { createInfiniteCanvasState, createInfiniteCanvasWindow } from "./factory
 import { reduceInfiniteCanvasState } from "./reducer";
 import type { InfiniteCanvasState } from "./types";
 
-/**
- * Membership is group-complete, so removing one pane on its own is restored by reconciliation.
- * The whole shell is removed instead.
- */
-
 type Kind = "note";
 
 const pane = (id: string, x: number) =>
@@ -39,7 +34,6 @@ const oneDesktop = (): InfiniteCanvasState<Kind> => {
 const membership = (state: InfiniteCanvasState<Kind>, workspaceId: string) =>
   [...(state.workspaces.find((workspace) => workspace.id === workspaceId)?.windowIds ?? [])].sort();
 
-/** Dock "a" rightward, which pulls "b" into a shell with it. */
 const withShell = (): InfiniteCanvasState<Kind> => {
   const docked = reduceInfiniteCanvasState(
     { ...oneDesktop(), activeWindowId: "a", activeWorkspaceId: "research" },
@@ -66,13 +60,11 @@ test("removing a docked pane takes its whole shell off with it", () => {
     type: "command.execute",
   });
 
-  // The failure guarded is the pane reappearing, not a wrong set.
   expect(membership(removed, "research")).not.toContain("a");
   expect(membership(removed, "research")).toEqual(["c"]);
 });
 
 test("what comes off the desktop stays open on the canvas", () => {
-  // A membership filter must not delete what it filters.
   const removed = reduceInfiniteCanvasState(withShell(), {
     command: { type: "workspace.removeActiveWindow" },
     type: "command.execute",
@@ -83,7 +75,6 @@ test("what comes off the desktop stays open on the canvas", () => {
 });
 
 test("a window removed from the desktop you are standing on does not stay active", () => {
-  // Otherwise every verb keyed to the active window aims at something no longer drawn.
   const removed = reduceInfiniteCanvasState(
     { ...withShell(), selection: { anchorWindowId: "a", windowIds: ["a"] } },
     { command: { type: "workspace.removeActiveWindow" }, type: "command.execute" },

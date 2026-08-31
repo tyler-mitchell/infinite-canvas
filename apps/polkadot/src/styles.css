@@ -8,147 +8,67 @@
 @source "../../../packages/ui/src";
 @source "../../../packages/surreal-inspector/src";
 
-/**
- * Polkadot's palette.
- *
- * Two rules carry most of the look, and both are the opposite of what a default dark theme does:
- *
- * **Depth comes from light, not from lines.** Surfaces separate by being lighter than the ground
- * and by casting a real shadow, with a single hairline of white along the top edge standing in
- * for a specular. There is no `border: 1px solid white/8%` anywhere — that reads as a wireframe,
- * and it is why most dark tools look like diagrams of an app rather than an app.
- *
- * **The neutrals are not neutral.** The ground carries a trace of blue and the foreground a trace
- * of amber, so text sits *warm* on a *cool* field. Pure grey on pure black is the default nobody
- * chose; this is a decision, and it is most of why the result reads as designed.
- */
+/* Lightness and shadow separate surfaces. Warm ink contrasts with the cool ground. */
 :root {
   color-scheme: dark;
 
   --font-sans: "Geist Variable", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "Geist Mono Variable", ui-monospace, monospace;
 
-  /* Ground — near-black, faintly blue. */
+  /* The ground has a small blue component. */
   --ground: oklch(0.155 0.008 265);
   --ground-sunken: oklch(0.128 0.008 265);
 
-  /* Surfaces, by elevation. Each step is lighter, never outlined. */
+  /* Each surface step increases lightness. */
   --surface: oklch(0.205 0.009 265);
   --surface-raised: oklch(0.238 0.01 265);
   --surface-hover: oklch(0.268 0.011 265);
 
-  /* The specular hairline along a surface's top edge. */
+  /* This token adds a light edge to the top of a surface. */
   --edge-light: oklch(1 0 0 / 0.07);
 
-  /*
-   * Grain — the surface is a material, not a fill.
-   *
-   * A layer, not a colour: every token it composes into is consumed through the `background`
-   * shorthand, which takes an image over a colour. `background-color` could not carry this, which
-   * is why the composition happens here rather than in a slot.
-   *
-   * `feTurbulence` rather than a PNG tile so the noise has no repeat to find, and `stitchTiles` so
-   * the 140px tile joins itself invisibly.
-   *
-   * The `0.07` is measured, not chosen. `feTurbulence` writes noise into the *alpha* channel as
-   * well as the colour ones, so the rect's opacity multiplies against an alpha that already
-   * averages about half — at `0.035` the decoded tile came back with a mean alpha of 4.5/255,
-   * around 1.75% effective, which is past subtle and into absent. Doubling it lands where the
-   * intent was. Grain that can be *seen* has stopped being grain and become texture.
-   *
-   * It scales with the camera, which is correct rather than incidental: material grain is a
-   * property of the surface, so magnifying the surface should magnify it — paper looks coarser
-   * under a loupe.
-   */
+  /* Use the grain token as the first background layer. */
   --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23g)' opacity='0.07'/%3E%3C/svg%3E");
 
-  /*
-   * Ink — warm against the cool ground, and that has to hold for the whole family.
-   *
-   * This comment said exactly that while two of the three carried hue 265 — the *ground's* hue,
-   * shared with `--surface` and `--surface-raised`. Only `--ink` was warm. That would be a small
-   * inconsistency if `--ink` were what the app is written in, and it is not: rail rows, HUD
-   * buttons, the zoom readout, dock items and every window control at rest are `--ink-muted` or
-   * `--ink-faint`, so nearly all of this app's text was cool grey on a cool ground, separated from
-   * it by lightness alone. That is the "pure grey on pure black" default the bar rejects, wearing
-   * a different colour.
-   *
-   * Hue only — lightness and chroma are untouched, so contrast against every surface is exactly
-   * what it was and this cannot be a legibility change hiding inside a taste one. Recessive ink
-   * gets quieter by dropping lightness, not by drifting toward the background it is sitting on.
-   */
+  /* All ink tokens use a warm hue against the cool ground. */
   --ink: oklch(0.96 0.008 85);
   --ink-muted: oklch(0.72 0.012 85);
-  /*
-   * Recessive, and legible — 0.55 was only the first.
-   *
-   * Measured in the running app on 2026-08-27: 0.55 renders 3.4:1 against `--surface-raised`, the
-   * lightest ground this ink has to work on, where text under 24px needs 4.5. Three pieces of
-   * ordinary UI were below the line — the note editor's "Write something…", the library's item
-   * count, and the "Archive" button — none of them decorative, all of them things somebody is
-   * meant to read. 0.62 is the first step that clears it, at 4.54.
-   *
-   * The ramp tightens at the bottom, 0.96 / 0.72 / 0.62 instead of 0.55, and that is the trade:
-   * this ink's job is to recede, not to be unreadable, and it was doing the second in the name of
-   * the first. It is still unmistakably the faintest of the three.
-   */
+  /* Faint ink has a 4.54 contrast ratio on raised surfaces. */
   --ink-faint: oklch(0.62 0.012 85);
-  /*
-   * Where dimness is the message rather than a rank.
-   *
-   * A disabled control is *supposed* to be hard to read — WCAG exempts it from contrast minimums
-   * for exactly that reason — so brightening it along with the rest would have made disabled look
-   * enabled. It keeps the value `--ink-faint` used to hold, which is why this is a new token and
-   * not a second thought about the old one.
-   */
+  /* Disabled text uses lower contrast to show its state. */
   --ink-disabled: oklch(0.55 0.012 85);
 
-  /* The signature. A luminous apricot, warm where every dev tool is cyan. */
+  /* The accent marks brand and active states. */
   --accent: oklch(0.78 0.15 55);
   --accent-strong: oklch(0.84 0.16 60);
   --accent-wash: oklch(0.78 0.15 55 / 0.12);
 
-  /* States, kept cool so they never compete with the accent. */
+  /* State colors stay cool beside the warm accent. */
   --positive: oklch(0.8 0.13 165);
   --danger: oklch(0.68 0.19 22);
 
-  /* The dot field reads these directly; Canvas 2D needs concrete channels. */
+  /* Canvas 2D reads these RGB channels directly. */
   --dot-rest: rgb(116 126 146);
   --dot-lift: rgb(255 186 122);
 
-  /* Elevation. Layered rather than one blurry drop, so edges stay crisp. */
+  /* Each shadow uses layers to keep its edges clear. */
   --lift-1: 0 1px 2px oklch(0 0 0 / 0.4), 0 4px 12px oklch(0 0 0 / 0.28);
   --lift-2: 0 2px 4px oklch(0 0 0 / 0.44), 0 12px 32px oklch(0 0 0 / 0.36);
   --lift-3: 0 4px 8px oklch(0 0 0 / 0.5), 0 24px 64px oklch(0 0 0 / 0.44);
 
-  /*
-   * Motion. `swift` for state, `settle` for anything that moves in space.
-   *
-   * **`settle` has no consumer, and that is the honest state of it.** Counted: it appears twice in
-   * this repo, here and in a comment naming it. Every CSS transition in the running app — all 151 —
-   * resolves to `swift`, because everything CSS animates here is a state change: a colour, an
-   * opacity, a fill. `swift` is also the default curve now, so an unspecified transition takes it.
-   *
-   * Nothing moves in space by CSS. The things that do — a HUD surface arriving, the layout
-   * selector's indicator travelling between segments — are sprung through `motion`, and a real
-   * spring is better at that than any bezier, so this curve is not waiting for them.
-   *
-   * Kept rather than deleted because `ROADMAP.md` names the pair as the bar, and a token vanishing
-   * from under a document that describes it is worse than an unused one. Recorded here so the next
-   * reader learns it from the declaration instead of from a search that comes back empty.
-   */
+  /* Use swift for state changes. Use settle for movement. */
   --ease-swift: cubic-bezier(0.32, 0.72, 0, 1);
   --ease-settle: cubic-bezier(0.16, 1, 0.3, 1);
 
   --radius: 0.75rem;
   --radius-pill: 999px;
-  /* The shared primitives reference these directly inside arbitrary values. */
+  /* Shared UI primitives read these radius tokens. */
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
 
-  /* shadcn/Base UI compatibility for the shared `ui` primitives. */
+  /* These tokens provide shadcn and Base UI compatibility. */
   --background: var(--ground);
   --foreground: var(--ink);
   --card: var(--surface);
@@ -157,20 +77,7 @@
   --popover-foreground: var(--ink);
   --primary: var(--accent);
   --primary-foreground: oklch(0.16 0.02 55);
-  /*
-   * `--surface-hover`, not `--surface`, and the difference has already cost twice.
-   *
-   * A shadcn `secondary` is a filled low-emphasis control, so it has to read as a shape on whatever
-   * it sits on. Aliased to `--surface` it did not: the app's own panels are `--surface`, so a
-   * secondary button on one was the same colour as its background — that is the group rail's active
-   * segment, "applied, correct, and invisible" — and on `--ground` it measured 1.09:1 against the
-   * 3:1 a UI boundary needs, which is what the canvas-failure screen's "Try again" was.
-   *
-   * `--surface-hover` is the top of the ramp and still only reaches 1.29:1 on ground, so this is a
-   * floor rather than a fix: a filled control that must be seen unaided wants `--accent`. What it
-   * does buy is that `secondary` is no longer *identical* to the surfaces it is drawn on, which is
-   * the failure that actually shipped.
-   */
+  /* Secondary controls use a visible fill on all surface levels. */
   --secondary: var(--surface-hover);
   --secondary-foreground: var(--ink);
   --muted: var(--surface);
@@ -183,22 +90,7 @@
   --ring: var(--accent);
 }
 
-/**
- * Registering the compatibility layer with Tailwind.
- *
- * The block above only declares custom properties. Tailwind 4 generates a utility such as
- * `bg-popover` from a `--color-*` entry in `@theme`, and from nothing else — so without this,
- * every class the shared `ui` primitives are built from resolved to nothing and the primitives
- * rendered unstyled while their tokens sat correctly defined a few lines above. A `bg-secondary`
- * button computed to `rgba(0, 0, 0, 0)`.
- *
- * `inline` so the utilities reference the custom properties rather than copying their values,
- * which keeps `:root` the single place a colour is decided.
- *
- * Polkadot's own slots keep writing `bg-[var(--surface)]` against the palette directly. This
- * namespace exists for the shared primitives, which are written against shadcn's vocabulary and
- * cannot know about this palette.
- */
+/* Tailwind utilities read these inline theme tokens. */
 @theme inline {
   --font-sans: var(--font-sans);
   --font-mono: var(--font-mono);
@@ -215,12 +107,7 @@
   --color-secondary-foreground: var(--secondary-foreground);
   --color-muted: var(--muted);
   --color-muted-foreground: var(--muted-foreground);
-  /*
-   * Deliberately not `--accent`. In shadcn's vocabulary `bg-accent` is the hover and focus
-   * surface for interactive items, not a brand colour — mapping it to Polkadot's apricot
-   * signature would paint every hovered menu row bright orange. The signature stays reserved for
-   * active state, which is what `--icx-hud-button-active-bg` already does on the canvas.
-   */
+  /* UI accent means a hover surface. The brand accent marks active state. */
   --color-accent: var(--surface-hover);
   --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
@@ -229,91 +116,25 @@
   --color-input: var(--input);
   --color-ring: var(--ring);
 
-  /*
-   * The curve every bare `transition-*` uses, which is where motion was still being decided by
-   * default rather than by anyone.
-   *
-   * `transition-all` and friends resolve their easing from this theme variable, and Tailwind ships
-   * it as `cubic-bezier(0.4, 0, 0.2, 1)`. So the shared `ui` primitives — which are written against
-   * shadcn's vocabulary and cannot know about this palette, exactly as the block above says — moved
-   * on a curve nobody here chose. Measured after the framework's own chrome was tokenised: 140 live
-   * transitions on `--ease-swift` and 11 still on the default, all of them one `Button`.
-   *
-   * Set here rather than in the component, because a component asking for a named curve is the
-   * per-site decision the bar rejects, and reaching into `ui` with a Polkadot token would give a
-   * shared package knowledge of this app. Configuring the default is the library's own answer:
-   * anything that wants the settling curve still says so.
-   */
+  /* Bare transition utilities use the swift timing curve. */
   --default-transition-timing-function: var(--ease-swift);
 }
 
-/**
- * Everything below is in `@layer components`, and that is load-bearing rather than tidiness.
- *
- * Line 1 declares `theme, base, infinite-canvas, components, utilities` and, until now, this file
- * put none of its own rules in any of them. Unlayered styles beat every layered style, so all of
- * this outranked the whole utility system — and one rule in it, a `font: inherit` on form controls,
- * quietly killed every font-size and font-weight utility on every button and input in the app.
- * The architecture was declared and then not used.
- *
- * `components` is the right layer rather than `base`, because these rules exist to beat the
- * framework: `theme.css` wraps itself in `@layer infinite-canvas`, which the order above places
- * *before* components. So the overrides still win against the framework's defaults, exactly as
- * they did unlayered, and utilities now win against them, which is what the bar asks for — every
- * class comes from a `tv` slot, and a slot's class should not be outranked by a stylesheet.
- *
- * Nothing here targets an element the app puts utilities on: these are `[data-slot]` hooks the
- * framework renders, plus document-level `*` and `body`. That is why the layer changes precedence
- * against utilities and against nothing else.
- *
- * `:root` above stays outside, deliberately — it declares custom properties, layers do not change
- * how those resolve, and moving them would be churn with no effect.
- */
+/* This layer keeps app treatments above framework rules and below utility rules. */
 @layer components {
-  /**
- * The canvas chrome, retuned onto the palette above.
- *
- * The framework draws its own window frames and reads these tokens, so a window belongs to the
- * same material system as the shell instead of arriving in the framework's default look.
- */
+  /* These tokens apply the app palette to framework chrome. */
   [data-slot="viewport"] {
     --icx-background: transparent;
-    /*
-   * Grain over each, so the whole window is one material rather than a grainy body under a flat
-   * bar. The tiles do not align across the three elements and do not need to — noise has no
-   * pattern to misalign, which is the property that makes it usable this way at all.
-   */
+    /* Grain is the first background layer for all window surfaces. */
     --icx-body-background: var(--grain), var(--surface);
     --icx-header-idle: var(--grain), var(--surface);
-    /*
-   * The accent tint lives here rather than beside the border rule that motivates it, because it
-   * was declared twice on this same selector — `var(--grain), var(--surface-raised)` here and the
-   * `color-mix` below — and the later one won silently, dropping the grain. Measured: an active
-   * header read `oklab(0.28678 …)` with `background-image: none`, so focusing a window made its
-   * header go smooth while its own body and every idle header stayed grained. The comment directly
-   * above had been describing something untrue since the second declaration was added.
-   */
+    /* The active header keeps grain as the first background layer. */
     --icx-header-active: var(--grain), color-mix(in oklab, var(--accent) 9%, var(--surface-raised));
     --icx-idle-border: transparent;
     --icx-active-border: transparent;
-    /*
-   * The seam between split panes, which is a control rather than an outline.
-   *
-   * It read `--icx-idle-border` in the framework's theme until that token got its own name, so
-   * turning outlines off — the bar's first rule — left a 6px invisible drag target between panes.
-   * Said with the ground rather than a line: the seam is the canvas showing through between two
-   * lifted surfaces, which is the same way every other separation here is made.
-   */
+    /* The gutter shows the ground between split panes. */
     --icx-group-gutter: var(--ground);
-    /*
-   * The rest of a group's chrome, on this app's material.
-   *
-   * A shell is a surface holding surfaces and had none of that: square 2px corners under 12px
-   * windows, no shadow, and unselected tab ink reading `--icx-grid-major` — the framework's
-   * default cyan lattice, which this app never sets because it draws its own ground. That
-   * rendered the inactive tab at rgba(61, 102, 112, 0.24) on a dark surface, which is not a
-   * colour anyone chose and is barely legible.
-   */
+    /* Group chrome uses the app surface and ink tokens. */
     --icx-group-tab-fg: var(--ink-faint);
     --icx-group-surface-radius: var(--radius);
     --icx-group-surface-shadow: var(--lift-2);
@@ -324,58 +145,14 @@
     --icx-color-accent: var(--accent);
     --icx-color-surface-raised: var(--surface-raised);
 
-    /*
-   * The framework's HUD, on Polkadot's material.
-   *
-   * Its zoom and camera controls are consumed rather than rebuilt — they already carry
-   * enablement, keyboard reachability, and the live announcer — so what is left is making them
-   * belong to the same surface system as the rest of the chrome: a floating panel with a
-   * specular edge, no outline, and the accent reserved for the active state.
-   */
-    /*
-   * Translucent, because the framework's HUD blurs what is behind it and this override was
-   * cancelling that.
-   *
-   * `theme.css` declares `--icx-hud-panel-bg` as `color-mix(… 92%, transparent)` and pairs it with
-   * `backdrop-filter: blur(8px)` on the panel — a deliberate frosted material. Overriding it with a
-   * flat `var(--surface)` made the fill opaque, and nothing shows through an opaque fill: measured
-   * on the running canvas, two `[data-slot="hud-group"]` rails reported `blur(8px)` over
-   * `oklch(0.205 0.009 265)`, compositing a blur that could not be seen.
-   *
-   * The 92% is the framework's number, not one invented here — this is its own expression with
-   * Polkadot's surface substituted, which is what theming these tokens is supposed to mean.
-   */
+    /* HUD tokens apply the floating-panel treatment. */
+    /* The translucent panel preserves the framework backdrop blur. */
     --icx-hud-panel-bg: color-mix(in srgb, var(--surface) 92%, transparent);
     --icx-hud-panel-border: transparent;
-    /*
-   * The specular this app says every floating surface carries, on the one that had none.
-   *
-   * The border above is turned off because the bar rejects outlines, and until the framework
-   * gained a shadow token that left the HUD rails with no edge treatment at all — a flat fill
-   * beside four surfaces wearing a hairline of light. Measured: the identity rail, the library,
-   * the minimap and the notice all reported an inset ring; the framework's two `hud-group` rails,
-   * sitting in the same corner, reported none.
-   *
-   * The same recipe `material.ts` holds, written as a shadow because that is the shape the token
-   * takes. `--lift-2` matches the rails rather than the notice, which lifts higher on purpose.
-   *
-   * `0 1px 0 0`, not `0 0 0 1px`. This tracked `material.ts` faithfully while that recipe drew a
-   * ring on four sides — which measured as the `border: 1px solid white/8%` the bar forbids, and
-   * which window frames never did. All three families are one rule again.
-   */
+    /* The inset shadow adds a light edge only at the top. */
     --icx-hud-panel-shadow: inset 0 1px 0 0 var(--edge-light), var(--lift-2);
 
-    /*
-   * The framework's chrome moves the way the rest of this app moves.
-   *
-   * Its window controls, HUD buttons and dock items each ran on a hardcoded 150ms and Tailwind's
-   * default `ease-in-out`, which is not a value anyone here chose. Measured on the running canvas
-   * before this: 117 live transitions on `--ease-swift` and 34 on `cubic-bezier(0.4, 0, 0.2, 1)` —
-   * and the 34 were window controls and HUD buttons sitting beside controls that moved differently.
-   *
-   * `--ease-swift` rather than `--ease-settle`: these are state changes on a control under the
-   * pointer, and the bar reserves the settling curve for things that move in space.
-   */
+    /* Framework controls use the app timing curve. */
     --icx-transition-duration: 150ms;
     --icx-transition-timing: var(--ease-swift);
     --icx-hud-divider: var(--border);
@@ -385,25 +162,16 @@
     --icx-hud-button-hover-border: transparent;
     --icx-hud-button-active-fg: var(--accent);
     --icx-hud-button-active-bg: var(--accent-wash);
-    /* Dimness is the message here, so this keeps the darker ink `--ink-faint` gave up. */
+    /* Disabled controls use lower-contrast ink. */
     --icx-hud-button-disabled-fg: var(--ink-disabled);
     --icx-hud-zoom-readout-fg: var(--ink-muted);
     --icx-hud-dock-item-fg: var(--ink-muted);
 
-    /* A window is an object resting on the field, not a rectangle drawn on it. The inset hairline
-     is the specular the palette describes — the same one the rails carry. */
+    /* The inset shadow adds the same top edge as the rails. */
     --icx-surface-radius: 12px;
     --icx-surface-shadow: inset 0 1px 0 0 var(--edge-light), var(--lift-2);
 
-    /*
-   * Window controls, unboxed.
-   *
-   * The framework draws each control with `border: 1px solid var(--icx-control-border)` over
-   * `--icx-control-bg`, which by default puts four outlined squares on every header at all
-   * times — the single loudest thing on a canvas of windows, and the clearest case of the
-   * wireframe look this palette exists to avoid. The glyph is enough at rest; the surface
-   * arrives under the pointer.
-   */
+    /* Window controls have no fill until pointer interaction. */
     --icx-control-bg: transparent;
     --icx-control-border: transparent;
     --icx-control-fg: var(--ink-faint);
@@ -416,59 +184,25 @@
     --icx-host-control-hover-bg: var(--surface-hover);
     --icx-host-control-hover-border: transparent;
 
-    /*
-   * No corner brackets and no frame stroke. Which window is active is already said twice —
-   * by the header's material and by elevation — and a third statement drawn in hairlines is
-   * what makes a dark canvas read as a diagram of an app.
-   */
+    /* Active material and elevation replace frame strokes and corner marks. */
     --icx-chrome-stroke: transparent;
     --icx-corner: transparent;
 
     --icx-title-fg: var(--ink-faint);
   }
 
-  /*
- * The active window, said with material instead of a rule.
- *
- * The framework marks the active window with a 3px `border-bottom` on the header, painted in
- * `--icx-active-accent`. It was the loudest element on screen: a saturated stripe running the
- * full width, competing with the note it belongs to.
- *
- * The signal it carries is real — on a canvas of windows you must be able to tell which one has
- * focus at a glance — so it moves rather than disappearing. The active header carries a warm
- * tint of the accent and sits lighter; the window itself lifts. Both are the palette's own rule
- * that depth comes from light.
- *
- * The token is deliberately not blanked: `--icx-active-accent` also tints the pinned control and
- * the snap preview, which are semantic uses of the accent and should stay. Only the header's
- * border is neutralised, which is why this targets the border rather than the colour.
- *
- * The tint itself is declared with the other header backgrounds above, not here. It sat here once
- * and was a second declaration of a property this selector already set, so it won on source order
- * and dropped the grain without saying so.
- */
+  /* Both header states remove the framework active border. */
   [data-slot="window"] [data-slot="window-header"],
   [data-slot="window"][data-active] [data-slot="window-header"] {
     border-bottom-color: transparent;
   }
 
-  /* Rounded to match the rails, and roomy enough that the glyph is not the whole target. */
+  /* The control radius matches the rails. */
   [data-slot="window-control"] {
     border-radius: 7px;
   }
 
-  /*
- * Controls arrive on approach.
- *
- * A note on a canvas is mostly something you read, and four glyphs sitting in every header of
- * every window is chrome charging rent on content that does not need it. They appear on the
- * window under the pointer and on the one holding focus, which are the only two a person is
- * about to act on.
- *
- * Opacity rather than mounting: the header must not reflow when they arrive, and a control that
- * is not there cannot be tabbed to. `:focus-within` keeps them present for the keyboard, so
- * hover is an accelerant rather than the only way in.
- */
+  /* Hidden controls keep their layout and become visible on hover or focus. */
   [data-slot="window-controls"] {
     opacity: 0;
     transition: opacity 160ms var(--ease-swift);
@@ -480,13 +214,7 @@
     opacity: 1;
   }
 
-  /*
- * Sentence case, at reading size.
- *
- * The framework sets 10px uppercase, which reads as a system label rather than the name of the
- * thing in the window. A note's title is content the user wrote, and chrome that shouts it back
- * in small caps makes the window feel like a panel in a tool rather than a page.
- */
+  /* Window titles use sentence case at content-reading size. */
   [data-slot="window-title"] {
     font-size: 11px;
     font-weight: 500;
@@ -494,13 +222,7 @@
     text-transform: none;
   }
 
-  /*
- * The command launcher, on Polkadot's material.
- *
- * `ui` gives the structure; the look belongs here, the same split the window chrome uses. The
- * panel is a raised surface with the specular hairline and the deepest lift, so it reads as an
- * object in front of the canvas rather than a card drawn on it.
- */
+  /* The command dialog uses the raised-surface treatment. */
   [data-slot="dialog-content"]:has([data-slot="command"]) {
     background: var(--surface-raised);
     border-radius: 14px;
@@ -513,7 +235,7 @@
     background: oklch(0.09 0.006 265 / 0.55);
   }
 
-  /* Separation by light, not a rule: the list sits on a faintly darker ground than the input. */
+  /* The list uses light and shade instead of a border. */
   [data-slot="command-list"] {
     background: oklch(0 0 0 / 0.12);
     box-shadow: inset 0 1px 0 0 var(--edge-light);
@@ -524,10 +246,7 @@
     box-shadow: inset 0 1px 0 0 var(--edge-light);
   }
 
-  /*
- * The selected row is the accent's job. A row that is merely a lighter grey makes the user hunt
- * for where Enter will land.
- */
+  /* The accent marks the selected command row. */
   [data-slot="command-item"][data-selected="true"] {
     background: var(--accent-wash);
   }
@@ -537,58 +256,22 @@
     color: var(--primary-foreground);
   }
 
-  /*
- * A note names itself, and so does a link.
- *
- * The note body's first field is the title, and the chrome was printing the same string again
- * sixty pixels above it. Two treatments of one value is a header labelling the note from outside;
- * hiding it leaves a slim bar that belongs to the note, which is what the header should be.
- *
- * The link card arrived with the same fault and it was worse there: a card is 200px tall because
- * the semantic-LOD floor makes it so, and spending its widest line on a string already printed in
- * the header wastes the one thing the card is short of.
- *
- * Hidden, not removed: `window.title` still carries the name for the far-zoom summary and the
- * window's accessible name, and each kind's body keeps it in step with the record.
- */
+  /* The body shows the title. Window metadata supplies the accessible name. */
   [data-slot="window"]:is([data-kind="note"], [data-kind="link"]) [data-slot="window-title"] {
     display: none;
   }
 
-  /*
- * The framework's header is `justify-content: space-between`, which pushes the title left and the
- * controls right. With the title hidden that leaves one child, and space-between parks a lone
- * child at the *start* — so the header has to say where its single child belongs.
- *
- * **This rule did nothing at all until 2026-08-26, and the reason is worth keeping.** The
- * framework wrote `justify-content` into the header's inline style, which no stylesheet rule can
- * outrank in any layer, so every note had shown its window controls on the left since the day the
- * title was hidden. Nobody noticed, because controls on the left is a layout rather than a break —
- * it was found by measuring a computed value against its declaration, not by looking.
- *
- * It works now because the framework moved that one property into `theme.css`, keeping geometry
- * inline and letting appearance be reachable. Verified as a computed value rather than a present
- * declaration, which is the only check that would have caught the original: `flex-end`, with the
- * controls 12px off the right edge on both a note and a link.
- */
+  /* End alignment puts the sole header child at the right edge. */
   [data-slot="window"]:is([data-kind="note"], [data-kind="link"]) [data-slot="window-header"] {
     justify-content: flex-end;
   }
 
-  /* The active window lifts further and picks up the specular, like the shell's rails. */
+  /* The active window uses the highest surface elevation. */
   [data-slot="window"][data-active] {
     --icx-surface-shadow: inset 0 1px 0 0 var(--edge-light), var(--lift-3);
   }
 
-  /*
- * The dock: where a minimized note waits.
- *
- * The framework draws it as bare buttons and leaves every visual decision here, which is the right
- * split — but left unstyled it rendered as two words of text lying directly on the canvas,
- * belonging to nothing. It is the same kind of object as the identity rail and the zoom controls,
- * so it is the same material: one floating pill holding its items, a layered shadow, a specular
- * hairline along the top edge, and no outline anywhere.
- */
+  /* The dock uses the floating-panel treatment. */
   [data-slot="hud-dock"] {
     padding: 4px;
     border-radius: var(--radius-pill);
@@ -598,10 +281,7 @@
       var(--lift-2);
   }
 
-  /*
- * A minimized note reads as put away, not as a button competing with the canvas: no fill at rest,
- * and the surface arrives under the pointer — the same rule the window controls follow.
- */
+  /* Dock items add a surface only during pointer interaction. */
   [data-slot="hud-dock-item"] {
     max-width: 12rem;
     padding: 6px 12px;
@@ -645,30 +325,10 @@
     background: var(--ground);
     color: var(--ink);
     font-family: var(--font-sans);
-    /* Optical, not decorative: it removes the mechanical evenness of default hinting. */
+    /* Font smoothing reduces uneven glyph edges. */
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
   }
 
-  /*
- * No form-control font reset here, and its absence is the fix rather than an omission.
- *
- * This file ended with an unlayered `button, input, textarea { font: inherit }`. It reads like the
- * most ordinary reset there is, and it silently killed every font-size and font-weight utility on
- * every button, input and textarea in the app: **unlayered styles beat every layered style**, so
- * one bare selector outranked all of `@layer utilities` declared at the top of this file.
- *
- * What that cost: the note's title is `text-[15px] font-medium`, and it rendered at 16px/400 — the
- * document default, inherited. The class was on the element and the rule was generated; it simply
- * never won. Nothing errored, nothing looked obviously broken, and every typography utility on a
- * form control in this app was dead.
- *
- * Deleting rather than moving it into `@layer base`, because Tailwind's preflight already declares
- * `font: inherit` on exactly this set — plus `select`, `optgroup` and `::file-selector-button` —
- * and does it *in* `@layer base`, where utilities can beat it. Keeping a second copy would be two
- * places saying one thing, with the layered one always losing to whichever copy drifted.
- *
- * The rule for anything added below: a document-level reset belongs in a layer. An unlayered
- * selector in this file outranks the entire utility system.
- */
+  /* Keep document resets in a layer below utilities. */
 }

@@ -6,15 +6,6 @@ import type { ContentItemRecord, ContentRelation } from "../database/database.cl
 import { describeProjectContent } from "./describe-content";
 import type { ProjectContent } from "./project-content";
 
-/**
- * The listing a caller cannot get any other way.
- *
- * `describeCanvas` reports what is open; a record whose window was closed still exists and is
- * invisible to everything except the library rail. The distinction this file guards hardest is
- * "not loaded" against "empty", because collapsing them tells a caller the project holds nothing
- * while the first query is still in flight — and that is a lie it would act on.
- */
-
 const item = (id: string, kind: string, title: string) =>
   ({ archived: false, id, kind, projectId: "project-1", title }) as unknown as ContentItemRecord;
 
@@ -57,8 +48,6 @@ test("nothing loaded yet is not the same answer as an empty project", () => {
 });
 
 test("a listing belonging to another project reads as not loaded, never as that project's", () => {
-  // The guard `project-content` carries for exactly this: mid-navigation, the held listing is the
-  // previous project's, and reporting it would attribute one project's contents to another.
   expect(
     describeProjectContent({
       listing,
@@ -82,8 +71,6 @@ test("every item is named by kind and title", () => {
 });
 
 test("every item carries the id that content.open takes, or the listing cannot be ordered from", () => {
-  // Titles do not distinguish stored items — five "Untitled" notes are ordinary — so the id is
-  // the only handle that names one item. A listing without it is a catalogue with no order form.
   const described = describeProjectContent({
     listing,
     projectId: "project-1",
@@ -96,7 +83,6 @@ test("every item carries the id that content.open takes, or the listing cannot b
 });
 
 test("items already on the canvas are marked, and the rest are counted", () => {
-  // The actionable number: what is closed is what a caller might want to open.
   const described = describeProjectContent({
     listing,
     projectId: "project-1",
@@ -109,13 +95,6 @@ test("items already on the canvas are marked, and the rest are counted", () => {
   expect(described).toContain("2 item(s), 1 not open");
 });
 
-/**
- * How the project is joined, which was readable only by looking at the lines.
- *
- * On a canvas whose point is relating things, the connections are most of the content — and a
- * caller that cannot see the screen was told every item and nothing about any edge between them.
- */
-
 const relation = (source: string, target: string, kind: string, label?: string) =>
   ({ id: `${source}-${target}`, kind, label, source, target }) as ContentRelation;
 
@@ -123,18 +102,10 @@ const describeWith = (relations: readonly ContentRelation[]) =>
   describeProjectContent({ listing, projectId: "project-1", relations, state: stateShowing([]) });
 
 test("a project with no edges says so, rather than saying nothing about edges", () => {
-  // Silence reads as "this report does not cover connections". "No connections" is a fact.
   expect(describeWith([])).toContain("No connections.");
 });
 
 test("edges that have not loaded are not reported as no edges", () => {
-  /*
-   * The same distinction this file guards for the listing, which the edges had collapsed.
-   * `relations$` holds `[]` before its first query lands as well as when a project has none — right
-   * for a connector layer, which the next frame corrects, and a lie in a sentence. `loadRelations`
-   * runs from an effect and nothing awaits it, so a caller asking straight after opening a project
-   * is inside that window.
-   */
   const described = describeProjectContent({
     listing,
     projectId: "project-1",
@@ -155,8 +126,7 @@ test("a connection names both ends by the handle content.open takes", () => {
 });
 
 test("the stored order is kept, because the kinds are not symmetric", () => {
-  // "supports" read backwards is a different claim about the same two items. `findRelation` is
-  // undirected so a pair cannot be joined twice; that is about identity, not about meaning.
+  // Relation meaning follows the stored source and target order.
   expect(describeWith([relation("two", "one", "supports")])).toContain(
     '"swatch.png" [two] supports "Quarterly notes" [one]',
   );
@@ -169,27 +139,15 @@ test("a written label wins over the kind, the way the drawn connector reads it",
 });
 
 test("the default kind is named rather than hidden", () => {
-  /*
-   * `getRelationLabel` drops "relates" because an unlabelled line already says it on screen. A
-   * reader with no line has nothing to infer it from, so the report says the word — otherwise the
-   * most common kind of connection is the one a caller cannot tell the meaning of.
-   */
   expect(describeWith([relation("one", "two", "relates")])).toContain("[one] relates ");
 });
 
 test("an edge to something the listing does not hold is still reported", () => {
-  // Dropping it would under-report the project. A half-resolved edge is a fact worth surfacing.
   const described = describeWith([relation("one", "gone", "refines")]);
 
   expect(described).toContain('"Quarterly notes" [one] refines [gone]');
 });
 
-/**
- * Which connection is selected, which `canvas.describe` says one is and cannot say.
- *
- * A connector fills `selection.targets` and leaves `windowIds` empty, so the canvas report counts
- * them and points here. The pair that names an edge lives in this report, so the mark does too.
- */
 const stateSelecting = (relationId: string) =>
   createInfiniteCanvasState<WindowKind>({
     selection: {
@@ -216,6 +174,5 @@ test("the selected connection is marked, and only that one", () => {
 });
 
 test("nothing selected marks nothing, rather than saying so on every line", () => {
-  // The longer report of the two; "not selected" on every edge is the same fact spelled out N times.
   expect(describeWith([relation("one", "two", "supports")])).not.toContain("selected");
 });

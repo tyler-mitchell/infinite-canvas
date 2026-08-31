@@ -1,18 +1,10 @@
 import type { SurrealCatalogue, SurrealTableDefinition } from "./catalogue.ts";
 import { getErrorMessage, type SurrealReader } from "./reads.ts";
 
-/**
- * Checks for damage a schema cannot prevent, because it happens after a valid write: a link whose
- * target was deleted, an edge with a missing end, a field made required over pre-existing rows.
- * None of this raises an error at write time or appears in `INFO`.
- *
- * A check that cannot run is reported as a gap rather than a pass, so an empty findings list means
- * the checks ran and found nothing.
- */
+/** This module finds post-write data errors that schema checks cannot prevent. */
 
 type SurrealIntegrityCheck = "broken-edge" | "dangling-link" | "missing-required";
 
-/** Maximum offender ids read back per check. `truncated` indicates more exist. */
 const OFFENDER_LIMIT = 20;
 
 type SurrealIntegrityFinding = Readonly<{
@@ -20,7 +12,6 @@ type SurrealIntegrityFinding = Readonly<{
   detail: string;
   offenders: readonly string[];
   table: string;
-  /** More offenders exist than were read back. */
   truncated: boolean;
 }>;
 
@@ -34,10 +25,10 @@ type SurrealIntegrityGap = Readonly<{
 type SurrealIntegrityReport = Readonly<{
   checked: number;
   findings: readonly SurrealIntegrityFinding[];
+  /** Checks that did not run. */
   gaps: readonly SurrealIntegrityGap[];
 }>;
 
-/** A check to run, or one already determined to be unrunnable. */
 type PlannedCheck =
   | Readonly<{
       check: SurrealIntegrityCheck;
@@ -54,32 +45,21 @@ type PlannedCheck =
       table: string;
     }>;
 
-/**
- * The only field shape safe to place in a `WHERE` clause. `INFO … STRUCTURE` reports nested fields
- * by path (`content.text`, `tags[*]`), which is not an identifier: escaping the whole path looks
- * for a field of that literal name, and splicing it raw allows injection. Anything else is a gap.
- */
+/** Only plain field names are safe in generated `WHERE` clauses. */
 const PLAIN_NAME = /^[A-Za-z_][A-Za-z0-9_]*$/u;
 
-/** Engine-owned fields. `id` always exists; `in` and `out` are covered by the edge check. */
+/** SurrealDB owns `id`. Edge checks cover `in` and `out`. */
 const RESERVED_FIELDS = new Set(["id", "in", "out"]);
 
 function isLink(kind: string | null) {
   return kind !== null && kind.includes("record<");
 }
 
-/**
- * The engine reports canonical types, not SurQL shorthand: `TYPE option<string>` comes back as
- * `none | string`. Testing only for `option<` treats every optional field as required and reports
- * a finding against each one.
- */
+/** `INFO` can report `option<T>` as `none | T`. */
 function isOptional(kind: string | null) {
   return kind === null || kind.startsWith("option<") || /(?:^|\|)\s*none\s*(?:\||$)/u.test(kind);
 }
 
-/**
- * Finds links pointing at deleted records: the field is set, but its `.id` dereferences to `NONE`.
- */
 function planLinkChecks(table: SurrealTableDefinition): readonly PlannedCheck[] {
   return table.fields
     .filter((field) => isLink(field.kind) && !RESERVED_FIELDS.has(field.name))
@@ -102,7 +82,6 @@ function planLinkChecks(table: SurrealTableDefinition): readonly PlannedCheck[] 
     );
 }
 
-/** Finds relation records whose `in` or `out` target no longer exists. */
 function planEdgeChecks(table: SurrealTableDefinition): readonly PlannedCheck[] {
   return table.isRelation
     ? [
@@ -118,10 +97,7 @@ function planEdgeChecks(table: SurrealTableDefinition): readonly PlannedCheck[] 
     : [];
 }
 
-/**
- * Finds records missing a non-optional field. Writes are type-enforced, so this only matches rows
- * written before the field was declared.
- */
+/** This check finds rows written before a required field existed. */
 function planRequiredChecks(table: SurrealTableDefinition): readonly PlannedCheck[] {
   return table.fields
     .filter(
@@ -137,7 +113,6 @@ function planRequiredChecks(table: SurrealTableDefinition): readonly PlannedChec
     }));
 }
 
-/** Returns a finding if there are offenders, a gap if the query failed, nothing if it passed. */
 async function runCheck(
   reader: SurrealReader,
   planned: Extract<PlannedCheck, { plan: "run" }>,
@@ -150,7 +125,7 @@ async function runCheck(
       table: planned.table,
     });
     const rows = Array.isArray(result) ? (result as readonly unknown[]) : [];
-    // `SELECT VALUE id` through `.json()` is a list of record ids already in string form.
+    // `SELECT VALUE id` returns string record IDs through `.json()`.
     const offenders = rows
       .slice(0, OFFENDER_LIMIT)
       .map((row) => (typeof row === "string" ? row : (JSON.stringify(row) ?? "")));

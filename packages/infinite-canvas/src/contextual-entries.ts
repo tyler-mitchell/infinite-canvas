@@ -10,32 +10,20 @@ import type {
   InfiniteCanvasZoomPolicy,
 } from "./types";
 
-/** One list holding the canvas's verbs and the consumer's, each already bound to run. */
+/** One bound list of canvas commands and consumer actions. */
 type InfiniteCanvasContextualEntry = Readonly<{
   description: string;
   enabled: boolean;
-  /** Absent on a consumer verb: the five groups are the framework's own taxonomy. */
+  /** Canvas command group. Consumer actions have no group. */
   group?: InfiniteCanvasCommandGroup;
   hotkeys: readonly RegisterableHotkey[];
   id: string;
   label: string;
-  /**
-   * Carries the consumer verb's promise through, when it has one.
-   *
-   * A canvas command routes through the reducer and is finished when it returns, so this is `void`
-   * for every framework entry. A consumer verb may be a write, and a caller reporting "done" has to
-   * be able to wait for it — see `InfiniteCanvasHotkeyAction.run`.
-   */
+  /** Returns a consumer action promise when the action supplies one. */
   run: () => Promise<void> | void;
 }>;
 
-/**
- * A consumer verb sharing an id replaces the canvas command. Overriding is deliberate.
- *
- * Takes the dispatcher so a caller never decides how to invoke: a canvas verb routes through the
- * reducer and a consumer verb does not, and that is this function's to know rather than every
- * surface's to branch on.
- */
+/** Binds commands and actions. An action with the same id overrides a command. */
 function getInfiniteCanvasContextualEntries<Kind extends string>(
   state: InfiniteCanvasState<Kind>,
   options: Readonly<{
@@ -74,8 +62,7 @@ function getInfiniteCanvasContextualEntries<Kind extends string>(
       hotkeys: action.hotkeys,
       id: action.id,
       label: action.label,
-      // Returned rather than discarded: this is the only place the consumer's promise can reach a
-      // caller, and dropping it here would make the widened return type unobservable.
+      // Preserve action promises for callers that track completion.
       run: () => action.run(state),
     })),
   ];

@@ -1,57 +1,26 @@
 # Compositor proof of concept
 
-Throwaway. Imports nothing from `@hyphened/infinite-canvas`, and nothing here is
-meant to survive except an answer and a number.
+This throwaway application measures the [compositor design](../../docs/compositor.md).
+It imports nothing from `@hyphened/infinite-canvas`.
 
-## The question
+[The TypeGPU spike](../polkadot/SPIKES.md) already proves that the field shader compiles and creates a pipeline on a real device.
+This application asks whether textured quads and full-screen passes can support the window workload.
 
-Not "can TypeGPU draw" — [the spike](../polkadot/SPIKES.md) already settled that
-the field's shader compiles to correct WGSL and creates a pipeline against a real
-device.
+The application exposes these measurement controls:
 
-The question is the one that decides whether the compositor in
-[`docs/compositor.md`](../../docs/compositor.md) is the right shape at all:
+| Query          | Measurement                         |
+| -------------- | ----------------------------------- |
+| `?html=1`      | snapdom capture                     |
+| `?native=1`    | native HTML capture                 |
+| `?dirty=N`     | Incremental capture of N windows    |
+| `?overdraw=1`  | Full-screen overdraw                |
+| `?emptypass=1` | Material passes with zero instances |
 
-> **Is the workload really textured quads and full-screen passes?**
+## Geometry
 
-If drawing window proxies at a count that hurts — with real per-window textures,
-a camera, and culling — needs something a scene graph provides, then `three` is
-load-bearing after all and the plan is wrong. Better to find that here than
-halfway through replacing a surface the framework ships.
-
-## What it has to answer
-
-1. **Frames at a window count that hurts.** Not 8 windows. Hundreds, then
-   thousands, until it breaks — and _what_ breaks: draw calls, fill rate, or
-   texture memory.
-2. **Whether one instanced draw is enough.** If every quad can be one instance
-   reading its rect from a storage buffer, there is no scene graph to miss. If
-   per-window state forces a draw call each, that is the finding.
-3. **What HTML-derived textures cost.** A window's pixels come from capture.
-   Upload bandwidth and re-capture cadence are the parts a shader benchmark
-   cannot fake.
-
-Question 3 is deliberately last: 1 and 2 can invalidate the whole approach on
-their own, and cost less to answer.
-
-## What it is allowed to be
-
-Ugly, hard-coded, and deleted. No abstraction earned by anything other than the
-measurement.
-
-The geometry results below were taken with no React at all, deliberately: a
-reconciler driving GPU objects is the thing being removed, so those numbers had
-to stand without one. React arrived later for the opposite end of the pipe — it
-renders the source DOM that gets captured, which is the job React has always had
-and the one the real app needs. The two never meet.
-
-## Result — question 2 answered, question 1 answered for geometry
-
-**One instanced draw is enough, by three orders of magnitude.**
-
-Apple GPU (`metal-3`), Chrome 151, one `draw(6, n)` per frame, rects read from a
-readonly storage buffer by `$instanceIndex`, **every quad sampling its own layer
-of a texture array**:
+The geometry test uses an Apple GPU with `metal-3` and Chrome 151.
+Each frame uses one `draw(6, n)` call.
+Each quad reads its rectangle through `$instanceIndex` and samples one texture-array layer.
 
 | quads   | draw calls | GPU time | samples | frame           |
 | ------- | ---------- | -------- | ------- | --------------- |
@@ -59,105 +28,52 @@ of a texture array**:
 | 100 000 | 1          | 1.180 ms | 99      | 8.3 ms (120fps) |
 | 500 000 | 1          | 1.638 ms | 1186    | 8.4 ms (119fps) |
 
-GPU time is a real timestamp query (`withPerformanceCallback`), not a frame
-delta. Frame time is pinned at the display's 120 Hz throughout, so it says only
-that nothing here comes close to the budget.
+GPU time comes from `withPerformanceCallback`.
+This callback uses GPU timestamp queries instead of frame deltas.
+The frame rate stayed at the display limit of 120 Hz.
+A zero GPU value means that no timestamp sample arrived.
 
-The sample column is there because it has already caught two mistakes. Early
-readings showed `0.000 ms` and were briefly written up as "the instrument broke
-when textures were added" — wrong twice over. The callback simply had not fired
-yet in the seconds before the screenshot; once warmed it fires freely, 1186 times
-at half a million quads. **A zero from this readout means no sample landed, never
-that a frame was free**, and the counter is what makes the difference visible
-rather than a matter of trust.
+The same tests without textures measured 0.131 ms for 20 000 quads and 0.918 ms for 100 000 quads.
+Texture sampling added little time to the geometry pass.
 
-For comparison, the same counts before textures were added measured 0.131 ms at
-20 000 and 0.918 ms at 100 000 — so sampling a per-window texture roughly doubles
-a cost that was already negligible.
+One instanced draw supports far more geometry than the expected window count.
+The compositor does not require a scene graph for this workload.
 
-### What this settles
+## Texture memory and upload
 
-A workbench has hundreds of windows, maybe low thousands. **Half a million
-textured quads cost 1.6 ms in a single draw call.** There is no scene graph to
-miss, and `three`'s contribution to this workload is zero — which is what the
-compositor plan assumed and had not proven.
+Each distinct window occupies one layer of a `texture_2d_array`.
+The upload measurement ends after `queue.onSubmittedWorkDone()`.
 
-## Result — question 3, and it inverts the picture
+| layers | size  | VRAM   | upload       | rate         |
+| ------ | ----- | ------ | ------------ | ------------ |
+| 64     | 256px | 16 MB  | Not measured | Not measured |
+| 256    | 512px | 256 MB | 131.2 ms     | 1951 MB/s    |
 
-**Texture residency is the binding constraint, and it binds three orders of
-magnitude earlier than geometry does.**
+`maxTextureArrayLayers` limits one array to 256 layers.
+The device limits a 2D texture to 8192².
+An 8192² atlas holds approximately 341 windows at 512×384.
 
-Each quad samples its own layer of a `texture_2d_array`, uploaded as one batched
-write and timed to `queue.onSubmittedWorkDone()` rather than to the enqueue call:
+Texture memory limits the canvas before geometry does.
+The resource manager must control `scale`, residency, and eviction.
+At 1951 MB/s, one 512² upload costs approximately 0.5 ms.
 
-| layers | size  | VRAM   | upload   | rate      |
-| ------ | ----- | ------ | -------- | --------- |
-| 64     | 256px | 16 MB  | —        | —         |
-| 256    | 512px | 256 MB | 131.2 ms | 1951 MB/s |
+## HTML capture
 
-And a hard wall sits right there: **`maxTextureArrayLayers` is 256.** An 8192²
-atlas — the largest 2D texture the device allows — holds only **341** windows at
-512×384.
-
-### What this settles
-
-Geometry was never going to be the problem. **256 windows cost 256 MB and 131 ms
-of upload; 100 000 quads cost 0.9 ms of draw.** So the compositor's hard parts are
-not the ones the plan was worrying about:
-
-- **A single texture array cannot hold a canvas.** Past 256 windows it is
-  multiple arrays, an atlas, or both — and an atlas caps out around 341 at
-  readable resolution.
-- **Residency has to be managed.** Windows far from the camera need smaller
-  textures or none; offscreen windows need to give theirs back. This is what a
-  browser compositor does with tiles, and it is not optional here.
-- **Re-capture has a budget.** At 1951 MB/s, one 512² window costs about half a
-  millisecond to upload. That affords a couple of dozen re-captures per frame at
-  60 Hz, not hundreds — so capture cadence is a scheduling problem, not a
-  fire-and-forget one.
-
-None of that argues against the compositor. It argues that the interesting design
-work is the **resource** half of the contract — `scale`, residency, eviction —
-rather than the pass ordering, which was the easy part to write down.
-
-## Result — real HTML capture, and it dwarfs everything else
-
-`?html=1` rasterises an actual DOM subtree per window — a styled note with a
-heading, paragraphs and a list, laid out by the browser — instead of painting
-shapes. The heading is mutated per layer so nothing can be cached away.
-
-**16.0 ms per window.**
-
-Which puts the whole pipeline in proportion, per window at 512²:
+The fallback path uses `?html=1` and snapdom.
+It rasterizes one styled DOM subtree for each window.
 
 | stage                           | cost per window |
 | ------------------------------- | --------------- |
 | **capture** (snapdom, real DOM) | **16.0 ms**     |
 | upload (1 MB at ~1500 MB/s)     | ~0.7 ms         |
-| draw (amortised over 500 000)   | ~0.000003 ms    |
+| draw (amortized over 500 000)   | ~0.000003 ms    |
 
-Capture is **twenty times** the upload and six orders of magnitude past the draw.
-One window re-capture costs a whole frame at 60 Hz. Everything the earlier
-sections agonised over — instance counts, fill rate, even texture residency —
-is noise next to this.
+One snapdom capture consumes almost one 60 Hz frame.
+Content changes must trigger capture.
+The capture queue must coalesce changes.
 
-### What this changes
-
-- **Capture cadence is the design.** Re-capturing on a schedule is impossible;
-  it has to be event-driven, on actual content change, and coalesced. A window
-  being dragged must not re-capture at all — its texture is still valid, only its
-  transform changed, which is exactly what the compositor is for.
-- ~~**Live-editing a window cannot go through capture.**~~ **Wrong, and only ever
-  true of the fallback.** At snapdom's 16 ms a keystroke drops a frame, so this
-  file concluded the edited window had to stay real DOM floating above the
-  canvas. On the native lane a burst of thirty-six keystrokes costs 5.1 ms, and
-  text editing inside a captured window is measured working further down. The
-  hybrid may still be wanted for other reasons; this is no longer one of them.
-
-## Result — native html-in-canvas, measured
-
-`?native=1`, run in a Chrome that has the primitives. **TypeGPU's texture array with DOM written
-straight into it, one instanced draw.** No canvas backing store, no `ImageBitmap`, no upload step.
+The native path uses `?native=1`.
+It copies each direct DOM child to one TypeGPU texture-array layer.
 
 | path                                                 | per window  | upload   |
 | ---------------------------------------------------- | ----------- | -------- |
@@ -165,20 +81,16 @@ straight into it, one instanced draw.** No canvas backing store, no `ImageBitmap
 | native `drawElementImage` → `ImageBitmap` → `write`  | 4.10 ms     | +0.7 ms  |
 | **native `copyElementImageToTexture` → array layer** | **4.06 ms** | **none** |
 
-**Four times faster than the fallback, and the upload disappears.**
+The native copy removes the separate upload step.
+One layout canvas can host all window subtrees.
 
-### The 4 ms was mostly round trip, not rasterisation
+| arrangement                         | total        | per window  |
+| ----------------------------------- | ------------ | ----------- |
+| one paint cycle per window          | Not measured | 4.06 ms     |
+| **all 64 in one canvas, one paint** | 45 ms        | **0.70 ms** |
+| one window changed, one paint       | 3.70 ms      | 3.70 ms     |
 
-Those numbers give each window its own `requestPaint` → `paint` cycle. Hosting all 64 windows as
-siblings of **one** canvas and taking a single paint gives a very different shape:
-
-| arrangement                         | total   | per window  |
-| ----------------------------------- | ------- | ----------- |
-| one paint cycle per window          | —       | 4.06 ms     |
-| **all 64 in one canvas, one paint** | 45 ms   | **0.70 ms** |
-| one window changed, one paint       | 3.70 ms | 3.70 ms     |
-
-Which resolves into a straightforward cost model:
+The cost model is:
 
 ```
 paint round trip   ~3.0 ms   fixed, per paint — not per window
@@ -186,39 +98,23 @@ rasterisation      ~0.7 ms   marginal, per window actually repainted
 transfer            0        copyElementImageToTexture — no upload step at all
 ```
 
-**So "the 4 ms is rasterisation" was wrong.** Rasterising a window is ~0.7 ms; the rest was paying
-a fixed round trip 64 times over. The design consequence inverts with it: do not paint per window,
-**coalesce every dirty window into one paint**. One dirty window costs 3.7 ms; twenty cost about
-`3 + 20 × 0.7 ≈ 17 ms`. The fixed cost is the thing to amortise, and batching is what amortises it.
+The fixed paint round trip dominates a small batch.
+One coalesced paint amortizes that cost across all dirty windows.
 
-### `changedElements` narrows exactly
-
-`?dirty=N` edits N of the 64 windows and takes one paint. The event reported the dirty count every
-single time — **1, 5, 20, 64** — never more, never fewer. The browser scopes invalidation precisely,
-so a compositor must not keep its own dirty set; the engine already has one and hands it over.
-
-### The budget, measured across the curve
+`?dirty=N` edits N windows before one paint.
+The `changedElements` event reported exactly 1, 5, 20, and 64 dirty elements in the measured tests.
 
 | dirty windows | one coalesced paint | per window | fits in a 60 Hz frame? |
 | ------------- | ------------------- | ---------- | ---------------------- |
 | 1             | 3.70 ms             | 3.70 ms    | yes                    |
 | 5             | 9.00 ms             | 1.80 ms    | yes                    |
 | 20            | 11.20 ms            | 0.56 ms    | yes                    |
-| 64            | 32.30 ms            | 0.50 ms    | no — about two frames  |
+| 64            | 32.30 ms            | 0.50 ms    | no, about two frames   |
 
-**Roughly twenty windows can be re-captured inside a single 60 Hz frame.** Past about thirty the
-budget is gone and the work has to spread across frames, which is what makes this a scheduler
-rather than a policy.
+The earlier `all 64` control included first layout and cold-start noise.
+The `?dirty=N` rows record steady-state work.
 
-The marginal cost keeps falling as the batch grows — 3.70 ms for one, 0.50 ms each for
-sixty-four — which is the fixed round trip being amortised, and the reason coalescing is the whole
-design.
-
-> **The "all 64" control is noisy and should not be quoted.** Across runs it read 43, 88 and 67 ms
-> for identical work, because it includes first layout and a cold start. The `dirty` rows are
-> steady-state and are the ones to trust.
-
-### What the API actually requires
+The native API call is:
 
 ```ts
 queue.copyElementImageToTexture(
@@ -227,106 +123,46 @@ queue.copyElementImageToTexture(
 );
 ```
 
-Learned by probing rather than from docs, because both constraints are load-bearing:
+The source element must be an immediate child of a `layoutsubtree` canvas.
+The canvas must also have a rendering context.
+The copy otherwise fails with "containing canvas does not have a rendering context".
 
-- **The element must be an immediate child of a `layoutsubtree` canvas.** The error says so
-  outright. But this is a _layout_ requirement, not a texture one — **one canvas can host every
-  window's subtree**, each copying into its own array layer. This corrects an earlier note in this
-  file: the native lane does **not** force one canvas per window. The `CanvasTexture` route does;
-  this route does not.
-- **That canvas needs a rendering context** even though nothing is ever drawn into it, or the copy
-  fails with "containing canvas does not have a rendering context". It is a layout host that still
-  has to be a canvas.
+## Fill rate
 
-### Why the fallback is not the plan
+`?overdraw=1` places every quad over the visible world and writes each fragment `n` times.
+Fifty full-screen textured layers measured 0.240 ms.
+Fill rate stayed below the frame budget in this test.
 
-snapdom was a baseline, not a candidate — it existed here to establish that the native path is
-worth having, which at 4× it is. Nothing in the compositor design should be shaped around it.
+## Interaction
 
-## Result — fill rate
+The compositor converts a screen point to world space and searches the quads in draw order.
+The last matching quad is the visible target.
+The compositor then maps the point to the source element box.
 
-`?overdraw=1` stacks every quad over the whole visible world, so each is drawn full-viewport and
-every fragment is written `n` times. Fifty layers of full-screen textured overdraw:
+This CPU hit test is exact for the current flat affine surface.
+A deformed surface requires a different picking method.
 
-**0.240 ms.**
-
-Fill is not a constraint either. Both halves of the geometry question are now answered and neither
-is anywhere near the budget.
-
-## Result — interaction, and this is the finding that matters most
-
-A captured window is a texture. What decides whether this is a **compositor** or a gallery of
-screenshots is whether a pointer reaches the DOM that made it.
-
-It does. Hovering a button inside a captured window lights it up; clicking it flips its state, and
-the change shows up on the canvas:
+`document.elementFromPoint` cannot find children of a `layoutsubtree` canvas.
+The source subtree must stay attached because `getBoundingClientRect` supplies its control boxes.
 
 | interaction                 | hit-test → DOM change → paint → copy |
 | --------------------------- | ------------------------------------ |
 | hover enter / leave         | 2.50 ms                              |
 | click (state + text change) | 4.10 ms                              |
 
-Both sit inside a 60 Hz frame, and both are the _entire_ round trip, timed to
-`queue.onSubmittedWorkDone()` rather than to the enqueue call.
+The compositor dispatches a real `MouseEvent` after hit testing.
+The event reaches the delegated React listener.
+The React component owns the state change.
 
-### Picking needs no GPU pass
+The compositor calls `focus()` for a captured field.
+The platform then owns keystrokes, selection, and IME input.
+The captured pixels include the caret.
 
-The surface is flat and the camera transform affine, so inverting it on the CPU is exact: screen
-point → world point → which quad (last match wins, since later instances draw over earlier) → local
-pixel via the quad's UV × `textureSize`. No ID buffer, no readback, no extra pass. A _deforming_
-surface would need one; a flat one never does.
+The browser focus ring is outside the captured page pixels.
+CSS on the source element supplies the focus ring.
+The caret blink also requires periodic capture or a compositor caret.
 
-### `elementFromPoint` cannot see into a `layoutsubtree` canvas
-
-The first attempt routed the hit through `document.elementFromPoint`, which returned nothing —
-consistently, for every point inside every captured window. Children of a `layoutsubtree` canvas are
-laid out and painted by that canvas rather than composited into the page's normal hit-test tree.
-
-**So the compositor owns hit-testing.** It already has the window rects; what it additionally needs
-is each window's _interior_ geometry, and that comes from `getBoundingClientRect` on the source
-elements — free and exact, precisely because the browser really did lay them out.
-
-Two consequences, both architectural:
-
-- **The source subtree must stay attached and laid out.** Detaching the layout host after the first
-  capture looked harmless and silently broke everything downstream: no layout means
-  `getBoundingClientRect` reports zeros, so every control's box collapsed to a point and no click
-  could ever land. It is parked behind the opaque surface instead.
-- **Hover cannot come from CSS.** The source DOM is never under the user's pointer — the pointer is
-  over the WebGPU canvas the whole time — so `:hover` can never fire on it. The compositor resolves
-  what is under the pointer, marks it on the source element, and repaints. That is why hover appears
-  in the table above as a measurable cost at all.
-
-The same reasoning rules out **CSS transitions and animations inside a captured window**: a captured
-surface only advances when it is repainted, so an animated state freezes at whatever frame the paint
-happened to catch. Motion on the canvas belongs to the shader, not to the captured pixels.
-
-### Text editing works, and the caret survives capture
-
-Clicking a text field inside a captured window focuses it, typing reaches it, and the characters
-appear on the canvas — **including the caret**, which is in the captured pixels rather than drawn
-over them.
-
-The compositor's whole contribution is deciding _which_ field. After `focus()`, keystrokes,
-selection and IME are the platform's, through channels the compositor never touches. This is the
-part that could most easily have been a wall and is not one.
-
-Two things it does have to own, and both are the same shape of problem:
-
-- **The focus ring.** Browsers paint focus rings on their own compositor, above the page, so a
-  capture does not contain one. It has to be drawn in CSS on the source element.
-- **The caret's blink.** The caret is captured, but a captured surface only advances when it is
-  repainted — so between keystrokes the blink freezes at whatever phase the last paint caught. An
-  idle focused field needs either a repaint tick of its own or a caret the compositor draws.
-
-### Per-event capture does not work; per-flush coalescing does
-
-The first version repainted per interaction and measured **15.9 ms a keystroke** against 4.2 ms for
-a single paint — fast typing put several paints in flight and each waited behind the last. Same
-fixed round trip this file already identified, arriving through a door nobody was watching.
-
-The fix is not a fixed cadence. While a paint is in flight, further changes only mark layers dirty;
-when it lands, one more paint covers everything that accumulated:
+The capture queue coalesces input events while one paint is active.
 
 | interaction         | coalesced cost                    |
 | ------------------- | --------------------------------- |
@@ -334,17 +170,8 @@ when it lands, one more paint covers everything that accumulated:
 | click               | 4.10 ms (1 event → 1 layer)       |
 | **typing burst**    | **5.10 ms (36 events → 1 layer)** |
 
-**Thirty-six keystrokes for the price of one paint.** Capture rate self-tunes to whatever the
-pipeline can sustain, so cost is bounded by the paint rate rather than the event rate — which is
-what makes input cost independent of how fast the user is.
-
-## Result — React renders the windows, and owns their state
-
-Every window is now a real React component with real `useState`. One root renders straight _into_
-the layout canvas, so each `.note` is still an immediate child and the layout rule holds unchanged.
-`flushSync` on mount, because the elements have to exist before the first paint is asked for.
-
-The loop closes: **state → render → browser paint → GPU texture.**
+One React root renders each `.note` as a direct child of the layout canvas.
+`flushSync` commits those children before the first paint request.
 
 | interaction  | React                       | static HTML (before) |
 | ------------ | --------------------------- | -------------------- |
@@ -352,63 +179,24 @@ The loop closes: **state → render → browser paint → GPU texture.**
 | click        | 5.40 ms (1 → 1)             | 4.10 ms              |
 | typing burst | **9.90 ms (31 → 1)**        | 5.10 ms              |
 
-React roughly doubles the coalesced cost and stays comfortably inside a frame. The typed text and
-the character count both appear on the canvas, and the count is the tell — it is rendered from
-state, so a controlled input echoing keystrokes could not produce it.
+The controlled input and its character count both update on the canvas.
+This result proves the path from React state to the GPU texture.
 
-### The compositor dispatches events; it does not set state
+## Content signatures
 
-The click handler resolves which element the pointer landed on and then dispatches a **real**
-`MouseEvent`, which bubbles to React's delegated listener on the root container exactly as a click
-on an ordinary page would. The component's own handler runs and the component decides what happens.
+The compute pass samples a 24×24 grid from each texture layer.
+It writes the content color, ink density, ground color, and eight horizontal density bands.
 
-This is the boundary the whole architecture rests on. Synthesising the state change instead would
-have made the compositor a second authority over window content, and every window in the app would
-then have to be written expecting one. As it stands, `Note` does not know it is being captured —
-which is the only version of this that survives contact with a real codebase.
+The frame uses this order:
 
-Focus works the same way: the compositor calls `focus()` and stops. Keystrokes, selection and IME
-reach the field through the platform's own channels with nothing of ours in the path.
+1. `analyse` writes one signature for each window.
+2. `light` draws one additive light quad for each window.
+3. `windows` draws captured window pixels over the light.
 
-## Result — the canvas reads its own content, and is lit by it
+The light color and range come from captured pixels.
+Content changes alter the light without a state mirror or event channel.
 
-Every window's captured pixels live in one texture array, which means a compute pass can look at all
-of them at once. **This is the thing nothing else in a UI stack can do.** The DOM cannot see its own
-rasterisation. A renderer that only draws cannot see what it drew. Here the pixels are just memory,
-and reading them is a dispatch.
-
-Three passes now, in the order `docs/compositor.md` describes:
-
-1. **analyse** — one invocation per window samples a 24×24 grid of its layer and writes a signature:
-   the colour of its content, and how much ink is on it.
-2. **light** — one additive instanced quad per window, coloured and sized by that signature.
-3. **draw** — the windows, over the light.
-
-### It responds to content, not to events
-
-Clicking **Mark as done** turns a note's button into a large block of its accent colour. Nothing
-tells the light field this happened:
-
-|          | measured ink | the space around it                 |
-| -------- | ------------ | ----------------------------------- |
-| open     | 0.86         | dim, neutral                        |
-| **done** | **1.26**     | **blooms in the note's own accent** |
-
-The compositor dispatched a click, React re-rendered, the browser repainted, the copy landed in the
-texture layer, and the _next frame's compute pass saw different pixels_. No event bus, no state
-mirror, no invalidation to get wrong. The light is downstream of the pixels the way a photograph is
-downstream of a room.
-
-### Why this is practical and not an effect
-
-At a zoom where no text is legible, the lit regions are where the substance is. A canvas of hundreds
-of windows reads as a map instead of a field of grey rectangles, and it does so without anyone
-tagging, ranking or describing anything. The measurement is of the thing itself.
-
-### Cost
-
-Every pass carries its own timestamp query now, so this is per-pass rather than one number for the
-frame. Twelve windows, six textures, three materials, median of the last ninety samples:
+Twelve windows, six textures, and three materials produced these 90-sample medians:
 
 | pass        | median GPU       |
 | ----------- | ---------------- |
@@ -420,190 +208,63 @@ frame. Twelve windows, six textures, three materials, median of the last ninety 
 | sheen       | 0.013–0.084 ms   |
 | **total**   | **0.35–0.44 ms** |
 
-**This corrects two things written above.**
+The analysis pass costs more than each render pass in this sample.
+It runs every frame at this time.
+With reliable invalidation, capture-time analysis can recover approximately 0.138 ms.
 
-~~"A cost too small to find."~~ The analyse pass is the **single most expensive pass on the canvas**
-— more than the windows whose pixels it reads, more than any material. 0.138 ms every frame for
-work that only changes when a capture lands. The invalidation-bug argument for running it
-unconditionally still holds, but it is now a trade with a price on it rather than a free lunch, and
-running it on capture instead would give back about 3% of a 120 Hz frame.
+## Semantic zoom
 
-~~"Adding both moved the frame budget by nothing detectable."~~ True, and useless. Frame time is
-pinned by the display; a pass costing nothing and a pass costing half a millisecond look identical
-through that lens. The whole GPU cost of this canvas is **0.35–0.44 ms**, and now each part of it is
-attributable.
+Each signature stores ink density in eight horizontal bands.
+Below the legibility limit, the shader uses those bands.
 
-### The material cost is the pass, not the shading
+The shader uses the window width on the screen as the input.
+It shows only measured bands below 70 device pixels.
+It shows captured pixels above 190 device pixels.
+It blends between the two limits.
 
-Materials measured more expensive than the windows they decorate, which was suspicious: a sheen over
-a button is a few thousand fragments and a window is a textured quad. `?emptypass=1` runs every
-material pass with **zero instances** — same passes, no work:
+The texture layer matches the 300×220 window aspect ratio.
+A square 512×512 layer distorted the window by 27% and left an unwritten band.
 
-| pass    | 12 instances | 0 instances |
-| ------- | ------------ | ----------- |
-| glass   | 0.063 ms     | 0.217 ms    |
-| edge    | 0.135 ms     | 0.128 ms    |
-| sheen   | 0.130 ms     | 0.107 ms    |
-| _total_ | _0.741 ms_   | _0.863 ms_  |
+## Component materials
 
-**A pass drawing nothing costs what a pass drawing twelve instances costs.** The shading is free;
-the overhead is the render pass itself — three passes on a 1428×941 target, each loading and storing
-the whole framebuffer. So "draw calls scale with materials, not components" is true and incomplete:
-**draw calls are cheap, passes are not**, and a material library should be one pass with pipeline
-switches inside it rather than a pass each.
+Each component is a UV rectangle inside one captured window layer.
+The compositor collects these rectangles during the source-geometry walk.
+It groups material instances into contiguous draw ranges.
 
-That is the next build, and it is now justified by a measurement rather than a hunch. TypeGPU
-supports it directly — `pipeline.with(pass).draw(...)`, or `pass.setPipeline()` then `pass.draw()`.
-The trade is that per-material timing goes away, since the pass becomes the unit that can be timed.
-
-**The medians are load-bearing.** Reporting the newest sample gave a ten-fold spread across runs of
-identical work — glass read 0.113, then 0.553, then 0.049 ms — because one GPU timestamp carries
-whatever else the device was doing that instant. One arbitrary sample out of twelve thousand looks
-exactly like data and is not, which is the same failure as the zero-reading documented further up.
-
-### Two calibration mistakes worth keeping
-
-Both were caught by putting the measured ink in the readout, which is the only reason it is there.
-
-- **The scale was seven times too small**, then three times too large. The first produced a glow
-  nobody could see; the second pinned every window at the ceiling so they all glowed identically.
-  Same failure, opposite sign.
-- **Weighting colour by presence alone reports near-white**, because a window's most common
-  non-background pixel is body text. Every window came back the same warm grey and the light could
-  only ever be a wash — the measurement was correct and the thing it measured was uniform. Cubing a
-  chroma weight lets the accents carry the hue, and each note got a real accent colour so there was
-  something true to find.
-
-- **Loud is not the same as good.** Corrected too far the other way and six accent colours became
-  raw red, green and blue — unmistakable, and cheap-looking. Then correcting _that_ dropped accent
-  chroma, saturation and brightness all at once and the light went nearly invisible. Three knobs
-  moved together cannot be read; the settled values sit between the two extremes, and the accents
-  themselves are deliberately modest because the light field amplifies whatever hue it finds.
-
-A third kind, in the instrument rather than the thing: the readback was gated on `frames.length % 30`,
-and that array caps at 90 — so it ran on every frame once warm and pushed a hover from 2.6 ms to
-26 ms. A measurement that changed what it measured.
-
-### Semantic zoom, from the window's own measured structure
-
-The signature also carries a profile: ink density across eight horizontal bands, so the canvas knows
-_where_ each window's rows of content are, not just how much there is.
-
-Shrinking real text below legibility does not degrade gracefully — it becomes grey noise, which is
-why every infinite canvas turns into a field of grey rectangles when you pull back. Far away, a
-window is drawn instead as its own ground banded with its own content colour at the densities really
-measured. Not a placeholder: a reduction of the thing itself.
-
-The blend is keyed on the window's **on-screen size**, not the camera's zoom — fully abstract under
-70 device pixels wide, fully real over 190. Zoom is the wrong signal: a large window at low zoom can
-still be legible while a small one at the same zoom is not, and legibility is what the abstraction
-stands in for.
-
-At zoom 0.13, a hundred windows read as a hundred documents with visible structure and identity. At
-0.9 they are their own pixels. Nothing switches; it crosses over.
-
-### The black band nobody had questioned
-
-Every window had a black strip under it from the first capture onward, and it read as a design
-choice. It was the note being 512 wide and whatever tall its content came to — around 215 — while
-its layer was square, so more than half of every texture was never written. A window's texture and a
-window's box are the same rectangle or the difference shows.
-
-Sizing the element from outside after mount fixed the band and forced a relayout that pushed a
-single-window repaint from 4 ms to **136 ms**. A window's own size belongs to the window: it is a
-prop now, and the repaint is back to 5.4 ms.
-
-### Why the fake tint had to go
-
-Each quad used to carry a `tint` that multiplied its captured pixels, left over from before there
-were textures at all. Once the signature pass started reporting the colour of a window's _content_,
-that tint was a lie: it changed what a window looked like without changing anything the compute pass
-could see, so the light and the window it came from disagreed. Windows carry their own accent now
-and the fragment returns the captured pixels untouched.
-
-## Result — shader materials on individual components
-
-A window is captured as one texture layer, and **every component inside it is a sub-rectangle of
-that layer**. That is the whole trick: no per-component texture, no second capture. A UV rect is the
-handle, and the compositor already computes those rects because it needs them to route a pointer
-into a captured window.
-
-So a component declares a material in its own markup:
+The original declaration probe used this markup:
 
 ```tsx
 <button className="note-action" data-radius="8" data-surface="sheen">
 ```
 
-The compositor collects it during the walk it was doing anyway, and one instanced draw per material
-paints every component that asked for it:
+The measured batch report was:
 
 ```
 surfaces   12 instances / 2 draws  (sheen 6, edge 6)
 ```
 
-**Draw calls scale with the size of the material library on screen, not with the number of
-components.** A thousand buttons sharing a material is one draw. Against 500 000 quads in a single
-draw measured further up, a few dozen materials is not a budget worth thinking about.
+The current implementation reads the corner radius from computed CSS.
+The component declares only `data-surface`.
 
-### Materials add light; they never replace pixels
+Additive materials preserve the captured pixels.
+Glass uses over blending only inside its refractive rim.
+Hover changes one float per instance and does not trigger capture.
 
-Additive blending, deliberately. If a material overwrote a component's rectangle the text inside it
-would vanish, so drawing over the captured pixels means text, layout and accessibility survive
-untouched and the GPU only contributes what the DOM cannot. Replacing would have to be opt-in.
+Material geometry follows content reflow because collection runs after each capture.
+The buffer reserves extra capacity and reports overflow in the readout.
 
-### Hover costs nothing now, and that is the point
+The collection measurements are:
 
-Hover used to set an attribute on the source element and re-capture that window — **2.6 ms of paint
-and copy to produce a flat colour swap**, which is exactly how it looked. It is a material now: one
-float per instance, eased toward its target each frame.
+| collection method                     | cold (first measurement) | steady state |
+| ------------------------------------- | ------------------------ | ------------ |
+| `[data-surface]` walk + geometry      | 3.1–5.7 ms               | **0.60 ms**  |
+| `getComputedStyle` over every element | **0.00 ms**              | 0.00 ms      |
 
-After hovering a control, the `respond` readout still says _"interact with a window to test"_.
-**Zero captures.** Nothing was repainted, and the transition runs at display rate rather than at
-capture rate — so it can be a specular that sweeps across on entry and settles into a rim, which is
-not a thing a captured surface can do at all.
+The 0.00 ms result is below the timer resolution for six windows.
+Geometry measurement through `getBoundingClientRect` supplies the recurring cost.
 
-That reframes the earlier sections. Capture cadence is the design **for content**; anything that is
-presentation rather than content should never touch the capture path.
-
-### The cheap API is the expensive one — I had this backwards
-
-A cascading custom property (`--surface: sheen`, inherited like any CSS) is the version that would
-feel native, and it needs `getComputedStyle` on every element in every window. An attribute
-(`[data-surface]`) is a cheap selector. I expected the cascade to be the costly one. Measured:
-
-| collection method                     | cold (first run) | steady state |
-| ------------------------------------- | ---------------- | ------------ |
-| `[data-surface]` walk + geometry      | 3.1–5.7 ms       | **0.60 ms**  |
-| `getComputedStyle` over every element | **0.00 ms**      | 0.00 ms      |
-
-**The geometry is the cost, not the style lookup.** `getBoundingClientRect` forces layout; reading a
-custom property off already-computed styles is free. So the nicer API is also the affordable one,
-and the thing to optimise is how often boxes are re-measured — not how materials are declared.
-
-The cold and steady columns are a correction: the first numbers here were quoted as though they were
-the recurring cost, and they are not. That run includes first layout. Once the page has settled,
-re-collecting every material's geometry costs **0.60 ms** against the 3.8 ms paint it rides along
-with — small enough that doing it on every capture is affordable, which is what makes the fix below
-possible at all.
-
-The 0.00 is below this timer's resolution at six windows, not a claim that it is free at scale.
-
-### Materials follow reflow, because measuring once is wrong
-
-Boxes were measured at mount and never again. Clicking **Mark as done** changes the button's own
-label from "Mark as done" to "Done ✓", which changes its width — so the sheen stayed a rim around
-where the button used to be, and nothing said so.
-
-Collection now runs on every capture flush, which is the cheapest correct trigger: exactly the
-moments something was repainted. The buffer is sized with headroom rather than reallocated, and
-instances the plan wanted but could not fit are counted into the readout instead of dropped
-quietly.
-
-### Glass, and the pass it forced
-
-The material that cannot be written without a backdrop, which is why it was worth building — it
-proves the ping-pong rather than describing it. A pass cannot sample the target it is writing to, so
-the passes were restructured:
+Glass requires a scene texture because a pass cannot sample its current render target.
+The pass order is:
 
 ```
 analyse  → signature buffer
@@ -613,79 +274,230 @@ blit     → canvas
 glass, edge, sheen → canvas, sampling the scene texture as a backdrop
 ```
 
-The signed distance field already in use for corners gives a surface normal for free — the central
-difference of the distance is the gradient — so near a component's boundary the backdrop sample is
-pushed _outward_ and the rim shows a compressed view of its surroundings. On a window that means the
-light field bends around its own edge, which is what glass does and what no amount of CSS can fake.
+Every scene attachment uses `getPreferredCanvasFormat()`.
+A mismatch with `rgba8unorm` produced an empty scene without a visible WebGPU error.
 
-Glass is the exception to "materials only add": it blends `over`, replacing its pixels with
-refracted ones. It is confined to the bevel for exactly that reason — the interior is untouched and
-the text inside a component is never at risk.
+`querySelectorAll` searches descendants only.
+The collector includes the window root separately so a root glass material produces instances.
 
-Three materials, three draws, `36 instances / 3 draws (glass 12, edge 12, sheen 12)`.
+## Material pass cost
 
-### Two failures worth keeping
+`?emptypass=1` measures each material pass with zero instances.
 
-**A format mismatch renders black and says nothing.** Every pipeline here declares
-`getPreferredCanvasFormat()` as its target — `bgra8unorm` on this machine — while the scene texture
-was created `rgba8unorm`. A pipeline cannot render into an attachment of a different format, so the
-light and window passes were rejected, the blit faithfully showed the empty texture it was given,
-and every symptom pointed at the shader. What settled it was making the blit output its own UVs: a
-clean gradient appeared, proving the blit and its coordinates were fine and the texture really was
-empty. **The timestamp query was the tell all along** — `0 samples / 2408 callbacks` meant the
-window pass was doing no work, and that reading was on screen the whole time.
+| pass    | 12 instances | 0 instances |
+| ------- | ------------ | ----------- |
+| glass   | 0.063 ms     | 0.217 ms    |
+| edge    | 0.135 ms     | 0.128 ms    |
+| sheen   | 0.130 ms     | 0.107 ms    |
+| _total_ | _0.741 ms_   | _0.863 ms_  |
 
-**`querySelectorAll` does not include the element it is called on.** A material declared on the
-window root was collected zero times, so glass produced no instances at all — and the readout said
-`edge 12, sheen 12` without a word about the material that was missing. A count of what you found
-cannot report what you never looked at.
+An empty pass costs approximately as much as a pass with twelve instances.
+The fixed render-pass cost dominates this sample.
+A shared pass with pipeline changes can reduce that cost.
 
-### What this does not answer
+TypeGPU supports one shared pass through `pipeline.with(pass).draw(...)`.
+The lower-level form uses `pass.setPipeline()` and `pass.draw()`.
+This design removes timing for each material because the render pass becomes the measured unit.
 
-- **Transforms and clipping would break the UV rect.** The corner radius is read from computed style
-  now, so the declaration is one word and the stylesheet stays the single source. A component that
-  is rotated, scaled or clipped would still have a box that does not match its real shape, and
-  nothing here handles that.
-- **The instance count is capped** at 128 window-instances, and the readout says when that
-  truncated. A real compositor would emit materials only for visible windows.
-- **Re-collection is triggered by capture, not by layout.** A capture means something repainted,
-  which is a good proxy and not the same thing. A window that reflows without repainting — a font
-  loading late, a scrollbar appearing — would move its components with nothing to notice.
+## Measurement record
 
-### It looked blurry because every window was the wrong shape
+This proof of concept can contain hard-coded test values.
+Only the measurements and conclusions can move into the library.
+The first geometry probe used no React because React does not own GPU objects in the compositor.
 
-A square 512×512 layer drawn across a 300×220 quad squashes its contents vertically by 27%. Nobody
-reads that as distortion — it reads as "a bit blurry", because the eye notices letters are wrong
-well before it can say why, and the obvious suspects (filtering, device pixel ratio, mipmaps) are
-all somewhere else.
+The expected workbench has hundreds or low thousands of windows.
+Half a million textured quads measured 1.6 ms.
+As a result, `three` supplies no required geometry feature here.
+The pass design in `docs/compositor.md` does not require `three`.
 
-The layer takes the window's aspect now, so the mapping is 1:1 and the text is sharp. It also stops
-spending a third of every texture on the part of a square that was never going to be seen.
+At 256 windows, textures use 256 MB.
+The upload of all 256 textures took 131 ms.
+Before textures, 100 000 quads cost approximately 0.9 ms.
 
-**And it broke hit-testing, which is the useful part.** `resolvePointer` scaled both axes by
-`textureSize` — correct only while the layer was square. Once it wasn't, every click landed 36%
-above where it was aimed. Worth keeping because it is evidence the hit-test is _derived_: a version
-with the button's position hardcoded would not have broken, and would also never have worked for a
-second control.
+One texture array ends at 256 windows.
+Larger canvases require multiple arrays, an atlas, or both.
+Far windows require smaller textures or no resident texture.
+Off-screen windows must release their textures.
+Browser compositors manage the same constraint with tiles.
 
-### Why the layout host stays one canvas
+The early timestamp readout showed `0.000 ms` before the callback produced a sample.
+At 500 000 quads, the callback later produced 1186 samples.
+The sample count distinguishes absent data from free work.
 
-Earlier notes in this file claimed the direct-child rule forces **one canvas per window**. It does
-not, and the interaction work is what makes the difference concrete: every window is a sibling child
-of a single `layoutsubtree` canvas, each copying into its own texture-array layer, and each
-answering `getBoundingClientRect` in the same coordinate space. One canvas, one paint, N layers, one
-hit-test space.
+The fallback mutates each heading before capture so every texture layer contains different pixels.
+At 512², capture costs twenty times more than upload and six orders more than drawing.
+A window drag changes its transform and does not require capture.
 
-## What is still not settled
+The snapdom result first suggested that live editing required a DOM window above the canvas.
+The native test corrected that conclusion.
+A burst of 36 keystrokes costs 5.1 ms on the native path.
+A hybrid editor can still have other product reasons.
 
-- **Culling.** Not implemented. The GPU processes all N instances every frame, including those far
-  offscreen — so the geometry numbers are a conservative worst case, but no real compositor would do
-  this.
-- **Selection and IME.** Typing and the caret are measured working; dragging a selection across
-  captured text, and composing with an IME, are not. Selection in particular needs pointer _drag_
-  routed into the field, which the hit-test can do but does not yet.
-- **Transform synchronisation.** Captured windows are drawn at the compositor's transform, not the
-  browser's. Nothing here checks what the browser believes a captured element's on-screen box is,
-  which matters for accessibility and for anything the engine positions itself.
-- **React.** Every window here is static HTML cloned N times. Rendering real components into the
-  layout host is the next step, and is not proven.
+The native copy is four times faster than snapdom.
+It uses no canvas backing store, `ImageBitmap`, or separate upload.
+One `requestPaint` call starts the paint cycle.
+The `paint` event reports the changed elements.
+
+The estimate for twenty dirty windows is `3 + 20 × 0.7 ≈ 17 ms`.
+Approximately twenty windows fit inside one 60 Hz frame.
+More than thirty dirty windows require work across frames.
+
+The browser reported each `dirty` count without extra or missing elements.
+The compositor can use this engine-owned dirty set.
+The 64-window control measured 43, 88, and 67 ms across identical cold runs.
+
+The native constraints came from API probes.
+The `CanvasTexture` route requires one canvas for each window.
+`copyElementImageToTexture` lets one canvas host every window.
+The canvas still requires a rendering context.
+
+The transfer benchmark waits for `queue.onSubmittedWorkDone()`.
+Without this wait, the call measured only enqueue time.
+
+## Interaction record
+
+The CPU maps UV coordinates with `textureSize` for the horizontal axis and the texture height for the vertical axis.
+The original square-layer path used `textureSize` for both axes.
+
+The first hit test used `elementFromPoint`.
+It returned no child for every tested point inside the `layoutsubtree` canvas.
+The compositor reads each source box through `getBoundingClientRect`.
+
+The attached `layoutsubtree` gives every source element a valid box.
+A detached source reports zero-size boxes and prevents all control hits.
+One layout canvas gives all windows one coordinate space.
+
+The source DOM stays behind the WebGPU canvas.
+As a result, `:hover` cannot change source elements.
+CSS transitions and animations also stop between captures.
+Shader materials own presentation motion.
+
+The first input loop repainted once for each event.
+It measured 15.9 ms for each keystroke, compared with 4.2 ms for one paint.
+The coalesced loop bounds cost by paint rate instead of event rate.
+
+Each window is a React component with `useState`.
+The `Note` component does not know that capture reads its pixels.
+The measured path is state → render → browser paint → GPU texture.
+
+React approximately doubles the coalesced cost and stays within one frame.
+The draft character count proves that React state produced the captured output.
+After `focus()`, the platform carries keystrokes, selection, and IME input.
+
+## Signature calibration
+
+The shared texture array lets the compute pass read every captured window.
+The DOM cannot read its own rasterization.
+A draw-only renderer cannot examine its previous pixels.
+
+The pass order matches `docs/compositor.md`.
+A click on **Mark as done** changed the measured values without a light event:
+
+|          | measured ink | the space around it                 |
+| -------- | ------------ | ----------------------------------- |
+| open     | 0.86         | dim, neutral                        |
+| **done** | **1.26**     | **blooms in the note's own accent** |
+
+The compute pass reads the changed pixels on the next frame.
+No event bus, state mirror, or manual invalidation updates the light.
+At distant zoom levels, the measured light identifies dense window regions without tags or rankings.
+
+The analysis pass is the most expensive pass in the measured sample.
+It costs more than the windows and each material.
+Frame time did not reveal this cost because the display fixed the frame rate.
+
+The 90-sample median prevents one timestamp from becoming the result.
+Three raw glass samples measured 0.113, 0.553, and 0.049 ms.
+The measurement contained approximately twelve thousand samples.
+
+The first ink scale was seven times too small.
+The next scale was three times too large and saturated every window.
+The readout exposed both errors.
+
+A presence-only color weight produced near-white output because body text dominated the sample count.
+The cubic chroma weight lets accent pixels supply the hue.
+Each note also received a distinct, moderate accent color.
+
+One correction increased color too far and made six accents pure red, green, or blue.
+The next correction reduced chroma, saturation, and brightness together and made the light difficult to see.
+The current values lie between those results.
+
+The first readback gate used `frames.length % 30`.
+The frame array stops at 90 entries, so the gate became true on every warm frame.
+Continuous readback increased hover cost from 2.6 ms to 26 ms.
+
+## Semantic zoom record
+
+Small captured text becomes gray noise.
+The band profile replaces that noise with rows from the measured ground and content colors.
+This result is a reduction of captured content rather than a placeholder.
+
+At zoom 0.13, one hundred windows retain document structure and identity.
+At zoom 0.9, the shader shows captured pixels.
+The width-based blend changes continuously between these states.
+
+The first square texture left a black strip under each note.
+The note content was approximately 215 pixels high inside a 512-pixel layer.
+An external size update removed the strip and increased one repaint from 4 ms to 136 ms.
+
+The window receives its size as a prop.
+The measured repaint returned to 5.4 ms.
+The matching aspect ratio also removes the 27% vertical distortion.
+
+The old quad `tint` changed displayed pixels without changing the pixels measured by the compute pass.
+The fragment returns captured pixels without that tint.
+
+## Material record
+
+One material draw can cover one thousand buttons that share the material.
+The earlier 500 000-quad result shows that instance count is not the material limit.
+Additive blending preserves text, layout, and accessibility inside the captured component.
+
+The old hover path repainted and copied one window for 2.6 ms.
+The material path updates one float per instance at display rate.
+The `respond` readout remains "interact with a window to test" because hover does not trigger capture.
+
+Capture cadence applies to content changes.
+Presentation changes stay in the material path.
+
+The cascade probe reads `--surface: sheen` through `getComputedStyle`.
+The selected implementation finds `[data-surface]` and measures boxes with `getBoundingClientRect`.
+The table shows that geometry measurement costs more than the style lookup.
+
+The first collection numbers included initial layout.
+Steady-state collection costs 0.60 ms beside a 3.8 ms paint.
+This cost permits collection after each capture.
+
+The **Mark as done** label changes the button width.
+Mount-only geometry left the sheen at the old box.
+Capture-time collection keeps the material box aligned with reflow.
+
+Glass blends `over` inside the bevel and samples the completed scene texture.
+The measured batch was `36 instances / 3 draws (glass 12, edge 12, sheen 12)`.
+
+The canvas target format was `bgra8unorm` on the measured machine.
+An `rgba8unorm` scene texture caused the window and light passes to produce no output.
+A UV gradient from the blit proved that the blit path was valid.
+The readout showed `0 samples / 2408 callbacks` for the rejected pass.
+
+The root-window collector first used only `querySelectorAll`.
+Glass then produced zero instances, while the readout showed `edge 12, sheen 12`.
+The collector examines the root and its descendants.
+
+The aspect-ratio correction exposed a hit-test error in `resolvePointer`.
+The old vertical calculation used `textureSize` and placed each click 36% above its target.
+This failure proves that the hit test derives positions from geometry.
+
+Every window is a sibling inside one `layoutsubtree` canvas.
+Each window copies to one array layer and reports geometry through `getBoundingClientRect`.
+The first geometry version used static HTML clones before the React capture test.
+
+## Open limits
+
+- The application does not cull off-screen instances.
+- The geometry results include all off-screen instances and are a conservative worst case.
+- The material path supports 128 window instances and reports truncation.
+- Rotated, scaled, and clipped components do not have matching UV rectangles.
+- Capture triggers geometry collection. Layout changes without capture can leave stale boxes.
+- Text selection drag and IME composition do not have runtime proof.
+- Browser and compositor transforms do not have synchronization proof.

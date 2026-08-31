@@ -1,51 +1,53 @@
-# Performance Profile: Stress Stage (R15)
+# Performance profile for the R15 stress stage
 
-> Measured 2026-06-10 in the embedded preview browser (Electron 41 /
-> Chrome 146, 1600×1000, 120Hz-capable rAF) on `/stress`, driving synthetic
-> wheel-pan, ctrl-wheel zoom, and header-drag at one input event per
-> animation frame. Numbers are frame-time averages over ~1.5s runs;
-> machine-relative, but the ratios and scaling slopes are the findings.
+> Measurements from 2026-06-10 used the embedded preview with Electron 41 and Chrome 146.
+> The viewport was 1600×1000, and the browser supplied 120 Hz `rAF` callbacks.
+> `/stress` received one synthetic input event per frame for pan, zoom, and header drag.
+> Each result is the mean frame time from an approximately 1.5-second run.
+> Absolute values depend on the machine. Ratios and scaling slopes are the useful results.
 
-## Before (as ported)
+## Baseline before body memoization
 
 | windows | idle    | pan             | zoom            | drag                     |
 | ------- | ------- | --------------- | --------------- | ------------------------ |
 | 20      | 120 fps | 15.6 fps (64ms) | 14.2 fps (70ms) | 4.4 fps (225ms)          |
 | 40      | —       | 8.2 fps (121ms) | —               | ~14 fps (70–90ms, noisy) |
 
-Attribution evidence:
+The following observations identify the main cost:
 
-- Pan cost scaled linearly with window count (64→121ms for 20→40).
-- Style-mutation counts: pan rewrote ~1 style per window per frame (the
-  transform — necessary); zoom rewrote ~15 styles per window per frame
-  (zoom-dependent chrome metrics).
-- **The decisive experiment**: with rasterization on (39/40 bodies as
-  `<img>` snapshots), pan dropped 121ms → 23ms. The dominant cost was
-  live window **body subtree reconciliation**, not chrome, not snap.
-- Drag's catastrophic 225ms/frame had only ~8 style writes — JS-side
-  reconciliation, same root cause (every body re-rendered per pointermove).
+- Pan cost increased with the window count from 64ms at 20 windows to 121ms at 40 windows.
+- Pan changed approximately one style per window in each frame.
+  This change was the required transform.
+- Zoom changed approximately 15 styles per window in each frame because chrome metrics depended on zoom.
+- Raster mode represented 39 of 40 bodies with `<img>` snapshots.
+  In this mode, pan decreased from 121ms to 23ms.
+  Live body reconciliation was the largest cost.
+- Drag took 225ms per frame with approximately eight style changes.
+  JavaScript reconciliation caused this cost because each pointer move rendered every body again.
 
-## Root cause
+## Cause
 
-`InfiniteCanvasWindowBody` invoked `definition.renderBody({ …, state, … })`
-inline on every render, and the render context carried the full canvas
-state — so every camera/interaction tick reconciled every live body
-subtree in the document. The kek predecessor explicitly memoized body
-content ("shell movement does not imply body subtree churn",
-`desktop-window-body-content.tsx`); the framework rewrite lost that
-property.
+`InfiniteCanvasWindowBody` called `definition.renderBody({ …, state, … })` during each render.
+The render context contained all canvas state.
+Thus, each camera or interaction update reconciled every live body in the document.
 
-## Fix (landed)
+The kek predecessor memoized body content.
+It described the invariant as "shell movement does not imply body subtree churn" in `desktop-window-body-content.tsx`.
+The framework port did not preserve that invariant.
 
-`useRenderedWindowBody` memoizes the rendered body on
-`[actions, definition, isActive, isSelected, window]` — camera and
-unrelated state changes no longer invalidate bodies. `state` is provided
-through a ref-backed getter: fresh whenever the body re-renders for its own
-reasons, but not an invalidation source. Bodies that need live state should
-subscribe via `useInfiniteCanvasSelector` inside their own components,
-keeping invalidation scoped to what they read.
+## Body memoization fix
 
-## After
+Status: Landed.
+
+`useRenderedWindowBody` memoizes rendered output with `[actions, definition, isActive, isSelected, window]`.
+Camera changes and unrelated state no longer invalidate body output.
+A ref-backed getter supplies current `state` when the body renders for another reason.
+The complete `state` value does not invalidate the body.
+
+A body that needs live state uses `useInfiniteCanvasSelector` inside its component.
+This subscription limits invalidation to the values that the body reads.
+
+## Result after body memoization
 
 | windows | pan                   | zoom            | drag            |
 | ------- | --------------------- | --------------- | --------------- |
@@ -53,55 +55,71 @@ keeping invalidation scoped to what they read.
 | 40      | **52.1 fps** (19.2ms) | 32 fps (31ms)   | 38 fps (26ms)   |
 | 80      | 21.3 fps (47ms)       | 16.6 fps (60ms) | —               |
 
-NFR-1 (≥10 windows without obvious degradation) is now met with headroom;
-the 20-window experience Tyler flagged is at ~97fps pan / ~58fps drag.
+NFR-1 requires at least ten windows without obvious degradation.
+The measured result meets this requirement with 20 windows.
+Tyler reported the previous problem at 20 windows.
+The corrected result was approximately 97 fps during pan and 58 fps during drag.
 
-## Remaining cost model and next tranches
+## Remaining cost
 
-Per-window per-frame cost is now ~0.5ms (pan @ 80: 47ms ≈ 80 × 0.55 + base),
-which is **frame-chrome reconciliation**: each camera tick re-renders every
-`InfiniteCanvasWindowFrame` (new screen transform) and reconciles its
-~15-element chrome subtree even though only the outer transform changed.
-In rough order of leverage:
+Pan at 80 windows took 47ms.
+This result gives an approximate per-window cost of 0.5ms, plus the fixed frame cost.
+Each camera update renders every `InfiniteCanvasWindowFrame` with a new screen transform.
+React then reconciles its chrome tree of approximately 15 elements, although only the outer transform changes.
 
-1. ~~**Memoize the frame's inner chrome**~~ — **landed, unmeasured.** See
-   below.
-2. **Texture-mode-during-camera-motion** (html-in-canvas, owner directive):
-   present cached window textures on the WebGPU plane during pan/zoom and
-   swap live DOM back on settle — removes DOM from the camera loop entirely;
-   the rasterization experiment above (5×) is its lower bound. Requires
-   Chrome 148+ with the Origin Trial / flag
-   ([html-in-canvas.md](html-in-canvas.md)).
-3. **Visibility culling in the window layer** — offscreen windows currently
-   still render frames. _Corrected 2026-07-08: "the visibility subsystem exists
-   but the layer maps all windows" was wrong._ `visibility.tsx` is written only
-   by the R3F frustum probe, which ships behind the optional `/scene` entry and
-   runs only under `diagnostics.frustum` — culling on it would cull nothing for
-   any consumer without `three` installed, and would re-couple rendering to the
-   3D peer the `/scene` seam exists to keep out. The culling predicate is
-   `isWorldRectWithinViewport` in `geometry.ts`: pure, camera-derived, no peer.
-   **And culling must not unmount** — dropping an offscreen window from the
-   layer tears down its subtree, so DOM focus on the active window falls to
-   `<body>` and silently kills every hotkey, portal roots unmount, and body
-   scroll, video, and uncontrolled input state come back blank on pan-in.
-   Skipping a _transform update_ for an invisible window is unobservable;
-   unmounting is not.
-4. Snap candidate indexing ([snapping.md](snapping.md)) — NOT currently a
-   bottleneck (drag cost was bodies, confirmed), revisit at larger N.
+## Work sequence
 
-Re-measure on real hardware (the embedded browser underclocks rAF under load)
-before declaring absolute numbers.
+### 1. Inner frame chrome memoization
 
-## The harness (added 2026-07-08)
+Status: Landed and unmeasured. The next sections describe this change.
 
-This document used to close by saying the protocol was "reproducible via the
-synthetic drivers in this doc's history" — which meant the drivers were **not in
-the tree**, and every number above was produced by code nobody could re-run.
-That is why tranche 1 sat landed and unmeasured: re-deriving the harness costs
-more than reading the diff, so nobody did, so the tables stayed stale.
+### 2. Texture mode during camera motion
 
-The harness now lives at `apps/playground/src/showcases/benchmark.ts` and mounts
-on `/stress` in dev:
+Cached window textures appear on the WebGPU plane during pan and zoom.
+Live DOM returns after motion stops.
+This html-in-canvas path removes DOM from the camera loop.
+The raster experiment gives a 5× lower-bound improvement.
+
+Tests require Chrome 148 or later with the Origin Trial or flag.
+See [html-in-canvas.md](html-in-canvas.md).
+
+### 3. Visibility culling
+
+Off-screen windows currently render their frames.
+**Correction 2026-07-08:** The statement "the visibility subsystem exists but the layer maps all windows" was wrong.
+The R3F frustum probe is the only writer for `visibility.tsx`.
+It belongs to the optional `/scene` entry and operates only with `diagnostics.frustum`.
+Thus, consumers without `three` have no frustum visibility data.
+For those consumers, this data culls no windows.
+
+Culling cannot depend on this optional 3D entry.
+This rule keeps rendering independent from the `/scene` peer.
+`isWorldRectWithinViewport` in `geometry.ts` supplies a pure predicate from the camera.
+
+The window layer must keep off-screen windows mounted.
+Unmounting moves focus to `<body>`, which disables every hotkey.
+It also removes portal roots, body scroll, video state, and uncontrolled input state.
+These values return empty when the window enters the viewport again.
+Skipping its transform update has no visible effect while it remains off-screen.
+
+### 4. Snap-candidate indexing
+
+Larger window counts must show a measured need before this work starts.
+[snapping.md](snapping.md) describes the candidate design.
+Snap candidates did not cause the measured drag cost.
+
+Measure again in a standard browser on physical hardware.
+The embedded preview decreases its callback rate under load, so it cannot supply useful absolute values.
+
+## Benchmark driver (added 2026-07-08)
+
+The earlier document said that the protocol was "reproducible via the synthetic drivers in this doc's history".
+Those drivers did not exist in the repository.
+As a result, another run required reconstruction of the benchmark.
+The memoized chrome change remained unmeasured.
+
+The benchmark is in `apps/playground/src/showcases/benchmark.ts`.
+It mounts on `/stress` during development:
 
 ```js
 // http://localhost:5173/stress?count=40
@@ -109,79 +127,77 @@ await window.__canvasBench.table(); // pan, zoom, drag — markdown, ready to pa
 await window.__canvasBench.run({ gesture: "pan" }); // one gesture, structured
 ```
 
-One input event per animation frame, as in the 2026-06-10 runs. Frame duration is
-the delta between successive `requestAnimationFrame` timestamps, so it measures
-the whole frame — handlers, reconciliation, style, layout, paint — because that is
-what a user feels. The first frame of a gesture is discarded: it carries
-`startPan`/`startMove` and is not steady state.
+The driver sends one input event per animation frame, as the 2026-06-10 measurements did.
+It measures the interval between consecutive `requestAnimationFrame` timestamps.
+This interval includes handlers, reconciliation, style, layout, and paint.
+The first frame contains `startPan` or `startMove`.
+The driver excludes this frame from steady-state results.
 
-**It reports `p95` alongside the mean, and `p95` is the number that matters.** A
-pan averaging 12 ms that spikes to 40 twice a second feels broken, and the mean
-will not say so. The tables above predate the harness and carry means only.
+The output reports the mean and `p95`.
+For interaction quality, `p95` is the primary value.
+A 12ms mean can hide two 40ms frames each second.
+The earlier tables contain only means.
 
-Two properties worth keeping. A drag dispatches `pointermove` on `window`, not on
-the header, because the framework's interaction listeners are mount-scoped there —
-a driver that moved the header would measure nothing and pass. And the wheel is
-dispatched on the viewport element rather than a window body, because an
-unmodified wheel over a scrollable body belongs to the body, by design.
+A drag sends `pointermove` to `window` because the framework mounts its interaction listeners there.
+Sending it to the header does not drive the framework.
+The driver sends wheel input to the viewport.
+An unmodified wheel event over a scrollable body belongs to that body.
 
-**Building the harness needed no browser. Running it does.** That asymmetry is the
-point: the numbers are now one console call away rather than one archaeology
-session away.
+Building the benchmark code did not require a browser.
+Collecting measurements requires a browser.
 
-## Tranche 1: frame chrome memoization (landed, NOT YET MEASURED)
+## Frame chrome memoization
 
-> No numbers in this section. The change is argued structurally; the table
-> above still describes the pre-tranche-1 runtime. Re-run the protocol on
-> real hardware before quoting any figure.
+Status: Landed. The embedded preview measurement did not complete.
+The result tables predate this change and do not describe its runtime.
+New published numbers require a completed run on physical hardware.
 
-The rule the frame is now built around: **only the outer transform may
-change per camera tick.**
+Only the outer transform changes during a camera update.
+The implementation enforces this rule:
 
-- `InfiniteCanvasWindowFrame` no longer receives `state`. It takes `camera`
-  and `viewport` — what the transform needs — and reads everything else
-  through the store at call time. Threading `state` down was what forced
-  every memo beneath it to churn.
-- The frame's runtime context, its rendered chrome node, and its eight
-  resize-handle elements are each memoized on the window's own identity.
-  On pan they are all referentially stable, so React bails out of the
-  subtree and the work collapses to one inline-style write per window.
-- The runtime context no longer carries canvas state at all, which removes
-  the last per-tick invalidation source from the slot subtree.
-- `InfiniteCanvasWindowBody` stopped taking `state` as a prop and now
-  subscribes to the two booleans it actually reads (raster eligibility, and
-  whether the canvas is idle). A pan recomputes both every tick and
-  re-renders nothing, because neither answer changed.
+- `InfiniteCanvasWindowFrame` receives `camera` and `viewport`.
+  It does not receive `state`.
+  It reads other values from the store when required.
+  Passing all state through the frame prevented memoization below it.
+- The frame memoizes its runtime context, chrome node, and eight resize handles by window identity.
+  These values remain identical during pan.
+  React can then limit the update to one inline transform style per window.
+- The runtime context does not contain canvas state.
+  Thus, camera state cannot invalidate slot content through this context.
+- `InfiniteCanvasWindowBody` does not receive `state`.
+  It subscribes to raster eligibility and the canvas idle state.
+  Pan recalculates these booleans, but unchanged values do not render the body again.
 
-**Zoom should no longer be structurally costlier than pan.** The previous
-per-zoom cost was `getResizeHandleDescriptors(size / zoom)` allocating eight
-fresh inline styles per window per frame. Handle geometry is now expressed
-against a `--icx-resize-handle-size` custom property published on the frame,
-whose inline style is rewritten every tick regardless — so the handle
-elements are constant across zoom. `chrome` metrics are zoom-independent.
+Before this change, zoom called `getResizeHandleDescriptors(size / zoom)`.
+This call allocated eight new inline styles for each window in each frame.
+Handle geometry uses the `--icx-resize-handle-size` custom property on the frame.
+The frame already changes its inline style in each camera frame.
+Thus, the handle elements remain stable during zoom, and `chrome` metrics no longer depend on zoom.
 
-The prediction to test: pan and zoom both approach the cost of one style
-write per window, and drag cost stays proportional to the _dragged_ window
-only (its `window` identity changes; the others' does not).
+Target result: Pan and zoom approach one style change per window.
+Drag cost grows with the changed window because other window identities remain stable.
+Only the changed window receives a new `window` identity.
 
-### 2026-07-09 — the harness was run, and the embedded preview cannot measure it
+## Embedded preview measurement on 2026-07-09
 
-An attempt to record the tranche-1 numbers ran `window.__canvasBench.baseline()` on
-`/stress?count=20&raster=false` in the **embedded preview browser** (the sanctioned
-`preview_*` tooling, the only browser available to that session). The finding is about the
-_environment_, not the code:
+The attempt called `window.__canvasBench.baseline()` on `/stress?count=20&raster=false` in the embedded preview.
+That session supplied only the sanctioned `preview_*` browser tools.
+The `baseline()` call covers pan, zoom, and drag.
 
-- **The harness works end to end.** It exposes on `/stress`, drives synthetic pan/zoom/drag
-  one input per `rAF`, and threw no errors across the whole run; the page stayed responsive
-  throughout (state reads returned instantly at every checkpoint).
-- **The preview `rAF`-throttles too severely to finish.** `baseline()` — three gestures ×
-  90 measured frames — ran for **over 280 seconds at 20 windows and had not completed**, an
-  effective rate near **1 fps** under the drag load. Measuring 20/40/80 that way would take
-  the better part of an hour and the absolute numbers would still be untrustworthy.
+The benchmark mounted on `/stress` and drove pan, zoom, and drag at one input per `rAF`.
+The page reported no errors and remained responsive.
+State reads returned without delay at each observation point.
 
-This does not soften "re-run on real hardware" — it **hardens** it from a caveat into a
-demonstrated requirement. The embedded preview is confirmed the wrong instrument: it
-underclocks `rAF` under exactly the load the benchmark exists to apply, so both the wall-clock
-and the frame times it would report are artifacts of the sandbox, not of the framework. C4's
-measurement needs a real browser on real hardware, where `baseline()` completes in seconds and
-the numbers mean something. The harness is ready for it; the preview is not the place to run it.
+The preview did not finish three gestures with 90 measured frames each.
+After more than 280 seconds at 20 windows, the command was still active.
+The effective callback rate during drag was near 1 fps.
+A 20, 40, and 80-window set requires much of an hour in this environment.
+Its absolute values remain unreliable.
+
+This result proves the "re-run on real hardware" requirement.
+The preview changes `rAF` timing under the same load that the benchmark applies.
+
+Thus, its wall time and frame values describe the preview sandbox.
+They do not describe the framework.
+C4 requires a standard browser on physical hardware, where `baseline()` completes in seconds.
+The benchmark is ready for that measurement.

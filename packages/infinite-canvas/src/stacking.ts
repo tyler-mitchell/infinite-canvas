@@ -170,13 +170,7 @@ function openWindow<Kind extends string>(
   );
 }
 
-/**
- * A title is an accessible name before it is a label — `accessibility.test.tsx` asserts every
- * window exposes one — so an empty or whitespace-only rename is refused rather than stored.
- * Trimming here and comparing after means a rename to the same text returns the identical
- * state, which keeps it out of the undo stack: `isSameInfiniteCanvasDocument` compares by
- * reference, and a no-op that allocated would read as an edit.
- */
+/** Trims a non-empty title and returns the same state for a no-op. */
 function renameWindow<Kind extends string>(
   state: InfiniteCanvasState<Kind>,
   input: Readonly<{ title: string; windowId: string }>,

@@ -1,10 +1,3 @@
-/**
- * Which group holds the active window, said on the group.
- *
- * A consumer's group controls act on the container the active window is in — reshape it, undock
- * from it, dissolve it — and nothing on the canvas identified that container. With two shells on
- * screen the rail described one of them and the canvas did not say which.
- */
 import { renderToStaticMarkup } from "react-dom/server";
 import { expect, test } from "vite-plus/test";
 
@@ -77,7 +70,6 @@ test("any member counts, not only the first", () => {
 test("a shell holding no active window says nothing rather than saying false", () => {
   const markup = renderWithActive("outside");
 
-  // Absent, not `data-active=""` — an attribute that is always present cannot be styled on.
   expect(markup).not.toContain("data-active");
   expect(markup).not.toContain("aria-current");
 });

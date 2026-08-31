@@ -19,7 +19,6 @@ import {
   zoomCameraAtScreenPoint,
 } from "./geometry";
 
-/** A rail down the left, a thin bar on top, a taller one at the bottom, nothing on the right. */
 const CHROME = { bottom: 100, left: 200, right: 0, top: 50 };
 const CENTERED_CAMERA = { center: { x: 0, y: 0 }, zoom: 1 };
 const VIEWPORT = { height: 800, width: 1000 };
@@ -218,23 +217,7 @@ test("west resize respects minimum width without drifting past the clamp", () =>
   expect(nextRect.height).toBe(240);
 });
 
-/**
- * `getWorldLengthWithScreenFloor` — the chrome-stroke floor, extracted from `window-frame.tsx` on
- * 2026-08-12 so it could be tested at all.
- *
- * Chrome is drawn in world units inside a zoom-scaled frame, so an authored 1px border renders as
- * `1 × scale` screen pixels. At 10% zoom that is a tenth of a pixel and every stroke vanishes
- * exactly when the user has zoomed out to see how their windows relate.
- *
- * This is the third piece of zoom arithmetic audited today and the only one that was already
- * correct. The detail-level band stranded every stock window at 100% zoom, and `hitRadius` was
- * measured in world units so edges became unclickable as you zoomed out. All three were
- * unreachable from a test when they were written; this one now is.
- */
-
 test("a stroke never renders thinner than one screen pixel", () => {
-  // The whole point: as scale shrinks, the world width grows to compensate, and the product
-  // — what actually reaches the screen — holds at the floor.
   for (const scale of [1, 0.5, 0.1, 0.02]) {
     const worldWidth = getWorldLengthWithScreenFloor(1, scale);
 
@@ -243,20 +226,15 @@ test("a stroke never renders thinner than one screen pixel", () => {
 });
 
 test("above 100% zoom the floor is inert and the authored width wins", () => {
-  // A stroke that grows with the canvas is what you want when zoomed in; the floor must not
-  // clamp it back down.
   expect(getWorldLengthWithScreenFloor(1, 2)).toBe(1);
   expect(getWorldLengthWithScreenFloor(3, 4)).toBe(3);
 });
 
 test("a thicker authored stroke is never thinned to reach the floor", () => {
-  // The floor raises, never lowers. A 4px border at 50% zoom is already 2 screen px.
   expect(getWorldLengthWithScreenFloor(4, 0.5)).toBe(4);
 });
 
 test("a non-positive scale passes the authored width through instead of dividing by zero", () => {
-  // An unmeasured or degenerate camera has no meaningful conversion. Returning Infinity here
-  // would write `Infinitypx` into a style and blank the frame's borders entirely.
   expect(getWorldLengthWithScreenFloor(2, 0)).toBe(2);
   expect(getWorldLengthWithScreenFloor(2, -1)).toBe(2);
   expect(Number.isFinite(getWorldLengthWithScreenFloor(2, 0))).toBe(true);
@@ -269,15 +247,10 @@ test("the floor is configurable for callers that need a thicker minimum", () => 
 test("the content world rect is the unoccluded region, not the whole viewport", () => {
   const content = getInfiniteCanvasContentWorldRect(CENTERED_CAMERA, VIEWPORT, CHROME);
 
-  // Screen (200, 50) with the viewport centre at (500, 400) and zoom 1 is world (-300, -350).
   expect(content).toEqual({ height: 650, width: 800, x: -300, y: -350 });
 });
 
 test("asymmetric chrome moves the visible centre off the camera centre", () => {
-  // The assertion this whole function exists for. `getVisibleWorldRect` answers about the entire
-  // viewport, so it stays centred on the camera no matter what covers the edges — which is why
-  // swapping one for the other is a silent defect rather than a type error. A camera at the origin
-  // behind a 200px left rail is *not* looking at the middle of what the user can see.
   const content = getInfiniteCanvasContentWorldRect(CENTERED_CAMERA, VIEWPORT, CHROME);
   const visible = getVisibleWorldRect(CENTERED_CAMERA, VIEWPORT, 0);
 
@@ -294,8 +267,6 @@ test("with no chrome it agrees with the unpadded visible rect", () => {
 });
 
 test("the content world rect projects back onto the content viewport", () => {
-  // Independent of the arithmetic above: whatever the world rect is, drawing it must land exactly
-  // on the screen region the insets leave. A sign error or a missing divide fails here.
   const camera = { center: { x: 120, y: -80 }, zoom: 1.75 };
   const content = getInfiniteCanvasContentWorldRect(camera, VIEWPORT, CHROME);
   const projected = worldRectToScreenRect(camera, VIEWPORT, content);
@@ -318,8 +289,6 @@ test("zoom scales the world rect while the screen region it covers stays put", (
 });
 
 test("chrome wider than the viewport clamps instead of inverting the rect", () => {
-  // Insets that overlap describe chrome covering everything. A negative extent here would flip the
-  // sign of every camera fed this rect, which is worse than a degenerate one.
   const collapsed = getInfiniteCanvasContentWorldRect(CENTERED_CAMERA, VIEWPORT, {
     bottom: 900,
     left: 900,

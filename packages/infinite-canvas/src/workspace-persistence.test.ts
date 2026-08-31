@@ -5,20 +5,6 @@ import { parseInfiniteCanvasStateJson, stringifyInfiniteCanvasState } from "./pe
 import { reduceInfiniteCanvasState } from "./reducer";
 import type { InfiniteCanvasState } from "./types";
 
-/**
- * A renamed, reordered desktop has to still be renamed and reordered after a reload.
- *
- * Reaching the reducer is not the same as surviving storage, and this repository has already
- * shipped that exact gap: autosave was ticked off for weeks while the subscription it depended on
- * never fired, so nothing was written and the status pill said "saved" throughout. Reading the
- * serializer and concluding "it spreads the whole array, so it must be fine" is the same kind of
- * reasoning that missed it.
- *
- * So this drives the round trip rather than inspecting it: mutate through the real actions, take
- * the string a host would store, parse it back, and assert on what came out. It fails if the
- * serializer drops a field, if the parser drops one, or if either reorders the array on the way.
- */
-
 function stateWithWorkspaces(ids: readonly string[]): InfiniteCanvasState<"note"> {
   return ids.reduce<InfiniteCanvasState<"note">>(
     (state, workspaceId) =>
@@ -37,14 +23,6 @@ function stateWithWorkspaces(ids: readonly string[]): InfiniteCanvasState<"note"
   );
 }
 
-/**
- * The exact path a host takes: string out, string in.
- *
- * The fallback deliberately has no workspaces. `parseInfiniteCanvasStateJson` returns it when a
- * document does not parse, so a fallback that already held the right desktops would let every
- * assertion below pass while nothing was actually restored — the test would be measuring its own
- * fixture. An empty one fails loudly instead.
- */
 function roundTrip(state: InfiniteCanvasState<"note">) {
   const restored = parseInfiniteCanvasStateJson<"note">(
     stringifyInfiniteCanvasState(state),
@@ -82,8 +60,6 @@ test("a workspace reorder survives the round trip", () => {
     workspaceId: "c",
   });
 
-  // Order *and* the titles that rode with it — a parser that rebuilt the array from ids would
-  // pass an order check while losing the names, and vice versa.
   expect(
     roundTrip(moved).workspaces.map((workspace) => `${workspace.id}:${workspace.title}`),
   ).toEqual(["c:Archive", "a:Inbox", "b:Research"]);

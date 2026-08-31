@@ -10,23 +10,6 @@ import type { ContentItemRecord } from "../database/database.client";
 import { describeProjectContent } from "./describe-content";
 import type { ProjectContent } from "./project-content";
 
-/**
- * What an item carries that its title does not say.
- *
- * Two kinds have something. A collection's title is a name and its *question* is the content, so
- * the listing said `collection "Reading list" [id]` and left a caller to open it to find out what
- * was inside. A link's title is often not its address — a dragged tab brings its own page title —
- * so where it points was unreportable.
- *
- * **Both hide behind default naming**, which is why neither surfaced until something was renamed:
- * a collection of links is called "Links" and a typed link is called "example.com/path", so the
- * subject repeats the title until it does not. That is exactly when a caller has no other way to
- * know, and exactly the case driven in the browser that turned the first one up.
- *
- * A separate file from `describe-content.test.ts` deliberately: that one is being edited elsewhere,
- * and adding to it would mean committing somebody's unfinished work along with this.
- */
-
 const item = (id: string, kind: string, title: string, content: object = {}) =>
   ({
     archived: false,
@@ -42,10 +25,6 @@ const empty = createInfiniteCanvasState<WindowKind>({
   windows: [],
 });
 
-/**
- * One place that builds the listing, because the first draft built a second one inline and left
- * `projectId` off it — so the report answered "not loaded yet" and the cast said nothing.
- */
 const describe = (
   items: readonly ContentItemRecord[],
   state: InfiniteCanvasState<WindowKind> = empty,
@@ -64,7 +43,6 @@ test("a collection says which kind it lists, so a renamed one is still legible",
   ]);
 
   expect(described).toContain('collection "Reading list" [c1] (lists every link in this project)');
-  // The other kinds are untouched: only a collection has a subject to report.
   expect(described).toContain('note "Quarterly notes" [n1]');
   expect(described).not.toContain('Quarterly notes" [n1] (');
 });
@@ -79,8 +57,6 @@ test("a connected-to collection names its subject by title, in the listing's own
 });
 
 test("a subject the listing does not hold falls back to its id rather than vanishing", () => {
-  // The same rule the relations half already follows: a half-resolved reference is a fact worth
-  // reporting, and dropping it under-reports the project.
   expect(describe([item("c3", "collection", "Orphaned", { connectedTo: "gone" })])).toContain(
     "lists what [gone] connects to",
   );
@@ -106,11 +82,6 @@ test("open-state and subject read together rather than one replacing the other",
 });
 
 test("a link says where it points, which its title often does not", () => {
-  /*
-   * The case that is not a coincidence. A typed link is named after its own address, so the subject
-   * repeats the title — but `getDraggedLinkName` names one from the dragged tab's *page title*, and
-   * then nothing in the report said where it went.
-   */
   expect(
     describe([
       item("l1", "link", "Infinite Canvas — Docs", {
@@ -122,11 +93,6 @@ test("a link says where it points, which its title often does not", () => {
 });
 
 test("an image says how it is described, which is the only words a picture has", () => {
-  /*
-   * `description` is the alt text and is kept apart from the title on purpose — renaming a window
-   * to "Reference" must not claim the picture depicts the word Reference — so the two diverge the
-   * moment either is edited and only the title was reportable.
-   */
   expect(
     describe([
       item("i1", "image", "Reference", {
@@ -138,22 +104,12 @@ test("an image says how it is described, which is the only words a picture has",
 });
 
 test("a note says nothing extra, because its content is not a phrase", () => {
-  /*
-   * The map is the rule and a note has no entry. Its prose is `note.read`'s: folding an opening
-   * line in here would duplicate the summary card and grow a listing without bound. Asserted so the
-   * omission reads as a decision rather than as a kind somebody forgot.
-   */
   expect(describe([item("n2", "note", "Quarterly notes")])).toContain(
     'note "Quarterly notes" [n2].',
   );
 });
 
 test("a collection whose stored question cannot be read is still listed", () => {
-  /*
-   * A report must never throw — its two callers are tool output and have no response to an
-   * exception except to render nothing, which would lose the whole project rather than one field.
-   * So an unparseable question costs the subject and nothing else.
-   */
   const described = describe([item("c5", "collection", "Broken", { nonsense: true })]);
 
   expect(described).toContain('collection "Broken" [c5]');

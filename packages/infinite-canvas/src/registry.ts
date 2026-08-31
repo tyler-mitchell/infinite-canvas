@@ -52,8 +52,7 @@ function normalizeInfiniteCanvasStateForWindowRegistry<Kind extends string>(
   registry: InfiniteCanvasWindowRegistry<Kind>,
 ): InfiniteCanvasState<Kind> | null {
   if (state.windows.length === 0) {
-    // No windows means no group can hold one. Dropping the shells here is what
-    // stops a stale tree from laying out ghosts.
+    // Empty state cannot keep group shells.
     return {
       ...state,
       activeWindowId: null,
@@ -80,18 +79,13 @@ function normalizeInfiniteCanvasStateForWindowRegistry<Kind extends string>(
   const unnormalizedState = {
     ...state,
     activeWindowId,
-    // Normalization runs at document boundaries -- mount and hydrate -- and it
-    // drops windows whose kind left the registry. Every document in the stack
-    // refers to windows from before that pass, so the stack is stale by
-    // definition. It also re-types the canvas from `string` to `Kind`.
+    // Registry normalization invalidates prior document history.
     history: EMPTY_INFINITE_CANVAS_HISTORY,
     windows,
   } satisfies InfiniteCanvasState<Kind>;
   const selection = normalizeSelection(unnormalizedState, state.selection);
 
-  // A persisted group can name a window whose `kind` has since left the registry,
-  // or one a duplicate-id pass dropped. Reconciling removes those members, and
-  // any shell they emptied, then re-projects the survivors onto their rects.
+  // Remove groups that reference dropped windows.
   return reconcileInfiniteCanvasGroups({
     ...unnormalizedState,
     activeWindowId: selection.anchorWindowId ?? activeWindowId,
@@ -133,7 +127,7 @@ function recoverInfiniteCanvasStateForWindowRegistry<Kind extends string>(
     normalizeInfiniteCanvasStateForWindowRegistry(state, registry) ?? {
       ...state,
       activeWindowId: null,
-      // Every window was unregistered, so every group is empty by definition.
+      // All windows are unregistered, so no group can retain a member.
       groups: [],
       history: EMPTY_INFINITE_CANVAS_HISTORY,
       interaction: null,

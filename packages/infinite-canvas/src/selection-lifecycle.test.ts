@@ -5,11 +5,6 @@ import { isInfiniteCanvasWindowGrouped } from "./group-state";
 import { reduceInfiniteCanvasState } from "./reducer";
 import type { InfiniteCanvasState } from "./types";
 
-/**
- * `selection.close` and `selection.minimize` each checkpoint once, not once per window. Minimize
- * also detaches every pane it touches, so minimizing a whole group empties the shell.
- */
-
 type Kind = "note";
 
 const pane = (id: string, x: number) =>
@@ -21,7 +16,6 @@ const pane = (id: string, x: number) =>
     title: id,
   });
 
-/** "a" docked rightward into a shell with "b"; "c" floats. All three selected. */
 const withShell = (): InfiniteCanvasState<Kind> => {
   const base = {
     ...createInfiniteCanvasState<Kind>({ windows: [pane("a", 0), pane("b", 400), pane("c", 800)] }),
@@ -54,7 +48,6 @@ test("minimizing a selection takes its docked panes out of their group", () => {
 });
 
 test("every minimizable window in the selection ends up minimized", () => {
-  // The premise: the detach assertions above are about a verb that ran.
   const minimized = minimizeSelection(withShell());
 
   for (const id of ["a", "b", "c"]) {
@@ -63,7 +56,6 @@ test("every minimizable window in the selection ends up minimized", () => {
 });
 
 test("minimizing a whole selection is one undoable edit, not one per window", () => {
-  // Three windows collapse, the stack grows by one, so one undo puts all three back.
   const before = withShell();
   const after = minimizeSelection(before);
 

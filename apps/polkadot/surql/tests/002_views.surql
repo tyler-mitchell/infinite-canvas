@@ -1,20 +1,4 @@
--- Saved views, exercised against two canvases because the scoping is the part most likely to rot:
--- `saved_view` names a canvas rather than a project, and a `WHERE` clause that lost that filter
--- would still pass every single-canvas test written.
---
--- **What this file cannot cover, stated rather than implied.** The `rect.width > 0` and
--- `rect.height > 0` assertions are the schema's real defence — a zero-extent rect restores as an
--- infinite zoom, not as a bad framing — and SurQL has no way to catch a thrown assertion, so a
--- test that provoked one would abort this script instead of reporting.
---
--- They are not unverified, only unverified *here*. Both were driven against the running database
--- through `window.__surreal.query`, which returns an error rather than aborting, and both refused:
---
---     Found 0 for field `rect.width` … but field must conform to: $value > 0
---     Found '   ' for field `title` … but field must conform to: string::len(string::trim($value)) > 0
---
--- Worth doing that way round: an assertion nobody has seen reject anything is a comment, and these
--- two were written from the same understanding as the code they guard.
+-- This test uses two canvases for saved-view scoping.
 
 LET $project = CREATE ONLY project CONTENT {
   title: "Saved views proof"
@@ -43,7 +27,7 @@ LET $other_canvas = CREATE ONLY canvas_document CONTENT {
   layout: $layout
 };
 
--- Created out of alphabetical order, so an ordering that is actually insertion order fails here.
+-- Insertion order differs from title order.
 LET $zebra = fn::create_saved_view($canvas.id, "Zebra corner", { x: 100, y: 200, width: 640, height: 480 });
 LET $alpha = fn::create_saved_view($canvas.id, "Alpha corner", { x: -50, y: -60, width: 320, height: 240 });
 LET $elsewhere = fn::create_saved_view($other_canvas.id, "Only on the second canvas", { x: 0, y: 0, width: 100, height: 100 });
@@ -81,7 +65,7 @@ IF array::len($after_delete) != 1 {
   THROW "delete_saved_view did not remove the view";
 };
 
--- The other canvas is untouched by everything above, which is the scoping claim.
+-- The other canvas must remain unchanged.
 LET $other_listed = fn::list_saved_views($other_canvas.id);
 IF array::len($other_listed) != 1 OR $other_listed[0].title != "Only on the second canvas" {
   THROW "saved views leaked across canvases";

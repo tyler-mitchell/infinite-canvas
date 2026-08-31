@@ -26,7 +26,7 @@ type Kind = "note";
 const STORAGE_KEY = "playground.persistence.v1";
 const DOCUMENT_KEY = "demo";
 
-/** The exact key the framework writes under — used by the reset button. */
+/** This is the storage key that the reset button removes. */
 const scopedKey = getInfiniteCanvasScopedStorageKey({
   documentKey: DOCUMENT_KEY,
   storageKey: STORAGE_KEY,

@@ -15,20 +15,7 @@ import { CommandPalette } from "../showcases/command-palette.tsx";
 import { exposeCanvasDevHandle } from "../showcases/dev-handle.ts";
 import { CanvasThemeSwitcher } from "../showcases/theme-switcher.tsx";
 
-/**
- * Workspaces — virtual desktops, not nested canvases.
- *
- * A canvas inside a canvas needs a second camera and a second input plane, which is a
- * different program. A workspace is one canvas and a membership filter: a named set of
- * windows, carrying the camera and selection you left it at.
- *
- * The switcher below is deliberately thin. Everything it does is a command or an action the
- * framework already exposes — `workspace.cycle` and `workspace.showAll` are in the palette
- * under Mod+K, and this bar is only a faster way to reach the same verbs. The one thing it
- * does that no command can is *create* a workspace, because a palette entry cannot invent a
- * name.
- */
-
+/** A workspace filters one canvas and stores its camera and selection. */
 type Kind = "brief" | "note";
 
 const windowDefinitions = defineInfiniteCanvasWindowRegistry<Kind>({
@@ -59,10 +46,6 @@ const paneAt = (id: string, kind: Kind, title: string, x: number, y: number) =>
     title,
   });
 
-/**
- * Two desktops with different work on them, and one window on neither — so "show all" is
- * visibly different from either workspace rather than a synonym for one of them.
- */
 const RESEARCH = ["sources", "notes"];
 const WRITING = ["draft", "outline"];
 
@@ -111,18 +94,6 @@ function WorkspaceSwitcher() {
         </Button>
       ))}
       <span className="mx-1 h-4 w-px bg-border" />
-      {/*
-       * Sending the active window to another desktop — the operation a virtual desktop exists
-       * for, and the one this bar could not reach until the verb existed.
-       *
-       * `workspace.moveActiveWindow` is parameterized, like `workspace.create`: a palette entry
-       * cannot invent which desktop, so a surface that lists them is what supplies the argument.
-       * That is the whole reason this control is here rather than in the palette.
-       *
-       * Only desktops the window is not already on are offered, so every button visibly does
-       * something. Dock two panes together first and send one: the shell goes as a unit,
-       * because membership is group-complete.
-       */}
       <span className="px-1 font-mono text-[10px] tracking-wider text-muted-foreground uppercase">
         send to
       </span>
@@ -145,20 +116,9 @@ function WorkspaceSwitcher() {
           </Button>
         ))}
       <span className="mx-1 h-4 w-px bg-border" />
-      {/*
-       * The affordance this route was missing, and the omission hid a real defect.
-       *
-       * A workspace is a membership filter, and until 2026-08-12 a window opened while a desktop
-       * was active joined no desktop — so the window layer dropped it on the frame it was
-       * created and nothing appeared. The route existed to demonstrate workspaces and had no way
-       * to open a window on one, which is exactly why nobody met the bug here. Press this on
-       * "Research", then switch to "Writing": the new pane belongs to the desktop it was made on
-       * and does not follow you.
-       */}
       <Button
         onClick={() => {
-          // Peek, don't subscribe: the camera is needed once, on click, and a subscription would
-          // re-render this bar on every pan frame.
+          // The one-time camera read prevents rerenders during a pan.
           const { camera } = store.state$.peek();
           sequenceRef.current += 1;
           const ordinal = sequenceRef.current;
@@ -185,7 +145,6 @@ function WorkspaceSwitcher() {
         New window
       </Button>
       <span className="mx-1 h-4 w-px bg-border" />
-      {/* Cycling is a command, so it is in the palette too. This is the same verb. */}
       <Button
         onClick={() => {
           actions.executeCommand({ direction: "next", type: "workspace.cycle" });
@@ -223,9 +182,6 @@ function WorkspacesShowcase() {
   return (
     <div className="absolute inset-0">
       <InfiniteCanvasDesktop
-        // The workspaces themselves are seeded here rather than by a button, because the
-        // interesting thing to demonstrate is switching between sets that already have work
-        // on them — not the act of making an empty one.
         initialState={{
           ...initialState,
           workspaces: [

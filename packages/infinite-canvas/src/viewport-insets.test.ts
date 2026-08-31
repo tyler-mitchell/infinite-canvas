@@ -13,18 +13,9 @@ import { getInfiniteCanvasOffscreenIndicators } from "./offscreen";
 import { reduceInfiniteCanvasState } from "./reducer";
 import type { InfiniteCanvasRect, InfiniteCanvasViewport } from "./types";
 
-/**
- * Insets exist because every previous inset in this framework was one number for all four edges.
- *
- * So the tests that matter are the asymmetric ones. A symmetric inset is indistinguishable from
- * padding and would pass against the old behaviour, which is exactly why it proves nothing — each
- * case below fails if any single edge is dropped or if two edges are averaged together.
- */
-
 const VIEWPORT: InfiniteCanvasViewport = { height: 800, width: 1200 };
 const RECT: InfiniteCanvasRect = { height: 200, width: 400, x: 0, y: 0 };
 
-/** Where a camera actually puts a world point on screen. The independent check for every case. */
 function screenPointOf(
   camera: Readonly<{ center: Readonly<{ x: number; y: number }>; zoom: number }>,
   world: Readonly<{ x: number; y: number }>,
@@ -76,8 +67,6 @@ test("getInfiniteCanvasContentViewport — clamps rather than inverting when chr
 });
 
 test("getInfiniteCanvasInsetCameraCenter — shifts by half the asymmetry, in world units", () => {
-  // 320px of chrome on the left means the visible middle sits 160px right of the viewport's
-  // middle, so the camera has to move 160px *left* in world terms to put the point there.
   expect(
     getInfiniteCanvasInsetCameraCenter({ x: 0, y: 0 }, 2, {
       bottom: 0,
@@ -111,7 +100,6 @@ test("fitCameraToWorldRect with insets — puts the rect's centre in the middle 
 
   const screen = screenPointOf(camera as NonNullable<typeof camera>, { x: 200, y: 100 });
 
-  // The middle of what the user can see: 320 + (1200 - 320) / 2.
   expect(screen.x).toBeCloseTo(760, 6);
   expect(screen.y).toBeCloseTo(400, 6);
 });
@@ -139,13 +127,6 @@ test("fitCameraToWorldRect with insets — is unchanged when no insets are given
   );
 });
 
-/**
- * The wiring, not the maths.
- *
- * The geometry above can be perfectly right while nothing reads it — which is the more likely
- * failure, since a helper nobody calls still passes its own tests. These drive the state the
- * commands actually use.
- */
 test("navigateCamera — centring a window accounts for chrome on one edge", () => {
   const base = createInfiniteCanvasState<"note">({
     viewport: VIEWPORT,
@@ -161,7 +142,6 @@ test("navigateCamera — centring a window accounts for chrome on one edge", () 
   const navigated = navigateCameraToWindow(base, { windowId: "note" });
   const screen = screenPointOf(navigated.camera, { x: 1200, y: 600 });
 
-  // The middle of what is visible: 400 + (1200 - 400) / 2.
   expect(screen.x).toBeCloseTo(800, 6);
   expect(screen.y).toBeCloseTo(400, 6);
 });
@@ -197,7 +177,6 @@ test("getInfiniteCanvasOffscreenIndicators — the ring sits inside what the use
     viewportInsets: { left: 400 },
     windows: [
       createInfiniteCanvasWindow<"note">({
-        // Far to the left, so its indicator lands on the ring's left edge.
         id: "note",
         kind: "note",
         rect: { height: 100, width: 100, x: -5000, y: 0 },
@@ -207,7 +186,6 @@ test("getInfiniteCanvasOffscreenIndicators — the ring sits inside what the use
   const [indicator] = getInfiniteCanvasOffscreenIndicators(state, { insetPx: 0 });
 
   expect(indicator).toBeDefined();
-  // Without insets this would be 0 — the element's own left edge, behind the panel.
   expect(indicator?.point.x).toBeCloseTo(400, 6);
 });
 
@@ -227,26 +205,15 @@ test("fitCameraToWorldRect with insets — agrees with the framework's own scree
 
   expect(camera).not.toBeNull();
 
-  const projected = screenPointToWorldPoint(
-    camera as NonNullable<typeof camera>,
-    VIEWPORT,
-    // The centre of the unoccluded region, in screen space.
-    {
-      x: insets.left + (VIEWPORT.width - insets.left - insets.right) / 2,
-      y: insets.top + (VIEWPORT.height - insets.top - insets.bottom) / 2,
-    },
-  );
+  const projected = screenPointToWorldPoint(camera as NonNullable<typeof camera>, VIEWPORT, {
+    x: insets.left + (VIEWPORT.width - insets.left - insets.right) / 2,
+    y: insets.top + (VIEWPORT.height - insets.top - insets.bottom) / 2,
+  });
 
   expect(projected.x).toBeCloseTo(200, 6);
   expect(projected.y).toBeCloseTo(100, 6);
 });
 
-/**
- * Folding, which is the half a consumer cannot do for itself.
- *
- * Two windows at the same bearing project to nearly the same pixel, and a consumer holding only
- * the returned points cannot tell "two things over there" from "one thing, drawn twice".
- */
 const atBearings = (...rects: readonly InfiniteCanvasRect[]) =>
   createInfiniteCanvasState<"note">({
     viewport: VIEWPORT,
@@ -256,7 +223,6 @@ const atBearings = (...rects: readonly InfiniteCanvasRect[]) =>
   });
 
 const FAR_WEST: InfiniteCanvasRect = { height: 100, width: 100, x: -4000, y: 0 };
-/** Further along the same ray, so it projects onto the same edge point. */
 const FURTHER_WEST: InfiniteCanvasRect = { height: 100, width: 100, x: -9000, y: 0 };
 const FAR_EAST: InfiniteCanvasRect = { height: 100, width: 100, x: 4000, y: 0 };
 
@@ -266,7 +232,6 @@ test("getInfiniteCanvasOffscreenIndicators — folds targets that land on the sa
   );
 
   expect(rest).toHaveLength(0);
-  // The nearer one survives and carries the count.
   expect(indicator?.id).toBe("w0");
   expect(indicator?.targetCount).toBe(2);
 });

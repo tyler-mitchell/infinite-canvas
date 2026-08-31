@@ -3,12 +3,7 @@ import type { Surreal, SqlExportOptions } from "surrealdb";
 import { measureTextBytes } from "./bytes.ts";
 import { getErrorMessage } from "./reads.ts";
 
-/**
- * Exports the database as SurQL and imports SurQL back into it. The export text is returned rather
- * than streamed to a file so it can also be read as a schema dump.
- *
- * Import is destructive: it runs the given statements against the live database.
- */
+/** Import writes SurQL to the live database. */
 
 type SurrealExport = Readonly<{
   bytes: number;
@@ -17,7 +12,7 @@ type SurrealExport = Readonly<{
   text: string;
 }>;
 
-/** Default export options: everything except record versions. */
+/** The default options export all sections except record versions. */
 const FULL_EXPORT: Partial<SqlExportOptions> = {
   accesses: true,
   analyzers: true,
@@ -64,7 +59,7 @@ async function importSurql(client: Surreal, text: string): Promise<SurrealImport
   }
 }
 
-/** Uses a blob URL rather than a data URL, which would hold a multi-megabyte export twice. */
+/** A blob URL prevents a second in-memory copy of a large export. */
 function downloadSurql(input: Readonly<{ filename: string; text: string }>) {
   const url = URL.createObjectURL(new Blob([input.text], { type: "application/surrealql" }));
   const anchor = document.createElement("a");

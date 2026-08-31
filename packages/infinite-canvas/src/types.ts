@@ -15,7 +15,7 @@ import type {
   InfiniteCanvasGroupLayoutMode,
   InfiniteCanvasGroupNode,
 } from "./group-tree";
-// Type-only, so the cycle back through `window-placement` erases before runtime.
+// This type-only import prevents a runtime cycle through `window-placement`.
 import type { InfiniteCanvasAlignment, InfiniteCanvasDistribution } from "./window-arrange";
 import type { InfiniteCanvasWindowPlacementRegion } from "./window-placement";
 
@@ -24,11 +24,7 @@ type InfiniteCanvasPoint = Readonly<{
   y: number;
 }>;
 
-/**
- * A cardinal direction in world space, which grows downward like the DOM: `up`
- * is decreasing `y`. Shared by every directional command so nudging and focusing
- * can never disagree about which way is up.
- */
+/** World space uses DOM directions. Up decreases `y`. */
 type InfiniteCanvasDirection = "down" | "left" | "right" | "up";
 
 type InfiniteCanvasSize = Readonly<{
@@ -45,18 +41,7 @@ type InfiniteCanvasCamera = Readonly<{
 
 type InfiniteCanvasViewport = InfiniteCanvasSize;
 
-/**
- * Screen space a consumer's own chrome is covering, per edge.
- *
- * The canvas fills its element, and a consumer that puts a sidebar, an inspector, or a docked panel
- * on top of it has no way to say so. Every inset the framework previously took was a single number
- * applied to all four edges, which cannot express "320px on the left" — reserving it there reserved
- * it on the right too, so fitting and centring split the difference and put content under the panel
- * anyway.
- *
- * Insets are measurement, not document: like `viewport`, they describe the shape of the window the
- * user is looking through rather than anything about the canvas, so they are never serialized.
- */
+/** Screen-pixel bands covered by consumer chrome. This state is not serialized. */
 type InfiniteCanvasViewportInsets = Readonly<{
   bottom: number;
   left: number;
@@ -64,7 +49,6 @@ type InfiniteCanvasViewportInsets = Readonly<{
   top: number;
 }>;
 
-/** Every edge optional, because a consumer with one panel should name one edge. */
 type InfiniteCanvasViewportInsetsInput = Partial<InfiniteCanvasViewportInsets>;
 
 type InfiniteCanvasResizeHandle =
@@ -79,27 +63,7 @@ type InfiniteCanvasResizeHandle =
 
 type InfiniteCanvasWindowMode = "normal" | "minimized" | "maximized";
 
-/**
- * Which chrome affordances a window supports.
- *
- * The vocabulary is AppKit's — a window is closable, minimizable, resizable — because that
- * is the conventional ontology for exactly this, and inventing one would leave a maintainer
- * translating. A fixed-size console, a reference pane that must not be closed, and a
- * background layer that cannot be dragged out of the way are ordinary desktop-shell
- * requirements; without this a consumer had to replace the whole `Controls` slot and
- * re-implement pin, minimize, maximize and their focus hand-back to withhold one button.
- *
- * Every field is optional and **absent means permitted**, so no existing window changes
- * behaviour and no persisted state needs migrating. Read it through
- * `isInfiniteCanvasWindowCapable`, which owns that rule; comparing to `true` somewhere
- * would silently forbid everything that never opted in.
- *
- * These are enforced by the reducer, not merely reflected in the chrome. The alternative —
- * an advisory flag the buttons respect and `actions.closeWindow` ignores — makes the flag a
- * lie the UI tells, and this codebase already refuses caller-issued actions on model
- * grounds: `interaction.startResize` returns state unchanged for a grouped window, and
- * `createInfiniteCanvasGroup` drops members that are minimized or already grouped.
- */
+/** Optional window permissions. An absent flag permits the action. */
 type InfiniteCanvasWindowCapability = "closable" | "maximizable" | "minimizable" | "resizable";
 
 type InfiniteCanvasWindowCapabilities = Partial<
@@ -186,27 +150,19 @@ type InfiniteCanvasMoveOriginRect = Readonly<{
   windowId: string;
 }>;
 
-/**
- * Where a dragged window would dock if released now, resolved from the canonical
- * model and never from the DOM. `groupId: null` means the target is a floating
- * window, and dropping wraps it in a new group.
- */
+/** Describes the group region used when the current move ends. */
 type InfiniteCanvasDockPreview = Readonly<{
   containerId: string;
   edge: InfiniteCanvasGroupDockEdge;
   groupId: string | null;
-  /** The region the drop would fill — half the target on that edge, or all of it for a tab merge. */
+  /** Region filled by the drop. */
   rect: InfiniteCanvasRect;
   targetId: string;
   windowId: string;
 }>;
 
 type InfiniteCanvasMoveInteraction = Readonly<{
-  /**
-   * Carried on the interaction rather than in state: a dock preview belongs to
-   * the drag that produced it, and dies with it. Nothing else can observe a
-   * preview for a drag that is not happening.
-   */
+  /** Current move preview. Null when no group target exists. */
   dockPreview: InfiniteCanvasDockPreview | null;
   kind: "move";
   originPointer: InfiniteCanvasPoint;
@@ -217,7 +173,7 @@ type InfiniteCanvasMoveInteraction = Readonly<{
   originCamera: InfiniteCanvasCamera;
 }>;
 
-/** Dragging a group shell by any of its members' headers. DOCK-003. */
+/** Moves a group by one member header. */
 type InfiniteCanvasGroupMoveInteraction = Readonly<{
   groupId: string;
   kind: "groupMove";
@@ -227,19 +183,12 @@ type InfiniteCanvasGroupMoveInteraction = Readonly<{
   originCamera: InfiniteCanvasCamera;
 }>;
 
-/**
- * Dragging a group shell's outer edge. The shell's rect changes; the tree does not,
- * and every member's rect is re-derived from the new shell — a group resize is one
- * write to `group.rect` and a re-solve, never a per-window resize.
- *
- * A grouped window's own edges carry no handles: `interaction.startResize` refuses a
- * grouped window, because a pane is resized by its seam and the shell by its edge.
- */
+/** Resizes a group shell and derives member rects from the new shell. */
 type InfiniteCanvasGroupResizeInteraction = Readonly<{
   groupId: string;
   handle: InfiniteCanvasResizeHandle;
   kind: "groupResize";
-  /** Structural floor from the tree — gutters, strips, headers, panes. Never `minSize`. */
+  /** Structural minimum from group metrics and tree layout. */
   minSize: InfiniteCanvasSize;
   originPointer: InfiniteCanvasPoint;
   originRect: InfiniteCanvasRect;
@@ -247,15 +196,7 @@ type InfiniteCanvasGroupResizeInteraction = Readonly<{
   originCamera: InfiniteCanvasCamera;
 }>;
 
-/**
- * Dragging the seam between two split panes. SPLIT-001: this changes weights,
- * never a DOM width.
- *
- * `originContainer` is the container as it stood when the drag began. Every step
- * recomputes the pair's weights from *that* snapshot and the total pointer travel
- * since. Applying an incremental delta to the live weights instead would let
- * rounding accumulate and the seam drift out from under the cursor.
- */
+/** Resizes adjacent split panes from the interaction start state. */
 type InfiniteCanvasGroupGutterInteraction = Readonly<{
   afterChildId: string;
   availableExtent: number;
@@ -290,62 +231,26 @@ type InfiniteCanvasInteraction =
   | InfiniteCanvasResizeInteraction
   | null;
 
-/**
- * A world object that owns a local layout. It moves and resizes as one thing;
- * inside, `tree` arranges its member windows.
- *
- * `rect` is the shell's content rect in world units — the solver partitions it
- * directly. A member window's own `rect` is kept synced to whatever the solver
- * says, so snapping, selection bounds, and camera framing keep reading
- * `window.rect` and need to know nothing about groups.
- */
+/** A world-space shell that arranges member windows with a local tree. */
 type InfiniteCanvasGroup = Readonly<{
   id: string;
   rect: InfiniteCanvasRect;
-  /**
-   * The name somebody gave this group, or `null` to be named after what is in it.
-   *
-   * **Absence is the provenance.** This was a plain `string` snapshotted from the members at
-   * creation, which made a derived name and a chosen one the same thing the instant it was
-   * written — so nothing downstream could tell whether it was safe to update. A group named
-   * "Untitled 6 & Connected to Untitled 6" kept saying that after Untitled 6 left, and a group
-   * named after a note kept the note's old name after a rename, because re-deriving would have
-   * silently overwritten whatever a user had typed.
-   *
-   * `null` costs no extra field and cannot fall out of sync with a flag: read through
-   * `getInfiniteCanvasGroupTitle`, a derived name is computed from current membership every time,
-   * so it follows renames and departures for free, and a given name is returned untouched.
-   *
-   * A persisted `string` therefore reads as *given* and freezes, which is the conservative
-   * direction: a name that was in fact derived stops updating, rather than a name someone chose
-   * being thrown away.
-   */
+  /** Null derives the title from current group members. */
   title: string | null;
   tree: InfiniteCanvasGroupNode;
   zIndex: number;
 }>;
 
-/** The undoable half of the canvas: what exists, not where you are looking. */
+/** Undoable document state. */
 type InfiniteCanvasDocument<Kind extends string = string> = Readonly<{
-  /**
-   * Which workspace is showing is part of the document, unlike which window is focused.
-   * Switching is an edit: it writes the outgoing workspace's camera and selection, and the
-   * roadmap's exit for M5 asks that a switch be one undo entry.
-   */
+  /** The active workspace is part of the undoable document. */
   activeWorkspaceId: string | null;
   groups: readonly InfiniteCanvasGroup[];
   windows: readonly InfiniteCanvasWindow<Kind>[];
   workspaces: readonly InfiniteCanvasWorkspace[];
 }>;
 
-/**
- * A named set of windows, with the camera and selection you left it at — virtual desktops
- * rather than nested canvases, which would need a second camera and a second input plane.
- *
- * `camera` and `selection` are a snapshot taken when the workspace is switched *away* from.
- * While it is active they are stale by design: writing through on every pan would make each
- * frame a workspace mutation, and workspace mutations are undo checkpoints.
- */
+/** A named window set with camera and selection snapshots from its last exit. */
 type InfiniteCanvasWorkspace = Readonly<{
   camera: InfiniteCanvasCamera;
   id: string;
@@ -359,7 +264,6 @@ type InfiniteCanvasHistory<Kind extends string = string> = Readonly<{
   past: readonly InfiniteCanvasDocument<Kind>[];
 }>;
 
-/** A window's place in a saved arrangement, relative to the recipe's own origin. */
 type InfiniteCanvasRecipeWindow = Readonly<{
   isPinned: boolean;
   mode: InfiniteCanvasWindowMode;
@@ -371,17 +275,13 @@ type InfiniteCanvasRecipeWindow = Readonly<{
 type InfiniteCanvasRecipeGroup = Readonly<{
   groupId: string;
   rect: InfiniteCanvasRect;
-  /** `null` carries "named after its members" through a recipe, so a dropped copy names its own. */
+  /** Null preserves a title derived from recipe members. */
   title: string | null;
   tree: InfiniteCanvasGroupNode;
   zIndex: number;
 }>;
 
-/**
- * A named arrangement, stored with its origin at `(0, 0)` so it drops into any
- * region of an unbounded world. It names windows by id rather than carrying them:
- * a recipe restores where things were, never what they were.
- */
+/** A relative arrangement that references windows by ID. */
 type InfiniteCanvasRecipe = Readonly<{
   groups: readonly InfiniteCanvasRecipeGroup[];
   id: string;
@@ -391,18 +291,15 @@ type InfiniteCanvasRecipe = Readonly<{
   windows: readonly InfiniteCanvasRecipeWindow[];
 }>;
 
-/** Pin the arrangement's top-left at `origin`, or centre it inside `rect`. */
+/** Places a recipe at an origin or centers it in a rect. */
 type InfiniteCanvasRecipePlacement =
   | Readonly<{ origin: InfiniteCanvasPoint }>
   | Readonly<{ rect: InfiniteCanvasRect }>;
 
-/** The sizes a group's chrome is solved from. */
+/** Sizes used to solve group chrome. */
 type InfiniteCanvasGroupMetrics = Readonly<{
-  /** Extent, along the container's axis, of a collapsed accordion child's header. */
   accordionHeaderSize: number;
-  /** Extent of the draggable seam between two split children. */
   gutterSize: number;
-  /** Height of the tab strip above a tab group's content. */
   tabStripSize: number;
 }>;
 
@@ -410,109 +307,53 @@ type InfiniteCanvasGroupMetricsInput = Partial<InfiniteCanvasGroupMetrics>;
 
 type InfiniteCanvasState<Kind extends string = string> = Readonly<{
   activeWindowId: string | null;
-  /** `null` means no filtering: every window is on the canvas, as before workspaces existed. */
+  /** Null disables workspace filtering. */
   activeWorkspaceId: string | null;
   camera: InfiniteCanvasCamera;
-  /**
-   * The sizes a group's chrome is solved from. Consumer chrome policy, never serialized — the
-   * same category as `viewportInsets`.
-   *
-   * In state rather than a prop because the reducer solves member rects from it on every dock,
-   * undock, reweight and move. A value the layer held alone would draw a tab strip at one height
-   * over panes placed for another.
-   */
+  /** Chrome metrics used by group layout. This state is not serialized. */
   groupMetrics: InfiniteCanvasGroupMetrics;
   groups: readonly InfiniteCanvasGroup[];
-  /** Session-scoped and never serialized: a layout is a document, not its edit log. */
+  /** Session-only edit history. */
   history: InfiniteCanvasHistory<Kind>;
   interaction: InfiniteCanvasInteraction;
   selection: InfiniteCanvasSelection;
   snapPreview: InfiniteCanvasSnapPreview | null;
   viewport: InfiniteCanvasViewport;
-  /**
-   * Screen space the consumer's own chrome covers. Measured, never serialized — for exactly the
-   * reason `viewport` is not: it describes the window being looked through, not the canvas.
-   */
+  /** Screen-pixel bands covered by consumer chrome. */
   viewportInsets: InfiniteCanvasViewportInsets;
-  /**
-   * Chrome that sits *inside* the content area rather than bracketing it — a corner minimap, a
-   * floating toolbar — as screen-space rects.
-   *
-   * **Insets cannot express a corner**, and that is the whole reason this exists. One number per
-   * edge describes a band, so a 140×80 map in the bottom-right has to be declared as a full-width
-   * strip across the bottom. The incubator wrote that trade down three separate times before this
-   * was built: overstating costs a strip of empty canvas — measured at 168 of 900 pixels, 19% of
-   * the viewport — and understating puts a window under the map.
-   *
-   * The split is by *question*, not by chrome. Framing reads insets alone: a corner occluder should
-   * not shrink the rect the camera fills, or fitting content would leave a margin the width of the
-   * whole map. Placement and anchoring read both, because "is this exact spot covered" is a
-   * different question from "what region should I aim at", and only the first one cares about a
-   * corner. Not serialized, for the same reason insets are not.
-   */
+  /** Screen-pixel rects covered by chrome inside the content area. */
   viewportOccluders: readonly InfiniteCanvasViewportOccluder[];
   windows: readonly InfiniteCanvasWindow<Kind>[];
   workspaces: readonly InfiniteCanvasWorkspace[];
 }>;
 
-/**
- * `version: 2` added `groups`. A `version: 1` payload is still accepted and
- * migrates to `groups: []`. Making `groups` an optional field on `version: 1`
- * would have looked backward-compatible right up until an older build read a
- * newer payload, dropped the field it did not know, and wrote back a layout with
- * every group silently deleted.
- */
+/** Serialized version 3. Older versions migrate missing fields to empty lists. */
 type InfiniteCanvasSerializedState<Kind extends string = string> = Readonly<{
   activeWindowId: string | null;
   camera: InfiniteCanvasCamera;
   activeWorkspaceId?: string | null;
   groups: readonly InfiniteCanvasGroup[];
   selection?: InfiniteCanvasSelection;
-  /**
-   * `3` added workspaces; `1` and `2` are still read and migrate to none. Bumping rather
-   * than making the field optional on `2` is the same choice `groups` made: an optional
-   * field looks backward-compatible right up until an older build reads a payload it cannot
-   * represent and silently drops half of it.
-   */
   version: 3;
   windows: readonly InfiniteCanvasWindow<Kind>[];
   workspaces?: readonly InfiniteCanvasWorkspace[];
 }>;
 
-/**
- * A rect of the viewport a consumer's chrome covers, in **screen** pixels from the viewport's
- * top-left — the same space `viewport` and `viewportInsets` are measured in.
- *
- * Its own name rather than a bare rect, because the space is the whole point: every other rect in
- * this API is world units, and a screen rect handed to a world consumer is wrong by the camera.
- */
+/** Screen-pixel rect covered by consumer chrome. */
 type InfiniteCanvasViewportOccluder = InfiniteCanvasRect;
 
 type InfiniteCanvasChromeMetrics = Readonly<{
   borderWidth: number;
   cornerSize: number;
-  /**
-   * Screen pixels the group label holds at every zoom — the second of the two metrics here
-   * measured on screen rather than in the world, alongside `resizeHandleSize`.
-   *
-   * A group label is a legend, not layout. It sits outside the shell, reserves nothing from the
-   * layout solver, and is `aria-hidden` because the shell's own `aria-label` already says it. Its
-   * whole job is to name a shell from far enough away that the panes inside are no longer
-   * readable — so sizing it in world units, as the tab strips and accordion headers correctly
-   * are, makes it vanish exactly when it becomes the only thing worth reading.
-   *
-   * Set to `0` to draw no label. The tab strips are the opposite case and stay in world units:
-   * they are hit targets sized against the panes they head.
-   */
+  /** Group label size in screen pixels. Zero hides the label. */
   groupLabelSize: number;
   headerAccentHeight: number;
   headerHeight: number;
-  /** Screen pixels. Grab targets hold their size as zoom changes, so they stay hittable. */
+  /** Resize-handle size in screen pixels. */
   resizeHandleSize: number;
 }>;
 
-/** Any subset, merged over the defaults — the defaults are not exported, so requiring all six
- * meant copying values that then drift. */
+/** Partial override of default chrome metrics. */
 type InfiniteCanvasChromeMetricsInput = Partial<InfiniteCanvasChromeMetrics>;
 
 type InfiniteCanvasZoomPolicy = Readonly<{
@@ -628,13 +469,7 @@ type InfiniteCanvasResolvedSpatialTarget<Kind extends string = string> = Exclude
   { type: "empty-world" }
 >;
 
-/**
- * What a resolver knows without a pointer.
- *
- * Hit-testing needs a position; asking where a target *is* does not. Splitting the two is what lets
- * the canvas ask a consumer for a selected target's geometry outside a pointer event — the answer
- * to "fit the selection" when the selection is not a window.
- */
+/** Resolver context that does not require a pointer position. */
 type InfiniteCanvasSpatialTargetGeometryContext<Kind extends string = string> = Readonly<{
   chrome: InfiniteCanvasChromeMetrics;
   state: InfiniteCanvasState<Kind>;
@@ -650,17 +485,7 @@ type InfiniteCanvasSpatialTargetResolverContext<Kind extends string = string> =
 type InfiniteCanvasSpatialTargetResolverPhase = "after-windows" | "before-windows";
 
 type InfiniteCanvasSpatialTargetResolver<Kind extends string = string> = Readonly<{
-  /**
-   * Where one of this resolver's targets sits in the world, or `null` if it does not own that
-   * target — including a target that has since stopped existing.
-   *
-   * Optional because a resolver that only hit-tests is still a valid resolver. The three factories
-   * fill it in from the geometry their target source already carries, so a consumer using them gets
-   * this for free; a hand-written resolver opts in by answering.
-   *
-   * World units. An overlay resolver measures in viewport pixels and must not answer, which is why
-   * only the edge and scene-object factories do.
-   */
+  /** Returns a target world rect or null. Overlay resolvers omit this function. */
   getTargetRect?: (
     target: InfiniteCanvasSelectionTarget,
     context: InfiniteCanvasSpatialTargetGeometryContext<Kind>,
@@ -678,64 +503,27 @@ type InfiniteCanvasResolveSpatialTarget<Kind extends string = string> = (
 
 type InfiniteCanvasDropPayload = unknown;
 
-/**
- * The payload the viewport supplies for files dragged in from outside the page.
- *
- * Every other drop payload is the consumer's — they started the drag, so they said what it carries.
- * Nobody starts an OS drag, so these are the shapes the framework has to name. A consumer widens
- * its own payload with the union rather than this member, so a lane added to the bridge does not
- * silently narrow what its policy is handed:
- *
- * ```ts
- * type Payload = MyPaletteItem | InfiniteCanvasNativeDropPayload;
- * ```
- *
- * and narrows on `payload.type` inside `canDrop`, `placement` and `onDrop`.
- *
- * The split between `types` and `files` is the browser's rule, not a convenience. While a drag is
- * in flight the contents of a file are withheld, so `files` is empty until the drop lands and
- * `types` is all a `canDrop` can judge by — which is enough to accept an image and turn away an
- * archive before the user has let go.
- */
+/** File data from a drag that started outside the page. */
 type InfiniteCanvasFileDropPayload = Readonly<{
-  /** Empty until the drop commits; the browser withholds file contents during the drag. */
+  /** Empty until drop because browsers protect in-flight file data. */
   files: readonly File[];
   type: "files";
-  /** MIME types the drag advertises, readable throughout the drag. */
+  /** MIME types available during the drag. */
   types: readonly string[];
 }>;
 
-/**
- * A drag carrying text rather than files — most often a link.
- *
- * Dragging a browser tab, an address bar, or a search result puts `text/uri-list` on the transfer,
- * and dragging a selection puts `text/plain`. Both arrive here, tagged the same way files are, and
- * a consumer narrows on `payload.type === "text"`.
- *
- * `uris` is separate from `text` because `text/uri-list` is a line-oriented format with comments —
- * dragging a Chrome tab sends the URL and the page title, and the title is a `#` line. A consumer
- * reading `text` and hoping for an address would get a sentence.
- *
- * The in-flight rule is the file lane's, for the browser's reason rather than a design one: `types`
- * reads throughout, contents do not. So `text` is `""` and `uris` is empty during the drag, which
- * is exactly when `canDrop` runs — judge by `types`, the same as a file policy does.
- */
+/** Text data from a drag that started outside the page. */
 type InfiniteCanvasTextDropPayload = Readonly<{
-  /** Empty until the drop commits; the browser withholds transfer data during the drag. */
+  /** Empty until drop because browsers protect in-flight transfer data. */
   text: string;
   type: "text";
-  /** MIME types the drag advertises, readable throughout the drag. */
+  /** MIME types available during the drag. */
   types: readonly string[];
-  /** The address lines of a `text/uri-list`, comments dropped. Empty until the drop commits. */
+  /** URI lines without RFC 2483 comments. Empty until drop. */
   uris: readonly string[];
 }>;
 
-/**
- * Everything the viewport can make of a drag that started outside the page.
- *
- * A consumer widens its own payload with this rather than with one member, so adding a lane to the
- * bridge does not silently narrow what its `canDrop` is handed.
- */
+/** Supported payloads for a drag that started outside the page. */
 type InfiniteCanvasNativeDropPayload =
   | InfiniteCanvasFileDropPayload
   | InfiniteCanvasTextDropPayload;
@@ -762,14 +550,7 @@ type InfiniteCanvasResolvedDropTarget<Kind extends string = string> =
       target: InfiniteCanvasSpatialTarget<Kind>;
     }>;
 
-/**
- * Where a dragged payload would land, and the guides holding it there. `preview` is
- * `null` when snapping is off or nothing is near enough to catch.
- *
- * Lives here rather than in `drop-interaction` because the drop interaction carries
- * one, and a type-only cycle between the two modules would be a cycle a reader has
- * to hold in their head.
- */
+/** Snapped drop rect and guides. */
 type InfiniteCanvasDropPlacement = Readonly<{
   preview: InfiniteCanvasSnapPreview | null;
   rect: InfiniteCanvasRect;
@@ -789,11 +570,7 @@ type InfiniteCanvasDropInteraction<
       isOverViewport: boolean;
       originClientPoint: InfiniteCanvasPoint;
       payload: Payload;
-      /**
-       * Where the payload would land, snapped, and the guides holding it there.
-       * `null` unless `dropPolicy.placement` declared how big the incoming thing is —
-       * without a size there is no rect to snap, and nothing honest to draw.
-       */
+      /** Null when the drop policy gives no placement size. */
       placement: InfiniteCanvasDropPlacement | null;
       pointerId: number;
       status: "dragging";
@@ -814,12 +591,7 @@ type InfiniteCanvasDropCommitContext<
   actions: InfiniteCanvasCommands<Kind>;
   dropTarget: Extract<InfiniteCanvasResolvedDropTarget<Kind>, { status: "valid" }>;
   payload: Payload;
-  /**
-   * The very placement the preview was drawing when the pointer came up — not a
-   * fresh call. Recomputing it here is how a drop lands somewhere other than where
-   * the ghost promised, because the two calls can disagree the moment anything
-   * about the snap candidates differs.
-   */
+  /** Placement shown when the pointer was released. */
   placement: InfiniteCanvasDropPlacement | null;
   state: InfiniteCanvasState<Kind>;
   target: InfiniteCanvasSpatialTarget<Kind>;
@@ -846,27 +618,13 @@ type InfiniteCanvasDropPolicy<
     context: InfiniteCanvasDropTargetContext<Kind, Payload>,
   ) => InfiniteCanvasDropValidationInput;
   onDrop?: (context: InfiniteCanvasDropCommitContext<Kind, Payload>) => void;
-  /**
-   * How large the payload will be when it lands, and where the pointer sits inside
-   * it. Supplying this is what lets the framework snap the drop against the same
-   * candidates a window move snaps against, and draw the same guides — the ones it
-   * was already computing inside `getInfiniteCanvasDropPlacement` and discarding.
-   *
-   * Return `null` for a payload that has no rect. Omit it entirely and drops behave
-   * as before: no snapping, no guides, `drag.placement` is `null`.
-   */
+  /** Returns payload size and pointer offset for snap placement, or null. */
   placement?: (
     context: InfiniteCanvasDropTargetContext<Kind, Payload>,
   ) => Readonly<{ anchor?: InfiniteCanvasPoint; size: InfiniteCanvasSize }> | null;
 }>;
 
-/**
- * Everything an overlay *reads*. `Payload` appears only in output positions here,
- * so this type is covariant in it: a context for a narrow payload is assignable to
- * one for a wider payload, and a shared utility can take
- * `InfiniteCanvasOverlayReadContext<Kind, MyPayload>` without also naming `Kind`
- * at every call site.
- */
+/** Overlay context without the payload-consuming `startDrag` function. */
 type InfiniteCanvasOverlayReadContext<
   Kind extends string = string,
   Payload = InfiniteCanvasDropPayload,
@@ -879,16 +637,7 @@ type InfiniteCanvasOverlayReadContext<
   state: InfiniteCanvasState<Kind>;
 }>;
 
-/**
- * The read surface plus the one function that makes the whole context invariant.
- *
- * `startDrag` takes a `Payload`, so it is *contravariant* in it, and an
- * intersection with a contravariant member is assignable in neither direction.
- * That is why a helper written against the default payload could not accept a
- * typed one, and why every generic consumer utility had to thread both type
- * parameters through. Splitting the surface means a utility that only reads takes
- * `InfiniteCanvasOverlayReadContext` and stops caring.
- */
+/** Overlay read context plus `startDrag`. */
 type InfiniteCanvasOverlayRenderContext<
   Kind extends string = string,
   Payload = InfiniteCanvasDropPayload,
@@ -897,38 +646,13 @@ type InfiniteCanvasOverlayRenderContext<
     startDrag: (input: InfiniteCanvasDragStartInput<Payload>) => void;
   }>;
 
-/**
- * What a frame slot accepts.
- *
- * Until 2026-08-12 this was `{ children?, className?, style? }` and nothing else — which made the
- * framework *unstyled* rather than *headless*. A consumer could recolour a header but could not
- * put an `id` on it, attach an `onFocus`, hang a `ref` off it to measure or anchor to, give it an
- * `aria-describedby`, or render it as anything but the tag the framework picked.
- *
- * Now every slot takes the element's own props — `ref` included, which needs no `forwardRef`
- * because React 19 passes it as an ordinary prop — plus `render`, Base UI's spelling of
- * `asChild`: given the merged props, the consumer returns the element, and the framework keeps
- * its behaviour while giving up its tag.
- *
- * Merging is `mergeInfiniteCanvasSlotProps`, and the rules are per-kind rather than
- * last-wins — event handlers compose so passing `onPointerDown` to a header cannot silently
- * disable window dragging, and `data-slot` stays framework-owned because it is the styling
- * contract's only anchor.
- */
+/** Renders a slot with merged props and default children. */
 type InfiniteCanvasSlotRender = (
   props: Record<string, unknown>,
   state: Readonly<{ children?: ReactNode }>,
 ) => ReactNode;
 
-/**
- * `HTMLAttributes` rather than `ComponentPropsWithRef<"div">`, and the reason is a hard
- * TypeScript limit rather than a preference: intersecting the full element props with anything
- * makes the union too complex to represent (TS2590), which this repository has already hit once
- * in its router typings. `HTMLAttributes` plus an explicit `ref` carries the substance —
- * `id`, `role`, `tabIndex`, every `aria-*`, every DOM event, `className`, `style` — at a
- * fraction of the type size. Arbitrary `data-*` is the one thing it does not admit; slots that
- * need one today have it framework-side, and widening further would reintroduce TS2590.
- */
+/** DOM attributes plus a React 19 ref and slot renderer. */
 type InfiniteCanvasSlotElementProps<Element extends HTMLElement> = HTMLAttributes<Element> &
   Readonly<{
     ref?: Ref<Element>;
@@ -1044,42 +768,17 @@ type InfiniteCanvasWindowDefinition<Kind extends string = string, Data = unknown
   frameChrome?: InfiniteCanvasWindowFrameChrome;
   kind: Kind;
   overflowY?: CSSProperties["overflowY"];
-  /**
-   * Mount a portal root that tracks this window's screen rect, outside every
-   * transform. Opt-in: a root for every window would cost a style write per window
-   * per camera tick, and windows that never open a popover would pay for one.
-   */
+  /** Mounts a screen-space portal root outside the window transform. */
   portalRoot?: boolean;
   renderBody?: (context: InfiniteCanvasWindowRenderContext<Kind, Data>) => ReactNode;
   renderFrame?: (context: InfiniteCanvasWindowFrameRenderContext<Kind, Data>) => ReactNode;
-  /**
-   * What this window shows when it is too small on screen to read (semantic LOD).
-   *
-   * Opt-in per kind, and the lane is inert without it: a kind that declares no summary always
-   * renders its body, at any zoom. That is the honest default — the framework cannot invent a
-   * meaningful summary for content it does not understand, and a generic one would be worse
-   * than small text, because small text at least still says what it says.
-   *
-   * Rasterization does **not** solve this and never could: a rasterized paragraph is still a
-   * paragraph. At far zoom a window has to say something *different* — a title, an icon, a
-   * count — not the same thing smaller. Receives the same context as `renderBody`.
-   */
+  /** Renders semantic detail at far zoom. Omission keeps the full body at all zooms. */
   renderSummary?: (context: InfiniteCanvasWindowRenderContext<Kind, Data>) => ReactNode;
   textSelection?: InfiniteCanvasWindowTextSelection;
   wheelBehavior?: InfiniteCanvasWindowWheelBehavior;
 }>;
 
-/**
- * A registry with `data` typed per kind, as it is written.
- *
- * `defineInfiniteCanvasWindowRegistry<Kind, DataByKind>` accepts this shape and
- * returns the erased `InfiniteCanvasWindowRegistry<Kind>`. The type lives at the
- * authoring boundary and nowhere else, on purpose: `renderBody` *takes* a context,
- * so `InfiniteCanvasWindowDefinition<K, {text: string}>` is not assignable to
- * `InfiniteCanvasWindowDefinition<K, unknown>`, and threading `Data` any further
- * would force every internal component signature to carry it for a guarantee the
- * framework cannot keep anyway — `window.data` really is `unknown` at runtime.
- */
+/** Per-kind registry input with typed window data. */
 type InfiniteCanvasWindowRegistryInput<
   Kind extends string,
   DataByKind extends Readonly<Record<Kind, unknown>>,
@@ -1124,44 +823,20 @@ type InfiniteCanvasCommand =
       type: "window.nudge";
     }>
   | Readonly<{
-      /**
-       * Bring the selected floating windows to a shared edge or centreline of their own
-       * collective bounds — never the viewport's. Aligning three windows left means "share the
-       * leftmost one's left edge", not "go to the left of the screen"; the latter is
-       * `window.place`, and conflating them gives two commands that both claim to align.
-       */
+      /** Aligns selected floating windows within their collective bounds. */
       alignment: InfiniteCanvasAlignment;
       type: "window.align";
     }>
-  /** Exactly two selected windows trade centres, each keeping its own size. */
   | Readonly<{ type: "group.equalizeChildren" }>
   | Readonly<{ type: "activeWindow.close" }>
   | Readonly<{ type: "activeWindow.minimize" }>
   | Readonly<{ type: "activeWindow.toggleMaximized" }>
   | Readonly<{ type: "activeWindow.togglePinned" }>
-  /**
-   * Close every closable window in the selection, as one edit.
-   *
-   * The lifecycle verbs above act on the active window because the actions beneath them take a
-   * single id — and that left "select five windows, close them" with no verb at all. This is one
-   * action rather than a loop over `window.close` for the reason that loop was rejected: a
-   * document change is a history checkpoint, so five dispatches are five undo entries and
-   * recovering from a mistaken close means pressing undo five times.
-   */
+  /** Closes all closable selected windows as one edit. */
   | Readonly<{ type: "selection.close" }>
-  /** Collapse every minimizable window in the selection into the dock, as one edit. */
+  /** Minimizes all permitted selected windows as one edit. */
   | Readonly<{ type: "selection.minimize" }>
-  /**
-   * Pin every selected window, or unpin them all if every one is already pinned.
-   *
-   * Toggling each window independently would leave a mixed selection exactly as mixed as it
-   * started, just inverted — which is not what pressing one button on five windows means. The
-   * rule is the conventional one for a group toggle: bring them all to the same state, and
-   * choose the state that is not already universal.
-   *
-   * There is deliberately no `selection.toggleMaximized`. Five maximized windows are five
-   * windows filling the same viewport, stacked — the verb has no meaning in bulk.
-   */
+  /** Pins all selected windows, or unpins them when all are pinned. */
   | Readonly<{ type: "selection.togglePinned" }>
   | Readonly<{ amountPx: number; direction: InfiniteCanvasDirection; type: "view.pan" }>
   | Readonly<{ factor: number; type: "view.zoomBy" }>
@@ -1170,40 +845,14 @@ type InfiniteCanvasCommand =
   | Readonly<{ direction: "next" | "previous"; type: "workspace.cycle" }>
   | Readonly<{ type: "workspace.showAll" }>
   | Readonly<{ type: "workspace.removeActiveWindow" }>
-  /**
-   * Make a desktop, and go to one.
-   *
-   * Without these the workspace model had no entry point: `cycle` walks desktops that exist and
-   * does nothing when there are none, and nothing else could bring the first one into being or
-   * name which one to enter. Parameterized for the same reason `moveActiveWindow` is — the id and
-   * the name come from the surface listing the desktops, not from a palette guessing.
-   */
+  /** Creates or enters a named workspace. */
   | Readonly<{ title?: string; type: "workspace.create"; workspaceId: string }>
   | Readonly<{ type: "workspace.enter"; workspaceId: string }>
-  /** Closing never closes the windows on it: a membership filter that deleted what it filtered
-   * would make "which set is this in" a destructive question. */
+  /** Closes the workspace without closing its windows. */
   | Readonly<{ type: "workspace.close"; workspaceId: string }>
-  /**
-   * Send the active window to a named desktop.
-   *
-   * Parameterized like `workspace.create`, and for the same reason: a palette entry cannot
-   * invent which desktop. The surface listing the desktops is what supplies the argument.
-   */
+  /** Moves the active window to the named workspace. */
   | Readonly<{ type: "workspace.moveActiveWindow"; workspaceId: string }>
-  /**
-   * Go to a window, wherever it is.
-   *
-   * Every surface that names a window somewhere other than the canvas — a launcher, a search
-   * result, a backlink, an offscreen cue — wants this one verb, and each of them was composing it
-   * out of three: restore if minimized, focus, then move the camera. Desktops broke that
-   * composition without any of them changing. `getNavigableWindow` filters on `minimized` alone,
-   * so a window the active desktop hides is still a navigation target, and going to it panned the
-   * camera to a rect nothing renders — the window read as lost rather than elsewhere.
-   *
-   * So revealing switches desktops first, to one that admits the window, or to no desktop at all
-   * when none does. That is what going to a thing means, and it is the same rule that makes
-   * `workspace.create` also enter: a verb that leaves you short of its own object is unfinished.
-   */
+  /** Shows, restores, and focuses a window across workspace filters. */
   | Readonly<{ type: "window.reveal"; windowId: string }>
   | Readonly<{ amountPx: number; type: "group.resizePane" }>
   | Readonly<{ type: "group.dissolve" }>
@@ -1214,27 +863,19 @@ type InfiniteCanvasCommand =
   | Readonly<{ type: "window.undock" }>
   | Readonly<{ type: "window.swap" }>
   | Readonly<{
-      /**
-       * Even out the gaps between the selected floating windows along one axis, holding the
-       * outermost two still. Equal gaps rather than equal centres — with windows of differing
-       * size the two differ, and equal gaps is what every tool means by "distribute".
-       */
+      /** Distributes selected floating windows with equal gaps. */
       distribution: InfiniteCanvasDistribution;
       type: "window.distribute";
     }>
   | Readonly<{
-      /** Where in the visible region the active window lands. Never snapped. */
+      /** Places the active window in the visible region without snapping. */
       region: InfiniteCanvasWindowPlacementRegion;
       type: "window.place";
     }>
   | Readonly<{
-      /** Screen pixels, converted through the camera like a nudge. */
+      /** Screen-pixel resize amount. */
       amountPx: number;
-      /**
-       * `right`/`down` grow the window; `left`/`up` shrink it. The window's origin never
-       * moves — only its east and south edges do, which is what "resize" means when there is
-       * no handle under a cursor to say otherwise.
-       */
+      /** Right and down grow. Left and up shrink. The origin stays fixed. */
       direction: InfiniteCanvasDirection;
       type: "window.resize";
     }>
@@ -1380,21 +1021,10 @@ type InfiniteCanvasAction<Kind extends string = string> =
   | Readonly<{ title: string; type: "workspace.setTitle"; workspaceId: string }>
   | Readonly<{ type: "workspace.activate"; workspaceId: string | null }>
   | Readonly<{ type: "workspace.addWindow"; windowId: string; workspaceId: string }>
-  /**
-   * Move windows to a desktop: they leave every other one and join this one, as one edit.
-   *
-   * `addWindow` and `removeWindow` cannot express this between them — two dispatches are two
-   * undo entries, and the window sits on both desktops in between. The whole group moves,
-   * because membership is group-complete and leaving siblings behind would have reconciliation
-   * pull the window straight back.
-   *
-   * A set, because "put these three on that desktop" is one thing a person did: filing them one
-   * dispatch at a time made it three undo entries with the desktop half-populated at each step.
-   * Moving one window is a set of one.
-   */
+  /** Moves windows and their complete groups to one workspace as one edit. */
   | Readonly<{ type: "workspace.moveWindows"; windowIds: readonly string[]; workspaceId: string }>
   | Readonly<{ type: "workspace.removeWindow"; windowId: string; workspaceId: string }>
-  /** `toIndex` is the position in the final list, matching `group.reorderChild`. */
+  /** Final list index. */
   | Readonly<{ toIndex: number; type: "workspace.reorder"; workspaceId: string }>
   | Readonly<{
       type: "workspace.setWindows";
@@ -1458,13 +1088,7 @@ type InfiniteCanvasAction<Kind extends string = string> =
   | Readonly<{
       groupId: string;
       handle: InfiniteCanvasResizeHandle;
-      /**
-       * The shell's structural floor, measured by the caller with the same metrics it
-       * laid the tree out with. Carried on the action for the same reason
-       * `availableExtent` is: metrics live in the render layer, and the reducer must not
-       * guess at them or a consumer with custom metrics gets a floor that disagrees with
-       * the layout it can see.
-       */
+      /** Structural group minimum from the render layer. */
       minSize: InfiniteCanvasSize;
       point: InfiniteCanvasPoint;
       pointerId: number;
@@ -1497,11 +1121,7 @@ type InfiniteCanvasAction<Kind extends string = string> =
       windowId: string;
     }>
   | Readonly<{
-      /**
-       * The user is asking to dock, not to overlap. Held during a window drag it
-       * resolves a dock region under the pointer and suppresses alignment guides,
-       * which are the wrong affordance once a drop target exists.
-       */
+      /** Enables group docking and suppresses alignment guides. */
       dockIntent?: boolean;
       point: InfiniteCanvasPoint;
       pointerId: number;
@@ -1585,19 +1205,11 @@ type InfiniteCanvasCommands<Kind extends string = string> = Readonly<{
       weights: Readonly<Record<string, number>>;
     }>,
   ) => void;
-  /**
-   * Renaming, for the three entities that carry a title. There is no command for these: a
-   * palette cannot invent a string, so an inline edit calls these directly. An empty or
-   * whitespace-only title is refused — a title is an accessible name before it is a label.
-   */
+  /** Updates non-empty titles without command-palette parameters. */
   setWindowTitle: (input: Readonly<{ title: string; windowId: string }>) => void;
   setGroupTitle: (input: Readonly<{ groupId: string; title: string }>) => void;
   setWorkspaceTitle: (input: Readonly<{ title: string; workspaceId: string }>) => void;
-  /**
-   * Membership as a delta rather than a replacement. `setGroupChildWeights` taught this the
-   * hard way: an action that takes the whole collection forces a caller to read it, edit it,
-   * and write it back, and anything that changed in between is silently discarded.
-   */
+  /** Updates one workspace member without replacing the full membership list. */
   addWindowToWorkspace: (input: Readonly<{ windowId: string; workspaceId: string }>) => void;
   removeWindowFromWorkspace: (input: Readonly<{ windowId: string; workspaceId: string }>) => void;
   setGroupAxis: (
@@ -1627,12 +1239,7 @@ type InfiniteCanvasCommands<Kind extends string = string> = Readonly<{
       pointerId: number;
     }>,
   ) => void;
-  /**
-   * Drag a group shell's outer edge. The tree is untouched; members re-project.
-   *
-   * `minSize` comes from `getInfiniteCanvasGroupMinimumSize(group.tree, metrics)` — pass
-   * the same metrics the shell was laid out with.
-   */
+  /** Starts a group resize with a minimum from the same layout metrics. */
   startGroupResize: (
     input: Readonly<{
       groupId: string;
@@ -1677,10 +1284,10 @@ type InfiniteCanvasCommands<Kind extends string = string> = Readonly<{
   selectWindow: (windowId: string) => void;
   setTargetSelection: (targets: readonly InfiniteCanvasSelectionTarget[]) => void;
   setSelection: (windowIds: readonly string[]) => void;
-  /** Resize a group's chrome: the tab strip, the split seams, the accordion headers. */
+  /** Updates group chrome metrics. */
   setGroupMetrics: (metrics: InfiniteCanvasGroupMetricsInput) => void;
   setViewport: (viewport: InfiniteCanvasViewport) => void;
-  /** Tell the canvas which edges the consumer's own chrome is covering. */
+  /** Updates screen-pixel bands covered by consumer chrome. */
   setViewportInsets: (insets: InfiniteCanvasViewportInsetsInput) => void;
   startMarquee: (
     input: Readonly<{

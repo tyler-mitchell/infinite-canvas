@@ -4,11 +4,6 @@ import { createInfiniteCanvasState, createInfiniteCanvasWindow } from "./factory
 import { reduceInfiniteCanvasState } from "./reducer";
 import type { InfiniteCanvasState } from "./types";
 
-/**
- * Nudge moves a docked pane's whole shell. Align, distribute, and swap skip docked panes entirely.
- * Both behaviours are intentional and pinned here so they are not made to agree by accident.
- */
-
 type Kind = "note";
 
 const pane = (id: string, x: number) =>
@@ -20,7 +15,6 @@ const pane = (id: string, x: number) =>
     title: id,
   });
 
-/** Four windows, "a" docked rightward into a shell with "b", "c" and "d" left floating. */
 const withShellAndFloaters = (): InfiniteCanvasState<Kind> => {
   const base = {
     ...createInfiniteCanvasState<Kind>({
@@ -51,14 +45,12 @@ test("nudging a selection moves a docked pane's whole shell", () => {
     type: "command.execute",
   });
 
-  // "b" moved too, and the nudge never named it.
   for (const id of ["a", "b", "c", "d"]) {
     expect(rectOf(after, id)?.x).toBeGreaterThan(rectOf(before, id)?.x ?? 0);
   }
 });
 
 test("a group moves once however many of its members are selected", () => {
-  // The shell-first pass exists so members are not translated twice.
   const before = withShellAndFloaters();
   const after = reduceInfiniteCanvasState(before, {
     command: { amountPx: 10, direction: "right", type: "window.nudge" },
@@ -77,14 +69,12 @@ test("aligning the same selection skips the docked panes entirely", () => {
     type: "command.execute",
   });
 
-  // The floaters align to each other; the shell's members are not theirs to move.
   expect(rectOf(after, "c")?.x).toBe(rectOf(after, "d")?.x);
   expect(rectOf(after, "a")).toStrictEqual(rectOf(before, "a"));
   expect(rectOf(after, "b")).toStrictEqual(rectOf(before, "b"));
 });
 
 test("the two families genuinely disagree about the same window", () => {
-  // Same window, same selection, two sibling verbs.
   const before = withShellAndFloaters();
   const nudged = reduceInfiniteCanvasState(before, {
     command: { amountPx: 10, direction: "right", type: "window.nudge" },

@@ -6,15 +6,6 @@ import { getInfiniteCanvasGroupProjection } from "./group-state";
 import { reduceInfiniteCanvasState } from "./reducer";
 import type { InfiniteCanvasGroup, InfiniteCanvasState } from "./types";
 
-/**
- * Group chrome sizes are configurable, and the reducer honours them.
- *
- * `metrics` used to be a prop on the group layer alone while the reducer solved member rects from
- * the default, so setting it drew a tab strip at one height over panes placed for another. It is
- * `state.groupMetrics` now, and these assert the two halves that has to mean: the value reaches
- * the solver, and changing it re-places the members rather than waiting for an unrelated edit.
- */
-
 const TABS_GROUP: InfiniteCanvasGroup = {
   id: "group-1",
   rect: { height: 400, width: 600, x: 0, y: 0 },
@@ -75,8 +66,6 @@ test("the tab strip's height is what a member's rect is placed below", () => {
 });
 
 test("setting the metrics re-places the members there and then", () => {
-  // Without the re-solve the window keeps the rect it was placed at, and the taller strip draws
-  // over it until some unrelated edit happens to sync the projection.
   const before = seed();
   const after = reduceInfiniteCanvasState(before, {
     metrics: { ...DEFAULT_INFINITE_CANVAS_GROUP_METRICS, tabStripSize: 90 },

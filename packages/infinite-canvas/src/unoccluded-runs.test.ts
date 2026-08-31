@@ -9,11 +9,6 @@ import {
 } from "./scene-layer-geometry";
 import type { InfiniteCanvasRect } from "./types";
 
-/**
- * A run is a contiguous visible stretch across segments; a segment is one leg. Both queries exist;
- * these pin the difference between them.
- */
-
 const rect = (x: number, y: number, width: number, height: number): InfiniteCanvasRect => ({
   height,
   width,
@@ -21,7 +16,6 @@ const rect = (x: number, y: number, width: number, height: number): InfiniteCanv
   y,
 });
 
-/** An elbow: right along the top, down the side. Nothing covers it. */
 const elbow = getInfiniteCanvasWorldPath([
   { x: 0, y: 0 },
   { x: 100, y: 0 },
@@ -45,7 +39,6 @@ test("the longest run is the whole elbow where the longest segment is one leg", 
 });
 
 test("the anchor moves from a quarter along to halfway", () => {
-  // Halfway along the elbow is its corner (100, 0); halfway along the longest leg is (50, 0).
   const run = getInfiniteCanvasLongestUnoccludedRun(elbow.segments, []);
   const anchor = run === null ? null : getInfiniteCanvasWorldPathPointAtProgress(run, 0.5);
 
@@ -54,11 +47,9 @@ test("the anchor moves from a quarter along to halfway", () => {
 });
 
 test("an occluder in the middle splits one run into two", () => {
-  // A band across the top leg leaves a stub before it and the remainder after it.
   const runs = getInfiniteCanvasUnoccludedRuns(elbow.segments, [rect(40, -5, 20, 10)]);
 
   expect(runs).toHaveLength(2);
-  // The far side is longer: 40 units of remaining top leg plus the 100-unit descent.
   expect(
     getInfiniteCanvasLongestUnoccludedRun(elbow.segments, [rect(40, -5, 20, 10)])?.length,
   ).toBeCloseTo(140);
@@ -72,7 +63,6 @@ test("a path hidden along its whole length has no run", () => {
 });
 
 test("on a straight line a run and a segment are the same answer", () => {
-  // Which is why the cheaper segment query is still exported.
   const line = getInfiniteCanvasWorldPath([
     { x: 0, y: 0 },
     { x: 100, y: 0 },

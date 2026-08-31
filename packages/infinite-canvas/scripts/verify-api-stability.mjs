@@ -1,23 +1,4 @@
-/**
- * API gate: assert every public name carries a stability promise, and that the promise is written
- * down where a consumer will read it.
- *
- * `docs/API.md` says what the surface *is*. Nothing said what any of it *means*. 374 names shipped
- * from two barrels with no tier, which is not "no promise" — it is an implicit promise of
- * stability on all 374, made by silence, including on modules nobody has ever watched run. That is
- * the same class of error `verify-api-doc.mjs` was written for: a claim with nothing enforcing it.
- *
- * Classification is by **module**, not by name, and the asymmetry is the point. Adding
- * `getRectArea` to `geometry.ts` should inherit stable without anyone touching a manifest — the
- * module already decided. Adding a whole module to a barrel should stop the build until someone
- * says what it promises. `types.ts` is the exception, because it is a grab-bag holding
- * `InfiniteCanvasSceneLayer` next to `InfiniteCanvasRect`; its experimental names are listed one by
- * one and checked to still exist.
- *
- * Reads source rather than `dist/`, so it runs without a build and can gate `vp check`.
- *
- * Run: node ./scripts/verify-api-stability.mjs
- */
+/** Fails when public module and type stability tiers are incomplete. */
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -37,13 +18,7 @@ const TYPES_MODULE = "types";
 const stripComments = (source) =>
   source.replaceAll(/\/\*[\s\S]*?\*\//g, "").replaceAll(/\/\/.*/g, "");
 
-/**
- * `[{ module, names }]` for every re-export block, keyed by the module it re-exports from.
- *
- * The same shape `verify-api-doc.mjs` parses, plus the source specifier — which is what makes
- * module-level classification possible at all. Both barrels are exclusively re-export blocks; the
- * doc gate already refuses to run if that stops being true, so this one does not repeat the check.
- */
+/** Returns exported names grouped by source module. */
 const getBarrelModules = (source, prefix) => {
   const byModule = new Map();
 
@@ -76,8 +51,7 @@ const typesExperimental = new Set(manifest.typesExperimental);
 
 const seenModules = new Set();
 const experimentalNames = new Set();
-// Sets, not counters: `scene-surface` is re-exported from both barrels, and a name counted twice
-// would inflate the surface the gate reports. The number is the point of the line it prints.
+// Use sets because both barrels can export the same name.
 const stableNames = new Set();
 
 for (const { entry, path, prefix } of BARRELS) {
@@ -98,7 +72,7 @@ for (const { entry, path, prefix } of BARRELS) {
     }
 
     for (const name of names) {
-      // `types.ts` is stable as a module and experimental in places. Its overrides win.
+      // Type overrides take priority over the module tier.
       const nameIsExperimental =
         module === TYPES_MODULE ? typesExperimental.has(name) : isExperimental;
 
@@ -117,9 +91,7 @@ for (const module of [...stable, ...experimental.keys()]) {
   }
 }
 
-// A `typesExperimental` name that `types.ts` no longer exports would quietly demote nothing while
-// reading as though it demoted something. The empty-set case is the dangerous one: rename every
-// scene type and this list still passes, still looks like a promise, and covers nothing.
+// Reject stale experimental type overrides.
 const typeNames = new Set();
 for (const { path, prefix } of BARRELS) {
   const module = getBarrelModules(readFileSync(path, "utf8"), prefix).get(TYPES_MODULE);
@@ -134,8 +106,7 @@ for (const name of typesExperimental) {
   }
 }
 
-// The manifest is machine truth; docs/API.md is where a consumer looks. Neither is allowed to
-// drift from the other, or the promise exists only in a file nobody installs.
+// Keep machine tiers and API documentation aligned.
 const apiDoc = readFileSync(apiDocPath, "utf8");
 const stabilitySection = /\n## Stability\n([\s\S]*?)(?=\n## |$)/.exec(apiDoc);
 

@@ -9,15 +9,6 @@ import {
 } from "./group-state";
 import type { InfiniteCanvasState } from "./types";
 
-/**
- * Revealing a window two levels deep.
- *
- * Docking onto a member of a tabs container nests a container inside it, so a window can be the
- * active child of its own parent while that parent is the hidden sibling. `window.reveal` set
- * `activeWindowId`, set the inner `activeChildId`, moved the camera — and the window was still not
- * rendered, because one container above it was showing something else.
- */
-
 const dockCentre = (
   state: InfiniteCanvasState<"demo">,
   windowId: string,
@@ -36,7 +27,6 @@ const dockCentre = (
   return applyInfiniteCanvasDockPreview(state, preview);
 };
 
-/** `deep` ends up two containers down, under `shallow`. */
 function nested(): InfiniteCanvasState<"demo"> {
   const seed = createInfiniteCanvasState<"demo">({
     viewport: { height: 800, width: 1200 },
@@ -66,7 +56,6 @@ test("the fixture really does bury one window two levels down", () => {
 
   expect(state.groups).toHaveLength(1);
   expect(root?.kind).toBe("container");
-  // A container inside a container is the shape this is about.
   expect(
     root?.kind === "container" && root.children.some((child) => child.kind === "container"),
   ).toBe(true);
@@ -89,8 +78,6 @@ test("revealing one member hides the sibling it displaced, and no more", () => {
   });
   const hidden = ["deep", "middle", "shallow"].filter((id) => isHidden(revealed, id));
 
-  // A tabs container shows one child at a time, so revealing one is another going away. What must
-  // not happen is the revealed one still being among them.
   expect(hidden).not.toContain("deep");
 });
 

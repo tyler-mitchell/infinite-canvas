@@ -16,14 +16,7 @@ import {
 import { Code, Notice, Panel, Section, Stat, StatRow } from "./chrome";
 import type { SurrealInspection } from "./use-inspection";
 
-/**
- * Exports the database as SurQL and imports SurQL back. The export is shown on screen as well as
- * offered as a file, so it can be read as a schema dump.
- *
- * Import is destructive and gated behind a second press. It adds to the database rather than
- * replacing it, so importing over populated tables will collide with existing records. The panel
- * states this next to the button.
- */
+/** The panel imports SurQL into the live database after a second user action. */
 
 const transfer = tv({
   slots: {
@@ -37,7 +30,6 @@ const transfer = tv({
 
 const styles = transfer();
 
-/** Export sections that can be toggled off to shrink the output or reduce it to a schema. */
 const TOGGLES = ["records", "tables", "functions", "params", "analyzers", "users"] as const;
 
 function Transfer({ inspection }: Readonly<{ inspection: SurrealInspection }>) {

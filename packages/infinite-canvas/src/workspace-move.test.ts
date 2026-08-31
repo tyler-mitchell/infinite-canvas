@@ -4,20 +4,6 @@ import { createInfiniteCanvasState, createInfiniteCanvasWindow } from "./factory
 import { reduceInfiniteCanvasState } from "./reducer";
 import type { InfiniteCanvasState } from "./types";
 
-/**
- * Moving a window between desktops.
- *
- * The operation a virtual desktop exists for, and the one `addWindow` and `removeWindow` could
- * not express between them: two dispatches are two undo entries, and the window is on both
- * desktops in between.
- *
- * The subtle half is groups. Membership is group-complete and
- * `reconcileInfiniteCanvasWorkspaces` re-expands every workspace after every action, so moving
- * one pane of a docked shell while its siblings stayed behind would have reconciliation pull the
- * moved pane straight back into the desktop it just left. That is asserted here rather than
- * argued, because it is the failure that would look like the move silently not working.
- */
-
 type Kind = "note";
 
 const pane = (id: string, x: number) =>
@@ -29,7 +15,6 @@ const pane = (id: string, x: number) =>
     title: id,
   });
 
-/** Two desktops: everything starts on Research. */
 const twoDesktops = (): InfiniteCanvasState<Kind> => {
   const base = {
     ...createInfiniteCanvasState<Kind>({
@@ -78,9 +63,6 @@ test("moving is one edit, not a remove and an add", () => {
 });
 
 test("moving a docked pane takes its whole shell with it", () => {
-  // The trap. `reconcileInfiniteCanvasWorkspaces` re-expands membership to whole groups after
-  // every action, so a move that left "b" behind on Research would see "a" dragged back and the
-  // move would appear to do nothing at all.
   const docked = reduceInfiniteCanvasState(
     { ...twoDesktops(), activeWindowId: "a" },
     { command: { direction: "right", type: "window.dockDirection" }, type: "command.execute" },
@@ -96,7 +78,6 @@ test("moving a docked pane takes its whole shell with it", () => {
   const shell = docked.groups[0];
 
   expect(shell).toBeDefined();
-  // Every member of the shell moved, and none of them stayed behind.
   for (const windowId of membership(moved, "writing")) {
     expect(membership(moved, "research")).not.toContain(windowId);
   }
@@ -105,8 +86,6 @@ test("moving a docked pane takes its whole shell with it", () => {
 });
 
 test("a move that changes nothing returns the identical document", () => {
-  // Reference equality is the change test throughout this codebase, so a no-op move must not
-  // land a history entry.
   const state = twoDesktops();
 
   expect(
@@ -131,11 +110,6 @@ test("moving to a desktop that does not exist changes nothing", () => {
 });
 
 test("a whole selection files in one edit, not one per window", () => {
-  /*
-   * The reason this verb takes a set. Filing three windows used to be three dispatches, which is
-   * three undo entries for one gesture — and the desktop is half-populated at each step, so undoing
-   * "put these on that desktop" takes three undos and passes through two states nobody asked for.
-   */
   const before = twoDesktops();
   const moved = reduceInfiniteCanvasState(before, {
     type: "workspace.moveWindows",
@@ -149,7 +123,6 @@ test("a whole selection files in one edit, not one per window", () => {
 });
 
 test("one undo puts a whole filed selection back", () => {
-  // The half that matters to a person: the edit is one, so its reversal is one.
   const before = twoDesktops();
   const moved = reduceInfiniteCanvasState(before, {
     type: "workspace.moveWindows",
@@ -169,13 +142,11 @@ test("the set is normalized as a whole: duplicates, dead ids, and an empty set",
   const state = twoDesktops();
   const moved = reduceInfiniteCanvasState(state, {
     type: "workspace.moveWindows",
-    // "a" twice and a window that does not exist — neither should reach membership.
     windowIds: ["a", "a", "ghost"],
     workspaceId: "writing",
   });
 
   expect(membership(moved, "writing")).toEqual(["a"]);
-  // An empty set is a no-op rather than a move of nothing, so it lands no history entry.
   expect(
     reduceInfiniteCanvasState(state, {
       type: "workspace.moveWindows",
@@ -186,15 +157,6 @@ test("the set is normalized as a whole: duplicates, dead ids, and an empty set",
 });
 
 test("moving the active window off the desktop you are on does not leave it active", () => {
-  /*
-   * The rule `activateInfiniteCanvasWorkspace` already states, applied to the other direction.
-   * Entering a desktop drops an active window it does not admit, because "every verb keyed to the
-   * active window would act on something the user cannot see". Moving that window *away* while you
-   * stand still puts you in exactly the same position, and membership changes do not touch
-   * `activeWindowId` or the selection.
-   *
-   * Reachable in one click now that a selection can be filed onto another desktop.
-   */
   const standing = {
     ...twoDesktops(),
     activeWindowId: "a",
@@ -213,8 +175,6 @@ test("moving the active window off the desktop you are on does not leave it acti
 });
 
 test("the command sends the active window, and works from show-all", () => {
-  // Unlike `removeActiveWindow`, this is reachable with no desktop active — a window on no
-  // desktop is exactly the one you most want to file onto one.
   const showingAll = { ...twoDesktops(), activeWindowId: "c", activeWorkspaceId: null };
   const moved = reduceInfiniteCanvasState(showingAll, {
     command: { type: "workspace.moveActiveWindow", workspaceId: "writing" },

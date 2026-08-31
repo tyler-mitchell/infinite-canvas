@@ -4,21 +4,6 @@ import { createInfiniteCanvasState, createInfiniteCanvasWindow } from "./factory
 import { reduceInfiniteCanvasState } from "./reducer";
 import type { InfiniteCanvasState } from "./types";
 
-/**
- * Nothing in the model could be renamed.
- *
- * Five types carry a `title` and none of them had an action to change it: not a window, not a
- * group shell, not a workspace. A consumer building an inline rename — the ordinary affordance
- * for a thing with a name — had to close the entity and recreate it, losing its id, its
- * z-index, its group membership and its place in the undo stack, or reach around the reducer
- * and rebuild state by hand.
- *
- * There are deliberately no *commands* for these. A palette entry cannot invent a title any
- * more than it can invent which window to open, so the surface is the actions facade and the
- * three actions are `parameterized` in `command-coverage.test.ts`. The gap was never that a
- * palette lacked a rename; it was that the model did.
- */
-
 type Kind = "note";
 
 const canvas = (): InfiniteCanvasState<Kind> => {
@@ -49,8 +34,6 @@ test("a window, a group and a workspace can each be renamed", () => {
   });
 
   expect(renamedWindow.windows[0]?.title).toBe("Final");
-  // The identity survives, which is the whole reason this is an action rather than a
-  // close-and-recreate: the id, the z-index and the workspace membership all persist.
   expect(renamedWindow.windows[0]?.id).toBe("note-1");
   expect(renamedWindow.workspaces[0]?.windowIds).toEqual(["note-1"]);
 
@@ -65,9 +48,6 @@ test("a window, a group and a workspace can each be renamed", () => {
 });
 
 test("an empty title is refused, because a title is an accessible name", () => {
-  // `accessibility.test.tsx` asserts every window exposes an accessible name, and the window
-  // frame takes it from `title`. A rename that could empty it would break that quietly, in a
-  // way only a screen reader would notice.
   const state = canvas();
 
   for (const title of ["", "   ", "\t\n"]) {
@@ -89,8 +69,6 @@ test("a title is trimmed, so no window is named with invisible padding", () => {
 });
 
 test("renaming to the same title is not an edit", () => {
-  // `isSameInfiniteCanvasDocument` compares by reference, so a rename that allocated a new
-  // windows array while changing nothing would push an undo entry that undoes to itself.
   const state = canvas();
   const renamed = reduceInfiniteCanvasState(state, {
     title: "  Draft ",
@@ -118,9 +96,6 @@ test("renaming something that does not exist changes nothing", () => {
 });
 
 test("a rename is undoable", () => {
-  // Titles are part of the layout: `windows`, `groups` and `workspaces` are all in the undo
-  // document, so this needed no history change — but it is worth asserting, because a rename
-  // that quietly escaped undo would be the one edit a user could not take back.
   const state = canvas();
   const renamed = reduceInfiniteCanvasState(state, {
     title: "Final",

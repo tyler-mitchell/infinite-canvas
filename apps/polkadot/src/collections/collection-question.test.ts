@@ -4,17 +4,6 @@ import type { ContentItemRecord, ContentRelation } from "../database/database.cl
 import type { ProjectContent } from "../content/project-content";
 import { resolveCollectionItems } from "./collection-store";
 
-/**
- * What a collection lists, answered from the project rather than remembered.
- *
- * This used to be a database query whose answer was cached per collection and refreshed on open and
- * on question change — and nowhere else. Driven 2026-08-28: four notes stored, an open collection
- * drawing three, because the fourth was created after the window was.
- *
- * The answer is derived now, which is also why these tests can exist: the old resolve needed an
- * engine, and this needs a listing and a list of edges.
- */
-
 const PROJECT = "project:one";
 
 const item = (id: string, kind: string, title = id): ContentItemRecord =>
@@ -50,10 +39,6 @@ test("a kind question lists that kind and nothing else", () => {
 });
 
 test("an item created after the collection opened is listed, which is the defect this closes", () => {
-  /*
-   * The cache made this impossible: the same question, asked twice, had to give the same answer
-   * until something remembered to refresh. Derived, "again" and "afresh" are the same call.
-   */
   const question = { listsKind: "note" } as const;
   const before = resolveCollectionItems({
     listing: listingOf(NOTE_A),
@@ -73,7 +58,7 @@ test("an item created after the collection opened is listed, which is the defect
 });
 
 test("a connection question follows an edge from either end", () => {
-  // Undirected, matching `findRelation`: whoever connected two things did not choose a direction.
+  // Relations are undirected.
   const question = { connectedTo: "item:a" } as const;
 
   expect(
@@ -104,10 +89,6 @@ test("cutting the edge removes the row, with nothing to invalidate", () => {
 });
 
 test("an edge to something the listing does not hold contributes nothing", () => {
-  /*
-   * Archived items are not in `projectContent$`, so an edge to one resolves to no record rather than
-   * to a row that cannot be opened. The query needed its own rule for this; deriving does not.
-   */
   expect(
     resolveCollectionItems({
       listing: listingOf(NOTE_A),
@@ -119,8 +100,6 @@ test("an edge to something the listing does not hold contributes nothing", () =>
 });
 
 test("a listing belonging to another project answers nothing, rather than that project's items", () => {
-  // The guard `getProjectContent` already enforces: between navigating and the first query landing,
-  // the previous project's items must not be read as this one's.
   expect(
     resolveCollectionItems({
       listing: { items: [NOTE_A, NOTE_B], projectId: "project:other" },

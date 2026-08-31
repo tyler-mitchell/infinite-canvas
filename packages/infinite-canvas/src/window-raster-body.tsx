@@ -43,10 +43,7 @@ function InfiniteCanvasWindowBody<Kind extends string>({
   const snapshot = useInfiniteCanvasRasterSnapshot(window.id);
   const signature = getWindowRasterSignature(window, chrome, raster.policy);
 
-  // Both of these derive from live canvas state, and both collapse it to a
-  // boolean. Subscribing to the booleans rather than taking `state` as a prop
-  // is what keeps the body out of the camera loop: a pan recomputes them every
-  // tick and re-renders nothing, because neither answer changed.
+  // Subscribe to booleans so camera ticks do not rerender the body.
   const isEligible = useInfiniteCanvasSelector<Kind, boolean>((state) =>
     isWindowRasterizationEligible({
       definition,
@@ -71,13 +68,7 @@ function InfiniteCanvasWindowBody<Kind extends string>({
     !shouldUseSnapshot &&
     !(hasMatchingSnapshot && snapshot?.status === "failed") &&
     lastRequestedSignatureRef.current !== signature;
-  // Capacity is part of the condition, not a guard inside the effect. A refused
-  // window keeps `wantsCapture === true` across the refusal, so without this the dep
-  // array never changes and the effect never re-fires — the window waits forever.
-  // The full -> not-full crossing is the only edge that can move a dep here.
-  //
-  // Subscribed only while this body is actually waiting, so a drain wakes the windows
-  // that still need a capture and no others.
+  // Waiting bodies subscribe until the queue has capacity.
   const hasCaptureCapacity = useInfiniteCanvasRasterCaptureCapacity(wantsCapture);
   const shouldQueueCapture = wantsCapture && hasCaptureCapacity;
   const shouldUseContentVisibility = !isActive && !isSelected && isCanvasIdle;
@@ -105,10 +96,7 @@ function InfiniteCanvasWindowBody<Kind extends string>({
 
     const timeout = globalThis.setTimeout(
       () => {
-        // Only record the request once the queue has taken it. Marking it made
-        // regardless is how a refused capture becomes a window that waits forever:
-        // `shouldQueueCapture` goes false on the signature it never actually
-        // requested, and nothing ever asks again.
+        // Record the signature only after the queue accepts the request.
         const isQueued = raster.queueCapture({
           element: node,
           height: getWindowBodyHeight(window, chrome),
@@ -172,26 +160,7 @@ function InfiniteCanvasWindowBody<Kind extends string>({
         contain: "layout paint style",
         containIntrinsicSize: `${window.rect.width}px ${getWindowBodyHeight(window, chrome)}px`,
         contentVisibility: shouldUseContentVisibility ? "auto" : "visible",
-        /*
-         * Which of the two the kind gets is the kind's own `overflowY`, and both are wrong for the
-         * other case.
-         *
-         * `minHeight`, for a body that scrolls. The body slot above is the scroll container — it
-         * carries `overflowY: definition.overflowY ?? "auto"` — and a wrapper locked to exactly its
-         * height means that container can never have anything to scroll. A body taller than its
-         * window was silently unreachable: no scrollbar, no wheel, no keyboard, for every consumer.
-         *
-         * `height`, for a body that does not. A kind that declares `hidden` or `clip` has said it
-         * will not scroll, so there is no overflow to preserve — and under `minHeight` alone the
-         * wrapper's used height is `auto`, which means a consumer's own `height: 100%` resolves
-         * against nothing and collapses to its content. Filling the window was therefore impossible
-         * for exactly the kinds whose content is meant to fit it: found on an image window, where
-         * `height: 100%` on the picture's bed silently became `height: auto` and the picture
-         * overflowed the frame it was supposed to be letterboxed inside.
-         *
-         * Containment stays either way: with a pinned height `paint` clips what the kind already
-         * said to clip, and with an auto height there is nothing overflowing to clip.
-         */
+        // Scrolling bodies can grow. Other bodies stay pinned to the container.
         height: bodyScrolls ? undefined : "100%",
         minHeight: bodyScrolls ? "100%" : undefined,
         width: "100%",
@@ -217,27 +186,8 @@ function useRenderedWindowBody<Kind extends string>({
 }>) {
   const store = useInfiniteCanvasStore<Kind>();
 
-  // The body subtree must NOT reconcile on every camera/selection tick:
-  // shell movement re-renders the frame each frame, and re-invoking
-  // renderBody there reconciles every live body in the document — the
-  // dominant interactive cost at stress scale. `state` is therefore peeked
-  // from the store at body render time (fresh whenever the body re-renders
-  // for its own reasons) instead of being an invalidation dependency; body
-  // content that needs live state should subscribe with
-  // useInfiniteCanvasSelector inside its own component so invalidation
-  // stays scoped to what it actually reads.
-  // Semantic LOD. The selector collapses camera zoom to one of two strings, which is what keeps
-  // this out of the camera loop for the same reason the booleans above are: a pan recomputes it
-  // every tick and re-renders nothing, because the answer did not change. Returning the screen
-  // extent instead would re-render every window on every frame.
-  //
-  // A kind with no `renderSummary` short-circuits to `full`, so the lane costs nothing — not a
-  // re-render, not a threshold comparison that could ever flip — for the windows that opted out.
-  //
-  // The ref carries the previous answer, which is what makes the hysteresis band work while
-  // `getInfiniteCanvasWindowDetailLevel` stays pure. Writing it during render is the documented
-  // caching use of a ref, and it is idempotent: inside the band the function returns the value
-  // that is already there.
+  // Read store state on demand so camera ticks do not rerender the body.
+  // Subscribe only to the semantic detail level.
   const detailLevelRef = useRef<InfiniteCanvasDetailLevel>("full");
   const detailLevel = useInfiniteCanvasSelector<Kind, InfiniteCanvasDetailLevel>((state) =>
     definition.renderSummary === undefined
@@ -271,17 +221,7 @@ function getWindowBodyHeight<Kind extends string>(
   return Math.max(1, window.rect.height - chrome.headerHeight);
 }
 
-/**
- * Whether a kind's `overflowY` makes its body slot a scroll container.
- *
- * Asked of the declaration rather than of the element, because the answer decides the wrapper's
- * height and the element does not exist yet. Undefined resolves to `auto`, matching what the body
- * slot itself falls back to — the two must agree, or the wrapper would pin a height on a container
- * that does scroll.
- *
- * `visible` is deliberately on the non-scrolling side. It overflows rather than scrolls, so there
- * is nothing for a taller wrapper to reveal.
- */
+/** Returns whether `overflowY` creates a scroll container. */
 function isInfiniteCanvasScrollingOverflow(overflowY: CSSProperties["overflowY"]) {
   const resolved = overflowY ?? "auto";
 

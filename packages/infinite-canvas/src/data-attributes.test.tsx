@@ -1,12 +1,3 @@
-/**
- * Contract test for the public styling selector API.
- *
- * The `data-slot` vocabulary asserted here is the headless styling
- * contract consumed by theme.css and the styled distribution. Rendering
- * uses react-dom/server's renderToStaticMarkup (no DOM required); the
- * heavy viewport shell (R3F/WebGPU) is exercised indirectly through its
- * pure subtrees: window frames, frame slots, overlays, and the HUD.
- */
 import { renderToStaticMarkup } from "react-dom/server";
 import type { ReactNode } from "react";
 import { expect, test } from "vite-plus/test";
@@ -261,7 +252,6 @@ test("host-chrome window frame normalizes scene->host and emits chrome layers", 
     expect(markup).toContain(`data-layer="${layer}"`);
   }
 
-  // Maximized windows offer "restore" from the maximize control position.
   expect(markup).toContain('data-action="restore"');
   expect(markup).not.toContain('data-action="maximize"');
 });
@@ -366,11 +356,6 @@ test("hud emits status, dock, groups, buttons, and the zoom readout", () => {
   expect(markup).toContain('data-slot="hud-subtitle"');
   expect(markup).toContain('data-slot="hud-dock"');
   expect(countOccurrences(markup, 'data-slot="hud-dock-item"')).toBe(1);
-  /*
-   * The band is what a consumer measures against, so it has to be findable rather than the
-   * unlabelled div it was. One, not two: the dock and the controls share a single row precisely so
-   * they cannot overlap, and a second band would mean that rule had been undone.
-   */
   expect(countOccurrences(markup, 'data-slot="hud-band"')).toBe(1);
 
   expect(countOccurrences(markup, 'data-slot="hud-group"')).toBe(3);
@@ -394,7 +379,6 @@ test("hud emits status, dock, groups, buttons, and the zoom readout", () => {
   expect(countOccurrences(markup, 'data-slot="hud-button"')).toBe(9);
   expect(markup).toContain('data-slot="hud-zoom-readout"');
 
-  // The active pointer mode button carries data-active="".
   expect(markup).toContain('data-action="pointer-pan" data-active=""');
   expect(markup).not.toContain('data-action="pointer-marquee" data-active=""');
 });

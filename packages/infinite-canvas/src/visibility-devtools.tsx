@@ -5,11 +5,7 @@ import type { CSSProperties } from "react";
 import { DEFAULT_INFINITE_CANVAS_STACK_BANDS } from "./constants";
 import { useInfiniteCanvasVisibilitySummary } from "./visibility";
 
-/**
- * Developer surface: must render correctly without theme.css, so all styling
- * is inline. Color values reproduce the previous Tailwind utilities verbatim;
- * rgba(206, 250, 254, …) is Tailwind cyan-100 (#cefafe).
- */
+/** Uses inline styles because the developer panel must work without `theme.css`. */
 const DEVTOOLS_FONT_FAMILY =
   "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace";
 

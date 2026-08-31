@@ -4,11 +4,6 @@ import { createInfiniteCanvasState, createInfiniteCanvasWindow } from "./factory
 import { reduceInfiniteCanvasState } from "./reducer";
 import type { InfiniteCanvasState } from "./types";
 
-/**
- * A pane grows by pushing the seam after it, so the share comes from the next pane along. The last
- * pane has no seam after it and pushes the one before instead.
- */
-
 type Kind = "note";
 
 const pane = (id: string, x: number) =>
@@ -20,7 +15,6 @@ const pane = (id: string, x: number) =>
     title: id,
   });
 
-/** Three panes in one horizontal split: a, b, c. */
 const row = (activeWindowId: string): InfiniteCanvasState<Kind> => {
   const base = {
     ...createInfiniteCanvasState<Kind>({ windows: [pane("a", 0), pane("b", 400), pane("c", 800)] }),
@@ -58,7 +52,6 @@ test("a middle pane grows at the expense of the next one along, not the previous
 
   expect(after.b).toBeGreaterThan(before.b);
   expect(after.c).toBeLessThan(before.c);
-  // The pane on the other side is untouched.
   expect(after.a).toBe(before.a);
 });
 
@@ -72,7 +65,6 @@ test("the last pane has no next one, so it takes from the previous", () => {
 });
 
 test("the first pane follows the ordinary rule", () => {
-  // Pins the exception to the end of the row, not to either edge.
   const before = widths(row("a"));
   const after = widths(grow(row("a")));
 
@@ -82,7 +74,6 @@ test("the first pane follows the ordinary rule", () => {
 });
 
 test("growing never changes the container's total width", () => {
-  // Without this, a verb that grew one pane by widening the shell would pass above.
   const before = widths(row("b"));
   const after = widths(grow(row("b")));
   const total = (entry: Record<string, number>) => entry.a + entry.b + entry.c;

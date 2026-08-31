@@ -14,18 +14,7 @@ import { tv } from "ui/tv";
 
 import type { CanvasRemovalSummary } from "../database/database.client";
 
-/**
- * Confirming a permanent removal by saying what it costs.
- *
- * "This cannot be undone" is a warning; it is not information. What a person needs in order to
- * decide is what is actually about to be destroyed and what is not — and here the honest answer
- * is unusually reassuring, because a canvas is an arrangement and the notes on it are separate
- * records that survive it. Saying so is the difference between a decision and a gamble.
- *
- * The counts are read when the dialog opens rather than carried in, so the number shown is the
- * canvas as it stands and not as it was when a menu was last populated.
- */
-
+// The dialog loads a current removal summary each time it opens.
 const removalDialog = tv({
   slots: {
     count: "font-medium text-[var(--ink)] tabular-nums",

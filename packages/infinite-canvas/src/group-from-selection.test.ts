@@ -4,11 +4,6 @@ import { createInfiniteCanvasState, createInfiniteCanvasWindow } from "./factory
 import { reduceInfiniteCanvasState } from "./reducer";
 import type { InfiniteCanvasState } from "./types";
 
-/**
- * `createGroup` drops members that are missing, minimized, or already grouped. Command enablement
- * depends on that filtering, so these pin what a caller can observe of it.
- */
-
 type Kind = "note";
 
 const pane = (id: string, x: number) =>
@@ -22,7 +17,6 @@ const pane = (id: string, x: number) =>
 
 const shellRect = { height: 400, width: 900, x: 0, y: 0 };
 
-/** Four windows, "a" docked rightward into a shell with "b"; "c" and "d" stay floating. */
 const withShell = (): InfiniteCanvasState<Kind> => {
   const base = {
     ...createInfiniteCanvasState<Kind>({
@@ -49,14 +43,12 @@ const group = (state: InfiniteCanvasState<Kind>, windowIds: readonly string[]) =
   });
 
 test("grouping two floating windows makes a group", () => {
-  // The baseline the rest are measured against.
   const made = group(withShell(), ["c", "d"]);
 
   expect(made.groups).toHaveLength(2);
 });
 
 test("grouping windows that are all already docked changes nothing", () => {
-  // No members survive, so the state comes back identical.
   const before = withShell();
   const after = group(before, ["a", "b"]);
 
@@ -69,12 +61,10 @@ test("a mixed selection groups only the windows that were free", () => {
   const added = made.groups.find((candidate) => candidate.id === "made");
 
   expect(added).toBeDefined();
-  // "a" stayed in the shell it was already in rather than being stolen into the new group.
   expect(made.groups).toHaveLength(2);
 });
 
 test("one surviving member still makes a group, so two selected is not the floor", () => {
-  // The framework refuses zero, not fewer than two. Reachable whenever one of two is docked.
   const made = group(withShell(), ["a", "c"]);
 
   expect(made.groups).toHaveLength(2);

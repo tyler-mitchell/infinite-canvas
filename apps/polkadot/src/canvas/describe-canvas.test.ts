@@ -5,12 +5,6 @@ import { getAppAction } from "../app-actions";
 import { describeCanvas } from "./describe-canvas";
 import type { WindowKind } from "./window-registry";
 
-/**
- * The reporting half of the vocabulary, which is the half a caller that cannot see the screen
- * depends on entirely. If this says the wrong thing, an agent acts on the wrong picture — and
- * unlike a wrong pixel, nothing about that is visible to anyone.
- */
-
 const windowAt = (id: string, kind: WindowKind, title: string, x: number) =>
   createInfiniteCanvasWindow<WindowKind>({
     id,
@@ -42,7 +36,6 @@ test("each window is named by its kind and title", () => {
 });
 
 test("the live window is distinguishable from the rest", () => {
-  // The whole point of the report: two notes are not interchangeable if one is the one you are on.
   const described = describeCanvas(
     createInfiniteCanvasState<WindowKind>({
       activeWindowId: "b",
@@ -55,14 +48,6 @@ test("the live window is distinguishable from the rest", () => {
   expect(described).not.toContain('note "First" [a], active');
 });
 
-/**
- * The two ways a window is on the canvas without being on screen.
- *
- * Both were reported as ordinary windows until 2026-08-26, found by fitting a real canvas and
- * reading the rects: a note and a collection with byte-identical geometry, one of them drawn.
- * Telling a caller that cannot see the screen it has two things in front of it, when one is
- * behind the other, is worse than omitting it.
- */
 test("a window behind a tab is said to be behind a tab", () => {
   const described = describeCanvas(
     createInfiniteCanvasState<WindowKind>({
@@ -91,23 +76,10 @@ test("a window behind a tab is said to be behind a tab", () => {
     }),
   );
 
-  // Fails if the projection is not consulted: both read as plain, visible windows.
   expect(described).toContain('note "Behind" [b], behind a tab');
   expect(described).not.toContain('note "Front" [a], behind a tab');
 });
 
-/**
- * A group nobody named is described by what is in it, not by the word "null".
- *
- * `InfiniteCanvasGroup.title` became `string | null` on 2026-08-27, where `null` means "named
- * after its members" and `getInfiniteCanvasGroupTitle` composes that from current membership. This
- * file read `title` raw and interpolated it, so an unnamed group reported itself as the literal
- * string `"null"` — reproduced in the running app before the fix, alongside a named group, reading
- * `"Untitled 6 & Connected to Untitled 6", "null"`.
- *
- * A template accepts `null`, so the typechecker had nothing to say, and the only reader affected
- * cannot see the screen — the exact combination this file exists to defend against.
- */
 const groupOf = (title: string | null) => ({
   id: "group-1",
   rect: { height: 400, width: 600, x: 0, y: 0 },
@@ -148,38 +120,14 @@ test("a group somebody named is described by that name", () => {
 });
 
 test("a group says what it holds, so its verbs can be used on purpose", () => {
-  /*
-   * Read back as a caller receives it, the window list and the group list did not meet. That is not
-   * untidiness: `group.setLayout` does nothing to a group holding one window — correctly, and by
-   * the framework's own reckoning — so without membership a caller can only discover that by trying
-   * it and watching nothing happen.
-   *
-   * By handle rather than title: the titles are already in the window list, and repeating them
-   * would double the report to say nothing new.
-   */
   expect(describeWithGroup("Reading list")).toContain("[group-1] holding [a], [b]");
 });
 
 test("a group carries the handle its verbs take, named or not", () => {
-  /*
-   * `group.setLayout`, `group.rename` and `group.dissolve` take a group id, so the report has to
-   * give one — the same rule the windows follow. An unnamed group needs it most: its title is
-   * composed from its members, so two containers holding notes with the same titles compose the
-   * same string and are otherwise indistinguishable.
-   */
   expect(describeWithGroup("Reading list")).toContain('"Reading list" [group-1]');
   expect(describeWithGroup(null)).toContain('"Sources & Draft" [group-1]');
 });
 
-/**
- * A report you can act on names its entries.
- *
- * This report is what a caller reads before deciding anything, and `window.reveal` is what it calls
- * afterwards. If the report does not carry the handle the verb takes, the two halves do not
- * compose — which is not hypothetical: the report said `kind "title"`, the verb took a title and
- * first-matched, and a live canvas held two windows both called "Links". A caller could see both
- * entries and had no way to name the second. It revealed an arbitrary one and reported success.
- */
 const twoWindowsSharingATitle = () =>
   createInfiniteCanvasState<WindowKind>({
     viewport: { height: 800, width: 1200 },
@@ -189,7 +137,6 @@ const twoWindowsSharingATitle = () =>
     ],
   });
 
-/** Every `[handle]` the report publishes, in order. */
 const getReportedHandles = (report: string) =>
   [...report.matchAll(/\[([^\]]+)\]/g)].map((match) => match[1]);
 
@@ -206,20 +153,11 @@ test("two windows with one title are distinguishable by their own handle", () =>
     .filter((entry) => entry.includes('"Links"'));
 
   expect(entries).toHaveLength(2);
-  /*
-   * Each entry carries *its own* id, rather than merely differing from the other.
-   *
-   * The weaker form — asserting the two entries are unlike — passed with the handles removed,
-   * because one window happened to be the active one and said so. A test that holds for a reason
-   * unrelated to its name is worse than no test: it reports the seam as covered while it is open.
-   */
   expect(entries[0]).toContain("window-one");
   expect(entries[1]).toContain("window-two");
 });
 
 test("a handle from the report is accepted by the verb that consumes it", () => {
-  // Through the action's own ArkType declaration rather than a copy, because that declaration is
-  // also what `model-context` turns into the tool schema a caller is offered.
   const reveal = getAppAction("window.reveal");
 
   expect(reveal?.input).toBeDefined();
@@ -241,14 +179,6 @@ test("zoom is reported as a percentage, the way the canvas shows it", () => {
   expect(described).toContain("Zoom 64%.");
 });
 
-/**
- * A selected connector, which the report did not mention and its tool description promised.
- *
- * `canvas.describe` is registered as reporting "the selection", and the selection it described was
- * `selection.windowIds` only. Clicking a connector fills `selection.targets` and leaves `windowIds`
- * empty — measured on the live canvas — so a caller was told nothing was selected while one was,
- * highlighted on screen with a rail attached to it.
- */
 const EDGE_TARGET = {
   id: "relates_to:one",
   kind: "relation",
@@ -270,14 +200,10 @@ test("a selected connector is reported, when the window selection is empty", () 
   );
 
   expect(described).toContain("1 connection(s) selected");
-  // Named elsewhere on purpose: an edge joins two records and outlives both windows, which is why
-  // `describeProjectContent` owns connections. This says one is selected and points at that report.
   expect(described).toContain("content.list names them");
 });
 
 test("a canvas with nothing selected does not mention connections at all", () => {
-  // The desktop line's rule: naming a concept on a canvas that has never used one teaches it as a
-  // thing to think about.
   const described = describeCanvas(
     createInfiniteCanvasState<WindowKind>({
       viewport: { height: 800, width: 1200 },

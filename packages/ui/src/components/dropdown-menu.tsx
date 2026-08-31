@@ -6,15 +6,7 @@ import { tv } from "tailwind-variants";
 
 import { cn } from "../lib/utils";
 
-/**
- * Menus, on Base UI.
- *
- * Positioning, focus capture and restore, typeahead, roving focus, dismissal, and the ARIA
- * wiring all belong to the primitive. What is here is styling and a `data-slot` on each part.
- *
- * Submenus, checkbox items, and shortcut hints are deliberately not ported yet — nothing needs
- * them, and the primitive supplies them the day something does.
- */
+/** Base UI owns menu behavior and ARIA attributes. */
 const dropdownMenu = tv({
   slots: {
     content:

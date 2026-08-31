@@ -51,14 +51,6 @@ type LoadedCanvas = Readonly<{
   title: string;
 }>;
 
-/**
- * The shell.
- *
- * Every surface here floats: a lighter fill than the ground, a layered shadow, and a single
- * hairline of light along the top edge standing in for a specular. Nothing is outlined. The
- * chrome is a pill rail rather than a full-width bar, so the canvas runs edge to edge underneath
- * and the workspace reads as the product with controls resting on it.
- */
 const workspace = tv({
   slots: {
     brand: "flex items-center gap-1.5 pr-1 pl-1.5",
@@ -79,14 +71,6 @@ const workspace = tv({
 });
 
 function getSaveAdmission(status: CanvasPersistenceStatus): SaveAdmission {
-  /*
-   * A conflict says what is true of the work, not what the database said.
-   *
-   * The raw error — "Canvas canvas_document:main changed after revision 396" — names a record and
-   * a number, and a person reading it cannot tell whether anything of theirs is at risk. What is
-   * actually true is that nothing they do from now on is being written down, and that is the
-   * sentence the pill should carry. The notice beside it says what to do about it.
-   */
   if (status.status === "conflict") {
     return { message: "Changes are not being saved", status: "error" };
   }
@@ -103,12 +87,6 @@ function getSaveAdmission(status: CanvasPersistenceStatus): SaveAdmission {
     : { message: "Local canvas saved", status: "ready" };
 }
 
-/**
- * Identity: which canvas this is, and whether the work is safe.
- *
- * The save state lives beside the canvas's name rather than in its own corner because it answers a
- * question about *this canvas*, and separating them makes the user assemble that relationship.
- */
 function IdentityRail({
   canvas,
   canvasId,
@@ -132,14 +110,7 @@ function IdentityRail({
 
   return (
     <div className={styles.rail()}>
-      {/*
-        The way back when the rail is collapsed, and a second way out while it is open.
-
-        No `aria-pressed`, for the reason the rail's own view toggle lost it: the name here is the
-        action, so a state claim beside it contradicts it. With the library showing, this read
-        "Hide library, toggle button, pressed" — announcing that hiding is engaged while the library
-        is on screen. A name that already says what pressing does needs no second opinion about it.
-      */}
+      {/* The label names the action, so aria-pressed is not used. */}
       <Button
         aria-label={libraryOpen ? "Hide library" : "Show library"}
         onClick={onToggleLibrary}
@@ -176,18 +147,7 @@ function IdentityRail({
   );
 }
 
-/**
- * Connectors, as things the pointer can land on.
- *
- * Registered once at module scope rather than rebuilt per render: it reads its targets from a
- * callback, so the resolver itself never goes stale, and the viewport memoizes on this array's
- * identity. `relations$.peek()` rather than a subscription because the callback runs *during* a
- * pointer event, when the current value is what matters and a re-render is not.
- *
- * This is what makes a connector selectable at all. The framework turns a resolved edge into a
- * selection target on pointerdown — with modifier handling — so clicking one is the framework's
- * own selection model rather than anything invented here.
- */
+// The resolver reads current relations during pointer events.
 const spatialTargetResolvers = [
   createInfiniteCanvasEdgeTargetResolver<WindowKind>({
     id: "note-relations",
@@ -199,28 +159,18 @@ export function WorkspaceCanvas({ canvas }: Readonly<{ canvas: LoadedCanvas }>) 
   const runtime = useCanvasRuntime(canvas);
   const library$ = useObservable(true);
   const libraryOpen = useValue(library$);
-  // What the HUD's floating surfaces are covering, each measured from its own element.
+  // HUD surfaces report the rectangles they cover.
   const occluders = useHudOccluders();
-  /**
-   * Open by default, and refundable.
-   *
-   * The map costs real camera room — it is the one surface here whose inset is worth arguing with
-   * — so it is closable, and closing it hands the band straight back. Open by default because a
-   * canvas affordance nobody discovers is one nobody has, and this is the only surface that
-   * answers "what shape is my canvas".
-   */
+  // The minimap starts open and returns its camera space when closed.
   const minimap$ = useObservable(true);
   const minimapOpen = useValue(minimap$);
   const styles = workspace();
-  // Memoized because the viewport re-registers its keymap whenever this array's identity changes,
-  // and a fresh array every render would tear down and rebuild thirty-odd chords per frame.
+  // Keep the array identity stable so the viewport does not rebuild its keymap.
   const hotkeyActions = useMemo(
     () => getConnectorHotkeyActions(canvas.projectId),
     [canvas.projectId],
   );
-  // Memoized for the same reason as the keymap: the viewport rebinds its native drag listeners
-  // whenever this object's identity changes, and a fresh one every render would tear them down and
-  // re-attach them mid-drag.
+  // Keep the policy identity stable during native drags.
   const dropPolicy = useMemo(() => createCanvasDropPolicy(canvas.projectId), [canvas.projectId]);
 
   useEffect(() => {
@@ -232,76 +182,23 @@ export function WorkspaceCanvas({ canvas }: Readonly<{ canvas: LoadedCanvas }>) 
       <InfiniteCanvas.Provider store={runtime.store}>
         <InfiniteCanvas.Viewport<WindowKind, CanvasDropPayload>
           chrome={CANVAS_CHROME}
-          /*
-           * Drag a picture in from the desktop and it lands where you let go.
-           *
-           * Passing this is also what switches the framework's native-drag bridge on at all — it
-           * stays inert without a policy, so a canvas that was never told what a file means leaves
-           * the browser's own handling alone.
-           */
+          /* A drop policy enables the native drag bridge. */
           dropPolicy={dropPolicy}
-          /*
-           * What the library rail is covering, so the camera stops aiming behind it.
-           *
-           * Without this, `view.fit`, `view.fitSelection` and `window.reveal` all centre on the
-           * middle of the element — which is under the panel — and the rail would be a surface
-           * that fights every camera command while looking finished.
-           */
+          /* Camera commands avoid the full-edge HUD insets. */
           viewportInsets={{
-            /*
-             * Only what genuinely spans an edge. The map used to be in this number as a full-width
-             * band, because an inset is one number per edge and a corner has no other way to be
-             * said — 168 of 900 pixels reserved for a box covering about 1% of them. It declares
-             * its own rect through `viewportOccluders` now.
-             *
-             * **And so it no longer belongs here at all.** This kept `minimapOpen ? 64 : 56`, the
-             * last 8px of that old arrangement, and the framework's HUD insets itself by this
-             * number — so opening or closing the map moved the framework's own zoom rail 8px.
-             * Measured across a toggle: the rail's top edge sat at 122px from the bottom with the
-             * map open and 114px with it closed. Chrome that twitches when an unrelated panel opens
-             * is the tell that two things are sharing one number.
-             */
+            /* Corner HUD uses viewportOccluders instead of full-edge insets. */
             bottom: BOTTOM_INSET,
             left: libraryOpen ? RAIL_INSET : 0,
             top: TOP_INSET,
           }}
-          /*
-           * The chrome that sits *inside* the canvas rather than bracketing it.
-           *
-           * Each surface measures itself and reports its rect, so this is what is actually covered
-           * rather than a second copy of the layout that positions it. Framing still aims at the
-           * whole content region — a corner should not shrink what the camera fills — while
-           * placement steps around the real shape.
-           */
+          /* Each HUD surface reports its covered rectangle. */
           viewportOccluders={occluders}
-          /*
-           * Backspace and Delete, for the one thing on this canvas the framework cannot name.
-           *
-           * Added to the canvas keymap rather than replacing it — the framework leaves both chords
-           * unclaimed and takes consumer verbs alongside its own, so undo, the arrows, and the fits
-           * all keep working. Scoping is the framework's too, which is why Backspace inside a note
-           * still deletes a character.
-           */
+          /* Consumer hotkeys extend the canvas keymap. */
           hotkeyActions={hotkeyActions}
-          // Beneath the windows: a connector should pass under the note it joins, not across it.
+          // Settled connectors draw below windows.
           renderUnderlay={() => <ConnectorLayer />}
           spatialTargetResolvers={spatialTargetResolvers}
-          /*
-           * The dock is on because minimizing was otherwise a one-way door.
-           *
-           * The window chrome has always offered Minimize, and `mode: "minimized"` is what it set —
-           * but with no dock, nothing on the canvas said where the window went. The only route back
-           * was a library rail row, which is incidental (it reveals the *note*, not the window) and
-           * absent entirely when the rail is collapsed. A control that hides something with no
-           * visible way to get it back is a trapdoor, not a feature.
-           *
-           * `minimizedDock: false` sat here uncommented while every other line in this object was
-           * argued for, which is what marks it as an unexamined default rather than a decision.
-           *
-           * `pointerModeControls` and `statusCard` stay off deliberately: this app has one pointer
-           * mode and says its save state in the identity rail, so both would be chrome restating
-           * something already on screen.
-           */
+          /* The dock restores minimized windows. Other duplicate controls stay hidden. */
           hud={{
             cameraControls: true,
             minimizedDock: true,
@@ -309,28 +206,7 @@ export function WorkspaceCanvas({ canvas }: Readonly<{ canvas: LoadedCanvas }>) 
             statusCard: false,
             zoomControls: true,
           }}
-          /*
-           * A tab strip already names the members, so the frame above it says nothing.
-           *
-           * Over tabs the composed title is the strip's own list, one row higher: seen on a
-           * two-member tabbed group reading "Untitled 1 & Untitled 2" directly above tabs reading
-           * "Untitled 1" and "Untitled 2".
-           *
-           * **This said the names "appear nowhere else" over a split, and that is false.** Every
-           * kind shows its own title inside its pane — a note in its first field, the others in the
-           * chrome header — and the LOD summary keeps showing it as the panes shrink. Driven at
-           * 128%, 66% and 34% on a three-pane split: the member titles are legible at all three and
-           * the frame label repeats them throughout.
-           *
-           * The split case is kept anyway, for the reason the false one was standing in for: the
-           * label names the *cluster*, which no member title does, and it is sized in screen units
-           * so it stays the one legible name as the panes fall away. What it repeats over a split is
-           * one member's name plus a count; what it repeated over tabs was the whole list verbatim.
-           *
-           * A group somebody *named* keeps its label in every layout. The name is then a fact about
-           * the group rather than a restatement of its contents, and it is the only place that fact
-           * appears.
-           */
+          /* Tab groups omit duplicate labels. Named and split groups keep labels. */
           groupLabel={({ group, windows }) =>
             group.title === null && group.tree.kind === "container" && group.tree.layout !== "split"
               ? ""
@@ -338,13 +214,9 @@ export function WorkspaceCanvas({ canvas }: Readonly<{ canvas: LoadedCanvas }>) 
           }
           renderOverlay={(context) => (
             <>
-              {/*
-                Above the windows, unlike `ConnectorLayer`. A settled connector belongs to the
-                scene and passes under the note it joins; a line being dragged is the thing you
-                are looking at.
-              */}
+              {/* The active connector draft draws above windows. */}
               <ConnectorDraft projectId={canvas.projectId} />
-              {/* Renders nothing; registers the app's verbs for an agent. Inert without WebMCP. */}
+              {/* This component registers WebMCP tools and renders nothing. */}
               <ModelContextTools projectId={canvas.projectId} />
               <CanvasHud
                 commandPalette={<CommandPalette projectId={canvas.projectId} />}

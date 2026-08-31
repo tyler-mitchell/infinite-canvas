@@ -18,21 +18,6 @@ import { connectItems, findRelation, relations$ } from "../relations/relation-st
 import { CANVAS_CHROME } from "./chrome";
 import { getContentWindowItemId, type WindowKind } from "./window-registry";
 
-/**
- * Authoring a connection by dragging one note onto another.
- *
- * Everything about *the gesture* now lives in the framework — where the handles are, when they
- * appear, when they must not disappear, and what the far end is at this instant — because none of
- * it is a Polkadot idea. What is left here is the only part that is: which windows are showing
- * notes, whether two notes may be joined, and what to write when they are.
- *
- * The first version of this hand-rolled the gesture and shipped a handle that vanished the moment
- * you reached for it, because visibility asked "is the pointer over the window" while the handle
- * sat outside it. `getInfiniteCanvasConnectionAffordanceWindowId` is that fix, generically: it
- * holds a window's affordance while the pointer is anywhere in the ring the handles occupy, and
- * hands it over only when the pointer is properly inside a different window.
- */
-
 const draft = tv({
   slots: {
     handle:
@@ -44,8 +29,6 @@ const draft = tv({
   },
   variants: {
     landing: {
-      // Dashed while the far end is only a pointer, solid once it is over a note it can join. The
-      // line answers "will this commit?" without a second affordance.
       false: { path: "opacity-50 [stroke-dasharray:4_4]" },
       true: { path: "opacity-90" },
     },
@@ -53,18 +36,15 @@ const draft = tv({
 });
 
 type Draft = Readonly<{
-  /** Viewport coordinates, which is what the framework's resolvers read. */
   pointer: InfiniteCanvasPoint;
   sourceItemId: string;
   sourceWindowId: string;
 }>;
 
-/** Whatever content item a window is bound to, whichever kind of window it is. */
 function getItemId(window: InfiniteCanvasWindow<WindowKind> | undefined) {
   return window === undefined ? null : getContentWindowItemId(window);
 }
 
-/** Whatever window a drag is currently over, through the framework's one answer for that. */
 function getLandingWindow(
   state: InfiniteCanvasState<WindowKind>,
   viewportPoint: InfiniteCanvasPoint,
@@ -89,14 +69,7 @@ export function ConnectorDraft({ projectId }: Readonly<{ projectId: string }>) {
   const isDragging = dragging !== null;
   const styles = draft();
 
-  /*
-   * Hover is tracked on `window` rather than on this layer.
-   *
-   * The layer has to be `pointer-events-none` or it would eat every canvas gesture, and an element
-   * that does not receive pointer events does not receive pointermove either. Listening globally
-   * and converting through this element's own rect costs one listener and leaves the canvas
-   * untouched.
-   */
+  // This layer ignores pointer events, so the window owns pointer tracking.
   useEffect(() => {
     const onPointerMove = (event: PointerEvent) => {
       const bounds = rootRef.current?.getBoundingClientRect();
@@ -113,8 +86,6 @@ export function ConnectorDraft({ projectId }: Readonly<{ projectId: string }>) {
         return;
       }
 
-      // The previous window is passed back in, which is what makes the affordance survive the
-      // journey to a handle instead of unmounting under the cursor.
       affordance$.set(
         getInfiniteCanvasConnectionAffordanceWindowId(state, pointer, affordance$.peek()),
       );
@@ -127,14 +98,6 @@ export function ConnectorDraft({ projectId }: Readonly<{ projectId: string }>) {
     };
   }, [affordance$, draft$, state]);
 
-  /*
-   * Release and abandon, on `window` for the same reason a drag is: the pointer will leave this
-   * layer, the window, and often the viewport before it is let go.
-   *
-   * Bound to *whether* a drag is open rather than to the draft itself, and the draft is read with
-   * `peek` inside the handler. The draft carries the live pointer, so depending on it would rebuild
-   * these listeners on every pointermove to end up with the same two.
-   */
   useEffect(() => {
     if (!isDragging) {
       return;
@@ -191,12 +154,6 @@ export function ConnectorDraft({ projectId }: Readonly<{ projectId: string }>) {
     return <div className={styles.root()} data-slot="connector-draft" ref={rootRef} />;
   }
 
-  /*
-   * What the far end is right now: whatever the pointer is over, or the pointer itself.
-   *
-   * Resolved from the live pointer rather than remembered in the drag state, so the preview and the
-   * commit read the same answer and cannot disagree about where the drag would land.
-   */
   const landing = dragging === null ? undefined : getLandingWindow(state, dragging.pointer);
   const landingItemId = getItemId(landing);
   const isJoinable =
@@ -224,11 +181,6 @@ export function ConnectorDraft({ projectId }: Readonly<{ projectId: string }>) {
           />
         </svg>
       )}
-      {/*
-        One handle per edge, so a connection starts on the side facing where it is going rather
-        than on whichever side the framework happened to pick. Hidden mid-drag: the line already
-        says what is happening, and four dots orbiting the source is noise.
-      */}
       {isDragging
         ? null
         : getInfiniteCanvasConnectionHandles(sourceWindow, state.camera, state.viewport).map(

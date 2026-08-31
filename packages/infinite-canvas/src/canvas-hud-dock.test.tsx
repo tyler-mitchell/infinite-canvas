@@ -1,12 +1,3 @@
-/**
- * The dock, against a desktop.
- *
- * `canvas-hud.test.ts` covers policy resolution and nothing that renders, so the dock's own rule —
- * which windows it lists — had no test at all. That rule is the kind worth one: minimizing and
- * workspace membership are orthogonal, so a window minimized on one desktop stays a member of it,
- * and a dock reading `mode` alone offers to restore windows the canvas will not draw. The failure
- * is silent and reads as a broken control: the row disappears and nothing appears.
- */
 import { renderToStaticMarkup } from "react-dom/server";
 import { expect, test } from "vite-plus/test";
 
@@ -47,7 +38,6 @@ const renderHud = (state: InfiniteCanvasState<Kind>) =>
   );
 
 test("the dock lists every minimized window when no desktop is active", () => {
-  // No workspace admits everything, so a canvas that never creates one is unaffected by the rule.
   const markup = renderHud(base());
 
   expect(markup).toContain("Here");

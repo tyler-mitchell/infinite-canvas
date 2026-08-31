@@ -10,19 +10,6 @@ import { DEFAULT_INFINITE_CANVAS_ZOOM } from "./constants";
 import { createInfiniteCanvasState, createInfiniteCanvasWindow } from "./factory";
 import type { InfiniteCanvasState } from "./types";
 
-/**
- * Camera navigation — the sixth module from the README-claims audit.
- *
- * README: "frame a window, the selection, all visible windows, a world point, or an arbitrary
- * rect, with `center`, `centerAtZoom`, or `fit` behavior." That is five targets times three
- * behaviours, and nothing asserted any cell of it.
- *
- * The behaviours differ in exactly one respect worth guarding — which parts of the camera they
- * are allowed to touch. `center` moves the camera and must leave zoom alone; `centerAtZoom` sets
- * both; `fit` derives both from the viewport. A regression that let `center` change zoom would
- * be invisible in a screenshot and infuriating in use.
- */
-
 type Kind = "note";
 
 const state = (): InfiniteCanvasState<Kind> => ({
@@ -61,14 +48,12 @@ test("every target kind resolves to the rect it names", () => {
       type: "rect",
     }),
   ).toEqual({ height: 10, width: 20, x: 1, y: 2 });
-  // A point is a degenerate rect centred on it, so every behaviour can treat targets uniformly.
   expect(getCameraNavigationTargetRect(current, { point: { x: 5, y: 7 }, type: "point" })).toEqual({
     height: 1,
     width: 1,
     x: 4.5,
     y: 6.5,
   });
-  // `visibleWindows` spans both.
   expect(getCameraNavigationTargetRect(current, { type: "visibleWindows" })).toEqual({
     height: 1_200,
     width: 2_200,
@@ -87,7 +72,6 @@ test("an unknown window is not a navigable target", () => {
 });
 
 test("`center` moves the camera and leaves zoom exactly alone", () => {
-  // The distinction that matters: navigating to a window must not silently rescale the canvas.
   const current = state();
   const next = navigateCamera(current, {
     behavior: { type: "center" },
@@ -107,7 +91,6 @@ test("`centerAtZoom` sets both, through the zoom policy", () => {
   expect(next.camera.center).toEqual({ x: 1_200, y: 700 });
   expect(next.camera.zoom).toBe(2);
 
-  // A zoom beyond the policy is constrained rather than accepted.
   const clamped = navigateCamera(state(), {
     behavior: { type: "centerAtZoom", zoom: 10_000 },
     target: { type: "window", windowId: "a" },
@@ -122,7 +105,6 @@ test("`fit` frames the target inside the viewport and respects maxZoom", () => {
     target: { type: "visibleWindows" },
   });
 
-  // Both windows must fit: the visible half-extent at the fitted zoom covers the target bounds.
   const halfWidth = 1_200 / 2 / fitted.camera.zoom;
   const halfHeight = 800 / 2 / fitted.camera.zoom;
 
@@ -131,7 +113,6 @@ test("`fit` frames the target inside the viewport and respects maxZoom", () => {
   expect(fitted.camera.center.y - halfHeight).toBeLessThanOrEqual(-400);
   expect(fitted.camera.center.y + halfHeight).toBeGreaterThanOrEqual(800);
 
-  // maxZoom is a ceiling on how far `fit` may zoom *in* for a small target.
   const capped = navigateCamera(state(), {
     behavior: { maxZoom: 1.25, type: "fit" },
     target: { point: { x: 0, y: 0 }, type: "point" },
@@ -141,7 +122,6 @@ test("`fit` frames the target inside the viewport and respects maxZoom", () => {
 });
 
 test("`fit` is unavailable without a measured viewport, and navigating is a no-op", () => {
-  // A 0x0 viewport cannot frame anything; the guard exists so the camera is not sent to NaN.
   const unmeasured: InfiniteCanvasState<Kind> = {
     ...state(),
     viewport: { height: 0, width: 0 },
@@ -152,7 +132,6 @@ test("`fit` is unavailable without a measured viewport, and navigating is a no-o
   };
 
   expect(isCameraNavigationAvailable(unmeasured, request)).toBe(false);
-  // `center` needs no viewport, so it stays available.
   expect(
     isCameraNavigationAvailable(unmeasured, {
       behavior: { type: "center" },
@@ -182,8 +161,6 @@ test("an empty selection is not a target", () => {
 });
 
 test("the frame helper is the pure half, usable without producing a state", () => {
-  // `getCameraNavigationFrame` is exported so a consumer can preview or animate toward a camera
-  // without committing one; it must agree with what `navigateCamera` would apply.
   const current = state();
   const rect = getCameraNavigationTargetRect(current, { type: "window", windowId: "b" })!;
   const frame = getCameraNavigationFrame(current, rect, { type: "center" });

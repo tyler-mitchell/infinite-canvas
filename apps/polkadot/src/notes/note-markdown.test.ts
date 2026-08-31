@@ -7,14 +7,6 @@ import { markdownToNote, noteToMarkdown } from "./note-markdown";
 
 const SRC = fileURLToPath(new URL(".", import.meta.url));
 
-/**
- * The round trip `note-text-round-trip.test.ts` says the plain-text path cannot make.
- *
- * Each test reads what a caller would get, edits it the way a caller would, writes it back, and
- * asserts the block is still the block. Asserting the markdown alone would prove the export and
- * nothing about the import.
- */
-
 const typesIn = (serialized: string): readonly string[] => {
   const parsed: unknown = JSON.parse(serialized);
   const root = (parsed as { root: { children: readonly { type: string }[] } }).root;
@@ -29,12 +21,6 @@ const nodeIn = (serialized: string, index: number): Record<string, unknown> => {
   return root.children[index] ?? {};
 };
 
-/*
- * The fence's own word is stored, not a canonical id: ```js gives `js`, not `javascript`. That is
- * the alias/canonical split the language picker needs `normalizeCodeLanguage` for, and the property
- * worth pinning is that whatever went in comes back — a canonical form asserted here would be this
- * test deciding a question that belongs to Shiki.
- */
 test("a fenced block survives a read and a write, and keeps its language", () => {
   const written = markdownToNote("```js\nconst a = 1;\n```");
 
@@ -75,20 +61,10 @@ test("a link survives the round trip, url and all", () => {
 
   expect(link.type).toBe("link");
   expect(link.url).toBe("https://example.com");
-  // The url is the half a caller cannot retype from memory, so it is the half worth asserting.
   expect(noteToMarkdown(written)).toContain("[Example](https://example.com)");
 });
 
-/**
- * Autolink is off, and turning it on costs more than adding the node back.
- *
- * `LINK.export` returns `null` for an `AutoLinkNode`, so an autolinked URL exports as its bare text
- * with the link gone — silently, to every caller of `note.read`. That is the loss `note-markdown`
- * exists to close, so mounting `AutoLinkExtension` also owes a transformer for the node.
- *
- * Written as an agreement rather than a ban: change either side and this fails, which is the moment
- * to decide the rest.
- */
+// Autolink must exist in both the editor and headless node lists.
 test("the editor and the markdown node list agree about autolink", () => {
   const mounts = readFileSync(`${SRC}note-editor.tsx`, "utf8").includes("AutoLinkExtension");
   const lists = readFileSync(`${SRC}note-markdown.ts`, "utf8").includes("AutoLinkNode,");
@@ -99,7 +75,6 @@ test("the editor and the markdown node list agree about autolink", () => {
   ).toBe(mounts);
 });
 
-/** The edit a caller actually makes: read, change a word, write, and keep everything else. */
 test("editing one word leaves the blocks around it alone", () => {
   const written = markdownToNote("# Title\n\n```js\nconst a = 1;\n```\n\n- one");
   const edited = markdownToNote(noteToMarkdown(written).replace("Title", "Retitled"));

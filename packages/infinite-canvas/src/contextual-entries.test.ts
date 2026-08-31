@@ -21,7 +21,6 @@ const canvas = (): InfiniteCanvasState<Kind> => ({
   viewport: { height: 800, width: 1200 },
 });
 
-/** Records what reached the reducer, so a consumer verb taking that path is visible. */
 const recorder = () => {
   const dispatched: unknown[] = [];
 
@@ -103,8 +102,6 @@ test("every id is unique across both vocabularies", () => {
 test("a canvas verb runs through the reducer", () => {
   const { actions, dispatched } = recorder();
 
-  // `void` because a caller that does not report completion ignores the result, which is what a
-  // keypress and a palette row do. The point of the union is that a caller which *does* can await.
   void entries(canvas(), [], actions)
     .find((entry) => entry.id === "view.fitAll")
     ?.run();
@@ -116,9 +113,6 @@ test("a consumer verb runs its own closure and never the reducer", () => {
   const { actions, dispatched } = recorder();
   const ran: string[] = [];
 
-  // Braced rather than expression-bodied: `run` returns `Promise<void> | void` so a consumer verb
-  // can say when its write landed, and a union — unlike bare `void` — does not absorb `push`'s
-  // return. The cost of stating that in the type, paid here.
   void entries(
     canvas(),
     [
@@ -138,27 +132,11 @@ test("a consumer verb runs its own closure and never the reducer", () => {
   expect(dispatched).toHaveLength(0);
 });
 
-/**
- * A consumer verb that writes can say when the write landed, and the entry carries that through.
- *
- * `run` returned `void`, so a verb doing asynchronous work had no way to report completion and a
- * surface answering "done" to something that cannot see the screen answered before it was true.
- * Polkadot's `connection.cut` is exactly that shape: it deletes a row and reloads.
- *
- * The framework itself never awaits this — a keypress does not care. What it must do is not throw
- * the promise away between the consumer and whoever reports.
- */
 test("a consumer verb's promise reaches the caller rather than being dropped", async () => {
   const order: string[] = [];
   const entry = entries(canvas(), [
     {
       ...cutRelation(),
-      /*
-       * A timer, not `Promise.resolve()`. A dropped promise still leaves `await undefined` yielding
-       * one microtask, and a consumer that only awaits microtasks finishes inside that slack — so
-       * the first version of this test passed with the promise thrown away, proving nothing. Work
-       * that cannot complete without a macrotask separates carrying it from dropping it.
-       */
       run: async () => {
         await new Promise<void>((resolve) => {
           setTimeout(resolve, 0);
@@ -172,19 +150,10 @@ test("a consumer verb's promise reaches the caller rather than being dropped", a
   await entry?.run();
   order.push("reported");
 
-  // Reversed if the promise is dropped: "reported" lands first and the report is a lie.
   expect(order).toEqual(["written", "reported"]);
 });
 
 test("a canvas verb still finishes when it returns, with nothing to await", () => {
-  /*
-   * The reducer path is synchronous, so widening the type must not have made it thenable — a caller
-   * awaiting every entry would otherwise be waiting on a microtask for nothing.
-   *
-   * Not asserted as `undefined`: this branch returns whatever `executeCommand` returns, which is
-   * `void` in the real dispatcher and whatever a double happens to hand back here. What matters is
-   * that nothing to wait on comes out of it.
-   */
   const { actions } = recorder();
   const entry = entries(canvas(), [], actions).find((candidate) => candidate.id === "view.fitAll");
 

@@ -7,16 +7,10 @@ import { getPublishedCanvasCommands } from "./published-commands";
 import { getLoadedRelations } from "./relations/relation-store";
 import { getSavedViews, loadSavedViews, savedViews$ } from "./views/saved-views";
 
-/**
- * Everything a caller can do or ask, by name.
- *
- * One list rather than one per surface. WebMCP registers it and the dev handle exposes it, so a
- * verb reachable by an agent is reachable from a console without being declared twice.
- */
 type AppTool = Readonly<{
   description: string;
   execute: (input?: unknown) => Promise<string>;
-  /** JSON Schema. Empty properties means the tool takes no argument. */
+  /** Empty JSON Schema properties mean that the tool takes no argument. */
   inputSchema: object;
   name: string;
 }>;
@@ -30,7 +24,6 @@ const report = (description: string, name: string, execute: () => Promise<string
   name,
 });
 
-/** Reporters, because a verb-only vocabulary is half a vocabulary for anything that cannot see. */
 const getReportingTools = (
   input: Readonly<{ createContext: () => AppActionContext; projectId: string }>,
 ): readonly AppTool[] => [
@@ -46,8 +39,6 @@ const getReportingTools = (
       describeProjectContent({
         listing: projectContent$.peek(),
         projectId: input.projectId,
-        // Not `relations$.peek()`: that is `[]` both before the first query lands and when there
-        // are none, and this report turns the answer into a sentence a caller cannot second-guess.
         relations: getLoadedRelations(input.projectId),
         state: input.createContext().state,
       }),
@@ -82,14 +73,6 @@ const getReportingTools = (
             .join("; ");
     },
   ),
-  /*
-   * Loaded rather than peeked, unlike `content.list`.
-   *
-   * This is the entry point the other four `view.*` verbs send a caller to, and they resolve
-   * synchronously against `savedViews$`. Reading through `loadSavedViews` means calling this warms
-   * the cache they depend on, so the documented flow — list, then act on an id — works from cold
-   * rather than only after the views menu has been opened by a person.
-   */
   report(
     "List the framings saved on this canvas, with the ids view.open, view.reframe and view.remove take.",
     "view.list",
@@ -157,7 +140,6 @@ const published = (
   });
 };
 
-/** Enablement is re-derived at call time: a list is built once and the canvas changes under it. */
 const getCanvasCommandTools = (
   input: Readonly<{ createContext: () => AppActionContext; projectId: string }>,
 ): readonly AppTool[] =>
@@ -170,14 +152,6 @@ const getCanvasCommandTools = (
         return `${entry.label} is not available right now.`;
       }
 
-      /*
-       * Awaited, for the reason the app-action half above states: "done" has to mean done, because
-       * a caller reading back has no second source.
-       *
-       * A framework command routes through the reducer and is finished when it returns, so this
-       * awaits nothing for those. A consumer verb published here may be a write — `connection.cut`
-       * is — and this answered before the write landed until `run` could return a promise.
-       */
       await live.run();
 
       return `${entry.label} done.`;
@@ -196,24 +170,12 @@ const getAppActionTools = (createContext: () => AppActionContext): readonly AppT
         return `${action.label} is not available right now.`;
       }
 
-      // Unchecked here: the verb narrows with the same type this schema came from. Awaited so a
-      // write verb's "done" means written — a caller reading back has no second source.
       return (await action.run(context, raw)) ?? `${action.label} done.`;
     },
     inputSchema: action.input?.toJsonSchema() ?? NO_INPUT,
     name: action.id,
   }));
 
-/**
- * What is available right now, which the tool list itself cannot say.
- *
- * WebMCP publishes a fixed set of tools and carries no enablement, so a caller holding a hundred
- * names has no way to tell which apply to this canvas and this selection. Without this it has to
- * invoke one and read "is not available right now" — discovery by failed attempt.
- *
- * Enablement is already computed for every entry, by the framework for its own verbs and by
- * `isAppActionEnabled` for this app's. This reports it rather than deriving it a second way.
- */
 const getAvailabilityTool = (
   input: Readonly<{ createContext: () => AppActionContext; projectId: string }>,
 ): AppTool =>
@@ -238,22 +200,7 @@ const getAvailabilityTool = (
     },
   );
 
-/**
- * Reading the database directly, which no published verb does or should.
- *
- * Every verb answers from the app's own state and returns once its write lands. That is the right
- * contract and it is not enough to *check* one: confirming a write means asking the database what
- * it holds, and the only thing that could was `window.__surreal` — a console affordance an agent
- * driving WebMCP cannot reach.
- *
- * Development only, and this is the reason the tier exists. `query` runs arbitrary SurQL, so it
- * bypasses every schema, refusal and revision guard the vocabulary enforces. Shipping it would make
- * those guards optional for anything that could reach this list.
- *
- * Imported inside `execute` rather than at module scope, the same way `inspector-handle` defers
- * `database.client`: the branch below is eliminated from a production build, a top-level import
- * would not be, and the inspector pulls the engine in behind it.
- */
+// Development tools are excluded from production builds.
 const getDevelopmentTools = (): readonly AppTool[] => {
   const connect = async () => {
     const [{ createSurrealInspectorHandle }, { localDatabaseSources }] = await Promise.all([
@@ -265,6 +212,7 @@ const getDevelopmentTools = (): readonly AppTool[] => {
   };
 
   return [
+    // Development only. This query bypasses schemas and revision guards.
     {
       description:
         "Development only. Run SurQL against the local database and return its rows. Use it to confirm what a verb actually wrote.",
@@ -296,19 +244,6 @@ const getDevelopmentTools = (): readonly AppTool[] => {
   ];
 };
 
-/**
- * One interface for every caller, with availability a property of a tool rather than of a door.
- *
- * The verbs below already reach production through WebMCP. A second transport for the same list —
- * a `window` global — would be reachable by any script on a page that renders third-party content,
- * where WebMCP is mediated by an agent and gated by a permissions policy. So the development-only
- * half is registered here, on the same interface, rather than exposed beside it.
- *
- * `development` is passed in rather than read from `import.meta.env` here. A gate this module
- * decided for itself could not be exercised from a test — `DEV` is true under `vp test`, so an
- * assertion would pass whether or not the gate existed. The caller holds the environment; this
- * holds the rule.
- */
 function getAppTools(
   input: Readonly<{
     createContext: () => AppActionContext;

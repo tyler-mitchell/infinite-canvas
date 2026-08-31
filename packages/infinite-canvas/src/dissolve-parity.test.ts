@@ -4,11 +4,6 @@ import { createInfiniteCanvasState, createInfiniteCanvasWindow } from "./factory
 import { reduceInfiniteCanvasState } from "./reducer";
 import type { InfiniteCanvasState } from "./types";
 
-/**
- * Tab members share the shell's content rect, so releasing them unchanged leaves them stacked at
- * one point. The command applied vacancy placement and the `group.close` action did not.
- */
-
 type Kind = "note";
 
 const pane = (id: string, x: number) =>
@@ -20,7 +15,6 @@ const pane = (id: string, x: number) =>
     title: id,
   });
 
-/** Three windows docked into one shell, then collapsed to a tab strip. */
 const tabbedShell = (): InfiniteCanvasState<Kind> => {
   const base = {
     ...createInfiniteCanvasState<Kind>({ windows: [pane("a", 0), pane("b", 400), pane("c", 800)] }),
@@ -51,7 +45,6 @@ const distinctOrigins = (state: InfiniteCanvasState<Kind>) =>
   new Set(rects(state).map((rect) => `${String(rect?.x)},${String(rect?.y)}`)).size;
 
 test("tab members share one rect while they are docked", () => {
-  // The premise: without this, dissolving would not need to move anything.
   expect(distinctOrigins(tabbedShell())).toBe(1);
 });
 
@@ -76,7 +69,6 @@ test("the action does too, which is the parity that was missing", () => {
 });
 
 test("a split's panes are not moved by either route", () => {
-  // Vacancy placement rather than a fan-out: a split's panes are already clear of one another.
   const base = {
     ...createInfiniteCanvasState<Kind>({ windows: [pane("a", 0), pane("b", 400), pane("c", 800)] }),
     viewport: { height: 800, width: 1200 },

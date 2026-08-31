@@ -5,8 +5,7 @@ export const Route = createRootRoute({
   component: RootShell,
 });
 
-// The sidebar renders paths collected at runtime; the fully-typed Link
-// instantiates a union across every registered route and trips TS2590.
+// Runtime paths make `Link` infer all route unions, which can cause TS2590.
 const NavLink = Link as unknown as FC<{
   activeProps?: { className?: string };
   children: ReactNode;

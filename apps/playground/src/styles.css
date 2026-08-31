@@ -1,12 +1,9 @@
-/* Cascade order: the framework theme must beat Tailwind's preflight (base)
-   now that the framework emits no utility classes of its own, but still lose
-   to components/utilities and any unlayered consumer CSS, so showcase
-   overrides always win. */
+/* Layer order keeps framework styles above preflight and below consumer utilities. */
 @layer theme, base, infinite-canvas, components, utilities;
 
 @import "@hyphened/infinite-canvas/theme.css";
 
-/* Consumer-authored second look; unlayered so it beats @layer infinite-canvas. */
+/* This unlayered consumer theme overrides the framework layer. */
 @import "./canvas-light-theme.css";
 
 @import "tailwindcss";
@@ -15,16 +12,12 @@
 @import "shadcn/tailwind.css";
 @import "@fontsource-variable/geist";
 
-/* Workspace packages style themselves with Tailwind classes; Tailwind must
-   scan their sources in addition to this app's. */
-/* The framework is headless (no utility classes); only the ui kit needs
-   Tailwind to scan workspace sources. */
+/* Tailwind scans the shared UI package for classes. */
 @source "../../../packages/ui/src";
 
 @custom-variant dark (&:is(.dark *));
 
-/* Dark-first: the playground always runs with `class="dark"` on <html>.
-   Token values adapted from kek crowd-simulation's design language. */
+/* The playground uses the dark theme by default. */
 :root,
 .dark {
   --background: #040506;
@@ -60,7 +53,6 @@
   --sidebar-accent-foreground: #ebe4d5;
   --sidebar-border: rgb(255 255 255 / 0.05);
   --sidebar-ring: #bcae8b;
-  /* Canvas stage surfaces (#171717 family per the dynamic grid study). */
   --surface-stage: #171717;
   --surface-stage-dot: #2a2a2a;
 }

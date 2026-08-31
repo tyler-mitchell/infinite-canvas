@@ -1,25 +1,16 @@
-/**
- * Load size and duration of the engine's own resources, read from the performance timeline rather
- * than from the database.
- *
- * A `transferSize` of zero with a non-zero decoded size means the browser served it from its HTTP
- * cache. This is unrelated to the inspector's read cache.
- */
+/** The browser performance timeline supplies these resource sizes and durations. */
 
 type SurrealArtifact = Readonly<{
   decodedBytes: number;
   durationMs: number;
   encodedBytes: number;
-  /** Served from the HTTP cache; nothing crossed the network. */
+  /** This value is true when the HTTP cache supplies the resource. */
   fromCache: boolean;
   name: string;
   transferBytes: number;
 }>;
 
-/**
- * Matches the WebAssembly binary, its worker, and the SDK bundle. Kept narrow because a looser
- * `surreal` pattern also matched this package's own modules under a dev server.
- */
+/** This pattern matches only the WebAssembly binary, worker, and SDK bundle. */
 const ENGINE_PATTERN = /\.wasm(?:$|[?#])|surrealdb|worker-agent/iu;
 
 function toArtifact(entry: PerformanceResourceTiming): SurrealArtifact {
@@ -33,7 +24,7 @@ function toArtifact(entry: PerformanceResourceTiming): SurrealArtifact {
   };
 }
 
-// Does not call `clearResourceTimings`, which would delete entries the host also reads.
+// The function keeps resource timings for host consumers.
 function readEngineArtifacts(): readonly SurrealArtifact[] {
   if (typeof performance === "undefined") {
     return [];

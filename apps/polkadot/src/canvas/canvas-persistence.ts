@@ -16,30 +16,10 @@ type CanvasPersistenceStatus =
   | Readonly<{ status: "saved" }>
   | Readonly<{ status: "saving" }>
   | Readonly<{ error: unknown; status: "error" }>
-  /**
-   * The write loop has stopped, and only a decision restarts it.
-   *
-   * Separate from `error` because the two need opposite handling. A failed write is transient —
-   * the revision this loop holds is still the newest one, so the next edit enqueues a save that
-   * can succeed, and the status heals itself. A conflict means the document moved underneath us,
-   * so the held revision is permanently stale and **every** later save carries the same doomed
-   * number.
-   *
-   * That was the defect this state exists to end: the loop reported `error`, kept the stale
-   * revision, and went on refusing every write for the rest of the session behind a small red
-   * pill. Verified by driving it — two document edits after a conflict, and the status never left
-   * `error` on the same revision. Everything done after that point was lost on reload.
-   */
+  // A conflict stops writes until the user selects a recovery action.
   | Readonly<{ status: "conflict" }>;
 
-/**
- * Matched by `name` rather than by `instanceof`.
- *
- * `CanvasRevisionConflictError` lives in `database.client`, and importing that module here would
- * pull the eleven-megabyte WebAssembly engine into the write loop — the exact cost `operations.ts`
- * exists to defer. The class declares `override readonly name` as a literal, so the name is a
- * stated contract rather than a coincidence of minification.
- */
+// Match by name to keep the WebAssembly engine out of this module.
 function isRevisionConflict(error: unknown) {
   return error instanceof Error && error.name === "CanvasRevisionConflictError";
 }
@@ -82,15 +62,7 @@ function startCanvasPersistence<Kind extends string>(
           return;
         }
 
-        /*
-         * A conflict stops the loop instead of retrying into it.
-         *
-         * The held revision cannot advance from here — only the write that succeeds advances it,
-         * and no write will. Leaving the loop running meant every subsequent edit enqueued another
-         * save carrying the same stale number, so the queue did steady work that could only fail.
-         * Stopping is not giving up: it is what makes the state legible to the surface that has to
-         * offer a way out, and what stops the app from looking busy while saving nothing.
-         */
+        // A stale revision cannot recover through retries.
         if (isRevisionConflict(error)) {
           lifecycle.conflicted = true;
           saveDebouncer.cancel();
@@ -116,16 +88,9 @@ function startCanvasPersistence<Kind extends string>(
     { wait: 250 },
   );
 
-  // `subscribeDocument` rather than `subscribe`: the store commits per field and never replaces
-  // the root, so selecting the root state compares an object to itself and never fires — this
-  // loop wrote nothing at all until that was found. The document subscription also excludes
-  // pans, viewport resizes, and snap previews, so nothing here has to filter runtime churn.
-  //
-  // A drag needs no guard either. The debounce is trailing, so continuous movement produces no
-  // write until it settles, and then exactly one.
+  // The root keeps its identity. Subscribe to document changes.
   const unsubscribe = input.handle.subscribeDocument((document) => {
-    // Still subscribed while conflicted, deliberately: the surface offering recovery reads the
-    // live document to fork it, and unsubscribing would freeze what it could offer to save.
+    // Keep the subscription active so recovery can copy the latest state.
     if (lifecycle.conflicted) {
       return;
     }

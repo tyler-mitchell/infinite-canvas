@@ -14,20 +14,7 @@ import type {
   InfiniteCanvasSize,
 } from "./types";
 
-/**
- * The layout solver for a group shell's container tree.
- *
- * Everything here is a pure function of the tree and the shell's content rect.
- * That is the point, and it is the rule the spec insists on: **docking and
- * resizing resolve in the canonical model, never from DOM measurements.**
- * Dragging a gutter changes a child's `weight`; rects are then re-derived from
- * scratch. No DOM width is ever the source of truth, so a group laid out
- * offscreen, in a test, or on a server produces exactly the same geometry as
- * one the user is looking at (SPLIT-001).
- *
- * Coordinates are whatever space the caller passes in. The group shell hands us
- * its content rect in world units, so every rect out of here is world units too.
- */
+/** Solves group geometry from the model without DOM measurements. */
 
 const DEFAULT_INFINITE_CANVAS_GROUP_METRICS: InfiniteCanvasGroupMetrics = {
   accordionHeaderSize: 28,
@@ -35,12 +22,7 @@ const DEFAULT_INFINITE_CANVAS_GROUP_METRICS: InfiniteCanvasGroupMetrics = {
   tabStripSize: 30,
 };
 
-/**
- * Every size optional, so a consumer changing the tab strip says nothing about gutters.
- *
- * Field by field rather than a spread: a spread copies an explicit `undefined` over the default,
- * and the prop path builds its input from three possibly-absent fields.
- */
+/** Overrides provided metrics and preserves defaults for omitted metrics. */
 function resolveInfiniteCanvasGroupMetrics(
   metrics: InfiniteCanvasGroupMetricsInput = {},
 ): InfiniteCanvasGroupMetrics {
@@ -57,15 +39,10 @@ type InfiniteCanvasGroupWindowPlacement = Readonly<{
   windowId: string;
 }>;
 
-/** The draggable seam between two split siblings. Dragging it reweights the pair. */
+/** A split seam that changes the weights of its adjacent panes. */
 type InfiniteCanvasGroupGutter = Readonly<{
   afterChildId: string;
-  /**
-   * The extent, along `axis`, that the container had left for its children after
-   * reserving every gutter. Published here because the solver already computed it
-   * and a drag needs exactly this number to convert a pointer delta into weight —
-   * re-deriving it at the call site is how the seam drifts away from the cursor.
-   */
+  /** Child extent after gutters. Drag math uses this value to update weights. */
   availableExtent: number;
   axis: InfiniteCanvasGroupAxis;
   beforeChildId: string;
@@ -81,7 +58,7 @@ type InfiniteCanvasGroupTabStrip = Readonly<{
 }>;
 
 type InfiniteCanvasGroupAccordionHeader = Readonly<{
-  /** The axis the headers stack along, so keyboard navigation can follow it (ACC-001). */
+  /** Axis used for accordion header layout and keyboard navigation. */
   axis: InfiniteCanvasGroupAxis;
   childId: string;
   containerId: string;
@@ -89,15 +66,7 @@ type InfiniteCanvasGroupAccordionHeader = Readonly<{
   rect: InfiniteCanvasRect;
 }>;
 
-/**
- * Everything a renderer needs, flattened.
- *
- * `hiddenWindows` are still members — behind an inactive tab or a collapsed fold —
- * and they carry **the rect they would occupy if revealed**, not nothing and not
- * the shell's. Nothing draws them, but a tear-out gesture hands that rect to the
- * window it frees, so a torn-out tab lands at its own size rather than swelling to
- * fill the group. Anything that unions member rects gets the right answer too.
- */
+/** Includes hidden member rects so tear-out preserves the revealed size. */
 type InfiniteCanvasGroupLayout = Readonly<{
   accordionHeaders: readonly InfiniteCanvasGroupAccordionHeader[];
   gutters: readonly InfiniteCanvasGroupGutter[];
@@ -118,16 +87,10 @@ function isHorizontalAxis(axis: InfiniteCanvasGroupAxis): boolean {
   return axis === "horizontal";
 }
 
-/** The rect's extent along `axis` — its width when horizontal, height when vertical. */
 function getExtentAlongAxis(rect: InfiniteCanvasRect, axis: InfiniteCanvasGroupAxis): number {
   return isHorizontalAxis(axis) ? rect.width : rect.height;
 }
 
-/**
- * A slice of `rect` running from `offset` for `extent` along `axis`, spanning the
- * full cross-axis. Every rect in this file is cut this way, which is why none of
- * them need to reason about x-versus-y.
- */
 function sliceRectAlongAxis(
   rect: InfiniteCanvasRect,
   axis: InfiniteCanvasGroupAxis,
@@ -143,11 +106,7 @@ function getAxisOrigin(rect: InfiniteCanvasRect, axis: InfiniteCanvasGroupAxis):
   return isHorizontalAxis(axis) ? rect.x : rect.y;
 }
 
-/**
- * Partition `rect` among the children by weight, reserving a gutter between each
- * adjacent pair. Weights are shares, not sizes: the solver is what turns a ratio
- * into pixels, so a shell can be resized without touching the tree.
- */
+/** Partitions a rect by child weights and reserves gutters between children. */
 function solveSplitContainer(
   container: InfiniteCanvasGroupContainerNode,
   rect: InfiniteCanvasRect,
@@ -162,8 +121,7 @@ function solveSplitContainer(
   let offset = getAxisOrigin(rect, axis);
 
   children.forEach((child, index) => {
-    // Degenerate weights would otherwise divide by zero; equal shares is the
-    // only sane reading of "every child wants nothing".
+    // Use equal shares when all weights are zero.
     const share = totalWeight > 0 ? child.weight / totalWeight : 1 / children.length;
     const extent = available * share;
 
@@ -178,7 +136,6 @@ function solveSplitContainer(
 
     const nextChild = children[index + 1];
 
-    // Chrome inside a hidden subtree is never drawn, so it is never emitted.
     if (nextChild !== undefined && !isHidden) {
       draft.gutters.push({
         afterChildId: child.id,
@@ -196,10 +153,7 @@ function solveSplitContainer(
   });
 }
 
-/**
- * A tab strip across the top, the active child filling what is left. Inactive
- * children contribute no rect — they are hidden, not removed.
- */
+/** Reserves a tab strip and gives all children the remaining rect. */
 function solveTabsContainer(
   container: InfiniteCanvasGroupContainerNode,
   rect: InfiniteCanvasRect,
@@ -224,8 +178,6 @@ function solveTabsContainer(
     });
   }
 
-  // Every child of a tab group shares the same content rect; the inactive ones
-  // are solved into it too, so they know the size they would be revealed at.
   const contentRect = {
     height: Math.max(rect.height - stripHeight, 0),
     width: rect.width,
@@ -244,12 +196,7 @@ function solveTabsContainer(
   }
 }
 
-/**
- * Every child gets a header along the axis; the active one additionally gets all
- * the space the headers did not claim. When the headers alone would overflow the
- * shell, they share it equally and nothing expands — a squeezed accordion stays
- * navigable rather than pushing folds out of the group.
- */
+/** Reserves each header and gives the active child the remaining rect. */
 function solveAccordionContainer(
   container: InfiniteCanvasGroupContainerNode,
   rect: InfiniteCanvasRect,
@@ -284,8 +231,7 @@ function solveAccordionContainer(
 
     offset += headerSize;
 
-    // A collapsed fold is solved into the extent it would expand to, at its own
-    // offset — so a member torn out of it lands at the size it would have shown.
+    // Give each hidden child the rect that it uses when expanded.
     solveInfiniteCanvasGroupNode(
       child,
       sliceRectAlongAxis(rect, axis, offset, expandedExtent),
@@ -300,11 +246,6 @@ function solveAccordionContainer(
   }
 }
 
-/**
- * Normalization guarantees a live `activeChildId` on tab and accordion groups,
- * so the fallback to the first child is defence against a hand-built tree, not a
- * path the framework's own mutations can reach.
- */
 function getActiveChild(
   container: InfiniteCanvasGroupContainerNode,
 ): InfiniteCanvasGroupNode | undefined {
@@ -342,7 +283,6 @@ function solveInfiniteCanvasGroupNode(
   solveAccordionContainer(node, rect, metrics, draft, isHidden);
 }
 
-/** Solve a group shell's content rect into window rects and the chrome between them. */
 function getInfiniteCanvasGroupLayout(
   root: InfiniteCanvasGroupNode,
   rect: InfiniteCanvasRect,
@@ -361,15 +301,7 @@ function getInfiniteCanvasGroupLayout(
   return draft;
 }
 
-/**
- * Which edge of `rect` a pointer at `point` is docking against. The middle
- * `1 - 2 * centerRatio` of each axis is the tab-merge zone; outside it, the
- * nearest edge wins.
- *
- * This reads a *model* rect, never a measured element — a drop target computed
- * from `getBoundingClientRect` would disagree with the canonical tree the moment
- * a CSS transform, a scroll, or a zoom got involved.
- */
+/** Returns the nearest dock edge or the center merge region. */
 function getInfiniteCanvasGroupDockEdgeAtPoint(
   rect: InfiniteCanvasRect,
   point: InfiniteCanvasPoint,
@@ -402,34 +334,14 @@ function getInfiniteCanvasGroupDockEdgeAtPoint(
   return nearest === north ? "north" : "south";
 }
 
-/**
- * A pane may never be dragged out of existence: it keeps at least this share of
- * the pair a gutter separates, however far the pointer travels. It also keeps
- * both weights strictly positive, which `group-tree` requires (invariant 2) and
- * would otherwise silently repair by resetting the weight to 1 — inverting the
- * very ratio the drag was adjusting.
- */
+/** Minimum adjacent-pane share during a gutter drag. */
 const MINIMUM_GROUP_PANE_SHARE = 0.02;
 
 function clamp(value: number, minimum: number, maximum: number): number {
   return Math.min(Math.max(value, minimum), maximum);
 }
 
-/**
- * The weights a gutter drag produces. Only the two children the gutter separates
- * move; everyone else keeps their share, so dragging one seam never ripples
- * across the group.
- *
- * `delta` is measured along the container's axis in the same units as the rect
- * that produced the layout, and `availableExtent` is the extent that rect had
- * left over for children after gutters. Converting through
- * `totalWeight / availableExtent` — the exact scale `solveSplitContainer` used
- * in the other direction — is what makes the seam track the cursor rather than
- * drift away from it.
- *
- * Returns `{}` when nothing can move, so the caller can treat "no change" and
- * "no room" identically.
- */
+/** Updates only the two panes beside a gutter from its total pointer delta. */
 function getInfiniteCanvasGroupGutterWeights(
   container: InfiniteCanvasGroupContainerNode,
   seam: Readonly<{ afterChildId: string; beforeChildId: string }>,
@@ -465,33 +377,10 @@ function getInfiniteCanvasGroupGutterWeights(
   };
 }
 
-/**
- * The extent below which a pane has no room left to be seen or grabbed.
- *
- * Deliberately **not** a member window's `minSize`. The solver has never consulted it:
- * a group owns its layout and a member's `rect` is that layout's projection, so
- * `minSize` — a floating-window property — has no authority inside a tree. Honouring it
- * here would let one stubborn member veto a resize of a group it merely belongs to, and
- * would contradict the gutter drag, which already floors panes by share and by extent.
- */
+/** Minimum pane extent. Member `minSize` applies only when floating. */
 const MINIMUM_GROUP_PANE_EXTENT = 48;
 
-/**
- * The smallest content rect this tree can be solved into without a pane vanishing.
- *
- * A shell's minimum is structural: gutters, tab strips, and accordion headers each claim
- * space no matter how hard the user squeezes, and every window pane needs
- * `MINIMUM_GROUP_PANE_EXTENT` on both axes underneath that. Each branch mirrors the
- * solver directly, so the two cannot disagree about what "fits" means:
- *
- * - **split** sums along its axis, adding a gutter between each adjacent pair, and takes
- *   the widest child across it;
- * - **tabs** stacks a strip above the tallest child, since every child shares one content
- *   rect;
- * - **accordion** gives every child a header along the axis and one child the remainder, so
- *   its minimum is `n` headers plus the *widest* child — not the active one, since
- *   expanding a different fold must never squeeze the shell below its own floor.
- */
+/** Returns the smallest shell size that preserves structural chrome and panes. */
 function getInfiniteCanvasGroupMinimumSize(
   node: InfiniteCanvasGroupNode,
   metrics: InfiniteCanvasGroupMetrics = DEFAULT_INFINITE_CANVAS_GROUP_METRICS,
@@ -502,8 +391,7 @@ function getInfiniteCanvasGroupMinimumSize(
 
   const children = node.children.map((child) => getInfiniteCanvasGroupMinimumSize(child, metrics));
 
-  // `normalizeInfiniteCanvasGroupTree` never leaves an empty container standing, but a
-  // caller can hand us an unnormalized tree, and `Math.max()` of nothing is -Infinity.
+  // Use a zero extent for an empty unnormalized tree.
   if (children.length === 0) {
     return { height: MINIMUM_GROUP_PANE_EXTENT, width: MINIMUM_GROUP_PANE_EXTENT };
   }
@@ -518,12 +406,7 @@ function getInfiniteCanvasGroupMinimumSize(
   const isHorizontal = isHorizontalAxis(node.axis);
 
   if (node.layout === "accordion") {
-    // Every child gets a header; exactly one gets the remainder. Size against the
-    // *widest* child rather than the active one, because `setGroupActiveChild` is a
-    // command: a shell sized to fit the fold that happens to be open would squeeze
-    // itself below its own floor the moment a larger one is expanded. Tabs already
-    // reason this way — all children share one content rect — and the two branches
-    // must not disagree about what "fits" means.
+    // Size each fold for the widest child so activation cannot violate the pane floor.
     const headers = metrics.accordionHeaderSize * children.length;
 
     return isHorizontal

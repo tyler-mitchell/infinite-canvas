@@ -73,12 +73,6 @@ const registry = defineInfiniteCanvasWindowRegistry<Kind>({
   },
 });
 
-/**
- * `left` and `right` start as free-floating windows, and `New window` adds more.
- * `Group them` docks every floating window into one split shell; from there the layout
- * mode can be swapped, and the shell moved or resized by its edge, and the windows follow
- * because their rects are derived from the shell, never stored.
- */
 const initialState = createInfiniteCanvasState<Kind>({
   camera: { center: { x: 360, y: 180 }, zoom: 0.9 },
   windows: [
@@ -99,12 +93,7 @@ const initialState = createInfiniteCanvasState<Kind>({
 
 const RECIPE_STORAGE_KEY = "playground.groups.recipe.v1";
 
-/**
- * Recipes are values the consumer owns: the framework captures and applies them,
- * and never decides where they live. Here that is `localStorage`, parsed
- * structurally on the way back in — a recipe crossing storage is untrusted input
- * exactly like persisted canvas state.
- */
+/** The consumer stores recipes and validates them after loading. */
 function readStoredRecipe(): InfiniteCanvasRecipe | null {
   const raw = globalThis.localStorage.getItem(RECIPE_STORAGE_KEY);
 
@@ -146,7 +135,7 @@ function RecipeControls() {
           const recipe = readStoredRecipe();
 
           if (recipe !== null) {
-            // Centred in the region, at its natural size: recipes translate, never scale.
+            // Recipes translate to the target rect without scaling.
             actions.applyRecipe({
               placement: { rect: { height: 600, width: 900, x: -100, y: -100 } },
               recipe,
@@ -164,12 +153,6 @@ function RecipeControls() {
 
 const NEW_WINDOW_SIZE = { height: 260, width: 320 } as const;
 
-/**
- * Opens a floating window at the camera's centre, so it lands where you are looking
- * however far you have panned. Consecutive windows cascade rather than stacking exactly.
- *
- * `openWindow` assigns the z-index and focus itself, so neither is passed here.
- */
 function NewWindowButton() {
   const actions = useInfiniteCanvasActions<Kind>();
   const store = useInfiniteCanvasStore<Kind>();
@@ -178,8 +161,7 @@ function NewWindowButton() {
   return (
     <Button
       onClick={() => {
-        // Peek, don't subscribe: this needs the camera once, on click, and a subscription
-        // would re-render these controls on every pan frame.
+        // The one-time camera read prevents rerenders during a pan.
         const { camera } = store.state$.peek();
         sequenceRef.current += 1;
         const ordinal = sequenceRef.current;
@@ -214,16 +196,12 @@ function GroupControls() {
   const group = groups.find((candidate) => candidate.id === GROUP_ID) ?? null;
 
   if (group === null) {
-    // Whatever is floating right now, not a hardcoded pair. `New window` would otherwise
-    // be ignored by the one button you'd reach for immediately after pressing it.
     const groupedIds = new Set(
       groups.flatMap((candidate) => getInfiniteCanvasGroupWindowIds(candidate.tree)),
     );
     const members = windows.filter(
       (window) => window.mode !== "minimized" && !groupedIds.has(window.id),
     );
-    // The shell lands over the windows it swallows, rather than at a fixed rect far from
-    // wherever you happen to be looking. The solver re-projects them into it either way.
     const rect = unionRects(members.map((window) => window.rect)) ?? GROUP_RECT;
 
     return (
@@ -273,8 +251,7 @@ function GroupControls() {
       </Button>
       <Button
         onClick={() => {
-          // The last member, not a hardcoded `"right"` that may not be in the tree at all
-          // once the group is built from whatever was floating.
+          // The current group contents determine the last member.
           const lastMemberId = getInfiniteCanvasGroupWindowIds(group.tree).at(-1);
 
           if (lastMemberId !== undefined) {
@@ -291,9 +268,7 @@ function GroupControls() {
       </Button>
       <Button
         onClick={() => {
-          // Centred on the shell, which is exactly the FOCUS-002 setup: a floating window
-          // whose centre lies inside a group's rect takes that group as its contextual
-          // parent, so `Alt+Arrow` from it searches the group's members before the canvas.
+          // A centered window uses the group as its contextual parent.
           floatingSequenceRef.current += 1;
           const ordinal = floatingSequenceRef.current;
 
@@ -337,10 +312,8 @@ function GroupsShowcase() {
           exposeCanvasDevHandle(context);
           return (
             <>
-              {/* Mod+K. Built entirely on `getInfiniteCanvasContextualCommands`, which has been
-                  public since the agent handle landed and which nothing consumed until now. */}
               <CommandPalette />
-              {/* Pan away from the shell: a four-pane group gets one arrow, not four. */}
+              {/* One group produces one offscreen indicator. */}
               <CanvasOffscreenIndicators />
               <div className="pointer-events-auto absolute bottom-4 left-4 flex items-center gap-1.5 rounded-lg border border-border bg-popover/90 p-1.5 backdrop-blur">
                 <CanvasThemeSwitcher />

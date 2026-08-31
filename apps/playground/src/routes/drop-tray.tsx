@@ -173,16 +173,14 @@ function DropTrayShowcase() {
                 target.type === "window"
                   ? [`Related to “${target.window.title}”.`]
                   : ["Placed at the drop point."],
-              // Literally the rect the ghost was drawn at — the framework hands
-              // back the placement it previewed rather than a second computation.
+              // The preview rect keeps the committed drop aligned with the ghost.
               rect: placement.rect,
               title: `${payload.label} ${String(ordinal).padStart(2, "0")}`,
               zIndex: state.windows.length + 1,
             }),
           );
         },
-        // Telling the framework how big the card will be is what lets it snap the
-        // drop and draw the guides. Without it, `drag.placement` stays null.
+        // The card size makes snap placement and guide rendering possible.
         placement: ({ payload }) => (isCardAsset(payload) ? { size: cardSize } : null),
       }) satisfies InfiniteCanvasDropPolicy<CardKind, CardAsset>,
     [],
@@ -195,8 +193,7 @@ function DropTrayShowcase() {
           frameloop: "demand",
           id: "drop-preview",
           placement: "overlay",
-          // The ghost. The framework draws the snap guides beside it now, from the
-          // same placement — this layer used to re-derive them and paint its own.
+          // The ghost uses the framework placement and guides.
           render: (context) => {
             const { drop } = context;
             if (

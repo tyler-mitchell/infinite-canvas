@@ -7,13 +7,7 @@ import { countRecords } from "./records.ts";
 import type { SurrealInspectorSource } from "./source.ts";
 import { surveyStorage, type SurrealStorageSurvey } from "./storage.ts";
 
-/**
- * Collects the full state of a database in one call.
- *
- * Any field can be absent either because there was nothing to report or because it could not be
- * read. `unavailable` distinguishes the two: every `null` elsewhere has a matching entry giving
- * the reason, so an empty report is not mistaken for a healthy one.
- */
+/** Each unavailable result explains why one report value is absent. */
 
 type SurrealUnavailable = Readonly<{
   reason: string;
@@ -28,7 +22,7 @@ type SurrealTableCount = Readonly<{
 type SurrealConnectionReport = Readonly<{
   database: string;
   endpoint: string;
-  /** The engine's version string, e.g. `surrealdb-3.0.5`. `null` if it did not answer. */
+  /** This value is the SurrealDB version, or `null` when unavailable. */
   engine: string | null;
   namespace: string;
   open: boolean;
@@ -41,19 +35,15 @@ type SurrealInspectorReport = Readonly<{
   counts: readonly SurrealTableCount[];
   generatedAt: number;
   integrity: SurrealIntegrityReport | null;
-  /** `null` when the source declares no manifest, leaving nothing to compare against. */
+  /** This value is `null` when the source has no manifest. */
   migrations: SurrealMigrationReport | null;
   reads: SurrealReadLedger;
   sourceId: string;
   storage: SurrealStorageSurvey;
-  /** Every part of this report that could not be read, with the reason. */
   unavailable: readonly SurrealUnavailable[];
 }>;
 
-/**
- * Surveys storage before connecting, so the figure is present even when the engine fails to open.
- * The survey queries the browser rather than SurrealDB.
- */
+/** The function reads browser storage first. Then it opens the SurrealDB connection. */
 async function inspectSurrealDatabase(
   source: SurrealInspectorSource,
   options: Readonly<{ integrity?: boolean }> = {},

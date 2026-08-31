@@ -40,13 +40,7 @@ function getNavigableWindow<Kind extends string>(
   );
 }
 
-/**
- * `selectionBounds` is what the windows alone cannot say.
- *
- * A selection can hold edges and scene objects, whose geometry lives with the consumer rather than
- * in `state`. A caller that has asked the resolvers passes the answer in; one that has not gets the
- * window bounds, which is what this could always compute on its own.
- */
+/** Optional bounds for selected targets that are not windows. */
 function getCameraNavigationTargetRect<Kind extends string>(
   state: InfiniteCanvasState<Kind>,
   target: InfiniteCanvasCameraNavigationTarget,
@@ -100,13 +94,7 @@ function getCameraNavigationFrame(
   behavior: InfiniteCanvasCameraNavigationBehavior = DEFAULT_INFINITE_CANVAS_CAMERA_NAVIGATION_BEHAVIOR,
   zoomPolicy: InfiniteCanvasZoomPolicy = DEFAULT_INFINITE_CANVAS_ZOOM,
 ): InfiniteCanvasCamera | null {
-  /*
-   * Centred in what the user can see, not in the element.
-   *
-   * With chrome on an edge, the middle of the viewport is behind it. Both branches below shift by
-   * the inset asymmetry — and both must, because `centerAtZoom` changes the zoom and the shift is
-   * measured in world units, so the same screen offset is a different world offset at each zoom.
-   */
+  // Center in the visible region with inset offsets at the target zoom.
   const center = getRectCenter(rect);
 
   switch (behavior.type) {

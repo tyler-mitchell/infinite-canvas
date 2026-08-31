@@ -5,17 +5,6 @@ import { getInfiniteCanvasMinimapLayout, getInfiniteCanvasMinimapWorldPoint } fr
 import { getInfiniteCanvasOffscreenIndicators } from "./offscreen";
 import type { InfiniteCanvasState } from "./types";
 
-/**
- * The two navigation-geometry modules, neither of which had a test.
- *
- * Both are claimed in `README.md` — "projects windows, groups, and the camera's visible rect into
- * a box of your choosing, and `getInfiniteCanvasMinimapWorldPoint` inverts it for
- * click-to-navigate" — and `minimap.ts` says in its own comment that the inverse "must stay the
- * inverse: a consumer that re-derives it will disagree at the edges, and the camera will land a
- * few units from where the user clicked." That is a falsifiable arithmetic claim, and nothing
- * was falsifying it.
- */
-
 type Kind = "note";
 
 const state = (): InfiniteCanvasState<Kind> => ({
@@ -39,18 +28,6 @@ const state = (): InfiniteCanvasState<Kind> => ({
   viewport: { height: 800, width: 1200 },
 });
 
-/**
- * A canvas with nothing on it, which the docstring promised `null` for and did not give.
- *
- * The camera's rect is unioned into `bounds` unconditionally — the right call, and the reason the
- * "empty canvas" early return never fired: `bounds` is never empty, so a canvas with no windows
- * returned a layout carrying only the viewport indicator. By construction that indicator then
- * filled the whole box, since `bounds` *is* the visible rect, so the map could show one thing at
- * every zoom and every position and answer nothing.
- *
- * Found by drawing the map in a browser for the first time. These assert the contract the file
- * already documented rather than a new opinion.
- */
 test("a canvas with no windows has no map", () => {
   const empty = {
     ...createInfiniteCanvasState<Kind>({
@@ -64,11 +41,6 @@ test("a canvas with no windows has no map", () => {
 });
 
 test("a desktop admitting none of the canvas's windows has no map either", () => {
-  /*
-   * The distinction the fix turns on: "nothing to map" is this function's own filtered set, not
-   * `state.windows`. A full canvas seen from an empty desktop draws nothing, so it maps nothing —
-   * the same correction `window.reveal` and the offscreen ring each took.
-   */
   const populated = state();
   const elsewhere: InfiniteCanvasState<Kind> = {
     ...populated,
@@ -88,15 +60,6 @@ test("a desktop admitting none of the canvas's windows has no map either", () =>
   expect(getInfiniteCanvasMinimapLayout(elsewhere, { height: 104, width: 156 })).toBeNull();
 });
 
-/**
- * Windows placed genuinely outside the visible rect.
- *
- * The first draft of the offscreen tests reused the fixture above and asserted that both of its
- * windows were offscreen. They are not: at zoom 0.75 in a 1200x800 viewport the camera sees
- * x -680..920 and y -453..613, which contains both. The function was right and the test was
- * wrong — the same way round as the semantic-LOD case, and worth stating rather than quietly
- * moving the numbers.
- */
 const offscreenState = (): InfiniteCanvasState<Kind> => ({
   ...createInfiniteCanvasState<Kind>({
     camera: { center: { x: 0, y: 0 }, zoom: 1 },
@@ -121,8 +84,6 @@ const offscreenState = (): InfiniteCanvasState<Kind> => ({
 const MINIMAP_SIZE = { height: 132, width: 200 };
 
 test("the world point of a projected window round-trips to where it came from", () => {
-  // The inverse claim, stated as a round trip rather than as an implementation detail: project a
-  // world rect into the box, hand its minimap origin back, and the world origin must return.
   const layout = getInfiniteCanvasMinimapLayout(state(), MINIMAP_SIZE);
 
   expect(layout).not.toBeNull();
@@ -141,7 +102,6 @@ test("the world point of a projected window round-trips to where it came from", 
 });
 
 test("the inverse holds across the whole box, not just at a window", () => {
-  // Edge behaviour is where a re-derived inverse goes wrong, so sample the corners and centre.
   const layout = getInfiniteCanvasMinimapLayout(state(), MINIMAP_SIZE)!;
 
   for (const point of [
@@ -152,8 +112,6 @@ test("the inverse holds across the whole box, not just at a window", () => {
     { x: MINIMAP_SIZE.width / 2, y: MINIMAP_SIZE.height / 2 },
   ]) {
     const world = getInfiniteCanvasMinimapWorldPoint(layout, point);
-    // Re-project by hand using only the layout's published fields — the exact arithmetic a
-    // consumer would write — and require it to land back on the input.
     const reprojected = {
       x: layout.offset.x + (world.x - layout.bounds.x) * layout.scale,
       y: layout.offset.y + (world.y - layout.bounds.y) * layout.scale,
@@ -165,9 +123,6 @@ test("the inverse holds across the whole box, not just at a window", () => {
 });
 
 test("the camera's visible rect is inside the box even when it looks at empty space", () => {
-  // The documented reason the camera rect is unioned into the bounds: pan away from every window
-  // and the position marker must still have somewhere to be, or the overview loses you exactly
-  // when you reached for it.
   const lost: InfiniteCanvasState<Kind> = {
     ...state(),
     camera: { center: { x: 90_000, y: 90_000 }, zoom: 0.75 },
@@ -175,8 +130,6 @@ test("the camera's visible rect is inside the box even when it looks at empty sp
   const layout = getInfiniteCanvasMinimapLayout(lost, MINIMAP_SIZE)!;
   const { viewport } = layout;
 
-  // Non-null is half the claim now: the marker is withheld when the camera contains everything
-  // drawn, and this is the opposite case — it must keep its marker, inside the box.
   expect(viewport).not.toBeNull();
 
   if (viewport === null) {
@@ -193,13 +146,10 @@ test("an unmeasured viewport yields no layout rather than a degenerate one", () 
   const unmeasured: InfiniteCanvasState<Kind> = { ...state(), viewport: { height: 0, width: 0 } };
 
   expect(getInfiniteCanvasMinimapLayout(unmeasured, MINIMAP_SIZE)).toBeNull();
-  // A box too small to hold its own padding is the other degenerate case.
   expect(getInfiniteCanvasMinimapLayout(state(), { height: 4, width: 4 })).toBeNull();
 });
 
 test("offscreen indicators point at what left the viewport, nearest first", () => {
-  // Both windows sit far outside the visible rect, so both are offscreen, and the nearer one
-  // must come first — the sort is what makes a capped list meaningful.
   const indicators = getInfiniteCanvasOffscreenIndicators(offscreenState());
 
   expect(indicators.length).toBeGreaterThan(0);
@@ -210,15 +160,6 @@ test("offscreen indicators point at what left the viewport, nearest first", () =
 });
 
 test("a desktop filters the ring: no arrow points at a window it hides", () => {
-  /*
-   * A desktop is a membership filter, so the canvas does not draw what it excludes — and an arrow
-   * aimed at one of those is a claim that something is just off the edge, which is the exact thing
-   * the desktop is hiding. Standing on a desktop used to fill the ring with them, and an *empty*
-   * desktop carried one per window on the canvas behind it.
-   *
-   * The same correction `window.reveal` already received when it filtered on `minimized` alone and
-   * panned to a rect nothing renders.
-   */
   const base = offscreenState();
   const filtered: InfiniteCanvasState<Kind> = {
     ...base,
@@ -239,7 +180,6 @@ test("a desktop filters the ring: no arrow points at a window it hides", () => {
 
   expect(filteredIds).toContain("near");
   expect(filteredIds).not.toContain("far");
-  // No active desktop admits everything, so a canvas that never makes one is untouched by this.
   expect(
     getInfiniteCanvasOffscreenIndicators(base)
       .map((indicator) => indicator.id)
@@ -248,8 +188,6 @@ test("a desktop filters the ring: no arrow points at a window it hides", () => {
 });
 
 test("an indicator's angle actually points from the viewport centre toward its target", () => {
-  // The claim a consumer relies on: rotate a right-pointing chevron by `angle` and it aims at the
-  // window. Recompute the bearing from the returned rect and require agreement.
   const current = offscreenState();
   const indicators = getInfiniteCanvasOffscreenIndicators(current);
 
@@ -274,7 +212,6 @@ test("an indicator's angle actually points from the viewport centre toward its t
 });
 
 test("a window inside the viewport gets no indicator", () => {
-  // The lane must stay off for what the user can already see, or the arrows are noise.
   const onScreen: InfiniteCanvasState<Kind> = {
     ...createInfiniteCanvasState<Kind>({
       camera: { center: { x: 150, y: 100 }, zoom: 1 },
@@ -293,17 +230,6 @@ test("a window inside the viewport gets no indicator", () => {
   expect(getInfiniteCanvasOffscreenIndicators(onScreen)).toEqual([]);
 });
 
-/**
- * A desktop filters the map, and the bounds it is scaled from.
- *
- * The third surface to need this correction, after `window.reveal` and the offscreen ring. The
- * omission is worse here than in either, because a hidden window does not merely get drawn — it is
- * unioned into `bounds`, so it changes the *scale*, and every window the user can actually see
- * shrinks to make room for one they cannot.
- *
- * Both halves are asserted for that reason. Checking only the window list would pass while the map
- * stayed silently zoomed out around content nothing renders.
- */
 test("a desktop filters the map: a window it hides is neither drawn nor measured", () => {
   const base = state();
   const onDesktop: InfiniteCanvasState<Kind> = {
@@ -324,6 +250,5 @@ test("a desktop filters the map: a window it hides is neither drawn nor measured
   const filtered = getInfiniteCanvasMinimapLayout(onDesktop, { height: 200, width: 200 });
 
   expect(filtered?.windows.map((window) => window.windowId)).toEqual(["a"]);
-  // `b` sits at x 700..960 while `a` sits at x -400..-100, so dropping it must narrow the bounds.
   expect(filtered?.bounds.width).toBeLessThan(everything?.bounds.width ?? 0);
 });

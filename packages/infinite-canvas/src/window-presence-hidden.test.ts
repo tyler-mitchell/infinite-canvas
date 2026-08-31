@@ -8,14 +8,6 @@ import {
 import { getInfiniteCanvasWindowPresence } from "./window-presence";
 import type { InfiniteCanvasState } from "./types";
 
-/**
- * `visible` has to mean on screen.
- *
- * It was `mode !== "minimized"` and nothing else, so a member behind an inactive tab was in it —
- * that window has `mode: "normal"` and the shell's whole rect, and nothing about it looks hidden
- * from here. A window on another desktop was in it too.
- */
-
 const seed = (): InfiniteCanvasState<"demo"> =>
   createInfiniteCanvasState<"demo">({
     viewport: { height: 800, width: 1200 },
@@ -56,7 +48,6 @@ test("a window behind an inactive tab is not visible, and says so", () => {
   const presence = getInfiniteCanvasWindowPresence(tabbed());
   const hidden = presence.windows.filter((window) => window.isHidden);
 
-  // Exactly one of the pair is showing; which one is the solver's business, not this test's.
   expect(hidden).toHaveLength(1);
   expect(presence.visible).toHaveLength(1);
   expect(presence.visible[0]?.isHidden).toBe(false);
@@ -64,8 +55,6 @@ test("a window behind an inactive tab is not visible, and says so", () => {
 });
 
 test("a hidden member is still a window, so it can be listed and reached", () => {
-  // The point of `windows` staying complete: a palette lists everything and `window.reveal`
-  // activates the tab. Dropping it from `windows` would make it unreachable instead of unseen.
   const presence = getInfiniteCanvasWindowPresence(tabbed());
 
   expect(presence.windows).toHaveLength(2);
@@ -89,13 +78,10 @@ test("a window another desktop holds is not visible either", () => {
 
   expect(ids(presence.visible)).toEqual(["host"]);
   expect(presence.windows.find((window) => window.id === "guest")?.isAdmitted).toBe(false);
-  // Still listed, for the same reason a hidden member is: reachable rather than erased.
   expect(presence.windows).toHaveLength(2);
 });
 
 test("with no groups and no workspaces every unminimized window is visible", () => {
-  // The case that must not have changed: this is what `visible` meant before, and it is what it
-  // still means for a canvas that never makes a group or a desktop.
   const presence = getInfiniteCanvasWindowPresence(seed());
 
   expect(ids(presence.visible)).toEqual(["guest", "host"]);

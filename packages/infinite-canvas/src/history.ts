@@ -6,33 +6,11 @@ import type {
   InfiniteCanvasState,
 } from "./types";
 
-/**
- * Undo/redo over the *document* — the windows and the groups. Everything else in
- * `InfiniteCanvasState` is a view onto it: where the camera is looking, what is
- * selected, which pointer is dragging. Panning is not an edit, and undo should
- * never scroll the canvas out from under someone who just wanted their window
- * back.
- *
- * History lives in state rather than beside it in the store, because undo has to
- * be a command like every other mutation. That is the framework's central bet —
- * pointer, keyboard, and programmatic drivers compile to one vocabulary — and a
- * stack hidden in the store could not be gated by `isInfiniteCanvasCommandEnabled`
- * or replayed by anything that speaks actions.
- *
- * A drag is one entry, not one per frame. `interaction.step` never records;
- * instead the checkpoint is taken when a mutating drag *begins*, capturing the
- * document as it stood before the first pixel moved.
- */
+/** Stores document undo and redo. A drag creates one checkpoint at its start. */
 
-/** Undo restores this and nothing else. */
 const INFINITE_CANVAS_HISTORY_LIMIT = 100;
 
-/**
- * Typed at `never`, not at the `string` default. An empty stack holds documents of
- * no window kind, so it assigns into `InfiniteCanvasHistory<Kind>` for every
- * `Kind` — readonly arrays are covariant. Typed at `string` it would only fit a
- * canvas whose windows had no narrower kind, which is none of them.
- */
+/** `never` lets this empty history assign to every window-kind history. */
 const EMPTY_INFINITE_CANVAS_HISTORY: InfiniteCanvasHistory<never> = {
   future: [],
   past: [],
@@ -49,11 +27,7 @@ function getInfiniteCanvasDocument<Kind extends string>(
   };
 }
 
-/**
- * Reference equality is the whole test. Every reducer in this framework returns
- * the identical array when it changed nothing, so two documents share references
- * exactly when no edit happened.
- */
+/** Compares documents by shared window and group references. */
 function isSameInfiniteCanvasDocument<Kind extends string>(
   left: InfiniteCanvasDocument<Kind>,
   right: InfiniteCanvasDocument<Kind>,
@@ -66,7 +40,7 @@ function isSameInfiniteCanvasDocument<Kind extends string>(
   );
 }
 
-/** Oldest entries fall off the back; an unbounded stack is a memory leak with a nice name. */
+/** Discards oldest entries when the history limit is reached. */
 function pushInfiniteCanvasHistory<Kind extends string>(
   history: InfiniteCanvasHistory<Kind>,
   document: InfiniteCanvasDocument<Kind>,
@@ -74,17 +48,13 @@ function pushInfiniteCanvasHistory<Kind extends string>(
   const past = [...history.past, document];
 
   return {
-    // Any new edit orphans the redo branch. Keeping it would let a redo resurrect
-    // a document that never followed from what the user is now looking at.
+    // A new edit clears the redo branch.
     future: [],
     past: past.length > INFINITE_CANVAS_HISTORY_LIMIT ? past.slice(1) : past,
   };
 }
 
-/**
- * Restore a document, then repair everything that pointed into the old one. A
- * window the undo brought back may not be selected; one it removed must not be.
- */
+/** Restores document fields and repairs dependent runtime state. */
 function applyInfiniteCanvasDocument<Kind extends string>(
   state: InfiniteCanvasState<Kind>,
   document: InfiniteCanvasDocument<Kind>,
@@ -96,7 +66,6 @@ function applyInfiniteCanvasDocument<Kind extends string>(
     groups: document.groups,
     workspaces: document.workspaces,
     history,
-    // An interaction cannot survive the document it was manipulating.
     interaction: null,
     snapPreview: null,
     windows: document.windows,
@@ -153,7 +122,7 @@ function canRedoInfiniteCanvas<Kind extends string>(state: InfiniteCanvasState<K
   return state.history.future.length > 0;
 }
 
-/** Drags that move something. A pan or a marquee edits the view, not the document. */
+/** Drag kinds that edit the document. */
 const MUTATING_INTERACTION_KINDS = new Set([
   "groupGutter",
   "groupMove",
@@ -162,18 +131,7 @@ const MUTATING_INTERACTION_KINDS = new Set([
   "resize",
 ]);
 
-/**
- * Whether an action should leave a checkpoint behind, given what it produced.
- *
- * The subtle case is a drag. `interaction.step` fires once per pointer event and
- * must never record, or a single drag would bury the stack. Instead the whole
- * drag is checkpointed at its *start*, before the first pixel moves — which also
- * means a drag that is cancelled mid-flight still has somewhere to return to.
- *
- * A drag start is recorded even when the document did not change, because the
- * mutation is about to happen. Everything else is recorded only if it actually
- * changed something: focusing a window, panning, and selecting are not edits.
- */
+/** Records one checkpoint at drag start. Other edits record after a document change. */
 function isInfiniteCanvasHistoryCheckpoint<Kind extends string>(
   action: InfiniteCanvasAction<Kind>,
   previousState: InfiniteCanvasState<Kind>,

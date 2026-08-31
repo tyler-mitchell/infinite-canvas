@@ -1,6 +1,5 @@
 import { d } from "typegpu";
 
-/** One window proxy: its world rect, and a tint standing in for its captured texture. */
 export const Quad = d.struct({
   rect: d.vec4f,
   tint: d.vec4f,

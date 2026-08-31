@@ -18,8 +18,7 @@ import type {
   InfiniteCanvasState,
 } from "./types";
 
-// Interaction overlays stack directly beneath the HUD band (overlay), above
-// the screen-space scene overlays (overlay - 9): bounds < marquee < snap.
+// Stack interaction overlays between scene overlays and the HUD.
 const SELECTION_BOUNDS_OVERLAY_Z_INDEX = DEFAULT_INFINITE_CANVAS_STACK_BANDS.overlay - 4;
 const DOCK_REGION_OVERLAY_Z_INDEX = DEFAULT_INFINITE_CANVAS_STACK_BANDS.overlay - 3;
 const MARQUEE_OVERLAY_Z_INDEX = DEFAULT_INFINITE_CANVAS_STACK_BANDS.overlay - 3;
@@ -72,14 +71,7 @@ function InfiniteCanvasSelectionBoundsOverlay({
   );
 }
 
-/**
- * Where the dragged window will land if released now. Shown only while docking
- * intent is held, because that is the only time a drop target exists — and a drop
- * the user did not see coming is the one thing a docking gesture must never do.
- *
- * The rect comes from the same value the reducer will apply on release, not from
- * a fresh hit-test, so what is promised is what happens.
- */
+/** Uses the same placement value that the drop action commits. */
 function InfiniteCanvasDockPreviewOverlay({
   devicePixelRatio,
 }: Readonly<{
@@ -125,15 +117,6 @@ function InfiniteCanvasDockPreviewOverlay({
   );
 }
 
-/**
- * Draws one snap preview: the ghost rect and the guides holding it.
- *
- * Extracted because a *drop* snaps against exactly the same candidates as a move —
- * `getInfiniteCanvasDropPlacement` calls the same `applySnapToRect` — and the guides
- * it produced were being computed and thrown away. Every consumer that wanted them
- * drew their own, slightly differently, against the same `data-slot` contract the
- * framework was already styling.
- */
 function InfiniteCanvasSnapPreviewLayer({
   devicePixelRatio,
   preview,
@@ -150,8 +133,7 @@ function InfiniteCanvasSnapPreviewLayer({
   );
   const previewTransform = previewProjection.screenTransform;
   const previewScreenRect = previewProjection.screenRect;
-  // Viewport-edge guides would draw a line down the middle of the screen; only the
-  // ones anchored to another window tell the user what they are aligning with.
+  // Show guides only when another window defines the anchor.
   const visibleGuides = preview.guides.filter((guide) => guide.from === "window");
 
   return (
@@ -202,12 +184,7 @@ function InfiniteCanvasSnapOverlay({
   );
 }
 
-/**
- * The same guides, for a drag that has not landed yet.
- *
- * Only drawn when `dropPolicy.placement` told the framework how big the incoming
- * thing is — without that, there is no rect to snap and nothing honest to draw.
- */
+/** Shows snap guides only when the drop policy defines a placement size. */
 function InfiniteCanvasDropSnapOverlay<Payload, Kind extends string>({
   devicePixelRatio,
   drop,

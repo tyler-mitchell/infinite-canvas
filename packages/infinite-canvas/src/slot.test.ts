@@ -2,16 +2,6 @@ import { expect, test } from "vite-plus/test";
 
 import { mergeInfiniteCanvasSlotProps } from "./slot";
 
-/**
- * The merge rules are the whole contract. A slot that let consumer props win outright would
- * silently disable window dragging the first time someone passed `onPointerDown`; one that let
- * framework props win would be an escape hatch that escapes nothing.
- *
- * Semantics are Base UI's `mergeProps`, transplanted — see `slot.ts` for why they are copied
- * rather than imported, and for the rule this file's first draft got backwards.
- */
-
-/** A stand-in for a React synthetic event: the `nativeEvent` field is what marks it as one. */
 const syntheticEvent = () => ({ nativeEvent: {} }) as Record<string, unknown>;
 
 test("both handlers run, consumer first", () => {
@@ -27,8 +17,6 @@ test("both handlers run, consumer first", () => {
 });
 
 test("a consumer cannot disable framework behaviour just by passing the same prop", () => {
-  // The regression that would be invisible in review: passing onPointerDown to a header and
-  // discovering later that windows no longer drag.
   let frameworkRan = false;
   const merged = mergeInfiniteCanvasSlotProps(
     {
@@ -45,8 +33,6 @@ test("a consumer cannot disable framework behaviour just by passing the same pro
 });
 
 test("preventInfiniteCanvasHandler is the supported way to decline it", () => {
-  // Deliberately not `preventDefault`, which means "skip the browser's default" and would
-  // conflate two different intentions.
   let frameworkRan = false;
   const merged = mergeInfiniteCanvasSlotProps(
     {
@@ -85,13 +71,10 @@ test("className concatenates consumer-first and style merges with the consumer l
   );
 
   expect(merged.className).toBe("consumer framework");
-  // Overriding one declaration must not discard the geometry the framework computed.
   expect(merged.style).toEqual({ color: "blue", position: "absolute" });
 });
 
 test("data-slot is framework-owned and survives a consumer trying to set it", () => {
-  // It is the styling contract's only anchor; losing it detaches the stylesheet from the element
-  // while everything still looks wired.
   const merged = mergeInfiniteCanvasSlotProps(
     { "data-slot": "window-header" },
     { "data-slot": "something-else" },

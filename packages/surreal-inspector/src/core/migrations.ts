@@ -1,17 +1,7 @@
 import type { SurrealCatalogue } from "./catalogue.ts";
 import type { SurrealMigrationManifest } from "./source.ts";
 
-/**
- * Compares the host's declared SurQL against the definitions the database actually has.
- *
- * An embedded SurrealDB has no migration table, so it cannot report which migrations ran. `INFO`
- * returns each object as its `DEFINE` statement, so comparing those against the host's manifest
- * gives what is missing, extra, or redefined.
- *
- * Both sides use the same scanner. It matches `DEFINE` statements by pattern rather than parsing:
- * `REMOVE` is not handled, and definitions built by string interpolation are not visible. Both
- * cases are listed in the report.
- */
+/** This module compares manifest `DEFINE` statements with database definitions. */
 
 type SurrealDefinitionKind =
   | "ACCESS"
@@ -24,41 +14,32 @@ type SurrealDefinitionKind =
   | "TABLE";
 
 type SurrealDefinition = Readonly<{
-  /** `table:canvas_document`, `field:canvas_document.layout` — stable across both sides. */
+  /** This field is stable across a manifest and database, for example `table:canvas_document`. */
   id: string;
   kind: SurrealDefinitionKind;
   name: string;
-  /** A `TYPE RELATION` table, whose `in` and `out` fields the engine defines for it. */
   relation: boolean;
   table: string | null;
-  /** A field's declared `TYPE`, normalised for comparison. `null` for anything else. */
+  /** This field contains a normalized field type, or `null` for other definitions. */
   type: string | null;
 }>;
 
-/**
- * `(` terminates a name. Without it a function name runs to the first whitespace, which differs
- * between the manifest (`fn::save_canvas(`) and the engine's echo (`fn::save_canvas($canvas:`).
- * That produced two ids per function, so every function was reported missing and undeclared.
- */
+/** This pattern scans `DEFINE` only. It ignores `REMOVE` and interpolated statements. */
+// `(` ends function names before parameter types in engine output.
 const DEFINE_PATTERN =
   /\bDEFINE\s+(TABLE|FIELD|INDEX|EVENT|FUNCTION|ANALYZER|PARAM|ACCESS)\s+(?:(?:IF\s+NOT\s+EXISTS|OVERWRITE)\s+)?([^\s;(]+)(?:\s+ON\s+(?:TABLE\s+)?([^\s;]+))?([^;]*)/giu;
 
-/** Everything that can follow a field's `TYPE`, which is how its end is found. */
 const TYPE_PATTERN =
   /\bTYPE\s+(.+?)(?=\s+(?:DEFAULT|VALUE|ASSERT|READONLY|PERMISSIONS|COMMENT|REFERENCE|FLEXIBLE)\b|\s*$)/isu;
 
 const REMOVE_PATTERN = /\bREMOVE\s+(TABLE|FIELD|INDEX|EVENT|FUNCTION|ANALYZER|PARAM|ACCESS)\b/iu;
 
-/** `INFO` escapes identifiers that need it; a manifest usually does not. Compare them bare. */
+/** `INFO` escapes some identifiers, so comparisons use bare names. */
 function bareName(raw: string) {
   return raw.replace(/^[`"']|[`"']$/gu, "");
 }
 
-/**
- * Normalises a type to one spelling so both sides compare. The manifest uses SurQL shorthand and
- * the engine reports canonical form: `TYPE option<string>` comes back as `none | string`. Comparing
- * them raw reports every optional field as redefined.
- */
+/** This function maps SurQL shorthand and engine type output to one form. */
 function normaliseType(raw: string) {
   const compact = raw.replaceAll(/\s+/gu, "").toLowerCase();
 
@@ -92,10 +73,7 @@ function scanDefinitions(source: string): readonly SurrealDefinition[] {
   });
 }
 
-/**
- * Every `DEFINE` the database currently holds. Read from the catalogue's statement strings rather
- * than rebuilt from the structured form, so both sides are scanned the same way.
- */
+/** This function scans catalogue statements. It does not rebuild structured fields. */
 function scanCatalogue(catalogue: SurrealCatalogue): readonly SurrealDefinition[] {
   return [
     ...catalogue.analyzers,
@@ -112,16 +90,10 @@ function scanCatalogue(catalogue: SurrealCatalogue): readonly SurrealDefinition[
 
 type SurrealDriftEntry = Readonly<{
   definition: SurrealDefinition;
-  /** Which manifest file declared it. `null` for something only the database has. */
+  /** This field contains a manifest path, or `null` for a database-only definition. */
   origin: string | null;
 }>;
 
-/**
- * A field present on both sides with different declared types. A presence check cannot see this.
- * With `IF NOT EXISTS`, installing over an existing field does nothing, so editing a type in the
- * source leaves the old definition in the database. Both values are reported; neither is assumed
- * to be the correct one.
- */
 type SurrealRedefinition = Readonly<{
   declared: string;
   id: string;
@@ -130,19 +102,11 @@ type SurrealRedefinition = Readonly<{
 }>;
 
 type SurrealMigrationReport = Readonly<{
-  /**
-   * Definitions the engine adds itself: `in`/`out` on a `TYPE RELATION` table, `.*` entries for
-   * array items. They appear in no manifest but are not drift, so they are listed separately and
-   * excluded from the other counts.
-   */
+  /** These entries are definitions that SurrealDB adds for relations and array items. */
   derived: readonly SurrealDriftEntry[];
-  /** In the SurQL the host installs, absent from the database. */
   missing: readonly SurrealDriftEntry[];
-  /** Present on both sides, declaring different types. */
   redefined: readonly SurrealRedefinition[];
-  /** In the database, declared by no manifest file. */
   undeclared: readonly SurrealDriftEntry[];
-  /** Files carrying `REMOVE`, whose effect this scan cannot model. */
   unmodelled: readonly string[];
   stages: readonly SurrealMigrationStageReport[];
 }>;
@@ -154,11 +118,6 @@ type SurrealMigrationStageReport = Readonly<{
   name: string;
 }>;
 
-/**
- * The comparison, over definitions from any source. Two callers use it: a live database read
- * through `INFO`, and a `.surql` dump read from disk. Both supply `DEFINE` statements, so one
- * implementation covers both and they cannot disagree.
- */
 function diffDefinitions(
   live: readonly SurrealDefinition[],
   manifest: SurrealMigrationManifest,
@@ -175,7 +134,7 @@ function diffDefinitions(
     }
   }
 
-  // A live database gives canonical types; a dump gives statement text. Prefer canonical.
+  // Live canonical types take precedence when available.
   const liveTypes =
     canonicalTypes ??
     new Map(
@@ -184,7 +143,7 @@ function diffDefinitions(
       ),
     );
 
-  /** Relation tables named by the corpus, whose `in` and `out` the engine supplies. */
+  /** These manifest relations have engine-supplied `in` and `out` fields. */
   const relationTables = new Set(
     [...declared.values()]
       .filter((entry) => entry.definition.relation)
@@ -245,7 +204,6 @@ function diffDefinitions(
   };
 }
 
-/** Drift against a live database, whose canonical field types the catalogue already carries. */
 function inspectMigrations(
   catalogue: SurrealCatalogue,
   manifest: SurrealMigrationManifest,
@@ -265,7 +223,6 @@ function inspectMigrations(
   );
 }
 
-/** Drift against a `.surql` dump, which carries the same `DEFINE` statements and no engine. */
 function inspectExportedMigrations(
   dump: string,
   manifest: SurrealMigrationManifest,

@@ -171,8 +171,6 @@ test("drop placement snaps against visible windows like a window move", () => {
     },
     state: placementNeighborState,
     worldPoint: {
-      // Unsnapped left edge lands at 203, within the 10px threshold of the
-      // neighbor's right edge at 200.
       x: 253,
       y: 200,
     },

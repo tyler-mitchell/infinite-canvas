@@ -13,20 +13,6 @@ import { reduceInfiniteCanvasState } from "./reducer";
 import { InfiniteCanvasProvider } from "./store";
 import type { InfiniteCanvasState, InfiniteCanvasWindowCapabilities } from "./types";
 
-/**
- * A window can decline chrome affordances, and the refusal is real.
- *
- * A reference pane that must not be closed and a fixed-size console are ordinary
- * desktop-shell requirements, and until 2026-08-12 the only way to express either was to
- * replace the entire `Controls` slot and re-implement pin, minimize, maximize and their
- * focus hand-back — or to take over `renderFrame` and forfeit the Tab trap and Escape
- * hand-back too, all to withhold one button.
- *
- * The decision these tests exist to pin: capabilities are enforced by the reducer, not
- * merely respected by the chrome. An advisory flag that `actions.closeWindow` ignored would
- * be a lie the UI tells, and it would leave two authorities on what a window permits.
- */
-
 type Kind = "note";
 
 const registry = defineInfiniteCanvasWindowRegistry<Kind>({
@@ -50,8 +36,6 @@ const stateWith = (capabilities: InfiniteCanvasWindowCapabilities): InfiniteCanv
 });
 
 test("a window that declines closing is not closed by the action either", () => {
-  // The whole decision in one assertion. If this passed only through the command layer,
-  // `actions.closeWindow(id)` would still close it and the flag would be decoration.
   const state = stateWith({ closable: false });
 
   expect(
@@ -75,8 +59,6 @@ test("minimize and maximize are refused the same way, and pinning is not a capab
       ?.mode,
   ).toBe("normal");
 
-  // Nothing about a fixed or unclosable window implies it cannot be pinned in place, so
-  // pinning stays available — it is the window's own state rather than an affordance.
   expect(isInfiniteCanvasCommandEnabled(locked, { type: "activeWindow.togglePinned" })).toBe(true);
 });
 
@@ -94,8 +76,6 @@ test("a fixed-size window refuses to begin a resize", () => {
 });
 
 test("an unspecified capability permits, so existing windows are unaffected", () => {
-  // Absent means permitted. A `=== true` check anywhere would have silently locked every
-  // window that never opted in, which is the failure mode this default exists to avoid.
   const ordinary = stateWith({});
 
   expect(
@@ -105,9 +85,6 @@ test("an unspecified capability permits, so existing windows are unaffected", ()
 });
 
 test("withheld controls render disabled and marked, rather than vanishing", () => {
-  // Keeping the control present holds the chrome's shape steady and lets assistive tech
-  // report that the affordance exists but is unavailable. `data-disabled` is the styling
-  // hook, matching how the rest of the framework exposes state.
   const markup = renderToStaticMarkup(
     <InfiniteCanvasProvider initialState={stateWith({ closable: false })}>
       <InfiniteCanvasViewport<Kind> windowDefinitions={registry} />
@@ -120,8 +97,6 @@ test("withheld controls render disabled and marked, rather than vanishing", () =
 });
 
 test("a fixed-size window renders no resize handles at all", () => {
-  // Withheld rather than disabled: a handle is an invisible hit target, so a disabled one
-  // would be an invisible thing that does nothing — worse than absent.
   const fixed = renderToStaticMarkup(
     <InfiniteCanvasProvider initialState={stateWith({ resizable: false })}>
       <InfiniteCanvasViewport<Kind> windowDefinitions={registry} />
@@ -138,8 +113,6 @@ test("a fixed-size window renders no resize handles at all", () => {
 });
 
 test("capabilities survive a persistence round-trip", () => {
-  // A lock that a reload silently drops is worse than no lock: the window comes back
-  // closable and nothing says so. The parser whitelists fields, so this needed adding.
   const restored = parseInfiniteCanvasState<Kind>(
     serializeInfiniteCanvasState(stateWith({ closable: false, resizable: false })),
     stateWith({}),
@@ -149,8 +122,6 @@ test("capabilities survive a persistence round-trip", () => {
 });
 
 test("a granted capability is not written out, so equivalent documents serialize alike", () => {
-  // `true` means the same as absent. Carrying it would make two canvases that behave
-  // identically compare unequal, and grow every persisted document for nothing.
   const restored = parseInfiniteCanvasState<Kind>(
     serializeInfiniteCanvasState(stateWith({ closable: true })),
     stateWith({}),

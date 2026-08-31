@@ -13,14 +13,7 @@ import {
 } from "../core/storage";
 import { Empty, Notice, Panel, Section, Stat, StatRow } from "./chrome";
 
-/**
- * Reports the origin's storage by querying the browser, not SurrealDB, so it still works when an
- * engine fails to start. Because the engine is not consulted, an `indxdb://` endpoint is matched to
- * a listed database by name and labelled as such.
- *
- * Entry counts are exact. Bytes are not: `estimate()` is origin-wide and approximate,
- * `usageDetails` is Chromium-only, and IndexedDB publishes no per-store size.
- */
+/** The panel reads browser storage and does not start a SurrealDB engine. */
 
 const storage = tv({
   slots: {
@@ -38,10 +31,7 @@ const storage = tv({
 
 const styles = storage();
 
-/**
- * Exact byte count, on request. Walking every entry is the only exact measure available and it
- * deserialises everything it reads, so it is not run when the panel opens.
- */
+/** The panel reads every entry only after the user requests an exact payload size. */
 function Payload({ name }: Readonly<{ name: string }>) {
   const [measured, setMeasured] = useState<SurrealPayloadMeasurement | null>(null);
   const [busy, setBusy] = useState(false);
