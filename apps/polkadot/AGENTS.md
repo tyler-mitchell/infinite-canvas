@@ -217,6 +217,22 @@ and is wrong.
 - **A background tab has a zero-size viewport.** `innerWidth` and `innerHeight` both read `0`, and
   every `elementFromPoint` returns `null`, so a probe looks like a page with nothing on it. Front
   the tab and set a viewport before measuring anything positional.
+
+  The canvas state carries that zero, and window placement collapses on it without any error. Read
+  `getInfiniteCanvasVacantRect`: with a zero-size `bounds`, `columns` and `rows` both clamp to 1 and
+  `containedRect` pins the result to the bounds origin, so every window opens at exactly the same
+  point. On 2026-09-06 that looked like a real defect — six items opened from the rail all landed on
+  `x:288, y:56` — and it was the pane.
+
+  `tabs_select` is not enough, because the pane itself can stay hidden while the tab is fronted.
+  Check `state.viewport` before trusting any placement observation: a width of `0` means the
+  reading is about the tool. Note that `viewportInsets` still reports real numbers in that state,
+  so the state looks plausible at a glance.
+
+  `commands.reset()` also zeroes the stored viewport, and nothing re-measures it until a real size
+  change, so a probe that resets the canvas poisons every later placement reading in that session.
+  Reload the page instead.
+
 - **Animation driven by `requestAnimationFrame` does not run in this pane, and fronting the tab does
   not fix it.** `document.visibilityState` reports `hidden` even after `tabs_select` says the tab is
   fronted, so rAF is suspended: the radial menu's six items were measured at `0,0` — fully closed —
