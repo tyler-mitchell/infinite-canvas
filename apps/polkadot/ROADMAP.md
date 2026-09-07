@@ -29,10 +29,34 @@ The product bar requires more than "a working canvas app".
 Linear, Raycast, and Arc are the reference products.
 Review enforces these rules:
 
-- **Use light for depth.** Do not use `border: 1px solid white/8%`.
-  Make a surface lighter than the ground.
-  Add a layered shadow and a specular top-edge hairline.
-- **Use warm text on a cool ground.** Pure gray on pure black has no selected product identity.
+- **Use a hairline for separation.** This rule replaced "use light for depth" on 2026-09-06.
+  The owner supplied a reference and asked for its exact style.
+
+  Measured from that reference: page 0, panel L 0.134, card L 0.159, hairline L 0.252, all neutral.
+  The surface scale now spans L 0 to L 0.19.
+  Lightness cannot separate two surfaces across that range, so a hairline does it.
+  Every window, dialog, panel, list and card draws one, and `FLOATING_SURFACE` owns the recipe.
+
+  The hairline is solid, not translucent white.
+  One value must hold over a window body, a canvas, and black.
+  An alpha edge changes with whatever it covers.
+
+  A bevel and a hairline are two edges for one job, so the specular top edge is gone.
+  Shadows are short: a large soft shadow needs a ground lighter than the shadow, and black leaves
+  nothing to darken.
+
+- **Keep the ink warm and the ground neutral.** This rule also changed on 2026-09-06.
+  The reference measures neutral at every surface level, and its ink measures warm at hue 85 to 91.
+  Polkadot already used hue 85 for ink and kept it.
+  The ground lost its blue component, because a tinted ground was what made the interface read grey.
+  The accent is now the only colour on screen, which is what makes a selected connector legible.
+
+- **Set chrome in the mono face and prose in the sans face.**
+  The reference measures monospace throughout: glyph advances of 13 to 16 pixels, and 28 where a
+  space falls.
+  Every label here is a name, an id, a count, or a state, and a uniform advance aligns a column of
+  them.
+  A note body is writing, and a fixed pitch slows reading, so content keeps `--font-sans`.
 - **Use springs for spatial motion.** Do not use linear ramps or CSS transitions for that motion.
   Use `--ease-settle` and `--ease-swift` so individual sites do not define the easing again.
 - **Keep the ground responsive.** The dot field responds to the pointer, and windows displace it.
@@ -46,6 +70,13 @@ Review enforces these rules:
   The application found seven cases of this defect.
   Three came from cascade layers, and one came from a framework inline style.
   The project found three more cases on 2026-08-28.
+
+  A later case, on 2026-09-06, was a rule that stopped being applied rather than a lost declaration.
+  The palette made the hairline the separator and gave one to every window, dialog, list and card.
+  `FLOATING_SURFACE` was missed, so the library rail, the HUD, the minimap, the conflict notice and
+  the offscreen indicators still relied on lightness.
+  An empty project showed it: the rail sat at L 0.134 on black with no edge.
+  A `getComputedStyle` read on the rail is what settled it.
 
   `material.ts` described a hairline but produced a four-sided ring.
   The minimap plate covered the fill and hairline of its frame.
