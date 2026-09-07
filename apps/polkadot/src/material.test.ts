@@ -27,7 +27,7 @@ test("no surface re-inlines the material instead of composing it", () => {
     return readFileSync(path, "utf8")
       .split("\n")
       .flatMap((line, index) =>
-        line.includes("bg-[var(--surface)]") && line.includes("var(--edge-light)")
+        line.includes("bg-[var(--surface)]") && line.includes("border-[var(--line)]")
           ? [`${relative}:${String(index + 1)}`]
           : [],
       );
@@ -38,11 +38,16 @@ test("no surface re-inlines the material instead of composing it", () => {
 
 test("the recipe is both halves, or the scan above is looking for the wrong thing", () => {
   expect(FLOATING_SURFACE).toContain("bg-[var(--surface)]");
-  expect(FLOATING_SURFACE).toContain("var(--edge-light)");
+  expect(FLOATING_SURFACE).toContain("border-[var(--line)]");
 });
 
-test("the light falls on the top edge only", () => {
-  expect(FLOATING_SURFACE).toContain("inset-shadow-[0_1px_0_0_");
+test("the hairline is the edge, and it is the only one", () => {
+  /*
+   * A bevel and a hairline are two edges doing one job. The surface scale spans L 0 to L 0.19, so
+   * a panel cannot be told from the canvas by lightness; the hairline is what holds over any
+   * ground, and a top-lit inset only worked while the ground was lighter than black.
+   */
+  expect(FLOATING_SURFACE).not.toContain("inset-shadow");
   expect(FLOATING_SURFACE).not.toContain("inset-ring");
 });
 
