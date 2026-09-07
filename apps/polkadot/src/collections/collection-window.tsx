@@ -16,7 +16,7 @@ import type { ContentItemRecord } from "../database/database.client";
 import { useLoaderData } from "@tanstack/react-router";
 
 import { projectContent$ } from "../content/project-content";
-import { relations$ } from "../relations/relation-store";
+import { findRelation, getRelationLabel, relations$ } from "../relations/relation-store";
 import {
   getCollectionEntry,
   resolveCollectionItems,
@@ -76,10 +76,13 @@ const getRowLine = (item: ContentItemRecord): string | null => {
 };
 
 function ItemRows({
+  describe = getRowLine,
   items,
   onOpen,
   styles,
 }: Readonly<{
+  /** What the second line says. Defaults to the item's own opening line. */
+  describe?: (item: ContentItemRecord) => string | null;
   items: readonly ContentItemRecord[];
   onOpen: (item: ContentItemRecord) => void;
   styles: ReturnType<typeof collectionWindow>;
@@ -88,7 +91,7 @@ function ItemRows({
     <div className={styles.rows()}>
       {items.map((item) => {
         const listable = getListableKind(item.kind);
-        const line = getRowLine(item);
+        const line = describe(item);
 
         return (
           <button
@@ -155,7 +158,26 @@ export function CollectionWindowBody({ collectionId }: Readonly<{ collectionId: 
         {items.length === 0 ? (
           <div className={styles.empty()}>Not connected to anything yet.</div>
         ) : (
-          <ItemRows items={items} onOpen={openItem} styles={styles} />
+          /*
+           * Here the second line is the connection, not the item.
+           *
+           * A row in this list exists because of an edge, so what the reader wants is why it is
+           * here — "supports", or whatever was written on that edge. The item's own opening line
+           * answers a question nobody asked in this window.
+           *
+           * Looked up per row rather than carried through `resolveCollectionItems`, which returns
+           * items and would have to return pairs. Both ends are already in hand.
+           */
+          <ItemRows
+            describe={(item) => {
+              const relation = findRelation(relations, question.connectedTo, item.id);
+
+              return relation === undefined ? null : (getRelationLabel(relation) ?? null);
+            }}
+            items={items}
+            onOpen={openItem}
+            styles={styles}
+          />
         )}
       </div>
     );
