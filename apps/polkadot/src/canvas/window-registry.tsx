@@ -40,11 +40,11 @@ const windowDefinitions = defineInfiniteCanvasWindowRegistry<WindowKind, WindowD
         <CollectionWindowBody collectionId={itemId} />
       );
     },
-    renderSummary: ({ window }) => {
+    renderSummary: ({ bodySize, window }) => {
       const itemId = getContentWindowItemId(window);
 
       return itemId === null ? null : (
-        <CollectionSummary collectionId={itemId} title={window.title} />
+        <CollectionSummary bodySize={bodySize} collectionId={itemId} title={window.title} />
       );
     },
     textSelection: "none",
