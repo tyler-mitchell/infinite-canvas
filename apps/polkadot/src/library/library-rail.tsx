@@ -28,7 +28,7 @@ import { FLOATING_SURFACE } from "../material";
 import { openNewNote } from "../notes/open-note";
 import { renameProjectItem } from "../content/rename-item";
 import { formatRelativeTime } from "../content/relative-time";
-import { matchesContentSearch } from "../content/searchable-text";
+import { getContentSearchExcerpt, matchesContentSearch } from "../content/searchable-text";
 import {
   archiveProjectItem,
   getProjectContent,
@@ -72,6 +72,8 @@ const rail = tv({
     disclosure:
       "size-3 shrink-0 transition-transform duration-150 ease-[var(--ease-swift)] motion-reduce:transition-none",
     empty: "px-3 py-8 text-center text-[12px] text-[var(--ink-faint)]",
+    /* Aligned under the title, past the gutter and the kind glyph. */
+    excerpt: "truncate pr-2 pb-1 pl-[30px] font-mono text-[11px] text-[var(--ink-faint)]",
     // The fixed gutter keeps all titles aligned.
     gutter: "flex w-2 shrink-0 justify-center",
     header: "flex items-center gap-1 px-1.5 pt-1.5 pb-1",
@@ -356,6 +358,12 @@ export function LibraryRail({
               // Only include neighbours that this rail can show.
               const neighbours = getNeighbourIds(relations, note.id).filter((id) => listed.has(id));
               const isExpanded = expanded === note.id;
+              /*
+               * Only while searching, and only when the match is somewhere the row does not show.
+               * The rail is a browse list where density is the point, so a permanent second line
+               * would cost every row to serve the few that matched on their body.
+               */
+              const excerpt = terms === "" ? null : getContentSearchExcerpt(note, terms);
 
               return (
                 <div key={note.id}>
@@ -397,6 +405,7 @@ export function LibraryRail({
                       )}
                     </button>
                   </div>
+                  {excerpt === null ? null : <p className={styles.excerpt()}>{excerpt}</p>}
                   {/* The rail shows connections when the other item is closed. */}
                   {isExpanded
                     ? neighbours.map((neighbourId) => {

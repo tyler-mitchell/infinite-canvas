@@ -1,7 +1,11 @@
 import { expect, test } from "vite-plus/test";
 
 import type { ContentItemRecord } from "../database/database.client";
-import { getContentSearchText, matchesContentSearch } from "./searchable-text";
+import {
+  getContentSearchExcerpt,
+  getContentSearchText,
+  matchesContentSearch,
+} from "./searchable-text";
 
 const serialized = (...paragraphs: readonly string[]) =>
   JSON.stringify({
@@ -45,6 +49,60 @@ test("a note is matched by its prose, not by the envelope that stores it", () =>
   expect(matchesContentSearch(record, "generic")).toBe(true);
   expect(matchesContentSearch(record, "paragraph")).toBe(false);
   expect(matchesContentSearch(record, "version")).toBe(false);
+});
+
+test("a body match carries the words around it, because the row does not show them", () => {
+  /*
+   * The defect this closes: searching "catalogue" returned a note titled "models.dev" and nothing
+   * on screen contained the word. Search reads the body, so a result can be a row whose visible
+   * text does not explain why it is there.
+   */
+  const record = note({
+    body: "Supplies the model catalogue to every agent that asks",
+    id: "content_item:excerpt",
+    title: "models.dev",
+  });
+
+  expect(getContentSearchExcerpt(record, "catalogue")).toContain("catalogue");
+  expect(getContentSearchExcerpt(record, "catalogue")).toContain("Supplies");
+});
+
+test("a title match adds no line, because the row is already showing it", () => {
+  /*
+   * The body repeats the term on purpose. With a body that lacked it, this would pass through the
+   * "not in the body either" branch and hold even with the title check deleted — a test that
+   * agrees with the code for the wrong reason.
+   */
+  const record = note({
+    body: "half of the limits apply",
+    id: "content_item:title",
+    title: "Half limits",
+  });
+
+  expect(getContentSearchExcerpt(record, "half")).toBeNull();
+});
+
+test("a term in neither title nor body adds nothing rather than repeating the note", () => {
+  const record = note({ body: "alpha", id: "content_item:none", title: "Beta" });
+
+  expect(getContentSearchExcerpt(record, "gamma")).toBeNull();
+  expect(getContentSearchExcerpt(record, "  ")).toBeNull();
+});
+
+test("a match deep in a long note is clipped on both sides", () => {
+  const filler = "word ".repeat(40);
+  const record = note({
+    body: `${filler}needle${filler}`,
+    id: "content_item:long",
+    title: "Untitled",
+  });
+  const excerpt = getContentSearchExcerpt(record, "needle") ?? "";
+
+  expect(excerpt.startsWith("…")).toBe(true);
+  expect(excerpt.endsWith("…")).toBe(true);
+  expect(excerpt).toContain("needle");
+  // Bounded, so one long note cannot push a rail row to any width it likes.
+  expect(excerpt.length).toBeLessThan(80);
 });
 
 test("every term must appear, so a second word narrows rather than widens", () => {
