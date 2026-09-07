@@ -19,6 +19,7 @@ import { ConnectorDraft } from "../canvas/connector-draft";
 import { getConnectorEdgeTargets } from "../canvas/connector-geometry";
 import { getConnectorHotkeyActions } from "../canvas/connector-hotkeys";
 import { ConnectorLayer } from "../canvas/connector-layer";
+import { EmptyProjectInvitation } from "../canvas/empty-project";
 import { useCanvasRuntime } from "../canvas/use-canvas-runtime";
 import { windowDefinitions, type WindowKind } from "../canvas/window-registry";
 import { CanvasHud } from "../hud/canvas-hud";
@@ -214,6 +215,16 @@ export function WorkspaceCanvas({ canvas }: Readonly<{ canvas: LoadedCanvas }>) 
           }
           renderOverlay={(context) => (
             <>
+              {/* Shown only before the project holds its first item. */}
+              <EmptyProjectInvitation
+                onCreate={() => {
+                  void openNewNote({
+                    actions: context.actions,
+                    projectId: canvas.projectId,
+                    state: context.state,
+                  });
+                }}
+              />
               {/* The active connector draft draws above windows. */}
               <ConnectorDraft projectId={canvas.projectId} />
               {/* This component registers WebMCP tools and renders nothing. */}
