@@ -12,6 +12,7 @@
     "test": "vp test"
   },
   "dependencies": {
+    "@chenglou/pretext": "catalog:",
     "@fontsource-variable/geist": "catalog:",
     "@fontsource-variable/geist-mono": "catalog:",
     "@hyphened/infinite-canvas": "workspace:*",

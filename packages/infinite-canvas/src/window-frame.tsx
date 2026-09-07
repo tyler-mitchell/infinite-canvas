@@ -15,6 +15,7 @@ import {
 } from "./frame-slots";
 import { getInfiniteCanvasWindowDetailLevel, type InfiniteCanvasDetailLevel } from "./detail-level";
 import {
+  getWindowBodyRect,
   getWorldLengthWithScreenFloor,
   isWorldRectCulled,
   projectWorldRectToScreen,
@@ -281,8 +282,10 @@ function InfiniteCanvasWindowFrameContent<Kind extends string>({
       ) : (
         <InfiniteCanvasDomChromeFrame />
       );
+    const body = getWindowBodyRect(window.rect, chrome);
     const frameContext = {
       actions,
+      bodySize: { height: body.height, width: body.width },
       chrome,
       frame: DEFAULT_INFINITE_CANVAS_WINDOW_FRAME_SLOTS,
       isActive,

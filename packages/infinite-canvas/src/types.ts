@@ -434,6 +434,8 @@ type InfiniteCanvasTheme = Readonly<{
 
 type InfiniteCanvasWindowRenderContext<Kind extends string = string, Data = unknown> = Readonly<{
   actions: InfiniteCanvasCommands<Kind>;
+  /** The room the body has, after the header and borders. A renderer that fits content needs it. */
+  bodySize: InfiniteCanvasSize;
   isActive: boolean;
   isSelected: boolean;
   state: InfiniteCanvasState<Kind>;

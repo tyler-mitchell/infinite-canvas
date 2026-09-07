@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, type CSSProperties } from "react";
 
 import { getInfiniteCanvasWindowDetailLevel, type InfiniteCanvasDetailLevel } from "./detail-level";
-import { isWorldRectWithinViewport } from "./geometry";
+import { getWindowBodyRect, isWorldRectWithinViewport } from "./geometry";
 import {
   useInfiniteCanvasRasterCaptureCapacity,
   useInfiniteCanvasRasterContext,
@@ -129,6 +129,7 @@ function InfiniteCanvasWindowBody<Kind extends string>({
 
   const renderedBody = useRenderedWindowBody({
     actions,
+    chrome,
     definition,
     isActive,
     isSelected,
@@ -173,12 +174,14 @@ function InfiniteCanvasWindowBody<Kind extends string>({
 
 function useRenderedWindowBody<Kind extends string>({
   actions,
+  chrome,
   definition,
   isActive,
   isSelected,
   window,
 }: Readonly<{
   actions: InfiniteCanvasCommands<Kind>;
+  chrome: InfiniteCanvasChromeMetrics;
   definition: InfiniteCanvasWindowDefinition<Kind>;
   isActive: boolean;
   isSelected: boolean;
@@ -198,8 +201,10 @@ function useRenderedWindowBody<Kind extends string>({
   detailLevelRef.current = detailLevel;
 
   return useMemo(() => {
+    const body = getWindowBodyRect(window.rect, chrome);
     const context = {
       actions,
+      bodySize: { height: body.height, width: body.width },
       isActive,
       isSelected,
       get state() {
@@ -211,7 +216,7 @@ function useRenderedWindowBody<Kind extends string>({
     return detailLevel === "summary" && definition.renderSummary !== undefined
       ? definition.renderSummary(context)
       : definition.renderBody?.(context);
-  }, [actions, definition, detailLevel, isActive, isSelected, store, window]);
+  }, [actions, chrome, definition, detailLevel, isActive, isSelected, store, window]);
 }
 
 function getWindowBodyHeight<Kind extends string>(

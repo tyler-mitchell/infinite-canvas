@@ -32,3 +32,6 @@ reference/
 
 # Local stop-hook sentinel
 .claude/.goal-complete
+
+# Working notes that are not part of the repository record
+docs/local/

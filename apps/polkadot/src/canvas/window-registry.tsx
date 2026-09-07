@@ -99,11 +99,16 @@ const windowDefinitions = defineInfiniteCanvasWindowRegistry<WindowKind, WindowD
         />
       );
     },
-    renderSummary: ({ window }) => {
+    renderSummary: ({ bodySize, window }) => {
       const itemId = getContentWindowItemId(window);
 
       return itemId === null ? null : (
-        <NoteSummary gateway={noteGateway} noteId={itemId} title={window.title} />
+        <NoteSummary
+          bodySize={bodySize}
+          gateway={noteGateway}
+          noteId={itemId}
+          title={window.title}
+        />
       );
     },
     textSelection: "native",

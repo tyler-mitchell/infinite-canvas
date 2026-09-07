@@ -134,6 +134,8 @@ function createRenderContext(
 ): InfiniteCanvasWindowRenderContext<ConsumerWindowKind> {
   return {
     actions,
+    // The canvas supplies this to a real renderer. Any size stands in for it here.
+    bodySize: { height: window.rect.height, width: window.rect.width },
     isActive: state.activeWindowId === window.id,
     isSelected: state.selection.windowIds.includes(window.id),
     state,
