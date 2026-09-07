@@ -233,6 +233,19 @@ and is wrong.
   change, so a probe that resets the canvas poisons every later placement reading in that session.
   Reload the page instead.
 
+  **Corrected on 2026-09-06: a zero viewport here is recoverable, and an earlier version of this
+  entry was wrong to imply otherwise.** Three turns of work were reported unverifiable on that
+  basis. `window.innerWidth` can read 1100 while `state.viewport` still reads 0, which is the tell:
+  the page has a size and the canvas simply never re-measured. `resize_window` to an explicit size
+  and then reload, and the state picks it up. Check `window.innerWidth` against `state.viewport`
+  before concluding anything is unmeasurable.
+
+  What genuinely cannot be watched here is animation. `document.visibilityState` reports `hidden`
+  even after `tabs_select`, so an animation reports `playState: "running"` with `currentTime` stuck
+  at `0` and a CSS fade never advances. Read `getAnimations()[0].currentTime`: a zero there with a
+  running state is the pane, not a broken animation. Everything else — geometry, computed colour,
+  state, DOM presence — is measurable, so verify all of it and name only the motion as unwatched.
+
 - **Animation driven by `requestAnimationFrame` does not run in this pane, and fronting the tab does
   not fix it.** `document.visibilityState` reports `hidden` even after `tabs_select` says the tab is
   fronted, so rAF is suspended: the radial menu's six items were measured at `0,0` — fully closed —

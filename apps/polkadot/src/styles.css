@@ -160,6 +160,14 @@
     --icx-active-accent: var(--accent);
     --icx-selection-border: var(--accent);
     --icx-selection-bounds: var(--accent-wash);
+    /*
+     * The mark an undo leaves. Accent, because it names the thing just acted on, which is what the
+     * accent means everywhere else here — a selected connector, an active window.
+     *
+     * The framework default is a cool blue-grey from before this palette went black and neutral,
+     * and it would read as a stray colour rather than as the app speaking.
+     */
+    --icx-revealed-change: var(--accent);
     --icx-color-foreground: var(--ink);
     --icx-color-accent: var(--accent);
     --icx-color-surface-raised: var(--surface-raised);
