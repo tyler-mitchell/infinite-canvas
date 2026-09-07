@@ -21,7 +21,7 @@ import { getContentWindowItemId, type WindowKind } from "./window-registry";
 const draft = tv({
   slots: {
     handle:
-      "pointer-events-auto absolute -translate-x-1/2 -translate-y-1/2 cursor-crosshair rounded-full bg-[var(--surface-raised)] shadow-[var(--lift-1)] inset-ring-1 inset-ring-[var(--edge-light)] transition-colors duration-100 ease-[var(--ease-swift)] hover:bg-[var(--accent)]",
+      "pointer-events-auto absolute -translate-x-1/2 -translate-y-1/2 cursor-crosshair rounded-full bg-[var(--surface-raised)] shadow-[var(--lift-1)] inset-ring-1 inset-ring-[var(--line)] transition-colors duration-100 ease-[var(--ease-swift)] hover:bg-[var(--accent)]",
     handleCore: "absolute inset-[3px] rounded-full bg-[var(--accent)]",
     path: "fill-none stroke-[var(--accent)] stroke-[1.5]",
     root: "pointer-events-none absolute inset-0 h-full w-full overflow-visible",

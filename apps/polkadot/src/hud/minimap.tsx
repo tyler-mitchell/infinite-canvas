@@ -24,7 +24,6 @@ const minimap = tv({
     close: "absolute top-1 right-1 z-10",
     frame: `relative overflow-hidden rounded-[var(--radius-md)] ${FLOATING_SURFACE} shadow-[var(--lift-2)]`,
     group: "fill-[var(--surface-hover)]",
-    hairline: "fill-[var(--edge-light)]",
     plate: "block cursor-crosshair touch-none bg-[var(--ground-sunken)]",
     window: "transition-[fill] duration-100 ease-[var(--ease-swift)]",
     viewport: "fill-none stroke-[var(--accent)] stroke-[1.5]",
@@ -159,14 +158,6 @@ export function Minimap({
                 y={layout.viewport.y}
               />
             ),
-            <rect
-              className={styles.hairline()}
-              height={1}
-              key="hairline"
-              width={MINIMAP_SIZE.width}
-              x={0}
-              y={0}
-            />,
           ]}
         </svg>
       </div>
