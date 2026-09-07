@@ -28,11 +28,18 @@ const minimap = tv({
     window: "transition-[fill] duration-100 ease-[var(--ease-swift)]",
     viewport: "fill-none stroke-[var(--accent)] stroke-[1.5]",
   },
+  /*
+   * Three steps, none of them near white.
+   *
+   * The active window used to paint at `--ink`, which is text lightness and made a 4px block the
+   * brightest thing on a pure black ground — louder than the accent, for the window you are
+   * already looking at. The ladder now tops out at muted ink and separates the steps instead.
+   */
   variants: {
     state: {
-      active: { window: "fill-[var(--ink)]" },
-      idle: { window: "fill-[var(--ink-faint)]" },
-      selected: { window: "fill-[var(--ink-muted)]" },
+      active: { window: "fill-[var(--ink-muted)]" },
+      idle: { window: "fill-[var(--line-strong)]" },
+      selected: { window: "fill-[var(--ink-disabled)]" },
     },
   },
 });
