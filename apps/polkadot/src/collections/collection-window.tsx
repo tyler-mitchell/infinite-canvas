@@ -42,9 +42,9 @@ const collectionWindow = tv({
      */
     row: "flex w-full items-start gap-2 rounded-[var(--radius-sm)] border border-[var(--line)] bg-[var(--surface-raised)] px-2.5 py-2 text-left text-[12.5px] text-[var(--ink-muted)] transition-colors duration-100 ease-[var(--ease-swift)] hover:border-[var(--line-strong)] hover:bg-[var(--surface-hover)] hover:text-[var(--ink)] focus-visible:border-[var(--accent)] focus-visible:outline-none",
     rowIcon: "mt-px size-3.5 shrink-0 text-[var(--ink-faint)]",
-    rowLine: "truncate text-[11px] text-[var(--ink-faint)]",
+    rowLine: "truncate font-mono text-[11px] text-[var(--ink-faint)]",
     rowText: "flex min-w-0 flex-1 flex-col gap-0.5",
-    rowTitle: "truncate",
+    rowTitle: "truncate font-mono",
     rows: "flex flex-1 flex-col gap-1.5 px-2 pb-2",
     staticLabel:
       "flex items-center gap-1 px-1.5 py-0.5 text-[11px] font-medium tracking-[-0.005em] text-[var(--ink)]",

@@ -55,16 +55,17 @@ const rail = tv({
     body: "min-h-0 flex-1 overflow-y-auto overscroll-contain px-1.5 pb-1.5",
     connection:
       "flex min-w-0 flex-1 items-center gap-2 py-1 pl-5 text-left text-[12px] text-[var(--ink-muted)] transition-colors duration-100 ease-[var(--ease-swift)] group-hover/connection:text-[var(--ink)]",
-    connectionKind: "shrink-0 truncate text-[10.5px] text-[var(--ink-faint)] italic",
+    connectionKind: "shrink-0 truncate font-mono text-[10.5px] text-[var(--ink-faint)]",
     // The named group isolates hover state from its parent row.
     connectionRow:
       "group/connection flex w-full items-center rounded-[var(--radius-sm)] pr-1 transition-colors duration-100 ease-[var(--ease-swift)] hover:bg-[var(--surface-hover)]",
-    connectionTitle: "min-w-0 truncate",
+    connectionTitle: "min-w-0 truncate font-mono",
     // This action reads the connection row's named hover group.
     connectionAction:
       "shrink-0 rounded-[var(--radius-sm)] p-1 text-[var(--ink-faint)] opacity-0 transition-opacity duration-100 ease-[var(--ease-swift)] group-hover/connection:opacity-100 hover:text-[var(--danger)] focus-visible:opacity-100",
+    // The rename field matches the title it replaces, so the row does not reflow on edit.
     editor:
-      "min-w-0 flex-1 rounded-[var(--radius-sm)] bg-[var(--surface-raised)] px-1 py-1.5 text-[12.5px] text-[var(--ink)] outline-none inset-ring-1 inset-ring-[var(--accent)]",
+      "min-w-0 flex-1 rounded-[var(--radius-sm)] bg-[var(--surface-raised)] px-1 py-1.5 font-mono text-[12.5px] text-[var(--ink)] outline-none inset-ring-1 inset-ring-[var(--accent)]",
     count:
       "flex shrink-0 items-center gap-1 rounded-[var(--radius-sm)] px-1 py-0.5 font-mono text-[10px] tabular-nums text-[var(--ink-faint)] transition-colors duration-100 ease-[var(--ease-swift)] hover:bg-[var(--surface-raised)] hover:text-[var(--ink-muted)]",
     countIcon: "size-3",
@@ -86,7 +87,7 @@ const rail = tv({
       "mx-1.5 mb-1.5 flex items-center gap-2 rounded-[var(--radius-sm)] bg-[var(--surface-raised)] px-2 py-1.5",
     // text-left overrides the button's centered default.
     title:
-      "min-w-0 flex-1 truncate py-1.5 text-left text-[12.5px] transition-colors duration-100 ease-[var(--ease-swift)]",
+      "min-w-0 flex-1 truncate py-1.5 text-left font-mono text-[12.5px] transition-colors duration-100 ease-[var(--ease-swift)]",
     total: "px-1 font-mono text-[10px] tabular-nums text-[var(--ink-faint)]",
     rowAction:
       "shrink-0 rounded-[var(--radius-sm)] p-1 text-[var(--ink-faint)] opacity-0 transition-opacity duration-100 ease-[var(--ease-swift)] group-hover:opacity-100 hover:text-[var(--ink)] focus-visible:opacity-100",

@@ -234,6 +234,24 @@
     opacity: 1;
   }
 
+  /*
+   * Chrome is set in the mono face. Prose is not.
+   *
+   * Every label in this interface is a name, an id, a count, or a state — things read by
+   * recognition rather than by sentence. A uniform advance makes a column of them line up and
+   * makes one character's difference visible, which is why editors and diagram tools use it.
+   *
+   * The line stops at content. A note body is writing, and writing in a fixed pitch is slower to
+   * read; that keeps `--font-sans` and is the reason this is a selector list rather than a change
+   * to the body font.
+   */
+  [data-slot="window-title"],
+  [data-slot="hud-dock-item"],
+  [data-slot="hud-zoom-readout"],
+  [data-slot="group-tab-label"] {
+    font-family: var(--font-mono);
+  }
+
   /* Window titles use sentence case at content-reading size. */
   [data-slot="window-title"] {
     font-size: 11px;

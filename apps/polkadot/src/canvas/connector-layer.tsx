@@ -23,7 +23,7 @@ import type { WindowKind } from "./window-registry";
 const connectors = tv({
   slots: {
     label:
-      "select-none fill-[var(--ink-faint)] stroke-[var(--ground)] stroke-[3px] font-medium [paint-order:stroke]",
+      "select-none fill-[var(--ink-faint)] stroke-[var(--ground)] stroke-[3px] font-mono font-medium [paint-order:stroke]",
     mark: "fill-[var(--line-strong)] stroke-[var(--ground)] stroke-[2px] [paint-order:stroke]",
     path: "fill-none transition-[stroke-width,stroke] duration-100 ease-[var(--ease-swift)]",
     stub: "fill-none stroke-[var(--line)] stroke-[1.5] [stroke-dasharray:3_5]",
