@@ -130,15 +130,30 @@ A summary card holds a title and as many wrapped body lines as fit, and its padd
 card rather than holding one size. Measured live, padding is a steady 14% of the short side from
 zoom 0.5 down to 0.25, against 20% rising to 69% when it was a fixed ten pixels.
 
-Below roughly 30 screen pixels on the short side the card cannot carry text at all. At zoom 0.15
-the short side measures 29px, which leaves one line, and the title renders as three characters and
-an ellipsis. No layout recovers that, and measuring it more precisely only states the loss more
-exactly.
+**The card carries a title much further out than this file claimed.**
+The paragraph here said the card "cannot carry text at all" below 30 screen pixels, and that at
+zoom 0.15 the title was three characters and an ellipsis. Re-measured at that exact zoom on
+2026-09-07, with a 29px short side: `Half limits` shows all 11 characters, `Shared state` 11 of 12,
+`Company policy` 13 of 14, `models.dev` 8 of 10. The old figure was taken while padding was a fixed
+ten pixels, which spent 20 of those 29. The padding fix reclaimed the width and nobody re-measured.
 
-An icon is the successor mechanism at that size, not a refinement of the summary. Per-document
-icons do not exist yet, and the kind glyph the library rail already draws would not help on a
-canvas whose windows are all notes: it would say "note" four times. Choosing what a document icon
-represents is the owner's call.
+Two tiers now, both chosen from geometry rather than from the loaded text, so a card does not
+change shape when its note arrives:
+
+- **Title and body**, while two body lines fit. Below that a wrapped line is a single word, and
+  measured at 1440x900 the body read `Halves` at zoom 0.18 and `Halves every` at 0.22. A lone word
+  reads as damage, not a preview.
+- **Title alone**, centred, clamped to the number of lines the card actually holds. A fixed clamp
+  of two sliced both lines on a card that holds one.
+
+Line height is one number. `SUMMARY_LINE_HEIGHT` sets the measured box and the drawn box, because
+`leading-[1.4]` rendered 15.4px against a measured 15px and the last line clipped.
+
+The end of the text tier is not established. Titles were still legible at a 23px short side, which
+is the smallest this canvas was driven to. An icon remains the plausible successor below whatever
+that limit is, but the size that motivated it turned out to be wrong, so the limit needs measuring
+before an icon is designed for it. The kind glyph the library rail draws is not that icon: on a
+canvas whose windows are all notes it would say "note" four times.
 
 ## Open
 
