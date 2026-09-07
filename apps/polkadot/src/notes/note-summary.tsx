@@ -28,7 +28,7 @@ const noteSummary = tv({
   slots: {
     body: "min-h-0 overflow-hidden text-[var(--ink-faint)]",
     line: "truncate",
-    root: "h-full overflow-hidden leading-[1.4]",
+    root: "h-full overflow-hidden",
     title: "font-medium text-[var(--ink-muted)]",
   },
   variants: {
@@ -40,6 +40,7 @@ const noteSummary = tv({
       },
       true: {
         root: "grid place-items-center text-center",
+        // The slot supplies the clamp box. The count is measured, so the style attribute sets it.
         title: "line-clamp-2 max-w-full",
       },
     },
@@ -98,9 +99,12 @@ export function NoteSummary({
    */
   const screenSize = getSummaryScreenSize(bodySize, zoom);
   const padding = getSummaryPadding(screenSize);
-  const bodyHeight = screenSize.height - padding * 2 - SUMMARY_LINE_HEIGHT;
+  const innerHeight = screenSize.height - padding * 2;
+  const bodyHeight = innerHeight - SUMMARY_LINE_HEIGHT;
   // Geometry decides the tier, not the loaded text, so the card does not change shape on load.
   const titleOnly = Math.floor(bodyHeight / SUMMARY_LINE_HEIGHT) < MINIMUM_BODY_LINES;
+  // A fixed clamp of two on a card that holds one line slices both lines instead of showing one.
+  const titleLines = Math.max(1, Math.floor(innerHeight / SUMMARY_LINE_HEIGHT));
   const styles = noteSummary({ titleOnly });
   const lines =
     prepared === null || !fontsReady || titleOnly
@@ -118,10 +122,17 @@ export function NoteSummary({
       style={{
         fontSize: SUMMARY_SCREEN_PX / zoom,
         gap: (SUMMARY_LINE_HEIGHT - SUMMARY_SCREEN_PX) / zoom,
+        // One number for the measured line box and the rendered one, so they cannot drift apart.
+        lineHeight: SUMMARY_LINE_HEIGHT / SUMMARY_SCREEN_PX,
         padding: padding / zoom,
       }}
     >
-      <span className={styles.title()}>{title}</span>
+      <span
+        className={styles.title()}
+        style={titleOnly ? { WebkitLineClamp: titleLines } : undefined}
+      >
+        {title}
+      </span>
       {titleOnly ? null : (
         <div className={styles.body()}>
           {lines.map((line, index) => (
