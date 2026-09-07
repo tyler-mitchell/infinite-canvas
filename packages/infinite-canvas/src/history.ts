@@ -1,4 +1,5 @@
-import { unionRects } from "./geometry";
+import { getCameraNavigationFrame } from "./camera-navigation";
+import { getVisibleWorldRect, unionRects } from "./geometry";
 import { normalizeSelection } from "./selection";
 import type {
   InfiniteCanvasAction,
@@ -140,6 +141,69 @@ function isSameRect(left: InfiniteCanvasRect, right: InfiniteCanvasRect): boolea
   );
 }
 
+/**
+ * How much of the viewport edge counts as "not really visible".
+ *
+ * A change touching the very edge of the screen is technically on it and still easy to miss, so the
+ * camera moves for anything nearer the border than this.
+ */
+const CHANGE_REVEAL_MARGIN = 80;
+
+/**
+ * Whether the whole region sits inside the visible world, with room to spare.
+ *
+ * Containment, not intersection. `isWorldRectWithinViewport` is the culling predicate and answers
+ * "is any of this on screen", which is the wrong question here: a window moved far away produces a
+ * region spanning both positions, that region always overlaps the current view, and an
+ * intersection test therefore reports every long move as already visible and never moves the
+ * camera. The test caught exactly that.
+ */
+function isRectFullyVisible(
+  camera: InfiniteCanvasState<string>["camera"],
+  viewport: InfiniteCanvasState<string>["viewport"],
+  rect: InfiniteCanvasRect,
+): boolean {
+  const visible = getVisibleWorldRect(camera, viewport);
+
+  return (
+    rect.x - CHANGE_REVEAL_MARGIN >= visible.x &&
+    rect.y - CHANGE_REVEAL_MARGIN >= visible.y &&
+    rect.x + rect.width + CHANGE_REVEAL_MARGIN <= visible.x + visible.width &&
+    rect.y + rect.height + CHANGE_REVEAL_MARGIN <= visible.y + visible.height
+  );
+}
+
+/**
+ * Moves the camera to the reverted change, unless it is already comfortably in view.
+ *
+ * This is the point of undo on a canvas: the change can be anywhere, so a person presses undo, sees
+ * nothing move, and presses it again. Two edits then vanish with no feedback.
+ *
+ * The guard matters as much as the move. An unnecessary camera jump is more disruptive than no
+ * jump, so a change already on screen leaves the camera exactly where it is — undoing a typo in
+ * front of you must not re-frame the view.
+ */
+function revealChange<Kind extends string>(
+  state: InfiniteCanvasState<Kind>,
+  from: InfiniteCanvasDocument<Kind>,
+  to: InfiniteCanvasDocument<Kind>,
+): InfiniteCanvasState<Kind> {
+  const rect = getInfiniteCanvasDocumentChangeRect(from, to);
+
+  if (rect === null || isRectFullyVisible(state.camera, state.viewport, rect)) {
+    return state;
+  }
+
+  // Never zooms in past 1: framing a small change should not magnify it.
+  const camera = getCameraNavigationFrame(state, rect, {
+    maxZoom: 1,
+    paddingPx: 96,
+    type: "fit",
+  });
+
+  return camera === null ? state : { ...state, camera };
+}
+
 function undoInfiniteCanvasHistory<Kind extends string>(
   state: InfiniteCanvasState<Kind>,
 ): InfiniteCanvasState<Kind> {
@@ -149,10 +213,16 @@ function undoInfiniteCanvasHistory<Kind extends string>(
     return state;
   }
 
-  return applyInfiniteCanvasDocument(state, previous, {
-    future: [getInfiniteCanvasDocument(state), ...state.history.future],
-    past: state.history.past.slice(0, -1),
-  });
+  const current = getInfiniteCanvasDocument(state);
+
+  return revealChange(
+    applyInfiniteCanvasDocument(state, previous, {
+      future: [current, ...state.history.future],
+      past: state.history.past.slice(0, -1),
+    }),
+    current,
+    previous,
+  );
 }
 
 function redoInfiniteCanvasHistory<Kind extends string>(
@@ -164,10 +234,14 @@ function redoInfiniteCanvasHistory<Kind extends string>(
     return state;
   }
 
-  return applyInfiniteCanvasDocument(state, next, {
-    future,
-    past: [...state.history.past, getInfiniteCanvasDocument(state)],
-  });
+  const current = getInfiniteCanvasDocument(state);
+
+  // Redo has the same problem and the same answer, from one derived region.
+  return revealChange(
+    applyInfiniteCanvasDocument(state, next, { future, past: [...state.history.past, current] }),
+    current,
+    next,
+  );
 }
 
 function canUndoInfiniteCanvas<Kind extends string>(state: InfiniteCanvasState<Kind>): boolean {
