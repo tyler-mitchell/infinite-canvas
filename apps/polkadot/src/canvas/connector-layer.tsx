@@ -13,22 +13,29 @@ import { getRelationLabel, relations$ } from "../relations/relation-store";
 import { getDrawnConnectors, getHiddenConnectorStubs } from "./connector-geometry";
 import type { WindowKind } from "./window-registry";
 
+/*
+ * A resting connector is neutral. The accent marks the selected one.
+ *
+ * Drawing every connector in the brand colour spends the one saturated hue on screen on whatever
+ * happens to exist, which leaves nothing to mark what a person is acting on. Neutral at rest also
+ * stops a dense canvas reading as a warning.
+ */
 const connectors = tv({
   slots: {
     label:
-      "select-none fill-[var(--ink-muted)] stroke-[var(--ground)] stroke-[3px] font-medium [paint-order:stroke]",
-    mark: "fill-[var(--accent)] stroke-[var(--ground)] stroke-[2px] [paint-order:stroke]",
-    path: "fill-none stroke-[var(--accent)] transition-[stroke-width,opacity] duration-100 ease-[var(--ease-swift)]",
-    stub: "fill-none stroke-[var(--accent)] stroke-[1.5] opacity-25 [stroke-dasharray:3_5]",
+      "select-none fill-[var(--ink-faint)] stroke-[var(--ground)] stroke-[3px] font-medium [paint-order:stroke]",
+    mark: "fill-[var(--line-strong)] stroke-[var(--ground)] stroke-[2px] [paint-order:stroke]",
+    path: "fill-none transition-[stroke-width,stroke] duration-100 ease-[var(--ease-swift)]",
+    stub: "fill-none stroke-[var(--line)] stroke-[1.5] [stroke-dasharray:3_5]",
     svg: "pointer-events-none absolute inset-0 h-full w-full overflow-visible",
   },
   variants: {
     selected: {
-      false: { path: "stroke-[1.5] opacity-40" },
+      false: { path: "stroke-[1.5] stroke-[var(--line-strong)]" },
       true: {
         label: "fill-[var(--ink)]",
-        mark: "fill-[var(--ink)]",
-        path: "stroke-[2.5] opacity-100",
+        mark: "fill-[var(--accent)]",
+        path: "stroke-[2] stroke-[var(--accent)]",
       },
     },
   },
