@@ -44,20 +44,7 @@
   /* Grain is off on surfaces. A surface is flat, which is what makes the hairline the only edge. */
   --grain: none;
 
-  /*
-   * The ground carries the only light in the interface, and only just.
-   *
-   * A pool near the top centre, under 3% white at its brightest, so the canvas is not a flat void
-   * and windows have something to sit against. Fixed to the viewport, so panning and zooming never
-   * repaint it. Any stronger and it becomes a gradient somebody notices.
-   */
-  --ground-light: radial-gradient(
-    110% 80% at 50% 16%,
-    oklch(1 0 0 / 0.016) 0%,
-    oklch(1 0 0 / 0.006) 34%,
-    transparent 66%
-  );
-  /* Fine static noise, tiled. It breaks the banding the light would otherwise show. */
+  /* Fine static noise, tiled. The ground is otherwise flat black. */
   --ground-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23n)' opacity='0.018'/%3E%3C/svg%3E");
 
   /* All ink tokens use a warm hue against the cool ground. */
@@ -159,10 +146,13 @@
 /* This layer keeps app treatments above framework rules and below utility rules. */
 @layer components {
   /*
-   * The light and the grain sit on the viewport itself, not on the grid.
+   * The grain sits on the viewport, not the grid.
    *
-   * The grid moves with the camera and repaints as it goes. These two do not move at all, so the
-   * ground keeps its lighting through a pan without costing the pan anything.
+   * The grid moves with the camera and repaints as it goes. This does not move at all, so the
+   * texture survives a pan without costing the pan anything.
+   *
+   * It lightens rather than blends: on a pure black ground every mode that preserves black —
+   * overlay, multiply, soft-light — leaves the noise invisible, so it carries its own low alpha.
    */
   [data-slot="viewport"]::before {
     content: "";
@@ -170,15 +160,8 @@
     inset: 0;
     z-index: 0;
     pointer-events: none;
-    /*
-     * Both layers lighten. On a pure black ground every blend mode that preserves black — overlay,
-     * multiply, soft-light — leaves the grain invisible, so the noise carries its own low alpha
-     * and paints normally.
-     */
-    background-image: var(--ground-grain), var(--ground-light);
-    background-size:
-      120px 120px,
-      cover;
+    background-image: var(--ground-grain);
+    background-size: 120px 120px;
   }
 
   /* These tokens apply the app palette to framework chrome. */
