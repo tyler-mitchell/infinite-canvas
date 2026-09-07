@@ -29,9 +29,6 @@
   --surface-raised: oklch(0.159 0 0);
   --surface-hover: oklch(0.19 0 0);
 
-  /* This token adds a light edge to the top of a surface. */
-  --edge-light: oklch(1 0 0 / 0.05);
-
   /*
    * The hairline that bounds a surface.
    *

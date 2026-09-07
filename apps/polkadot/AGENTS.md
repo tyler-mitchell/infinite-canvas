@@ -106,13 +106,29 @@ When you find something Polkadot cannot do:
   surfaces, all reporting `backdrop-filter: blur(40px)` over `oklch(0.205 0.009 265)`. The frosted
   look those were reaching for needs a translucent surface, which is a real design decision — it
   makes text contrast depend on whatever canvas content is behind — not a class you add on top.
-- **On this ground, the elevation model is thinner than it looks, and knowing the numbers stops you
-  trusting it.** Measured: `--surface` against `--ground` is 1.09:1, the `--edge-light` inset ring
-  composites to `rgb(37,39,43)` for 1.31:1, and `--lift-2`'s darkest stop lands on `rgb(6,7,9)` for
-  1.03:1 — a black shadow cannot darken a near-black ground, so the shadows contribute almost
-  nothing and the hairline ring is doing all the separating. That is fine for a panel over a busy
-  canvas and not fine for a control that has to be found unaided, which is why the failure screen's
-  only button is `--accent` rather than a surface.
+- **Lightness separates nothing on this ground, and the numbers say so.** Re-measured on 2026-09-06
+  through a canvas, after the palette went black and neutral. The earlier figures on this line
+  described the old blue-tinted scale and are gone.
+
+  Surfaces resolve to `rgb(0,0,0)` ground, `rgb(8,8,8)` surface, `rgb(13,13,13)` raised,
+  `rgb(34,34,34)` line. Surface against ground is **1.05:1** and raised against surface is
+  **1.03:1** — differences a person cannot see. The hairline against surface is **1.26:1**, roughly
+  five times the separation lightness provides, which is why every panel draws one and why removing
+  it left the library rail looking like text on nothing.
+
+  Shadows contribute almost nothing for the same reason as before: a black shadow cannot darken a
+  black ground.
+
+  Text is unaffected by all of this and was checked at the same time: `--ink` on surface is
+  **17.78:1**, `--ink-faint` on a raised surface is **5.34:1**, and `--accent` on ground is
+  **10.06:1**. Darkening every surface could only raise these, and it did.
+
+  Measure with a canvas, not `getComputedStyle` plus a regex. Chrome serialises a colour back as
+  `oklch()`, so a naive parse reads the oklch components as RGB and reports every pair as 1.00:1.
+
+- **There is no bevel token.** `--edge-light` was deleted on 2026-09-06 once the hairline replaced
+  the specular top edge and left it referenced nowhere. A bevel and a hairline are two edges for one
+  job. Do not reintroduce it: a panel gets its edge from `FLOATING_SURFACE`.
 - Tokens live in `src/styles.css` and are the only source of colour, elevation, and easing.
 
 ## Reading a window's data
