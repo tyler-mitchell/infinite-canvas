@@ -1,11 +1,5 @@
 import {
   createInfiniteCanvasWindow,
-  getInfiniteCanvasContentWorldRect,
-  getInfiniteCanvasOccluderWorldRects,
-  getInfiniteCanvasVacantRect,
-  getInfiniteCanvasWindowDetailLevel,
-  getInfiniteCanvasWindowPlacementRect,
-  isInfiniteCanvasWindowInActiveWorkspace,
   type InfiniteCanvasCommands,
   type InfiniteCanvasRect,
   type InfiniteCanvasState,
@@ -22,38 +16,6 @@ type WindowPlacement = Readonly<{
 }>;
 
 const WINDOW_GAP = 24;
-
-function getPlacedRect(
-  input: WindowPlacement & Readonly<{ minSize: WindowSize; size: WindowSize }>,
-) {
-  const bounds = getInfiniteCanvasContentWorldRect(
-    input.state.camera,
-    input.state.viewport,
-    input.state.viewportInsets,
-  );
-
-  return getInfiniteCanvasVacantRect({
-    bounds,
-    gapPx: WINDOW_GAP,
-    occupied: [
-      ...getInfiniteCanvasOccluderWorldRects(
-        input.state.camera,
-        input.state.viewport,
-        input.state.viewportOccluders,
-      ),
-      ...input.state.groups.map((group) => group.rect),
-      // Windows outside the active desktop do not reserve space.
-      ...input.state.windows
-        .filter(
-          (window) =>
-            window.mode !== "minimized" &&
-            isInfiniteCanvasWindowInActiveWorkspace(input.state, window.id),
-        )
-        .map((window) => window.rect),
-    ],
-    preferred: getInfiniteCanvasWindowPlacementRect(bounds, "center", input.size, input.minSize),
-  });
-}
 
 function openContentWindow<Kind extends WindowKind>(
   input: WindowPlacement &
@@ -77,22 +39,29 @@ function openContentWindow<Kind extends WindowKind>(
     return;
   }
 
-  const rect = input.rect ?? getPlacedRect(input);
+  const windowId = globalThis.crypto.randomUUID();
+  // Without a caller rect, the canvas places the window against its own current state.
+  const rect = input.rect ?? { ...input.size, x: 0, y: 0 };
 
   input.actions.openWindow(
     createInfiniteCanvasWindow<WindowKind, WindowData[Kind]>({
       data: input.data,
-      id: globalThis.crypto.randomUUID(),
+      id: windowId,
       kind: input.kind,
       minSize: input.minSize,
       rect,
       title: input.title,
     }),
+    input.rect === undefined ? { gapPx: WINDOW_GAP, region: "center" } : undefined,
   );
 
-  // Fit summary windows, but do not zoom past 100%.
-  if (getInfiniteCanvasWindowDetailLevel(rect, input.state.camera.zoom) === "summary") {
-    input.actions.navigateToRect({ behavior: { maxZoom: 1, paddingPx: 64, type: "fit" }, rect });
+  /*
+   * A window the canvas placed can land outside the view, because free space is worth more than
+   * staying on screen. Reveal it, so opening a note always shows the note. This is the same ending
+   * as the branch above, where the note was already open.
+   */
+  if (input.rect === undefined) {
+    input.actions.executeCommand({ type: "window.reveal", windowId });
   }
 }
 

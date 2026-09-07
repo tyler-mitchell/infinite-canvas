@@ -4,32 +4,37 @@ import {
   type InfiniteCanvasCommand,
   type InfiniteCanvasCommands,
   type InfiniteCanvasWindow,
+  type InfiniteCanvasWindowPlacement,
 } from "@hyphened/infinite-canvas";
 import { expect, test } from "vite-plus/test";
 
 import { openContentWindow } from "./open-window";
 import type { WindowKind } from "./window-registry";
 
+type Opened = Readonly<{
+  placement: InfiniteCanvasWindowPlacement | undefined;
+  window: InfiniteCanvasWindow<WindowKind>;
+}>;
+
 type Recorder = Readonly<{
   actions: InfiniteCanvasCommands<WindowKind>;
   commands: InfiniteCanvasCommand[];
-  navigations: unknown[];
-  opened: InfiniteCanvasWindow<WindowKind>[];
+  opened: Opened[];
 }>;
 
 const recorder = (): Recorder => {
   const commands: InfiniteCanvasCommand[] = [];
-  const navigations: unknown[] = [];
-  const opened: InfiniteCanvasWindow<WindowKind>[] = [];
+  const opened: Opened[] = [];
 
   return {
     actions: {
       executeCommand: (command: InfiniteCanvasCommand) => commands.push(command),
-      navigateToRect: (request: unknown) => navigations.push(request),
-      openWindow: (window: InfiniteCanvasWindow<WindowKind>) => opened.push(window),
+      openWindow: (
+        window: InfiniteCanvasWindow<WindowKind>,
+        placement?: InfiniteCanvasWindowPlacement,
+      ) => opened.push({ placement, window }),
     } as unknown as InfiniteCanvasCommands<WindowKind>,
     commands,
-    navigations,
     opened,
   };
 };
@@ -67,8 +72,27 @@ test("an item with no window on the canvas gets one", () => {
   });
 
   expect(opened).toHaveLength(1);
-  expect(opened[0]?.data).toEqual({ itemId: "content_item:fresh" });
-  expect(commands).toEqual([]);
+  expect(opened[0]?.window.data).toEqual({ itemId: "content_item:fresh" });
+  // The reveal names the new window, so nothing else on the canvas was revealed instead.
+  expect(commands).toEqual([{ type: "window.reveal", windowId: opened[0]?.window.id }]);
+});
+
+test("a window with no rect of its own asks the canvas to place it", () => {
+  const { actions, opened } = recorder();
+
+  openContentWindow({
+    actions,
+    data: { itemId: "content_item:placed" },
+    kind: "note",
+    minSize: MIN_SIZE,
+    size: SIZE,
+    state: canvasWith([]),
+    title: "Placed",
+  });
+
+  // The rect the caller supplies carries the size only. The canvas decides the position.
+  expect(opened[0]?.placement).toEqual({ gapPx: 24, region: "center" });
+  expect(opened[0]?.window.rect).toEqual({ ...SIZE, x: 0, y: 0 });
 });
 
 test("an item already on the canvas is revealed, not opened twice", () => {
@@ -122,38 +146,40 @@ test("a caller that knows where the window goes keeps that rect exactly", () => 
     title: "Dropped",
   });
 
-  expect(opened[0]?.rect).toEqual(rect);
+  expect(opened[0]?.window.rect).toEqual(rect);
+  // A caller-supplied rect is exact, so the canvas is not asked to place it.
+  expect(opened[0]?.placement).toBeUndefined();
 });
 
-test("a window that would open too small to use brings the camera with it", () => {
-  const { actions, navigations } = recorder();
-  const zoomedOut = { ...canvasWith([]), camera: { center: { x: 0, y: 0 }, zoom: 0.36 } };
+test("a window the canvas placed is revealed, because it can land off screen", () => {
+  const { actions, commands, opened } = recorder();
 
   openContentWindow({
     actions,
-    data: { itemId: "content_item:tiny" },
-    kind: "note",
-    minSize: MIN_SIZE,
-    size: SIZE,
-    state: zoomedOut,
-    title: "Tiny",
-  });
-
-  expect(navigations).toHaveLength(1);
-});
-
-test("a window that opens readable is left where the camera already was", () => {
-  const { actions, navigations } = recorder();
-
-  openContentWindow({
-    actions,
-    data: { itemId: "content_item:readable" },
+    data: { itemId: "content_item:placed" },
     kind: "note",
     minSize: MIN_SIZE,
     size: SIZE,
     state: canvasWith([]),
-    title: "Readable",
+    title: "Placed",
   });
 
-  expect(navigations).toEqual([]);
+  expect(commands).toEqual([{ type: "window.reveal", windowId: opened[0]?.window.id }]);
+});
+
+test("a window the caller placed is left alone, because the caller chose where to look", () => {
+  const { actions, commands } = recorder();
+
+  openContentWindow({
+    actions,
+    data: { itemId: "content_item:dropped" },
+    kind: "image",
+    minSize: MIN_SIZE,
+    rect: { height: 240, width: 360, x: 90, y: 90 },
+    size: SIZE,
+    state: canvasWith([]),
+    title: "Dropped",
+  });
+
+  expect(commands).toEqual([]);
 });

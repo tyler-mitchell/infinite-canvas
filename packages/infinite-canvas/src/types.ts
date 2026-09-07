@@ -17,7 +17,10 @@ import type {
 } from "./group-tree";
 // This type-only import prevents a runtime cycle through `window-placement`.
 import type { InfiniteCanvasAlignment, InfiniteCanvasDistribution } from "./window-arrange";
-import type { InfiniteCanvasWindowPlacementRegion } from "./window-placement";
+import type {
+  InfiniteCanvasWindowPlacement,
+  InfiniteCanvasWindowPlacementRegion,
+} from "./window-placement";
 
 type InfiniteCanvasPoint = Readonly<{
   x: number;
@@ -1174,7 +1177,12 @@ type InfiniteCanvasAction<Kind extends string = string> =
   | Readonly<{ type: "window.focus"; windowId: string }>
   | Readonly<{ type: "window.maximize"; windowId: string }>
   | Readonly<{ type: "window.minimize"; windowId: string }>
-  | Readonly<{ type: "window.open"; window: InfiniteCanvasWindow<Kind> }>
+  | Readonly<{
+      /** Placement resolved here, against live state, rather than by the caller. */
+      placement?: InfiniteCanvasWindowPlacement;
+      type: "window.open";
+      window: InfiniteCanvasWindow<Kind>;
+    }>
   | Readonly<{ type: "window.restore"; windowId: string }>
   | Readonly<{ type: "window.togglePinned"; windowId: string }>;
 
@@ -1288,7 +1296,11 @@ type InfiniteCanvasCommands<Kind extends string = string> = Readonly<{
       windowId: string;
     }>,
   ) => void;
-  openWindow: (window: InfiniteCanvasWindow<Kind>) => void;
+  /** Without a placement the window keeps its own rect. */
+  openWindow: (
+    window: InfiniteCanvasWindow<Kind>,
+    placement?: InfiniteCanvasWindowPlacement,
+  ) => void;
   panBy: (input: Readonly<{ delta: InfiniteCanvasPoint }>) => void;
   fitAllVisibleWindows: () => void;
   fitSelection: () => void;

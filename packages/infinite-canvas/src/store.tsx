@@ -361,8 +361,9 @@ function createInfiniteCanvasStore<Kind extends string>(
         type: "camera.navigate",
       });
     },
-    openWindow: (window) => {
+    openWindow: (window, placement) => {
       dispatch({
+        placement,
         type: "window.open",
         window,
       });

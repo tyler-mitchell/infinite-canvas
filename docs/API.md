@@ -1,6 +1,6 @@
 # API reference
 
-The public surface of `@hyphened/infinite-canvas`: 235 values and 192 types across two entries.
+The public surface of `@hyphened/infinite-canvas`: 236 values and 193 types across two entries.
 Anything absent from these barrels is internal and unstable.
 This rule includes each `data-infinite-canvas-*` attribute, which supports hit tests instead of styles.
 
@@ -378,12 +378,22 @@ These commands make one-time changes. They do not create a persistent layout mod
 **`window-placement`**
 
 - `getInfiniteCanvasWindowPlacementRect`: Places one size within a region of the supplied bounds. Placement does not snap.
-- `getInfiniteCanvasVacantRect`: Finds the nearest clear rectangle of the same size. If no bounded space is available, it returns `preferred`.
+- `getInfiniteCanvasVacantRect`: Finds the nearest clear rectangle of the same size.
+- `getInfiniteCanvasPlacedWindowRect`: Finds where one window fits in the current state. It reads the camera, viewport insets, occluders, groups, and the windows of the active workspace.
 
 `window-placement` places one window within a region.
-The function accepts `{ bounds, occupied, preferred, gapPx? }`.
-If that rectangle is clear or `bounds` has no room, the function returns `preferred`.
-The function never places a rectangle outside `bounds`.
+`getInfiniteCanvasVacantRect` accepts `{ bounds, occupied, preferred, gapPx? }`.
+It clamps `preferred` into `bounds` and returns it when that rectangle is clear.
+
+Candidates then grow outward from `preferred` and can pass outside `bounds`.
+A full viewport is a reason to look further out, not a reason to return an occupied rectangle.
+The caller decides whether to move the camera to the result.
+
+Supply `placement` to the `window.open` action to place a window through
+`getInfiniteCanvasPlacedWindowRect` instead of supplying a rectangle.
+The reducer resolves it from the state it holds.
+A caller that computes a rectangle from its own snapshot places against a canvas that has changed,
+and a caller that awaits before opening places against one that is older still.
 
 The `window.place` command uses `Mod+Shift+Arrow` for halves and `Mod+Shift+Enter` for fill.
 `window.place` defines the shared placement policy.
@@ -394,9 +404,10 @@ Center and quarter regions have no default chord.
 `Mod+Alt+Arrow` changes browser tabs on macOS, so the default map omits it.
 The command operates on the active window and refuses a grouped window.
 
-<details><summary>types (1)</summary>
+<details><summary>types (2)</summary>
 
 - `InfiniteCanvasWindowPlacementRegion`: Halves, quarters, `"fill"`, and `"center"`.
+- `InfiniteCanvasWindowPlacement`: `{ gapPx?, region? }`. The region defaults to `"center"`.
 
 The half regions are `"left" | "right" | "top" | "bottom"`.
 

@@ -1,4 +1,11 @@
-import type { InfiniteCanvasRect, InfiniteCanvasSize } from "./types";
+import { getInfiniteCanvasContentWorldRect, getInfiniteCanvasOccluderWorldRects } from "./geometry";
+import type {
+  InfiniteCanvasRect,
+  InfiniteCanvasSize,
+  InfiniteCanvasState,
+  InfiniteCanvasWindow,
+} from "./types";
+import { isInfiniteCanvasWindowInActiveWorkspace } from "./workspace-membership";
 
 /** Calculates fixed window placement regions without snapping. */
 type InfiniteCanvasWindowPlacementRegion =
@@ -90,7 +97,10 @@ function getInfiniteCanvasWindowPlacementRect(
   };
 }
 
-/** Returns the nearest in-bounds rect with the least occupied area. */
+/** Rings of candidate spots searched around the preferred one. */
+const VACANCY_REACH = 6;
+
+/** Returns the nearest clear rect, preferring the visible region but not confined to it. */
 function getInfiniteCanvasVacantRect(
   input: Readonly<{
     /** Allowed placement region. */
@@ -130,14 +140,17 @@ function getInfiniteCanvasVacantRect(
 
   const stepX = preferred.width + gapPx;
   const stepY = preferred.height + gapPx;
-  const columns = Math.max(Math.floor(bounds.width / stepX), 1);
-  const rows = Math.max(Math.floor(bounds.height / stepY), 1);
-  // Sort the loose grid by distance from the preferred origin.
-  const candidates = Array.from({ length: columns * rows }, (_unused, index) => ({
+  const span = VACANCY_REACH * 2 + 1;
+  /*
+   * Candidates grow outward from the preferred spot and pass outside `bounds` when they must.
+   * A full viewport is a reason to look further out. It is never a reason to stack two windows on
+   * one spot, which is what a search confined to the visible region has to do.
+   */
+  const candidates = Array.from({ length: span * span }, (_unused, index) => ({
     height: preferred.height,
     width: preferred.width,
-    x: bounds.x + (index % columns) * stepX,
-    y: bounds.y + Math.floor(index / columns) * stepY,
+    x: preferred.x + ((index % span) - VACANCY_REACH) * stepX,
+    y: preferred.y + (Math.floor(index / span) - VACANCY_REACH) * stepY,
   })).sort(
     (left, right) =>
       (left.x - preferred.x) ** 2 +
@@ -145,12 +158,70 @@ function getInfiniteCanvasVacantRect(
       ((right.x - preferred.x) ** 2 + (right.y - preferred.y) ** 2),
   );
 
-  // Keep the nearest candidate with the least occupied area.
-  return candidates.reduce(
-    (best, candidate) => (coveredArea(candidate) < coveredArea(best) ? candidate : best),
-    preferred,
+  // Take the nearest clear spot. Nothing clear within reach leaves the preferred one.
+  return (
+    candidates.find((candidate) => coveredArea(candidate) === 0) ??
+    candidates.reduce(
+      (best, candidate) => (coveredArea(candidate) < coveredArea(best) ? candidate : best),
+      preferred,
+    )
   );
 }
 
-export { getInfiniteCanvasVacantRect, getInfiniteCanvasWindowPlacementRect };
-export type { InfiniteCanvasWindowPlacementRegion };
+/**
+ * Asks for a rect instead of supplying one.
+ *
+ * A caller that computes a rect from a state snapshot places against the canvas as it was, not as
+ * it is. Anything awaited between the two — a fetch, a database write — makes the snapshot older
+ * still, and every window opened in one burst lands on the same spot.
+ */
+type InfiniteCanvasWindowPlacement = Readonly<{
+  /** Required gap between the window and its neighbours. */
+  gapPx?: number;
+  /** Where to try first. Defaults to the middle of the visible region. */
+  region?: InfiniteCanvasWindowPlacementRegion;
+}>;
+
+/** Returns where a window fits in the canvas as it is now. */
+function getInfiniteCanvasPlacedWindowRect<Kind extends string>(
+  state: InfiniteCanvasState<Kind>,
+  window: InfiniteCanvasWindow<Kind>,
+  placement: InfiniteCanvasWindowPlacement = {},
+): InfiniteCanvasRect {
+  const bounds = getInfiniteCanvasContentWorldRect(
+    state.camera,
+    state.viewport,
+    state.viewportInsets,
+  );
+
+  return getInfiniteCanvasVacantRect({
+    bounds,
+    gapPx: placement.gapPx,
+    occupied: [
+      ...getInfiniteCanvasOccluderWorldRects(state.camera, state.viewport, state.viewportOccluders),
+      ...state.groups.map((group) => group.rect),
+      // A minimized window, or one on another workspace, reserves no space.
+      ...state.windows
+        .filter(
+          (occupant) =>
+            occupant.id !== window.id &&
+            occupant.mode !== "minimized" &&
+            isInfiniteCanvasWindowInActiveWorkspace(state, occupant.id),
+        )
+        .map((occupant) => occupant.rect),
+    ],
+    preferred: getInfiniteCanvasWindowPlacementRect(
+      bounds,
+      placement.region ?? "center",
+      window.rect,
+      window.minSize,
+    ),
+  });
+}
+
+export {
+  getInfiniteCanvasPlacedWindowRect,
+  getInfiniteCanvasVacantRect,
+  getInfiniteCanvasWindowPlacementRect,
+};
+export type { InfiniteCanvasWindowPlacement, InfiniteCanvasWindowPlacementRegion };

@@ -3,6 +3,7 @@ import { navigateCamera } from "./camera-navigation";
 import { isUsableViewport } from "./geometry";
 import { findInfiniteCanvasGroupNode, isInfiniteCanvasGroupContainer } from "./group-tree";
 import { applyInfiniteCanvasRecipe } from "./recipes";
+import { getInfiniteCanvasPlacedWindowRect } from "./window-placement";
 import {
   activateInfiniteCanvasWorkspace,
   addInfiniteCanvasWindowToWorkspace,
@@ -348,13 +349,23 @@ function applyInfiniteCanvasAction<Kind extends string>(
         action.windowId,
       );
     // An opened window joins the active workspace.
-    case "window.open":
+    case "window.open": {
+      // Placement resolves here so the canvas the window avoids is the current one.
+      const opened =
+        action.placement === undefined
+          ? action.window
+          : {
+              ...action.window,
+              rect: getInfiniteCanvasPlacedWindowRect(state, action.window, action.placement),
+            };
+
       return state.activeWorkspaceId === null
-        ? openWindow(state, action.window)
-        : addInfiniteCanvasWindowToWorkspace(openWindow(state, action.window), {
-            windowId: action.window.id,
+        ? openWindow(state, opened)
+        : addInfiniteCanvasWindowToWorkspace(openWindow(state, opened), {
+            windowId: opened.id,
             workspaceId: state.activeWorkspaceId,
           });
+    }
     case "window.restore":
       return restoreWindow(state, action.windowId);
     case "window.togglePinned":

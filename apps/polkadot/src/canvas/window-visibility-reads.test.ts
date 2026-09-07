@@ -32,10 +32,6 @@ const EXEMPT = new Map([
     "workspace/desktop-switcher.tsx",
     "Lists what is filed elsewhere, so membership would empty the list it draws.",
   ],
-  [
-    "canvas/open-window.ts",
-    "Placement asks membership; a tab member needs no filter because the shell's own rect is already an occupant, which its comment argues in full.",
-  ],
 ]);
 
 test("no source decides what is visible from `mode` alone", () => {

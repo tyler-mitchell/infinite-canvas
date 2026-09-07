@@ -214,10 +214,14 @@ export {
   isInfiniteCanvasWindowFullyVisible,
 } from "./window-focus";
 export {
+  getInfiniteCanvasPlacedWindowRect,
   getInfiniteCanvasVacantRect,
   getInfiniteCanvasWindowPlacementRect,
 } from "./window-placement";
-export type { InfiniteCanvasWindowPlacementRegion } from "./window-placement";
+export type {
+  InfiniteCanvasWindowPlacement,
+  InfiniteCanvasWindowPlacementRegion,
+} from "./window-placement";
 export {
   getInfiniteCanvasAlignedRects,
   getInfiniteCanvasDistributedRects,

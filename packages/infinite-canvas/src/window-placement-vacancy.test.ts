@@ -61,13 +61,27 @@ test("a gap is honoured, so windows do not land edge to edge", () => {
   expect(Math.max(horizontalGap, verticalGap)).toBeGreaterThanOrEqual(24);
 });
 
-test("a region with exactly one spot returns it rather than placing the window out of view", () => {
+/*
+ * This asserted the opposite until the running app showed what it costs: with the library open, the
+ * visible region held exactly one note, so every note opened landed on the one before it. Keeping a
+ * window in view is not worth hiding it under another. The consumer brings the camera along.
+ */
+test("a region with room for one spot places the second window outside it, not on top", () => {
   const tight: InfiniteCanvasRect = { height: 200, width: 300, x: 0, y: 0 };
-  const preferred = at(0, 0);
+  const taken = at(0, 0);
+  const placed = getInfiniteCanvasVacantRect({
+    bounds: tight,
+    occupied: [taken],
+    preferred: at(0, 0),
+  });
 
-  expect(getInfiniteCanvasVacantRect({ bounds: tight, occupied: [at(0, 0)], preferred })).toEqual(
-    preferred,
-  );
+  expect(placed).not.toEqual(taken);
+  expect(
+    placed.x >= taken.x + taken.width ||
+      taken.x >= placed.x + placed.width ||
+      placed.y >= taken.y + taken.height ||
+      taken.y >= placed.y + placed.height,
+  ).toBe(true);
 });
 
 test("with nothing clear it takes the least-covered spot, not the preferred one", () => {
