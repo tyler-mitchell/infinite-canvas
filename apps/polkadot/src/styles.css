@@ -45,7 +45,7 @@
   --grain: none;
 
   /* Fine static noise, tiled. The ground is otherwise flat black. */
-  --ground-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23n)' opacity='0.018'/%3E%3C/svg%3E");
+  --ground-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23n)' opacity='0.008'/%3E%3C/svg%3E");
 
   /* All ink tokens use a warm hue against the cool ground. */
   --ink: oklch(0.96 0.008 85);
@@ -175,8 +175,8 @@
      * enough to feel the space move under a pan, not enough to look at. The minor rule stays so
      * the ground still subdivides between the major lines.
      */
-    --icx-grid-major: color-mix(in oklab, var(--line) 10%, transparent);
-    --icx-grid-minor: color-mix(in oklab, var(--line) 4%, transparent);
+    --icx-grid-major: color-mix(in oklab, var(--line) 5%, transparent);
+    --icx-grid-minor: color-mix(in oklab, var(--line) 2%, transparent);
     /* Grain is the first background layer for all window surfaces. */
     --icx-body-background: var(--grain), var(--surface);
     --icx-header-idle: var(--grain), var(--surface);
