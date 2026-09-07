@@ -97,11 +97,13 @@ function InfiniteCanvasWindowBody<Kind extends string>({
     const timeout = globalThis.setTimeout(
       () => {
         // Record the signature only after the queue accepts the request.
+        const captured = getWindowBodyRect(window.rect, chrome);
+        // Capture the body box. The rect includes the frame border, which the body does not.
         const isQueued = raster.queueCapture({
           element: node,
-          height: getWindowBodyHeight(window, chrome),
+          height: captured.height,
           signature,
-          width: window.rect.width,
+          width: captured.width,
           windowId: window.id,
         });
 
@@ -136,6 +138,8 @@ function InfiniteCanvasWindowBody<Kind extends string>({
     window,
   });
   const bodyScrolls = isInfiniteCanvasScrollingOverflow(definition.overflowY);
+  // The frame border sits inside the window rect, so the body box is smaller than the rect.
+  const bodyRect = getWindowBodyRect(window.rect, chrome);
 
   if (shouldUseSnapshot) {
     return (
@@ -159,7 +163,7 @@ function InfiniteCanvasWindowBody<Kind extends string>({
       ref={liveBodyRef}
       style={{
         contain: "layout paint style",
-        containIntrinsicSize: `${window.rect.width}px ${getWindowBodyHeight(window, chrome)}px`,
+        containIntrinsicSize: `${bodyRect.width}px ${bodyRect.height}px`,
         contentVisibility: shouldUseContentVisibility ? "auto" : "visible",
         // Scrolling bodies can grow. Other bodies stay pinned to the container.
         height: bodyScrolls ? undefined : "100%",
@@ -217,13 +221,6 @@ function useRenderedWindowBody<Kind extends string>({
       ? definition.renderSummary(context)
       : definition.renderBody?.(context);
   }, [actions, chrome, definition, detailLevel, isActive, isSelected, store, window]);
-}
-
-function getWindowBodyHeight<Kind extends string>(
-  window: InfiniteCanvasWindow<Kind>,
-  chrome: InfiniteCanvasChromeMetrics,
-) {
-  return Math.max(1, window.rect.height - chrome.headerHeight);
 }
 
 /** Returns whether `overflowY` creates a scroll container. */
