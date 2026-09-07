@@ -79,29 +79,48 @@ function getDrawnConnectors(
   };
 
   /*
-   * Routed as a set per source rect, not one relation at a time.
+   * Routed as a set per hub, not one relation at a time.
    *
    * A hub with five relations meets them at five different boundary points when each is routed
    * alone, so the fan reads as five unrelated lines. Bundling gives the group one anchor and one
    * trunk, which is what makes a hub look like a hub.
    *
-   * Grouped by `relation.source` because that is the end the framework fans from. An item that is
-   * the target of many relations does not bundle: each of those relations belongs to a different
-   * source group. Relations are undirected here, so that is an arbitrary end to favour — it is the
-   * simple reading, and the alternative needs a rule for which end wins when both are hubs.
+   * The hub is the busier end, not `relation.source`. Relations are undirected, so the stored
+   * direction records who was dragged first and nothing a reader can see; fanning from it left an
+   * item that everything points *at* — the shape most worth bundling — drawing five unrelated
+   * lines. Counting decides it instead, and the source breaks a tie so the result stays stable.
+   *
+   * Only relations with both ends on the canvas are counted. An item with many off-canvas
+   * relations is not the hub of anything drawn, and letting those votes count would hand the fan
+   * to a rect that has one visible line.
    */
-  const bySource = relations.reduce<Map<string, ContentRelation[]>>(
-    (groups, relation) =>
-      groups.set(relation.source, [...(groups.get(relation.source) ?? []), relation]),
+  const visible = relations.filter(
+    (relation) => rectsByItem.has(relation.source) && rectsByItem.has(relation.target),
+  );
+  const degree = visible.reduce<Map<string, number>>(
+    (counts, relation) =>
+      counts
+        .set(relation.source, (counts.get(relation.source) ?? 0) + 1)
+        .set(relation.target, (counts.get(relation.target) ?? 0) + 1),
     new Map(),
   );
+  const byHub = visible.reduce<Map<string, ContentRelation[]>>((groups, relation) => {
+    const hub =
+      (degree.get(relation.target) ?? 0) > (degree.get(relation.source) ?? 0)
+        ? relation.target
+        : relation.source;
 
-  return [...bySource].flatMap(([sourceId, group]) =>
-    (rectsByItem.get(sourceId) ?? []).flatMap((fromRect) => {
-      // One entry per drawn connector, so a target opened twice keeps both of its lines.
-      const drawn = group.flatMap((relation) =>
-        (rectsByItem.get(relation.target) ?? []).map((toRect) => ({ relation, toRect })),
-      );
+    return groups.set(hub, [...(groups.get(hub) ?? []), relation]);
+  }, new Map());
+
+  return [...byHub].flatMap(([hubId, group]) =>
+    (rectsByItem.get(hubId) ?? []).flatMap((fromRect) => {
+      // One entry per drawn connector, so a leaf opened twice keeps both of its lines.
+      const drawn = group.flatMap((relation) => {
+        const leafId = relation.source === hubId ? relation.target : relation.source;
+
+        return (rectsByItem.get(leafId) ?? []).map((toRect) => ({ relation, toRect }));
+      });
 
       const paths = getInfiniteCanvasRectBundledConnectorPaths(
         fromRect,
