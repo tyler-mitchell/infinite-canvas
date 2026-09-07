@@ -16,12 +16,33 @@ import { getClampedLines } from "../content/line-clamp";
 import { ensureNoteLoaded, notes$, type NoteGateway } from "./note-store";
 import { getNoteText } from "./note-text";
 
+/*
+ * A body earns its place only when two lines fit.
+ *
+ * One line of a wrapped note is one word at these widths, and a lone word reads as damage rather
+ * than a preview. Measured at 1440x900: zoom 0.18 gave "Halves", 0.22 gave "Halves every".
+ */
+const MINIMUM_BODY_LINES = 2;
+
 const noteSummary = tv({
   slots: {
     body: "min-h-0 overflow-hidden text-[var(--ink-faint)]",
     line: "truncate",
-    root: "flex h-full flex-col leading-[1.4]",
-    title: "shrink-0 truncate font-medium text-[var(--ink-muted)]",
+    root: "h-full overflow-hidden leading-[1.4]",
+    title: "font-medium text-[var(--ink-muted)]",
+  },
+  variants: {
+    // Without a body the title owns the card, so it centres instead of hanging from the top edge.
+    titleOnly: {
+      false: {
+        root: "flex flex-col",
+        title: "shrink-0 truncate",
+      },
+      true: {
+        root: "grid place-items-center text-center",
+        title: "line-clamp-2 max-w-full",
+      },
+    },
   },
 });
 
@@ -58,7 +79,6 @@ export function NoteSummary({
   const zoom = useInfiniteCanvasSelector<WindowKind, number>((state) => state.camera.zoom);
   const entry = useValue(notes$[noteId]);
   const fontsReady = useFontsReady();
-  const styles = noteSummary();
 
   // The summary loads the note because the full body is not mounted at this zoom.
   useEffect(() => {
@@ -78,12 +98,16 @@ export function NoteSummary({
    */
   const screenSize = getSummaryScreenSize(bodySize, zoom);
   const padding = getSummaryPadding(screenSize);
+  const bodyHeight = screenSize.height - padding * 2 - SUMMARY_LINE_HEIGHT;
+  // Geometry decides the tier, not the loaded text, so the card does not change shape on load.
+  const titleOnly = Math.floor(bodyHeight / SUMMARY_LINE_HEIGHT) < MINIMUM_BODY_LINES;
+  const styles = noteSummary({ titleOnly });
   const lines =
-    prepared === null || !fontsReady
+    prepared === null || !fontsReady || titleOnly
       ? []
       : getClampedLines({
           lineHeight: SUMMARY_LINE_HEIGHT,
-          maxHeight: screenSize.height - padding * 2 - SUMMARY_LINE_HEIGHT,
+          maxHeight: bodyHeight,
           maxWidth: screenSize.width - padding * 2,
           prepared,
         });
@@ -98,13 +122,15 @@ export function NoteSummary({
       }}
     >
       <span className={styles.title()}>{title}</span>
-      <div className={styles.body()}>
-        {lines.map((line, index) => (
-          <div className={styles.line()} key={`${String(index)}:${line}`}>
-            {line}
-          </div>
-        ))}
-      </div>
+      {titleOnly ? null : (
+        <div className={styles.body()}>
+          {lines.map((line, index) => (
+            <div className={styles.line()} key={`${String(index)}:${line}`}>
+              {line}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
