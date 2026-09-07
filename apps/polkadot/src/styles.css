@@ -28,6 +28,8 @@
   --surface: oklch(0.134 0 0);
   --surface-raised: oklch(0.159 0 0);
   --surface-hover: oklch(0.19 0 0);
+  /* The header of the focused window. Neutral, with only enough lift to separate it from the body. */
+  --surface-active: oklch(0.225 0.004 129);
 
   /*
    * The hairline that bounds a surface.
@@ -146,8 +148,11 @@
     /* Grain is the first background layer for all window surfaces. */
     --icx-body-background: var(--grain), var(--surface);
     --icx-header-idle: var(--grain), var(--surface);
-    /* The active header keeps grain as the first background layer. */
-    --icx-header-active: var(--grain), color-mix(in oklab, var(--accent) 9%, var(--surface-raised));
+    /*
+     * The active header lifts, it does not tint. Mixing the warm accent into it made the header
+     * read brown against a neutral canvas. The accent underline already names the active window.
+     */
+    --icx-header-active: var(--grain), var(--surface-active);
     /* A window is bounded by its hairline. The active one brightens the same line. */
     --icx-idle-border: var(--line);
     --icx-active-border: var(--line-strong);

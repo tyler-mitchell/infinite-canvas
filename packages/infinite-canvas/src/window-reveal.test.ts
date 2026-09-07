@@ -102,3 +102,30 @@ test("a canvas with no desktops still focuses and keeps showing everything", () 
   expect(revealed.activeWindowId).toBe("sources");
   expect(revealed.activeWorkspaceId).toBeNull();
 });
+
+/*
+ * Reveal means "make sure you can see it", so a window already in full view keeps the camera where
+ * it is. Without this, clicking a note you are looking at pulls the canvas under you.
+ */
+// Off centre on purpose: a centred window cannot tell a skipped camera move from a no-op one.
+const inView = () =>
+  createInfiniteCanvasState<Kind>({
+    camera: { center: { x: 400, y: 300 }, zoom: 1 },
+    viewport: { height: 800, width: 1200 },
+    windows: [pane("sources")],
+  });
+
+test("a window already in full view is revealed without moving the camera", () => {
+  const before = inView();
+
+  expect(reveal(before, "sources").camera).toEqual(before.camera);
+});
+
+test("a window off screen is revealed by bringing the camera to it", () => {
+  const before = {
+    ...inView(),
+    camera: { center: { x: 9000, y: 9000 }, zoom: 1 },
+  } satisfies InfiniteCanvasState<Kind>;
+
+  expect(reveal(before, "sources").camera).not.toEqual(before.camera);
+});

@@ -882,9 +882,16 @@ function revealWindow<Kind extends string>(
     findWindow(host, windowId)?.mode === "minimized" ? restoreWindow(host, windowId) : host;
   // Reveal all ancestor containers before focus.
   const shown = revealInfiniteCanvasGroupWindow(restored, windowId);
+  const focused = focusWindow(shown, windowId);
+  const target = findWindow(focused, windowId);
+
+  // A window already in full view needs no camera move, the way directional focus treats it.
+  if (target !== null && isInfiniteCanvasWindowFullyVisible(focused, target.rect)) {
+    return focused;
+  }
 
   return navigateCameraToWindow(
-    focusWindow(shown, windowId),
+    focused,
     { behavior: FOCUS_CAMERA_NAVIGATION_BEHAVIOR, windowId },
     zoomPolicy,
   );
