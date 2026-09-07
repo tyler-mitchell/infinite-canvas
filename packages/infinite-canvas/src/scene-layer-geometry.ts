@@ -14,6 +14,8 @@ type InfiniteCanvasWindowConnectorOptions = Readonly<{
 
 type InfiniteCanvasWindowConnectorRoute = "orthogonal" | "straight";
 
+type InfiniteCanvasRectFacing = "east" | "north" | "south" | "west";
+
 type InfiniteCanvasPathDataOptions = Readonly<{
   /** In the same unit as the points. Zero, the default, keeps corners sharp. */
   cornerRadius?: number;
@@ -448,6 +450,94 @@ function getInfiniteCanvasPathData(
   );
 }
 
+/** Which face of `fromRect` points at `toRect`, by the larger of the two centre offsets. */
+function getRectFacing(
+  fromRect: InfiniteCanvasRect,
+  toRect: InfiniteCanvasRect,
+): InfiniteCanvasRectFacing {
+  const from = getRectCenter(fromRect);
+  const to = getRectCenter(toRect);
+  const dx = to.x - from.x;
+  const dy = to.y - from.y;
+
+  if (Math.abs(dx) >= Math.abs(dy)) {
+    return dx >= 0 ? "east" : "west";
+  }
+
+  return dy >= 0 ? "south" : "north";
+}
+
+/** The midpoint of one face. */
+function getRectFacePoint(
+  rect: InfiniteCanvasRect,
+  facing: InfiniteCanvasRectFacing,
+): InfiniteCanvasPoint {
+  const center = getRectCenter(rect);
+  const points: Readonly<Record<InfiniteCanvasRectFacing, InfiniteCanvasPoint>> = {
+    east: { x: rect.x + rect.width, y: center.y },
+    north: { x: center.x, y: rect.y },
+    south: { x: center.x, y: rect.y + rect.height },
+    west: { x: rect.x, y: center.y },
+  };
+
+  return points[facing];
+}
+
+const OPPOSITE_FACING: Readonly<Record<InfiniteCanvasRectFacing, InfiniteCanvasRectFacing>> = {
+  east: "west",
+  north: "south",
+  south: "north",
+  west: "east",
+};
+
+/**
+ * One path per target, with every target on the same face sharing one anchor and one trunk.
+ *
+ * `getInfiniteCanvasRectConnectorPath` routes a pair in isolation, so a rect with five connectors
+ * meets them at five different boundary points and the fan reads as five unrelated lines. Routing
+ * the set together lets them leave through a single point, turn onto a shared trunk, and branch to
+ * each target — which is what makes a hub look like a hub.
+ *
+ * Targets are grouped by which face they sit off, so a target behind the source gets the trunk on
+ * its own side rather than a line doubling back through the rect. Each group's trunk sits midway
+ * between the source face and the nearest target in that group.
+ *
+ * Returns paths in the order the targets were given.
+ */
+function getInfiniteCanvasRectBundledConnectorPaths(
+  fromRect: InfiniteCanvasRect,
+  toRects: readonly InfiniteCanvasRect[],
+  options: InfiniteCanvasWindowConnectorOptions = {},
+): readonly InfiniteCanvasWorldPath[] {
+  const padding = options.padding ?? 0;
+  const facings = toRects.map((toRect) => getRectFacing(fromRect, toRect));
+
+  return toRects.map((toRect, index) => {
+    const facing = facings[index] ?? "east";
+    const horizontal = facing === "east" || facing === "west";
+    const start = getRectFacePoint(fromRect, facing);
+    const end = getRectFacePoint(toRect, OPPOSITE_FACING[facing]);
+    const sign = facing === "east" || facing === "south" ? 1 : -1;
+    // The nearest facing edge among the targets sharing this face, so one trunk serves the group.
+    const nearest = toRects
+      .filter((_, other) => facings[other] === facing)
+      .map((rect) => {
+        const face = getRectFacePoint(rect, OPPOSITE_FACING[facing]);
+
+        return horizontal ? face.x : face.y;
+      })
+      .reduce((closest, edge) => (sign * edge < sign * closest ? edge : closest), Infinity * sign);
+    const origin = horizontal ? start.x : start.y;
+    const trunk = origin + (nearest - origin) / 2 + padding * sign;
+
+    return getInfiniteCanvasWorldPath(
+      horizontal
+        ? [start, { x: trunk, y: start.y }, { x: trunk, y: end.y }, end]
+        : [start, { x: start.x, y: trunk }, { x: end.x, y: trunk }, end],
+    );
+  });
+}
+
 function getInfiniteCanvasWindowConnectorSegment<Kind extends string>(
   from: InfiniteCanvasWindowProxy<Kind>,
   to: InfiniteCanvasWindowProxy<Kind>,
@@ -568,6 +658,7 @@ export {
   getInfiniteCanvasLongestUnoccludedRun,
   getInfiniteCanvasLongestUnoccludedSegment,
   getInfiniteCanvasPathData,
+  getInfiniteCanvasRectBundledConnectorPaths,
   getInfiniteCanvasRectConnectorPath,
   getInfiniteCanvasRectConnectorPoint,
   getInfiniteCanvasRectConnectorSegment,
@@ -589,6 +680,7 @@ export {
 
 export type {
   InfiniteCanvasPathDataOptions,
+  InfiniteCanvasRectFacing,
   InfiniteCanvasSceneLayerCullingSpace,
   InfiniteCanvasSceneSegmentTransform,
   InfiniteCanvasWindowConnectorOptions,

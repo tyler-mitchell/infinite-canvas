@@ -3,7 +3,7 @@ import {
   getInfiniteCanvasContentViewport,
   getInfiniteCanvasGroupProjection,
   getInfiniteCanvasLongestUnoccludedRun,
-  getInfiniteCanvasRectConnectorPath,
+  getInfiniteCanvasRectBundledConnectorPaths,
   getInfiniteCanvasSegmentsWithinRect,
   getInfiniteCanvasWorldPathPointAtProgress,
   screenPointToWorldPoint,
@@ -78,21 +78,54 @@ function getDrawnConnectors(
     y: topLeft.y,
   };
 
-  return relations.flatMap((relation) =>
-    (rectsByItem.get(relation.source) ?? []).flatMap((fromRect) =>
-      (rectsByItem.get(relation.target) ?? []).map((toRect) => {
-        const path = getInfiniteCanvasRectConnectorPath(fromRect, toRect, { route: "orthogonal" });
-        return {
-          anchor: getRunAnchor(
-            getInfiniteCanvasSegmentsWithinRect(path.segments, anchorBounds),
-            occluders,
-          ),
-          points: path.points,
-          relation,
-          segments: path.segments,
-        };
-      }),
-    ),
+  /*
+   * Routed as a set per source rect, not one relation at a time.
+   *
+   * A hub with five relations meets them at five different boundary points when each is routed
+   * alone, so the fan reads as five unrelated lines. Bundling gives the group one anchor and one
+   * trunk, which is what makes a hub look like a hub.
+   *
+   * Grouped by `relation.source` because that is the end the framework fans from. An item that is
+   * the target of many relations does not bundle: each of those relations belongs to a different
+   * source group. Relations are undirected here, so that is an arbitrary end to favour — it is the
+   * simple reading, and the alternative needs a rule for which end wins when both are hubs.
+   */
+  const bySource = relations.reduce<Map<string, ContentRelation[]>>(
+    (groups, relation) =>
+      groups.set(relation.source, [...(groups.get(relation.source) ?? []), relation]),
+    new Map(),
+  );
+
+  return [...bySource].flatMap(([sourceId, group]) =>
+    (rectsByItem.get(sourceId) ?? []).flatMap((fromRect) => {
+      // One entry per drawn connector, so a target opened twice keeps both of its lines.
+      const drawn = group.flatMap((relation) =>
+        (rectsByItem.get(relation.target) ?? []).map((toRect) => ({ relation, toRect })),
+      );
+
+      const paths = getInfiniteCanvasRectBundledConnectorPaths(
+        fromRect,
+        drawn.map((entry) => entry.toRect),
+      );
+
+      return drawn.flatMap((entry, index) => {
+        const path = paths[index];
+
+        return path === undefined
+          ? []
+          : [
+              {
+                anchor: getRunAnchor(
+                  getInfiniteCanvasSegmentsWithinRect(path.segments, anchorBounds),
+                  occluders,
+                ),
+                points: path.points,
+                relation: entry.relation,
+                segments: path.segments,
+              },
+            ];
+      });
+    }),
   );
 }
 

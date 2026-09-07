@@ -1,7 +1,6 @@
 import {
   createInfiniteCanvasState,
   createInfiniteCanvasWindow,
-  getInfiniteCanvasUnoccludedSegments,
   type InfiniteCanvasPoint,
   type InfiniteCanvasRect,
   type InfiniteCanvasState,
@@ -103,45 +102,18 @@ test("on a real elbow the marker lands on the line rather than in the corner", (
   ).toBeGreaterThan(1);
 });
 
-test("a run clipped at one end is where walking stops agreeing with averaging", () => {
-  const state = canvas([
-    contentWindow({ id: "from", itemId: "a", rect: { height: 120, width: 180, x: -400, y: -300 } }),
-    contentWindow({ id: "to", itemId: "b", rect: { height: 120, width: 180, x: 200, y: 100 } }),
-    contentWindow({
-      id: "blocker",
-      itemId: "c",
-      rect: { height: 60, width: 110, x: -230, y: -210 },
-    }),
-  ]);
-  const [connector] = getDrawnConnectors(state, [relation("a", "b")]);
-  const anchor = connector?.anchor;
-  const segments = connector?.segments ?? [];
-
-  expect(anchor).not.toBeNull();
-
-  expect(Math.min(...segments.map((segment) => distanceToSegment(anchor!, segment)))).toBeLessThan(
-    0.001,
-  );
-
-  const visible = getInfiniteCanvasUnoccludedSegments(
-    segments,
-    state.windows.map((window) => window.rect),
-  );
-  const first = visible[0];
-  const last = visible.at(-1);
-
-  expect(first).toBeDefined();
-  expect(last).toBeDefined();
-
-  const averaged = {
-    x: (first!.start.x + last!.end.x) / 2,
-    y: (first!.start.y + last!.end.y) / 2,
-  };
-
-  expect(
-    Math.min(...segments.map((segment) => distanceToSegment(averaged, segment))),
-  ).toBeGreaterThan(1);
-});
+/*
+ * "A run clipped at one end is where walking stops agreeing with averaging" was here and is gone.
+ *
+ * It showed that averaging a run's two endpoints lands off the path, which is why the anchor walks
+ * the run by length instead. Bundled routing puts the trunk exactly midway between the two faces,
+ * so the average of the endpoints is the trunk in one axis and inside the trunk's span in the
+ * other — it now lands on the path for every elbow this file can build. The claim is false rather
+ * than untested, so re-adding it with a different fixture would not restore it.
+ *
+ * Walking still earns its place: the test above pins the anchor onto a segment and away from the
+ * longest leg's midpoint, which is the guarantee that occlusion clipping actually needs.
+ */
 
 test("the path really does elbow, so the test above is not measuring a straight line", () => {
   const [connector] = getDrawnConnectors(

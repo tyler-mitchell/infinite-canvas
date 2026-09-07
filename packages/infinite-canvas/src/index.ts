@@ -187,6 +187,7 @@ export {
   getInfiniteCanvasLongestUnoccludedRun,
   getInfiniteCanvasLongestUnoccludedSegment,
   getInfiniteCanvasPathData,
+  getInfiniteCanvasRectBundledConnectorPaths,
   getInfiniteCanvasRectConnectorPath,
   getInfiniteCanvasRectConnectorPoint,
   getInfiniteCanvasRectConnectorSegment,
@@ -328,6 +329,7 @@ export {
 } from "./visibility";
 export type {
   InfiniteCanvasPathDataOptions,
+  InfiniteCanvasRectFacing,
   InfiniteCanvasSceneSegmentTransform,
   InfiniteCanvasWindowConnectorOptions,
   InfiniteCanvasWindowConnectorPathOptions,

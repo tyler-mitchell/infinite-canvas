@@ -1,6 +1,6 @@
 # API reference
 
-The public surface of `@hyphened/infinite-canvas`: 233 values and 191 types across two entries.
+The public surface of `@hyphened/infinite-canvas`: 234 values and 192 types across two entries.
 Anything absent from these barrels is internal and unstable.
 This rule includes each `data-infinite-canvas-*` attribute, which supports hit tests instead of styles.
 
@@ -603,6 +603,13 @@ It changes the window only after the pointer enters another window.
 `getInfiniteCanvasConnectionPreviewPath` accepts a point or rectangle as the far endpoint.
 Both inputs use the same route logic.
 
+`getInfiniteCanvasRectBundledConnectorPaths` routes one rect's connectors as a set.
+Each target is grouped by the face it sits off, and one group shares one anchor and one trunk.
+`getInfiniteCanvasRectConnectorPath` routes a pair alone, so a rect with many connectors meets them
+at many boundary points and the fan reads as unrelated lines.
+The trunk of a group sits midway between the source face and the nearest target in that group.
+Paths come back in the order of the given targets.
+
 `getInfiniteCanvasPathData` turns points into an SVG path and rounds the corners by `cornerRadius`.
 A polyline can only draw sharp corners, so an orthogonal route arrives as right angles.
 The points carry no unit: convert them to screen points first to keep one corner size at every zoom.
@@ -618,6 +625,7 @@ These helpers provide window proxies, connector routes, scene transforms, and fr
 - `getInfiniteCanvasLongestUnoccludedRun`
 - `getInfiniteCanvasLongestUnoccludedSegment`
 - `getInfiniteCanvasPathData`
+- `getInfiniteCanvasRectBundledConnectorPaths`
 - `getInfiniteCanvasRectConnectorPath`
 - `getInfiniteCanvasRectConnectorPoint`
 - `getInfiniteCanvasRectConnectorSegment`
@@ -636,9 +644,10 @@ These helpers provide window proxies, connector routes, scene transforms, and fr
 - `getInfiniteCanvasWorldSegmentSceneTransform`
 - `getVisibleInfiniteCanvasWindowProxies`
 
-<details><summary>types (7)</summary>
+<details><summary>types (8)</summary>
 
 - `InfiniteCanvasPathDataOptions`
+- `InfiniteCanvasRectFacing`
 - `InfiniteCanvasSceneSegmentTransform`
 - `InfiniteCanvasWindowConnectorOptions`
 - `InfiniteCanvasWindowConnectorPathOptions`
