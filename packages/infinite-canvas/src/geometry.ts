@@ -377,12 +377,24 @@ function fitCameraToWorldRect(
   };
 }
 
+/*
+ * Where the chrome actually sits, measured against what the frame draws.
+ *
+ * `headerHeight` is the header's own height, and the border is outside it on every side. The
+ * header therefore starts one border in, and the body starts below the header with a second
+ * border still to come at the bottom.
+ *
+ * These two used to spend one border between them, as though the top border were part of the
+ * header. Measured on a live 240.5 window with a 2px border and a 32px header: the header draws
+ * 32 tall starting 2 down, and the body draws 204.5, while the model claimed a 30 header and a
+ * 206.5 body. Every consumer lays content out against that body size.
+ */
 function getWindowHeaderRect(
   rect: InfiniteCanvasRect,
   chrome: InfiniteCanvasChromeMetrics = DEFAULT_INFINITE_CANVAS_CHROME,
 ): InfiniteCanvasRect {
   return {
-    height: Math.max(chrome.headerHeight - chrome.borderWidth, 0),
+    height: Math.max(chrome.headerHeight, 0),
     width: Math.max(rect.width - chrome.borderWidth * 2, 0),
     x: chrome.borderWidth,
     y: chrome.borderWidth,
@@ -394,10 +406,10 @@ function getWindowBodyRect(
   chrome: InfiniteCanvasChromeMetrics = DEFAULT_INFINITE_CANVAS_CHROME,
 ): InfiniteCanvasRect {
   return {
-    height: Math.max(rect.height - chrome.headerHeight - chrome.borderWidth, 0),
+    height: Math.max(rect.height - chrome.headerHeight - chrome.borderWidth * 2, 0),
     width: Math.max(rect.width - chrome.borderWidth * 2, 0),
     x: chrome.borderWidth,
-    y: chrome.headerHeight,
+    y: chrome.headerHeight + chrome.borderWidth,
   };
 }
 

@@ -7,6 +7,8 @@ import {
   getInfiniteCanvasContentWorldRect,
   getVisibleWorldRect,
   getWheelZoomFactor,
+  getWindowBodyRect,
+  getWindowHeaderRect,
   getWorldLengthWithScreenFloor,
   projectWorldRectToScreen,
   resizeRectFromHandle,
@@ -298,6 +300,32 @@ test("chrome wider than the viewport clamps instead of inverting the rect", () =
 
   expect(collapsed.width).toBeGreaterThan(0);
   expect(collapsed.height).toBeGreaterThan(0);
+});
+
+test("the header and body fill the frame between its borders, spending each one once", () => {
+  const chrome = {
+    borderWidth: 2,
+    cornerSize: 8,
+    groupLabelSize: 12,
+    headerAccentHeight: 2,
+    headerHeight: 32,
+    resizeHandleSize: 10,
+  };
+  const rect = { height: 240, width: 360, x: 0, y: 0 };
+  const header = getWindowHeaderRect(rect, chrome);
+  const body = getWindowBodyRect(rect, chrome);
+
+  // The header draws its own height, with the border outside it.
+  expect(header.height).toBe(32);
+  expect(header.y).toBe(chrome.borderWidth);
+  // The body starts where the header ends and stops at the far border.
+  expect(body.y).toBe(header.y + header.height);
+  expect(body.y + body.height).toBe(rect.height - chrome.borderWidth);
+  expect(body.height).toBe(204);
+  // Neither box counts a border the other already spent.
+  expect(header.height + body.height + chrome.borderWidth * 2).toBe(rect.height);
+  expect(header.width).toBe(body.width);
+  expect(body.width).toBe(356);
 });
 
 test("a degenerate zoom yields a finite rect rather than an infinite one", () => {
