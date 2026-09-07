@@ -1,5 +1,6 @@
 import {
   createInfiniteCanvasWindow,
+  DEFAULT_INFINITE_CANVAS_DETAIL_POLICY,
   type InfiniteCanvasCommands,
   type InfiniteCanvasRect,
   type InfiniteCanvasState,
@@ -16,6 +17,23 @@ type WindowPlacement = Readonly<{
 }>;
 
 const WINDOW_GAP = 24;
+
+/*
+ * The floor for any kind that renders a summary.
+ *
+ * Detail restores only above `fullAbovePx`, so a kind whose minimum sits at or below it enters
+ * summary and cannot leave at 100% zoom. Nothing reports that: the window keeps working and simply
+ * never shows its body again.
+ *
+ * Derived rather than written down, so the floor follows the policy if the policy moves.
+ */
+const SUMMARY_MINIMUM_SHORT_AXIS = DEFAULT_INFINITE_CANVAS_DETAIL_POLICY.fullAbovePx + 1;
+
+/** Raises a minimum size to the floor a summary needs, and leaves a larger one alone. */
+const withSummaryMinimum = (size: WindowSize): WindowSize => ({
+  height: Math.max(size.height, SUMMARY_MINIMUM_SHORT_AXIS),
+  width: Math.max(size.width, SUMMARY_MINIMUM_SHORT_AXIS),
+});
 
 function openContentWindow<Kind extends WindowKind>(
   input: WindowPlacement &
@@ -65,5 +83,5 @@ function openContentWindow<Kind extends WindowKind>(
   }
 }
 
-export { openContentWindow };
+export { openContentWindow, SUMMARY_MINIMUM_SHORT_AXIS, withSummaryMinimum };
 export type { WindowPlacement, WindowSize };

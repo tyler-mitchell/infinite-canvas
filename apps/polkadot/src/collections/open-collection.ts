@@ -1,4 +1,4 @@
-import { openContentWindow, type WindowPlacement } from "../canvas/open-window";
+import { openContentWindow, withSummaryMinimum, type WindowPlacement } from "../canvas/open-window";
 import { loadProjectContent } from "../content/project-content";
 import { content } from "../database/operations";
 import { withNamingLock } from "../naming-lock";
@@ -6,8 +6,8 @@ import { getNextRepeatTitle } from "../titles";
 import { collectionGateway, type CollectionQuestion } from "./collection-gateway";
 
 const COLLECTION_SIZE = { height: 420, width: 300 } as const;
-// This size is greater than the LOD restore threshold.
-const COLLECTION_MINIMUM_SIZE = { height: 220, width: 220 } as const;
+// A collection renders a summary, so its minimum cannot fall below the size detail restores from.
+const COLLECTION_MINIMUM_SIZE = withSummaryMinimum({ height: 220, width: 220 });
 
 const getNextCollectionTitle = (label: string, titles: readonly string[]) =>
   getNextRepeatTitle(label, titles);

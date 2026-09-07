@@ -1,12 +1,12 @@
-import { openContentWindow, type WindowPlacement } from "../canvas/open-window";
+import { openContentWindow, withSummaryMinimum, type WindowPlacement } from "../canvas/open-window";
 import { noteGateway } from "./note-gateway";
 import { loadProjectContent } from "../content/project-content";
 import { withNamingLock } from "../naming-lock";
 import { getNextNumberedTitle } from "../titles";
 
 const NOTE_SIZE = { height: 240, width: 360 } as const;
-// The minimum size stays above the LOD restore threshold.
-const NOTE_MINIMUM_SIZE = { height: 200, width: 240 } as const;
+// A note renders a summary, so its minimum cannot fall below the size detail restores from.
+const NOTE_MINIMUM_SIZE = withSummaryMinimum({ height: 200, width: 240 });
 
 function openNoteWindow(input: WindowPlacement & Readonly<{ noteId: string; title: string }>) {
   openContentWindow({
@@ -38,4 +38,4 @@ async function openNewNote(input: WindowPlacement & Readonly<{ projectId: string
   });
 }
 
-export { openNewNote, openNoteWindow };
+export { NOTE_MINIMUM_SIZE, openNewNote, openNoteWindow };
