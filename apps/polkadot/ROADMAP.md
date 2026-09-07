@@ -127,7 +127,11 @@ A kind at exactly that value changes to summary and does not return.
 
 ## Open
 
-- **`content.list` can report zero connections before relations load.**
+- **RESOLVED. `content.list` reported zero connections before relations loaded.**
+  Closed by `e3a9e62`. `getLoadedRelations` returns null until a query for that project answers,
+  `app-tools.ts` reads it for the report, and `relations-loaded.test.ts` pins the null.
+  The account below is kept because the reasoning decided the shape of the fix.
+
   `relations$` starts as an empty array.
   Thus, "nobody has asked yet" and "there are none" use the same value.
 
@@ -785,6 +789,22 @@ Completed gaps are in `docs/API.md` and the changelog.
 | ----------------------------------------------------------------------- | ------------------------------------------------------------- |
 | One camera action frames a target but cannot continue to follow it      | Sustained following with an explicit release rule             |
 | Durable `selection` retains a scene object after that object disappears | Pruning through the resolver lookup opened by `getTargetRect` |
+
+**On the selection-pruning gap, from reading it on 2026-09-07.**
+`normalizeSelectionWindowIds` filters window IDs against the windows that exist.
+`normalizeSelectionTargets` only removes duplicates, so a target outlives its object.
+
+The lookup already exists. `getInfiniteCanvasSelectionTargetBounds` walks the selected targets
+through every resolver's `getTargetRect` and drops the ones that answer null.
+Pruning is that same walk written as a filter rather than a union.
+
+What is missing is not the lookup but the policy: the reducer does not hold the resolvers, and the
+store registers them from the view. Deciding when a target counts as gone, rather than
+momentarily unregistered, is the part that needs a product case to settle.
+
+Polkadot does not supply that case yet. Its readers filter selected relations against the live
+relation list when they read, so a stale target never reaches the screen. Building the pruning
+now would add a policy with no consumer to prove it right.
 
 **Canvas announcements are implemented.**
 The canvas originally put one `aria-live` region inside the HUD.
