@@ -157,6 +157,25 @@ canvas whose windows are all notes it would say "note" four times.
 
 ## Open
 
+- **RESOLVED. A camera navigation request could delete the camera.**
+  Found on 2026-09-07 by driving the store handle, not by product code. Polkadot calls none of the
+  navigation commands, so the application never reached it.
+
+  Both switches in `camera-navigation.ts` cover every member of their declared union. Neither had a
+  default, so the compiler treated the end of each as unreachable. A caller from outside TypeScript
+  reaches that end and receives `undefined`, and `navigateCamera` guards with `camera === null`,
+  which `undefined` passes. The value entered state as `camera: undefined`, the next render read
+  `state.camera.zoom` in a store selector, and the whole window tree fell to the error boundary.
+
+  The type system hid this. The signature says `| null`, and that was false at runtime.
+
+  Both switches now return `null` for a shape they do not know. Removing either default makes
+  `camera-navigation.test.ts` fail with "expected undefined to be null".
+
+  The lesson generalises past this file: an exhaustive switch with no default is a lie at every
+  boundary the compiler does not own, which here is the store handle, a serialized command, and
+  any consumer written in JavaScript.
+
 - **RESOLVED. `content.list` reported zero connections before relations loaded.**
   Closed by `e3a9e62`. `getLoadedRelations` returns null until a query for that project answers,
   `app-tools.ts` reads it for the report, and `relations-loaded.test.ts` pins the null.
