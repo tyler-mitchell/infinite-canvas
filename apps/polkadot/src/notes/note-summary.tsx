@@ -21,7 +21,24 @@ const noteSummary = tv({
 // Summary text holds this screen size while the canvas around it scales.
 const SUMMARY_SCREEN_PX = 11;
 const SUMMARY_LINE_HEIGHT = Math.round(SUMMARY_SCREEN_PX * 1.4);
-const SUMMARY_PADDING = 10;
+/*
+ * Padding follows the card rather than holding one size.
+ *
+ * A fixed 10px inset is a tenth of a full card and a third of a small one, so the further out the
+ * canvas went the more of each card was margin. It scales with the shorter side and stops at 3px,
+ * below which the text touches the hairline.
+ */
+const SUMMARY_PADDING_RATIO = 0.07;
+const SUMMARY_PADDING_RANGE = { max: 10, min: 3 } as const;
+
+const getSummaryPadding = (screenSize: Readonly<{ height: number; width: number }>) =>
+  Math.max(
+    SUMMARY_PADDING_RANGE.min,
+    Math.min(
+      SUMMARY_PADDING_RANGE.max,
+      Math.min(screenSize.height, screenSize.width) * SUMMARY_PADDING_RATIO,
+    ),
+  );
 // Pretext needs the canvas font shorthand. It has to name the same face as `--font-sans`.
 const SUMMARY_FONT = `${String(SUMMARY_SCREEN_PX)}px "Geist Variable"`;
 
@@ -76,13 +93,15 @@ export function NoteSummary({
    * Screen space, because the font is a fixed number there and the card is not. The title takes
    * one line, and the padding is a screen distance too, so it does not grow as the canvas scales.
    */
+  const screenSize = { height: bodySize.height * zoom, width: bodySize.width * zoom };
+  const padding = getSummaryPadding(screenSize);
   const lines =
     prepared === null || !fontsReady
       ? []
       : getClampedLines({
           lineHeight: SUMMARY_LINE_HEIGHT,
-          maxHeight: bodySize.height * zoom - SUMMARY_PADDING * 2 - SUMMARY_LINE_HEIGHT,
-          maxWidth: bodySize.width * zoom - SUMMARY_PADDING * 2,
+          maxHeight: screenSize.height - padding * 2 - SUMMARY_LINE_HEIGHT,
+          maxWidth: screenSize.width - padding * 2,
           prepared,
         });
 
@@ -92,7 +111,7 @@ export function NoteSummary({
       style={{
         fontSize: SUMMARY_SCREEN_PX / zoom,
         gap: (SUMMARY_LINE_HEIGHT - SUMMARY_SCREEN_PX) / zoom,
-        padding: SUMMARY_PADDING / zoom,
+        padding: padding / zoom,
       }}
     >
       <span className={styles.title()}>{title}</span>

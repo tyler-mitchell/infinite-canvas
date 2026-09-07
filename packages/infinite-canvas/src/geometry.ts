@@ -238,14 +238,43 @@ function snapScreenValueToDevicePixel(value: number, devicePixelRatio: number) {
   return Math.round(value * ratio) / ratio;
 }
 
+/*
+ * Both edges land on the device pixel grid, not only the origin.
+ *
+ * Snapping the origin alone leaves the far edge wherever a fractional extent puts it, so a window
+ * whose height is 240.42 draws a crisp top border and a blurred bottom one. A resize produces such
+ * a height, and a hairline is the only thing separating a surface from the canvas.
+ *
+ * The far edge is snapped and the extent derived from it, rather than the extent snapped on its
+ * own, so rounding cannot push the two edges apart.
+ */
 function snapScreenTransformToDevicePixels(
   transform: InfiniteCanvasScreenTransform,
   devicePixelRatio: number,
 ) {
+  const x = snapScreenValueToDevicePixel(transform.x, devicePixelRatio);
+  const y = snapScreenValueToDevicePixel(transform.y, devicePixelRatio);
+
+  if (transform.scale <= 0) {
+    return { ...transform, x, y };
+  }
+
+  const right = snapScreenValueToDevicePixel(
+    transform.x + transform.width * transform.scale,
+    devicePixelRatio,
+  );
+  const bottom = snapScreenValueToDevicePixel(
+    transform.y + transform.height * transform.scale,
+    devicePixelRatio,
+  );
+
   return {
     ...transform,
-    x: snapScreenValueToDevicePixel(transform.x, devicePixelRatio),
-    y: snapScreenValueToDevicePixel(transform.y, devicePixelRatio),
+    // The extent stays in world units, because the frame is sized in them and scaled.
+    height: (bottom - y) / transform.scale,
+    width: (right - x) / transform.scale,
+    x,
+    y,
   };
 }
 

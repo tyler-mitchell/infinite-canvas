@@ -135,18 +135,27 @@ test("body projection can snap frame and body transforms to the device pixel gri
     2,
   );
 
-  expect(projection.frameScreenTransform).toMatchObject({
-    height: 220,
-    scale: 0.65,
-    width: 320,
-    x: 350.5,
-    y: 229.5,
-  });
-  expect(projection.bodyScreenTransform).toMatchObject({
-    height: 178,
-    scale: 0.65,
-    width: 316,
-    x: 351.5,
-    y: 255.5,
-  });
+  /*
+   * Every edge lands on the grid, not only the origin. Snapping the origin alone left the far edge
+   * wherever a fractional extent put it, which drew a crisp top border and a blurred bottom one.
+   */
+  const onDevicePixelGrid = (value: number) => Math.abs(value * 2 - Math.round(value * 2)) < 1e-9;
+
+  for (const transform of [projection.frameScreenTransform, projection.bodyScreenTransform]) {
+    expect(onDevicePixelGrid(transform.x)).toBe(true);
+    expect(onDevicePixelGrid(transform.y)).toBe(true);
+    expect(onDevicePixelGrid(transform.x + transform.width * transform.scale)).toBe(true);
+    expect(onDevicePixelGrid(transform.y + transform.height * transform.scale)).toBe(true);
+  }
+
+  expect(projection.frameScreenTransform).toMatchObject({ scale: 0.65, x: 350.5, y: 229.5 });
+  expect(projection.bodyScreenTransform).toMatchObject({ scale: 0.65, x: 351.5, y: 255.5 });
+});
+
+test("the grid check rejects a far edge left on a fraction, which is what used to ship", () => {
+  const onDevicePixelGrid = (value: number) => Math.abs(value * 2 - Math.round(value * 2)) < 1e-9;
+
+  // The body is where it showed: an unsnapped height of 178 put the bottom edge at 371.2.
+  expect(onDevicePixelGrid(255.5 + 178 * 0.65)).toBe(false);
+  expect(onDevicePixelGrid(255.5 + 178.46153846153845 * 0.65)).toBe(true);
 });
