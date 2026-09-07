@@ -44,6 +44,37 @@ test("every design token the stylesheet uses is also defined there", () => {
   expect([...new Set(dangling)]).toEqual([]);
 });
 
+/*
+ * The ground is black and stays black.
+ *
+ * It was raised three times in one day before it settled here, and each step read as reasonable on
+ * its own. What kept it honest was measuring the result over black rather than trusting the
+ * percentage: the grain composited to a mean of rgb(8.4) at one point, which is fog, not texture.
+ * These bounds fail a change that lifts it again by increments nobody sees individually.
+ */
+const valueOf = (token: string) => new RegExp(`${token}\\s*:\\s*([^;]+);`).exec(styles)?.[1] ?? "";
+
+const alphaOf = (token: string) => {
+  const percent = /(\d+(?:\.\d+)?)%/.exec(valueOf(token));
+
+  return percent === null ? Number.NaN : Number(percent[1]);
+};
+
+test("the ground stays at the floor, so no increment quietly lifts it", () => {
+  const grain = /opacity='(\d*\.?\d+)'/.exec(valueOf("--ground-grain"));
+
+  expect(grain).not.toBeNull();
+  expect(Number(grain?.[1])).toBeLessThanOrEqual(0.01);
+  // Both grid rules stay below a tenth of the hairline that bounds a real surface.
+  expect(alphaOf("--icx-grid-major")).toBeLessThanOrEqual(6);
+  expect(alphaOf("--icx-grid-minor")).toBeLessThanOrEqual(3);
+});
+
+test("nothing paints a light source on the ground", () => {
+  // The spotlight was removed for reading as a generic glow. A gradient here would be its return.
+  expect(/\[data-slot="viewport"\]::before[^}]*gradient/.test(styles)).toBe(false);
+});
+
 test("the scan reads both spellings and ignores framework tokens", () => {
   expect([..."fill-[var(--edge-light)]".matchAll(USED_TOKEN)].map((m) => m[1])).toEqual([
     "--edge-light",

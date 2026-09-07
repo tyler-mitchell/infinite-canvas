@@ -59,9 +59,18 @@ Review enforces these rules:
   A note body is writing, and a fixed pitch slows reading, so content keeps `--font-sans`.
 - **Use springs for spatial motion.** Do not use linear ramps or CSS transitions for that motion.
   Use `--ease-settle` and `--ease-swift` so individual sites do not define the easing again.
-- **Keep the ground responsive.** The dot field responds to the pointer, and windows displace it.
-  The current application does not meet this rule.
-  See the open field item.
+- **Keep the ground still.** This rule replaced "keep the ground responsive" on 2026-09-07.
+
+  The owner declined the responsive field a third time, and this time for a reason that closes it:
+  it is too slow to justify further work. A ground that answers the pointer is no longer the bar.
+
+  What the ground is instead: flat black, one tile of fine static noise, and two rules of grid
+  lines. Measured over black, the noise averages rgb(0.89) and the lines reach rgb(2) and rgb(1).
+  Nothing on the ground moves or repaints except the grid, which shifts with the camera.
+
+  A spotlight was tried on the same day and removed. It read as a generic product-page glow, and it
+  sat centre-top because that is where such gradients go, not because anything there needed light.
+
 - **Define every class through a `tv` slot.** Do not put Tailwind strings in JSX.
   Global CSS contains only tokens, resets, and imports.
   Every global rule is inside a layer, except `:root`.
@@ -389,16 +398,21 @@ A kind at exactly that value changes to summary and does not return.
   These measurements came from the development browser pane instead of the real display.
   The field also belongs in the future scene compositor instead of the backdrop slot.
 
-  Remounting is an owner decision and does not represent a defect.
-  The code runs.
-  The implementation corrected a shader import error, and a real browser built the pipeline.
+  **The owner declined it a third time on 2026-09-07, and this closes the item.**
+  The stated reason is that it is too slow to justify further work on it.
+  Do not remount it, and do not resume the two incomplete behaviors below.
 
-  Two field behaviors remain incomplete.
-  Lattice spacing stays in screen space, while only phase follows the camera.
-  As a result, zoom does not make the ground finer or express canvas scale.
+  The two behaviors that stayed incomplete, recorded so the next reader knows what stopped:
+  lattice spacing stayed in screen space while only phase followed the camera, so zoom never made
+  the ground finer; and a dragged window needed a stronger pull than a stationary one, for which
+  rectangle velocity existed with no consumer.
 
-  A dragged window also needs stronger pull than a stationary window.
-  Rectangle velocity already exists but has no consumer.
+  `canvas/field.tsx` and `canvas/field-shader.ts` are still in the tree and still unreferenced.
+  Deleting them is available and is the owner's call, not an agent's.
+  Nothing imports them, so they cost nothing but the reading.
+
+  This is also the only GPU work in the application. With the field declined, `unplugin-typegpu`
+  in `vite.config.ts` compiles a shader that nothing mounts.
 
 - **The mention typeahead produced one unexplained empty result.**
   On 2026-08-28, it said "No note by that name" while three "Untitled" notes were open.
