@@ -14,6 +14,11 @@ type InfiniteCanvasWindowConnectorOptions = Readonly<{
 
 type InfiniteCanvasWindowConnectorRoute = "orthogonal" | "straight";
 
+type InfiniteCanvasPathDataOptions = Readonly<{
+  /** In the same unit as the points. Zero, the default, keeps corners sharp. */
+  cornerRadius?: number;
+}>;
+
 type InfiniteCanvasWindowConnectorPathOptions = InfiniteCanvasWindowConnectorOptions &
   Readonly<{
     route?: InfiniteCanvasWindowConnectorRoute;
@@ -378,6 +383,71 @@ function getInfiniteCanvasWorldPathPointAtProgress(
   return located.point ?? fallback;
 }
 
+function movePointToward(
+  from: InfiniteCanvasPoint,
+  to: InfiniteCanvasPoint,
+  distance: number,
+): InfiniteCanvasPoint {
+  const length = Math.hypot(to.x - from.x, to.y - from.y);
+  const ratio = length === 0 ? 0 : Math.min(distance / length, 1);
+
+  return {
+    x: from.x + (to.x - from.x) * ratio,
+    y: from.y + (to.y - from.y) * ratio,
+  };
+}
+
+const formatPathCoordinate = (value: number) => String(Math.round(value * 100) / 100);
+
+const formatPathPoint = (point: InfiniteCanvasPoint) =>
+  `${formatPathCoordinate(point.x)} ${formatPathCoordinate(point.y)}`;
+
+/**
+ * An SVG path through the points, with corners rounded by `cornerRadius`.
+ *
+ * A polyline can only draw sharp corners, so an orthogonal route arrives as right angles. The
+ * points are unitless: a consumer that converts to screen space first gets a corner that stays the
+ * same size at any zoom, which is the reason this takes points rather than a world path.
+ *
+ * Each corner is one quadratic curve whose control point is the corner itself. The reach shrinks to
+ * half of the shorter adjacent segment, so a short segment bends instead of overshooting its
+ * neighbour.
+ */
+function getInfiniteCanvasPathData(
+  points: readonly InfiniteCanvasPoint[],
+  options: InfiniteCanvasPathDataOptions = {},
+): string {
+  const path = compactWorldPathPoints(points);
+  const start = path[0];
+  const cornerRadius = options.cornerRadius ?? 0;
+
+  if (start === undefined) {
+    return "";
+  }
+
+  return path.slice(1).reduce(
+    (data, point, index) => {
+      const previous = path[index];
+      const next = path[index + 2];
+
+      if (previous === undefined || next === undefined || cornerRadius <= 0) {
+        return `${data} L ${formatPathPoint(point)}`;
+      }
+
+      const reach = Math.min(
+        cornerRadius,
+        Math.hypot(point.x - previous.x, point.y - previous.y) / 2,
+        Math.hypot(next.x - point.x, next.y - point.y) / 2,
+      );
+
+      return `${data} L ${formatPathPoint(movePointToward(point, previous, reach))} Q ${formatPathPoint(
+        point,
+      )} ${formatPathPoint(movePointToward(point, next, reach))}`;
+    },
+    `M ${formatPathPoint(start)}`,
+  );
+}
+
 function getInfiniteCanvasWindowConnectorSegment<Kind extends string>(
   from: InfiniteCanvasWindowProxy<Kind>,
   to: InfiniteCanvasWindowProxy<Kind>,
@@ -497,6 +567,7 @@ function getVisibleInfiniteCanvasWindowProxies<Kind extends string>(
 export {
   getInfiniteCanvasLongestUnoccludedRun,
   getInfiniteCanvasLongestUnoccludedSegment,
+  getInfiniteCanvasPathData,
   getInfiniteCanvasRectConnectorPath,
   getInfiniteCanvasRectConnectorPoint,
   getInfiniteCanvasRectConnectorSegment,
@@ -517,6 +588,7 @@ export {
 };
 
 export type {
+  InfiniteCanvasPathDataOptions,
   InfiniteCanvasSceneLayerCullingSpace,
   InfiniteCanvasSceneSegmentTransform,
   InfiniteCanvasWindowConnectorOptions,

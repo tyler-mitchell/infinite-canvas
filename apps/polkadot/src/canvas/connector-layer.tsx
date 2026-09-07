@@ -1,8 +1,10 @@
 import {
+  getInfiniteCanvasPathData,
   isSelectionTargetSelected,
   useInfiniteCanvasState,
   worldPointToScreenPoint,
   type InfiniteCanvasPoint,
+  type InfiniteCanvasState,
 } from "@hyphened/infinite-canvas";
 import { useValue } from "@legendapp/state/react";
 import { tv } from "ui/tv";
@@ -35,8 +37,23 @@ const connectors = tv({
 const LABEL_BASE_PX = 11;
 const LABEL_MIN_PX = 8;
 
-const toPoints = (points: readonly InfiniteCanvasPoint[]) =>
-  points.map((point) => `${String(point.x)},${String(point.y)}`).join(" ");
+/**
+ * Screen pixels, so one corner reads the same at every zoom.
+ *
+ * The route is orthogonal, which draws as right angles. A right angle reads as a wire diagram; the
+ * same turn with a radius reads as a drawn line, and that difference is most of the character of a
+ * connector.
+ */
+const CORNER_RADIUS_PX = 10;
+
+const toPathData = (
+  points: readonly InfiniteCanvasPoint[],
+  state: InfiniteCanvasState<WindowKind>,
+) =>
+  getInfiniteCanvasPathData(
+    points.map((point) => worldPointToScreenPoint(state.camera, state.viewport, point)),
+    { cornerRadius: CORNER_RADIUS_PX },
+  );
 
 export function ConnectorLayer() {
   const state = useInfiniteCanvasState<WindowKind>();
@@ -54,11 +71,6 @@ export function ConnectorLayer() {
           type: "edge",
         });
         const styles = connectors({ selected });
-        const points = toPoints(
-          connector.points.map((point) =>
-            worldPointToScreenPoint(state.camera, state.viewport, point),
-          ),
-        );
         const label = getRelationLabel(connector.relation);
         const anchor =
           connector.anchor === null
@@ -67,10 +79,10 @@ export function ConnectorLayer() {
 
         return (
           <g key={`${connector.relation.id}:${String(index)}`}>
-            <polyline
+            <path
               className={styles.path()}
+              d={toPathData(connector.points, state)}
               data-relation-id={connector.relation.id}
-              points={points}
             />
             {label === undefined && anchor !== null ? (
               <circle
@@ -98,17 +110,14 @@ export function ConnectorLayer() {
         );
       })}
       {stubs.map((stub, index) => {
-        const points = toPoints(
-          stub.points.map((point) => worldPointToScreenPoint(state.camera, state.viewport, point)),
-        );
         const anchor = worldPointToScreenPoint(state.camera, state.viewport, stub.endpoint);
 
         return (
           <g key={`${stub.itemId}:hidden:${String(index)}`}>
-            <polyline
+            <path
               className={connectors().stub()}
+              d={toPathData(stub.points, state)}
               data-hidden-stub={stub.itemId}
-              points={points}
             />
             {isLabelLegible ? (
               <text

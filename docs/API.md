@@ -1,6 +1,6 @@
 # API reference
 
-The public surface of `@hyphened/infinite-canvas`: 232 values and 190 types across two entries.
+The public surface of `@hyphened/infinite-canvas`: 233 values and 191 types across two entries.
 Anything absent from these barrels is internal and unstable.
 This rule includes each `data-infinite-canvas-*` attribute, which supports hit tests instead of styles.
 
@@ -603,6 +603,12 @@ It changes the window only after the pointer enters another window.
 `getInfiniteCanvasConnectionPreviewPath` accepts a point or rectangle as the far endpoint.
 Both inputs use the same route logic.
 
+`getInfiniteCanvasPathData` turns points into an SVG path and rounds the corners by `cornerRadius`.
+A polyline can only draw sharp corners, so an orthogonal route arrives as right angles.
+The points carry no unit: convert them to screen points first to keep one corner size at every zoom.
+The reach shrinks to half of the shorter neighbouring segment, so a short segment bends and does not
+overshoot.
+
 ## Scene layer helpers
 
 These helpers provide window proxies, connector routes, scene transforms, and frustum visibility for `sceneLayers`.
@@ -611,6 +617,7 @@ These helpers provide window proxies, connector routes, scene transforms, and fr
 
 - `getInfiniteCanvasLongestUnoccludedRun`
 - `getInfiniteCanvasLongestUnoccludedSegment`
+- `getInfiniteCanvasPathData`
 - `getInfiniteCanvasRectConnectorPath`
 - `getInfiniteCanvasRectConnectorPoint`
 - `getInfiniteCanvasRectConnectorSegment`
@@ -629,8 +636,9 @@ These helpers provide window proxies, connector routes, scene transforms, and fr
 - `getInfiniteCanvasWorldSegmentSceneTransform`
 - `getVisibleInfiniteCanvasWindowProxies`
 
-<details><summary>types (6)</summary>
+<details><summary>types (7)</summary>
 
+- `InfiniteCanvasPathDataOptions`
 - `InfiniteCanvasSceneSegmentTransform`
 - `InfiniteCanvasWindowConnectorOptions`
 - `InfiniteCanvasWindowConnectorPathOptions`
