@@ -160,6 +160,23 @@ test("an empty selection is not a target", () => {
   expect(isCameraNavigationAvailable(empty, { target: { type: "selection" } })).toBe(false);
 });
 
+test("a request from outside TypeScript leaves the camera alone", () => {
+  const current = state();
+  // A caller through the store handle or a serialized command carries no compile-time check.
+  const unknown = {
+    behavior: { type: "instant" },
+    target: { type: "rect", rect: current.windows[0]!.rect },
+  } as unknown as Parameters<typeof navigateCamera<Kind>>[1];
+
+  expect(getCameraNavigationFrame(current, current.windows[0]!.rect, unknown.behavior)).toBeNull();
+  expect(navigateCamera(current, unknown)).toBe(current);
+  expect(
+    getCameraNavigationTargetRect(current, { type: "elsewhere" } as unknown as Parameters<
+      typeof getCameraNavigationTargetRect<Kind>
+    >[1]),
+  ).toBeNull();
+});
+
 test("the frame helper is the pure half, usable without producing a state", () => {
   const current = state();
   const rect = getCameraNavigationTargetRect(current, { type: "window", windowId: "b" })!;

@@ -40,13 +40,21 @@ function getNavigableWindow<Kind extends string>(
   );
 }
 
-/** Optional bounds for selected targets that are not windows. */
+/*
+ * Optional bounds for selected targets that are not windows.
+ *
+ * The default keeps the declared `| null` true at runtime. This switch covers every declared
+ * target, so the compiler treats the end as unreachable and a caller outside TypeScript gets
+ * `undefined` instead. That value passes a `=== null` guard.
+ */
 function getCameraNavigationTargetRect<Kind extends string>(
   state: InfiniteCanvasState<Kind>,
   target: InfiniteCanvasCameraNavigationTarget,
   selectionBounds?: InfiniteCanvasRect | null,
 ): InfiniteCanvasRect | null {
   switch (target.type) {
+    default:
+      return null;
     case "point":
       return {
         height: 1,
@@ -97,7 +105,10 @@ function getCameraNavigationFrame(
   // Center in the visible region with inset offsets at the target zoom.
   const center = getRectCenter(rect);
 
+  // The default carries the same runtime guarantee as the target switch above.
   switch (behavior.type) {
+    default:
+      return null;
     case "center":
       return {
         ...state.camera,
