@@ -150,9 +150,19 @@ function getDrawnConnectors(
 
 const HIDDEN_STUB_LENGTH = 56;
 
+/**
+ * A stub per item whose connections lead somewhere the canvas is not showing.
+ *
+ * `openableItemIds` is what the project still holds. Archiving an item keeps its relations so a
+ * restore brings them back, which means an archived neighbour is still a relation with no rect —
+ * indistinguishable here from one that is merely closed. Counting it promised a connection that
+ * nothing on the canvas could reach: archive one of three neighbours and the remaining pair kept a
+ * stub reading "1", pointing at an item no longer in the library.
+ */
 function getHiddenConnectorStubs(
   state: InfiniteCanvasState<WindowKind>,
   relations: readonly ContentRelation[],
+  openableItemIds: ReadonlySet<string>,
 ) {
   const rectsByItem = getConnectorRectsByItem(state);
 
@@ -162,7 +172,9 @@ function getHiddenConnectorStubs(
         .filter((relation) => relation.source === itemId || relation.target === itemId)
         .map((relation) => (relation.source === itemId ? relation.target : relation.source)),
     );
-    const hiddenCount = [...neighbourIds].filter((id) => !rectsByItem.has(id)).length;
+    const hiddenCount = [...neighbourIds].filter(
+      (id) => !rectsByItem.has(id) && openableItemIds.has(id),
+    ).length;
 
     return hiddenCount === 0
       ? []

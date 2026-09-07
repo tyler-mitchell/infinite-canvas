@@ -9,6 +9,7 @@ import {
 import { useValue } from "@legendapp/state/react";
 import { tv } from "ui/tv";
 
+import { projectContent$ } from "../content/project-content";
 import { getRelationLabel, relations$ } from "../relations/relation-store";
 import { getDrawnConnectors, getHiddenConnectorStubs } from "./connector-geometry";
 import type { WindowKind } from "./window-registry";
@@ -65,8 +66,14 @@ const toPathData = (
 export function ConnectorLayer() {
   const state = useInfiniteCanvasState<WindowKind>();
   const relations = useValue(relations$);
+  const listing = useValue(projectContent$);
   const drawn = getDrawnConnectors(state, relations);
-  const stubs = getHiddenConnectorStubs(state, relations);
+  // What the project still holds, so a stub does not count a neighbour that was archived away.
+  const stubs = getHiddenConnectorStubs(
+    state,
+    relations,
+    new Set((listing?.items ?? []).map((item) => item.id)),
+  );
   const labelSize = LABEL_BASE_PX * state.camera.zoom;
   const isLabelLegible = labelSize >= LABEL_MIN_PX;
 

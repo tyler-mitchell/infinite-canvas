@@ -254,11 +254,13 @@ test("a marker never lands inside a window, and is null when there is nowhere le
   }
 });
 
+const LISTED = new Set(["content_item:a", "content_item:gone"]);
+
 test("a connection whose other end is closed becomes a stub, and stops being one when it opens", () => {
   const open = contentWindow({ id: "wa", itemId: "content_item:a", rect: A });
   const relations = [relation("content_item:a", "content_item:gone")];
 
-  const stubs = getHiddenConnectorStubs(canvas([open]), relations);
+  const stubs = getHiddenConnectorStubs(canvas([open]), relations, LISTED);
 
   expect(stubs).toHaveLength(1);
   expect(stubs[0]?.count).toBe(1);
@@ -269,7 +271,7 @@ test("a connection whose other end is closed becomes a stub, and stops being one
     contentWindow({ id: "wg", itemId: "content_item:gone", rect: B }),
   ]);
 
-  expect(getHiddenConnectorStubs(bothOpen, relations)).toEqual([]);
+  expect(getHiddenConnectorStubs(bothOpen, relations, LISTED)).toEqual([]);
 });
 
 test("a stub counts the far notes, not the edges reaching them", () => {
@@ -279,7 +281,24 @@ test("a stub counts the far notes, not the edges reaching them", () => {
       relation("content_item:a", "content_item:gone", "relates_to:one"),
       relation("content_item:gone", "content_item:a", "relates_to:two"),
     ],
+    LISTED,
   );
 
   expect(stubs[0]?.count).toBe(1);
+});
+
+test("an archived neighbour is not a hidden connection, because nothing can open it", () => {
+  /*
+   * The defect this closes, seen in the app: archiving one of three connected notes left the
+   * others carrying a stub reading "1". Archiving keeps relations so a restore can bring them
+   * back, so the edge survives with no rect — the same shape as a note that is merely closed.
+   * The stub offers to reveal something, and an archived note is not there to reveal.
+   */
+  const stubs = getHiddenConnectorStubs(
+    canvas([contentWindow({ id: "wa", itemId: "content_item:a", rect: A })]),
+    [relation("content_item:a", "content_item:archived")],
+    new Set(["content_item:a"]),
+  );
+
+  expect(stubs).toEqual([]);
 });
