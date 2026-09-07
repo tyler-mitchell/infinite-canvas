@@ -1,6 +1,6 @@
 # API reference
 
-The public surface of `@hyphened/infinite-canvas`: 234 values and 192 types across two entries.
+The public surface of `@hyphened/infinite-canvas`: 235 values and 192 types across two entries.
 Anything absent from these barrels is internal and unstable.
 This rule includes each `data-infinite-canvas-*` attribute, which supports hit tests instead of styles.
 
@@ -789,6 +789,12 @@ A drag adds one entry from its start state.
 - `canUndoInfiniteCanvas`, `canRedoInfiniteCanvas`: Report whether the commands are available.
 - `undoInfiniteCanvasHistory`, `redoInfiniteCanvasHistory`
 - `getInfiniteCanvasDocument`: Returns the document state that enters history.
+- `getInfiniteCanvasDocumentChangeRect`: Returns the world region that differs between two
+  documents, or `null` when nothing placed moved. Undo on a canvas can revert something off screen,
+  so a person sees no movement and presses undo again; pair this with `navigateToRect` to answer
+  "where". A moved item contributes both rectangles, so the frame covers where it left and where it
+  arrived. An item only one document holds contributes its one rectangle. An unchanged item
+  contributes nothing, which is what stops every undo framing the whole canvas.
 - `EMPTY_INFINITE_CANVAS_HISTORY`, `INFINITE_CANVAS_HISTORY_LIMIT`
 
 <details><summary>types (2)</summary>

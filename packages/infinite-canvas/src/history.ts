@@ -1,8 +1,10 @@
+import { unionRects } from "./geometry";
 import { normalizeSelection } from "./selection";
 import type {
   InfiniteCanvasAction,
   InfiniteCanvasDocument,
   InfiniteCanvasHistory,
+  InfiniteCanvasRect,
   InfiniteCanvasState,
 } from "./types";
 
@@ -82,6 +84,60 @@ function applyInfiniteCanvasDocument<Kind extends string>(
       : (selection.anchorWindowId ?? null),
     selection,
   };
+}
+
+/** Every placed thing a document holds, keyed so two documents can be compared by id. */
+function getDocumentRects<Kind extends string>(
+  document: InfiniteCanvasDocument<Kind>,
+): ReadonlyMap<string, InfiniteCanvasRect> {
+  return new Map([
+    ...document.windows.map((window) => [window.id, window.rect] as const),
+    ...document.groups.map((group) => [group.id, group.rect] as const),
+  ]);
+}
+
+/**
+ * The world region that differs between two documents, or null when nothing placed moved.
+ *
+ * Undo on a canvas has a failure a linear editor does not: the reverted change can be off screen,
+ * so a person presses undo, sees nothing move, and presses it again. Answering "where" needs the
+ * changed region, and this derives it rather than storing it.
+ *
+ * Deriving beats recording. A rectangle attached to each history entry would have to be set by
+ * every command that edits the document, and the one command that forgets produces an undo that
+ * silently navigates nowhere. Both documents are already in hand at the moment of the question.
+ *
+ * A moved thing contributes both rectangles, so the frame covers where it left as well as where it
+ * arrived. Something added or removed contributes the one rectangle it has.
+ */
+function getInfiniteCanvasDocumentChangeRect<Kind extends string>(
+  before: InfiniteCanvasDocument<Kind>,
+  after: InfiniteCanvasDocument<Kind>,
+): InfiniteCanvasRect | null {
+  const from = getDocumentRects(before);
+  const to = getDocumentRects(after);
+
+  return unionRects(
+    [...new Set([...from.keys(), ...to.keys()])].flatMap((id) => {
+      const left = from.get(id);
+      const right = to.get(id);
+
+      if (left === undefined || right === undefined) {
+        return left === undefined ? (right === undefined ? [] : [right]) : [left];
+      }
+
+      return isSameRect(left, right) ? [] : [left, right];
+    }),
+  );
+}
+
+function isSameRect(left: InfiniteCanvasRect, right: InfiniteCanvasRect): boolean {
+  return (
+    left.x === right.x &&
+    left.y === right.y &&
+    left.width === right.width &&
+    left.height === right.height
+  );
 }
 
 function undoInfiniteCanvasHistory<Kind extends string>(
@@ -170,6 +226,7 @@ export {
   canRedoInfiniteCanvas,
   canUndoInfiniteCanvas,
   getInfiniteCanvasDocument,
+  getInfiniteCanvasDocumentChangeRect,
   isInfiniteCanvasHistoryCheckpoint,
   isSameInfiniteCanvasDocument,
   pushInfiniteCanvasHistory,

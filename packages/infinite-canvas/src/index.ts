@@ -76,6 +76,7 @@ export {
   canRedoInfiniteCanvas,
   canUndoInfiniteCanvas,
   getInfiniteCanvasDocument,
+  getInfiniteCanvasDocumentChangeRect,
   redoInfiniteCanvasHistory,
   undoInfiniteCanvasHistory,
 } from "./history";
