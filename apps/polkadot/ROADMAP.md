@@ -125,6 +125,21 @@ A kind at exactly that value changes to summary and does not return.
 `note` and `collection` use 200 and 220.
 `link` and `image` have no summary, so this detail lane has no effect on them.
 
+**Where the summary stops working, measured on 2026-09-07.**
+A summary card holds a title and as many wrapped body lines as fit, and its padding follows the
+card rather than holding one size. Measured live, padding is a steady 14% of the short side from
+zoom 0.5 down to 0.25, against 20% rising to 69% when it was a fixed ten pixels.
+
+Below roughly 30 screen pixels on the short side the card cannot carry text at all. At zoom 0.15
+the short side measures 29px, which leaves one line, and the title renders as three characters and
+an ellipsis. No layout recovers that, and measuring it more precisely only states the loss more
+exactly.
+
+An icon is the successor mechanism at that size, not a refinement of the summary. Per-document
+icons do not exist yet, and the kind glyph the library rail already draws would not help on a
+canvas whose windows are all notes: it would say "note" four times. Choosing what a document icon
+represents is the owner's call.
+
 ## Open
 
 - **RESOLVED. `content.list` reported zero connections before relations loaded.**
