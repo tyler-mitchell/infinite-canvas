@@ -52,13 +52,13 @@
    * repaint it. Any stronger and it becomes a gradient somebody notices.
    */
   --ground-light: radial-gradient(
-    120% 90% at 50% 18%,
-    oklch(1 0 0 / 0.028) 0%,
-    oklch(1 0 0 / 0.012) 38%,
-    transparent 72%
+    110% 80% at 50% 16%,
+    oklch(1 0 0 / 0.016) 0%,
+    oklch(1 0 0 / 0.006) 34%,
+    transparent 66%
   );
   /* Fine static noise, tiled. It breaks the banding the light would otherwise show. */
-  --ground-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23n)' opacity='0.045'/%3E%3C/svg%3E");
+  --ground-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23n)' opacity='0.018'/%3E%3C/svg%3E");
 
   /* All ink tokens use a warm hue against the cool ground. */
   --ink: oklch(0.96 0.008 85);
@@ -185,14 +185,15 @@
   [data-slot="viewport"] {
     --icx-background: transparent;
     /*
-     * The ground keeps one sparse rule of lines, in the palette's own neutral.
+     * Two rules of lines, both far below the hairline that bounds a surface.
      *
-     * The framework default is a blue-grey the rest of this palette does not use, drawn as two
-     * grids at once. Dropping the minor grid halves the gradient layers the camera repaints and
-     * leaves a reference you read rather than look at.
+     * The framework default is a blue-grey the rest of this palette does not use, and at full
+     * strength it competes with the windows. These sit near the floor of what a display can show:
+     * enough to feel the space move under a pan, not enough to look at. The minor rule stays so
+     * the ground still subdivides between the major lines.
      */
-    --icx-grid-major: color-mix(in oklab, var(--line) 60%, transparent);
-    --icx-grid-minor: transparent;
+    --icx-grid-major: color-mix(in oklab, var(--line) 10%, transparent);
+    --icx-grid-minor: color-mix(in oklab, var(--line) 4%, transparent);
     /* Grain is the first background layer for all window surfaces. */
     --icx-body-background: var(--grain), var(--surface);
     --icx-header-idle: var(--grain), var(--surface);

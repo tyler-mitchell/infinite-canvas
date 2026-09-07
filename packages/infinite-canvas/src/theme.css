@@ -163,6 +163,18 @@
     box-shadow: var(--icx-host-surface-shadow);
   }
 
+  /*
+   * Text the pointer can actually select says so.
+   *
+   * Only on the active window: a click on an inactive one focuses it rather than placing a caret,
+   * so an I-beam there would promise an edit the click does not make. The body carries this alone,
+   * never the frame or the header.
+   */
+  [data-slot="window"][data-active]
+    [data-slot="window-body"][data-infinite-canvas-native-text-selection] {
+    cursor: text;
+  }
+
   [data-slot="window-header"] {
     background: var(--icx-header-idle);
     border-bottom-style: solid;
