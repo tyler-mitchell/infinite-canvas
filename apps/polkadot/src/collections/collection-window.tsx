@@ -23,6 +23,7 @@ import {
   setCollectionQuestion,
 } from "./collection-store";
 import { openItemWindow } from "../canvas/open-item";
+import { getNoteOpeningLine } from "../notes/note-text";
 import { getListableKind, LISTABLE_KINDS } from "./listable-kinds";
 
 const collectionWindow = tv({
@@ -39,9 +40,11 @@ const collectionWindow = tv({
      * reads as a thing holding things. A flush row separated only by hover has no edge until the
      * pointer finds it, which leaves the window looking like one flat rectangle.
      */
-    row: "flex w-full items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--line)] bg-[var(--surface-raised)] px-2.5 py-2 text-left text-[12.5px] text-[var(--ink-muted)] transition-colors duration-100 ease-[var(--ease-swift)] hover:border-[var(--line-strong)] hover:bg-[var(--surface-hover)] hover:text-[var(--ink)] focus-visible:border-[var(--accent)] focus-visible:outline-none",
-    rowIcon: "size-3.5 shrink-0 text-[var(--ink-faint)]",
-    rowTitle: "min-w-0 flex-1 truncate",
+    row: "flex w-full items-start gap-2 rounded-[var(--radius-sm)] border border-[var(--line)] bg-[var(--surface-raised)] px-2.5 py-2 text-left text-[12.5px] text-[var(--ink-muted)] transition-colors duration-100 ease-[var(--ease-swift)] hover:border-[var(--line-strong)] hover:bg-[var(--surface-hover)] hover:text-[var(--ink)] focus-visible:border-[var(--accent)] focus-visible:outline-none",
+    rowIcon: "mt-px size-3.5 shrink-0 text-[var(--ink-faint)]",
+    rowLine: "truncate text-[11px] text-[var(--ink-faint)]",
+    rowText: "flex min-w-0 flex-1 flex-col gap-0.5",
+    rowTitle: "truncate",
     rows: "flex flex-1 flex-col gap-1.5 px-2 pb-2",
     staticLabel:
       "flex items-center gap-1 px-1.5 py-0.5 text-[11px] font-medium tracking-[-0.005em] text-[var(--ink)]",
@@ -51,6 +54,26 @@ const collectionWindow = tv({
     triggerIcon: "size-3 text-[var(--ink-faint)]",
   },
 });
+
+/**
+ * A note's opening line, or null when the row has nothing more to say than its title.
+ *
+ * The listing already carries `content`, so this costs no fetch. `note-summary.tsx` makes the same
+ * argument for a card too small to read: in an app where a note is called "Untitled 7" until
+ * somebody renames it, a list of titles alone cannot tell one note from another.
+ *
+ * Kind-gated because `content` is an untyped object per kind, and a different kind that happens to
+ * hold `text` is not a serialized editor state.
+ */
+const getRowLine = (item: ContentItemRecord): string | null => {
+  const { content } = item;
+
+  if (item.kind !== "note" || !("text" in content) || typeof content.text !== "string") {
+    return null;
+  }
+
+  return getNoteOpeningLine(content.text);
+};
 
 function ItemRows({
   items,
@@ -65,6 +88,7 @@ function ItemRows({
     <div className={styles.rows()}>
       {items.map((item) => {
         const listable = getListableKind(item.kind);
+        const line = getRowLine(item);
 
         return (
           <button
@@ -80,7 +104,11 @@ function ItemRows({
             type="button"
           >
             {listable === undefined ? null : <listable.icon className={styles.rowIcon()} />}
-            <span className={styles.rowTitle()}>{item.title}</span>
+            <span className={styles.rowText()}>
+              <span className={styles.rowTitle()}>{item.title}</span>
+              {/* An empty note has nothing to add, so the row stays one line. */}
+              {line === null ? null : <span className={styles.rowLine()}>{line}</span>}
+            </span>
           </button>
         );
       })}
