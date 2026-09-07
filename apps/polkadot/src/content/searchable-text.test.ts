@@ -63,8 +63,9 @@ test("a body match carries the words around it, because the row does not show th
     title: "models.dev",
   });
 
+  // Context runs forward from the term, because the row clips the end and keeps the start.
   expect(getContentSearchExcerpt(record, "catalogue")).toContain("catalogue");
-  expect(getContentSearchExcerpt(record, "catalogue")).toContain("Supplies");
+  expect(getContentSearchExcerpt(record, "catalogue")).toContain("to every agent");
 });
 
 test("a title match adds no line, because the row is already showing it", () => {
@@ -103,6 +104,24 @@ test("a match deep in a long note is clipped on both sides", () => {
   expect(excerpt).toContain("needle");
   // Bounded, so one long note cannot push a rail row to any width it likes.
   expect(excerpt.length).toBeLessThan(80);
+});
+
+/*
+ * The rail clips this line at roughly 34 monospace characters. Centring the term put it past that,
+ * so the row explained its own match with the one word it cut. The term has to survive the clip.
+ */
+const RAIL_CHARACTERS = 34;
+
+test("the term survives the clip the row applies, which is the whole point of the line", () => {
+  const filler = "word ".repeat(40);
+  const record = note({
+    body: `${filler}needle${filler}`,
+    id: "content_item:clipped",
+    title: "Untitled",
+  });
+  const excerpt = getContentSearchExcerpt(record, "needle") ?? "";
+
+  expect(excerpt.slice(0, RAIL_CHARACTERS)).toContain("needle");
 });
 
 test("every term must appear, so a second word narrows rather than widens", () => {

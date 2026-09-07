@@ -47,8 +47,14 @@ function matchesContentSearch(record: ContentItemRecord, query: string): boolean
   return matchesSearchTerms(getContentSearchText(record), terms);
 }
 
-/** Characters of context kept on each side of the matched term. */
-const EXCERPT_REACH = 34;
+/*
+ * The row clips the excerpt at its end, so the term goes near the front rather than the middle.
+ *
+ * Centring it put the term at about character 35 of a line that fits about 34, so the word the
+ * excerpt exists to show was the word being cut. A short lead still reads as context.
+ */
+const EXCERPT_LEAD = 12;
+const EXCERPT_TRAIL = 56;
 
 /**
  * The words around the search term, or null when the row already shows why it matched.
@@ -75,8 +81,8 @@ function getContentSearchExcerpt(record: ContentItemRecord, query: string): stri
     return null;
   }
 
-  const from = Math.max(at - EXCERPT_REACH, 0);
-  const to = Math.min(at + term.length + EXCERPT_REACH, body.length);
+  const from = Math.max(at - EXCERPT_LEAD, 0);
+  const to = Math.min(at + term.length + EXCERPT_TRAIL, body.length);
 
   return `${from === 0 ? "" : "…"}${body.slice(from, to).trim()}${to === body.length ? "" : "…"}`;
 }
