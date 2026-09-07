@@ -32,7 +32,8 @@ test("theme.css bridges every DEFAULT_INFINITE_CANVAS_THEME field verbatim", () 
     }),
   );
 
-  expect(Object.keys(bridgedTokens)).toHaveLength(11);
+  // The count is deliberate: it fails when a theme field is added without a token in theme.css.
+  expect(Object.keys(bridgedTokens)).toHaveLength(12);
   expect(bridgedTokens).toStrictEqual(
     Object.fromEntries(
       Object.entries(DEFAULT_INFINITE_CANVAS_THEME).map(([field, value]) => [

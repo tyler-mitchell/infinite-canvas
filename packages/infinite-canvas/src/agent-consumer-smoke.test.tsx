@@ -185,6 +185,7 @@ function createFrameRenderContext(
       headerIdle: "#080808",
       idleBorder: "#222222",
       selectionBorder: "#ffffff",
+      revealedChange: "#ffffff",
       selectionBounds: "#ffffff",
     },
   };

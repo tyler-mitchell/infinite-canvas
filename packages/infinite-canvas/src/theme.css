@@ -13,6 +13,7 @@
     --icx-header-idle: #101317;
     --icx-idle-border: #273035;
     --icx-selection-border: #5f858d;
+    --icx-revealed-change: rgba(160, 196, 204, 0.55);
     --icx-selection-bounds: rgba(115, 157, 165, 0.38);
 
     --icx-color-foreground: #ffffff;
@@ -323,6 +324,20 @@
 
   [data-slot="selection-bounds"] {
     border: 1px dashed var(--icx-selection-bounds);
+  }
+
+  /* Marks what an undo restored. The element fades itself out and is never dismissed. */
+  [data-slot="revealed-change"] {
+    border: 2px solid var(--icx-revealed-change);
+    border-radius: 6px;
+  }
+
+  /* A mark that flashes and vanishes is worse than none for anyone sensitive to motion. */
+  @media (prefers-reduced-motion: reduce) {
+    [data-slot="revealed-change"] {
+      animation: none !important;
+      opacity: 0;
+    }
   }
 
   [data-slot="snap-preview"] {

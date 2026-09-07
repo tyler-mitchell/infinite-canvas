@@ -107,6 +107,7 @@ const DEFAULT_INFINITE_CANVAS_THEME: InfiniteCanvasTheme = {
   headerActive: "#17262a",
   headerIdle: "#101317",
   idleBorder: "#273035",
+  revealedChange: "rgba(160, 196, 204, 0.55)",
   selectionBorder: "#5f858d",
   selectionBounds: "rgba(115, 157, 165, 0.38)",
 };

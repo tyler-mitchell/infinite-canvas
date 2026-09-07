@@ -18,6 +18,7 @@ import {
   InfiniteCanvasDockPreviewOverlay,
   InfiniteCanvasDropSnapOverlay,
   InfiniteCanvasMarqueeOverlay,
+  InfiniteCanvasRevealedChangeOverlay,
   InfiniteCanvasSelectionBoundsOverlay,
   InfiniteCanvasSnapOverlay,
 } from "./canvas-overlays";
@@ -242,6 +243,7 @@ const INFINITE_CANVAS_THEME_VARIABLES: Readonly<Record<keyof InfiniteCanvasTheme
   headerActive: "--icx-header-active",
   headerIdle: "--icx-header-idle",
   idleBorder: "--icx-idle-border",
+  revealedChange: "--icx-revealed-change",
   selectionBorder: "--icx-selection-border",
   selectionBounds: "--icx-selection-bounds",
 };
@@ -1583,6 +1585,7 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
                 zIndex={SCENE_SCREEN_OVERLAY_Z_INDEX}
               />
             )}
+            <InfiniteCanvasRevealedChangeOverlay devicePixelRatio={devicePixelRatio} />
             <InfiniteCanvasSelectionBoundsOverlay devicePixelRatio={devicePixelRatio} />
             <InfiniteCanvasDockPreviewOverlay devicePixelRatio={devicePixelRatio} />
             <InfiniteCanvasSnapOverlay devicePixelRatio={devicePixelRatio} />

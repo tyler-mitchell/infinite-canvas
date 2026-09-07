@@ -24,6 +24,73 @@ const DOCK_REGION_OVERLAY_Z_INDEX = DEFAULT_INFINITE_CANVAS_STACK_BANDS.overlay 
 const MARQUEE_OVERLAY_Z_INDEX = DEFAULT_INFINITE_CANVAS_STACK_BANDS.overlay - 3;
 const SNAP_OVERLAY_Z_INDEX = DEFAULT_INFINITE_CANVAS_STACK_BANDS.overlay - 2;
 
+const REVEALED_CHANGE_OVERLAY_Z_INDEX = DEFAULT_INFINITE_CANVAS_STACK_BANDS.overlay - 4;
+
+/** Long enough to find with the eye, short enough not to become part of the picture. */
+const REVEALED_CHANGE_FADE_MS = 1100;
+
+const REVEALED_CHANGE_KEYFRAMES = `@keyframes infinite-canvas-revealed-change {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}`;
+
+/**
+ * Marks the region an undo or redo restored, then fades on its own.
+ *
+ * The camera move answers "where"; this answers "what". On a canvas holding thirty windows, arriving
+ * at the right place still leaves the question of which thing moved.
+ *
+ * No timer and no dismissal. The element is keyed on the reveal token, so each undo remounts it and
+ * restarts the animation, and `forwards` leaves it at zero opacity rather than needing state to be
+ * cleared. Keying on the rectangle instead would fail the case this exists for: undo twice in the
+ * same place and the second one would not restart.
+ */
+function InfiniteCanvasRevealedChangeOverlay({
+  devicePixelRatio,
+}: Readonly<{
+  devicePixelRatio: number;
+}>) {
+  const state = useInfiniteCanvasState();
+  const revealed = state.revealedChange;
+
+  if (revealed === undefined) {
+    return null;
+  }
+
+  const rect = projectWorldRectToScreen(
+    state.camera,
+    state.viewport,
+    revealed.rect,
+    devicePixelRatio,
+  ).screenRect;
+
+  return (
+    <div
+      style={{
+        inset: 0,
+        pointerEvents: "none",
+        position: "absolute",
+        zIndex: REVEALED_CHANGE_OVERLAY_Z_INDEX,
+      }}
+    >
+      <style>{REVEALED_CHANGE_KEYFRAMES}</style>
+      <div
+        data-infinite-canvas-revealed-change="true"
+        data-slot={INFINITE_CANVAS_SLOTS.revealedChange}
+        key={revealed.token}
+        style={{
+          animation: `infinite-canvas-revealed-change ${String(REVEALED_CHANGE_FADE_MS)}ms ease-out forwards`,
+          boxSizing: "border-box",
+          height: `${rect.height}px`,
+          position: "absolute",
+          transform: `translate3d(${rect.left}px, ${rect.top}px, 0)`,
+          width: `${rect.width}px`,
+        }}
+      />
+    </div>
+  );
+}
+
 function InfiniteCanvasSelectionBoundsOverlay({
   devicePixelRatio,
 }: Readonly<{
@@ -275,6 +342,7 @@ export {
   InfiniteCanvasDockPreviewOverlay,
   InfiniteCanvasDropSnapOverlay,
   InfiniteCanvasMarqueeOverlay,
+  InfiniteCanvasRevealedChangeOverlay,
   InfiniteCanvasSelectionBoundsOverlay,
   InfiniteCanvasSnapOverlay,
 };

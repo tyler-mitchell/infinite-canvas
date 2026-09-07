@@ -423,6 +423,8 @@ type InfiniteCanvasTheme = Readonly<{
   headerActive: string;
   headerIdle: string;
   idleBorder: string;
+  /** Marks the region an undo or redo restored, while it fades. */
+  revealedChange: string;
   selectionBorder: string;
   selectionBounds: string;
 }>;

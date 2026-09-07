@@ -121,6 +121,7 @@ test("INFINITE_CANVAS_SLOTS is the complete slot vocabulary", () => {
     marquee: "marquee",
     portalRoot: "portal-root",
     resizeHandle: "resize-handle",
+    revealedChange: "revealed-change",
     selectionBounds: "selection-bounds",
     snapGuide: "snap-guide",
     snapPreview: "snap-preview",

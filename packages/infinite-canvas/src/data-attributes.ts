@@ -23,6 +23,8 @@ const INFINITE_CANVAS_SLOTS = {
   marquee: "marquee",
   portalRoot: "portal-root",
   resizeHandle: "resize-handle",
+  /** The region an undo or redo restored, while it fades. */
+  revealedChange: "revealed-change",
   selectionBounds: "selection-bounds",
   snapGuide: "snap-guide",
   snapPreview: "snap-preview",

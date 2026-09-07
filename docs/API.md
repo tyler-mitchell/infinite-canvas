@@ -789,12 +789,18 @@ A drag adds one entry from its start state.
 - `canUndoInfiniteCanvas`, `canRedoInfiniteCanvas`: Report whether the commands are available.
 - `undoInfiniteCanvasHistory`, `redoInfiniteCanvasHistory`
 - `getInfiniteCanvasDocument`: Returns the document state that enters history.
-  Undo and redo set `state.revealedChange` to `{ rect, token }` and frame that region when it is not
-  already fully in view. A change already on screen leaves the camera alone, because an unnecessary
-  jump is more disruptive than none, and it is still reported so a consumer can mark it. `token`
-  counts reveals: undoing twice in the same place yields the same rectangle, so a marker keyed on
-  geometry alone would not restart and the second undo would look like nothing happened. The field is
-  session state and is never serialized.
+  The framework renders that region itself as `data-slot="revealed-change"`, styled by
+  `--icx-revealed-change` and faded by a CSS animation keyed on `token`, so each undo restarts it.
+  Nothing clears the state: the element ends at zero opacity. `prefers-reduced-motion` hides it
+  outright, because a mark that flashes and vanishes is worse than none for a reader sensitive to
+  motion.
+
+Undo and redo set `state.revealedChange` to `{ rect, token }` and frame that region when it is not
+already fully in view. A change already on screen leaves the camera alone, because an unnecessary
+jump is more disruptive than none, and it is still reported so a consumer can mark it. `token`
+counts reveals: undoing twice in the same place yields the same rectangle, so a marker keyed on
+geometry alone would not restart and the second undo would look like nothing happened. The field is
+session state and is never serialized.
 
 - `getInfiniteCanvasDocumentChangeRect`: Returns the world region that differs between two
   documents, or `null` when nothing placed moved. Undo on a canvas can revert something off screen,
