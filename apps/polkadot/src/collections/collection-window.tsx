@@ -32,10 +32,17 @@ const collectionWindow = tv({
     empty: "grid place-items-center px-6 py-10 text-center text-[12.5px] text-[var(--ink-faint)]",
     notice: "grid h-full place-items-center px-6 text-center text-[12.5px] text-[var(--ink-faint)]",
     root: "flex min-h-full flex-col",
-    row: "flex w-full items-center gap-2 px-3 py-1.5 text-left text-[12.5px] text-[var(--ink-muted)] transition-colors duration-100 ease-[var(--ease-swift)] hover:bg-[var(--surface-hover)] hover:text-[var(--ink)] focus-visible:bg-[var(--surface-hover)] focus-visible:outline-none",
+    /*
+     * A listed item is a bordered block, not a line of text.
+     *
+     * The window body is the darker container and each block sits a step above it, so a collection
+     * reads as a thing holding things. A flush row separated only by hover has no edge until the
+     * pointer finds it, which leaves the window looking like one flat rectangle.
+     */
+    row: "flex w-full items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--line)] bg-[var(--surface-raised)] px-2.5 py-2 text-left text-[12.5px] text-[var(--ink-muted)] transition-colors duration-100 ease-[var(--ease-swift)] hover:border-[var(--line-strong)] hover:bg-[var(--surface-hover)] hover:text-[var(--ink)] focus-visible:border-[var(--accent)] focus-visible:outline-none",
     rowIcon: "size-3.5 shrink-0 text-[var(--ink-faint)]",
     rowTitle: "min-w-0 flex-1 truncate",
-    rows: "flex flex-1 flex-col pb-2",
+    rows: "flex flex-1 flex-col gap-1.5 px-2 pb-2",
     staticLabel:
       "flex items-center gap-1 px-1.5 py-0.5 text-[11px] font-medium tracking-[-0.005em] text-[var(--ink)]",
     /** The hit target stays constant during canvas zoom. */
