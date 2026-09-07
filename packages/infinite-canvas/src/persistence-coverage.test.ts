@@ -21,6 +21,8 @@ const PERSISTENCE: Readonly<Record<keyof InfiniteCanvasState<Kind>, NotPersisted
   history: "session",
   // A pointer interaction cannot cross a reload.
   interaction: "session",
+  // Answers "what did that undo just do", which a reload has already forgotten.
+  revealedChange: "session",
   selection: "persisted",
   // Derived from the current interaction.
   snapPreview: "derived",

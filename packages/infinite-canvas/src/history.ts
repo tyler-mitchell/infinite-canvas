@@ -190,8 +190,18 @@ function revealChange<Kind extends string>(
 ): InfiniteCanvasState<Kind> {
   const rect = getInfiniteCanvasDocumentChangeRect(from, to);
 
-  if (rect === null || isRectFullyVisible(state.camera, state.viewport, rect)) {
+  if (rect === null) {
     return state;
+  }
+
+  // Marked whether or not the camera moves: "what just happened" is the question either way.
+  const revealed = {
+    ...state,
+    revealedChange: { rect, token: (state.revealedChange?.token ?? 0) + 1 },
+  } satisfies InfiniteCanvasState<Kind>;
+
+  if (isRectFullyVisible(state.camera, state.viewport, rect)) {
+    return revealed;
   }
 
   // Never zooms in past 1: framing a small change should not magnify it.
@@ -201,7 +211,7 @@ function revealChange<Kind extends string>(
     type: "fit",
   });
 
-  return camera === null ? state : { ...state, camera };
+  return camera === null ? revealed : { ...revealed, camera };
 }
 
 function undoInfiniteCanvasHistory<Kind extends string>(

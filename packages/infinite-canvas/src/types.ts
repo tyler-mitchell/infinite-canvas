@@ -316,6 +316,19 @@ type InfiniteCanvasState<Kind extends string = string> = Readonly<{
   /** Session-only edit history. */
   history: InfiniteCanvasHistory<Kind>;
   interaction: InfiniteCanvasInteraction;
+  /**
+   * The region an undo or redo just restored, for a consumer to mark. Not serialized.
+   *
+   * Optional rather than nullable because absent and "nothing revealed" are the same fact, so a
+   * reader needs one check. It also keeps a field about undo out of every fixture that builds a
+   * state for some unrelated reason.
+   *
+   * `token` counts reveals so a renderer can key on it. Undoing twice in the same place produces
+   * the same rectangle, and a marker keyed only by geometry would not restart its animation — the
+   * second undo would look like nothing happened, which is the failure this whole feature exists
+   * to remove.
+   */
+  revealedChange?: Readonly<{ rect: InfiniteCanvasRect; token: number }>;
   selection: InfiniteCanvasSelection;
   snapPreview: InfiniteCanvasSnapPreview | null;
   viewport: InfiniteCanvasViewport;
