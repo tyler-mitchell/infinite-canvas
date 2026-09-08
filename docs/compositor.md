@@ -320,14 +320,32 @@ the frame reconciliation cost that this design removes.
 
 The current scene layer already requires WebGPU. The compositor does not add a WebGL backend.
 
-`@typegpu/gl` has an experimental WebGL 2 fallback. It does not support storage buffers, bind groups, vertex
-buffers, index buffers, or compute.
+`@typegpu/gl` has an experimental WebGL 2 fallback. Read on 2026-09-08 from its package page: it supports
+vertex and fragment pipelines, constants, scalar, vector, and matrix uniforms, non-indexed triangle draws,
+and 2D textures in six formats. It does not support vertex buffers, index buffers, bind groups, readonly or
+mutable buffers, compute, or layered, depth, storage, and comparison textures. It requires `OffscreenCanvas`
+and a `bitmaprenderer` context, and draws through an internal `OffscreenCanvas` transfer.
 
-Its target is "shader-driven effects that keep their geometry in constants and their changing state in
-uniforms." That description fits the field. It does not fit instanced quads that read a buffer. A field-only
-fallback is possible.
+A compositor fallback is not possible with this feature set. Instanced quads read a storage buffer and sample
+a texture array, and both are absent.
 
-A compositor fallback is not possible with this feature set.
+A field-only fallback is also out. The field binds a uniform array of structs through a bind group layout,
+and the listed uniform support covers scalars, vectors, and matrices. Keeping a second field for WebGL 2
+creates the two-implementation drift that `apps/polkadot/SPIKES.md` records as the reason to have one field.
+The DOM plane already runs without a GPU, and that is the fallback for every other engine.
+
+## Shared render pass
+
+Status: available since TypeGPU 0.12. Read on 2026-09-08 from the 0.12 release notes.
+
+The proof measured a material pass with zero instances at approximately the cost of a pass with twelve. The
+fixed cost was the render pass, not the draw. TypeGPU 0.12 added typed command encoders and render passes so
+several pipelines record into one command buffer, with `setPipeline` and `setBindGroup` on the pass. The graph
+must record the window pass and every material pass into one render pass. Per-material passes are the wrong
+shape.
+
+The same release added `initAsync` for pipeline compilation before the first frame. The current R3F surface
+approximates this with seven boot invalidation timers. The compositor must use `initAsync` and no timers.
 
 ## Evidence limits
 
