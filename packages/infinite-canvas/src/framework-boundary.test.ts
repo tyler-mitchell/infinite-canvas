@@ -165,17 +165,17 @@ test("window proxies expose read-only window projection for R3F layers", () => {
   expect(proxies.map((proxy) => proxy.id)).toEqual(["demo-window", "note-window"]);
   expect(proxies[1]).toMatchObject({
     bodyLocalRect: {
-      height: 118,
+      height: 116,
       width: 236,
       x: 2,
-      y: 40,
+      y: 42,
     },
-    bodyScenePosition: [480, -179, 0],
+    bodyScenePosition: [480, -180, 0],
     bodyWorldRect: {
-      height: 118,
+      height: 116,
       width: 236,
       x: 362,
-      y: 120,
+      y: 122,
     },
     center: {
       x: 480,

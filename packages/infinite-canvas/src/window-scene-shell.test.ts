@@ -52,11 +52,24 @@ test("scene shell preserves body layout while inflating thin visual strokes by z
   );
 
   expect(shell.shellLayout.bodyRect).toEqual({
-    height: 198,
+    height: 196,
     width: 316,
     x: 2,
-    y: 40,
+    y: 42,
   });
+  // The scene splits the frame the way the DOM chrome draws it, spending each border once.
+  expect(shell.shellLayout.headerRect).toEqual({
+    height: 40,
+    width: 316,
+    x: 2,
+    y: 2,
+  });
+  expect(
+    shell.shellLayout.headerRect.height +
+      shell.shellLayout.bodyRect.height +
+      shell.chromeMetrics.layoutBorderWidth * 2,
+  ).toBe(240);
+  // Layout keeps the true border while the drawn stroke thickens to stay visible when zoomed out.
   expect(shell.chromeMetrics.layoutBorderWidth).toBe(2);
   expect(shell.chromeMetrics.borderWidth).toBe(4);
   expect(shell.chromeMetrics.resizeHandleSize).toBe(40);
@@ -85,16 +98,16 @@ test("body projection derives DOM placement from the same scene proxy shell", ()
   );
 
   expect(projection.bodyLocalRect).toEqual({
-    height: 198,
+    height: 196,
     width: 316,
     x: 2,
-    y: 40,
+    y: 42,
   });
   expect(projection.bodyWorldRect).toEqual({
-    height: 198,
+    height: 196,
     width: 316,
     x: 102,
-    y: 120,
+    y: 122,
   });
   expect(projection.frameScreenTransform).toMatchObject({
     height: 240,
@@ -104,11 +117,11 @@ test("body projection derives DOM placement from the same scene proxy shell", ()
     y: 270,
   });
   expect(projection.bodyScreenTransform).toMatchObject({
-    height: 198,
+    height: 196,
     scale: 0.5,
     width: 316,
     x: 351,
-    y: 290,
+    y: 291,
   });
 });
 
@@ -149,7 +162,9 @@ test("body projection can snap frame and body transforms to the device pixel gri
   }
 
   expect(projection.frameScreenTransform).toMatchObject({ scale: 0.65, x: 350.5, y: 229.5 });
-  expect(projection.bodyScreenTransform).toMatchObject({ scale: 0.65, x: 351.5, y: 255.5 });
+  // The body starts one border lower than the header ends, so its screen y moves 2 * 0.65 down
+  // from 255.5 to 256.8, which the half-pixel grid at this ratio takes to 257.
+  expect(projection.bodyScreenTransform).toMatchObject({ scale: 0.65, x: 351.5, y: 257 });
 });
 
 test("the grid check rejects a far edge left on a fraction, which is what used to ship", () => {

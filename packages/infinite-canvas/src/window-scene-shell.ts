@@ -1,5 +1,10 @@
 /** @experimental Projects window chrome into scene and screen coordinates. */
-import { projectWorldRectToScreen, worldRectToScreenTransform } from "./geometry";
+import {
+  getWindowBodyRect,
+  getWindowHeaderRect,
+  projectWorldRectToScreen,
+  worldRectToScreenTransform,
+} from "./geometry";
 import type {
   InfiniteCanvasCamera,
   InfiniteCanvasChromeMetrics,
@@ -115,32 +120,19 @@ function frameLocalRectToScenePlane(
   };
 }
 
-function getWindowLocalHeaderRect(
-  frameRect: InfiniteCanvasRect,
-  chromeMetrics: Pick<InfiniteCanvasWindowSceneChromeMetrics, "headerHeight" | "layoutBorderWidth">,
-): InfiniteCanvasRect {
-  return {
-    height: Math.max(chromeMetrics.headerHeight - chromeMetrics.layoutBorderWidth, 0),
-    width: Math.max(frameRect.width - chromeMetrics.layoutBorderWidth * 2, 0),
-    x: chromeMetrics.layoutBorderWidth,
-    y: chromeMetrics.layoutBorderWidth,
-  };
-}
-
-function getWindowLocalBodyRect(
-  frameRect: InfiniteCanvasRect,
-  chromeMetrics: Pick<InfiniteCanvasWindowSceneChromeMetrics, "headerHeight" | "layoutBorderWidth">,
-): InfiniteCanvasRect {
-  return {
-    height: Math.max(
-      frameRect.height - chromeMetrics.headerHeight - chromeMetrics.layoutBorderWidth,
-      0,
-    ),
-    width: Math.max(frameRect.width - chromeMetrics.layoutBorderWidth * 2, 0),
-    x: chromeMetrics.layoutBorderWidth,
-    y: chromeMetrics.headerHeight,
-  };
-}
+/*
+ * The scene lays out with the layout border, never the visual stroke.
+ *
+ * `borderWidth` thickens as the canvas zooms out so a thin edge stays visible. Laying out against
+ * it would move the body with zoom, so `layoutBorderWidth` keeps the true value and stands in here.
+ * The rule itself belongs to `geometry.ts`, which the DOM frame already uses.
+ */
+const toLayoutChrome = (
+  chromeMetrics: InfiniteCanvasWindowSceneChromeMetrics,
+): InfiniteCanvasChromeMetrics => ({
+  ...chromeMetrics,
+  borderWidth: chromeMetrics.layoutBorderWidth,
+});
 
 function createEdgeRects(
   frameRect: InfiniteCanvasRect,
@@ -269,8 +261,9 @@ function getInfiniteCanvasWindowSceneShellLayout(
   frameRect: InfiniteCanvasRect,
   chromeMetrics: InfiniteCanvasWindowSceneChromeMetrics,
 ): InfiniteCanvasWindowSceneShellLayout {
-  const headerRect = getWindowLocalHeaderRect(frameRect, chromeMetrics);
-  const bodyRect = getWindowLocalBodyRect(frameRect, chromeMetrics);
+  const layoutChrome = toLayoutChrome(chromeMetrics);
+  const headerRect = getWindowHeaderRect(frameRect, layoutChrome);
+  const bodyRect = getWindowBodyRect(frameRect, layoutChrome);
   const headerAccentRect = {
     height: chromeMetrics.headerAccentHeight,
     width: headerRect.width,
