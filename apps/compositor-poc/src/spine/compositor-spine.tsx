@@ -579,15 +579,16 @@ void InfiniteCanvasCompositorSurface;
 void useCompositorRoot;
 
 // ---------------------------------------------------------------------------
-// 7. End state: html-in-canvas. Owner direction stated 2026-09-08: the target
-//    is a canvas fully driven by html-in-canvas. It has not shipped in stable
-//    Chrome (Origin Trial / flag, per docs/research/html-in-canvas.md), so it
-//    is not in this spine's implementation scope. This section fixes the
-//    structural facts now so that program extends sections 1-6 without
-//    replacing any owner.
+// 7. Target: html-in-canvas. Owner direction stated 2026-09-08: the canvas is
+//    fully driven by html-in-canvas, and it is a present design constraint
+//    (docs/research/html-in-canvas.md, owner directive 2026-06-10: Chrome
+//    first, detect at runtime, snapdom fallback, continue while other browsers
+//    lag). Sections 1-6 are the first deliverable on the way there, not a
+//    separate program. The window pass and capture scheduler below are the
+//    second deliverable and reuse every owner above without replacement.
 // ---------------------------------------------------------------------------
 /*
-  Facts fixed by this spine that the end state depends on:
+  Facts fixed by sections 1-6 that the target depends on:
 
   - ONE ROOT. useCompositorRoot owns the only TgpuRoot. Capture needs
     root.device.queue.copyElementImageToTexture and root.unwrap(texture).
@@ -597,7 +598,7 @@ void useCompositorRoot;
   - GRAPH-OWNED RESOURCES. The texture array that holds captured windows is a
     CompositorResource allocated by the surface, not by a pass. It is handed
     to passes through CompositorBuildContext, the same way `camera` is today.
-    PROPOSED addition when the program starts:
+    PROPOSED addition in the second deliverable:
       CompositorBuildContext.resources: Readonly<Record<string, TgpuTexture>>
     Residency (256 layers, eviction, scale) is the surface's policy.
 
@@ -623,8 +624,9 @@ void useCompositorRoot;
   - FEATURE GATE. `supportsHtmlInCanvas()` (named in
     docs/research/html-in-canvas.md; checks a 2D context for drawElementImage
     and the queue for copyElementImageToTexture) decides at boot whether the
-    window pass mounts. Without it the DOM window layer paints as it does
-    today. This is the same shape as the `unsupported` branch in section 2.
+    window pass mounts. Without it, snapdom captures per the research doc's
+    fallback order, and the DOM window layer paints as it does today. This is
+    the same shape as the `unsupported` branch in section 2.
 */
 
 // ---------------------------------------------------------------------------
