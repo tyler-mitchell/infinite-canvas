@@ -326,11 +326,22 @@ and 2D textures in six formats. It does not support vertex buffers, index buffer
 mutable buffers, compute, or layered, depth, storage, and comparison textures. It requires `OffscreenCanvas`
 and a `bitmaprenderer` context, and draws through an internal `OffscreenCanvas` transfer.
 
-A compositor fallback is not possible with this feature set. Instanced quads read a storage buffer and sample
-a texture array, and both are absent.
+The backend source, read on 2026-09-08 from `packages/typegpu-gl/src/tgpuRootWebGL.ts` in the TypeGPU
+repository, adds three facts that the feature table does not state:
 
-A field-only fallback is also out. The field binds a uniform array of structs through a bind group layout,
-and the listed uniform support covers scalars, vectors, and matrices. Keeping a second field for WebGL 2
+- `draw()` ignores `instanceCount` and calls `gl.drawArrays`. The backend has no instancing.
+- Uniform upload handles only `f32`, `u32`, `i32`, `vec2f` to `vec4f`, and `mat2x2f` to `mat4x4f`. Any
+  other schema, including an array or a struct, gets a no-op setter. The shader compiles and reads zeros.
+  Issue #2510 tracks uniform blocks. Its tests are skipped.
+- `root.with(slot, value)` is a no-op marked `TODO(#2818)`.
+
+A compositor fallback is not possible with this backend. Instanced quads read a storage buffer, sample a
+texture array, and draw with an instance count. All three are absent. `copyElementImageToTexture` needs the
+raw `GPUQueue`, and `root.device` throws on this root.
+
+A field-only fallback is also out as of TypeGPU 0.12. The field binds a uniform array of structs, which
+this backend accepts and then never uploads. If upstream ships #2510 and #2818, a field-only WebGL 2 path
+becomes possible through `isGLRoot` and a uniform block. Until then, keeping a second field for WebGL 2
 creates the two-implementation drift that `apps/polkadot/SPIKES.md` records as the reason to have one field.
 The DOM plane already runs without a GPU, and that is the fallback for every other engine.
 
