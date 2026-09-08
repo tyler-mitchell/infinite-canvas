@@ -48,6 +48,15 @@ Backlinks exist for cards, journals **and whiteboards**.
 
 In flight: whiteboard performance; shape elements; batch and custom resize.
 
+![A Heptabase whiteboard](images/heptabase-whiteboard.png)
+
+Visible above, beyond the written feature list: **sections are coloured, named, resizable regions**
+that enclose their cards. Connections are curved arrows with arrowheads. Cards render their full
+text content inline at 24% zoom rather than collapsing to a title. The focused card opens in a
+right-hand pane beside the board. The breadcrumb (`Books / Mindstorms`) shows whiteboard nesting.
+
+![A whiteboard from the public gallery](images/heptabase-gallery-whiteboard.png)
+
 ---
 
 ## Cards and editor
@@ -62,6 +71,10 @@ In flight: whiteboard performance; shape elements; batch and custom resize.
 | Highlight card                            | Create a card from selected text and place it on a whiteboard                          |
 | Create and link a card from selected text |                                                                                        |
 | Spell-check                               | Language and dictionary settings                                                       |
+
+![Block editor with the slash-command menu](images/heptabase-editor.png)
+
+![A card showing its bidirectional links](images/heptabase-bidirectional-links.png)
 
 ---
 
@@ -83,6 +96,8 @@ properties and richer filters (dates, whiteboards, tags, keywords) are in intern
 
 UI metaphor used in their own documentation: left sidebar is browser tabs and bookmarks, right
 sidebar is browser plugins.
+
+![Daily journals with calendar and todos](images/heptabase-journal.png)
 
 ---
 
@@ -161,6 +176,14 @@ Marketed on the strength of this: no lock-in, data stored locally first.
 A third-party MCP server exists (community, not first-party), exposing operations such as
 whiteboard export.
 
+![PDF annotation](images/heptabase-pdf-annotation.png)
+
+![Readwise highlights synced into cards](images/heptabase-readwise.png)
+
+![A Zotero source card](images/heptabase-zotero.png)
+
+![Web clipper menu](images/heptabase-web-clipper.png)
+
 ---
 
 ## Pricing
@@ -223,3 +246,21 @@ Next entry points: `https://wiki.heptabase.com/changelog/changelog`, the Help Ce
 - Collaboration Q&A — `https://support.heptabase.com/en/articles/10510497-collaboration-q-a`
 - Readwise Sync Q&A — `https://support.heptabase.com/en/articles/10447319-readwise-sync-q-a`
 - Heptabase 1.0 (PDF, Readwise, annotation model) — `https://wiki.heptabase.com/version-one`
+
+### Images
+
+Screenshots in `images/` are the vendor's own product and gallery assets, retrieved 2026-09-08 from
+`https://heptabase.com/`. They are kept locally so this document does not rot when the marketing
+site changes, and they are reproduced here for reference only.
+
+| File                                | Source asset                                |
+| ----------------------------------- | ------------------------------------------- |
+| `heptabase-whiteboard.png`          | `whiteboard-feature`                        |
+| `heptabase-gallery-whiteboard.png`  | public gallery, "Reading Notes: Mindstorms" |
+| `heptabase-editor.png`              | `kb-block-editor`                           |
+| `heptabase-bidirectional-links.png` | `kb-bidirectional-links-front-note`         |
+| `heptabase-journal.png`             | `kb-daily-journals`                         |
+| `heptabase-pdf-annotation.png`      | `kb-pdf-annotation-note`                    |
+| `heptabase-readwise.png`            | `kb-readwise-integration`                   |
+| `heptabase-zotero.png`              | `kb-zotero-integration-source-card`         |
+| `heptabase-web-clipper.png`         | `kb-web-cliper-menu`                        |
