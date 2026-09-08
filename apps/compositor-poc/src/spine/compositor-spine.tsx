@@ -22,15 +22,16 @@
  * Symbols marked PROPOSED do not exist yet. Every other import is real.
  */
 
-import {
-  d,
-  tgpu,
-  type TgpuFragmentFn,
-  type TgpuRoot,
-  type TgpuUniformBuffer,
-  type TgpuVertexFn,
-} from "typegpu";
+import { d, tgpu, type TgpuRoot, type TgpuUniformBuffer } from "typegpu";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
+
+import {
+  CompositorCamera,
+  LinkSegment,
+  linkFragment,
+  linkLayout,
+  linkVertex,
+} from "./workflow-links-shader.ts";
 
 import type {
   InfiniteCanvasCamera,
@@ -57,17 +58,6 @@ import { useInfiniteCanvasVisibilityContext } from "../../../../packages/infinit
 // 1. Pass contract. PROPOSED: packages/infinite-canvas/src/compositor/pass.ts
 //    This file must not import typegpu. Only the backend directory names it.
 // ---------------------------------------------------------------------------
-
-/** The per-space camera uniform. Written once per frame per space by the graph. */
-const CompositorCamera = d.struct({
-  /** World units at the viewport centre. Zero for screen space. */
-  center: d.vec2f,
-  /** CSS pixels. */
-  viewport: d.vec2f,
-  /** Device pixels per world unit. One for screen space. */
-  zoom: d.f32,
-  devicePixelRatio: d.f32,
-});
 
 type CompositorCameraUniform = TgpuUniformBuffer<typeof CompositorCamera>;
 
@@ -449,35 +439,7 @@ function useInfiniteCanvasWindowFrustumProbe(enabled: boolean) {
 //    the proof measured (storage array + instanced draw, 0.9 ms for 100k).
 // ---------------------------------------------------------------------------
 
-const LinkSegment = d.struct({
-  /** World start and end. */
-  a: d.vec2f,
-  b: d.vec2f,
-  /** Screen pixels, so thickness stays constant across zoom. */
-  thickness: d.f32,
-  color: d.vec4f,
-});
-
 const LINK_CAPACITY = 256;
-
-const linkLayout = tgpu.bindGroupLayout({
-  camera: { uniform: CompositorCamera },
-  segments: { access: "readonly", storage: d.arrayOf(LinkSegment) },
-});
-
-/**
- * Closed leaf: the WGSL. Input: instanceIndex, vertexIndex. Reads
- * layout.$.segments[instance] and layout.$.camera. Builds a screen-thick
- * oriented quad from a to b, converts world to clip as the proof's
- * surfaceVertex does. Fragment returns color. No new structure here.
- */
-type LinkVaryings = { color: d.Vec4f };
-
-declare const linkVertex: TgpuVertexFn<
-  { instanceIndex: typeof d.builtin.instanceIndex; vertexIndex: typeof d.builtin.vertexIndex },
-  LinkVaryings & { pos: typeof d.builtin.position }
->;
-declare const linkFragment: TgpuFragmentFn<LinkVaryings, d.Vec4f>;
 
 type LinkModel = Readonly<{
   /** Consumer-owned. Origin: the route's `connections` state plus the selection. */
@@ -586,6 +548,13 @@ void useCompositorRoot;
 //    lag). Sections 1-6 are the first deliverable on the way there, not a
 //    separate program. The window pass and capture scheduler below are the
 //    second deliverable and reuse every owner above without replacement.
+//
+//    The DOM window plane is a SUPPORTED path, not a fallback. Owner reasons
+//    stated 2026-09-08: the project is a portfolio item and must run in any
+//    reviewer's browser without a flag; and development happens in the app's
+//    in-app browser (Chrome 146), which lacks the API. Every compositor
+//    feature is runtime-detected and additive; nothing may be visible only
+//    with html-in-canvas.
 // ---------------------------------------------------------------------------
 /*
   Facts fixed by sections 1-6 that the target depends on:
@@ -643,9 +612,15 @@ void useCompositorRoot;
     -> only consumer is workflow-board.tsx, replaced by section 5.
     -> InfiniteCanvasSceneSegmentTransform type removed; docs/API.md rows removed.
   DELETE InfiniteCanvasSceneVector3 fields on InfiniteCanvasWindowProxy:
-         bodyScenePosition, frameScenePosition, screenPosition (window-proxy.ts)
+         bodyScenePosition, frameScenePosition, screenPosition (window-proxy.ts
+         getScenePosition, lines 14-16 and 64-66) and the type itself (types.ts:714).
     -> exist only for Three's y-up, z-depth placement.
-    -> scene-layer-geometry.test.ts and framework-boundary.test.ts fixtures updated.
+    -> scene-layer-geometry.test.ts createWindowProxy fixture (lines 39, 42, 52)
+       and framework-boundary.test.ts assertions (lines 173, 184, 197) updated.
+    -> docs/API.md: line 33 already marks the SceneLayer types and
+       InfiniteCanvasSceneVector3 experimental with reason "r3f-canary"; that
+       reason is retired. Rows at lines 653-655 (scene transforms), 1090-1095
+       (types), and 1181-1187 (the /scene entry) change.
   CHANGE InfiniteCanvasSceneLayer.render -> build (types.ts)
     -> docs/API.md entry; consumer-visible, so a Bumpy bump file (minor).
   CHANGE InfiniteCanvasSceneSurfaceProps (scene-surface.ts): drop `space` and
@@ -657,7 +632,9 @@ void useCompositorRoot;
          drops them too.
   ADD dependency typegpu (catalog) to packages/infinite-canvas; unplugin-typegpu
          to its build config, as apps/compositor-poc already does.
-  UPDATE verify-pure-core.mjs banned list: replace three and
+  UPDATE verify-pure-core.mjs banned list (lines 47 and 51): replace three and
          @react-three/fiber with typegpu, so the core still cannot import the GPU.
+  UPDATE packages/infinite-canvas/package.json: keyword line 12, devDependencies
+         lines 70-79, peerDependencies lines 84-87, peerDependenciesMeta lines 90-93.
   UPDATE docs/compositor.md "Target module structure" to match sections 1-3.
 */
