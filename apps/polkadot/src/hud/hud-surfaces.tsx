@@ -13,7 +13,9 @@ import { BARE_CORNER_PX, GAP_PX } from "./hud-clearance";
 const hud = tv({
   slots: {
     root: "pointer-events-none absolute inset-0 z-80",
-    surface: "pointer-events-auto absolute flex items-center gap-1",
+    // An anchored surface is placed from one edge, so nothing else stops it leaving the other.
+    // The gutter it is inset by is subtracted twice to keep the far margin equal to the near one.
+    surface: "pointer-events-auto absolute flex max-w-[calc(100%-1.5rem)] items-center gap-1",
   },
   variants: {
     anchor: {

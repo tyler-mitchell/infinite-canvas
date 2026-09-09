@@ -57,7 +57,7 @@ const workspace = tv({
   slots: {
     brand: "flex min-w-0 items-center gap-1.5 pr-1 pl-1.5",
     divider: "mx-1 h-4 w-px bg-[var(--border)]",
-    rail: `flex items-center gap-1 rounded-[var(--radius-pill)] ${FLOATING_SURFACE} p-1 shadow-[var(--lift-2)]`,
+    rail: `flex min-w-0 items-center gap-1 rounded-[var(--radius-pill)] ${FLOATING_SURFACE} p-1 shadow-[var(--lift-2)]`,
     root: "relative h-dvh min-h-0 overflow-hidden bg-[var(--ground)]",
     // Fixed chrome strings, so they hold their line and let the canvas title shrink instead.
     status:
