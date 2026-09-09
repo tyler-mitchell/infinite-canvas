@@ -3,15 +3,20 @@ import { tv } from "tailwind-variants";
 
 const tabs = tv({
   slots: {
-    root: "flex min-h-0 flex-col gap-3",
-    list: "relative flex flex-none items-center gap-1",
+    /*
+     * Each part reads its own `data-orientation`, which Base UI sets on all of them. Written for
+     * the horizontal case alone, a vertical Tabs kept a row of tabs and an underline that measured
+     * the active tab's width while the axis it needed was its height.
+     */
+    root: "flex min-h-0 flex-col gap-3 data-[orientation=vertical]:flex-row",
+    list: "relative flex flex-none items-center gap-1 data-[orientation=vertical]:flex-col data-[orientation=vertical]:items-stretch",
     tab: "relative cursor-pointer rounded-pk-chip border-0 bg-transparent px-2 py-[6px] font-pk-sans text-[11px] leading-none font-medium tracking-[0.02em] whitespace-nowrap text-pk-ink-dim outline-none transition-colors duration-(--pk-duration-hover) ease-pk-swift select-none hover:text-pk-ink-muted focus-visible:ring-2 focus-visible:ring-pk-accent/50 data-disabled:pointer-events-none data-disabled:opacity-40 data-selected:text-pk-ink-bright",
     /*
      * Base UI measures the active tab and publishes its box as CSS variables, so the marker slides
      * between tabs as one transition instead of a layout animation per tab.
      */
     indicator:
-      "absolute bottom-0 left-0 h-px w-(--active-tab-width) translate-x-(--active-tab-left) bg-pk-accent transition-[translate,width] duration-(--pk-duration-detail) ease-pk-swift",
+      "absolute left-0 bg-pk-accent transition-[translate,width,height] duration-(--pk-duration-detail) ease-pk-swift data-[orientation=horizontal]:bottom-0 data-[orientation=horizontal]:h-px data-[orientation=horizontal]:w-(--active-tab-width) data-[orientation=horizontal]:translate-x-(--active-tab-left) data-[orientation=vertical]:top-0 data-[orientation=vertical]:h-(--active-tab-height) data-[orientation=vertical]:w-px data-[orientation=vertical]:translate-y-(--active-tab-top)",
     panel: "min-h-0 flex-1 outline-none",
   },
 });

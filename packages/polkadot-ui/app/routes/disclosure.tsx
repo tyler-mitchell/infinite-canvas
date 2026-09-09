@@ -74,7 +74,8 @@ function Disclosure() {
           <Kind>tabs</Kind>
           <Meta>an underline that travels between tabs</Meta>
         </Row>
-        <Tabs defaultValue="commits" className={styles.tabs()}>
+        {/* Vertical tabs exist in Base UI's Root, so the kit's marker has to follow the axis. */}
+        <Tabs defaultValue="commits" orientation="vertical" className={styles.tabs()}>
           <Tabs.List>
             <Tabs.Tab value="commits">commits</Tabs.Tab>
             <Tabs.Tab value="issues">issues</Tabs.Tab>
