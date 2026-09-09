@@ -6,8 +6,14 @@ const menu = tv({
     positioner: "z-50",
     popup:
       "z-50 min-w-[168px] origin-(--transform-origin) rounded-pk-inner border border-pk-line bg-pk-surface p-1 text-pk-ink shadow-pk-card outline-none transition-[transform,opacity] duration-(--pk-duration-detail) ease-pk-swift data-ending-style:scale-[0.97] data-ending-style:opacity-0 data-starting-style:scale-[0.97] data-starting-style:opacity-0",
-    /* Highlight is Base UI's keyboard-and-pointer cursor, so hover and arrow keys land identically. */
-    item: "flex cursor-pointer items-center justify-between gap-4 rounded-pk-chip px-2 py-[6px] font-pk-sans text-[12px] leading-none whitespace-nowrap text-pk-ink-muted outline-none select-none data-disabled:pointer-events-none data-disabled:opacity-40 data-highlighted:bg-pk-accent-wash data-highlighted:text-pk-ink-bright",
+    /*
+     * Highlight is Base UI's keyboard-and-pointer cursor, so hover and arrow keys land identically.
+     *
+     * The tint is alpha on the accent rather than a token of its own: `bg-pk-accent-wash` named a
+     * token this theme never defined, so it generated no CSS at all and the highlight was a text
+     * colour change on nothing.
+     */
+    item: "flex cursor-pointer items-center justify-between gap-4 rounded-pk-chip px-2 py-[6px] font-pk-sans text-[12px] leading-none whitespace-nowrap text-pk-ink-muted outline-none select-none data-disabled:pointer-events-none data-disabled:opacity-40 data-highlighted:bg-pk-accent/15 data-highlighted:text-pk-ink-bright",
     groupLabel:
       "px-2 pt-2 pb-1 font-pk-sans text-[10px] leading-none font-medium tracking-[0.06em] text-pk-ink-faint uppercase",
     separator: "my-1 h-px bg-pk-line-inner",
@@ -87,11 +93,14 @@ function MenuGroupLabel({ className, ...props }: MenuGroupLabelProps) {
   );
 }
 
-function MenuSeparator({ className }: { className?: string }) {
+export type MenuSeparatorProps = WithClassName<MenuPrimitive.Separator.Props>;
+
+function MenuSeparator({ className, ...props }: MenuSeparatorProps) {
   return (
     <MenuPrimitive.Separator
       data-slot="menu-separator"
       className={menu().separator({ className })}
+      {...props}
     />
   );
 }
