@@ -38,8 +38,12 @@ const layout = tv({
     /* Stands in for the design's icon set, so the page pulls nothing over the network. */
     monogram:
       "flex size-full items-center justify-center rounded-[5px] bg-pk-surface-inner font-pk-mono text-[10px] leading-none text-pk-ink-soft",
-    scroller: "h-[104px] max-w-[380px]",
-    scrollBody: "flex flex-col gap-2 pr-3",
+    scrollers: "flex flex-wrap items-start gap-3",
+    /* Wide enough for the longest line: a vertical-only area gives no way to reach anything that
+     * overflows sideways, so its content must only ever be too tall. */
+    scroller: "h-[104px] w-[400px]",
+    scrollBody: "flex flex-col gap-2",
+    scrollWide: "h-[104px] w-[230px]",
   },
 });
 
@@ -208,15 +212,28 @@ function Layout() {
           <Kind>scroll area</Kind>
           <Meta>an overlay scrollbar that does not take width</Meta>
         </Row>
-        <Surface tone="card" className={styles.scroller()}>
-          <ScrollArea>
-            <div className={styles.scrollBody()}>
-              {COMMITS.map((commit) => (
-                <Meta key={commit}>{commit}</Meta>
-              ))}
-            </div>
-          </ScrollArea>
-        </Surface>
+        <div className={styles.scrollers()}>
+          <Surface tone="card" className={styles.scroller()}>
+            <ScrollArea>
+              <div className={styles.scrollBody()}>
+                {COMMITS.map((commit) => (
+                  <Meta key={commit}>{commit}</Meta>
+                ))}
+              </div>
+            </ScrollArea>
+          </Surface>
+
+          {/* Narrow enough that the same lines overflow sideways, which is what `both` is for. */}
+          <Surface tone="card" className={styles.scrollWide()}>
+            <ScrollArea axis="both">
+              <div className={styles.scrollBody()}>
+                {COMMITS.map((commit) => (
+                  <Meta key={commit}>{commit}</Meta>
+                ))}
+              </div>
+            </ScrollArea>
+          </Surface>
+        </div>
       </section>
 
       <section className={styles.section()}>
