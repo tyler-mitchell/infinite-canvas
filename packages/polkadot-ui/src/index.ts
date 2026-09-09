@@ -50,6 +50,26 @@ export { Separator, separatorVariants, type SeparatorProps } from "./components/
 export { Slider, sliderVariants, type SliderProps } from "./components/slider.tsx";
 export { Switch, switchVariants, type SwitchProps } from "./components/switch.tsx";
 export {
+  Tab,
+  TabPanel,
+  Tabs,
+  TabsList,
+  tabsVariants,
+  type TabPanelProps,
+  type TabProps,
+  type TabsListProps,
+  type TabsProps,
+} from "./components/tabs.tsx";
+export {
+  Toolbar,
+  ToolbarButton,
+  ToolbarGroup,
+  ToolbarSeparator,
+  toolbarVariants,
+  type ToolbarButtonProps,
+  type ToolbarProps,
+} from "./components/toolbar.tsx";
+export {
   Toggle,
   ToggleGroup,
   toggleGroupVariants,

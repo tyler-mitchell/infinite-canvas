@@ -11,6 +11,8 @@ import { ScrollArea } from "#/components/scroll-area.tsx";
 import { Separator } from "#/components/separator.tsx";
 import { Slider } from "#/components/slider.tsx";
 import { Switch } from "#/components/switch.tsx";
+import { Tabs } from "#/components/tabs.tsx";
+import { Toolbar } from "#/components/toolbar.tsx";
 import { ToggleGroup } from "#/components/toggle-group.tsx";
 import { Tooltip } from "#/components/tooltip.tsx";
 
@@ -130,6 +132,42 @@ function Showcase() {
             ))}
           </div>
         </ScrollArea>
+      </section>
+
+      <section className={styles.section()}>
+        <p className={styles.label()}>tabs</p>
+        <Tabs defaultValue="commits" className={styles.control()}>
+          <Tabs.List>
+            <Tabs.Tab value="commits">commits</Tabs.Tab>
+            <Tabs.Tab value="issues">issues</Tabs.Tab>
+            <Tabs.Tab value="readme">readme</Tabs.Tab>
+          </Tabs.List>
+          <Tabs.Panel value="commits">
+            <p className={styles.meta()}>1,243 across 64 weeks</p>
+          </Tabs.Panel>
+          <Tabs.Panel value="issues">
+            <p className={styles.meta()}>12 open · 4 labelled snap</p>
+          </Tabs.Panel>
+          <Tabs.Panel value="readme">
+            <p className={styles.meta()}>4.9 kB · MIT</p>
+          </Tabs.Panel>
+        </Tabs>
+      </section>
+
+      <section className={styles.section()}>
+        <p className={styles.label()}>toolbar</p>
+        <Toolbar>
+          <Toolbar.Group>
+            <Toolbar.Button render={<Button tone="bare" size="icon" />}>−</Toolbar.Button>
+            <Toolbar.Button render={<Button tone="bare" size="sm" mono />}>100%</Toolbar.Button>
+            <Toolbar.Button render={<Button tone="bare" size="icon" />}>+</Toolbar.Button>
+          </Toolbar.Group>
+          <Toolbar.Separator />
+          <Toolbar.Group>
+            <Toolbar.Button render={<Button tone="bare" size="sm" />}>fit</Toolbar.Button>
+            <Toolbar.Button render={<Button tone="bare" size="sm" />}>group</Toolbar.Button>
+          </Toolbar.Group>
+        </Toolbar>
       </section>
 
       <section className={styles.section()}>
