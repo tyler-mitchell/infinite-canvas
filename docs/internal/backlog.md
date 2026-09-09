@@ -21,8 +21,27 @@ consumers add entities through the store and commands, as they add windows today
 slice and the pure derivation do not. Source-shaped spine:
 `apps/compositor-poc/src/spine/scene-model-spine.tsx`, revisions 2 and 3.
 E3. [ ] **Replace `sceneLayers` in the playground and Polkadot with store entities.** Depends on E2.
-Polkadot's connectors and the workflow-board links become the same `connections` slice the
-framework draws. A consumer never writes a shader.
+The workflow-board links become the `connections` slice the framework draws. A consumer never
+writes a shader.
+
+**Corrected on 2026-09-09, after reading Polkadot's relation store and connector geometry.** The
+original line said Polkadot's connectors become the same slice. They cannot, and the difference is
+not cosmetic:
+
+- A framework connection is keyed by **window id**, is directed, lives in the canvas document, and
+  undoes with the canvas.
+- A Polkadot relation is keyed by **content item id**, is undirected (`findRelation` matches either
+  direction), lives in SurrealDB, spans every canvas in the project, and has its own undo through
+  `rememberUndoableAction`.
+
+The killing detail is arity. `getConnectorRectsByItem` returns a list of rects per item, because one
+item can be open in more than one window, and one relation then draws several connectors. A
+window-id-keyed edge cannot say "join whatever windows show item A to whatever windows show item B".
+
+So Polkadot keeps the database as the owner of the durable fact and **projects** it into the canvas;
+it does not move it. The slice is right for a canvas whose edges really are canvas state, which the
+workflow board's links are. Treating these two as one concept would be the affordance duplication
+this queue exists to prevent, in the direction that loses data.
 E4. [ ] **Delete the `sceneSurface` prop and the `sceneLayers` split.** Depends on E3. The compositor
 mounts with the viewport when the `/scene` entry is present. This is what makes the pass
 contract, `CompositorSceneResources` and the consumer-facing pass exports go away; until then

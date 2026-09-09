@@ -108,9 +108,17 @@ The corrected target, which supersedes "Architecture" above where they differ:
    store: window instances, connections, selection, camera. Consumers add entities through the store
    and commands, exactly as they add windows today. There is no consumer pass list.
 2. **Framework primitives on TypeGPU.** Instanced quads, thick segments, glow fields, and readback
-   signals are framework passes with data inputs. A consumer never writes a shader. Polkadot's
-   connectors become a `connections` slice the framework draws; the workflow-board links use the same
-   slice.
+   signals are framework passes with data inputs. A consumer never writes a shader. The
+   workflow-board links become a `connections` slice the framework draws.
+
+   **Corrected on 2026-09-09.** This point originally said Polkadot's connectors become that same
+   slice. They cannot. A framework connection is keyed by window id and is canvas document state; a
+   Polkadot relation is keyed by content item id, is undirected, lives in the database, and spans
+   every canvas in the project. One item can be open in several windows, so one relation draws
+   several connectors — an edge between two window ids cannot express that. Polkadot projects its
+   relations into the canvas and keeps the database as their owner. See `docs/internal/backlog.md`,
+   item E3.
+
 3. **Signals as state.** GPU readback (proximity, later occlusion and density) lands in the store's
    `signals$` view state with hooks. Proximity is the first slice; `useInfiniteCanvasWindowProximity`
    reads it. Done on 2026-09-08.
