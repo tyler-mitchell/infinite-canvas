@@ -1,9 +1,15 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { tv } from "tailwind-variants";
 
+import { Bars } from "#/components/bars.tsx";
+import { Button } from "#/components/button.tsx";
+import { IconTile } from "#/components/icon-tile.tsx";
 import { Row } from "#/components/row.tsx";
+import { Separator } from "#/components/separator.tsx";
 import { Surface } from "#/components/surface.tsx";
 import { Kind, Label, Meta, Prose, Readout, Title } from "#/components/text.tsx";
+
+import { INSTALLS } from "../fixtures.ts";
 
 const overview = tv({
   slots: {
@@ -12,8 +18,19 @@ const overview = tv({
     lede: "max-w-[560px]",
     section: "flex flex-col gap-4",
     grid: "grid grid-cols-[repeat(auto-fill,minmax(236px,1fr))] gap-3",
+    widget: "max-w-[360px]",
+    chart: "flex h-[58px] flex-col",
+    tiles: "flex items-center gap-1.5",
+    monogram:
+      "flex size-full items-center justify-center rounded-[4px] bg-pk-surface-inner font-pk-mono text-[9px] leading-none text-pk-ink-soft",
   },
 });
+
+const BUILT_WITH = [
+  ["TS", "TypeScript"],
+  ["RE", "React"],
+  ["WG", "WebGPU"],
+] as const;
 
 /*
  * The rules the kit is built on, each one counted in the design source rather than asserted. They
@@ -58,6 +75,50 @@ function Overview() {
           through tailwind-variants slots. Every page here is composed from the kit itself.
         </Prose>
       </div>
+
+      <section className={styles.section()}>
+        <Row rule="below">
+          <Kind>a widget, composed</Kind>
+          <Meta>seven parts, no new css</Meta>
+        </Row>
+        {/* The point of the kit in one object: the pages after this take it back apart. */}
+        <Surface tone="card" className={styles.widget()}>
+          <Row>
+            <Kind>package</Kind>
+            <Meta>mit</Meta>
+          </Row>
+          <Title>surrealdb-wasm</Title>
+          <Prose>An embedded graph store compiled to WebAssembly, with a live inspector.</Prose>
+
+          <Row align="baseline">
+            <Label>weekly installs</Label>
+            <Readout>4,182</Readout>
+          </Row>
+          <div className={styles.chart()}>
+            <Bars values={INSTALLS} label="weekly installs over eight weeks" />
+          </div>
+
+          <Row rule="above">
+            <div className={styles.tiles()}>
+              {BUILT_WITH.map(([mark, name]) => (
+                <IconTile
+                  key={name}
+                  size="sm"
+                  label={name}
+                  icon={<span className={styles.monogram()}>{mark}</span>}
+                />
+              ))}
+            </div>
+            <Row align="center">
+              <Meta>v2.1.0</Meta>
+              <Separator orientation="vertical" />
+              <Button tone="bare" size="xs">
+                clone
+              </Button>
+            </Row>
+          </Row>
+        </Surface>
+      </section>
 
       <section className={styles.section()}>
         <Row rule="below">
