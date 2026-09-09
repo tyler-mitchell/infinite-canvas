@@ -74,6 +74,8 @@ const documented = new Set(
 
 let totalValues = 0;
 let totalTypes = 0;
+/** Every name either barrel exports, for the reverse check below. */
+const exported = new Set();
 
 for (const { entry, path } of BARRELS) {
   const source = readFileSync(path, "utf8");
@@ -97,6 +99,8 @@ for (const { entry, path } of BARRELS) {
   totalTypes += types.size;
 
   for (const name of [...values, ...types].sort((left, right) => left.localeCompare(right))) {
+    exported.add(name);
+
     if (!documented.has(name)) {
       failures.push(
         `${entry}: \`${name}\` is exported but owns no entry in docs/API.md — it must lead ` +
@@ -104,6 +108,22 @@ for (const { entry, path } of BARRELS) {
           "appearing inside another entry's prose.",
       );
     }
+  }
+}
+
+/**
+ * The reverse direction. Without it an entry naming a deleted export reads as
+ * live API and this gate stays green: `DEFAULT_RADIANCE_OPTIONS` outlived the
+ * radiance pass that way until 2026-09-08.
+ *
+ */
+for (const name of [...documented].sort((left, right) => left.localeCompare(right))) {
+  if (!exported.has(name)) {
+    failures.push(
+      `docs/API.md leads an entry with \`${name}\`, which neither barrel exports — ` +
+        "a reference naming a symbol that is gone tells a consumer to import nothing. " +
+        "Remove the entry, or export the symbol.",
+    );
   }
 }
 

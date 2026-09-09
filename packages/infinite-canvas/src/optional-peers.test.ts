@@ -7,7 +7,13 @@ import { getInfiniteCanvasMissingSceneSurfaceWarning } from "./infinite-canvas";
 
 const srcDirectory = dirname(fileURLToPath(import.meta.url));
 
-const OPTIONAL_3D_PEERS = ["three", "@react-three/fiber"];
+/**
+ * Every package of the GPU stack. `typegpu` and `@typegpu/react` are optional
+ * peers; `@typegpu/sdf` and `@typegpu/noise` are dependencies. Both kinds
+ * belong here: the crawl stops at a package boundary, so reaching `sdf` from
+ * the public entry would pull `typegpu` in transitively and go unseen.
+ */
+const GPU_STACK_PACKAGES = ["typegpu", "@typegpu/react", "@typegpu/sdf", "@typegpu/noise"];
 
 function getStaticImports(text: string) {
   return [
@@ -55,26 +61,28 @@ function crawlStaticGraph(entry: string) {
   return { modules, packages };
 }
 
-test("the public entry never statically reaches a 3D engine", () => {
+test("the public entry never statically reaches the GPU stack", () => {
   const { packages } = crawlStaticGraph(join(srcDirectory, "index.ts"));
 
-  expect(OPTIONAL_3D_PEERS.filter((peer) => packages.has(peer))).toEqual([]);
+  expect(GPU_STACK_PACKAGES.filter((name) => packages.has(name))).toEqual([]);
 });
 
-test("the public entry never statically reaches the WebGPU surface", () => {
+test("the public entry never statically reaches the compositor backend", () => {
   const { modules } = crawlStaticGraph(join(srcDirectory, "index.ts"));
   const reachable = [...modules]
     .map((file) => file.slice(srcDirectory.length + 1))
-    .filter((name) => name === "webgpu-surface.tsx" || name === "visibility-probes.tsx");
+    .filter(
+      (name) => name.startsWith("compositor/backend/") || name.startsWith("compositor/passes/"),
+    );
 
   expect(reachable).toEqual([]);
 });
 
-test("the public entry never dynamically imports the WebGPU surface either", () => {
+test("the public entry never dynamically imports the compositor either", () => {
   const { modules } = crawlStaticGraph(join(srcDirectory, "index.ts"));
   const offenders = [...modules]
     .filter((file) =>
-      /import\(\s*["'][^"']*(webgpu-surface|visibility-probes|scene)["']/.test(
+      /import\(\s*["'][^"']*(compositor\/backend|compositor\/passes|scene)["']/.test(
         readFileSync(file, "utf8"),
       ),
     )
@@ -83,25 +91,22 @@ test("the public entry never dynamically imports the WebGPU surface either", () 
   expect(offenders).toEqual([]);
 });
 
-test("the ./scene entry is what owns the 3D engine", () => {
+test("the ./scene entry is what owns the GPU stack", () => {
   const { packages } = crawlStaticGraph(join(srcDirectory, "scene.ts"));
 
   // This assertion prevents a vacuous reachability test.
-  expect(OPTIONAL_3D_PEERS.filter((peer) => packages.has(peer)).sort()).toEqual(
-    [...OPTIONAL_3D_PEERS].sort(),
+  expect(GPU_STACK_PACKAGES.filter((name) => packages.has(name)).sort()).toEqual(
+    [...GPU_STACK_PACKAGES].sort(),
   );
 });
 
 test("omitting sceneSurface warns instead of silently dropping scene content", () => {
-  expect(getInfiniteCanvasMissingSceneSurfaceWarning(2, false, false)).toMatch(
+  expect(getInfiniteCanvasMissingSceneSurfaceWarning(2, false)).toMatch(
     /`sceneLayers` were provided without a `sceneSurface`/,
-  );
-  expect(getInfiniteCanvasMissingSceneSurfaceWarning(0, true, false)).toMatch(
-    /`diagnostics\.frustum` needs a `sceneSurface`/,
   );
 });
 
 test("a supplied sceneSurface, or nothing to render, stays quiet", () => {
-  expect(getInfiniteCanvasMissingSceneSurfaceWarning(2, true, true)).toBeNull();
-  expect(getInfiniteCanvasMissingSceneSurfaceWarning(0, false, false)).toBeNull();
+  expect(getInfiniteCanvasMissingSceneSurfaceWarning(2, true)).toBeNull();
+  expect(getInfiniteCanvasMissingSceneSurfaceWarning(0, false)).toBeNull();
 });

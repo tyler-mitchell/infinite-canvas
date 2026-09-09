@@ -202,9 +202,7 @@ export {
   getInfiniteCanvasWindowProxyCullingRect,
   getInfiniteCanvasWorldPath,
   getInfiniteCanvasWorldPathPointAtProgress,
-  getInfiniteCanvasWorldPathSceneTransforms,
   getInfiniteCanvasWorldSegment,
-  getInfiniteCanvasWorldSegmentSceneTransform,
   getVisibleInfiniteCanvasWindowProxies,
 } from "./scene-layer-geometry";
 export {
@@ -302,6 +300,20 @@ export {
   resolveInfiniteCanvasDiagnosticsPolicy,
 } from "./diagnostics";
 export {
+  DEFAULT_INFINITE_CANVAS_COMPOSITOR,
+  resolveInfiniteCanvasCompositorPolicy,
+} from "./compositor/policy";
+export type {
+  InfiniteCanvasAreaLightOptions,
+  InfiniteCanvasCompositorPolicy,
+  InfiniteCanvasCompositorPolicyInput,
+  InfiniteCanvasContactShadowOptions,
+  InfiniteCanvasFocusFieldOptions,
+  InfiniteCanvasGridOptions,
+  InfiniteCanvasParticleFieldOptions,
+  InfiniteCanvasProximityOptions,
+} from "./compositor/policy";
+export {
   EMPTY_INFINITE_CANVAS_DROP,
   createInfiniteCanvasDropInteraction,
   getInfiniteCanvasDropPlacement,
@@ -324,18 +336,10 @@ export {
   DEFAULT_INFINITE_CANVAS_RASTERIZATION,
   resolveInfiniteCanvasRasterizationPolicy,
 } from "./rasterization-layer";
-export {
-  getInfiniteCanvasVisibilitySummary,
-  getWindowFrustumVisibility,
-  isWindowFramed,
-  useInfiniteCanvasVisibilitySummary,
-  useInfiniteCanvasWindowFramed,
-  useInfiniteCanvasWindowFrustum,
-} from "./visibility";
+export { useInfiniteCanvasVisibilitySummary, useInfiniteCanvasWindowFramed } from "./visibility";
 export type {
   InfiniteCanvasPathDataOptions,
   InfiniteCanvasRectFacing,
-  InfiniteCanvasSceneSegmentTransform,
   InfiniteCanvasWindowConnectorOptions,
   InfiniteCanvasWindowConnectorPathOptions,
   InfiniteCanvasWindowConnectorRoute,
@@ -350,7 +354,11 @@ export type {
   InfiniteCanvasDiagnosticsPolicyInput,
 } from "./diagnostics";
 export type { InfiniteCanvasHotkeyAction, InfiniteCanvasHotkeyRegistrationInput } from "./keyboard";
-export type { InfiniteCanvasStateValidator, InfiniteCanvasStore } from "./store";
+export type {
+  InfiniteCanvasSignals,
+  InfiniteCanvasStateValidator,
+  InfiniteCanvasStore,
+} from "./store";
 export type {
   InfiniteCanvasRasterDisplayMode,
   InfiniteCanvasRasterizationPolicy,
@@ -358,11 +366,7 @@ export type {
   InfiniteCanvasRasterSnapshot,
   InfiniteCanvasRasterSummary,
 } from "./rasterization-layer";
-export type {
-  InfiniteCanvasVisibilityState,
-  InfiniteCanvasVisibilitySummary,
-  InfiniteCanvasWindowFrustumVisibility,
-} from "./visibility";
+export type { InfiniteCanvasVisibilityState, InfiniteCanvasVisibilitySummary } from "./visibility";
 export type {
   InfiniteCanvasWindowPresence,
   InfiniteCanvasWindowPresenceItem,
@@ -438,12 +442,9 @@ export type {
   InfiniteCanvasResolvedDropTarget,
   InfiniteCanvasResolveSpatialTarget,
   InfiniteCanvasResolvedSpatialTarget,
-  InfiniteCanvasSceneLayer,
-  InfiniteCanvasSceneLayerFrameloop,
   InfiniteCanvasSceneLayerPlacement,
   InfiniteCanvasSceneLayerRenderContext,
   InfiniteCanvasSceneLayerSpace,
-  InfiniteCanvasSceneVector3,
   InfiniteCanvasSerializedState,
   InfiniteCanvasSelection,
   InfiniteCanvasSelectionTarget,
@@ -482,16 +483,19 @@ export type {
   InfiniteCanvasWindowCapabilities,
   InfiniteCanvasWindowCapability,
   InfiniteCanvasWindowMode,
+  InfiniteCanvasWindowProximity,
   InfiniteCanvasWindowProxy,
   InfiniteCanvasWindowRegistry,
   InfiniteCanvasWindowRegistryInput,
   InfiniteCanvasWindowRenderContext,
   InfiniteCanvasWindowTextSelection,
   InfiniteCanvasWindowWheelBehavior,
+  InfiniteCanvasWorkspace,
   InfiniteCanvasZoomPolicy,
   InfiniteCanvasZoomPolicyInput,
 } from "./types";
 export { isInfiniteCanvasWindowCapable } from "./window-capabilities";
+export { useInfiniteCanvasWindowProximity } from "./window-proximity";
 export { findInfiniteCanvasWorkspace } from "./workspace";
 export { getInfiniteCanvasActivity, isInfiniteCanvasActivityTransient } from "./activity";
 export type { InfiniteCanvasActivity } from "./activity";

@@ -711,14 +711,10 @@ type InfiniteCanvasWindowFrameRenderContext<
     theme: InfiniteCanvasTheme;
   }>;
 
-type InfiniteCanvasSceneVector3 = readonly [number, number, number];
-
 type InfiniteCanvasWindowProxy<Kind extends string = string> = Readonly<{
   bodyLocalRect: InfiniteCanvasRect;
-  bodyScenePosition: InfiniteCanvasSceneVector3;
   bodyWorldRect: InfiniteCanvasRect;
   center: InfiniteCanvasPoint;
-  frameScenePosition: InfiniteCanvasSceneVector3;
   frameWorldRect: InfiniteCanvasRect;
   id: string;
   isActive: boolean;
@@ -728,7 +724,6 @@ type InfiniteCanvasWindowProxy<Kind extends string = string> = Readonly<{
   mode: InfiniteCanvasWindowMode;
   rect: InfiniteCanvasRect;
   screenCenter: InfiniteCanvasPoint;
-  screenPosition: InfiniteCanvasSceneVector3;
   screenRect: InfiniteCanvasRect;
   screenSize: InfiniteCanvasSize;
   size: InfiniteCanvasSize;
@@ -743,7 +738,6 @@ type InfiniteCanvasSceneLayerRenderContext<
   actions: InfiniteCanvasCommands<Kind>;
   camera: InfiniteCanvasCamera;
   chrome: InfiniteCanvasChromeMetrics;
-  contextualCommands: readonly InfiniteCanvasContextualCommand[];
   devicePixelRatio: number;
   drop: InfiniteCanvasDropInteraction<Payload, Kind>;
   getState: () => InfiniteCanvasState<Kind>;
@@ -752,9 +746,11 @@ type InfiniteCanvasSceneLayerRenderContext<
   space: InfiniteCanvasSceneLayerSpace;
   state: InfiniteCanvasState<Kind>;
   theme: InfiniteCanvasTheme;
-  visibleRect: InfiniteCanvasRect;
+  /** The viewport as a screen rect, for a pass drawing in screen space. */
   visibleScreenRect: InfiniteCanvasRect;
+  /** `windows` culled to `visibleWorldRect`. */
   visibleWindows: readonly InfiniteCanvasWindowProxy<Kind>[];
+  /** The world the viewport frames right now. */
   visibleWorldRect: InfiniteCanvasRect;
   viewport: InfiniteCanvasViewport;
   windows: readonly InfiniteCanvasWindowProxy<Kind>[];
@@ -762,17 +758,17 @@ type InfiniteCanvasSceneLayerRenderContext<
 
 type InfiniteCanvasSceneLayerPlacement = "overlay" | "underlay";
 type InfiniteCanvasSceneLayerSpace = "screen" | "world";
-type InfiniteCanvasSceneLayerFrameloop = "always" | "demand";
 
-type InfiniteCanvasSceneLayer<
-  Kind extends string = string,
-  Payload = InfiniteCanvasDropPayload,
-> = Readonly<{
-  frameloop?: InfiniteCanvasSceneLayerFrameloop;
-  id: string;
-  placement?: InfiniteCanvasSceneLayerPlacement;
-  space?: InfiniteCanvasSceneLayerSpace;
-  render: (context: InfiniteCanvasSceneLayerRenderContext<Kind, Payload>) => ReactNode;
+/** What the compositor measured about one window's surroundings on the last frame. */
+type InfiniteCanvasWindowProximity = Readonly<{
+  /** World distance from this window's edge to the nearest other window's edge. */
+  nearest: number;
+  /** ID of the nearest window within reach, or null. */
+  nearestWindowId: string | null;
+  /** Windows within reach. */
+  neighbors: number;
+  /** Sum over neighbours of (1 - distance / reach); crowding reads high. */
+  pressure: number;
 }>;
 
 type InfiniteCanvasWindowWheelBehavior = "canvas-pan" | "native-scroll";
@@ -1415,12 +1411,9 @@ export type {
   InfiniteCanvasResolvedDropTarget,
   InfiniteCanvasResolveSpatialTarget,
   InfiniteCanvasResolvedSpatialTarget,
-  InfiniteCanvasSceneLayer,
-  InfiniteCanvasSceneLayerFrameloop,
   InfiniteCanvasSceneLayerPlacement,
   InfiniteCanvasSceneLayerRenderContext,
   InfiniteCanvasSceneLayerSpace,
-  InfiniteCanvasSceneVector3,
   InfiniteCanvasSerializedState,
   InfiniteCanvasSelection,
   InfiniteCanvasSelectionTarget,
@@ -1460,6 +1453,7 @@ export type {
   InfiniteCanvasWindowCapability,
   InfiniteCanvasWindowMode,
   InfiniteCanvasWorkspace,
+  InfiniteCanvasWindowProximity,
   InfiniteCanvasWindowProxy,
   InfiniteCanvasWindowRegistry,
   InfiniteCanvasWindowRegistryInput,

@@ -7,22 +7,24 @@ import {
   getInfiniteCanvasWindowConnectorSegment,
   getInfiniteCanvasWindowPresence,
   getInfiniteCanvasWindowProxy,
-  getInfiniteCanvasWorldSegmentSceneTransform,
   getSelectionTargets,
   InfiniteCanvasDesktop,
   worldPointToScreenPoint,
   worldRectToScreenRect,
   type InfiniteCanvasOverlayRenderContext,
-  type InfiniteCanvasSceneLayer,
   type InfiniteCanvasState,
   type InfiniteCanvasWindow,
   type InfiniteCanvasWorldSegment,
 } from "@hyphened/infinite-canvas";
-import { InfiniteCanvasWebGpuSurface } from "@hyphened/infinite-canvas/scene";
+import {
+  InfiniteCanvasCompositorSurface,
+  type InfiniteCanvasScenePass,
+} from "@hyphened/infinite-canvas/scene";
 import { useMemo, useState } from "react";
 import { Button } from "ui";
 import { CommandPalette } from "../showcases/command-palette.tsx";
 import { exposeCanvasDevHandle } from "../showcases/dev-handle.ts";
+import { createWorkflowLinksPass } from "../showcases/workflow-links-pass.ts";
 
 export const Route = createFileRoute("/workflow-board")({
   component: WorkflowBoardShowcase,
@@ -192,40 +194,24 @@ function WorkflowBoardShowcase() {
   const sceneLayers = useMemo(
     () =>
       [
-        {
-          frameloop: "demand",
-          id: "workflow-links",
-          render: (context) => {
-            const selectedId = selectedConnectionId(context.state, connections);
-            return (
-              <group>
-                {connections.map((connection) => {
-                  const segment = connectionSegment(context.state, connection);
-                  if (segment === null) {
-                    return null;
-                  }
-                  const transform = getInfiniteCanvasWorldSegmentSceneTransform(segment, -4);
-                  const isSelected = connection.id === selectedId;
-                  return (
-                    <mesh
-                      key={connection.id}
-                      position={transform.position}
-                      rotation={transform.rotation}
-                    >
-                      <boxGeometry args={[transform.length, isSelected ? 4 : 2, 1]} />
-                      <meshBasicMaterial
-                        color={isSelected ? "#bae6fd" : "#38bdf8"}
-                        opacity={isSelected ? 0.95 : 0.55}
-                        transparent
-                      />
-                    </mesh>
-                  );
-                })}
-              </group>
-            );
-          },
-        },
-      ] satisfies readonly InfiniteCanvasSceneLayer<CardKind>[],
+        createWorkflowLinksPass<CardKind>((context) => {
+          const selectedId = selectedConnectionId(context.state, connections);
+
+          return connections.flatMap((connection) => {
+            const segment = connectionSegment(context.state, connection);
+
+            return segment === null
+              ? []
+              : [
+                  {
+                    a: [segment.start.x, segment.start.y] as const,
+                    b: [segment.end.x, segment.end.y] as const,
+                    selected: connection.id === selectedId,
+                  },
+                ];
+          });
+        }),
+      ] satisfies readonly InfiniteCanvasScenePass<CardKind>[],
     [connections],
   );
 
@@ -277,7 +263,7 @@ function WorkflowBoardShowcase() {
           </>
         )}
         sceneLayers={sceneLayers}
-        sceneSurface={InfiniteCanvasWebGpuSurface}
+        sceneSurface={InfiniteCanvasCompositorSurface}
         spatialTargetResolvers={spatialTargetResolvers}
         subtitle="Scene-layer links, selectable edges, ports, and scoped workspaces."
         title={`Workflow — ${workspace.label}`}

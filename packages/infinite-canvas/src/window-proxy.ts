@@ -4,16 +4,11 @@ import { isWindowSelected } from "./selection";
 import { getInfiniteCanvasWindowBodyProjection } from "./window-scene-shell";
 import type {
   InfiniteCanvasChromeMetrics,
-  InfiniteCanvasPoint,
   InfiniteCanvasRect,
   InfiniteCanvasState,
   InfiniteCanvasWindow,
   InfiniteCanvasWindowProxy,
 } from "./types";
-
-function getScenePosition(point: InfiniteCanvasPoint) {
-  return [point.x, -point.y, 0] as const;
-}
 
 function getScreenRect<Kind extends string>(
   state: InfiniteCanvasState<Kind>,
@@ -57,20 +52,10 @@ function getInfiniteCanvasWindowProxy<Kind extends string>(
     x: screenRect.x + screenRect.width / 2,
     y: screenRect.y + screenRect.height / 2,
   };
-  const bodyCenter = {
-    x: bodyProjection.bodyWorldRect.x + bodyProjection.bodyWorldRect.width / 2,
-    y: bodyProjection.bodyWorldRect.y + bodyProjection.bodyWorldRect.height / 2,
-  };
-  const frameScenePosition = getScenePosition(center);
-  const bodyScenePosition = getScenePosition(bodyCenter);
-  const screenPosition = getScenePosition(screenCenter);
-
   return {
     bodyLocalRect: bodyProjection.bodyLocalRect,
-    bodyScenePosition,
     bodyWorldRect: bodyProjection.bodyWorldRect,
     center,
-    frameScenePosition,
     frameWorldRect: window.rect,
     id: window.id,
     isActive: state.activeWindowId === window.id,
@@ -80,7 +65,6 @@ function getInfiniteCanvasWindowProxy<Kind extends string>(
     mode: window.mode,
     rect: window.rect,
     screenCenter,
-    screenPosition,
     screenRect,
     screenSize: {
       height: screenRect.height,

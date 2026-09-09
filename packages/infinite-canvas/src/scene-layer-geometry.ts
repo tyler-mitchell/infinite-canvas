@@ -3,7 +3,6 @@ import type {
   InfiniteCanvasPoint,
   InfiniteCanvasRect,
   InfiniteCanvasSceneLayerSpace,
-  InfiniteCanvasSceneVector3,
   InfiniteCanvasViewport,
   InfiniteCanvasWindowProxy,
 } from "./types";
@@ -33,12 +32,6 @@ type InfiniteCanvasWorldSegment = Readonly<{
   length: number;
   midpoint: InfiniteCanvasPoint;
   start: InfiniteCanvasPoint;
-}>;
-
-type InfiniteCanvasSceneSegmentTransform = Readonly<{
-  length: number;
-  position: InfiniteCanvasSceneVector3;
-  rotation: InfiniteCanvasSceneVector3;
 }>;
 
 type InfiniteCanvasWorldPath = Readonly<{
@@ -613,21 +606,6 @@ function getInfiniteCanvasRectConnectorPath(
   );
 }
 
-function getInfiniteCanvasWorldSegmentSceneTransform(
-  segment: InfiniteCanvasWorldSegment,
-  z = 0,
-): InfiniteCanvasSceneSegmentTransform {
-  return {
-    length: segment.length,
-    position: [segment.midpoint.x, -segment.midpoint.y, z],
-    rotation: [0, 0, -segment.angle],
-  };
-}
-
-function getInfiniteCanvasWorldPathSceneTransforms(path: InfiniteCanvasWorldPath, z = 0) {
-  return path.segments.map((segment) => getInfiniteCanvasWorldSegmentSceneTransform(segment, z));
-}
-
 function getInfiniteCanvasViewportScreenRect(viewport: InfiniteCanvasViewport): InfiniteCanvasRect {
   return {
     height: viewport.height,
@@ -672,9 +650,7 @@ export {
   getInfiniteCanvasWindowProxyCullingRect,
   getInfiniteCanvasWorldPath,
   getInfiniteCanvasWorldPathPointAtProgress,
-  getInfiniteCanvasWorldPathSceneTransforms,
   getInfiniteCanvasWorldSegment,
-  getInfiniteCanvasWorldSegmentSceneTransform,
   getVisibleInfiniteCanvasWindowProxies,
 };
 
@@ -682,7 +658,6 @@ export type {
   InfiniteCanvasPathDataOptions,
   InfiniteCanvasRectFacing,
   InfiniteCanvasSceneLayerCullingSpace,
-  InfiniteCanvasSceneSegmentTransform,
   InfiniteCanvasWindowConnectorOptions,
   InfiniteCanvasWindowConnectorPathOptions,
   InfiniteCanvasWindowConnectorRoute,

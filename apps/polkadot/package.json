@@ -31,6 +31,7 @@
     "@tanstack/hotkeys": "catalog:",
     "@tanstack/pacer": "catalog:",
     "@tanstack/react-router": "catalog:",
+    "@typegpu/react": "catalog:",
     "arktype": "catalog:",
     "lexical": "catalog:",
     "liquid-gooey": "catalog:",

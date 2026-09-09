@@ -32,32 +32,38 @@ const seed = (markdown: string) => {
   });
 };
 
-const storedAfterWriting = (markdown: string): string => {
-  getAppAction("note.write")?.run(CONTEXT, { itemId: NOTE_ID, text: markdown });
+// `run` returns `string | Promise<string | undefined> | undefined`, so both
+// helpers await it. Reading the store before the write settled would fail the
+// assertion, and a rejected action would otherwise surface as an unhandled
+// rejection rather than a failing test.
+const storedAfterWriting = async (markdown: string): Promise<string> => {
+  await getAppAction("note.write")?.run(CONTEXT, { itemId: NOTE_ID, text: markdown });
 
   const item = projectContent$.peek()?.items.find((candidate) => candidate.id === NOTE_ID);
 
   return noteToMarkdown((item?.content as { text?: string } | undefined)?.text ?? "");
 };
 
-test("a fenced block written as markdown is stored as a code block", () => {
+test("a fenced block written as markdown is stored as a code block", async () => {
   seed("nothing yet");
 
-  expect(storedAfterWriting("```js\nconst a = 1;\n```")).toBe("```js\nconst a = 1;\n```");
+  expect(await storedAfterWriting("```js\nconst a = 1;\n```")).toBe("```js\nconst a = 1;\n```");
 });
 
-test("a heading is stored as a heading, not as its words", () => {
+test("a heading is stored as a heading, not as its words", async () => {
   seed("nothing yet");
 
-  expect(storedAfterWriting("# Title")).toBe("# Title");
+  expect(await storedAfterWriting("# Title")).toBe("# Title");
 });
 
-test("read, edit one word, write: the other blocks are untouched", () => {
+test("read, edit one word, write: the other blocks are untouched", async () => {
   seed("# Title\n\n```js\nconst a = 1;\n```\n\n- one");
 
-  const read = getAppAction("note.read")?.run(CONTEXT, { itemId: NOTE_ID });
-  const edited = String(read).replace("Title", "Retitled");
-  const after = storedAfterWriting(edited);
+  // Not `String(read)`: that turns a missing action into "undefined" and a
+  // promise into "[object Promise]", and the replace below then does nothing.
+  const read = (await getAppAction("note.read")?.run(CONTEXT, { itemId: NOTE_ID })) ?? "";
+  const edited = read.replace("Title", "Retitled");
+  const after = await storedAfterWriting(edited);
 
   expect(after).toContain("# Retitled");
   expect(after).toContain("```js");

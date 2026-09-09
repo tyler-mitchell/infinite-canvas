@@ -52,7 +52,6 @@ import {
   useInfiniteCanvasStore,
   useInfiniteCanvasState,
 } from "../../../../packages/infinite-canvas/src/store.tsx";
-import { useInfiniteCanvasVisibilityContext } from "../../../../packages/infinite-canvas/src/visibility.tsx";
 
 // ---------------------------------------------------------------------------
 // 1. Pass contract. PROPOSED: packages/infinite-canvas/src/compositor/pass.ts
@@ -408,29 +407,16 @@ function getWindowVisibilityEntries<Kind extends string>(
     }));
 }
 
-/** PROPOSED: lives in visibility.tsx. */
-function useInfiniteCanvasWindowFrustumProbe(enabled: boolean) {
-  const store = useInfiniteCanvasStore();
-  const visibility = useInfiniteCanvasVisibilityContext();
-
-  useEffect(() => {
-    if (!enabled) {
-      return;
-    }
-
-    const probe = () => {
-      const state = store.state$.peek() as InfiniteCanvasState;
-      const entries = getWindowVisibilityEntries(state.camera, state.viewport, state.windows);
-
-      visibility.retainWindows(entries.map((entry) => entry.windowId));
-      visibility.markWindowsFramed(entries);
-    };
-
-    probe();
-
-    return store.state$.onChange(probe);
-  }, [enabled, store, visibility]);
-}
+/**
+ * SHIPPED on 2026-09-08 as `InfiniteCanvasWindowFrustumProbe` in visibility.tsx,
+ * mounted by the diagnostics provider behind `diagnostics.frustum`.
+ *
+ * It differs from this proposal in one way worth carrying forward: the pair of
+ * writes here, `retainWindows` then `markWindowsFramed`, collapsed into a single
+ * whole-record `visibility$.set(...)`. Legend-State compares deeply, so one write
+ * both drops the windows that closed and notifies only the windows whose framing
+ * actually changed. The reducers this proposal implied were never needed.
+ */
 
 // ---------------------------------------------------------------------------
 // 5. First consumer pass: workflow-board links. PROPOSED: replaces the
@@ -536,7 +522,7 @@ declare const viewportSketch: <Kind extends string, Payload>(
 */
 void viewportSketch;
 void createWorkflowLinksPass;
-void useInfiniteCanvasWindowFrustumProbe;
+void getWindowVisibilityEntries;
 void InfiniteCanvasCompositorSurface;
 void useCompositorRoot;
 

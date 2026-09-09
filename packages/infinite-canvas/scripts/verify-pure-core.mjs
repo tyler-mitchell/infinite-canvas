@@ -41,14 +41,20 @@ const PURE_CORE_ROOTS = [
   "window-proxy.ts",
 ];
 
-/** Runtime packages forbidden from the core graph. */
+/**
+ * Runtime packages forbidden from the core graph. Every package of the GPU
+ * stack belongs here, not only `typegpu`: `./scene` is the sole entry allowed
+ * to reach any of them, which is what keeps those peers optional.
+ */
 const FORBIDDEN_PACKAGES = new Set([
   "@legendapp/state",
-  "@react-three/fiber",
+  "@typegpu/noise",
+  "@typegpu/react",
+  "@typegpu/sdf",
   "@zumer/snapdom",
   "react",
   "react-dom",
-  "three",
+  "typegpu",
 ]);
 
 /** Minimum graph size that prevents a vacuous crawl. */

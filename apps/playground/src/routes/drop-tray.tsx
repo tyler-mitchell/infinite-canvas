@@ -9,14 +9,17 @@ import {
   type InfiniteCanvasDropPolicy,
   type InfiniteCanvasOverlayRenderContext,
   type InfiniteCanvasRect,
-  type InfiniteCanvasSceneLayer,
   type InfiniteCanvasSize,
   type InfiniteCanvasWindow,
 } from "@hyphened/infinite-canvas";
-import { InfiniteCanvasWebGpuSurface } from "@hyphened/infinite-canvas/scene";
+import {
+  InfiniteCanvasCompositorSurface,
+  type InfiniteCanvasScenePass,
+} from "@hyphened/infinite-canvas/scene";
 import { useMemo, useRef } from "react";
 import { CommandPalette } from "../showcases/command-palette.tsx";
 import { exposeCanvasDevHandle } from "../showcases/dev-handle.ts";
+import { createDropPreviewPass } from "../showcases/drop-preview-pass.ts";
 
 export const Route = createFileRoute("/drop-tray")({
   component: DropTrayShowcase,
@@ -48,6 +51,16 @@ const assets: readonly CardAsset[] = [
 ];
 
 const cardSize: InfiniteCanvasSize = { height: 180, width: 280 };
+
+/**
+ * Six-digit hex to sRGB in 0..1. Accents are authored as hex strings, and the
+ * canvas format is never an sRGB one, so the channels pass straight through.
+ */
+function hexToRgb(hex: string): readonly [number, number, number] {
+  const value = Number.parseInt(hex.slice(1, 7), 16);
+
+  return [((value >> 16) & 255) / 255, ((value >> 8) & 255) / 255, (value & 255) / 255];
+}
 
 function makeCard(input: {
   accent: string;
@@ -186,42 +199,29 @@ function DropTrayShowcase() {
     [],
   );
 
+  // The ghost uses the framework placement and guides.
   const sceneLayers = useMemo(
     () =>
       [
-        {
-          frameloop: "demand",
-          id: "drop-preview",
-          placement: "overlay",
-          // The ghost uses the framework placement and guides.
-          render: (context) => {
-            const { drop } = context;
-            if (
-              drop.status !== "dragging" ||
-              !drop.isOverViewport ||
-              !isCardAsset(drop.payload) ||
-              drop.dropTarget.target === null ||
-              drop.placement === null
-            ) {
-              return null;
-            }
-            const { rect } = drop.placement;
-            const valid = drop.dropTarget.status === "valid";
-            return (
-              <group position={[rect.x + rect.width / 2, -(rect.y + rect.height / 2), 10]}>
-                <mesh>
-                  <boxGeometry args={[rect.width, rect.height, 1]} />
-                  <meshBasicMaterial
-                    color={valid ? drop.payload.accent : "#f87171"}
-                    opacity={valid ? 0.16 : 0.08}
-                    transparent
-                  />
-                </mesh>
-              </group>
-            );
-          },
-        },
-      ] satisfies readonly InfiniteCanvasSceneLayer<CardKind, CardAsset>[],
+        createDropPreviewPass<CardKind, CardAsset>(({ drop }) => {
+          if (
+            drop.status !== "dragging" ||
+            !drop.isOverViewport ||
+            !isCardAsset(drop.payload) ||
+            drop.dropTarget.target === null ||
+            drop.placement === null
+          ) {
+            return null;
+          }
+
+          const valid = drop.dropTarget.status === "valid";
+
+          return {
+            color: valid ? [...hexToRgb(drop.payload.accent), 0.16] : [0.97, 0.44, 0.44, 0.08],
+            rect: drop.placement.rect,
+          };
+        }),
+      ] satisfies readonly InfiniteCanvasScenePass<CardKind, CardAsset>[],
     [],
   );
 
@@ -248,9 +248,9 @@ function DropTrayShowcase() {
           </>
         )}
         sceneLayers={sceneLayers}
-        sceneSurface={InfiniteCanvasWebGpuSurface}
+        sceneSurface={InfiniteCanvasCompositorSurface}
         spatialTargetResolvers={spatialTargetResolvers}
-        subtitle="Typed payloads, validated targets, R3F placement preview, framework-committed drops."
+        subtitle="Typed payloads, validated targets, compositor placement preview, framework-committed drops."
         title="Drop Tray"
         windowDefinitions={registry}
       />

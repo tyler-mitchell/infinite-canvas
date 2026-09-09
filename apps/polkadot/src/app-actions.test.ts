@@ -62,7 +62,7 @@ const state = createInfiniteCanvasState<WindowKind>({
   ],
 });
 
-const runReveal = (input: unknown) => {
+const runReveal = async (input: unknown) => {
   const commands: InfiniteCanvasCommand[] = [];
   const actions = {
     executeCommand: (command: InfiniteCanvasCommand) => {
@@ -70,7 +70,7 @@ const runReveal = (input: unknown) => {
     },
   } as unknown as InfiniteCanvasCommands<WindowKind>;
 
-  getAppAction("window.reveal")?.run(
+  await getAppAction("window.reveal")?.run(
     { actions, ...where, goToCanvas, projectId: "project-1", state },
     input,
   );
@@ -78,37 +78,37 @@ const runReveal = (input: unknown) => {
   return commands;
 };
 
-test("each window is reached by its own handle, though both answer to one name", () => {
-  expect(runReveal({ windowId: "note-1" })).toStrictEqual([
+test("each window is reached by its own handle, though both answer to one name", async () => {
+  expect(await runReveal({ windowId: "note-1" })).toStrictEqual([
     { type: "window.reveal", windowId: "note-1" },
   ]);
-  expect(runReveal({ windowId: "note-2" })).toStrictEqual([
+  expect(await runReveal({ windowId: "note-2" })).toStrictEqual([
     { type: "window.reveal", windowId: "note-2" },
   ]);
 });
 
-test("reveal, not focus, so a minimized or tabbed window is actually shown", () => {
+test("reveal, not focus, so a minimized or tabbed window is actually shown", async () => {
   // Focusing alone leaves a window behind a tab exactly where it was. The command matters.
-  expect(runReveal({ windowId: "note-2" })[0]?.type).toBe("window.reveal");
+  expect((await runReveal({ windowId: "note-2" }))[0]?.type).toBe("window.reveal");
 });
 
-test("an id no window answers to does nothing rather than reaching for the wrong one", () => {
-  expect(runReveal({ windowId: "never-existed" })).toStrictEqual([]);
+test("an id no window answers to does nothing rather than reaching for the wrong one", async () => {
+  expect(await runReveal({ windowId: "never-existed" })).toStrictEqual([]);
 });
 
-test("a title is refused, because a name is not an identity", () => {
+test("a title is refused, because a name is not an identity", async () => {
   // The verb took this shape until two windows on one canvas were both called "Links" and it
   // revealed whichever came first. Refusing it is what keeps that from being reintroduced quietly.
-  expect(runReveal({ title: "Untitled" })).toStrictEqual([]);
+  expect(await runReveal({ title: "Untitled" })).toStrictEqual([]);
 });
 
-test("input that does not match the published schema is refused", () => {
+test("input that does not match the published schema is refused", async () => {
   // The point of one declaration serving both halves: these are exactly the shapes
   // `toJsonSchema()` tells a caller are unacceptable, and the verb has to agree.
-  expect(runReveal({})).toStrictEqual([]);
-  expect(runReveal({ windowId: 7 })).toStrictEqual([]);
-  expect(runReveal(undefined)).toStrictEqual([]);
-  expect(runReveal("note-1")).toStrictEqual([]);
+  expect(await runReveal({})).toStrictEqual([]);
+  expect(await runReveal({ windowId: 7 })).toStrictEqual([]);
+  expect(await runReveal(undefined)).toStrictEqual([]);
+  expect(await runReveal("note-1")).toStrictEqual([]);
 });
 
 test("the published schema is the one the verb validates against", () => {
@@ -127,7 +127,7 @@ test("the published schema is the one the verb validates against", () => {
  * `content.open` resolves against the cache `content.list` reads, which is what makes the pair
  * compose: an id that listed a moment ago cannot fail here for having come from a different read.
  */
-const runOpen = (input: unknown, listing: ProjectContent | null) => {
+const runOpen = async (input: unknown, listing: ProjectContent | null) => {
   const opened: string[] = [];
   const actions = {
     executeCommand: () => undefined,
@@ -137,7 +137,8 @@ const runOpen = (input: unknown, listing: ProjectContent | null) => {
   } as unknown as InfiniteCanvasCommands<WindowKind>;
 
   projectContent$.set(listing);
-  getAppAction("content.open")?.run(
+
+  await getAppAction("content.open")?.run(
     { actions, ...where, goToCanvas, projectId: "project-1", state },
     input,
   );
@@ -165,27 +166,29 @@ const stored: ProjectContent = {
   projectId: "project-1",
 };
 
-test("an item is opened by the id the listing gave, not by a title that repeats", () => {
+test("an item is opened by the id the listing gave, not by a title that repeats", async () => {
   // Both records are called "Untitled". Only the id can say which one — the same rule `window.reveal`
   // now follows, after a spell taking a title on the belief that windows were somehow different.
-  expect(runOpen({ itemId: "content_item:item-2" }, stored)).toStrictEqual(["content_item:item-2"]);
+  expect(await runOpen({ itemId: "content_item:item-2" }, stored)).toStrictEqual([
+    "content_item:item-2",
+  ]);
 });
 
-test("an id from another project's listing opens nothing", () => {
+test("an id from another project's listing opens nothing", async () => {
   expect(
-    runOpen({ itemId: "content_item:item-1" }, { ...stored, projectId: "elsewhere" }),
+    await runOpen({ itemId: "content_item:item-1" }, { ...stored, projectId: "elsewhere" }),
   ).toStrictEqual([]);
 });
 
-test("an id in no listing opens nothing rather than the nearest thing", () => {
-  expect(runOpen({ itemId: "content_item:never-existed" }, stored)).toStrictEqual([]);
-  expect(runOpen({ itemId: "content_item:item-1" }, null)).toStrictEqual([]);
+test("an id in no listing opens nothing rather than the nearest thing", async () => {
+  expect(await runOpen({ itemId: "content_item:never-existed" }, stored)).toStrictEqual([]);
+  expect(await runOpen({ itemId: "content_item:item-1" }, null)).toStrictEqual([]);
 });
 
-test("content.open refuses input its published schema does not accept", () => {
-  expect(runOpen({}, stored)).toStrictEqual([]);
-  expect(runOpen({ itemId: 7 }, stored)).toStrictEqual([]);
-  expect(runOpen(undefined, stored)).toStrictEqual([]);
+test("content.open refuses input its published schema does not accept", async () => {
+  expect(await runOpen({}, stored)).toStrictEqual([]);
+  expect(await runOpen({ itemId: 7 }, stored)).toStrictEqual([]);
+  expect(await runOpen(undefined, stored)).toStrictEqual([]);
 });
 
 /**
@@ -196,7 +199,7 @@ test("content.open refuses input its published schema does not accept", () => {
  * appeared would be asserting against the mock rather than against the code. The refusals need no
  * database, because they never get that far: that is exactly what makes them worth pinning here.
  */
-test("a connected-to collection refuses an id it cannot resolve", () => {
+test("a connected-to collection refuses an id it cannot resolve", async () => {
   const opened: string[] = [];
   const actions = {
     executeCommand: () => undefined,
@@ -204,18 +207,19 @@ test("a connected-to collection refuses an id it cannot resolve", () => {
       opened.push("opened");
     },
   } as unknown as InfiniteCanvasCommands<WindowKind>;
-  const attempt = (input: unknown, listing: ProjectContent | null) => {
+  const attempt = async (input: unknown, listing: ProjectContent | null) => {
     projectContent$.set(listing);
-    getAppAction("collection.create.connectedTo")?.run(
+
+    await getAppAction("collection.create.connectedTo")?.run(
       { actions, ...where, goToCanvas, projectId: "project-1", state },
       input,
     );
   };
 
-  attempt({ itemId: "never-existed" }, stored);
-  attempt({ itemId: "content_item:item-1" }, null);
-  attempt({}, stored);
-  attempt(undefined, stored);
+  await attempt({ itemId: "never-existed" }, stored);
+  await attempt({ itemId: "content_item:item-1" }, null);
+  await attempt({}, stored);
+  await attempt(undefined, stored);
 
   expect(opened).toStrictEqual([]);
 });
@@ -421,7 +425,7 @@ const CONTAINER_TREE = {
 /** A group holding one window is a leaf, not a container — there is no shape to arrange. */
 const LEAF_TREE = { id: "a", kind: "window", weight: 1 };
 
-const runGroupVerb = (id: string, input: unknown, tree: unknown = CONTAINER_TREE) => {
+const runGroupVerb = async (id: string, input: unknown, tree: unknown = CONTAINER_TREE) => {
   const calls: unknown[] = [];
   const actions = {
     closeGroup: (groupId: string) => calls.push({ closeGroup: groupId }),
@@ -429,7 +433,7 @@ const runGroupVerb = (id: string, input: unknown, tree: unknown = CONTAINER_TREE
     setGroupTitle: (value: unknown) => calls.push({ setGroupTitle: value }),
   } as unknown as InfiniteCanvasCommands<WindowKind>;
 
-  getAppAction(id)?.run(
+  await getAppAction(id)?.run(
     { actions, ...where, goToCanvas, projectId: "project-1", state: groupState(tree) },
     input,
   );
@@ -437,45 +441,52 @@ const runGroupVerb = (id: string, input: unknown, tree: unknown = CONTAINER_TREE
   return calls;
 };
 
-test("a group is arranged by its own id, not by whichever window happens to be active", () => {
-  expect(runGroupVerb("group.setLayout", { groupId: "group-1", layout: "tabs" })).toStrictEqual([
+test("a group is arranged by its own id, not by whichever window happens to be active", async () => {
+  expect(
+    await runGroupVerb("group.setLayout", { groupId: "group-1", layout: "tabs" }),
+  ).toStrictEqual([
     { setGroupLayoutMode: { containerId: "container-1", groupId: "group-1", layout: "tabs" } },
   ]);
 });
 
-test("the container id is resolved here, because it is a fact about the tree", () => {
+test("the container id is resolved here, because it is a fact about the tree", async () => {
   // A caller holds the group id the canvas description publishes. Making it carry a container id
   // would be making it carry the shape of a tree it cannot see.
-  const calls = runGroupVerb("group.setLayout", { containerId: "container-1", groupId: "group-1" });
+  const calls = await runGroupVerb("group.setLayout", {
+    containerId: "container-1",
+    groupId: "group-1",
+  });
 
   expect(calls).toStrictEqual([]);
 });
 
-test("arranging a group that holds one window does nothing, as the framework already reports", () => {
+test("arranging a group that holds one window does nothing, as the framework already reports", async () => {
   expect(
-    runGroupVerb("group.setLayout", { groupId: "group-1", layout: "tabs" }, LEAF_TREE),
+    await runGroupVerb("group.setLayout", { groupId: "group-1", layout: "tabs" }, LEAF_TREE),
   ).toStrictEqual([]);
 });
 
-test("only the three modes the framework implements are accepted", () => {
-  expect(runGroupVerb("group.setLayout", { groupId: "group-1", layout: "grid" })).toStrictEqual([]);
+test("only the three modes the framework implements are accepted", async () => {
+  expect(
+    await runGroupVerb("group.setLayout", { groupId: "group-1", layout: "grid" }),
+  ).toStrictEqual([]);
 });
 
-test("renaming and ungrouping take the same handle, and refuse an id naming no group", () => {
-  expect(runGroupVerb("group.rename", { groupId: "group-1", title: "Sources" })).toStrictEqual([
-    { setGroupTitle: { groupId: "group-1", title: "Sources" } },
-  ]);
-  expect(runGroupVerb("group.dissolve", { groupId: "group-1" })).toStrictEqual([
+test("renaming and ungrouping take the same handle, and refuse an id naming no group", async () => {
+  expect(
+    await runGroupVerb("group.rename", { groupId: "group-1", title: "Sources" }),
+  ).toStrictEqual([{ setGroupTitle: { groupId: "group-1", title: "Sources" } }]);
+  expect(await runGroupVerb("group.dissolve", { groupId: "group-1" })).toStrictEqual([
     { closeGroup: "group-1" },
   ]);
-  expect(runGroupVerb("group.rename", { groupId: "nope", title: "x" })).toStrictEqual([]);
-  expect(runGroupVerb("group.dissolve", { groupId: "nope" })).toStrictEqual([]);
+  expect(await runGroupVerb("group.rename", { groupId: "nope", title: "x" })).toStrictEqual([]);
+  expect(await runGroupVerb("group.dissolve", { groupId: "nope" })).toStrictEqual([]);
 });
 
-test("an empty title is accepted, because it returns a group to being named by its members", () => {
+test("an empty title is accepted, because it returns a group to being named by its members", async () => {
   // `InfiniteCanvasGroup.title` uses that to mean "named after what it holds", so clearing is a
   // thing to want rather than a malformed input.
-  expect(runGroupVerb("group.rename", { groupId: "group-1", title: "" })).toStrictEqual([
+  expect(await runGroupVerb("group.rename", { groupId: "group-1", title: "" })).toStrictEqual([
     { setGroupTitle: { groupId: "group-1", title: "" } },
   ]);
 });
@@ -501,7 +512,7 @@ const workspaceState = (workspaces: readonly Readonly<{ id: string; title: strin
     workspaces: workspaces.map((workspace) => ({ ...workspace, windowIds: [] })) as never,
   });
 
-const runWorkspaceVerb = (
+const runWorkspaceVerb = async (
   id: string,
   input: unknown,
   workspaces: readonly Readonly<{ id: string; title: string }>[] = [
@@ -515,7 +526,7 @@ const runWorkspaceVerb = (
     },
   } as unknown as InfiniteCanvasCommands<WindowKind>;
 
-  getAppAction(id)?.run(
+  await getAppAction(id)?.run(
     { actions, ...where, goToCanvas, projectId: "project-1", state: workspaceState(workspaces) },
     input,
   );
@@ -523,13 +534,13 @@ const runWorkspaceVerb = (
   return commands;
 };
 
-test("a new desktop is numbered past the highest name taken, never by a count", () => {
+test("a new desktop is numbered past the highest name taken, never by a count", async () => {
   /*
    * The rule `titles.ts` exists for, and the switcher and the palette both had the count form.
    * Close "Desktop 2" of three and a count hands out "Desktop 3" while a "Desktop 3" is still open
    * — on a thing you switch to *by name*, which is where that hurts most.
    */
-  const created = runWorkspaceVerb("workspace.create", {}, [
+  const created = await runWorkspaceVerb("workspace.create", {}, [
     { id: "a", title: "Desktop 1" },
     { id: "c", title: "Desktop 3" },
   ]);
@@ -537,20 +548,20 @@ test("a new desktop is numbered past the highest name taken, never by a count", 
   expect(created[0]).toMatchObject({ title: "Desktop 4", type: "workspace.create" });
 });
 
-test("a desktop somebody names keeps that name", () => {
-  expect(runWorkspaceVerb("workspace.create", { title: "Reading" })[0]).toMatchObject({
+test("a desktop somebody names keeps that name", async () => {
+  expect((await runWorkspaceVerb("workspace.create", { title: "Reading" }))[0]).toMatchObject({
     title: "Reading",
   });
 });
 
-test("entering, closing and moving all refuse an id no desktop answers to", () => {
+test("entering, closing and moving all refuse an id no desktop answers to", async () => {
   for (const id of ["workspace.enter", "workspace.close", "workspace.moveActiveWindow"]) {
-    expect(runWorkspaceVerb(id, { workspaceId: "desk-1" })).toHaveLength(1);
-    expect(runWorkspaceVerb(id, { workspaceId: "never-existed" })).toStrictEqual([]);
+    expect(await runWorkspaceVerb(id, { workspaceId: "desk-1" })).toHaveLength(1);
+    expect(await runWorkspaceVerb(id, { workspaceId: "never-existed" })).toStrictEqual([]);
   }
 });
 
-test("moving the active window needs one, not just a desktop", () => {
+test("moving the active window needs one, not just a desktop", async () => {
   // Both facts are checked because either alone is a no-op that would report success.
   const noActiveWindow = createInfiniteCanvasState<WindowKind>({
     viewport: { height: 800, width: 1200 },
@@ -562,7 +573,7 @@ test("moving the active window needs one, not just a desktop", () => {
     executeCommand: (command: InfiniteCanvasCommand) => commands.push(command),
   } as unknown as InfiniteCanvasCommands<WindowKind>;
 
-  getAppAction("workspace.moveActiveWindow")?.run(
+  await getAppAction("workspace.moveActiveWindow")?.run(
     { actions, ...where, goToCanvas, projectId: "project-1", state: noActiveWindow },
     { workspaceId: "desk-1" },
   );
@@ -587,10 +598,10 @@ const documentContext = (goTo: (input: Readonly<{ canvasId: string }>) => void) 
   state,
 });
 
-test("going to a canvas navigates to the id it was handed, and nowhere else", () => {
+test("going to a canvas navigates to the id it was handed, and nowhere else", async () => {
   const visited: string[] = [];
 
-  getAppAction("canvas.open")?.run(
+  await getAppAction("canvas.open")?.run(
     documentContext(({ canvasId }) => visited.push(canvasId)),
     {
       canvasId: "canvas_document:canvas-7",
@@ -620,15 +631,13 @@ test("going to the project you are already in does not move the canvas", async (
    */
   const visited: string[] = [];
 
-  getAppAction("project.open")?.run(
+  // The verb answers through a promise, so await it rather than a timer.
+  await getAppAction("project.open")?.run(
     documentContext(({ canvasId }) => visited.push(canvasId)),
     {
       projectId: "project-1",
     },
   );
-
-  // The verb answers through a promise; nothing here touches a database, so one turn settles it.
-  await new Promise((resolve) => setTimeout(resolve, 0));
 
   expect(visited).toStrictEqual([]);
 });

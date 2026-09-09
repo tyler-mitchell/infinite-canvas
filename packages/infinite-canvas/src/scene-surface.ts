@@ -1,13 +1,13 @@
 import type { ReactNode } from "react";
 
+import type { InfiniteCanvasScenePass } from "./compositor/pass";
+import type { InfiniteCanvasCompositorPolicy } from "./compositor/policy";
 import type { InfiniteCanvasDiagnosticsPolicy } from "./diagnostics";
 import type {
   InfiniteCanvasChromeMetrics,
   InfiniteCanvasDropInteraction,
   InfiniteCanvasDropPayload,
-  InfiniteCanvasSceneLayer,
   InfiniteCanvasSceneLayerPlacement,
-  InfiniteCanvasSceneLayerSpace,
   InfiniteCanvasSpatialTargetResolver,
   InfiniteCanvasTheme,
 } from "./types";
@@ -15,16 +15,20 @@ import type {
 /** Defines the renderer-neutral scene surface contract. */
 const SCENE_UNDERLAY_Z_INDEX = 0;
 
+/** One surface paints every layer of one placement, world layers before screen layers. */
 type InfiniteCanvasSceneSurfaceProps<
   Kind extends string,
   Payload = InfiniteCanvasDropPayload,
 > = Readonly<{
   chrome?: InfiniteCanvasChromeMetrics;
+  /** Which framework passes run and how each is tuned. Resolved by the viewport. */
+  compositor?: InfiniteCanvasCompositorPolicy;
   devicePixelRatio?: number;
   diagnostics: InfiniteCanvasDiagnosticsPolicy;
   dropInteraction?: InfiniteCanvasDropInteraction<Payload, Kind>;
-  sceneLayers?: readonly InfiniteCanvasSceneLayer<Kind, Payload>[];
-  space?: InfiniteCanvasSceneLayerSpace;
+  /** Which side of the window plane this surface paints. The framework's own passes live in the underlay. */
+  placement: InfiniteCanvasSceneLayerPlacement;
+  sceneLayers?: readonly InfiniteCanvasScenePass<Kind, Payload>[];
   spatialTargetResolvers?: readonly InfiniteCanvasSpatialTargetResolver<Kind>[];
   theme?: InfiniteCanvasTheme;
   zIndex?: number;
@@ -35,27 +39,12 @@ type InfiniteCanvasSceneSurface<Kind extends string, Payload = InfiniteCanvasDro
   props: InfiniteCanvasSceneSurfaceProps<Kind, Payload>,
 ) => ReactNode;
 
-function getSceneLayerPlacement<Kind extends string, Payload>(
-  layer: InfiniteCanvasSceneLayer<Kind, Payload>,
-): InfiniteCanvasSceneLayerPlacement {
-  return layer.placement ?? "underlay";
-}
-
-function getSceneLayerSpace<Kind extends string, Payload>(
-  layer: InfiniteCanvasSceneLayer<Kind, Payload>,
-): InfiniteCanvasSceneLayerSpace {
-  return layer.space ?? "world";
-}
-
 function getSceneLayers<Kind extends string, Payload>(
-  layers: readonly InfiniteCanvasSceneLayer<Kind, Payload>[],
+  layers: readonly InfiniteCanvasScenePass<Kind, Payload>[],
   placement: InfiniteCanvasSceneLayerPlacement,
-  space: InfiniteCanvasSceneLayerSpace,
 ) {
-  return layers.filter(
-    (layer) => getSceneLayerPlacement(layer) === placement && getSceneLayerSpace(layer) === space,
-  );
+  return layers.filter((layer) => (layer.placement ?? "underlay") === placement);
 }
 
-export { SCENE_UNDERLAY_Z_INDEX, getSceneLayerPlacement, getSceneLayerSpace, getSceneLayers };
+export { SCENE_UNDERLAY_Z_INDEX, getSceneLayers };
 export type { InfiniteCanvasSceneSurface, InfiniteCanvasSceneSurfaceProps };

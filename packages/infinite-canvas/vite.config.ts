@@ -1,6 +1,9 @@
+import typegpu from "unplugin-typegpu/vite";
 import { defineConfig } from "vite-plus";
 
 export default defineConfig({
+  // Compiles "use gpu" shader functions in the compositor passes.
+  plugins: [typegpu()],
   pack: {
     attw: {
       excludeEntrypoints: ["theme.css"],
@@ -8,10 +11,10 @@ export default defineConfig({
       profile: "esm-only",
     },
     copy: { from: "src/theme.css", to: "dist" },
-    // Two entries, deliberately. `./scene` is the only one that reaches `three`
-    // and `@react-three/fiber`, which is what makes those peers genuinely
-    // optional: a consumer who never imports it can leave them uninstalled and
-    // their bundler never tries to resolve them.
+    // Two entries, deliberately. `./scene` is the only one that reaches
+    // `typegpu`, which is what makes that peer genuinely optional: a consumer
+    // who never imports it can leave it uninstalled and their bundler never
+    // tries to resolve it.
     entry: {
       index: "src/index.ts",
       scene: "src/scene.ts",

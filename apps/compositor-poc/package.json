@@ -8,6 +8,7 @@
     "preview": "vp preview"
   },
   "dependencies": {
+    "@hyphened/infinite-canvas": "workspace:*",
     "@zumer/snapdom": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:",

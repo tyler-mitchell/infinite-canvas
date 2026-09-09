@@ -170,7 +170,6 @@ test("window proxies expose read-only window projection for R3F layers", () => {
       x: 2,
       y: 42,
     },
-    bodyScenePosition: [480, -180, 0],
     bodyWorldRect: {
       height: 116,
       width: 236,
@@ -181,7 +180,6 @@ test("window proxies expose read-only window projection for R3F layers", () => {
       x: 480,
       y: 160,
     },
-    frameScenePosition: [480, -160, 0],
     frameWorldRect: {
       height: 160,
       width: 240,
@@ -194,7 +192,6 @@ test("window proxies expose read-only window projection for R3F layers", () => {
       x: 440,
       y: 330,
     },
-    screenPosition: [440, -330, 0],
     screenRect: {
       height: 80,
       width: 120,
@@ -250,7 +247,6 @@ test("window proxies use the same device-pixel-snapped screen projection as DOM 
     x: 454.5,
     y: 301,
   });
-  expect(proxy?.screenPosition).toEqual([454.5, -301, 0]);
 });
 
 test("persisted-state parser rejects unsafe geometry and defaults window mode", () => {

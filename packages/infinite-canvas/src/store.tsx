@@ -29,8 +29,17 @@ import type {
   InfiniteCanvasState,
   InfiniteCanvasViewport,
   InfiniteCanvasWindow,
+  InfiniteCanvasWindowProximity,
   InfiniteCanvasZoomPolicyInput,
 } from "./types";
+
+/**
+ * Measurements the compositor reads back from the GPU. View state: never in
+ * the undo document, never serialized. Each slice is null until its pass has run.
+ */
+type InfiniteCanvasSignals = Readonly<{
+  proximity: Readonly<Record<string, InfiniteCanvasWindowProximity>> | null;
+}>;
 
 type InfiniteCanvasStore<Kind extends string = string> = Readonly<{
   commands: InfiniteCanvasCommands<Kind>;
@@ -42,6 +51,8 @@ type InfiniteCanvasStore<Kind extends string = string> = Readonly<{
   setSpatialTargetResolvers: (
     resolvers: readonly InfiniteCanvasSpatialTargetResolver<Kind>[],
   ) => void;
+  /** GPU readbacks published by the compositor's passes. */
+  signals$: Observable<InfiniteCanvasSignals>;
   state$: Observable<InfiniteCanvasState<Kind>>;
 }>;
 
@@ -512,6 +523,7 @@ function createInfiniteCanvasStore<Kind extends string>(
     setSpatialTargetResolvers: (resolvers) => {
       registeredResolvers.current = resolvers;
     },
+    signals$: observable<InfiniteCanvasSignals>({ proximity: null }),
     state$,
   };
 }
@@ -669,4 +681,4 @@ export {
   useInfiniteCanvasStore,
 };
 
-export type { InfiniteCanvasStateValidator, InfiniteCanvasStore };
+export type { InfiniteCanvasSignals, InfiniteCanvasStateValidator, InfiniteCanvasStore };

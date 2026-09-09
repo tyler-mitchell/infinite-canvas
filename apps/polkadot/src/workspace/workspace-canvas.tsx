@@ -5,6 +5,7 @@ import {
   type InfiniteCanvasOverlayReadContext,
   type InfiniteCanvasState,
 } from "@hyphened/infinite-canvas";
+import { InfiniteCanvasCompositorSurface } from "@hyphened/infinite-canvas/scene";
 import { useObservable, useValue } from "@legendapp/state/react";
 import { PanelLeft, Plus } from "lucide-react";
 import { useEffect, useMemo } from "react";
@@ -198,6 +199,8 @@ export function WorkspaceCanvas({ canvas }: Readonly<{ canvas: LoadedCanvas }>) 
           hotkeyActions={hotkeyActions}
           // Settled connectors draw below windows.
           renderUnderlay={() => <ConnectorLayer />}
+          /* The compositor paints under the DOM plane; without WebGPU it mounts nothing. */
+          sceneSurface={InfiniteCanvasCompositorSurface}
           spatialTargetResolvers={spatialTargetResolvers}
           /* The dock restores minimized windows. Other duplicate controls stay hidden. */
           hud={{

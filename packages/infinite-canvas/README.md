@@ -10,36 +10,44 @@ Install the package and its required peers:
 npm install @hyphened/infinite-canvas react react-dom
 ```
 
-The main entry does not include a 3D renderer. The package declares two required peers and two optional peers:
+The main entry does not include a renderer. The package declares two required peers and four optional ones:
 
-| Peer                 | Range                         | Required?                                  |
-| -------------------- | ----------------------------- | ------------------------------------------ |
-| `react`              | `^19.0.0`                     | yes                                        |
-| `react-dom`          | `^19.0.0`                     | yes                                        |
-| `three`              | `>=0.181.0`                   | only for `@hyphened/infinite-canvas/scene` |
-| `@react-three/fiber` | `>=10.0.0-canary.dbbe704 <11` | only for `@hyphened/infinite-canvas/scene` |
+| Peer             | Range     | Required?                                  |
+| ---------------- | --------- | ------------------------------------------ |
+| `react`          | `^19.0.0` | yes                                        |
+| `react-dom`      | `^19.0.0` | yes                                        |
+| `typegpu`        | `^0.12.3` | only for `@hyphened/infinite-canvas/scene` |
+| `@typegpu/react` | `^0.12.0` | only for `@hyphened/infinite-canvas/scene` |
+| `@typegpu/sdf`   | `^0.12.0` | only for `@hyphened/infinite-canvas/scene` |
+| `@typegpu/noise` | `^0.12.0` | only for `@hyphened/infinite-canvas/scene` |
 
-The main entry includes the core canvas features and never imports `three` or `@react-three/fiber`. Its gzip size without scene layers is approximately 40 KB. The optional 3D entry is `@hyphened/infinite-canvas/scene`.
+The main entry includes the core canvas features and never imports the GPU stack. Its gzip size without the compositor is approximately 40 KB. The optional entry is `@hyphened/infinite-canvas/scene`.
 
-If you use scene layers, install the optional peers:
+Every GPU package is an optional peer rather than a dependency, so a project that only uses the DOM plane installs none of them. `verify-consumer-install.ts` packs the tarball into a clean project and fails if any of them appears.
+
+If you use the compositor, install all four:
 
 ```bash
-npm install three @react-three/fiber
+npm install typegpu @typegpu/react @typegpu/sdf @typegpu/noise
 ```
 
-Then pass the scene surface to `<InfiniteCanvasDesktop>`:
+`typegpu` compiles `"use gpu"` functions with a build plugin, so add it to your bundler as well:
+
+```ts
+import typegpu from "unplugin-typegpu/vite";
+
+export default defineConfig({ plugins: [typegpu()] });
+```
+
+Then pass the surface to `<InfiniteCanvasDesktop>`:
 
 ```tsx
-import { InfiniteCanvasWebGpuSurface } from "@hyphened/infinite-canvas/scene";
+import { InfiniteCanvasCompositorSurface } from "@hyphened/infinite-canvas/scene";
 
-<InfiniteCanvasDesktop
-  sceneLayers={sceneLayers}
-  sceneSurface={InfiniteCanvasWebGpuSurface}
-  {...rest}
-/>;
+<InfiniteCanvasDesktop sceneSurface={InfiniteCanvasCompositorSurface} {...rest} />;
 ```
 
-`@react-three/fiber` must be a v10 release. If the `latest` tag resolves to v9, install the specified canary.
+Without WebGPU the surface mounts nothing and the DOM window plane stands on its own.
 
 ## Quick start
 
@@ -145,7 +153,7 @@ This declaration keeps `infinite-canvas` before `utilities`. Unlayered styles ov
 - **Offscreen indicators.** `getInfiniteCanvasOffscreenIndicators` returns targets from nearest to farthest. Each group produces one indicator with an angle, edge point, and navigation rectangle.
 - **Persistence.** `storageKey` and `documentKey` select versioned JSON layouts. Hydration validates the layout and removes unknown window kinds.
 - **Drag and drop.** `dropPolicy.canDrop` checks a typed payload. `dropPolicy.placement` gives the preview and `onDrop` the same snapped placement. The framework draws the guides.
-- **Scene layers.** `sceneLayers` add read-only R3F content above or below the DOM window plane. They use projected window proxies and `space: "world"` or `space: "screen"`.
+- **Compositor passes.** `sceneLayers` add TypeGPU render or compute passes above or below the DOM window plane. Each pass builds its pipelines once and reads the shared camera and window instances, in `space: "world"` or `space: "screen"`.
 - **Semantic detail.** A window kind with `renderSummary` shows its summary below 180 screen pixels. Full content returns above 240 pixels. Hysteresis separates the thresholds.
 - **Window groups.** A group shell uses `split`, `tabs`, or `accordion`. `Alt+drag` docks a floating window. Headers move shells, outer edges resize shells, and gutters reweight panes. The tree derives each member `rect` without using `minSize`.
 - **Layout recipes.** Recipes translate named serializable arrangements. They do not scale windows below `minSize`. Each recipe application creates one undo entry.
@@ -185,7 +193,7 @@ The project has no hosted documentation site. [`docs/API.md`](https://github.com
 ## Requirements
 
 - **React 19.** The library is client-only. Each built entry has `"use client"`.
-- **A WebGPU browser for scene layers.** `@hyphened/infinite-canvas/scene` uses `@react-three/fiber/webgpu`. Development targets Chrome first.
+- **A WebGPU browser for the compositor.** `@hyphened/infinite-canvas/scene` uses TypeGPU. Development targets Chrome first.
 - **ESM.** The package has no CommonJS build.
 
 ## License

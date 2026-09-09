@@ -9,8 +9,6 @@ import {
   getInfiniteCanvasWindowProxyCullingRect,
   getInfiniteCanvasWorldPath,
   getInfiniteCanvasWorldPathPointAtProgress,
-  getInfiniteCanvasWorldPathSceneTransforms,
-  getInfiniteCanvasWorldSegmentSceneTransform,
   getVisibleInfiniteCanvasWindowProxies,
 } from "./scene-layer-geometry";
 import type { InfiniteCanvasRect, InfiniteCanvasWindowProxy } from "./types";
@@ -36,10 +34,8 @@ function createWindowProxy(
 
   return {
     bodyLocalRect: rect,
-    bodyScenePosition: [center.x, -center.y, 0],
     bodyWorldRect: rect,
     center,
-    frameScenePosition: [center.x, -center.y, 0],
     frameWorldRect: rect,
     id,
     isActive: false,
@@ -49,7 +45,6 @@ function createWindowProxy(
     mode: "normal",
     rect,
     screenCenter,
-    screenPosition: [screenCenter.x, -screenCenter.y, 0],
     screenRect,
     screenSize: {
       height: screenRect.height,
@@ -294,15 +289,10 @@ test("world paths expose progress points and scene transforms", () => {
     x: 75,
     y: 0,
   });
-  expect(getInfiniteCanvasWorldPathSceneTransforms(path, -4)).toMatchObject([
-    {
-      length: 100,
-      position: [50, -0, -4],
-    },
-    {
-      length: 50,
-      position: [100, -25, -4],
-    },
+  expect(path.segments.map((segment) => segment.length)).toEqual([100, 50]);
+  expect(path.segments.map((segment) => segment.midpoint)).toEqual([
+    { x: 50, y: 0 },
+    { x: 100, y: 25 },
   ]);
 });
 
@@ -333,7 +323,7 @@ test("on an elbow, the routed midpoint is on the line and the endpoint average i
   expect(isOnPath(endpointAverage)).toBe(false);
 });
 
-test("world segment scene transform accounts for the inverted R3F y axis", () => {
+test("a window connector segment carries its own midpoint and angle in world units", () => {
   const source = createWindowProxy("source", {
     height: 80,
     width: 100,
@@ -349,11 +339,8 @@ test("world segment scene transform accounts for the inverted R3F y axis", () =>
   const segment = getInfiniteCanvasWindowConnectorSegment(source, target, {
     padding: 10,
   });
-  const transform = getInfiniteCanvasWorldSegmentSceneTransform(segment, -6);
 
-  expect(transform.position).toEqual([150, -60, -6]);
-  expect(transform.rotation[0]).toBe(0);
-  expect(transform.rotation[1]).toBe(0);
-  expect(transform.rotation[2]).toBeCloseTo(-0.1974, 4);
-  expect(transform.length).toBe(segment.length);
+  expect(segment.midpoint).toEqual({ x: 150, y: 60 });
+  expect(segment.angle).toBeCloseTo(0.1974, 4);
+  expect(segment.length).toBeCloseTo(Math.hypot(segment.delta.x, segment.delta.y), 10);
 });

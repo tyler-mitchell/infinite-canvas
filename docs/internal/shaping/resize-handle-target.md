@@ -15,42 +15,59 @@ A user report about window resize handles, carried in the backlog with a diagnos
 The backlog's diagnosis says the handle is too small, and that its target "extends 8px outside the
 window and 8px inside it".
 
-**Measured on 2026-09-08, that is wrong.** The handle is not too small. It is 16px wide drawn and
-16px wide hittable, but the two bands are **offset from each other by 8px**, and the outer half of
-what is drawn resolves to empty canvas.
+**The number is right and the reason is wrong.** The target is 8px. There is no 8px outside — the
+CSS asks for it, and it is clipped away before it can be drawn or pressed.
 
-Probing `resolveInfiniteCanvasSpatialTarget` against a 360×240 window at zoom 1, along the west
-edge, with the framework's default chrome:
+Measured on a live 360×240 window at zoom 1, with `document.elementFromPoint` along the west edge:
 
-| World x relative to the edge | Drawn                    | Resolves to          |
-| ---------------------------- | ------------------------ | -------------------- |
-| −8                           | inside the handle        | `empty-world`        |
-| −4                           | inside the handle        | `empty-world`        |
-| −1                           | inside the handle        | `empty-world`        |
-| +0.5                         | inside the handle        | `resize-handle:west` |
-| +8                           | edge of the drawn handle | `resize-handle:west` |
-| +16                          | outside the drawn handle | `resize-handle:west` |
-| +20                          |                          | `body`               |
+| Screen x relative to the edge | CSS asks for | Actually resolves to |
+| ----------------------------- | ------------ | -------------------- |
+| −6                            | handle       | `viewport`           |
+| −4                            | handle       | `viewport`           |
+| −1                            | handle       | `viewport`           |
+| +1                            | handle       | `resize-handle:west` |
+| +4                            | handle       | `resize-handle:west` |
+| +7                            | handle       | `resize-handle:west` |
+| +8                            | —            | `window-body`        |
 
-The mechanism, from reading:
+**The mechanism.** `[data-slot="window"]` sets `contain: content`, which includes paint
+containment, and paint containment clips descendants to the element's box. The handle is positioned
+at `RESIZE_HANDLE_OVERHANG` = `calc(extent / -2)`, so its own bounding rect really is 1272–1288
+against a window starting at 1280 — but the outer half is clipped and never painted or hit.
 
-- `RESIZE_HANDLE_OVERHANG` is `calc(extent / -2)`, so the drawn handle **straddles** the frame edge:
-  8px out, 8px in at the default extent of 16.
-- `getTopmostWindowAtWorldPoint` gates on `rectContainsPoint(window.rect, worldPoint)` — strict
-  containment. A point outside the rect is never attributed to the window.
-- So the outer half never reaches `getWindowAreaAtPoint` at all. It is drawn, and it is not a target.
-- `getResizeHandleAxis` itself would accept a negative coordinate (`-4 <= 0 + 16`). The classifier is
-  not the problem; the containment gate upstream is.
+Proven by lifting the containment and re-probing the identical points: with `contain: content` the
+outer band returns `viewport`; with `contain: none` those same points return `resize-handle:west`.
 
-A pointer approaches an edge from outside. The user aims at the visible handle, lands in its outer
-half, and hits nothing.
+So there are **three different geometries for one handle**:
+
+| Geometry   | Band                            | Where it comes from                                    |
+| ---------- | ------------------------------- | ------------------------------------------------------ |
+| Intended   | 16px straddling the edge, −8…+8 | `RESIZE_HANDLE_DESCRIPTORS` + `RESIZE_HANDLE_OVERHANG` |
+| Real       | **8px, inside only, 0…+8**      | the above, clipped by `contain: content`               |
+| Classifier | 16px inside, 0…+16              | `getWindowResizeHandleAtPoint`                         |
+
+The user's report follows from the Real row: 8px is a small target, and a pointer approaching from
+outside the window crosses nothing until it is already 1px inside the frame.
+
+**Two hit paths exist and they disagree.** Starting a resize goes through the handle element's own
+`onPointerDown` → `actions.startResize`, so the Real row governs it.
+`resolveInfiniteCanvasSpatialTarget` is a separate consumer with the Classifier row, and it is
+gated by `getTopmostWindowAtWorldPoint`'s strict `rectContainsPoint`, so it also refuses everything
+outside the window rect. Both paths therefore fail outside the frame, for two unrelated reasons.
 
 Two further measured facts:
 
-- Corners claim `hitSize` on **both** axes: at (4, 4) the result is `north-west`, at (4, 20) it is
-  `west`. The first 16px of every edge is corner.
+- Corners claim `hitSize` on **both** axes in the classifier: at (4, 4) the result is `north-west`,
+  at (4, 20) it is `west`. The first 16px of every edge is corner.
 - `getWindowAreaAtPoint` tests resize before header, and the header is 32–40px tall, so widening the
   band symmetrically takes area directly from the header drag region.
+
+### Correction to an earlier draft of this document
+
+An earlier version of this section claimed the handle was "16px drawn and 16px hittable, offset by
+8px", and blamed `getTopmostWindowAtWorldPoint`. That was measured against the classifier only, and
+the classifier is not the path a resize actually takes. The DOM measurement above supersedes it.
+The real target is 8px, and the cause is paint containment.
 
 ## Outcome
 
@@ -91,30 +108,39 @@ Note on R6: drawn size is `resizeHandleSize / screenTransform.scale` and hit siz
 | ---- | ------------------------------- | ---- |
 | A1   | Raise the chrome metric from 16 |      |
 
-### B: Expand the containment gate by the handle overhang
+### B: Lift paint containment from the window
 
-| Part | Mechanism                                                              | Flag             |
-| ---- | ---------------------------------------------------------------------- | ---------------- |
-| B1   | `getTopmostWindowAtWorldPoint` tests an outset rect, not `window.rect` |                  |
-| B2   | Outset equals the drawn overhang, so the gate matches what is drawn    |                  |
-| B3   | Ordering against `before-windows` resolvers and overlapping windows    | ⚠️ unestablished |
+| Part | Mechanism                                                                     | Flag             |
+| ---- | ----------------------------------------------------------------------------- | ---------------- |
+| B1   | `[data-slot="window"]` drops `contain: content` for something without `paint` |                  |
+| B2   | The overhang then paints and hits as the CSS already intends, restoring 16px  |                  |
+| B3   | Effect on culling and render cost, which is why containment is there          | ⚠️ unestablished |
 
 ### C: Draw the handle inside-only
 
-| Part | Mechanism                                                              | Flag |
-| ---- | ---------------------------------------------------------------------- | ---- |
-| C1   | Drop `RESIZE_HANDLE_OVERHANG`; the handle sits fully inside the frame  |      |
-| C2   | Drawn region then equals the existing hit band with no hit-test change |      |
+| Part | Mechanism                                                             | Flag |
+| ---- | --------------------------------------------------------------------- | ---- |
+| C1   | Drop `RESIZE_HANDLE_OVERHANG`; the handle sits fully inside the frame |      |
+| C2   | Extent raised so the inside-only band is a usable size                |      |
+| C3   | CSS then states what containment was going to enforce anyway          |      |
 
-### D: One geometry owner, gate derived from it
+### D: Move the handles outside the contained element
+
+| Part | Mechanism                                                             | Flag                                      |
+| ---- | --------------------------------------------------------------------- | ----------------------------------------- |
+| D1   | Handles render as a sibling layer of the window, not a child          |                                           |
+| D2   | Containment stays on the window; the handles are simply not inside it |                                           |
+| D3   | The layer follows the window rect and z-order                         | ⚠️ interaction with stacking and grouping |
+
+### E: One geometry owner across both hit paths
 
 | Part | Mechanism                                                            | Flag                             |
 | ---- | -------------------------------------------------------------------- | -------------------------------- |
-| D1   | One function returns the handle bands for a rect and chrome          |                                  |
-| D2   | The CSS descriptors and the hit classifier both read it              |                                  |
-| D3   | The containment gate outsets by the same function's overhang         |                                  |
-| D4   | Corner band narrower than edge band, so corners stop eating the edge | ⚠️ needs a chosen ratio          |
-| D5   | Same treatment for the group shell pair                              | ⚠️ group defect not yet measured |
+| E1   | One function returns the handle bands for a rect and chrome          |                                  |
+| E2   | The CSS descriptors and `getWindowResizeHandleAtPoint` both read it  |                                  |
+| E3   | Combined with B or D so the drawn band is not clipped away           |                                  |
+| E4   | Corner band narrower than edge band, so corners stop eating the edge | ⚠️ needs a chosen ratio          |
+| E5   | Same treatment for the group shell pair                              | ⚠️ group defect not yet measured |
 
 ---
 

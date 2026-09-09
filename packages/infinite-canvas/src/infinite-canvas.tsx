@@ -24,6 +24,13 @@ import {
 } from "./canvas-overlays";
 import { getInfiniteCanvasWindowFrameElementId, INFINITE_CANVAS_SLOTS } from "./data-attributes";
 import { getInfiniteCanvasWorkspaceWindowIds } from "./workspace";
+import type { InfiniteCanvasScenePass } from "./compositor/pass";
+import {
+  DEFAULT_INFINITE_CANVAS_COMPOSITOR,
+  resolveInfiniteCanvasCompositorPolicy,
+  type InfiniteCanvasCompositorPolicy,
+  type InfiniteCanvasCompositorPolicyInput,
+} from "./compositor/policy";
 import { focusInfiniteCanvasContent } from "./focus-trap";
 import {
   DEFAULT_INFINITE_CANVAS_INPUT_POLICY,
@@ -128,7 +135,6 @@ import type {
   InfiniteCanvasOverlayRenderContext,
   InfiniteCanvasPoint,
   InfiniteCanvasPointerMode,
-  InfiniteCanvasSceneLayer,
   InfiniteCanvasSelectionTarget,
   InfiniteCanvasSnapPolicy,
   InfiniteCanvasSpatialTarget,
@@ -151,6 +157,8 @@ type InfiniteCanvasDesktopProps<
 > = Readonly<{
   chrome?: InfiniteCanvasChromeMetricsInput;
   className?: string;
+  /** Which framework compositor passes run and how each is tuned. Needs `sceneSurface`. */
+  compositor?: InfiniteCanvasCompositorPolicyInput;
   diagnostics?: InfiniteCanvasDiagnosticsPolicyInput;
   documentKey?: string;
   dropPolicy?: InfiniteCanvasDropPolicy<Kind, Payload>;
@@ -167,7 +175,7 @@ type InfiniteCanvasDesktopProps<
   /** World content below windows and above the backdrop. */
   renderUnderlay?: (context: InfiniteCanvasOverlayReadContext<Kind, Payload>) => ReactNode;
   renderOverlay?: (context: InfiniteCanvasOverlayRenderContext<Kind, Payload>) => ReactNode;
-  sceneLayers?: readonly InfiniteCanvasSceneLayer<Kind, Payload>[];
+  sceneLayers?: readonly InfiniteCanvasScenePass<Kind, Payload>[];
   /** Paints `sceneLayers`. Omit it to exclude scene dependencies from the bundle. */
   sceneSurface?: InfiniteCanvasSceneSurface<Kind, Payload>;
   snapPolicy?: InfiniteCanvasSnapPolicy;
@@ -186,6 +194,7 @@ type InfiniteCanvasViewportProps<
 > = Readonly<{
   chrome?: InfiniteCanvasChromeMetricsInput;
   className?: string;
+  compositor?: InfiniteCanvasCompositorPolicy;
   diagnostics?: InfiniteCanvasDiagnosticsPolicy;
   /** Screen-edge bands that chrome covers. Camera framing uses the remaining region. */
   viewportInsets?: InfiniteCanvasViewportInsetsInput;
@@ -211,7 +220,7 @@ type InfiniteCanvasViewportProps<
   /** World content below windows and above the backdrop. */
   renderUnderlay?: (context: InfiniteCanvasOverlayReadContext<Kind, Payload>) => ReactNode;
   renderOverlay?: (context: InfiniteCanvasOverlayRenderContext<Kind, Payload>) => ReactNode;
-  sceneLayers?: readonly InfiniteCanvasSceneLayer<Kind, Payload>[];
+  sceneLayers?: readonly InfiniteCanvasScenePass<Kind, Payload>[];
   sceneSurface?: InfiniteCanvasSceneSurface<Kind, Payload>;
   /** Store used for move, resize, and drop snapping. */
   snapPolicy?: InfiniteCanvasSnapPolicy;
@@ -223,14 +232,19 @@ type InfiniteCanvasViewportProps<
   zoomPolicy?: InfiniteCanvasZoomPolicy;
 }>;
 
-const SCENE_SCREEN_UNDERLAY_Z_INDEX = 1;
+/**
+ * One shared empty list for every absent list prop. A fresh `[]` per render
+ * would rebuild the compositor's pipelines and invalidate every memo that
+ * lists the prop as a dependency.
+ */
+const EMPTY_LIST: readonly never[] = [];
+
 /** World content below windows. */
 const UNDERLAY_Z_INDEX = 2;
 const GROUP_LAYER_Z_INDEX = 5;
 const PORTAL_ROOT_Z_INDEX = DEFAULT_INFINITE_CANVAS_STACK_BANDS.overlay + 1;
 const WINDOW_LAYER_Z_INDEX = 10;
 const SCENE_OVERLAY_Z_INDEX = DEFAULT_INFINITE_CANVAS_STACK_BANDS.overlay - 10;
-const SCENE_SCREEN_OVERLAY_Z_INDEX = DEFAULT_INFINITE_CANVAS_STACK_BANDS.overlay - 9;
 
 /** Maps theme fields to matching CSS custom properties. */
 const INFINITE_CANVAS_THEME_VARIABLES: Readonly<Record<keyof InfiniteCanvasTheme, string>> = {
@@ -272,39 +286,23 @@ function getInfiniteCanvasThemeVariables(
 
 function getInfiniteCanvasMissingSceneSurfaceWarning(
   sceneLayerCount: number,
-  frustumDiagnostics: boolean,
   hasSceneSurface: boolean,
 ): string | null {
-  if (hasSceneSurface) {
+  if (hasSceneSurface || sceneLayerCount === 0) {
     return null;
   }
 
-  if (sceneLayerCount > 0) {
-    return (
-      "[infinite-canvas] `sceneLayers` were provided without a `sceneSurface`, so they will " +
-      "not render. Pass `sceneSurface={InfiniteCanvasWebGpuSurface}` from " +
-      "`@hyphened/infinite-canvas/scene`, and install the `three` and `@react-three/fiber` peers."
-    );
-  }
-
-  if (frustumDiagnostics) {
-    return (
-      "[infinite-canvas] `diagnostics.frustum` needs a `sceneSurface` to run its probes. Pass " +
-      "`sceneSurface={InfiniteCanvasWebGpuSurface}` from `@hyphened/infinite-canvas/scene`."
-    );
-  }
-
-  return null;
+  return (
+    "[infinite-canvas] `sceneLayers` were provided without a `sceneSurface`, so they will " +
+    "not render. Pass `sceneSurface={InfiniteCanvasCompositorSurface}` from " +
+    "`@hyphened/infinite-canvas/scene`, and install the `typegpu` and `@typegpu/react` peers."
+  );
 }
 
 // Keep NodeJS types out of public declaration files.
 declare const process: Readonly<{ env: Readonly<{ NODE_ENV?: string }> }>;
 
-function useInfiniteCanvasSceneSurfaceWarning(
-  sceneLayerCount: number,
-  frustumDiagnostics: boolean,
-  sceneSurface: unknown,
-) {
+function useInfiniteCanvasSceneSurfaceWarning(sceneLayerCount: number, sceneSurface: unknown) {
   useEffect(() => {
     if (process.env.NODE_ENV === "production") {
       return;
@@ -312,14 +310,13 @@ function useInfiniteCanvasSceneSurfaceWarning(
 
     const warning = getInfiniteCanvasMissingSceneSurfaceWarning(
       sceneLayerCount,
-      frustumDiagnostics,
       sceneSurface !== undefined,
     );
 
     if (warning !== null) {
       console.warn(warning);
     }
-  }, [frustumDiagnostics, sceneLayerCount, sceneSurface]);
+  }, [sceneLayerCount, sceneSurface]);
 }
 
 function getBrowserDevicePixelRatio() {
@@ -410,6 +407,7 @@ function InfiniteCanvasDesktop<Kind extends string, Payload = InfiniteCanvasDrop
   // The viewport merges this partial value with its defaults.
   chrome,
   className,
+  compositor,
   diagnostics,
   documentKey,
   dropPolicy,
@@ -423,10 +421,10 @@ function InfiniteCanvasDesktop<Kind extends string, Payload = InfiniteCanvasDrop
   renderBackdrop,
   renderOverlay,
   renderUnderlay,
-  sceneLayers = [],
+  sceneLayers = EMPTY_LIST,
   sceneSurface,
   snapPolicy,
-  spatialTargetResolvers = [],
+  spatialTargetResolvers = EMPTY_LIST,
   storageKey,
   subtitle = "Composable WebGPU surface, DOM body seam, pure window model.",
   theme,
@@ -445,6 +443,10 @@ function InfiniteCanvasDesktop<Kind extends string, Payload = InfiniteCanvasDrop
   const resolvedDiagnosticsPolicy = useMemo(
     () => resolveInfiniteCanvasDiagnosticsPolicy(diagnostics),
     [diagnostics],
+  );
+  const resolvedCompositorPolicy = useMemo(
+    () => resolveInfiniteCanvasCompositorPolicy(compositor),
+    [compositor],
   );
   const validatedInitialState = useMemo(
     () => assertInfiniteCanvasStateMatchesWindowRegistry(initialState, windowDefinitions),
@@ -471,6 +473,7 @@ function InfiniteCanvasDesktop<Kind extends string, Payload = InfiniteCanvasDrop
           <InfiniteCanvasViewport
             chrome={chrome}
             className={className}
+            compositor={resolvedCompositorPolicy}
             diagnostics={resolvedDiagnosticsPolicy}
             dropPolicy={dropPolicy}
             hotkeyActions={hotkeyActions}
@@ -518,6 +521,7 @@ function isEditableEventTarget(target: EventTarget | null): boolean {
 function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDropPayload>({
   chrome: chromeInput,
   className,
+  compositor = DEFAULT_INFINITE_CANVAS_COMPOSITOR,
   diagnostics = DEFAULT_INFINITE_CANVAS_DIAGNOSTICS,
   dropPolicy,
   groupMetrics,
@@ -531,11 +535,11 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
   renderBackdrop,
   renderOverlay,
   renderUnderlay,
-  sceneLayers = [],
+  sceneLayers = EMPTY_LIST,
   sceneSurface: SceneSurface,
   snapPolicy,
   subtitle = "",
-  spatialTargetResolvers = [],
+  spatialTargetResolvers = EMPTY_LIST,
   theme,
   title = "",
   viewportInsets,
@@ -544,6 +548,9 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
   zoomPolicy = resolveInfiniteCanvasZoomPolicy(),
 }: InfiniteCanvasViewportProps<Kind, Payload>) {
   const canvasInstanceId = useId();
+  // One grid owner at a time. The compositor draws it in world space when it is
+  // mounted and the policy keeps it; otherwise the CSS backdrop does.
+  const hasCompositorGrid = SceneSurface !== undefined && compositor.grid !== false;
   // Depend on fields because consumers can pass a new inline object each render.
   const chrome = useMemo(
     () => resolveInfiniteCanvasChromeMetrics(chromeInput),
@@ -604,23 +611,9 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
     isOverSelectableTarget,
   );
   const devicePixelRatio = useInfiniteCanvasDevicePixelRatio();
-  const underlayWorldSceneLayers = useMemo(
-    () => getSceneLayers(sceneLayers, "underlay", "world"),
-    [sceneLayers],
-  );
-  const underlayScreenSceneLayers = useMemo(
-    () => getSceneLayers(sceneLayers, "underlay", "screen"),
-    [sceneLayers],
-  );
-  const overlayWorldSceneLayers = useMemo(
-    () => getSceneLayers(sceneLayers, "overlay", "world"),
-    [sceneLayers],
-  );
-  const overlayScreenSceneLayers = useMemo(
-    () => getSceneLayers(sceneLayers, "overlay", "screen"),
-    [sceneLayers],
-  );
-  useInfiniteCanvasSceneSurfaceWarning(sceneLayers.length, diagnostics.frustum, SceneSurface);
+  const underlaySceneLayers = useMemo(() => getSceneLayers(sceneLayers, "underlay"), [sceneLayers]);
+  const overlaySceneLayers = useMemo(() => getSceneLayers(sceneLayers, "overlay"), [sceneLayers]);
+  useInfiniteCanvasSceneSurfaceWarning(sceneLayers.length, SceneSurface);
   const releaseDropPointerCapture = useCallback((pointerId: number) => {
     const target = dragCaptureTargetRef.current;
 
@@ -1491,9 +1484,10 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
                 zIndex: PORTAL_ROOT_Z_INDEX,
               }}
             />
-            {renderBackdrop === undefined ? (
+            {renderBackdrop === undefined && !hasCompositorGrid ? (
               <InfiniteCanvasGridBackdrop />
-            ) : (
+            ) : null}
+            {renderBackdrop === undefined ? null : (
               <div
                 data-slot={INFINITE_CANVAS_SLOTS.grid}
                 style={{ inset: 0, pointerEvents: "none", position: "absolute" }}
@@ -1501,31 +1495,19 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
                 {renderBackdrop(overlayContext)}
               </div>
             )}
-            {SceneSurface === undefined ||
-            (underlayWorldSceneLayers.length === 0 && !diagnostics.frustum) ? null : (
+            {/* The underlay surface always mounts: the framework's own passes live there. */}
+            {SceneSurface === undefined ? null : (
               <SceneSurface
                 chrome={chrome}
+                compositor={compositor}
                 devicePixelRatio={devicePixelRatio}
                 diagnostics={diagnostics}
                 dropInteraction={dropInteraction}
-                sceneLayers={underlayWorldSceneLayers}
-                space="world"
+                placement="underlay"
+                sceneLayers={underlaySceneLayers}
                 spatialTargetResolvers={spatialTargetResolvers}
                 theme={resolvedTheme}
                 zIndex={SCENE_UNDERLAY_Z_INDEX}
-              />
-            )}
-            {SceneSurface === undefined || underlayScreenSceneLayers.length === 0 ? null : (
-              <SceneSurface
-                chrome={chrome}
-                devicePixelRatio={devicePixelRatio}
-                diagnostics={DEFAULT_INFINITE_CANVAS_DIAGNOSTICS}
-                dropInteraction={dropInteraction}
-                sceneLayers={underlayScreenSceneLayers}
-                space="screen"
-                spatialTargetResolvers={spatialTargetResolvers}
-                theme={resolvedTheme}
-                zIndex={SCENE_SCREEN_UNDERLAY_Z_INDEX}
               />
             )}
             {renderUnderlay === undefined ? null : (
@@ -1559,30 +1541,17 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
               windowDefinitions={windowDefinitions}
               zIndex={WINDOW_LAYER_Z_INDEX}
             />
-            {SceneSurface === undefined || overlayWorldSceneLayers.length === 0 ? null : (
+            {SceneSurface === undefined || overlaySceneLayers.length === 0 ? null : (
               <SceneSurface
                 chrome={chrome}
                 devicePixelRatio={devicePixelRatio}
-                diagnostics={DEFAULT_INFINITE_CANVAS_DIAGNOSTICS}
+                diagnostics={diagnostics}
                 dropInteraction={dropInteraction}
-                sceneLayers={overlayWorldSceneLayers}
-                space="world"
+                placement="overlay"
+                sceneLayers={overlaySceneLayers}
                 spatialTargetResolvers={spatialTargetResolvers}
                 theme={resolvedTheme}
                 zIndex={SCENE_OVERLAY_Z_INDEX}
-              />
-            )}
-            {SceneSurface === undefined || overlayScreenSceneLayers.length === 0 ? null : (
-              <SceneSurface
-                chrome={chrome}
-                devicePixelRatio={devicePixelRatio}
-                diagnostics={DEFAULT_INFINITE_CANVAS_DIAGNOSTICS}
-                dropInteraction={dropInteraction}
-                sceneLayers={overlayScreenSceneLayers}
-                space="screen"
-                spatialTargetResolvers={spatialTargetResolvers}
-                theme={resolvedTheme}
-                zIndex={SCENE_SCREEN_OVERLAY_Z_INDEX}
               />
             )}
             <InfiniteCanvasRevealedChangeOverlay devicePixelRatio={devicePixelRatio} />

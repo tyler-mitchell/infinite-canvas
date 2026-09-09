@@ -1,9 +1,18 @@
 /** Packs and runs the package from a fresh consumer project. */
+import { existsSync } from "node:fs";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { execa } from "execa";
+
+/**
+ * A consumer of the DOM plane alone must end up with none of these installed.
+ * They were dependencies until 2026-09-08, and because each declares a
+ * required peer on `typegpu`, npm pulled the whole GPU stack into a project
+ * that had opted out of it.
+ */
+const GPU_STACK_PACKAGES = ["typegpu", "@typegpu/react", "@typegpu/noise", "@typegpu/sdf"];
 
 const packageRoot = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const workspaceRoot = resolve(packageRoot, "../..");
@@ -100,6 +109,18 @@ try {
     { cwd: temporaryDirectory },
   );
 
+  const installed = GPU_STACK_PACKAGES.filter((name) =>
+    existsSync(join(temporaryDirectory, "node_modules", name)),
+  );
+
+  if (installed.length > 0) {
+    throw new Error(
+      `a consumer that never imports ./scene installed ${installed.join(", ")}. The GPU stack ` +
+        "must stay in peerDependencies with `optional: true`: as a dependency it drags its own " +
+        "required `typegpu` peer into a project that opted out of WebGPU.",
+    );
+  }
+
   const { stdout } = await execa("node", ["consumer.mjs"], { cwd: temporaryDirectory });
 
   if (!stdout.includes("CONSUMER_OK")) {
@@ -107,8 +128,8 @@ try {
   }
 
   console.log(
-    "Consumer install OK — the packed tarball installs into a clean project, imports through " +
-      "its published entry point, and drives the reducer.",
+    "Consumer install OK — the packed tarball installs into a clean project with none of the " +
+      "GPU stack, imports through its published entry point, and drives the reducer.",
   );
 } finally {
   await rm(temporaryDirectory, { force: true, recursive: true });

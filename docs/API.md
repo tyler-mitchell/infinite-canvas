@@ -1,6 +1,6 @@
 # API reference
 
-The public surface of `@hyphened/infinite-canvas`: 236 values and 193 types across two entries.
+The public surface of `@hyphened/infinite-canvas`: 261 values and 206 types across two entries.
 Anything absent from these barrels is internal and unstable.
 This rule includes each `data-infinite-canvas-*` attribute, which supports hit tests instead of styles.
 
@@ -8,7 +8,7 @@ The project maintains this document by hand.
 `verify-api-doc.mjs` makes sure that each export appears here.
 `verify-api-stability.mjs` makes sure that each export module has a stability class.
 
-Only `@hyphened/infinite-canvas/scene` imports `three` and `@react-three/fiber`.
+Only `@hyphened/infinite-canvas/scene` imports `typegpu` and `@typegpu/react`.
 
 > Pre-1.0: the API can change between minor versions.
 
@@ -24,15 +24,15 @@ and `verify-api-stability.mjs` enforces them.
 A barrel cannot export a module without a class.
 A new export inherits the class of its module.
 
-| Reason             | Meaning                                               | Modules                                                                                   |
-| ------------------ | ----------------------------------------------------- | ----------------------------------------------------------------------------------------- |
-| **unobserved**     | Product use does not exercise every exported path.    | `canvas-handle`                                                                           |
-| **off-by-default** | Default configuration does not enable the path.       | `rasterization-layer`, `visibility`, `diagnostics`, `native-drop`                         |
-| **r3f-canary**     | The path depends on the React Three Fiber v10 canary. | `scene-surface`, `scene:scene-surface`, `scene:visibility-probes`, `scene:webgpu-surface` |
+| Reason             | Meaning                                                 | Modules                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| ------------------ | ------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **unobserved**     | Product use does not exercise every exported path.      | `canvas-handle`                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| **off-by-default** | Default configuration does not enable the path.         | `rasterization-layer`, `visibility`, `diagnostics`, `native-drop`                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| **compositor**     | The path is the new TypeGPU compositor behind `/scene`. | `scene-surface`, `scene:scene-surface`, `compositor/policy`, `scene:compositor/policy`, `scene:compositor/pass`, `scene:compositor/backend/camera`, `scene:compositor/backend/instances`, `scene:compositor/backend/surface`, `scene:compositor/passes/area-light`, `scene:compositor/passes/contact-shadow`, `scene:compositor/passes/focus-field`, `scene:compositor/passes/grid`, `scene:compositor/passes/particle-field`, `scene:compositor/passes/proximity`, `window-proximity` |
 
-The `SceneLayer` types and `InfiniteCanvasSceneVector3` in `types.ts` also have the **r3f-canary** reason.
-`@hyphened/infinite-canvas/scene` uses the `@react-three/fiber` canary.
-The affected type group includes `InfiniteCanvasSceneLayer` beside stable geometry such as `InfiniteCanvasRect`.
+The `SceneLayer` types and `InfiniteCanvasWindowProximity` in `types.ts` also have the **compositor** reason.
+The compositor records into TypeGPU's typed command encoder, which TypeGPU 0.12 marks unstable.
+The affected type group includes `InfiniteCanvasSceneLayerRenderContext` beside stable geometry such as `InfiniteCanvasRect`.
 
 The project removes exports that have no consumers.
 `window-scene-shell` and `scene-model` lost their public exports.
@@ -120,6 +120,12 @@ The top-level camera and selection remain view state. Each workspace stores its 
 
 - `findInfiniteCanvasWorkspace`: Returns one workspace by ID, or `null`.
 
+<details><summary>types (1)</summary>
+
+- `InfiniteCanvasWorkspace`: Contains `camera`, `id`, `selection`, `title`, and `windowIds`.
+
+</details>
+
 `useInfiniteCanvasActions` provides the workspace operations.
 `reorderWorkspace({ toIndex, workspaceId })` moves a workspace to its final index.
 `toIndex` has the same final-order meaning as `reorderGroupChild`.
@@ -129,12 +135,6 @@ An index outside the list is clamped.
 
 - `getInfiniteCanvasWorkspaceWindowIds`: Returns the active workspace window IDs. When no workspace is active, it returns `null`.
 - `isInfiniteCanvasWindowInActiveWorkspace`: Reports whether one window is in the active workspace.
-
-<details><summary>types (1)</summary>
-
-- `InfiniteCanvasWorkspace`: Contains `camera`, `id`, `selection`, `title`, and `windowIds`.
-
-</details>
 
 **`window-capabilities`**
 
@@ -168,8 +168,9 @@ Without `onReset`, the normal debounce writes the reset.
 - `useInfiniteCanvasState$`
 - `useInfiniteCanvasStore`
 
-<details><summary>types (2)</summary>
+<details><summary>types (3)</summary>
 
+- `InfiniteCanvasSignals`: The store's GPU readback slices, `signals$`. View state: `proximity` is null until the compositor's proximity pass has run.
 - `InfiniteCanvasStateValidator`
 - `InfiniteCanvasStore`
 
@@ -650,16 +651,13 @@ These helpers provide window proxies, connector routes, scene transforms, and fr
 - `getInfiniteCanvasWindowProxyCullingRect`
 - `getInfiniteCanvasWorldPath`
 - `getInfiniteCanvasWorldPathPointAtProgress`
-- `getInfiniteCanvasWorldPathSceneTransforms`
 - `getInfiniteCanvasWorldSegment`
-- `getInfiniteCanvasWorldSegmentSceneTransform`
 - `getVisibleInfiniteCanvasWindowProxies`
 
-<details><summary>types (8)</summary>
+<details><summary>types (7)</summary>
 
 - `InfiniteCanvasPathDataOptions`
 - `InfiniteCanvasRectFacing`
-- `InfiniteCanvasSceneSegmentTransform`
 - `InfiniteCanvasWindowConnectorOptions`
 - `InfiniteCanvasWindowConnectorPathOptions`
 - `InfiniteCanvasWindowConnectorRoute`
@@ -675,18 +673,13 @@ These helpers provide window proxies, connector routes, scene transforms, and fr
 
 **`visibility`**
 
-- `getInfiniteCanvasVisibilitySummary`
-- `getWindowFrustumVisibility`
-- `isWindowFramed`
 - `useInfiniteCanvasVisibilitySummary`
 - `useInfiniteCanvasWindowFramed`
-- `useInfiniteCanvasWindowFrustum`
 
-<details><summary>types (3)</summary>
+<details><summary>types (2)</summary>
 
 - `InfiniteCanvasVisibilityState`
 - `InfiniteCanvasVisibilitySummary`
-- `InfiniteCanvasWindowFrustumVisibility`
 
 </details>
 
@@ -907,6 +900,46 @@ The `rasterization` prop enables this feature, which is off by default.
 
 </details>
 
+## Window proximity
+
+The compositor's proximity pass measures the space between windows on the GPU each frame and publishes
+one reading per window to `store.signals$.proximity`. Signals are the store's view state for GPU
+readbacks: never in the undo document, never serialized. Window bodies and HUD read them through hooks;
+no consumer wiring is needed beyond passing a scene surface.
+
+**`window-proximity`**
+
+- `useInfiniteCanvasWindowProximity`: Returns the latest reading for one window, or null before the compositor has measured it.
+
+The reading type `InfiniteCanvasWindowProximity` (`nearest` world distance, `nearestWindowId`,
+`neighbors`, crowding `pressure`) and the store's `InfiniteCanvasSignals` type live in `types` and
+`store`.
+
+## Compositor policy
+
+The `compositor` prop on `InfiniteCanvasDesktop` selects which framework passes the scene surface runs
+and tunes each one. Each field takes `true` for the defaults, `false` to remove the pass, or a partial
+options object. The viewport resolves the input once and passes the resolved policy to the surface.
+The policy has no GPU import, so a consumer without `/scene` can still read the defaults.
+
+**`compositor/policy`**
+
+- `DEFAULT_INFINITE_CANVAS_COMPOSITOR`
+- `resolveInfiniteCanvasCompositorPolicy`
+
+<details><summary>types (7)</summary>
+
+- `InfiniteCanvasCompositorPolicy`
+- `InfiniteCanvasCompositorPolicyInput`
+- `InfiniteCanvasContactShadowOptions`: `offsetPx`, `softnessPx`, `opacity`, and `cornerRadiusPx` of the shadow below each window.
+- `InfiniteCanvasFocusFieldOptions`: `reachPx` and `dimStrength` of the attention field.
+- `InfiniteCanvasParticleFieldOptions`: `count`, `sizePx`, `opacity`, `tint`, the motion terms `gravity`, `reach`, `drift`, `damping`, `maxSpeed` in world units, `activeBoost`, the extra pull of the active window, and `respectReducedMotion`, which places the particles once and stops when the viewer prefers reduced motion.
+- `InfiniteCanvasAreaLightOptions`: `heightStep`, the world units a window rises per step up the stack, and `intensity`.
+- `InfiniteCanvasGridOptions`: `minorOpacity`, `majorOpacity`, `majorEvery`, `lineWidthPx`, `tint`, and `falloff`, how much the grid fades toward the edges of the view.
+- `InfiniteCanvasProximityOptions`: `reach` in world units.
+
+</details>
+
 ## Diagnostics
 
 Developer overlays use inline styles and do not require `theme.css`.
@@ -1087,12 +1120,9 @@ The size type `InfiniteCanvasViewport` is exported as `InfiniteCanvasViewportSiz
 - `InfiniteCanvasResolveSpatialTarget`
 - `InfiniteCanvasResolvedDropTarget`
 - `InfiniteCanvasResolvedSpatialTarget`
-- `InfiniteCanvasSceneLayer`
-- `InfiniteCanvasSceneLayerFrameloop`
 - `InfiniteCanvasSceneLayerPlacement`
 - `InfiniteCanvasSceneLayerRenderContext`
 - `InfiniteCanvasSceneLayerSpace`
-- `InfiniteCanvasSceneVector3`
 - `InfiniteCanvasSelection`
 - `InfiniteCanvasSelectionTarget`
 - `InfiniteCanvasSelectionTargetType`
@@ -1160,6 +1190,7 @@ An `onPointerDown` consumer handler runs before the framework handler.
 - `InfiniteCanvasWindowFrameSurfaceProps`
 - `InfiniteCanvasWindowFrameTitleProps`
 - `InfiniteCanvasWindowMode`
+- `InfiniteCanvasWindowProximity`: One window's GPU proximity reading: `nearest`, `nearestWindowId`, `neighbors`, `pressure`.
 - `InfiniteCanvasWindowProxy`
 - `InfiniteCanvasWindowRegistry`
 - `InfiniteCanvasWindowRenderContext`
@@ -1172,22 +1203,52 @@ An `onPointerDown` consumer handler runs before the framework handler.
 
 ## `@hyphened/infinite-canvas/scene`
 
-This separate entry is the only entry that imports `three` and `@react-three/fiber`.
+This separate entry is the only entry that imports `typegpu` and `@typegpu/react`.
 Import this entry.
 Then pass its surface to `<InfiniteCanvasDesktop sceneSurface={...} />`.
 If the application does not import this entry, it does not require or bundle these peers.
 
 ```tsx
-import { InfiniteCanvasWebGpuSurface } from "@hyphened/infinite-canvas/scene";
+import { InfiniteCanvasCompositorSurface } from "@hyphened/infinite-canvas/scene";
 ```
+
+The compositor is a render graph. A scene layer is a pass: `build` runs once against the device and
+returns `record`, which draws into one shared render pass each frame. Every pass reads the camera of
+its space through the `camera` accessor and every window instance through the `instances` accessor.
+The surface binds both on the configured root it hands to `build`.
 
 **`scene`**
 
-- `InfiniteCanvasWebGpuSurface`: The transparent WebGPU surface that paints `sceneLayers`.
-- `InfiniteCanvasWindowFrustumProbeLayer`: The frustum visibility probe for `diagnostics.frustum`.
+- `InfiniteCanvasCompositorSurface`: The transparent WebGPU surface that paints `sceneLayers`. Each draw takes the canvas from `target()` and submits its own render pass: the first claim of a frame clears, every later one keeps what is already there. Memoize the `sceneLayers` array: the surface builds every pipeline again when the array identity changes.
+- `createInfiniteCanvasAreaLightPass`: The medium lit by the windows above it. Each window is a rectangular area light and the floor takes its diffuse irradiance, so falloff and softness come from the geometry rather than a radius. A window higher in the stack casts a wider, weaker pool. Mounted by the surface from `compositor.areaLight`, which is off by default: irradiance on a featureless plane is a radial gradient, so it reads as an aura until the medium has structure. Set `areaLight` to `true` or an object to turn it on.
+- `DEFAULT_AREA_LIGHT_OPTIONS`: The area light defaults.
+- `screenToWorld`: The inverse of `worldToScreen`, for a pass that shades a point on the medium.
+- `createInfiniteCanvasGridPass`: The grid of the medium, drawn in world space and faded toward the edges of the view so the plane recedes instead of tiling flat. Mounted by the surface from `compositor.grid`; while it is mounted the CSS backdrop stands down, so there is one grid.
+- `DEFAULT_GRID_OPTIONS`: The grid defaults.
+- `createInfiniteCanvasContactShadowPass`: A soft shadow below each window from the union of the window distance fields, so the plane reads as lifted from the medium. Mounted by the surface from `compositor.contactShadow`.
+- `createInfiniteCanvasFocusFieldPass`: The attention field. The medium stays bright around the active window and dims with distance from it. Mounted by the surface from `compositor.focusField`, which is off by default because the halo it leaves reads as an aura; set `focusField` to `true` or an object to turn it on.
+- `createInfiniteCanvasParticleFieldPass`: Small particles in the medium that drift and fall gently toward the windows. One compute dispatch and one instanced draw per frame; it keeps the surface redrawing. Mounted by the surface from `compositor.particleField`.
+- `Particle`, `Particles`, `PARTICLE_CAPACITY`: The particle record, its fixed-capacity array, and the capacity.
+- `instanceCount`: The accessor a shader reads for how many leading `instances` are live this frame.
+- `createInfiniteCanvasProximityPass`: The first shipped compute pass. It measures the gap between every pair of windows on the GPU and publishes nearest neighbour, neighbour count, and crowding pressure to the canvas store's proximity signal. Mounted by the surface from `compositor.proximity`, which is off by default because the pass costs a compute dispatch and a GPU-to-CPU map every frame and the map forces a synchronisation; set `proximity` to `true` or an object to turn it on.
+- `DEFAULT_INFINITE_CANVAS_COMPOSITOR`, `DEFAULT_CONTACT_SHADOW_OPTIONS`, `DEFAULT_FOCUS_FIELD_OPTIONS`, `DEFAULT_PARTICLE_FIELD_OPTIONS`, `DEFAULT_PROXIMITY_OPTIONS`: The default policy and the per-pass defaults each factory takes when called without options.
+- `WindowProximity`, `WindowProximities`: The per-window proximity record and its fixed-capacity array.
+- `CompositorCamera`: The camera uniform schema. `viewport` and `zoom` are CSS pixels; `devicePixelRatio` is the viewport's ratio.
+- `camera`: The accessor a shader reads for the camera of the pass's space.
+- `WindowInstance`, `WindowInstances`: Per-window instance data, and the fixed-capacity array of it.
+- `instances`: The accessor a shader reads for every window instance.
+- `worldToScreen`, `screenToClip`: Shader functions that match the DOM plane's projection.
+- `PREMULTIPLIED_OVER_BLEND`, `ADDITIVE_BLEND`: The two blend states a pass gives `targets.blend`. The canvas is premultiplied, so a pass that lays paint on the medium takes the first; a pass whose contributions add rather than cover takes the second.
 
-<details><summary>types (2)</summary>
+<details><summary>types (9)</summary>
 
+- `CompositorBuildContext`: `configured` (TypeGPU's `WithBinding`, with the camera and window instances already bound), `format`, `root`, `signals$`.
+- `CompositorBuiltPass`: `build` output: optional `compute` (dispatches before every draw), optional `record` (draws), optional `readback` (after the draws, the only place a GPU-to-CPU read may start).
+- `CompositorColorAttachment`: the canvas as one draw sees it: `view`, `loadOp`, `storeOp`, and `clearValue`.
+- `CompositorFrameBase`: `context`, `instanceCount`, `deltaSeconds`, and `elapsedSeconds`.
+- `CompositorFrame`: a `CompositorFrameBase` and `target`.
+- `CompositorTarget`: claims the canvas for one draw. The first claim of a frame clears it; later claims keep what earlier draws put there.
+- `InfiniteCanvasScenePass`
 - `InfiniteCanvasSceneSurface`
 - `InfiniteCanvasSceneSurfaceProps`
 

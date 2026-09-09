@@ -67,6 +67,9 @@ catalog:
   "@lexical/headless": ^0.49.0
   # TypeGPU shaders require this build plugin.
   typegpu: ^0.12.3
+  "@typegpu/react": ^0.12.0
+  "@typegpu/noise": ^0.12.0
+  "@typegpu/sdf": ^0.12.0
   "unplugin-typegpu": ^0.12.0
   "@webgpu/types": ^0.1.66
   liquid-gooey: ^0.1.0

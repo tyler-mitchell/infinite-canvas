@@ -116,7 +116,8 @@ if (stabilitySection === null) {
   );
 } else {
   const documented = new Set(
-    [...stabilitySection[1].matchAll(/`([\w:$-]+)`/g)].map((match) => match[1]),
+    // Nested compositor modules carry a slash, as in `scene:compositor/pass`.
+    [...stabilitySection[1].matchAll(/`([\w:$/-]+)`/g)].map((match) => match[1]),
   );
 
   for (const module of experimental.keys()) {

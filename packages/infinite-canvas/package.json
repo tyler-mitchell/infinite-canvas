@@ -9,8 +9,8 @@
     "infinite-canvas",
     "pan-zoom",
     "react",
-    "react-three-fiber",
     "spatial",
+    "typegpu",
     "webgpu",
     "window-manager",
     "workspace"
@@ -67,30 +67,41 @@
     "@zumer/snapdom": "catalog:"
   },
   "devDependencies": {
-    "@react-three/fiber": "catalog:",
+    "@typegpu/noise": "catalog:",
+    "@typegpu/react": "catalog:",
+    "@typegpu/sdf": "catalog:",
     "@types/node": "^25.6.2",
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
-    "@types/three": "catalog:",
     "@typescript/native-preview": "7.0.0-dev.20260509.2",
+    "@webgpu/types": "catalog:",
     "bumpp": "^11.1.0",
     "react": "catalog:",
     "react-dom": "catalog:",
-    "three": "catalog:",
+    "typegpu": "catalog:",
     "typescript": "^6.0.3",
+    "unplugin-typegpu": "catalog:",
     "vite-plus": "catalog:"
   },
   "peerDependencies": {
-    "@react-three/fiber": ">=10.0.0-canary.dbbe704 <11",
+    "@typegpu/noise": "^0.12.0",
+    "@typegpu/react": "^0.12.0",
+    "@typegpu/sdf": "^0.12.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "three": ">=0.181.0"
+    "typegpu": "^0.12.3"
   },
   "peerDependenciesMeta": {
-    "@react-three/fiber": {
+    "@typegpu/noise": {
       "optional": true
     },
-    "three": {
+    "@typegpu/react": {
+      "optional": true
+    },
+    "@typegpu/sdf": {
+      "optional": true
+    },
+    "typegpu": {
       "optional": true
     }
   },

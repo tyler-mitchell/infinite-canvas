@@ -13,9 +13,9 @@
     "reasons applies, and each reason is a fact about the repo rather than a feeling about the code:",
     "  - unobserved: shipped, typechecked, gated, never watched running.",
     "  - off-by-default: behind a policy prop no default configuration turns on.",
-    "  - r3f-canary: reachable only through @hyphened/infinite-canvas/scene, whose @react-three/fiber",
-    "    peer range admits a v10 canary. The framework cannot promise stability across someone",
-    "    else's canary.",
+    "  - compositor: reachable only through @hyphened/infinite-canvas/scene, the TypeGPU compositor.",
+    "    Its pass contract, substrate schema, and shared render pass are new on 2026-09-08 and the",
+    "    typed command encoder it records into is marked unstable upstream (TypeGPU 0.12).",
     "",
     "Purity is NOT a stability reason and size is NOT a stability reason. scene-layer-geometry,",
     "spatial-target, and window-proxy all sound like 3D and are all pure-core roots",
@@ -31,7 +31,7 @@
     "the other is not. This is why 'unconsumed' is not one of the reasons above: an unconsumed",
     "export is not classified, it is removed.",
     "",
-    "typesExperimental: types.ts is a grab-bag \u2014 it holds InfiniteCanvasSceneLayer next to",
+    "typesExperimental: types.ts is a grab-bag \u2014 it holds InfiniteCanvasSceneLayerRenderContext next to",
     "InfiniteCanvasRect. Its experimental names are listed one by one and checked to still exist."
   ],
   "stable": [
@@ -84,17 +84,26 @@
     "native-drop": "off-by-default \u2014 the viewport's native-drag bridge is inert unless a consumer passes `dropPolicy`, deliberately: without one, validation defaults to accepted and `dragover` would have to take the browser's own handling away from canvases that never asked for it. The helper is public for a consumer wiring drops onto a surface the canvas does not own, which nothing does yet. Experimental for a second reason since 2026-08-26: the payload is a union now rather than one shape, and a lane added to it \u2014 `text/html`, a dragged colour \u2014 widens what an existing `canDrop` is handed.",
     "rasterization-layer": "off-by-default \u2014 the policy, scheduler, and snapshot capture ship behind the rasterization prop. P7 intends to rebuild the capture lane on html-in-canvas.",
     "visibility": "off-by-default \u2014 reads the store only the frustum probe layer writes, so every reading is null unless /scene is mounted with diagnostics.frustum.",
-    "scene-surface": "r3f-canary \u2014 the surface contract the /scene entry implements.",
-    "scene:scene-surface": "r3f-canary \u2014 the /scene entry in full.",
-    "scene:visibility-probes": "r3f-canary \u2014 the /scene entry in full.",
-    "scene:webgpu-surface": "r3f-canary \u2014 the /scene entry in full."
+    "scene-surface": "compositor \u2014 the surface contract the /scene entry implements.",
+    "compositor/policy": "compositor \u2014 which framework passes run and how each is tuned; the field set grows with each shipped pass.",
+    "scene:compositor/policy": "compositor \u2014 the same policy reached through the /scene entry, which also exports the per-pass defaults.",
+    "scene:scene-surface": "compositor \u2014 the /scene entry in full.",
+    "scene:compositor/pass": "compositor \u2014 the pass contract every scene layer builds against.",
+    "scene:compositor/backend/camera": "compositor \u2014 the camera schema, accessor, and projection functions passes read.",
+    "scene:compositor/backend/instances": "compositor \u2014 the window instance schema and accessor passes read.",
+    "scene:compositor/backend/surface": "compositor \u2014 the surface that owns the frame.",
+    "scene:compositor/passes/contact-shadow": "compositor — the shadow below each window.",
+    "scene:compositor/passes/focus-field": "compositor \u2014 the attention field around the active window.",
+    "scene:compositor/passes/area-light": "compositor \u2014 the medium lit by each window as a rectangular area light.",
+    "scene:compositor/passes/grid": "compositor — the grid of the medium, drawn in world space.",
+    "scene:compositor/passes/particle-field": "compositor \u2014 the particle field that drifts toward windows; compute step plus instanced draw.",
+    "scene:compositor/passes/proximity": "compositor \u2014 the first shipped compute pass with CPU readback.",
+    "window-proximity": "compositor \u2014 the proximity signal is written only by the compositor's proximity pass, and that pass is off by default because it costs a compute dispatch and a GPU-to-CPU map per frame, so every reading is null until a consumer mounts /scene and opts in with `compositor.proximity`."
   },
   "typesExperimental": [
-    "InfiniteCanvasSceneLayer",
-    "InfiniteCanvasSceneLayerFrameloop",
     "InfiniteCanvasSceneLayerPlacement",
     "InfiniteCanvasSceneLayerRenderContext",
     "InfiniteCanvasSceneLayerSpace",
-    "InfiniteCanvasSceneVector3"
+    "InfiniteCanvasWindowProximity"
   ]
 }

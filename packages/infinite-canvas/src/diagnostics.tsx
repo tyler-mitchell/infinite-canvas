@@ -3,7 +3,7 @@
 import { type ReactNode } from "react";
 
 import { InfiniteCanvasVisibilityHud } from "./visibility-devtools";
-import { InfiniteCanvasVisibilityProvider } from "./visibility";
+import { InfiniteCanvasVisibilityProvider, InfiniteCanvasWindowFrustumProbe } from "./visibility";
 
 type InfiniteCanvasDiagnosticsPolicy = Readonly<{
   frustum: boolean;
@@ -49,7 +49,12 @@ function InfiniteCanvasDiagnosticsProvider({
     return <>{children}</>;
   }
 
-  return <InfiniteCanvasVisibilityProvider>{children}</InfiniteCanvasVisibilityProvider>;
+  return (
+    <InfiniteCanvasVisibilityProvider>
+      <InfiniteCanvasWindowFrustumProbe />
+      {children}
+    </InfiniteCanvasVisibilityProvider>
+  );
 }
 
 function InfiniteCanvasDiagnosticsOverlay({
