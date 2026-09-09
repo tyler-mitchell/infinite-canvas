@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { tv } from "tailwind-variants";
 
-import { Button } from "#/components/button.tsx";
+import { Button, buttonVariants } from "#/components/button.tsx";
 import { Row } from "#/components/row.tsx";
 import { Slider } from "#/components/slider.tsx";
 import { Surface } from "#/components/surface.tsx";
@@ -10,6 +10,7 @@ import { Switch } from "#/components/switch.tsx";
 import { Kind, Label, Meta, Prose, Title } from "#/components/text.tsx";
 import { ToggleGroup } from "#/components/toggle-group.tsx";
 
+import { Api } from "../api.tsx";
 import { CATEGORIES } from "../fixtures.ts";
 
 const controls = tv({
@@ -76,6 +77,7 @@ function Controls() {
             </div>
           ))}
         </div>
+        <Api of={buttonVariants} />
       </section>
 
       <section className={styles.section()}>

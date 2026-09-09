@@ -2,11 +2,12 @@ import { createFileRoute } from "@tanstack/react-router";
 import { tv } from "tailwind-variants";
 
 import { ActivityGrid } from "#/components/activity-grid.tsx";
-import { Bars } from "#/components/bars.tsx";
+import { Bars, barsVariants } from "#/components/bars.tsx";
 import { Row } from "#/components/row.tsx";
 import { Surface } from "#/components/surface.tsx";
 import { Kind, Label, Meta, Prose, Readout, Title } from "#/components/text.tsx";
 
+import { Api } from "../api.tsx";
 import { ACTIVITY, INSTALLS, LEVELS } from "../fixtures.ts";
 
 const data = tv({
@@ -89,6 +90,7 @@ function Data() {
             </div>
           </Surface>
         </div>
+        <Api of={barsVariants} />
       </section>
 
       <section className={styles.section()}>

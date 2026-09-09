@@ -2,13 +2,14 @@ import { createFileRoute } from "@tanstack/react-router";
 import { tv } from "tailwind-variants";
 
 import { Button } from "#/components/button.tsx";
-import { Row } from "#/components/row.tsx";
+import { Row, rowVariants } from "#/components/row.tsx";
 import { ScrollArea } from "#/components/scroll-area.tsx";
 import { Separator } from "#/components/separator.tsx";
-import { Surface } from "#/components/surface.tsx";
+import { Surface, surfaceVariants } from "#/components/surface.tsx";
 import { Kind, Label, Meta, Prose, Readout, Title } from "#/components/text.tsx";
 import { Toolbar } from "#/components/toolbar.tsx";
 
+import { Api } from "../api.tsx";
 import { COMMITS } from "../fixtures.ts";
 
 const layout = tv({
@@ -77,7 +78,27 @@ function Layout() {
             </Row>
             <Prose>The rim at a different phase, so it reads as another material.</Prose>
           </Surface>
+          <Surface tone="rim" padding="roomy">
+            <Row>
+              <Label>rim</Label>
+              <Meta>hover</Meta>
+            </Row>
+            <Prose>A specular conic edge that sweeps while the pointer is over it.</Prose>
+          </Surface>
+          <Surface tone="pending">
+            <Row>
+              <Label>pending</Label>
+            </Row>
+            <Prose>A dashed edge says unbuilt. It must not read as a finished card.</Prose>
+          </Surface>
+          <Surface tone="bare">
+            <Row>
+              <Label>bare</Label>
+            </Row>
+            <Prose>No frame at all, for a widget that brings its own.</Prose>
+          </Surface>
         </div>
+        <Api of={surfaceVariants} />
       </section>
 
       <section className={styles.section()}>
@@ -123,6 +144,7 @@ function Layout() {
             <Prose>A rule below opens a widget; a rule above closes one.</Prose>
           </Surface>
         </div>
+        <Api of={rowVariants} />
       </section>
 
       <section className={styles.section()}>
