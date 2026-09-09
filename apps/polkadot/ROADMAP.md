@@ -464,8 +464,19 @@ canvas whose windows are all notes it would say "note" four times.
   Deleting them is available and is the owner's call, not an agent's.
   Nothing imports them, so they cost nothing but the reading.
 
-  This is also the only GPU work in the application. With the field declined, `unplugin-typegpu`
-  in `vite.config.ts` compiles a shader that nothing mounts.
+  **Corrected on 2026-09-09: both sentences here were true when written and are now false.** The
+  field is no longer the only GPU work, and `unplugin-typegpu` is no longer compiling for nothing.
+  `workspace-canvas.tsx` passes `sceneSurface={InfiniteCanvasCompositorSurface}`, so the framework's
+  TypeGPU compositor mounts and draws — verified live at 2560x1346, owning the grid with zero CSS
+  grid nodes and painting contact shadows under both windows at 42% zoom.
+
+  This matters more than a stale sentence usually would, because acting on the old text breaks the
+  canvas silently. The plugin is what turns a `"use gpu"` body into WGSL, including the framework's
+  own passes compiled through this app's bundler; `vite.config.ts` says so on the line above it.
+  Removing it as dead configuration would leave those bodies as ordinary JavaScript that never
+  reaches the GPU, with no error and no failing type.
+
+  The field itself stays declined and unmounted. Nothing here reopens it.
 
 - **The mention typeahead produced one unexplained empty result.**
   On 2026-08-28, it said "No note by that name" while three "Untitled" notes were open.
