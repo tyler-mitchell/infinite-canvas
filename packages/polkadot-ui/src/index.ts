@@ -18,6 +18,7 @@ export {
   type ActivityDay,
   type ActivityGridProps,
 } from "./components/activity-grid.tsx";
+export { Avatar, avatarVariants, type AvatarProps } from "./components/avatar.tsx";
 export { Badge, badgeVariants, type BadgeProps } from "./components/badge.tsx";
 export { Bars, barsVariants, type BarsProps } from "./components/bars.tsx";
 export {
@@ -91,6 +92,7 @@ export { Row, rowVariants, type RowProps } from "./components/row.tsx";
 export { Separator, separatorVariants, type SeparatorProps } from "./components/separator.tsx";
 export { Sparkline, sparklineVariants, type SparklineProps } from "./components/sparkline.tsx";
 export { Stat, statVariants, type StatProps } from "./components/stat.tsx";
+export { StatusDot, statusDotVariants, type StatusDotProps } from "./components/status-dot.tsx";
 export { Surface, surfaceVariants, type SurfaceProps } from "./components/surface.tsx";
 export {
   Kind,

@@ -3,6 +3,7 @@ import { tv } from "tailwind-variants";
 
 /* The lab imports the kit by name, so the published entry is what every page here runs on. */
 import {
+  Avatar,
   Badge,
   Bars,
   Breakdown,
@@ -17,6 +18,7 @@ import {
   Separator,
   Sparkline,
   Stat,
+  StatusDot,
   Surface,
   Title,
 } from "polkadot-ui";
@@ -32,6 +34,8 @@ const overview = tv({
     grid: "grid grid-cols-[repeat(auto-fill,minmax(236px,1fr))] gap-3",
     widgets: "flex flex-wrap items-start gap-3",
     widget: "w-[360px] max-w-full",
+    identity: "w-[360px] max-w-full",
+    who: "flex flex-col gap-1.5",
     owner: "text-pk-ink-faint",
     chart: "flex h-[58px] flex-col",
     tiles: "flex items-center gap-1.5",
@@ -97,6 +101,18 @@ function Overview() {
         </Row>
         {/* The point of the kit in one object: the pages after this take it back apart. */}
         <div className={styles.widgets()}>
+          {/* The rim tone is the design's own treatment for the one card that is a person. */}
+          <Surface tone="rim" padding="roomy" className={styles.identity()}>
+            <Row align="center">
+              <Avatar size="lg" name="Tyler Mitchell" />
+              <div className={styles.who()}>
+                <Title>Tyler Mitchell</Title>
+                <Meta>Spatial interface engineer</Meta>
+                <StatusDot>open to one project</StatusDot>
+              </div>
+            </Row>
+          </Surface>
+
           <Surface tone="card" className={styles.widget()}>
             <Row>
               <Label className={styles.owner()}>hyphened /</Label>
