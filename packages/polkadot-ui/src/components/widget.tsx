@@ -29,8 +29,14 @@ const widget = tv({
       /* A specular conic edge that sweeps on hover. Two layers of background, so it is a class. */
       rim: { root: "pk-rim rounded-[18px]" },
       tile: { root: "pk-rim-tile rounded-pk-inner" },
-      /* Not built yet, and saying so: a dashed edge reads as a placeholder, not a card. */
-      pending: { root: "rounded-pk-card border border-dashed border-[#26302a] bg-[#0a0c0b]" },
+      /*
+       * Not built yet, and saying so. The dash has to clear the ground to read as a dash at all —
+       * at #26302a it was invisible and the card looked finished, which is the opposite of the
+       * message. Tinted toward the accent so "unbuilt" and "inert" are not the same colour.
+       */
+      pending: {
+        root: "rounded-pk-card border border-dashed border-pk-accent/25 bg-pk-accent/[0.02]",
+      },
       bare: {},
     },
     interactive: {

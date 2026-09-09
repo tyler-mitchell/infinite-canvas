@@ -3,7 +3,9 @@ import { useState } from "react";
 import { tv } from "tailwind-variants";
 
 import { Button } from "#/components/button.tsx";
+import { Collapsible } from "#/components/collapsible.tsx";
 import { Separator } from "#/components/separator.tsx";
+import { Tooltip } from "#/components/tooltip.tsx";
 import { ToggleGroup } from "#/components/toggle-group.tsx";
 import { Widget } from "#/components/widget.tsx";
 
@@ -19,6 +21,8 @@ const showcase = tv({
     /* Widgets are sized by their container here; the packer is not wired into this page. */
     grid: "grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-3",
     cell: "h-[180px]",
+    collapsibleCell: "max-w-[420px]",
+    panelBody: "pt-3",
   },
 });
 
@@ -123,6 +127,34 @@ function Showcase() {
             </Widget.Body>
           </Widget>
         </div>
+      </section>
+
+      <section className={styles.section()}>
+        <p className={styles.sectionLabel()}>collapsible · css owns the tween</p>
+        <Widget className={styles.collapsibleCell()} tone="card">
+          <Collapsible defaultOpen>
+            <Collapsible.Trigger>
+              readme.md
+              <Widget.Meta>4.9 kB</Widget.Meta>
+            </Collapsible.Trigger>
+            <Collapsible.Panel>
+              <Widget.Subtitle className={styles.panelBody()}>
+                Base UI measures the panel and publishes the height as a CSS variable, so this is
+                one compositor-owned transition rather than a per-frame height loop.
+              </Widget.Subtitle>
+            </Collapsible.Panel>
+          </Collapsible>
+        </Widget>
+      </section>
+
+      <section className={styles.section()}>
+        <p className={styles.sectionLabel()}>tooltip</p>
+        <Tooltip.Provider>
+          <Tooltip>
+            <Tooltip.Trigger render={<Button tone="quiet" size="sm" />}>hover me</Tooltip.Trigger>
+            <Tooltip.Content>2.1M in-browser queries served</Tooltip.Content>
+          </Tooltip>
+        </Tooltip.Provider>
       </section>
 
       <section className={styles.section()}>
