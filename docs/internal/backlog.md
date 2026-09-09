@@ -47,6 +47,22 @@ mounts with the viewport when the `/scene` entry is present. This is what makes 
 contract, `CompositorSceneResources` and the consumer-facing pass exports go away; until then
 they are refinements to something scheduled for removal.
 
+**Derived on 2026-09-09, after the connections pass landed in `834b30f`.** `sceneLayers` now has
+exactly one consumer left: `apps/playground/src/routes/drop-tray.tsx` passes
+`createDropPreviewPass`, which draws the ghost rect where a dragged payload will land.
+
+That pass is a framework concept wearing a consumer's clothes. Every input it reads is framework
+state — `drop.status`, `drop.isOverViewport`, `drop.dropTarget.status`, `drop.placement.rect` — all
+produced by `drop-interaction.ts` and the `dropPolicy` prop. The only consumer-specific part is the
+colour, which the showcase takes from its own payload's accent.
+
+So the order is: move it to `compositor/passes/drop-preview.ts` with valid and invalid colours in
+the policy, exactly as `connections` was moved. The per-payload accent does not survive that and
+should not — a framework preview says valid or invalid, and a consumer that wants its own hue is
+asking for a policy field, not a shader. Once that lands, `sceneLayers` has no consumer and the
+prop, the `InfiniteCanvasScenePass` export, and the four-way placement split can all be deleted
+rather than deprecated.
+
 ## Compositor
 
 Done by reading on 2026-09-08, not yet verified live: the per-render pipeline rebuild from a fresh
