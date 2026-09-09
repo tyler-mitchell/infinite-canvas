@@ -3,12 +3,22 @@ import { tv } from "tailwind-variants";
 
 const slider = tv({
   slots: {
-    root: "flex w-full flex-col gap-2",
+    /*
+     * Each part reads its own `data-orientation`, which Base UI sets throughout. Written for one
+     * axis, a vertical slider rendered as a horizontal one — a 224 by 4 track lying on its side
+     * while every element declared itself vertical.
+     *
+     * A vertical control has no length of its own to take, so it gets a default one. Override it
+     * through `className` where a fader wants to be taller or shorter.
+     */
+    root: "flex w-full flex-col gap-2 data-[orientation=vertical]:w-auto data-[orientation=vertical]:items-start",
     header: "flex items-baseline justify-between gap-2",
     label: "font-pk-sans text-[11px] leading-none font-medium tracking-[0.02em] text-pk-ink-dim",
     value: "font-pk-mono text-[11px] leading-[1.4] text-pk-ink-muted",
-    control: "flex h-4 w-full cursor-pointer touch-none items-center select-none",
-    track: "h-1 w-full rounded-pk-pill bg-pk-surface-sunken",
+    control:
+      "flex h-4 w-full cursor-pointer touch-none items-center select-none data-[orientation=vertical]:h-[120px] data-[orientation=vertical]:w-4 data-[orientation=vertical]:justify-center",
+    track:
+      "h-1 w-full rounded-pk-pill bg-pk-surface-sunken data-[orientation=vertical]:h-full data-[orientation=vertical]:w-1",
     indicator: "rounded-pk-pill bg-pk-accent",
     thumb:
       "size-3 rounded-pk-pill border border-pk-accent bg-pk-ink-bright outline-none transition-[box-shadow] duration-(--pk-duration-hover) ease-pk-swift focus-visible:ring-2 focus-visible:ring-pk-accent/50",

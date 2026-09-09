@@ -151,6 +151,10 @@ function Controls() {
             {/* Two values: Base UI wants one thumb per entry, each carrying its own index. */}
             <Slider label="range" defaultValue={[24, 68]} />
           </Surface>
+          <Surface tone="card">
+            {/* Vertical is a Root prop, so the kit's track has to turn with it. */}
+            <Slider label="gain" defaultValue={55} orientation="vertical" />
+          </Surface>
         </div>
       </section>
     </div>
