@@ -35,3 +35,6 @@ reference/
 
 # Working notes that are not part of the repository record
 docs/local/
+
+# Handoff artifacts are working material, not repository content.
+docs/handoff/
