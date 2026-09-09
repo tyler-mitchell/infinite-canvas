@@ -4,7 +4,8 @@ import { tv } from "tailwind-variants";
 
 const toggleGroup = tv({
   slots: {
-    root: "inline-flex flex-wrap items-center gap-[5px]",
+    /* Vertical is a Root prop; a rail of filters stacked down a side is a real arrangement. */
+    root: "inline-flex flex-wrap items-center gap-[5px] data-[orientation=vertical]:flex-col data-[orientation=vertical]:items-stretch",
     item: "inline-flex cursor-pointer items-center rounded-pk-pill border px-[11px] py-[7px] font-pk-sans text-[11px] leading-none whitespace-nowrap outline-none transition-colors duration-(--pk-duration-hover) ease-pk-swift select-none focus-visible:ring-2 focus-visible:ring-pk-accent/50 disabled:pointer-events-none disabled:opacity-40",
   },
   variants: {

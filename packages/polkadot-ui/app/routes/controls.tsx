@@ -102,6 +102,19 @@ function Controls() {
         <Meta>
           {categories.length === 0 ? "nothing filtered" : `filtering ${categories.join(" · ")}`}
         </Meta>
+        {/* The same group stacked, which is what a filter rail down a side needs. */}
+        <ToggleGroup
+          multiple
+          orientation="vertical"
+          value={categories}
+          onValueChange={setCategories}
+        >
+          {CATEGORIES.map((category) => (
+            <ToggleGroup.Item key={category} value={category}>
+              {category}
+            </ToggleGroup.Item>
+          ))}
+        </ToggleGroup>
       </section>
 
       <section className={styles.section()}>

@@ -33,7 +33,16 @@ const accordion = tv({
 
 type WithClassName<T> = Omit<T, "className"> & { className?: string };
 
-export type AccordionProps = WithClassName<AccordionPrimitive.Root.Props>;
+/**
+ * Vertical only, and the type says so.
+ *
+ * Base UI's accordion can run horizontally, but this one is a ruled list of rows — a horizontal
+ * variant would animate width rather than height and stack its rules along the other edge, which is
+ * a different component wearing the same name. Styling one on the chance somebody asks is the kind
+ * of speculative work this kit avoids, and leaving the prop reachable while ignoring it is worse:
+ * it renders a broken column and typechecks. Omitting it turns that into a compile error.
+ */
+export type AccordionProps = Omit<WithClassName<AccordionPrimitive.Root.Props>, "orientation">;
 
 function Accordion({ className, ...props }: AccordionProps) {
   return (
