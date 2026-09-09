@@ -12,6 +12,13 @@ const collapsible = tv({
      */
     panel:
       "h-(--collapsible-panel-height) overflow-hidden transition-[height] duration-(--pk-duration-detail) ease-pk-swift data-ending-style:h-0 data-starting-style:h-0",
+    /*
+     * The gap under the trigger, on an inner element rather than the panel. Base UI publishes the
+     * measured content height and the panel is border-box, so padding on the panel itself would be
+     * subtracted from the content and clip the last line. Spacing only — the panel takes any child,
+     * so it does not impose a type role the way the accordion's body does.
+     */
+    body: "pt-3",
   },
 });
 
@@ -43,13 +50,17 @@ function CollapsibleTrigger({ className, ...props }: CollapsibleTriggerProps) {
 
 export type CollapsiblePanelProps = WithClassName<CollapsiblePrimitive.Panel.Props>;
 
-function CollapsiblePanel({ className, ...props }: CollapsiblePanelProps) {
+function CollapsiblePanel({ className, children, ...props }: CollapsiblePanelProps) {
+  const styles = collapsible();
+
   return (
     <CollapsiblePrimitive.Panel
       data-slot="collapsible-panel"
-      className={collapsible().panel({ className })}
+      className={styles.panel({ className })}
       {...props}
-    />
+    >
+      <div className={styles.body()}>{children}</div>
+    </CollapsiblePrimitive.Panel>
   );
 }
 
