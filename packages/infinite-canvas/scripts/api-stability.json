@@ -70,6 +70,7 @@
     "window-arrange",
     "window-capabilities",
     "window-focus",
+    "window-packing",
     "window-placement",
     "window-presence",
     "minimap",

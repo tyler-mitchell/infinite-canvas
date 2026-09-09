@@ -14,6 +14,12 @@
       "port": 3001
     },
     {
+      "name": "playground",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["-C", "apps/playground", "exec", "vp", "dev", "--port", "3300"],
+      "port": 3300
+    },
+    {
       "name": "compositor-poc",
       "runtimeExecutable": "pnpm",
       "runtimeArgs": ["-C", "apps/compositor-poc", "dev"],
