@@ -9,8 +9,13 @@ const button = tv({
       chip: "rounded-pk-pill border-pk-line bg-transparent text-pk-ink-dim hover:border-pk-line-strong hover:text-pk-ink-muted",
       quiet:
         "rounded-pk-chip border-pk-line-inner-raised bg-transparent text-pk-ink-muted hover:border-pk-line-strong hover:text-pk-ink-bright",
+      /*
+       * Disabled drops the fill rather than only fading it. At 40% opacity a saturated fill is
+       * still the loudest thing in a row of controls, so an accent button that cannot be pressed
+       * went on reading as the one to press.
+       */
       accent:
-        "rounded-pk-chip border-pk-accent bg-pk-accent text-pk-on-accent hover:brightness-110",
+        "rounded-pk-chip border-pk-accent bg-pk-accent text-pk-on-accent hover:brightness-110 disabled:border-pk-line disabled:bg-transparent disabled:text-pk-ink-faint",
       /* Bare text, for a control inside a widget header that must not look like chrome. */
       bare: "border-transparent bg-transparent text-pk-ink-faint hover:text-pk-ink-bright",
     },

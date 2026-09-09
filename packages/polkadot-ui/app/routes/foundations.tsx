@@ -27,7 +27,14 @@ const foundations = tv({
     radiusBox: "size-16 border border-pk-line bg-pk-surface-inner",
     lines: "flex flex-col gap-3",
     lineRow: "flex items-center gap-3",
-    lineRule: "h-px flex-1",
+    lineName: "w-[84px] flex-none",
+    /*
+     * Fixed, not flex-1. Sized by the caption beside it, each specimen drew a different length and
+     * the lightest hairline drew the longest — a magnitude the set does not have. Four samples that
+     * differ only in weight have to be the same length.
+     */
+    lineRule: "h-px w-[220px] flex-none",
+    spacer: "flex-1",
     scale: "flex flex-col gap-4",
     scaleRow: "flex flex-col gap-1",
   },
@@ -144,7 +151,7 @@ function Foundations() {
           <div className={styles.lines()}>
             {LINES.map(([token, name, note]) => (
               <div key={token} className={styles.lineRow()}>
-                <Label>{name}</Label>
+                <Label className={styles.lineName()}>{name}</Label>
                 <div className={styles.lineRule()} style={{ background: `var(${token})` }} />
                 <Meta>{note}</Meta>
               </div>
@@ -194,10 +201,10 @@ function Foundations() {
           <div className={styles.lines()}>
             {EASINGS.map(([token, name, job, curve]) => (
               <div key={token} className={styles.lineRow()}>
-                <Label>{name}</Label>
+                <Label className={styles.lineName()}>{name}</Label>
                 <Separator orientation="vertical" />
                 <Meta>{job}</Meta>
-                <div className={styles.lineRule()} />
+                <div className={styles.spacer()} />
                 <Meta>{curve}</Meta>
               </div>
             ))}
