@@ -1,4 +1,4 @@
-import { getRectCenter, rectsIntersect } from "./geometry";
+import { clamp, getRectCenter, rectsIntersect } from "./geometry";
 import type {
   InfiniteCanvasPoint,
   InfiniteCanvasRect,
@@ -311,10 +311,6 @@ function getInfiniteCanvasLongestUnoccludedSegment(
   );
 }
 
-function clampProgress(progress: number) {
-  return Math.min(Math.max(progress, 0), 1);
-}
-
 function interpolatePoint(
   start: InfiniteCanvasPoint,
   end: InfiniteCanvasPoint,
@@ -334,7 +330,7 @@ function getInfiniteCanvasWorldPathPointAtProgress(
     x: 0,
     y: 0,
   };
-  const targetLength = path.length * clampProgress(progress);
+  const targetLength = path.length * clamp(progress, 0, 1);
   const located = path.segments.reduce<
     Readonly<{
       distance: number;

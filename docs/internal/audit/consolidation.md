@@ -27,6 +27,10 @@ Two instruments. They see different things and neither is sufficient.
 by search alone. `snap.ts` was called dead on a reference lookup that had explicitly warned it
 could not see through re-exports. It had a live importer.
 
+**Second rule, learned the same way:** re-read the tree, not the note. This document recorded
+`snap.ts` as deleted for a full session while the file was still on disk — the import repoint
+landed and the deletion did not. A claim about the tree is worth only its last verification.
+
 Symbol-table comparison found three real duplicates that reference counts never would.
 
 ## Findings
@@ -40,8 +44,9 @@ Symbol-table comparison found three real duplicates that reference counts never 
 | `getRectCenter`           | `geometry.ts` + `scene-layer-geometry.ts`    | Byte-identical                    | One owner                        |
 | `rectContainsPoint`       | `geometry.ts` + `group-state.ts`             | Identical, reordered              | One owner                        |
 | `clamp`                   | `geometry.ts` + `group-layout.ts`            | **No** — see below                | One owner                        |
-| Snap re-export hop        | `snap.ts` fronting two modules, one consumer | n/a                               | Deleted, import repointed        |
+| Snap re-export hop        | `snap.ts` fronting two modules, one consumer | n/a                               | Import repointed, then deleted   |
 | `addPoints`, `scalePoint` | `geometry.ts`, reached by nothing            | n/a — dead                        | Deleted                          |
+| `clampProgress`           | `scene-layer-geometry.ts` + `clamp`          | `clamp(value, 0, 1)`, one caller  | One owner                        |
 
 **`clamp` is the instructive one.** `geometry.ts` returns `Math.max(min, Math.min(max, value))`;
 `group-layout.ts` returned `Math.min(Math.max(value, min), max)`. Identical while `min <= max`.
@@ -91,28 +96,33 @@ has a zero percent hit rate here across seven attempts.
 
 ## Coverage
 
-| Category                       | Scope                                                    | State                                                                                                       |
-| ------------------------------ | -------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
-| 1. Duplicate authority         | `packages/infinite-canvas` geometry and layout           | Swept — 3 found, 3 fixed                                                                                    |
-| 1. Duplicate authority         | Framework primitives beyond those                        | Swept — `addPoints`, `subtractPoints`, `scalePoint`, `rectsIntersect`, `isUsableViewport` all cleanly owned |
-| 1. Duplicate authority         | Rest of `packages/infinite-canvas`                       | Not swept                                                                                                   |
-| 1. Duplicate authority         | `apps/polkadot` canvas copy operations, gateways, search | Swept — none found                                                                                          |
-| 1. Duplicate authority         | Rest of `apps/polkadot`                                  | Not swept                                                                                                   |
-| 2. Dead surface                | `geometry.ts`                                            | Swept — 2 found, 2 deleted                                                                                  |
-| 2. Dead surface                | Everywhere else                                          | Not swept                                                                                                   |
-| 3. Wrappers without a boundary | The four re-export modules                               | Swept — 1 removed, 3 legitimate                                                                             |
-| 4. Speculative machinery       | Anywhere                                                 | Not swept                                                                                                   |
+| Category                       | Scope                                                     | State                                                                                                       |
+| ------------------------------ | --------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| 1. Duplicate authority         | `packages/infinite-canvas` geometry and layout            | Swept — 3 found, 3 fixed                                                                                    |
+| 1. Duplicate authority         | Framework primitives beyond those                         | Swept — `addPoints`, `subtractPoints`, `scalePoint`, `rectsIntersect`, `isUsableViewport` all cleanly owned |
+| 1. Duplicate authority         | The 10 largest framework source modules (~10k of 20k loc) | Swept — 1 found (`clampProgress`), 1 fixed                                                                  |
+| 1. Duplicate authority         | Rest of `packages/infinite-canvas`                        | Not swept                                                                                                   |
+| 1. Duplicate authority         | `apps/polkadot` canvas copy operations, gateways, search  | Swept — none found                                                                                          |
+| 1. Duplicate authority         | Rest of `apps/polkadot`                                   | Not swept                                                                                                   |
+| 2. Dead surface                | `geometry.ts`                                             | Swept — 2 found, 2 deleted                                                                                  |
+| 2. Dead surface                | Everywhere else                                           | Not swept                                                                                                   |
+| 3. Wrappers without a boundary | The four re-export modules                                | Swept — 1 removed, 3 legitimate                                                                             |
+| 4. Speculative machinery       | Anywhere                                                  | Not swept                                                                                                   |
 
 Yield is falling. Framework geometry gave three duplicates and two dead exports; the next five
 primitives gave nothing; Polkadot's three strongest leads gave nothing. Later sweeps should expect
 low returns and stop early rather than manufacture findings.
 
+The experimental-surface lead is closed. It read as 72 undecided names; the manifest classifies
+**per module, not per symbol**, and says so in its own `$comment`. It is 20 experimental modules
+against 43 stable, 14 of them the compositor that shipped in `68fc73e`. Each carries a written
+reason. Nothing to consolidate.
+
 Known unexamined leads:
 
-- 72 experimental names across 63 modules in the API stability report. Uncommitted surface is where
-  a second implementer fails to find the first.
 - `commands.ts` at 1.8k lines and `infinite-canvas.tsx` at 1.9k lines in the framework;
-  `app-actions.ts` at 1.8k lines in Polkadot.
+  `app-actions.ts` at 1.8k lines in Polkadot. Their symbol tables are now swept for duplicate
+  names and are clean; the size question — whether each is one concept — is untouched.
 - `connection.ts` and `window-connection.ts` coexist in the framework. Not judged: the first was
   mid-construction by another session when this was written.
 

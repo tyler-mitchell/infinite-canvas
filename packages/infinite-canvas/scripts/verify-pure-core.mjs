@@ -32,7 +32,6 @@ const PURE_CORE_ROOTS = [
   "selection.ts",
   "snap-candidates.ts",
   "snap-resolver.ts",
-  "snap.ts",
   "spatial-target.ts",
   "validation.ts",
   "window-focus.ts",
