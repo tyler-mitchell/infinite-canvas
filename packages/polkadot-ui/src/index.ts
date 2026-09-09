@@ -55,6 +55,19 @@ export {
   type DialogTriggerProps,
 } from "./components/dialog.tsx";
 export { IconTile, iconTileVariants, type IconTileProps } from "./components/icon-tile.tsx";
+export {
+  Binding,
+  Keycap,
+  keycapVariants,
+  type BindingProps,
+  type KeycapProps,
+} from "./components/keycap.tsx";
+export {
+  LayoutPreview,
+  layoutPreviewVariants,
+  type LayoutPreviewProps,
+  type Pane,
+} from "./components/layout-preview.tsx";
 export { ListItem, listItemVariants, type ListItemProps } from "./components/list-item.tsx";
 export {
   Menu,

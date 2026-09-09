@@ -61,6 +61,20 @@ export const LEVELS = [
 
 export const CATEGORIES = ["stack", "work", "words", "life"] as const;
 
+export const BINDINGS = [
+  [["⌘", "K"], "palette"],
+  [["⌥", "drag"], "dock"],
+  [["F"], "fit selection"],
+  [["⇧", "↵"], "group selection"],
+  [["⌥", "scroll"], "zoom to pointer"],
+] as const;
+
+export const SPLIT_PANES = [
+  { left: 6, top: 8, width: 40, height: 84 },
+  { left: 52, top: 8, width: 42, height: 38 },
+  { left: 52, top: 54, width: 42, height: 38, active: true },
+];
+
 export const BUILDING = [
   ["infinite-canvas", "2024 — now"],
   ["surreal-inspector", "2025"],

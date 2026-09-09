@@ -94,6 +94,14 @@
   --pk-paper-label: #6b6b66;
   --pk-paper-rule: #c3c0b7;
 
+  --pk-keycap-face: #15181c;
+  --pk-keycap-line: #262a30;
+  --pk-bar: #2a2f36;
+  --pk-pane: #12151a;
+  --pk-pane-line: #2a2f36;
+  --pk-pane-active: #171b21;
+  --pk-pane-line-active: #3a4149;
+
   --pk-pending-surface: #0a0c0b;
   --pk-pending-line: #26302a;
   --pk-pending-line-hover: #7e9c8b;
@@ -463,6 +471,13 @@
   --color-pk-recess: var(--pk-recess);
   --color-pk-tray: var(--pk-tray);
   --color-pk-void: var(--pk-void);
+  --color-pk-keycap-face: var(--pk-keycap-face);
+  --color-pk-keycap-line: var(--pk-keycap-line);
+  --color-pk-bar: var(--pk-bar);
+  --color-pk-pane: var(--pk-pane);
+  --color-pk-pane-line: var(--pk-pane-line);
+  --color-pk-pane-active: var(--pk-pane-active);
+  --color-pk-pane-line-active: var(--pk-pane-line-active);
   --color-pk-pending-surface: var(--pk-pending-surface);
   --color-pk-pending-line: var(--pk-pending-line);
   --color-pk-pending-line-hover: var(--pk-pending-line-hover);

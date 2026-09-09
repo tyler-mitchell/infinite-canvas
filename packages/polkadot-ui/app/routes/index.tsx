@@ -7,12 +7,14 @@ import {
   Avatar,
   Badge,
   Bars,
+  Binding,
   Breakdown,
   ContactCard,
   Button,
   IconTile,
   Kind,
   Label,
+  LayoutPreview,
   ListItem,
   Meta,
   PendingCard,
@@ -29,7 +31,7 @@ import {
   WeatherCard,
 } from "polkadot-ui";
 
-import { BUILDING, COMMIT_WEEKS, INSTALLS, LANGUAGES } from "../fixtures.ts";
+import { BINDINGS, BUILDING, COMMIT_WEEKS, INSTALLS, LANGUAGES, SPLIT_PANES } from "../fixtures.ts";
 
 const overview = tv({
   slots: {
@@ -43,6 +45,8 @@ const overview = tv({
     identity: "w-[360px] max-w-full",
     aurora: "h-[190px] w-[280px] max-w-full",
     small: "w-[236px] max-w-full",
+    recipe: "h-[210px] w-[236px] max-w-full",
+    bindings: "flex flex-col gap-2",
     who: "flex flex-col gap-1.5",
     bay: "flex justify-center rounded-b-pk-tray bg-pk-tray px-4 pt-0.5 pb-4 shadow-pk-tray",
     owner: "text-pk-ink-faint",
@@ -250,6 +254,28 @@ function Overview() {
                 {name}
               </ListItem>
             ))}
+          </Surface>
+
+          <Surface tone="card" padding="snug" className={styles.small()}>
+            <Row>
+              <Label>bindings</Label>
+            </Row>
+            <div className={styles.bindings()}>
+              {BINDINGS.map(([keys, action]) => (
+                <Binding key={action} keys={keys} action={action} />
+              ))}
+            </div>
+          </Surface>
+
+          <Surface tone="card" padding="snug" className={styles.recipe()}>
+            <Row>
+              <Label>layout recipes</Label>
+              <Button tone="outline" size="sm">
+                arrange
+              </Button>
+            </Row>
+            <LayoutPreview panes={SPLIT_PANES} label="split, three panes" />
+            <Meta>split · 3 panes</Meta>
           </Surface>
         </div>
       </section>
