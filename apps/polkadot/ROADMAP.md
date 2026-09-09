@@ -157,6 +157,14 @@ canvas whose windows are all notes it would say "note" four times.
 
 ## Open
 
+This section is a log, not a queue. Most entries carry their disposition in the last line of the
+body rather than the heading, so an item can read as work waiting to be picked up and turn out to
+be closed, declined, or blocked once you reach the end of it. Read an entry to its end before
+starting on it.
+
+Headings marked `RESOLVED`, `CLOSED`, `ACCEPTED` or `BLOCKED` have been checked. An unmarked
+heading means nobody has classified it yet, not that it is open.
+
 - **RESOLVED. A camera navigation request could delete the camera.**
   Found on 2026-09-07 by driving the store handle, not by product code. Polkadot calls none of the
   navigation commands, so the application never reached it.
@@ -437,7 +445,7 @@ canvas whose windows are all notes it would say "note" four times.
   The session did not file an application defect.
   It created the test link by writing serialized editor state directly to the record.
 
-- **The living field remains implemented and unmounted.**
+- **CLOSED. The living field remains implemented and unmounted.**
   Its implementation is in `canvas/field.tsx`.
   `workspace-canvas.tsx` does not supply `renderBackdrop`, so the application uses the default framework grid.
 
@@ -525,7 +533,7 @@ canvas whose windows are all notes it would say "note" four times.
   - Cross-origin `exposedTo` behavior.
   - Behavior with a real browser-integrated agent.
 
-- **Canvas and project deletion remains pointer-only.**
+- **BLOCKED. Canvas and project deletion remains pointer-only.**
   Archive actions have landed and have an end-to-end witness.
   They include `canvas.archive`, `restore`, and `listArchived`, plus the three project equivalents.
 
@@ -574,7 +582,7 @@ view` menu mode.
   Undo helps only when the user already knows that an edge changed.
   The dialog records this decision where it applies.
 
-- **All application surfaces use one inset-shadow rule.**
+- **RESOLVED. All application surfaces use one inset-shadow rule.**
   Every inset shadow measures `oklch(1 0 0 / 0.07) 0 1px 0 0 inset`.
   This value applies to window frames, Polkadot rails, framework HUD groups, and the minimap.
 
@@ -827,7 +835,7 @@ var(--surface)`.
   `docs/API.md` removed the _unobserved_ status from `minimap` on 2026-08-26.
   The minimap half of this roadmap item was already stale.
 
-- **A connector hidden by windows is effectively unavailable for canvas selection.**
+- **ACCEPTED. A connector hidden by windows is effectively unavailable for canvas selection.**
   Two nearly touching windows can cover almost all of the line between them.
   Window targets resolve before edge targets, which is the correct priority.
 
