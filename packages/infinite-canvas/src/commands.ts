@@ -5,6 +5,7 @@ import {
 } from "./camera-navigation";
 import { DEFAULT_INFINITE_CANVAS_ZOOM } from "./constants";
 import {
+  getInfiniteCanvasContentWorldRect,
   getViewportInsetWorldRect,
   isUsableViewport,
   panCameraByScreenDelta,
@@ -1151,7 +1152,8 @@ type InfiniteCanvasArrangeCommand = Extract<
  * Availability and execution both ask this, so a command can never be offered and then do nothing,
  * or be hidden while it would have worked.
  */
-function getArrangedRects(
+function getArrangedRects<Kind extends string>(
+  state: InfiniteCanvasState<Kind>,
   rects: readonly InfiniteCanvasRect[],
   command: InfiniteCanvasArrangeCommand,
 ): readonly InfiniteCanvasRect[] {
@@ -1161,10 +1163,27 @@ function getArrangedRects(
     case "window.distribute":
       return getInfiniteCanvasDistributedRects(rects, command.distribution);
     case "window.pack":
-      return getInfiniteCanvasPackedRects(rects, { gapPx: command.gapPx });
+      return getInfiniteCanvasPackedRects(rects, {
+        gapPx: command.gapPx,
+        stripWidth: getPackingStripWidth(state),
+      });
     case "window.swap":
       return getInfiniteCanvasSwappedRects(rects);
   }
+}
+
+/**
+ * Packing fills the visible region, the same bound that placing a new window uses.
+ *
+ * Defaulting to the width the windows already span cannot widen anything, so packing a tall
+ * column would only tighten the column. An unusable viewport leaves the packer its own default.
+ */
+function getPackingStripWidth<Kind extends string>(
+  state: InfiniteCanvasState<Kind>,
+): number | undefined {
+  return isUsableViewport(state.viewport)
+    ? getInfiniteCanvasContentWorldRect(state.camera, state.viewport, state.viewportInsets).width
+    : undefined;
 }
 
 function arrangeSelectedWindows<Kind extends string>(
@@ -1173,6 +1192,7 @@ function arrangeSelectedWindows<Kind extends string>(
 ) {
   const targets = getArrangeableWindows(state);
   const arranged = getArrangedRects(
+    state,
     targets.map((window) => window.rect),
     command,
   );
@@ -1338,7 +1358,7 @@ function isInfiniteCanvasCommandEnabled<Kind extends string>(
       const rects = getArrangeableWindows(state).map((window) => window.rect);
 
       // Every arrangement returns the same array when it would change nothing.
-      return getArrangedRects(rects, command) !== rects;
+      return getArrangedRects(state, rects, command) !== rects;
     }
     case "workspace.create":
       return (

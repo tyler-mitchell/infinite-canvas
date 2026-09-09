@@ -14,6 +14,7 @@ import {
   AlignHorizontalSpaceAround,
   AlignStartVertical,
   Grip,
+  LayoutGrid,
   Pin,
   RotateCcw,
   Scan,
@@ -95,6 +96,9 @@ function Verb({
   );
 }
 
+/** Matches the canvas gutter, so packed windows read as one block rather than a sheet. */
+const SELECTION_PACK_GAP_PX = 16;
+
 function SelectionRail() {
   const actions = useInfiniteCanvasActions<WindowKind>();
   const store = useInfiniteCanvasStore<WindowKind>();
@@ -150,6 +154,13 @@ function SelectionRail() {
           icon={AlignHorizontalSpaceAround}
           label="Distribute horizontally"
           onPress={run({ distribution: "horizontal", type: "window.distribute" })}
+        />
+        <Verb
+          disabled={selectedCount < 2}
+          icon={LayoutGrid}
+          label="Pack into rows"
+          // The packer itself leaves no gap. A workbench wants the windows to breathe.
+          onPress={run({ gapPx: SELECTION_PACK_GAP_PX, type: "window.pack" })}
         />
         <Verb
           disabled={!canGroup}
