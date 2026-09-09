@@ -306,6 +306,7 @@
   --radius-pk-tray: var(--pk-radius-tray);
   --radius-pk-chip: var(--pk-radius-chip);
   --radius-pk-aperture: var(--pk-radius-aperture);
+  --radius-pk-pill: var(--pk-radius-pill);
 
   --shadow-pk-card: var(--pk-lift-card);
   --shadow-pk-rim: var(--pk-lift-rim);

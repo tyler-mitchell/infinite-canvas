@@ -4,7 +4,10 @@ import { tv } from "tailwind-variants";
 
 import { Button } from "#/components/button.tsx";
 import { Collapsible } from "#/components/collapsible.tsx";
+import { ScrollArea } from "#/components/scroll-area.tsx";
 import { Separator } from "#/components/separator.tsx";
+import { Slider } from "#/components/slider.tsx";
+import { Switch } from "#/components/switch.tsx";
 import { ToggleGroup } from "#/components/toggle-group.tsx";
 import { Tooltip } from "#/components/tooltip.tsx";
 
@@ -19,10 +22,22 @@ const showcase = tv({
     row: "flex flex-wrap items-center gap-3",
     panelBody: "pt-3 font-pk-sans text-[13px] leading-[1.5] text-pk-ink-soft",
     meta: "font-pk-mono text-[11px] text-pk-ink-faint",
+    control: "max-w-[260px]",
+    scroller: "h-[92px] max-w-[360px] rounded-pk-card border border-pk-line bg-pk-surface p-3",
+    scrollBody: "flex flex-col gap-2",
   },
 });
 
 const CATEGORIES = ["stack", "work", "words", "life"] as const;
+
+const COMMITS = [
+  "a1f9c2  fix(snap): resolve gap guides before edges",
+  "7e04b1  feat(groups): accordion axis labels",
+  "c92d55  perf(raster): skip offscreen window bodies",
+  "3b7a19  refactor(camera): one conversion boundary",
+  "d40c81  fix(hud): keep every surface inside the root",
+  "8fe2a0  chore(deps): bump base-ui to 1.5.0",
+] as const;
 
 export const Route = createFileRoute("/")({
   component: Showcase,
@@ -83,6 +98,35 @@ function Showcase() {
             </p>
           </Collapsible.Panel>
         </Collapsible>
+      </section>
+
+      <section className={styles.section()}>
+        <p className={styles.label()}>switch</p>
+        <div className={styles.row()}>
+          <Switch defaultChecked />
+          <Switch />
+          <Switch disabled />
+        </div>
+      </section>
+
+      <section className={styles.section()}>
+        <p className={styles.label()}>slider</p>
+        <div className={styles.control()}>
+          <Slider label="intensity" defaultValue={40} />
+        </div>
+      </section>
+
+      <section className={styles.section()}>
+        <p className={styles.label()}>scroll area</p>
+        <ScrollArea className={styles.scroller()}>
+          <div className={styles.scrollBody()}>
+            {COMMITS.map((commit) => (
+              <p key={commit} className={styles.meta()}>
+                {commit}
+              </p>
+            ))}
+          </div>
+        </ScrollArea>
       </section>
 
       <section className={styles.section()}>
