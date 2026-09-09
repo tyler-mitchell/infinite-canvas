@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { tv } from "tailwind-variants";
 
 import { Button } from "#/components/button.tsx";
+import { IconTile, iconTileVariants } from "#/components/icon-tile.tsx";
 import { Row, rowVariants } from "#/components/row.tsx";
 import { ScrollArea } from "#/components/scroll-area.tsx";
 import { Separator } from "#/components/separator.tsx";
@@ -22,12 +23,24 @@ const layout = tv({
     pad: "flex flex-wrap items-start gap-3",
     padBox: "w-[176px]",
     inline: "flex flex-wrap items-center gap-3",
+    tiles: "flex flex-wrap items-center gap-2",
+    /* Stands in for the design's icon set, so the page pulls nothing over the network. */
+    monogram:
+      "flex size-full items-center justify-center rounded-[5px] bg-pk-surface-inner font-pk-mono text-[10px] leading-none text-pk-ink-soft",
     scroller: "h-[104px] max-w-[380px]",
     scrollBody: "flex flex-col gap-2 pr-3",
   },
 });
 
 const PADDING = ["tight", "snug", "default", "roomy"] as const;
+
+const STACK = [
+  ["TS", "TypeScript"],
+  ["RE", "React"],
+  ["WG", "WebGPU"],
+  ["RS", "Rust"],
+  ["SD", "SurrealDB"],
+] as const;
 
 export const Route = createFileRoute("/layout")({
   component: Layout,
@@ -145,6 +158,24 @@ function Layout() {
           </Surface>
         </div>
         <Api of={rowVariants} />
+      </section>
+
+      <section className={styles.section()}>
+        <Row rule="below">
+          <Kind>icon tile</Kind>
+          <Meta>point at one · the label unfurls, it is not revealed</Meta>
+        </Row>
+        <div className={styles.tiles()}>
+          {STACK.map(([mark, name]) => (
+            <IconTile
+              key={name}
+              label={name}
+              icon={<span className={styles.monogram()}>{mark}</span>}
+            />
+          ))}
+          <IconTile open label="held open" icon={<span className={styles.monogram()}>ON</span>} />
+        </div>
+        <Api of={iconTileVariants} />
       </section>
 
       <section className={styles.section()}>

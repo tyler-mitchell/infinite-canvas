@@ -41,6 +41,7 @@ export {
   type DialogContentProps,
   type DialogProps,
 } from "./components/dialog.tsx";
+export { IconTile, iconTileVariants, type IconTileProps } from "./components/icon-tile.tsx";
 export {
   Menu,
   MenuContent,
