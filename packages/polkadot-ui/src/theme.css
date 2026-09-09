@@ -20,14 +20,34 @@
   --pk-recess: #040505;
   --pk-tray: #08090a;
 
-  /* Hairlines. The edge is a line, never a lightness step. */
+  /*
+   * Hairlines. The edge is a line, never a lightness step.
+   *
+   * `--pk-line` is 1.19:1 against `--pk-surface` and `--pk-line-inner` is 1.08:1. Those are
+   * separations, not contrasts, and they are meant to sit at the floor of what a display shows.
+   * `--pk-line-inner` is a rule inside a card; on a raised surface it disappears entirely.
+   */
   --pk-line: #1f2124;
   --pk-line-hover: #31343a;
   --pk-line-strong: #3d434b;
   --pk-line-inner: #16181a;
   --pk-line-inner-raised: #1c2026;
 
-  /* Ink. `--pk-ink-dim` and `--pk-ink-faint` are the dimmest values that clear 4.5:1. */
+  /*
+   * Ink, measured against the three grounds (WCAG, sRGB) rather than asserted:
+   *
+   *                   ground   surface   sunken
+   *   ink-bright      19.93     19.18    19.44
+   *   ink            17.02     16.38    16.61
+   *   ink-muted      12.48     12.01    12.17
+   *   ink-soft        7.55      7.26     7.36
+   *   ink-dim         5.88      5.66     5.74
+   *   ink-faint       5.14      4.95     5.02
+   *
+   * `--pk-ink-faint` on `--pk-surface` is the tightest pair at 4.95. It is set at 10-11px
+   * everywhere it is used, which is below the large-text threshold, so 4.5 is the bar it has to
+   * clear and the margin is one step. Darkening any ink or lightening any surface breaks it first.
+   */
   --pk-ink-bright: #fff;
   --pk-ink: #ededed;
   --pk-ink-muted: #c9cdd2;
