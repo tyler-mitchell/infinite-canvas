@@ -159,8 +159,13 @@ function SelectionRail() {
           disabled={selectedCount < 2}
           icon={LayoutGrid}
           label="Pack into rows"
-          // The packer itself leaves no gap. A workbench wants the windows to breathe.
-          onPress={run({ gapPx: SELECTION_PACK_GAP_PX, type: "window.pack" })}
+          onPress={() => {
+            // The packer leaves no gap of its own. A workbench wants the windows to breathe.
+            actions.executeCommand({ gapPx: SELECTION_PACK_GAP_PX, type: "window.pack" });
+            // Rows are as wide as the viewport, so the block gets taller as it gets tidier and can
+            // outgrow the screen. Framing the result is what makes the button look like it worked.
+            actions.executeCommand({ type: "view.fitSelection" });
+          }}
         />
         <Verb
           disabled={!canGroup}

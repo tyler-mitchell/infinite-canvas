@@ -129,6 +129,9 @@ function PackingPanel() {
               // Packing arranges the selection, so select everything first.
               actions.executeCommand({ type: "selection.selectAllVisible" });
               actions.executeCommand({ gapPx, type: "window.pack" });
+              // Rows are as wide as the viewport, so a tidier block is a taller one and can outgrow
+              // the screen. Measured here at 24 windows: 6 stayed visible without this.
+              actions.executeCommand({ type: "view.fitSelection" });
             }}
             size="xs"
             variant="secondary"
