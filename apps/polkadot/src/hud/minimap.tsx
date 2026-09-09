@@ -23,23 +23,23 @@ const minimap = tv({
   slots: {
     close: "absolute top-1 right-1 z-10",
     frame: `relative overflow-hidden rounded-[var(--radius-md)] ${FLOATING_SURFACE} shadow-[var(--lift-2)]`,
-    group: "fill-[var(--surface-hover)]",
+    group: "fill-[var(--surface-raised)]",
     plate: "block cursor-crosshair touch-none bg-[var(--ground-sunken)]",
     window: "transition-[fill] duration-100 ease-[var(--ease-swift)]",
     viewport: "fill-none stroke-[var(--accent)] stroke-[1.5]",
   },
   /*
-   * Three steps, none of them near white.
+   * A window on the map is a surface, so it takes a surface fill.
    *
-   * The active window used to paint at `--ink`, which is text lightness and made a 4px block the
-   * brightest thing on a pure black ground — louder than the accent, for the window you are
-   * already looking at. The ladder now tops out at muted ink and separates the steps instead.
+   * Every step used to come from the ink scale, which is glyph lightness: the active window
+   * painted at L 0.72 and was the brightest neutral in the product. The ladder now runs inside
+   * the surface neutrals and tops out at the hairline, which leaves the accent to the camera.
    */
   variants: {
     state: {
-      active: { window: "fill-[var(--ink-muted)]" },
-      idle: { window: "fill-[var(--line-strong)]" },
-      selected: { window: "fill-[var(--ink-disabled)]" },
+      active: { window: "fill-[var(--line-strong)]" },
+      idle: { window: "fill-[var(--surface-hover)]" },
+      selected: { window: "fill-[var(--line)]" },
     },
   },
 });
