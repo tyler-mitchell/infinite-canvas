@@ -36,7 +36,7 @@ function DialogContent({ className, ...props }: DialogContentProps) {
 
   return (
     <DialogPrimitive.Portal>
-      <DialogPrimitive.Backdrop className={styles.backdrop()} />
+      <DialogPrimitive.Backdrop data-slot="dialog-backdrop" className={styles.backdrop()} />
       <DialogPrimitive.Popup
         data-slot="dialog-content"
         className={styles.popup({ className })}
