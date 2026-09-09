@@ -68,6 +68,11 @@ function Overlays() {
             <Popover.Description>
               An embedded graph store compiled to WebAssembly, with a live inspector.
             </Popover.Description>
+            {/* A popover dismisses itself on Escape and on a press outside; Close is the visible way. */}
+            <Row rule="above">
+              <Meta>v2.1.0</Meta>
+              <Popover.Close render={<Button tone="bare" size="xs" />}>close</Popover.Close>
+            </Row>
           </Popover.Content>
         </Popover>
       </section>
