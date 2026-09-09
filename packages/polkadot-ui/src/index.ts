@@ -1,3 +1,16 @@
+export {
+  Accordion,
+  AccordionItem,
+  AccordionMeta,
+  AccordionPanel,
+  AccordionTitle,
+  AccordionTrigger,
+  accordionVariants,
+  type AccordionItemProps,
+  type AccordionPanelProps,
+  type AccordionProps,
+  type AccordionTriggerProps,
+} from "./components/accordion.tsx";
 export { Button, buttonVariants, type ButtonProps } from "./components/button.tsx";
 export {
   Collapsible,

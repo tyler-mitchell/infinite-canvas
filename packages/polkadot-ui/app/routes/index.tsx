@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { tv } from "tailwind-variants";
 
+import { Accordion } from "#/components/accordion.tsx";
 import { Button } from "#/components/button.tsx";
 import { Collapsible } from "#/components/collapsible.tsx";
 import { Dialog } from "#/components/dialog.tsx";
@@ -30,8 +31,27 @@ const showcase = tv({
     control: "max-w-[260px]",
     scroller: "h-[92px] max-w-[360px] rounded-pk-card border border-pk-line bg-pk-surface p-3",
     scrollBody: "flex flex-col gap-2",
+    writing: "max-w-[520px]",
   },
 });
+
+const WRITING = [
+  [
+    "Why the pure core cannot import React",
+    "Geometry as pure functions, enforced by a test that fails when the boundary moves.",
+    "08.26",
+  ],
+  [
+    "Snapping is a resolver, not a heuristic",
+    "Candidates in, one committed rect out. The guides are the resolver's own reasoning made visible.",
+    "06.26",
+  ],
+  [
+    "Semantic summaries at far zoom",
+    "What a window should say at eight percent scale, when its body is smaller than its own title.",
+    "04.26",
+  ],
+] as const;
 
 const CATEGORIES = ["stack", "work", "words", "life"] as const;
 
@@ -132,6 +152,21 @@ function Showcase() {
             ))}
           </div>
         </ScrollArea>
+      </section>
+
+      <section className={styles.section()}>
+        <p className={styles.label()}>accordion</p>
+        <Accordion className={styles.writing()}>
+          {WRITING.map(([title, blurb, date]) => (
+            <Accordion.Item key={title}>
+              <Accordion.Trigger>
+                <Accordion.Title>{title}</Accordion.Title>
+                <Accordion.Meta>{date}</Accordion.Meta>
+              </Accordion.Trigger>
+              <Accordion.Panel>{blurb}</Accordion.Panel>
+            </Accordion.Item>
+          ))}
+        </Accordion>
       </section>
 
       <section className={styles.section()}>
