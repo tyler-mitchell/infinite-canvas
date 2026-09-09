@@ -3,6 +3,17 @@
  *
  * The dim inks are the floor that clears 4.5:1 on these grounds. Do not go below them.
  */
+
+/*
+ * The kit scans itself.
+ *
+ * Tailwind only emits a class it has seen, and every class this kit uses lives in a `tv` call in
+ * `components/`, not in the consumer's own source. Without this line the consumer imports the
+ * tokens, sees no error, and renders the whole kit unstyled — the failure gives no signal at all.
+ * Declared here rather than in the app so that importing the stylesheet is the only step.
+ */
+@source ".";
+
 :root {
   color-scheme: dark;
 

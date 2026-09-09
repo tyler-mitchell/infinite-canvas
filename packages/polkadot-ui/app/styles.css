@@ -1,5 +1,4 @@
 @import "tailwindcss";
-@import "../src/theme.css";
 
-/* Tailwind scans the library for the classes its `tv` slots name. */
-@source "../src";
+/* The kit's stylesheet scans its own components, so importing it is the whole setup. */
+@import "../src/theme.css";
