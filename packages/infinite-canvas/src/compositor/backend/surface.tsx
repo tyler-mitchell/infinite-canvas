@@ -160,7 +160,6 @@ function CompositorCanvas<Kind extends string, Payload = InfiniteCanvasDropPaylo
   devicePixelRatio = 1,
   dropInteraction = EMPTY_INFINITE_CANVAS_DROP,
   placement,
-  sceneLayers = EMPTY_LIST,
   spatialTargetResolvers = EMPTY_LIST,
   theme = DEFAULT_INFINITE_CANVAS_THEME,
   zIndex = SCENE_UNDERLAY_Z_INDEX,
@@ -192,7 +191,7 @@ function CompositorCanvas<Kind extends string, Payload = InfiniteCanvasDropPaylo
         .with(instances, bodyStore.buffer.as("readonly"))
         .with(instanceCount, instanceCountUniform),
     };
-    const layers = [...getFrameworkPasses<Kind, Payload>(placement, compositor), ...sceneLayers];
+    const layers = getFrameworkPasses<Kind, Payload>(placement, compositor);
 
     // World layers paint before screen layers; each group keeps its declared order.
     return [
@@ -217,7 +216,6 @@ function CompositorCanvas<Kind extends string, Payload = InfiniteCanvasDropPaylo
     instanceCountUniform,
     placement,
     root,
-    sceneLayers,
     screenCamera,
     store,
     worldCamera,

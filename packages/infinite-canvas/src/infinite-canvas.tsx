@@ -122,7 +122,7 @@ import {
   resolveInfiniteCanvasRasterizationPolicy,
   type InfiniteCanvasRasterizationPolicyInput,
 } from "./rasterization-layer";
-import { SCENE_UNDERLAY_Z_INDEX, getSceneLayers } from "./scene-surface";
+import { SCENE_UNDERLAY_Z_INDEX } from "./scene-surface";
 import type { InfiniteCanvasSceneSurface } from "./scene-surface";
 import { InfiniteCanvasWindowFrame } from "./window-frame";
 import type {
@@ -188,8 +188,7 @@ type InfiniteCanvasDesktopProps<
   /** World content below windows and above the backdrop. */
   renderUnderlay?: (context: InfiniteCanvasOverlayReadContext<Kind, Payload>) => ReactNode;
   renderOverlay?: (context: InfiniteCanvasOverlayRenderContext<Kind, Payload>) => ReactNode;
-  sceneLayers?: readonly InfiniteCanvasScenePass<Kind, Payload>[];
-  /** Paints `sceneLayers`. Omit it to exclude scene dependencies from the bundle. */
+  /** Paints the framework's passes. Omit it to exclude scene dependencies from the bundle. */
   sceneSurface?: InfiniteCanvasSceneSurface<Kind, Payload>;
   snapPolicy?: InfiniteCanvasSnapPolicy;
   spatialTargetResolvers?: readonly InfiniteCanvasSpatialTargetResolver<Kind>[];
@@ -444,7 +443,6 @@ function InfiniteCanvasDesktop<Kind extends string, Payload = InfiniteCanvasDrop
   renderBackdrop,
   renderOverlay,
   renderUnderlay,
-  sceneLayers = EMPTY_LIST,
   sceneSurface,
   snapPolicy,
   spatialTargetResolvers = EMPTY_LIST,
@@ -509,7 +507,6 @@ function InfiniteCanvasDesktop<Kind extends string, Payload = InfiniteCanvasDrop
             renderBackdrop={renderBackdrop}
             renderUnderlay={renderUnderlay}
             renderOverlay={renderOverlay}
-            sceneLayers={sceneLayers}
             sceneSurface={sceneSurface}
             subtitle={subtitle}
             spatialTargetResolvers={spatialTargetResolvers}
@@ -636,8 +633,6 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
     isOverSelectableTarget,
   );
   const devicePixelRatio = useInfiniteCanvasDevicePixelRatio();
-  const underlaySceneLayers = useMemo(() => getSceneLayers(sceneLayers, "underlay"), [sceneLayers]);
-  const overlaySceneLayers = useMemo(() => getSceneLayers(sceneLayers, "overlay"), [sceneLayers]);
   useInfiniteCanvasSceneSurfaceWarning(sceneLayers.length, SceneSurface);
   const releaseDropPointerCapture = useCallback((pointerId: number) => {
     const target = dragCaptureTargetRef.current;
@@ -1604,7 +1599,6 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
                 diagnostics={diagnostics}
                 dropInteraction={dropInteraction}
                 placement="underlay"
-                sceneLayers={underlaySceneLayers}
                 spatialTargetResolvers={spatialTargetResolvers}
                 theme={resolvedTheme}
                 zIndex={SCENE_UNDERLAY_Z_INDEX}
@@ -1642,11 +1636,10 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
               zIndex={WINDOW_LAYER_Z_INDEX}
             />
             {SceneSurface === undefined ||
-            (overlaySceneLayers.length === 0 &&
-              !hasInfiniteCanvasOverlayPass({
-                hasDropPolicy: dropPolicy !== undefined,
-                policy: compositor,
-              })) ? null : (
+            !hasInfiniteCanvasOverlayPass({
+              hasDropPolicy: dropPolicy !== undefined,
+              policy: compositor,
+            }) ? null : (
               <SceneSurface
                 chrome={chrome}
                 compositor={compositor}
@@ -1654,7 +1647,6 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
                 diagnostics={diagnostics}
                 dropInteraction={dropInteraction}
                 placement="overlay"
-                sceneLayers={overlaySceneLayers}
                 spatialTargetResolvers={spatialTargetResolvers}
                 theme={resolvedTheme}
                 zIndex={SCENE_OVERLAY_Z_INDEX}
