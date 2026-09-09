@@ -30,9 +30,9 @@ Measured on a live 360×240 window at zoom 1, with `document.elementFromPoint` a
 | +7                            | handle       | `resize-handle:west` |
 | +8                            | —            | `window-body`        |
 
-**The mechanism.** `[data-slot="window"]` sets `contain: content`, which includes paint
-containment, and paint containment clips descendants to the element's box. The handle is positioned
-at `RESIZE_HANDLE_OVERHANG` = `calc(extent / -2)`, so its own bounding rect really is 1272–1288
+**The mechanism.** `window-frame.tsx:233` sets `contain: "layout paint style"`, and paint
+containment clips descendants to the element's box. The handle is positioned at
+`RESIZE_HANDLE_OVERHANG` = `calc(extent / -2)`, so its own bounding rect really is 1272–1288
 against a window starting at 1280 — but the outer half is clipped and never painted or hit.
 
 Proven by lifting the containment and re-probing the identical points: with `contain: content` the
@@ -146,17 +146,17 @@ Note on R6: drawn size is `resizeHandleSize / screenTransform.scale` and hit siz
 
 ## Fit Check
 
-| Req | Requirement                                                            | Status    | A   | B   | C   | D   |
-| --- | ---------------------------------------------------------------------- | --------- | --- | --- | --- | --- |
-| R0  | Pressing anywhere inside the drawn handle starts a resize              | Core goal | ❌  | ✅  | ✅  | ✅  |
-| R1  | Drawn and hittable are the same region                                 | Must-have | ❌  | ❌  | ✅  | ✅  |
-| R2  | A pointer arriving from outside the window can grab the edge           | Must-have | ❌  | ✅  | ❌  | ✅  |
-| R3  | No other area loses ground                                             | Must-have | ❌  | ❌  | ✅  | ❌  |
-| R4  | Corners are reachable without consuming the edge                       | Must-have | ❌  | ❌  | ❌  | ❌  |
-| R5  | One definition owns both the rendered geometry and the hit geometry    | Must-have | ❌  | ❌  | ❌  | ✅  |
-| R6  | The target holds a constant screen size at every zoom                  | Must-have | ✅  | ✅  | ✅  | ✅  |
-| R7  | The fix is generic — groups carry the same pair                        | Must-have | ❌  | ❌  | ❌  | ❌  |
-| R8  | No framework capability is added that a second consumer would not want | Must-have | ✅  | ✅  | ✅  | ✅  |
+| Req | Requirement                                                            | Status    | A   | B   | C   | D   | E   |
+| --- | ---------------------------------------------------------------------- | --------- | --- | --- | --- | --- | --- |
+| R0  | Pressing anywhere inside the drawn handle starts a resize              | Core goal | ❌  | ✅  | ✅  | ✅  | ✅  |
+| R1  | Drawn and hittable are the same region                                 | Must-have | ❌  | ❌  | ✅  | ✅  | ✅  |
+| R2  | A pointer arriving from outside the window can grab the edge           | Must-have | ❌  | ✅  | ❌  | ✅  | ✅  |
+| R3  | No other area loses ground                                             | Must-have | ❌  | ❌  | ✅  | ❌  | ❌  |
+| R4  | Corners are reachable without consuming the edge                       | Must-have | ❌  | ❌  | ❌  | ❌  | ✅  |
+| R5  | One definition owns both the rendered geometry and the hit geometry    | Must-have | ❌  | ❌  | ❌  | ✅  | ✅  |
+| R6  | The target holds a constant screen size at every zoom                  | Must-have | ✅  | ✅  | ✅  | ✅  | ✅  |
+| R7  | The fix is generic — groups carry the same pair                        | Must-have | ❌  | ❌  | ❌  | ❌  | ❌  |
+| R8  | No framework capability is added that a second consumer would not want | Must-have | ✅  | ✅  | ✅  | ✅  | ✅  |
 
 **Notes**
 
@@ -172,30 +172,68 @@ Note on R6: drawn size is `resizeHandleSize / screenTransform.scale` and hit siz
   from outside, which is where a pointer comes from. It makes the handle honest but not easier.
 - **D fails R3 and R7 on flags, not on merit** — D3 inherits B's unestablished ordering, and D5
   names the group shell without having measured it.
-- **Every shape fails R4.** None proposes a corner-versus-edge ratio, so all four leave the first
-  16px of each edge claimed by the corner. R4 needs a decision nobody has made.
+- **A, B, C and D all fail R4.** None of them proposes a corner-versus-edge ratio, so each leaves
+  the first 16px of every edge claimed by the corner. Only E raises it, and E4 still owes a number.
 - **Every shape fails R7.** `SHELL_RESIZE_HANDLE_DESCRIPTORS` and `SHELL_RESIZE_HANDLE_OUTSET` are
   the group equivalents and the group hit path has not been probed. Claiming a generic fix without
   that measurement would be the same error as the backlog's diagnosis.
+- **E leads on seven of nine**, and both failures are unmeasured flags rather than design defects:
+  R3 because E3 inherits whichever of B or D it composes with, and R7 because the group shell is
+  unprobed. E is not a fifth alternative to A–D — it is the geometry-ownership half that has to be
+  combined with a clipping answer. The open work below is what separates it from a selection.
 
 ---
 
-## What is needed before selecting
+## The group shell already solves this
 
-1. **Probe the group shell path** the way the window path was probed. R7 cannot be answered by
-   reading alone, and asserting it would repeat the mistake this document corrects.
-2. **Establish the ordering effect of an outset gate** — against `before-windows` resolvers, and
-   against a second window whose rect is within the outset. This decides B3 and D3.
-3. **Decide the corner ratio.** How much of a short edge may the corner claim? On a 240px edge, 16px
+R7 asked whether groups carry the same defect. **They do not, and the reason is the answer to the
+whole document.** Established by reading, not inference:
+
+|               | Window                                                   | Group shell                                                                   |
+| ------------- | -------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| Containment   | `contain: "layout paint style"` — `window-frame.tsx:233` | **none** — `contain` does not appear in `group-layer.tsx`                     |
+| Handle offset | `calc(extent / -2)` — straddles the edge                 | `calc(extent * -1)` — **fully outside the rect**                              |
+| Stated intent | none                                                     | "Places shell handles outside the rect so panes cannot cover their hit areas" |
+
+The group shell places its handles entirely outside the element and puts no paint containment in
+their way. That is shape D, already built and already shipping, by an author who wrote down why.
+
+This changes what a generic fix means. It is not "apply one new idea to two places." It is **make
+the window agree with the group**, which is the framework's own existing answer to the same
+question. R7 stops being a risk and becomes a reference implementation.
+
+It also retires two shapes. C — draw inside-only — contradicts a decision the framework already
+made in the opposite direction. A remains dead for the reason already given.
+
+## What is still needed before selecting
+
+1. **Establish the ordering effect of handles outside the rect.** The group shell proves a window
+   can carry outside handles; it does not prove what happens when two _windows_ sit within one
+   handle extent of each other, or how an outside handle orders against `before-windows` resolvers.
+   Groups rarely abut; windows routinely do. This is the one real measurement left.
+2. **Decide the corner ratio.** How much of a short edge may the corner claim? On a 240px edge, 16px
    at each end is reasonable; on a 60px edge it is more than half. A ratio, a cap, or both.
 
-Item 3 is a product call about pointer ergonomics. Items 1 and 2 are measurements.
+Item 1 is a measurement. Item 2 is a product call about pointer ergonomics.
+
+The likely selection is **D + E**: handles outside the contained element, the way the group already
+does it, with one geometry owner feeding both the CSS descriptors and
+`getWindowResizeHandleAtPoint`. Neither of the two open items can change that pairing; they decide
+its spacing rule and its corner split.
 
 ## Correction to the backlog
 
 `BACKLOG.md`, `bug: resize handle hit area is too small`, states: "The target extends 8px outside
 the window and 8px inside it. This size is at the lower limit for reliable pointer input."
 
-The first sentence is false — the outer 8px is drawn, not targetable. The second follows from it
-and is therefore unsupported: the usable band is 16px, not 8px, and it is misplaced rather than
-undersized. The title's "too small" is also wrong; "offset from what is drawn" is the defect.
+The first sentence is false: the outer 8px is asked for in CSS, clipped by paint containment, and
+never drawn or pressable. Only the inner 8px exists.
+
+The second sentence is true, and true for a reason the entry does not give. "At the lower limit for
+reliable pointer input" describes the real 8px band exactly — but the entry reaches 8px by halving
+a 16px target it believes straddles the edge, when in fact a 16px target is being cut in half. The
+conclusion survives; the arithmetic behind it does not.
+
+The title is right too. "Too small" is what the user feels. What the entry misses is that the band
+is also **unreachable from outside the window**, which is the direction a pointer arrives from, and
+that no increase to `resizeHandleSize` can fix either problem while the containment gate stands.
