@@ -147,6 +147,10 @@ function Controls() {
             </Row>
             <Slider defaultValue={62} showValue={false} />
           </Surface>
+          <Surface tone="card">
+            {/* Two values: Base UI wants one thumb per entry, each carrying its own index. */}
+            <Slider label="range" defaultValue={[24, 68]} />
+          </Surface>
         </div>
       </section>
     </div>

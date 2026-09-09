@@ -30,6 +30,13 @@ export type SliderProps = WithClassName<SliderPrimitive.Root.Props> & {
  */
 function Slider({ label, showValue = true, className, ...props }: SliderProps) {
   const styles = slider();
+  /*
+   * One thumb per value. Base UI pairs each thumb with its own index rather than deriving them, so
+   * a single hardcoded thumb rendered a range as a reachable minimum and an invisible maximum —
+   * the readout said "24 – 68" while only one of the two could be moved.
+   */
+  const values = props.value ?? props.defaultValue;
+  const thumbs = Array.isArray(values) ? values.length : 1;
 
   return (
     <SliderPrimitive.Root data-slot="slider" className={styles.root({ className })} {...props}>
@@ -44,7 +51,9 @@ function Slider({ label, showValue = true, className, ...props }: SliderProps) {
       <SliderPrimitive.Control className={styles.control()}>
         <SliderPrimitive.Track className={styles.track()}>
           <SliderPrimitive.Indicator className={styles.indicator()} />
-          <SliderPrimitive.Thumb className={styles.thumb()} />
+          {Array.from({ length: thumbs }, (_, index) => (
+            <SliderPrimitive.Thumb key={index} index={index} className={styles.thumb()} />
+          ))}
         </SliderPrimitive.Track>
       </SliderPrimitive.Control>
     </SliderPrimitive.Root>
