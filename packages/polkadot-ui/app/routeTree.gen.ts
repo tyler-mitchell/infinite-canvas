@@ -9,8 +9,44 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as OverlaysRouteImport } from './routes/overlays'
+import { Route as LayoutRouteImport } from './routes/layout'
+import { Route as FoundationsRouteImport } from './routes/foundations'
+import { Route as DisclosureRouteImport } from './routes/disclosure'
+import { Route as DataRouteImport } from './routes/data'
+import { Route as ControlsRouteImport } from './routes/controls'
 import { Route as IndexRouteImport } from './routes/index'
 
+const OverlaysRoute = OverlaysRouteImport.update({
+  id: '/overlays',
+  path: '/overlays',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LayoutRoute = LayoutRouteImport.update({
+  id: '/layout',
+  path: '/layout',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const FoundationsRoute = FoundationsRouteImport.update({
+  id: '/foundations',
+  path: '/foundations',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DisclosureRoute = DisclosureRouteImport.update({
+  id: '/disclosure',
+  path: '/disclosure',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DataRoute = DataRouteImport.update({
+  id: '/data',
+  path: '/data',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ControlsRoute = ControlsRouteImport.update({
+  id: '/controls',
+  path: '/controls',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
@@ -19,28 +55,116 @@ const IndexRoute = IndexRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/controls': typeof ControlsRoute
+  '/data': typeof DataRoute
+  '/disclosure': typeof DisclosureRoute
+  '/foundations': typeof FoundationsRoute
+  '/layout': typeof LayoutRoute
+  '/overlays': typeof OverlaysRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/controls': typeof ControlsRoute
+  '/data': typeof DataRoute
+  '/disclosure': typeof DisclosureRoute
+  '/foundations': typeof FoundationsRoute
+  '/layout': typeof LayoutRoute
+  '/overlays': typeof OverlaysRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/controls': typeof ControlsRoute
+  '/data': typeof DataRoute
+  '/disclosure': typeof DisclosureRoute
+  '/foundations': typeof FoundationsRoute
+  '/layout': typeof LayoutRoute
+  '/overlays': typeof OverlaysRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    | '/'
+    | '/controls'
+    | '/data'
+    | '/disclosure'
+    | '/foundations'
+    | '/layout'
+    | '/overlays'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to:
+    | '/'
+    | '/controls'
+    | '/data'
+    | '/disclosure'
+    | '/foundations'
+    | '/layout'
+    | '/overlays'
+  id:
+    | '__root__'
+    | '/'
+    | '/controls'
+    | '/data'
+    | '/disclosure'
+    | '/foundations'
+    | '/layout'
+    | '/overlays'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  ControlsRoute: typeof ControlsRoute
+  DataRoute: typeof DataRoute
+  DisclosureRoute: typeof DisclosureRoute
+  FoundationsRoute: typeof FoundationsRoute
+  LayoutRoute: typeof LayoutRoute
+  OverlaysRoute: typeof OverlaysRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/overlays': {
+      id: '/overlays'
+      path: '/overlays'
+      fullPath: '/overlays'
+      preLoaderRoute: typeof OverlaysRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/layout': {
+      id: '/layout'
+      path: '/layout'
+      fullPath: '/layout'
+      preLoaderRoute: typeof LayoutRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/foundations': {
+      id: '/foundations'
+      path: '/foundations'
+      fullPath: '/foundations'
+      preLoaderRoute: typeof FoundationsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/disclosure': {
+      id: '/disclosure'
+      path: '/disclosure'
+      fullPath: '/disclosure'
+      preLoaderRoute: typeof DisclosureRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/data': {
+      id: '/data'
+      path: '/data'
+      fullPath: '/data'
+      preLoaderRoute: typeof DataRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/controls': {
+      id: '/controls'
+      path: '/controls'
+      fullPath: '/controls'
+      preLoaderRoute: typeof ControlsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -53,6 +177,12 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  ControlsRoute: ControlsRoute,
+  DataRoute: DataRoute,
+  DisclosureRoute: DisclosureRoute,
+  FoundationsRoute: FoundationsRoute,
+  LayoutRoute: LayoutRoute,
+  OverlaysRoute: OverlaysRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

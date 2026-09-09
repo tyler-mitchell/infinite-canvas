@@ -1,114 +1,87 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
 import { tv } from "tailwind-variants";
 
-import { Accordion } from "#/components/accordion.tsx";
-import { ActivityGrid, type ActivityDay } from "#/components/activity-grid.tsx";
-import { Bars } from "#/components/bars.tsx";
-import { Button } from "#/components/button.tsx";
 import { Row } from "#/components/row.tsx";
 import { Surface } from "#/components/surface.tsx";
 import { Kind, Label, Meta, Prose, Readout, Title } from "#/components/text.tsx";
-import { Collapsible } from "#/components/collapsible.tsx";
-import { Dialog } from "#/components/dialog.tsx";
-import { Menu } from "#/components/menu.tsx";
-import { Popover } from "#/components/popover.tsx";
-import { ScrollArea } from "#/components/scroll-area.tsx";
-import { Separator } from "#/components/separator.tsx";
-import { Slider } from "#/components/slider.tsx";
-import { Switch } from "#/components/switch.tsx";
-import { Tabs } from "#/components/tabs.tsx";
-import { Toolbar } from "#/components/toolbar.tsx";
-import { ToggleGroup } from "#/components/toggle-group.tsx";
-import { Tooltip } from "#/components/tooltip.tsx";
 
-const showcase = tv({
+const overview = tv({
   slots: {
-    page: "min-h-dvh bg-pk-ground px-8 py-10 font-pk-sans text-pk-ink",
-    heading: "mb-1 font-pk-sans text-[19px] font-semibold tracking-[-0.03em] text-pk-ink-bright",
-    caption: "mb-10 font-pk-mono text-[11px] text-pk-ink-faint",
-    section: "mb-10",
-    label:
-      "mb-4 font-pk-sans text-[11px] leading-none font-medium tracking-[0.02em] text-pk-ink-dim",
-    row: "flex flex-wrap items-center gap-3",
-    panelBody: "pt-3 font-pk-sans text-[13px] leading-[1.5] text-pk-ink-soft",
-    meta: "font-pk-mono text-[11px] text-pk-ink-faint",
-    control: "max-w-[260px]",
-    scroller: "h-[92px] max-w-[360px] rounded-pk-card border border-pk-line bg-pk-surface p-3",
-    scrollBody: "flex flex-col gap-2",
-    grid: "grid grid-cols-[repeat(auto-fill,minmax(230px,1fr))] gap-3",
-    writing: "max-w-[520px]",
-    barBox: "flex h-[64px] flex-col",
-    activityBox: "max-w-[560px]",
+    page: "flex max-w-[880px] flex-col gap-9",
+    head: "flex flex-col gap-2",
+    lede: "max-w-[560px]",
+    section: "flex flex-col gap-4",
+    grid: "grid grid-cols-[repeat(auto-fill,minmax(236px,1fr))] gap-3",
   },
 });
 
-const WRITING = [
-  [
-    "Why the pure core cannot import React",
-    "Geometry as pure functions, enforced by a test that fails when the boundary moves.",
-    "08.26",
-  ],
-  [
-    "Snapping is a resolver, not a heuristic",
-    "Candidates in, one committed rect out. The guides are the resolver's own reasoning made visible.",
-    "06.26",
-  ],
-  [
-    "Semantic summaries at far zoom",
-    "What a window should say at eight percent scale, when its body is smaller than its own title.",
-    "04.26",
-  ],
-] as const;
-
-/* Zero-probability first, magnitude second: that is what gives a year weekday blocks and weekend gaps. */
-const ACTIVITY: ActivityDay[] = Array.from({ length: 371 }, (_, i) => {
-  const date = new Date();
-  date.setHours(12, 0, 0, 0);
-  date.setDate(date.getDate() - (370 - i));
-  const weekend = date.getDay() === 0 || date.getDay() === 6;
-  const r = Math.abs(Math.sin(i * 12.9898 + 78.233) * 43758.5453) % 1;
-  const r2 = Math.abs(Math.sin((i + 1000) * 12.9898 + 78.233) * 43758.5453) % 1;
-  const pZero = i > 202 && i < 219 ? 0.92 : weekend ? 0.46 : 0.11;
-  const season = 0.6 + 0.4 * Math.sin(i / 58);
-  return {
-    date,
-    count: r < pZero ? 0 : 1 + Math.round(r2 ** 1.7 * 13 * season * (weekend ? 0.5 : 1)),
-  };
-});
-
-const INSTALLS = [1420, 1880, 1310, 2410, 2150, 2860, 1980, 4182] as const;
-
-const LEVELS = [
-  0.3, 0.7, 0.45, 0.9, 0.62, 0.35, 0.78, 0.55, 0.42, 0.88, 0.6, 0.29, 0.71, 0.5, 0.83, 0.38,
-] as const;
-
-const CATEGORIES = ["stack", "work", "words", "life"] as const;
-
-const COMMITS = [
-  "a1f9c2  fix(snap): resolve gap guides before edges",
-  "7e04b1  feat(groups): accordion axis labels",
-  "c92d55  perf(raster): skip offscreen window bodies",
-  "3b7a19  refactor(camera): one conversion boundary",
-  "d40c81  fix(hud): keep every surface inside the root",
-  "8fe2a0  chore(deps): bump base-ui to 1.5.0",
+/*
+ * The rules the kit is built on, each one counted in the design source rather than asserted. They
+ * are on the first page because they explain every later decision.
+ */
+const RULES = [
+  {
+    kind: "edges",
+    title: "A hairline, never a step",
+    body: "Surface against surface differs by about 1.05:1 on this ground, which nobody can see. Every edge in the kit is a line.",
+  },
+  {
+    kind: "metadata",
+    title: "Mono carries the facts",
+    body: "Mono metadata appears 49 times across the design's 45 widgets — more than once per widget. It is the default text role, not an option.",
+  },
+  {
+    kind: "density",
+    title: "Drop history, never the target",
+    body: "When a readout runs out of width it shows fewer weeks at a size a pointer can hit, rather than shrinking cells to four pixels.",
+  },
+  {
+    kind: "depth",
+    title: "Relatedness is depth",
+    body: "Bringing related widgets forward and pushing the rest back. Dimming the others instead flattened the board into one grey wash.",
+  },
 ] as const;
 
 export const Route = createFileRoute("/")({
-  component: Showcase,
+  component: Overview,
 });
 
-function Showcase() {
-  const styles = showcase();
-  const [categories, setCategories] = useState<string[]>([]);
+function Overview() {
+  const styles = overview();
 
   return (
     <div className={styles.page()}>
-      <h1 className={styles.heading()}>polkadot-ui</h1>
-      <p className={styles.caption()}>base ui primitives · tailwind-variants slots</p>
+      <div className={styles.head()}>
+        <Title>polkadot-ui</Title>
+        <Prose className={styles.lede()}>
+          Compound components for an infinite canvas, built on Base UI primitives and styled only
+          through tailwind-variants slots. Every page here is composed from the kit itself.
+        </Prose>
+      </div>
 
       <section className={styles.section()}>
-        <p className={styles.label()}>surface · row · vocabulary</p>
+        <Row rule="below">
+          <Kind>house rules</Kind>
+          <Meta>counted, not asserted</Meta>
+        </Row>
+        <div className={styles.grid()}>
+          {RULES.map((rule) => (
+            <Surface key={rule.kind} tone="card">
+              <Row align="start">
+                <Kind>{rule.kind}</Kind>
+              </Row>
+              <Label>{rule.title}</Label>
+              <Prose>{rule.body}</Prose>
+            </Surface>
+          ))}
+        </div>
+      </section>
+
+      <section className={styles.section()}>
+        <Row rule="below">
+          <Kind>surface tones</Kind>
+          <Meta>the frame, with no opinion on contents</Meta>
+        </Row>
         <div className={styles.grid()}>
           <Surface tone="card">
             <Row>
@@ -118,265 +91,29 @@ function Showcase() {
             <Prose>A label names a section. A readout announces, because it changes.</Prose>
           </Surface>
 
-          <Surface tone="card">
-            <Row align="start">
-              <Kind>gist</Kind>
-              <Meta>04</Meta>
-            </Row>
-            <Title>field-shader.wgsl</Title>
-            <Row rule="above">
-              <Meta>82 lines · wgsl</Meta>
-              <Meta>sent by @jane</Meta>
-            </Row>
-          </Surface>
-
           <Surface tone="rim" padding="roomy">
             <Row>
               <Label>hover me</Label>
             </Row>
             <Title>rim</Title>
+            <Prose>A specular conic edge that sweeps while the pointer is over it.</Prose>
+          </Surface>
+
+          <Surface tone="sunken">
+            <Row>
+              <Label>recessed</Label>
+              <Meta>inset</Meta>
+            </Row>
+            <Prose>A well, for anything that reads as set into the board.</Prose>
           </Surface>
 
           <Surface tone="pending">
             <Row align="start">
               <Kind>soon</Kind>
             </Row>
-            <Prose>A dashed edge says unbuilt. It should not read as a card.</Prose>
+            <Prose>A dashed edge says unbuilt. It must not read as a finished card.</Prose>
           </Surface>
         </div>
-      </section>
-
-      <section className={styles.section()}>
-        <p className={styles.label()}>activity grid</p>
-        <Surface tone="card" className={styles.activityBox()}>
-          <Row>
-            <Label>contributions</Label>
-            <Meta>371 days</Meta>
-          </Row>
-          <ActivityGrid days={ACTIVITY}>
-            {(day) => (
-              <Readout>
-                {day
-                  ? `${day.count || "no"} contribution${day.count === 1 ? "" : "s"} · ${day.date.toDateString().slice(0, 10)}`
-                  : "hover a day"}
-              </Readout>
-            )}
-          </ActivityGrid>
-        </Surface>
-      </section>
-
-      <section className={styles.section()}>
-        <p className={styles.label()}>bars</p>
-        <div className={styles.grid()}>
-          <Surface tone="card">
-            <Row>
-              <Label>weekly installs</Label>
-              <Readout>4,182</Readout>
-            </Row>
-            <div className={styles.barBox()}>
-              <Bars values={INSTALLS} label="weekly installs over eight weeks" />
-            </div>
-          </Surface>
-          <Surface tone="card">
-            <Row>
-              <Label>now playing</Label>
-              <Meta>aphex twin</Meta>
-            </Row>
-            <div className={styles.barBox()}>
-              <Bars values={LEVELS} shape="column" gap="tight" emphasis="none" label="levels" />
-            </div>
-          </Surface>
-        </div>
-      </section>
-
-      <section className={styles.section()}>
-        <p className={styles.label()}>button</p>
-        <div className={styles.row()}>
-          <Button tone="chip">everything</Button>
-          <Button tone="quiet">clone</Button>
-          <Button tone="accent">print</Button>
-          <Button tone="bare" mono>
-            flatline
-          </Button>
-          <Button tone="quiet" disabled>
-            disabled
-          </Button>
-        </div>
-      </section>
-
-      <section className={styles.section()}>
-        <p className={styles.label()}>toggle group</p>
-        <ToggleGroup multiple value={categories} onValueChange={setCategories}>
-          {CATEGORIES.map((category) => (
-            <ToggleGroup.Item key={category} value={category}>
-              {category}
-            </ToggleGroup.Item>
-          ))}
-        </ToggleGroup>
-      </section>
-
-      <section className={styles.section()}>
-        <p className={styles.label()}>separator</p>
-        <div className={styles.row()}>
-          <span className={styles.meta()}>edge</span>
-          <Separator orientation="vertical" />
-          <span className={styles.meta()}>iad</span>
-        </div>
-      </section>
-
-      <section className={styles.section()}>
-        <p className={styles.label()}>collapsible</p>
-        <Collapsible defaultOpen>
-          <Collapsible.Trigger>readme.md</Collapsible.Trigger>
-          <Collapsible.Panel>
-            <p className={styles.panelBody()}>
-              Base UI measures the panel and publishes the height as a CSS variable, so this is one
-              compositor-owned transition.
-            </p>
-          </Collapsible.Panel>
-        </Collapsible>
-      </section>
-
-      <section className={styles.section()}>
-        <p className={styles.label()}>switch</p>
-        <div className={styles.row()}>
-          <Switch defaultChecked />
-          <Switch />
-          <Switch disabled />
-        </div>
-      </section>
-
-      <section className={styles.section()}>
-        <p className={styles.label()}>slider</p>
-        <div className={styles.control()}>
-          <Slider label="intensity" defaultValue={40} />
-        </div>
-      </section>
-
-      <section className={styles.section()}>
-        <p className={styles.label()}>scroll area</p>
-        <ScrollArea className={styles.scroller()}>
-          <div className={styles.scrollBody()}>
-            {COMMITS.map((commit) => (
-              <p key={commit} className={styles.meta()}>
-                {commit}
-              </p>
-            ))}
-          </div>
-        </ScrollArea>
-      </section>
-
-      <section className={styles.section()}>
-        <p className={styles.label()}>accordion</p>
-        <Accordion className={styles.writing()}>
-          {WRITING.map(([title, blurb, date]) => (
-            <Accordion.Item key={title}>
-              <Accordion.Trigger>
-                <Accordion.Title>{title}</Accordion.Title>
-                <Accordion.Meta>{date}</Accordion.Meta>
-              </Accordion.Trigger>
-              <Accordion.Panel>{blurb}</Accordion.Panel>
-            </Accordion.Item>
-          ))}
-        </Accordion>
-      </section>
-
-      <section className={styles.section()}>
-        <p className={styles.label()}>tabs</p>
-        <Tabs defaultValue="commits" className={styles.control()}>
-          <Tabs.List>
-            <Tabs.Tab value="commits">commits</Tabs.Tab>
-            <Tabs.Tab value="issues">issues</Tabs.Tab>
-            <Tabs.Tab value="readme">readme</Tabs.Tab>
-          </Tabs.List>
-          <Tabs.Panel value="commits">
-            <p className={styles.meta()}>1,243 across 64 weeks</p>
-          </Tabs.Panel>
-          <Tabs.Panel value="issues">
-            <p className={styles.meta()}>12 open · 4 labelled snap</p>
-          </Tabs.Panel>
-          <Tabs.Panel value="readme">
-            <p className={styles.meta()}>4.9 kB · MIT</p>
-          </Tabs.Panel>
-        </Tabs>
-      </section>
-
-      <section className={styles.section()}>
-        <p className={styles.label()}>toolbar</p>
-        <Toolbar>
-          <Toolbar.Group>
-            <Toolbar.Button render={<Button tone="bare" size="icon" />}>−</Toolbar.Button>
-            <Toolbar.Button render={<Button tone="bare" size="sm" mono />}>100%</Toolbar.Button>
-            <Toolbar.Button render={<Button tone="bare" size="icon" />}>+</Toolbar.Button>
-          </Toolbar.Group>
-          <Toolbar.Separator />
-          <Toolbar.Group>
-            <Toolbar.Button render={<Button tone="bare" size="sm" />}>fit</Toolbar.Button>
-            <Toolbar.Button render={<Button tone="bare" size="sm" />}>group</Toolbar.Button>
-          </Toolbar.Group>
-        </Toolbar>
-      </section>
-
-      <section className={styles.section()}>
-        <p className={styles.label()}>dialog · popover · menu</p>
-        <div className={styles.row()}>
-          <Dialog>
-            <Dialog.Trigger render={<Button tone="quiet" />}>remove canvas</Dialog.Trigger>
-            <Dialog.Content>
-              <Dialog.Title>Remove this canvas?</Dialog.Title>
-              <Dialog.Description>
-                Six windows and their layout go with it. Notes stay in the project.
-              </Dialog.Description>
-              <Dialog.Footer>
-                <Dialog.Close render={<Button tone="bare" />}>cancel</Dialog.Close>
-                <Dialog.Close render={<Button tone="accent" />}>remove</Dialog.Close>
-              </Dialog.Footer>
-            </Dialog.Content>
-          </Dialog>
-
-          <Popover>
-            <Popover.Trigger render={<Button tone="quiet" />}>details</Popover.Trigger>
-            <Popover.Content>
-              <Popover.Title>surrealdb-wasm</Popover.Title>
-              <Popover.Description>
-                An embedded graph store compiled to WebAssembly, with a live inspector.
-              </Popover.Description>
-            </Popover.Content>
-          </Popover>
-
-          <Menu>
-            <Menu.Trigger render={<Button tone="quiet" />}>arrange</Menu.Trigger>
-            <Menu.Content>
-              <Menu.Group>
-                {/* GroupLabel reads MenuGroupContext, so it must sit inside Group, not beside it. */}
-                <Menu.GroupLabel>layout</Menu.GroupLabel>
-                <Menu.Item>
-                  split <Menu.Shortcut>⌘1</Menu.Shortcut>
-                </Menu.Item>
-                <Menu.Item>
-                  stack <Menu.Shortcut>⌘2</Menu.Shortcut>
-                </Menu.Item>
-                <Menu.Item>
-                  master <Menu.Shortcut>⌘3</Menu.Shortcut>
-                </Menu.Item>
-              </Menu.Group>
-              <Menu.Separator />
-              <Menu.Item disabled>
-                tabs <Menu.Shortcut>⌘4</Menu.Shortcut>
-              </Menu.Item>
-            </Menu.Content>
-          </Menu>
-        </div>
-      </section>
-
-      <section className={styles.section()}>
-        <p className={styles.label()}>tooltip</p>
-        <Tooltip.Provider>
-          <Tooltip>
-            <Tooltip.Trigger render={<Button tone="quiet" />}>hover me</Tooltip.Trigger>
-            <Tooltip.Content>2.1M queries served</Tooltip.Content>
-          </Tooltip>
-        </Tooltip.Provider>
       </section>
     </div>
   );
