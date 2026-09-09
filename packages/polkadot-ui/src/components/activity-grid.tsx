@@ -221,3 +221,5 @@ function ActivityGrid({
 }
 
 export { ActivityGrid, activityGrid as activityGridVariants, level as activityLevel };
+/* Not part of the kit's surface. Exported so the sizing rule can be pinned without a layout. */
+export { toColumns, weeksThatFit };
