@@ -1,0 +1,325 @@
+/*
+ * Every colour, radius, shadow and curve the kit draws with.
+ *
+ * The dim inks are the floor that clears 4.5:1 on these grounds. Do not go below them.
+ */
+:root {
+  color-scheme: dark;
+
+  /* Two faces only. Sans for UI and prose, mono for metadata. */
+  --pk-font-sans: "Schibsted Grotesk", ui-sans-serif, system-ui, sans-serif;
+  --pk-font-mono: "DM Mono", ui-monospace, monospace;
+
+  /* Grounds and surfaces. */
+  --pk-ground: #08090a;
+  --pk-surface: #0e0f11;
+  --pk-surface-sunken: #0c0d0f;
+  --pk-surface-deep: #0b0c0e;
+  --pk-surface-inner: #121417;
+  --pk-surface-face: linear-gradient(180deg, #111318, #0b0c0e);
+  --pk-recess: #040505;
+  --pk-tray: #08090a;
+
+  /* Hairlines. The edge is a line, never a lightness step. */
+  --pk-line: #1f2124;
+  --pk-line-hover: #31343a;
+  --pk-line-strong: #3d434b;
+  --pk-line-inner: #16181a;
+  --pk-line-inner-raised: #1c2026;
+
+  /* Ink. `--pk-ink-dim` and `--pk-ink-faint` are the dimmest values that clear 4.5:1. */
+  --pk-ink-bright: #fff;
+  --pk-ink: #ededed;
+  --pk-ink-muted: #c9cdd2;
+  --pk-ink-soft: #9aa0a6;
+  --pk-ink-dim: #878c92;
+  --pk-ink-faint: #7d8288;
+
+  /* The accent does two jobs: status and the active state. Nothing else. */
+  --pk-accent: color(display-p3 0 0.92 0.67);
+  --pk-accent-srgb: #00e6a8;
+  --pk-accent-dim: #8ee9c4;
+  --pk-on-accent: #04110b;
+
+  /* Receipt paper is its own ground, with its own ink floor. */
+  --pk-paper: linear-gradient(180deg, #faf9f5, #efece4);
+  --pk-paper-ink: #2b2b28;
+  --pk-paper-label: #6b6b66;
+  --pk-paper-rule: #c3c0b7;
+
+  /* Activity scale, least to most. */
+  --pk-level-0: #15181b;
+  --pk-level-1: #123a2b;
+  --pk-level-2: #1a6b4a;
+  --pk-level-3: #27a06e;
+  --pk-level-4: var(--pk-accent);
+
+  --pk-radius-widget: 20px;
+  --pk-radius-card: 16px;
+  --pk-radius-inner: 14px;
+  --pk-radius-tray: 12px;
+  --pk-radius-chip: 7px;
+  --pk-radius-aperture: 4px;
+  --pk-radius-pill: 999px;
+
+  --pk-lift-inset: inset 0 1px 0 rgb(255 255 255 / 0.04);
+  --pk-lift-card: 0 22px 60px -42px rgb(0 0 0 / 0.9);
+  --pk-lift-held: inset 0 1px 0 rgb(255 255 255 / 0.2), 0 40px 80px -30px rgb(0 0 0 / 1);
+  --pk-lift-tray: inset 0 3px 10px rgb(0 0 0 / 0.7), inset 0 -1px 0 rgb(255 255 255 / 0.045);
+  --pk-lift-rim:
+    inset 0 1px 0 rgb(255 255 255 / 0.07), 0 0 14px -6px rgb(176 220 255 / 0.22),
+    0 22px 60px -42px rgb(0 0 0 / 0.92);
+  --pk-lift-rim-hover: inset 0 1px 0 rgb(255 255 255 / 0.16), 0 26px 70px -40px rgb(0 0 0 / 0.96);
+
+  /* Swift is for state. Settle is for movement. Feed drives the paper. */
+  --pk-ease-swift: cubic-bezier(0.32, 0.72, 0, 1);
+  --pk-ease-settle: cubic-bezier(0.23, 1, 0.32, 1);
+  --pk-ease-feed: cubic-bezier(0.77, 0, 0.175, 1);
+  --pk-duration-hover: 160ms;
+  --pk-duration-detail: 110ms;
+  --pk-duration-feed: 1750ms;
+  --pk-duration-rim: 5.5s;
+
+  /* The lattice a board packs against. */
+  --pk-board-gap: 12px;
+  --pk-board-columns: 16;
+}
+
+/*
+ * The rim sweep. Tiles and cards run it at different phases so the two read as different
+ * materials, which is why there are two properties rather than one.
+ */
+@property --pk-rim {
+  syntax: "<angle>";
+  initial-value: 140deg;
+  inherits: false;
+}
+
+@property --pk-rim-tile {
+  syntax: "<angle>";
+  initial-value: 34deg;
+  inherits: false;
+}
+
+@keyframes pk-rim {
+  from {
+    --pk-rim: 140deg;
+  }
+  to {
+    --pk-rim: 500deg;
+  }
+}
+
+@keyframes pk-rim-tile {
+  from {
+    --pk-rim-tile: 34deg;
+  }
+  to {
+    --pk-rim-tile: 394deg;
+  }
+}
+
+@keyframes pk-ping {
+  0% {
+    transform: scale(0.6);
+    opacity: 0.5;
+  }
+  65%,
+  100% {
+    transform: scale(2.3);
+    opacity: 0;
+  }
+}
+
+@keyframes pk-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes pk-caret {
+  0%,
+  49% {
+    opacity: 1;
+  }
+  50%,
+  100% {
+    opacity: 0;
+  }
+}
+
+/*
+ * The rim: a specular edge painted as a conic gradient in the border box, over a flat fill in the
+ * padding box. Too long to carry in a class list, and the two-layer background is the whole trick.
+ *
+ * The sweep runs on hover only, and tiles run a different phase from cards so the two read as
+ * different materials.
+ */
+@layer components {
+  .pk-rim,
+  .pk-rim-tile {
+    border: 2px solid transparent;
+    background:
+      linear-gradient(var(--pk-surface), var(--pk-surface)) padding-box,
+      conic-gradient(
+          from var(--pk-rim, 140deg),
+          rgb(255 255 255 / 0.2) 0%,
+          rgb(255 255 255 / 0.56) 6%,
+          rgb(228 234 240 / 0.34) 12%,
+          rgb(255 255 255 / 0.16) 20%,
+          rgb(255 255 255 / 0.46) 29%,
+          rgb(210 218 226 / 0.28) 36%,
+          rgb(255 255 255 / 0.15) 45%,
+          rgb(255 255 255 / 0.6) 54%,
+          rgb(234 240 246 / 0.32) 61%,
+          rgb(255 255 255 / 0.16) 70%,
+          rgb(255 255 255 / 0.5) 80%,
+          rgb(216 224 232 / 0.28) 87%,
+          rgb(255 255 255 / 0.18) 94%,
+          rgb(255 255 255 / 0.2) 100%
+        )
+        border-box;
+    box-shadow: var(--pk-lift-rim);
+  }
+
+  .pk-rim-tile {
+    background-image:
+      linear-gradient(var(--pk-surface), var(--pk-surface)),
+      conic-gradient(
+        from var(--pk-rim-tile, 34deg),
+        rgb(255 255 255 / 0.2) 0%,
+        rgb(255 255 255 / 0.56) 6%,
+        rgb(228 234 240 / 0.34) 12%,
+        rgb(255 255 255 / 0.16) 20%,
+        rgb(255 255 255 / 0.46) 29%,
+        rgb(210 218 226 / 0.28) 36%,
+        rgb(255 255 255 / 0.15) 45%,
+        rgb(255 255 255 / 0.6) 54%,
+        rgb(234 240 246 / 0.32) 61%,
+        rgb(255 255 255 / 0.16) 70%,
+        rgb(255 255 255 / 0.5) 80%,
+        rgb(216 224 232 / 0.28) 87%,
+        rgb(255 255 255 / 0.18) 94%,
+        rgb(255 255 255 / 0.2) 100%
+      );
+  }
+
+  .pk-rim:hover {
+    animation: pk-rim var(--pk-duration-rim) linear infinite;
+    box-shadow: var(--pk-lift-rim-hover);
+  }
+
+  .pk-rim-tile:hover {
+    animation: pk-rim-tile var(--pk-duration-rim) linear infinite;
+    box-shadow: var(--pk-lift-rim-hover);
+  }
+
+  [data-slot="board-item"][data-dragging] {
+    box-shadow: var(--pk-lift-held);
+  }
+
+  /* The paper: a toothed tear edge with a blank feed margin above it. */
+  .pk-tear {
+    clip-path: polygon(
+      0 0,
+      100% 0,
+      100% calc(100% - 5px),
+      96% 100%,
+      92% calc(100% - 5px),
+      88% 100%,
+      84% calc(100% - 5px),
+      80% 100%,
+      76% calc(100% - 5px),
+      72% 100%,
+      68% calc(100% - 5px),
+      64% 100%,
+      60% calc(100% - 5px),
+      56% 100%,
+      52% calc(100% - 5px),
+      48% 100%,
+      44% calc(100% - 5px),
+      40% 100%,
+      36% calc(100% - 5px),
+      32% 100%,
+      28% calc(100% - 5px),
+      24% 100%,
+      20% calc(100% - 5px),
+      16% 100%,
+      12% calc(100% - 5px),
+      8% 100%,
+      4% calc(100% - 5px),
+      0 100%
+    );
+  }
+
+  .pk-paper {
+    background: var(--pk-paper);
+  }
+
+  .pk-face {
+    background: var(--pk-surface-face);
+  }
+
+  /* A dotted rule across a receipt. */
+  .pk-paper-rule {
+    background: repeating-linear-gradient(90deg, var(--pk-paper-rule) 0 3px, transparent 3px 6px);
+  }
+}
+
+/* Tailwind utilities read the kit tokens through these names. */
+@theme inline {
+  --font-pk-sans: var(--pk-font-sans);
+  --font-pk-mono: var(--pk-font-mono);
+
+  --color-pk-ground: var(--pk-ground);
+  --color-pk-surface: var(--pk-surface);
+  --color-pk-surface-sunken: var(--pk-surface-sunken);
+  --color-pk-surface-deep: var(--pk-surface-deep);
+  --color-pk-surface-inner: var(--pk-surface-inner);
+  --color-pk-recess: var(--pk-recess);
+  --color-pk-tray: var(--pk-tray);
+
+  --color-pk-line: var(--pk-line);
+  --color-pk-line-hover: var(--pk-line-hover);
+  --color-pk-line-strong: var(--pk-line-strong);
+  --color-pk-line-inner: var(--pk-line-inner);
+  --color-pk-line-inner-raised: var(--pk-line-inner-raised);
+
+  --color-pk-ink-bright: var(--pk-ink-bright);
+  --color-pk-ink: var(--pk-ink);
+  --color-pk-ink-muted: var(--pk-ink-muted);
+  --color-pk-ink-soft: var(--pk-ink-soft);
+  --color-pk-ink-dim: var(--pk-ink-dim);
+  --color-pk-ink-faint: var(--pk-ink-faint);
+
+  --color-pk-accent: var(--pk-accent);
+  --color-pk-accent-dim: var(--pk-accent-dim);
+  --color-pk-on-accent: var(--pk-on-accent);
+
+  --color-pk-paper-ink: var(--pk-paper-ink);
+  --color-pk-paper-label: var(--pk-paper-label);
+  --color-pk-paper-rule: var(--pk-paper-rule);
+
+  --radius-pk-widget: var(--pk-radius-widget);
+  --radius-pk-card: var(--pk-radius-card);
+  --radius-pk-inner: var(--pk-radius-inner);
+  --radius-pk-tray: var(--pk-radius-tray);
+  --radius-pk-chip: var(--pk-radius-chip);
+  --radius-pk-aperture: var(--pk-radius-aperture);
+
+  --shadow-pk-card: var(--pk-lift-card);
+  --shadow-pk-rim: var(--pk-lift-rim);
+  --shadow-pk-tray: var(--pk-lift-tray);
+
+  --ease-pk-swift: var(--pk-ease-swift);
+  --ease-pk-settle: var(--pk-ease-settle);
+  --ease-pk-feed: var(--pk-ease-feed);
+
+  --animate-pk-rim: pk-rim var(--pk-duration-rim) linear infinite;
+  --animate-pk-rim-tile: pk-rim-tile var(--pk-duration-rim) linear infinite;
+  --animate-pk-ping: pk-ping 3s cubic-bezier(0, 0, 0.2, 1) infinite;
+  --animate-pk-spin: pk-spin 0.85s linear infinite;
+  --animate-pk-caret: pk-caret 1s steps(1) infinite;
+
+  --default-transition-timing-function: var(--pk-ease-swift);
+}

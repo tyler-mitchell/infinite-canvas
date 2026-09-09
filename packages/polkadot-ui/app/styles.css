@@ -1,0 +1,5 @@
+@import "tailwindcss";
+@import "../src/theme.css";
+
+/* Tailwind scans the library for the classes its `tv` slots name. */
+@source "../src";

@@ -1,0 +1,4 @@
+ts	phase	decision	why	evidence	result
+2026-09-09	foundation	Base UI + tailwind-variants slots, no hand-rolled primitives	session directive; Base UI 1.5.0 ships 48 primitives incl. useRender/merge-props	src/components/{button,toggle-group,separator,widget}.tsx	vp check clean, 21 files; showcase renders
+2026-09-09	foundation	Deleted hand-rolled spring/frame-clock/board-engine	motion 12.40.0 owns springs, layout animation, drag, frame loop	docs/research/widget-runtime.md #3	removed before anything depended on them
+2026-09-09	shell	Router SPA, not TanStack Start	Start SSR middleware never mounts on Vite+ 0.2.9 (404 observed)	docs/research/widget-runtime.md #1	lab boots; route files stay Start-compatible
