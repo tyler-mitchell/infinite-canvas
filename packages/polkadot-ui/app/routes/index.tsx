@@ -120,7 +120,7 @@ function Overview() {
             <Row align="center">
               <Meta>v2.1.0</Meta>
               <Separator orientation="vertical" />
-              <Button tone="bare" size="xs">
+              <Button tone="ghost" size="sm">
                 clone
               </Button>
             </Row>

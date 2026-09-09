@@ -244,25 +244,25 @@ function Layout() {
         <div className={styles.rails()}>
           <Toolbar>
             <Toolbar.Group>
-              <Toolbar.Button render={<Button tone="bare" size="icon" />}>−</Toolbar.Button>
-              <Toolbar.Button render={<Button tone="bare" size="sm" mono />}>100%</Toolbar.Button>
-              <Toolbar.Button render={<Button tone="bare" size="icon" />}>+</Toolbar.Button>
+              <Toolbar.Button render={<Button tone="ghost" size="icon" />}>−</Toolbar.Button>
+              <Toolbar.Button render={<Button tone="ghost" size="sm" />}>100%</Toolbar.Button>
+              <Toolbar.Button render={<Button tone="ghost" size="icon" />}>+</Toolbar.Button>
             </Toolbar.Group>
             <Toolbar.Separator />
             <Toolbar.Group>
-              <Toolbar.Button render={<Button tone="bare" size="sm" />}>fit</Toolbar.Button>
-              <Toolbar.Button render={<Button tone="bare" size="sm" />}>group</Toolbar.Button>
+              <Toolbar.Button render={<Button tone="ghost" size="sm" />}>fit</Toolbar.Button>
+              <Toolbar.Button render={<Button tone="ghost" size="sm" />}>group</Toolbar.Button>
             </Toolbar.Group>
           </Toolbar>
 
           <Toolbar orientation="vertical">
             <Toolbar.Group>
-              <Toolbar.Button render={<Button tone="bare" size="icon" />}>−</Toolbar.Button>
-              <Toolbar.Button render={<Button tone="bare" size="icon" />}>+</Toolbar.Button>
+              <Toolbar.Button render={<Button tone="ghost" size="icon" />}>−</Toolbar.Button>
+              <Toolbar.Button render={<Button tone="ghost" size="icon" />}>+</Toolbar.Button>
             </Toolbar.Group>
             <Toolbar.Separator />
             <Toolbar.Group>
-              <Toolbar.Button render={<Button tone="bare" size="icon" />}>◇</Toolbar.Button>
+              <Toolbar.Button render={<Button tone="ghost" size="icon" />}>◇</Toolbar.Button>
             </Toolbar.Group>
           </Toolbar>
         </div>

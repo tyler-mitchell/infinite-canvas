@@ -89,6 +89,9 @@
   --pk-radius-card: 16px;
   --pk-radius-inner: 14px;
   --pk-radius-tray: 12px;
+  /* Controls share one radius, and the inner radius of a segmented track is it less the padding. */
+  --pk-radius-control: 8px;
+  --pk-radius-control-inner: 6px;
   --pk-radius-chip: 7px;
   --pk-radius-aperture: 4px;
   --pk-radius-pill: 999px;
@@ -329,6 +332,76 @@
   --font-pk-sans: var(--pk-font-sans);
   --font-pk-mono: var(--pk-font-mono);
 
+  /*
+   * The type scale, taken from the design source rather than invented.
+   *
+   * Every size, line height, tracking and weight below is a value the design already used; the scale
+   * only removes near-duplicates. Each step carries all four, so a role is one utility rather than
+   * the four-part `text-[13px] leading-[1.3] tracking-[-0.015em] font-medium` the components had.
+   * Getting one of those four wrong was silent, and it happened.
+   *
+   * Sans covers the whole interface. Mono is for data that is read as a value, never for controls.
+   */
+  --text-pk-micro: 9.5px;
+  --text-pk-micro--line-height: 1;
+  --text-pk-micro--letter-spacing: 0.08em;
+  --text-pk-micro--font-weight: 500;
+
+  --text-pk-label: 10.5px;
+  --text-pk-label--line-height: 1;
+  --text-pk-label--letter-spacing: 0.04em;
+  --text-pk-label--font-weight: 500;
+
+  --text-pk-control: 11.5px;
+  --text-pk-control--line-height: 1;
+  --text-pk-control--letter-spacing: 0.005em;
+  --text-pk-control--font-weight: 500;
+
+  --text-pk-meta: 11px;
+  --text-pk-meta--line-height: 1.45;
+  --text-pk-meta--letter-spacing: 0.005em;
+  --text-pk-meta--font-weight: 400;
+
+  --text-pk-body: 12.5px;
+  --text-pk-body--line-height: 1.55;
+  --text-pk-body--letter-spacing: -0.005em;
+  --text-pk-body--font-weight: 400;
+
+  --text-pk-item: 13px;
+  --text-pk-item--line-height: 1.3;
+  --text-pk-item--letter-spacing: -0.015em;
+  --text-pk-item--font-weight: 500;
+
+  --text-pk-title: 15px;
+  --text-pk-title--line-height: 1.25;
+  --text-pk-title--letter-spacing: -0.025em;
+  --text-pk-title--font-weight: 500;
+
+  --text-pk-head: 18px;
+  --text-pk-head--line-height: 1.15;
+  --text-pk-head--letter-spacing: -0.03em;
+  --text-pk-head--font-weight: 600;
+
+  --text-pk-display: 21px;
+  --text-pk-display--line-height: 1.15;
+  --text-pk-display--letter-spacing: -0.035em;
+  --text-pk-display--font-weight: 600;
+
+  --text-pk-mono-sm: 10.5px;
+  --text-pk-mono-sm--line-height: 1.4;
+  --text-pk-mono-sm--letter-spacing: 0.02em;
+  --text-pk-mono-sm--font-weight: 400;
+
+  --text-pk-mono: 11px;
+  --text-pk-mono--line-height: 1.4;
+  --text-pk-mono--letter-spacing: 0.02em;
+  --text-pk-mono--font-weight: 400;
+
+  --text-pk-mono-lg: 12.5px;
+  --text-pk-mono-lg--line-height: 1.3;
+  --text-pk-mono-lg--letter-spacing: 0.02em;
+  --text-pk-mono-lg--font-weight: 500;
+
   --color-pk-ground: var(--pk-ground);
   --color-pk-surface: var(--pk-surface);
   --color-pk-surface-sunken: var(--pk-surface-sunken);
@@ -368,6 +441,8 @@
   --radius-pk-card: var(--pk-radius-card);
   --radius-pk-inner: var(--pk-radius-inner);
   --radius-pk-tray: var(--pk-radius-tray);
+  --radius-pk-control: var(--pk-radius-control);
+  --radius-pk-control-inner: var(--pk-radius-control-inner);
   --radius-pk-chip: var(--pk-radius-chip);
   --radius-pk-aperture: var(--pk-radius-aperture);
   --radius-pk-pill: var(--pk-radius-pill);

@@ -35,8 +35,10 @@ const controls = tv({
   },
 });
 
-const TONES = ["chip", "quiet", "accent", "bare"] as const;
-const SIZES = ["xs", "sm", "md"] as const;
+const TONES = ["solid", "soft", "outline", "ghost"] as const;
+const SIZES = ["sm", "md", "lg"] as const;
+const RANGES = ["3m", "6m", "max"];
+const SIZE_LABEL = { sm: "clone", md: "print", lg: "arrange" } as const;
 
 export const Route = createFileRoute("/controls")({
   component: Controls,
@@ -45,6 +47,7 @@ export const Route = createFileRoute("/controls")({
 function Controls() {
   const styles = controls();
   const [categories, setCategories] = useState<string[]>([]);
+  const [range, setRange] = useState<string[]>(["3m"]);
   const [sound, setSound] = useState(true);
 
   return (
@@ -69,14 +72,11 @@ function Controls() {
               <Label className={styles.tone()}>{tone}</Label>
               {SIZES.map((size) => (
                 <Button key={size} tone={tone} size={size}>
-                  {size === "xs" ? "clone" : size === "sm" ? "print" : "arrange"}
+                  {SIZE_LABEL[size]}
                 </Button>
               ))}
               <Button tone={tone} size="icon">
                 +
-              </Button>
-              <Button tone={tone} mono>
-                mono
               </Button>
               <Button tone={tone} disabled>
                 disabled
@@ -90,9 +90,21 @@ function Controls() {
       <section className={styles.section()}>
         <Row rule="below">
           <Kind>toggle group</Kind>
+          <Meta>one recessed track · pick one</Meta>
+        </Row>
+        <ToggleGroup value={range} onValueChange={setRange}>
+          {RANGES.map((span) => (
+            <ToggleGroup.Item key={span} value={span}>
+              {span}
+            </ToggleGroup.Item>
+          ))}
+        </ToggleGroup>
+
+        <Row rule="below">
+          <Kind>toggle group · chips</Kind>
           <Meta>multiple · the accent is the pressed state</Meta>
         </Row>
-        <ToggleGroup multiple value={categories} onValueChange={setCategories}>
+        <ToggleGroup look="chips" multiple value={categories} onValueChange={setCategories}>
           {CATEGORIES.map((category) => (
             <ToggleGroup.Item key={category} value={category}>
               {category}
@@ -102,8 +114,9 @@ function Controls() {
         <Meta>
           {categories.length === 0 ? "nothing filtered" : `filtering ${categories.join(" · ")}`}
         </Meta>
-        {/* The same group stacked, which is what a filter rail down a side needs. */}
+        {/* The same chips stacked, which is what a filter rail down a side needs. */}
         <ToggleGroup
+          look="chips"
           multiple
           orientation="vertical"
           value={categories}

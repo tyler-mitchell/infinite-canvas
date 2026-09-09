@@ -4,25 +4,25 @@ import { tv, type VariantProps } from "tailwind-variants";
 /**
  * The type scale, as roles rather than sizes.
  *
- * Counted across the design POC's 45 widgets: mono metadata appears 49 times — more than any
- * container and more than once per widget. That density is the design language, so `meta` is the
- * default rather than an option.
+ * Sans carries the interface. Mono is reserved for a value that is read as data — a frame time, a
+ * price, a hovered count — and `readout` is the only role that uses it. Descriptive text beside a
+ * heading is interface, not data, so `meta` is sans.
  *
  * `label` and `kind` are two registers that never substitute: a label names a section
- * ("frame budget", "inbox"), a kind tags what a thing is ("gist", "issue"). They differ in face,
- * size, tracking and case.
+ * ("frame budget", "inbox"), a kind tags what a thing is ("gist", "issue"). Both are sans; they
+ * differ in size, tracking and case.
  */
 const text = tv({
   base: "",
   variants: {
     as: {
-      label: "font-pk-sans text-[11px] leading-none font-medium tracking-[0.02em] text-pk-ink-dim",
-      kind: "font-pk-mono text-[10px] leading-none font-medium tracking-[0.05em] text-pk-ink-dim uppercase",
-      meta: "font-pk-mono text-[11px] leading-[1.4] whitespace-nowrap text-pk-ink-faint",
-      title:
-        "font-pk-sans text-[17px] leading-[1.15] font-semibold tracking-[-0.03em] text-pk-ink-bright",
-      prose: "font-pk-sans text-[13px] leading-[1.5] text-pk-ink-soft text-pretty",
-      readout: "font-pk-mono text-[11px] leading-[1.4] whitespace-nowrap text-pk-ink-muted",
+      label: "font-pk-sans text-pk-label text-pk-ink-dim",
+      /* A kind names what a thing is, so it is a label in sans, not a value in mono. */
+      kind: "font-pk-sans text-pk-micro text-pk-ink-dim uppercase",
+      meta: "font-pk-sans text-pk-meta text-pk-ink-faint",
+      title: "font-pk-sans text-pk-head text-pk-ink-bright",
+      prose: "font-pk-sans text-pk-body text-pk-ink-soft text-pretty",
+      readout: "font-pk-mono text-pk-mono whitespace-nowrap text-pk-ink-muted tabular-nums",
     },
   },
   defaultVariants: { as: "meta" },

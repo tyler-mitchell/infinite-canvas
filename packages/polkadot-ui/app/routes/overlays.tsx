@@ -39,11 +39,11 @@ function Overlays() {
         <Tooltip.Provider>
           <div className={styles.inline()}>
             <Tooltip>
-              <Tooltip.Trigger render={<Button tone="quiet" />}>queries</Tooltip.Trigger>
+              <Tooltip.Trigger render={<Button tone="soft" />}>queries</Tooltip.Trigger>
               <Tooltip.Content>2.1M served</Tooltip.Content>
             </Tooltip>
             <Tooltip>
-              <Tooltip.Trigger render={<Button tone="quiet" />}>region</Tooltip.Trigger>
+              <Tooltip.Trigger render={<Button tone="soft" />}>region</Tooltip.Trigger>
               <Tooltip.Content>iad · 42 ms</Tooltip.Content>
             </Tooltip>
           </div>
@@ -57,7 +57,7 @@ function Overlays() {
         </Row>
         <div className={styles.inline()}>
           <Popover>
-            <Popover.Trigger render={<Button tone="quiet" />}>details</Popover.Trigger>
+            <Popover.Trigger render={<Button tone="soft" />}>details</Popover.Trigger>
             <Popover.Content>
               <Popover.Title>surrealdb-wasm</Popover.Title>
               <Popover.Description>
@@ -68,7 +68,7 @@ function Overlays() {
 
           {/* Placement is a prop, and nothing on the page said so until this one. */}
           <Popover>
-            <Popover.Trigger render={<Button tone="quiet" />}>beside it</Popover.Trigger>
+            <Popover.Trigger render={<Button tone="soft" />}>beside it</Popover.Trigger>
             <Popover.Content side="right" align="start" sideOffset={10}>
               <Popover.Title>side · align</Popover.Title>
               <Popover.Description>
@@ -85,7 +85,7 @@ function Overlays() {
           <Meta>title · description · close</Meta>
         </Row>
         <Popover>
-          <Popover.Trigger render={<Button tone="quiet" />}>parts</Popover.Trigger>
+          <Popover.Trigger render={<Button tone="soft" />}>parts</Popover.Trigger>
           <Popover.Content>
             <Popover.Title>surrealdb-wasm</Popover.Title>
             <Popover.Description>
@@ -94,7 +94,7 @@ function Overlays() {
             {/* A popover dismisses itself on Escape and on a press outside; Close is the visible way. */}
             <Row rule="above">
               <Meta>v2.1.0</Meta>
-              <Popover.Close render={<Button tone="bare" size="xs" />}>close</Popover.Close>
+              <Popover.Close render={<Button tone="ghost" size="sm" />}>close</Popover.Close>
             </Row>
           </Popover.Content>
         </Popover>
@@ -106,15 +106,15 @@ function Overlays() {
           <Meta>modal · the footer is a part, so actions align</Meta>
         </Row>
         <Dialog>
-          <Dialog.Trigger render={<Button tone="quiet" />}>remove canvas</Dialog.Trigger>
+          <Dialog.Trigger render={<Button tone="soft" />}>remove canvas</Dialog.Trigger>
           <Dialog.Content>
             <Dialog.Title>Remove this canvas?</Dialog.Title>
             <Dialog.Description>
               Six windows and their layout go with it. Notes stay in the project.
             </Dialog.Description>
             <Dialog.Footer>
-              <Dialog.Close render={<Button tone="bare" />}>cancel</Dialog.Close>
-              <Dialog.Close render={<Button tone="accent" />}>remove</Dialog.Close>
+              <Dialog.Close render={<Button tone="ghost" />}>cancel</Dialog.Close>
+              <Dialog.Close render={<Button tone="solid" />}>remove</Dialog.Close>
             </Dialog.Footer>
           </Dialog.Content>
         </Dialog>
@@ -126,7 +126,7 @@ function Overlays() {
           <Meta>groups · labels · shortcuts</Meta>
         </Row>
         <Menu>
-          <Menu.Trigger render={<Button tone="quiet" />}>arrange</Menu.Trigger>
+          <Menu.Trigger render={<Button tone="soft" />}>arrange</Menu.Trigger>
           <Menu.Content>
             <Menu.Group>
               {/* GroupLabel reads MenuGroupContext, so it must sit inside Group, not beside it. */}

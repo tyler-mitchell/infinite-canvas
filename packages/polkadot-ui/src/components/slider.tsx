@@ -11,17 +11,18 @@ const slider = tv({
      * A vertical control has no length of its own to take, so it gets a default one. Override it
      * through `className` where a fader wants to be taller or shorter.
      */
-    root: "flex w-full flex-col gap-2 data-[orientation=vertical]:w-auto data-[orientation=vertical]:items-start",
+    root: "flex w-full flex-col gap-2.5 data-[orientation=vertical]:w-auto data-[orientation=vertical]:items-start",
     header: "flex items-baseline justify-between gap-2",
-    label: "font-pk-sans text-[11px] leading-none font-medium tracking-[0.02em] text-pk-ink-dim",
-    value: "font-pk-mono text-[11px] leading-[1.4] text-pk-ink-muted",
+    label: "font-pk-sans text-pk-label text-pk-ink-dim",
+    /* Tabular figures, so a readout that changes under the pointer does not shift the label. */
+    value: "font-pk-sans text-pk-label text-pk-ink-muted tabular-nums",
     control:
       "flex h-4 w-full cursor-pointer touch-none items-center select-none data-[orientation=vertical]:h-[120px] data-[orientation=vertical]:w-4 data-[orientation=vertical]:justify-center",
     track:
-      "h-1 w-full rounded-pk-pill bg-pk-surface-sunken data-[orientation=vertical]:h-full data-[orientation=vertical]:w-1",
+      "h-[3px] w-full rounded-pk-pill bg-pk-ink/[0.1] data-[orientation=vertical]:h-full data-[orientation=vertical]:w-[3px]",
     indicator: "rounded-pk-pill bg-pk-accent",
     thumb:
-      "size-3 rounded-pk-pill border border-pk-accent bg-pk-ink-bright outline-none transition-[box-shadow] duration-(--pk-duration-hover) ease-pk-swift focus-visible:ring-2 focus-visible:ring-pk-accent/50",
+      "size-[13px] rounded-pk-pill bg-white shadow-[0_1px_3px_rgb(0_0_0/0.5)] outline-none transition-transform duration-(--pk-duration-hover) ease-pk-swift hover:scale-110 focus-visible:ring-2 focus-visible:ring-pk-accent/45 focus-visible:ring-offset-2 focus-visible:ring-offset-pk-ground",
   },
 });
 
@@ -30,7 +31,7 @@ type WithClassName<T> = Omit<T, "className"> & { className?: string };
 export type SliderProps = WithClassName<SliderPrimitive.Root.Props> & {
   /** Rendered above the control. Omit for a bare track. */
   readonly label?: string;
-  /** Shows the current value beside the label, in mono. */
+  /** Shows the current value beside the label. */
   readonly showValue?: boolean;
 };
 

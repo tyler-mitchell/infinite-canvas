@@ -15,7 +15,7 @@ const toolbar = tv({
      * A separator's orientation is the line's, not the rail's: a horizontal toolbar is divided by a
      * vertical rule, and Base UI marks it that way, so these read the right way round.
      */
-    root: "inline-flex items-center gap-1 rounded-pk-pill border border-pk-line bg-pk-surface p-1 shadow-pk-card data-[orientation=vertical]:flex-col",
+    root: "inline-flex items-center gap-1 rounded-pk-tray border border-pk-line bg-pk-surface p-1 shadow-pk-card data-[orientation=vertical]:flex-col",
     group: "flex items-center gap-1 data-[orientation=vertical]:flex-col",
     /* `--pk-line-inner` is for a rule inside a card; on a raised rail it does not clear the fill. */
     separator:
