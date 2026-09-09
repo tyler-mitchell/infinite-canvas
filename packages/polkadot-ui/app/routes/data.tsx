@@ -11,12 +11,22 @@ import {
   Prose,
   Readout,
   Row,
+  Sparkline,
   Surface,
   Title,
 } from "polkadot-ui";
 
 import { Api } from "../api.tsx";
-import { ACTIVITY, INSTALLS, INSTALLS_SMALL, LEVELS, READING } from "../fixtures.ts";
+import {
+  ACTIVITY,
+  COMMIT_WEEKS,
+  FRAME_BUDGET,
+  INSTALLS,
+  INSTALLS_SMALL,
+  LATENCY,
+  LEVELS,
+  READING,
+} from "../fixtures.ts";
 
 /* Both charts below are the same metric, so both are drawn against the larger one's peak. */
 const INSTALL_CEILING = Math.max(...INSTALLS);
@@ -49,6 +59,42 @@ function Data() {
           the numbers survive a document that is not producing frames.
         </Prose>
       </div>
+
+      <section className={styles.section()}>
+        <Row rule="below">
+          <Kind>sparkline</Kind>
+          <Meta>a trace with a live head · three series shapes</Meta>
+        </Row>
+        <div className={styles.grid()}>
+          <Surface tone="card">
+            <Row>
+              <Label>commits · 64 weeks</Label>
+              <Meta>11 · wk 7</Meta>
+            </Row>
+            <Sparkline values={COMMIT_WEEKS} label="commits per week over 64 weeks" />
+          </Surface>
+          <Surface tone="card">
+            <Row>
+              <Label>p95 latency</Label>
+              <Meta>96h window</Meta>
+            </Row>
+            {/* A caption puts a badge at the head, which takes the dot's place rather than joining it. */}
+            <Sparkline
+              values={LATENCY}
+              caption={`${LATENCY[LATENCY.length - 1]}ms`}
+              label="p95 latency over 96 hours"
+            />
+          </Surface>
+          <Surface tone="card">
+            <Row>
+              <Label>frame budget</Label>
+              <Meta>15.9 ms</Meta>
+            </Row>
+            {/* Nearly flat against a ceiling: the case a self-scaling trace turns into noise. */}
+            <Sparkline values={FRAME_BUDGET} size="sm" label="frame time over 72 frames" />
+          </Surface>
+        </div>
+      </section>
 
       <section className={styles.section()}>
         <Row rule="below">

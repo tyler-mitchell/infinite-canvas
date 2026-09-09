@@ -82,6 +82,7 @@ export {
 export { ScrollArea, scrollAreaVariants, type ScrollAreaProps } from "./components/scroll-area.tsx";
 export { Row, rowVariants, type RowProps } from "./components/row.tsx";
 export { Separator, separatorVariants, type SeparatorProps } from "./components/separator.tsx";
+export { Sparkline, sparklineVariants, type SparklineProps } from "./components/sparkline.tsx";
 export { Surface, surfaceVariants, type SurfaceProps } from "./components/surface.tsx";
 export {
   Kind,

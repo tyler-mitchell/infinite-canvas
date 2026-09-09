@@ -61,6 +61,27 @@ export const LEVELS = [
 
 export const CATEGORIES = ["stack", "work", "words", "life"] as const;
 
+/*
+ * Three series with different shapes, because one shape proves nothing about a curve.
+ *
+ * Commits drift and spike; latency is noisy around a floor with one excursion; the frame budget sits
+ * flat against a ceiling. A trace that only ever sees the first would hide how it treats the others.
+ */
+export const COMMIT_WEEKS = Array.from({ length: 64 }, (_, week) => {
+  const drift = 8 + 5 * Math.sin(week / 7) + 3 * Math.sin(week / 2.3);
+  return Math.max(0, Math.round(drift + (week === 41 ? 14 : 0)));
+});
+
+export const LATENCY = Array.from({ length: 96 }, (_, hour) => {
+  const noise = Math.abs(Math.sin(hour * 12.9898) * 43758.5453) % 1;
+  return Math.round(16 + noise * 5 + (hour > 58 && hour < 66 ? 22 : 0));
+});
+
+export const FRAME_BUDGET = Array.from({ length: 72 }, (_, frame) => {
+  const noise = Math.abs(Math.sin((frame + 400) * 12.9898) * 43758.5453) % 1;
+  return Number((15.4 + noise * 1.1).toFixed(2));
+});
+
 export const COMMITS = [
   "a1f9c2  fix(snap): resolve gap guides before edges",
   "7e04b1  feat(groups): accordion axis labels",
