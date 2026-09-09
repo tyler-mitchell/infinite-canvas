@@ -12,14 +12,10 @@ import {
   type InfiniteCanvasSize,
   type InfiniteCanvasWindow,
 } from "@hyphened/infinite-canvas";
-import {
-  InfiniteCanvasCompositorSurface,
-  type InfiniteCanvasScenePass,
-} from "@hyphened/infinite-canvas/scene";
+import { InfiniteCanvasCompositorSurface } from "@hyphened/infinite-canvas/scene";
 import { useMemo, useRef } from "react";
 import { CommandPalette } from "../showcases/command-palette.tsx";
 import { exposeCanvasDevHandle } from "../showcases/dev-handle.ts";
-import { createDropPreviewPass } from "../showcases/drop-preview-pass.ts";
 
 export const Route = createFileRoute("/drop-tray")({
   component: DropTrayShowcase,
@@ -51,16 +47,6 @@ const assets: readonly CardAsset[] = [
 ];
 
 const cardSize: InfiniteCanvasSize = { height: 180, width: 280 };
-
-/**
- * Six-digit hex to sRGB in 0..1. Accents are authored as hex strings, and the
- * canvas format is never an sRGB one, so the channels pass straight through.
- */
-function hexToRgb(hex: string): readonly [number, number, number] {
-  const value = Number.parseInt(hex.slice(1, 7), 16);
-
-  return [((value >> 16) & 255) / 255, ((value >> 8) & 255) / 255, (value & 255) / 255];
-}
 
 function makeCard(input: {
   accent: string;
@@ -199,32 +185,6 @@ function DropTrayShowcase() {
     [],
   );
 
-  // The ghost uses the framework placement and guides.
-  const sceneLayers = useMemo(
-    () =>
-      [
-        createDropPreviewPass<CardKind, CardAsset>(({ drop }) => {
-          if (
-            drop.status !== "dragging" ||
-            !drop.isOverViewport ||
-            !isCardAsset(drop.payload) ||
-            drop.dropTarget.target === null ||
-            drop.placement === null
-          ) {
-            return null;
-          }
-
-          const valid = drop.dropTarget.status === "valid";
-
-          return {
-            color: valid ? [...hexToRgb(drop.payload.accent), 0.16] : [0.97, 0.44, 0.44, 0.08],
-            rect: drop.placement.rect,
-          };
-        }),
-      ] satisfies readonly InfiniteCanvasScenePass<CardKind, CardAsset>[],
-    [],
-  );
-
   const spatialTargetResolvers = useMemo(
     () =>
       [
@@ -247,7 +207,6 @@ function DropTrayShowcase() {
             <TrayOverlay context={context} />
           </>
         )}
-        sceneLayers={sceneLayers}
         sceneSurface={InfiniteCanvasCompositorSurface}
         spatialTargetResolvers={spatialTargetResolvers}
         subtitle="Typed payloads, validated targets, compositor placement preview, framework-committed drops."

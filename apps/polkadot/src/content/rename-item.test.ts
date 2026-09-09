@@ -57,27 +57,29 @@ test("the writers are exactly the listed kinds, so neither list quietly grows pa
   );
 });
 
-test("a blank name is refused, and whitespace is blank", () => {
-  expect(rename(item("note", "Untitled 1"), "")).toBe("Refused: a name cannot be blank.");
-  expect(rename(item("note", "Untitled 1"), "   ")).toBe("Refused: a name cannot be blank.");
+test("a blank name is refused, and whitespace is blank", async () => {
+  expect(await rename(item("note", "Untitled 1"), "")).toBe("Refused: a name cannot be blank.");
+  expect(await rename(item("note", "Untitled 1"), "   ")).toBe("Refused: a name cannot be blank.");
 });
 
-test("renaming something to what it is already called is not a rename", () => {
-  expect(rename(item("note", "Quarterly"), "Quarterly")).toBe("Refused: that is already its name.");
-  expect(rename(item("note", "Quarterly"), "  Quarterly  ")).toBe(
+test("renaming something to what it is already called is not a rename", async () => {
+  expect(await rename(item("note", "Quarterly"), "Quarterly")).toBe(
+    "Refused: that is already its name.",
+  );
+  expect(await rename(item("note", "Quarterly"), "  Quarterly  ")).toBe(
     "Refused: that is already its name.",
   );
 });
 
-test("a kind with no writer is refused rather than half-renamed", () => {
-  expect(rename(item("diagram", "Untitled 1"), "Better name")).toContain("has no writer yet");
+test("a kind with no writer is refused rather than half-renamed", async () => {
+  expect(await rename(item("diagram", "Untitled 1"), "Better name")).toContain("has no writer yet");
 });
 
-test("the refusal names the kind it could not save", () => {
-  expect(rename(item("diagram", "sketch"), "Cover")).toContain('a "diagram"');
-  expect(rename(item("recording", "take 1"), "Interview")).toContain('a "recording"');
+test("the refusal names the kind it could not save", async () => {
+  expect(await rename(item("diagram", "sketch"), "Cover")).toContain('a "diagram"');
+  expect(await rename(item("recording", "take 1"), "Interview")).toContain('a "recording"');
 });
 
-test("blank is checked before kind, so the worse answer is not given for the smaller mistake", () => {
-  expect(rename(item("diagram", "sketch"), "  ")).toBe("Refused: a name cannot be blank.");
+test("blank is checked before kind, so the worse answer is not given for the smaller mistake", async () => {
+  expect(await rename(item("diagram", "sketch"), "  ")).toBe("Refused: a name cannot be blank.");
 });

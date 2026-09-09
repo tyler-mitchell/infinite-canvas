@@ -407,7 +407,7 @@ function PaletteContent({
             }
           : {
               commit: () => {
-                renameProjectItem({ actions, item: page.note, state, title: draft });
+                void renameProjectItem({ actions, item: page.note, state, title: draft });
               },
               enabled: draft !== "",
               heading: "Note",

@@ -57,6 +57,17 @@ type InfiniteCanvasConnectionsOptions = Readonly<{
   tint: readonly [number, number, number];
 }>;
 
+type InfiniteCanvasDropPreviewOptions = Readonly<{
+  /** Peak alpha of a refused placement, 0 to 1. */
+  invalidOpacity: number;
+  /** sRGB, 0 to 1, the same channels a CSS hex carries. */
+  invalidTint: readonly [number, number, number];
+  /** Peak alpha of an accepted placement, 0 to 1. */
+  validOpacity: number;
+  /** sRGB, 0 to 1, the same channels a CSS hex carries. */
+  validTint: readonly [number, number, number];
+}>;
+
 type InfiniteCanvasProximityOptions = Readonly<{
   /** World units. Windows farther apart than this do not see each other. */
   reach: number;
@@ -95,6 +106,7 @@ type InfiniteCanvasCompositorPolicy = Readonly<{
   areaLight: InfiniteCanvasAreaLightOptions | false;
   connections: InfiniteCanvasConnectionsOptions | false;
   contactShadow: InfiniteCanvasContactShadowOptions | false;
+  dropPreview: InfiniteCanvasDropPreviewOptions | false;
   focusField: InfiniteCanvasFocusFieldOptions | false;
   grid: InfiniteCanvasGridOptions | false;
   particleField: InfiniteCanvasParticleFieldOptions | false;
@@ -106,6 +118,7 @@ type InfiniteCanvasCompositorPolicyInput = Readonly<{
   areaLight?: Partial<InfiniteCanvasAreaLightOptions> | boolean;
   connections?: Partial<InfiniteCanvasConnectionsOptions> | boolean;
   contactShadow?: Partial<InfiniteCanvasContactShadowOptions> | boolean;
+  dropPreview?: Partial<InfiniteCanvasDropPreviewOptions> | boolean;
   focusField?: Partial<InfiniteCanvasFocusFieldOptions> | boolean;
   grid?: Partial<InfiniteCanvasGridOptions> | boolean;
   particleField?: Partial<InfiniteCanvasParticleFieldOptions> | boolean;
@@ -169,6 +182,17 @@ const DEFAULT_CONNECTIONS_OPTIONS: InfiniteCanvasConnectionsOptions = {
   tint: [0.22, 0.74, 0.96],
 };
 
+/*
+ * Faint either way. The preview says where a thing will land, and a wash that
+ * competes with the windows around it answers a question nobody asked.
+ */
+const DEFAULT_DROP_PREVIEW_OPTIONS: InfiniteCanvasDropPreviewOptions = {
+  invalidOpacity: 0.08,
+  invalidTint: [0.97, 0.44, 0.44],
+  validOpacity: 0.16,
+  validTint: [0.42, 0.78, 0.94],
+};
+
 const DEFAULT_PROXIMITY_OPTIONS: InfiniteCanvasProximityOptions = {
   reach: 240,
 };
@@ -181,6 +205,9 @@ const DEFAULT_INFINITE_CANVAS_COMPOSITOR: InfiniteCanvasCompositorPolicy = {
   // one and draws nothing is simply missing it.
   connections: DEFAULT_CONNECTIONS_OPTIONS,
   contactShadow: DEFAULT_CONTACT_SHADOW_OPTIONS,
+  // On by default, and inert until a consumer supplies a dropPolicy that
+  // resolves a placement. Without one it never draws.
+  dropPreview: DEFAULT_DROP_PREVIEW_OPTIONS,
   // Off by default: the halo it leaves around the active window reads as an
   // aura on the medium. The pass stays available for a consumer that wants it.
   focusField: false,
@@ -229,6 +256,11 @@ function resolveInfiniteCanvasCompositorPolicy(
       absent.contactShadow,
       DEFAULT_CONTACT_SHADOW_OPTIONS,
     ),
+    dropPreview: resolvePassOptions(
+      input?.dropPreview,
+      absent.dropPreview,
+      DEFAULT_DROP_PREVIEW_OPTIONS,
+    ),
     focusField: resolvePassOptions(
       input?.focusField,
       absent.focusField,
@@ -248,6 +280,7 @@ export {
   DEFAULT_AREA_LIGHT_OPTIONS,
   DEFAULT_CONNECTIONS_OPTIONS,
   DEFAULT_CONTACT_SHADOW_OPTIONS,
+  DEFAULT_DROP_PREVIEW_OPTIONS,
   DEFAULT_FOCUS_FIELD_OPTIONS,
   DEFAULT_GRID_OPTIONS,
   DEFAULT_INFINITE_CANVAS_COMPOSITOR,
@@ -261,6 +294,7 @@ export type {
   InfiniteCanvasConnectionsOptions,
   InfiniteCanvasContactShadowOptions,
   InfiniteCanvasCompositorPolicyInput,
+  InfiniteCanvasDropPreviewOptions,
   InfiniteCanvasFocusFieldOptions,
   InfiniteCanvasGridOptions,
   InfiniteCanvasParticleFieldOptions,

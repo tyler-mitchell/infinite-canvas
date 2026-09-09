@@ -378,9 +378,22 @@ heading means nobody has classified it yet, not that it is open.
   The question change moved revision 6 to 7 and finished.
   The title remained, and no rejection occurred.
 
-  A failed rename still has no visible signal.
-  `renameProjectItem` returns synchronously, so a later rejection has no result channel.
-  This behavior produced an unhandled rejection before the correction and still does.
+  **Corrected on 2026-09-09.** A failed rename had no visible signal, and the reason given here was
+  half wrong. The result channel existed: `renameProjectItem` returns a refusal string, and
+  `content.rename` returns it straight out of `run`, which `getAppActionTools` already awaits. What
+  was missing was that the write's own failure never reached that channel.
+
+  The write is now awaited and a rejection returns down it. The listing and the window title move
+  after storage confirms rather than before, which is what removes the divergence: the old code
+  named the screen first, so a lost revision conflict left a title on screen that storage did not
+  have, and the only signal was an unhandled rejection.
+
+  The first attempt at this added an optimistic update plus a revert plus a warning. The revert
+  only existed to undo the optimism, so removing the optimism deleted all three. The awaited
+  version is shorter than the code it replaced.
+
+  One case stays silent. A note rename goes through `renameNote`, whose writer returns null because
+  the note store owns its own queue and revision, so no rejection reaches this path for a note.
 
 - **A mention navigates to its target note.**
   From its first implementation, the chip used `cursor-pointer` and wrote `data-note-id`.

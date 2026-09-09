@@ -6,6 +6,7 @@ export {
   createInfiniteCanvasConnectionsPass,
 } from "./compositor/passes/connections";
 export { createInfiniteCanvasContactShadowPass } from "./compositor/passes/contact-shadow";
+export { createInfiniteCanvasDropPreviewPass } from "./compositor/passes/drop-preview";
 export { createInfiniteCanvasFocusFieldPass } from "./compositor/passes/focus-field";
 export { createInfiniteCanvasGridPass } from "./compositor/passes/grid";
 export {
@@ -23,6 +24,7 @@ export {
   DEFAULT_AREA_LIGHT_OPTIONS,
   DEFAULT_CONNECTIONS_OPTIONS,
   DEFAULT_CONTACT_SHADOW_OPTIONS,
+  DEFAULT_DROP_PREVIEW_OPTIONS,
   DEFAULT_FOCUS_FIELD_OPTIONS,
   DEFAULT_GRID_OPTIONS,
   DEFAULT_INFINITE_CANVAS_COMPOSITOR,

@@ -41,15 +41,17 @@ const TITLE_WRITERS: Readonly<Record<string, TitleWriter>> = {
   },
 };
 
-// A rename updates storage, the project listing, and the open window.
-const renameProjectItem = (
+// A rename updates storage, then the project listing and the open window.
+// The refusal string is the one result channel: `content.rename` returns it to
+// its caller, and a write that storage rejects comes back the same way.
+const renameProjectItem = async (
   input: Readonly<{
     actions: InfiniteCanvasCommands<WindowKind>;
     item: ContentItemRecord;
     state: InfiniteCanvasState<WindowKind>;
     title: string;
   }>,
-): string | undefined => {
+): Promise<string | undefined> => {
   const next = input.title.trim();
 
   if (next === "") {
@@ -68,11 +70,21 @@ const renameProjectItem = (
 
   const saved = write(input.item, next);
 
-  setProjectItemTitle({ itemId: input.item.id, title: next });
   // Direct writers return a revision. The note store updates its own.
-  void saved?.then((record) => {
-    setProjectItemRevision(record.id, record.revision);
-  });
+  if (saved !== null) {
+    try {
+      const record = await saved;
+
+      setProjectItemRevision(record.id, record.revision);
+    } catch (error) {
+      // Storage refused, most often on a revision conflict. Naming the screen
+      // first would leave it showing a title storage does not have, which is
+      // what made a lost rename look like a successful one.
+      return `Refused: the rename did not save. ${String(error)}`;
+    }
+  }
+
+  setProjectItemTitle({ itemId: input.item.id, title: next });
 
   const windowId = input.state.windows.find(
     (window) => getContentWindowItemId(window) === input.item.id,

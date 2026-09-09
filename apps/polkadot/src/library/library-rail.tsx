@@ -278,7 +278,7 @@ export function LibraryRail({
 
     editing$.set(null);
 
-    renameProjectItem({ actions, item: note, state, title: next });
+    void renameProjectItem({ actions, item: note, state, title: next });
   };
 
   const create = async () => {

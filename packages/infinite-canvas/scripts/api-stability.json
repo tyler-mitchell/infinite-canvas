@@ -96,6 +96,7 @@
     "scene:compositor/backend/surface": "compositor \u2014 the surface that owns the frame.",
     "scene:compositor/passes/connections": "compositor — the edges of the connections slice, one instanced quad each.",
     "scene:compositor/passes/contact-shadow": "compositor — the shadow below each window.",
+    "scene:compositor/passes/drop-preview": "compositor — the ghost rect where a dragged payload will land.",
     "scene:compositor/passes/focus-field": "compositor \u2014 the attention field around the active window.",
     "scene:compositor/passes/area-light": "compositor \u2014 the medium lit by each window as a rectangular area light.",
     "scene:compositor/passes/grid": "compositor — the grid of the medium, drawn in world space.",

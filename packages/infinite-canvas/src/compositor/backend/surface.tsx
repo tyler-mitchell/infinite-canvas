@@ -37,6 +37,7 @@ import { DEFAULT_INFINITE_CANVAS_COMPOSITOR, type InfiniteCanvasCompositorPolicy
 import { createInfiniteCanvasAreaLightPass } from "../passes/area-light";
 import { createInfiniteCanvasConnectionsPass } from "../passes/connections";
 import { createInfiniteCanvasContactShadowPass } from "../passes/contact-shadow";
+import { createInfiniteCanvasDropPreviewPass } from "../passes/drop-preview";
 import { createInfiniteCanvasFocusFieldPass } from "../passes/focus-field";
 import { createInfiniteCanvasGridPass } from "../passes/grid";
 import { createInfiniteCanvasParticleFieldPass } from "../passes/particle-field";
@@ -76,6 +77,9 @@ function getFrameworkPasses<Kind extends string, Payload>(
     ...(policy.connections === false
       ? []
       : [createInfiniteCanvasConnectionsPass<Kind, Payload>(policy.connections)]),
+    ...(policy.dropPreview === false
+      ? []
+      : [createInfiniteCanvasDropPreviewPass<Kind, Payload>(policy.dropPreview)]),
     ...(policy.particleField === false
       ? []
       : [createInfiniteCanvasParticleFieldPass<Kind, Payload>(policy.particleField)]),

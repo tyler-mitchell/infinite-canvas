@@ -1,4 +1,8 @@
-import { getInfiniteCanvasContentWorldRect, getInfiniteCanvasOccluderWorldRects } from "./geometry";
+import {
+  getInfiniteCanvasContentWorldRect,
+  getInfiniteCanvasOccluderWorldRects,
+  unionRects,
+} from "./geometry";
 import type {
   InfiniteCanvasRect,
   InfiniteCanvasSize,
@@ -121,20 +125,17 @@ function getInfiniteCanvasVacantRect(
   });
   // Rank candidates from the nearest reachable position.
   const preferred = containedRect(requested);
-  // Include the gap when measuring occupied area.
-  const coveredArea = (candidate: InfiniteCanvasRect) =>
-    occupied.reduce((total, taken) => {
-      const width =
-        Math.min(candidate.x + candidate.width + gapPx, taken.x + taken.width) -
-        Math.max(candidate.x - gapPx, taken.x);
-      const height =
-        Math.min(candidate.y + candidate.height + gapPx, taken.y + taken.height) -
-        Math.max(candidate.y - gapPx, taken.y);
+  // The gap counts as occupied, so neighbours never touch.
+  const isClear = (candidate: InfiniteCanvasRect) =>
+    !occupied.some(
+      (taken) =>
+        Math.min(candidate.x + candidate.width + gapPx, taken.x + taken.width) >
+          Math.max(candidate.x - gapPx, taken.x) &&
+        Math.min(candidate.y + candidate.height + gapPx, taken.y + taken.height) >
+          Math.max(candidate.y - gapPx, taken.y),
+    );
 
-      return total + (width > 0 && height > 0 ? width * height : 0);
-    }, 0);
-
-  if (coveredArea(preferred) === 0) {
+  if (isClear(preferred)) {
     return preferred;
   }
 
@@ -158,14 +159,22 @@ function getInfiniteCanvasVacantRect(
       ((right.x - preferred.x) ** 2 + (right.y - preferred.y) ** 2),
   );
 
-  // Take the nearest clear spot. Nothing clear within reach leaves the preferred one.
-  return (
-    candidates.find((candidate) => coveredArea(candidate) === 0) ??
-    candidates.reduce(
-      (best, candidate) => (coveredArea(candidate) < coveredArea(best) ? candidate : best),
-      preferred,
-    )
-  );
+  const clear = candidates.find(isClear);
+
+  if (clear !== undefined) {
+    return clear;
+  }
+
+  /*
+   * Nothing clear within reach means the neighbourhood is full, which is a reason to look further
+   * out and never a reason to stack. Past the bottom of everything occupied is clear at any x, so
+   * the search always ends on a free spot instead of the least-bad overlap.
+   */
+  const occupiedBounds = unionRects(occupied);
+
+  return occupiedBounds === null
+    ? preferred
+    : { ...preferred, y: occupiedBounds.y + occupiedBounds.height + gapPx };
 }
 
 /**
