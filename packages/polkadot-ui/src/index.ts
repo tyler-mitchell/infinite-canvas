@@ -18,6 +18,7 @@ export {
   type ActivityDay,
   type ActivityGridProps,
 } from "./components/activity-grid.tsx";
+export { Aurora, auroraVariants, type AuroraProps } from "./components/aurora.tsx";
 export { Avatar, avatarVariants, type AvatarProps } from "./components/avatar.tsx";
 export { Badge, badgeVariants, type BadgeProps } from "./components/badge.tsx";
 export { Bars, barsVariants, type BarsProps } from "./components/bars.tsx";
@@ -54,6 +55,7 @@ export {
   type DialogTriggerProps,
 } from "./components/dialog.tsx";
 export { IconTile, iconTileVariants, type IconTileProps } from "./components/icon-tile.tsx";
+export { ListItem, listItemVariants, type ListItemProps } from "./components/list-item.tsx";
 export {
   Menu,
   MenuContent,
@@ -103,7 +105,22 @@ export {
   type ReceiptLineProps,
   type ReceiptProps,
 } from "./components/receipt.tsx";
+export {
+  ContactCard,
+  contactCardVariants,
+  type ContactCardProps,
+} from "./components/contact-card.tsx";
+export {
+  PendingCard,
+  pendingCardVariants,
+  type PendingCardProps,
+} from "./components/pending-card.tsx";
 export { Row, rowVariants, type RowProps } from "./components/row.tsx";
+export {
+  WeatherCard,
+  weatherCardVariants,
+  type WeatherCardProps,
+} from "./components/weather-card.tsx";
 export { Separator, separatorVariants, type SeparatorProps } from "./components/separator.tsx";
 export { Sparkline, sparklineVariants, type SparklineProps } from "./components/sparkline.tsx";
 export { Stat, statVariants, type StatProps } from "./components/stat.tsx";

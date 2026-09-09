@@ -61,6 +61,13 @@ export const LEVELS = [
 
 export const CATEGORIES = ["stack", "work", "words", "life"] as const;
 
+export const BUILDING = [
+  ["infinite-canvas", "2024 — now"],
+  ["surreal-inspector", "2025"],
+  ["polkadot canvas app", "2025 — now"],
+  ["compositor-poc", "2026"],
+] as const;
+
 /*
  * Each language in its own colour, the way a repository host shows them. Rounded percentages, which
  * sum to 100 here but rarely do — the bar normalises either way.

@@ -13,7 +13,8 @@ const surface = tv({
       deep: "rounded-pk-card border border-pk-line bg-pk-surface-deep shadow-pk-card",
       rim: "pk-rim rounded-[18px]",
       tile: "pk-rim-tile rounded-pk-inner",
-      pending: "rounded-pk-card border border-dashed border-pk-accent/25 bg-pk-accent/[0.02]",
+      pending:
+        "rounded-pk-card border border-dashed border-pk-pending-line bg-pk-pending-surface hover:border-pk-pending-line-hover",
       bare: "",
     },
     interactive: {

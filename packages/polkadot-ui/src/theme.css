@@ -43,6 +43,7 @@
   --pk-tile-ink: #d6dbe1;
   --pk-recess: #040505;
   --pk-tray: #08090a;
+  --pk-void: #07080a;
 
   /*
    * Hairlines. The edge is a line, never a lightness step.
@@ -92,6 +93,11 @@
   --pk-paper-ink: #2b2b28;
   --pk-paper-label: #6b6b66;
   --pk-paper-rule: #c3c0b7;
+
+  --pk-pending-surface: #0a0c0b;
+  --pk-pending-line: #26302a;
+  --pk-pending-line-hover: #7e9c8b;
+  --pk-pending-ink: #7e8b84;
 
   /* Activity scale, least to most. */
   --pk-level-0: #15181b;
@@ -305,6 +311,12 @@
     background: var(--pk-paper);
   }
 
+  .pk-noise {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)' opacity='0.06'/%3E%3C/svg%3E");
+    background-size: 140px 140px;
+    mix-blend-mode: overlay;
+  }
+
   .pk-face {
     background: var(--pk-surface-face);
   }
@@ -450,6 +462,11 @@
   --color-pk-surface-inner: var(--pk-surface-inner);
   --color-pk-recess: var(--pk-recess);
   --color-pk-tray: var(--pk-tray);
+  --color-pk-void: var(--pk-void);
+  --color-pk-pending-surface: var(--pk-pending-surface);
+  --color-pk-pending-line: var(--pk-pending-line);
+  --color-pk-pending-line-hover: var(--pk-pending-line-hover);
+  --color-pk-pending-ink: var(--pk-pending-ink);
 
   --color-pk-line: var(--pk-line);
   --color-pk-line-hover: var(--pk-line-hover);

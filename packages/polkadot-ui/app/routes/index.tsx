@@ -3,15 +3,19 @@ import { tv } from "tailwind-variants";
 
 /* The lab imports the kit by name, so the published entry is what every page here runs on. */
 import {
+  Aurora,
   Avatar,
   Badge,
   Bars,
   Breakdown,
+  ContactCard,
   Button,
   IconTile,
   Kind,
   Label,
+  ListItem,
   Meta,
+  PendingCard,
   Prose,
   Readout,
   Receipt,
@@ -22,9 +26,10 @@ import {
   StatusDot,
   Surface,
   Title,
+  WeatherCard,
 } from "polkadot-ui";
 
-import { COMMIT_WEEKS, INSTALLS, LANGUAGES } from "../fixtures.ts";
+import { BUILDING, COMMIT_WEEKS, INSTALLS, LANGUAGES } from "../fixtures.ts";
 
 const overview = tv({
   slots: {
@@ -36,6 +41,8 @@ const overview = tv({
     widgets: "flex flex-wrap items-start gap-3",
     widget: "w-[360px] max-w-full",
     identity: "w-[360px] max-w-full",
+    aurora: "h-[190px] w-[280px] max-w-full",
+    small: "w-[236px] max-w-full",
     who: "flex flex-col gap-1.5",
     bay: "flex justify-center rounded-b-pk-tray bg-pk-tray px-4 pt-0.5 pb-4 shadow-pk-tray",
     owner: "text-pk-ink-faint",
@@ -204,6 +211,45 @@ function Overview() {
                 <Receipt.Sign>** thank you **</Receipt.Sign>
               </Receipt>
             </div>
+          </Surface>
+
+          <Aurora
+            label="light"
+            headline="Software that behaves like a place"
+            className={styles.aurora()}
+          />
+
+          <WeatherCard
+            className={styles.small()}
+            place="outside"
+            hint="tap"
+            temperature="12°"
+            conditions="clear, high plains"
+            detail="feels 9° · wind 11"
+          />
+
+          <PendingCard
+            className={styles.small()}
+            title="p%T!+?_H#$1Q +ONP"
+            body="a T!+?_H $1Q=+ONP $SYM RF=/F 4BC5 E^ R CG8## 4F1TSK P3?_3 D?2 HLK? V3ODYY=^ _9 TB# H495"
+          />
+
+          <ContactCard
+            className={styles.identity()}
+            label="say hello"
+            address="tyler@hyphened.dev"
+            note="usually replies the same day"
+          />
+
+          <Surface tone="card" padding="tight" className={styles.small()}>
+            <Row>
+              <Label>building</Label>
+            </Row>
+            {BUILDING.map(([name, span]) => (
+              <ListItem key={name} trail={span}>
+                {name}
+              </ListItem>
+            ))}
           </Surface>
         </div>
       </section>
