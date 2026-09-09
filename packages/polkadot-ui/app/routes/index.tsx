@@ -4,6 +4,9 @@ import { tv } from "tailwind-variants";
 
 import { Accordion } from "#/components/accordion.tsx";
 import { Button } from "#/components/button.tsx";
+import { Row } from "#/components/row.tsx";
+import { Surface } from "#/components/surface.tsx";
+import { Kind, Label, Meta, Prose, Readout, Title } from "#/components/text.tsx";
 import { Collapsible } from "#/components/collapsible.tsx";
 import { Dialog } from "#/components/dialog.tsx";
 import { Menu } from "#/components/menu.tsx";
@@ -31,6 +34,7 @@ const showcase = tv({
     control: "max-w-[260px]",
     scroller: "h-[92px] max-w-[360px] rounded-pk-card border border-pk-line bg-pk-surface p-3",
     scrollBody: "flex flex-col gap-2",
+    grid: "grid grid-cols-[repeat(auto-fill,minmax(230px,1fr))] gap-3",
     writing: "max-w-[520px]",
   },
 });
@@ -76,6 +80,45 @@ function Showcase() {
     <div className={styles.page()}>
       <h1 className={styles.heading()}>polkadot-ui</h1>
       <p className={styles.caption()}>base ui primitives · tailwind-variants slots</p>
+
+      <section className={styles.section()}>
+        <p className={styles.label()}>surface · row · vocabulary</p>
+        <div className={styles.grid()}>
+          <Surface tone="card">
+            <Row>
+              <Label>frame budget</Label>
+              <Readout>8.2 ms</Readout>
+            </Row>
+            <Prose>A label names a section. A readout announces, because it changes.</Prose>
+          </Surface>
+
+          <Surface tone="card">
+            <Row align="start">
+              <Kind>gist</Kind>
+              <Meta>04</Meta>
+            </Row>
+            <Title>field-shader.wgsl</Title>
+            <Row rule="above">
+              <Meta>82 lines · wgsl</Meta>
+              <Meta>sent by @jane</Meta>
+            </Row>
+          </Surface>
+
+          <Surface tone="rim" padding="roomy">
+            <Row>
+              <Label>hover me</Label>
+            </Row>
+            <Title>rim</Title>
+          </Surface>
+
+          <Surface tone="pending">
+            <Row align="start">
+              <Kind>soon</Kind>
+            </Row>
+            <Prose>A dashed edge says unbuilt. It should not read as a card.</Prose>
+          </Surface>
+        </div>
+      </section>
 
       <section className={styles.section()}>
         <p className={styles.label()}>button</p>

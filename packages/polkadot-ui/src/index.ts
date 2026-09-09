@@ -59,7 +59,20 @@ export {
   type PopoverProps,
 } from "./components/popover.tsx";
 export { ScrollArea, scrollAreaVariants, type ScrollAreaProps } from "./components/scroll-area.tsx";
+export { Row, rowVariants, type RowProps } from "./components/row.tsx";
 export { Separator, separatorVariants, type SeparatorProps } from "./components/separator.tsx";
+export { Surface, surfaceVariants, type SurfaceProps } from "./components/surface.tsx";
+export {
+  Kind,
+  Label,
+  Meta,
+  Prose,
+  Readout,
+  Title,
+  textVariants,
+  type ReadoutProps,
+  type TextProps,
+} from "./components/text.tsx";
 export { Slider, sliderVariants, type SliderProps } from "./components/slider.tsx";
 export { Switch, switchVariants, type SwitchProps } from "./components/switch.tsx";
 export {
