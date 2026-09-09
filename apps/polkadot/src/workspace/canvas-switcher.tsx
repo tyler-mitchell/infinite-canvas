@@ -35,14 +35,16 @@ import { useGoToCanvas } from "./use-go-to-canvas";
 const canvasSwitcher = tv({
   slots: {
     chevron:
-      "size-3 text-[var(--ink-faint)] transition-transform duration-150 ease-[var(--ease-swift)] group-data-popup-open/switcher:rotate-180",
+      "size-3 shrink-0 text-[var(--ink-faint)] transition-transform duration-150 ease-[var(--ease-swift)] group-data-popup-open/switcher:rotate-180",
     empty: "px-1.5 py-1 text-[12px] text-[var(--ink-faint)]",
     itemWhen: "ml-auto pl-3 text-[10.5px] text-[var(--ink-faint)] tabular-nums",
     input:
       "w-40 rounded-md bg-[var(--ground-sunken)] px-1.5 py-0.5 text-[13px] font-medium tracking-[-0.01em] text-[var(--ink)] outline-none inset-ring-1 inset-ring-[var(--accent)]",
     itemTitle: "truncate",
     trigger:
-      "group/switcher flex items-center gap-1.5 rounded-md px-1.5 py-0.5 text-[13px] font-medium tracking-[-0.01em] text-[var(--ink)] transition-colors duration-150 ease-[var(--ease-swift)] outline-none hover:bg-[var(--surface-hover)] focus-visible:bg-[var(--surface-hover)] data-popup-open:bg-[var(--surface-hover)]",
+      "group/switcher flex min-w-0 items-center gap-1.5 rounded-md px-1.5 py-0.5 text-[13px] font-medium tracking-[-0.01em] text-[var(--ink)] transition-colors duration-150 ease-[var(--ease-swift)] outline-none hover:bg-[var(--surface-hover)] focus-visible:bg-[var(--surface-hover)] data-popup-open:bg-[var(--surface-hover)]",
+    // A canvas title is the one arbitrary-length string in the rail, so it takes the squeeze.
+    triggerTitle: "truncate",
   },
 });
 
@@ -116,7 +118,7 @@ export function CanvasSwitcher({
             event.stopPropagation();
           }}
         >
-          {title}
+          <span className={styles.triggerTitle()}>{title}</span>
           <ChevronDown className={styles.chevron()} />
         </DropdownMenuTrigger>
         <DropdownMenuContent>
