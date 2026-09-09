@@ -1,11 +1,19 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { tv } from "tailwind-variants";
 
-import { ActivityGrid } from "#/components/activity-grid.tsx";
-import { Bars, barsVariants } from "#/components/bars.tsx";
-import { Row } from "#/components/row.tsx";
-import { Surface } from "#/components/surface.tsx";
-import { Kind, Label, Meta, Prose, Readout, Title } from "#/components/text.tsx";
+import {
+  ActivityGrid,
+  Bars,
+  barsVariants,
+  Kind,
+  Label,
+  Meta,
+  Prose,
+  Readout,
+  Row,
+  Surface,
+  Title,
+} from "polkadot-ui";
 
 import { Api } from "../api.tsx";
 import { ACTIVITY, INSTALLS, LEVELS } from "../fixtures.ts";

@@ -7,9 +7,6 @@
   "sideEffects": [
     "**/*.css"
   ],
-  "imports": {
-    "#/*": "./src/*"
-  },
   "exports": {
     ".": "./src/index.ts",
     "./theme.css": "./src/theme.css",

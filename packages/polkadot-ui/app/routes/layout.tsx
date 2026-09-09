@@ -1,14 +1,24 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { tv } from "tailwind-variants";
 
-import { Button } from "#/components/button.tsx";
-import { IconTile, iconTileVariants } from "#/components/icon-tile.tsx";
-import { Row, rowVariants } from "#/components/row.tsx";
-import { ScrollArea } from "#/components/scroll-area.tsx";
-import { Separator } from "#/components/separator.tsx";
-import { Surface, surfaceVariants } from "#/components/surface.tsx";
-import { Kind, Label, Meta, Prose, Readout, Title } from "#/components/text.tsx";
-import { Toolbar } from "#/components/toolbar.tsx";
+import {
+  Button,
+  IconTile,
+  iconTileVariants,
+  Kind,
+  Label,
+  Meta,
+  Prose,
+  Readout,
+  Row,
+  rowVariants,
+  ScrollArea,
+  Separator,
+  Surface,
+  surfaceVariants,
+  Title,
+  Toolbar,
+} from "polkadot-ui";
 
 import { Api } from "../api.tsx";
 import { COMMITS } from "../fixtures.ts";

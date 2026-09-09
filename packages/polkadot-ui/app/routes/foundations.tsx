@@ -1,10 +1,17 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { tv } from "tailwind-variants";
 
-import { Row } from "#/components/row.tsx";
-import { Separator } from "#/components/separator.tsx";
-import { Surface } from "#/components/surface.tsx";
-import { Kind, Label, Meta, Prose, textVariants, Title } from "#/components/text.tsx";
+import {
+  Kind,
+  Label,
+  Meta,
+  Prose,
+  Row,
+  Separator,
+  Surface,
+  textVariants,
+  Title,
+} from "polkadot-ui";
 
 import { Api } from "../api.tsx";
 

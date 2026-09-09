@@ -1,13 +1,21 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { tv } from "tailwind-variants";
 
-import { Bars } from "#/components/bars.tsx";
-import { Button } from "#/components/button.tsx";
-import { IconTile } from "#/components/icon-tile.tsx";
-import { Row } from "#/components/row.tsx";
-import { Separator } from "#/components/separator.tsx";
-import { Surface } from "#/components/surface.tsx";
-import { Kind, Label, Meta, Prose, Readout, Title } from "#/components/text.tsx";
+/* The lab imports the kit by name, so the published entry is what every page here runs on. */
+import {
+  Bars,
+  Button,
+  IconTile,
+  Kind,
+  Label,
+  Meta,
+  Prose,
+  Readout,
+  Row,
+  Separator,
+  Surface,
+  Title,
+} from "polkadot-ui";
 
 import { INSTALLS } from "../fixtures.ts";
 

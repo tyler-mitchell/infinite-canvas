@@ -1,6 +1,6 @@
 import { tv } from "tailwind-variants";
 
-import { Label, Meta } from "#/components/text.tsx";
+import { Label, Meta } from "polkadot-ui";
 
 /*
  * The props table, read off the component's own `tv` object rather than written out beside it.

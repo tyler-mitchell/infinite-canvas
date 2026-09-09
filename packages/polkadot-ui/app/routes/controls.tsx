@@ -2,13 +2,20 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { tv } from "tailwind-variants";
 
-import { Button, buttonVariants } from "#/components/button.tsx";
-import { Row } from "#/components/row.tsx";
-import { Slider } from "#/components/slider.tsx";
-import { Surface } from "#/components/surface.tsx";
-import { Switch } from "#/components/switch.tsx";
-import { Kind, Label, Meta, Prose, Title } from "#/components/text.tsx";
-import { ToggleGroup } from "#/components/toggle-group.tsx";
+import {
+  Button,
+  buttonVariants,
+  Kind,
+  Label,
+  Meta,
+  Prose,
+  Row,
+  Slider,
+  Surface,
+  Switch,
+  Title,
+  ToggleGroup,
+} from "polkadot-ui";
 
 import { Api } from "../api.tsx";
 import { CATEGORIES } from "../fixtures.ts";

@@ -1,8 +1,7 @@
 import { createRootRoute, Link, Outlet } from "@tanstack/react-router";
 import { tv } from "tailwind-variants";
 
-import { ScrollArea } from "#/components/scroll-area.tsx";
-import { Kind, Meta, Title } from "#/components/text.tsx";
+import { Kind, Meta, ScrollArea, Title } from "polkadot-ui";
 
 /*
  * The rail is a `<nav>` of router links, not a Base UI NavigationMenu: that primitive is a

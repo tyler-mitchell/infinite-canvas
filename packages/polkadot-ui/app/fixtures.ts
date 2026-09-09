@@ -1,4 +1,4 @@
-import type { ActivityDay } from "#/components/activity-grid.tsx";
+import type { ActivityDay } from "polkadot-ui";
 
 /* Sample content for the pages. Plausible values, because a kit judged on placeholder text lies. */
 

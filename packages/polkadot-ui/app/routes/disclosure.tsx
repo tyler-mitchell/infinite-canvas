@@ -1,12 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { tv } from "tailwind-variants";
 
-import { Accordion } from "#/components/accordion.tsx";
-import { Collapsible } from "#/components/collapsible.tsx";
-import { Row } from "#/components/row.tsx";
-import { Surface } from "#/components/surface.tsx";
-import { Tabs } from "#/components/tabs.tsx";
-import { Kind, Meta, Prose, Title } from "#/components/text.tsx";
+import { Accordion, Collapsible, Kind, Meta, Prose, Row, Surface, Tabs, Title } from "polkadot-ui";
 
 import { WRITING } from "../fixtures.ts";
 
