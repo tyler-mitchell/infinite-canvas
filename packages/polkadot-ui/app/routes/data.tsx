@@ -16,7 +16,10 @@ import {
 } from "polkadot-ui";
 
 import { Api } from "../api.tsx";
-import { ACTIVITY, INSTALLS, LEVELS, READING } from "../fixtures.ts";
+import { ACTIVITY, INSTALLS, INSTALLS_SMALL, LEVELS, READING } from "../fixtures.ts";
+
+/* Both charts below are the same metric, so both are drawn against the larger one's peak. */
+const INSTALL_CEILING = Math.max(...INSTALLS);
 
 const data = tv({
   slots: {
@@ -127,6 +130,43 @@ function Data() {
           </Surface>
         </div>
         <Api of={barsVariants} />
+      </section>
+
+      <section className={styles.section()}>
+        <Row rule="below">
+          <Kind>one scale</Kind>
+          <Meta>two series · one ceiling</Meta>
+        </Row>
+        <div className={styles.grid()}>
+          <Surface tone="card">
+            <Row>
+              <Label>polkadot-ui</Label>
+              <Readout>4,182</Readout>
+            </Row>
+            <div className={styles.barBox()}>
+              <Bars values={INSTALLS} max={INSTALL_CEILING} label="weekly installs, polkadot-ui" />
+            </div>
+          </Surface>
+          <Surface tone="card">
+            <Row>
+              <Label>polkadot-icons</Label>
+              <Readout>510</Readout>
+            </Row>
+            <div className={styles.barBox()}>
+              <Bars
+                values={INSTALLS_SMALL}
+                max={INSTALL_CEILING}
+                label="weekly installs, polkadot-icons"
+              />
+            </div>
+          </Surface>
+        </div>
+        <Prose className={styles.lede()}>
+          Bars scale to their own tallest value unless told otherwise, which is right for a lone
+          chart and wrong for a pair. Without a shared ceiling the smaller package would draw
+          exactly the same shape as the larger, and the comparison a reader takes from the page
+          would be false.
+        </Prose>
       </section>
 
       <section className={styles.section()}>

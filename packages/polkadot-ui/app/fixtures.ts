@@ -51,6 +51,10 @@ export const READING: ActivityDay[] = ACTIVITY.map(({ date, count }) => ({
 
 export const INSTALLS = [1420, 1880, 1310, 2410, 2150, 2860, 1980, 4182] as const;
 
+/* The same metric for a smaller package. Read beside INSTALLS, the two only mean anything on one
+ * scale — left to scale themselves, a peak of 510 draws exactly as tall as a peak of 4,182. */
+export const INSTALLS_SMALL = [210, 260, 180, 340, 300, 420, 380, 510] as const;
+
 export const LEVELS = [
   0.3, 0.7, 0.45, 0.9, 0.62, 0.35, 0.78, 0.55, 0.42, 0.88, 0.6, 0.29, 0.71, 0.5, 0.83, 0.38,
 ] as const;
