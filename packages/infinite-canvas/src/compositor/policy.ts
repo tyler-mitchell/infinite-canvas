@@ -239,6 +239,22 @@ function resolvePassOptions<Options extends object>(
   return input === true ? defaults : { ...defaults, ...input };
 }
 
+/**
+ * Whether anything the framework owns will paint above the window plane.
+ *
+ * The viewport mounts the overlay surface only when something will draw in it, and it cannot ask
+ * the compositor directly without pulling the GPU stack into the main entry. This answers from the
+ * policy, which has no GPU import.
+ *
+ * The drop preview is the only such pass, and it draws from a placement that `dropPolicy` resolves.
+ * Without one it can never draw, so a canvas that takes no drops keeps a single surface.
+ */
+function hasInfiniteCanvasOverlayPass(
+  input: Readonly<{ hasDropPolicy: boolean; policy: InfiniteCanvasCompositorPolicy }>,
+): boolean {
+  return input.hasDropPolicy && input.policy.dropPreview !== false;
+}
+
 function resolveInfiniteCanvasCompositorPolicy(
   input?: InfiniteCanvasCompositorPolicyInput,
 ): InfiniteCanvasCompositorPolicy {
@@ -286,6 +302,7 @@ export {
   DEFAULT_INFINITE_CANVAS_COMPOSITOR,
   DEFAULT_PARTICLE_FIELD_OPTIONS,
   DEFAULT_PROXIMITY_OPTIONS,
+  hasInfiniteCanvasOverlayPass,
   resolveInfiniteCanvasCompositorPolicy,
 };
 export type {

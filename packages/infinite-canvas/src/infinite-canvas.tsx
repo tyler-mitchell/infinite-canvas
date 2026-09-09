@@ -27,6 +27,7 @@ import { getInfiniteCanvasWorkspaceWindowIds } from "./workspace";
 import type { InfiniteCanvasScenePass } from "./compositor/pass";
 import {
   DEFAULT_INFINITE_CANVAS_COMPOSITOR,
+  hasInfiniteCanvasOverlayPass,
   resolveInfiniteCanvasCompositorPolicy,
   type InfiniteCanvasCompositorPolicy,
   type InfiniteCanvasCompositorPolicyInput,
@@ -1640,9 +1641,15 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
               windowDefinitions={windowDefinitions}
               zIndex={WINDOW_LAYER_Z_INDEX}
             />
-            {SceneSurface === undefined || overlaySceneLayers.length === 0 ? null : (
+            {SceneSurface === undefined ||
+            (overlaySceneLayers.length === 0 &&
+              !hasInfiniteCanvasOverlayPass({
+                hasDropPolicy: dropPolicy !== undefined,
+                policy: compositor,
+              })) ? null : (
               <SceneSurface
                 chrome={chrome}
+                compositor={compositor}
                 devicePixelRatio={devicePixelRatio}
                 diagnostics={diagnostics}
                 dropInteraction={dropInteraction}

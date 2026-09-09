@@ -55,16 +55,18 @@ const MAX_STEP_SECONDS = 1 / 20;
 /** One shared empty list for list defaults. A new array per render would rebuild every pipeline. */
 const EMPTY_LIST: readonly never[] = [];
 
-/** The passes the policy enables for the underlay. Consumer passes follow these. */
+/**
+ * The passes the policy enables for one placement. Consumer passes follow these.
+ *
+ * Each pass states its own placement, so the drop preview reaches the overlay and paints over the
+ * window plane rather than under it. Filtering here rather than returning nothing for the overlay
+ * is what keeps that true.
+ */
 function getFrameworkPasses<Kind extends string, Payload>(
   placement: InfiniteCanvasSceneLayerPlacement,
   policy: InfiniteCanvasCompositorPolicy,
 ): readonly InfiniteCanvasScenePass<Kind, Payload>[] {
-  if (placement !== "underlay") {
-    return [];
-  }
-
-  return [
+  const passes: readonly InfiniteCanvasScenePass<Kind, Payload>[] = [
     // The grid is the floor of the medium, so it paints before anything on it.
     ...(policy.grid === false ? [] : [createInfiniteCanvasGridPass<Kind, Payload>(policy.grid)]),
     ...(policy.areaLight === false
@@ -90,6 +92,8 @@ function getFrameworkPasses<Kind extends string, Payload>(
       ? []
       : [createInfiniteCanvasProximityPass<Kind, Payload>(policy.proximity)]),
   ];
+
+  return passes.filter((pass) => (pass.placement ?? "underlay") === placement);
 }
 
 /**
