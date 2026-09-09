@@ -148,10 +148,25 @@ function ActivityGrid({
     });
   }, [columns, cellSize]);
 
+  /*
+   * One sentence standing in for the whole plot.
+   *
+   * This was `role="grid"` over 182 `gridcell`s and no `row` between them, which ARIA does not
+   * allow and no cell was focusable, so nothing could navigate what the markup claimed. It is a
+   * chart, so it says so once and the readout below announces each day as the cursor moves.
+   */
+  const summary = useMemo(() => {
+    const shown = columns.filter((day) => day !== null);
+    const first = shown[0]?.date.toDateString();
+    const last = shown.at(-1)?.date.toDateString();
+    const total = shown.reduce((sum, day) => sum + day.count, 0);
+    return `${shown.length} days, ${first} to ${last}, ${total} in total`;
+  }, [columns]);
+
   return (
     <div
       data-slot="activity-grid"
-      role="grid"
+      role="group"
       aria-label="Activity"
       tabIndex={0}
       ref={setRoot}
@@ -161,6 +176,8 @@ function ActivityGrid({
       {...props}
     >
       <div
+        role="img"
+        aria-label={summary}
         className={styles.body()}
         style={{
           gridTemplateColumns: `${WEEKDAY_COLUMN}px minmax(0, 1fr)`,
@@ -193,12 +210,12 @@ function ActivityGrid({
         >
           {columns.map((day, index) =>
             day ? (
+              /* No role or label: inside the chart above, so the readout is what speaks. */
               <div
                 key={index}
-                role="gridcell"
+                data-slot="activity-day"
                 data-index={index}
                 data-hot={cursor === index ? "" : undefined}
-                aria-label={`${day.count} on ${day.date.toDateString()}`}
                 className={`${styles.cell()} ${LEVEL_CLASS[level(day.count)]}`}
               />
             ) : (
