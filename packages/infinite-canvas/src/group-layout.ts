@@ -1,3 +1,4 @@
+import { clamp } from "./geometry";
 import {
   getInfiniteCanvasGroupChildWeightSum,
   isInfiniteCanvasGroupContainer,
@@ -336,10 +337,6 @@ function getInfiniteCanvasGroupDockEdgeAtPoint(
 
 /** Minimum adjacent-pane share during a gutter drag. */
 const MINIMUM_GROUP_PANE_SHARE = 0.02;
-
-function clamp(value: number, minimum: number, maximum: number): number {
-  return Math.min(Math.max(value, minimum), maximum);
-}
 
 /** Updates only the two panes beside a gutter from its total pointer delta. */
 function getInfiniteCanvasGroupGutterWeights(

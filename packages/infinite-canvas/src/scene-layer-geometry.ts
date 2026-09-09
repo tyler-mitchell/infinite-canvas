@@ -1,4 +1,4 @@
-import { rectsIntersect } from "./geometry";
+import { getRectCenter, rectsIntersect } from "./geometry";
 import type {
   InfiniteCanvasPoint,
   InfiniteCanvasRect,
@@ -45,13 +45,6 @@ type InfiniteCanvasSceneLayerCullingSpace = InfiniteCanvasSceneLayerSpace;
 
 function getFiniteScale(value: number) {
   return Number.isFinite(value) ? value : Number.POSITIVE_INFINITY;
-}
-
-function getRectCenter(rect: InfiniteCanvasRect): InfiniteCanvasPoint {
-  return {
-    x: rect.x + rect.width / 2,
-    y: rect.y + rect.height / 2,
-  };
 }
 
 function getInfiniteCanvasRectConnectorPoint(

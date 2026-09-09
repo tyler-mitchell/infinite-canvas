@@ -1,3 +1,4 @@
+import { rectContainsPoint } from "./geometry";
 import { getInfiniteCanvasVacantRect } from "./window-placement";
 import {
   DEFAULT_INFINITE_CANVAS_GROUP_METRICS,
@@ -654,15 +655,6 @@ function getInfiniteCanvasDockRegionRect(
     case "west":
       return { height: rect.height, width: halfWidth, x: rect.x, y: rect.y };
   }
-}
-
-function rectContainsPoint(rect: InfiniteCanvasRect, point: InfiniteCanvasPoint): boolean {
-  return (
-    point.x >= rect.x &&
-    point.y >= rect.y &&
-    point.x <= rect.x + rect.width &&
-    point.y <= rect.y + rect.height
-  );
 }
 
 /** Finds the topmost valid dock target and returns its preview. */
