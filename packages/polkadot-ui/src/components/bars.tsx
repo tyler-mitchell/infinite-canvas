@@ -1,20 +1,10 @@
-import { tv, type VariantProps } from "tailwind-variants";
+import type { VariantProps } from "tailwind-variants";
 
-/**
- * A series as a row of bars.
- *
- * Counted in the design POC: 24 bar children across two widgets — a level meter and a weekly
- * install count — with the same shape each time. Equal widths, heights as a share of the tallest,
- * the last member emphasised. That regularity is why this is a component and the five canvas
- * instruments are not: those are five bespoke painters with nothing in common but a `<canvas>`.
- *
- * DOM rather than canvas, so a height change is a CSS transition on the compositor rather than a
- * per-frame repaint, and so the values survive a document that is not producing frames.
- */
+import { tv } from "../tv.ts";
+
 const bars = tv({
   slots: {
     root: "flex min-h-0 flex-1 items-end",
-    /* Height is inline because it is the data. Everything that is a treatment stays here. */
     bar: "flex-1 bg-pk-line-strong transition-[height] duration-(--pk-duration-detail) ease-pk-swift data-newest:bg-pk-accent",
   },
   variants: {
@@ -23,12 +13,10 @@ const bars = tv({
       default: { root: "gap-1" },
     },
     shape: {
-      /* A level meter reads as a column; an install count reads as a bar with a footing. */
       column: { bar: "rounded-[1px]" },
       bar: { bar: "rounded-t-[2px]" },
     },
     emphasis: {
-      /* The newest value is the one being reported, so it carries the accent. */
       last: {},
       none: {},
     },

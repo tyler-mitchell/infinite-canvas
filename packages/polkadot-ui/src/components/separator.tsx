@@ -1,12 +1,11 @@
 import { Separator as SeparatorPrimitive } from "@base-ui/react/separator";
-import { tv } from "tailwind-variants";
+import { tv } from "../tv.ts";
 
 const separator = tv({
   base: "flex-none bg-pk-line-inner",
   variants: {
     orientation: {
       horizontal: "h-px w-full",
-      /* `h-full` collapses to zero in a row with no set height, so stretch and keep a floor. */
       vertical: "min-h-[1em] w-px self-stretch",
     },
   },

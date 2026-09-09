@@ -1,7 +1,17 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { tv } from "tailwind-variants";
 
-import { Accordion, Collapsible, Kind, Meta, Prose, Row, Surface, Tabs, Title } from "polkadot-ui";
+import {
+  Accordion,
+  Collapsible,
+  Display,
+  Kind,
+  Meta,
+  Prose,
+  Row,
+  Surface,
+  Tabs,
+} from "polkadot-ui";
 
 import { WRITING } from "../fixtures.ts";
 
@@ -26,7 +36,7 @@ function Disclosure() {
   return (
     <div className={styles.page()}>
       <div className={styles.head()}>
-        <Title>disclosure</Title>
+        <Display>disclosure</Display>
         <Prose className={styles.lede()}>
           Base UI measures each panel and publishes its height as a CSS variable, so opening one is
           a single compositor-owned transition rather than a per-frame measurement.

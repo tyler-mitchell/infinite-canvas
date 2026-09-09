@@ -1,23 +1,16 @@
 import { Menu as MenuPrimitive } from "@base-ui/react/menu";
-import { tv } from "tailwind-variants";
+import { tv } from "../tv.ts";
 
 const menu = tv({
   slots: {
     positioner: "z-50",
     popup:
       "z-50 min-w-[168px] origin-(--transform-origin) rounded-pk-inner border border-pk-line bg-pk-surface p-1 text-pk-ink shadow-pk-card outline-none transition-[transform,opacity] duration-(--pk-duration-detail) ease-pk-swift data-ending-style:scale-[0.97] data-ending-style:opacity-0 data-starting-style:scale-[0.97] data-starting-style:opacity-0",
-    /*
-     * Highlight is Base UI's keyboard-and-pointer cursor, so hover and arrow keys land identically.
-     *
-     * The tint is alpha on the accent rather than a token of its own: `bg-pk-accent-wash` named a
-     * token this theme never defined, so it generated no CSS at all and the highlight was a text
-     * colour change on nothing.
-     */
     item: "flex cursor-pointer items-center justify-between gap-4 rounded-pk-chip px-2 py-[6px] font-pk-sans text-[12px] leading-none whitespace-nowrap text-pk-ink-muted outline-none select-none data-disabled:pointer-events-none data-disabled:opacity-40 data-highlighted:bg-pk-accent/15 data-highlighted:text-pk-ink-bright",
     groupLabel:
       "px-2 pt-2 pb-1 font-pk-sans text-[10px] leading-none font-medium tracking-[0.06em] text-pk-ink-faint uppercase",
     separator: "my-1 h-px bg-pk-line-inner",
-    shortcut: "font-pk-mono text-[10.5px] text-pk-ink-faint",
+    shortcut: "font-pk-mono text-pk-mono-sm text-pk-ink-faint",
   },
 });
 
@@ -105,7 +98,6 @@ function MenuSeparator({ className, ...props }: MenuSeparatorProps) {
   );
 }
 
-/** The keystroke beside an item. Mono, because it is a key name rather than a word. */
 function MenuShortcut({ className, ...props }: React.ComponentProps<"span">) {
   return <span data-slot="menu-shortcut" className={menu().shortcut({ className })} {...props} />;
 }

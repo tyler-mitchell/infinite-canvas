@@ -5,6 +5,7 @@ import {
   ActivityGrid,
   Bars,
   barsVariants,
+  Display,
   Kind,
   Label,
   Meta,
@@ -13,7 +14,6 @@ import {
   Row,
   Sparkline,
   Surface,
-  Title,
 } from "polkadot-ui";
 
 import { Api } from "../api.tsx";
@@ -53,7 +53,7 @@ function Data() {
   return (
     <div className={styles.page()}>
       <div className={styles.head()}>
-        <Title>readouts</Title>
+        <Display>readouts</Display>
         <Prose className={styles.lede()}>
           Values drawn in the DOM rather than a canvas, so a change is a compositor transition and
           the numbers survive a document that is not producing frames.

@@ -1,20 +1,11 @@
 import { Slider as SliderPrimitive } from "@base-ui/react/slider";
-import { tv } from "tailwind-variants";
+import { tv } from "../tv.ts";
 
 const slider = tv({
   slots: {
-    /*
-     * Each part reads its own `data-orientation`, which Base UI sets throughout. Written for one
-     * axis, a vertical slider rendered as a horizontal one — a 224 by 4 track lying on its side
-     * while every element declared itself vertical.
-     *
-     * A vertical control has no length of its own to take, so it gets a default one. Override it
-     * through `className` where a fader wants to be taller or shorter.
-     */
     root: "flex w-full flex-col gap-2.5 data-[orientation=vertical]:w-auto data-[orientation=vertical]:items-start",
     header: "flex items-baseline justify-between gap-2",
     label: "font-pk-sans text-pk-label text-pk-ink-dim",
-    /* Tabular figures, so a readout that changes under the pointer does not shift the label. */
     value: "font-pk-sans text-pk-label text-pk-ink-muted tabular-nums",
     control:
       "flex h-4 w-full cursor-pointer touch-none items-center select-none data-[orientation=vertical]:h-[120px] data-[orientation=vertical]:w-4 data-[orientation=vertical]:justify-center",
@@ -35,17 +26,8 @@ export type SliderProps = WithClassName<SliderPrimitive.Root.Props> & {
   readonly showValue?: boolean;
 };
 
-/**
- * Composed rather than exposed part by part: every slider in this kit is a labelled track with an
- * optional readout, and Base UI's parts have no other useful arrangement here.
- */
 function Slider({ label, showValue = true, className, ...props }: SliderProps) {
   const styles = slider();
-  /*
-   * One thumb per value. Base UI pairs each thumb with its own index rather than deriving them, so
-   * a single hardcoded thumb rendered a range as a reachable minimum and an invisible maximum —
-   * the readout said "24 – 68" while only one of the two could be moved.
-   */
   const values = props.value ?? props.defaultValue;
   const thumbs = Array.isArray(values) ? values.length : 1;
 

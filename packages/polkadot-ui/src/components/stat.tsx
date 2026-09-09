@@ -1,16 +1,12 @@
-import { tv, type VariantProps } from "tailwind-variants";
+import type { VariantProps } from "tailwind-variants";
 
-/*
- * A figure and what it counts.
- *
- * The figure is mono and tabular because it is a value being read, and because a row of these sits
- * still when one of them changes. The word beside it is interface, so it is sans.
- */
+import { tv } from "../tv.ts";
+
 const stat = tv({
   slots: {
-    root: "inline-flex items-baseline gap-1.5",
-    value: "font-pk-mono text-pk-mono-lg text-pk-ink-bright tabular-nums",
-    label: "font-pk-sans text-pk-meta text-pk-ink-faint",
+    root: "inline-flex items-baseline gap-[5px] whitespace-nowrap",
+    value: "font-pk-mono text-pk-mono-lg text-pk-ink tabular-nums",
+    label: "font-pk-sans text-[10.5px] leading-none text-pk-ink-dim",
   },
   variants: {
     layout: {

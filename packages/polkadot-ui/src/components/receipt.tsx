@@ -1,15 +1,7 @@
-import { tv, type VariantProps } from "tailwind-variants";
+import type { VariantProps } from "tailwind-variants";
 
-/*
- * A printed slip: cream paper, a torn bottom edge, and mono throughout because it is print.
- *
- * The theme already carried the paper ground, the dotted rule and the tear clip and nothing used
- * them. They are here now.
- *
- * Composed in parts rather than taken as one object, because no two receipts hold the same rows.
- * The paper has its own ink floor, so nothing on it may use the interface inks — those are made for
- * a dark ground and vanish on cream.
- */
+import { tv } from "../tv.ts";
+
 const receipt = tv({
   slots: {
     root: "pk-paper pk-tear flex w-full flex-col px-[13px] pt-3 pb-[18px] font-pk-mono text-pk-paper-ink shadow-[0_12px_22px_-14px_rgb(0_0_0/0.9)]",
@@ -21,7 +13,6 @@ const receipt = tv({
     name: "min-w-0 truncate text-pk-print uppercase",
     amount: "flex-none text-pk-print tabular-nums",
     note: "text-pk-print-xs text-pk-paper-label",
-    /* The bars are one flex row; each bar is a width, so the pattern is data and not an image. */
     barcode: "mt-[5px] flex h-3 items-end gap-[1.5px]",
     bar: "h-full bg-pk-paper-ink",
     action:
@@ -29,11 +20,10 @@ const receipt = tv({
     sign: "mt-[3px] self-center text-pk-print-xs tracking-[0.16em] text-pk-paper-ink uppercase",
   },
   variants: {
-    /* The total is the line the eye goes to, so it is the only one that is heavier and larger. */
     total: {
       true: {
         name: "text-pk-mono-sm font-semibold tracking-[0.05em]",
-        amount: "text-pk-mono-lg font-semibold tracking-[-0.01em]",
+        amount: "text-[12px] leading-[1.3] font-semibold tracking-[-0.01em]",
       },
       false: {},
     },

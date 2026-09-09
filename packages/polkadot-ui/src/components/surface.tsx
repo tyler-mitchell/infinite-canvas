@@ -1,13 +1,8 @@
 import { useRender } from "@base-ui/react/use-render";
-import { tv, type VariantProps } from "tailwind-variants";
+import type { VariantProps } from "tailwind-variants";
 
-/**
- * The frame a widget is made of. Tone, padding, radius, lift and hairline — and no opinion about
- * what goes inside it.
- *
- * On this ground the hairline carries every edge: surface against surface differs by roughly
- * 1.05:1, which is not a difference anyone can see.
- */
+import { tv } from "../tv.ts";
+
 const surface = tv({
   base: "box-border flex min-h-0 flex-col overflow-hidden font-pk-sans text-pk-ink",
   variants: {
@@ -16,10 +11,8 @@ const surface = tv({
       sunken:
         "rounded-pk-widget border border-pk-line bg-pk-surface-sunken shadow-[var(--pk-lift-inset),var(--pk-lift-card)]",
       deep: "rounded-pk-card border border-pk-line bg-pk-surface-deep shadow-pk-card",
-      /* A specular conic edge that sweeps on hover. Two layers of background, so it is a class. */
       rim: "pk-rim rounded-[18px]",
       tile: "pk-rim-tile rounded-pk-inner",
-      /* Unbuilt, and saying so. The dash has to clear the ground or the card reads as finished. */
       pending: "rounded-pk-card border border-dashed border-pk-accent/25 bg-pk-accent/[0.02]",
       bare: "",
     },
@@ -29,9 +22,9 @@ const surface = tv({
     },
     padding: {
       none: "",
-      tight: "gap-2 p-4",
+      tight: "gap-[10px] p-4",
       snug: "gap-[10px] p-[18px]",
-      default: "gap-3 p-5",
+      default: "gap-[10px] p-5",
       roomy: "gap-[14px] p-[22px]",
     },
   },

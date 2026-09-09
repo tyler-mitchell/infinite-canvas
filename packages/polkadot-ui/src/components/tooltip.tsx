@@ -1,15 +1,11 @@
 import { Tooltip as TooltipPrimitive } from "@base-ui/react/tooltip";
-import { tv } from "tailwind-variants";
+import { tv } from "../tv.ts";
 
 const tooltip = tv({
   slots: {
     positioner: "z-50",
-    /*
-     * Metadata, so it is set in mono. The scale-in is small on purpose: a tooltip that grows pulls
-     * the eye off what the pointer is already on.
-     */
     popup:
-      "z-50 origin-(--transform-origin) rounded-pk-chip border border-pk-line bg-pk-surface px-[9px] py-[6px] font-pk-mono text-[10.5px] leading-[1.4] text-pk-ink-muted shadow-pk-card transition-[transform,opacity] duration-(--pk-duration-detail) ease-pk-swift data-ending-style:scale-[0.97] data-ending-style:opacity-0 data-starting-style:scale-[0.97] data-starting-style:opacity-0",
+      "z-50 origin-(--transform-origin) rounded-pk-chip border border-pk-line bg-pk-surface px-[9px] py-[6px] font-pk-mono text-pk-mono-sm text-pk-ink-muted shadow-pk-card transition-[transform,opacity] duration-(--pk-duration-detail) ease-pk-swift data-ending-style:scale-[0.97] data-ending-style:opacity-0 data-starting-style:scale-[0.97] data-starting-style:opacity-0",
   },
 });
 

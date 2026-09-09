@@ -1,10 +1,9 @@
 import { useCallback, useMemo, useState, useSyncExternalStore } from "react";
-import { tv } from "tailwind-variants";
+import { tv } from "../tv.ts";
 
 const DAYS_PER_WEEK = 7;
 const MONTHS = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
 const WEEKDAYS = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"];
-/* Fixed, so the label column never participates in the measurement the plot width depends on. */
 const WEEKDAY_COLUMN = 28;
 const LABEL_GAP = 6;
 const PLOT_INSET = WEEKDAY_COLUMN + LABEL_GAP;
@@ -12,17 +11,11 @@ const PLOT_INSET = WEEKDAY_COLUMN + LABEL_GAP;
 const activityGrid = tv({
   slots: {
     root: "flex min-h-0 min-w-0 flex-1 flex-col gap-1 outline-none",
-    /*
-     * Two columns: labels, then the plot. The month strip and the cells share the plot column, so
-     * a month sits over its own week by layout. Positioning the strip against the root instead put
-     * every label a label-column to the left of the week it named.
-     */
     body: "grid min-h-0 flex-none",
     months: "relative col-start-2 row-start-1 h-3",
     month: "absolute top-0 font-pk-mono text-[9px] leading-3 whitespace-nowrap text-pk-ink-faint",
     weekdays: "col-start-1 row-start-2 grid grid-rows-7 justify-items-end",
     weekday: "font-pk-mono text-[9px] whitespace-nowrap text-pk-ink-faint",
-    /* Columns are weeks, rows are weekdays. Grid owns the pitch, so nothing computes offsets. */
     grid: "col-start-2 row-start-2 grid min-w-0 grid-flow-col grid-rows-7",
     cell: "rounded-[3px] transition-transform duration-(--pk-duration-hover) ease-pk-swift data-hot:scale-125 data-hot:ring-1 data-hot:ring-pk-ink-bright/70",
     footer: "flex flex-none items-center justify-between gap-2",
@@ -31,7 +24,6 @@ const activityGrid = tv({
   },
 });
 
-/** Least to most. Zero carries an inset hairline so an empty day is a mark, not a hole. */
 const LEVEL_CLASS = [
   "bg-pk-level-0 shadow-[inset_0_0_0_1px_rgb(255_255_255/0.045)]",
   "bg-pk-level-1",
@@ -45,29 +37,17 @@ export interface ActivityDay {
   readonly count: number;
 }
 
-/**
- * Lower bounds for levels one to four. A day below the first is level zero.
- *
- * These fit commits per day, which is the only series the design ever showed. Any other series —
- * minutes read, degrees, messages — buckets into one colour against them, so they are a default
- * and not a rule.
- */
+/** Lower bounds for levels one to four. Suits commits per day. */
 const DEFAULT_THRESHOLDS: readonly number[] = [1, 3, 6, 10];
 
-/* Counting the bounds a value clears, rather than a ladder of ternaries that hard-codes four. */
 const level = (count: number, thresholds: readonly number[] = DEFAULT_THRESHOLDS) =>
   thresholds.filter((bound) => count >= bound).length;
 
-/**
- * How many whole weeks fit at a cell size a pointer can actually hit.
- *
- * The design's key call: drop history before shrinking cells. A four-pixel cell nobody can click is
- * worse than six honest months, so width chooses the week count and never the cell size.
- */
+/** Whole weeks that fit at a cell size a pointer can hit. Drops history, never the cell size. */
 const weeksThatFit = (width: number, cell: number, gap: number, wanted: number) =>
   width <= 0 ? wanted : Math.max(6, Math.min(wanted, Math.floor((width + gap) / (cell + gap))));
 
-/** Trailing `weeks` columns, with the first column padded so every column starts on a Sunday. */
+/** Trailing `weeks` columns, first column padded so every column starts on a Sunday. */
 const toColumns = (days: readonly ActivityDay[], weeks: number) => {
   const slots = weeks * DAYS_PER_WEEK;
   const taken = days.slice(-slots);
@@ -97,10 +77,7 @@ export interface ActivityGridProps extends Omit<React.ComponentProps<"div">, "ch
   /** Weeks to show when they fit. Fewer are shown rather than smaller cells. */
   readonly weeks?: number;
   readonly cellSize?: number;
-  /**
-   * Lower bounds for levels one to four. Defaults suit commits per day; a series with another
-   * shape needs its own, or every value lands in one colour.
-   */
+  /** Lower bounds for levels one to four. Defaults suit commits per day. */
   readonly thresholds?: readonly number[];
   /** Rendered beside the legend; receives the focused day, or `undefined` when nothing is. */
   readonly children?: (day: ActivityDay | undefined) => React.ReactNode;
@@ -118,11 +95,6 @@ function ActivityGrid({
   const styles = activityGrid();
   const [root, setRoot] = useState<HTMLDivElement | null>(null);
   const [cursor, setCursor] = useState<number | undefined>(undefined);
-  /*
-   * The root is measured, never the grid. The grid's own columns size it, so observing the grid
-   * would feed the measurement back into the layout that produced it and the week count would
-   * never drop.
-   */
   const width = useElementWidth(root);
   const gap = 4;
 
@@ -131,7 +103,6 @@ function ActivityGrid({
     [days, width, cellSize, weeks],
   );
 
-  /* One listener for every cell. The index rides on the element, so no per-cell closure exists. */
   const onPointerMove = useCallback((event: React.PointerEvent) => {
     const index = (event.target as HTMLElement).dataset.index;
     setCursor(index === undefined ? undefined : Number(index));
@@ -151,7 +122,6 @@ function ActivityGrid({
 
   const focused = cursor === undefined ? undefined : (columns[cursor] ?? undefined);
 
-  /* A month label sits at the column where that month actually starts. */
   const monthMarks = useMemo(() => {
     const pitch = cellSize + gap;
     const seen = new Set<number>();
@@ -164,13 +134,6 @@ function ActivityGrid({
     });
   }, [columns, cellSize]);
 
-  /*
-   * One sentence standing in for the whole plot.
-   *
-   * This was `role="grid"` over 182 `gridcell`s and no `row` between them, which ARIA does not
-   * allow and no cell was focusable, so nothing could navigate what the markup claimed. It is a
-   * chart, so it says so once and the readout below announces each day as the cursor moves.
-   */
   const summary = useMemo(() => {
     const shown = columns.filter((day) => day !== null);
     const first = shown[0]?.date.toDateString();
@@ -254,5 +217,4 @@ function ActivityGrid({
 }
 
 export { ActivityGrid, activityGrid as activityGridVariants, level as activityLevel };
-/* Not part of the kit's surface. Exported so the sizing rule can be pinned without a layout. */
 export { toColumns, weeksThatFit };

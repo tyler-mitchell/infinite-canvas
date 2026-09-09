@@ -5,6 +5,7 @@ import { tv } from "tailwind-variants";
 import {
   Button,
   buttonVariants,
+  Display,
   Kind,
   Label,
   Meta,
@@ -13,7 +14,6 @@ import {
   Slider,
   Surface,
   Switch,
-  Title,
   ToggleGroup,
 } from "polkadot-ui";
 
@@ -53,7 +53,7 @@ function Controls() {
   return (
     <div className={styles.page()}>
       <div className={styles.head()}>
-        <Title>controls</Title>
+        <Display>controls</Display>
         <Prose className={styles.lede()}>
           Every control is a Base UI primitive with tailwind-variants slots over it. State comes
           from the primitive, so a variant is selected by the state Base UI hands to className

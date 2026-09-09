@@ -1,18 +1,9 @@
 import { area, curveMonotoneX, line } from "d3-shape";
 import { useId } from "react";
-import { tv, type VariantProps } from "tailwind-variants";
+import type { VariantProps } from "tailwind-variants";
 
-/*
- * A trace with a live head: the most repeated data shape in the design, drawn three times there.
- *
- * The path is stretched to the container by `preserveAspectRatio="none"`, so the view box is a
- * proportion rather than a size and nothing has to be measured. A stretched stroke would thin on one
- * axis, which `non-scaling-stroke` prevents, and a stretched circle would become an ellipse — so the
- * head is HTML above the drawing, not a shape inside it, and stays round at every width.
- *
- * The trace fades out at its trailing edge so the window has no hard cut, and the head carries a
- * glow, a tick down to the floor and a hot dot. All four come from the design source.
- */
+import { tv } from "../tv.ts";
+
 const sparkline = tv({
   slots: {
     root: "relative w-full",
@@ -25,7 +16,6 @@ const sparkline = tv({
     fill: "[stroke:none]",
     trace:
       "fill-none [stroke-linecap:round] [stroke-linejoin:round] [stroke-width:1.6] [vector-effect:non-scaling-stroke]",
-    /* Everything below is positioned from `--head`, the last value's height in the plot. */
     drop: "absolute right-0 bottom-0 w-px bg-pk-accent/35 top-(--head)",
     glow: "absolute right-0 size-[30px] translate-x-1/2 -translate-y-1/2 rounded-pk-pill [background:radial-gradient(circle,color-mix(in_oklab,var(--pk-accent)_45%,transparent),transparent_70%)] top-(--head)",
     dot: "absolute right-0 size-[5px] translate-x-1/2 -translate-y-1/2 rounded-pk-pill bg-white top-(--head)",
@@ -38,7 +28,6 @@ const sparkline = tv({
       md: { root: "h-11" },
       lg: { root: "h-14" },
     },
-    /* A badge sits where the dot would, so the two never both mark the head. */
     head: {
       dot: { badge: "hidden" },
       badge: { dot: "hidden", glow: "hidden" },
@@ -48,7 +37,6 @@ const sparkline = tv({
   defaultVariants: { size: "md", head: "dot" },
 });
 
-/* The view box is a proportion, not a size. The inset keeps the extremes off the top and bottom. */
 const WIDTH = 300;
 const HEIGHT = 44;
 const INSET = 4;
@@ -67,11 +55,6 @@ function Sparkline({ values, caption, label, size, head, className, ...props }: 
   const styles = sparkline({ size, head: head ?? (caption ? "badge" : "dot") });
   const id = useId();
 
-  /*
-   * A flat series has no span to divide by, and a single point has no step. Both are real inputs —
-   * a metric that has not moved, and a card rendering its first sample — so they draw a flat line at
-   * mid height rather than dividing by zero and disappearing.
-   */
   const low = Math.min(...values);
   const span = Math.max(...values) - low || 1;
   const step = values.length > 1 ? WIDTH / (values.length - 1) : 0;

@@ -1,20 +1,10 @@
 import { Toggle as TogglePrimitive } from "@base-ui/react/toggle";
 import { ToggleGroup as ToggleGroupPrimitive } from "@base-ui/react/toggle-group";
 import { createContext, use } from "react";
-import { tv } from "tailwind-variants";
+import { tv } from "../tv.ts";
 
-/*
- * Two arrangements of the same control.
- *
- * `segmented` is one recessed track holding the choices, and the selected one is a raised neutral
- * chip inside it — the shape for picking one of a few. `chips` is a loose set of filled pills, and
- * a selected one takes the accent — the shape for filtering, where any number can be on at once.
- *
- * Vertical is a Root prop; a rail of filters stacked down a side is a real arrangement.
- */
 const toggleGroup = tv({
   slots: {
-    /* `self-start` because an inline-flex control is still stretched by a flex-column parent. */
     root: "inline-flex items-center self-start data-[orientation=vertical]:flex-col data-[orientation=vertical]:items-stretch",
     item: "inline-flex h-6 cursor-pointer items-center justify-center px-2.5 font-pk-sans text-pk-control whitespace-nowrap outline-none transition-[color,background-color] duration-(--pk-duration-hover) ease-pk-swift select-none focus-visible:ring-2 focus-visible:ring-pk-accent/45 focus-visible:ring-offset-2 focus-visible:ring-offset-pk-ground disabled:pointer-events-none disabled:opacity-40",
   },
@@ -60,7 +50,6 @@ const toggleGroup = tv({
 
 type Look = "segmented" | "chips";
 
-/* The item needs the group's look, and only the group knows it. */
 const LookContext = createContext<Look>("segmented");
 
 export type ToggleGroupProps<Value extends string = string> = Omit<

@@ -28,6 +28,19 @@
   --pk-surface-deep: #0b0c0e;
   --pk-surface-inner: #121417;
   --pk-surface-face: linear-gradient(180deg, #111318, #0b0c0e);
+
+  /*
+   * The tile: a lit corner, a ring drawn inside the edge, and an accent bloom in the low right.
+   * Three layers, because one flat fill at this size reads as a hole rather than an object.
+   */
+  --pk-tile-face: radial-gradient(120% 120% at 30% 15%, #1b2026, #101317 70%);
+  --pk-tile-ring: inset 0 0 0 1px rgb(255 255 255 / 0.09), inset 0 1px 0 rgb(255 255 255 / 0.07);
+  --pk-tile-bloom: radial-gradient(
+    80% 60% at 70% 100%,
+    rgb(0 230 168 / 0.14),
+    rgb(0 230 168 / 0) 70%
+  );
+  --pk-tile-ink: #d6dbe1;
   --pk-recess: #040505;
   --pk-tray: #08090a;
 
@@ -364,10 +377,25 @@
   --text-pk-meta--letter-spacing: 0.005em;
   --text-pk-meta--font-weight: 400;
 
-  --text-pk-body: 12.5px;
-  --text-pk-body--line-height: 1.55;
+  /*
+   * A card's paragraph is 13px/1.5 in the design. An earlier pass set this to 11.5px by counting
+   * every 11.5px sans line, most of which are metadata rather than prose. `note` is that size.
+   */
+  --text-pk-body: 13px;
+  --text-pk-body--line-height: 1.5;
   --text-pk-body--letter-spacing: -0.005em;
   --text-pk-body--font-weight: 400;
+
+  --text-pk-note: 11.5px;
+  --text-pk-note--line-height: 1.45;
+  --text-pk-note--letter-spacing: -0.005em;
+  --text-pk-note--font-weight: 400;
+
+  /* The line under a name: 12.5px, a real step in the design and not the body size. */
+  --text-pk-lede: 12.5px;
+  --text-pk-lede--line-height: 1.35;
+  --text-pk-lede--letter-spacing: -0.005em;
+  --text-pk-lede--font-weight: 400;
 
   --text-pk-item: 13px;
   --text-pk-item--line-height: 1.3;
@@ -379,13 +407,13 @@
   --text-pk-title--letter-spacing: -0.025em;
   --text-pk-title--font-weight: 500;
 
-  --text-pk-head: 18px;
+  --text-pk-head: 17px;
   --text-pk-head--line-height: 1.15;
   --text-pk-head--letter-spacing: -0.03em;
   --text-pk-head--font-weight: 600;
 
   --text-pk-display: 21px;
-  --text-pk-display--line-height: 1.15;
+  --text-pk-display--line-height: 1.35;
   --text-pk-display--letter-spacing: -0.035em;
   --text-pk-display--font-weight: 600;
 
@@ -400,7 +428,7 @@
   --text-pk-mono--font-weight: 400;
 
   --text-pk-mono-lg: 12.5px;
-  --text-pk-mono-lg--line-height: 1.3;
+  --text-pk-mono-lg--line-height: 1;
   --text-pk-mono-lg--letter-spacing: 0.02em;
   --text-pk-mono-lg--font-weight: 500;
 
@@ -446,6 +474,7 @@
   --color-pk-level-3: var(--pk-level-3);
   --color-pk-level-4: var(--pk-level-4);
 
+  --color-pk-tile-ink: var(--pk-tile-ink);
   --color-pk-paper-page: var(--pk-paper-page);
   --color-pk-paper-ink: var(--pk-paper-ink);
   --color-pk-paper-label: var(--pk-paper-label);

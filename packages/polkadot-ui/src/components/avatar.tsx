@@ -1,29 +1,25 @@
 import { Avatar as AvatarPrimitive } from "@base-ui/react/avatar";
-import { tv, type VariantProps } from "tailwind-variants";
+import type { VariantProps } from "tailwind-variants";
 
-/*
- * A rounded tile carrying a face or the initials that stand in for one.
- *
- * Base UI owns the part that is easy to get wrong: the fallback shows while the image is loading and
- * stays if it never arrives, so there is no flash of initials behind a picture that loads instantly.
- *
- * The radius steps with the size. One fixed radius reads as a circle at the small end and as a
- * square at the large end, which are two different objects.
- */
+import { tv } from "../tv.ts";
+
 const avatar = tv({
   slots: {
-    root: "pk-face relative inline-flex flex-none items-center justify-center overflow-hidden border border-pk-line-inner-raised select-none",
+    root: "relative inline-flex flex-none items-center justify-center overflow-hidden bg-[image:var(--pk-tile-face)] shadow-[var(--pk-tile-ring)] select-none",
     image: "size-full object-cover",
-    fallback: "font-pk-sans text-pk-ink-muted uppercase",
+    fallback: "font-pk-sans text-pk-tile-ink uppercase",
+    bloom: "pointer-events-none absolute inset-0 bg-[image:var(--pk-tile-bloom)]",
   },
   variants: {
     size: {
-      sm: { root: "size-6 rounded-[6px]", fallback: "text-pk-micro" },
-      md: { root: "size-9 rounded-pk-control", fallback: "text-pk-label" },
-      lg: { root: "size-14 rounded-pk-inner", fallback: "text-pk-title" },
+      sm: { root: "size-5 rounded-[6px]", fallback: "text-pk-micro" },
+      lg: {
+        root: "size-[66px] rounded-pk-inner",
+        fallback: "text-[21px] leading-[1.4] font-semibold tracking-[-0.03em]",
+      },
     },
   },
-  defaultVariants: { size: "md" },
+  defaultVariants: { size: "lg" },
 });
 
 export type AvatarProps = Omit<AvatarPrimitive.Root.Props, "className" | "children"> &
@@ -53,6 +49,7 @@ function Avatar({ src, name, initials, size, className, ...props }: AvatarProps)
       <AvatarPrimitive.Fallback aria-label={name} className={styles.fallback()}>
         {mark}
       </AvatarPrimitive.Fallback>
+      <span aria-hidden className={styles.bloom()} />
     </AvatarPrimitive.Root>
   );
 }

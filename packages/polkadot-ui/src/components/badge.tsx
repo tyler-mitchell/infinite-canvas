@@ -1,13 +1,8 @@
 import { useRender } from "@base-ui/react/use-render";
-import { tv, type VariantProps } from "tailwind-variants";
+import type { VariantProps } from "tailwind-variants";
 
-/*
- * The small standing label a card wears: a visibility, a licence, a language, a status.
- *
- * Two registers, because the design uses both and they do not substitute. `tag` is a name in
- * sentence case, so it reads as a word. `label` is a state in caps with wide tracking, so it reads
- * as a stamp and stays legible at nine and a half pixels.
- */
+import { tv } from "../tv.ts";
+
 const badge = tv({
   base: "inline-flex flex-none items-center gap-1 rounded-pk-pill border border-transparent px-2 py-[3px] font-pk-sans whitespace-nowrap",
   variants: {

@@ -1,5 +1,5 @@
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
-import { tv } from "tailwind-variants";
+import { tv } from "../tv.ts";
 
 const dialog = tv({
   slots: {
@@ -7,9 +7,8 @@ const dialog = tv({
       "fixed inset-0 z-50 bg-black/66 transition-opacity duration-(--pk-duration-detail) ease-pk-swift data-ending-style:opacity-0 data-starting-style:opacity-0",
     popup:
       "fixed top-1/2 left-1/2 z-50 flex w-[min(92vw,440px)] -translate-x-1/2 -translate-y-1/2 flex-col gap-3 rounded-pk-card border border-pk-line bg-pk-surface p-5 text-pk-ink shadow-pk-card outline-none transition-[transform,opacity] duration-(--pk-duration-detail) ease-pk-swift data-ending-style:scale-[0.98] data-ending-style:opacity-0 data-starting-style:scale-[0.98] data-starting-style:opacity-0",
-    title:
-      "font-pk-sans text-[15px] leading-[1.2] font-semibold tracking-[-0.02em] text-pk-ink-bright",
-    description: "font-pk-sans text-[13px] leading-[1.55] text-pk-ink-soft text-pretty",
+    title: "font-pk-sans text-pk-title text-pk-ink-bright",
+    description: "font-pk-sans text-pk-body text-pk-ink-soft text-pretty",
     footer: "mt-1 flex items-center justify-end gap-2",
   },
 });
@@ -30,7 +29,6 @@ function DialogTrigger(props: DialogTriggerProps) {
 
 export type DialogContentProps = WithClassName<DialogPrimitive.Popup.Props>;
 
-/** Portal, backdrop and popup in one part. A dialog has no other useful arrangement of the three. */
 function DialogContent({ className, ...props }: DialogContentProps) {
   const styles = dialog();
 

@@ -61,11 +61,14 @@ export const LEVELS = [
 
 export const CATEGORIES = ["stack", "work", "words", "life"] as const;
 
-/* Rounded percentages, which sum to 100 here but rarely do — the bar normalises either way. */
+/*
+ * Each language in its own colour, the way a repository host shows them. Rounded percentages, which
+ * sum to 100 here but rarely do — the bar normalises either way.
+ */
 export const LANGUAGES = [
-  { name: "TypeScript", share: 0.84 },
-  { name: "WGSL", share: 0.09 },
-  { name: "CSS", share: 0.07 },
+  { name: "TypeScript", share: 0.84, color: "#3178c6" },
+  { name: "WGSL", share: 0.09, color: "var(--pk-accent)" },
+  { name: "CSS", share: 0.07, color: "#8b8f94" },
 ];
 
 /*

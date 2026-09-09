@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { tv } from "tailwind-variants";
 
 import {
+  Display,
   Kind,
   Label,
   Meta,
@@ -110,7 +111,7 @@ function Foundations() {
   return (
     <div className={styles.page()}>
       <div className={styles.head()}>
-        <Title>foundations</Title>
+        <Display>foundations</Display>
         <Prose className={styles.lede()}>
           Every colour, radius and curve the kit draws with. The dim inks are a floor: darkening any
           ink or lightening any surface breaks the tightest pair first.
@@ -231,11 +232,15 @@ function Foundations() {
         <Surface tone="card">
           <div className={styles.scale()}>
             <div className={styles.scaleRow()}>
-              <Title>Title · 17px semibold</Title>
+              <Display>Display · 21px semibold</Display>
+              <Meta>the page names itself once</Meta>
+            </div>
+            <div className={styles.scaleRow()}>
+              <Title>Title · 15px medium</Title>
               <Meta>a widget names itself once</Meta>
             </div>
             <div className={styles.scaleRow()}>
-              <Label>Label · 11px medium</Label>
+              <Label>Label · 10.5px medium</Label>
               <Meta>names a section: frame budget, inbox</Meta>
             </div>
             <div className={styles.scaleRow()}>

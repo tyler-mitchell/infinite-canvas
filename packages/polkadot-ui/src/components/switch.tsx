@@ -1,10 +1,6 @@
 import { Switch as SwitchPrimitive } from "@base-ui/react/switch";
-import { tv } from "tailwind-variants";
+import { tv } from "../tv.ts";
 
-/*
- * No border on either state. The track is a fill, and the thumb stays white through the change, so
- * the only thing that moves is the thumb and the only thing that changes is the track colour.
- */
 const switchStyles = tv({
   slots: {
     root: "relative inline-flex h-[18px] w-[30px] flex-none cursor-pointer items-center rounded-pk-pill p-[2px] outline-none transition-colors duration-(--pk-duration-hover) ease-pk-swift focus-visible:ring-2 focus-visible:ring-pk-accent/45 focus-visible:ring-offset-2 focus-visible:ring-offset-pk-ground disabled:pointer-events-none disabled:opacity-40",
@@ -13,7 +9,6 @@ const switchStyles = tv({
   },
   variants: {
     checked: {
-      /* The travel is the track width less the thumb and both padding edges. */
       true: { root: "bg-pk-accent", thumb: "translate-x-3" },
       false: { root: "bg-pk-ink/[0.14] hover:bg-pk-ink/[0.2]", thumb: "translate-x-0" },
     },

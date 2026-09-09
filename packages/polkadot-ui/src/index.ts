@@ -110,6 +110,7 @@ export { Stat, statVariants, type StatProps } from "./components/stat.tsx";
 export { StatusDot, statusDotVariants, type StatusDotProps } from "./components/status-dot.tsx";
 export { Surface, surfaceVariants, type SurfaceProps } from "./components/surface.tsx";
 export {
+  Display,
   Kind,
   Label,
   Meta,
@@ -121,6 +122,15 @@ export {
   type TextProps,
 } from "./components/text.tsx";
 export { Slider, sliderVariants, type SliderProps } from "./components/slider.tsx";
+export {
+  Terminal,
+  TerminalCommand,
+  TerminalOutput,
+  terminalVariants,
+  type TerminalCommandProps,
+  type TerminalOutputProps,
+  type TerminalProps,
+} from "./components/terminal.tsx";
 export { Switch, switchVariants, type SwitchProps } from "./components/switch.tsx";
 export {
   Tab,

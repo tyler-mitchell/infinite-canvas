@@ -1,20 +1,11 @@
 import { Tabs as TabsPrimitive } from "@base-ui/react/tabs";
-import { tv } from "tailwind-variants";
+import { tv } from "../tv.ts";
 
 const tabs = tv({
   slots: {
-    /*
-     * Each part reads its own `data-orientation`, which Base UI sets on all of them. Written for
-     * the horizontal case alone, a vertical Tabs kept a row of tabs and an underline that measured
-     * the active tab's width while the axis it needed was its height.
-     */
     root: "flex min-h-0 flex-col gap-3 data-[orientation=vertical]:flex-row",
     list: "relative flex flex-none items-center gap-1 data-[orientation=vertical]:flex-col data-[orientation=vertical]:items-stretch",
     tab: "relative cursor-pointer rounded-pk-control-inner border-0 bg-transparent px-2.5 py-2 font-pk-sans text-pk-control whitespace-nowrap text-pk-ink-dim outline-none transition-colors duration-(--pk-duration-hover) ease-pk-swift select-none hover:text-pk-ink-muted focus-visible:ring-2 focus-visible:ring-pk-accent/45 focus-visible:ring-offset-2 focus-visible:ring-offset-pk-ground data-disabled:pointer-events-none data-disabled:opacity-40 data-selected:text-pk-ink-bright",
-    /*
-     * Base UI measures the active tab and publishes its box as CSS variables, so the marker slides
-     * between tabs as one transition instead of a layout animation per tab.
-     */
     indicator:
       "absolute left-0 rounded-pk-pill bg-pk-accent transition-[translate,width,height] duration-(--pk-duration-detail) ease-pk-swift data-[orientation=horizontal]:bottom-0 data-[orientation=horizontal]:h-[1.5px] data-[orientation=horizontal]:w-(--active-tab-width) data-[orientation=horizontal]:translate-x-(--active-tab-left) data-[orientation=vertical]:top-0 data-[orientation=vertical]:h-(--active-tab-height) data-[orientation=vertical]:w-[1.5px] data-[orientation=vertical]:translate-y-(--active-tab-top)",
     panel: "min-h-0 flex-1 outline-none",
@@ -31,7 +22,6 @@ function Tabs({ className, ...props }: TabsProps) {
 
 export type TabsListProps = WithClassName<TabsPrimitive.List.Props>;
 
-/** The underline marker is part of the list, not a separate part a consumer has to remember. */
 function TabsList({ className, children, ...props }: TabsListProps) {
   const styles = tabs();
 

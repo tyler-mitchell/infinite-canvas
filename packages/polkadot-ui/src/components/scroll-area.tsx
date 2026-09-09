@@ -1,15 +1,11 @@
 import { ScrollArea as ScrollAreaPrimitive } from "@base-ui/react/scroll-area";
-import { tv } from "tailwind-variants";
+import { tv } from "../tv.ts";
 
 const scrollArea = tv({
   slots: {
     root: "relative min-h-0 overflow-hidden",
     viewport:
       "size-full overscroll-contain outline-none focus-visible:ring-2 focus-visible:ring-pk-accent/50",
-    /*
-     * The scrollbar is absent until the pointer arrives. A widget body is small, and a permanent
-     * gutter costs more of it than the bar is worth.
-     */
     scrollbar:
       "m-px flex touch-none justify-center rounded-pk-pill opacity-0 transition-opacity delay-200 duration-(--pk-duration-hover) ease-pk-swift select-none data-hovering:opacity-100 data-hovering:delay-0 data-scrolling:opacity-100 data-scrolling:delay-0 data-[orientation=horizontal]:h-1 data-[orientation=vertical]:w-1",
     thumb: "rounded-pk-pill bg-pk-line-strong",

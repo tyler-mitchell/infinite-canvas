@@ -1,47 +1,25 @@
 import { Accordion as AccordionPrimitive } from "@base-ui/react/accordion";
-import { tv } from "tailwind-variants";
+import { tv } from "../tv.ts";
 
 const accordion = tv({
   slots: {
     root: "flex w-full flex-col",
-    /* The rule belongs to the row above it, so a list reads as ruled rather than boxed. */
     item: "border-t border-pk-line-inner last:border-b",
     header: "flex",
-    /*
-     * `group/row` is what the title's hover reads; without it that rule matches nothing.
-     *
-     * The caret is `::after` rather than a child, so it costs the consumer nothing and a trigger is
-     * still just a title and a meta. It is drawn from two borders on a rotated square because the
-     * kit ships no icon set, and it is the row's only cue that it opens: this treatment came from a
-     * list of links, where hovering bright is the whole affordance, and a disclosure needs more.
-     * Open turns it accent, which is the job the accent already has — status and the active state.
-     */
     trigger:
       "group/row flex w-full cursor-pointer items-baseline justify-between gap-[14px] border-0 bg-transparent px-0 py-3 text-left outline-none transition-colors duration-(--pk-duration-hover) ease-pk-swift select-none after:size-[5px] after:flex-none after:translate-y-px after:self-center after:rotate-45 after:border-r after:border-b after:border-pk-ink-faint after:transition-transform after:duration-(--pk-duration-hover) after:ease-pk-swift after:content-[''] focus-visible:ring-2 focus-visible:ring-pk-accent/50 group-hover/row:after:border-pk-ink-muted data-disabled:pointer-events-none data-disabled:opacity-40 data-panel-open:after:rotate-[225deg] data-panel-open:after:border-pk-accent",
     title:
       "font-pk-sans text-[14px] leading-[1.35] tracking-[-0.015em] text-pk-ink-muted transition-colors duration-(--pk-duration-hover) ease-pk-swift group-hover/row:text-pk-ink-bright",
-    meta: "flex-none font-pk-mono text-[11px] leading-[1.4] text-pk-ink-faint",
-    /*
-     * Base UI measures the panel and publishes `--accordion-panel-height`, so the tween is one
-     * compositor-owned transition — the same contract Collapsible uses.
-     */
+    meta: "flex-none font-pk-mono text-pk-mono text-pk-ink-faint",
     panel:
       "h-(--accordion-panel-height) overflow-hidden transition-[height] duration-(--pk-duration-detail) ease-pk-swift data-ending-style:h-0 data-starting-style:h-0",
-    body: "pb-3 font-pk-sans text-[11.5px] leading-[1.5] text-pk-ink-faint text-pretty",
+    body: "pb-3 font-pk-sans text-pk-note text-pk-ink-faint text-pretty",
   },
 });
 
 type WithClassName<T> = Omit<T, "className"> & { className?: string };
 
-/**
- * Vertical only, and the type says so.
- *
- * Base UI's accordion can run horizontally, but this one is a ruled list of rows — a horizontal
- * variant would animate width rather than height and stack its rules along the other edge, which is
- * a different component wearing the same name. Styling one on the chance somebody asks is the kind
- * of speculative work this kit avoids, and leaving the prop reachable while ignoring it is worse:
- * it renders a broken column and typechecks. Omitting it turns that into a compile error.
- */
+/** Vertical only: a horizontal accordion would animate width and rule the other edge. */
 export type AccordionProps = Omit<WithClassName<AccordionPrimitive.Root.Props>, "orientation">;
 
 function Accordion({ className, ...props }: AccordionProps) {
@@ -68,7 +46,6 @@ function AccordionItem({ className, ...props }: AccordionItemProps) {
 
 export type AccordionTriggerProps = WithClassName<AccordionPrimitive.Trigger.Props>;
 
-/** Header and trigger in one part: an accordion row has no arrangement where they differ. */
 function AccordionTrigger({ className, ...props }: AccordionTriggerProps) {
   const styles = accordion();
 
