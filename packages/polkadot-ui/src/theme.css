@@ -286,6 +286,33 @@
   }
 }
 
+/*
+ * Reduced motion, taken as "no movement" rather than "nothing happens".
+ *
+ * A colour or opacity change is not motion, and removing it would cost the hover and pressed states
+ * that carry meaning, so those still cross-fade. Everything that travels, scales, spins or opens by
+ * height snaps instead: the transition list below is the whole set of properties still allowed to
+ * animate, so a transform or height transition has nothing to run on.
+ *
+ * The rim sweep and the ping are decorative loops that run forever. Nothing in the kit needs them to
+ * be understood, so they stop entirely.
+ */
+@media (prefers-reduced-motion: reduce) {
+  .pk-rim:hover,
+  .pk-rim-tile:hover {
+    animation: none;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    transition-property: color, background-color, border-color, box-shadow, opacity !important;
+    transition-duration: var(--pk-duration-detail) !important;
+  }
+}
+
 /* Tailwind utilities read the kit tokens through these names. */
 @theme inline {
   --font-pk-sans: var(--pk-font-sans);
