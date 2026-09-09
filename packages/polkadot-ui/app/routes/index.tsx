@@ -14,6 +14,7 @@ import {
   Meta,
   Prose,
   Readout,
+  Receipt,
   Row,
   Separator,
   Sparkline,
@@ -36,6 +37,7 @@ const overview = tv({
     widget: "w-[360px] max-w-full",
     identity: "w-[360px] max-w-full",
     who: "flex flex-col gap-1.5",
+    bay: "flex justify-center rounded-b-pk-tray bg-pk-tray px-4 pt-0.5 pb-4 shadow-pk-tray",
     owner: "text-pk-ink-faint",
     chart: "flex h-[58px] flex-col",
     tiles: "flex items-center gap-1.5",
@@ -177,6 +179,31 @@ function Overview() {
                 </Button>
               </Row>
             </Row>
+          </Surface>
+
+          <Surface tone="card" className={styles.widget()}>
+            <Row>
+              <Label>résumé</Label>
+              <Button tone="ghost" size="sm">
+                new copy
+              </Button>
+            </Row>
+            {/* The bay is the dark recess the paper is fed into, so the slip reads as printed. */}
+            <div className={styles.bay()}>
+              <Receipt>
+                <Receipt.Head mark="TM" wordmark="hyphened.dev" />
+                <Receipt.Rule />
+                <Receipt.Line name="résumé.pdf" amount="0.00" />
+                <Receipt.Note>one page · 148 kB · a4</Receipt.Note>
+                <Receipt.Rule />
+                <Receipt.Line total name="total paid" amount="0.00" />
+                <Receipt.Rule />
+                <Receipt.Line name="order" amount="RES-2048" />
+                <Receipt.Barcode value="RES-2048" />
+                <Receipt.Action>↓ download .pdf</Receipt.Action>
+                <Receipt.Sign>** thank you **</Receipt.Sign>
+              </Receipt>
+            </div>
           </Surface>
         </div>
       </section>

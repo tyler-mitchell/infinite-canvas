@@ -74,6 +74,8 @@
 
   /* Receipt paper is its own ground, with its own ink floor. */
   --pk-paper: linear-gradient(180deg, #faf9f5, #efece4);
+  /* The page itself, for ink printed in reverse: a knocked-out mark, a filled button's label. */
+  --pk-paper-page: #faf9f5;
   --pk-paper-ink: #2b2b28;
   --pk-paper-label: #6b6b66;
   --pk-paper-rule: #c3c0b7;
@@ -402,6 +404,17 @@
   --text-pk-mono-lg--letter-spacing: 0.02em;
   --text-pk-mono-lg--font-weight: 500;
 
+  /* Print is its own register. A receipt is a printed object, not a panel of the interface. */
+  --text-pk-print: 9.5px;
+  --text-pk-print--line-height: 1.6;
+  --text-pk-print--letter-spacing: 0.04em;
+  --text-pk-print--font-weight: 500;
+
+  --text-pk-print-xs: 9px;
+  --text-pk-print-xs--line-height: 1.5;
+  --text-pk-print-xs--letter-spacing: 0.02em;
+  --text-pk-print-xs--font-weight: 400;
+
   --color-pk-ground: var(--pk-ground);
   --color-pk-surface: var(--pk-surface);
   --color-pk-surface-sunken: var(--pk-surface-sunken);
@@ -433,6 +446,7 @@
   --color-pk-level-3: var(--pk-level-3);
   --color-pk-level-4: var(--pk-level-4);
 
+  --color-pk-paper-page: var(--pk-paper-page);
   --color-pk-paper-ink: var(--pk-paper-ink);
   --color-pk-paper-label: var(--pk-paper-label);
   --color-pk-paper-rule: var(--pk-paper-rule);

@@ -88,6 +88,21 @@ export {
   type PopoverTriggerProps,
 } from "./components/popover.tsx";
 export { ScrollArea, scrollAreaVariants, type ScrollAreaProps } from "./components/scroll-area.tsx";
+export {
+  Receipt,
+  ReceiptAction,
+  ReceiptBarcode,
+  ReceiptHead,
+  ReceiptLine,
+  ReceiptNote,
+  ReceiptRule,
+  ReceiptSign,
+  receiptVariants,
+  type ReceiptBarcodeProps,
+  type ReceiptHeadProps,
+  type ReceiptLineProps,
+  type ReceiptProps,
+} from "./components/receipt.tsx";
 export { Row, rowVariants, type RowProps } from "./components/row.tsx";
 export { Separator, separatorVariants, type SeparatorProps } from "./components/separator.tsx";
 export { Sparkline, sparklineVariants, type SparklineProps } from "./components/sparkline.tsx";
