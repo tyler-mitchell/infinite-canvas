@@ -4,19 +4,26 @@ import { tv } from "tailwind-variants";
 const DAYS_PER_WEEK = 7;
 const MONTHS = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
 const WEEKDAYS = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"];
-/* Fixed, so the label column never participates in the measurement the grid width depends on. */
+/* Fixed, so the label column never participates in the measurement the plot width depends on. */
 const WEEKDAY_COLUMN = 28;
+const LABEL_GAP = 6;
+const PLOT_INSET = WEEKDAY_COLUMN + LABEL_GAP;
 
 const activityGrid = tv({
   slots: {
     root: "flex min-h-0 min-w-0 flex-1 flex-col gap-1 outline-none",
-    months: "relative h-3 flex-none",
+    /*
+     * Two columns: labels, then the plot. The month strip and the cells share the plot column, so
+     * a month sits over its own week by layout. Positioning the strip against the root instead put
+     * every label a label-column to the left of the week it named.
+     */
+    body: "grid min-h-0 flex-none",
+    months: "relative col-start-2 row-start-1 h-3",
     month: "absolute top-0 font-pk-mono text-[9px] leading-3 whitespace-nowrap text-pk-ink-faint",
-    body: "flex min-h-0 flex-none gap-1.5",
-    weekdays: "grid flex-none grid-rows-7 justify-items-end",
+    weekdays: "col-start-1 row-start-2 grid grid-rows-7 justify-items-end",
     weekday: "font-pk-mono text-[9px] whitespace-nowrap text-pk-ink-faint",
     /* Columns are weeks, rows are weekdays. Grid owns the pitch, so nothing computes offsets. */
-    grid: "grid min-w-0 flex-1 grid-flow-col grid-rows-7 gap-1",
+    grid: "col-start-2 row-start-2 grid min-w-0 grid-flow-col grid-rows-7",
     cell: "rounded-[3px] transition-transform duration-(--pk-duration-hover) ease-pk-swift data-hot:scale-125 data-hot:ring-1 data-hot:ring-pk-ink-bright/70",
     footer: "flex flex-none items-center justify-between gap-2",
     legend: "flex items-center gap-1",
@@ -104,7 +111,7 @@ function ActivityGrid({
   const gap = 4;
 
   const columns = useMemo(
-    () => toColumns(days, weeksThatFit(width - WEEKDAY_COLUMN, cellSize, gap, weeks)),
+    () => toColumns(days, weeksThatFit(width - PLOT_INSET, cellSize, gap, weeks)),
     [days, width, cellSize, weeks],
   );
 
@@ -153,19 +160,24 @@ function ActivityGrid({
       onBlur={() => setCursor(undefined)}
       {...props}
     >
-      <div className={styles.months()}>
-        {monthMarks.map(({ month, left }) => (
-          <span key={month} className={styles.month()} style={{ left: `${left}px` }}>
-            {MONTHS[month]}
-          </span>
-        ))}
-      </div>
+      <div
+        className={styles.body()}
+        style={{
+          gridTemplateColumns: `${WEEKDAY_COLUMN}px minmax(0, 1fr)`,
+          gridTemplateRows: `auto ${7 * cellSize + 6 * gap}px`,
+          columnGap: `${LABEL_GAP}px`,
+          rowGap: `${gap}px`,
+        }}
+      >
+        <div className={styles.months()}>
+          {monthMarks.map(({ month, left }) => (
+            <span key={month} className={styles.month()} style={{ left: `${left}px` }}>
+              {MONTHS[month]}
+            </span>
+          ))}
+        </div>
 
-      <div className={styles.body()} style={{ height: `${7 * cellSize + 6 * gap}px` }}>
-        <div
-          className={styles.weekdays()}
-          style={{ gap: `${gap}px`, width: `${WEEKDAY_COLUMN}px` }}
-        >
+        <div className={styles.weekdays()} style={{ gap: `${gap}px` }}>
           {WEEKDAYS.map((day, index) => (
             <span key={day} className={styles.weekday()} style={{ lineHeight: `${cellSize}px` }}>
               {index % 2 === 1 ? day : ""}
