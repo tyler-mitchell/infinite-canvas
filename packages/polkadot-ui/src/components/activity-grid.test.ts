@@ -1,6 +1,6 @@
 import { expect, test } from "vite-plus/test";
 
-import { toColumns, weeksThatFit, type ActivityDay } from "./activity-grid.tsx";
+import { activityLevel, toColumns, weeksThatFit, type ActivityDay } from "./activity-grid.tsx";
 
 /*
  * These pin the sizing rule itself. The component reaches it through a ResizeObserver, which needs
@@ -50,6 +50,21 @@ test("it stops at six weeks rather than shrinking cells", () => {
   }
   expect(weeksThatFit(20, CELL, GAP, WANTED)).toBe(6);
   expect(weeksThatFit(20, 40, GAP, WANTED)).toBe(6);
+});
+
+test("the default levels are exactly the ladder they replaced", () => {
+  // Counting bounds cleared replaced a chain of ternaries; every count must still land where it did.
+  const wasBefore = (n: number) => (n === 0 ? 0 : n < 3 ? 1 : n < 6 ? 2 : n < 10 ? 3 : 4);
+  for (let count = 0; count <= 40; count += 1) {
+    expect(activityLevel(count)).toBe(wasBefore(count));
+  }
+});
+
+test("a series with another shape can bring its own bounds", () => {
+  // Minutes read in a day: against the commit defaults every one of these is the top level.
+  const minutes = [0, 12, 45, 90, 240];
+  expect(minutes.map((n) => activityLevel(n))).toEqual([0, 4, 4, 4, 4]);
+  expect(minutes.map((n) => activityLevel(n, [1, 30, 60, 120]))).toEqual([0, 1, 2, 3, 4]);
 });
 
 /** A run of consecutive days ending today, which is the shape the component is given. */

@@ -45,8 +45,18 @@ export interface ActivityDay {
   readonly count: number;
 }
 
-const level = (count: number) =>
-  count === 0 ? 0 : count < 3 ? 1 : count < 6 ? 2 : count < 10 ? 3 : 4;
+/**
+ * Lower bounds for levels one to four. A day below the first is level zero.
+ *
+ * These fit commits per day, which is the only series the design ever showed. Any other series —
+ * minutes read, degrees, messages — buckets into one colour against them, so they are a default
+ * and not a rule.
+ */
+const DEFAULT_THRESHOLDS: readonly number[] = [1, 3, 6, 10];
+
+/* Counting the bounds a value clears, rather than a ladder of ternaries that hard-codes four. */
+const level = (count: number, thresholds: readonly number[] = DEFAULT_THRESHOLDS) =>
+  thresholds.filter((bound) => count >= bound).length;
 
 /**
  * How many whole weeks fit at a cell size a pointer can actually hit.
@@ -87,6 +97,11 @@ export interface ActivityGridProps extends Omit<React.ComponentProps<"div">, "ch
   /** Weeks to show when they fit. Fewer are shown rather than smaller cells. */
   readonly weeks?: number;
   readonly cellSize?: number;
+  /**
+   * Lower bounds for levels one to four. Defaults suit commits per day; a series with another
+   * shape needs its own, or every value lands in one colour.
+   */
+  readonly thresholds?: readonly number[];
   /** Rendered beside the legend; receives the focused day, or `undefined` when nothing is. */
   readonly children?: (day: ActivityDay | undefined) => React.ReactNode;
 }
@@ -95,6 +110,7 @@ function ActivityGrid({
   days,
   weeks = 26,
   cellSize = 11,
+  thresholds = DEFAULT_THRESHOLDS,
   className,
   children,
   ...props
@@ -216,7 +232,7 @@ function ActivityGrid({
                 data-slot="activity-day"
                 data-index={index}
                 data-hot={cursor === index ? "" : undefined}
-                className={`${styles.cell()} ${LEVEL_CLASS[level(day.count)]}`}
+                className={`${styles.cell()} ${LEVEL_CLASS[level(day.count, thresholds)]}`}
               />
             ) : (
               <div key={index} aria-hidden />
