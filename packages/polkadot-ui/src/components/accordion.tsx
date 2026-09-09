@@ -7,9 +7,17 @@ const accordion = tv({
     /* The rule belongs to the row above it, so a list reads as ruled rather than boxed. */
     item: "border-t border-pk-line-inner last:border-b",
     header: "flex",
-    /* `group/row` is what the title's hover reads; without it that rule matches nothing. */
+    /*
+     * `group/row` is what the title's hover reads; without it that rule matches nothing.
+     *
+     * The caret is `::after` rather than a child, so it costs the consumer nothing and a trigger is
+     * still just a title and a meta. It is drawn from two borders on a rotated square because the
+     * kit ships no icon set, and it is the row's only cue that it opens: this treatment came from a
+     * list of links, where hovering bright is the whole affordance, and a disclosure needs more.
+     * Open turns it accent, which is the job the accent already has — status and the active state.
+     */
     trigger:
-      "group/row flex w-full cursor-pointer items-baseline justify-between gap-[14px] border-0 bg-transparent px-0 py-3 text-left outline-none transition-colors duration-(--pk-duration-hover) ease-pk-swift select-none focus-visible:ring-2 focus-visible:ring-pk-accent/50 data-disabled:pointer-events-none data-disabled:opacity-40",
+      "group/row flex w-full cursor-pointer items-baseline justify-between gap-[14px] border-0 bg-transparent px-0 py-3 text-left outline-none transition-colors duration-(--pk-duration-hover) ease-pk-swift select-none after:size-[5px] after:flex-none after:translate-y-px after:self-center after:rotate-45 after:border-r after:border-b after:border-pk-ink-faint after:transition-transform after:duration-(--pk-duration-hover) after:ease-pk-swift after:content-[''] focus-visible:ring-2 focus-visible:ring-pk-accent/50 group-hover/row:after:border-pk-ink-muted data-disabled:pointer-events-none data-disabled:opacity-40 data-panel-open:after:rotate-[225deg] data-panel-open:after:border-pk-accent",
     title:
       "font-pk-sans text-[14px] leading-[1.35] tracking-[-0.015em] text-pk-ink-muted transition-colors duration-(--pk-duration-hover) ease-pk-swift group-hover/row:text-pk-ink-bright",
     meta: "flex-none font-pk-mono text-[11px] leading-[1.4] text-pk-ink-faint",
