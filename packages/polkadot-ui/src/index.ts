@@ -18,7 +18,14 @@ export {
   type ActivityDay,
   type ActivityGridProps,
 } from "./components/activity-grid.tsx";
+export { Badge, badgeVariants, type BadgeProps } from "./components/badge.tsx";
 export { Bars, barsVariants, type BarsProps } from "./components/bars.tsx";
+export {
+  Breakdown,
+  breakdownVariants,
+  type BreakdownPart,
+  type BreakdownProps,
+} from "./components/breakdown.tsx";
 export { Button, buttonVariants, type ButtonProps } from "./components/button.tsx";
 export {
   Collapsible,
@@ -83,6 +90,7 @@ export { ScrollArea, scrollAreaVariants, type ScrollAreaProps } from "./componen
 export { Row, rowVariants, type RowProps } from "./components/row.tsx";
 export { Separator, separatorVariants, type SeparatorProps } from "./components/separator.tsx";
 export { Sparkline, sparklineVariants, type SparklineProps } from "./components/sparkline.tsx";
+export { Stat, statVariants, type StatProps } from "./components/stat.tsx";
 export { Surface, surfaceVariants, type SurfaceProps } from "./components/surface.tsx";
 export {
   Kind,

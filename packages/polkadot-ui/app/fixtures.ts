@@ -61,6 +61,13 @@ export const LEVELS = [
 
 export const CATEGORIES = ["stack", "work", "words", "life"] as const;
 
+/* Rounded percentages, which sum to 100 here but rarely do — the bar normalises either way. */
+export const LANGUAGES = [
+  { name: "TypeScript", share: 0.84 },
+  { name: "WGSL", share: 0.09 },
+  { name: "CSS", share: 0.07 },
+];
+
 /*
  * Three series with different shapes, because one shape proves nothing about a curve.
  *

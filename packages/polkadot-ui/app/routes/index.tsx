@@ -3,7 +3,9 @@ import { tv } from "tailwind-variants";
 
 /* The lab imports the kit by name, so the published entry is what every page here runs on. */
 import {
+  Badge,
   Bars,
+  Breakdown,
   Button,
   IconTile,
   Kind,
@@ -13,11 +15,13 @@ import {
   Readout,
   Row,
   Separator,
+  Sparkline,
+  Stat,
   Surface,
   Title,
 } from "polkadot-ui";
 
-import { INSTALLS } from "../fixtures.ts";
+import { COMMIT_WEEKS, INSTALLS, LANGUAGES } from "../fixtures.ts";
 
 const overview = tv({
   slots: {
@@ -26,7 +30,9 @@ const overview = tv({
     lede: "max-w-[560px]",
     section: "flex flex-col gap-4",
     grid: "grid grid-cols-[repeat(auto-fill,minmax(236px,1fr))] gap-3",
-    widget: "max-w-[360px]",
+    widgets: "flex flex-wrap items-start gap-3",
+    widget: "w-[360px] max-w-full",
+    owner: "text-pk-ink-faint",
     chart: "flex h-[58px] flex-col",
     tiles: "flex items-center gap-1.5",
     monogram:
@@ -51,9 +57,9 @@ const RULES = [
     body: "Surface against surface differs by about 1.05:1 on this ground, which nobody can see. Every edge in the kit is a line.",
   },
   {
-    kind: "metadata",
-    title: "Mono carries the facts",
-    body: "Mono metadata appears 49 times across the design's 45 widgets — more than once per widget. It is the default text role, not an option.",
+    kind: "type",
+    title: "Sans is the interface, mono is a value",
+    body: "Every size, line height, tracking and weight is a token taken from the design source. Mono is kept for a figure being read, never for a control or a description.",
   },
   {
     kind: "density",
@@ -90,42 +96,73 @@ function Overview() {
           <Meta>seven parts, no new css</Meta>
         </Row>
         {/* The point of the kit in one object: the pages after this take it back apart. */}
-        <Surface tone="card" className={styles.widget()}>
-          <Row>
-            <Kind>package</Kind>
-            <Meta>mit</Meta>
-          </Row>
-          <Title>surrealdb-wasm</Title>
-          <Prose>An embedded graph store compiled to WebAssembly, with a live inspector.</Prose>
-
-          <Row align="baseline">
-            <Label>weekly installs</Label>
-            <Readout>4,182</Readout>
-          </Row>
-          <div className={styles.chart()}>
-            <Bars values={INSTALLS} label="weekly installs over eight weeks" />
-          </div>
-
-          <Row rule="above">
-            <div className={styles.tiles()}>
-              {BUILT_WITH.map(([mark, name]) => (
-                <IconTile
-                  key={name}
-                  size="sm"
-                  label={name}
-                  icon={<span className={styles.monogram()}>{mark}</span>}
-                />
-              ))}
-            </div>
-            <Row align="center">
-              <Meta>v2.1.0</Meta>
-              <Separator orientation="vertical" />
-              <Button tone="ghost" size="sm">
-                clone
-              </Button>
+        <div className={styles.widgets()}>
+          <Surface tone="card" className={styles.widget()}>
+            <Row>
+              <Label className={styles.owner()}>hyphened /</Label>
+              <Badge look="label" tone="outline">
+                public
+              </Badge>
             </Row>
-          </Row>
-        </Surface>
+            <Title>infinite-canvas</Title>
+            <Prose>
+              A spatial window manager for the web. Pan, zoom, snap, group, dock and undo — on an
+              unbounded plane.
+            </Prose>
+
+            <Breakdown parts={LANGUAGES} />
+
+            <Row>
+              <Stat value="1,243" label="stars" />
+              <Stat value="68" label="forks" />
+              <Stat value="12" label="open issues" />
+              <Stat value="MIT" label="license" />
+            </Row>
+
+            <Row rule="above" align="baseline">
+              <Label>commits · 64 weeks</Label>
+              <Meta>11 commits · wk 7</Meta>
+            </Row>
+            <Sparkline values={COMMIT_WEEKS} label="commits per week over 64 weeks" />
+          </Surface>
+
+          <Surface tone="card" className={styles.widget()}>
+            <Row>
+              <Kind>package</Kind>
+              <Meta>mit</Meta>
+            </Row>
+            <Title>surrealdb-wasm</Title>
+            <Prose>An embedded graph store compiled to WebAssembly, with a live inspector.</Prose>
+
+            <Row align="baseline">
+              <Label>weekly installs</Label>
+              <Readout>4,182</Readout>
+            </Row>
+            <div className={styles.chart()}>
+              <Bars values={INSTALLS} label="weekly installs over eight weeks" />
+            </div>
+
+            <Row rule="above">
+              <div className={styles.tiles()}>
+                {BUILT_WITH.map(([mark, name]) => (
+                  <IconTile
+                    key={name}
+                    size="sm"
+                    label={name}
+                    icon={<span className={styles.monogram()}>{mark}</span>}
+                  />
+                ))}
+              </div>
+              <Row align="center">
+                <Meta>v2.1.0</Meta>
+                <Separator orientation="vertical" />
+                <Button tone="ghost" size="sm">
+                  clone
+                </Button>
+              </Row>
+            </Row>
+          </Surface>
+        </div>
       </section>
 
       <section className={styles.section()}>
