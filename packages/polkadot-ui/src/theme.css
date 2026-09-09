@@ -316,6 +316,12 @@
   --color-pk-accent-dim: var(--pk-accent-dim);
   --color-pk-on-accent: var(--pk-on-accent);
 
+  --color-pk-level-0: var(--pk-level-0);
+  --color-pk-level-1: var(--pk-level-1);
+  --color-pk-level-2: var(--pk-level-2);
+  --color-pk-level-3: var(--pk-level-3);
+  --color-pk-level-4: var(--pk-level-4);
+
   --color-pk-paper-ink: var(--pk-paper-ink);
   --color-pk-paper-label: var(--pk-paper-label);
   --color-pk-paper-rule: var(--pk-paper-rule);

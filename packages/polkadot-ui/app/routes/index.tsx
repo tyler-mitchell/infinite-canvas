@@ -3,6 +3,7 @@ import { useState } from "react";
 import { tv } from "tailwind-variants";
 
 import { Accordion } from "#/components/accordion.tsx";
+import { ActivityGrid, type ActivityDay } from "#/components/activity-grid.tsx";
 import { Bars } from "#/components/bars.tsx";
 import { Button } from "#/components/button.tsx";
 import { Row } from "#/components/row.tsx";
@@ -38,6 +39,7 @@ const showcase = tv({
     grid: "grid grid-cols-[repeat(auto-fill,minmax(230px,1fr))] gap-3",
     writing: "max-w-[520px]",
     barBox: "flex h-[64px] flex-col",
+    activityBox: "max-w-[560px]",
   },
 });
 
@@ -58,6 +60,22 @@ const WRITING = [
     "04.26",
   ],
 ] as const;
+
+/* Zero-probability first, magnitude second: that is what gives a year weekday blocks and weekend gaps. */
+const ACTIVITY: ActivityDay[] = Array.from({ length: 371 }, (_, i) => {
+  const date = new Date();
+  date.setHours(12, 0, 0, 0);
+  date.setDate(date.getDate() - (370 - i));
+  const weekend = date.getDay() === 0 || date.getDay() === 6;
+  const r = Math.abs(Math.sin(i * 12.9898 + 78.233) * 43758.5453) % 1;
+  const r2 = Math.abs(Math.sin((i + 1000) * 12.9898 + 78.233) * 43758.5453) % 1;
+  const pZero = i > 202 && i < 219 ? 0.92 : weekend ? 0.46 : 0.11;
+  const season = 0.6 + 0.4 * Math.sin(i / 58);
+  return {
+    date,
+    count: r < pZero ? 0 : 1 + Math.round(r2 ** 1.7 * 13 * season * (weekend ? 0.5 : 1)),
+  };
+});
 
 const INSTALLS = [1420, 1880, 1310, 2410, 2150, 2860, 1980, 4182] as const;
 
@@ -126,6 +144,25 @@ function Showcase() {
             <Prose>A dashed edge says unbuilt. It should not read as a card.</Prose>
           </Surface>
         </div>
+      </section>
+
+      <section className={styles.section()}>
+        <p className={styles.label()}>activity grid</p>
+        <Surface tone="card" className={styles.activityBox()}>
+          <Row>
+            <Label>contributions</Label>
+            <Meta>371 days</Meta>
+          </Row>
+          <ActivityGrid days={ACTIVITY}>
+            {(day) => (
+              <Readout>
+                {day
+                  ? `${day.count || "no"} contribution${day.count === 1 ? "" : "s"} · ${day.date.toDateString().slice(0, 10)}`
+                  : "hover a day"}
+              </Readout>
+            )}
+          </ActivityGrid>
+        </Surface>
       </section>
 
       <section className={styles.section()}>
