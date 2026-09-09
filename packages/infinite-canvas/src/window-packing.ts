@@ -18,6 +18,9 @@ import type { InfiniteCanvasRect } from "./types";
  * minimum-size clamping.
  */
 
+// Packing needs two rects to have anything to arrange.
+const MINIMUM_PACK_COUNT = 2;
+
 /** One row. `freeX` is where the next rect on it would start. */
 type PackingLevel = Readonly<{ freeX: number; height: number; y: number }>;
 
@@ -33,7 +36,8 @@ function getInfiniteCanvasPackedRects(
     stripWidth?: number;
   }> = {},
 ): readonly InfiniteCanvasRect[] {
-  const bounds = unionRects(rects);
+  // One rect is already packed. Returning the same array tells a caller nothing changed.
+  const bounds = rects.length < MINIMUM_PACK_COUNT ? null : unionRects(rects);
 
   if (bounds === null) {
     return rects;

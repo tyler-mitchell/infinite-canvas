@@ -897,6 +897,12 @@ type InfiniteCanvasCommand =
   | Readonly<{ type: "window.undock" }>
   | Readonly<{ type: "window.swap" }>
   | Readonly<{
+      /** Space left between packed neighbours. */
+      gapPx?: number;
+      /** Packs selected floating windows into the region they already span. */
+      type: "window.pack";
+    }>
+  | Readonly<{
       /** Distributes selected floating windows with equal gaps. */
       distribution: InfiniteCanvasDistribution;
       type: "window.distribute";
@@ -975,6 +981,7 @@ type InfiniteCanvasCommandId =
   | "window.dock.up"
   | "window.undock"
   | "window.swap"
+  | "window.pack"
   | "history.undo"
   | "selection.clear"
   | "selection.selectAllVisible"

@@ -225,6 +225,7 @@ export {
   getInfiniteCanvasDistributedRects,
   getInfiniteCanvasSwappedRects,
 } from "./window-arrange";
+export { getInfiniteCanvasPackedRects } from "./window-packing";
 export {
   DEFAULT_INFINITE_CANVAS_DETAIL_POLICY,
   getInfiniteCanvasWindowDetailLevel,

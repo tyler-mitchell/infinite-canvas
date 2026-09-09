@@ -16,6 +16,7 @@ import { Route as StressRouteImport } from './routes/stress'
 import { Route as StageTemplateRouteImport } from './routes/stage-template'
 import { Route as PortalsRouteImport } from './routes/portals'
 import { Route as PersistenceRouteImport } from './routes/persistence'
+import { Route as PackingRouteImport } from './routes/packing'
 import { Route as NormalRouteImport } from './routes/normal'
 import { Route as GroupsRouteImport } from './routes/groups'
 import { Route as DropTrayRouteImport } from './routes/drop-tray'
@@ -58,6 +59,11 @@ const PersistenceRoute = PersistenceRouteImport.update({
   path: '/persistence',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PackingRoute = PackingRouteImport.update({
+  id: '/packing',
+  path: '/packing',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const NormalRoute = NormalRouteImport.update({
   id: '/normal',
   path: '/normal',
@@ -96,6 +102,7 @@ export interface FileRoutesByFullPath {
   '/drop-tray': typeof DropTrayRoute
   '/groups': typeof GroupsRoute
   '/normal': typeof NormalRoute
+  '/packing': typeof PackingRoute
   '/persistence': typeof PersistenceRoute
   '/portals': typeof PortalsRoute
   '/stage-template': typeof StageTemplateRoute
@@ -111,6 +118,7 @@ export interface FileRoutesByTo {
   '/drop-tray': typeof DropTrayRoute
   '/groups': typeof GroupsRoute
   '/normal': typeof NormalRoute
+  '/packing': typeof PackingRoute
   '/persistence': typeof PersistenceRoute
   '/portals': typeof PortalsRoute
   '/stage-template': typeof StageTemplateRoute
@@ -127,6 +135,7 @@ export interface FileRoutesById {
   '/drop-tray': typeof DropTrayRoute
   '/groups': typeof GroupsRoute
   '/normal': typeof NormalRoute
+  '/packing': typeof PackingRoute
   '/persistence': typeof PersistenceRoute
   '/portals': typeof PortalsRoute
   '/stage-template': typeof StageTemplateRoute
@@ -144,6 +153,7 @@ export interface FileRouteTypes {
     | '/drop-tray'
     | '/groups'
     | '/normal'
+    | '/packing'
     | '/persistence'
     | '/portals'
     | '/stage-template'
@@ -159,6 +169,7 @@ export interface FileRouteTypes {
     | '/drop-tray'
     | '/groups'
     | '/normal'
+    | '/packing'
     | '/persistence'
     | '/portals'
     | '/stage-template'
@@ -174,6 +185,7 @@ export interface FileRouteTypes {
     | '/drop-tray'
     | '/groups'
     | '/normal'
+    | '/packing'
     | '/persistence'
     | '/portals'
     | '/stage-template'
@@ -190,6 +202,7 @@ export interface RootRouteChildren {
   DropTrayRoute: typeof DropTrayRoute
   GroupsRoute: typeof GroupsRoute
   NormalRoute: typeof NormalRoute
+  PackingRoute: typeof PackingRoute
   PersistenceRoute: typeof PersistenceRoute
   PortalsRoute: typeof PortalsRoute
   StageTemplateRoute: typeof StageTemplateRoute
@@ -250,6 +263,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PersistenceRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/packing': {
+      id: '/packing'
+      path: '/packing'
+      fullPath: '/packing'
+      preLoaderRoute: typeof PackingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/normal': {
       id: '/normal'
       path: '/normal'
@@ -302,6 +322,7 @@ const rootRouteChildren: RootRouteChildren = {
   DropTrayRoute: DropTrayRoute,
   GroupsRoute: GroupsRoute,
   NormalRoute: NormalRoute,
+  PackingRoute: PackingRoute,
   PersistenceRoute: PersistenceRoute,
   PortalsRoute: PortalsRoute,
   StageTemplateRoute: StageTemplateRoute,

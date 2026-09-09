@@ -1,6 +1,6 @@
 # API reference
 
-The public surface of `@hyphened/infinite-canvas`: 265 values and 208 types across two entries.
+The public surface of `@hyphened/infinite-canvas`: 266 values and 208 types across two entries.
 Anything absent from these barrels is internal and unstable.
 This rule includes each `data-infinite-canvas-*` attribute, which supports hit tests instead of styles.
 
@@ -365,6 +365,7 @@ They do not change a window size or its `minSize` constraint.
 
 - `getInfiniteCanvasAlignedRects`: Returns rectangles that share the selected edge or centerline.
 - `getInfiniteCanvasDistributedRects`: Returns rectangles with equal gaps and fixed outer rectangles.
+- `getInfiniteCanvasPackedRects`: Packs rectangles into rows inside the width they already span, tallest first. This is First-Fit Decreasing Height, the standard algorithm for two-dimensional strip packing, so the block is short and no two results overlap. Rectangles move and never resize. Pass `stripWidth` to pack into a different width, and `gapPx` for the space between neighbours.
 - `getInfiniteCanvasSwappedRects`: Exchanges the centers of exactly two rectangles. Each rectangle keeps its size.
 
 With a different rectangle count, `getInfiniteCanvasSwappedRects` returns the input unchanged.

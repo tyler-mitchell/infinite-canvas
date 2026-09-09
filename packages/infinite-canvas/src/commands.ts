@@ -73,6 +73,7 @@ import {
   getInfiniteCanvasDistributedRects,
   getInfiniteCanvasSwappedRects,
 } from "./window-arrange";
+import { getInfiniteCanvasPackedRects } from "./window-packing";
 import {
   getInfiniteCanvasVacantRect,
   getInfiniteCanvasWindowPlacementRect,
@@ -659,6 +660,13 @@ const DEFAULT_INFINITE_CANVAS_COMMAND_DESCRIPTORS = [
     label: "Swap Windows",
   },
   {
+    command: { gapPx: 16, type: "window.pack" },
+    description: `Pack the selected windows into rows inside the region they already span, tallest first, so nothing overlaps and the block is as short as it can be. Sizes are kept. ${ARRANGE_GROUP_RULE}`,
+    hotkeys: [],
+    id: "window.pack",
+    label: "Pack Windows",
+  },
+  {
     command: { distribution: "horizontal", type: "window.distribute" },
     description: `Even out the horizontal gaps between the selected windows. ${ARRANGE_GROUP_RULE}`,
     hotkeys: [],
@@ -1132,21 +1140,42 @@ function equalizeActiveInfiniteCanvasGroupContainer<Kind extends string>(
       });
 }
 
+type InfiniteCanvasArrangeCommand = Extract<
+  InfiniteCanvasCommand,
+  { type: "window.align" | "window.distribute" | "window.pack" | "window.swap" }
+>;
+
+/**
+ * The one place a command becomes an arrangement.
+ *
+ * Availability and execution both ask this, so a command can never be offered and then do nothing,
+ * or be hidden while it would have worked.
+ */
+function getArrangedRects(
+  rects: readonly InfiniteCanvasRect[],
+  command: InfiniteCanvasArrangeCommand,
+): readonly InfiniteCanvasRect[] {
+  switch (command.type) {
+    case "window.align":
+      return getInfiniteCanvasAlignedRects(rects, command.alignment);
+    case "window.distribute":
+      return getInfiniteCanvasDistributedRects(rects, command.distribution);
+    case "window.pack":
+      return getInfiniteCanvasPackedRects(rects, { gapPx: command.gapPx });
+    case "window.swap":
+      return getInfiniteCanvasSwappedRects(rects);
+  }
+}
+
 function arrangeSelectedWindows<Kind extends string>(
   state: InfiniteCanvasState<Kind>,
-  command: Extract<
-    InfiniteCanvasCommand,
-    { type: "window.align" | "window.distribute" | "window.swap" }
-  >,
+  command: InfiniteCanvasArrangeCommand,
 ) {
   const targets = getArrangeableWindows(state);
-  const rects = targets.map((window) => window.rect);
-  const arranged =
-    command.type === "window.align"
-      ? getInfiniteCanvasAlignedRects(rects, command.alignment)
-      : command.type === "window.swap"
-        ? getInfiniteCanvasSwappedRects(rects)
-        : getInfiniteCanvasDistributedRects(rects, command.distribution);
+  const arranged = getArrangedRects(
+    targets.map((window) => window.rect),
+    command,
+  );
   const rectByWindowId = new Map(
     targets.map((window, index) => [window.id, arranged[index] ?? window.rect]),
   );
@@ -1304,16 +1333,12 @@ function isInfiniteCanvasCommandEnabled<Kind extends string>(
     }
     case "window.align":
     case "window.distribute":
+    case "window.pack":
     case "window.swap": {
       const rects = getArrangeableWindows(state).map((window) => window.rect);
-      const arranged =
-        command.type === "window.align"
-          ? getInfiniteCanvasAlignedRects(rects, command.alignment)
-          : command.type === "window.swap"
-            ? getInfiniteCanvasSwappedRects(rects)
-            : getInfiniteCanvasDistributedRects(rects, command.distribution);
 
-      return arranged !== rects;
+      // Every arrangement returns the same array when it would change nothing.
+      return getArrangedRects(rects, command) !== rects;
     }
     case "workspace.create":
       return (
@@ -1467,6 +1492,7 @@ function getInfiniteCanvasCommandGroup(command: InfiniteCanvasCommand): Infinite
     case "window.undock":
     case "window.align":
     case "window.distribute":
+    case "window.pack":
     case "window.swap":
     case "window.focusDirection":
     case "window.reveal":
@@ -1782,6 +1808,7 @@ function executeInfiniteCanvasCommand<Kind extends string>(
     }
     case "window.align":
     case "window.distribute":
+    case "window.pack":
     case "window.swap":
       return arrangeSelectedWindows(state, command);
     case "window.nudge":
