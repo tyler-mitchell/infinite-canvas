@@ -40,7 +40,7 @@ function Overlays() {
       <section className={styles.section()}>
         <Row rule="below">
           <Kind>tooltip</Kind>
-          <Meta>a provider shares the open delay across triggers</Meta>
+          <Meta>one provider · one open delay</Meta>
         </Row>
         <Tooltip.Provider>
           <div className={styles.inline()}>
@@ -95,7 +95,7 @@ function Overlays() {
       <section className={styles.section()}>
         <Row rule="below">
           <Kind>menu</Kind>
-          <Meta>groups, a label per group, shortcuts right-aligned</Meta>
+          <Meta>groups · labels · shortcuts</Meta>
         </Row>
         <Menu>
           <Menu.Trigger render={<Button tone="quiet" />}>arrange</Menu.Trigger>

@@ -42,7 +42,7 @@ function Data() {
       <section className={styles.section()}>
         <Row rule="below">
           <Kind>activity grid</Kind>
-          <Meta>weeks are columns · width drops history, never cell size</Meta>
+          <Meta>weeks are columns · width drops history</Meta>
         </Row>
         <Surface tone="card" className={styles.activity()}>
           <Row>
@@ -96,7 +96,7 @@ function Data() {
       <section className={styles.section()}>
         <Row rule="below">
           <Kind>readout</Kind>
-          <Meta>announces, because it changes without a layout change</Meta>
+          <Meta>announces, because it changes in place</Meta>
         </Row>
         <div className={styles.grid()}>
           <Surface tone="card">

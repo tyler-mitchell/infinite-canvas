@@ -28,14 +28,16 @@ const foundations = tv({
     radius: "flex flex-col items-center gap-2",
     radiusBox: "size-16 border border-pk-line bg-pk-surface-inner",
     lines: "flex flex-col gap-3",
-    lineRow: "flex items-center gap-3",
+    /* Wraps, because the captions are mono and cannot break: with a fixed rule beside them the
+     * longest one ran past the card, and the card clips. */
+    lineRow: "flex flex-wrap items-center gap-x-3 gap-y-1",
     lineName: "w-[84px] flex-none",
     /*
      * Fixed, not flex-1. Sized by the caption beside it, each specimen drew a different length and
      * the lightest hairline drew the longest — a magnitude the set does not have. Four samples that
-     * differ only in weight have to be the same length.
+     * differ only in weight have to be the same length. Narrow enough to leave the caption room.
      */
-    lineRule: "h-px w-[220px] flex-none",
+    lineRule: "h-px w-[150px] flex-none",
     spacer: "flex-1",
     scale: "flex flex-col gap-4",
     scaleRow: "flex flex-col gap-1",
@@ -111,7 +113,7 @@ function Foundations() {
       <section className={styles.section()}>
         <Row rule="below">
           <Kind>grounds</Kind>
-          <Meta>six, and the edge between them is always a line</Meta>
+          <Meta>six · every edge is a line</Meta>
         </Row>
         <div className={styles.swatches()}>
           {GROUNDS.map(([token, name, note]) => (
@@ -147,7 +149,7 @@ function Foundations() {
       <section className={styles.section()}>
         <Row rule="below">
           <Kind>hairlines</Kind>
-          <Meta>separations, at the floor of what a display shows</Meta>
+          <Meta>separations, not contrasts</Meta>
         </Row>
         <Surface tone="card">
           <div className={styles.lines()}>
@@ -165,7 +167,7 @@ function Foundations() {
       <section className={styles.section()}>
         <Row rule="below">
           <Kind>activity scale</Kind>
-          <Meta>least to most · zero is a mark, not a hole</Meta>
+          <Meta>least to most · zero is a mark</Meta>
         </Row>
         <div className={styles.ramp()}>
           {LEVELS.map((token) => (

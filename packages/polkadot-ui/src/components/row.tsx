@@ -9,7 +9,13 @@ import { tv, type VariantProps } from "tailwind-variants";
  * Whether a given Row is a header is the consumer's business.
  */
 const row = tv({
-  base: "flex flex-none gap-[10px]",
+  /*
+   * Wraps once the two ends stop fitting. Metadata is set `nowrap` because it is short by nature,
+   * so a Row that cannot wrap pushes its right end straight out of whatever contains it — which in
+   * a Surface means the text is clipped, and on a page means it leaves the column entirely.
+   * Nothing moves while both ends fit.
+   */
+  base: "flex flex-none flex-wrap gap-[10px]",
   variants: {
     align: {
       baseline: "items-baseline",

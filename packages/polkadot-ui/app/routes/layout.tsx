@@ -164,7 +164,7 @@ function Layout() {
       <section className={styles.section()}>
         <Row rule="below">
           <Kind>icon tile</Kind>
-          <Meta>point at one · the label unfurls, it is not revealed</Meta>
+          <Meta>point at one · the label unfurls</Meta>
         </Row>
         <div className={styles.tiles()}>
           {STACK.map(([mark, name]) => (
