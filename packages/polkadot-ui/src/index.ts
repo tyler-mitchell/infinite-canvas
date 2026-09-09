@@ -137,6 +137,12 @@ export {
 export { Separator, separatorVariants, type SeparatorProps } from "./components/separator.tsx";
 export { Sparkline, sparklineVariants, type SparklineProps } from "./components/sparkline.tsx";
 export { Stat, statVariants, type StatProps } from "./components/stat.tsx";
+export {
+  SwipeDeck,
+  swipeDeckVariants,
+  type SwipeDeckProps,
+  type SwipeItem,
+} from "./components/swipe-deck.tsx";
 export { StatusDot, statusDotVariants, type StatusDotProps } from "./components/status-dot.tsx";
 export { Surface, surfaceVariants, type SurfaceProps } from "./components/surface.tsx";
 export {

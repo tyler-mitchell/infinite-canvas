@@ -1,7 +1,5 @@
 import type { ActivityDay } from "polkadot-ui";
 
-/* Sample content for the pages. Plausible values, because a kit judged on placeholder text lies. */
-
 export const WRITING = [
   [
     "Why the pure core cannot import React",
@@ -20,10 +18,6 @@ export const WRITING = [
   ],
 ] as const;
 
-/*
- * Zero-probability first, magnitude second: that is what gives a year weekday blocks, weekend gaps
- * and one visible fortnight away, rather than uniform noise that hides the level scale.
- */
 export const ACTIVITY: ActivityDay[] = Array.from({ length: 371 }, (_, i) => {
   const date = new Date();
   date.setHours(12, 0, 0, 0);
@@ -39,11 +33,6 @@ export const ACTIVITY: ActivityDay[] = Array.from({ length: 371 }, (_, i) => {
   };
 });
 
-/*
- * The same days in minutes rather than commits — the case the default level ladder cannot bucket.
- * Every non-zero value here clears the top default bound of ten, so without its own bounds the whole
- * year renders in one colour.
- */
 export const READING: ActivityDay[] = ACTIVITY.map(({ date, count }) => ({
   date,
   count: count * 14,
@@ -51,8 +40,6 @@ export const READING: ActivityDay[] = ACTIVITY.map(({ date, count }) => ({
 
 export const INSTALLS = [1420, 1880, 1310, 2410, 2150, 2860, 1980, 4182] as const;
 
-/* The same metric for a smaller package. Read beside INSTALLS, the two only mean anything on one
- * scale — left to scale themselves, a peak of 510 draws exactly as tall as a peak of 4,182. */
 export const INSTALLS_SMALL = [210, 260, 180, 340, 300, 420, 380, 510] as const;
 
 export const LEVELS = [
@@ -60,6 +47,41 @@ export const LEVELS = [
 ] as const;
 
 export const CATEGORIES = ["stack", "work", "words", "life"] as const;
+
+export const INBOX = [
+  {
+    id: "gist",
+    kind: "gist",
+    title: "field-shader.wgsl — grid deformation from live rects",
+    body: "Deforms the lattice from live panel rects. 40px seed spacing, 300px force radius, 0.08 gain, 0.75 damping.",
+    left: "82 lines · wgsl",
+    right: "04",
+  },
+  {
+    id: "reading",
+    kind: "reading",
+    title: "Point and Line to Plane",
+    body: "Kandinsky on the point as the smallest committed mark, and the line as the trace of a force acting on it.",
+    left: "ch. 2 · 14 pages left",
+    right: "03",
+  },
+  {
+    id: "issue",
+    kind: "issue",
+    title: "Snap against predicted rest, not the pointer",
+    body: "Guides should resolve where the window will come to rest, so they arrive before the shape does.",
+    left: "infinite-canvas #418",
+    right: "02",
+  },
+  {
+    id: "reference",
+    kind: "reference",
+    title: "tldraw's arrow binding behaviour",
+    body: "The binding is a constraint solved at draw time, not a stored anchor — so the arrow survives the shape moving.",
+    left: "jane · figma link",
+    right: "01",
+  },
+];
 
 export const BINDINGS = [
   [["⌘", "K"], "palette"],
@@ -82,22 +104,12 @@ export const BUILDING = [
   ["compositor-poc", "2026"],
 ] as const;
 
-/*
- * Each language in its own colour, the way a repository host shows them. Rounded percentages, which
- * sum to 100 here but rarely do — the bar normalises either way.
- */
 export const LANGUAGES = [
   { name: "TypeScript", share: 0.84, color: "#3178c6" },
   { name: "WGSL", share: 0.09, color: "var(--pk-accent)" },
   { name: "CSS", share: 0.07, color: "#8b8f94" },
 ];
 
-/*
- * Three series with different shapes, because one shape proves nothing about a curve.
- *
- * Commits drift and spike; latency is noisy around a floor with one excursion; the frame budget sits
- * flat against a ceiling. A trace that only ever sees the first would hide how it treats the others.
- */
 export const COMMIT_WEEKS = Array.from({ length: 64 }, (_, week) => {
   const drift = 8 + 5 * Math.sin(week / 7) + 3 * Math.sin(week / 2.3);
   return Math.max(0, Math.round(drift + (week === 41 ? 14 : 0)));

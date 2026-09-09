@@ -114,7 +114,6 @@ function Controls() {
         <Meta>
           {categories.length === 0 ? "nothing filtered" : `filtering ${categories.join(" · ")}`}
         </Meta>
-        {/* The same chips stacked, which is what a filter rail down a side needs. */}
         <ToggleGroup
           look="chips"
           multiple
@@ -174,11 +173,9 @@ function Controls() {
             <Slider defaultValue={62} showValue={false} />
           </Surface>
           <Surface tone="card">
-            {/* Two values: Base UI wants one thumb per entry, each carrying its own index. */}
             <Slider label="range" defaultValue={[24, 68]} />
           </Surface>
           <Surface tone="card">
-            {/* Vertical is a Root prop, so the kit's track has to turn with it. */}
             <Slider label="gain" defaultValue={55} orientation="vertical" />
           </Surface>
         </div>

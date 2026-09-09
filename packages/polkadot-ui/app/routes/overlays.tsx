@@ -66,7 +66,6 @@ function Overlays() {
             </Popover.Content>
           </Popover>
 
-          {/* Placement is a prop, and nothing on the page said so until this one. */}
           <Popover>
             <Popover.Trigger render={<Button tone="soft" />}>beside it</Popover.Trigger>
             <Popover.Content side="right" align="start" sideOffset={10}>
@@ -91,7 +90,6 @@ function Overlays() {
             <Popover.Description>
               An embedded graph store compiled to WebAssembly, with a live inspector.
             </Popover.Description>
-            {/* A popover dismisses itself on Escape and on a press outside; Close is the visible way. */}
             <Row rule="above">
               <Meta>v2.1.0</Meta>
               <Popover.Close render={<Button tone="ghost" size="sm" />}>close</Popover.Close>

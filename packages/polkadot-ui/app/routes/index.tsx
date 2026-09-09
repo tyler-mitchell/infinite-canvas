@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useState } from "react";
 import { tv } from "tailwind-variants";
 
-/* The lab imports the kit by name, so the published entry is what every page here runs on. */
 import {
   Aurora,
   Avatar,
@@ -9,8 +9,9 @@ import {
   Bars,
   Binding,
   Breakdown,
-  ContactCard,
   Button,
+  ContactCard,
+  Display,
   IconTile,
   Kind,
   Label,
@@ -27,11 +28,20 @@ import {
   Stat,
   StatusDot,
   Surface,
+  SwipeDeck,
   Title,
   WeatherCard,
 } from "polkadot-ui";
 
-import { BINDINGS, BUILDING, COMMIT_WEEKS, INSTALLS, LANGUAGES, SPLIT_PANES } from "../fixtures.ts";
+import {
+  BINDINGS,
+  BUILDING,
+  COMMIT_WEEKS,
+  INBOX,
+  INSTALLS,
+  LANGUAGES,
+  SPLIT_PANES,
+} from "../fixtures.ts";
 
 const overview = tv({
   slots: {
@@ -46,8 +56,12 @@ const overview = tv({
     aurora: "h-[190px] w-[280px] max-w-full",
     small: "w-[236px] max-w-full",
     recipe: "h-[210px] w-[236px] max-w-full",
+    deck: "h-[300px] w-[280px] max-w-full",
+    hint: "flex-none self-center",
     bindings: "flex flex-col gap-2",
-    who: "flex flex-col gap-1.5",
+    identityRow: "gap-4 flex-nowrap",
+    who: "flex min-w-0 flex-1 flex-col gap-[5px]",
+    role: "font-pk-sans text-pk-lede text-pk-ink-soft",
     bay: "flex justify-center rounded-b-pk-tray bg-pk-tray px-4 pt-0.5 pb-4 shadow-pk-tray",
     owner: "text-pk-ink-faint",
     chart: "flex h-[58px] flex-col",
@@ -63,10 +77,6 @@ const BUILT_WITH = [
   ["WG", "WebGPU"],
 ] as const;
 
-/*
- * The rules the kit is built on, each one counted in the design source rather than asserted. They
- * are on the first page because they explain every later decision.
- */
 const RULES = [
   {
     kind: "edges",
@@ -96,11 +106,12 @@ export const Route = createFileRoute("/")({
 
 function Overview() {
   const styles = overview();
+  const [pinned, setPinned] = useState<string[]>([]);
 
   return (
     <div className={styles.page()}>
       <div className={styles.head()}>
-        <Title>polkadot-ui</Title>
+        <Display>polkadot-ui</Display>
         <Prose className={styles.lede()}>
           Compound components for an infinite canvas, built on Base UI primitives and styled only
           through tailwind-variants slots. Every page here is composed from the kit itself.
@@ -112,15 +123,13 @@ function Overview() {
           <Kind>a widget, composed</Kind>
           <Meta>seven parts, no new css</Meta>
         </Row>
-        {/* The point of the kit in one object: the pages after this take it back apart. */}
         <div className={styles.widgets()}>
-          {/* The rim tone is the design's own treatment for the one card that is a person. */}
-          <Surface tone="rim" padding="roomy" className={styles.identity()}>
-            <Row align="center">
+          <Surface tone="rim" padding="snug" className={styles.identity()}>
+            <Row align="center" className={styles.identityRow()}>
               <Avatar size="lg" name="Tyler Mitchell" />
               <div className={styles.who()}>
-                <Title>Tyler Mitchell</Title>
-                <Meta>Spatial interface engineer</Meta>
+                <Display>Tyler Mitchell</Display>
+                <span className={styles.role()}>Spatial interface engineer</span>
                 <StatusDot>open to one project</StatusDot>
               </div>
             </Row>
@@ -199,7 +208,6 @@ function Overview() {
                 new copy
               </Button>
             </Row>
-            {/* The bay is the dark recess the paper is fed into, so the slip reads as printed. */}
             <div className={styles.bay()}>
               <Receipt>
                 <Receipt.Head mark="TM" wordmark="hyphened.dev" />
@@ -254,6 +262,15 @@ function Overview() {
                 {name}
               </ListItem>
             ))}
+          </Surface>
+
+          <Surface tone="sunken" padding="snug" className={styles.deck()}>
+            <Row align="baseline">
+              <Label>inbox</Label>
+              <Meta>{`${INBOX.length - pinned.length} left`}</Meta>
+            </Row>
+            <SwipeDeck items={INBOX} onSettle={(item) => setPinned((seen) => [...seen, item.id])} />
+            <Meta className={styles.hint()}>← skip · pin → · drag or swipe</Meta>
           </Surface>
 
           <Surface tone="card" padding="snug" className={styles.small()}>

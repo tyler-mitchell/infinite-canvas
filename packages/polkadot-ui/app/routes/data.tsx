@@ -28,7 +28,6 @@ import {
   READING,
 } from "../fixtures.ts";
 
-/* Both charts below are the same metric, so both are drawn against the larger one's peak. */
 const INSTALL_CEILING = Math.max(...INSTALLS);
 
 const data = tv({
@@ -78,7 +77,6 @@ function Data() {
               <Label>p95 latency</Label>
               <Meta>96h window</Meta>
             </Row>
-            {/* A caption puts a badge at the head, which takes the dot's place rather than joining it. */}
             <Sparkline
               values={LATENCY}
               caption={`${LATENCY[LATENCY.length - 1]}ms`}
@@ -90,7 +88,6 @@ function Data() {
               <Label>frame budget</Label>
               <Meta>15.9 ms</Meta>
             </Row>
-            {/* Nearly flat against a ceiling: the case a self-scaling trace turns into noise. */}
             <Sparkline values={FRAME_BUDGET} size="sm" label="frame time over 72 frames" />
           </Surface>
         </div>

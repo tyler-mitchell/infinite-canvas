@@ -94,6 +94,10 @@
   --pk-paper-label: #6b6b66;
   --pk-paper-rule: #c3c0b7;
 
+  --pk-swipe-face: linear-gradient(180deg, #151920, #0f1114);
+  --pk-swipe-line: #23262b;
+  --pk-lift-swipe: 0 18px 40px -28px rgb(0 0 0 / 0.9);
+
   --pk-keycap-face: #15181c;
   --pk-keycap-line: #262a30;
   --pk-bar: #2a2f36;
@@ -329,6 +333,10 @@
     background: var(--pk-surface-face);
   }
 
+  .pk-swipe-face {
+    background: var(--pk-swipe-face);
+  }
+
   /* A dotted rule across a receipt. */
   .pk-paper-rule {
     background: repeating-linear-gradient(90deg, var(--pk-paper-rule) 0 3px, transparent 3px 6px);
@@ -471,6 +479,8 @@
   --color-pk-recess: var(--pk-recess);
   --color-pk-tray: var(--pk-tray);
   --color-pk-void: var(--pk-void);
+  --color-pk-swipe-line: var(--pk-swipe-line);
+  --shadow-pk-swipe: var(--pk-lift-swipe);
   --color-pk-keycap-face: var(--pk-keycap-face);
   --color-pk-keycap-line: var(--pk-keycap-line);
   --color-pk-bar: var(--pk-bar);
