@@ -8,6 +8,43 @@ export {
   type CollapsibleProps,
   type CollapsibleTriggerProps,
 } from "./components/collapsible.tsx";
+export {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogTitle,
+  DialogTrigger,
+  dialogVariants,
+  type DialogContentProps,
+  type DialogProps,
+} from "./components/dialog.tsx";
+export {
+  Menu,
+  MenuContent,
+  MenuGroup,
+  MenuGroupLabel,
+  MenuItem,
+  MenuSeparator,
+  MenuShortcut,
+  MenuTrigger,
+  menuVariants,
+  type MenuContentProps,
+  type MenuItemProps,
+  type MenuProps,
+} from "./components/menu.tsx";
+export {
+  Popover,
+  PopoverClose,
+  PopoverContent,
+  PopoverDescription,
+  PopoverTitle,
+  PopoverTrigger,
+  popoverVariants,
+  type PopoverContentProps,
+  type PopoverProps,
+} from "./components/popover.tsx";
 export { ScrollArea, scrollAreaVariants, type ScrollAreaProps } from "./components/scroll-area.tsx";
 export { Separator, separatorVariants, type SeparatorProps } from "./components/separator.tsx";
 export { Slider, sliderVariants, type SliderProps } from "./components/slider.tsx";

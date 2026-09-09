@@ -4,6 +4,9 @@ import { tv } from "tailwind-variants";
 
 import { Button } from "#/components/button.tsx";
 import { Collapsible } from "#/components/collapsible.tsx";
+import { Dialog } from "#/components/dialog.tsx";
+import { Menu } from "#/components/menu.tsx";
+import { Popover } from "#/components/popover.tsx";
 import { ScrollArea } from "#/components/scroll-area.tsx";
 import { Separator } from "#/components/separator.tsx";
 import { Slider } from "#/components/slider.tsx";
@@ -127,6 +130,58 @@ function Showcase() {
             ))}
           </div>
         </ScrollArea>
+      </section>
+
+      <section className={styles.section()}>
+        <p className={styles.label()}>dialog · popover · menu</p>
+        <div className={styles.row()}>
+          <Dialog>
+            <Dialog.Trigger render={<Button tone="quiet" />}>remove canvas</Dialog.Trigger>
+            <Dialog.Content>
+              <Dialog.Title>Remove this canvas?</Dialog.Title>
+              <Dialog.Description>
+                Six windows and their layout go with it. Notes stay in the project.
+              </Dialog.Description>
+              <Dialog.Footer>
+                <Dialog.Close render={<Button tone="bare" />}>cancel</Dialog.Close>
+                <Dialog.Close render={<Button tone="accent" />}>remove</Dialog.Close>
+              </Dialog.Footer>
+            </Dialog.Content>
+          </Dialog>
+
+          <Popover>
+            <Popover.Trigger render={<Button tone="quiet" />}>details</Popover.Trigger>
+            <Popover.Content>
+              <Popover.Title>surrealdb-wasm</Popover.Title>
+              <Popover.Description>
+                An embedded graph store compiled to WebAssembly, with a live inspector.
+              </Popover.Description>
+            </Popover.Content>
+          </Popover>
+
+          <Menu>
+            <Menu.Trigger render={<Button tone="quiet" />}>arrange</Menu.Trigger>
+            <Menu.Content>
+              <Menu.Group>
+                {/* GroupLabel reads MenuGroupContext, so it must sit inside Group, not beside it. */}
+                <Menu.GroupLabel>layout</Menu.GroupLabel>
+                <Menu.Item>
+                  split <Menu.Shortcut>⌘1</Menu.Shortcut>
+                </Menu.Item>
+                <Menu.Item>
+                  stack <Menu.Shortcut>⌘2</Menu.Shortcut>
+                </Menu.Item>
+                <Menu.Item>
+                  master <Menu.Shortcut>⌘3</Menu.Shortcut>
+                </Menu.Item>
+              </Menu.Group>
+              <Menu.Separator />
+              <Menu.Item disabled>
+                tabs <Menu.Shortcut>⌘4</Menu.Shortcut>
+              </Menu.Item>
+            </Menu.Content>
+          </Menu>
+        </div>
       </section>
 
       <section className={styles.section()}>
