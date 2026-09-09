@@ -24,6 +24,7 @@ const layout = tv({
     padBox: "w-[176px]",
     inline: "flex flex-wrap items-center gap-3",
     tiles: "flex flex-wrap items-center gap-2",
+    rails: "flex items-start gap-4",
     /* Stands in for the design's icon set, so the page pulls nothing over the network. */
     monogram:
       "flex size-full items-center justify-center rounded-[5px] bg-pk-surface-inner font-pk-mono text-[10px] leading-none text-pk-ink-soft",
@@ -213,18 +214,31 @@ function Layout() {
           <Kind>toolbar</Kind>
           <Meta>one tab stop, arrows move between buttons</Meta>
         </Row>
-        <Toolbar>
-          <Toolbar.Group>
-            <Toolbar.Button render={<Button tone="bare" size="icon" />}>−</Toolbar.Button>
-            <Toolbar.Button render={<Button tone="bare" size="sm" mono />}>100%</Toolbar.Button>
-            <Toolbar.Button render={<Button tone="bare" size="icon" />}>+</Toolbar.Button>
-          </Toolbar.Group>
-          <Toolbar.Separator />
-          <Toolbar.Group>
-            <Toolbar.Button render={<Button tone="bare" size="sm" />}>fit</Toolbar.Button>
-            <Toolbar.Button render={<Button tone="bare" size="sm" />}>group</Toolbar.Button>
-          </Toolbar.Group>
-        </Toolbar>
+        <div className={styles.rails()}>
+          <Toolbar>
+            <Toolbar.Group>
+              <Toolbar.Button render={<Button tone="bare" size="icon" />}>−</Toolbar.Button>
+              <Toolbar.Button render={<Button tone="bare" size="sm" mono />}>100%</Toolbar.Button>
+              <Toolbar.Button render={<Button tone="bare" size="icon" />}>+</Toolbar.Button>
+            </Toolbar.Group>
+            <Toolbar.Separator />
+            <Toolbar.Group>
+              <Toolbar.Button render={<Button tone="bare" size="sm" />}>fit</Toolbar.Button>
+              <Toolbar.Button render={<Button tone="bare" size="sm" />}>group</Toolbar.Button>
+            </Toolbar.Group>
+          </Toolbar>
+
+          <Toolbar orientation="vertical">
+            <Toolbar.Group>
+              <Toolbar.Button render={<Button tone="bare" size="icon" />}>−</Toolbar.Button>
+              <Toolbar.Button render={<Button tone="bare" size="icon" />}>+</Toolbar.Button>
+            </Toolbar.Group>
+            <Toolbar.Separator />
+            <Toolbar.Group>
+              <Toolbar.Button render={<Button tone="bare" size="icon" />}>◇</Toolbar.Button>
+            </Toolbar.Group>
+          </Toolbar>
+        </div>
       </section>
     </div>
   );
