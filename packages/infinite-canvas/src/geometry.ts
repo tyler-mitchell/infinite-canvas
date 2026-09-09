@@ -56,13 +56,6 @@ function getConstrainedZoom(
   );
 }
 
-function addPoints(left: InfiniteCanvasPoint, right: InfiniteCanvasPoint) {
-  return {
-    x: left.x + right.x,
-    y: left.y + right.y,
-  };
-}
-
 function subtractPoints(left: InfiniteCanvasPoint, right: InfiniteCanvasPoint) {
   return {
     x: left.x - right.x,
@@ -123,13 +116,6 @@ function rectContainsPoint(rect: InfiniteCanvasRect, point: InfiniteCanvasPoint)
     point.y >= rect.y &&
     point.y <= rect.y + rect.height
   );
-}
-
-function scalePoint(point: InfiniteCanvasPoint, scale: number) {
-  return {
-    x: point.x * scale,
-    y: point.y * scale,
-  };
 }
 
 function isUsableViewport(viewport: InfiniteCanvasViewport) {
@@ -600,7 +586,6 @@ function buildGridLines(
 }
 
 export {
-  addPoints,
   buildGridLines,
   clamp,
   fitCameraToWorldRect,
@@ -626,7 +611,6 @@ export {
   rectContainsPoint,
   rectsIntersect,
   resizeRectFromHandle,
-  scalePoint,
   screenPointToWorldPoint,
   screenTransformToScreenRect,
   snapScreenTransformToDevicePixels,
