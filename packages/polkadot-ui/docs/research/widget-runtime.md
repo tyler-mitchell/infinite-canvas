@@ -17,9 +17,9 @@ Scoped questions:
 | --- | ------------------------------------------------------ | --------------------------------------- |
 | 1   | Can TanStack Start run on this workspace's toolchain?  | **answered — no**, runtime-proven       |
 | 2   | What shell does Vite+ support instead?                 | answered — SPA; no SSR story documented |
-| 3   | Which primitives Base UI owns, so none are hand-rolled | open — next                             |
-| 4   | Which motion affordances `motion` v12 owns             | open — next                             |
-| 5   | What remains genuinely ours after 3 and 4              | open                                    |
+| 3   | Which primitives Base UI owns, so none are hand-rolled | answered — 48 primitives, enumerated    |
+| 4   | Which motion affordances `motion` v12 owns             | answered — surface enumerated           |
+| 5   | What remains genuinely ours after 3 and 4              | answered — the tokens, and nothing else |
 | 6   | Canonical R3F project shape at the installed version   | open                                    |
 | 7   | Can R3F and TypeGPU share one WebGPU device?           | open                                    |
 | 8   | Motion-system and ZUI precedence worth copying         | open                                    |
@@ -33,9 +33,12 @@ Out of scope, deliberately: `@hyphened/infinite-canvas`, `packages/ui`, and ever
 | ---------------------- | -------------------------------- | --------------------------------------------------- | -------------- |
 | App shell              | TanStack Start `1.168.50`        | rejected — SSR middleware does not mount on Vite+   | runtime-proven |
 | App shell              | TanStack Router + `<Outlet>` SPA | adopt; Start becomes a later swap, routes unchanged | target         |
-| Interaction primitives | `@base-ui/react`                 | every primitive comes from here                     | unresolved     |
-| Motion                 | `motion` v12                     | owns springs, layout animation, drag, frame loop    | unresolved     |
-| Widget packing         | `src/geometry/pack.ts`           | genuinely ours — no library packs a scatter lattice | typechecked    |
+| Interaction primitives | `@base-ui/react` 1.5.0           | 48 primitives; every one comes from here            | observed       |
+| Class composition      | `tailwind-variants` 3.3.1        | slot fns already merge `className` — no helper      | observed       |
+| Springs, layout, drag  | `motion` 12.40.0                 | `useSpring`, `layout`+`LayoutGroup`, `Reorder`      | observed       |
+| Frame loop             | `motion` `useAnimationFrame`     | no bespoke clock                                    | observed       |
+| Motion tokens          | `motion` `MotionConfig`          | one place for duration, easing, reduced-motion      | target         |
+| Widget packing         | none yet                         | evaluate a grid library when a board exists         | unresolved     |
 
 ## 1. TanStack Start does not run on this workspace's toolchain
 
@@ -190,25 +193,76 @@ src/geometry/spring.ts      removed
 src/widget/widget.tsx       removed  (rebuild on Base UI)
 ```
 
-What survives is the part with no library owner — the lattice and the scatter packer:
+A second pass deleted the rest. An earlier version of this section claimed the geometry module was
+"the part with no library owner" and kept it. That was wrong on two counts: most of it duplicates a
+maintained library, and **none of it had a consumer** — it was written for a board that does not
+exist.
 
 ```txt
-src/geometry/pack.ts      first-fit bitmap packer with the anti-rail tile constraint
-src/geometry/lattice.ts   responsive column count, cell size, span resolution
-src/geometry/spline.ts    Fritsch-Carlson monotone tangents
-src/geometry/range.ts     range with a minimum-span floor
-src/geometry/momentum.ts  swing detector
+src/geometry/pack.ts      removed  →  a grid library, when a board exists
+src/geometry/lattice.ts   removed  →  same
+src/geometry/spline.ts    removed  →  d3-shape `curveMonotoneX`
+src/geometry/range.ts     removed  →  d3-scale
+src/geometry/momentum.ts  removed  →  motion `useVelocity`
+src/geometry/rect.ts      removed  →  trivial
+src/lib/slot-class.ts     removed  →  tailwind-variants already merges `className`
+src/lib/cn.ts             removed  →  nothing needed it once slot-class went
+src/components/widget.tsx removed  →  bespoke compound; rebuild from a plan
 ```
 
-Status: observed. Whether `motion` genuinely covers the board's per-item spring targets is
-question 4 and is not yet proven.
+Status: observed — 721 lines deleted, `vp check` clean across the 11 that remain.
+
+## 4. What Base UI and `motion` own
+
+Base UI 1.5.0 declares 48 component subpaths plus the composition hooks. Read from its
+`package.json` `exports`:
+
+```txt
+accordion, alert-dialog, autocomplete, avatar, button, checkbox, checkbox-group, collapsible,
+combobox, context-menu, dialog, drawer, field, fieldset, form, input, menu, menubar, meter,
+navigation-menu, number-field, otp-field, popover, preview-card, progress, radio, radio-group,
+scroll-area, select, separator, slider, switch, tabs, toast, toggle, toggle-group, toolbar, tooltip
+· plus: use-render, merge-props, direction-provider, csp-provider, unstable-use-media-query
+```
+
+`motion` 12.40.0 (re-exporting framer-motion 12.40.0) covers the whole motion layer:
+
+```txt
+values   useMotionValue useSpring useTransform useMotionTemplate useVelocity useTime useFollowValue
+layout   motion m LayoutGroup AnimatePresence MotionConfig LazyMotion useIsPresent usePresence
+drag     Reorder Reorder.Group Reorder.Item useDragControls
+loop     useAnimationFrame animate scroll inView useInView useScroll
+control  useReducedMotion MotionGlobalConfig useInstantTransition useInstantLayoutTransition
+```
+
+Project use, and this is the finding that mattered:
+
+- **`Reorder` ships drag-to-reorder.** The board's drag-and-reflow is not ours to write.
+- **`layout` plus `LayoutGroup` ships FLIP.** The masonry reflow is a prop, not an engine.
+- **`MotionConfig` is where motion tokens belong** — one place for duration, easing and
+  reduced-motion, which is the token tier of a motion system.
+- `useInstantTransition` suppresses layout animation for a frame, which is exactly what a camera
+  move needs so widgets do not FLIP while the viewport itself is moving.
+
+Status: observed from the installed packages' declared surfaces.
+
+## 5. What is genuinely ours
+
+The design tokens in `src/theme.css`, and the two-layer backgrounds that cannot live in a class
+list (`.pk-rim`, `.pk-tear`, `.pk-paper`). Everything else is a library's job.
+
+The packer is the one open question: no library was found that packs a lattice with the
+POC's anti-rail tile constraint. That is not a licence to write one — it is a thing to check
+against `react-grid-layout`, `muuri` and `potpack` at the point a board actually needs packing.
+
+Status: unresolved, deliberately.
 
 ## Open gaps
 
-- Q3/Q4 are the blocking pair: enumerate `@base-ui/react` and `motion` public surfaces before
-  writing a single component, so the "nothing hand-rolled" rule is checkable rather than asserted.
-- Q7 is the one with real architectural risk: R3F draws through three.js, TypeGPU owns a
-  `GPUDevice`. Whether one device can back both decides whether widgets and the world share a
-  frame or are composited as two layers.
+- Q6/Q7 are untouched and Q7 carries the real architectural risk: R3F draws through three.js,
+  TypeGPU owns a `GPUDevice`. Whether one device can back both decides whether widgets and the
+  world share a frame or are composited as two layers.
+- The `Widget` compound has no design. It is the one piece with no library owner and it was got
+  wrong twice; it needs a plan before a third attempt.
 
-Resume at: Q3 — `@base-ui/react` export surface at the installed version.
+Resume at: a plan for `Widget`, then Q7.
