@@ -1,6 +1,10 @@
 /** Exports the optional WebGPU compositor surface, its pass contracts, and shipped passes. */
 export { InfiniteCanvasCompositorSurface } from "./compositor/backend/surface";
 export { createInfiniteCanvasAreaLightPass } from "./compositor/passes/area-light";
+export {
+  CONNECTION_CAPACITY,
+  createInfiniteCanvasConnectionsPass,
+} from "./compositor/passes/connections";
 export { createInfiniteCanvasContactShadowPass } from "./compositor/passes/contact-shadow";
 export { createInfiniteCanvasFocusFieldPass } from "./compositor/passes/focus-field";
 export { createInfiniteCanvasGridPass } from "./compositor/passes/grid";
@@ -17,6 +21,7 @@ export {
 } from "./compositor/passes/proximity";
 export {
   DEFAULT_AREA_LIGHT_OPTIONS,
+  DEFAULT_CONNECTIONS_OPTIONS,
   DEFAULT_CONTACT_SHADOW_OPTIONS,
   DEFAULT_FOCUS_FIELD_OPTIONS,
   DEFAULT_GRID_OPTIONS,

@@ -18,15 +18,11 @@ import {
   type InfiniteCanvasWindow,
   type InfiniteCanvasWorldSegment,
 } from "@hyphened/infinite-canvas";
-import {
-  InfiniteCanvasCompositorSurface,
-  type InfiniteCanvasScenePass,
-} from "@hyphened/infinite-canvas/scene";
+import { InfiniteCanvasCompositorSurface } from "@hyphened/infinite-canvas/scene";
 import { useState } from "react";
 import { Button } from "ui";
 import { CommandPalette } from "../showcases/command-palette.tsx";
 import { exposeCanvasDevHandle } from "../showcases/dev-handle.ts";
-import { createWorkflowLinksPass } from "../showcases/workflow-links-pass.ts";
 
 export const Route = createFileRoute("/workflow-board")({
   component: WorkflowBoardShowcase,
@@ -188,30 +184,11 @@ function selectedConnectionId(state: InfiniteCanvasState<CardKind>): string | nu
 }
 
 /*
- * Links live in the canvas document, so neither of these closes over React state and neither has
- * to be rebuilt when a link changes. Both read the same `state.connections` the reducer owns, which
- * is also what makes a link undoable and serialized without this route doing anything.
+ * The framework draws the links. This route names no pass and writes no shader: it dispatches
+ * `connection.open` and `connection.close`, and the compositor's connections pass reads the same
+ * `state.connections` the reducer owns. The resolver below is what makes an edge selectable, which
+ * is a hit-testing concern rather than a drawing one.
  */
-const sceneLayers = [
-  createWorkflowLinksPass<CardKind>((context) => {
-    const selectedId = selectedConnectionId(context.state);
-
-    return context.state.connections.flatMap((connection) => {
-      const segment = connectionSegment(context.state, connection);
-
-      return segment === null
-        ? []
-        : [
-            {
-              a: [segment.start.x, segment.start.y] as const,
-              b: [segment.end.x, segment.end.y] as const,
-              selected: connection.id === selectedId,
-            },
-          ];
-    });
-  }),
-] satisfies readonly InfiniteCanvasScenePass<CardKind>[];
-
 const spatialTargetResolvers = [
   createInfiniteCanvasEdgeTargetResolver<CardKind>({
     id: "workflow-links",
@@ -257,7 +234,6 @@ function WorkflowBoardShowcase() {
             />
           </>
         )}
-        sceneLayers={sceneLayers}
         sceneSurface={InfiniteCanvasCompositorSurface}
         spatialTargetResolvers={spatialTargetResolvers}
         subtitle="Scene-layer links, selectable edges, ports, and scoped workspaces."

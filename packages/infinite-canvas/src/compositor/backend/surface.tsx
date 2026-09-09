@@ -35,6 +35,7 @@ import { getInfiniteCanvasWindowProxies, getInfiniteCanvasWindowProxy } from "..
 import type { CompositorBuiltPass, CompositorTarget, InfiniteCanvasScenePass } from "../pass";
 import { DEFAULT_INFINITE_CANVAS_COMPOSITOR, type InfiniteCanvasCompositorPolicy } from "../policy";
 import { createInfiniteCanvasAreaLightPass } from "../passes/area-light";
+import { createInfiniteCanvasConnectionsPass } from "../passes/connections";
 import { createInfiniteCanvasContactShadowPass } from "../passes/contact-shadow";
 import { createInfiniteCanvasFocusFieldPass } from "../passes/focus-field";
 import { createInfiniteCanvasGridPass } from "../passes/grid";
@@ -71,6 +72,10 @@ function getFrameworkPasses<Kind extends string, Payload>(
     ...(policy.contactShadow === false
       ? []
       : [createInfiniteCanvasContactShadowPass<Kind, Payload>(policy.contactShadow)]),
+    // After the shadows, so an edge reads as lying on the medium rather than under it.
+    ...(policy.connections === false
+      ? []
+      : [createInfiniteCanvasConnectionsPass<Kind, Payload>(policy.connections)]),
     ...(policy.particleField === false
       ? []
       : [createInfiniteCanvasParticleFieldPass<Kind, Payload>(policy.particleField)]),

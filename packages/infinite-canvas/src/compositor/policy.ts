@@ -42,6 +42,21 @@ type InfiniteCanvasParticleFieldOptions = Readonly<{
   tint: readonly [number, number, number];
 }>;
 
+type InfiniteCanvasConnectionsOptions = Readonly<{
+  /** Peak alpha of a resting edge, 0 to 1. */
+  opacity: number;
+  /** Peak alpha of a selected edge, 0 to 1. */
+  selectedOpacity: number;
+  /** Line width of a selected edge in CSS pixels. */
+  selectedThicknessPx: number;
+  /** sRGB, 0 to 1, the same channels a CSS hex carries. */
+  selectedTint: readonly [number, number, number];
+  /** Line width in CSS pixels, held constant across zoom. */
+  thicknessPx: number;
+  /** sRGB, 0 to 1, the same channels a CSS hex carries. */
+  tint: readonly [number, number, number];
+}>;
+
 type InfiniteCanvasProximityOptions = Readonly<{
   /** World units. Windows farther apart than this do not see each other. */
   reach: number;
@@ -78,6 +93,7 @@ type InfiniteCanvasFocusFieldOptions = Readonly<{
 
 type InfiniteCanvasCompositorPolicy = Readonly<{
   areaLight: InfiniteCanvasAreaLightOptions | false;
+  connections: InfiniteCanvasConnectionsOptions | false;
   contactShadow: InfiniteCanvasContactShadowOptions | false;
   focusField: InfiniteCanvasFocusFieldOptions | false;
   grid: InfiniteCanvasGridOptions | false;
@@ -88,6 +104,7 @@ type InfiniteCanvasCompositorPolicy = Readonly<{
 /** `true` keeps the defaults, `false` disables the pass, an object overrides fields. */
 type InfiniteCanvasCompositorPolicyInput = Readonly<{
   areaLight?: Partial<InfiniteCanvasAreaLightOptions> | boolean;
+  connections?: Partial<InfiniteCanvasConnectionsOptions> | boolean;
   contactShadow?: Partial<InfiniteCanvasContactShadowOptions> | boolean;
   focusField?: Partial<InfiniteCanvasFocusFieldOptions> | boolean;
   grid?: Partial<InfiniteCanvasGridOptions> | boolean;
@@ -138,6 +155,20 @@ const DEFAULT_PARTICLE_FIELD_OPTIONS: InfiniteCanvasParticleFieldOptions = {
   tint: [0.62, 0.74, 0.92],
 };
 
+/*
+ * Neutral at rest, brighter when selected. Drawing every edge at full strength
+ * spends the loudest value on whatever happens to exist and leaves nothing to
+ * mark what a person is acting on.
+ */
+const DEFAULT_CONNECTIONS_OPTIONS: InfiniteCanvasConnectionsOptions = {
+  opacity: 0.55,
+  selectedOpacity: 0.95,
+  selectedThicknessPx: 4,
+  selectedTint: [0.69, 0.86, 0.94],
+  thicknessPx: 2,
+  tint: [0.22, 0.74, 0.96],
+};
+
 const DEFAULT_PROXIMITY_OPTIONS: InfiniteCanvasProximityOptions = {
   reach: 240,
 };
@@ -146,6 +177,9 @@ const DEFAULT_INFINITE_CANVAS_COMPOSITOR: InfiniteCanvasCompositorPolicy = {
   // Off by default. Irradiance on a featureless plane is a radial gradient, so
   // it reads as an aura rather than as light until the medium has structure.
   areaLight: false,
+  // On by default: an edge in the document is content, and a canvas that holds
+  // one and draws nothing is simply missing it.
+  connections: DEFAULT_CONNECTIONS_OPTIONS,
   contactShadow: DEFAULT_CONTACT_SHADOW_OPTIONS,
   // Off by default: the halo it leaves around the active window reads as an
   // aura on the medium. The pass stays available for a consumer that wants it.
@@ -185,6 +219,11 @@ function resolveInfiniteCanvasCompositorPolicy(
 
   return {
     areaLight: resolvePassOptions(input?.areaLight, absent.areaLight, DEFAULT_AREA_LIGHT_OPTIONS),
+    connections: resolvePassOptions(
+      input?.connections,
+      absent.connections,
+      DEFAULT_CONNECTIONS_OPTIONS,
+    ),
     contactShadow: resolvePassOptions(
       input?.contactShadow,
       absent.contactShadow,
@@ -207,6 +246,7 @@ function resolveInfiniteCanvasCompositorPolicy(
 
 export {
   DEFAULT_AREA_LIGHT_OPTIONS,
+  DEFAULT_CONNECTIONS_OPTIONS,
   DEFAULT_CONTACT_SHADOW_OPTIONS,
   DEFAULT_FOCUS_FIELD_OPTIONS,
   DEFAULT_GRID_OPTIONS,
@@ -218,6 +258,7 @@ export {
 export type {
   InfiniteCanvasAreaLightOptions,
   InfiniteCanvasCompositorPolicy,
+  InfiniteCanvasConnectionsOptions,
   InfiniteCanvasContactShadowOptions,
   InfiniteCanvasCompositorPolicyInput,
   InfiniteCanvasFocusFieldOptions,

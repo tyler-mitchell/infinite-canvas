@@ -314,6 +314,7 @@ export type {
   InfiniteCanvasAreaLightOptions,
   InfiniteCanvasCompositorPolicy,
   InfiniteCanvasCompositorPolicyInput,
+  InfiniteCanvasConnectionsOptions,
   InfiniteCanvasContactShadowOptions,
   InfiniteCanvasFocusFieldOptions,
   InfiniteCanvasGridOptions,
