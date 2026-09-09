@@ -13,7 +13,7 @@ import {
   setInfiniteCanvasGroupRect,
 } from "./group-state";
 import { clearSelection, isWindowSelected, replaceSelection } from "./selection";
-import { applyResizeSnapToRect, applySnapToRect } from "./snap";
+import { applyResizeSnapToRect, applySnapToRect } from "./snap-resolver";
 import {
   findWindow,
   focusWindow,
