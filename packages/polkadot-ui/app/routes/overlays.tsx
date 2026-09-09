@@ -1,13 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { tv } from "tailwind-variants";
 
-import { Button } from "#/components/button.tsx";
-import { Dialog } from "#/components/dialog.tsx";
-import { Menu } from "#/components/menu.tsx";
-import { Popover } from "#/components/popover.tsx";
-import { Row } from "#/components/row.tsx";
-import { Kind, Meta, Prose, Title } from "#/components/text.tsx";
-import { Tooltip } from "#/components/tooltip.tsx";
+/*
+ * This page imports the way a consumer does — through the package entry rather than the component
+ * files — so the barrel is exercised by something that actually runs. Every other page reaches for
+ * the files directly, which left the published surface proven by nothing.
+ */
+import { Button, Dialog, Kind, Menu, Meta, Popover, Prose, Row, Title, Tooltip } from "polkadot-ui";
 
 const overlays = tv({
   slots: {

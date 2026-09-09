@@ -38,8 +38,12 @@ export {
   DialogTitle,
   DialogTrigger,
   dialogVariants,
+  type DialogCloseProps,
   type DialogContentProps,
+  type DialogDescriptionProps,
   type DialogProps,
+  type DialogTitleProps,
+  type DialogTriggerProps,
 } from "./components/dialog.tsx";
 export { IconTile, iconTileVariants, type IconTileProps } from "./components/icon-tile.tsx";
 export {
@@ -53,8 +57,12 @@ export {
   MenuTrigger,
   menuVariants,
   type MenuContentProps,
+  type MenuGroupLabelProps,
+  type MenuGroupProps,
   type MenuItemProps,
   type MenuProps,
+  type MenuSeparatorProps,
+  type MenuTriggerProps,
 } from "./components/menu.tsx";
 export {
   Popover,
@@ -64,8 +72,12 @@ export {
   PopoverTitle,
   PopoverTrigger,
   popoverVariants,
+  type PopoverCloseProps,
   type PopoverContentProps,
+  type PopoverDescriptionProps,
   type PopoverProps,
+  type PopoverTitleProps,
+  type PopoverTriggerProps,
 } from "./components/popover.tsx";
 export { ScrollArea, scrollAreaVariants, type ScrollAreaProps } from "./components/scroll-area.tsx";
 export { Row, rowVariants, type RowProps } from "./components/row.tsx";
@@ -102,7 +114,9 @@ export {
   ToolbarSeparator,
   toolbarVariants,
   type ToolbarButtonProps,
+  type ToolbarGroupProps,
   type ToolbarProps,
+  type ToolbarSeparatorProps,
 } from "./components/toolbar.tsx";
 export {
   Toggle,
