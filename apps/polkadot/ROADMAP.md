@@ -533,6 +533,25 @@ heading means nobody has classified it yet, not that it is open.
   - Cross-origin `exposedTo` behavior.
   - Behavior with a real browser-integrated agent.
 
+  **Scope narrowed on 2026-09-09 by reading the two tool sources.** The obvious shape for this is a
+  consequence field on `InfiniteCanvasCommandDescriptor`, so that a caller can read risk off a
+  published verb. Reading `commands.ts` says not to build it. Every framework command is either a
+  document operation, which canvas history already covers, or a view operation, which changes no
+  data. Neither needs a confirmation. Adding a required field would touch roughly one hundred and
+  thirty descriptors to record "undoable" one hundred and thirty times, and an optional one would
+  default a future destructive command to safe, which is the wrong direction to fail in.
+
+  The risk lives entirely in `app-actions.ts`, because that is what writes to the database, and
+  nothing there is irreversible today: `project.archive` is documented "Reversible with
+  project.restore", and its five siblings follow the same archive and restore pair. Deletion is
+  the only irreversible operation and it is deliberately unpublished, which is what the item
+  below records.
+
+  So the policy is a Polkadot concern over its own actions, not a framework capability, and it is
+  needed at the moment deletion is published rather than before. That ordering is the opposite of
+  what this item assumed. It does not need the word Polkadot to justify itself, because the
+  framework has no irreversible operation to classify.
+
 - **BLOCKED. Canvas and project deletion remains pointer-only.**
   Archive actions have landed and have an end-to-end witness.
   They include `canvas.archive`, `restore`, and `listArchived`, plus the three project equivalents.
