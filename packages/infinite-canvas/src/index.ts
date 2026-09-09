@@ -264,6 +264,8 @@ export type {
   InfiniteCanvasConnectionHandleOptions,
 } from "./window-connection";
 export { cloneInfiniteCanvasState, resetInfiniteCanvasState } from "./state";
+// Aliased because the internal name is bare inside a module that is all about windows.
+export { findWindow as findInfiniteCanvasWindow } from "./stacking";
 export {
   DEFAULT_INFINITE_CANVAS_ZOOM,
   DEFAULT_INFINITE_CANVAS_INPUT_POLICY,

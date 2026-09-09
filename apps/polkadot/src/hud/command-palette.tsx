@@ -1,4 +1,5 @@
 import {
+  findInfiniteCanvasWindow,
   focusInfiniteCanvasCommandSurface,
   getInfiniteCanvasContextualEntries,
   getInfiniteCanvasGroupTitle,
@@ -277,15 +278,13 @@ function PaletteContent({
   const query = useValue(query$);
   const styles = palette();
   const connectionSubject = ((selected) => {
-    const itemId = selected === undefined ? null : getContentWindowItemId(selected);
+    const itemId = selected === null ? null : getContentWindowItemId(selected);
 
-    return selected === undefined || itemId === null
-      ? undefined
-      : { itemId, title: selected.title };
+    return selected === null || itemId === null ? undefined : { itemId, title: selected.title };
   })(
     state.selection.windowIds.length === 1
-      ? state.windows.find((window) => window.id === state.selection.windowIds[0])
-      : undefined,
+      ? findInfiniteCanvasWindow(state, state.selection.windowIds[0] ?? "")
+      : null,
   );
   const windows = getInfiniteCanvasWindowPresence(state).windows;
   const activeWindow = windows.find((window) => window.isActive);
@@ -341,9 +340,10 @@ function PaletteContent({
     openNoteWindow({ actions, noteId: note.id, state, title: note.title });
   };
 
-  const activeStateWindow = state.windows.find((window) => window.id === state.activeWindowId);
+  const activeStateWindow =
+    state.activeWindowId === null ? null : findInfiniteCanvasWindow(state, state.activeWindowId);
   const activeNoteId =
-    activeStateWindow === undefined ? undefined : getContentWindowItemId(activeStateWindow);
+    activeStateWindow === null ? undefined : getContentWindowItemId(activeStateWindow);
   const activeNote = notes.find((note) => note.id === activeNoteId);
   const activeGroup =
     state.activeWindowId === null
@@ -352,9 +352,9 @@ function PaletteContent({
 
   const selectedNoteIds = state.selection.windowIds
     .map((windowId) => {
-      const selected = state.windows.find((window) => window.id === windowId);
+      const selected = findInfiniteCanvasWindow(state, windowId);
 
-      return selected === undefined ? null : getContentWindowItemId(selected);
+      return selected === null ? null : getContentWindowItemId(selected);
     })
     .filter((itemId): itemId is string => itemId !== null);
   const connectedPair =

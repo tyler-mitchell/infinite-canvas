@@ -1,6 +1,7 @@
 import {
   DEFAULT_INFINITE_CANVAS_COMMAND_DESCRIPTORS,
   findInfiniteCanvasGroup,
+  findInfiniteCanvasWindow,
   findInfiniteCanvasWorkspace,
   getInfiniteCanvasGroupableWindowIds,
   getWindowBounds,
@@ -1499,9 +1500,9 @@ const APP_ACTIONS: readonly AppAction[] = [
        * what it can reveal are one set — the same coherence `content.open` keeps with `content.list`.
        * An id naming no window says so, rather than revealing something else.
        */
-      const target = state.windows.find((window) => window.id === parsed.windowId);
+      const target = findInfiniteCanvasWindow(state, parsed.windowId);
 
-      if (target === undefined) {
+      if (target === null) {
         return NO_SUCH_WINDOW;
       }
 

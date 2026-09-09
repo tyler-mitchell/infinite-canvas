@@ -62,6 +62,7 @@
     "scene-layer-geometry",
     "selection",
     "spatial-target",
+    "stacking",
     "state",
     "store",
     "types",

@@ -1,6 +1,6 @@
 # API reference
 
-The public surface of `@hyphened/infinite-canvas`: 261 values and 206 types across two entries.
+The public surface of `@hyphened/infinite-canvas`: 262 values and 206 types across two entries.
 Anything absent from these barrels is internal and unstable.
 This rule includes each `data-infinite-canvas-*` attribute, which supports hit tests instead of styles.
 
@@ -182,6 +182,10 @@ When a control measures the full selection, use the selection bounds hook instea
 
 - `cloneInfiniteCanvasState`
 - `resetInfiniteCanvasState`
+
+**`stacking`**
+
+- `findInfiniteCanvasWindow`: Returns one window by ID, or `null`. The reducer's own lookup, published because every consumer was writing `state.windows.find((window) => window.id === id) ?? null` by hand.
 
 ## Factories
 

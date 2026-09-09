@@ -1,12 +1,11 @@
 import {
   getInfiniteCanvasConnectionPreviewPath,
-  getInfiniteCanvasContentViewport,
+  getInfiniteCanvasContentWorldRect,
   getInfiniteCanvasGroupProjection,
   getInfiniteCanvasLongestUnoccludedRun,
   getInfiniteCanvasRectBundledConnectorPaths,
   getInfiniteCanvasSegmentsWithinRect,
   getInfiniteCanvasWorldPathPointAtProgress,
-  screenPointToWorldPoint,
   getSelectionTargets,
   isInfiniteCanvasWindowInActiveWorkspace,
   type InfiniteCanvasPoint,
@@ -62,21 +61,11 @@ function getDrawnConnectors(
   const rectsByItem = getConnectorRectsByItem(state);
   const occluders = [...rectsByItem.values()].flat();
   // Connector markers stay inside the content viewport.
-  const contentViewport = getInfiniteCanvasContentViewport(state.viewport, state.viewportInsets);
-  const topLeft = screenPointToWorldPoint(state.camera, state.viewport, {
-    x: contentViewport.x,
-    y: contentViewport.y,
-  });
-  const bottomRight = screenPointToWorldPoint(state.camera, state.viewport, {
-    x: contentViewport.x + contentViewport.width,
-    y: contentViewport.y + contentViewport.height,
-  });
-  const anchorBounds: InfiniteCanvasRect = {
-    height: bottomRight.y - topLeft.y,
-    width: bottomRight.x - topLeft.x,
-    x: topLeft.x,
-    y: topLeft.y,
-  };
+  const anchorBounds = getInfiniteCanvasContentWorldRect(
+    state.camera,
+    state.viewport,
+    state.viewportInsets,
+  );
 
   /*
    * Routed as a set per hub, not one relation at a time.

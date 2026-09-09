@@ -4,6 +4,7 @@ import {
   createInfiniteCanvasState,
   createInfiniteCanvasWindow,
   defineInfiniteCanvasWindowRegistry,
+  findInfiniteCanvasWindow,
   getInfiniteCanvasWindowConnectorSegment,
   getInfiniteCanvasWindowPresence,
   getInfiniteCanvasWindowProxy,
@@ -143,18 +144,14 @@ function connectionSegment(
   state: InfiniteCanvasState<CardKind>,
   connection: Connection,
 ): InfiniteCanvasWorldSegment | null {
-  const fromWindow = getWindow(state, connection.from);
-  const toWindow = getWindow(state, connection.to);
+  const fromWindow = findInfiniteCanvasWindow(state, connection.from);
+  const toWindow = findInfiniteCanvasWindow(state, connection.to);
   if (fromWindow === null || toWindow === null) {
     return null;
   }
   const from = getInfiniteCanvasWindowProxy(state, fromWindow);
   const to = getInfiniteCanvasWindowProxy(state, toWindow);
   return from && to ? getInfiniteCanvasWindowConnectorSegment(from, to) : null;
-}
-
-function getWindow(state: InfiniteCanvasState<CardKind>, windowId: string) {
-  return state.windows.find((window) => window.id === windowId) ?? null;
 }
 
 /** Ignore stale edge selections after a link or workspace changes. */

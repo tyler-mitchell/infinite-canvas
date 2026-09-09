@@ -1,4 +1,5 @@
 import {
+  findInfiniteCanvasWindow,
   getInfiniteCanvasOffscreenIndicators,
   useInfiniteCanvasActions,
   useInfiniteCanvasState,
@@ -59,7 +60,7 @@ export function CanvasOffscreenIndicators() {
           title={
             indicator.kind === "group"
               ? `Group ${indicator.id} — ${Math.round(indicator.distancePx)}px away`
-              : `${state.windows.find((window) => window.id === indicator.id)?.title ?? indicator.id} — ${Math.round(indicator.distancePx)}px away`
+              : `${findInfiniteCanvasWindow(state, indicator.id)?.title ?? indicator.id} — ${Math.round(indicator.distancePx)}px away`
           }
           type="button"
         >

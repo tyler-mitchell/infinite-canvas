@@ -1,4 +1,5 @@
 import {
+  findInfiniteCanvasWindow,
   getInfiniteCanvasConnectionAffordanceWindowId,
   getInfiniteCanvasConnectionHandles,
   getInfiniteCanvasConnectionPreviewPath,
@@ -41,8 +42,8 @@ type Draft = Readonly<{
   sourceWindowId: string;
 }>;
 
-function getItemId(window: InfiniteCanvasWindow<WindowKind> | undefined) {
-  return window === undefined ? null : getContentWindowItemId(window);
+function getItemId(window: InfiniteCanvasWindow<WindowKind> | null) {
+  return window === null ? null : getContentWindowItemId(window);
 }
 
 function getLandingWindow(
@@ -55,7 +56,7 @@ function getLandingWindow(
     viewportPoint,
   });
 
-  return target.type === "window" ? target.window : undefined;
+  return target.type === "window" ? target.window : null;
 }
 
 export function ConnectorDraft({ projectId }: Readonly<{ projectId: string }>) {
@@ -147,14 +148,15 @@ export function ConnectorDraft({ projectId }: Readonly<{ projectId: string }>) {
   }, [draft$, isDragging, projectId, relations, state]);
 
   const sourceWindowId = dragging?.sourceWindowId ?? affordanceWindowId;
-  const sourceWindow = state.windows.find((candidate) => candidate.id === sourceWindowId);
+  const sourceWindow =
+    sourceWindowId === null ? null : findInfiniteCanvasWindow(state, sourceWindowId);
   const sourceItemId = getItemId(sourceWindow);
 
-  if (sourceWindow === undefined || sourceItemId === null) {
+  if (sourceWindow === null || sourceItemId === null) {
     return <div className={styles.root()} data-slot="connector-draft" ref={rootRef} />;
   }
 
-  const landing = dragging === null ? undefined : getLandingWindow(state, dragging.pointer);
+  const landing = dragging === null ? null : getLandingWindow(state, dragging.pointer);
   const landingItemId = getItemId(landing);
   const isJoinable =
     landingItemId !== null &&
@@ -165,7 +167,7 @@ export function ConnectorDraft({ projectId }: Readonly<{ projectId: string }>) {
       ? null
       : getInfiniteCanvasConnectionPreviewPath(
           sourceWindow.rect,
-          isJoinable && landing !== undefined
+          isJoinable && landing !== null
             ? landing.rect
             : screenPointToWorldPoint(state.camera, state.viewport, dragging.pointer),
           { route: "orthogonal" },

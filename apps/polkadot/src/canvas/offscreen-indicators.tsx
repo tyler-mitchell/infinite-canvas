@@ -1,4 +1,5 @@
 import {
+  findInfiniteCanvasWindow,
   getInfiniteCanvasGroupTitle,
   getInfiniteCanvasOffscreenIndicators,
   useInfiniteCanvasActions,
@@ -19,7 +20,7 @@ function getIndicatorTitle(
   state: InfiniteCanvasState<WindowKind>,
 ): string {
   if (indicator.kind !== "group") {
-    return state.windows.find((window) => window.id === indicator.id)?.title ?? "Window";
+    return findInfiniteCanvasWindow(state, indicator.id)?.title ?? "Window";
   }
 
   const group = state.groups.find((candidate) => candidate.id === indicator.id);
