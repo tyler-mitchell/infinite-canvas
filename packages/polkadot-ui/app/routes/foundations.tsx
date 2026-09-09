@@ -4,7 +4,9 @@ import { tv } from "tailwind-variants";
 import { Row } from "#/components/row.tsx";
 import { Separator } from "#/components/separator.tsx";
 import { Surface } from "#/components/surface.tsx";
-import { Kind, Label, Meta, Prose, Title } from "#/components/text.tsx";
+import { Kind, Label, Meta, Prose, textVariants, Title } from "#/components/text.tsx";
+
+import { Api } from "../api.tsx";
 
 /*
  * Swatch colours are set inline because the colour is the data, the same reason a bar's height is
@@ -242,6 +244,8 @@ function Foundations() {
             </div>
           </div>
         </Surface>
+        {/* The roles are also a variant, for an element the kit does not own. */}
+        <Api of={textVariants} />
       </section>
     </div>
   );
