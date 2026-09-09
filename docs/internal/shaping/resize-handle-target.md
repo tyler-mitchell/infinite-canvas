@@ -110,11 +110,24 @@ Note on R6: drawn size is `resizeHandleSize / screenTransform.scale` and hit siz
 
 ### B: Lift paint containment from the window
 
-| Part | Mechanism                                                                     | Flag             |
-| ---- | ----------------------------------------------------------------------------- | ---------------- |
-| B1   | `[data-slot="window"]` drops `contain: content` for something without `paint` |                  |
-| B2   | The overhang then paints and hits as the CSS already intends, restoring 16px  |                  |
-| B3   | Effect on culling and render cost, which is why containment is there          | ⚠️ unestablished |
+| Part | Mechanism                                                                    | Flag                   |
+| ---- | ---------------------------------------------------------------------------- | ---------------------- |
+| B1   | The frame style drops `contain: "layout paint style"`                        |                        |
+| B2   | The overhang then paints and hits as the CSS already intends, restoring 16px |                        |
+| B3   | Cost of losing layout/paint/style containment on every visible window        | ⚠️ still unestablished |
+| B4   | Offscreen frames re-apply containment anyway through `content-visibility`    | ✅ established by read |
+| B5   | Dropping `contain` also drops a containing block and a stacking context      | ⚠️ portal and z-order  |
+
+**B4, read at `window-frame.tsx:236`.** The frame sets `contentVisibility: "auto"` whenever
+`isFrameOffscreen` is true, and `content-visibility: auto` applies layout, style and paint
+containment on its own while the element is skipping its contents. So B cannot remove clipping
+everywhere — it removes it only for frames that are currently on screen. That is in fact the
+interaction case, so B survives, but it survives narrower than it looked: the explicit `contain` is
+not the only source of the clip.
+
+**B5 is new and unflagged before now.** `contain: layout paint style` establishes both a containing
+block for fixed/absolute descendants and a stacking context. `windowPortalRoot` and
+`getWindowStackValue` both sit inside that. Removing it is not a render-cost question alone.
 
 ### C: Draw the handle inside-only
 
