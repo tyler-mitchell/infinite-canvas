@@ -39,6 +39,16 @@ export const ACTIVITY: ActivityDay[] = Array.from({ length: 371 }, (_, i) => {
   };
 });
 
+/*
+ * The same days in minutes rather than commits — the case the default level ladder cannot bucket.
+ * Every non-zero value here clears the top default bound of ten, so without its own bounds the whole
+ * year renders in one colour.
+ */
+export const READING: ActivityDay[] = ACTIVITY.map(({ date, count }) => ({
+  date,
+  count: count * 14,
+}));
+
 export const INSTALLS = [1420, 1880, 1310, 2410, 2150, 2860, 1980, 4182] as const;
 
 export const LEVELS = [

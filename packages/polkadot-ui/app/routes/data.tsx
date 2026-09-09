@@ -16,7 +16,7 @@ import {
 } from "polkadot-ui";
 
 import { Api } from "../api.tsx";
-import { ACTIVITY, INSTALLS, LEVELS } from "../fixtures.ts";
+import { ACTIVITY, INSTALLS, LEVELS, READING } from "../fixtures.ts";
 
 const data = tv({
   slots: {
@@ -70,6 +70,34 @@ function Data() {
         <Prose className={styles.lede()}>
           Narrow the window and it shows fewer weeks at a size a pointer can still hit, rather than
           shrinking every cell towards four pixels.
+        </Prose>
+      </section>
+
+      <section className={styles.section()}>
+        <Row rule="below">
+          <Kind>level bounds</Kind>
+          <Meta>the scale belongs to the series</Meta>
+        </Row>
+        <Surface tone="card" className={styles.activity()}>
+          <Row>
+            <Label>minutes read</Label>
+            <Meta>1 · 30 · 60 · 120</Meta>
+          </Row>
+          {/* The same days as above in minutes: on the commit defaults every one of these is level 4. */}
+          <ActivityGrid days={READING} weeks={18} thresholds={[1, 30, 60, 120]}>
+            {(day) => (
+              <Readout>
+                {day
+                  ? `${day.count || "no"} minutes · ${day.date.toDateString().slice(0, 10)}`
+                  : "hover a day"}
+              </Readout>
+            )}
+          </ActivityGrid>
+        </Surface>
+        <Prose className={styles.lede()}>
+          The defaults suit commits per day. Give the same component minutes and every non-zero
+          value clears the top bound, so the year arrives in a single colour unless the series
+          brings its own scale.
         </Prose>
       </section>
 
