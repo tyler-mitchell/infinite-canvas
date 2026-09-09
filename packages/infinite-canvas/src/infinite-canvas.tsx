@@ -35,9 +35,11 @@ import { focusInfiniteCanvasContent } from "./focus-trap";
 import {
   DEFAULT_INFINITE_CANVAS_INPUT_POLICY,
   DEFAULT_INFINITE_CANVAS_STACK_BANDS,
+  DEFAULT_INFINITE_CANVAS_EDGE_PAN,
   DEFAULT_INFINITE_CANVAS_THEME,
   resolveInfiniteCanvasChromeMetrics,
   resolveInfiniteCanvasZoomPolicy,
+  type InfiniteCanvasEdgePanPolicy,
 } from "./constants";
 import {
   DEFAULT_INFINITE_CANVAS_DIAGNOSTICS,
@@ -47,7 +49,11 @@ import {
   type InfiniteCanvasDiagnosticsPolicy,
   type InfiniteCanvasDiagnosticsPolicyInput,
 } from "./diagnostics";
-import { getInfiniteCanvasContentViewport, getWheelZoomFactor } from "./geometry";
+import {
+  getInfiniteCanvasContentViewport,
+  getInfiniteCanvasEdgePanVelocity,
+  getWheelZoomFactor,
+} from "./geometry";
 import {
   EMPTY_INFINITE_CANVAS_DROP,
   createInfiniteCanvasDropInteraction,
@@ -160,6 +166,12 @@ type InfiniteCanvasDesktopProps<
   /** Which framework compositor passes run and how each is tuned. Needs `sceneSurface`. */
   compositor?: InfiniteCanvasCompositorPolicyInput;
   diagnostics?: InfiniteCanvasDiagnosticsPolicyInput;
+  /**
+   * Pans the canvas when a drag reaches a viewport edge. `false` holds the
+   * camera still. Memoize this object: pointer handling restarts when its
+   * identity changes, which stops a pan held at the edge.
+   */
+  edgePan?: InfiniteCanvasEdgePanPolicy | false;
   documentKey?: string;
   dropPolicy?: InfiniteCanvasDropPolicy<Kind, Payload>;
   /** Adds consumer actions to the keymap without replacing command bindings. */
@@ -196,6 +208,12 @@ type InfiniteCanvasViewportProps<
   className?: string;
   compositor?: InfiniteCanvasCompositorPolicy;
   diagnostics?: InfiniteCanvasDiagnosticsPolicy;
+  /**
+   * Pans the canvas when a drag reaches a viewport edge. `false` holds the
+   * camera still. Memoize this object: pointer handling restarts when its
+   * identity changes, which stops a pan held at the edge.
+   */
+  edgePan?: InfiniteCanvasEdgePanPolicy | false;
   /** Screen-edge bands that chrome covers. Camera framing uses the remaining region. */
   viewportInsets?: InfiniteCanvasViewportInsetsInput;
   /** In-content screen rects that placement treats as occupied. Memoize this array. */
@@ -238,6 +256,9 @@ type InfiniteCanvasViewportProps<
  * lists the prop as a dependency.
  */
 const EMPTY_LIST: readonly never[] = [];
+
+/** Longest step one edge-pan frame may apply. A stalled tab returns with a large gap. */
+const MAX_EDGE_PAN_STEP_SECONDS = 1 / 20;
 
 /** World content below windows. */
 const UNDERLAY_Z_INDEX = 2;
@@ -411,6 +432,7 @@ function InfiniteCanvasDesktop<Kind extends string, Payload = InfiniteCanvasDrop
   diagnostics,
   documentKey,
   dropPolicy,
+  edgePan,
   hotkeyActions,
   hotkeyBindings,
   hud,
@@ -476,6 +498,7 @@ function InfiniteCanvasDesktop<Kind extends string, Payload = InfiniteCanvasDrop
             compositor={resolvedCompositorPolicy}
             diagnostics={resolvedDiagnosticsPolicy}
             dropPolicy={dropPolicy}
+            edgePan={edgePan}
             hotkeyActions={hotkeyActions}
             hotkeyBindings={hotkeyBindings}
             hud={hud}
@@ -523,6 +546,7 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
   className,
   compositor = DEFAULT_INFINITE_CANVAS_COMPOSITOR,
   diagnostics = DEFAULT_INFINITE_CANVAS_DIAGNOSTICS,
+  edgePan = DEFAULT_INFINITE_CANVAS_EDGE_PAN,
   dropPolicy,
   groupMetrics,
   groupLabel,
@@ -1073,8 +1097,70 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
         releasePointer(node, pointerId);
       }
 
+      stopEdgePan();
       actions.finishInteraction(pointerId);
     };
+    /**
+     * The pointer's last position, so a drag held still at an edge keeps
+     * panning. The reducer only runs on an event, and a held pointer sends
+     * none, so the frame loop replays this point until the drag ends or leaves
+     * the band.
+     */
+    const held: {
+      dockIntent: boolean;
+      frame: number;
+      point: InfiniteCanvasPoint | null;
+      time: number;
+    } = { dockIntent: false, frame: 0, point: null, time: 0 };
+
+    const stopEdgePan = () => {
+      if (held.frame !== 0) {
+        cancelAnimationFrame(held.frame);
+      }
+
+      held.frame = 0;
+      held.point = null;
+    };
+
+    const getEdgePanVelocity = (point: InfiniteCanvasPoint) => {
+      const current = store.state$.peek() as InfiniteCanvasState<Kind>;
+
+      // A pan interaction already moves the camera; panning it again fights the drag.
+      return current.interaction === null || current.interaction.kind === "pan" || edgePan === false
+        ? null
+        : getInfiniteCanvasEdgePanVelocity(
+            current.viewport,
+            point,
+            edgePan,
+            current.viewportInsets,
+          );
+    };
+
+    const stepEdgePan = (now: number) => {
+      const point = held.point;
+      const velocity = point === null ? null : getEdgePanVelocity(point);
+      const interaction = (store.state$.peek() as InfiniteCanvasState<Kind>).interaction;
+
+      if (point === null || velocity === null || interaction === null) {
+        stopEdgePan();
+
+        return;
+      }
+
+      // Cap the step so a stalled frame cannot fling the camera across the world.
+      const seconds = Math.min((now - held.time) / 1000, MAX_EDGE_PAN_STEP_SECONDS);
+
+      held.time = now;
+      actions.panBy({ delta: { x: velocity.x * seconds, y: velocity.y * seconds } });
+      // Re-step at the same point: the camera moved, so the drag has travelled.
+      actions.stepInteraction({
+        dockIntent: held.dockIntent,
+        pointerId: interaction.pointerId,
+        point,
+      });
+      held.frame = requestAnimationFrame(stepEdgePan);
+    };
+
     const handlePointerMove = (event: PointerEvent) => {
       const node = rootRef.current;
 
@@ -1082,11 +1168,23 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
         return;
       }
 
+      const point = getViewportPoint(node, getClientPoint(event));
+
       actions.stepInteraction({
         dockIntent: event.altKey,
         pointerId: event.pointerId,
-        point: getViewportPoint(node, getClientPoint(event)),
+        point,
       });
+
+      held.dockIntent = event.altKey;
+      held.point = point;
+
+      if (getEdgePanVelocity(point) === null) {
+        stopEdgePan();
+      } else if (held.frame === 0) {
+        held.time = performance.now();
+        held.frame = requestAnimationFrame(stepEdgePan);
+      }
     };
     const handlePointerUp = (event: PointerEvent) => {
       if (getInteractionForPointer(event.pointerId) !== null) {
@@ -1107,12 +1205,13 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
     window.addEventListener("blur", handleBlur);
 
     return () => {
+      stopEdgePan();
       window.removeEventListener("pointermove", handlePointerMove);
       window.removeEventListener("pointerup", handlePointerUp);
       window.removeEventListener("pointercancel", handlePointerUp);
       window.removeEventListener("blur", handleBlur);
     };
-  }, [actions, store]);
+  }, [actions, edgePan, store]);
 
   useEffect(() => {
     const handlePointerMove = (event: PointerEvent) => {

@@ -12,6 +12,7 @@ import {
   InfiniteCanvasDesktop,
   worldPointToScreenPoint,
   worldRectToScreenRect,
+  type InfiniteCanvasConnection,
   type InfiniteCanvasOverlayRenderContext,
   type InfiniteCanvasState,
   type InfiniteCanvasWindow,
@@ -21,7 +22,7 @@ import {
   InfiniteCanvasCompositorSurface,
   type InfiniteCanvasScenePass,
 } from "@hyphened/infinite-canvas/scene";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { Button } from "ui";
 import { CommandPalette } from "../showcases/command-palette.tsx";
 import { exposeCanvasDevHandle } from "../showcases/dev-handle.ts";
@@ -41,7 +42,23 @@ export const Route = createFileRoute("/workflow-board")({
 type CardKind = "stage";
 type WorkspaceId = "launch" | "research";
 
-type Connection = Readonly<{ from: string; id: string; label: string; to: string }>;
+/** The link kind, shared by the store records and the edge targets that select them. */
+const LINK_KIND = "workflow-link";
+
+/** A link's label is the consumer's payload, the way a window's body content is. */
+const getLinkLabel = (connection: InfiniteCanvasConnection) =>
+  typeof connection.data === "object" && connection.data !== null && "label" in connection.data
+    ? String((connection.data as { label: unknown }).label)
+    : "link";
+
+const link = (input: Readonly<{ from: string; label: string; to: string }>) =>
+  ({
+    data: { label: input.label },
+    from: input.from,
+    id: `${input.from}->${input.to}`,
+    kind: LINK_KIND,
+    to: input.to,
+  }) satisfies InfiniteCanvasConnection;
 
 type CardSpec = Readonly<{
   id: string;
@@ -50,9 +67,13 @@ type CardSpec = Readonly<{
   title: string;
 }>;
 
-function makeWorkspaceState(cards: readonly CardSpec[]): InfiniteCanvasState<CardKind> {
+function makeWorkspaceState(
+  cards: readonly CardSpec[],
+  connections: readonly InfiniteCanvasConnection[],
+): InfiniteCanvasState<CardKind> {
   return createInfiniteCanvasState<CardKind>({
     camera: { center: { x: 470, y: 220 }, zoom: 0.8 },
+    connections,
     windows: cards.map((card, index) =>
       createInfiniteCanvasWindow<CardKind, { lines: readonly string[] }>({
         data: { lines: card.lines },
@@ -66,54 +87,55 @@ function makeWorkspaceState(cards: readonly CardSpec[]): InfiniteCanvasState<Car
   });
 }
 
-const workspaces: Record<
-  WorkspaceId,
-  { connections: readonly Connection[]; label: string; state: InfiniteCanvasState<CardKind> }
-> = {
+const workspaces: Record<WorkspaceId, { label: string; state: InfiniteCanvasState<CardKind> }> = {
   launch: {
-    connections: [
-      { from: "intake", id: "intake-review", label: "triage", to: "review" },
-      { from: "review", id: "review-ship", label: "approve", to: "ship" },
-    ],
     label: "Launch",
-    state: makeWorkspaceState([
-      {
-        id: "intake",
-        lines: ["Click a card's right port,", "then another card's left port", "to draw a link."],
-        rect: { height: 170, width: 270, x: 0, y: 60 },
-        title: "Intake",
-      },
-      {
-        id: "review",
-        lines: ["Click a link to select it;", "delete it from the action bar."],
-        rect: { height: 170, width: 270, x: 360, y: 0 },
-        title: "Review",
-      },
-      {
-        id: "ship",
-        lines: ["Links are scene-layer meshes;", "labels are projected DOM."],
-        rect: { height: 170, width: 270, x: 720, y: 90 },
-        title: "Ship",
-      },
-    ]),
+    state: makeWorkspaceState(
+      [
+        {
+          id: "intake",
+          lines: ["Click a card's right port,", "then another card's left port", "to draw a link."],
+          rect: { height: 170, width: 270, x: 0, y: 60 },
+          title: "Intake",
+        },
+        {
+          id: "review",
+          lines: ["Click a link to select it;", "delete it from the action bar."],
+          rect: { height: 170, width: 270, x: 360, y: 0 },
+          title: "Review",
+        },
+        {
+          id: "ship",
+          lines: ["Links undo with the board;", "labels are projected DOM."],
+          rect: { height: 170, width: 270, x: 720, y: 90 },
+          title: "Ship",
+        },
+      ],
+      [
+        link({ from: "intake", label: "triage", to: "review" }),
+        link({ from: "review", label: "approve", to: "ship" }),
+      ],
+    ),
   },
   research: {
-    connections: [{ from: "collect", id: "collect-distill", label: "summarize", to: "distill" }],
     label: "Research",
-    state: makeWorkspaceState([
-      {
-        id: "collect",
-        lines: ["A second workspace:", "its own documentKey remounts", "the provider boundary."],
-        rect: { height: 170, width: 280, x: 80, y: 40 },
-        title: "Collect",
-      },
-      {
-        id: "distill",
-        lines: ["Layout, selection, and links", "stay scoped per workspace."],
-        rect: { height: 170, width: 280, x: 500, y: 180 },
-        title: "Distill",
-      },
-    ]),
+    state: makeWorkspaceState(
+      [
+        {
+          id: "collect",
+          lines: ["A second workspace:", "its own documentKey remounts", "the provider boundary."],
+          rect: { height: 170, width: 280, x: 80, y: 40 },
+          title: "Collect",
+        },
+        {
+          id: "distill",
+          lines: ["Layout, selection, and links", "stay scoped per workspace."],
+          rect: { height: 170, width: 280, x: 500, y: 180 },
+          title: "Distill",
+        },
+      ],
+      [link({ from: "collect", label: "summarize", to: "distill" })],
+    ),
   },
 };
 
@@ -142,7 +164,7 @@ function StageCardBody({ window }: { window: InfiniteCanvasWindow<CardKind> }) {
 
 function connectionSegment(
   state: InfiniteCanvasState<CardKind>,
-  connection: Connection,
+  connection: InfiniteCanvasConnection,
 ): InfiniteCanvasWorldSegment | null {
   const fromWindow = findInfiniteCanvasWindow(state, connection.from);
   const toWindow = findInfiniteCanvasWindow(state, connection.to);
@@ -155,88 +177,66 @@ function connectionSegment(
 }
 
 /** Ignore stale edge selections after a link or workspace changes. */
-function selectedConnectionId(
-  state: InfiniteCanvasState<CardKind>,
-  connections: readonly Connection[],
-): string | null {
+function selectedConnectionId(state: InfiniteCanvasState<CardKind>): string | null {
   const target = getSelectionTargets(state.selection).find(
-    (candidate) => candidate.type === "edge" && candidate.kind === "workflow-link",
+    (candidate) => candidate.type === "edge" && candidate.kind === LINK_KIND,
   );
 
-  return connections.some((connection) => connection.id === target?.id)
+  return state.connections.some((connection) => connection.id === target?.id)
     ? (target?.id ?? null)
     : null;
 }
 
+/*
+ * Links live in the canvas document, so neither of these closes over React state and neither has
+ * to be rebuilt when a link changes. Both read the same `state.connections` the reducer owns, which
+ * is also what makes a link undoable and serialized without this route doing anything.
+ */
+const sceneLayers = [
+  createWorkflowLinksPass<CardKind>((context) => {
+    const selectedId = selectedConnectionId(context.state);
+
+    return context.state.connections.flatMap((connection) => {
+      const segment = connectionSegment(context.state, connection);
+
+      return segment === null
+        ? []
+        : [
+            {
+              a: [segment.start.x, segment.start.y] as const,
+              b: [segment.end.x, segment.end.y] as const,
+              selected: connection.id === selectedId,
+            },
+          ];
+    });
+  }),
+] satisfies readonly InfiniteCanvasScenePass<CardKind>[];
+
+const spatialTargetResolvers = [
+  createInfiniteCanvasEdgeTargetResolver<CardKind>({
+    id: "workflow-links",
+    targets: (context) =>
+      context.state.connections.flatMap((connection) => {
+        const segment = connectionSegment(context.state, connection);
+        return segment === null
+          ? []
+          : [
+              {
+                data: { label: getLinkLabel(connection) },
+                end: segment.end,
+                hitRadius: 12,
+                id: connection.id,
+                kind: LINK_KIND,
+                start: segment.start,
+              },
+            ];
+      }),
+  }),
+] as const;
+
 function WorkflowBoardShowcase() {
   const [workspaceId, setWorkspaceId] = useState<WorkspaceId>("launch");
-  const [connectionsByWorkspace, setConnectionsByWorkspace] = useState<
-    Record<WorkspaceId, readonly Connection[]>
-  >({
-    launch: workspaces.launch.connections,
-    research: workspaces.research.connections,
-  });
   const [pendingFrom, setPendingFrom] = useState<string | null>(null);
-  const connections = connectionsByWorkspace[workspaceId];
-
-  const setConnections = (
-    update: (connections: readonly Connection[]) => readonly Connection[],
-  ) => {
-    setConnectionsByWorkspace((previous) => ({
-      ...previous,
-      [workspaceId]: update(previous[workspaceId]),
-    }));
-  };
-
-  const sceneLayers = useMemo(
-    () =>
-      [
-        createWorkflowLinksPass<CardKind>((context) => {
-          const selectedId = selectedConnectionId(context.state, connections);
-
-          return connections.flatMap((connection) => {
-            const segment = connectionSegment(context.state, connection);
-
-            return segment === null
-              ? []
-              : [
-                  {
-                    a: [segment.start.x, segment.start.y] as const,
-                    b: [segment.end.x, segment.end.y] as const,
-                    selected: connection.id === selectedId,
-                  },
-                ];
-          });
-        }),
-      ] satisfies readonly InfiniteCanvasScenePass<CardKind>[],
-    [connections],
-  );
-
-  const spatialTargetResolvers = useMemo(
-    () =>
-      [
-        createInfiniteCanvasEdgeTargetResolver<CardKind>({
-          id: "workflow-links",
-          targets: (context) =>
-            connections.flatMap((connection) => {
-              const segment = connectionSegment(context.state, connection);
-              return segment === null
-                ? []
-                : [
-                    {
-                      data: { label: connection.label },
-                      end: segment.end,
-                      hitRadius: 12,
-                      id: connection.id,
-                      kind: "workflow-link",
-                      start: segment.start,
-                    },
-                  ];
-            }),
-        }),
-      ] as const,
-    [connections],
-  );
 
   const workspace = workspaces[workspaceId];
 
@@ -249,10 +249,8 @@ function WorkflowBoardShowcase() {
           <>
             <CommandPalette />
             <BoardOverlay
-              connections={connections}
               context={context}
               pendingFrom={pendingFrom}
-              setConnections={setConnections}
               setPendingFrom={setPendingFrom}
               setWorkspaceId={setWorkspaceId}
               workspaceId={workspaceId}
@@ -271,35 +269,25 @@ function WorkflowBoardShowcase() {
 }
 
 function BoardOverlay({
-  connections,
   context,
   pendingFrom,
-  setConnections,
   setPendingFrom,
   setWorkspaceId,
   workspaceId,
 }: {
-  connections: readonly Connection[];
   context: InfiniteCanvasOverlayRenderContext<CardKind>;
   pendingFrom: string | null;
-  setConnections: (update: (connections: readonly Connection[]) => readonly Connection[]) => void;
   setPendingFrom: (windowId: string | null) => void;
   setWorkspaceId: (workspaceId: WorkspaceId) => void;
   workspaceId: WorkspaceId;
 }) {
   exposeCanvasDevHandle(context);
-  const selectedId = selectedConnectionId(context.state, connections);
+  const selectedId = selectedConnectionId(context.state);
 
   return (
     <div className="pointer-events-none absolute inset-0 z-[65]">
-      <ConnectionLabels connections={connections} context={context} />
-      <WindowPorts
-        connections={connections}
-        context={context}
-        pendingFrom={pendingFrom}
-        setConnections={setConnections}
-        setPendingFrom={setPendingFrom}
-      />
+      <ConnectionLabels context={context} />
+      <WindowPorts context={context} pendingFrom={pendingFrom} setPendingFrom={setPendingFrom} />
       <div className="pointer-events-auto absolute top-4 right-4 flex items-center gap-1.5 rounded-lg border border-border bg-popover/90 p-1.5 backdrop-blur">
         {(Object.keys(workspaces) as WorkspaceId[]).map((id) => (
           <Button
@@ -325,9 +313,7 @@ function BoardOverlay({
         {selectedId === null ? null : (
           <Button
             onClick={() => {
-              setConnections((current) =>
-                current.filter((connection) => connection.id !== selectedId),
-              );
+              context.actions.dispatch({ connectionId: selectedId, type: "connection.close" });
               context.actions.executeCommand({ type: "selection.clear" });
             }}
             size="xs"
@@ -346,16 +332,10 @@ function BoardOverlay({
   );
 }
 
-function ConnectionLabels({
-  connections,
-  context,
-}: {
-  connections: readonly Connection[];
-  context: InfiniteCanvasOverlayRenderContext<CardKind>;
-}) {
+function ConnectionLabels({ context }: { context: InfiniteCanvasOverlayRenderContext<CardKind> }) {
   return (
     <>
-      {connections.map((connection) => {
+      {context.state.connections.map((connection) => {
         const segment = connectionSegment(context.state, connection);
         if (segment === null) {
           return null;
@@ -371,7 +351,7 @@ function ConnectionLabels({
             key={connection.id}
             style={{ left: point.x, top: point.y }}
           >
-            {connection.label}
+            {getLinkLabel(connection)}
           </div>
         );
       })}
@@ -380,16 +360,12 @@ function ConnectionLabels({
 }
 
 function WindowPorts({
-  connections,
   context,
   pendingFrom,
-  setConnections,
   setPendingFrom,
 }: {
-  connections: readonly Connection[];
   context: InfiniteCanvasOverlayRenderContext<CardKind>;
   pendingFrom: string | null;
-  setConnections: (update: (connections: readonly Connection[]) => readonly Connection[]) => void;
   setPendingFrom: (windowId: string | null) => void;
 }) {
   return (
@@ -424,12 +400,11 @@ function WindowPorts({
                   if (pendingFrom === null || pendingFrom === window.id) {
                     return;
                   }
-                  const id = `${pendingFrom}->${window.id}`;
-                  setConnections((current) =>
-                    current.some((connection) => connection.id === id)
-                      ? current
-                      : [...current, { from: pendingFrom, id, label: "link", to: window.id }],
-                  );
+                  // A repeated pair is the reducer's problem: opening an existing id is a no-op.
+                  context.actions.dispatch({
+                    connection: link({ from: pendingFrom, label: "link", to: window.id }),
+                    type: "connection.open",
+                  });
                   setPendingFrom(null);
                 }}
                 x={rect.left}
@@ -438,7 +413,7 @@ function WindowPorts({
             </span>
           );
         })}
-      <Dock connections={connections} context={context} />
+      <Dock context={context} />
     </>
   );
 }
@@ -475,14 +450,9 @@ function PortButton({
   );
 }
 
-function Dock({
-  connections,
-  context,
-}: {
-  connections: readonly Connection[];
-  context: InfiniteCanvasOverlayRenderContext<CardKind>;
-}) {
+function Dock({ context }: { context: InfiniteCanvasOverlayRenderContext<CardKind> }) {
   const presence = getInfiniteCanvasWindowPresence(context.state);
+  const linkCount = context.state.connections.length;
   return (
     <div className="pointer-events-auto absolute bottom-4 left-4 flex items-center gap-1.5 rounded-lg border border-border bg-popover/90 p-1.5 backdrop-blur">
       {presence.visible.map((item) => (
@@ -500,7 +470,7 @@ function Dock({
       ))}
       <span className="mx-1 h-4 w-px bg-border" />
       <span className="px-1 font-mono text-[10px] text-muted-foreground">
-        {connections.length} link{connections.length === 1 ? "" : "s"}
+        {linkCount} link{linkCount === 1 ? "" : "s"}
       </span>
     </div>
   );

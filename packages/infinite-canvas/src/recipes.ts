@@ -1,3 +1,4 @@
+import { unionRects } from "./geometry";
 import { reconcileInfiniteCanvasGroups } from "./group-state";
 import { getInfiniteCanvasGroupWindowIds } from "./group-tree";
 import { getSelectableWindowIds } from "./selection";
@@ -13,31 +14,6 @@ import type {
 
 /** Captures and applies relative window arrangements without resizing windows. */
 const INFINITE_CANVAS_RECIPE_VERSION = 1;
-
-function getUnionRect(rects: readonly InfiniteCanvasRect[]): InfiniteCanvasRect | null {
-  const [first] = rects;
-
-  if (first === undefined) {
-    return null;
-  }
-
-  const bounds = rects.reduce(
-    (union, rect) => ({
-      maxX: Math.max(union.maxX, rect.x + rect.width),
-      maxY: Math.max(union.maxY, rect.y + rect.height),
-      minX: Math.min(union.minX, rect.x),
-      minY: Math.min(union.minY, rect.y),
-    }),
-    { maxX: first.x + first.width, maxY: first.y + first.height, minX: first.x, minY: first.y },
-  );
-
-  return {
-    height: bounds.maxY - bounds.minY,
-    width: bounds.maxX - bounds.minX,
-    x: bounds.minX,
-    y: bounds.minY,
-  };
-}
 
 function translateRect(rect: InfiniteCanvasRect, by: InfiniteCanvasPoint): InfiniteCanvasRect {
   return { height: rect.height, width: rect.width, x: rect.x + by.x, y: rect.y + by.y };
@@ -80,7 +56,7 @@ function captureInfiniteCanvasRecipe<Kind extends string>(
   }
 
   const groups = getCapturableGroups(state.groups, capturedWindowIds);
-  const bounds = getUnionRect([
+  const bounds = unionRects([
     ...windows.map((window) => window.rect),
     ...groups.map((group) => group.rect),
   ]);

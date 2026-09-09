@@ -1,3 +1,4 @@
+import { unionRects } from "./geometry";
 import type { InfiniteCanvasPoint, InfiniteCanvasRect } from "./types";
 
 /** Aligns, distributes, and swaps window rects without resizing them. */
@@ -22,31 +23,6 @@ const MINIMUM_DISTRIBUTE_COUNT = 3;
 // Swap requires exactly two rects.
 const SWAP_COUNT = 2;
 
-function getRectsBounds(rects: readonly InfiniteCanvasRect[]): InfiniteCanvasRect | null {
-  const [first] = rects;
-
-  if (first === undefined) {
-    return null;
-  }
-
-  const bounds = rects.reduce(
-    (union, rect) => ({
-      maxX: Math.max(union.maxX, rect.x + rect.width),
-      maxY: Math.max(union.maxY, rect.y + rect.height),
-      minX: Math.min(union.minX, rect.x),
-      minY: Math.min(union.minY, rect.y),
-    }),
-    { maxX: first.x + first.width, maxY: first.y + first.height, minX: first.x, minY: first.y },
-  );
-
-  return {
-    height: bounds.maxY - bounds.minY,
-    width: bounds.maxX - bounds.minX,
-    x: bounds.minX,
-    y: bounds.minY,
-  };
-}
-
 /** Maps each alignment to its changed origin fields. */
 const ALIGNMENT_ORIGINS: Readonly<
   Record<
@@ -67,7 +43,7 @@ function getInfiniteCanvasAlignedRects(
   rects: readonly InfiniteCanvasRect[],
   alignment: InfiniteCanvasAlignment,
 ): readonly InfiniteCanvasRect[] {
-  const bounds = rects.length < MINIMUM_ALIGN_COUNT ? null : getRectsBounds(rects);
+  const bounds = rects.length < MINIMUM_ALIGN_COUNT ? null : unionRects(rects);
 
   if (bounds === null) {
     return rects;

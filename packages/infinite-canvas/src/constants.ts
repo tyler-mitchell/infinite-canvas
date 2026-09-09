@@ -56,6 +56,29 @@ function resolveInfiniteCanvasViewportInsets(
   };
 }
 
+/**
+ * How a drag held near a viewport edge moves the camera, so an object can be
+ * placed outside the region visible when the drag started.
+ *
+ * Declared beside its default rather than in `types.ts`, matching
+ * `InfiniteCanvasDiagnosticsPolicy` and `InfiniteCanvasCompositorPolicy`.
+ */
+type InfiniteCanvasEdgePanPolicy = Readonly<{
+  /** Screen pixels in from each content edge where panning begins. */
+  bandPx: number;
+  /** Screen pixels per second at the edge. The speed eases in across the band. */
+  maxSpeedPxPerSecond: number;
+}>;
+
+/**
+ * A band roughly one window header deep, crossed in about a second and a half
+ * at full speed. Wide enough to enter on purpose, slow enough to stop in.
+ */
+const DEFAULT_INFINITE_CANVAS_EDGE_PAN: InfiniteCanvasEdgePanPolicy = {
+  bandPx: 48,
+  maxSpeedPxPerSecond: 900,
+};
+
 const MIN_RENDERABLE_INFINITE_CANVAS_ZOOM = 0.01;
 
 const DEFAULT_INFINITE_CANVAS_ZOOM: InfiniteCanvasZoomPolicy = {
@@ -112,9 +135,11 @@ const DEFAULT_INFINITE_CANVAS_THEME: InfiniteCanvasTheme = {
   selectionBounds: "rgba(115, 157, 165, 0.38)",
 };
 
+export type { InfiniteCanvasEdgePanPolicy };
 export {
   DEFAULT_INFINITE_CANVAS_CAMERA,
   DEFAULT_INFINITE_CANVAS_CHROME,
+  DEFAULT_INFINITE_CANVAS_EDGE_PAN,
   DEFAULT_INFINITE_CANVAS_INPUT_POLICY,
   DEFAULT_INFINITE_CANVAS_SNAP_POLICY,
   DEFAULT_INFINITE_CANVAS_STACK_BANDS,

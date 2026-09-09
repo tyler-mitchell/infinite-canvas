@@ -3,6 +3,7 @@ import {
   DEFAULT_INFINITE_CANVAS_ZOOM,
   MIN_RENDERABLE_INFINITE_CANVAS_ZOOM,
   NO_INFINITE_CANVAS_VIEWPORT_INSETS,
+  type InfiniteCanvasEdgePanPolicy,
 } from "./constants";
 import type {
   InfiniteCanvasCamera,
@@ -345,6 +346,68 @@ function getWheelZoomFactor(
   );
 }
 
+/**
+ * Pan speed for one axis, in screen pixels per second.
+ *
+ * Zero until the pointer enters the band, then eased to full speed at the edge
+ * and held there beyond it, so a pointer dragged outside the viewport keeps
+ * travelling rather than stopping at the boundary.
+ */
+function getEdgePanAxisSpeed(
+  position: number,
+  min: number,
+  max: number,
+  bandPx: number,
+  maxSpeedPxPerSecond: number,
+) {
+  const fromMin = position - min;
+  const fromMax = max - position;
+
+  if (fromMin < bandPx) {
+    return -maxSpeedPxPerSecond * clamp((bandPx - fromMin) / bandPx, 0, 1);
+  }
+
+  return fromMax < bandPx ? maxSpeedPxPerSecond * clamp((bandPx - fromMax) / bandPx, 0, 1) : 0;
+}
+
+/**
+ * How fast a drag held at `point` should pan the canvas, in screen pixels per
+ * second, or `null` when the pointer is clear of every edge.
+ *
+ * Measured from the content viewport rather than the whole one: chrome covers
+ * the outer edges, and a band underneath a panel is a band the pointer can
+ * never reach.
+ *
+ * `null` rather than a zero vector, so a caller can stop its loop on the same
+ * value that says there is nothing to do.
+ */
+function getInfiniteCanvasEdgePanVelocity(
+  viewport: InfiniteCanvasViewport,
+  point: InfiniteCanvasPoint,
+  policy: InfiniteCanvasEdgePanPolicy,
+  insets?: InfiniteCanvasViewportInsets,
+): InfiniteCanvasPoint | null {
+  const content = getInfiniteCanvasContentViewport(viewport, insets);
+  const velocity = {
+    x: getEdgePanAxisSpeed(
+      point.x,
+      content.x,
+      content.x + content.width,
+      policy.bandPx,
+      policy.maxSpeedPxPerSecond,
+    ),
+    y: getEdgePanAxisSpeed(
+      point.y,
+      content.y,
+      content.y + content.height,
+      policy.bandPx,
+      policy.maxSpeedPxPerSecond,
+    ),
+  };
+
+  return velocity.x === 0 && velocity.y === 0 ? null : velocity;
+}
+
 function panCameraByScreenDelta(
   camera: InfiniteCanvasCamera,
   delta: InfiniteCanvasPoint,
@@ -620,6 +683,7 @@ export {
   getRectFromPoints,
   getRectCenter,
   getViewportInsetWorldRect,
+  getInfiniteCanvasEdgePanVelocity,
   getVisibleWorldRect,
   getWheelZoomFactor,
   getWorldLengthWithScreenFloor,
