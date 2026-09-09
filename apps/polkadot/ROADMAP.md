@@ -887,8 +887,30 @@ Completed gaps are in `docs/API.md` and the changelog.
 
 | Gap                                                                     | Generic affordance                                            |
 | ----------------------------------------------------------------------- | ------------------------------------------------------------- |
-| One camera action frames a target but cannot continue to follow it      | Sustained following with an explicit release rule             |
 | Durable `selection` retains a scene object after that object disappears | Pruning through the resolver lookup opened by `getTargetRect` |
+
+**CLOSED on 2026-09-09. The camera-follow gap was already filled, and building it would have
+broken the boundary rule below.** The removed row read "One camera action frames a target but
+cannot continue to follow it" against "Sustained following with an explicit release rule".
+
+Reading `camera-navigation.ts` and `edge-pan.test.ts` in full says following needs no new
+capability. `getCameraNavigationFrame(state, rect, behavior)` is a pure function from a rectangle
+to a camera, and `getNavigableWindow` answers the current rectangle. Both are exported. Following
+is calling them once per frame; `actions.navigateToWindow({ windowId })` is the same thing one
+level up. Release is the consumer stopping its own loop.
+
+Edge panning settled that shape before this entry was re-read. `getInfiniteCanvasEdgePanVelocity`
+is a pure velocity function that the drag loop polls, and its release rule is the drag ending
+rather than a stored flag. Sustained camera motion with an explicit release already exists in the
+framework, once, in the polled-pure-function form.
+
+Reading the row as written would have produced the opposite: a stored "currently following" target
+in serializable state. The boundary paragraph further down already forbids that — "Do not copy the
+answer into serialized state ... The framework needs a callable lookup instead of a stored value" —
+so the gap as phrased asked for the architecture the same document rejects.
+
+No Polkadot surface follows a moving target today, so there is also no consumer to prove a policy
+right. That is the same disposition the pruning row carries, reached independently.
 
 **On the selection-pruning gap, from reading it on 2026-09-07.**
 `normalizeSelectionWindowIds` filters window IDs against the windows that exist.
