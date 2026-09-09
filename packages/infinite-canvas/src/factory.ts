@@ -229,10 +229,12 @@ function defineInfiniteCanvasWindowRegistry<
 
 /** Reads `data` through a guard and returns `null` when it is invalid. */
 function getInfiniteCanvasWindowData<Data>(
-  window: Readonly<{ data?: unknown }>,
+  window: Readonly<{ data?: unknown }> | null | undefined,
   guard: (candidate: unknown) => candidate is Data,
 ): Data | null {
-  return guard(window.data) ? window.data : null;
+  const data = window?.data;
+
+  return guard(data) ? data : null;
 }
 
 export {

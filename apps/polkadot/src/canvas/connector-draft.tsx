@@ -9,7 +9,6 @@ import {
   worldPointToScreenPoint,
   type InfiniteCanvasPoint,
   type InfiniteCanvasState,
-  type InfiniteCanvasWindow,
 } from "@hyphened/infinite-canvas";
 import { useObservable, useValue } from "@legendapp/state/react";
 import { useEffect, useRef } from "react";
@@ -41,10 +40,6 @@ type Draft = Readonly<{
   sourceItemId: string;
   sourceWindowId: string;
 }>;
-
-function getItemId(window: InfiniteCanvasWindow<WindowKind> | null) {
-  return window === null ? null : getContentWindowItemId(window);
-}
 
 function getLandingWindow(
   state: InfiniteCanvasState<WindowKind>,
@@ -114,7 +109,7 @@ export function ConnectorDraft({ projectId }: Readonly<{ projectId: string }>) {
         return;
       }
 
-      const itemId = getItemId(
+      const itemId = getContentWindowItemId(
         getLandingWindow(state, {
           x: event.clientX - bounds.left,
           y: event.clientY - bounds.top,
@@ -150,14 +145,14 @@ export function ConnectorDraft({ projectId }: Readonly<{ projectId: string }>) {
   const sourceWindowId = dragging?.sourceWindowId ?? affordanceWindowId;
   const sourceWindow =
     sourceWindowId === null ? null : findInfiniteCanvasWindow(state, sourceWindowId);
-  const sourceItemId = getItemId(sourceWindow);
+  const sourceItemId = getContentWindowItemId(sourceWindow);
 
   if (sourceWindow === null || sourceItemId === null) {
     return <div className={styles.root()} data-slot="connector-draft" ref={rootRef} />;
   }
 
   const landing = dragging === null ? null : getLandingWindow(state, dragging.pointer);
-  const landingItemId = getItemId(landing);
+  const landingItemId = getContentWindowItemId(landing);
   const isJoinable =
     landingItemId !== null &&
     landingItemId !== sourceItemId &&

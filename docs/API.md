@@ -192,6 +192,7 @@ When a control measures the full selection, use the selection bounds hook instea
 Use these factories to construct canonical state.
 `defineInfiniteCanvasWindowRegistry` requires each registry key to equal its definition `kind`.
 `getInfiniteCanvasWindowData` reads an opaque `data` payload through a type guard.
+It accepts an absent window and answers `null`, so it chains with `findInfiniteCanvasWindow` without a null check between them.
 The registry input types each kind-specific `data` value before runtime erases it.
 
 **`factory`**

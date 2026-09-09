@@ -278,7 +278,7 @@ function PaletteContent({
   const query = useValue(query$);
   const styles = palette();
   const connectionSubject = ((selected) => {
-    const itemId = selected === null ? null : getContentWindowItemId(selected);
+    const itemId = getContentWindowItemId(selected);
 
     return selected === null || itemId === null ? undefined : { itemId, title: selected.title };
   })(
@@ -342,8 +342,7 @@ function PaletteContent({
 
   const activeStateWindow =
     state.activeWindowId === null ? null : findInfiniteCanvasWindow(state, state.activeWindowId);
-  const activeNoteId =
-    activeStateWindow === null ? undefined : getContentWindowItemId(activeStateWindow);
+  const activeNoteId = getContentWindowItemId(activeStateWindow) ?? undefined;
   const activeNote = notes.find((note) => note.id === activeNoteId);
   const activeGroup =
     state.activeWindowId === null
@@ -352,9 +351,7 @@ function PaletteContent({
 
   const selectedNoteIds = state.selection.windowIds
     .map((windowId) => {
-      const selected = findInfiniteCanvasWindow(state, windowId);
-
-      return selected === null ? null : getContentWindowItemId(selected);
+      return getContentWindowItemId(findInfiniteCanvasWindow(state, windowId));
     })
     .filter((itemId): itemId is string => itemId !== null);
   const connectedPair =
