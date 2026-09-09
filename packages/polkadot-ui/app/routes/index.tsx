@@ -3,6 +3,7 @@ import { useState } from "react";
 import { tv } from "tailwind-variants";
 
 import { Accordion } from "#/components/accordion.tsx";
+import { Bars } from "#/components/bars.tsx";
 import { Button } from "#/components/button.tsx";
 import { Row } from "#/components/row.tsx";
 import { Surface } from "#/components/surface.tsx";
@@ -36,6 +37,7 @@ const showcase = tv({
     scrollBody: "flex flex-col gap-2",
     grid: "grid grid-cols-[repeat(auto-fill,minmax(230px,1fr))] gap-3",
     writing: "max-w-[520px]",
+    barBox: "flex h-[64px] flex-col",
   },
 });
 
@@ -55,6 +57,12 @@ const WRITING = [
     "What a window should say at eight percent scale, when its body is smaller than its own title.",
     "04.26",
   ],
+] as const;
+
+const INSTALLS = [1420, 1880, 1310, 2410, 2150, 2860, 1980, 4182] as const;
+
+const LEVELS = [
+  0.3, 0.7, 0.45, 0.9, 0.62, 0.35, 0.78, 0.55, 0.42, 0.88, 0.6, 0.29, 0.71, 0.5, 0.83, 0.38,
 ] as const;
 
 const CATEGORIES = ["stack", "work", "words", "life"] as const;
@@ -116,6 +124,30 @@ function Showcase() {
               <Kind>soon</Kind>
             </Row>
             <Prose>A dashed edge says unbuilt. It should not read as a card.</Prose>
+          </Surface>
+        </div>
+      </section>
+
+      <section className={styles.section()}>
+        <p className={styles.label()}>bars</p>
+        <div className={styles.grid()}>
+          <Surface tone="card">
+            <Row>
+              <Label>weekly installs</Label>
+              <Readout>4,182</Readout>
+            </Row>
+            <div className={styles.barBox()}>
+              <Bars values={INSTALLS} label="weekly installs over eight weeks" />
+            </div>
+          </Surface>
+          <Surface tone="card">
+            <Row>
+              <Label>now playing</Label>
+              <Meta>aphex twin</Meta>
+            </Row>
+            <div className={styles.barBox()}>
+              <Bars values={LEVELS} shape="column" gap="tight" emphasis="none" label="levels" />
+            </div>
           </Surface>
         </div>
       </section>

@@ -11,6 +11,7 @@ export {
   type AccordionProps,
   type AccordionTriggerProps,
 } from "./components/accordion.tsx";
+export { Bars, barsVariants, type BarsProps } from "./components/bars.tsx";
 export { Button, buttonVariants, type ButtonProps } from "./components/button.tsx";
 export {
   Collapsible,
