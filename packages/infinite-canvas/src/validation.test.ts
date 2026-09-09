@@ -153,7 +153,7 @@ test("window rejects wrong-typed required fields", () => {
   expect(parseInfiniteCanvasWindow({ ...validWindow, minSize: { height: 1 } })).toBeNull();
 });
 
-test("serialized state accepts the numeric literals 1, 2 and 3, and migrates the older two", () => {
+test("serialized state accepts versions 1 through 4, and migrates the older three", () => {
   const base = {
     activeWindowId: null,
     camera: { center: { x: 0, y: 0 }, zoom: 1 },
@@ -163,12 +163,16 @@ test("serialized state accepts the numeric literals 1, 2 and 3, and migrates the
   expect(parseInfiniteCanvasSerializedState({ ...base, version: 1 })).not.toBeNull();
   expect(parseInfiniteCanvasSerializedState({ ...base, version: 2 })).not.toBeNull();
   expect(parseInfiniteCanvasSerializedState({ ...base, version: 3 })).not.toBeNull();
+  expect(parseInfiniteCanvasSerializedState({ ...base, version: 4 })).not.toBeNull();
   expect(parseInfiniteCanvasSerializedState({ ...base, version: "1" })).toBeNull();
-  expect(parseInfiniteCanvasSerializedState({ ...base, version: 4 })).toBeNull();
+  // A document written by a newer build is refused rather than half read.
+  expect(parseInfiniteCanvasSerializedState({ ...base, version: 5 })).toBeNull();
 
+  // A version that predates connections migrates to an empty list.
   expect(parseInfiniteCanvasSerializedState({ ...base, version: 1 })).toMatchObject({
+    connections: [],
     groups: [],
-    version: 3,
+    version: 4,
   });
   expect(parseInfiniteCanvasSerializedState(base)).toBeNull();
 });
@@ -185,9 +189,10 @@ test("serialized state strips unknown keys and defaults each window mode", () =>
   expect(parsed).toEqual({
     activeWindowId: "w1",
     camera: { center: { x: 0, y: 0 }, zoom: 1 },
+    connections: [],
     groups: [],
     selection: undefined,
-    version: 3,
+    version: 4,
     workspaces: [],
     windows: [{ ...validWindow, mode: "normal" }],
   });

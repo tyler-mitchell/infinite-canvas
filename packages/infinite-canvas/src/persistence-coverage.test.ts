@@ -12,6 +12,7 @@ type NotPersisted = "derived" | "measured" | "session";
 
 const PERSISTENCE: Readonly<Record<keyof InfiniteCanvasState<Kind>, NotPersisted | "persisted">> = {
   activeWindowId: "persisted",
+  connections: "persisted",
   activeWorkspaceId: "persisted",
   camera: "persisted",
   // Measured consumer chrome.

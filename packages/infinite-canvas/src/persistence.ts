@@ -12,6 +12,7 @@ import {
 } from "./selection";
 import {
   parseInfiniteCanvasCamera,
+  parseInfiniteCanvasConnection,
   parseInfiniteCanvasGroup,
   parseInfiniteCanvasSelection,
   parseInfiniteCanvasWindow,
@@ -23,6 +24,7 @@ type InfiniteCanvasPersistenceEnvelope = Readonly<{
   activeWindowId: string | null;
   activeWorkspaceId: string | null;
   camera: unknown;
+  connections: readonly unknown[];
   groups: readonly unknown[];
   selection: unknown;
   windows: readonly unknown[];
@@ -57,6 +59,7 @@ const INFINITE_CANVAS_DOCUMENT_FIELDS = {
   activeWindowId: true,
   activeWorkspaceId: true,
   camera: true,
+  connections: true,
   groups: true,
   selection: true,
   windows: true,
@@ -72,9 +75,10 @@ function serializeInfiniteCanvasState<Kind extends string>(
     activeWindowId: state.activeWindowId,
     activeWorkspaceId: state.activeWorkspaceId,
     camera: state.camera,
+    connections: state.connections,
     groups: state.groups,
     selection: state.selection,
-    version: 3,
+    version: 4,
     windows: state.windows,
     workspaces: state.workspaces,
   };
@@ -91,10 +95,13 @@ function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
 function readInfiniteCanvasPersistenceEnvelope(
   value: unknown,
 ): InfiniteCanvasPersistenceEnvelope | null {
-  // Versions 1 and 2 omit later fields and migrate to empty lists.
+  // Earlier versions omit later fields and migrate to empty lists.
   if (
     !isRecord(value) ||
-    (value.version !== 1 && value.version !== 2 && value.version !== 3) ||
+    typeof value.version !== "number" ||
+    !Number.isInteger(value.version) ||
+    value.version < 1 ||
+    value.version > 4 ||
     !Array.isArray(value.windows)
   ) {
     return null;
@@ -104,6 +111,7 @@ function readInfiniteCanvasPersistenceEnvelope(
     activeWindowId: typeof value.activeWindowId === "string" ? value.activeWindowId : null,
     camera: value.camera,
     activeWorkspaceId: typeof value.activeWorkspaceId === "string" ? value.activeWorkspaceId : null,
+    connections: Array.isArray(value.connections) ? value.connections : [],
     groups: Array.isArray(value.groups) ? value.groups : [],
     selection: value.selection,
     windows: value.windows,
@@ -166,9 +174,14 @@ function parseInfiniteCanvasState<Kind extends string>(
   const workspaces = envelope.workspaces
     .map((workspace) => parseInfiniteCanvasWorkspace(workspace))
     .filter((workspace) => workspace !== null);
+  // Drop a malformed edge without rejecting the windows it named.
+  const connections = envelope.connections
+    .map((connection) => parseInfiniteCanvasConnection(connection))
+    .filter((connection) => connection !== null);
   const unnormalizedState = {
     ...baseState,
     activeWindowId,
+    connections,
     activeWorkspaceId: workspaces.some((workspace) => workspace.id === envelope.activeWorkspaceId)
       ? envelope.activeWorkspaceId
       : null,

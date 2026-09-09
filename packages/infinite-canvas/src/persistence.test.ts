@@ -12,6 +12,7 @@ type PersistedWindowKind = "demo";
 
 const state: InfiniteCanvasState<PersistedWindowKind> = {
   activeWindowId: "demo-window",
+  connections: [],
   camera: {
     center: {
       x: 24,

@@ -244,10 +244,26 @@ type InfiniteCanvasGroup = Readonly<{
   zIndex: number;
 }>;
 
+/**
+ * A directed edge between two windows.
+ *
+ * `kind` names the relation and belongs to the consumer's vocabulary, the way `InfiniteCanvasWindow`
+ * carries a window kind. `data` is the consumer's payload and the framework never reads it.
+ */
+type InfiniteCanvasConnection = Readonly<{
+  /** Consumer-owned payload, validated by the consumer like `window.data`. */
+  data?: unknown;
+  from: string;
+  id: string;
+  kind: string;
+  to: string;
+}>;
+
 /** Undoable document state. */
 type InfiniteCanvasDocument<Kind extends string = string> = Readonly<{
   /** The active workspace is part of the undoable document. */
   activeWorkspaceId: string | null;
+  connections: readonly InfiniteCanvasConnection[];
   groups: readonly InfiniteCanvasGroup[];
   windows: readonly InfiniteCanvasWindow<Kind>[];
   workspaces: readonly InfiniteCanvasWorkspace[];
@@ -313,6 +329,7 @@ type InfiniteCanvasState<Kind extends string = string> = Readonly<{
   /** Null disables workspace filtering. */
   activeWorkspaceId: string | null;
   camera: InfiniteCanvasCamera;
+  connections: readonly InfiniteCanvasConnection[];
   /** Chrome metrics used by group layout. This state is not serialized. */
   groupMetrics: InfiniteCanvasGroupMetrics;
   groups: readonly InfiniteCanvasGroup[];
@@ -348,9 +365,10 @@ type InfiniteCanvasSerializedState<Kind extends string = string> = Readonly<{
   activeWindowId: string | null;
   camera: InfiniteCanvasCamera;
   activeWorkspaceId?: string | null;
+  connections?: readonly InfiniteCanvasConnection[];
   groups: readonly InfiniteCanvasGroup[];
   selection?: InfiniteCanvasSelection;
-  version: 3;
+  version: 4;
   windows: readonly InfiniteCanvasWindow<Kind>[];
   workspaces?: readonly InfiniteCanvasWorkspace[];
 }>;
@@ -1018,6 +1036,13 @@ type InfiniteCanvasAction<Kind extends string = string> =
   | Readonly<{ delta: InfiniteCanvasPoint; type: "camera.panBy" }>
   | Readonly<{ type: "camera.zoomAt"; anchor: InfiniteCanvasPoint; zoom: number }>
   | Readonly<{ command: InfiniteCanvasCommand; type: "command.execute" }>
+  | Readonly<{ connection: InfiniteCanvasConnection; type: "connection.open" }>
+  | Readonly<{ connectionId: string; type: "connection.close" }>
+  | Readonly<{
+      connectionId: string;
+      patch: Partial<InfiniteCanvasConnection>;
+      type: "connection.update";
+    }>
   | Readonly<{ type: "desktop.hydrate"; state: InfiniteCanvasState<Kind> }>
   | Readonly<{ type: "desktop.reset"; state: InfiniteCanvasState<Kind> }>
   | Readonly<{
@@ -1392,6 +1417,7 @@ export type {
   InfiniteCanvasHotkeyBinding,
   InfiniteCanvasHudPolicy,
   InfiniteCanvasHudPolicyInput,
+  InfiniteCanvasConnection,
   InfiniteCanvasMarqueeInteraction,
   InfiniteCanvasMarqueeMode,
   InfiniteCanvasMoveInteraction,

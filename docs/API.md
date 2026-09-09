@@ -1,6 +1,6 @@
 # API reference
 
-The public surface of `@hyphened/infinite-canvas`: 263 values and 206 types across two entries.
+The public surface of `@hyphened/infinite-canvas`: 265 values and 208 types across two entries.
 Anything absent from these barrels is internal and unstable.
 This rule includes each `data-infinite-canvas-*` attribute, which supports hit tests instead of styles.
 
@@ -547,6 +547,7 @@ These pure functions project points and rectangles for consumer overlays and sce
 - `isUsableViewport`
 - `isWorldRectWithinViewport`
 - `rectContainsPoint`
+- `getInfiniteCanvasEdgePanVelocity`: How fast a drag held at a point should pan the canvas, in screen pixels per second, or `null` when the pointer is clear of every edge. Measured from the content viewport, so consumer chrome cannot bury the band under itself.
 - `rectsEqual`: Whether two rects cover the same region. Absent is a value, so two absent rects are equal and one absent rect differs from any real one, and a caller asking "did this change" needs no check of its own.
 - `rectsIntersect`
 - `screenPointToWorldPoint`
@@ -559,6 +560,7 @@ Camera framing ignores these occluders because a corner occluder must not shrink
 **`constants`**
 
 - `DEFAULT_INFINITE_CANVAS_INPUT_POLICY`
+- `DEFAULT_INFINITE_CANVAS_EDGE_PAN`: The default edge-pan band and speed. `InfiniteCanvasDesktop` and `InfiniteCanvasViewport` take an `edgePan` prop; `false` holds the camera still during a drag.
 - `DEFAULT_INFINITE_CANVAS_SNAP_POLICY`
 - `DEFAULT_INFINITE_CANVAS_ZOOM`
 - `MIN_RENDERABLE_INFINITE_CANVAS_ZOOM`
@@ -820,8 +822,13 @@ session state and is never serialized.
   contributes nothing, which is what stops every undo framing the whole canvas.
 - `EMPTY_INFINITE_CANVAS_HISTORY`, `INFINITE_CANVAS_HISTORY_LIMIT`
 
-<details><summary>types (2)</summary>
+<details><summary>types (3)</summary>
 
+- `InfiniteCanvasConnection`: A directed edge between two windows, by window id. `kind` names the
+  relation in the consumer's vocabulary and `data` is the consumer's payload, both the way a window
+  carries a kind and data. Connections are document state: they undo and they serialize. Closing a
+  window drops the edges that touch it. Dispatch `connection.open`, `connection.close` and
+  `connection.update` to change them.
 - `InfiniteCanvasDocument`
 - `InfiniteCanvasHistory`
 
@@ -1101,6 +1108,7 @@ The size type `InfiniteCanvasViewport` is exported as `InfiniteCanvasViewportSiz
 - `InfiniteCanvasDropTargetContext`
 - `InfiniteCanvasDropValidationInput`
 - `InfiniteCanvasDropValidationResult`
+- `InfiniteCanvasEdgePanPolicy`: `bandPx` and `maxSpeedPxPerSecond` for the drag edge pan.
 - `InfiniteCanvasEmptyCanvasDragMode`
 - `InfiniteCanvasHotkeyBinding`
 - `InfiniteCanvasGroupGutterInteraction`

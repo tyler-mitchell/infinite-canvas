@@ -267,12 +267,14 @@ export { cloneInfiniteCanvasState, resetInfiniteCanvasState } from "./state";
 // Aliased because the internal name is bare inside a module that is all about windows.
 export { findWindow as findInfiniteCanvasWindow } from "./stacking";
 export {
+  DEFAULT_INFINITE_CANVAS_EDGE_PAN,
   DEFAULT_INFINITE_CANVAS_ZOOM,
   DEFAULT_INFINITE_CANVAS_INPUT_POLICY,
   MIN_RENDERABLE_INFINITE_CANVAS_ZOOM,
   DEFAULT_INFINITE_CANVAS_SNAP_POLICY,
   resolveInfiniteCanvasChromeMetrics,
   resolveInfiniteCanvasZoomPolicy,
+  type InfiniteCanvasEdgePanPolicy,
 } from "./constants";
 // Projection and rectangle helpers for consumer overlays and scene layers.
 export {
@@ -283,6 +285,7 @@ export {
   getVisibleWorldRect,
   isUsableViewport,
   isWorldRectWithinViewport,
+  getInfiniteCanvasEdgePanVelocity,
   rectContainsPoint,
   rectsEqual,
   rectsIntersect,
@@ -394,6 +397,7 @@ export type {
   InfiniteCanvasCommandGroup,
   InfiniteCanvasCommandId,
   InfiniteCanvasCommands,
+  InfiniteCanvasConnection,
   InfiniteCanvasContextualCommand,
   InfiniteCanvasCursor,
   InfiniteCanvasCursorInteraction,

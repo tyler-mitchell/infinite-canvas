@@ -354,6 +354,7 @@ test("persisted-state parser rejects unsafe geometry and defaults window mode", 
 test("registry normalization drops stale persisted window kinds", () => {
   const staleState: InfiniteCanvasState<string> = {
     activeWindowId: "stale-window",
+    connections: [],
     camera: {
       center: {
         x: 0,

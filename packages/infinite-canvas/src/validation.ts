@@ -1,6 +1,7 @@
 import type { InfiniteCanvasGroupLayoutMode, InfiniteCanvasGroupNode } from "./group-tree";
 import type {
   InfiniteCanvasCamera,
+  InfiniteCanvasConnection,
   InfiniteCanvasGroup,
   InfiniteCanvasRecipe,
   InfiniteCanvasRecipeGroup,
@@ -347,6 +348,27 @@ function parseInfiniteCanvasWorkspace(value: unknown): InfiniteCanvasWorkspace |
   return { camera, id: value.id, selection, title: value.title, windowIds };
 }
 
+/** Parses one edge. `data` is the consumer's, so it passes through unread. */
+function parseInfiniteCanvasConnection(value: unknown): InfiniteCanvasConnection | null {
+  if (
+    !isRecord(value) ||
+    typeof value.id !== "string" ||
+    typeof value.from !== "string" ||
+    typeof value.to !== "string" ||
+    typeof value.kind !== "string"
+  ) {
+    return null;
+  }
+
+  return {
+    ...(isAbsent(value.data) ? {} : { data: value.data }),
+    from: value.from,
+    id: value.id,
+    kind: value.kind,
+    to: value.to,
+  };
+}
+
 function parseInfiniteCanvasGroup(value: unknown): InfiniteCanvasGroup | null {
   if (!isRecord(value) || typeof value.id !== "string") {
     return null;
@@ -461,10 +483,18 @@ function parseInfiniteCanvasRecipe(value: unknown): InfiniteCanvasRecipe | null 
 function parseInfiniteCanvasSerializedState<Kind extends string>(
   value: unknown,
 ): InfiniteCanvasSerializedState<Kind> | null {
-  // Versions 1 and 2 migrate missing groups or workspaces to empty lists.
-  if (!isRecord(value) || (value.version !== 1 && value.version !== 2 && value.version !== 3)) {
+  // Versions below the current one migrate missing fields to empty lists.
+  if (
+    !isRecord(value) ||
+    typeof value.version !== "number" ||
+    value.version < 1 ||
+    value.version > 4 ||
+    !Number.isInteger(value.version)
+  ) {
     return null;
   }
+
+  const version = value.version;
 
   const { activeWindowId } = value;
 
@@ -538,23 +568,43 @@ function parseInfiniteCanvasSerializedState<Kind extends string>(
     }
   }
 
+  const connections: InfiniteCanvasConnection[] = [];
+
+  if (!isAbsent(value.connections)) {
+    if (!Array.isArray(value.connections)) {
+      return null;
+    }
+
+    for (const entry of value.connections) {
+      const connection = parseInfiniteCanvasConnection(entry);
+
+      if (connection === null) {
+        return null;
+      }
+
+      connections.push(connection);
+    }
+  }
+
   return {
     activeWindowId,
-    // Version 2 has no workspace fields.
-    ...(value.version === 3 && typeof value.activeWorkspaceId === "string"
+    // Versions 1 and 2 have no workspace fields.
+    ...(version >= 3 && typeof value.activeWorkspaceId === "string"
       ? { activeWorkspaceId: value.activeWorkspaceId }
       : {}),
     camera,
+    connections,
     groups,
     selection,
-    version: 3,
+    version: 4,
     windows,
-    ...(value.version === 3 ? { workspaces } : { workspaces: [] }),
+    ...(version >= 3 ? { workspaces } : { workspaces: [] }),
   };
 }
 
 export {
   parseInfiniteCanvasCamera,
+  parseInfiniteCanvasConnection,
   parseInfiniteCanvasGroup,
   parseInfiniteCanvasGroupNode,
   parseInfiniteCanvasPoint,

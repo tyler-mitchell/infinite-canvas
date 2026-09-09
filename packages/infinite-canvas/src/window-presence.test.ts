@@ -8,6 +8,7 @@ type PresenceWindowKind = "demo";
 
 const presenceState: InfiniteCanvasState<PresenceWindowKind> = {
   activeWindowId: "active-window",
+  connections: [],
   camera: {
     center: {
       x: 0,

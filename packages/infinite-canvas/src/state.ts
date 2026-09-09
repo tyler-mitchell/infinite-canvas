@@ -86,6 +86,8 @@ function cloneInfiniteCanvasState<Kind extends string>(
   return {
     ...state,
     camera: cloneCamera(state.camera),
+    // The records are immutable, so only the list needs its own copy.
+    connections: [...state.connections],
     groupMetrics: { ...state.groupMetrics },
     groups: state.groups.map(cloneGroup),
     selection: cloneSelection(state.selection),

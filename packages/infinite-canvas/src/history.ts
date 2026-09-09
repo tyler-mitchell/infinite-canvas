@@ -24,6 +24,7 @@ function getInfiniteCanvasDocument<Kind extends string>(
 ): InfiniteCanvasDocument<Kind> {
   return {
     activeWorkspaceId: state.activeWorkspaceId,
+    connections: state.connections,
     groups: state.groups,
     windows: state.windows,
     workspaces: state.workspaces,
@@ -39,6 +40,7 @@ function isSameInfiniteCanvasDocument<Kind extends string>(
     left.windows === right.windows &&
     left.groups === right.groups &&
     left.workspaces === right.workspaces &&
+    left.connections === right.connections &&
     left.activeWorkspaceId === right.activeWorkspaceId
   );
 }
@@ -66,6 +68,7 @@ function applyInfiniteCanvasDocument<Kind extends string>(
   const restored = {
     ...state,
     activeWorkspaceId: document.activeWorkspaceId,
+    connections: document.connections,
     groups: document.groups,
     workspaces: document.workspaces,
     history,

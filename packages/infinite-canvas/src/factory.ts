@@ -6,6 +6,7 @@ import { normalizeSelection } from "./selection";
 import { getUniqueInfiniteCanvasWindows } from "./window-identity";
 import type {
   InfiniteCanvasCamera,
+  InfiniteCanvasConnection,
   InfiniteCanvasGroup,
   InfiniteCanvasGroupMetricsInput,
   InfiniteCanvasRect,
@@ -42,6 +43,7 @@ type InfiniteCanvasStateInput<Kind extends string> = Readonly<{
   workspaces?: readonly InfiniteCanvasWorkspace[];
   activeWindowId?: string | null;
   camera?: InfiniteCanvasCamera;
+  connections?: readonly InfiniteCanvasConnection[];
   groupMetrics?: InfiniteCanvasGroupMetricsInput;
   groups?: readonly InfiniteCanvasGroup[];
   selection?: InfiniteCanvasSelection | readonly string[];
@@ -148,6 +150,7 @@ function readSelectionInput(
 function createInfiniteCanvasState<Kind extends string>({
   activeWindowId,
   camera = DEFAULT_INFINITE_CANVAS_CAMERA,
+  connections = [],
   groupMetrics,
   groups = [],
   selection,
@@ -174,6 +177,7 @@ function createInfiniteCanvasState<Kind extends string>({
       },
       zoom: camera.zoom,
     },
+    connections,
     groupMetrics: resolveInfiniteCanvasGroupMetrics(groupMetrics),
     groups,
     history: EMPTY_INFINITE_CANVAS_HISTORY,

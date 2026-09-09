@@ -1,5 +1,11 @@
 import { executeInfiniteCanvasCommand } from "./commands";
 import { navigateCamera } from "./camera-navigation";
+import {
+  closeInfiniteCanvasConnection,
+  detachInfiniteCanvasConnectionsFromWindow,
+  openInfiniteCanvasConnection,
+  updateInfiniteCanvasConnection,
+} from "./connection";
 import { isUsableViewport } from "./geometry";
 import { findInfiniteCanvasGroupNode, isInfiniteCanvasGroupContainer } from "./group-tree";
 import { applyInfiniteCanvasRecipe } from "./recipes";
@@ -155,6 +161,12 @@ function applyInfiniteCanvasAction<Kind extends string>(
         options.zoomPolicy,
         options.getSelectionBounds?.(state),
       );
+    case "connection.open":
+      return openInfiniteCanvasConnection(state, action.connection);
+    case "connection.close":
+      return closeInfiniteCanvasConnection(state, action.connectionId);
+    case "connection.update":
+      return updateInfiniteCanvasConnection(state, action);
     // Keep the live viewport because persisted state does not own DOM measurements.
     case "desktop.hydrate":
       return isUsableViewport(state.viewport)
@@ -331,8 +343,14 @@ function applyInfiniteCanvasAction<Kind extends string>(
     case "window.setTitle":
       return renameWindow(state, action);
     case "window.close":
-      return detachInfiniteCanvasWindowFromWorkspaces(
-        detachInfiniteCanvasWindowFromGroups(closeWindow(state, action.windowId), action.windowId),
+      return detachInfiniteCanvasConnectionsFromWindow(
+        detachInfiniteCanvasWindowFromWorkspaces(
+          detachInfiniteCanvasWindowFromGroups(
+            closeWindow(state, action.windowId),
+            action.windowId,
+          ),
+          action.windowId,
+        ),
         action.windowId,
       );
     case "window.focus":

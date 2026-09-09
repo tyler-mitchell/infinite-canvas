@@ -9,6 +9,7 @@ type TestWindowKind = "demo";
 
 const baseState: InfiniteCanvasState<TestWindowKind> = {
   activeWindowId: "alpha",
+  connections: [],
   camera: {
     center: {
       x: 0,

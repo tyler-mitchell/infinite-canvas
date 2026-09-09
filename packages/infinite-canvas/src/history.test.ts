@@ -46,6 +46,7 @@ test("the document is what was arranged, not how it is being looked at", () => {
 
   expect(Object.keys(document).toSorted()).toStrictEqual([
     "activeWorkspaceId",
+    "connections",
     "groups",
     "windows",
     "workspaces",

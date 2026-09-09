@@ -12,6 +12,10 @@ const ACTION_COMMAND_COVERAGE: Readonly<
   "camera.panBy": "view.pan.right",
   "camera.zoomAt": "view.zoomIn",
   "command.execute": "indirection",
+  // A consumer supplies the edge and its ids, so no chrome control can stand for these.
+  "connection.close": "parameterized",
+  "connection.open": "parameterized",
+  "connection.update": "parameterized",
   "desktop.hydrate": "lifecycle",
   "desktop.reset": "lifecycle",
   "group.close": "group.dissolve",

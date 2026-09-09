@@ -15,6 +15,7 @@ type CommandTestWindowKind = "demo";
 
 const commandState: InfiniteCanvasState<CommandTestWindowKind> = {
   activeWindowId: "alpha",
+  connections: [],
   camera: {
     center: {
       x: 0,
