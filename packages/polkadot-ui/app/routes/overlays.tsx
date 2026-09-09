@@ -55,8 +55,37 @@ function Overlays() {
           <Kind>popover</Kind>
           <Meta>title and description, anchored to the trigger</Meta>
         </Row>
+        <div className={styles.inline()}>
+          <Popover>
+            <Popover.Trigger render={<Button tone="quiet" />}>details</Popover.Trigger>
+            <Popover.Content>
+              <Popover.Title>surrealdb-wasm</Popover.Title>
+              <Popover.Description>
+                Below the trigger and centred on it, the default.
+              </Popover.Description>
+            </Popover.Content>
+          </Popover>
+
+          {/* Placement is a prop, and nothing on the page said so until this one. */}
+          <Popover>
+            <Popover.Trigger render={<Button tone="quiet" />}>beside it</Popover.Trigger>
+            <Popover.Content side="right" align="start" sideOffset={10}>
+              <Popover.Title>side · align</Popover.Title>
+              <Popover.Description>
+                To the right, with its top edge on the trigger&rsquo;s.
+              </Popover.Description>
+            </Popover.Content>
+          </Popover>
+        </div>
+      </section>
+
+      <section className={styles.section()}>
+        <Row rule="below">
+          <Kind>popover · parts</Kind>
+          <Meta>title · description · close</Meta>
+        </Row>
         <Popover>
-          <Popover.Trigger render={<Button tone="quiet" />}>details</Popover.Trigger>
+          <Popover.Trigger render={<Button tone="quiet" />}>parts</Popover.Trigger>
           <Popover.Content>
             <Popover.Title>surrealdb-wasm</Popover.Title>
             <Popover.Description>
