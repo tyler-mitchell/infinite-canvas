@@ -2,7 +2,7 @@
   "name": "polkadot-ui",
   "version": "0.0.0",
   "private": true,
-  "description": "Spatial widget kit: a spring-driven masonry board and the instruments that live on it.",
+  "description": "Base UI primitives styled with tailwind-variants slots.",
   "type": "module",
   "sideEffects": [
     "**/*.css"
@@ -12,7 +12,6 @@
   },
   "exports": {
     ".": "./src/index.ts",
-    "./geometry": "./src/geometry/index.ts",
     "./theme.css": "./src/theme.css",
     "./package.json": "./package.json"
   },
@@ -24,9 +23,7 @@
   },
   "dependencies": {
     "@base-ui/react": "catalog:",
-    "clsx": "catalog:",
     "motion": "catalog:",
-    "tailwind-merge": "catalog:",
     "tailwind-variants": "catalog:"
   },
   "devDependencies": {

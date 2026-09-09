@@ -1,29 +1,26 @@
 import { Separator as SeparatorPrimitive } from "@base-ui/react/separator";
 import { tv } from "tailwind-variants";
 
-import { stateSlotClass } from "../lib/slot-class.ts";
-
 const separator = tv({
   base: "flex-none bg-pk-line-inner",
   variants: {
     orientation: {
       horizontal: "h-px w-full",
-      vertical: "h-full w-px",
+      /* `h-full` collapses to zero in a row with no set height, so stretch and keep a floor. */
+      vertical: "min-h-[1em] w-px self-stretch",
     },
   },
   defaultVariants: { orientation: "horizontal" },
 });
 
-export type SeparatorProps = SeparatorPrimitive.Props;
+export type SeparatorProps = Omit<SeparatorPrimitive.Props, "className"> & { className?: string };
 
-function Separator({ className, ...props }: SeparatorProps) {
+function Separator({ orientation = "horizontal", className, ...props }: SeparatorProps) {
   return (
     <SeparatorPrimitive
       data-slot="separator"
-      className={stateSlotClass(
-        (state: SeparatorPrimitive.State) => separator({ orientation: state.orientation }),
-        className,
-      )}
+      orientation={orientation}
+      className={separator({ orientation, className })}
       {...props}
     />
   );
