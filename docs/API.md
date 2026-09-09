@@ -53,8 +53,8 @@ The radial menu calls `getAvailableInfiniteCanvasContextualCommands` directly.
 
 `scene-layer-geometry`, `spatial-target`, and `window-proxy` are pure modules with consumers.
 `geometry.ts` also remains in the main entry.
-`verify-pure-core.mjs` makes sure that they do not import `three`.
-They remain outside `/scene` so SVG overlays do not require the 3D peers.
+`verify-pure-core.mjs` makes sure that they reach none of the GPU stack.
+They remain outside `/scene` so SVG overlays do not require the optional peers.
 
 ## Components
 

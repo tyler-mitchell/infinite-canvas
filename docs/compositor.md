@@ -1,7 +1,14 @@
 # Compositor
 
-Status: proposed contract from 2026-08-26. No framework implementation exists. An isolated proof of concept
-measured the design before framework changes.
+Status: shipped on 2026-09-09 in commit `68fc73e`. This document is the record of the decision, written on
+2026-08-26 while the backend was still `three` and `@react-three/fiber`. Read every "currently" and "proposed"
+below in that tense; the framework now has the compositor and neither package is a dependency of it any more.
+`docs/API.md` describes what shipped, and `docs/internal/shaping/compositor-blueprint.md` carries the
+corrections made while building it.
+
+What shipped differs from the proposal in one place worth naming here: there is no shared render pass. Each
+draw takes the canvas from `target()` and submits its own pass, which is what TypeGPU's pipeline documentation
+shows for several pipelines on one canvas.
 
 ## Name and scope
 
