@@ -1,6 +1,6 @@
 # API reference
 
-The public surface of `@hyphened/infinite-canvas`: 262 values and 206 types across two entries.
+The public surface of `@hyphened/infinite-canvas`: 263 values and 206 types across two entries.
 Anything absent from these barrels is internal and unstable.
 This rule includes each `data-infinite-canvas-*` attribute, which supports hit tests instead of styles.
 
@@ -547,6 +547,7 @@ These pure functions project points and rectangles for consumer overlays and sce
 - `isUsableViewport`
 - `isWorldRectWithinViewport`
 - `rectContainsPoint`
+- `rectsEqual`: Whether two rects cover the same region. Absent is a value, so two absent rects are equal and one absent rect differs from any real one, and a caller asking "did this change" needs no check of its own.
 - `rectsIntersect`
 - `screenPointToWorldPoint`
 - `unionRects`

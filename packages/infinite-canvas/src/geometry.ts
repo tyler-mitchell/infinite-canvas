@@ -102,6 +102,28 @@ function unionRects(rects: readonly InfiniteCanvasRect[]): InfiniteCanvasRect | 
   }, null);
 }
 
+/**
+ * Whether two rects cover the same region. Absent is a value: two absent rects
+ * are the same, and one absent rect differs from any real one, so a caller
+ * asking "did this change" needs no check of its own.
+ */
+function rectsEqual(
+  left: InfiniteCanvasRect | null | undefined,
+  right: InfiniteCanvasRect | null | undefined,
+) {
+  // Both absent is equal; one absent is not. Undefined and null are the same absence.
+  if (left === null || left === undefined || right === null || right === undefined) {
+    return (left ?? null) === (right ?? null);
+  }
+
+  return (
+    left.x === right.x &&
+    left.y === right.y &&
+    left.width === right.width &&
+    left.height === right.height
+  );
+}
+
 function rectsIntersect(left: InfiniteCanvasRect, right: InfiniteCanvasRect) {
   return (
     Math.min(left.x + left.width, right.x + right.width) > Math.max(left.x, right.x) &&
@@ -609,6 +631,7 @@ export {
   panCameraByScreenDelta,
   projectWorldRectToScreen,
   rectContainsPoint,
+  rectsEqual,
   rectsIntersect,
   resizeRectFromHandle,
   screenPointToWorldPoint,

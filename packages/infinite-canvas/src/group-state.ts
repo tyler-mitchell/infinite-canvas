@@ -1,4 +1,4 @@
-import { rectContainsPoint } from "./geometry";
+import { rectContainsPoint, rectsEqual } from "./geometry";
 import { getInfiniteCanvasVacantRect } from "./window-placement";
 import {
   DEFAULT_INFINITE_CANVAS_GROUP_METRICS,
@@ -123,18 +123,10 @@ function syncInfiniteCanvasGroupWindowRects<Kind extends string>(
     windows: state.windows.map((window) => {
       const rect = windowRects.get(window.id);
 
-      return rect === undefined || isSameRect(window.rect, rect) ? window : { ...window, rect };
+      // An absent rect means this window is not a group member, so it keeps its own.
+      return rect === undefined || rectsEqual(window.rect, rect) ? window : { ...window, rect };
     }),
   };
-}
-
-function isSameRect(left: InfiniteCanvasRect, right: InfiniteCanvasRect): boolean {
-  return (
-    left.x === right.x &&
-    left.y === right.y &&
-    left.width === right.width &&
-    left.height === right.height
-  );
 }
 
 /** Returns a survivor only when this operation reduced a multi-member group. */

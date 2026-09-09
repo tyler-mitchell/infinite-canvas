@@ -1,20 +1,10 @@
-import type { InfiniteCanvasViewportOccluder } from "@hyphened/infinite-canvas";
+import { rectsEqual, type InfiniteCanvasViewportOccluder } from "@hyphened/infinite-canvas";
 import { observable } from "@legendapp/state";
 import { useValue } from "@legendapp/state/react";
 import { useEffect, useMemo, type RefObject } from "react";
 
 // Replace the record because Legend State does not replace the root after field commits.
 const hudOccluders$ = observable<Record<string, InfiniteCanvasViewportOccluder>>({});
-
-const isSameRect = (
-  left: InfiniteCanvasViewportOccluder | undefined,
-  right: InfiniteCanvasViewportOccluder,
-) =>
-  left !== undefined &&
-  left.x === right.x &&
-  left.y === right.y &&
-  left.width === right.width &&
-  left.height === right.height;
 
 // These rectangles use viewport coordinates.
 function useHudOccluder(id: string, ref: RefObject<HTMLElement | null>, active = true) {
@@ -39,7 +29,7 @@ function useHudOccluder(id: string, ref: RefObject<HTMLElement | null>, active =
       };
       const current = hudOccluders$.peek();
 
-      if (!isSameRect(current[id], rect)) {
+      if (!rectsEqual(current[id], rect)) {
         hudOccluders$.set({ ...current, [id]: rect });
       }
     };

@@ -1,5 +1,5 @@
 import { getCameraNavigationFrame } from "./camera-navigation";
-import { getVisibleWorldRect, unionRects } from "./geometry";
+import { getVisibleWorldRect, rectsEqual, unionRects } from "./geometry";
 import { normalizeSelection } from "./selection";
 import type {
   InfiniteCanvasAction,
@@ -127,17 +127,8 @@ function getInfiniteCanvasDocumentChangeRect<Kind extends string>(
         return left === undefined ? (right === undefined ? [] : [right]) : [left];
       }
 
-      return isSameRect(left, right) ? [] : [left, right];
+      return rectsEqual(left, right) ? [] : [left, right];
     }),
-  );
-}
-
-function isSameRect(left: InfiniteCanvasRect, right: InfiniteCanvasRect): boolean {
-  return (
-    left.x === right.x &&
-    left.y === right.y &&
-    left.width === right.width &&
-    left.height === right.height
   );
 }
 

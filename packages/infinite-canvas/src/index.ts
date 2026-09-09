@@ -284,6 +284,7 @@ export {
   isUsableViewport,
   isWorldRectWithinViewport,
   rectContainsPoint,
+  rectsEqual,
   rectsIntersect,
   screenPointToWorldPoint,
   unionRects,
