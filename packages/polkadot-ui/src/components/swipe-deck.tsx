@@ -7,7 +7,7 @@ const swipeDeck = tv({
     well: "relative min-h-0 flex-1",
     card: "pk-swipe-face absolute inset-0 box-border flex touch-none flex-col justify-start gap-[10px] overflow-hidden rounded-[18px] border border-pk-swipe-line p-4 shadow-pk-swipe select-none",
     head: "flex flex-none items-center justify-between gap-2",
-    kind: "font-pk-sans text-[10px] leading-none font-medium tracking-[0.05em] whitespace-nowrap text-pk-ink-dim uppercase",
+    kind: "font-pk-sans text-pk-micro whitespace-nowrap text-pk-ink-dim uppercase",
     stamp:
       "rounded-[5px] border px-[7px] py-1 font-pk-sans text-[10px] leading-none font-medium tracking-[0.06em] whitespace-nowrap uppercase",
     pin: "border-pk-accent text-pk-accent",

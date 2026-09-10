@@ -385,14 +385,14 @@
    *
    * Sans covers the whole interface. Mono is for data that is read as a value, never for controls.
    */
-  --text-pk-micro: 9.5px;
+  --text-pk-micro: 10px;
   --text-pk-micro--line-height: 1;
-  --text-pk-micro--letter-spacing: 0.08em;
+  --text-pk-micro--letter-spacing: 0.05em;
   --text-pk-micro--font-weight: 500;
 
-  --text-pk-label: 10.5px;
+  --text-pk-label: 11px;
   --text-pk-label--line-height: 1;
-  --text-pk-label--letter-spacing: 0.04em;
+  --text-pk-label--letter-spacing: 0.02em;
   --text-pk-label--font-weight: 500;
 
   --text-pk-control: 11.5px;

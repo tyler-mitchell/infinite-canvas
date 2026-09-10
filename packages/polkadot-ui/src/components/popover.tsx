@@ -6,7 +6,7 @@ const popover = tv({
     positioner: "z-50",
     popup:
       "z-50 flex origin-(--transform-origin) flex-col gap-2 rounded-pk-card border border-pk-line bg-pk-surface p-4 text-pk-ink shadow-pk-card outline-none transition-[transform,opacity] duration-(--pk-duration-detail) ease-pk-swift data-ending-style:scale-[0.97] data-ending-style:opacity-0 data-starting-style:scale-[0.97] data-starting-style:opacity-0",
-    title: "font-pk-sans text-[11px] leading-none font-medium tracking-[0.02em] text-pk-ink-dim",
+    title: "font-pk-sans text-pk-label text-pk-ink-dim",
     description: "font-pk-sans text-pk-body text-pk-ink-soft text-pretty",
   },
 });

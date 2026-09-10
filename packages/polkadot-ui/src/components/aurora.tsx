@@ -13,7 +13,7 @@ const aurora = tv({
     vignette:
       "pointer-events-none absolute inset-0 [background:radial-gradient(120%_90%_at_50%_45%,rgb(7_8_10/0)_38%,rgb(7_8_10/0.86)_100%)]",
     content: "pointer-events-none absolute inset-0 flex flex-col justify-between p-4",
-    label: "font-pk-sans text-[11px] leading-none font-medium tracking-[0.02em] text-pk-ink/72",
+    label: "font-pk-sans text-pk-label text-pk-ink/72",
     headline:
       "font-pk-sans text-[15px] leading-[1.2] font-semibold tracking-[-0.025em] text-balance text-pk-ink-bright",
   },

@@ -6,8 +6,7 @@ const readoutCard = tv({
   slots: {
     root: "box-border flex flex-col justify-start gap-[10px] overflow-hidden rounded-pk-card border border-pk-line bg-pk-surface p-[18px] shadow-pk-card transition-colors duration-(--pk-duration-hover) ease-pk-swift hover:border-pk-line-hover",
     head: "flex flex-none items-baseline justify-between gap-2",
-    label:
-      "flex-none font-pk-sans text-[11px] leading-none font-medium tracking-[0.02em] whitespace-nowrap text-pk-ink-dim",
+    label: "flex-none font-pk-sans text-pk-label whitespace-nowrap text-pk-ink-dim",
     aside: "flex flex-none items-center gap-[7px]",
     hint: "flex-none font-pk-mono text-pk-mono-sm whitespace-nowrap text-pk-ink-faint",
     body: "flex flex-none flex-col gap-[3px]",
