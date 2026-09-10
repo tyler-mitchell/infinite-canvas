@@ -19,6 +19,7 @@ import {
   LayoutPreview,
   ListItem,
   Meta,
+  MetricTile,
   PendingCard,
   Prose,
   Readout,
@@ -62,6 +63,8 @@ const overview = tv({
     hint: "flex-none self-center",
     bindings: "flex flex-col gap-2",
     commits: "flex flex-col gap-[11px]",
+    metrics: "grid grid-cols-3 gap-[6px]",
+    repoName: "text-pk-head",
     identityRow: "gap-4 flex-nowrap",
     who: "flex min-w-0 flex-1 flex-col gap-[5px]",
     role: "font-pk-sans text-pk-lede text-pk-ink-soft",
@@ -167,13 +170,22 @@ function Overview() {
             <Sparkline values={COMMIT_WEEKS} label="commits per week over 64 weeks" />
           </Surface>
 
-          <Surface tone="card" className={styles.widget()}>
+          <Surface tone="card" padding="roomy" className={styles.widget()}>
             <Row>
-              <Kind>package</Kind>
-              <Meta>mit</Meta>
+              <Badge tone="outline">wasm</Badge>
+              <Meta>318 ★</Meta>
             </Row>
-            <Title>surrealdb-wasm</Title>
-            <Prose>An embedded graph store compiled to WebAssembly, with a live inspector.</Prose>
+            <Title className={styles.repoName()}>surrealdb-wasm</Title>
+            <Prose>
+              An embedded graph store compiled to WebAssembly, with a live inspector for spatial
+              documents.
+            </Prose>
+
+            <div className={styles.metrics()}>
+              <MetricTile label="queries served">2.1M in-browser</MetricTile>
+              <MetricTile label="schema">typed · versioned</MetricTile>
+              <MetricTile label="size">1.8 MB wasm</MetricTile>
+            </div>
 
             <Row align="baseline">
               <Label>weekly installs</Label>

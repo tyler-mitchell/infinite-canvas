@@ -69,6 +69,7 @@ export {
   type Pane,
 } from "./components/layout-preview.tsx";
 export { ListItem, listItemVariants, type ListItemProps } from "./components/list-item.tsx";
+export { MetricTile, metricTileVariants, type MetricTileProps } from "./components/metric-tile.tsx";
 export {
   Menu,
   MenuContent,
