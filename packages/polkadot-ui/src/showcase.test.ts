@@ -1,4 +1,4 @@
-import { readdirSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -609,6 +609,43 @@ test("the sheet stills what the readme says it stills", () => {
   expect(kept).toContain("color");
   expect(moving).toEqual([]);
   expect(scrolled.filter((selector) => !block.includes(selector))).toEqual([]);
+});
+
+/**
+ * The setup the readme teaches, against the manifest that has to serve it. The kit has exactly one
+ * consumer — its own lab app, which imports by package name on purpose so the documented path is
+ * the one that runs — and nothing tied the two together: a subpath the readme tells a consumer to
+ * import and the manifest does not export is a setup that fails on someone else's machine first.
+ */
+test("every path the readme tells a consumer to import is one the package exports", () => {
+  const readme = readFileSync(new URL("../README.md", import.meta.url), "utf8");
+  const manifest = JSON.parse(
+    readFileSync(new URL("../package.json", import.meta.url), "utf8"),
+  ) as { readonly exports: Record<string, string> };
+
+  const asked = [
+    ...new Set(
+      [...readme.matchAll(/(?:from|@import)\s+"(polkadot-ui(?:\/[\w./-]+)?)"/g)].map(
+        ([, specifier]) => specifier!,
+      ),
+    ),
+  ].sort();
+
+  const offered = new Set(
+    Object.keys(manifest.exports).map((key) => key.replace(/^\./, "polkadot-ui")),
+  );
+
+  /* Read first: the readme asks for the entry and the stylesheet, or this compares nothing. */
+  expect(asked).toContain("polkadot-ui");
+  expect(asked).toContain("polkadot-ui/theme.css");
+  expect(asked.filter((specifier) => !offered.has(specifier))).toEqual([]);
+
+  /* And every path the manifest offers is a file that is there to serve. */
+  const missing = Object.values(manifest.exports).filter(
+    (path) => !existsSync(new URL(path, new URL("../", import.meta.url))),
+  );
+
+  expect(missing).toEqual([]);
 });
 
 /** `text.tsx` is listed as its seven roles, which is what a page writes, rather than as a module. */
