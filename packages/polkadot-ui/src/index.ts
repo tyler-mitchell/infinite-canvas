@@ -30,7 +30,7 @@ export {
   type ActivityEntry,
   type ActivityFeedProps,
 } from "./components/activity-feed.tsx";
-export { Bars, barsVariants, type BarsProps } from "./components/bars.tsx";
+export { Bars, barsLabel, barsVariants, type BarsProps } from "./components/bars.tsx";
 export {
   Breakdown,
   breakdownLabel,
@@ -204,7 +204,12 @@ export {
   type SelectTriggerProps,
 } from "./components/select.tsx";
 export { Separator, separatorVariants, type SeparatorProps } from "./components/separator.tsx";
-export { Sparkline, sparklineVariants, type SparklineProps } from "./components/sparkline.tsx";
+export {
+  Sparkline,
+  sparklineLabel,
+  sparklineVariants,
+  type SparklineProps,
+} from "./components/sparkline.tsx";
 export { Stat, statVariants, type StatProps } from "./components/stat.tsx";
 export {
   SwipeDeck,

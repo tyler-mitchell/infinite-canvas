@@ -3,6 +3,7 @@ import {
   ActivityGrid,
   type ActivityGridProps,
   Bars,
+  barsLabel,
   type BarsProps,
   barsVariants,
   Display,
@@ -39,6 +40,8 @@ const COMMIT_PEAK = Math.max(...COMMIT_WEEKS);
 const COMMIT_PEAK_WEEK = COMMIT_WEEKS.indexOf(COMMIT_PEAK);
 const LATEST_FRAME = FRAME_BUDGET[FRAME_BUDGET.length - 1];
 const LATEST_LATENCY = `${LATENCY[LATENCY.length - 1]}ms`;
+/* The two release charts state nothing else, so the name is the only place their figures land. */
+const RELEASE_READINGS = barsLabel(RELEASES);
 
 /**
  * The most weeks to ask for. The grid draws fewer when the width cannot hold them, and it states
@@ -305,7 +308,10 @@ function Readouts() {
               <Meta>a floor under an empty week</Meta>
             </Row>
             <div className={styles.barBox()}>
-              <Bars values={RELEASES} label="releases a week, with a floor" />
+              <Bars
+                values={RELEASES}
+                label={`releases a week, with a floor: ${RELEASE_READINGS}`}
+              />
             </div>
           </Surface>
           <Surface tone="card">
@@ -314,7 +320,11 @@ function Readouts() {
               <Meta>no floor</Meta>
             </Row>
             <div className={styles.barBox()}>
-              <Bars values={RELEASES} minHeight={0} label="releases a week, with no floor" />
+              <Bars
+                values={RELEASES}
+                minHeight={0}
+                label={`releases a week, with no floor: ${RELEASE_READINGS}`}
+              />
             </div>
           </Surface>
         </div>
