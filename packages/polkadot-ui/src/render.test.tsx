@@ -406,6 +406,26 @@ test("a padded number is shown padded and read out plain", () => {
 });
 
 /**
+ * A running command is drawn in the accent, and that was the whole of how it differed: the state
+ * reached the markup as a colour and as nothing else. A reader who cannot see the colour hears the
+ * same line whether it is still going or long finished.
+ *
+ * Said in words beside it, the way the ticker says its whole number beside the digits it rolls.
+ */
+test("a running command says so rather than only looking so", () => {
+  const spoken = (markup: string) => /class="sr-only">([^<]*)</.exec(markup)?.[1];
+  const command = (props: { running?: boolean }) =>
+    renderToStaticMarkup(<kit.TerminalCommand {...props}>pnpm test</kit.TerminalCommand>);
+  const [running, done] = [command({ running: true }), command({})];
+
+  expect(spoken(running)).toBe("running");
+  expect(spoken(done)).toBeUndefined();
+  /* The colour is what a seeing reader has, so it has to still be the thing that changed. */
+  expect(running).toContain("text-pk-accent");
+  expect(done).not.toContain("text-pk-accent");
+});
+
+/**
  * A reading that is not a number reaches the DOM as geometry or as words. As words it is honest —
  * a ticker handed `NaN` prints `NaN`, which is what it was given. In an attribute it is neither:
  * the browser drops the declaration and the component silently loses whatever it described.

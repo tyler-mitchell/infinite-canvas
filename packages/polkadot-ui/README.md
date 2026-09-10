@@ -63,6 +63,8 @@ const terminal = tv({
     text: "text-pk-ink-muted",
     output: "whitespace-pre text-pk-ink-faint",
     caret: "ml-px inline-block w-[7px] animate-pk-caret bg-pk-accent text-transparent select-none",
+    /* The accent is the whole of what a running command looks like, so it is said as well. */
+    state: "sr-only",
   },
   variants: {
     running: {
