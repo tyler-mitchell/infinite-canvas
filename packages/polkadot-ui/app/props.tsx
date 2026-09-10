@@ -2,10 +2,12 @@ import { Kind, Label, Meta, tv } from "polkadot-ui";
 
 const props = tv({
   slots: {
-    table: "flex flex-col gap-2",
-    head: "mb-px",
-    row: "flex items-baseline gap-3",
-    name: "w-[92px] flex-none",
+    /* The name column sizes itself to the widest name in this table, so a long one cannot spill. */
+    table: "grid grid-cols-[auto_1fr] items-baseline gap-x-3 gap-y-2",
+    head: "col-span-2 mb-px",
+    row: "contents",
+    /* A floor, so tables whose names are all short line up with each other. */
+    name: "min-w-[92px]",
     values: "flex flex-wrap items-baseline gap-x-2 gap-y-1",
     value: "font-pk-mono text-[11px] leading-[1.4] text-pk-ink-faint",
     current: "font-pk-mono text-[11px] leading-[1.4] text-pk-accent-dim",

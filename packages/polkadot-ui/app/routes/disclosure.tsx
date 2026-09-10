@@ -1,17 +1,23 @@
 import { createFileRoute } from "@tanstack/react-router";
 import {
   Accordion,
+  type AccordionPanelProps,
+  type AccordionProps,
   Collapsible,
+  type CollapsibleProps,
   Display,
   Kind,
   Meta,
   Prose,
   Row,
   Surface,
+  type TabPanelProps,
   Tabs,
+  type TabsProps,
   tv,
 } from "polkadot-ui";
 
+import { Props } from "../props.tsx";
 import { WRITING } from "../fixtures.ts";
 
 const disclosure = tv({
@@ -58,6 +64,33 @@ function Disclosure() {
             </Accordion.Item>
           ))}
         </Accordion>
+        <Props<AccordionProps>
+          name="accordion"
+          rows={[
+            { name: "multiple", fallback: "false", note: "lets more than one item stand open" },
+            { name: "defaultValue", note: "the items open to begin with, by their item value" },
+            { name: "disabled", fallback: "false", note: "closes the whole group to interaction" },
+            {
+              name: "loopFocus",
+              note: "whether arrow keys wrap from the last trigger back to the first",
+            },
+          ]}
+        />
+        <Props<AccordionPanelProps>
+          name="accordion panel"
+          rows={[
+            {
+              name: "hiddenUntilFound",
+              fallback: "false",
+              note: "keeps the closed panel findable by the browser's own find-in-page, which then opens it",
+            },
+            {
+              name: "keepMounted",
+              fallback: "false",
+              note: "leaves the panel in the DOM while closed",
+            },
+          ]}
+        />
       </section>
 
       <section className={styles.section()}>
@@ -76,6 +109,15 @@ function Disclosure() {
             </Collapsible.Panel>
           </Collapsible>
         </Surface>
+        <Props<CollapsibleProps>
+          name="collapsible"
+          rows={[
+            { name: "defaultOpen", fallback: "false", note: "open on first render" },
+            { name: "open", note: "drive it from outside, with onOpenChange" },
+            { name: "onOpenChange", note: "called with the next open state" },
+            { name: "disabled", fallback: "false", note: "the trigger stops responding" },
+          ]}
+        />
       </section>
 
       <section className={styles.section()}>
@@ -120,6 +162,30 @@ function Disclosure() {
             <Meta>4.9 kB · MIT</Meta>
           </Tabs.Panel>
         </Tabs>
+        <Props<TabsProps>
+          name="tabs"
+          rows={[
+            { name: "defaultValue", note: "the tab selected to begin with" },
+            { name: "value", note: "drive the selection from outside, with onValueChange" },
+            {
+              name: "orientation",
+              values: ["horizontal", "vertical"],
+              fallback: "horizontal",
+              note: "turns the indicator into a rail and moves it with the up and down keys",
+            },
+          ]}
+        />
+        <Props<TabPanelProps>
+          name="tab panel"
+          rows={[
+            { name: "value", note: "the tab this panel belongs to" },
+            {
+              name: "keepMounted",
+              fallback: "false",
+              note: "leaves every panel in the DOM, so an unselected one keeps its scroll and its state",
+            },
+          ]}
+        />
       </section>
     </div>
   );
