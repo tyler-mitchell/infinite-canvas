@@ -521,6 +521,115 @@ test("every table on every page is headed with what it lists", () => {
 });
 
 /**
+ * A row's `values` and `fallback` describe a union, and seventeen rows carry one. Thirteen of them
+ * describe a Base UI type — `side`, `align`, `modal`, an axis — which is gone by the time a test
+ * runs, so nothing here can weigh them.
+ *
+ * Four can be weighed. The toolbar's button and the popover's trigger draw over the kit's button,
+ * so their tone and size are a variant this package owns. A part settles a default in its own
+ * signature or leaves the button's standing — both of these name a tone and say nothing about size
+ * — so the fallback is read from the signature first and the variants object second. Every half
+ * comes from the source, so changing a tone list or a part's default moves the expectation with it.
+ */
+const DRAWN_OVER_THE_BUTTON = ["ToolbarButton", "PopoverTrigger"] as const;
+
+const componentSource = (file: string) => readFileSync(new URL(file, componentDir), "utf8");
+
+const defaultIn = (source: string, part: string, prop: string) =>
+  new RegExp(String.raw`function ${part}\(\{[^}]*\b${prop} = "(\w+)"`).exec(source)?.[1];
+
+const partsDrawnOver = new Map([
+  ["ToolbarButton", componentSource("toolbar.tsx")],
+  ["PopoverTrigger", componentSource("popover.tsx")],
+]);
+
+const misdescribedUnions = (
+  sources: readonly { readonly file: string; readonly source: string }[],
+) =>
+  sources
+    .flatMap(({ file, source }) =>
+      [...source.matchAll(/<Props<(\w+)Props>([\s\S]*?)\/>/g)].flatMap(([, owner, body]) => {
+        const declared = partsDrawnOver.get(owner!);
+        if (declared === undefined) return [];
+
+        return [...body!.matchAll(/\{[^{}]*\}/g)]
+          .map(([row]) => ({
+            prop: /name:\s*"([^"]+)"/.exec(row)?.[1],
+            listed: /values:\s*\[([^\]]*)\]/.exec(row)?.[1],
+            fallback: /fallback:\s*"([^"]+)"/.exec(row)?.[1],
+          }))
+          .filter(
+            (row): row is { prop: string; listed: string; fallback: string } =>
+              row.prop !== undefined && row.listed !== undefined && row.fallback !== undefined,
+          )
+          .flatMap(({ prop, listed, fallback }) => {
+            const owns = (kit.buttonVariants as unknown as Tabled).variants?.[prop];
+            if (owns === undefined) return [];
+
+            const said = [...listed.matchAll(/"([^"]+)"/g)].map(([, value]) => value!);
+            const whole = [...said, fallback].sort().join(",");
+            const real = Object.keys(owns).sort().join(",");
+            /* A part settles a default in its own signature or lets the button's stand. The
+             * toolbar's button names a tone and says nothing about size, so both are read. */
+            const settled =
+              defaultIn(declared, owner!, prop) ??
+              String((kit.buttonVariants as unknown as Tabled).defaultVariants?.[prop]);
+
+            return [
+              ...(whole === real ? [] : [`${file}: ${owner}.${prop} lists ${whole}, not ${real}`]),
+              ...(settled === fallback
+                ? []
+                : [`${file}: ${owner}.${prop} falls back to ${settled}, not ${fallback}`]),
+            ];
+          });
+      }),
+    )
+    .sort();
+
+test("a union a row describes that the component does not have is reported", () => {
+  const right = [
+    {
+      file: "p.tsx",
+      source:
+        '<Props<ToolbarButtonProps> name="x" rows={[{ name: "size", fallback: "md", values: ["sm", "lg", "icon"] }]} />',
+    },
+  ];
+  const short = [
+    {
+      file: "p.tsx",
+      source:
+        '<Props<ToolbarButtonProps> name="x" rows={[{ name: "size", fallback: "md", values: ["sm", "lg"] }]} />',
+    },
+  ];
+  const wrongDefault = [
+    {
+      file: "p.tsx",
+      source:
+        '<Props<ToolbarButtonProps> name="x" rows={[{ name: "tone", fallback: "soft", values: ["solid", "outline", "ghost"] }]} />',
+    },
+  ];
+
+  expect(misdescribedUnions(right)).toEqual([]);
+  expect(misdescribedUnions(short)).toEqual([
+    "p.tsx: ToolbarButton.size lists lg,md,sm, not icon,lg,md,sm",
+  ]);
+  expect(misdescribedUnions(wrongDefault)).toEqual([
+    "p.tsx: ToolbarButton.tone falls back to ghost, not soft",
+  ]);
+});
+
+test("every union a row describes is the one its component has", () => {
+  const weighed = pages.flatMap(({ source }) =>
+    [...source.matchAll(/<Props<(\w+)Props>/g)].filter(([, owner]) =>
+      DRAWN_OVER_THE_BUTTON.includes(owner as (typeof DRAWN_OVER_THE_BUTTON)[number]),
+    ),
+  );
+
+  expect(weighed.length).toBe(DRAWN_OVER_THE_BUTTON.length);
+  expect(misdescribedUnions(pages)).toEqual([]);
+});
+
+/**
  * The readme counts the kit twice — how many component modules there are, and how many of them
  * draw with `slots` rather than a `base`. Both were a component behind, and it also sent a reader
  * to a route that had been renamed. Numbers written in prose go stale the moment a file is added,
