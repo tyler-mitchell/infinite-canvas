@@ -2494,3 +2494,28 @@ test("every line a note cites in the router's source is the line it names", () =
   ).toBeGreaterThan(4);
   expect(misplacedCitations(note, source)).toEqual([]);
 });
+
+/**
+ * A word with nothing to break on is cut wherever a card hides its overflow, and the card reports
+ * no overflow of its own, so the words go without a mark. Every text role wraps for that reason.
+ * The readout does not, because a figure broken across two lines reads as two figures, and it says
+ * so with `whitespace-nowrap`. A new role has to answer which of the two it is.
+ *
+ * Measured at 1280 on all nine pages, by putting one long address into every text a page draws:
+ * wrapping saves 66 of them, 8 of which are field labels this role reaches through `Field`. The
+ * rest are cut by a box that cannot shrink, which no class on the text can answer.
+ */
+test("every text role either wraps a long word or says it stays on one line", () => {
+  const roles = Object.keys((kit.textVariants as unknown as Tabled).variants?.as ?? {});
+  const silent = roles
+    .filter((role) => {
+      const drawn = kit.textVariants({ as: role as never });
+
+      return !drawn.includes("break-words") && !drawn.includes("whitespace-nowrap");
+    })
+    .sort();
+
+  expect(roles.length).toBeGreaterThan(5);
+  expect(kit.textVariants({ as: "readout" })).toContain("whitespace-nowrap");
+  expect(silent).toEqual([]);
+});

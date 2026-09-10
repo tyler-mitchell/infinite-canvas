@@ -12,7 +12,7 @@ const receipt = tv({
     line: "flex items-baseline justify-between gap-2",
     name: "min-w-0 truncate text-pk-print uppercase",
     amount: "flex-none text-pk-print tabular-nums",
-    note: "text-pk-print-xs text-pk-paper-label",
+    note: "text-pk-print-xs break-words text-pk-paper-label",
     barcode: "mt-[5px] flex h-3 items-end gap-[1.5px]",
     bar: "h-full bg-pk-paper-ink",
     action:

@@ -15,7 +15,7 @@ const aurora = tv({
      * card's hover still reads, because hovering a child is hovering its parent.
      */
     content: "absolute inset-0 flex flex-col justify-between p-4",
-    label: "font-pk-sans text-pk-label text-pk-ink/72",
+    label: "font-pk-sans text-pk-label break-words text-pk-ink/72",
     headline:
       "font-pk-sans text-pk-title font-semibold break-words text-balance text-pk-ink-bright",
   },

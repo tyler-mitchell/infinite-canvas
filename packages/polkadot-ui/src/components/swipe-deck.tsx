@@ -21,7 +21,7 @@ const swipeDeck = tv({
      * foot grew and squeezed this from 91 to 34 and cut the last line off.
      */
     prose:
-      "m-0 min-h-0 flex-1 touch-pan-y overflow-y-auto font-pk-sans text-pk-note text-pretty text-pk-ink-soft",
+      "m-0 min-h-0 flex-1 touch-pan-y overflow-y-auto font-pk-sans text-pk-note break-words text-pretty text-pk-ink-soft",
     foot: "flex flex-none items-center justify-between gap-2 border-t border-pk-line-inner-raised pt-[9px] font-pk-mono text-pk-mono-sm text-pk-ink-faint",
     empty: "flex size-full items-center justify-center font-pk-sans text-pk-note text-pk-ink-faint",
     hint: "flex-none font-pk-mono text-pk-mono-sm text-pk-ink-faint",

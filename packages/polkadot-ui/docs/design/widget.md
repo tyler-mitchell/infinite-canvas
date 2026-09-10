@@ -92,6 +92,7 @@ either.
 ```tsx
 // src/components/text.tsx
 const text = tv({
+  base: "break-words",
   variants: {
     as: {
       label: "font-pk-sans text-pk-label text-pk-ink-dim",

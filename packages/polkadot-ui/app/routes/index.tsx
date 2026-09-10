@@ -75,7 +75,7 @@ const overview = tv({
     repoName: "text-pk-head",
     identityRow: "gap-4 flex-nowrap",
     who: "flex min-w-0 flex-1 flex-col gap-[5px]",
-    role: "font-pk-sans text-pk-lede text-pk-ink-soft",
+    role: "font-pk-sans text-pk-lede break-words text-pk-ink-soft",
     bay: "flex justify-center rounded-b-pk-tray bg-pk-tray px-4 pt-0.5 pb-4 shadow-pk-tray",
     owner: "text-pk-ink-faint",
     chart: "flex h-[58px] flex-col",

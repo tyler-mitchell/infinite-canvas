@@ -4,7 +4,7 @@ const commitRow = tv({
   slots: {
     root: "flex flex-wrap items-baseline gap-x-2.5 gap-y-0.5",
     sha: "flex-none font-pk-mono text-pk-mono text-pk-ink-faint",
-    subject: "min-w-0 flex-1 basis-[9rem] font-pk-sans text-pk-lede text-pk-ink-muted",
+    subject: "min-w-0 flex-1 basis-[9rem] font-pk-sans text-pk-lede break-words text-pk-ink-muted",
     age: "flex-none font-pk-mono text-pk-mono text-pk-ink-faint",
   },
 });
