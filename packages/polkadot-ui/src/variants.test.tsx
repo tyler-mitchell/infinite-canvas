@@ -333,9 +333,9 @@ test("a radio small enough to need room gets it from its own group", () => {
  * so the whole of it lives in the one branch.
  */
 /**
- * A surface that floats is the one thing on a page that can be wider than the page. The dialog,
- * the popover and the tooltip each clamp to `min(92vw, …)`; the menu stated a minimum and no
- * maximum, and its items do not wrap.
+ * A surface that floats is the one thing on a page that can be bigger than the page. The popover
+ * and the tooltip clamp their width to `min(92vw, …)`; the menu stated a minimum and no maximum,
+ * and its items do not wrap.
  *
  * Measured at 375px: one long item took the menu to 646px and the page scrolled 311px sideways.
  * Base UI publishes `--available-width` for exactly this, so the menu now reads it — 354px, and
@@ -377,9 +377,23 @@ test("a floating surface that names no ceiling is reported", () => {
   expect(CAPPED.test("z-50 rounded")).toBe(false);
 });
 
+/**
+ * The dialog answers this at a different part. It is the one surface Base UI gives a `Viewport`,
+ * which is the window itself, so the popup is bounded by where it sits rather than by its own
+ * classes — it says `w-full max-w-[440px]` and needs no ceiling of its own.
+ */
+test("the dialog's viewport is the window, so the dialog cannot outgrow it", () => {
+  const viewport = kit.dialogVariants().viewport();
+
+  expect(viewport).toContain("fixed");
+  expect(viewport).toContain("inset-0");
+  expect(viewport).toContain("overflow-y-auto");
+  /* Centring belongs to the viewport now; a popup placing itself again would fight it. */
+  expect(kit.dialogVariants().popup()).not.toContain("fixed");
+});
+
 test("every surface that floats clamps to the room it has", () => {
   const floating = {
-    dialog: kit.dialogVariants().popup(),
     menu: kit.menuVariants().popup(),
     popover: kit.popoverVariants().popup(),
     tooltip: kit.tooltipVariants().popup(),

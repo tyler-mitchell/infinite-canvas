@@ -8,8 +8,10 @@ const dialog = tv({
   slots: {
     backdrop:
       "fixed inset-0 z-50 bg-pk-scrim/66 transition-opacity duration-(--pk-duration-detail) ease-pk-swift data-ending-style:opacity-0 data-starting-style:opacity-0",
+    /* Base UI's own container for the popup. It is the window, so the dialog cannot outgrow it. */
+    viewport: "fixed inset-0 z-50 grid place-items-center overflow-y-auto p-4",
     popup:
-      "fixed top-1/2 left-1/2 z-50 flex max-h-[92vh] w-[min(92vw,440px)] -translate-x-1/2 -translate-y-1/2 flex-col gap-3 overflow-y-auto rounded-pk-card border border-pk-line bg-pk-surface p-5 text-pk-ink shadow-pk-card outline-none transition-[transform,opacity] duration-(--pk-duration-detail) ease-pk-swift data-ending-style:scale-[0.98] data-ending-style:opacity-0 data-starting-style:scale-[0.98] data-starting-style:opacity-0",
+      "flex w-full max-w-[440px] flex-col gap-3 rounded-pk-card border border-pk-line bg-pk-surface p-5 text-pk-ink shadow-pk-card outline-none transition-[transform,opacity] duration-(--pk-duration-detail) ease-pk-swift data-ending-style:scale-[0.98] data-ending-style:opacity-0 data-starting-style:scale-[0.98] data-starting-style:opacity-0",
     title: "font-pk-sans text-pk-title text-pk-ink-bright",
     description: "font-pk-sans text-pk-body text-pk-ink-soft text-pretty",
     footer: "mt-1 flex items-center justify-end gap-2",
@@ -44,8 +46,13 @@ function DialogTrigger({ tone = "soft", size, className, ...props }: DialogTrigg
 export type DialogContentProps = WithClassName<DialogPrimitive.Popup.Props>;
 
 /**
- * Backdrop and popup in one part, modal and centred. `Dialog.Footer` is a real part rather than a
- * layout each consumer rebuilds, so actions align the same way in every dialog.
+ * Backdrop, viewport and popup in one part, modal and centred. `Dialog.Footer` is a real part
+ * rather than a layout each consumer rebuilds, so actions align the same way in every dialog.
+ *
+ * The viewport is what scrolls, which is the first of the two arrangements Base UI documents. A
+ * dialog taller than the window keeps its own shape and moves through the window, so its actions
+ * arrive at the end of it rather than under a bar. The popup centres in a grid instead of being
+ * placed by hand, so nothing here restates what the library already does.
  */
 function DialogContent({ className, ...props }: DialogContentProps) {
   const styles = dialog();
@@ -53,11 +60,13 @@ function DialogContent({ className, ...props }: DialogContentProps) {
   return (
     <DialogPrimitive.Portal>
       <DialogPrimitive.Backdrop data-slot="dialog-backdrop" className={styles.backdrop()} />
-      <DialogPrimitive.Popup
-        data-slot="dialog-content"
-        className={styles.popup({ className })}
-        {...props}
-      />
+      <DialogPrimitive.Viewport data-slot="dialog-viewport" className={styles.viewport()}>
+        <DialogPrimitive.Popup
+          data-slot="dialog-content"
+          className={styles.popup({ className })}
+          {...props}
+        />
+      </DialogPrimitive.Viewport>
     </DialogPrimitive.Portal>
   );
 }
