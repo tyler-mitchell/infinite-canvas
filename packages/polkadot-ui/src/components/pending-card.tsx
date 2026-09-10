@@ -8,7 +8,7 @@ const pendingCard = tv({
       "truncate font-pk-mono text-[13px] leading-[1.4] font-medium tracking-[0.02em] text-pk-accent",
     badge:
       "flex-none rounded-pk-control-inner border border-pk-pending-line px-2 py-[5px] font-pk-sans text-pk-micro tracking-[0.08em] text-pk-ink-faint uppercase",
-    body: "m-0 overflow-hidden font-pk-mono text-[11.5px] leading-[1.6] text-pk-pending-ink",
+    body: "m-0 overflow-hidden font-pk-mono text-[11.5px] leading-[1.6] break-words text-pk-pending-ink",
   },
 });
 

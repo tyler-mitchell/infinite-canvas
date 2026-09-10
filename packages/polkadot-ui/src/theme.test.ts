@@ -1344,6 +1344,77 @@ test("every auto-fill track folds rather than overflowing", () => {
 });
 
 /**
+ * A slot that hides its overflow and names a text size cuts a long word rather than wrapping it,
+ * and the cut leaves no mark: the card around it reports no overflow of its own, so the missing
+ * words are plain only to a reader who knows what the string said.
+ *
+ * Measured at 1280 with the same long address put into each of four cards: the pending card lost
+ * 96px of it, while the contact card, the metric tile and the feed entry wrapped it and lost
+ * nothing. A slot that says `whitespace-nowrap` is not counted, because a single line cut on
+ * purpose is the icon tile's label, which opens on hover.
+ */
+const clipsItsOwnText = (
+  sources: readonly { readonly file: string; readonly source: string }[],
+  sizes: ReadonlySet<string>,
+) =>
+  sources
+    .flatMap(({ file, source }) =>
+      [...source.matchAll(/"[^"\n]*"/g)]
+        .map(([value]) => value.slice(1, -1))
+        .filter(
+          (value) =>
+            value.includes("overflow-hidden") &&
+            !/\b(?:whitespace-nowrap|truncate|break-words|break-all|wrap-anywhere)\b/.test(value),
+        )
+        .map((value) =>
+          value
+            .split(" ")
+            .find(
+              (name) =>
+                /^text-\[[\d.]+px\]$/.test(name) ||
+                (name.startsWith("text-pk-") && sizes.has(name.slice("text-pk-".length))),
+            ),
+        )
+        .filter((size) => size !== undefined)
+        .map((size) => `${file} clips ${size}`),
+    )
+    .sort();
+
+test("a slot that clips a text size without wrapping it is reported", () => {
+  const sizes = new Set(["note"]);
+
+  expect(
+    clipsItsOwnText([{ file: "a.tsx", source: `"overflow-hidden text-pk-note"` }], sizes),
+  ).toEqual(["a.tsx clips text-pk-note"]);
+  expect(
+    clipsItsOwnText(
+      [{ file: "b.tsx", source: `"overflow-hidden break-words text-pk-note"` }],
+      sizes,
+    ),
+  ).toEqual([]);
+  expect(
+    clipsItsOwnText(
+      [{ file: "c.tsx", source: `"overflow-hidden whitespace-nowrap text-[12px]"` }],
+      sizes,
+    ),
+  ).toEqual([]);
+  expect(
+    clipsItsOwnText([{ file: "d.tsx", source: `"overflow-hidden text-pk-ink"` }], sizes),
+  ).toEqual([]);
+});
+
+test("every clipping slot wraps its text, or says it is one line", () => {
+  const sizeNames = new Set([...scaleSizes.values()].flat());
+  const clipping = styledSources.flatMap(({ source }) =>
+    [...source.matchAll(/"[^"\n]*"/g)].filter(([value]) => value.includes("overflow-hidden")),
+  );
+
+  expect(sizeNames.size).toBeGreaterThan(8);
+  expect(clipping.length).toBeGreaterThan(12);
+  expect(clipsItsOwnText(styledSources, sizeNames)).toEqual([]);
+});
+
+/**
  * Every class in this kit comes from a `tv` slot at the top of its file, so one written straight
  * into the markup is out of reach of all five rules above and of the eye reading the slot list.
  * The kit held this everywhere but one span, which named `sr-only` inline.
