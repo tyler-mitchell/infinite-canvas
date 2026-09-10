@@ -257,7 +257,11 @@ function Widgets() {
               <Label>inbox</Label>
               <Readout>{`${INBOX.length - settled.length} left`}</Readout>
             </Row>
-            <SwipeDeck items={INBOX} onSettle={(item) => setSettled((s) => [...s, item.id])} />
+            <SwipeDeck
+              label="inbox"
+              items={INBOX}
+              onSettle={(item) => setSettled((s) => [...s, item.id])}
+            />
             <Meta>← skip · pin → · drag or swipe</Meta>
           </Surface>
           <ActivityFeed entries={RUNS} />
@@ -267,6 +271,11 @@ function Widgets() {
           rows={[
             { name: "items", note: "the queue, top card first" },
             { name: "onSettle", note: "called with the card and whether it was pinned or skipped" },
+            {
+              name: "label",
+              fallback: "queue",
+              note: "names the queue for a reader who cannot see it",
+            },
             {
               name: "emptyLabel",
               fallback: "nothing left",

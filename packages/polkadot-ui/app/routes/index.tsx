@@ -310,7 +310,11 @@ function Overview() {
               <Label>inbox</Label>
               <Meta>{`${INBOX.length - pinned.length} left`}</Meta>
             </Row>
-            <SwipeDeck items={INBOX} onSettle={(item) => setPinned((seen) => [...seen, item.id])} />
+            <SwipeDeck
+              label="inbox"
+              items={INBOX}
+              onSettle={(item) => setPinned((seen) => [...seen, item.id])}
+            />
             <Meta className={styles.hint()}>← skip · pin → · drag or swipe</Meta>
           </Surface>
 

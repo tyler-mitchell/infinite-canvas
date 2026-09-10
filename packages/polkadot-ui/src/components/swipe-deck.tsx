@@ -66,6 +66,8 @@ export type SwipeDeckProps = Omit<React.ComponentProps<"div">, "children" | "onS
   readonly items: readonly SwipeItem[];
   /** Called with the item and which way it went once a card is committed. */
   readonly onSettle?: (item: SwipeItem, direction: "pin" | "skip") => void;
+  /** Names the queue for a reader who cannot see it. Two decks on a page need two names. */
+  readonly label?: string;
   readonly emptyLabel?: string;
 };
 
@@ -73,10 +75,13 @@ export type SwipeDeckProps = Omit<React.ComponentProps<"div">, "children" | "onS
  * A queue you sort by dragging, by swiping, or with the arrow keys. It remembers which items it
  * settled by id rather than counting them, so a changed `items` list adds and removes correctly
  * and a card that has been dealt with stays gone.
+ *
+ * The well holds the focus, not the card, because the card unmounts the moment it settles.
  */
 function SwipeDeck({
   items,
   onSettle,
+  label = "queue",
   emptyLabel = "nothing left",
   className,
   ...props
@@ -109,7 +114,21 @@ function SwipeDeck({
   };
 
   return (
-    <div data-slot="swipe-deck" className={styles.well({ className })} {...props}>
+    <div
+      data-slot="swipe-deck"
+      role="group"
+      aria-label={label}
+      tabIndex={top ? 0 : -1}
+      aria-keyshortcuts={top ? "ArrowLeft ArrowRight" : undefined}
+      className={styles.well({ className })}
+      onKeyDown={(event) => {
+        const direction = { ArrowLeft: "skip", ArrowRight: "pin" }[event.key];
+        if (!direction) return;
+        event.preventDefault();
+        settle(direction as "pin" | "skip");
+      }}
+      {...props}
+    >
       {top ? null : <span className={styles.empty()}>{emptyLabel}</span>}
       {remaining
         .slice(0, 3)
@@ -122,9 +141,8 @@ function SwipeDeck({
             <div
               key={item.id}
               data-slot="swipe-card"
-              tabIndex={isTop ? 0 : -1}
-              /* The card takes the focus and the arrows act on it, so it says which arrows. */
-              aria-keyshortcuts={isTop ? "ArrowLeft ArrowRight" : undefined}
+              /* The one on top covers the others completely, so they are picture, not text. */
+              aria-hidden={isTop ? undefined : true}
               style={{ transform: `translateX(${shift}px) rotate(${shift / 22}deg)` }}
               className={styles.card()}
               onPointerDown={
@@ -165,12 +183,14 @@ function SwipeDeck({
               <div className={styles.head()}>
                 <span className={styles.kind()}>{item.kind}</span>
                 <span
+                  aria-hidden
                   style={{ opacity: stamps.pin }}
                   className={styles.stamp({ className: styles.pin() })}
                 >
                   pin
                 </span>
                 <span
+                  aria-hidden
                   style={{ opacity: stamps.skip }}
                   className={styles.stamp({ className: styles.skip() })}
                 >
