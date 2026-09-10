@@ -725,6 +725,32 @@ test("the primitives a document enumerates are the ones the package ships", () =
 });
 
 /**
+ * The navigation note is a design for an owner this package does not have, and it says so. What it
+ * does carry that can go stale is a claim about the router: twelve affordances named in backticks,
+ * described as verified against the installed version. A rename upstream would leave the design
+ * resting on a name that no longer exists, and the version pin above would still read as correct.
+ *
+ * Only lower camel case is read. The note also backticks its own target code — `CanvasFrame`, a
+ * `FrameStack`, the `_splat` param — and those are things it proposes rather than things it found.
+ */
+test("every router affordance a document names is one the router still exports", () => {
+  const note = readFileSync(
+    new URL("../docs/research/recursive-navigation.md", import.meta.url),
+    "utf8",
+  );
+  const declared = readFileSync(
+    new URL("../node_modules/@tanstack/react-router/dist/esm/index.d.ts", import.meta.url),
+    "utf8",
+  );
+
+  const named = [...new Set([...note.matchAll(/`([a-z][A-Za-z]{4,})`/g)].map(([, name]) => name!))];
+  const gone = named.filter((name) => !new RegExp(String.raw`\b${name}\b`).test(declared)).sort();
+
+  expect(named.length).toBeGreaterThan(8);
+  expect(gone).toEqual([]);
+});
+
+/**
  * A route named in prose against the routes that exist. The pattern reads a plain file name and
  * not a splat one, which is deliberate rather than an oversight: the navigation note tells the
  * story of `app/routes/w.$.tsx`, a lab route that was removed, and says so in the same sentence.
