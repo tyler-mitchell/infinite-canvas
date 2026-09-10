@@ -216,7 +216,7 @@ test("every token a page names is one the theme still declares", () => {
  * with no sign that it had changed.
  */
 const declaredAs = new Map(
-  [...themeCss.matchAll(/^\s+(--pk-[a-z\d-]+):\s*([^;]+);/gm)].map(([, token, value]) => [
+  [...themeCss.matchAll(/^\s+(--[a-z][a-z\d-]*):\s*([^;]+);/gm)].map(([, token, value]) => [
     token!,
     value!.trim(),
   ]),
@@ -309,6 +309,72 @@ test("every ratio the foundations page states is the one its colours produce", (
     .map(({ token, printed, real }) => `${token} states ${printed}, colours give ${real}`);
 
   expect(stated.length).toBeGreaterThan(8);
+  expect(wrong).toEqual([]);
+});
+
+/**
+ * Paper is the one ground that is a gradient, so its rows state a pair: the ratio against the top
+ * of the sheet and against the foot. Both stops come from the declaration rather than being
+ * restated here, so a change to the paper itself moves the expectation with it.
+ */
+test("every paper ratio the page states is the pair its gradient produces", () => {
+  const page = readFileSync(new URL("routes/foundations.tsx", appDir), "utf8");
+  const [, top, foot] =
+    /--pk-paper:\s*linear-gradient\([^,]+,\s*(#[\da-f]+),\s*(#[\da-f]+)\)/.exec(themeCss) ?? [];
+
+  const stated = [
+    ...page.matchAll(/\["(--pk-paper-[a-z-]+)",\s*"[^"]*",\s*"([\d.]+) → ([\d.]+)"\]/g),
+  ].map(([, token, atTop, atFoot]) => ({ token: token!, printed: `${atTop} → ${atFoot}` }));
+
+  const wrong = stated
+    .map(({ token, printed }) => {
+      const ink = declaredAs.get(token)!;
+      const real = `${contrast(ink, top!).toFixed(2)} → ${contrast(ink, foot!).toFixed(2)}`;
+
+      return { token, printed, real };
+    })
+    .filter(({ printed, real }) => printed !== real)
+    .map(({ token, printed, real }) => `${token} states ${printed}, gradient gives ${real}`);
+
+  expect(top).toBe("#faf9f5");
+  expect(stated.length).toBe(3);
+  expect(wrong).toEqual([]);
+});
+
+/**
+ * The type section names a size beside each role. The role's size is not restated here: it is read
+ * from `text.tsx`, so moving a role onto a different token moves the expectation with it.
+ */
+test("every size the type section names is the one its role actually uses", () => {
+  const page = readFileSync(new URL("routes/foundations.tsx", appDir), "utf8");
+  const text = readFileSync(new URL("text.tsx", componentDir), "utf8");
+
+  const sizeOfRole = new Map(
+    [...text.matchAll(/^ {6}(\w+): "([^"]*)"/gm)].flatMap(([, role, classes]) => {
+      const size = [...classes!.matchAll(/text-(pk-[a-z\d-]+)/g)]
+        .map(([, name]) => name!)
+        .find((name) => declared.has(`--text-${name}`));
+
+      return size ? [[role!, size] as const] : [];
+    }),
+  );
+
+  /* `Prose` sits on its own line inside its tag, so the role need not follow the `>` directly. */
+  const claimed = [...page.matchAll(/>\s*(Display|Title|Label|Kind|Prose|Meta) · (\d+)px/g)].map(
+    ([, role, px]) => ({ role: role!.toLowerCase(), px: px! }),
+  );
+
+  const wrong = claimed
+    .map(({ role, px }) => {
+      const token = sizeOfRole.get(role);
+
+      return { role, px, real: token ? declaredAs.get(`--text-${token}`) : "no such role" };
+    })
+    .filter(({ px, real }) => real !== `${px}px`)
+    .map(({ role, px, real }) => `${role} says ${px}px, its token is ${real}`);
+
+  expect(sizeOfRole.get("display")).toBe("pk-display");
+  expect(claimed.length).toBe(6);
   expect(wrong).toEqual([]);
 });
 
