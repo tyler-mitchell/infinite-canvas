@@ -17,12 +17,15 @@ interface VariantObject {
   readonly defaultVariants?: Record<string, unknown>;
 }
 
-export interface ApiProps {
-  readonly of: VariantObject;
+export interface ApiProps<T extends VariantObject = VariantObject> {
+  readonly of: T;
   /** The component the table describes. Give it whenever a section documents more than one. */
   readonly name?: string;
-  /** Variant keys that are state rather than props, so the table stays writable as an API. */
-  readonly except?: readonly string[];
+  /**
+   * Variant keys that are state rather than props, so the table stays writable as an API. Keyed to
+   * the object being read, so an exception for a variant that was renamed fails the build.
+   */
+  readonly except?: readonly (keyof NonNullable<T["variants"]> & string)[];
 }
 
 /**
@@ -32,7 +35,7 @@ export interface ApiProps {
  * `pressed` or a switch's `checked`, is indistinguishable from a prop here. Name those in `except`
  * so the table describes the API a consumer can actually write.
  */
-export function Api({ of, name, except = [] }: ApiProps) {
+export function Api<T extends VariantObject>({ of, name, except = [] }: ApiProps<T>) {
   const styles = api();
   const variants = of.variants ?? {};
   const defaults = of.defaultVariants ?? {};

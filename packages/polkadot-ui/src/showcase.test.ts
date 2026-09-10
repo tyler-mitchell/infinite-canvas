@@ -404,59 +404,17 @@ test("no sentence marks a term with a live region", () => {
   expect(spokenTerms(pages)).toEqual([]);
 });
 
-/**
- * An `Api` table reads a component's own variants, so it cannot fall behind — except for `except`,
- * which is a list of names written by hand. A name that matches nothing is silent in both
- * directions: the table draws every row it would have drawn, and the row it was meant to drop
- * stays, describing a state Base UI sets as though a consumer could pass it.
+/*
+ * An exception naming a variant that does not exist was a rule here for one turn. `Api` is generic
+ * over the object it reads now, so `except` is keyed to that object's own variants and a stale name
+ * is a type error at the tag, which names the alternatives — `"ticked" is not assignable to
+ * "checked" | "layout"`. The rule read the same thing later and said less, so it is gone rather
+ * than kept beside the type.
  *
- * Two pages leave one out each, `checked` on the radio and `pressed` on the toggle group. Both are
- * real today; renaming either variant would leave the exception pointing at nothing.
- *
- * This overlaps "no variant table offers a prop that comes from state" further down, and does not
- * replace it. That one reads the consequence — a state variant back in the table — and fires only
- * when the unfiltered key is one it knows to be state. This one reads the cause and fires for any
- * name, so a typed exception for a variant that was simply renamed is reported as the typo it is.
+ * "No variant table offers a prop that comes from state" further down is a different question and
+ * stays: it asks whether a state variant is being shown as a prop at all, not whether the name used
+ * to leave it out exists.
  */
-const strayExceptions = (sources: readonly { readonly file: string; readonly source: string }[]) =>
-  sources
-    .flatMap(({ file, source }) =>
-      openingTags(source, "Api").flatMap((tag) => {
-        const of = /of=\{(\w+)\}/.exec(tag)?.[1];
-        const left = /except=\{\[([^\]]*)\]\}/.exec(tag)?.[1];
-        if (of === undefined || left === undefined) return [];
-
-        const config = (kit as Record<string, unknown>)[of] as
-          | { readonly variants?: Record<string, unknown> }
-          | undefined;
-        const declared = Object.keys(config?.variants ?? {});
-
-        return [...left.matchAll(/"([^"]+)"/g)]
-          .map(([, name]) => name!)
-          .filter((name) => !declared.includes(name))
-          .map((name) => `${file}: ${of} has no ${name} to leave out`);
-      }),
-    )
-    .sort();
-
-test("an exception naming a variant that does not exist is reported", () => {
-  const real = [{ file: "p.tsx", source: '<Api of={buttonVariants} except={["tone"]} />' }];
-  const stray = [{ file: "p.tsx", source: '<Api of={buttonVariants} except={["pressed"]} />' }];
-  const none = [{ file: "p.tsx", source: "<Api of={buttonVariants} />" }];
-
-  expect(strayExceptions(real)).toEqual([]);
-  expect(strayExceptions(stray)).toEqual(["p.tsx: buttonVariants has no pressed to leave out"]);
-  expect(strayExceptions(none)).toEqual([]);
-});
-
-test("every variant a page leaves out of a table is one the component declares", () => {
-  const leaving = pages.flatMap(({ source }) =>
-    openingTags(source, "Api").filter((tag) => tag.includes("except=")),
-  );
-
-  expect(leaving.length).toBeGreaterThan(1);
-  expect(strayExceptions(pages)).toEqual([]);
-});
 
 /**
  * The other thing written by hand beside a table is its heading, and nothing tied it to the rows
