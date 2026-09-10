@@ -3,8 +3,6 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { expect, test } from "vite-plus/test";
 
-import { getInfiniteCanvasMissingSceneSurfaceWarning } from "./infinite-canvas";
-
 const srcDirectory = dirname(fileURLToPath(import.meta.url));
 
 /**
@@ -98,15 +96,4 @@ test("the ./scene entry is what owns the GPU stack", () => {
   expect(GPU_STACK_PACKAGES.filter((name) => packages.has(name)).sort()).toEqual(
     [...GPU_STACK_PACKAGES].sort(),
   );
-});
-
-test("omitting sceneSurface warns instead of silently dropping scene content", () => {
-  expect(getInfiniteCanvasMissingSceneSurfaceWarning(2, false)).toMatch(
-    /`sceneLayers` were provided without a `sceneSurface`/,
-  );
-});
-
-test("a supplied sceneSurface, or nothing to render, stays quiet", () => {
-  expect(getInfiniteCanvasMissingSceneSurfaceWarning(2, true)).toBeNull();
-  expect(getInfiniteCanvasMissingSceneSurfaceWarning(0, false)).toBeNull();
 });

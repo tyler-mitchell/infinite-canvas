@@ -641,7 +641,7 @@ overshoot.
 
 ## Scene layer helpers
 
-These helpers provide window proxies, connector routes, scene transforms, and frustum visibility for `sceneLayers`.
+These helpers provide window proxies, connector routes, scene transforms, and frustum visibility to the compositor's passes.
 
 **`scene-layer-geometry`**
 
@@ -1238,7 +1238,7 @@ The surface binds both on the configured root it hands to `build`.
 
 **`scene`**
 
-- `InfiniteCanvasCompositorSurface`: The transparent WebGPU surface that paints `sceneLayers`. Each draw takes the canvas from `target()` and submits its own render pass: the first claim of a frame clears, every later one keeps what is already there. Memoize the `sceneLayers` array: the surface builds every pipeline again when the array identity changes.
+- `InfiniteCanvasCompositorSurface`: The transparent WebGPU surface that paints the framework's passes for one placement. Which passes run comes from `compositor`, not from a consumer list. Each draw takes the canvas from `target()` and submits its own render pass: the first claim of a frame clears, every later one keeps what is already there. Pass a stable `compositor` object: the surface builds every pipeline again when its identity changes.
 - `createInfiniteCanvasAreaLightPass`: The medium lit by the windows above it. Each window is a rectangular area light and the floor takes its diffuse irradiance, so falloff and softness come from the geometry rather than a radius. A window higher in the stack casts a wider, weaker pool. Mounted by the surface from `compositor.areaLight`, which is off by default: irradiance on a featureless plane is a radial gradient, so it reads as an aura until the medium has structure. Set `areaLight` to `true` or an object to turn it on.
 - `DEFAULT_AREA_LIGHT_OPTIONS`: The area light defaults.
 - `screenToWorld`: The inverse of `worldToScreen`, for a pass that shades a point on the medium.

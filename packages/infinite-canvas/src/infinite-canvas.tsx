@@ -24,7 +24,6 @@ import {
 } from "./canvas-overlays";
 import { getInfiniteCanvasWindowFrameElementId, INFINITE_CANVAS_SLOTS } from "./data-attributes";
 import { getInfiniteCanvasWorkspaceWindowIds } from "./workspace";
-import type { InfiniteCanvasScenePass } from "./compositor/pass";
 import {
   DEFAULT_INFINITE_CANVAS_COMPOSITOR,
   hasInfiniteCanvasOverlayPass,
@@ -238,7 +237,6 @@ type InfiniteCanvasViewportProps<
   /** World content below windows and above the backdrop. */
   renderUnderlay?: (context: InfiniteCanvasOverlayReadContext<Kind, Payload>) => ReactNode;
   renderOverlay?: (context: InfiniteCanvasOverlayRenderContext<Kind, Payload>) => ReactNode;
-  sceneLayers?: readonly InfiniteCanvasScenePass<Kind, Payload>[];
   sceneSurface?: InfiniteCanvasSceneSurface<Kind, Payload>;
   /** Store used for move, resize, and drop snapping. */
   snapPolicy?: InfiniteCanvasSnapPolicy;
@@ -303,41 +301,6 @@ function getInfiniteCanvasThemeVariables(
   }
 
   return variables;
-}
-
-function getInfiniteCanvasMissingSceneSurfaceWarning(
-  sceneLayerCount: number,
-  hasSceneSurface: boolean,
-): string | null {
-  if (hasSceneSurface || sceneLayerCount === 0) {
-    return null;
-  }
-
-  return (
-    "[infinite-canvas] `sceneLayers` were provided without a `sceneSurface`, so they will " +
-    "not render. Pass `sceneSurface={InfiniteCanvasCompositorSurface}` from " +
-    "`@hyphened/infinite-canvas/scene`, and install the `typegpu` and `@typegpu/react` peers."
-  );
-}
-
-// Keep NodeJS types out of public declaration files.
-declare const process: Readonly<{ env: Readonly<{ NODE_ENV?: string }> }>;
-
-function useInfiniteCanvasSceneSurfaceWarning(sceneLayerCount: number, sceneSurface: unknown) {
-  useEffect(() => {
-    if (process.env.NODE_ENV === "production") {
-      return;
-    }
-
-    const warning = getInfiniteCanvasMissingSceneSurfaceWarning(
-      sceneLayerCount,
-      sceneSurface !== undefined,
-    );
-
-    if (warning !== null) {
-      console.warn(warning);
-    }
-  }, [sceneLayerCount, sceneSurface]);
 }
 
 function getBrowserDevicePixelRatio() {
@@ -557,7 +520,6 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
   renderBackdrop,
   renderOverlay,
   renderUnderlay,
-  sceneLayers = EMPTY_LIST,
   sceneSurface: SceneSurface,
   snapPolicy,
   subtitle = "",
@@ -633,7 +595,6 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
     isOverSelectableTarget,
   );
   const devicePixelRatio = useInfiniteCanvasDevicePixelRatio();
-  useInfiniteCanvasSceneSurfaceWarning(sceneLayers.length, SceneSurface);
   const releaseDropPointerCapture = useCallback((pointerId: number) => {
     const target = dragCaptureTargetRef.current;
 
@@ -1952,7 +1913,6 @@ const InfiniteCanvas = {
 export {
   InfiniteCanvas,
   InfiniteCanvasDesktop,
-  getInfiniteCanvasMissingSceneSurfaceWarning,
   InfiniteCanvasHud,
   InfiniteCanvasViewport,
   InfiniteCanvasWindowLayer,
