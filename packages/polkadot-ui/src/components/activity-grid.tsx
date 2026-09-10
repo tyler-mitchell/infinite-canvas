@@ -155,6 +155,8 @@ function ActivityGrid({
       role="group"
       aria-label="Activity"
       tabIndex={0}
+      /* It takes the focus and the arrows walk it, so it says which arrows, as the deck does. */
+      aria-keyshortcuts="ArrowLeft ArrowRight ArrowUp ArrowDown"
       ref={setRoot}
       className={styles.root({ className })}
       onKeyDown={onKeyDown}

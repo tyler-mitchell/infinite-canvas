@@ -538,6 +538,42 @@ test("no page counts the days beside a grid that fits weeks to its width", () =>
   expect(countedDaysBeside(page)).toEqual([]);
 });
 
+/**
+ * Base UI supplies the keyboard for the primitives it owns. Where this kit takes the focus itself
+ * and reads keys itself, nothing else will say which keys those are: the visible hint sits beside
+ * the component, so it is never announced. Both components that do this were silent until they
+ * were driven.
+ */
+const silentKeyboard = (sources: readonly { readonly file: string; readonly source: string }[]) =>
+  sources
+    .filter(
+      ({ source }) =>
+        source.includes("onKeyDown") &&
+        source.includes("tabIndex") &&
+        !source.includes("aria-keyshortcuts"),
+    )
+    .map(({ file }) => `${file} takes the focus and reads keys, and says which nowhere`);
+
+test("a component that reads its own keys without saying so is reported", () => {
+  expect(silentKeyboard([{ file: "deck.tsx", source: "tabIndex={0} onKeyDown={fn}" }])).toEqual([
+    "deck.tsx takes the focus and reads keys, and says which nowhere",
+  ]);
+  expect(
+    silentKeyboard([
+      { file: "deck.tsx", source: 'tabIndex={0} onKeyDown={fn} aria-keyshortcuts="ArrowLeft"' },
+    ]),
+  ).toEqual([]);
+});
+
+test("every component that reads its own keys says which keys", () => {
+  const handling = componentSources.filter(
+    ({ source }) => source.includes("onKeyDown") && source.includes("tabIndex"),
+  );
+
+  expect(handling.map(({ file }) => file).sort()).toEqual(["activity-grid.tsx", "swipe-deck.tsx"]);
+  expect(silentKeyboard(componentSources)).toEqual([]);
+});
+
 test("a stated ratio that no longer matches its colours is reported", () => {
   const real = contrast("#ededed", "#0e0f11").toFixed(2);
 
