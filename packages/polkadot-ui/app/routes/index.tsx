@@ -58,7 +58,7 @@ const overview = tv({
     head: "flex flex-col gap-2",
     lede: "max-w-[560px]",
     section: "flex flex-col gap-4",
-    grid: "grid grid-cols-[repeat(auto-fill,minmax(360px,1fr))] gap-3",
+    grid: "grid grid-cols-[repeat(auto-fill,minmax(min(360px,100%),1fr))] gap-3",
     widgets:
       "grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-3 [grid-auto-flow:row_dense]",
     widget: "col-span-1 min-w-0 min-[440px]:col-span-2",
