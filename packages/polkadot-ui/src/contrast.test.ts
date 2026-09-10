@@ -306,7 +306,12 @@ test("the paper hairline is decoration, and the total does not lean on it", () =
  * matched against the ink that applies on hover rather than the one it replaces. `placeholder:`
  * is not a state: a placeholder is what an empty field shows, under no condition at all.
  */
-const STATE = /^(?:group-)?(hover|focus-visible|focus|active)(?:\/[\w-]+)?$/;
+/*
+ * `data-highlighted` is a state like the rest: it is how Base UI marks the menu item under the
+ * pointer or the arrow keys, and the item paints a fill and writes an ink under it. Left out, the
+ * fill would have been matched against the ink that being highlighted replaces.
+ */
+const STATE = /^(?:group-)?(hover|focus-visible|focus|active|data-highlighted)(?:\/[\w-]+)?$/;
 
 const gateOf = (one: string) => {
   const modifiers = one.split(":").slice(0, -1);
@@ -356,11 +361,26 @@ const inksIn = (classes: string, state = ""): readonly Ink[] => {
   );
 };
 
+/**
+ * Every translucent fill the kit paints, whichever colour it thins. The pattern read the ink and
+ * only the ink, so the menu's highlighted item — accent at fifteen hundredths, with its own ink
+ * written on top — was a real ground under real text that nothing measured.
+ *
+ * Both spellings count: `bg-pk-ink/[0.06]` and `bg-pk-accent/15` are the same thing said twice.
+ */
 const fillsIn = (classes: string) =>
   classes.split(/\s+/).flatMap((one) => {
-    const [, alpha] = /bg-pk-ink\/\[([\d.]+)\]$/.exec(one) ?? [];
+    const [, token, bracketed, percent] =
+      /bg-(pk-[a-z\d-]+)\/(?:\[([\d.]+)\]|(\d+))$/.exec(one) ?? [];
+    if (!token || !declaredAs.has(`--${token}`)) return [];
 
-    return alpha ? [{ alpha: Number(alpha), state: gateOf(one) }] : [];
+    return [
+      {
+        token: `--${token}`,
+        alpha: bracketed === undefined ? Number(percent) / 100 : Number(bracketed),
+        state: gateOf(one),
+      },
+    ];
   });
 
 /**
@@ -400,8 +420,9 @@ const paintedGrounds = (source: string) => {
 
   const pairs = [
     ...everywhere.flatMap((classes) =>
-      fillsIn(classes).flatMap(({ alpha, state }) =>
+      fillsIn(classes).flatMap(({ token: fill, alpha, state }) =>
         unique(strings.flatMap((one) => inksIn(one, state))).map(({ token, alpha: inkAlpha }) => ({
+          fill,
           ink: token,
           alpha,
           inkAlpha,
@@ -409,17 +430,19 @@ const paintedGrounds = (source: string) => {
       ),
     ),
     ...strings.flatMap((classes) =>
-      fillsIn(classes).flatMap(({ alpha, state }) =>
+      fillsIn(classes).flatMap(({ token: fill, alpha, state }) =>
         unique([
           ...(slotted ? [] : everywhere.flatMap((one) => inksIn(one, state))),
           ...inksIn(classes, state),
-        ]).map(({ token, alpha: inkAlpha }) => ({ ink: token, alpha, inkAlpha })),
+        ]).map(({ token, alpha: inkAlpha }) => ({ fill, ink: token, alpha, inkAlpha })),
       ),
     ),
   ];
 
   return [
-    ...new Map(pairs.map((pair) => [`${pair.ink}@${pair.alpha}@${pair.inkAlpha}`, pair])).values(),
+    ...new Map(
+      pairs.map((pair) => [`${pair.fill}@${pair.ink}@${pair.alpha}@${pair.inkAlpha}`, pair]),
+    ).values(),
   ];
 };
 
@@ -436,16 +459,14 @@ const pageSources = [
 ].map((file) => ({ file, source: readFileSync(new URL(file, appDir), "utf8") }));
 
 test("a fill a component paints is a ground its own text clears", () => {
-  const ink = declaredAs.get("--pk-ink")!;
-
   const thin = [...componentSources, ...pageSources].flatMap(({ file, source }) =>
-    paintedGrounds(source).flatMap(({ ink: token, alpha, inkAlpha }) =>
+    paintedGrounds(source).flatMap(({ fill, ink: token, alpha, inkAlpha }) =>
       seats()
         .map((seat) => {
-          const ground = over(ink, declaredAs.get(seat)!, alpha);
+          const ground = over(declaredAs.get(fill)!, declaredAs.get(seat)!, alpha);
 
           return {
-            where: `${file}: ${token} on ink at ${alpha} over ${seat}`,
+            where: `${file}: ${token} on ${fill} at ${alpha} over ${seat}`,
             got: Number(
               contrast(over(declaredAs.get(token)!, ground, inkAlpha), ground).toFixed(2),
             ),
@@ -463,13 +484,31 @@ test("a fill a component paints is a ground its own text clears", () => {
     componentSources.find((entry) => entry.file === "list-item.tsx")!.source,
   );
 
-  expect(badge).toContainEqual({ ink: "--pk-ink-dim", alpha: 0.06, inkAlpha: 1 });
+  const ON_INK = { fill: "--pk-ink", alpha: 0.06, inkAlpha: 1 };
+
+  expect(badge).toContainEqual({ ...ON_INK, ink: "--pk-ink-dim" });
   /* Two values of one variant never appear together, so the quiet ink is not on the neutral fill. */
-  expect(badge).not.toContainEqual({ ink: "--pk-ink-faint", alpha: 0.06, inkAlpha: 1 });
+  expect(badge).not.toContainEqual({ ...ON_INK, ink: "--pk-ink-faint" });
 
   /* The row that was repaired: under its own hover fill the trail is muted, not faint. */
-  expect(list).toContainEqual({ ink: "--pk-ink-muted", alpha: 0.06, inkAlpha: 1 });
-  expect(list).not.toContainEqual({ ink: "--pk-ink-faint", alpha: 0.06, inkAlpha: 1 });
+  expect(list).toContainEqual({ ...ON_INK, ink: "--pk-ink-muted" });
+  expect(list).not.toContainEqual({ ...ON_INK, ink: "--pk-ink-faint" });
+
+  /* The menu's highlighted item: an accent fill nothing used to see, under an ink of its own. */
+  const menu = paintedGrounds(componentSources.find((entry) => entry.file === "menu.tsx")!.source);
+
+  expect(menu).toContainEqual({
+    fill: "--pk-accent",
+    alpha: 0.15,
+    ink: "--pk-ink-bright",
+    inkAlpha: 1,
+  });
+  expect(menu).not.toContainEqual({
+    fill: "--pk-accent",
+    alpha: 0.15,
+    ink: "--pk-ink-muted",
+    inkAlpha: 1,
+  });
 
   /* And the shape it had before, planted, so the rule is not passing because it reads nothing. */
   const planted = paintedGrounds(
@@ -481,8 +520,8 @@ test("a fill a component paints is a ground its own text clears", () => {
     'const x = tv({\n  slots: {\n    root: "hover:bg-pk-ink/[0.06]",\n    trail: "text-pk-ink-faint/50",\n  },\n});',
   );
 
-  expect(planted).toContainEqual({ ink: "--pk-ink-faint", alpha: 0.06, inkAlpha: 1 });
-  expect(thinned).toContainEqual({ ink: "--pk-ink-faint", alpha: 0.06, inkAlpha: 0.5 });
+  expect(planted).toContainEqual({ ...ON_INK, ink: "--pk-ink-faint" });
+  expect(thinned).toContainEqual({ ...ON_INK, ink: "--pk-ink-faint", inkAlpha: 0.5 });
   expect(thin).toEqual([]);
 });
 
