@@ -220,3 +220,84 @@ test("every ratio a component writes down is the ratio it has", () => {
   expect(declaredAs.size).toBeGreaterThan(35);
   expect(wrong).toEqual([]);
 });
+
+/*
+ * Everything above holds the kit to a ratio it states somewhere. Nothing held it to the one WCAG
+ * states: 1.4.3 asks 4.5:1 of body text, and a page puts an ink on a ground freely, so the pairs
+ * that exist are a small part of the pairs that could. Measuring the drawn pages answers for the
+ * first; this answers for both, and for the compositions nobody has written yet.
+ */
+const styled = [...componentSources.map(({ source }) => source), pages].join("\n");
+
+/** Every `--pk-*` colour some file writes as text. A new ink joins this the day it is written. */
+const inks = () => [
+  ...new Set(
+    [...styled.matchAll(/\btext-(pk-[a-z\d-]+)/g)]
+      .map(([, name]) => `--${name!}`)
+      .filter((token) => declaredAs.has(token)),
+  ),
+];
+
+/** The grounds anything may sit on, which is the root and the surfaces a tone can restate. */
+const generalGrounds = () =>
+  [...declaredAs.keys()].filter((token) => /^--pk-(ground|surface)/.test(token));
+
+/**
+ * An ink whose name says where it belongs goes against that ground and no other. `on-accent` is
+ * near black and would fail every dark surface, which is not a defect but the name doing its job.
+ * Paper is left to the rules above: its ground is a gradient and they read both of its stops.
+ */
+const BELONGS_ON: Record<string, string> = {
+  "--pk-on-accent": "--pk-accent",
+  "--pk-pending-ink": "--pk-pending-surface",
+};
+
+/** The tile is the other gradient ground, so its ink answers to both stops the way paper does. */
+const tileStops = () => {
+  const [, near, far] =
+    /--pk-tile-face:\s*radial-gradient\([^,]+,\s*(#[\da-f]+),\s*(#[\da-f]+)/i.exec(themeCss) ?? [];
+
+  return [near!, far!];
+};
+
+const tooThin = (against: ReadonlyMap<string, readonly string[]>) =>
+  [...against]
+    .flatMap(([ink, grounds]) =>
+      grounds.map((ground) => ({ ink, ground, got: contrast(declaredAs.get(ink)!, ground) })),
+    )
+    .filter(({ got }) => got < 4.5)
+    .map(({ ink, ground, got }) => `${ink} on ${ground} is ${got.toFixed(2)}`)
+    .sort();
+
+const pairsToCheck = () => {
+  const grounds = generalGrounds().map((token) => declaredAs.get(token)!);
+
+  return new Map(
+    inks()
+      .filter((ink) => !ink.startsWith("--pk-paper-"))
+      .map((ink) => {
+        if (ink === "--pk-tile-ink") return [ink, tileStops()] as const;
+        const named = BELONGS_ON[ink];
+
+        return [ink, named ? [declaredAs.get(named)!] : grounds] as const;
+      }),
+  );
+};
+
+test("an ink too thin for a ground it can land on is reported", () => {
+  const ground = declaredAs.get("--pk-surface")!;
+
+  expect(tooThin(new Map([["--pk-ink-faint", [ground]]]))).toEqual([]);
+  expect(tooThin(new Map([["--pk-line-strong", [ground]]]))).toEqual([
+    `--pk-line-strong on ${ground} is 1.92`,
+  ]);
+});
+
+test("every colour the kit writes as text clears 4.5:1 on every ground it can land on", () => {
+  const pairs = pairsToCheck();
+
+  expect(tileStops()).toEqual(["#1b2026", "#101317"]);
+  expect(generalGrounds().length).toBeGreaterThan(4);
+  expect(pairs.size).toBeGreaterThan(9);
+  expect(tooThin(pairs)).toEqual([]);
+});
