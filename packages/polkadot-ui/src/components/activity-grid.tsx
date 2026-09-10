@@ -98,6 +98,14 @@ const toColumns = (days: readonly ActivityDay[], weeks: number) => {
   return [...Array.from({ length: pad }, () => null), ...kept];
 };
 
+/**
+ * Where the cursor lands after one arrow. Reaching nothing yet starts at the last day, and the
+ * walk is held between the first day and the last: a week that opens mid-week is padded with
+ * blanks, and a cursor stopped on one names no day and marks no cell, so the arrow read as broken.
+ */
+const cursorAfter = (current: number | undefined, step: number, firstDay: number, days: number) =>
+  Math.max(firstDay, Math.min(days - 1, (current ?? days - 1) + step));
+
 const useElementWidth = (element: HTMLElement | null) => {
   const subscribe = useCallback(
     (notify: () => void) => {
@@ -160,11 +168,7 @@ function ActivityGrid({
     setCursor(index === undefined ? undefined : Number(index));
   }, []);
 
-  /*
-   * A week that opens mid-week is padded with blanks, and they are real cells: the cursor could
-   * stop on one, where there is no day to name and no cell to mark, so the arrow read as broken.
-   * The walk stops at the first day instead of at the first cell.
-   */
+  /* The walk starts at the first day rather than the first cell, for the reason `cursorAfter` gives. */
   const firstDay = Math.max(
     0,
     columns.findIndex((day) => day !== null),
@@ -175,9 +179,7 @@ function ActivityGrid({
       const step = { ArrowLeft: -7, ArrowRight: 7, ArrowUp: -1, ArrowDown: 1 }[event.key];
       if (step === undefined) return;
       event.preventDefault();
-      setCursor((current) =>
-        Math.max(firstDay, Math.min(columns.length - 1, (current ?? columns.length - 1) + step)),
-      );
+      setCursor((current) => cursorAfter(current, step, firstDay, columns.length));
     },
     [columns.length, firstDay],
   );
@@ -290,4 +292,4 @@ function ActivityGrid({
 }
 
 export { ActivityGrid, activityGrid as activityGridVariants, level as activityLevel };
-export { toColumns, weeksThatFit };
+export { cursorAfter, toColumns, weeksThatFit };

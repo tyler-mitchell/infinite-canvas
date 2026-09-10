@@ -5,6 +5,7 @@ import { expect, test } from "vite-plus/test";
 import {
   ActivityGrid,
   activityLevel,
+  cursorAfter,
   toColumns,
   weeksThatFit,
   type ActivityDay,
@@ -190,4 +191,27 @@ test("asking for more weeks than there are days keeps every day", () => {
   const days = daysEnding(10, new Date(2026, 8, 9));
   const kept = toColumns(days, 26).filter((day) => day !== null);
   expect(kept).toHaveLength(10);
+});
+
+/**
+ * The arrows were the one part of this component nothing read. They live in a handler, and a
+ * handler needs a mounted component and an event, which this suite cannot make — so the step is a
+ * function now and the handler calls it, the way every other reading in this kit is written.
+ *
+ * The floor is the part worth having: the first column of a short series is padding, and a cursor
+ * resting there names no day. It was walking onto that padding until it was given a floor.
+ */
+test("an arrow lands on a day, and never on the padding before the first one", () => {
+  /* Twenty-eight cells, the first three of them pad, so the days run from three to twenty-seven. */
+  const [firstDay, cells] = [3, 28];
+
+  /* Nothing reached yet starts at the last day, so the first left arrow is a week back from it. */
+  expect(cursorAfter(undefined, -7, firstDay, cells)).toBe(20);
+  expect(cursorAfter(10, 1, firstDay, cells)).toBe(11);
+  expect(cursorAfter(10, -7, firstDay, cells)).toBe(3);
+  /* Both ends: onto the pad, and past the last day. */
+  expect(cursorAfter(4, -7, firstDay, cells)).toBe(firstDay);
+  expect(cursorAfter(firstDay, -1, firstDay, cells)).toBe(firstDay);
+  expect(cursorAfter(27, 7, firstDay, cells)).toBe(27);
+  expect(cursorAfter(27, 1, firstDay, cells)).toBe(27);
 });
