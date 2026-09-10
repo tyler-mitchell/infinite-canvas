@@ -116,6 +116,23 @@ test("a class Tailwind does not recognise leaves no rule behind", () => {
   expect(written("flex").test(".flex-col { display: flex }")).toBe(false);
 });
 
+/**
+ * The spacing scale multiplies one variable, so a step can be any number, not only the ones
+ * Tailwind lists. Half steps matter here: eighteen, twenty-two, twenty-six, thirty and sixty-six
+ * pixels are all steps, and a rule elsewhere leans on that to tell a step from a measurement.
+ */
+test("the spacing scale takes a half step", () => {
+  const halves = ["p-0.5", "p-4.5", "p-5.5", "p-6.5", "p-7.5", "p-16.5"];
+  const built = compiled.build([...tokens.keys(), ...halves]).replaceAll("\\", "");
+
+  const bodies = halves.map((name) => {
+    const found = new RegExp(`\\.${name.replace(".", "\\.")}\\s*\\{([^}]*)\\}`).exec(built);
+    return found?.[1]?.trim();
+  });
+
+  expect(bodies).toEqual(halves.map((name) => `padding: calc(var(--spacing) * ${name.slice(2)});`));
+});
+
 test("every class the kit can emit compiles to a rule", () => {
   const dead = [...tokens]
     .filter(([token]) => !written(token).test(css))

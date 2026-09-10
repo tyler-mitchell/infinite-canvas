@@ -8,7 +8,7 @@ const activityFeed = tv({
     /* `list-none` rather than leaning on a reset, so the kit carries its own markers off. */
     list: "flex list-none flex-col",
     item: "pk-rise flex items-start gap-2.5 border-t border-pk-line-inner py-[11px] first:border-t-0 first:pt-0 last:pb-0",
-    lead: "mt-px flex size-[18px] flex-none items-center justify-center text-pk-ink-faint [&_svg]:size-full",
+    lead: "mt-px flex size-4.5 flex-none items-center justify-center text-pk-ink-faint [&_svg]:size-full",
     body: "flex min-w-0 flex-1 flex-col gap-1",
     line: "flex flex-wrap items-baseline gap-2",
     name: "min-w-0 font-pk-sans text-pk-item break-words text-pk-ink-muted",

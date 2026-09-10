@@ -24,9 +24,9 @@ const surface = tv({
     padding: {
       none: "",
       tight: "gap-2.5 p-4",
-      snug: "gap-2.5 p-[18px]",
+      snug: "gap-2.5 p-4.5",
       default: "gap-2.5 p-5",
-      roomy: "gap-3.5 p-[22px]",
+      roomy: "gap-3.5 p-5.5",
     },
   },
   defaultVariants: { tone: "card", interactive: true, padding: "default" },

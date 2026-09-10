@@ -14,7 +14,7 @@ const iconTile = tv({
   variants: {
     size: {
       sm: { icon: "size-5" },
-      md: { icon: "size-[26px]" },
+      md: { icon: "size-6.5" },
     },
     open: {
       true: { label: "grid-cols-[minmax(0,1fr)]" },

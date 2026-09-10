@@ -4,7 +4,7 @@ import { tv } from "../tv.ts";
 
 const receipt = tv({
   slots: {
-    root: "pk-paper pk-tear flex w-full flex-col px-[13px] pt-3 pb-[18px] font-pk-mono text-pk-paper-ink shadow-pk-paper",
+    root: "pk-paper pk-tear flex w-full flex-col px-[13px] pt-3 pb-4.5 font-pk-mono text-pk-paper-ink shadow-pk-paper",
     head: "flex flex-col items-center gap-[3px]",
     mark: "flex size-5 items-center justify-center rounded-pk-control-inner bg-pk-paper-ink font-pk-sans text-pk-micro text-pk-paper-page",
     wordmark: "text-pk-print-xs tracking-[0.2em] text-pk-paper-label uppercase",

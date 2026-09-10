@@ -846,19 +846,17 @@ test("no slot rewrites a corner the sheet already names", () => {
   expect(rewroteACorner(styledSources, scaleRadii)).toEqual([]);
 });
 
-/** Which spacing utility a pixel count is, on the four-pixel step Tailwind is set to here. */
-const STEP_FOR_PX: Record<string, string> = {
-  "4": "1",
-  "6": "1.5",
-  "8": "2",
-  "10": "2.5",
-  "12": "3",
-  "14": "3.5",
-  "16": "4",
-  "20": "5",
-  "24": "6",
-  "32": "8",
-};
+/**
+ * Which spacing utility a pixel count is. The scale multiplies one variable, so a step is any
+ * number and every even count is one: eighteen is `4.5`, sixty-six is `16.5`. This was a hand
+ * written table of ten whole and half steps, and nine slots wrote a half step out in pixels while
+ * it reported clean. An odd count is a quarter step, which reads worse as a number than as a
+ * measurement, so those stay written out and this says nothing about them.
+ */
+const PIXELS_PER_STEP = 4;
+
+const stepFor = (px: string) =>
+  Number(px) % 2 === 0 ? String(Number(px) / PIXELS_PER_STEP) : undefined;
 
 const SPACES = "gap|gap-x|gap-y|p|px|py|pt|pb|pl|pr|m|mt|mb|ml|mr|size";
 
@@ -868,31 +866,33 @@ const SPACES = "gap|gap-x|gap-y|p|px|py|pt|pb|pl|pr|m|mt|mb|ml|mr|size";
  * hides which of the two a slot is on. The odd counts — three, five, seven, nine, eleven, thirteen
  * and twenty-two — sit off the steps and are the kit's own rhythm, so this says nothing about them.
  */
-const rewroteAStep = (
-  sources: readonly { readonly file: string; readonly source: string }[],
-  steps: Record<string, string>,
-) =>
+const rewroteAStep = (sources: readonly { readonly file: string; readonly source: string }[]) =>
   sources
     .flatMap(({ file, source }) =>
       [...source.matchAll(new RegExp(String.raw`\b(?:${SPACES})-\[([\d.]+)px\]`, "g"))].map(
-        ([written, px]) => ({ file, written, px: px! }),
+        ([written, px]) => ({ file, written, step: stepFor(px!) }),
       ),
     )
-    .filter(({ px }) => px in steps)
-    .map(({ file, written, px }) => `${file} ${written} is ${steps[px]}`)
+    .filter(({ step }) => step !== undefined)
+    .map(({ file, written, step }) => `${file} ${written} is ${step}`)
     .sort();
 
 test("a slot that writes a step out in pixels is reported", () => {
-  expect(rewroteAStep([{ file: "row.tsx", source: "gap-[10px]" }], STEP_FOR_PX)).toEqual([
+  expect(rewroteAStep([{ file: "row.tsx", source: "gap-[10px]" }])).toEqual([
     "row.tsx gap-[10px] is 2.5",
   ]);
-  expect(rewroteAStep([{ file: "row.tsx", source: "gap-2.5" }], STEP_FOR_PX)).toEqual([]);
-  /* Seven is not a step, so writing it out is the only thing the slot can do. */
-  expect(rewroteAStep([{ file: "row.tsx", source: "gap-[7px]" }], STEP_FOR_PX)).toEqual([]);
+  /* The half steps the hand written table used to miss. */
+  expect(rewroteAStep([{ file: "card.tsx", source: "p-[18px] size-[66px]" }])).toEqual([
+    "card.tsx p-[18px] is 4.5",
+    "card.tsx size-[66px] is 16.5",
+  ]);
+  expect(rewroteAStep([{ file: "row.tsx", source: "gap-2.5" }])).toEqual([]);
+  /* Seven is a quarter step, and reads better as a measurement, so it stays written out. */
+  expect(rewroteAStep([{ file: "row.tsx", source: "gap-[7px]" }])).toEqual([]);
 });
 
 test("no slot writes a spacing step out in pixels", () => {
-  expect(rewroteAStep(styledSources, STEP_FOR_PX)).toEqual([]);
+  expect(rewroteAStep(styledSources)).toEqual([]);
 });
 
 /**

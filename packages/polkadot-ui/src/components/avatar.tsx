@@ -14,7 +14,7 @@ const avatar = tv({
     size: {
       sm: { root: "size-5 rounded-pk-control-inner", fallback: "text-pk-micro" },
       lg: {
-        root: "size-[66px] rounded-pk-inner",
+        root: "size-16.5 rounded-pk-inner",
         fallback: "text-[21px] leading-[1.4] font-semibold tracking-[-0.03em]",
       },
     },
