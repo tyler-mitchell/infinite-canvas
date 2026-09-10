@@ -32,8 +32,11 @@ const controls = tv({
     lede: "max-w-[560px]",
     section: "flex flex-col gap-4",
     matrix: "flex flex-col gap-3",
-    matrixRow: "flex flex-wrap items-center gap-3",
-    tone: "w-[68px]",
+    matrixRow: "flex items-center gap-3",
+    /* The buttons wrap inside their own box, so a wrapped one lands under a button and not
+     * under the tone that names the row. */
+    matrixButtons: "flex min-w-0 flex-1 flex-wrap items-center gap-3",
+    tone: "w-[68px] flex-none",
     inline: "flex flex-wrap items-center gap-4",
     pair: "flex items-center gap-2.5",
     grid: "grid grid-cols-[repeat(auto-fill,minmax(236px,1fr))] gap-3",
@@ -77,17 +80,19 @@ function Controls() {
           {TONES.map((tone) => (
             <div key={tone} className={styles.matrixRow()}>
               <Label className={styles.tone()}>{tone}</Label>
-              {SIZES.map((size) => (
-                <Button key={size} tone={tone} size={size}>
-                  {SIZE_LABEL[size]}
+              <div className={styles.matrixButtons()}>
+                {SIZES.map((size) => (
+                  <Button key={size} tone={tone} size={size}>
+                    {SIZE_LABEL[size]}
+                  </Button>
+                ))}
+                <Button tone={tone} size="icon">
+                  +
                 </Button>
-              ))}
-              <Button tone={tone} size="icon">
-                +
-              </Button>
-              <Button tone={tone} disabled>
-                disabled
-              </Button>
+                <Button tone={tone} disabled>
+                  disabled
+                </Button>
+              </div>
             </div>
           ))}
         </div>
