@@ -916,3 +916,70 @@ test("every transition names both the time and the curve it moves on", () => {
   expect(transitions.length).toBeGreaterThan(25);
   expect(movesOnBorrowedTime(styledSources)).toEqual([]);
 });
+
+const HUES =
+  "slate|gray|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose";
+const PAINTS =
+  "bg|text|border|ring|fill|stroke|from|via|to|shadow|outline|decoration|accent|caret|divide";
+
+/**
+ * A colour the palette never named. The other axes are about a slot rewriting a token; this is
+ * about a slot painting with something the sheet has no word for at all, which no rule that reads
+ * tokens can see. Tailwind's own hues are caught too, so the default palette cannot leak in.
+ */
+const unnamedColour = (sources: readonly { readonly file: string; readonly source: string }[]) =>
+  sources
+    .flatMap(({ file, source }) =>
+      [...source.matchAll(/"([^"]*)"/g)].flatMap(([, slot]) =>
+        [
+          ...slot!.matchAll(/rgba?\([^)]*\)/g),
+          ...slot!.matchAll(/#[0-9a-fA-F]{3,8}\b/g),
+          ...slot!.matchAll(new RegExp(String.raw`\b(?:${PAINTS})-(?:white|black)\b`, "g")),
+          ...slot!.matchAll(new RegExp(String.raw`\b(?:${PAINTS})-(?:${HUES})-\d{2,3}\b`, "g")),
+        ].map(([written]) => `${file} ${written}`),
+      ),
+    )
+    .sort();
+
+/**
+ * Seventeen colours in eight widgets, and nothing outside them: the pages are clean and no
+ * Tailwind hue appears anywhere. Four widgets each mix their own shadow black at their own alpha,
+ * three paint a knob raw white, the dialog scrim is raw black, and aurora carries a green and a
+ * periwinkle that exist nowhere else in the kit. Every one needs a word in the sheet rather than a
+ * different slot, so the list is pinned until the palette gains those words.
+ */
+const COLOURS_THE_PALETTE_DOES_NOT_NAME = [
+  "activity-grid.tsx rgb(255_255_255/0.045)",
+  "aurora.tsx rgb(0_230_168/0)",
+  "aurora.tsx rgb(0_230_168/0.5)",
+  "aurora.tsx rgb(126_140_255/0)",
+  "aurora.tsx rgb(126_140_255/0.38)",
+  "aurora.tsx rgb(255_255_255/0)",
+  "aurora.tsx rgb(255_255_255/0.2)",
+  "aurora.tsx rgb(7_8_10/0)",
+  "aurora.tsx rgb(7_8_10/0.86)",
+  "dialog.tsx bg-black",
+  "receipt.tsx rgb(0_0_0/0.9)",
+  "slider.tsx bg-white",
+  "slider.tsx rgb(0_0_0/0.5)",
+  "sparkline.tsx bg-white",
+  "switch.tsx bg-white",
+  "switch.tsx rgb(0_0_0/0.4)",
+  "toggle-group.tsx rgb(0_0_0/0.45)",
+];
+
+test("a slot that paints an unnamed colour is reported", () => {
+  expect(
+    unnamedColour([
+      { file: "a.tsx", source: `"bg-pk-surface text-pk-ink border-pk-line"` },
+      { file: "b.tsx", source: `"bg-white"` },
+      { file: "c.tsx", source: `"text-zinc-400"` },
+      /* Underscored, and buried in a shadow, which is where six of the real ones hide. */
+      { file: "d.tsx", source: `"shadow-[0_1px_2px_rgb(0_0_0/0.4)]"` },
+    ]),
+  ).toEqual(["b.tsx bg-white", "c.tsx text-zinc-400", "d.tsx rgb(0_0_0/0.4)"]);
+});
+
+test("no slot paints a colour beyond the ones already on record", () => {
+  expect(unnamedColour(styledSources)).toEqual(COLOURS_THE_PALETTE_DOES_NOT_NAME);
+});
