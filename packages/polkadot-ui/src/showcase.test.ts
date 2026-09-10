@@ -1705,9 +1705,14 @@ for (const file of readdirSync(componentDir).filter((name) => name.endsWith(".ts
   };
 
   for (const [, owner, body] of source.matchAll(/function (\w+)\(\{([\s\S]*?)\}:/g)) {
-    const defaults = [...body!.matchAll(/^\s*(\w+) = (.+?),$/gm)].map(
-      ([, prop, value]) => [prop!, resolve(value!)] as const,
-    );
+    /*
+     * Delimited by the destructure rather than by the line. Anchored to a line, a signature
+     * written on one — `{ parts, showLegend = true, label }` — settled nothing this could read,
+     * so a documented default went unchecked while the rule reported that it agreed.
+     */
+    const defaults = [
+      ...body!.matchAll(/(\w+) = ("[^"]*"|[A-Z][A-Z_]+|-?\d+(?:\.\d+)?|true|false)\s*(?=[,}])/g),
+    ].map(([, prop, value]) => [prop!, resolve(value!)] as const);
 
     fallsBackTo.set(`${owner!}Props`, new Map(defaults));
   }
@@ -1754,6 +1759,24 @@ test("a stated default that is not the one the code uses is reported", () => {
 
 test("every default a page states is the one the component falls back to", () => {
   expect(fallsBackTo.get("NumberTickerProps")?.get("pad")).toBe("0");
+  /* A signature written on one line is still a signature: `Breakdown` settles `showLegend` on it. */
+  expect(fallsBackTo.get("BreakdownProps")?.get("showLegend")).toBe("true");
+  /*
+   * 28 of the 58 defaults the pages state are this kit's own and weighed here. The rest are Base
+   * UI's, which writes them as `@default` in its own types — read by nothing yet. The floor is
+   * asserted because a rule that reads no signature agrees with every page.
+   */
+  const weighed = pages.flatMap(({ source }) =>
+    openingTags(source, "Props").flatMap((tag) => {
+      const [, type] = /<Props<(\w+Props)>/.exec(tag) ?? [];
+
+      return [...tag.matchAll(/\{\s*name: "(\w+)",\s*fallback: "[^"]*"/g)].filter(([, prop]) =>
+        fallsBackTo.get(type ?? "")?.has(prop!),
+      );
+    }),
+  );
+
+  expect(weighed.length).toBeGreaterThan(25);
   expect(misstatedDefault(pages, fallsBackTo)).toEqual([]);
 });
 
