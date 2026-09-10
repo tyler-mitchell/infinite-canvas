@@ -779,6 +779,48 @@ test("a toggle tells its two states apart by 3:1 on every seat", () => {
   );
 });
 
+/**
+ * The box and the dot carry the switch's shape — the accent when set, thinned ink when not, and
+ * thinner still under the pointer — and the rule below reads the switch and the slider by name, so
+ * neither was ever measured. The hovered pair is the one worth having: a reader running the pointer
+ * across a row of unset boxes must not read the one under it as set.
+ *
+ * The set is found by that shape rather than listed, so a fourth control written the same way is
+ * measured on the day it is written.
+ */
+const SET_BY_A_FILL = ["checkbox.tsx", "radio.tsx", "switch.tsx"];
+const RESTING_AND_HOVERED =
+  /false:\s*\{\s*root:\s*"bg-pk-ink\/\[([\d.]+)\]\s+hover:bg-pk-ink\/\[([\d.]+)\]"/;
+
+test("a box and a dot tell set from unset, hovered or not, on every seat", () => {
+  const accent = declaredAs.get("--pk-accent")!;
+  const ink = declaredAs.get("--pk-ink")!;
+  const found = componentSources.filter(({ source }) => RESTING_AND_HOVERED.test(source));
+
+  const pairs = found.flatMap(({ file, source }) => {
+    const [, resting, hovered] = RESTING_AND_HOVERED.exec(source) ?? [];
+
+    return seats()
+      .map((seat) => declaredAs.get(seat)!)
+      .flatMap((ground) => [
+        {
+          what: `${file}: unset against set`,
+          got: contrast(over(ink, ground, Number(resting)), accent),
+        },
+        {
+          what: `${file}: hovered against set`,
+          got: contrast(over(ink, ground, Number(hovered)), accent),
+        },
+      ]);
+  });
+
+  expect(pairs.length).toBeGreaterThan(8);
+  expect(pairs.filter(({ got }) => !Number.isFinite(got))).toEqual([]);
+  expect(pairs.filter(({ got }) => got < 3)).toEqual([]);
+  /* Last, so a new control of this shape is reported by name rather than hiding a low ratio. */
+  expect(found.map(({ file }) => file).sort()).toEqual(SET_BY_A_FILL);
+});
+
 test("a control's two states are 3:1 apart on every seat", () => {
   const accent = declaredAs.get("--pk-accent")!;
 
