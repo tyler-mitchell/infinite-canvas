@@ -44,11 +44,8 @@ const REQUIRED: Record<string, Record<string, unknown>> = {
   Sparkline: { values: [1, 2, 3] },
   SwipeDeck: { items: [] },
   ToggleGroup: { children: createElement(kit.Toggle, { value: "a" }, "one") },
-  Toolbar: {
-    children: createElement(kit.ToolbarButton, {
-      render: createElement(kit.Button, null, "cut"),
-    }),
-  },
+  /* The bare part, not one propped up with `render`: a toolbar button has to dress itself. */
+  Toolbar: { children: createElement(kit.ToolbarButton, null, "cut") },
 };
 
 /** `surfaceVariants` describes `Surface`, so the pair is derived rather than listed by hand. */
@@ -219,6 +216,77 @@ test("every control that can be disabled says so", () => {
   expect(components.length).toBeGreaterThan(40);
   expect(unmarkedDisabled([{ name: "Switch", draw: kit.Switch }])).toEqual([]);
   expect(unmarkedDisabled(components)).toEqual([]);
+});
+
+/**
+ * The toolbar button passed everything through and drew nothing, and every page hid that by
+ * handing it a whole button through `render`. Reading its own file would have called that correct,
+ * because the file had nothing in it to be wrong.
+ *
+ * So this reads what a component renders. A part the keyboard can reach has to draw something when
+ * it gets there: a ring for real focus, or the highlight a menu moves instead of focus.
+ *
+ * Base UI puts a hidden input in a select and a combobox so a form can read the value. It is
+ * `aria-hidden`, which is the whole reason nobody lands on it, and that is what excludes it here.
+ */
+const KEYBOARD_STATE = /focus-visible:|focus-within:|data-highlighted:/;
+
+const reachable = (markup: string) =>
+  [...markup.matchAll(/<([a-z]+)((?:\s[^>]*)?)>/g)]
+    .filter(
+      ([, tag, attributes]) =>
+        /^(?:button|input|textarea|select)$/.test(tag!) ||
+        (tag === "a" && /\shref=/.test(attributes!)) ||
+        /\stabindex=/.test(attributes!),
+    )
+    .filter(([, , attributes]) => !/\saria-hidden="true"/.test(attributes!))
+    .map(([, tag]) => tag!);
+
+const unlitFocus = (components: readonly { name: string; draw: unknown }[]) =>
+  components
+    .flatMap(({ name, draw }) => {
+      try {
+        const markup = renderToStaticMarkup(createElement(draw as never, REQUIRED[name]));
+        const [reached] = reachable(markup);
+
+        if (reached === undefined || KEYBOARD_STATE.test(markup)) return [];
+
+        return [`${name} can be reached at its ${reached} and draws nothing`];
+      } catch {
+        return [];
+      }
+    })
+    .sort();
+
+test("a component that can be reached by keyboard and draws nothing is reported", () => {
+  const bare = { name: "Bare", draw: () => <button className="flex" /> };
+  const ringed = { name: "Ringed", draw: () => <button className="focus-visible:ring-2" /> };
+  const roving = {
+    name: "Roving",
+    draw: () => <span tabIndex={-1} className="data-highlighted:bg-white" />,
+  };
+  const still = { name: "Still", draw: () => <span className="flex" /> };
+  const filed = {
+    name: "Filed",
+    draw: () => <input aria-hidden="true" tabIndex={-1} readOnly value="" />,
+  };
+
+  expect(unlitFocus([bare])).toEqual(["Bare can be reached at its button and draws nothing"]);
+  expect(unlitFocus([ringed])).toEqual([]);
+  expect(unlitFocus([roving])).toEqual([]);
+  expect(unlitFocus([still])).toEqual([]);
+  expect(unlitFocus([filed])).toEqual([]);
+});
+
+test("every part the keyboard can reach draws something for it", () => {
+  const components = [...sourceOf.keys()]
+    .filter((name) => typeof (kit as Record<string, unknown>)[name] === "function")
+    .map((name) => ({ name, draw: (kit as Record<string, unknown>)[name] }));
+
+  /* Read first: the button answers, so the sweep is reaching parts that really take focus. */
+  expect(components.length).toBeGreaterThan(40);
+  expect(reachable(renderToStaticMarkup(<kit.Button>press</kit.Button>))).toEqual(["button"]);
+  expect(unlitFocus(components)).toEqual([]);
 });
 
 /**
