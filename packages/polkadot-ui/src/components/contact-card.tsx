@@ -4,7 +4,7 @@ import { tv } from "../tv.ts";
 
 const contactCard = tv({
   slots: {
-    root: "pk-rim box-border flex items-center justify-between gap-3.5 overflow-hidden rounded-[18px] p-5",
+    root: "pk-rim box-border flex items-center justify-between gap-3.5 overflow-hidden rounded-pk-card p-5",
     body: "flex min-w-0 flex-col gap-[5px]",
     label: "font-pk-sans text-pk-label text-pk-ink-dim",
     address: "font-pk-sans text-pk-title break-words text-pk-ink",

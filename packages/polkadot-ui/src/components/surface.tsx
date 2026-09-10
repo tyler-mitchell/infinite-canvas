@@ -11,7 +11,7 @@ const surface = tv({
       sunken:
         "rounded-pk-widget border border-pk-line bg-pk-surface-sunken shadow-[var(--pk-lift-inset),var(--pk-lift-card)] [--pk-ring-seat:var(--pk-surface-sunken)]",
       deep: "rounded-pk-card border border-pk-line bg-pk-surface-deep shadow-pk-card [--pk-ring-seat:var(--pk-surface-deep)]",
-      rim: "pk-rim rounded-[18px] [--pk-ring-seat:var(--pk-surface)]",
+      rim: "pk-rim rounded-pk-card [--pk-ring-seat:var(--pk-surface)]",
       tile: "pk-rim-tile rounded-pk-inner [--pk-ring-seat:var(--pk-surface)]",
       pending:
         "rounded-pk-card border border-dashed border-pk-pending-line bg-pk-pending-surface hover:border-pk-pending-line-hover [--pk-ring-seat:var(--pk-pending-surface)]",
