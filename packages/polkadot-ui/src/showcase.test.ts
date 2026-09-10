@@ -2541,3 +2541,102 @@ test("every text role either wraps a long word or says it stays on one line", ()
   expect(kit.textVariants({ as: "prose" })).toContain("wrap-anywhere");
   expect(silent).toEqual([]);
 });
+
+const WRITTEN_OUT = [
+  "zero",
+  "one",
+  "two",
+  "three",
+  "four",
+  "five",
+  "six",
+  "seven",
+  "eight",
+  "nine",
+  "ten",
+  "eleven",
+  "twelve",
+];
+
+const asCount = (said: string | undefined) =>
+  said === undefined
+    ? undefined
+    : WRITTEN_OUT.includes(said)
+      ? WRITTEN_OUT.indexOf(said)
+      : /^\d+$/.test(said)
+        ? Number(said)
+        : undefined;
+
+/**
+ * A count a name states, in the two places these pages put one: after the word `over`, and in
+ * front of the thing being counted, which is the prop's own name. Both are unambiguous — `p95`
+ * sits after neither, and so does the `2.1M` in a tooltip.
+ */
+const countIn = (label: string, prop: string) =>
+  asCount(/\bover\s+([a-z]+|\d+)\b/.exec(label)?.[1]) ??
+  asCount(new RegExp(String.raw`\b([a-z]+|\d+)\s+${prop}\b`).exec(label)?.[1]);
+
+/**
+ * A name that counts what it draws is a number written in prose, and the ratio table taught what
+ * happens to those: nothing reads them, so nothing notices when the series moves underneath. Eight
+ * are stated across these pages — sixty-four weeks and eight weeks and three panes twice each,
+ * seventy-two frames and ninety-six hours once — and every one was right and unguarded.
+ *
+ * The series is found rather than named: whichever prop is handed a bare identifier the fixtures
+ * hold as an array is the one being counted.
+ */
+const counted = pages.flatMap(({ file, source }) => {
+  const names = [
+    ...new Set([...source.matchAll(/<([A-Z][\w.]*)(?=[\s/>])/g)].map(([, one]) => one!)),
+  ];
+
+  return names.flatMap((name) =>
+    openingTags(source, name).flatMap((tag) => {
+      /* A name may be a plain string or a template. The holes carry values, never the count. */
+      const label =
+        /\blabel="([^"]*)"/.exec(tag)?.[1] ??
+        /\blabel=\{`([^`]*)`\}/.exec(tag)?.[1]?.replaceAll(/\$\{[^}]*\}/g, " ");
+      const carried = [...tag.matchAll(/\b(\w+)=\{(\w+)\}/g)].find(([, , held]) =>
+        Array.isArray((fixtures as Record<string, unknown>)[held!]),
+      );
+
+      if (label === undefined || carried === undefined) return [];
+
+      const [, prop, held] = carried;
+      const said = countIn(label, prop!);
+
+      return said === undefined
+        ? []
+        : [
+            {
+              where: `${file} ${name}`,
+              said,
+              holds: (fixtures as Record<string, readonly unknown[]>)[held!]!.length,
+              held: held!,
+            },
+          ];
+    }),
+  );
+});
+
+test("a name that counts what it draws counts what the series holds", () => {
+  expect(countIn("commits per week over 64 weeks", "values")).toBe(64);
+  expect(countIn("weekly installs over eight weeks", "values")).toBe(8);
+  expect(countIn("split, three panes", "panes")).toBe(3);
+  /* The two a looser reader would have taken for counts. */
+  expect(countIn("p95 latency, latest 20ms", "values")).toBeUndefined();
+  expect(countIn("queries, 2.1M served", "values")).toBeUndefined();
+
+  /* Read first: a reader that finds no name at all disagrees with nothing. */
+  expect(counted.map(({ held }) => held).sort()).toEqual([
+    "COMMIT_WEEKS",
+    "COMMIT_WEEKS",
+    "FRAME_BUDGET",
+    "INSTALLS",
+    "INSTALLS",
+    "LATENCY",
+    "SPLIT_PANES",
+    "SPLIT_PANES",
+  ]);
+  expect(counted.filter(({ said, holds }) => said !== holds)).toEqual([]);
+});
