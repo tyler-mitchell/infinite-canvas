@@ -9,7 +9,12 @@ const aurora = tv({
     white: "-mt-[18%] -ml-[47%] h-[36%] w-[95%] blur-[20px] [background:var(--pk-aurora-white)]",
     grain: "pk-noise pointer-events-none absolute inset-0",
     vignette: "pointer-events-none absolute inset-0 [background:var(--pk-aurora-vignette)]",
-    content: "pointer-events-none absolute inset-0 flex flex-col justify-between p-4",
+    /*
+     * The four layers above this one are decoration and take no pointer. The words are not, and
+     * taking none left them unselectable — hit-testing the headline landed on nothing at all. The
+     * card's hover still reads, because hovering a child is hovering its parent.
+     */
+    content: "absolute inset-0 flex flex-col justify-between p-4",
     label: "font-pk-sans text-pk-label text-pk-ink/72",
     headline:
       "font-pk-sans text-pk-title font-semibold break-words text-balance text-pk-ink-bright",

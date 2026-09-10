@@ -677,3 +677,22 @@ test("every count a page states beside a variant is the count it has", () => {
   expect(pageSources.length).toBeGreaterThan(6);
   expect(miscounted(pageSources)).toEqual([]);
 });
+
+/**
+ * The aurora stacks four decorative layers under its words, and every one of them takes no pointer
+ * because none of them is content. The wrapper holding the words carried the same class, so the
+ * headline could not be selected — hit-testing it in view landed on the card behind it.
+ *
+ * The card's hover is unaffected either way: it lives on the root, and hovering a child is
+ * hovering its parent.
+ */
+test("the aurora's words take a pointer and its decoration does not", () => {
+  const styles = kit.auroraVariants();
+
+  for (const inert of [styles.blob(), styles.grain(), styles.vignette()]) {
+    expect(inert).toContain("pointer-events-none");
+  }
+  expect(styles.content()).not.toContain("pointer-events-none");
+  /* Read first: the wrapper is the one that holds them, so it is the one that has to be hittable. */
+  expect(styles.content()).toContain("flex-col");
+});
