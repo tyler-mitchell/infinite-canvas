@@ -282,7 +282,7 @@ test("the seat the paper names is the stop the paper starts at", () => {
 
 /**
  * Paper is its own ground and takes its own ring, because the accent at half alpha reaches only
- * 1.32:1 against it. Nothing puts an accent ring on paper today; this pins the ring paper does use,
+ * 1.31:1 against it. Nothing puts an accent ring on paper today; this pins the ring paper does use,
  * and pins the reason the other one cannot be carried across.
  */
 test("the ring paper uses clears 3:1 on paper", () => {
@@ -290,6 +290,9 @@ test("the ring paper uses clears 3:1 on paper", () => {
 
   expect(contrast(declaredAs.get("--pk-paper-ink")!, page)).toBeGreaterThanOrEqual(3);
   expect(contrast(over(declaredAs.get("--pk-accent")!, page, 0.5), page)).toBeLessThan(3);
+
+  /* The three is what a ring is held to. The figure is what the note above says it reaches. */
+  expect(contrast(over(declaredAs.get("--pk-accent")!, page, 0.5), page).toFixed(2)).toBe("1.31");
 });
 
 /**
