@@ -3,6 +3,7 @@ import { useState } from "react";
 import { tv } from "tailwind-variants";
 
 import {
+  ActivityFeed,
   Aurora,
   Avatar,
   Badge,
@@ -20,10 +21,10 @@ import {
   ListItem,
   Meta,
   MetricTile,
+  NumberTicker,
   PendingCard,
   Prose,
   Readout,
-  ReadoutCard,
   Receipt,
   Row,
   Separator,
@@ -43,6 +44,7 @@ import {
   INSTALLS,
   LANGUAGES,
   LATEST_COMMITS,
+  RUNS,
   SPLIT_PANES,
 } from "../fixtures.ts";
 
@@ -189,7 +191,7 @@ function Overview() {
 
             <Row align="baseline">
               <Label>weekly installs</Label>
-              <Readout>4,182</Readout>
+              <Readout render={<NumberTicker value={4182} locale />} />
             </Row>
             <div className={styles.chart()}>
               <Bars values={INSTALLS} label="weekly installs over eight weeks" />
@@ -246,23 +248,7 @@ function Overview() {
             className={styles.aurora()}
           />
 
-          <ReadoutCard
-            className={styles.small()}
-            size="lg"
-            label="outside"
-            hint="tap"
-            value="12°"
-            caption="clear, high plains"
-            details={["feels 9° · wind 11"]}
-          />
-
-          <ReadoutCard
-            className={styles.small()}
-            label="denver, co"
-            value="18:42:07"
-            caption="mdt · utc−6"
-            details={["sunset 19:12", "day 4h 21m left"]}
-          />
+          <ActivityFeed entries={RUNS} className={styles.widget()} />
 
           <Surface tone="card" className={styles.small()}>
             <Label>latest commits</Label>

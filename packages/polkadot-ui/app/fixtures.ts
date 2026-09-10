@@ -97,6 +97,30 @@ export const SPLIT_PANES = [
   { left: 52, top: 54, width: 42, height: 38, active: true },
 ];
 
+export const RUNS = [
+  {
+    id: "snap",
+    name: "snap resolver",
+    duration: "15s",
+    note: "Resolved 1,204 candidate rects against predicted rest.",
+    since: "2h",
+  },
+  {
+    id: "raster",
+    name: "raster pass",
+    duration: "5m",
+    note: "Skipped 38 offscreen window bodies, repainted 6.",
+    since: "9h",
+  },
+  {
+    id: "pack",
+    name: "window packing",
+    duration: "1.2s",
+    note: "Packed 24 windows into 16 columns with no overlap.",
+    since: "30h",
+  },
+];
+
 export const LATEST_COMMITS = [
   ["a1f9c2", "fix(snap): resolve gap guides before edges", "2h"],
   ["7e04b1", "feat(groups): accordion axis labels", "1d"],

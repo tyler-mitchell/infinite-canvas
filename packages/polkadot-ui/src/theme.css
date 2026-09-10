@@ -145,6 +145,17 @@
   }
 }
 
+@keyframes pk-rise {
+  from {
+    opacity: 0;
+    translate: 0 6px;
+  }
+  to {
+    opacity: 1;
+    translate: none;
+  }
+}
+
 @keyframes pk-spin {
   to {
     transform: rotate(360deg);
@@ -260,6 +271,12 @@
 
   .pk-paper {
     background: var(--pk-paper);
+  }
+
+  .pk-rise {
+    animation: pk-rise linear both;
+    animation-timeline: view();
+    animation-range: entry 0% cover 20%;
   }
 
   .pk-noise {

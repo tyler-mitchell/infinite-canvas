@@ -61,7 +61,6 @@ const GROUNDS = [
   ["--pk-recess", "recess", "a cut opening"],
 ] as const;
 
-/* Contrast measured against `--pk-surface` (WCAG, sRGB), not asserted. */
 const INKS = [
   ["--pk-ink-bright", "ink-bright", "19.18"],
   ["--pk-ink", "ink", "16.38"],
@@ -227,7 +226,7 @@ function Foundations() {
       <section className={styles.section()}>
         <Row rule="below">
           <Kind>type</Kind>
-          <Meta>roles, not sizes · two faces only</Meta>
+          <Meta>roles, not sizes · sans is the interface</Meta>
         </Row>
         <Surface tone="card">
           <div className={styles.scale()}>
@@ -240,11 +239,11 @@ function Foundations() {
               <Meta>a widget names itself once</Meta>
             </div>
             <div className={styles.scaleRow()}>
-              <Label>Label · 10.5px medium</Label>
+              <Label>Label · 11px medium</Label>
               <Meta>names a section: frame budget, inbox</Meta>
             </div>
             <div className={styles.scaleRow()}>
-              <Kind>Kind · 10px mono caps</Kind>
+              <Kind>Kind · 10px caps</Kind>
               <Meta>tags what a thing is: gist, issue</Meta>
             </div>
             <div className={styles.scaleRow()}>
@@ -254,11 +253,10 @@ function Foundations() {
               </Prose>
             </div>
             <div className={styles.scaleRow()}>
-              <Meta>Meta · 11px mono — the through-line, so it is the default role</Meta>
+              <Meta>Meta · 11px — the line beside a heading, and the default role</Meta>
             </div>
           </div>
         </Surface>
-        {/* The roles are also a variant, for an element the kit does not own. */}
         <Api of={textVariants} />
       </section>
     </div>

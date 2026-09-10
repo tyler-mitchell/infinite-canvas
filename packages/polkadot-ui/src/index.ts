@@ -21,6 +21,12 @@ export {
 export { Aurora, auroraVariants, type AuroraProps } from "./components/aurora.tsx";
 export { Avatar, avatarVariants, type AvatarProps } from "./components/avatar.tsx";
 export { Badge, badgeVariants, type BadgeProps } from "./components/badge.tsx";
+export {
+  ActivityFeed,
+  activityFeedVariants,
+  type ActivityEntry,
+  type ActivityFeedProps,
+} from "./components/activity-feed.tsx";
 export { Bars, barsVariants, type BarsProps } from "./components/bars.tsx";
 export {
   Breakdown,
@@ -70,6 +76,11 @@ export {
 } from "./components/layout-preview.tsx";
 export { ListItem, listItemVariants, type ListItemProps } from "./components/list-item.tsx";
 export { MetricTile, metricTileVariants, type MetricTileProps } from "./components/metric-tile.tsx";
+export {
+  NumberTicker,
+  numberTickerVariants,
+  type NumberTickerProps,
+} from "./components/number-ticker.tsx";
 export {
   Menu,
   MenuContent,
@@ -130,11 +141,6 @@ export {
   pendingCardVariants,
   type PendingCardProps,
 } from "./components/pending-card.tsx";
-export {
-  ReadoutCard,
-  readoutCardVariants,
-  type ReadoutCardProps,
-} from "./components/readout-card.tsx";
 export { Row, rowVariants, type RowProps } from "./components/row.tsx";
 export { Separator, separatorVariants, type SeparatorProps } from "./components/separator.tsx";
 export { Sparkline, sparklineVariants, type SparklineProps } from "./components/sparkline.tsx";
