@@ -10,7 +10,9 @@ const shell = tv({
     group: "flex flex-row flex-wrap gap-1 px-2 sm:mb-5 sm:flex-col sm:gap-px",
     groupLabel: "hidden sm:mb-2 sm:block sm:px-2",
     link: "rounded-pk-chip px-2 py-[7px] font-pk-sans text-[12.5px] leading-none text-pk-ink-dim no-underline outline-none transition-colors duration-(--pk-duration-hover) ease-pk-swift hover:bg-pk-surface hover:text-pk-ink-muted focus-visible:inset-ring-2 focus-visible:inset-ring-pk-accent/50 data-active:bg-pk-surface-inner data-active:text-pk-ink-bright sm:data-active:shadow-[inset_2px_0_0_var(--pk-accent)]",
-    main: "min-w-0 flex-1 px-5 py-6 sm:px-9 sm:py-8",
+    /* Every page caps its own measure, so the shell centres whatever it is given: left-aligned in
+     * a wide main, the column sat against the rail with six hundred pixels of nothing beside it. */
+    main: "min-w-0 flex-1 px-5 py-6 sm:px-9 sm:py-8 [&>*]:mx-auto",
   },
 });
 
