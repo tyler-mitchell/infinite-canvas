@@ -18,6 +18,10 @@ const switchStyles = tv({
 
 export type SwitchProps = Omit<SwitchPrimitive.Root.Props, "className"> & { className?: string };
 
+/**
+ * Base UI renders this as a `span` with `role="switch"`, not an `input`, so it carries
+ * `data-disabled` and never the native `disabled` attribute — style it with `data-disabled:`.
+ */
 function Switch({ className, ...props }: SwitchProps) {
   return (
     <SwitchPrimitive.Root

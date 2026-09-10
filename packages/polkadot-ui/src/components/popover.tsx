@@ -28,6 +28,11 @@ function PopoverTrigger(props: PopoverTriggerProps) {
 export type PopoverContentProps = WithClassName<PopoverPrimitive.Popup.Props> &
   Pick<PopoverPrimitive.Positioner.Props, "align" | "alignOffset" | "side" | "sideOffset">;
 
+/**
+ * Base UI's Portal, Positioner and Popup collapsed into one part, since the kit arranges the three
+ * the same way every time. Placement props pass through to the positioner; the popup is bounded so
+ * one long sentence cannot stretch it across the page.
+ */
 function PopoverContent({
   className,
   side = "bottom",

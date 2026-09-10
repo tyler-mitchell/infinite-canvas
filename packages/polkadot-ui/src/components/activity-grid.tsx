@@ -85,6 +85,11 @@ export interface ActivityGridProps extends Omit<React.ComponentProps<"div">, "ch
   readonly children?: (day: ActivityDay | undefined) => React.ReactNode;
 }
 
+/**
+ * Weeks are columns. Narrowed, it drops history rather than shrinking cells, because the cell size
+ * is an input and never a result. The default thresholds suit commits per day; a series in another
+ * unit should bring its own, or every non-zero value lands on the top level.
+ */
 function ActivityGrid({
   days,
   weeks = 26,

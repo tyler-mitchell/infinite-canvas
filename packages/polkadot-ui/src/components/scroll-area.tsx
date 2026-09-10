@@ -20,6 +20,7 @@ export type ScrollAreaProps = WithClassName<ScrollAreaPrimitive.Root.Props> & {
   readonly axis?: "vertical" | "horizontal" | "both";
 };
 
+/** An overlay scrollbar, so the bar costs no width and content does not reflow when it appears. */
 function ScrollArea({ axis = "vertical", className, children, ...props }: ScrollAreaProps) {
   const styles = scrollArea();
 

@@ -66,6 +66,11 @@ export type NumberTickerProps = Omit<React.ComponentProps<"span">, "children"> &
   readonly digitClassName?: string;
 };
 
+/**
+ * Each digit rolls in its own slot, keyed by place value rather than by position in the string, so
+ * a number that gains a digit rolls the units column as the units column. The units digit leads
+ * and each place to its left follows by `stagger`; a separator costs no step.
+ */
 function NumberTicker({
   value,
   pad = 0,

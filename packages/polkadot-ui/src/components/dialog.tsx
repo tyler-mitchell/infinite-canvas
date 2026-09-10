@@ -29,6 +29,10 @@ function DialogTrigger(props: DialogTriggerProps) {
 
 export type DialogContentProps = WithClassName<DialogPrimitive.Popup.Props>;
 
+/**
+ * Backdrop and popup in one part, modal and centred. `Dialog.Footer` is a real part rather than a
+ * layout each consumer rebuilds, so actions align the same way in every dialog.
+ */
 function DialogContent({ className, ...props }: DialogContentProps) {
   const styles = dialog();
 

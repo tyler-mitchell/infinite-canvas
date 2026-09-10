@@ -35,6 +35,10 @@ const surface = tv({
 export interface SurfaceProps
   extends useRender.ComponentProps<"div">, VariantProps<typeof surface> {}
 
+/**
+ * The frame: tone, padding, radius, lift and hairline. It has no opinion about its contents, so a
+ * card, a well and a sheet of paper are the same component wearing a different tone.
+ */
 function Surface({ tone, interactive, padding, className, render, ...props }: SurfaceProps) {
   return useRender({
     render,

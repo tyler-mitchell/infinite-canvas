@@ -22,6 +22,10 @@ const terminal = tv({
 
 export type TerminalProps = React.ComponentProps<"div">;
 
+/**
+ * A log, composed of parts rather than given lines: `Terminal.Command` prints a prompt and
+ * `Terminal.Output` prints a result, optionally with a caret for the line still being written.
+ */
 function Terminal({ className, ...props }: TerminalProps) {
   return (
     <div data-slot="terminal" role="log" className={terminal().root({ className })} {...props} />

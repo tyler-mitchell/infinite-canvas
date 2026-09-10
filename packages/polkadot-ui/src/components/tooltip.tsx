@@ -11,6 +11,10 @@ const tooltip = tv({
 
 export type TooltipProviderProps = TooltipPrimitive.Provider.Props;
 
+/**
+ * One provider around a group of tooltips: the first waits `delay`, and the rest open at once
+ * while the pointer stays inside the group.
+ */
 function TooltipProvider({ delay = 240, ...props }: TooltipProviderProps) {
   return <TooltipPrimitive.Provider data-slot="tooltip-provider" delay={delay} {...props} />;
 }

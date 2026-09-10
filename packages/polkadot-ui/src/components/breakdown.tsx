@@ -37,6 +37,10 @@ export type BreakdownProps = Omit<React.ComponentProps<"div">, "children"> & {
   readonly showLegend?: boolean;
 };
 
+/**
+ * Shares need not sum to one — each part is drawn as its fraction of whatever they do sum to. A
+ * share that is negative or not a number counts as nothing rather than dragging the bar with it.
+ */
 function Breakdown({ parts, showLegend = true, className, ...props }: BreakdownProps) {
   const styles = breakdown();
   const shares = breakdownShares(parts);

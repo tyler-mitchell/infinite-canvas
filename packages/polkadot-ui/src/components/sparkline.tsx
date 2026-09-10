@@ -97,6 +97,11 @@ export type SparklineProps = Omit<React.ComponentProps<"div">, "children"> &
     readonly label?: string;
   };
 
+/**
+ * A trace with a live head. One reading draws level across the width, because a single sample is a
+ * series at rest rather than a point at the left edge; an empty one draws nothing and marks no
+ * head, since a head is a reading.
+ */
 function Sparkline({ values, caption, label, size, head, className, ...props }: SparklineProps) {
   const styles = sparkline({ size, head: head ?? sparklineHead(values, caption) });
   const id = useId();

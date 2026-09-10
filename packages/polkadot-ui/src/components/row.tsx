@@ -27,6 +27,11 @@ const row = tv({
 
 export interface RowProps extends useRender.ComponentProps<"div">, VariantProps<typeof row> {}
 
+/**
+ * A two-ended line: something naming at one end, something reporting at the other. It is a layout
+ * and not a header — several widgets put their naming line at the bottom — so whether a given row
+ * is a header is the consumer's business.
+ */
 function Row({ align, justify, rule, className, render, ...props }: RowProps) {
   return useRender({
     render,

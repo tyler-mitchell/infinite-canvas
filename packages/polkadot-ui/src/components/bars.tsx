@@ -52,6 +52,10 @@ export interface BarsProps
   readonly label?: string;
 }
 
+/**
+ * Heights are a share of `max`, or of the tallest value when `max` is omitted — which is right for
+ * a lone chart and wrong for a pair, so give two charts one ceiling if a reader will compare them.
+ */
 function Bars({
   values,
   max,

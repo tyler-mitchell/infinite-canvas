@@ -33,6 +33,10 @@ export interface ListItemProps
   readonly trail?: React.ReactNode;
 }
 
+/**
+ * A row with an optional mark at one end and a value at the other. The `nav` look mirrors its
+ * hover treatment onto focus, so a keyboard reaches the same row a pointer does.
+ */
 function ListItem({ lead, trail, look, children, className, render, ...props }: ListItemProps) {
   const styles = listItem({ look });
 

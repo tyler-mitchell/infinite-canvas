@@ -33,6 +33,10 @@ const receipt = tv({
 
 export type ReceiptProps = React.ComponentProps<"div">;
 
+/**
+ * Paper: its own ground, its own ink, and the one inverted surface in the kit. It fills the width
+ * it is given, so put it in a card the size a receipt should be rather than in an open column.
+ */
 function Receipt({ className, ...props }: ReceiptProps) {
   return <div data-slot="receipt" className={receipt().root({ className })} {...props} />;
 }

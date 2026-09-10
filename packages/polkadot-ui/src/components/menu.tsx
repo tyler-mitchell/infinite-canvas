@@ -30,6 +30,10 @@ function MenuTrigger(props: MenuTriggerProps) {
 export type MenuContentProps = WithClassName<MenuPrimitive.Popup.Props> &
   Pick<MenuPrimitive.Positioner.Props, "align" | "alignOffset" | "side" | "sideOffset">;
 
+/**
+ * Base UI's Portal, Positioner and Popup collapsed into one part. Keyboard navigation moves a
+ * highlight rather than focus, so an item is styled through `data-highlighted`, not `:focus`.
+ */
 function MenuContent({
   className,
   side = "bottom",

@@ -69,6 +69,11 @@ export type SwipeDeckProps = Omit<React.ComponentProps<"div">, "children" | "onS
   readonly emptyLabel?: string;
 };
 
+/**
+ * A queue you sort by dragging, by swiping, or with the arrow keys. It remembers which items it
+ * settled by id rather than counting them, so a changed `items` list adds and removes correctly
+ * and a card that has been dealt with stays gone.
+ */
 function SwipeDeck({
   items,
   onSettle,

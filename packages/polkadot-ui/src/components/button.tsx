@@ -28,6 +28,10 @@ const button = tv({
 export type ButtonProps = Omit<ButtonPrimitive.Props, "className"> &
   VariantProps<typeof button> & { className?: string };
 
+/**
+ * Sized to its content rather than aligned, so it neither stretches down a flex column nor fights
+ * `items-center` across a row. Disabled is a colour, not an opacity, and the same in every tone.
+ */
 function Button({ tone, size, className, ...props }: ButtonProps) {
   return (
     <ButtonPrimitive data-slot="button" className={button({ tone, size, className })} {...props} />
