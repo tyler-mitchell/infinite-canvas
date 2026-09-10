@@ -12,6 +12,7 @@ import {
   Prose,
   Row,
   Slider,
+  type SliderProps,
   Surface,
   Switch,
   ToggleGroup,
@@ -19,6 +20,7 @@ import {
 } from "polkadot-ui";
 
 import { Api } from "../api.tsx";
+import { Props } from "../props.tsx";
 import { CATEGORIES } from "../fixtures.ts";
 
 const controls = tv({
@@ -192,6 +194,17 @@ function Controls() {
         <Surface tone="card" className={styles.upright()}>
           <Slider label="gain" defaultValue={55} orientation="vertical" />
         </Surface>
+        <Props<SliderProps>
+          name="slider"
+          rows={[
+            { name: "label", note: "names the track, and draws above it" },
+            { name: "showValue", fallback: "true", note: "the mono readout beside the label" },
+            { name: "defaultValue", note: "one number, or two for a range" },
+            { name: "min", fallback: "0" },
+            { name: "max", fallback: "100" },
+            { name: "orientation", fallback: "horizontal", values: ["vertical"] },
+          ]}
+        />
       </section>
     </div>
   );

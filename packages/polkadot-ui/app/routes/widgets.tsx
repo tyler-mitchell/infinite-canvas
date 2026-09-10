@@ -4,6 +4,7 @@ import { tv } from "tailwind-variants";
 
 import {
   ActivityFeed,
+  type ActivityFeedProps,
   Aurora,
   Avatar,
   avatarVariants,
@@ -11,6 +12,7 @@ import {
   badgeVariants,
   Binding,
   Breakdown,
+  type BreakdownProps,
   Button,
   CommitRow,
   ContactCard,
@@ -19,6 +21,7 @@ import {
   Kind,
   Label,
   LayoutPreview,
+  type LayoutPreviewProps,
   ListItem,
   listItemVariants,
   Meta,
@@ -37,6 +40,7 @@ import {
   statVariants,
   Surface,
   SwipeDeck,
+  type SwipeDeckProps,
   Terminal,
   terminalVariants,
 } from "polkadot-ui";
@@ -180,6 +184,16 @@ function Widgets() {
             <Terminal.Output>compositor: 6 passes registered</Terminal.Output>
           </Terminal>
         </Surface>
+        <Props<BreakdownProps>
+          name="breakdown"
+          rows={[
+            {
+              name: "parts",
+              note: "each a name, a share and a colour; shares need not sum to one",
+            },
+            { name: "showLegend", fallback: "true", note: "the dotted key under the bar" },
+          ]}
+        />
         <Api name="terminal command" of={terminalVariants} />
       </section>
 
@@ -211,6 +225,16 @@ function Widgets() {
             <Meta>split · 3 panes</Meta>
           </Surface>
         </div>
+        <Props<LayoutPreviewProps>
+          name="layout preview"
+          rows={[
+            {
+              name: "panes",
+              note: "each a left, top, width and height in fractions, plus an optional active",
+            },
+            { name: "label", note: "names the arrangement for a reader who cannot see it" },
+          ]}
+        />
       </section>
 
       <section className={styles.section()}>
@@ -229,6 +253,26 @@ function Widgets() {
           </Surface>
           <ActivityFeed entries={RUNS} />
         </div>
+        <Props<SwipeDeckProps>
+          name="swipe deck"
+          rows={[
+            { name: "items", note: "the queue, top card first" },
+            { name: "onSettle", note: "called with the card and whether it was pinned or skipped" },
+            {
+              name: "emptyLabel",
+              fallback: "nothing left",
+              note: "what the well says when drained",
+            },
+          ]}
+        />
+        <Props<ActivityFeedProps>
+          name="activity feed"
+          rows={[
+            { name: "entries", note: "each with a name, a note, and optionally a duration" },
+            { name: "title", fallback: "recent activity" },
+            { name: "titleIcon", note: "drawn before the title" },
+          ]}
+        />
       </section>
 
       <section className={styles.section()}>

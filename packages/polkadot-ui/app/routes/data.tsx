@@ -5,6 +5,7 @@ import {
   ActivityGrid,
   type ActivityGridProps,
   Bars,
+  type BarsProps,
   barsVariants,
   Display,
   Kind,
@@ -14,6 +15,7 @@ import {
   Readout,
   Row,
   Sparkline,
+  type SparklineProps,
   sparklineVariants,
   Surface,
 } from "polkadot-ui";
@@ -94,6 +96,14 @@ function Data() {
             <Sparkline values={FRAME_BUDGET} size="sm" label="frame time over 72 frames" />
           </Surface>
         </div>
+        <Props<SparklineProps>
+          name="sparkline"
+          rows={[
+            { name: "values", note: "oldest first, and the last one is the head" },
+            { name: "caption", note: "a badge at the head, in the dot's place" },
+            { name: "label", note: "names the series for a reader who cannot see it" },
+          ]}
+        />
         <Api of={sparklineVariants} />
       </section>
 
@@ -189,6 +199,15 @@ function Data() {
             </div>
           </Surface>
         </div>
+        <Props<BarsProps>
+          name="bars"
+          rows={[
+            { name: "values", note: "raw numbers, oldest first" },
+            { name: "max", fallback: "the largest value", note: "give it to share a ceiling" },
+            { name: "minHeight", fallback: "0.08", note: "so an empty bucket is still a mark" },
+            { name: "label", note: "names the series for a reader who cannot see it" },
+          ]}
+        />
         <Api of={barsVariants} />
       </section>
 
