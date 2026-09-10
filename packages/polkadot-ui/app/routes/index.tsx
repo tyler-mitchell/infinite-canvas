@@ -40,6 +40,7 @@ import {
   BINDINGS,
   BUILDING,
   COMMIT_WEEKS,
+  ELSEWHERE,
   INBOX,
   INSTALLS,
   LANGUAGES,
@@ -249,6 +250,22 @@ function Overview() {
           />
 
           <ActivityFeed entries={RUNS} className={styles.widget()} />
+
+          <Surface tone="card" padding="snug" className={styles.small()}>
+            <Row>
+              <Label>elsewhere</Label>
+            </Row>
+            {ELSEWHERE.map(([service, handle, href]) => (
+              <ListItem
+                key={service}
+                look="nav"
+                trail={handle}
+                render={<a href={href} rel="me noreferrer" target="_blank" />}
+              >
+                {service}
+              </ListItem>
+            ))}
+          </Surface>
 
           <Surface tone="card" className={styles.small()}>
             <Label>latest commits</Label>

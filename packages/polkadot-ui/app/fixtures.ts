@@ -97,6 +97,12 @@ export const SPLIT_PANES = [
   { left: 52, top: 54, width: 42, height: 38, active: true },
 ];
 
+export const ELSEWHERE = [
+  ["GitHub", "@hyphened", "https://github.com/hyphened"],
+  ["Bluesky", "@tdm.bsky", "https://bsky.app/profile/tdm.bsky.social"],
+  ["Figma", "@tdmitchell", "https://figma.com/@tdmitchell"],
+] as const;
+
 export const RUNS = [
   {
     id: "snap",
