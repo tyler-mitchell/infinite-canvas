@@ -837,6 +837,51 @@ test("every series drawn against a shared ceiling fits under it", () => {
   expect(overCeiling(readouts, series)).toEqual([]);
 });
 
+/**
+ * A props row with nothing but a name draws a name and an empty column beside it. Neither table
+ * component can drop a row — both map everything they are given — so this is the slip that is
+ * actually available: a row added for a prop whose values or note were never written.
+ *
+ * `Api` says "no variants" when it has nothing, and that case is `saysNothing` above. This is the
+ * hand-written half, where a row can be empty one row at a time.
+ */
+const silentRows = (sources: readonly { readonly file: string; readonly source: string }[]) =>
+  sources
+    .flatMap(({ file, source }) =>
+      openingTags(source, "Props").flatMap((tag) => {
+        const rows = /rows=\{\[([\s\S]*)\]\}/.exec(tag)?.[1] ?? "";
+
+        return [...rows.matchAll(/\{([^{}]*)\}/g)]
+          .map(([, body]) => body!)
+          .filter((body) => /\bname:\s*"/.test(body))
+          .filter((body) => !/\b(?:values|fallback|note):/.test(body))
+          .map((body) => `${file}: ${/name:\s*"([^"]+)"/.exec(body)?.[1]} says only its name`);
+      }),
+    )
+    .sort();
+
+test("a props row that says only its name is reported", () => {
+  const quiet = [{ file: "p.tsx", source: '<Props<CardProps> rows={[{ name: "tone" }]} />' }];
+  const said = [
+    { file: "p.tsx", source: '<Props<CardProps> rows={[{ name: "tone", note: "the fill" }]} />' },
+  ];
+
+  expect(silentRows(quiet)).toEqual(["p.tsx: tone says only its name"]);
+  expect(silentRows(said)).toEqual([]);
+});
+
+test("no props row on a page says only its name", () => {
+  /* Read first: the sweep reaches the rows, or an empty one would look like a clean page. */
+  const counted = pages.flatMap(({ source }) =>
+    openingTags(source, "Props").flatMap((tag) => [
+      ...(/rows=\{\[([\s\S]*)\]\}/.exec(tag)?.[1] ?? "").matchAll(/\bname:\s*"/g),
+    ]),
+  );
+
+  expect(counted.length).toBeGreaterThan(50);
+  expect(silentRows(pages)).toEqual([]);
+});
+
 /** `text.tsx` is listed as its seven roles, which is what a page writes, rather than as a module. */
 const LISTED_AS_ITS_PARTS = ["text"];
 
