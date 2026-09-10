@@ -670,6 +670,61 @@ test("every version a document pins for a dependency is the one installed", () =
 });
 
 /**
+ * The runtime note enumerates every primitive Base UI ships, and the kit's rule that no primitive
+ * is hand-rolled rests on that list being the whole of it. The version it names is already checked
+ * against the lockfile above; the list is not, so a release adding a primitive would leave the
+ * document quietly short while still naming the right version.
+ *
+ * Read from the same place the document says it read: the package's own `exports`. The five
+ * composition hooks it lists after the divider are not primitives and are counted separately, and
+ * `esm`, `types` and the `internals/` subpaths are not component subpaths at all.
+ */
+const HOOKS_NOT_PRIMITIVES = [
+  "use-render",
+  "merge-props",
+  "direction-provider",
+  "csp-provider",
+  "unstable-use-media-query",
+];
+
+test("the primitives a document enumerates are the ones the package ships", () => {
+  const note = readFileSync(new URL("../docs/research/widget-runtime.md", import.meta.url), "utf8");
+  const shipped = Object.keys(
+    (
+      JSON.parse(
+        readFileSync(
+          new URL("../node_modules/@base-ui/react/package.json", import.meta.url),
+          "utf8",
+        ),
+      ) as { readonly exports: Record<string, unknown> }
+    ).exports,
+  )
+    .filter((key) => key.startsWith("./"))
+    .map((key) => key.slice(2))
+    .filter(
+      (key) =>
+        !key.includes("*") &&
+        !key.startsWith("internals/") &&
+        !["esm", "types", "package.json"].includes(key) &&
+        !HOOKS_NOT_PRIMITIVES.includes(key),
+    )
+    .sort();
+
+  const [, counted] = /declares (\d+) component subpaths/.exec(note) ?? [];
+  const [, block] = /```txt\n(accordion[\s\S]*?)```/.exec(note) ?? [];
+  const named = block!
+    .split("·")[0]!
+    .split(",")
+    .map((name) => name.trim())
+    .filter(Boolean)
+    .sort();
+
+  expect(shipped.length).toBeGreaterThan(30);
+  expect(named).toEqual(shipped);
+  expect(Number(counted)).toBe(shipped.length);
+});
+
+/**
  * A route named in prose against the routes that exist. The pattern reads a plain file name and
  * not a splat one, which is deliberate rather than an oversight: the navigation note tells the
  * story of `app/routes/w.$.tsx`, a lab route that was removed, and says so in the same sentence.
