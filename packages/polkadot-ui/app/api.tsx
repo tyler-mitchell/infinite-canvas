@@ -9,6 +9,12 @@ const api = tv({
     values: "flex flex-wrap items-baseline gap-x-2 gap-y-1",
     value: "font-pk-mono text-pk-mono text-pk-ink-faint",
     current: "font-pk-mono text-pk-mono text-pk-accent-dim",
+    /*
+     * The default sits among the others here rather than ahead of them, so the accent is the whole
+     * of what marks it. It carries in greyscale as well as in hue, and in words for a reader who
+     * has neither.
+     */
+    aside: "sr-only",
   },
 });
 
@@ -51,14 +57,16 @@ export function Api<T extends VariantObject>({ of, name, except = [] }: ApiProps
         <div key={key} className={styles.row()}>
           <Label className={styles.name()}>{key}</Label>
           <div className={styles.values()}>
-            {Object.keys(variants[key] ?? {}).map((value) => (
-              <span
-                key={value}
-                className={String(defaults[key]) === value ? styles.current() : styles.value()}
-              >
-                {value}
-              </span>
-            ))}
+            {Object.keys(variants[key] ?? {}).map((value) => {
+              const settled = String(defaults[key]) === value;
+
+              return (
+                <span key={value} className={settled ? styles.current() : styles.value()}>
+                  {value}
+                  {settled ? <span className={styles.aside()}> by default</span> : null}
+                </span>
+              );
+            })}
           </div>
         </div>
       ))}

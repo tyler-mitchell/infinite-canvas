@@ -4,7 +4,9 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { expect, test } from "vite-plus/test";
 
+import { Api } from "../app/api.tsx";
 import * as fixtures from "../app/fixtures.ts";
+import { Props } from "../app/props.tsx";
 import { activityLevel, type ActivityDay } from "./components/activity-grid.tsx";
 import * as kit from "./index.ts";
 
@@ -2330,4 +2332,31 @@ test("a stated union that is not the one the prop has is reported", () => {
   /* Read first: a resolver that resolves nothing agrees with every table it is given. */
   expect(statedUnions(pages).filter(({ real }) => real !== undefined).length).toBeGreaterThan(12);
   expect(short).toEqual([]);
+});
+
+/**
+ * Which value you get by writing nothing is drawn in the accent, and the accent carries in
+ * lightness as well as in hue — 2.69:1 against the other values in greyscale — so it survives a
+ * reader who cannot separate the two colours. It does not survive a reader who sees neither.
+ *
+ * The variants table is the harder of the two: its default sits among the others rather than ahead
+ * of them, so a reader was given `sm md lg` with nothing at all saying which one they would get.
+ */
+test("a table says in words which value it takes when you write nothing", () => {
+  const stated = renderToStaticMarkup(
+    createElement(Props<{ side?: "top" | "bottom" }>, {
+      rows: [{ name: "side", fallback: "bottom", values: ["top"] }],
+    }),
+  );
+  const read = renderToStaticMarkup(
+    createElement(Api, {
+      of: { variants: { size: { sm: {}, md: {} } }, defaultVariants: { size: "md" } },
+    }),
+  );
+
+  expect(stated).toContain('bottom<span class="sr-only"> by default</span>');
+  expect(read).toContain('md<span class="sr-only"> by default</span>');
+  /* A value that is not the default says nothing extra, so the mark means what it says. */
+  expect(stated).toContain(">top</span>");
+  expect(read).toContain(">sm</span>");
 });

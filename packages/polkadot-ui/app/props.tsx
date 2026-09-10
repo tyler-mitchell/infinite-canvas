@@ -14,6 +14,12 @@ const props = tv({
     values: "flex flex-wrap items-baseline gap-x-2 gap-y-1",
     value: "font-pk-mono text-pk-mono text-pk-ink-faint",
     current: "font-pk-mono text-pk-mono text-pk-accent-dim",
+    /*
+     * The accent says which value you get by writing nothing, and it says it in lightness as well
+     * as hue — 2.69:1 against the others in greyscale — so a reader who cannot separate the two
+     * colours still can. A reader who cannot see either gets the same fact in words.
+     */
+    aside: "sr-only",
     note: "font-pk-sans text-pk-meta text-pk-ink-faint",
   },
 });
@@ -78,7 +84,12 @@ export function Props<T>({
         <div key={row.name} className={styles.row()}>
           <Label className={styles.name()}>{row.name}</Label>
           <div className={styles.values()}>
-            {row.fallback ? <span className={styles.current()}>{row.fallback}</span> : null}
+            {row.fallback ? (
+              <span className={styles.current()}>
+                {row.fallback}
+                <span className={styles.aside()}> by default</span>
+              </span>
+            ) : null}
             {row.values?.map((value) => (
               <span key={value} className={styles.value()}>
                 {value}
