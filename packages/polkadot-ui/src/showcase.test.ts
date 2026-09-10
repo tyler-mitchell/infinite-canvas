@@ -3,9 +3,10 @@ import { readdirSync, readFileSync } from "node:fs";
 import { expect, test } from "vite-plus/test";
 
 /*
- * The pages are the kit's only documentation, so an affordance the kit adds and no page passes is
- * a claim with nothing behind it: a reader cannot see what it does, and neither can anyone
- * checking that it still works.
+ * What the kit says about itself outside its own code: the pages, and the readme.
+ *
+ * An affordance the kit adds and no page passes is a claim with nothing behind it — a reader
+ * cannot see what it does, and neither can anyone checking that it still works.
  *
  * Only the props the kit declares itself count. A table may also list what the Base UI primitive
  * underneath accepts, and that is reference rather than a promise to demonstrate — asking for all
@@ -193,6 +194,59 @@ test("every tooltip trigger says what its tooltip says", () => {
 
   expect(triggers.length).toBeGreaterThan(1);
   expect(unlabelledTooltips(pages)).toEqual([]);
+});
+
+/**
+ * The readme counts the kit twice — how many component modules there are, and how many of them
+ * draw with `slots` rather than a `base`. Both were a component behind, and it also sent a reader
+ * to a route that had been renamed. Numbers written in prose go stale the moment a file is added,
+ * and nothing about the kit changes to say so.
+ */
+const NUMBERS = ["one", "two", "three", "four", "five", "six", "seven", "eight", "nine"];
+
+const inWords = (count: number) => {
+  const tens = ["", "", "twenty", "thirty", "forty", "fifty", "sixty", "seventy", "eighty"];
+  const [ten, unit] = [Math.floor(count / 10), count % 10];
+
+  if (count < 10) return NUMBERS[count - 1]!;
+  return unit === 0 ? tens[ten]! : `${tens[ten]}-${NUMBERS[unit - 1]}`;
+};
+
+test("counting in words covers the range the readme uses", () => {
+  expect([6, 9, 20, 34, 40].map(inWords)).toEqual([
+    "six",
+    "nine",
+    "twenty",
+    "thirty-four",
+    "forty",
+  ]);
+});
+
+test("the readme counts the kit as it is, and names routes that exist", () => {
+  const readme = readFileSync(new URL("../README.md", import.meta.url), "utf8").toLowerCase();
+  const modules = readdirSync(componentDir).filter(
+    (name) => name.endsWith(".tsx") && !name.endsWith(".test.tsx"),
+  );
+  const slotted = modules.filter((file) =>
+    readFileSync(new URL(file, componentDir), "utf8").includes("slots: {"),
+  );
+  const routes = readdirSync(new URL("routes/", appDir))
+    .filter((name) => name.endsWith(".tsx") && name !== "__root.tsx")
+    .map((name) => `/${name.replace(/(index)?\.tsx$/, "")}`);
+
+  expect(modules.length).toBeGreaterThan(30);
+  /* The two counts, with the hyphen the readme may have wrapped a line on. */
+  expect(readme.replace(/-\n/g, "-")).toContain(`${inWords(modules.length)} component modules`);
+  expect(readme.replace(/-\n/g, "-")).toContain(
+    `${inWords(slotted.length)} of the ${inWords(modules.length)} are the former`,
+  );
+
+  const missing = [...readme.matchAll(/`(\/[a-z]*)`/g)]
+    .map(([, route]) => route!)
+    .filter((route) => !routes.includes(route));
+
+  expect(routes.length).toBe(8);
+  expect([...new Set(missing)]).toEqual([]);
 });
 
 test("every affordance the kit adds is one the pages pass", () => {

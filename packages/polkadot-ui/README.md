@@ -1,7 +1,7 @@
 # polkadot-ui
 
-Base UI primitives styled with tailwind-variants slots. Thirty-nine component modules, one
-stylesheet, and no CSS written anywhere else.
+Base UI primitives styled with tailwind-variants slots. Forty component modules, one stylesheet,
+and no CSS written anywhere else.
 
 ## Setup
 
@@ -34,7 +34,7 @@ Neither has an opinion about what goes inside it.
 
 **Every class a component draws lives in one `tv` call at the top of its file.** A component that
 draws several elements names them as `slots`; one that draws a single element uses `base`. Thirty-
-three of the thirty-nine are the former.
+four of the forty are the former.
 
 ```tsx
 // badge.tsx — one element, so one base and no slots.
@@ -152,6 +152,15 @@ A control is named by `Field`, which is the only thing that ties the words to th
 </Field>
 ```
 
+A tooltip is the exception: it is a visual hint and nothing more. Base UI gives the popup no role
+and no id, and nothing points at it, so its words reach only someone who can see it. Say them on
+the trigger as well.
+
+```tsx
+<Tooltip.Trigger aria-label="queries, 2.1M served">queries</Tooltip.Trigger>
+<Tooltip.Content>2.1M served</Tooltip.Content>
+```
+
 ## A focus ring offsets against its seat
 
 `--pk-ring-seat` is the colour behind a control. The root sets it to the ground and every `Surface`
@@ -202,7 +211,7 @@ pnpm --filter polkadot-ui dev
 
 Eight routes, each composed from the kit itself: `/` for a board of finished widgets;
 `/foundations` for colour, hairlines, radii and type; `/layout`, `/controls`, `/disclosure` and
-`/overlays` for the primitives; `/widgets` and `/data` for the composed cards and readouts.
+`/overlays` for the primitives; `/widgets` and `/readouts` for the composed cards and readouts.
 
 Those pages carry two kinds of table. Variants are read off each component's live `tv` object, so
 they cannot fall behind it. Props that are not variants — a popover's `side`, a ticker's `stagger` —
