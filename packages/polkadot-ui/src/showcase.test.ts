@@ -691,6 +691,37 @@ test("every version a document pins for a dependency is the one installed", () =
 });
 
 /**
+ * The runtime note says a survey of an animation library was not adopted, and the evidence it
+ * gives is the list of what the package depends on. That list is the argument: a fourth name would
+ * make the sentence false and the section around it misleading, and the rule above reads the
+ * versions a document pins rather than the set it claims.
+ */
+test("the dependencies a note names are the dependencies the package declares", () => {
+  const note = readFileSync(new URL("../docs/research/widget-runtime.md", import.meta.url), "utf8");
+  const [, listed] =
+    /its declared dependencies are ([^.]+)\./.exec(note.replace(/\s+/g, " ")) ?? [];
+  const named = (listed ?? "")
+    .split(/,|\band\b/)
+    .map((one) => one.trim().replaceAll("`", ""))
+    .filter(Boolean);
+  const declared = Object.keys(
+    (
+      JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")) as {
+        readonly dependencies: Record<string, string>;
+      }
+    ).dependencies,
+  );
+
+  /*
+   * Read first, and only this: a sentence that stops matching lists nothing at all. The count is
+   * the comparison's to report rather than a floor's — a floor set at the count answers for both
+   * and then reports the wrong one, which is what it did.
+   */
+  expect(listed).toBeDefined();
+  expect([...named].sort()).toEqual([...declared].sort());
+});
+
+/**
  * The runtime note enumerates every primitive Base UI ships, and the kit's rule that no primitive
  * is hand-rolled rests on that list being the whole of it. The version it names is already checked
  * against the lockfile above; the list is not, so a release adding a primitive would leave the
