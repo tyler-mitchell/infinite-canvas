@@ -108,7 +108,8 @@ function ReceiptBarcode({ value, className, ...props }: ReceiptBarcodeProps) {
     <div
       data-slot="receipt-barcode"
       role="img"
-      aria-label={`order ${value}`}
+      /* An order of nothing draws no bars, so naming it `order ` names a strip of paper. */
+      aria-label={value.trim().length > 0 ? `order ${value}` : "no order"}
       className={styles.barcode({ className })}
       {...props}
     >

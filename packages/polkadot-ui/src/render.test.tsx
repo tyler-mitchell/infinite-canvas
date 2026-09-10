@@ -462,3 +462,28 @@ test("no component writes a reading it cannot use into an attribute", () => {
   );
   expect(leaking).toEqual([]);
 });
+
+/**
+ * A name made of nothing is worse than no name: the element is still exposed, and a reader is told
+ * `order ` or given a tile called four spaces. The kit says so in words everywhere else — a series
+ * of no readings is "no readings", an empty deck is "nothing left" — so the barcode says it too.
+ *
+ * The avatar cannot: its name is the consumer's to give and there is nothing to fall back on. It
+ * drops the attribute instead, which leaves whatever initials were passed to name the tile rather
+ * than an empty string overriding them.
+ */
+test("a component given no words does not name itself with them", () => {
+  const label = (markup: string) => /aria-label="([^"]*)"/.exec(markup)?.[1];
+
+  expect(label(renderToStaticMarkup(<kit.ReceiptBarcode value="order 42" />))).toBe(
+    "order order 42",
+  );
+  expect(label(renderToStaticMarkup(<kit.ReceiptBarcode value="" />))).toBe("no order");
+  expect(label(renderToStaticMarkup(<kit.ReceiptBarcode value="   " />))).toBe("no order");
+
+  expect(label(renderToStaticMarkup(<kit.Avatar name="Ada Lovelace" />))).toBe("Ada Lovelace");
+  expect(label(renderToStaticMarkup(<kit.Avatar name="" />))).toBeUndefined();
+  expect(label(renderToStaticMarkup(<kit.Avatar name="   " />))).toBeUndefined();
+  /* Initials given without a name still name the tile, so dropping the label loses nothing. */
+  expect(renderToStaticMarkup(<kit.Avatar name="" initials="AB" />)).toContain(">AB<");
+});
