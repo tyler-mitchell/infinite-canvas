@@ -591,6 +591,33 @@ test("every component that takes the focus marks it", () => {
 });
 
 /**
+ * Base UI's slider keeps the focus on a native range input inside the thumb and clips that input
+ * to nothing, so `:focus-visible` matches the input and never the thumb around it. The thumb had
+ * carried a ring written that way since it was built, and the ring had never once been drawn: the
+ * style was there, the state never arrived. It has to ask about the focus below it instead.
+ */
+const deadThumbFocus = (sources: readonly { readonly file: string; readonly source: string }[]) =>
+  sources
+    .filter(({ source }) => /thumb:\s*"?[^"]*"?[^"]*"[^"]*(?<!has-)focus-visible:/.test(source))
+    .map(({ file }) => `${file} marks a thumb on a state the thumb never reaches`);
+
+test("a thumb that waits for a focus it cannot receive is reported", () => {
+  expect(
+    deadThumbFocus([{ file: "slider.tsx", source: 'thumb:\n "size-4 focus-visible:ring-2",' }]),
+  ).toEqual(["slider.tsx marks a thumb on a state the thumb never reaches"]);
+  expect(
+    deadThumbFocus([{ file: "slider.tsx", source: 'thumb:\n "size-4 has-focus-visible:ring-2",' }]),
+  ).toEqual([]);
+});
+
+test("the slider marks the focus where the focus really is", () => {
+  const source = componentSources.find(({ file }) => file === "slider.tsx")?.source;
+
+  expect(source).toContain("has-focus-visible:ring-2");
+  expect(deadThumbFocus(styledSources)).toEqual([]);
+});
+
+/**
  * Base UI supplies the keyboard for the primitives it owns. Where this kit takes the focus itself
  * and reads keys itself, nothing else will say which keys those are: the visible hint sits beside
  * the component, so it is never announced. Both components that do this were silent until they
