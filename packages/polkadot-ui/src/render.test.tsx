@@ -313,6 +313,34 @@ test("the deck says which keys walk it, and only while a card is there", () => {
  */
 
 /**
+ * An unselected tab panel is gone, which is why the table offers to keep it: a panel that has been
+ * unmounted comes back scrolled to the top and holding nothing it held before. The pages do not ask
+ * for this — their panels are one line each and would keep nothing worth keeping — so the claim is
+ * checked here rather than decorated onto a demo that could not show it.
+ */
+test("an unselected panel is gone unless it is asked to stay", () => {
+  const panels = (props: { readonly keepMounted?: boolean }) =>
+    renderToStaticMarkup(
+      <kit.Tabs defaultValue="one">
+        <kit.Tabs.List>
+          <kit.Tabs.Tab value="one">one</kit.Tabs.Tab>
+          <kit.Tabs.Tab value="two">two</kit.Tabs.Tab>
+        </kit.Tabs.List>
+        <kit.Tabs.Panel value="one" {...props}>
+          the selected one
+        </kit.Tabs.Panel>
+        <kit.Tabs.Panel value="two" {...props}>
+          the other one
+        </kit.Tabs.Panel>
+      </kit.Tabs>,
+    );
+
+  expect(panels({})).toContain("the selected one");
+  expect(panels({})).not.toContain("the other one");
+  expect(panels({ keepMounted: true })).toContain("the other one");
+});
+
+/**
  * Padding holds the width of a number that falls a place, so the zeros are a width and not part of
  * the value. They were being read out: a padded nine and a half thousand announced as `09562`.
  */
