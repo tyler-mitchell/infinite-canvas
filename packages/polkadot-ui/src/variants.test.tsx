@@ -388,8 +388,36 @@ test("the dialog's viewport is the window, so the dialog cannot outgrow it", () 
   expect(viewport).toContain("fixed");
   expect(viewport).toContain("inset-0");
   expect(viewport).toContain("overflow-y-auto");
-  /* Centring belongs to the viewport now; a popup placing itself again would fight it. */
-  expect(kit.dialogVariants().popup()).not.toContain("fixed");
+});
+
+/**
+ * The dialog placed its own popup with `fixed` and two translates for months, which is what Base
+ * UI's `Viewport` is for. Nothing here said so, because the result looked right.
+ *
+ * Every one of these has a library part that decides where it goes — a `Positioner` for the five
+ * that hang off a trigger, a `Viewport` for the one that centres. A popup that places itself is
+ * either fighting that part or standing in for one that was never mounted.
+ *
+ * Checked against the installed package rather than assumed: the parts these components do not
+ * mount are extras — submenus, chips, scroll arrows, an arrow — and the semantics are right
+ * without them. The select's popup carries the listbox role itself, and the combobox's empty
+ * message is already a polite live region.
+ */
+test("no popup places itself, because a library part decides where each one goes", () => {
+  const popups = {
+    combobox: kit.comboboxVariants().popup(),
+    dialog: kit.dialogVariants().popup(),
+    menu: kit.menuVariants().popup(),
+    popover: kit.popoverVariants().popup(),
+    select: kit.selectVariants().popup(),
+    tooltip: kit.tooltipVariants().popup(),
+  };
+
+  expect(
+    Object.entries(popups)
+      .filter(([, classes]) => /\b(?:fixed|absolute)\b/.test(classes))
+      .map(([name]) => `${name} places its own popup`),
+  ).toEqual([]);
 });
 
 test("every surface that floats clamps to the room it has", () => {
