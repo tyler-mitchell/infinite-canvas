@@ -19,7 +19,7 @@ Scoped questions:
 | 2   | What shell does Vite+ support instead?                 | answered — SPA; no SSR story documented |
 | 3   | Which primitives Base UI owns, so none are hand-rolled | answered — 48 primitives, enumerated    |
 | 4   | Which motion affordances `motion` v12 owns             | answered — surface enumerated           |
-| 5   | What remains genuinely ours after 3 and 4              | answered — the tokens, and nothing else |
+| 5   | What remains genuinely ours after 3 and 4              | answered, then outgrown — see below     |
 | 6   | Canonical R3F project shape at the installed version   | open                                    |
 | 7   | Can R3F and TypeGPU share one WebGPU device?           | open                                    |
 | 8   | Motion-system and ZUI precedence worth copying         | open                                    |
@@ -230,7 +230,8 @@ src/lib/cn.ts             removed  →  nothing needed it once slot-class went
 src/components/widget.tsx removed  →  bespoke compound; rebuild from a plan
 ```
 
-Status: observed — 721 lines deleted, `vp check` clean across the 11 that remain.
+Status: observed — 721 lines deleted, `vp check` clean across the 11 files that remained that day.
+Every path above is still absent; the package has since grown to 39 component modules.
 
 ## 4. What Base UI and `motion` own
 
@@ -255,7 +256,9 @@ loop     useAnimationFrame animate scroll inView useInView useScroll
 control  useReducedMotion MotionGlobalConfig useInstantTransition useInstantLayoutTransition
 ```
 
-Project use, and this is the finding that mattered:
+Project use, written when adopting `motion` looked certain. It was not adopted — the package has no
+JavaScript animation dependency — so read what follows as what `motion` would give a board, not as
+what this package does:
 
 - **`Reorder` ships drag-to-reorder.** The board's drag-and-reflow is not ours to write.
 - **`layout` plus `LayoutGroup` ships FLIP.** The masonry reflow is a prop, not an engine.
@@ -268,14 +271,33 @@ Status: observed from the installed packages' declared surfaces.
 
 ## 5. What is genuinely ours
 
-The design tokens in `src/theme.css`, and the two-layer backgrounds that cannot live in a class
-list (`.pk-rim`, `.pk-tear`, `.pk-paper`). Everything else is a library's job.
+Answered at the time as: the design tokens in `src/theme.css`, and the two-layer backgrounds that
+cannot live in a class list (`.pk-rim`, `.pk-tear`, `.pk-paper`). Everything else a library's job.
 
-The packer is the one open question: no library was found that packs a lattice with the
+That was true of the primitives and is not true of the package. `src/components` holds 39 modules,
+and the ones that draw a value own arithmetic no library was going to supply, because it is
+specific to how these instruments read:
+
+```ts
+// each is a pure function with tests, extracted from the component that draws it
+sparklinePoints  sparklineHead  sparklineLabel   // src/components/sparkline.tsx
+barCeiling       barShare                        // src/components/bars.tsx
+breakdownShares                                  // src/components/breakdown.tsx
+tickerText       tickerCells                     // src/components/number-ticker.tsx
+swipeOutcome     stampOpacity                    // src/components/swipe-deck.tsx
+activityLevel    toColumns      weeksThatFit     // src/components/activity-grid.tsx
+```
+
+The distinction that held: none of this is _machinery_. It is the rule each instrument reads by —
+which weeks fit at a size a pointer can hit, where a digit rolls to, what a release commits to.
+The finding was right that a spring integrator and a frame clock are a library's job. It was too
+narrow about the rest.
+
+The packer is still the one open question: no library was found that packs a lattice with the
 POC's anti-rail tile constraint. That is not a licence to write one — it is a thing to check
 against `react-grid-layout`, `muuri` and `potpack` at the point a board actually needs packing.
 
-Status: unresolved, deliberately.
+Status: superseded on the first paragraph, unresolved on the packer.
 
 ## Open gaps
 
