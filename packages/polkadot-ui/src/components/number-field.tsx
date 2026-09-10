@@ -12,8 +12,15 @@ import { inputVariants } from "./input.tsx";
 const numberField = tv({
   slots: {
     root: "flex min-w-0 flex-col gap-1.5",
-    /* The whole field is one box, so the padding moves off the group and onto the input inside. */
-    group: "inline-flex items-center px-0",
+    /*
+     * The whole field is one box, so the padding moves off the group and onto the input inside.
+     *
+     * The ring comes from the input rather than from the group, the way the slider thumb takes it
+     * from the range input it holds: the group is a div and never takes focus, so the input's own
+     * ring would never be drawn.
+     */
+    group:
+      "inline-flex items-center px-0 has-focus-visible:ring-2 has-focus-visible:ring-pk-accent/50 has-focus-visible:ring-offset-2 has-focus-visible:ring-offset-(color:--pk-ring-seat)",
     step: "rounded-none text-pk-ink-faint hover:text-pk-ink-bright",
     input:
       "h-full w-full min-w-0 bg-transparent px-1 text-center font-pk-mono text-pk-mono tabular-nums text-pk-ink outline-none",

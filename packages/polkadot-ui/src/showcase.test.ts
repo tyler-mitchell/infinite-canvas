@@ -640,78 +640,10 @@ test("every value a variant table prints is one the pages draw", () => {
   expect(undrawnValues(pages, everything, describes)).toEqual([]);
 });
 
-/**
- * The type section states a size beside each role — `Display · 21px semibold`. The theme owns the
- * real one, and the page's is written by hand, so a nudge to a token leaves the page stating a
- * size nothing draws. Roles reach their tokens through the `tv` object rather than by name: the
- * readout is `text-pk-mono`, which no rule could guess from `Readout`.
+/*
+ * The size each type row states is `theme.test.ts`, which reads the role's token out of `text.tsx`
+ * and the size out of the sheet. A second copy of it lived here for part of a morning.
  */
-const themeCss = readFileSync(new URL("./theme.css", import.meta.url), "utf8");
-
-const sizeInTheme = new Map(
-  [...themeCss.matchAll(/--text-(pk-[a-z\d-]+):\s*([\d.]+)px;/g)].map(([, token, px]) => [
-    token!,
-    px!,
-  ]),
-);
-
-const tokenForRole = new Map(
-  Object.entries(((kit.textVariants as unknown as Tabled).variants ?? {}).as ?? {}).map(
-    ([role, classes]) => [
-      role.charAt(0).toUpperCase() + role.slice(1),
-      String(classes)
-        .split(" ")
-        .flatMap((one) => {
-          const [, token] = /^text-(pk-[a-z\d-]+)$/.exec(one) ?? [];
-
-          return token && sizeInTheme.has(token) ? [token] : [];
-        })[0],
-    ],
-  ),
-);
-
-const misstatedSize = (
-  sources: readonly { readonly file: string; readonly source: string }[],
-  roles: ReadonlyMap<string, string | undefined>,
-  sizes: ReadonlyMap<string, string>,
-) =>
-  [...roles].flatMap(([role, token]) =>
-    token === undefined
-      ? [`${role} draws no size the theme declares`]
-      : sources.flatMap(({ file, source }) =>
-          [...source.matchAll(new RegExp(String.raw`<${role}[^>]*>([^<]*)</${role}>`, "g"))]
-            .flatMap(([, text]) => [...text!.matchAll(/([\d.]+)px/g)].map(([, px]) => px!))
-            .filter((px) => px !== sizes.get(token))
-            .map((px) => `${role} says ${px}px, the theme has ${sizes.get(token)}px (${file})`),
-        ),
-  );
-
-test("a size stated beside a role that the theme does not use is reported", () => {
-  const roles = new Map([["Display", "pk-display"]]);
-  const sizes = new Map([["pk-display", "21"]]);
-  const right = [{ file: "p.tsx", source: "<Display>Display · 21px semibold</Display>" }];
-  const wrong = [{ file: "p.tsx", source: "<Display render={<span />}>Display · 20px</Display>" }];
-
-  expect(misstatedSize(right, roles, sizes)).toEqual([]);
-  expect(misstatedSize(wrong, roles, sizes)).toEqual([
-    "Display says 20px, the theme has 21px (p.tsx)",
-  ]);
-  /* A role whose classes carry no size at all cannot be checked, and says so. */
-  expect(misstatedSize(right, new Map([["Display", undefined]]), sizes)).toEqual([
-    "Display draws no size the theme declares",
-  ]);
-});
-
-test("every size a page states beside a role is the one the theme declares", () => {
-  expect(tokenForRole.get("Readout")).toBe("pk-mono");
-  expect(sizeInTheme.get("pk-display")).toBe("21");
-
-  /* Read first: a sweep that reached no row would agree with every size on the page. */
-  const shifted = new Map([...sizeInTheme].map(([token, px]) => [token, `${Number(px) + 1}`]));
-
-  expect(misstatedSize(pages, tokenForRole, shifted).length).toBeGreaterThan(4);
-  expect(misstatedSize(pages, tokenForRole, sizeInTheme)).toEqual([]);
-});
 
 test("every component the readme quotes is quoted as it is", () => {
   const readme = readFileSync(new URL("../README.md", import.meta.url), "utf8");
