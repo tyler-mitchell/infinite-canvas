@@ -153,7 +153,7 @@ function Layout() {
       <section className={styles.section()}>
         <Row rule="below">
           <Kind>row</Kind>
-          <Meta>3 alignments · a rule above or below</Meta>
+          <Meta>3 alignments · 3 justifies · a rule above or below</Meta>
         </Row>
         <div className={styles.grid()}>
           <Surface tone="card">
@@ -174,6 +174,17 @@ function Layout() {
             </Row>
             <Title>field-shader.wgsl</Title>
             <Prose>A rule below opens a widget; a rule above closes one.</Prose>
+          </Surface>
+          <Surface tone="card">
+            <Row justify="start">
+              <Kind>start</Kind>
+              <Meta>both ends together</Meta>
+            </Row>
+            <Row justify="end">
+              <Kind>end</Kind>
+              <Meta>pushed to the far side</Meta>
+            </Row>
+            <Prose>Between is the default, and the other two gather the line at one end.</Prose>
           </Surface>
         </div>
         <Api name="row" of={rowVariants} />
