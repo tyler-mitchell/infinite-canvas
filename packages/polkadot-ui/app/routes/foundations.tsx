@@ -59,6 +59,12 @@ const INKS = [
   ["--pk-ink-faint", "ink-faint", "4.95"],
 ] as const;
 
+const PAPER = [
+  ["--pk-paper-ink", "paper-ink", "13.48 → 12.03"],
+  ["--pk-paper-label", "paper-label", "5.76 → 5.14"],
+  ["--pk-paper-rule", "paper-rule", "1.73 → 1.54"],
+] as const;
+
 const LINES = [
   ["--pk-line", "line", "1.19:1 · every card edge"],
   ["--pk-line-hover", "line-hover", "1.54:1 · the edge under a pointer"],
@@ -140,6 +146,29 @@ function Foundations() {
             </div>
           ))}
         </div>
+      </section>
+
+      <section className={styles.section()}>
+        <Row rule="below">
+          <Kind>paper</Kind>
+          <Meta>the one inverted ground · top of its gradient → foot</Meta>
+        </Row>
+        <div className={styles.swatches()}>
+          {PAPER.map(([token, name, ratio]) => (
+            <div key={token} className={styles.swatch()}>
+              <div className={styles.chip()} style={{ background: `var(${token})` }} />
+              <div className={styles.caption()}>
+                <Label>{name}</Label>
+                <Meta>{ratio}</Meta>
+              </div>
+            </div>
+          ))}
+        </div>
+        <Prose className={styles.lede()}>
+          Paper is a gradient, so every figure here is a range: the foot is the darker end and the
+          one that has to clear. The label used to land at 4.54 there, four hundredths above the
+          threshold, which is not a margin on a colour that a designer may nudge.
+        </Prose>
       </section>
 
       <section className={styles.section()}>
