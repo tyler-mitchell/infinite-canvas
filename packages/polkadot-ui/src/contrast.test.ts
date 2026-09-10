@@ -748,10 +748,18 @@ test("a control's two states are 3:1 apart on every seat", () => {
 test("the knob on a filled track is held apart by its shadow, not by contrast", () => {
   const knob = declaredAs.get("--pk-knob")!;
   const accent = declaredAs.get("--pk-accent")!;
-  const source = componentSources.find((entry) => entry.file === "switch.tsx")!.source;
+  /*
+   * Both knobs, read rather than named. The rule read the switch alone, and the slider draws the
+   * same white on the same accent with the same shadow, so the two ratios below are its numbers
+   * too — but it could have lost the shadow without a word.
+   */
+  const knobs = componentSources.filter(({ source }) => source.includes("bg-pk-knob"));
 
+  expect(knobs.map(({ file }) => file).sort()).toEqual(["slider.tsx", "switch.tsx"]);
+  expect(knobs.filter(({ source }) => source.includes("shadow-pk-knob"))).toHaveLength(
+    knobs.length,
+  );
   expect(Number(contrast(knob, accent).toFixed(2))).toBe(1.63);
-  expect(source).toContain("shadow-pk-knob");
   /* Read rather than asserted: written as a fixed number here, it fired first and hid the two
    * ratios below, which are what the claim actually rests on. */
   const [, alpha] = /--pk-lift-knob:\s*0 1px 2px rgb\(0 0 0 \/ ([\d.]+)\)/.exec(themeCss) ?? [];
