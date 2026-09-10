@@ -725,6 +725,32 @@ test("the primitives a document enumerates are the ones the package ships", () =
 });
 
 /**
+ * The runtime note's central finding — that Start's dev middleware never mounts here — rests on one
+ * structural fact rather than on a version: `vite` in this workspace is an alias for a different
+ * product, the override reaches every package, and the peer check that would object is silenced.
+ * The vite config cites that finding for why this app is on Router.
+ *
+ * So the fact is pinned rather than the conclusion. Re-running the finding means installing Start
+ * and standing up a shell, which is the owner's call; noticing that its ground has moved costs one
+ * read of the file the note quotes.
+ */
+test("the alias a document rests on is the alias the workspace declares", () => {
+  const note = readFileSync(new URL("../docs/research/widget-runtime.md", import.meta.url), "utf8");
+  const workspace = readFileSync(new URL("../../../pnpm-workspace.yaml", import.meta.url), "utf8");
+
+  const [, quoted] = /```yaml\n# pnpm-workspace\.yaml\n([\s\S]*?)```/.exec(note) ?? [];
+  const claimed = (quoted ?? "")
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => /^\w[\w-]*:\s*\S/.test(line) && !line.startsWith("allowAny"));
+
+  expect(claimed).toEqual(["vite: npm:@voidzero-dev/vite-plus-core@0.2.9", 'vite: "catalog:"']);
+  expect(claimed.filter((line) => !workspace.includes(line))).toEqual([]);
+  /* Written inline in the note and across two lines in the file, so it is read rather than matched. */
+  expect(/allowAny:\s*(?:\[[^\]]*vite|\n\s*-\s*vite)/.test(workspace)).toBe(true);
+});
+
+/**
  * The navigation note is a design for an owner this package does not have, and it says so. What it
  * does carry that can go stale is a claim about the router: twelve affordances named in backticks,
  * described as verified against the installed version. A rename upstream would leave the design
