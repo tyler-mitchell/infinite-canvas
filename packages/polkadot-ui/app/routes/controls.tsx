@@ -5,6 +5,8 @@ import {
   buttonVariants,
   Checkbox,
   checkboxVariants,
+  Combobox,
+  comboboxVariants,
   Display,
   Field,
   type FieldProps,
@@ -33,7 +35,7 @@ import {
 
 import { Api } from "../api.tsx";
 import { Props } from "../props.tsx";
-import { CATEGORIES, EXPORT_AS, RULERS, SNAP } from "../fixtures.ts";
+import { CATEGORIES, COMMANDS, EXPORT_AS, RULERS, SNAP } from "../fixtures.ts";
 
 const controls = tv({
   slots: {
@@ -348,6 +350,39 @@ function Controls() {
           names every other control on this page.
         </Prose>
         <Api name="select" of={selectVariants} />
+      </section>
+
+      <section className={styles.section()}>
+        <Row rule="below">
+          <Kind>combobox</Kind>
+          <Meta>a list narrowed by typing · the field is the input again</Meta>
+        </Row>
+        <div className={styles.grid()}>
+          <Surface tone="card">
+            <Field layout="stacked">
+              <Field.Label>go to</Field.Label>
+              <Combobox items={COMMANDS}>
+                <Combobox.Input placeholder="a window, a group, a note" />
+                <Combobox.Content>
+                  <Combobox.Empty>nothing by that name</Combobox.Empty>
+                  <Combobox.List>
+                    {(command: string) => (
+                      <Combobox.Item key={command} value={command}>
+                        {command}
+                      </Combobox.Item>
+                    )}
+                  </Combobox.List>
+                </Combobox.Content>
+              </Combobox>
+            </Field>
+          </Surface>
+        </div>
+        <Prose className={styles.lede()}>
+          Type to narrow, and the list says <Readout>nothing by that name</Readout> when the query
+          matches none of them, rather than closing on an empty box. The field is the form control,
+          so the <Readout>Field</Readout> label names it, the same as everything above.
+        </Prose>
+        <Api name="combobox" of={comboboxVariants} />
       </section>
 
       <section className={styles.section()}>

@@ -59,6 +59,15 @@ export const RULERS = ["px", "pt", "rem"] as const;
 
 export const EXPORT_AS = ["png", "svg", "pdf", "canvas file"] as const;
 
+export const COMMANDS = [
+  "field notes",
+  "field shader",
+  "snap resolver",
+  "raster pass",
+  "window packing",
+  "compositor scratch",
+];
+
 export const INBOX = [
   {
     id: "gist",

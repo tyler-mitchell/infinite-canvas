@@ -3,18 +3,22 @@ import type { VariantProps } from "tailwind-variants";
 
 import { tv } from "../tv.ts";
 import { inputVariants } from "./input.tsx";
+import { menuVariants } from "./menu.tsx";
 
+/*
+ * Only what a select adds. The trigger is laid over the input's look and the list over the menu's,
+ * so neither can drift from the control it is meant to match. A third copy of either would.
+ */
 const select = tv({
   slots: {
-    /* Laid over the input's own look, so a select and an input in a column cannot drift apart. */
     trigger:
       "inline-flex cursor-pointer items-center justify-between gap-2 text-left data-disabled:pointer-events-none data-disabled:opacity-40 data-popup-open:border-pk-line-strong",
     value: "min-w-0 truncate",
     icon: "size-3 flex-none text-pk-ink-faint transition-transform duration-(--pk-duration-hover) ease-pk-swift data-popup-open:rotate-180",
     positioner: "z-50",
-    popup:
-      "z-50 max-h-[min(18rem,var(--available-height))] min-w-(--anchor-width) origin-(--transform-origin) overflow-y-auto rounded-pk-inner border border-pk-line bg-pk-surface p-1 text-pk-ink shadow-pk-card outline-none transition-[transform,opacity] duration-(--pk-duration-detail) ease-pk-swift data-ending-style:scale-[0.97] data-ending-style:opacity-0 data-starting-style:scale-[0.97] data-starting-style:opacity-0",
-    item: "flex cursor-pointer items-center justify-between gap-4 rounded-pk-chip px-2 py-1.5 font-pk-sans text-pk-control whitespace-nowrap text-pk-ink-muted outline-none select-none data-disabled:pointer-events-none data-disabled:opacity-40 data-highlighted:bg-pk-accent/15 data-highlighted:text-pk-ink-bright data-selected:text-pk-ink-bright",
+    /* A menu is as wide as it likes; a select matches its trigger and scrolls. */
+    popup: "max-h-[min(18rem,var(--available-height))] min-w-(--anchor-width) overflow-y-auto",
+    item: "data-selected:text-pk-ink-bright",
     indicator: "size-3 flex-none text-pk-accent",
   },
 });
@@ -95,7 +99,7 @@ function SelectContent({
       >
         <SelectPrimitive.Popup
           data-slot="select-content"
-          className={styles.popup({ className })}
+          className={menuVariants().popup({ className: styles.popup({ className }) })}
           {...props}
         />
       </SelectPrimitive.Positioner>
@@ -109,7 +113,11 @@ function SelectItem({ className, children, ...props }: SelectItemProps) {
   const styles = select();
 
   return (
-    <SelectPrimitive.Item data-slot="select-item" className={styles.item({ className })} {...props}>
+    <SelectPrimitive.Item
+      data-slot="select-item"
+      className={menuVariants().item({ className: styles.item({ className }) })}
+      {...props}
+    >
       <SelectPrimitive.ItemText>{children}</SelectPrimitive.ItemText>
       <SelectPrimitive.ItemIndicator className={styles.indicator()}>
         <svg viewBox="0 0 12 12" fill="none" aria-hidden="true">

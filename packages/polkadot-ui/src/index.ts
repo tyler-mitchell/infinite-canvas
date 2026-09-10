@@ -40,6 +40,21 @@ export {
 export { Button, buttonVariants, type ButtonProps } from "./components/button.tsx";
 export { Checkbox, checkboxVariants, type CheckboxProps } from "./components/checkbox.tsx";
 export {
+  Combobox,
+  ComboboxContent,
+  ComboboxEmpty,
+  ComboboxInput,
+  ComboboxItem,
+  ComboboxList,
+  comboboxVariants,
+  type ComboboxContentProps,
+  type ComboboxEmptyProps,
+  type ComboboxInputProps,
+  type ComboboxItemProps,
+  type ComboboxListProps,
+  type ComboboxProps,
+} from "./components/combobox.tsx";
+export {
   Collapsible,
   CollapsiblePanel,
   CollapsibleTrigger,
