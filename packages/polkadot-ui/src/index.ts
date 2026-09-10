@@ -61,6 +61,13 @@ export {
   type DialogTitleProps,
   type DialogTriggerProps,
 } from "./components/dialog.tsx";
+export {
+  Field,
+  FieldLabel,
+  fieldVariants,
+  type FieldLabelProps,
+  type FieldProps,
+} from "./components/field.tsx";
 export { IconTile, iconTileVariants, type IconTileProps } from "./components/icon-tile.tsx";
 export {
   Binding,

@@ -4,6 +4,9 @@ import {
   Button,
   buttonVariants,
   Display,
+  Field,
+  type FieldProps,
+  fieldVariants,
   Kind,
   Label,
   Meta,
@@ -144,23 +147,40 @@ function Controls() {
           <Meta>the thumb travels the track less its own width</Meta>
         </Row>
         <div className={styles.inline()}>
-          <div className={styles.pair()}>
+          <Field>
             <Switch checked={sound} onCheckedChange={setSound} />
-            <Label>sound</Label>
-          </div>
-          <div className={styles.pair()}>
+            <Field.Label>sound</Field.Label>
+          </Field>
+          <Field>
             <Switch defaultChecked />
-            <Label>on</Label>
-          </div>
-          <div className={styles.pair()}>
+            <Field.Label>on</Field.Label>
+          </Field>
+          <Field>
             <Switch />
-            <Label>off</Label>
-          </div>
-          <div className={styles.pair()}>
-            <Switch disabled />
-            <Label>disabled</Label>
-          </div>
+            <Field.Label>off</Field.Label>
+          </Field>
+          <Field disabled>
+            <Switch />
+            <Field.Label>disabled</Field.Label>
+          </Field>
         </div>
+        <Props<FieldProps>
+          name="field"
+          rows={[
+            {
+              name: "layout",
+              values: ["inline", "stacked"],
+              fallback: "inline",
+              note: "where the label sits against the control",
+            },
+            {
+              name: "disabled",
+              fallback: "false",
+              note: "disables the control it wraps, and takes precedence over the control's own",
+            },
+          ]}
+        />
+        <Api name="field" of={fieldVariants} />
       </section>
 
       <section className={styles.section()}>
