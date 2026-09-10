@@ -1923,3 +1923,37 @@ test("every band a grid's legend shows is one its plot draws", () => {
   expect(pages.flatMap(({ source }) => openingTags(source, "ActivityGrid")).length).toBe(2);
   expect(unreachableBand(pages, fixtures)).toEqual([]);
 });
+
+/**
+ * A span is a statement about the track count of the grid holding it, and the window is not that
+ * grid. Measured at 640: the page column was 358, where one 200px track fits, so a span of two
+ * invented an implicit second track sized by what was left rather than by the minimum — the
+ * template read `200px 146px` where two `1fr` were asked for, and the card in the 146 held a
+ * shortcut needing 128, whose label sat 20 outside it.
+ *
+ * `@min-` asks the container, which is the grid, so nothing asks for a track that is not there.
+ */
+const windowKeyedSpan = (files: readonly { file: string; source: string }[]) =>
+  files
+    .flatMap(({ file, source }) =>
+      [...source.matchAll(/(?<!@)\bmin-\[[^\]]+\]:(?:col|row)-span-[^\s"'`]+/g)].map(
+        ([match]) => `${file} ${match}`,
+      ),
+    )
+    .sort();
+
+test("a span asks the grid holding it, not the window", () => {
+  const windowed = `widget: "col-span-1 min-[440px]:col-span-2"`;
+  const contained = `widget: "col-span-1 @min-[440px]:col-span-2"`;
+  const unrelated = `card: "min-[440px]:gap-4"`;
+
+  expect(windowKeyedSpan([{ file: "a.tsx", source: windowed }])).toEqual([
+    "a.tsx min-[440px]:col-span-2",
+  ]);
+  expect(windowKeyedSpan([{ file: "b.tsx", source: contained }])).toEqual([]);
+  expect(windowKeyedSpan([{ file: "c.tsx", source: unrelated }])).toEqual([]);
+
+  /* Read first: the spans are still written down, so the sweep has something to be right about. */
+  expect(everything).toContain("@min-[440px]:col-span-2");
+  expect(windowKeyedSpan(pages)).toEqual([]);
+});
