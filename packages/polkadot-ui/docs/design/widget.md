@@ -64,7 +64,7 @@ Nothing forces a widget into a shape. A repo card composes `Kind` + `Title` + `M
 budget composes `Label` + `Readout` + a sparkline; the printer composes almost none of it.
 
 ```tsx
-// app/routes/data.tsx — what a consumer writes. No Header, no Body, no Footer.
+// app/routes/readouts.tsx — what a consumer writes. No Header, no Body, no Footer.
 <Surface tone="card">
   <Row>
     <Label>frame budget</Label>

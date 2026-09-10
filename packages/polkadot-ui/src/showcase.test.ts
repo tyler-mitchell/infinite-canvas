@@ -236,6 +236,32 @@ test("counting in words covers the range the readme uses", () => {
   ]);
 });
 
+/**
+ * Every document that names a route, not only the readme. The design note pointed at
+ * `app/routes/data.tsx` for a whole session after that file became `readouts.tsx`, and a rule
+ * reading one file would have gone on saying the docs were clean.
+ */
+const documents = [
+  new URL("../README.md", import.meta.url),
+  new URL("../docs/design/widget.md", import.meta.url),
+  new URL("../docs/research/widget-runtime.md", import.meta.url),
+  new URL("../docs/research/recursive-navigation.md", import.meta.url),
+];
+
+test("no document points at a route file that is gone", () => {
+  const real = readdirSync(new URL("routes/", appDir)).filter((name) => name.endsWith(".tsx"));
+
+  const stale = documents.flatMap((file) =>
+    [...readFileSync(file, "utf8").matchAll(/app\/routes\/([\w-]+\.tsx)/g)]
+      .map(([, named]) => named!)
+      .filter((named) => !real.includes(named))
+      .map((named) => `${file.pathname.split("/").pop()} points at ${named}`),
+  );
+
+  expect(real.length).toBe(9);
+  expect(stale).toEqual([]);
+});
+
 test("the readme counts the kit as it is, and names routes that exist", () => {
   const readme = readFileSync(new URL("../README.md", import.meta.url), "utf8").toLowerCase();
   const modules = readdirSync(componentDir).filter(
