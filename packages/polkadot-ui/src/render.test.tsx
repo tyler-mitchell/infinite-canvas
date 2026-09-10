@@ -723,6 +723,81 @@ test("a blank label falls back to the name a component gives itself", () => {
 });
 
 /**
+ * A component drawn as one image has one name, and whatever it writes inside is read by nobody.
+ * Two rules already say this, one for a tooltip and one for a sparkline's caption. This asks it of
+ * every component that draws itself as an image.
+ */
+const AS_IMAGES = [
+  { name: "ActivityGrid", drawn: <kit.ActivityGrid days={DAYS} weeks={4} /> },
+  { name: "Bars", drawn: <kit.Bars values={[1, 2, 3]} /> },
+  {
+    name: "Breakdown",
+    drawn: (
+      <kit.Breakdown
+        parts={[
+          { name: "ts", share: 1, color: "red" },
+          { name: "css", share: 1, color: "blue" },
+        ]}
+      />
+    ),
+  },
+  {
+    name: "LayoutPreview",
+    drawn: <kit.LayoutPreview panes={[{ left: 0, top: 0, width: 1, height: 1 }]} />,
+  },
+  { name: "ReceiptBarcode", drawn: <kit.ReceiptBarcode value="order 42" /> },
+  { name: "Sparkline", drawn: <kit.Sparkline values={[1, 2, 3]} /> },
+];
+
+/**
+ * A calendar names its own axis for a reader running an eye down it. That reader is the only one
+ * who gets it: these sit inside the image and are not exposed, which is right, because the summary
+ * already gives the span and the total and there are no rows to scan without eyes.
+ */
+const CALENDAR = new Set([
+  ..."jan feb mar apr may jun jul aug sep oct nov dec".split(" "),
+  ..."sun mon tue wed thu fri sat".split(" "),
+]);
+
+const unsaidIn = (name: string, markup: string) => {
+  const names = [...markup.matchAll(/aria-label="([^"]*)"/g)].map(([, one]) => one!).join(" ");
+
+  return [...markup.matchAll(/>([^<>]+)</g)]
+    .map(([, one]) => one!.trim())
+    .filter((one) => one.length > 0 && !CALENDAR.has(one))
+    .filter((one) => !names.includes(one))
+    .map((one) => `${name} draws ${one}`);
+};
+
+test("a component drawing what its name leaves out is reported", () => {
+  /* The shape the sparkline's caption had: a figure at the head, and a name giving the window. */
+  const named = renderToStaticMarkup(
+    <kit.Breakdown
+      label="language split"
+      parts={[
+        { name: "ts", share: 1, color: "red" },
+        { name: "css", share: 1, color: "blue" },
+      ]}
+    />,
+  );
+
+  expect(unsaidIn("Breakdown", named)).toEqual([
+    "Breakdown draws ts 50%",
+    "Breakdown draws css 50%",
+  ]);
+});
+
+test("what a component draws as an image is said in a name it carries", () => {
+  /* Read first: a reader finding no drawn words at all agrees with every name it is given. */
+  expect(
+    AS_IMAGES.filter(({ drawn }) => /aria-label="/.test(renderToStaticMarkup(drawn))).length,
+  ).toBe(6);
+  expect(
+    AS_IMAGES.flatMap(({ name, drawn }) => unsaidIn(name, renderToStaticMarkup(drawn))),
+  ).toEqual([]);
+});
+
+/**
  * A window longer than a year carries each month twice, and the marks were told apart by the month
  * alone. The second September matched the first and was dropped, so the later half of a long plot
  * drew no months at all while the earlier half drew all twelve.
