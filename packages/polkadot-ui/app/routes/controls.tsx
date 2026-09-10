@@ -9,6 +9,8 @@ import {
   Field,
   type FieldProps,
   fieldVariants,
+  Input,
+  inputVariants,
   Kind,
   Label,
   Meta,
@@ -67,6 +69,7 @@ function Controls() {
   const [sound, setSound] = useState(true);
   const [wrap, setWrap] = useState(false);
   const [snap, setSnap] = useState<string>("edges");
+  const [canvas, setCanvas] = useState("field notes");
 
   return (
     <div className={styles.page()}>
@@ -260,6 +263,42 @@ function Controls() {
           out of the arrow keys, which is what a radio group does rather than what it is told.
         </Prose>
         <Api name="radio" of={radioVariants} except={["checked"]} />
+      </section>
+
+      <section className={styles.section()}>
+        <Row rule="below">
+          <Kind>input</Kind>
+          <Meta>a medium button's height, so the two line up</Meta>
+        </Row>
+        <div className={styles.grid()}>
+          <Surface tone="card">
+            <Field layout="stacked">
+              <Field.Label>canvas name</Field.Label>
+              <Input value={canvas} onValueChange={(next) => setCanvas(String(next))} />
+            </Field>
+          </Surface>
+          <Surface tone="card">
+            <Field layout="stacked">
+              <Field.Label>find</Field.Label>
+              <Input tone="outline" placeholder="a window, a group, a note" />
+            </Field>
+          </Surface>
+          <Surface tone="card">
+            <Field layout="stacked" disabled>
+              <Field.Label>workspace</Field.Label>
+              <div className={styles.pair()}>
+                <Input defaultValue="infinite-canvas" />
+                <Button size="md">open</Button>
+              </div>
+            </Field>
+          </Surface>
+        </div>
+        <Prose className={styles.lede()}>
+          A placeholder is not a name. It goes the moment anything is typed, and a reader who cannot
+          see the field hears nothing at all — so every one of these sits in a{" "}
+          <Readout>Field</Readout> whose label stays.
+        </Prose>
+        <Api name="input" of={inputVariants} />
       </section>
 
       <section className={styles.section()}>

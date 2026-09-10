@@ -73,6 +73,7 @@ export {
   type FieldProps,
 } from "./components/field.tsx";
 export { IconTile, iconTileVariants, type IconTileProps } from "./components/icon-tile.tsx";
+export { Input, inputVariants, type InputProps } from "./components/input.tsx";
 export {
   Binding,
   Keycap,
