@@ -1324,7 +1324,14 @@ const LISTED_AS_ITS_PARTS = ["text"];
 
 test("the readme's list of components is the list of components", () => {
   const readme = readFileSync(new URL("../README.md", import.meta.url), "utf8").toLowerCase();
-  const section = readme.slice(readme.indexOf("## components"), readme.indexOf("## the reference"));
+  /*
+   * To the next heading rather than to a named one. Ending it at `## the reference` meant any
+   * section written between the two fell inside the list, and the run of names then swallowed the
+   * prose after it — the last one stopped being a name of its own while the guards below still
+   * passed.
+   */
+  const from = readme.indexOf("## components");
+  const section = readme.slice(from, readme.indexOf("\n## ", from + 1));
 
   const listed = new Set(
     [...section.matchAll(/\*\*[a-z\s]+\*\*([^*]+)/g)].flatMap(([, items]) =>

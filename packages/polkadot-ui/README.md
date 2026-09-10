@@ -241,6 +241,28 @@ sweep clamped to a millisecond is still a sweep, and turning them off says so pl
 **Cards** aurora, contact card, pending card, activity feed, swipe deck, layout preview, terminal,
 receipt
 
+## Adding a component
+
+Thirteen rules answer for a new component, and the suite names each one rather than failing
+generically. This list is what they asked for, measured by adding a bare component and reading the
+failures rather than by recalling them:
+
+```txt
+src/components/<name>.tsx     one tv call at the top, a named props type, no class strings in JSX
+src/index.ts                  the component, its variants object, and its props type
+app/routes/<page>.tsx         drawn on a page — a component nothing demonstrates is reported
+README.md                     added to the Components list, and the module count moved
+docs/research/widget-runtime.md   the same count, written as a numeral
+src/components/<name>.test.ts     only if it works something out: a helper it exports
+```
+
+The counts are the part worth knowing about in advance: two documents state how many component
+modules there are, one in words and one as a numeral, and both are checked. A component that draws
+a colour the theme does not declare, or one that reaches a contrast the pages state, is answered
+for by `theme.css` and `contrast.test.ts` in the same way.
+
+Nothing here needs remembering. Add the file, run `vp test`, and each rule says what it wants.
+
 ## The reference app
 
 ```sh
