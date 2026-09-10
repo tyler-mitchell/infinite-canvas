@@ -222,6 +222,20 @@ so a value that changes in place is reachable by someone who cannot see it chang
 </Row>
 ```
 
+## A word too long to break
+
+Text wraps `anywhere`, not at a space. Both break a word that would overflow, but only `anywhere`
+lowers the width a box reports as its minimum, and a role inside a `Row` is a flex item, which
+keeps a minimum as wide as its longest word. With the weaker wrap the row stayed too wide and
+pushed the whole page sideways instead of wrapping.
+
+What stays on one line is every control and every figure: a toggle, a tab, a toolbar button, an
+icon tile's label, a status dot, a stat. A label that wraps to two lines reads as a broken control,
+so these keep `whitespace-nowrap` and nothing clips them — which means **a long word in one of them
+widens the page rather than being cut**. Measured at 320 across all nine pages: five report nothing,
+and the twenty that remain are all of that one family. Keep a control's words short; anything that
+can run long belongs in a text role.
+
 ## Reduced motion
 
 `theme.css` cuts transform and height transitions under `prefers-reduced-motion: reduce` and keeps
