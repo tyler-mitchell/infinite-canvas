@@ -57,6 +57,8 @@ export const SNAP = ["edges", "centres", "gaps", "nothing"] as const;
 
 export const RULERS = ["px", "pt", "rem"] as const;
 
+export const EXPORT_AS = ["png", "svg", "pdf", "canvas file"] as const;
+
 export const INBOX = [
   {
     id: "gist",

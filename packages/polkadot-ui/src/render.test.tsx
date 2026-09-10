@@ -53,6 +53,9 @@ const NEEDS_ITS_ROOT = new Set([
   "PopoverDescription",
   "PopoverTitle",
   "PopoverTrigger",
+  "SelectContent",
+  "SelectItem",
+  "SelectTrigger",
   "Tab",
   "TabPanel",
   "TabsList",
@@ -93,6 +96,9 @@ test("every component that owns itself draws without throwing", () => {
 /**
  * The roots that carry context and no markup of their own. They draw nothing until something opens
  * them, so an empty string is right for these five and wrong for everything else.
+ *
+ * A select root is not one of them, though it reads like one: it always draws a hidden input that
+ * carries its value into a form, so it has markup before anything opens.
  */
 const DRAWS_ONLY_WHEN_OPEN = new Set(["Dialog", "Menu", "Popover", "Tooltip", "TooltipProvider"]);
 

@@ -1,6 +1,6 @@
 # polkadot-ui
 
-Base UI primitives styled with tailwind-variants slots. Forty-three component modules, one
+Base UI primitives styled with tailwind-variants slots. Forty-four component modules, one
 stylesheet, and no CSS written anywhere else.
 
 ## Setup
@@ -34,7 +34,7 @@ Neither has an opinion about what goes inside it.
 
 **Every class a component draws lives in one `tv` call at the top of its file.** A component that
 draws several elements names them as `slots`; one that draws a single element uses `base`. Thirty-
-six of the forty-three are the former.
+seven of the forty-four are the former.
 
 ```tsx
 // badge.tsx — one element, so one base and no slots.

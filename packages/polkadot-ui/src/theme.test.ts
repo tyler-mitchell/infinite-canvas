@@ -680,7 +680,11 @@ const STATES_SEEN_IN_THE_DOM = [
   "data-indeterminate",
   "data-newest",
   "data-panel-open",
+  /* On an open select trigger, beside `data-pressed` and `data-popup-side`. */
+  "data-popup-open",
   "data-scrolling",
+  /* On the chosen select item and no other, which is what carries its tick. */
+  "data-selected",
   "data-starting-style",
 ];
 

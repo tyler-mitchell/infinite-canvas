@@ -20,6 +20,8 @@ import {
   radioVariants,
   Readout,
   Row,
+  Select,
+  selectVariants,
   Slider,
   type SliderProps,
   Surface,
@@ -31,7 +33,7 @@ import {
 
 import { Api } from "../api.tsx";
 import { Props } from "../props.tsx";
-import { CATEGORIES, RULERS, SNAP } from "../fixtures.ts";
+import { CATEGORIES, EXPORT_AS, RULERS, SNAP } from "../fixtures.ts";
 
 const controls = tv({
   slots: {
@@ -70,6 +72,7 @@ function Controls() {
   const [wrap, setWrap] = useState(false);
   const [snap, setSnap] = useState<string>("edges");
   const [canvas, setCanvas] = useState("field notes");
+  const [format, setFormat] = useState<string>("svg");
 
   return (
     <div className={styles.page()}>
@@ -299,6 +302,52 @@ function Controls() {
           <Readout>Field</Readout> whose label stays.
         </Prose>
         <Api name="input" of={inputVariants} />
+      </section>
+
+      <section className={styles.section()}>
+        <Row rule="below">
+          <Kind>select</Kind>
+          <Meta>the trigger is an input · the list is the menu's popup</Meta>
+        </Row>
+        <div className={styles.grid()}>
+          <Surface tone="card">
+            <Field layout="stacked">
+              <Field.Label>export as</Field.Label>
+              <Select value={format} onValueChange={(next) => setFormat(String(next))}>
+                <Select.Trigger />
+                <Select.Content>
+                  {EXPORT_AS.map((option) => (
+                    <Select.Item key={option} value={option}>
+                      {option}
+                    </Select.Item>
+                  ))}
+                </Select.Content>
+              </Select>
+            </Field>
+          </Surface>
+          <Surface tone="card">
+            <Field layout="stacked">
+              <Field.Label>ruler</Field.Label>
+              <Select>
+                <Select.Trigger tone="outline" placeholder="pick a unit" />
+                <Select.Content>
+                  {RULERS.map((option) => (
+                    <Select.Item key={option} value={option} disabled={option === "pt"}>
+                      {option}
+                    </Select.Item>
+                  ))}
+                </Select.Content>
+              </Select>
+            </Field>
+          </Surface>
+        </div>
+        <Prose className={styles.lede()}>
+          The trigger is the input's own look, laid on rather than copied, so the two cannot drift
+          apart. The list is the menu's popup for the same reason. What is left here is a chevron
+          that turns over, a tick beside the chosen row, and the same <Readout>Field</Readout> that
+          names every other control on this page.
+        </Prose>
+        <Api name="select" of={selectVariants} />
       </section>
 
       <section className={styles.section()}>

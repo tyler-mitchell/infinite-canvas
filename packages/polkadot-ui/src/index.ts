@@ -167,6 +167,17 @@ export {
   type RadioProps,
 } from "./components/radio.tsx";
 export { Row, rowVariants, type RowProps } from "./components/row.tsx";
+export {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  selectVariants,
+  type SelectContentProps,
+  type SelectItemProps,
+  type SelectProps,
+  type SelectTriggerProps,
+} from "./components/select.tsx";
 export { Separator, separatorVariants, type SeparatorProps } from "./components/separator.tsx";
 export { Sparkline, sparklineVariants, type SparklineProps } from "./components/sparkline.tsx";
 export { Stat, statVariants, type StatProps } from "./components/stat.tsx";
