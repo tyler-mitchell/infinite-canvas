@@ -34,6 +34,9 @@ const foundations = tv({
     lineRow: "flex flex-wrap items-center gap-x-3 gap-y-1",
     lineName: "w-[84px] flex-none",
     lineRule: "h-px w-[150px] flex-none",
+    curve: "h-7 w-[56px] flex-none overflow-visible",
+    curveTrace: "fill-none stroke-pk-accent [stroke-linecap:round] [stroke-width:1.5]",
+    curveFloor: "stroke-pk-line-strong [stroke-width:1]",
     spacer: "flex-1",
     scale: "flex flex-col gap-4",
     scaleRow: "flex flex-col gap-1",
@@ -91,6 +94,16 @@ const EASINGS = [
   ["--pk-ease-swift", "swift", "state · 160ms", "cubic-bezier(0.32, 0.72, 0, 1)"],
   ["--pk-ease-settle", "settle", "movement", "cubic-bezier(0.23, 1, 0.32, 1)"],
 ] as const;
+
+/**
+ * The curve as a path, in a unit box with y running up. The four numbers are the control points a
+ * `cubic-bezier` already carries, so the drawing and the printed value cannot disagree.
+ */
+const curvePath = (curve: string) => {
+  const [x1 = 0, y1 = 0, x2 = 1, y2 = 1] = (curve.match(/[\d.]+/g) ?? []).map(Number);
+
+  return `M0,1 C${x1},${1 - y1} ${x2},${1 - y2} 1,0`;
+};
 
 export const Route = createFileRoute("/foundations")({
   component: Foundations,
@@ -228,6 +241,23 @@ function Foundations() {
             {EASINGS.map(([token, name, job, curve]) => (
               <div key={token} className={styles.lineRow()}>
                 <Label className={styles.lineName()}>{name}</Label>
+                <svg
+                  aria-hidden
+                  viewBox="0 0 1 1"
+                  preserveAspectRatio="none"
+                  className={styles.curve()}
+                >
+                  <path
+                    d="M0,1 L1,1"
+                    className={styles.curveFloor()}
+                    vectorEffect="non-scaling-stroke"
+                  />
+                  <path
+                    d={curvePath(curve)}
+                    className={styles.curveTrace()}
+                    vectorEffect="non-scaling-stroke"
+                  />
+                </svg>
                 <Separator orientation="vertical" />
                 <Meta>{job}</Meta>
                 <div className={styles.spacer()} />
