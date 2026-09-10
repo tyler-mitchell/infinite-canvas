@@ -85,13 +85,11 @@ const RADII = [
   ["--pk-radius-inner", "inner", "14"],
   ["--pk-radius-tray", "tray", "12"],
   ["--pk-radius-chip", "chip", "7"],
-  ["--pk-radius-aperture", "aperture", "4"],
 ] as const;
 
 const EASINGS = [
   ["--pk-ease-swift", "swift", "state · 160ms", "cubic-bezier(0.32, 0.72, 0, 1)"],
   ["--pk-ease-settle", "settle", "movement", "cubic-bezier(0.23, 1, 0.32, 1)"],
-  ["--pk-ease-feed", "feed", "paper · 1750ms", "cubic-bezier(0.77, 0, 0.175, 1)"],
 ] as const;
 
 export const Route = createFileRoute("/foundations")({

@@ -169,6 +169,94 @@ test("every mechanism the theme exports is drawn by some file", () => {
   expect(unwritten([...declared], utilities)).toEqual([]);
 });
 
+/**
+ * Every raw `--pk-*` a page names. The foundations page lists tokens by hand to draw the palette,
+ * so a token removed from the sheet leaves a row there that resolves to nothing: a swatch with a
+ * name and no colour, which reads as a token that exists rather than one that was deleted.
+ */
+const namedInPages = (sources: readonly { readonly file: string; readonly source: string }[]) =>
+  sources.flatMap(({ file, source }) =>
+    [...source.matchAll(/"(--pk-[a-z\d-]+)"/g)].map(([, token]) => ({ token: token!, file })),
+  );
+
+/** The sheet's own roots, which is what a page's raw name has to resolve against. */
+const roots = new Set([...themeCss.matchAll(/^\s+(--pk-[a-z\d-]+):/gm)].map(([, token]) => token!));
+
+const undeclared = (
+  named: readonly { readonly token: string; readonly file: string }[],
+  declaredRoots: ReadonlySet<string>,
+) =>
+  named
+    .filter(({ token }) => !declaredRoots.has(token))
+    .map(({ token, file }) => `${token} (${file})`);
+
+test("a token a page names but the theme has dropped is reported", () => {
+  expect(undeclared([{ token: "--pk-ground", file: "f.tsx" }], new Set(["--pk-ground"]))).toEqual(
+    [],
+  );
+  expect(
+    undeclared([{ token: "--pk-ease-feed", file: "f.tsx" }], new Set(["--pk-ground"])),
+  ).toEqual(["--pk-ease-feed (f.tsx)"]);
+});
+
+test("every token a page names is one the theme still declares", () => {
+  const pageSources = appFiles.map((file) => ({
+    file,
+    source: readFileSync(new URL(file, appDir), "utf8"),
+  }));
+
+  expect(roots.size).toBeGreaterThan(50);
+  expect(namedInPages(pageSources).length).toBeGreaterThan(20);
+  expect(undeclared(namedInPages(pageSources), roots)).toEqual([]);
+});
+
+/**
+ * What the sheet declares each root as. The foundations page prints a radius and an easing beside
+ * the token that owns it, so an edit to the sheet alone would leave the page stating the old value
+ * with no sign that it had changed.
+ */
+const declaredAs = new Map(
+  [...themeCss.matchAll(/^\s+(--pk-[a-z\d-]+):\s*([^;]+);/gm)].map(([, token, value]) => [
+    token!,
+    value!.trim(),
+  ]),
+);
+
+/** A printed value against the declaration, with the unit the page leaves off. */
+const misprinted = (
+  rows: readonly (readonly [token: string, printed: string])[],
+  values: ReadonlyMap<string, string>,
+  unit = "",
+) =>
+  rows
+    .filter(([token, printed]) => values.get(token) !== `${printed}${unit}`)
+    .map(([token, printed]) => `${token} says ${printed}${unit}, sheet says ${values.get(token)}`);
+
+test("a printed value that has drifted from the sheet is reported", () => {
+  const sheet = new Map([["--pk-radius-card", "16px"]]);
+
+  expect(misprinted([["--pk-radius-card", "16"]], sheet, "px")).toEqual([]);
+  expect(misprinted([["--pk-radius-card", "18"]], sheet, "px")).toEqual([
+    "--pk-radius-card says 18px, sheet says 16px",
+  ]);
+});
+
+test("every radius and easing the foundations page prints is the one the sheet declares", () => {
+  const page = readFileSync(new URL("routes/foundations.tsx", appDir), "utf8");
+
+  const radii = [...page.matchAll(/\["(--pk-radius-[a-z-]+)",\s*"[^"]*",\s*"([^"]*)"\]/g)].map(
+    ([, token, printed]) => [token!, printed!] as const,
+  );
+  const easings = [
+    ...page.matchAll(/\["(--pk-ease-[a-z-]+)",\s*"[^"]*",\s*"[^"]*",\s*"([^"]*)"\]/g),
+  ].map(([, token, printed]) => [token!, printed!] as const);
+
+  expect(radii.length).toBeGreaterThan(3);
+  expect(easings.length).toBeGreaterThan(1);
+  expect(misprinted(radii, declaredAs, "px")).toEqual([]);
+  expect(misprinted(easings, declaredAs)).toEqual([]);
+});
+
 test("a token the theme does not declare is reported against the file that wrote it", () => {
   const invented: Reference = {
     candidates: ["--color-pk-surface-raised"],
