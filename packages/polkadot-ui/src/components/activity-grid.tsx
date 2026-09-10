@@ -47,7 +47,11 @@ const DEFAULT_THRESHOLDS: readonly number[] = [1, 3, 6, 10];
 const level = (count: number, thresholds: readonly number[] = DEFAULT_THRESHOLDS) =>
   thresholds.filter((bound) => count >= bound).length;
 
-/** Whole weeks that fit at a cell size a pointer can hit. Drops history, never the cell size. */
+/**
+ * Whole weeks that fit at a cell size a pointer can hit. Drops history, never the cell size, down
+ * to a floor of six weeks: narrower than that it is not a grid, so it keeps the six and overflows
+ * rather than shrinking a cell below the size a finger needs.
+ */
 const weeksThatFit = (width: number, cell: number, gap: number, wanted: number) =>
   width <= 0 ? wanted : Math.max(6, Math.min(wanted, Math.floor((width + gap) / (cell + gap))));
 
