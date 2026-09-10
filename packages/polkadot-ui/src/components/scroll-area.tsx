@@ -8,7 +8,9 @@ const scrollArea = tv({
       "size-full overscroll-contain outline-none focus-visible:ring-2 focus-visible:ring-pk-accent/50",
     scrollbar:
       "m-px flex touch-none justify-center rounded-pk-pill opacity-0 transition-opacity delay-200 duration-(--pk-duration-hover) ease-pk-swift select-none data-hovering:opacity-100 data-hovering:delay-0 data-scrolling:opacity-100 data-scrolling:delay-0 data-[orientation=horizontal]:h-1 data-[orientation=vertical]:w-1",
-    thumb: "rounded-pk-pill bg-pk-line-strong",
+    /* A thumb is a control, not a separation, so it comes off the ink scale: the line scale tops
+     * out at 1.92:1 on a card, under the 3:1 a non-text control is asked for. */
+    thumb: "rounded-pk-pill bg-pk-ink-faint",
     corner: "bg-transparent",
   },
 });
