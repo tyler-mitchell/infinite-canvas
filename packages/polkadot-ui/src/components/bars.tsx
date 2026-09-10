@@ -37,9 +37,16 @@ export function barCeiling(values: readonly number[], max?: number) {
 /** A bar's height as a share of the ceiling, floored so an empty bucket is still a mark. */
 export function barShare(value: number, ceiling: number, minHeight: number) {
   const floor = Number.isFinite(minHeight) ? Math.min(1, Math.max(0, minHeight)) : 0;
-  if (!Number.isFinite(value)) return floor;
+  const share = value / ceiling;
 
-  return Math.max(floor, Math.min(1, value / ceiling));
+  /*
+   * The floor marks a bucket with nothing in it. Holding real values up to it as well flattens a
+   * series against a ceiling it does not reach: under one shared with a larger series, four of
+   * eight weekly figures met the floor and drew the same height while differing by two thirds.
+   */
+  if (!Number.isFinite(share) || share <= 0) return floor;
+
+  return Math.min(1, share);
 }
 
 /**

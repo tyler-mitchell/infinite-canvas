@@ -38,6 +38,17 @@ test("an empty bucket is still a mark, and an overflowing one is capped", () => 
   expect(barShare(40, 10, MIN)).toBe(1);
 });
 
+test("a real value keeps its own height, however far under the ceiling it sits", () => {
+  /* The eight weekly figures of the smaller package, under the ceiling of the larger. */
+  const shares = [210, 260, 180, 340, 300, 420, 380, 510].map((value) =>
+    Number((barShare(value, 4182, MIN) * 100).toFixed(1)),
+  );
+
+  expect(shares).toEqual([5, 6.2, 4.3, 8.1, 7.2, 10, 9.1, 12.2]);
+  /* Four of them used to meet the floor and draw alike while differing by two thirds. */
+  expect(new Set(shares).size).toBe(8);
+});
+
 test("no input produces a height of NaN", () => {
   const ceiling = barCeiling([0, 0], 0);
 
