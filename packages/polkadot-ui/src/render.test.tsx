@@ -197,6 +197,61 @@ test("the initials are the first letters of the first two words, however they ar
   expect(mark("Ada\tLovelace")).toBe("AL");
 });
 
+/*
+ * The rest of the prop docs that name an exact behaviour. Each assertion is written from the
+ * sentence rather than from the code, because a test written from the code can only agree with it.
+ */
+
+/*
+ * `axis` is the one claim here that server rendering cannot settle. Base UI draws a scrollbar only
+ * once it has measured overflow, so none of them reach the server markup whatever `axis` says. It
+ * was checked in the browser instead, where the default area carries a vertical bar and the `both`
+ * area carries one of each.
+ */
+
+/** `children`: "The state in words. Omit for the mark alone, and name the state some other way." */
+test("a status dot with no words draws the mark and nothing else", () => {
+  const alone = renderToStaticMarkup(<kit.StatusDot />);
+  const spoken = renderToStaticMarkup(<kit.StatusDot>open to one project</kit.StatusDot>);
+
+  expect(alone.replace(/<[^>]*>/g, "").trim()).toBe("");
+  expect(spoken).toContain("open to one project");
+});
+
+/** `stamp`: "The stamp on the right. Defaults to the design's own word." */
+test("a pending card stamps itself when the consumer names no word", () => {
+  const fallback = renderToStaticMarkup(<kit.PendingCard title="a" body="b" />);
+  const named = renderToStaticMarkup(<kit.PendingCard title="a" body="b" stamp="later" />);
+
+  expect(fallback.replace(/<[^>]*>/g, "")).toMatch(/[a-z]/i);
+  expect(named).toContain("later");
+});
+
+/** `showLegend`: "Hides the legend, for a bar under a heading that already names the parts." */
+test("a breakdown legend is drawn unless it is turned off", () => {
+  const parts = [{ name: "rust", share: 1, color: "red" }];
+  const shown = renderToStaticMarkup(<kit.Breakdown parts={parts} />);
+  const hidden = renderToStaticMarkup(<kit.Breakdown parts={parts} showLegend={false} />);
+
+  expect(shown).toContain("rust");
+  expect(hidden.replace(/<[^>]*>/g, "")).not.toContain("rust");
+});
+
+/** `children`: "receives the focused day, or `undefined` when nothing is." */
+test("a grid hands its render function undefined while no day is focused", () => {
+  const seen: unknown[] = [];
+  renderToStaticMarkup(
+    <kit.ActivityGrid days={[{ date: new Date("2026-09-10T00:00:00Z"), count: 1 }]}>
+      {(day) => {
+        seen.push(day);
+        return null;
+      }}
+    </kit.ActivityGrid>,
+  );
+
+  expect(seen).toEqual([undefined]);
+});
+
 /**
  * `label` says "Omit for a bare track", and `showValue` defaults to true, so omitting the label
  * alone leaves a header carrying the value. Both halves have to go for the track to be bare.
