@@ -8,8 +8,10 @@ export {
   AccordionTrigger,
   accordionVariants,
   type AccordionItemProps,
+  type AccordionMetaProps,
   type AccordionPanelProps,
   type AccordionProps,
+  type AccordionTitleProps,
   type AccordionTriggerProps,
 } from "./components/accordion.tsx";
 export {
@@ -57,6 +59,7 @@ export {
   type DialogCloseProps,
   type DialogContentProps,
   type DialogDescriptionProps,
+  type DialogFooterProps,
   type DialogProps,
   type DialogTitleProps,
   type DialogTriggerProps,
@@ -105,6 +108,7 @@ export {
   type MenuItemProps,
   type MenuProps,
   type MenuSeparatorProps,
+  type MenuShortcutProps,
   type MenuTriggerProps,
 } from "./components/menu.tsx";
 export {
@@ -133,10 +137,14 @@ export {
   ReceiptRule,
   ReceiptSign,
   receiptVariants,
+  type ReceiptActionProps,
   type ReceiptBarcodeProps,
   type ReceiptHeadProps,
   type ReceiptLineProps,
+  type ReceiptNoteProps,
   type ReceiptProps,
+  type ReceiptRuleProps,
+  type ReceiptSignProps,
 } from "./components/receipt.tsx";
 export { CommitRow, commitRowVariants, type CommitRowProps } from "./components/commit-row.tsx";
 export {

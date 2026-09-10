@@ -60,13 +60,17 @@ function AccordionTrigger({ className, ...props }: AccordionTriggerProps) {
   );
 }
 
-function AccordionTitle({ className, ...props }: React.ComponentProps<"span">) {
+export type AccordionTitleProps = React.ComponentProps<"span">;
+
+function AccordionTitle({ className, ...props }: AccordionTitleProps) {
   return (
     <span data-slot="accordion-title" className={accordion().title({ className })} {...props} />
   );
 }
 
-function AccordionMeta({ className, ...props }: React.ComponentProps<"span">) {
+export type AccordionMetaProps = React.ComponentProps<"span">;
+
+function AccordionMeta({ className, ...props }: AccordionMetaProps) {
   return <span data-slot="accordion-meta" className={accordion().meta({ className })} {...props} />;
 }
 

@@ -101,7 +101,9 @@ function MenuSeparator({ className, ...props }: MenuSeparatorProps) {
   );
 }
 
-function MenuShortcut({ className, ...props }: React.ComponentProps<"span">) {
+export type MenuShortcutProps = React.ComponentProps<"span">;
+
+function MenuShortcut({ className, ...props }: MenuShortcutProps) {
   return <span data-slot="menu-shortcut" className={menu().shortcut({ className })} {...props} />;
 }
 

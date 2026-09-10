@@ -58,7 +58,9 @@ function ReceiptHead({ mark, wordmark, className, ...props }: ReceiptHeadProps) 
   );
 }
 
-function ReceiptRule({ className, ...props }: React.ComponentProps<"div">) {
+export type ReceiptRuleProps = React.ComponentProps<"div">;
+
+function ReceiptRule({ className, ...props }: ReceiptRuleProps) {
   return <div data-slot="receipt-rule" className={receipt().rule({ className })} {...props} />;
 }
 
@@ -79,7 +81,9 @@ function ReceiptLine({ name, amount, total, className, ...props }: ReceiptLinePr
   );
 }
 
-function ReceiptNote({ className, ...props }: React.ComponentProps<"span">) {
+export type ReceiptNoteProps = React.ComponentProps<"span">;
+
+function ReceiptNote({ className, ...props }: ReceiptNoteProps) {
   return <span data-slot="receipt-note" className={receipt().note({ className })} {...props} />;
 }
 
@@ -111,7 +115,9 @@ function ReceiptBarcode({ value, className, ...props }: ReceiptBarcodeProps) {
   );
 }
 
-function ReceiptAction({ className, ...props }: React.ComponentProps<"button">) {
+export type ReceiptActionProps = React.ComponentProps<"button">;
+
+function ReceiptAction({ className, ...props }: ReceiptActionProps) {
   return (
     <button
       type="button"
@@ -122,7 +128,9 @@ function ReceiptAction({ className, ...props }: React.ComponentProps<"button">) 
   );
 }
 
-function ReceiptSign({ className, ...props }: React.ComponentProps<"span">) {
+export type ReceiptSignProps = React.ComponentProps<"span">;
+
+function ReceiptSign({ className, ...props }: ReceiptSignProps) {
   return <span data-slot="receipt-sign" className={receipt().sign({ className })} {...props} />;
 }
 

@@ -78,10 +78,9 @@ function DialogClose(props: DialogCloseProps) {
   return <DialogPrimitive.Close data-slot="dialog-close" {...props} />;
 }
 
-function DialogFooter({
-  className,
-  ...props
-}: { className?: string } & React.ComponentProps<"div">) {
+export type DialogFooterProps = React.ComponentProps<"div">;
+
+function DialogFooter({ className, ...props }: DialogFooterProps) {
   return <div data-slot="dialog-footer" className={dialog().footer({ className })} {...props} />;
 }
 

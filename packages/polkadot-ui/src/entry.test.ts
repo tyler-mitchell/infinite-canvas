@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 
 import { expect, test } from "vite-plus/test";
 
@@ -66,4 +66,59 @@ test("every variants export is callable and yields its slots", () => {
 test("a name the entry never exported does not arrive", () => {
   expect("Nonexistent" in kit).toBe(false);
   expect(claimed.includes("Nonexistent")).toBe(false);
+});
+
+/**
+ * A component whose props type has no name leaves a consumer writing `React.ComponentProps<"div">`
+ * and guessing the element, which stops being true the moment the component draws a different one.
+ * Eight did — four parts of the receipt, two of the accordion, a menu shortcut and a dialog footer
+ * — while `Receipt` in the same file exported a name for exactly that shape.
+ *
+ * The text roles share one `TextProps` and are right as they are, which is why this asks whether
+ * the type is named and exported rather than whether a `XProps` exists for every `X`.
+ */
+const componentDir = new URL("./components/", import.meta.url);
+
+/** The type names the entry re-exports. `claimed` holds only the values, which cannot include one. */
+const claimedTypes = [...entry.matchAll(/export \{([\s\S]*?)\} from/g)]
+  .flatMap(([, list]) => list!.split(","))
+  .map((part) => part.trim())
+  .filter((part) => part.startsWith("type "))
+  .map((part) => part.slice("type ".length).trim());
+
+const anonymousProps = (sources: readonly { readonly file: string; readonly source: string }[]) =>
+  sources
+    .flatMap(({ file, source }) =>
+      [...source.matchAll(/^function (\w+)\(\{[\s\S]*?\}: ([^)]+)\) \{$/gm)].map(
+        ([, name, type]) => ({ file, name: name!, type: type!.trim() }),
+      ),
+    )
+    .filter(({ type }) => !/^\w+$/.test(type))
+    .map(({ file, name, type }) => `${name} takes ${type} (${file})`)
+    .sort();
+
+test("a component whose props type has no name is reported", () => {
+  const named = [{ file: "a.tsx", source: "function Rule({ className }: RuleProps) {\n" }];
+  const bare = [
+    { file: "a.tsx", source: 'function Rule({ className }: React.ComponentProps<"div">) {\n' },
+  ];
+
+  expect(anonymousProps(named)).toEqual([]);
+  expect(anonymousProps(bare)).toEqual(['Rule takes React.ComponentProps<"div"> (a.tsx)']);
+});
+
+test("every component names the props type it takes, and the entry exports it", () => {
+  const sources = readdirSync(componentDir)
+    .filter((name) => name.endsWith(".tsx") && !name.endsWith(".test.tsx"))
+    .map((file) => ({ file, source: readFileSync(new URL(file, componentDir), "utf8") }));
+
+  const taken = sources.flatMap(({ source }) =>
+    [...source.matchAll(/^function \w+\(\{[\s\S]*?\}: (\w+)\) \{$/gm)].map(([, type]) => type!),
+  );
+
+  expect(sources.length).toBeGreaterThan(30);
+  expect(taken.length).toBeGreaterThan(30);
+  expect(claimedTypes.length).toBeGreaterThan(50);
+  expect(anonymousProps(sources)).toEqual([]);
+  expect([...new Set(taken)].filter((type) => !claimedTypes.includes(type))).toEqual([]);
 });
