@@ -656,3 +656,29 @@ test("a blank label falls back to the name a component gives itself", () => {
   expect(label(renderToStaticMarkup(<kit.ActivityGrid days={[]} label="" />))).toBe("activity");
   expect(label(renderToStaticMarkup(<kit.SwipeDeck items={[]} label="   " />))).toBe("queue");
 });
+
+/**
+ * A window longer than a year carries each month twice, and the marks were told apart by the month
+ * alone. The second September matched the first and was dropped, so the later half of a long plot
+ * drew no months at all while the earlier half drew all twelve.
+ */
+test("a plot longer than a year marks the months of both years", () => {
+  const days = Array.from({ length: 730 }, (_, index) => ({
+    date: new Date(2024, 0, 1 + index),
+    count: 1,
+  }));
+  const marks = [
+    ...renderToStaticMarkup(<kit.ActivityGrid days={days} weeks={105} />).matchAll(
+      /left:(\d+)px[^>]*>([a-z]{3})</g,
+    ),
+  ].map(([, left, month]) => ({ left: Number(left), month: month! }));
+
+  const lefts = marks.map(({ left }) => left);
+
+  expect(marks.length).toBeGreaterThan(20);
+  /* Twelve names across two dozen marks is the property that broke: each name is drawn twice. */
+  expect(new Set(marks.map(({ month }) => month)).size).toBe(12);
+  /* Read left to right, and no two marks share a column. */
+  expect(lefts).toEqual([...lefts].sort((a, b) => a - b));
+  expect(new Set(lefts).size).toBe(marks.length);
+});

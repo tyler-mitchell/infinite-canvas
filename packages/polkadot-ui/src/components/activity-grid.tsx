@@ -190,9 +190,12 @@ function ActivityGrid({
     return columns.flatMap((day, index) => {
       if (!day || day.date.getDate() > 7) return [];
       const month = day.date.getMonth();
-      if (seen.has(month)) return [];
-      seen.add(month);
-      return [{ month, left: Math.floor(index / DAYS_PER_WEEK) * pitch }];
+      /* Held apart by the year as well: a window longer than a year carries each month twice, and
+       * on the month alone the second one matched the first and drew nothing. */
+      const stamp = day.date.getFullYear() * 12 + month;
+      if (seen.has(stamp)) return [];
+      seen.add(stamp);
+      return [{ month, stamp, left: Math.floor(index / DAYS_PER_WEEK) * pitch }];
     });
   }, [columns, cell]);
 
@@ -237,8 +240,8 @@ function ActivityGrid({
         }}
       >
         <div className={styles.months()}>
-          {monthMarks.map(({ month, left }) => (
-            <span key={month} className={styles.month()} style={{ left: `${left}px` }}>
+          {monthMarks.map(({ month, stamp, left }) => (
+            <span key={stamp} className={styles.month()} style={{ left: `${left}px` }}>
               {MONTHS[month]}
             </span>
           ))}
