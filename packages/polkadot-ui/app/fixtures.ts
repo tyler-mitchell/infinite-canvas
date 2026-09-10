@@ -59,6 +59,14 @@ export const RULERS = ["px", "pt", "rem"] as const;
 
 export const EXPORT_AS = ["png", "svg", "pdf", "canvas file"] as const;
 
+/** What a canvas asks of a selected window, which is what a draggable number is for. */
+export const GEOMETRY = [
+  ["width", 720, "px"],
+  ["height", 480, "px"],
+  ["x", 128, "px"],
+  ["y", 64, "px"],
+] as const;
+
 export const COMMANDS = [
   "field notes",
   "field shader",

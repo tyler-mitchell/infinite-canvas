@@ -16,6 +16,8 @@ import {
   Kind,
   Label,
   Meta,
+  NumberField,
+  numberFieldVariants,
   Prose,
   Radio,
   RadioGroup,
@@ -35,7 +37,7 @@ import {
 
 import { Api } from "../api.tsx";
 import { Props } from "../props.tsx";
-import { CATEGORIES, COMMANDS, EXPORT_AS, RULERS, SNAP } from "../fixtures.ts";
+import { CATEGORIES, COMMANDS, EXPORT_AS, GEOMETRY, RULERS, SNAP } from "../fixtures.ts";
 
 const controls = tv({
   slots: {
@@ -53,6 +55,8 @@ const controls = tv({
     pair: "flex items-center gap-2.5",
     grid: "grid grid-cols-[repeat(auto-fill,minmax(236px,1fr))] gap-3",
     sliders: "grid grid-cols-[repeat(auto-fill,minmax(196px,1fr))] gap-3",
+    geometry: "grid grid-cols-[repeat(auto-fill,minmax(128px,1fr))] gap-3",
+    activity: "max-w-[600px]",
     upright: "w-[196px]",
   },
 });
@@ -383,6 +387,34 @@ function Controls() {
           so the <Readout>Field</Readout> label names it, the same as everything above.
         </Prose>
         <Api name="combobox" of={comboboxVariants} />
+      </section>
+
+      <section className={styles.section()}>
+        <Row rule="below">
+          <Kind>number field</Kind>
+          <Meta>a step either side · drag the label</Meta>
+        </Row>
+        <Surface tone="card" className={styles.activity()}>
+          <div className={styles.geometry()}>
+            {GEOMETRY.map(([name, value, unit]) => (
+              <Field key={name} layout="stacked">
+                <NumberField defaultValue={value} min={0} max={4096}>
+                  <NumberField.Scrub>
+                    <Field.Label>{`${name} ${unit}`}</Field.Label>
+                  </NumberField.Scrub>
+                  <NumberField.Group />
+                </NumberField>
+              </Field>
+            ))}
+          </div>
+        </Surface>
+        <Prose className={styles.lede()}>
+          The label is a handle. Dragging it sideways changes the number, which is how a canvas asks
+          for a width without anyone typing one, and the pointer is replaced while the drag lasts so
+          the cursor does not run off the edge of the screen. Typing still works, and so do the two
+          steps.
+        </Prose>
+        <Api name="number field" of={numberFieldVariants} />
       </section>
 
       <section className={styles.section()}>

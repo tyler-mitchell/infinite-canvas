@@ -53,6 +53,8 @@ const NEEDS_ITS_ROOT = new Set([
   "MenuGroupLabel",
   "MenuItem",
   "MenuTrigger",
+  "NumberFieldGroup",
+  "NumberFieldScrub",
   "PopoverClose",
   "PopoverContent",
   "PopoverDescription",

@@ -105,6 +105,15 @@ export {
 export { ListItem, listItemVariants, type ListItemProps } from "./components/list-item.tsx";
 export { MetricTile, metricTileVariants, type MetricTileProps } from "./components/metric-tile.tsx";
 export {
+  NumberField,
+  NumberFieldGroup,
+  NumberFieldScrub,
+  numberFieldVariants,
+  type NumberFieldGroupProps,
+  type NumberFieldProps,
+  type NumberFieldScrubProps,
+} from "./components/number-field.tsx";
+export {
   NumberTicker,
   numberTickerVariants,
   type NumberTickerProps,
