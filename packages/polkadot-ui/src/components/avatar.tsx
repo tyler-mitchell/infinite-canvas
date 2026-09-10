@@ -12,7 +12,7 @@ const avatar = tv({
   },
   variants: {
     size: {
-      sm: { root: "size-5 rounded-[6px]", fallback: "text-pk-micro" },
+      sm: { root: "size-5 rounded-pk-control-inner", fallback: "text-pk-micro" },
       lg: {
         root: "size-[66px] rounded-pk-inner",
         fallback: "text-[21px] leading-[1.4] font-semibold tracking-[-0.03em]",

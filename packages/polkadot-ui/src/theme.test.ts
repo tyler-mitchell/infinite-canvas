@@ -769,3 +769,47 @@ test("every timeline animation the sheet declares is turned off under reduced mo
   expect(themeCss).toContain("animation-timeline:");
   expect(runningWhenStill(themeCss)).toEqual([]);
 });
+
+/** Every corner the sheet declares, against the value it declares it at. */
+const scaleRadii = new Set(
+  [...themeCss.matchAll(/^\s+--pk-radius-[a-z-]+:\s*([\d.]+)px;/gm)].map(([, px]) => px!),
+);
+
+/**
+ * The same drift on the corner axis. Three slots wrote `6px`, which is the inner control corner
+ * exactly. What is left over sits between the declared corners rather than on one — 18 between
+ * card and widget, and 11, 5, 3 and 1 below the smallest — so those are corners the sheet has no
+ * name for and this rule says nothing about them.
+ */
+const rewroteACorner = (
+  sources: readonly { readonly file: string; readonly source: string }[],
+  radii: ReadonlySet<string>,
+) =>
+  sources
+    .flatMap(({ file, source }) =>
+      [...source.matchAll(/rounded-\[([\d.]+)px\]/g)].map(([written, px]) => ({
+        file,
+        written,
+        px: px!,
+      })),
+    )
+    .filter(({ px }) => radii.has(px))
+    .map(({ file, written }) => `${file} ${written}`)
+    .sort();
+
+test("a slot that writes a declared corner out by hand is reported", () => {
+  const radii = new Set(["6"]);
+
+  expect(rewroteACorner([{ file: "avatar.tsx", source: "rounded-[6px]" }], radii)).toEqual([
+    "avatar.tsx rounded-[6px]",
+  ]);
+  expect(
+    rewroteACorner([{ file: "avatar.tsx", source: "rounded-pk-control-inner" }], radii),
+  ).toEqual([]);
+  expect(rewroteACorner([{ file: "surface.tsx", source: "rounded-[18px]" }], radii)).toEqual([]);
+});
+
+test("no slot rewrites a corner the sheet already names", () => {
+  expect(scaleRadii.has("6")).toBe(true);
+  expect(rewroteACorner(componentSources, scaleRadii)).toEqual([]);
+});

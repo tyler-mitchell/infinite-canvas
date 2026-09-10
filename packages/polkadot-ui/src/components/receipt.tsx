@@ -6,7 +6,7 @@ const receipt = tv({
   slots: {
     root: "pk-paper pk-tear flex w-full flex-col px-[13px] pt-3 pb-[18px] font-pk-mono text-pk-paper-ink shadow-[0_12px_22px_-14px_rgb(0_0_0/0.9)]",
     head: "flex flex-col items-center gap-[3px]",
-    mark: "flex size-5 items-center justify-center rounded-[6px] bg-pk-paper-ink font-pk-sans text-pk-micro text-pk-paper-page",
+    mark: "flex size-5 items-center justify-center rounded-pk-control-inner bg-pk-paper-ink font-pk-sans text-pk-micro text-pk-paper-page",
     wordmark: "text-pk-print-xs tracking-[0.2em] text-pk-paper-label uppercase",
     rule: "pk-paper-rule my-1.5 h-px flex-none",
     line: "flex items-baseline justify-between gap-2",
