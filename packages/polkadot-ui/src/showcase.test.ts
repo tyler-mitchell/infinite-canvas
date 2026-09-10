@@ -1736,15 +1736,23 @@ const pascal = (module: string) =>
 
 const primitiveDefaults = new Map<string, ReadonlyMap<string, string>>();
 
-const settledByPart = (module: string, part: string): ReadonlyMap<string, string> => {
-  const key = `${module}.${part}`;
+/**
+ * A part need not declare the prop it documents. `AccordionPanelProps` has an empty body and takes
+ * `hiddenUntilFound` and `keepMounted` through `Pick<AccordionRoot.Props, …>`, which is where the
+ * `@default` for each of them sits — so what a part inherits is followed, not only what it writes.
+ */
+const defaultsIn = (
+  module: string,
+  declaration: string,
+  seen: ReadonlySet<string> = new Set(),
+): ReadonlyMap<string, string> => {
+  const key = `${module}.${declaration}`;
   const known = primitiveDefaults.get(key);
   if (known) return known;
+  if (seen.has(key)) return new Map();
 
   const dir = new URL(`${module}/`, primitiveDir);
-  const wanted = new RegExp(
-    String.raw`export interface ${pascal(module)}${part}Props[^{]*\{([\s\S]*?)\n\}`,
-  );
+  const wanted = new RegExp(String.raw`export interface ${declaration}([^{]*)\{([\s\S]*?)\n\}`);
   const found = new Map<string, string>();
 
   for (const entry of readdirSync(dir, { withFileTypes: true }).filter((one) =>
@@ -1753,10 +1761,20 @@ const settledByPart = (module: string, part: string): ReadonlyMap<string, string
     for (const name of readdirSync(new URL(`${entry.name}/`, dir)).filter((one) =>
       one.endsWith(".d.ts"),
     )) {
-      const body = wanted.exec(readFileSync(new URL(`${entry.name}/${name}`, dir), "utf8"))?.[1];
-      if (body === undefined) continue;
+      const hit = wanted.exec(readFileSync(new URL(`${entry.name}/${name}`, dir), "utf8"));
+      if (hit === null) continue;
 
-      for (const [, value, prop] of body.matchAll(/@default ([^\n*]+?)\s*\n\s*\*\/\s*(\w+)\??:/g)) {
+      for (const [, from, picked] of hit[1]!.matchAll(/Pick<(\w+)\.Props,\s*([^>]+)>/g)) {
+        const only = new Set([...picked!.matchAll(/'([^']+)'/g)].map(([, one]) => one!));
+
+        for (const [prop, value] of defaultsIn(module, `${from!}Props`, new Set([...seen, key]))) {
+          if (only.has(prop)) found.set(prop, value);
+        }
+      }
+
+      for (const [, value, prop] of hit[2]!.matchAll(
+        /@default ([^\n*]+?)\s*\n\s*\*\/\s*(\w+)\??:/g,
+      )) {
         found.set(prop!, value!.replace(/^'|'$/g, ""));
       }
     }
@@ -1765,6 +1783,9 @@ const settledByPart = (module: string, part: string): ReadonlyMap<string, string
   primitiveDefaults.set(key, found);
   return found;
 };
+
+const settledByPart = (module: string, part: string) =>
+  defaultsIn(module, `${pascal(module)}${part}Props`);
 
 const partsBehind = new Map<string, readonly { module: string; part: string }[]>();
 
@@ -1776,7 +1797,13 @@ for (const file of readdirSync(componentDir).filter((name) => name.endsWith(".ts
     ),
   );
 
-  for (const [, owner, declared] of source.matchAll(/export type (\w+Props) =([^;]*);/g)) {
+  /* Either shape says the same thing: `Field` writes an interface because it adds a `className`. */
+  const declarations = [
+    ...source.matchAll(/export type (\w+Props) =([^;]*);/g),
+    ...source.matchAll(/export interface (\w+Props)\s+extends([^{]*)\{/g),
+  ];
+
+  for (const [, owner, declared] of declarations) {
     const parts = [...declared!.matchAll(/(\w+)\.(\w+)\.Props/g)].flatMap(([, alias, part]) => {
       const module = imported.get(alias!);
 
@@ -1844,22 +1871,33 @@ test("every default a page states is the one the component falls back to", () =>
   expect(fallsBackTo.get("NumberTickerProps")?.get("pad")).toBe("0");
   /* A signature written on one line is still a signature: `Breakdown` settles `showLegend` on it. */
   expect(fallsBackTo.get("BreakdownProps")?.get("showLegend")).toBe("true");
-  /*
-   * 52 of the 58 defaults the pages state are weighed: 28 this kit settles itself, the rest read
-   * from the primitive behind it. The floor is asserted because a rule that reads no signature and
-   * no declaration agrees with every page it is given.
-   */
-  const weighed = pages.flatMap(({ source }) =>
+  const stated = pages.flatMap(({ source }) =>
     openingTags(source, "Props").flatMap((tag) => {
       const [, type] = /<Props<(\w+Props)>/.exec(tag) ?? [];
 
-      return [...tag.matchAll(/\{\s*name: "(\w+)",\s*fallback: "[^"]*"/g)].filter(([, prop]) =>
-        settlesOn.get(type ?? "")?.has(prop!),
-      );
+      return [...tag.matchAll(/\{\s*name: "(\w+)",\s*fallback: "[^"]*"/g)].map(([, prop]) => ({
+        named: `${type}.${prop}`,
+        weighed: settlesOn.get(type ?? "")?.has(prop!) === true,
+      }));
     }),
   );
 
-  expect(weighed.length).toBeGreaterThan(49);
+  /*
+   * 55 of the 58 defaults the pages state are weighed: 28 this kit settles in its own signature,
+   * the rest read from the primitive behind it. The three left over are named rather than counted,
+   * so a new one that slips out of reach fails here instead of quietly lowering the total.
+   *
+   * Both sizes come from `buttonVariants.defaultVariants`, which the union rule above already
+   * weighs. The bars' `max` is prose for a default the component works out from the data it is
+   * given, which is what a `fallback` being a string is for.
+   */
+  expect(
+    stated
+      .filter(({ weighed }) => !weighed)
+      .map(({ named }) => named)
+      .sort(),
+  ).toEqual(["BarsProps.max", "PopoverTriggerProps.size", "ToolbarButtonProps.size"]);
+  expect(stated.length).toBeGreaterThan(55);
   expect(misstatedDefault(pages, settlesOn)).toEqual([]);
 });
 
