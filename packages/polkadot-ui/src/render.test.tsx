@@ -177,6 +177,20 @@ test("the grid names itself and says which keys walk it", () => {
   expect(html).toContain('aria-keyshortcuts="ArrowLeft ArrowRight ArrowUp ArrowDown"');
 });
 
+/**
+ * `label` says "Omit for a bare track", and `showValue` defaults to true, so omitting the label
+ * alone leaves a header carrying the value. Both halves have to go for the track to be bare.
+ */
+test("a track is bare only when neither the label nor the value is asked for", () => {
+  const noLabel = renderToStaticMarkup(<kit.Slider defaultValue={40} />);
+  const bare = renderToStaticMarkup(<kit.Slider showValue={false} />);
+  const labelled = renderToStaticMarkup(<kit.Slider label="zoom" defaultValue={40} />);
+
+  expect(noLabel).toContain("40");
+  expect(bare).not.toMatch(/>\d+</);
+  expect(labelled).toContain("zoom");
+});
+
 test("the deck says which keys walk it, and only while a card is there", () => {
   const card = { id: "a", kind: "gist", title: "one", body: "b", left: "l", right: "r" };
   const holding = renderToStaticMarkup(<kit.SwipeDeck items={[card]} />);

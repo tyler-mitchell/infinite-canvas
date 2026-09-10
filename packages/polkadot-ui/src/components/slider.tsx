@@ -22,9 +22,9 @@ const slider = tv({
 type WithClassName<T> = Omit<T, "className"> & { className?: string };
 
 export type SliderProps = WithClassName<SliderPrimitive.Root.Props> & {
-  /** Rendered above the control. Omit for a bare track. */
+  /** Rendered above the control. A bare track needs `showValue={false}` as well. */
   readonly label?: string;
-  /** Shows the current value beside the label. */
+  /** Shows the current value beside the label, and on its own when there is no label. */
   readonly showValue?: boolean;
 };
 
