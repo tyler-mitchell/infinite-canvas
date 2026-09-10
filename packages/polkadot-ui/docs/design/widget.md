@@ -114,6 +114,16 @@ const text = tv({
 props: { role: "status", "aria-live": "polite", ... }
 ```
 
+That behaviour is the whole difference, and it is wrong for a word in a sentence. `Code` is the
+same mono in a `code` element with no voice, for naming a component or a prop inside prose. The
+forms page marked seven terms with `Readout` before the pair existed, and gave a reader seven
+regions that announce `Field` and never change.
+
+```tsx
+<Readout>8.2 ms</Readout>   // a figure that changes in place — announces
+<Code>Field</Code>          // a name from the code in a sentence — silent
+```
+
 ## The scope rule, and why it was overruled
 
 This document originally drew the line at vocabulary:

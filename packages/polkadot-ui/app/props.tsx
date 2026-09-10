@@ -21,6 +21,12 @@ const props = tv({
 /**
  * A prop's own type, written the way a table prints it. String members come through as themselves;
  * a boolean prints as the two words a reader would type, and a number as any number.
+ *
+ * What it does and does not catch, tried on real rows rather than reasoned about. A union is
+ * checked: a `side` of `righte` fails and the error names the row, the prop and the component. A
+ * render prop resolves to nothing, so naming any value for one fails, which is right — a function
+ * has no values to list. A prop typed plainly as `string` takes anything, because a string has no
+ * values to enumerate either, and there the row is as free as it ever was.
  */
 type Printed<V> =
   | Extract<V, string>
