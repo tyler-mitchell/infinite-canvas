@@ -332,11 +332,21 @@ test("the paper hairline is decoration, and the total does not lean on it", () =
  * is not a state: a placeholder is what an empty field shows, under no condition at all.
  */
 /*
- * `data-highlighted` is a state like the rest: it is how Base UI marks the menu item under the
- * pointer or the arrow keys, and the item paints a fill and writes an ink under it. Left out, the
- * fill would have been matched against the ink that being highlighted replaces.
+ * The states a modifier can name. Anything missing here is read as no state at all, which is worse
+ * than being ignored: an ungated ink is paired with every fill in its slot, including fills it
+ * never sits on.
+ *
+ * `data-highlighted` is how Base UI marks the menu item under the pointer or the arrow keys.
+ * `data-active` and `data-selected` mark the nav link on the page you are reading and the chosen
+ * row of a select or a combobox. Every one of the three paints a fill, writes an ink, or both.
+ *
+ * Measured on the nav link, which carries three states in one string: with `data-active` missing,
+ * the resting ink was paired against the fill that only the active link paints. Nothing fails on
+ * that pair today — it needed a thin resting ink planted to show at all — but it is a wrong answer
+ * waiting for the colour to change.
  */
-const STATE = /^(?:group-)?(hover|focus-visible|focus|active|data-highlighted)(?:\/[\w-]+)?$/;
+const STATE =
+  /^(?:group-)?(hover|focus-visible|focus|active|data-highlighted|data-active|data-selected)(?:\/[\w-]+)?$/;
 
 const gateOf = (one: string) => {
   const modifiers = one.split(":").slice(0, -1);
