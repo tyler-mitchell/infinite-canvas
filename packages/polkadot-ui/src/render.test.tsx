@@ -304,3 +304,21 @@ test("the deck says which keys walk it, and only while a card is there", () => {
   expect(drained).not.toContain("aria-keyshortcuts");
   expect(drained).toContain('tabindex="-1"');
 });
+
+/**
+ * Padding holds the width of a number that falls a place, so the zeros are a width and not part of
+ * the value. They were being read out: a padded nine and a half thousand announced as `09562`.
+ */
+test("a padded number is shown padded and read out plain", () => {
+  const padded = renderToStaticMarkup(<kit.NumberTicker value={9562} pad={5} locale />);
+  const plain = renderToStaticMarkup(<kit.NumberTicker value={9562} locale />);
+  const spoken = (markup: string) => /class="sr-only">([^<]*)</.exec(markup)?.[1];
+
+  const reels = (markup: string) => markup.split("overflow-hidden").length - 1;
+
+  expect(spoken(padded)).toBe("9,562");
+  expect(spoken(plain)).toBe("9,562");
+  /* Five digits are drawn rather than four, which is the whole point of asking for padding. */
+  expect(reels(padded)).toBe(5);
+  expect(reels(plain)).toBe(4);
+});

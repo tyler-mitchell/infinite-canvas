@@ -88,10 +88,12 @@ function NumberTicker({
   const styles = numberTicker();
   const text = tickerText(value, pad, locale);
   const cells = tickerCells(text, stagger);
+  /* Padding holds the width of a falling number. It is a width, not a value, so it is not spoken. */
+  const spoken = tickerText(value, 0, locale);
 
   return (
     <span data-slot="number-ticker" className={styles.root({ className })} {...props}>
-      <span className={styles.whole()}>{prefix + text + suffix}</span>
+      <span className={styles.whole()}>{prefix + spoken + suffix}</span>
       <span aria-hidden className={styles.fixed()}>
         {prefix}
       </span>
