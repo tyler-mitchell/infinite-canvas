@@ -4,9 +4,7 @@ import {
   Button,
   buttonVariants,
   Checkbox,
-  checkboxVariants,
   Combobox,
-  comboboxVariants,
   Display,
   Field,
   type FieldProps,
@@ -17,7 +15,6 @@ import {
   Label,
   Meta,
   NumberField,
-  numberFieldVariants,
   Prose,
   Radio,
   RadioGroup,
@@ -25,7 +22,6 @@ import {
   Readout,
   Row,
   Select,
-  selectVariants,
   Slider,
   type SliderProps,
   Surface,
@@ -230,7 +226,6 @@ function Controls() {
           It is a third state rather than a style, so it says <Readout>mixed</Readout> to a reader
           who cannot see the dash, and clicking it settles the whole group one way.
         </Prose>
-        <Api name="checkbox" of={checkboxVariants} except={["checked"]} />
       </section>
 
       <section className={styles.section()}>
@@ -353,7 +348,6 @@ function Controls() {
           that turns over, a tick beside the chosen row, and the same <Readout>Field</Readout> that
           names every other control on this page.
         </Prose>
-        <Api name="select" of={selectVariants} />
       </section>
 
       <section className={styles.section()}>
@@ -386,7 +380,6 @@ function Controls() {
           matches none of them, rather than closing on an empty box. The field is the form control,
           so the <Readout>Field</Readout> label names it, the same as everything above.
         </Prose>
-        <Api name="combobox" of={comboboxVariants} />
       </section>
 
       <section className={styles.section()}>
@@ -414,7 +407,6 @@ function Controls() {
           the cursor does not run off the edge of the screen. Typing still works, and so do the two
           steps.
         </Prose>
-        <Api name="number field" of={numberFieldVariants} />
       </section>
 
       <section className={styles.section()}>

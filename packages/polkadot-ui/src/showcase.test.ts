@@ -383,6 +383,71 @@ test("a readme quotation that no longer matches its component is reported", () =
   expect(misquoted(quoted, () => "const a = 1;")).toEqual(["a.tsx has no tv block to quote"]);
 });
 
+/**
+ * `Api` reads a `tv` object and prints its variants. Given one with none — or one whose every
+ * variant is excepted — it prints the words "no variants" instead, which a reader sees.
+ *
+ * Forty components have no variants and no table, so a table saying so is out of step with the
+ * page around it as well as empty. Four went up in one sitting before anyone read the page.
+ */
+const saysNothing = (
+  sources: readonly { readonly file: string; readonly source: string }[],
+  variantsOf: (name: string) => readonly string[],
+) =>
+  sources
+    .flatMap(({ file, source }) =>
+      openingTags(source, "Api").map((tag) => {
+        const of = /of=\{(\w+)\}/.exec(tag)?.[1] ?? "";
+        const except = [
+          ...(/except=\{\[([^\]]*)\]\}/.exec(tag)?.[1] ?? "").matchAll(/"(\w+)"/g),
+        ].map(([, key]) => key!);
+
+        return { file, of, shown: variantsOf(of).filter((key) => !except.includes(key)) };
+      }),
+    )
+    .filter(({ shown }) => shown.length === 0)
+    .map(({ file, of }) => `${file} tables ${of}, which has nothing to list`)
+    .sort();
+
+test("a variant table with nothing to list is reported", () => {
+  const page = [
+    {
+      file: "p.tsx",
+      source: '<Api name="a" of={aVariants} />\n<Api of={bVariants} except={["checked"]} />',
+    },
+  ];
+  const variants = (name: string) => (name === "aVariants" ? ["tone"] : ["checked"]);
+
+  expect(saysNothing(page, variants)).toEqual([
+    "p.tsx tables bVariants, which has nothing to list",
+  ]);
+  expect(saysNothing(page, () => ["tone", "checked"])).toEqual([]);
+});
+
+test("no page shows a variant table that has nothing to list", () => {
+  const variantsOf = (name: string) => {
+    const file = readdirSync(componentDir).find(
+      (candidate) =>
+        candidate.endsWith(".tsx") &&
+        new RegExp(String.raw`\bas ${name}\b`).test(
+          readFileSync(new URL(candidate, componentDir), "utf8"),
+        ),
+    );
+    if (!file) return [];
+
+    const source = readFileSync(new URL(file, componentDir), "utf8");
+    const block = /const \w+ = tv\(\{[\s\S]*?\n\}\);/.exec(source)?.[0] ?? "";
+    const listed = /\n {2}variants: \{([\s\S]*?)\n {2}\},/.exec(block)?.[1] ?? "";
+
+    return [...listed.matchAll(/^ {4}(\w+): \{/gm)].map(([, key]) => key!);
+  };
+
+  /* Read first: a lookup that found no variants for anything would report every table on the page. */
+  expect(variantsOf("buttonVariants")).toEqual(["tone", "size"]);
+  expect(variantsOf("selectVariants")).toEqual([]);
+  expect(saysNothing(pages, variantsOf)).toEqual([]);
+});
+
 test("every component the readme quotes is quoted as it is", () => {
   const readme = readFileSync(new URL("../README.md", import.meta.url), "utf8");
 
