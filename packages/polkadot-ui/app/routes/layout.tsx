@@ -91,6 +91,13 @@ function Layout() {
             </Row>
             <Prose>A hairline, a near-black fill and a long soft shadow.</Prose>
           </Surface>
+          <Surface tone="card" interactive={false}>
+            <Row>
+              <Label>card</Label>
+              <Meta>interactive false</Meta>
+            </Row>
+            <Prose>The same tone with the hover edge off, for a card nothing points at.</Prose>
+          </Surface>
           <Surface tone="sunken">
             <Row>
               <Label>sunken</Label>
@@ -220,6 +227,11 @@ function Layout() {
           <Separator orientation="vertical" />
           <Meta>42 ms</Meta>
         </div>
+        <Surface tone="card" className={styles.padBox()}>
+          <Meta>ruler</Meta>
+          <Separator />
+          <Meta>grid</Meta>
+        </Surface>
         <Api name="separator" of={separatorVariants} />
       </section>
 

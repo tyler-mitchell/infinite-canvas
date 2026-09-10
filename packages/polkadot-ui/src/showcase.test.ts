@@ -4,6 +4,7 @@ import { expect, test } from "vite-plus/test";
 
 import * as fixtures from "../app/fixtures.ts";
 import { activityLevel, type ActivityDay } from "./components/activity-grid.tsx";
+import * as kit from "./index.ts";
 
 /*
  * What the kit says about itself outside its own code: the pages, and the readme.
@@ -448,6 +449,205 @@ test("no page shows a variant table that has nothing to list", () => {
   expect(variantsOf("buttonVariants")).toEqual(["tone", "size"]);
   expect(variantsOf("selectVariants")).toEqual([]);
   expect(saysNothing(pages, variantsOf)).toEqual([]);
+});
+
+/**
+ * The table prints every value of every variant it lists, so a value no page draws is a promise
+ * the showcase does not keep: the reader is told a tone exists and never sees one.
+ *
+ * A default is drawn by any tag that leaves the prop out, which is how most of them are seen, so
+ * the omission counts. A default that every tag overrides does not: it is printed as the one in
+ * force and appears nowhere.
+ */
+interface Tabled {
+  readonly variants?: Record<string, Record<string, unknown>>;
+  readonly defaultVariants?: Record<string, unknown>;
+}
+
+/**
+ * Which tags a page writes for the parts a `tv` object dresses. The name of the object does not
+ * give them: `radioVariants` dresses `<RadioGroup>`, and `receiptVariants` dresses four parts of a
+ * receipt written as `<Receipt.Line>`. The file exporting the object exports the parts as well, so
+ * the tags are read from there rather than derived from the name — derived, the sweep called nine
+ * drawn values undrawn.
+ */
+const tagsOwning = new Map<string, readonly string[]>();
+
+/**
+ * A key the component works out for itself when the prop is left off — `head ?? sparklineHead(…)`.
+ * The page draws whichever value the data produces and writes none of them, so a demonstration
+ * cannot be asked for by name. Read from the call rather than assumed: the sweep called the badge
+ * and the empty head undrawn while the readouts page drew both.
+ */
+const computedKeys = new Map<string, ReadonlySet<string>>();
+
+for (const file of readdirSync(componentDir).filter((name) => name.endsWith(".tsx"))) {
+  const source = readFileSync(new URL(file, componentDir), "utf8");
+  const exported = [...source.matchAll(/^export \{([\s\S]*?)\};$/gm)]
+    .flatMap(([, list]) => list!.split(","))
+    .map((part) => part.trim().split(/\s+as\s+/));
+
+  const parts = exported
+    .map(([name]) => name!)
+    .filter((name) => /^[A-Z]/.test(name) && !name.endsWith("Variants"))
+    .flatMap(tagNamesFor);
+
+  const computed = new Set([...source.matchAll(/(\w+):\s*\1\s*\?\?/g)].map(([, key]) => key!));
+
+  for (const [, alias] of exported) {
+    if (!alias?.endsWith("Variants")) continue;
+
+    tagsOwning.set(alias, parts);
+    computedKeys.set(alias, computed);
+  }
+}
+
+const undrawnValues = (
+  sources: readonly { readonly file: string; readonly source: string }[],
+  everySource: string,
+  describes: (name: string) =>
+    | {
+        readonly config: Tabled;
+        readonly tags: readonly string[];
+        readonly computed?: ReadonlySet<string>;
+      }
+    | undefined,
+) =>
+  sources
+    .flatMap(({ file, source }) =>
+      openingTags(source, "Api").flatMap((tag) => {
+        const of = /of=\{(\w+)\}/.exec(tag)?.[1];
+        const described = of ? describes(of) : undefined;
+        const variants = described?.config.variants;
+        if (!of || !described || !variants) return [];
+
+        const except = [
+          ...(/except=\{\[([^\]]*)\]\}/.exec(tag)?.[1] ?? "").matchAll(/"(\w+)"/g),
+        ].map(([, key]) => key!);
+
+        const written = described.tags.flatMap((name) => openingTags(everySource, name));
+
+        return Object.entries(variants)
+          .filter(([key]) => !except.includes(key) && !described.computed?.has(key))
+          .flatMap(([key, values]) => {
+            const passed = written.flatMap((one) =>
+              [
+                ...one.matchAll(new RegExp(String.raw`\b${key}=(?:"([^"]*)"|\{([^}]*)\})`, "g")),
+              ].map(([, quoted, braced]) => ({ quoted, braced: braced?.trim() })),
+            );
+
+            /*
+             * A boolean is usually written bare, and a value out of a map arrives under a name.
+             * The tag ends at its `>`, so a bare prop written last is at the end of the string:
+             * `<Terminal.Command running` was read as a terminal that never runs.
+             */
+            const bare = written.some((one) =>
+              new RegExp(String.raw`(?<=\s)${key}(?=[\s/>]|$)`).test(one),
+            );
+            const given = passed.flatMap(({ quoted, braced }) => [quoted ?? braced!]);
+            const fromData = passed.some(
+              ({ braced }) =>
+                braced !== undefined &&
+                /^[A-Za-z_$][\w$]*$/.test(braced) &&
+                !/^(?:true|false)$/.test(braced),
+            );
+            const omitted = written.some((one) => !new RegExp(String.raw`\b${key}\b`).test(one));
+
+            const drawn = (value: string) =>
+              fromData ||
+              given.includes(value) ||
+              (bare && value === "true") ||
+              (String(described.config.defaultVariants?.[key]) === value && omitted);
+
+            return Object.keys(values)
+              .filter((value) => !drawn(value))
+              .map((value) => `${file} tables ${of} ${key}=${value}, which no page draws`);
+          });
+      }),
+    )
+    .sort();
+
+test("a tabled value that no page draws is reported", () => {
+  const config: Tabled = {
+    variants: { tone: { plain: 0, loud: 0 }, lifted: { true: 0, false: 0 } },
+    defaultVariants: { tone: "plain" },
+  };
+  const describes = (name: string) =>
+    name === "cardVariants" ? { config, tags: ["Card"] } : undefined;
+  const page = (body: string) => [{ file: "p.tsx", source: `<Api of={cardVariants} />\n${body}` }];
+
+  const all = page('<Card />\n<Card tone="loud" />\n<Card lifted />\n<Card lifted={false} />');
+
+  expect(undrawnValues(all, all[0]!.source, describes)).toEqual([]);
+
+  const quiet = page("<Card />");
+
+  expect(undrawnValues(quiet, quiet[0]!.source, describes)).toEqual([
+    "p.tsx tables cardVariants lifted=false, which no page draws",
+    "p.tsx tables cardVariants lifted=true, which no page draws",
+    "p.tsx tables cardVariants tone=loud, which no page draws",
+  ]);
+
+  /* The default is drawn by a tag that leaves it out, and by nothing else. */
+  const always = page('<Card tone="loud" lifted />\n<Card tone="plain" lifted={false} />');
+
+  expect(undrawnValues(always, always[0]!.source, describes)).toEqual([]);
+
+  const overridden = page('<Card tone="loud" lifted />\n<Card tone="loud" lifted={false} />');
+
+  expect(undrawnValues(overridden, overridden[0]!.source, describes)).toEqual([
+    "p.tsx tables cardVariants tone=plain, which no page draws",
+  ]);
+
+  /* A value out of a map is written as a name, and the map is what draws the whole set. */
+  const mapped = page("<Card tone={tone} lifted={lifted} />");
+
+  expect(undrawnValues(mapped, mapped[0]!.source, describes)).toEqual([]);
+
+  /* A key the table excepts is not a promise, so its values are not owed a drawing. */
+  const excepted = [
+    {
+      file: "p.tsx",
+      source: '<Api of={cardVariants} except={["lifted"]} />\n<Card tone="loud" />',
+    },
+  ];
+
+  expect(undrawnValues(excepted, excepted[0]!.source, describes)).toEqual([
+    "p.tsx tables cardVariants tone=plain, which no page draws",
+  ]);
+
+  /* A key the component works out for itself cannot be asked for by name either. */
+  const works = (name: string) =>
+    name === "cardVariants"
+      ? { config, tags: ["Card"], computed: new Set(["tone", "lifted"]) }
+      : undefined;
+
+  expect(undrawnValues(quiet, quiet[0]!.source, works)).toEqual([]);
+});
+
+/**
+ * The one table whose values a consumer never passes. `textVariants.as` picks which text role is
+ * drawn, and each role is exported as its own component that fixes it — `Display` is `as="display"`
+ * — so the page draws all seven and writes none of them. The same object is named in the sweep in
+ * `variants.test.tsx` for the same reason.
+ */
+const FIXED_BY_THE_PART = ["textVariants"];
+
+test("every value a variant table prints is one the pages draw", () => {
+  const describes = (name: string) => {
+    const config = FIXED_BY_THE_PART.includes(name)
+      ? undefined
+      : (kit as Record<string, Tabled | undefined>)[name];
+    const tags = tagsOwning.get(name);
+
+    return config && tags ? { config, tags, computed: computedKeys.get(name) } : undefined;
+  };
+
+  /* Read first: a lookup that found no tags would call every value undrawn. */
+  expect(describes("radioVariants")?.tags).toContain("RadioGroup");
+  expect(describes("receiptVariants")?.tags).toContain("Receipt\\.Line");
+  expect([...(describes("sparklineVariants")?.computed ?? [])]).toEqual(["head"]);
+  expect(undrawnValues(pages, everything, describes)).toEqual([]);
 });
 
 test("every component the readme quotes is quoted as it is", () => {

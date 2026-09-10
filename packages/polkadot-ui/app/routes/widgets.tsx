@@ -113,6 +113,7 @@ function Widgets() {
           <StatusDot>open to one project</StatusDot>
           <StatusDot tone="idle">idle</StatusDot>
           <StatusDot tone="off">off</StatusDot>
+          <Badge>archived</Badge>
           <Badge tone="outline">wasm</Badge>
           <Badge tone="accent">new</Badge>
           <Badge tone="quiet">draft</Badge>

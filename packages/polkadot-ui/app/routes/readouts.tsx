@@ -94,6 +94,7 @@ function Readouts() {
             </Row>
             <Sparkline
               values={LATENCY}
+              size="lg"
               caption={`${LATENCY[LATENCY.length - 1]}ms`}
               label="p95 latency over 96 hours"
             />
