@@ -22,14 +22,14 @@ type Role = NonNullable<VariantProps<typeof text>["as"]>;
 
 export interface TextProps extends useRender.ComponentProps<"span">, VariantProps<typeof text> {}
 
-const role = (name: Role, tag: keyof React.JSX.IntrinsicElements) =>
+const role = (name: Role, tag: keyof React.JSX.IntrinsicElements, slot: string = name) =>
   function Part({ className, render, ...props }: useRender.ComponentProps<"span">) {
     return useRender({
       render,
       defaultTagName: tag,
       props: {
         ...props,
-        "data-slot": `text-${name}`,
+        "data-slot": `text-${slot}`,
         className: text({ as: name, className: className as string }),
       },
     });
@@ -56,9 +56,22 @@ const Display = role("display", "h1");
 /** A sentence meant to be read rather than scanned. A `p`, and the only role with a measure. */
 const Prose = role("prose", "p");
 
+/**
+ * A name from the code inside a sentence: a component, a prop, a state. A `code`, and the readout's
+ * look without its voice.
+ *
+ * `Readout` is a live region, which is right for a figure that changes in place and wrong for a
+ * word in a paragraph. One page marked seven terms with it and gave a reader seven regions that
+ * announce "Field" and never change.
+ */
+const Code = role("readout", "code", "code");
+
 export type ReadoutProps = useRender.ComponentProps<"span">;
 
-/** Announces, so a value that updates without a layout change still reaches a screen reader. */
+/**
+ * Announces, so a value that updates without a layout change still reaches a screen reader. For a
+ * term in a sentence, which never updates, reach for `Code` instead.
+ */
 function Readout({ className, render, ...props }: ReadoutProps) {
   return useRender({
     render,
@@ -73,4 +86,4 @@ function Readout({ className, render, ...props }: ReadoutProps) {
   });
 }
 
-export { Display, Kind, Label, Meta, Prose, Readout, Title, text as textVariants };
+export { Code, Display, Kind, Label, Meta, Prose, Readout, Title, text as textVariants };

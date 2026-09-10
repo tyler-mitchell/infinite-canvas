@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import {
+  Code,
   Display,
   Kind,
   Label,
@@ -298,6 +299,12 @@ function Foundations() {
             <div className={styles.scaleRow()}>
               <Readout>Readout · 11px mono</Readout>
               <Meta>announces, so a value that changes in place still reaches a reader</Meta>
+            </div>
+            <div className={styles.scaleRow()}>
+              <Code>Code · the same mono</Code>
+              <Meta>
+                a name from the code in a sentence, which never changes and never announces
+              </Meta>
             </div>
             <div className={styles.scaleRow()}>
               <Meta>Meta · 11px — the line beside a heading, and the default role</Meta>

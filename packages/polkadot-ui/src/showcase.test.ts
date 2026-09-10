@@ -368,6 +368,43 @@ test("every breakdown says the shares it draws", () => {
 });
 
 /**
+ * `Readout` is a live region, which is what a figure changing in place needs and what a word in a
+ * paragraph does not. The forms page marked seven terms with it, so a reader arrived at seven
+ * regions that announce "Field" and never change again.
+ *
+ * `Code` is the same mono without the voice. The rule watches for the substitution coming back,
+ * since the two look identical on the page and only one of them speaks.
+ */
+const spokenTerms = (sources: readonly { readonly file: string; readonly source: string }[]) =>
+  sources
+    .flatMap(({ file, source }) =>
+      [...source.matchAll(/<Prose\b[\s\S]*?<\/Prose>/g)]
+        .flatMap(([block]) => [...block.matchAll(/<Readout>([\s\S]*?)<\/Readout>/g)])
+        .map(([, said]) => `${file}: a sentence says "${said!.trim()}" through a live region`),
+    )
+    .sort();
+
+test("a term marked with a live region inside a sentence is reported", () => {
+  const spoken = [
+    { file: "p.tsx", source: "<Prose>from the <Readout>Field</Readout> around</Prose>" },
+  ];
+  const quiet = [{ file: "p.tsx", source: "<Prose>from the <Code>Field</Code> around it</Prose>" }];
+  /* A readout outside a sentence is a readout doing its job. */
+  const figure = [{ file: "p.tsx", source: "<Row><Readout>8.2 ms</Readout></Row>" }];
+
+  expect(spokenTerms(spoken)).toEqual(['p.tsx: a sentence says "Field" through a live region']);
+  expect(spokenTerms(quiet)).toEqual([]);
+  expect(spokenTerms(figure)).toEqual([]);
+});
+
+test("no sentence marks a term with a live region", () => {
+  const terms = pages.flatMap(({ source }) => [...source.matchAll(/<Code>/g)]);
+
+  expect(terms.length).toBeGreaterThan(6);
+  expect(spokenTerms(pages)).toEqual([]);
+});
+
+/**
  * The readme counts the kit twice — how many component modules there are, and how many of them
  * draw with `slots` rather than a `base`. Both were a component behind, and it also sent a reader
  * to a route that had been renamed. Numbers written in prose go stale the moment a file is added,

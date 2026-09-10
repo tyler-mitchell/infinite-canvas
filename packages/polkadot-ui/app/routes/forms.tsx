@@ -3,6 +3,7 @@ import { useState } from "react";
 import {
   Button,
   Checkbox,
+  Code,
   Combobox,
   Display,
   Field,
@@ -17,7 +18,6 @@ import {
   Radio,
   RadioGroup,
   radioVariants,
-  Readout,
   Row,
   Select,
   Surface,
@@ -60,10 +60,9 @@ function Forms() {
       <div className={styles.head()}>
         <Display>forms</Display>
         <Prose className={styles.lede()}>
-          Every one of these takes its name from the <Readout>Field</Readout> around it rather than
-          from a prop of its own, so a reader who cannot see the control still hears what it is for.
-          The last four are one control drawn four ways: the input's look, laid on rather than
-          copied.
+          Every one of these takes its name from the <Code>Field</Code> around it rather than from a
+          prop of its own, so a reader who cannot see the control still hears what it is for. The
+          last four are one control drawn four ways: the input's look, laid on rather than copied.
         </Prose>
       </div>
 
@@ -128,8 +127,8 @@ function Forms() {
         </div>
         <Prose className={styles.lede()}>
           The mixed state is the parent of a group where some children are ticked and some are not.
-          It is a third state rather than a style, so it says <Readout>mixed</Readout> to a reader
-          who cannot see the dash, and clicking it settles the whole group one way.
+          It is a third state rather than a style, so it says <Code>mixed</Code> to a reader who
+          cannot see the dash, and clicking it settles the whole group one way.
         </Prose>
       </section>
 
@@ -168,8 +167,8 @@ function Forms() {
         </div>
         <Prose className={styles.lede()}>
           The group is the thing a reader hears named, not each button, so it sits inside a stacked{" "}
-          <Readout>Field</Readout> whose label names it. One disabled option stays in the group and
-          out of the arrow keys, which is what a radio group does rather than what it is told.
+          <Code>Field</Code> whose label names it. One disabled option stays in the group and out of
+          the arrow keys, which is what a radio group does rather than what it is told.
         </Prose>
         <Api name="radio" of={radioVariants} except={["checked"]} />
       </section>
@@ -206,8 +205,8 @@ function Forms() {
         </div>
         <Prose className={styles.lede()}>
           A placeholder is not a name. It goes the moment anything is typed, and a reader who cannot
-          see the field hears nothing at all — so every one of these sits in a{" "}
-          <Readout>Field</Readout> whose label stays.
+          see the field hears nothing at all — so every one of these sits in a <Code>Field</Code>{" "}
+          whose label stays.
         </Prose>
         <Api name="input" of={inputVariants} />
       </section>
@@ -252,8 +251,8 @@ function Forms() {
         <Prose className={styles.lede()}>
           The trigger is the input's own look, laid on rather than copied, so the two cannot drift
           apart. The list is the menu's popup for the same reason. What is left here is a chevron
-          that turns over, a tick beside the chosen row, and the same <Readout>Field</Readout> that
-          names every other control on this page.
+          that turns over, a tick beside the chosen row, and the same <Code>Field</Code> that names
+          every other control on this page.
         </Prose>
       </section>
 
@@ -283,9 +282,9 @@ function Forms() {
           </Surface>
         </div>
         <Prose className={styles.lede()}>
-          Type to narrow, and the list says <Readout>nothing by that name</Readout> when the query
-          matches none of them, rather than closing on an empty box. The field is the form control,
-          so the <Readout>Field</Readout> label names it, the same as everything above.
+          Type to narrow, and the list says <Code>nothing by that name</Code> when the query matches
+          none of them, rather than closing on an empty box. The field is the form control, so the{" "}
+          <Code>Field</Code> label names it, the same as everything above.
         </Prose>
       </section>
 

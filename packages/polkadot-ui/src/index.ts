@@ -215,6 +215,7 @@ export {
 export { StatusDot, statusDotVariants, type StatusDotProps } from "./components/status-dot.tsx";
 export { Surface, surfaceVariants, type SurfaceProps } from "./components/surface.tsx";
 export {
+  Code,
   Display,
   Kind,
   Label,
