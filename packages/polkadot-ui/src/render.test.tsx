@@ -51,7 +51,6 @@ const NEEDS_ITS_ROOT = new Set([
   "PopoverClose",
   "PopoverContent",
   "PopoverDescription",
-  "PopoverPopup",
   "PopoverTitle",
   "PopoverTrigger",
   "Tab",
@@ -107,18 +106,31 @@ test("a component draws markup unless it is a root that waits to be opened", () 
   expect(silent.sort()).toEqual([...DRAWS_ONLY_WHEN_OPEN].sort());
 });
 
-test("the parts that need a root say so rather than drawing wrongly", () => {
-  const quiet = [...NEEDS_ITS_ROOT].filter((name) => {
-    const value = (kit as Record<string, unknown>)[name];
-    if (typeof value !== "function") return false;
-    try {
-      renderToStaticMarkup(createElement(value as never, {}, "x"));
-      return true;
-    } catch {
-      return false;
-    }
-  });
+/*
+ * This list is the only one used to skip work rather than to assert an outcome: a name in it is
+ * left out of the sweep above. So a name that no longer exists would quietly excuse a component
+ * from being drawn at all, and `PopoverPopup` sat here doing that until it was looked for. A name
+ * that is not an exported function now fails rather than being passed over.
+ */
+test("every part the list excuses exists and does need its root", () => {
+  const missing = [...NEEDS_ITS_ROOT].filter(
+    (name) => typeof (kit as Record<string, unknown>)[name] !== "function",
+  );
 
+  const quiet = [...NEEDS_ITS_ROOT]
+    .map((name) => ({ name, value: (kit as Record<string, unknown>)[name] }))
+    .filter(({ value }) => typeof value === "function")
+    .filter(({ value }) => {
+      try {
+        renderToStaticMarkup(createElement(value as never, {}, "x"));
+        return true;
+      } catch {
+        return false;
+      }
+    })
+    .map(({ name }) => name);
+
+  expect(missing).toEqual([]);
   expect(quiet).toEqual([]);
 });
 
