@@ -9,7 +9,7 @@ const dialog = tv({
     backdrop:
       "fixed inset-0 z-50 bg-pk-scrim/66 transition-opacity duration-(--pk-duration-detail) ease-pk-swift data-ending-style:opacity-0 data-starting-style:opacity-0",
     popup:
-      "fixed top-1/2 left-1/2 z-50 flex w-[min(92vw,440px)] -translate-x-1/2 -translate-y-1/2 flex-col gap-3 rounded-pk-card border border-pk-line bg-pk-surface p-5 text-pk-ink shadow-pk-card outline-none transition-[transform,opacity] duration-(--pk-duration-detail) ease-pk-swift data-ending-style:scale-[0.98] data-ending-style:opacity-0 data-starting-style:scale-[0.98] data-starting-style:opacity-0",
+      "fixed top-1/2 left-1/2 z-50 flex max-h-[92vh] w-[min(92vw,440px)] -translate-x-1/2 -translate-y-1/2 flex-col gap-3 overflow-y-auto rounded-pk-card border border-pk-line bg-pk-surface p-5 text-pk-ink shadow-pk-card outline-none transition-[transform,opacity] duration-(--pk-duration-detail) ease-pk-swift data-ending-style:scale-[0.98] data-ending-style:opacity-0 data-starting-style:scale-[0.98] data-starting-style:opacity-0",
     title: "font-pk-sans text-pk-title text-pk-ink-bright",
     description: "font-pk-sans text-pk-body text-pk-ink-soft text-pretty",
     footer: "mt-1 flex items-center justify-end gap-2",

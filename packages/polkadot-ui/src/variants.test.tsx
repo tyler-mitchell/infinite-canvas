@@ -346,12 +346,35 @@ test("a radio small enough to need room gets it from its own group", () => {
  */
 const CLAMPED = /\b(?:max-)?w-(?:\[min\(\d+vw|\(--available-width\))/;
 
+const CAPPED = /\bmax-h-(?:\[min\(\d+vh|\[\d+vh\]|\(--available-height\))/;
+
+/**
+ * Height is the same question and had the same answer. At 375 by 500 the menu reached 506 against
+ * 489 of room and clipped what it could not fit, the popover reached 545 and painted off the
+ * screen, and the dialog reached 752 in a 500 tall window with its top at minus 126 — so its title
+ * and both of its actions were out of reach with no way to scroll to them.
+ *
+ * Base UI flips a popup to the roomier side before it publishes the number, and it still does with
+ * the cap in place: with nothing below the trigger and 252 above, the menu opened upward at its
+ * full height rather than scrolling in the gap beneath.
+ *
+ * A tooltip is capped by nothing on purpose. It closes when the pointer leaves it, so a scrollbar
+ * on one is a control nobody could reach.
+ */
+const UNCAPPED_ON_PURPOSE = ["tooltip"];
+
 test("a floating surface that names no ceiling is reported", () => {
   expect(CLAMPED.test("z-50 w-[min(92vw,440px)] rounded")).toBe(true);
   expect(CLAMPED.test("z-50 max-w-[min(92vw,300px)] rounded")).toBe(true);
   expect(CLAMPED.test("z-50 max-w-(--available-width) min-w-[168px]")).toBe(true);
   expect(CLAMPED.test("z-50 min-w-[168px] rounded")).toBe(false);
   expect(CLAMPED.test("z-50 w-[440px] rounded")).toBe(false);
+
+  expect(CAPPED.test("z-50 max-h-[92vh] overflow-y-auto")).toBe(true);
+  expect(CAPPED.test("z-50 max-h-(--available-height) overflow-y-auto")).toBe(true);
+  expect(CAPPED.test("z-50 max-h-[min(18rem,var(--available-height))]")).toBe(false);
+  expect(CAPPED.test("z-50 max-h-[440px] overflow-y-auto")).toBe(false);
+  expect(CAPPED.test("z-50 rounded")).toBe(false);
 });
 
 test("every surface that floats clamps to the room it has", () => {
@@ -362,10 +385,22 @@ test("every surface that floats clamps to the room it has", () => {
     tooltip: kit.tooltipVariants().popup(),
   };
 
+  const wide = Object.entries(floating)
+    .filter(([, classes]) => !CLAMPED.test(classes))
+    .map(([name]) => `${name} names no ceiling`);
+
+  const tall = Object.entries(floating)
+    .filter(([name]) => !UNCAPPED_ON_PURPOSE.includes(name))
+    .filter(([, classes]) => !CAPPED.test(classes))
+    .map(([name]) => `${name} can outgrow the window`);
+
+  expect(wide).toEqual([]);
+  expect(tall).toEqual([]);
+  /* A capped surface with nowhere for the overflow to go is a surface that hides it. */
   expect(
     Object.entries(floating)
-      .filter(([, classes]) => !CLAMPED.test(classes))
-      .map(([name]) => `${name} names no ceiling`),
+      .filter(([, classes]) => CAPPED.test(classes) && !classes.includes("overflow-y-auto"))
+      .map(([name]) => `${name} caps its height and cannot be scrolled`),
   ).toEqual([]);
 });
 

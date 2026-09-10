@@ -8,7 +8,7 @@ const menu = tv({
   slots: {
     positioner: "z-50",
     popup:
-      "z-50 max-w-(--available-width) min-w-[168px] origin-(--transform-origin) overflow-hidden rounded-pk-inner border border-pk-line bg-pk-surface p-1 text-pk-ink shadow-pk-card outline-none transition-[transform,opacity] duration-(--pk-duration-detail) ease-pk-swift data-ending-style:scale-[0.97] data-ending-style:opacity-0 data-starting-style:scale-[0.97] data-starting-style:opacity-0",
+      "z-50 max-h-(--available-height) max-w-(--available-width) min-w-[168px] origin-(--transform-origin) overflow-x-hidden overflow-y-auto rounded-pk-inner border border-pk-line bg-pk-surface p-1 text-pk-ink shadow-pk-card outline-none transition-[transform,opacity] duration-(--pk-duration-detail) ease-pk-swift data-ending-style:scale-[0.97] data-ending-style:opacity-0 data-starting-style:scale-[0.97] data-starting-style:opacity-0",
     item: "flex cursor-pointer items-center justify-between gap-4 rounded-pk-chip px-2 py-1.5 font-pk-sans text-pk-control whitespace-nowrap text-pk-ink-muted outline-none select-none data-disabled:pointer-events-none data-disabled:opacity-40 data-highlighted:bg-pk-accent/15 data-highlighted:text-pk-ink-bright",
     groupLabel: "px-2 pt-2 pb-1 font-pk-sans text-pk-micro text-pk-ink-faint uppercase",
     separator: "my-1 h-px bg-pk-line-inner",
