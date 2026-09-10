@@ -8,6 +8,8 @@ const numberTicker = tv({
       "flex flex-col transition-transform duration-(--ticker-duration) ease-pk-settle will-change-transform",
     cell: "flex h-[1em] items-center justify-center",
     fixed: "inline-block",
+    /* The value unsplit, for anything that reads it rather than looks at it. */
+    whole: "sr-only",
   },
 });
 
@@ -89,7 +91,7 @@ function NumberTicker({
 
   return (
     <span data-slot="number-ticker" className={styles.root({ className })} {...props}>
-      <span className="sr-only">{prefix + text + suffix}</span>
+      <span className={styles.whole()}>{prefix + text + suffix}</span>
       <span aria-hidden className={styles.fixed()}>
         {prefix}
       </span>

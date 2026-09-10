@@ -983,3 +983,33 @@ test("a slot that paints an unnamed colour is reported", () => {
 test("no slot paints a colour beyond the ones already on record", () => {
   expect(unnamedColour(styledSources)).toEqual(COLOURS_THE_PALETTE_DOES_NOT_NAME);
 });
+
+/**
+ * Every class in this kit comes from a `tv` slot at the top of its file, so one written straight
+ * into the markup is out of reach of all five rules above and of the eye reading the slot list.
+ * The kit held this everywhere but one span, which named `sr-only` inline.
+ */
+const stringInMarkup = (sources: readonly { readonly file: string; readonly source: string }[]) =>
+  sources
+    .flatMap(({ file, source }) =>
+      [
+        ...source.matchAll(/className="([^"]*)"/g),
+        ...source.matchAll(/className=\{"([^"]*)"\}/g),
+      ].map(([, value]) => `${file} className="${value}"`),
+    )
+    .sort();
+
+test("a class written straight into the markup is reported", () => {
+  expect(
+    stringInMarkup([
+      { file: "a.tsx", source: `<div className={styles.root()} />` },
+      { file: "b.tsx", source: `<div className="flex items-center gap-2" />` },
+      { file: "c.tsx", source: `<span className={"text-pk-ink"} />` },
+      { file: "d.tsx", source: `<div className={styles.root({ className })} />` },
+    ]),
+  ).toEqual(['b.tsx className="flex items-center gap-2"', 'c.tsx className="text-pk-ink"']);
+});
+
+test("every class comes from a slot, and none from the markup", () => {
+  expect(stringInMarkup(styledSources)).toEqual([]);
+});
