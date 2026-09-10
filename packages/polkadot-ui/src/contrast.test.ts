@@ -177,6 +177,52 @@ test("the focus ring clears 3:1 on every seat a control can sit on", () => {
 });
 
 /**
+ * The rule above can only weigh a seat some component wrote down, so a container that paints a
+ * ground and never names it is invisible to it. Four were: the toolbar tray, and the dialog, menu
+ * and popover popups. A button inside any of them offset its ring against the page instead — a
+ * two pixel band of `#08090a` on a `#0e0f11` tray, measured on a focused toolbar button.
+ *
+ * A container is what this asks about, so the test is whether the file brings in a control that
+ * rings itself. The icon tile paints and rings the same element, so its ring belongs to whatever
+ * the tile sits on rather than to its own fill, and it is right to stay quiet.
+ *
+ * The tooltip is named rather than passed over: its popup paints, and it composes the button for
+ * its trigger, but the trigger sits outside the popup and nothing focusable goes inside one.
+ */
+const RINGS_OUTSIDE_ITS_OWN_GROUND = ["tooltip.tsx"];
+
+const groundsWithoutSeats = (sources: readonly { file: string; source: string }[]) =>
+  sources
+    .filter(({ file }) => !RINGS_OUTSIDE_ITS_OWN_GROUND.includes(file))
+    .filter(({ source }) => /\bbg-pk-(?:surface|ground)[a-z-]*/.test(source))
+    .filter(({ source }) => /\b(?:buttonVariants|inputVariants)\b/.test(source))
+    .filter(({ source }) => !/\[--pk-ring-seat:var\(/.test(source))
+    .map(({ file }) => `${file} paints a ground and leaves the seat behind it`)
+    .sort();
+
+test("a ground painted for other controls to sit on with no seat named is reported", () => {
+  const quiet = [{ file: "a.tsx", source: 'root: "bg-pk-surface"' }];
+  const holding = [{ file: "b.tsx", source: 'root: "bg-pk-surface"\nbuttonVariants({})' }];
+  const named = [
+    {
+      file: "c.tsx",
+      source: 'root: "bg-pk-surface [--pk-ring-seat:var(--pk-surface)]"\nbuttonVariants({})',
+    },
+  ];
+
+  expect(groundsWithoutSeats(quiet)).toEqual([]);
+  expect(groundsWithoutSeats(holding)).toEqual([
+    "b.tsx paints a ground and leaves the seat behind it",
+  ]);
+  expect(groundsWithoutSeats(named)).toEqual([]);
+});
+
+test("every ground a control can be focused on names the seat behind it", () => {
+  expect(componentSources.length).toBeGreaterThan(40);
+  expect(groundsWithoutSeats(componentSources)).toEqual([]);
+});
+
+/**
  * Paper is its own ground and takes its own ring, because the accent at half alpha reaches only
  * 1.32:1 against it. Nothing puts an accent ring on paper today; this pins the ring paper does use,
  * and pins the reason the other one cannot be carried across.
