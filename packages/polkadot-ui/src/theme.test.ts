@@ -421,6 +421,60 @@ test("a series that states its length says the length it has", () => {
   expect(wrong).toEqual([]);
 });
 
+/**
+ * A props table documents what `Api` cannot read, which is anything that is not a `tv` variant.
+ * Listing a variant there prints it twice on the page, once in each table. The table is tied to
+ * its own component through the entry, because a name such as `open` or `orientation` belongs to
+ * several components and comparing against all of them at once only finds collisions.
+ */
+test("no props table documents a variant its own Api table already prints", () => {
+  const entry = read("./index.ts");
+
+  const moduleOfType = new Map(
+    [...entry.matchAll(/type (\w+Props)[^}]*?\}\s*from "\.\/components\/([\w-]+)\.tsx"/g)].map(
+      ([, type, module]) => [type!, module!],
+    ),
+  );
+  for (const [, list, module] of entry.matchAll(
+    /export \{([\s\S]*?)\} from "\.\/components\/([\w-]+)\.tsx"/g,
+  )) {
+    for (const [, type] of list!.matchAll(/type (\w+Props)/g)) moduleOfType.set(type!, module!);
+  }
+
+  const variantsOf = (module: string) => {
+    const source = readFileSync(new URL(`${module}.tsx`, componentDir), "utf8");
+    const block = /^ {2}variants: \{$([\s\S]*?)^ {2}\},$/m.exec(source)?.[1] ?? "";
+
+    return new Set([...block.matchAll(/^ {4}(\w+):/gm)].map(([, key]) => key!));
+  };
+
+  const pages = appFiles.map((file) => ({
+    file,
+    source: readFileSync(new URL(file, appDir), "utf8"),
+  }));
+
+  const doubled = pages.flatMap(({ file, source }) =>
+    [...source.matchAll(/<Props<(\w+Props)>([\s\S]*?)\/>/g)].flatMap(([, type, body]) => {
+      const module = moduleOfType.get(type!);
+      if (!module) return [];
+
+      const variants = variantsOf(module);
+
+      return [...body!.matchAll(/name: "(\w+)"/g)]
+        .map(([, name]) => name!)
+        .filter((name) => variants.has(name))
+        .map(
+          (name) =>
+            `${type} lists "${name}", which ${module}.tsx already has as a variant (${file})`,
+        );
+    }),
+  );
+
+  expect(moduleOfType.get("FieldProps")).toBe("field");
+  expect(variantsOf("field").has("layout")).toBe(true);
+  expect(doubled).toEqual([]);
+});
+
 test("a stated ratio that no longer matches its colours is reported", () => {
   const real = contrast("#ededed", "#0e0f11").toFixed(2);
 
