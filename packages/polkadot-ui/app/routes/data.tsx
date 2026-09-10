@@ -218,18 +218,16 @@ function Data() {
           <Kind>readout</Kind>
           <Meta>announces, because it changes in place</Meta>
         </Row>
-        <div className={styles.grid()}>
-          <Surface tone="card">
-            <Row>
-              <Label>frame budget</Label>
-              <Readout>8.2 ms</Readout>
-            </Row>
-            <Prose>
-              The only text role that is more than a class: it carries a live region, so a value
-              that updates in place is still reachable by someone who cannot see it change.
-            </Prose>
-          </Surface>
-        </div>
+        <Surface tone="card" className={styles.activity()}>
+          <Row>
+            <Label>frame budget</Label>
+            <Readout>8.2 ms</Readout>
+          </Row>
+          <Prose>
+            The only text role that is more than a class: it carries a live region, so a value that
+            updates in place is still reachable by someone who cannot see it change.
+          </Prose>
+        </Surface>
       </section>
     </div>
   );

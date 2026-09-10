@@ -51,12 +51,14 @@ const widgets = tv({
     head: "flex flex-col gap-2",
     lede: "max-w-[560px]",
     section: "flex flex-col gap-4",
-    grid: "grid grid-cols-[repeat(auto-fill,minmax(236px,1fr))] items-start gap-3",
+    grid: "grid grid-cols-[repeat(auto-fill,minmax(236px,1fr))] gap-3",
+    pairs: "grid grid-cols-[repeat(auto-fill,minmax(360px,1fr))] gap-3",
+    paper: "max-w-[300px]",
     marks: "flex flex-wrap items-center gap-4",
     stack: "flex flex-col gap-2",
-    tall: "h-[300px]",
-    aurora: "h-[190px]",
-    recipe: "h-[210px]",
+    tall: "min-h-[300px]",
+    aurora: "min-h-[190px]",
+    recipe: "min-h-[210px]",
     bay: "flex justify-center rounded-b-pk-tray bg-pk-tray px-4 pt-0.5 pb-4 shadow-pk-tray",
     monogram:
       "flex size-full items-center justify-center rounded-[5px] bg-pk-surface-inner font-pk-mono text-[10px] leading-none text-pk-ink-soft",
@@ -156,7 +158,7 @@ function Widgets() {
           <Kind>cards</Kind>
           <Meta>each one carries a whole idea</Meta>
         </Row>
-        <div className={styles.grid()}>
+        <div className={styles.pairs()}>
           <Aurora
             className={styles.aurora()}
             label="light"
@@ -186,7 +188,7 @@ function Widgets() {
           <Kind>cards that hold a queue</Kind>
           <Meta>a deck you sort, a feed of runs</Meta>
         </Row>
-        <div className={styles.grid()}>
+        <div className={styles.pairs()}>
           <Surface tone="sunken" padding="snug" className={styles.tall()}>
             <Row align="baseline">
               <Label>inbox</Label>
@@ -204,29 +206,27 @@ function Widgets() {
           <Kind>print</Kind>
           <Meta>paper is its own ground, with its own ink</Meta>
         </Row>
-        <div className={styles.grid()}>
-          <Surface tone="card">
-            <Row>
-              <Label>résumé</Label>
-              <Meta>a4 · 148 kB</Meta>
-            </Row>
-            <div className={styles.bay()}>
-              <Receipt>
-                <Receipt.Head mark="TM" wordmark="hyphened.dev" />
-                <Receipt.Rule />
-                <Receipt.Line name="résumé.pdf" amount="0.00" />
-                <Receipt.Note>one page · 148 kB · a4</Receipt.Note>
-                <Receipt.Rule />
-                <Receipt.Line total name="total paid" amount="0.00" />
-                <Receipt.Rule />
-                <Receipt.Line name="order" amount="RES-2048" />
-                <Receipt.Barcode value="RES-2048" />
-                <Receipt.Action>↓ download .pdf</Receipt.Action>
-                <Receipt.Sign>** thank you **</Receipt.Sign>
-              </Receipt>
-            </div>
-          </Surface>
-        </div>
+        <Surface tone="card" className={styles.paper()}>
+          <Row>
+            <Label>résumé</Label>
+            <Meta>a4 · 148 kB</Meta>
+          </Row>
+          <div className={styles.bay()}>
+            <Receipt>
+              <Receipt.Head mark="TM" wordmark="hyphened.dev" />
+              <Receipt.Rule />
+              <Receipt.Line name="résumé.pdf" amount="0.00" />
+              <Receipt.Note>one page · 148 kB · a4</Receipt.Note>
+              <Receipt.Rule />
+              <Receipt.Line total name="total paid" amount="0.00" />
+              <Receipt.Rule />
+              <Receipt.Line name="order" amount="RES-2048" />
+              <Receipt.Barcode value="RES-2048" />
+              <Receipt.Action>↓ download .pdf</Receipt.Action>
+              <Receipt.Sign>** thank you **</Receipt.Sign>
+            </Receipt>
+          </div>
+        </Surface>
       </section>
     </div>
   );

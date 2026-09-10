@@ -84,6 +84,27 @@ function Disclosure() {
           <Kind>tabs</Kind>
           <Meta>an underline that travels between tabs</Meta>
         </Row>
+        <Tabs defaultValue="commits" className={styles.measure()}>
+          <Tabs.List>
+            <Tabs.Tab value="commits">commits</Tabs.Tab>
+            <Tabs.Tab value="issues">issues</Tabs.Tab>
+            <Tabs.Tab value="readme">readme</Tabs.Tab>
+          </Tabs.List>
+          <Tabs.Panel value="commits">
+            <Meta>1,243 across 64 weeks</Meta>
+          </Tabs.Panel>
+          <Tabs.Panel value="issues">
+            <Meta>12 open · 4 labelled snap</Meta>
+          </Tabs.Panel>
+          <Tabs.Panel value="readme">
+            <Meta>4.9 kB · MIT</Meta>
+          </Tabs.Panel>
+        </Tabs>
+
+        <Row rule="below">
+          <Kind>tabs · vertical</Kind>
+          <Meta>the same indicator, turned to a rail</Meta>
+        </Row>
         <Tabs defaultValue="commits" orientation="vertical" className={styles.tabs()}>
           <Tabs.List>
             <Tabs.Tab value="commits">commits</Tabs.Tab>

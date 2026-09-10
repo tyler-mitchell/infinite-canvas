@@ -16,17 +16,13 @@ import {
 
 import { Api } from "../api.tsx";
 
-/*
- * Swatch colours are set inline because the colour is the data, the same reason a bar's height is
- * inline. Everything that is a treatment stays in the slots.
- */
 const foundations = tv({
   slots: {
     page: "flex max-w-[880px] flex-col gap-9",
     head: "flex flex-col gap-2",
     lede: "max-w-[560px]",
     section: "flex flex-col gap-4",
-    swatches: "grid grid-cols-[repeat(auto-fill,minmax(148px,1fr))] gap-2",
+    swatches: "grid grid-cols-[repeat(auto-fill,minmax(128px,1fr))] gap-2",
     swatch: "flex flex-col gap-2",
     chip: "h-12 rounded-pk-chip border border-pk-line",
     caption: "flex flex-col gap-px",
@@ -36,15 +32,8 @@ const foundations = tv({
     radius: "flex flex-col items-center gap-2",
     radiusBox: "size-16 border border-pk-line bg-pk-surface-inner",
     lines: "flex flex-col gap-3",
-    /* Wraps, because the captions are mono and cannot break: with a fixed rule beside them the
-     * longest one ran past the card, and the card clips. */
     lineRow: "flex flex-wrap items-center gap-x-3 gap-y-1",
     lineName: "w-[84px] flex-none",
-    /*
-     * Fixed, not flex-1. Sized by the caption beside it, each specimen drew a different length and
-     * the lightest hairline drew the longest — a magnitude the set does not have. Four samples that
-     * differ only in weight have to be the same length. Narrow enough to leave the caption room.
-     */
     lineRule: "h-px w-[150px] flex-none",
     spacer: "flex-1",
     scale: "flex flex-col gap-4",

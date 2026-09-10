@@ -33,6 +33,8 @@ const controls = tv({
     inline: "flex flex-wrap items-center gap-4",
     pair: "flex items-center gap-[10px]",
     grid: "grid grid-cols-[repeat(auto-fill,minmax(236px,1fr))] gap-3",
+    sliders: "grid grid-cols-[repeat(auto-fill,minmax(196px,1fr))] gap-3",
+    upright: "w-[196px]",
   },
 });
 
@@ -115,6 +117,10 @@ function Controls() {
         <Meta>
           {categories.length === 0 ? "nothing filtered" : `filtering ${categories.join(" · ")}`}
         </Meta>
+        <Row rule="below">
+          <Kind>toggle group · vertical</Kind>
+          <Meta>the same value, stacked · either row moves both</Meta>
+        </Row>
         <ToggleGroup
           look="chips"
           multiple
@@ -161,7 +167,7 @@ function Controls() {
           <Kind>slider</Kind>
           <Meta>labelled track with a mono readout</Meta>
         </Row>
-        <div className={styles.grid()}>
+        <div className={styles.sliders()}>
           <Surface tone="card">
             <Slider label="intensity" defaultValue={40} />
           </Surface>
@@ -177,10 +183,15 @@ function Controls() {
           <Surface tone="card">
             <Slider label="range" defaultValue={[24, 68]} />
           </Surface>
-          <Surface tone="card">
-            <Slider label="gain" defaultValue={55} orientation="vertical" />
-          </Surface>
         </div>
+
+        <Row rule="below">
+          <Kind>slider · vertical</Kind>
+          <Meta>the same track, stood on end</Meta>
+        </Row>
+        <Surface tone="card" className={styles.upright()}>
+          <Slider label="gain" defaultValue={55} orientation="vertical" />
+        </Surface>
       </section>
     </div>
   );

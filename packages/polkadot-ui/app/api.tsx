@@ -2,14 +2,6 @@ import { tv } from "tailwind-variants";
 
 import { Label, Meta } from "polkadot-ui";
 
-/*
- * The props table, read off the component's own `tv` object rather than written out beside it.
- * A hand-kept list is wrong the first time a variant is added; this cannot be.
- *
- * Only for components whose variants really are props. ToggleGroup's `pressed` and Switch's
- * `checked` are state Base UI hands to className, and a table built from the object alone cannot
- * tell the two apart — so those get no table rather than a table that invents two props.
- */
 const api = tv({
   slots: {
     table: "flex flex-col gap-2",
@@ -26,6 +18,13 @@ interface VariantObject {
   readonly defaultVariants?: Record<string, unknown>;
 }
 
+/**
+ * A props table read off a component's own `tv` object, so it cannot fall behind the component.
+ *
+ * Pass only components whose variants really are props. State that Base UI hands to `className`,
+ * such as a toggle's `pressed` or a switch's `checked`, is indistinguishable from a prop here, so
+ * those components get no table rather than one that invents props.
+ */
 export function Api({ of }: { readonly of: VariantObject }) {
   const styles = api();
   const variants = of.variants ?? {};

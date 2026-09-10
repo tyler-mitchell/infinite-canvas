@@ -33,6 +33,7 @@ import {
   StatusDot,
   Surface,
   SwipeDeck,
+  Terminal,
   Title,
 } from "polkadot-ui";
 
@@ -55,16 +56,16 @@ const overview = tv({
     head: "flex flex-col gap-2",
     lede: "max-w-[560px]",
     section: "flex flex-col gap-4",
-    grid: "grid grid-cols-[repeat(auto-fill,minmax(236px,1fr))] gap-3",
+    grid: "grid grid-cols-[repeat(auto-fill,minmax(360px,1fr))] gap-3",
     widgets:
-      "grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] items-start gap-3 [grid-auto-flow:row_dense]",
+      "grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-3 [grid-auto-flow:row_dense]",
     widget: "col-span-1 min-w-0 min-[440px]:col-span-2",
-    identity: "col-span-1 min-w-0 min-[440px]:col-span-2",
-    aurora: "col-span-1 h-[190px] min-w-0 min-[440px]:col-span-2",
+    identity: "col-span-1 min-w-0 justify-center min-[440px]:col-span-2",
+    aurora: "col-span-1 min-h-[190px] min-w-0 min-[440px]:col-span-2",
     small: "col-span-1 min-w-0",
     wide: "col-span-1 min-w-0 min-[440px]:col-span-2",
-    recipe: "col-span-1 h-[210px] min-w-0",
-    deck: "col-span-1 h-[300px] min-w-0 min-[440px]:col-span-2",
+    recipe: "col-span-1 min-h-[210px] min-w-0 min-[440px]:col-span-2",
+    deck: "col-span-1 min-h-[300px] min-w-0 min-[440px]:col-span-2",
     hint: "flex-none self-center",
     bindings: "flex flex-col gap-2",
     commits: "flex flex-col gap-[11px]",
@@ -331,6 +332,19 @@ function Overview() {
             </Row>
             <LayoutPreview panes={SPLIT_PANES} label="split, three panes" />
             <Meta>split · 3 panes</Meta>
+          </Surface>
+
+          <Surface tone="card" className={styles.wide()}>
+            <Row>
+              <Label>last run</Label>
+              <Meta>8.4s</Meta>
+            </Row>
+            <Terminal>
+              <Terminal.Command>pnpm exec vp check</Terminal.Command>
+              <Terminal.Command running>pnpm exec vp run -r test</Terminal.Command>
+              <Terminal.Output>412 tests passed · 0 lint · 8.4s</Terminal.Output>
+              <Terminal.Output caret>compositor: 6 passes registered</Terminal.Output>
+            </Terminal>
           </Surface>
         </div>
       </section>

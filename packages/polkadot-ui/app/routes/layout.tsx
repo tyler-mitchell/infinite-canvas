@@ -199,7 +199,7 @@ function Layout() {
         <div className={styles.inline()}>
           <Meta>edge</Meta>
           <Separator orientation="vertical" />
-          <Meta>iad</Meta>
+          <Meta>snap on</Meta>
           <Separator orientation="vertical" />
           <Meta>42 ms</Meta>
         </div>
