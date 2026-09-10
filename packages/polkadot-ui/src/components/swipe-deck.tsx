@@ -70,6 +70,10 @@ export function stampOpacity(offset: number, commit = COMMIT) {
 }
 
 export interface SwipeItem {
+  /**
+   * Unique across `items`. The deck remembers what it has settled by id, so two cards sharing one
+   * leave together: settling either takes both, and the reader never sees the second.
+   */
   readonly id: string;
   readonly kind: string;
   readonly title: string;

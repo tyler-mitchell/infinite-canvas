@@ -21,6 +21,7 @@ const activityFeed = tv({
 });
 
 export interface ActivityEntry {
+  /** Unique across `entries`: it is what tells one row from another when the list changes. */
   readonly id: string;
   readonly icon?: React.ReactNode;
   readonly name: string;

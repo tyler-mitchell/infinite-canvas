@@ -513,6 +513,39 @@ test("two parts sharing a name are still two parts", () => {
   expect([...markup.matchAll(/width:([\d.]+)%/g)].map(([, width]) => width)).toEqual(["25", "75"]);
 });
 
+/**
+ * Both of these ask a consumer for an `id`, and both now say in the type what the id is for. What
+ * a page draws is readable here: every row and every card is present, whatever the ids say.
+ *
+ * The deck's real cost is not: it remembers what it has settled by id, so two cards sharing one
+ * leave together. That happens on a settle, which is state this suite cannot reach — it is written
+ * in the type rather than measured, and the type is the only place a consumer would look.
+ */
+test("a list with a repeated id still draws every row", () => {
+  const entries = [
+    { id: "run", name: "first", note: "one" },
+    { id: "run", name: "second", note: "two" },
+  ];
+  const feed = renderToStaticMarkup(createElement(kit.ActivityFeed, { entries }));
+
+  const item = (id: string, title: string) => ({
+    id,
+    kind: "note",
+    title,
+    body: "b",
+    left: "l",
+    right: "r",
+  });
+  const deck = renderToStaticMarkup(
+    createElement(kit.SwipeDeck, { items: [item("card", "first"), item("card", "second")] }),
+  );
+
+  expect([...feed.matchAll(/data-slot="activity-entry"/g)]).toHaveLength(2);
+  expect(feed).toContain("first");
+  expect(feed).toContain("second");
+  expect([...deck.matchAll(/data-slot="swipe-card"/g)]).toHaveLength(2);
+});
+
 /** A chord may strike one cap twice: `g g` is an ordinary binding, and both caps have to draw. */
 test("a binding that repeats a cap still draws both", () => {
   const markup = renderToStaticMarkup(
