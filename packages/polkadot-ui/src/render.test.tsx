@@ -464,6 +464,15 @@ const HOSTILE: readonly { readonly name: string; readonly props: Record<string, 
   { name: "NumberTicker", props: { value: 4182, duration: Number.NaN } },
   { name: "NumberTicker", props: { value: 4182, stagger: Number.NaN } },
   { name: "Sparkline", props: { values: [1, Number.NaN, 3] } },
+  /*
+   * The emptiest series a consumer can pass, and the one the rows above never reach: each of them
+   * spoils a reading inside a series that still has days in it. A series with nothing in it takes
+   * every first and last away at once.
+   */
+  { name: "ActivityGrid", props: { days: [] } },
+  { name: "Bars", props: { values: [] } },
+  { name: "Sparkline", props: { values: [] } },
+  { name: "Breakdown", props: { parts: [] } },
 ];
 
 test("no component writes a reading it cannot use into an attribute", () => {
@@ -473,8 +482,13 @@ test("no component writes a reading it cannot use into an attribute", () => {
     const drawn = kit[name as keyof typeof kit] as unknown;
     const markup = inAttributes(renderToStaticMarkup(createElement(drawn as never, props)));
 
-    return [...markup.matchAll(/[\w-]+="[^"]*(?:NaN|Infinity)[^"]*"/g)].map(
-      ([found]) => `${name}: ${found}`,
+    /* Rows for one component leak the same string, so each says which props drew it. */
+    const row = `${name}(${Object.entries(props)
+      .map(([key, value]) => `${key}=${Array.isArray(value) ? `[${value.length}]` : String(value)}`)
+      .join(" ")})`;
+
+    return [...markup.matchAll(/[\w-]+="[^"]*(?:NaN|Infinity|undefined)[^"]*"/g)].map(
+      ([found]) => `${row}: ${found}`,
     );
   });
 

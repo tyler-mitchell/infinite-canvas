@@ -198,6 +198,11 @@ function ActivityGrid({
 
   const summary = useMemo(() => {
     const shown = columns.filter((day) => day !== null);
+    /* The plot empties on an empty series and on a week count that is not a usable number. This
+     * label is the whole of what a reader who cannot see it is given, so it says the plot is
+     * empty rather than naming a first and last day that are not there. */
+    if (shown.length === 0) return "no days";
+
     const first = shown[0]?.date.toDateString();
     const last = shown.at(-1)?.date.toDateString();
     /* One count that is not a number would otherwise be the whole total, which is the only figure
