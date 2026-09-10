@@ -230,7 +230,7 @@ function Widgets() {
           rows={[
             {
               name: "panes",
-              note: "each a left, top, width and height in fractions, plus an optional active",
+              note: "each a left, top, width and height as percentages of the frame, plus an optional active",
             },
             { name: "label", note: "names the arrangement for a reader who cannot see it" },
           ]}

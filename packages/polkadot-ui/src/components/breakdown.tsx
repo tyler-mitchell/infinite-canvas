@@ -19,6 +19,18 @@ export interface BreakdownPart {
   readonly color: string;
 }
 
+/**
+ * Each part's fraction of the whole, in order. Shares need not sum to one, and a share that is
+ * negative or not a number counts as nothing rather than dragging the whole bar with it: a
+ * breakdown is a summary, and one bad reading should not stop the rest from being drawn.
+ */
+export function breakdownShares(parts: readonly BreakdownPart[]): readonly number[] {
+  const usable = parts.map((part) => (Number.isFinite(part.share) ? Math.max(0, part.share) : 0));
+  const total = usable.reduce((sum, share) => sum + share, 0);
+
+  return total > 0 ? usable.map((share) => share / total) : usable.map(() => 0);
+}
+
 export type BreakdownProps = Omit<React.ComponentProps<"div">, "children"> & {
   readonly parts: readonly BreakdownPart[];
   /** Hides the legend, for a bar under a heading that already names the parts. */
@@ -27,25 +39,25 @@ export type BreakdownProps = Omit<React.ComponentProps<"div">, "children"> & {
 
 function Breakdown({ parts, showLegend = true, className, ...props }: BreakdownProps) {
   const styles = breakdown();
-  const total = parts.reduce((sum, part) => sum + part.share, 0) || 1;
+  const shares = breakdownShares(parts);
 
   return (
     <div data-slot="breakdown" className={styles.root({ className })} {...props}>
       <div className={styles.bar()}>
-        {parts.map((part) => (
+        {parts.map((part, index) => (
           <span
             key={part.name}
-            style={{ width: `${(part.share / total) * 100}%`, background: part.color }}
+            style={{ width: `${(shares[index] ?? 0) * 100}%`, background: part.color }}
             className={styles.segment()}
           />
         ))}
       </div>
       {showLegend ? (
         <div className={styles.legend()}>
-          {parts.map((part) => (
+          {parts.map((part, index) => (
             <span key={part.name} className={styles.item()}>
               <span style={{ background: part.color }} className={styles.swatch()} />
-              {part.name} {Math.round((part.share / total) * 100)}%
+              {part.name} {Math.round((shares[index] ?? 0) * 100)}%
             </span>
           ))}
         </div>
