@@ -1,4 +1,4 @@
-import { readdirSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 
 import { expect, test } from "vite-plus/test";
 
@@ -141,4 +141,91 @@ test("every component the entry exports is rendered on a page", () => {
   const undemonstrated = [...components].filter((name) => !isRendered(name));
 
   expect(undemonstrated).toEqual([]);
+});
+
+/**
+ * Six components work something out and export the function that does it — a ceiling, a share, the
+ * digits of a falling number, the points of a trace, where a dragged card lands, which column a day
+ * belongs in. Those six have a test beside them and the other forty do not, which is the right
+ * split: the rest are `tv` slots and JSX, and every other rule in this suite already reads those.
+ *
+ * The split was a habit rather than a rule, so the seventh could have arrived without one.
+ */
+const helpersIn = (source: string) => {
+  const local = /const (\w+) = tv\(/.exec(source)?.[1];
+  const inline = [...source.matchAll(/^export (?:const|function) (\w+)/gm)].map(
+    ([, name]) => name!,
+  );
+  const listed = [...source.matchAll(/^export \{([^}]*)\}/gm)].flatMap(([, list]) =>
+    list!.split(",").map((part) =>
+      part
+        .trim()
+        .split(/\s+as\s+/)[0]!
+        .replace(/^type\s+/, "")
+        .trim(),
+    ),
+  );
+
+  return [
+    ...new Set(
+      [...inline, ...listed].filter(
+        (name) => /^[a-z]/.test(name) && !name.endsWith("Variants") && name !== local,
+      ),
+    ),
+  ];
+};
+
+const untested = (
+  sources: readonly { readonly file: string; readonly source: string }[],
+  hasTest: (file: string) => boolean,
+) =>
+  sources
+    .map(({ file, source }) => ({ file, helpers: helpersIn(source) }))
+    .filter(({ file, helpers }) => helpers.length > 0 && !hasTest(file))
+    .map(({ file, helpers }) => `${file} works out ${helpers.join(", ")} and has no test`)
+    .sort();
+
+test("a component that works something out and has no test is reported", () => {
+  const drawn = {
+    file: "badge.tsx",
+    source: "const badge = tv({});\nexport { Badge, badge as badgeVariants };",
+  };
+  const works = {
+    file: "bars.tsx",
+    source: "const bars = tv({});\nexport function barCeiling() {}",
+  };
+
+  /* The tv object is exported under an alias and is not a helper, or every file would be one. */
+  expect(helpersIn(drawn.source)).toEqual([]);
+  expect(helpersIn(works.source)).toEqual(["barCeiling"]);
+  expect(untested([drawn, works], () => true)).toEqual([]);
+  expect(untested([drawn, works], () => false)).toEqual([
+    "bars.tsx works out barCeiling and has no test",
+  ]);
+});
+
+test("every component that works something out has a test beside it", () => {
+  const sources = componentFiles.map((file) => ({
+    file,
+    source: readFileSync(new URL(file, componentDir), "utf8"),
+  }));
+
+  /*
+   * Told that none of them has a test, the rule has to name the six and no others. Without this
+   * the clean result below would also be what an extractor that found nothing at all produced.
+   */
+  expect(untested(sources, () => false).map((line) => line.split(" ")[0])).toEqual([
+    "activity-grid.tsx",
+    "bars.tsx",
+    "breakdown.tsx",
+    "number-ticker.tsx",
+    "sparkline.tsx",
+    "swipe-deck.tsx",
+  ]);
+
+  expect(
+    untested(sources, (file) =>
+      existsSync(new URL(file.replace(".tsx", ".test.ts"), componentDir)),
+    ),
+  ).toEqual([]);
 });
