@@ -52,7 +52,7 @@ const readouts = tv({
     head: "flex flex-col gap-2",
     lede: "max-w-[560px]",
     section: "flex flex-col gap-4",
-    grid: "grid grid-cols-[repeat(auto-fill,minmax(236px,1fr))] gap-3",
+    grid: "grid grid-cols-[repeat(auto-fill,minmax(min(236px,100%),1fr))] gap-3",
     barBox: "flex h-[64px] flex-col",
     activity: "max-w-[600px]",
   },

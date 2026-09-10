@@ -20,7 +20,7 @@ const foundations = tv({
     head: "flex flex-col gap-2",
     lede: "max-w-[560px]",
     section: "flex flex-col gap-4",
-    swatches: "grid grid-cols-[repeat(auto-fill,minmax(128px,1fr))] gap-2",
+    swatches: "grid grid-cols-[repeat(auto-fill,minmax(min(128px,100%),1fr))] gap-2",
     swatch: "flex flex-col gap-2",
     chip: "h-12 rounded-pk-chip border border-pk-line",
     caption: "flex flex-col gap-px",

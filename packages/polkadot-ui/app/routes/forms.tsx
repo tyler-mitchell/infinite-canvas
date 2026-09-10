@@ -37,8 +37,8 @@ const forms = tv({
     section: "flex flex-col gap-4",
     inline: "flex flex-wrap items-center gap-4",
     pair: "flex items-center gap-2.5",
-    grid: "grid grid-cols-[repeat(auto-fill,minmax(236px,1fr))] gap-3",
-    geometry: "grid grid-cols-[repeat(auto-fill,minmax(128px,1fr))] gap-3",
+    grid: "grid grid-cols-[repeat(auto-fill,minmax(min(236px,100%),1fr))] gap-3",
+    geometry: "grid grid-cols-[repeat(auto-fill,minmax(min(128px,100%),1fr))] gap-3",
     board: "max-w-[600px]",
   },
 });
