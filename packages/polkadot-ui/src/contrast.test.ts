@@ -752,5 +752,24 @@ test("the knob on a filled track is held apart by its shadow, not by contrast", 
 
   expect(Number(contrast(knob, accent).toFixed(2))).toBe(1.63);
   expect(source).toContain("shadow-pk-knob");
-  expect(themeCss).toMatch(/--pk-lift-knob:\s*0 1px 2px rgb\(0 0 0 \/ 0\.45\)/);
+  /* Read rather than asserted: written as a fixed number here, it fired first and hid the two
+   * ratios below, which are what the claim actually rests on. */
+  const [, alpha] = /--pk-lift-knob:\s*0 1px 2px rgb\(0 0 0 \/ ([\d.]+)\)/.exec(themeCss) ?? [];
+  /*
+   * The shadow is what does the separating, so its own ratio is the one that has to clear 3:1 —
+   * the rule above pinned that the shadow exists and never that it works. Two ratios answer for
+   * it, and the second is the one with no room: the knob stands well clear of its own shadow, and
+   * the shadow is only just visible against the track it is cast on. A darker accent or a thinner
+   * shadow takes that below three, and neither would look like a contrast change while making one.
+   *
+   * Along the bottom only, since the shadow is offset a pixel down: the top edge of the knob meets
+   * the accent at the 1.63 above, and the shape carries it there.
+   */
+  const band = over("#000000", accent, Number(alpha));
+
+  /* A floor, not the value: the value belongs to the ratios, and asserting it here would hide
+   * them exactly as the fixed regex did. */
+  expect(alpha).toBeDefined();
+  expect(Number(contrast(knob, band).toFixed(2))).toBe(5.01);
+  expect(Number(contrast(band, accent).toFixed(2))).toBe(3.07);
 });
