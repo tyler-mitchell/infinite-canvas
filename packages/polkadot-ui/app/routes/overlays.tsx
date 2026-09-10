@@ -283,7 +283,11 @@ function Overlays() {
               fallback: "true",
               note: "false keeps the menu open, for an item that toggles something",
             },
-            { name: "disabled", fallback: "false", note: "skipped by the arrow keys" },
+            {
+              name: "disabled",
+              fallback: "false",
+              note: "the item stops responding, and still takes the arrow keys so it can be found",
+            },
             { name: "label", note: "what it is called when the item's own text is not plain" },
           ]}
         />
