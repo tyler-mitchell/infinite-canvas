@@ -21,20 +21,41 @@ const slider = tv({
 
 type WithClassName<T> = Omit<T, "className"> & { className?: string };
 
-export type SliderProps = WithClassName<SliderPrimitive.Root.Props> & {
-  /** Rendered above the control. A bare track needs `showValue={false}` as well. */
-  readonly label?: string;
-  /** Shows the current value beside the label, and on its own when there is no label. */
-  readonly showValue?: boolean;
-};
+/**
+ * A track says what it controls whether or not that is drawn. `label` draws above the track and
+ * names both the group and the input under it; a bare track names itself with `aria-label`, which
+ * goes to the same two places — Base UI wants it on each thumb for the input, and on the root for
+ * the group. Both props at once would be one doing nothing: a label sets `aria-labelledby`, which
+ * outranks an `aria-label` on the same element.
+ */
+type NamesItself =
+  | { readonly label: string; readonly "aria-label"?: never }
+  | { readonly label?: never; readonly "aria-label": string };
 
-function Slider({ label, showValue = true, className, ...props }: SliderProps) {
+export type SliderProps = WithClassName<Omit<SliderPrimitive.Root.Props, "aria-label">> &
+  NamesItself & {
+    /** Shows the current value beside the label, and on its own when there is no label. */
+    readonly showValue?: boolean;
+  };
+
+function Slider({
+  label,
+  showValue = true,
+  className,
+  "aria-label": ariaLabel,
+  ...props
+}: SliderProps) {
   const styles = slider();
   const values = props.value ?? props.defaultValue;
   const thumbs = Array.isArray(values) ? values.length : 1;
 
   return (
-    <SliderPrimitive.Root data-slot="slider" className={styles.root({ className })} {...props}>
+    <SliderPrimitive.Root
+      data-slot="slider"
+      aria-label={ariaLabel}
+      className={styles.root({ className })}
+      {...props}
+    >
       {label || showValue ? (
         <div className={styles.header()}>
           {label ? (
@@ -51,7 +72,12 @@ function Slider({ label, showValue = true, className, ...props }: SliderProps) {
         <SliderPrimitive.Track className={styles.track()}>
           <SliderPrimitive.Indicator className={styles.indicator()} />
           {Array.from({ length: thumbs }, (_, index) => (
-            <SliderPrimitive.Thumb key={index} index={index} className={styles.thumb()} />
+            <SliderPrimitive.Thumb
+              key={index}
+              index={index}
+              aria-label={ariaLabel}
+              className={styles.thumb()}
+            />
           ))}
         </SliderPrimitive.Track>
       </SliderPrimitive.Control>

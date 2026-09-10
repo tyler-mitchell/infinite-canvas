@@ -198,7 +198,7 @@ function Controls() {
             <Row>
               <Label>bare track</Label>
             </Row>
-            <Slider defaultValue={62} showValue={false} />
+            <Slider aria-label="bare track" defaultValue={62} showValue={false} />
           </Surface>
           <Surface tone="card">
             <Slider label="range" defaultValue={[24, 68]} />
@@ -216,6 +216,7 @@ function Controls() {
           name="slider"
           rows={[
             { name: "label", note: "names the track, and draws above it" },
+            { name: "aria-label", note: "names a track that draws no label; one or the other" },
             { name: "showValue", fallback: "true", note: "the mono readout beside the label" },
             { name: "defaultValue", note: "one number, or two for a range" },
             { name: "min", fallback: "0" },

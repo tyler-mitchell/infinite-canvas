@@ -280,17 +280,50 @@ test("a grid hands its render function undefined while no day is focused", () =>
 });
 
 /**
- * `label` says "Omit for a bare track", and `showValue` defaults to true, so omitting the label
- * alone leaves a header carrying the value. Both halves have to go for the track to be bare.
+ * `showValue` defaults to true, so dropping the drawn label alone leaves a header carrying the
+ * value. Both halves have to go for the track to be bare.
  */
 test("a track is bare only when neither the label nor the value is asked for", () => {
-  const noLabel = renderToStaticMarkup(<kit.Slider defaultValue={40} />);
-  const bare = renderToStaticMarkup(<kit.Slider showValue={false} />);
+  const noLabel = renderToStaticMarkup(<kit.Slider aria-label="opacity" defaultValue={40} />);
+  const bare = renderToStaticMarkup(<kit.Slider aria-label="opacity" showValue={false} />);
   const labelled = renderToStaticMarkup(<kit.Slider label="zoom" defaultValue={40} />);
 
   expect(noLabel).toContain("40");
   expect(bare).not.toMatch(/>\d+</);
   expect(labelled).toContain("zoom");
+});
+
+/**
+ * A bare track drew nothing that named it, and the page beside it read "bare track" in a span the
+ * control could not see, so it was announced as a slider on 62 and nothing else. Base UI wants the
+ * name on each thumb, and a range has two.
+ */
+test("a track says what it controls whether or not the label is drawn", () => {
+  /* The name is asked for on the thumb and lands on the input that thumb owns. */
+  const inputs = (html: string) => html.match(/<input[^>]*type="range"[^>]*>/g) ?? [];
+
+  const bare = renderToStaticMarkup(<kit.Slider aria-label="opacity" showValue={false} />);
+  const range = renderToStaticMarkup(<kit.Slider aria-label="window" defaultValue={[24, 68]} />);
+  const labelled = renderToStaticMarkup(<kit.Slider label="zoom" defaultValue={40} />);
+
+  expect(inputs(bare)).toHaveLength(1);
+  expect(inputs(bare).every((tag) => tag.includes('aria-label="opacity"'))).toBe(true);
+
+  /* The root is a group, and an unnamed group beside a named track is half the control. */
+  expect(bare).toMatch(/<div[^>]*data-slot="slider"[^>]*aria-label="opacity"/);
+
+  /* A range has two, and a name on one of them is a slider half announced. */
+  expect(inputs(range)).toHaveLength(2);
+  expect(inputs(range).every((tag) => tag.includes('aria-label="window"'))).toBe(true);
+
+  /*
+   * A drawn label names it instead, so nothing puts an `aria-label` there to be outranked. The
+   * link itself is not visible here: Base UI's label registers its id after mount, so the server
+   * markup carries no `aria-labelledby` and only a browser can show that half. Driven there — all
+   * six tracks on the controls page report a name, five by label and the bare one by `aria-label`.
+   */
+  expect(inputs(labelled)).toHaveLength(1);
+  expect(inputs(labelled).every((tag) => !tag.includes("aria-label="))).toBe(true);
 });
 
 test("the deck says which keys walk it, and only while a card is there", () => {
