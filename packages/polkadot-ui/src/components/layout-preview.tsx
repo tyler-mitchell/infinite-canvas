@@ -28,6 +28,13 @@ export type LayoutPreviewProps = Omit<React.ComponentProps<"div">, "children"> &
   readonly label?: string;
 };
 
+/**
+ * A pane is four of these, straight from the recipe. A length that is not a usable number is
+ * written as zero: the browser drops a declaration it cannot read, and the pane then lands at its
+ * static position rather than where it was put, which nothing reports.
+ */
+const percent = (value: number) => `${Number.isFinite(value) ? value : 0}%`;
+
 function LayoutPreview({ panes, label, className, ...props }: LayoutPreviewProps) {
   const styles = layoutPreview();
 
@@ -43,10 +50,10 @@ function LayoutPreview({ panes, label, className, ...props }: LayoutPreviewProps
         <span
           key={index}
           style={{
-            left: `${pane.left}%`,
-            top: `${pane.top}%`,
-            width: `${pane.width}%`,
-            height: `${pane.height}%`,
+            left: percent(pane.left),
+            top: percent(pane.top),
+            width: percent(pane.width),
+            height: percent(pane.height),
           }}
           className={layoutPreview({ active: pane.active ?? false }).pane()}
         />

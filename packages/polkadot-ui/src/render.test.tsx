@@ -1,3 +1,4 @@
+import { readdirSync, readFileSync } from "node:fs";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { expect, test } from "vite-plus/test";
@@ -473,6 +474,23 @@ const HOSTILE: readonly { readonly name: string; readonly props: Record<string, 
   { name: "Bars", props: { values: [] } },
   { name: "Sparkline", props: { values: [] } },
   { name: "Breakdown", props: { parts: [] } },
+  /*
+   * A pane is four lengths, each written from the recipe it is given. One row each, because a
+   * guard on one says nothing about the other three.
+   */
+  {
+    name: "LayoutPreview",
+    props: { panes: [{ left: Number.NaN, top: 0, width: 50, height: 50 }] },
+  },
+  {
+    name: "LayoutPreview",
+    props: { panes: [{ left: 0, top: Number.NaN, width: 50, height: 50 }] },
+  },
+  {
+    name: "LayoutPreview",
+    props: { panes: [{ left: 0, top: 0, width: Number.POSITIVE_INFINITY, height: 50 }] },
+  },
+  { name: "LayoutPreview", props: { panes: [{ left: 0, top: 0, width: 50, height: Number.NaN }] } },
 ];
 
 test("no component writes a reading it cannot use into an attribute", () => {
@@ -497,6 +515,33 @@ test("no component writes a reading it cannot use into an attribute", () => {
     "2 days",
   );
   expect(leaking).toEqual([]);
+});
+
+/**
+ * The rows above are written by hand, and the preview's four lengths were missing from them: it
+ * took a consumer's number straight into a length, spoiled all four, and the sweep stayed green
+ * because it had never been asked to draw one.
+ *
+ * Which values break a component cannot be worked out, so the rows stay written. Which components
+ * take a number from a consumer can be, and that is the half that was wrong.
+ */
+test("every component that takes a number from a consumer is given an unusable one", () => {
+  const takesNumbers = readdirSync(new URL("./components/", import.meta.url))
+    .filter((name) => name.endsWith(".tsx"))
+    .filter((name) =>
+      /^\s*(?:readonly\s+)?\w+\??:\s*(?:readonly\s+)?number(?:\[\])?;/m.test(
+        readFileSync(new URL(`./components/${name}`, import.meta.url), "utf8"),
+      ),
+    )
+    .map((name) => name.replace(".tsx", ""));
+
+  const spoiled = new Set(
+    HOSTILE.map(({ name }) => name.replace(/[a-z\d](?=[A-Z])/g, "$&-").toLowerCase()),
+  );
+
+  /* Were the reader to match nothing, the line below would pass by covering nothing. */
+  expect(takesNumbers.length).toBeGreaterThan(4);
+  expect(takesNumbers.filter((file) => !spoiled.has(file))).toEqual([]);
 });
 
 /**
