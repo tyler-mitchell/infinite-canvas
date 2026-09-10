@@ -221,7 +221,7 @@ function Foundations() {
       <section className={styles.section()}>
         <Row rule="below">
           <Kind>easings</Kind>
-          <Meta>three curves, three jobs</Meta>
+          <Meta>one for state, one for movement</Meta>
         </Row>
         <Surface tone="card">
           <div className={styles.lines()}>

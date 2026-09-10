@@ -257,6 +257,68 @@ test("every radius and easing the foundations page prints is the one the sheet d
   expect(misprinted(easings, declaredAs)).toEqual([]);
 });
 
+const channels = (hex: string) => {
+  const raw = hex.replace("#", "");
+  const full = raw.length === 3 ? raw.replace(/./g, (digit) => digit + digit) : raw;
+
+  return [0, 2, 4].map((at) => Number.parseInt(full.slice(at, at + 2), 16));
+};
+
+/** WCAG relative luminance, from sRGB. */
+const luminance = (hex: string) =>
+  channels(hex)
+    .map((value) => {
+      const channel = value / 255;
+
+      return channel <= 0.03928 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4;
+    })
+    .reduce((sum, channel, index) => sum + [0.2126, 0.7152, 0.0722][index]! * channel, 0);
+
+const contrast = (a: string, b: string) => {
+  const [light, dark] = [luminance(a), luminance(b)].sort((x, y) => y - x);
+
+  return (light! + 0.05) / (dark! + 0.05);
+};
+
+test("the contrast maths agrees with the values WCAG defines", () => {
+  /* Black on white is the definition's own upper bound. */
+  expect(Number(contrast("#000", "#fff").toFixed(2))).toBe(21);
+  expect(contrast("#fff", "#fff")).toBe(1);
+});
+
+/**
+ * The foundations page states a ratio beside every ink and hairline. They are correct today, and
+ * nothing tied them to the colours, so editing a colour would leave the page asserting the old
+ * number — a claim about accessibility that reads as measured.
+ */
+test("every ratio the foundations page states is the one its colours produce", () => {
+  const page = readFileSync(new URL("routes/foundations.tsx", appDir), "utf8");
+  const surface = declaredAs.get("--pk-surface")!;
+
+  const stated = [
+    ...page.matchAll(/\["(--pk-(?:ink|line)[a-z-]*)",\s*"[^"]*",\s*"(\d+\.\d+)/g),
+  ].map(([, token, printed]) => [token!, printed!] as const);
+
+  const wrong = stated
+    .map(([token, printed]) => ({
+      token,
+      printed,
+      real: contrast(declaredAs.get(token)!, surface).toFixed(2),
+    }))
+    .filter(({ printed, real }) => printed !== real)
+    .map(({ token, printed, real }) => `${token} states ${printed}, colours give ${real}`);
+
+  expect(stated.length).toBeGreaterThan(8);
+  expect(wrong).toEqual([]);
+});
+
+test("a stated ratio that no longer matches its colours is reported", () => {
+  const real = contrast("#ededed", "#0e0f11").toFixed(2);
+
+  expect(real).toBe("16.38");
+  expect(real === "15.00").toBe(false);
+});
+
 test("a token the theme does not declare is reported against the file that wrote it", () => {
   const invented: Reference = {
     candidates: ["--color-pk-surface-raised"],
