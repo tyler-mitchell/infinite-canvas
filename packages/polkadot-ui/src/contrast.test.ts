@@ -726,6 +726,59 @@ test("the mark that identifies a control clears 3:1 on every seat it can sit on"
   expect(pairs.filter(({ got }) => got < 3)).toEqual([]);
 });
 
+/**
+ * The toggle's two states, which neither rule above reaches: those answer for the switch and the
+ * slider, and a toggle group tells pressed from unpressed with a fill of its own.
+ *
+ * The two looks are separated by different things, and asking one question of both gets a wrong
+ * answer. Chips are separated by fill: pressed is the accent, resting is ink thinned, and those
+ * stand apart on their own. Segmented is not — an opaque surface on a trough of thinned ink comes
+ * out between 1.00 and 1.06, which is no fill contrast at all, and the first version of this rule
+ * called that a defect.
+ *
+ * It is not the knob's pattern either, which was the second guess. The pressed item does carry the
+ * knob's shadow, but a shadow separates a white knob from a bright track by being dark, and here
+ * the item and its trough are both dark already: measured that way it comes out at 1.05, no better
+ * than the fill. What tells the two apart is the words — bright when pressed, dim when not, and
+ * 3.39 between them, which is the pair this rule holds.
+ *
+ * A ratio that cannot be computed is the trap here rather than a low one: an alpha the pattern
+ * misses gives NaN, and NaN is not less than three, so it would pass the filter unseen.
+ */
+test("a toggle tells its two states apart by 3:1 on every seat", () => {
+  const accent = declaredAs.get("--pk-accent")!;
+  const ink = declaredAs.get("--pk-ink")!;
+  const resting = alphaIn(
+    "toggle-group.tsx",
+    /look:\s*"chips",\s*\n\s*pressed:\s*false[\s\S]*?bg-pk-ink\/\[([\d.]+)\]/,
+  );
+
+  /* The words carry the segmented state and answer the same on every seat, so they are said once. */
+  const pairs = [
+    {
+      what: "segmented pressed against resting, by its words",
+      got: contrast(declaredAs.get("--pk-ink-bright")!, declaredAs.get("--pk-ink-dim")!),
+    },
+    ...seats()
+      .map((seat) => declaredAs.get(seat)!)
+      .map((ground) => ({
+        what: "chips pressed against resting",
+        got: contrast(accent, over(ink, ground, resting)),
+      })),
+  ];
+
+  /* One pair for the words, and one for the chips on each seat: a floor copied from the rules
+   * below would have been eight, which this shape never reaches. */
+  expect(seats().length).toBeGreaterThan(4);
+  expect(pairs.length).toBe(seats().length + 1);
+  expect(pairs.filter(({ got }) => !Number.isFinite(got))).toEqual([]);
+  expect(pairs.filter(({ got }) => got < 3)).toEqual([]);
+  /* Last, so it cannot fire ahead of the ratios: the lift is real, it is just not what separates. */
+  expect(componentSources.find((entry) => entry.file === "toggle-group.tsx")!.source).toContain(
+    "shadow-pk-knob",
+  );
+});
+
 test("a control's two states are 3:1 apart on every seat", () => {
   const accent = declaredAs.get("--pk-accent")!;
 
