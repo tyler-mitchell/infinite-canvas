@@ -920,26 +920,15 @@ const unnamedColour = (sources: readonly { readonly file: string; readonly sourc
     .sort();
 
 /**
- * Nine colours in seven widgets, and nothing outside them: the pages are clean and no Tailwind hue
- * appears anywhere. Four widgets each mix their own shadow black at their own alpha, three paint a
- * knob raw white, the dialog scrim is raw black, and the grid draws one hairline of raw white.
+ * Empty, and it has to stay empty. Every colour the kit paints now has a word: the aurora's four
+ * gradients, the paper's lift, the grid's cell edge and the one lift every small raised face uses
+ * are compound values in the sheet, beside the tile's and the swipe card's; the knob face and the
+ * dialog scrim are named colours; and the sparkline's head dot is the bright ink it always was.
  *
- * Aurora's eight left this list when its four gradients moved into the sheet, which is where a
- * compound value belongs and where the icon tile and the swipe card already keep theirs. What
- * remains needs a word the palette does not have yet — a shadow scale, and a name for a knob face
- * — so the list stays pinned until it gains them.
+ * The three raised faces had been three shadows at 0.4, 0.45 and 0.5 — three answers to one
+ * question — and they are one now.
  */
-const COLOURS_THE_PALETTE_DOES_NOT_NAME = [
-  "activity-grid.tsx rgb(255_255_255/0.045)",
-  "dialog.tsx bg-black",
-  "receipt.tsx rgb(0_0_0/0.9)",
-  "slider.tsx bg-white",
-  "slider.tsx rgb(0_0_0/0.5)",
-  "sparkline.tsx bg-white",
-  "switch.tsx bg-white",
-  "switch.tsx rgb(0_0_0/0.4)",
-  "toggle-group.tsx rgb(0_0_0/0.45)",
-];
+const COLOURS_THE_PALETTE_DOES_NOT_NAME: readonly string[] = [];
 
 test("a slot that paints an unnamed colour is reported", () => {
   expect(

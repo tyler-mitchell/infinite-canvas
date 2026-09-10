@@ -62,6 +62,10 @@
   --pk-accent-dim: #8ee9c4;
   --pk-on-accent: #04110b;
 
+  /* The face of a thing a finger moves, and the dark a dialog puts the page behind. */
+  --pk-knob: #fff;
+  --pk-scrim: #000;
+
   --pk-paper: linear-gradient(180deg, #faf9f5, #efece4);
   --pk-paper-page: #faf9f5;
   --pk-paper-ink: #2b2b28;
@@ -108,6 +112,11 @@
     inset 0 1px 0 rgb(255 255 255 / 0.07), 0 0 14px -6px rgb(176 220 255 / 0.22),
     0 22px 60px -42px rgb(0 0 0 / 0.92);
   --pk-lift-rim-hover: inset 0 1px 0 rgb(255 255 255 / 0.16), 0 26px 70px -40px rgb(0 0 0 / 0.96);
+  /* One lift for every small face that stands off the control under it. It was three, at 0.4, 0.45
+   * and 0.5, which is three answers to one question. */
+  --pk-lift-knob: 0 1px 2px rgb(0 0 0 / 0.45);
+  --pk-lift-paper: 0 12px 22px -14px rgb(0 0 0 / 0.9);
+  --pk-lift-cell: inset 0 0 0 1px rgb(255 255 255 / 0.045);
 
   --pk-ease-swift: cubic-bezier(0.32, 0.72, 0, 1);
   --pk-ease-settle: cubic-bezier(0.23, 1, 0.32, 1);
@@ -420,6 +429,8 @@
   --color-pk-recess: var(--pk-recess);
   --color-pk-tray: var(--pk-tray);
   --color-pk-void: var(--pk-void);
+  --color-pk-knob: var(--pk-knob);
+  --color-pk-scrim: var(--pk-scrim);
   --color-pk-swipe-line: var(--pk-swipe-line);
   --shadow-pk-swipe: var(--pk-lift-swipe);
   --color-pk-keycap-face: var(--pk-keycap-face);
@@ -474,6 +485,9 @@
 
   --shadow-pk-card: var(--pk-lift-card);
   --shadow-pk-tray: var(--pk-lift-tray);
+  --shadow-pk-knob: var(--pk-lift-knob);
+  --shadow-pk-paper: var(--pk-lift-paper);
+  --shadow-pk-cell: var(--pk-lift-cell);
 
   --ease-pk-swift: var(--pk-ease-swift);
   --ease-pk-settle: var(--pk-ease-settle);

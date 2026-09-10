@@ -18,7 +18,7 @@ const sparkline = tv({
       "fill-none [stroke-linecap:round] [stroke-linejoin:round] [stroke-width:1.6] [vector-effect:non-scaling-stroke]",
     drop: "absolute right-0 bottom-0 w-px bg-pk-accent/35 top-(--head)",
     glow: "absolute right-0 size-[30px] translate-x-1/2 -translate-y-1/2 rounded-pk-pill [background:radial-gradient(circle,color-mix(in_oklab,var(--pk-accent)_45%,transparent),transparent_70%)] top-(--head)",
-    dot: "absolute right-0 size-[5px] translate-x-1/2 -translate-y-1/2 rounded-pk-pill bg-white top-(--head)",
+    dot: "absolute right-0 size-[5px] translate-x-1/2 -translate-y-1/2 rounded-pk-pill bg-pk-ink-bright top-(--head)",
     badge:
       "absolute right-0 flex -translate-y-1/2 items-center rounded-pk-pill bg-pk-accent px-[7px] py-[3px] font-pk-mono text-pk-mono-sm text-pk-on-accent tabular-nums top-(--head)",
   },

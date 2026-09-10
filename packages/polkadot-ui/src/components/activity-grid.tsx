@@ -29,7 +29,7 @@ const activityGrid = tv({
 });
 
 const LEVEL_CLASS = [
-  "bg-pk-level-0 shadow-[inset_0_0_0_1px_rgb(255_255_255/0.045)]",
+  "bg-pk-level-0 shadow-pk-cell",
   "bg-pk-level-1",
   "bg-pk-level-2",
   "bg-pk-level-3",

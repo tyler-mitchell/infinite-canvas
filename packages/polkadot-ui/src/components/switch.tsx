@@ -5,7 +5,7 @@ const switchStyles = tv({
   slots: {
     root: "relative inline-flex h-[18px] w-[30px] flex-none cursor-pointer items-center rounded-pk-pill p-[2px] outline-none transition-colors duration-(--pk-duration-hover) ease-pk-swift focus-visible:ring-2 focus-visible:ring-pk-accent/50 focus-visible:ring-offset-2 focus-visible:ring-offset-(color:--pk-ring-seat) data-disabled:pointer-events-none data-disabled:opacity-40",
     thumb:
-      "size-3.5 rounded-pk-pill bg-white shadow-[0_1px_2px_rgb(0_0_0/0.4)] transition-transform duration-(--pk-duration-hover) ease-pk-swift",
+      "size-3.5 rounded-pk-pill bg-pk-knob shadow-pk-knob transition-transform duration-(--pk-duration-hover) ease-pk-swift",
   },
   variants: {
     checked: {

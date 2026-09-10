@@ -25,7 +25,7 @@ const toggleGroup = tv({
     {
       look: "segmented",
       pressed: true,
-      class: { item: "bg-pk-surface-inner text-pk-ink-bright shadow-[0_1px_2px_rgb(0_0_0/0.45)]" },
+      class: { item: "bg-pk-surface-inner text-pk-ink-bright shadow-pk-knob" },
     },
     {
       look: "segmented",
