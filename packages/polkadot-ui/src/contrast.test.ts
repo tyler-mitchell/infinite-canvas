@@ -301,3 +301,80 @@ test("every colour the kit writes as text clears 4.5:1 on every ground it can la
   expect(pairs.size).toBeGreaterThan(9);
   expect(tooThin(pairs)).toEqual([]);
 });
+
+/*
+ * 1.4.11 asks 3:1 of two things: what identifies a control, and what tells one of its states from
+ * another. The focus ring above is one such mark and was the only one checked. For a switch and a
+ * slider the identifying mark is the knob, and the state is the track it sits on, so those are the
+ * two to hold. The tracks themselves are faint on purpose — 1.37:1 for a switch at rest — and that
+ * is allowed, because none of the identifying is being done by them.
+ */
+const alphaIn = (file: string, pattern: RegExp) => {
+  const [, alpha] =
+    pattern.exec(componentSources.find((entry) => entry.file === file)!.source) ?? [];
+
+  return Number(alpha);
+};
+
+/** Read from the slots, so changing an alpha moves the expectation instead of breaking a number. */
+const offTrack = (seat: string) =>
+  over(
+    declaredAs.get("--pk-ink")!,
+    seat,
+    alphaIn("switch.tsx", /false:\s*\{\s*root:\s*"bg-pk-ink\/\[([\d.]+)\]/),
+  );
+
+const sliderTrack = (seat: string) =>
+  over(
+    declaredAs.get("--pk-ink")!,
+    seat,
+    alphaIn("slider.tsx", /track:\s*\n?\s*"[^"]*bg-pk-ink\/\[([\d.]+)\]/),
+  );
+
+test("the alphas these rules stand on are the ones the components write", () => {
+  expect(alphaIn("switch.tsx", /false:\s*\{\s*root:\s*"bg-pk-ink\/\[([\d.]+)\]/)).toBe(0.14);
+  expect(alphaIn("slider.tsx", /track:\s*\n?\s*"[^"]*bg-pk-ink\/\[([\d.]+)\]/)).toBe(0.1);
+});
+
+test("the mark that identifies a control clears 3:1 on every seat it can sit on", () => {
+  const knob = declaredAs.get("--pk-knob")!;
+
+  const thin = seats()
+    .map((seat) => declaredAs.get(seat)!)
+    .flatMap((ground) => [
+      { what: "knob on the seat", got: contrast(knob, ground) },
+      { what: "knob on the track at rest", got: contrast(knob, offTrack(ground)) },
+    ])
+    .filter(({ got }) => got < 3);
+
+  expect(thin).toEqual([]);
+});
+
+test("a control's two states are 3:1 apart on every seat", () => {
+  const accent = declaredAs.get("--pk-accent")!;
+
+  const thin = seats()
+    .map((seat) => declaredAs.get(seat)!)
+    .flatMap((ground) => [
+      { what: "switch off against on", got: contrast(offTrack(ground), accent) },
+      { what: "slider track against fill", got: contrast(sliderTrack(ground), accent) },
+    ])
+    .filter(({ got }) => got < 3);
+
+  expect(thin).toEqual([]);
+});
+
+/**
+ * The knob on a filled track is 1.63:1, which is the design and not a miss: a knob on a fill is
+ * separated by its shadow, and the state is already carried by the fill at nearly nine to one.
+ * Pinned so that a change to either colour has to face the number rather than pass unnoticed.
+ */
+test("the knob on a filled track is held apart by its shadow, not by contrast", () => {
+  const knob = declaredAs.get("--pk-knob")!;
+  const accent = declaredAs.get("--pk-accent")!;
+  const source = componentSources.find((entry) => entry.file === "switch.tsx")!.source;
+
+  expect(Number(contrast(knob, accent).toFixed(2))).toBe(1.63);
+  expect(source).toContain("shadow-pk-knob");
+  expect(themeCss).toMatch(/--pk-lift-knob:\s*0 1px 2px rgb\(0 0 0 \/ 0\.45\)/);
+});
