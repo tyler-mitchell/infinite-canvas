@@ -509,6 +509,48 @@ test("no page leaves a control live inside a field that is off", () => {
   expect(liveInsideDisabled(pages, owed)).toEqual([]);
 });
 
+/**
+ * The readme says the sheet cuts transform and height transitions under reduced motion and keeps
+ * the colour ones, and that the animations a duration cannot govern are switched off by name. Both
+ * are claims about a file, and neither was read against it.
+ *
+ * The named ones are derived rather than listed: an animation driven by a view timeline takes its
+ * progress from the scroll position, so clamping `animation-duration` does nothing to it. Every
+ * selector in the sheet that carries one has to appear in the reduce block, or it keeps running
+ * for a reader who asked for stillness.
+ */
+const reduceBlock = () => {
+  const sheet = readFileSync(new URL("./theme.css", import.meta.url), "utf8");
+  const at = sheet.indexOf("@media (prefers-reduced-motion: reduce)");
+  if (at < 0) return { block: "", scrolled: [] as string[] };
+
+  /* To the blank line after the block's own closing brace, which is where the next rule starts. */
+  const block = sheet.slice(at, sheet.indexOf("\n}\n", sheet.indexOf("*::after", at)) + 3);
+
+  const scrolled = [...sheet.matchAll(/(\.[\w-]+)\s*\{[^}]*animation-timeline:\s*view\(/g)].map(
+    ([, selector]) => selector!,
+  );
+
+  return { block, scrolled };
+};
+
+test("the sheet stills what the readme says it stills", () => {
+  const { block, scrolled } = reduceBlock();
+  const [, kept] = /transition-property:\s*([^;]+);/.exec(block) ?? [];
+
+  expect(block).toContain("prefers-reduced-motion");
+  expect(scrolled).toEqual([".pk-rise"]);
+
+  /* What a reader asked to be spared, kept out of the list the sheet still transitions. */
+  const moving = ["transform", "translate", "scale", "rotate", "height", "width", "all"].filter(
+    (property) => new RegExp(String.raw`\b${property}\b`).test(kept ?? ""),
+  );
+
+  expect(kept).toContain("color");
+  expect(moving).toEqual([]);
+  expect(scrolled.filter((selector) => !block.includes(selector))).toEqual([]);
+});
+
 /** `text.tsx` is listed as its seven roles, which is what a page writes, rather than as a module. */
 const LISTED_AS_ITS_PARTS = ["text"];
 
