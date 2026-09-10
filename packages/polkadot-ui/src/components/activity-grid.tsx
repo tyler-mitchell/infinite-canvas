@@ -50,6 +50,9 @@ const DEFAULT_THRESHOLDS: readonly number[] = [1, 3, 6, 10];
 
 const DEFAULT_CELL = 11;
 
+/** One source for the name, so a blank one falls back to what the signature already promises. */
+const DEFAULT_LABEL = "activity";
+
 /**
  * The cell size the plot draws at. A size that is not a usable number falls back to the default,
  * the way the bars fall back to a computed ceiling: it reaches four separate lengths, and each one
@@ -135,7 +138,7 @@ function ActivityGrid({
   weeks = 26,
   cellSize = DEFAULT_CELL,
   thresholds = DEFAULT_THRESHOLDS,
-  label = "activity",
+  label = DEFAULT_LABEL,
   className,
   children,
   ...props
@@ -197,7 +200,7 @@ function ActivityGrid({
     <div
       data-slot="activity-grid"
       role="group"
-      aria-label={label}
+      aria-label={label.trim() || DEFAULT_LABEL}
       tabIndex={0}
       /* It takes the focus and the arrows walk it, so it says which arrows, as the deck does. */
       aria-keyshortcuts="ArrowLeft ArrowRight ArrowUp ArrowDown"

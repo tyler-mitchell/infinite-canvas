@@ -74,7 +74,7 @@ function Breakdown({ parts, showLegend = true, label, className, ...props }: Bre
 
   return (
     <div data-slot="breakdown" className={styles.root({ className })} {...props}>
-      <div role="img" aria-label={label ?? breakdownLabel(parts)} className={styles.bar()}>
+      <div role="img" aria-label={label?.trim() || breakdownLabel(parts)} className={styles.bar()}>
         {parts.map((part, index) => (
           <span
             key={part.name}

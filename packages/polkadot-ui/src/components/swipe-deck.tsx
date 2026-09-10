@@ -33,6 +33,10 @@ const swipeDeck = tv({
 
 const COMMIT = 90;
 
+/** One source for each name, so a blank one falls back to what the signature already promises. */
+const DEFAULT_LABEL = "queue";
+const DEFAULT_EMPTY = "nothing left";
+
 export type SwipeOutcome = "pin" | "skip" | "return";
 
 /** Which way a card goes when the pointer is released at `offset`, in pixels from its rest. */
@@ -80,8 +84,8 @@ export type SwipeDeckProps = Omit<React.ComponentProps<"div">, "children" | "onS
 function SwipeDeck({
   items,
   onSettle,
-  label = "queue",
-  emptyLabel = "nothing left",
+  label = DEFAULT_LABEL,
+  emptyLabel = DEFAULT_EMPTY,
   className,
   ...props
 }: SwipeDeckProps) {
@@ -116,7 +120,7 @@ function SwipeDeck({
     <div
       data-slot="swipe-deck"
       role="group"
-      aria-label={label}
+      aria-label={label.trim() || DEFAULT_LABEL}
       tabIndex={top ? 0 : -1}
       aria-keyshortcuts={top ? "ArrowLeft ArrowRight" : undefined}
       className={styles.well({ className })}
@@ -128,7 +132,7 @@ function SwipeDeck({
       }}
       {...props}
     >
-      {top ? null : <span className={styles.empty()}>{emptyLabel}</span>}
+      {top ? null : <span className={styles.empty()}>{emptyLabel.trim() || DEFAULT_EMPTY}</span>}
       {remaining
         .slice(0, 3)
         .reverse()

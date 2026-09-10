@@ -98,7 +98,7 @@ function Bars({
     <div
       data-slot="bars"
       role="img"
-      aria-label={label ?? barsLabel(values, emphasis ?? "last")}
+      aria-label={label?.trim() || barsLabel(values, emphasis ?? "last")}
       className={styles.root({ className })}
       {...props}
     >

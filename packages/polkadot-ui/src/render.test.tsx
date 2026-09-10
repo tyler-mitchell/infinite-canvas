@@ -487,3 +487,29 @@ test("a component given no words does not name itself with them", () => {
   /* Initials given without a name still name the tile, so dropping the label loses nothing. */
   expect(renderToStaticMarkup(<kit.Avatar name="" initials="AB" />)).toContain(">AB<");
 });
+
+/**
+ * `??` catches a label nobody passed and not a label made of nothing, so an empty string reached
+ * the attribute and overrode the name each of these works out for itself. The avatar and the
+ * barcode were the first two found; these six are the same fault written six more times.
+ */
+test("a blank label falls back to the name a component gives itself", () => {
+  const label = (markup: string) => /aria-label="([^"]*)"/.exec(markup)?.[1];
+
+  expect(label(renderToStaticMarkup(<kit.Sparkline values={[1, 2]} label="" />))).toBe(
+    "2 readings, latest 2",
+  );
+  expect(label(renderToStaticMarkup(<kit.Bars values={[1, 2]} label="  " />))).toBe(
+    "2 readings, latest 2",
+  );
+  expect(
+    label(
+      renderToStaticMarkup(
+        <kit.Breakdown parts={[{ name: "a", share: 1, color: "red" }]} label="" />,
+      ),
+    ),
+  ).toBe("a 100%");
+  expect(label(renderToStaticMarkup(<kit.LayoutPreview panes={[]} label="" />))).toBe("0 panes");
+  expect(label(renderToStaticMarkup(<kit.ActivityGrid days={[]} label="" />))).toBe("activity");
+  expect(label(renderToStaticMarkup(<kit.SwipeDeck items={[]} label="   " />))).toBe("queue");
+});

@@ -35,7 +35,7 @@ function LayoutPreview({ panes, label, className, ...props }: LayoutPreviewProps
     <div
       data-slot="layout-preview"
       role="img"
-      aria-label={label ?? `${panes.length} panes`}
+      aria-label={label?.trim() || `${panes.length} panes`}
       className={styles.root({ className })}
       {...props}
     >

@@ -148,7 +148,7 @@ function Sparkline({ values, caption, label, size, head, className, ...props }: 
     <div
       data-slot="sparkline"
       role="img"
-      aria-label={label ?? sparklineLabel(values, marked)}
+      aria-label={label?.trim() || sparklineLabel(values, marked)}
       style={{ "--head": `${(headHeight / HEIGHT) * 100}%` } as React.CSSProperties}
       className={styles.root({ className })}
       {...props}
