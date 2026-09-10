@@ -354,6 +354,12 @@ test("every version a document pins for a dependency is the one installed", () =
   expect(wrong).toEqual([]);
 });
 
+/**
+ * A route named in prose against the routes that exist. The pattern reads a plain file name and
+ * not a splat one, which is deliberate rather than an oversight: the navigation note tells the
+ * story of `app/routes/w.$.tsx`, a lab route that was removed, and says so in the same sentence.
+ * A reference to a route that is gone on purpose is history, and widening this would report it.
+ */
 test("no document points at a route file that is gone", () => {
   const real = readdirSync(new URL("routes/", appDir)).filter((name) => name.endsWith(".tsx"));
 
