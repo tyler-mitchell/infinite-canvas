@@ -9,7 +9,7 @@ built from TanStack Router affordances rather than a bespoke navigator.
 Target identity: `@tanstack/react-router` 1.170.32. Retrieved 2026-09-09.
 
 **Scope: none of this is implemented in `polkadot-ui`, and none of it is owed by it.** The package
-is a component kit with no canvas, no camera and no zoom; its lab app has eight flat routes that
+is a component kit with no canvas, no camera and no zoom; its lab app has nine flat routes that
 demonstrate components. What survives here is the router research — which affordances exist at
 1.170.32, verified against the installed package — and a design for whatever owns a canvas. The
 route trees and components below are targets for that owner, not descriptions of this app.

@@ -346,6 +346,54 @@ test("the readme counts the kit as it is, and names routes that exist", () => {
   expect(readme.replace(/-\n/g, "-")).toContain(`${inWords(routes.length)} routes`);
 });
 
+/**
+ * Any document that counts the lab app's routes, not only the readme: the research note opens by
+ * saying what this package is, and said eight flat routes for as long as the readme said eight.
+ */
+test("every document that counts the routes counts the routes there are", () => {
+  const routes = readdirSync(new URL("routes/", appDir)).filter(
+    (name) => name.endsWith(".tsx") && name !== "__root.tsx",
+  );
+
+  const counted = documents.flatMap((file) => {
+    const text = readFileSync(file, "utf8").toLowerCase().replace(/-\n/g, "-");
+
+    return [...text.matchAll(/\b([a-z]+)(?: flat)? routes\b/g)]
+      .map(([, word]) => word!)
+      .filter((word) => NUMBERS.includes(word) || /^(?:twenty|thirty)/.test(word))
+      .map((word) => ({ file: file.pathname.split("/").pop()!, word }));
+  });
+
+  /* Read first: a sweep that matched no sentence would agree with any number in any of them. */
+  expect(counted.length).toBeGreaterThan(1);
+  expect(counted.filter(({ word }) => word !== inWords(routes.length))).toEqual([]);
+});
+
+/**
+ * The same for the modules. The readme's count is checked above and was right; the two research
+ * notes carry their own, in digits rather than words, and both had stood at thirty-nine since the
+ * day they were written.
+ */
+test("every document that counts the modules counts the modules there are", () => {
+  const modules = readdirSync(componentDir).filter(
+    (name) => name.endsWith(".tsx") && !name.endsWith(".test.tsx"),
+  );
+
+  const counted = documents.flatMap((file) => {
+    const text = readFileSync(file, "utf8").toLowerCase().replace(/-\n/g, "-");
+
+    return [...text.matchAll(/\b([a-z-]+|\d+)(?: component)? modules\b/g)]
+      .map(([, count]) => count!)
+      .filter((count) => /^\d+$/.test(count) || NUMBERS.includes(count) || count.includes("-"))
+      .map((count) => ({ file: file.pathname.split("/").pop()!, count }));
+  });
+
+  const right = new Set([String(modules.length), inWords(modules.length)]);
+
+  expect(counted.length).toBeGreaterThan(2);
+  expect(counted.filter(({ count }) => !right.has(count))).toEqual([]);
+});
+
 /** `text.tsx` is listed as its seven roles, which is what a page writes, rather than as a module. */
 const LISTED_AS_ITS_PARTS = ["text"];
 

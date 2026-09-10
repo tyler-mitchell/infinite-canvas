@@ -235,7 +235,7 @@ src/components/widget.tsx removed  →  bespoke compound; rebuild from a plan
 ```
 
 Status: observed — 721 lines deleted, `vp check` clean across the 11 files that remained that day.
-Every path above is still absent; the package has since grown to 39 component modules.
+Every path above is still absent; the package has since grown to 46 component modules.
 
 ## 4. What Base UI and `motion` own
 
@@ -278,7 +278,7 @@ Status: observed from the installed packages' declared surfaces.
 Answered at the time as: the design tokens in `src/theme.css`, and the two-layer backgrounds that
 cannot live in a class list (`.pk-rim`, `.pk-tear`, `.pk-paper`). Everything else a library's job.
 
-That was true of the primitives and is not true of the package. `src/components` holds 39 modules,
+That was true of the primitives and is not true of the package. `src/components` holds 46 modules,
 and the ones that draw a value own arithmetic no library was going to supply, because it is
 specific to how these instruments read:
 
