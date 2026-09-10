@@ -141,6 +141,29 @@ const unmapped = (sources: readonly { readonly file: string; readonly source: st
   ),
 ];
 
+/**
+ * `text-` is the one prefix that reads two namespaces: `text-pk-label` is a size and
+ * `text-pk-ink-dim` is a colour, and a reference passes when either declares it. That leniency is
+ * exact only while no name is declared in both — the day one is, a utility means two things and
+ * the rule cannot say which. They are disjoint today, thirty-one names and no overlap, and this
+ * keeps them that way rather than trusting it.
+ */
+test("no name is declared as both a size and a colour", () => {
+  const named = (namespace: string) =>
+    new Set(
+      [...themeCss.matchAll(new RegExp(String.raw`^\s+--${namespace}-(pk-[a-z\d-]+):`, "gm"))].map(
+        ([, name]) => name!,
+      ),
+    );
+
+  const sizes = named("text");
+  const colours = named("color");
+
+  expect(sizes.size).toBeGreaterThan(10);
+  expect(colours.size).toBeGreaterThan(10);
+  expect([...sizes].filter((name) => colours.has(name))).toEqual([]);
+});
+
 test("a prefix the map has never heard of is reported", () => {
   expect(unmapped([{ file: "p.tsx", source: '"bg-pk-surface rounded-b-pk-tray"' }])).toEqual([]);
   expect(unmapped([{ file: "p.tsx", source: '"outline-offset-pk-tray"' }])).toEqual([
