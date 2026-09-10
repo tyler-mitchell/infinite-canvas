@@ -112,6 +112,31 @@ test("each page names itself once, and no more", () => {
   expect(offenders).toEqual([]);
 });
 
+/** Route files the generated tree does not import, which is the direction the compiler misses. */
+const unregisteredIn = (tree: string, files: readonly string[]) =>
+  files.map((name) => name.replace(/\.tsx$/, "")).filter((route) => !tree.includes(`/${route}'`));
+
+/**
+ * The route tree is generated and committed. Removing a route breaks typecheck, because the tree
+ * still imports it; adding one is silent — the page exists and nothing routes to it.
+ *
+ * The comparison is a function so it can be checked against a tree that is actually stale. A file
+ * dropped into `app/routes` proves nothing while the dev server is up, because the generator
+ * rewrites the tree before a test can read it.
+ */
+test("a route missing from the generated tree is named", () => {
+  const stale = "import { Route } from './routes/index'\nimport { Route } from './routes/data'";
+
+  expect(unregisteredIn(stale, ["index.tsx", "data.tsx"])).toEqual([]);
+  expect(unregisteredIn(stale, ["index.tsx", "motion.tsx"])).toEqual(["motion"]);
+});
+
+test("every route file is registered in the generated tree", () => {
+  const tree = readFileSync(new URL("../app/routeTree.gen.ts", import.meta.url), "utf8");
+
+  expect(unregisteredIn(tree, pageFiles)).toEqual([]);
+});
+
 test("every component the entry exports is rendered on a page", () => {
   const undemonstrated = [...components].filter((name) => !isRendered(name));
 
