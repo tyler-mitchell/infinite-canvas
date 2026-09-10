@@ -996,10 +996,16 @@ test("every document that counts the routes counts the routes there are", () => 
   const counted = documents.flatMap((file) => {
     const text = readFileSync(file, "utf8").toLowerCase().replace(/-\n/g, "-");
 
-    return [...text.matchAll(/\b([a-z]+)(?: flat)? routes\b/g)]
-      .map(([, word]) => word!)
-      .filter((word) => NUMBERS.includes(word) || /^(?:twenty|thirty)/.test(word))
-      .map((word) => ({ file: file.pathname.split("/").pop()!, word }));
+    return (
+      [...text.matchAll(/\b([a-z]+)(?: flat)? routes\b/g)]
+        .map(([, word]) => word!)
+        /* The teens are here because a word this cannot read is skipped, not reported. */
+        .filter(
+          (word) =>
+            NUMBERS.includes(word) || TEENS.includes(word) || /^(?:twenty|thirty)/.test(word),
+        )
+        .map((word) => ({ file: file.pathname.split("/").pop()!, word }))
+    );
   });
 
   /* Read first: a sweep that matched no sentence would agree with any number in any of them. */
@@ -1022,7 +1028,13 @@ test("every document that counts the modules counts the modules there are", () =
 
     return [...text.matchAll(/\b([a-z-]+|\d+)(?: component)? modules\b/g)]
       .map(([, count]) => count!)
-      .filter((count) => /^\d+$/.test(count) || NUMBERS.includes(count) || count.includes("-"))
+      .filter(
+        (count) =>
+          /^\d+$/.test(count) ||
+          NUMBERS.includes(count) ||
+          TEENS.includes(count) ||
+          count.includes("-"),
+      )
       .map((count) => ({ file: file.pathname.split("/").pop()!, count }));
   });
 
