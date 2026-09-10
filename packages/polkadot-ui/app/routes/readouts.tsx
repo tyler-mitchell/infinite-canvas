@@ -40,6 +40,9 @@ const COMMIT_PEAK = Math.max(...COMMIT_WEEKS);
 const COMMIT_PEAK_WEEK = COMMIT_WEEKS.indexOf(COMMIT_PEAK);
 const LATEST_FRAME = FRAME_BUDGET[FRAME_BUDGET.length - 1];
 const LATEST_LATENCY = `${LATENCY[LATENCY.length - 1]}ms`;
+/* Three readings beside these charts were typed out, and a typed reading outlives its series. */
+const LATEST_INSTALLS = INSTALLS[INSTALLS.length - 1]!.toLocaleString("en-US");
+const LATEST_ICONS = INSTALLS_SMALL[INSTALLS_SMALL.length - 1]!.toLocaleString("en-US");
 /* The two release charts state nothing else, so the name is the only place their figures land. */
 const RELEASE_READINGS = barsLabel(RELEASES);
 
@@ -238,7 +241,7 @@ function Readouts() {
           <Surface tone="card">
             <Row>
               <Label>weekly installs</Label>
-              <Readout>4,182</Readout>
+              <Readout>{LATEST_INSTALLS}</Readout>
             </Row>
             <div className={styles.barBox()}>
               <Bars values={INSTALLS} label="weekly installs over eight weeks" />
@@ -275,7 +278,7 @@ function Readouts() {
           <Surface tone="card">
             <Row>
               <Label>polkadot-ui</Label>
-              <Readout>4,182</Readout>
+              <Readout>{LATEST_INSTALLS}</Readout>
             </Row>
             <div className={styles.barBox()}>
               <Bars values={INSTALLS} max={INSTALL_CEILING} label="weekly installs, polkadot-ui" />
@@ -284,7 +287,7 @@ function Readouts() {
           <Surface tone="card">
             <Row>
               <Label>polkadot-icons</Label>
-              <Readout>510</Readout>
+              <Readout>{LATEST_ICONS}</Readout>
             </Row>
             <div className={styles.barBox()}>
               <Bars
@@ -343,7 +346,7 @@ function Readouts() {
         <Surface tone="card" className={styles.activity()}>
           <Row>
             <Label>frame budget</Label>
-            <Readout>8.2 ms</Readout>
+            <Readout>{`${LATEST_FRAME} ms`}</Readout>
           </Row>
           <Prose>
             The only text role that is more than a class: it carries a live region, so a value that
