@@ -156,7 +156,7 @@ test("a control that names its own ring offset is reported against its file", ()
 });
 
 test("no control names the colour it sits on", () => {
-  expect(guessedSeat(componentSources)).toEqual([]);
+  expect(guessedSeat(styledSources)).toEqual([]);
 });
 
 /** Exports nothing draws with. The direction the rule above cannot see. */
@@ -253,8 +253,8 @@ test("a printed value that has drifted from the sheet is reported", () => {
   ]);
 });
 
-test("every radius and easing the foundations page prints is the one the sheet declares", () => {
-  const page = readFileSync(new URL("routes/foundations.tsx", appDir), "utf8");
+test("every radius and easing a page prints is the one the sheet declares", () => {
+  const page = appFiles.map((file) => readFileSync(new URL(file, appDir), "utf8")).join("\n");
 
   const radii = [...page.matchAll(/\["(--pk-radius-[a-z-]+)",\s*"[^"]*",\s*"([^"]*)"\]/g)].map(
     ([, token, printed]) => [token!, printed!] as const,
@@ -303,8 +303,8 @@ test("the contrast maths agrees with the values WCAG defines", () => {
  * nothing tied them to the colours, so editing a colour would leave the page asserting the old
  * number — a claim about accessibility that reads as measured.
  */
-test("every ratio the foundations page states is the one its colours produce", () => {
-  const page = readFileSync(new URL("routes/foundations.tsx", appDir), "utf8");
+test("every ratio a page states is the one its colours produce", () => {
+  const page = appFiles.map((file) => readFileSync(new URL(file, appDir), "utf8")).join("\n");
   const surface = declaredAs.get("--pk-surface")!;
 
   const stated = [
@@ -330,7 +330,7 @@ test("every ratio the foundations page states is the one its colours produce", (
  * restated here, so a change to the paper itself moves the expectation with it.
  */
 test("every paper ratio the page states is the pair its gradient produces", () => {
-  const page = readFileSync(new URL("routes/foundations.tsx", appDir), "utf8");
+  const page = appFiles.map((file) => readFileSync(new URL(file, appDir), "utf8")).join("\n");
   const [, top, foot] =
     /--pk-paper:\s*linear-gradient\([^,]+,\s*(#[\da-f]+),\s*(#[\da-f]+)\)/.exec(themeCss) ?? [];
 
@@ -358,7 +358,7 @@ test("every paper ratio the page states is the pair its gradient produces", () =
  * from `text.tsx`, so moving a role onto a different token moves the expectation with it.
  */
 test("every size the type section names is the one its role actually uses", () => {
-  const page = readFileSync(new URL("routes/foundations.tsx", appDir), "utf8");
+  const page = appFiles.map((file) => readFileSync(new URL(file, appDir), "utf8")).join("\n");
   const text = readFileSync(new URL("text.tsx", componentDir), "utf8");
 
   const sizeOfRole = new Map(
@@ -545,10 +545,11 @@ test("a day count written beside a grid is reported", () => {
 });
 
 test("no page counts the days beside a grid that fits weeks to its width", () => {
-  const page = readFileSync(new URL("routes/readouts.tsx", appDir), "utf8");
+  /* Every page. One page draws a grid today, and the rule should not have to be widened again. */
+  const pages = appFiles.map((file) => readFileSync(new URL(file, appDir), "utf8")).join("\n");
 
-  expect(page).toContain("<ActivityGrid");
-  expect(countedDaysBeside(page)).toEqual([]);
+  expect(pages).toContain("<ActivityGrid");
+  expect(countedDaysBeside(pages)).toEqual([]);
 });
 
 /**
@@ -584,7 +585,7 @@ test("every component that reads its own keys says which keys", () => {
   );
 
   expect(handling.map(({ file }) => file).sort()).toEqual(["activity-grid.tsx", "swipe-deck.tsx"]);
-  expect(silentKeyboard(componentSources)).toEqual([]);
+  expect(silentKeyboard(styledSources)).toEqual([]);
 });
 
 /**
@@ -633,7 +634,7 @@ test("every readout that draws an image can name itself", () => {
     "receipt.tsx",
     "sparkline.tsx",
   ]);
-  expect(unnamedImages(componentSources)).toEqual([]);
+  expect(unnamedImages(styledSources)).toEqual([]);
 });
 
 /**
