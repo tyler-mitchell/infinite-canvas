@@ -39,12 +39,15 @@ test("every width is a percentage a browser will accept", () => {
     [part("a", -1), part("b", -2)],
   ];
 
-  for (const parts of cases) {
-    for (const width of widths(parts)) {
-      expect(width).not.toContain("NaN");
-      expect(width).not.toContain("Infinity");
-      expect(width.startsWith("-")).toBe(false);
-    }
+  const drawn = cases.flatMap((parts) => widths(parts));
+
+  /* Read first: a helper that drew nothing would satisfy every check below by having none. */
+  expect(drawn.length).toBeGreaterThan(6);
+
+  for (const width of drawn) {
+    expect(width).not.toContain("NaN");
+    expect(width).not.toContain("Infinity");
+    expect(width.startsWith("-")).toBe(false);
   }
 });
 

@@ -40,8 +40,15 @@ test("the highest reading is drawn above the lowest", () => {
 });
 
 test("every point is finite for series that would break naive arithmetic", () => {
-  for (const values of [[], [0], [0, 0], [-5, -5], [1e9, 1e9 + 1], [-3, 0, 3]]) {
-    expect(finite(sparklinePoints(values))).toBe(true);
+  const drawn = [[], [0], [0, 0], [-5, -5], [1e9, 1e9 + 1], [-3, 0, 3]].map((values) =>
+    sparklinePoints(values),
+  );
+
+  /* Read first: a plot of no points is finite the way an empty room is quiet. */
+  expect(drawn.flat().length).toBeGreaterThan(9);
+
+  for (const points of drawn) {
+    expect(finite(points)).toBe(true);
   }
 });
 

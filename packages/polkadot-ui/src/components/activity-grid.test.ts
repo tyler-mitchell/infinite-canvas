@@ -104,6 +104,10 @@ test("no cell is drawn with a class that is not a class", () => {
 test("every day lands on the row of its own weekday", () => {
   for (const end of [new Date(2026, 8, 9), new Date(2026, 0, 1), new Date(2025, 11, 31)]) {
     const columns = toColumns(daysEnding(371, end), 26);
+
+    /* Read first: a grid of nothing satisfies the loop below without checking a single day. */
+    expect(columns.filter(Boolean).length).toBeGreaterThan(170);
+
     for (const [index, day] of columns.entries()) {
       if (day) expect(index % 7).toBe(day.date.getDay());
     }
