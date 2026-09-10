@@ -19,7 +19,7 @@ const activityGrid = tv({
     grid: "col-start-2 row-start-2 grid min-w-0 grid-flow-col grid-rows-7",
     /*
      * The ring sits off the cell by a hairline of the seat, so it reads against the surface rather
-     * than against the cell. A bright ring on the busiest cell is otherwise 1.27:1 and invisible.
+     * than against the cell. A bright ring on the busiest cell is otherwise 1.36:1 and invisible.
      */
     cell: "rounded-[3px] transition-transform duration-(--pk-duration-hover) ease-pk-swift data-hot:scale-125 data-hot:ring-1 data-hot:ring-pk-ink-bright/70 data-hot:ring-offset-1 data-hot:ring-offset-(color:--pk-ring-seat)",
     footer: "flex flex-none items-center justify-between gap-2",
