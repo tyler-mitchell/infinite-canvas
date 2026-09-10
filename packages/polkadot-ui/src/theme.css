@@ -47,7 +47,6 @@
     rgb(7 8 10 / 0.86) 100%
   );
 
-  --pk-recess: #040505;
   --pk-tray: #08090a;
   --pk-void: #07080a;
 
@@ -432,7 +431,6 @@
   --color-pk-surface-sunken: var(--pk-surface-sunken);
   --color-pk-surface-deep: var(--pk-surface-deep);
   --color-pk-surface-inner: var(--pk-surface-inner);
-  --color-pk-recess: var(--pk-recess);
   --color-pk-tray: var(--pk-tray);
   --color-pk-void: var(--pk-void);
   --color-pk-knob: var(--pk-knob);

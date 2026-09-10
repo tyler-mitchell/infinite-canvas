@@ -47,7 +47,6 @@ const GROUNDS = [
   ["--pk-surface-sunken", "surface-sunken", "a well"],
   ["--pk-surface-deep", "surface-deep", "behind the board"],
   ["--pk-surface-inner", "surface-inner", "inside a card"],
-  ["--pk-recess", "recess", "a cut opening"],
 ] as const;
 
 const INKS = [

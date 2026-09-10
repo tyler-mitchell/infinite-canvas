@@ -190,6 +190,56 @@ test("every mechanism the theme exports is drawn by some file", () => {
 });
 
 /**
+ * The rule above exempts colours, because a colour is written under a dozen prefixes and one
+ * mapping cannot answer for all of them. Asked the other way round it is answerable: a colour is
+ * painted when some file writes any utility that resolves to it, or when the sheet uses it in a
+ * recipe of its own. The aliases are dropped first — a line that republishes a token under a
+ * prefix is not a use of it, and reading them as one made every colour look painted.
+ *
+ * `--pk-recess` was a colour nothing painted: declared, aliased, listed on the foundations page as
+ * a ground, and never used to draw anything.
+ */
+const colours = [...themeCss.matchAll(/^\s+(--pk-[a-z\d-]+):\s*#[\da-f]{3,8};/gim)].map(
+  ([, token]) => token!,
+);
+
+const republished = /^\s+--[a-z]+-pk-[a-z\d-]+:\s*var\(--pk-[a-z\d-]+\);$/gm;
+
+/** `border-pk-pane-line` resolves to `pk-pane-line`, and never to the `pk-line` it ends with. */
+const tokenOf = (utility: string) => `pk-${utility.split("-pk-").slice(1).join("-pk-")}`;
+
+const unpainted = (
+  tokens: readonly string[],
+  written: ReadonlySet<string>,
+  ...bodies: readonly string[]
+) => {
+  const painted = new Set([...written].map(tokenOf));
+
+  return tokens.filter(
+    (token) =>
+      !painted.has(token.slice(2)) && !bodies.some((body) => body.includes(`var(${token})`)),
+  );
+};
+
+test("a colour nothing paints with is reported", () => {
+  const written = new Set(["bg-pk-surface", "border-pk-pane-line"]);
+
+  expect(unpainted(["--pk-surface"], written, "")).toEqual([]);
+  expect(unpainted(["--pk-pane-line"], written, "")).toEqual([]);
+  /* The name one utility ends with is not the token that utility resolves to. */
+  expect(unpainted(["--pk-line"], written, "")).toEqual(["--pk-line"]);
+  /* A recipe in the sheet is a consumer; the alias that republishes the token is not. */
+  expect(unpainted(["--pk-line"], written, ".pk-tear { border-color: var(--pk-line); }")).toEqual(
+    [],
+  );
+});
+
+test("every colour the theme declares is one some file paints with", () => {
+  expect(colours.length).toBeGreaterThan(30);
+  expect(unpainted(colours, utilities, drawn, themeCss.replace(republished, ""))).toEqual([]);
+});
+
+/**
  * The sheet also writes eight classes by hand — the paper, the tear, the grain, the two rim sweeps
  * and the rest — for the recipes no utility can express. Every rule here reads `tv` slots, so one
  * of these left behind after its last consumer went would be found by nothing: valid CSS, shipped
