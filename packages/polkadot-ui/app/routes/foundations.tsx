@@ -72,8 +72,8 @@ const INKS = [
 
 const LINES = [
   ["--pk-line", "line", "1.19:1 · every card edge"],
-  ["--pk-line-hover", "line-hover", "the edge under a pointer"],
-  ["--pk-line-strong", "line-strong", "a raised rail"],
+  ["--pk-line-hover", "line-hover", "1.54:1 · the edge under a pointer"],
+  ["--pk-line-strong", "line-strong", "1.92:1 · a raised rail"],
   ["--pk-line-inner", "line-inner", "1.08:1 · a rule inside a card"],
 ] as const;
 
