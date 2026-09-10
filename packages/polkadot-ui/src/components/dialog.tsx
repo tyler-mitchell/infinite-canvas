@@ -8,12 +8,18 @@ const dialog = tv({
   slots: {
     backdrop:
       "fixed inset-0 z-50 bg-pk-scrim/66 transition-opacity duration-(--pk-duration-detail) ease-pk-swift data-ending-style:opacity-0 data-starting-style:opacity-0",
-    /* Base UI's own container for the popup. It is the window, so the dialog cannot outgrow it. */
+    /*
+     * Base UI's own container for the popup, and the window it is centred in. Centring makes the
+     * popup a grid item, which keeps a minimum as wide as its longest unbreakable word, so a word
+     * with nothing to break on pushed the dialog 132px past a 320px screen. The minimum below is
+     * what holds it to the window; wrapping the words alone does not, because a word that can
+     * break still counts its whole length towards that minimum.
+     */
     viewport: "fixed inset-0 z-50 grid place-items-center overflow-y-auto p-4",
     popup:
-      "flex w-full max-w-[440px] flex-col gap-3 rounded-pk-card border border-pk-line bg-pk-surface p-5 text-pk-ink shadow-pk-card outline-none [--pk-ring-seat:var(--pk-surface)] transition-[transform,opacity] duration-(--pk-duration-detail) ease-pk-swift data-ending-style:scale-[0.98] data-ending-style:opacity-0 data-starting-style:scale-[0.98] data-starting-style:opacity-0",
-    title: "font-pk-sans text-pk-title text-pk-ink-bright",
-    description: "font-pk-sans text-pk-body text-pk-ink-soft text-pretty",
+      "flex w-full max-w-[440px] min-w-0 flex-col gap-3 rounded-pk-card border border-pk-line bg-pk-surface p-5 text-pk-ink shadow-pk-card outline-none [--pk-ring-seat:var(--pk-surface)] transition-[transform,opacity] duration-(--pk-duration-detail) ease-pk-swift data-ending-style:scale-[0.98] data-ending-style:opacity-0 data-starting-style:scale-[0.98] data-starting-style:opacity-0",
+    title: "font-pk-sans text-pk-title break-words text-pk-ink-bright",
+    description: "font-pk-sans text-pk-body break-words text-pk-ink-soft text-pretty",
     footer: "mt-1 flex items-center justify-end gap-2",
   },
 });
