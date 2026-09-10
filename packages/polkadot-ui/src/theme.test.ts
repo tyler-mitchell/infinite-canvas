@@ -802,6 +802,44 @@ test("no component answers one key in two places", () => {
 });
 
 /**
+ * A pointer that is cancelled was taken away, not let go: the browser claimed the gesture for a
+ * scroll, the pointer left the window, the system interrupted. The reader decided nothing, so
+ * nothing may be decided for them.
+ *
+ * The deck gave both the same handler, and a drag past the commit distance that was then cancelled
+ * pinned the card and told the consumer it had happened — measured on the page's own count, three
+ * left became two. Now a cancel puts the card back: the count holds and the card returns to rest.
+ */
+const cancelIsRelease = (sources: readonly { readonly file: string; readonly source: string }[]) =>
+  sources
+    .flatMap(({ file, source }) => {
+      const up = /onPointerUp=\{([^}]*)\}/.exec(source)?.[1];
+      const cancel = /onPointerCancel=\{([^}]*)\}/.exec(source)?.[1];
+
+      return up && cancel && up === cancel
+        ? [`${file} cancels a pointer the way it releases one`]
+        : [];
+    })
+    .sort();
+
+test("a component that treats a cancelled pointer as a release is reported", () => {
+  expect(
+    cancelIsRelease([
+      { file: "a.tsx", source: "onPointerUp={release} onPointerCancel={release}" },
+      { file: "b.tsx", source: "onPointerUp={release} onPointerCancel={rest}" },
+      { file: "c.tsx", source: "onPointerUp={release}" },
+    ]),
+  ).toEqual(["a.tsx cancels a pointer the way it releases one"]);
+});
+
+test("no component decides anything on a cancelled pointer", () => {
+  const dragging = componentSources.filter(({ source }) => source.includes("onPointerCancel={"));
+
+  expect(dragging.map(({ file }) => file)).toEqual(["swipe-deck.tsx"]);
+  expect(cancelIsRelease(styledSources)).toEqual([]);
+});
+
+/**
  * `role="img"` hides whatever is inside it, so the label is the whole of what a reader gets. An
  * optional `label` passed straight through leaves the name empty when the consumer omits it, and
  * an empty name on a leaf role announces as nothing at all.

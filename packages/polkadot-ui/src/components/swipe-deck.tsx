@@ -110,20 +110,24 @@ function SwipeDeck({
   const remaining = items.filter((item) => !settled.includes(item.id));
   const top = remaining[0];
 
+  /** Puts the card down where it started, holding nothing. */
+  const rest = () => {
+    setOffset(0);
+    setHeld(false);
+  };
+
   const settle = (direction: "pin" | "skip") => {
     if (!top) return;
     onSettle?.(top, direction);
     setSettled((ids) => [...ids, top.id]);
-    setOffset(0);
-    setHeld(false);
+    rest();
   };
 
   const release = () => {
     const outcome = swipeOutcome(offset);
 
     if (outcome === "return") {
-      setOffset(0);
-      setHeld(false);
+      rest();
       return;
     }
     settle(outcome);
@@ -184,7 +188,8 @@ function SwipeDeck({
                   : undefined
               }
               onPointerUp={isTop ? release : undefined}
-              onPointerCancel={isTop ? release : undefined}
+              /* Taken away rather than let go: the reader never chose, so nothing is decided. */
+              onPointerCancel={isTop ? rest : undefined}
             >
               <div className={styles.head()}>
                 <span className={styles.kind()}>{item.kind}</span>
