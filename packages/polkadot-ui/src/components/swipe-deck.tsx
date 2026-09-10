@@ -34,6 +34,25 @@ const swipeDeck = tv({
 
 const COMMIT = 90;
 
+export type SwipeOutcome = "pin" | "skip" | "return";
+
+/** Which way a card goes when the pointer is released at `offset`, in pixels from its rest. */
+export function swipeOutcome(offset: number, commit = COMMIT): SwipeOutcome {
+  if (Math.abs(offset) < commit) return "return";
+
+  return offset > 0 ? "pin" : "skip";
+}
+
+/**
+ * How far each stamp has faded in, from 0 at rest to 1 at the commit distance. Only the stamp on
+ * the side being dragged towards shows, so the pair never reads as both at once.
+ */
+export function stampOpacity(offset: number, commit = COMMIT) {
+  const reach = Math.min(1, Math.abs(offset) / commit);
+
+  return { pin: offset > 0 ? reach : 0, skip: offset < 0 ? reach : 0 };
+}
+
 export interface SwipeItem {
   readonly id: string;
   readonly kind: string;
@@ -57,28 +76,31 @@ function SwipeDeck({
   className,
   ...props
 }: SwipeDeckProps) {
-  const [cleared, setCleared] = useState(0);
+  const [settled, setSettled] = useState<readonly string[]>([]);
   const [offset, setOffset] = useState(0);
   const [held, setHeld] = useState(false);
   const styles = swipeDeck({ held });
 
-  const remaining = items.slice(cleared);
+  const remaining = items.filter((item) => !settled.includes(item.id));
   const top = remaining[0];
 
   const settle = (direction: "pin" | "skip") => {
-    if (top) onSettle?.(top, direction);
-    setCleared((count) => count + 1);
+    if (!top) return;
+    onSettle?.(top, direction);
+    setSettled((ids) => [...ids, top.id]);
     setOffset(0);
     setHeld(false);
   };
 
   const release = () => {
-    if (Math.abs(offset) < COMMIT) {
+    const outcome = swipeOutcome(offset);
+
+    if (outcome === "return") {
       setOffset(0);
       setHeld(false);
       return;
     }
-    settle(offset > 0 ? "pin" : "skip");
+    settle(outcome);
   };
 
   return (
@@ -90,6 +112,7 @@ function SwipeDeck({
         .map((item) => {
           const isTop = item.id === top?.id;
           const shift = isTop ? offset : 0;
+          const stamps = stampOpacity(shift);
           return (
             <div
               key={item.id}
@@ -100,14 +123,23 @@ function SwipeDeck({
               onPointerDown={
                 isTop
                   ? (event) => {
-                      event.currentTarget.setPointerCapture(event.pointerId);
+                      try {
+                        event.currentTarget.setPointerCapture(event.pointerId);
+                      } catch {
+                        console.warn("swipe deck: no pointer capture, dragging from state instead");
+                      }
                       setHeld(true);
                     }
                   : undefined
               }
               onPointerMove={
-                isTop && held
-                  ? (event) => setOffset((current) => current + event.movementX)
+                isTop
+                  ? (event) => {
+                      const dragging =
+                        held || event.currentTarget.hasPointerCapture(event.pointerId);
+                      if (!dragging) return;
+                      setOffset((current) => current + event.movementX);
+                    }
                   : undefined
               }
               onPointerUp={isTop ? release : undefined}
@@ -126,13 +158,13 @@ function SwipeDeck({
               <div className={styles.head()}>
                 <span className={styles.kind()}>{item.kind}</span>
                 <span
-                  style={{ opacity: isTop ? Math.max(0, Math.min(1, shift / COMMIT)) : 0 }}
+                  style={{ opacity: stamps.pin }}
                   className={styles.stamp({ className: styles.pin() })}
                 >
                   pin
                 </span>
                 <span
-                  style={{ opacity: isTop ? Math.max(0, Math.min(1, -shift / COMMIT)) : 0 }}
+                  style={{ opacity: stamps.skip }}
                   className={styles.stamp({ className: styles.skip() })}
                 >
                   skip

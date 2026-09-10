@@ -72,7 +72,7 @@ export const Route = createFileRoute("/widgets")({
 
 function Widgets() {
   const styles = widgets();
-  const [pinned, setPinned] = useState<string[]>([]);
+  const [settled, setSettled] = useState<string[]>([]);
   const [installs, setInstalls] = useState(9_562);
 
   return (
@@ -197,9 +197,9 @@ function Widgets() {
           <Surface tone="sunken" padding="snug" className={styles.tall()}>
             <Row align="baseline">
               <Label>inbox</Label>
-              <Meta>{`${INBOX.length - pinned.length} left`}</Meta>
+              <Meta>{`${INBOX.length - settled.length} left`}</Meta>
             </Row>
-            <SwipeDeck items={INBOX} onSettle={(item) => setPinned((s) => [...s, item.id])} />
+            <SwipeDeck items={INBOX} onSettle={(item) => setSettled((s) => [...s, item.id])} />
             <Meta>← skip · pin → · drag or swipe</Meta>
           </Surface>
           <ActivityFeed entries={RUNS} />
