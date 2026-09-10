@@ -273,6 +273,59 @@ test("every tooltip trigger says what its tooltip says", () => {
 });
 
 /**
+ * A sparkline is one `img` with one name, so nothing drawn inside is read on its own — the caption
+ * badge included. One page showed `31ms` at the head under the name "p95 latency over 96 hours",
+ * so a reader who could not see the chart got the window and never the figure.
+ *
+ * The same shape as the tooltip rule above and the same answer: whatever is shown has to be said
+ * somewhere a reader reaches. A page that gives no `label` is fine — the default name already ends
+ * with the latest reading.
+ */
+const unsaidCaptions = (sources: readonly { readonly file: string; readonly source: string }[]) =>
+  sources
+    .flatMap(({ file, source }) =>
+      openingTags(source, "Sparkline").flatMap((tag) => {
+        const caption = /caption=\{([^}]+)\}/.exec(tag)?.[1]?.trim();
+        if (caption === undefined) return [];
+
+        const label = /label=(?:"([^"]*)"|\{`([^`]*)`\})/.exec(tag);
+        const said = label === null ? "" : (label[1] ?? label[2] ?? "");
+
+        return label !== null && !said.includes(caption)
+          ? [`${file}: a sparkline shows ${caption} and its name does not say it`]
+          : [];
+      }),
+    )
+    .sort();
+
+test("a caption a sparkline draws and never says is reported", () => {
+  const quiet = [
+    { file: "p.tsx", source: '<Sparkline values={A} caption={LATEST} label="latency" />' },
+  ];
+  const said = [
+    {
+      file: "p.tsx",
+      source: "<Sparkline values={A} caption={LATEST} label={`latency, latest ${LATEST}`} />",
+    },
+  ];
+  /* No label at all is not a fault: the component's own name ends with the latest reading. */
+  const bare = [{ file: "p.tsx", source: "<Sparkline values={A} caption={LATEST} />" }];
+
+  expect(unsaidCaptions(quiet)).toEqual([
+    "p.tsx: a sparkline shows LATEST and its name does not say it",
+  ]);
+  expect(unsaidCaptions(said)).toEqual([]);
+  expect(unsaidCaptions(bare)).toEqual([]);
+});
+
+test("every caption a sparkline draws is said in the name it carries", () => {
+  const drawn = pages.flatMap(({ source }) => openingTags(source, "Sparkline"));
+
+  expect(drawn.length).toBeGreaterThan(3);
+  expect(unsaidCaptions(pages)).toEqual([]);
+});
+
+/**
  * The readme counts the kit twice — how many component modules there are, and how many of them
  * draw with `slots` rather than a `base`. Both were a component behind, and it also sent a reader
  * to a route that had been renamed. Numbers written in prose go stale the moment a file is added,

@@ -38,6 +38,7 @@ const INSTALL_CEILING = Math.max(...INSTALLS);
 const COMMIT_PEAK = Math.max(...COMMIT_WEEKS);
 const COMMIT_PEAK_WEEK = COMMIT_WEEKS.indexOf(COMMIT_PEAK);
 const LATEST_FRAME = FRAME_BUDGET[FRAME_BUDGET.length - 1];
+const LATEST_LATENCY = `${LATENCY[LATENCY.length - 1]}ms`;
 
 /**
  * The most weeks to ask for. The grid draws fewer when the width cannot hold them, and it states
@@ -95,8 +96,8 @@ function Readouts() {
             <Sparkline
               values={LATENCY}
               size="lg"
-              caption={`${LATENCY[LATENCY.length - 1]}ms`}
-              label="p95 latency over 96 hours"
+              caption={LATEST_LATENCY}
+              label={`p95 latency over 96 hours, latest ${LATEST_LATENCY}`}
             />
           </Surface>
           <Surface tone="card">

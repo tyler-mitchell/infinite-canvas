@@ -504,10 +504,16 @@ test("a series that states its length says the length it has", () => {
   const fixtures = readFileSync(new URL("fixtures.ts", appDir), "utf8");
 
   const counted = [...pages.matchAll(/<Sparkline\b([\s\S]*?)\/>/g)]
-    .map(([, attributes]) => ({
-      series: /values=\{(\w+)\}/.exec(attributes!)?.[1],
-      label: /label="([^"]*)"/.exec(attributes!)?.[1],
-    }))
+    .map(([, attributes]) => {
+      /* Either form of name. A label that has to say a figure as well is written as a template,
+       * and reading only the quoted form drops that chart out of the count without saying so. */
+      const written = /label=(?:"([^"]*)"|\{`([^`]*)`\})/.exec(attributes!);
+
+      return {
+        series: /values=\{(\w+)\}/.exec(attributes!)?.[1],
+        label: written === null ? undefined : (written[1] ?? written[2]),
+      };
+    })
     /* `over 96 hours`, not the 95 in `p95`: the count is the one the phrase counts with. */
     .filter(
       (row): row is { series: string; label: string } =>

@@ -91,7 +91,13 @@ export type SparklineProps = Omit<React.ComponentProps<"div">, "children"> &
   VariantProps<typeof sparkline> & {
     /** Oldest first. The last value is the head. */
     readonly values: readonly number[];
-    /** Puts a badge at the head in the dot's place. An explicit `head` still wins. */
+    /**
+     * Puts a badge at the head in the dot's place. An explicit `head` still wins.
+     *
+     * The chart is one `img` with one name, so nothing drawn inside it is read on its own — this
+     * included. Say it in `label` as well, or leave `label` off and let the default name carry the
+     * latest reading.
+     */
     readonly caption?: string;
     /** Names the series for a reader who cannot see it. */
     readonly label?: string;
