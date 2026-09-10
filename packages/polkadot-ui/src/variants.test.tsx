@@ -102,3 +102,44 @@ test("the pairing reaches most of the kit", () => {
 test("every value of every variant the kit declares can be drawn", () => {
   expect(eachValue(pairs).broke).toEqual([]);
 });
+
+/**
+ * The one place in the kit where two variants together mean something neither means alone. On its
+ * own `pressed` is two empty strings, so all four looks come out of the compound list, and a
+ * mistake there costs a state its whole appearance while every variant still reads as declared.
+ *
+ * The styling object is called directly rather than through the component, because that is what a
+ * compound variant is: `pressed` reaches it from Base UI through the `className` function, not
+ * from a prop, so handing it to the component would prove nothing.
+ */
+const COMBINATIONS = [
+  { look: "segmented", pressed: true },
+  { look: "segmented", pressed: false },
+  { look: "chips", pressed: true },
+  { look: "chips", pressed: false },
+] as const;
+
+test("the four combinations each dress the item differently", () => {
+  const drawn = COMBINATIONS.map(({ look, pressed }) =>
+    kit.toggleGroupVariants({ look, pressed }).item(),
+  );
+
+  expect(new Set(drawn).size).toBe(4);
+});
+
+test("a pressed toggle carries a fill its unpressed twin does not", () => {
+  for (const look of ["segmented", "chips"] as const) {
+    const on = kit.toggleGroupVariants({ look, pressed: true }).item();
+    const off = kit.toggleGroupVariants({ look, pressed: false }).item();
+
+    expect(on).toMatch(/\bbg-/);
+    expect(on).not.toBe(off);
+  }
+});
+
+test("the item still resolves when only the pressed state is given", () => {
+  const bare = kit.toggleGroupVariants({ pressed: true }).item();
+  const named = kit.toggleGroupVariants({ look: "segmented", pressed: true }).item();
+
+  expect(bare).toBe(named);
+});
