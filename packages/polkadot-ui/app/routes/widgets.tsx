@@ -104,6 +104,8 @@ function Widgets() {
           <Avatar name="Tyler Mitchell" />
           <Avatar size="lg" name="Tyler Mitchell" />
           <StatusDot>open to one project</StatusDot>
+          <StatusDot tone="idle">idle</StatusDot>
+          <StatusDot tone="off">off</StatusDot>
           <Badge tone="outline">wasm</Badge>
           <Badge look="label" tone="outline">
             public

@@ -18,7 +18,8 @@ const statusDot = tv({
         label: "text-pk-accent-dim",
       },
       idle: { ring: "hidden", core: "bg-pk-ink-dim", label: "text-pk-ink-faint" },
-      off: { ring: "hidden", core: "bg-pk-ink-faint/50", label: "text-pk-ink-faint" },
+      /* Hollow rather than dimmer: a filled dot faint enough to read as off is too faint to see. */
+      off: { ring: "border-pk-ink-faint", core: "hidden", label: "text-pk-ink-faint" },
     },
   },
   defaultVariants: { tone: "live" },
