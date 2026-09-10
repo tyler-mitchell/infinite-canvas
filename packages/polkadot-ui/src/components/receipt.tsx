@@ -86,7 +86,6 @@ export type ReceiptBarcodeProps = Omit<React.ComponentProps<"div">, "children"> 
 
 function ReceiptBarcode({ value, className, ...props }: ReceiptBarcodeProps) {
   const styles = receipt();
-  /* Two widths, chosen by whether the character's code point is odd. Not a real symbology. */
   const bars = Array.from(value.repeat(3).slice(0, 18), (character) =>
     character.codePointAt(0)! % 2 === 0 ? 3 : 1.5,
   );

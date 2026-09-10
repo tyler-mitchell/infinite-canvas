@@ -34,8 +34,11 @@ const SECTIONS = [
     ],
   },
   {
-    label: "instruments",
-    links: [{ to: "/data", label: "readouts" }],
+    label: "composed",
+    links: [
+      { to: "/widgets", label: "widgets" },
+      { to: "/data", label: "readouts" },
+    ],
   },
 ] as const;
 

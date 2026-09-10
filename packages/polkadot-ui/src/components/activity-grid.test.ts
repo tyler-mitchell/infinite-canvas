@@ -2,11 +2,6 @@ import { expect, test } from "vite-plus/test";
 
 import { activityLevel, toColumns, weeksThatFit, type ActivityDay } from "./activity-grid.tsx";
 
-/*
- * These pin the sizing rule itself. The component reaches it through a ResizeObserver, which needs
- * a laid-out document; the rule is a pure function of width and needs nothing.
- */
-
 const CELL = 11;
 const GAP = 4;
 const WANTED = 26;
@@ -14,6 +9,15 @@ const PITCH = CELL + GAP;
 
 /** What the returned week count actually occupies: n cells with n-1 gaps between them. */
 const widthUsed = (weeks: number) => weeks * CELL + (weeks - 1) * GAP;
+
+/** A run of consecutive days ending on the given date, which is the shape the component is given. */
+const daysEnding = (count: number, end: Date): ActivityDay[] =>
+  Array.from({ length: count }, (_, index) => {
+    const date = new Date(end);
+    date.setHours(12, 0, 0, 0);
+    date.setDate(date.getDate() - (count - 1 - index));
+    return { date, count: index % 5 };
+  });
 
 test("a full-width plot shows every week asked for", () => {
   expect(weeksThatFit(widthUsed(WANTED), CELL, GAP, WANTED)).toBe(WANTED);
@@ -32,19 +36,18 @@ test("a narrower plot drops weeks", () => {
   expect(narrow).toBe(12);
 });
 
-test("the weeks it reports always fit the width it was given", () => {
-  // Every width from too-narrow to wider than asked for, so no case is cherry-picked.
-  for (let width = 40; width <= WANTED * PITCH + 60; width += 1) {
+test("at every width from too-narrow to oversized, the weeks it reports fit", () => {
+  const widths = Array.from({ length: WANTED * PITCH + 21 }, (_, index) => 40 + index);
+
+  for (const width of widths) {
     const weeks = weeksThatFit(width, CELL, GAP, WANTED);
     expect(weeks).toBeLessThanOrEqual(WANTED);
     expect(Number.isInteger(weeks)).toBe(true);
-    // Six is a floor it is allowed to overflow; above that it must genuinely fit.
     if (weeks > 6) expect(widthUsed(weeks)).toBeLessThanOrEqual(width);
   }
 });
 
-test("it stops at six weeks rather than shrinking cells", () => {
-  // The cell size is an input and never a result, so a plot too narrow for six weeks overflows.
+test("it stops at six weeks and overflows rather than shrinking cells", () => {
   for (const width of [1, 10, 40, 80, widthUsed(6)]) {
     expect(weeksThatFit(width, CELL, GAP, WANTED)).toBeGreaterThanOrEqual(6);
   }
@@ -52,32 +55,22 @@ test("it stops at six weeks rather than shrinking cells", () => {
   expect(weeksThatFit(20, 40, GAP, WANTED)).toBe(6);
 });
 
-test("the default levels are exactly the ladder they replaced", () => {
-  // Counting bounds cleared replaced a chain of ternaries; every count must still land where it did.
-  const wasBefore = (n: number) => (n === 0 ? 0 : n < 3 ? 1 : n < 6 ? 2 : n < 10 ? 3 : 4);
-  for (let count = 0; count <= 40; count += 1) {
-    expect(activityLevel(count)).toBe(wasBefore(count));
+test("counting bounds cleared lands every count where the ternary ladder did", () => {
+  const ladder = (n: number) => (n === 0 ? 0 : n < 3 ? 1 : n < 6 ? 2 : n < 10 ? 3 : 4);
+  const counts = Array.from({ length: 41 }, (_, index) => index);
+
+  for (const count of counts) {
+    expect(activityLevel(count)).toBe(ladder(count));
   }
 });
 
-test("a series with another shape can bring its own bounds", () => {
-  // Minutes read in a day: against the commit defaults every one of these is the top level.
+test("minutes read are every top level on the commit defaults, and a ladder on their own", () => {
   const minutes = [0, 12, 45, 90, 240];
   expect(minutes.map((n) => activityLevel(n))).toEqual([0, 4, 4, 4, 4]);
   expect(minutes.map((n) => activityLevel(n, [1, 30, 60, 120]))).toEqual([0, 1, 2, 3, 4]);
 });
 
-/** A run of consecutive days ending today, which is the shape the component is given. */
-const daysEnding = (count: number, end: Date): ActivityDay[] =>
-  Array.from({ length: count }, (_, i) => {
-    const date = new Date(end);
-    date.setHours(12, 0, 0, 0);
-    date.setDate(date.getDate() - (count - 1 - i));
-    return { date, count: i % 5 };
-  });
-
-test("every day lands on its own weekday row", () => {
-  // Rows are weekdays, so an entry's position modulo seven has to be its own getDay().
+test("every day lands on the row of its own weekday", () => {
   for (const end of [new Date(2026, 8, 9), new Date(2026, 0, 1), new Date(2025, 11, 31)]) {
     const columns = toColumns(daysEnding(371, end), 26);
     for (const [index, day] of columns.entries()) {
@@ -86,7 +79,7 @@ test("every day lands on its own weekday row", () => {
   }
 });
 
-test("padding is added ahead of the first day, and no day is dropped", () => {
+test("padding is added ahead of the first day, and the most recent day survives", () => {
   const days = daysEnding(371, new Date(2026, 8, 9));
   const columns = toColumns(days, 26);
   const kept = columns.filter((day) => day !== null);
@@ -95,7 +88,6 @@ test("padding is added ahead of the first day, and no day is dropped", () => {
   expect(kept).toHaveLength(26 * 7);
   expect(columns).toHaveLength(leading + 26 * 7);
   expect(leading).toBe(kept[0]?.date.getDay());
-  // The trailing day survives: it is the one the readout reports as most recent.
   expect(kept.at(-1)?.date.toDateString()).toBe(days.at(-1)?.date.toDateString());
 });
 

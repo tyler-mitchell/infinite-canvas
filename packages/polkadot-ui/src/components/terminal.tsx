@@ -9,7 +9,6 @@ const terminal = tv({
     prompt: "flex-none text-pk-ink-faint select-none",
     text: "text-pk-ink-muted",
     output: "whitespace-pre text-pk-ink-faint",
-    /* A block that blinks on a one-second step, which is what a terminal cursor does. */
     caret: "ml-px inline-block w-[7px] animate-pk-caret bg-pk-accent text-transparent select-none",
   },
   variants: {

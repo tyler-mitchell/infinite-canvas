@@ -17,7 +17,6 @@ const api = tv({
     name: "w-[92px] flex-none",
     values: "flex flex-wrap items-baseline gap-x-2 gap-y-1",
     value: "font-pk-mono text-[11px] leading-[1.4] text-pk-ink-faint",
-    /* The default is the one you get by writing nothing, so it is the active one. */
     current: "font-pk-mono text-[11px] leading-[1.4] text-pk-accent-dim",
   },
 });

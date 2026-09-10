@@ -131,7 +131,6 @@ function Data() {
             <Label>minutes read</Label>
             <Meta>1 · 30 · 60 · 120</Meta>
           </Row>
-          {/* The same days as above in minutes: on the commit defaults every one of these is level 4. */}
           <ActivityGrid days={READING} weeks={18} thresholds={[1, 30, 60, 120]}>
             {(day) => (
               <Readout>

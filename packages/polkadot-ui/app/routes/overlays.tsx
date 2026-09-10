@@ -127,7 +127,6 @@ function Overlays() {
           <Menu.Trigger render={<Button tone="soft" />}>arrange</Menu.Trigger>
           <Menu.Content>
             <Menu.Group>
-              {/* GroupLabel reads MenuGroupContext, so it must sit inside Group, not beside it. */}
               <Menu.GroupLabel>layout</Menu.GroupLabel>
               <Menu.Item>
                 split <Menu.Shortcut>⌘1</Menu.Shortcut>

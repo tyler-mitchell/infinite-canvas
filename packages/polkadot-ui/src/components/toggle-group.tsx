@@ -84,7 +84,6 @@ function Toggle<Value extends string = string>({ className, ...props }: TogglePr
   return (
     <TogglePrimitive
       data-slot="toggle"
-      /* Base UI hands state to className, so pressed selects a variant with no attribute selector. */
       className={(state) => toggleGroup({ look, pressed: state.pressed }).item({ className })}
       {...props}
     />

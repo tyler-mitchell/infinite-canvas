@@ -189,7 +189,6 @@ function ActivityGrid({
         >
           {columns.map((day, index) =>
             day ? (
-              /* No role or label: inside the chart above, so the readout is what speaks. */
               <div
                 key={index}
                 data-slot="activity-day"

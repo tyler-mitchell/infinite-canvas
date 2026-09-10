@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as WidgetsRouteImport } from './routes/widgets'
 import { Route as OverlaysRouteImport } from './routes/overlays'
 import { Route as LayoutRouteImport } from './routes/layout'
 import { Route as FoundationsRouteImport } from './routes/foundations'
@@ -17,6 +18,11 @@ import { Route as DataRouteImport } from './routes/data'
 import { Route as ControlsRouteImport } from './routes/controls'
 import { Route as IndexRouteImport } from './routes/index'
 
+const WidgetsRoute = WidgetsRouteImport.update({
+  id: '/widgets',
+  path: '/widgets',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const OverlaysRoute = OverlaysRouteImport.update({
   id: '/overlays',
   path: '/overlays',
@@ -61,6 +67,7 @@ export interface FileRoutesByFullPath {
   '/foundations': typeof FoundationsRoute
   '/layout': typeof LayoutRoute
   '/overlays': typeof OverlaysRoute
+  '/widgets': typeof WidgetsRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -70,6 +77,7 @@ export interface FileRoutesByTo {
   '/foundations': typeof FoundationsRoute
   '/layout': typeof LayoutRoute
   '/overlays': typeof OverlaysRoute
+  '/widgets': typeof WidgetsRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -80,6 +88,7 @@ export interface FileRoutesById {
   '/foundations': typeof FoundationsRoute
   '/layout': typeof LayoutRoute
   '/overlays': typeof OverlaysRoute
+  '/widgets': typeof WidgetsRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -91,6 +100,7 @@ export interface FileRouteTypes {
     | '/foundations'
     | '/layout'
     | '/overlays'
+    | '/widgets'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -100,6 +110,7 @@ export interface FileRouteTypes {
     | '/foundations'
     | '/layout'
     | '/overlays'
+    | '/widgets'
   id:
     | '__root__'
     | '/'
@@ -109,6 +120,7 @@ export interface FileRouteTypes {
     | '/foundations'
     | '/layout'
     | '/overlays'
+    | '/widgets'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -119,10 +131,18 @@ export interface RootRouteChildren {
   FoundationsRoute: typeof FoundationsRoute
   LayoutRoute: typeof LayoutRoute
   OverlaysRoute: typeof OverlaysRoute
+  WidgetsRoute: typeof WidgetsRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/widgets': {
+      id: '/widgets'
+      path: '/widgets'
+      fullPath: '/widgets'
+      preLoaderRoute: typeof WidgetsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/overlays': {
       id: '/overlays'
       path: '/overlays'
@@ -183,6 +203,7 @@ const rootRouteChildren: RootRouteChildren = {
   FoundationsRoute: FoundationsRoute,
   LayoutRoute: LayoutRoute,
   OverlaysRoute: OverlaysRoute,
+  WidgetsRoute: WidgetsRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

@@ -221,7 +221,6 @@ function Layout() {
             </ScrollArea>
           </Surface>
 
-          {/* Narrow enough that the same lines overflow sideways, which is what `both` is for. */}
           <Surface tone="card" className={styles.scrollWide()}>
             <ScrollArea axis="both">
               <div className={styles.scrollBody()}>
