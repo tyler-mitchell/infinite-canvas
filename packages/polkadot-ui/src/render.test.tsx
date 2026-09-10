@@ -679,6 +679,11 @@ test("a grid that opens mid-week leads with blank cells", () => {
  * The avatar cannot: its name is the consumer's to give and there is nothing to fall back on. It
  * drops the attribute instead, which leaves whatever initials were passed to name the tile rather
  * than an empty string overriding them.
+ *
+ * The icon tile cannot either, and has less to work with: its icon is decoration and its label is
+ * the only words it has. This note named it and nothing here read it, so a blank one is pinned
+ * below as it stands. Mending it would mean inventing a name for a thing the kit knows nothing
+ * about, which is worse than leaving the gap where the consumer can see it.
  */
 test("a component given no words does not name itself with them", () => {
   const label = (markup: string) => /aria-label="([^"]*)"/.exec(markup)?.[1];
@@ -688,6 +693,18 @@ test("a component given no words does not name itself with them", () => {
   );
   expect(label(renderToStaticMarkup(<kit.ReceiptBarcode value="" />))).toBe("no order");
   expect(label(renderToStaticMarkup(<kit.ReceiptBarcode value="   " />))).toBe("no order");
+
+  /*
+   * The tile of spaces the note above names, pinned rather than mended. Its words are its markup
+   * and not an attribute, and it has no reading, no order and no queue to fall back on — the same
+   * position as the avatar below. So a blank name stays blank and stays the consumer's to fix.
+   */
+  const tile = (label: string) =>
+    renderToStaticMarkup(<kit.IconTile icon={<span>x</span>} label={label} />);
+
+  expect(tile("open")).toContain(">open<");
+  expect(tile("   ")).toContain(">   <");
+  expect(tile("   ")).not.toContain("aria-label");
 
   expect(label(renderToStaticMarkup(<kit.Avatar name="Ada Lovelace" />))).toBe("Ada Lovelace");
   expect(label(renderToStaticMarkup(<kit.Avatar name="" />))).toBeUndefined();
