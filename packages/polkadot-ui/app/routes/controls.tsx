@@ -15,6 +15,7 @@ import {
   Surface,
   Switch,
   ToggleGroup,
+  toggleGroupVariants,
 } from "polkadot-ui";
 
 import { Api } from "../api.tsx";
@@ -127,6 +128,7 @@ function Controls() {
             </ToggleGroup.Item>
           ))}
         </ToggleGroup>
+        <Api of={toggleGroupVariants} />
       </section>
 
       <section className={styles.section()}>

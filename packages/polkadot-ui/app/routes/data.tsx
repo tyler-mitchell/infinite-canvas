@@ -13,6 +13,7 @@ import {
   Readout,
   Row,
   Sparkline,
+  sparklineVariants,
   Surface,
 } from "polkadot-ui";
 
@@ -91,6 +92,7 @@ function Data() {
             <Sparkline values={FRAME_BUDGET} size="sm" label="frame time over 72 frames" />
           </Surface>
         </div>
+        <Api of={sparklineVariants} />
       </section>
 
       <section className={styles.section()}>
