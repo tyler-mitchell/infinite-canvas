@@ -10,10 +10,10 @@ const activityFeed = tv({
     lead: "mt-px flex size-[18px] flex-none items-center justify-center text-pk-ink-faint [&_svg]:size-full",
     body: "flex min-w-0 flex-1 flex-col gap-1",
     line: "flex flex-wrap items-baseline gap-2",
-    name: "font-pk-sans text-pk-item text-pk-ink-muted",
+    name: "min-w-0 font-pk-sans text-pk-item break-words text-pk-ink-muted",
     duration:
       "flex-none rounded-pk-pill bg-pk-ink/[0.06] px-[7px] py-[3px] font-pk-mono text-pk-mono-sm text-pk-ink-faint tabular-nums",
-    note: "m-0 font-pk-sans text-pk-note text-pk-ink-faint",
+    note: "m-0 font-pk-sans text-pk-note break-words text-pk-ink-faint",
     since:
       "flex-none self-start font-pk-mono text-pk-mono-sm text-pk-ink-faint uppercase tabular-nums",
   },
