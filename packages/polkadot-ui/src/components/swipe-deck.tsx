@@ -13,8 +13,7 @@ const swipeDeck = tv({
     pin: "border-pk-accent text-pk-accent",
     skip: "border-pk-line-strong text-pk-ink-dim",
     body: "flex min-h-0 flex-1 flex-col gap-1.5",
-    title:
-      "font-pk-sans text-[15px] leading-[1.25] font-medium tracking-[-0.02em] break-words text-pretty text-pk-ink",
+    title: "font-pk-sans text-pk-title break-words text-pretty text-pk-ink",
     prose:
       "m-0 min-h-0 flex-1 overflow-hidden font-pk-sans text-pk-note text-pretty text-pk-ink-soft",
     foot: "flex flex-none items-center justify-between gap-2 border-t border-pk-line-inner-raised pt-[9px] font-pk-mono text-pk-mono-sm text-pk-ink-faint",

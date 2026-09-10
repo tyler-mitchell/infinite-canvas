@@ -8,7 +8,7 @@ const statusDot = tv({
     mark: "relative flex size-[10px] flex-none items-center justify-center",
     ring: "absolute size-[10px] rounded-pk-pill border",
     core: "size-1 rounded-pk-pill",
-    label: "font-pk-mono text-[10.5px] leading-[1.5]",
+    label: "font-pk-mono text-pk-mono-sm",
   },
   variants: {
     tone: {

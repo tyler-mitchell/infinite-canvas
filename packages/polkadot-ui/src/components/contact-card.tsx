@@ -7,9 +7,8 @@ const contactCard = tv({
     root: "pk-rim box-border flex items-center justify-between gap-[14px] overflow-hidden rounded-[18px] p-5",
     body: "flex min-w-0 flex-col gap-[5px]",
     label: "font-pk-sans text-pk-label text-pk-ink-dim",
-    address:
-      "font-pk-sans text-[15px] leading-[1.2] font-medium tracking-[-0.02em] break-words text-pk-ink",
-    note: "font-pk-sans text-[11.5px] leading-[1.4] text-pk-ink-faint",
+    address: "font-pk-sans text-pk-title break-words text-pk-ink",
+    note: "font-pk-sans text-pk-note text-pk-ink-faint",
     arrow:
       "flex size-8 flex-none items-center justify-center rounded-pk-pill border border-pk-line font-pk-sans text-[15px] leading-none text-pk-accent",
   },

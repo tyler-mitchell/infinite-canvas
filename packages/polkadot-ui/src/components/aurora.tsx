@@ -15,7 +15,7 @@ const aurora = tv({
     content: "pointer-events-none absolute inset-0 flex flex-col justify-between p-4",
     label: "font-pk-sans text-pk-label text-pk-ink/72",
     headline:
-      "font-pk-sans text-[15px] leading-[1.2] font-semibold tracking-[-0.025em] break-words text-balance text-pk-ink-bright",
+      "font-pk-sans text-pk-title font-semibold break-words text-balance text-pk-ink-bright",
   },
 });
 
