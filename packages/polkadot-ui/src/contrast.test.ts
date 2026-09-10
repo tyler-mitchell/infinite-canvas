@@ -223,6 +223,28 @@ test("every ground a control can be focused on names the seat behind it", () => 
 });
 
 /**
+ * Paper is the one ground painted as a gradient, so the rule above cannot see it — a gradient sets
+ * no background colour, and neither can a walk up the page find one. Two declarations hold it
+ * together by hand: `.pk-paper` paints the gradient and names `--pk-paper-page` as the seat.
+ *
+ * Nothing said the two had to agree. A gradient starting at another colour would leave the receipt
+ * offsetting its ring against a colour the paper no longer has anywhere, and every ratio in this
+ * file would still pass, because each of them reads one of the two and never both.
+ *
+ * Confirmed in the page before it was written: the receipt's action sits on a gradient whose first
+ * stop is rgb(250, 249, 245), and the seat it inherits is #faf9f5.
+ */
+test("the seat the paper names is the stop the paper starts at", () => {
+  const [, top] = /--pk-paper:\s*linear-gradient\([^,]+,\s*(#[\da-f]+)/.exec(themeCss) ?? [];
+  const [, named] =
+    /\.pk-paper\s*\{[\s\S]*?--pk-ring-seat:\s*var\((--pk-[a-z-]+)\)/.exec(themeCss) ?? [];
+
+  expect(top).toBeDefined();
+  expect(named).toBe("--pk-paper-page");
+  expect(declaredAs.get(named!)).toBe(top);
+});
+
+/**
  * Paper is its own ground and takes its own ring, because the accent at half alpha reaches only
  * 1.32:1 against it. Nothing puts an accent ring on paper today; this pins the ring paper does use,
  * and pins the reason the other one cannot be carried across.
