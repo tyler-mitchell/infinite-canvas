@@ -92,6 +92,19 @@ test("an unnamed chart still says what it holds, in the sparkline's words", () =
   expect(barsLabel([])).toBe("no readings");
 });
 
+/**
+ * The name says `latest` because a bar is painted to mark it. A level meter marks none, and a name
+ * that still pointed at the last reading would tell a reader the plot distinguishes a value it
+ * draws exactly like the other fifteen.
+ */
+test("a chart that marks no bar counts its readings and names none", () => {
+  expect(barsLabel([1420, 1880, 4182], "none")).toBe("3 readings");
+  expect(barsLabel([1420, 1880, 4182], "last")).toBe("3 readings, latest 4182");
+  /* One reading is the whole series, marked or not, so it is still worth saying. */
+  expect(barsLabel([42], "none")).toBe("one reading, 42");
+  expect(barsLabel([], "none")).toBe("no readings");
+});
+
 test("the label never reads undefined, however odd the series", () => {
   const cases: readonly (readonly number[])[] = [
     [],

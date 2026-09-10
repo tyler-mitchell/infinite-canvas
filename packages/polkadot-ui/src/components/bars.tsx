@@ -52,10 +52,15 @@ export function barShare(value: number, ceiling: number, minHeight: number) {
 /**
  * What the chart is called when the consumer gives no `label`, in the same words the sparkline
  * uses. The newest value is the one the emphasis marks, so it is the one worth naming.
+ *
+ * Which is why `emphasis` is read here too. A chart that marks no bar has no newest to speak of,
+ * and naming one anyway tells a reader the plot distinguishes a value it draws exactly like the
+ * rest — a level meter is the case, and it counts its readings without singling one out.
  */
-export function barsLabel(values: readonly number[]) {
+export function barsLabel(values: readonly number[], emphasis: "last" | "none" = "last") {
   if (values.length === 0) return "no readings";
   if (values.length === 1) return `one reading, ${values[0]}`;
+  if (emphasis === "none") return `${values.length} readings`;
 
   return `${values.length} readings, latest ${values[values.length - 1]}`;
 }
@@ -93,7 +98,7 @@ function Bars({
     <div
       data-slot="bars"
       role="img"
-      aria-label={label ?? barsLabel(values)}
+      aria-label={label ?? barsLabel(values, emphasis ?? "last")}
       className={styles.root({ className })}
       {...props}
     >
