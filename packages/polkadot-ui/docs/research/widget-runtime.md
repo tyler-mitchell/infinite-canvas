@@ -6,6 +6,10 @@ assembled from, the motion machinery that moves them, and the GPU world they act
 Objective: choose the substrate for a widget motion system and a spatial design language, and own
 no machinery a maintained library already provides.
 
+That objective was written when this package was expected to host all four. It hosts the first two.
+The findings on the shell and the primitives decided what got built; the ones on motion and on the
+GPU world are surveys of roads not taken, and say so where they appear.
+
 ## Contract
 
 Target identity: this repository at `packages/polkadot-ui`. Versions recorded per finding.
@@ -20,9 +24,9 @@ Scoped questions:
 | 3   | Which primitives Base UI owns, so none are hand-rolled | answered — 48 primitives, enumerated    |
 | 4   | Which motion affordances `motion` v12 owns             | answered — surface enumerated           |
 | 5   | What remains genuinely ours after 3 and 4              | answered, then outgrown — see below     |
-| 6   | Canonical R3F project shape at the installed version   | open                                    |
-| 7   | Can R3F and TypeGPU share one WebGPU device?           | open                                    |
-| 8   | Motion-system and ZUI precedence worth copying         | open                                    |
+| 6   | Canonical R3F project shape at the installed version   | not this package's — see Open gaps      |
+| 7   | Can R3F and TypeGPU share one WebGPU device?           | not this package's — see Open gaps      |
+| 8   | Motion-system and ZUI precedence worth copying         | not this package's — see Open gaps      |
 
 Out of scope, deliberately: `@hyphened/infinite-canvas`, `packages/ui`, and everything under
 `apps/`. This package adopts none of that tooling and integrates with none of it.
@@ -301,10 +305,17 @@ Status: superseded on the first paragraph, unresolved on the packer.
 
 ## Open gaps
 
-- Q6/Q7 are untouched and Q7 carries the real architectural risk: R3F draws through three.js,
-  TypeGPU owns a `GPUDevice`. Whether one device can back both decides whether widgets and the
-  world share a frame or are composited as two layers.
-- The `Widget` compound has no design. It is the one piece with no library owner and it was got
-  wrong twice; it needs a plan before a third attempt.
+- **The `Widget` gap is closed.** It was the one piece with no library owner and it had been got
+  wrong twice. `docs/design/widget.md` counted the POC instead of guessing, and what it proposed is
+  built: a `Surface` that owns the frame, a `Row` that owns the two-ended line, and the type roles
+  as their own parts. There is no `Widget` component, which was the finding.
+- **The packer is still open**, as recorded above.
+- **Q6, Q7 and Q8 are not this package's questions.** They ask about R3F's project shape, whether
+  R3F and TypeGPU can share one `GPUDevice`, and what motion and ZUI precedent is worth copying.
+  This package has no canvas: its dependencies are `@base-ui/react`, `d3-shape` and
+  `tailwind-variants`, and nothing under `src/` or `app/` imports three.js, R3F or TypeGPU. They
+  were scoped here when this package was expected to host the widget runtime including the GPU
+  world. It hosts a component kit, and the question of whether widgets and the world share a frame
+  belongs with whatever owns the world.
 
-Resume at: a plan for `Widget`, then Q7.
+Resume at: the packer, when a board needs packing.
