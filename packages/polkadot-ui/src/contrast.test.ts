@@ -396,13 +396,16 @@ const inksIn = (classes: string, state = ""): readonly Ink[] => {
 const fillsIn = (classes: string) =>
   classes.split(/\s+/).flatMap((one) => {
     const [, token, bracketed, percent] =
-      /bg-(pk-[a-z\d-]+)\/(?:\[([\d.]+)\]|(\d+))$/.exec(one) ?? [];
+      /bg-(pk-[a-z\d-]+)(?:\/(?:\[([\d.]+)\]|(\d+)))?$/.exec(one) ?? [];
     if (!token || !declaredAs.has(`--${token}`)) return [];
+
+    const thinned = bracketed ?? percent;
 
     return [
       {
         token: `--${token}`,
-        alpha: bracketed === undefined ? Number(percent) / 100 : Number(bracketed),
+        /* No alpha is an opaque fill, which is a ground like any other and was read as none. */
+        alpha: thinned === undefined ? 1 : Number(bracketed ?? Number(percent) / 100),
         state: gateOf(one),
       },
     ];
@@ -433,9 +436,22 @@ const paintedGrounds = (source: string) => {
    * strings, the trail's plain ink sat in one and its hover ink in another, so the row's own hover
    * fill was matched against the ink that hover replaces.
    */
+  /*
+   * A compound variant dresses one slot under a combination of values, and every entry names the
+   * same slot — so merging by key puts four states that never co-occur into one string. The badge
+   * is safe because its tones are their own keys; the toggle's are not. Each entry is read as its
+   * own group, which is what keeping them apart by key already does everywhere else.
+   */
+  const compound = /compoundVariants:\s*\[([\s\S]*?)\n {2}\],/.exec(block)?.[1] ?? "";
+  const plain = compound === "" ? block : block.replace(compound, "");
+
   const bySlot = new Map<string, string>();
-  for (const [, key, classes] of block.matchAll(/(\w+):\s*\n?\s*"((?:[^"\\]|\\.)*)"/g)) {
+  for (const [, key, classes] of plain.matchAll(/(\w+):\s*\n?\s*"((?:[^"\\]|\\.)*)"/g)) {
     bySlot.set(key!, `${bySlot.get(key!) ?? ""} ${classes!}`);
+  }
+  for (const [at, [, entry]] of [...compound.matchAll(/class:\s*\{([\s\S]*?)\}/g)].entries()) {
+    const classes = [...entry!.matchAll(/"((?:[^"\\]|\\.)*)"/g)].map(([, one]) => one).join(" ");
+    bySlot.set(`compound${at}`, classes);
   }
 
   const strings = [...bySlot.values()];
