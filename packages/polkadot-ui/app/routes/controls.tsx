@@ -1,7 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
-import { tv } from "tailwind-variants";
-
 import {
   Button,
   buttonVariants,
@@ -17,6 +15,7 @@ import {
   Switch,
   ToggleGroup,
   toggleGroupVariants,
+  tv,
 } from "polkadot-ui";
 
 import { Api } from "../api.tsx";

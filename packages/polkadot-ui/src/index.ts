@@ -1,3 +1,4 @@
+export { FONT_SIZES, tv } from "./tv.ts";
 export {
   Accordion,
   AccordionItem,

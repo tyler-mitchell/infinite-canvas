@@ -1,6 +1,4 @@
-import { tv } from "tailwind-variants";
-
-import { Kind, Label, Meta } from "polkadot-ui";
+import { Kind, Label, Meta, tv } from "polkadot-ui";
 
 const api = tv({
   slots: {

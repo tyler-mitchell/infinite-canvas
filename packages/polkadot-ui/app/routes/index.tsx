@@ -1,7 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
-import { tv } from "tailwind-variants";
-
 import {
   ActivityFeed,
   Aurora,
@@ -35,6 +33,7 @@ import {
   SwipeDeck,
   Terminal,
   Title,
+  tv,
 } from "polkadot-ui";
 
 import {

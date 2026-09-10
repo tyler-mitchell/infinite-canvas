@@ -1,6 +1,4 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { tv } from "tailwind-variants";
-
 import {
   ActivityGrid,
   type ActivityGridProps,
@@ -18,6 +16,7 @@ import {
   type SparklineProps,
   sparklineVariants,
   Surface,
+  tv,
 } from "polkadot-ui";
 
 import { Api } from "../api.tsx";

@@ -1,7 +1,5 @@
 import { createRootRoute, Link, Outlet } from "@tanstack/react-router";
-import { tv } from "tailwind-variants";
-
-import { Kind, Meta, ScrollArea, Title } from "polkadot-ui";
+import { Kind, Meta, ScrollArea, Title, tv } from "polkadot-ui";
 
 const shell = tv({
   slots: {

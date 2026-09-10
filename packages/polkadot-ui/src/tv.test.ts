@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 
+import { tv as stock } from "tailwind-variants";
 import { expect, test } from "vite-plus/test";
 
 import { FONT_SIZES, tv } from "./tv.ts";
@@ -33,6 +34,14 @@ test("no name is claimed as a size that the theme does not declare", () => {
   const stale = FONT_SIZES.filter((name) => !declaredSizes.includes(name));
 
   expect(stale).toEqual([]);
+});
+
+test("the stock tv is what makes the configured one necessary", () => {
+  const both = "text-pk-label text-pk-on-accent";
+
+  /* The stock merge keeps the colour and drops the size, without saying so. */
+  expect(stock({ base: both })()).toBe("text-pk-on-accent");
+  expect(tv({ base: both })().split(" ")).toHaveLength(2);
 });
 
 test("a slot may set a size and a colour without either being dropped", () => {

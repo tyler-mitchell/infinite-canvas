@@ -1,6 +1,4 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { tv } from "tailwind-variants";
-
 import {
   Button,
   Display,
@@ -20,6 +18,7 @@ import {
   surfaceVariants,
   Title,
   Toolbar,
+  tv,
 } from "polkadot-ui";
 
 import { Api } from "../api.tsx";

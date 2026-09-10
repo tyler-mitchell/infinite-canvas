@@ -1,6 +1,4 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { tv } from "tailwind-variants";
-
 import {
   Button,
   Dialog,
@@ -13,6 +11,7 @@ import {
   Prose,
   Row,
   Tooltip,
+  tv,
 } from "polkadot-ui";
 
 import { Props } from "../props.tsx";

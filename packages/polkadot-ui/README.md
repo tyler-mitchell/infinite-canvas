@@ -82,9 +82,14 @@ const terminal = tv({
 The same holds in consuming pages: put page-level classes in that page's own `tv({ slots })` block
 and read them from there. Every route in `app/` is written this way.
 
-**Components import `tv` from `src/tv.ts`, never from `tailwind-variants`.** The type scale uses
-`text-*` names, and so do the ink colours, so tailwind-merge cannot tell `text-pk-label` from
-`text-pk-on-accent` and silently drops one of them:
+**Import `tv` from `polkadot-ui`, never from `tailwind-variants` — in a component or a page.** The
+type scale uses `text-*` names, and so do the ink colours, so the stock merge cannot tell
+`text-pk-label` from `text-pk-on-accent`. It keeps the colour, drops the size, and says nothing:
+
+```ts
+stock({ base: "text-pk-label text-pk-on-accent" })(); // → "text-pk-on-accent"
+tv({ base: "text-pk-label text-pk-on-accent" })(); // → both
+```
 
 ```ts
 // src/tv.ts — tv told which text-* names are sizes, so a slot may set both a size and a colour.
