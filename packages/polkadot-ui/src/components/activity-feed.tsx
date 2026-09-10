@@ -13,7 +13,7 @@ const activityFeed = tv({
     name: "font-pk-sans text-pk-item text-pk-ink-muted",
     duration:
       "flex-none rounded-pk-pill bg-pk-ink/[0.06] px-[7px] py-[3px] font-pk-mono text-pk-mono-sm text-pk-ink-faint tabular-nums",
-    note: "font-pk-sans text-pk-note text-pk-ink-faint",
+    note: "m-0 font-pk-sans text-pk-note text-pk-ink-faint",
     since:
       "flex-none self-start font-pk-mono text-pk-mono-sm text-pk-ink-faint uppercase tabular-nums",
   },
@@ -66,7 +66,7 @@ function ActivityFeed({
                   <span className={styles.duration()}>{entry.duration}</span>
                 ) : null}
               </div>
-              <span className={styles.note()}>{entry.note}</span>
+              <p className={styles.note()}>{entry.note}</p>
             </div>
             {entry.since ? <span className={styles.since()}>{entry.since}</span> : null}
           </div>

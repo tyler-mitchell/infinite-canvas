@@ -8,7 +8,7 @@ const pendingCard = tv({
       "truncate font-pk-mono text-[13px] leading-[1.4] font-medium tracking-[0.02em] text-pk-accent",
     badge:
       "flex-none rounded-[6px] border border-pk-pending-line px-2 py-[5px] font-pk-sans text-[10px] leading-none font-medium tracking-[0.08em] text-pk-ink-faint uppercase",
-    body: "overflow-hidden font-pk-mono text-[11.5px] leading-[1.6] text-pk-pending-ink",
+    body: "m-0 overflow-hidden font-pk-mono text-[11.5px] leading-[1.6] text-pk-pending-ink",
   },
 });
 
@@ -28,7 +28,7 @@ function PendingCard({ title, body, stamp = "soon", className, ...props }: Pendi
         <span className={styles.title()}>{title}</span>
         <span className={styles.badge()}>{stamp}</span>
       </div>
-      <span className={styles.body()}>{body}</span>
+      <p className={styles.body()}>{body}</p>
     </div>
   );
 }
