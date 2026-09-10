@@ -38,6 +38,9 @@ const COMMIT_PEAK = Math.max(...COMMIT_WEEKS);
 const COMMIT_PEAK_WEEK = COMMIT_WEEKS.indexOf(COMMIT_PEAK);
 const LATEST_FRAME = FRAME_BUDGET[FRAME_BUDGET.length - 1];
 
+/** The grid draws whole weeks, and the fixture is longer than the frame, so the caption counts what is drawn. */
+const CONTRIBUTION_WEEKS = 26;
+
 const data = tv({
   slots: {
     page: "flex max-w-[880px] flex-col gap-9",
@@ -107,7 +110,7 @@ function Data() {
             { name: "label", note: "names the series for a reader who cannot see it" },
           ]}
         />
-        <Api of={sparklineVariants} />
+        <Api name="sparkline" of={sparklineVariants} />
       </section>
 
       <section className={styles.section()}>
@@ -147,9 +150,9 @@ function Data() {
         <Surface tone="card" className={styles.activity()}>
           <Row>
             <Label>contributions</Label>
-            <Meta>371 days</Meta>
+            <Meta>{`${CONTRIBUTION_WEEKS * 7} days`}</Meta>
           </Row>
-          <ActivityGrid days={ACTIVITY}>
+          <ActivityGrid days={ACTIVITY} weeks={CONTRIBUTION_WEEKS}>
             {(day) => (
               <Readout>
                 {day
@@ -240,7 +243,7 @@ function Data() {
             { name: "label", note: "names the series for a reader who cannot see it" },
           ]}
         />
-        <Api of={barsVariants} />
+        <Api name="bars" of={barsVariants} />
       </section>
 
       <section className={styles.section()}>

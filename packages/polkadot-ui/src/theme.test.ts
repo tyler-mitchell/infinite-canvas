@@ -378,6 +378,49 @@ test("every size the type section names is the one its role actually uses", () =
   expect(wrong).toEqual([]);
 });
 
+/** How many readings a fixture holds, whether it is generated or written out. */
+const fixtureLength = (source: string, name: string) => {
+  const generated = new RegExp(`const ${name}[^=]*=[\\s\\S]{0,40}?length: (\\d+)`).exec(source);
+  if (generated) return Number(generated[1]);
+
+  const literal = new RegExp(`const ${name}[^=]*= \\[([^\\]]*)\\]`).exec(source);
+
+  return literal ? literal[1]!.split(",").filter((part) => part.trim()).length : undefined;
+};
+
+/**
+ * A sparkline's `label` is its accessible name, so a count stated there is what a reader who
+ * cannot see the trace is told. Nothing tied those counts to the series they describe.
+ */
+test("a series that states its length says the length it has", () => {
+  const page = readFileSync(new URL("routes/data.tsx", appDir), "utf8");
+  const fixtures = readFileSync(new URL("fixtures.ts", appDir), "utf8");
+
+  const counted = [...page.matchAll(/<Sparkline\b([\s\S]*?)\/>/g)]
+    .map(([, attributes]) => ({
+      series: /values=\{(\w+)\}/.exec(attributes!)?.[1],
+      label: /label="([^"]*)"/.exec(attributes!)?.[1],
+    }))
+    /* `over 96 hours`, not the 95 in `p95`: the count is the one the phrase counts with. */
+    .filter(
+      (row): row is { series: string; label: string } =>
+        Boolean(row.series) && /\bover \d+\b/.test(row.label ?? ""),
+    );
+
+  const wrong = counted
+    .map(({ series, label }) => ({
+      series,
+      stated: Number(/\bover (\d+)\b/.exec(label)![1]),
+      real: fixtureLength(fixtures, series),
+    }))
+    .filter(({ stated, real }) => stated !== real)
+    .map(({ series, stated, real }) => `${series} says ${stated}, the fixture holds ${real}`);
+
+  expect(fixtureLength(fixtures, "INSTALLS")).toBe(8);
+  expect(counted.length).toBe(3);
+  expect(wrong).toEqual([]);
+});
+
 test("a stated ratio that no longer matches its colours is reported", () => {
   const real = contrast("#ededed", "#0e0f11").toFixed(2);
 
