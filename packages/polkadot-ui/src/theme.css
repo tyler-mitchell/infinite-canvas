@@ -287,8 +287,10 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  /* `.pk-rise` runs on a view timeline, whose progress the duration below does not govern. */
   .pk-rim:hover,
-  .pk-rim-tile:hover {
+  .pk-rim-tile:hover,
+  .pk-rise {
     animation: none;
   }
 
