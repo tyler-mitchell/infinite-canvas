@@ -6,7 +6,7 @@ import { tv } from "../tv.ts";
 const toggleGroup = tv({
   slots: {
     root: "inline-flex w-fit items-center data-[orientation=vertical]:flex-col data-[orientation=vertical]:items-stretch",
-    item: "inline-flex h-6 cursor-pointer items-center justify-center px-2.5 font-pk-sans text-pk-control whitespace-nowrap outline-none transition-[color,background-color] duration-(--pk-duration-hover) ease-pk-swift select-none focus-visible:ring-2 focus-visible:ring-pk-accent/45 focus-visible:ring-offset-2 focus-visible:ring-offset-pk-ground data-disabled:pointer-events-none data-disabled:opacity-40",
+    item: "inline-flex h-6 cursor-pointer items-center justify-center px-2.5 font-pk-sans text-pk-control whitespace-nowrap outline-none transition-[color,background-color] duration-(--pk-duration-hover) ease-pk-swift select-none focus-visible:ring-2 focus-visible:ring-pk-accent/50 focus-visible:ring-offset-2 focus-visible:ring-offset-pk-ground data-disabled:pointer-events-none data-disabled:opacity-40",
   },
   variants: {
     look: {

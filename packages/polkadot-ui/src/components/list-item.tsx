@@ -5,7 +5,7 @@ import { tv } from "../tv.ts";
 
 const listItem = tv({
   slots: {
-    root: "group/item flex w-full items-center gap-2.5 rounded-pk-control-inner py-1.5 text-left font-pk-sans outline-none transition-colors duration-(--pk-duration-hover) ease-pk-swift focus-visible:ring-2 focus-visible:ring-pk-accent/45",
+    root: "group/item flex w-full items-center gap-2.5 rounded-pk-control-inner py-1.5 text-left font-pk-sans outline-none transition-colors duration-(--pk-duration-hover) ease-pk-swift focus-visible:ring-2 focus-visible:ring-pk-accent/50",
     lead: "flex-none",
     label:
       "min-w-0 flex-1 truncate text-pk-item text-pk-ink-muted transition-[color,translate] duration-(--pk-duration-hover) ease-pk-settle group-hover/item:text-pk-ink-bright",

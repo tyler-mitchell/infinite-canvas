@@ -4,7 +4,7 @@ import type { VariantProps } from "tailwind-variants";
 import { tv } from "../tv.ts";
 
 const button = tv({
-  base: "inline-flex w-fit shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-pk-control border border-transparent font-pk-sans whitespace-nowrap outline-none transition-[color,background-color,border-color,opacity] duration-(--pk-duration-hover) ease-pk-swift select-none focus-visible:ring-2 focus-visible:ring-pk-accent/45 focus-visible:ring-offset-2 focus-visible:ring-offset-pk-ground data-disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0",
+  base: "inline-flex w-fit shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-pk-control border border-transparent font-pk-sans whitespace-nowrap outline-none transition-[color,background-color,border-color,opacity] duration-(--pk-duration-hover) ease-pk-swift select-none focus-visible:ring-2 focus-visible:ring-pk-accent/50 focus-visible:ring-offset-2 focus-visible:ring-offset-pk-ground data-disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0",
   variants: {
     tone: {
       solid:
