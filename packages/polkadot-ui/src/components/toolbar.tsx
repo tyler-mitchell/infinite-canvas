@@ -9,7 +9,7 @@ const toolbar = tv({
     root: "inline-flex items-center gap-1 rounded-pk-tray border border-pk-line bg-pk-surface p-1 shadow-pk-card [--pk-ring-seat:var(--pk-surface)] data-[orientation=vertical]:flex-col",
     group: "flex items-center gap-1 data-[orientation=vertical]:flex-col",
     separator:
-      "flex-none self-center bg-pk-line data-[orientation=horizontal]:my-1 data-[orientation=horizontal]:h-px data-[orientation=horizontal]:w-4 data-[orientation=vertical]:mx-1 data-[orientation=vertical]:h-4 data-[orientation=vertical]:w-px",
+      "flex-none self-center bg-pk-line-inner data-[orientation=horizontal]:my-1 data-[orientation=horizontal]:h-px data-[orientation=horizontal]:w-4 data-[orientation=vertical]:mx-1 data-[orientation=vertical]:h-4 data-[orientation=vertical]:w-px",
   },
 });
 

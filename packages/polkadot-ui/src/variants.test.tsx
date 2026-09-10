@@ -403,6 +403,30 @@ test("the dialog's viewport is the window, so the dialog cannot outgrow it", () 
  * without them. The select's popup carries the listbox role itself, and the combobox's empty
  * message is already a polite live region.
  */
+/**
+ * Three parts of the kit draw a line between things on a surface, and two of them agreed. The
+ * toolbar painted `--pk-line`, which is the token a card or a tray takes for its own outer edge
+ * against the page; the kit's separator and the menu's both take `--pk-line-inner`, which is the
+ * one named for a line inside a surface. Nothing stated an intent for a toolbar to differ, so it
+ * was drift rather than a decision, and it now matches the other two.
+ *
+ * The receipt's rule is not here. It is printed decoration with no role and a repeating gradient
+ * of its own rather than a line token, which the paper rules in `contrast.test.ts` cover.
+ */
+test("every line the kit draws between things on a surface is the same line", () => {
+  const dividers = {
+    menu: kit.menuVariants().separator(),
+    separator: kit.separatorVariants(),
+    toolbar: kit.toolbarVariants().separator(),
+  };
+
+  expect(
+    Object.entries(dividers)
+      .filter(([, classes]) => !classes.includes("bg-pk-line-inner"))
+      .map(([name, classes]) => `${name} draws ${/bg-pk-[a-z-]+/.exec(classes)?.[0] ?? "no line"}`),
+  ).toEqual([]);
+});
+
 test("no popup places itself, because a library part decides where each one goes", () => {
   const popups = {
     combobox: kit.comboboxVariants().popup(),
