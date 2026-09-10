@@ -44,13 +44,6 @@ interface Reference {
 }
 
 /**
- * Every `prefix-pk-name` a file writes, against the tokens that could satisfy it.
- *
- * This read `src` alone until a page was given `bg-pk-nonexistent` and the whole suite stayed
- * green: a utility naming a token the sheet never declared compiles to nothing, so the element
- * simply loses its background. Nine other rules here already read the pages; this one did not.
- */
-/**
  * A side reads the same namespace as the utility it is a side of: `rounded-b-pk-tray` is the tray
  * radius on one edge. Stripping it keeps one entry per family in the map above rather than one per
  * corner, and a family the map has never heard of is reported by the rule below instead.
@@ -59,6 +52,13 @@ const SIDE = /-(?:t|r|b|l|tl|tr|br|bl|x|y|s|e|ss|se|ee|es)$/;
 
 const namespacesFor = (prefix: string) => NAMESPACE[prefix] ?? NAMESPACE[prefix.replace(SIDE, "")];
 
+/**
+ * Every `prefix-pk-name` a file writes, against the tokens that could satisfy it.
+ *
+ * This read `src` alone until a page was given `bg-pk-nonexistent` and the whole suite stayed
+ * green: a utility naming a token the sheet never declared compiles to nothing, so the element
+ * simply loses its background. Nine other rules here already read the pages; this one did not.
+ */
 const referencesIn = (
   sources: readonly { readonly file: string; readonly source: string }[],
 ): readonly Reference[] =>
@@ -445,8 +445,17 @@ test("every size the type section names is the one its role actually uses", () =
     }),
   );
 
-  /* `Prose` sits on its own line inside its tag, so the role need not follow the `>` directly. */
-  const claimed = [...page.matchAll(/>\s*(Display|Title|Label|Kind|Prose|Meta) · (\d+)px/g)].map(
+  /*
+   * The roles come from the component rather than from a list written here. Written here, the list
+   * held six of the seven and the readout's row went unchecked from the day it was added — and the
+   * count pinned below said six, which made the hole look like the answer.
+   *
+   * `Prose` sits on its own line inside its tag, so the role need not follow the `>` directly.
+   */
+  const roles = [...sizeOfRole.keys()];
+  const named = roles.map((role) => role.charAt(0).toUpperCase() + role.slice(1)).join("|");
+
+  const claimed = [...page.matchAll(new RegExp(String.raw`>\s*(${named}) · (\d+)px`, "g"))].map(
     ([, role, px]) => ({ role: role!.toLowerCase(), px: px! }),
   );
 
@@ -460,7 +469,8 @@ test("every size the type section names is the one its role actually uses", () =
     .map(({ role, px, real }) => `${role} says ${px}px, its token is ${real}`);
 
   expect(sizeOfRole.get("display")).toBe("pk-display");
-  expect(claimed.length).toBe(6);
+  /* Every role the component declares states its size on the page, and every one of them is read. */
+  expect([...new Set(claimed.map(({ role }) => role))].sort()).toEqual([...roles].sort());
   expect(wrong).toEqual([]);
 });
 

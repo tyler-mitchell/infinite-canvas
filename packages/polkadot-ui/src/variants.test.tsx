@@ -245,14 +245,30 @@ test("the four combinations each dress the item differently", () => {
   expect(new Set(drawn).size).toBe(4);
 });
 
-test("a pressed toggle carries a fill its unpressed twin does not", () => {
+/**
+ * Named for what the two looks actually do rather than for one of them. This asked that a pressed
+ * item carries a fill and that the two strings differ, under a name saying the unpressed one wears
+ * no fill — true of the segmented look, false of the chips, which wears a six percent ink at rest.
+ * Nothing asserted the half that was wrong.
+ */
+const fillsOf = (classes: string) => classes.split(/\s+/).filter((one) => one.startsWith("bg-"));
+
+test("pressing a toggle changes the fill it wears", () => {
   for (const look of ["segmented", "chips"] as const) {
     const on = kit.toggleGroupVariants({ look, pressed: true }).item();
     const off = kit.toggleGroupVariants({ look, pressed: false }).item();
 
-    expect(on).toMatch(/\bbg-/);
-    expect(on).not.toBe(off);
+    expect(fillsOf(on)).toHaveLength(1);
+    expect(fillsOf(on)).not.toEqual(fillsOf(off));
   }
+
+  /* The two looks differ in how: one fills an empty seat, the other replaces a fill. */
+  expect(fillsOf(kit.toggleGroupVariants({ look: "segmented", pressed: false }).item())).toEqual(
+    [],
+  );
+  expect(fillsOf(kit.toggleGroupVariants({ look: "chips", pressed: false }).item())).toHaveLength(
+    1,
+  );
 });
 
 test("the item still resolves when only the pressed state is given", () => {

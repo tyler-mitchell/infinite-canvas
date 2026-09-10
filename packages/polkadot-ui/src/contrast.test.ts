@@ -488,29 +488,30 @@ test("the alphas these rules stand on are the ones the components write", () => 
 test("the mark that identifies a control clears 3:1 on every seat it can sit on", () => {
   const knob = declaredAs.get("--pk-knob")!;
 
-  const thin = seats()
+  const pairs = seats()
     .map((seat) => declaredAs.get(seat)!)
     .flatMap((ground) => [
       { what: "knob on the seat", got: contrast(knob, ground) },
       { what: "knob on the track at rest", got: contrast(knob, offTrack(ground)) },
-    ])
-    .filter(({ got }) => got < 3);
+    ]);
 
-  expect(thin).toEqual([]);
+  /* Read first: no seats is no pairs, and no pairs is a green run over nothing. */
+  expect(pairs.length).toBeGreaterThan(8);
+  expect(pairs.filter(({ got }) => got < 3)).toEqual([]);
 });
 
 test("a control's two states are 3:1 apart on every seat", () => {
   const accent = declaredAs.get("--pk-accent")!;
 
-  const thin = seats()
+  const pairs = seats()
     .map((seat) => declaredAs.get(seat)!)
     .flatMap((ground) => [
       { what: "switch off against on", got: contrast(offTrack(ground), accent) },
       { what: "slider track against fill", got: contrast(sliderTrack(ground), accent) },
-    ])
-    .filter(({ got }) => got < 3);
+    ]);
 
-  expect(thin).toEqual([]);
+  expect(pairs.length).toBeGreaterThan(8);
+  expect(pairs.filter(({ got }) => got < 3)).toEqual([]);
 });
 
 /**
