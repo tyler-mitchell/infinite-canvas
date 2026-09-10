@@ -429,7 +429,23 @@ const HOSTILE: readonly { readonly name: string; readonly props: Record<string, 
   { name: "ActivityGrid", props: { days: DAYS, weeks: Number.NaN } },
   { name: "ActivityGrid", props: { days: DAYS, weeks: 4, thresholds: [Number.NaN, 2] } },
   { name: "Bars", props: { values: [1, Number.NaN, 3] } },
-  { name: "Bars", props: { values: [1, 2], max: Number.NaN, minHeight: Number.NaN } },
+  { name: "Bars", props: { values: [1, 2], max: Number.NaN } },
+  { name: "Bars", props: { values: [1, 2], minHeight: Number.NaN } },
+  /*
+   * The same readings again as endless rather than not a number. NaN fails every comparison, so a
+   * guard written as `max > 0` turns it away without ever reaching the finite check beside it;
+   * endless passes those comparisons and goes through. It leaves no NaN in the markup either, so
+   * the sweep below could not have seen it: every bar drawn at the floor is a silent answer.
+   */
+  { name: "Bars", props: { values: [1, Number.POSITIVE_INFINITY, 3] } },
+  { name: "Bars", props: { values: [1, 2], max: Number.POSITIVE_INFINITY } },
+  { name: "Bars", props: { values: [1, 2], minHeight: Number.POSITIVE_INFINITY } },
+  { name: "ActivityGrid", props: { days: DAYS, weeks: Number.POSITIVE_INFINITY } },
+  { name: "ActivityGrid", props: { days: DAYS, weeks: 4, cellSize: Number.POSITIVE_INFINITY } },
+  { name: "NumberTicker", props: { value: Number.POSITIVE_INFINITY } },
+  { name: "NumberTicker", props: { value: 4182, duration: Number.POSITIVE_INFINITY } },
+  { name: "NumberTicker", props: { value: 4182, stagger: Number.POSITIVE_INFINITY } },
+  { name: "Sparkline", props: { values: [1, Number.POSITIVE_INFINITY, 3] } },
   {
     name: "Breakdown",
     props: {
@@ -457,7 +473,9 @@ test("no component writes a reading it cannot use into an attribute", () => {
     const drawn = kit[name as keyof typeof kit] as unknown;
     const markup = inAttributes(renderToStaticMarkup(createElement(drawn as never, props)));
 
-    return [...markup.matchAll(/[\w-]+="[^"]*NaN[^"]*"/g)].map(([found]) => `${name}: ${found}`);
+    return [...markup.matchAll(/[\w-]+="[^"]*(?:NaN|Infinity)[^"]*"/g)].map(
+      ([found]) => `${name}: ${found}`,
+    );
   });
 
   /* Read first: the grid's own summary is in reach of these, which is where the count fault was. */
@@ -465,6 +483,30 @@ test("no component writes a reading it cannot use into an attribute", () => {
     "2 days",
   );
   expect(leaking).toEqual([]);
+});
+
+/**
+ * The sweep above reads attributes for a reading that is not a number, and a whole class of fault
+ * never writes one. An endless ceiling divides every value to nothing, so each bar meets the floor
+ * and the series draws flat while its readings differ — measured by taking the finite check off
+ * the ceiling, which leaves the entire suite green and every bar the same height.
+ *
+ * So the drawn heights are read instead of the attribute: three readings that differ have to draw
+ * three heights, whatever ceiling they are given.
+ */
+test("a chart with an unusable ceiling still tells its readings apart", () => {
+  const drawn = (max: number | undefined) =>
+    [
+      ...renderToStaticMarkup(createElement(kit.Bars, { values: [1, 2, 3], max })).matchAll(
+        /height:([\d.]+)%/g,
+      ),
+    ].map(([, height]) => height);
+
+  expect(drawn(undefined)).toHaveLength(3);
+  expect(new Set(drawn(undefined)).size).toBe(3);
+  expect(new Set(drawn(Number.POSITIVE_INFINITY)).size).toBe(3);
+  expect(new Set(drawn(Number.NaN)).size).toBe(3);
+  expect(new Set(drawn(0)).size).toBe(3);
 });
 
 /**
