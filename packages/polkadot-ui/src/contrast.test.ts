@@ -189,43 +189,151 @@ test("the ring paper uses clears 3:1 on paper", () => {
 });
 
 /**
- * An input paints a fill over its seat and then writes a placeholder on that fill, so the fill is
- * the ground the placeholder answers to and the seat is not. Every rule above reads a flat token,
- * so the one ground the kit paints under text was the one nothing measured: in a browser the
- * combobox placeholder came out at 4.40:1 inside a card, where the same ink on the page ground is
- * the 4.95:1 the foundations page states.
- *
- * The ink and the alphas are read from the component, so a change to either faces this number.
+ * The state a utility waits for, with `group-` and `/item` off it, so a fill painted on hover is
+ * matched against the ink that applies on hover rather than the one it replaces. `placeholder:`
+ * is not a state: a placeholder is what an empty field shows, under no condition at all.
  */
-const inputSource = componentSources.find((entry) => entry.file === "input.tsx")!.source;
+const STATE = /^(?:group-)?(hover|focus-visible|focus|active)(?:\/[\w-]+)?$/;
 
-const placeholderInk = () => {
-  const [, token] = /placeholder:text-(pk-[a-z\d-]+)/.exec(inputSource) ?? [];
+const gateOf = (one: string) => {
+  const modifiers = one.split(":").slice(0, -1);
+  const [, state] = STATE.exec(modifiers.find((modifier) => STATE.test(modifier)) ?? "") ?? [];
 
-  return declaredAs.get(`--${token}`)!;
+  return state ?? "";
 };
 
-const inputFills = (seat: string) =>
-  [...inputSource.matchAll(/bg-pk-ink\/\[([\d.]+)\]/g)].map(([, alpha]) => ({
-    alpha: Number(alpha),
-    ground: over(declaredAs.get("--pk-ink")!, seat, Number(alpha)),
-  }));
+/** The colours a class string writes as text under a state, less what an inactive control wears. */
+const inksIn = (classes: string, state = "") => {
+  const written = classes
+    .split(/\s+/)
+    .filter((one) => !one.includes("data-disabled:"))
+    .flatMap((one) => {
+      const [, token] = /text-(pk-[a-z\d-]+)$/.exec(one) ?? [];
+      if (!token || !declaredAs.has(`--${token}`) || BELONGS_ON[`--${token}`]) return [];
 
-test("a placeholder clears 4.5:1 on the fill its own input paints", () => {
-  const ink = placeholderInk();
+      return [{ token: `--${token}`, gate: gateOf(one) }];
+    });
 
-  const thin = seats().flatMap((seat) =>
-    inputFills(declaredAs.get(seat)!)
-      .map(({ alpha, ground }) => ({
-        where: `${seat} under ink at ${alpha}`,
-        got: Number(contrast(ink, ground).toFixed(2)),
-      }))
-      .filter(({ got }) => got < 4.5),
+  const gated = written.filter(({ gate }) => gate !== "" && gate === state);
+
+  return (gated.length > 0 ? gated : written.filter(({ gate }) => gate === "")).map(
+    ({ token }) => token,
+  );
+};
+
+const fillsIn = (classes: string) =>
+  classes.split(/\s+/).flatMap((one) => {
+    const [, alpha] = /bg-pk-ink\/\[([\d.]+)\]$/.exec(one) ?? [];
+
+    return alpha ? [{ alpha: Number(alpha), state: gateOf(one) }] : [];
+  });
+
+/**
+ * A fill the kit paints is a ground of its own, and every rule above reads a flat token. The one
+ * ground painted under text was the one nothing measured: a combobox placeholder came out at
+ * 4.40:1 in a browser inside a card, where the same ink on the page ground is the 4.95:1 the
+ * foundations page states. A fill lightens the surface, and the faint ink is the floor on it.
+ *
+ * What sits under what is read from the block rather than assumed. A `base` object dresses one
+ * element, so its own inks answer to any fill a variant adds — but two values of the same variant
+ * never appear together, which is why the badge's quiet ink is not paired with the neutral fill it
+ * never sits on. A `slots` object puts its root under everything, so a fill there is a ground for
+ * every ink in the component; a fill on a leaf is a ground only for its own string.
+ *
+ * A hover fill is the case a browser sweep cannot reach: 1425 pieces of text measured in place
+ * reported nothing, while a hovered nav row put its trailing ink on a lightened ground at 4.40.
+ */
+const paintedGrounds = (source: string) => {
+  const block = /const \w+ = tv\(\{[\s\S]*?\n\}\);/.exec(source)?.[0] ?? "";
+  const slotted = /\bslots:\s*\{/.test(block);
+
+  /*
+   * Gathered by the key that owns them: a slot is dressed in the `slots` object and again in every
+   * variant that touches it, and the state on one half answers the ink on the other. Read as loose
+   * strings, the trail's plain ink sat in one and its hover ink in another, so the row's own hover
+   * fill was matched against the ink that hover replaces.
+   */
+  const bySlot = new Map<string, string>();
+  for (const [, key, classes] of block.matchAll(/(\w+):\s*\n?\s*"((?:[^"\\]|\\.)*)"/g)) {
+    bySlot.set(key!, `${bySlot.get(key!) ?? ""} ${classes!}`);
+  }
+
+  const strings = [...bySlot.values()];
+
+  /* A root is under every ink in the component; a base is one element, so its own inks are too. */
+  const everywhere = [bySlot.get(slotted ? "root" : "base") ?? ""];
+
+  const pairs = [
+    ...everywhere.flatMap((classes) =>
+      fillsIn(classes).flatMap(({ alpha, state }) =>
+        [...new Set(strings.flatMap((one) => inksIn(one, state)))].map((ink) => ({ ink, alpha })),
+      ),
+    ),
+    ...strings.flatMap((classes) =>
+      fillsIn(classes).flatMap(({ alpha, state }) =>
+        [
+          ...new Set([
+            ...(slotted ? [] : everywhere.flatMap((one) => inksIn(one, state))),
+            ...inksIn(classes, state),
+          ]),
+        ].map((ink) => ({ ink, alpha })),
+      ),
+    ),
+  ];
+
+  return [...new Map(pairs.map((pair) => [`${pair.ink}@${pair.alpha}`, pair])).values()];
+};
+
+/**
+ * The pages hold their own `tv` blocks, so they answer the same way. None of them paints an ink
+ * fill today, which means this half of the sweep guards rather than reports — said plainly here
+ * so a green run is not read as nine pages measured.
+ */
+const pageSources = [
+  ...readdirSync(appDir).filter((name) => name.endsWith(".tsx")),
+  ...readdirSync(new URL("routes/", appDir))
+    .filter((name) => name.endsWith(".tsx"))
+    .map((name) => `routes/${name}`),
+].map((file) => ({ file, source: readFileSync(new URL(file, appDir), "utf8") }));
+
+test("a fill a component paints is a ground its own text clears", () => {
+  const ink = declaredAs.get("--pk-ink")!;
+
+  const thin = [...componentSources, ...pageSources].flatMap(({ file, source }) =>
+    paintedGrounds(source).flatMap(({ ink: token, alpha }) =>
+      seats()
+        .map((seat) => ({
+          where: `${file}: ${token} on ink at ${alpha} over ${seat}`,
+          got: Number(
+            contrast(declaredAs.get(token)!, over(ink, declaredAs.get(seat)!, alpha)).toFixed(2),
+          ),
+        }))
+        .filter(({ got }) => got < 4.5),
+    ),
   );
 
-  /* Read first: the ink and the fill are found, or the sweep would compare nothing. */
-  expect(ink).toBeDefined();
-  expect(inputFills(declaredAs.get("--pk-surface")!).map(({ alpha }) => alpha)).toEqual([0.06]);
+  /* Read first: the pairs the block structure is supposed to find, and the one it must not. */
+  const badge = paintedGrounds(
+    componentSources.find((entry) => entry.file === "badge.tsx")!.source,
+  );
+  const list = paintedGrounds(
+    componentSources.find((entry) => entry.file === "list-item.tsx")!.source,
+  );
+
+  expect(badge).toContainEqual({ ink: "--pk-ink-dim", alpha: 0.06 });
+  /* Two values of one variant never appear together, so the quiet ink is not on the neutral fill. */
+  expect(badge).not.toContainEqual({ ink: "--pk-ink-faint", alpha: 0.06 });
+
+  /* The row that was repaired: under its own hover fill the trail is muted, not faint. */
+  expect(list).toContainEqual({ ink: "--pk-ink-muted", alpha: 0.06 });
+  expect(list).not.toContainEqual({ ink: "--pk-ink-faint", alpha: 0.06 });
+
+  /* And the shape it had before, planted, so the rule is not passing because it reads nothing. */
+  const planted = paintedGrounds(
+    'const x = tv({\n  slots: {\n    root: "hover:bg-pk-ink/[0.06]",\n    trail: "text-pk-ink-faint",\n  },\n});',
+  );
+
+  expect(planted).toContainEqual({ ink: "--pk-ink-faint", alpha: 0.06 });
   expect(thin).toEqual([]);
 });
 

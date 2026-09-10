@@ -19,6 +19,13 @@ const listItem = tv({
         label:
           "group-hover/item:translate-x-[3px] group-focus-visible/item:translate-x-[3px] group-focus-visible/item:text-pk-ink-bright",
         lead: "transition-[translate] duration-(--pk-duration-hover) ease-pk-settle group-hover/item:translate-x-[2px] group-focus-visible/item:translate-x-[2px]",
+        /*
+         * The row's fill lightens the ground under this text, and the faint ink is the floor on a
+         * surface: left alone it reads 4.40:1 on a hovered row. It brightens with the row, one
+         * step behind the label, which is what the rest of the look does anyway.
+         */
+        trail:
+          "transition-colors duration-(--pk-duration-hover) ease-pk-swift group-hover/item:text-pk-ink-muted group-focus-visible/item:text-pk-ink-muted",
       },
     },
   },
