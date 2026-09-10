@@ -203,6 +203,33 @@ test("the initials are the first letters of the first two words, however they ar
  */
 
 /*
+ * The tab indicator draws itself from `--active-tab-width` and `--active-tab-left`, which Base UI
+ * sets only while a tab is active. With nothing chosen those are undefined on an element carrying
+ * the accent, so this asks what reaches the markup before anything is selected.
+ */
+test("a tab list draws its tabs with or without a value", () => {
+  const list = (props: { defaultValue?: string }) =>
+    renderToStaticMarkup(
+      <kit.Tabs {...props}>
+        <kit.Tabs.List>
+          <kit.Tabs.Tab value="a">a</kit.Tabs.Tab>
+          <kit.Tabs.Tab value="b">b</kit.Tabs.Tab>
+        </kit.Tabs.List>
+      </kit.Tabs>,
+    );
+
+  expect(list({ defaultValue: "a" })).toContain('data-slot="tab"');
+  expect(list({})).toContain('data-slot="tab"');
+  /*
+   * The indicator reaches the markup carrying the accent either way, which server rendering can
+   * see and cannot judge. Measured in the browser instead: with the variables unset the width
+   * declaration is invalid and falls back to auto, which computes to 0px on an absolutely
+   * positioned element with no content. It carries the colour and paints none of it.
+   */
+  expect(list({})).toContain("bg-pk-accent");
+});
+
+/*
  * `axis` is the one claim here that server rendering cannot settle. Base UI draws a scrollbar only
  * once it has measured overflow, so none of them reach the server markup whatever `axis` says. It
  * was checked in the browser instead, where the default area carries a vertical bar and the `both`
