@@ -403,3 +403,62 @@ test("a padded number is shown padded and read out plain", () => {
   expect(reels(padded)).toBe(5);
   expect(reels(plain)).toBe(4);
 });
+
+/**
+ * A reading that is not a number reaches the DOM as geometry or as words. As words it is honest —
+ * a ticker handed `NaN` prints `NaN`, which is what it was given. In an attribute it is neither:
+ * the browser drops the declaration and the component silently loses whatever it described.
+ *
+ * So text is stripped and only attributes are read. The sparkline is here because it failed this:
+ * one unusable reading made the span `NaN`, which is falsy, so `|| 1` hid it and every coordinate
+ * in the path came back `NaN`.
+ */
+const DAYS = [
+  { date: new Date(2026, 8, 1), count: Number.NaN },
+  { date: new Date(2026, 8, 2), count: 3 },
+];
+
+/*
+ * One case per fault, because a guard can hide the next one. Written as a single row, an unusable
+ * `weeks` emptied the grid, and the total the summary sums had nothing left to be spoiled by — the
+ * count fault passed its own mutation until these were split.
+ */
+const HOSTILE: readonly { readonly name: string; readonly props: Record<string, unknown> }[] = [
+  { name: "ActivityGrid", props: { days: DAYS, weeks: 4 } },
+  { name: "ActivityGrid", props: { days: DAYS, weeks: 4, cellSize: Number.NaN } },
+  { name: "ActivityGrid", props: { days: DAYS, weeks: Number.NaN } },
+  { name: "ActivityGrid", props: { days: DAYS, weeks: 4, thresholds: [Number.NaN, 2] } },
+  { name: "Bars", props: { values: [1, Number.NaN, 3] } },
+  { name: "Bars", props: { values: [1, 2], max: Number.NaN, minHeight: Number.NaN } },
+  {
+    name: "Breakdown",
+    props: {
+      parts: [
+        { name: "a", share: Number.NaN, color: "red" },
+        { name: "b", share: 2, color: "blue" },
+      ],
+    },
+  },
+  {
+    name: "NumberTicker",
+    props: { value: Number.NaN, pad: Number.NaN, duration: Number.NaN, stagger: Number.NaN },
+  },
+  { name: "Sparkline", props: { values: [1, Number.NaN, 3] } },
+];
+
+test("no component writes a reading it cannot use into an attribute", () => {
+  const inAttributes = (markup: string) => markup.replace(/>[^<]*</g, "><");
+
+  const leaking = HOSTILE.flatMap(({ name, props }) => {
+    const drawn = kit[name as keyof typeof kit] as unknown;
+    const markup = inAttributes(renderToStaticMarkup(createElement(drawn as never, props)));
+
+    return [...markup.matchAll(/[\w-]+="[^"]*NaN[^"]*"/g)].map(([found]) => `${name}: ${found}`);
+  });
+
+  /* Read first: the grid's own summary is in reach of these, which is where the count fault was. */
+  expect(renderToStaticMarkup(createElement(kit.ActivityGrid, { days: DAYS, weeks: 4 }))).toContain(
+    "2 days",
+  );
+  expect(leaking).toEqual([]);
+});

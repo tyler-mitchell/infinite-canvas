@@ -48,6 +48,16 @@ export interface ActivityDay {
 /** Lower bounds for levels one to four. Suits commits per day. */
 const DEFAULT_THRESHOLDS: readonly number[] = [1, 3, 6, 10];
 
+const DEFAULT_CELL = 11;
+
+/**
+ * The cell size the plot draws at. A size that is not a usable number falls back to the default,
+ * the way the bars fall back to a computed ceiling: it reaches four separate lengths, and each one
+ * it spoils is a declaration the browser drops rather than a fault anything reports.
+ */
+const cellOrDefault = (cellSize: number) =>
+  Number.isFinite(cellSize) && cellSize > 0 ? cellSize : DEFAULT_CELL;
+
 const level = (count: number, thresholds: readonly number[] = DEFAULT_THRESHOLDS) =>
   TONES[Math.min(thresholds.filter((bound) => count >= bound).length, TONES.length - 1)]!;
 
@@ -68,7 +78,7 @@ const weeksThatFit = (width: number, cell: number, gap: number, wanted: number) 
  * asks for one column more than the caller measured room for, and the plot draws past its box.
  */
 const toColumns = (days: readonly ActivityDay[], weeks: number) => {
-  const columns = Math.max(0, Math.floor(weeks));
+  const columns = Number.isFinite(weeks) ? Math.max(0, Math.floor(weeks)) : 0;
   const last = days.at(-1);
   if (columns === 0 || !last) return [];
 
@@ -123,7 +133,7 @@ export interface ActivityGridProps extends Omit<React.ComponentProps<"div">, "ch
 function ActivityGrid({
   days,
   weeks = 26,
-  cellSize = 11,
+  cellSize = DEFAULT_CELL,
   thresholds = DEFAULT_THRESHOLDS,
   label = "activity",
   className,
@@ -135,10 +145,11 @@ function ActivityGrid({
   const [cursor, setCursor] = useState<number | undefined>(undefined);
   const width = useElementWidth(root);
   const gap = 4;
+  const cell = cellOrDefault(cellSize);
 
   const columns = useMemo(
-    () => toColumns(days, weeksThatFit(width - PLOT_INSET, cellSize, gap, weeks)),
-    [days, width, cellSize, weeks],
+    () => toColumns(days, weeksThatFit(width - PLOT_INSET, cell, gap, weeks)),
+    [days, width, cell, weeks],
   );
 
   const onPointerMove = useCallback((event: React.PointerEvent) => {
@@ -161,7 +172,7 @@ function ActivityGrid({
   const focused = cursor === undefined ? undefined : (columns[cursor] ?? undefined);
 
   const monthMarks = useMemo(() => {
-    const pitch = cellSize + gap;
+    const pitch = cell + gap;
     const seen = new Set<number>();
     return columns.flatMap((day, index) => {
       if (!day || day.date.getDate() > 7) return [];
@@ -170,13 +181,15 @@ function ActivityGrid({
       seen.add(month);
       return [{ month, left: Math.floor(index / DAYS_PER_WEEK) * pitch }];
     });
-  }, [columns, cellSize]);
+  }, [columns, cell]);
 
   const summary = useMemo(() => {
     const shown = columns.filter((day) => day !== null);
     const first = shown[0]?.date.toDateString();
     const last = shown.at(-1)?.date.toDateString();
-    const total = shown.reduce((sum, day) => sum + day.count, 0);
+    /* One count that is not a number would otherwise be the whole total, which is the only figure
+     * a reader who cannot see the plot is given. */
+    const total = shown.reduce((sum, day) => sum + (Number.isFinite(day.count) ? day.count : 0), 0);
     return `${shown.length} days, ${first} to ${last}, ${total} in total`;
   }, [columns]);
 
@@ -200,7 +213,7 @@ function ActivityGrid({
         className={styles.body()}
         style={{
           gridTemplateColumns: `${WEEKDAY_COLUMN}px minmax(0, 1fr)`,
-          gridTemplateRows: `auto ${7 * cellSize + 6 * gap}px`,
+          gridTemplateRows: `auto ${7 * cell + 6 * gap}px`,
           columnGap: `${LABEL_GAP}px`,
           rowGap: `${gap}px`,
         }}
@@ -215,7 +228,7 @@ function ActivityGrid({
 
         <div className={styles.weekdays()} style={{ gap: `${gap}px` }}>
           {WEEKDAYS.map((day, index) => (
-            <span key={day} className={styles.weekday()} style={{ lineHeight: `${cellSize}px` }}>
+            <span key={day} className={styles.weekday()} style={{ lineHeight: `${cell}px` }}>
               {index % 2 === 1 ? day : ""}
             </span>
           ))}
@@ -225,7 +238,7 @@ function ActivityGrid({
           className={styles.grid()}
           onPointerMove={onPointerMove}
           onPointerLeave={() => setCursor(undefined)}
-          style={{ gridAutoColumns: `${cellSize}px`, gap: `${gap}px` }}
+          style={{ gridAutoColumns: `${cell}px`, gap: `${gap}px` }}
         >
           {columns.map((day, index) =>
             day ? (

@@ -1698,13 +1698,21 @@ for (const file of readdirSync(componentDir).filter((name) => name.endsWith(".ts
 
     const list = new RegExp(String.raw`const ${value}[^=]*= \[([^\]]*)\]`).exec(source);
 
-    return list
-      ? list[1]!
-          .split(",")
-          .map((part) => part.trim())
-          .filter(Boolean)
-          .join(" · ")
-      : value;
+    if (list) {
+      return list[1]!
+        .split(",")
+        .map((part) => part.trim())
+        .filter(Boolean)
+        .join(" · ");
+    }
+
+    /* A scalar constant is the same idea and drifts the same way: `DEFAULT_CELL` is one source for
+     * a size the signature takes and a page prints. */
+    const scalar = new RegExp(
+      String.raw`const ${value}[^=]*= ("[^"]*"|-?\d+(?:\.\d+)?|true|false);`,
+    ).exec(source);
+
+    return scalar ? scalar[1]!.replace(/^"|"$/g, "") : value;
   };
 
   for (const [, owner, body] of source.matchAll(/function (\w+)\(\{([\s\S]*?)\}:/g)) {
