@@ -459,6 +459,68 @@ test("every variant a page leaves out of a table is one the component declares",
 });
 
 /**
+ * The other thing written by hand beside a table is its heading, and nothing tied it to the rows
+ * beneath. Forty-six tables carry one, so a section copied and half-edited would print one
+ * component's name over another's props and read as correct.
+ *
+ * A props table takes its type, so its heading is that type's name and the two must agree exactly.
+ * A variants object may dress more than one part — the receipt's line and the terminal's command
+ * are drawn by their parent's — so a variants heading has to begin with the owner's name rather
+ * than match it, which is what naming a part looks like.
+ */
+const flat = (words: string) => words.replace(/\s+/g, "").toLowerCase();
+
+const misheadedTables = (sources: readonly { readonly file: string; readonly source: string }[]) =>
+  sources
+    .flatMap(({ file, source }) => [
+      ...openingTags(source, "Api").flatMap((tag) => {
+        const said = /name="([^"]*)"/.exec(tag)?.[1];
+        const owner = /of=\{(\w+?)Variants\}/.exec(tag)?.[1];
+        if (said === undefined || owner === undefined) return [];
+
+        return flat(said).startsWith(flat(owner))
+          ? []
+          : [`${file}: ${owner} variants sit under "${said}"`];
+      }),
+      ...openingTags(source, "Props").flatMap((tag) => {
+        const said = /name="([^"]*)"/.exec(tag)?.[1];
+        const owner = /<Props<(\w+?)Props>/.exec(tag)?.[1];
+        if (said === undefined || owner === undefined) return [];
+
+        return flat(said) === flat(owner) ? [] : [`${file}: ${owner} props sit under "${said}"`];
+      }),
+    ])
+    .sort();
+
+test("a table headed with another component's name is reported", () => {
+  const right = [{ file: "p.tsx", source: '<Api name="toggle group" of={toggleGroupVariants} />' }];
+  /* A part of the same component, which is what the receipt's line and the terminal's do. */
+  const part = [{ file: "p.tsx", source: '<Api name="terminal command" of={terminalVariants} />' }];
+  const wrong = [{ file: "p.tsx", source: '<Api name="button" of={badgeVariants} />' }];
+  const typed = [
+    { file: "p.tsx", source: '<Props<ToolbarButtonProps> name="toolbar button" rows={[]} />' },
+  ];
+  const mistyped = [{ file: "p.tsx", source: '<Props<BadgeProps> name="button" rows={[]} />' }];
+
+  expect(misheadedTables(right)).toEqual([]);
+  expect(misheadedTables(part)).toEqual([]);
+  expect(misheadedTables(wrong)).toEqual(['p.tsx: badge variants sit under "button"']);
+  expect(misheadedTables(typed)).toEqual([]);
+  expect(misheadedTables(mistyped)).toEqual(['p.tsx: Badge props sit under "button"']);
+});
+
+test("every table on every page is headed with what it lists", () => {
+  const headed = pages.flatMap(({ source }) =>
+    [...openingTags(source, "Api"), ...openingTags(source, "Props")].filter((tag) =>
+      tag.includes("name="),
+    ),
+  );
+
+  expect(headed.length).toBeGreaterThan(40);
+  expect(misheadedTables(pages)).toEqual([]);
+});
+
+/**
  * The readme counts the kit twice — how many component modules there are, and how many of them
  * draw with `slots` rather than a `base`. Both were a component behind, and it also sent a reader
  * to a route that had been renamed. Numbers written in prose go stale the moment a file is added,
