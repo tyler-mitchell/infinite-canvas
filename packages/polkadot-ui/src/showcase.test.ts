@@ -648,6 +648,81 @@ test("every path the readme tells a consumer to import is one the package export
   expect(missing).toEqual([]);
 });
 
+/**
+ * What a consumer's bundler will try to resolve, against what the manifest promises them. A module
+ * under `src` may import a dependency or a peer and nothing else: a development dependency resolves
+ * here, where the whole workspace is installed, and is simply absent on the machine that installs
+ * the package — the failure lands on someone else and looks like the kit is broken.
+ *
+ * The pages are exempt because they ship to nobody: the lab app is the one consumer, and it may
+ * reach for the router and the test runner the way any application does.
+ */
+const bareImports = (source: string) =>
+  [...source.matchAll(/from "([^".][^"]*)"/g)]
+    .map(([, specifier]) => specifier!)
+    .filter((specifier) => !specifier.startsWith("."))
+    .map((specifier) =>
+      specifier.startsWith("@")
+        ? specifier.split("/").slice(0, 2).join("/")
+        : specifier.split("/")[0]!,
+    );
+
+const unpromised = (sources: readonly string[], promised: ReadonlySet<string>): readonly string[] =>
+  [
+    ...new Set(
+      sources
+        .flatMap(bareImports)
+        .filter((name) => !name.startsWith("node:") && name !== "polkadot-ui")
+        .filter((name) => !promised.has(name)),
+    ),
+  ].sort();
+
+test("an import the manifest does not promise is reported", () => {
+  const promised = new Set(["react", "@base-ui/react"]);
+
+  expect(unpromised(['import { useRender } from "@base-ui/react/use-render";'], promised)).toEqual(
+    [],
+  );
+  expect(
+    unpromised(['import { createFileRoute } from "@tanstack/react-router";'], promised),
+  ).toEqual(["@tanstack/react-router"]);
+  /* A relative import is the package's own, and a builtin is everyone's. */
+  expect(
+    unpromised(
+      ['import { tv } from "../tv.ts";\nimport { readFileSync } from "node:fs";'],
+      promised,
+    ),
+  ).toEqual([]);
+});
+
+test("a module a consumer loads imports only what the manifest promises", () => {
+  const manifest = JSON.parse(
+    readFileSync(new URL("../package.json", import.meta.url), "utf8"),
+  ) as {
+    readonly dependencies: Record<string, string>;
+    readonly peerDependencies: Record<string, string>;
+  };
+
+  const promised = new Set([
+    ...Object.keys(manifest.dependencies),
+    ...Object.keys(manifest.peerDependencies),
+  ]);
+
+  const shipped = [
+    ...readdirSync(new URL(".", import.meta.url))
+      .filter((name) => /\.tsx?$/.test(name) && !name.includes(".test."))
+      .map((file) => readFileSync(new URL(file, import.meta.url), "utf8")),
+    ...readdirSync(componentDir)
+      .filter((name) => /\.tsx?$/.test(name) && !name.includes(".test."))
+      .map((file) => readFileSync(new URL(file, componentDir), "utf8")),
+  ];
+
+  /* Read first: the modules are read and they do import from outside, or this compares nothing. */
+  expect(shipped.length).toBeGreaterThan(40);
+  expect(shipped.flatMap(bareImports)).toContain("@base-ui/react");
+  expect(unpromised(shipped, promised)).toEqual([]);
+});
+
 /** `text.tsx` is listed as its seven roles, which is what a page writes, rather than as a module. */
 const LISTED_AS_ITS_PARTS = ["text"];
 
