@@ -117,6 +117,36 @@ const WRITTEN_AS: Record<string, string> = {
   shadow: "shadow",
 };
 
+const componentSources = componentFiles.map((file) => ({
+  file,
+  source: readFileSync(new URL(file, componentDir), "utf8"),
+}));
+
+/**
+ * A ring offset paints the colour behind the control, so a component that names one has guessed
+ * where it sits. Anything that paints a background restates `--pk-ring-seat`, so the cascade
+ * answers instead and the control stays ignorant of its seat.
+ */
+const guessedSeat = (sources: readonly { readonly file: string; readonly source: string }[]) =>
+  sources.flatMap(({ file, source }) =>
+    [...source.matchAll(/ring-offset-pk-[a-z\d-]+/g)].map(([written]) => `${written} (${file})`),
+  );
+
+test("a control that names its own ring offset is reported against its file", () => {
+  expect(
+    guessedSeat([{ file: "button.tsx", source: "focus-visible:ring-offset-pk-ground" }]),
+  ).toEqual(["ring-offset-pk-ground (button.tsx)"]);
+  expect(
+    guessedSeat([
+      { file: "button.tsx", source: "focus-visible:ring-offset-(color:--pk-ring-seat)" },
+    ]),
+  ).toEqual([]);
+});
+
+test("no control names the colour it sits on", () => {
+  expect(guessedSeat(componentSources)).toEqual([]);
+});
+
 /** Exports nothing draws with. The direction the rule above cannot see. */
 const unwritten = (tokens: readonly string[], written: ReadonlySet<string>) =>
   tokens.flatMap((token) => {

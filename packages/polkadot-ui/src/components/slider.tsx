@@ -13,7 +13,7 @@ const slider = tv({
       "h-[3px] w-full rounded-pk-pill bg-pk-ink/[0.1] data-[orientation=vertical]:h-full data-[orientation=vertical]:w-[3px]",
     indicator: "rounded-pk-pill bg-pk-accent",
     thumb:
-      "size-[13px] rounded-pk-pill bg-white shadow-[0_1px_3px_rgb(0_0_0/0.5)] outline-none transition-transform duration-(--pk-duration-hover) ease-pk-swift hover:scale-110 focus-visible:ring-2 focus-visible:ring-pk-accent/50 focus-visible:ring-offset-2 focus-visible:ring-offset-pk-ground",
+      "size-[13px] rounded-pk-pill bg-white shadow-[0_1px_3px_rgb(0_0_0/0.5)] outline-none transition-transform duration-(--pk-duration-hover) ease-pk-swift hover:scale-110 focus-visible:ring-2 focus-visible:ring-pk-accent/50 focus-visible:ring-offset-2 focus-visible:ring-offset-(color:--pk-ring-seat)",
   },
 });
 

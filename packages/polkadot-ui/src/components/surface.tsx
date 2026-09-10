@@ -7,14 +7,14 @@ const surface = tv({
   base: "box-border flex min-h-0 flex-col overflow-hidden font-pk-sans text-pk-ink",
   variants: {
     tone: {
-      card: "rounded-pk-card border border-pk-line bg-pk-surface shadow-pk-card",
+      card: "rounded-pk-card border border-pk-line bg-pk-surface shadow-pk-card [--pk-ring-seat:var(--pk-surface)]",
       sunken:
-        "rounded-pk-widget border border-pk-line bg-pk-surface-sunken shadow-[var(--pk-lift-inset),var(--pk-lift-card)]",
-      deep: "rounded-pk-card border border-pk-line bg-pk-surface-deep shadow-pk-card",
-      rim: "pk-rim rounded-[18px]",
-      tile: "pk-rim-tile rounded-pk-inner",
+        "rounded-pk-widget border border-pk-line bg-pk-surface-sunken shadow-[var(--pk-lift-inset),var(--pk-lift-card)] [--pk-ring-seat:var(--pk-surface-sunken)]",
+      deep: "rounded-pk-card border border-pk-line bg-pk-surface-deep shadow-pk-card [--pk-ring-seat:var(--pk-surface-deep)]",
+      rim: "pk-rim rounded-[18px] [--pk-ring-seat:var(--pk-surface)]",
+      tile: "pk-rim-tile rounded-pk-inner [--pk-ring-seat:var(--pk-surface)]",
       pending:
-        "rounded-pk-card border border-dashed border-pk-pending-line bg-pk-pending-surface hover:border-pk-pending-line-hover",
+        "rounded-pk-card border border-dashed border-pk-pending-line bg-pk-pending-surface hover:border-pk-pending-line-hover [--pk-ring-seat:var(--pk-pending-surface)]",
       bare: "",
     },
     interactive: {

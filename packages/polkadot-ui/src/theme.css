@@ -12,6 +12,9 @@
   --pk-surface-deep: #0b0c0e;
   --pk-surface-inner: #121417;
 
+  /* What a focus ring offsets against. Anything that paints a background restates it. */
+  --pk-ring-seat: var(--pk-ground);
+
   --pk-tile-face: radial-gradient(120% 120% at 30% 15%, #1b2026, #101317 70%);
   --pk-tile-ring: inset 0 0 0 1px rgb(255 255 255 / 0.09), inset 0 1px 0 rgb(255 255 255 / 0.07);
   --pk-tile-bloom: radial-gradient(
