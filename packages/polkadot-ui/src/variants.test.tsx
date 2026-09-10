@@ -470,6 +470,25 @@ test("every surface that floats clamps to the room it has", () => {
   ).toEqual([]);
 });
 
+/**
+ * A tray is a row of fixed-size controls, so its width is the sum of them and nothing in it gives.
+ * Measured at 320: the six buttons came to 298 inside a 280 column, and the tray's right edge sat
+ * 18px past it while clearing the window by two — which was luck, not layout.
+ *
+ * A second row is what gives, because the control size is an input and never a result, the same
+ * trade the activity grid makes with its cells. At 320 the tray now ends exactly on its column at
+ * two rows with every group whole, and at 1280 it is inert: 298 by 38 with the class or without.
+ */
+test("a tray takes a second row rather than spill the column it sits in", () => {
+  const root = kit.toolbarVariants().root();
+
+  expect(root).toContain("flex-wrap");
+  /* Stacked, the tray runs down the other axis, and the row it wraps is the one it no longer has. */
+  expect(root).toContain("data-[orientation=vertical]:flex-col");
+  /* A group that wrapped as well would split the controls its separators are drawn to join. */
+  expect(kit.toolbarVariants().group()).not.toContain("flex-wrap");
+});
+
 test("holding a tile open is not the same as leaving it shut", () => {
   const shut = kit.iconTileVariants({ open: false }).label();
   const held = kit.iconTileVariants({ open: true }).label();
