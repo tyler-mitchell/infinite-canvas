@@ -30,7 +30,12 @@ export type ButtonProps = Omit<ButtonPrimitive.Props, "className"> &
 
 /**
  * Sized to its content rather than aligned, so it neither stretches down a flex column nor fights
- * `items-center` across a row. Disabled is a colour, not an opacity, and the same in every tone.
+ * `items-center` across a row.
+ *
+ * Disabled drops every tone to the same faint ink and dims the whole control. Colour alone was not
+ * enough: a ghost button has no fill to give up, so its disabled text sat at 5.66 against the card
+ * while its live text sat at 4.95, and the two read as the same button. The fills still differ,
+ * because each tone has a different fill to lose and ghost has none.
  */
 function Button({ tone, size, className, ...props }: ButtonProps) {
   return (
