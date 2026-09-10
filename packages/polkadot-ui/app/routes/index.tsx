@@ -10,6 +10,7 @@ import {
   Binding,
   Breakdown,
   Button,
+  CommitRow,
   ContactCard,
   Display,
   IconTile,
@@ -21,6 +22,7 @@ import {
   PendingCard,
   Prose,
   Readout,
+  ReadoutCard,
   Receipt,
   Row,
   Separator,
@@ -30,7 +32,6 @@ import {
   Surface,
   SwipeDeck,
   Title,
-  WeatherCard,
 } from "polkadot-ui";
 
 import {
@@ -40,6 +41,7 @@ import {
   INBOX,
   INSTALLS,
   LANGUAGES,
+  LATEST_COMMITS,
   SPLIT_PANES,
 } from "../fixtures.ts";
 
@@ -59,6 +61,7 @@ const overview = tv({
     deck: "h-[300px] w-[280px] max-w-full",
     hint: "flex-none self-center",
     bindings: "flex flex-col gap-2",
+    commits: "flex flex-col gap-[11px]",
     identityRow: "gap-4 flex-nowrap",
     who: "flex min-w-0 flex-1 flex-col gap-[5px]",
     role: "font-pk-sans text-pk-lede text-pk-ink-soft",
@@ -231,14 +234,32 @@ function Overview() {
             className={styles.aurora()}
           />
 
-          <WeatherCard
+          <ReadoutCard
             className={styles.small()}
-            place="outside"
+            size="lg"
+            label="outside"
             hint="tap"
-            temperature="12°"
-            conditions="clear, high plains"
-            detail="feels 9° · wind 11"
+            value="12°"
+            caption="clear, high plains"
+            details={["feels 9° · wind 11"]}
           />
+
+          <ReadoutCard
+            className={styles.small()}
+            label="denver, co"
+            value="18:42:07"
+            caption="mdt · utc−6"
+            details={["sunset 19:12", "day 4h 21m left"]}
+          />
+
+          <Surface tone="card" className={styles.small()}>
+            <Label>latest commits</Label>
+            <div className={styles.commits()}>
+              {LATEST_COMMITS.map(([sha, subject, age]) => (
+                <CommitRow key={sha} sha={sha} subject={subject} age={age} />
+              ))}
+            </div>
+          </Surface>
 
           <PendingCard
             className={styles.small()}

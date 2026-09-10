@@ -97,6 +97,12 @@ export const SPLIT_PANES = [
   { left: 52, top: 54, width: 42, height: 38, active: true },
 ];
 
+export const LATEST_COMMITS = [
+  ["a1f9c2", "fix(snap): resolve gap guides before edges", "2h"],
+  ["7e04b1", "feat(groups): accordion axis labels", "1d"],
+  ["c92d55", "perf(raster): skip offscreen window bodies", "3d"],
+] as const;
+
 export const BUILDING = [
   ["infinite-canvas", "2024 — now"],
   ["surreal-inspector", "2025"],
