@@ -77,7 +77,13 @@ function NumberFieldScrub({ className, children, ...props }: NumberFieldScrubPro
 export type NumberFieldGroupProps = WithClassName<NumberFieldPrimitive.Group.Props> &
   VariantProps<typeof inputVariants>;
 
-/** Base UI's Group, Decrement, Input and Increment as one part, the way the menu collapses three. */
+/**
+ * Base UI's Group, Decrement, Input and Increment as one part, the way the menu collapses three.
+ *
+ * The group carries `role="group"` and no name, which is deliberate. Its input is named by the
+ * `Field` and its two steps name themselves, so a name here would only make a reader hear the
+ * field's own twice. Pass `aria-label` where a group needs one of its own.
+ */
 function NumberFieldGroup({ tone, className, ...props }: NumberFieldGroupProps) {
   const styles = numberField();
   const step = buttonVariants({ tone: "ghost", size: "icon", className: styles.step() });
