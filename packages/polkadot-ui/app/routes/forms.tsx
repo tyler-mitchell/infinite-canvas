@@ -197,7 +197,9 @@ function Forms() {
               <Field.Label>workspace</Field.Label>
               <div className={styles.pair()}>
                 <Input defaultValue="infinite-canvas" />
-                <Button size="md">open</Button>
+                <Button size="md" disabled>
+                  open
+                </Button>
               </div>
             </Field>
           </Surface>

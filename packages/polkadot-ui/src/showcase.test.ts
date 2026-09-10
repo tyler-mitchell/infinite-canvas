@@ -1,5 +1,7 @@
 import { readdirSync, readFileSync } from "node:fs";
 
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 import { expect, test } from "vite-plus/test";
 
 import * as fixtures from "../app/fixtures.ts";
@@ -392,6 +394,119 @@ test("every document that counts the modules counts the modules there are", () =
 
   expect(counted.length).toBeGreaterThan(2);
   expect(counted.filter(({ count }) => !right.has(count))).toEqual([]);
+});
+
+/**
+ * A disabled field is a group that is off, and Base UI turns off the form controls it owns — the
+ * input, the switch, the checkbox. Anything else inside stays live, and the greyed label says
+ * otherwise: the workspace field on the forms page held a button that was fully clickable beside
+ * an input that was not.
+ *
+ * Which tags answer `disabled` is asked of the kit rather than listed here. `variants.test.tsx`
+ * asks the same question for a different reason — whether a control that answers it draws
+ * anything — so the two agree on what a control is without either one holding a list.
+ */
+const takesDisabled = new Set(
+  Object.entries(kit)
+    .filter(([name]) => /^[A-Z]/.test(name))
+    .flatMap(([name, value]) => {
+      if (typeof value !== "function") return [];
+
+      try {
+        const markup = renderToStaticMarkup(createElement(value as never, { disabled: true }));
+
+        /* A native control carries the attribute itself; everything else carries Base UI's. */
+        return markup.includes("data-disabled=") || /\sdisabled=""/.test(markup) ? [name] : [];
+      } catch {
+        return [];
+      }
+    }),
+);
+
+/**
+ * And which of them a field turns off by itself. Base UI hands its own form controls the field's
+ * state through context, so an input, a switch and the field's own label are already off inside a
+ * disabled field — asked by rendering each one in one and counting how many parts come back
+ * disabled, rather than by deciding which components look like form controls.
+ */
+const inheritsDisabled = new Set(
+  [...takesDisabled].flatMap((name) => {
+    const value = (kit as Record<string, unknown>)[name];
+
+    try {
+      const bare = renderToStaticMarkup(createElement(kit.Field, { disabled: true }));
+      const held = renderToStaticMarkup(
+        createElement(kit.Field, { disabled: true }, createElement(value as never)),
+      );
+      const count = (markup: string) => markup.split("data-disabled=").length;
+
+      return count(held) > count(bare) ? [name] : [];
+    } catch {
+      return [];
+    }
+  }),
+);
+
+const liveInsideDisabled = (
+  sources: readonly { readonly file: string; readonly source: string }[],
+  answers: ReadonlySet<string>,
+) =>
+  sources
+    .flatMap(({ file, source }) =>
+      openingTags(source, "Field")
+        .filter((tag) => /(?<=\s)disabled(?=[\s/>]|$)|disabled=\{true\}/.test(tag))
+        .flatMap((tag) => {
+          const opened = source.indexOf(tag) + tag.length;
+          const closed = source.indexOf("</Field>", opened);
+          const held = source.slice(opened, closed < 0 ? undefined : closed);
+
+          /* A part is written `Field.Label` and exported `FieldLabel`, so the dot is the join. */
+          return [...held.matchAll(/<([A-Z][\w.]*)(?=[\s/>])/g)]
+            .map(([, name]) => name!)
+            .filter((name) => answers.has(name.replaceAll(".", "")))
+            .filter(
+              (name) =>
+                !new RegExp(String.raw`<${name.replace(".", "\\.")}[^>]*\sdisabled[\s/>=]`).test(
+                  held,
+                ),
+            )
+            .map((name) => `${file} leaves ${name} live inside a disabled field`);
+        }),
+    )
+    .sort();
+
+test("a live control inside a disabled field is reported", () => {
+  const answers = new Set(["Button", "Input"]);
+  const live = [
+    { file: "p.tsx", source: "<Field disabled>\n<Input />\n<Button>go</Button>\n</Field>" },
+  ];
+  const off = [
+    {
+      file: "p.tsx",
+      source: "<Field disabled>\n<Input disabled />\n<Button disabled />\n</Field>",
+    },
+  ];
+  const open = [{ file: "p.tsx", source: "<Field>\n<Button>go</Button>\n</Field>" }];
+
+  expect(liveInsideDisabled(live, answers)).toEqual([
+    "p.tsx leaves Button live inside a disabled field",
+    "p.tsx leaves Input live inside a disabled field",
+  ]);
+  expect(liveInsideDisabled(off, answers)).toEqual([]);
+  expect(liveInsideDisabled(open, answers)).toEqual([]);
+});
+
+test("no page leaves a control live inside a field that is off", () => {
+  /* Read first: a set that answered nothing would find nothing to be wrong with any page. */
+  expect(takesDisabled.has("Button")).toBe(true);
+  expect(takesDisabled.has("Input")).toBe(true);
+  /* The input takes the field's state and the button does not, which is the whole distinction. */
+  expect(inheritsDisabled.has("Input")).toBe(true);
+  expect(inheritsDisabled.has("Button")).toBe(false);
+
+  const owed = new Set([...takesDisabled].filter((name) => !inheritsDisabled.has(name)));
+
+  expect(liveInsideDisabled(pages, owed)).toEqual([]);
 });
 
 /** `text.tsx` is listed as its seven roles, which is what a page writes, rather than as a module. */
