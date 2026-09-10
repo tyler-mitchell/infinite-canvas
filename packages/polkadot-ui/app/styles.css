@@ -1,4 +1,4 @@
 @import "tailwindcss";
 
-/* The kit's stylesheet scans its own components, so importing it is the whole setup. */
-@import "../src/theme.css";
+/* The path a consumer writes, so the documented setup is the one that runs here. */
+@import "polkadot-ui/theme.css";
