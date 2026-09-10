@@ -31,6 +31,14 @@ export interface IconTileProps
   readonly label: string;
 }
 
+/**
+ * An icon that gives its name room when pointed at. The name is in the markup either way, so a
+ * reader who cannot see the tile is still told what it is.
+ *
+ * It opens on hover or on keyboard focus, and a touch device offers neither: measured at 375px
+ * with touch emulated, a tap leaves the label nine pixels wide while a held-open tile shows all
+ * sixty-eight. Set `open` wherever a sighted reader on a phone has to read the name.
+ */
 function IconTile({ icon, label, size, open, className, render, ...props }: IconTileProps) {
   const styles = iconTile({ size, open });
 

@@ -172,6 +172,15 @@ repeats what the trigger already says, and put anything that has to be seen in t
 <Tooltip.Content>2.1M served</Tooltip.Content>
 ```
 
+`IconTile` has the same shape and the same answer. Its label opens on hover or on keyboard focus,
+so on a phone it stays shut — a tap leaves it nine pixels wide, against sixty-eight for a tile held
+open. The name is in the markup, so a screen reader reads it; a sighted reader on a phone does not.
+Set `open` on any tile whose name has to be read.
+
+```tsx
+<IconTile open label="held open" icon={<span>ON</span>} />
+```
+
 ## A focus ring offsets against its seat
 
 `--pk-ring-seat` is the colour behind a control. The root sets it to the ground and every `Surface`

@@ -327,6 +327,21 @@ test("a radio small enough to need room gets it from its own group", () => {
 });
 
 /**
+ * The tile opens its label on hover and on keyboard focus, and a phone has neither, so `open` is
+ * the only way a sighted reader there gets the name. The README says to reach for it, which is a
+ * claim about this variant rather than about the component — and `open: false` is an empty object,
+ * so the whole of it lives in the one branch.
+ */
+test("holding a tile open is not the same as leaving it shut", () => {
+  const shut = kit.iconTileVariants({ open: false }).label();
+  const held = kit.iconTileVariants({ open: true }).label();
+
+  expect(held).not.toBe(shut);
+  expect(shut).toContain("grid-cols-[minmax(0,0fr)]");
+  expect(held).toContain("grid-cols-[minmax(0,1fr)]");
+});
+
+/**
  * The one place in the kit where two variants together mean something neither means alone. On its
  * own `pressed` is two empty strings, so all four looks come out of the compound list, and a
  * mistake there costs a state its whole appearance while every variant still reads as declared.
