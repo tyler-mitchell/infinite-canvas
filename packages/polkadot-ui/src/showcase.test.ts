@@ -253,20 +253,27 @@ const documents = [
  * Two had drifted: `tailwind-variants` was recorded at 3.3.1 and is installed at 3.2.2, and Base UI
  * was credited with 48 component subpaths beside its own list of 38.
  *
- * Only the packages this one depends on can be checked. A version recorded for something surveyed
+ * Only the packages this one installs can be checked. A version recorded for something surveyed
  * and never installed — `motion`, TanStack Start — is history, and there is nothing here to read it
  * against.
+ *
+ * Both kinds of dependency count: the router is pinned in a note and lives in `devDependencies`,
+ * so reading the runtime ones alone left the only correct pin of the four unguarded.
  */
 test("every version a document pins for a dependency is the one installed", () => {
+  const manifest = JSON.parse(
+    readFileSync(new URL("../package.json", import.meta.url), "utf8"),
+  ) as Record<string, Record<string, string>>;
+
   const installed = new Map(
-    Object.keys(
-      JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).dependencies,
-    ).map((name) => [
-      name,
-      JSON.parse(
-        readFileSync(new URL(`../node_modules/${name}/package.json`, import.meta.url), "utf8"),
-      ).version as string,
-    ]),
+    [...Object.keys(manifest.dependencies!), ...Object.keys(manifest.devDependencies!)].map(
+      (name) => [
+        name,
+        JSON.parse(
+          readFileSync(new URL(`../node_modules/${name}/package.json`, import.meta.url), "utf8"),
+        ).version as string,
+      ],
+    ),
   );
 
   const wrong = documents.flatMap((file) =>
@@ -279,7 +286,9 @@ test("every version a document pins for a dependency is the one installed", () =
       ),
   );
 
-  expect(installed.size).toBe(3);
+  /* The four names the documents pin, of which three are installed here and one never was. */
+  expect(installed.size).toBeGreaterThan(12);
+  expect(installed.get("@tanstack/react-router")).toBeDefined();
   expect(wrong).toEqual([]);
 });
 

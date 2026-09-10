@@ -190,7 +190,7 @@ limitation: a deep link to a mail thread should open the mail thread, and it can
 parent chain and reconstitute the canvas behind it.
 
 Confirmed present at 1.170.32 (`src/index.tsx`): `createRouteMask` (line 263), the `RouteMask`
-type (217), `ToMaskOptions` (157), `InferMaskTo` / `InferMaskFrom` (321).
+type (217), `ToMaskOptions` (157), `InferMaskTo` (321) and `InferMaskFrom` (322).
 
 Status: observed in the export surface; masking behaviour across reload is not yet runtime-proven.
 
