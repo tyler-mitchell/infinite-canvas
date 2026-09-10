@@ -10,17 +10,22 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as WidgetsRouteImport } from './routes/widgets'
+import { Route as ReadoutsRouteImport } from './routes/readouts'
 import { Route as OverlaysRouteImport } from './routes/overlays'
 import { Route as LayoutRouteImport } from './routes/layout'
 import { Route as FoundationsRouteImport } from './routes/foundations'
 import { Route as DisclosureRouteImport } from './routes/disclosure'
-import { Route as DataRouteImport } from './routes/data'
 import { Route as ControlsRouteImport } from './routes/controls'
 import { Route as IndexRouteImport } from './routes/index'
 
 const WidgetsRoute = WidgetsRouteImport.update({
   id: '/widgets',
   path: '/widgets',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ReadoutsRoute = ReadoutsRouteImport.update({
+  id: '/readouts',
+  path: '/readouts',
   getParentRoute: () => rootRouteImport,
 } as any)
 const OverlaysRoute = OverlaysRouteImport.update({
@@ -43,11 +48,6 @@ const DisclosureRoute = DisclosureRouteImport.update({
   path: '/disclosure',
   getParentRoute: () => rootRouteImport,
 } as any)
-const DataRoute = DataRouteImport.update({
-  id: '/data',
-  path: '/data',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const ControlsRoute = ControlsRouteImport.update({
   id: '/controls',
   path: '/controls',
@@ -62,32 +62,32 @@ const IndexRoute = IndexRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/controls': typeof ControlsRoute
-  '/data': typeof DataRoute
   '/disclosure': typeof DisclosureRoute
   '/foundations': typeof FoundationsRoute
   '/layout': typeof LayoutRoute
   '/overlays': typeof OverlaysRoute
+  '/readouts': typeof ReadoutsRoute
   '/widgets': typeof WidgetsRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/controls': typeof ControlsRoute
-  '/data': typeof DataRoute
   '/disclosure': typeof DisclosureRoute
   '/foundations': typeof FoundationsRoute
   '/layout': typeof LayoutRoute
   '/overlays': typeof OverlaysRoute
+  '/readouts': typeof ReadoutsRoute
   '/widgets': typeof WidgetsRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/controls': typeof ControlsRoute
-  '/data': typeof DataRoute
   '/disclosure': typeof DisclosureRoute
   '/foundations': typeof FoundationsRoute
   '/layout': typeof LayoutRoute
   '/overlays': typeof OverlaysRoute
+  '/readouts': typeof ReadoutsRoute
   '/widgets': typeof WidgetsRoute
 }
 export interface FileRouteTypes {
@@ -95,42 +95,42 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/controls'
-    | '/data'
     | '/disclosure'
     | '/foundations'
     | '/layout'
     | '/overlays'
+    | '/readouts'
     | '/widgets'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/controls'
-    | '/data'
     | '/disclosure'
     | '/foundations'
     | '/layout'
     | '/overlays'
+    | '/readouts'
     | '/widgets'
   id:
     | '__root__'
     | '/'
     | '/controls'
-    | '/data'
     | '/disclosure'
     | '/foundations'
     | '/layout'
     | '/overlays'
+    | '/readouts'
     | '/widgets'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ControlsRoute: typeof ControlsRoute
-  DataRoute: typeof DataRoute
   DisclosureRoute: typeof DisclosureRoute
   FoundationsRoute: typeof FoundationsRoute
   LayoutRoute: typeof LayoutRoute
   OverlaysRoute: typeof OverlaysRoute
+  ReadoutsRoute: typeof ReadoutsRoute
   WidgetsRoute: typeof WidgetsRoute
 }
 
@@ -141,6 +141,13 @@ declare module '@tanstack/react-router' {
       path: '/widgets'
       fullPath: '/widgets'
       preLoaderRoute: typeof WidgetsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/readouts': {
+      id: '/readouts'
+      path: '/readouts'
+      fullPath: '/readouts'
+      preLoaderRoute: typeof ReadoutsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/overlays': {
@@ -171,13 +178,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DisclosureRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/data': {
-      id: '/data'
-      path: '/data'
-      fullPath: '/data'
-      preLoaderRoute: typeof DataRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/controls': {
       id: '/controls'
       path: '/controls'
@@ -198,11 +198,11 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ControlsRoute: ControlsRoute,
-  DataRoute: DataRoute,
   DisclosureRoute: DisclosureRoute,
   FoundationsRoute: FoundationsRoute,
   LayoutRoute: LayoutRoute,
   OverlaysRoute: OverlaysRoute,
+  ReadoutsRoute: ReadoutsRoute,
   WidgetsRoute: WidgetsRoute,
 }
 export const routeTree = rootRouteImport

@@ -35,7 +35,7 @@ const SECTIONS = [
     label: "composed",
     links: [
       { to: "/widgets", label: "widgets" },
-      { to: "/data", label: "readouts" },
+      { to: "/readouts", label: "readouts" },
     ],
   },
 ] as const;

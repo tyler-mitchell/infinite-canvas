@@ -405,7 +405,7 @@ const fixtureLength = (source: string, name: string) => {
  * cannot see the trace is told. Nothing tied those counts to the series they describe.
  */
 test("a series that states its length says the length it has", () => {
-  const page = readFileSync(new URL("routes/data.tsx", appDir), "utf8");
+  const page = readFileSync(new URL("routes/readouts.tsx", appDir), "utf8");
   const fixtures = readFileSync(new URL("fixtures.ts", appDir), "utf8");
 
   const counted = [...page.matchAll(/<Sparkline\b([\s\S]*?)\/>/g)]
@@ -544,7 +544,7 @@ test("a day count written beside a grid is reported", () => {
 });
 
 test("no page counts the days beside a grid that fits weeks to its width", () => {
-  const page = readFileSync(new URL("routes/data.tsx", appDir), "utf8");
+  const page = readFileSync(new URL("routes/readouts.tsx", appDir), "utf8");
 
   expect(page).toContain("<ActivityGrid");
   expect(countedDaysBeside(page)).toEqual([]);

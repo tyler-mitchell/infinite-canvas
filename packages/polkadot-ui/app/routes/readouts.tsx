@@ -44,7 +44,7 @@ const LATEST_FRAME = FRAME_BUDGET[FRAME_BUDGET.length - 1];
  */
 const CONTRIBUTION_WEEKS = 26;
 
-const data = tv({
+const readouts = tv({
   slots: {
     page: "flex max-w-[880px] flex-col gap-9",
     head: "flex flex-col gap-2",
@@ -56,12 +56,12 @@ const data = tv({
   },
 });
 
-export const Route = createFileRoute("/data")({
-  component: Data,
+export const Route = createFileRoute("/readouts")({
+  component: Readouts,
 });
 
-function Data() {
-  const styles = data();
+function Readouts() {
+  const styles = readouts();
 
   return (
     <div className={styles.page()}>
