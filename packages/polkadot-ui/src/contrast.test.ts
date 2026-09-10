@@ -561,6 +561,43 @@ test("a fill a component paints is a ground its own text clears", () => {
     'const x = tv({\n  slots: {\n    root: "hover:bg-pk-ink/[0.06]",\n    trail: "text-pk-ink-faint/50",\n  },\n});',
   );
 
+  /*
+   * What the rule reaches, said out loud so a shrinking reach fails rather than passing quietly.
+   * The four beyond the surface family are what reading an opaque fill bought: the accent, the
+   * keycap's face, the receipt's mark and the aurora's void. A fill nothing writes text on — the
+   * grid's levels, the tray — makes no pair, which is right rather than missing.
+   *
+   * The void is the aurora's base and not its ground: three blobs lighten it, and a lighter ground
+   * is the worse case for light text, so passing here does not answer for the card.
+   */
+  expect(
+    [
+      ...new Set(
+        [...componentSources, ...pageSources].flatMap(({ source }) =>
+          paintedGrounds(source).map(({ fill }) => fill),
+        ),
+      ),
+    ].sort(),
+  ).toEqual([
+    "--pk-accent",
+    "--pk-ground",
+    "--pk-ink",
+    "--pk-keycap-face",
+    "--pk-paper-ink",
+    "--pk-pending-surface",
+    "--pk-surface",
+    "--pk-surface-deep",
+    "--pk-surface-inner",
+    "--pk-surface-sunken",
+    "--pk-void",
+  ]);
+  /* An opaque fill is the ground itself, so it composites at full: naming the fills alone would
+   * not have caught a reader that found them and then mixed them away to nothing. */
+  expect(
+    paintedGrounds(
+      'const x = tv({\n  slots: {\n    root: "bg-pk-accent",\n    label: "text-pk-ink-faint",\n  },\n});',
+    ),
+  ).toContainEqual({ fill: "--pk-accent", alpha: 1, ink: "--pk-ink-faint", inkAlpha: 1 });
   expect(planted).toContainEqual({ ...ON_INK, ink: "--pk-ink-faint" });
   expect(thinned).toContainEqual({ ...ON_INK, ink: "--pk-ink-faint", inkAlpha: 0.5 });
   expect(thin).toEqual([]);
