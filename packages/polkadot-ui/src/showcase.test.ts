@@ -2501,9 +2501,17 @@ test("every line a note cites in the router's source is the line it names", () =
  * The readout does not, because a figure broken across two lines reads as two figures, and it says
  * so with `whitespace-nowrap`. A new role has to answer which of the two it is.
  *
+ * The wrap is `wrap-anywhere` rather than `break-words`, and the difference is not cosmetic. Both
+ * break a word that would overflow, but only `anywhere` lowers the width the box reports as its
+ * minimum. A role used inside a `Row` is a flex item, and a flex item keeps a minimum as wide as
+ * its longest word, so with `break-words` the row stayed too wide and pushed the page sideways
+ * instead: 320 became 481 on the readouts page. Measured at 320 on four pages, the change takes
+ * the page-widening texts from 14, 28, 19 and 18 to 0, 14, 5 and 6, and moves no box on any of
+ * them — where a zero minimum, which fixes the same thing, moved 78 and 212.
+ *
  * Measured at 1280 on all nine pages, by putting one long address into every text a page draws:
- * wrapping saves 66 of them, 8 of which are field labels this role reaches through `Field`. The
- * rest are cut by a box that cannot shrink, which no class on the text can answer.
+ * wrapping saves 66 of them, 8 of which are field labels this role reaches through `Field`. What
+ * remains is a box that cannot shrink because it says it stays on one line.
  */
 test("every text role either wraps a long word or says it stays on one line", () => {
   const roles = Object.keys((kit.textVariants as unknown as Tabled).variants?.as ?? {});
@@ -2511,11 +2519,12 @@ test("every text role either wraps a long word or says it stays on one line", ()
     .filter((role) => {
       const drawn = kit.textVariants({ as: role as never });
 
-      return !drawn.includes("break-words") && !drawn.includes("whitespace-nowrap");
+      return !/\b(?:wrap-anywhere|break-words|whitespace-nowrap)\b/.test(drawn);
     })
     .sort();
 
   expect(roles.length).toBeGreaterThan(5);
   expect(kit.textVariants({ as: "readout" })).toContain("whitespace-nowrap");
+  expect(kit.textVariants({ as: "prose" })).toContain("wrap-anywhere");
   expect(silent).toEqual([]);
 });

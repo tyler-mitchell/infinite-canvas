@@ -4,7 +4,7 @@ import type { VariantProps } from "tailwind-variants";
 import { tv } from "../tv.ts";
 
 const text = tv({
-  base: "break-words",
+  base: "wrap-anywhere",
   variants: {
     as: {
       label: "font-pk-sans text-pk-label text-pk-ink-dim",
