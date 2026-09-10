@@ -90,7 +90,8 @@ export type ReceiptBarcodeProps = Omit<React.ComponentProps<"div">, "children"> 
 
 function ReceiptBarcode({ value, className, ...props }: ReceiptBarcodeProps) {
   const styles = receipt();
-  const bars = Array.from(value.repeat(3).slice(0, 18), (character) =>
+  /* Enough bars that each is a hairline rather than a plank once they fill the paper. */
+  const bars = Array.from(value.repeat(8).slice(0, 48), (character) =>
     character.codePointAt(0)! % 2 === 0 ? 3 : 1.5,
   );
 
@@ -103,7 +104,8 @@ function ReceiptBarcode({ value, className, ...props }: ReceiptBarcodeProps) {
       {...props}
     >
       {bars.map((width, index) => (
-        <span key={index} style={{ width: `${width}px` }} className={styles.bar()} />
+        /* The widths are a ratio rather than a size, so the code spans whatever paper it is on. */
+        <span key={index} style={{ flex: `${width} 1 0` }} className={styles.bar()} />
       ))}
     </div>
   );
