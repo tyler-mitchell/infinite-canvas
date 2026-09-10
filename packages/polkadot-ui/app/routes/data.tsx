@@ -109,6 +109,35 @@ function Data() {
 
       <section className={styles.section()}>
         <Row rule="below">
+          <Kind>a series with nothing in it</Kind>
+          <Meta>one reading, and none</Meta>
+        </Row>
+        <div className={styles.grid()}>
+          <Surface tone="card">
+            <Row>
+              <Label>first deploy</Label>
+              <Meta>1 reading</Meta>
+            </Row>
+            <Sparkline values={[42]} />
+          </Surface>
+          <Surface tone="card">
+            <Row>
+              <Label>not yet measured</Label>
+              <Meta>0 readings</Meta>
+            </Row>
+            <Sparkline values={[]} />
+          </Surface>
+        </div>
+        <Prose className={styles.lede()}>
+          One reading is a series at rest, so it draws level across the whole width rather than as a
+          dot against the left edge. An empty one draws nothing at all, and neither reports a bound
+          it does not have: the name a screen reader hears is &ldquo;no readings&rdquo;, never a
+          count of zero followed by a value that is not there.
+        </Prose>
+      </section>
+
+      <section className={styles.section()}>
+        <Row rule="below">
           <Kind>activity grid</Kind>
           <Meta>weeks are columns · width drops history</Meta>
         </Row>

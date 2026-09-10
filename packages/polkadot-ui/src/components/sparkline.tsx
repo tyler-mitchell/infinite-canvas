@@ -41,6 +41,52 @@ const WIDTH = 300;
 const HEIGHT = 44;
 const INSET = 4;
 
+export type SparklinePoint = readonly [x: number, y: number];
+
+/**
+ * The trace in view space, oldest at the left. An empty series draws nothing, and a single sample
+ * draws flat across the full width, because one reading is a series at rest rather than a point at
+ * the left edge.
+ */
+export function sparklinePoints(values: readonly number[]): readonly SparklinePoint[] {
+  if (values.length === 0) return [];
+
+  const low = Math.min(...values);
+  const span = Math.max(...values) - low || 1;
+  const y = (value: number) => INSET + (1 - (value - low) / span) * (HEIGHT - INSET * 2);
+
+  if (values.length === 1) {
+    const only = y(values[0]!);
+
+    return [
+      [0, only],
+      [WIDTH, only],
+    ];
+  }
+
+  const step = WIDTH / (values.length - 1);
+
+  return values.map((value, index) => [index * step, y(value)] as const);
+}
+
+/**
+ * The head to draw when the consumer names none. A series with no readings marks nothing, because
+ * a head is a reading, and a caption takes the dot's place.
+ */
+export function sparklineHead(values: readonly number[], caption?: string) {
+  if (values.length === 0) return "none";
+
+  return caption ? "badge" : "dot";
+}
+
+/** What the chart is called when the consumer gives no `label`. */
+export function sparklineLabel(values: readonly number[]) {
+  if (values.length === 0) return "no readings";
+  if (values.length === 1) return `one reading, ${values[0]}`;
+
+  return `${values.length} readings, latest ${values[values.length - 1]}`;
+}
+
 export type SparklineProps = Omit<React.ComponentProps<"div">, "children"> &
   VariantProps<typeof sparkline> & {
     /** Oldest first. The last value is the head. */
@@ -52,16 +98,10 @@ export type SparklineProps = Omit<React.ComponentProps<"div">, "children"> &
   };
 
 function Sparkline({ values, caption, label, size, head, className, ...props }: SparklineProps) {
-  const styles = sparkline({ size, head: head ?? (caption ? "badge" : "dot") });
+  const styles = sparkline({ size, head: head ?? sparklineHead(values, caption) });
   const id = useId();
 
-  const low = Math.min(...values);
-  const span = Math.max(...values) - low || 1;
-  const step = values.length > 1 ? WIDTH / (values.length - 1) : 0;
-  const points = values.map(
-    (value, index) =>
-      [index * step, INSET + (1 - (value - low) / span) * (HEIGHT - INSET * 2)] as const,
-  );
+  const points = sparklinePoints(values);
 
   const trace = line<(typeof points)[number]>()
     .x((point) => point[0])
@@ -79,7 +119,7 @@ function Sparkline({ values, caption, label, size, head, className, ...props }: 
     <div
       data-slot="sparkline"
       role="img"
-      aria-label={label ?? `${values.length} points, latest ${values[values.length - 1]}`}
+      aria-label={label ?? sparklineLabel(values)}
       style={{ "--head": `${(headHeight / HEIGHT) * 100}%` } as React.CSSProperties}
       className={styles.root({ className })}
       {...props}
