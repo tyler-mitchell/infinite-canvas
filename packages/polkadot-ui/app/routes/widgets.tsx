@@ -10,6 +10,7 @@ import {
   badgeVariants,
   Binding,
   Breakdown,
+  Button,
   CommitRow,
   ContactCard,
   Display,
@@ -72,6 +73,7 @@ export const Route = createFileRoute("/widgets")({
 function Widgets() {
   const styles = widgets();
   const [pinned, setPinned] = useState<string[]>([]);
+  const [installs, setInstalls] = useState(9_562);
 
   return (
     <div className={styles.page()}>
@@ -99,7 +101,10 @@ function Widgets() {
           <Keycap>⌘</Keycap>
           <Keycap>K</Keycap>
           <Stat value="1,243" label="stars" />
-          <Readout render={<NumberTicker value={4182} locale />} />
+          <Readout render={<NumberTicker value={installs} locale />} />
+          <Button tone="ghost" size="sm" onClick={() => setInstalls((n) => n + 819)}>
+            roll
+          </Button>
         </div>
         <Api of={badgeVariants} />
       </section>
