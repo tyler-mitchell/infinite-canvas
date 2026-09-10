@@ -5,7 +5,8 @@
     "module": "ESNext",
     "lib": ["ES2023", "DOM", "DOM.Iterable"],
     "jsx": "react-jsx",
-    "types": ["vite-plus/client"],
+    /* "node" is for tests that read a source file; nothing shipped touches a Node global. */
+    "types": ["vite-plus/client", "node"],
 
     /* Bundler mode */
     "moduleResolution": "bundler",

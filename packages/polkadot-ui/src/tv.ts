@@ -1,6 +1,7 @@
 import { createTV } from "tailwind-variants";
 
-const FONT_SIZES = [
+/** Every `--text-pk-*` the theme declares. A size missing here is dropped when a slot also sets a colour. */
+export const FONT_SIZES = [
   "pk-micro",
   "pk-label",
   "pk-control",
