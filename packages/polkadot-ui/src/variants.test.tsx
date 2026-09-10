@@ -16,18 +16,39 @@ interface Pair {
   readonly config: VariantObject;
 }
 
-/** What each component that reads a required prop needs before any variant can be seen. */
+/**
+ * What each component needs before anything can be seen: the props it reads, and for a container
+ * the part it holds. A container is judged with its parts, since a toolbar with no buttons fades
+ * nothing and a field with no label has nothing to grey.
+ */
 const REQUIRED: Record<string, Record<string, unknown>> = {
+  Accordion: {
+    children: createElement(
+      kit.AccordionItem,
+      null,
+      createElement(kit.AccordionTrigger, null, "open"),
+    ),
+  },
   ActivityFeed: { entries: [] },
   ActivityGrid: { days: [] },
   Avatar: { name: "Ada Lovelace" },
   Bars: { values: [1, 2, 3] },
   Binding: { keys: ["a"], action: "do the thing" },
   Breakdown: { parts: [{ name: "p", share: 1, color: "red" }] },
+  Collapsible: { children: createElement(kit.CollapsibleTrigger, null, "open") },
+  Field: { children: createElement(kit.FieldLabel, null, "name") },
   LayoutPreview: { panes: [] },
+  NumberField: { children: createElement(kit.NumberFieldGroup) },
+  RadioGroup: { children: createElement(kit.Radio, { value: "a" }) },
   ReceiptBarcode: { value: "order 42" },
   Sparkline: { values: [1, 2, 3] },
   SwipeDeck: { items: [] },
+  ToggleGroup: { children: createElement(kit.Toggle, { value: "a" }, "one") },
+  Toolbar: {
+    children: createElement(kit.ToolbarButton, {
+      render: createElement(kit.Button, null, "cut"),
+    }),
+  },
 };
 
 /** `surfaceVariants` describes `Surface`, so the pair is derived rather than listed by hand. */
@@ -127,6 +148,77 @@ test("the pairing reaches most of the kit", () => {
 
 test("every value of every variant the kit declares can be drawn", () => {
   expect(eachValue(pairs).broke).toEqual([]);
+});
+
+/**
+ * Base UI writes `data-disabled` on the parts it owns the moment a consumer passes `disabled`, and
+ * a component that styles nothing for it draws a control that is off and looks live. Eleven of the
+ * kit's controls fade to 40% and stop taking a pointer; this asks which ones accept the prop and
+ * answer it with nothing.
+ *
+ * Only what renders on its own is asked: a part that needs its parent's context throws instead,
+ * and a throw here is a component this cannot speak about rather than a failure.
+ */
+const sourceOf = new Map<string, string>();
+
+for (const file of readdirSync(new URL("./components/", import.meta.url)).filter((name) =>
+  name.endsWith(".tsx"),
+)) {
+  const source = readFileSync(new URL(`./components/${file}`, import.meta.url), "utf8");
+
+  for (const [, list] of source.matchAll(/^export \{([\s\S]*?)\};$/gm)) {
+    for (const part of list!.split(",")) {
+      const [name] = part.trim().split(/\s+as\s+/);
+      if (name && /^[A-Z]/.test(name)) sourceOf.set(name, source);
+    }
+  }
+}
+
+const unmarkedDisabled = (components: readonly { name: string; draw: unknown }[]) =>
+  components
+    .flatMap(({ name, draw }) => {
+      try {
+        const markup = renderToStaticMarkup(
+          createElement(draw as never, { ...REQUIRED[name], disabled: true }),
+        );
+
+        /*
+         * The rendered classes rather than the file's own: a number field's steps take the fade
+         * from the button they are laid over, and asking the file would call that nothing.
+         */
+        if (!markup.includes("data-disabled=")) return [];
+
+        return markup.includes("data-disabled:")
+          ? []
+          : [`${name} takes disabled and draws nothing`];
+      } catch {
+        return [];
+      }
+    })
+    .sort();
+
+test("a control that can be disabled and draws nothing for it is reported", () => {
+  const quiet = { name: "Quiet", draw: () => <span data-disabled="" className="flex" /> };
+  const marked = {
+    name: "Marked",
+    draw: () => <span data-disabled="" className="data-disabled:opacity-40" />,
+  };
+  const lively = { name: "Lively", draw: () => <span className="flex" /> };
+
+  expect(unmarkedDisabled([quiet])).toEqual(["Quiet takes disabled and draws nothing"]);
+  expect(unmarkedDisabled([marked])).toEqual([]);
+  expect(unmarkedDisabled([lively])).toEqual([]);
+});
+
+test("every control that can be disabled says so", () => {
+  const components = [...sourceOf.keys()]
+    .filter((name) => typeof (kit as Record<string, unknown>)[name] === "function")
+    .map((name) => ({ name, draw: (kit as Record<string, unknown>)[name] }));
+
+  /* Read first: the switch answers `disabled`, so the sweep is reaching real controls. */
+  expect(components.length).toBeGreaterThan(40);
+  expect(unmarkedDisabled([{ name: "Switch", draw: kit.Switch }])).toEqual([]);
+  expect(unmarkedDisabled(components)).toEqual([]);
 });
 
 /**

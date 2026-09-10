@@ -4,7 +4,8 @@ import { textVariants } from "./text.tsx";
 
 const slider = tv({
   slots: {
-    root: "flex w-full flex-col gap-2.5 data-[orientation=vertical]:w-auto data-[orientation=vertical]:items-start",
+    /* The whole control fades, the way every other one does: a track alone would still read live. */
+    root: "flex w-full flex-col gap-2.5 data-disabled:pointer-events-none data-disabled:opacity-40 data-[orientation=vertical]:w-auto data-[orientation=vertical]:items-start",
     header: "flex items-baseline justify-between gap-2",
     label: "font-pk-sans text-pk-label text-pk-ink-dim",
     /* The readout role supplies the voice; only what is particular to a track sits here. */

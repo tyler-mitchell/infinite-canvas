@@ -159,6 +159,9 @@ function Controls() {
           <Surface tone="card">
             <Slider label="range" defaultValue={[24, 68]} />
           </Surface>
+          <Surface tone="card">
+            <Slider label="locked" defaultValue={30} disabled />
+          </Surface>
         </div>
 
         <Row rule="below">

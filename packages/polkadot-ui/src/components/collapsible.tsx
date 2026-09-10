@@ -9,8 +9,12 @@ const collapsible = tv({
      * label sits where it did while the thing you tap is 27px rather than the 11px of its text.
      * The accordion's trigger is 43px for the same job, and this was a quarter of it.
      */
+    /*
+     * The trigger fades and stops taking a pointer, not the panel: a disabled collapsible that is
+     * open still has to be readable, and the control is the only part that is off.
+     */
     trigger:
-      "-my-2 flex cursor-pointer items-center justify-between gap-2 border-0 bg-transparent px-0 py-2 font-pk-sans text-pk-label text-pk-ink-dim outline-none transition-colors duration-(--pk-duration-hover) ease-pk-swift select-none hover:text-pk-ink-bright focus-visible:ring-2 focus-visible:ring-pk-accent/50",
+      "-my-2 flex cursor-pointer items-center justify-between gap-2 border-0 bg-transparent px-0 py-2 font-pk-sans text-pk-label text-pk-ink-dim outline-none transition-colors duration-(--pk-duration-hover) ease-pk-swift select-none hover:text-pk-ink-bright focus-visible:ring-2 focus-visible:ring-pk-accent/50 data-disabled:pointer-events-none data-disabled:opacity-40",
     panel:
       "h-(--collapsible-panel-height) overflow-hidden transition-[height] duration-(--pk-duration-detail) ease-pk-swift data-ending-style:h-0 data-starting-style:h-0",
     body: "pt-3",
