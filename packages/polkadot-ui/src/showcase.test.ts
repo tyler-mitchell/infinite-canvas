@@ -2420,3 +2420,27 @@ test("a page does not give two things the same name", () => {
   expect(everything).toContain("label={`language split");
   expect(twiceNamed(pages)).toEqual([]);
 });
+
+/**
+ * The runtime note lists fifteen modules it deleted rather than kept as a fallback — a spring
+ * integrator, a frame clock, a board engine, a geometry folder — and says every path is still
+ * absent. That sentence is the whole evidence that the replacement happened rather than being
+ * described, and a file coming back would leave it reading as true.
+ *
+ * The note's own count of the components is read the same way. The readme's is pinned in words
+ * further up; this one is a numeral in a different file and nothing looked at it.
+ */
+const stillGone = (note: string) =>
+  [...note.matchAll(/^(src\/[\w./-]+)\s+removed/gm)]
+    .map(([, path]) => path!)
+    .filter((path) => existsSync(new URL(`../${path}`, import.meta.url)));
+
+test("a module a note says it deleted has not come back", () => {
+  const note = readFileSync(new URL("../docs/research/widget-runtime.md", import.meta.url), "utf8");
+  const modules = readdirSync(componentDir).filter((name) => name.endsWith(".tsx"));
+
+  /* Read first: the paths are read out of the note, so a note that lists none would agree here. */
+  expect([...note.matchAll(/^(src\/[\w./-]+)\s+removed/gm)]).toHaveLength(15);
+  expect(stillGone(note)).toEqual([]);
+  expect(note).toContain(`${modules.length} component modules`);
+});
