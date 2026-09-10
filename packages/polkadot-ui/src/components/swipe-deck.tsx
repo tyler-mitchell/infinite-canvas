@@ -185,16 +185,6 @@ function SwipeDeck({
               }
               onPointerUp={isTop ? release : undefined}
               onPointerCancel={isTop ? release : undefined}
-              onKeyDown={
-                isTop
-                  ? (event) => {
-                      const direction = { ArrowLeft: "skip", ArrowRight: "pin" }[event.key];
-                      if (!direction) return;
-                      event.preventDefault();
-                      settle(direction as "pin" | "skip");
-                    }
-                  : undefined
-              }
             >
               <div className={styles.head()}>
                 <span className={styles.kind()}>{item.kind}</span>

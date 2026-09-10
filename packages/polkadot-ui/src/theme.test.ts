@@ -765,6 +765,43 @@ test("every component that reads its own keys says which keys", () => {
 });
 
 /**
+ * One keyboard per component. A second handler on a descendant of the first does not replace it —
+ * the key runs both on its way up, and neither stops the other, so one press acts twice.
+ *
+ * The deck carried a second one on the card, unreachable because a card holds nothing that takes
+ * focus, and wrong if it ever were. Driven through the card, the page's own count fell from four
+ * to two while the deck advanced by one: the same card was announced to the consumer twice. Driven
+ * through the well it fell to three, which is the number a press should cost.
+ */
+const twoKeyboards = (sources: readonly { readonly file: string; readonly source: string }[]) =>
+  sources
+    .flatMap(({ file, source }) => {
+      const attached = [...source.matchAll(/onKeyDown=\{/g)].length;
+
+      return attached > 1 ? [`${file} attaches ${attached} keyboards`] : [];
+    })
+    .sort();
+
+test("a component that attaches a second keyboard is reported", () => {
+  expect(twoKeyboards([{ file: "a.tsx", source: "onKeyDown={one} ... onKeyDown={two}" }])).toEqual([
+    "a.tsx attaches 2 keyboards",
+  ]);
+  /* A handler named once and attached once is the shape the grid has, and is not two. */
+  expect(
+    twoKeyboards([
+      { file: "b.tsx", source: "const onKeyDown = ...; <div onKeyDown={onKeyDown} />" },
+    ]),
+  ).toEqual([]);
+});
+
+test("no component answers one key in two places", () => {
+  const attaching = componentSources.filter(({ source }) => source.includes("onKeyDown={"));
+
+  expect(attaching.map(({ file }) => file).sort()).toEqual(["activity-grid.tsx", "swipe-deck.tsx"]);
+  expect(twoKeyboards(styledSources)).toEqual([]);
+});
+
+/**
  * `role="img"` hides whatever is inside it, so the label is the whole of what a reader gets. An
  * optional `label` passed straight through leaves the name empty when the consumer omits it, and
  * an empty name on a leaf role announces as nothing at all.
