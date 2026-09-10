@@ -6,8 +6,11 @@ const props = tv({
     table: "grid grid-cols-[auto_1fr] items-baseline gap-x-3 gap-y-2",
     head: "col-span-2 mb-px",
     row: "contents",
-    /* A floor, so tables whose names are all short line up with each other. */
-    name: "min-w-[92px]",
+    /*
+     * A floor wide enough for the longest name in the kit, so every table lands on the same
+     * column and reads as one. The column still grows past it rather than spilling.
+     */
+    name: "min-w-[136px]",
     values: "flex flex-wrap items-baseline gap-x-2 gap-y-1",
     value: "font-pk-mono text-[11px] leading-[1.4] text-pk-ink-faint",
     current: "font-pk-mono text-[11px] leading-[1.4] text-pk-accent-dim",

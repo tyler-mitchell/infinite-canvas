@@ -2,15 +2,23 @@ import { createFileRoute } from "@tanstack/react-router";
 import {
   Button,
   Dialog,
+  type DialogProps,
   Display,
   Kind,
   Menu,
+  type MenuContentProps,
+  type MenuItemProps,
+  type MenuProps,
   Meta,
   Popover,
   type PopoverContentProps,
+  type PopoverProps,
   Prose,
   Row,
   Tooltip,
+  type TooltipContentProps,
+  type TooltipProps,
+  type TooltipProviderProps,
   tv,
 } from "polkadot-ui";
 
@@ -61,6 +69,44 @@ function Overlays() {
             </Tooltip>
           </div>
         </Tooltip.Provider>
+        <Props<TooltipProviderProps>
+          name="tooltip provider"
+          rows={[
+            { name: "delay", note: "milliseconds a pointer must rest before the first one opens" },
+            { name: "closeDelay", note: "milliseconds before it closes again" },
+            {
+              name: "timeout",
+              fallback: "400",
+              note: "how long the group stays warm, so a second tooltip opens at once",
+            },
+          ]}
+        />
+        <Props<TooltipProps>
+          name="tooltip"
+          rows={[
+            { name: "disabled", fallback: "false", note: "the trigger stops opening one" },
+            {
+              name: "trackCursorAxis",
+              values: ["none", "x", "y", "both"],
+              fallback: "none",
+              note: "lets it follow the pointer along an axis",
+            },
+            {
+              name: "disableHoverablePopup",
+              fallback: "false",
+              note: "closes it when the pointer moves onto the tooltip itself",
+            },
+          ]}
+        />
+        <Props<TooltipContentProps>
+          name="tooltip content"
+          rows={[
+            { name: "side", fallback: "top", values: ["bottom", "right", "left"] },
+            { name: "align", fallback: "center", values: ["start", "end"] },
+            { name: "sideOffset", fallback: "6", note: "pixels from the trigger" },
+            { name: "alignOffset", fallback: "0", note: "pixels along the trigger" },
+          ]}
+        />
       </section>
 
       <section className={styles.section()}>
@@ -96,6 +142,20 @@ function Overlays() {
             { name: "align", fallback: "center", values: ["start", "end"] },
             { name: "sideOffset", fallback: "8", note: "pixels from the trigger" },
             { name: "alignOffset", fallback: "0", note: "pixels along the trigger" },
+          ]}
+        />
+        <Props<PopoverProps>
+          name="popover"
+          rows={[
+            { name: "defaultOpen", fallback: "false", note: "open on first render" },
+            { name: "open", note: "drive it from outside, with onOpenChange" },
+            { name: "onOpenChange", note: "called with the next open state" },
+            {
+              name: "modal",
+              values: ["true", "trap-focus"],
+              fallback: "false",
+              note: "true locks the page behind it; trap-focus only holds focus",
+            },
           ]}
         />
       </section>
@@ -138,6 +198,25 @@ function Overlays() {
             </Dialog.Footer>
           </Dialog.Content>
         </Dialog>
+        <Props<DialogProps>
+          name="dialog"
+          rows={[
+            { name: "defaultOpen", fallback: "false", note: "open on first render" },
+            { name: "open", note: "drive it from outside, with onOpenChange" },
+            { name: "onOpenChange", note: "called with the next open state" },
+            {
+              name: "modal",
+              values: ["trap-focus"],
+              fallback: "true",
+              note: "true makes the page behind it inert; trap-focus only holds focus",
+            },
+            {
+              name: "disablePointerDismissal",
+              fallback: "false",
+              note: "a click outside no longer closes it, for a choice that must be made",
+            },
+          ]}
+        />
       </section>
 
       <section className={styles.section()}>
@@ -166,6 +245,44 @@ function Overlays() {
             </Menu.Item>
           </Menu.Content>
         </Menu>
+        <Props<MenuProps>
+          name="menu"
+          rows={[
+            { name: "modal", fallback: "true", note: "whether the page behind it goes inert" },
+            {
+              name: "loopFocus",
+              fallback: "true",
+              note: "whether the highlight wraps from the last item to the first",
+            },
+            {
+              name: "highlightItemOnHover",
+              fallback: "true",
+              note: "whether the pointer moves the highlight as well as the arrow keys",
+            },
+            { name: "disabled", fallback: "false", note: "the trigger stops opening it" },
+          ]}
+        />
+        <Props<MenuContentProps>
+          name="menu content"
+          rows={[
+            { name: "side", fallback: "bottom", values: ["top", "right", "left"] },
+            { name: "align", fallback: "start", values: ["center", "end"] },
+            { name: "sideOffset", fallback: "6", note: "pixels from the trigger" },
+            { name: "alignOffset", fallback: "0", note: "pixels along the trigger" },
+          ]}
+        />
+        <Props<MenuItemProps>
+          name="menu item"
+          rows={[
+            {
+              name: "closeOnClick",
+              fallback: "true",
+              note: "false keeps the menu open, for an item that toggles something",
+            },
+            { name: "disabled", fallback: "false", note: "skipped by the arrow keys" },
+            { name: "label", note: "what it is called when the item's own text is not plain" },
+          ]}
+        />
       </section>
     </div>
   );
