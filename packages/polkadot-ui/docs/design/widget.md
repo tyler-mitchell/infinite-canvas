@@ -1,12 +1,14 @@
 # What a Widget is
 
-A proposal, derived from counting the design POC rather than from taste. Nothing here is built.
-Two earlier attempts at `Widget` were deleted; this exists so a third is designed before it is
-written.
+Derived from counting the design POC rather than from taste. Two earlier attempts at a `Widget`
+component were deleted; this recorded the design before a third was written. It has since been
+built, and the scope rule at the end was overruled on purpose.
 
 Source: `docs/handoff/LayoutEnginePOC.dc.html` (45 draggable widgets). Counted 2026-09-09.
 
-## The counts, which contradict both earlier attempts
+Status: built. Every part proposed here exists and is demonstrated in `app/`.
+
+## The counts
 
 ```txt
 draggable widgets                                    45
@@ -19,12 +21,12 @@ canvas                                                5
 rim card (conic border)                               3
 ```
 
-Three things follow, and each one kills something I had already built:
+Three things followed, and each one killed something already built:
 
 **There is no single `Label`.** There are two chrome registers doing different jobs. A _label_
 names a section — `frame budget`, `now playing`, `inbox`, `elsewhere`. A _kind_ tags what a thing
 is — `gist`, `reading`, `issue`, `reference`. They differ in face, size, tracking and case, and
-they never substitute for each other. My `Widget.Label` collapsed both into one part.
+they never substitute for each other.
 
 **`Footer` is not a part.** 13 of 45. It is a rule plus a metadata row, which is two things that
 already exist. Promoting it to a named part made every widget look like it should have one.
@@ -34,31 +36,35 @@ count in the design, higher than any container. The design language is not "a ca
 it is _a surface that is dense with mono metadata_, wearing whatever chrome that particular
 instrument needs.
 
-## The split the counts imply
+## The split, as built
 
-`Widget` was doing two jobs. They separate cleanly:
+`Widget` was doing two jobs, and they separated cleanly.
 
 ```tsx
-// target — the frame. Tone, padding, radius, lift, hairline. Knows nothing about content.
+// src/components/surface.tsx — the frame. Tone, padding, radius, lift, hairline.
 <Surface tone="card" padding="default">
   {children}
 </Surface>
 ```
 
 ```tsx
-// target — the chrome vocabulary. Free-standing, composed only where a widget needs it.
-<Label>frame budget</Label>       // sans 500 11px 0.02em  — names a section
-<Kind>gist</Kind>                 // mono 500 10px 0.05em caps — tags what a thing is
-<Meta>8.2 ms</Meta>               // mono 11px — the through-line
-<Title>infinite-canvas</Title>    // sans 600 17px -0.03em
-<Readout>1,243 commits · wk 12</Readout>  // mono, live, aria-live
+// src/components/text.tsx — the chrome vocabulary, composed only where a widget needs it.
+<Label>frame budget</Label>       // sans 500 11px 0.02em — names a section
+<Kind>gist</Kind>                 // sans 500 10px 0.05em caps — tags what a thing is
+<Meta>8.2 ms</Meta>               // sans 400 11px 0.005em — the through-line
+<Title>infinite-canvas</Title>    // sans 500 15px -0.025em
+<Readout>1,243 commits · wk 12</Readout>  // mono 400 11px, and a live region
 ```
 
+One value moved: the POC sets `kind` in mono, and the kit sets it in sans. The counts above record
+what the POC does; the kit keeps mono for figures and for anything a terminal would print, and puts
+chrome in sans throughout.
+
 Nothing forces a widget into a shape. A repo card composes `Kind` + `Title` + `Meta`; the frame
-budget composes `Label` + `Readout` + a canvas; the printer composes almost none of it.
+budget composes `Label` + `Readout` + a sparkline; the printer composes almost none of it.
 
 ```tsx
-// target — what a consumer writes. No Header, no Body, no Footer.
+// app/routes/data.tsx — what a consumer writes. No Header, no Body, no Footer.
 <Surface tone="card">
   <Row>
     <Label>frame budget</Label>
@@ -76,30 +82,52 @@ not have — several widgets put their naming line at the _bottom_, and the prin
 
 `Row` is honest about being a layout primitive. Whether it is a header is the consumer's business.
 
-## The test each part has to pass
+## What the open questions turned into
 
-From the handoff's own thesis: _every widget is an instrument, not a card. A card displays a value;
-an instrument reveals behaviour._ The stated test is "if it were static, would it still be worth
-its space?"
+**Components or a `text` variant?** Both, and the variant is the primitive. `text` is one `tv` with
+an `as` variant, and the named parts are thin components over it, so a consumer can reach for
+either.
 
-Applied to the kit, that produces a rule for what belongs here:
+```tsx
+// src/components/text.tsx
+const text = tv({
+  variants: {
+    as: {
+      label: "font-pk-sans text-pk-label text-pk-ink-dim",
+      kind: "font-pk-sans text-pk-micro text-pk-ink-dim uppercase",
+      meta: "font-pk-sans text-pk-meta text-pk-ink-faint",
+      readout: "font-pk-mono text-pk-mono whitespace-nowrap text-pk-ink-muted tabular-nums",
+    },
+  },
+  defaultVariants: { as: "meta" },
+});
+```
 
-| Belongs in polkadot-ui                                                     | Does not                                         |
-| -------------------------------------------------------------------------- | ------------------------------------------------ |
-| `Surface`, `Row` — frame and layout, no content opinion                    | a `RepoCard` — that is a product's composition   |
-| `Label`, `Kind`, `Meta`, `Title`, `Readout` — the type scale as components | a `StatRow` — two `Meta`s in a `Row`             |
-| `Sparkline`, `ActivityGrid` — instruments with no product meaning          | a `CommitChart` — a sparkline with a domain name |
+**`Readout` is more than a slot**, as suspected. It is the only text role that carries behaviour.
 
-The line: the kit ships **vocabulary**, the product ships **sentences**.
+```tsx
+// src/components/text.tsx — a value that changes in place stays reachable.
+props: { role: "status", "aria-live": "polite", ... }
+```
 
-## What this leaves open
+## The scope rule, and why it was overruled
 
-- Whether the type-scale parts should be components at all, or a `text` tv variant applied to any
-  element. Components are more discoverable; a variant composes into anything. Undecided, and the
-  answer changes the API more than anything else here.
-- `Readout` implies `aria-live`, which is a behaviour rather than a style, and is the one part that
-  might justify more than a slot.
-- The instrument components (`Sparkline`, `ActivityGrid`) are a separate question from the
-  vocabulary and should not be designed in the same pass.
+This document originally drew the line at vocabulary:
 
-Status: target, unbuilt. Nothing in this document has been written as code.
+> the kit ships **vocabulary**, the product ships **sentences**
+
+and listed `RepoCard`, `StatRow` and `CommitChart` as things that would not belong. The kit now
+ships ten composites that rule would have excluded: `ActivityFeed`, `Binding`, `Breakdown`,
+`ContactCard`, `Keycap`, `LayoutPreview`, `PendingCard`, `Receipt`, `SwipeDeck`, `Terminal`.
+
+That was a deliberate decision by the owner, who asked for the POC's widgets themselves rather
+than only the parts they are made from. The rule as written no longer describes the package, so it
+is replaced rather than quietly ignored.
+
+The line that does hold: **a component may be named for a domain, but it may not know a product's
+data.** `CommitRow` takes a sha, a subject and an age; it does not fetch commits. `ActivityFeed`
+takes entries; it does not know what a run is. `SwipeDeck` takes items and reports which way each
+one went. Every composite is parameterised over its content, which is what keeps it a component
+rather than a screen.
+
+What still would not belong is anything wired to a particular application's state.

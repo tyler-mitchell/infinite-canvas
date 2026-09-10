@@ -35,10 +35,30 @@ Out of scope, deliberately: `@hyphened/infinite-canvas`, `packages/ui`, and ever
 | App shell              | TanStack Router + `<Outlet>` SPA | adopt; Start becomes a later swap, routes unchanged | target         |
 | Interaction primitives | `@base-ui/react` 1.5.0           | 48 primitives; every one comes from here            | observed       |
 | Class composition      | `tailwind-variants` 3.3.1        | slot fns already merge `className` — no helper      | observed       |
-| Springs, layout, drag  | `motion` 12.40.0                 | `useSpring`, `layout`+`LayoutGroup`, `Reorder`      | observed       |
-| Frame loop             | `motion` `useAnimationFrame`     | no bespoke clock                                    | observed       |
-| Motion tokens          | `motion` `MotionConfig`          | one place for duration, easing, reduced-motion      | target         |
+| Springs, layout, drag  | `motion` 12.40.0                 | surveyed, not adopted — see below                   | superseded     |
+| Frame loop             | `motion` `useAnimationFrame`     | surveyed, not adopted — see below                   | superseded     |
+| Motion tokens          | CSS custom properties            | `--pk-duration-*` and `--pk-ease-*` in `theme.css`  | observed       |
 | Widget packing         | none yet                         | evaluate a grid library when a board exists         | unresolved     |
+
+### `motion` was surveyed and is not installed
+
+The three rows above enumerated what `motion` owns, on the assumption that a widget motion system
+would need it. The kit that got built animates entirely in CSS and has no JavaScript animation
+dependency: its declared dependencies are `@base-ui/react`, `d3-shape` and `tailwind-variants`.
+
+```css
+/* src/theme.css — the motion tokens, and the reduced-motion rule that overrides them */
+--pk-duration-hover: 160ms;
+--pk-duration-detail: 110ms;
+--pk-ease-swift: cubic-bezier(0.32, 0.72, 0, 1);
+```
+
+What replaced each row: transitions and keyframes for state changes, `animation-timeline: view()`
+for the activity feed's entry, and a transform per digit for the number ticker. Base UI publishes
+each panel's height as a CSS variable, so an accordion opens as one compositor transition rather
+than a per-frame measurement, which is what would otherwise have wanted a frame loop.
+
+The survey stands as a survey. Read it before adding `motion`, not as a record that it was chosen.
 
 ## 1. TanStack Start does not run on this workspace's toolchain
 

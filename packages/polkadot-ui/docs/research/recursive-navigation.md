@@ -81,7 +81,10 @@ absolute link. Measured in the probe below: the deepest frame emitted
 `/w/thread-4/level-1` where `/w/deck/mail/thread-4/level-3` was correct. The bug is silent, because
 each level's _own_ rendering is right; only links and any absolute address are wrong.
 
-Status: runtime-proven. Observed in the lab app 2026-09-09 — `app/routes/w.$.tsx`.
+Status: was runtime-proven, no longer reproducible here. Observed 2026-09-09 in a lab route
+`app/routes/w.$.tsx` that has since been removed; the lab app now demonstrates the component kit
+rather than recursive routing. The finding stands on the transcript below, not on anything you can
+re-run in this package today.
 
 ```sh
 curl -s http://localhost:3210/w/deck/mail/thread-4/level-3/level-4/level-5
