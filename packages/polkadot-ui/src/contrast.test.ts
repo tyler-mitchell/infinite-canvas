@@ -488,9 +488,10 @@ const paintedGrounds = (source: string) => {
 };
 
 /**
- * The pages hold their own `tv` blocks, so they answer the same way. None of them paints an ink
- * fill today, which means this half of the sweep guards rather than reports — said plainly here
- * so a green run is not read as nine pages measured.
+ * The pages hold their own `tv` blocks, so they answer the same way. None paints a *thinned* ink
+ * fill, and while that was all this rule could see, the page half guarded rather than reported.
+ * Reading an opaque fill changed that: three of them now report, and the list below says which,
+ * so a green run is not read as nine pages measured when it is really three fills.
  */
 const pageSources = [
   ...readdirSync(appDir).filter((name) => name.endsWith(".tsx")),
@@ -598,6 +599,14 @@ test("a fill a component paints is a ground its own text clears", () => {
       'const x = tv({\n  slots: {\n    root: "bg-pk-accent",\n    label: "text-pk-ink-faint",\n  },\n});',
     ),
   ).toContainEqual({ fill: "--pk-accent", alpha: 1, ink: "--pk-ink-faint", inkAlpha: 1 });
+  /* The page half, named separately: it reported nothing until an opaque fill was a fill. */
+  expect(
+    [
+      ...new Set(
+        pageSources.flatMap(({ source }) => paintedGrounds(source).map(({ fill }) => fill)),
+      ),
+    ].sort(),
+  ).toEqual(["--pk-ground", "--pk-surface", "--pk-surface-inner"]);
   expect(planted).toContainEqual({ ...ON_INK, ink: "--pk-ink-faint" });
   expect(thinned).toContainEqual({ ...ON_INK, ink: "--pk-ink-faint", inkAlpha: 0.5 });
   expect(thin).toEqual([]);
