@@ -71,7 +71,7 @@ const overview = tv({
     hint: "flex-none self-center",
     bindings: "flex flex-col gap-2",
     commits: "flex flex-col gap-[11px]",
-    metrics: "grid grid-cols-[repeat(auto-fit,minmax(150px,1fr))] gap-[6px]",
+    metrics: "grid grid-cols-[repeat(auto-fit,minmax(150px,1fr))] gap-1.5",
     repoName: "text-pk-head",
     identityRow: "gap-4 flex-nowrap",
     who: "flex min-w-0 flex-1 flex-col gap-[5px]",

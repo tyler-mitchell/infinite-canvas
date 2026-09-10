@@ -35,7 +35,7 @@ const controls = tv({
     matrixRow: "flex flex-wrap items-center gap-3",
     tone: "w-[68px]",
     inline: "flex flex-wrap items-center gap-4",
-    pair: "flex items-center gap-[10px]",
+    pair: "flex items-center gap-2.5",
     grid: "grid grid-cols-[repeat(auto-fill,minmax(236px,1fr))] gap-3",
     sliders: "grid grid-cols-[repeat(auto-fill,minmax(196px,1fr))] gap-3",
     upright: "w-[196px]",

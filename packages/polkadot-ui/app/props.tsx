@@ -12,9 +12,9 @@ const props = tv({
      */
     name: "min-w-[136px]",
     values: "flex flex-wrap items-baseline gap-x-2 gap-y-1",
-    value: "font-pk-mono text-[11px] leading-[1.4] text-pk-ink-faint",
-    current: "font-pk-mono text-[11px] leading-[1.4] text-pk-accent-dim",
-    note: "font-pk-sans text-[11px] leading-[1.4] text-pk-ink-faint",
+    value: "font-pk-mono text-pk-mono text-pk-ink-faint",
+    current: "font-pk-mono text-pk-mono text-pk-accent-dim",
+    note: "font-pk-sans text-pk-meta text-pk-ink-faint",
   },
 });
 

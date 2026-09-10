@@ -122,6 +122,18 @@ const componentSources = componentFiles.map((file) => ({
   source: readFileSync(new URL(file, componentDir), "utf8"),
 }));
 
+const appSources = appFiles.map((file) => ({
+  file,
+  source: readFileSync(new URL(file, appDir), "utf8"),
+}));
+
+/**
+ * The pages hold `tv` slots of their own, so a rule that reads only `src` checks half the surface
+ * while looking like it checked all of it. Eleven slots on the pages broke these rules while the
+ * component-only versions reported clean.
+ */
+const styledSources = [...componentSources, ...appSources];
+
 /**
  * A ring offset paints the colour behind the control, so a component that names one has guessed
  * where it sits. Anything that paints a background restates `--pk-ring-seat`, so the cascade
@@ -747,6 +759,10 @@ const SIZES_THE_SCALE_DOES_NOT_NAME = [
   "metric-tile.tsx text-[9.5px]",
   "pending-card.tsx text-[11.5px]",
   "pending-card.tsx text-[13px]",
+  "routes/__root.tsx text-[12.5px]",
+  "routes/index.tsx text-[9px]",
+  "routes/layout.tsx text-[10px]",
+  "routes/widgets.tsx text-[10px]",
   "stat.tsx text-[10.5px]",
 ];
 
@@ -762,7 +778,7 @@ test("a slot that writes a declared size out by hand is reported", () => {
 
 test("no slot rewrites a role the scale already names", () => {
   expect(scaleSizes.get("15")).toEqual(["title"]);
-  expect(rewroteARole(componentSources, scaleSizes)).toEqual(SIZES_THE_SCALE_DOES_NOT_NAME);
+  expect(rewroteARole(styledSources, scaleSizes)).toEqual(SIZES_THE_SCALE_DOES_NOT_NAME);
 });
 
 test("every timeline animation the sheet declares is turned off under reduced motion", () => {
@@ -811,7 +827,7 @@ test("a slot that writes a declared corner out by hand is reported", () => {
 
 test("no slot rewrites a corner the sheet already names", () => {
   expect(scaleRadii.has("6")).toBe(true);
-  expect(rewroteACorner(componentSources, scaleRadii)).toEqual([]);
+  expect(rewroteACorner(styledSources, scaleRadii)).toEqual([]);
 });
 
 /** Which spacing utility a pixel count is, on the four-pixel step Tailwind is set to here. */
@@ -860,7 +876,7 @@ test("a slot that writes a step out in pixels is reported", () => {
 });
 
 test("no slot writes a spacing step out in pixels", () => {
-  expect(rewroteAStep(componentSources, STEP_FOR_PX)).toEqual([]);
+  expect(rewroteAStep(styledSources, STEP_FOR_PX)).toEqual([]);
 });
 
 /**
@@ -891,12 +907,12 @@ test("a transition that names neither a time nor a curve is reported", () => {
 });
 
 test("every transition names both the time and the curve it moves on", () => {
-  const transitions = componentSources.flatMap(({ source }) =>
+  const transitions = styledSources.flatMap(({ source }) =>
     [...source.matchAll(/\btransition-(?:\[|colors|transform|opacity|shadow|all)/g)].map(
       ([written]) => written,
     ),
   );
 
   expect(transitions.length).toBeGreaterThan(25);
-  expect(movesOnBorrowedTime(componentSources)).toEqual([]);
+  expect(movesOnBorrowedTime(styledSources)).toEqual([]);
 });
