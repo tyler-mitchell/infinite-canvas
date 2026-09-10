@@ -211,7 +211,7 @@ function Readouts() {
             weeks={18}
             cellSize={13}
             thresholds={[1, 30, 60, 120]}
-            label="pages read"
+            label="minutes read"
           >
             {(day) => (
               <Readout>
