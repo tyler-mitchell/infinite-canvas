@@ -42,24 +42,32 @@ interface Reference {
   readonly file: string;
 }
 
-const references: readonly Reference[] = componentFiles.flatMap((file) => {
-  const source = readFileSync(new URL(file, componentDir), "utf8");
+/**
+ * Every `prefix-pk-name` a file writes, against the tokens that could satisfy it.
+ *
+ * This read `src` alone until a page was given `bg-pk-nonexistent` and the whole suite stayed
+ * green: a utility naming a token the sheet never declared compiles to nothing, so the element
+ * simply loses its background. Nine other rules here already read the pages; this one did not.
+ */
+const referencesIn = (
+  sources: readonly { readonly file: string; readonly source: string }[],
+): readonly Reference[] =>
+  sources.flatMap(({ file, source }) =>
+    [...source.matchAll(/\b([a-z-]+)-pk-([a-z\d-]+)/g)].flatMap(([, prefix, rest]) => {
+      const namespaces = NAMESPACE[prefix!];
+      if (!namespaces) return [];
 
-  return [...source.matchAll(/\b([a-z-]+)-pk-([a-z\d-]+)/g)].flatMap(([, prefix, rest]) => {
-    const namespaces = NAMESPACE[prefix!];
-    if (!namespaces) return [];
+      const name = rest!.replace(/\/.*$/, "");
 
-    const name = rest!.replace(/\/.*$/, "");
-
-    return [
-      {
-        candidates: namespaces.map((namespace) => `--${namespace}-pk-${name}`),
-        written: `${prefix}-pk-${name}`,
-        file,
-      },
-    ];
-  });
-});
+      return [
+        {
+          candidates: namespaces.map((namespace) => `--${namespace}-pk-${name}`),
+          written: `${prefix}-pk-${name}`,
+          file,
+        },
+      ];
+    }),
+  );
 
 const declared = new Set(
   [...themeCss.matchAll(/^\s+(--[a-z]+-pk-[a-z\d-]+):/gm)].map(([, token]) => token!),
@@ -91,13 +99,13 @@ const utilities = new Set(
 test("the theme and the components are both read", () => {
   expect(componentFiles.length).toBeGreaterThan(30);
   expect(declared.size).toBeGreaterThan(50);
-  expect(references.length).toBeGreaterThan(100);
+  expect(referencesIn(styledSources).length).toBeGreaterThan(100);
   expect(appFiles.length).toBeGreaterThan(10);
   expect(utilities.size).toBeGreaterThan(50);
 });
 
 test("every token a component draws with is one the theme declares", () => {
-  const missing = references
+  const missing = referencesIn(styledSources)
     .filter((reference) => !reference.candidates.some((token) => declared.has(token)))
     .map((reference) => `${reference.written} in ${reference.file}`);
 
