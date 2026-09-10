@@ -182,7 +182,7 @@ function Widgets() {
       <section className={styles.section()}>
         <Row rule="below">
           <Kind>readouts in a card</Kind>
-          <Meta>a language split, three figures, a terminal</Meta>
+          <Meta>a language split, two figures, a terminal</Meta>
         </Row>
         <div className={styles.grid()}>
           <Surface tone="card">
