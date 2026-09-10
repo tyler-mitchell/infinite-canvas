@@ -803,6 +803,38 @@ test("the alias a document rests on is the alias the workspace declares", () => 
 });
 
 /**
+ * The note rejects a shell partly because the toolchain's own documents say nothing about serving
+ * one, and it shows the search that found nothing. An empty result is the weakest kind of evidence
+ * to leave unattended: the day the toolchain ships an SSR guide, the finding is wrong and the
+ * silence that proved it reads exactly the same.
+ *
+ * The files and the words come from the note's own command, so widening the search there widens
+ * this. A file that has gone also has no matches, which is why the sizes are read first.
+ */
+test("the toolchain docs a note searched still say nothing about the shell it rejected", () => {
+  const note = readFileSync(new URL("../docs/research/widget-runtime.md", import.meta.url), "utf8");
+  const [, command] = /```sh\n(grep[\s\S]*?vite-plus[\s\S]*?)```/.exec(note) ?? [];
+  const words = (/"([^"]+)"/.exec(command ?? "")?.[1] ?? "").split("\\|");
+  const searched = [...(command ?? "").matchAll(/(node_modules\/vite-plus\/\S+\.md)/g)].map(
+    ([, name]) => ({
+      name: name!,
+      text: existsSync(new URL(`../${name}`, import.meta.url))
+        ? readFileSync(new URL(`../${name}`, import.meta.url), "utf8")
+        : "",
+    }),
+  );
+
+  /* Read first: a file that is gone matches nothing, and reads just like the finding holding. */
+  expect(words.sort()).toEqual(["middlewareMode", "ssr", "tanstack"]);
+  expect(searched.filter(({ text }) => text.length < 200).map(({ name }) => name)).toEqual([]);
+  expect(
+    searched
+      .filter(({ text }) => new RegExp(words.join("|"), "i").test(text))
+      .map(({ name }) => name),
+  ).toEqual([]);
+});
+
+/**
  * The navigation note is a design for an owner this package does not have, and it says so. What it
  * does carry that can go stale is a claim about the router: twelve affordances named in backticks,
  * described as verified against the installed version. A rename upstream would leave the design
