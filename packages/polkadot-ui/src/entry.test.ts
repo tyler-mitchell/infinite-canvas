@@ -142,13 +142,20 @@ test("a name the entry never exported does not arrive", () => {
  */
 const componentDir = new URL("./components/", import.meta.url);
 
+/**
+ * Both shapes a component is written in. Seven take the whole props object without pulling it
+ * apart — the overlay roots, which pass everything straight through — and reading only the
+ * destructured ones left those outside a rule named for every component.
+ */
+const signatures = (sources: readonly { readonly file: string; readonly source: string }[]) =>
+  sources.flatMap(({ file, source }) =>
+    [...source.matchAll(/^function (\w+)\((?:\{[\s\S]*?\}|\w+): ([^)]+)\) \{$/gm)].map(
+      ([, name, type]) => ({ file, name: name!, type: type!.trim() }),
+    ),
+  );
+
 const anonymousProps = (sources: readonly { readonly file: string; readonly source: string }[]) =>
-  sources
-    .flatMap(({ file, source }) =>
-      [...source.matchAll(/^function (\w+)\(\{[\s\S]*?\}: ([^)]+)\) \{$/gm)].map(
-        ([, name, type]) => ({ file, name: name!, type: type!.trim() }),
-      ),
-    )
+  signatures(sources)
     .filter(({ type }) => !/^\w+$/.test(type))
     .map(({ file, name, type }) => `${name} takes ${type} (${file})`)
     .sort();
@@ -159,8 +166,16 @@ test("a component whose props type has no name is reported", () => {
     { file: "a.tsx", source: 'function Rule({ className }: React.ComponentProps<"div">) {\n' },
   ];
 
+  /* The same two, written without pulling the props apart, which is how seven of them are. */
+  const whole = [{ file: "a.tsx", source: "function Rule(props: RuleProps) {\n" }];
+  const wholeBare = [
+    { file: "a.tsx", source: 'function Rule(props: React.ComponentProps<"div">) {\n' },
+  ];
+
   expect(anonymousProps(named)).toEqual([]);
   expect(anonymousProps(bare)).toEqual(['Rule takes React.ComponentProps<"div"> (a.tsx)']);
+  expect(anonymousProps(whole)).toEqual([]);
+  expect(anonymousProps(wholeBare)).toEqual(['Rule takes React.ComponentProps<"div"> (a.tsx)']);
 });
 
 test("every component names the props type it takes", () => {
@@ -168,7 +183,10 @@ test("every component names the props type it takes", () => {
     .filter((name) => name.endsWith(".tsx") && !name.endsWith(".test.tsx"))
     .map((file) => ({ file, source: readFileSync(new URL(file, componentDir), "utf8") }));
 
+  /* Read first: the files are counted above and the signatures inside them here, because a
+   * pattern that matches none of them reports no faults either. */
   expect(sources.length).toBeGreaterThan(30);
+  expect(signatures(sources).length).toBeGreaterThan(60);
   expect(anonymousProps(sources)).toEqual([]);
 });
 
