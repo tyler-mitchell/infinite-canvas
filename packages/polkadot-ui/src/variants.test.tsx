@@ -332,6 +332,43 @@ test("a radio small enough to need room gets it from its own group", () => {
  * claim about this variant rather than about the component — and `open: false` is an empty object,
  * so the whole of it lives in the one branch.
  */
+/**
+ * A surface that floats is the one thing on a page that can be wider than the page. The dialog,
+ * the popover and the tooltip each clamp to `min(92vw, …)`; the menu stated a minimum and no
+ * maximum, and its items do not wrap.
+ *
+ * Measured at 375px: one long item took the menu to 646px and the page scrolled 311px sideways.
+ * Base UI publishes `--available-width` for exactly this, so the menu now reads it — 354px, and
+ * the page's own overflow is what the library's positioner adds, not the kit's popup.
+ *
+ * The select and the combobox draw over the menu's popup, so all three are clamped by the one
+ * class.
+ */
+const CLAMPED = /\b(?:max-)?w-(?:\[min\(\d+vw|\(--available-width\))/;
+
+test("a floating surface that names no ceiling is reported", () => {
+  expect(CLAMPED.test("z-50 w-[min(92vw,440px)] rounded")).toBe(true);
+  expect(CLAMPED.test("z-50 max-w-[min(92vw,300px)] rounded")).toBe(true);
+  expect(CLAMPED.test("z-50 max-w-(--available-width) min-w-[168px]")).toBe(true);
+  expect(CLAMPED.test("z-50 min-w-[168px] rounded")).toBe(false);
+  expect(CLAMPED.test("z-50 w-[440px] rounded")).toBe(false);
+});
+
+test("every surface that floats clamps to the room it has", () => {
+  const floating = {
+    dialog: kit.dialogVariants().popup(),
+    menu: kit.menuVariants().popup(),
+    popover: kit.popoverVariants().popup(),
+    tooltip: kit.tooltipVariants().popup(),
+  };
+
+  expect(
+    Object.entries(floating)
+      .filter(([, classes]) => !CLAMPED.test(classes))
+      .map(([name]) => `${name} names no ceiling`),
+  ).toEqual([]);
+});
+
 test("holding a tile open is not the same as leaving it shut", () => {
   const shut = kit.iconTileVariants({ open: false }).label();
   const held = kit.iconTileVariants({ open: true }).label();
