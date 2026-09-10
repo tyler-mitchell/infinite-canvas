@@ -507,6 +507,37 @@ test("every variant table on a page says what it documents", () => {
   expect(unnamedTables(pages)).toEqual([]);
 });
 
+/**
+ * The activity grid drops weeks when the width cannot hold them, so how many days it draws is not
+ * known where it is written. It states the span it drew in its own label; a day count beside it
+ * can only be right at one width, and was wrong twice before this rule existed.
+ */
+const countedDaysBeside = (source: string) =>
+  [...source.matchAll(/<ActivityGrid\b/g)].flatMap((match) => {
+    const before = source.slice(Math.max(0, match.index! - 320), match.index!);
+    const row = before.lastIndexOf("<Row>");
+
+    return row === -1
+      ? []
+      : [...before.slice(row).matchAll(/(\d+|\$\{[^}]*\})\s*days/g)].map(([written]) => written);
+  });
+
+test("a day count written beside a grid is reported", () => {
+  expect(
+    countedDaysBeside("<Row><Label>x</Label><Meta>371 days</Meta></Row>\n<ActivityGrid"),
+  ).toEqual(["371 days"]);
+  expect(
+    countedDaysBeside("<Row><Label>x</Label><Meta>weeks fit</Meta></Row>\n<ActivityGrid"),
+  ).toEqual([]);
+});
+
+test("no page counts the days beside a grid that fits weeks to its width", () => {
+  const page = readFileSync(new URL("routes/data.tsx", appDir), "utf8");
+
+  expect(page).toContain("<ActivityGrid");
+  expect(countedDaysBeside(page)).toEqual([]);
+});
+
 test("a stated ratio that no longer matches its colours is reported", () => {
   const real = contrast("#ededed", "#0e0f11").toFixed(2);
 

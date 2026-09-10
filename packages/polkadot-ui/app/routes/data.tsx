@@ -38,7 +38,10 @@ const COMMIT_PEAK = Math.max(...COMMIT_WEEKS);
 const COMMIT_PEAK_WEEK = COMMIT_WEEKS.indexOf(COMMIT_PEAK);
 const LATEST_FRAME = FRAME_BUDGET[FRAME_BUDGET.length - 1];
 
-/** The grid draws whole weeks, and the fixture is longer than the frame, so the caption counts what is drawn. */
+/**
+ * The most weeks to ask for. The grid draws fewer when the width cannot hold them, and it states
+ * the span it actually drew in its own label, so nothing here counts the days.
+ */
 const CONTRIBUTION_WEEKS = 26;
 
 const data = tv({
@@ -150,7 +153,7 @@ function Data() {
         <Surface tone="card" className={styles.activity()}>
           <Row>
             <Label>contributions</Label>
-            <Meta>{`${CONTRIBUTION_WEEKS * 7} days`}</Meta>
+            <Meta>weeks fit to the width</Meta>
           </Row>
           <ActivityGrid days={ACTIVITY} weeks={CONTRIBUTION_WEEKS}>
             {(day) => (
