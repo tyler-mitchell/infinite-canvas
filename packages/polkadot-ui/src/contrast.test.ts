@@ -622,10 +622,47 @@ test("a fill a component paints is a ground its own text clears", () => {
   expect(thin).toEqual([]);
 });
 
+/** The colour a gradient token has reached at its far end, where a sheet is darkest. */
+const farEndOf = (token: string) =>
+  new RegExp(`${token}:[^;]*,\\s*(#[\\da-f]{3,8})\\s*\\)`, "i").exec(themeCss)?.[1];
+
 /**
- * Each ratio a component states in prose, and the two colours it is a ratio between. One of the
- * four was a pair of values in the wrong order, and nothing could catch that while it lived only
- * in a comment.
+ * A ground is not always a token. A fill lightens the surface under it, and the paper is a
+ * gradient whose far end is the worst case. Both are read from the declaration.
+ */
+type Ground =
+  | string
+  | { readonly fill: string; readonly alpha: number; readonly over: string }
+  | { readonly farEndOf: string };
+
+const groundIs = (on: Ground) => {
+  if (typeof on === "string") return declaredAs.get(on);
+  if ("farEndOf" in on) return farEndOf(on.farEndOf);
+
+  return over(declaredAs.get(on.fill)!, declaredAs.get(on.over)!, on.alpha);
+};
+
+/** What WCAG asks for. A comment may cite one without the kit ever measuring it. */
+const THRESHOLDS = new Set(["3:1", "4.5:1", "7:1"]);
+
+/**
+ * Every ratio a comment states. `4.95` and `1.92:1` are the same claim written two ways, so both
+ * reduce to the number. A threshold is what the standard asks, not what these colours give.
+ */
+const ratiosStatedIn = (source: string) =>
+  [...source.matchAll(/\/\*[\s\S]*?\*\/|\/\/.*/g)]
+    .flatMap(([comment]) => [...comment.matchAll(/\b\d+(?:\.\d+)?:1\b|\b\d+\.\d\d\b/g)])
+    .map(([found]) => found)
+    .filter((found) => !THRESHOLDS.has(found))
+    .map((found) => found.replace(":1", ""));
+
+/**
+ * Each ratio a component states in prose, and the two colours it is a ratio between. One was a
+ * pair of values in the wrong order, and nothing could catch that while it lived only in a comment.
+ *
+ * Three rows measure a ratio the kit deliberately does not draw. Each states what a colour would
+ * reach if it were left alone, which is the reason the component reaches for another one. A
+ * counterfactual is the number nobody can check by looking at the page.
  */
 const CLAIMED = [
   { file: "button.tsx", says: "4.95", ink: "--pk-ink-faint", on: "--pk-surface", alpha: 1 },
@@ -638,21 +675,59 @@ const CLAIMED = [
     on: "--pk-accent",
     alpha: 0.7,
   },
-] as const;
+  {
+    file: "input.tsx",
+    says: "4.40",
+    ink: "--pk-ink-faint",
+    on: { fill: "--pk-ink", alpha: 0.06, over: "--pk-surface" },
+    alpha: 1,
+  },
+  {
+    file: "list-item.tsx",
+    says: "4.40",
+    ink: "--pk-ink-faint",
+    on: { fill: "--pk-ink", alpha: 0.06, over: "--pk-surface" },
+    alpha: 1,
+  },
+  {
+    file: "receipt.tsx",
+    says: "1.54",
+    ink: "--pk-paper-rule",
+    on: { farEndOf: "--pk-paper" },
+    alpha: 1,
+  },
+] as const satisfies readonly {
+  file: string;
+  says: string;
+  ink: string;
+  on: Ground;
+  alpha: number;
+}[];
 
 test("every ratio a component writes down is the ratio it has", () => {
   const wrong = CLAIMED.flatMap(({ file, says, ink, on, alpha }) => {
     const source = componentSources.find((entry) => entry.file === file)?.source;
     if (!source?.includes(says)) return [`${file} no longer says ${says}`];
 
-    const ground = declaredAs.get(on)!;
+    const ground = groundIs(on);
+    if (!ground) return [`${file} names a ground the theme does not declare`];
+
     const measured = contrast(over(declaredAs.get(ink)!, ground, alpha), ground).toFixed(2);
 
     return measured === says ? [] : [`${file} says ${says}, the colours give ${measured}`];
   });
 
+  /* A table answers for the rows it holds. This asks what the components state. */
+  const covered = new Set(CLAIMED.map(({ file, says }) => `${file} ${says}`));
+  const stated = componentSources.flatMap(({ file, source }) =>
+    ratiosStatedIn(source).map((says) => `${file} ${says}`),
+  );
+
   expect(declaredAs.size).toBeGreaterThan(35);
   expect(wrong).toEqual([]);
+  /* Were the reader to find nothing, the line below would pass by reaching nothing. */
+  expect(stated.length).toBeGreaterThan(6);
+  expect(stated.filter((claim) => !covered.has(claim))).toEqual([]);
 });
 
 /*
