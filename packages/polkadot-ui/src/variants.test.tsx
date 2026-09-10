@@ -294,6 +294,39 @@ test("every part the keyboard can reach draws something for it", () => {
 });
 
 /**
+ * A pointer target under 24px square is allowed only while nothing else sits within 24px of its
+ * centre. The radio is 18px and stacks, so its group's own gap is the whole of what keeps it
+ * conformant, and tightening that gap would take it under without changing how anything looks.
+ *
+ * Counted in the page at 375px before this was written: 28px between radio centres, 56px between
+ * anything else. The checkbox and the switch are 18px too, but a page places those, so their room
+ * is not the kit's to promise.
+ */
+const STEP = 4;
+
+const stepsIn = (classes: string, prefix: string) =>
+  Number(new RegExp(String.raw`\b${prefix}-(\d+(?:\.\d+)?)\b`).exec(classes)?.[1] ?? Number.NaN);
+
+test("a spacing class is read as the pixels it stands for", () => {
+  expect(stepsIn("inline-flex size-4.5 flex-none", "size") * STEP).toBe(18);
+  expect(stepsIn("flex flex-col gap-2.5", "gap") * STEP).toBe(10);
+  expect(stepsIn("flex flex-row gap-4", "gap") * STEP).toBe(16);
+  /* A group that declares no gap reads as no number, which fails the rule rather than passing it. */
+  expect(stepsIn("flex flex-col", "gap")).toBeNaN();
+});
+
+test("a radio small enough to need room gets it from its own group", () => {
+  const box = stepsIn(kit.radioVariants().root(), "size") * STEP;
+  const reach = (["stacked", "inline"] as const).map(
+    (layout) => box + stepsIn(kit.radioVariants({ layout }).group(), "gap") * STEP,
+  );
+
+  /* The rule only means anything while the control is under the minimum. */
+  expect(box).toBeLessThan(24);
+  for (const centres of reach) expect(centres).toBeGreaterThanOrEqual(24);
+});
+
+/**
  * The one place in the kit where two variants together mean something neither means alone. On its
  * own `pressed` is two empty strings, so all four looks come out of the compound list, and a
  * mistake there costs a state its whole appearance while every variant still reads as declared.
