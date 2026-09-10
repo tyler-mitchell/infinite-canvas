@@ -2244,8 +2244,12 @@ const statedUnions = (sources: readonly { readonly file: string; readonly source
           ...(fallback === undefined ? [] : [fallback]),
         ].sort();
         const real = unionFor(type!, prop);
+        const note = /note:\s*"([^"]*)"/.exec(row[0])?.[1] ?? "";
+        const spelled = said.filter((one) =>
+          new RegExp(String.raw`\b${one.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\b`).test(note),
+        );
 
-        return [{ file, named: `${type}.${prop}`, said, real }];
+        return [{ file, named: `${type}.${prop}`, said, real, spelled }];
       }),
     ),
   );
@@ -2284,6 +2288,37 @@ const PICTURED_SIDES_ONLY = [
   "PopoverContentProps.side",
   "TooltipContentProps.side",
 ];
+
+/**
+ * A note that spells out what two of a prop's values do has started a list, and a reader takes the
+ * one it leaves out as unsupported rather than undescribed. The dialog's `modal` note named `true`
+ * and `trap-focus` and left `false` unmentioned, which is how the row came to omit it as well.
+ *
+ * Naming one value is an explanation rather than a list — a note may single out the interesting
+ * case — so two is what starts the count.
+ */
+const halfSpelled = (
+  rows: readonly {
+    readonly named: string;
+    readonly said: readonly string[];
+    readonly spelled: readonly string[];
+  }[],
+) =>
+  rows
+    .filter(({ said, spelled }) => spelled.length > 1 && spelled.length < said.length)
+    .map(({ named, said, spelled }) => `${named} says what ${spelled} do, not ${said}`)
+    .sort();
+
+test("a note that says what some of the values do, and not the rest, is reported", () => {
+  const whole = [{ named: "A.x", said: ["off", "on"], spelled: ["off", "on"] }];
+  const partial = [{ named: "A.x", said: ["off", "on", "auto"], spelled: ["off", "on"] }];
+  const single = [{ named: "A.x", said: ["off", "on", "auto"], spelled: ["auto"] }];
+
+  expect(halfSpelled(whole)).toEqual([]);
+  expect(halfSpelled(partial)).toEqual(["A.x says what off,on do, not off,on,auto"]);
+  expect(halfSpelled(single)).toEqual([]);
+  expect(halfSpelled(statedUnions(pages))).toEqual([]);
+});
 
 test("a stated union that is not the one the prop has is reported", () => {
   const short = statedUnions(pages).flatMap(({ named, said, real }) =>

@@ -170,7 +170,7 @@ function Overlays() {
               name: "modal",
               values: ["true", "trap-focus"],
               fallback: "false",
-              note: "true locks the page behind it; trap-focus only holds focus",
+              note: "true locks the page behind it; trap-focus only holds focus; false neither",
             },
           ]}
         />
