@@ -1474,7 +1474,18 @@ for (const file of readdirSync(componentDir).filter((name) => name.endsWith(".ts
     .filter((name) => /^[A-Z]/.test(name) && !name.endsWith("Variants"))
     .flatMap(tagNamesFor);
 
-  const computed = new Set([...source.matchAll(/(\w+):\s*\1\s*\?\?/g)].map(([, key]) => key!));
+  /*
+   * Handed straight to the call, `head: head ?? sparklineHead(…)`, or resolved once into a name
+   * first and handed over as that — `const marked = head ?? …` and then `head: marked`, which is
+   * what a component does when the same answer decides the drawing and the name. Reading only the
+   * first shape made a refactor look like a key that stopped being computed.
+   */
+  const direct = [...source.matchAll(/(\w+):\s*\1\s*\?\?/g)].map(([, key]) => key!);
+  const named = [...source.matchAll(/const (\w+) = (\w+) \?\?/g)]
+    .filter(([, alias, key]) => new RegExp(String.raw`\b${key!}:\s*${alias!}\b`).test(source))
+    .map(([, , key]) => key!);
+
+  const computed = new Set([...direct, ...named]);
 
   for (const [, alias] of exported) {
     if (!alias?.endsWith("Variants")) continue;

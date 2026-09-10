@@ -69,20 +69,29 @@ export function sparklinePoints(values: readonly number[]): readonly SparklinePo
   return values.map((value, index) => [index * step, y(value)] as const);
 }
 
+export type SparklineHead = "dot" | "badge" | "none";
+
 /**
  * The head to draw when the consumer names none. A series with no readings marks nothing, because
  * a head is a reading, and a caption takes the dot's place.
  */
-export function sparklineHead(values: readonly number[], caption?: string) {
+export function sparklineHead(values: readonly number[], caption?: string): SparklineHead {
   if (values.length === 0) return "none";
 
   return caption ? "badge" : "dot";
 }
 
-/** What the chart is called when the consumer gives no `label`. */
-export function sparklineLabel(values: readonly number[]) {
+/**
+ * What the chart is called when the consumer gives no `label`.
+ *
+ * The head is read for the same reason the bars read their emphasis: the last value is worth
+ * naming because a dot or a badge marks it, and a trace drawn with no head marks nothing. Naming a
+ * latest there would point at a reading the line runs through like every other.
+ */
+export function sparklineLabel(values: readonly number[], head: SparklineHead = "dot") {
   if (values.length === 0) return "no readings";
   if (values.length === 1) return `one reading, ${values[0]}`;
+  if (head === "none") return `${values.length} readings`;
 
   return `${values.length} readings, latest ${values[values.length - 1]}`;
 }
@@ -109,7 +118,9 @@ export type SparklineProps = Omit<React.ComponentProps<"div">, "children"> &
  * head, since a head is a reading.
  */
 function Sparkline({ values, caption, label, size, head, className, ...props }: SparklineProps) {
-  const styles = sparkline({ size, head: head ?? sparklineHead(values, caption) });
+  /* Resolved once: the same head decides what is drawn and whether a latest is worth naming. */
+  const marked = head ?? sparklineHead(values, caption);
+  const styles = sparkline({ size, head: marked });
   const id = useId();
 
   const points = sparklinePoints(values);
@@ -130,7 +141,7 @@ function Sparkline({ values, caption, label, size, head, className, ...props }: 
     <div
       data-slot="sparkline"
       role="img"
-      aria-label={label ?? sparklineLabel(values)}
+      aria-label={label ?? sparklineLabel(values, marked)}
       style={{ "--head": `${(headHeight / HEIGHT) * 100}%` } as React.CSSProperties}
       className={styles.root({ className })}
       {...props}

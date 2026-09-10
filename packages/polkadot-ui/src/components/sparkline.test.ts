@@ -68,3 +68,17 @@ test("the fallback name never says undefined", () => {
   expect(sparklineLabel([1, 2, 3])).toBe("3 readings, latest 3");
   expect(sparklineLabel([]).includes("undefined")).toBe(false);
 });
+
+/**
+ * The same trade the bars make. A latest is worth naming because a dot or a badge marks it; a
+ * trace drawn with no head marks nothing, and naming one there points at a reading the line runs
+ * through like every other.
+ */
+test("a trace drawn with no head counts its readings and names none", () => {
+  expect(sparklineLabel([1, 2, 3], "none")).toBe("3 readings");
+  expect(sparklineLabel([1, 2, 3], "dot")).toBe("3 readings, latest 3");
+  expect(sparklineLabel([1, 2, 3], "badge")).toBe("3 readings, latest 3");
+  /* One reading is the whole series, marked or not. */
+  expect(sparklineLabel([12], "none")).toBe("one reading, 12");
+  expect(sparklineLabel([], "none")).toBe("no readings");
+});
