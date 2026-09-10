@@ -85,6 +85,12 @@ function Widgets() {
   const [settled, setSettled] = useState<string[]>([]);
   const [installs, setInstalls] = useState(9_562);
 
+  /* The fixture is plain data, so the mark a row carries is put on here, where JSX can be written. */
+  const marked = RUNS.map((run) => ({
+    ...run,
+    icon: <span className={styles.monogram()}>{run.name.slice(0, 1)}</span>,
+  }));
+
   return (
     <div className={styles.page()}>
       <div className={styles.head()}>
@@ -118,6 +124,9 @@ function Widgets() {
           <Stat value="1,243" label="stars" />
           <Stat layout="stacked" value="68" label="forks" />
           <Readout render={<NumberTicker value={installs} locale />} />
+          <Readout
+            render={<NumberTicker value={installs % 10_000} pad={5} duration={900} stagger={90} />}
+          />
           <Button tone="ghost" size="sm" onClick={() => setInstalls((n) => n + 819)}>
             roll
           </Button>
@@ -176,7 +185,13 @@ function Widgets() {
         </Row>
         <div className={styles.grid()}>
           <Surface tone="card">
-            <Breakdown parts={LANGUAGES} />
+            <Breakdown parts={LANGUAGES} label="language split" />
+          </Surface>
+          <Surface tone="card">
+            <Row align="baseline">
+              <Label>typescript · css · wgsl · md</Label>
+            </Row>
+            <Breakdown parts={LANGUAGES} showLegend={false} label="language split" />
           </Surface>
           <MetricTile label="queries served">2.1M in-browser</MetricTile>
           <MetricTile label="schema">typed · versioned</MetricTile>
@@ -260,11 +275,16 @@ function Widgets() {
             <SwipeDeck
               label="inbox"
               items={INBOX}
+              emptyLabel="inbox clear"
               onSettle={(item) => setSettled((s) => [...s, item.id])}
             />
             <Meta>← skip · pin → · drag or swipe</Meta>
           </Surface>
-          <ActivityFeed entries={RUNS} />
+          <ActivityFeed
+            entries={marked}
+            title="last runs"
+            titleIcon={<span className={styles.monogram()}>▮</span>}
+          />
         </div>
         <Props<SwipeDeckProps>
           name="swipe deck"
@@ -286,7 +306,10 @@ function Widgets() {
         <Props<ActivityFeedProps>
           name="activity feed"
           rows={[
-            { name: "entries", note: "each with a name, a note, and optionally a duration" },
+            {
+              name: "entries",
+              note: "each a name and a note, and optionally a mark, a duration and how long ago",
+            },
             { name: "title", fallback: "recent activity" },
             { name: "titleIcon", note: "drawn before the title" },
           ]}

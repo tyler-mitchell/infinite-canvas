@@ -27,6 +27,7 @@ import {
   FRAME_BUDGET,
   INSTALLS,
   INSTALLS_SMALL,
+  RELEASES,
   LATENCY,
   LEVELS,
   READING,
@@ -200,7 +201,13 @@ function Readouts() {
             <Label>minutes read</Label>
             <Meta>1 · 30 · 60 · 120</Meta>
           </Row>
-          <ActivityGrid days={READING} weeks={18} thresholds={[1, 30, 60, 120]} label="pages read">
+          <ActivityGrid
+            days={READING}
+            weeks={18}
+            cellSize={13}
+            thresholds={[1, 30, 60, 120]}
+            label="pages read"
+          >
             {(day) => (
               <Readout>
                 {day
@@ -288,6 +295,31 @@ function Readouts() {
           chart and wrong for a pair. Without a shared ceiling the smaller package would draw
           exactly the same shape as the larger, and the comparison a reader takes from the page
           would be false.
+        </Prose>
+        <div className={styles.grid()}>
+          <Surface tone="card">
+            <Row>
+              <Label>releases</Label>
+              <Meta>a floor under an empty week</Meta>
+            </Row>
+            <div className={styles.barBox()}>
+              <Bars values={RELEASES} label="releases a week, with a floor" />
+            </div>
+          </Surface>
+          <Surface tone="card">
+            <Row>
+              <Label>releases</Label>
+              <Meta>no floor</Meta>
+            </Row>
+            <div className={styles.barBox()}>
+              <Bars values={RELEASES} minHeight={0} label="releases a week, with no floor" />
+            </div>
+          </Surface>
+        </div>
+        <Prose className={styles.lede()}>
+          A week with nothing in it still happened, and a chart that draws it as no bar at all reads
+          as a week that is missing rather than empty. The floor keeps a mark there. Set it to zero
+          and the two empty weeks disappear, which is the same series telling a different story.
         </Prose>
       </section>
 

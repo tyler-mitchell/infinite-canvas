@@ -42,6 +42,9 @@ export const INSTALLS = [1420, 1880, 1310, 2410, 2150, 2860, 1980, 4182] as cons
 
 export const INSTALLS_SMALL = [210, 260, 180, 340, 300, 420, 380, 510] as const;
 
+/** Two weeks with nothing in them, which is what a floor under an empty bucket is for. */
+export const RELEASES = [4, 6, 0, 3, 7, 0, 5, 9] as const;
+
 export const LEVELS = [
   0.3, 0.7, 0.45, 0.9, 0.62, 0.35, 0.78, 0.55, 0.42, 0.88, 0.6, 0.29, 0.71, 0.5, 0.83, 0.38,
 ] as const;
