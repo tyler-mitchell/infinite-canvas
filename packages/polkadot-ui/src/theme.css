@@ -1,27 +1,11 @@
-/*
- * Every colour, radius, shadow and curve the kit draws with.
- *
- * The dim inks are the floor that clears 4.5:1 on these grounds. Do not go below them.
- */
-
-/*
- * The kit scans itself.
- *
- * Tailwind only emits a class it has seen, and every class this kit uses lives in a `tv` call in
- * `components/`, not in the consumer's own source. Without this line the consumer imports the
- * tokens, sees no error, and renders the whole kit unstyled — the failure gives no signal at all.
- * Declared here rather than in the app so that importing the stylesheet is the only step.
- */
 @source ".";
 
 :root {
   color-scheme: dark;
 
-  /* Two faces only. Sans for UI and prose, mono for metadata. */
   --pk-font-sans: "Schibsted Grotesk", ui-sans-serif, system-ui, sans-serif;
   --pk-font-mono: "DM Mono", ui-monospace, monospace;
 
-  /* Grounds and surfaces. */
   --pk-ground: #08090a;
   --pk-surface: #0e0f11;
   --pk-surface-sunken: #0c0d0f;
@@ -29,10 +13,6 @@
   --pk-surface-inner: #121417;
   --pk-surface-face: linear-gradient(180deg, #111318, #0b0c0e);
 
-  /*
-   * The tile: a lit corner, a ring drawn inside the edge, and an accent bloom in the low right.
-   * Three layers, because one flat fill at this size reads as a hole rather than an object.
-   */
   --pk-tile-face: radial-gradient(120% 120% at 30% 15%, #1b2026, #101317 70%);
   --pk-tile-ring: inset 0 0 0 1px rgb(255 255 255 / 0.09), inset 0 1px 0 rgb(255 255 255 / 0.07);
   --pk-tile-bloom: radial-gradient(
@@ -45,34 +25,12 @@
   --pk-tray: #08090a;
   --pk-void: #07080a;
 
-  /*
-   * Hairlines. The edge is a line, never a lightness step.
-   *
-   * `--pk-line` is 1.19:1 against `--pk-surface` and `--pk-line-inner` is 1.08:1. Those are
-   * separations, not contrasts, and they are meant to sit at the floor of what a display shows.
-   * `--pk-line-inner` is a rule inside a card; on a raised surface it disappears entirely.
-   */
   --pk-line: #1f2124;
   --pk-line-hover: #31343a;
   --pk-line-strong: #3d434b;
   --pk-line-inner: #16181a;
   --pk-line-inner-raised: #1c2026;
 
-  /*
-   * Ink, measured against the three grounds (WCAG, sRGB) rather than asserted:
-   *
-   *                   ground   surface   sunken
-   *   ink-bright      19.93     19.18    19.44
-   *   ink            17.02     16.38    16.61
-   *   ink-muted      12.48     12.01    12.17
-   *   ink-soft        7.55      7.26     7.36
-   *   ink-dim         5.88      5.66     5.74
-   *   ink-faint       5.14      4.95     5.02
-   *
-   * `--pk-ink-faint` on `--pk-surface` is the tightest pair at 4.95. It is set at 10-11px
-   * everywhere it is used, which is below the large-text threshold, so 4.5 is the bar it has to
-   * clear and the margin is one step. Darkening any ink or lightening any surface breaks it first.
-   */
   --pk-ink-bright: #fff;
   --pk-ink: #ededed;
   --pk-ink-muted: #c9cdd2;
@@ -80,15 +38,12 @@
   --pk-ink-dim: #878c92;
   --pk-ink-faint: #7d8288;
 
-  /* The accent does two jobs: status and the active state. Nothing else. */
   --pk-accent: color(display-p3 0 0.92 0.67);
   --pk-accent-srgb: #00e6a8;
   --pk-accent-dim: #8ee9c4;
   --pk-on-accent: #04110b;
 
-  /* Receipt paper is its own ground, with its own ink floor. */
   --pk-paper: linear-gradient(180deg, #faf9f5, #efece4);
-  /* The page itself, for ink printed in reverse: a knocked-out mark, a filled button's label. */
   --pk-paper-page: #faf9f5;
   --pk-paper-ink: #2b2b28;
   --pk-paper-label: #6b6b66;
@@ -111,7 +66,6 @@
   --pk-pending-line-hover: #7e9c8b;
   --pk-pending-ink: #7e8b84;
 
-  /* Activity scale, least to most. */
   --pk-level-0: #15181b;
   --pk-level-1: #123a2b;
   --pk-level-2: #1a6b4a;
@@ -122,7 +76,6 @@
   --pk-radius-card: 16px;
   --pk-radius-inner: 14px;
   --pk-radius-tray: 12px;
-  /* Controls share one radius, and the inner radius of a segmented track is it less the padding. */
   --pk-radius-control: 8px;
   --pk-radius-control-inner: 6px;
   --pk-radius-chip: 7px;
@@ -138,7 +91,6 @@
     0 22px 60px -42px rgb(0 0 0 / 0.92);
   --pk-lift-rim-hover: inset 0 1px 0 rgb(255 255 255 / 0.16), 0 26px 70px -40px rgb(0 0 0 / 0.96);
 
-  /* Swift is for state. Settle is for movement. Feed drives the paper. */
   --pk-ease-swift: cubic-bezier(0.32, 0.72, 0, 1);
   --pk-ease-settle: cubic-bezier(0.23, 1, 0.32, 1);
   --pk-ease-feed: cubic-bezier(0.77, 0, 0.175, 1);
@@ -147,15 +99,10 @@
   --pk-duration-feed: 1750ms;
   --pk-duration-rim: 5.5s;
 
-  /* The lattice a board packs against. */
   --pk-board-gap: 12px;
   --pk-board-columns: 16;
 }
 
-/*
- * The rim sweep. Tiles and cards run it at different phases so the two read as different
- * materials, which is why there are two properties rather than one.
- */
 @property --pk-rim {
   syntax: "<angle>";
   initial-value: 140deg;
@@ -215,13 +162,6 @@
   }
 }
 
-/*
- * The rim: a specular edge painted as a conic gradient in the border box, over a flat fill in the
- * padding box. Too long to carry in a class list, and the two-layer background is the whole trick.
- *
- * The sweep runs on hover only, and tiles run a different phase from cards so the two read as
- * different materials.
- */
 @layer components {
   .pk-rim,
   .pk-rim-tile {
@@ -285,7 +225,6 @@
     box-shadow: var(--pk-lift-held);
   }
 
-  /* The paper: a toothed tear edge with a blank feed margin above it. */
   .pk-tear {
     clip-path: polygon(
       0 0,
@@ -337,23 +276,11 @@
     background: var(--pk-swipe-face);
   }
 
-  /* A dotted rule across a receipt. */
   .pk-paper-rule {
     background: repeating-linear-gradient(90deg, var(--pk-paper-rule) 0 3px, transparent 3px 6px);
   }
 }
 
-/*
- * Reduced motion, taken as "no movement" rather than "nothing happens".
- *
- * A colour or opacity change is not motion, and removing it would cost the hover and pressed states
- * that carry meaning, so those still cross-fade. Everything that travels, scales, spins or opens by
- * height snaps instead: the transition list below is the whole set of properties still allowed to
- * animate, so a transform or height transition has nothing to run on.
- *
- * The rim sweep and the ping are decorative loops that run forever. Nothing in the kit needs them to
- * be understood, so they stop entirely.
- */
 @media (prefers-reduced-motion: reduce) {
   .pk-rim:hover,
   .pk-rim-tile:hover {
@@ -370,21 +297,10 @@
   }
 }
 
-/* Tailwind utilities read the kit tokens through these names. */
 @theme inline {
   --font-pk-sans: var(--pk-font-sans);
   --font-pk-mono: var(--pk-font-mono);
 
-  /*
-   * The type scale, taken from the design source rather than invented.
-   *
-   * Every size, line height, tracking and weight below is a value the design already used; the scale
-   * only removes near-duplicates. Each step carries all four, so a role is one utility rather than
-   * the four-part `text-[13px] leading-[1.3] tracking-[-0.015em] font-medium` the components had.
-   * Getting one of those four wrong was silent, and it happened.
-   *
-   * Sans covers the whole interface. Mono is for data that is read as a value, never for controls.
-   */
   --text-pk-micro: 10px;
   --text-pk-micro--line-height: 1;
   --text-pk-micro--letter-spacing: 0.05em;
@@ -405,10 +321,6 @@
   --text-pk-meta--letter-spacing: 0.005em;
   --text-pk-meta--font-weight: 400;
 
-  /*
-   * A card's paragraph is 13px/1.5 in the design. An earlier pass set this to 11.5px by counting
-   * every 11.5px sans line, most of which are metadata rather than prose. `note` is that size.
-   */
   --text-pk-body: 13px;
   --text-pk-body--line-height: 1.5;
   --text-pk-body--letter-spacing: -0.005em;
@@ -419,7 +331,6 @@
   --text-pk-note--letter-spacing: -0.005em;
   --text-pk-note--font-weight: 400;
 
-  /* The line under a name: 12.5px, a real step in the design and not the body size. */
   --text-pk-lede: 12.5px;
   --text-pk-lede--line-height: 1.35;
   --text-pk-lede--letter-spacing: -0.005em;
@@ -460,7 +371,6 @@
   --text-pk-mono-lg--letter-spacing: 0.02em;
   --text-pk-mono-lg--font-weight: 500;
 
-  /* Print is its own register. A receipt is a printed object, not a panel of the interface. */
   --text-pk-print: 9.5px;
   --text-pk-print--line-height: 1.6;
   --text-pk-print--letter-spacing: 0.04em;
