@@ -1678,7 +1678,8 @@ test("every component a document quotes is quoted as it is", () => {
 
 /**
  * What each component falls back to when a prop is left out, read from the defaults it destructures.
- * Only the kit's own: a Base UI default is not written down here and cannot be checked against.
+ * Only the kit's own; the primitive's are read below and laid under these, since a wrapper that
+ * settles a prop itself is what a page sees.
  */
 const fallsBackTo = new Map<string, ReadonlyMap<string, string>>();
 
@@ -1716,6 +1717,88 @@ for (const file of readdirSync(componentDir).filter((name) => name.endsWith(".ts
 
     fallsBackTo.set(`${owner!}Props`, new Map(defaults));
   }
+}
+
+/**
+ * What Base UI settles for a prop this kit passes straight through. Its types write each one as
+ * `@default`, so they can be read after all — thirty of the fifty-eight defaults the pages state
+ * are its rather than this kit's, and the note above said they were beyond reach.
+ *
+ * The mapping is the kit's own declaration. `export type MenuProps = MenuPrimitive.Root.Props`
+ * says which part backs a kit type, and a composed one names every part it draws from, so
+ * `MenuContentProps` reads the popup and the positioner together. A kit signature still wins:
+ * a wrapper that settles `sideOffset` itself is what a page actually sees.
+ */
+const primitiveDir = new URL("../node_modules/@base-ui/react/esm/", import.meta.url);
+
+const pascal = (module: string) =>
+  module.replace(/(?:^|-)([a-z])/g, (_, letter: string) => letter.toUpperCase());
+
+const primitiveDefaults = new Map<string, ReadonlyMap<string, string>>();
+
+const settledByPart = (module: string, part: string): ReadonlyMap<string, string> => {
+  const key = `${module}.${part}`;
+  const known = primitiveDefaults.get(key);
+  if (known) return known;
+
+  const dir = new URL(`${module}/`, primitiveDir);
+  const wanted = new RegExp(
+    String.raw`export interface ${pascal(module)}${part}Props[^{]*\{([\s\S]*?)\n\}`,
+  );
+  const found = new Map<string, string>();
+
+  for (const entry of readdirSync(dir, { withFileTypes: true }).filter((one) =>
+    one.isDirectory(),
+  )) {
+    for (const name of readdirSync(new URL(`${entry.name}/`, dir)).filter((one) =>
+      one.endsWith(".d.ts"),
+    )) {
+      const body = wanted.exec(readFileSync(new URL(`${entry.name}/${name}`, dir), "utf8"))?.[1];
+      if (body === undefined) continue;
+
+      for (const [, value, prop] of body.matchAll(/@default ([^\n*]+?)\s*\n\s*\*\/\s*(\w+)\??:/g)) {
+        found.set(prop!, value!.replace(/^'|'$/g, ""));
+      }
+    }
+  }
+
+  primitiveDefaults.set(key, found);
+  return found;
+};
+
+const partsBehind = new Map<string, readonly { module: string; part: string }[]>();
+
+for (const file of readdirSync(componentDir).filter((name) => name.endsWith(".tsx"))) {
+  const source = componentSource(file);
+  const imported = new Map(
+    [...source.matchAll(/import \{ \w+ as (\w+) \} from "@base-ui\/react\/([\w-]+)"/g)].map(
+      ([, alias, module]) => [alias!, module!] as const,
+    ),
+  );
+
+  for (const [, owner, declared] of source.matchAll(/export type (\w+Props) =([^;]*);/g)) {
+    const parts = [...declared!.matchAll(/(\w+)\.(\w+)\.Props/g)].flatMap(([, alias, part]) => {
+      const module = imported.get(alias!);
+
+      return module ? [{ module, part: part! }] : [];
+    });
+
+    if (parts.length > 0) partsBehind.set(owner!, parts);
+  }
+}
+
+/** The primitive's defaults under this kit's own, which override them where a wrapper settles one. */
+const settlesOn = new Map<string, ReadonlyMap<string, string>>(fallsBackTo);
+
+for (const [type, parts] of partsBehind) {
+  const merged = new Map<string, string>();
+
+  for (const { module, part } of parts) {
+    for (const [prop, value] of settledByPart(module, part)) merged.set(prop, value);
+  }
+  for (const [prop, value] of fallsBackTo.get(type) ?? []) merged.set(prop, value);
+
+  settlesOn.set(type, merged);
 }
 
 const misstatedDefault = (
@@ -1762,22 +1845,22 @@ test("every default a page states is the one the component falls back to", () =>
   /* A signature written on one line is still a signature: `Breakdown` settles `showLegend` on it. */
   expect(fallsBackTo.get("BreakdownProps")?.get("showLegend")).toBe("true");
   /*
-   * 28 of the 58 defaults the pages state are this kit's own and weighed here. The rest are Base
-   * UI's, which writes them as `@default` in its own types — read by nothing yet. The floor is
-   * asserted because a rule that reads no signature agrees with every page.
+   * 52 of the 58 defaults the pages state are weighed: 28 this kit settles itself, the rest read
+   * from the primitive behind it. The floor is asserted because a rule that reads no signature and
+   * no declaration agrees with every page it is given.
    */
   const weighed = pages.flatMap(({ source }) =>
     openingTags(source, "Props").flatMap((tag) => {
       const [, type] = /<Props<(\w+Props)>/.exec(tag) ?? [];
 
       return [...tag.matchAll(/\{\s*name: "(\w+)",\s*fallback: "[^"]*"/g)].filter(([, prop]) =>
-        fallsBackTo.get(type ?? "")?.has(prop!),
+        settlesOn.get(type ?? "")?.has(prop!),
       );
     }),
   );
 
-  expect(weighed.length).toBeGreaterThan(25);
-  expect(misstatedDefault(pages, fallsBackTo)).toEqual([]);
+  expect(weighed.length).toBeGreaterThan(49);
+  expect(misstatedDefault(pages, settlesOn)).toEqual([]);
 });
 
 /*
