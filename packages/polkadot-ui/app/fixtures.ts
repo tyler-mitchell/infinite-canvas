@@ -26,7 +26,9 @@ export const ACTIVITY: ActivityDay[] = Array.from({ length: 371 }, (_, i) => {
   const r = Math.abs(Math.sin(i * 12.9898 + 78.233) * 43758.5453) % 1;
   const r2 = Math.abs(Math.sin((i + 1000) * 12.9898 + 78.233) * 43758.5453) % 1;
   const pZero = i > 202 && i < 219 ? 0.92 : weekend ? 0.46 : 0.11;
-  const season = 0.6 + 0.4 * Math.sin(i / 58);
+  /* Peaks inside the half year a grid shows. On the older half the plot never reached the top
+   * band, so the legend named a colour the days beside it could not take. */
+  const season = 0.6 + 0.4 * Math.cos((i - 300) / 58);
   return {
     date,
     count: r < pZero ? 0 : 1 + Math.round(r2 ** 1.7 * 13 * season * (weekend ? 0.5 : 1)),

@@ -2,6 +2,9 @@ import { readdirSync, readFileSync } from "node:fs";
 
 import { expect, test } from "vite-plus/test";
 
+import * as fixtures from "../app/fixtures.ts";
+import { activityLevel, type ActivityDay } from "./components/activity-grid.tsx";
+
 /*
  * What the kit says about itself outside its own code: the pages, and the readme.
  *
@@ -493,4 +496,72 @@ test("every affordance the kit adds is one the pages pass", () => {
   expect(named.length).toBeGreaterThan(40);
   expect(kitDeclares.size).toBeGreaterThan(40);
   expect(undemonstrated(pages, everything, kitDeclares)).toEqual([]);
+});
+
+/**
+ * A legend names every band of its scale, so a plot that never reaches the top one shows a colour
+ * that stands for nothing. Both grids drew four of five: the fixture's busy season sat outside the
+ * half year a grid shows, and that window is measured back from today, so it could not return.
+ */
+const BANDS = 5;
+
+/** What a prop is given, as written, or nothing when the tag leaves it out. */
+const givenAs = (tag: string, prop: string) =>
+  new RegExp(String.raw`\b${prop}=\{([^}]*)\}`).exec(tag)?.[1]?.trim();
+
+/** A count written on the tag, or the page constant it names. */
+const countOn = (page: string, written: string | undefined) => {
+  if (written === undefined) return undefined;
+  if (/^\d+$/.test(written)) return Number(written);
+
+  return Number(new RegExp(String.raw`\b${written}\s*=\s*(\d+)`).exec(page)?.[1] ?? Number.NaN);
+};
+
+/** The fixtures hold series, lists and single numbers, and only a series of counts can be read. */
+const isSeries = (value: unknown): value is readonly { readonly count: number }[] =>
+  Array.isArray(value) && value.every((day) => typeof (day as ActivityDay)?.count === "number");
+
+const unreachableBand = (
+  sources: readonly { readonly file: string; readonly source: string }[],
+  series: Readonly<Record<string, unknown>>,
+) =>
+  sources.flatMap(({ file, source }) =>
+    openingTags(source, "ActivityGrid").flatMap((tag) => {
+      const name = givenAs(tag, "days") ?? "";
+      const days = series[name];
+      const weeks = countOn(source, givenAs(tag, "weeks"));
+      const bounds = givenAs(tag, "thresholds")?.match(/\d+/g)?.map(Number);
+
+      if (!isSeries(days) || !weeks || Number.isNaN(weeks)) {
+        return [`${file} ${name}: nothing to count`];
+      }
+
+      const reached = new Set(
+        days.slice(-weeks * 7).map((day) => activityLevel(day.count, bounds)),
+      );
+
+      return reached.size === BANDS ? [] : [`${file} ${name}: ${reached.size} of ${BANDS} bands`];
+    }),
+  );
+
+test("a grid whose plot cannot reach its own top band is reported", () => {
+  const page = `const SHOWN = 2;\n<ActivityGrid days={QUIET} weeks={SHOWN} />`;
+  const busy = `<ActivityGrid days={BUSY} weeks={2} thresholds={[1, 2, 3, 4]} />`;
+  const series = {
+    QUIET: Array.from({ length: 14 }, () => ({ count: 0 })),
+    BUSY: Array.from({ length: 14 }, (_, day) => ({ count: day % 5 })),
+  };
+
+  expect(unreachableBand([{ file: "a.tsx", source: page }], series)).toEqual([
+    "a.tsx QUIET: 1 of 5 bands",
+  ]);
+  expect(unreachableBand([{ file: "b.tsx", source: busy }], series)).toEqual([]);
+  expect(
+    unreachableBand([{ file: "c.tsx", source: `<ActivityGrid days={GONE} weeks={2} />` }], series),
+  ).toEqual(["c.tsx GONE: nothing to count"]);
+});
+
+test("every band a grid's legend shows is one its plot draws", () => {
+  expect(pages.flatMap(({ source }) => openingTags(source, "ActivityGrid")).length).toBe(2);
+  expect(unreachableBand(pages, fixtures)).toEqual([]);
 });

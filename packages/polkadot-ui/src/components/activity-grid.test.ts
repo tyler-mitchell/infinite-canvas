@@ -1,6 +1,14 @@
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 import { expect, test } from "vite-plus/test";
 
-import { activityLevel, toColumns, weeksThatFit, type ActivityDay } from "./activity-grid.tsx";
+import {
+  ActivityGrid,
+  activityLevel,
+  toColumns,
+  weeksThatFit,
+  type ActivityDay,
+} from "./activity-grid.tsx";
 
 const CELL = 11;
 const GAP = 4;
@@ -68,6 +76,29 @@ test("minutes read are every top level on the commit defaults, and a ladder on t
   const minutes = [0, 12, 45, 90, 240];
   expect(minutes.map((n) => activityLevel(n))).toEqual([0, 4, 4, 4, 4]);
   expect(minutes.map((n) => activityLevel(n, [1, 30, 60, 120]))).toEqual([0, 1, 2, 3, 4]);
+});
+
+/**
+ * A level is an index into a scale of five, so a sixth bound has no colour to land on. The prop
+ * takes any number of bounds and says nothing about four, so a consumer reaches this by reading
+ * the documented surface and believing it.
+ */
+test("more bounds than the scale has colours still lands on a colour", () => {
+  const bounds = [1, 2, 3, 4, 5, 6];
+
+  expect(bounds.map((n) => activityLevel(n, bounds))).toEqual([1, 2, 3, 4, 4, 4]);
+});
+
+test("no cell is drawn with a class that is not a class", () => {
+  const markup = renderToStaticMarkup(
+    createElement(ActivityGrid, {
+      days: [1, 3, 5, 7, 9].map((count, index) => ({ date: new Date(2026, 8, index + 1), count })),
+      thresholds: [1, 2, 3, 4, 5, 6],
+    }),
+  );
+
+  expect(markup).toContain("bg-pk-level-4");
+  expect(markup).not.toContain("undefined");
 });
 
 test("every day lands on the row of its own weekday", () => {

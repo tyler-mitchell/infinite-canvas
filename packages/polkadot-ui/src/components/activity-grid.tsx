@@ -26,15 +26,19 @@ const activityGrid = tv({
     legend: "flex items-center gap-1",
     swatch: "size-2.5 rounded-[3px]",
   },
+  variants: {
+    tone: {
+      0: { cell: "bg-pk-level-0 shadow-pk-cell", swatch: "bg-pk-level-0 shadow-pk-cell" },
+      1: { cell: "bg-pk-level-1", swatch: "bg-pk-level-1" },
+      2: { cell: "bg-pk-level-2", swatch: "bg-pk-level-2" },
+      3: { cell: "bg-pk-level-3", swatch: "bg-pk-level-3" },
+      4: { cell: "bg-pk-level-4", swatch: "bg-pk-level-4" },
+    },
+  },
 });
 
-const LEVEL_CLASS = [
-  "bg-pk-level-0 shadow-pk-cell",
-  "bg-pk-level-1",
-  "bg-pk-level-2",
-  "bg-pk-level-3",
-  "bg-pk-level-4",
-] as const;
+/** The scale a level indexes. Bounds past the last colour land on it rather than off the end. */
+const TONES = [0, 1, 2, 3, 4] as const;
 
 export interface ActivityDay {
   readonly date: Date;
@@ -45,7 +49,7 @@ export interface ActivityDay {
 const DEFAULT_THRESHOLDS: readonly number[] = [1, 3, 6, 10];
 
 const level = (count: number, thresholds: readonly number[] = DEFAULT_THRESHOLDS) =>
-  thresholds.filter((bound) => count >= bound).length;
+  TONES[Math.min(thresholds.filter((bound) => count >= bound).length, TONES.length - 1)]!;
 
 /**
  * Whole weeks that fit at a cell size a pointer can hit. Drops history, never the cell size, down
@@ -214,7 +218,7 @@ function ActivityGrid({
                 data-slot="activity-day"
                 data-index={index}
                 data-hot={cursor === index ? "" : undefined}
-                className={`${styles.cell()} ${LEVEL_CLASS[level(day.count, thresholds)]}`}
+                className={styles.cell({ tone: level(day.count, thresholds) })}
               />
             ) : (
               <div key={index} aria-hidden />
@@ -226,8 +230,8 @@ function ActivityGrid({
       <div className={styles.footer()}>
         {children?.(focused)}
         <div className={styles.legend()}>
-          {LEVEL_CLASS.map((tone, index) => (
-            <span key={index} className={`${styles.swatch()} ${tone}`} />
+          {TONES.map((tone) => (
+            <span key={tone} className={styles.swatch({ tone })} />
           ))}
         </div>
       </div>
