@@ -494,6 +494,37 @@ test("no component writes a reading it cannot use into an attribute", () => {
  * So the drawn heights are read instead of the attribute: three readings that differ have to draw
  * three heights, whatever ceiling they are given.
  */
+/**
+ * A breakdown draws one segment per part, and the name it is given is the consumer's: two parts
+ * may honestly carry one — two rows called `other`, a language counted twice. Keyed by that name,
+ * two children would sit under one key, which is the fault the ticker had.
+ *
+ * React says nothing about it here. A control array with two children deliberately under one key
+ * drew no warning at all, so an assertion on the warning would have protected nothing. What can be
+ * read is the drawing: two parts, two widths, in the order they were given.
+ */
+test("two parts sharing a name are still two parts", () => {
+  const parts = [
+    { name: "other", share: 1, color: "red" },
+    { name: "other", share: 3, color: "blue" },
+  ];
+  const markup = renderToStaticMarkup(createElement(kit.Breakdown, { parts }));
+
+  expect([...markup.matchAll(/width:([\d.]+)%/g)].map(([, width]) => width)).toEqual(["25", "75"]);
+});
+
+/** A chord may strike one cap twice: `g g` is an ordinary binding, and both caps have to draw. */
+test("a binding that repeats a cap still draws both", () => {
+  const markup = renderToStaticMarkup(
+    createElement(kit.Binding, { keys: ["g", "g"], action: "go to top" }),
+  );
+
+  expect([...markup.matchAll(/<kbd[^>]*>([^<]*)<\/kbd>/g)].map(([, cap]) => cap)).toEqual([
+    "g",
+    "g",
+  ]);
+});
+
 test("a chart with an unusable ceiling still tells its readings apart", () => {
   const drawn = (max: number | undefined) =>
     [

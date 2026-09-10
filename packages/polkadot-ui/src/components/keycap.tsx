@@ -27,8 +27,8 @@ function Binding({ keys, action, className, ...props }: BindingProps) {
   return (
     <div data-slot="binding" className={styles.row({ className })} {...props}>
       <span className={styles.combination()}>
-        {keys.map((key) => (
-          <Keycap key={key}>{key}</Keycap>
+        {keys.map((cap, index) => (
+          <Keycap key={index}>{cap}</Keycap>
         ))}
       </span>
       <span className={styles.action()}>{action}</span>

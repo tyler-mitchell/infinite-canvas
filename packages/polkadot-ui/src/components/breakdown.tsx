@@ -77,7 +77,7 @@ function Breakdown({ parts, showLegend = true, label, className, ...props }: Bre
       <div role="img" aria-label={label?.trim() || breakdownLabel(parts)} className={styles.bar()}>
         {parts.map((part, index) => (
           <span
-            key={part.name}
+            key={index}
             style={{ width: `${(shares[index] ?? 0) * 100}%`, background: part.color }}
             className={styles.segment()}
           />
@@ -86,7 +86,7 @@ function Breakdown({ parts, showLegend = true, label, className, ...props }: Bre
       {showLegend ? (
         <div aria-hidden className={styles.legend()}>
           {parts.map((part, index) => (
-            <span key={part.name} className={styles.item()}>
+            <span key={index} className={styles.item()}>
               <span style={{ background: part.color }} className={styles.swatch()} />
               {part.name} {Math.round((shares[index] ?? 0) * 100)}%
             </span>
