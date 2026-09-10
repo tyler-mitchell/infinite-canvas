@@ -625,6 +625,30 @@ test("a list with a repeated id still draws every row", () => {
   expect([...deck.matchAll(/data-slot="swipe-card"/g)]).toHaveLength(2);
 });
 
+/**
+ * A cap draws whatever it is given, and the pages give it four symbols: the command, option and
+ * shift keys and the return arrow. A letter reads as itself. A symbol does not — a reader is given
+ * the name of the character, or nothing, where a sighted reader sees a key.
+ *
+ * Left as it stands, and here so it is not left silently. Every way of mending it is a decision
+ * about the component's surface rather than a defect to patch: a name on a bare `kbd` is not
+ * reliably read, hiding the caps behind spoken words changes what every binding draws, and a
+ * spoken form beside each cap changes the shape a consumer passes. The action beside the chord is
+ * read either way, so what is lost is which keys, not what they do.
+ */
+test("a chord of symbols draws the symbols, and says no more than them", () => {
+  const markup = renderToStaticMarkup(
+    createElement(kit.Binding, { keys: ["⌘", "K"], action: "palette" }),
+  );
+  const caps = [...markup.matchAll(/<kbd[^>]*>([^<]*)<\/kbd>/g)].map(([, cap]) => cap);
+
+  expect(caps).toEqual(["⌘", "K"]);
+  expect(markup).toContain("palette");
+  /* No spoken form anywhere: the day one is added, this is the line that has to change. */
+  expect(markup).not.toContain("sr-only");
+  expect(markup).not.toContain("aria-label");
+});
+
 /** A chord may strike one cap twice: `g g` is an ordinary binding, and both caps have to draw. */
 test("a binding that repeats a cap still draws both", () => {
   const markup = renderToStaticMarkup(
