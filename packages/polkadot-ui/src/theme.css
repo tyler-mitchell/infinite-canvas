@@ -264,8 +264,11 @@
     );
   }
 
+  /* The one inverted ground, so it says what a ring offsets against. Without this a control on
+   * paper offsets against the board, which is the dark it is sitting on top of. */
   .pk-paper {
     background: var(--pk-paper);
+    --pk-ring-seat: var(--pk-paper-page);
   }
 
   .pk-rise {

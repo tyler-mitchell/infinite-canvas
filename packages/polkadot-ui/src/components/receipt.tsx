@@ -16,7 +16,7 @@ const receipt = tv({
     barcode: "mt-[5px] flex h-3 items-end gap-[1.5px]",
     bar: "h-full bg-pk-paper-ink",
     action:
-      "mt-1 flex w-full cursor-pointer items-center justify-center gap-[7px] rounded-[3px] border border-dashed border-pk-paper-label bg-transparent px-2 py-1.5 font-pk-mono text-pk-print tracking-[0.13em] text-pk-paper-ink uppercase outline-none transition-colors duration-(--pk-duration-hover) ease-pk-swift hover:border-pk-paper-ink hover:bg-pk-paper-ink hover:text-pk-paper-page focus-visible:ring-2 focus-visible:ring-pk-paper-ink",
+      "mt-1 flex w-full cursor-pointer items-center justify-center gap-[7px] rounded-[3px] border border-dashed border-pk-paper-label bg-transparent px-2 py-1.5 font-pk-mono text-pk-print tracking-[0.13em] text-pk-paper-ink uppercase outline-none transition-colors duration-(--pk-duration-hover) ease-pk-swift hover:border-pk-paper-ink hover:bg-pk-paper-ink hover:text-pk-paper-page focus-visible:ring-2 focus-visible:ring-pk-paper-ink focus-visible:ring-offset-2 focus-visible:ring-offset-(color:--pk-ring-seat)",
     sign: "mt-[3px] self-center text-pk-print-xs tracking-[0.16em] text-pk-paper-ink uppercase",
   },
   variants: {
