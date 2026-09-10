@@ -60,11 +60,15 @@ function Overlays() {
         <Tooltip.Provider>
           <div className={styles.inline()}>
             <Tooltip>
-              <Tooltip.Trigger render={<Button tone="soft" />}>queries</Tooltip.Trigger>
+              <Tooltip.Trigger aria-label="queries, 2.1M served" render={<Button tone="soft" />}>
+                queries
+              </Tooltip.Trigger>
               <Tooltip.Content>2.1M served</Tooltip.Content>
             </Tooltip>
             <Tooltip>
-              <Tooltip.Trigger render={<Button tone="soft" />}>region</Tooltip.Trigger>
+              <Tooltip.Trigger aria-label="region, edge, 42 ms" render={<Button tone="soft" />}>
+                region
+              </Tooltip.Trigger>
               <Tooltip.Content>edge · 42 ms</Tooltip.Content>
             </Tooltip>
           </div>

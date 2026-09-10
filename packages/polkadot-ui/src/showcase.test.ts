@@ -35,7 +35,9 @@ const openingTags = (source: string, name: string) => {
     let braces = 0;
     let generics = 0;
 
-    for (let at = match.index + name.length + 1; at < source.length; at += 1) {
+    /* The matched text, not the pattern: an escaped name like `Tooltip\.Trigger` is longer than
+     * the tag it matches, and offsetting by the pattern scanned straight past the `>`. */
+    for (let at = match.index + match[0].length; at < source.length; at += 1) {
       const character = source[at]!;
 
       if (character === "{") braces += 1;
@@ -157,6 +159,40 @@ test("a tag holding JSX or a type argument ends in the right place", () => {
 
   expect(typed).toContain("<Props<CardProps>");
   expect(typed).toContain('name: "tone"');
+});
+
+/**
+ * Base UI's tooltip is a visual hint by design: the popup carries no role, gets no id and is never
+ * pointed at by the trigger, and its documentation says the trigger has to carry an `aria-label`
+ * that matches what the tooltip says. Driving one confirmed it — the popup opened on focus with no
+ * `role`, no `id`, and no `aria-describedby` anywhere. Both triggers here said only their own
+ * visible word, so the number each tooltip existed to give was told to nobody.
+ */
+const unlabelledTooltips = (
+  sources: readonly { readonly file: string; readonly source: string }[],
+) =>
+  sources.flatMap(({ file, source }) =>
+    openingTags(source, "Tooltip\\.Trigger")
+      .filter((tag) => !/\baria-label=/.test(tag))
+      .map(() => `${file} opens a tooltip from a trigger that says only its own name`),
+  );
+
+test("a tooltip trigger that carries no label of its own is reported", () => {
+  expect(
+    unlabelledTooltips([{ file: "p.tsx", source: "<Tooltip.Trigger>a</Tooltip.Trigger>" }]),
+  ).toEqual(["p.tsx opens a tooltip from a trigger that says only its own name"]);
+  expect(
+    unlabelledTooltips([
+      { file: "p.tsx", source: '<Tooltip.Trigger aria-label="a, b">a</Tooltip.Trigger>' },
+    ]),
+  ).toEqual([]);
+});
+
+test("every tooltip trigger says what its tooltip says", () => {
+  const triggers = pages.flatMap(({ source }) => openingTags(source, "Tooltip\\.Trigger"));
+
+  expect(triggers.length).toBeGreaterThan(1);
+  expect(unlabelledTooltips(pages)).toEqual([]);
 });
 
 test("every affordance the kit adds is one the pages pass", () => {

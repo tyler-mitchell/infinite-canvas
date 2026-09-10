@@ -27,6 +27,11 @@ function Tooltip(props: TooltipProps) {
 
 export type TooltipTriggerProps = TooltipPrimitive.Trigger.Props;
 
+/**
+ * A tooltip is a visual hint and nothing else: the popup carries no role and is never pointed at
+ * by the trigger, so a reader who cannot see it is told nothing. Give the trigger an `aria-label`
+ * that says what the tooltip says, or put the same words somewhere a reader will reach.
+ */
 function TooltipTrigger(props: TooltipTriggerProps) {
   return <TooltipPrimitive.Trigger data-slot="tooltip-trigger" {...props} />;
 }
