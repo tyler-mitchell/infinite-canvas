@@ -12,7 +12,7 @@ const activityFeed = tv({
     line: "flex flex-wrap items-baseline gap-2",
     name: "min-w-0 font-pk-sans text-pk-item break-words text-pk-ink-muted",
     duration:
-      "flex-none rounded-pk-pill bg-pk-ink/[0.06] px-[7px] py-[3px] font-pk-mono text-pk-mono-sm text-pk-ink-faint tabular-nums",
+      "flex-none rounded-pk-pill bg-pk-ink/[0.06] px-[7px] py-[3px] font-pk-mono text-pk-mono-sm text-pk-ink-dim tabular-nums",
     note: "m-0 font-pk-sans text-pk-note break-words text-pk-ink-faint",
     since:
       "flex-none self-start font-pk-mono text-pk-mono-sm text-pk-ink-faint uppercase tabular-nums",
