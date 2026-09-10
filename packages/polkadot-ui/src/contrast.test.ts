@@ -189,6 +189,47 @@ test("the ring paper uses clears 3:1 on paper", () => {
 });
 
 /**
+ * An input paints a fill over its seat and then writes a placeholder on that fill, so the fill is
+ * the ground the placeholder answers to and the seat is not. Every rule above reads a flat token,
+ * so the one ground the kit paints under text was the one nothing measured: in a browser the
+ * combobox placeholder came out at 4.40:1 inside a card, where the same ink on the page ground is
+ * the 4.95:1 the foundations page states.
+ *
+ * The ink and the alphas are read from the component, so a change to either faces this number.
+ */
+const inputSource = componentSources.find((entry) => entry.file === "input.tsx")!.source;
+
+const placeholderInk = () => {
+  const [, token] = /placeholder:text-(pk-[a-z\d-]+)/.exec(inputSource) ?? [];
+
+  return declaredAs.get(`--${token}`)!;
+};
+
+const inputFills = (seat: string) =>
+  [...inputSource.matchAll(/bg-pk-ink\/\[([\d.]+)\]/g)].map(([, alpha]) => ({
+    alpha: Number(alpha),
+    ground: over(declaredAs.get("--pk-ink")!, seat, Number(alpha)),
+  }));
+
+test("a placeholder clears 4.5:1 on the fill its own input paints", () => {
+  const ink = placeholderInk();
+
+  const thin = seats().flatMap((seat) =>
+    inputFills(declaredAs.get(seat)!)
+      .map(({ alpha, ground }) => ({
+        where: `${seat} under ink at ${alpha}`,
+        got: Number(contrast(ink, ground).toFixed(2)),
+      }))
+      .filter(({ got }) => got < 4.5),
+  );
+
+  /* Read first: the ink and the fill are found, or the sweep would compare nothing. */
+  expect(ink).toBeDefined();
+  expect(inputFills(declaredAs.get("--pk-surface")!).map(({ alpha }) => alpha)).toEqual([0.06]);
+  expect(thin).toEqual([]);
+});
+
+/**
  * Each ratio a component states in prose, and the two colours it is a ratio between. One of the
  * four was a pair of values in the wrong order, and nothing could catch that while it lived only
  * in a comment.
