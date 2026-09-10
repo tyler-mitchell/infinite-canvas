@@ -209,8 +209,10 @@ test("a tooltip trigger that carries no label of its own is reported", () => {
 test("every tooltip trigger says what its tooltip says", () => {
   const triggers = pages.flatMap(({ source }) => openingTags(source, "Tooltip\\.Trigger"));
 
-  expect(triggers.length).toBeGreaterThan(1);
   expect(unlabelledTooltips(pages)).toEqual([]);
+  /* After the rule, not before it: there are two triggers, so a floor of one fires on a page that
+   * legitimately drops one and reports a number where the rule would have named the trigger. */
+  expect(triggers.length).toBeGreaterThan(1);
 });
 
 /**

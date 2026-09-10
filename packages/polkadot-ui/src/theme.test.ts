@@ -301,10 +301,12 @@ test("every radius and easing a page prints is the one the sheet declares", () =
     ...page.matchAll(/\["(--pk-ease-[a-z-]+)",\s*"[^"]*",\s*"[^"]*",\s*"([^"]*)"\]/g),
   ].map(([, token, printed]) => [token!, printed!] as const);
 
-  expect(radii.length).toBeGreaterThan(3);
-  expect(easings.length).toBeGreaterThan(1);
   expect(misprinted(radii, declaredAs, "px")).toEqual([]);
   expect(misprinted(easings, declaredAs)).toEqual([]);
+  /* Floors last: five radii and two easings are printed, so a floor of three and one fires on a
+   * page that drops one and reports a count where the rule would have named the token. */
+  expect(radii.length).toBeGreaterThan(3);
+  expect(easings.length).toBeGreaterThan(1);
 });
 
 /* Every contrast ratio the kit states or has to clear lives in `contrast.test.ts`. */
@@ -912,8 +914,10 @@ test("a block that would let something move is reported", () => {
 test("nothing that moves survives when motion is refused", () => {
   const kept = survivesStillness(themeCss);
 
-  expect(kept.length).toBeGreaterThan(3);
   expect(kept.filter((name) => MOVES.has(name))).toEqual([]);
+  /* Five properties are kept, so a floor of three would fire on a fourth being dropped and hide
+   * which one had started moving. */
+  expect(kept.length).toBeGreaterThan(3);
 });
 
 test("every property a slot names is one the block has already answered for", () => {
