@@ -23,7 +23,7 @@ const receipt = tv({
     total: {
       true: {
         name: "text-pk-mono-sm font-semibold tracking-[0.05em]",
-        amount: "text-[12px] leading-[1.3] font-semibold tracking-[-0.01em]",
+        amount: "text-pk-mono-lg leading-[1.3] font-semibold tracking-[-0.01em]",
       },
       false: {},
     },

@@ -720,13 +720,15 @@ const rewroteARole = (
     .sort();
 
 /**
- * The rest are roles the scale has no name for, so writing the size out is the only thing a slot
- * can do. Mono stops at 12.5 while three slots want it at 11.5 and 13; sans has nothing at 10.5,
- * nothing flat-lined at 12.5 or 9.5, and no name for a glyph sized to the box that holds it. The
- * fix is to name those roles in the sheet, not to bend these onto a role that means something
- * else — until then this says how wide the hole is, and stops a new one opening quietly.
+ * A size the scale declares, written out rather than named. Every one of these is on the ladder,
+ * so none is a stray number: the slot wants the rung without the weight and tracking the role
+ * bundles with it, and cancelling those costs more utilities than writing the size.
+ *
+ * This was documented backwards for a while — as roles the scale had no name for — and the number
+ * beside each entry disproves it. The rule that matters is the one below, which reads the other
+ * direction and had nothing to say about three sizes that were on no rung at all.
  */
-const SIZES_THE_SCALE_DOES_NOT_NAME = [
+const SIZES_WRITTEN_INSTEAD_OF_NAMED = [
   "activity-grid.tsx text-[9px]",
   "activity-grid.tsx text-[9px]",
   "avatar.tsx text-[21px]",
@@ -754,9 +756,45 @@ test("a slot that writes a declared size out by hand is reported", () => {
   expect(rewroteARole([{ file: "menu.tsx", source: "text-[12px]" }], sizes)).toEqual([]);
 });
 
-test("no slot rewrites a role the scale already names", () => {
+test("no slot writes a size the scale names beyond the ones on record", () => {
   expect(scaleSizes.get("15")).toEqual(["title"]);
-  expect(rewroteARole(styledSources, scaleSizes)).toEqual(SIZES_THE_SCALE_DOES_NOT_NAME);
+  expect(rewroteARole(styledSources, scaleSizes)).toEqual(SIZES_WRITTEN_INSTEAD_OF_NAMED);
+});
+
+/**
+ * A size on no rung at all. This is the drift that costs something: the list above stays on the
+ * ladder, so moving a rung moves it, but a number the scale never declares moves with nothing and
+ * reads as deliberate. Three were hiding — an accordion row at 14, a menu item and a receipt total
+ * at 12 — and the rule above could not see them, because it only ever reported the safe ones.
+ */
+const offTheLadder = (
+  sources: readonly { readonly file: string; readonly source: string }[],
+  sizes: ReadonlyMap<string, readonly string[]>,
+) =>
+  sources
+    .flatMap(({ file, source }) =>
+      [...source.matchAll(/text-\[([\d.]+)px\]/g)].map(([written, px]) => ({
+        file,
+        written,
+        px: px!,
+      })),
+    )
+    .filter(({ px }) => !sizes.has(px))
+    .map(({ file, written }) => `${file} ${written}`)
+    .sort();
+
+test("a size on no rung of the scale is reported", () => {
+  const ladder = new Map([["13", ["item"]]]);
+
+  expect(offTheLadder([{ file: "row.tsx", source: "text-[14px]" }], ladder)).toEqual([
+    "row.tsx text-[14px]",
+  ]);
+  expect(offTheLadder([{ file: "row.tsx", source: "text-[13px]" }], ladder)).toEqual([]);
+});
+
+test("every size a slot writes is a rung the scale declares", () => {
+  expect(scaleSizes.size).toBeGreaterThan(8);
+  expect(offTheLadder(styledSources, scaleSizes)).toEqual([]);
 });
 
 test("every timeline animation the sheet declares is turned off under reduced motion", () => {
