@@ -696,3 +696,23 @@ test("the aurora's words take a pointer and its decoration does not", () => {
   /* Read first: the wrapper is the one that holds them, so it is the one that has to be hittable. */
   expect(styles.content()).toContain("flex-col");
 });
+
+/**
+ * A card is stacked absolutely, so it cannot grow and its body is the only part that gives. With
+ * the text spacing a reader is entitled to ask for — line height 1.5, letter spacing 0.12em, word
+ * spacing 0.16em — the head and the foot grew and squeezed the body from 91 to 34, and the last
+ * line was cut off rather than reachable. Measured in the browser at 1280.
+ *
+ * Scrolling it keeps every word, and takes a vertical touch of its own so the card still takes a
+ * sideways one. At ordinary spacing nothing changes: the body measures 91 against 91 and shows no
+ * scrollbar at all.
+ */
+test("a card that cannot grow lets its body scroll rather than cut it", () => {
+  const body = kit.swipeDeckVariants().prose();
+
+  expect(body).toContain("overflow-y-auto");
+  expect(body).not.toContain("overflow-hidden");
+  /* The sideways drag is the card's, so the body claims only the axis the card does not use. */
+  expect(body).toContain("touch-pan-y");
+  expect(kit.swipeDeckVariants().card()).toContain("touch-none");
+});
