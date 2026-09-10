@@ -82,3 +82,30 @@ test("a trace drawn with no head counts its readings and names none", () => {
   expect(sparklineLabel([12], "none")).toBe("one reading, 12");
   expect(sparklineLabel([], "none")).toBe("no readings");
 });
+
+/**
+ * The bars filter a reading that is not a number out of their ceiling and give it the floor; the
+ * breakdown counts its share as nothing. This did neither, and the arithmetic spread the fault:
+ * `NaN` in the extent makes the span `NaN`, which is falsy, so `|| 1` hid it and every other point
+ * in the series came back `NaN`. One unusable reading took the whole trace with it.
+ */
+test("a reading that is not a number keeps its own place and no other", () => {
+  const broken = sparklinePoints([1, Number.NaN, 3]);
+  const whole = sparklinePoints([1, 3]);
+
+  expect(finite(broken)).toBe(true);
+  /* Read first: three readings draw three points, so the middle one is still in there. */
+  expect(broken).toHaveLength(3);
+  /* The readings around it are drawn where they would be without it. */
+  expect(broken[0]![1]).toBe(whole[0]![1]);
+  expect(broken[2]![1]).toBe(whole[1]![1]);
+  /* And the unusable one sits at the low, which is where the bars put one. */
+  expect(broken[1]![1]).toBe(broken[0]![1]);
+});
+
+test("a series of nothing but unusable readings is still drawn level", () => {
+  const points = sparklinePoints([Number.NaN, Number.POSITIVE_INFINITY, Number.NaN]);
+
+  expect(finite(points)).toBe(true);
+  expect(new Set(points.map(([, y]) => y)).size).toBe(1);
+});

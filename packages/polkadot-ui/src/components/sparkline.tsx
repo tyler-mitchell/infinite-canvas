@@ -47,13 +47,20 @@ export type SparklinePoint = readonly [x: number, y: number];
  * The trace in view space, oldest at the left. An empty series draws nothing, and a single sample
  * draws flat across the full width, because one reading is a series at rest rather than a point at
  * the left edge.
+ *
+ * A reading that is not a number sits at the low, which is where the bars put one and where the
+ * breakdown puts a share it cannot use. It is read out of the extent as well: taken into it, the
+ * span is `NaN`, that falls through `|| 1` because `NaN` is falsy, and every other point in the
+ * series comes back `NaN` — one bad reading took the whole trace rather than its own place in it.
  */
 export function sparklinePoints(values: readonly number[]): readonly SparklinePoint[] {
   if (values.length === 0) return [];
 
-  const low = Math.min(...values);
-  const span = Math.max(...values) - low || 1;
-  const y = (value: number) => INSET + (1 - (value - low) / span) * (HEIGHT - INSET * 2);
+  const real = values.filter((value) => Number.isFinite(value));
+  const low = real.length > 0 ? Math.min(...real) : 0;
+  const span = (real.length > 0 ? Math.max(...real) : 0) - low || 1;
+  const y = (value: number) =>
+    INSET + (1 - ((Number.isFinite(value) ? value : low) - low) / span) * (HEIGHT - INSET * 2);
 
   if (values.length === 1) {
     const only = y(values[0]!);
