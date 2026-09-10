@@ -2,6 +2,8 @@ import { readdirSync, readFileSync } from "node:fs";
 
 import { expect, test } from "vite-plus/test";
 
+import * as kit from "./index.ts";
+
 /*
  * What the kit says about itself outside its own code: the pages, and the readme.
  *
@@ -15,6 +17,7 @@ import { expect, test } from "vite-plus/test";
  */
 
 const appDir = new URL("../app/", import.meta.url);
+const componentDir = new URL("./components/", import.meta.url);
 const pages = [
   ...readdirSync(appDir).filter((name) => name.endsWith(".tsx")),
   ...readdirSync(new URL("routes/", appDir))
@@ -66,13 +69,27 @@ const documented = (source: string) =>
   });
 
 /**
- * A part is exported under one name and written under another: `MenuItem` is `<Menu.Item>` and
- * `TabPanel` is `<Tabs.Panel>`. Four props read as undemonstrated until this was allowed for.
+ * A part is exported under one name and written under another. The mapping is not guessable —
+ * `Toggle` is written `<ToggleGroup.Item>` — so it is read from the assignments the components
+ * make: `ToggleGroup.Item = Toggle` says exactly how that export reaches a page.
  */
-const tagNamesFor = (owner: string) => {
-  const [, head, tail] = /^([A-Z][a-z\d]+)([A-Z][A-Za-z\d]*)$/.exec(owner) ?? [];
+const writtenAs = new Map<string, string>();
 
-  return head && tail ? [owner, `${head}\\.${tail}`, `${head}s\\.${tail}`] : [owner];
+for (const file of readdirSync(componentDir).filter((name) => name.endsWith(".tsx"))) {
+  for (const [, parent, part, exported] of readFileSync(
+    new URL(file, componentDir),
+    "utf8",
+  ).matchAll(/^(\w+)\.(\w+) = (\w+);$/gm)) {
+    writtenAs.set(exported!, `${parent!}\\.${part!}`);
+  }
+}
+
+const tagNamesFor = (owner: string) => {
+  const dotted = writtenAs.get(owner);
+  const [, head, tail] = /^([A-Z][a-z\d]+)([A-Z][A-Za-z\d]*)$/.exec(owner) ?? [];
+  const guessed = head && tail ? [`${head}\\.${tail}`, `${head}s\\.${tail}`] : [];
+
+  return [owner, ...(dotted ? [dotted] : []), ...guessed];
 };
 
 /**
@@ -80,7 +97,6 @@ const tagNamesFor = (owner: string) => {
  * component: as one flat set, a `value` declared by the receipt barcode made `value` on Tabs look
  * like something this kit had added, when Base UI owns it.
  */
-const componentDir = new URL("./components/", import.meta.url);
 const kitDeclares = new Map<string, ReadonlySet<string>>();
 
 for (const file of readdirSync(componentDir).filter((name) => name.endsWith(".tsx"))) {
@@ -328,6 +344,36 @@ test("a stated default that is not the one the code uses is reported", () => {
 test("every default a page states is the one the component falls back to", () => {
   expect(fallsBackTo.get("NumberTickerProps")?.get("pad")).toBe("0");
   expect(misstatedDefault(pages, fallsBackTo)).toEqual([]);
+});
+
+/**
+ * A component the kit exports and no page draws is one nobody can look at, and one nothing would
+ * notice breaking. Every part counts, not only the roots: a menu separator or a receipt rule is
+ * still something a consumer has to be shown before they will reach for it.
+ */
+const undrawn = (exported: readonly string[], everySource: string) =>
+  exported
+    .filter((name) => !tagNamesFor(name).some((tag) => openingTags(everySource, tag).length > 0))
+    .sort();
+
+test("a component no page draws is reported", () => {
+  expect(undrawn(["Card"], "<Card tone='a' />")).toEqual([]);
+  expect(undrawn(["Card"], "<Board />")).toEqual(["Card"]);
+  /* Written under the name its parent gives it, which is how every compound part reaches a page. */
+  expect(writtenAs.get("Toggle")).toBe("ToggleGroup\\.Item");
+  expect(undrawn(["Toggle"], "<ToggleGroup.Item value='a' />")).toEqual([]);
+});
+
+test("every component the kit exports is drawn on a page", () => {
+  const exported = Object.entries(kit)
+    .filter(
+      ([name, value]) =>
+        /^[A-Z][a-z\d]/.test(name) && typeof value === "function" && !name.endsWith("Variants"),
+    )
+    .map(([name]) => name);
+
+  expect(exported.length).toBeGreaterThan(50);
+  expect(undrawn(exported, everything)).toEqual([]);
 });
 
 test("every affordance the kit adds is one the pages pass", () => {
