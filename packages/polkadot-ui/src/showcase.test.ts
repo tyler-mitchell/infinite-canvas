@@ -780,6 +780,63 @@ test("nothing a consumer loads does anything at import time but hang up its part
   ).toEqual([]);
 });
 
+/**
+ * A ceiling two charts share has to be one both of them fit under. The bars clamp a share at one,
+ * so a series that outgrows the ceiling does not overflow or throw — it flattens against the top
+ * and keeps drawing, while the section teaching the comparison says one scale.
+ *
+ * The pages state no total by hand: every figure beside a series is a reduce, a max or an index of
+ * that series, so a fixture and its caption cannot disagree. This is the one number that can.
+ */
+const overCeiling = (
+  source: string,
+  series: Record<string, readonly number[] | undefined>,
+): readonly string[] => {
+  const ceilings = new Map(
+    [...source.matchAll(/const (\w+) = Math\.max\(\.\.\.(\w+)\)/g)].map(([, name, from]) => [
+      name!,
+      from!,
+    ]),
+  );
+
+  return [
+    ...source.matchAll(/<Bars\s+values=\{(\w+)\}\s+max=\{(\w+)\}/g),
+    ...source.matchAll(/values=\{(\w+)\}\s*\n\s*max=\{(\w+)\}/g),
+  ]
+    .flatMap(([, drawn, ceiling]) => {
+      const under = series[ceilings.get(ceiling!) ?? ""];
+      const values = series[drawn!];
+      if (!under || !values) return [];
+
+      return Math.max(...values) > Math.max(...under)
+        ? [`${drawn} rises past the ceiling ${ceiling} takes from ${ceilings.get(ceiling!)}`]
+        : [];
+    })
+    .sort();
+};
+
+test("a series that rises past the ceiling it shares is reported", () => {
+  const source =
+    "const CEILING = Math.max(...SMALL);\n<Bars values={BIG} max={CEILING} />\n<Bars values={SMALL} max={CEILING} />";
+  const series = { BIG: [10, 40], SMALL: [1, 4] };
+
+  expect(overCeiling(source, series)).toEqual([
+    "BIG rises past the ceiling CEILING takes from SMALL",
+  ]);
+  expect(overCeiling(source, { BIG: [1, 2], SMALL: [1, 4] })).toEqual([]);
+});
+
+test("every series drawn against a shared ceiling fits under it", () => {
+  const readouts = pages.find(({ file }) => file === "routes/readouts.tsx")!.source;
+  const series = fixtures as unknown as Record<string, readonly number[] | undefined>;
+
+  /* Read first: the page does share a ceiling, and both series are real. */
+  expect(readouts).toContain("max={INSTALL_CEILING}");
+  expect(series.INSTALLS?.length).toBeGreaterThan(4);
+  expect(series.INSTALLS_SMALL?.length).toBeGreaterThan(4);
+  expect(overCeiling(readouts, series)).toEqual([]);
+});
+
 /** `text.tsx` is listed as its seven roles, which is what a page writes, rather than as a module. */
 const LISTED_AS_ITS_PARTS = ["text"];
 
