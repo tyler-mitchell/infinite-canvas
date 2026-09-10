@@ -246,7 +246,7 @@ function Widgets() {
               <Label>layout recipes</Label>
             </Row>
             <LayoutPreview panes={SPLIT_PANES} label="split, three panes" />
-            <Meta>split · 3 panes</Meta>
+            <Meta>{`split · ${SPLIT_PANES.length} panes`}</Meta>
           </Surface>
         </div>
         <Props<LayoutPreviewProps>

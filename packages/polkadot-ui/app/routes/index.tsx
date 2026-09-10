@@ -172,7 +172,7 @@ function Overview() {
             </Row>
 
             <Row rule="above" align="baseline">
-              <Label>commits · 64 weeks</Label>
+              <Label>{`commits · ${COMMIT_WEEKS.length} weeks`}</Label>
               <Meta>{`${COMMIT_PEAK} commits · wk ${COMMIT_PEAK_WEEK}`}</Meta>
             </Row>
             <Sparkline values={COMMIT_WEEKS} label="commits per week over 64 weeks" />
@@ -337,7 +337,7 @@ function Overview() {
               </Button>
             </Row>
             <LayoutPreview panes={SPLIT_PANES} label="split, three panes" />
-            <Meta>split · 3 panes</Meta>
+            <Meta>{`split · ${SPLIT_PANES.length} panes`}</Meta>
           </Surface>
 
           <Surface tone="card" className={styles.wide()}>

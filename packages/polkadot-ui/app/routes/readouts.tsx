@@ -82,7 +82,7 @@ function Readouts() {
         <div className={styles.grid()}>
           <Surface tone="card">
             <Row>
-              <Label>commits · 64 weeks</Label>
+              <Label>{`commits · ${COMMIT_WEEKS.length} weeks`}</Label>
               <Meta>{`${COMMIT_PEAK} · wk ${COMMIT_PEAK_WEEK}`}</Meta>
             </Row>
             <Sparkline values={COMMIT_WEEKS} label="commits per week over 64 weeks" />
