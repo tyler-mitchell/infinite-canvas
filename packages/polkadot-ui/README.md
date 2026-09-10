@@ -123,6 +123,11 @@ controls. A `disabled:` variant silently never matches on a `Switch`, which rend
 data-disabled:pointer-events-none data-disabled:opacity-40
 ```
 
+The attribute is rarely the word you expect, and guessing it fails silently: the rule is valid CSS,
+the component compiles, and the state never arrives. A tab carries `aria-selected` but is styled by
+`data-active`, so `data-selected:` matched nothing and the selected tab stayed dim for as long as
+nobody read its colour. Read the attributes off the rendered element before styling a state.
+
 ## A readout says what it shows
 
 Anything that carries meaning in pixels alone takes `role="img"` and names itself from its own

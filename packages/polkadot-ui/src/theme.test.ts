@@ -623,6 +623,41 @@ test("every readout that draws an image can name itself", () => {
   expect(unnamedImages(componentSources)).toEqual([]);
 });
 
+/**
+ * A `data-*` variant that Base UI does not set never matches, and nothing says so: the rule is
+ * valid CSS, the component compiles, and the state simply never arrives. It has happened twice —
+ * `disabled:` on a switch, which carries `data-disabled` instead, and `data-selected:` on a tab,
+ * which carries `data-active`. Both looked right until the computed colour was read in the page.
+ *
+ * Pinning the set does not prove a new one is real. It makes adding one a decision someone has to
+ * check against the rendered element rather than a guess that fails silently.
+ */
+const STATES_SEEN_IN_THE_DOM = [
+  "data-active",
+  "data-disabled",
+  "data-ending-style",
+  "data-highlighted",
+  "data-hot",
+  "data-hovering",
+  "data-newest",
+  "data-panel-open",
+  "data-scrolling",
+  "data-starting-style",
+];
+
+test("the state variants the kit styles with are the ones it has checked", () => {
+  const used = [
+    ...new Set(
+      componentSources.flatMap(({ source }) =>
+        [...source.matchAll(/\b(data-[a-z-]+?)(?:\[[^\]]*\])?:/g)].map(([, state]) => state!),
+      ),
+    ),
+  ].sort();
+
+  expect(used.length).toBeGreaterThan(8);
+  expect(used).toEqual(STATES_SEEN_IN_THE_DOM);
+});
+
 test("a stated ratio that no longer matches its colours is reported", () => {
   const real = contrast("#ededed", "#0e0f11").toFixed(2);
 
