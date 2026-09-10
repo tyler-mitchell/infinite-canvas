@@ -7,6 +7,7 @@ import * as kit from "./index.ts";
 
 interface VariantObject {
   readonly variants?: Record<string, Record<string, unknown>>;
+  readonly compoundVariants?: readonly Record<string, unknown>[];
   readonly defaultVariants?: Record<string, unknown>;
 }
 
@@ -61,12 +62,29 @@ const COLOUR = /^(?:text|bg|border|ring|outline|fill|stroke|shadow|decoration|fr
 
 const paints = (one: string) => COLOUR.test(one.replace(/^[\w-]+:/, ""));
 
-/** Classes that differ across the values of one variant, over every slot it dresses. */
+/**
+ * Classes that differ across the values of one variant, over every slot it dresses. A compound
+ * counts as the variant it names: the toggle keeps all of its pressed styling in one, and reading
+ * the plain table alone found two empty strings and called the state undressed.
+ */
 const changedBy = (config: VariantObject, key: string) => {
   const drawn = Object.keys(config.variants?.[key] ?? {}).map((option) => {
     const values = config.variants![key]![option];
+    const plain = typeof values === "string" ? { "": values } : (values as Record<string, string>);
 
-    return typeof values === "string" ? { "": values } : (values as Record<string, string>);
+    return (config.compoundVariants ?? [])
+      .filter((compound) => String(compound[key]) === option)
+      .reduce<Record<string, string>>((carried, compound) => {
+        const added =
+          typeof compound.class === "string"
+            ? { "": compound.class }
+            : ((compound.class ?? {}) as Record<string, string>);
+
+        return Object.entries(added).reduce(
+          (each, [slot, one]) => ({ ...each, [slot]: `${each[slot] ?? ""} ${one}`.trim() }),
+          carried,
+        );
+      }, plain);
   });
   const slots = new Set(drawn.flatMap((one) => Object.keys(one)));
 
@@ -749,18 +767,19 @@ test("a card that cannot grow lets its body scroll rather than cut it", () => {
  * consumer picked, and one drawn only in colour reaches nobody who cannot see the colour.
  *
  * The table is all this can read, so it finds candidates and not faults: a component may say the
- * state in its markup instead, which is where three of these four say it. Each is named with the
- * line that proves it, so the list means what it says rather than excusing what is on it. A fifth
+ * state in its markup instead, which is where all five of these say it. Each is named with the
+ * line that proves it, so the list means what it says rather than excusing what is on it. A sixth
  * state drawn in colour joins them and has to bring its own proof.
  *
- * Compound variants are out of reach: the toggle keeps its pressed styling in one, where the plain
- * table holds two empty strings.
+ * The fifth arrived when compounds were folded in. The toggle keeps every scrap of its pressed
+ * styling in one, so the plain table held two empty strings and the state read as undressed.
  */
 const SAID_IN_THE_MARKUP = [
   "checkboxVariants.checked",
   "layoutPreviewVariants.active",
   "radioVariants.checked",
   "terminalVariants.running",
+  "toggleGroupVariants.pressed",
 ];
 
 test("a state drawn only in colour is said in the markup, and says where", () => {
@@ -793,4 +812,14 @@ test("a state drawn only in colour is said in the markup, and says where", () =>
 
   expect(renderToStaticMarkup(<kit.LayoutPreview panes={active} />)).toContain("1 panes, 1 active");
   expect(renderToStaticMarkup(<kit.LayoutPreview panes={[]} />)).toContain('0 panes"');
+  /* Base UI writes the pressed state onto the button it owns, either way round. */
+  const toggles = (value: string[]) =>
+    renderToStaticMarkup(
+      <kit.ToggleGroup defaultValue={value}>
+        <kit.Toggle value="a">one</kit.Toggle>
+      </kit.ToggleGroup>,
+    );
+
+  expect(toggles(["a"])).toContain('aria-pressed="true"');
+  expect(toggles([])).toContain('aria-pressed="false"');
 });
