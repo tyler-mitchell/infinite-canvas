@@ -51,7 +51,7 @@ const layout = tv({
   },
 });
 
-const PADDING = ["tight", "snug", "default", "roomy"] as const;
+const PADDING = ["none", "tight", "snug", "default", "roomy"] as const;
 
 const STACK = [
   ["TS", "TypeScript"],
@@ -136,7 +136,7 @@ function Layout() {
       <section className={styles.section()}>
         <Row rule="below">
           <Kind>padding</Kind>
-          <Meta>tight → roomy, with the gap scaled to match</Meta>
+          <Meta>none, then tight → roomy with the gap scaled to match</Meta>
         </Row>
         <div className={styles.pad()}>
           {PADDING.map((padding) => (
