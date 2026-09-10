@@ -17,6 +17,7 @@ import {
   tv,
 } from "polkadot-ui";
 
+import { COMMIT_WEEKS } from "../fixtures.ts";
 import { Props } from "../props.tsx";
 import { WRITING } from "../fixtures.ts";
 
@@ -30,6 +31,9 @@ const disclosure = tv({
     tabs: "max-w-[340px]",
   },
 });
+
+/* Read from the series the tab describes, so the figure cannot drift away from it. */
+const COMMIT_TOTAL = COMMIT_WEEKS.reduce((sum, week) => sum + week, 0);
 
 export const Route = createFileRoute("/disclosure")({
   component: Disclosure,
@@ -133,7 +137,7 @@ function Disclosure() {
             <Tabs.Tab value="readme">readme</Tabs.Tab>
           </Tabs.List>
           <Tabs.Panel value="commits">
-            <Meta>1,243 across 64 weeks</Meta>
+            <Meta>{`${COMMIT_TOTAL} across ${COMMIT_WEEKS.length} weeks`}</Meta>
           </Tabs.Panel>
           <Tabs.Panel value="issues">
             <Meta>12 open · 4 labelled snap</Meta>
@@ -154,7 +158,7 @@ function Disclosure() {
             <Tabs.Tab value="readme">readme</Tabs.Tab>
           </Tabs.List>
           <Tabs.Panel value="commits">
-            <Meta>1,243 across 64 weeks</Meta>
+            <Meta>{`${COMMIT_TOTAL} across ${COMMIT_WEEKS.length} weeks`}</Meta>
           </Tabs.Panel>
           <Tabs.Panel value="issues">
             <Meta>12 open · 4 labelled snap</Meta>

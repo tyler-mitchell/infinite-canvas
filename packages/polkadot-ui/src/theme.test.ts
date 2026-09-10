@@ -405,10 +405,11 @@ const fixtureLength = (source: string, name: string) => {
  * cannot see the trace is told. Nothing tied those counts to the series they describe.
  */
 test("a series that states its length says the length it has", () => {
-  const page = readFileSync(new URL("routes/readouts.tsx", appDir), "utf8");
+  /* Every page, not just the one that draws the most: the overview states a count as well. */
+  const pages = appFiles.map((file) => readFileSync(new URL(file, appDir), "utf8")).join("\n");
   const fixtures = readFileSync(new URL("fixtures.ts", appDir), "utf8");
 
-  const counted = [...page.matchAll(/<Sparkline\b([\s\S]*?)\/>/g)]
+  const counted = [...pages.matchAll(/<Sparkline\b([\s\S]*?)\/>/g)]
     .map(([, attributes]) => ({
       series: /values=\{(\w+)\}/.exec(attributes!)?.[1],
       label: /label="([^"]*)"/.exec(attributes!)?.[1],
@@ -429,7 +430,7 @@ test("a series that states its length says the length it has", () => {
     .map(({ series, stated, real }) => `${series} says ${stated}, the fixture holds ${real}`);
 
   expect(fixtureLength(fixtures, "INSTALLS")).toBe(8);
-  expect(counted.length).toBe(3);
+  expect(counted.length).toBeGreaterThan(3);
   expect(wrong).toEqual([]);
 });
 
