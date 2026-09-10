@@ -191,6 +191,10 @@ function Widgets() {
               note: "each a name, a share and a colour; shares need not sum to one",
             },
             { name: "showLegend", fallback: "true", note: "the dotted key under the bar" },
+            {
+              name: "label",
+              note: "names the split for a reader who cannot see it; the bar reads its own parts otherwise",
+            },
           ]}
         />
         <Api name="terminal command" of={terminalVariants} />

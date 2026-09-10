@@ -31,23 +31,43 @@ export function breakdownShares(parts: readonly BreakdownPart[]): readonly numbe
   return total > 0 ? usable.map((share) => share / total) : usable.map(() => 0);
 }
 
+/**
+ * What the bar is called when the consumer gives no `label`. A part that rounds away is still
+ * named, because a reader who cannot see the bar has no other way to learn it was there.
+ */
+export function breakdownLabel(parts: readonly BreakdownPart[]) {
+  if (parts.length === 0) return "nothing to show";
+
+  const shares = breakdownShares(parts);
+
+  return parts
+    .map((part, index) => `${part.name} ${Math.round((shares[index] ?? 0) * 100)}%`)
+    .join(", ");
+}
+
 export type BreakdownProps = Omit<React.ComponentProps<"div">, "children"> & {
   readonly parts: readonly BreakdownPart[];
   /** Hides the legend, for a bar under a heading that already names the parts. */
   readonly showLegend?: boolean;
+  /** Names the split for a reader who cannot see it. */
+  readonly label?: string;
 };
 
 /**
  * Shares need not sum to one — each part is drawn as its fraction of whatever they do sum to. A
  * share that is negative or not a number counts as nothing rather than dragging the bar with it.
+ *
+ * The bar carries the whole split as its label, so hiding the legend costs nothing to a reader who
+ * cannot see it. The legend is hidden from assistive software for the same reason: it restates the
+ * label, and one rendering read twice is worse than one read once.
  */
-function Breakdown({ parts, showLegend = true, className, ...props }: BreakdownProps) {
+function Breakdown({ parts, showLegend = true, label, className, ...props }: BreakdownProps) {
   const styles = breakdown();
   const shares = breakdownShares(parts);
 
   return (
     <div data-slot="breakdown" className={styles.root({ className })} {...props}>
-      <div className={styles.bar()}>
+      <div role="img" aria-label={label ?? breakdownLabel(parts)} className={styles.bar()}>
         {parts.map((part, index) => (
           <span
             key={part.name}
@@ -57,7 +77,7 @@ function Breakdown({ parts, showLegend = true, className, ...props }: BreakdownP
         ))}
       </div>
       {showLegend ? (
-        <div className={styles.legend()}>
+        <div aria-hidden className={styles.legend()}>
           {parts.map((part, index) => (
             <span key={part.name} className={styles.item()}>
               <span style={{ background: part.color }} className={styles.swatch()} />
