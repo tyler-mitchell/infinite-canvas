@@ -267,6 +267,10 @@ function Layout() {
             <Toolbar.Group>
               <Toolbar.Button render={<Button tone="ghost" size="sm" />}>fit</Toolbar.Button>
               <Toolbar.Button render={<Button tone="ghost" size="sm" />}>group</Toolbar.Button>
+              {/* Disabled, and still reached by the arrows, which is what focusableWhenDisabled means. */}
+              <Toolbar.Button disabled render={<Button tone="ghost" size="sm" />}>
+                merge
+              </Toolbar.Button>
             </Toolbar.Group>
           </Toolbar>
 
