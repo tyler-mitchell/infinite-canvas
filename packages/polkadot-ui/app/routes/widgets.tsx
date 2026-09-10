@@ -101,18 +101,22 @@ function Widgets() {
           <Meta>the small parts a card is assembled from</Meta>
         </Row>
         <div className={styles.marks()}>
+          <Avatar size="sm" name="Tyler Mitchell" />
           <Avatar name="Tyler Mitchell" />
           <Avatar size="lg" name="Tyler Mitchell" />
           <StatusDot>open to one project</StatusDot>
           <StatusDot tone="idle">idle</StatusDot>
           <StatusDot tone="off">off</StatusDot>
           <Badge tone="outline">wasm</Badge>
+          <Badge tone="accent">new</Badge>
+          <Badge tone="quiet">draft</Badge>
           <Badge look="label" tone="outline">
             public
           </Badge>
           <Keycap>⌘</Keycap>
           <Keycap>K</Keycap>
           <Stat value="1,243" label="stars" />
+          <Stat layout="stacked" value="68" label="forks" />
           <Readout render={<NumberTicker value={installs} locale />} />
           <Button tone="ghost" size="sm" onClick={() => setInstalls((n) => n + 819)}>
             roll
