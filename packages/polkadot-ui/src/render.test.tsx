@@ -759,6 +759,24 @@ const CALENDAR = new Set([
   ..."sun mon tue wed thu fri sat".split(" "),
 ]);
 
+/**
+ * A feed draws a mark before its title and a mark before every entry, both through the same slot.
+ * The entry's was hidden and the title's was not, so the one glyph a page passes — a filled block —
+ * was announced ahead of the heading as the name of a shape.
+ */
+test("both marks a feed draws are decoration, not just the one", () => {
+  const markup = renderToStaticMarkup(
+    <kit.ActivityFeed
+      title="runs"
+      titleIcon={<span>block</span>}
+      entries={[{ id: "a", name: "snap", note: "resolved", icon: <span>dot</span> }]}
+    />,
+  );
+
+  expect([...markup.matchAll(/aria-hidden="true"/g)]).toHaveLength(2);
+  expect(markup).toMatch(/aria-hidden="true"[^>]*><span>block<\/span>/);
+});
+
 const unsaidIn = (name: string, markup: string) => {
   const names = [...markup.matchAll(/aria-label="([^"]*)"/g)].map(([, one]) => one!).join(" ");
 

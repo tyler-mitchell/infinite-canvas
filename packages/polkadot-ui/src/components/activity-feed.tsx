@@ -35,6 +35,7 @@ export interface ActivityEntry {
 export type ActivityFeedProps = Omit<React.ComponentProps<"div">, "children" | "title"> & {
   readonly entries: readonly ActivityEntry[];
   readonly title?: string;
+  /** A mark before the title. Decoration, like an entry's own: the title carries the words. */
   readonly titleIcon?: React.ReactNode;
 };
 
@@ -50,7 +51,11 @@ function ActivityFeed({
   return (
     <div data-slot="activity-feed" className={styles.root({ className })} {...props}>
       <div className={styles.head()}>
-        {titleIcon ? <span className={styles.lead()}>{titleIcon}</span> : null}
+        {titleIcon ? (
+          <span aria-hidden className={styles.lead()}>
+            {titleIcon}
+          </span>
+        ) : null}
         <span className={styles.title()}>{title}</span>
       </div>
       <ul className={styles.list()}>
