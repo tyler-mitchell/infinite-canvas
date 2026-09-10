@@ -14,6 +14,7 @@ const text = tv({
       display: "font-pk-sans text-pk-display text-pk-ink-bright",
       prose: "font-pk-sans text-pk-body text-pk-ink-soft text-pretty",
       readout: "font-pk-mono text-pk-mono whitespace-nowrap text-pk-ink-muted tabular-nums",
+      code: "font-pk-mono text-pk-mono text-pk-ink-muted tabular-nums",
     },
   },
   defaultVariants: { as: "meta" },
@@ -64,8 +65,12 @@ const Prose = role("prose", "p");
  * `Readout` is a live region, which is right for a figure that changes in place and wrong for a
  * word in a paragraph. One page marked seven terms with it and gave a reader seven regions that
  * announce "Field" and never change.
+ *
+ * It has its own role rather than borrowing the readout's, because the readout stays on one line —
+ * a figure broken in two reads as two figures — and a term sitting in a sentence must not. Sharing
+ * the one role gave a long name nowhere to break and pushed the page 206px wider than the screen.
  */
-const Code = role("readout", "code", "code");
+const Code = role("code", "code");
 
 export type ReadoutProps = useRender.ComponentProps<"span">;
 

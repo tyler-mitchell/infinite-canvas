@@ -301,9 +301,10 @@ function Foundations() {
               <Meta>announces, so a value that changes in place still reaches a reader</Meta>
             </div>
             <div className={styles.scaleRow()}>
-              <Code>Code · the same mono</Code>
+              <Code>Code · 11px mono</Code>
               <Meta>
-                a name from the code in a sentence, which never changes and never announces
+                a name from the code in a sentence, which never changes, never announces, and wraps
+                where the readout beside it must not
               </Meta>
             </div>
             <div className={styles.scaleRow()}>

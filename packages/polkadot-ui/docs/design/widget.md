@@ -102,6 +102,7 @@ const text = tv({
       display: "font-pk-sans text-pk-display text-pk-ink-bright",
       prose: "font-pk-sans text-pk-body text-pk-ink-soft text-pretty",
       readout: "font-pk-mono text-pk-mono whitespace-nowrap text-pk-ink-muted tabular-nums",
+      code: "font-pk-mono text-pk-mono text-pk-ink-muted tabular-nums",
     },
   },
   defaultVariants: { as: "meta" },

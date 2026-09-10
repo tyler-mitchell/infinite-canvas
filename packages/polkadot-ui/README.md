@@ -207,7 +207,12 @@ written down rather than left to be found in the sheet.
 ## Type scale
 
 Text roles are named for their job, not their size: `display`, `title`, `label`, `kind`, `prose`,
-`meta`, `readout`. `Readout` is the only role that is more than a class — it carries a live region,
+`meta`, `readout`, `code`. `Code` and `Readout` draw the same mono and differ in one thing: a
+readout stays on one line, because a figure broken in two reads as two figures, and a term sitting
+in a sentence must be free to wrap. They shared a role until a long name pushed a page 206px wider
+than the screen.
+
+`Readout` is the only role that is more than a class — it carries a live region,
 so a value that changes in place is reachable by someone who cannot see it change.
 
 ```tsx
