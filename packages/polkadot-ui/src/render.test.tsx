@@ -178,6 +178,26 @@ test("the grid names itself and says which keys walk it", () => {
 });
 
 /**
+ * `initials` says it defaults to the first letter of each of the first two words in `name`. Words
+ * are what it says, so the spacing between them should not decide the answer.
+ */
+test("the initials are the first letters of the first two words, however they are spaced", () => {
+  const mark = (name: string) => {
+    const html = renderToStaticMarkup(<kit.Avatar name={name} />);
+
+    return /<span[^>]*>([A-Za-z]*)<\/span>/.exec(
+      html.replace(/<span aria-hidden[^>]*><\/span>/, ""),
+    )?.[1];
+  };
+
+  expect(mark("Ada Lovelace")).toBe("AL");
+  expect(mark("Ada")).toBe("A");
+  expect(mark("Ada  Lovelace")).toBe("AL");
+  expect(mark(" Ada Lovelace")).toBe("AL");
+  expect(mark("Ada\tLovelace")).toBe("AL");
+});
+
+/**
  * `label` says "Omit for a bare track", and `showValue` defaults to true, so omitting the label
  * alone leaves a header carrying the value. Both halves have to go for the track to be bare.
  */

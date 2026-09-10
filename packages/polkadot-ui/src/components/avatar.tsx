@@ -38,7 +38,8 @@ function Avatar({ src, name, initials, size, className, ...props }: AvatarProps)
   const mark =
     initials ??
     name
-      .split(" ")
+      .split(/\s+/)
+      .filter(Boolean)
       .slice(0, 2)
       .map((word) => word.slice(0, 1))
       .join("");
