@@ -123,6 +123,37 @@ controls. A `disabled:` variant silently never matches on a `Switch`, which rend
 data-disabled:pointer-events-none data-disabled:opacity-40
 ```
 
+## A readout says what it shows
+
+Anything that carries meaning in pixels alone takes `role="img"` and names itself from its own
+data, with a `label` prop to override. A caller who hides the legend, or passes no caption, still
+leaves a reader something to hear.
+
+```tsx
+<Sparkline values={[1, 2, 3]} />   {/* "3 readings, latest 3" */}
+<Breakdown parts={LANGUAGES} />    {/* "TypeScript 84%, WGSL 9%, CSS 7%" */}
+```
+
+Where a visible legend restates that label, hide it with `aria-hidden` rather than letting the same
+content be read twice.
+
+A control is named by `Field`, which is the only thing that ties the words to the control. A
+`Switch` beside a bare `Label` announces its state and never its name.
+
+```tsx
+<Field>
+  <Switch checked={sound} onCheckedChange={setSound} />
+  <Field.Label>sound</Field.Label>
+</Field>
+```
+
+## A focus ring offsets against its seat
+
+`--pk-ring-seat` is the colour behind a control. The root sets it to the ground and every `Surface`
+tone restates the one it paints, so a control never names its own backdrop — write
+`focus-visible:ring-offset-(color:--pk-ring-seat)` and let the cascade answer. Anything new that
+paints a background should restate it too.
+
 ## Type scale
 
 Text roles are named for their job, not their size: `display`, `title`, `label`, `kind`, `prose`,
@@ -141,11 +172,15 @@ so a value that changes in place is reachable by someone who cannot see it chang
 `theme.css` cuts transform and height transitions under `prefers-reduced-motion: reduce` and keeps
 colour ones, so a rolling digit and an opening panel snap while a hover still fades.
 
+Animations that run on a scroll timeline are switched off by name, because clamping
+`animation-duration` does not govern one: progress comes from the scroll position, not from time.
+The feed's entry animation and the rim sweep are both handled that way.
+
 ## Components
 
 **Frame** surface, row, separator, scroll area, toolbar, icon tile
 **Text** display, title, label, kind, prose, meta, readout
-**Controls** button, toggle group, switch, slider
+**Controls** button, toggle group, switch, slider, field
 **Disclosure** accordion, collapsible, tabs
 **Overlays** dialog, menu, popover, tooltip
 **Readouts** sparkline, bars, activity grid, breakdown, number ticker, stat, metric tile
