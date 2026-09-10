@@ -26,6 +26,7 @@ const NAMESPACE: Record<string, readonly string[]> = {
   fill: ["color"],
   font: ["font"],
   from: ["color"],
+  "inset-ring": ["color"],
   outline: ["color"],
   ring: ["color"],
   rounded: ["radius"],
@@ -49,12 +50,21 @@ interface Reference {
  * green: a utility naming a token the sheet never declared compiles to nothing, so the element
  * simply loses its background. Nine other rules here already read the pages; this one did not.
  */
+/**
+ * A side reads the same namespace as the utility it is a side of: `rounded-b-pk-tray` is the tray
+ * radius on one edge. Stripping it keeps one entry per family in the map above rather than one per
+ * corner, and a family the map has never heard of is reported by the rule below instead.
+ */
+const SIDE = /-(?:t|r|b|l|tl|tr|br|bl|x|y|s|e|ss|se|ee|es)$/;
+
+const namespacesFor = (prefix: string) => NAMESPACE[prefix] ?? NAMESPACE[prefix.replace(SIDE, "")];
+
 const referencesIn = (
   sources: readonly { readonly file: string; readonly source: string }[],
 ): readonly Reference[] =>
   sources.flatMap(({ file, source }) =>
     [...source.matchAll(/\b([a-z-]+)-pk-([a-z\d-]+)/g)].flatMap(([, prefix, rest]) => {
-      const namespaces = NAMESPACE[prefix!];
+      const namespaces = namespacesFor(prefix!);
       if (!namespaces) return [];
 
       const name = rest!.replace(/\/.*$/, "");
@@ -110,6 +120,39 @@ test("every token a component draws with is one the theme declares", () => {
     .map((reference) => `${reference.written} in ${reference.file}`);
 
   expect([...new Set(missing)]).toEqual([]);
+});
+
+/**
+ * The rule above reads the map, and a prefix the map has never heard of it skips — so the utility
+ * that prefix writes is checked by nothing at all. Two were in that position: `inset-ring-pk-*` on
+ * the scroll area and `rounded-b-pk-*` on two page trays. Both name real tokens today; a typo
+ * under either would have compiled to no rule and lost the ring or the corner in silence.
+ *
+ * So an unknown prefix is now the failure rather than the exemption. The map grows when the kit
+ * reaches for a family it has not used before, which is exactly when someone should look.
+ */
+const unmapped = (sources: readonly { readonly file: string; readonly source: string }[]) => [
+  ...new Set(
+    sources.flatMap(({ source }) =>
+      [...source.matchAll(/\b([a-z-]+)-pk-[a-z\d-]+/g)]
+        .map(([, prefix]) => prefix!)
+        .filter((prefix) => namespacesFor(prefix) === undefined),
+    ),
+  ),
+];
+
+test("a prefix the map has never heard of is reported", () => {
+  expect(unmapped([{ file: "p.tsx", source: '"bg-pk-surface rounded-b-pk-tray"' }])).toEqual([]);
+  expect(unmapped([{ file: "p.tsx", source: '"outline-offset-pk-tray"' }])).toEqual([
+    "outline-offset",
+  ]);
+});
+
+test("every prefix the kit writes is one the map reads", () => {
+  /* The two that were invisible, pinned: one added to the map, one reached through its side. */
+  expect(namespacesFor("inset-ring")).toEqual(["color"]);
+  expect(namespacesFor("rounded-b")).toEqual(["radius"]);
+  expect(unmapped(styledSources)).toEqual([]);
 });
 
 /**
