@@ -405,6 +405,60 @@ test("no sentence marks a term with a live region", () => {
 });
 
 /**
+ * An `Api` table reads a component's own variants, so it cannot fall behind — except for `except`,
+ * which is a list of names written by hand. A name that matches nothing is silent in both
+ * directions: the table draws every row it would have drawn, and the row it was meant to drop
+ * stays, describing a state Base UI sets as though a consumer could pass it.
+ *
+ * Two pages leave one out each, `checked` on the radio and `pressed` on the toggle group. Both are
+ * real today; renaming either variant would leave the exception pointing at nothing.
+ *
+ * This overlaps "no variant table offers a prop that comes from state" further down, and does not
+ * replace it. That one reads the consequence — a state variant back in the table — and fires only
+ * when the unfiltered key is one it knows to be state. This one reads the cause and fires for any
+ * name, so a typed exception for a variant that was simply renamed is reported as the typo it is.
+ */
+const strayExceptions = (sources: readonly { readonly file: string; readonly source: string }[]) =>
+  sources
+    .flatMap(({ file, source }) =>
+      openingTags(source, "Api").flatMap((tag) => {
+        const of = /of=\{(\w+)\}/.exec(tag)?.[1];
+        const left = /except=\{\[([^\]]*)\]\}/.exec(tag)?.[1];
+        if (of === undefined || left === undefined) return [];
+
+        const config = (kit as Record<string, unknown>)[of] as
+          | { readonly variants?: Record<string, unknown> }
+          | undefined;
+        const declared = Object.keys(config?.variants ?? {});
+
+        return [...left.matchAll(/"([^"]+)"/g)]
+          .map(([, name]) => name!)
+          .filter((name) => !declared.includes(name))
+          .map((name) => `${file}: ${of} has no ${name} to leave out`);
+      }),
+    )
+    .sort();
+
+test("an exception naming a variant that does not exist is reported", () => {
+  const real = [{ file: "p.tsx", source: '<Api of={buttonVariants} except={["tone"]} />' }];
+  const stray = [{ file: "p.tsx", source: '<Api of={buttonVariants} except={["pressed"]} />' }];
+  const none = [{ file: "p.tsx", source: "<Api of={buttonVariants} />" }];
+
+  expect(strayExceptions(real)).toEqual([]);
+  expect(strayExceptions(stray)).toEqual(["p.tsx: buttonVariants has no pressed to leave out"]);
+  expect(strayExceptions(none)).toEqual([]);
+});
+
+test("every variant a page leaves out of a table is one the component declares", () => {
+  const leaving = pages.flatMap(({ source }) =>
+    openingTags(source, "Api").filter((tag) => tag.includes("except=")),
+  );
+
+  expect(leaving.length).toBeGreaterThan(1);
+  expect(strayExceptions(pages)).toEqual([]);
+});
+
+/**
  * The readme counts the kit twice — how many component modules there are, and how many of them
  * draw with `slots` rather than a `base`. Both were a component behind, and it also sent a reader
  * to a route that had been renamed. Numbers written in prose go stale the moment a file is added,
