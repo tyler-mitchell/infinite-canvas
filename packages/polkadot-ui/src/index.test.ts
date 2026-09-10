@@ -137,6 +137,40 @@ test("every route file is registered in the generated tree", () => {
   expect(unregisteredIn(tree, pageFiles)).toEqual([]);
 });
 
+/**
+ * Being routed to is not the same as being reachable. The rule above says the router knows a page;
+ * this says the rail offers it, and a page the rail leaves out is one nothing on the site links to.
+ *
+ * The other direction is the router's own: `to` is typed against the generated tree, so a rail
+ * entry pointing nowhere fails typechecking rather than needing a rule here.
+ */
+const shell = read("../app/routes/__root.tsx");
+
+const railLinks = [...shell.matchAll(/\{ to: "([^"]*)", label: "([^"]*)" \}/g)].map(
+  ([, to, label]) => ({ to: to!, label: label! }),
+);
+
+test("the rail offers every page, and offers each of them once", () => {
+  const routes = pageFiles.map((name) => `/${name.replace(/(index)?\.tsx$/, "")}`);
+  const offered = railLinks.map(({ to }) => to);
+
+  /* A floor on the reader, not on the rail: a pattern that matched nothing would agree with an
+   * empty routes list and report a rail that offers everything. The comparison below is the rule,
+   * and it names the page that is missing rather than a count that is one short. */
+  expect(railLinks.length).toBeGreaterThan(3);
+  expect([...offered].sort()).toEqual([...routes].sort());
+  expect(new Set(offered).size).toBe(offered.length);
+});
+
+/**
+ * `/` is a prefix of every other route, so without exact matching the rail would mark overview as
+ * the current page everywhere and a reader would be told they are in two places at once. Driven:
+ * on four routes exactly one link carries `aria-current="page"`, and it is that route's own.
+ */
+test("the rail matches a route exactly, so only one link is ever current", () => {
+  expect(shell).toContain("activeOptions={{ exact: true }}");
+});
+
 test("every component the entry exports is rendered on a page", () => {
   const undemonstrated = [...components].filter((name) => !isRendered(name));
 
