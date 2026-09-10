@@ -4,7 +4,8 @@ Derived from counting the design POC rather than from taste. Two earlier attempt
 component were deleted; this recorded the design before a third was written. It has since been
 built, and the scope rule at the end was overruled on purpose.
 
-Source: `docs/handoff/LayoutEnginePOC.dc.html` (45 draggable widgets). Counted 2026-09-09.
+Source: `docs/handoff/LayoutEnginePOC.dc.html` at the repository root, not in this package
+(45 draggable widgets). Counted 2026-09-09.
 
 Status: built. Every part proposed here exists and is demonstrated in `app/`.
 
@@ -96,6 +97,9 @@ const text = tv({
       label: "font-pk-sans text-pk-label text-pk-ink-dim",
       kind: "font-pk-sans text-pk-micro text-pk-ink-dim uppercase",
       meta: "font-pk-sans text-pk-meta text-pk-ink-faint",
+      title: "font-pk-sans text-pk-title text-pk-ink-bright",
+      display: "font-pk-sans text-pk-display text-pk-ink-bright",
+      prose: "font-pk-sans text-pk-body text-pk-ink-soft text-pretty",
       readout: "font-pk-mono text-pk-mono whitespace-nowrap text-pk-ink-muted tabular-nums",
     },
   },

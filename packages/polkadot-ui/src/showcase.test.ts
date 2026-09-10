@@ -391,14 +391,16 @@ const asOneLine = (block: string) =>
     .replace(/,(?=\})/g, "")
     .trim();
 
-/** Each quoted block, against the component the comment above it names. */
-const quotedBlocks = (readme: string) =>
-  [...readme.matchAll(/\/\/ ([a-z-]+\.tsx)[^\n]*\n(const \w+ = tv\(\{[\s\S]*?\n\}\);)/g)].map(
-    ([, file, block]) => ({ file: file!, block: block! }),
-  );
+/** Each quoted block, against the component the comment above it names, path and all. */
+const quotedBlocks = (document: string) =>
+  [
+    ...document.matchAll(
+      /\/\/ (?:[\w./-]*\/)?([a-z-]+\.tsx)[^\n]*\n(const \w+ = tv\(\{[\s\S]*?\n\}\);)/g,
+    ),
+  ].map(([, file, block]) => ({ file: file!, block: block! }));
 
-const misquoted = (readme: string, read: (file: string) => string) =>
-  quotedBlocks(readme).flatMap(({ file, block }) => {
+const misquoted = (document: string, read: (file: string) => string) =>
+  quotedBlocks(document).flatMap(({ file, block }) => {
     const source = read(file);
     const [written] = /const \w+ = tv\(\{[\s\S]*?\}\);/.exec(source) ?? [];
 
@@ -680,13 +682,16 @@ test("every value a variant table prints is one the pages draw", () => {
  * and the size out of the sheet. A second copy of it lived here for part of a morning.
  */
 
-test("every component the readme quotes is quoted as it is", () => {
+test("every component a document quotes is quoted as it is", () => {
   const readme = readFileSync(new URL("../README.md", import.meta.url), "utf8");
+  const design = readFileSync(new URL("../docs/design/widget.md", import.meta.url), "utf8");
+  const read = (file: string) => readFileSync(new URL(file, componentDir), "utf8");
 
   expect(quotedBlocks(readme).map(({ file }) => file)).toEqual(["badge.tsx", "terminal.tsx"]);
-  expect(misquoted(readme, (file) => readFileSync(new URL(file, componentDir), "utf8"))).toEqual(
-    [],
-  );
+  /* The design note writes the path out, and quoted three of the seven roles for a while. */
+  expect(quotedBlocks(design).map(({ file }) => file)).toEqual(["text.tsx"]);
+  expect(misquoted(readme, read)).toEqual([]);
+  expect(misquoted(design, read)).toEqual([]);
 });
 
 /**
