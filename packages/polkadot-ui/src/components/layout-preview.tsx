@@ -37,12 +37,16 @@ const percent = (value: number) => `${Number.isFinite(value) ? value : 0}%`;
 
 function LayoutPreview({ panes, label, className, ...props }: LayoutPreviewProps) {
   const styles = layoutPreview();
+  /* An active pane is drawn in its own fill and line, and the frame is one image: a pane carries
+   * no words of its own, so the count is the only place the state can be said. */
+  const active = panes.filter((pane) => pane.active).length;
+  const counted = active > 0 ? `${panes.length} panes, ${active} active` : `${panes.length} panes`;
 
   return (
     <div
       data-slot="layout-preview"
       role="img"
-      aria-label={label?.trim() || `${panes.length} panes`}
+      aria-label={label?.trim() || counted}
       className={styles.root({ className })}
       {...props}
     >

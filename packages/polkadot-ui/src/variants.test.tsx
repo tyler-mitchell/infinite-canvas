@@ -52,6 +52,33 @@ const REQUIRED: Record<string, Record<string, unknown>> = {
   Toolbar: { children: createElement(kit.ToolbarButton, null, "cut") },
 };
 
+/**
+ * A variant whose two values are `true` and `false` names a state rather than a taste, and a state
+ * a component draws only in colour reaches nobody who cannot see the colour. The terminal's running
+ * command was exactly this: an accent on two slots, no word, no attribute.
+ */
+const COLOUR = /^(?:text|bg|border|ring|outline|fill|stroke|shadow|decoration|from|via|to)-/;
+
+const paints = (one: string) => COLOUR.test(one.replace(/^[\w-]+:/, ""));
+
+/** Classes that differ across the values of one variant, over every slot it dresses. */
+const changedBy = (config: VariantObject, key: string) => {
+  const drawn = Object.keys(config.variants?.[key] ?? {}).map((option) => {
+    const values = config.variants![key]![option];
+
+    return typeof values === "string" ? { "": values } : (values as Record<string, string>);
+  });
+  const slots = new Set(drawn.flatMap((one) => Object.keys(one)));
+
+  return [...slots].flatMap((slot) => {
+    const sets = drawn.map((one) => new Set((one[slot] ?? "").split(/\s+/).filter(Boolean)));
+
+    return [...new Set(sets.flatMap((one) => [...one]))].filter(
+      (one) => !sets.every((set) => set.has(one)),
+    );
+  });
+};
+
 /** `surfaceVariants` describes `Surface`, so the pair is derived rather than listed by hand. */
 const ownerOf = (name: string) => {
   const component = name.slice(0, -"Variants".length);
@@ -715,4 +742,55 @@ test("a card that cannot grow lets its body scroll rather than cut it", () => {
   /* The sideways drag is the card's, so the body claims only the axis the card does not use. */
   expect(body).toContain("touch-pan-y");
   expect(kit.swipeDeckVariants().card()).toContain("touch-none");
+});
+
+/**
+ * A variant whose values are `true` and `false` is a state the component is in, not a taste its
+ * consumer picked, and one drawn only in colour reaches nobody who cannot see the colour.
+ *
+ * The table is all this can read, so it finds candidates and not faults: a component may say the
+ * state in its markup instead, which is where three of these four say it. Each is named with the
+ * line that proves it, so the list means what it says rather than excusing what is on it. A fifth
+ * state drawn in colour joins them and has to bring its own proof.
+ *
+ * Compound variants are out of reach: the toggle keeps its pressed styling in one, where the plain
+ * table holds two empty strings.
+ */
+const SAID_IN_THE_MARKUP = [
+  "checkboxVariants.checked",
+  "layoutPreviewVariants.active",
+  "radioVariants.checked",
+  "terminalVariants.running",
+];
+
+test("a state drawn only in colour is said in the markup, and says where", () => {
+  const booleans = variantNames.flatMap((name) => {
+    const config = (kit as Record<string, unknown>)[name] as VariantObject;
+
+    return Object.entries(config.variants ?? {})
+      .filter(([, options]) => ["false", "true"].every((one) => one in options))
+      .map(([key]) => ({ name, key, changed: changedBy(config, key) }));
+  });
+
+  /* Were the reader to find no boolean at all, the line below would pass by reaching nothing. */
+  expect(booleans.length).toBeGreaterThan(5);
+  expect(
+    booleans
+      .filter(({ changed }) => changed.length > 0 && changed.every(paints))
+      .map(({ name, key }) => `${name}.${key}`)
+      .sort(),
+  ).toEqual(SAID_IN_THE_MARKUP);
+
+  /* Base UI draws the tick and the dot only when checked, and marks the control either way. */
+  expect(sourceOf.get("Checkbox")).toContain("CheckboxPrimitive.Indicator");
+  expect(sourceOf.get("Radio")).toContain("RadioPrimitive.Indicator");
+  /* The command says the word beside the accent. */
+  expect(renderToStaticMarkup(<kit.TerminalCommand running>x</kit.TerminalCommand>)).toContain(
+    ">running<",
+  );
+  /* A pane carries no words, and the frame is one image, so its label does the counting. */
+  const active = [{ left: 0, top: 0, width: 50, height: 100, active: true }];
+
+  expect(renderToStaticMarkup(<kit.LayoutPreview panes={active} />)).toContain("1 panes, 1 active");
+  expect(renderToStaticMarkup(<kit.LayoutPreview panes={[]} />)).toContain('0 panes"');
 });
