@@ -1005,6 +1005,19 @@ test("the sheet stills what the readme says it stills", () => {
   expect(kept).toContain("color");
   expect(moving).toEqual([]);
   expect(scrolled.filter((selector) => !block.includes(selector))).toEqual([]);
+
+  /*
+   * Narrowing the list is half of it. Without the two clamps a colour still fades over its full
+   * length and a keyframe still runs its course, so the block would read as doing its job while a
+   * reader who asked for stillness waited out every one.
+   *
+   * Read in the built sheet as well as this one: the browser resolves them to
+   * `transition-duration: var(--pk-duration-detail)` and `animation-duration: 1ms`, both important,
+   * so what the source says here is what ships.
+   */
+  expect(block).toMatch(/transition-duration:\s*var\(--pk-duration-[a-z]+\)\s*!important/);
+  expect(block).toMatch(/animation-duration:\s*1ms\s*!important/);
+  expect(block).toMatch(/animation-iteration-count:\s*1\s*!important/);
 });
 
 /**
