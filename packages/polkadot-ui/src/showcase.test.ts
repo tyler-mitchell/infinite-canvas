@@ -2021,12 +2021,28 @@ test("every default a page states is the one the component falls back to", () =>
    * weighs. The bars' `max` is prose for a default the component works out from the data it is
    * given, which is what a `fallback` being a string is for.
    */
-  expect(
-    stated
-      .filter(({ weighed }) => !weighed)
-      .map(({ named }) => named)
-      .sort(),
-  ).toEqual(["BarsProps.max", "PopoverTriggerProps.size", "ToolbarButtonProps.size"]);
+  const unweighed = stated
+    .filter(({ weighed }) => !weighed)
+    .map(({ named }) => named)
+    .sort();
+
+  expect(unweighed).toEqual([
+    "BarsProps.max",
+    "PopoverTriggerProps.size",
+    "ToolbarButtonProps.size",
+  ]);
+
+  /*
+   * Two of those three are a `tv` variant the union rule weighs against `buttonVariants`, so one
+   * row is left that nothing weighs at all. The readme says which it is and why, so the claim and
+   * the remainder move together rather than the prose going quietly stale.
+   */
+  const owned = ["PopoverTriggerProps.size", "ToolbarButtonProps.size"];
+
+  expect(unweighed.filter((named) => !owned.includes(named))).toEqual(["BarsProps.max"]);
+  expect(readFileSync(new URL("../README.md", import.meta.url), "utf8")).toContain(
+    "the bars' `max` falls back to",
+  );
   expect(stated.length).toBeGreaterThan(55);
   expect(misstatedDefault(pages, settlesOn)).toEqual([]);
 });

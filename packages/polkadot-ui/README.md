@@ -240,4 +240,11 @@ Those pages carry two kinds of table. Variants are read off each component's liv
 they cannot fall behind it. Props that are not variants — a popover's `side`, a ticker's `stagger` —
 are written by hand, but each row's name is keyed to the component's props type, so a renamed or
 removed prop fails typechecking rather than quietly documenting something that no longer exists.
-Their values can still drift; their names cannot.
+
+Their values are checked as well, against whichever source settles them. A stated default is read
+from the component's own signature where it has one, and otherwise from the `@default` the
+primitive writes in its type — following what a part inherits, since the popover's positioner takes
+`side` and `align` from a shared interface and the accordion's panel takes two more through a
+`Pick`. A stated union is read from the type the prop really has, whether the prop names that union
+or writes it out. One row escapes all of it: the bars' `max` falls back to "the largest value",
+which is prose for a default the component works out from the data it is given.
