@@ -553,6 +553,44 @@ test("no page counts the days beside a grid that fits weeks to its width", () =>
 });
 
 /**
+ * A component that puts itself in the tab order has to say when it is reached. Three did not: the
+ * grid and the tab panel wrote `outline-none` and put nothing back, and the deck fell through to
+ * the browser's own ring, which is not this kit's mark. All three were silent to a keyboard until
+ * they were driven in a browser.
+ *
+ * Base UI sets `tabIndex` on some of the parts it owns, and that never appears here, so this reads
+ * only the focus a component takes for itself.
+ */
+const unmarkedFocus = (sources: readonly { readonly file: string; readonly source: string }[]) =>
+  sources
+    .filter(
+      ({ source }) => /tabIndex=\{(?!-1\})/.test(source) && !source.includes("focus-visible:"),
+    )
+    .map(({ file }) => `${file} takes the focus and marks it nowhere`);
+
+test("a component that takes the focus without marking it is reported", () => {
+  expect(unmarkedFocus([{ file: "grid.tsx", source: "tabIndex={0} outline-none" }])).toEqual([
+    "grid.tsx takes the focus and marks it nowhere",
+  ]);
+  /* A conditional tab stop is still a tab stop. */
+  expect(unmarkedFocus([{ file: "deck.tsx", source: "tabIndex={top ? 0 : -1}" }])).toEqual([
+    "deck.tsx takes the focus and marks it nowhere",
+  ]);
+  expect(
+    unmarkedFocus([{ file: "grid.tsx", source: "tabIndex={0} focus-visible:ring-2" }]),
+  ).toEqual([]);
+  /* Held out of the tab order on purpose, so there is nothing to mark. */
+  expect(unmarkedFocus([{ file: "card.tsx", source: "tabIndex={-1}" }])).toEqual([]);
+});
+
+test("every component that takes the focus marks it", () => {
+  const taking = componentSources.filter(({ source }) => /tabIndex=\{(?!-1\})/.test(source));
+
+  expect(taking.map(({ file }) => file).sort()).toEqual(["activity-grid.tsx", "swipe-deck.tsx"]);
+  expect(unmarkedFocus(styledSources)).toEqual([]);
+});
+
+/**
  * Base UI supplies the keyboard for the primitives it owns. Where this kit takes the focus itself
  * and reads keys itself, nothing else will say which keys those are: the visible hint sits beside
  * the component, so it is never announced. Both components that do this were silent until they

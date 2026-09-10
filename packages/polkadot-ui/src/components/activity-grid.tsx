@@ -10,7 +10,7 @@ const PLOT_INSET = WEEKDAY_COLUMN + LABEL_GAP;
 
 const activityGrid = tv({
   slots: {
-    root: "flex min-h-0 min-w-0 flex-1 flex-col gap-1 outline-none",
+    root: "flex min-h-0 min-w-0 flex-1 flex-col gap-1 rounded-pk-control-inner outline-none focus-visible:ring-2 focus-visible:ring-pk-accent/50 focus-visible:ring-offset-2 focus-visible:ring-offset-(color:--pk-ring-seat)",
     body: "grid min-h-0 flex-none",
     months: "relative col-start-2 row-start-1 h-3",
     month: "absolute top-0 font-pk-mono text-[9px] leading-3 whitespace-nowrap text-pk-ink-faint",

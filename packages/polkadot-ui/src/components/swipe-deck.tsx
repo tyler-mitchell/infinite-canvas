@@ -4,7 +4,7 @@ import { tv } from "../tv.ts";
 
 const swipeDeck = tv({
   slots: {
-    well: "relative min-h-0 flex-1",
+    well: "relative min-h-0 flex-1 rounded-pk-card outline-none focus-visible:ring-2 focus-visible:ring-pk-accent/50 focus-visible:ring-offset-2 focus-visible:ring-offset-(color:--pk-ring-seat)",
     card: "pk-swipe-face absolute inset-0 box-border flex touch-none flex-col justify-start gap-2.5 overflow-hidden rounded-pk-card border border-pk-swipe-line p-4 shadow-pk-swipe select-none",
     head: "flex flex-none items-center justify-between gap-2",
     kind: "font-pk-sans text-pk-micro whitespace-nowrap text-pk-ink-dim uppercase",
