@@ -77,7 +77,6 @@
   --pk-radius-control: 8px;
   --pk-radius-control-inner: 6px;
   --pk-radius-chip: 7px;
-  --pk-radius-aperture: 4px;
   --pk-radius-pill: 999px;
 
   --pk-lift-inset: inset 0 1px 0 rgb(255 255 255 / 0.04);
@@ -91,7 +90,6 @@
 
   --pk-ease-swift: cubic-bezier(0.32, 0.72, 0, 1);
   --pk-ease-settle: cubic-bezier(0.23, 1, 0.32, 1);
-  --pk-ease-feed: cubic-bezier(0.77, 0, 0.175, 1);
   --pk-duration-hover: 160ms;
   --pk-duration-detail: 110ms;
   --pk-duration-rim: 5.5s;
@@ -153,12 +151,6 @@
   to {
     opacity: 1;
     translate: none;
-  }
-}
-
-@keyframes pk-spin {
-  to {
-    transform: rotate(360deg);
   }
 }
 
@@ -452,21 +444,15 @@
   --radius-pk-control: var(--pk-radius-control);
   --radius-pk-control-inner: var(--pk-radius-control-inner);
   --radius-pk-chip: var(--pk-radius-chip);
-  --radius-pk-aperture: var(--pk-radius-aperture);
   --radius-pk-pill: var(--pk-radius-pill);
 
   --shadow-pk-card: var(--pk-lift-card);
-  --shadow-pk-rim: var(--pk-lift-rim);
   --shadow-pk-tray: var(--pk-lift-tray);
 
   --ease-pk-swift: var(--pk-ease-swift);
   --ease-pk-settle: var(--pk-ease-settle);
-  --ease-pk-feed: var(--pk-ease-feed);
 
-  --animate-pk-rim: pk-rim var(--pk-duration-rim) linear infinite;
-  --animate-pk-rim-tile: pk-rim-tile var(--pk-duration-rim) linear infinite;
   --animate-pk-ping: pk-ping 3s cubic-bezier(0, 0, 0.2, 1) infinite;
-  --animate-pk-spin: pk-spin 0.85s linear infinite;
   --animate-pk-caret: pk-caret 1s steps(1) infinite;
 
   --default-transition-timing-function: var(--pk-ease-swift);

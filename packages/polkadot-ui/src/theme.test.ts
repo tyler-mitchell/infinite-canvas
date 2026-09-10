@@ -65,10 +65,35 @@ const declared = new Set(
   [...themeCss.matchAll(/^\s+(--[a-z]+-pk-[a-z\d-]+):/gm)].map(([, token]) => token!),
 );
 
+const appDir = new URL("../app/", import.meta.url);
+const appFiles = [
+  ...readdirSync(appDir).filter((name) => name.endsWith(".tsx")),
+  ...readdirSync(new URL("routes/", appDir))
+    .filter((name) => name.endsWith(".tsx"))
+    .map((name) => `routes/${name}`),
+];
+
+const drawn = [
+  ...componentFiles.map((file) => readFileSync(new URL(file, componentDir), "utf8")),
+  ...appFiles.map((file) => readFileSync(new URL(file, appDir), "utf8")),
+].join("\n");
+
+/**
+ * Every utility any file writes. The pages count: `shadow-pk-tray` is drawn by a page and by no
+ * component, so a rule that read `src` alone would call a live token dead.
+ */
+const utilities = new Set(
+  [...drawn.matchAll(/\b([a-z-]+)-pk-([a-z\d-]+)/g)].map(
+    ([, prefix, name]) => `${prefix}-pk-${name!.replace(/\/.*$/, "")}`,
+  ),
+);
+
 test("the theme and the components are both read", () => {
   expect(componentFiles.length).toBeGreaterThan(30);
   expect(declared.size).toBeGreaterThan(50);
   expect(references.length).toBeGreaterThan(100);
+  expect(appFiles.length).toBeGreaterThan(10);
+  expect(utilities.size).toBeGreaterThan(50);
 });
 
 test("every token a component draws with is one the theme declares", () => {
@@ -77,6 +102,41 @@ test("every token a component draws with is one the theme declares", () => {
     .map((reference) => `${reference.written} in ${reference.file}`);
 
   expect([...new Set(missing)]).toEqual([]);
+});
+
+/**
+ * The namespaces that exist only to be written, and the prefix each is written with. Colour is
+ * left out on purpose — the palette is a public surface, so a colour only a `.pk-*` rule in the
+ * sheet draws is still one a consumer may reach for. Sizes are left out because a `--text-pk-*`
+ * carries `--line-height` and `--font-weight` modifiers that nothing writes on their own.
+ */
+const WRITTEN_AS: Record<string, string> = {
+  animate: "animate",
+  ease: "ease",
+  radius: "rounded",
+  shadow: "shadow",
+};
+
+/** Exports nothing draws with. The direction the rule above cannot see. */
+const unwritten = (tokens: readonly string[], written: ReadonlySet<string>) =>
+  tokens.flatMap((token) => {
+    const [, namespace, name] = /^--([a-z]+)-pk-([a-z\d-]+)$/.exec(token) ?? [];
+    const prefix = namespace === undefined ? undefined : WRITTEN_AS[namespace];
+
+    if (prefix === undefined || name === undefined) return [];
+
+    return written.has(`${prefix}-pk-${name}`) ? [] : [token];
+  });
+
+test("an export nothing draws with is named", () => {
+  expect(unwritten(["--ease-pk-swift"], new Set(["ease-pk-swift"]))).toEqual([]);
+  expect(unwritten(["--ease-pk-feed"], new Set(["ease-pk-swift"]))).toEqual(["--ease-pk-feed"]);
+  /* A colour is exempt, so one no utility draws is not an orphan. */
+  expect(unwritten(["--color-pk-recess"], new Set())).toEqual([]);
+});
+
+test("every mechanism the theme exports is drawn by some file", () => {
+  expect(unwritten([...declared], utilities)).toEqual([]);
 });
 
 test("a token the theme does not declare is reported against the file that wrote it", () => {
