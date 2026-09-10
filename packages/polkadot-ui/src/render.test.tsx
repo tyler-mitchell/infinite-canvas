@@ -173,5 +173,18 @@ test("the grid names itself and says which keys walk it", () => {
   const html = renderToStaticMarkup(<kit.ActivityGrid days={[]} label="contributions" />);
 
   expect(html).toContain('aria-label="contributions"');
-  expect(html).toContain("aria-keyshortcuts");
+  /* The keys themselves, not the attribute: naming an empty list would pass either way. */
+  expect(html).toContain('aria-keyshortcuts="ArrowLeft ArrowRight ArrowUp ArrowDown"');
+});
+
+test("the deck says which keys walk it, and only while a card is there", () => {
+  const card = { id: "a", kind: "gist", title: "one", body: "b", left: "l", right: "r" };
+  const holding = renderToStaticMarkup(<kit.SwipeDeck items={[card]} />);
+  const drained = renderToStaticMarkup(<kit.SwipeDeck items={[]} />);
+
+  expect(holding).toContain('aria-keyshortcuts="ArrowLeft ArrowRight"');
+  expect(holding).toContain('tabindex="0"');
+  /* Drained, it is not a tab stop and promises no keys, because neither would do anything. */
+  expect(drained).not.toContain("aria-keyshortcuts");
+  expect(drained).toContain('tabindex="-1"');
 });
