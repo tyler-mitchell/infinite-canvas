@@ -196,7 +196,7 @@ function Widgets() {
             <Breakdown
               parts={LANGUAGES}
               showLegend={false}
-              label={`language split: ${breakdownLabel(LANGUAGES)}`}
+              label={`language split, legend hidden: ${breakdownLabel(LANGUAGES)}`}
             />
           </Surface>
           <MetricTile label="queries served">2.1M in-browser</MetricTile>

@@ -2384,3 +2384,39 @@ test("a table says in words which value it takes when you write nothing", () => 
   expect(stated).toContain(">top</span>");
   expect(read).toContain(">sm</span>");
 });
+
+/**
+ * Two of a thing on one page need two names, which the kit says on the `label` of the grid, the
+ * deck and the sparkline. Nothing checked it, and the widgets page had two breakdowns of the same
+ * data under one name — a reader met "language split: TypeScript 84%, WGSL 9%, CSS 7%" twice with
+ * nothing to tell the cards apart, while the legend that distinguishes them is aria-hidden by
+ * design and so reaches nobody.
+ *
+ * Read as written rather than as rendered: two identical expressions on a page are two identical
+ * names, whatever they interpolate.
+ */
+const twiceNamed = (files: readonly { file: string; source: string }[]) =>
+  files
+    .flatMap(({ file, source }) => {
+      const said = [...source.matchAll(/\blabel=(\{`[^`]*`\}|"[^"]*")/g)].map(([, one]) => one!);
+      const counted = said.reduce<Record<string, number>>(
+        (all, one) => ({ ...all, [one]: (all[one] ?? 0) + 1 }),
+        {},
+      );
+
+      return Object.entries(counted)
+        .filter(([, times]) => times > 1)
+        .map(([one, times]) => `${file}: ${times} of ${one}`);
+    })
+    .sort();
+
+test("a page does not give two things the same name", () => {
+  const twice = [{ file: "a.tsx", source: '<Bars label="load" /><Bars label="load" />' }];
+  const once = [{ file: "b.tsx", source: '<Bars label="load" /><Bars label="idle" />' }];
+
+  expect(twiceNamed(twice)).toEqual(['a.tsx: 2 of "load"']);
+  expect(twiceNamed(once)).toEqual([]);
+  /* Read first: the pages do name things this way, so the sweep has something to be right about. */
+  expect(everything).toContain("label={`language split");
+  expect(twiceNamed(pages)).toEqual([]);
+});
