@@ -9,11 +9,11 @@ const button = tv({
     tone: {
       solid:
         "bg-pk-accent text-pk-on-accent hover:brightness-110 data-disabled:bg-pk-ink/[0.06] data-disabled:text-pk-ink-faint",
-      soft: "bg-pk-ink/[0.06] text-pk-ink-muted hover:bg-pk-ink/[0.1] hover:text-pk-ink-bright data-disabled:text-pk-ink-faint data-disabled:opacity-50",
+      soft: "bg-pk-ink/[0.06] text-pk-ink-muted hover:bg-pk-ink/[0.1] hover:text-pk-ink-bright data-disabled:text-pk-ink-faint",
       outline:
-        "border-pk-line text-pk-ink-muted hover:border-pk-line-strong hover:bg-pk-ink/[0.04] hover:text-pk-ink-bright data-disabled:text-pk-ink-faint data-disabled:opacity-50",
+        "border-pk-line text-pk-ink-muted hover:border-pk-line-strong hover:bg-pk-ink/[0.04] hover:text-pk-ink-bright data-disabled:text-pk-ink-faint",
       ghost:
-        "text-pk-ink-dim hover:bg-pk-ink/[0.06] hover:text-pk-ink-bright data-disabled:text-pk-ink-faint data-disabled:opacity-50",
+        "text-pk-ink-dim hover:bg-pk-ink/[0.06] hover:text-pk-ink-bright data-disabled:text-pk-ink-faint",
     },
     size: {
       sm: "h-6 px-2.5 text-pk-label [&_svg]:size-3",
