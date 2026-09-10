@@ -703,6 +703,68 @@ test("a timeline animation left running under reduced motion is reported", () =>
   ).toEqual([]);
 });
 
+/** Every size the scale declares, against the roles that declare it. */
+const scaleSizes = new Map<string, readonly string[]>();
+for (const [, token, px] of themeCss.matchAll(/^\s+(--text-pk-[a-z\d-]+):\s*([\d.]+)px;/gm)) {
+  scaleSizes.set(px!, [...(scaleSizes.get(px!) ?? []), token!.replace("--text-pk-", "")]);
+}
+
+/**
+ * A raw size that a role already declares. Five slots wrote a role's numbers out by hand and
+ * landed a hair off it, which is the drift this catches.
+ */
+const rewroteARole = (
+  sources: readonly { readonly file: string; readonly source: string }[],
+  sizes: ReadonlyMap<string, readonly string[]>,
+) =>
+  sources
+    .flatMap(({ file, source }) =>
+      [...source.matchAll(/text-\[([\d.]+)px\]/g)].map(([written, px]) => ({
+        file,
+        written,
+        px: px!,
+      })),
+    )
+    .filter(({ px }) => sizes.has(px))
+    .map(({ file, written }) => `${file} ${written}`)
+    .sort();
+
+/**
+ * The rest are roles the scale has no name for, so writing the size out is the only thing a slot
+ * can do. Mono stops at 12.5 while three slots want it at 11.5 and 13; sans has nothing at 10.5,
+ * nothing flat-lined at 12.5 or 9.5, and no name for a glyph sized to the box that holds it. The
+ * fix is to name those roles in the sheet, not to bend these onto a role that means something
+ * else — until then this says how wide the hole is, and stops a new one opening quietly.
+ */
+const SIZES_THE_SCALE_DOES_NOT_NAME = [
+  "activity-grid.tsx text-[9px]",
+  "activity-grid.tsx text-[9px]",
+  "avatar.tsx text-[21px]",
+  "breakdown.tsx text-[10.5px]",
+  "contact-card.tsx text-[15px]",
+  "icon-tile.tsx text-[12.5px]",
+  "metric-tile.tsx text-[13px]",
+  "metric-tile.tsx text-[9.5px]",
+  "pending-card.tsx text-[11.5px]",
+  "pending-card.tsx text-[13px]",
+  "stat.tsx text-[10.5px]",
+];
+
+test("a slot that writes a declared size out by hand is reported", () => {
+  const sizes = new Map([["15", ["title"]]]);
+
+  expect(rewroteARole([{ file: "deck.tsx", source: "text-[15px] leading-[1.25]" }], sizes)).toEqual(
+    ["deck.tsx text-[15px]"],
+  );
+  expect(rewroteARole([{ file: "deck.tsx", source: "text-pk-title" }], sizes)).toEqual([]);
+  expect(rewroteARole([{ file: "menu.tsx", source: "text-[12px]" }], sizes)).toEqual([]);
+});
+
+test("no slot rewrites a role the scale already names", () => {
+  expect(scaleSizes.get("15")).toEqual(["title"]);
+  expect(rewroteARole(componentSources, scaleSizes)).toEqual(SIZES_THE_SCALE_DOES_NOT_NAME);
+});
+
 test("every timeline animation the sheet declares is turned off under reduced motion", () => {
   expect(themeCss).toContain("animation-timeline:");
   expect(runningWhenStill(themeCss)).toEqual([]);
