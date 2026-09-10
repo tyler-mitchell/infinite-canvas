@@ -160,16 +160,26 @@ function ActivityGrid({
     setCursor(index === undefined ? undefined : Number(index));
   }, []);
 
+  /*
+   * A week that opens mid-week is padded with blanks, and they are real cells: the cursor could
+   * stop on one, where there is no day to name and no cell to mark, so the arrow read as broken.
+   * The walk stops at the first day instead of at the first cell.
+   */
+  const firstDay = Math.max(
+    0,
+    columns.findIndex((day) => day !== null),
+  );
+
   const onKeyDown = useCallback(
     (event: React.KeyboardEvent) => {
       const step = { ArrowLeft: -7, ArrowRight: 7, ArrowUp: -1, ArrowDown: 1 }[event.key];
       if (step === undefined) return;
       event.preventDefault();
       setCursor((current) =>
-        Math.max(0, Math.min(columns.length - 1, (current ?? columns.length - 1) + step)),
+        Math.max(firstDay, Math.min(columns.length - 1, (current ?? columns.length - 1) + step)),
       );
     },
-    [columns.length],
+    [columns.length, firstDay],
   );
 
   const focused = cursor === undefined ? undefined : (columns[cursor] ?? undefined);

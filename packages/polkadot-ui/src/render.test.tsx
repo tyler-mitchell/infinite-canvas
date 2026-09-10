@@ -464,6 +464,25 @@ test("no component writes a reading it cannot use into an attribute", () => {
 });
 
 /**
+ * A week that opens mid-week is padded with blank cells, and they sit in the same track as the
+ * days. They are what the arrow walk has to stop short of: a blank names no day and takes no mark,
+ * so a cursor resting on one reads as an arrow that did nothing.
+ *
+ * `DAYS` opens on a Tuesday, so two blanks lead the grid. Nothing else in the suite says the pad
+ * exists, and the walk's floor was the first cell rather than the first day for as long as both
+ * fixtures on the page happened to open on a Sunday.
+ */
+test("a grid that opens mid-week leads with blank cells", () => {
+  const markup = renderToStaticMarkup(createElement(kit.ActivityGrid, { days: DAYS, weeks: 4 }));
+  const cells = [...markup.matchAll(/<div (aria-hidden="true"|data-slot="activity-day")/g)].map(
+    ([, kind]) => (kind.startsWith("aria-hidden") ? "blank" : "day"),
+  );
+
+  expect(DAYS[0]!.date.getDay()).toBe(2);
+  expect(cells.slice(0, 4)).toEqual(["blank", "blank", "day", "day"]);
+});
+
+/**
  * A name made of nothing is worse than no name: the element is still exposed, and a reader is told
  * `order ` or given a tile called four spaces. The kit says so in words everywhere else — a series
  * of no readings is "no readings", an empty deck is "nothing left" — so the barcode says it too.
