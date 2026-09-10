@@ -698,12 +698,18 @@ test("every version a document pins for a dependency is the one installed", () =
  */
 test("the dependencies a note names are the dependencies the package declares", () => {
   const note = readFileSync(new URL("../docs/research/widget-runtime.md", import.meta.url), "utf8");
-  const [, listed] =
-    /its declared dependencies are ([^.]+)\./.exec(note.replace(/\s+/g, " ")) ?? [];
-  const named = (listed ?? "")
-    .split(/,|\band\b/)
-    .map((one) => one.trim().replaceAll("`", ""))
-    .filter(Boolean);
+  /* The note says this twice, in two wordings, and reading one of them is the fault it guards. */
+  const claims = [
+    ...note
+      .replace(/\s+/g, " ")
+      .matchAll(/its (?:declared )?dependencies are ([^.]+?)(?:, and |\.)/g),
+  ].map(([, listed]) =>
+    listed!
+      .split(/,|\band\b/)
+      .map((one) => one.trim().replaceAll("`", ""))
+      .filter(Boolean)
+      .sort(),
+  );
   const declared = Object.keys(
     (
       JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")) as {
@@ -717,8 +723,51 @@ test("the dependencies a note names are the dependencies the package declares", 
    * the comparison's to report rather than a floor's — a floor set at the count answers for both
    * and then reports the wrong one, which is what it did.
    */
-  expect(listed).toBeDefined();
-  expect([...named].sort()).toEqual([...declared].sort());
+  expect(claims.length).toBe(2);
+  expect(claims).toEqual([[...declared].sort(), [...declared].sort()]);
+});
+
+/**
+ * The note names three libraries in the words people use for them; the code names them as they are
+ * installed. That translation is the one thing here written by hand, and it is small and factual.
+ */
+const SPECIFIERS: Record<string, RegExp> = {
+  "three.js": /^three(\/|$)/,
+  R3F: /^@react-three\//,
+  TypeGPU: /^@?typegpu(\/|$)/,
+};
+
+/**
+ * The same sentence carries a second claim, and three of the note's questions are closed on it:
+ * they are handed to whatever owns the GPU world, on the grounds that this package has no canvas.
+ * An import would reopen all three and nothing would say so.
+ */
+test("nothing in the package imports the libraries a note says it does not", () => {
+  const note = readFileSync(new URL("../docs/research/widget-runtime.md", import.meta.url), "utf8");
+  /* Not `[^.]+`: one of the names has a dot in it, and that reading stopped inside three.js. */
+  const sentence = /nothing under `src\/` or `app\/` imports (.+?)\.(?:\s|$)/;
+  const [, named] = sentence.exec(note.replace(/\s+/g, " ")) ?? [];
+  const claimed = (named ?? "")
+    .split(/,|\bor\b/)
+    .map((one) => one.trim())
+    .filter(Boolean);
+  const sources = [new URL("./", import.meta.url), appDir].flatMap((dir) =>
+    (readdirSync(dir, { recursive: true }) as readonly string[])
+      .filter((name) => /\.tsx?$/.test(name))
+      .map((name) => readFileSync(new URL(name, dir), "utf8")),
+  );
+
+  /* Both read first: a sentence naming a fourth library needs a fourth line above, and a walk
+   * that finds no files imports nothing at all. */
+  expect(claimed).toEqual(Object.keys(SPECIFIERS));
+  expect(sources.length).toBeGreaterThan(60);
+  expect(
+    sources.flatMap((source) =>
+      [...source.matchAll(/from "([^"]+)"/g)]
+        .map(([, from]) => from!)
+        .filter((from) => claimed.some((one) => SPECIFIERS[one]?.test(from))),
+    ),
+  ).toEqual([]);
 });
 
 /**
