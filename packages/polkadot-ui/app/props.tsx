@@ -18,21 +18,43 @@ const props = tv({
   },
 });
 
-export interface PropRow<T> {
-  /** Checked against the component's own props type, so a renamed prop fails the build. */
-  readonly name: keyof T & string;
-  /** The values worth naming. A type such as `number` is a value here too. */
-  readonly values?: readonly string[];
-  /** The value you get by writing nothing, drawn in the accent like a tv default. */
-  readonly fallback?: string;
-  readonly note?: string;
-}
+/**
+ * A prop's own type, written the way a table prints it. String members come through as themselves;
+ * a boolean prints as the two words a reader would type, and a number as any number.
+ */
+type Printed<V> =
+  | Extract<V, string>
+  | (boolean extends V ? "true" | "false" : never)
+  | (number extends V ? `${number}` : never);
+
+/**
+ * One row per key, so `values` and `fallback` are that key's own type rather than any string. A
+ * prop whose type carries no printable member — a node, a render function — takes a note and
+ * nothing else, which is what those rows already say.
+ */
+export type PropRow<T> = {
+  [K in keyof T & string]: {
+    /** Checked against the component's own props type, so a renamed prop fails the build. */
+    readonly name: K;
+    /** The values worth naming, checked against the prop's type. */
+    readonly values?: readonly Printed<NonNullable<T[K]>>[];
+    /**
+     * The value you get by writing nothing, drawn in the accent like a tv default.
+     *
+     * A string rather than the prop's type, because a default is not always a literal: the bars
+     * fall back to "the largest value" and the grid's thresholds to "1 · 3 · 6 · 10", which are a
+     * computed default and a rendered array. Both belong in the accent beside the values.
+     */
+    readonly fallback?: string;
+    readonly note?: string;
+  };
+}[keyof T & string];
 
 /**
  * A table for props that are not `tv` variants, so `Api` cannot read them.
  *
- * The rows are written by hand and their values can drift, but the names cannot: each is keyed to
- * the component's props type, so renaming or removing a prop fails typechecking here.
+ * The rows are written by hand and keyed to the component's props type, so renaming or removing a
+ * prop fails typechecking here — and so does naming a value the prop does not accept.
  */
 export function Props<T>({
   name,
