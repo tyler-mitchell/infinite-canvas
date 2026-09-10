@@ -123,6 +123,8 @@ function SwipeDeck({
               key={item.id}
               data-slot="swipe-card"
               tabIndex={isTop ? 0 : -1}
+              /* The card takes the focus and the arrows act on it, so it says which arrows. */
+              aria-keyshortcuts={isTop ? "ArrowLeft ArrowRight" : undefined}
               style={{ transform: `translateX(${shift}px) rotate(${shift / 22}deg)` }}
               className={styles.card()}
               onPointerDown={

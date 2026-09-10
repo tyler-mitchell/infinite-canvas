@@ -249,7 +249,7 @@ function Widgets() {
           <Surface tone="sunken" padding="snug" className={styles.tall()}>
             <Row align="baseline">
               <Label>inbox</Label>
-              <Meta>{`${INBOX.length - settled.length} left`}</Meta>
+              <Readout>{`${INBOX.length - settled.length} left`}</Readout>
             </Row>
             <SwipeDeck items={INBOX} onSettle={(item) => setSettled((s) => [...s, item.id])} />
             <Meta>← skip · pin → · drag or swipe</Meta>
