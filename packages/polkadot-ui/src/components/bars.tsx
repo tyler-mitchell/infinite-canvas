@@ -24,6 +24,24 @@ const bars = tv({
   defaultVariants: { gap: "default", shape: "bar", emphasis: "last" },
 });
 
+/**
+ * The value a full bar stands for. An explicit `max` is used only when it is a positive number,
+ * because a zero or negative ceiling has no meaning and would divide every height by it.
+ */
+export function barCeiling(values: readonly number[], max?: number) {
+  if (max !== undefined && Number.isFinite(max) && max > 0) return max;
+
+  return Math.max(...values.filter((value) => Number.isFinite(value)), 1);
+}
+
+/** A bar's height as a share of the ceiling, floored so an empty bucket is still a mark. */
+export function barShare(value: number, ceiling: number, minHeight: number) {
+  const floor = Number.isFinite(minHeight) ? Math.min(1, Math.max(0, minHeight)) : 0;
+  if (!Number.isFinite(value)) return floor;
+
+  return Math.max(floor, Math.min(1, value / ceiling));
+}
+
 export interface BarsProps
   extends Omit<React.ComponentProps<"div">, "children">, VariantProps<typeof bars> {
   /** Raw values. Heights are a share of `max`, or of the largest value when `max` is omitted. */
@@ -46,7 +64,7 @@ function Bars({
   ...props
 }: BarsProps) {
   const styles = bars({ gap, shape, emphasis });
-  const ceiling = max ?? Math.max(...values, 1);
+  const ceiling = barCeiling(values, max);
 
   return (
     <div
@@ -57,7 +75,7 @@ function Bars({
       {...props}
     >
       {values.map((value, index) => {
-        const share = Math.max(minHeight, Math.min(1, value / ceiling));
+        const share = barShare(value, ceiling, minHeight);
         const newest = emphasis !== "none" && index === values.length - 1;
         return (
           <div

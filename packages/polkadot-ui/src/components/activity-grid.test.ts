@@ -91,6 +91,20 @@ test("padding is added ahead of the first day, and the most recent day survives"
   expect(kept.at(-1)?.date.toDateString()).toBe(days.at(-1)?.date.toDateString());
 });
 
+test("asking for no weeks shows no days, rather than all of them", () => {
+  const days = daysEnding(371, new Date(2026, 8, 9));
+
+  expect(toColumns(days, 0)).toEqual([]);
+  expect(toColumns(days, -4)).toEqual([]);
+});
+
+test("a fractional week count is floored, not truncated by a slice", () => {
+  const days = daysEnding(371, new Date(2026, 8, 9));
+  const kept = toColumns(days, 3.9).filter((day) => day !== null);
+
+  expect(kept).toHaveLength(3 * 7);
+});
+
 test("asking for more weeks than there are days keeps every day", () => {
   const days = daysEnding(10, new Date(2026, 8, 9));
   const kept = toColumns(days, 26).filter((day) => day !== null);

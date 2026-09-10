@@ -49,7 +49,9 @@ const weeksThatFit = (width: number, cell: number, gap: number, wanted: number) 
 
 /** Trailing `weeks` columns, first column padded so every column starts on a Sunday. */
 const toColumns = (days: readonly ActivityDay[], weeks: number) => {
-  const slots = weeks * DAYS_PER_WEEK;
+  const slots = Math.max(0, Math.floor(weeks)) * DAYS_PER_WEEK;
+  if (slots === 0) return [];
+
   const taken = days.slice(-slots);
   const leading = taken.length > 0 ? (taken[0] as ActivityDay).date.getDay() : 0;
   return [...Array.from({ length: leading }, () => null), ...taken];
