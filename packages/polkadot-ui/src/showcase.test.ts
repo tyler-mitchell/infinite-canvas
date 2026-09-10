@@ -337,6 +337,41 @@ test("the readme counts the kit as it is, and names routes that exist", () => {
 
   expect(routes.length).toBe(9);
   expect([...new Set(missing)]).toEqual([]);
+
+  /*
+   * And the other way round. The readme named eight routes and counted them in words while the
+   * forms page had been up for a day, which neither the count above nor the names below could say.
+   */
+  expect(routes.filter((route) => !readme.includes(`\`${route}\``))).toEqual([]);
+  expect(readme.replace(/-\n/g, "-")).toContain(`${inWords(routes.length)} routes`);
+});
+
+/** `text.tsx` is listed as its seven roles, which is what a page writes, rather than as a module. */
+const LISTED_AS_ITS_PARTS = ["text"];
+
+test("the readme's list of components is the list of components", () => {
+  const readme = readFileSync(new URL("../README.md", import.meta.url), "utf8").toLowerCase();
+  const section = readme.slice(readme.indexOf("## components"), readme.indexOf("## the reference"));
+
+  const listed = new Set(
+    [...section.matchAll(/\*\*[a-z\s]+\*\*([^*]+)/g)].flatMap(([, items]) =>
+      items!
+        .replace(/\s+/g, " ")
+        .split(",")
+        .map((item) => item.trim())
+        .filter(Boolean),
+    ),
+  );
+
+  const modules = readdirSync(componentDir)
+    .filter((name) => name.endsWith(".tsx") && !name.endsWith(".test.tsx"))
+    .map((name) => name.replace(/\.tsx$/, "").replaceAll("-", " "));
+
+  /* Read first: a section that parsed to nothing would report every module the kit has. */
+  expect(listed.has("toggle group")).toBe(true);
+  expect(listed.has("status dot")).toBe(true);
+  expect(modules.length).toBeGreaterThan(30);
+  expect(modules.filter((name) => !listed.has(name))).toEqual(LISTED_AS_ITS_PARTS);
 });
 
 /**

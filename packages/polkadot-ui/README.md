@@ -200,7 +200,8 @@ sweep clamped to a millisecond is still a sweep, and turning them off says so pl
 
 **Frame** surface, row, separator, scroll area, toolbar, icon tile
 **Text** display, title, label, kind, prose, meta, readout
-**Controls** button, toggle group, switch, slider, field
+**Controls** button, toggle group, switch, slider
+**Forms** field, checkbox, radio, input, select, combobox, number field
 **Disclosure** accordion, collapsible, tabs
 **Overlays** dialog, menu, popover, tooltip
 **Readouts** sparkline, bars, activity grid, breakdown, number ticker, stat, metric tile
@@ -215,9 +216,10 @@ receipt
 pnpm --filter polkadot-ui dev
 ```
 
-Eight routes, each composed from the kit itself: `/` for a board of finished widgets;
-`/foundations` for colour, hairlines, radii and type; `/layout`, `/controls`, `/disclosure` and
-`/overlays` for the primitives; `/widgets` and `/readouts` for the composed cards and readouts.
+Nine routes, each composed from the kit itself: `/` for a board of finished widgets;
+`/foundations` for colour, hairlines, radii and type; `/layout`, `/controls`, `/forms`,
+`/disclosure` and `/overlays` for the primitives; `/widgets` and `/readouts` for the composed cards
+and readouts.
 
 Those pages carry two kinds of table. Variants are read off each component's live `tv` object, so
 they cannot fall behind it. Props that are not variants — a popover's `side`, a ticker's `stagger` —
