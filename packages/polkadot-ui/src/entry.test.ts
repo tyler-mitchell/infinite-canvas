@@ -1,4 +1,5 @@
-import { readdirSync, readFileSync } from "node:fs";
+import { globSync, readdirSync, readFileSync, statSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 
 import { expect, test } from "vite-plus/test";
 
@@ -169,4 +170,61 @@ test("every component names the props type it takes", () => {
 
   expect(sources.length).toBeGreaterThan(30);
   expect(anonymousProps(sources)).toEqual([]);
+});
+
+/**
+ * The package has a second entry. `theme.css` is what a consumer imports for the look, and the
+ * `@source` lines in it are the only thing that puts the kit's classes in their stylesheet —
+ * Tailwind ignores `node_modules` unless a directive names it.
+ *
+ * The lab app cannot see a break here. It scans the whole package on its own, so a class in a file
+ * outside `@source` still reaches these pages while a consumer gets an unstyled component.
+ *
+ * Measured on the real build rather than argued: with automatic detection turned off
+ * (`@import "tailwindcss" source(none)`), a class only `keycap.tsx` writes was still in the output
+ * and a class only the lab writes was gone. The directive in the shipped file did that work.
+ */
+const here = fileURLToPath(new URL("./", import.meta.url));
+
+const sourcesIn = (css: string) =>
+  [...css.matchAll(/@source\s+(not\s+)?"([^"]+)"/g)].map(([, negated, path]) => ({
+    path: path!,
+    negated: Boolean(negated),
+  }));
+
+test("a directive the theme states is read as what it says", () => {
+  expect(sourcesIn('@source "./components";\n@source not "./components/*.test.*";')).toEqual([
+    { path: "./components", negated: false },
+    { path: "./components/*.test.*", negated: true },
+  ]);
+  expect(sourcesIn("/* nothing here */")).toEqual([]);
+});
+
+/** A named directory means everything under it, which is how Tailwind reads one. */
+const reaches = (pattern: string) =>
+  globSync(
+    statSync(new URL(pattern, import.meta.url), { throwIfNoEntry: false })?.isDirectory()
+      ? `${pattern}/**/*`
+      : pattern,
+    { cwd: here },
+  );
+
+test("every file that declares classes sits where the theme sends a consumer's build", () => {
+  const stated = sourcesIn(readFileSync(new URL("./theme.css", import.meta.url), "utf8"));
+  const skipped = new Set(
+    stated.filter(({ negated }) => negated).flatMap(({ path }) => reaches(path)),
+  );
+  const scanned = new Set(
+    stated
+      .filter(({ negated }) => !negated)
+      .flatMap(({ path }) => reaches(path))
+      .filter((file) => !skipped.has(file)),
+  );
+
+  const declaring = globSync("**/*.{ts,tsx}", { cwd: here })
+    .filter((file) => !file.includes(".test."))
+    .filter((file) => /\btv\(/.test(readFileSync(new URL(file, import.meta.url), "utf8")));
+
+  expect(declaring.length).toBeGreaterThan(40);
+  expect(declaring.filter((file) => !scanned.has(file)).sort()).toEqual([]);
 });

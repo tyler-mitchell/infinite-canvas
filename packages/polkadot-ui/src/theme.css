@@ -1,7 +1,10 @@
 /*
- * Where a consumer's build finds the classes. The kit ships source, so everything this reaches
- * becomes a rule in their stylesheet: it read all of `src`, and the sixteen test files in there
- * plant classes to prove they are wrong — `bg-white` and `text-zinc-400` among them.
+ * Where a consumer's build finds the classes. Tailwind ignores `node_modules` unless a directive
+ * names it, so without these two lines a consumer gets the tokens below and no rules at all.
+ *
+ * It reads `./components` and nothing else in the package. The six test files beside the
+ * components are cut out. The rules that plant wrong classes on purpose sit a directory up, where
+ * this never looks.
  */
 @source "./components";
 @source not "./components/*.test.*";
