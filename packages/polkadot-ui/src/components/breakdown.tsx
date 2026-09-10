@@ -49,7 +49,13 @@ export type BreakdownProps = Omit<React.ComponentProps<"div">, "children"> & {
   readonly parts: readonly BreakdownPart[];
   /** Hides the legend, for a bar under a heading that already names the parts. */
   readonly showLegend?: boolean;
-  /** Names the split for a reader who cannot see it. */
+  /**
+   * Names the split for a reader who cannot see it, in place of the default.
+   *
+   * The legend is drawn but muted, so whatever this says is the whole of what a reader gets. A
+   * name that only titles the split leaves the figures unsaid: pass `breakdownLabel(parts)` inside
+   * it, or leave this off and let the default carry them.
+   */
   readonly label?: string;
 };
 
@@ -57,9 +63,10 @@ export type BreakdownProps = Omit<React.ComponentProps<"div">, "children"> & {
  * Shares need not sum to one — each part is drawn as its fraction of whatever they do sum to. A
  * share that is negative or not a number counts as nothing rather than dragging the bar with it.
  *
- * The bar carries the whole split as its label, so hiding the legend costs nothing to a reader who
- * cannot see it. The legend is hidden from assistive software for the same reason: it restates the
- * label, and one rendering read twice is worse than one read once.
+ * The legend is hidden from assistive software because it restates the bar's own name, and one
+ * rendering read twice is worse than one read once. That holds while the name is the default one,
+ * which lists every part and its share. A `label` replaces it, and a page that passed one saying
+ * only "language split" left the figures drawn and unsaid — so the prop says what it costs.
  */
 function Breakdown({ parts, showLegend = true, label, className, ...props }: BreakdownProps) {
   const styles = breakdown();

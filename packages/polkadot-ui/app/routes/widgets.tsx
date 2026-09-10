@@ -10,6 +10,7 @@ import {
   badgeVariants,
   Binding,
   Breakdown,
+  breakdownLabel,
   type BreakdownProps,
   Button,
   CommitRow,
@@ -186,13 +187,17 @@ function Widgets() {
         </Row>
         <div className={styles.grid()}>
           <Surface tone="card">
-            <Breakdown parts={LANGUAGES} label="language split" />
+            <Breakdown parts={LANGUAGES} label={`language split: ${breakdownLabel(LANGUAGES)}`} />
           </Surface>
           <Surface tone="card">
             <Row align="baseline">
               <Label>typescript · css · wgsl · md</Label>
             </Row>
-            <Breakdown parts={LANGUAGES} showLegend={false} label="language split" />
+            <Breakdown
+              parts={LANGUAGES}
+              showLegend={false}
+              label={`language split: ${breakdownLabel(LANGUAGES)}`}
+            />
           </Surface>
           <MetricTile label="queries served">2.1M in-browser</MetricTile>
           <MetricTile label="schema">typed · versioned</MetricTile>

@@ -33,6 +33,7 @@ export {
 export { Bars, barsVariants, type BarsProps } from "./components/bars.tsx";
 export {
   Breakdown,
+  breakdownLabel,
   breakdownVariants,
   type BreakdownPart,
   type BreakdownProps,

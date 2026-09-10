@@ -326,6 +326,48 @@ test("every caption a sparkline draws is said in the name it carries", () => {
 });
 
 /**
+ * The same trade in another component. A breakdown draws its legend and mutes it, on the grounds
+ * that the bar's own name already lists every part and its share — which is true of the name the
+ * component builds and not of one a page passes instead.
+ *
+ * Two pages passed "language split". The reader saw TypeScript 84%, WGSL 9%, CSS 7% and heard
+ * three words. A name that replaces the default has to carry what the default carried, so the
+ * check is whether it reaches for `breakdownLabel`; leaving the label off is always fine.
+ */
+const untoldShares = (sources: readonly { readonly file: string; readonly source: string }[]) =>
+  sources
+    .flatMap(({ file, source }) =>
+      openingTags(source, "Breakdown")
+        .map((tag) => /label=(?:"([^"]*)"|\{`([^`]*)`\}|\{([^}]*)\})/.exec(tag))
+        .filter((written) => written !== null)
+        .map((written) => written[1] ?? written[2] ?? written[3] ?? "")
+        .filter((said) => !said.includes("breakdownLabel"))
+        .map((said) => `${file}: a breakdown is named "${said}" and its shares go unsaid`),
+    )
+    .sort();
+
+test("a breakdown named without its shares is reported", () => {
+  const titled = [{ file: "p.tsx", source: '<Breakdown parts={L} label="language split" />' }];
+  const whole = [
+    { file: "p.tsx", source: "<Breakdown parts={L} label={`split: ${breakdownLabel(L)}`} />" },
+  ];
+  const bare = [{ file: "p.tsx", source: "<Breakdown parts={L} />" }];
+
+  expect(untoldShares(titled)).toEqual([
+    'p.tsx: a breakdown is named "language split" and its shares go unsaid',
+  ]);
+  expect(untoldShares(whole)).toEqual([]);
+  expect(untoldShares(bare)).toEqual([]);
+});
+
+test("every breakdown says the shares it draws", () => {
+  const drawn = pages.flatMap(({ source }) => openingTags(source, "Breakdown"));
+
+  expect(drawn.length).toBeGreaterThan(2);
+  expect(untoldShares(pages)).toEqual([]);
+});
+
+/**
  * The readme counts the kit twice — how many component modules there are, and how many of them
  * draw with `slots` rather than a `base`. Both were a component behind, and it also sent a reader
  * to a route that had been renamed. Numbers written in prose go stale the moment a file is added,
