@@ -4,16 +4,16 @@ import type { VariantProps } from "tailwind-variants";
 import { tv } from "../tv.ts";
 
 const button = tv({
-  base: "inline-flex shrink-0 cursor-pointer items-center justify-center gap-1.5 self-start rounded-pk-control border border-transparent font-pk-sans whitespace-nowrap outline-none transition-[color,background-color,border-color,opacity] duration-(--pk-duration-hover) ease-pk-swift select-none focus-visible:ring-2 focus-visible:ring-pk-accent/45 focus-visible:ring-offset-2 focus-visible:ring-offset-pk-ground disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0",
+  base: "inline-flex shrink-0 cursor-pointer items-center justify-center gap-1.5 self-start rounded-pk-control border border-transparent font-pk-sans whitespace-nowrap outline-none transition-[color,background-color,border-color,opacity] duration-(--pk-duration-hover) ease-pk-swift select-none focus-visible:ring-2 focus-visible:ring-pk-accent/45 focus-visible:ring-offset-2 focus-visible:ring-offset-pk-ground data-disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0",
   variants: {
     tone: {
       solid:
-        "bg-pk-accent text-pk-on-accent hover:brightness-110 disabled:bg-pk-ink/[0.06] disabled:text-pk-ink-faint",
-      soft: "bg-pk-ink/[0.06] text-pk-ink-muted hover:bg-pk-ink/[0.1] hover:text-pk-ink-bright disabled:text-pk-ink-faint disabled:opacity-50",
+        "bg-pk-accent text-pk-on-accent hover:brightness-110 data-disabled:bg-pk-ink/[0.06] data-disabled:text-pk-ink-faint",
+      soft: "bg-pk-ink/[0.06] text-pk-ink-muted hover:bg-pk-ink/[0.1] hover:text-pk-ink-bright data-disabled:text-pk-ink-faint data-disabled:opacity-50",
       outline:
-        "border-pk-line text-pk-ink-muted hover:border-pk-line-strong hover:bg-pk-ink/[0.04] hover:text-pk-ink-bright disabled:text-pk-ink-faint disabled:opacity-50",
+        "border-pk-line text-pk-ink-muted hover:border-pk-line-strong hover:bg-pk-ink/[0.04] hover:text-pk-ink-bright data-disabled:text-pk-ink-faint data-disabled:opacity-50",
       ghost:
-        "text-pk-ink-dim hover:bg-pk-ink/[0.06] hover:text-pk-ink-bright disabled:text-pk-ink-faint disabled:opacity-50",
+        "text-pk-ink-dim hover:bg-pk-ink/[0.06] hover:text-pk-ink-bright data-disabled:text-pk-ink-faint data-disabled:opacity-50",
     },
     size: {
       sm: "h-6 px-2.5 text-pk-label [&_svg]:size-3",
