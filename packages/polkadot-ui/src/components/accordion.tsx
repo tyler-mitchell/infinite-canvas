@@ -9,11 +9,11 @@ const accordion = tv({
     trigger:
       "group/row flex w-full cursor-pointer items-baseline justify-between gap-3.5 border-0 bg-transparent px-0 py-3 text-left outline-none transition-colors duration-(--pk-duration-hover) ease-pk-swift select-none after:size-[5px] after:flex-none after:translate-y-px after:self-center after:rotate-45 after:border-r after:border-b after:border-pk-ink-faint after:transition-transform after:duration-(--pk-duration-hover) after:ease-pk-swift after:content-[''] focus-visible:ring-2 focus-visible:ring-pk-accent/50 group-hover/row:after:border-pk-ink-muted data-disabled:pointer-events-none data-disabled:opacity-40 data-panel-open:after:rotate-[225deg] data-panel-open:after:border-pk-accent",
     title:
-      "flex-1 font-pk-sans text-pk-item text-pk-ink-muted transition-colors duration-(--pk-duration-hover) ease-pk-swift group-hover/row:text-pk-ink-bright",
-    meta: "flex-none font-pk-mono text-pk-mono text-pk-ink-faint",
+      "min-w-0 flex-1 font-pk-sans text-pk-item break-words text-pk-ink-muted transition-colors duration-(--pk-duration-hover) ease-pk-swift group-hover/row:text-pk-ink-bright",
+    meta: "min-w-0 font-pk-mono text-pk-mono break-words text-pk-ink-faint",
     panel:
       "h-(--accordion-panel-height) overflow-hidden transition-[height] duration-(--pk-duration-detail) ease-pk-swift data-ending-style:h-0 data-starting-style:h-0",
-    body: "pb-3 font-pk-sans text-pk-note text-pk-ink-faint text-pretty",
+    body: "pb-3 font-pk-sans text-pk-note break-words text-pk-ink-faint text-pretty",
   },
 });
 
