@@ -38,3 +38,6 @@ docs/local/
 
 # Handoff artifacts are working material, not repository content.
 docs/handoff/
+
+# Scratch the TanStack Router plugin writes while it regenerates a route tree.
+.tanstack/

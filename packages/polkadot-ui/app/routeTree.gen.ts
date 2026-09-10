@@ -14,6 +14,7 @@ import { Route as ReadoutsRouteImport } from './routes/readouts'
 import { Route as OverlaysRouteImport } from './routes/overlays'
 import { Route as LayoutRouteImport } from './routes/layout'
 import { Route as FoundationsRouteImport } from './routes/foundations'
+import { Route as FormsRouteImport } from './routes/forms'
 import { Route as DisclosureRouteImport } from './routes/disclosure'
 import { Route as ControlsRouteImport } from './routes/controls'
 import { Route as IndexRouteImport } from './routes/index'
@@ -43,6 +44,11 @@ const FoundationsRoute = FoundationsRouteImport.update({
   path: '/foundations',
   getParentRoute: () => rootRouteImport,
 } as any)
+const FormsRoute = FormsRouteImport.update({
+  id: '/forms',
+  path: '/forms',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const DisclosureRoute = DisclosureRouteImport.update({
   id: '/disclosure',
   path: '/disclosure',
@@ -63,6 +69,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/controls': typeof ControlsRoute
   '/disclosure': typeof DisclosureRoute
+  '/forms': typeof FormsRoute
   '/foundations': typeof FoundationsRoute
   '/layout': typeof LayoutRoute
   '/overlays': typeof OverlaysRoute
@@ -73,6 +80,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/controls': typeof ControlsRoute
   '/disclosure': typeof DisclosureRoute
+  '/forms': typeof FormsRoute
   '/foundations': typeof FoundationsRoute
   '/layout': typeof LayoutRoute
   '/overlays': typeof OverlaysRoute
@@ -84,6 +92,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/controls': typeof ControlsRoute
   '/disclosure': typeof DisclosureRoute
+  '/forms': typeof FormsRoute
   '/foundations': typeof FoundationsRoute
   '/layout': typeof LayoutRoute
   '/overlays': typeof OverlaysRoute
@@ -96,6 +105,7 @@ export interface FileRouteTypes {
     | '/'
     | '/controls'
     | '/disclosure'
+    | '/forms'
     | '/foundations'
     | '/layout'
     | '/overlays'
@@ -106,6 +116,7 @@ export interface FileRouteTypes {
     | '/'
     | '/controls'
     | '/disclosure'
+    | '/forms'
     | '/foundations'
     | '/layout'
     | '/overlays'
@@ -116,6 +127,7 @@ export interface FileRouteTypes {
     | '/'
     | '/controls'
     | '/disclosure'
+    | '/forms'
     | '/foundations'
     | '/layout'
     | '/overlays'
@@ -127,6 +139,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ControlsRoute: typeof ControlsRoute
   DisclosureRoute: typeof DisclosureRoute
+  FormsRoute: typeof FormsRoute
   FoundationsRoute: typeof FoundationsRoute
   LayoutRoute: typeof LayoutRoute
   OverlaysRoute: typeof OverlaysRoute
@@ -171,6 +184,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof FoundationsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/forms': {
+      id: '/forms'
+      path: '/forms'
+      fullPath: '/forms'
+      preLoaderRoute: typeof FormsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/disclosure': {
       id: '/disclosure'
       path: '/disclosure'
@@ -199,6 +219,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ControlsRoute: ControlsRoute,
   DisclosureRoute: DisclosureRoute,
+  FormsRoute: FormsRoute,
   FoundationsRoute: FoundationsRoute,
   LayoutRoute: LayoutRoute,
   OverlaysRoute: OverlaysRoute,

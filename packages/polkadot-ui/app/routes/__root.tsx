@@ -29,6 +29,7 @@ const SECTIONS = [
     links: [
       { to: "/layout", label: "layout" },
       { to: "/controls", label: "controls" },
+      { to: "/forms", label: "forms" },
       { to: "/disclosure", label: "disclosure" },
       { to: "/overlays", label: "overlays" },
     ],

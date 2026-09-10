@@ -305,7 +305,7 @@ test("no document points at a route file that is gone", () => {
       .map((named) => `${file.pathname.split("/").pop()} points at ${named}`),
   );
 
-  expect(real.length).toBe(9);
+  expect(real.length).toBe(10);
   expect(stale).toEqual([]);
 });
 
@@ -332,7 +332,7 @@ test("the readme counts the kit as it is, and names routes that exist", () => {
     .map(([, route]) => route!)
     .filter((route) => !routes.includes(route));
 
-  expect(routes.length).toBe(8);
+  expect(routes.length).toBe(9);
   expect([...new Set(missing)]).toEqual([]);
 });
 
