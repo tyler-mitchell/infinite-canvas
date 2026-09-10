@@ -72,6 +72,7 @@ function Disclosure() {
             { name: "disabled", fallback: "false", note: "closes the whole group to interaction" },
             {
               name: "loopFocus",
+              fallback: "true",
               note: "whether arrow keys wrap from the last trigger back to the first",
             },
           ]}

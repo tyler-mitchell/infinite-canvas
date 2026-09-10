@@ -104,18 +104,18 @@ function Layout() {
             </Row>
             <Prose>A darker fill, for a layer that sits behind the others.</Prose>
           </Surface>
-          <Surface tone="tile">
-            <Row>
-              <Label>tile</Label>
-            </Row>
-            <Prose>The rim at a different phase, so it reads as another material.</Prose>
-          </Surface>
           <Surface tone="rim" padding="roomy">
             <Row>
               <Label>rim</Label>
               <Meta>hover</Meta>
             </Row>
             <Prose>A specular conic edge that sweeps while the pointer is over it.</Prose>
+          </Surface>
+          <Surface tone="tile">
+            <Row>
+              <Label>tile</Label>
+            </Row>
+            <Prose>The rim at a different phase, so it reads as another material.</Prose>
           </Surface>
           <Surface tone="pending">
             <Row>
