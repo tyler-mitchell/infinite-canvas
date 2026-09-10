@@ -66,6 +66,23 @@ const contrast = (a: string, b: string) => {
   return (light! + 0.05) / (dark! + 0.05);
 };
 
+/**
+ * A filter is a colour change no token can show, so every rule here reads past it. The kit uses
+ * one — the accent button lifts itself under the pointer — and that state therefore sat outside
+ * all of them by construction rather than by anyone deciding it should.
+ *
+ * It is computable rather than opaque: `brightness` multiplies each channel, and CSS runs its
+ * filter shorthand in sRGB, which is the space these hex values are already in.
+ */
+const brighter = (hex: string, by: number) =>
+  `#${channels(hex)
+    .map((value) =>
+      Math.min(255, Math.round(value * by))
+        .toString(16)
+        .padStart(2, "0"),
+    )
+    .join("")}`;
+
 /** Straight alpha over an opaque ground, which is how the browser composites a half-alpha ring. */
 const over = (ink: string, ground: string, alpha: number) => {
   const under = channels(ground);
@@ -791,6 +808,42 @@ test("a toggle tells its two states apart by 3:1 on every seat", () => {
 const SET_BY_A_FILL = ["checkbox.tsx", "radio.tsx", "switch.tsx"];
 const RESTING_AND_HOVERED =
   /false:\s*\{\s*root:\s*"bg-pk-ink\/\[([\d.]+)\]\s+hover:bg-pk-ink\/\[([\d.]+)\]"/;
+
+/**
+ * Every fill a filter brightens, measured against the ink written beside it. One string carries
+ * all three today — the accent button's fill, its ink, and the lift — and the lift makes it easier
+ * to read rather than harder, 11.82 becoming 14.45. That is the answer, and it was never asked.
+ */
+test("a fill a filter brightens still carries its own text", () => {
+  const lifted = componentSources.flatMap(({ file, source }) =>
+    [...source.matchAll(/"([^"]*\bbrightness-(\d+)\b[^"]*)"/g)].map(([, classes, percent]) => {
+      const written = classes
+        .split(/\s+/)
+        .filter((one) => !one.includes("data-disabled:"))
+        .join(" ");
+      const [, fill] = /(?:^|\s)bg-(pk-[a-z\d-]+)(?:\s|$)/.exec(written) ?? [];
+      const [, ink] = /(?:^|\s)text-(pk-[a-z\d-]+)(?:\s|$)/.exec(written) ?? [];
+
+      return { file, fill, ink, percent };
+    }),
+  );
+
+  const pairs = lifted
+    .filter(({ fill, ink }) => fill !== undefined && ink !== undefined)
+    .map(({ file, fill, ink, percent }) => ({
+      what: `${file}: ${ink} on ${fill} lifted to ${percent}`,
+      got: contrast(
+        declaredAs.get(`--${ink}`)!,
+        brighter(declaredAs.get(`--${fill}`)!, Number(percent) / 100),
+      ),
+    }));
+
+  expect(pairs.length).toBe(lifted.length);
+  expect(pairs.filter(({ got }) => !Number.isFinite(got))).toEqual([]);
+  expect(pairs.filter(({ got }) => got < 4.5)).toEqual([]);
+  /* Last: a filter written where the rule cannot pair it is reported rather than skipped. */
+  expect(lifted.length).toBeGreaterThan(0);
+});
 
 test("a box and a dot tell set from unset, hovered or not, on every seat", () => {
   const accent = declaredAs.get("--pk-accent")!;
