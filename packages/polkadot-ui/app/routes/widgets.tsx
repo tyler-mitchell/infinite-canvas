@@ -6,6 +6,7 @@ import {
   ActivityFeed,
   Aurora,
   Avatar,
+  avatarVariants,
   Badge,
   badgeVariants,
   Binding,
@@ -27,12 +28,16 @@ import {
   Prose,
   Readout,
   Receipt,
+  receiptVariants,
   Row,
   Stat,
   StatusDot,
+  statusDotVariants,
+  statVariants,
   Surface,
   SwipeDeck,
   Terminal,
+  terminalVariants,
 } from "polkadot-ui";
 
 import { Api } from "../api.tsx";
@@ -106,7 +111,10 @@ function Widgets() {
             roll
           </Button>
         </div>
-        <Api of={badgeVariants} />
+        <Api name="avatar" of={avatarVariants} />
+        <Api name="badge" of={badgeVariants} />
+        <Api name="stat" of={statVariants} />
+        <Api name="status dot" of={statusDotVariants} />
       </section>
 
       <section className={styles.section()}>
@@ -133,7 +141,7 @@ function Widgets() {
             <CommitRow key={sha} sha={sha} subject={subject} age={age} />
           ))}
         </Surface>
-        <Api of={listItemVariants} />
+        <Api name="list item" of={listItemVariants} />
       </section>
 
       <section className={styles.section()}>
@@ -156,6 +164,7 @@ function Widgets() {
             <Terminal.Output>compositor: 6 passes registered</Terminal.Output>
           </Terminal>
         </Surface>
+        <Api name="terminal command" of={terminalVariants} />
       </section>
 
       <section className={styles.section()}>
@@ -232,6 +241,7 @@ function Widgets() {
             </Receipt>
           </div>
         </Surface>
+        <Api name="receipt line" of={receiptVariants} />
       </section>
     </div>
   );

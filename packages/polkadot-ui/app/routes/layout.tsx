@@ -15,6 +15,7 @@ import {
   rowVariants,
   ScrollArea,
   Separator,
+  separatorVariants,
   Surface,
   surfaceVariants,
   Title,
@@ -203,6 +204,7 @@ function Layout() {
           <Separator orientation="vertical" />
           <Meta>42 ms</Meta>
         </div>
+        <Api of={separatorVariants} />
       </section>
 
       <section className={styles.section()}>

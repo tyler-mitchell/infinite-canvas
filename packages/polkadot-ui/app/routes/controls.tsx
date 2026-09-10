@@ -134,7 +134,7 @@ function Controls() {
             </ToggleGroup.Item>
           ))}
         </ToggleGroup>
-        <Api of={toggleGroupVariants} />
+        <Api of={toggleGroupVariants} except={["pressed"]} />
       </section>
 
       <section className={styles.section()}>
