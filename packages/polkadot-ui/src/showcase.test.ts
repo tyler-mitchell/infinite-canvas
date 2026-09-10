@@ -2330,6 +2330,9 @@ const PICTURED_SIDES_ONLY = [
  * Naming one value is an explanation rather than a list — a note may single out the interesting
  * case — so two is what starts the count.
  */
+/** A list a person reads. Left to itself a list of values joins on commas and no spaces. */
+const listed = (values: readonly string[]) => `[${values.join(", ")}]`;
+
 const halfSpelled = (
   rows: readonly {
     readonly named: string;
@@ -2339,7 +2342,9 @@ const halfSpelled = (
 ) =>
   rows
     .filter(({ said, spelled }) => spelled.length > 1 && spelled.length < said.length)
-    .map(({ named, said, spelled }) => `${named} says what ${spelled} do, not ${said}`)
+    .map(
+      ({ named, said, spelled }) => `${named} says what ${listed(spelled)} do, not ${listed(said)}`,
+    )
     .sort();
 
 test("a note that says what some of the values do, and not the rest, is reported", () => {
@@ -2348,20 +2353,28 @@ test("a note that says what some of the values do, and not the rest, is reported
   const single = [{ named: "A.x", said: ["off", "on", "auto"], spelled: ["auto"] }];
 
   expect(halfSpelled(whole)).toEqual([]);
-  expect(halfSpelled(partial)).toEqual(["A.x says what off,on do, not off,on,auto"]);
+  expect(halfSpelled(partial)).toEqual(["A.x says what [off, on] do, not [off, on, auto]"]);
   expect(halfSpelled(single)).toEqual([]);
   expect(halfSpelled(statedUnions(pages))).toEqual([]);
 });
 
+/* A union is a set, so a table may order it to read well. Writing one twice is the rule above. */
+const sameValues = (said: readonly string[], real: readonly string[]) =>
+  listed([...said].sort()) === listed([...real].sort());
+
 test("a stated union that is not the one the prop has is reported", () => {
   const short = statedUnions(pages).flatMap(({ named, said, real }) =>
-    real === undefined || PICTURED_SIDES_ONLY.includes(named) || `${said}` === `${real}`
+    real === undefined || PICTURED_SIDES_ONLY.includes(named) || sameValues(said, real)
       ? []
-      : [`${named} states ${said}, the prop takes ${real}`],
+      : [`${named} states ${listed(said)}, the prop takes ${listed(real)}`],
   );
 
   /* Read first: a resolver that resolves nothing agrees with every table it is given. */
   expect(statedUnions(pages).filter(({ real }) => real !== undefined).length).toBeGreaterThan(12);
+  /* And a comparison that agrees with everything reports nothing, which reads the same as clean. */
+  expect(sameValues(["top", "bottom"], ["bottom", "top"])).toBe(true);
+  expect(sameValues(["top", "bottom"], ["top", "left"])).toBe(false);
+  expect(sameValues(["top"], ["top", "bottom"])).toBe(false);
   expect(short).toEqual([]);
 });
 
