@@ -42,6 +42,17 @@ export function barShare(value: number, ceiling: number, minHeight: number) {
   return Math.max(floor, Math.min(1, value / ceiling));
 }
 
+/**
+ * What the chart is called when the consumer gives no `label`, in the same words the sparkline
+ * uses. The newest value is the one the emphasis marks, so it is the one worth naming.
+ */
+export function barsLabel(values: readonly number[]) {
+  if (values.length === 0) return "no readings";
+  if (values.length === 1) return `one reading, ${values[0]}`;
+
+  return `${values.length} readings, latest ${values[values.length - 1]}`;
+}
+
 export interface BarsProps
   extends Omit<React.ComponentProps<"div">, "children">, VariantProps<typeof bars> {
   /** Raw values. Heights are a share of `max`, or of the largest value when `max` is omitted. */
@@ -49,6 +60,7 @@ export interface BarsProps
   readonly max?: number;
   /** Floor so an empty bucket is still a mark rather than nothing. */
   readonly minHeight?: number;
+  /** Names the series for a reader who cannot see it. Falls back to the readings themselves. */
   readonly label?: string;
 }
 
@@ -74,7 +86,7 @@ function Bars({
     <div
       data-slot="bars"
       role="img"
-      aria-label={label}
+      aria-label={label ?? barsLabel(values)}
       className={styles.root({ className })}
       {...props}
     >

@@ -574,6 +574,55 @@ test("every component that reads its own keys says which keys", () => {
   expect(silentKeyboard(componentSources)).toEqual([]);
 });
 
+/**
+ * `role="img"` hides whatever is inside it, so the label is the whole of what a reader gets. An
+ * optional `label` passed straight through leaves the name empty when the consumer omits it, and
+ * an empty name on a leaf role announces as nothing at all.
+ *
+ * Two shapes are safe: a `??` fallback, or a prop given a default where it is destructured.
+ */
+const unnamedImages = (sources: readonly { readonly file: string; readonly source: string }[]) =>
+  sources.flatMap(({ file, source }) =>
+    [...source.matchAll(/aria-label=\{(\w+)\}/g)]
+      .map(([, name]) => name!)
+      /* A required prop is always a name; only an optional one can arrive undefined. */
+      .filter((name) => new RegExp(`\\b${name}\\?:`).test(source))
+      .filter((name) => !new RegExp(`\\b${name} = `).test(source))
+      .map((name) => `${file} names an image with a bare ${name}, which may be undefined`),
+  );
+
+test("an image labelled with a bare optional prop is reported", () => {
+  expect(
+    unnamedImages([{ file: "bars.tsx", source: "label?: string\n aria-label={label}" }]),
+  ).toEqual(["bars.tsx names an image with a bare label, which may be undefined"]);
+  /* A required prop is always a name, so passing it straight through is right. */
+  expect(
+    unnamedImages([{ file: "avatar.tsx", source: "name: string\n aria-label={name}" }]),
+  ).toEqual([]);
+  /* A `??` fallback writes no bare identifier, and a default makes the identifier safe. */
+  expect(
+    unnamedImages([{ file: "bars.tsx", source: "aria-label={label ?? barsLabel(values)}" }]),
+  ).toEqual([]);
+  expect(
+    unnamedImages([{ file: "grid.tsx", source: 'label = "activity",\n aria-label={label}' }]),
+  ).toEqual([]);
+});
+
+test("every readout that draws an image can name itself", () => {
+  const drawing = componentSources.filter(({ source }) => source.includes('role="img"'));
+
+  expect(drawing.map(({ file }) => file).sort()).toEqual([
+    "activity-grid.tsx",
+    "bars.tsx",
+    "breakdown.tsx",
+    "layout-preview.tsx",
+    /* Its barcode names itself from the order it encodes, so it has no bare identifier to flag. */
+    "receipt.tsx",
+    "sparkline.tsx",
+  ]);
+  expect(unnamedImages(componentSources)).toEqual([]);
+});
+
 test("a stated ratio that no longer matches its colours is reported", () => {
   const real = contrast("#ededed", "#0e0f11").toFixed(2);
 

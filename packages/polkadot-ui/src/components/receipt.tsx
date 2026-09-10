@@ -98,7 +98,7 @@ function ReceiptBarcode({ value, className, ...props }: ReceiptBarcodeProps) {
     <div
       data-slot="receipt-barcode"
       role="img"
-      aria-label={`Order ${value}`}
+      aria-label={`order ${value}`}
       className={styles.barcode({ className })}
       {...props}
     >

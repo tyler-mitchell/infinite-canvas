@@ -1,6 +1,6 @@
 import { expect, test } from "vite-plus/test";
 
-import { barCeiling, barShare } from "./bars.tsx";
+import { barCeiling, barsLabel, barShare } from "./bars.tsx";
 
 const MIN = 0.08;
 const heightOf = (value: number, ceiling: number) =>
@@ -73,4 +73,24 @@ test("a floor outside zero to one is brought back into range", () => {
   expect(barShare(0, 10, 5)).toBe(1);
   expect(barShare(0, 10, -1)).toBe(0);
   expect(barShare(0, 10, Number.NaN)).toBe(0);
+});
+
+test("an unnamed chart still says what it holds, in the sparkline's words", () => {
+  expect(barsLabel([1420, 1880, 4182])).toBe("3 readings, latest 4182");
+  expect(barsLabel([42])).toBe("one reading, 42");
+  expect(barsLabel([])).toBe("no readings");
+});
+
+test("the label never reads undefined, however odd the series", () => {
+  const cases: readonly (readonly number[])[] = [
+    [],
+    [Number.NaN],
+    [Number.POSITIVE_INFINITY, 1],
+    [0, 0],
+    [-5, 10],
+  ];
+
+  for (const values of cases) {
+    expect(barsLabel(values)).not.toContain("undefined");
+  }
 });
