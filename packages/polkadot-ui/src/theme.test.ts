@@ -862,3 +862,41 @@ test("a slot that writes a step out in pixels is reported", () => {
 test("no slot writes a spacing step out in pixels", () => {
   expect(rewroteAStep(componentSources, STEP_FOR_PX)).toEqual([]);
 });
+
+/**
+ * A transition that names neither a time nor a curve still runs: Tailwind supplies 150ms and a
+ * curve of its own, so the slot moves on numbers the sheet never chose and no rule about tokens
+ * would see it. The kit names both everywhere today, and the point of asking is that the next
+ * slot has to as well.
+ */
+const movesOnBorrowedTime = (
+  sources: readonly { readonly file: string; readonly source: string }[],
+) =>
+  sources.flatMap(({ file, source }) =>
+    [...source.matchAll(/"([^"]*\btransition-[^"]*)"/g)]
+      .map(([, slot]) => slot!)
+      .filter((slot) => /\btransition-(\[|colors|transform|opacity|shadow|all)/.test(slot))
+      .filter((slot) => !/\bduration-/.test(slot) || !/\bease-/.test(slot))
+      .map((slot) => `${file} ${/transition-\S*/.exec(slot)![0]}`),
+  );
+
+test("a transition that names neither a time nor a curve is reported", () => {
+  expect(
+    movesOnBorrowedTime([
+      { file: "a.tsx", source: `"transition-colors duration-(--pk-duration-hover) ease-pk-swift"` },
+      { file: "b.tsx", source: `"transition-colors"` },
+      { file: "c.tsx", source: `"transition-[height] duration-(--pk-duration-detail)"` },
+    ]),
+  ).toEqual(["b.tsx transition-colors", "c.tsx transition-[height]"]);
+});
+
+test("every transition names both the time and the curve it moves on", () => {
+  const transitions = componentSources.flatMap(({ source }) =>
+    [...source.matchAll(/\btransition-(?:\[|colors|transform|opacity|shadow|all)/g)].map(
+      ([written]) => written,
+    ),
+  );
+
+  expect(transitions.length).toBeGreaterThan(25);
+  expect(movesOnBorrowedTime(componentSources)).toEqual([]);
+});
