@@ -3,6 +3,7 @@ import { tv } from "tailwind-variants";
 
 import {
   Button,
+  Display,
   IconTile,
   iconTileVariants,
   Kind,
@@ -35,12 +36,9 @@ const layout = tv({
     inline: "flex flex-wrap items-center gap-3",
     tiles: "flex flex-wrap items-center gap-2",
     rails: "flex items-start gap-4",
-    /* Stands in for the design's icon set, so the page pulls nothing over the network. */
     monogram:
       "flex size-full items-center justify-center rounded-[5px] bg-pk-surface-inner font-pk-mono text-[10px] leading-none text-pk-ink-soft",
     scrollers: "flex flex-wrap items-start gap-3",
-    /* Wide enough for the longest line: a vertical-only area gives no way to reach anything that
-     * overflows sideways, so its content must only ever be too tall. */
     scroller: "h-[104px] w-[400px]",
     scrollBody: "flex flex-col gap-2",
     scrollWide: "h-[104px] w-[230px]",
@@ -67,7 +65,7 @@ function Layout() {
   return (
     <div className={styles.page()}>
       <div className={styles.head()}>
-        <Title>layout</Title>
+        <Display>layout</Display>
         <Prose className={styles.lede()}>
           The frame and the line. Surface owns tone, padding, radius and lift; Row owns a two-end
           line. Neither has an opinion about what goes inside it.
