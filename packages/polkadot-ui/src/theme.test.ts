@@ -182,6 +182,36 @@ test("every mechanism the theme exports is drawn by some file", () => {
 });
 
 /**
+ * The sheet also writes eight classes by hand — the paper, the tear, the grain, the two rim sweeps
+ * and the rest — for the recipes no utility can express. Every rule here reads `tv` slots, so one
+ * of these left behind after its last consumer went would be found by nothing: valid CSS, shipped
+ * to every consumer, drawn on nothing.
+ *
+ * The other direction is already covered. A slot naming a class the sheet does not define compiles
+ * to no rule at all, which `utilities.test.ts` reports against the variant object that wrote it.
+ */
+const handWritten = new Set([...themeCss.matchAll(/\.(pk-[a-z\d-]+)/g)].map(([, name]) => name!));
+
+const undrawnRecipe = (classes: ReadonlySet<string>, source: string) =>
+  [...classes]
+    .filter((name) => !new RegExp(String.raw`(?<![\w-])${name}(?![\w-])`).test(source))
+    .sort();
+
+test("a hand written class nothing draws is reported", () => {
+  const sheet = new Set(["pk-paper", "pk-tear"]);
+
+  expect(undrawnRecipe(sheet, '"pk-paper pk-tear flex"')).toEqual([]);
+  expect(undrawnRecipe(sheet, '"pk-paper flex"')).toEqual(["pk-tear"]);
+  /* A utility that shares the name is not the class: `bg-pk-paper` paints, `pk-paper` is a recipe. */
+  expect(undrawnRecipe(new Set(["pk-paper"]), '"bg-pk-paper"')).toEqual(["pk-paper"]);
+});
+
+test("every class the sheet writes by hand is drawn by some file", () => {
+  expect(handWritten.size).toBeGreaterThan(5);
+  expect(undrawnRecipe(handWritten, drawn)).toEqual([]);
+});
+
+/**
  * Every raw `--pk-*` a page names. The foundations page lists tokens by hand to draw the palette,
  * so a token removed from the sheet leaves a row there that resolves to nothing: a swatch with a
  * name and no colour, which reads as a token that exists rather than one that was deleted.

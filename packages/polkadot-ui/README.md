@@ -186,9 +186,10 @@ so a value that changes in place is reachable by someone who cannot see it chang
 `theme.css` cuts transform and height transitions under `prefers-reduced-motion: reduce` and keeps
 colour ones, so a rolling digit and an opening panel snap while a hover still fades.
 
-Animations that run on a scroll timeline are switched off by name, because clamping
-`animation-duration` does not govern one: progress comes from the scroll position, not from time.
-The feed's entry animation and the rim sweep are both handled that way.
+The feed's entry animation runs on a scroll timeline and is switched off by name, because clamping
+`animation-duration` does not govern one: its progress comes from the scroll position, not from
+time. The rim sweeps are named there too, for a different reason — they are driven by time, but a
+sweep clamped to a millisecond is still a sweep, and turning them off says so plainly.
 
 ## Components
 
