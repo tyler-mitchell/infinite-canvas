@@ -126,7 +126,7 @@ function Foundations() {
       <section className={styles.section()}>
         <Row rule="below">
           <Kind>grounds</Kind>
-          <Meta>six · every edge is a line</Meta>
+          <Meta>{`${GROUNDS.length} · every edge is a line`}</Meta>
         </Row>
         <div className={styles.swatches()}>
           {GROUNDS.map(([token, name, note]) => (
