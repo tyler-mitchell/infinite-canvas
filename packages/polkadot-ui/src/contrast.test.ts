@@ -257,6 +257,23 @@ test("the ring paper uses clears 3:1 on paper", () => {
 });
 
 /**
+ * The rule above weighs the ring against the seat, which is the top of the sheet. The receipt's
+ * action is the last thing on the paper, so the ring's outer edge lands on whatever the gradient
+ * has reached by then — a colour no rule here had ever read.
+ *
+ * It clears at both ends, 13.48 at the top and 12.03 at the foot, and now says so. The stops come
+ * from the declaration, so darkening the foot of the paper moves the expectation with it.
+ */
+test("the ring paper uses clears 3:1 at both ends of the sheet", () => {
+  const [, top, foot] =
+    /--pk-paper:\s*linear-gradient\([^,]+,\s*(#[\da-f]+),\s*(#[\da-f]+)\)/.exec(themeCss) ?? [];
+  const ink = declaredAs.get("--pk-paper-ink")!;
+
+  expect([top, foot]).not.toContain(undefined);
+  for (const stop of [top!, foot!]) expect(contrast(ink, stop)).toBeGreaterThanOrEqual(3);
+});
+
+/**
  * The state a utility waits for, with `group-` and `/item` off it, so a fill painted on hover is
  * matched against the ink that applies on hover rather than the one it replaces. `placeholder:`
  * is not a state: a placeholder is what an empty field shows, under no condition at all.
