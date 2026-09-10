@@ -14,6 +14,7 @@ const CELL = 11;
 const GAP = 4;
 const WANTED = 26;
 const PITCH = CELL + GAP;
+const DAYS = 7;
 
 /** What the returned week count actually occupies: n cells with n-1 gaps between them. */
 const widthUsed = (weeks: number) => weeks * CELL + (weeks - 1) * GAP;
@@ -114,16 +115,61 @@ test("every day lands on the row of its own weekday", () => {
   }
 });
 
-test("padding is added ahead of the first day, and the most recent day survives", () => {
+/**
+ * A series long enough to fill the window opens on a Sunday, so it needs no pad at all. The pad is
+ * what a short series gets, and it costs a column, which is why the window is counted back from
+ * the last day rather than taken as whole weeks.
+ */
+test("a full series opens on a Sunday and the most recent day survives", () => {
   const days = daysEnding(371, new Date(2026, 8, 9));
   const columns = toColumns(days, 26);
   const kept = columns.filter((day) => day !== null);
-  const leading = columns.findIndex((day) => day !== null);
 
-  expect(kept).toHaveLength(26 * 7);
-  expect(columns).toHaveLength(leading + 26 * 7);
-  expect(leading).toBe(kept[0]?.date.getDay());
+  expect(kept[0]?.date.getDay()).toBe(0);
+  expect(columns).toHaveLength(kept.length);
+  expect(columns.length).toBeLessThanOrEqual(26 * DAYS);
+  expect(columns.length).toBeGreaterThan(25 * DAYS);
   expect(kept.at(-1)?.date.toDateString()).toBe(days.at(-1)?.date.toDateString());
+});
+
+test("a series too short to fill the window is padded to its own weekday row", () => {
+  const days = daysEnding(10, new Date(2026, 8, 9));
+  const columns = toColumns(days, 26);
+  const kept = columns.filter((day) => day !== null);
+
+  expect(kept).toHaveLength(10);
+  expect(columns.findIndex((day) => day !== null)).toBe(kept[0]?.date.getDay());
+  for (const [index, day] of columns.entries()) {
+    if (day) expect(index % DAYS).toBe(day.date.getDay());
+  }
+});
+
+/**
+ * The defect this pins was a seam rather than a function. `weeksThatFit` measured room for n whole
+ * weeks and `toColumns` then padded the front, which asks for an n+1th column. Each was right on
+ * its own. Measured at 320: the plot box was 204 and the grid drew 217 across, so the last cells
+ * sat outside the card.
+ */
+test("the plot never draws a column more than it was measured room for", () => {
+  for (let offset = 0; offset < DAYS; offset++) {
+    const days = daysEnding(371, new Date(2026, 8, 9 - offset));
+
+    for (let weeks = 1; weeks <= WANTED; weeks++) {
+      expect(toColumns(days, weeks).length).toBeLessThanOrEqual(weeks * DAYS);
+    }
+  }
+});
+
+test("what the plot draws fits the width the week count was worked out from", () => {
+  const days = daysEnding(371, new Date(2026, 8, 9));
+
+  for (let width = 40; width <= WANTED * PITCH + 20; width += 3) {
+    const weeks = weeksThatFit(width, CELL, GAP, WANTED);
+    const drawn = Math.ceil(toColumns(days, weeks).length / DAYS);
+
+    expect(drawn).toBeLessThanOrEqual(weeks);
+    if (weeks > 6) expect(widthUsed(drawn)).toBeLessThanOrEqual(width);
+  }
 });
 
 test("asking for no weeks shows no days, rather than all of them", () => {
@@ -135,9 +181,9 @@ test("asking for no weeks shows no days, rather than all of them", () => {
 
 test("a fractional week count is floored, not truncated by a slice", () => {
   const days = daysEnding(371, new Date(2026, 8, 9));
-  const kept = toColumns(days, 3.9).filter((day) => day !== null);
 
-  expect(kept).toHaveLength(3 * 7);
+  expect(toColumns(days, 3.9)).toEqual(toColumns(days, 3));
+  expect(Math.ceil(toColumns(days, 3.9).length / DAYS)).toBe(3);
 });
 
 test("asking for more weeks than there are days keeps every day", () => {

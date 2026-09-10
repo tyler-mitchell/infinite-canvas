@@ -59,14 +59,30 @@ const level = (count: number, thresholds: readonly number[] = DEFAULT_THRESHOLDS
 const weeksThatFit = (width: number, cell: number, gap: number, wanted: number) =>
   width <= 0 ? wanted : Math.max(6, Math.min(wanted, Math.floor((width + gap) / (cell + gap))));
 
-/** Trailing `weeks` columns, first column padded so every column starts on a Sunday. */
+/**
+ * Trailing `weeks` columns, the last of them the week in progress, every column starting on a
+ * Sunday.
+ *
+ * The window is counted back from the last day rather than taken as whole weeks, because a pad
+ * ahead of the first day needs a column to sit in. Taking `weeks` whole weeks and then padding
+ * asks for one column more than the caller measured room for, and the plot draws past its box.
+ */
 const toColumns = (days: readonly ActivityDay[], weeks: number) => {
-  const slots = Math.max(0, Math.floor(weeks)) * DAYS_PER_WEEK;
-  if (slots === 0) return [];
+  const columns = Math.max(0, Math.floor(weeks));
+  const last = days.at(-1);
+  if (columns === 0 || !last) return [];
 
-  const taken = days.slice(-slots);
-  const leading = taken.length > 0 ? (taken[0] as ActivityDay).date.getDay() : 0;
-  return [...Array.from({ length: leading }, () => null), ...taken];
+  const cells = columns * DAYS_PER_WEEK;
+  const taken = days.slice(-((columns - 1) * DAYS_PER_WEEK + last.date.getDay() + 1));
+  const opening = (taken[0] as ActivityDay).date.getDay();
+  /* Only reachable on a short series: a part-week that still needs its own column is dropped. */
+  const kept =
+    opening + taken.length > cells && taken.length > DAYS_PER_WEEK - opening
+      ? taken.slice(DAYS_PER_WEEK - opening)
+      : taken;
+  const pad = kept[0]?.date.getDay() ?? 0;
+
+  return [...Array.from({ length: pad }, () => null), ...kept];
 };
 
 const useElementWidth = (element: HTMLElement | null) => {
