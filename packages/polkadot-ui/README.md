@@ -60,10 +60,15 @@ const terminal = tv({
     root: "flex w-full flex-col gap-1 overflow-x-auto font-pk-mono text-pk-mono",
     command: "flex gap-2 whitespace-pre",
     prompt: "flex-none text-pk-ink-faint select-none",
+    text: "text-pk-ink-muted",
     output: "whitespace-pre text-pk-ink-faint",
+    caret: "ml-px inline-block w-[7px] animate-pk-caret bg-pk-accent text-transparent select-none",
   },
   variants: {
-    running: { true: { text: "text-pk-accent" }, false: {} },
+    running: {
+      true: { text: "text-pk-accent", prompt: "text-pk-accent/60" },
+      false: {},
+    },
   },
   defaultVariants: { running: false },
 });

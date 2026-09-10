@@ -337,6 +337,62 @@ test("the readme counts the kit as it is, and names routes that exist", () => {
 });
 
 /**
+ * The readme quotes two components' `tv` blocks to show the rule they follow. A quotation goes
+ * stale silently: the terminal's grew two slots and half a variant while the readme kept the old
+ * one, which left it printing a `running` variant that styled a `text` slot the same block never
+ * declared — tailwind-variants code that could not run.
+ *
+ * Compared with the spacing taken out, because the readme wraps a short object onto one line where
+ * the source spreads it, and that is formatting rather than a difference.
+ */
+const asOneLine = (block: string) =>
+  block
+    .replace(/\s+/g, " ")
+    .replace(/\s*([{}:,])\s*/g, "$1")
+    /* A comma before a brace is there because the line wrapped, so it is spacing as well. */
+    .replace(/,(?=\})/g, "")
+    .trim();
+
+/** Each quoted block, against the component the comment above it names. */
+const quotedBlocks = (readme: string) =>
+  [...readme.matchAll(/\/\/ ([a-z-]+\.tsx)[^\n]*\n(const \w+ = tv\(\{[\s\S]*?\n\}\);)/g)].map(
+    ([, file, block]) => ({ file: file!, block: block! }),
+  );
+
+const misquoted = (readme: string, read: (file: string) => string) =>
+  quotedBlocks(readme).flatMap(({ file, block }) => {
+    const source = read(file);
+    const [written] = /const \w+ = tv\(\{[\s\S]*?\}\);/.exec(source) ?? [];
+
+    if (!written) return [`${file} has no tv block to quote`];
+
+    return asOneLine(written) === asOneLine(block) ? [] : [`${file} is quoted as it no longer is`];
+  });
+
+test("a readme quotation that no longer matches its component is reported", () => {
+  const quoted = '```tsx\n// a.tsx — one\nconst a = tv({\n  base: "flex",\n});\n```';
+
+  /* The fixture is read first, because a pattern that matched nothing would pass every case. */
+  expect(quotedBlocks(quoted).map(({ file }) => file)).toEqual(["a.tsx"]);
+  expect(misquoted(quoted, () => 'const a = tv({\n  base: "flex",\n});')).toEqual([]);
+  /* The same block, wrapped differently, is the same block. */
+  expect(misquoted(quoted, () => 'const a = tv({ base: "flex" });')).toEqual([]);
+  expect(misquoted(quoted, () => 'const a = tv({\n  base: "grid",\n});')).toEqual([
+    "a.tsx is quoted as it no longer is",
+  ]);
+  expect(misquoted(quoted, () => "const a = 1;")).toEqual(["a.tsx has no tv block to quote"]);
+});
+
+test("every component the readme quotes is quoted as it is", () => {
+  const readme = readFileSync(new URL("../README.md", import.meta.url), "utf8");
+
+  expect(quotedBlocks(readme).map(({ file }) => file)).toEqual(["badge.tsx", "terminal.tsx"]);
+  expect(misquoted(readme, (file) => readFileSync(new URL(file, componentDir), "utf8"))).toEqual(
+    [],
+  );
+});
+
+/**
  * What each component falls back to when a prop is left out, read from the defaults it destructures.
  * Only the kit's own: a Base UI default is not written down here and cannot be checked against.
  */
