@@ -157,6 +157,10 @@ pnpm --filter polkadot-ui dev
 
 Eight routes, each composed from the kit itself: `/` for a board of finished widgets;
 `/foundations` for colour, hairlines, radii and type; `/layout`, `/controls`, `/disclosure` and
-`/overlays` for the primitives; `/widgets` and `/data` for the composed cards and readouts. Props
-tables on those pages are read off each component's live `tv` object, so they cannot fall behind
-the component.
+`/overlays` for the primitives; `/widgets` and `/data` for the composed cards and readouts.
+
+Those pages carry two kinds of table. Variants are read off each component's live `tv` object, so
+they cannot fall behind it. Props that are not variants — a popover's `side`, a ticker's `stagger` —
+are written by hand, but each row's name is keyed to the component's props type, so a renamed or
+removed prop fails typechecking rather than quietly documenting something that no longer exists.
+Their values can still drift; their names cannot.

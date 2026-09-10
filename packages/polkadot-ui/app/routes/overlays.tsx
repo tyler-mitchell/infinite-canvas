@@ -1,7 +1,21 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { tv } from "tailwind-variants";
 
-import { Button, Dialog, Kind, Menu, Meta, Popover, Prose, Row, Title, Tooltip } from "polkadot-ui";
+import {
+  Button,
+  Dialog,
+  Display,
+  Kind,
+  Menu,
+  Meta,
+  Popover,
+  type PopoverContentProps,
+  Prose,
+  Row,
+  Tooltip,
+} from "polkadot-ui";
+
+import { Props } from "../props.tsx";
 
 const overlays = tv({
   slots: {
@@ -23,7 +37,7 @@ function Overlays() {
   return (
     <div className={styles.page()}>
       <div className={styles.head()}>
-        <Title>overlays</Title>
+        <Display>overlays</Display>
         <Prose className={styles.lede()}>
           Each of these collapses Base UI's Portal, Positioner and Popup into one Content part. The
           three are always arranged the same way in this kit, and separating them only moves the
@@ -44,7 +58,7 @@ function Overlays() {
             </Tooltip>
             <Tooltip>
               <Tooltip.Trigger render={<Button tone="soft" />}>region</Tooltip.Trigger>
-              <Tooltip.Content>iad · 42 ms</Tooltip.Content>
+              <Tooltip.Content>edge · 42 ms</Tooltip.Content>
             </Tooltip>
           </div>
         </Tooltip.Provider>
@@ -76,6 +90,15 @@ function Overlays() {
             </Popover.Content>
           </Popover>
         </div>
+        <Props<PopoverContentProps>
+          name="popover content"
+          rows={[
+            { name: "side", fallback: "bottom", values: ["top", "right", "left"] },
+            { name: "align", fallback: "center", values: ["start", "end"] },
+            { name: "sideOffset", fallback: "8", note: "pixels from the trigger" },
+            { name: "alignOffset", fallback: "0", note: "pixels along the trigger" },
+          ]}
+        />
       </section>
 
       <section className={styles.section()}>

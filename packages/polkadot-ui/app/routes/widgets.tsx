@@ -24,6 +24,7 @@ import {
   Meta,
   MetricTile,
   NumberTicker,
+  type NumberTickerProps,
   PendingCard,
   Prose,
   Readout,
@@ -41,6 +42,7 @@ import {
 } from "polkadot-ui";
 
 import { Api } from "../api.tsx";
+import { Props } from "../props.tsx";
 import {
   BINDINGS,
   BUILDING,
@@ -111,6 +113,20 @@ function Widgets() {
             roll
           </Button>
         </div>
+        <Props<NumberTickerProps>
+          name="number ticker"
+          rows={[
+            { name: "value", note: "the number to roll to" },
+            { name: "locale", fallback: "false", note: "thousands separators" },
+            {
+              name: "pad",
+              fallback: "0",
+              note: "least digits to keep, so a falling value holds width",
+            },
+            { name: "duration", fallback: "600", note: "ms for one digit" },
+            { name: "stagger", fallback: "40", note: "ms between places, units first" },
+          ]}
+        />
         <Api name="avatar" of={avatarVariants} />
         <Api name="badge" of={badgeVariants} />
         <Api name="stat" of={statVariants} />

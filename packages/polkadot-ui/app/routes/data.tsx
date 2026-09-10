@@ -3,6 +3,7 @@ import { tv } from "tailwind-variants";
 
 import {
   ActivityGrid,
+  type ActivityGridProps,
   Bars,
   barsVariants,
   Display,
@@ -18,6 +19,7 @@ import {
 } from "polkadot-ui";
 
 import { Api } from "../api.tsx";
+import { Props } from "../props.tsx";
 import {
   ACTIVITY,
   COMMIT_WEEKS,
@@ -119,6 +121,20 @@ function Data() {
           Narrow the window and it shows fewer weeks at a size a pointer can still hit, rather than
           shrinking every cell towards four pixels.
         </Prose>
+        <Props<ActivityGridProps>
+          name="activity grid"
+          rows={[
+            { name: "days", note: "one entry per day, oldest first" },
+            { name: "weeks", fallback: "26", note: "the most it will show, never a minimum" },
+            { name: "cellSize", fallback: "11", note: "an input, never a result" },
+            {
+              name: "thresholds",
+              fallback: "1 · 3 · 6 · 10",
+              note: "the counts each level starts at",
+            },
+            { name: "children", note: "a render prop for the readout under the plot" },
+          ]}
+        />
       </section>
 
       <section className={styles.section()}>
