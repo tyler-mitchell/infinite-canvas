@@ -847,6 +847,83 @@ test("every timeline animation the sheet declares is turned off under reduced mo
   expect(runningWhenStill(themeCss)).toEqual([]);
 });
 
+/**
+ * The same block decides what survives. It replaces every transition in the kit with one list, so
+ * a property named there keeps animating when motion is refused and every other one stops dead.
+ *
+ * Only one half of that is a promise. Which colours still fade is taste — Tailwind's own
+ * `transition-colors` reaches wider than this list, so an outline, a fill and a stroke jump rather
+ * than fade, which is the harmless direction. That nothing moves is the promise, and it is what
+ * these two ask.
+ */
+const survivesStillness = (css: string) => {
+  const block = css.slice(css.indexOf("@media (prefers-reduced-motion: reduce)"));
+  const [, list] = /transition-property:\s*([^;!]+)/.exec(block) ?? [];
+
+  return (list ?? "")
+    .split(",")
+    .map((name) => name.trim())
+    .filter(Boolean);
+};
+
+/** A property that moves something on the screen, as opposed to recolouring it in place. */
+const MOVES = new Set([
+  "all",
+  "bottom",
+  "gap",
+  "grid-template-columns",
+  "grid-template-rows",
+  "height",
+  "inset",
+  "left",
+  "margin",
+  "padding",
+  "right",
+  "rotate",
+  "scale",
+  "top",
+  "transform",
+  "translate",
+  "width",
+]);
+
+/** Every property a slot names outright, which is the only place a new one can arrive. */
+const asksToMove = (sources: readonly { readonly source: string }[]) =>
+  sources.flatMap(({ source }) =>
+    [...source.matchAll(/\btransition-\[([^\]]+)\]/g)].flatMap(([, list]) =>
+      list!.split(",").map((name) => name.trim()),
+    ),
+  );
+
+test("a block that would let something move is reported", () => {
+  const leaky =
+    "@media (prefers-reduced-motion: reduce) { * { transition-property: color, transform !important; } }";
+
+  expect(survivesStillness(leaky)).toEqual(["color", "transform"]);
+  expect(survivesStillness(leaky).filter((name) => MOVES.has(name))).toEqual(["transform"]);
+  expect(asksToMove([{ source: `"transition-[left,top] transition-[color,translate]"` }])).toEqual([
+    "left",
+    "top",
+    "color",
+    "translate",
+  ]);
+});
+
+test("nothing that moves survives when motion is refused", () => {
+  const kept = survivesStillness(themeCss);
+
+  expect(kept.length).toBeGreaterThan(3);
+  expect(kept.filter((name) => MOVES.has(name))).toEqual([]);
+});
+
+test("every property a slot names is one the block has already answered for", () => {
+  const kept = survivesStillness(themeCss);
+  const named = asksToMove(styledSources);
+
+  expect(named.length).toBeGreaterThan(8);
+  expect(named.filter((name) => !kept.includes(name) && !MOVES.has(name))).toEqual([]);
+});
+
 /** Every corner the sheet declares, against the value it declares it at. */
 const scaleRadii = new Set(
   [...themeCss.matchAll(/^\s+--pk-radius-[a-z-]+:\s*([\d.]+)px;/gm)].map(([, px]) => px!),
