@@ -117,8 +117,9 @@ function Foundations() {
       <div className={styles.head()}>
         <Display>foundations</Display>
         <Prose className={styles.lede()}>
-          Every colour, radius and curve the kit draws with. The dim inks are a floor: darkening any
-          ink or lightening any surface breaks the tightest pair first.
+          Every colour, radius and curve the kit has named. A few widgets still draw with values of
+          their own, so this is the shared vocabulary rather than the full inventory. The dim inks
+          are a floor: darkening any ink or lightening any surface breaks the tightest pair first.
         </Prose>
       </div>
 
