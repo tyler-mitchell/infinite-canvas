@@ -161,6 +161,12 @@ A tooltip is the exception: it is a visual hint and nothing more. Base UI gives 
 and no id, and nothing points at it, so its words reach only someone who can see it. Say them on
 the trigger as well.
 
+On a touch device the popup never opens at all. Base UI's hover path runs only for a mouse-like
+pointer, and every `hover:` utility sits inside `@media (hover: hover)`, which a phone does not
+match — measured at 375px with touch emulated. The trigger's label still carries the words, so a
+screen reader has them; a sighted reader on a phone does not. Keep a tooltip for a hint that
+repeats what the trigger already says, and put anything that has to be seen in the layout.
+
 ```tsx
 <Tooltip.Trigger aria-label="queries, 2.1M served">queries</Tooltip.Trigger>
 <Tooltip.Content>2.1M served</Tooltip.Content>

@@ -209,10 +209,64 @@ test("a tooltip trigger that carries no label of its own is reported", () => {
   ).toEqual([]);
 });
 
+/**
+ * And that the label is the tooltip's own words. The rule above asks only whether a label exists,
+ * under a name that promised more: a trigger could carry `aria-label="queries"` beside a tooltip
+ * reading `2.1M served` and pass, which is the failure the label is there to prevent.
+ *
+ * Compared with the punctuation taken out of both, since a label reads `region, edge, 42 ms` where
+ * the tooltip prints `edge · 42 ms` and they are the same words.
+ */
+const plainWords = (text: string) =>
+  text
+    .toLowerCase()
+    .replace(/[·,.]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+const unsaidTooltips = (sources: readonly { readonly file: string; readonly source: string }[]) =>
+  sources.flatMap(({ file, source }) =>
+    [...source.matchAll(/<Tooltip\.Content[^>]*>([^<]*)<\/Tooltip\.Content>/g)].flatMap(
+      (content) => {
+        const before = source.slice(0, content.index);
+        const trigger = openingTags(before, "Tooltip\\.Trigger").at(-1) ?? "";
+        const [, label] = /aria-label="([^"]*)"/.exec(trigger) ?? [];
+        const said = plainWords(content[1]!);
+
+        return label !== undefined && plainWords(label).includes(said)
+          ? []
+          : [`${file} says "${content[1]!.trim()}" in a tooltip its trigger does not say`];
+      },
+    ),
+  );
+
+test("a tooltip whose trigger does not say its words is reported", () => {
+  const same = [
+    {
+      file: "p.tsx",
+      source:
+        '<Tooltip.Trigger aria-label="region, edge, 42 ms">region</Tooltip.Trigger>\n<Tooltip.Content>edge · 42 ms</Tooltip.Content>',
+    },
+  ];
+  const other = [
+    {
+      file: "p.tsx",
+      source:
+        '<Tooltip.Trigger aria-label="region">region</Tooltip.Trigger>\n<Tooltip.Content>edge · 42 ms</Tooltip.Content>',
+    },
+  ];
+
+  expect(unsaidTooltips(same)).toEqual([]);
+  expect(unsaidTooltips(other)).toEqual([
+    'p.tsx says "edge · 42 ms" in a tooltip its trigger does not say',
+  ]);
+});
+
 test("every tooltip trigger says what its tooltip says", () => {
   const triggers = pages.flatMap(({ source }) => openingTags(source, "Tooltip\\.Trigger"));
 
   expect(unlabelledTooltips(pages)).toEqual([]);
+  expect(unsaidTooltips(pages)).toEqual([]);
   /* After the rule, not before it: there are two triggers, so a floor of one fires on a page that
    * legitimately drops one and reports a number where the rule would have named the trigger. */
   expect(triggers.length).toBeGreaterThan(1);
