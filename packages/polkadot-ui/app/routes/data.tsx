@@ -35,6 +35,10 @@ import {
 
 const INSTALL_CEILING = Math.max(...INSTALLS);
 
+const COMMIT_PEAK = Math.max(...COMMIT_WEEKS);
+const COMMIT_PEAK_WEEK = COMMIT_WEEKS.indexOf(COMMIT_PEAK);
+const LATEST_FRAME = FRAME_BUDGET[FRAME_BUDGET.length - 1];
+
 const data = tv({
   slots: {
     page: "flex max-w-[880px] flex-col gap-9",
@@ -73,7 +77,7 @@ function Data() {
           <Surface tone="card">
             <Row>
               <Label>commits · 64 weeks</Label>
-              <Meta>11 · wk 7</Meta>
+              <Meta>{`${COMMIT_PEAK} · wk ${COMMIT_PEAK_WEEK}`}</Meta>
             </Row>
             <Sparkline values={COMMIT_WEEKS} label="commits per week over 64 weeks" />
           </Surface>
@@ -91,7 +95,7 @@ function Data() {
           <Surface tone="card">
             <Row>
               <Label>frame budget</Label>
-              <Meta>15.9 ms</Meta>
+              <Meta>{`${LATEST_FRAME} ms`}</Meta>
             </Row>
             <Sparkline values={FRAME_BUDGET} size="sm" label="frame time over 72 frames" />
           </Surface>

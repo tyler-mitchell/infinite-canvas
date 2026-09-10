@@ -50,6 +50,9 @@ import {
   SPLIT_PANES,
 } from "../fixtures.ts";
 
+const COMMIT_PEAK = Math.max(...COMMIT_WEEKS);
+const COMMIT_PEAK_WEEK = COMMIT_WEEKS.indexOf(COMMIT_PEAK);
+
 const overview = tv({
   slots: {
     page: "flex max-w-[880px] flex-col gap-9",
@@ -171,7 +174,7 @@ function Overview() {
 
             <Row rule="above" align="baseline">
               <Label>commits · 64 weeks</Label>
-              <Meta>11 commits · wk 7</Meta>
+              <Meta>{`${COMMIT_PEAK} commits · wk ${COMMIT_PEAK_WEEK}`}</Meta>
             </Row>
             <Sparkline values={COMMIT_WEEKS} label="commits per week over 64 weeks" />
           </Surface>
