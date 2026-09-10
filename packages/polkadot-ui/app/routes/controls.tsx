@@ -33,7 +33,8 @@ const controls = tv({
      * under the tone that names the row. */
     matrixButtons: "flex min-w-0 flex-1 flex-wrap items-center gap-3",
     tone: "w-[68px] flex-none",
-    sliders: "grid grid-cols-[repeat(auto-fill,minmax(196px,1fr))] gap-3",
+    /* Three to a row rather than four: five tracks left one alone, and a track wants the width. */
+    sliders: "grid grid-cols-[repeat(auto-fill,minmax(250px,1fr))] gap-3",
     upright: "w-[196px]",
   },
 });
