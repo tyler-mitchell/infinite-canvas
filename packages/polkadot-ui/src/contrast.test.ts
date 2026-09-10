@@ -492,12 +492,21 @@ test("every ratio a component writes down is the ratio it has", () => {
 const styled = [...componentSources.map(({ source }) => source), pages].join("\n");
 
 /** Every `--pk-*` colour some file writes as text. A new ink joins this the day it is written. */
+/**
+ * Every ink the kit writes, at the strength it writes it. An ink may carry an alpha — the aurora's
+ * label is `text-pk-ink/72`, the terminal's running prompt is `text-pk-accent/60` — and reading the
+ * token alone measured both at full, which certifies a stronger ink than the kit ever draws.
+ */
 const inks = () => [
-  ...new Set(
-    [...styled.matchAll(/\btext-(pk-[a-z\d-]+)/g)]
-      .map(([, name]) => `--${name!}`)
-      .filter((token) => declaredAs.has(token)),
-  ),
+  ...new Map(
+    [...styled.matchAll(/\btext-(pk-[a-z\d-]+)(?:\/(\d+))?/g)]
+      .map(([, name, percent]) => ({
+        token: `--${name!}`,
+        alpha: percent === undefined ? 1 : Number(percent) / 100,
+      }))
+      .filter(({ token }) => declaredAs.has(token))
+      .map((ink) => [`${ink.token}@${ink.alpha}`, ink] as const),
+  ).values(),
 ];
 
 /** The grounds anything may sit on, which is the root and the surfaces a tone can restate. */
@@ -522,36 +531,53 @@ const tileStops = () => {
   return [near!, far!];
 };
 
-const tooThin = (against: ReadonlyMap<string, readonly string[]>) =>
-  [...against]
-    .flatMap(([ink, grounds]) =>
-      grounds.map((ground) => ({ ink, ground, got: contrast(declaredAs.get(ink)!, ground) })),
+interface Against {
+  readonly token: string;
+  readonly alpha: number;
+  readonly grounds: readonly string[];
+}
+
+/* An ink with an alpha is the colour it composites to over the ground it lands on, not the token. */
+const tooThin = (against: readonly Against[]) =>
+  against
+    .flatMap(({ token, alpha, grounds }) =>
+      grounds.map((ground) => ({
+        token,
+        alpha,
+        ground,
+        got: contrast(over(declaredAs.get(token)!, ground, alpha), ground),
+      })),
     )
     .filter(({ got }) => got < 4.5)
-    .map(({ ink, ground, got }) => `${ink} on ${ground} is ${got.toFixed(2)}`)
+    .map(
+      ({ token, alpha, ground, got }) =>
+        `${token}${alpha === 1 ? "" : ` at ${alpha}`} on ${ground} is ${got.toFixed(2)}`,
+    )
     .sort();
 
-const pairsToCheck = () => {
+const pairsToCheck = (): readonly Against[] => {
   const grounds = generalGrounds().map((token) => declaredAs.get(token)!);
 
-  return new Map(
-    inks()
-      .filter((ink) => !ink.startsWith("--pk-paper-"))
-      .map((ink) => {
-        if (ink === "--pk-tile-ink") return [ink, tileStops()] as const;
-        const named = BELONGS_ON[ink];
+  return inks()
+    .filter(({ token }) => !token.startsWith("--pk-paper-"))
+    .map(({ token, alpha }) => {
+      if (token === "--pk-tile-ink") return { token, alpha, grounds: tileStops() };
+      const named = BELONGS_ON[token];
 
-        return [ink, named ? [declaredAs.get(named)!] : grounds] as const;
-      }),
-  );
+      return { token, alpha, grounds: named ? [declaredAs.get(named)!] : grounds };
+    });
 };
 
 test("an ink too thin for a ground it can land on is reported", () => {
   const ground = declaredAs.get("--pk-surface")!;
 
-  expect(tooThin(new Map([["--pk-ink-faint", [ground]]]))).toEqual([]);
-  expect(tooThin(new Map([["--pk-line-strong", [ground]]]))).toEqual([
+  expect(tooThin([{ token: "--pk-ink-faint", alpha: 1, grounds: [ground] }])).toEqual([]);
+  expect(tooThin([{ token: "--pk-line-strong", alpha: 1, grounds: [ground] }])).toEqual([
     `--pk-line-strong on ${ground} is 1.92`,
+  ]);
+  /* The same ink thinned is a different colour, and the report says which strength it read. */
+  expect(tooThin([{ token: "--pk-ink-faint", alpha: 0.4, grounds: [ground] }])).toEqual([
+    `--pk-ink-faint at 0.4 on ${ground} is 1.76`,
   ]);
 });
 
@@ -560,7 +586,11 @@ test("every colour the kit writes as text clears 4.5:1 on every ground it can la
 
   expect(tileStops()).toEqual(["#1b2026", "#101317"]);
   expect(generalGrounds().length).toBeGreaterThan(4);
-  expect(pairs.size).toBeGreaterThan(9);
+  expect(pairs.length).toBeGreaterThan(9);
+  /* Read first: the two inks the kit thins are in the sweep, at the strength they are written. */
+  expect(
+    pairs.filter(({ alpha }) => alpha !== 1).map(({ token, alpha }) => `${token}@${alpha}`),
+  ).toEqual(["--pk-ink@0.72", "--pk-accent@0.6"]);
   expect(tooThin(pairs)).toEqual([]);
 });
 
