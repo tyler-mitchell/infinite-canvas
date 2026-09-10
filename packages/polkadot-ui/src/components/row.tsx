@@ -4,7 +4,7 @@ import type { VariantProps } from "tailwind-variants";
 import { tv } from "../tv.ts";
 
 const row = tv({
-  base: "flex flex-none flex-wrap gap-[10px]",
+  base: "flex flex-none flex-wrap gap-2.5",
   variants: {
     align: {
       baseline: "items-baseline",

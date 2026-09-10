@@ -5,7 +5,7 @@ import { tv } from "../tv.ts";
 
 const iconTile = tv({
   slots: {
-    root: "group/tile inline-flex flex-none items-center justify-center rounded-pk-inner border border-pk-line bg-pk-surface p-[10px] font-pk-sans outline-none transition-colors duration-(--pk-duration-hover) ease-pk-swift select-none hover:border-pk-line-hover focus-visible:ring-2 focus-visible:ring-pk-accent/50",
+    root: "group/tile inline-flex flex-none items-center justify-center rounded-pk-inner border border-pk-line bg-pk-surface p-2.5 font-pk-sans outline-none transition-colors duration-(--pk-duration-hover) ease-pk-swift select-none hover:border-pk-line-hover focus-visible:ring-2 focus-visible:ring-pk-accent/50",
     icon: "flex flex-none items-center justify-center [&_img]:size-full [&_svg]:size-full",
     label:
       "grid grid-cols-[minmax(0,0fr)] transition-[grid-template-columns] duration-(--pk-duration-hover) ease-pk-swift group-hover/tile:grid-cols-[minmax(0,1fr)] group-focus-visible/tile:grid-cols-[minmax(0,1fr)]",
@@ -13,7 +13,7 @@ const iconTile = tv({
   },
   variants: {
     size: {
-      sm: { icon: "size-[20px]" },
+      sm: { icon: "size-5" },
       md: { icon: "size-[26px]" },
     },
     open: {

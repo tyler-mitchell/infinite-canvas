@@ -5,8 +5,8 @@ import { tv } from "../tv.ts";
 const statusDot = tv({
   slots: {
     root: "inline-flex items-center gap-[7px] whitespace-nowrap",
-    mark: "relative flex size-[10px] flex-none items-center justify-center",
-    ring: "absolute size-[10px] rounded-pk-pill border",
+    mark: "relative flex size-2.5 flex-none items-center justify-center",
+    ring: "absolute size-2.5 rounded-pk-pill border",
     core: "size-1 rounded-pk-pill",
     label: "font-pk-mono text-pk-mono-sm",
   },

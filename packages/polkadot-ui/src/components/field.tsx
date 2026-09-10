@@ -11,8 +11,8 @@ const field = tv({
   },
   variants: {
     layout: {
-      inline: { root: "flex-row items-center gap-[10px]" },
-      stacked: { root: "flex-col gap-[6px]" },
+      inline: { root: "flex-row items-center gap-2.5" },
+      stacked: { root: "flex-col gap-1.5" },
     },
   },
   defaultVariants: { layout: "inline" },

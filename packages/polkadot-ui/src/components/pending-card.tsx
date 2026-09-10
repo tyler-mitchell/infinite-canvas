@@ -3,7 +3,7 @@ import { tv } from "../tv.ts";
 const pendingCard = tv({
   slots: {
     root: "box-border flex flex-col justify-start gap-3 overflow-hidden rounded-pk-card border border-dashed border-pk-pending-line bg-pk-pending-surface p-[18px] transition-colors duration-(--pk-duration-hover) ease-pk-swift hover:border-pk-pending-line-hover",
-    head: "flex flex-none items-start justify-between gap-[10px]",
+    head: "flex flex-none items-start justify-between gap-2.5",
     title:
       "truncate font-pk-mono text-[13px] leading-[1.4] font-medium tracking-[0.02em] text-pk-accent",
     badge:
