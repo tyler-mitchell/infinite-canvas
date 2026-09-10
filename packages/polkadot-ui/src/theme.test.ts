@@ -813,3 +813,52 @@ test("no slot rewrites a corner the sheet already names", () => {
   expect(scaleRadii.has("6")).toBe(true);
   expect(rewroteACorner(componentSources, scaleRadii)).toEqual([]);
 });
+
+/** Which spacing utility a pixel count is, on the four-pixel step Tailwind is set to here. */
+const STEP_FOR_PX: Record<string, string> = {
+  "4": "1",
+  "6": "1.5",
+  "8": "2",
+  "10": "2.5",
+  "12": "3",
+  "14": "3.5",
+  "16": "4",
+  "20": "5",
+  "24": "6",
+  "32": "8",
+};
+
+const SPACES = "gap|gap-x|gap-y|p|px|py|pt|pb|pl|pr|m|mt|mb|ml|mr|size";
+
+/**
+ * The kit ran two spacing systems side by side and wrote four measurements both ways, `py-1.5`
+ * beside `py-[6px]` among them. A pixel count that is a step is that step, so writing it out only
+ * hides which of the two a slot is on. The odd counts — three, five, seven, nine, eleven, thirteen
+ * and twenty-two — sit off the steps and are the kit's own rhythm, so this says nothing about them.
+ */
+const rewroteAStep = (
+  sources: readonly { readonly file: string; readonly source: string }[],
+  steps: Record<string, string>,
+) =>
+  sources
+    .flatMap(({ file, source }) =>
+      [...source.matchAll(new RegExp(String.raw`\b(?:${SPACES})-\[([\d.]+)px\]`, "g"))].map(
+        ([written, px]) => ({ file, written, px: px! }),
+      ),
+    )
+    .filter(({ px }) => px in steps)
+    .map(({ file, written, px }) => `${file} ${written} is ${steps[px]}`)
+    .sort();
+
+test("a slot that writes a step out in pixels is reported", () => {
+  expect(rewroteAStep([{ file: "row.tsx", source: "gap-[10px]" }], STEP_FOR_PX)).toEqual([
+    "row.tsx gap-[10px] is 2.5",
+  ]);
+  expect(rewroteAStep([{ file: "row.tsx", source: "gap-2.5" }], STEP_FOR_PX)).toEqual([]);
+  /* Seven is not a step, so writing it out is the only thing the slot can do. */
+  expect(rewroteAStep([{ file: "row.tsx", source: "gap-[7px]" }], STEP_FOR_PX)).toEqual([]);
+});
+
+test("no slot writes a spacing step out in pixels", () => {
+  expect(rewroteAStep(componentSources, STEP_FOR_PX)).toEqual([]);
+});
