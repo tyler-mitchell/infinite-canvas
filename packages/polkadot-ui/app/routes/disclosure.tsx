@@ -175,7 +175,7 @@ function Disclosure() {
             { name: "value", note: "drive the selection from outside, with onValueChange" },
             {
               name: "orientation",
-              values: ["horizontal", "vertical"],
+              values: ["vertical"],
               fallback: "horizontal",
               note: "turns the indicator into a rail and moves it with the up and down keys",
             },

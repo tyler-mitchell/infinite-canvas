@@ -1741,12 +1741,25 @@ const primitiveDefaults = new Map<string, ReadonlyMap<string, string>>();
  * `hiddenUntilFound` and `keepMounted` through `Pick<AccordionRoot.Props, …>`, which is where the
  * `@default` for each of them sits — so what a part inherits is followed, not only what it writes.
  */
+/** What a part's interface is read for: the default it documents, or the type it declares. */
+const harvest = {
+  default: (body: string) =>
+    [...body.matchAll(/@default ([^\n*]+?)\s*\n\s*\*\/\s*(\w+)\??:/g)].map(
+      ([, value, prop]) => [prop!, value!.replace(/^'|'$/g, "")] as const,
+    ),
+  type: (body: string) =>
+    [...body.matchAll(/^ {2}(\w+)\??: ([\w.]+) \| undefined;/gm)].map(
+      ([, prop, named]) => [prop!, named!.split(".").at(-1)!] as const,
+    ),
+} as const;
+
 const defaultsIn = (
   module: string,
   declaration: string,
+  reading: keyof typeof harvest = "default",
   seen: ReadonlySet<string> = new Set(),
 ): ReadonlyMap<string, string> => {
-  const key = `${module}.${declaration}`;
+  const key = `${module}.${declaration}.${reading}`;
   const known = primitiveDefaults.get(key);
   if (known) return known;
   if (seen.has(key)) return new Map();
@@ -1767,16 +1780,17 @@ const defaultsIn = (
       for (const [, from, picked] of hit[1]!.matchAll(/Pick<(\w+)\.Props,\s*([^>]+)>/g)) {
         const only = new Set([...picked!.matchAll(/'([^']+)'/g)].map(([, one]) => one!));
 
-        for (const [prop, value] of defaultsIn(module, `${from!}Props`, new Set([...seen, key]))) {
+        for (const [prop, value] of defaultsIn(
+          module,
+          `${from!}Props`,
+          reading,
+          new Set([...seen, key]),
+        )) {
           if (only.has(prop)) found.set(prop, value);
         }
       }
 
-      for (const [, value, prop] of hit[2]!.matchAll(
-        /@default ([^\n*]+?)\s*\n\s*\*\/\s*(\w+)\??:/g,
-      )) {
-        found.set(prop!, value!.replace(/^'|'$/g, ""));
-      }
+      for (const [prop, value] of harvest[reading](hit[2]!)) found.set(prop, value);
     }
   }
 
@@ -1827,6 +1841,63 @@ for (const [type, parts] of partsBehind) {
 
   settlesOn.set(type, merged);
 }
+
+/**
+ * Every closed union Base UI names, by name. Fifteen of them, and no two share a name with
+ * different members, so a prop typed `Side` or `TabsRoot.Orientation` resolves on the last segment
+ * without following an import.
+ */
+const namedUnions = new Map<string, readonly string[]>();
+
+const collectUnions = (dir: URL) => {
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    if (entry.isDirectory()) {
+      collectUnions(new URL(`${entry.name}/`, dir));
+      continue;
+    }
+    if (!entry.name.endsWith(".d.ts")) continue;
+
+    for (const [, named, members] of readFileSync(new URL(entry.name, dir), "utf8").matchAll(
+      /export type (\w+) = ((?:'[^']*'\s*\|\s*)+'[^']*');/g,
+    )) {
+      namedUnions.set(named!, [...members!.matchAll(/'([^']*)'/g)].map(([, one]) => one!).sort());
+    }
+  }
+};
+
+collectUnions(primitiveDir);
+
+/** A union this kit writes out itself, rather than taking one from the primitive under it. */
+const ownUnions = new Map<string, readonly string[]>();
+
+for (const file of readdirSync(componentDir).filter((name) => name.endsWith(".tsx"))) {
+  for (const [, owner, body] of componentSource(file).matchAll(
+    /export (?:type|interface) (\w+Props)\b([\s\S]*?)(?=\nexport |\nfunction |$)/g,
+  )) {
+    for (const [, prop, members] of body!.matchAll(
+      /readonly (\w+)\??:\s*((?:"[^"]*"\s*\|\s*)+"[^"]*")/g,
+    )) {
+      ownUnions.set(
+        `${owner!}.${prop!}`,
+        [...members!.matchAll(/"([^"]*)"/g)].map(([, one]) => one!).sort(),
+      );
+    }
+  }
+}
+
+const unionFor = (type: string, prop: string): readonly string[] | undefined => {
+  const own = ownUnions.get(`${type}.${prop}`);
+  if (own) return own;
+
+  for (const { module, part } of partsBehind.get(type) ?? []) {
+    const named = defaultsIn(module, `${pascal(module)}${part}Props`, "type").get(prop);
+    const members = named === undefined ? undefined : namedUnions.get(named);
+
+    if (members) return members;
+  }
+
+  return undefined;
+};
 
 const misstatedDefault = (
   sources: readonly { readonly file: string; readonly source: string }[],
@@ -2100,4 +2171,66 @@ test("a span asks the grid holding it, not the window", () => {
   /* Read first: the spans are still written down, so the sweep has something to be right about. */
   expect(everything).toContain("@min-[440px]:col-span-2");
   expect(windowKeyedSpan(pages)).toEqual([]);
+});
+
+const statedUnions = (sources: readonly { readonly file: string; readonly source: string }[]) =>
+  sources.flatMap(({ file, source }) =>
+    [...source.matchAll(/<Props<(\w+Props)>([\s\S]*?)\n\s*\/>/g)].flatMap(([, type, body]) =>
+      [...body!.matchAll(/\{[^{}]*\}/g)].flatMap((row) => {
+        const prop = /name:\s*"(\w+)"/.exec(row[0])?.[1];
+        const listed = /values:\s*\[([^\]]*)\]/.exec(row[0])?.[1];
+        const fallback = /fallback:\s*"([^"]+)"/.exec(row[0])?.[1];
+        if (prop === undefined || listed === undefined) return [];
+
+        const said = [
+          ...[...listed.matchAll(/"([^"]*)"/g)].map(([, one]) => one!),
+          ...(fallback === undefined ? [] : [fallback]),
+        ].sort();
+        const real = unionFor(type!, prop);
+
+        return [{ file, named: `${type}.${prop}`, said, real }];
+      }),
+    ),
+  );
+
+/**
+ * A row's `values` are the alternatives and its `fallback` is the default, so a value in both is
+ * printed twice and reads as one more choice than the prop has. Fifteen of the seventeen rows were
+ * already written that way; the tabs' orientation and the tooltip's cursor axis were not, and each
+ * listed its own default among the alternatives.
+ */
+test("a row that lists its own default among the alternatives is reported", () => {
+  const doubled = (rows: readonly { named: string; said: readonly string[] }[]) =>
+    rows
+      .filter(({ said }) => new Set(said).size !== said.length)
+      .map(({ named }) => named)
+      .sort();
+
+  expect(doubled([{ named: "A.x", said: ["one", "one", "two"] }])).toEqual(["A.x"]);
+  expect(doubled([{ named: "A.x", said: ["one", "two"] }])).toEqual([]);
+  expect(doubled(statedUnions(pages))).toEqual([]);
+});
+
+/**
+ * What a row states against the union the prop really has. Five of the seventeen resolve: one this
+ * kit writes out itself, and four typed by a union Base UI names. The rest are a `tv` variant,
+ * which the rule further up weighs against `buttonVariants`, or a prop the positioner takes from a
+ * shared interface rather than declaring, which this does not follow.
+ *
+ * The tooltip's `side` is the one deliberate short list. Base UI accepts `inline-start` and
+ * `inline-end`, which follow the writing direction rather than the box, and the table names the
+ * four a reader can picture. It is named here so the omission is a decision rather than a gap.
+ */
+const PICTURED_SIDES_ONLY = ["TooltipContentProps.side"];
+
+test("a stated union that is not the one the prop has is reported", () => {
+  const short = statedUnions(pages).flatMap(({ named, said, real }) =>
+    real === undefined || PICTURED_SIDES_ONLY.includes(named) || `${said}` === `${real}`
+      ? []
+      : [`${named} states ${said}, the prop takes ${real}`],
+  );
+
+  /* Read first: a resolver that resolves nothing agrees with every table it is given. */
+  expect(statedUnions(pages).filter(({ real }) => real !== undefined).length).toBeGreaterThan(4);
+  expect(short).toEqual([]);
 });

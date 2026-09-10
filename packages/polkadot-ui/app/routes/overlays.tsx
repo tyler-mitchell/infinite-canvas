@@ -87,7 +87,7 @@ function Overlays() {
             { name: "disabled", fallback: "false", note: "the trigger stops opening one" },
             {
               name: "trackCursorAxis",
-              values: ["none", "x", "y", "both"],
+              values: ["x", "y", "both"],
               fallback: "none",
               note: "lets it follow the pointer along an axis",
             },
