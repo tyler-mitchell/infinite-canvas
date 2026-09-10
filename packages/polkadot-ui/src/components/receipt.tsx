@@ -60,6 +60,11 @@ function ReceiptHead({ mark, wordmark, className, ...props }: ReceiptHeadProps) 
 
 export type ReceiptRuleProps = React.ComponentProps<"div">;
 
+/**
+ * Printed decoration, so it carries no role and no separator: the hairline reaches only 1.54
+ * against the foot of the sheet, and a reader who cannot see it loses nothing, because a total is
+ * told apart by its weight and size rather than by the line above it.
+ */
 function ReceiptRule({ className, ...props }: ReceiptRuleProps) {
   return <div data-slot="receipt-rule" className={receipt().rule({ className })} {...props} />;
 }

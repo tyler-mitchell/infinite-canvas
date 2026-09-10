@@ -2,6 +2,8 @@ import { readdirSync, readFileSync } from "node:fs";
 
 import { expect, test } from "vite-plus/test";
 
+import { receiptVariants } from "./components/receipt.tsx";
+
 /*
  * Every ratio the kit states, and every ratio it has to clear. The pages state one beside each ink
  * and hairline, the components state four in prose, and a focus ring has to reach 3:1 against each
@@ -271,6 +273,32 @@ test("the ring paper uses clears 3:1 at both ends of the sheet", () => {
 
   expect([top, foot]).not.toContain(undefined);
   for (const stop of [top!, foot!]) expect(contrast(ink, stop)).toBeGreaterThanOrEqual(3);
+});
+
+/**
+ * The paper's hairline reaches 1.54 against the foot of the sheet, far under the three a mark is
+ * asked for, and it is exempt because it is decoration. That has been an assumption twice now, so
+ * here is what makes it true: the rule renders as a plain div with no role, so it is announced to
+ * nobody, and the total it sits above is told apart by weight and size rather than by the line.
+ *
+ * Emptying the total variant would leave the line as the only thing dividing a total from an item.
+ * This fails then, which is the moment to give the hairline a ratio instead of an exemption.
+ */
+test("the paper hairline is decoration, and the total does not lean on it", () => {
+  const [, foot] =
+    /--pk-paper:\s*linear-gradient\([^,]+,\s*#[\da-f]+,\s*(#[\da-f]+)\)/.exec(themeCss) ?? [];
+  const source = componentSources.find(({ file }) => file === "receipt.tsx")!.source;
+  const [, drawsTheRule] = /function ReceiptRule\(([\s\S]*?)\n}/.exec(source) ?? [];
+
+  expect(contrast(declaredAs.get("--pk-paper-rule")!, foot!)).toBeLessThan(3);
+  expect(drawsTheRule).toBeDefined();
+  expect(drawsTheRule).not.toContain("role=");
+
+  const plain = receiptVariants({ total: false });
+  const total = receiptVariants({ total: true });
+
+  expect(total.name()).not.toBe(plain.name());
+  expect(total.amount()).not.toBe(plain.amount());
 });
 
 /**
