@@ -291,3 +291,19 @@ test("a consumer scans the files that hold classes, and no test among them", () 
   expect(scanned.filter((name) => name.includes(".test."))).toEqual([]);
   expect([...scanned].sort()).toEqual(componentFiles.map((name) => `components/${name}`).sort());
 });
+
+/**
+ * Two components say a thing in words that only a screen reader is given: the ticker's whole
+ * number beside the digits it rolls, and the terminal's running command. Both sit in a row with a
+ * gap between its parts, and a gap is shared out between the items of that row — so drawn as one,
+ * each would open a space with nothing in it.
+ *
+ * Taken out of flow it is not one of those items and takes no share. Read from the built rule,
+ * because the pane this suite would look at renders black.
+ */
+test("the class that says a thing only to a screen reader takes no room", () => {
+  const rule = /\.sr-only\s*\{([^}]*)\}/.exec(css)?.[1]?.replaceAll(/\s+/g, "");
+
+  expect(rule).toBeDefined();
+  expect(rule).toContain("position:absolute");
+});
