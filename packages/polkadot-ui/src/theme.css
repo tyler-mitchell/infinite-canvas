@@ -1,4 +1,10 @@
-@source ".";
+/*
+ * Where a consumer's build finds the classes. The kit ships source, so everything this reaches
+ * becomes a rule in their stylesheet: it read all of `src`, and the sixteen test files in there
+ * plant classes to prove they are wrong — `bg-white` and `text-zinc-400` among them.
+ */
+@source "./components";
+@source not "./components/*.test.*";
 
 :root {
   color-scheme: dark;

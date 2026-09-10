@@ -250,3 +250,39 @@ test("every class the kit can emit compiles to a rule", () => {
 test("every class a page writes compiles to a rule", () => {
   expect(undrawn(pageTokens)).toEqual([]);
 });
+
+/**
+ * The other end of the same question: which files a consumer's build reads to find these classes.
+ * The kit ships source, so the sheet's own `@source` is the whole of that, and everything it
+ * reaches becomes a rule in their stylesheet. It named all of `src`, which is sixteen test files —
+ * so every control those tests plant to prove a class is wrong shipped as a rule, `bg-white` and
+ * `text-zinc-400` among them, and `focus-visible:ring-offset-pk-ground`, which another rule here
+ * exists to forbid.
+ */
+const declaredSources = [...readFileSync(sheet, "utf8").matchAll(/@source\s+(not\s+)?"([^"]+)"/g)];
+
+/** A pattern is a directory to walk unless it globs, which is how Tailwind reads one. */
+const reaches = (pattern: string, file: string) => {
+  const cleaned = pattern.replace(/^\.\/?/, "");
+
+  if (!cleaned) return true;
+  if (!cleaned.includes("*")) return file === cleaned || file.startsWith(`${cleaned}/`);
+
+  return new RegExp(`^${cleaned.replaceAll(".", "\\.").replaceAll("*", "[^/]*")}$`).test(file);
+};
+
+/** Every file under `src` a consumer would scan, as the sheet's own patterns decide it. */
+const scanned = readdirSync(new URL(".", sheet), { recursive: true })
+  .map(String)
+  .filter((name) => /\.tsx?$/.test(name))
+  .filter((name) =>
+    declaredSources.reduce(
+      (kept, [, negated, pattern]) => (reaches(pattern!, name) ? negated === undefined : kept),
+      false,
+    ),
+  );
+
+test("a consumer scans the files that hold classes, and no test among them", () => {
+  expect(scanned.filter((name) => name.includes(".test."))).toEqual([]);
+  expect([...scanned].sort()).toEqual(componentFiles.map((name) => `components/${name}`).sort());
+});
