@@ -8,6 +8,12 @@ built from TanStack Router affordances rather than a bespoke navigator.
 
 Target identity: `@tanstack/react-router` 1.170.32. Retrieved 2026-09-09.
 
+**Scope: none of this is implemented in `polkadot-ui`, and none of it is owed by it.** The package
+is a component kit with no canvas, no camera and no zoom; its lab app has eight flat routes that
+demonstrate components. What survives here is the router research — which affordances exist at
+1.170.32, verified against the installed package — and a design for whatever owns a canvas. The
+route trees and components below are targets for that owner, not descriptions of this app.
+
 ## The three things that feel like routing and are not the same thing
 
 Recursion looks impossible while these stay merged. Separating them is the whole design.
@@ -27,7 +33,7 @@ can carry.
 The route tree stays flat. Depth lives in the path.
 
 ```txt
-app/routes/
+app/routes/                          target — a canvas owner's route tree, not this package's
 ├── __root.tsx        the shell
 ├── index.tsx         /              the root canvas, focus depth 0
 └── w.$.tsx           /w/$_splat     a focus path of any depth
@@ -150,7 +156,9 @@ seeded from:
 - **Cross-fade, never swap.** Swapping proxy for live loses caret, scroll and focus, and costs a
   layout exactly while the camera is moving.
 
-Status: target. Nothing here is measured yet; the thresholds are inherited, not re-derived.
+Status: target. The thresholds are inherited from the POC, not re-derived, and they cannot be
+re-derived here: measuring a promote-and-demote boundary needs a canvas that mounts levels, and
+this package has none. Whoever builds one should measure rather than adopt 120 and 160.
 
 ## Route masking is how a mini-app gets its own deep link
 
