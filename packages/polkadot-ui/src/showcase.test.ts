@@ -723,6 +723,63 @@ test("a module a consumer loads imports only what the manifest promises", () => 
   expect(unpromised(shipped, promised)).toEqual([]);
 });
 
+/**
+ * The manifest tells a bundler that nothing but a stylesheet does anything at import time, which
+ * is what lets a consumer's build drop what it does not use. A module that reached for the document
+ * or registered something at the top level would be dropped along with it, and the bug would appear
+ * only in a production build — the hardest kind to find from here.
+ *
+ * The compound parts are the one statement that is allowed: `Tabs.List = TabsList` hangs a part off
+ * a function this module also exports, which is the idiom every compound kit uses.
+ */
+const PART_ASSIGNMENT = /^[A-Z]\w*\.[A-Z]\w* = [A-Z]\w*;$/;
+
+const atImportTime = (source: string) =>
+  source
+    .split("\n")
+    .filter((line) => /^[a-zA-Z]/.test(line))
+    .filter(
+      (line) =>
+        !/^(?:import|export|const|let|var|function|type|interface|class|declare|enum|async)\b/.test(
+          line,
+        ),
+    )
+    .filter((line) => !PART_ASSIGNMENT.test(line.trim()));
+
+test("a module that does something at import time is reported", () => {
+  expect(atImportTime("const a = 1;\nTabs.List = TabsList;\nexport { a };")).toEqual([]);
+  expect(atImportTime('document.addEventListener("click", go);')).toEqual([
+    'document.addEventListener("click", go);',
+  ]);
+});
+
+test("nothing a consumer loads does anything at import time but hang up its parts", () => {
+  const shipped = [
+    ...readdirSync(new URL(".", import.meta.url))
+      .filter((name) => /\.tsx?$/.test(name) && !name.includes(".test."))
+      .map((file) => ({ file, source: readFileSync(new URL(file, import.meta.url), "utf8") })),
+    ...readdirSync(componentDir)
+      .filter((name) => /\.tsx?$/.test(name) && !name.includes(".test."))
+      .map((file) => ({ file, source: readFileSync(new URL(file, componentDir), "utf8") })),
+  ];
+
+  const manifest = JSON.parse(
+    readFileSync(new URL("../package.json", import.meta.url), "utf8"),
+  ) as {
+    readonly sideEffects: readonly string[];
+  };
+
+  /* Read first: the parts are found and allowed, so the sweep is reading real modules. */
+  expect(manifest.sideEffects).toEqual(["**/*.css"]);
+  expect(
+    shipped.some(({ source }) => source.split("\n").some((line) => PART_ASSIGNMENT.test(line))),
+  ).toBe(true);
+
+  expect(
+    shipped.flatMap(({ file, source }) => atImportTime(source).map((line) => `${file}: ${line}`)),
+  ).toEqual([]);
+});
+
 /** `text.tsx` is listed as its seven roles, which is what a page writes, rather than as a module. */
 const LISTED_AS_ITS_PARTS = ["text"];
 
