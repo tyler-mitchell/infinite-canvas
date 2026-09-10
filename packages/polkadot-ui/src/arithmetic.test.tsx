@@ -73,6 +73,34 @@ test("a ceiling under the readings still draws each bar apart from the others", 
   expect(heights.every((height) => Number(height) <= 100)).toBe(true);
 });
 
+/**
+ * The ceiling is the divisor, and the note at the top of this file names a zero one as the way the
+ * arithmetic fails quietly. Every series above carries its own ceiling, so the one a consumer can
+ * hand in was never given the values that break a division.
+ */
+test("a ceiling of zero or less draws bars rather than nonsense", () => {
+  const ceilings = [0, -1, Number.NaN];
+
+  const drawn = ceilings.map((max) => renderToStaticMarkup(<Bars values={[3, 6, 9]} max={max} />));
+
+  expect(drawn.filter((html) => isNonsense(html))).toEqual([]);
+  /* Bars, not an empty box: nonsense cannot appear in markup that was never drawn. */
+  expect(drawn.map((html) => (html.match(/height:/g) ?? []).length)).toEqual([3, 3, 3]);
+});
+
+test("a floor of zero or one still leaves every bar inside the box", () => {
+  const floors = [0, 1, -1];
+
+  const bad = floors.filter((minHeight) => {
+    const html = renderToStaticMarkup(<Bars values={[0, 5, 10]} minHeight={minHeight} />);
+    const heights = [...html.matchAll(/height:\s*([\d.]+)%/g)].map(([, value]) => Number(value));
+
+    return isNonsense(html) || heights.some((height) => height > 100);
+  });
+
+  expect(bad).toEqual([]);
+});
+
 test("a grid given a single day draws that day and no nonsense", () => {
   const html = renderToStaticMarkup(
     <ActivityGrid days={[{ date: new Date("2026-09-10T00:00:00Z"), count: 3 }]} />,

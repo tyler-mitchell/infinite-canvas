@@ -31,17 +31,42 @@ const REQUIRED: Record<string, Record<string, unknown>> = {
 };
 
 /** `surfaceVariants` describes `Surface`, so the pair is derived rather than listed by hand. */
-const pairs: readonly Pair[] = Object.entries(kit)
-  .filter(([name]) => name.endsWith("Variants"))
-  .flatMap(([name, value]) => {
-    const component = name.slice(0, -"Variants".length);
-    const owner = component.charAt(0).toUpperCase() + component.slice(1);
-    const drawn = (kit as Record<string, unknown>)[owner];
+const ownerOf = (name: string) => {
+  const component = name.slice(0, -"Variants".length);
 
-    return typeof drawn === "function"
-      ? [{ owner, draw: drawn, config: value as VariantObject }]
-      : [];
-  });
+  return component.charAt(0).toUpperCase() + component.slice(1);
+};
+
+const variantNames = Object.keys(kit).filter((name) => name.endsWith("Variants"));
+
+const pairs: readonly Pair[] = variantNames.flatMap((name) => {
+  const owner = ownerOf(name);
+  const drawn = (kit as Record<string, unknown>)[owner];
+
+  return typeof drawn === "function"
+    ? [{ owner, draw: drawn, config: (kit as Record<string, unknown>)[name] as VariantObject }]
+    : [];
+});
+
+/**
+ * A variants object whose name does not resolve to a component is dropped from the sweep, and a
+ * dropped one looks exactly like one that passed. Only the text roles are in that position: they
+ * are exported as `Display`, `Kind`, `Label` and four more rather than as a `Text`, and each sets
+ * its own `as` internally, so handing that variant to one of them would do nothing and prove less.
+ *
+ * Named here so the skip is stated. A component whose export name stops matching its variants
+ * object joins this list on purpose or is fixed, rather than leaving the sweep quietly.
+ */
+const DRAWN_THROUGH_SEVERAL = ["textVariants"];
+
+test("nothing leaves the sweep without being named", () => {
+  const unpaired = variantNames.filter(
+    (name) => typeof (kit as Record<string, unknown>)[ownerOf(name)] !== "function",
+  );
+
+  expect(unpaired).toEqual(DRAWN_THROUGH_SEVERAL);
+  expect(pairs.length).toBe(variantNames.length - DRAWN_THROUGH_SEVERAL.length);
+});
 
 /**
  * Every value of every variant, drawn. The pages show the values they happen to use, so a tone or
