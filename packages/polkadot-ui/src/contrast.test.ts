@@ -43,6 +43,16 @@ for (const [, token, hex] of themeCss.matchAll(/^\s+(--[a-z][a-z\d-]*):\s*(#[\da
   if (!declaredAs.has(token!)) declaredAs.set(token!, hex!);
 }
 
+/**
+ * The colours a gradient token declares, in the order it draws them. Paper is the one ground that
+ * is a gradient, and five rules read its ends; each carried its own copy of this pattern, and the
+ * copies had already drifted apart.
+ */
+const stopsOf = (token: string) =>
+  [
+    ...(new RegExp(`${token}:[^;]*`, "i").exec(themeCss)?.[0] ?? "").matchAll(/#[\da-f]{3,8}\b/gi),
+  ].map(([stop]) => stop);
+
 const channels = (hex: string) => {
   const raw = hex.replace("#", "");
   const full = raw.length === 3 ? raw.replace(/./g, (digit) => digit + digit) : raw;
@@ -143,8 +153,7 @@ test("every ratio a page states is the one its colours produce", () => {
  * restated here, so a change to the paper itself moves the expectation with it.
  */
 test("every paper ratio the page states is the pair its gradient produces", () => {
-  const [, top, foot] =
-    /--pk-paper:\s*linear-gradient\([^,]+,\s*(#[\da-f]+),\s*(#[\da-f]+)\)/.exec(themeCss) ?? [];
+  const [top, foot] = stopsOf("--pk-paper");
 
   const stated = [
     ...pages.matchAll(/\["(--pk-paper-[a-z-]+)",\s*"[^"]*",\s*"([\d.]+) → ([\d.]+)"\]/g),
@@ -262,7 +271,7 @@ test("every ground a control can be focused on names the seat behind it", () => 
  * stop is rgb(250, 249, 245), and the seat it inherits is #faf9f5.
  */
 test("the seat the paper names is the stop the paper starts at", () => {
-  const [, top] = /--pk-paper:\s*linear-gradient\([^,]+,\s*(#[\da-f]+)/.exec(themeCss) ?? [];
+  const [top] = stopsOf("--pk-paper");
   const [, named] =
     /\.pk-paper\s*\{[\s\S]*?--pk-ring-seat:\s*var\((--pk-[a-z-]+)\)/.exec(themeCss) ?? [];
 
@@ -292,26 +301,31 @@ test("the ring paper uses clears 3:1 on paper", () => {
  * from the declaration, so darkening the foot of the paper moves the expectation with it.
  */
 test("the ring paper uses clears 3:1 at both ends of the sheet", () => {
-  const [, top, foot] =
-    /--pk-paper:\s*linear-gradient\([^,]+,\s*(#[\da-f]+),\s*(#[\da-f]+)\)/.exec(themeCss) ?? [];
+  const [top, foot] = stopsOf("--pk-paper");
   const ink = declaredAs.get("--pk-paper-ink")!;
 
   expect([top, foot]).not.toContain(undefined);
   for (const stop of [top!, foot!]) expect(contrast(ink, stop)).toBeGreaterThanOrEqual(3);
+
+  /* The three is what paper is held to. The pair is what the note above says it reaches. */
+  expect([contrast(ink, top!).toFixed(2), contrast(ink, foot!).toFixed(2)]).toEqual([
+    "13.48",
+    "12.03",
+  ]);
 });
 
 /**
- * The paper's hairline reaches 1.54 against the foot of the sheet, far under the three a mark is
- * asked for, and it is exempt because it is decoration. That has been an assumption twice now, so
- * here is what makes it true: the rule renders as a plain div with no role, so it is announced to
- * nobody, and the total it sits above is told apart by weight and size rather than by the line.
+ * The paper's hairline stays far under the three a mark is asked for, and it is exempt because it
+ * is decoration. The figure is stated in the component and measured against the gradient there,
+ * so it is not restated here. That has been an assumption twice now, so here is what makes it
+ * true: the rule renders as a plain div with no role, so it is announced to nobody, and the total
+ * it sits above is told apart by weight and size rather than by the line.
  *
  * Emptying the total variant would leave the line as the only thing dividing a total from an item.
  * This fails then, which is the moment to give the hairline a ratio instead of an exemption.
  */
 test("the paper hairline is decoration, and the total does not lean on it", () => {
-  const [, foot] =
-    /--pk-paper:\s*linear-gradient\([^,]+,\s*#[\da-f]+,\s*(#[\da-f]+)\)/.exec(themeCss) ?? [];
+  const foot = stopsOf("--pk-paper").at(-1);
   const source = componentSources.find(({ file }) => file === "receipt.tsx")!.source;
   const [, drawsTheRule] = /function ReceiptRule\(([\s\S]*?)\n}/.exec(source) ?? [];
 
@@ -622,10 +636,6 @@ test("a fill a component paints is a ground its own text clears", () => {
   expect(thin).toEqual([]);
 });
 
-/** The colour a gradient token has reached at its far end, where a sheet is darkest. */
-const farEndOf = (token: string) =>
-  new RegExp(`${token}:[^;]*,\\s*(#[\\da-f]{3,8})\\s*\\)`, "i").exec(themeCss)?.[1];
-
 /**
  * A ground is not always a token. A fill lightens the surface under it, and the paper is a
  * gradient whose far end is the worst case. Both are read from the declaration.
@@ -637,7 +647,7 @@ type Ground =
 
 const groundIs = (on: Ground) => {
   if (typeof on === "string") return declaredAs.get(on);
-  if ("farEndOf" in on) return farEndOf(on.farEndOf);
+  if ("farEndOf" in on) return stopsOf(on.farEndOf).at(-1);
 
   return over(declaredAs.get(on.fill)!, declaredAs.get(on.over)!, on.alpha);
 };
