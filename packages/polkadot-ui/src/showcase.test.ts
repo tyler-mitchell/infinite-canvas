@@ -597,18 +597,37 @@ test("every union a row describes is the one its component has", () => {
  */
 const NUMBERS = ["one", "two", "three", "four", "five", "six", "seven", "eight", "nine"];
 
+/** Ten to nineteen are their own words rather than a ten and a unit, and had none. */
+const TEENS = [
+  "ten",
+  "eleven",
+  "twelve",
+  "thirteen",
+  "fourteen",
+  "fifteen",
+  "sixteen",
+  "seventeen",
+  "eighteen",
+  "nineteen",
+];
+
 const inWords = (count: number) => {
   const tens = ["", "", "twenty", "thirty", "forty", "fifty", "sixty", "seventy", "eighty"];
   const [ten, unit] = [Math.floor(count / 10), count % 10];
 
   if (count < 10) return NUMBERS[count - 1]!;
+  if (ten === 1) return TEENS[unit]!;
   return unit === 0 ? tens[ten]! : `${tens[ten]}-${NUMBERS[unit - 1]}`;
 };
 
 test("counting in words covers the range the readme uses", () => {
-  expect([6, 9, 20, 34, 40].map(inWords)).toEqual([
+  /* Ten and nineteen because they used to answer "" and "-nine": a decade with no words in it. */
+  expect([6, 9, 10, 13, 19, 20, 34, 40].map(inWords)).toEqual([
     "six",
     "nine",
+    "ten",
+    "thirteen",
+    "nineteen",
     "twenty",
     "thirty-four",
     "forty",
@@ -796,6 +815,27 @@ test("no document points at a route file that is gone", () => {
 
   expect(real.length).toBe(10);
   expect(stale).toEqual([]);
+});
+
+/**
+ * The design note records a scope rule it dropped, and names the composites that rule would have
+ * excluded — counted in words and listed. The readme's own list of components is read; this one
+ * was not, so a renamed composite would leave the note naming something the kit does not export
+ * while every run stayed green.
+ *
+ * What a composite is cannot be derived, so the list stays written. Whether each name is a
+ * component can be, and that is the half that goes stale.
+ */
+test("the composites the design note names are ones the kit exports", () => {
+  const note = readFileSync(new URL("../docs/design/widget.md", import.meta.url), "utf8");
+  const [, counted, listed] =
+    /ships (\w+) composites that rule would have excluded: ([^.]+)\./.exec(note) ?? [];
+  const named = (listed ?? "").split(",").map((one) => one.trim().replaceAll("`", ""));
+
+  /* Read first: a reader that matches nothing splits an empty string into one empty name. */
+  expect(named.length).toBeGreaterThan(5);
+  expect(counted).toBe(inWords(named.length));
+  expect(named.filter((one) => !(one in kit))).toEqual([]);
 });
 
 test("the readme counts the kit as it is, and names routes that exist", () => {

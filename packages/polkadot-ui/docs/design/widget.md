@@ -65,11 +65,12 @@ Nothing forces a widget into a shape. A repo card composes `Kind` + `Title` + `M
 budget composes `Label` + `Readout` + a sparkline; the printer composes almost none of it.
 
 ```tsx
-// app/routes/readouts.tsx — what a consumer writes. No Header, no Body, no Footer.
+// The shape a consumer writes, as `app/routes/readouts.tsx` composes it rather than word for
+// word. No Header, no Body, no Footer. The reading comes from the series, never typed beside it.
 <Surface tone="card">
   <Row>
     <Label>frame budget</Label>
-    <Readout>8.2 ms</Readout>
+    <Readout>{`${latest} ms`}</Readout>
   </Row>
   <Sparkline values={frames} />
 </Surface>
