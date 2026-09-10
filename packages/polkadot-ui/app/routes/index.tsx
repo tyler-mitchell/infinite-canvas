@@ -142,7 +142,7 @@ function Overview() {
             <Row align="center" className={styles.identityRow()}>
               <Avatar size="lg" name="Tyler Mitchell" />
               <div className={styles.who()}>
-                <Display>Tyler Mitchell</Display>
+                <Display render={<span />}>Tyler Mitchell</Display>
                 <span className={styles.role()}>Spatial interface engineer</span>
                 <StatusDot>open to one project</StatusDot>
               </div>

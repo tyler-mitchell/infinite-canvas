@@ -248,7 +248,7 @@ function Foundations() {
         <Surface tone="card">
           <div className={styles.scale()}>
             <div className={styles.scaleRow()}>
-              <Display>Display · 21px semibold</Display>
+              <Display render={<span />}>Display · 21px semibold</Display>
               <Meta>the page names itself once</Meta>
             </div>
             <div className={styles.scaleRow()}>

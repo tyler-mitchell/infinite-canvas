@@ -4,7 +4,6 @@ import type { VariantProps } from "tailwind-variants";
 import { tv } from "../tv.ts";
 
 const text = tv({
-  base: "",
   variants: {
     as: {
       label: "font-pk-sans text-pk-label text-pk-ink-dim",
@@ -36,11 +35,25 @@ const role = (name: Role, tag: keyof React.JSX.IntrinsicElements) =>
     });
   };
 
+/** Names a section: `frame budget`, `inbox`. A `span`. */
 const Label = role("label", "span");
+
+/** Tags what a thing is: `gist`, `issue`. A `span`. */
 const Kind = role("kind", "span");
+
+/** The through-line, and the role most of a widget's chrome is made of. A `span`. */
 const Meta = role("meta", "span");
+
+/** Names a widget once. A `span`, because a card's name is not the document's heading. */
 const Title = role("title", "span");
+
+/**
+ * The page naming itself, so it renders an `h1`. Reach for it as a size and you will emit a second
+ * top-level heading — pass `render={<span />}` where the text is not what the page is about.
+ */
 const Display = role("display", "h1");
+
+/** A sentence meant to be read rather than scanned. A `p`, and the only role with a measure. */
 const Prose = role("prose", "p");
 
 export type ReadoutProps = useRender.ComponentProps<"span">;
