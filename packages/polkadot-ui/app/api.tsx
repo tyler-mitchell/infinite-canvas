@@ -42,7 +42,8 @@ export function Api({ of, name, except = [] }: ApiProps) {
 
   return (
     <div className={styles.table()}>
-      {name ? <Kind className={styles.head()}>{name}</Kind> : null}
+      {/* Says what it lists, because a props table for the same component sits beside it. */}
+      {name ? <Kind className={styles.head()}>{`${name} variants`}</Kind> : null}
       {keys.map((key) => (
         <div key={key} className={styles.row()}>
           <Label className={styles.name()}>{key}</Label>
