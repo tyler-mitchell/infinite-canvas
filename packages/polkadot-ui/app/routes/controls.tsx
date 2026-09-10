@@ -13,6 +13,9 @@ import {
   Label,
   Meta,
   Prose,
+  Radio,
+  RadioGroup,
+  radioVariants,
   Readout,
   Row,
   Slider,
@@ -26,7 +29,7 @@ import {
 
 import { Api } from "../api.tsx";
 import { Props } from "../props.tsx";
-import { CATEGORIES } from "../fixtures.ts";
+import { CATEGORIES, RULERS, SNAP } from "../fixtures.ts";
 
 const controls = tv({
   slots: {
@@ -63,6 +66,7 @@ function Controls() {
   const [range, setRange] = useState<string[]>(["3m"]);
   const [sound, setSound] = useState(true);
   const [wrap, setWrap] = useState(false);
+  const [snap, setSnap] = useState<string>("edges");
 
   return (
     <div className={styles.page()}>
@@ -215,6 +219,47 @@ function Controls() {
           who cannot see the dash, and clicking it settles the whole group one way.
         </Prose>
         <Api name="checkbox" of={checkboxVariants} except={["checked"]} />
+      </section>
+
+      <section className={styles.section()}>
+        <Row rule="below">
+          <Kind>radio group</Kind>
+          <Meta>one of several · the group carries the name</Meta>
+        </Row>
+        <div className={styles.grid()}>
+          <Surface tone="card">
+            <Field layout="stacked">
+              <Field.Label>snap to</Field.Label>
+              <RadioGroup value={snap} onValueChange={(next) => setSnap(String(next))}>
+                {SNAP.map((option) => (
+                  <Field key={option}>
+                    <Radio value={option} />
+                    <Field.Label>{option}</Field.Label>
+                  </Field>
+                ))}
+              </RadioGroup>
+            </Field>
+          </Surface>
+          <Surface tone="card">
+            <Field layout="stacked">
+              <Field.Label>ruler</Field.Label>
+              <RadioGroup layout="inline" defaultValue="px">
+                {RULERS.map((option) => (
+                  <Field key={option}>
+                    <Radio value={option} disabled={option === "pt"} />
+                    <Field.Label>{option}</Field.Label>
+                  </Field>
+                ))}
+              </RadioGroup>
+            </Field>
+          </Surface>
+        </div>
+        <Prose className={styles.lede()}>
+          The group is the thing a reader hears named, not each button, so it sits inside a stacked{" "}
+          <Readout>Field</Readout> whose label names it. One disabled option stays in the group and
+          out of the arrow keys, which is what a radio group does rather than what it is told.
+        </Prose>
+        <Api name="radio" of={radioVariants} except={["checked"]} />
       </section>
 
       <section className={styles.section()}>

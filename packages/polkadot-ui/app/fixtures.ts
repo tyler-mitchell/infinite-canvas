@@ -53,6 +53,10 @@ export const LEVELS = [
 
 export const CATEGORIES = ["stack", "work", "words", "life"] as const;
 
+export const SNAP = ["edges", "centres", "gaps", "nothing"] as const;
+
+export const RULERS = ["px", "pt", "rem"] as const;
+
 export const INBOX = [
   {
     id: "gist",

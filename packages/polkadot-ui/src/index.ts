@@ -158,6 +158,13 @@ export {
   pendingCardVariants,
   type PendingCardProps,
 } from "./components/pending-card.tsx";
+export {
+  Radio,
+  RadioGroup,
+  radioVariants,
+  type RadioGroupProps,
+  type RadioProps,
+} from "./components/radio.tsx";
 export { Row, rowVariants, type RowProps } from "./components/row.tsx";
 export { Separator, separatorVariants, type SeparatorProps } from "./components/separator.tsx";
 export { Sparkline, sparklineVariants, type SparklineProps } from "./components/sparkline.tsx";
