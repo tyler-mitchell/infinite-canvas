@@ -12,16 +12,20 @@ import {
   Row,
   rowVariants,
   ScrollArea,
+  type ScrollAreaProps,
   Separator,
   separatorVariants,
   Surface,
   surfaceVariants,
   Title,
   Toolbar,
+  type ToolbarButtonProps,
+  type ToolbarProps,
   tv,
 } from "polkadot-ui";
 
 import { Api } from "../api.tsx";
+import { Props } from "../props.tsx";
 import { COMMITS } from "../fixtures.ts";
 
 const layout = tv({
@@ -41,6 +45,8 @@ const layout = tv({
     scrollers: "flex flex-wrap items-start gap-3",
     scroller: "h-[104px] w-[400px]",
     scrollBody: "flex flex-col gap-2",
+    /* Held on one line so the content is wider than the frame, which is what gives it a second bar. */
+    scrollBodyWide: "flex w-max flex-col gap-2 whitespace-nowrap",
     scrollWide: "h-[104px] w-[230px]",
   },
 });
@@ -124,7 +130,7 @@ function Layout() {
             <Prose>No frame at all, for a widget that brings its own.</Prose>
           </Surface>
         </div>
-        <Api of={surfaceVariants} />
+        <Api name="surface" of={surfaceVariants} />
       </section>
 
       <section className={styles.section()}>
@@ -170,7 +176,7 @@ function Layout() {
             <Prose>A rule below opens a widget; a rule above closes one.</Prose>
           </Surface>
         </div>
-        <Api of={rowVariants} />
+        <Api name="row" of={rowVariants} />
       </section>
 
       <section className={styles.section()}>
@@ -188,7 +194,7 @@ function Layout() {
           ))}
           <IconTile open label="held open" icon={<span className={styles.monogram()}>ON</span>} />
         </div>
-        <Api of={iconTileVariants} />
+        <Api name="icon tile" of={iconTileVariants} />
       </section>
 
       <section className={styles.section()}>
@@ -203,7 +209,7 @@ function Layout() {
           <Separator orientation="vertical" />
           <Meta>42 ms</Meta>
         </div>
-        <Api of={separatorVariants} />
+        <Api name="separator" of={separatorVariants} />
       </section>
 
       <section className={styles.section()}>
@@ -224,7 +230,7 @@ function Layout() {
 
           <Surface tone="card" className={styles.scrollWide()}>
             <ScrollArea axis="both">
-              <div className={styles.scrollBody()}>
+              <div className={styles.scrollBodyWide()}>
                 {COMMITS.map((commit) => (
                   <Meta key={commit}>{commit}</Meta>
                 ))}
@@ -232,6 +238,17 @@ function Layout() {
             </ScrollArea>
           </Surface>
         </div>
+        <Props<ScrollAreaProps>
+          name="scroll area"
+          rows={[
+            {
+              name: "axis",
+              values: ["horizontal", "both"],
+              fallback: "vertical",
+              note: "which axes get a bar; a widget body usually wants only the one",
+            },
+          ]}
+        />
       </section>
 
       <section className={styles.section()}>
@@ -264,6 +281,34 @@ function Layout() {
             </Toolbar.Group>
           </Toolbar>
         </div>
+        <Props<ToolbarProps>
+          name="toolbar"
+          rows={[
+            {
+              name: "orientation",
+              values: ["vertical"],
+              fallback: "horizontal",
+              note: "which arrow keys move between the buttons",
+            },
+            {
+              name: "loopFocus",
+              fallback: "true",
+              note: "whether the arrows wrap from the last button to the first",
+            },
+            { name: "disabled", note: "closes the whole rail to interaction" },
+          ]}
+        />
+        <Props<ToolbarButtonProps>
+          name="toolbar button"
+          rows={[
+            { name: "disabled", fallback: "false", note: "the button stops responding" },
+            {
+              name: "focusableWhenDisabled",
+              fallback: "true",
+              note: "a disabled button still takes the arrow keys, so it can say why it is off",
+            },
+          ]}
+        />
       </section>
     </div>
   );
