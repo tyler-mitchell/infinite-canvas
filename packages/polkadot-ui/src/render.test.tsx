@@ -305,6 +305,13 @@ test("the deck says which keys walk it, and only while a card is there", () => {
   expect(drained).toContain('tabindex="-1"');
 });
 
+/*
+ * A closed accordion panel renders nothing at all on the server, with or without
+ * `hiddenUntilFound`, so neither the attribute nor the words can be asserted here. That claim was
+ * driven in a browser instead: the closed panels carry `hidden="until-found"`, and dispatching
+ * `beforematch` on one drops the attribute, sets `data-open` and flips its trigger to expanded.
+ */
+
 /**
  * Padding holds the width of a number that falls a place, so the zeros are a width and not part of
  * the value. They were being read out: a padded nine and a half thousand announced as `09562`.

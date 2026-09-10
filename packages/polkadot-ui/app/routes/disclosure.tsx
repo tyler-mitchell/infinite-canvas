@@ -55,7 +55,7 @@ function Disclosure() {
       <section className={styles.section()}>
         <Row rule="below">
           <Kind>accordion</Kind>
-          <Meta>one open at a time · title and date on one line</Meta>
+          <Meta>one open at a time · find a closed blurb and it opens</Meta>
         </Row>
         <Accordion className={styles.measure()}>
           {WRITING.map(([title, blurb, date]) => (
@@ -64,7 +64,8 @@ function Disclosure() {
                 <Accordion.Title>{title}</Accordion.Title>
                 <Accordion.Meta>{date}</Accordion.Meta>
               </Accordion.Trigger>
-              <Accordion.Panel>{blurb}</Accordion.Panel>
+              {/* Find-in-page reaches a closed blurb and opens the item that holds it. */}
+              <Accordion.Panel hiddenUntilFound>{blurb}</Accordion.Panel>
             </Accordion.Item>
           ))}
         </Accordion>
