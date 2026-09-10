@@ -155,7 +155,7 @@ function Data() {
             <Label>contributions</Label>
             <Meta>weeks fit to the width</Meta>
           </Row>
-          <ActivityGrid days={ACTIVITY} weeks={CONTRIBUTION_WEEKS}>
+          <ActivityGrid days={ACTIVITY} weeks={CONTRIBUTION_WEEKS} label="contributions">
             {(day) => (
               <Readout>
                 {day
@@ -181,6 +181,11 @@ function Data() {
               note: "the counts each level starts at",
             },
             { name: "children", note: "a render prop for the readout under the plot" },
+            {
+              name: "label",
+              fallback: "activity",
+              note: "names the series for a reader who cannot see it; two grids on a page need two names",
+            },
           ]}
         />
       </section>
@@ -195,7 +200,7 @@ function Data() {
             <Label>minutes read</Label>
             <Meta>1 · 30 · 60 · 120</Meta>
           </Row>
-          <ActivityGrid days={READING} weeks={18} thresholds={[1, 30, 60, 120]}>
+          <ActivityGrid days={READING} weeks={18} thresholds={[1, 30, 60, 120]} label="pages read">
             {(day) => (
               <Readout>
                 {day

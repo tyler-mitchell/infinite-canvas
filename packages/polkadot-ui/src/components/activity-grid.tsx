@@ -81,6 +81,8 @@ export interface ActivityGridProps extends Omit<React.ComponentProps<"div">, "ch
   readonly cellSize?: number;
   /** Lower bounds for levels one to four. Defaults suit commits per day. */
   readonly thresholds?: readonly number[];
+  /** Names the series for a reader who cannot see it. Two grids on a page need two names. */
+  readonly label?: string;
   /** Rendered beside the legend; receives the focused day, or `undefined` when nothing is. */
   readonly children?: (day: ActivityDay | undefined) => React.ReactNode;
 }
@@ -95,6 +97,7 @@ function ActivityGrid({
   weeks = 26,
   cellSize = 11,
   thresholds = DEFAULT_THRESHOLDS,
+  label = "activity",
   className,
   children,
   ...props
@@ -153,7 +156,7 @@ function ActivityGrid({
     <div
       data-slot="activity-grid"
       role="group"
-      aria-label="Activity"
+      aria-label={label}
       tabIndex={0}
       /* It takes the focus and the arrows walk it, so it says which arrows, as the deck does. */
       aria-keyshortcuts="ArrowLeft ArrowRight ArrowUp ArrowDown"
