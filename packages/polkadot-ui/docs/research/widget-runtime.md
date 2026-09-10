@@ -21,7 +21,7 @@ Scoped questions:
 | --- | ------------------------------------------------------ | --------------------------------------- |
 | 1   | Can TanStack Start run on this workspace's toolchain?  | **answered — no**, runtime-proven       |
 | 2   | What shell does Vite+ support instead?                 | answered — SPA; no SSR story documented |
-| 3   | Which primitives Base UI owns, so none are hand-rolled | answered — 48 primitives, enumerated    |
+| 3   | Which primitives Base UI owns, so none are hand-rolled | answered — 38 primitives, enumerated    |
 | 4   | Which motion affordances `motion` v12 owns             | answered — surface enumerated           |
 | 5   | What remains genuinely ours after 3 and 4              | answered, then outgrown — see below     |
 | 6   | Canonical R3F project shape at the installed version   | not this package's — see Open gaps      |
@@ -37,8 +37,8 @@ Out of scope, deliberately: `@hyphened/infinite-canvas`, `packages/ui`, and ever
 | ---------------------- | -------------------------------- | --------------------------------------------------- | -------------- |
 | App shell              | TanStack Start `1.168.50`        | rejected — SSR middleware does not mount on Vite+   | runtime-proven |
 | App shell              | TanStack Router + `<Outlet>` SPA | adopt; Start becomes a later swap, routes unchanged | target         |
-| Interaction primitives | `@base-ui/react` 1.5.0           | 48 primitives; every one comes from here            | observed       |
-| Class composition      | `tailwind-variants` 3.3.1        | slot fns already merge `className` — no helper      | observed       |
+| Interaction primitives | `@base-ui/react` 1.5.0           | 38 primitives; every one comes from here            | observed       |
+| Class composition      | `tailwind-variants` 3.2.2        | slot fns already merge `className` — no helper      | observed       |
 | Springs, layout, drag  | `motion` 12.40.0                 | surveyed, not adopted — see below                   | superseded     |
 | Frame loop             | `motion` `useAnimationFrame`     | surveyed, not adopted — see below                   | superseded     |
 | Motion tokens          | CSS custom properties            | `--pk-duration-*` and `--pk-ease-*` in `theme.css`  | observed       |
@@ -239,7 +239,7 @@ Every path above is still absent; the package has since grown to 39 component mo
 
 ## 4. What Base UI and `motion` own
 
-Base UI 1.5.0 declares 48 component subpaths plus the composition hooks. Read from its
+Base UI 1.5.0 declares 38 component subpaths plus the composition hooks. Read from its
 `package.json` `exports`:
 
 ```txt

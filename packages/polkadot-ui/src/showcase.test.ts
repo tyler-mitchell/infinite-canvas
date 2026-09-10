@@ -248,6 +248,41 @@ const documents = [
   new URL("../docs/research/recursive-navigation.md", import.meta.url),
 ];
 
+/**
+ * A research note pins the version it read a package at, which is what makes a finding reopenable.
+ * Two had drifted: `tailwind-variants` was recorded at 3.3.1 and is installed at 3.2.2, and Base UI
+ * was credited with 48 component subpaths beside its own list of 38.
+ *
+ * Only the packages this one depends on can be checked. A version recorded for something surveyed
+ * and never installed — `motion`, TanStack Start — is history, and there is nothing here to read it
+ * against.
+ */
+test("every version a document pins for a dependency is the one installed", () => {
+  const installed = new Map(
+    Object.keys(
+      JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).dependencies,
+    ).map((name) => [
+      name,
+      JSON.parse(
+        readFileSync(new URL(`../node_modules/${name}/package.json`, import.meta.url), "utf8"),
+      ).version as string,
+    ]),
+  );
+
+  const wrong = documents.flatMap((file) =>
+    [...readFileSync(file, "utf8").matchAll(/`(@?[\w/-]+)`[^\n|]{0,4}(\d+\.\d+\.\d+)/g)]
+      .filter(([, name]) => installed.has(name!))
+      .filter(([, name, pinned]) => installed.get(name!) !== pinned)
+      .map(
+        ([, name, pinned]) =>
+          `${file.pathname.split("/").pop()} pins ${name} at ${pinned}, installed is ${installed.get(name!)}`,
+      ),
+  );
+
+  expect(installed.size).toBe(3);
+  expect(wrong).toEqual([]);
+});
+
 test("no document points at a route file that is gone", () => {
   const real = readdirSync(new URL("routes/", appDir)).filter((name) => name.endsWith(".tsx"));
 
