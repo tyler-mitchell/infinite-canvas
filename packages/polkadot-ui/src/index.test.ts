@@ -11,10 +11,14 @@ const componentFiles = readdirSync(componentDir).filter(
 );
 
 const routeDir = new URL("../app/routes/", import.meta.url);
-const pages = readdirSync(routeDir)
-  .filter((name) => name.endsWith(".tsx") && name !== "__root.tsx")
-  .map((name) => readFileSync(new URL(name, routeDir), "utf8"))
-  .join("\n");
+const pageFiles = readdirSync(routeDir).filter(
+  (name) => name.endsWith(".tsx") && name !== "__root.tsx",
+);
+const pageSources = pageFiles.map((name) => ({
+  name,
+  source: readFileSync(new URL(name, routeDir), "utf8"),
+}));
+const pages = pageSources.map(({ source }) => source).join("\n");
 
 /**
  * Every component the entry exports. Read from the export lists themselves, because the entry
@@ -32,7 +36,8 @@ const components = new Set(
         .pop()!
         .trim(),
     )
-    .filter((part) => /^[A-Z]\w*$/.test(part)),
+    /* PascalCase only: the lowercase second character keeps out constants such as FONT_SIZES. */
+    .filter((part) => /^[A-Z][a-z\d]/.test(part)),
 );
 
 /**
@@ -92,6 +97,19 @@ test("every props type reaches the entry, because a consumer types wrappers with
   });
 
   expect(missing).toEqual([]);
+});
+
+/**
+ * `Display` renders an `h1`, so a page that reaches for it twice emits two top-level headings and
+ * a reader navigating by heading meets two page subjects. Using it as a size is legitimate — that
+ * is what `render` is for — so the rule counts the ones that leave the element alone.
+ */
+test("each page names itself once, and no more", () => {
+  const offenders = pageSources
+    .map(({ name, source }) => ({ name, headings: source.split("<Display>").length - 1 }))
+    .filter(({ headings }) => headings !== 1);
+
+  expect(offenders).toEqual([]);
 });
 
 test("every component the entry exports is rendered on a page", () => {
