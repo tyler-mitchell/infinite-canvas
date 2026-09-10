@@ -315,22 +315,44 @@ const gateOf = (one: string) => {
   return state ?? "";
 };
 
-/** The colours a class string writes as text under a state, less what an inactive control wears. */
-const inksIn = (classes: string, state = "") => {
+interface Ink {
+  readonly token: string;
+  readonly alpha: number;
+}
+
+/** Two writings of one token at two strengths are two inks, so identity carries the strength. */
+const unique = (found: readonly Ink[]) => [
+  ...new Map(found.map((ink) => [`${ink.token}@${ink.alpha}`, ink])).values(),
+];
+
+/**
+ * The colours a class string writes as text under a state, less what an inactive control wears.
+ *
+ * An ink may be thinned — `text-pk-ink/72` — and the pattern used to end at the token, so a thinned
+ * one was dropped rather than read. Nothing pairs one with a painted fill today; the rule reads it
+ * now so that the first one to appear is measured rather than skipped.
+ */
+const inksIn = (classes: string, state = ""): readonly Ink[] => {
   const written = classes
     .split(/\s+/)
     .filter((one) => !one.includes("data-disabled:"))
     .flatMap((one) => {
-      const [, token] = /text-(pk-[a-z\d-]+)$/.exec(one) ?? [];
+      const [, token, percent] = /text-(pk-[a-z\d-]+)(?:\/(\d+))?$/.exec(one) ?? [];
       if (!token || !declaredAs.has(`--${token}`) || BELONGS_ON[`--${token}`]) return [];
 
-      return [{ token: `--${token}`, gate: gateOf(one) }];
+      return [
+        {
+          token: `--${token}`,
+          alpha: percent === undefined ? 1 : Number(percent) / 100,
+          gate: gateOf(one),
+        },
+      ];
     });
 
   const gated = written.filter(({ gate }) => gate !== "" && gate === state);
 
   return (gated.length > 0 ? gated : written.filter(({ gate }) => gate === "")).map(
-    ({ token }) => token,
+    ({ token, alpha }) => ({ token, alpha }),
   );
 };
 
@@ -379,22 +401,26 @@ const paintedGrounds = (source: string) => {
   const pairs = [
     ...everywhere.flatMap((classes) =>
       fillsIn(classes).flatMap(({ alpha, state }) =>
-        [...new Set(strings.flatMap((one) => inksIn(one, state)))].map((ink) => ({ ink, alpha })),
+        unique(strings.flatMap((one) => inksIn(one, state))).map(({ token, alpha: inkAlpha }) => ({
+          ink: token,
+          alpha,
+          inkAlpha,
+        })),
       ),
     ),
     ...strings.flatMap((classes) =>
       fillsIn(classes).flatMap(({ alpha, state }) =>
-        [
-          ...new Set([
-            ...(slotted ? [] : everywhere.flatMap((one) => inksIn(one, state))),
-            ...inksIn(classes, state),
-          ]),
-        ].map((ink) => ({ ink, alpha })),
+        unique([
+          ...(slotted ? [] : everywhere.flatMap((one) => inksIn(one, state))),
+          ...inksIn(classes, state),
+        ]).map(({ token, alpha: inkAlpha }) => ({ ink: token, alpha, inkAlpha })),
       ),
     ),
   ];
 
-  return [...new Map(pairs.map((pair) => [`${pair.ink}@${pair.alpha}`, pair])).values()];
+  return [
+    ...new Map(pairs.map((pair) => [`${pair.ink}@${pair.alpha}@${pair.inkAlpha}`, pair])).values(),
+  ];
 };
 
 /**
@@ -413,14 +439,18 @@ test("a fill a component paints is a ground its own text clears", () => {
   const ink = declaredAs.get("--pk-ink")!;
 
   const thin = [...componentSources, ...pageSources].flatMap(({ file, source }) =>
-    paintedGrounds(source).flatMap(({ ink: token, alpha }) =>
+    paintedGrounds(source).flatMap(({ ink: token, alpha, inkAlpha }) =>
       seats()
-        .map((seat) => ({
-          where: `${file}: ${token} on ink at ${alpha} over ${seat}`,
-          got: Number(
-            contrast(declaredAs.get(token)!, over(ink, declaredAs.get(seat)!, alpha)).toFixed(2),
-          ),
-        }))
+        .map((seat) => {
+          const ground = over(ink, declaredAs.get(seat)!, alpha);
+
+          return {
+            where: `${file}: ${token} on ink at ${alpha} over ${seat}`,
+            got: Number(
+              contrast(over(declaredAs.get(token)!, ground, inkAlpha), ground).toFixed(2),
+            ),
+          };
+        })
         .filter(({ got }) => got < 4.5),
     ),
   );
@@ -433,20 +463,26 @@ test("a fill a component paints is a ground its own text clears", () => {
     componentSources.find((entry) => entry.file === "list-item.tsx")!.source,
   );
 
-  expect(badge).toContainEqual({ ink: "--pk-ink-dim", alpha: 0.06 });
+  expect(badge).toContainEqual({ ink: "--pk-ink-dim", alpha: 0.06, inkAlpha: 1 });
   /* Two values of one variant never appear together, so the quiet ink is not on the neutral fill. */
-  expect(badge).not.toContainEqual({ ink: "--pk-ink-faint", alpha: 0.06 });
+  expect(badge).not.toContainEqual({ ink: "--pk-ink-faint", alpha: 0.06, inkAlpha: 1 });
 
   /* The row that was repaired: under its own hover fill the trail is muted, not faint. */
-  expect(list).toContainEqual({ ink: "--pk-ink-muted", alpha: 0.06 });
-  expect(list).not.toContainEqual({ ink: "--pk-ink-faint", alpha: 0.06 });
+  expect(list).toContainEqual({ ink: "--pk-ink-muted", alpha: 0.06, inkAlpha: 1 });
+  expect(list).not.toContainEqual({ ink: "--pk-ink-faint", alpha: 0.06, inkAlpha: 1 });
 
   /* And the shape it had before, planted, so the rule is not passing because it reads nothing. */
   const planted = paintedGrounds(
     'const x = tv({\n  slots: {\n    root: "hover:bg-pk-ink/[0.06]",\n    trail: "text-pk-ink-faint",\n  },\n});',
   );
 
-  expect(planted).toContainEqual({ ink: "--pk-ink-faint", alpha: 0.06 });
+  /* Planted thinned, which the rule used to drop on the floor rather than measure. */
+  const thinned = paintedGrounds(
+    'const x = tv({\n  slots: {\n    root: "hover:bg-pk-ink/[0.06]",\n    trail: "text-pk-ink-faint/50",\n  },\n});',
+  );
+
+  expect(planted).toContainEqual({ ink: "--pk-ink-faint", alpha: 0.06, inkAlpha: 1 });
+  expect(thinned).toContainEqual({ ink: "--pk-ink-faint", alpha: 0.06, inkAlpha: 0.5 });
   expect(thin).toEqual([]);
 });
 
