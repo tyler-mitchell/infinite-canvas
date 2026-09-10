@@ -23,6 +23,24 @@
     rgb(0 230 168 / 0) 70%
   );
   --pk-tile-ink: #d6dbe1;
+
+  --pk-aurora-teal: radial-gradient(closest-side, rgb(0 230 168 / 0.5), rgb(0 230 168 / 0) 72%);
+  --pk-aurora-violet: radial-gradient(
+    closest-side,
+    rgb(126 140 255 / 0.38),
+    rgb(126 140 255 / 0) 74%
+  );
+  --pk-aurora-white: radial-gradient(
+    closest-side,
+    rgb(255 255 255 / 0.2),
+    rgb(255 255 255 / 0) 70%
+  );
+  --pk-aurora-vignette: radial-gradient(
+    120% 90% at 50% 45%,
+    rgb(7 8 10 / 0) 38%,
+    rgb(7 8 10 / 0.86) 100%
+  );
+
   --pk-recess: #040505;
   --pk-tray: #08090a;
   --pk-void: #07080a;

@@ -4,14 +4,11 @@ const aurora = tv({
   slots: {
     root: "relative isolate overflow-hidden rounded-pk-card border border-pk-line bg-pk-void shadow-pk-card transition-colors duration-(--pk-duration-hover) ease-pk-swift hover:border-pk-line-hover",
     blob: "pointer-events-none absolute top-1/2 left-1/2 mix-blend-screen",
-    teal: "-mt-[35%] -ml-[85%] h-[70%] w-[170%] blur-[26px] [background:radial-gradient(closest-side,rgb(0_230_168/0.5),rgb(0_230_168/0)_72%)]",
-    violet:
-      "-mt-[28%] -ml-[65%] h-[56%] w-[130%] blur-[30px] [background:radial-gradient(closest-side,rgb(126_140_255/0.38),rgb(126_140_255/0)_74%)]",
-    white:
-      "-mt-[18%] -ml-[47%] h-[36%] w-[95%] blur-[20px] [background:radial-gradient(closest-side,rgb(255_255_255/0.2),rgb(255_255_255/0)_70%)]",
+    teal: "-mt-[35%] -ml-[85%] h-[70%] w-[170%] blur-[26px] [background:var(--pk-aurora-teal)]",
+    violet: "-mt-[28%] -ml-[65%] h-[56%] w-[130%] blur-[30px] [background:var(--pk-aurora-violet)]",
+    white: "-mt-[18%] -ml-[47%] h-[36%] w-[95%] blur-[20px] [background:var(--pk-aurora-white)]",
     grain: "pk-noise pointer-events-none absolute inset-0",
-    vignette:
-      "pointer-events-none absolute inset-0 [background:radial-gradient(120%_90%_at_50%_45%,rgb(7_8_10/0)_38%,rgb(7_8_10/0.86)_100%)]",
+    vignette: "pointer-events-none absolute inset-0 [background:var(--pk-aurora-vignette)]",
     content: "pointer-events-none absolute inset-0 flex flex-col justify-between p-4",
     label: "font-pk-sans text-pk-label text-pk-ink/72",
     headline:

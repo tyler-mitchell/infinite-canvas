@@ -920,22 +920,17 @@ const unnamedColour = (sources: readonly { readonly file: string; readonly sourc
     .sort();
 
 /**
- * Seventeen colours in eight widgets, and nothing outside them: the pages are clean and no
- * Tailwind hue appears anywhere. Four widgets each mix their own shadow black at their own alpha,
- * three paint a knob raw white, the dialog scrim is raw black, and aurora carries a green and a
- * periwinkle that exist nowhere else in the kit. Every one needs a word in the sheet rather than a
- * different slot, so the list is pinned until the palette gains those words.
+ * Nine colours in seven widgets, and nothing outside them: the pages are clean and no Tailwind hue
+ * appears anywhere. Four widgets each mix their own shadow black at their own alpha, three paint a
+ * knob raw white, the dialog scrim is raw black, and the grid draws one hairline of raw white.
+ *
+ * Aurora's eight left this list when its four gradients moved into the sheet, which is where a
+ * compound value belongs and where the icon tile and the swipe card already keep theirs. What
+ * remains needs a word the palette does not have yet — a shadow scale, and a name for a knob face
+ * — so the list stays pinned until it gains them.
  */
 const COLOURS_THE_PALETTE_DOES_NOT_NAME = [
   "activity-grid.tsx rgb(255_255_255/0.045)",
-  "aurora.tsx rgb(0_230_168/0)",
-  "aurora.tsx rgb(0_230_168/0.5)",
-  "aurora.tsx rgb(126_140_255/0)",
-  "aurora.tsx rgb(126_140_255/0.38)",
-  "aurora.tsx rgb(255_255_255/0)",
-  "aurora.tsx rgb(255_255_255/0.2)",
-  "aurora.tsx rgb(7_8_10/0)",
-  "aurora.tsx rgb(7_8_10/0.86)",
   "dialog.tsx bg-black",
   "receipt.tsx rgb(0_0_0/0.9)",
   "slider.tsx bg-white",
@@ -960,6 +955,47 @@ test("a slot that paints an unnamed colour is reported", () => {
 
 test("no slot paints a colour beyond the ones already on record", () => {
   expect(unnamedColour(styledSources)).toEqual(COLOURS_THE_PALETTE_DOES_NOT_NAME);
+});
+
+/**
+ * A compound value lives in the sheet and is reached by name, which is how the tile, the swipe card
+ * and the aurora all draw. Nothing else checks those names: a utility like `bg-pk-surface` is read
+ * against the theme, but a bare `var(--pk-…)` inside an arbitrary value is not, and a misspelt one
+ * resolves to nothing at all — the element simply paints no background.
+ */
+const unrooted = (
+  sources: readonly { readonly file: string; readonly source: string }[],
+  declaredRoots: ReadonlySet<string>,
+) =>
+  sources
+    .flatMap(({ file, source }) =>
+      [...source.matchAll(/var\((--pk-[a-z\d-]+)\)/g)].map(([, token]) => ({
+        token: token!,
+        file,
+      })),
+    )
+    .filter(({ token }) => !declaredRoots.has(token))
+    .map(({ token, file }) => `${token} (${file})`)
+    .sort();
+
+test("a name a slot reaches for that the sheet does not declare is reported", () => {
+  const sheet = new Set(["--pk-aurora-teal"]);
+
+  expect(
+    unrooted([{ file: "a.tsx", source: "[background:var(--pk-aurora-teal)]" }], sheet),
+  ).toEqual([]);
+  expect(
+    unrooted([{ file: "a.tsx", source: "[background:var(--pk-aurora-tael)]" }], sheet),
+  ).toEqual(["--pk-aurora-tael (a.tsx)"]);
+});
+
+test("every name a slot reaches for is one the sheet declares", () => {
+  const reached = styledSources.flatMap(({ source }) => [
+    ...source.matchAll(/var\((--pk-[a-z\d-]+)\)/g),
+  ]);
+
+  expect(reached.length).toBeGreaterThan(20);
+  expect(unrooted(styledSources, roots)).toEqual([]);
 });
 
 /**
