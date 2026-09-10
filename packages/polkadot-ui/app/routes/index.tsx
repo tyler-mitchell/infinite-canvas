@@ -57,17 +57,18 @@ const overview = tv({
     section: "flex flex-col gap-4",
     grid: "grid grid-cols-[repeat(auto-fill,minmax(236px,1fr))] gap-3",
     widgets:
-      "grid grid-cols-[repeat(auto-fill,minmax(150px,1fr))] items-start gap-3 [grid-auto-flow:row_dense]",
+      "grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] items-start gap-3 [grid-auto-flow:row_dense]",
     widget: "col-span-1 min-w-0 sm:col-span-2",
     identity: "col-span-1 min-w-0 sm:col-span-2",
     aurora: "col-span-1 h-[190px] min-w-0 sm:col-span-2",
     small: "col-span-1 min-w-0",
+    wide: "col-span-1 min-w-0 sm:col-span-2",
     recipe: "col-span-1 h-[210px] min-w-0",
     deck: "col-span-1 h-[300px] min-w-0 sm:col-span-2",
     hint: "flex-none self-center",
     bindings: "flex flex-col gap-2",
     commits: "flex flex-col gap-[11px]",
-    metrics: "grid grid-cols-3 gap-[6px]",
+    metrics: "grid grid-cols-[repeat(auto-fit,minmax(150px,1fr))] gap-[6px]",
     repoName: "text-pk-head",
     identityRow: "gap-4 flex-nowrap",
     who: "flex min-w-0 flex-1 flex-col gap-[5px]",
@@ -268,7 +269,7 @@ function Overview() {
             ))}
           </Surface>
 
-          <Surface tone="card" className={styles.small()}>
+          <Surface tone="card" className={styles.wide()}>
             <Label>latest commits</Label>
             <div className={styles.commits()}>
               {LATEST_COMMITS.map(([sha, subject, age]) => (
@@ -278,7 +279,7 @@ function Overview() {
           </Surface>
 
           <PendingCard
-            className={styles.small()}
+            className={styles.wide()}
             title="p%T!+?_H#$1Q +ONP"
             body="a T!+?_H $1Q=+ONP $SYM RF=/F 4BC5 E^ R CG8## 4F1TSK P3?_3 D?2 HLK? V3ODYY=^ _9 TB# H495"
           />
@@ -290,7 +291,7 @@ function Overview() {
             note="usually replies the same day"
           />
 
-          <Surface tone="card" padding="tight" className={styles.small()}>
+          <Surface tone="card" padding="tight" className={styles.wide()}>
             <Row>
               <Label>building</Label>
             </Row>
