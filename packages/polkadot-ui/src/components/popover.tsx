@@ -1,5 +1,8 @@
 import { Popover as PopoverPrimitive } from "@base-ui/react/popover";
+import type { VariantProps } from "tailwind-variants";
+
 import { tv } from "../tv.ts";
+import { buttonVariants } from "./button.tsx";
 
 const popover = tv({
   slots: {
@@ -19,10 +22,21 @@ function Popover(props: PopoverProps) {
   return <PopoverPrimitive.Root {...props} />;
 }
 
-export type PopoverTriggerProps = PopoverPrimitive.Trigger.Props;
+export type PopoverTriggerProps = WithClassName<PopoverPrimitive.Trigger.Props> &
+  VariantProps<typeof buttonVariants>;
 
-function PopoverTrigger(props: PopoverTriggerProps) {
-  return <PopoverPrimitive.Trigger data-slot="popover-trigger" {...props} />;
+/**
+ * The trigger is the button, which is how Base UI writes one and how the toolbar and the select
+ * draw theirs. For a trigger that is not a button, pass `render` with its own `className`.
+ */
+function PopoverTrigger({ tone = "soft", size, className, ...props }: PopoverTriggerProps) {
+  return (
+    <PopoverPrimitive.Trigger
+      data-slot="popover-trigger"
+      className={buttonVariants({ tone, size, className })}
+      {...props}
+    />
+  );
 }
 
 export type PopoverContentProps = WithClassName<PopoverPrimitive.Popup.Props> &
@@ -86,10 +100,18 @@ function PopoverDescription({ className, ...props }: PopoverDescriptionProps) {
   );
 }
 
-export type PopoverCloseProps = PopoverPrimitive.Close.Props;
+export type PopoverCloseProps = WithClassName<PopoverPrimitive.Close.Props> &
+  VariantProps<typeof buttonVariants>;
 
-function PopoverClose(props: PopoverCloseProps) {
-  return <PopoverPrimitive.Close data-slot="popover-close" {...props} />;
+/** A footer action, so it draws a button the same way the trigger does. */
+function PopoverClose({ tone = "ghost", size = "sm", className, ...props }: PopoverCloseProps) {
+  return (
+    <PopoverPrimitive.Close
+      data-slot="popover-close"
+      className={buttonVariants({ tone, size, className })}
+      {...props}
+    />
+  );
 }
 
 Popover.Trigger = PopoverTrigger;

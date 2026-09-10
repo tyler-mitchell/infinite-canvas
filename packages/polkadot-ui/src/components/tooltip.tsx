@@ -1,5 +1,8 @@
 import { Tooltip as TooltipPrimitive } from "@base-ui/react/tooltip";
+import type { VariantProps } from "tailwind-variants";
+
 import { tv } from "../tv.ts";
+import { buttonVariants } from "./button.tsx";
 
 const tooltip = tv({
   slots: {
@@ -25,15 +28,25 @@ function Tooltip(props: TooltipProps) {
   return <TooltipPrimitive.Root {...props} />;
 }
 
-export type TooltipTriggerProps = TooltipPrimitive.Trigger.Props;
+export type TooltipTriggerProps = Omit<TooltipPrimitive.Trigger.Props, "className"> &
+  VariantProps<typeof buttonVariants> & { className?: string };
 
 /**
  * A tooltip is a visual hint and nothing else: the popup carries no role and is never pointed at
  * by the trigger, so a reader who cannot see it is told nothing. Give the trigger an `aria-label`
  * that says what the tooltip says, or put the same words somewhere a reader will reach.
+ *
+ * The trigger is the button, which is how Base UI writes one and how the toolbar and the select
+ * draw theirs. For a trigger that is not a button, pass `render` with its own `className`.
  */
-function TooltipTrigger(props: TooltipTriggerProps) {
-  return <TooltipPrimitive.Trigger data-slot="tooltip-trigger" {...props} />;
+function TooltipTrigger({ tone = "soft", size, className, ...props }: TooltipTriggerProps) {
+  return (
+    <TooltipPrimitive.Trigger
+      data-slot="tooltip-trigger"
+      className={buttonVariants({ tone, size, className })}
+      {...props}
+    />
+  );
 }
 
 export type TooltipContentProps = Omit<TooltipPrimitive.Popup.Props, "className"> &

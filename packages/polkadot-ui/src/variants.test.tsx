@@ -36,14 +36,18 @@ const REQUIRED: Record<string, Record<string, unknown>> = {
   Binding: { keys: ["a"], action: "do the thing" },
   Breakdown: { parts: [{ name: "p", share: 1, color: "red" }] },
   Collapsible: { children: createElement(kit.CollapsibleTrigger, null, "open") },
+  Dialog: { children: createElement(kit.DialogTrigger, null, "open") },
   Field: { children: createElement(kit.FieldLabel, null, "name") },
   LayoutPreview: { panes: [] },
+  Menu: { children: createElement(kit.MenuTrigger, null, "open") },
   NumberField: { children: createElement(kit.NumberFieldGroup) },
+  Popover: { children: createElement(kit.PopoverTrigger, null, "open") },
   RadioGroup: { children: createElement(kit.Radio, { value: "a" }) },
   ReceiptBarcode: { value: "order 42" },
   Sparkline: { values: [1, 2, 3] },
   SwipeDeck: { items: [] },
   ToggleGroup: { children: createElement(kit.Toggle, { value: "a" }, "one") },
+  Tooltip: { children: createElement(kit.TooltipTrigger, null, "open") },
   /* The bare part, not one propped up with `render`: a toolbar button has to dress itself. */
   Toolbar: { children: createElement(kit.ToolbarButton, null, "cut") },
 };

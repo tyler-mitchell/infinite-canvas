@@ -1,6 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
 import {
-  Button,
   Dialog,
   type DialogProps,
   Display,
@@ -13,6 +12,7 @@ import {
   Popover,
   type PopoverContentProps,
   type PopoverProps,
+  type PopoverTriggerProps,
   Prose,
   Row,
   Tooltip,
@@ -60,15 +60,11 @@ function Overlays() {
         <Tooltip.Provider>
           <div className={styles.inline()}>
             <Tooltip>
-              <Tooltip.Trigger aria-label="queries, 2.1M served" render={<Button tone="soft" />}>
-                queries
-              </Tooltip.Trigger>
+              <Tooltip.Trigger aria-label="queries, 2.1M served">queries</Tooltip.Trigger>
               <Tooltip.Content>2.1M served</Tooltip.Content>
             </Tooltip>
             <Tooltip>
-              <Tooltip.Trigger aria-label="region, edge, 42 ms" render={<Button tone="soft" />}>
-                region
-              </Tooltip.Trigger>
+              <Tooltip.Trigger aria-label="region, edge, 42 ms">region</Tooltip.Trigger>
               <Tooltip.Content>edge · 42 ms</Tooltip.Content>
             </Tooltip>
           </div>
@@ -120,7 +116,7 @@ function Overlays() {
         </Row>
         <div className={styles.inline()}>
           <Popover>
-            <Popover.Trigger render={<Button tone="soft" />}>details</Popover.Trigger>
+            <Popover.Trigger>details</Popover.Trigger>
             <Popover.Content>
               <Popover.Title>surrealdb-wasm</Popover.Title>
               <Popover.Description>
@@ -130,7 +126,7 @@ function Overlays() {
           </Popover>
 
           <Popover>
-            <Popover.Trigger render={<Button tone="soft" />}>beside it</Popover.Trigger>
+            <Popover.Trigger>beside it</Popover.Trigger>
             <Popover.Content side="right" align="start" sideOffset={10}>
               <Popover.Title>side · align</Popover.Title>
               <Popover.Description>
@@ -146,6 +142,22 @@ function Overlays() {
             { name: "align", fallback: "center", values: ["start", "end"] },
             { name: "sideOffset", fallback: "8", note: "pixels from the trigger" },
             { name: "alignOffset", fallback: "0", note: "pixels along the trigger" },
+          ]}
+        />
+        <Props<PopoverTriggerProps>
+          name="popover trigger"
+          rows={[
+            {
+              name: "tone",
+              fallback: "soft",
+              values: ["solid", "outline", "ghost"],
+              note: "the trigger is the button; the dialog, menu and tooltip triggers take the same two",
+            },
+            { name: "size", fallback: "md", values: ["sm", "lg", "icon"] },
+            {
+              name: "render",
+              note: "a trigger that is not a button, which then brings its own className",
+            },
           ]}
         />
         <Props<PopoverProps>
@@ -170,7 +182,7 @@ function Overlays() {
           <Meta>title · description · close</Meta>
         </Row>
         <Popover>
-          <Popover.Trigger render={<Button tone="soft" />}>parts</Popover.Trigger>
+          <Popover.Trigger>parts</Popover.Trigger>
           <Popover.Content>
             <Popover.Title>surrealdb-wasm</Popover.Title>
             <Popover.Description>
@@ -178,7 +190,7 @@ function Overlays() {
             </Popover.Description>
             <Row rule="above">
               <Meta>v2.1.0</Meta>
-              <Popover.Close render={<Button tone="ghost" size="sm" />}>close</Popover.Close>
+              <Popover.Close>close</Popover.Close>
             </Row>
           </Popover.Content>
         </Popover>
@@ -190,15 +202,15 @@ function Overlays() {
           <Meta>modal · the footer is a part, so actions align</Meta>
         </Row>
         <Dialog>
-          <Dialog.Trigger render={<Button tone="soft" />}>remove canvas</Dialog.Trigger>
+          <Dialog.Trigger>remove canvas</Dialog.Trigger>
           <Dialog.Content>
             <Dialog.Title>Remove this canvas?</Dialog.Title>
             <Dialog.Description>
               Six windows and their layout go with it. Notes stay in the project.
             </Dialog.Description>
             <Dialog.Footer>
-              <Dialog.Close render={<Button tone="ghost" />}>cancel</Dialog.Close>
-              <Dialog.Close render={<Button tone="solid" />}>remove</Dialog.Close>
+              <Dialog.Close>cancel</Dialog.Close>
+              <Dialog.Close tone="solid">remove</Dialog.Close>
             </Dialog.Footer>
           </Dialog.Content>
         </Dialog>
@@ -229,7 +241,7 @@ function Overlays() {
           <Meta>groups · labels · shortcuts</Meta>
         </Row>
         <Menu>
-          <Menu.Trigger render={<Button tone="soft" />}>arrange</Menu.Trigger>
+          <Menu.Trigger>arrange</Menu.Trigger>
           <Menu.Content>
             <Menu.Group>
               <Menu.GroupLabel>layout</Menu.GroupLabel>

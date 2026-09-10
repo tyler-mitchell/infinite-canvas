@@ -1,5 +1,8 @@
 import { Menu as MenuPrimitive } from "@base-ui/react/menu";
+import type { VariantProps } from "tailwind-variants";
+
 import { tv } from "../tv.ts";
+import { buttonVariants } from "./button.tsx";
 
 const menu = tv({
   slots: {
@@ -21,10 +24,21 @@ function Menu(props: MenuProps) {
   return <MenuPrimitive.Root {...props} />;
 }
 
-export type MenuTriggerProps = MenuPrimitive.Trigger.Props;
+export type MenuTriggerProps = WithClassName<MenuPrimitive.Trigger.Props> &
+  VariantProps<typeof buttonVariants>;
 
-function MenuTrigger(props: MenuTriggerProps) {
-  return <MenuPrimitive.Trigger data-slot="menu-trigger" {...props} />;
+/**
+ * The trigger is the button, which is how Base UI writes one and how the toolbar and the select
+ * draw theirs. For a trigger that is not a button, pass `render` with its own `className`.
+ */
+function MenuTrigger({ tone = "soft", size, className, ...props }: MenuTriggerProps) {
+  return (
+    <MenuPrimitive.Trigger
+      data-slot="menu-trigger"
+      className={buttonVariants({ tone, size, className })}
+      {...props}
+    />
+  );
 }
 
 export type MenuContentProps = WithClassName<MenuPrimitive.Popup.Props> &

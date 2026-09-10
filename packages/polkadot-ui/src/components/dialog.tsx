@@ -1,5 +1,8 @@
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
+import type { VariantProps } from "tailwind-variants";
+
 import { tv } from "../tv.ts";
+import { buttonVariants } from "./button.tsx";
 
 const dialog = tv({
   slots: {
@@ -21,10 +24,21 @@ function Dialog(props: DialogProps) {
   return <DialogPrimitive.Root {...props} />;
 }
 
-export type DialogTriggerProps = DialogPrimitive.Trigger.Props;
+export type DialogTriggerProps = WithClassName<DialogPrimitive.Trigger.Props> &
+  VariantProps<typeof buttonVariants>;
 
-function DialogTrigger(props: DialogTriggerProps) {
-  return <DialogPrimitive.Trigger data-slot="dialog-trigger" {...props} />;
+/**
+ * The trigger is the button, which is how Base UI writes one and how the toolbar and the select
+ * draw theirs. For a trigger that is not a button, pass `render` with its own `className`.
+ */
+function DialogTrigger({ tone = "soft", size, className, ...props }: DialogTriggerProps) {
+  return (
+    <DialogPrimitive.Trigger
+      data-slot="dialog-trigger"
+      className={buttonVariants({ tone, size, className })}
+      {...props}
+    />
+  );
 }
 
 export type DialogContentProps = WithClassName<DialogPrimitive.Popup.Props>;
@@ -72,10 +86,18 @@ function DialogDescription({ className, ...props }: DialogDescriptionProps) {
   );
 }
 
-export type DialogCloseProps = DialogPrimitive.Close.Props;
+export type DialogCloseProps = WithClassName<DialogPrimitive.Close.Props> &
+  VariantProps<typeof buttonVariants>;
 
-function DialogClose(props: DialogCloseProps) {
-  return <DialogPrimitive.Close data-slot="dialog-close" {...props} />;
+/** A footer action, so it draws a button the same way the trigger does. */
+function DialogClose({ tone = "ghost", size, className, ...props }: DialogCloseProps) {
+  return (
+    <DialogPrimitive.Close
+      data-slot="dialog-close"
+      className={buttonVariants({ tone, size, className })}
+      {...props}
+    />
+  );
 }
 
 export type DialogFooterProps = React.ComponentProps<"div">;
