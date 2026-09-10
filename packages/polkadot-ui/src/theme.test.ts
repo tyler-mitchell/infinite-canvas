@@ -632,6 +632,7 @@ test("every readout that draws an image can name itself", () => {
  * Pinning the set does not prove a new one is real. It makes adding one a decision someone has to
  * check against the rendered element rather than a guess that fails silently.
  */
+/* Each was driven in the page and read back off the element, not taken from a document. */
 const STATES_SEEN_IN_THE_DOM = [
   "data-active",
   "data-disabled",
