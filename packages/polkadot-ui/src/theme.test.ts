@@ -1294,6 +1294,45 @@ test("every name a slot reaches for is one the sheet declares", () => {
 });
 
 /**
+ * An auto-fill track whose minimum is wider than the box it sits in overflows rather than folding,
+ * which is the one way a grid breaks a narrow screen without anything else going wrong. Wrapping
+ * the minimum in `min(…, 100%)` costs nothing at any width that fits it and folds at any that does
+ * not.
+ *
+ * Ten grids, of which two knew this and eight named a bare number that happened to be small enough.
+ * Measured at 375 before and after making them all the same: every grid keeps its column count and
+ * its width to the pixel, on all nine pages.
+ */
+const unguardedTracks = (sources: readonly { readonly file: string; readonly source: string }[]) =>
+  sources
+    .flatMap(({ file, source }) =>
+      [...source.matchAll(/repeat\(auto-fill,minmax\(([^,]+),/g)]
+        .map(([, floor]) => floor!)
+        .filter((floor) => !floor.startsWith("min("))
+        .map((floor) => `${file} lets a track fall back to ${floor}`),
+    )
+    .sort();
+
+test("an auto-fill track that names a bare minimum is reported", () => {
+  const bare = [{ file: "a.tsx", source: "grid-cols-[repeat(auto-fill,minmax(236px,1fr))]" }];
+  const held = [
+    { file: "b.tsx", source: "grid-cols-[repeat(auto-fill,minmax(min(236px,100%),1fr))]" },
+  ];
+
+  expect(unguardedTracks(bare)).toEqual(["a.tsx lets a track fall back to 236px"]);
+  expect(unguardedTracks(held)).toEqual([]);
+});
+
+test("every auto-fill track folds rather than overflowing", () => {
+  const tracks = styledSources.flatMap(({ source }) => [
+    ...source.matchAll(/repeat\(auto-fill,minmax\(/g),
+  ]);
+
+  expect(tracks.length).toBeGreaterThan(8);
+  expect(unguardedTracks(styledSources)).toEqual([]);
+});
+
+/**
  * Every class in this kit comes from a `tv` slot at the top of its file, so one written straight
  * into the markup is out of reach of all five rules above and of the eye reading the slot list.
  * The kit held this everywhere but one span, which named `sr-only` inline.
