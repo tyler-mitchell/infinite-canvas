@@ -148,9 +148,15 @@ test("every paper ratio the page states is the pair its gradient produces", () =
   expect(wrong).toEqual([]);
 });
 
-/** Every seat a control can sit on: the root default, and each one a Surface tone restates. */
+/**
+ * Every seat a control can sit on: the root default, and each one a Surface tone restates.
+ *
+ * The pages are read as well as the components. None of them names a seat today, so this half
+ * guards rather than reports — but a page that painted a ground and seated a control on it would
+ * otherwise have been a seat no rule below knew about.
+ */
 const seats = () => {
-  const written = componentSources.flatMap(({ source }) =>
+  const written = [...componentSources, ...pageSources].flatMap(({ source }) =>
     [...source.matchAll(/\[--pk-ring-seat:var\((--pk-[a-z\d-]+)\)\]/g)].map(([, token]) => token!),
   );
   const [, fallback] = /--pk-ring-seat:\s*var\((--pk-[a-z\d-]+)\)/.exec(themeCss) ?? [];
@@ -221,7 +227,9 @@ test("a ground painted for other controls to sit on with no seat named is report
 
 test("every ground a control can be focused on names the seat behind it", () => {
   expect(componentSources.length).toBeGreaterThan(40);
-  expect(groundsWithoutSeats(componentSources)).toEqual([]);
+  /* The pages hold their own blocks and can paint a ground too, so they answer the same rule. */
+  expect(pageSources.length).toBeGreaterThan(8);
+  expect(groundsWithoutSeats([...componentSources, ...pageSources])).toEqual([]);
 });
 
 /**
