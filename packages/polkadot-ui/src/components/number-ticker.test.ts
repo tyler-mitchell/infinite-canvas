@@ -49,6 +49,25 @@ test("a separator costs no step of the cascade", () => {
   expect(delays("1,234,567")).toEqual([240, 200, 160, 120, 80, 40, 0]);
 });
 
+/**
+ * A reading that is not a number has to leave the slots alone. Printed as it arrives, `NaN` and
+ * `Infinity` are letters, and letters are not digits: they take the separator's key, which is its
+ * place value and the character itself. Both words repeat a letter at the same place, so two cells
+ * would claim one key and React would draw one of them.
+ */
+test("a reading that is not a number still prints digits", () => {
+  expect(tickerText(Number.NaN)).toBe("0");
+  expect(tickerText(Number.POSITIVE_INFINITY)).toBe("0");
+  expect(tickerText(Number.NEGATIVE_INFINITY)).toBe("0");
+  expect(tickerText(Number.NaN, 4, true)).toBe("0,000");
+});
+
+test("no two cells of a value claim the same key", () => {
+  for (const text of ["4182", "1,234,567", "-1,234", tickerText(Number.NaN)]) {
+    expect(new Set(keys(text)).size).toBe(keys(text).length);
+  }
+});
+
 test("a sign is printed rather than rolled", () => {
   const cells = tickerCells("-42");
 

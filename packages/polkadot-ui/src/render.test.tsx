@@ -439,10 +439,14 @@ const HOSTILE: readonly { readonly name: string; readonly props: Record<string, 
       ],
     },
   },
-  {
-    name: "NumberTicker",
-    props: { value: Number.NaN, pad: Number.NaN, duration: Number.NaN, stagger: Number.NaN },
-  },
+  /*
+   * One row each. Written as one, the unusable value emptied the ticker of every rolling slot, so
+   * the unusable roll time and step had nothing to write themselves into and the row passed.
+   */
+  { name: "NumberTicker", props: { value: Number.NaN } },
+  { name: "NumberTicker", props: { value: 4182, pad: Number.NaN } },
+  { name: "NumberTicker", props: { value: 4182, duration: Number.NaN } },
+  { name: "NumberTicker", props: { value: 4182, stagger: Number.NaN } },
   { name: "Sparkline", props: { values: [1, Number.NaN, 3] } },
 ];
 

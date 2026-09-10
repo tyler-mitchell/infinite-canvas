@@ -29,12 +29,17 @@ export interface TickerCell {
 /**
  * The printed form of a value: padded to `pad` digits, then grouped in threes if `locale`.
  * Padding runs first so a padded number still groups from its real units place.
+ *
+ * A reading that is not a number counts as none. Printed as it arrives it is letters, and a letter
+ * takes the separator's key, which is its place value and the character: `NaN` and `Infinity` each
+ * repeat a letter at the same place, so two cells would claim one key.
  */
 export function tickerText(value: number, pad = 0, locale = false) {
-  const digits = String(Math.trunc(Math.abs(value))).padStart(pad, "0");
+  const real = Number.isFinite(value) ? value : 0;
+  const digits = String(Math.trunc(Math.abs(real))).padStart(pad, "0");
   const grouped = locale ? digits.replace(/\B(?=(\d{3})+(?!\d))/g, ",") : digits;
 
-  return value < 0 ? `-${grouped}` : grouped;
+  return real < 0 ? `-${grouped}` : grouped;
 }
 
 /**
@@ -43,12 +48,14 @@ export function tickerText(value: number, pad = 0, locale = false) {
  */
 export function tickerCells(text: string, stagger = 40): readonly TickerCell[] {
   const characters = text.split("");
+  /* A step that is not a number is no step: the places roll together rather than at no time. */
+  const step = Number.isFinite(stagger) ? stagger : 0;
 
   return characters.map((character, index) => {
     const place = characters.slice(index + 1).filter(isDigit).length;
 
     return isDigit(character)
-      ? { key: `d${place}`, character, digit: Number(character), delay: place * stagger }
+      ? { key: `d${place}`, character, digit: Number(character), delay: place * step }
       : { key: `s${place}${character}`, character, digit: null, delay: 0 };
   });
 }
@@ -88,6 +95,8 @@ function NumberTicker({
   const styles = numberTicker();
   const text = tickerText(value, pad, locale);
   const cells = tickerCells(text, stagger);
+  /* A roll time that is not a number is no roll, rather than a length the sheet cannot read. */
+  const roll = Number.isFinite(duration) ? duration : 0;
   /* Padding holds the width of a falling number. It is a width, not a value, so it is not spoken. */
   const spoken = tickerText(value, 0, locale);
 
@@ -107,7 +116,7 @@ function NumberTicker({
             <span
               style={
                 {
-                  "--ticker-duration": `${duration}ms`,
+                  "--ticker-duration": `${roll}ms`,
                   transitionDelay: `${cell.delay}ms`,
                   transform: `translateY(${-cell.digit * 10}%)`,
                 } as React.CSSProperties
