@@ -13,7 +13,13 @@ const swipeDeck = tv({
     pin: "border-pk-accent text-pk-accent",
     skip: "border-pk-line-strong text-pk-ink-dim",
     body: "flex min-h-0 flex-1 flex-col gap-1.5",
-    title: "font-pk-sans text-pk-title break-words text-pretty text-pk-ink",
+    /*
+     * Clamped rather than free: a card cannot grow, so a title long enough to fill it pushed the
+     * foot 116px past the bottom edge and the reader lost a whole line of the card rather than a
+     * few words. Three lines is one more than the longest the deck draws, and the ellipsis says
+     * the rest is there.
+     */
+    title: "line-clamp-3 font-pk-sans text-pk-title break-words text-pretty text-pk-ink",
     /*
      * The body scrolls rather than clips, and takes a vertical touch of its own so a reader can
      * reach the rest of it while the card still takes a sideways one. A card is stacked absolutely
@@ -23,7 +29,7 @@ const swipeDeck = tv({
     prose:
       "m-0 min-h-0 flex-1 touch-pan-y overflow-y-auto font-pk-sans text-pk-note break-words text-pretty text-pk-ink-soft",
     foot: "flex flex-none items-center justify-between gap-2 border-t border-pk-line-inner-raised pt-[9px] font-pk-mono text-pk-mono-sm text-pk-ink-faint",
-    end: "min-w-0 break-words",
+    end: "min-w-0 truncate",
     empty: "flex size-full items-center justify-center font-pk-sans text-pk-note text-pk-ink-faint",
     hint: "flex-none font-pk-mono text-pk-mono-sm text-pk-ink-faint",
   },
