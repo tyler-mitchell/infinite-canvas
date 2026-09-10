@@ -294,6 +294,26 @@ test("every part the keyboard can reach draws something for it", () => {
 });
 
 /**
+ * The rule above asks whether a part draws anything for the keyboard, not whether the mark can be
+ * seen. A ring is drawn outside the border box, so a part filling a parent that clips has nothing
+ * to draw it on, and the keyboard gets no mark at all.
+ *
+ * Swept across nine pages against the padding box each clipping parent actually clips at: the
+ * viewport is the only focusable part in the kit with no room for an outside ring. Every other one
+ * sits in a card, whose 20px of padding is five times what a ring needs. So this is pinned where
+ * it is true rather than asked of everything.
+ */
+test("the one part that fills a parent which clips marks its focus inside its own box", () => {
+  const styles = kit.scrollAreaVariants();
+
+  expect(styles.root()).toContain("overflow-hidden");
+  expect(styles.viewport()).toContain("size-full");
+  expect(styles.viewport()).toContain("focus-visible:inset-ring-2");
+  /* An outside ring here would be drawn on nothing, so it cannot be how the mark is made. */
+  expect(styles.viewport()).not.toMatch(/focus-visible:ring-\d/);
+});
+
+/**
  * A pointer target under 24px square is allowed only while nothing else sits within 24px of its
  * centre. The radio is 18px and stacks, so its group's own gap is the whole of what keeps it
  * conformant, and tightening that gap would take it under without changing how anything looks.
