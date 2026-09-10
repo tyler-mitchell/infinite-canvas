@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 import { compile } from "tailwindcss";
@@ -11,9 +11,10 @@ import * as kit from "./index.ts";
  * the element keeps its shape, and the style simply never exists. Nothing in a rendered-markup
  * test can see it, because the markup is right; only the stylesheet knows.
  *
- * This reads the kit's own variant objects, which is the whole of what a consumer installs. The
- * pages hold slots of their own and are not covered: they are not exported, so there is nothing to
- * read them from without guessing which strings in a file are classes.
+ * Two sources, because a dead class costs a different thing in each. The kit's variant objects are
+ * read as objects: they are the whole of what a consumer installs, so a class that builds nothing
+ * there ships broken. The pages are read as text, from inside their own `tv` calls, where a string
+ * is a class by construction; a dead one there makes a page document a style it does not have.
  */
 
 const entry = new URL("../app/styles.css", import.meta.url);
@@ -89,6 +90,69 @@ const classesTheKitCanEmit = () => {
   return found;
 };
 
+const componentDir = new URL("./components/", import.meta.url);
+const appDir = new URL("../app/", import.meta.url);
+
+const componentFiles = readdirSync(componentDir).filter(
+  (name) => name.endsWith(".tsx") && !name.endsWith(".test.tsx"),
+);
+
+/** Walked rather than listed a level at a time, so a route in a new folder cannot escape it. */
+const pageFiles = readdirSync(appDir, { recursive: true })
+  .map(String)
+  .filter((name) => name.endsWith(".tsx"));
+
+/**
+ * The body of every `tv(` call in a file. Parens count to the matching close and quoted spans are
+ * stepped over: an arbitrary value like `grid-cols-[repeat(auto-fill,minmax(236px,1fr))]` carries
+ * parens of its own, and a scan that counted those would end a block in the wrong place.
+ */
+const tvBlocks = (source: string) => {
+  const blocks: string[] = [];
+
+  for (const call of source.matchAll(/\btv\(/g)) {
+    const opens = call.index + call[0].length;
+    let depth = 1;
+    let at = opens;
+    let quote = "";
+
+    while (at < source.length && depth > 0) {
+      const character = source[at]!;
+      if (quote) {
+        if (character === "\\") at += 1;
+        else if (character === quote) quote = "";
+      } else if (character === '"' || character === "'" || character === "`") quote = character;
+      else if (character === "(") depth += 1;
+      else if (character === ")") depth -= 1;
+      at += 1;
+    }
+
+    blocks.push(source.slice(opens, at - 1));
+  }
+
+  return blocks;
+};
+
+const blocksIn = (directory: URL, files: readonly string[]) =>
+  files.flatMap((file) => tvBlocks(readFileSync(new URL(file, directory), "utf8")));
+
+/** Every class a page writes in a slot, against the page that wrote it. */
+const classesThePagesWrite = () => {
+  const found = new Map<string, string>();
+
+  for (const file of pageFiles) {
+    for (const block of tvBlocks(readFileSync(new URL(file, appDir), "utf8"))) {
+      for (const [, literal] of block.matchAll(/"([^"\\]*)"/g)) {
+        for (const token of literal.split(/\s+/).filter(Boolean)) {
+          if (!found.has(token)) found.set(token, file);
+        }
+      }
+    }
+  }
+
+  return found;
+};
+
 /** A selector holds the class escaped, so every character Tailwind escapes may carry a backslash. */
 const written = (token: string) =>
   new RegExp(
@@ -101,12 +165,44 @@ const compiled = await compile(readFileSync(entry, "utf8"), {
 });
 
 const tokens = classesTheKitCanEmit();
-const css = compiled.build([...tokens.keys(), "not-a-utility-this-kit-would-write"]);
+const pageTokens = classesThePagesWrite();
+const css = compiled.build([
+  ...tokens.keys(),
+  ...pageTokens.keys(),
+  "not-a-utility-this-kit-would-write",
+]);
 
-test("the stylesheet is built and the kit is read", () => {
+test("the stylesheet is built and both sources are read", () => {
   expect(css.length).toBeGreaterThan(10_000);
   expect(tokens.size).toBeGreaterThan(400);
-  expect(new Set(tokens.values()).size).toBeGreaterThan(30);
+  expect(pageTokens.size).toBeGreaterThan(100);
+  expect(blocksIn(appDir, pageFiles).length).toBeGreaterThan(10);
+});
+
+/**
+ * A component whose variants stop being exported is skipped in silence: its classes are never
+ * built and every rule below still reports clean. So the count of variant objects answers to the
+ * count of `tv` calls in `src`, not to a floor it clears by nine.
+ *
+ * Counted as objects, not as owners. Ownership is first-wins, so a component whose every class was
+ * already claimed by an earlier one holds no token and would read as missing when it is not.
+ */
+test("every styled component in src reaches this check", () => {
+  expect(componentFiles.length).toBeGreaterThan(30);
+  expect(Object.keys(kit).filter((name) => name.endsWith("Variants")).length).toBe(
+    blocksIn(componentDir, componentFiles).length,
+  );
+});
+
+test("a tv block ends at its own closing paren, not at one inside a class", () => {
+  const arbitrary = `const a = tv({ slots: { grid: "grid-cols-[repeat(auto-fill,minmax(236px,1fr))]" } });`;
+  expect(tvBlocks(arbitrary)).toEqual([
+    `{ slots: { grid: "grid-cols-[repeat(auto-fill,minmax(236px,1fr))]" } }`,
+  ]);
+  expect(tvBlocks(`x(); const b = tv({ base: "flex" }); y(tv({ base: "gap-2" }));`)).toEqual([
+    `{ base: "flex" }`,
+    `{ base: "gap-2" }`,
+  ]);
 });
 
 test("a class Tailwind does not recognise leaves no rule behind", () => {
@@ -133,10 +229,24 @@ test("the spacing scale takes a half step", () => {
   expect(bodies).toEqual(halves.map((name) => `padding: calc(var(--spacing) * ${name.slice(2)});`));
 });
 
-test("every class the kit can emit compiles to a rule", () => {
-  const dead = [...tokens]
+const undrawn = (found: ReadonlyMap<string, string>) =>
+  [...found]
     .filter(([token]) => !written(token).test(css))
     .map(([token, owner]) => `${owner}: ${token}`);
 
-  expect(dead).toEqual([]);
+test("a class that builds nothing is named against whoever wrote it", () => {
+  const planted = new Map([
+    ["flex", "a live one"],
+    ["bg-pk-nonexistent", "index.tsx"],
+  ]);
+
+  expect(undrawn(planted)).toEqual(["index.tsx: bg-pk-nonexistent"]);
+});
+
+test("every class the kit can emit compiles to a rule", () => {
+  expect(undrawn(tokens)).toEqual([]);
+});
+
+test("every class a page writes compiles to a rule", () => {
+  expect(undrawn(pageTokens)).toEqual([]);
 });
