@@ -4,7 +4,7 @@ const activityFeed = tv({
   slots: {
     root: "box-border flex flex-col gap-2.5 overflow-hidden rounded-pk-card border border-pk-line bg-pk-surface p-5 shadow-pk-card transition-colors duration-(--pk-duration-hover) ease-pk-swift hover:border-pk-line-hover",
     head: "flex flex-none items-center gap-2",
-    title: "font-pk-sans text-pk-label text-pk-ink-dim",
+    title: "min-w-0 font-pk-sans text-pk-label break-words text-pk-ink-dim",
     /* `list-none` rather than leaning on a reset, so the kit carries its own markers off. */
     list: "flex list-none flex-col",
     item: "pk-rise flex items-start gap-2.5 border-t border-pk-line-inner py-[11px] first:border-t-0 first:pt-0 last:pb-0",

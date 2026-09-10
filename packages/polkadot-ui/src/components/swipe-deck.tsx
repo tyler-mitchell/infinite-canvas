@@ -23,6 +23,7 @@ const swipeDeck = tv({
     prose:
       "m-0 min-h-0 flex-1 touch-pan-y overflow-y-auto font-pk-sans text-pk-note break-words text-pretty text-pk-ink-soft",
     foot: "flex flex-none items-center justify-between gap-2 border-t border-pk-line-inner-raised pt-[9px] font-pk-mono text-pk-mono-sm text-pk-ink-faint",
+    end: "min-w-0 break-words",
     empty: "flex size-full items-center justify-center font-pk-sans text-pk-note text-pk-ink-faint",
     hint: "flex-none font-pk-mono text-pk-mono-sm text-pk-ink-faint",
   },
@@ -210,8 +211,8 @@ function SwipeDeck({
                 <span className={styles.title()}>{item.title}</span>
                 <p className={styles.prose()}>{item.body}</p>
                 <div className={styles.foot()}>
-                  <span>{item.left}</span>
-                  <span>{item.right}</span>
+                  <span className={styles.end()}>{item.left}</span>
+                  <span className={styles.end()}>{item.right}</span>
                 </div>
               </div>
             </div>

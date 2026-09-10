@@ -5,7 +5,7 @@ const keycap = tv({
     cap: "inline-block min-w-[22px] rounded-[5px] border border-b-2 border-pk-keycap-line bg-pk-keycap-face px-1.5 py-1 text-center font-pk-mono text-pk-mono text-pk-ink-muted",
     combination: "flex gap-[3px]",
     row: "flex items-center justify-between gap-2.5",
-    action: "font-pk-sans text-pk-note text-pk-ink-dim",
+    action: "min-w-0 font-pk-sans text-pk-note break-words text-pk-ink-dim",
   },
 });
 
