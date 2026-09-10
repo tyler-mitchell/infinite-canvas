@@ -1,5 +1,8 @@
 import { Toolbar as ToolbarPrimitive } from "@base-ui/react/toolbar";
+import type { VariantProps } from "tailwind-variants";
+
 import { tv } from "../tv.ts";
+import { buttonVariants } from "./button.tsx";
 
 const toolbar = tv({
   slots: {
@@ -37,10 +40,22 @@ function ToolbarGroup({ className, ...props }: ToolbarGroupProps) {
   );
 }
 
-export type ToolbarButtonProps = ToolbarPrimitive.Button.Props;
+export type ToolbarButtonProps = WithClassName<ToolbarPrimitive.Button.Props> &
+  VariantProps<typeof buttonVariants>;
 
-function ToolbarButton(props: ToolbarButtonProps) {
-  return <ToolbarPrimitive.Button data-slot="toolbar-button" {...props} />;
+/**
+ * The tray draws its own buttons, over the kit's button rather than a second copy of it. Ghost is
+ * the tone a rail wants: the tray already carries the border and the fill, so a button inside it
+ * only takes one on hover.
+ */
+function ToolbarButton({ tone = "ghost", size, className, ...props }: ToolbarButtonProps) {
+  return (
+    <ToolbarPrimitive.Button
+      data-slot="toolbar-button"
+      className={buttonVariants({ tone, size, className })}
+      {...props}
+    />
+  );
 }
 
 export type ToolbarSeparatorProps = WithClassName<ToolbarPrimitive.Separator.Props>;

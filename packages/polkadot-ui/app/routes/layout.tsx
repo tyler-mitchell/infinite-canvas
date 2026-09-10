@@ -1,6 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
 import {
-  Button,
   Display,
   IconTile,
   iconTileVariants,
@@ -282,16 +281,16 @@ function Layout() {
         <div className={styles.rails()}>
           <Toolbar>
             <Toolbar.Group>
-              <Toolbar.Button render={<Button tone="ghost" size="icon" />}>−</Toolbar.Button>
-              <Toolbar.Button render={<Button tone="ghost" size="sm" />}>100%</Toolbar.Button>
-              <Toolbar.Button render={<Button tone="ghost" size="icon" />}>+</Toolbar.Button>
+              <Toolbar.Button size="icon">−</Toolbar.Button>
+              <Toolbar.Button size="sm">100%</Toolbar.Button>
+              <Toolbar.Button size="icon">+</Toolbar.Button>
             </Toolbar.Group>
             <Toolbar.Separator />
             <Toolbar.Group>
-              <Toolbar.Button render={<Button tone="ghost" size="sm" />}>fit</Toolbar.Button>
-              <Toolbar.Button render={<Button tone="ghost" size="sm" />}>group</Toolbar.Button>
+              <Toolbar.Button size="sm">fit</Toolbar.Button>
+              <Toolbar.Button size="sm">group</Toolbar.Button>
               {/* Disabled, and still reached by the arrows, which is what focusableWhenDisabled means. */}
-              <Toolbar.Button disabled render={<Button tone="ghost" size="sm" />}>
+              <Toolbar.Button disabled size="sm">
                 merge
               </Toolbar.Button>
             </Toolbar.Group>
@@ -299,12 +298,12 @@ function Layout() {
 
           <Toolbar orientation="vertical">
             <Toolbar.Group>
-              <Toolbar.Button render={<Button tone="ghost" size="icon" />}>−</Toolbar.Button>
-              <Toolbar.Button render={<Button tone="ghost" size="icon" />}>+</Toolbar.Button>
+              <Toolbar.Button size="icon">−</Toolbar.Button>
+              <Toolbar.Button size="icon">+</Toolbar.Button>
             </Toolbar.Group>
             <Toolbar.Separator />
             <Toolbar.Group>
-              <Toolbar.Button render={<Button tone="ghost" size="icon" />}>◇</Toolbar.Button>
+              <Toolbar.Button size="icon">◇</Toolbar.Button>
             </Toolbar.Group>
           </Toolbar>
         </div>
@@ -328,6 +327,13 @@ function Layout() {
         <Props<ToolbarButtonProps>
           name="toolbar button"
           rows={[
+            {
+              name: "tone",
+              fallback: "ghost",
+              values: ["solid", "soft", "outline"],
+              note: "the button's own tones; a rail wants the one with no fill of its own",
+            },
+            { name: "size", fallback: "md", values: ["sm", "lg", "icon"] },
             { name: "disabled", fallback: "false", note: "the button stops responding" },
             {
               name: "focusableWhenDisabled",
