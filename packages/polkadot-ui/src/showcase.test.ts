@@ -2444,3 +2444,46 @@ test("a module a note says it deleted has not come back", () => {
   expect(stillGone(note)).toEqual([]);
   expect(note).toContain(`${modules.length} component modules`);
 });
+
+/**
+ * The navigation note cites the router's own source by line — `createRouteMask` at 263, the search
+ * middlewares at 24-25, a run of four at 14-17. Those citations are its provenance: the rule above
+ * checks the names still exist, and a name can exist while the line that was read has moved.
+ *
+ * The version is pinned separately, so a bump fails there first. This catches the other order —
+ * the note's version updated and its line numbers left behind. Ranges are read in the order they
+ * are written, which is how the four at 14-17 were found listed in the wrong one.
+ */
+const misplacedCitations = (note: string, source: readonly string[]) =>
+  [...note.matchAll(/((?:`\w+`(?:, )?)+)\s*\((?:lines? )?(\d+)(?:-(\d+))?\)/g)].flatMap(
+    ([, names, first, last]) => {
+      const cited = [...names!.matchAll(/`(\w+)`/g)].map(([, name]) => name!);
+      const from = Number(first);
+      if (last !== undefined && Number(last) - from + 1 !== cited.length) {
+        return [`${cited.join(",")} spans ${first}-${last} for ${cited.length} names`];
+      }
+
+      return cited.flatMap((name, step) =>
+        (source[from + step - 1] ?? "").includes(name) ? [] : [`${name} is not at ${from + step}`],
+      );
+    },
+  );
+
+test("every line a note cites in the router's source is the line it names", () => {
+  const note = readFileSync(
+    new URL("../docs/research/recursive-navigation.md", import.meta.url),
+    "utf8",
+  );
+  const source = readFileSync(
+    new URL("../node_modules/@tanstack/react-router/src/index.tsx", import.meta.url),
+    "utf8",
+  ).split("\n");
+
+  expect(misplacedCitations("`a` (2)", ["x", "a"])).toEqual([]);
+  expect(misplacedCitations("`a` (1)", ["x", "a"])).toEqual(["a is not at 1"]);
+  /* Read first: the note really does cite lines, so a pattern that matched none would agree. */
+  expect(
+    [...note.matchAll(/((?:`\w+`(?:, )?)+)\s*\((?:lines? )?(\d+)(?:-(\d+))?\)/g)].length,
+  ).toBeGreaterThan(4);
+  expect(misplacedCitations(note, source)).toEqual([]);
+});

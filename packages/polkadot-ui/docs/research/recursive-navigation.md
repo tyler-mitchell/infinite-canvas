@@ -224,7 +224,7 @@ createRouter({
 ```
 
 Confirmed present at 1.170.32: `retainSearchParams`, `stripSearchParams` (lines 24-25),
-`parseSearchWith`, `stringifySearchWith`, `defaultParseSearch`, `defaultStringifySearch` (14-17),
+`defaultParseSearch`, `defaultStringifySearch`, `parseSearchWith`, `stringifySearchWith` (14-17),
 `SearchMiddleware` (76), `createSerializationAdapter` (26), `composeRewrites` (344).
 
 Status: observed in the export surface.
