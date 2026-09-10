@@ -222,9 +222,9 @@ function Overlays() {
             { name: "onOpenChange", note: "called with the next open state" },
             {
               name: "modal",
-              values: ["trap-focus"],
+              values: ["false", "trap-focus"],
               fallback: "true",
-              note: "true makes the page behind it inert; trap-focus only holds focus",
+              note: "true makes the page behind it inert; trap-focus only holds focus; false neither",
             },
             {
               name: "disablePointerDismissal",

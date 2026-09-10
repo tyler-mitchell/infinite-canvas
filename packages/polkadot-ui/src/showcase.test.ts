@@ -1748,58 +1748,93 @@ const harvest = {
       ([, value, prop]) => [prop!, value!.replace(/^'|'$/g, "")] as const,
     ),
   type: (body: string) =>
-    [...body.matchAll(/^ {2}(\w+)\??: ([\w.]+) \| undefined;/gm)].map(
-      ([, prop, named]) => [prop!, named!.split(".").at(-1)!] as const,
+    [...body.matchAll(/^ {2}(\w+)\??: ([^;\n]+) \| undefined;/gm)].map(
+      ([, prop, written]) => [prop!, written!.trim()] as const,
     ),
 } as const;
 
+/**
+ * Every interface Base UI declares, by name, with what it inherits and what it writes. Indexed by
+ * name rather than by folder because a part's props need not live under it: the popover's
+ * positioner takes `side` and `align` from `UseAnchorPositioningSharedParameters` over in `utils`,
+ * and the tooltip's redeclares `side` to give it a tooltip's default. Reading the folder found the
+ * tooltip and missed the popover.
+ *
+ * The body is taken by counting braces rather than by matching to a line, because
+ * `PopoverPositionerProps` closes as `{}` on the line it opens, and a pattern reaching for the next
+ * unindented brace ran past it into the next declaration.
+ */
+const declaredInterfaces = new Map<string, { inherits: string; body: string }>();
+
+const indexInterfaces = (dir: URL) => {
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    if (entry.isDirectory()) {
+      indexInterfaces(new URL(`${entry.name}/`, dir));
+      continue;
+    }
+    if (!entry.name.endsWith(".d.ts")) continue;
+
+    const text = readFileSync(new URL(entry.name, dir), "utf8");
+
+    for (const opened of text.matchAll(/export interface (\w+)([^{]*)\{/g)) {
+      const from = opened.index + opened[0].length;
+      let depth = 1;
+      let at = from;
+
+      while (at < text.length && depth > 0) {
+        if (text[at] === "{") depth += 1;
+        else if (text[at] === "}") depth -= 1;
+        at += 1;
+      }
+
+      declaredInterfaces.set(opened[1]!, { inherits: opened[2]!, body: text.slice(from, at - 1) });
+    }
+  }
+};
+
+indexInterfaces(primitiveDir);
+
 const defaultsIn = (
-  module: string,
   declaration: string,
   reading: keyof typeof harvest = "default",
   seen: ReadonlySet<string> = new Set(),
 ): ReadonlyMap<string, string> => {
-  const key = `${module}.${declaration}.${reading}`;
+  const key = `${declaration}.${reading}`;
   const known = primitiveDefaults.get(key);
   if (known) return known;
   if (seen.has(key)) return new Map();
 
-  const dir = new URL(`${module}/`, primitiveDir);
-  const wanted = new RegExp(String.raw`export interface ${declaration}([^{]*)\{([\s\S]*?)\n\}`);
   const found = new Map<string, string>();
+  const declared = declaredInterfaces.get(declaration);
+  if (declared === undefined) return found;
 
-  for (const entry of readdirSync(dir, { withFileTypes: true }).filter((one) =>
-    one.isDirectory(),
+  const deeper = new Set([...seen, key]);
+
+  /* `Pick` keeps the names it lists and `Omit` drops them; a bare name brings everything it has. */
+  for (const [, kind, from, listed] of declared.inherits.matchAll(
+    /(Pick|Omit)<(\w+(?:\.Props)?),\s*([^>]+)>/g,
   )) {
-    for (const name of readdirSync(new URL(`${entry.name}/`, dir)).filter((one) =>
-      one.endsWith(".d.ts"),
-    )) {
-      const hit = wanted.exec(readFileSync(new URL(`${entry.name}/${name}`, dir), "utf8"));
-      if (hit === null) continue;
+    const named = new Set([...listed!.matchAll(/'([^']+)'/g)].map(([, one]) => one!));
 
-      for (const [, from, picked] of hit[1]!.matchAll(/Pick<(\w+)\.Props,\s*([^>]+)>/g)) {
-        const only = new Set([...picked!.matchAll(/'([^']+)'/g)].map(([, one]) => one!));
-
-        for (const [prop, value] of defaultsIn(
-          module,
-          `${from!}Props`,
-          reading,
-          new Set([...seen, key]),
-        )) {
-          if (only.has(prop)) found.set(prop, value);
-        }
-      }
-
-      for (const [prop, value] of harvest[reading](hit[2]!)) found.set(prop, value);
+    for (const [prop, value] of defaultsIn(from!.replace(/\.Props$/, "Props"), reading, deeper)) {
+      if (kind === "Pick" ? named.has(prop) : !named.has(prop)) found.set(prop, value);
     }
   }
+
+  for (const [, bare] of declared.inherits.matchAll(/\b(\w+)\b(?!\s*[<.])/g)) {
+    if (bare === declaration || !declaredInterfaces.has(bare!)) continue;
+
+    for (const [prop, value] of defaultsIn(bare!, reading, deeper)) found.set(prop, value);
+  }
+
+  /* Last, so a part that redeclares an inherited prop is the one that counts. */
+  for (const [prop, value] of harvest[reading](declared.body)) found.set(prop, value);
 
   primitiveDefaults.set(key, found);
   return found;
 };
 
-const settledByPart = (module: string, part: string) =>
-  defaultsIn(module, `${pascal(module)}${part}Props`);
+const settledByPart = (module: string, part: string) => defaultsIn(`${pascal(module)}${part}Props`);
 
 const partsBehind = new Map<string, readonly { module: string; part: string }[]>();
 
@@ -1885,13 +1920,35 @@ for (const file of readdirSync(componentDir).filter((name) => name.endsWith(".ts
   }
 }
 
+/**
+ * A prop names its union or writes it out. `side?: Side` is a name to look up; `trackCursorAxis?:
+ * 'none' | 'x' | 'y' | 'both'` is the union itself, and `modal?: boolean | 'trap-focus'` is one
+ * with `boolean` standing for its own two values, which is how a table prints it.
+ *
+ * A member that is neither a literal nor `boolean` — a `number`, a function — leaves the whole
+ * thing unresolved rather than half read.
+ */
+const membersOf = (written: string): readonly string[] | undefined => {
+  if (/^[\w.]+$/.test(written)) return namedUnions.get(written.split(".").at(-1)!);
+  if (!written.includes("'")) return undefined;
+
+  const members = written.split("|").flatMap((one) => {
+    const part = one.trim();
+    if (part === "boolean") return ["true", "false"];
+
+    return /^'[^']*'$/.test(part) ? [part.slice(1, -1)] : [""];
+  });
+
+  return members.includes("") ? undefined : members.sort();
+};
+
 const unionFor = (type: string, prop: string): readonly string[] | undefined => {
   const own = ownUnions.get(`${type}.${prop}`);
   if (own) return own;
 
   for (const { module, part } of partsBehind.get(type) ?? []) {
-    const named = defaultsIn(module, `${pascal(module)}${part}Props`, "type").get(prop);
-    const members = named === undefined ? undefined : namedUnions.get(named);
+    const written = defaultsIn(`${pascal(module)}${part}Props`, "type").get(prop);
+    const members = written === undefined ? undefined : membersOf(written);
 
     if (members) return members;
   }
@@ -2217,11 +2274,16 @@ test("a row that lists its own default among the alternatives is reported", () =
  * which the rule further up weighs against `buttonVariants`, or a prop the positioner takes from a
  * shared interface rather than declaring, which this does not follow.
  *
- * The tooltip's `side` is the one deliberate short list. Base UI accepts `inline-start` and
- * `inline-end`, which follow the writing direction rather than the box, and the table names the
- * four a reader can picture. It is named here so the omission is a decision rather than a gap.
+ * Every `side` is a deliberate short list, and all three agree. Base UI also takes `inline-start`
+ * and `inline-end`, which follow the writing direction rather than the box, and each table names
+ * the four a reader can picture. They are named here so the omission reads as one decision rather
+ * than three gaps — and so a table that quietly drops a fifth still fails.
  */
-const PICTURED_SIDES_ONLY = ["TooltipContentProps.side"];
+const PICTURED_SIDES_ONLY = [
+  "MenuContentProps.side",
+  "PopoverContentProps.side",
+  "TooltipContentProps.side",
+];
 
 test("a stated union that is not the one the prop has is reported", () => {
   const short = statedUnions(pages).flatMap(({ named, said, real }) =>
@@ -2231,6 +2293,6 @@ test("a stated union that is not the one the prop has is reported", () => {
   );
 
   /* Read first: a resolver that resolves nothing agrees with every table it is given. */
-  expect(statedUnions(pages).filter(({ real }) => real !== undefined).length).toBeGreaterThan(4);
+  expect(statedUnions(pages).filter(({ real }) => real !== undefined).length).toBeGreaterThan(12);
   expect(short).toEqual([]);
 });
