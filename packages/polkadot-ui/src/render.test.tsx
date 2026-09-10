@@ -818,6 +818,27 @@ test("both marks a feed draws are decoration, not just the one", () => {
   expect(markup).toMatch(/aria-hidden="true"[^>]*><span>block<\/span>/);
 });
 
+/**
+ * The words an empty series is given. A page tells its reader these exact ones — that what a
+ * screen reader hears is "no readings", and never a count of zero followed by a value that is not
+ * there — and the note on the rule below reasons from them as the kit's settled habit.
+ *
+ * Two components return them, a page promises them and a comment cites them. Nothing read them.
+ * The half about a value that is not there is caught by the attribute sweep, which reads for the
+ * word undefined; the words themselves were free to change under all three.
+ */
+test("an empty series is given the words a page says it is given", () => {
+  const named = (markup: string) => /aria-label="([^"]*)"/.exec(markup)?.[1];
+
+  expect(named(renderToStaticMarkup(<kit.Sparkline values={[]} />))).toBe("no readings");
+  expect(named(renderToStaticMarkup(<kit.Bars values={[]} />))).toBe("no readings");
+  /* The deck says it in what it draws rather than in its name, which stays what the deck is. */
+  const deck = renderToStaticMarkup(<kit.SwipeDeck items={[]} />);
+
+  expect(deck).toContain("nothing left");
+  expect(named(deck)).toBe("queue");
+});
+
 const unsaidIn = (name: string, markup: string) => {
   const names = [...markup.matchAll(/aria-label="([^"]*)"/g)].map(([, one]) => one!).join(" ");
 
