@@ -420,6 +420,73 @@ test("every default a page states is the one the component falls back to", () =>
  * commit before that file was read.
  */
 
+/**
+ * A variant is not always a prop. A toggle's `pressed` and a switch's `checked` are filled from the
+ * state Base UI hands to `className`, so a consumer cannot write them — and a table read off the
+ * `tv` object cannot tell the difference. `Api` takes `except` for exactly this, and nothing made
+ * sure it was used: a state key left in is a table offering a prop that does not exist, and a
+ * misspelt `except` entry is silently ignored.
+ */
+const stateDriven = new Map<string, ReadonlySet<string>>();
+
+for (const file of readdirSync(componentDir).filter((name) => name.endsWith(".tsx"))) {
+  const source = readFileSync(new URL(file, componentDir), "utf8");
+  const [, exported] = /\bas (\w+Variants)\b/.exec(source) ?? [];
+  const keys = [...source.matchAll(/\b(\w+): state\.\w+/g)].map(([, key]) => key!);
+
+  if (exported && keys.length > 0) stateDriven.set(exported, new Set(keys));
+}
+
+const stateShownAsProp = (
+  sources: readonly { readonly file: string; readonly source: string }[],
+  fromState: ReadonlyMap<string, ReadonlySet<string>>,
+) =>
+  sources
+    .flatMap(({ file, source }) =>
+      openingTags(source, "Api").flatMap((tag) => {
+        const [, owner] = /\bof=\{(\w+)\}/.exec(tag) ?? [];
+        const keys = owner ? fromState.get(owner) : undefined;
+        if (!keys) return [];
+
+        const excepted = new Set(
+          [...tag.matchAll(/except=\{\[([^\]]*)\]\}/g)].flatMap(([, list]) =>
+            [...list!.matchAll(/"([^"]+)"/g)].map(([, name]) => name!),
+          ),
+        );
+
+        return [...keys]
+          .filter((key) => !excepted.has(key))
+          .map((key) => `${owner} lists ${key}, which comes from state, not a prop (${file})`);
+      }),
+    )
+    .sort();
+
+test("a state variant left in a table is reported", () => {
+  const fromState = new Map([["toggleVariants", new Set(["pressed"])]]);
+  const bare = [{ file: "p.tsx", source: "<Api name='t' of={toggleVariants} />" }];
+  const excepted = [
+    { file: "p.tsx", source: '<Api name="t" of={toggleVariants} except={["pressed"]} />' },
+  ];
+
+  expect(stateShownAsProp(bare, fromState)).toEqual([
+    "toggleVariants lists pressed, which comes from state, not a prop (p.tsx)",
+  ]);
+  expect(stateShownAsProp(excepted, fromState)).toEqual([]);
+  /* A misspelt entry excepts nothing, which is the failure the rule exists to catch. */
+  expect(
+    stateShownAsProp(
+      [{ file: "p.tsx", source: '<Api of={toggleVariants} except={["presed"]} />' }],
+      fromState,
+    ),
+  ).toEqual(["toggleVariants lists pressed, which comes from state, not a prop (p.tsx)"]);
+});
+
+test("no variant table offers a prop that comes from state", () => {
+  expect(stateDriven.get("toggleGroupVariants")).toEqual(new Set(["pressed"]));
+  expect(stateDriven.get("switchVariants")).toEqual(new Set(["checked"]));
+  expect(stateShownAsProp(pages, stateDriven)).toEqual([]);
+});
+
 test("every affordance the kit adds is one the pages pass", () => {
   const named = pages.flatMap(({ source }) => documented(source));
 
