@@ -145,6 +145,27 @@ test("the item still resolves when only the pressed state is given", () => {
   expect(bare).toBe(named);
 });
 
+/**
+ * The nav look says it mirrors its hover treatment onto focus, so a keyboard reaches the same row
+ * a pointer does. Every slot has to hold that, not most of them: the lead's two-pixel nudge was
+ * hover-only, so a keyboard user got the row, the label and its brightening and not the mark.
+ */
+test("every hover the nav look draws has a focus that matches it", () => {
+  const nav = kit.listItemVariants({ look: "nav" });
+  const slots = { root: nav.root(), label: nav.label(), lead: nav.lead(), trail: nav.trail() };
+
+  const unmirrored = Object.entries(slots).flatMap(([slot, classes]) =>
+    [...classes.matchAll(/(?:group-)?hover(?:\/item)?:(\S+)/g)]
+      .map(([, effect]) => effect!)
+      .filter((effect) => !classes.includes(`focus-visible/item:${effect}`))
+      .filter((effect) => !classes.includes(`focus-visible:${effect}`))
+      .map((effect) => `${slot} hovers to ${effect} and never focuses to it`),
+  );
+
+  expect(Object.values(slots).join(" ")).toContain("hover");
+  expect(unmirrored).toEqual([]);
+});
+
 /** The plural a section writes, against the variant key it is counting. */
 const KEY_FOR: Record<string, string> = {
   tones: "tone",

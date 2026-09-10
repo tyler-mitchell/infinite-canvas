@@ -18,7 +18,7 @@ const listItem = tv({
         root: "-mx-2 cursor-pointer px-2 hover:bg-pk-ink/[0.06] focus-visible:bg-pk-ink/[0.06]",
         label:
           "group-hover/item:translate-x-[3px] group-focus-visible/item:translate-x-[3px] group-focus-visible/item:text-pk-ink-bright",
-        lead: "transition-[translate] duration-(--pk-duration-hover) ease-pk-settle group-hover/item:translate-x-[2px]",
+        lead: "transition-[translate] duration-(--pk-duration-hover) ease-pk-settle group-hover/item:translate-x-[2px] group-focus-visible/item:translate-x-[2px]",
       },
     },
   },
