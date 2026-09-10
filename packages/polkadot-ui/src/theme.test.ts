@@ -114,6 +114,16 @@ test("the theme and the components are both read", () => {
   expect(utilities.size).toBeGreaterThan(50);
 });
 
+/*
+ * This one is subsumed, and says so rather than reading as a second guarantee. A `pk-` utility
+ * whose token the sheet never declared cannot compile to a rule either, so `utilities.test.ts`
+ * fails on the same change — measured both ways: `bg-pk-nonexistent` on a page fails this rule and
+ * that one, and `size-16x` fails only that one. No mutation was found that fails only this.
+ *
+ * Kept for what it does differently rather than for what it catches: it names the token and the
+ * file that wrote it where the other says a class built nothing, and it reads the sources without
+ * building a stylesheet, so it still answers when the build is what broke.
+ */
 test("every token a component draws with is one the theme declares", () => {
   const missing = referencesIn(styledSources)
     .filter((reference) => !reference.candidates.some((token) => declared.has(token)))

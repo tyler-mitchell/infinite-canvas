@@ -247,6 +247,11 @@ test("every class the kit can emit compiles to a rule", () => {
   expect(undrawn(tokens)).toEqual([]);
 });
 
+/*
+ * The wider of the two: a `pk-` token the sheet never declared fails here and in `theme.test.ts`,
+ * and a plain misspelling like `size-16x` fails only here, because it names no token for that rule
+ * to look up. Narrowing this one silently narrows the pair.
+ */
 test("every class a page writes compiles to a rule", () => {
   expect(undrawn(pageTokens)).toEqual([]);
 });
