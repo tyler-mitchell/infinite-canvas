@@ -625,19 +625,9 @@ test("a tabled value that no page draws is reported", () => {
   expect(undrawnValues(quiet, quiet[0]!.source, works)).toEqual([]);
 });
 
-/**
- * The one table whose values a consumer never passes. `textVariants.as` picks which text role is
- * drawn, and each role is exported as its own component that fixes it — `Display` is `as="display"`
- * — so the page draws all seven and writes none of them. The same object is named in the sweep in
- * `variants.test.tsx` for the same reason.
- */
-const FIXED_BY_THE_PART = ["textVariants"];
-
 test("every value a variant table prints is one the pages draw", () => {
   const describes = (name: string) => {
-    const config = FIXED_BY_THE_PART.includes(name)
-      ? undefined
-      : (kit as Record<string, Tabled | undefined>)[name];
+    const config = (kit as Record<string, Tabled | undefined>)[name];
     const tags = tagsOwning.get(name);
 
     return config && tags ? { config, tags, computed: computedKeys.get(name) } : undefined;
@@ -648,6 +638,79 @@ test("every value a variant table prints is one the pages draw", () => {
   expect(describes("receiptVariants")?.tags).toContain("Receipt\\.Line");
   expect([...(describes("sparklineVariants")?.computed ?? [])]).toEqual(["head"]);
   expect(undrawnValues(pages, everything, describes)).toEqual([]);
+});
+
+/**
+ * The type section states a size beside each role — `Display · 21px semibold`. The theme owns the
+ * real one, and the page's is written by hand, so a nudge to a token leaves the page stating a
+ * size nothing draws. Roles reach their tokens through the `tv` object rather than by name: the
+ * readout is `text-pk-mono`, which no rule could guess from `Readout`.
+ */
+const themeCss = readFileSync(new URL("./theme.css", import.meta.url), "utf8");
+
+const sizeInTheme = new Map(
+  [...themeCss.matchAll(/--text-(pk-[a-z\d-]+):\s*([\d.]+)px;/g)].map(([, token, px]) => [
+    token!,
+    px!,
+  ]),
+);
+
+const tokenForRole = new Map(
+  Object.entries(((kit.textVariants as unknown as Tabled).variants ?? {}).as ?? {}).map(
+    ([role, classes]) => [
+      role.charAt(0).toUpperCase() + role.slice(1),
+      String(classes)
+        .split(" ")
+        .flatMap((one) => {
+          const [, token] = /^text-(pk-[a-z\d-]+)$/.exec(one) ?? [];
+
+          return token && sizeInTheme.has(token) ? [token] : [];
+        })[0],
+    ],
+  ),
+);
+
+const misstatedSize = (
+  sources: readonly { readonly file: string; readonly source: string }[],
+  roles: ReadonlyMap<string, string | undefined>,
+  sizes: ReadonlyMap<string, string>,
+) =>
+  [...roles].flatMap(([role, token]) =>
+    token === undefined
+      ? [`${role} draws no size the theme declares`]
+      : sources.flatMap(({ file, source }) =>
+          [...source.matchAll(new RegExp(String.raw`<${role}[^>]*>([^<]*)</${role}>`, "g"))]
+            .flatMap(([, text]) => [...text!.matchAll(/([\d.]+)px/g)].map(([, px]) => px!))
+            .filter((px) => px !== sizes.get(token))
+            .map((px) => `${role} says ${px}px, the theme has ${sizes.get(token)}px (${file})`),
+        ),
+  );
+
+test("a size stated beside a role that the theme does not use is reported", () => {
+  const roles = new Map([["Display", "pk-display"]]);
+  const sizes = new Map([["pk-display", "21"]]);
+  const right = [{ file: "p.tsx", source: "<Display>Display · 21px semibold</Display>" }];
+  const wrong = [{ file: "p.tsx", source: "<Display render={<span />}>Display · 20px</Display>" }];
+
+  expect(misstatedSize(right, roles, sizes)).toEqual([]);
+  expect(misstatedSize(wrong, roles, sizes)).toEqual([
+    "Display says 20px, the theme has 21px (p.tsx)",
+  ]);
+  /* A role whose classes carry no size at all cannot be checked, and says so. */
+  expect(misstatedSize(right, new Map([["Display", undefined]]), sizes)).toEqual([
+    "Display draws no size the theme declares",
+  ]);
+});
+
+test("every size a page states beside a role is the one the theme declares", () => {
+  expect(tokenForRole.get("Readout")).toBe("pk-mono");
+  expect(sizeInTheme.get("pk-display")).toBe("21");
+
+  /* Read first: a sweep that reached no row would agree with every size on the page. */
+  const shifted = new Map([...sizeInTheme].map(([token, px]) => [token, `${Number(px) + 1}`]));
+
+  expect(misstatedSize(pages, tokenForRole, shifted).length).toBeGreaterThan(4);
+  expect(misstatedSize(pages, tokenForRole, sizeInTheme)).toEqual([]);
 });
 
 test("every component the readme quotes is quoted as it is", () => {
@@ -758,9 +821,27 @@ const stateDriven = new Map<string, ReadonlySet<string>>();
 for (const file of readdirSync(componentDir).filter((name) => name.endsWith(".tsx"))) {
   const source = readFileSync(new URL(file, componentDir), "utf8");
   const [, exported] = /\bas (\w+Variants)\b/.exec(source) ?? [];
-  const keys = [...source.matchAll(/\b(\w+): state\.\w+/g)].map(([, key]) => key!);
+  if (!exported) continue;
 
-  if (exported && keys.length > 0) stateDriven.set(exported, new Set(keys));
+  /*
+   * A key filled from Base UI's state, and a key no function in the file takes: the grid works its
+   * own tone out of the counts and the deck holds `held` itself, so neither reaches the tv object
+   * from a prop either. Both are the same thing to a reader — a row offering something to pass.
+   */
+  const fromState = [...source.matchAll(/\b(\w+): state\.\w+/g)].map(([, key]) => key!);
+  /* The type parameters of a generic component sit between its name and its props. */
+  const taken = new Set(
+    [...source.matchAll(/function \w+(?:<[^>]*>)?\(\{([\s\S]*?)\}:/g)]
+      .flatMap(([, params]) => [...params!.matchAll(/(?:^|,)\s*(\w+)/g)])
+      .map(([, name]) => name!),
+  );
+
+  const declared = Object.keys(
+    ((kit as Record<string, Tabled | undefined>)[exported] ?? {}).variants ?? {},
+  );
+  const keys = [...fromState, ...declared.filter((key) => !taken.has(key))];
+
+  if (keys.length > 0) stateDriven.set(exported, new Set(keys));
 }
 
 const stateShownAsProp = (

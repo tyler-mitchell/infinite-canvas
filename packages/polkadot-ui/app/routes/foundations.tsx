@@ -5,15 +5,13 @@ import {
   Label,
   Meta,
   Prose,
+  Readout,
   Row,
   Separator,
   Surface,
-  textVariants,
   Title,
   tv,
 } from "polkadot-ui";
-
-import { Api } from "../api.tsx";
 
 const foundations = tv({
   slots: {
@@ -299,11 +297,14 @@ function Foundations() {
               </Prose>
             </div>
             <div className={styles.scaleRow()}>
+              <Readout>Readout · 11px mono</Readout>
+              <Meta>announces, so a value that changes in place still reaches a reader</Meta>
+            </div>
+            <div className={styles.scaleRow()}>
               <Meta>Meta · 11px — the line beside a heading, and the default role</Meta>
             </div>
           </div>
         </Surface>
-        <Api name="text" of={textVariants} />
       </section>
     </div>
   );
