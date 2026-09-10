@@ -1,12 +1,14 @@
 import { Slider as SliderPrimitive } from "@base-ui/react/slider";
 import { tv } from "../tv.ts";
+import { textVariants } from "./text.tsx";
 
 const slider = tv({
   slots: {
     root: "flex w-full flex-col gap-2.5 data-[orientation=vertical]:w-auto data-[orientation=vertical]:items-start",
     header: "flex items-baseline justify-between gap-2",
     label: "font-pk-sans text-pk-label text-pk-ink-dim",
-    value: "font-pk-sans text-pk-label text-pk-ink-muted tabular-nums",
+    /* The readout role supplies the voice; only what is particular to a track sits here. */
+    value: "",
     control:
       "flex h-4 w-full cursor-pointer touch-none items-center select-none data-[orientation=vertical]:h-[120px] data-[orientation=vertical]:w-4 data-[orientation=vertical]:justify-center",
     track:
@@ -38,7 +40,11 @@ function Slider({ label, showValue = true, className, ...props }: SliderProps) {
           {label ? (
             <SliderPrimitive.Label className={styles.label()}>{label}</SliderPrimitive.Label>
           ) : null}
-          {showValue ? <SliderPrimitive.Value className={styles.value()} /> : null}
+          {showValue ? (
+            <SliderPrimitive.Value
+              className={textVariants({ as: "readout", className: styles.value() })}
+            />
+          ) : null}
         </div>
       ) : null}
       <SliderPrimitive.Control className={styles.control()}>

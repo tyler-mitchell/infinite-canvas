@@ -168,12 +168,6 @@ function Controls() {
           name="field"
           rows={[
             {
-              name: "layout",
-              values: ["inline", "stacked"],
-              fallback: "inline",
-              note: "where the label sits against the control",
-            },
-            {
               name: "disabled",
               fallback: "false",
               note: "disables the control it wraps, and takes precedence over the control's own",
