@@ -112,6 +112,17 @@ test("the theme and the components are both read", () => {
   expect(referencesIn(styledSources).length).toBeGreaterThan(100);
   expect(appFiles.length).toBeGreaterThan(10);
   expect(utilities.size).toBeGreaterThan(50);
+
+  /*
+   * The two halves are counted above and the mixture is what every sweep below actually reads.
+   * Built from the components alone it still cleared a hundred references, so that floor says the
+   * input is not empty and never that it is whole — and eight of the sweeps went on reading half
+   * the surface without a word. Which is the fault the note on `styledSources` already records.
+   */
+  expect(styledSources.filter(({ file }) => componentFiles.includes(file))).toHaveLength(
+    componentFiles.length,
+  );
+  expect(styledSources.filter(({ file }) => appFiles.includes(file))).toHaveLength(appFiles.length);
 });
 
 /*
