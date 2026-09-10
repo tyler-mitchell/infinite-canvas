@@ -675,3 +675,35 @@ test("a token the theme does not declare is reported against the file that wrote
 
   expect(invented.candidates.some((token) => declared.has(token))).toBe(false);
 });
+
+/**
+ * Reduced motion collapses every animation to a millisecond, which is enough for one driven by
+ * time. An animation driven by a view timeline ignores duration entirely, so it keeps running at
+ * full travel and has to be turned off by name. Only `.pk-rise` does this today, and it is named;
+ * the next one will not be unless something asks.
+ */
+const runningWhenStill = (css: string) => {
+  const still = css.slice(css.indexOf("@media (prefers-reduced-motion: reduce)"));
+  const stopped = still.slice(0, still.indexOf("animation: none"));
+
+  return [...css.matchAll(/\.([\w-]+)\s*\{[^}]*animation-timeline:/g)]
+    .map(([, name]) => name!)
+    .filter((name) => !stopped.includes(`.${name}`));
+};
+
+test("a timeline animation left running under reduced motion is reported", () => {
+  const forgotten =
+    ".pk-drift { animation-timeline: view(); }\n@media (prefers-reduced-motion: reduce) {\n.pk-rise { animation: none; }\n}";
+
+  expect(runningWhenStill(forgotten)).toEqual(["pk-drift"]);
+  expect(
+    runningWhenStill(
+      ".pk-rise { animation-timeline: view(); }\n@media (prefers-reduced-motion: reduce) {\n.pk-rise { animation: none; }\n}",
+    ),
+  ).toEqual([]);
+});
+
+test("every timeline animation the sheet declares is turned off under reduced motion", () => {
+  expect(themeCss).toContain("animation-timeline:");
+  expect(runningWhenStill(themeCss)).toEqual([]);
+});
