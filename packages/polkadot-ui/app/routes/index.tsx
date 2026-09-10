@@ -135,7 +135,7 @@ function Overview() {
       <section className={styles.section()}>
         <Row rule="below">
           <Kind>a widget, composed</Kind>
-          <Meta>seven parts, no new css</Meta>
+          <Meta>every part from the kit, no new css</Meta>
         </Row>
         <div className={styles.widgets()}>
           <Surface tone="rim" padding="snug" className={styles.identity()}>
