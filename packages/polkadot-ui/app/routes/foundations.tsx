@@ -272,7 +272,7 @@ function Foundations() {
             </div>
           </div>
         </Surface>
-        <Api of={textVariants} />
+        <Api name="text" of={textVariants} />
       </section>
     </div>
   );

@@ -91,7 +91,7 @@ function Controls() {
             </div>
           ))}
         </div>
-        <Api of={buttonVariants} />
+        <Api name="button" of={buttonVariants} />
       </section>
 
       <section className={styles.section()}>
@@ -138,7 +138,7 @@ function Controls() {
             </ToggleGroup.Item>
           ))}
         </ToggleGroup>
-        <Api of={toggleGroupVariants} except={["pressed"]} />
+        <Api name="toggle group" of={toggleGroupVariants} except={["pressed"]} />
       </section>
 
       <section className={styles.section()}>

@@ -475,6 +475,38 @@ test("no props table documents a variant its own Api table already prints", () =
   expect(doubled).toEqual([]);
 });
 
+/**
+ * A variant table says what it documents. Several sections carry more than one, and a reader
+ * scrolling past an unnamed one has only the section heading above it to go on.
+ */
+const unnamedTables = (sources: readonly { readonly file: string; readonly source: string }[]) =>
+  sources.flatMap(({ file, source }) =>
+    [...source.matchAll(/<Api\s([\s\S]*?)\/>/g)]
+      .filter(([, attributes]) => !/\bname=/.test(attributes!))
+      .map(([, attributes]) => `${attributes!.trim().split("\n")[0]} (${file})`),
+  );
+
+test("a variant table with no name is reported against its page", () => {
+  expect(unnamedTables([{ file: "p.tsx", source: '<Api name="row" of={rowVariants} />' }])).toEqual(
+    [],
+  );
+  expect(unnamedTables([{ file: "p.tsx", source: "<Api of={rowVariants} />" }])).toEqual([
+    "of={rowVariants} (p.tsx)",
+  ]);
+});
+
+test("every variant table on a page says what it documents", () => {
+  const pages = appFiles.map((file) => ({
+    file,
+    source: readFileSync(new URL(file, appDir), "utf8"),
+  }));
+
+  expect(
+    pages.reduce((total, { source }) => total + (source.match(/<Api\s/g)?.length ?? 0), 0),
+  ).toBeGreaterThan(15);
+  expect(unnamedTables(pages)).toEqual([]);
+});
+
 test("a stated ratio that no longer matches its colours is reported", () => {
   const real = contrast("#ededed", "#0e0f11").toFixed(2);
 
