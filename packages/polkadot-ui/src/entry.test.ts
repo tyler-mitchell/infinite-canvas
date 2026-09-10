@@ -75,16 +75,12 @@ test("a name the entry never exported does not arrive", () => {
  * — while `Receipt` in the same file exported a name for exactly that shape.
  *
  * The text roles share one `TextProps` and are right as they are, which is why this asks whether
- * the type is named and exported rather than whether a `XProps` exists for every `X`.
+ * the type has a name rather than whether an `XProps` exists for every `X`.
+ *
+ * Whether a named type then reaches the entry is `index.test.ts`, which asks it of every type a
+ * component declares — a wider question than this one, and already answered there.
  */
 const componentDir = new URL("./components/", import.meta.url);
-
-/** The type names the entry re-exports. `claimed` holds only the values, which cannot include one. */
-const claimedTypes = [...entry.matchAll(/export \{([\s\S]*?)\} from/g)]
-  .flatMap(([, list]) => list!.split(","))
-  .map((part) => part.trim())
-  .filter((part) => part.startsWith("type "))
-  .map((part) => part.slice("type ".length).trim());
 
 const anonymousProps = (sources: readonly { readonly file: string; readonly source: string }[]) =>
   sources
@@ -107,18 +103,11 @@ test("a component whose props type has no name is reported", () => {
   expect(anonymousProps(bare)).toEqual(['Rule takes React.ComponentProps<"div"> (a.tsx)']);
 });
 
-test("every component names the props type it takes, and the entry exports it", () => {
+test("every component names the props type it takes", () => {
   const sources = readdirSync(componentDir)
     .filter((name) => name.endsWith(".tsx") && !name.endsWith(".test.tsx"))
     .map((file) => ({ file, source: readFileSync(new URL(file, componentDir), "utf8") }));
 
-  const taken = sources.flatMap(({ source }) =>
-    [...source.matchAll(/^function \w+\(\{[\s\S]*?\}: (\w+)\) \{$/gm)].map(([, type]) => type!),
-  );
-
   expect(sources.length).toBeGreaterThan(30);
-  expect(taken.length).toBeGreaterThan(30);
-  expect(claimedTypes.length).toBeGreaterThan(50);
   expect(anonymousProps(sources)).toEqual([]);
-  expect([...new Set(taken)].filter((type) => !claimedTypes.includes(type))).toEqual([]);
 });

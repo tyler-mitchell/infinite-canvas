@@ -2,8 +2,6 @@ import { readdirSync, readFileSync } from "node:fs";
 
 import { expect, test } from "vite-plus/test";
 
-import * as kit from "./index.ts";
-
 /*
  * What the kit says about itself outside its own code: the pages, and the readme.
  *
@@ -346,35 +344,11 @@ test("every default a page states is the one the component falls back to", () =>
   expect(misstatedDefault(pages, fallsBackTo)).toEqual([]);
 });
 
-/**
- * A component the kit exports and no page draws is one nobody can look at, and one nothing would
- * notice breaking. Every part counts, not only the roots: a menu separator or a receipt rule is
- * still something a consumer has to be shown before they will reach for it.
+/*
+ * Whether every exported component is drawn on a page belongs to `index.test.ts`, which asked it
+ * first and reads the same `Tabs.Tab = Tab` mappings to do it. A second copy lived here for one
+ * commit before that file was read.
  */
-const undrawn = (exported: readonly string[], everySource: string) =>
-  exported
-    .filter((name) => !tagNamesFor(name).some((tag) => openingTags(everySource, tag).length > 0))
-    .sort();
-
-test("a component no page draws is reported", () => {
-  expect(undrawn(["Card"], "<Card tone='a' />")).toEqual([]);
-  expect(undrawn(["Card"], "<Board />")).toEqual(["Card"]);
-  /* Written under the name its parent gives it, which is how every compound part reaches a page. */
-  expect(writtenAs.get("Toggle")).toBe("ToggleGroup\\.Item");
-  expect(undrawn(["Toggle"], "<ToggleGroup.Item value='a' />")).toEqual([]);
-});
-
-test("every component the kit exports is drawn on a page", () => {
-  const exported = Object.entries(kit)
-    .filter(
-      ([name, value]) =>
-        /^[A-Z][a-z\d]/.test(name) && typeof value === "function" && !name.endsWith("Variants"),
-    )
-    .map(([name]) => name);
-
-  expect(exported.length).toBeGreaterThan(50);
-  expect(undrawn(exported, everything)).toEqual([]);
-});
 
 test("every affordance the kit adds is one the pages pass", () => {
   const named = pages.flatMap(({ source }) => documented(source));
