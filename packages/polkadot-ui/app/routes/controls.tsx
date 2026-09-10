@@ -3,6 +3,8 @@ import { useState } from "react";
 import {
   Button,
   buttonVariants,
+  Checkbox,
+  checkboxVariants,
   Display,
   Field,
   type FieldProps,
@@ -11,6 +13,7 @@ import {
   Label,
   Meta,
   Prose,
+  Readout,
   Row,
   Slider,
   type SliderProps,
@@ -59,6 +62,7 @@ function Controls() {
   const [categories, setCategories] = useState<string[]>([]);
   const [range, setRange] = useState<string[]>(["3m"]);
   const [sound, setSound] = useState(true);
+  const [wrap, setWrap] = useState(false);
 
   return (
     <div className={styles.page()}>
@@ -180,6 +184,37 @@ function Controls() {
           ]}
         />
         <Api name="field" of={fieldVariants} />
+      </section>
+
+      <section className={styles.section()}>
+        <Row rule="below">
+          <Kind>checkbox</Kind>
+          <Meta>ticked, mixed, and neither</Meta>
+        </Row>
+        <div className={styles.inline()}>
+          <Field>
+            <Checkbox checked={wrap} onCheckedChange={setWrap} />
+            <Field.Label>wrap</Field.Label>
+          </Field>
+          <Field>
+            <Checkbox defaultChecked />
+            <Field.Label>ticked</Field.Label>
+          </Field>
+          <Field>
+            <Checkbox indeterminate />
+            <Field.Label>mixed</Field.Label>
+          </Field>
+          <Field disabled>
+            <Checkbox defaultChecked />
+            <Field.Label>disabled</Field.Label>
+          </Field>
+        </div>
+        <Prose className={styles.lede()}>
+          The mixed state is the parent of a group where some children are ticked and some are not.
+          It is a third state rather than a style, so it says <Readout>mixed</Readout> to a reader
+          who cannot see the dash, and clicking it settles the whole group one way.
+        </Prose>
+        <Api name="checkbox" of={checkboxVariants} except={["checked"]} />
       </section>
 
       <section className={styles.section()}>

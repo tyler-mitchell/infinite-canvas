@@ -675,6 +675,9 @@ const STATES_SEEN_IN_THE_DOM = [
   "data-highlighted",
   "data-hot",
   "data-hovering",
+  /* Base UI puts this on both the checkbox root and its indicator; driven, `aria-checked` reads
+   * `mixed` and the dash is the mark that shows. */
+  "data-indeterminate",
   "data-newest",
   "data-panel-open",
   "data-scrolling",

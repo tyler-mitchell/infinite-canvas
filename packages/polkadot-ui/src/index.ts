@@ -38,6 +38,7 @@ export {
   type BreakdownProps,
 } from "./components/breakdown.tsx";
 export { Button, buttonVariants, type ButtonProps } from "./components/button.tsx";
+export { Checkbox, checkboxVariants, type CheckboxProps } from "./components/checkbox.tsx";
 export {
   Collapsible,
   CollapsiblePanel,
