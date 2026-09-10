@@ -763,6 +763,40 @@ test("a card that cannot grow lets its body scroll rather than cut it", () => {
 });
 
 /**
+ * A default names one of the values its own variant declares. Half of that belongs to TypeScript:
+ * a default of `inlinee` where the variant declares `inline` is refused at the build, so this does
+ * not answer for it and says so rather than taking the credit.
+ *
+ * The other half is nobody's. A default under a key no variant declares typechecks, and the table
+ * a page draws reads the keys of `variants` — so the default is dropped, silently, and a consumer
+ * is left with one that does nothing. Both halves are reported here; only the second can fail.
+ */
+test("every default a variant declares is one of its own values", () => {
+  const defaults = variantNames.flatMap((name) => {
+    const config = (kit as Record<string, unknown>)[name] as VariantObject;
+
+    return Object.entries(config.defaultVariants ?? {}).map(([key, value]) => ({
+      name,
+      key,
+      value: String(value),
+      options: Object.keys(config.variants?.[key] ?? {}),
+    }));
+  });
+
+  /* Read first: a reader finding no default agrees with every table it is given. */
+  expect(defaults.length).toBeGreaterThan(15);
+  expect(
+    defaults
+      .filter(({ value, options }) => !options.includes(value))
+      .map(({ name, key, value, options }) =>
+        options.length === 0
+          ? `${name}.${key} is a default for a variant that is not declared`
+          : `${name}.${key} defaults to ${value}, and declares ${options.join(" ")}`,
+      ),
+  ).toEqual([]);
+});
+
+/**
  * A variant whose values are `true` and `false` is a state the component is in, not a taste its
  * consumer picked, and one drawn only in colour reaches nobody who cannot see the colour.
  *
