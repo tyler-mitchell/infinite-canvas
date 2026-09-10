@@ -269,89 +269,7 @@ test("every radius and easing a page prints is the one the sheet declares", () =
   expect(misprinted(easings, declaredAs)).toEqual([]);
 });
 
-const channels = (hex: string) => {
-  const raw = hex.replace("#", "");
-  const full = raw.length === 3 ? raw.replace(/./g, (digit) => digit + digit) : raw;
-
-  return [0, 2, 4].map((at) => Number.parseInt(full.slice(at, at + 2), 16));
-};
-
-/** WCAG relative luminance, from sRGB. */
-const luminance = (hex: string) =>
-  channels(hex)
-    .map((value) => {
-      const channel = value / 255;
-
-      return channel <= 0.03928 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4;
-    })
-    .reduce((sum, channel, index) => sum + [0.2126, 0.7152, 0.0722][index]! * channel, 0);
-
-const contrast = (a: string, b: string) => {
-  const [light, dark] = [luminance(a), luminance(b)].sort((x, y) => y - x);
-
-  return (light! + 0.05) / (dark! + 0.05);
-};
-
-test("the contrast maths agrees with the values WCAG defines", () => {
-  /* Black on white is the definition's own upper bound. */
-  expect(Number(contrast("#000", "#fff").toFixed(2))).toBe(21);
-  expect(contrast("#fff", "#fff")).toBe(1);
-});
-
-/**
- * The foundations page states a ratio beside every ink and hairline. They are correct today, and
- * nothing tied them to the colours, so editing a colour would leave the page asserting the old
- * number — a claim about accessibility that reads as measured.
- */
-test("every ratio a page states is the one its colours produce", () => {
-  const page = appFiles.map((file) => readFileSync(new URL(file, appDir), "utf8")).join("\n");
-  const surface = declaredAs.get("--pk-surface")!;
-
-  const stated = [
-    ...page.matchAll(/\["(--pk-(?:ink|line)[a-z-]*)",\s*"[^"]*",\s*"(\d+\.\d+)/g),
-  ].map(([, token, printed]) => [token!, printed!] as const);
-
-  const wrong = stated
-    .map(([token, printed]) => ({
-      token,
-      printed,
-      real: contrast(declaredAs.get(token)!, surface).toFixed(2),
-    }))
-    .filter(({ printed, real }) => printed !== real)
-    .map(({ token, printed, real }) => `${token} states ${printed}, colours give ${real}`);
-
-  expect(stated.length).toBeGreaterThan(8);
-  expect(wrong).toEqual([]);
-});
-
-/**
- * Paper is the one ground that is a gradient, so its rows state a pair: the ratio against the top
- * of the sheet and against the foot. Both stops come from the declaration rather than being
- * restated here, so a change to the paper itself moves the expectation with it.
- */
-test("every paper ratio the page states is the pair its gradient produces", () => {
-  const page = appFiles.map((file) => readFileSync(new URL(file, appDir), "utf8")).join("\n");
-  const [, top, foot] =
-    /--pk-paper:\s*linear-gradient\([^,]+,\s*(#[\da-f]+),\s*(#[\da-f]+)\)/.exec(themeCss) ?? [];
-
-  const stated = [
-    ...page.matchAll(/\["(--pk-paper-[a-z-]+)",\s*"[^"]*",\s*"([\d.]+) → ([\d.]+)"\]/g),
-  ].map(([, token, atTop, atFoot]) => ({ token: token!, printed: `${atTop} → ${atFoot}` }));
-
-  const wrong = stated
-    .map(({ token, printed }) => {
-      const ink = declaredAs.get(token)!;
-      const real = `${contrast(ink, top!).toFixed(2)} → ${contrast(ink, foot!).toFixed(2)}`;
-
-      return { token, printed, real };
-    })
-    .filter(({ printed, real }) => printed !== real)
-    .map(({ token, printed, real }) => `${token} states ${printed}, gradient gives ${real}`);
-
-  expect(top).toBe("#faf9f5");
-  expect(stated.length).toBe(3);
-  expect(wrong).toEqual([]);
-});
+/* Every contrast ratio the kit states or has to clear lives in `contrast.test.ts`. */
 
 /**
  * The type section names a size beside each role. The role's size is not restated here: it is read
@@ -736,13 +654,6 @@ test("the state variants the kit styles with are the ones it has checked", () =>
 
   expect(used.length).toBeGreaterThan(8);
   expect(used).toEqual(STATES_SEEN_IN_THE_DOM);
-});
-
-test("a stated ratio that no longer matches its colours is reported", () => {
-  const real = contrast("#ededed", "#0e0f11").toFixed(2);
-
-  expect(real).toBe("16.38");
-  expect(real === "15.00").toBe(false);
 });
 
 test("a token the theme does not declare is reported against the file that wrote it", () => {

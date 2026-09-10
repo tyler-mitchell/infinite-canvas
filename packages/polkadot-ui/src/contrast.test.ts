@@ -3,66 +3,148 @@ import { readdirSync, readFileSync } from "node:fs";
 import { expect, test } from "vite-plus/test";
 
 /*
- * A focus ring is a non-text mark, so it is asked for 3:1 against what it sits on. The ring is the
- * accent at half alpha, which means the number is not a property of the ring: it is a property of
- * the ring and the seat together, and every tone sets a different seat.
+ * Every ratio the kit states, and every ratio it has to clear. The pages state one beside each ink
+ * and hairline, the components state four in prose, and a focus ring has to reach 3:1 against each
+ * seat a tone can put under it. All of it is one question, so it lives in one file.
  *
- * The numbers written into component comments are checked here too. One of the four was a pair of
- * values in the wrong order, and nothing could have caught it while it lived only in prose.
+ * The sheet also carries a display-p3 accent, which paints a slightly brighter ring. Everything
+ * here reads the plain sRGB fallback on purpose: it is the weaker of the two, and the one an
+ * ordinary display gets.
  */
 
 const read = (path: string) => readFileSync(new URL(path, import.meta.url), "utf8");
 
 const themeCss = read("./theme.css");
+
 const componentDir = new URL("./components/", import.meta.url);
 const componentSources = readdirSync(componentDir)
   .filter((name) => name.endsWith(".tsx"))
   .map((file) => ({ file, source: readFileSync(new URL(file, componentDir), "utf8") }));
 
-/**
- * The plain sRGB values. The sheet also carries a display-p3 accent, which paints a slightly
- * brighter ring; this reads the fallback on purpose, because that is the weaker of the two and the
- * one an ordinary display gets.
+const appDir = new URL("../app/", import.meta.url);
+const pages = [
+  ...readdirSync(appDir).filter((name) => name.endsWith(".tsx")),
+  ...readdirSync(new URL("routes/", appDir))
+    .filter((name) => name.endsWith(".tsx"))
+    .map((name) => `routes/${name}`),
+]
+  .map((file) => readFileSync(new URL(file, appDir), "utf8"))
+  .join("\n");
+
+/*
+ * Plain hex only, and the first declaration wins. The accent is declared twice — once as hex and
+ * again as display-p3 inside a gamut query — and a map that keeps the last one hands back a colour
+ * this file cannot read, which turns every ratio into NaN rather than into a failure that says so.
  */
-const palette = new Map(
-  [...themeCss.matchAll(/^\s+(--pk-[a-z\d-]+):\s*(#[\da-f]{3,8});/gim)].map(([, token, hex]) => [
-    token!,
-    hex!,
-  ]),
-);
+const declaredAs = new Map<string, string>();
+for (const [, token, hex] of themeCss.matchAll(/^\s+(--[a-z][a-z\d-]*):\s*(#[\da-f]{3,8});/gim)) {
+  if (!declaredAs.has(token!)) declaredAs.set(token!, hex!);
+}
 
-type Rgb = readonly [number, number, number];
+const channels = (hex: string) => {
+  const raw = hex.replace("#", "");
+  const full = raw.length === 3 ? raw.replace(/./g, (digit) => digit + digit) : raw;
 
-const rgb = (token: string): Rgb => {
-  const hex = palette.get(token);
-  if (!hex) throw new Error(`${token} is not a plain colour in the sheet`);
-
-  const digits = hex.slice(1);
-  const full =
-    digits.length <= 4 ? digits.replace(/./g, (character) => character.repeat(2)) : digits;
-
-  return [0, 2, 4].map((at) => Number.parseInt(full.slice(at, at + 2), 16)) as unknown as Rgb;
+  return [0, 2, 4].map((at) => Number.parseInt(full.slice(at, at + 2), 16));
 };
 
-/** Straight alpha over an opaque ground, which is what the browser composites a ring with. */
-const over = (ink: Rgb, ground: Rgb, alpha = 1): Rgb =>
-  ground.map((value, index) =>
-    Math.round(alpha * ink[index]! + (1 - alpha) * value),
-  ) as unknown as Rgb;
+/** WCAG relative luminance, from sRGB. */
+const luminance = (hex: string) =>
+  channels(hex)
+    .map((value) => {
+      const channel = value / 255;
 
-/** WCAG relative luminance, then the ratio the guidelines define from it. */
-const luminance = ([red, green, blue]: Rgb) => {
-  const channel = (value: number) => {
-    const unit = value / 255;
-    return unit <= 0.03928 ? unit / 12.92 : ((unit + 0.055) / 1.055) ** 2.4;
-  };
-  return 0.2126 * channel(red) + 0.7152 * channel(green) + 0.0722 * channel(blue);
+      return channel <= 0.03928 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4;
+    })
+    .reduce((sum, channel, index) => sum + [0.2126, 0.7152, 0.0722][index]! * channel, 0);
+
+const contrast = (a: string, b: string) => {
+  const [light, dark] = [luminance(a), luminance(b)].sort((x, y) => y - x);
+
+  return (light! + 0.05) / (dark! + 0.05);
 };
 
-const contrast = (a: Rgb, b: Rgb) => {
-  const [light, dark] = [luminance(a), luminance(b)].sort((one, two) => two - one);
-  return Number(((light! + 0.05) / (dark! + 0.05)).toFixed(2));
+/** Straight alpha over an opaque ground, which is how the browser composites a half-alpha ring. */
+const over = (ink: string, ground: string, alpha: number) => {
+  const under = channels(ground);
+
+  return `#${channels(ink)
+    .map((value, index) =>
+      Math.round(alpha * value + (1 - alpha) * under[index]!)
+        .toString(16)
+        .padStart(2, "0"),
+    )
+    .join("")}`;
 };
+
+test("the contrast maths agrees with the values WCAG defines", () => {
+  /* Black on white is the definition's own upper bound. */
+  expect(Number(contrast("#000", "#fff").toFixed(2))).toBe(21);
+  expect(contrast("#fff", "#fff")).toBe(1);
+  /* Half of anything over itself is itself, so the alpha step cannot move a ratio on its own. */
+  expect(over("#ffffff", "#ffffff", 0.5)).toBe("#ffffff");
+  expect(over("#ffffff", "#000000", 0.5)).toBe("#808080");
+});
+
+test("a stated ratio that no longer matches its colours is reported", () => {
+  const real = contrast("#ededed", "#0e0f11").toFixed(2);
+
+  expect(real).toBe("16.38");
+  expect(real === "15.00").toBe(false);
+});
+
+/**
+ * The foundations page states a ratio beside every ink and hairline. They are correct today, and
+ * nothing tied them to the colours, so editing a colour would leave the page asserting the old
+ * number — a claim about accessibility that reads as measured.
+ */
+test("every ratio a page states is the one its colours produce", () => {
+  const surface = declaredAs.get("--pk-surface")!;
+
+  const stated = [
+    ...pages.matchAll(/\["(--pk-(?:ink|line)[a-z-]*)",\s*"[^"]*",\s*"(\d+\.\d+)/g),
+  ].map(([, token, printed]) => [token!, printed!] as const);
+
+  const wrong = stated
+    .map(([token, printed]) => ({
+      token,
+      printed,
+      real: contrast(declaredAs.get(token)!, surface).toFixed(2),
+    }))
+    .filter(({ printed, real }) => printed !== real)
+    .map(({ token, printed, real }) => `${token} states ${printed}, colours give ${real}`);
+
+  expect(stated.length).toBeGreaterThan(8);
+  expect(wrong).toEqual([]);
+});
+
+/**
+ * Paper is the one ground that is a gradient, so its rows state a pair: the ratio against the top
+ * of the sheet and against the foot. Both stops come from the declaration rather than being
+ * restated here, so a change to the paper itself moves the expectation with it.
+ */
+test("every paper ratio the page states is the pair its gradient produces", () => {
+  const [, top, foot] =
+    /--pk-paper:\s*linear-gradient\([^,]+,\s*(#[\da-f]+),\s*(#[\da-f]+)\)/.exec(themeCss) ?? [];
+
+  const stated = [
+    ...pages.matchAll(/\["(--pk-paper-[a-z-]+)",\s*"[^"]*",\s*"([\d.]+) → ([\d.]+)"\]/g),
+  ].map(([, token, atTop, atFoot]) => ({ token: token!, printed: `${atTop} → ${atFoot}` }));
+
+  const wrong = stated
+    .map(({ token, printed }) => {
+      const ink = declaredAs.get(token)!;
+      const real = `${contrast(ink, top!).toFixed(2)} → ${contrast(ink, foot!).toFixed(2)}`;
+
+      return { token, printed, real };
+    })
+    .filter(({ printed, real }) => printed !== real)
+    .map(({ token, printed, real }) => `${token} states ${printed}, gradient gives ${real}`);
+
+  expect(top).toBe("#faf9f5");
+  expect(stated.length).toBe(3);
+  expect(wrong).toEqual([]);
+});
 
 /** Every seat a control can sit on: the root default, and each one a Surface tone restates. */
 const seats = () => {
@@ -74,35 +156,43 @@ const seats = () => {
   return [...new Set([fallback!, ...written])];
 };
 
-test("the sheet and the tones are both read", () => {
-  expect(palette.size).toBeGreaterThan(30);
-  expect(seats().length).toBeGreaterThan(4);
-  expect(contrast([255, 255, 255], [0, 0, 0])).toBe(21);
-  expect(contrast([255, 255, 255], [255, 255, 255])).toBe(1);
-});
-
+/**
+ * A focus ring is a non-text mark, so 3:1 is what it is asked for. The number is not a property of
+ * the ring: the ring is the accent at half alpha, so it is a property of the ring and the seat
+ * together, and every tone sets a different seat.
+ */
 test("the focus ring clears 3:1 on every seat a control can sit on", () => {
-  const ink = rgb("--pk-accent");
+  const accent = declaredAs.get("--pk-accent")!;
 
   const thin = seats()
-    .map((seat) => ({ seat, ratio: contrast(over(ink, rgb(seat), 0.5), rgb(seat)) }))
+    .map((seat) => {
+      const ground = declaredAs.get(seat)!;
+
+      return { seat, ratio: Number(contrast(over(accent, ground, 0.5), ground).toFixed(2)) };
+    })
     .filter(({ ratio }) => ratio < 3);
 
+  expect(seats().length).toBeGreaterThan(4);
   expect(thin).toEqual([]);
 });
 
 /**
  * Paper is its own ground and takes its own ring, because the accent at half alpha reaches only
- * 1.32:1 against it. Nothing puts an accent ring on paper today; this pins the ring paper does use.
+ * 1.32:1 against it. Nothing puts an accent ring on paper today; this pins the ring paper does use,
+ * and pins the reason the other one cannot be carried across.
  */
 test("the ring paper uses clears 3:1 on paper", () => {
-  const page = rgb("--pk-paper-page");
+  const page = declaredAs.get("--pk-paper-page")!;
 
-  expect(contrast(rgb("--pk-paper-ink"), page)).toBeGreaterThanOrEqual(3);
-  expect(contrast(over(rgb("--pk-accent"), page, 0.5), page)).toBeLessThan(3);
+  expect(contrast(declaredAs.get("--pk-paper-ink")!, page)).toBeGreaterThanOrEqual(3);
+  expect(contrast(over(declaredAs.get("--pk-accent")!, page, 0.5), page)).toBeLessThan(3);
 });
 
-/** Each ratio a component states in prose, and the two colours it is a ratio between. */
+/**
+ * Each ratio a component states in prose, and the two colours it is a ratio between. One of the
+ * four was a pair of values in the wrong order, and nothing could catch that while it lived only
+ * in a comment.
+ */
 const CLAIMED = [
   { file: "button.tsx", says: "4.95", ink: "--pk-ink-faint", on: "--pk-surface", alpha: 1 },
   { file: "button.tsx", says: "5.66", ink: "--pk-ink-dim", on: "--pk-surface", alpha: 1 },
@@ -121,9 +211,12 @@ test("every ratio a component writes down is the ratio it has", () => {
     const source = componentSources.find((entry) => entry.file === file)?.source;
     if (!source?.includes(says)) return [`${file} no longer says ${says}`];
 
-    const measured = contrast(over(rgb(ink), rgb(on), alpha), rgb(on));
-    return measured.toFixed(2) === says ? [] : [`${file} says ${says}, ${ink} is ${measured}`];
+    const ground = declaredAs.get(on)!;
+    const measured = contrast(over(declaredAs.get(ink)!, ground, alpha), ground).toFixed(2);
+
+    return measured === says ? [] : [`${file} says ${says}, the colours give ${measured}`];
   });
 
+  expect(declaredAs.size).toBeGreaterThan(35);
   expect(wrong).toEqual([]);
 });
