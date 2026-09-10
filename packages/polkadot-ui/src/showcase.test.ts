@@ -249,6 +249,87 @@ test("the readme counts the kit as it is, and names routes that exist", () => {
   expect([...new Set(missing)]).toEqual([]);
 });
 
+/**
+ * What each component falls back to when a prop is left out, read from the defaults it destructures.
+ * Only the kit's own: a Base UI default is not written down here and cannot be checked against.
+ */
+const fallsBackTo = new Map<string, ReadonlyMap<string, string>>();
+
+for (const file of readdirSync(componentDir).filter((name) => name.endsWith(".tsx"))) {
+  const source = readFileSync(new URL(file, componentDir), "utf8");
+
+  /*
+   * A default may be a named constant rather than a literal, and that is the one most likely to
+   * drift: change the numbers and the page still prints the old ones. Look it up in the same file
+   * and compare the numbers, so `DEFAULT_THRESHOLDS` reads as the `1 · 3 · 6 · 10` a page prints.
+   */
+  const resolve = (value: string) => {
+    if (!/^[A-Z_]+$/.test(value)) return value.replace(/^"|"$/g, "");
+
+    const list = new RegExp(String.raw`const ${value}[^=]*= \[([^\]]*)\]`).exec(source);
+
+    return list
+      ? list[1]!
+          .split(",")
+          .map((part) => part.trim())
+          .filter(Boolean)
+          .join(" · ")
+      : value;
+  };
+
+  for (const [, owner, body] of source.matchAll(/function (\w+)\(\{([\s\S]*?)\}:/g)) {
+    const defaults = [...body!.matchAll(/^\s*(\w+) = (.+?),$/gm)].map(
+      ([, prop, value]) => [prop!, resolve(value!)] as const,
+    );
+
+    fallsBackTo.set(`${owner!}Props`, new Map(defaults));
+  }
+}
+
+const misstatedDefault = (
+  sources: readonly { readonly file: string; readonly source: string }[],
+  defaults: ReadonlyMap<string, ReadonlyMap<string, string>>,
+) =>
+  sources
+    .flatMap(({ file, source }) =>
+      openingTags(source, "Props").flatMap((tag) => {
+        const [, type] = /<Props<(\w+Props)>/.exec(tag) ?? [];
+        const known = type ? defaults.get(type) : undefined;
+        if (!known) return [];
+
+        return [...tag.matchAll(/\{\s*name: "(\w+)",\s*fallback: "([^"]*)"/g)]
+          .map(([, prop, stated]) => ({ prop: prop!, stated: stated!, real: known.get(prop!) }))
+          .filter(({ stated, real }) => real !== undefined && real !== stated)
+          .map(
+            ({ prop, stated, real }) =>
+              `${type}.${prop} says ${stated}, the code uses ${real} (${file})`,
+          );
+      }),
+    )
+    .sort();
+
+test("a stated default that is not the one the code uses is reported", () => {
+  const defaults = new Map([["TickerProps", new Map([["pad", "0"]])]]);
+  const right = [
+    { file: "p.tsx", source: '<Props<TickerProps> rows={[{ name: "pad", fallback: "0" }]} />' },
+  ];
+  const wrong = [
+    { file: "p.tsx", source: '<Props<TickerProps> rows={[{ name: "pad", fallback: "4" }]} />' },
+  ];
+
+  expect(misstatedDefault(right, defaults)).toEqual([]);
+  expect(misstatedDefault(wrong, defaults)).toEqual([
+    "TickerProps.pad says 4, the code uses 0 (p.tsx)",
+  ]);
+  /* A prop the code gives no default is Base UI's, and this says nothing about it. */
+  expect(misstatedDefault(wrong, new Map([["TickerProps", new Map()]]))).toEqual([]);
+});
+
+test("every default a page states is the one the component falls back to", () => {
+  expect(fallsBackTo.get("NumberTickerProps")?.get("pad")).toBe("0");
+  expect(misstatedDefault(pages, fallsBackTo)).toEqual([]);
+});
+
 test("every affordance the kit adds is one the pages pass", () => {
   const named = pages.flatMap(({ source }) => documented(source));
 
