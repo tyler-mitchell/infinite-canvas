@@ -188,6 +188,22 @@ tone restates the one it paints, so a control never names its own backdrop — w
 `focus-visible:ring-offset-(color:--pk-ring-seat)` and let the cascade answer. Anything new that
 paints a background should restate it too.
 
+## A card being dragged
+
+The sheet carries one rule for something this kit does not draw. A consumer that moves cards around
+marks the one under the pointer, and the lift comes from the stylesheet rather than from the
+consumer's own shadow:
+
+```css
+[data-slot="board-item"][data-dragging] {
+  box-shadow: var(--pk-lift-held);
+}
+```
+
+Nothing here sets those attributes — no component is a board — so the rule is inert until a
+consumer writes them. It is the one place the kit styles a slot it does not own, which is why it is
+written down rather than left to be found in the sheet.
+
 ## Type scale
 
 Text roles are named for their job, not their size: `display`, `title`, `label`, `kind`, `prose`,

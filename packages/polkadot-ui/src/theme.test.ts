@@ -1361,3 +1361,26 @@ test("a class written straight into the markup is reported", () => {
 test("every class comes from a slot, and none from the markup", () => {
   expect(stringInMarkup(styledSources)).toEqual([]);
 });
+
+/**
+ * The sheet carries exactly one rule for a slot no component draws: the lift a consumer's board
+ * puts on the card under the pointer. Being inert here, nothing else in this package would notice
+ * it going — and a consumer relying on it would.
+ *
+ * So the rule and the sentence describing it are held together. The token is checked as well: it
+ * is a raw `--pk-*` rather than a `--shadow-pk-*` export, so the orphan sweep above, which reads
+ * the exports, never looks at it.
+ */
+test("the one slot the sheet styles and does not draw is written down", () => {
+  const readme = readFileSync(new URL("../README.md", import.meta.url), "utf8");
+  const drawn = readdirSync(componentDir)
+    .filter((name) => name.endsWith(".tsx"))
+    .map((name) => readFileSync(new URL(name, componentDir), "utf8"))
+    .join("\n");
+
+  expect(themeCss).toContain('[data-slot="board-item"][data-dragging]');
+  expect(themeCss).toContain("--pk-lift-held:");
+  /* Read first: it really is a slot nothing here draws, which is the whole reason it needs saying. */
+  expect(drawn).not.toContain("board-item");
+  expect(readme).toContain('[data-slot="board-item"][data-dragging]');
+});
