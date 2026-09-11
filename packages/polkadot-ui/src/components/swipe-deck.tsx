@@ -73,6 +73,10 @@ export function swipeOutcome(offset: number, commit = COMMIT): SwipeOutcome {
  * once per card, so the cost grew with the square of the deck — and it is recomputed on every
  * pointer move, since dragging a card sets its offset and draws again.
  *
+ * Measured rather than assumed, and the growth is the point rather than any frame it saved: a deck
+ * of two hundred cost a tenth of a millisecond as a list, and only a thousand reached a quarter of
+ * a frame. The figures are in `docs/internal/layout-probes.md`.
+ *
  * Two cards sharing an id leave together, which is what the id being the identity means: settling
  * either takes both, and the reader never meets the second.
  */

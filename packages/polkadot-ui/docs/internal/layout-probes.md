@@ -1,7 +1,8 @@
-# Layout probes
+# Browser probes
 
-Facts about this kit that only a browser can establish. The suite has no layout engine, so nothing
-here is enforced — each probe is written out so it can be run again rather than trusted.
+Facts about this kit that only a browser can establish — what moves when text grows, and what a
+thing costs. The suite has no layout engine and no clock worth trusting, so nothing here is
+enforced: each probe is written out so it can be run again rather than trusted.
 
 Run them in the preview with the dev server up. **Set an explicit viewport first.** A hidden pane
 reports `window.innerWidth` as `0`, every element as `clientWidth: 0`, and therefore every element
@@ -80,3 +81,48 @@ which is what a 375 screen gives it, and one line at 1280.
   foot bottom   2716 → 2716
   card bottom   2733 → 2733
 ```
+
+## What does a drag actually cost?
+
+Dragging a card sets its offset, so the deck draws again on every pointer move. That sounded
+expensive and is not.
+
+```js
+// Paste into the preview console on /widgets.
+const card = document.querySelector('[data-slot="swipe-card"]:not([aria-hidden])');
+const box = card.getBoundingClientRect();
+const at = { clientX: box.left + box.width / 2, clientY: box.top + box.height / 2 };
+const fire = (type, extra = {}) =>
+  card.dispatchEvent(new PointerEvent(type, { bubbles: true, pointerId: 1, ...at, ...extra }));
+
+fire("pointerdown");
+await new Promise((r) => setTimeout(r, 30));
+const before = performance.now();
+for (let i = 0; i < 200; i += 1) fire("pointermove", { movementX: i % 2 === 0 ? 1 : -1 });
+const total = performance.now() - before;
+fire("pointerup");
+total / 200;
+```
+
+**0.085ms per move**, against a 16.7ms frame — half a percent of the budget for the whole redraw,
+three cards and their stamps included. So the offset stays React state. Writing the transform
+straight to the node would add a ref, a second source of truth for the offset, and the stamps would
+need the same treatment, to save a twelfth of a millisecond.
+
+## When did keeping settled cards in a list actually hurt?
+
+The deck used to ask a growing list for every card on every draw. Changing it to a set was right —
+the growth is gone and the behaviour is identical — but the urgency was overstated when it landed.
+Measured, at four fifths of each deck settled, per draw:
+
+```txt
+  deck     as a list    as a set    times
+    50       0.018ms     0.002ms      11
+   200       0.098ms     0.005ms      20
+   500       0.887ms     0.010ms      89
+  1000       4.210ms     0.023ms     180
+```
+
+At the size a deck plausibly has, the list cost a tenth of a millisecond — real growth, no visible
+problem. It only reaches a quarter of a frame at a thousand cards. The fix stands on removing the
+growth, not on rescuing a frame rate that was never in trouble.
