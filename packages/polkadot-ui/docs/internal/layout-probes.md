@@ -8,6 +8,13 @@ Run them in the preview with the dev server up. **Set an explicit viewport first
 reports `window.innerWidth` as `0`, every element as `clientWidth: 0`, and therefore every element
 as overflowing its box. Confirm the width before believing a result.
 
+A figure here is true only while the code that produced it is unchanged, and nothing re-runs these.
+What the suite can hold is the half below the measurement: the classes that do the cutting. The rule
+`every slot the probes measured still carries the class that made it true`, in `theme.test.ts`, is
+what stops the clipping figures quietly becoming fiction. Nothing equivalent guards the timings —
+they are machine and day dependent, and a number that varies by a third between runs cannot be
+asserted. Re-run those rather than trusting them.
+
 ## Does clipped text ever drag its container?
 
 Seven slots clip: the swipe card's title (three lines) and its two foot ends, the select's value, the

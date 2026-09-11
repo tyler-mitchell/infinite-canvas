@@ -1611,3 +1611,64 @@ test("a percent margin, which follows width even when vertical, is named where i
   expect(/-mt-\[35%\]/.test(aurora)).toBe(true);
   expect(using).toEqual(PLACED_BY_PERCENT_MARGIN);
 });
+
+/**
+ * Seven slots cut text that will not fit, and what they do was measured in a browser rather than
+ * here: `docs/internal/layout-probes.md` holds the figures, because nothing in this suite has a
+ * layout engine. Those figures are only true while the classes that produced them are still there.
+ *
+ * So this pins the classes, which is the one half a suite without layout can hold. Take
+ * `line-clamp-3` off the card's title and the foot goes back over the bottom edge — the fault that
+ * component's own comment records as having happened once — and nothing else here would notice.
+ *
+ * A slot that starts cutting is reported too, because the probe counted thirty four elements and a
+ * new one makes that count a lie.
+ */
+const CUTS_ITS_TEXT: Record<string, string> = {
+  "activity-grid.tsx readout": "truncate",
+  "list-item.tsx label": "truncate",
+  "pending-card.tsx title": "truncate",
+  "receipt.tsx name": "truncate",
+  "select.tsx value": "truncate",
+  "swipe-deck.tsx end": "truncate",
+  "swipe-deck.tsx title": "line-clamp-3",
+};
+
+/**
+ * A slot and its classes, however the file breaks the line. Written to match one line only, this
+ * read five of the seven: the two whose value sits under its name were invisible, and the rule
+ * would have looked like it had swept them.
+ */
+const slotsOf = (source: string) =>
+  [...source.matchAll(/^\s{4}([a-zA-Z]+):\s*\n?\s*"([^"]*)"/gm)].map(([, slot, classes]) => ({
+    slot: slot!,
+    classes: classes!,
+  }));
+
+test("a slot reader that only knows one line break reads part of a file", () => {
+  const both =
+    'const a = tv({\n  slots: {\n    one: "x truncate",\n    two:\n      "y truncate",\n  },\n});';
+
+  expect(slotsOf(both).map(({ slot }) => slot)).toEqual(["one", "two"]);
+});
+
+test("every slot the probes measured still carries the class that made it true", () => {
+  const cutting = componentSources
+    .flatMap(({ file, source }) =>
+      slotsOf(source).map(({ slot, classes }) => ({ what: `${file} ${slot}`, classes })),
+    )
+    .filter(({ classes }) => /\b(?:truncate|line-clamp-\d+)\b/.test(classes));
+
+  /*
+   * The two halves catch different things, which is worth knowing before trusting either. Changing
+   * the card's clamp to `line-clamp-2` reports `swipe-deck.tsx title` by name, here. Removing it
+   * outright drops the slot out of the set altogether, so the inventory below is what names it —
+   * the same fault, found by the other half.
+   */
+  expect(
+    cutting
+      .filter(({ what, classes }) => !classes.includes(CUTS_ITS_TEXT[what] ?? " "))
+      .map(({ what }) => what),
+  ).toEqual([]);
+  expect(cutting.map(({ what }) => what).sort()).toEqual(Object.keys(CUTS_ITS_TEXT));
+});
