@@ -113,7 +113,7 @@ test("two sizes still collapse to the last one", () => {
   expect(styles).not.toContain("text-pk-label");
 });
 
-/**
+/*
  * The same hole the sizes had, in four more namespaces. `tw-merge` knows the names Tailwind ships;
  * a theme name is a class it has never seen, so it keeps it beside the one written to replace it and
  * the stylesheet's print order decides which draws.
@@ -122,6 +122,7 @@ test("two sizes still collapse to the last one", () => {
  * `rounded-pk-control` and drew an 8px corner. Every namespace whose prefix and `tw-merge` group
  * share a word is listed in `THEME_NAMES` and checked against the sheet below.
  */
+
 /**
  * The sheet's namespace for each `tw-merge` group. Only the radius differs — Tailwind writes it as
  * `rounded-` and the theme declares it as `--radius-` — and reading the wrong one reported every
@@ -184,6 +185,48 @@ test("a later class replaces an earlier one in every namespace", () => {
   expect(merged("shadow-pk-tray", "shadow-pk-cell")).toEqual(["shadow-pk-cell"]);
   expect(merged("ease-pk-swift", "ease-linear")).toEqual(["ease-linear"]);
   expect(merged("animate-pk-ping", "animate-none")).toEqual(["animate-none"]);
+});
+
+/**
+ * The other way this kit names a theme value: `duration-(--pk-duration-hover)` rather than a name
+ * from a namespace. Tailwind reads the parentheses as a custom property, and `tw-merge` classifies
+ * it by the prefix alone, so unlike a theme name it needs nothing taught. Checked rather than
+ * assumed, because a class that fails to collapse is silent and these two are written 53 times.
+ */
+test("a custom property in parentheses collapses like a plain value", () => {
+  expect(merged("duration-150", "duration-(--pk-duration-hover)")).toEqual([
+    "duration-(--pk-duration-hover)",
+  ]);
+  expect(merged("duration-(--pk-duration-hover)", "duration-(--pk-duration-detail)")).toEqual([
+    "duration-(--pk-duration-detail)",
+  ]);
+  expect(merged("ring-offset-2", "ring-offset-(color:--pk-ring-seat)")).toEqual([
+    "ring-offset-(color:--pk-ring-seat)",
+    "ring-offset-2",
+  ]);
+  expect(merged("ring-offset-(color:--pk-surface)", "ring-offset-(color:--pk-ring-seat)")).toEqual([
+    "ring-offset-(color:--pk-ring-seat)",
+  ]);
+});
+
+/**
+ * The third form, and the one with a hole. `[background:var(…)]` names a whole property; `bg-*`
+ * names its colour. `tw-merge` files them separately and is right to — `background` is the shorthand
+ * and outranks nothing in particular — so a consumer passing `bg-pk-surface` to a slot that paints
+ * with the bracket form gets both, and the stylesheet decides.
+ *
+ * Five slots write it: three aurora blobs, the aurora's vignette, and the sparkline's glow. Each is
+ * a gradient or an image rather than a flat colour, which is why the bracket is there at all.
+ */
+test("a bracket property and a colour utility do not collapse, which is the shorthand's own rule", () => {
+  expect(merged("[background:var(--pk-aurora-teal)]", "bg-pk-surface")).toEqual([
+    "[background:var(--pk-aurora-teal)]",
+    "bg-pk-surface",
+  ]);
+  /* Two of the same bracket property do collapse, so a slot cannot paint twice by accident. */
+  expect(
+    merged("[background:var(--pk-aurora-teal)]", "[background:var(--pk-aurora-white)]"),
+  ).toEqual(["[background:var(--pk-aurora-white)]"]);
 });
 
 /** A size and a colour share the `text-` prefix and must both survive, which is why they are listed. */

@@ -1614,6 +1614,49 @@ test("every class comes from a slot, and none from the markup", () => {
 });
 
 /**
+ * A gradient is painted with `bg-[image:…]`, never with the `background` shorthand in brackets. The
+ * kit wrote it both ways — twice one way and five times the other — for the same kind of value.
+ *
+ * The shorthand is the worse of the two for a reason beyond consistency: it sets the colour as well,
+ * so a consumer passing `bg-pk-surface` to the slot writes a second rule for the same property that
+ * `tw-merge` files elsewhere and cannot collapse, and the stylesheet decides which paints. Written
+ * as an image the two are separate layers on purpose and both survive.
+ *
+ * The kit's other bracket properties are SVG ones with no Tailwind utility — `stroke-width`,
+ * `vector-effect` and four more — and they stay.
+ */
+const paintsWithTheShorthand = (
+  sources: readonly { readonly file: string; readonly source: string }[],
+) =>
+  sources
+    .flatMap(({ file, source }) =>
+      [...source.matchAll(/\[background:[^\]]*\]/g)].map(
+        ([written]) => `${file} paints with ${written.slice(0, 24)}…`,
+      ),
+    )
+    .sort();
+
+test("a slot painting with the background shorthand is reported", () => {
+  expect(
+    paintsWithTheShorthand([{ file: "a.tsx", source: '"[background:var(--pk-aurora-teal)]"' }]),
+  ).toEqual(["a.tsx paints with [background:var(--pk-aur…"]);
+  expect(
+    paintsWithTheShorthand([{ file: "b.tsx", source: '"bg-[image:var(--pk-aurora-teal)]"' }]),
+  ).toEqual([]);
+});
+
+test("every gradient is painted as an image", () => {
+  const asImages = styledSources.filter(({ source }) => source.includes("bg-[image:"));
+
+  expect(asImages.map(({ file }) => file).sort()).toEqual([
+    "aurora.tsx",
+    "avatar.tsx",
+    "sparkline.tsx",
+  ]);
+  expect(paintsWithTheShorthand(styledSources)).toEqual([]);
+});
+
+/**
  * The sheet carries exactly one rule for a slot no component draws: the lift a consumer's board
  * puts on the card under the pointer. Being inert here, nothing else in this package would notice
  * it going — and a consumer relying on it would.
