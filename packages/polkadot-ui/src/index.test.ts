@@ -387,3 +387,54 @@ test("the note listing this kit's extracted arithmetic lists all of it", () => {
   expect(printed.length).toBeGreaterThan(15);
   expect([...new Set(printed)].sort()).toEqual([...new Set(exported)].sort());
 });
+
+/**
+ * A byte no editor shows and every tool answers differently. One NUL reached `src/theme.test.ts`
+ * and `grep` then read the whole file as binary: it printed nothing, exited zero, and matched
+ * nothing at all — not even a single letter. Every search against that file came back empty for a
+ * day and a half, and each one was believed. It cost a rule written twice and a commit thought lost.
+ *
+ * Nobody typed it. It arrived through an edit, which is why a rule is the right answer rather than
+ * more care: this one caught a second NUL on its first run, in the very test written to demonstrate
+ * it, and that test now builds the byte from its number instead of holding one.
+ *
+ * Tab and newline are the only control characters this package writes. Anything else is damage, and
+ * neither the rest of this suite nor the commit hook would see it.
+ */
+const damagedAt = (bytes: Buffer) => {
+  const at = bytes.findIndex((byte) => byte < 32 && byte !== 9 && byte !== 10);
+
+  return at === -1 ? undefined : { at, byte: bytes[at]! };
+};
+
+const textFiles = (from: URL): readonly URL[] =>
+  readdirSync(from, { withFileTypes: true }).flatMap((entry) => {
+    const here = new URL(`${entry.name}${entry.isDirectory() ? "/" : ""}`, from);
+
+    return entry.isDirectory() ? textFiles(here) : [here];
+  });
+
+test("a control byte is found wherever it sits in a file", () => {
+  expect(damagedAt(Buffer.from("const a = 1;\n\tconst b = 2;\n"))).toBeUndefined();
+  /* Built from its number: typed as a character, this line is how the second one got in. */
+  expect(damagedAt(Buffer.from([0x6f, 0x6b, 0x00, 0x68]))).toEqual({ at: 2, byte: 0 });
+  /* A carriage return counts too: this package is written with line feeds alone. */
+  expect(damagedAt(Buffer.from("a\r\nb"))).toEqual({ at: 1, byte: 13 });
+});
+
+test("no file in this package carries a byte that breaks the tools that read it", () => {
+  const files = ["src/", "app/", "docs/"].flatMap((dir) =>
+    textFiles(new URL(`../${dir}`, import.meta.url)),
+  );
+
+  const damaged = files.flatMap((file) => {
+    const found = damagedAt(readFileSync(file));
+    const name = file.pathname.split("/polkadot-ui/")[1];
+
+    return found ? [`${name}: byte ${found.byte} at ${found.at}`] : [];
+  });
+
+  /* Read first: a walk that found nothing would agree with a package full of them. */
+  expect(files.length).toBeGreaterThan(60);
+  expect(damaged).toEqual([]);
+});
