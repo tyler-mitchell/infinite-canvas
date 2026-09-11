@@ -24,7 +24,7 @@ const aurora = tv({
 export type AuroraProps = Omit<React.ComponentProps<"div">, "children"> & {
   /**
    * A word or two. It sits at the top left, where the blobs have not reached: measured in the page,
-   * the first hundred pixels of its row clear 4.5:1 and the middle of the card reads 3.0. A long
+   * the first eighty pixels of its row clear 4.5:1 and the middle of the card reads 3.0. A long
    * label runs its own words into the bright part.
    */
   readonly label: string;
