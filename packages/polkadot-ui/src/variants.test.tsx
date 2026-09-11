@@ -196,6 +196,69 @@ test("every value of every variant the kit declares can be drawn", () => {
   expect(eachValue(pairs).broke).toEqual([]);
 });
 
+/** Holds the line, whatever the text does. `truncate` carries a `whitespace-nowrap` of its own. */
+const REFUSES_TO_WRAP = /\b(?:whitespace-nowrap|whitespace-pre|truncate)\b/;
+
+/**
+ * Asks for a wrap, in one of the four properties that can. None of them is in the same Tailwind
+ * group as `white-space`, so `tw-merge` keeps both and the browser quietly drops the loser.
+ */
+const ASKS_TO_WRAP =
+  /\b(?:wrap-anywhere|wrap-break-word|break-words|break-all|whitespace-normal|text-pretty|text-balance|line-clamp-\d+)\b/;
+
+/**
+ * Every class list the kit can actually emit, rather than the strings it was written from. A `tv`
+ * call composes a base, a variant and any compound into one list, so a contradiction can live in
+ * the composition while each string on its own reads correctly — which is what happened: the text
+ * base asked every role to wrap anywhere, and the readout role says it stays on one line.
+ *
+ * Six rules read slot strings one at a time and not one of them could have seen it. It was found
+ * by reading the computed style of a live element, and the element wrapping was the loser.
+ */
+const emitted = (name: string, styles: unknown): readonly string[] => {
+  if (typeof styles === "string") return [`${name}: ${styles}`];
+  if (typeof styles === "function") return emitted(name, (styles as () => unknown)());
+  if (styles && typeof styles === "object")
+    return Object.entries(styles).flatMap(([slot, value]) => emitted(`${name}.${slot}`, value));
+
+  return [];
+};
+
+const everyClassList = (): readonly string[] =>
+  variantNames.flatMap((name) => {
+    const variants = ((kit as Record<string, unknown>)[name] as VariantObject).variants ?? {};
+    const make = (kit as Record<string, unknown>)[name] as (values?: unknown) => unknown;
+
+    return [
+      ...emitted(name, make()),
+      ...Object.entries(variants).flatMap(([variant, values]) =>
+        Object.keys(values).flatMap((value) =>
+          emitted(`${name}(${variant}=${value})`, make({ [variant]: value })),
+        ),
+      ),
+    ];
+  });
+
+const bothWays = (lists: readonly string[]) =>
+  lists.filter((list) => REFUSES_TO_WRAP.test(list) && ASKS_TO_WRAP.test(list)).sort();
+
+test("a class list that both holds the line and asks to wrap is reported", () => {
+  expect(bothWays(["a: whitespace-nowrap wrap-anywhere"])).toEqual([
+    "a: whitespace-nowrap wrap-anywhere",
+  ]);
+  expect(
+    bothWays(["b: whitespace-nowrap", "c: wrap-anywhere", "d: truncate text-pk-note"]),
+  ).toEqual([]);
+});
+
+test("nothing the kit emits asks to wrap and refuses to at the same time", () => {
+  const lists = everyClassList();
+
+  expect(lists.length).toBeGreaterThan(200);
+  expect(lists.filter((list) => REFUSES_TO_WRAP.test(list)).length).toBeGreaterThan(10);
+  expect(bothWays(lists)).toEqual([]);
+});
+
 /**
  * Base UI writes `data-disabled` on the parts it owns the moment a consumer passes `disabled`, and
  * a component that styles nothing for it draws a control that is off and looks live. Eleven of the

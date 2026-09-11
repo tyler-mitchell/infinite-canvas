@@ -93,17 +93,16 @@ either.
 ```tsx
 // src/components/text.tsx
 const text = tv({
-  base: "wrap-anywhere",
   variants: {
     as: {
-      label: "font-pk-sans text-pk-label text-pk-ink-dim",
-      kind: "font-pk-sans text-pk-micro text-pk-ink-dim uppercase",
-      meta: "font-pk-sans text-pk-meta text-pk-ink-faint",
-      title: "font-pk-sans text-pk-title text-pk-ink-bright",
-      display: "font-pk-sans text-pk-display text-pk-ink-bright",
-      prose: "font-pk-sans text-pk-body text-pk-ink-soft text-pretty",
+      label: "wrap-anywhere font-pk-sans text-pk-label text-pk-ink-dim",
+      kind: "wrap-anywhere font-pk-sans text-pk-micro text-pk-ink-dim uppercase",
+      meta: "wrap-anywhere font-pk-sans text-pk-meta text-pk-ink-faint",
+      title: "wrap-anywhere font-pk-sans text-pk-title text-pk-ink-bright",
+      display: "wrap-anywhere font-pk-sans text-pk-display text-pk-ink-bright",
+      prose: "wrap-anywhere font-pk-sans text-pk-body text-pk-ink-soft text-pretty",
       readout: "font-pk-mono text-pk-mono whitespace-nowrap text-pk-ink-muted tabular-nums",
-      code: "font-pk-mono text-pk-mono text-pk-ink-muted tabular-nums",
+      code: "wrap-anywhere font-pk-mono text-pk-mono text-pk-ink-muted tabular-nums",
     },
   },
   defaultVariants: { as: "meta" },

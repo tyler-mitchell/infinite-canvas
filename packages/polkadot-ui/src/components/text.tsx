@@ -3,18 +3,24 @@ import type { VariantProps } from "tailwind-variants";
 
 import { tv } from "../tv.ts";
 
+/**
+ * `wrap-anywhere` sits on each role that wraps rather than on the base. On the base it reached the
+ * readout as well, which says `whitespace-nowrap`: the two are opposite instructions, and the
+ * browser resolves it silently in favour of the nowrap. Every rule here reads slot strings one at a
+ * time and none of them could see it, because neither string says both — the contradiction only
+ * exists once `tv` has composed them.
+ */
 const text = tv({
-  base: "wrap-anywhere",
   variants: {
     as: {
-      label: "font-pk-sans text-pk-label text-pk-ink-dim",
-      kind: "font-pk-sans text-pk-micro text-pk-ink-dim uppercase",
-      meta: "font-pk-sans text-pk-meta text-pk-ink-faint",
-      title: "font-pk-sans text-pk-title text-pk-ink-bright",
-      display: "font-pk-sans text-pk-display text-pk-ink-bright",
-      prose: "font-pk-sans text-pk-body text-pk-ink-soft text-pretty",
+      label: "wrap-anywhere font-pk-sans text-pk-label text-pk-ink-dim",
+      kind: "wrap-anywhere font-pk-sans text-pk-micro text-pk-ink-dim uppercase",
+      meta: "wrap-anywhere font-pk-sans text-pk-meta text-pk-ink-faint",
+      title: "wrap-anywhere font-pk-sans text-pk-title text-pk-ink-bright",
+      display: "wrap-anywhere font-pk-sans text-pk-display text-pk-ink-bright",
+      prose: "wrap-anywhere font-pk-sans text-pk-body text-pk-ink-soft text-pretty",
       readout: "font-pk-mono text-pk-mono whitespace-nowrap text-pk-ink-muted tabular-nums",
-      code: "font-pk-mono text-pk-mono text-pk-ink-muted tabular-nums",
+      code: "wrap-anywhere font-pk-mono text-pk-mono text-pk-ink-muted tabular-nums",
     },
   },
   defaultVariants: { as: "meta" },

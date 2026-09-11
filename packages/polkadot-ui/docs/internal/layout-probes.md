@@ -74,6 +74,64 @@ itself: the first version of this probe did, so it measured the readout against 
 its growing to fill the free space as a failure. What matters is whether anything **outside** it
 moved.
 
+## What happens to text that refuses to wrap?
+
+The probe above asks about slots that **clip**. This asks about the other half: fifteen slots say
+`whitespace-nowrap`, and most of them do not clip, so a label longer than its room has nowhere to go
+and pushes the page instead.
+
+Nothing overflows on the demo content — `scrollWidth` equals `clientWidth` on all nine pages at both
+1280 and 375. What follows is what an overlong label does, which is a consumer's business and not
+the lab's. Worst push per slot, at 375x812, one element at a time:
+
+```txt
+  /widgets     stat 367   text-readout 281   badge 249   status-dot 243   button 160
+  /disclosure  tab 300
+  /layout      toolbar-button 289   icon-tile 225
+  /controls    toggle 253   button 252
+  /overlays    tooltip-trigger, popover-trigger, dialog-trigger, menu-trigger   168 each
+```
+
+**No fix is applied to the controls.** A button whose label wraps reads as broken, which is why the
+nowrap is there, and one that truncates loses the word that said what it does. Both are worse than a
+wide button, and every kit worth copying leaves a control as wide as its label. The container is the
+consumer's to bound. This is written down rather than acted on so the next person measuring it finds
+the decision instead of the symptom.
+
+The `icon-tile` figure is the interesting one: it carries `min-w-0 overflow-hidden` and pushes 225px
+anyway, because nothing above it is constrained either. `min-w-0` on a leaf does nothing when its
+parent chain never gives it a bound.
+
+```js
+// Paste into the preview console, one page at a time. Replaces each one-line element's text,
+// measures the page, and puts it back.
+window.__nowrap = () => {
+  const d = document.documentElement;
+  const LONG = "ship the quarterly reconciliation summary to every regional operations lead";
+  const marks = [...document.querySelectorAll("*")].filter(
+    (e) =>
+      getComputedStyle(e).whiteSpace === "nowrap" &&
+      e.children.length === 0 &&
+      e.textContent.trim().length > 0,
+  );
+  const worst = new Map();
+  for (const el of marks) {
+    const was = el.textContent;
+    el.textContent = LONG;
+    const over = d.scrollWidth - d.clientWidth;
+    const slot = el.closest("[data-slot]")?.dataset.slot ?? "?";
+    if (over > (worst.get(slot) ?? 0)) worst.set(slot, over);
+    el.textContent = was;
+  }
+  return { rest: d.scrollWidth - d.clientWidth, marks: marks.length, worst: [...worst] };
+};
+```
+
+This probe is what found the readout asking to wrap and refusing to in the same breath: its class
+list carried `wrap-anywhere` from the text base and `whitespace-nowrap` from its own role, and the
+browser dropped the wrap silently. The suite now composes every class list the kit can emit and
+reports a pair like that, in `variants.test.tsx` — that rule is enforced, unlike the figures above.
+
 ## Does the swipe card's clamp hold?
 
 The card cannot grow, and its comment records a title once pushing the foot 116px past the bottom
