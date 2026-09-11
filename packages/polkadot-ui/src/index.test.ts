@@ -263,3 +263,31 @@ test("every component that works something out has a test beside it", () => {
     ),
   ).toEqual([]);
 });
+
+/**
+ * This file is the whole public surface, and the only way to see what the kit offers is to read it
+ * top to bottom. It had drifted: forty-six modules with fourteen out of place, because a new
+ * component goes wherever the last edit left the cursor and nothing said otherwise.
+ *
+ * Sorted by module path rather than by export name, since one module can export eight names and the
+ * first of them is not always the one it is named for — `keycap.tsx` leads with `Binding`.
+ */
+const modulesInOrder = (source: string) =>
+  [...source.matchAll(/from "\.\/components\/([a-z\d-]+)\.tsx"/g)].map(([, name]) => name!);
+
+test("a module out of place in the entry is reported", () => {
+  const written = modulesInOrder(
+    'export { Row } from "./components/row.tsx";\nexport { Bars } from "./components/bars.tsx";',
+  );
+
+  expect(written).toEqual(["row", "bars"]);
+  expect(written).not.toEqual([...written].sort());
+});
+
+test("the entry lists its modules in order, so the surface reads as a list", () => {
+  const written = modulesInOrder(entry);
+
+  /* Read first: a pattern that matched nothing would make the comparison below pass over nothing. */
+  expect(written.length).toBe(componentFiles.length);
+  expect(written).toEqual([...written].sort());
+});
