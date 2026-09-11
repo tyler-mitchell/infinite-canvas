@@ -139,6 +139,10 @@ export interface ActivityGridProps extends Omit<React.ComponentProps<"div">, "ch
    * between 1.41 and 2.03 apart and an empty cell reads 1.08 against the card — legible as a shape,
    * not as a value. Leave this off and the plot says how many days and how many in total, and never
    * what any one day held.
+   *
+   * Return a `Readout`, or something else that announces. The plot takes the focus and says which
+   * arrows walk it, so a reader who presses one is owed the answer; a plain span changes silently
+   * and the promise is broken.
    */
   readonly children?: (day: ActivityDay | undefined) => React.ReactNode;
 }

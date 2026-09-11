@@ -2804,3 +2804,54 @@ test("a name that counts what it draws counts what the series holds", () => {
   ]);
   expect(counted.filter(({ said, holds }) => said !== holds)).toEqual([]);
 });
+
+/**
+ * A component that takes the focus and says which arrows walk it owes a reader the answer when one
+ * is pressed. The grid is the only one that hands that answer to a render prop, so the node the
+ * page returns is what decides whether the promise is kept — a plain span changes silently.
+ *
+ * Driven rather than reasoned: one ArrowLeft on the live page moved the cursor seven days and the
+ * footer read `3 contributions · Thu Sep 03` from a `role="status"` node. The pages get it right
+ * today; nothing said they had to.
+ *
+ * The owners are found by shape — focus plus stated arrows plus a render prop — so a second
+ * component built that way is held to the same thing on the day it is written.
+ */
+const PROMISES_THE_ARROWS = ["activity-grid.tsx"];
+
+const silentRenderProp = (sources: readonly { readonly file: string; readonly source: string }[]) =>
+  sources.flatMap(({ file, source }) =>
+    [...source.matchAll(/<ActivityGrid(?=[\s/<>])[\s\S]*?<\/ActivityGrid>/g)]
+      .filter(([block]) => block.includes("=>") && !block.includes("<Readout"))
+      .map(() => `${file} returns a node that does not announce`),
+  );
+
+test("a render prop that does not announce is reported", () => {
+  expect(
+    silentRenderProp([
+      {
+        file: "a.tsx",
+        source: "<ActivityGrid days={D}>{(d) => <Readout>x</Readout>}</ActivityGrid>",
+      },
+      { file: "b.tsx", source: "<ActivityGrid days={D}>{(d) => <span>x</span>}</ActivityGrid>" },
+      /* No render prop at all is allowed: the prop is optional and the summary still answers. */
+      { file: "c.tsx", source: "<ActivityGrid days={D}></ActivityGrid>" },
+    ]),
+  ).toEqual(["b.tsx returns a node that does not announce"]);
+});
+
+test("the plot that promises arrows is given something that answers them", () => {
+  expect(silentRenderProp(pages)).toEqual([]);
+  /* Read after: the owner set is still one, so a second component of this shape is named here
+   * rather than going unchecked. */
+  expect(
+    readdirSync(componentDir)
+      .filter((name) => name.endsWith(".tsx"))
+      .filter((file) => {
+        const source = readFileSync(new URL(file, componentDir), "utf8");
+
+        return source.includes("aria-keyshortcuts") && source.includes("children?: (");
+      })
+      .sort(),
+  ).toEqual(PROMISES_THE_ARROWS);
+});
