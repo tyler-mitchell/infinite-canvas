@@ -3040,6 +3040,44 @@ test("every ticker the pages draw is drawn through the one thing that announces"
 });
 
 /**
+ * The rail repeats on every page and costs ten stops before a page's own first control — counted in
+ * the browser, and `/foundations` holds none at all, so ten tabs reached nothing. One stop skips it.
+ *
+ * The link has to be first in the document, hidden until focused, and pointing at something that
+ * exists. A skip link to a missing id is the failure that looks exactly like a working one.
+ */
+const skipLinkOf = (source: string) => {
+  const [, target] = /<a href="#([\w-]+)" className=\{styles\.skip\(\)\}>/.exec(source) ?? [];
+  const [, slot] = /skip:\s*"([^"]*)"/.exec(source) ?? [];
+
+  return { target, slot, lands: target ? source.includes(`id="${target}"`) : false };
+};
+
+test("a skip link with nowhere to land is reported", () => {
+  const shell = (target: string, id: string) =>
+    `skip: "sr-only focus:not-sr-only"\n<a href="#${target}" className={styles.skip()}>\n<main id="${id}"`;
+
+  expect(skipLinkOf(shell("content", "content")).lands).toBe(true);
+  expect(skipLinkOf(shell("content", "main")).lands).toBe(false);
+  expect(skipLinkOf("<main id='content'>").target).toBeUndefined();
+});
+
+test("the shell opens with a link past the rail, and it lands somewhere", () => {
+  const root = readFileSync(new URL("../app/routes/__root.tsx", import.meta.url), "utf8");
+  const { target, slot, lands } = skipLinkOf(root);
+
+  expect(target).toBe("content");
+  expect(lands).toBe(true);
+  /* Out of the way until focused, and back in the flow once it is. */
+  expect(slot).toContain("sr-only");
+  expect(slot).toContain("focus:not-sr-only");
+  /* First in the document, so it is the first stop rather than the eleventh. */
+  expect(root.indexOf('href="#content"')).toBeLessThan(root.indexOf("<nav"));
+  /* The landing takes focus without joining the tab order. */
+  expect(root).toContain('<main id="content" tabIndex={-1}');
+});
+
+/**
  * A trigger with no header around it draws a button and no heading at all, so the panel it opens is
  * labelled by nothing and a reader navigating by heading walks past the whole accordion.
  *

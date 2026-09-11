@@ -4,6 +4,12 @@ import { Kind, Meta, ScrollArea, Title, tv } from "polkadot-ui";
 const shell = tv({
   slots: {
     page: "flex min-h-dvh flex-col bg-pk-ground font-pk-sans text-pk-ink sm:flex-row",
+    /*
+     * The rail repeats on every page and costs ten stops before the first thing a page holds —
+     * counted, and `/foundations` holds none, so ten tabs reach nothing at all. Out of the way
+     * until it takes the focus, which is the only time it is of use to anybody.
+     */
+    skip: "sr-only outline-none focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-50 focus:rounded-pk-chip focus:bg-pk-surface-inner focus:px-3 focus:py-2 focus:font-pk-sans focus:text-pk-control focus:text-pk-ink-bright focus:no-underline focus:ring-2 focus:ring-pk-accent/50 focus:ring-offset-2 focus:ring-offset-(color:--pk-ring-seat)",
     rail: "flex flex-none flex-col gap-4 border-b border-pk-line bg-pk-surface-deep px-5 py-5 sm:sticky sm:top-0 sm:h-dvh sm:w-[210px] sm:gap-5 sm:border-r sm:border-b-0 sm:py-7",
     brand: "flex flex-none flex-col gap-1",
     nav: "-mx-2 min-h-0 sm:flex-1",
@@ -52,6 +58,10 @@ function RootRoute() {
 
   return (
     <div className={styles.page()}>
+      <a href="#content" className={styles.skip()}>
+        Skip to content
+      </a>
+
       <nav className={styles.rail()} aria-label="Components">
         <div className={styles.brand()}>
           <Title>polkadot-ui</Title>
@@ -78,7 +88,8 @@ function RootRoute() {
         </ScrollArea>
       </nav>
 
-      <main className={styles.main()}>
+      {/* Takes the focus on its own so the skip link lands somewhere, and leaves the tab order. */}
+      <main id="content" tabIndex={-1} className={styles.main()}>
         <Outlet />
       </main>
     </div>
