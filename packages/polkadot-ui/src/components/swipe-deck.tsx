@@ -17,8 +17,11 @@ const swipeDeck = tv({
     /*
      * Clamped rather than free: a card cannot grow, so a title long enough to fill it pushed the
      * foot 116px past the bottom edge and the reader lost a whole line of the card rather than a
-     * few words. Three lines is one more than the longest the deck draws, and the ellipsis says
-     * the rest is there.
+     * few words. Three lines is one more than the longest the deck draws — two lines on a card of
+     * 297, which is what a screen of 375 gives it, and one line at 1280.
+     *
+     * The clamp was measured holding rather than assumed: a title of about 190 characters stops at
+     * three lines with a fourth hidden, and the card's box and its foot do not move.
      */
     title: "line-clamp-3 font-pk-sans text-pk-title break-words text-pretty text-pk-ink",
     /*
