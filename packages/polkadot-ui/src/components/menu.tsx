@@ -117,8 +117,24 @@ function MenuSeparator({ className, ...props }: MenuSeparatorProps) {
 
 export type MenuShortcutProps = React.ComponentProps<"span">;
 
+/**
+ * The key binding drawn beside an item, for the eye only.
+ *
+ * A `menuitem` takes its name from its own content, so a visible `⌘1` became part of that name and
+ * the four items on the menu page announced as "split ⌘1", "stack ⌘2" and so on — the glyph read
+ * out as the character it is rather than as a key. Hidden here, the item is named by its words, and
+ * the binding belongs on the item as `aria-keyshortcuts`, which is where this kit states keys
+ * everywhere else.
+ */
 function MenuShortcut({ className, ...props }: MenuShortcutProps) {
-  return <span data-slot="menu-shortcut" className={menu().shortcut({ className })} {...props} />;
+  return (
+    <span
+      data-slot="menu-shortcut"
+      aria-hidden
+      className={menu().shortcut({ className })}
+      {...props}
+    />
+  );
 }
 
 Menu.Trigger = MenuTrigger;

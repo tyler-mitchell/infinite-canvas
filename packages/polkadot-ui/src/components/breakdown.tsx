@@ -51,11 +51,13 @@ export type BreakdownProps = Omit<React.ComponentProps<"div">, "children"> & {
   /** Hides the legend, for a bar under a heading that already names the parts. */
   readonly showLegend?: boolean;
   /**
-   * Names the split for a reader who cannot see it, in place of the default.
+   * Names the split for a reader who cannot see it. The shares are added to it rather than
+   * replaced by it — a name and the figures, in that order.
    *
-   * The legend is drawn but muted, so whatever this says is the whole of what a reader gets. A
-   * name that only titles the split leaves the figures unsaid: pass `breakdownLabel(parts)` inside
-   * it, or leave this off and let the default carry them.
+   * The legend is drawn but muted, so the bar's name is the whole of what a reader gets. This used
+   * to replace that name, and a page passing "language split" left every share drawn and unsaid;
+   * the answer then was to spell `breakdownLabel(parts)` into the label by hand, which put the same
+   * figures in two places.
    */
   readonly label?: string;
 };
@@ -65,9 +67,9 @@ export type BreakdownProps = Omit<React.ComponentProps<"div">, "children"> & {
  * share that is negative or not a number counts as nothing rather than dragging the bar with it.
  *
  * The legend is hidden from assistive software because it restates the bar's own name, and one
- * rendering read twice is worse than one read once. That holds while the name is the default one,
- * which lists every part and its share. A `label` replaces it, and a page that passed one saying
- * only "language split" left the figures drawn and unsaid — so the prop says what it costs.
+ * rendering read twice is worse than one read once. That holds because the name always lists every
+ * part and its share: a `label` is composed onto that list rather than replacing it, so naming the
+ * bar cannot cost the figures the legend is muted in favour of.
  */
 function Breakdown({ parts, showLegend = true, label, className, ...props }: BreakdownProps) {
   const styles = breakdown();

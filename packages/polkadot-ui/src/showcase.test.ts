@@ -2815,6 +2815,13 @@ test("a render prop that does not announce is reported", () => {
  */
 const STATES_ITS_KEYS = ["activity-grid.tsx", "swipe-deck.tsx"];
 
+/**
+ * Raw, comments and all, because two rules below ask what a component *documents* — which props a
+ * reader depends on, and which files a comment sends someone to. A rule asking what a component
+ * *writes* has to strip them first: read raw, the keys rule fired on the menu the day its shortcut
+ * gained a doc comment explaining where `aria-keyshortcuts` belongs, and the component sets nothing
+ * of the sort.
+ */
 const named = () =>
   readdirSync(componentDir)
     .filter((name) => name.endsWith(".tsx"))
@@ -2831,7 +2838,9 @@ const named = () =>
 const announces = (source: string) => /<Readout[\s/>]/.test(source);
 
 test("a component that states its keys answers them in a way a reader can hear", () => {
-  const stating = named().filter(({ source }) => source.includes("aria-keyshortcuts"));
+  /* What a component writes, not what it documents: the menu's shortcut explains in prose where
+   * `aria-keyshortcuts` belongs, and a raw read counted that as the menu stating keys itself. */
+  const stating = named().filter(({ file }) => componentSource(file).includes("aria-keyshortcuts"));
 
   /* The answers first, so losing one reports the component that went silent rather than a changed
    * list of components. */

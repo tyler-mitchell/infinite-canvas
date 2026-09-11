@@ -243,20 +243,22 @@ function Overlays() {
         <Menu>
           <Menu.Trigger>arrange</Menu.Trigger>
           <Menu.Content>
+            {/* The glyph beside an item is drawn for the eye and hidden from the name, so each item
+                states its binding the way everything else in this kit does. */}
             <Menu.Group>
               <Menu.GroupLabel>layout</Menu.GroupLabel>
-              <Menu.Item>
+              <Menu.Item aria-keyshortcuts="Meta+1">
                 split <Menu.Shortcut>⌘1</Menu.Shortcut>
               </Menu.Item>
-              <Menu.Item>
+              <Menu.Item aria-keyshortcuts="Meta+2">
                 stack <Menu.Shortcut>⌘2</Menu.Shortcut>
               </Menu.Item>
-              <Menu.Item>
+              <Menu.Item aria-keyshortcuts="Meta+3">
                 master <Menu.Shortcut>⌘3</Menu.Shortcut>
               </Menu.Item>
             </Menu.Group>
             <Menu.Separator />
-            <Menu.Item disabled>
+            <Menu.Item disabled aria-keyshortcuts="Meta+4">
               tabs <Menu.Shortcut>⌘4</Menu.Shortcut>
             </Menu.Item>
           </Menu.Content>
