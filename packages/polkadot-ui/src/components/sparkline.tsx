@@ -57,8 +57,10 @@ export function sparklinePoints(values: readonly number[]): readonly SparklinePo
   if (values.length === 0) return [];
 
   const real = values.filter((value) => Number.isFinite(value));
-  const low = real.length > 0 ? Math.min(...real) : 0;
-  const span = (real.length > 0 ? Math.max(...real) : 0) - low || 1;
+  /* Folded rather than spread: a call takes about a hundred and twenty five thousand arguments, and
+   * a spread passes one per reading, so a long enough series threw instead of drawing. */
+  const low = real.reduce((least, value) => Math.min(least, value), real[0] ?? 0);
+  const span = real.reduce((most, value) => Math.max(most, value), real[0] ?? 0) - low || 1;
   const y = (value: number) =>
     INSET + (1 - ((Number.isFinite(value) ? value : low) - low) / span) * (HEIGHT - INSET * 2);
 

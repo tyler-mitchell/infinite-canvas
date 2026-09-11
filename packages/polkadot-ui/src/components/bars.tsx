@@ -27,11 +27,15 @@ const bars = tv({
 /**
  * The value a full bar stands for. An explicit `max` is used only when it is a positive number,
  * because a zero or negative ceiling has no meaning and would divide every height by it.
+ *
+ * Folded rather than spread. `Math.max(...values)` passes one argument per reading, and a series of
+ * about a hundred and twenty five thousand is more arguments than a call can take: the reading that
+ * broke it was the consumer's own series length, and it threw rather than drawing badly.
  */
 export function barCeiling(values: readonly number[], max?: number) {
   if (max !== undefined && Number.isFinite(max) && max > 0) return max;
 
-  return Math.max(...values.filter((value) => Number.isFinite(value)), 1);
+  return values.reduce((high, value) => (Number.isFinite(value) ? Math.max(high, value) : high), 1);
 }
 
 /** A bar's height as a share of the ceiling, floored so an empty bucket is still a mark. */

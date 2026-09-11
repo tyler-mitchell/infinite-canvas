@@ -109,3 +109,20 @@ test("a series of nothing but unusable readings is still drawn level", () => {
   expect(finite(points)).toBe(true);
   expect(new Set(points.map(([, y]) => y)).size).toBe(1);
 });
+
+/**
+ * The extent was taken with a spread, which passes one argument per reading. A call takes about a
+ * hundred and twenty five thousand, so a long enough series threw a `RangeError` and the page went
+ * with it — the reading that broke it being the consumer's own series length rather than any value
+ * in it. Folded now, which has no such ceiling.
+ */
+test("a series longer than a call can take is drawn rather than thrown", () => {
+  const many = Array.from({ length: 130_000 }, (_, index) => index % 50);
+
+  expect(() => sparklinePoints(many)).not.toThrow();
+
+  const points = sparklinePoints(many);
+
+  expect(points).toHaveLength(many.length);
+  expect(finite(points)).toBe(true);
+});

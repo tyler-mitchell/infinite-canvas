@@ -118,3 +118,17 @@ test("the label never reads undefined, however odd the series", () => {
     expect(barsLabel(values)).not.toContain("undefined");
   }
 });
+
+/**
+ * The ceiling was taken with a spread, which passes one argument per reading. A call takes about a
+ * hundred and twenty five thousand, so a long enough series threw a `RangeError` rather than
+ * drawing — the reading that broke it being the series length rather than any value in it.
+ */
+test("a series longer than a call can take still has a ceiling", () => {
+  const many = Array.from({ length: 130_000 }, (_, index) => index % 50);
+
+  expect(() => barCeiling(many)).not.toThrow();
+  expect(barCeiling(many)).toBe(49);
+  /* And the floor of one still holds, so an all-zero series of that length divides by one. */
+  expect(barCeiling(Array.from({ length: 130_000 }, () => 0))).toBe(1);
+});
