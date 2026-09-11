@@ -502,6 +502,17 @@ const HOSTILE: readonly { readonly name: string; readonly props: Record<string, 
   { name: "Sparkline", props: { values: [] } },
   { name: "Breakdown", props: { parts: [] } },
   /*
+   * The other four that take a list. Each was drawn empty by the sweep at the top of this file,
+   * which only asks whether a component throws; none had ever been read for what it writes into an
+   * attribute when the list it was given holds nothing.
+   */
+  { name: "ActivityFeed", props: { entries: [] } },
+  { name: "LayoutPreview", props: { panes: [] } },
+  { name: "SwipeDeck", props: { items: [] } },
+  { name: "Binding", props: { keys: [], action: "do the thing" } },
+  /* A scale of no bounds, which drew every day on the lowest level until it fell back. */
+  { name: "ActivityGrid", props: { days: DAYS, weeks: 4, thresholds: [] } },
+  /*
    * A pane is four lengths, each written from the recipe it is given. One row each, because a
    * guard on one says nothing about the other three.
    */
@@ -569,6 +580,45 @@ test("every component that takes a number from a consumer is given an unusable o
   /* Were the reader to match nothing, the line below would pass by covering nothing. */
   expect(takesNumbers.length).toBeGreaterThan(4);
   expect(takesNumbers.filter((file) => !spoiled.has(file))).toEqual([]);
+});
+
+/**
+ * The same half again, for a list rather than a number. A component handed nothing to draw has to
+ * work something out from it anyway — a first, a last, a widest — and that is where a reading it
+ * cannot use gets written into an attribute.
+ *
+ * Four of the eight were here and four were not. The four missing were each drawn empty by the
+ * sweep at the top of this file, but that sweep only asks whether a component throws, so nothing
+ * had ever read what they write when the list holds nothing.
+ *
+ * Asked of the prop rather than the file: `Binding` lives in `keycap.tsx`, so the name-to-file
+ * spelling the rule above uses would not have found it.
+ */
+test("every list a consumer supplies is given to its component empty", () => {
+  const asked = [
+    ...new Set(
+      readdirSync(new URL("./components/", import.meta.url))
+        .filter((name) => name.endsWith(".tsx"))
+        .flatMap((name) => [
+          ...readFileSync(new URL(`./components/${name}`, import.meta.url), "utf8").matchAll(
+            /^\s*readonly (\w+)\??: readonly [A-Za-z]+\[\];/gm,
+          ),
+        ])
+        .map(([, prop]) => prop!),
+    ),
+  ].sort();
+
+  const givenNothing = new Set(
+    HOSTILE.flatMap(({ props }) =>
+      Object.entries(props)
+        .filter(([, value]) => Array.isArray(value) && value.length === 0)
+        .map(([prop]) => prop),
+    ),
+  );
+
+  /* Read first: a reader that found no list props would agree with an empty hostile list. */
+  expect(asked.length).toBeGreaterThan(6);
+  expect(asked.filter((prop) => !givenNothing.has(prop))).toEqual([]);
 });
 
 /**

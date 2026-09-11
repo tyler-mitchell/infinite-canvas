@@ -63,8 +63,16 @@ const DEFAULT_LABEL = "activity";
 const cellOrDefault = (cellSize: number) =>
   Number.isFinite(cellSize) && cellSize > 0 ? cellSize : DEFAULT_CELL;
 
-const level = (count: number, thresholds: readonly number[] = DEFAULT_THRESHOLDS) =>
-  TONES[Math.min(thresholds.filter((bound) => count >= bound).length, TONES.length - 1)]!;
+/**
+ * A scale of no bounds is not a scale. Filtering against it puts every day on the lowest level, so
+ * a plot given `[]` drew as though nothing had happened while its own summary still announced the
+ * true total — the drawing and the label disagreeing. Empty falls back the way a bad cell size does.
+ */
+const level = (count: number, thresholds: readonly number[] = DEFAULT_THRESHOLDS) => {
+  const bounds = thresholds.length > 0 ? thresholds : DEFAULT_THRESHOLDS;
+
+  return TONES[Math.min(bounds.filter((bound) => count >= bound).length, TONES.length - 1)]!;
+};
 
 /**
  * Whole weeks that fit at a cell size a pointer can hit. Drops history, never the cell size, down

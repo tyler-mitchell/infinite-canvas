@@ -81,6 +81,19 @@ test("minutes read are every top level on the commit defaults, and a ladder on t
 });
 
 /**
+ * A scale of no bounds is not a scale. Filtering against it put every day on the lowest level, so
+ * the plot drew as though nothing had happened while its summary still announced the real total.
+ * The same disagreement between the drawing and the label the receipt's barcode had.
+ */
+test("a scale with no bounds in it falls back to the defaults", () => {
+  const counts = [0, 2, 5, 8, 40];
+
+  expect(counts.map((n) => activityLevel(n, []))).toEqual(counts.map((n) => activityLevel(n)));
+  /* Not merely non-zero: the fallback is the documented scale, one level per bound. */
+  expect(counts.map((n) => activityLevel(n, []))).toEqual([0, 1, 2, 3, 4]);
+});
+
+/**
  * A level is an index into a scale of five, so a sixth bound has no colour to land on. The prop
  * takes any number of bounds and says nothing about four, so a consumer reaches this by reading
  * the documented surface and believing it.
