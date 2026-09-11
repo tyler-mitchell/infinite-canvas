@@ -260,6 +260,35 @@ test("nothing the kit emits asks to wrap and refuses to at the same time", () =>
 });
 
 /**
+ * A rim draws its border as 2px of transparent with a conic gradient showing through, and the sheet
+ * spins that gradient on hover. A border is painted over its own background, so any colour on that
+ * border hides the gradient — which is what an `interactive` Surface did to it, the one tone with an
+ * animated edge being the one that lost its edge the moment a pointer arrived.
+ *
+ * The hairline hover now belongs to the three tones that draw a hairline, and this holds it there.
+ */
+const coversItsOwnEdge = (lists: readonly string[]) =>
+  lists.filter(
+    (list) => /\bpk-rim(?:-tile)?\b/.test(list) && /hover:border-(?!transparent)/.test(list),
+  );
+
+test("a gradient edge painted over by a hover colour is reported", () => {
+  expect(coversItsOwnEdge(["a: pk-rim hover:border-pk-line-hover"])).toHaveLength(1);
+  expect(
+    coversItsOwnEdge(["b: pk-rim transition-colors", "c: hover:border-pk-line-hover"]),
+  ).toEqual([]);
+});
+
+test("no tone with a gradient edge takes a colour that would cover it", () => {
+  const lists = everyClassList();
+  const rims = lists.filter((list) => /\bpk-rim(?:-tile)?\b/.test(list));
+
+  /* Read first: both rim tones reach the sweep, so an empty result is not an empty search. */
+  expect(rims.length).toBeGreaterThan(1);
+  expect(coversItsOwnEdge(lists)).toEqual([]);
+});
+
+/**
  * Base UI writes `data-disabled` on the parts it owns the moment a consumer passes `disabled`, and
  * a component that styles nothing for it draws a control that is off and looks live. Eleven of the
  * kit's controls fade to 40% and stop taking a pointer; this asks which ones accept the prop and

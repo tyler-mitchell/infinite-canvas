@@ -17,8 +17,14 @@ const surface = tv({
         "rounded-pk-card border border-dashed border-pk-pending-line bg-pk-pending-surface hover:border-pk-pending-line-hover [--pk-ring-seat:var(--pk-pending-surface)]",
       bare: "",
     },
+    /*
+     * The hover belongs to the tones that draw a hairline, not to this variant. A rim draws its
+     * border as 2px of transparent with a conic gradient showing through, and the sheet spins that
+     * gradient on hover. Lifting the hairline colour here painted an opaque border over it, so the
+     * one tone with an animated edge was the one that lost its edge the moment it was hovered.
+     */
     interactive: {
-      true: "transition-colors duration-(--pk-duration-hover) ease-pk-swift hover:border-pk-line-hover",
+      true: "transition-colors duration-(--pk-duration-hover) ease-pk-swift",
       false: "",
     },
     padding: {
@@ -29,6 +35,11 @@ const surface = tv({
       roomy: "gap-3.5 p-5.5",
     },
   },
+  compoundVariants: [
+    { tone: "card", interactive: true, class: "hover:border-pk-line-hover" },
+    { tone: "sunken", interactive: true, class: "hover:border-pk-line-hover" },
+    { tone: "deep", interactive: true, class: "hover:border-pk-line-hover" },
+  ],
   defaultVariants: { tone: "card", interactive: true, padding: "default" },
 });
 
