@@ -3,7 +3,9 @@ import { createRoot } from "react-dom/client";
 import { expect, test } from "vite-plus/test";
 
 import { ActivityGrid, dayReadout } from "./components/activity-grid.tsx";
+import { NumberTicker } from "./components/number-ticker.tsx";
 import { settledAs, SwipeDeck, type SwipeItem } from "./components/swipe-deck.tsx";
+import { Readout } from "./components/text.tsx";
 
 /**
  * The first tests in this kit with a document. Every other suite reads source or renders markup on
@@ -19,11 +21,14 @@ import { settledAs, SwipeDeck, type SwipeItem } from "./components/swipe-deck.ts
 const draw = (node: React.ReactNode) => {
   const host = document.createElement("div");
   document.body.append(host);
+  const root = createRoot(host);
 
-  act(() => createRoot(host).render(node));
+  act(() => root.render(node));
 
   return {
     host,
+    /** Draws again into the same root, which is what a value changing in place means. */
+    redraw: (next: React.ReactNode) => act(() => root.render(next)),
     spoken: () => host.querySelector('[data-slot="text-readout"]')!.textContent,
     /**
      * One `act` for each press. Two dispatched in one of them both read the state of the render
@@ -159,6 +164,45 @@ test("a walk past the first day stops on it, still naming a day", () => {
 
   expect(spoken()).toBe(dayReadout(DAYS[0], "commits"));
   expect(hotCells(host)).toBe(1);
+});
+
+/**
+ * The ticker's documentation says it replaces its figure in silence and has to be drawn through
+ * `Readout` when the value moves. Both halves are claims about a change over time, so nothing that
+ * renders once could check either: markup on a server shows the figure, never the replacing.
+ */
+const ticker = (value: number) => createElement(NumberTicker, { value });
+
+test("a ticker changes its figure in the element that already held one", () => {
+  const { host, redraw } = draw(ticker(41));
+  const before = host.querySelector('[data-slot="number-ticker-value"]')!;
+
+  expect(before.textContent).toBe("41");
+
+  redraw(ticker(42));
+
+  expect(host.querySelector('[data-slot="number-ticker-value"]')).toBe(before);
+  expect(before.textContent).toBe("42");
+});
+
+test("a ticker on its own carries nothing that would announce the change", () => {
+  const { host } = draw(ticker(41));
+
+  expect(host.querySelector("[aria-live]")).toBeNull();
+  expect(host.querySelector('[role="status"]')).toBeNull();
+});
+
+test("a ticker drawn through a readout changes inside the region that speaks", () => {
+  const { host, spoken, redraw } = draw(createElement(Readout, { render: ticker(41) }));
+  const region = host.querySelector('[data-slot="text-readout"]')!;
+
+  expect(region.getAttribute("aria-live")).toBe("polite");
+  expect(spoken()).toContain("41");
+
+  redraw(createElement(Readout, { render: ticker(42) }));
+
+  expect(host.querySelector('[data-slot="text-readout"]')).toBe(region);
+  expect(spoken()).toContain("42");
 });
 
 test("a grid that loses the focus goes back to naming the series", () => {

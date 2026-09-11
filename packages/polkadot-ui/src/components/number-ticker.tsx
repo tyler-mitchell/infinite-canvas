@@ -134,7 +134,9 @@ function NumberTicker({
 
   return (
     <span data-slot="number-ticker" className={styles.root({ className })} {...props}>
-      <span className={styles.whole()}>{prefix + spoken + suffix}</span>
+      <span data-slot="number-ticker-value" className={styles.whole()}>
+        {prefix + spoken + suffix}
+      </span>
       <span aria-hidden className={styles.fixed()}>
         {prefix}
       </span>
