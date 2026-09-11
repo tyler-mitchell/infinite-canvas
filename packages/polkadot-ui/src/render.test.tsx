@@ -1041,3 +1041,30 @@ test("a plot longer than a year marks the months of both years", () => {
   expect(lefts).toEqual([...lefts].sort((a, b) => a - b));
   expect(new Set(lefts).size).toBe(marks.length);
 });
+
+/**
+ * A ticker is drawn through `Readout` so that a value changing in place is announced, and the
+ * ticker's own documentation now says to do that. The obvious next thought is to do the same for a
+ * chart whose readings stream in — and that is the thought this answers.
+ *
+ * A chart is already a picture: it carries `role="img"` and a name derived from its readings.
+ * `Readout` carries `role="status"`. One element cannot be both, so wrapping a chart takes away the
+ * thing that made its readings legible to a reader and leaves a status region naming a picture.
+ *
+ * Written down because the composition looks right and is not. What a live chart wants is a reading
+ * beside it that announces, rather than a wrapper around it. The pages pair each chart with a
+ * `Meta`, which is right for a series that never moves and is not an example of the live case.
+ */
+test("a chart drawn through the readout loses the role that made it a picture", () => {
+  const alone = renderToStaticMarkup(<kit.Sparkline values={[1, 2, 3]} />);
+  const wrapped = renderToStaticMarkup(
+    <kit.Readout render={<kit.Sparkline values={[1, 2, 3]} />} />,
+  );
+
+  expect(alone).toContain('role="img"');
+  expect(alone).toContain("aria-label");
+
+  /* The wrapper's role is the one that survives, so the picture stops being one. */
+  expect(wrapped).not.toContain('role="img"');
+  expect(wrapped).toContain('role="status"');
+});

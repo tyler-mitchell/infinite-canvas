@@ -919,8 +919,23 @@ test("an image labelled with a bare optional prop is reported", () => {
   ).toEqual([]);
 });
 
+/**
+ * Comments removed first. Read over the whole file, this counted a component that only *mentions*
+ * the role as one that draws it — which is what happened the day `text.tsx` gained a note warning
+ * that a chart wrapped in a `Readout` loses its picture role. The note was right and the rule read
+ * it as code.
+ */
+const codeOf = (source: string) => source.replaceAll(/\/\*[\s\S]*?\*\/|\/\/.*/g, "");
+
+test("a mention of a role in a comment is not a component drawing one", () => {
+  const mentions = '/* a chart carries role="img" */\nconst a = 1;';
+
+  expect(codeOf(mentions)).not.toContain('role="img"');
+  expect(codeOf('<div role="img" />')).toContain('role="img"');
+});
+
 test("every readout that draws an image can name itself", () => {
-  const drawing = componentSources.filter(({ source }) => source.includes('role="img"'));
+  const drawing = componentSources.filter(({ source }) => codeOf(source).includes('role="img"'));
 
   expect(drawing.map(({ file }) => file).sort()).toEqual([
     "activity-grid.tsx",

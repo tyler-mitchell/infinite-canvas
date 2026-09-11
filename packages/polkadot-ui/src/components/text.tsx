@@ -77,6 +77,12 @@ export type ReadoutProps = useRender.ComponentProps<"span">;
 /**
  * Announces, so a value that updates without a layout change still reaches a screen reader. For a
  * term in a sentence, which never updates, reach for `Code` instead.
+ *
+ * `render` composes this onto something else — a `NumberTicker` is drawn this way, and needs to be,
+ * since on its own it replaces its figure in silence. A picture is the case that does not work: a
+ * chart already carries `role="img"` and a name read from its own values, and this carries
+ * `role="status"`. One element cannot be both, and the status wins, so the chart stops being a
+ * picture. Put a reading beside a live chart rather than wrapping the chart in one.
  */
 function Readout({ className, render, ...props }: ReadoutProps) {
   return useRender({
