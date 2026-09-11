@@ -812,12 +812,25 @@ const BELONGS_ON: Record<string, string> = {
   "--pk-pending-ink": "--pk-pending-surface",
 };
 
-/** The tile is the other gradient ground, so its ink answers to both stops the way paper does. */
+/**
+ * The tile is the other gradient ground, so its ink answers to both stops the way paper does — and
+ * to both again under the bloom, which is an accent laid over the bottom corner. The initials sit
+ * in the middle, so the ground beneath them runs from the bare face to the lit one and the bare
+ * stops alone are a ground no letter actually stands on.
+ */
 const tileStops = () => {
   const [, near, far] =
     /--pk-tile-face:\s*radial-gradient\([^,]+,\s*(#[\da-f]+),\s*(#[\da-f]+)/i.exec(themeCss) ?? [];
+  const [, channels, alpha] =
+    /--pk-tile-bloom:[^;]*?rgb\(([\d\s]+)\s*\/\s*([\d.]+)\)/i.exec(themeCss) ?? [];
+  const bloom = `#${channels!
+    .trim()
+    .split(/\s+/)
+    .map((one) => Number(one).toString(16).padStart(2, "0"))
+    .join("")}`;
+  const lit = (stop: string) => over(bloom, stop, Number(alpha));
 
-  return [near!, far!];
+  return [near!, far!, lit(near!), lit(far!)];
 };
 
 interface Against {
@@ -873,7 +886,6 @@ test("an ink too thin for a ground it can land on is reported", () => {
 test("every colour the kit writes as text clears 4.5:1 on every ground it can land on", () => {
   const pairs = pairsToCheck();
 
-  expect(tileStops()).toEqual(["#1b2026", "#101317"]);
   expect(generalGrounds().length).toBeGreaterThan(4);
   expect(pairs.length).toBeGreaterThan(9);
   /* Read first: the two inks the kit thins are in the sweep, at the strength they are written. */
@@ -881,6 +893,11 @@ test("every colour the kit writes as text clears 4.5:1 on every ground it can la
     pairs.filter(({ alpha }) => alpha !== 1).map(({ token, alpha }) => `${token}@${alpha}`),
   ).toEqual(["--pk-ink@0.72", "--pk-accent@0.6"]);
   expect(tooThin(pairs)).toEqual([]);
+  /*
+   * Last, so a changed bloom reports the ink it starves rather than the list of grounds. Pinned
+   * rather than counted: the face at both stops, then both again under the bloom laid over them.
+   */
+  expect(tileStops()).toEqual(["#1b2026", "#101317", "#173c38", "#0e312b"]);
 });
 
 /*
