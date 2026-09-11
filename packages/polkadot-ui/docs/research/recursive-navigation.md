@@ -242,6 +242,10 @@ recursive universe. This is the acceptance test for the navigation model and it 
 
 ## Open gaps
 
+Every one of these belongs to whatever owns a canvas, which is not this package — see the scope
+note at the top. They are written down so that owner does not re-derive them, not as work pending
+here. This package has no route to probe at depth four and nothing to mount a window of.
+
 - Runtime-prove masking across reload, and decide what "walk the parent chain" reads from.
 - Decide whether `composeRewrites` should shorten deep paths, or whether ids stay literal.
 - The mount-window thresholds are inherited from a DOM design POC. They need re-deriving once
@@ -249,4 +253,5 @@ recursive universe. This is the acceptance test for the navigation model and it 
 - Sound is out of scope here but shares the focus signal; a frame change is the event both the
   motion system and the audio layer will subscribe to.
 
-Resume at: a runtime probe of `/w/$` at depth 4, then the mount-window policy.
+Nothing to resume in `polkadot-ui`. For the owner of a canvas: a runtime probe of `/w/$` at depth
+four, then the mount-window policy.
