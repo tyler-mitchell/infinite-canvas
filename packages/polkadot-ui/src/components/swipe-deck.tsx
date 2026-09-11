@@ -21,7 +21,8 @@ const swipeDeck = tv({
      * 297, which is what a screen of 375 gives it, and one line at 1280.
      *
      * The clamp was measured holding rather than assumed: a title of about 190 characters stops at
-     * three lines with a fourth hidden, and the card's box and its foot do not move.
+     * three lines with a fourth hidden, and the card's box and its foot do not move. The figures and
+     * the probe are in `docs/internal/layout-probes.md`, since no test here has a layout engine.
      */
     title: "line-clamp-3 font-pk-sans text-pk-title break-words text-pretty text-pk-ink",
     /*

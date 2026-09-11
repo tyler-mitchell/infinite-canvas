@@ -2988,3 +2988,25 @@ test("every row of the decision log has its six columns", () => {
       .filter(({ columns }) => columns !== 6),
   ).toEqual([]);
 });
+
+/**
+ * Two comments send a reader to a document for figures no test here can produce, because none of
+ * them has a layout engine. A pointer to a file that has moved is worse than no pointer: it reads
+ * as though the evidence exists and sends the reader looking for it.
+ */
+const citedDocs = (sources: readonly { readonly file: string; readonly source: string }[]) =>
+  sources.flatMap(({ file, source }) =>
+    [...source.matchAll(/`(docs\/[\w./-]+\.md)`/g)].map(([, path]) => ({ file, path: path! })),
+  );
+
+test("a document a comment names is a document that is there", () => {
+  const cited = citedDocs(named());
+
+  /* Read first: a pattern that found nothing would make the loop below pass over nothing. */
+  expect(cited.length).toBeGreaterThan(1);
+  expect(
+    cited
+      .filter(({ path }) => !existsSync(new URL(`../${path}`, import.meta.url)))
+      .map(({ file, path }) => `${file} points at ${path}`),
+  ).toEqual([]);
+});

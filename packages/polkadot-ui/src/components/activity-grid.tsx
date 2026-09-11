@@ -307,6 +307,9 @@ function ActivityGrid({
            * At the usual punctuation level a reader passes over it and hears the two parts joined,
            * which is what the eye sees; the deck's line is never seen, so nothing there earns a
            * mark chosen for the eye.
+           *
+           * It truncates rather than wrapping, and it was measured doing so: 130 characters in, the
+           * legend beside it neither moves nor shrinks. See `docs/internal/layout-probes.md`.
            */
           <Readout className={styles.readout()}>
             {focused
