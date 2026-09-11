@@ -5,6 +5,7 @@ import {
   type ActivityFeedProps,
   Aurora,
   Avatar,
+  type AvatarProps,
   avatarVariants,
   Badge,
   badgeVariants,
@@ -145,6 +146,17 @@ function Widgets() {
             },
             { name: "duration", fallback: "600", note: "ms for one digit" },
             { name: "stagger", fallback: "40", note: "ms between places, units first" },
+          ]}
+        />
+        {/* Only `name`: a row is a promise the page keeps, and nothing here passes a source or
+            overrides the initials, so documenting those would promise what is not shown. */}
+        <Props<AvatarProps>
+          name="avatar"
+          rows={[
+            {
+              name: "name",
+              note: "names the person for a reader, and is the image's alternative text",
+            },
           ]}
         />
         <Api name="avatar" of={avatarVariants} />
