@@ -572,6 +572,43 @@ test("no component writes a reading it cannot use into an attribute", () => {
 });
 
 /**
+ * The same rows read the other way. The sweep above strips the words between the tags on purpose,
+ * so a reading a component cannot use is invisible to it the moment it lands in text — and the plot
+ * printed a count there that its own summary had already refused.
+ *
+ * A word is worse than an attribute, not better: a spoiled attribute is usually a declaration the
+ * browser drops, and a spoiled word is `NaN` on the page in front of somebody.
+ *
+ * It would not have caught the fault that prompted it. The plot's line says the series until a day
+ * is focused, and nothing is focused in markup drawn on a server, so that count never reaches the
+ * page here. What this holds is the larger half: every figure a component prints unconditionally.
+ * Planting one in the ticker reports both its rows, and the sweep above stays green on the same
+ * leak, which is the whole reason both exist.
+ */
+test("no component writes a reading it cannot use into its words", () => {
+  const inWords = (markup: string) => markup.replaceAll(/<[^>]*>/g, " ");
+
+  const leaking = HOSTILE.flatMap(({ name, props }) => {
+    const drawn = kit[name as keyof typeof kit] as unknown;
+    const words = inWords(renderToStaticMarkup(createElement(drawn as never, props)));
+    const row = `${name}(${Object.entries(props)
+      .map(([key, value]) => `${key}=${Array.isArray(value) ? `[${value.length}]` : String(value)}`)
+      .join(" ")})`;
+
+    return [...words.matchAll(/\b(?:NaN|Infinity|undefined)\b/g)].map(
+      ([found]) => `${row}: ${found} in its words`,
+    );
+  });
+
+  /* Read first: the reader has to reach the words at all, and the summary is an attribute rather
+   * than one, so a row that draws visible text is what proves it. */
+  expect(
+    inWords(renderToStaticMarkup(createElement(kit.Binding, { keys: ["A"], action: "go" }))),
+  ).toContain("go");
+  expect(leaking).toEqual([]);
+});
+
+/**
  * The rows above are written by hand, and the preview's four lengths were missing from them: it
  * took a consumer's number straight into a length, spoiled all four, and the sweep stayed green
  * because it had never been asked to draw one.
