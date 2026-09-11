@@ -106,6 +106,64 @@ test("a deck that runs out stops taking the focus and stops claiming its keys", 
 });
 
 /**
+ * One event, in its own `act`, for the reason `press` gives: the press that starts a drag sets the
+ * state the move reads, and sent together the move still sees the deck at rest and follows nothing.
+ *
+ * `movementX` is what the card follows — read from the event rather than worked out from positions,
+ * so it is what a test has to send.
+ */
+const send = (card: Element, type: string, movementX = 0) =>
+  act(() => {
+    card.dispatchEvent(
+      Object.assign(new PointerEvent(type, { bubbles: true, pointerId: 1 }), { movementX }),
+    );
+  });
+
+const dragBy = (card: Element, distance: number) => {
+  send(card, "pointerdown");
+  send(card, "pointermove", distance);
+  send(card, "pointerup");
+};
+
+/**
+ * The deck's own rule says a cancelled pointer is not a release: the reader never chose, so nothing
+ * is decided. A rule in the theme suite reads the source for it, which shows the handler exists and
+ * not what it does.
+ */
+const cancelAfter = (card: Element, distance: number) => {
+  send(card, "pointerdown");
+  send(card, "pointermove", distance);
+  send(card, "pointercancel");
+};
+
+test("a card dragged past the commit distance settles the way it went", () => {
+  const { host, spoken } = draw(createElement(SwipeDeck, { items: CARDS }));
+
+  dragBy(host.querySelector('[data-slot="swipe-card"]:last-of-type')!, 120);
+
+  expect(spoken()).toBe(settledAs("pin", "first", "second"));
+  expect(deckIn(host).top()).toContain("second");
+});
+
+test("a card let go short of the commit distance decides nothing", () => {
+  const { host, spoken } = draw(createElement(SwipeDeck, { items: CARDS }));
+
+  dragBy(host.querySelector('[data-slot="swipe-card"]:last-of-type')!, 40);
+
+  expect(spoken()).toBe("");
+  expect(deckIn(host).top()).toContain("first");
+});
+
+test("a pointer taken away decides nothing, however far the card had gone", () => {
+  const { host, spoken } = draw(createElement(SwipeDeck, { items: CARDS }));
+
+  cancelAfter(host.querySelector('[data-slot="swipe-card"]:last-of-type')!, 200);
+
+  expect(spoken()).toBe("");
+  expect(deckIn(host).top()).toContain("first");
+});
+
+/**
  * Four whole weeks ending on a Saturday, so every column is full and no cell is a pad. Built from
  * local parts rather than a timestamp: read back as a local date, a UTC one lands on the day before
  * and every name in these tests moves with it.
