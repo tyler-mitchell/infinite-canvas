@@ -32,6 +32,7 @@ const swipeDeck = tv({
     end: "min-w-0 truncate",
     empty: "flex size-full items-center justify-center font-pk-sans text-pk-note text-pk-ink-faint",
     hint: "flex-none font-pk-mono text-pk-mono-sm text-pk-ink-faint",
+    outcome: "sr-only",
   },
   variants: {
     held: {
@@ -109,10 +110,13 @@ function SwipeDeck({
   const [settled, setSettled] = useState<readonly string[]>([]);
   const [offset, setOffset] = useState(0);
   const [held, setHeld] = useState(false);
+  const [outcome, setOutcome] = useState("");
   const styles = swipeDeck({ held });
 
   const remaining = items.filter((item) => !settled.includes(item.id));
   const top = remaining[0];
+  /** One source, so the words a reader sees and the words a reader hears cannot drift apart. */
+  const nothingLeft = emptyLabel.trim() || DEFAULT_EMPTY;
 
   /** Puts the card down where it started, holding nothing. */
   const rest = () => {
@@ -124,6 +128,14 @@ function SwipeDeck({
     if (!top) return;
     onSettle?.(top, direction);
     setSettled((ids) => [...ids, top.id]);
+    /*
+     * The card unmounts and the next takes its place with the focus still on the well, so nothing
+     * would reach a reader who cannot see the change. Said here rather than derived from the top,
+     * because the outcome is the half a reader cannot recover by looking.
+     */
+    setOutcome(
+      `${direction === "pin" ? "pinned" : "skipped"} ${top.title} · next ${remaining[1]?.title ?? nothingLeft}`,
+    );
     rest();
   };
 
@@ -153,7 +165,11 @@ function SwipeDeck({
       }}
       {...props}
     >
-      {top ? null : <span className={styles.empty()}>{emptyLabel.trim() || DEFAULT_EMPTY}</span>}
+      {/* Empty at first, so nothing is said until a card actually settles. */}
+      <span role="status" aria-live="polite" className={styles.outcome()}>
+        {outcome}
+      </span>
+      {top ? null : <span className={styles.empty()}>{nothingLeft}</span>}
       {remaining
         .slice(0, 3)
         .reverse()

@@ -2806,19 +2806,13 @@ test("a name that counts what it draws counts what the series holds", () => {
 });
 
 /**
- * A component that takes the focus and says which arrows walk it owes a reader the answer when one
- * is pressed. The grid is the only one that hands that answer to a render prop, so the node the
- * page returns is what decides whether the promise is kept — a plain span changes silently.
+ * The plot hands the answer to a render prop, so the node the page returns is what decides whether
+ * the promise is kept — a plain span changes silently.
  *
  * Driven rather than reasoned: one ArrowLeft on the live page moved the cursor seven days and the
  * footer read `3 contributions · Thu Sep 03` from a `role="status"` node. The pages get it right
  * today; nothing said they had to.
- *
- * The owners are found by shape — focus plus stated arrows plus a render prop — so a second
- * component built that way is held to the same thing on the day it is written.
  */
-const PROMISES_THE_ARROWS = ["activity-grid.tsx"];
-
 const silentRenderProp = (sources: readonly { readonly file: string; readonly source: string }[]) =>
   sources.flatMap(({ file, source }) =>
     [...source.matchAll(/<ActivityGrid(?=[\s/<>])[\s\S]*?<\/ActivityGrid>/g)]
@@ -2840,18 +2834,47 @@ test("a render prop that does not announce is reported", () => {
   ).toEqual(["b.tsx returns a node that does not announce"]);
 });
 
-test("the plot that promises arrows is given something that answers them", () => {
+/**
+ * The general form. Stating `aria-keyshortcuts` tells a reader which keys work, so pressing one owes
+ * that reader an answer they can hear — 4.1.3, since the content changes and the focus does not.
+ *
+ * Two components state it and answer it two ways. The deck owns its cards, so it says what settled
+ * and what is next from a region of its own; the plot hands the day to a render prop and the page
+ * fills it. Both were silent until each was driven on the page and found to be.
+ */
+const ANSWERS_ITS_KEYS: Record<string, "a region of its own" | "a render prop the page fills"> = {
+  "activity-grid.tsx": "a render prop the page fills",
+  "swipe-deck.tsx": "a region of its own",
+};
+
+const keysWithNoAnswer = () =>
+  readdirSync(componentDir)
+    .filter((name) => name.endsWith(".tsx"))
+    .map((file) => ({ file, source: readFileSync(new URL(file, componentDir), "utf8") }))
+    .filter(({ source }) => source.includes("aria-keyshortcuts"))
+    .filter(({ file, source }) => {
+      const how = ANSWERS_ITS_KEYS[file];
+
+      return how === "a region of its own"
+        ? !source.includes('aria-live="polite"')
+        : how === "a render prop the page fills"
+          ? !source.includes("children?: (")
+          : true;
+    })
+    .map(({ file }) => file);
+
+test("a component that states its keys answers them in a way a reader can hear", () => {
+  /* The answers first, so losing one reports the component that went silent rather than a changed
+   * list of components. */
+  expect(keysWithNoAnswer()).toEqual([]);
   expect(silentRenderProp(pages)).toEqual([]);
-  /* Read after: the owner set is still one, so a second component of this shape is named here
-   * rather than going unchecked. */
+  /* Last: a third component that states its keys is named here rather than going unchecked. */
   expect(
     readdirSync(componentDir)
       .filter((name) => name.endsWith(".tsx"))
-      .filter((file) => {
-        const source = readFileSync(new URL(file, componentDir), "utf8");
-
-        return source.includes("aria-keyshortcuts") && source.includes("children?: (");
-      })
+      .filter((file) =>
+        readFileSync(new URL(file, componentDir), "utf8").includes("aria-keyshortcuts"),
+      )
       .sort(),
-  ).toEqual(PROMISES_THE_ARROWS);
+  ).toEqual(Object.keys(ANSWERS_ITS_KEYS));
 });
