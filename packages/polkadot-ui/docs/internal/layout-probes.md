@@ -173,6 +173,86 @@ window.__inert = () => {
 };
 ```
 
+## Can everything a keyboard reaches name itself?
+
+Yes, now. Walking every focusable element on all nine pages and resolving its name the way a browser
+does — `aria-label`, `aria-labelledby`, a `label` element, then content but **only** for the roles
+that take a name from content — leaves nothing unnamed.
+
+One thing was, on every page: the scroll area's viewport. Base UI makes it focusable when there is
+something to scroll, which is right, and gives it `role="presentation"`, which a browser ignores on
+anything focusable — leaving a generic box that holds no name at all. It is a named `group` now.
+
+The first version of this probe reported nothing, because it fell back to `textContent` for every
+element. The viewport contains the whole navigation, so it looked richly named. A name from content
+is a property of certain roles, not of having text inside.
+
+```js
+// Paste into the preview console. Reports anything a keyboard can reach that a reader cannot hear.
+window.__unnamed = () => {
+  const FROM_CONTENT = new Set([
+    "button",
+    "link",
+    "menuitem",
+    "option",
+    "tab",
+    "checkbox",
+    "radio",
+    "switch",
+    "heading",
+    "treeitem",
+    "gridcell",
+    "columnheader",
+    "rowheader",
+  ]);
+  const roleOf = (el) => {
+    const r = el.getAttribute("role");
+    if (r && r !== "presentation" && r !== "none") return r;
+    const t = el.tagName.toLowerCase();
+    if (t === "a") return el.hasAttribute("href") ? "link" : null;
+    if (t === "button" || t === "summary") return "button";
+    if (t === "select") return "combobox";
+    if (t === "textarea") return "textbox";
+    if (t === "input") {
+      const ty = (el.type || "text").toLowerCase();
+      return ty === "checkbox"
+        ? "checkbox"
+        : ty === "radio"
+          ? "radio"
+          : ty === "range"
+            ? "slider"
+            : ty === "submit"
+              ? "button"
+              : "textbox";
+    }
+    return null;
+  };
+  const nameOf = (el) => {
+    const l = el.getAttribute("aria-label");
+    if (l?.trim()) return l.trim();
+    const by = el.getAttribute("aria-labelledby");
+    if (by) {
+      const t = by
+        .split(/\s+/)
+        .map((id) => document.getElementById(id)?.textContent ?? "")
+        .join(" ");
+      if (t.trim()) return t.trim();
+    }
+    if (el.closest("label")?.textContent.trim()) return el.closest("label").textContent.trim();
+    const role = roleOf(el);
+    if (role && FROM_CONTENT.has(role) && el.textContent?.trim()) return el.textContent.trim();
+    return el.getAttribute("title")?.trim() || null;
+  };
+  return [
+    ...document.querySelectorAll(
+      'a[href],button,input,select,textarea,[tabindex]:not([tabindex="-1"])',
+    ),
+  ]
+    .filter((e) => e.offsetParent !== null && !nameOf(e))
+    .map((e) => `${e.tagName.toLowerCase()}${e.dataset.slot ? `[${e.dataset.slot}]` : ""}`);
+};
+```
+
 ## Does the swipe card's clamp hold?
 
 The card cannot grow, and its comment records a title once pushing the foot 116px past the bottom

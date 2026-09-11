@@ -241,7 +241,7 @@ function Layout() {
         </Row>
         <div className={styles.scrollers()}>
           <Surface tone="card" className={styles.scroller()}>
-            <ScrollArea>
+            <ScrollArea label="recent commits">
               <div className={styles.scrollBody()}>
                 {COMMITS.map((commit) => (
                   <Meta key={commit}>{commit}</Meta>
@@ -251,7 +251,7 @@ function Layout() {
           </Surface>
 
           <Surface tone="card" className={styles.scrollWide()}>
-            <ScrollArea axis="both">
+            <ScrollArea axis="both" label="recent commits, unwrapped">
               <div className={styles.scrollBodyWide()}>
                 {COMMITS.map((commit) => (
                   <Meta key={commit}>{commit}</Meta>

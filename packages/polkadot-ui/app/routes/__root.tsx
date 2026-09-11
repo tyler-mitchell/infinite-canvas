@@ -58,7 +58,7 @@ function RootRoute() {
           <Meta>base ui · tailwind-variants</Meta>
         </div>
 
-        <ScrollArea className={styles.nav()}>
+        <ScrollArea label="Sections" className={styles.nav()}>
           {SECTIONS.map((section) => (
             <div key={section.label} className={styles.group()}>
               <Kind className={styles.groupLabel()}>{section.label}</Kind>

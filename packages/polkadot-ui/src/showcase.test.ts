@@ -2970,6 +2970,7 @@ test("every optional prop a reader depends on has something to fall back on", ()
     "activity-grid.tsx label",
     "bars.tsx label",
     "breakdown.tsx label",
+    "scroll-area.tsx label",
     "sparkline.tsx label",
     "swipe-deck.tsx label",
   ]);

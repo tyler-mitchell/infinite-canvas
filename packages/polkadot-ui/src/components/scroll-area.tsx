@@ -25,10 +25,31 @@ type WithClassName<T> = Omit<T, "className"> & { className?: string };
 export type ScrollAreaProps = WithClassName<ScrollAreaPrimitive.Root.Props> & {
   /** Both axes get a bar when `both`. Defaults to vertical only, which is what a widget body needs. */
   readonly axis?: "vertical" | "horizontal" | "both";
+  /**
+   * Names the scrolling region for a reader who cannot see it. Two on a page need two names.
+   *
+   * The part that takes the focus is the viewport inside, and Base UI gives it `role="presentation"`
+   * — which a browser ignores on anything focusable, leaving a generic box that takes no name at
+   * all. Naming it therefore also gives it a role that can hold one: a group, not a region, because
+   * a landmark for every scrolling widget body is noise in the list a reader navigates by.
+   *
+   * It was the only thing in this kit a keyboard could reach and nothing could name, which is why
+   * the fallback below is a plain description rather than nothing.
+   */
+  readonly label?: string;
 };
 
+/** One source for the name, so a blank one falls back to what the signature already promises. */
+const DEFAULT_LABEL = "scrolling region";
+
 /** An overlay scrollbar, so the bar costs no width and content does not reflow when it appears. */
-function ScrollArea({ axis = "vertical", className, children, ...props }: ScrollAreaProps) {
+function ScrollArea({
+  axis = "vertical",
+  label = DEFAULT_LABEL,
+  className,
+  children,
+  ...props
+}: ScrollAreaProps) {
   const styles = scrollArea();
 
   return (
@@ -37,7 +58,12 @@ function ScrollArea({ axis = "vertical", className, children, ...props }: Scroll
       className={styles.root({ className })}
       {...props}
     >
-      <ScrollAreaPrimitive.Viewport data-slot="scroll-area-viewport" className={styles.viewport()}>
+      <ScrollAreaPrimitive.Viewport
+        data-slot="scroll-area-viewport"
+        role="group"
+        aria-label={label.trim() || DEFAULT_LABEL}
+        className={styles.viewport()}
+      >
         <ScrollAreaPrimitive.Content>{children}</ScrollAreaPrimitive.Content>
       </ScrollAreaPrimitive.Viewport>
 
