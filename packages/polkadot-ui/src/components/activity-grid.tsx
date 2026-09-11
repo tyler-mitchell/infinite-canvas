@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useState, useSyncExternalStore } from "react";
 import { tv } from "../tv.ts";
+import { textVariants } from "./text.tsx";
 
 const DAYS_PER_WEEK = 7;
 const MONTHS = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
@@ -23,6 +24,7 @@ const activityGrid = tv({
      */
     cell: "rounded-[3px] transition-transform duration-(--pk-duration-hover) ease-pk-swift data-hot:scale-125 data-hot:ring-1 data-hot:ring-pk-ink-bright/70 data-hot:ring-offset-1 data-hot:ring-offset-(color:--pk-ring-seat)",
     footer: "flex flex-none items-center justify-between gap-2",
+    readout: "min-w-0 truncate",
     legend: "flex items-center gap-1",
     swatch: "size-2.5 rounded-[3px]",
   },
@@ -137,12 +139,11 @@ export interface ActivityGridProps extends Omit<React.ComponentProps<"div">, "ch
    *
    * This is where an exact count reaches a reader. The five levels are a scale, so neighbours sit
    * between 1.41 and 2.03 apart and an empty cell reads 1.08 against the card — legible as a shape,
-   * not as a value. Leave this off and the plot says how many days and how many in total, and never
-   * what any one day held.
+   * not as a value.
    *
-   * Return a `Readout`, or something else that announces. The plot takes the focus and says which
-   * arrows walk it, so a reader who presses one is owed the answer; a plain span changes silently
-   * and the promise is broken.
+   * Leave it off and the plot draws its own line, which names the focused day and announces it.
+   * Pass one and you take that over: return a `Readout`, or something else that announces, because
+   * the plot says which arrows walk it and a reader who presses one is owed the answer.
    */
   readonly children?: (day: ActivityDay | undefined) => React.ReactNode;
 }
@@ -291,7 +292,27 @@ function ActivityGrid({
       </div>
 
       <div className={styles.footer()}>
-        {children?.(focused)}
+        {children ? (
+          children(focused)
+        ) : (
+          /*
+           * The plot says which arrows walk it, so pressing one owes the reader an answer. Left to
+           * the render prop, the answer was optional and the default was silence. Only drawn when
+           * nothing was passed, so a consumer's own readout is never said twice.
+           *
+           * It holds the series name while nothing is focused: a polite region does not announce
+           * what it was built with, so the first walk is the first thing said.
+           */
+          <span
+            role="status"
+            aria-live="polite"
+            className={textVariants({ as: "readout", className: styles.readout() })}
+          >
+            {focused
+              ? `${focused.count} ${label} · ${focused.date.toDateString().slice(0, 10)}`
+              : label}
+          </span>
+        )}
         <div className={styles.legend()}>
           {TONES.map((tone) => (
             <span key={tone} className={styles.swatch({ tone })} />

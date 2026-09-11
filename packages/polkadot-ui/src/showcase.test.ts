@@ -2838,45 +2838,30 @@ test("a render prop that does not announce is reported", () => {
  * The general form. Stating `aria-keyshortcuts` tells a reader which keys work, so pressing one owes
  * that reader an answer they can hear — 4.1.3, since the content changes and the focus does not.
  *
- * Two components state it and answer it two ways. The deck owns its cards, so it says what settled
- * and what is next from a region of its own; the plot hands the day to a render prop and the page
- * fills it. Both were silent until each was driven on the page and found to be.
+ * Two components state it and both were silent, each found by being driven on the page. They answer
+ * the same way now: a region of their own. The deck says what settled and what is next; the plot
+ * names the focused day, and hands that over only when a page passes its own readout, which is what
+ * the rule above holds. One condition for both, because a second way to be right is a second way to
+ * be wrong.
  */
-const ANSWERS_ITS_KEYS: Record<string, "a region of its own" | "a render prop the page fills"> = {
-  "activity-grid.tsx": "a render prop the page fills",
-  "swipe-deck.tsx": "a region of its own",
-};
+const STATES_ITS_KEYS = ["activity-grid.tsx", "swipe-deck.tsx"];
 
-const keysWithNoAnswer = () =>
+const named = () =>
   readdirSync(componentDir)
     .filter((name) => name.endsWith(".tsx"))
-    .map((file) => ({ file, source: readFileSync(new URL(file, componentDir), "utf8") }))
-    .filter(({ source }) => source.includes("aria-keyshortcuts"))
-    .filter(({ file, source }) => {
-      const how = ANSWERS_ITS_KEYS[file];
-
-      return how === "a region of its own"
-        ? !source.includes('aria-live="polite"')
-        : how === "a render prop the page fills"
-          ? !source.includes("children?: (")
-          : true;
-    })
-    .map(({ file }) => file);
+    .map((file) => ({ file, source: readFileSync(new URL(file, componentDir), "utf8") }));
 
 test("a component that states its keys answers them in a way a reader can hear", () => {
+  const stating = named().filter(({ source }) => source.includes("aria-keyshortcuts"));
+
   /* The answers first, so losing one reports the component that went silent rather than a changed
    * list of components. */
-  expect(keysWithNoAnswer()).toEqual([]);
+  expect(
+    stating.filter(({ source }) => !source.includes('aria-live="polite"')).map(({ file }) => file),
+  ).toEqual([]);
   expect(silentRenderProp(pages)).toEqual([]);
   /* Last: a third component that states its keys is named here rather than going unchecked. */
-  expect(
-    readdirSync(componentDir)
-      .filter((name) => name.endsWith(".tsx"))
-      .filter((file) =>
-        readFileSync(new URL(file, componentDir), "utf8").includes("aria-keyshortcuts"),
-      )
-      .sort(),
-  ).toEqual(Object.keys(ANSWERS_ITS_KEYS));
+  expect(stating.map(({ file }) => file).sort()).toEqual(STATES_ITS_KEYS);
 });
 
 /**

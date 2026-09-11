@@ -189,7 +189,10 @@ function Readouts() {
               fallback: "1 · 3 · 6 · 10",
               note: "the counts each level starts at",
             },
-            { name: "children", note: "a render prop for the readout under the plot" },
+            {
+              name: "children",
+              note: "replaces the plot's own readout; whatever it returns has to announce",
+            },
             {
               name: "label",
               fallback: "activity",
@@ -215,15 +218,7 @@ function Readouts() {
             cellSize={13}
             thresholds={[1, 30, 60, 120]}
             label="minutes read"
-          >
-            {(day) => (
-              <Readout>
-                {day
-                  ? `${day.count || "no"} minutes · ${day.date.toDateString().slice(0, 10)}`
-                  : "hover a day"}
-              </Readout>
-            )}
-          </ActivityGrid>
+          />
         </Surface>
         <Prose className={styles.lede()}>
           The defaults suit commits per day. Give the same component minutes and every non-zero
