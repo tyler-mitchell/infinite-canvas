@@ -738,6 +738,14 @@ const CLAIMED = [
     on: { farEndOf: "--pk-paper" },
     alpha: 1,
   },
+  /*
+   * The grid's scale, which is a scale rather than a set of marks: the closest pair of levels, the
+   * widest, and an empty cell against the card it sits on. The top level is written as the accent,
+   * so the accent is what the widest pair is measured from.
+   */
+  { file: "activity-grid.tsx", says: "1.41", ink: "--pk-level-0", on: "--pk-level-1", alpha: 1 },
+  { file: "activity-grid.tsx", says: "2.03", ink: "--pk-accent", on: "--pk-level-3", alpha: 1 },
+  { file: "activity-grid.tsx", says: "1.08", ink: "--pk-level-0", on: "--pk-surface", alpha: 1 },
 ] as const satisfies readonly {
   file: string;
   says: string;

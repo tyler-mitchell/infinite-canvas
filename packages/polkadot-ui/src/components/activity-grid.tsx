@@ -132,7 +132,14 @@ export interface ActivityGridProps extends Omit<React.ComponentProps<"div">, "ch
   readonly thresholds?: readonly number[];
   /** Names the series for a reader who cannot see it. Two grids on a page need two names. */
   readonly label?: string;
-  /** Rendered beside the legend; receives the focused day, or `undefined` when nothing is. */
+  /**
+   * Rendered beside the legend; receives the focused day, or `undefined` when nothing is.
+   *
+   * This is where an exact count reaches a reader. The five levels are a scale, so neighbours sit
+   * between 1.41 and 2.03 apart and an empty cell reads 1.08 against the card — legible as a shape,
+   * not as a value. Leave this off and the plot says how many days and how many in total, and never
+   * what any one day held.
+   */
   readonly children?: (day: ActivityDay | undefined) => React.ReactNode;
 }
 
