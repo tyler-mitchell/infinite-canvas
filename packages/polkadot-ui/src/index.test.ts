@@ -407,12 +407,17 @@ const damagedAt = (bytes: Buffer) => {
   return at === -1 ? undefined : { at, byte: bytes[at]! };
 };
 
-const textFiles = (from: URL): readonly URL[] =>
-  readdirSync(from, { withFileTypes: true }).flatMap((entry) => {
-    const here = new URL(`${entry.name}${entry.isDirectory() ? "/" : ""}`, from);
+/** Built, fetched or hidden: none of it is this package's to write, and `dist` is a copy. */
+const NOT_WRITTEN_HERE = new Set(["node_modules", "dist", ".tanstack"]);
 
-    return entry.isDirectory() ? textFiles(here) : [here];
-  });
+const textFiles = (from: URL): readonly URL[] =>
+  readdirSync(from, { withFileTypes: true })
+    .filter(({ name }) => !NOT_WRITTEN_HERE.has(name) && !name.startsWith("."))
+    .flatMap((entry) => {
+      const here = new URL(`${entry.name}${entry.isDirectory() ? "/" : ""}`, from);
+
+      return entry.isDirectory() ? textFiles(here) : [here];
+    });
 
 test("a control byte is found wherever it sits in a file", () => {
   expect(damagedAt(Buffer.from("const a = 1;\n\tconst b = 2;\n"))).toBeUndefined();
@@ -423,9 +428,12 @@ test("a control byte is found wherever it sits in a file", () => {
 });
 
 test("no file in this package carries a byte that breaks the tools that read it", () => {
-  const files = ["src/", "app/", "docs/"].flatMap((dir) =>
-    textFiles(new URL(`../${dir}`, import.meta.url)),
-  );
+  /*
+   * The whole package, not a list of its directories. Written as `src`, `app` and `docs` this
+   * missed the README — the most read file here and one edited all week — along with the entry
+   * document, the package manifest and the build configuration.
+   */
+  const files = textFiles(new URL("../", import.meta.url));
 
   const damaged = files.flatMap((file) => {
     const found = damagedAt(readFileSync(file));
@@ -434,7 +442,9 @@ test("no file in this package carries a byte that breaks the tools that read it"
     return found ? [`${name}: byte ${found.byte} at ${found.at}`] : [];
   });
 
-  /* Read first: a walk that found nothing would agree with a package full of them. */
+  /* Read first: a walk that found nothing would agree with a package full of them, and the count
+   * has to clear what the three directories alone reached. */
   expect(files.length).toBeGreaterThan(60);
+  expect(files.some(({ pathname }) => pathname.endsWith("/README.md"))).toBe(true);
   expect(damaged).toEqual([]);
 });
