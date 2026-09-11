@@ -92,17 +92,29 @@ function ReceiptNote({ className, ...props }: ReceiptNoteProps) {
   return <span data-slot="receipt-note" className={receipt().note({ className })} {...props} />;
 }
 
+/** Bars in a strip. Enough that each is a hairline rather than a plank once they fill the paper. */
+const BARS = 48;
+
 /**
- * The bar widths a barcode prints for an order. Enough bars that each is a hairline rather than a
- * plank once they fill the paper, and the parity of each character decides which of the two widths
- * it gets, so the same order always prints the same code.
+ * The bar widths a barcode prints for an order. The parity of each character decides which of the
+ * two widths it gets, so the same order always prints the same code.
  *
  * Trimmed first, which is what makes that last part true: untrimmed, `A1` and ` A1 ` printed
  * different codes. It also settles an order of nothing but spaces, which drew a full strip of
  * identical bars beside a label that said there was no order — the eye and the ear disagreeing.
  */
 export function barcodeBars(value: string) {
-  return Array.from(value.trim().repeat(8).slice(0, 48), (character) =>
+  /*
+   * Cut to the strip's width before repeating, not after. Repeating first builds eight copies of
+   * whatever it was given and throws away all but the first forty eight, so a long order allocated
+   * eight times its own length for nothing — and past about sixty seven million characters the
+   * repeat itself is longer than a string can be and throws. Cutting first, the repeat never sees
+   * more than forty eight characters, and the answer is the same either way: where the order is
+   * longer than the strip, both take its first forty eight and the repeat never shows.
+   */
+  const order = value.trim().slice(0, BARS);
+
+  return Array.from(order.repeat(8).slice(0, BARS), (character) =>
     character.codePointAt(0)! % 2 === 0 ? 3 : 1.5,
   );
 }
