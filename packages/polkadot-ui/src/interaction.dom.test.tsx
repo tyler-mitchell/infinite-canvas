@@ -145,6 +145,28 @@ test("a card dragged past the commit distance settles the way it went", () => {
   expect(deckIn(host).top()).toContain("second");
 });
 
+/**
+ * The id is the identity, which the props type says and nothing measured: settling either of two
+ * cards sharing one takes both, and the reader never meets the second. Only a settle shows it, so
+ * until a key could be pressed this was written down rather than checked.
+ */
+test("two cards sharing an id leave together", () => {
+  const twins: readonly SwipeItem[] = [
+    { id: "run", kind: "gist", title: "first", body: "one", left: "l", right: "r" },
+    { id: "run", kind: "gist", title: "second", body: "two", left: "l", right: "r" },
+    { id: "last", kind: "gist", title: "third", body: "three", left: "l", right: "r" },
+  ];
+  const { host, spoken, press } = draw(createElement(SwipeDeck, { items: twins }));
+
+  press("ArrowRight");
+
+  /* Never "next second": the twin leaves with it, so naming it sends the reader to a card that is
+   * already gone. Found here, on the first pass over behaviour a key was needed to reach. */
+  expect(spoken()).toBe(settledAs("pin", "first", "third"));
+  expect(deckIn(host).top()).toContain("third");
+  expect(host.querySelectorAll('[data-slot="swipe-card"]')).toHaveLength(1);
+});
+
 test("a card let go short of the commit distance decides nothing", () => {
   const { host, spoken } = draw(createElement(SwipeDeck, { items: CARDS }));
 

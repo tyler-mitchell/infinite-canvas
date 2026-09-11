@@ -6,9 +6,9 @@ import { expect, test } from "vite-plus/test";
 import * as kit from "./index.ts";
 
 /**
- * The first test in this kit that draws anything. `react-dom` is already here, so server rendering
- * needs nothing installed: it cannot show hover, focus or layout, but it can show that a component
- * runs at all and that its markup carries what the component promises.
+ * Every component drawn once, on a server. No focus and no pointer here, which is the point: this
+ * asks whether a component runs at all and whether its markup carries what it promises, of all of
+ * them, cheaply. What happens after somebody presses a key is `interaction.dom.test.tsx`.
  */
 const components = Object.entries(kit).filter(
   ([name, value]) =>
@@ -735,9 +735,9 @@ test("two parts sharing a name are still two parts", () => {
  * Both of these ask a consumer for an `id`, and both now say in the type what the id is for. What
  * a page draws is readable here: every row and every card is present, whatever the ids say.
  *
- * The deck's real cost is not: it remembers what it has settled by id, so two cards sharing one
- * leave together. That happens on a settle, which is state this suite cannot reach — it is written
- * in the type rather than measured, and the type is the only place a consumer would look.
+ * The deck's real cost is what a settle does with a repeated id, which needs a key pressed and is
+ * measured in `interaction.dom.test.tsx`. It stays written in the type as well, because the type is
+ * the only place a consumer would look before choosing their ids.
  */
 test("a list with a repeated id still draws every row", () => {
   const entries = [

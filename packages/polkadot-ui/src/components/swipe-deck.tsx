@@ -170,8 +170,12 @@ function SwipeDeck({
   const settle = (direction: "pin" | "skip") => {
     if (!top) return;
     onSettle?.(top, direction);
+    /* What is left once this card has gone, not the card behind it: a twin sharing its id leaves
+     * with it, and naming that one sent the reader to a card already gone. */
+    const left = remainingOf(items, new Set(settled).add(top.id));
+
     setSettled((ids) => new Set(ids).add(top.id));
-    setOutcome(settledAs(direction, top.title, remaining[1]?.title ?? nothingLeft));
+    setOutcome(settledAs(direction, top.title, left[0]?.title ?? nothingLeft));
     rest();
   };
 

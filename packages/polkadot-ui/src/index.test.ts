@@ -303,13 +303,14 @@ test("the entry lists its modules in order, so the surface reads as a list", () 
 });
 
 /**
- * Text that only appears after somebody does something is the hardest kind to check: markup drawn
- * on a server has no focus and no pointer, so nothing in this suite ever sees it. The plot printed
- * a count there that its own summary had refused, and no rule could have found it.
+ * Text that only appears after somebody does something was once unreachable here: markup drawn on
+ * a server has no focus and no pointer. The plot printed a count there that its own summary had
+ * refused, and no rule could have found it.
  *
- * Two components hold state, and the answer for both was to build the words in a function and
- * export it — then the string is reachable without a browser at all. So the rule is not "test the
- * interaction", which this suite cannot do, but "do not bury the words inside it".
+ * `interaction.dom.test.tsx` presses the keys now, so that is no longer why this rule exists. It
+ * stands because the sentence has to live in one place: those tests read the words from these
+ * functions, and words buried in a component would have to be copied into the expectation, where
+ * they would agree with nothing and drift quietly.
  *
  * A third stateful component has to say which function carries its words, or say that it has none.
  */
