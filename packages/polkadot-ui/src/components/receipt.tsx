@@ -92,6 +92,21 @@ function ReceiptNote({ className, ...props }: ReceiptNoteProps) {
   return <span data-slot="receipt-note" className={receipt().note({ className })} {...props} />;
 }
 
+/**
+ * The bar widths a barcode prints for an order. Enough bars that each is a hairline rather than a
+ * plank once they fill the paper, and the parity of each character decides which of the two widths
+ * it gets, so the same order always prints the same code.
+ *
+ * Trimmed first, which is what makes that last part true: untrimmed, `A1` and ` A1 ` printed
+ * different codes. It also settles an order of nothing but spaces, which drew a full strip of
+ * identical bars beside a label that said there was no order — the eye and the ear disagreeing.
+ */
+export function barcodeBars(value: string) {
+  return Array.from(value.trim().repeat(8).slice(0, 48), (character) =>
+    character.codePointAt(0)! % 2 === 0 ? 3 : 1.5,
+  );
+}
+
 export type ReceiptBarcodeProps = Omit<React.ComponentProps<"div">, "children"> & {
   /** The bars are derived from this, so the same order always prints the same code. */
   readonly value: string;
@@ -99,17 +114,15 @@ export type ReceiptBarcodeProps = Omit<React.ComponentProps<"div">, "children"> 
 
 function ReceiptBarcode({ value, className, ...props }: ReceiptBarcodeProps) {
   const styles = receipt();
-  /* Enough bars that each is a hairline rather than a plank once they fill the paper. */
-  const bars = Array.from(value.repeat(8).slice(0, 48), (character) =>
-    character.codePointAt(0)! % 2 === 0 ? 3 : 1.5,
-  );
+  const order = value.trim();
+  const bars = barcodeBars(value);
 
   return (
     <div
       data-slot="receipt-barcode"
       role="img"
       /* An order of nothing draws no bars, so naming it `order ` names a strip of paper. */
-      aria-label={value.trim().length > 0 ? `order ${value}` : "no order"}
+      aria-label={order.length > 0 ? `order ${order}` : "no order"}
       className={styles.barcode({ className })}
       {...props}
     >

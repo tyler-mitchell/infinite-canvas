@@ -178,12 +178,15 @@ test("every component the entry exports is rendered on a page", () => {
 });
 
 /**
- * Six components work something out and export the function that does it — a ceiling, a share, the
+ * Seven components work something out and export the function that does it — a ceiling, a share, the
  * digits of a falling number, the points of a trace, where a dragged card lands, which column a day
- * belongs in. Those six have a test beside them and the other forty do not, which is the right
- * split: the rest are `tv` slots and JSX, and every other rule in this suite already reads those.
+ * belongs in, and the bars a barcode prints. Those seven have a test beside them and the other
+ * thirty nine do not, which is the right split: the rest are `tv` slots and JSX, and every other
+ * rule in this suite already reads those.
  *
- * The split was a habit rather than a rule, so the seventh could have arrived without one.
+ * The split was a habit rather than a rule, so the seventh could have arrived without one. It did,
+ * and this rule is what stopped it: the receipt's barcode was fixed and the list below reported it
+ * by name before the fix was committed.
  */
 const helpersIn = (source: string) => {
   const local = /const (\w+) = tv\(/.exec(source)?.[1];
@@ -245,7 +248,7 @@ test("every component that works something out has a test beside it", () => {
   }));
 
   /*
-   * Told that none of them has a test, the rule has to name the six and no others. Without this
+   * Told that none of them has a test, the rule has to name the seven and no others. Without this
    * the clean result below would also be what an extractor that found nothing at all produced.
    */
   expect(untested(sources, () => false).map((line) => line.split(" ")[0])).toEqual([
@@ -253,6 +256,7 @@ test("every component that works something out has a test beside it", () => {
     "bars.tsx",
     "breakdown.tsx",
     "number-ticker.tsx",
+    "receipt.tsx",
     "sparkline.tsx",
     "swipe-deck.tsx",
   ]);
