@@ -175,39 +175,99 @@ test("every paper ratio the page states is the pair its gradient produces", () =
 });
 
 /**
- * Every seat a control can sit on: the root default, and each one a Surface tone restates.
+ * Every seat named anywhere: the sheet's own declarations, and each one a Surface tone restates.
  *
  * The pages are read as well as the components. None of them names a seat today, so this half
  * guards rather than reports — but a page that painted a ground and seated a control on it would
  * otherwise have been a seat no rule below knew about.
  */
-const seats = () => {
+const seatsNamed = () => {
   const written = [...componentSources, ...pageSources].flatMap(({ source }) =>
     [...source.matchAll(/\[--pk-ring-seat:var\((--pk-[a-z\d-]+)\)\]/g)].map(([, token]) => token!),
   );
-  const [, fallback] = /--pk-ring-seat:\s*var\((--pk-[a-z\d-]+)\)/.exec(themeCss) ?? [];
+  /* All of them. Read with `exec`, this found the root default and silently dropped the paper's,
+   * which is the one seat where the accent ring does not clear three. */
+  const inSheet = [...themeCss.matchAll(/--pk-ring-seat:\s*var\((--pk-[a-z\d-]+)\)/g)].map(
+    ([, token]) => token!,
+  );
 
-  return [...new Set([fallback!, ...written])];
+  return [...new Set([...inSheet, ...written])];
 };
+
+/** The paper is its own world: its own ground, its own ink, and its own ring. */
+const onPaper = (token: string) => token.startsWith("--pk-paper-");
+
+/**
+ * The dark seats. Every rule below asks about a control drawn in the kit's own palette, and none of
+ * those controls goes on the paper — the receipt draws the one button that does, in paper ink.
+ */
+const seats = () => seatsNamed().filter((seat) => !onPaper(seat));
 
 /**
  * A focus ring is a non-text mark, so 3:1 is what it is asked for. The number is not a property of
- * the ring: the ring is the accent at half alpha, so it is a property of the ring and the seat
- * together, and every tone sets a different seat.
+ * the ring: a ring is a colour at an alpha, so it is a property of the ring and the seat together.
+ *
+ * Three rings are drawn, not one. The rule read the accent and said in its own comment that the
+ * accent was the only one, so the grid's hot cell and the receipt's button were both unmeasured —
+ * and each ring clears 3:1 on exactly one family of seats and fails on the other. The pairing is
+ * what holds the kit up, so the pairing is what this reads: each ring against the seats of its own
+ * world, and both worlds accounted for.
  */
-test("the focus ring clears 3:1 on every seat a control can sit on", () => {
+const ringsDrawn = () =>
+  [
+    ...new Set(
+      [...componentSources, ...pageSources].flatMap(({ source }) =>
+        [...source.matchAll(/ring-(pk-[a-z-]+)(?:\/(\d+))?(?=[\s"])/g)].map(
+          ([, name, alpha]) => `--${name}/${alpha ?? "100"}`,
+        ),
+      ),
+    ),
+  ].sort();
+
+test("every ring a slot draws clears 3:1 on the seats it can meet", () => {
+  const pairs = ringsDrawn().flatMap((ring) => {
+    const [token, alpha] = ring.split("/") as [string, string];
+
+    return seatsNamed()
+      .filter((seat) => onPaper(seat) === onPaper(token))
+      .map((seat) => {
+        const ground = declaredAs.get(seat)!;
+
+        return {
+          what: `${ring} on ${seat}`,
+          got: Number(
+            contrast(over(declaredAs.get(token)!, ground, Number(alpha) / 100), ground).toFixed(2),
+          ),
+        };
+      });
+  });
+
+  /* An alpha the pattern misses gives NaN, and NaN is not less than three, so it would pass the
+   * filter below unseen. */
+  expect(pairs.filter(({ got }) => !Number.isFinite(got))).toEqual([]);
+  expect(pairs.filter(({ got }) => got < 3)).toEqual([]);
+  /*
+   * Then the coverage, which is what a misplaced ring actually breaks: moved to the wrong world, a
+   * ring stops answering for the seat it was holding, and the ratios above all still pass. Written
+   * as an inventory first, this reported a changed list of rings and hid that — the mistake the
+   * knob's rule already carries a note about.
+   */
+  expect(seatsNamed().filter((seat) => !pairs.some(({ what }) => what.endsWith(seat)))).toEqual([]);
+  expect(pairs.length).toBe(2 * seats().length + 1);
+  /* Last of all: a fourth ring is named rather than quietly measured. */
+  expect(ringsDrawn()).toEqual(["--pk-accent/50", "--pk-ink-bright/70", "--pk-paper-ink/100"]);
+});
+
+test("a ring put on the wrong world would be reported", () => {
+  const paper = declaredAs.get("--pk-paper-page")!;
+  const ground = declaredAs.get("--pk-ground")!;
   const accent = declaredAs.get("--pk-accent")!;
+  const ink = declaredAs.get("--pk-paper-ink")!;
 
-  const thin = seats()
-    .map((seat) => {
-      const ground = declaredAs.get(seat)!;
-
-      return { seat, ratio: Number(contrast(over(accent, ground, 0.5), ground).toFixed(2)) };
-    })
-    .filter(({ ratio }) => ratio < 3);
-
-  expect(seats().length).toBeGreaterThan(4);
-  expect(thin).toEqual([]);
+  /* The two the rule above is keeping apart. Both are under three, so the split is load-bearing
+   * rather than tidy: either ring on the other world is an invisible focus mark. */
+  expect(Number(contrast(over(accent, paper, 0.5), paper).toFixed(2))).toBe(1.31);
+  expect(Number(contrast(ink, ground).toFixed(2))).toBe(1.4);
 });
 
 /**
@@ -688,15 +748,30 @@ const groundIs = (on: Ground) => {
 const THRESHOLDS = new Set(["3:1", "4.5:1", "7:1"]);
 
 /**
- * Every ratio a comment states. `4.95` and `1.92:1` are the same claim written two ways, so both
+ * The prose a file states a ratio in. A component says it in comments. The README says it in the
+ * text between its fences, and the fences are full of alphas that read as ratios — `bg-pk-ink/[0.06]`
+ * is not a claim about anything.
+ */
+const proseOf = (file: string, source: string) =>
+  file.endsWith(".md")
+    ? source.replaceAll(/```[\s\S]*?```/g, "")
+    : [...source.matchAll(/\/\*[\s\S]*?\*\/|\/\/.*/g)].map(([comment]) => comment).join("\n");
+
+/**
+ * Every ratio that prose states. `4.95` and `1.92:1` are the same claim written two ways, so both
  * reduce to the number. A threshold is what the standard asks, not what these colours give.
  */
-const ratiosStatedIn = (source: string) =>
-  [...source.matchAll(/\/\*[\s\S]*?\*\/|\/\/.*/g)]
-    .flatMap(([comment]) => [...comment.matchAll(/\b\d+(?:\.\d+)?:1\b|\b\d+\.\d\d\b/g)])
+const ratiosIn = (prose: string) =>
+  [...prose.matchAll(/\b\d+(?:\.\d+)?:1\b|\b\d+\.\d\d\b/g)]
     .map(([found]) => found)
     .filter((found) => !THRESHOLDS.has(found))
     .map((found) => found.replace(":1", ""));
+
+/**
+ * Everything that can state one. The README is the consumer's copy, so a wrong ratio there is read
+ * by somebody deciding what to build — worse than a wrong one in a comment, and it was unswept.
+ */
+const stating = [...componentSources, { file: "README.md", source: read("../README.md") }] as const;
 
 /**
  * Each ratio a component states in prose, and the two colours it is a ratio between. One was a
@@ -746,6 +821,10 @@ const CLAIMED = [
   { file: "activity-grid.tsx", says: "1.41", ink: "--pk-level-0", on: "--pk-level-1", alpha: 1 },
   { file: "activity-grid.tsx", says: "2.03", ink: "--pk-accent", on: "--pk-level-3", alpha: 1 },
   { file: "activity-grid.tsx", says: "1.08", ink: "--pk-level-0", on: "--pk-surface", alpha: 1 },
+  /* The README's pair: the accent ring where it must never be drawn, and the ring the paper hands
+   * a control instead. The two are the reason the sheet gives the paper its own seat. */
+  { file: "README.md", says: "1.31", ink: "--pk-accent", on: "--pk-paper-page", alpha: 0.5 },
+  { file: "README.md", says: "13.48", ink: "--pk-paper-ink", on: "--pk-paper-page", alpha: 1 },
 ] as const satisfies readonly {
   file: string;
   says: string;
@@ -754,9 +833,9 @@ const CLAIMED = [
   alpha: number;
 }[];
 
-test("every ratio a component writes down is the ratio it has", () => {
+test("every ratio the kit writes down, in a comment or in the README, is the ratio it has", () => {
   const wrong = CLAIMED.flatMap(({ file, says, ink, on, alpha }) => {
-    const source = componentSources.find((entry) => entry.file === file)?.source;
+    const source = stating.find((entry) => entry.file === file)?.source;
     if (!source?.includes(says)) return [`${file} no longer says ${says}`];
 
     const ground = groundIs(on);
@@ -767,10 +846,10 @@ test("every ratio a component writes down is the ratio it has", () => {
     return measured === says ? [] : [`${file} says ${says}, the colours give ${measured}`];
   });
 
-  /* A table answers for the rows it holds. This asks what the components state. */
+  /* A table answers for the rows it holds. This asks what the files state. */
   const covered = new Set(CLAIMED.map(({ file, says }) => `${file} ${says}`));
-  const stated = componentSources.flatMap(({ file, source }) =>
-    ratiosStatedIn(source).map((says) => `${file} ${says}`),
+  const stated = stating.flatMap(({ file, source }) =>
+    ratiosIn(proseOf(file, source)).map((says) => `${file} ${says}`),
   );
 
   expect(declaredAs.size).toBeGreaterThan(35);
@@ -778,6 +857,17 @@ test("every ratio a component writes down is the ratio it has", () => {
   /* Were the reader to find nothing, the line below would pass by reaching nothing. */
   expect(stated.length).toBeGreaterThan(6);
   expect(stated.filter((claim) => !covered.has(claim))).toEqual([]);
+});
+
+test("a fence is not prose, and a comment is not code", () => {
+  /* The README's alphas live in fences and are not claims; its sentences are. */
+  expect(
+    ratiosIn(proseOf("README.md", "`bg-pk-ink/[0.06]`\n```\n0.42\n```\nreaches 1.31:1 here.")),
+  ).toEqual(["0.06", "1.31"]);
+  /* A component's code is not prose: only what its comments say counts. */
+  expect(ratiosIn(proseOf("a.tsx", "const alpha = 0.42;\n/* reaches 4.95 and 3:1 */"))).toEqual([
+    "4.95",
+  ]);
 });
 
 /*
@@ -1142,4 +1232,79 @@ test("the knob on a filled track is held apart by its shadow, not by contrast", 
   expect(alpha).toBeDefined();
   expect(Number(contrast(knob, band).toFixed(2))).toBe(5.01);
   expect(Number(contrast(band, accent).toFixed(2))).toBe(3.07);
+});
+
+/**
+ * A shadow is elevation nearly everywhere it is drawn: the face under it already has a border, so
+ * the border is the edge and the shadow only says how far off the page the face sits. The case
+ * worth finding is the other one — a face with a shadow and no border, where the shadow is the only
+ * thing that could be holding the edge. The knob and the grid cell are both that shape, and both
+ * were measured only after somebody thought to ask.
+ *
+ * So the set is read off the slots instead of listed, and each borderless face has to say what
+ * holds its edge. Four say the rules above already measured it. One says its fill does, and that
+ * word is checked here, because a claim about a fill is a ratio and not a word.
+ */
+const HOLDS_ITS_EDGE_BY: Record<string, "a rule above" | "its own fill"> = {
+  "activity-grid.tsx shadow-pk-cell": "a rule above",
+  "receipt.tsx shadow-pk-paper": "its own fill",
+  "slider.tsx shadow-pk-knob": "a rule above",
+  "switch.tsx shadow-pk-knob": "a rule above",
+  "toggle-group.tsx shadow-pk-knob": "a rule above",
+};
+
+const shadowedFaces = (sources: readonly { readonly file: string; readonly source: string }[]) =>
+  sources.flatMap(({ file, source }) =>
+    [...source.matchAll(/"([^"]*\bshadow-(pk-[a-z-]+)\b[^"]*)"/g)].map(([, classes, name]) => ({
+      what: `${file} shadow-${name}`,
+      bordered: /(?:^|\s)border(?:-[trbl])?(?:\s|$)/.test(classes!),
+    })),
+  );
+
+test("a bordered face and a borderless one are told apart by the classes they write", () => {
+  expect(
+    shadowedFaces([
+      { file: "a.tsx", source: `"border border-pk-line bg-pk-surface shadow-pk-card"` },
+      { file: "b.tsx", source: `"bg-pk-knob shadow-pk-knob"` },
+      /* `border-pk-line` on its own sets a colour and draws nothing, so this face is borderless. */
+      { file: "c.tsx", source: `"border-pk-line shadow-pk-card"` },
+    ]),
+  ).toEqual([
+    { what: "a.tsx shadow-pk-card", bordered: true },
+    { what: "b.tsx shadow-pk-knob", bordered: false },
+    { what: "c.tsx shadow-pk-card", bordered: false },
+  ]);
+});
+
+test("a face whose shadow is its only edge says what holds that edge instead", () => {
+  const borderless = [
+    ...new Set(
+      shadowedFaces(componentSources)
+        .filter(({ bordered }) => !bordered)
+        .map(({ what }) => what),
+    ),
+  ].sort();
+
+  /* Read first: every borderless face is accounted for, and a new one is named rather than passed. */
+  expect(borderless).toEqual(Object.keys(HOLDS_ITS_EDGE_BY));
+
+  /*
+   * The paper is a gradient, so both its stops answer, and the darker one is the one that matters.
+   * A sheet this light on grounds this dark is nowhere near the floor — the point of measuring it
+   * is that "the fill holds the edge" stops being an assertion.
+   */
+  const pairs = Object.entries(HOLDS_ITS_EDGE_BY)
+    .filter(([, holder]) => holder === "its own fill")
+    .flatMap(() =>
+      stopsOf("--pk-paper").flatMap((stop) =>
+        seats().map((seat) => ({
+          what: `paper at ${stop} on ${seat}`,
+          got: contrast(stop, declaredAs.get(seat)!),
+        })),
+      ),
+    );
+
+  expect(pairs.length).toBe(2 * seats().length);
+  expect(pairs.filter(({ got }) => !Number.isFinite(got))).toEqual([]);
+  expect(pairs.filter(({ got }) => got < 3)).toEqual([]);
 });

@@ -190,6 +190,12 @@ tone restates the one it paints, so a control never names its own backdrop — w
 `focus-visible:ring-offset-(color:--pk-ring-seat)` and let the cascade answer. Anything new that
 paints a background should restate it too.
 
+The seat answers for the offset, not for the ring itself. The accent ring is built for the dark
+grounds; `Receipt` is a light sheet, and it restates the seat **and** rings in `pk-paper-ink`,
+because the accent on paper is 1.31:1 and invisible where paper ink reaches 13.48:1. A control from this kit dropped inside a
+`Receipt` keeps its accent ring and loses it — put `pk-paper-*` colours on anything that goes on the
+paper.
+
 ## A card being dragged
 
 The sheet carries one rule for something this kit does not draw. A consumer that moves cards around
