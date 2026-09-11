@@ -3,7 +3,7 @@ import { readdirSync, readFileSync } from "node:fs";
 import { tv as stock } from "tailwind-variants";
 import { expect, test } from "vite-plus/test";
 
-import { FONT_SIZES, tv } from "./tv.ts";
+import { FONT_SIZES, THEME_NAMES, tv } from "./tv.ts";
 
 /*
  * Read as a file rather than imported with `?raw`: Vite's CSS pipeline claims the import and
@@ -111,4 +111,85 @@ test("two sizes still collapse to the last one", () => {
 
   expect(styles).toContain("text-pk-display");
   expect(styles).not.toContain("text-pk-label");
+});
+
+/**
+ * The same hole the sizes had, in four more namespaces. `tw-merge` knows the names Tailwind ships;
+ * a theme name is a class it has never seen, so it keeps it beside the one written to replace it and
+ * the stylesheet's print order decides which draws.
+ *
+ * Found on the page, not here: a number field's step buttons pass `rounded-none` over the button's
+ * `rounded-pk-control` and drew an 8px corner. Every namespace whose prefix and `tw-merge` group
+ * share a word is listed in `THEME_NAMES` and checked against the sheet below.
+ */
+/**
+ * The sheet's namespace for each `tw-merge` group. Only the radius differs — Tailwind writes it as
+ * `rounded-` and the theme declares it as `--radius-` — and reading the wrong one reported every
+ * name as undeclared while the merge itself was correct.
+ */
+const NAMESPACE_OF: Record<string, string> = { rounded: "radius" };
+
+const declaredIn = (group: string) =>
+  [
+    ...themeCss.matchAll(
+      new RegExp(String.raw`^\s*--${NAMESPACE_OF[group] ?? group}-(pk-[a-z\d-]+):`, "gm"),
+    ),
+  ].map(([, name]) => name!);
+
+const merged = (base: string, over: string) => tv({ base })({ className: over }).split(" ").sort();
+
+test("every namespace is read, and the sheet declares names in each", () => {
+  const counted = Object.keys(THEME_NAMES).map((group) => [group, declaredIn(group).length]);
+
+  expect(counted).toEqual([
+    ["rounded", 8],
+    ["shadow", 6],
+    ["ease", 2],
+    ["animate", 2],
+  ]);
+});
+
+test("every name the theme declares is one tailwind-merge is told about", () => {
+  const missing = Object.entries(THEME_NAMES).flatMap(([group, names]) =>
+    declaredIn(group)
+      .filter((name) => !(names as readonly string[]).includes(name))
+      .map((name) => `${group}-${name}`),
+  );
+
+  expect(missing).toEqual([]);
+});
+
+test("no name is claimed that the theme does not declare", () => {
+  const stale = Object.entries(THEME_NAMES).flatMap(([group, names]) =>
+    names.filter((name) => !declaredIn(group).includes(name)).map((name) => `${group}-${name}`),
+  );
+
+  expect(stale).toEqual([]);
+});
+
+test("a radius name works on a side and a corner, not only on the whole box", () => {
+  expect(merged("rounded-l-pk-control", "rounded-l-none")).toEqual(["rounded-l-none"]);
+  expect(merged("rounded-tl-pk-card", "rounded-tl-pk-chip")).toEqual(["rounded-tl-pk-chip"]);
+  /* A side does not answer for the whole box, so both survive and the side wins where they meet. */
+  expect(merged("rounded-pk-card", "rounded-l-pk-chip")).toEqual([
+    "rounded-l-pk-chip",
+    "rounded-pk-card",
+  ]);
+});
+
+test("a later class replaces an earlier one in every namespace", () => {
+  expect(merged("rounded-pk-control", "rounded-none")).toEqual(["rounded-none"]);
+  expect(merged("rounded-pk-control", "rounded-pk-card")).toEqual(["rounded-pk-card"]);
+  expect(merged("shadow-pk-tray", "shadow-none")).toEqual(["shadow-none"]);
+  expect(merged("shadow-pk-tray", "shadow-pk-cell")).toEqual(["shadow-pk-cell"]);
+  expect(merged("ease-pk-swift", "ease-linear")).toEqual(["ease-linear"]);
+  expect(merged("animate-pk-ping", "animate-none")).toEqual(["animate-none"]);
+});
+
+/** A size and a colour share the `text-` prefix and must both survive, which is why they are listed. */
+test("a theme size and a theme colour still live on one element", () => {
+  expect(merged("text-pk-note", "text-pk-ink-bright")).toEqual([
+    "text-pk-ink-bright",
+    "text-pk-note",
+  ]);
 });

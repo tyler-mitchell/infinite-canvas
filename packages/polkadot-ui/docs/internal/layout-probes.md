@@ -4,9 +4,12 @@ Facts about this kit that only a browser can establish — what moves when text 
 thing costs. The suite has no layout engine and no clock worth trusting, so nothing here is
 enforced: each probe is written out so it can be run again rather than trusted.
 
-Run them in the preview with the dev server up. **Set an explicit viewport first.** A hidden pane
-reports `window.innerWidth` as `0`, every element as `clientWidth: 0`, and therefore every element
-as overflowing its box. Confirm the width before believing a result.
+Run them in the preview with the dev server up. **Set an explicit viewport first, and read
+`innerWidth` back.** A hidden pane reports `window.innerWidth` as `0`, every element as
+`clientWidth: 0`, and therefore every element as overflowing its box. An unset pane is the quieter
+version of the same trap: it is simply narrower than the layout's minimum, so every page reports a
+plausible-looking 68 to 236px of overflow and nothing is wrong. Both were met here. Confirm the
+width before believing a result.
 
 A figure here is true only while the code that produced it is unchanged, and nothing re-runs these.
 What the suite can hold is the half below the measurement: the classes that do the cutting. The rule

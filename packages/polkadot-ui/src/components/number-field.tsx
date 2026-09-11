@@ -21,7 +21,14 @@ const numberField = tv({
      */
     group:
       "inline-flex items-center px-0 has-focus-visible:ring-2 has-focus-visible:ring-pk-accent/50 has-focus-visible:ring-offset-2 has-focus-visible:ring-offset-(color:--pk-ring-seat)",
+    /*
+     * The outer corners belong to the field, not to the button. A step is flush to the edge of a
+     * box that rounds and does not clip, so a square hover fill paints into the corner the field
+     * has cut away. Clipping the group instead would take the step's own focus ring with it.
+     */
     step: "rounded-none text-pk-ink-faint hover:text-pk-ink-bright",
+    stepStart: "rounded-l-pk-control",
+    stepEnd: "rounded-r-pk-control",
     input:
       "h-full w-full min-w-0 bg-transparent px-1 text-center font-pk-mono text-pk-mono tabular-nums text-pk-ink outline-none",
     scrub: "w-fit cursor-ew-resize select-none",
@@ -93,7 +100,8 @@ export type NumberFieldGroupProps = WithClassName<NumberFieldPrimitive.Group.Pro
  */
 function NumberFieldGroup({ tone, className, ...props }: NumberFieldGroupProps) {
   const styles = numberField();
-  const step = buttonVariants({ tone: "ghost", size: "icon", className: styles.step() });
+  const step = (end: string) =>
+    buttonVariants({ tone: "ghost", size: "icon", className: `${styles.step()} ${end}` });
 
   return (
     <NumberFieldPrimitive.Group
@@ -101,13 +109,19 @@ function NumberFieldGroup({ tone, className, ...props }: NumberFieldGroupProps) 
       className={inputVariants({ tone, className: styles.group({ className }) })}
       {...props}
     >
-      <NumberFieldPrimitive.Decrement data-slot="number-field-step" className={step}>
+      <NumberFieldPrimitive.Decrement
+        data-slot="number-field-step"
+        className={step(styles.stepStart())}
+      >
         <svg viewBox="0 0 12 12" fill="none" aria-hidden="true">
           <path d="M3 6h6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
         </svg>
       </NumberFieldPrimitive.Decrement>
       <NumberFieldPrimitive.Input data-slot="number-field-input" className={styles.input()} />
-      <NumberFieldPrimitive.Increment data-slot="number-field-step" className={step}>
+      <NumberFieldPrimitive.Increment
+        data-slot="number-field-step"
+        className={step(styles.stepEnd())}
+      >
         <svg viewBox="0 0 12 12" fill="none" aria-hidden="true">
           <path d="M6 3v6M3 6h6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
         </svg>
