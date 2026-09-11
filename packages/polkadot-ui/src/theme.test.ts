@@ -1615,7 +1615,7 @@ test("a percent margin, which follows width even when vertical, is named where i
 /**
  * Seven slots cut text that will not fit, and what they do was measured in a browser rather than
  * here: `docs/internal/layout-probes.md` holds the figures, because nothing in this suite has a
- * layout engine. Those figures are only true while the classes that produced them are still there.
+ * layout engine. Those figures are true only while the classes that produced them are still there.
  *
  * So this pins the classes, which is the one half a suite without layout can hold. Take
  * `line-clamp-3` off the card's title and the foot goes back over the bottom edge — the fault that
@@ -1639,8 +1639,8 @@ const CUTS_ITS_TEXT: Record<string, string> = {
  * the name rather than beside it, so the planted case below holds both shapes: a reader that knew
  * only one would sweep five and look like it had swept all seven.
  *
- * `\s*` crosses a line break here, which is why one pattern reads both. `grep` does not, and the
- * five-of-seven reading that prompted this rule came from a shell sweep rather than from the rule.
+ * `\s*` crosses a line break here, which `grep` does not — the five-of-seven reading that prompted
+ * this rule came from a shell sweep, and the rule never had that fault.
  */
 const slotsOf = (source: string) =>
   [...source.matchAll(/^\s{4}([a-zA-Z]+):\s*"([^"]*)"/gm)].map(([, slot, classes]) => ({
@@ -1667,10 +1667,19 @@ test("every slot the probes measured still carries the class that made it true",
    * the card's clamp to `line-clamp-2` reports `swipe-deck.tsx title` by name, here. Removing it
    * outright drops the slot out of the set altogether, so the inventory below is what names it —
    * the same fault, found by the other half.
+   *
+   * A slot the table does not know is said out rather than stood in for. The stand-in was a space,
+   * which every class list contains, so it answered yes — and an edit turned that space into a NUL
+   * byte, which made this whole file read as binary to `grep`: empty results, silently, and two
+   * rules written here as duplicates of rules already in this file.
    */
   expect(
     cutting
-      .filter(({ what, classes }) => !classes.includes(CUTS_ITS_TEXT[what] ?? " "))
+      .filter(({ what, classes }) => {
+        const needs = CUTS_ITS_TEXT[what];
+
+        return needs === undefined || !classes.includes(needs);
+      })
       .map(({ what }) => what),
   ).toEqual([]);
   expect(cutting.map(({ what }) => what).sort()).toEqual(Object.keys(CUTS_ITS_TEXT));
