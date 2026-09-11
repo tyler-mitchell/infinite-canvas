@@ -60,10 +60,13 @@ function Disclosure() {
         <Accordion className={styles.measure()}>
           {WRITING.map(([title, blurb, date]) => (
             <Accordion.Item key={title}>
-              <Accordion.Trigger>
-                <Accordion.Title>{title}</Accordion.Title>
-                <Accordion.Meta>{date}</Accordion.Meta>
-              </Accordion.Trigger>
+              {/* Second-level: these items sit straight under the page's own heading. */}
+              <Accordion.Header render={<h2 />}>
+                <Accordion.Trigger>
+                  <Accordion.Title>{title}</Accordion.Title>
+                  <Accordion.Meta>{date}</Accordion.Meta>
+                </Accordion.Trigger>
+              </Accordion.Header>
               {/* Find-in-page reaches a closed blurb and opens the item that holds it. */}
               <Accordion.Panel hiddenUntilFound>{blurb}</Accordion.Panel>
             </Accordion.Item>

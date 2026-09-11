@@ -1,12 +1,14 @@
 export { FONT_SIZES, tv } from "./tv.ts";
 export {
   Accordion,
+  AccordionHeader,
   AccordionItem,
   AccordionMeta,
   AccordionPanel,
   AccordionTitle,
   AccordionTrigger,
   accordionVariants,
+  type AccordionHeaderProps,
   type AccordionItemProps,
   type AccordionMetaProps,
   type AccordionPanelProps,

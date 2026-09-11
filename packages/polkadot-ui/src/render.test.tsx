@@ -34,6 +34,7 @@ const REQUIRED: Record<string, Record<string, unknown>> = {
  * rather than failing. They are covered as whole compositions further down instead.
  */
 const NEEDS_ITS_ROOT = new Set([
+  "AccordionHeader",
   "AccordionItem",
   "AccordionPanel",
   "AccordionTrigger",

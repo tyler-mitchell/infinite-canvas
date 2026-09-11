@@ -44,19 +44,36 @@ function AccordionItem({ className, ...props }: AccordionItemProps) {
   );
 }
 
+export type AccordionHeaderProps = WithClassName<AccordionPrimitive.Header.Props>;
+
+/**
+ * The heading that labels a panel, an `h3` as Base UI draws it. Reach for `render` where the
+ * accordion's items are not third-level sections — directly under a page's `h1` they are second,
+ * and a reader navigating by heading meets a gap otherwise.
+ *
+ * It is a part rather than something the trigger wraps, because the trigger has a `render` of its
+ * own and a wrapper leaves nowhere to put the heading's. Every other heading in this kit is a part
+ * you can render into the tag you want, and this was the one you could not reach.
+ */
+function AccordionHeader({ className, ...props }: AccordionHeaderProps) {
+  return (
+    <AccordionPrimitive.Header
+      data-slot="accordion-header"
+      className={accordion().header({ className })}
+      {...props}
+    />
+  );
+}
+
 export type AccordionTriggerProps = WithClassName<AccordionPrimitive.Trigger.Props>;
 
 function AccordionTrigger({ className, ...props }: AccordionTriggerProps) {
-  const styles = accordion();
-
   return (
-    <AccordionPrimitive.Header className={styles.header()}>
-      <AccordionPrimitive.Trigger
-        data-slot="accordion-trigger"
-        className={styles.trigger({ className })}
-        {...props}
-      />
-    </AccordionPrimitive.Header>
+    <AccordionPrimitive.Trigger
+      data-slot="accordion-trigger"
+      className={accordion().trigger({ className })}
+      {...props}
+    />
   );
 }
 
@@ -91,6 +108,7 @@ function AccordionPanel({ className, children, ...props }: AccordionPanelProps) 
 }
 
 Accordion.Item = AccordionItem;
+Accordion.Header = AccordionHeader;
 Accordion.Trigger = AccordionTrigger;
 Accordion.Title = AccordionTitle;
 Accordion.Meta = AccordionMeta;
@@ -98,6 +116,7 @@ Accordion.Panel = AccordionPanel;
 
 export {
   Accordion,
+  AccordionHeader,
   AccordionItem,
   AccordionMeta,
   AccordionPanel,

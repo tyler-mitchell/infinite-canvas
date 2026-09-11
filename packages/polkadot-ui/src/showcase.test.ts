@@ -3039,6 +3039,49 @@ test("every ticker the pages draw is drawn through the one thing that announces"
 });
 
 /**
+ * A trigger with no header around it draws a button and no heading at all, so the panel it opens is
+ * labelled by nothing and a reader navigating by heading walks past the whole accordion.
+ *
+ * The header used to be inside the trigger, where it could not be forgotten and its level could not
+ * be chosen either — Base UI draws an `h3`, and these items sit under the page's own `h1`, so the
+ * outline read 1 then 3 with nothing between. Separating them fixed the level and made the omission
+ * possible, which is what this holds.
+ */
+const barePanelHeadings = (
+  sources: readonly { readonly file: string; readonly source: string }[],
+) =>
+  sources
+    .flatMap(({ file, source }) => {
+      const triggers = [...source.matchAll(/<Accordion\.Trigger[\s/>]/g)].length;
+      const headers = [...source.matchAll(/<Accordion\.Header[\s/>]/g)].length;
+
+      return triggers === headers
+        ? []
+        : [`${file} draws ${triggers} triggers under ${headers} headers`];
+    })
+    .sort();
+
+test("an accordion trigger with no heading over it is reported", () => {
+  expect(barePanelHeadings([{ file: "a.tsx", source: "<Accordion.Trigger>" }])).toEqual([
+    "a.tsx draws 1 triggers under 0 headers",
+  ]);
+  expect(
+    barePanelHeadings([
+      { file: "b.tsx", source: "<Accordion.Header render={<h2 />}><Accordion.Trigger />" },
+    ]),
+  ).toEqual([]);
+});
+
+test("every accordion a page draws keeps its heading, and says which level", () => {
+  const drawn = pages.filter(({ source }) => source.includes("<Accordion.Trigger"));
+
+  /* Read first: no accordion at all would make the comparison below agree with nothing. */
+  expect(drawn.map(({ file }) => file)).toEqual(["routes/disclosure.tsx"]);
+  expect(barePanelHeadings(pages)).toEqual([]);
+  expect(drawn[0]!.source).toContain("<Accordion.Header render={<h2 />}>");
+});
+
+/**
  * The sheet declares its names twice, and only one half survives into the browser.
  *
  * `:root` holds the real tokens — `--pk-surface`, `--pk-lift-held` — and a consumer can read any of
