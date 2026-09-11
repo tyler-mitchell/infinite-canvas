@@ -102,6 +102,15 @@ export type NumberTickerProps = Omit<React.ComponentProps<"span">, "children"> &
  * Each digit rolls in its own slot, keyed by place value rather than by position in the string, so
  * a number that gains a digit rolls the units column as the units column. The units digit leads
  * and each place to its left follows by `stagger`; a separator costs no step.
+ *
+ * **Render it through `Readout` when the value changes in place.** On its own this holds the whole
+ * figure for a reader and says nothing when that figure moves: the rolling digits are hidden, and
+ * the text behind them is replaced silently. `Readout` is the one thing in this kit that announces,
+ * and every ticker on these pages is drawn through it — which is also why none of them carries a
+ * live region of its own.
+ *
+ * A ticker that is only ever set once does not need it. One that counts is the case `Readout`
+ * exists for.
  */
 function NumberTicker({
   value,

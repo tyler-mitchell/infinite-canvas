@@ -3010,3 +3010,23 @@ test("a document a comment names is a document that is there", () => {
       .map(({ file, path }) => `${file} points at ${path}`),
   ).toEqual([]);
 });
+
+/**
+ * A ticker holds the whole figure for a reader and says nothing when that figure moves: the rolling
+ * digits are hidden, and the text behind them is replaced in silence. `Readout` is the one thing in
+ * this kit that announces, so a ticker that counts belongs inside one — which is why the ticker
+ * carries no live region of its own, and why its own documentation says to compose the two.
+ *
+ * Every ticker these pages draw is inside one. A bare one would leave that guidance true of the
+ * component and false of the showcase, and the showcase is the shape a consumer copies.
+ */
+test("every ticker the pages draw is drawn through the one thing that announces", () => {
+  const found = (pattern: RegExp) =>
+    pages.flatMap(({ file, source }) => [...source.matchAll(pattern)].map(() => file)).sort();
+
+  const drawn = found(/<NumberTicker[\s/>]/g);
+
+  /* Read first: no tickers at all would make the comparison below agree with nothing. */
+  expect(drawn.length).toBeGreaterThan(2);
+  expect(found(/render=\{<NumberTicker[\s/>]/g)).toEqual(drawn);
+});
