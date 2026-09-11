@@ -105,6 +105,21 @@ export const tv = createTV({
 });
 ```
 
+**Borrowing from a sibling: its variants when the element is not yours, the component itself when it
+is.** `Field` styles a Base UI label, so it can only take the classes; the plot and the deck each
+draw a span they own, so they draw the `Readout` and the announcing behaviour has one owner:
+
+```tsx
+// field.tsx — the element comes from Base UI, so only the classes can be borrowed.
+<FieldPrimitive.Label className={textVariants({ as: "label", className: styles.label({ className }) })} />
+
+// activity-grid.tsx — the element is the component's own, so borrow the component.
+<Readout className={styles.readout()}>{/* … */}</Readout>
+```
+
+Reaching for the variants where the component would do leaves two copies of a behaviour. Announcing
+was written out by hand in two components before this, and `role="status"` now appears in one file.
+
 A new `--text-pk-*` token in `theme.css` has to be added to `FONT_SIZES` as well, or any slot that
 sets that size together with a colour will lose one of the two.
 

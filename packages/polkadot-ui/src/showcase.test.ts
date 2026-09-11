@@ -2883,6 +2883,11 @@ test("nothing but the readout writes a live region", () => {
     '"aria-live": "polite"',
   );
   expect(writing.map(({ file }) => file)).toEqual(["text.tsx"]);
+  /* And the sentence that teaches it, so the README cannot go on claiming one file after a second
+   * starts writing its own. */
+  expect(readFileSync(new URL("../README.md", import.meta.url), "utf8")).toContain(
+    "appears in one file",
+  );
 });
 
 /**
