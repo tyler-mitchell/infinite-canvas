@@ -305,7 +305,7 @@ function Widgets() {
             {
               name: "emptyLabel",
               fallback: "nothing left",
-              note: "what the well says when drained",
+              note: "what the well says when drained, and the last thing the deck announces",
             },
           ]}
         />
