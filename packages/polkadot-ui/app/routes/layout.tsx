@@ -279,14 +279,23 @@ function Layout() {
           <Meta>one tab stop, arrows move between buttons</Meta>
         </Row>
         <div className={styles.rails()}>
-          <Toolbar>
-            <Toolbar.Group>
-              <Toolbar.Button size="icon">−</Toolbar.Button>
+          {/* Two rails on one page, and each group inside them, name themselves: a toolbar and a
+              group both carry a role that a reader hears, and an unnamed one announces as the bare
+              word. The buttons are the only thing that told them apart. */}
+          <Toolbar aria-label="canvas">
+            {/* A glyph is not a word. Left as the button's only name, "−" is read as the character
+                it is, so each icon button says what it does and keeps the glyph as the picture. */}
+            <Toolbar.Group aria-label="zoom">
+              <Toolbar.Button size="icon" aria-label="zoom out">
+                −
+              </Toolbar.Button>
               <Toolbar.Button size="sm">100%</Toolbar.Button>
-              <Toolbar.Button size="icon">+</Toolbar.Button>
+              <Toolbar.Button size="icon" aria-label="zoom in">
+                +
+              </Toolbar.Button>
             </Toolbar.Group>
             <Toolbar.Separator />
-            <Toolbar.Group>
+            <Toolbar.Group aria-label="selection">
               <Toolbar.Button size="sm">fit</Toolbar.Button>
               <Toolbar.Button size="sm">group</Toolbar.Button>
               {/* Disabled, and still reached by the arrows, which is what focusableWhenDisabled means. */}
@@ -296,14 +305,23 @@ function Layout() {
             </Toolbar.Group>
           </Toolbar>
 
-          <Toolbar orientation="vertical">
-            <Toolbar.Group>
-              <Toolbar.Button size="icon">−</Toolbar.Button>
-              <Toolbar.Button size="icon">+</Toolbar.Button>
+          <Toolbar orientation="vertical" aria-label="canvas, vertical rail">
+            {/* The page draws the same rail twice to show the orientation, so every name in the
+                second one says which rail it belongs to — two "zoom out" buttons are two buttons a
+                reader cannot choose between. */}
+            <Toolbar.Group aria-label="zoom, vertical rail">
+              <Toolbar.Button size="icon" aria-label="zoom out, vertical rail">
+                −
+              </Toolbar.Button>
+              <Toolbar.Button size="icon" aria-label="zoom in, vertical rail">
+                +
+              </Toolbar.Button>
             </Toolbar.Group>
             <Toolbar.Separator />
-            <Toolbar.Group>
-              <Toolbar.Button size="icon">◇</Toolbar.Button>
+            <Toolbar.Group aria-label="shape">
+              <Toolbar.Button size="icon" aria-label="draw a shape">
+                ◇
+              </Toolbar.Button>
             </Toolbar.Group>
           </Toolbar>
         </div>
