@@ -28,7 +28,13 @@ export type AuroraProps = Omit<React.ComponentProps<"div">, "children"> & {
    * label runs its own words into the bright part.
    */
   readonly label: string;
-  /** Sits below every blob, on the void, so its length does not matter. */
+  /**
+   * Sits below the glow rather than in it, so its length does not matter — but the clearance does.
+   * The blobs are placed with margins in percent, and a percent margin is read against width, so a
+   * narrower card lowers them while the headline stays put: measured, forty five pixels of room at
+   * a card of four hundred and thirty four, thirty at three hundred and eighty, and none at about
+   * two hundred and seventy five. Give the card room, or the glow reaches the words.
+   */
   readonly headline: string;
 };
 
