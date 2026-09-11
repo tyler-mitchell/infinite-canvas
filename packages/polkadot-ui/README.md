@@ -227,6 +227,18 @@ Nothing here sets those attributes — no component is a board — so the rule i
 consumer writes them. It is the one place the kit styles a slot it does not own, which is why it is
 written down rather than left to be found in the sheet.
 
+## Which names you can read
+
+`var(--pk-lift-held)` above is a `--pk-*` name, and that is the half of the sheet a browser can see.
+`theme.css` declares every token twice: once on `:root` as `--pk-surface`, `--pk-radius-card`,
+`--pk-lift-held`, and again inside `@theme` as `--color-pk-surface`, `--radius-pk-card` and their
+siblings. The second set exists to tell Tailwind what `bg-pk-surface` and `rounded-pk-card` mean.
+Tailwind writes those values straight into the utilities and never emits the names, so
+`var(--color-pk-surface)` resolves to nothing — no error, no colour.
+
+Read at `:root` in a running page: 82 `--pk-*` names have values and every `@theme` name is empty.
+Write a utility, or read a `--pk-*` name. A rule holds every CSS example in these documents to that.
+
 ## Type scale
 
 Text roles are named for their job, not their size: `display`, `title`, `label`, `kind`, `prose`,

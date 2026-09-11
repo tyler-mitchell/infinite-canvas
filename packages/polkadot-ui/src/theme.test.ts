@@ -200,10 +200,15 @@ test("every prefix the kit writes is one the map reads", () => {
 });
 
 /**
- * The namespaces that exist only to be written, and the prefix each is written with. Colour is
- * left out on purpose — the palette is a public surface, so a colour only a `.pk-*` rule in the
- * sheet draws is still one a consumer may reach for. Sizes are left out because a `--text-pk-*`
- * carries `--line-height` and `--font-weight` modifiers that nothing writes on their own.
+ * The namespaces that exist only to be written, and the prefix each is written with.
+ *
+ * Colours and sizes are left out for the same reason, and it is not that they cannot be checked.
+ * Both are public surfaces: the palette and the type scale are what a consumer builds with, so a
+ * name this kit happens not to draw is still one somebody reaches for. The four below are the
+ * kit's own machinery, and one nothing draws is dead weight in a stylesheet a consumer ships.
+ *
+ * All sixteen sizes are in fact drawn — counted, from once for the display to twelve for the mono —
+ * so a rule would report nothing today. It would be reporting the wrong thing.
  */
 const WRITTEN_AS: Record<string, string> = {
   animate: "animate",

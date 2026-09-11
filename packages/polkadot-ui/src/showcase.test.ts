@@ -3037,3 +3037,94 @@ test("every ticker the pages draw is drawn through the one thing that announces"
   expect(drawn.length).toBeGreaterThan(2);
   expect(found(/render=\{<NumberTicker[\s/>]/g)).toEqual(drawn);
 });
+
+/**
+ * The sheet declares its names twice, and only one half survives into the browser.
+ *
+ * `:root` holds the real tokens — `--pk-surface`, `--pk-lift-held` — and a consumer can read any of
+ * them. The `@theme` block below republishes them as `--color-pk-surface` and its siblings, which
+ * is how Tailwind is told what `bg-pk-surface` means: Tailwind writes the value straight into the
+ * utility and never emits the alias, so `var(--color-pk-surface)` resolves to nothing at all.
+ *
+ * Read at `:root` in the running page: 82 `--pk-*` tokens resolve and every `@theme` name is empty.
+ * So a CSS example in a document is one of two things, and one of them silently does nothing.
+ */
+const sheetNames = () => {
+  const sheet = readFileSync(new URL("./theme.css", import.meta.url), "utf8");
+  const themeAt = sheet.indexOf("@theme");
+  const root = sheet.slice(0, themeAt < 0 ? sheet.length : themeAt);
+
+  return {
+    reachable: new Set([...root.matchAll(/^\s*(--pk-[a-z\d-]+):/gm)].map(([, name]) => name!)),
+    aliases: new Set(
+      [...sheet.matchAll(/^\s*(--(?:color|text|radius|shadow|ease|animate|font)-pk-[a-z\d-]+):/gm)]
+        .map(([, name]) => name!)
+        .filter((name) => !name.includes("--", 2)),
+    ),
+  };
+};
+
+const unreadable = (
+  docs: readonly { readonly file: string; readonly source: string }[],
+  names: ReturnType<typeof sheetNames>,
+) =>
+  docs
+    .flatMap(({ file, source }) =>
+      [...source.matchAll(/```css\n([\s\S]*?)```/g)].flatMap(([, block]) =>
+        [...block!.matchAll(/var\((--[a-z\d-]+)\)/g)]
+          .map(([, name]) => name!)
+          .filter((name) => !names.reachable.has(name))
+          .map(
+            (name) =>
+              `${file} writes var(${name}), which ${
+                names.aliases.has(name) ? "Tailwind never emits" : "the sheet never declares"
+              }`,
+          ),
+      ),
+    )
+    .sort();
+
+test("a document reaching for a name the browser cannot see is reported", () => {
+  const names = {
+    reachable: new Set(["--pk-lift-held"]),
+    aliases: new Set(["--color-pk-surface"]),
+  };
+
+  expect(
+    unreadable(
+      [{ file: "a.md", source: "```css\na { color: var(--color-pk-surface); }\n```" }],
+      names,
+    ),
+  ).toEqual(["a.md writes var(--color-pk-surface), which Tailwind never emits"]);
+  expect(
+    unreadable(
+      [{ file: "b.md", source: "```css\na { box-shadow: var(--pk-lift-held); }\n```" }],
+      names,
+    ),
+  ).toEqual([]);
+  expect(
+    unreadable([{ file: "c.md", source: "```css\na { color: var(--pk-gone); }\n```" }], names),
+  ).toEqual(["c.md writes var(--pk-gone), which the sheet never declares"]);
+});
+
+test("every name a document tells a consumer to read is one the browser can", () => {
+  const names = sheetNames();
+  const docs = [
+    { file: "README.md", source: readFileSync(new URL("../README.md", import.meta.url), "utf8") },
+    ...readdirSync(new URL("../docs/design/", import.meta.url))
+      .filter((name) => name.endsWith(".md"))
+      .map((file) => ({
+        file,
+        source: readFileSync(new URL(file, new URL("../docs/design/", import.meta.url)), "utf8"),
+      })),
+  ];
+
+  /* Read first: both halves found, sorted the right way round, and the documents actually opened. */
+  expect(names.reachable.size).toBeGreaterThan(60);
+  expect(names.aliases.size).toBeGreaterThan(40);
+  expect(names.reachable.has("--pk-lift-held")).toBe(true);
+  expect(names.aliases.has("--color-pk-surface")).toBe(true);
+  expect(names.reachable.has("--color-pk-surface")).toBe(false);
+  expect(docs.length).toBeGreaterThan(1);
+  expect(unreadable(docs, names)).toEqual([]);
+});
