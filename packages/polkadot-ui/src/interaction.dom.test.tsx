@@ -2,6 +2,7 @@ import { act, createElement } from "react";
 import { createRoot } from "react-dom/client";
 import { expect, test } from "vite-plus/test";
 
+import { ActivityGrid, dayReadout } from "./components/activity-grid.tsx";
 import { settledAs, SwipeDeck, type SwipeItem } from "./components/swipe-deck.tsx";
 
 /**
@@ -15,36 +16,51 @@ import { settledAs, SwipeDeck, type SwipeItem } from "./components/swipe-deck.ts
  * `import.meta.url`: with one set for all of them, eight suites stopped at `readFileSync` before a
  * single rule ran.
  */
+const draw = (node: React.ReactNode) => {
+  const host = document.createElement("div");
+  document.body.append(host);
+
+  act(() => createRoot(host).render(node));
+
+  return {
+    host,
+    spoken: () => host.querySelector('[data-slot="text-readout"]')!.textContent,
+    /**
+     * One `act` for each press. Two dispatched in one of them both read the state of the render
+     * they started in, so a deck given two arrows settled the same card twice and reported the
+     * first card's name for both — the component was right and the harness was asking wrongly.
+     */
+    press: (key: string, times = 1) =>
+      Array.from({ length: times }).forEach(() =>
+        act(() => {
+          host.firstElementChild!.dispatchEvent(
+            new KeyboardEvent("keydown", { key, bubbles: true }),
+          );
+        }),
+      ),
+    /** React listens for `focusout`, so a `blur` event reaches `onBlur` in a browser and not here. */
+    leave: () =>
+      act(() => {
+        host.firstElementChild!.dispatchEvent(new FocusEvent("focusout", { bubbles: true }));
+      }),
+  };
+};
+
 const CARDS: readonly SwipeItem[] = [
   { id: "a", kind: "gist", title: "first", body: "one", left: "l", right: "r" },
   { id: "b", kind: "gist", title: "second", body: "two", left: "l", right: "r" },
 ];
 
-const mount = (items: readonly SwipeItem[]) => {
-  const host = document.createElement("div");
-  document.body.append(host);
-  const root = createRoot(host);
-
-  act(() => root.render(createElement(SwipeDeck, { items })));
-
-  const well = host.querySelector<HTMLElement>('[data-slot="swipe-deck"]')!;
-
-  return {
-    well,
-    spoken: () => host.querySelector('[data-slot="text-readout"]')!.textContent,
-    top: () => host.querySelector('[data-slot="swipe-card"]:last-of-type')?.textContent ?? "",
-    press: (key: string) =>
-      act(() => {
-        well.dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true }));
-      }),
-  };
-};
+const deckIn = (host: HTMLElement) => ({
+  well: host.querySelector<HTMLElement>('[data-slot="swipe-deck"]')!,
+  top: () => host.querySelector('[data-slot="swipe-card"]:last-of-type')?.textContent ?? "",
+});
 
 test("a deck says nothing until a card is settled", () => {
-  const deck = mount(CARDS);
+  const { host, spoken } = draw(createElement(SwipeDeck, { items: CARDS }));
 
-  expect(deck.spoken()).toBe("");
-  expect(deck.well.getAttribute("aria-keyshortcuts")).toBe("ArrowLeft ArrowRight");
+  expect(spoken()).toBe("");
+  expect(deckIn(host).well.getAttribute("aria-keyshortcuts")).toBe("ArrowLeft ArrowRight");
 });
 
 /**
@@ -53,21 +69,21 @@ test("a deck says nothing until a card is settled", () => {
  * drop it, or put it somewhere with no voice, and every rule in the kit would still pass.
  */
 test("a card settled by keyboard is announced with what is now on top", () => {
-  const deck = mount(CARDS);
+  const { host, spoken, press } = draw(createElement(SwipeDeck, { items: CARDS }));
 
-  deck.press("ArrowLeft");
+  press("ArrowLeft");
 
-  expect(deck.spoken()).toBe(settledAs("skip", "first", "second"));
-  expect(deck.top()).toContain("second");
+  expect(spoken()).toBe(settledAs("skip", "first", "second"));
+  expect(deckIn(host).top()).toContain("second");
 });
 
 test("a key the deck does not answer decides nothing", () => {
-  const deck = mount(CARDS);
+  const { host, spoken, press } = draw(createElement(SwipeDeck, { items: CARDS }));
 
-  deck.press("ArrowUp");
+  press("ArrowUp");
 
-  expect(deck.spoken()).toBe("");
-  expect(deck.top()).toContain("first");
+  expect(spoken()).toBe("");
+  expect(deckIn(host).top()).toContain("first");
 });
 
 /**
@@ -75,12 +91,82 @@ test("a key the deck does not answer decides nothing", () => {
  * keys, so a reader tabbing through the page does not land on something that answers nothing.
  */
 test("a deck that runs out stops taking the focus and stops claiming its keys", () => {
-  const deck = mount(CARDS);
+  const { host, spoken, press } = draw(createElement(SwipeDeck, { items: CARDS }));
 
-  deck.press("ArrowRight");
-  deck.press("ArrowRight");
+  press("ArrowRight", 2);
 
-  expect(deck.spoken()).toBe(settledAs("pin", "second", "nothing left"));
-  expect(deck.well.tabIndex).toBe(-1);
-  expect(deck.well.getAttribute("aria-keyshortcuts")).toBeNull();
+  expect(spoken()).toBe(settledAs("pin", "second", "nothing left"));
+  expect(deckIn(host).well.tabIndex).toBe(-1);
+  expect(deckIn(host).well.getAttribute("aria-keyshortcuts")).toBeNull();
+});
+
+/**
+ * Four whole weeks ending on a Saturday, so every column is full and no cell is a pad. Built from
+ * local parts rather than a timestamp: read back as a local date, a UTC one lands on the day before
+ * and every name in these tests moves with it.
+ */
+const LAST = new Date(2026, 0, 3);
+const DAYS = Array.from({ length: 28 }, (_, index) => ({
+  date: new Date(2026, 0, LAST.getDate() - 27 + index),
+  count: index,
+}));
+
+const grid = () => createElement(ActivityGrid, { days: DAYS, label: "commits" });
+
+const hotCells = (host: HTMLElement) => host.querySelectorAll("[data-hot]").length;
+
+test("a grid names its series until an arrow walks it", () => {
+  const { spoken } = draw(grid());
+
+  expect(spoken()).toBe("commits");
+});
+
+/**
+ * The plot says which arrows walk it, so pressing one owes the reader the day it landed on. Up and
+ * down step a day, and the cell under the cursor is marked — one of them, never two.
+ */
+test("an arrow walks the grid and the line names the day it reached", () => {
+  const { host, spoken, press } = draw(grid());
+
+  press("ArrowUp");
+
+  expect(spoken()).toBe(dayReadout(DAYS[26], "commits"));
+  expect(hotCells(host)).toBe(1);
+
+  press("ArrowDown");
+
+  expect(spoken()).toBe(dayReadout(DAYS[27], "commits"));
+  expect(hotCells(host)).toBe(1);
+});
+
+test("a week is one arrow sideways", () => {
+  const { spoken, press } = draw(grid());
+
+  press("ArrowLeft");
+
+  expect(spoken()).toBe(dayReadout(DAYS[20], "commits"));
+});
+
+/**
+ * Walking off the end stops on the first day rather than on a blank. A column that opens mid-week
+ * is padded, and a cursor resting on a pad names no day and marks no cell, which reads as the arrow
+ * having broken.
+ */
+test("a walk past the first day stops on it, still naming a day", () => {
+  const { host, spoken, press } = draw(grid());
+
+  press("ArrowUp", 60);
+
+  expect(spoken()).toBe(dayReadout(DAYS[0], "commits"));
+  expect(hotCells(host)).toBe(1);
+});
+
+test("a grid that loses the focus goes back to naming the series", () => {
+  const { host, spoken, press, leave } = draw(grid());
+
+  press("ArrowUp");
+  leave();
+
+  expect(spoken()).toBe("commits");
+  expect(hotCells(host)).toBe(0);
 });
