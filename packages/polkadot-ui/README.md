@@ -296,6 +296,7 @@ app/routes/<page>.tsx         drawn on a page — a component nothing demonstrat
 README.md                     added to the Components list, the module count, and the slot count
 docs/research/widget-runtime.md   the same module count, written as a numeral, in two places
 src/components/<name>.test.ts     only if it works something out: a helper it exports
+src/<name>.dom.test.tsx           only if it answers a key or moves the focus: needs a document
 ```
 
 Nine is the floor, not a promise: a component with variants, a props table or an exported helper
@@ -305,6 +306,10 @@ The counts are the part worth knowing about in advance: two documents state how 
 modules there are, one in words and one as a numeral, and both are checked. A component that draws
 a colour the theme does not declare, or one that reaches a contrast the pages state, is answered
 for by `theme.css` and `contrast.test.ts` in the same way.
+
+The `.dom.test.tsx` suffix is what puts a test in a document. Only those files get one: a document
+replaces the global `URL`, and every other suite here reads its files through `import.meta.url`, so
+setting one for the whole package stops eight suites before a rule runs.
 
 Nothing here needs remembering. Add the file, run `vp test`, and each rule says what it wants.
 

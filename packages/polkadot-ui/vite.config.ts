@@ -28,4 +28,24 @@ export default defineConfig({
     },
   },
   fmt: {},
+  test: {
+    projects: [
+      {
+        extends: true,
+        test: {
+          name: "rules",
+          include: ["src/**/*.test.ts", "src/**/*.test.tsx"],
+          exclude: ["src/**/*.dom.test.tsx"],
+        },
+      },
+      {
+        extends: true,
+        test: {
+          name: "dom",
+          include: ["src/**/*.dom.test.tsx"],
+          environment: "happy-dom",
+        },
+      },
+    ],
+  },
 });
