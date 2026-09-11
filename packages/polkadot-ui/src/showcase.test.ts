@@ -2878,3 +2878,24 @@ test("a component that states its keys answers them in a way a reader can hear",
       .sort(),
   ).toEqual(Object.keys(ANSWERS_ITS_KEYS));
 });
+
+/**
+ * The decision log is tab separated with six columns, and a row that loses one is a row whose
+ * evidence and result have merged into a single cell — readable enough to miss, and wrong.
+ *
+ * Checked here because the hand check was not reliable: a shell one-liner that printed "ok"
+ * unconditionally passed a five-column row straight through. A rule cannot print the wrong answer.
+ */
+test("every row of the decision log has its six columns", () => {
+  const log = readFileSync(new URL("../docs/internal/decisions.tsv", import.meta.url), "utf8");
+  const rows = log.split("\n").filter((row) => row.length > 0);
+
+  /* Read first: an empty read would agree with anything. */
+  expect(rows.length).toBeGreaterThan(40);
+  expect(rows[0]).toBe("ts\tphase\tdecision\twhy\tevidence\tresult");
+  expect(
+    rows
+      .map((row, at) => ({ row: at + 1, columns: row.split("\t").length }))
+      .filter(({ columns }) => columns !== 6),
+  ).toEqual([]);
+});
