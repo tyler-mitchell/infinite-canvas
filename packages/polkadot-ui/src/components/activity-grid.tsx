@@ -302,6 +302,11 @@ function ActivityGrid({
            *
            * It holds the series name while nothing is focused: a polite region does not announce
            * what it was built with, so the first walk is the first thing said.
+           *
+           * The middle dot stays, unlike the deck's, because this line is read as well as spoken.
+           * At the usual punctuation level a reader passes over it and hears the two parts joined,
+           * which is what the eye sees; the deck's line is never seen, so nothing there earns a
+           * mark chosen for the eye.
            */
           <Readout className={styles.readout()}>
             {focused

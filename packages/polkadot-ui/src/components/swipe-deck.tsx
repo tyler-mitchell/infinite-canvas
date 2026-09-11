@@ -62,6 +62,22 @@ export function swipeOutcome(offset: number, commit = COMMIT): SwipeOutcome {
 }
 
 /**
+ * What a settled card says. The card unmounts and the next takes its place with the focus still on
+ * the well, so this is the only thing that reaches a reader who cannot see the change: the outcome,
+ * which cannot be recovered by looking, and what is now on top.
+ *
+ * Never the middle dot the kit sets between figures: this line is only ever spoken, and a dot chosen
+ * for visual rhythm is either silence or the words "middle dot" depending on the reader. A full stop
+ * rather than a comma, because a title may hold commas of its own — one of the demo cards is called
+ * "Snap against predicted rest, not the pointer", and a comma here left three in one sentence.
+ *
+ * The titles are the consumer's words and go out as written, punctuation and all.
+ */
+export function settledAs(direction: "pin" | "skip", title: string, next: string) {
+  return `${direction === "pin" ? "pinned" : "skipped"} ${title}. next ${next}`;
+}
+
+/**
  * How far each stamp has faded in, from 0 at rest to 1 at the commit distance. Only the stamp on
  * the side being dragged towards shows, so the pair never reads as both at once.
  */
@@ -129,14 +145,7 @@ function SwipeDeck({
     if (!top) return;
     onSettle?.(top, direction);
     setSettled((ids) => [...ids, top.id]);
-    /*
-     * The card unmounts and the next takes its place with the focus still on the well, so nothing
-     * would reach a reader who cannot see the change. Said here rather than derived from the top,
-     * because the outcome is the half a reader cannot recover by looking.
-     */
-    setOutcome(
-      `${direction === "pin" ? "pinned" : "skipped"} ${top.title} · next ${remaining[1]?.title ?? nothingLeft}`,
-    );
+    setOutcome(settledAs(direction, top.title, remaining[1]?.title ?? nothingLeft));
     rest();
   };
 
