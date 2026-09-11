@@ -132,6 +132,44 @@ list carried `wrap-anywhere` from the text base and `whitespace-nowrap` from its
 browser dropped the wrap silently. The suite now composes every class list the kit can emit and
 reports a pair like that, in `variants.test.tsx` — that rule is enforced, unlike the figures above.
 
+## Does the kit write anything else the browser ignores?
+
+The wrap contradiction above was one declaration that could never take effect. Asking the same
+question of every element on all nine pages — six ways a declaration can be inert — finds nothing
+else. Two things do report, and neither is a fault:
+
+- **A disabled control keeps `cursor-pointer` under `pointer-events: none`.** Nothing is drawn from
+  it: with pointer events off the element's own cursor is never consulted, and the reader gets the
+  parent's. It is Tailwind's own `disabled:pointer-events-none` pattern meeting the base cursor.
+  Giving a disabled control `cursor-not-allowed` is a taste, not a fix, and is not taken here.
+- **`text-meta` computing `nowrap` on `/layout`.** The role asks to wrap; the scroller holding it
+  says `whitespace-nowrap`, and `white-space` inherits. That is the demo asking for one line and
+  getting it. A consumer's container overriding a role is composition working, which is why the
+  enforced rule reads what `tv` emits and stops there.
+
+`line-clamp` also reports if the check asks for `display: -webkit-box`. It should not: Chrome clamps
+on a `flow-root` box through the standard property, and the card's clamp was measured holding at 3
+lines, 56px tall over 94px of content. The check was wrong, not the class.
+
+```js
+// Paste into the preview console. Reports declarations that cannot take effect.
+window.__inert = () => {
+  const found = [];
+  for (const el of document.querySelectorAll("*")) {
+    const s = getComputedStyle(el);
+    const slot = el.closest("[data-slot]")?.dataset.slot ?? "?";
+    const say = (why) => found.push(`${slot} :: ${why}`);
+    if (s.whiteSpace === "nowrap" && s.overflowWrap === "anywhere") say("nowrap + wrap-anywhere");
+    if (s.pointerEvents === "none" && s.cursor === "pointer") say("no pointer events + cursor");
+    if (s.textOverflow === "ellipsis" && s.overflow === "visible") say("ellipsis, nothing hidden");
+    if (s.position === "static" && (s.top !== "auto" || s.left !== "auto")) say("offset, static");
+    if (s.position === "static" && s.zIndex !== "auto") say("z-index, static");
+    if (s.display === "inline" && s.width !== "auto") say("width on an inline box");
+  }
+  return [...new Set(found)];
+};
+```
+
 ## Does the swipe card's clamp hold?
 
 The card cannot grow, and its comment records a title once pushing the foot 116px past the bottom
