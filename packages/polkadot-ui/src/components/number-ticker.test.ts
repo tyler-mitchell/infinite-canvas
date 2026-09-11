@@ -97,3 +97,40 @@ test("a sign is printed rather than rolled", () => {
   expect(cells[0]).toMatchObject({ character: "-", digit: null });
   expect(cells.filter((cell) => cell.digit !== null).map((cell) => cell.digit)).toEqual([4, 2]);
 });
+
+/**
+ * Place value used to be counted by cutting the rest of the string for every character, which costs
+ * the square of the length. It stayed cheap only because the width above is capped — one function's
+ * cost resting on another's bound, and that bound was added later for an unrelated reason.
+ *
+ * The old counting is kept here as the thing to match, so the pass from the right has to agree with
+ * it rather than merely look right.
+ */
+test("counting places in one pass agrees with cutting the string for each", () => {
+  const byCutting = (text: string) => {
+    const characters = text.split("");
+
+    return characters.map(
+      (_, index) =>
+        characters.slice(index + 1).filter((character) => character >= "0" && character <= "9")
+          .length,
+    );
+  };
+
+  for (const text of ["", "4", "42", "-42", "1,234", "0,001,000", "-1,234,567", "00042"]) {
+    expect(
+      tickerCells(text).map((cell) => cell.key.replace(/^[ds]/, "").replace(/\D+$/, "")),
+    ).toEqual(byCutting(text).map(String));
+  }
+});
+
+test("a long reading is counted without the cost growing with its square", () => {
+  const many = "1".repeat(50_000);
+  const cells = tickerCells(many, 1);
+
+  expect(cells).toHaveLength(50_000);
+  /* The units digit is last and leads, so its place is nought and the first character's is one less
+   * than the length — which is the whole of what the counting has to get right. */
+  expect(cells[cells.length - 1]).toMatchObject({ key: "d0", delay: 0 });
+  expect(cells[0]).toMatchObject({ key: "d49999", delay: 49_999 });
+});

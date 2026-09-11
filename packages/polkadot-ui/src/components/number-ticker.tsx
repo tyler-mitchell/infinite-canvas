@@ -57,14 +57,25 @@ export function tickerText(value: number, pad = 0, locale = false) {
 /**
  * One cell per character, keyed and delayed by place value rather than string position, so the
  * units digit always leads and a separator never consumes a step of the cascade.
+ *
+ * Counted in one pass from the right rather than by cutting the rest of the string for every
+ * character. The cutting version cost the square of the length, and stayed cheap only because the
+ * width above is capped — one function's cost resting on another function's bound, where the bound
+ * was added later and for an unrelated reason.
  */
 export function tickerCells(text: string, stagger = 40): readonly TickerCell[] {
   const characters = text.split("");
   /* A step that is not a number is no step: the places roll together rather than at no time. */
   const step = Number.isFinite(stagger) ? stagger : 0;
+  const places: number[] = [];
+
+  for (let index = characters.length - 1, seen = 0; index >= 0; index -= 1) {
+    places[index] = seen;
+    if (isDigit(characters[index]!)) seen += 1;
+  }
 
   return characters.map((character, index) => {
-    const place = characters.slice(index + 1).filter(isDigit).length;
+    const place = places[index]!;
 
     return isDigit(character)
       ? { key: `d${place}`, character, digit: Number(character), delay: place * step }
