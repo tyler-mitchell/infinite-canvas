@@ -11,7 +11,6 @@ import {
   badgeVariants,
   Binding,
   Breakdown,
-  breakdownLabel,
   type BreakdownProps,
   Button,
   CommitRow,
@@ -203,17 +202,13 @@ function Widgets() {
         </Row>
         <div className={styles.grid()}>
           <Surface tone="card">
-            <Breakdown parts={LANGUAGES} label={`language split: ${breakdownLabel(LANGUAGES)}`} />
+            <Breakdown parts={LANGUAGES} label="language split" />
           </Surface>
           <Surface tone="card">
             <Row align="baseline">
               <Label>typescript · css · wgsl · md</Label>
             </Row>
-            <Breakdown
-              parts={LANGUAGES}
-              showLegend={false}
-              label={`language split, legend hidden: ${breakdownLabel(LANGUAGES)}`}
-            />
+            <Breakdown parts={LANGUAGES} showLegend={false} label="language split, legend hidden" />
           </Surface>
           <MetricTile label="queries served">2.1M in-browser</MetricTile>
           <MetricTile label="schema">typed · versioned</MetricTile>
@@ -267,7 +262,7 @@ function Widgets() {
             <Row>
               <Label>layout recipes</Label>
             </Row>
-            <LayoutPreview panes={SPLIT_PANES} label="split, three panes" />
+            <LayoutPreview panes={SPLIT_PANES} label="split" />
             <Meta>{`split · ${SPLIT_PANES.length} panes`}</Meta>
           </Surface>
         </div>

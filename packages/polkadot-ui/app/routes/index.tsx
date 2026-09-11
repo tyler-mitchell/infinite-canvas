@@ -175,7 +175,7 @@ function Overview() {
               <Label>{`commits · ${COMMIT_WEEKS.length} weeks`}</Label>
               <Meta>{`${COMMIT_PEAK} commits · wk ${COMMIT_PEAK_WEEK}`}</Meta>
             </Row>
-            <Sparkline values={COMMIT_WEEKS} label="commits per week over 64 weeks" />
+            <Sparkline values={COMMIT_WEEKS} label="commits per week" />
           </Surface>
 
           <Surface tone="card" padding="roomy" className={styles.widget()}>
@@ -200,7 +200,7 @@ function Overview() {
               <Readout render={<NumberTicker value={4182} locale />} />
             </Row>
             <div className={styles.chart()}>
-              <Bars values={INSTALLS} label="weekly installs over eight weeks" />
+              <Bars values={INSTALLS} label="weekly installs" />
             </div>
 
             <Row rule="above">
@@ -336,7 +336,7 @@ function Overview() {
                 arrange
               </Button>
             </Row>
-            <LayoutPreview panes={SPLIT_PANES} label="split, three panes" />
+            <LayoutPreview panes={SPLIT_PANES} label="split" />
             <Meta>{`split · ${SPLIT_PANES.length} panes`}</Meta>
           </Surface>
 

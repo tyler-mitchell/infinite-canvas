@@ -1,5 +1,6 @@
 import type { VariantProps } from "tailwind-variants";
 
+import { namedReading } from "../label.ts";
 import { tv } from "../tv.ts";
 
 const bars = tv({
@@ -76,7 +77,13 @@ export interface BarsProps
   readonly max?: number;
   /** Floor so an empty bucket is still a mark rather than nothing. */
   readonly minHeight?: number;
-  /** Names the series for a reader who cannot see it. Falls back to the readings themselves. */
+  /**
+   * Names the series for a reader who cannot see it. The readings are added to it rather than
+   * replaced by it — a name and the figures, in that order.
+   *
+   * It used to replace them, and five charts across two pages were named and never read: `weekly
+   * installs over eight weeks` and `levels` gave a reader no figure at all.
+   */
   readonly label?: string;
 }
 
@@ -102,7 +109,7 @@ function Bars({
     <div
       data-slot="bars"
       role="img"
-      aria-label={label?.trim() || barsLabel(values, emphasis ?? "last")}
+      aria-label={namedReading(label, barsLabel(values, emphasis ?? "last"))}
       className={styles.root({ className })}
       {...props}
     >

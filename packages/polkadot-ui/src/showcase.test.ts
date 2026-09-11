@@ -288,94 +288,46 @@ test("every tooltip trigger says what its tooltip says", () => {
  * badge included. One page showed `31ms` at the head under the name "p95 latency over 96 hours",
  * so a reader who could not see the chart got the window and never the figure.
  *
- * The same shape as the tooltip rule above and the same answer: whatever is shown has to be said
- * somewhere a reader reaches. A page that gives no `label` is fine — the default name already ends
- * with the latest reading.
+ * This used to ask the page to repeat the caption inside its own `label`, which worked and put the
+ * same figure in two places. The component says it now: the caption is how the latest reading is
+ * spelled, so the reading uses it and a name is composed onto that rather than replacing it.
+ *
+ * So the check that matters moved onto what a sparkline renders, in `render.test.tsx`, where JSX
+ * can be drawn. This half keeps the pages honest about still having a caption to draw: an empty
+ * sweep would leave that render rule a fixture with no consumer.
  */
-const unsaidCaptions = (sources: readonly { readonly file: string; readonly source: string }[]) =>
-  sources
-    .flatMap(({ file, source }) =>
-      openingTags(source, "Sparkline").flatMap((tag) => {
-        const caption = /caption=\{([^}]+)\}/.exec(tag)?.[1]?.trim();
-        if (caption === undefined) return [];
-
-        const label = /label=(?:"([^"]*)"|\{`([^`]*)`\})/.exec(tag);
-        const said = label === null ? "" : (label[1] ?? label[2] ?? "");
-
-        return label !== null && !said.includes(caption)
-          ? [`${file}: a sparkline shows ${caption} and its name does not say it`]
-          : [];
-      }),
-    )
-    .sort();
-
-test("a caption a sparkline draws and never says is reported", () => {
-  const quiet = [
-    { file: "p.tsx", source: '<Sparkline values={A} caption={LATEST} label="latency" />' },
-  ];
-  const said = [
-    {
-      file: "p.tsx",
-      source: "<Sparkline values={A} caption={LATEST} label={`latency, latest ${LATEST}`} />",
-    },
-  ];
-  /* No label at all is not a fault: the component's own name ends with the latest reading. */
-  const bare = [{ file: "p.tsx", source: "<Sparkline values={A} caption={LATEST} />" }];
-
-  expect(unsaidCaptions(quiet)).toEqual([
-    "p.tsx: a sparkline shows LATEST and its name does not say it",
-  ]);
-  expect(unsaidCaptions(said)).toEqual([]);
-  expect(unsaidCaptions(bare)).toEqual([]);
-});
-
-test("every caption a sparkline draws is said in the name it carries", () => {
+test("every caption the pages draw reaches the name the chart renders", () => {
   const drawn = pages.flatMap(({ source }) => openingTags(source, "Sparkline"));
+  const captioned = drawn.filter((tag) => /caption=\{/.test(tag));
 
+  /* Read first: no captions at all would make the rule above a fixture with no consumer. */
   expect(drawn.length).toBeGreaterThan(3);
-  expect(unsaidCaptions(pages)).toEqual([]);
+  expect(captioned.length).toBeGreaterThan(0);
 });
 
 /**
  * The same trade in another component. A breakdown draws its legend and mutes it, on the grounds
- * that the bar's own name already lists every part and its share — which is true of the name the
- * component builds and not of one a page passes instead.
+ * that the bar's own name already lists every part and its share — which was true of the name the
+ * component builds and not of one a page passed instead.
  *
  * Two pages passed "language split". The reader saw TypeScript 84%, WGSL 9%, CSS 7% and heard
- * three words. A name that replaces the default has to carry what the default carried, so the
- * check is whether it reaches for `breakdownLabel`; leaving the label off is always fine.
+ * three words. This rule answered that by requiring the page to splice `breakdownLabel` into its
+ * own name, which worked and put the same figures in two places — the pages then read
+ * "language split: TypeScript 84%, …, TypeScript 84%, …" once the component started composing.
+ *
+ * A name cannot replace the shares any more, so the page side has nothing left to check and the
+ * guarantee lives in `render.test.tsx`. What stays here is the non-vacuity half: the pages still
+ * draw breakdowns, and they no longer reach for the label function to do the component's work.
  */
-const untoldShares = (sources: readonly { readonly file: string; readonly source: string }[]) =>
-  sources
-    .flatMap(({ file, source }) =>
-      openingTags(source, "Breakdown")
-        .map((tag) => /label=(?:"([^"]*)"|\{`([^`]*)`\}|\{([^}]*)\})/.exec(tag))
-        .filter((written) => written !== null)
-        .map((written) => written[1] ?? written[2] ?? written[3] ?? "")
-        .filter((said) => !said.includes("breakdownLabel"))
-        .map((said) => `${file}: a breakdown is named "${said}" and its shares go unsaid`),
-    )
-    .sort();
-
-test("a breakdown named without its shares is reported", () => {
-  const titled = [{ file: "p.tsx", source: '<Breakdown parts={L} label="language split" />' }];
-  const whole = [
-    { file: "p.tsx", source: "<Breakdown parts={L} label={`split: ${breakdownLabel(L)}`} />" },
-  ];
-  const bare = [{ file: "p.tsx", source: "<Breakdown parts={L} />" }];
-
-  expect(untoldShares(titled)).toEqual([
-    'p.tsx: a breakdown is named "language split" and its shares go unsaid',
-  ]);
-  expect(untoldShares(whole)).toEqual([]);
-  expect(untoldShares(bare)).toEqual([]);
-});
-
-test("every breakdown says the shares it draws", () => {
+test("no page builds a breakdown's shares into the name it passes", () => {
   const drawn = pages.flatMap(({ source }) => openingTags(source, "Breakdown"));
 
   expect(drawn.length).toBeGreaterThan(2);
-  expect(untoldShares(pages)).toEqual([]);
+  expect(
+    pages
+      .filter(({ source }) => source.includes("breakdownLabel"))
+      .map(({ file }) => `${file} spells out shares the breakdown already says`),
+  ).toEqual([]);
 });
 
 /**
@@ -2607,8 +2559,15 @@ test("a page does not give two things the same name", () => {
 
   expect(twiceNamed(twice)).toEqual(['a.tsx: 2 of "load"']);
   expect(twiceNamed(once)).toEqual([]);
-  /* Read first: the pages do name things this way, so the sweep has something to be right about. */
-  expect(everything).toContain("label={`language split");
+  /*
+   * Read first: the pages do name things this way, so the sweep has something to be right about.
+   * Counted rather than anchored on one label — it used to name the widgets page's
+   * `label={`language split…`}`, which stopped being a template the day a name no longer had to
+   * carry the shares itself, and a missing anchor reads as a passing sweep.
+   */
+  expect(pages.flatMap(({ source }) => [...source.matchAll(/\blabel=/g)]).length).toBeGreaterThan(
+    20,
+  );
   expect(twiceNamed(pages)).toEqual([]);
 });
 
@@ -2790,7 +2749,15 @@ const counted = pages.flatMap(({ file, source }) => {
   );
 });
 
-test("a name that counts what it draws counts what the series holds", () => {
+/**
+ * A name is composed onto the reading a component derives, so a count written into that name is a
+ * second copy of a figure the component already states — and a copy is free to drift.
+ *
+ * This used to check each written count against the fixture it described, which was the right rule
+ * while pages wrote them. Six did. None does now, so the old shape would pass by reaching nothing;
+ * asking that none comes back is the same invariant in the form that cannot go quiet.
+ */
+test("no name a page writes counts what the component already counts", () => {
   expect(countIn("commits per week over 64 weeks", "values")).toBe(64);
   expect(countIn("weekly installs over eight weeks", "values")).toBe(8);
   expect(countIn("split, three panes", "panes")).toBe(3);
@@ -2798,18 +2765,13 @@ test("a name that counts what it draws counts what the series holds", () => {
   expect(countIn("p95 latency, latest 20ms", "values")).toBeUndefined();
   expect(countIn("queries, 2.1M served", "values")).toBeUndefined();
 
-  /* Read first: a reader that finds no name at all disagrees with nothing. */
-  expect(counted.map(({ held }) => held).sort()).toEqual([
-    "COMMIT_WEEKS",
-    "COMMIT_WEEKS",
-    "FRAME_BUDGET",
-    "INSTALLS",
-    "INSTALLS",
-    "LATENCY",
-    "SPLIT_PANES",
-    "SPLIT_PANES",
-  ]);
-  expect(counted.filter(({ said, holds }) => said !== holds)).toEqual([]);
+  /* Read first: the pages are being read and they do name their charts. */
+  expect(pages.length).toBeGreaterThan(5);
+  expect(
+    pages.flatMap(({ source }) => [...source.matchAll(/\blabel="[^"]+"/g)]).length,
+  ).toBeGreaterThan(8);
+
+  expect(counted.map(({ where, said, held }) => `${where} says ${said} of ${held}`)).toEqual([]);
 });
 
 /**
@@ -2937,6 +2899,8 @@ const optionalAndUnanswered = (
         !(
           source.includes(`${prop} = `) ||
           source.includes(`${prop}?.trim() ||`) ||
+          /* Composed rather than replaced: the reading is always there and the name is added. */
+          source.includes(`namedReading(${prop},`) ||
           what in FALLS_BACK_TO_SOMETHING_ELSE
         ),
     )
@@ -2953,6 +2917,12 @@ test("an optional prop with nothing to fall back on is reported", () => {
       { file: "b.tsx", source: "/** Names it for a reader. */\n  readonly label?: string;" },
       /* No mention of a reader: an optional prop is just optional. */
       { file: "c.tsx", source: "/** How wide. */\n  readonly size?: number;" },
+      /* Composed onto the reading, which is the shape that cannot lose it. */
+      {
+        file: "d.tsx",
+        source:
+          "/** Names it for a reader. */\n  readonly label?: string;\n  aria-label={namedReading(label, drawn(values))}",
+      },
     ]),
   ).toEqual(["b.tsx label"]);
 });
@@ -2970,6 +2940,7 @@ test("every optional prop a reader depends on has something to fall back on", ()
     "activity-grid.tsx label",
     "bars.tsx label",
     "breakdown.tsx label",
+    "layout-preview.tsx label",
     "scroll-area.tsx label",
     "sparkline.tsx label",
     "swipe-deck.tsx label",

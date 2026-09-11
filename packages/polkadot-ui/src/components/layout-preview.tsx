@@ -1,3 +1,4 @@
+import { namedReading } from "../label.ts";
 import { tv } from "../tv.ts";
 
 const layoutPreview = tv({
@@ -25,6 +26,14 @@ export interface Pane {
 
 export type LayoutPreviewProps = Omit<React.ComponentProps<"div">, "children"> & {
   readonly panes: readonly Pane[];
+  /**
+   * Names the recipe for a reader who cannot see it — `editor`, `split`. The count is added to it
+   * rather than replaced by it.
+   *
+   * It used to replace the count, and both pages named their preview, so the active pane was drawn
+   * in its own colour and said nowhere. A rule proved the component could count and never asked
+   * whether anything let it.
+   */
   readonly label?: string;
 };
 
@@ -40,13 +49,14 @@ function LayoutPreview({ panes, label, className, ...props }: LayoutPreviewProps
   /* An active pane is drawn in its own fill and line, and the frame is one image: a pane carries
    * no words of its own, so the count is the only place the state can be said. */
   const active = panes.filter((pane) => pane.active).length;
-  const counted = active > 0 ? `${panes.length} panes, ${active} active` : `${panes.length} panes`;
+  const many = `${panes.length} ${panes.length === 1 ? "pane" : "panes"}`;
+  const counted = active > 0 ? `${many}, ${active} active` : many;
 
   return (
     <div
       data-slot="layout-preview"
       role="img"
-      aria-label={label?.trim() || counted}
+      aria-label={namedReading(label, counted)}
       className={styles.root({ className })}
       {...props}
     >

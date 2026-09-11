@@ -936,8 +936,12 @@ test("a state drawn only in colour is said in the markup, and says where", () =>
   /* A pane carries no words, and the frame is one image, so its label does the counting. */
   const active = [{ left: 0, top: 0, width: 50, height: 100, active: true }];
 
-  expect(renderToStaticMarkup(<kit.LayoutPreview panes={active} />)).toContain("1 panes, 1 active");
+  expect(renderToStaticMarkup(<kit.LayoutPreview panes={active} />)).toContain("1 pane, 1 active");
   expect(renderToStaticMarkup(<kit.LayoutPreview panes={[]} />)).toContain('0 panes"');
+  /* And a name does not cost the count, which is the only place the active pane is said. */
+  expect(renderToStaticMarkup(<kit.LayoutPreview panes={active} label="split" />)).toContain(
+    "split, 1 pane, 1 active",
+  );
   /* Base UI writes the pressed state onto the button it owns, either way round. */
   const toggles = (value: string[]) =>
     renderToStaticMarkup(

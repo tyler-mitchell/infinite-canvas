@@ -3,7 +3,6 @@ import {
   ActivityGrid,
   type ActivityGridProps,
   Bars,
-  barsLabel,
   type BarsProps,
   barsVariants,
   Display,
@@ -43,8 +42,6 @@ const LATEST_LATENCY = `${LATENCY[LATENCY.length - 1]}ms`;
 /* Three readings beside these charts were typed out, and a typed reading outlives its series. */
 const LATEST_INSTALLS = INSTALLS[INSTALLS.length - 1]!.toLocaleString("en-US");
 const LATEST_ICONS = INSTALLS_SMALL[INSTALLS_SMALL.length - 1]!.toLocaleString("en-US");
-/* The two release charts state nothing else, so the name is the only place their figures land. */
-const RELEASE_READINGS = barsLabel(RELEASES);
 
 /**
  * The most weeks to ask for. The grid draws fewer when the width cannot hold them, and it states
@@ -92,26 +89,21 @@ function Readouts() {
               <Label>{`commits · ${COMMIT_WEEKS.length} weeks`}</Label>
               <Meta>{`${COMMIT_PEAK} · wk ${COMMIT_PEAK_WEEK}`}</Meta>
             </Row>
-            <Sparkline values={COMMIT_WEEKS} label="commits per week over 64 weeks" />
+            <Sparkline values={COMMIT_WEEKS} label="commits per week" />
           </Surface>
           <Surface tone="card">
             <Row>
               <Label>p95 latency</Label>
               <Meta>96h window</Meta>
             </Row>
-            <Sparkline
-              values={LATENCY}
-              size="lg"
-              caption={LATEST_LATENCY}
-              label={`p95 latency over 96 hours, latest ${LATEST_LATENCY}`}
-            />
+            <Sparkline values={LATENCY} size="lg" caption={LATEST_LATENCY} label="p95 latency" />
           </Surface>
           <Surface tone="card">
             <Row>
               <Label>frame budget</Label>
               <Meta>{`${LATEST_FRAME} ms`}</Meta>
             </Row>
-            <Sparkline values={FRAME_BUDGET} size="sm" label="frame time over 72 frames" />
+            <Sparkline values={FRAME_BUDGET} size="sm" label="frame time in ms" />
           </Surface>
         </div>
         <Props<SparklineProps>
@@ -239,7 +231,7 @@ function Readouts() {
               <Readout>{LATEST_INSTALLS}</Readout>
             </Row>
             <div className={styles.barBox()}>
-              <Bars values={INSTALLS} label="weekly installs over eight weeks" />
+              <Bars values={INSTALLS} label="weekly installs" />
             </div>
           </Surface>
           <Surface tone="card">
@@ -306,10 +298,7 @@ function Readouts() {
               <Meta>a floor under an empty week</Meta>
             </Row>
             <div className={styles.barBox()}>
-              <Bars
-                values={RELEASES}
-                label={`releases a week, with a floor: ${RELEASE_READINGS}`}
-              />
+              <Bars values={RELEASES} label="releases a week, with a floor" />
             </div>
           </Surface>
           <Surface tone="card">
@@ -318,11 +307,7 @@ function Readouts() {
               <Meta>no floor</Meta>
             </Row>
             <div className={styles.barBox()}>
-              <Bars
-                values={RELEASES}
-                minHeight={0}
-                label={`releases a week, with no floor: ${RELEASE_READINGS}`}
-              />
+              <Bars values={RELEASES} minHeight={0} label="releases a week, with no floor" />
             </div>
           </Surface>
         </div>

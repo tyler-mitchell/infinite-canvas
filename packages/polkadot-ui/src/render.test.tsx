@@ -979,6 +979,47 @@ test("an empty series is given the words a page says it is given", () => {
   expect(named(deck)).toBe("queue");
 });
 
+/**
+ * A sparkline is one `img` with one name, so the caption badge drawn at its head is read by nothing
+ * on its own. A page showed `31ms` there under the name "p95 latency over 96 hours", and a reader
+ * who could not see the chart got the window and never the figure.
+ *
+ * The page used to repeat the caption inside its own `label` to fix that, which put the same figure
+ * in two places. The caption is how the latest reading is spelled, so the reading uses it.
+ */
+/**
+ * A breakdown mutes its own legend, on the grounds that the bar's name already lists every part and
+ * its share. That holds only while a name cannot replace the shares, which is what this pins.
+ */
+test("a breakdown says its shares whatever it is called", () => {
+  const named = (markup: string) => /aria-label="([^"]*)"/.exec(markup)?.[1] ?? "";
+  const parts = [
+    { name: "ts", share: 3, color: "red" },
+    { name: "css", share: 1, color: "blue" },
+  ];
+
+  expect(named(renderToStaticMarkup(<kit.Breakdown parts={parts} />))).toBe("ts 75%, css 25%");
+  expect(named(renderToStaticMarkup(<kit.Breakdown parts={parts} label="language split" />))).toBe(
+    "language split, ts 75%, css 25%",
+  );
+});
+
+test("a caption a sparkline draws is said in the name it renders", () => {
+  const named = (markup: string) => /aria-label="([^"]*)"/.exec(markup)?.[1] ?? "";
+  const values = [1, 2, 3];
+
+  expect(named(renderToStaticMarkup(<kit.Sparkline values={values} caption="20ms" />))).toBe(
+    "3 readings, latest 20ms",
+  );
+  expect(
+    named(renderToStaticMarkup(<kit.Sparkline values={values} caption="20ms" label="p95" />)),
+  ).toBe("p95, 3 readings, latest 20ms");
+  /* Without one the bare value is still named: a caption is a spelling, not the only source. */
+  expect(named(renderToStaticMarkup(<kit.Sparkline values={values} />))).toBe(
+    "3 readings, latest 3",
+  );
+});
+
 const unsaidIn = (name: string, markup: string) => {
   const names = [...markup.matchAll(/aria-label="([^"]*)"/g)].map(([, one]) => one!).join(" ");
 
@@ -989,22 +1030,36 @@ const unsaidIn = (name: string, markup: string) => {
     .map((one) => `${name} draws ${one}`);
 };
 
+/**
+ * The planted markup is written out rather than rendered, because no component in this kit can
+ * produce this shape any more. It used to be one line: a `Breakdown` given a `label` replaced its
+ * own reading with it and left every share drawn and unsaid.
+ *
+ * The second half is the guard for that. A name is composed onto the reading now, so naming a
+ * picture costs nothing — and if it ever replaces one again, this says so rather than the sweep
+ * below quietly having nothing left to find.
+ */
 test("a component drawing what its name leaves out is reported", () => {
-  /* The shape the sparkline's caption had: a figure at the head, and a name giving the window. */
-  const named = renderToStaticMarkup(
-    <kit.Breakdown
-      label="language split"
-      parts={[
-        { name: "ts", share: 1, color: "red" },
-        { name: "css", share: 1, color: "blue" },
-      ]}
-    />,
-  );
+  const planted = '<div aria-label="language split"><span>ts 50%</span><span>css 50%</span></div>';
 
-  expect(unsaidIn("Breakdown", named)).toEqual([
+  expect(unsaidIn("Breakdown", planted)).toEqual([
     "Breakdown draws ts 50%",
     "Breakdown draws css 50%",
   ]);
+  expect(
+    unsaidIn(
+      "Breakdown",
+      renderToStaticMarkup(
+        <kit.Breakdown
+          label="language split"
+          parts={[
+            { name: "ts", share: 1, color: "red" },
+            { name: "css", share: 1, color: "blue" },
+          ]}
+        />,
+      ),
+    ),
+  ).toEqual([]);
 });
 
 test("what a component draws as an image is said in a name it carries", () => {

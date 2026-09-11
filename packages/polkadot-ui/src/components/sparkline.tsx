@@ -2,6 +2,7 @@ import { area, curveMonotoneX, line } from "d3-shape";
 import { useId } from "react";
 import type { VariantProps } from "tailwind-variants";
 
+import { namedReading } from "../label.ts";
 import { tv } from "../tv.ts";
 
 const sparkline = tv({
@@ -91,18 +92,28 @@ export function sparklineHead(values: readonly number[], caption?: string): Spar
 }
 
 /**
- * What the chart is called when the consumer gives no `label`.
+ * What the chart reads as: how many readings, and the latest one where a head marks it.
  *
  * The head is read for the same reason the bars read their emphasis: the last value is worth
  * naming because a dot or a badge marks it, and a trace drawn with no head marks nothing. Naming a
  * latest there would point at a reading the line runs through like every other.
+ *
+ * `latest` is how the caption spells that reading — `20ms` rather than `20`. A caption is drawn
+ * inside the one `img`, so nothing reads it on its own; saying the bare number instead left a
+ * reader the figure without its unit, and left the page writing the unit into the name by hand.
  */
-export function sparklineLabel(values: readonly number[], head: SparklineHead = "dot") {
+export function sparklineLabel(
+  values: readonly number[],
+  head: SparklineHead = "dot",
+  latest?: string,
+) {
+  const last = latest ?? values[values.length - 1];
+
   if (values.length === 0) return "no readings";
-  if (values.length === 1) return `one reading, ${values[0]}`;
+  if (values.length === 1) return `one reading, ${last}`;
   if (head === "none") return `${values.length} readings`;
 
-  return `${values.length} readings, latest ${values[values.length - 1]}`;
+  return `${values.length} readings, latest ${last}`;
 }
 
 export type SparklineProps = Omit<React.ComponentProps<"div">, "children"> &
@@ -112,9 +123,9 @@ export type SparklineProps = Omit<React.ComponentProps<"div">, "children"> &
     /**
      * Puts a badge at the head in the dot's place. An explicit `head` still wins.
      *
-     * The chart is one `img` with one name, so nothing drawn inside it is read on its own — this
-     * included. Say it in `label` as well, or leave `label` off and let the default name carry the
-     * latest reading.
+     * The chart is one `img` with one name, so nothing drawn inside it is read on its own — so the
+     * name says this as the latest reading, units and all. Pages used to write the caption into
+     * `label` by hand to get it spoken, which is a second place for the same figure to go stale.
      */
     readonly caption?: string;
     /** Names the series for a reader who cannot see it. */
@@ -150,7 +161,7 @@ function Sparkline({ values, caption, label, size, head, className, ...props }: 
     <div
       data-slot="sparkline"
       role="img"
-      aria-label={label?.trim() || sparklineLabel(values, marked)}
+      aria-label={namedReading(label, sparklineLabel(values, marked, caption))}
       style={{ "--head": `${(headHeight / HEIGHT) * 100}%` } as React.CSSProperties}
       className={styles.root({ className })}
       {...props}

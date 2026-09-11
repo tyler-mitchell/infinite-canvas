@@ -601,10 +601,15 @@ const fixtureLength = (source: string, name: string) => {
 };
 
 /**
- * A sparkline's `label` is its accessible name, so a count stated there is what a reader who
- * cannot see the trace is told. Nothing tied those counts to the series they describe.
+ * A sparkline's `label` is a name composed onto the reading the component derives, so a count
+ * written there is a second copy of a figure the chart already states — free to drift, and for a
+ * while three of them had.
+ *
+ * This used to check the written count against the fixture. Now none is written: the rule asks that
+ * none comes back. Inverted rather than deleted, because the old shape went quietly vacuous the
+ * moment the last one was removed, and a rule that measures nothing reads exactly like a clean one.
  */
-test("a series that states its length says the length it has", () => {
+test("no chart names a count the component already derives", () => {
   /* Every page, not just the one that draws the most: the overview states a count as well. */
   const pages = appFiles.map((file) => readFileSync(new URL(file, appDir), "utf8")).join("\n");
   const fixtures = readFileSync(new URL("fixtures.ts", appDir), "utf8");
@@ -626,18 +631,14 @@ test("a series that states its length says the length it has", () => {
         Boolean(row.series) && /\bover \d+\b/.test(row.label ?? ""),
     );
 
-  const wrong = counted
-    .map(({ series, label }) => ({
-      series,
-      stated: Number(/\bover (\d+)\b/.exec(label)![1]),
-      real: fixtureLength(fixtures, series),
-    }))
-    .filter(({ stated, real }) => stated !== real)
-    .map(({ series, stated, real }) => `${series} says ${stated}, the fixture holds ${real}`);
-
+  /* Read first: the fixtures are being read, so an empty result is an empty result. */
   expect(fixtureLength(fixtures, "INSTALLS")).toBe(8);
-  expect(counted.length).toBeGreaterThan(3);
-  expect(wrong).toEqual([]);
+  expect(pages.length).toBeGreaterThan(10_000);
+  expect([...pages.matchAll(/<Sparkline\b/g)].length).toBeGreaterThan(3);
+
+  expect(
+    counted.map(({ series, label }) => `${series} names "${label}", which counts for the chart`),
+  ).toEqual([]);
 });
 
 /**
