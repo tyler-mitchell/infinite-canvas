@@ -2865,6 +2865,84 @@ test("a component that states its keys answers them in a way a reader can hear",
 });
 
 /**
+ * The general case behind the plot's silence: a prop whose own comment says it carries something a
+ * reader needs, and which is optional. Omit it and the reader loses that thing, unless the component
+ * has something to fall back on.
+ *
+ * Six props say it. Five are names, and each derives one from its own data — `barsLabel`,
+ * `breakdownLabel`, `sparklineLabel`, and a named constant in the plot and the deck. The sixth was
+ * the plot's readout, whose fallback was nothing at all until the plot got its own line, and that is
+ * why it is written down here rather than pattern-matched: its answer is an element, not a string.
+ */
+const FALLS_BACK_TO_SOMETHING_ELSE: Record<string, string> = {
+  "activity-grid.tsx children": "the plot draws its own readout when none is passed",
+};
+
+/**
+ * A doc comment and the optional prop directly under it. The body is tempered so it cannot reach
+ * past its own `*​/`: written lazily, it spanned two comments and handed one prop's wording to
+ * another, which reported the deck's `onSettle` as something a reader depends on.
+ */
+const DOCUMENTED_OPTIONAL = /\/\*\*((?:(?!\*\/)[\s\S])*)\*\/\s*readonly (\w+)\?:/g;
+
+/** What the comment has to mention for the prop to be one a reader depends on. */
+const FOR_A_READER = /\breader\b|cannot see|announce/;
+
+const readerProps = (sources: readonly { readonly file: string; readonly source: string }[]) =>
+  sources.flatMap(({ file, source }) =>
+    [...source.matchAll(DOCUMENTED_OPTIONAL)]
+      .filter(([, doc]) => FOR_A_READER.test(doc!))
+      .map(([, , prop]) => ({ file, source, prop: prop!, what: `${file} ${prop}` })),
+  );
+
+const optionalAndUnanswered = (
+  sources: readonly { readonly file: string; readonly source: string }[],
+) =>
+  readerProps(sources)
+    .filter(
+      ({ source, prop, what }) =>
+        !(
+          source.includes(`${prop} = `) ||
+          source.includes(`${prop}?.trim() ||`) ||
+          what in FALLS_BACK_TO_SOMETHING_ELSE
+        ),
+    )
+    .map(({ what }) => what);
+
+test("an optional prop with nothing to fall back on is reported", () => {
+  expect(
+    optionalAndUnanswered([
+      {
+        file: "a.tsx",
+        source:
+          "/** Names it for a reader. */\n  readonly label?: string;\n  aria-label={label?.trim() || derived()}",
+      },
+      { file: "b.tsx", source: "/** Names it for a reader. */\n  readonly label?: string;" },
+      /* No mention of a reader: an optional prop is just optional. */
+      { file: "c.tsx", source: "/** How wide. */\n  readonly size?: number;" },
+    ]),
+  ).toEqual(["b.tsx label"]);
+});
+
+test("every optional prop a reader depends on has something to fall back on", () => {
+  const asked = readerProps(named()).map(({ what }) => what);
+
+  expect(optionalAndUnanswered(named())).toEqual([]);
+  /*
+   * Read after: the whole rule turns on a word in a comment, so a doc rewritten without it would
+   * drop the prop out of the category and take the check with it. Pinned, so that shows up.
+   */
+  expect(asked.sort()).toEqual([
+    "activity-grid.tsx children",
+    "activity-grid.tsx label",
+    "bars.tsx label",
+    "breakdown.tsx label",
+    "sparkline.tsx label",
+    "swipe-deck.tsx label",
+  ]);
+});
+
+/**
  * The decision log is tab separated with six columns, and a row that loses one is a row whose
  * evidence and result have merged into a single cell — readable enough to miss, and wrong.
  *
