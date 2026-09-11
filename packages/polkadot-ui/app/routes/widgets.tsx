@@ -32,6 +32,7 @@ import {
   Prose,
   Readout,
   Receipt,
+  type ReceiptBarcodeProps,
   receiptVariants,
   Row,
   Stat,
@@ -137,12 +138,15 @@ function Widgets() {
         <Props<NumberTickerProps>
           name="number ticker"
           rows={[
-            { name: "value", note: "the number to roll to" },
+            {
+              name: "value",
+              note: "the number to roll to, and the whole figure a reader hears — the digits themselves are decoration",
+            },
             { name: "locale", fallback: "false", note: "thousands separators" },
             {
               name: "pad",
               fallback: "0",
-              note: "least digits to keep, so a falling value holds width",
+              note: "least digits to keep, so a falling value holds width; a width is not a value, so it is not spoken",
             },
             { name: "duration", fallback: "600", note: "ms for one digit" },
             { name: "stagger", fallback: "40", note: "ms between places, units first" },
@@ -360,6 +364,17 @@ function Widgets() {
             </Receipt>
           </div>
         </Surface>
+        {/* The barcode is a picture of an order, so what it is called is the whole of what a reader
+            gets from it. One row, because that is the prop this page passes. */}
+        <Props<ReceiptBarcodeProps>
+          name="receipt barcode"
+          rows={[
+            {
+              name: "value",
+              note: "the order the bars encode, and what a reader hears; an order of nothing prints nothing",
+            },
+          ]}
+        />
         <Api name="receipt line" of={receiptVariants} />
       </section>
     </div>
