@@ -770,12 +770,21 @@ const ratiosIn = (prose: string) =>
 /**
  * Everything that can state one. The README is the consumer's copy, so a wrong ratio there is read
  * by somebody deciding what to build — worse than a wrong one in a comment, and it was unswept.
+ *
+ * The pages state them as data, which a rule above reads, and one states another in a comment — a
+ * shell grep said none did, because it could not match a comment spanning lines. Widening this
+ * caught it on the first run.
  */
-const stating = [...componentSources, { file: "README.md", source: read("../README.md") }] as const;
+const stating = [
+  ...componentSources,
+  ...pageSources,
+  { file: "README.md", source: read("../README.md") },
+] as const;
 
 /**
- * Each ratio a component states in prose, and the two colours it is a ratio between. One was a
- * pair of values in the wrong order, and nothing could catch that while it lived only in a comment.
+ * Each ratio the kit states in prose — a component comment, a page comment, or a README sentence —
+ * and the two colours it is a ratio between. One was a pair of values in the wrong order, and
+ * nothing could catch that while it lived only in a comment.
  *
  * Three rows measure a ratio the kit deliberately does not draw. Each states what a colour would
  * reach if it were left alone, which is the reason the component reaches for another one. A
@@ -825,6 +834,9 @@ const CLAIMED = [
    * a control instead. The two are the reason the sheet gives the paper its own seat. */
   { file: "README.md", says: "1.31", ink: "--pk-accent", on: "--pk-paper-page", alpha: 0.5 },
   { file: "README.md", says: "13.48", ink: "--pk-paper-ink", on: "--pk-paper-page", alpha: 1 },
+  /* The props table marks the default value in the accent, and says the mark works without hue.
+   * Found by widening this sweep to the pages, where it had sat in prose since it was written. */
+  { file: "props.tsx", says: "2.69", ink: "--pk-accent-dim", on: "--pk-ink-faint", alpha: 1 },
 ] as const satisfies readonly {
   file: string;
   says: string;
