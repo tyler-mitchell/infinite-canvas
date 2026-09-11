@@ -1541,3 +1541,27 @@ test("the one slot the sheet styles and does not draw is written down", () => {
   expect(drawn).not.toContain("board-item");
   expect(readme).toContain('[data-slot="board-item"][data-dragging]');
 });
+
+/**
+ * A margin in percent is read against the containing block's width — a top margin included, which
+ * is the part that surprises. The aurora places its glow that way, so the glow follows the card's
+ * width while the words follow its height and the room between them is not a constant: measured,
+ * forty five pixels at a card of four hundred and thirty four, thirty at three hundred and eighty,
+ * and none at about two hundred and seventy five.
+ *
+ * One file does it and its prop says so. Anything that joins it carries the same surprise.
+ */
+const PLACED_BY_PERCENT_MARGIN = ["aurora.tsx"];
+
+test("a percent margin, which follows width even when vertical, is named where it is used", () => {
+  const using = componentSources
+    .filter(({ source }) => /-?m[tblrxy]?-\[[\d.]+%\]/.test(source))
+    .map(({ file }) => file)
+    .sort();
+
+  /* Read first: the pattern still finds the one file that does it, at the offsets it writes. */
+  const aurora = componentSources.find(({ file }) => file === "aurora.tsx")!.source;
+
+  expect(/-mt-\[35%\]/.test(aurora)).toBe(true);
+  expect(using).toEqual(PLACED_BY_PERCENT_MARGIN);
+});
