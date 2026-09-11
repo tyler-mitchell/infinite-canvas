@@ -1635,17 +1635,20 @@ const CUTS_ITS_TEXT: Record<string, string> = {
 };
 
 /**
- * A slot and its classes, however the file breaks the line. Written to match one line only, this
- * read five of the seven: the two whose value sits under its name were invisible, and the rule
- * would have looked like it had swept them.
+ * A slot and its classes, however the file breaks the line. Two of the seven put their value under
+ * the name rather than beside it, so the planted case below holds both shapes: a reader that knew
+ * only one would sweep five and look like it had swept all seven.
+ *
+ * `\s*` crosses a line break here, which is why one pattern reads both. `grep` does not, and the
+ * five-of-seven reading that prompted this rule came from a shell sweep rather than from the rule.
  */
 const slotsOf = (source: string) =>
-  [...source.matchAll(/^\s{4}([a-zA-Z]+):\s*\n?\s*"([^"]*)"/gm)].map(([, slot, classes]) => ({
+  [...source.matchAll(/^\s{4}([a-zA-Z]+):\s*"([^"]*)"/gm)].map(([, slot, classes]) => ({
     slot: slot!,
     classes: classes!,
   }));
 
-test("a slot reader that only knows one line break reads part of a file", () => {
+test("a slot is read whether its classes sit beside the name or under it", () => {
   const both =
     'const a = tv({\n  slots: {\n    one: "x truncate",\n    two:\n      "y truncate",\n  },\n});';
 
