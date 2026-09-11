@@ -270,18 +270,21 @@ receipt
 
 ## Adding a component
 
-Thirteen rules answer for a new component, and the suite names each one rather than failing
-generically. This list is what they asked for, measured by adding a bare component and reading the
-failures rather than by recalling them:
+Nine rules answer for a bare component, and the suite names each one rather than failing
+generically. The list is what they asked for, measured by adding a component that draws slots and
+nothing else, then fixing only what was reported until the suite went green:
 
 ```txt
 src/components/<name>.tsx     one tv call at the top, a named props type, no class strings in JSX
 src/index.ts                  the component, its variants object, and its props type
 app/routes/<page>.tsx         drawn on a page — a component nothing demonstrates is reported
-README.md                     added to the Components list, and the module count moved
-docs/research/widget-runtime.md   the same count, written as a numeral
+README.md                     added to the Components list, the module count, and the slot count
+docs/research/widget-runtime.md   the same module count, written as a numeral, in two places
 src/components/<name>.test.ts     only if it works something out: a helper it exports
 ```
+
+Nine is the floor, not a promise: a component with variants, a props table or an exported helper
+meets more. Re-measure rather than trusting the number — add the file and read what the suite says.
 
 The counts are the part worth knowing about in advance: two documents state how many component
 modules there are, one in words and one as a numeral, and both are checked. A component that draws
