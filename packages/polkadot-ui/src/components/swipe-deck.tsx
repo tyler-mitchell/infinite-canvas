@@ -66,6 +66,24 @@ export function swipeOutcome(offset: number, commit = COMMIT): SwipeOutcome {
 }
 
 /**
+ * The cards still in the deck, oldest first. Kept by id rather than by counting, so a changed
+ * `items` adds and removes correctly and a card already dealt with stays gone.
+ *
+ * Asked of a set rather than a list. Read from a list this scanned the whole of what had settled
+ * once per card, so the cost grew with the square of the deck — and it is recomputed on every
+ * pointer move, since dragging a card sets its offset and draws again.
+ *
+ * Two cards sharing an id leave together, which is what the id being the identity means: settling
+ * either takes both, and the reader never meets the second.
+ */
+export function remainingOf<Item extends { readonly id: string }>(
+  items: readonly Item[],
+  settled: ReadonlySet<string>,
+) {
+  return items.filter((item) => !settled.has(item.id));
+}
+
+/**
  * What a settled card says. The card unmounts and the next takes its place with the focus still on
  * the well, so this is the only thing that reaches a reader who cannot see the change: the outcome,
  * which cannot be recovered by looking, and what is now on top.
@@ -128,13 +146,13 @@ function SwipeDeck({
   className,
   ...props
 }: SwipeDeckProps) {
-  const [settled, setSettled] = useState<readonly string[]>([]);
+  const [settled, setSettled] = useState<ReadonlySet<string>>(() => new Set());
   const [offset, setOffset] = useState(0);
   const [held, setHeld] = useState(false);
   const [outcome, setOutcome] = useState("");
   const styles = swipeDeck({ held });
 
-  const remaining = items.filter((item) => !settled.includes(item.id));
+  const remaining = remainingOf(items, settled);
   const top = remaining[0];
   /** One source, so the words a reader sees and the words a reader hears cannot drift apart. */
   const nothingLeft = emptyLabel.trim() || DEFAULT_EMPTY;
@@ -148,7 +166,7 @@ function SwipeDeck({
   const settle = (direction: "pin" | "skip") => {
     if (!top) return;
     onSettle?.(top, direction);
-    setSettled((ids) => [...ids, top.id]);
+    setSettled((ids) => new Set(ids).add(top.id));
     setOutcome(settledAs(direction, top.title, remaining[1]?.title ?? nothingLeft));
     rest();
   };

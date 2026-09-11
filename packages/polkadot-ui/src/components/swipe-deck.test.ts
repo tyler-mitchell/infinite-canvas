@@ -1,6 +1,6 @@
 import { expect, test } from "vite-plus/test";
 
-import { settledAs, stampOpacity, swipeOutcome } from "./swipe-deck.tsx";
+import { remainingOf, settledAs, stampOpacity, swipeOutcome } from "./swipe-deck.tsx";
 
 const COMMIT = 90;
 
@@ -47,6 +47,27 @@ test("a stamp reaches full exactly where the card starts committing", () => {
   expect(stampOpacity(short).pin).toBeLessThan(1);
   expect(swipeOutcome(COMMIT)).toBe("pin");
   expect(stampOpacity(COMMIT).pin).toBe(1);
+});
+
+/**
+ * The deck keeps what it has dealt with by id, and its own documentation says two cards sharing one
+ * id leave together. That was written down and never checked, and the structure holding those ids
+ * changed from a list to a set, so it is checked now.
+ */
+test("the deck keeps the cards it has not settled, in the order they were given", () => {
+  const cards = [{ id: "a" }, { id: "b" }, { id: "c" }];
+
+  expect(remainingOf(cards, new Set())).toEqual(cards);
+  expect(remainingOf(cards, new Set(["b"]))).toEqual([{ id: "a" }, { id: "c" }]);
+  expect(remainingOf(cards, new Set(["a", "b", "c"]))).toEqual([]);
+  /* An id that is not in the deck settles nothing, which is what a changed `items` looks like. */
+  expect(remainingOf(cards, new Set(["z"]))).toEqual(cards);
+});
+
+test("two cards sharing an id leave together, because the id is the identity", () => {
+  const twins = [{ id: "a" }, { id: "a" }, { id: "b" }];
+
+  expect(remainingOf(twins, new Set(["a"]))).toEqual([{ id: "b" }]);
 });
 
 test("a settled card says what happened to it and what is now on top", () => {
