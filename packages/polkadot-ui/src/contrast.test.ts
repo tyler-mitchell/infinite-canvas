@@ -318,6 +318,35 @@ test("the ring paper uses clears 3:1 at both ends of the sheet", () => {
 });
 
 /**
+ * The card a reader swipes is painted with a gradient, so its face never enters the token map and
+ * every rule above reads past it — the same blindness the paper had, and the reason the paper got
+ * its own pair of rules. The deck writes five inks on that face and none had been read against it.
+ *
+ * Both ends, because a card is tall enough for the gradient to matter: the head sits on the light
+ * stop and the foot on the dark one, so a ratio that holds at one end says nothing about the other.
+ */
+test("every ink the swipe card writes clears 4.5:1 at both ends of its face", () => {
+  const [top, foot] = stopsOf("--pk-swipe-face");
+  const source = componentSources.find(({ file }) => file === "swipe-deck.tsx")!.source;
+  const written = [...source.matchAll(/\btext-(pk-ink[a-z-]*)\b/g)].map(([, one]) => one!);
+  const inks = [...new Set(written)];
+
+  expect([top, foot]).not.toContain(undefined);
+  /* Read first: a reader that finds no ink agrees with every face it is given. */
+  expect(inks.length).toBeGreaterThan(3);
+  expect(
+    inks.flatMap((name) => {
+      const ink = declaredAs.get(`--${name}`)!;
+
+      return [top!, foot!]
+        .map((stop) => ({ name, stop, ratio: contrast(ink, stop) }))
+        .filter(({ ratio }) => ratio < 4.5)
+        .map(({ name: one, stop, ratio }) => `${one} reads ${ratio.toFixed(2)} on ${stop}`);
+    }),
+  ).toEqual([]);
+});
+
+/**
  * The paper's hairline stays far under the three a mark is asked for, and it is exempt because it
  * is decoration. The figure is stated in the component and measured against the gradient there,
  * so it is not restated here. That has been an assumption twice now, so here is what makes it
