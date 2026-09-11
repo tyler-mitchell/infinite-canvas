@@ -513,6 +513,22 @@ const HOSTILE: readonly { readonly name: string; readonly props: Record<string, 
   /* A scale of no bounds, which drew every day on the lowest level until it fell back. */
   { name: "ActivityGrid", props: { days: DAYS, weeks: 4, thresholds: [] } },
   /*
+   * A count inside a day. The share inside a part and the four lengths inside a pane were both
+   * stressed and this was not, though the plot sums these into the one figure a reader who cannot
+   * see it is given.
+   */
+  {
+    name: "ActivityGrid",
+    props: { days: [{ date: new Date(2026, 8, 3), count: Number.NaN }], weeks: 4 },
+  },
+  {
+    name: "ActivityGrid",
+    props: {
+      days: [{ date: new Date(2026, 8, 3), count: Number.POSITIVE_INFINITY }],
+      weeks: 4,
+    },
+  },
+  /*
    * A pane is four lengths, each written from the recipe it is given. One row each, because a
    * guard on one says nothing about the other three.
    */

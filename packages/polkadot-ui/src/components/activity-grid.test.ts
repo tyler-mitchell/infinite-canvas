@@ -6,6 +6,7 @@ import {
   ActivityGrid,
   activityLevel,
   cursorAfter,
+  dayReadout,
   toColumns,
   weeksThatFit,
   type ActivityDay,
@@ -78,6 +79,23 @@ test("minutes read are every top level on the commit defaults, and a ladder on t
   const minutes = [0, 12, 45, 90, 240];
   expect(minutes.map((n) => activityLevel(n))).toEqual([0, 4, 4, 4, 4]);
   expect(minutes.map((n) => activityLevel(n, [1, 30, 60, 120]))).toEqual([0, 1, 2, 3, 4]);
+});
+
+/**
+ * The plot's own line, which is what a reader gets when no render prop replaces it. The summary
+ * beside it drops a reading it cannot use, because one of them would otherwise be the whole total;
+ * this printed the same reading straight out, so the total said one thing and the day said `NaN`.
+ */
+test("the line under the plot shows the figure the summary counted", () => {
+  /* Built from local parts, not a UTC stamp: `toDateString` reads local, so a stamp at midnight
+   * UTC names the day before wherever the clock runs behind it. */
+  const day = (count: number) => ({ count, date: new Date(2026, 8, 3) });
+
+  expect(dayReadout(day(42), "minutes read")).toBe("42 minutes read · Thu Sep 03");
+  expect(dayReadout(day(Number.NaN), "minutes read")).toBe("0 minutes read · Thu Sep 03");
+  expect(dayReadout(day(Number.POSITIVE_INFINITY), "commits")).toBe("0 commits · Thu Sep 03");
+  /* Nothing focused names the series, so a polite region has something that is not the first day. */
+  expect(dayReadout(undefined, "minutes read")).toBe("minutes read");
 });
 
 /**

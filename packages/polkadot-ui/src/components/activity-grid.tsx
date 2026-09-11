@@ -64,6 +64,21 @@ const cellOrDefault = (cellSize: number) =>
   Number.isFinite(cellSize) && cellSize > 0 ? cellSize : DEFAULT_CELL;
 
 /**
+ * A day's count as a figure that can be shown. The summary already dropped a reading it could not
+ * use, because one of them would otherwise have been the whole total; the line under the plot
+ * printed the same reading straight out, so the total said one thing and the day said `NaN`.
+ */
+const counted = (count: number) => (Number.isFinite(count) ? count : 0);
+
+/** What the plot's own line says about the focused day, or about the series when none is. */
+export function dayReadout(
+  day: { readonly count: number; readonly date: Date } | undefined,
+  label: string,
+) {
+  return day ? `${counted(day.count)} ${label} · ${day.date.toDateString().slice(0, 10)}` : label;
+}
+
+/**
  * A scale of no bounds is not a scale. Filtering against it puts every day on the lowest level, so
  * a plot given `[]` drew as though nothing had happened while its own summary still announced the
  * true total — the drawing and the label disagreeing. Empty falls back the way a bad cell size does.
@@ -232,7 +247,7 @@ function ActivityGrid({
     const last = shown.at(-1)?.date.toDateString();
     /* One count that is not a number would otherwise be the whole total, which is the only figure
      * a reader who cannot see the plot is given. */
-    const total = shown.reduce((sum, day) => sum + (Number.isFinite(day.count) ? day.count : 0), 0);
+    const total = shown.reduce((sum, day) => sum + counted(day.count), 0);
     return `${shown.length} days, ${first} to ${last}, ${total} in total`;
   }, [columns]);
 
@@ -319,11 +334,7 @@ function ActivityGrid({
            * It truncates rather than wrapping, and it was measured doing so: 130 characters in, the
            * legend beside it neither moves nor shrinks. See `docs/internal/layout-probes.md`.
            */
-          <Readout className={styles.readout()}>
-            {focused
-              ? `${focused.count} ${label} · ${focused.date.toDateString().slice(0, 10)}`
-              : label}
-          </Readout>
+          <Readout className={styles.readout()}>{dayReadout(focused, label)}</Readout>
         )}
         <div className={styles.legend()}>
           {TONES.map((tone) => (
