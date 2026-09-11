@@ -27,16 +27,28 @@ export interface TickerCell {
 }
 
 /**
+ * The most places a reading can be padded to. Four times the digits of the largest number this
+ * language represents exactly, so no real width is refused, and far below the length at which the
+ * runtime refuses to build the string at all.
+ */
+const MOST_PLACES = 64;
+
+/**
  * The printed form of a value: padded to `pad` digits, then grouped in threes if `locale`.
  * Padding runs first so a padded number still groups from its real units place.
  *
  * A reading that is not a number counts as none. Printed as it arrives it is letters, and a letter
  * takes the separator's key, which is its place value and the character: `NaN` and `Infinity` each
  * repeat a letter at the same place, so two cells would claim one key.
+ *
+ * A width is clamped rather than trusted. `padStart` throws a `RangeError` for a length it cannot
+ * build, so an endless `pad` took the whole page down, and so did a large finite one — the value,
+ * the roll and the stagger were each already guarded and this was the one that was not.
  */
 export function tickerText(value: number, pad = 0, locale = false) {
   const real = Number.isFinite(value) ? value : 0;
-  const digits = String(Math.trunc(Math.abs(real))).padStart(pad, "0");
+  const places = Number.isFinite(pad) ? Math.min(Math.max(Math.trunc(pad), 0), MOST_PLACES) : 0;
+  const digits = String(Math.trunc(Math.abs(real))).padStart(places, "0");
   const grouped = locale ? digits.replace(/\B(?=(\d{3})+(?!\d))/g, ",") : digits;
 
   return real < 0 ? `-${grouped}` : grouped;

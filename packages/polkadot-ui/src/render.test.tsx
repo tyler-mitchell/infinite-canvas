@@ -466,6 +466,13 @@ const HOSTILE: readonly { readonly name: string; readonly props: Record<string, 
   { name: "NumberTicker", props: { value: Number.POSITIVE_INFINITY } },
   { name: "NumberTicker", props: { value: 4182, duration: Number.POSITIVE_INFINITY } },
   { name: "NumberTicker", props: { value: 4182, stagger: Number.POSITIVE_INFINITY } },
+  /*
+   * The row that was missing, and the crash it would have caught: `pad` had a not-a-number case
+   * below and no endless one here, so nothing exercised the one width `padStart` refuses to build.
+   * A large finite width is refused the same way, which no not-a-number case reaches either.
+   */
+  { name: "NumberTicker", props: { value: 4182, pad: Number.POSITIVE_INFINITY } },
+  { name: "NumberTicker", props: { value: 4182, pad: 1e9 } },
   { name: "Sparkline", props: { values: [1, Number.POSITIVE_INFINITY, 3] } },
   {
     name: "Breakdown",
@@ -562,6 +569,35 @@ test("every component that takes a number from a consumer is given an unusable o
   /* Were the reader to match nothing, the line below would pass by covering nothing. */
   expect(takesNumbers.length).toBeGreaterThan(4);
   expect(takesNumbers.filter((file) => !spoiled.has(file))).toEqual([]);
+});
+
+/**
+ * The list above covers the components; this covers the props inside them. A reading that is not a
+ * number and an endless one fail differently — the first slips through a comparison, the second
+ * passes it — so a prop stressed one way and not the other is only half asked.
+ *
+ * The ticker's width was exactly that: a not-a-number case and no endless one. `padStart` throws a
+ * `RangeError` for a width it cannot build, so the component took the page down and no rule here
+ * looked. Both rows exist now, and this keeps the two lists level.
+ */
+const stressedWith = (wanted: (value: number) => boolean) =>
+  [
+    ...new Set(
+      HOSTILE.flatMap(({ name, props }) =>
+        Object.entries(props)
+          .filter(([, value]) => typeof value === "number" && wanted(value))
+          .map(([prop]) => `${name}.${prop}`),
+      ),
+    ),
+  ].sort();
+
+test("a prop stressed with one impossible reading is stressed with the other", () => {
+  const notNumbers = stressedWith((value) => Number.isNaN(value));
+  const endless = stressedWith((value) => !Number.isFinite(value) && !Number.isNaN(value));
+
+  /* Read first: two readers that found nothing would agree with each other perfectly. */
+  expect(notNumbers.length).toBeGreaterThan(5);
+  expect(endless).toEqual(notNumbers);
 });
 
 /**

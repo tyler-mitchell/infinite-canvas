@@ -20,6 +20,29 @@ test("padding is counted in digits, not in printed characters", () => {
   expect(tickerText(42, 4, true)).toBe("0,042");
 });
 
+/**
+ * `padStart` throws a `RangeError` for a length it cannot build, and this one took the page with it:
+ * the value, the roll and the stagger were each guarded against an endless reading and the width was
+ * not. A large finite width threw just the same, so the guard clamps rather than only checking.
+ */
+test("a width the runtime could not build is clamped, not thrown", () => {
+  for (const pad of [Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY, Number.NaN, 1e9, -5]) {
+    expect(() => tickerText(42, pad)).not.toThrow();
+  }
+  /* Endless and not-a-number mean no padding; a huge one means the most places allowed. */
+  expect(tickerText(42, Number.POSITIVE_INFINITY)).toBe("42");
+  expect(tickerText(42, Number.NaN)).toBe("42");
+  expect(tickerText(42, -5)).toBe("42");
+  expect(tickerText(42, 1e9)).toHaveLength(64);
+});
+
+test("a width a consumer could plausibly ask for is honoured exactly", () => {
+  expect(tickerText(42, 5)).toBe("00042");
+  /* The ceiling itself, so it is a clamp and not an off-by-one. */
+  expect(tickerText(42, 64)).toHaveLength(64);
+  expect(tickerText(42, 3.7)).toBe("042");
+});
+
 test("grouping puts a separator every three digits from the units place", () => {
   expect(tickerText(999, 0, true)).toBe("999");
   expect(tickerText(1000, 0, true)).toBe("1,000");
