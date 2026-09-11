@@ -4,11 +4,23 @@ import { expect, test } from "vite-plus/test";
 
 const read = (path: string) => readFileSync(new URL(path, import.meta.url), "utf8");
 
-const entry = read("./index.ts");
+/**
+ * Comments removed. Every rule below asks what a file writes — an export, a part name, a heading —
+ * and the doc comments in this kit name those same things, so read over the whole file a rule
+ * counts a mention as a declaration. A note writing `<Display>` would make a page look like it
+ * names itself twice.
+ */
+const codeOf = (source: string) => source.replaceAll(/\/\*[\s\S]*?\*\/|\/\/.*/g, "");
+
+const entry = codeOf(read("./index.ts"));
 const componentDir = new URL("./components/", import.meta.url);
 const componentFiles = readdirSync(componentDir).filter(
   (name) => name.endsWith(".tsx") && !name.endsWith(".test.tsx"),
 );
+const componentSources = componentFiles.map((file) => ({
+  file,
+  source: codeOf(readFileSync(new URL(file, componentDir), "utf8")),
+}));
 
 const routeDir = new URL("../app/routes/", import.meta.url);
 const pageFiles = readdirSync(routeDir).filter(
@@ -16,7 +28,7 @@ const pageFiles = readdirSync(routeDir).filter(
 );
 const pageSources = pageFiles.map((name) => ({
   name,
-  source: readFileSync(new URL(name, routeDir), "utf8"),
+  source: codeOf(readFileSync(new URL(name, routeDir), "utf8")),
 }));
 const pages = pageSources.map(({ source }) => source).join("\n");
 
@@ -46,9 +58,7 @@ const components = new Set(
  * from the shape of a name.
  */
 const jsxNames = new Map<string, Set<string>>();
-for (const file of componentFiles) {
-  const source = readFileSync(new URL(file, componentDir), "utf8");
-
+for (const { source } of componentSources) {
   for (const [, parent, part, exported] of source.matchAll(/^(\w+)\.(\w+) = (\w+);$/gm)) {
     const written = jsxNames.get(exported!) ?? new Set<string>();
     written.add(`${parent}.${part}`);
@@ -74,9 +84,7 @@ test("no component module is left out of the entry", () => {
 });
 
 test("every variant object reaches the entry, because the props tables read them", () => {
-  const missing = componentFiles.flatMap((file) => {
-    const source = readFileSync(new URL(file, componentDir), "utf8");
-
+  const missing = componentSources.flatMap(({ file, source }) => {
     return [...source.matchAll(/\bas (\w+Variants)\b/g)]
       .map(([, name]) => name!)
       .filter((name) => !new RegExp(`\\b${name}\\b`).test(entry))
@@ -87,9 +95,7 @@ test("every variant object reaches the entry, because the props tables read them
 });
 
 test("every props type reaches the entry, because a consumer types wrappers with them", () => {
-  const missing = componentFiles.flatMap((file) => {
-    const source = readFileSync(new URL(file, componentDir), "utf8");
-
+  const missing = componentSources.flatMap(({ file, source }) => {
     return [...source.matchAll(/export (?:type|interface) (\w+Props)\b/g)]
       .map(([, name]) => name!)
       .filter((name) => !new RegExp(`\\b${name}\\b`).test(entry))
@@ -313,9 +319,7 @@ const WORDS_BEHIND_AN_INTERACTION: Record<string, string> = {
 };
 
 test("a component that holds state builds its words where they can be read", () => {
-  const stateful = componentFiles
-    .map((file) => ({ file, source: readFileSync(new URL(file, componentDir), "utf8") }))
-    .filter(({ source }) => source.includes("useState"));
+  const stateful = componentSources.filter(({ source }) => source.includes("useState"));
 
   /* The function first, so losing one reports the component whose words went back inside it. */
   expect(

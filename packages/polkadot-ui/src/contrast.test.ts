@@ -18,20 +18,38 @@ const read = (path: string) => readFileSync(new URL(path, import.meta.url), "utf
 
 const themeCss = read("./theme.css");
 
+/**
+ * Comments removed, because a file here is read for two different things and they must not be
+ * confused. A rule about colour asks what the file *draws*, and every comment in this kit names
+ * the classes and tokens those rules search for. `proseOf` below is the other half: it keeps only
+ * the comments, for the rules that ask what the file *claims*.
+ */
+const codeOf = (source: string) => source.replaceAll(/\/\*[\s\S]*?\*\/|\/\/.*/g, "");
+
 const componentDir = new URL("./components/", import.meta.url);
-const componentSources = readdirSync(componentDir)
+const componentRaw = readdirSync(componentDir)
   .filter((name) => name.endsWith(".tsx"))
   .map((file) => ({ file, source: readFileSync(new URL(file, componentDir), "utf8") }));
 
+const componentSources = componentRaw.map(({ file, source }) => ({ file, source: codeOf(source) }));
+
+/**
+ * The pages hold their own `tv` blocks, so they answer the same way. None paints a *thinned* ink
+ * fill, and while that was all this rule could see, the page half guarded rather than reported.
+ * Reading an opaque fill changed that: three of them now report, and the list below says which,
+ * so a green run is not read as nine pages measured when it is really three fills.
+ */
 const appDir = new URL("../app/", import.meta.url);
-const pages = [
+const pageRaw = [
   ...readdirSync(appDir).filter((name) => name.endsWith(".tsx")),
   ...readdirSync(new URL("routes/", appDir))
     .filter((name) => name.endsWith(".tsx"))
     .map((name) => `routes/${name}`),
-]
-  .map((file) => readFileSync(new URL(file, appDir), "utf8"))
-  .join("\n");
+].map((file) => ({ file, source: readFileSync(new URL(file, appDir), "utf8") }));
+
+const pageSources = pageRaw.map(({ file, source }) => ({ file, source: codeOf(source) }));
+
+const pages = pageSources.map(({ source }) => source).join("\n");
 
 /*
  * Plain hex only, and the first declaration wins. The accent is declared twice — once as hex and
@@ -603,19 +621,6 @@ const paintedGrounds = (source: string) => {
   ];
 };
 
-/**
- * The pages hold their own `tv` blocks, so they answer the same way. None paints a *thinned* ink
- * fill, and while that was all this rule could see, the page half guarded rather than reported.
- * Reading an opaque fill changed that: three of them now report, and the list below says which,
- * so a green run is not read as nine pages measured when it is really three fills.
- */
-const pageSources = [
-  ...readdirSync(appDir).filter((name) => name.endsWith(".tsx")),
-  ...readdirSync(new URL("routes/", appDir))
-    .filter((name) => name.endsWith(".tsx"))
-    .map((name) => `routes/${name}`),
-].map((file) => ({ file, source: readFileSync(new URL(file, appDir), "utf8") }));
-
 test("a fill a component paints is a ground its own text clears", () => {
   const thin = [...componentSources, ...pageSources].flatMap(({ file, source }) =>
     paintedGrounds(source).flatMap(({ fill, ink: token, alpha, inkAlpha }) =>
@@ -758,6 +763,21 @@ const proseOf = (file: string, source: string) =>
     : [...source.matchAll(/\/\*[\s\S]*?\*\/|\/\/.*/g)].map(([comment]) => comment).join("\n");
 
 /**
+ * The two faces are complements, and this says so on real files rather than on a planted string.
+ * Read the wrong one and a rule answers a question nobody asked: the colour rules would count a
+ * comment's `bg-pk-surface` as paint, and the claim rules would count a class's `0.06` as a stated
+ * ratio. Both halves have to hold for the split to mean anything.
+ */
+test("what a file draws and what it claims are different text", () => {
+  const drawing = componentSources.find(({ file }) => file === "button.tsx")!.source;
+  const claiming = componentRaw.find(({ file }) => file === "button.tsx")!.source;
+
+  expect(ratiosIn(proseOf("button.tsx", claiming))).toContain("4.95");
+  expect(ratiosIn(drawing)).not.toContain("4.95");
+  expect(drawing).toContain("tv({");
+});
+
+/**
  * Every ratio that prose states. `4.95` and `1.92:1` are the same claim written two ways, so both
  * reduce to the number. A threshold is what the standard asks, not what these colours give.
  */
@@ -776,8 +796,8 @@ const ratiosIn = (prose: string) =>
  * caught it on the first run.
  */
 const stating = [
-  ...componentSources,
-  ...pageSources,
+  ...componentRaw,
+  ...pageRaw,
   { file: "README.md", source: read("../README.md") },
 ] as const;
 

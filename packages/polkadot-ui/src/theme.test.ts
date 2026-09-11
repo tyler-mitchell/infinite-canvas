@@ -212,14 +212,30 @@ const WRITTEN_AS: Record<string, string> = {
   shadow: "shadow",
 };
 
+/**
+ * Comments removed. Every rule in this file asks about code, and the doc comments here name the
+ * very things those rules search for — a role, an attribute, a prop, a class. Read over the whole
+ * file a rule gets the answer wrong in both directions, and both have happened: a note in
+ * `text.tsx` warning that a chart wrapped in a `Readout` loses its picture role was counted as a
+ * component drawing one, and a reader ran past a comment's end and took the prose after it as
+ * code. Neither was found by looking; each was found by a rule failing for the wrong reason.
+ */
+const codeOf = (source: string) => source.replaceAll(/\/\*[\s\S]*?\*\/|\/\/.*/g, "");
+
+test("a mention in a comment is not code", () => {
+  expect(codeOf('/* a chart carries role="img" */\nconst a = 1;')).not.toContain('role="img"');
+  expect(codeOf("// pass tabIndex={0}\nconst a = 1;")).not.toContain("tabIndex");
+  expect(codeOf('<div role="img" />')).toContain('role="img"');
+});
+
 const componentSources = componentFiles.map((file) => ({
   file,
-  source: readFileSync(new URL(file, componentDir), "utf8"),
+  source: codeOf(readFileSync(new URL(file, componentDir), "utf8")),
 }));
 
 const appSources = appFiles.map((file) => ({
   file,
-  source: readFileSync(new URL(file, appDir), "utf8"),
+  source: codeOf(readFileSync(new URL(file, appDir), "utf8")),
 }));
 
 /**
@@ -228,6 +244,34 @@ const appSources = appFiles.map((file) => ({
  * component-only versions reported clean.
  */
 const styledSources = [...componentSources, ...appSources];
+
+/**
+ * `codeOf` cuts a line at `//`, and a `//` inside a string would take live code with it — the rest
+ * of that line would be invisible to every rule above, silently. No string here holds one today.
+ * Writing a stripper that understands strings means writing a parser; pinning the shape this one
+ * needs is the cheaper half, and it fails loudly on the day a URL arrives in a class.
+ */
+const eatenByTheCut = (sources: readonly { readonly file: string; readonly source: string }[]) =>
+  sources
+    .filter(({ source }) => /(["'`])[^"'`\n]*\/\/[^"'`\n]*\1/.test(source))
+    .map(({ file }) => `${file} writes // inside a string, which the comment cut would eat`);
+
+test("a slash pair inside a string is reported", () => {
+  expect(eatenByTheCut([{ file: "a.tsx", source: 'const u = "https://x";' }])).toEqual([
+    "a.tsx writes // inside a string, which the comment cut would eat",
+  ]);
+  expect(eatenByTheCut([{ file: "b.tsx", source: "// https://x\nconst a = 1;" }])).toEqual([]);
+});
+
+test("no styled file hides code behind a slash pair in a string", () => {
+  const raw = [
+    ...componentFiles.map((file) => ({ file, source: read(`./components/${file}`) })),
+    ...appFiles.map((file) => ({ file, source: readFileSync(new URL(file, appDir), "utf8") })),
+  ];
+
+  expect(raw).toHaveLength(styledSources.length);
+  expect(eatenByTheCut(raw)).toEqual([]);
+});
 
 /**
  * One `tv` call per file is what the README teaches, and it is also what six readers across three
@@ -919,23 +963,12 @@ test("an image labelled with a bare optional prop is reported", () => {
   ).toEqual([]);
 });
 
-/**
- * Comments removed first. Read over the whole file, this counted a component that only *mentions*
- * the role as one that draws it — which is what happened the day `text.tsx` gained a note warning
- * that a chart wrapped in a `Readout` loses its picture role. The note was right and the rule read
- * it as code.
- */
-const codeOf = (source: string) => source.replaceAll(/\/\*[\s\S]*?\*\/|\/\/.*/g, "");
-
-test("a mention of a role in a comment is not a component drawing one", () => {
-  const mentions = '/* a chart carries role="img" */\nconst a = 1;';
-
-  expect(codeOf(mentions)).not.toContain('role="img"');
-  expect(codeOf('<div role="img" />')).toContain('role="img"');
-});
-
 test("every readout that draws an image can name itself", () => {
-  const drawing = componentSources.filter(({ source }) => codeOf(source).includes('role="img"'));
+  /* Load-bearing on a real file, not only on a planted string: `text.tsx` says the word and draws
+   * nothing, so this list is the strip's own evidence. */
+  expect(read("./components/text.tsx")).toContain('role="img"');
+
+  const drawing = componentSources.filter(({ source }) => source.includes('role="img"'));
 
   expect(drawing.map(({ file }) => file).sort()).toEqual([
     "activity-grid.tsx",

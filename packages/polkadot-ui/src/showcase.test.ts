@@ -22,14 +22,23 @@ import * as kit from "./index.ts";
  * only passes through.
  */
 
+/**
+ * Comments removed from the `.tsx` sides. The rules here ask what a page *draws* — which tags, in
+ * which order, with which props — and the doc comments in this kit name those same tags and props,
+ * so read over the whole file a mention counts as a use. The notes and the README are read as prose
+ * elsewhere in this file and keep their own text.
+ */
+const codeOf = (source: string) => source.replaceAll(/\/\*[\s\S]*?\*\/|\/\/.*/g, "");
+
 const appDir = new URL("../app/", import.meta.url);
 const componentDir = new URL("./components/", import.meta.url);
+const componentSource = (file: string) => codeOf(readFileSync(new URL(file, componentDir), "utf8"));
 const pages = [
   ...readdirSync(appDir).filter((name) => name.endsWith(".tsx")),
   ...readdirSync(new URL("routes/", appDir))
     .filter((name) => name.endsWith(".tsx"))
     .map((name) => `routes/${name}`),
-].map((file) => ({ file, source: readFileSync(new URL(file, appDir), "utf8") }));
+].map((file) => ({ file, source: codeOf(readFileSync(new URL(file, appDir), "utf8")) }));
 
 const everything = pages.map(({ source }) => source).join("\n");
 
@@ -106,7 +115,7 @@ const tagNamesFor = (owner: string) => {
 const kitDeclares = new Map<string, ReadonlySet<string>>();
 
 for (const file of readdirSync(componentDir).filter((name) => name.endsWith(".tsx"))) {
-  const source = readFileSync(new URL(file, componentDir), "utf8");
+  const source = componentSource(file);
 
   for (const [, owner, body] of source.matchAll(
     /export (?:type|interface) (\w+)Props\b([\s\S]*?)(?=\nexport |\nfunction |$)/g,
@@ -492,8 +501,6 @@ test("every table on every page is headed with what it lists", () => {
  * comes from the source, so changing a tone list or a part's default moves the expectation with it.
  */
 const DRAWN_OVER_THE_BUTTON = ["ToolbarButton", "PopoverTrigger"] as const;
-
-const componentSource = (file: string) => readFileSync(new URL(file, componentDir), "utf8");
 
 const defaultIn = (source: string, part: string, prop: string) =>
   new RegExp(String.raw`function ${part}\(\{[^}]*\b${prop} = "(\w+)"`).exec(source)?.[1];
