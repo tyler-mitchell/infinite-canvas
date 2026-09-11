@@ -2851,17 +2851,38 @@ const named = () =>
     .filter((name) => name.endsWith(".tsx"))
     .map((file) => ({ file, source: readFileSync(new URL(file, componentDir), "utf8") }));
 
+/**
+ * Announcing has one owner. `Readout` is the kit's `role="status"` span, and both components that
+ * answer their keys draw one — the plot visibly, the deck under `sr-only`, where the readout's own
+ * font classes are inert and the single owner is worth more than the tidier class list.
+ *
+ * Each had its own copy of the two attributes first. Two copies of a screen reader behaviour drift
+ * the day somebody changes the politeness or adds `aria-atomic`, and nothing would have said so.
+ */
+const announces = (source: string) => /<Readout[\s/>]/.test(source);
+
 test("a component that states its keys answers them in a way a reader can hear", () => {
   const stating = named().filter(({ source }) => source.includes("aria-keyshortcuts"));
 
   /* The answers first, so losing one reports the component that went silent rather than a changed
    * list of components. */
-  expect(
-    stating.filter(({ source }) => !source.includes('aria-live="polite"')).map(({ file }) => file),
-  ).toEqual([]);
+  expect(stating.filter(({ source }) => !announces(source)).map(({ file }) => file)).toEqual([]);
   expect(silentRenderProp(pages)).toEqual([]);
   /* Last: a third component that states its keys is named here rather than going unchecked. */
   expect(stating.map(({ file }) => file).sort()).toEqual(STATES_ITS_KEYS);
+});
+
+test("nothing but the readout writes a live region", () => {
+  const writing = [...named(), ...pages].filter(({ source }) =>
+    /aria-live|role="status"/.test(source),
+  );
+
+  /* Read first: the owner is still there. An owner that lost its own attributes would otherwise
+   * make this pass by there being nothing left to find. */
+  expect(readFileSync(new URL("text.tsx", componentDir), "utf8")).toContain(
+    '"aria-live": "polite"',
+  );
+  expect(writing.map(({ file }) => file)).toEqual(["text.tsx"]);
 });
 
 /**

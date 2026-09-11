@@ -1,6 +1,7 @@
 import { useState } from "react";
 
 import { tv } from "../tv.ts";
+import { Readout } from "./text.tsx";
 
 const swipeDeck = tv({
   slots: {
@@ -166,9 +167,7 @@ function SwipeDeck({
       {...props}
     >
       {/* Empty at first, so nothing is said until a card actually settles. */}
-      <span role="status" aria-live="polite" className={styles.outcome()}>
-        {outcome}
-      </span>
+      <Readout className={styles.outcome()}>{outcome}</Readout>
       {top ? null : <span className={styles.empty()}>{nothingLeft}</span>}
       {remaining
         .slice(0, 3)

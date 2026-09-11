@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState, useSyncExternalStore } from "react";
 import { tv } from "../tv.ts";
-import { textVariants } from "./text.tsx";
+import { Readout } from "./text.tsx";
 
 const DAYS_PER_WEEK = 7;
 const MONTHS = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
@@ -303,15 +303,11 @@ function ActivityGrid({
            * It holds the series name while nothing is focused: a polite region does not announce
            * what it was built with, so the first walk is the first thing said.
            */
-          <span
-            role="status"
-            aria-live="polite"
-            className={textVariants({ as: "readout", className: styles.readout() })}
-          >
+          <Readout className={styles.readout()}>
             {focused
               ? `${focused.count} ${label} · ${focused.date.toDateString().slice(0, 10)}`
               : label}
-          </span>
+          </Readout>
         )}
         <div className={styles.legend()}>
           {TONES.map((tone) => (
