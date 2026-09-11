@@ -295,3 +295,38 @@ test("the entry lists its modules in order, so the surface reads as a list", () 
   expect(written.length).toBe(componentFiles.length);
   expect(written).toEqual([...written].sort());
 });
+
+/**
+ * Text that only appears after somebody does something is the hardest kind to check: markup drawn
+ * on a server has no focus and no pointer, so nothing in this suite ever sees it. The plot printed
+ * a count there that its own summary had refused, and no rule could have found it.
+ *
+ * Two components hold state, and the answer for both was to build the words in a function and
+ * export it — then the string is reachable without a browser at all. So the rule is not "test the
+ * interaction", which this suite cannot do, but "do not bury the words inside it".
+ *
+ * A third stateful component has to say which function carries its words, or say that it has none.
+ */
+const WORDS_BEHIND_AN_INTERACTION: Record<string, string> = {
+  "activity-grid.tsx": "dayReadout",
+  "swipe-deck.tsx": "settledAs",
+};
+
+test("a component that holds state builds its words where they can be read", () => {
+  const stateful = componentFiles
+    .map((file) => ({ file, source: readFileSync(new URL(file, componentDir), "utf8") }))
+    .filter(({ source }) => source.includes("useState"));
+
+  /* The function first, so losing one reports the component whose words went back inside it. */
+  expect(
+    stateful
+      .filter(({ file, source }) => {
+        const carries = WORDS_BEHIND_AN_INTERACTION[file];
+
+        return !carries || !source.includes(`export function ${carries}(`);
+      })
+      .map(({ file }) => file),
+  ).toEqual([]);
+  /* Last: a third one is named here rather than quietly keeping its words to itself. */
+  expect(stateful.map(({ file }) => file).sort()).toEqual(Object.keys(WORDS_BEHIND_AN_INTERACTION));
+});
