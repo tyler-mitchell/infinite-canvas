@@ -230,6 +230,52 @@ const appSources = appFiles.map((file) => ({
 const styledSources = [...componentSources, ...appSources];
 
 /**
+ * One `tv` call per file is what the README teaches, and it is also what six readers across three
+ * suites quietly stand on: each finds the block with `exec`, which returns the first match and says
+ * nothing about a second. A file with two would have its second block read by nothing — every slot
+ * in it unmeasured, with every rule still green.
+ *
+ * That is the shape of a bug already found once in this package, where a seat collector used `exec`
+ * where it meant `matchAll` and the one seat it could not see was the one that failed. So the
+ * convention the readers rest on is pinned here rather than assumed.
+ *
+ * Two files write none: the app's entry and its router, which wire and draw nothing.
+ */
+const tvCalls = (sources: readonly { readonly file: string; readonly source: string }[]) =>
+  sources.map(({ file, source }) => ({ file, calls: [...source.matchAll(/=\s*tv\(\{/g)].length }));
+
+test("a file with two tv blocks is reported, and one with none is allowed", () => {
+  expect(
+    tvCalls([
+      { file: "a.tsx", source: "const a = tv({ base: 1 });" },
+      { file: "b.tsx", source: "const b = tv({});\nconst c = tv({});" },
+      { file: "c.tsx", source: "export const routes = [];" },
+    ]),
+  ).toEqual([
+    { file: "a.tsx", calls: 1 },
+    { file: "b.tsx", calls: 2 },
+    { file: "c.tsx", calls: 0 },
+  ]);
+});
+
+test("no styled file writes a second tv block, and every component writes one", () => {
+  const counted = tvCalls(styledSources);
+
+  expect(counted.filter(({ calls }) => calls > 1)).toEqual([]);
+  expect(tvCalls(componentSources).filter(({ calls }) => calls !== 1)).toEqual([]);
+  /* Read last: the two that style nothing are named, so a page losing its slots is reported here
+   * rather than passing as wiring. */
+  expect(
+    counted
+      .filter(({ calls }) => calls === 0)
+      .map(({ file }) => file)
+      .sort(),
+  ).toEqual(["main.tsx", "router.tsx"]);
+  /* And the teaching, so the README cannot drop the convention while this keeps holding it. */
+  expect(readFileSync(new URL("../README.md", import.meta.url), "utf8")).toContain("one tv call");
+});
+
+/**
  * A ring offset paints the colour behind the control, so a component that names one has guessed
  * where it sits. Anything that paints a background restates `--pk-ring-seat`, so the cascade
  * answers instead and the control stays ignorant of its seat.
