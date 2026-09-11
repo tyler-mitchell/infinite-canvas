@@ -330,3 +330,60 @@ test("a component that holds state builds its words where they can be read", () 
   /* Last: a third one is named here rather than quietly keeping its words to itself. */
   expect(stateful.map(({ file }) => file).sort()).toEqual(Object.keys(WORDS_BEHIND_AN_INTERACTION));
 });
+
+/**
+ * The runtime note argues that the arithmetic in this kit is not machinery a library would supply,
+ * and prints the extracted functions as its evidence. A list of evidence that has stopped matching
+ * the code is worse than no list: it reads as a survey and is a snapshot.
+ *
+ * It listed thirteen of twenty. Three had been missing before this session — a bars label, a
+ * breakdown label, a cursor step — and four more were added during it.
+ *
+ * The exported name, not the local one: `level` leaves `activity-grid.tsx` as `activityLevel`, and
+ * the note is about what the rest of the world can reach.
+ */
+const helpersOf = (source: string) => {
+  const local = /const (\w+) = tv\(/.exec(source)?.[1];
+  const inline = [...source.matchAll(/^export (?:const|function) (\w+)/gm)].map(
+    ([, name]) => name!,
+  );
+  const listed = [...source.matchAll(/^export \{([^}]*)\}/gm)].flatMap(([, list]) =>
+    list!.split(",").map((part) =>
+      part
+        .trim()
+        .split(/\s+as\s+/)
+        .pop()!
+        .replace(/^type\s+/, ""),
+    ),
+  );
+
+  return [...inline, ...listed].filter(
+    (name) => /^[a-z]/.test(name) && !name.endsWith("Variants") && name !== local,
+  );
+};
+
+test("an exported helper is read by the name the rest of the world reaches it by", () => {
+  const source =
+    "const thing = tv({});\nexport function doIt() {}\nexport { thing as thingVariants, inner as outer };";
+
+  expect(helpersOf(source)).toEqual(["doIt", "outer"]);
+});
+
+test("the note listing this kit's extracted arithmetic lists all of it", () => {
+  const note = readFileSync(new URL("../docs/research/widget-runtime.md", import.meta.url), "utf8");
+  const [, block] = /```ts\n\/\/ each is a pure function[\s\S]*?\n([\s\S]*?)```/.exec(note) ?? [];
+  /* Each line names its file in a trailing comment, and a file name is words too: read only what
+   * stands before the comment, or `activity-grid.tsx` contributes `activity` and `grid`. */
+  const printed = (block ?? "")
+    .split("\n")
+    .flatMap((line) => [...line.split("//")[0]!.matchAll(/\b([a-z][A-Za-z]+)\b/g)])
+    .map(([, name]) => name!);
+
+  const exported = componentFiles.flatMap((file) =>
+    helpersOf(readFileSync(new URL(file, componentDir), "utf8")),
+  );
+
+  /* Read first: a block the pattern missed would make both sides empty and agree perfectly. */
+  expect(printed.length).toBeGreaterThan(15);
+  expect([...new Set(printed)].sort()).toEqual([...new Set(exported)].sort());
+});

@@ -284,12 +284,13 @@ specific to how these instruments read:
 
 ```ts
 // each is a pure function with tests, extracted from the component that draws it
-sparklinePoints  sparklineHead  sparklineLabel   // src/components/sparkline.tsx
-barCeiling       barShare                        // src/components/bars.tsx
-breakdownShares                                  // src/components/breakdown.tsx
-tickerText       tickerCells                     // src/components/number-ticker.tsx
-swipeOutcome     stampOpacity                    // src/components/swipe-deck.tsx
-activityLevel    toColumns      weeksThatFit     // src/components/activity-grid.tsx
+sparklinePoints  sparklineHead   sparklineLabel                         // sparkline.tsx
+barCeiling       barShare        barsLabel                              // bars.tsx
+breakdownShares  breakdownLabel                                         // breakdown.tsx
+tickerText       tickerCells                                            // number-ticker.tsx
+swipeOutcome     stampOpacity    settledAs       remainingOf            // swipe-deck.tsx
+activityLevel    toColumns       weeksThatFit    cursorAfter  dayReadout // activity-grid.tsx
+barcodeBars                                                             // receipt.tsx
 ```
 
 The distinction that held: none of this is _machinery_. It is the rule each instrument reads by —
