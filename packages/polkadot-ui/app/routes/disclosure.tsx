@@ -57,7 +57,10 @@ function Disclosure() {
           <Kind>accordion</Kind>
           <Meta>one open at a time · find a closed blurb and it opens</Meta>
         </Row>
-        <Accordion className={styles.measure()}>
+        {/* Base UI gives the root and every panel `role="region"`, which is a landmark, and leaves
+            the names to the consumer. Four unnamed ones read as four "region" entries in the list a
+            reader navigates by, so each says what it holds. */}
+        <Accordion aria-label="writing" className={styles.measure()}>
           {WRITING.map(([title, blurb, date]) => (
             <Accordion.Item key={title}>
               {/* Second-level: these items sit straight under the page's own heading. */}
@@ -68,7 +71,9 @@ function Disclosure() {
                 </Accordion.Trigger>
               </Accordion.Header>
               {/* Find-in-page reaches a closed blurb and opens the item that holds it. */}
-              <Accordion.Panel hiddenUntilFound>{blurb}</Accordion.Panel>
+              <Accordion.Panel hiddenUntilFound aria-label={title}>
+                {blurb}
+              </Accordion.Panel>
             </Accordion.Item>
           ))}
         </Accordion>
@@ -135,7 +140,8 @@ function Disclosure() {
           <Meta>an underline that travels between tabs</Meta>
         </Row>
         <Tabs defaultValue="commits" className={styles.measure()}>
-          <Tabs.List>
+          {/* A tablist announces itself, and this page draws two of them. */}
+          <Tabs.List aria-label="repository">
             <Tabs.Tab value="commits">commits</Tabs.Tab>
             <Tabs.Tab value="issues">issues</Tabs.Tab>
             <Tabs.Tab value="readme">readme</Tabs.Tab>
@@ -156,7 +162,7 @@ function Disclosure() {
           <Meta>the same indicator, turned to a rail</Meta>
         </Row>
         <Tabs defaultValue="commits" orientation="vertical" className={styles.tabs()}>
-          <Tabs.List>
+          <Tabs.List aria-label="repository, vertical rail">
             <Tabs.Tab value="commits">commits</Tabs.Tab>
             <Tabs.Tab value="issues">issues</Tabs.Tab>
             <Tabs.Tab value="readme">readme</Tabs.Tab>

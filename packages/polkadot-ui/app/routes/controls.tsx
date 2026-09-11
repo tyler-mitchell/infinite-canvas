@@ -97,7 +97,8 @@ function Controls() {
           <Kind>toggle group</Kind>
           <Meta>one recessed track · pick one</Meta>
         </Row>
-        <ToggleGroup value={range} onValueChange={setRange}>
+        {/* A toggle group is a `role="group"`, which announces itself, so each says what it picks. */}
+        <ToggleGroup aria-label="time range" value={range} onValueChange={setRange}>
           {RANGES.map((span) => (
             <ToggleGroup.Item key={span} value={span}>
               {span}
@@ -109,7 +110,13 @@ function Controls() {
           <Kind>toggle group · chips</Kind>
           <Meta>multiple · the accent is the pressed state</Meta>
         </Row>
-        <ToggleGroup look="chips" multiple value={categories} onValueChange={setCategories}>
+        <ToggleGroup
+          look="chips"
+          multiple
+          aria-label="categories"
+          value={categories}
+          onValueChange={setCategories}
+        >
           {CATEGORIES.map((category) => (
             <ToggleGroup.Item key={category} value={category}>
               {category}
@@ -127,6 +134,7 @@ function Controls() {
           look="chips"
           multiple
           orientation="vertical"
+          aria-label="categories, stacked"
           value={categories}
           onValueChange={setCategories}
         >
