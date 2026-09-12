@@ -212,6 +212,7 @@ function getSelectedRelations(
 export {
   CONNECTOR_TARGET_KIND,
   getConnectorEdgeTargets,
+  getConnectorRectsByItem,
   getDrawnConnectors,
   getHiddenConnectorStubs,
   getSelectedRelations,

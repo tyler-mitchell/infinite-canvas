@@ -457,6 +457,7 @@ export function CanvasHud({
   library,
   libraryInset = 0,
   minimap,
+  tour,
 }: Readonly<{
   commandPalette?: ReactNode;
   conflict?: ReactNode;
@@ -465,6 +466,7 @@ export function CanvasHud({
   library?: ReactNode;
   libraryInset?: number;
   minimap?: ReactNode;
+  tour?: ReactNode;
 }>) {
   const failure = useValue(actionFailure$);
 
@@ -503,6 +505,7 @@ export function CanvasHud({
         <UndoNotice />
         <CanvasContextMenu />
         {minimap}
+        {tour}
         {commandPalette}
       </HudRoot>
     </>

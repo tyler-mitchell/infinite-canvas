@@ -28,6 +28,7 @@ import { BOTTOM_INSET, TOP_INSET } from "../hud/chrome-insets";
 import { CommandPalette } from "../hud/command-palette";
 import { useHudOccluders } from "../hud/hud-occluders";
 import { Minimap } from "../hud/minimap";
+import { TourControl } from "../hud/tour-control";
 import { LibraryRail, RAIL_INSET } from "../library/library-rail";
 import { FLOATING_SURFACE } from "../material";
 import { ModelContextTools } from "../model-context";
@@ -257,6 +258,8 @@ export function WorkspaceCanvas({ canvas }: Readonly<{ canvas: LoadedCanvas }>) 
                     open={minimapOpen}
                   />
                 }
+                /* Hidden until two connected notes exist, because nothing else has an order. */
+                tour={<TourControl />}
                 library={
                   libraryOpen ? (
                     <LibraryRail

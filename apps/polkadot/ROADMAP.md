@@ -1036,7 +1036,22 @@ Continue to derive this selection on read.
 ## Later, deliberately
 
 - **Tours.** The framework provides `getInfiniteCanvasWorldPath` and `…PointAtProgress` for guided paths.
-  No current feature uses them.
+
+  Half of this is stale, corrected on 2026-09-09 by reading the consumer. `connector-geometry.ts`
+  imports `getInfiniteCanvasWorldPathPointAtProgress` at line 8 and calls it at line 37, where
+  `getRunAnchor` places a connector marker at the midpoint of the longest unoccluded run. So the
+  sampler has a shipping consumer and only the path builder is unused for a guided path.
+
+  What is actually missing is not the geometry but the order. A tour needs a sequence, and the
+  honest source of one is the connection graph the user already drew rather than a waypoint editor:
+  a spatial canvas holds a thought laid out in space, and the links are the reading order its
+  author already recorded. `getConnectorRectsByItem` in the same file resolves an item to its world
+  rect with the right filters already applied — group projection, minimized, active workspace — but
+  it is not exported, so a tour needs that export rather than a second copy of the rule.
+
+  Camera motion needs nothing new either. The camera-follow row above establishes the sanctioned
+  shape: poll a pure function per frame, with release owned by the caller stopping its own loop.
+
 - **The 3D layer.** Window proxies and frustum culling exist behind `/scene`.
   Their valid product use is a far-zoom overview instead of decoration.
 - **Sync.** The complete current product remains local-first.
