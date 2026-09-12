@@ -2,12 +2,17 @@
  * Where a consumer's build finds the classes. Tailwind ignores `node_modules` unless a directive
  * names it, so without these two lines a consumer gets the tokens below and no rules at all.
  *
- * It reads `./components` and nothing else in the package. The six test files beside the
- * components are cut out. The rules that plant wrong classes on purpose sit a directory up, where
- * this never looks.
+ * It reads `./components` and `./motion.ts`, and nothing else in the package. The six test files
+ * beside the components are cut out. The rules that plant wrong classes on purpose sit a directory
+ * up, where this never looks.
+ *
+ * `motion.ts` is named because the transition recipes moved there: a slot now writes
+ * `${MOTION.overlay}` and holds none of those classes itself, so a build that read only the
+ * components would find no rule for any of them.
  */
 @source "./components";
 @source not "./components/*.test.*";
+@source "./motion.ts";
 
 :root {
   color-scheme: dark;

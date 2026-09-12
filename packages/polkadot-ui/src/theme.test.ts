@@ -94,6 +94,7 @@ const appFiles = [
 const drawn = [
   ...componentFiles.map((file) => readFileSync(new URL(file, componentDir), "utf8")),
   ...appFiles.map((file) => readFileSync(new URL(file, appDir), "utf8")),
+  read("./motion.ts"),
 ].join("\n");
 
 /**
@@ -248,7 +249,13 @@ const appSources = appFiles.map((file) => ({
  * while looking like it checked all of it. Eleven slots on the pages broke these rules while the
  * component-only versions reported clean.
  */
-const styledSources = [...componentSources, ...appSources];
+const styledSources = [
+  ...componentSources,
+  ...appSources,
+  /* The transition recipes live here now, so a rule that read the two directories alone would see
+   * a kit that names no easing and no duration at all. */
+  { file: "motion.ts", source: codeOf(read("./motion.ts")) },
+];
 
 /**
  * `codeOf` cuts a line at `//`, and a `//` inside a string would take live code with it — the rest
@@ -272,6 +279,7 @@ test("no styled file hides code behind a slash pair in a string", () => {
   const raw = [
     ...componentFiles.map((file) => ({ file, source: read(`./components/${file}`) })),
     ...appFiles.map((file) => ({ file, source: readFileSync(new URL(file, appDir), "utf8") })),
+    { file: "motion.ts", source: read("./motion.ts") },
   ];
 
   expect(raw).toHaveLength(styledSources.length);
@@ -319,7 +327,7 @@ test("no styled file writes a second tv block, and every component writes one", 
       .filter(({ calls }) => calls === 0)
       .map(({ file }) => file)
       .sort(),
-  ).toEqual(["main.tsx", "router.tsx"]);
+  ).toEqual(["main.tsx", "motion.ts", "router.tsx"]);
   /* And the teaching, so the README cannot drop the convention while this keeps holding it. */
   expect(readFileSync(new URL("../README.md", import.meta.url), "utf8")).toContain("one tv call");
 });
@@ -1019,9 +1027,11 @@ const STATES_SEEN_IN_THE_DOM = [
 ];
 
 test("the state variants the kit styles with are the ones it has checked", () => {
+  /* Every styled source, not the components alone: the two that Base UI sets around an open and a
+   * close are written in `motion.ts` now, and read narrowly this rule stopped seeing them. */
   const used = [
     ...new Set(
-      componentSources.flatMap(({ source }) =>
+      styledSources.flatMap(({ source }) =>
         [...source.matchAll(/\b(data-[a-z-]+?)(?:\[[^\]]*\])?:/g)].map(([, state]) => state!),
       ),
     ),

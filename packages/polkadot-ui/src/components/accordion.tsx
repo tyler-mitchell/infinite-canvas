@@ -1,4 +1,5 @@
 import { Accordion as AccordionPrimitive } from "@base-ui/react/accordion";
+import { MOTION } from "../motion.ts";
 import { tv } from "../tv.ts";
 
 const accordion = tv({
@@ -11,8 +12,7 @@ const accordion = tv({
     title:
       "min-w-0 flex-1 font-pk-sans text-pk-item break-words text-pk-ink-muted transition-colors duration-(--pk-duration-hover) ease-pk-swift group-hover/row:text-pk-ink-bright",
     meta: "min-w-0 font-pk-mono text-pk-mono break-words text-pk-ink-faint",
-    panel:
-      "h-(--accordion-panel-height) overflow-hidden transition-[height] duration-(--pk-duration-detail) ease-pk-swift data-ending-style:h-0 data-starting-style:h-0",
+    panel: `h-(--accordion-panel-height) overflow-hidden ${MOTION.panel}`,
     body: "pb-3 font-pk-sans text-pk-note break-words text-pk-ink-faint text-pretty",
   },
 });

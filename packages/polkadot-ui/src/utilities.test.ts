@@ -289,7 +289,10 @@ const scanned = readdirSync(new URL(".", sheet), { recursive: true })
 
 test("a consumer scans the files that hold classes, and no test among them", () => {
   expect(scanned.filter((name) => name.includes(".test."))).toEqual([]);
-  expect([...scanned].sort()).toEqual(componentFiles.map((name) => `components/${name}`).sort());
+  /* `motion.ts` holds the transition recipes the slots now compose, so it is scanned as well. */
+  expect([...scanned].sort()).toEqual(
+    [...componentFiles.map((name) => `components/${name}`), "motion.ts"].sort(),
+  );
 });
 
 /**

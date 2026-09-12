@@ -1,14 +1,14 @@
 import { Popover as PopoverPrimitive } from "@base-ui/react/popover";
 import type { VariantProps } from "tailwind-variants";
 
+import { MOTION } from "../motion.ts";
 import { tv } from "../tv.ts";
 import { buttonVariants } from "./button.tsx";
 
 const popover = tv({
   slots: {
     positioner: "z-50",
-    popup:
-      "z-50 flex max-h-(--available-height) w-[max-content] max-w-[min(92vw,300px)] origin-(--transform-origin) flex-col gap-2 overflow-y-auto rounded-pk-card border border-pk-line bg-pk-surface p-4 text-pk-ink shadow-pk-card outline-none [--pk-ring-seat:var(--pk-surface)] transition-[transform,opacity] duration-(--pk-duration-detail) ease-pk-swift data-ending-style:scale-[0.97] data-ending-style:opacity-0 data-starting-style:scale-[0.97] data-starting-style:opacity-0",
+    popup: `z-50 flex max-h-(--available-height) w-[max-content] max-w-[min(92vw,300px)] origin-(--transform-origin) flex-col gap-2 overflow-y-auto rounded-pk-card border border-pk-line bg-pk-surface p-4 text-pk-ink shadow-pk-card outline-none [--pk-ring-seat:var(--pk-surface)] ${MOTION.overlay}`,
     title: "font-pk-sans text-pk-label break-words text-pk-ink-dim",
     description: "font-pk-sans text-pk-body break-words text-pk-ink-soft text-pretty",
   },

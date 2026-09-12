@@ -1,4 +1,5 @@
 export { FONT_SIZES, tv } from "./tv.ts";
+export { MOTION } from "./motion.ts";
 export {
   Accordion,
   AccordionHeader,

@@ -1,4 +1,5 @@
 import { Collapsible as CollapsiblePrimitive } from "@base-ui/react/collapsible";
+import { MOTION } from "../motion.ts";
 import { tv } from "../tv.ts";
 
 const collapsible = tv({
@@ -15,8 +16,7 @@ const collapsible = tv({
      */
     trigger:
       "-my-2 flex cursor-pointer items-center justify-between gap-2 border-0 bg-transparent px-0 py-2 font-pk-sans text-pk-label text-pk-ink-dim outline-none transition-colors duration-(--pk-duration-hover) ease-pk-swift select-none hover:text-pk-ink-bright focus-visible:ring-2 focus-visible:ring-pk-accent/50 data-disabled:pointer-events-none data-disabled:opacity-40",
-    panel:
-      "h-(--collapsible-panel-height) overflow-hidden transition-[height] duration-(--pk-duration-detail) ease-pk-swift data-ending-style:h-0 data-starting-style:h-0",
+    panel: `h-(--collapsible-panel-height) overflow-hidden ${MOTION.panel}`,
     body: "pt-3",
   },
 });
