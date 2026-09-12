@@ -16,6 +16,7 @@ export const FONT_SIZES = [
   "pk-mono-sm",
   "pk-mono",
   "pk-mono-lg",
+  "pk-figure",
   "pk-print",
   "pk-print-xs",
 ] as const;

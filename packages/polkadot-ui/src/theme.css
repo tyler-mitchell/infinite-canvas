@@ -424,6 +424,13 @@
   --text-pk-mono-lg--letter-spacing: 0.02em;
   --text-pk-mono-lg--font-weight: 500;
 
+  /* The one figure a card is about, which the mono scale stopped short of: it topped out at 12.5px,
+   * so an instrument leading with its reading had no size for it and wrote one by hand. */
+  --text-pk-figure: 28px;
+  --text-pk-figure--line-height: 1;
+  --text-pk-figure--letter-spacing: -0.01em;
+  --text-pk-figure--font-weight: 400;
+
   --text-pk-print: 9.5px;
   --text-pk-print--line-height: 1.6;
   --text-pk-print--letter-spacing: 0.04em;

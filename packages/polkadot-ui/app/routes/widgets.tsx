@@ -34,6 +34,7 @@ import {
   type ReceiptBarcodeProps,
   receiptVariants,
   Row,
+  Sparkline,
   Stat,
   StatusDot,
   statusDotVariants,
@@ -75,8 +76,31 @@ const widgets = tv({
     bay: "flex justify-center rounded-b-pk-tray bg-pk-tray px-4 pt-0.5 pb-4 shadow-pk-tray",
     monogram:
       "flex size-full items-center justify-center rounded-[5px] bg-pk-surface-inner font-pk-mono text-[10px] leading-none text-pk-ink-soft",
+    /* One reference card from the design folder, composed out of what the kit already exports, to
+     * find what a consumer cannot say. The bands own their padding, so the surface takes none. */
+    instrument: "max-w-[380px]",
+    instrumentHead:
+      "flex flex-none items-center gap-2.5 border-b border-pk-line-inner-raised px-4 py-3.5",
+    instrumentMark:
+      "flex size-8 flex-none items-center justify-center rounded-pk-control-inner border border-dashed border-pk-line-strong font-pk-mono text-pk-mono text-pk-ink-dim",
+    instrumentNames: "flex min-w-0 flex-col gap-1.5",
+    instrumentBody: "flex flex-col gap-3.5 px-4 py-4",
+    instrumentFigure: "text-pk-figure",
+    /* `block` because the lead of a row is a slot and not a flex container: the swatch is a child
+     * of the wrapper rather than a flex item of the row, and width on an inline span paints
+     * nothing. Drawn without it, the three marks were the right colours and no size. */
+    instrumentSwatch: "block size-2 flex-none rounded-[2px]",
   },
 });
+
+/** Five-minute buckets, oldest first, with the spike the card is about near the end. */
+const ERROR_RATE = [0.2, 0.3, 0.2, 0.4, 0.3, 0.5, 0.4, 2.9, 2.8, 1.1, 0.9, 0.8, 0.9, 0.8];
+
+const TOOL_ERRORS = [
+  { name: "crm.lookup · timeout", rate: "2.9%", color: "var(--pk-accent)" },
+  { name: "kb.search", rate: "0.3%", color: "var(--pk-ink-faint)" },
+  { name: "refund.create", rate: "0.1%", color: "var(--pk-ink-faint)" },
+];
 
 export const Route = createFileRoute("/widgets")({
   component: Widgets,
@@ -166,6 +190,47 @@ function Widgets() {
         <Api name="badge" of={badgeVariants} />
         <Api name="stat" of={statVariants} />
         <Api name="status dot" of={statusDotVariants} />
+      </section>
+
+      <section className={styles.section()}>
+        <Row rule="below">
+          <Kind>instrument</Kind>
+          <Meta>a reference card, composed from parts that already exist</Meta>
+        </Row>
+        <Surface tone="card" padding="none" className={styles.instrument()}>
+          <div className={styles.instrumentHead()}>
+            <span aria-hidden className={styles.instrumentMark()}>
+              !
+            </span>
+            <div className={styles.instrumentNames()}>
+              <Label>tool error rate</Label>
+              <Meta>all tool calls · 5-min buckets</Meta>
+            </div>
+          </div>
+          <div className={styles.instrumentBody()}>
+            <Row justify="start">
+              <Readout className={styles.instrumentFigure()}>0.8%</Readout>
+              <Badge tone="accent">1 alert · 14:35</Badge>
+            </Row>
+            <Sparkline label="tool error rate" values={ERROR_RATE} caption="2.9%" />
+            <div>
+              {TOOL_ERRORS.map((tool) => (
+                <ListItem
+                  key={tool.name}
+                  lead={
+                    <span
+                      style={{ background: tool.color }}
+                      className={styles.instrumentSwatch()}
+                    />
+                  }
+                  trail={tool.rate}
+                >
+                  {tool.name}
+                </ListItem>
+              ))}
+            </div>
+          </div>
+        </Surface>
       </section>
 
       <section className={styles.section()}>
