@@ -70,6 +70,7 @@ const LINES = [
   ["--pk-line-hover", "line-hover", "1.54:1 · the edge under a pointer"],
   ["--pk-line-strong", "line-strong", "1.92:1 · a raised rail"],
   ["--pk-line-inner", "line-inner", "1.08:1 · a rule inside a card"],
+  ["--pk-line-inner-raised", "line-inner-raised", "1.17:1 · the same rule, on a card that lifts"],
 ] as const;
 
 const LEVELS = [
@@ -80,12 +81,17 @@ const LEVELS = [
   "--pk-level-4",
 ] as const;
 
+/* Largest frame first, down to the smallest. The pill is last because it is not a step on that
+ * ramp: it rounds whatever it is given to its own ends. */
 const RADII = [
   ["--pk-radius-widget", "widget", "20"],
   ["--pk-radius-card", "card", "16"],
   ["--pk-radius-inner", "inner", "14"],
   ["--pk-radius-tray", "tray", "12"],
+  ["--pk-radius-control", "control", "8"],
   ["--pk-radius-chip", "chip", "7"],
+  ["--pk-radius-control-inner", "control-inner", "6"],
+  ["--pk-radius-pill", "pill", "999"],
 ] as const;
 
 const EASINGS = [

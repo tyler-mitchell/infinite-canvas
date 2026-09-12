@@ -543,10 +543,32 @@ test("every radius and easing a page prints is the one the sheet declares", () =
 
   expect(misprinted(radii, declaredAs, "px")).toEqual([]);
   expect(misprinted(easings, declaredAs)).toEqual([]);
-  /* Floors last: five radii and two easings are printed, so a floor of three and one fires on a
-   * page that drops one and reports a count where the rule would have named the token. */
-  expect(radii.length).toBeGreaterThan(3);
+  /*
+   * The set, not a floor. The page says it names every radius the kit has, and a floor of three let
+   * it print five of eight and pass: control, control-inner and pill were missing, and control is
+   * the corner on nearly every button, input and select in the kit.
+   */
+  expect(radii.map(([token]) => token).sort()).toEqual(
+    [...roots].filter((token) => token.startsWith("--pk-radius-")).sort(),
+  );
   expect(easings.length).toBeGreaterThan(1);
+});
+
+/**
+ * The same hole, one family over: the hairlines section is the kit's line vocabulary, and it listed
+ * four of the five. `--pk-line-inner-raised` was the missing one — the rule inside a card that
+ * lifts, which is what a swipe card's foot draws with.
+ *
+ * Their ratios are checked against the colours they name in `contrast.test.ts`. This asks the other
+ * question: that none of them is absent from the page in the first place.
+ */
+test("every hairline the sheet declares is one the page documents", () => {
+  const page = appFiles.map((file) => readFileSync(new URL(file, appDir), "utf8")).join("\n");
+  const listed = [...page.matchAll(/\["(--pk-line[a-z-]*)",/g)].map(([, token]) => token!);
+
+  expect(listed.sort()).toEqual(
+    [...roots].filter((token) => /^--pk-line[a-z-]*$/.test(token)).sort(),
+  );
 });
 
 /* Every contrast ratio the kit states or has to clear lives in `contrast.test.ts`. */
