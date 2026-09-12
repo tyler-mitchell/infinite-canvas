@@ -92,24 +92,24 @@ some later mutation happens to dirty it again.
 Clearing after the capture resolves, rather than before it starts, closes this — the window stays
 dirty across its own capture and is simply recaptured once more.
 
-## 4. `writeTable` leaves a stale tail when residency shrinks
+## 4. RETRACTED — `writeTable` does not leave a stale tail
 
-`rasters/pages.ts:102-114`:
+An earlier revision of this note claimed `pages.ts:103` leaves a stale tail, because
+`columns.fill(0, 0, slots.length * 4)` clears only part of an array it then uploads whole. Reading
+`world/slots.ts` disproves it.
 
-```ts
-columns.fill(0, 0, slots.length * 4);
-// ... writes slots ...
-table.buffer.write(columns);
-```
+`slots.ids` is a high-water mark, not a live count. A window keeps its slot for its life on the
+canvas; a departing window's slot becomes `null` in place (`slots.ts:39`) and joins a free list,
+and the array only grows, since a new slot is `free.pop() ?? ids.length` (`slots.ts:53`). So
+`slots.length` is monotonically non-decreasing and the cleared range never shrinks. There is no
+tail to go stale.
 
-`columns` is `WINDOW_INSTANCE_CAPACITY * 4` long and the whole array is uploaded, but only the first
-`slots.length * 4` entries are cleared. When residency shrinks between frames the tail keeps the
-previous frame's values, including the readiness flag at `.w === 1`, so a pass reading
-`rasterTable.$[slot]` past the live count samples a page that is no longer assigned to that slot.
+The live count is carried separately: `surface.tsx:297` writes `columns.count` to
+`instanceCountUniform`, which is what a pass dispatches on, and that is always `<= slots.length`.
+Every table entry a pass can reach was cleared this frame.
 
-Latent rather than live: it only bites if a pass reads beyond the current instance count. The fix is
-`columns.fill(0)` — the array is small and clearing all of it removes the coupling to `slots.length`
-entirely.
+Left here rather than deleted, so the next reader does not re-derive the same wrong conclusion from
+the same line.
 
 ## Checked and sound
 
