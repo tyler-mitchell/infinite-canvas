@@ -20,6 +20,7 @@ const REQUIRED: Record<string, Record<string, unknown>> = {
   ActivityFeed: { entries: [] },
   ActivityGrid: { days: [] },
   Avatar: { name: "Ada Lovelace" },
+  Backdrop: { shader: kit.SPARKLE },
   Bars: { values: [] },
   Binding: { keys: [], action: "do the thing" },
   Breakdown: { parts: [] },
@@ -474,6 +475,11 @@ const HOSTILE: readonly { readonly name: string; readonly props: Record<string, 
    */
   { name: "NumberTicker", props: { value: 4182, pad: Number.POSITIVE_INFINITY } },
   { name: "NumberTicker", props: { value: 4182, pad: 1e9 } },
+  /* Two caps the canvas is sized by. Drawn here they reach no canvas; the host settles them. */
+  { name: "Backdrop", props: { shader: kit.SPARKLE, maxPixelRatio: Number.POSITIVE_INFINITY } },
+  { name: "Backdrop", props: { shader: kit.SPARKLE, maxPixels: Number.POSITIVE_INFINITY } },
+  { name: "Backdrop", props: { shader: kit.SPARKLE, maxPixelRatio: Number.NaN } },
+  { name: "Backdrop", props: { shader: kit.SPARKLE, maxPixels: Number.NaN } },
   { name: "Sparkline", props: { values: [1, Number.POSITIVE_INFINITY, 3] } },
   {
     name: "Breakdown",

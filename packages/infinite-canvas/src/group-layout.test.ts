@@ -10,6 +10,8 @@ import {
 } from "./group-layout";
 import { createInfiniteCanvasGroupWindowNode } from "./group-tree";
 import type { InfiniteCanvasGroupContainerNode, InfiniteCanvasGroupLayoutMode } from "./group-tree";
+import { createInfiniteCanvasState, createInfiniteCanvasWindow } from "./factory";
+import { applyInfiniteCanvasDockPreview, resolveInfiniteCanvasLatticeDropPreview } from "./group-state";
 
 const { gutterSize, tabStripSize, accordionHeaderSize } = DEFAULT_INFINITE_CANVAS_GROUP_METRICS;
 
@@ -30,6 +32,40 @@ const container = (
 });
 
 const RECT = { height: 400, width: 800, x: 0, y: 0 };
+
+test("wrap masonry uses the native row-wrapping compactor", () => {
+  const tree: InfiniteCanvasGroupContainerNode = {
+    ...container("masonry", [1, 1, 1]),
+    masonry: { cols: 2, compactType: "wrap", rowHeight: 40 },
+  };
+  const { windows } = getInfiniteCanvasGroupLayout(tree, RECT);
+
+  expect(windows[0]!.rect.y).toBe(windows[1]!.rect.y);
+  expect(windows[1]!.rect.x).toBeGreaterThan(windows[0]!.rect.x);
+  expect(windows[2]!.rect.y).toBeGreaterThan(windows[0]!.rect.y);
+  expect(windows[2]!.rect.x).toBe(windows[0]!.rect.x);
+});
+
+test("an oversized drop preview fits the grid and matches the committed width", () => {
+  const tree: InfiniteCanvasGroupContainerNode = {
+    ...container("masonry", [1, 1]),
+    masonry: { cols: 2, rowHeight: 40 },
+  };
+  const state = createInfiniteCanvasState({
+    groups: [{ id: "root", title: null, rect: RECT, zIndex: 0, tree }],
+    windows: ["w0", "w1", "incoming"].map((id) => createInfiniteCanvasWindow({
+      id, kind: "test", title: id, rect: { ...RECT, width: 2000 },
+    })),
+  });
+  const preview = resolveInfiniteCanvasLatticeDropPreview(state, { x: 20, y: 20 }, "incoming");
+
+  expect(preview).not.toBeNull();
+  expect(preview!.layout?.span).toBe(2);
+  expect(preview!.rect.x).toBeGreaterThanOrEqual(RECT.x);
+  expect(preview!.rect.x + preview!.rect.width).toBeLessThanOrEqual(RECT.x + RECT.width);
+  const committed = applyInfiniteCanvasDockPreview(state, preview!);
+  expect(committed.windows.find((window) => window.id === "incoming")!.rect.width).toBe(preview!.rect.width);
+});
 
 test("a split partitions by weight, after the gutters take their share", () => {
   const layout = getInfiniteCanvasGroupLayout(container("split", [1, 1]), RECT);

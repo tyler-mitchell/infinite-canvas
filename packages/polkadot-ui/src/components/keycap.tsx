@@ -2,9 +2,9 @@ import { tv } from "../tv.ts";
 
 const keycap = tv({
   slots: {
-    cap: "inline-block min-w-[22px] rounded-[5px] border border-b-2 border-pk-keycap-line bg-pk-keycap-face px-1.5 py-1 text-center font-pk-mono text-pk-mono text-pk-ink-muted",
-    combination: "flex gap-[3px]",
-    row: "flex items-center justify-between gap-2.5",
+    cap: "inline-flex min-h-6 min-w-6 items-center justify-center rounded-pk-control-inner border border-b-2 border-pk-keycap-line bg-pk-keycap-face px-1.5 text-center font-pk-mono text-pk-mono text-pk-ink-muted",
+    combination: "inline-flex flex-none items-center gap-1",
+    row: "flex min-w-0 items-center justify-between gap-3",
     action: "min-w-0 font-pk-sans text-pk-note break-words text-pk-ink-dim",
   },
 });

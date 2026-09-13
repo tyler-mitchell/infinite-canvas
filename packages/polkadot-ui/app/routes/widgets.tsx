@@ -7,6 +7,8 @@ import {
   Avatar,
   type AvatarProps,
   avatarVariants,
+  Backdrop,
+  type BackdropProps,
   Badge,
   badgeVariants,
   Binding,
@@ -16,6 +18,7 @@ import {
   CommitRow,
   ContactCard,
   Display,
+  Field,
   Keycap,
   Kind,
   Label,
@@ -34,6 +37,8 @@ import {
   type ReceiptBarcodeProps,
   receiptVariants,
   Row,
+  Separator,
+  SPARKLE,
   Sparkline,
   Stat,
   StatusDot,
@@ -42,6 +47,7 @@ import {
   Surface,
   SwipeDeck,
   type SwipeDeckProps,
+  Switch,
   Terminal,
   terminalVariants,
   tv,
@@ -72,6 +78,9 @@ const widgets = tv({
     stack: "flex flex-col gap-2",
     tall: "min-h-[300px]",
     aurora: "min-h-[190px]",
+    /* The backdrop paints the whole card, so the words keep their own inset. */
+    backdropBody: "flex flex-1 flex-col justify-between gap-8 p-4",
+    paperBackdrop: "min-h-[190px] bg-pk-paper-page",
     recipe: "min-h-[210px]",
     bay: "flex justify-center rounded-b-pk-tray bg-pk-tray px-4 pt-0.5 pb-4 shadow-pk-tray",
     monogram:
@@ -110,6 +119,7 @@ function Widgets() {
   const styles = widgets();
   const [settled, setSettled] = useState<string[]>([]);
   const [installs, setInstalls] = useState(9_562);
+  const [held, setHeld] = useState(false);
 
   /* The fixture is plain data, so the mark a row carries is put on here, where JSX can be written. */
   const marked = RUNS.map((run) => ({
@@ -277,6 +287,13 @@ function Widgets() {
           </Surface>
           <MetricTile label="queries served">2.1M in-browser</MetricTile>
           <MetricTile label="schema">typed · versioned</MetricTile>
+          <Surface tone="card">
+            <MetricTile look="readout" label="Hookload (klbs)" limit="500">
+              318.90
+            </MetricTile>
+            <Separator look="engraved" />
+            <Meta>Current load / limit</Meta>
+          </Surface>
         </div>
         <Surface tone="card">
           <Terminal>
@@ -318,11 +335,14 @@ function Widgets() {
             title="p%T!+?_H#$1Q +ONP"
             body="a T!+?_H $1Q=+ONP $SYM RF=/F 4BC5 E^ R CG8## 4F1TSK P3?_3 D?2 HLK?"
           />
-          <ContactCard
-            label="say hello"
-            address="tyler@hyphened.dev"
-            note="usually replies the same day"
-          />
+          <ContactCard render={<a href="mailto:tyler@hyphened.dev" />}>
+            <ContactCard.Body>
+              <ContactCard.Label>say hello</ContactCard.Label>
+              <ContactCard.Address>tyler@hyphened.dev</ContactCard.Address>
+              <ContactCard.Note>usually replies the same day</ContactCard.Note>
+            </ContactCard.Body>
+            <ContactCard.Arrow />
+          </ContactCard>
           <Surface tone="card" padding="snug" className={styles.recipe()}>
             <Row>
               <Label>layout recipes</Label>
@@ -339,6 +359,98 @@ function Widgets() {
               note: "each a left, top, width and height as percentages of the frame, plus an optional active",
             },
             { name: "label", note: "names the arrangement for a reader who cannot see it" },
+          ]}
+        />
+      </section>
+
+      <section className={styles.section()}>
+        <Row rule="below">
+          <Kind>painted cards</Kind>
+          <Meta>a shader on the GPU under the words, where WebGPU is there</Meta>
+        </Row>
+        <div className={styles.pairs()}>
+          <Surface tone="card" padding="none">
+            <Backdrop shader={SPARKLE} paused={held} className={styles.aurora()}>
+              <div className={styles.backdropBody()}>
+                <Row>
+                  <Label>sparkle</Label>
+                  <Field>
+                    <Switch checked={held} onCheckedChange={setHeld} />
+                    <Field.Label>hold</Field.Label>
+                  </Field>
+                </Row>
+                <Meta>folds of glow, and glints where it is bright</Meta>
+              </div>
+            </Backdrop>
+          </Surface>
+          <Surface tone="card" padding="none">
+            <Backdrop
+              shader={SPARKLE}
+              theme="light"
+              respectReducedMotion
+              className={styles.paperBackdrop()}
+            >
+              <div className={styles.backdropBody()}>
+                <Label>sparkle, on paper</Label>
+                <Meta>the same shader laying ink on the paper it reads from its own class</Meta>
+              </div>
+            </Backdrop>
+          </Surface>
+          <Surface tone="card" padding="none">
+            <Backdrop
+              shader={SPARKLE}
+              ground="black"
+              accent="coral"
+              maxPixelRatio={1}
+              maxPixels={600_000}
+              className={styles.aurora()}
+            >
+              <div className={styles.backdropBody()}>
+                <Label>sparkle, on a budget, in coral</Label>
+                <Meta>one device pixel per CSS pixel, at most six hundred thousand of them</Meta>
+              </div>
+            </Backdrop>
+          </Surface>
+        </div>
+        <Props<BackdropProps>
+          name="backdrop"
+          rows={[
+            {
+              name: "shader",
+              note: "a source and its effects, built once outside render; the kit ships sparkle",
+            },
+            {
+              name: "ground",
+              fallback: "the backdrop's own background",
+              note: "any CSS colour the ink is laid on",
+            },
+            {
+              name: "accent",
+              fallback: "the backdrop's own accent token",
+              note: "any CSS colour the shader tints with; the kit's green unless told otherwise",
+            },
+            {
+              name: "theme",
+              values: ["light"],
+              fallback: "dark",
+              note: "whether the ink brightens a dark ground or darkens a light one",
+            },
+            { name: "paused", fallback: "false", note: "holds the frame it is on" },
+            {
+              name: "maxPixelRatio",
+              fallback: "2",
+              note: "device pixels per CSS pixel, at most",
+            },
+            {
+              name: "maxPixels",
+              fallback: "2400000",
+              note: "device pixels painted per frame, at most; the canvas scales down past it",
+            },
+            {
+              name: "respectReducedMotion",
+              fallback: "true",
+              note: "paints one frame and holds it when the viewer prefers reduced motion",
+            },
           ]}
         />
       </section>

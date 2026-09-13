@@ -1,35 +1,44 @@
 import { tv } from "../tv.ts";
+import { Surface, type SurfaceProps } from "./surface.tsx";
 
 const pendingCard = tv({
   slots: {
-    root: "box-border flex flex-col justify-start gap-3 overflow-hidden rounded-pk-card border border-dashed border-pk-pending-line bg-pk-pending-surface p-4.5 transition-colors duration-(--pk-duration-hover) ease-pk-swift hover:border-pk-pending-line-hover",
+    root: "gap-3",
     head: "flex flex-none items-start justify-between gap-2.5",
     title:
-      "truncate font-pk-mono text-[13px] leading-[1.4] font-medium tracking-[0.02em] text-pk-accent",
+      "min-w-0 flex-1 font-pk-sans text-pk-title break-words text-pk-ink",
     badge:
       "flex-none rounded-pk-control-inner border border-pk-pending-line px-2 py-[5px] font-pk-sans text-pk-micro tracking-[0.08em] text-pk-ink-faint uppercase",
-    body: "m-0 overflow-hidden font-pk-mono text-[11.5px] leading-[1.6] break-words text-pk-pending-ink",
+    body: "m-0 font-pk-sans text-pk-body break-words text-pk-ink-soft",
   },
 });
 
-export type PendingCardProps = Omit<React.ComponentProps<"div">, "children" | "title"> & {
-  readonly title: string;
-  readonly body: string;
-  /** The stamp on the right. Defaults to the design's own word. */
-  readonly stamp?: string;
+export type PendingCardProps = Omit<SurfaceProps, "children" | "title"> & {
+  readonly title: React.ReactNode;
+  readonly body: React.ReactNode;
+  /** Defaults to "soon". Set null to omit it. */
+  readonly stamp?: React.ReactNode;
 };
 
 function PendingCard({ title, body, stamp = "soon", className, ...props }: PendingCardProps) {
   const styles = pendingCard();
 
   return (
-    <div data-slot="pending-card" className={styles.root({ className })} {...props}>
+    <Surface
+      tone="pending"
+      padding="snug"
+      render={<div data-slot="pending-card" />}
+      className={styles.root({ className })}
+      {...props}
+    >
       <div className={styles.head()}>
         <span className={styles.title()}>{title}</span>
-        <span className={styles.badge()}>{stamp}</span>
+        {stamp == null || typeof stamp === "boolean" ? null : (
+          <span className={styles.badge()}>{stamp}</span>
+        )}
       </div>
       <p className={styles.body()}>{body}</p>
-    </div>
+    </Surface>
   );
 }
 

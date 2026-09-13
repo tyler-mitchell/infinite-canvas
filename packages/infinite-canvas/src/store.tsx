@@ -1,7 +1,7 @@
 "use client";
 
 import { batch, observable, observe, type Observable } from "@legendapp/state";
-import { useSelector, useValue } from "@legendapp/state/react";
+import { useValue } from "@legendapp/state/react";
 import { createContext, useContext, useEffect, useRef, type ReactNode } from "react";
 
 import { resolveInfiniteCanvasViewportInsets, resolveInfiniteCanvasZoomPolicy } from "./constants";
@@ -228,6 +228,18 @@ function createInfiniteCanvasStore<Kind extends string>(
         type: "workspace.reorder",
       });
     },
+    setGroupChildLayouts: (input) => {
+      dispatch({
+        ...input,
+        type: "group.setChildLayouts",
+      });
+    },
+    setWindowRect: (input) => {
+      dispatch({
+        ...input,
+        type: "window.setRect",
+      });
+    },
     setGroupActiveChild: (input) => {
       dispatch({
         ...input,
@@ -245,6 +257,12 @@ function createInfiniteCanvasStore<Kind extends string>(
         ...input,
         type: "window.setTitle",
       });
+    },
+    setWindowData: (input) => {
+      dispatch({ ...input, type: "window.setData" });
+    },
+    setWindowContentHeight: (input) => {
+      dispatch({ ...input, type: "window.setContentHeight" });
     },
     setGroupTitle: (input) => {
       dispatch({
@@ -666,7 +684,7 @@ function useInfiniteCanvasSelector<Kind extends string, Value>(
 ) {
   const state$ = useInfiniteCanvasState$<Kind>();
 
-  return useSelector(() => selector(state$.get() as InfiniteCanvasState<Kind>));
+  return useValue(() => selector(state$.get() as InfiniteCanvasState<Kind>));
 }
 
 export {

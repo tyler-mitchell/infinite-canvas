@@ -1,9 +1,12 @@
 import tailwindcss from "@tailwindcss/vite";
 import { tanstackRouter } from "@tanstack/router-plugin/vite";
 import react from "@vitejs/plugin-react";
+import typegpu from "unplugin-typegpu/vite";
 import { defineConfig } from "vite-plus";
 
 export default defineConfig({
+  // The portfolio's database engine is WebAssembly and must not be pre-bundled.
+  optimizeDeps: { exclude: ["@surrealdb/wasm"] },
   plugins: [
     /*
      * The lab app lives in `app/`; `src/` stays the published library surface.
@@ -20,6 +23,8 @@ export default defineConfig({
     }),
     react(),
     tailwindcss(),
+    // Turns the "use gpu" functions under src/shaders into WGSL.
+    typegpu(),
   ],
   lint: {
     options: {

@@ -162,13 +162,6 @@ function getInfiniteCanvasDropPlacement<Kind extends string>({
     y: worldPoint.y - size.height * anchor.y,
   };
 
-  if (snapPolicy === false) {
-    return {
-      preview: null,
-      rect,
-    };
-  }
-
   return applySnapToRect(state, DROP_PLACEMENT_WINDOW_ID, rect, snapPolicy, []);
 }
 

@@ -53,7 +53,6 @@ const render = (
     >
       <InfiniteCanvasGroupLayer
         canvasInstanceId="test-canvas"
-        devicePixelRatio={1}
         labelSize={LABEL_SIZE}
         resizeHandleSize={HANDLE_SIZE}
         zIndex={0}
@@ -108,7 +107,6 @@ test("the pin is a world length, so it holds the same screen position at any zoo
     >
       <InfiniteCanvasGroupLayer
         canvasInstanceId="test-canvas"
-        devicePixelRatio={1}
         labelSize={LABEL_SIZE}
         resizeHandleSize={HANDLE_SIZE}
         zIndex={0}

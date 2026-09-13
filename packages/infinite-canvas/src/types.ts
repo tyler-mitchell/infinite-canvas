@@ -1,4 +1,5 @@
 import type { RegisterableHotkey } from "@tanstack/hotkeys";
+import type { canvasModel } from "./schema";
 import type {
   ComponentType,
   CSSProperties,
@@ -14,6 +15,7 @@ import type {
   InfiniteCanvasGroupDockEdge,
   InfiniteCanvasGroupLayoutMode,
   InfiniteCanvasGroupNode,
+  InfiniteCanvasGroupWindowNodeLayout,
 } from "./group-tree";
 // This type-only import prevents a runtime cycle through `window-placement`.
 import type { InfiniteCanvasAlignment, InfiniteCanvasDistribution } from "./window-arrange";
@@ -22,20 +24,14 @@ import type {
   InfiniteCanvasWindowPlacementRegion,
 } from "./window-placement";
 
-type InfiniteCanvasPoint = Readonly<{
-  x: number;
-  y: number;
-}>;
+type InfiniteCanvasPoint = Readonly<typeof canvasModel.Point.infer>;
 
 /** World space uses DOM directions. Up decreases `y`. */
 type InfiniteCanvasDirection = "down" | "left" | "right" | "up";
 
-type InfiniteCanvasSize = Readonly<{
-  height: number;
-  width: number;
-}>;
+type InfiniteCanvasSize = Readonly<typeof canvasModel.Size.infer>;
 
-type InfiniteCanvasRect = InfiniteCanvasPoint & InfiniteCanvasSize;
+type InfiniteCanvasRect = Readonly<typeof canvasModel.Rect.infer>;
 
 type InfiniteCanvasCamera = Readonly<{
   center: InfiniteCanvasPoint;
@@ -64,16 +60,20 @@ type InfiniteCanvasResizeHandle =
   | "south-east"
   | "south-west";
 
-type InfiniteCanvasWindowMode = "normal" | "minimized" | "maximized";
+type InfiniteCanvasWindowMode = typeof canvasModel.WindowMode.infer;
 
 /** Optional window permissions. An absent flag permits the action. */
-type InfiniteCanvasWindowCapability = "closable" | "maximizable" | "minimizable" | "resizable";
+type InfiniteCanvasWindowCapability =
+  | "closable"
+  | "maximizable"
+  | "minimizable"
+  | "movable"
+  | "resizable";
 
-type InfiniteCanvasWindowCapabilities = Partial<
-  Readonly<Record<InfiniteCanvasWindowCapability, boolean>>
->;
+type InfiniteCanvasWindowCapabilities = Readonly<typeof canvasModel.WindowCapabilities.infer>;
 
 type InfiniteCanvasWindow<Kind extends string = string, Data = unknown> = Readonly<{
+  heightMode?: "content" | "manual";
   capabilities?: InfiniteCanvasWindowCapabilities;
   data?: Data;
   id: string;
@@ -158,6 +158,8 @@ type InfiniteCanvasDockPreview = Readonly<{
   containerId: string;
   edge: InfiniteCanvasGroupDockEdge;
   groupId: string | null;
+  /** For a lattice target: the cells the dropped window takes. */
+  layout?: InfiniteCanvasGroupWindowNodeLayout;
   /** Region filled by the drop. */
   rect: InfiniteCanvasRect;
   targetId: string;
@@ -791,13 +793,15 @@ type InfiniteCanvasWindowProximity = Readonly<{
 
 type InfiniteCanvasWindowWheelBehavior = "canvas-pan" | "native-scroll";
 
-type InfiniteCanvasWindowBodyPointerBehavior = "canvas-pan" | "native";
+/** Body presses pan, move the window after a threshold, or retain native handling. */
+type InfiniteCanvasWindowBodyPointerBehavior = "canvas-pan" | "move" | "native";
 
 type InfiniteCanvasWindowTextSelection = "none" | "native";
 
 type InfiniteCanvasWindowFrameChrome = "dom" | "host" | "scene";
 
 type InfiniteCanvasWindowDefinition<Kind extends string = string, Data = unknown> = Readonly<{
+  bodyDragThresholdPx?: number;
   bodyPointerBehavior?: InfiniteCanvasWindowBodyPointerBehavior;
   frameChrome?: InfiniteCanvasWindowFrameChrome;
   kind: Kind;
@@ -973,6 +977,7 @@ type InfiniteCanvasCommandId =
   | "group.moveChild.end"
   | "group.moveChild.start"
   | "group.setLayout.accordion"
+  | "group.setLayout.masonry"
   | "group.setLayout.split"
   | "group.setLayout.tabs"
   | "window.dock.down"
@@ -1123,6 +1128,11 @@ type InfiniteCanvasAction<Kind extends string = string> =
     }>
   | Readonly<{ childId: string; groupId: string; toIndex: number; type: "group.reorderChild" }>
   | Readonly<{
+      groupId: string;
+      layouts: Readonly<Record<string, InfiniteCanvasGroupWindowNodeLayout>>;
+      type: "group.setChildLayouts";
+    }>
+  | Readonly<{
       afterChildId: string;
       availableExtent: number;
       axis: InfiniteCanvasGroupAxis;
@@ -1203,6 +1213,8 @@ type InfiniteCanvasAction<Kind extends string = string> =
       type: "viewportOccluders.set";
     }>
   | Readonly<{ title: string; type: "window.setTitle"; windowId: string }>
+  | Readonly<{ data: unknown; type: "window.setData"; windowId: string }>
+  | Readonly<{ height: number; type: "window.setContentHeight"; windowId: string }>
   | Readonly<{ type: "window.close"; windowId: string }>
   | Readonly<{ type: "window.focus"; windowId: string }>
   | Readonly<{ type: "window.maximize"; windowId: string }>
@@ -1210,10 +1222,13 @@ type InfiniteCanvasAction<Kind extends string = string> =
   | Readonly<{
       /** Placement resolved here, against live state, rather than by the caller. */
       placement?: InfiniteCanvasWindowPlacement;
+      target?: Readonly<typeof canvasModel.GroupInsertion.infer>;
       type: "window.open";
       window: InfiniteCanvasWindow<Kind>;
     }>
   | Readonly<{ type: "window.restore"; windowId: string }>
+  /** A consumer sizes or places a floating window itself, as when its body sizes to content. */
+  | Readonly<{ rect: InfiniteCanvasRect; type: "window.setRect"; windowId: string }>
   | Readonly<{ type: "window.togglePinned"; windowId: string }>;
 
 type InfiniteCanvasCommands<Kind extends string = string> = Readonly<{
@@ -1247,6 +1262,13 @@ type InfiniteCanvasCommands<Kind extends string = string> = Readonly<{
   reorderGroupChild: (
     input: Readonly<{ childId: string; groupId: string; toIndex: number }>,
   ) => void;
+  /** Rewrites members' lattice fields by id: cells, span, rows, hidden. Omitted fields keep. */
+  setGroupChildLayouts: (
+    input: Readonly<{
+      groupId: string;
+      layouts: Readonly<Record<string, InfiniteCanvasGroupWindowNodeLayout>>;
+    }>,
+  ) => void;
   reorderWorkspace: (input: Readonly<{ toIndex: number; workspaceId: string }>) => void;
   setGroupActiveChild: (
     input: Readonly<{ childId: string; containerId: string; groupId: string }>,
@@ -1258,8 +1280,12 @@ type InfiniteCanvasCommands<Kind extends string = string> = Readonly<{
       weights: Readonly<Record<string, number>>;
     }>,
   ) => void;
+  /** Gives a floating window a rect, as when its body sizes to its content. */
+  setWindowRect: (input: Readonly<{ rect: InfiniteCanvasRect; windowId: string }>) => void;
   /** Updates non-empty titles without command-palette parameters. */
   setWindowTitle: (input: Readonly<{ title: string; windowId: string }>) => void;
+  setWindowData: (input: Readonly<{ data: unknown; windowId: string }>) => void;
+  setWindowContentHeight: (input: Readonly<{ height: number; windowId: string }>) => void;
   setGroupTitle: (input: Readonly<{ groupId: string; title: string }>) => void;
   setWorkspaceTitle: (input: Readonly<{ title: string; workspaceId: string }>) => void;
   /** Updates one workspace member without replacing the full membership list. */

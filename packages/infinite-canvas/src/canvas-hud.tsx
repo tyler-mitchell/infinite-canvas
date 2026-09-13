@@ -1,6 +1,7 @@
 "use client";
 
-import { useLayoutEffect, useRef, type CSSProperties } from "react";
+import { useEffect, useRef, type CSSProperties } from "react";
+import { useResizeObserver } from "use-resize-observer";
 
 import { DEFAULT_INFINITE_CANVAS_STACK_BANDS } from "./constants";
 import { INFINITE_CANVAS_SLOTS } from "./data-attributes";
@@ -56,10 +57,12 @@ function resolveInfiniteCanvasHudPolicy(
 // HUD groups restore the pointer events that the HUD root disables.
 const HUD_INTERACTIVE_STYLE = { pointerEvents: "auto" } satisfies CSSProperties;
 
-/** The dock and controls share one row so their bounds cannot overlap. */
+/** Distance from the viewport edge to the status card and to the band. */
+const HUD_EDGE_GAP_PX = 16;
+
 const HUD_BOTTOM_BAND_STYLE = {
   alignItems: "flex-end",
-  bottom: "16px",
+  bottom: `${HUD_EDGE_GAP_PX}px`,
   display: "flex",
   gap: "8px",
   left: "16px",
@@ -120,35 +123,27 @@ function InfiniteCanvasHud({
     resolvedPolicy.zoomControls;
   const showDock = resolvedPolicy.minimizedDock && minimizedWindows.length > 0;
   const rootRef = useRef<HTMLDivElement>(null);
+  const hasBand = showDock || showControlsRow;
+  const hasStatus = resolvedPolicy.statusCard;
+  const insets = state.viewportInsets;
+  const band = useResizeObserver<HTMLDivElement>({ box: "border-box" });
+  const status = useResizeObserver<HTMLDivElement>({ box: "border-box" });
 
-  // Measure after each render because each render can change the HUD bounds.
-  useLayoutEffect(() => {
-    const root = rootRef.current;
-    const viewport = root?.closest(`[data-slot="${INFINITE_CANVAS_SLOTS.viewport}"]`);
-
-    if (root === null || !(viewport instanceof HTMLElement)) {
-      return;
-    }
-
-    const bounds = viewport.getBoundingClientRect();
-    const band = root.querySelector(`[data-slot="${INFINITE_CANVAS_SLOTS.hudBand}"]`);
-    const status = root.querySelector(`[data-slot="${INFINITE_CANVAS_SLOTS.hudStatus}"]`);
-    const reach = (edge: number) => `${String(Math.max(0, Math.round(edge)))}px`;
-
-    viewport.style.setProperty(
-      HUD_EXTENT_BOTTOM_PROPERTY,
-      reach(band === null ? 0 : bounds.bottom - band.getBoundingClientRect().top),
+  useEffect(() => {
+    const viewport = rootRef.current?.closest<HTMLElement>(
+      `[data-slot="${INFINITE_CANVAS_SLOTS.viewport}"]`,
     );
-    viewport.style.setProperty(
-      HUD_EXTENT_TOP_PROPERTY,
-      reach(status === null ? 0 : status.getBoundingClientRect().bottom - bounds.top),
-    );
+    if (viewport == null) return;
+    const bottom = hasBand ? insets.bottom + HUD_EDGE_GAP_PX + (band.height ?? 0) : 0;
+    const top = hasStatus ? insets.top + HUD_EDGE_GAP_PX + (status.height ?? 0) : 0;
+    viewport.style.setProperty(HUD_EXTENT_BOTTOM_PROPERTY, `${Math.round(bottom)}px`);
+    viewport.style.setProperty(HUD_EXTENT_TOP_PROPERTY, `${Math.round(top)}px`);
 
     return () => {
       viewport.style.removeProperty(HUD_EXTENT_BOTTOM_PROPERTY);
       viewport.style.removeProperty(HUD_EXTENT_TOP_PROPERTY);
     };
-  });
+  }, [band.height, hasBand, hasStatus, insets.bottom, insets.top, status.height]);
 
   if (!showControlsRow && !showDock && !resolvedPolicy.statusCard) {
     return null;
@@ -171,11 +166,12 @@ function InfiniteCanvasHud({
       {resolvedPolicy.statusCard ? (
         <div
           data-slot={INFINITE_CANVAS_SLOTS.hudStatus}
+          ref={status.ref}
           style={{
             left: "16px",
             maxWidth: "min(28rem, calc(100% - 2rem))",
             position: "absolute",
-            top: "16px",
+            top: `${HUD_EDGE_GAP_PX}px`,
           }}
         >
           <div data-slot={INFINITE_CANVAS_SLOTS.hudTitle}>{title}</div>
@@ -185,7 +181,7 @@ function InfiniteCanvasHud({
         </div>
       ) : null}
       {showDock || showControlsRow ? (
-        <div data-slot={INFINITE_CANVAS_SLOTS.hudBand} style={HUD_BOTTOM_BAND_STYLE}>
+        <div data-slot={INFINITE_CANVAS_SLOTS.hudBand} ref={band.ref} style={HUD_BOTTOM_BAND_STYLE}>
           {showDock ? (
             <div data-slot={INFINITE_CANVAS_SLOTS.hudDock} style={HUD_DOCK_STYLE}>
               {minimizedWindows.map((window) => (

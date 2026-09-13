@@ -1,3 +1,18 @@
+import {
+  bottom,
+  calcGridColWidth,
+  calcGridItemPosition,
+  correctBounds,
+  defaultGridConfig,
+  getCompactor,
+  type Compactor,
+  type ConstraintContext,
+  type Layout,
+  type LayoutItem,
+  type PositionParams,
+} from "react-grid-layout/core";
+import { wrapCompactor, wrapOverlapCompactor } from "react-grid-layout/extras";
+
 import { clamp } from "./geometry";
 import {
   getInfiniteCanvasGroupChildWeightSum,
@@ -6,6 +21,7 @@ import {
   type InfiniteCanvasGroupContainerNode,
   type InfiniteCanvasGroupDockEdge,
   type InfiniteCanvasGroupNode,
+  type InfiniteCanvasGroupWindowNodeLayout,
 } from "./group-tree";
 import type {
   InfiniteCanvasGroupMetrics,
@@ -70,19 +86,142 @@ type InfiniteCanvasGroupAccordionHeader = Readonly<{
 /** Includes hidden member rects so tear-out preserves the revealed size. */
 type InfiniteCanvasGroupLayout = Readonly<{
   accordionHeaders: readonly InfiniteCanvasGroupAccordionHeader[];
+  containerRects: ReadonlyMap<string, InfiniteCanvasRect>;
   gutters: readonly InfiniteCanvasGroupGutter[];
   hiddenWindows: readonly InfiniteCanvasGroupWindowPlacement[];
+  /** Each masonry container's packed height; a root container's shell takes it. */
+  masonryExtents: ReadonlyMap<string, number>;
   tabStrips: readonly InfiniteCanvasGroupTabStrip[];
   windows: readonly InfiniteCanvasGroupWindowPlacement[];
 }>;
 
 type InfiniteCanvasGroupLayoutDraft = {
   accordionHeaders: InfiniteCanvasGroupAccordionHeader[];
+  containerRects: Map<string, InfiniteCanvasRect>;
   gutters: InfiniteCanvasGroupGutter[];
   hiddenWindows: InfiniteCanvasGroupWindowPlacement[];
+  masonryExtents: Map<string, number>;
   tabStrips: InfiniteCanvasGroupTabStrip[];
   windows: InfiniteCanvasGroupWindowPlacement[];
 };
+
+/** Resolves grid defaults and uses square cells when row height is absent. */
+function getInfiniteCanvasMasonryParams(
+  container: InfiniteCanvasGroupContainerNode,
+  rect: InfiniteCanvasRect,
+): PositionParams {
+  const config = { ...defaultGridConfig, ...container.masonry };
+  const params = {
+    cols: config.cols,
+    containerPadding: config.containerPadding ?? config.margin,
+    containerWidth: rect.width,
+    margin: config.margin,
+    maxRows: config.maxRows,
+    rowHeight: config.rowHeight,
+  };
+
+  return container.masonry?.rowHeight === undefined
+    ? { ...params, rowHeight: calcGridColWidth(params) }
+    : params;
+}
+
+/** Selects the grid library's compactor; null disables compaction. */
+function getInfiniteCanvasMasonryCompactor(container: InfiniteCanvasGroupContainerNode): Compactor {
+  const { allowOverlap, compactType, preventCollision } = container.masonry ?? {};
+
+  if (compactType === "wrap") {
+    const compactor = allowOverlap ? wrapOverlapCompactor : wrapCompactor;
+    return preventCollision ? { ...compactor, preventCollision } : compactor;
+  }
+
+  return getCompactor(
+    compactType === undefined ? "vertical" : compactType,
+    allowOverlap,
+    preventCollision,
+  );
+}
+
+/** What the grid library's constraints read while an item moves or resizes. */
+function getInfiniteCanvasMasonryConstraintContext(
+  params: PositionParams,
+  layout: Layout,
+): ConstraintContext {
+  return {
+    cols: params.cols,
+    containerHeight: 0,
+    containerWidth: params.containerWidth,
+    layout,
+    margin: params.margin,
+    maxRows: params.maxRows,
+    rowHeight: params.rowHeight,
+  };
+}
+
+/** Packs visible members; a member without coordinates starts below existing items. */
+function getInfiniteCanvasMasonryItems(
+  container: InfiniteCanvasGroupContainerNode,
+  cols: number,
+): Layout {
+  const items = container.children
+    .filter((child) => child.kind !== "window" || child.hidden !== true)
+    .reduce<LayoutItem[]>((placed, child) => {
+      const cells: InfiniteCanvasGroupWindowNodeLayout = child.kind === "window" ? child : {};
+      const item: LayoutItem = {
+        h: cells.rows ?? 1,
+        i: child.id,
+        w: cells.span ?? 1,
+        x: cells.x ?? 0,
+        y: cells.y ?? bottom(placed),
+      };
+
+      return [...placed, item];
+    }, []);
+
+  return getInfiniteCanvasMasonryCompactor(container).compact(correctBounds(items, { cols }), cols);
+}
+
+/** Projects packed grid items into world rectangles. */
+function solveMasonryContainer(
+  container: InfiniteCanvasGroupContainerNode,
+  rect: InfiniteCanvasRect,
+  metrics: InfiniteCanvasGroupMetrics,
+  draft: InfiniteCanvasGroupLayoutDraft,
+  isHidden: boolean,
+) {
+  const params = getInfiniteCanvasMasonryParams(container, rect);
+  const layout = getInfiniteCanvasMasonryItems(container, params.cols);
+  const rows = Math.max(1, bottom(layout));
+
+  for (const child of container.children) {
+    const item = layout.find((candidate) => candidate.i === child.id);
+
+    if (item === undefined) {
+      solveInfiniteCanvasGroupNode(child, rect, metrics, draft, true);
+      continue;
+    }
+
+    const position = calcGridItemPosition(params, item.x, item.y, item.w, item.h);
+
+    solveInfiniteCanvasGroupNode(
+      child,
+      {
+        height: position.height,
+        width: position.width,
+        x: rect.x + position.left,
+        y: rect.y + position.top,
+      },
+      metrics,
+      draft,
+      isHidden,
+    );
+  }
+
+  // The grid library's container height for `rows` rows.
+  draft.masonryExtents.set(
+    container.id,
+    rows * params.rowHeight + (rows - 1) * params.margin[1] + params.containerPadding[1] * 2,
+  );
+}
 
 function isHorizontalAxis(axis: InfiniteCanvasGroupAxis): boolean {
   return axis === "horizontal";
@@ -269,6 +408,8 @@ function solveInfiniteCanvasGroupNode(
     return;
   }
 
+  draft.containerRects.set(node.id, rect);
+
   if (node.layout === "split") {
     solveSplitContainer(node, rect, metrics, draft, isHidden);
 
@@ -277,6 +418,12 @@ function solveInfiniteCanvasGroupNode(
 
   if (node.layout === "tabs") {
     solveTabsContainer(node, rect, metrics, draft, isHidden);
+
+    return;
+  }
+
+  if (node.layout === "masonry") {
+    solveMasonryContainer(node, rect, metrics, draft, isHidden);
 
     return;
   }
@@ -291,8 +438,10 @@ function getInfiniteCanvasGroupLayout(
 ): InfiniteCanvasGroupLayout {
   const draft: InfiniteCanvasGroupLayoutDraft = {
     accordionHeaders: [],
+    containerRects: new Map(),
     gutters: [],
     hiddenWindows: [],
+    masonryExtents: new Map(),
     tabStrips: [],
     windows: [],
   };
@@ -400,6 +549,11 @@ function getInfiniteCanvasGroupMinimumSize(
     return { height: tallest + metrics.tabStripSize, width: widest };
   }
 
+  // A masonry shell can shrink to one track that holds its tallest child.
+  if (node.layout === "masonry") {
+    return { height: tallest, width: widest };
+  }
+
   const isHorizontal = isHorizontalAxis(node.axis);
 
   if (node.layout === "accordion") {
@@ -426,6 +580,10 @@ export {
   getInfiniteCanvasGroupGutterWeights,
   getInfiniteCanvasGroupLayout,
   getInfiniteCanvasGroupMinimumSize,
+  getInfiniteCanvasMasonryCompactor,
+  getInfiniteCanvasMasonryConstraintContext,
+  getInfiniteCanvasMasonryItems,
+  getInfiniteCanvasMasonryParams,
   resolveInfiniteCanvasGroupMetrics,
 };
 export type {

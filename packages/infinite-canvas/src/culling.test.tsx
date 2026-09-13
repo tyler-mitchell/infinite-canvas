@@ -47,27 +47,5 @@ test("an offscreen window is still in the document", () => {
 
   expect(rendered).toContain('data-infinite-canvas-window-id="far"');
   expect(rendered).toContain("far</p>");
-});
-
-const frameStyle = (rendered: string, id: string): string => {
-  const article = rendered.split("<article").find((chunk) => chunk.includes(`-window-${id}"`));
-
-  return article?.slice(0, article.indexOf(">")) ?? "";
-};
-
-test("an offscreen window is skipped and an onscreen one is not", () => {
-  const rendered = markup();
-
-  expect(frameStyle(rendered, "far")).toContain("content-visibility:auto");
-  expect(frameStyle(rendered, "near")).toContain("content-visibility:visible");
-});
-
-test("nothing is culled before the viewport has been measured", () => {
-  const rendered = renderToStaticMarkup(
-    <InfiniteCanvasProvider initialState={{ ...canvas(), viewport: { height: 0, width: 0 } }}>
-      <InfiniteCanvasViewport<Kind> windowDefinitions={registry} />
-    </InfiniteCanvasProvider>,
-  );
-
-  expect(frameStyle(rendered, "far")).toContain("content-visibility:visible");
+  expect(rendered).not.toContain("content-visibility");
 });

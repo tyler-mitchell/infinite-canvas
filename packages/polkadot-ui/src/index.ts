@@ -1,5 +1,32 @@
 export { FONT_SIZES, tv } from "./tv.ts";
 export { MOTION } from "./motion.ts";
+export { Printer, PrinterMachine, PrinterMouth, PrinterFeed, PrinterTrigger, PrinterStatus, printerVariants, type PrinterProps, type PrinterMachineProps, type PrinterFeedProps, type PrinterTriggerProps, type PrinterStatusProps } from "./components/printer.tsx";
+export { Textarea, type TextareaProps, textareaVariants } from "./components/textarea.tsx";
+export { CanvasCommand, CanvasCommandItem, type CanvasCommandProps, type CanvasCommandItemProps } from "./components/canvas-command.tsx";
+export { EditableNote, EditableNoteTrigger, EditableNotePreview, EditableNoteEditor, editableNoteVariants, type EditableNoteProps, type EditableNoteTriggerProps, type EditableNotePreviewProps, type EditableNoteEditorProps } from "./components/editable-note.tsx";
+export { ContainerTransform } from "./components/motion/container-transform.tsx";
+export { NestedUnfold } from "./components/motion/nested-unfold.tsx";
+export type { DisclosureTargetSize } from "./components/motion/disclosure.tsx";
+export {
+  DEFAULT_FIELD_OPTIONS,
+  DEFAULT_GLINT_OPTIONS,
+  DEFAULT_SPARKLE_OPTIONS,
+  SPARKLE,
+  sparkle,
+  type FieldOptions,
+  type GlintOptions,
+  type SparkleOptions,
+  type SparkleOptionsInput,
+} from "./shaders/sparkle/index.ts";
+export {
+  frame as surfaceFrame,
+  sceneLayout,
+  type SceneBinding,
+  type SurfaceBuildContext,
+  type SurfaceEffect,
+  type SurfaceShader,
+  type SurfaceSource,
+} from "./shaders/surface.ts";
 export {
   Accordion,
   AccordionHeader,
@@ -32,6 +59,7 @@ export {
 } from "./components/activity-grid.tsx";
 export { Aurora, auroraVariants, type AuroraProps } from "./components/aurora.tsx";
 export { Avatar, avatarVariants, type AvatarProps } from "./components/avatar.tsx";
+export { Backdrop, backdropVariants, type BackdropProps } from "./components/backdrop.tsx";
 export { Badge, badgeVariants, type BadgeProps } from "./components/badge.tsx";
 export { Bars, barsLabel, barsVariants, type BarsProps } from "./components/bars.tsx";
 export {
@@ -68,9 +96,28 @@ export {
   type ComboboxProps,
 } from "./components/combobox.tsx";
 export { CommitRow, commitRowVariants, type CommitRowProps } from "./components/commit-row.tsx";
+export { Card, CardBody, CardFooter, cardBodyVariants, cardFooterVariants, type CardBodyProps } from "./components/card.tsx";
+export { Stack, stackVariants, type StackProps } from "./components/stack.tsx";
+export { Image, imageVariants, type ImageProps } from "./components/image.tsx";
+export { Link, linkVariants, type LinkProps } from "./components/link.tsx";
+export { Time, type TimeProps } from "./components/text.tsx";
+export {
+  ExpandInPlace,
+  type ExpandInPlaceViewportProps,
+} from "./components/motion/expand-in-place.tsx";
 export {
   ContactCard,
+  ContactCardAddress,
+  ContactCardArrow,
+  ContactCardBody,
+  ContactCardLabel,
+  ContactCardNote,
   contactCardVariants,
+  type ContactCardAddressProps,
+  type ContactCardArrowProps,
+  type ContactCardBodyProps,
+  type ContactCardLabelProps,
+  type ContactCardNoteProps,
   type ContactCardProps,
 } from "./components/contact-card.tsx";
 export {

@@ -62,9 +62,14 @@
     "verify:api-stability": "node ./scripts/verify-api-stability.mjs"
   },
   "dependencies": {
+    "@base-ui/react": "catalog:",
     "@legendapp/state": "catalog:",
     "@tanstack/hotkeys": "catalog:",
-    "@zumer/snapdom": "catalog:"
+    "@zumer/snapdom": "catalog:",
+    "arktype": "catalog:",
+    "motion": "catalog:",
+    "react-grid-layout": "catalog:",
+    "use-resize-observer": "catalog:"
   },
   "devDependencies": {
     "@typegpu/noise": "catalog:",

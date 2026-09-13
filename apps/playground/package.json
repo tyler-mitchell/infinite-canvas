@@ -15,6 +15,7 @@
     "@tanstack/hotkeys": "catalog:",
     "@tanstack/react-router": "catalog:",
     "@typegpu/react": "catalog:",
+    "arktype": "catalog:",
     "lucide-react": "catalog:",
     "motion": "catalog:",
     "react": "catalog:",

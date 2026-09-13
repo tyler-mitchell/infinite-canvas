@@ -12,6 +12,13 @@ import { tv } from "../tv.ts";
  */
 const text = tv({
   variants: {
+    fluid: { true: "", false: "" },
+    lines: { 1: "line-clamp-1", 2: "line-clamp-2", 3: "line-clamp-3" },
+    size: {
+      sm: "text-pk-mono-sm",
+      md: "",
+      lg: "text-[20px] leading-[1.4] tracking-[-0.03em] text-pk-ink-bright",
+    },
     as: {
       label: "wrap-anywhere font-pk-sans text-pk-label text-pk-ink-dim",
       kind: "wrap-anywhere font-pk-sans text-pk-micro text-pk-ink-dim uppercase",
@@ -23,7 +30,8 @@ const text = tv({
       code: "wrap-anywhere font-pk-mono text-pk-mono text-pk-ink-muted tabular-nums",
     },
   },
-  defaultVariants: { as: "meta" },
+  compoundVariants: [{ as: "display", fluid: true, class: "text-[length:clamp(var(--text-pk-title),6cqi,var(--text-pk-display))]" }],
+  defaultVariants: { as: "meta", fluid: false },
 });
 
 type Role = NonNullable<VariantProps<typeof text>["as"]>;
@@ -31,14 +39,14 @@ type Role = NonNullable<VariantProps<typeof text>["as"]>;
 export interface TextProps extends useRender.ComponentProps<"span">, VariantProps<typeof text> {}
 
 const role = (name: Role, tag: keyof React.JSX.IntrinsicElements, slot: string = name) =>
-  function Part({ className, render, ...props }: useRender.ComponentProps<"span">) {
+  function Part({ className, render, lines, fluid, ...props }: useRender.ComponentProps<"span"> & Pick<VariantProps<typeof text>, "lines" | "fluid">) {
     return useRender({
       render,
       defaultTagName: tag,
       props: {
         ...props,
         "data-slot": `text-${slot}`,
-        className: text({ as: name, className: className as string }),
+        className: text({ as: name, lines, fluid, className }),
       },
     });
   };
@@ -99,9 +107,20 @@ function Readout({ className, render, ...props }: ReadoutProps) {
       "aria-live": "polite",
       ...props,
       "data-slot": "text-readout",
-      className: text({ as: "readout", className: className as string }),
+      className: text({ as: "readout", className }),
     },
   });
 }
 
-export { Code, Display, Kind, Label, Meta, Prose, Readout, Title, text as textVariants };
+export type TimeProps = useRender.ComponentProps<"time"> & Pick<VariantProps<typeof text>, "size">;
+
+/** A semantic time value without automatic announcements. */
+function Time({ className, render, size, ...props }: TimeProps) {
+  return useRender({
+    defaultTagName: "time",
+    render,
+    props: { ...props, "data-slot": "time", className: text({ as: "readout", size, className }) },
+  });
+}
+
+export { Code, Display, Kind, Label, Meta, Prose, Readout, Time, Title, text as textVariants };

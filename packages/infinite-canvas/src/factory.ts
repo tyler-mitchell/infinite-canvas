@@ -26,6 +26,7 @@ import type {
 } from "./types";
 
 type InfiniteCanvasWindowInput<Kind extends string, Data = unknown> = Readonly<{
+  heightMode?: "content" | "manual";
   capabilities?: InfiniteCanvasWindowCapabilities;
   data?: Data;
   id: string;
@@ -93,6 +94,7 @@ function createInfiniteCanvasWindow<Kind extends string, Data = unknown>({
   kind,
   minSize,
   mode = "normal",
+  heightMode,
   rect,
   restoreRect,
   title = id,
@@ -107,6 +109,7 @@ function createInfiniteCanvasWindow<Kind extends string, Data = unknown>({
     kind,
     minSize: cloneSize(minSize ?? createDefaultWindowMinSize(rect)),
     mode,
+    ...(heightMode === undefined ? {} : { heightMode }),
     rect: cloneRect(rect),
     restoreRect: restoreRect === undefined ? undefined : cloneRect(restoreRect),
     title,

@@ -6,11 +6,20 @@ import {
   subtractPoints,
 } from "./geometry";
 import { getInfiniteCanvasGroupGutterWeights } from "./group-layout";
+import { getInfiniteCanvasGroupWindowIds } from "./group-tree";
 import {
+  MASONRY_RESIZE_HANDLE_AXIS,
   applyInfiniteCanvasDockPreview,
+  findInfiniteCanvasGroup,
+  getInfiniteCanvasMasonryMembership,
+  moveInfiniteCanvasMasonryMember,
+  resizeInfiniteCanvasMasonryMember,
   resolveInfiniteCanvasDockPreview,
+  resolveInfiniteCanvasLatticeDropPreview,
   setInfiniteCanvasGroupChildWeightsInState,
   setInfiniteCanvasGroupRect,
+  syncInfiniteCanvasGroupWindowRects,
+  undockInfiniteCanvasWindowFromGroup,
 } from "./group-state";
 import { clearSelection, isWindowSelected, replaceSelection } from "./selection";
 import { applyResizeSnapToRect, applySnapToRect } from "./snap-resolver";
@@ -284,6 +293,10 @@ function beginWindowResize<Kind extends string>(
           originCamera: focusedState.camera,
         },
         snapPreview: null,
+        windows: focusedState.windows.map((window) => {
+          if (window.id !== windowId || window.heightMode === "manual") return window;
+          return { ...window, heightMode: "manual" as const };
+        }),
       };
 }
 
@@ -346,23 +359,57 @@ function stepCanvasInteraction<Kind extends string>(
 
   const worldDelta = getInteractionWorldDelta(state, interaction, point);
 
+  const membership = getInfiniteCanvasMasonryMembership(state, interaction.windowId);
+
   if (interaction.kind === "resize") {
-    return stepWindowResize(state, interaction, worldDelta, targetWindow.minSize, snapPolicy);
+    if (membership === null) {
+      return stepWindowResize(state, interaction, worldDelta, targetWindow.minSize, snapPolicy);
+    }
+
+    // Grid constraints convert pointer geometry to cells.
+    return resizeInfiniteCanvasMasonryMember(
+      state,
+      interaction.windowId,
+      resizeRectFromHandle(interaction.originRect, interaction.handle, worldDelta, {
+        width: 0,
+        height: 0,
+      }),
+      MASONRY_RESIZE_HANDLE_AXIS[interaction.handle],
+    );
   }
 
+  // Leaving a grid through its sides or top detaches the dragged member.
+
+  if (membership !== null) {
+    const moved = stepWindowMove(state, interaction, worldDelta, false);
+    const worldPoint = screenPointToWorldPoint(state.camera, state.viewport, point);
+    const shell = membership.group.rect;
+
+    return worldPoint.x >= shell.x &&
+      worldPoint.x <= shell.x + shell.width &&
+      worldPoint.y >= shell.y
+      ? moveInfiniteCanvasMasonryMember(moved, interaction.windowId)
+      : undockInfiniteCanvasWindowFromGroup(moved, {
+          rect: moved.windows.find((window) => window.id === interaction.windowId)?.rect,
+          windowId: interaction.windowId,
+        });
+  }
+
+  // Grid drops are automatic; other docking requires explicit intent.
+  const worldPoint = screenPointToWorldPoint(state.camera, state.viewport, point);
+  const resolvePreview =
+    options.dockIntent === true
+      ? resolveInfiniteCanvasDockPreview
+      : resolveInfiniteCanvasLatticeDropPreview;
   const dockPreview =
-    options.dockIntent === true && interaction.originRects.length === 1
-      ? resolveInfiniteCanvasDockPreview(
-          state,
-          screenPointToWorldPoint(state.camera, state.viewport, point),
-          interaction.windowId,
-        )
-      : null;
+    interaction.originRects.length !== 1
+      ? null
+      : resolvePreview(state, worldPoint, interaction.windowId);
   const moved = stepWindowMove(
     state,
     interaction,
     worldDelta,
-    dockPreview === null ? snapPolicy : undefined,
+    dockPreview === null ? snapPolicy : false,
   );
 
   return moved.interaction === null || moved.interaction.kind !== "move"
@@ -437,7 +484,7 @@ function stepWindowMove<Kind extends string>(
   state: InfiniteCanvasState<Kind>,
   interaction: InfiniteCanvasMoveInteraction,
   worldDelta: InfiniteCanvasPoint,
-  snapPolicy?: InfiniteCanvasSnapPolicy,
+  snapPolicy?: InfiniteCanvasSnapPolicy | false,
 ): InfiniteCanvasState<Kind> {
   const targetOrigin = interaction.originRects.find(
     (origin) => origin.windowId === interaction.windowId,
@@ -528,11 +575,54 @@ function finishCanvasInteraction<Kind extends string>(
       ? applyInfiniteCanvasDockPreview(state, interaction.dockPreview)
       : state;
 
-  return {
+  // A released masonry member kept the pointer's rect through the drag; now its cells place it.
+  return syncInfiniteCanvasGroupWindowRects({
     ...docked,
     interaction: null,
     snapPreview: null,
-  };
+  });
+}
+
+const NO_POINTER_OWNED_IDS = { groupIds: new Set<string>(), windowIds: new Set<string>() };
+
+/** Identifies frames that must follow pointer updates without transitions. */
+function getInfiniteCanvasPointerOwnedIds<Kind extends string>(
+  state: InfiniteCanvasState<Kind>,
+): Readonly<{ groupIds: ReadonlySet<string>; windowIds: ReadonlySet<string> }> {
+  const interaction = state.interaction;
+
+  if (interaction === null) {
+    return NO_POINTER_OWNED_IDS;
+  }
+
+  if (interaction.kind === "move") {
+    return {
+      groupIds: NO_POINTER_OWNED_IDS.groupIds,
+      windowIds: new Set(interaction.originRects.map((origin) => origin.windowId)),
+    };
+  }
+
+  // Grid resizing animates between cells; floating resizing follows the pointer.
+  if (interaction.kind === "resize") {
+    return getInfiniteCanvasMasonryMembership(state, interaction.windowId) === null
+      ? { groupIds: NO_POINTER_OWNED_IDS.groupIds, windowIds: new Set([interaction.windowId]) }
+      : NO_POINTER_OWNED_IDS;
+  }
+
+  if (
+    interaction.kind === "groupMove" ||
+    interaction.kind === "groupResize" ||
+    interaction.kind === "groupGutter"
+  ) {
+    const group = findInfiniteCanvasGroup(state, interaction.groupId);
+
+    return {
+      groupIds: new Set([interaction.groupId]),
+      windowIds: new Set(group === null ? [] : getInfiniteCanvasGroupWindowIds(group.tree)),
+    };
+  }
+
+  return NO_POINTER_OWNED_IDS;
 }
 
 function getInteractionCursor(interaction: InfiniteCanvasState["interaction"]) {
@@ -581,6 +671,7 @@ export {
   beginWindowMove,
   beginWindowResize,
   finishCanvasInteraction,
+  getInfiniteCanvasPointerOwnedIds,
   getInteractionCursor,
   stepCanvasInteraction,
 };

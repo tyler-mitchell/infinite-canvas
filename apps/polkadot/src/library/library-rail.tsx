@@ -2,7 +2,9 @@ import {
   focusInfiniteCanvasCommandSurfaceFrom,
   useInfiniteCanvasActions,
   useInfiniteCanvasAnnounce,
-  useInfiniteCanvasState,
+  useInfiniteCanvasSelector,
+  useInfiniteCanvasStore,
+  type InfiniteCanvasState,
 } from "@hyphened/infinite-canvas";
 import { useObservable, useValue } from "@legendapp/state/react";
 import {
@@ -15,7 +17,7 @@ import {
   Search,
   Unlink2,
 } from "lucide-react";
-import { useEffect } from "react";
+import { memo, useEffect } from "react";
 import { Button } from "ui";
 import { tv } from "ui/tv";
 
@@ -134,12 +136,17 @@ function KindGlyph({ kind }: Readonly<{ kind: string }>) {
   return Icon === undefined ? null : <Icon className={styles.kindGlyph()} />;
 }
 
-export function LibraryRail({
+function LibraryRailContent({
   onCollapse,
   projectId,
 }: Readonly<{ onCollapse: () => void; projectId: string }>) {
   const actions = useInfiniteCanvasActions<WindowKind>();
-  const state = useInfiniteCanvasState<WindowKind>();
+  const store = useInfiniteCanvasStore<WindowKind>();
+  // The rail reads the windows; a camera step must not re-render the note list.
+  const windows = useInfiniteCanvasSelector<WindowKind, InfiniteCanvasState<WindowKind>["windows"]>(
+    (state) => state.windows,
+  );
+  const getState = () => store.state$.peek() as InfiniteCanvasState<WindowKind>;
   // The archive list is local because only this rail reads it.
   const archivedNotes$ = useObservable<readonly ContentItemRecord[] | null>(null);
   const query$ = useObservable("");
@@ -187,7 +194,7 @@ export function LibraryRail({
 
   // Include windows from all desktops.
   const windowIdByItemId = new Map(
-    state.windows.flatMap((window) => {
+    windows.flatMap((window) => {
       const itemId = getContentWindowItemId(window);
 
       return itemId === null ? [] : [[itemId, window.id] as const];
@@ -267,7 +274,7 @@ export function LibraryRail({
   const visible = terms === "" ? notes : notes.filter((note) => matchesContentSearch(note, terms));
 
   const reach = (from: HTMLElement, item: ContentItemRecord) => {
-    openItemWindow({ actions, item, state });
+    openItemWindow({ actions, item, state: getState() });
 
     // Restore canvas shortcut focus after the rail action.
     focusInfiniteCanvasCommandSurfaceFrom(from);
@@ -278,11 +285,11 @@ export function LibraryRail({
 
     editing$.set(null);
 
-    void renameProjectItem({ actions, item: note, state, title: next });
+    void renameProjectItem({ actions, item: note, state: getState(), title: next });
   };
 
   const create = async () => {
-    await openNewNote({ actions, projectId, state });
+    await openNewNote({ actions, projectId, state: getState() });
   };
 
   // Archive closes the open window before it hides the item.
@@ -494,4 +501,7 @@ export function LibraryRail({
   );
 }
 
-export { RAIL_INSET };
+// The overlay renders on every canvas state change; the rail renders only when its props change.
+const LibraryRail = memo(LibraryRailContent);
+
+export { LibraryRail, RAIL_INSET };

@@ -1,6 +1,6 @@
 # polkadot-ui
 
-Base UI primitives styled with tailwind-variants slots. Forty-six component modules, one
+Base UI primitives styled with tailwind-variants slots. Fifty-one component modules, one
 stylesheet, and no CSS written anywhere else.
 
 ## Setup
@@ -33,8 +33,8 @@ Neither has an opinion about what goes inside it.
 ## The two rules
 
 **Every class a component draws lives in one `tv` call at the top of its file.** A component that
-draws several elements names them as `slots`; one that draws a single element uses `base`. Thirty-
-nine of the forty-six are the former.
+draws several elements names them as `slots`; one that draws a single element uses `base`.
+Forty of the fifty-one are the former.
 
 ```tsx
 // badge.tsx — one element, so one base and no slots.
@@ -194,6 +194,8 @@ so on a phone it stays shut — a tap leaves it nine pixels wide, against sixty-
 open. The name is in the markup, so a screen reader reads it; a sighted reader on a phone does not.
 Set `open` on any tile whose name has to be read.
 
+Use `open={false}` in a fixed square. The label stays available to assistive technology.
+
 ```tsx
 <IconTile open label="held open" icon={<span>ON</span>} />
 ```
@@ -276,21 +278,154 @@ can run long belongs in a text role.
 `theme.css` cuts transform and height transitions under `prefers-reduced-motion: reduce` and keeps
 colour ones, so a rolling digit and an opening panel snap while a hover still fades.
 
-The feed's entry animation runs on a scroll timeline and is switched off by name, because clamping
-`animation-duration` does not govern one: its progress comes from the scroll position, not from
-time. The rim sweeps are named there too, for a different reason — they are driven by time, but a
-sweep clamped to a millisecond is still a sweep, and turning them off says so plainly.
+Rim highlights stay static. Hover changes their shadow without a continuous animation.
+
+## Compound widget layout
+
+### Engraved dividers
+
+```tsx
+import { Separator } from "polkadot-ui";
+
+<Separator look="engraved" />
+<Separator look="engraved" orientation="vertical" />
+```
+
+A dark 1px line has a faint highlight below or to the right and a narrow soft shadow on the other side.
+The adjacent surfaces should share a background. Keep the highlight faint to suggest a recessed cut.
+
+```css
+:root {
+  --pk-divider-shadow: rgb(0 0 0 / 0.8);
+  --pk-divider-highlight: rgb(255 255 255 / 0.04);
+  --pk-divider-soft-shadow: rgb(0 0 0 / 0.2);
+}
+```
+
+`look="line"` remains the default. Both treatments retain the separator's layout size and semantics.
+
+Use `Row ruleLook="engraved"` with `rule="above"` or `rule="below"` for an attached divider.
+It uses the same divider tokens and retains the row's existing spacing.
+
+### Content composition
+
+```tsx
+import { MetricTile, Separator, Surface } from "polkadot-ui";
+
+<Surface>
+  <MetricTile look="readout" label="Hookload (klbs)" limit="500">
+    318.90
+  </MetricTile>
+  <Separator look="engraved" />
+</Surface>
+```
+
+`MetricTile look="readout"` uses a prominent sans-serif value and a smaller, muted limit.
+The value and limit share a baseline; the limit can move to the next line in narrow layouts.
+Omit `limit` for a single value.
+Pass formatted text to retain decimal places. The default `look="tile"` keeps the compact treatment.
+
+```css
+:root {
+  --pk-metric-value-size: 2.5rem;
+  --pk-metric-limit-size: 1.875rem;
+  --pk-metric-text-shadow: 0 1px 1px rgb(0 0 0 / 0.35);
+}
+```
+
+```tsx
+import { ContactCard, ListItem, Receipt, Surface, Terminal } from "polkadot-ui";
+
+<Surface>
+  <ListItem trail={0}>Unresolved items in the current project</ListItem>
+</Surface>
+
+<Receipt>
+  <Receipt.Head mark="TM" wordmark="Tyler Mitchell" />
+  <Receipt.Note>Document details</Receipt.Note>
+  <Receipt.Action disabled>Download unavailable</Receipt.Action>
+</Receipt>
+
+<ContactCard render={<a href="mailto:hello@example.com" />}>
+  <ContactCard.Body>
+    <ContactCard.Label>Contact</ContactCard.Label>
+    <ContactCard.Address>hello@example.com</ContactCard.Address>
+    <ContactCard.Note>Replies within two working days</ContactCard.Note>
+  </ContactCard.Body>
+  <ContactCard.Arrow />
+</ContactCard>
+
+<Terminal>
+  <Terminal.Command prompt=">" running runningLabel="Installing">
+    vp install
+  </Terminal.Command>
+  <Terminal.Output>Resolving dependencies</Terminal.Output>
+</Terminal>
+```
+
+`ListItem` permits multiline content and retains numeric zero in its optional parts.
+`Receipt.Action` accepts Base UI Button props, including `disabled`, `render`, and `nativeButton`.
+`Receipt.Head` accepts React content for `mark` and `wordmark`; `mark={null}` omits the mark.
+`ContactCard` accepts compound children. Each part accepts `className`, `render`, and a ref.
+Omit or reorder parts as needed. `ContactCard.Arrow` is decorative and accepts replacement children.
+`Terminal.Command` accepts a decorative `prompt` and an accessible `runningLabel`.
+The defaults are `$` and `running`. Set `prompt={null}` to omit the prompt.
+`Terminal` is a focusable log with selectable text and native horizontal scrolling.
+Its default accessible name is `Terminal output`; override it with `aria-label`.
+`PendingCard` and `ActivityFeed` accept Surface props, including `tone`, `padding`, and `render`.
+Their text fields accept inline React content. Set `PendingCard stamp={null}` to omit the stamp.
+Activity entries retain numeric zero in optional duration and time fields.
+Set `ActivityFeed title={null}` to omit its header.
+`ScrollArea` accepts `viewportProps` and `contentProps` from the corresponding Base UI parts.
+Pass focus and scroll refs or handlers through `viewportProps`; the root ref points to the outer box.
+`Bars` and `LayoutPreview` have default heights; `className` can set another height.
+`Aurora` has a 214px minimum height. Its text stays in normal layout and can increase that height.
+Use `className` to change the minimum height.
+
+`ActivityGrid` accepts `render` and a consumer ref while retaining its size measurement.
+Consumer keyboard and blur handlers compose with the grid handlers.
+`Surface interactive={false}` disables hover treatment for every tone.
+Set `Readout aria-live="off"` for frequent updates that should be read on request, such as a clock.
+`SwipeDeck` accounts for uniform parent scaling and commits from the release position.
+Its keyboard handler composes with consumer handlers; secondary pointer presses do not start a swipe.
+
+## A surface painted by a shader
+
+`Backdrop` paints a canvas under its children through TypeGPU. It reads the ground the shader lays
+ink on from its own background, and the accent it tints with from `--pk-accent`, so a consumer
+restates the ground with a class and the shader follows; `ground` and `accent` take any CSS colour
+instead. Without WebGPU the canvas never mounts and that background stands.
+
+```tsx
+import { Backdrop, SPARKLE, Surface, sparkle } from "polkadot-ui";
+
+// Built once, outside render: each call specialises a new pair of shaders.
+const CALM = sparkle({ field: { layers: 48, flowSpeed: 0.2 }, glints: false });
+
+<Surface tone="card" padding="none">
+  <Backdrop shader={SPARKLE}>…</Backdrop>
+</Surface>;
+```
+
+A shader is a source and effects, written against `src/shaders/surface.ts`. The source paints a
+whole surface; each effect reads the scene painted so far and paints the next one; the last stage
+paints the canvas, all in one submission. Every constant a shader is tuned by is an option, inlined
+into the WGSL when the shader is built, so a tuned shader costs nothing at run time.
+
+The host caps the canvas at `maxPixelRatio` device pixels per CSS pixel and `maxPixels` in all,
+paints the sparkle's field at half resolution and its glints at full, stops off screen, in a hidden
+tab and under reduced motion, and paints one frame when `paused`.
 
 ## Components
 
-**Frame** surface, row, separator, scroll area, toolbar, icon tile
-**Text** display, title, label, kind, prose, meta, readout
+**Frame** surface, backdrop, card, stack, row, separator, scroll area, toolbar, icon tile
+**Text** display, title, label, kind, prose, meta, readout, link
 **Controls** button, toggle group, switch, slider
 **Forms** field, checkbox, radio, input, select, combobox, number field
 **Disclosure** accordion, collapsible, tabs
 **Overlays** dialog, menu, popover, tooltip
 **Readouts** sparkline, bars, activity grid, breakdown, number ticker, stat, metric tile
-**Marks** avatar, badge, status dot, keycap
+**Marks** avatar, badge, status dot, keycap, image
 **Rows** list item, commit row, binding
 **Cards** aurora, contact card, pending card, activity feed, swipe deck, layout preview, terminal,
 receipt
@@ -326,6 +461,8 @@ setting one for the whole package stops eight suites before a rule runs.
 Nothing here needs remembering. Add the file, run `vp test`, and each rule says what it wants.
 
 ## The reference app
+
+The [portfolio guide](portfolio/README.md) covers its widget modules and profile tools.
 
 ```sh
 pnpm --filter polkadot-ui dev

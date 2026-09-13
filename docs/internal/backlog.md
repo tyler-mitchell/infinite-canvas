@@ -3,7 +3,49 @@
 Ordered by dependency, not by date. Take the first open item whose dependencies are done.
 Each item names the product-visible outcome that closes it.
 
-## Engine-first target — governs everything below
+## DOM track — governs everything below since 2026-09-12
+
+The owner parked the GPU engine track on branch `gpu-canvas-engine` (c102c2b8) because
+html-in-canvas is not in stable Chrome and the portfolio must run there. `main` follows a DOM-based
+approach with Framer Motion as the DOM-plane animation owner. Design:
+`docs/internal/shaping/layout-container.md`. The engine-first section below is the long-term end
+state and stays ranked under this section.
+
+D1. [x] **Layout container: `masonry` group mode with `hug` sizing.** Closed 2026-09-12. Seen live
+on `/board` in polkadot-ui: 16 hugging cards in four tracks, a card that opens grows and the later
+cards move to their new slots, the shell grows to the tallest track. One defect found live: a frame
+culled with `content-visibility: auto` reports a zero body box, now ignored.
+D2. [x] **DOM-plane animation owner.** Closed 2026-09-12: the camera is one unsnapped,
+compositor-promoted transform per layer, frames and shells carry world transforms with the spring
+transition from `layout-motion.ts`, a pointer-owned rect has no transition, and a frame takes only
+the zoom, so a pan writes two layer styles and nothing else. Seen live on `/board`: a card that
+opens moves its neighbours with a tween; the camera stayed under a synthetic wheel. Smoothness at
+240Hz is the owner's verdict. Reopened 2026-09-12 earlier that day. A first version sprang the world rect
+from JavaScript through Motion values, four values per frame including width and height. That is
+a layout per frame per card, and the camera was baked into every window transform, so no tween
+could run on the compositor. Removed. The handoff (`docs/handoff/design_handoff_scatter_canvas/
+README.md`, lesson 3) already stated the correct structure: JavaScript owns state transitions, CSS
+owns the tween. Target: the camera transform on the layer element, world transforms on windows and
+shells, CSS transitions on those transforms with a spring easing, transitions off while the pointer
+owns a rect, and no per-frame width or height writes. Done when a card that opens on `/board`
+moves its neighbours with a visible tween and a pan or zoom stays on the pointer.
+D3. [x] **`movable` window capability.** Closed 2026-09-12, with the keyboard resize command gated
+on `resizable` as well, which it never was.
+D3b. [ ] **Polkadot's HUD tree renders on every camera step.** Found 2026-09-12 while measuring
+the pan at 240Hz: the board presents every frame under a per-frame pan, the Polkadot canvas drops
+about 19 of 240 with zero windows open (was 32 before the library rail was memoized and stopped
+subscribing to the whole state). Per step the synchronous part is 0.2ms; the microtask part is
+2.2ms median and 8.6ms p90. Two causes, both measured: nine app components still call
+`useInfiniteCanvasState` and so re-render per step whether or not they read the camera, and the
+whole HUD (rails, palette, minimap, library, tour) sits inside `renderOverlay`, which the
+framework renders on every state change by contract. Done when a per-frame synthetic pan on a Polkadot canvas drops no frames at
+240Hz and the search input is not rewritten per step. Decision needed first: a stable overlay
+context that overlays subscribe to themselves (framework contract change, playground overlays
+adapt), or the app moves its chrome out of `renderOverlay` and selects fields.
+D4. [ ] **Yoga-backed `flex` group mode.** Depends on D1 and D2. Same seams, `yoga-layout` as the
+solver with measured sizes as leaf results.
+
+## Engine-first target — long-term end state
 
 Added on 2026-09-08 after reading `docs/internal/shaping/compositor-blueprint.md` in full. Its
 "Correction on 2026-09-08" is the architecture authority for the compositor, and its ordered steps
@@ -337,3 +379,9 @@ Checked and found NOT to be defects, recorded so nobody re-opens them:
   Reusing capacity-sized arrays would therefore need stride arithmetic and an options object, which
   is more code and more concepts than `new Float32Array(count * 4)`, for a gain nobody has measured.
   The arrays are sized to the live window count, typically a handful.
+
+## Interaction experiments
+
+- **L-shaped widgets:** explore non-rectangular rendering, hit testing, selection, and layout.
+- **Camera rig:** explore one framework-owned API for camera control, framing, navigation,
+  constraints, and coordinated transitions.

@@ -1,12 +1,12 @@
 {
-  "include": ["src", "app"],
+  "include": ["src", "app", "portfolio"],
   "compilerOptions": {
     "target": "ES2023",
     "module": "ESNext",
     "lib": ["ES2023", "DOM", "DOM.Iterable"],
     "jsx": "react-jsx",
     /* "node" is for tests that read a source file; nothing shipped touches a Node global. */
-    "types": ["vite-plus/client", "node"],
+    "types": ["vite-plus/client", "node", "@webgpu/types"],
 
     /* Bundler mode */
     "moduleResolution": "bundler",

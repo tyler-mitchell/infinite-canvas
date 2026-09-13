@@ -1,4 +1,8 @@
-import { useCallback, useMemo, useState, useSyncExternalStore } from "react";
+import { mergeProps } from "@base-ui/react/merge-props";
+import { useRender } from "@base-ui/react/use-render";
+import { useValue } from "@legendapp/state/react";
+import { useMeasure } from "@legendapp/state/react-hooks/useMeasure";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { tv } from "../tv.ts";
 import { Readout } from "./text.tsx";
 
@@ -13,10 +17,10 @@ const activityGrid = tv({
   slots: {
     root: "flex min-h-0 min-w-0 flex-1 flex-col gap-1 rounded-pk-control-inner outline-none focus-visible:ring-2 focus-visible:ring-pk-accent/50 focus-visible:ring-offset-2 focus-visible:ring-offset-(color:--pk-ring-seat)",
     body: "grid min-h-0 flex-none",
-    months: "relative col-start-2 row-start-1 h-3",
-    month: "absolute top-0 font-pk-mono text-[9px] leading-3 whitespace-nowrap text-pk-ink-faint",
+    months: "relative col-start-2 row-start-1 h-4",
+    month: "absolute top-0 font-pk-mono text-pk-mono-sm leading-4 whitespace-nowrap text-pk-ink-faint",
     weekdays: "col-start-1 row-start-2 grid grid-rows-7 justify-items-end",
-    weekday: "font-pk-mono text-[9px] whitespace-nowrap text-pk-ink-faint",
+    weekday: "font-pk-mono text-pk-mono-sm whitespace-nowrap text-pk-ink-faint",
     grid: "col-start-2 row-start-2 grid min-w-0 grid-flow-col grid-rows-7",
     /*
      * The ring sits off the cell by a hairline of the seat, so it reads against the surface rather
@@ -131,24 +135,7 @@ const toColumns = (days: readonly ActivityDay[], weeks: number) => {
 const cursorAfter = (current: number | undefined, step: number, firstDay: number, days: number) =>
   Math.max(firstDay, Math.min(days - 1, (current ?? days - 1) + step));
 
-const useElementWidth = (element: HTMLElement | null) => {
-  const subscribe = useCallback(
-    (notify: () => void) => {
-      if (!element) return () => {};
-      const observer = new ResizeObserver(notify);
-      observer.observe(element);
-      return () => observer.disconnect();
-    },
-    [element],
-  );
-  return useSyncExternalStore(
-    subscribe,
-    () => element?.clientWidth ?? 0,
-    () => 0,
-  );
-};
-
-export interface ActivityGridProps extends Omit<React.ComponentProps<"div">, "children"> {
+export interface ActivityGridProps extends Omit<useRender.ComponentProps<"div">, "children"> {
   readonly days: readonly ActivityDay[];
   /** Weeks to show when they fit. Fewer are shown rather than smaller cells. */
   readonly weeks?: number;
@@ -184,12 +171,16 @@ function ActivityGrid({
   label = DEFAULT_LABEL,
   className,
   children,
+  ref,
+  render,
   ...props
 }: ActivityGridProps) {
   const styles = activityGrid();
-  const [root, setRoot] = useState<HTMLDivElement | null>(null);
   const [cursor, setCursor] = useState<number | undefined>(undefined);
-  const width = useElementWidth(root);
+  const measure = useRef<HTMLDivElement | null>(null);
+  // Legend v3's ref declaration predates nullable React 19 refs.
+  const size$ = useMeasure(measure as Parameters<typeof useMeasure>[0]);
+  const width = useValue(() => size$.width.get() ?? 0);
   const gap = 4;
   const cell = cellOrDefault(cellSize);
 
@@ -251,20 +242,26 @@ function ActivityGrid({
     return `${shown.length} days, ${first} to ${last}, ${total} in total`;
   }, [columns]);
 
-  return (
-    <div
-      data-slot="activity-grid"
-      role="group"
-      aria-label={label.trim() || DEFAULT_LABEL}
-      tabIndex={0}
-      /* It takes the focus and the arrows walk it, so it says which arrows, as the deck does. */
-      aria-keyshortcuts="ArrowLeft ArrowRight ArrowUp ArrowDown"
-      ref={setRoot}
-      className={styles.root({ className })}
-      onKeyDown={onKeyDown}
-      onBlur={() => setCursor(undefined)}
-      {...props}
-    >
+  return useRender({
+    defaultTagName: "div",
+    render,
+    ref: [measure, ref ?? null],
+    props: {
+      ...mergeProps<"div">(
+        {
+          role: "group",
+          "aria-label": label.trim() || DEFAULT_LABEL,
+          "aria-keyshortcuts": "ArrowLeft ArrowRight ArrowUp ArrowDown",
+          tabIndex: 0,
+          onKeyDown,
+          onBlur: () => setCursor(undefined),
+        },
+        props,
+      ),
+      "data-slot": "activity-grid",
+      className: styles.root({ className }),
+      children: (
+        <>
       <div
         role="img"
         aria-label={summary}
@@ -342,8 +339,10 @@ function ActivityGrid({
           ))}
         </div>
       </div>
-    </div>
-  );
+        </>
+      ),
+    },
+  });
 }
 
 export { ActivityGrid, activityGrid as activityGridVariants, level as activityLevel };

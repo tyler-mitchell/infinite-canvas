@@ -50,10 +50,10 @@ instrument needs.
 
 ```tsx
 // src/components/text.tsx — the chrome vocabulary, composed only where a widget needs it.
-<Label>frame budget</Label>       // sans 500 11px 0.02em — names a section
+<Label>frame budget</Label>       // sans 500 12px 0.02em — names a section
 <Kind>gist</Kind>                 // sans 500 10px 0.05em caps — tags what a thing is
-<Meta>8.2 ms</Meta>               // sans 400 11px 0.005em — the through-line
-<Title>infinite-canvas</Title>    // sans 500 15px -0.025em
+<Meta>8.2 ms</Meta>               // sans 400 12px 0.005em
+<Title>infinite-canvas</Title>    // sans 500 17px -0.025em
 <Readout>1,243 commits · wk 12</Readout>  // mono 400 11px, and a live region
 ```
 

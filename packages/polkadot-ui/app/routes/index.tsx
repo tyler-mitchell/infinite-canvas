@@ -289,10 +289,15 @@ function Overview() {
 
           <ContactCard
             className={styles.identity()}
-            label="say hello"
-            address="tyler@hyphened.dev"
-            note="usually replies the same day"
-          />
+            render={<a href="mailto:tyler@hyphened.dev" />}
+          >
+            <ContactCard.Body>
+              <ContactCard.Label>say hello</ContactCard.Label>
+              <ContactCard.Address>tyler@hyphened.dev</ContactCard.Address>
+              <ContactCard.Note>usually replies the same day</ContactCard.Note>
+            </ContactCard.Body>
+            <ContactCard.Arrow />
+          </ContactCard>
 
           <Surface tone="card" padding="tight" className={styles.wide()}>
             <Row>

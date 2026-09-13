@@ -4,7 +4,7 @@ import { tv } from "../tv.ts";
 
 const contactCard = tv({
   slots: {
-    root: "pk-rim box-border flex items-center justify-between gap-3.5 overflow-hidden rounded-pk-card p-5",
+    root: "pk-rim box-border flex min-w-0 items-center justify-between gap-3.5 overflow-hidden rounded-pk-card p-5 no-underline outline-none focus-visible:ring-2 focus-visible:ring-pk-accent/60",
     body: "flex min-w-0 flex-col gap-[5px]",
     label: "font-pk-sans text-pk-label break-words text-pk-ink-dim",
     address: "font-pk-sans text-pk-title break-words text-pk-ink",
@@ -14,36 +14,104 @@ const contactCard = tv({
   },
 });
 
-export interface ContactCardProps extends Omit<useRender.ComponentProps<"div">, "children"> {
-  readonly label: string;
-  readonly address: string;
-  readonly note: string;
-}
+export type ContactCardProps = useRender.ComponentProps<"div">;
 
-function ContactCard({ label, address, note, className, render, ...props }: ContactCardProps) {
-  const styles = contactCard();
-
+function ContactCard({ className, render, ...props }: ContactCardProps) {
   return useRender({
     render,
     defaultTagName: "div",
     props: {
       ...props,
       "data-slot": "contact-card",
-      className: styles.root({ className: className as string }),
-      children: (
-        <>
-          <div className={styles.body()}>
-            <span className={styles.label()}>{label}</span>
-            <span className={styles.address()}>{address}</span>
-            <span className={styles.note()}>{note}</span>
-          </div>
-          <span aria-hidden className={styles.arrow()}>
-            →
-          </span>
-        </>
-      ),
+      className: contactCard().root({ className }),
     },
   });
 }
 
-export { ContactCard, contactCard as contactCardVariants };
+export type ContactCardBodyProps = useRender.ComponentProps<"div">;
+
+function ContactCardBody({ className, render, ...props }: ContactCardBodyProps) {
+  return useRender({
+    render,
+    defaultTagName: "div",
+    props: {
+      ...props,
+      "data-slot": "contact-card-body",
+      className: contactCard().body({ className }),
+    },
+  });
+}
+
+export type ContactCardLabelProps = useRender.ComponentProps<"span">;
+
+function ContactCardLabel({ className, render, ...props }: ContactCardLabelProps) {
+  return useRender({
+    render,
+    defaultTagName: "span",
+    props: {
+      ...props,
+      "data-slot": "contact-card-label",
+      className: contactCard().label({ className }),
+    },
+  });
+}
+
+export type ContactCardAddressProps = useRender.ComponentProps<"span">;
+
+function ContactCardAddress({ className, render, ...props }: ContactCardAddressProps) {
+  return useRender({
+    render,
+    defaultTagName: "span",
+    props: {
+      ...props,
+      "data-slot": "contact-card-address",
+      className: contactCard().address({ className }),
+    },
+  });
+}
+
+export type ContactCardNoteProps = useRender.ComponentProps<"span">;
+
+function ContactCardNote({ className, render, ...props }: ContactCardNoteProps) {
+  return useRender({
+    render,
+    defaultTagName: "span",
+    props: {
+      ...props,
+      "data-slot": "contact-card-note",
+      className: contactCard().note({ className }),
+    },
+  });
+}
+
+export type ContactCardArrowProps = useRender.ComponentProps<"span">;
+
+function ContactCardArrow({ children = "→", className, render, ...props }: ContactCardArrowProps) {
+  return useRender({
+    render,
+    defaultTagName: "span",
+    props: {
+      "aria-hidden": true,
+      ...props,
+      "data-slot": "contact-card-arrow",
+      className: contactCard().arrow({ className }),
+      children,
+    },
+  });
+}
+
+ContactCard.Body = ContactCardBody;
+ContactCard.Label = ContactCardLabel;
+ContactCard.Address = ContactCardAddress;
+ContactCard.Note = ContactCardNote;
+ContactCard.Arrow = ContactCardArrow;
+
+export {
+  ContactCard,
+  ContactCardAddress,
+  ContactCardArrow,
+  ContactCardBody,
+  ContactCardLabel,
+  ContactCardNote,
+  contactCard as contactCardVariants,
+};

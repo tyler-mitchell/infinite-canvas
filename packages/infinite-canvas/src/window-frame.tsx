@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { memo, useMemo, useState, type CSSProperties, type ReactNode } from "react";
 
 import {
   INFINITE_CANVAS_SLOTS,
@@ -13,13 +13,9 @@ import {
   getEventViewportPoint,
   type InfiniteCanvasWindowFrameRuntimeContextValue,
 } from "./frame-slots";
-import { getInfiniteCanvasWindowDetailLevel, type InfiniteCanvasDetailLevel } from "./detail-level";
-import {
-  getWindowBodyRect,
-  getWorldLengthWithScreenFloor,
-  isWorldRectCulled,
-  projectWorldRectToScreen,
-} from "./geometry";
+import { useInfiniteCanvasDetailLevel } from "./detail-level";
+import { getWindowBodyRect, getWorldLengthWithScreenFloor } from "./geometry";
+import { INFINITE_CANVAS_LAYOUT_TRANSITION } from "./layout-motion";
 import {
   capturePointer,
   clearNativeTextSelection,
@@ -30,18 +26,17 @@ import { InfiniteCanvasWindowPortalContext } from "./portal";
 import { getWindowStackValue } from "./stacking";
 import { useInfiniteCanvasActions, useInfiniteCanvasStore } from "./store";
 import type {
-  InfiniteCanvasCamera,
   InfiniteCanvasChromeMetrics,
   InfiniteCanvasResizeHandle,
   InfiniteCanvasStackBands,
   InfiniteCanvasState,
   InfiniteCanvasTheme,
-  InfiniteCanvasViewport,
   InfiniteCanvasWindow,
   InfiniteCanvasWindowFrameRenderContext,
   InfiniteCanvasWindowRegistry,
 } from "./types";
 import { isInfiniteCanvasWindowCapable } from "./window-capabilities";
+import { getInfiniteCanvasMasonryMembership } from "./group-state";
 
 /** Renders each window. Camera changes update only the outer transform. */
 /** World-space handle size that keeps a fixed screen size. */
@@ -59,21 +54,6 @@ const RESIZE_HANDLE_EXTENT = `var(${RESIZE_HANDLE_SIZE_CSS_VARIABLE})`;
 
 /** Half-extent outside the frame. */
 const RESIZE_HANDLE_OVERHANG = `calc(${RESIZE_HANDLE_EXTENT} / -2)`;
-
-/** Culls inactive frames outside the viewport. */
-function isFrameOffscreen<Kind extends string>({
-  camera,
-  isActive,
-  viewport,
-  window,
-}: Readonly<{
-  camera: InfiniteCanvasCamera;
-  isActive: boolean;
-  viewport: InfiniteCanvasViewport;
-  window: InfiniteCanvasWindow<Kind>;
-}>): boolean {
-  return !isActive && isWorldRectCulled(camera, viewport, window.rect);
-}
 
 /** Adds frame custom properties to React `CSSProperties`. */
 type InfiniteCanvasFrameStyle = CSSProperties &
@@ -172,78 +152,60 @@ const RESIZE_HANDLE_DESCRIPTORS: readonly InfiniteCanvasResizeHandleDescriptor[]
 ];
 
 function InfiniteCanvasWindowFrameContent<Kind extends string>({
-  camera,
   canvasInstanceId,
   chrome,
-  devicePixelRatio,
   isActive,
   isGrouped,
+  isPointerOwned = false,
   isSelected,
   stackBands,
   theme,
-  viewport,
   window,
   windowDefinitions,
+  zoom,
 }: Readonly<{
-  camera: InfiniteCanvasCamera;
   /** Per-canvas namespace for the frame DOM ID. */
   canvasInstanceId: string;
   chrome: InfiniteCanvasChromeMetrics;
-  devicePixelRatio: number;
   isActive: boolean;
   /** Grouped panes use seams and do not render window resize handles. */
   isGrouped: boolean;
+  /** The pointer writes this rect each frame, so it must not tween. */
+  isPointerOwned?: boolean;
   isSelected: boolean;
   stackBands: InfiniteCanvasStackBands;
   theme: InfiniteCanvasTheme;
-  viewport: InfiniteCanvasViewport;
   window: InfiniteCanvasWindow<Kind>;
   windowDefinitions: InfiniteCanvasWindowRegistry<Kind>;
+  /** The camera zoom. The layer carries the camera position, so a pan never renders a frame. */
+  zoom: number;
 }>) {
   const actions = useInfiniteCanvasActions<Kind>();
   const store = useInfiniteCanvasStore<Kind>();
   const definition = windowDefinitions[window.kind];
   // Keep chrome legible at far zoom with the body detail hysteresis.
-  const chromeDetailRef = useRef<InfiniteCanvasDetailLevel>("full");
-  const chromeDetail = getInfiniteCanvasWindowDetailLevel(
-    window.rect,
-    camera.zoom,
-    chromeDetailRef.current,
-  );
-
-  chromeDetailRef.current = chromeDetail;
+  const chromeDetail = useInfiniteCanvasDetailLevel(window.rect);
 
   const frameChrome = definition.frameChrome ?? "dom";
   const isHostLocalChrome = frameChrome === "host" || frameChrome === "scene";
   const textSelection = definition.textSelection ?? "none";
   const bodyPointerBehavior = definition.bodyPointerBehavior ?? "native";
   const [windowPortalRoot, setWindowPortalRoot] = useState<HTMLDivElement | null>(null);
-  const { screenRect, screenTransform } = projectWorldRectToScreen(
-    camera,
-    viewport,
-    window.rect,
-    devicePixelRatio,
-  );
-
-  // Convert screen-sized handle and stroke values to world units.
+  const { rect } = window;
+  // The layer carries the camera, so a frame is in world units and a rect change is a tween.
   const articleStyle: InfiniteCanvasFrameStyle = {
-    [CHROME_STROKE_CSS_VARIABLE]: `${getWorldLengthWithScreenFloor(chrome.borderWidth, screenTransform.scale)}px`,
-    [RESIZE_HANDLE_SIZE_CSS_VARIABLE]: `${chrome.resizeHandleSize / screenTransform.scale}px`,
-    [SCREEN_PIXEL_CSS_VARIABLE]: `${1 / screenTransform.scale}px`,
+    [CHROME_STROKE_CSS_VARIABLE]: `${getWorldLengthWithScreenFloor(chrome.borderWidth, zoom)}px`,
+    [RESIZE_HANDLE_SIZE_CSS_VARIABLE]: `${chrome.resizeHandleSize / zoom}px`,
+    [SCREEN_PIXEL_CSS_VARIABLE]: `${1 / zoom}px`,
     contain: "layout paint style",
-    // Keep offscreen DOM mounted while the browser skips layout and paint.
-    containIntrinsicSize: `${screenTransform.width}px ${screenTransform.height}px`,
-    contentVisibility: isFrameOffscreen({ camera, isActive, viewport, window })
-      ? "auto"
-      : "visible",
-    height: `${screenTransform.height}px`,
+    height: `${rect.height}px`,
     left: "0px",
     pointerEvents: "none",
     position: "absolute",
     top: "0px",
-    transform: `translate(${screenTransform.x}px, ${screenTransform.y}px) scale(${screenTransform.scale})`,
-    transformOrigin: "top left",
-    width: `${screenTransform.width}px`,
+    transform: `translate(${rect.x}px, ${rect.y}px)`,
+    transition: isPointerOwned ? "none" : INFINITE_CANVAS_LAYOUT_TRANSITION,
+    width: `${rect.width}px`,
     zIndex: getWindowStackValue(window, stackBands),
   };
 
@@ -303,7 +265,9 @@ function InfiniteCanvasWindowFrameContent<Kind extends string>({
   }, [actions, chrome, definition, isActive, isHostLocalChrome, isSelected, store, theme, window]);
 
   // Hidden handles do not create dead hit targets.
-  const isResizable = !isGrouped && isInfiniteCanvasWindowCapable(window, "resizable");
+  const isResizable =
+    (!isGrouped || getInfiniteCanvasMasonryMembership(store.state$.peek(), window.id) !== null) &&
+    isInfiniteCanvasWindowCapable(window, "resizable");
   const resizeHandles = useMemo(
     () =>
       RESIZE_HANDLE_DESCRIPTORS.map((descriptor) => (
@@ -374,22 +338,24 @@ function InfiniteCanvasWindowFrameContent<Kind extends string>({
           style={articleStyle}
         >
           {frameNode}
-          {isResizable && chromeDetail === "full" ? resizeHandles : null}
+          {isResizable ? resizeHandles : null}
         </article>
         {definition.portalRoot !== true ? null : (
-          // Keep the portal outside the transform and at the same stack level.
-          // Portalled controls can enable their own pointer events.
+          // Over the frame at screen scale: the layer's zoom is undone, so portalled controls
+          // keep their screen size. They can enable their own pointer events.
           <div
             data-infinite-canvas-window-id={window.id}
             data-slot={INFINITE_CANVAS_SLOTS.windowPortalRoot}
             ref={setWindowPortalRoot}
             style={{
-              height: `${screenRect.height}px`,
-              left: `${screenRect.left}px`,
+              height: `${rect.height * zoom}px`,
+              left: `${rect.x}px`,
               pointerEvents: "none",
               position: "absolute",
-              top: `${screenRect.top}px`,
-              width: `${screenRect.width}px`,
+              top: `${rect.y}px`,
+              transform: `scale(${1 / zoom})`,
+              transformOrigin: "0 0",
+              width: `${rect.width * zoom}px`,
               zIndex: getWindowStackValue(window, stackBands),
             }}
           />
@@ -511,33 +477,8 @@ function InfiniteCanvasWindowHostChrome({
   );
 }
 
-/** Props that only change a culled frame projection. */
-const FRAME_PROJECTION_PROPS: ReadonlySet<string> = new Set(["camera", "viewport"]);
-
-/** Skips camera-only renders while both frame positions remain culled. */
-type InfiniteCanvasWindowFrameProps = Parameters<
-  typeof InfiniteCanvasWindowFrameContent<string>
->[0];
-
-const isCulledFrameRenderRedundant = (
-  previous: InfiniteCanvasWindowFrameProps,
-  next: InfiniteCanvasWindowFrameProps,
-): boolean => {
-  if (!isFrameOffscreen(previous) || !isFrameOffscreen(next)) {
-    return false;
-  }
-
-  const values = (props: InfiniteCanvasWindowFrameProps) =>
-    props as Readonly<Record<string, unknown>>;
-
-  return [...new Set([...Object.keys(previous), ...Object.keys(next)])].every(
-    (key) => FRAME_PROJECTION_PROPS.has(key) || Object.is(values(previous)[key], values(next)[key]),
-  );
-};
-
 const InfiniteCanvasWindowFrame = memo(
   InfiniteCanvasWindowFrameContent,
-  isCulledFrameRenderRedundant,
 ) as typeof InfiniteCanvasWindowFrameContent;
 
 export { InfiniteCanvasWindowFrame };

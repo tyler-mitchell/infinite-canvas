@@ -1,22 +1,23 @@
+import { Button as ButtonPrimitive } from "@base-ui/react/button";
 import type { VariantProps } from "tailwind-variants";
 
 import { tv } from "../tv.ts";
 
 const receipt = tv({
   slots: {
-    root: "pk-paper pk-tear flex w-full flex-col px-[13px] pt-3 pb-4.5 font-pk-mono text-pk-paper-ink shadow-pk-paper",
+    root: "pk-paper pk-tear flex w-full min-w-0 flex-col gap-1 px-4 pt-4 pb-5 font-pk-mono text-pk-paper-ink shadow-pk-paper",
     head: "flex flex-col items-center gap-[3px]",
     mark: "flex size-5 items-center justify-center rounded-pk-control-inner bg-pk-paper-ink font-pk-sans text-pk-micro text-pk-paper-page",
-    wordmark: "text-pk-print-xs tracking-[0.2em] text-pk-paper-label uppercase",
+    wordmark: "max-w-full text-center text-pk-print-xs break-words tracking-[0.12em] text-pk-paper-label uppercase",
     rule: "pk-paper-rule my-1.5 h-px flex-none",
     line: "flex items-baseline justify-between gap-2",
-    name: "min-w-0 truncate text-pk-print uppercase",
+    name: "min-w-0 flex-1 text-pk-print break-words uppercase",
     amount: "flex-none text-pk-print tabular-nums",
     note: "text-pk-print-xs break-words text-pk-paper-label",
     barcode: "mt-[5px] flex h-3 items-end gap-[1.5px]",
     bar: "h-full bg-pk-paper-ink",
     action:
-      "mt-1 flex w-full cursor-pointer items-center justify-center gap-[7px] rounded-[3px] border border-dashed border-pk-paper-label bg-transparent px-2 py-1.5 font-pk-mono text-pk-print tracking-[0.13em] text-pk-paper-ink uppercase outline-none transition-colors duration-(--pk-duration-hover) ease-pk-swift hover:border-pk-paper-ink hover:bg-pk-paper-ink hover:text-pk-paper-page focus-visible:ring-2 focus-visible:ring-pk-paper-ink focus-visible:ring-offset-2 focus-visible:ring-offset-(color:--pk-ring-seat)",
+      "mt-2 flex min-h-8 w-full cursor-pointer items-center justify-center gap-2 rounded-pk-control-inner border border-pk-paper-label bg-transparent px-3 py-2 font-pk-mono text-pk-print tracking-[0.06em] text-pk-paper-ink uppercase outline-none transition-colors duration-(--pk-duration-hover) ease-pk-swift hover:border-pk-paper-ink hover:bg-pk-paper-ink hover:text-pk-paper-page focus-visible:ring-2 focus-visible:ring-pk-paper-ink focus-visible:ring-offset-2 focus-visible:ring-offset-(color:--pk-ring-seat) data-disabled:pointer-events-none data-disabled:opacity-50",
     sign: "mt-[3px] self-center text-pk-print-xs tracking-[0.16em] text-pk-paper-ink uppercase",
   },
   variants: {
@@ -33,18 +34,14 @@ const receipt = tv({
 
 export type ReceiptProps = React.ComponentProps<"div">;
 
-/**
- * Paper: its own ground, its own ink, and the one inverted surface in the kit. It fills the width
- * it is given, so put it in a card the size a receipt should be rather than in an open column.
- */
+/** A paper surface that fills its container width. */
 function Receipt({ className, ...props }: ReceiptProps) {
   return <div data-slot="receipt" className={receipt().root({ className })} {...props} />;
 }
 
 export type ReceiptHeadProps = Omit<React.ComponentProps<"div">, "children"> & {
-  /** Two or three characters. The printed stand-in for a logo. */
-  readonly mark: string;
-  readonly wordmark: string;
+  readonly mark: React.ReactNode;
+  readonly wordmark: React.ReactNode;
 };
 
 function ReceiptHead({ mark, wordmark, className, ...props }: ReceiptHeadProps) {
@@ -52,7 +49,9 @@ function ReceiptHead({ mark, wordmark, className, ...props }: ReceiptHeadProps) 
 
   return (
     <div data-slot="receipt-head" className={styles.head({ className })} {...props}>
-      <span className={styles.mark()}>{mark}</span>
+      {mark == null || typeof mark === "boolean" ? null : (
+        <span className={styles.mark()}>{mark}</span>
+      )}
       <span className={styles.wordmark()}>{wordmark}</span>
     </div>
   );
@@ -146,11 +145,11 @@ function ReceiptBarcode({ value, className, ...props }: ReceiptBarcodeProps) {
   );
 }
 
-export type ReceiptActionProps = React.ComponentProps<"button">;
+export type ReceiptActionProps = Omit<ButtonPrimitive.Props, "className"> & { className?: string };
 
 function ReceiptAction({ className, ...props }: ReceiptActionProps) {
   return (
-    <button
+    <ButtonPrimitive
       type="button"
       data-slot="receipt-action"
       className={receipt().action({ className })}

@@ -687,18 +687,18 @@ test("the dependencies a note names are the dependencies the package declares", 
 });
 
 /**
- * The note names three libraries in the words people use for them; the code names them as they are
+ * The note names two libraries in the words people use for them; the code names them as they are
  * installed. That translation is the one thing here written by hand, and it is small and factual.
+ * TypeGPU left the list when the backdrop arrived: the note now says the package paints a canvas.
  */
 const SPECIFIERS: Record<string, RegExp> = {
   "three.js": /^three(\/|$)/,
   R3F: /^@react-three\//,
-  TypeGPU: /^@?typegpu(\/|$)/,
 };
 
 /**
  * The same sentence carries a second claim, and three of the note's questions are closed on it:
- * they are handed to whatever owns the GPU world, on the grounds that this package has no canvas.
+ * they are handed to whatever owns the GPU world, on the grounds that this package has no scene.
  * An import would reopen all three and nothing would say so.
  */
 test("nothing in the package imports the libraries a note says it does not", () => {
@@ -2157,7 +2157,9 @@ test("every default a page states is the one the component falls back to", () =>
    *
    * Both sizes come from `buttonVariants.defaultVariants`, which the union rule above already
    * weighs. The bars' `max` is prose for a default the component works out from the data it is
-   * given, which is what a `fallback` being a string is for.
+   * given, which is what a `fallback` being a string is for. The backdrop's `ground` and `accent`
+   * are the same shape: read from its own background and accent token at mount, so no signature
+   * carries them.
    */
   const unweighed = stated
     .filter(({ weighed }) => !weighed)
@@ -2165,22 +2167,29 @@ test("every default a page states is the one the component falls back to", () =>
     .sort();
 
   expect(unweighed).toEqual([
+    "BackdropProps.accent",
+    "BackdropProps.ground",
     "BarsProps.max",
     "PopoverTriggerProps.size",
     "ToolbarButtonProps.size",
   ]);
 
   /*
-   * Two of those three are a `tv` variant the union rule weighs against `buttonVariants`, so one
-   * row is left that nothing weighs at all. The readme says which it is and why, so the claim and
-   * the remainder move together rather than the prose going quietly stale.
+   * Two of those five are a `tv` variant the union rule weighs against `buttonVariants`, so three
+   * rows are left that nothing weighs at all. The readme says which they are and why, so the claim
+   * and the remainder move together rather than the prose going quietly stale.
    */
   const owned = ["PopoverTriggerProps.size", "ToolbarButtonProps.size"];
 
-  expect(unweighed.filter((named) => !owned.includes(named))).toEqual(["BarsProps.max"]);
-  expect(readFileSync(new URL("../README.md", import.meta.url), "utf8")).toContain(
-    "the bars' `max` falls back to",
-  );
+  expect(unweighed.filter((named) => !owned.includes(named))).toEqual([
+    "BackdropProps.accent",
+    "BackdropProps.ground",
+    "BarsProps.max",
+  ]);
+  const readme = readFileSync(new URL("../README.md", import.meta.url), "utf8");
+  expect(readme).toContain("the bars' `max` falls back to");
+  expect(readme).toContain("the ground the shader lays");
+  expect(readme).toContain("the accent it tints with from `--pk-accent`");
   expect(stated.length).toBeGreaterThan(55);
   expect(misstatedDefault(pages, settlesOn)).toEqual([]);
 });

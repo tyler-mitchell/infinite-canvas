@@ -145,6 +145,8 @@
 
   [data-slot="window-surface"] {
     background: var(--icx-body-background, var(--icx-frame-surface-bg));
+    /* At least one screen pixel wide; a consumer's own surface keeps its own border. */
+    border-width: var(--icx-chrome-stroke);
     border-style: solid;
     border-color: var(--icx-idle-border);
     border-radius: var(--icx-surface-radius, 0);

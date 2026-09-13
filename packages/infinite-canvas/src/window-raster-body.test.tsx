@@ -53,18 +53,16 @@ const render = (options: RenderOptions) => {
   return renderToStaticMarkup(
     <InfiniteCanvasProvider initialState={state}>
       <InfiniteCanvasWindowFrame
-        camera={state.camera}
         canvasInstanceId="test-canvas"
         chrome={DEFAULT_INFINITE_CANVAS_CHROME}
-        devicePixelRatio={1}
         isActive={false}
         isGrouped={false}
         isSelected={false}
         stackBands={DEFAULT_INFINITE_CANVAS_STACK_BANDS}
         theme={DEFAULT_INFINITE_CANVAS_THEME}
-        viewport={state.viewport}
         window={noteWindow}
         windowDefinitions={registry(options)}
+        zoom={state.camera.zoom}
       />
     </InfiniteCanvasProvider>,
   );
@@ -94,7 +92,7 @@ const getStyles = (markup: string) => [...markup.matchAll(/style="([^"]*)"/g)].m
 
 const getWrapperStyle = (options: RenderOptions) =>
   getStyles(render(options)).find(
-    (style) => style.includes("contain-intrinsic-size") && style.includes("width:100%"),
+    (style) => style.includes("contain:layout paint style") && style.includes("width:100%"),
   ) ?? "";
 
 const hasHeight = (style: string) => /(?:^|;)height:100%/.test(style);

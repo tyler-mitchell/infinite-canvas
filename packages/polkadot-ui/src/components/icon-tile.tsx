@@ -12,16 +12,17 @@ const iconTile = tv({
     text: "min-w-0 overflow-hidden pl-[9px] text-[12.5px] leading-none font-medium tracking-[-0.005em] whitespace-nowrap text-pk-ink-muted",
   },
   variants: {
+    fill: { true: { root: "flex aspect-square w-full" }, false: {} },
     size: {
       sm: { icon: "size-5" },
       md: { icon: "size-6.5" },
     },
     open: {
       true: { label: "grid-cols-[minmax(0,1fr)]" },
-      false: {},
+      false: { label: "sr-only" },
     },
   },
-  defaultVariants: { size: "md", open: false },
+  defaultVariants: { size: "md" },
 });
 
 export interface IconTileProps
@@ -29,6 +30,8 @@ export interface IconTileProps
   /** Decorative: the label is the accessible name, so give an image `alt=""`. */
   readonly icon: React.ReactNode;
   readonly label: string;
+  /** Omit for hover reveal. True shows the label; false keeps it visually hidden. */
+  readonly open?: boolean;
 }
 
 /**
@@ -39,8 +42,8 @@ export interface IconTileProps
  * with touch emulated, a tap leaves the label nine pixels wide while a held-open tile shows all
  * sixty-eight. Set `open` wherever a sighted reader on a phone has to read the name.
  */
-function IconTile({ icon, label, size, open, className, render, ...props }: IconTileProps) {
-  const styles = iconTile({ size, open });
+function IconTile({ icon, label, size, open, fill, className, render, ...props }: IconTileProps) {
+  const styles = iconTile({ size, open, fill });
 
   return useRender({
     render,
@@ -48,7 +51,7 @@ function IconTile({ icon, label, size, open, className, render, ...props }: Icon
     props: {
       ...props,
       "data-slot": "icon-tile",
-      className: styles.root({ className: className as string }),
+      className: styles.root({ className }),
       children: (
         <>
           <span className={styles.icon()} aria-hidden>

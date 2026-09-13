@@ -1,24 +1,42 @@
 /** Mutations normalize trees. Window node ids equal window ids. Weights are positive shares. */
 
+import type { CompactType, GridConfig } from "react-grid-layout/core";
+import type { canvasModel } from "./schema";
+
 type InfiniteCanvasGroupAxis = "horizontal" | "vertical";
 
-/** Split shows all children. Tabs and accordion show one active child. */
-type InfiniteCanvasGroupLayoutMode = "accordion" | "split" | "tabs";
+/** Split and masonry show all children. Tabs and accordion show one active child. */
+type InfiniteCanvasGroupLayoutMode = "accordion" | "masonry" | "split" | "tabs";
 
-type InfiniteCanvasGroupWindowNode = Readonly<{
-  id: string;
-  kind: "window";
-  weight: number;
-}>;
+/** Grid position and size; absent sizes use one cell. */
+type InfiniteCanvasGroupWindowNodeLayout = Readonly<typeof canvasModel.GroupWindowLayout.infer>;
+
+type InfiniteCanvasGroupWindowNode = InfiniteCanvasGroupWindowNodeLayout &
+  Readonly<{
+    id: string;
+    kind: "window";
+    weight: number;
+  }>;
+
+/** Grid configuration; an absent row height makes square cells. */
+type InfiniteCanvasGroupMasonry = Readonly<
+  Partial<GridConfig> & {
+    allowOverlap?: boolean;
+    compactType?: CompactType;
+    preventCollision?: boolean;
+  }
+>;
 
 type InfiniteCanvasGroupContainerNode = Readonly<{
-  /** Visible child for tabs and accordion. `null` for split. */
+  /** Visible child for tabs and accordion. `null` for split and masonry. */
   activeChildId: string | null;
   axis: InfiniteCanvasGroupAxis;
   children: readonly InfiniteCanvasGroupNode[];
   id: string;
   kind: "container";
   layout: InfiniteCanvasGroupLayoutMode;
+  /** Masonry grid and compaction options. */
+  masonry?: InfiniteCanvasGroupMasonry;
   weight: number;
 }>;
 
@@ -51,7 +69,29 @@ function isInfiniteCanvasGroupContainer(
 }
 
 function hasInfiniteCanvasGroupActiveChild(container: InfiniteCanvasGroupContainerNode): boolean {
-  return container.layout !== "split";
+  return container.layout === "tabs" || container.layout === "accordion";
+}
+
+/** Rewrites the lattice fields of members by id. A field left out keeps its value. */
+function setInfiniteCanvasGroupWindowNodeLayouts(
+  root: InfiniteCanvasGroupNode,
+  layouts: Readonly<Record<string, InfiniteCanvasGroupWindowNodeLayout>>,
+): InfiniteCanvasGroupNode {
+  if (isInfiniteCanvasGroupContainer(root)) {
+    const children = root.children.map((child) =>
+      setInfiniteCanvasGroupWindowNodeLayouts(child, layouts),
+    );
+    return children.every((child, index) => child === root.children[index])
+      ? root
+      : { ...root, children };
+  }
+
+  const layout = layouts[root.id];
+
+  return layout === undefined ||
+    Object.entries(layout).every(([key, value]) => Reflect.get(root, key) === value)
+    ? root
+    : { ...root, ...layout };
 }
 
 function getInfiniteCanvasGroupChildWeightSum(
@@ -227,12 +267,16 @@ function isInfiniteCanvasGroupLeadingEdge(
   return edge === "north" || edge === "west";
 }
 
-/** Merges a window into tabs and makes the incoming window active. */
+/** Adds a masonry member or an active tab at the center. */
 function mergeInfiniteCanvasGroupWindowAsTab(
   target: InfiniteCanvasGroupNode,
   windowNode: InfiniteCanvasGroupWindowNode,
   containerId: string,
 ): InfiniteCanvasGroupNode {
+  if (isInfiniteCanvasGroupContainer(target) && target.layout === "masonry") {
+    return { ...target, children: [...target.children, windowNode] };
+  }
+
   if (isInfiniteCanvasGroupContainer(target) && hasInfiniteCanvasGroupActiveChild(target)) {
     return {
       ...target,
@@ -513,6 +557,7 @@ export {
   getInfiniteCanvasGroupParent,
   getInfiniteCanvasGroupWindowIds,
   hasInfiniteCanvasGroupActiveChild,
+  setInfiniteCanvasGroupWindowNodeLayouts,
   isInfiniteCanvasGroupContainer,
   normalizeInfiniteCanvasGroupTree,
   reorderInfiniteCanvasGroupChild,
@@ -528,6 +573,8 @@ export type {
   InfiniteCanvasGroupContainerNode,
   InfiniteCanvasGroupDockEdge,
   InfiniteCanvasGroupLayoutMode,
+  InfiniteCanvasGroupMasonry,
   InfiniteCanvasGroupNode,
   InfiniteCanvasGroupWindowNode,
+  InfiniteCanvasGroupWindowNodeLayout,
 };

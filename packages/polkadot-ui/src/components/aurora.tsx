@@ -2,19 +2,14 @@ import { tv } from "../tv.ts";
 
 const aurora = tv({
   slots: {
-    root: "relative isolate overflow-hidden rounded-pk-card border border-pk-line bg-pk-void shadow-pk-card transition-colors duration-(--pk-duration-hover) ease-pk-swift hover:border-pk-line-hover",
+    root: "relative isolate grid min-h-[214px] min-w-0 overflow-hidden rounded-pk-card border border-pk-line bg-pk-void shadow-pk-card transition-colors duration-(--pk-duration-hover) ease-pk-swift hover:border-pk-line-hover",
     blob: "pointer-events-none absolute top-1/2 left-1/2 mix-blend-screen",
     teal: "-mt-[35%] -ml-[85%] h-[70%] w-[170%] blur-[26px] bg-[image:var(--pk-aurora-teal)]",
     violet: "-mt-[28%] -ml-[65%] h-[56%] w-[130%] blur-[30px] bg-[image:var(--pk-aurora-violet)]",
     white: "-mt-[18%] -ml-[47%] h-[36%] w-[95%] blur-[20px] bg-[image:var(--pk-aurora-white)]",
     grain: "pk-noise pointer-events-none absolute inset-0",
     vignette: "pointer-events-none absolute inset-0 bg-[image:var(--pk-aurora-vignette)]",
-    /*
-     * The four layers above this one are decoration and take no pointer. The words are not, and
-     * taking none left them unselectable — hit-testing the headline landed on nothing at all. The
-     * card's hover still reads, because hovering a child is hovering its parent.
-     */
-    content: "absolute inset-0 flex flex-col justify-between p-4",
+    content: "relative flex min-w-0 flex-col justify-between gap-8 p-4",
     label: "font-pk-sans text-pk-label break-words text-pk-ink/72",
     headline:
       "font-pk-sans text-pk-title font-semibold break-words text-balance text-pk-ink-bright",
@@ -22,19 +17,9 @@ const aurora = tv({
 });
 
 export type AuroraProps = Omit<React.ComponentProps<"div">, "children"> & {
-  /**
-   * A word or two. It sits at the top left, where the blobs have not reached: measured in the page,
-   * the first eighty pixels of its row clear 4.5:1 and the middle of the card reads 3.0. A long
-   * label runs its own words into the bright part.
-   */
+  /** The label above the decorative background. */
   readonly label: string;
-  /**
-   * Sits below the glow rather than in it, so its length does not matter — but the clearance does.
-   * The blobs are placed with margins in percent, and a percent margin is read against width, so a
-   * narrower card lowers them while the headline stays put: measured, forty five pixels of room at
-   * a card of four hundred and thirty four, thirty at three hundred and eighty, and none at about
-   * two hundred and seventy five. Give the card room, or the glow reaches the words.
-   */
+  /** The headline contributes to the card's minimum height. */
   readonly headline: string;
 };
 

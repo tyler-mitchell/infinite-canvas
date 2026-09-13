@@ -1,59 +1,74 @@
 "use client";
 
-import { useMemo, type CSSProperties } from "react";
+import { useObserveEffect } from "@legendapp/state/react";
+import { useRef } from "react";
 
 import { INFINITE_CANVAS_SLOTS } from "./data-attributes";
 import { getAdaptiveGridSpacing, worldPointToScreenPoint } from "./geometry";
-import { useInfiniteCanvasState } from "./store";
+import { useInfiniteCanvasSelector, useInfiniteCanvasState$ } from "./store";
+import type { InfiniteCanvasCamera, InfiniteCanvasViewport } from "./types";
+
+/** The major cell in screen pixels: four minor cells. */
+function getMajorSpacing(zoom: number) {
+  return getAdaptiveGridSpacing(zoom) * zoom * 4;
+}
+
+/** Wraps camera translation within one grid cell. */
+function getGridShift(camera: InfiniteCanvasCamera, viewport: InfiniteCanvasViewport) {
+  const major = getMajorSpacing(camera.zoom);
+  const origin = worldPointToScreenPoint(camera, viewport, { x: 0, y: 0 });
+  const wrap = (value: number) => ((value % major) + major) % major;
+
+  return `translate(${wrap(origin.x)}px, ${wrap(origin.y)}px)`;
+}
 
 function InfiniteCanvasGridBackdrop() {
-  const state = useInfiniteCanvasState();
-  const gridStyle = useMemo(() => {
-    if (state.viewport.width <= 0 || state.viewport.height <= 0) {
-      return {
-        background: "var(--icx-background)",
-      } satisfies CSSProperties;
+  const state$ = useInfiniteCanvasState$();
+  const gridRef = useRef<HTMLDivElement | null>(null);
+  const zoom = useInfiniteCanvasSelector((state) => state.camera.zoom);
+  const isMeasured = useInfiniteCanvasSelector(
+    (state) => state.viewport.width > 0 && state.viewport.height > 0,
+  );
+
+  useObserveEffect(() => {
+    const transform = getGridShift(state$.camera.get(), state$.viewport.get());
+
+    if (gridRef.current !== null) {
+      gridRef.current.style.transform = transform;
     }
+  });
 
-    const minorSpacing = getAdaptiveGridSpacing(state.camera.zoom) * state.camera.zoom;
-    const majorSpacing = minorSpacing * 4;
-    const origin = worldPointToScreenPoint(state.camera, state.viewport, {
-      x: 0,
-      y: 0,
-    });
-
-    return {
-      backgroundColor: "var(--icx-background)",
-      backgroundImage: [
-        `linear-gradient(to right, var(--icx-grid-major) 1px, transparent 1px)`,
-        `linear-gradient(to bottom, var(--icx-grid-major) 1px, transparent 1px)`,
-        `linear-gradient(to right, var(--icx-grid-minor) 1px, transparent 1px)`,
-        `linear-gradient(to bottom, var(--icx-grid-minor) 1px, transparent 1px)`,
-      ].join(","),
-      backgroundPosition: [
-        `${origin.x}px ${origin.y}px`,
-        `${origin.x}px ${origin.y}px`,
-        `${origin.x}px ${origin.y}px`,
-        `${origin.x}px ${origin.y}px`,
-      ].join(","),
-      backgroundSize: [
-        `${majorSpacing}px ${majorSpacing}px`,
-        `${majorSpacing}px ${majorSpacing}px`,
-        `${minorSpacing}px ${minorSpacing}px`,
-        `${minorSpacing}px ${minorSpacing}px`,
-      ].join(","),
-    } satisfies CSSProperties;
-  }, [state.camera, state.viewport]);
+  const major = getMajorSpacing(zoom);
+  const minor = major / 4;
 
   return (
     <div
       aria-hidden="true"
       data-slot={INFINITE_CANVAS_SLOTS.grid}
+      ref={gridRef}
       style={{
-        inset: 0,
+        backgroundColor: "var(--icx-background)",
+        ...(isMeasured
+          ? {
+              backgroundImage: [
+                `linear-gradient(to right, var(--icx-grid-major) 1px, transparent 1px)`,
+                `linear-gradient(to bottom, var(--icx-grid-major) 1px, transparent 1px)`,
+                `linear-gradient(to right, var(--icx-grid-minor) 1px, transparent 1px)`,
+                `linear-gradient(to bottom, var(--icx-grid-minor) 1px, transparent 1px)`,
+              ].join(","),
+              backgroundSize: [
+                `${major}px ${major}px`,
+                `${major}px ${major}px`,
+                `${minor}px ${minor}px`,
+                `${minor}px ${minor}px`,
+              ].join(","),
+              inset: `${-major}px`,
+              transform: getGridShift(state$.camera.peek(), state$.viewport.peek()),
+              willChange: "transform",
+            }
+          : { inset: 0 }),
         pointerEvents: "none",
         position: "absolute",
-        ...gridStyle,
       }}
     />
   );

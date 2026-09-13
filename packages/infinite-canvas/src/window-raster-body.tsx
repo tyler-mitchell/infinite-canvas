@@ -1,8 +1,9 @@
 "use client";
 
+import { useValue } from "@legendapp/state/react";
 import { useEffect, useMemo, useRef, type CSSProperties } from "react";
 
-import { getInfiniteCanvasWindowDetailLevel, type InfiniteCanvasDetailLevel } from "./detail-level";
+import { useInfiniteCanvasDetailLevel } from "./detail-level";
 import { getWindowBodyRect, isWorldRectWithinViewport } from "./geometry";
 import {
   useInfiniteCanvasRasterCaptureCapacity,
@@ -10,7 +11,7 @@ import {
   useInfiniteCanvasRasterSnapshot,
   type InfiniteCanvasRasterizationPolicy,
 } from "./rasterization";
-import { useInfiniteCanvasSelector, useInfiniteCanvasStore } from "./store";
+import { useInfiniteCanvasStore } from "./store";
 import type {
   InfiniteCanvasChromeMetrics,
   InfiniteCanvasCommands,
@@ -40,23 +41,23 @@ function InfiniteCanvasWindowBody<Kind extends string>({
   const liveBodyRef = useRef<HTMLDivElement | null>(null);
   const lastRequestedSignatureRef = useRef<string | null>(null);
   const raster = useInfiniteCanvasRasterContext();
+  const store = useInfiniteCanvasStore<Kind>();
   const snapshot = useInfiniteCanvasRasterSnapshot(window.id);
   const signature = getWindowRasterSignature(window, chrome, raster.policy);
 
-  // Subscribe to booleans so camera ticks do not rerender the body.
-  const isEligible = useInfiniteCanvasSelector<Kind, boolean>((state) =>
-    isWindowRasterizationEligible({
+  const isEligible = useValue(() =>
+    raster.policy.enabled && isWindowRasterizationEligible({
       definition,
       isActive,
       isSelected,
       policy: raster.policy,
-      state,
+      state: store.state$.get(),
       textSelection,
       window,
     }),
   );
-  const isCanvasIdle = useInfiniteCanvasSelector<Kind, boolean>(
-    (state) => state.interaction === null,
+  const isCanvasIdle = useValue(
+    () => raster.policy.enabled && store.state$.interaction.get() === null,
   );
 
   const hasMatchingSnapshot = snapshot?.signature === signature;
@@ -71,7 +72,6 @@ function InfiniteCanvasWindowBody<Kind extends string>({
   // Waiting bodies subscribe until the queue has capacity.
   const hasCaptureCapacity = useInfiniteCanvasRasterCaptureCapacity(wantsCapture);
   const shouldQueueCapture = wantsCapture && hasCaptureCapacity;
-  const shouldUseContentVisibility = !isActive && !isSelected && isCanvasIdle;
 
   useEffect(() => {
     raster.setDisplayMode(window.id, shouldUseSnapshot ? "snapshot" : "live");
@@ -137,9 +137,8 @@ function InfiniteCanvasWindowBody<Kind extends string>({
     isSelected,
     window,
   });
+  if (textSelection === "native") return renderedBody;
   const bodyScrolls = isInfiniteCanvasScrollingOverflow(definition.overflowY);
-  // The frame border sits inside the window rect, so the body box is smaller than the rect.
-  const bodyRect = getWindowBodyRect(window.rect, chrome);
 
   if (shouldUseSnapshot) {
     return (
@@ -163,8 +162,6 @@ function InfiniteCanvasWindowBody<Kind extends string>({
       ref={liveBodyRef}
       style={{
         contain: "layout paint style",
-        containIntrinsicSize: `${bodyRect.width}px ${bodyRect.height}px`,
-        contentVisibility: shouldUseContentVisibility ? "auto" : "visible",
         // Scrolling bodies can grow. Other bodies stay pinned to the container.
         height: bodyScrolls ? undefined : "100%",
         minHeight: bodyScrolls ? "100%" : undefined,
@@ -194,15 +191,10 @@ function useRenderedWindowBody<Kind extends string>({
   const store = useInfiniteCanvasStore<Kind>();
 
   // Read store state on demand so camera ticks do not rerender the body.
-  // Subscribe only to the semantic detail level.
-  const detailLevelRef = useRef<InfiniteCanvasDetailLevel>("full");
-  const detailLevel = useInfiniteCanvasSelector<Kind, InfiniteCanvasDetailLevel>((state) =>
-    definition.renderSummary === undefined
-      ? "full"
-      : getInfiniteCanvasWindowDetailLevel(window.rect, state.camera.zoom, detailLevelRef.current),
+  const detailLevel = useInfiniteCanvasDetailLevel(
+    window.rect,
+    definition.renderSummary !== undefined,
   );
-
-  detailLevelRef.current = detailLevel;
 
   return useMemo(() => {
     const body = getWindowBodyRect(window.rect, chrome);

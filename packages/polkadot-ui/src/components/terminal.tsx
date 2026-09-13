@@ -4,7 +4,7 @@ import { tv } from "../tv.ts";
 
 const terminal = tv({
   slots: {
-    root: "flex w-full flex-col gap-1 overflow-x-auto font-pk-mono text-pk-mono",
+    root: "flex w-full min-w-0 flex-col gap-1.5 overflow-x-auto font-pk-mono text-pk-mono outline-none select-text focus-visible:inset-ring-2 focus-visible:inset-ring-pk-accent/50",
     command: "flex gap-2 whitespace-pre",
     prompt: "flex-none text-pk-ink-faint select-none",
     text: "text-pk-ink-muted",
@@ -24,28 +24,46 @@ const terminal = tv({
 
 export type TerminalProps = React.ComponentProps<"div">;
 
-/**
- * A log, composed of parts rather than given lines: `Terminal.Command` prints a prompt and
- * `Terminal.Output` prints a result, optionally with a caret for the line still being written.
- */
+/** A log composed of commands and output. */
 function Terminal({ className, ...props }: TerminalProps) {
   return (
-    <div data-slot="terminal" role="log" className={terminal().root({ className })} {...props} />
+    <div
+      data-slot="terminal"
+      role="log"
+      aria-label="Terminal output"
+      tabIndex={0}
+      className={terminal().root({ className })}
+      {...props}
+    />
   );
 }
 
-export type TerminalCommandProps = React.ComponentProps<"div"> & VariantProps<typeof terminal>;
+export type TerminalCommandProps = React.ComponentProps<"div"> &
+  VariantProps<typeof terminal> & {
+    /** A decorative prompt. Set null to omit it. */
+    readonly prompt?: React.ReactNode;
+    readonly runningLabel?: string;
+  };
 
-function TerminalCommand({ running, children, className, ...props }: TerminalCommandProps) {
+function TerminalCommand({
+  running,
+  prompt = "$",
+  runningLabel = "running",
+  children,
+  className,
+  ...props
+}: TerminalCommandProps) {
   const styles = terminal({ running });
 
   return (
     <div data-slot="terminal-command" className={styles.command({ className })} {...props}>
-      <span aria-hidden className={styles.prompt()}>
-        $
-      </span>
+      {prompt == null || typeof prompt === "boolean" ? null : (
+        <span aria-hidden className={styles.prompt()}>
+          {prompt}
+        </span>
+      )}
       <span className={styles.text()}>{children}</span>
-      {running ? <span className={styles.state()}>running</span> : null}
+      {running ? <span className={styles.state()}>{runningLabel}</span> : null}
     </div>
   );
 }

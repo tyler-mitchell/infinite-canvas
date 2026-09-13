@@ -3,12 +3,7 @@ import { tv } from "../tv.ts";
 
 const scrollArea = tv({
   slots: {
-    root: "relative min-h-0 overflow-hidden",
-    /*
-     * The ring is inset because the viewport fills a root that clips: an ordinary ring is drawn
-     * outside the border box, and there is nothing outside it to draw on. A keyboard reaching a
-     * scrolling region got no mark at all.
-     */
+    root: "relative min-h-0 min-w-0 overflow-hidden",
     viewport:
       "size-full overscroll-contain outline-none focus-visible:inset-ring-2 focus-visible:inset-ring-pk-accent/50",
     scrollbar:
@@ -25,18 +20,10 @@ type WithClassName<T> = Omit<T, "className"> & { className?: string };
 export type ScrollAreaProps = WithClassName<ScrollAreaPrimitive.Root.Props> & {
   /** Both axes get a bar when `both`. Defaults to vertical only, which is what a widget body needs. */
   readonly axis?: "vertical" | "horizontal" | "both";
-  /**
-   * Names the scrolling region for a reader who cannot see it. Two on a page need two names.
-   *
-   * The part that takes the focus is the viewport inside, and Base UI gives it `role="presentation"`
-   * — which a browser ignores on anything focusable, leaving a generic box that takes no name at
-   * all. Naming it therefore also gives it a role that can hold one: a group, not a region, because
-   * a landmark for every scrolling widget body is noise in the list a reader navigates by.
-   *
-   * It was the only thing in this kit a keyboard could reach and nothing could name, which is why
-   * the fallback below is a plain description rather than nothing.
-   */
+  /** Names the focusable viewport. */
   readonly label?: string;
+  readonly viewportProps?: Omit<WithClassName<ScrollAreaPrimitive.Viewport.Props>, "children">;
+  readonly contentProps?: Omit<WithClassName<ScrollAreaPrimitive.Content.Props>, "children">;
 };
 
 /** One source for the name, so a blank one falls back to what the signature already promises. */
@@ -48,6 +35,8 @@ function ScrollArea({
   label = DEFAULT_LABEL,
   className,
   children,
+  viewportProps,
+  contentProps,
   ...props
 }: ScrollAreaProps) {
   const styles = scrollArea();
@@ -62,9 +51,10 @@ function ScrollArea({
         data-slot="scroll-area-viewport"
         role="group"
         aria-label={label.trim() || DEFAULT_LABEL}
-        className={styles.viewport()}
+        {...viewportProps}
+        className={styles.viewport({ className: viewportProps?.className })}
       >
-        <ScrollAreaPrimitive.Content>{children}</ScrollAreaPrimitive.Content>
+        <ScrollAreaPrimitive.Content {...contentProps}>{children}</ScrollAreaPrimitive.Content>
       </ScrollAreaPrimitive.Viewport>
 
       {axis !== "horizontal" ? (

@@ -75,6 +75,43 @@ test("a fixed-size window refuses to begin a resize", () => {
   expect(attempted.interaction).toBeNull();
 });
 
+test("a locked window refuses pointer moves, nudges, placement, and arrangement", () => {
+  const locked = stateWith({ movable: false });
+  const selected = { ...locked, selection: { anchorWindowId: "console", windowIds: ["console"] } };
+  const attempted = reduceInfiniteCanvasState(locked, {
+    pointerId: 1,
+    point: { x: 10, y: 10 },
+    type: "interaction.startMove",
+    windowId: "console",
+  });
+
+  expect(attempted.interaction).toBeNull();
+  expect(
+    isInfiniteCanvasCommandEnabled(selected, {
+      amountPx: 1,
+      direction: "right",
+      type: "window.nudge",
+    }),
+  ).toBe(false);
+  expect(
+    executeInfiniteCanvasCommand(selected, {
+      amountPx: 1,
+      direction: "right",
+      type: "window.nudge",
+    }).windows[0]?.rect.x,
+  ).toBe(0);
+  expect(isInfiniteCanvasCommandEnabled(locked, { region: "left", type: "window.place" })).toBe(
+    false,
+  );
+  expect(
+    isInfiniteCanvasCommandEnabled(locked, {
+      amountPx: 8,
+      direction: "right",
+      type: "window.resize",
+    }),
+  ).toBe(true);
+});
+
 test("an unspecified capability permits, so existing windows are unaffected", () => {
   const ordinary = stateWith({});
 

@@ -41,7 +41,10 @@ import {
   setInfiniteCanvasGroupAxisInState,
   setInfiniteCanvasGroupChildWeightsInState,
   setInfiniteCanvasGroupLayoutModeInState,
+  setInfiniteCanvasGroupWindowNodeLayoutsInState,
+  setInfiniteCanvasWindowContentHeight,
   findInfiniteCanvasGroup,
+  getInfiniteCanvasMasonryMembership,
   getInfiniteCanvasWindowGroup,
   isInfiniteCanvasWindowGrouped,
   setInfiniteCanvasGroupRect,
@@ -82,6 +85,7 @@ import {
   renameWindow,
   restoreWindow,
   toggleWindowPinned,
+  updateWindowRect,
 } from "./stacking";
 import { resetInfiniteCanvasState } from "./state";
 import type {
@@ -178,18 +182,22 @@ function applyInfiniteCanvasAction<Kind extends string>(
       return finishCanvasInteraction(state, action.pointerId);
     case "interaction.startMarquee":
       return beginMarqueeSelection(state, action.pointerId, action.point, action.mode);
-    // A grouped window moves with its group.
+    // A masonry member moves on its lattice. Any other grouped window moves with its group. A
+    // floating window must permit moves.
     case "interaction.startMove": {
       const group = getInfiniteCanvasWindowGroup(state, action.windowId);
 
-      return group === null
-        ? beginWindowMove(state, action.pointerId, action.windowId, action.point)
-        : beginInfiniteCanvasGroupMove(
-            focusWindow(state, action.windowId),
-            action.pointerId,
-            group,
-            action.point,
-          );
+      if (group === null || getInfiniteCanvasMasonryMembership(state, action.windowId) !== null) {
+        return isInfiniteCanvasWindowCapable(findWindow(state, action.windowId), "movable")
+          ? beginWindowMove(state, action.pointerId, action.windowId, action.point)
+          : state;
+      }
+      return beginInfiniteCanvasGroupMove(
+        focusWindow(state, action.windowId),
+        action.pointerId,
+        group,
+        action.point,
+      );
     }
     case "interaction.startGroupGutter": {
       const group = findInfiniteCanvasGroup(state, action.groupId);
@@ -232,10 +240,11 @@ function applyInfiniteCanvasAction<Kind extends string>(
     }
     case "interaction.startPan":
       return beginCanvasPan(state, action.pointerId, action.point, action.clearSelection);
-    // Grouped panes use seams. Other windows must permit resize.
+    // Grouped panes use seams; a lattice member resizes in cells. Every window must permit it.
     case "interaction.startResize":
       if (
-        isInfiniteCanvasWindowGrouped(state, action.windowId) ||
+        (isInfiniteCanvasWindowGrouped(state, action.windowId) &&
+          getInfiniteCanvasMasonryMembership(state, action.windowId) === null) ||
         !isInfiniteCanvasWindowCapable(findWindow(state, action.windowId), "resizable")
       ) {
         return state;
@@ -336,12 +345,30 @@ function applyInfiniteCanvasAction<Kind extends string>(
       return setInfiniteCanvasGroupLayoutModeInState(state, action);
     case "group.setRect":
       return setInfiniteCanvasGroupRect(state, action);
+    case "group.setChildLayouts":
+      return setInfiniteCanvasGroupWindowNodeLayoutsInState(state, action);
     case "group.undockWindow":
       return undockInfiniteCanvasWindowFromGroup(state, action);
     case "recipe.apply":
       return applyInfiniteCanvasRecipe(state, action.recipe, action.placement);
     case "window.setTitle":
       return renameWindow(state, action);
+    case "window.setContentHeight":
+      return setInfiniteCanvasWindowContentHeight(state, action);
+    case "window.setData":
+      if (
+        !state.windows.some(
+          (window) => window.id === action.windowId && window.data !== action.data,
+        )
+      )
+        return state;
+      return {
+        ...state,
+        windows: state.windows.map((window) => {
+          if (window.id !== action.windowId) return window;
+          return { ...window, data: action.data };
+        }),
+      };
     case "window.close":
       return detachInfiniteCanvasConnectionsFromWindow(
         detachInfiniteCanvasWindowFromWorkspaces(
@@ -377,15 +404,49 @@ function applyInfiniteCanvasAction<Kind extends string>(
               rect: getInfiniteCanvasPlacedWindowRect(state, action.window, action.placement),
             };
 
-      return state.activeWorkspaceId === null
-        ? openWindow(state, opened)
-        : addInfiniteCanvasWindowToWorkspace(openWindow(state, opened), {
-            windowId: opened.id,
-            workspaceId: state.activeWorkspaceId,
+      const next =
+        state.activeWorkspaceId === null
+          ? openWindow(state, opened)
+          : addInfiniteCanvasWindowToWorkspace(openWindow(state, opened), {
+              windowId: opened.id,
+              workspaceId: state.activeWorkspaceId,
+            });
+      const target = action.target;
+      if (target === undefined) return next;
+      const group = findInfiniteCanvasGroup(state, target.groupId);
+      const container =
+        group && findInfiniteCanvasGroupNode(group.tree, target.containerId ?? group.tree.id);
+      if (container?.kind !== "container" || (target.layout && container.layout !== "masonry"))
+        return state;
+      const docked = dockInfiniteCanvasWindowIntoGroup(next, {
+        groupId: target.groupId,
+        containerId: container.id,
+        targetId: container.id,
+        edge: "center",
+        windowId: opened.id,
+      });
+      const placed =
+        target.layout === undefined
+          ? docked
+          : setInfiniteCanvasGroupWindowNodeLayoutsInState(docked, {
+              groupId: target.groupId,
+              layouts: { [opened.id]: target.layout },
+            });
+      return target.index === undefined
+        ? placed
+        : reorderInfiniteCanvasGroupChildInState(placed, {
+            groupId: target.groupId,
+            childId: opened.id,
+            toIndex: target.index,
           });
     }
     case "window.restore":
       return restoreWindow(state, action.windowId);
+    // A grouped window's rect belongs to its group; the consumer sizes only a floating one.
+    case "window.setRect":
+      return isInfiniteCanvasWindowGrouped(state, action.windowId)
+        ? state
+        : updateWindowRect(state, action.windowId, action.rect);
     case "window.togglePinned":
       return toggleWindowPinned(state, action.windowId);
     default:

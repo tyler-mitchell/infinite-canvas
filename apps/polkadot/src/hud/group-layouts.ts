@@ -1,5 +1,5 @@
 import type { InfiniteCanvasGroupLayoutMode } from "@hyphened/infinite-canvas";
-import { Columns2, Rows3, SquareSplitHorizontal } from "lucide-react";
+import { Columns2, LayoutDashboard, Rows3, SquareSplitHorizontal } from "lucide-react";
 import type { ComponentType } from "react";
 
 import { GROUP_LAYOUT_MODES } from "../canvas/group-layout-modes";
@@ -11,6 +11,7 @@ const FACE: Readonly<
   >
 > = {
   accordion: { icon: Rows3, label: "Folded" },
+  masonry: { icon: LayoutDashboard, label: "Lattice" },
   split: { icon: SquareSplitHorizontal, label: "Side by side" },
   tabs: { icon: Columns2, label: "Tabbed" },
 };

@@ -5,4 +5,5 @@ export const GROUP_LAYOUT_MODES = [
   "split",
   "accordion",
   "tabs",
+  "masonry",
 ] as const satisfies readonly InfiniteCanvasGroupLayoutMode[];

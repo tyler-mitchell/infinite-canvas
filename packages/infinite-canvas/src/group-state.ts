@@ -1,9 +1,28 @@
+import {
+  applyPositionConstraints,
+  applySizeConstraints,
+  calcGridItemPosition,
+  calcWHRaw,
+  calcXY,
+  calcXYRaw,
+  defaultConstraints,
+  getAllCollisions,
+  moveElement,
+  resizeItemInDirection,
+  type ResizeHandleAxis,
+} from "react-grid-layout/core";
+
 import { rectContainsPoint, rectsEqual } from "./geometry";
+import { updateWindowRect } from "./stacking";
 import { getInfiniteCanvasVacantRect } from "./window-placement";
 import {
   DEFAULT_INFINITE_CANVAS_GROUP_METRICS,
   getInfiniteCanvasGroupDockEdgeAtPoint,
   getInfiniteCanvasGroupLayout,
+  getInfiniteCanvasMasonryCompactor,
+  getInfiniteCanvasMasonryConstraintContext,
+  getInfiniteCanvasMasonryItems,
+  getInfiniteCanvasMasonryParams,
 } from "./group-layout";
 import {
   createInfiniteCanvasGroupWindowNode,
@@ -19,8 +38,11 @@ import {
   setInfiniteCanvasGroupAxis,
   setInfiniteCanvasGroupChildWeights,
   setInfiniteCanvasGroupLayoutMode,
+  setInfiniteCanvasGroupWindowNodeLayouts,
   undockInfiniteCanvasGroupWindow,
   type InfiniteCanvasGroupAxis,
+  type InfiniteCanvasGroupContainerNode,
+  type InfiniteCanvasGroupWindowNodeLayout,
   type InfiniteCanvasGroupDockEdge,
   type InfiniteCanvasGroupLayoutMode,
   type InfiniteCanvasGroupNode,
@@ -31,6 +53,7 @@ import type {
   InfiniteCanvasGroupMetrics,
   InfiniteCanvasPoint,
   InfiniteCanvasRect,
+  InfiniteCanvasResizeHandle,
   InfiniteCanvasState,
   InfiniteCanvasWindow,
 } from "./types";
@@ -69,12 +92,15 @@ function getInfiniteCanvasGroupedWindowIds<Kind extends string>(
 }
 
 type InfiniteCanvasGroupProjection = Readonly<{
+  /** Shell rects of masonry groups, which are as tall as their packed rows. */
+  groupRects: ReadonlyMap<string, InfiniteCanvasRect>;
   /** Member ids that the current layout does not draw. */
   hiddenWindowIds: ReadonlySet<string>;
   windowRects: ReadonlyMap<string, InfiniteCanvasRect>;
 }>;
 
 const EMPTY_INFINITE_CANVAS_GROUP_PROJECTION: InfiniteCanvasGroupProjection = {
+  groupRects: new Map(),
   hiddenWindowIds: new Set(),
   windowRects: new Map(),
 };
@@ -88,11 +114,17 @@ function getInfiniteCanvasGroupProjection(
     return EMPTY_INFINITE_CANVAS_GROUP_PROJECTION;
   }
 
+  const groupRects = new Map<string, InfiniteCanvasRect>();
   const hiddenWindowIds = new Set<string>();
   const windowRects = new Map<string, InfiniteCanvasRect>();
 
   for (const group of groups) {
     const layout = getInfiniteCanvasGroupLayout(group.tree, group.rect, metrics);
+    const extent = layout.masonryExtents.get(group.tree.id);
+
+    if (extent !== undefined) {
+      groupRects.set(group.id, { ...group.rect, height: extent });
+    }
 
     for (const placement of layout.windows) {
       windowRects.set(placement.windowId, placement.rect);
@@ -105,10 +137,23 @@ function getInfiniteCanvasGroupProjection(
     }
   }
 
-  return { hiddenWindowIds, windowRects };
+  return { groupRects, hiddenWindowIds, windowRects };
 }
 
-/** Group trees own member rects after each mutation. */
+/** The masonry container that holds a window as a direct member, or null. */
+function getInfiniteCanvasMasonryMembership<Kind extends string>(
+  state: InfiniteCanvasState<Kind>,
+  windowId: string,
+): Readonly<{ container: InfiniteCanvasGroupContainerNode; group: InfiniteCanvasGroup }> | null {
+  const group = getInfiniteCanvasWindowGroup(state, windowId);
+  const container = group === null ? null : getInfiniteCanvasGroupParent(group.tree, windowId);
+
+  return group === null || container === null || container.layout !== "masonry"
+    ? null
+    : { container, group };
+}
+
+/** Projects group rectangles while preserving the dragged masonry member's pointer position. */
 function syncInfiniteCanvasGroupWindowRects<Kind extends string>(
   state: InfiniteCanvasState<Kind>,
 ): InfiniteCanvasState<Kind> {
@@ -116,17 +161,143 @@ function syncInfiniteCanvasGroupWindowRects<Kind extends string>(
     return state;
   }
 
-  const { windowRects } = getInfiniteCanvasGroupProjection(state.groups, state.groupMetrics);
+  const { groupRects, windowRects } = getInfiniteCanvasGroupProjection(
+    state.groups,
+    state.groupMetrics,
+  );
+  const draggedWindowId =
+    state.interaction?.kind === "move" &&
+    getInfiniteCanvasMasonryMembership(state, state.interaction.windowId) !== null
+      ? state.interaction.windowId
+      : null;
 
   return {
     ...state,
+    groups: state.groups.map((group) => {
+      const rect = groupRects.get(group.id);
+
+      return rect === undefined || rectsEqual(group.rect, rect) ? group : { ...group, rect };
+    }),
     windows: state.windows.map((window) => {
       const rect = windowRects.get(window.id);
 
       // An absent rect means this window is not a group member, so it keeps its own.
-      return rect === undefined || rectsEqual(window.rect, rect) ? window : { ...window, rect };
+      return rect === undefined || window.id === draggedWindowId || rectsEqual(window.rect, rect)
+        ? window
+        : { ...window, rect };
     }),
   };
+}
+
+/** A masonry member's lattice, in the grid library's terms, or null when it is on none. */
+function getInfiniteCanvasMasonryGrid<Kind extends string>(
+  state: InfiniteCanvasState<Kind>,
+  windowId: string,
+) {
+  const membership = getInfiniteCanvasMasonryMembership(state, windowId);
+
+  if (membership === null) {
+    return null;
+  }
+
+  const { container, group } = membership;
+  const rect =
+    container === group.tree
+      ? group.rect
+      : getInfiniteCanvasGroupLayout(group.tree, group.rect, state.groupMetrics).containerRects.get(
+          container.id,
+        );
+  if (rect === undefined) return null;
+  const params = getInfiniteCanvasMasonryParams(container, rect);
+  const layout = getInfiniteCanvasMasonryItems(container, params.cols);
+  const item = layout.find((candidate) => candidate.i === windowId);
+
+  return item === undefined
+    ? null
+    : {
+        compactor: getInfiniteCanvasMasonryCompactor(container),
+        group,
+        item,
+        layout,
+        params,
+        rect,
+      };
+}
+
+export function setInfiniteCanvasWindowContentHeight<Kind extends string>(
+  state: InfiniteCanvasState<Kind>,
+  input: Readonly<{ windowId: string; height: number }>,
+): InfiniteCanvasState<Kind> {
+  const window = state.windows.find((item) => item.id === input.windowId);
+  if (
+    window === undefined ||
+    window.heightMode === "manual" ||
+    !Number.isFinite(input.height) ||
+    input.height <= 0
+  )
+    return state;
+  const grid = getInfiniteCanvasMasonryGrid(state, input.windowId);
+  if (grid !== null) {
+    const rows = Math.max(
+      1,
+      Math.ceil(
+        (input.height + grid.params.margin[1]) / (grid.params.rowHeight + grid.params.margin[1]),
+      ),
+    );
+    if (grid.item.h === rows) return state;
+    return setInfiniteCanvasGroupWindowNodeLayoutsInState(state, {
+      groupId: grid.group.id,
+      layouts: { [input.windowId]: { rows } },
+    });
+  }
+  if (
+    isInfiniteCanvasWindowGrouped(state, input.windowId) ||
+    Math.abs(window.rect.height - input.height) < 1
+  )
+    return state;
+  return updateWindowRect(state, input.windowId, { ...window.rect, height: input.height });
+}
+
+/** Applies the grid library's position constraints and compaction to a dragged member. */
+function moveInfiniteCanvasMasonryMember<Kind extends string>(
+  state: InfiniteCanvasState<Kind>,
+  windowId: string,
+): InfiniteCanvasState<Kind> {
+  const grid = getInfiniteCanvasMasonryGrid(state, windowId);
+  const window = state.windows.find((candidate) => candidate.id === windowId);
+
+  if (grid === null || window === undefined) {
+    return state;
+  }
+
+  const { compactor, group, item, layout, params, rect } = grid;
+  const raw = calcXYRaw(params, window.rect.y - rect.y, window.rect.x - rect.x);
+  const { x, y } = applyPositionConstraints(
+    defaultConstraints,
+    item,
+    raw.x,
+    raw.y,
+    getInfiniteCanvasMasonryConstraintContext(params, layout),
+  );
+  const moved = compactor.compact(
+    moveElement(
+      layout,
+      item,
+      x,
+      y,
+      true,
+      compactor.preventCollision,
+      compactor.type,
+      params.cols,
+      compactor.allowOverlap,
+    ),
+    params.cols,
+  );
+
+  return setInfiniteCanvasGroupWindowNodeLayoutsInState(state, {
+    groupId: group.id,
+    layouts: Object.fromEntries(moved.map((cells) => [cells.i, { x: cells.x, y: cells.y }])),
+  });
 }
 
 /** Returns a survivor only when this operation reduced a multi-member group. */
@@ -544,6 +715,19 @@ function setInfiniteCanvasGroupChildWeightsInState<Kind extends string>(
   );
 }
 
+function setInfiniteCanvasGroupWindowNodeLayoutsInState<Kind extends string>(
+  state: InfiniteCanvasState<Kind>,
+  input: Readonly<{
+    groupId: string;
+    layouts: Readonly<Record<string, InfiniteCanvasGroupWindowNodeLayout>>;
+  }>,
+): InfiniteCanvasState<Kind> {
+  const group = findInfiniteCanvasGroup(state, input.groupId);
+  if (group === null) return state;
+  const tree = setInfiniteCanvasGroupWindowNodeLayouts(group.tree, input.layouts);
+  return tree === group.tree ? state : withInfiniteCanvasGroupTree(state, group.id, tree);
+}
+
 function reorderInfiniteCanvasGroupChildInState<Kind extends string>(
   state: InfiniteCanvasState<Kind>,
   input: Readonly<{ childId: string; groupId: string; toIndex: number }>,
@@ -659,6 +843,13 @@ function resolveInfiniteCanvasDockPreview<Kind extends string>(
     return null;
   }
 
+  // A lattice takes the drop as cells, not as a split beside one of its members.
+  const lattice = resolveInfiniteCanvasLatticeDropPreview(state, worldPoint, draggedWindowId);
+
+  if (lattice !== null) {
+    return lattice;
+  }
+
   const groupsByDepth = [...state.groups].sort((left, right) => right.zIndex - left.zIndex);
 
   for (const group of groupsByDepth) {
@@ -751,19 +942,162 @@ function resolveInfiniteCanvasDockPreviewForTarget<Kind extends string>(
   };
 }
 
-/** Seeds a group at a floating target before it docks the dragged window. */
+/** Applies grid constraints and collision policy before resizing a member. */
+function resizeInfiniteCanvasMasonryMember<Kind extends string>(
+  state: InfiniteCanvasState<Kind>,
+  windowId: string,
+  rect: InfiniteCanvasRect,
+  handle: ResizeHandleAxis,
+): InfiniteCanvasState<Kind> {
+  const grid = getInfiniteCanvasMasonryGrid(state, windowId);
+
+  if (grid === null) {
+    return state;
+  }
+
+  const { compactor, group, item, layout: currentLayout, params } = grid;
+  const { cols } = params;
+  const compactType = compactor.type;
+  const allowOverlap = compactor.allowOverlap;
+  const preventCollision = compactor.preventCollision ?? false;
+
+  const position = calcGridItemPosition(params, item.x, item.y, item.w, item.h);
+  const updatedSize = resizeItemInDirection(
+    handle,
+    position,
+    { ...position, height: rect.height, width: rect.width },
+    params.containerWidth,
+  );
+  const rawSize = calcWHRaw(params, updatedSize.width, updatedSize.height);
+  const { w: newW, h: newH } = applySizeConstraints(
+    defaultConstraints,
+    item,
+    rawSize.w,
+    rawSize.h,
+    handle,
+    getInfiniteCanvasMasonryConstraintContext(params, currentLayout),
+  );
+
+  const rawX = handle.includes("w") ? item.x + item.w - newW : item.x;
+  const rawY = handle.includes("n") ? item.y + item.h - newH : item.y;
+  const x = Math.max(0, rawX);
+  const y = Math.max(0, rawY);
+  const resized = { ...item, w: rawX < 0 ? item.w : newW, h: rawY < 0 ? item.h : newH };
+  if (
+    preventCollision &&
+    !allowOverlap &&
+    getAllCollisions(currentLayout, { ...resized, x, y }).some(
+      (candidate) => candidate.i !== windowId,
+    )
+  )
+    return state;
+  const layout = currentLayout.map((candidate) => (candidate.i === windowId ? resized : candidate));
+  const finalLayout =
+    x === item.x && y === item.y
+      ? layout
+      : moveElement(layout, resized, x, y, true, preventCollision, compactType, cols, allowOverlap);
+
+  return setInfiniteCanvasGroupWindowNodeLayoutsInState(state, {
+    groupId: group.id,
+    layouts: Object.fromEntries(
+      compactor
+        .compact(finalLayout, cols)
+        .map((cells) => [cells.i, { rows: cells.h, span: cells.w, x: cells.x, y: cells.y }]),
+    ),
+  });
+}
+
+/** The grid library's name for a resize handle. */
+const MASONRY_RESIZE_HANDLE_AXIS: Record<InfiniteCanvasResizeHandle, ResizeHandleAxis> = {
+  east: "e",
+  north: "n",
+  "north-east": "ne",
+  "north-west": "nw",
+  south: "s",
+  "south-east": "se",
+  "south-west": "sw",
+  west: "w",
+};
+
+/** Projects a floating window into the grid under the pointer. */
+function resolveInfiniteCanvasLatticeDropPreview<Kind extends string>(
+  state: InfiniteCanvasState<Kind>,
+  worldPoint: InfiniteCanvasPoint,
+  draggedWindowId: string,
+): InfiniteCanvasDockPreview | null {
+  const window = state.windows.find((candidate) => candidate.id === draggedWindowId);
+
+  if (window === undefined || isInfiniteCanvasWindowGrouped(state, draggedWindowId)) {
+    return null;
+  }
+
+  const group = [...state.groups]
+    .sort((left, right) => right.zIndex - left.zIndex)
+    .find(
+      (candidate) =>
+        isInfiniteCanvasGroupContainer(candidate.tree) &&
+        candidate.tree.layout === "masonry" &&
+        rectContainsPoint(candidate.rect, worldPoint),
+    );
+
+  if (group === undefined || !isInfiniteCanvasGroupContainer(group.tree)) {
+    return null;
+  }
+
+  const params = getInfiniteCanvasMasonryParams(group.tree, group.rect);
+  const size = calcWHRaw(params, window.rect.width, window.rect.height);
+  const { w: span, h: rows } = applySizeConstraints(
+    defaultConstraints,
+    { i: window.id, x: 0, y: 0, ...size },
+    size.w,
+    size.h,
+    "se",
+    getInfiniteCanvasMasonryConstraintContext(params, []),
+  );
+  const { x, y } = calcXY(
+    params,
+    window.rect.y - group.rect.y,
+    window.rect.x - group.rect.x,
+    span,
+    rows,
+  );
+  const position = calcGridItemPosition(params, x, y, span, rows);
+
+  return {
+    containerId: group.tree.id,
+    edge: "center",
+    groupId: group.id,
+    layout: { rows, span, x, y },
+    rect: {
+      height: position.height,
+      width: position.width,
+      x: group.rect.x + position.left,
+      y: group.rect.y + position.top,
+    },
+    targetId: group.tree.id,
+    windowId: draggedWindowId,
+  };
+}
+
 function applyInfiniteCanvasDockPreview<Kind extends string>(
   state: InfiniteCanvasState<Kind>,
   preview: InfiniteCanvasDockPreview,
 ): InfiniteCanvasState<Kind> {
   if (preview.groupId !== null) {
-    return dockInfiniteCanvasWindowIntoGroup(state, {
+    const docked = dockInfiniteCanvasWindowIntoGroup(state, {
       containerId: preview.containerId,
       edge: preview.edge,
       groupId: preview.groupId,
       targetId: preview.targetId,
       windowId: preview.windowId,
     });
+
+    return preview.layout === undefined
+      ? docked
+      : setInfiniteCanvasGroupWindowNodeLayoutsInState(docked, {
+          groupId: preview.groupId,
+          layouts: { [preview.windowId]: preview.layout },
+        });
   }
 
   const target = state.windows.find((window) => window.id === preview.targetId);
@@ -842,6 +1176,7 @@ function getInfiniteCanvasGroupTabLabel(context: InfiniteCanvasGroupTabLabelCont
 
 export {
   DEFAULT_INFINITE_CANVAS_GROUP_TITLE,
+  MASONRY_RESIZE_HANDLE_AXIS,
   applyInfiniteCanvasDockPreview,
   closeInfiniteCanvasGroup,
   createInfiniteCanvasGroup,
@@ -854,21 +1189,27 @@ export {
   getInfiniteCanvasGroupTabLabel,
   getInfiniteCanvasGroupableWindowIds,
   getInfiniteCanvasGroupedWindowIds,
+  getInfiniteCanvasMasonryMembership,
+  getInfiniteCanvasMasonryGrid,
   // Not in the barrel: shared with `window.undock`, which frees a member the same way.
   getInfiniteCanvasRoomAround,
   getInfiniteCanvasWindowGroup,
   isInfiniteCanvasWindowGrouped,
+  moveInfiniteCanvasMasonryMember,
   reconcileInfiniteCanvasGroups,
   renameInfiniteCanvasGroup,
   revealInfiniteCanvasGroupWindow,
   reorderInfiniteCanvasGroupChildInState,
+  resizeInfiniteCanvasMasonryMember,
   resolveInfiniteCanvasDockPreview,
   resolveInfiniteCanvasDockPreviewForTarget,
+  resolveInfiniteCanvasLatticeDropPreview,
   setInfiniteCanvasGroupActiveChildInState,
   setInfiniteCanvasGroupAxisInState,
   setInfiniteCanvasGroupChildWeightsInState,
   setInfiniteCanvasGroupLayoutModeInState,
   setInfiniteCanvasGroupRect,
+  setInfiniteCanvasGroupWindowNodeLayoutsInState,
   syncInfiniteCanvasGroupWindowRects,
   undockInfiniteCanvasWindowFromGroup,
 };

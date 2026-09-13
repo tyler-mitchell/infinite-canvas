@@ -203,19 +203,6 @@ function isWorldRectWithinViewport(
   );
 }
 
-/** Keeps content rendered across the viewport edge during camera movement. */
-const CULL_MARGIN_PX = 480;
-
-/** Returns `false` for an unusable viewport to prevent first-frame culling. */
-function isWorldRectCulled(
-  camera: InfiniteCanvasCamera,
-  viewport: InfiniteCanvasViewport,
-  rect: InfiniteCanvasRect,
-  marginPx = CULL_MARGIN_PX,
-): boolean {
-  return isUsableViewport(viewport) && !isWorldRectWithinViewport(camera, viewport, rect, marginPx);
-}
-
 function worldRectToScreenTransform(
   camera: InfiniteCanvasCamera,
   viewport: InfiniteCanvasViewport,
@@ -690,7 +677,6 @@ export {
   getWindowBodyRect,
   getWindowHeaderRect,
   isUsableViewport,
-  isWorldRectCulled,
   isWorldRectWithinViewport,
   panCameraByScreenDelta,
   projectWorldRectToScreen,

@@ -1,4 +1,4 @@
-import type { InfiniteCanvasPoint, InfiniteCanvasViewport } from "./types";
+import type { InfiniteCanvasPoint } from "./types";
 
 type PointerLike = Pick<PointerEvent, "clientX" | "clientY">;
 
@@ -15,15 +15,6 @@ function getViewportPoint(element: HTMLElement, point: InfiniteCanvasPoint): Inf
   return {
     x: point.x - bounds.left,
     y: point.y - bounds.top,
-  };
-}
-
-function getElementViewport(element: HTMLElement): InfiniteCanvasViewport {
-  const bounds = element.getBoundingClientRect();
-
-  return {
-    height: Math.round(bounds.height),
-    width: Math.round(bounds.width),
   };
 }
 
@@ -49,6 +40,25 @@ function isPrimaryButton(event: Pick<PointerEvent, "button" | "isPrimary">) {
   return event.button === 0 && event.isPrimary;
 }
 
+/** Screen pixels a press travels before it is a drag rather than a click. */
+const DRAG_THRESHOLD_PX = 6;
+
+/** Elements that own their own press: a drag must not start on them. */
+const INTERACTIVE_TARGET_SELECTOR = [
+  "[data-infinite-canvas-control='true']",
+  "a",
+  "button",
+  "input",
+  "select",
+  "textarea",
+  "[contenteditable='true']",
+  "[contenteditable='']",
+].join(",");
+
+function isInteractiveTarget(target: EventTarget | null): boolean {
+  return target instanceof Element && target.closest(INTERACTIVE_TARGET_SELECTOR) !== null;
+}
+
 function clearNativeTextSelection() {
   const selection = typeof document === "undefined" ? null : document.getSelection();
 
@@ -58,11 +68,12 @@ function clearNativeTextSelection() {
 }
 
 export {
+  DRAG_THRESHOLD_PX,
   capturePointer,
   clearNativeTextSelection,
   getClientPoint,
-  getElementViewport,
   getViewportPoint,
+  isInteractiveTarget,
   isPrimaryButton,
   releasePointer,
 };

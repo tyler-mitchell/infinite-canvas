@@ -3,11 +3,11 @@ import { tv } from "../tv.ts";
 
 const breakdown = tv({
   slots: {
-    root: "flex flex-col gap-[7px]",
+    root: "flex min-w-0 flex-col gap-2",
     bar: "flex h-[6px] w-full overflow-hidden rounded-pk-pill bg-pk-level-0",
     segment: "h-full",
     legend: "flex flex-wrap items-center gap-x-[13px] gap-y-1",
-    item: "flex items-center gap-[5px] font-pk-sans text-[10.5px] leading-none whitespace-nowrap text-pk-ink-soft",
+    item: "flex items-center gap-1.5 font-pk-sans text-pk-meta whitespace-nowrap text-pk-ink-soft",
     swatch: "size-[7px] flex-none rounded-pk-pill",
   },
 });

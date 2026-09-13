@@ -57,7 +57,6 @@ const renderLayerFor = (
     <InfiniteCanvasProvider initialState={state}>
       <InfiniteCanvasGroupLayer
         canvasInstanceId="test-canvas"
-        devicePixelRatio={1}
         groupLabel={groupLabel}
         labelSize={labelSize}
         resizeHandleSize={8}

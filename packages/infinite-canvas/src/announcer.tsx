@@ -1,6 +1,7 @@
+import { useValue } from "@legendapp/state/react";
 import { createContext, type CSSProperties, useCallback, useContext, useState } from "react";
 
-import { useInfiniteCanvasState } from "./store";
+import { useInfiniteCanvasState$ } from "./store";
 
 /** Provides separate live regions for active-window and consumer messages. */
 
@@ -31,14 +32,17 @@ function useInfiniteCanvasAnnounce(): (message: string) => void {
 }
 
 function InfiniteCanvasAnnouncer({ children }: Readonly<{ children: React.ReactNode }>) {
-  const state = useInfiniteCanvasState();
+  const state$ = useInfiniteCanvasState$();
+  const activeTitle = useValue(() => {
+    const activeWindowId = state$.activeWindowId.get();
+    return state$.windows.get().find((window) => window.id === activeWindowId)?.title ?? "none";
+  });
   const [message, setMessage] = useState("");
-  const activeWindow = state.windows.find((window) => window.id === state.activeWindowId);
 
   return (
     <InfiniteCanvasAnnouncerContext.Provider value={setMessage}>
       <div aria-live="polite" style={VISUALLY_HIDDEN_STYLE}>
-        Active window {activeWindow?.title ?? "none"}.
+        Active window {activeTitle}.
       </div>
       <div aria-live="polite" style={VISUALLY_HIDDEN_STYLE}>
         {message}

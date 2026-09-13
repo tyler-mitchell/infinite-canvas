@@ -1,5 +1,6 @@
 import { area, curveMonotoneX, line } from "d3-shape";
 import { useId } from "react";
+import { motion, useReducedMotion } from "motion/react";
 import type { VariantProps } from "tailwind-variants";
 
 import { namedReading } from "../label.ts";
@@ -7,7 +8,7 @@ import { tv } from "../tv.ts";
 
 const sparkline = tv({
   slots: {
-    root: "relative w-full",
+    root: "relative w-full min-w-0 flex-none",
     plot: "block size-full overflow-visible",
     fillFrom: "[stop-color:var(--pk-accent)] [stop-opacity:0.22]",
     fillTo: "[stop-color:var(--pk-accent)] [stop-opacity:0]",
@@ -17,6 +18,7 @@ const sparkline = tv({
     fill: "[stroke:none]",
     trace:
       "fill-none [stroke-linecap:round] [stroke-linejoin:round] [stroke-width:1.6] [vector-effect:non-scaling-stroke]",
+    restingTrace: "fill-none stroke-pk-ink-faint opacity-30 [stroke-linecap:round] [stroke-linejoin:round] [stroke-width:1.6] [vector-effect:non-scaling-stroke]",
     drop: "absolute right-0 bottom-0 w-px bg-pk-accent/35 top-(--head)",
     glow: "absolute right-0 size-7.5 translate-x-1/2 -translate-y-1/2 rounded-pk-pill bg-[image:radial-gradient(circle,color-mix(in_oklab,var(--pk-accent)_45%,transparent),transparent_70%)] top-(--head)",
     dot: "absolute right-0 size-[5px] translate-x-1/2 -translate-y-1/2 rounded-pk-pill bg-pk-ink-bright top-(--head)",
@@ -130,6 +132,9 @@ export type SparklineProps = Omit<React.ComponentProps<"div">, "children"> &
     readonly caption?: string;
     /** Names the series for a reader who cannot see it. */
     readonly label?: string;
+    readonly animation?: "none" | "reveal" | "sweep";
+    readonly duration?: number;
+    readonly repeatDelay?: number;
   };
 
 /**
@@ -137,9 +142,10 @@ export type SparklineProps = Omit<React.ComponentProps<"div">, "children"> &
  * series at rest rather than a point at the left edge; an empty one draws nothing and marks no
  * head, since a head is a reading.
  */
-function Sparkline({ values, caption, label, size, head, className, ...props }: SparklineProps) {
+function Sparkline({ values, caption, label, size, head, className, style, animation = "reveal", duration = 1.2, repeatDelay = 3, ...props }: SparklineProps) {
+  const reducedMotion = useReducedMotion();
   /* Resolved once: the same head decides what is drawn and whether a latest is worth naming. */
-  const marked = head ?? sparklineHead(values, caption);
+  const marked = values.length === 0 ? "none" : (head ?? sparklineHead(values, caption));
   const styles = sparkline({ size, head: marked });
   const id = useId();
 
@@ -156,13 +162,15 @@ function Sparkline({ values, caption, label, size, head, className, ...props }: 
     .curve(curveMonotoneX);
 
   const headHeight = points[points.length - 1]?.[1] ?? HEIGHT / 2;
+  const path = trace(points) ?? undefined;
+  const animated = animation !== "none" && reducedMotion !== true && values.length > 1;
 
   return (
     <div
       data-slot="sparkline"
       role="img"
       aria-label={namedReading(label, sparklineLabel(values, marked, caption))}
-      style={{ "--head": `${(headHeight / HEIGHT) * 100}%` } as React.CSSProperties}
+      style={{ ...style, "--head": `${(headHeight / HEIGHT) * 100}%` } as React.CSSProperties}
       className={styles.root({ className })}
       {...props}
     >
@@ -184,10 +192,15 @@ function Sparkline({ values, caption, label, size, head, className, ...props }: 
           </linearGradient>
         </defs>
         <path d={under(points) ?? undefined} fill={`url(#${id}-fill)`} className={styles.fill()} />
-        <path
-          d={trace(points) ?? undefined}
+        <path d={path} className={styles.restingTrace()} />
+        <motion.path
+          key={path}
+          d={path}
           stroke={`url(#${id}-trace)`}
           className={styles.trace()}
+          initial={animated ? { pathLength: 0 } : false}
+          animate={{ pathLength: 1 }}
+          transition={{ duration: animated ? duration : 0, ease: "easeInOut", repeat: animated && animation === "sweep" ? Infinity : 0, repeatDelay }}
         />
       </svg>
       <span className={styles.drop()} />

@@ -1,6 +1,9 @@
 "use client";
 
+import { useValue } from "@legendapp/state/react";
+
 import {
+  memo,
   useCallback,
   useEffect,
   useId,
@@ -11,6 +14,8 @@ import {
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
 } from "react";
+
+import { useResizeObserver } from "use-resize-observer";
 
 import { InfiniteCanvasAnnouncer } from "./announcer";
 import { InfiniteCanvasHud } from "./canvas-hud";
@@ -49,6 +54,7 @@ import {
   type InfiniteCanvasDiagnosticsPolicy,
   type InfiniteCanvasDiagnosticsPolicyInput,
 } from "./diagnostics";
+import { InfiniteCanvasCameraLayer } from "./camera-layer";
 import {
   getInfiniteCanvasContentViewport,
   getInfiniteCanvasEdgePanVelocity,
@@ -74,7 +80,7 @@ import {
   InfiniteCanvasIconsContext,
   type InfiniteCanvasIcons,
 } from "./icons";
-import { getInteractionCursor } from "./interaction";
+import { getInfiniteCanvasPointerOwnedIds, getInteractionCursor } from "./interaction";
 import { InfiniteCanvasDesktopPortalContext } from "./portal";
 import {
   getInfiniteCanvasIdleCursor,
@@ -90,12 +96,11 @@ import {
   capturePointer,
   clearNativeTextSelection,
   getClientPoint,
-  getElementViewport,
   getViewportPoint,
+  isInteractiveTarget,
   isPrimaryButton,
   releasePointer,
 } from "./runtime";
-import { isWindowSelected } from "./selection";
 import {
   getInfiniteCanvasSelectableTargetFromSpatialTarget,
   resolveInfiniteCanvasSpatialTarget,
@@ -564,7 +569,6 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
   const dropInteractionRef = useRef<InfiniteCanvasDropInteraction<Payload, Kind>>(dropInteraction);
   const store = useInfiniteCanvasStore<Kind>();
   const actions = useInfiniteCanvasActions<Kind>();
-  const state = useInfiniteCanvasState<Kind>();
 
   // Set the resolver during render so HUD bounds are correct on first paint.
   store.setSpatialTargetResolvers(spatialTargetResolvers);
@@ -614,7 +618,6 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
       }),
     [chrome, spatialTargetResolvers, store],
   );
-  const contextualCommands = useMemo(() => getInfiniteCanvasContextualCommands(state), [state]);
   const createDropInteractionFromPointer = useCallback(
     (
       current: Extract<InfiniteCanvasDropInteraction<Payload, Kind>, { status: "dragging" }>,
@@ -848,26 +851,18 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
     dropInteractionRef.current = EMPTY_INFINITE_CANVAS_DROP;
     setDropInteraction(EMPTY_INFINITE_CANVAS_DROP);
   }, []);
+  // The slot that renders an overlay adds the live state, so only a mounted overlay renders per
+  // state change and the viewport itself does not subscribe to the state.
   const overlayContext = useMemo(
     () =>
       ({
         actions,
         cancelDrag: cancelDropDrag,
-        contextualCommands,
         drag: dropInteraction,
         resolveSpatialTarget,
         startDrag: startDropDrag,
-        state,
-      }) satisfies InfiniteCanvasOverlayRenderContext<Kind, Payload>,
-    [
-      actions,
-      cancelDropDrag,
-      contextualCommands,
-      dropInteraction,
-      resolveSpatialTarget,
-      startDropDrag,
-      state,
-    ],
+      }) satisfies InfiniteCanvasOverlaySlotContext<Kind, Payload>,
+    [actions, cancelDropDrag, dropInteraction, resolveSpatialTarget, startDropDrag],
   );
 
   useEffect(() => {
@@ -888,26 +883,13 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
     actions.hydrate(recoverInfiniteCanvasStateForWindowRegistry(state, windowDefinitions));
   }, [actions, store, windowDefinitions]);
 
-  useEffect(() => {
-    const node = rootRef.current;
-
-    if (node === null) {
-      return;
-    }
-
-    const updateViewport = () => {
-      actions.setViewport(getElementViewport(node));
-    };
-    const observer =
-      typeof ResizeObserver === "undefined" ? null : new ResizeObserver(updateViewport);
-
-    updateViewport();
-    observer?.observe(node);
-
-    return () => {
-      observer?.disconnect();
-    };
-  }, [actions]);
+  useResizeObserver({
+    box: "border-box",
+    onResize: ({ height = 0, width = 0 }) => {
+      actions.setViewport({ height, width });
+    },
+    ref: rootRef,
+  });
 
   // Depend on fields because this value writes to the store.
   useEffect(() => {
@@ -1501,12 +1483,14 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
               data-infinite-canvas-command-scope="surface"
               onKeyDown={(event) => {
                 // Tab enters the active window. Shift+Tab remains available to leave the canvas.
-                if (event.key !== "Tab" || event.shiftKey || state.activeWindowId === null) {
+                const { activeWindowId } = getState();
+
+                if (event.key !== "Tab" || event.shiftKey || activeWindowId === null) {
                   return;
                 }
 
                 const frame = document.getElementById(
-                  getInfiniteCanvasWindowFrameElementId(canvasInstanceId, state.activeWindowId),
+                  getInfiniteCanvasWindowFrameElementId(canvasInstanceId, activeWindowId),
                 );
                 const body = frame?.querySelector<HTMLElement>(
                   "[data-infinite-canvas-body='true']",
@@ -1548,7 +1532,7 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
                 data-slot={INFINITE_CANVAS_SLOTS.grid}
                 style={{ inset: 0, pointerEvents: "none", position: "absolute" }}
               >
-                {renderBackdrop(overlayContext)}
+                <InfiniteCanvasOverlaySlot context={overlayContext} render={renderBackdrop} />
               </div>
             )}
             {/* The underlay surface always mounts: the framework's own passes live there. */}
@@ -1575,12 +1559,11 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
                   zIndex: UNDERLAY_Z_INDEX,
                 }}
               >
-                {renderUnderlay(overlayContext)}
+                <InfiniteCanvasOverlaySlot context={overlayContext} render={renderUnderlay} />
               </div>
             )}
             <InfiniteCanvasGroupLayer
               canvasInstanceId={canvasInstanceId}
-              devicePixelRatio={devicePixelRatio}
               groupLabel={groupLabel}
               labelSize={chrome.groupLabelSize}
               resizeHandleSize={chrome.resizeHandleSize}
@@ -1590,7 +1573,6 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
             <InfiniteCanvasWindowLayer
               canvasInstanceId={canvasInstanceId}
               chrome={chrome}
-              devicePixelRatio={devicePixelRatio}
               stackBands={DEFAULT_INFINITE_CANVAS_STACK_BANDS}
               theme={resolvedTheme}
               windowDefinitions={windowDefinitions}
@@ -1622,7 +1604,9 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
               drop={dropInteraction}
             />
             <InfiniteCanvasMarqueeOverlay />
-            {renderOverlay?.(overlayContext)}
+            {renderOverlay === undefined ? null : (
+              <InfiniteCanvasOverlaySlot context={overlayContext} render={renderOverlay} />
+            )}
             <InfiniteCanvasHud
               onPointerModeChange={setPointerModeOverride}
               pointerMode={pointerMode}
@@ -1641,10 +1625,35 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
   );
 }
 
-function InfiniteCanvasWindowLayer<Kind extends string>({
+/** The overlay context without the two members that the slot derives from the live state. */
+type InfiniteCanvasOverlaySlotContext<Kind extends string, Payload> = Omit<
+  InfiniteCanvasOverlayRenderContext<Kind, Payload>,
+  "contextualCommands" | "state"
+>;
+
+/** Renders one consumer overlay with the live state. Only this subtree renders per state change. */
+function InfiniteCanvasOverlaySlot<Kind extends string, Payload>({
+  context,
+  render,
+}: Readonly<{
+  context: InfiniteCanvasOverlaySlotContext<Kind, Payload>;
+  render: (context: InfiniteCanvasOverlayRenderContext<Kind, Payload>) => ReactNode;
+}>) {
+  const state = useInfiniteCanvasState<Kind>();
+
+  return render({
+    ...context,
+    // Computed when an overlay reads it.
+    get contextualCommands() {
+      return getInfiniteCanvasContextualCommands(state);
+    },
+    state,
+  });
+}
+
+function InfiniteCanvasWindowLayerContent<Kind extends string>({
   canvasInstanceId,
   chrome,
-  devicePixelRatio,
   stackBands,
   theme,
   windowDefinitions,
@@ -1653,7 +1662,6 @@ function InfiniteCanvasWindowLayer<Kind extends string>({
   /** Canvas token that namespaces frame ids used by `aria-controls`. */
   canvasInstanceId?: string;
   chrome: InfiniteCanvasChromeMetrics;
-  devicePixelRatio: number;
   stackBands: InfiniteCanvasStackBands;
   theme: InfiniteCanvasTheme;
   windowDefinitions: InfiniteCanvasWindowRegistry<Kind>;
@@ -1661,51 +1669,67 @@ function InfiniteCanvasWindowLayer<Kind extends string>({
 }>) {
   const fallbackInstanceId = useId();
   const resolvedInstanceId = canvasInstanceId ?? fallbackInstanceId;
-  const state = useInfiniteCanvasState<Kind>();
+  const store = useInfiniteCanvasStore<Kind>();
+  const windows = useValue(store.state$.windows);
+  const groups = useValue(store.state$.groups);
+  const groupMetrics = useValue(store.state$.groupMetrics);
+  const activeWindowId = useValue(store.state$.activeWindowId);
+  const selectedWindowIds = useValue(store.state$.selection.windowIds);
+  const interaction = useValue(store.state$.interaction);
+  const workspaces = useValue(store.state$.workspaces);
+  const activeWorkspaceId = useValue(store.state$.activeWorkspaceId);
+  const zoom = useValue(store.state$.camera.zoom);
   // Grouped windows omit resize handles because handles can cover the gutter.
   const { hiddenWindowIds, windowRects } = useMemo(
-    () => getInfiniteCanvasGroupProjection(state.groups, state.groupMetrics),
-    [state.groupMetrics, state.groups],
+    () => getInfiniteCanvasGroupProjection(groups, groupMetrics),
+    [groupMetrics, groups],
   );
   const admittedWindowIds = useMemo(
-    () => getInfiniteCanvasWorkspaceWindowIds(state),
-    [state.activeWorkspaceId, state.workspaces],
+    () => getInfiniteCanvasWorkspaceWindowIds(store.state$.peek() as InfiniteCanvasState<Kind>),
+    [activeWorkspaceId, store, workspaces],
   );
   // Keep DOM order stable. The z-index controls visual stacking.
   const visibleWindows = useMemo(
     () =>
-      state.windows.filter(
+      windows.filter(
         (window): window is InfiniteCanvasWindow<Kind> =>
           window.mode !== "minimized" &&
           !hiddenWindowIds.has(window.id) &&
           (admittedWindowIds === null || admittedWindowIds.has(window.id)) &&
           isRegisteredInfiniteCanvasWindow(windowDefinitions, window),
       ),
-    [admittedWindowIds, hiddenWindowIds, state.windows, windowDefinitions],
+    [admittedWindowIds, hiddenWindowIds, windows, windowDefinitions],
+  );
+  const pointerOwned = useMemo(
+    () => getInfiniteCanvasPointerOwnedIds(store.state$.peek() as InfiniteCanvasState<Kind>),
+    [groups, interaction, store],
   );
 
   return (
-    <div style={{ inset: 0, pointerEvents: "none", position: "absolute", zIndex }}>
+    <InfiniteCanvasCameraLayer zIndex={zIndex}>
       {visibleWindows.map((window) => (
         <InfiniteCanvasWindowFrame
-          camera={state.camera}
           canvasInstanceId={resolvedInstanceId}
           chrome={chrome}
-          devicePixelRatio={devicePixelRatio}
-          isActive={state.activeWindowId === window.id}
+          isActive={activeWindowId === window.id}
           isGrouped={windowRects.has(window.id)}
-          isSelected={isWindowSelected(state, window.id)}
+          isPointerOwned={pointerOwned.windowIds.has(window.id)}
+          isSelected={selectedWindowIds.includes(window.id)}
           key={window.id}
           stackBands={stackBands}
           theme={theme}
-          viewport={state.viewport}
           window={window}
           windowDefinitions={windowDefinitions}
+          zoom={zoom}
         />
       ))}
-    </div>
+    </InfiniteCanvasCameraLayer>
   );
 }
+
+const InfiniteCanvasWindowLayer = memo(
+  InfiniteCanvasWindowLayerContent,
+) as typeof InfiniteCanvasWindowLayerContent;
 
 function applyModifiedPointerTargetSelection<Kind extends string>(
   actions: InfiniteCanvasCommands<Kind>,
@@ -1739,20 +1763,7 @@ function isCanvasPanTarget(
     return target === viewport;
   }
 
-  const interactiveTarget = target.closest(
-    [
-      "[data-infinite-canvas-control='true']",
-      "a",
-      "button",
-      "input",
-      "select",
-      "textarea",
-      "[contenteditable='true']",
-      "[contenteditable='']",
-    ].join(","),
-  );
-
-  if (interactiveTarget !== null) {
+  if (isInteractiveTarget(target)) {
     return false;
   }
 

@@ -1,0 +1,29 @@
+{
+  "name": "model-context",
+  "version": "0.0.0",
+  "private": true,
+  "description": "WebMCP: register a page's tools on the browser's model context, and unregister them when the page moves on.",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./react": "./src/react.ts",
+    "./package.json": "./package.json"
+  },
+  "scripts": {
+    "check": "vp check"
+  },
+  "devDependencies": {
+    "@types/react": "catalog:",
+    "react": "catalog:",
+    "typescript": "^6.0.3",
+    "vite-plus": "catalog:"
+  },
+  "peerDependencies": {
+    "react": "catalog:"
+  },
+  "peerDependenciesMeta": {
+    "react": {
+      "optional": true
+    }
+  }
+}

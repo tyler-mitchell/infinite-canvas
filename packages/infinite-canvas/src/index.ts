@@ -6,6 +6,23 @@ export {
   InfiniteCanvasWindowLayer,
 } from "./infinite-canvas";
 export { INFINITE_CANVAS_SLOTS, getInfiniteCanvasWindowStateAttributes } from "./data-attributes";
+export { canvasModel } from "./schema";
+export {
+  CommandTrigger,
+  CommandMenuItem,
+  type CommandTriggerProps,
+  type CommandMenuItemProps,
+} from "./command-trigger";
+export type { CommandId } from "./commands";
+export {
+  createComponentWindow,
+  defineComponent,
+  editComponentProps,
+  insertComponent,
+  resolveComponentProps,
+} from "./component";
+export type { ComponentRenderContext } from "./component";
+export type { ComponentNode, ComponentRecordResolver } from "./component";
 export type { InfiniteCanvasSceneSurface, InfiniteCanvasSceneSurfaceProps } from "./scene-surface";
 export type { InfiniteCanvasSlot } from "./data-attributes";
 export { DEFAULT_INFINITE_CANVAS_HUD_POLICY, resolveInfiniteCanvasHudPolicy } from "./canvas-hud";
@@ -50,8 +67,10 @@ export type {
   InfiniteCanvasGroupContainerNode,
   InfiniteCanvasGroupDockEdge,
   InfiniteCanvasGroupLayoutMode,
+  InfiniteCanvasGroupMasonry,
   InfiniteCanvasGroupNode,
   InfiniteCanvasGroupWindowNode,
+  InfiniteCanvasGroupWindowNodeLayout,
 } from "./group-tree";
 export {
   DEFAULT_INFINITE_CANVAS_GROUP_TITLE,

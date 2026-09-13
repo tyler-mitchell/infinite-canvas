@@ -1,4 +1,4 @@
-import { createRootRoute, Link, Outlet } from "@tanstack/react-router";
+import { createRootRoute, Link, Outlet, useRouterState } from "@tanstack/react-router";
 import { Kind, Meta, ScrollArea, Title, tv } from "polkadot-ui";
 
 const shell = tv({
@@ -47,6 +47,10 @@ const SECTIONS = [
       { to: "/readouts", label: "readouts" },
     ],
   },
+  {
+    label: "incubator",
+    links: [{ to: "/board", label: "board" }],
+  },
 ] as const;
 
 export const Route = createRootRoute({
@@ -55,6 +59,9 @@ export const Route = createRootRoute({
 
 function RootRoute() {
   const styles = shell();
+  const isBoard = useRouterState({ select: (state) => state.location.pathname === "/board" });
+
+  if (isBoard) return <Outlet />;
 
   return (
     <div className={styles.page()}>

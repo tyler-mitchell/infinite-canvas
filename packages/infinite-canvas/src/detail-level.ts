@@ -1,3 +1,7 @@
+import { useValue } from "@legendapp/state/react";
+import { useRef } from "react";
+
+import { useInfiniteCanvasState$ } from "./store";
 import type { InfiniteCanvasRect } from "./types";
 
 /** Selects full or summary content from the smaller on-screen window dimension. */
@@ -42,5 +46,27 @@ function getInfiniteCanvasWindowDetailLevel(
   return extent < summaryBelowPx ? "summary" : "full";
 }
 
-export { DEFAULT_INFINITE_CANVAS_DETAIL_POLICY, getInfiniteCanvasWindowDetailLevel };
+/** Subscribes to detail-level changes with zoom hysteresis. */
+function useInfiniteCanvasDetailLevel(
+  rect: InfiniteCanvasRect,
+  enabled = true,
+): InfiniteCanvasDetailLevel {
+  const state$ = useInfiniteCanvasState$();
+  const previousLevel = useRef<InfiniteCanvasDetailLevel>("full");
+  const level = useValue(() =>
+    enabled
+      ? getInfiniteCanvasWindowDetailLevel(rect, state$.camera.zoom.get(), previousLevel.current)
+      : "full",
+  );
+
+  previousLevel.current = level;
+
+  return level;
+}
+
+export {
+  DEFAULT_INFINITE_CANVAS_DETAIL_POLICY,
+  getInfiniteCanvasWindowDetailLevel,
+  useInfiniteCanvasDetailLevel,
+};
 export type { InfiniteCanvasDetailLevel, InfiniteCanvasDetailPolicy };

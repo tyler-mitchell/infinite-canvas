@@ -3,7 +3,7 @@ import { tv } from "../tv.ts";
 
 const layoutPreview = tv({
   slots: {
-    root: "relative min-h-0 flex-1 overflow-hidden rounded-pk-control border border-pk-line-inner bg-pk-ground",
+    root: "relative h-32 min-h-0 min-w-0 flex-1 overflow-hidden rounded-pk-control border border-pk-line-inner bg-pk-ground",
     pane: "absolute rounded-[5px] border transition-[left,top,width,height] duration-(--pk-duration-detail) ease-pk-swift",
   },
   variants: {
@@ -25,6 +25,7 @@ export interface Pane {
 }
 
 export type LayoutPreviewProps = Omit<React.ComponentProps<"div">, "children"> & {
+  readonly height?: React.CSSProperties["height"];
   readonly panes: readonly Pane[];
   /**
    * Names the recipe for a reader who cannot see it — `editor`, `split`. The count is added to it
@@ -44,7 +45,7 @@ export type LayoutPreviewProps = Omit<React.ComponentProps<"div">, "children"> &
  */
 const percent = (value: number) => `${Number.isFinite(value) ? value : 0}%`;
 
-function LayoutPreview({ panes, label, className, ...props }: LayoutPreviewProps) {
+function LayoutPreview({ panes, label, height, style, className, ...props }: LayoutPreviewProps) {
   const styles = layoutPreview();
   /* An active pane is drawn in its own fill and line, and the frame is one image: a pane carries
    * no words of its own, so the count is the only place the state can be said. */
@@ -58,6 +59,7 @@ function LayoutPreview({ panes, label, className, ...props }: LayoutPreviewProps
       role="img"
       aria-label={namedReading(label, counted)}
       className={styles.root({ className })}
+      style={{ ...style, height: height ?? style?.height }}
       {...props}
     >
       {panes.map((pane, index) => (

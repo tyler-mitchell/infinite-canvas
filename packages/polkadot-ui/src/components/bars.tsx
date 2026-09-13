@@ -5,7 +5,7 @@ import { tv } from "../tv.ts";
 
 const bars = tv({
   slots: {
-    root: "flex min-h-0 flex-1 items-end",
+    root: "flex h-20 min-h-0 min-w-0 flex-1 items-end",
     bar: "flex-1 bg-pk-bar transition-[height] duration-(--pk-duration-detail) ease-pk-swift data-newest:bg-pk-accent",
   },
   variants: {

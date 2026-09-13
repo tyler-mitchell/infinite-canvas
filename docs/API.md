@@ -1,6 +1,6 @@
 # API reference
 
-The public surface of `@hyphened/infinite-canvas`: 271 values and 210 types across two entries.
+The public surface of `@hyphened/infinite-canvas` is defined by its entry barrels.
 Anything absent from these barrels is internal and unstable.
 This rule includes each `data-infinite-canvas-*` attribute, which supports hit tests instead of styles.
 
@@ -92,11 +92,73 @@ Only `windowDefinitions` is required:
 
 ## State and store
 
+### Component authoring
+
+```tsx
+import { type } from "arktype";
+import {
+  createInfiniteCanvasHandle, createInfiniteCanvasState, createInfiniteCanvasStore,
+  defineComponent, insertComponent,
+} from "@hyphened/infinite-canvas";
+
+const components = {
+  note: defineComponent({
+    id: "note",
+    schema: type({ text: "string = ''" }),
+    render: ({ text }) => <p>{text}</p>,
+  }),
+};
+const store = createInfiniteCanvasStore(createInfiniteCanvasState({ windows: [] }));
+const handle = createInfiniteCanvasHandle(store);
+const result = insertComponent({
+  handle, components, kind: "widget",
+  input: {
+    windowId: "note-1", componentId: "note", props: { text: "A note" },
+    rect: { x: 0, y: 0, width: 320, height: 240 },
+  },
+});
+```
+
+`insertComponent` returns the created window, an `Error`, or ArkType errors.
+`createComponentWindow` creates the validated window without dispatching it.
+A window registry renders the instance through its component definition.
+`resolveComponentProps` resolves literals and record bindings, then applies an optional component schema.
+Its result includes effective props and their origins. Required missing bindings return an error.
+
+For group insertion, supply `target: { groupId, containerId?, index?, layout? }`.
+The container defaults to the group root. `layout` accepts masonry `x`, `y`, `span`, `rows`, and `hidden`.
+An explicit rectangle is optional when a target group is supplied.
+
+`editComponentProps({ handle, components, resolveRecord, input })` accepts
+`{ windowId, expectedRevision, props, bindings?, reset? }`.
+It refuses stale revisions and conflicting assignments before committing.
+`reset` removes overrides so schema defaults apply again. Record bindings remain references.
+
+`CommandTrigger` and `CommandMenuItem` accept `commandId` and their Base UI component props.
+They derive labels and availability from the command catalog and recheck availability on activation.
+
+### Content sizing
+
+`window.heightMode` accepts `"content"` or `"manual"`.
+`commands.setWindowContentHeight({ windowId, height })` takes an outer height in world units.
+It updates floating height or masonry rows. Manual windows ignore this command.
+Pointer and keyboard resizing select manual height control.
+`commands.setWindowRect` updates a floating window's rectangle.
+
+`bodyPointerBehavior: "move"` makes non-interactive body content a drag handle.
+`bodyDragThresholdPx` defaults to 6 screen pixels.
+`--icx-layout-transition` overrides the default spring transition for frame position and size.
+Pointer-owned frames and reduced-motion rendering use no transition.
+
+**`schema`**
+
+- `canvasModel` — ArkType module for canvas geometry, windows, groups, selection, and persisted data.
+
 The store adapts the pure reducer to Legend State signals.
 `InfiniteCanvasProvider` supplies the store, and the hooks read it.
 Use `useInfiniteCanvasSelector` for a narrow subscription in a window body.
 
-A window can define `closable`, `maximizable`, `minimizable`, and `resizable` capabilities.
+A window can define `closable`, `maximizable`, `minimizable`, `movable`, and `resizable` capabilities.
 Each field is optional, and an absent field permits the operation.
 `capabilities` uses the same default in the reducer and chrome.
 `isInfiniteCanvasWindowCapable` applies this default.
@@ -104,6 +166,7 @@ Each field is optional, and an absent field permits the operation.
 The reducer enforces each capability.
 `actions.closeWindow` returns unchanged state for a `closable: false` window.
 `interaction.startResize` refuses a window that does not permit resizing.
+`interaction.startMove`, `window.nudge`, `window.place`, and the arrange commands skip a floating window with `movable: false`. A grouped window still moves with its shell.
 Chrome controls remain present with `disabled` and `data-disabled`.
 Resize handles are absent for a window that does not permit resizing.
 Serialization omits a capability with the value `true` because absence has the same meaning.
@@ -142,7 +205,7 @@ An index outside the list is clamped.
 
 <details><summary>types (2)</summary>
 
-- `InfiniteCanvasWindowCapability`: One of `"closable"`, `"maximizable"`, `"minimizable"`, or `"resizable"`.
+- `InfiniteCanvasWindowCapability`: One of `"closable"`, `"maximizable"`, `"minimizable"`, `"movable"`, or `"resizable"`.
 - `InfiniteCanvasWindowCapabilities`: The optional capability set for a window. An absent field permits its operation.
 
 </details>
@@ -267,7 +330,8 @@ Only canvas entries have a `group`.
 
 - `InfiniteCanvasGroupAxis`
 - `InfiniteCanvasGroupContainerNode`
-- `InfiniteCanvasGroupLayoutMode`: `"accordion" | "split" | "tabs"`
+- `InfiniteCanvasGroupLayoutMode`: `"accordion" | "masonry" | "split" | "tabs"`. Masonry is a cell lattice run by `react-grid-layout`'s pure core. A container's `masonry` is the library's grid config (`cols`, `margin`, `containerPadding`, `rowHeight`, `maxRows`) plus its compaction settings (`compactType`, `preventCollision`, `allowOverlap`), each optional over the library's defaults; an absent `rowHeight` makes cells square. A member node carries its cells: `x`, `y`, `span` (the library's `w`), `rows` (its `h`), and `hidden`. A member drag or resize runs the library's own drag and resize logic (`moveElement`, the default constraints, the compactor).
+- `InfiniteCanvasGroupMasonry`, `InfiniteCanvasGroupWindowNodeLayout`
 - `InfiniteCanvasGroupNode`
 - `InfiniteCanvasGroupWindowNode`
 
@@ -301,7 +365,8 @@ An explicit `undefined` value does not erase a default.
 **`group-state`**
 
 - `findInfiniteCanvasGroup`, `getInfiniteCanvasWindowGroup`, `isInfiniteCanvasWindowGrouped`
-- `getInfiniteCanvasGroupedWindowIds`, `getInfiniteCanvasGroupProjection`, `reconcileInfiniteCanvasGroups`
+- `getInfiniteCanvasGroupedWindowIds`, `reconcileInfiniteCanvasGroups`
+- `getInfiniteCanvasGroupProjection(groups, groupMetrics)`: Returns member rectangles, hidden member IDs, and masonry shell rectangles.
 - `getInfiniteCanvasGroupableWindowIds`: Returns eligible window IDs in input order. It omits missing, minimized, and grouped windows.
 - `getInfiniteCanvasGroupTitle`: Returns a supplied title. If `title` is `null`, it derives a title from current members.
 - `DEFAULT_INFINITE_CANVAS_GROUP_TITLE`: Names an empty group. Use `title === null` to distinguish a derived title from a supplied title.

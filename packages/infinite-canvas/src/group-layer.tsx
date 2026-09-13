@@ -1,6 +1,8 @@
 "use client";
 
+import { useValue } from "@legendapp/state/react";
 import {
+  memo,
   useMemo,
   useRef,
   useState,
@@ -8,10 +10,13 @@ import {
   type PointerEvent as ReactPointerEvent,
 } from "react";
 
+import { InfiniteCanvasCameraLayer } from "./camera-layer";
 import { INFINITE_CANVAS_SLOTS, getInfiniteCanvasWindowFrameElementId } from "./data-attributes";
 import { getEventViewportPoint } from "./frame-slots";
-import { getInfiniteCanvasWindowDetailLevel, type InfiniteCanvasDetailLevel } from "./detail-level";
-import { isWorldRectCulled, projectWorldRectToScreen } from "./geometry";
+import { useInfiniteCanvasDetailLevel } from "./detail-level";
+import { worldRectToScreenRect } from "./geometry";
+import { getInfiniteCanvasPointerOwnedIds } from "./interaction";
+import { INFINITE_CANVAS_LAYOUT_TRANSITION } from "./layout-motion";
 import {
   getInfiniteCanvasGroupLayout,
   getInfiniteCanvasGroupMinimumSize,
@@ -28,18 +33,21 @@ import {
   type InfiniteCanvasGroupTabLabel,
 } from "./group-state";
 import { getInfiniteCanvasWorkspaceWindowIds } from "./workspace-membership";
-import { capturePointer, isPrimaryButton, releasePointer } from "./runtime";
-import { useInfiniteCanvasActions, useInfiniteCanvasSelector } from "./store";
+import { DRAG_THRESHOLD_PX, capturePointer, isPrimaryButton, releasePointer } from "./runtime";
+import {
+  useInfiniteCanvasActions,
+  useInfiniteCanvasSelector,
+  useInfiniteCanvasState$,
+  useInfiniteCanvasStore,
+} from "./store";
 import { getNextInfiniteCanvasRovingIndex } from "./window-focus";
 import type {
-  InfiniteCanvasCamera,
   InfiniteCanvasCommands,
   InfiniteCanvasGroup,
   InfiniteCanvasGroupMetrics,
   InfiniteCanvasRect,
   InfiniteCanvasResizeHandle,
   InfiniteCanvasWindow,
-  InfiniteCanvasViewport,
   InfiniteCanvasViewportInsets,
 } from "./types";
 
@@ -150,27 +158,21 @@ const SHELL_RESIZE_HANDLE_DESCRIPTORS: readonly InfiniteCanvasShellResizeHandleD
   },
 ];
 
-function getWorldRectStyle(
-  camera: InfiniteCanvasCamera,
-  viewport: InfiniteCanvasViewport,
-  rect: InfiniteCanvasRect,
-  devicePixelRatio: number,
-): CSSProperties {
-  const { screenTransform } = projectWorldRectToScreen(camera, viewport, rect, devicePixelRatio);
-
+/** A shell in world units under the layer's camera transform; its rect changes tween. */
+function getWorldRectStyle(rect: InfiniteCanvasRect, isPointerOwned: boolean): CSSProperties {
   return {
-    height: `${screenTransform.height}px`,
+    height: `${rect.height}px`,
     left: "0px",
     position: "absolute",
     top: "0px",
-    transform: `translate(${screenTransform.x}px, ${screenTransform.y}px) scale(${screenTransform.scale})`,
-    transformOrigin: "top left",
-    width: `${screenTransform.width}px`,
+    transform: `translate(${rect.x}px, ${rect.y}px)`,
+    transition: isPointerOwned ? "none" : INFINITE_CANVAS_LAYOUT_TRANSITION,
+    width: `${rect.width}px`,
   };
 }
 
 /** Reorders inside the strip and starts tear-out after the pointer leaves it. */
-const TAB_DRAG_THRESHOLD_PX = 6;
+const TAB_DRAG_THRESHOLD_PX = DRAG_THRESHOLD_PX;
 
 /** Returns a sibling index and excludes the dragged tab from the scan. */
 function getTabDropIndex(siblings: readonly HTMLElement[], clientX: number): number {
@@ -268,26 +270,31 @@ function useInfiniteCanvasTabDrag(
 }
 
 function InfiniteCanvasGroupShell({
-  camera,
   canvasInstanceId,
-  devicePixelRatio,
   group,
   insets,
   isActive,
+  isDragging,
+  isDropTarget,
+  isPointerOwned,
   labelSize,
   metrics,
   resizeHandleSize,
   tabLabel,
   title,
-  viewport,
+  zoom,
 }: Readonly<{
-  camera: InfiniteCanvasCamera;
   canvasInstanceId: string;
-  devicePixelRatio: number;
   group: InfiniteCanvasGroup;
   /** Viewport insets constrain pinned group labels. */
   insets: InfiniteCanvasViewportInsets;
   isActive: boolean;
+  /** A window is in the hand somewhere on the canvas. */
+  isDragging: boolean;
+  /** The window in the hand would dock into this group if released. */
+  isDropTarget: boolean;
+  /** The pointer writes this shell's rect each frame, so it must not tween. */
+  isPointerOwned: boolean;
   /** Label height in screen pixels. A value of `0` hides labels. */
   labelSize: number;
   metrics: InfiniteCanvasGroupMetrics;
@@ -295,9 +302,10 @@ function InfiniteCanvasGroupShell({
   tabLabel: InfiniteCanvasGroupTabLabel;
   /** Resolves a label with access to the current windows. */
   title: string;
-  viewport: InfiniteCanvasViewport;
+  zoom: number;
 }>) {
   const actions = useInfiniteCanvasActions();
+  const state$ = useInfiniteCanvasState$();
   const layout = useMemo(
     () => getInfiniteCanvasGroupLayout(group.tree, group.rect, metrics),
     [group.rect, group.tree, metrics],
@@ -318,17 +326,18 @@ function InfiniteCanvasGroupShell({
 
     return [...byContainer];
   }, [layout.accordionHeaders]);
-  const { screenRect, screenTransform } = projectWorldRectToScreen(
-    camera,
-    viewport,
-    group.rect,
-    devicePixelRatio,
-  );
-  /** Keeps a label within the visible part of its shell. */
-  const labelPinOffset = useMemo(() => {
-    const scale = screenTransform.scale;
+  const scale = zoom;
+  // Keeps a label within the visible part of its shell. The camera is read here, not selected
+  // by the shell, so a pan re-renders the shell only when the pinned offset changes.
+  const labelPinOffset = useValue(() => {
+    if (title === "" || labelSize <= 0) {
+      return 0;
+    }
 
-    if (scale <= 0) {
+    const camera = state$.camera.get();
+    const screenRect = worldRectToScreenRect(camera, state$.viewport.get(), group.rect);
+
+    if (camera.zoom <= 0) {
       return 0;
     }
 
@@ -336,39 +345,19 @@ function InfiniteCanvasGroupShell({
     const held = Math.max(naturalTop, insets.top);
     const pinned = Math.min(held, screenRect.top + screenRect.height - labelSize);
 
-    return Math.max(0, pinned - naturalTop) / scale;
-  }, [
-    insets.top,
-    labelSize,
-    resizeHandleSize,
-    screenRect.height,
-    screenRect.top,
-    screenTransform.scale,
-  ]);
+    return Math.max(0, pinned - naturalTop) / camera.zoom;
+  });
   const shellStyle: InfiniteCanvasGroupShellStyle = {
-    ...getWorldRectStyle(camera, viewport, group.rect, devicePixelRatio),
+    ...getWorldRectStyle(group.rect, isPointerOwned),
     // Convert fixed screen sizes to world units for the scaled shell.
-    [SHELL_RESIZE_HANDLE_SIZE_CSS_VARIABLE]: `${
-      screenTransform.scale <= 0 ? resizeHandleSize : resizeHandleSize / screenTransform.scale
-    }px`,
-    [SHELL_LABEL_SIZE_CSS_VARIABLE]: `${
-      screenTransform.scale <= 0 ? labelSize : labelSize / screenTransform.scale
-    }px`,
-    // Cull shell chrome with the same viewport margin as its panes.
-    contentVisibility: isWorldRectCulled(camera, viewport, group.rect) ? "auto" : "visible",
+    [SHELL_RESIZE_HANDLE_SIZE_CSS_VARIABLE]: `${scale <= 0 ? resizeHandleSize : resizeHandleSize / scale}px`,
+    [SHELL_LABEL_SIZE_CSS_VARIABLE]: `${scale <= 0 ? labelSize : labelSize / scale}px`,
     pointerEvents: "none",
     zIndex: group.zIndex,
   };
 
   // Hide resize handles at summary detail. Keep keyboard controls.
-  const handleDetailRef = useRef<InfiniteCanvasDetailLevel>("full");
-  const handleDetail = getInfiniteCanvasWindowDetailLevel(
-    group.rect,
-    camera.zoom,
-    handleDetailRef.current,
-  );
-
-  handleDetailRef.current = handleDetail;
+  const handleDetail = useInfiniteCanvasDetailLevel(group.rect);
 
   return (
     <div
@@ -377,6 +366,8 @@ function InfiniteCanvasGroupShell({
       aria-current={isActive ? "true" : undefined}
       aria-roledescription="window group"
       data-active={isActive ? "" : undefined}
+      data-dragging={isDragging ? "" : undefined}
+      data-drop-target={isDropTarget ? "" : undefined}
       data-infinite-canvas-group-id={group.id}
       data-slot={INFINITE_CANVAS_SLOTS.groupShell}
       role="group"
@@ -719,9 +710,8 @@ function getLocalRectStyle(rect: InfiniteCanvasRect, shell: InfiniteCanvasRect):
   };
 }
 
-function InfiniteCanvasGroupLayer({
+function InfiniteCanvasGroupLayerContent({
   canvasInstanceId,
-  devicePixelRatio,
   groupLabel = ({ group, windows }) => getInfiniteCanvasGroupTitle(group, windows),
   labelSize,
   resizeHandleSize,
@@ -730,7 +720,6 @@ function InfiniteCanvasGroupLayer({
 }: Readonly<{
   /** Per-canvas token used to match tab controls with frame ids. */
   canvasInstanceId: string;
-  devicePixelRatio: number;
   /** Resolves a group label. Return `""` to hide one label. */
   groupLabel?: (
     context: Readonly<{ group: InfiniteCanvasGroup; windows: readonly InfiniteCanvasWindow[] }>,
@@ -741,16 +730,28 @@ function InfiniteCanvasGroupLayer({
   tabLabel?: InfiniteCanvasGroupTabLabel;
   zIndex: number;
 }>) {
-  const camera = useInfiniteCanvasSelector((state) => state.camera);
-  const viewport = useInfiniteCanvasSelector((state) => state.viewport);
-  const allGroups = useInfiniteCanvasSelector((state) => state.groups);
-  const windows = useInfiniteCanvasSelector((state) => state.windows);
-  const insets = useInfiniteCanvasSelector((state) => state.viewportInsets);
-  const activeWindowId = useInfiniteCanvasSelector((state) => state.activeWindowId);
+  const store = useInfiniteCanvasStore();
+  const zoom = useValue(store.state$.camera.zoom);
+  const allGroups = useValue(store.state$.groups);
+  const windows = useValue(store.state$.windows);
+  const insets = useValue(store.state$.viewportInsets);
+  const activeWindowId = useValue(store.state$.activeWindowId);
   // Use store metrics because the reducer uses them to place panes.
-  const metrics = useInfiniteCanvasSelector((state) => state.groupMetrics);
+  const metrics = useValue(store.state$.groupMetrics);
+  const workspaces = useValue(store.state$.workspaces);
+  const activeWorkspaceId = useValue(store.state$.activeWorkspaceId);
+  const interaction = useValue(store.state$.interaction);
   // Render a shell only when the active workspace includes its members.
-  const admittedWindowIds = useInfiniteCanvasSelector(getInfiniteCanvasWorkspaceWindowIds);
+  const admittedWindowIds = useMemo(
+    () => getInfiniteCanvasWorkspaceWindowIds(store.state$.peek()),
+    [activeWorkspaceId, store, workspaces],
+  );
+  const pointerOwnedGroupIds = useMemo(
+    () => getInfiniteCanvasPointerOwnedIds(store.state$.peek()).groupIds,
+    [allGroups, interaction, store],
+  );
+  // A shell shows itself while a window is in the hand, and marks itself as the drop target.
+  const move = interaction?.kind === "move" ? interaction : null;
   const groups =
     admittedWindowIds === null
       ? allGroups
@@ -765,17 +766,18 @@ function InfiniteCanvasGroupLayer({
   }
 
   return (
-    <div style={{ inset: 0, pointerEvents: "none", position: "absolute", zIndex }}>
+    <InfiniteCanvasCameraLayer zIndex={zIndex}>
       {groups.map((group) => (
         <InfiniteCanvasGroupShell
-          camera={camera}
           canvasInstanceId={canvasInstanceId}
-          devicePixelRatio={devicePixelRatio}
           group={group}
           isActive={
             activeWindowId !== null &&
             getInfiniteCanvasGroupWindowIds(group.tree).includes(activeWindowId)
           }
+          isDragging={move !== null}
+          isDropTarget={move?.dockPreview?.groupId === group.id}
+          isPointerOwned={pointerOwnedGroupIds.has(group.id)}
           insets={insets}
           key={group.id}
           labelSize={labelSize}
@@ -783,11 +785,15 @@ function InfiniteCanvasGroupLayer({
           resizeHandleSize={resizeHandleSize}
           tabLabel={tabLabel}
           title={groupLabel({ group, windows })}
-          viewport={viewport}
+          zoom={zoom}
         />
       ))}
-    </div>
+    </InfiniteCanvasCameraLayer>
   );
 }
+
+const InfiniteCanvasGroupLayer = memo(
+  InfiniteCanvasGroupLayerContent,
+) as typeof InfiniteCanvasGroupLayerContent;
 
 export { InfiniteCanvasGroupLayer };

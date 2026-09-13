@@ -8,7 +8,7 @@ import {
 import { InfiniteCanvasCompositorSurface } from "@hyphened/infinite-canvas/scene";
 import { useObservable, useValue } from "@legendapp/state/react";
 import { PanelLeft, Plus } from "lucide-react";
-import { useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo } from "react";
 import { Button } from "ui";
 import { tv } from "ui/tv";
 
@@ -163,6 +163,10 @@ export function WorkspaceCanvas({ canvas }: Readonly<{ canvas: LoadedCanvas }>) 
   const runtime = useCanvasRuntime(canvas);
   const library$ = useObservable(true);
   const libraryOpen = useValue(library$);
+  // Stable, so the memoized rail does not re-render on every canvas state change.
+  const closeLibrary = useCallback(() => {
+    library$.set(false);
+  }, [library$]);
   // HUD surfaces report the rectangles they cover.
   const occluders = useHudOccluders();
   // The minimap starts open and returns its camera space when closed.
@@ -262,12 +266,7 @@ export function WorkspaceCanvas({ canvas }: Readonly<{ canvas: LoadedCanvas }>) 
                 tour={<TourControl />}
                 library={
                   libraryOpen ? (
-                    <LibraryRail
-                      onCollapse={() => {
-                        library$.set(false);
-                      }}
-                      projectId={canvas.projectId}
-                    />
+                    <LibraryRail onCollapse={closeLibrary} projectId={canvas.projectId} />
                   ) : null
                 }
                 identity={

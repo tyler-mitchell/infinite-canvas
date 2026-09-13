@@ -3,8 +3,10 @@
 import {
   createContext,
   useContext,
+  useRef,
   type CSSProperties,
   type KeyboardEvent as ReactKeyboardEvent,
+  type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
 } from "react";
 
@@ -16,10 +18,12 @@ import { focusInfiniteCanvasCommandSurfaceFrom } from "./keyboard";
 import { InfiniteCanvasWindowBody } from "./rasterization-layer";
 import { mergeInfiniteCanvasSlotProps } from "./slot";
 import {
+  DRAG_THRESHOLD_PX,
   capturePointer,
   clearNativeTextSelection,
   getClientPoint,
   getViewportPoint,
+  isInteractiveTarget,
   isPrimaryButton,
   releasePointer,
 } from "./runtime";
@@ -313,6 +317,11 @@ function InfiniteCanvasWindowFrameBodySlot({
     textSelection,
     window,
   } = useInfiniteCanvasWindowFrameRuntimeContext();
+  // Start a move after the threshold and suppress the click that follows a drag.
+  const pressRef = useRef<{ client: InfiniteCanvasPoint; viewport: InfiniteCanvasPoint } | null>(
+    null,
+  );
+  const draggedRef = useRef(false);
   const props = mergeInfiniteCanvasSlotProps(
     {
       "data-infinite-canvas-body": "true",
@@ -335,8 +344,24 @@ function InfiniteCanvasWindowFrameBodySlot({
           event.preventDefault();
         }
       },
+      onClickCapture: (event: ReactMouseEvent<HTMLElement>) => {
+        if (draggedRef.current) {
+          draggedRef.current = false;
+          event.preventDefault();
+          event.stopPropagation();
+        }
+      },
+      onPointerCancel: () => {
+        pressRef.current = null;
+      },
       onPointerDownCapture: (event: ReactPointerEvent<HTMLElement>) => {
         if (!isPrimaryButton(event)) {
+          return;
+        }
+
+        if (isInteractiveTarget(event.target)) {
+          pressRef.current = null;
+          actions.focusWindow(window.id);
           return;
         }
 
@@ -353,6 +378,34 @@ function InfiniteCanvasWindowFrameBodySlot({
         } else {
           actions.focusWindow(window.id);
         }
+
+        pressRef.current =
+          bodyPointerBehavior === "move"
+            ? { client: getClientPoint(event), viewport: getEventViewportPoint(event) }
+            : null;
+      },
+      onPointerMove: (event: ReactPointerEvent<HTMLElement>) => {
+        const press = pressRef.current;
+
+        if (
+          press === null ||
+          Math.hypot(event.clientX - press.client.x, event.clientY - press.client.y) <
+            (definition.bodyDragThresholdPx ?? DRAG_THRESHOLD_PX)
+        ) {
+          return;
+        }
+
+        pressRef.current = null;
+        draggedRef.current = true;
+        // The viewport steps and finishes the move by pointer id from here on.
+        actions.startMove({
+          pointerId: event.pointerId,
+          point: press.viewport,
+          windowId: window.id,
+        });
+      },
+      onPointerUp: () => {
+        pressRef.current = null;
       },
       style: {
         bottom: 0,
@@ -425,8 +478,6 @@ function InfiniteCanvasWindowFrameSurfaceSlot({
     {
       "data-slot": INFINITE_CANVAS_SLOTS.windowSurface,
       style: {
-        // Keep the border at least one screen pixel wide.
-        borderWidth: "var(--icx-chrome-stroke)",
         inset: 0,
         overflow: "hidden",
         pointerEvents: "auto",

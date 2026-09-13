@@ -4,8 +4,16 @@ import type { VariantProps } from "tailwind-variants";
 import { tv } from "../tv.ts";
 
 const row = tv({
-  base: "flex flex-none flex-wrap gap-2.5",
+  base: "flex min-w-0 flex-none flex-wrap gap-x-3 gap-y-1.5",
   variants: {
+    gap: {
+      none: "gap-0",
+      xs: "gap-1",
+      sm: "gap-x-2 gap-y-1",
+      md: "gap-x-3 gap-y-1.5",
+      lg: "gap-x-4 gap-y-2",
+      xl: "gap-5",
+    },
     align: {
       baseline: "items-baseline",
       center: "items-center",
@@ -21,25 +29,37 @@ const row = tv({
       above: "border-t border-pk-line-inner pt-[11px]",
       below: "border-b border-pk-line-inner pb-[11px]",
     },
+    ruleLook: {
+      line: "",
+      engraved: "",
+    },
   },
-  defaultVariants: { align: "center", justify: "between", rule: "none" },
+  compoundVariants: [
+    {
+      rule: "above",
+      ruleLook: "engraved",
+      class: "pk-rule-engraved-above border-t-transparent",
+    },
+    {
+      rule: "below",
+      ruleLook: "engraved",
+      class: "pk-rule-engraved-below border-b-transparent",
+    },
+  ],
+  defaultVariants: { align: "center", justify: "between", rule: "none", ruleLook: "line" },
 });
 
 export interface RowProps extends useRender.ComponentProps<"div">, VariantProps<typeof row> {}
 
-/**
- * A two-ended line: something naming at one end, something reporting at the other. It is a layout
- * and not a header — several widgets put their naming line at the bottom — so whether a given row
- * is a header is the consumer's business.
- */
-function Row({ align, justify, rule, className, render, ...props }: RowProps) {
+/** A wrapping row with optional dividers. */
+function Row({ align, justify, rule, ruleLook, gap, className, render, ...props }: RowProps) {
   return useRender({
     render,
     defaultTagName: "div",
     props: {
       ...props,
       "data-slot": "row",
-      className: row({ align, justify, rule, className: className as string }),
+      className: row({ align, justify, rule, ruleLook, gap, className }),
     },
   });
 }

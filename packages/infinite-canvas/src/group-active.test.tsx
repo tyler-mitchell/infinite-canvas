@@ -48,7 +48,6 @@ const renderWithActive = (activeWindowId: string) =>
     >
       <InfiniteCanvasGroupLayer
         canvasInstanceId="test-canvas"
-        devicePixelRatio={1}
         labelSize={20}
         resizeHandleSize={8}
         zIndex={0}

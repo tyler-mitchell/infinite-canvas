@@ -1,3 +1,7 @@
+@layer theme, base, infinite-canvas, components, utilities;
+
+/* The board route runs on the framework's canvas; its slots keep their default theme. */
+@import "@hyphened/infinite-canvas/theme.css";
 @import "tailwindcss";
 
 /* The path a consumer writes, so the documented setup is the one that runs here. */

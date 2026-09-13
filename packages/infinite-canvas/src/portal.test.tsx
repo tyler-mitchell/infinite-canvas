@@ -33,20 +33,18 @@ const renderFrame = (portalRoot: boolean) =>
   renderToStaticMarkup(
     <InfiniteCanvasProvider initialState={state}>
       <InfiniteCanvasWindowFrame
-        camera={state.camera}
         canvasInstanceId="test-canvas"
         chrome={DEFAULT_INFINITE_CANVAS_CHROME}
-        devicePixelRatio={1}
         isActive={false}
         isGrouped={false}
         isSelected={false}
         stackBands={DEFAULT_INFINITE_CANVAS_STACK_BANDS}
         theme={DEFAULT_INFINITE_CANVAS_THEME}
-        viewport={state.viewport}
         window={noteWindow}
         windowDefinitions={defineInfiniteCanvasWindowRegistry<Kind>({
           note: { kind: "note", portalRoot, renderBody: () => <p>body</p> },
         })}
+        zoom={state.camera.zoom}
       />
     </InfiniteCanvasProvider>,
   );

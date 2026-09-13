@@ -17,6 +17,7 @@ import { Route as FoundationsRouteImport } from './routes/foundations'
 import { Route as FormsRouteImport } from './routes/forms'
 import { Route as DisclosureRouteImport } from './routes/disclosure'
 import { Route as ControlsRouteImport } from './routes/controls'
+import { Route as BoardRouteImport } from './routes/board'
 import { Route as IndexRouteImport } from './routes/index'
 
 const WidgetsRoute = WidgetsRouteImport.update({
@@ -59,6 +60,11 @@ const ControlsRoute = ControlsRouteImport.update({
   path: '/controls',
   getParentRoute: () => rootRouteImport,
 } as any)
+const BoardRoute = BoardRouteImport.update({
+  id: '/board',
+  path: '/board',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
@@ -67,6 +73,7 @@ const IndexRoute = IndexRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/board': typeof BoardRoute
   '/controls': typeof ControlsRoute
   '/disclosure': typeof DisclosureRoute
   '/forms': typeof FormsRoute
@@ -78,6 +85,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/board': typeof BoardRoute
   '/controls': typeof ControlsRoute
   '/disclosure': typeof DisclosureRoute
   '/forms': typeof FormsRoute
@@ -90,6 +98,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/board': typeof BoardRoute
   '/controls': typeof ControlsRoute
   '/disclosure': typeof DisclosureRoute
   '/forms': typeof FormsRoute
@@ -103,6 +112,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/board'
     | '/controls'
     | '/disclosure'
     | '/forms'
@@ -114,6 +124,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/board'
     | '/controls'
     | '/disclosure'
     | '/forms'
@@ -125,6 +136,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/board'
     | '/controls'
     | '/disclosure'
     | '/forms'
@@ -137,6 +149,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  BoardRoute: typeof BoardRoute
   ControlsRoute: typeof ControlsRoute
   DisclosureRoute: typeof DisclosureRoute
   FormsRoute: typeof FormsRoute
@@ -205,6 +218,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ControlsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/board': {
+      id: '/board'
+      path: '/board'
+      fullPath: '/board'
+      preLoaderRoute: typeof BoardRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -217,6 +237,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  BoardRoute: BoardRoute,
   ControlsRoute: ControlsRoute,
   DisclosureRoute: DisclosureRoute,
   FormsRoute: FormsRoute,

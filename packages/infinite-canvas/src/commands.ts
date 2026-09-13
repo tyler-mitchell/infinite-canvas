@@ -4,6 +4,7 @@ import {
   navigateCameraToWindow,
 } from "./camera-navigation";
 import { DEFAULT_INFINITE_CANVAS_ZOOM } from "./constants";
+import { calcGridColWidth } from "react-grid-layout/core";
 import {
   getInfiniteCanvasContentWorldRect,
   getViewportInsetWorldRect,
@@ -14,6 +15,7 @@ import {
 } from "./geometry";
 import { getInfiniteCanvasGroupGutterWeights, getInfiniteCanvasGroupLayout } from "./group-layout";
 import {
+  findInfiniteCanvasGroupNode,
   getInfiniteCanvasGroupParent,
   getInfiniteCanvasGroupWindowIds,
   type InfiniteCanvasGroupContainerNode,
@@ -27,8 +29,11 @@ import {
   equalizeInfiniteCanvasGroupChildrenInState,
   findInfiniteCanvasGroup,
   getInfiniteCanvasWindowGroup,
+  getInfiniteCanvasMasonryMembership,
+  getInfiniteCanvasMasonryGrid,
   isInfiniteCanvasWindowGrouped,
   reorderInfiniteCanvasGroupChildInState,
+  resizeInfiniteCanvasMasonryMember,
   resolveInfiniteCanvasDockPreviewForTarget,
   revealInfiniteCanvasGroupWindow,
   setInfiniteCanvasGroupAxisInState,
@@ -600,6 +605,14 @@ const DEFAULT_INFINITE_CANVAS_COMMAND_DESCRIPTORS = [
     label: "Layout: Accordion",
   },
   {
+    command: { layout: "masonry", type: "group.setLayout" },
+    description:
+      "Pack the active window's panes on a lattice of square cells; the shell grows with its rows.",
+    hotkeys: [],
+    id: "group.setLayout.masonry",
+    label: "Layout: Lattice",
+  },
+  {
     command: { amountPx: 24, type: "group.resizePane" },
     description:
       "Give the active window a larger share of its container, taking it from the next pane along — or from the previous one when the active window is last.",
@@ -795,7 +808,9 @@ const DEFAULT_INFINITE_CANVAS_COMMAND_DESCRIPTORS = [
     id: "window.resize.up",
     label: "Shorten Window",
   },
-] satisfies readonly InfiniteCanvasCommandDescriptor[];
+] as const satisfies readonly InfiniteCanvasCommandDescriptor[];
+
+export type CommandId = (typeof DEFAULT_INFINITE_CANVAS_COMMAND_DESCRIPTORS)[number]["id"];
 
 const FIT_CAMERA_NAVIGATION_BEHAVIOR = {
   type: "fit",
@@ -948,7 +963,8 @@ function nudgeSelectedWindows<Kind extends string>(
     ...movedState,
     windows: movedState.windows.map((window) =>
       isWindowSelected(movedState, window.id) &&
-      !isInfiniteCanvasWindowGrouped(movedState, window.id)
+      !isInfiniteCanvasWindowGrouped(movedState, window.id) &&
+      isInfiniteCanvasWindowCapable(window, "movable")
         ? {
             ...window,
             rect: {
@@ -968,7 +984,8 @@ function getArrangeableWindows<Kind extends string>(state: InfiniteCanvasState<K
     (window) =>
       window.mode !== "minimized" &&
       isWindowSelected(state, window.id) &&
-      !isInfiniteCanvasWindowGrouped(state, window.id),
+      !isInfiniteCanvasWindowGrouped(state, window.id) &&
+      isInfiniteCanvasWindowCapable(window, "movable"),
   );
 }
 
@@ -1246,11 +1263,21 @@ function isInfiniteCanvasCommandEnabled<Kind extends string>(
       return canUndoInfiniteCanvas(state);
     case "window.focusDirection":
       return getInfiniteCanvasDirectionalFocusTarget(state, command.direction) !== null;
+    // A grouped selection nudges its shell, so only floating members need the capability.
     case "window.nudge":
-      return state.selection.windowIds.length > 0;
+      return state.selection.windowIds.some((windowId) => {
+        const window = findWindow(state, windowId);
+
+        return (
+          window !== null &&
+          (isInfiniteCanvasWindowGrouped(state, windowId) ||
+            isInfiniteCanvasWindowCapable(window, "movable"))
+        );
+      });
     case "window.place":
+      return getActiveGeometryWindowId(state, "movable") !== null;
     case "window.resize":
-      return getActiveFloatingWindowId(state) !== null;
+      return getActiveGeometryWindowId(state, "resizable") !== null;
     case "window.dockDirection":
       return resolveInfiniteCanvasDirectionalDock(state, command.direction) !== null;
     case "window.undock":
@@ -1334,10 +1361,12 @@ function isInfiniteCanvasCommandEnabled<Kind extends string>(
     case "group.flipAxis": {
       const active = getActiveInfiniteCanvasGroupContainer(state);
 
+      // Tabs and a lattice have no axis to flip.
       return (
         active !== null &&
         active.container.children.length > 1 &&
-        active.container.layout !== "tabs"
+        active.container.layout !== "tabs" &&
+        active.container.layout !== "masonry"
       );
     }
     case "group.equalizeChildren": {
@@ -1398,9 +1427,10 @@ function getActiveInfiniteCanvasGroupContainer<Kind extends string>(
   return container === null ? null : { container, groupId: group.id };
 }
 
-/** Returns the active floating window for placement or resize commands. */
-function getActiveFloatingWindowId<Kind extends string>(
+/** Placement requires a floating window. Masonry members also permit resizing. */
+function getActiveGeometryWindowId<Kind extends string>(
   state: InfiniteCanvasState<Kind>,
+  capability: InfiniteCanvasWindowCapability,
 ): string | null {
   const windowId = state.activeWindowId;
 
@@ -1412,7 +1442,10 @@ function getActiveFloatingWindowId<Kind extends string>(
 
   return window === null ||
     window.mode === "minimized" ||
-    isInfiniteCanvasWindowGrouped(state, windowId)
+    (isInfiniteCanvasWindowGrouped(state, windowId) &&
+      (capability !== "resizable" ||
+        getInfiniteCanvasMasonryMembership(state, windowId) === null)) ||
+    !isInfiniteCanvasWindowCapable(window, capability)
     ? null
     : windowId;
 }
@@ -1421,7 +1454,7 @@ function placeActiveWindow<Kind extends string>(
   state: InfiniteCanvasState<Kind>,
   command: Extract<InfiniteCanvasCommand, { type: "window.place" }>,
 ): InfiniteCanvasState<Kind> {
-  const windowId = getActiveFloatingWindowId(state);
+  const windowId = getActiveGeometryWindowId(state, "movable");
   const window = windowId === null ? null : findWindow(state, windowId);
 
   if (windowId === null || window === null) {
@@ -1438,33 +1471,44 @@ function placeActiveWindow<Kind extends string>(
   );
 }
 
-/** Resizes east and south edges by a screen-space delta. */
+/** Resizes floating windows by pixels and masonry members by at least one cell. */
 function resizeActiveWindow<Kind extends string>(
   state: InfiniteCanvasState<Kind>,
   command: Extract<InfiniteCanvasCommand, { type: "window.resize" }>,
 ): InfiniteCanvasState<Kind> {
-  const windowId = getActiveFloatingWindowId(state);
+  const windowId = getActiveGeometryWindowId(state, "resizable");
   const window = windowId === null ? null : findWindow(state, windowId);
 
   if (windowId === null || window === null) {
     return state;
   }
 
-  const worldDelta = command.amountPx / state.camera.zoom;
   const isHorizontal = command.direction === "left" || command.direction === "right";
   const isGrowing = command.direction === "right" || command.direction === "down";
+  const grid = getInfiniteCanvasMasonryGrid(state, windowId);
+  const cellStep =
+    grid &&
+    (isHorizontal
+      ? calcGridColWidth(grid.params) + grid.params.margin[0]
+      : grid.params.rowHeight + grid.params.margin[1]);
+  const worldDelta = Math.max(command.amountPx / state.camera.zoom, cellStep ?? 0);
   const signedDelta = isGrowing ? worldDelta : -worldDelta;
-
-  return updateWindowRect(
-    state,
-    windowId,
-    resizeRectFromHandle(
-      window.rect,
-      isHorizontal ? "east" : "south",
-      { x: isHorizontal ? signedDelta : 0, y: isHorizontal ? 0 : signedDelta },
-      window.minSize,
-    ),
+  const rect = resizeRectFromHandle(
+    window.rect,
+    isHorizontal ? "east" : "south",
+    { x: isHorizontal ? signedDelta : 0, y: isHorizontal ? 0 : signedDelta },
+    grid === null ? window.minSize : { width: 0, height: 0 },
   );
+  const resized =
+    grid === null
+      ? updateWindowRect(state, windowId, rect)
+      : resizeInfiniteCanvasMasonryMember(state, windowId, rect, isHorizontal ? "e" : "s");
+  return {
+    ...resized,
+    windows: resized.windows.map((item) =>
+      item.id === windowId ? { ...item, heightMode: "manual" as const } : item,
+    ),
+  };
 }
 
 function getInfiniteCanvasCommandGroup(command: InfiniteCanvasCommand): InfiniteCanvasCommandGroup {

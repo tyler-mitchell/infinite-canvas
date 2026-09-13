@@ -231,6 +231,15 @@ function Layout() {
           <Separator />
           <Meta>grid</Meta>
         </Surface>
+        <Surface tone="card" className={styles.padBox()}>
+          <Meta>engraved</Meta>
+          <Separator look="engraved" />
+          <div className={styles.inline()}>
+            <Meta>left pane</Meta>
+            <Separator look="engraved" orientation="vertical" />
+            <Meta>right pane</Meta>
+          </div>
+        </Surface>
         <Api name="separator" of={separatorVariants} />
       </section>
 

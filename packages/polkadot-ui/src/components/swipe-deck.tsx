@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { mergeProps } from "@base-ui/react/merge-props";
+import { useRef, useState } from "react";
 
 import { tv } from "../tv.ts";
 import { Readout } from "./text.tsx";
@@ -6,7 +7,7 @@ import { Readout } from "./text.tsx";
 const swipeDeck = tv({
   slots: {
     well: "relative min-h-0 flex-1 rounded-pk-card outline-none focus-visible:ring-2 focus-visible:ring-pk-accent/50 focus-visible:ring-offset-2 focus-visible:ring-offset-(color:--pk-ring-seat)",
-    card: "pk-swipe-face absolute inset-0 box-border flex touch-none flex-col justify-start gap-2.5 overflow-hidden rounded-pk-card border border-pk-swipe-line p-4 shadow-pk-swipe select-none",
+    card: "pk-swipe-face absolute inset-0 box-border flex touch-pan-y flex-col justify-start gap-2.5 overflow-hidden rounded-pk-card border border-pk-swipe-line p-4 shadow-pk-swipe select-none",
     head: "flex flex-none items-center justify-between gap-2",
     kind: "font-pk-sans text-pk-micro whitespace-nowrap text-pk-ink-dim uppercase",
     stamp:
@@ -151,10 +152,10 @@ function SwipeDeck({
   ...props
 }: SwipeDeckProps) {
   const [settled, setSettled] = useState<ReadonlySet<string>>(() => new Set());
-  const [offset, setOffset] = useState(0);
-  const [held, setHeld] = useState(false);
+  const [gesture, setGesture] = useState({ held: false, offset: 0, scale: 1 });
+  const origin = useRef<{ pointerId: number; x: number } | null>(null);
   const [outcome, setOutcome] = useState("");
-  const styles = swipeDeck({ held });
+  const styles = swipeDeck({ held: gesture.held });
 
   const remaining = remainingOf(items, settled);
   const top = remaining[0];
@@ -163,8 +164,8 @@ function SwipeDeck({
 
   /** Puts the card down where it started, holding nothing. */
   const rest = () => {
-    setOffset(0);
-    setHeld(false);
+    origin.current = null;
+    setGesture((current) => ({ ...current, held: false, offset: 0 }));
   };
 
   const settle = (direction: "pin" | "skip") => {
@@ -179,8 +180,14 @@ function SwipeDeck({
     rest();
   };
 
-  const release = () => {
-    const outcome = swipeOutcome(offset);
+  const release = (event: React.PointerEvent<HTMLDivElement>) => {
+    const press = origin.current;
+    if (press === null || press.pointerId !== event.pointerId) return;
+    const outcome = swipeOutcome(event.clientX - press.x);
+
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
 
     if (outcome === "return") {
       rest();
@@ -192,18 +199,21 @@ function SwipeDeck({
   return (
     <div
       data-slot="swipe-deck"
-      role="group"
-      aria-label={label.trim() || DEFAULT_LABEL}
-      tabIndex={top ? 0 : -1}
-      aria-keyshortcuts={top ? "ArrowLeft ArrowRight" : undefined}
       className={styles.well({ className })}
-      onKeyDown={(event) => {
-        const direction = { ArrowLeft: "skip", ArrowRight: "pin" }[event.key];
-        if (!direction) return;
-        event.preventDefault();
-        settle(direction as "pin" | "skip");
-      }}
-      {...props}
+      {...mergeProps<"div">(
+        {
+          role: "group",
+          "aria-label": label.trim() || DEFAULT_LABEL,
+          tabIndex: top ? 0 : -1,
+          "aria-keyshortcuts": top ? "ArrowLeft ArrowRight" : undefined,
+          onKeyDown: (event) => {
+            if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+            event.preventDefault();
+            settle(event.key === "ArrowLeft" ? "skip" : "pin");
+          },
+        },
+        props,
+      )}
     >
       {/* Empty at first, so nothing is said until a card actually settles. */}
       <Readout className={styles.outcome()}>{outcome}</Readout>
@@ -213,7 +223,7 @@ function SwipeDeck({
         .reverse()
         .map((item) => {
           const isTop = item.id === top?.id;
-          const shift = isTop ? offset : 0;
+          const shift = isTop ? gesture.offset : 0;
           const stamps = stampOpacity(shift);
           return (
             <div
@@ -221,33 +231,39 @@ function SwipeDeck({
               data-slot="swipe-card"
               /* The one on top covers the others completely, so they are picture, not text. */
               aria-hidden={isTop ? undefined : true}
-              style={{ transform: `translateX(${shift}px) rotate(${shift / 22}deg)` }}
+              style={{ transform: `translateX(${shift / gesture.scale}px) rotate(${shift / 22}deg)` }}
               className={styles.card()}
               onPointerDown={
                 isTop
                   ? (event) => {
+                      if (event.button !== 0 || !event.isPrimary || origin.current !== null) return;
+                      const well = event.currentTarget.parentElement;
+                      if (well === null || well.offsetWidth === 0) return;
+                      const scale = well.getBoundingClientRect().width / well.offsetWidth;
+                      origin.current = { pointerId: event.pointerId, x: event.clientX };
+                      well.focus({ preventScroll: true });
                       try {
                         event.currentTarget.setPointerCapture(event.pointerId);
                       } catch {
                         console.warn("swipe deck: no pointer capture, dragging from state instead");
                       }
-                      setHeld(true);
+                      setGesture({ held: true, offset: 0, scale });
                     }
                   : undefined
               }
               onPointerMove={
                 isTop
                   ? (event) => {
-                      const dragging =
-                        held || event.currentTarget.hasPointerCapture(event.pointerId);
-                      if (!dragging) return;
-                      setOffset((current) => current + event.movementX);
+                      const press = origin.current;
+                      if (press === null || press.pointerId !== event.pointerId) return;
+                      setGesture((current) => ({ ...current, offset: event.clientX - press.x }));
                     }
                   : undefined
               }
               onPointerUp={isTop ? release : undefined}
               /* Taken away rather than let go: the reader never chose, so nothing is decided. */
               onPointerCancel={isTop ? rest : undefined}
+              onLostPointerCapture={isTop ? rest : undefined}
             >
               <div className={styles.head()}>
                 <span className={styles.kind()}>{item.kind}</span>

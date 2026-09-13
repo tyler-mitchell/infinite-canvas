@@ -156,13 +156,13 @@ function applySnapToRect<Kind extends string>(
   state: InfiniteCanvasState<Kind>,
   windowId: string,
   rect: InfiniteCanvasRect,
-  policy: InfiniteCanvasSnapPolicy = DEFAULT_INFINITE_CANVAS_SNAP_POLICY,
+  policy: InfiniteCanvasSnapPolicy | false = DEFAULT_INFINITE_CANVAS_SNAP_POLICY,
   excludedWindowIds: readonly string[] = [windowId],
 ): Readonly<{
   preview: InfiniteCanvasSnapPreview | null;
   rect: InfiniteCanvasRect;
 }> {
-  if (!policy.enabled) {
+  if (policy === false || !policy.enabled) {
     return {
       preview: null,
       rect,
@@ -296,12 +296,12 @@ function applyResizeSnapToRect<Kind extends string>(
   rect: InfiniteCanvasRect,
   handle: InfiniteCanvasResizeHandle,
   minSize: InfiniteCanvasSize,
-  policy: InfiniteCanvasSnapPolicy = DEFAULT_INFINITE_CANVAS_SNAP_POLICY,
+  policy: InfiniteCanvasSnapPolicy | false = DEFAULT_INFINITE_CANVAS_SNAP_POLICY,
 ): Readonly<{
   preview: InfiniteCanvasSnapPreview | null;
   rect: InfiniteCanvasRect;
 }> {
-  if (!policy.enabled) {
+  if (policy === false || !policy.enabled) {
     return {
       preview: null,
       rect,
