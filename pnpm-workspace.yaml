@@ -7,7 +7,7 @@ catalogMode: prefer
 
 catalog:
   "@types/node": ^24
-  typescript: ^5
+  typescript: ^5.9.3
   # Keep these packages aligned. Version 0.1.24 served Start routes as 404.
   vite: npm:@voidzero-dev/vite-plus-core@0.2.9
   vitest: 4.1.10
@@ -18,7 +18,7 @@ catalog:
   "@types/react": ^19.3.0
   "@types/react-dom": ^19.3.0
   "@vitejs/plugin-react": ^6.0.2
-  "@legendapp/state": 3.0.0-beta.47
+  "@legendapp/state": 3.0.0-beta.48
   "@react-three/fiber": 10.0.0-canary.dbbe704
   "@react-three/drei": 10.7.7
   motion: ^12.40.0
@@ -26,6 +26,7 @@ catalog:
   three: 0.181.2
   "@types/three": 0.184.1
   "@tanstack/hotkeys": ^0.7.1
+  "@tanstack/react-hotkeys": 0.9.1
   "@tanstack/pacer": 0.22.0
   "@tanstack/react-start": ^1.168.49
   arktype: ^2.2.3
@@ -78,8 +79,20 @@ catalog:
   liquid-gooey: ^0.1.0
   "@chenglou/pretext": ^0.0.8
   d3-shape: ^3.2.0
-  '@types/d3-shape': ^3.2.0
+  "@types/d3-shape": ^3.2.0
   "@tanstack/react-query": ^5.102.8
+  simple-icons: ^16.30.0
+  use-webmcp-tool: ^0.3.0
+  "@base-ui/utils": 0.2.9
+  p-queue: ^9.3.3
+  "@vitest/browser-playwright": 4.1.10
+  "@vitest/coverage-v8": 4.1.10
+  "@ark/attest": ^0.56.3
+  surqlize: 0.1.0
+  p-timeout: ^7.0.2
+  webmcp-types: ^0.1.7
+  "@ark/util": ^0.56.2
+  "@remoteoss/json-schema-form": 1.2.7
 overrides:
   vite: "catalog:"
   vitest: "catalog:"
@@ -104,3 +117,9 @@ minimumReleaseAgeExclude:
   - "@tanstack/start-plugin-core@1.171.39"
   - "@tanstack/start-server-core@1.169.31"
   - "@tanstack/start-storage-context@1.167.29"
+allowBuilds:
+  esbuild: false
+patchedDependencies:
+  "@legendapp/state@3.0.0-beta.48": patches/@legendapp__state@3.0.0-beta.48.patch
+  surqlize@0.1.0: patches/surqlize@0.1.0.patch
+  use-webmcp-tool@0.3.0: patches/use-webmcp-tool@0.3.0.patch

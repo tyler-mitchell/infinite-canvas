@@ -18,6 +18,7 @@
     "compositor-poc": "vp run compositor-poc#dev",
     "prepare": "vp config",
     "ready": "vp check && vp run -r test && vp run -r build",
+    "typecheck": "vp check --no-fmt --no-lint",
     "release:add": "bumpy add",
     "release:check": "bumpy check --strict",
     "release:merge": "gh pr merge bumpy/version-packages --auto --squash",

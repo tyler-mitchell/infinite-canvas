@@ -229,7 +229,7 @@ If a new export form is necessary, add parser support. Otherwise, keep the barre
 
 ### Keep structural tests
 
-The `src/command-coverage.test.ts` file maps every action through `Record<InfiniteCanvasAction["type"], …>`. Each action must name a command or declare one of four chromeless reasons.
+The `src/command-coverage.test.ts` file maps every direct action type to a descriptor or chromeless reason.
 
 The command registry supplies hotkeys, the command palette, and contextual availability.
 

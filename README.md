@@ -18,7 +18,7 @@ npm install @hyphened/infinite-canvas react react-dom
 
 The core implements geometry, state transitions, selection, snapping, stacking, groups, history, and camera navigation as pure functions over plain data.
 
-Four boundary modules use Legend State: `store`, `rasterization`, `visibility`, and `canvas-handle`. The `verify-pure-core.mjs` script rejects import paths from the pure core to React, Legend State, or `three`.
+The `store`, `rasterization`, and `visibility` boundary modules use Legend State. The `verify-pure-core.mjs` script rejects import paths from the pure core to React, Legend State, or `three`.
 
 ### GPU and DOM
 
@@ -28,9 +28,9 @@ DOM content cannot enter the WebGPU render pass or interleave with scene geometr
 
 The optional scene layer uses `three`.
 
-### Commands
+### Dispatch
 
-Pointer gestures, keyboard shortcuts, UI buttons, and programmatic drivers use the same named commands.
+Pointer gestures, keyboard shortcuts, UI buttons, and programmatic drivers dispatch the same typed actions.
 
 ### Headless output
 
