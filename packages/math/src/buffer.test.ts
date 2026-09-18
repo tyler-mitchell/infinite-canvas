@@ -2,14 +2,13 @@ import { describe, expect, test } from "vite-plus/test";
 import {
   boundsOfRects,
   createRectBuffer,
-  intersectingIndices,
   nearestIndices,
   readRect,
   RECT_STRIDE,
   writeRect,
 } from "./buffer";
 import { d } from "typegpu";
-import { approxEqualsRect, distanceToRect, intersectsRect, Rect, unionRects } from "./rect";
+import { approxEqualsRect, distanceToRect, Rect, unionRects } from "./rect";
 
 const exact: Rect[] = [
   { x: 0, y: 0, width: 100, height: 50 },
@@ -91,43 +90,6 @@ describe("boundsOfRects", () => {
   test("ignores rectangles past the count", () => {
     const buffer = filled(exact);
     expect(boundsOfRects(buffer, 1)).toEqual(exact[0]);
-  });
-});
-
-describe("intersectingIndices", () => {
-  test("agrees with intersectsRect for every query, so the two tiers report one answer", () => {
-    const buffer = filled(exact);
-    const queries: Rect[] = [
-      { x: 0, y: 0, width: 10, height: 10 },
-      { x: -100, y: -100, width: 500, height: 500 },
-      { x: 100, y: 0, width: 0, height: 0 },
-      { x: 1000, y: 1000, width: 5, height: 5 },
-      { x: 250, y: 300, width: 1, height: 1 },
-    ];
-    queries.forEach((query) => {
-      const expected = exact.flatMap((rect, index) =>
-        intersectsRect(Rect(rect), Rect(query)) ? [index] : [],
-      );
-      expect(intersectingIndices(buffer, exact.length, query)).toEqual(expected);
-    });
-  });
-
-  test("returns the indices in ascending order", () => {
-    const buffer = filled(exact);
-    const found = intersectingIndices(buffer, exact.length, {
-      x: -100,
-      y: -100,
-      width: 500,
-      height: 500,
-    });
-    expect(found).toEqual(found.toSorted((left, right) => left - right));
-  });
-
-  test("ignores rectangles past the count", () => {
-    const buffer = filled(exact);
-    expect(intersectingIndices(buffer, 2, { x: -100, y: -100, width: 500, height: 500 })).toEqual([
-      0, 1,
-    ]);
   });
 });
 

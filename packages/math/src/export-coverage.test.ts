@@ -1,17 +1,22 @@
 import { expect, test } from "vite-plus/test";
 import * as api from "./index";
 
-// Vite replaces this call at build time. The package does not depend on vite for its types.
-const globSources = (
-  import.meta as unknown as {
+// What vite/client declares. This package does not depend on vite, and the call has to appear
+// literally for Vite to replace it, so a cast at the call site would break the transform.
+declare global {
+  interface ImportMeta {
     glob: (
       pattern: string,
       options: { query: string; import: string; eager: true },
     ) => Record<string, string>;
   }
-).glob;
+}
 
-const suites = globSources("./*.test.ts", { query: "?raw", import: "default", eager: true });
+const suites = import.meta.glob("./*.test.ts", {
+  query: "?raw",
+  import: "default",
+  eager: true,
+});
 
 const body = Object.entries(suites)
   .filter(([path]) => !path.endsWith("export-coverage.test.ts"))

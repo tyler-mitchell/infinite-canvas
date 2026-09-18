@@ -1185,8 +1185,16 @@ hides behind a rectangle test that passes for the wrong reason. All six now have
 
 Renaming an export makes the gate fail, which is how its failure path was checked rather than
 assumed. Two honest limits: it is a **coverage floor**, not proof — naming a symbol is not exercising
-it — and it sees runtime values only, never types. `import.meta.glob` is Vite's build-time
-transform, and the call site is typed locally because this package does not depend on `vite`.
+it — and it sees runtime values only, never types.
+
+> **The gate shipped broken and ran zero times.** `import.meta.glob` must appear literally for Vite
+> to replace it. TypeScript rejected it (this package does not depend on `vite`, so `vite/client` is
+> unreachable), and the cast I used to satisfy the compiler defeated the transform, so the file threw
+> on load. Vitest reported that as a **file** failure while the **test** count still rose, and I read
+> only the test count — so a suite whose whole purpose is catching things that pass for the wrong
+> reason did exactly that, for two commits. The type is now declared locally, the literal call is
+> intact, and the rename check was repeated to confirm a real assertion failure rather than a load
+> failure. Read `Test Files`, not just `Tests`.
 
 Also found while converting: **a WGSL reserved keyword cannot be a `d.struct` field name.**
 `d.struct({ from: d.f32 })` throws `Invalid property key 'from'`. Parameter names are unaffected,
@@ -1231,6 +1239,49 @@ Status: runtime-proven on the CPU path. The replacement itself is not done: noth
 `packages/infinite-canvas` imports this package yet, and that migration is a separate piece of work
 in a package another session is actively changing.
 
+## The R-tree, and what it made unnecessary
+
+`hilbertOrder`, the binary heap, and `buffer.ts`'s two query functions were all machinery with no
+consumer: every reference to them was a test. They were written for a spatial index that did not
+exist. `src/rect-index.ts` is that index — a packed Hilbert R-tree after Flatbush — and building it
+gave `hilbertOrder` its real job, because the Hilbert sort **is** the packing step.
+
+The open question this settles: **boxes are stored min/max, not position and extent.**
+
+```ts
+// The search inner loop compares stored values directly. With x and width it would add on every
+// node it visits, which is the hot path.
+if (
+  boxes[position]! > queryMaxX ||
+  boxes[position + 1]! > queryMaxY ||
+  boxes[position + 2]! < queryMinX ||
+  boxes[position + 3]! < queryMinY
+) {
+  continue;
+}
+```
+
+`Rect` stays the public currency; the conversion happens once per item at build.
+
+The surface is deliberately small — `buildRectIndex(rects)` returning `{ count, search }`. No
+serialization, no `from()`, no filter callback, no tunable node size: Flatbush has all of those and
+nothing here needs them yet. k-nearest is not built either, and it is what the heap in `queue.ts` is
+waiting for.
+
+`intersectingIndices` is **deleted**. It was the linear scan this replaces, and keeping both would
+leave two owners for one query.
+
+Verification is an oracle rather than fixtures: the tree must return exactly what the `intersectsRect`
+predicate returns when applied to every item, checked across sizes that cross the 16-item node
+boundary (1, 2, 15, 16, 17, 32, 257, 1000) and over 60 queries against a thousand rectangles.
+
+**Not measured: that it prunes.** The oracle proves the answer is right, and a tree that degenerated
+into a full scan would pass it unchanged. Pruning is inherited from Flatbush's structure, which was
+read before writing, and it has not been separately observed here.
+
+Status: runtime-proven on the CPU path. No GPU form; search is a pointer chase with an unbounded
+work list, which the dual-target boundary above puts firmly on the CPU.
+
 ## Conversion state
 
 The scope correction turned the work into one migration: every module whose mathematics is
@@ -1248,8 +1299,9 @@ shape-stable becomes `tgpu.fn` over `d` schemas, and the rest is named CPU-only 
 | `interpolate.ts` | split                     | `arcPoint` dual; the spring is still f64                    |
 | `size.ts`        | dual-target               | `containScale`/`coverScale`; the string `FitMode` is gone   |
 | `occupancy.ts`   | split                     | `isAreaFree` dual; row growth allocates, so CPU             |
-| `queue.ts`       | CPU by nature             | unbounded heap, grows during use                            |
-| `order.ts`       | dual-target-able          | Hilbert index is fixed-shape; not converted yet             |
+| `queue.ts`       | CPU by nature             | unbounded heap; still has no consumer until k-nearest       |
+| `order.ts`       | CPU, and staying          | its consumer is the R-tree build, which is CPU-only         |
+| `rect-index.ts`  | CPU by nature             | new; packed Hilbert R-tree, a chase over a work list        |
 | `buffer.ts`      | **replacement pending**   | hand-written offsets; `d.arrayOf(Rect, n)` supersedes it    |
 | `axis.ts`        | **placement in question** | CPU-only; owns `Size`; likely belongs to the layout package |
 
@@ -1351,8 +1403,6 @@ Status: runtime-proven on the CPU path, and break-proofed.
 - **Nine functions are under the agreement harness**, in 26 checks: `clamp`, `containScale`, `cross`,
   `transformPoint`, `invertTransform`, `gapBetweenIntervals`, `overlapsInterval`, `subtractRect` and
   the `Transform` constructor. The camera spaces, the occupancy grid and the Hilbert index are not.
-- Whether `search` should store `x, y, width, height` directly or convert to min/max on `add`.
-  Decide when `src/rect-index.ts` is written; measure nothing before there is a call site.
 - Equal-gap snapping (three rectangles with equal spacing) has no source yet. Bier and Stone 1986
   is still unread.
 - Occupancy grid row growth: bitset rows in one `Uint32Array` versus an array of rows. No source

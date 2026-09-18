@@ -7,6 +7,7 @@ export * from "./occupancy";
 export * from "./order";
 export * from "./queue";
 export * from "./rect";
+export * from "./rect-index";
 export * from "./reduce";
 export * from "./scalar";
 export * from "./size";

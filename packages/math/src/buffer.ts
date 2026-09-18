@@ -38,20 +38,6 @@ export function boundsOfRects(rects: Float32Array, count: number): Rect | null {
   return { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
 }
 
-export function intersectingIndices(rects: Float32Array, count: number, query: Rect): number[] {
-  const right = query.x + query.width;
-  const bottom = query.y + query.height;
-  const found: number[] = [];
-  for (let index = 0; index < count; index++) {
-    const at = index * RECT_STRIDE;
-    const x = rects[at]!;
-    const y = rects[at + 1]!;
-    if (x <= right && x + rects[at + 2]! >= query.x && y <= bottom && y + rects[at + 3]! >= query.y)
-      found.push(index);
-  }
-  return found;
-}
-
 export function nearestIndices(
   rects: Float32Array,
   count: number,
