@@ -1,0 +1,32 @@
+{
+  "name": "@hyphened/math",
+  "version": "0.0.0",
+  "private": true,
+  "description": "2D scalar, vector, rectangle and spatial mathematics for the canvas.",
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": "./src/index.ts",
+    "./package.json": "./package.json"
+  },
+  "publishConfig": {
+    "exports": {
+      ".": "./dist/index.mjs",
+      "./package.json": "./package.json"
+    }
+  },
+  "scripts": {
+    "build": "vp pack",
+    "test": "vp test",
+    "check": "vp check",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "typegpu": "catalog:"
+  },
+  "devDependencies": {
+    "typescript": "^6.0.3",
+    "unplugin-typegpu": "catalog:",
+    "vite-plus": "catalog:"
+  }
+}
