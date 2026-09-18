@@ -1,0 +1,28 @@
+{
+  "name": "@hyphened/entity-graph",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "vp run check && vp test --run",
+    "test:coverage": "vp test --run --coverage",
+    "check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@surrealdb/wasm": "workspace:*",
+    "arktype": "catalog:",
+    "surqlize": "catalog:",
+    "surrealdb": "catalog:"
+  },
+  "devDependencies": {
+    "@ark/attest": "catalog:",
+    "@vitest/browser-playwright": "catalog:",
+    "@vitest/coverage-v8": "catalog:",
+    "typescript": "6.0.3",
+    "vite-plus": "catalog:",
+    "vitest": "catalog:"
+  }
+}
