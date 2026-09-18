@@ -1,0 +1,101 @@
+diff --git a/useWebMCP.d.ts b/useWebMCP.d.ts
+index dd86af5d9c96bf3954e8e6c469a3dae74baf05b2..5126e2a14af061daedfd49270999200cd1d6cee8 100644
+--- a/useWebMCP.d.ts
++++ b/useWebMCP.d.ts
+@@ -13,7 +13,7 @@
+  * See the License for the specific language governing permissions and
+  * limitations under the License.
+  */
+-import type { WebMCP } from "webmcp-types";
++import "webmcp-types";
+ 
+ export type WebMCPToolResponse = {
+   content: Array<{ type: string; text?: string; [key: string]: unknown }>;
+diff --git a/useWebMCP.js b/useWebMCP.js
+index 4ba183da33b09e2a1f441aa37d0b9986992f5040..7da974111d7d1fa2d7a6e2d64a5693035b4cf635 100644
+--- a/useWebMCP.js
++++ b/useWebMCP.js
+@@ -131,43 +131,48 @@ export function useWebMCP({
+     }
+ 
+     const controller = new AbortController();
+-
+-    try {
+-      document.modelContext.registerTool(
+-        {
+-          name,
+-          description,
+-          inputSchema,
+-          annotations,
+-          async execute(args, options) {
+-            try {
+-              const result = await executeRef.current(args, options);
+-              const format = formatOutputRef.current;
+-              const shaped = format ? format(result, args) : result;
+-              // A returned Error gets the same treatment as a thrown one:
+-              // `onError`, then an `isError` result.
+-              if (shaped instanceof Error) throw shaped;
+-              return toToolResponse(shaped);
+-            } catch (error) {
+-              if (onErrorRef.current) {
+-                onErrorRef.current(error);
++    setState({ supported: true, registered: false, error: null });
++
++    void (async () => {
++      try {
++        await document.modelContext.registerTool(
++          {
++            name,
++            description,
++            inputSchema,
++            annotations,
++            async execute(args, options) {
++              try {
++                const result = await executeRef.current(args, options);
++                const format = formatOutputRef.current;
++                const shaped = format ? format(result, args) : result;
++                // A returned Error gets the same treatment as a thrown one:
++                // `onError`, then an `isError` result.
++                if (shaped instanceof Error) throw shaped;
++                return toToolResponse(shaped);
++              } catch (error) {
++                if (onErrorRef.current) {
++                  onErrorRef.current(error);
++                }
++                return toErrorResponse(error);
+               }
+-              return toErrorResponse(error);
+-            }
++            },
+           },
+-        },
+-        { signal: controller.signal }
+-      );
+-
+-      setState({ supported: true, registered: true, error: null });
+-    } catch (error) {
+-      // e.g. NotAllowedError when the `tools` permissions policy is disabled.
+-      setState({
+-        supported: true,
+-        registered: false,
+-        error: error instanceof Error ? error : new Error(safeStringify(error)),
+-      });
+-    }
++          { signal: controller.signal }
++        );
++
++        if (!controller.signal.aborted)
++          setState({ supported: true, registered: true, error: null });
++      } catch (error) {
++        if (controller.signal.aborted) return;
++        // e.g. NotAllowedError when the `tools` permissions policy is disabled.
++        setState({
++          supported: true,
++          registered: false,
++          error: error instanceof Error ? error : new Error(safeStringify(error)),
++        });
++      }
++    })();
+ 
+     // Aborting the signal is how WebMCP unregisters a tool, so this runs on
+     // unmount and before every re-registration.
