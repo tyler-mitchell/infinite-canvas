@@ -1,8 +1,7 @@
 import {
-  createInfiniteCanvasState,
+  createInfiniteCanvasStore,
   createInfiniteCanvasWindow,
   DEFAULT_INFINITE_CANVAS_COMMAND_DESCRIPTORS,
-  type InfiniteCanvasCommands,
 } from "@hyphened/infinite-canvas";
 import { expect, test } from "vite-plus/test";
 
@@ -10,23 +9,26 @@ import { APP_ACTIONS } from "./app-actions";
 import type { WindowKind } from "./canvas/window-registry";
 import { getPublishedCanvasCommands } from "./published-commands";
 
-const state = createInfiniteCanvasState<WindowKind>({
-  viewport: { height: 800, width: 1200 },
-  windows: [
-    createInfiniteCanvasWindow<WindowKind>({
-      id: "note-1",
-      kind: "note",
-      rect: { height: 200, width: 320, x: 0, y: 0 },
-      title: "Sources",
-    }),
-  ],
+const store = createInfiniteCanvasStore<WindowKind>({
+  initialState: {
+    viewport: { height: 800, width: 1200 },
+    windows: [
+      createInfiniteCanvasWindow<WindowKind>({
+        id: "note-1",
+        kind: "note",
+        rect: { height: 200, width: 320, x: 0, y: 0 },
+        title: "Sources",
+      }),
+    ],
+  },
 });
 
 const published = () =>
   getPublishedCanvasCommands({
-    actions: { executeCommand: () => undefined } as unknown as InfiniteCanvasCommands<WindowKind>,
+    dispatch: store.dispatch,
+    commands: store.getContextualCommands({ includeDisabled: true }),
     projectId: "project:test",
-    state,
+    state: store.getState(),
   });
 
 test("the canvas's own verbs are published, not just this app's", () => {

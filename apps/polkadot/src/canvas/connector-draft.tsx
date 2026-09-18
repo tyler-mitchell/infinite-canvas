@@ -1,5 +1,5 @@
 import {
-  findInfiniteCanvasWindow,
+  getCanvasLayout,
   getInfiniteCanvasConnectionAffordanceWindowId,
   getInfiniteCanvasConnectionHandles,
   getInfiniteCanvasConnectionPreviewPath,
@@ -41,7 +41,7 @@ type Draft = Readonly<{
   sourceWindowId: string;
 }>;
 
-function getLandingWindow(
+function getLandingTarget(
   state: InfiniteCanvasState<WindowKind>,
   viewportPoint: InfiniteCanvasPoint,
 ) {
@@ -51,12 +51,12 @@ function getLandingWindow(
     viewportPoint,
   });
 
-  return target.type === "window" ? target.window : null;
+  return target.type === "window" ? target : null;
 }
 
 export function ConnectorDraft({ projectId }: Readonly<{ projectId: string }>) {
   const state = useInfiniteCanvasState<WindowKind>();
-  const relations = useValue(relations$);
+  const relations = useValue(relations$[projectId]) ?? [];
   const rootRef = useRef<HTMLDivElement | null>(null);
   const affordance$ = useObservable<string | null>(null);
   const draft$ = useObservable<Draft | null>(null);
@@ -109,12 +109,11 @@ export function ConnectorDraft({ projectId }: Readonly<{ projectId: string }>) {
         return;
       }
 
-      const itemId = getContentWindowItemId(
-        getLandingWindow(state, {
-          x: event.clientX - bounds.left,
-          y: event.clientY - bounds.top,
-        }),
-      );
+      const landing = getLandingTarget(state, {
+        x: event.clientX - bounds.left,
+        y: event.clientY - bounds.top,
+      });
+      const itemId = getContentWindowItemId(landing?.window ?? null);
 
       if (
         itemId === null ||
@@ -143,16 +142,22 @@ export function ConnectorDraft({ projectId }: Readonly<{ projectId: string }>) {
   }, [draft$, isDragging, projectId, relations, state]);
 
   const sourceWindowId = dragging?.sourceWindowId ?? affordanceWindowId;
+  const canvasLayout = getCanvasLayout(state);
   const sourceWindow =
-    sourceWindowId === null ? null : findInfiniteCanvasWindow(state, sourceWindowId);
+    sourceWindowId === null
+      ? null
+      : (state.windows.find((window) => window.id === sourceWindowId) ?? null);
+  const sourceRect =
+    sourceWindow === null ? null : (canvasLayout.windowRects.get(sourceWindow.id) ?? null);
   const sourceItemId = getContentWindowItemId(sourceWindow);
 
-  if (sourceWindow === null || sourceItemId === null) {
+  if (sourceWindow === null || sourceRect === null || sourceItemId === null) {
     return <div className={styles.root()} data-slot="connector-draft" ref={rootRef} />;
   }
 
-  const landing = dragging === null ? null : getLandingWindow(state, dragging.pointer);
-  const landingItemId = getContentWindowItemId(landing);
+  const landing = dragging === null ? null : getLandingTarget(state, dragging.pointer);
+  const landingRect = landing?.rect ?? null;
+  const landingItemId = getContentWindowItemId(landing?.window ?? null);
   const isJoinable =
     landingItemId !== null &&
     landingItemId !== sourceItemId &&
@@ -161,9 +166,9 @@ export function ConnectorDraft({ projectId }: Readonly<{ projectId: string }>) {
     dragging === null
       ? null
       : getInfiniteCanvasConnectionPreviewPath(
-          sourceWindow.rect,
-          isJoinable && landing !== null
-            ? landing.rect
+          sourceRect,
+          isJoinable && landingRect !== null
+            ? landingRect
             : screenPointToWorldPoint(state.camera, state.viewport, dragging.pointer),
           { route: "orthogonal" },
         ).points.map((point) => worldPointToScreenPoint(state.camera, state.viewport, point));
@@ -180,40 +185,42 @@ export function ConnectorDraft({ projectId }: Readonly<{ projectId: string }>) {
       )}
       {isDragging
         ? null
-        : getInfiniteCanvasConnectionHandles(sourceWindow, state.camera, state.viewport).map(
-            (handle) => (
-              <button
-                aria-label={`Drag to connect this note from its ${handle.edge} edge`}
-                className={styles.handle()}
-                key={handle.edge}
-                onPointerDown={(event) => {
-                  event.preventDefault();
-                  event.stopPropagation();
+        : getInfiniteCanvasConnectionHandles(
+            { rect: sourceRect, windowId: sourceWindow.id },
+            state.camera,
+            state.viewport,
+          ).map((handle) => (
+            <button
+              aria-label={`Drag to connect this note from its ${handle.edge} edge`}
+              className={styles.handle()}
+              key={handle.edge}
+              onPointerDown={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
 
-                  const bounds = rootRef.current?.getBoundingClientRect();
+                const bounds = rootRef.current?.getBoundingClientRect();
 
-                  if (bounds === undefined) {
-                    return;
-                  }
+                if (bounds === undefined) {
+                  return;
+                }
 
-                  draft$.set({
-                    pointer: { x: event.clientX - bounds.left, y: event.clientY - bounds.top },
-                    sourceItemId,
-                    sourceWindowId: sourceWindow.id,
-                  });
-                }}
-                style={{
-                  height: handle.radiusPx * 2,
-                  left: handle.point.x,
-                  top: handle.point.y,
-                  width: handle.radiusPx * 2,
-                }}
-                type="button"
-              >
-                <span className={styles.handleCore()} />
-              </button>
-            ),
-          )}
+                draft$.set({
+                  pointer: { x: event.clientX - bounds.left, y: event.clientY - bounds.top },
+                  sourceItemId,
+                  sourceWindowId: sourceWindow.id,
+                });
+              }}
+              style={{
+                height: handle.radiusPx * 2,
+                left: handle.point.x,
+                top: handle.point.y,
+                width: handle.radiusPx * 2,
+              }}
+              type="button"
+            >
+              <span className={styles.handleCore()} />
+            </button>
+          ))}
     </div>
   );
 }

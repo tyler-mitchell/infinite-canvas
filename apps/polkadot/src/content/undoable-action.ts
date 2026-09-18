@@ -1,4 +1,4 @@
-import { observable } from "@legendapp/state";
+import { observable, ObservableHint, type OpaqueObject } from "@legendapp/state";
 
 // Keep one pending action. Each action owns its inverse.
 type UndoableAction = Readonly<{
@@ -7,22 +7,28 @@ type UndoableAction = Readonly<{
   undo: () => Promise<void>;
 }>;
 
-const undoableAction$ = observable<UndoableAction | null>(null);
+const undoableAction$ = observable<OpaqueObject<UndoableAction> | null>(null);
 
 const rememberUndoableAction = (action: UndoableAction) => {
-  undoableAction$.set(action);
+  undoableAction$.set(ObservableHint.opaque({ ...action }));
 };
 
-// Clear the action before the write to prevent a second undo.
+// Hide the action while its inverse runs.
 const undoLastAction = async () => {
-  const undo = undoableAction$.peek()?.undo;
+  const action = undoableAction$.peek();
 
-  if (undo === undefined) {
+  if (action === null) {
     return;
   }
 
   undoableAction$.set(null);
-  await undo();
+  try {
+    await action.undo();
+  } catch (error) {
+    if (undoableAction$.peek() === null) rememberUndoableAction(action);
+    console.warn("Could not undo action", { description: action.describe, error });
+    throw error;
+  }
 };
 
 export { rememberUndoableAction, undoableAction$, undoLastAction };

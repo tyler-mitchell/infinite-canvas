@@ -3,17 +3,17 @@ import {
   getInfiniteCanvasGroupTitle,
   InfiniteCanvas,
   type InfiniteCanvasOverlayReadContext,
-  type InfiniteCanvasState,
+  type CanvasToolsContext,
 } from "@hyphened/infinite-canvas";
 import { InfiniteCanvasCompositorSurface } from "@hyphened/infinite-canvas/scene";
 import { useObservable, useValue } from "@legendapp/state/react";
 import { PanelLeft, Plus } from "lucide-react";
-import { useCallback, useEffect, useMemo } from "react";
+import { useCallback, useEffect } from "react";
 import { Button } from "ui";
 import { tv } from "ui/tv";
 
 import { CanvasConflictNotice } from "../canvas/canvas-conflict-notice";
-import type { CanvasPersistenceStatus } from "../canvas/canvas-persistence";
+import type { Observable, ObservableSyncState } from "@legendapp/state";
 import { CANVAS_CHROME } from "../canvas/chrome";
 import { createCanvasDropPolicy, type CanvasDropPayload } from "../canvas/drop-policy";
 import { ConnectorDraft } from "../canvas/connector-draft";
@@ -22,7 +22,7 @@ import { getConnectorHotkeyActions } from "../canvas/connector-hotkeys";
 import { ConnectorLayer } from "../canvas/connector-layer";
 import { EmptyProjectInvitation } from "../canvas/empty-project";
 import { useCanvasRuntime } from "../canvas/use-canvas-runtime";
-import { windowDefinitions, type WindowKind } from "../canvas/window-registry";
+import type { WindowKind } from "../canvas/window-registry";
 import { CanvasHud } from "../hud/canvas-hud";
 import { BOTTOM_INSET, TOP_INSET } from "../hud/chrome-insets";
 import { CommandPalette } from "../hud/command-palette";
@@ -31,7 +31,9 @@ import { Minimap } from "../hud/minimap";
 import { TourControl } from "../hud/tour-control";
 import { LibraryRail, RAIL_INSET } from "../library/library-rail";
 import { FLOATING_SURFACE } from "../material";
-import { ModelContextTools } from "../model-context";
+import { getAppTools } from "../app-tools";
+import { useGoToCanvas } from "./use-go-to-canvas";
+import { useRefreshRoute } from "./use-refresh-route";
 import { openNewNote } from "../notes/open-note";
 import { loadRelations, relations$ } from "../relations/relation-store";
 import { SavedViewMenu } from "../views/saved-view-menu";
@@ -39,18 +41,12 @@ import { CanvasSwitcher } from "./canvas-switcher";
 import { DesktopSwitcher } from "./desktop-switcher";
 import { ProjectSwitcher } from "./project-switcher";
 
-type SaveAdmission = Readonly<{
-  message: string;
-  status: "error" | "ready" | "starting";
-}>;
-
 type LoadedCanvas = Readonly<{
-  droppedKinds?: readonly string[];
   id: string;
   projectId: string;
   projectTitle: string;
   revision: number;
-  state: InfiniteCanvasState<WindowKind>;
+  layout: unknown;
   title: string;
 }>;
 
@@ -74,23 +70,6 @@ const workspace = tv({
   },
 });
 
-function getSaveAdmission(status: CanvasPersistenceStatus): SaveAdmission {
-  if (status.status === "conflict") {
-    return { message: "Changes are not being saved", status: "error" };
-  }
-
-  if (status.status === "error") {
-    return {
-      message: status.error instanceof Error ? status.error.message : "Local save failed",
-      status: "error",
-    };
-  }
-
-  return status.status === "saving"
-    ? { message: "Saving locally", status: "starting" }
-    : { message: "Local canvas saved", status: "ready" };
-}
-
 function IdentityRail({
   canvas,
   canvasId,
@@ -98,7 +77,7 @@ function IdentityRail({
   onToggleLibrary,
   projectId,
   projectTitle,
-  saveAdmission,
+  saveStatus$,
   title,
 }: Readonly<{
   canvas: InfiniteCanvasOverlayReadContext<WindowKind>;
@@ -107,10 +86,18 @@ function IdentityRail({
   onToggleLibrary: () => void;
   projectId: string;
   projectTitle: string;
-  saveAdmission: SaveAdmission;
+  saveStatus$: Observable<ObservableSyncState>;
   title: string;
 }>) {
-  const styles = workspace({ saveStatus: saveAdmission.status });
+  const saveStatus = useValue(saveStatus$);
+  const error =
+    saveStatus.error?.name === "CanvasRevisionConflictError"
+      ? "Changes are not being saved"
+      : saveStatus.error?.message;
+  const progress = saveStatus.isSetting ? "starting" : "ready";
+  const status = error === undefined ? progress : "error";
+  const message = error ?? (saveStatus.isSetting ? "Saving locally" : "Local canvas saved");
+  const styles = workspace({ saveStatus: status });
 
   return (
     <div className={styles.rail()}>
@@ -132,14 +119,14 @@ function IdentityRail({
         <SavedViewMenu canvasId={canvasId} />
       </div>
       <span className={styles.divider()} />
-      <div className={styles.status()} data-save-status={saveAdmission.status}>
+      <div className={styles.status()} data-save-status={status}>
         <span className={styles.statusIndicator()} />
-        {saveAdmission.message}
+        {message}
       </div>
       <span className={styles.divider()} />
       <Button
         onClick={() => {
-          void openNewNote({ actions: canvas.actions, projectId, state: canvas.state });
+          void openNewNote({ dispatch: canvas.dispatch, projectId, state: canvas.state });
         }}
         size="sm"
         variant="ghost"
@@ -151,16 +138,26 @@ function IdentityRail({
   );
 }
 
-// The resolver reads current relations during pointer events.
-const spatialTargetResolvers = [
-  createInfiniteCanvasEdgeTargetResolver<WindowKind>({
-    id: "note-relations",
-    targets: (context) => getConnectorEdgeTargets(context.state, relations$.peek()),
-  }),
-];
-
 export function WorkspaceCanvas({ canvas }: Readonly<{ canvas: LoadedCanvas }>) {
   const runtime = useCanvasRuntime(canvas);
+  const saveError = useValue(runtime.saveStatus$.error);
+  const goToCanvas = useGoToCanvas();
+  const refreshRoute = useRefreshRoute();
+  const tools = (context: CanvasToolsContext<WindowKind>) =>
+    getAppTools({
+      development: import.meta.env.DEV,
+      projectId: canvas.projectId,
+      getContextualCommands: () => context.getContextualCommands({ includeDisabled: true }),
+      createContext: () => ({
+        dispatch: context.dispatch,
+        canvasId: canvas.id,
+        canvasTitle: canvas.title,
+        goToCanvas,
+        projectId: canvas.projectId,
+        refreshRoute,
+        state: context.getState(),
+      }),
+    });
   const library$ = useObservable(true);
   const libraryOpen = useValue(library$);
   // Stable, so the memoized rail does not re-render on every canvas state change.
@@ -173,13 +170,8 @@ export function WorkspaceCanvas({ canvas }: Readonly<{ canvas: LoadedCanvas }>) 
   const minimap$ = useObservable(true);
   const minimapOpen = useValue(minimap$);
   const styles = workspace();
-  // Keep the array identity stable so the viewport does not rebuild its keymap.
-  const hotkeyActions = useMemo(
-    () => getConnectorHotkeyActions(canvas.projectId),
-    [canvas.projectId],
-  );
-  // Keep the policy identity stable during native drags.
-  const dropPolicy = useMemo(() => createCanvasDropPolicy(canvas.projectId), [canvas.projectId]);
+  const hotkeyActions = getConnectorHotkeyActions(canvas.projectId);
+  const dropPolicy = createCanvasDropPolicy(canvas.projectId);
 
   useEffect(() => {
     void loadRelations(canvas.projectId);
@@ -189,6 +181,7 @@ export function WorkspaceCanvas({ canvas }: Readonly<{ canvas: LoadedCanvas }>) 
     <main className={styles.root()}>
       <InfiniteCanvas.Provider store={runtime.store}>
         <InfiniteCanvas.Viewport<WindowKind, CanvasDropPayload>
+          tools={tools}
           chrome={CANVAS_CHROME}
           /* A drop policy enables the native drag bridge. */
           dropPolicy={dropPolicy}
@@ -204,10 +197,16 @@ export function WorkspaceCanvas({ canvas }: Readonly<{ canvas: LoadedCanvas }>) 
           /* Consumer hotkeys extend the canvas keymap. */
           hotkeyActions={hotkeyActions}
           // Settled connectors draw below windows.
-          renderUnderlay={() => <ConnectorLayer />}
+          renderUnderlay={() => <ConnectorLayer projectId={canvas.projectId} />}
           /* The compositor paints under the DOM plane; without WebGPU it mounts nothing. */
           sceneSurface={InfiniteCanvasCompositorSurface}
-          spatialTargetResolvers={spatialTargetResolvers}
+          spatialTargetResolvers={[
+            createInfiniteCanvasEdgeTargetResolver<WindowKind>({
+              id: "note-relations",
+              targets: (context) =>
+                getConnectorEdgeTargets(context.state, relations$[canvas.projectId].peek() ?? []),
+            }),
+          ]}
           /* The dock restores minimized windows. Other duplicate controls stay hidden. */
           hud={{
             cameraControls: true,
@@ -226,9 +225,10 @@ export function WorkspaceCanvas({ canvas }: Readonly<{ canvas: LoadedCanvas }>) 
             <>
               {/* Shown only before the project holds its first item. */}
               <EmptyProjectInvitation
+                projectId={canvas.projectId}
                 onCreate={() => {
                   void openNewNote({
-                    actions: context.actions,
+                    dispatch: context.dispatch,
                     projectId: canvas.projectId,
                     state: context.state,
                   });
@@ -237,19 +237,17 @@ export function WorkspaceCanvas({ canvas }: Readonly<{ canvas: LoadedCanvas }>) 
               {/* The active connector draft draws above windows. */}
               <ConnectorDraft projectId={canvas.projectId} />
               {/* This component registers WebMCP tools and renders nothing. */}
-              <ModelContextTools projectId={canvas.projectId} />
               <CanvasHud
                 commandPalette={<CommandPalette projectId={canvas.projectId} />}
                 conflict={
-                  runtime.saveStatus.status === "conflict" ? (
+                  saveError?.name === "CanvasRevisionConflictError" ? (
                     <CanvasConflictNotice
                       canvasTitle={canvas.title}
-                      handle={runtime.handle}
+                      store={runtime.store}
                       projectId={canvas.projectId}
                     />
                   ) : null
                 }
-                droppedKinds={canvas.droppedKinds}
                 libraryInset={libraryOpen ? RAIL_INSET : 0}
                 minimap={
                   <Minimap
@@ -263,7 +261,7 @@ export function WorkspaceCanvas({ canvas }: Readonly<{ canvas: LoadedCanvas }>) 
                   />
                 }
                 /* Hidden until two connected notes exist, because nothing else has an order. */
-                tour={<TourControl />}
+                tour={<TourControl projectId={canvas.projectId} />}
                 library={
                   libraryOpen ? (
                     <LibraryRail onCollapse={closeLibrary} projectId={canvas.projectId} />
@@ -279,7 +277,7 @@ export function WorkspaceCanvas({ canvas }: Readonly<{ canvas: LoadedCanvas }>) 
                     }}
                     projectId={canvas.projectId}
                     projectTitle={canvas.projectTitle}
-                    saveAdmission={getSaveAdmission(runtime.saveStatus)}
+                    saveStatus$={runtime.saveStatus$}
                     title={canvas.title}
                   />
                 }
@@ -287,7 +285,6 @@ export function WorkspaceCanvas({ canvas }: Readonly<{ canvas: LoadedCanvas }>) 
             </>
           )}
           title={canvas.title}
-          windowDefinitions={windowDefinitions}
         />
       </InfiniteCanvas.Provider>
     </main>

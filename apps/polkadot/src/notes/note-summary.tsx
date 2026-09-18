@@ -78,7 +78,7 @@ export function NoteSummary({
   title: string;
 }>) {
   const zoom = useInfiniteCanvasSelector<WindowKind, number>((state) => state.camera.zoom);
-  const entry = useValue(notes$[noteId]);
+  const note = useValue(notes$[noteId]);
   const fontsReady = useFontsReady();
 
   // The summary loads the note because the full body is not mounted at this zoom.
@@ -86,7 +86,7 @@ export function NoteSummary({
     ensureNoteLoaded(noteId, gateway);
   }, [gateway, noteId]);
 
-  const text = entry?.note == null ? "" : getNoteText(entry.note.content.text);
+  const text = note == null ? "" : getNoteText(note.content.text);
   // One measurement pass per note. Zoom changes the box, never the text.
   const prepared = useMemo(
     () => (text === "" ? null : prepareWithSegments(text, SUMMARY_FONT)),

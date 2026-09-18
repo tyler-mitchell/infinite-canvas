@@ -2,13 +2,14 @@ import {
   getInfiniteCanvasGroupParent,
   getInfiniteCanvasWindowGroup,
   isInfiniteCanvasGroupContainer,
-  useInfiniteCanvasActions,
+  useInfiniteCanvasDispatch,
   useInfiniteCanvasAnnounce,
   useInfiniteCanvasState,
   useInfiniteCanvasSelector,
   useInfiniteCanvasStore,
   type InfiniteCanvasCommand,
   type InfiniteCanvasGroupLayoutMode,
+  getSelectedWindowIds,
 } from "@hyphened/infinite-canvas";
 import {
   AlignHorizontalSpaceAround,
@@ -100,14 +101,16 @@ function Verb({
 const SELECTION_PACK_GAP_PX = 16;
 
 function SelectionRail() {
-  const actions = useInfiniteCanvasActions<WindowKind>();
+  const dispatch = useInfiniteCanvasDispatch<WindowKind>();
   const store = useInfiniteCanvasStore<WindowKind>();
   const canvas = useLoaderData({ from: "/canvas/$canvasId" });
   const projectId = canvas.projectId;
-  const selectedCount = useInfiniteCanvasSelector((state) => state.selection.windowIds.length);
+  const selectedCount = useInfiniteCanvasSelector(
+    (state) => getSelectedWindowIds(state.selection).length,
+  );
   const styles = canvasHud();
   const run = (command: InfiniteCanvasCommand) => () => {
-    actions.executeCommand(command);
+    dispatch(command);
   };
   const groupAction = getAppAction("group.createFromSelection");
   const goToCanvas = useGoToCanvas();
@@ -115,7 +118,7 @@ function SelectionRail() {
   const canGroup =
     groupAction !== undefined &&
     isAppActionEnabled(groupAction, {
-      actions,
+      dispatch,
       canvasId: canvas.id,
       canvasTitle: canvas.title,
       goToCanvas,
@@ -125,7 +128,7 @@ function SelectionRail() {
     });
   const group = () => {
     const context = {
-      actions,
+      dispatch,
       canvasId: canvas.id,
       canvasTitle: canvas.title,
       goToCanvas,
@@ -161,10 +164,10 @@ function SelectionRail() {
           label="Pack into rows"
           onPress={() => {
             // The packer leaves no gap of its own. A workbench wants the windows to breathe.
-            actions.executeCommand({ gapPx: SELECTION_PACK_GAP_PX, type: "window.pack" });
+            dispatch({ gapPx: SELECTION_PACK_GAP_PX, type: "window.pack" });
             // Rows are as wide as the viewport, so the block gets taller as it gets tidier and can
             // outgrow the screen. Framing the result is what makes the button look like it worked.
-            actions.executeCommand({ type: "view.fitSelection" });
+            dispatch({ type: "view.fitSelection" });
           }}
         />
         <Verb
@@ -190,8 +193,8 @@ function SelectionRail() {
 
 function ConnectorRail() {
   const state = useInfiniteCanvasState<WindowKind>();
-  const relations = useValue(relations$);
   const { projectId } = useLoaderData({ from: "/canvas/$canvasId" });
+  const relations = useValue(relations$[projectId]) ?? [];
   const styles = canvasHud();
   const selected = getSelectedRelations(state.selection, relations);
 
@@ -270,7 +273,7 @@ function LayoutSelector({
 }
 
 function GroupRail() {
-  const actions = useInfiniteCanvasActions();
+  const dispatch = useInfiniteCanvasDispatch<WindowKind>();
   const styles = canvasHud();
   const group = useInfiniteCanvasSelector<
     WindowKind,
@@ -301,7 +304,7 @@ function GroupRail() {
             <LayoutSelector
               layout={layout}
               onSelect={(next) => {
-                actions.executeCommand({ layout: next, type: "group.setLayout" });
+                dispatch({ layout: next, type: "group.setLayout" });
               }}
             />
             <span className={styles.divider()} />
@@ -311,14 +314,14 @@ function GroupRail() {
           icon={Grip}
           label="Undock this window"
           onPress={() => {
-            actions.executeCommand({ type: "window.undock" });
+            dispatch({ type: "window.undock" });
           }}
         />
         <Verb
           icon={Ungroup}
           label="Ungroup"
           onPress={() => {
-            actions.executeCommand({ type: "group.dissolve" });
+            dispatch({ type: "group.dissolve" });
           }}
         />
       </div>
@@ -388,35 +391,6 @@ function UndoNotice() {
   );
 }
 
-function RecoveryNotice({ droppedKinds }: Readonly<{ droppedKinds: readonly string[] }>) {
-  const [dismissed, setDismissed] = useState(false);
-  const styles = canvasHud();
-
-  return (
-    <HudSurface anchor="top-right" present={droppedKinds.length > 0 && !dismissed}>
-      <div className={styles.noticeRail()} role="status">
-        <TriangleAlert className={styles.noticeIcon()} />
-        <span className={styles.noticeText()}>
-          {droppedKinds.length === 1 ? "One window kind" : `${droppedKinds.length} window kinds`}{" "}
-          could not be opened:
-        </span>
-        <span className={styles.noticeKinds()}>{droppedKinds.join(", ")}</span>
-        <Button
-          aria-label="Dismiss"
-          onClick={() => {
-            setDismissed(true);
-          }}
-          size="icon-sm"
-          title="Dismiss"
-          variant="ghost"
-        >
-          <X />
-        </Button>
-      </div>
-    </HudSurface>
-  );
-}
-
 function FailureNotice() {
   const failure = useValue(actionFailure$);
   const announce = useInfiniteCanvasAnnounce();
@@ -452,7 +426,6 @@ function FailureNotice() {
 export function CanvasHud({
   commandPalette,
   conflict,
-  droppedKinds,
   identity,
   library,
   libraryInset = 0,
@@ -461,7 +434,6 @@ export function CanvasHud({
 }: Readonly<{
   commandPalette?: ReactNode;
   conflict?: ReactNode;
-  droppedKinds?: readonly string[];
   identity: ReactNode;
   library?: ReactNode;
   libraryInset?: number;
@@ -487,11 +459,7 @@ export function CanvasHud({
           {identity}
         </HudSurface>
         {conflict === undefined || conflict === null ? (
-          failure === null ? (
-            droppedKinds === undefined ? null : (
-              <RecoveryNotice droppedKinds={droppedKinds} />
-            )
-          ) : (
+          failure === null ? null : (
             <FailureNotice />
           )
         ) : (

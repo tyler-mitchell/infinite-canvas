@@ -33,29 +33,28 @@ const radialMenu = tv({
   },
 });
 
-function getNextSpoke(key: string, index: number, items: readonly RadialItem[]): number | null {
-  const step = { ArrowDown: 1, ArrowLeft: -1, ArrowRight: 1, ArrowUp: -1 }[key];
-
-  if (step === undefined) {
-    return key === "Home" || key === "End"
-      ? (key === "Home" ? items : [...items].reverse()).reduce<number | null>(
-          (found, item, offset) =>
-            found ??
-            (item.isEnabled ? (key === "Home" ? offset : items.length - 1 - offset) : null),
-          null,
-        )
-      : null;
+export function getNextSpoke(
+  key: string,
+  index: number,
+  items: readonly Pick<RadialItem, "isEnabled">[],
+): number | null {
+  const enabledIndices = items.flatMap((item, index) => (item.isEnabled ? [index] : []));
+  switch (key) {
+    case "Home":
+      return enabledIndices[0] ?? null;
+    case "End":
+      return enabledIndices.at(-1) ?? null;
+    case "ArrowDown":
+    case "ArrowRight":
+      return enabledIndices.find((candidate) => candidate > index) ?? enabledIndices[0] ?? null;
+    case "ArrowLeft":
+    case "ArrowUp":
+      return (
+        enabledIndices.findLast((candidate) => candidate < index) ?? enabledIndices.at(-1) ?? null
+      );
+    default:
+      return null;
   }
-
-  for (let turn = 1; turn <= items.length; turn++) {
-    const candidate = (index + step * turn + items.length * turn) % items.length;
-
-    if (items[candidate]?.isEnabled === true) {
-      return candidate;
-    }
-  }
-
-  return null;
 }
 
 function RadialMenu({

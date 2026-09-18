@@ -1,7 +1,7 @@
 import {
   getInfiniteCanvasMinimapLayout,
   getInfiniteCanvasMinimapWorldPoint,
-  useInfiniteCanvasActions,
+  useInfiniteCanvasDispatch,
   useInfiniteCanvasState,
   type InfiniteCanvasMinimapLayout,
 } from "@hyphened/infinite-canvas";
@@ -64,7 +64,7 @@ export function Minimap({
   open,
   onOpen,
 }: Readonly<{ onClose: () => void; onOpen: () => void; open: boolean }>) {
-  const actions = useInfiniteCanvasActions<WindowKind>();
+  const dispatch = useInfiniteCanvasDispatch<WindowKind>();
   const state = useInfiniteCanvasState<WindowKind>();
   const styles = minimap();
   const frameRef = useRef<HTMLDivElement>(null);
@@ -80,7 +80,7 @@ export function Minimap({
   }
 
   const navigate = (event: React.PointerEvent<SVGSVGElement>) => {
-    actions.executeCommand({
+    dispatch({
       request: {
         behavior: { type: "center" },
         target: {
@@ -88,7 +88,7 @@ export function Minimap({
           type: "point",
         },
       },
-      type: "view.navigate",
+      type: "camera.navigate",
     });
   };
 

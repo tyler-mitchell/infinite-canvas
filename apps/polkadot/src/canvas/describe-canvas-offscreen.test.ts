@@ -42,7 +42,10 @@ test("offscreen reads alongside the other things a window can be, not instead of
   const described = describeCanvas({
     ...canvasLookingAt(0),
     activeWindowId: "far",
-    selection: { anchorWindowId: "far", windowIds: ["far"] },
+    selection: {
+      anchorTarget: { type: "window" as const, id: "far" },
+      targets: [{ type: "window" as const, id: "far" }],
+    },
   });
 
   expect(described).toContain('note "far" [far], active, selected, offscreen');

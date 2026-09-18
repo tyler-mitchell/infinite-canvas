@@ -1,17 +1,16 @@
 import { initialLayout } from "../canvas/canvas-document";
 import * as database from "../database/operations";
-import { withNamingLock } from "../naming-lock";
+import { namingQueue } from "../naming-queue";
 import { getNextNumberedTitle } from "../titles";
 
 // Default titles include active and archived canvas names.
-// The naming lock prevents concurrent canvases from choosing the same title.
 async function createCanvas(
   input: Readonly<{
     projectId: string;
     title?: string;
   }>,
 ) {
-  return withNamingLock(async () => {
+  return namingQueue.add(async () => {
     const chosen = input.title?.trim();
 
     if (chosen !== undefined && chosen !== "") {
@@ -22,18 +21,12 @@ async function createCanvas(
       });
     }
 
-    const [offered, archived] = await Promise.all([
-      database.canvases.list(input.projectId),
-      database.canvases.listArchived(input.projectId),
-    ]);
+    const titles = await database.canvases.titles(input.projectId);
 
     return database.canvases.create({
       layout: initialLayout,
       projectId: input.projectId,
-      title: getNextNumberedTitle(
-        "Canvas",
-        [...offered, ...archived].map((canvas) => canvas.title),
-      ),
+      title: getNextNumberedTitle("Canvas", titles),
     });
   });
 }

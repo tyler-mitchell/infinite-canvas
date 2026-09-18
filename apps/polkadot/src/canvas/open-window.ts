@@ -1,7 +1,7 @@
 import {
   createInfiniteCanvasWindow,
   DEFAULT_INFINITE_CANVAS_DETAIL_POLICY,
-  type InfiniteCanvasCommands,
+  type InfiniteCanvasDispatch,
   type InfiniteCanvasRect,
   type InfiniteCanvasState,
 } from "@hyphened/infinite-canvas";
@@ -12,7 +12,7 @@ import type { WindowData, WindowKind } from "./window-registry";
 type WindowSize = Readonly<{ height: number; width: number }>;
 
 type WindowPlacement = Readonly<{
-  actions: InfiniteCanvasCommands<WindowKind>;
+  dispatch: InfiniteCanvasDispatch<WindowKind>;
   state: InfiniteCanvasState<WindowKind>;
 }>;
 
@@ -35,6 +35,13 @@ const withSummaryMinimum = (size: WindowSize): WindowSize => ({
   width: Math.max(size.width, SUMMARY_MINIMUM_SHORT_AXIS),
 });
 
+function revealContentWindow(input: WindowPlacement & Readonly<{ itemId: string }>) {
+  const existing = input.state.windows.find((window) => showsContentItem(window, input.itemId));
+  if (existing === undefined) return false;
+  input.dispatch({ type: "window.reveal", windowId: existing.id });
+  return true;
+}
+
 function openContentWindow<Kind extends WindowKind>(
   input: WindowPlacement &
     Readonly<{
@@ -47,22 +54,21 @@ function openContentWindow<Kind extends WindowKind>(
       title: string;
     }>,
 ) {
-  const existing = input.state.windows.find((window) =>
-    showsContentItem(window, input.data.itemId),
-  );
-
-  if (existing !== undefined) {
-    input.actions.executeCommand({ type: "window.reveal", windowId: existing.id });
-
+  if (
+    revealContentWindow({ dispatch: input.dispatch, itemId: input.data.itemId, state: input.state })
+  )
     return;
-  }
 
   const windowId = globalThis.crypto.randomUUID();
   // Without a caller rect, the canvas places the window against its own current state.
   const rect = input.rect ?? { ...input.size, x: 0, y: 0 };
 
-  input.actions.openWindow(
-    createInfiniteCanvasWindow<WindowKind, WindowData[Kind]>({
+  input.dispatch({
+    ...(input.rect === undefined
+      ? { placement: { gapPx: WINDOW_GAP, region: "center" } as const }
+      : {}),
+    type: "window.open",
+    window: createInfiniteCanvasWindow<WindowKind, WindowData[Kind]>({
       data: input.data,
       id: windowId,
       kind: input.kind,
@@ -70,8 +76,7 @@ function openContentWindow<Kind extends WindowKind>(
       rect,
       title: input.title,
     }),
-    input.rect === undefined ? { gapPx: WINDOW_GAP, region: "center" } : undefined,
-  );
+  });
 
   /*
    * A window the canvas placed can land outside the view, because free space is worth more than
@@ -79,9 +84,9 @@ function openContentWindow<Kind extends WindowKind>(
    * as the branch above, where the note was already open.
    */
   if (input.rect === undefined) {
-    input.actions.executeCommand({ type: "window.reveal", windowId });
+    input.dispatch({ type: "window.reveal", windowId });
   }
 }
 
-export { openContentWindow, SUMMARY_MINIMUM_SHORT_AXIS, withSummaryMinimum };
+export { openContentWindow, revealContentWindow, SUMMARY_MINIMUM_SHORT_AXIS, withSummaryMinimum };
 export type { WindowPlacement, WindowSize };

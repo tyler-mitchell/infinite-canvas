@@ -4,17 +4,17 @@ import { imageGateway } from "../images/image-gateway";
 import { getImageSize, openImageWindow } from "../images/open-image";
 import { openLinkWindow } from "../links/open-link";
 import { openNoteWindow } from "../notes/open-note";
-import type { WindowPlacement } from "./open-window";
+import { revealContentWindow, type WindowPlacement } from "./open-window";
 
 type ItemOpener = (
   input: WindowPlacement & Readonly<{ item: ContentItemRecord }>,
 ) => void | Promise<void>;
 
 const OPENERS: Readonly<Record<string, ItemOpener>> = {
-  collection: ({ actions, item, state }) => {
-    openCollectionWindow({ actions, collectionId: item.id, state, title: item.title });
+  collection: ({ dispatch, item, state }) => {
+    openCollectionWindow({ collectionId: item.id, dispatch, state, title: item.title });
   },
-  image: async ({ actions, item, state }) => {
+  image: async ({ dispatch, item, state }) => {
     const image = await imageGateway.read(item.id);
 
     if (image === null) {
@@ -22,23 +22,25 @@ const OPENERS: Readonly<Record<string, ItemOpener>> = {
     }
 
     openImageWindow({
-      actions,
+      dispatch,
       imageId: image.id,
       size: await getImageSize(image.content.source),
       state,
       title: image.title,
     });
   },
-  link: ({ actions, item, state }) => {
-    openLinkWindow({ actions, linkId: item.id, state, title: item.title });
+  link: ({ dispatch, item, state }) => {
+    openLinkWindow({ dispatch, linkId: item.id, state, title: item.title });
   },
-  note: ({ actions, item, state }) => {
-    openNoteWindow({ actions, noteId: item.id, state, title: item.title });
+  note: ({ dispatch, item, state }) => {
+    openNoteWindow({ dispatch, noteId: item.id, state, title: item.title });
   },
 };
 
 function openItemWindow(input: WindowPlacement & Readonly<{ item: ContentItemRecord }>) {
-  void OPENERS[input.item.kind]?.(input);
+  if (revealContentWindow({ dispatch: input.dispatch, itemId: input.item.id, state: input.state }))
+    return;
+  return OPENERS[input.item.kind]?.(input);
 }
 
 function isOpenableItemKind(kind: string) {

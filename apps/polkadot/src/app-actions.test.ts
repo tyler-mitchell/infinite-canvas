@@ -1,8 +1,9 @@
 import {
   createInfiniteCanvasState,
   createInfiniteCanvasWindow,
-  type InfiniteCanvasCommand,
-  type InfiniteCanvasCommands,
+  createInfiniteCanvasStore,
+  type InfiniteCanvasAction,
+  type InfiniteCanvasDispatch,
 } from "@hyphened/infinite-canvas";
 import { type } from "arktype";
 import { expect, test } from "vite-plus/test";
@@ -10,7 +11,7 @@ import { expect, test } from "vite-plus/test";
 import { getAppAction } from "./app-actions";
 import { RELATION_KINDS } from "./relations/relation-store";
 import type { WindowKind } from "./canvas/window-registry";
-import { projectContent$, type ProjectContent } from "./content/project-content";
+import { projectListings$, type ProjectContent } from "./content/project-content";
 
 /**
  * Every context carries these, and most verbs exercised here read none of them.
@@ -63,19 +64,17 @@ const state = createInfiniteCanvasState<WindowKind>({
 });
 
 const runReveal = async (input: unknown) => {
-  const commands: InfiniteCanvasCommand[] = [];
-  const actions = {
-    executeCommand: (command: InfiniteCanvasCommand) => {
-      commands.push(command);
-    },
-  } as unknown as InfiniteCanvasCommands<WindowKind>;
+  const dispatched: InfiniteCanvasAction<WindowKind>[] = [];
+  const dispatch: InfiniteCanvasDispatch<WindowKind> = (action) => {
+    dispatched.push(action);
+  };
 
   await getAppAction("window.reveal")?.run(
-    { actions, ...where, goToCanvas, projectId: "project-1", state },
+    { dispatch, ...where, goToCanvas, projectId: "project-1", state },
     input,
   );
 
-  return commands;
+  return dispatched;
 };
 
 test("each window is reached by its own handle, though both answer to one name", async () => {
@@ -129,17 +128,16 @@ test("the published schema is the one the verb validates against", () => {
  */
 const runOpen = async (input: unknown, listing: ProjectContent | null) => {
   const opened: string[] = [];
-  const actions = {
-    executeCommand: () => undefined,
-    openWindow: (window: Readonly<{ data?: Readonly<{ itemId?: string }> }>) => {
-      opened.push(window.data?.itemId ?? "");
-    },
-  } as unknown as InfiniteCanvasCommands<WindowKind>;
+  const dispatch: InfiniteCanvasDispatch<WindowKind> = (action) => {
+    if (action.type === "window.open") {
+      opened.push((action.window.data as Readonly<{ itemId?: string }> | undefined)?.itemId ?? "");
+    }
+  };
 
-  projectContent$.set(listing);
+  projectListings$["project-1"].set(listing);
 
   await getAppAction("content.open")?.run(
-    { actions, ...where, goToCanvas, projectId: "project-1", state },
+    { dispatch, ...where, goToCanvas, projectId: "project-1", state },
     input,
   );
 
@@ -201,17 +199,16 @@ test("content.open refuses input its published schema does not accept", async ()
  */
 test("a connected-to collection refuses an id it cannot resolve", async () => {
   const opened: string[] = [];
-  const actions = {
-    executeCommand: () => undefined,
-    openWindow: () => {
+  const dispatch: InfiniteCanvasDispatch<WindowKind> = (action) => {
+    if (action.type === "window.open") {
       opened.push("opened");
-    },
-  } as unknown as InfiniteCanvasCommands<WindowKind>;
+    }
+  };
   const attempt = async (input: unknown, listing: ProjectContent | null) => {
-    projectContent$.set(listing);
+    projectListings$["project-1"].set(listing);
 
     await getAppAction("collection.create.connectedTo")?.run(
-      { actions, ...where, goToCanvas, projectId: "project-1", state },
+      { dispatch, ...where, goToCanvas, projectId: "project-1", state },
       input,
     );
   };
@@ -426,15 +423,13 @@ const CONTAINER_TREE = {
 const LEAF_TREE = { id: "a", kind: "window", weight: 1 };
 
 const runGroupVerb = async (id: string, input: unknown, tree: unknown = CONTAINER_TREE) => {
-  const calls: unknown[] = [];
-  const actions = {
-    closeGroup: (groupId: string) => calls.push({ closeGroup: groupId }),
-    setGroupLayoutMode: (value: unknown) => calls.push({ setGroupLayoutMode: value }),
-    setGroupTitle: (value: unknown) => calls.push({ setGroupTitle: value }),
-  } as unknown as InfiniteCanvasCommands<WindowKind>;
+  const calls: InfiniteCanvasAction<WindowKind>[] = [];
+  const dispatch: InfiniteCanvasDispatch<WindowKind> = (action) => {
+    calls.push(action);
+  };
 
   await getAppAction(id)?.run(
-    { actions, ...where, goToCanvas, projectId: "project-1", state: groupState(tree) },
+    { dispatch, ...where, goToCanvas, projectId: "project-1", state: groupState(tree) },
     input,
   );
 
@@ -445,7 +440,12 @@ test("a group is arranged by its own id, not by whichever window happens to be a
   expect(
     await runGroupVerb("group.setLayout", { groupId: "group-1", layout: "tabs" }),
   ).toStrictEqual([
-    { setGroupLayoutMode: { containerId: "container-1", groupId: "group-1", layout: "tabs" } },
+    {
+      containerId: "container-1",
+      groupId: "group-1",
+      layout: "tabs",
+      type: "group.setLayoutMode",
+    },
   ]);
 });
 
@@ -475,9 +475,9 @@ test("only the three modes the framework implements are accepted", async () => {
 test("renaming and ungrouping take the same handle, and refuse an id naming no group", async () => {
   expect(
     await runGroupVerb("group.rename", { groupId: "group-1", title: "Sources" }),
-  ).toStrictEqual([{ setGroupTitle: { groupId: "group-1", title: "Sources" } }]);
+  ).toStrictEqual([{ groupId: "group-1", title: "Sources", type: "group.setTitle" }]);
   expect(await runGroupVerb("group.dissolve", { groupId: "group-1" })).toStrictEqual([
-    { closeGroup: "group-1" },
+    { groupId: "group-1", type: "group.close" },
   ]);
   expect(await runGroupVerb("group.rename", { groupId: "nope", title: "x" })).toStrictEqual([]);
   expect(await runGroupVerb("group.dissolve", { groupId: "nope" })).toStrictEqual([]);
@@ -487,7 +487,7 @@ test("an empty title is accepted, because it returns a group to being named by i
   // `InfiniteCanvasGroup.title` uses that to mean "named after what it holds", so clearing is a
   // thing to want rather than a malformed input.
   expect(await runGroupVerb("group.rename", { groupId: "group-1", title: "" })).toStrictEqual([
-    { setGroupTitle: { groupId: "group-1", title: "" } },
+    { groupId: "group-1", title: "", type: "group.setTitle" },
   ]);
 });
 
@@ -497,20 +497,31 @@ test("an empty title is accepted, because it returns a group to being named by i
  * Its four `workspace.*` descriptors carry `workspaceId: ""`, so `published-commands.ts` holds them
  * back rather than offer a verb that acts on a workspace called `""`. These supply the argument.
  */
-const workspaceState = (workspaces: readonly Readonly<{ id: string; title: string }>[]) =>
-  createInfiniteCanvasState<WindowKind>({
-    activeWindowId: "note-1",
-    viewport: { height: 800, width: 1200 },
-    windows: [
-      createInfiniteCanvasWindow<WindowKind>({
-        id: "note-1",
-        kind: "note",
-        rect: { height: 200, width: 320, x: 0, y: 0 },
-        title: "Sources",
-      }),
-    ],
-    workspaces: workspaces.map((workspace) => ({ ...workspace, windowIds: [] })) as never,
+const workspaceState = (workspaces: readonly Readonly<{ id: string; title: string }>[]) => {
+  const store = createInfiniteCanvasStore<WindowKind>({
+    initialState: {
+      activeWindowId: "note-1",
+      viewport: { height: 800, width: 1200 },
+      windows: [
+        createInfiniteCanvasWindow<WindowKind>({
+          id: "note-1",
+          kind: "note",
+          rect: { height: 200, width: 320, x: 0, y: 0 },
+          title: "Sources",
+        }),
+      ],
+    },
   });
+  for (const workspace of workspaces) {
+    store.dispatch({
+      type: "workspace.create",
+      activate: false,
+      title: workspace.title,
+      workspaceId: workspace.id,
+    });
+  }
+  return store.getState();
+};
 
 const runWorkspaceVerb = async (
   id: string,
@@ -519,19 +530,17 @@ const runWorkspaceVerb = async (
     { id: "desk-1", title: "Desktop 1" },
   ],
 ) => {
-  const commands: InfiniteCanvasCommand[] = [];
-  const actions = {
-    executeCommand: (command: InfiniteCanvasCommand) => {
-      commands.push(command);
-    },
-  } as unknown as InfiniteCanvasCommands<WindowKind>;
+  const dispatched: InfiniteCanvasAction<WindowKind>[] = [];
+  const dispatch: InfiniteCanvasDispatch<WindowKind> = (action) => {
+    dispatched.push(action);
+  };
 
   await getAppAction(id)?.run(
-    { actions, ...where, goToCanvas, projectId: "project-1", state: workspaceState(workspaces) },
+    { dispatch, ...where, goToCanvas, projectId: "project-1", state: workspaceState(workspaces) },
     input,
   );
 
-  return commands;
+  return dispatched;
 };
 
 test("a new desktop is numbered past the highest name taken, never by a count", async () => {
@@ -545,7 +554,10 @@ test("a new desktop is numbered past the highest name taken, never by a count", 
     { id: "c", title: "Desktop 3" },
   ]);
 
-  expect(created[0]).toMatchObject({ title: "Desktop 4", type: "workspace.create" });
+  expect(created[0]).toMatchObject({
+    title: "Desktop 4",
+    type: "workspace.create",
+  });
 });
 
 test("a desktop somebody names keeps that name", async () => {
@@ -563,22 +575,25 @@ test("entering, closing and moving all refuse an id no desktop answers to", asyn
 
 test("moving the active window needs one, not just a desktop", async () => {
   // Both facts are checked because either alone is a no-op that would report success.
-  const noActiveWindow = createInfiniteCanvasState<WindowKind>({
-    viewport: { height: 800, width: 1200 },
-    windows: [],
-    workspaces: [{ id: "desk-1", title: "Desktop 1", windowIds: [] }] as never,
+  const store = createInfiniteCanvasStore<WindowKind>({
+    initialState: {
+      viewport: { height: 800, width: 1200 },
+      windows: [],
+    },
   });
-  const commands: InfiniteCanvasCommand[] = [];
-  const actions = {
-    executeCommand: (command: InfiniteCanvasCommand) => commands.push(command),
-  } as unknown as InfiniteCanvasCommands<WindowKind>;
+  store.dispatch({ type: "workspace.create", workspaceId: "desk-1", title: "Desktop 1" });
+  const noActiveWindow = store.getState();
+  const dispatched: InfiniteCanvasAction<WindowKind>[] = [];
+  const dispatch: InfiniteCanvasDispatch<WindowKind> = (action) => {
+    dispatched.push(action);
+  };
 
   await getAppAction("workspace.moveActiveWindow")?.run(
-    { actions, ...where, goToCanvas, projectId: "project-1", state: noActiveWindow },
+    { dispatch, ...where, goToCanvas, projectId: "project-1", state: noActiveWindow },
     { workspaceId: "desk-1" },
   );
 
-  expect(commands).toStrictEqual([]);
+  expect(dispatched).toStrictEqual([]);
 });
 
 /**
@@ -591,7 +606,7 @@ test("moving the active window needs one, not just a desktop", async () => {
  */
 
 const documentContext = (goTo: (input: Readonly<{ canvasId: string }>) => void) => ({
-  actions: { executeCommand: () => undefined } as unknown as InfiniteCanvasCommands<WindowKind>,
+  dispatch: (() => undefined) as InfiniteCanvasDispatch<WindowKind>,
   ...where,
   goToCanvas: goTo,
   projectId: "project-1",

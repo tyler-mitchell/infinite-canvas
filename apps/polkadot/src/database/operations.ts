@@ -1,14 +1,12 @@
-import type { initialLayout } from "../canvas/canvas-document";
+import type { createCanvas, createProject, unrelateContentItems } from "./database.client";
 
 // This lazy import keeps the 11 MB WASM engine off the first-frame path.
 const client = () => import("./database.client");
 
-type Layout = typeof initialLayout;
-
 export const canvases = {
+  titles: async (projectId: string) => (await client()).listCanvasTitles(projectId),
   archive: async (canvasId: string) => (await client()).archiveCanvas(canvasId),
-  create: async (input: Readonly<{ layout: Layout; projectId: string; title: string }>) =>
-    (await client()).createCanvas(input),
+  create: async (input: Parameters<typeof createCanvas>[0]) => (await client()).createCanvas(input),
   duplicate: async (input: Readonly<{ canvasId: string; title: string }>) =>
     (await client()).duplicateCanvas(input),
   list: async (projectId: string) => (await client()).listCanvases(projectId),
@@ -21,8 +19,9 @@ export const canvases = {
 };
 
 export const projects = {
+  titles: async () => (await client()).listProjectTitles(),
   archive: async (projectId: string) => (await client()).archiveProject(projectId),
-  create: async (input: Readonly<{ layout: Layout; title: string }>) =>
+  create: async (input: Parameters<typeof createProject>[0]) =>
     (await client()).createProject(input),
   list: async () => (await client()).listProjects(),
   listArchived: async () => (await client()).listArchivedProjects(),
@@ -37,7 +36,7 @@ export const projects = {
 export const relations = {
   connect: async (input: Readonly<{ kind: string; source: string; target: string }>) =>
     (await client()).relateContentItems(input),
-  disconnect: async (input: Readonly<{ source: string; target: string }>) =>
+  disconnect: async (input: Parameters<typeof unrelateContentItems>[0]) =>
     (await client()).unrelateContentItems(input),
   list: async (projectId: string) => (await client()).listRelations(projectId),
   setKind: async (input: Readonly<{ kind: string; relationId: string }>) =>
@@ -68,6 +67,8 @@ export const savedViews = {
 
 // Each content kind owns its stored shape.
 export const content = {
+  titles: async (input: Readonly<{ kind?: string; projectId: string }>) =>
+    (await client()).listContentTitles(input),
   archive: async (itemId: string) => (await client()).archiveContentItem(itemId),
   create: async (
     input: Readonly<{

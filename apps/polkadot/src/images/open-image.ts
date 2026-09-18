@@ -2,34 +2,34 @@ import type { InfiniteCanvasPoint, InfiniteCanvasRect } from "@hyphened/infinite
 
 import { CANVAS_CHROME } from "../canvas/chrome";
 import { openContentWindow, type WindowPlacement, type WindowSize } from "../canvas/open-window";
-import { loadProjectContent } from "../content/project-content";
-import { imageGateway } from "./image-gateway";
+import { createProjectItem } from "../content/project-content";
+import { IMAGE_KIND, imageGateway } from "./image-gateway";
 
 const IMAGE_EXTENT = 360;
 // Images have no LOD summary, so this size does not cross a restore threshold.
 const IMAGE_MINIMUM_SIZE = { height: 96, width: 96 } as const;
 
 // The image ratio sets the body size. The window also includes its header.
-function getImageSize(source: string): Promise<WindowSize> {
-  return new Promise((resolve) => {
-    const probe = new Image();
-
-    probe.addEventListener("load", () => {
-      const scale = IMAGE_EXTENT / Math.max(probe.naturalWidth, probe.naturalHeight);
-
-      resolve({
+async function getImageSize(source: string): Promise<WindowSize> {
+  const probe = new Image();
+  probe.src = source;
+  try {
+    await probe.decode();
+    const extent = Math.max(probe.naturalWidth, probe.naturalHeight);
+    if (extent > 0) {
+      const scale = IMAGE_EXTENT / extent;
+      return {
         height:
           Math.max(IMAGE_MINIMUM_SIZE.height, Math.round(probe.naturalHeight * scale)) +
           CANVAS_CHROME.headerHeight,
         width: Math.max(IMAGE_MINIMUM_SIZE.width, Math.round(probe.naturalWidth * scale)),
-      });
-    });
-    // A square window can show the decode error when the probe fails.
-    probe.addEventListener("error", () => {
-      resolve({ height: IMAGE_EXTENT + CANVAS_CHROME.headerHeight, width: IMAGE_EXTENT });
-    });
-    probe.src = source;
-  });
+      };
+    }
+    console.warn("Image dimensions are empty; using a square window.");
+  } catch (error) {
+    console.warn("Could not decode image dimensions; using a square window.", error);
+  }
+  return { height: IMAGE_EXTENT + CANVAS_CHROME.headerHeight, width: IMAGE_EXTENT };
 }
 
 function readFileAsDataUrl(file: File): Promise<string> {
@@ -59,23 +59,27 @@ async function openNewImage(
 ) {
   const source = await readFileAsDataUrl(input.file);
   const [created, size] = await Promise.all([
-    imageGateway.create({
-      description: input.file.name,
+    createProjectItem({
       projectId: input.projectId,
-      source,
+      kind: IMAGE_KIND,
+      create: () =>
+        imageGateway.create({
+          description: input.file.name,
+          projectId: input.projectId,
+          source,
+        }),
     }),
     getImageSize(source),
   ]);
 
   openImageWindow({
-    actions: input.actions,
+    dispatch: input.dispatch,
     imageId: created.id,
     rect: input.at === undefined ? undefined : { ...size, x: input.at.x, y: input.at.y },
     size,
     state: input.state,
     title: created.title,
   });
-  await loadProjectContent(input.projectId);
 }
 
 function openImageWindow(
@@ -88,7 +92,7 @@ function openImageWindow(
     }>,
 ) {
   openContentWindow({
-    actions: input.actions,
+    dispatch: input.dispatch,
     data: { itemId: input.imageId },
     kind: "image",
     minSize: IMAGE_MINIMUM_SIZE,

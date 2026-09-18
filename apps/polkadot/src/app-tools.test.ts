@@ -1,22 +1,28 @@
-import { createInfiniteCanvasState, type InfiniteCanvasCommands } from "@hyphened/infinite-canvas";
+import { createInfiniteCanvasStore } from "@hyphened/infinite-canvas";
 import { expect, test } from "vite-plus/test";
 
 import type { AppActionContext } from "./app-actions";
 import { getAppTools } from "./app-tools";
 import type { WindowKind } from "./canvas/window-registry";
 
+const store = createInfiniteCanvasStore<WindowKind>({ initialState: { windows: [] } });
 const createContext = (): AppActionContext => ({
-  actions: { executeCommand: () => undefined } as unknown as InfiniteCanvasCommands<WindowKind>,
+  dispatch: store.dispatch,
   canvasId: "canvas_document:test",
   canvasTitle: "Test",
   goToCanvas: () => undefined,
   projectId: "project:test",
   refreshRoute: () => undefined,
-  state: createInfiniteCanvasState<WindowKind>({ windows: [] }),
+  state: store.getState(),
 });
 
 const tools = (development = true) =>
-  getAppTools({ createContext, development, projectId: "project:test" });
+  getAppTools({
+    createContext,
+    development,
+    projectId: "project:test",
+    getContextualCommands: () => store.getContextualCommands({ includeDisabled: true }),
+  });
 
 const find = (name: string) => tools().find((tool) => tool.name === name);
 

@@ -32,6 +32,11 @@ DEFINE FUNCTION OVERWRITE fn::save_content_item(
 };
 
 -- NONE lists every content kind.
+DEFINE FUNCTION OVERWRITE fn::list_content_titles($project: record<project>, $kind: option<string>) {
+  RETURN SELECT VALUE title FROM content_item
+    WHERE project = $project AND ($kind = NONE OR kind = $kind);
+};
+
 DEFINE FUNCTION OVERWRITE fn::list_content_items($project: record<project>, $kind: option<string>) {
   RETURN SELECT id, kind, title, revision, content, updated_at
     FROM content_item

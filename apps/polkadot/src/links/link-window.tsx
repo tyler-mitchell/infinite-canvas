@@ -1,4 +1,6 @@
 import { useValue } from "@legendapp/state/react";
+import { proxy, syncState } from "@legendapp/state";
+import { synced } from "@legendapp/state/sync";
 import { ExternalLink } from "lucide-react";
 import { useEffect } from "react";
 import { Button } from "ui";
@@ -7,15 +9,16 @@ import { tv } from "ui/tv";
 import { useLoaderData } from "@tanstack/react-router";
 
 import { getProjectContent, projectContent$ } from "../content/project-content";
-import { createContentCache } from "../database/content-cache";
 import { linkGateway, type LinkRecord } from "./link-gateway";
 
 // The address bar stays visible when a site refuses iframe embedding.
-const links = createContentCache<LinkRecord>({
-  failedMessage: "Could not open this link.",
-  missingMessage: "This link no longer exists.",
-  read: (linkId) => linkGateway.read(linkId),
-});
+const links$ = proxy<LinkRecord | null>((linkId) =>
+  synced({
+    initial: null,
+    get: () => linkGateway.read(linkId),
+    onError: (error) => console.warn("Could not read link", { linkId, error }),
+  }),
+);
 
 // The same host always gets the same hue.
 function getHostHue(host: string): number {
@@ -46,28 +49,53 @@ const linkWindow = tv({
 });
 
 export function LinkWindowBody({ linkId }: Readonly<{ linkId: string }>) {
-  const entry = useValue(links.entries$[linkId]);
+  const link$ = links$[linkId];
+  const link = useValue(link$);
+  const status$ = syncState(link$);
+  const isLoaded = useValue(status$.isLoaded);
+  const isGetting = useValue(status$.isGetting);
+  const error = useValue(status$.error);
   const { projectId } = useLoaderData({ from: "/canvas/$canvasId" });
-  const listing = useValue(projectContent$);
+  const listing = useValue(projectContent$[projectId]);
   const styles = linkWindow();
 
   useEffect(() => {
-    links.ensureLoaded(linkId);
-  }, [linkId]);
+    if (!status$.isLoaded.peek() && !status$.isGetting.peek() && status$.error.peek() !== undefined)
+      void status$.sync();
+  }, [status$]);
 
   const items = getProjectContent(listing, projectId);
 
-  if (entry === undefined || entry.status === "loading" || items === null) {
+  if (error !== undefined) {
+    return (
+      <div className={styles.notice()}>
+        <div>
+          <p role="alert">{error?.message ?? "Could not open this link."}</p>
+          <Button
+            disabled={isGetting}
+            onClick={() => {
+              if (!status$.isGetting.peek()) void status$.sync();
+            }}
+            size="sm"
+            variant="ghost"
+          >
+            Retry
+          </Button>
+        </div>
+      </div>
+    );
+  }
+  if (!isLoaded || items === null) {
     return <div className={styles.notice()}>Loading…</div>;
   }
 
   const listed = items.find((item) => item.id === linkId);
 
-  if (entry.status === "error" || entry.record === null || listed === undefined) {
-    return <div className={styles.notice()}>{entry.error ?? "This link no longer exists."}</div>;
+  if (link == null || listed === undefined) {
+    return <div className={styles.notice()}>This link no longer exists.</div>;
   }
 
-  const { host, url } = entry.record.content;
+  const { host, url } = link.content;
   // The project listing owns mutable titles. The cache owns the fixed address.
   const title = listed.title;
   const hue = getHostHue(host);

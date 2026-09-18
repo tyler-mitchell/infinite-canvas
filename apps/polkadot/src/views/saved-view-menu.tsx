@@ -1,8 +1,8 @@
-import { useInfiniteCanvasActions, useInfiniteCanvasSelector } from "@hyphened/infinite-canvas";
+import { useInfiniteCanvasDispatch, useInfiniteCanvasSelector } from "@hyphened/infinite-canvas";
 import { useObservable, useValue } from "@legendapp/state/react";
 import { getHotkeyManager } from "@tanstack/hotkeys";
 import { Bookmark, BookmarkPlus, Check, Crosshair, Frame, Trash2 } from "lucide-react";
-import { useEffect, useRef, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, type ReactNode } from "react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -13,10 +13,10 @@ import {
   DropdownMenuTrigger,
 } from "ui";
 import { tv } from "ui/tv";
+import { actionFailure$ } from "../content/action-failure";
 
 import {
   getCurrentFraming,
-  getNextViewTitle,
   getSavedViews,
   loadSavedViews,
   reframeView,
@@ -25,6 +25,7 @@ import {
   saveView,
   type SavedViewRect,
 } from "./saved-views";
+import { getNextNumberedTitle } from "../titles";
 
 const savedViewMenu = tv({
   slots: {
@@ -61,25 +62,38 @@ const MODE_ICON: Readonly<Record<SavedViewMode, ReactNode>> = {
 };
 
 export function SavedViewMenu({ canvasId }: Readonly<{ canvasId: string }>) {
-  const actions = useInfiniteCanvasActions();
+  const dispatch = useInfiniteCanvasDispatch();
   const camera = useInfiniteCanvasSelector((state) => state.camera);
   const viewport = useInfiniteCanvasSelector((state) => state.viewport);
   const insets = useInfiniteCanvasSelector((state) => state.viewportInsets);
-  const listing = useValue(savedViews$);
+  const listing = useValue(savedViews$[canvasId]);
   // Capture the framing when Save is pressed, before the title is typed.
   const draft$ = useObservable<Readonly<{ rect: SavedViewRect; title: string }> | null>(null);
   const draft = useValue(draft$);
+  const saveError$ = useObservable<string | null>(null);
+  const saveError = useValue(saveError$);
+  const loadError$ = useObservable<string | null>(null);
+  const loadError = useValue(loadError$);
   const mode$ = useObservable<SavedViewMode>("browse");
   const mode = useValue(mode$);
   const inputRef = useRef<HTMLInputElement>(null);
-  const views = getSavedViews(listing, canvasId) ?? [];
+  const loadedViews = getSavedViews(listing, canvasId);
+  const views = loadedViews ?? [];
+  const emptyMessage = loadedViews === null ? "Loading views…" : "Nothing saved here yet.";
   const styles = savedViewMenu({ mode });
 
+  const loadViews = useCallback(() => {
+    loadError$.set(null);
+    void loadSavedViews(canvasId).catch((error: unknown) => {
+      loadError$.set(error instanceof Error ? error.message : "Could not load saved views.");
+      console.warn("Could not load saved views", { canvasId, error });
+    });
+  }, [canvasId, loadError$]);
   useEffect(() => {
-    void loadSavedViews(canvasId);
-  }, [canvasId]);
+    loadViews();
+  }, [loadViews]);
 
-  const commitSave = () => {
+  const commitSave = useCallback(() => {
     const pending = draft$.peek();
 
     draft$.set(null);
@@ -88,8 +102,17 @@ export function SavedViewMenu({ canvasId }: Readonly<{ canvasId: string }>) {
       return;
     }
 
-    void saveView({ canvasId, rect: pending.rect, title: pending.title.trim() });
-  };
+    saveError$.set(null);
+    void saveView({ canvasId, rect: pending.rect, title: pending.title.trim() }).catch(
+      (error: unknown) => {
+        if (draft$.peek() === null) draft$.set(pending);
+        saveError$.set(
+          `Could not save “${pending.title.trim()}”. ${error instanceof Error ? error.message : "Try again."}`,
+        );
+        console.warn("Could not save view", { canvasId, title: pending.title, error });
+      },
+    );
+  }, [canvasId, draft$, saveError$]);
 
   // Scope Enter and Escape to the title field.
   useEffect(() => {
@@ -121,22 +144,25 @@ export function SavedViewMenu({ canvasId }: Readonly<{ canvasId: string }>) {
         }
       }
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [draft !== null, draft$]);
+  }, [commitSave, draft !== null, draft$]);
 
   if (draft !== null) {
     return (
-      <input
-        aria-label="View name"
-        autoFocus
-        className={styles.input()}
-        onBlur={commitSave}
-        onChange={(event) => {
-          draft$.set({ rect: draft.rect, title: event.target.value });
-        }}
-        ref={inputRef}
-        value={draft.title}
-      />
+      <div>
+        <input
+          aria-label="View name"
+          autoFocus
+          className={styles.input()}
+          onBlur={commitSave}
+          onChange={(event) => {
+            saveError$.set(null);
+            draft$.set({ rect: draft.rect, title: event.target.value });
+          }}
+          ref={inputRef}
+          value={draft.title}
+        />
+        {saveError === null ? null : <p role="alert">{saveError}</p>}
+      </div>
     );
   }
 
@@ -164,45 +190,71 @@ export function SavedViewMenu({ canvasId }: Readonly<{ canvasId: string }>) {
         {/* Base UI requires DropdownMenuLabel inside DropdownMenuGroup. */}
         <DropdownMenuGroup>
           <DropdownMenuLabel>{MODE_PROMPT[mode]}</DropdownMenuLabel>
-          {/* Empty text waits for the list query. */}
-          {views.length === 0 ? (
-            <DropdownMenuLabel>
-              {getSavedViews(listing, canvasId) === null ? "" : "Nothing saved here yet."}
-            </DropdownMenuLabel>
-          ) : (
-            views.map((view) => (
+          {loadError === null ? null : (
+            <>
+              <DropdownMenuLabel role="alert">{loadError}</DropdownMenuLabel>
               <DropdownMenuItem
-                key={view.id}
+                closeOnClick={false}
                 onClick={() => {
-                  if (mode === "remove") {
-                    void removeSavedView({ canvasId, viewId: view.id });
-
-                    return;
-                  }
-
-                  // Reframe with the same rect that a new view stores.
-                  if (mode === "reframe") {
-                    void reframeView({
-                      canvasId,
-                      rect: getCurrentFraming({ camera, insets, viewport }),
-                      viewId: view.id,
-                    });
-
-                    return;
-                  }
-
-                  // The stored rect already excludes viewport insets, so fit adds no padding.
-                  actions.navigateToRect({
-                    behavior: { paddingPx: 0, type: "fit" },
-                    rect: view.rect,
-                  });
+                  if (loadError$.peek() !== null) loadViews();
                 }}
               >
-                {MODE_ICON[mode]}
-                <span className={styles.itemTitle()}>{view.title}</span>
+                Retry loading views
               </DropdownMenuItem>
-            ))
+            </>
           )}
+          {views.length === 0 && loadError === null && (
+            <DropdownMenuLabel>{emptyMessage}</DropdownMenuLabel>
+          )}
+          {views.map((view) => (
+            <DropdownMenuItem
+              key={view.id}
+              onClick={() => {
+                if (mode === "remove") {
+                  void removeSavedView({ canvasId, viewId: view.id }).catch((error: unknown) => {
+                    actionFailure$.set(`Could not remove “${view.title}”.`);
+                    console.warn("Could not remove saved view", {
+                      canvasId,
+                      viewId: view.id,
+                      error,
+                    });
+                  });
+
+                  return;
+                }
+
+                // Reframe with the same rect that a new view stores.
+                if (mode === "reframe") {
+                  void reframeView({
+                    canvasId,
+                    rect: getCurrentFraming({ camera, insets, viewport }),
+                    viewId: view.id,
+                  }).catch((error: unknown) => {
+                    actionFailure$.set(`Could not reframe “${view.title}”.`);
+                    console.warn("Could not reframe saved view", {
+                      canvasId,
+                      viewId: view.id,
+                      error,
+                    });
+                  });
+
+                  return;
+                }
+
+                // The stored rect already excludes viewport insets, so fit adds no padding.
+                dispatch({
+                  request: {
+                    behavior: { paddingPx: 0, type: "fit" },
+                    target: { rect: view.rect, type: "rect" },
+                  },
+                  type: "camera.navigate",
+                });
+              }}
+            >
+              {MODE_ICON[mode]}
+              <span className={styles.itemTitle()}>{view.title}</span>
+            </DropdownMenuItem>
+          ))}
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
         {mode !== "browse" ? (
@@ -218,10 +270,15 @@ export function SavedViewMenu({ canvasId }: Readonly<{ canvasId: string }>) {
         ) : (
           <>
             <DropdownMenuItem
+              disabled={loadedViews === null}
               onClick={() => {
+                if (loadedViews === null) return;
                 draft$.set({
                   rect: getCurrentFraming({ camera, insets, viewport }),
-                  title: getNextViewTitle(views),
+                  title: getNextNumberedTitle(
+                    "View",
+                    views.map((view) => view.title),
+                  ),
                 });
               }}
             >

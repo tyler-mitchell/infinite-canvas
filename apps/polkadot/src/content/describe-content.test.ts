@@ -152,9 +152,7 @@ const stateSelecting = (relationId: string) =>
   createInfiniteCanvasState<WindowKind>({
     selection: {
       anchorTarget: { id: relationId, kind: "relation", type: "edge" },
-      anchorWindowId: null,
       targets: [{ id: relationId, kind: "relation", type: "edge" }],
-      windowIds: [],
     },
     viewport: { height: 800, width: 1200 },
     windows: [],

@@ -1,12 +1,14 @@
 import {
-  useInfiniteCanvasActions,
+  useInfiniteCanvasDispatch,
   useInfiniteCanvasDesktopPortalRoot,
   useInfiniteCanvasStore,
   type InfiniteCanvasState,
 } from "@hyphened/infinite-canvas";
 import { useObservable, useValue } from "@legendapp/state/react";
+import { syncState } from "@legendapp/state";
 import { useEffect, useRef } from "react";
 import { tv } from "ui/tv";
+import { Button } from "ui";
 
 import {
   editNote,
@@ -62,15 +64,23 @@ export function NoteWindowBody({
   windowId,
   windowTitle,
 }: Readonly<{ gateway: NoteGateway; noteId: string; windowId: string; windowTitle: string }>) {
-  const actions = useInfiniteCanvasActions();
+  const dispatch = useInfiniteCanvasDispatch<WindowKind>();
   // Read canvas state only when a mention opens.
   const store = useInfiniteCanvasStore();
   const { projectId } = useLoaderData({ from: "/canvas/$canvasId" });
   const mentionable =
-    getProjectContentOfKind({ kind: "note", listing: useValue(projectContent$), projectId }) ?? [];
+    getProjectContentOfKind({
+      kind: "note",
+      listing: useValue(projectContent$[projectId]),
+      projectId,
+    }) ?? [];
   // The menu portal stays outside canvas transforms.
   const portalRoot = useInfiniteCanvasDesktopPortalRoot();
-  const entry = useValue(notes$[noteId]);
+  const note = useValue(notes$[noteId]);
+  const saveStatus$ = syncState(notes$[noteId]);
+  const isLoaded = useValue(saveStatus$.isLoaded);
+  const isGetting = useValue(saveStatus$.isGetting);
+  const error = useValue(saveStatus$.error);
   // Primitive observables update independently in Legend State.
   const externalWrites = useValue(externalWrites$[noteId]) ?? 0;
   const rootRef = useRef<HTMLDivElement>(null);
@@ -80,7 +90,7 @@ export function NoteWindowBody({
   const above = useValue(above$);
   const below = useValue(below$);
   const styles = noteWindow();
-  const noteTitle = entry?.note?.title;
+  const noteTitle = note?.title;
 
   useEffect(() => {
     ensureNoteLoaded(noteId, gateway);
@@ -110,30 +120,47 @@ export function NoteWindowBody({
       scroller.removeEventListener("scroll", measure);
       observer.disconnect();
     };
-  }, [above$, below$, entry?.status]);
+  }, [above$, below$, isLoaded]);
 
   // Keep the window summary and accessible name in sync with the note title.
   useEffect(() => {
     if (noteTitle !== undefined && noteTitle.trim().length > 0 && noteTitle !== windowTitle) {
-      actions.setWindowTitle({ title: noteTitle, windowId });
+      dispatch({ title: noteTitle, type: "window.setTitle", windowId });
     }
-  }, [actions, noteTitle, windowId, windowTitle]);
+  }, [dispatch, noteTitle, windowId, windowTitle]);
 
-  if (entry === undefined || entry.status === "loading") {
+  if (!isLoaded && error === undefined) {
     return <div className={styles.notice()} />;
   }
 
-  if (entry.status === "error" || entry.note === null) {
-    return <div className={styles.notice()}>{entry.error ?? "This note could not be opened."}</div>;
+  if (note == null) {
+    return (
+      <div className={styles.notice()}>
+        <div>
+          <p role={error === undefined ? undefined : "alert"}>
+            {error?.message ?? "This note no longer exists."}
+          </p>
+          {error === undefined ? null : (
+            <Button
+              disabled={isGetting}
+              onClick={() => ensureNoteLoaded(noteId, gateway)}
+              size="sm"
+              variant="ghost"
+            >
+              Retry
+            </Button>
+          )}
+        </div>
+      </div>
+    );
   }
-
-  const note = entry.note;
 
   return (
     <div className={styles.root()} ref={rootRef}>
       {/* Inline opacity carries the measured scroll state. */}
       <div className={noteWindow({ edge: "top" }).fade()} style={{ opacity: above ? 1 : 0 }} />
       <div className={styles.body()}>
+        {error === undefined ? null : <p role="alert">{error.message}</p>}
         {/* The title field has a persistent accessible name. */}
         <input
           aria-label="Note title"
@@ -155,8 +182,8 @@ export function NoteWindowBody({
 
             if (item !== undefined) {
               // Legend State unwraps to a mutable structural type.
-              openItemWindow({
-                actions,
+              void openItemWindow({
+                dispatch,
                 item,
                 state: store.state$.peek() as InfiniteCanvasState<WindowKind>,
               });

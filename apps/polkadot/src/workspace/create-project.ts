@@ -1,29 +1,22 @@
 import { initialLayout } from "../canvas/canvas-document";
 import * as database from "../database/operations";
-import { withNamingLock } from "../naming-lock";
+import { namingQueue } from "../naming-queue";
 import { getNextNumberedTitle } from "../titles";
 
 // Default titles include active and archived project names.
-// The naming lock prevents concurrent projects from choosing the same title.
 async function createProject(input: Readonly<{ title?: string }> = {}) {
-  return withNamingLock(async () => {
+  return namingQueue.add(async () => {
     const chosen = input.title?.trim();
 
     if (chosen !== undefined && chosen !== "") {
       return database.projects.create({ layout: initialLayout, title: chosen });
     }
 
-    const [offered, archived] = await Promise.all([
-      database.projects.list(),
-      database.projects.listArchived(),
-    ]);
+    const titles = await database.projects.titles();
 
     return database.projects.create({
       layout: initialLayout,
-      title: getNextNumberedTitle(
-        "Project",
-        [...offered, ...archived].map((project) => project.title),
-      ),
+      title: getNextNumberedTitle("Project", titles),
     });
   });
 }

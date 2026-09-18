@@ -28,12 +28,15 @@ const emptyProject = tv({
  * Nothing renders while the listing is still null, so a slow read does not flash "empty" at a
  * project that is full.
  */
-export function EmptyProjectInvitation({ onCreate }: Readonly<{ onCreate: () => void }>) {
+export function EmptyProjectInvitation({
+  onCreate,
+  projectId,
+}: Readonly<{ onCreate: () => void; projectId: string }>) {
   const state = useInfiniteCanvasState<WindowKind>();
-  const listing = useValue(projectContent$);
+  const listing = useValue(projectContent$[projectId]);
   const styles = emptyProject();
 
-  if (listing === null || listing.items.length > 0) {
+  if (listing == null || listing.items.length > 0) {
     return null;
   }
 

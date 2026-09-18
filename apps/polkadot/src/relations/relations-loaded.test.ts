@@ -7,7 +7,8 @@ test("before anything has asked, the answer is null rather than no connections",
 });
 
 test("a project nobody asked about is null even while another project's edges are held", () => {
-  relations$.set([]);
+  relations$["project:loaded"].set([]);
 
   expect(getLoadedRelations("project:other")).toBeNull();
+  expect(getLoadedRelations("project:loaded")).toEqual([]);
 });

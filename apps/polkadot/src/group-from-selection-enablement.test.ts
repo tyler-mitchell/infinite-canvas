@@ -1,8 +1,8 @@
 import {
   createInfiniteCanvasState,
   createInfiniteCanvasWindow,
-  executeInfiniteCanvasCommand,
-  type InfiniteCanvasCommands,
+  createInfiniteCanvasStore,
+  type InfiniteCanvasDispatch,
   type InfiniteCanvasState,
 } from "@hyphened/infinite-canvas";
 import { expect, test } from "vite-plus/test";
@@ -11,7 +11,7 @@ import { getAppAction, isAppActionEnabled } from "./app-actions";
 import type { WindowKind } from "./canvas/window-registry";
 
 const context = (state: InfiniteCanvasState<WindowKind>) => ({
-  actions: {} as InfiniteCanvasCommands<WindowKind>,
+  dispatch: (() => undefined) as InfiniteCanvasDispatch<WindowKind>,
   canvasId: "canvas_document:canvas-1",
   canvasTitle: "Main canvas",
   goToCanvas: () => undefined,
@@ -36,13 +36,9 @@ const base = (): InfiniteCanvasState<WindowKind> => ({
 });
 
 const withShell = (): InfiniteCanvasState<WindowKind> => {
-  const docked = executeInfiniteCanvasCommand(
-    { ...base(), activeWindowId: "a" },
-    {
-      direction: "right",
-      type: "window.dockDirection",
-    },
-  );
+  const store = createInfiniteCanvasStore({ initialState: { ...base(), activeWindowId: "a" } });
+  store.dispatch({ direction: "right", type: "window.dockDirection" });
+  const docked = store.getState();
 
   expect(docked.groups).toHaveLength(1);
 
@@ -59,7 +55,13 @@ const isOffered = (state: InfiniteCanvasState<WindowKind>) => {
 
 const selecting = (state: InfiniteCanvasState<WindowKind>, windowIds: readonly string[]) => ({
   ...state,
-  selection: { anchorWindowId: windowIds.at(-1) ?? null, windowIds },
+  selection: {
+    anchorTarget:
+      (windowIds.at(-1) ?? null) === null
+        ? null
+        : { type: "window" as const, id: (windowIds.at(-1) ?? null)! },
+    targets: windowIds.map((id) => ({ type: "window" as const, id })),
+  },
 });
 
 test("two floating windows offer the verb", () => {

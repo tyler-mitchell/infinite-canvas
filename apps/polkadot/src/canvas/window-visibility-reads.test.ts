@@ -3,6 +3,9 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { expect, test } from "vite-plus/test";
+import { createInfiniteCanvasState, createInfiniteCanvasWindow } from "@hyphened/infinite-canvas";
+import { getDrawnConnectors } from "./connector-geometry";
+import type { WindowKind } from "./window-registry";
 
 const sourceRoot = fileURLToPath(new URL("..", import.meta.url));
 
@@ -62,12 +65,33 @@ test("the check bites on the exact filter that was wrong seven times", () => {
   expect(MODE_FILTER.test('    .filter((window) => window.mode !== "minimized")')).toBe(true);
 });
 
-test("the check clears a file that consults both of the framework's answers", () => {
-  const body = asked(readFileSync(join(sourceRoot, "canvas/connector-geometry.ts"), "utf8"));
-
-  expect(MODE_FILTER.test(body)).toBe(true);
-  expect(ASKS_HIDDEN.test(body)).toBe(true);
-  expect(ASKS_MEMBERSHIP.test(body)).toBe(true);
+test("connector geometry excludes minimized endpoints", () => {
+  const windows = ["a", "b"].map((id, index) =>
+    createInfiniteCanvasWindow<WindowKind>({
+      id,
+      kind: "note",
+      title: id,
+      data: { itemId: id },
+      rect: { x: index * 500, y: 100, width: 200, height: 200 },
+    }),
+  );
+  const state = createInfiniteCanvasState<WindowKind>({
+    windows,
+    viewport: { width: 1200, height: 800 },
+  });
+  const relations = [{ id: "relates_to:visible", source: "a", target: "b", kind: "relates" }];
+  expect(getDrawnConnectors(state, relations)).toHaveLength(1);
+  expect(
+    getDrawnConnectors(
+      {
+        ...state,
+        windows: state.windows.map((window) =>
+          window.id === "b" ? { ...window, mode: "minimized" } : window,
+        ),
+      },
+      relations,
+    ),
+  ).toEqual([]);
 });
 
 test("an import is not an answer", () => {

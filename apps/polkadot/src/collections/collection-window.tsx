@@ -1,4 +1,4 @@
-import { useInfiniteCanvasActions, useInfiniteCanvasState } from "@hyphened/infinite-canvas";
+import { useInfiniteCanvasDispatch, useInfiniteCanvasState } from "@hyphened/infinite-canvas";
 import { useValue } from "@legendapp/state/react";
 import { ChevronDown, Layers, Link2 } from "lucide-react";
 import {
@@ -120,15 +120,15 @@ function ItemRows({
 }
 
 export function CollectionWindowBody({ collectionId }: Readonly<{ collectionId: string }>) {
-  const actions = useInfiniteCanvasActions<WindowKind>();
+  const dispatch = useInfiniteCanvasDispatch<WindowKind>();
   const state = useInfiniteCanvasState<WindowKind>();
   const { projectId } = useLoaderData({ from: "/canvas/$canvasId" });
-  const listing = useValue(projectContent$);
-  const relations = useValue(relations$);
+  const listing = useValue(projectContent$[projectId]);
+  const relations = useValue(relations$[projectId]) ?? [];
   const entry = getCollectionEntry({ collectionId, listing, projectId });
   const styles = collectionWindow();
   const openItem = (item: ContentItemRecord) => {
-    openItemWindow({ actions, item, state });
+    void openItemWindow({ dispatch, item, state });
   };
 
   if (entry.status === "loading") {

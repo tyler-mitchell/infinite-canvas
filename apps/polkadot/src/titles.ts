@@ -1,23 +1,32 @@
 const escapeForPattern = (label: string) =>
   label.replaceAll(/[.*+?^${}()|[\]\\]/gu, String.raw`\$&`);
 
-function getUsedOrdinals(label: string, titles: readonly string[]): readonly number[] {
+function getNextOrdinal({
+  label,
+  titles,
+  minimum,
+}: Readonly<{
+  label: string;
+  titles: readonly string[];
+  minimum: bigint;
+}>) {
   const pattern = new RegExp(`^${escapeForPattern(label)} (\\d+)$`, "u");
 
-  return titles.flatMap((title) => {
+  return titles.reduce((next, title) => {
     const ordinal = pattern.exec(title)?.[1];
-
-    return ordinal === undefined ? [] : [Number(ordinal)];
-  });
+    if (ordinal === undefined) return next;
+    const candidate = BigInt(ordinal) + 1n;
+    return candidate > next ? candidate : next;
+  }, minimum);
 }
 
 function getNextNumberedTitle(label: string, titles: readonly string[]): string {
-  return `${label} ${String(Math.max(0, ...getUsedOrdinals(label, titles)) + 1)}`;
+  return `${label} ${getNextOrdinal({ label, titles, minimum: 1n })}`;
 }
 
 function getNextRepeatTitle(label: string, titles: readonly string[]): string {
   return titles.includes(label)
-    ? `${label} ${String(Math.max(1, ...getUsedOrdinals(label, titles)) + 1)}`
+    ? `${label} ${getNextOrdinal({ label, titles, minimum: 2n })}`
     : label;
 }
 

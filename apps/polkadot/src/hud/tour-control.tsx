@@ -1,4 +1,4 @@
-import { useInfiniteCanvasActions, useInfiniteCanvasState } from "@hyphened/infinite-canvas";
+import { useInfiniteCanvasDispatch, useInfiniteCanvasState } from "@hyphened/infinite-canvas";
 import { useValue } from "@legendapp/state/react";
 import { Route, Square } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
@@ -20,10 +20,10 @@ const TOUR_SPEED = 900;
 /** Below this the walk is a jump, and a jump is what `view.navigate` already does. */
 const MINIMUM_TOUR_SECONDS = 1.2;
 
-export function TourControl() {
-  const actions = useInfiniteCanvasActions<WindowKind>();
+export function TourControl({ projectId }: Readonly<{ projectId: string }>) {
+  const dispatch = useInfiniteCanvasDispatch<WindowKind>();
   const state = useInfiniteCanvasState<WindowKind>();
-  const relations = useValue(relations$);
+  const relations = useValue(relations$[projectId]) ?? [];
   const [walking, setWalking] = useState(false);
   /*
    * Frozen while walking, and read through a ref rather than as an effect dependency.
@@ -56,12 +56,12 @@ export function TourControl() {
     const step = () => {
       const progress = Math.min((performance.now() - startedAt) / (seconds * 1000), 1);
 
-      actions.executeCommand({
+      dispatch({
         request: {
           behavior: { type: "center" },
           target: { point: getCanvasTourPoint(walked, progress), type: "point" },
         },
-        type: "view.navigate",
+        type: "camera.navigate",
       });
 
       if (progress < 1) {
@@ -81,7 +81,7 @@ export function TourControl() {
       window.removeEventListener("pointerdown", interrupt);
       window.removeEventListener("wheel", interrupt);
     };
-  }, [actions, walking]);
+  }, [dispatch, walking]);
 
   if (tour === null) {
     return null;

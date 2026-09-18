@@ -29,21 +29,21 @@ function createCanvasDropPolicy(
       accepted: isImageDrop(payload) || isLinkDrop(payload),
       reason: "Only images and links can be dropped on the canvas",
     }),
-    onDrop: ({ actions, payload, placement, state, worldPoint }) => {
+    onDrop: ({ dispatch, payload, placement, state, worldPoint }) => {
       const at = placement === null ? worldPoint : { x: placement.rect.x, y: placement.rect.y };
 
       if (payload.type === "text") {
         const name = payload.uris.length === 1 ? getDraggedLinkName(payload.text) : null;
 
         for (const url of payload.uris) {
-          void openNewLink({ actions, at, name, projectId, state, url });
+          void openNewLink({ at, dispatch, name, projectId, state, url });
         }
 
         return;
       }
 
       for (const file of payload.files.filter((candidate) => candidate.type.startsWith("image/"))) {
-        void openNewImage({ actions, at, file, projectId, state });
+        void openNewImage({ at, dispatch, file, projectId, state });
       }
     },
     placement: ({ payload }) => {

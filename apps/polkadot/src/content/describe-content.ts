@@ -1,4 +1,4 @@
-import { getSelectionTargets, type InfiniteCanvasState } from "@hyphened/infinite-canvas";
+import { type InfiniteCanvasState } from "@hyphened/infinite-canvas";
 import { type } from "arktype";
 
 import { getContentWindowItemId, type WindowKind } from "../canvas/window-registry";
@@ -111,7 +111,7 @@ function describeProjectContent(
   const closedCount = items.filter((item) => !open.has(item.id)).length;
 
   const selectedRelationIds = new Set(
-    getSelectionTargets(input.state.selection)
+    input.state.selection.targets
       .filter((target) => target.type === "edge")
       .map((target) => target.id),
   );

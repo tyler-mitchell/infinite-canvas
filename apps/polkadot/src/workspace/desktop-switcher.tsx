@@ -1,7 +1,8 @@
 import {
-  useInfiniteCanvasActions,
+  useInfiniteCanvasDispatch,
   useInfiniteCanvasSelector,
   type InfiniteCanvasWindow,
+  getSelectedWindowIds,
 } from "@hyphened/infinite-canvas";
 import {
   ArrowDown,
@@ -66,15 +67,15 @@ function describeWindowCount(count: number) {
 const ELSEWHERE_LIMIT = 6;
 
 export function DesktopSwitcher() {
-  const actions = useInfiniteCanvasActions<WindowKind>();
+  const dispatch = useInfiniteCanvasDispatch<WindowKind>();
   const activeWorkspaceId = useInfiniteCanvasSelector((state) => state.activeWorkspaceId);
   const workspaces = useInfiniteCanvasSelector((state) => state.workspaces);
   const windows = useInfiniteCanvasSelector<
     WindowKind,
     readonly InfiniteCanvasWindow<WindowKind>[]
   >((state) => state.windows);
-  const selectedWindowIds = useInfiniteCanvasSelector<WindowKind, readonly string[]>(
-    (state) => state.selection.windowIds,
+  const selectedWindowIds = useInfiniteCanvasSelector<WindowKind, readonly string[]>((state) =>
+    getSelectedWindowIds(state.selection),
   );
   const activeIndex = workspaces.findIndex((workspace) => workspace.id === activeWorkspaceId);
   const active = workspaces[activeIndex];
@@ -108,7 +109,7 @@ export function DesktopSwitcher() {
     current: active?.title,
     onRename: (title) => {
       if (active !== undefined) {
-        actions.setWorkspaceTitle({ title, workspaceId: active.id });
+        dispatch({ title, type: "workspace.setTitle", workspaceId: active.id });
       }
     },
   });
@@ -137,9 +138,9 @@ export function DesktopSwitcher() {
         <DropdownMenuRadioGroup
           onValueChange={(value) => {
             if (value === EVERY_WINDOW) {
-              actions.executeCommand({ type: "workspace.showAll" });
+              dispatch({ type: "workspace.showAll" });
             } else {
-              actions.executeCommand({ type: "workspace.enter", workspaceId: value });
+              dispatch({ type: "workspace.enter", workspaceId: value });
             }
           }}
           value={activeWorkspaceId ?? EVERY_WINDOW}
@@ -170,7 +171,7 @@ export function DesktopSwitcher() {
                 <DropdownMenuItem
                   key={window.id}
                   onClick={() => {
-                    actions.executeCommand({ type: "window.reveal", windowId: window.id });
+                    dispatch({ type: "window.reveal", windowId: window.id });
                   }}
                 >
                   <CornerUpRight />
@@ -200,7 +201,7 @@ export function DesktopSwitcher() {
                   key={workspace.id}
                   onClick={() => {
                     // One dispatch creates one undo step for the complete selection.
-                    actions.dispatch({
+                    dispatch({
                       type: "workspace.moveWindows",
                       windowIds: selectedWindowIds,
                       workspaceId: workspace.id,
@@ -225,7 +226,11 @@ export function DesktopSwitcher() {
             <DropdownMenuItem
               disabled={activeIndex === 0}
               onClick={() => {
-                actions.reorderWorkspace({ toIndex: activeIndex - 1, workspaceId: active.id });
+                dispatch({
+                  toIndex: activeIndex - 1,
+                  type: "workspace.reorder",
+                  workspaceId: active.id,
+                });
               }}
             >
               <ArrowUp />
@@ -234,7 +239,11 @@ export function DesktopSwitcher() {
             <DropdownMenuItem
               disabled={activeIndex === workspaces.length - 1}
               onClick={() => {
-                actions.reorderWorkspace({ toIndex: activeIndex + 1, workspaceId: active.id });
+                dispatch({
+                  toIndex: activeIndex + 1,
+                  type: "workspace.reorder",
+                  workspaceId: active.id,
+                });
               }}
             >
               <ArrowDown />
@@ -246,7 +255,7 @@ export function DesktopSwitcher() {
         <DropdownMenuItem
           onClick={() => {
             createDesktop({
-              actions,
+              dispatch,
               existingTitles: workspaces.map((workspace) => workspace.title),
             });
           }}
@@ -258,7 +267,7 @@ export function DesktopSwitcher() {
           // Closing a desktop keeps its windows.
           <DropdownMenuItem
             onClick={() => {
-              actions.executeCommand({ type: "workspace.close", workspaceId: active.id });
+              dispatch({ type: "workspace.close", workspaceId: active.id });
             }}
           >
             <X />

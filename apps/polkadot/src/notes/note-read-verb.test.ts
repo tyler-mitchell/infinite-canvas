@@ -1,14 +1,14 @@
 import { expect, test } from "vite-plus/test";
 
 import { getAppAction } from "../app-actions";
-import { projectContent$ } from "../content/project-content";
+import { projectListings$ } from "../content/project-content";
 import { markdownToNote } from "./note-markdown";
 
 const PROJECT_ID = "project:test";
 const NOTE_ID = "content_item:note-1";
 
 const readNote = (markdown: string): unknown => {
-  projectContent$.set({
+  projectListings$[PROJECT_ID].set({
     items: [
       {
         content: { text: markdownToNote(markdown) },
@@ -23,7 +23,7 @@ const readNote = (markdown: string): unknown => {
 
   return getAppAction("note.read")?.run(
     {
-      actions: undefined as never,
+      dispatch: undefined as never,
       canvasId: "canvas_document:canvas-1",
       canvasTitle: "Main canvas",
       goToCanvas: () => undefined,

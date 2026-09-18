@@ -108,6 +108,58 @@ const describeWithGroup = (title: string | null) =>
     }),
   );
 
+test("groups from another desktop are excluded from the current report", () => {
+  const initial = createInfiniteCanvasState<WindowKind>({
+    groups: [groupOf("Hidden collection")],
+    viewport: { height: 800, width: 1200 },
+    windows: [
+      windowAt("a", "note", "Sources", 0),
+      windowAt("b", "note", "Draft", 400),
+      windowAt("c", "note", "Current", 0),
+    ],
+  });
+  const state = createInfiniteCanvasState<WindowKind>({
+    ...initial,
+    activeWorkspaceId: "current",
+    workspaces: [
+      {
+        id: "current",
+        title: "Current desktop",
+        camera: initial.camera,
+        selection: initial.selection,
+        windowIds: ["c"],
+      },
+      {
+        id: "other",
+        title: "Other desktop",
+        camera: initial.camera,
+        selection: initial.selection,
+        windowIds: ["a", "b"],
+      },
+    ],
+  });
+  const described = describeCanvas(state);
+  expect(described).toContain('note "Current" [c]');
+  expect(described).toContain("1 window(s)");
+  expect(described).toContain("No groups.");
+  expect(described).not.toContain("[group-1]");
+  expect(described).not.toContain("Hidden collection");
+});
+
+test("collapsed accordion content is reported without claiming a hidden tab", () => {
+  const group = groupOf("Reading list");
+  const described = describeCanvas(
+    createInfiniteCanvasState<WindowKind>({
+      activeWindowId: "a",
+      groups: [{ ...group, tree: { ...group.tree, layout: "accordion", activeChildId: "a" } }],
+      viewport: { height: 800, width: 1200 },
+      windows: [windowAt("a", "note", "Expanded", 0), windowAt("b", "note", "Collapsed", 0)],
+    }),
+  );
+  expect(described).toContain('note "Collapsed" [b], hidden in its group');
+  expect(described).not.toContain("behind a tab");
+});
+
 test("an unnamed group is described by its members, never as null", () => {
   const described = describeWithGroup(null);
 
@@ -188,12 +240,7 @@ const EDGE_TARGET = {
 test("a selected connector is reported, when the window selection is empty", () => {
   const described = describeCanvas(
     createInfiniteCanvasState<WindowKind>({
-      selection: {
-        anchorTarget: EDGE_TARGET,
-        anchorWindowId: null,
-        targets: [EDGE_TARGET],
-        windowIds: [],
-      },
+      selection: { anchorTarget: EDGE_TARGET, targets: [EDGE_TARGET] },
       viewport: { height: 800, width: 1200 },
       windows: [windowAt("a", "note", "First", 0)],
     }),

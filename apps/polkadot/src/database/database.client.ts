@@ -2,6 +2,7 @@ import { createWasmWorkerEngines } from "@surrealdb/wasm";
 import WorkerAgent from "@surrealdb/wasm/worker?worker";
 import { type } from "arktype";
 import { StringRecordId, Surreal } from "surrealdb";
+import pTimeout from "p-timeout";
 
 import { database, endpoint, manifest, modules, namespace } from "./local-database";
 
@@ -46,53 +47,43 @@ class CanvasRevisionConflictError extends Error {
   }
 }
 
-function createClient() {
-  return new Surreal({
-    engines: {
-      ...createWasmWorkerEngines({ createWorker: () => new WorkerAgent() }),
-    },
-  });
-}
-
-async function connectAndInstall() {
-  const client = createClient();
-
+async function connectAndInstall({
+  client,
+  signal,
+}: Readonly<{ client: Surreal; signal: AbortSignal }>) {
   try {
-    try {
-      await client.connect(endpoint);
-    } catch (error) {
-      throw new Error(`Failed to open ${endpoint}: ${getErrorMessage(error)}`, { cause: error });
-    }
+    await client.connect(endpoint);
+  } catch (error) {
+    throw new Error(`Failed to open ${endpoint}: ${getErrorMessage(error)}`, { cause: error });
+  }
 
-    try {
-      await client.use({ database, namespace });
-    } catch (error) {
-      throw new Error(`Failed to select ${namespace}/${database}: ${getErrorMessage(error)}`, {
-        cause: error,
-      });
-    }
+  signal.throwIfAborted();
+  try {
+    await client.use({ database, namespace });
+  } catch (error) {
+    throw new Error(`Failed to select ${namespace}/${database}: ${getErrorMessage(error)}`, {
+      cause: error,
+    });
+  }
 
-    for (const stage of manifest.stages) {
-      for (const file of stage.files) {
-        const source = modules[`../../surql/${file}`];
+  for (const stage of manifest.stages) {
+    for (const file of stage.files) {
+      signal.throwIfAborted();
+      const source = modules[`../../surql/${file}`];
 
-        if (source === undefined) {
-          throw new Error(`Missing SurQL manifest entry: ${file}`);
-        }
+      if (source === undefined) {
+        throw new Error(`Missing SurQL manifest entry: ${file}`);
+      }
 
-        try {
-          await client.import(source);
-        } catch (error) {
-          throw new Error(`Failed to install ${file}: ${getErrorMessage(error)}`, { cause: error });
-        }
+      try {
+        await client.import(source);
+      } catch (error) {
+        throw new Error(`Failed to install ${file}: ${getErrorMessage(error)}`, { cause: error });
       }
     }
-
-    return client;
-  } catch (error) {
-    await client.close();
-    throw error;
   }
+
+  return client;
 }
 
 // This timeout covers worker startup and schema installation.
@@ -102,37 +93,26 @@ class LocalDatabaseUnavailableError extends Error {
   override readonly name = "LocalDatabaseUnavailableError";
 }
 
-function rejectAfter(ms: number, message: string) {
-  const canceller = new AbortController();
-
-  return {
-    cancel: () => {
-      canceller.abort();
-    },
-    promise: new Promise<never>((_resolve, reject) => {
-      const timer = setTimeout(() => {
-        reject(new LocalDatabaseUnavailableError(message));
-      }, ms);
-
-      canceller.signal.addEventListener("abort", () => {
-        clearTimeout(timer);
-      });
-    }),
-  };
-}
-
-// One timeout covers the connection and schema installation.
 function openLocalDatabase() {
   lifecycle.promise ??= (async () => {
-    const deadline = rejectAfter(
-      LOCAL_DATABASE_OPEN_TIMEOUT_MS,
-      `The local workspace did not respond within ${String(LOCAL_DATABASE_OPEN_TIMEOUT_MS / 1000)} seconds`,
-    );
+    const client = new Surreal({
+      engines: createWasmWorkerEngines({ createWorker: () => new WorkerAgent() }),
+    });
+    const controller = new AbortController();
 
     try {
-      return await Promise.race([connectAndInstall(), deadline.promise]);
-    } finally {
-      deadline.cancel();
+      return await pTimeout(connectAndInstall({ client, signal: controller.signal }), {
+        milliseconds: LOCAL_DATABASE_OPEN_TIMEOUT_MS,
+        message: new LocalDatabaseUnavailableError(
+          `The local workspace did not respond within ${String(LOCAL_DATABASE_OPEN_TIMEOUT_MS / 1000)} seconds`,
+        ),
+      });
+    } catch (error) {
+      controller.abort(error);
+      await client.close().catch((closeError) => {
+        console.warn("Failed to close the database after startup failed", { error: closeError });
+      });
+      throw error;
     }
   })().catch((error: unknown) => {
     lifecycle.promise = undefined;
@@ -510,6 +490,35 @@ async function saveContentItem(
 }
 
 // An omitted kind lists all content types.
+async function listContentTitles(
+  input: Readonly<{ kind?: string; projectId: string }>,
+): Promise<readonly string[]> {
+  const client = await openLocalDatabase();
+  const [titles] = await client
+    .query<[unknown]>("RETURN fn::list_content_titles($project, $kind);", {
+      project: new StringRecordId(input.projectId),
+      kind: input.kind,
+    })
+    .json();
+  return type("string[]").assert(titles);
+}
+
+async function listCanvasTitles(projectId: string): Promise<readonly string[]> {
+  const client = await openLocalDatabase();
+  const [titles] = await client
+    .query<[unknown]>("RETURN fn::list_canvas_titles($project);", {
+      project: new StringRecordId(projectId),
+    })
+    .json();
+  return type("string[]").assert(titles);
+}
+
+async function listProjectTitles(): Promise<readonly string[]> {
+  const client = await openLocalDatabase();
+  const [titles] = await client.query<[unknown]>("RETURN fn::list_project_titles();").json();
+  return type("string[]").assert(titles);
+}
+
 async function listContentItems(
   input: Readonly<{ kind?: string; projectId: string }>,
 ): Promise<readonly ContentItemRecord[]> {
@@ -524,20 +533,31 @@ async function listContentItems(
   return ContentItemRecord.array().assert(records);
 }
 
-async function archiveContentItem(itemId: string): Promise<void> {
-  const client = await openLocalDatabase();
+const ContentItemMutationRecord = ContentItemRecord.merge({ project: "string" });
 
-  await client.query("RETURN fn::archive_content_item($item);", {
-    item: new StringRecordId(itemId),
-  });
+async function archiveContentItem(
+  itemId: string,
+): Promise<typeof ContentItemMutationRecord.infer | null> {
+  const client = await openLocalDatabase();
+  const [record] = await client
+    .query<[unknown]>("RETURN fn::archive_content_item($item);", {
+      item: new StringRecordId(itemId),
+    })
+    .json();
+  return record == null ? null : ContentItemMutationRecord.assert(record);
 }
 
-async function restoreContentItem(itemId: string): Promise<void> {
+async function restoreContentItem(
+  itemId: string,
+): Promise<typeof ContentItemMutationRecord.infer | null> {
   const client = await openLocalDatabase();
 
-  await client.query("RETURN fn::restore_content_item($item);", {
-    item: new StringRecordId(itemId),
-  });
+  const [record] = await client
+    .query<[unknown]>("RETURN fn::restore_content_item($item);", {
+      item: new StringRecordId(itemId),
+    })
+    .json();
+  return record == null ? null : ContentItemMutationRecord.assert(record);
 }
 
 async function listArchivedContentItems(
@@ -578,15 +598,16 @@ async function listRelations(projectId: string): Promise<readonly ContentRelatio
 
 async function relateContentItems(
   input: Readonly<{ kind: string; source: string; target: string }>,
-): Promise<void> {
+): Promise<string> {
   const client = await openLocalDatabase();
-  await client
+  const [relation] = await client
     .query<[unknown]>("RETURN fn::relate_content_items($source, $target, $kind);", {
       kind: input.kind,
       source: new StringRecordId(input.source),
       target: new StringRecordId(input.target),
     })
     .json();
+  return type({ id: "string" }).assert(relation).id;
 }
 
 async function setRelationKind(
@@ -615,13 +636,15 @@ async function setRelationLabel(
 }
 
 async function unrelateContentItems(
-  input: Readonly<{ source: string; target: string }>,
+  input: readonly Readonly<{ source: string; target: string }>[],
 ): Promise<void> {
   const client = await openLocalDatabase();
   await client
-    .query<[unknown]>("RETURN fn::unrelate_content_items($source, $target);", {
-      source: new StringRecordId(input.source),
-      target: new StringRecordId(input.target),
+    .query<[unknown]>("RETURN fn::unrelate_content_items($pairs);", {
+      pairs: input.map(({ source, target }) => [
+        new StringRecordId(source),
+        new StringRecordId(target),
+      ]),
     })
     .json();
 }
@@ -743,8 +766,11 @@ export {
   listArchivedContentItems,
   listArchivedProjects,
   listCanvases,
+  listCanvasTitles,
   listContentItems,
+  listContentTitles,
   listProjects,
+  listProjectTitles,
   listRelations,
   listSavedViews,
   readProjectRemovalSummary,

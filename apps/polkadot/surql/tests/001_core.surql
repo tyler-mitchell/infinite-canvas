@@ -6,10 +6,11 @@ LET $canvas = CREATE ONLY canvas_document CONTENT {
   project: $project.id,
   title: "Main canvas",
   layout: {
-    version: 3,
+    version: 4,
     activeWindowId: NULL,
     activeWorkspaceId: NULL,
     camera: { center: { x: 0, y: 0 }, zoom: 1 },
+    connections: [],
     groups: [],
     selection: { anchorWindowId: NULL, windowIds: [] },
     windows: [],
@@ -49,11 +50,31 @@ LET $relation = RELATE ONLY $note_id->relates_to->$source_id CONTENT {
   kind: "cites",
   label: "supports"
 };
-LET $default_canvas = fn::open_default_canvas($canvas.layout);
+LET $other = CREATE ONLY content_item CONTENT {
+  project: $project.id,
+  kind: "note",
+  title: "Other note",
+  content: { text: "Keep the unrelated connection." }
+};
+LET $kept = fn::relate_content_items($note.id, $other.id, "relates");
+LET $reused = fn::relate_content_items($other.id, $note.id, "supports");
+IF $reused.id != $kept.id {
+  THROW "reconnecting a relation changed its identity";
+};
+fn::relate_content_items($source.id, $other.id, "supports");
+fn::unrelate_content_items([[$source.id, $note.id], [$source.id, $other.id]]);
+LET $remaining = fn::list_relations($project.id);
+IF array::len($remaining) != 1 OR $remaining[0].id != $kept.id {
+  THROW "batch removal changed the wrong relations";
+};
+fn::unrelate_content_items([]);
+IF array::len(fn::list_relations($project.id)) != 1 {
+  THROW "an empty removal changed relations";
+};
 
 RETURN {
   canvas_revision: $saved.revision,
-  default_canvas: $default_canvas.id,
+  remaining_relations: $remaining,
   relation_kind: $relation.kind,
   stale_rejected: $stale = NONE
 };

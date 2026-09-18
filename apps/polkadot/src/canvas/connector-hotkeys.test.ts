@@ -1,7 +1,7 @@
 import {
-  createInfiniteCanvasState,
+  createInfiniteCanvasStore,
   getInfiniteCanvasContextualEntries,
-  type InfiniteCanvasCommands,
+  type InfiniteCanvasDispatch,
 } from "@hyphened/infinite-canvas";
 import { expect, test } from "vite-plus/test";
 
@@ -9,13 +9,15 @@ import { getConnectorHotkeyActions } from "./connector-hotkeys";
 import type { WindowKind } from "./window-registry";
 
 const dispatched: unknown[] = [];
-const actions = {
-  executeCommand: (command: unknown) => dispatched.push(command),
-} as unknown as InfiniteCanvasCommands<WindowKind>;
+const dispatch: InfiniteCanvasDispatch<WindowKind> = (action) => {
+  dispatched.push(action);
+};
 
+const store = createInfiniteCanvasStore<WindowKind>({ initialState: { windows: [] } });
 const entries = () =>
-  getInfiniteCanvasContextualEntries(createInfiniteCanvasState<WindowKind>({ windows: [] }), {
-    actions,
+  getInfiniteCanvasContextualEntries(store.getState(), {
+    commands: store.getContextualCommands({ includeDisabled: true }),
+    dispatch,
     hotkeyActions: getConnectorHotkeyActions("project:test"),
   });
 

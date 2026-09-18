@@ -1,8 +1,9 @@
 import {
   createInfiniteCanvasState,
   createInfiniteCanvasWindow,
+  type InfiniteCanvasAction,
   type InfiniteCanvasCommand,
-  type InfiniteCanvasCommands,
+  type InfiniteCanvasDispatch,
   type InfiniteCanvasWindow,
   type InfiniteCanvasWindowPlacement,
 } from "@hyphened/infinite-canvas";
@@ -17,8 +18,8 @@ type Opened = Readonly<{
 }>;
 
 type Recorder = Readonly<{
-  actions: InfiniteCanvasCommands<WindowKind>;
   commands: InfiniteCanvasCommand[];
+  dispatch: InfiniteCanvasDispatch<WindowKind>;
   opened: Opened[];
 }>;
 
@@ -27,14 +28,16 @@ const recorder = (): Recorder => {
   const opened: Opened[] = [];
 
   return {
-    actions: {
-      executeCommand: (command: InfiniteCanvasCommand) => commands.push(command),
-      openWindow: (
-        window: InfiniteCanvasWindow<WindowKind>,
-        placement?: InfiniteCanvasWindowPlacement,
-      ) => opened.push({ placement, window }),
-    } as unknown as InfiniteCanvasCommands<WindowKind>,
     commands,
+    dispatch: (action: InfiniteCanvasAction<WindowKind>) => {
+      if (action.type === "window.reveal") {
+        commands.push(action);
+      }
+
+      if (action.type === "window.open") {
+        opened.push({ placement: action.placement, window: action.window });
+      }
+    },
     opened,
   };
 };
@@ -59,10 +62,10 @@ const SIZE = { height: 240, width: 360 };
 const MIN_SIZE = { height: 200, width: 240 };
 
 test("an item with no window on the canvas gets one", () => {
-  const { actions, commands, opened } = recorder();
+  const { commands, dispatch, opened } = recorder();
 
   openContentWindow({
-    actions,
+    dispatch,
     data: { itemId: "content_item:fresh" },
     kind: "note",
     minSize: MIN_SIZE,
@@ -78,10 +81,10 @@ test("an item with no window on the canvas gets one", () => {
 });
 
 test("a window with no rect of its own asks the canvas to place it", () => {
-  const { actions, opened } = recorder();
+  const { dispatch, opened } = recorder();
 
   openContentWindow({
-    actions,
+    dispatch,
     data: { itemId: "content_item:placed" },
     kind: "note",
     minSize: MIN_SIZE,
@@ -96,10 +99,10 @@ test("a window with no rect of its own asks the canvas to place it", () => {
 });
 
 test("an item already on the canvas is revealed, not opened twice", () => {
-  const { actions, commands, opened } = recorder();
+  const { commands, dispatch, opened } = recorder();
 
   openContentWindow({
-    actions,
+    dispatch,
     data: { itemId: "content_item:open" },
     kind: "note",
     minSize: MIN_SIZE,
@@ -113,10 +116,10 @@ test("an item already on the canvas is revealed, not opened twice", () => {
 });
 
 test("reveal rather than focus, because the window may be minimized or on another desktop", () => {
-  const { actions, commands } = recorder();
+  const { commands, dispatch } = recorder();
 
   openContentWindow({
-    actions,
+    dispatch,
     data: { itemId: "content_item:away" },
     kind: "note",
     minSize: MIN_SIZE,
@@ -129,11 +132,11 @@ test("reveal rather than focus, because the window may be minimized or on anothe
 });
 
 test("a caller that knows where the window goes keeps that rect exactly", () => {
-  const { actions, opened } = recorder();
+  const { dispatch, opened } = recorder();
   const rect = { height: 120, width: 360, x: 0, y: 0 };
 
   openContentWindow({
-    actions,
+    dispatch,
     data: { itemId: "content_item:dropped" },
     kind: "image",
     minSize: MIN_SIZE,
@@ -152,10 +155,10 @@ test("a caller that knows where the window goes keeps that rect exactly", () => 
 });
 
 test("a window the canvas placed is revealed, because it can land off screen", () => {
-  const { actions, commands, opened } = recorder();
+  const { commands, dispatch, opened } = recorder();
 
   openContentWindow({
-    actions,
+    dispatch,
     data: { itemId: "content_item:placed" },
     kind: "note",
     minSize: MIN_SIZE,
@@ -168,10 +171,10 @@ test("a window the canvas placed is revealed, because it can land off screen", (
 });
 
 test("a window the caller placed is left alone, because the caller chose where to look", () => {
-  const { actions, commands } = recorder();
+  const { commands, dispatch } = recorder();
 
   openContentWindow({
-    actions,
+    dispatch,
     data: { itemId: "content_item:dropped" },
     kind: "image",
     minSize: MIN_SIZE,

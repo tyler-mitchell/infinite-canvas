@@ -9,7 +9,7 @@ const IMAGE_KIND = "image";
 const ImageContent = type({
   description: "string",
   source: "string",
-}).onUndeclaredKey("delete");
+});
 
 type ImageRecord = Readonly<{
   content: typeof ImageContent.infer;
@@ -38,12 +38,10 @@ export const imageGateway = {
         title: input.description,
       }),
     ),
-  list: async (projectId: string) =>
-    (await content.list({ kind: IMAGE_KIND, projectId })).map(toImage),
   read: async (imageId: string) => {
     const record = await content.read(imageId);
 
-    return record === null ? null : toImage(record);
+    return record?.kind === IMAGE_KIND ? toImage(record) : null;
   },
   // Rename preserves the content and includes the description in search text.
   rename: async (input: Readonly<{ item: ContentItemRecord; title: string }>) => {

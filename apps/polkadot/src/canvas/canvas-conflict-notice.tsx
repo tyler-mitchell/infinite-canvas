@@ -1,4 +1,4 @@
-import type { InfiniteCanvasHandle } from "@hyphened/infinite-canvas";
+import type { InfiniteCanvasStore } from "@hyphened/infinite-canvas";
 import { useGoToCanvas } from "../workspace/use-go-to-canvas";
 import { useObservable, useValue } from "@legendapp/state/react";
 import { CopyPlus, RotateCcw, TriangleAlert } from "lucide-react";
@@ -22,11 +22,11 @@ const conflictNotice = tv({
 
 export function CanvasConflictNotice({
   canvasTitle,
-  handle,
+  store,
   projectId,
 }: Readonly<{
   canvasTitle: string;
-  handle: InfiniteCanvasHandle<WindowKind>;
+  store: InfiniteCanvasStore<WindowKind>;
   projectId: string;
 }>) {
   const goToCanvas = useGoToCanvas();
@@ -38,7 +38,7 @@ export function CanvasConflictNotice({
     busy$.set(true);
 
     try {
-      const created = await forkCanvas({ canvasTitle, layout: handle.snapshot(), projectId });
+      const created = await forkCanvas({ canvasTitle, layout: store.snapshot(), projectId });
 
       await goToCanvas({ canvasId: created.id });
     } finally {

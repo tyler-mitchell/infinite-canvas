@@ -16,9 +16,8 @@ const live = [
 ];
 
 const selecting = (...ids: readonly string[]) => ({
-  anchorWindowId: null,
+  anchorTarget: null,
   targets: ids.map((id) => ({ id, kind: "relation", type: "edge" as const })),
-  windowIds: [],
 });
 
 test("a selected edge that still exists resolves", () => {
@@ -40,9 +39,8 @@ test("a live target is unaffected by a dead one beside it", () => {
 
 test("a target of another kind is not read as an edge", () => {
   const sceneObject = {
-    anchorWindowId: null,
+    anchorTarget: null,
     targets: [{ id: "relation:live", kind: "region", type: "scene-object" as const }],
-    windowIds: [],
   };
 
   expect(getSelectedRelations(sceneObject, live)).toStrictEqual([]);

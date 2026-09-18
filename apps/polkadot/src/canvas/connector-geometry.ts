@@ -1,13 +1,11 @@
 import {
   getInfiniteCanvasConnectionPreviewPath,
   getInfiniteCanvasContentWorldRect,
-  getInfiniteCanvasGroupProjection,
+  getCanvasLayout,
   getInfiniteCanvasLongestUnoccludedRun,
   getInfiniteCanvasRectBundledConnectorPaths,
   getInfiniteCanvasSegmentsWithinRect,
   getInfiniteCanvasWorldPathPointAtProgress,
-  getSelectionTargets,
-  isInfiniteCanvasWindowInActiveWorkspace,
   type InfiniteCanvasPoint,
   type InfiniteCanvasRect,
   type InfiniteCanvasSelection,
@@ -38,19 +36,18 @@ function getRunAnchor(
 }
 
 function getConnectorRectsByItem(state: InfiniteCanvasState<WindowKind>) {
-  // This excludes windows hidden by the active group projection.
-  const { hiddenWindowIds } = getInfiniteCanvasGroupProjection(state.groups, state.groupMetrics);
+  const canvasLayout = getCanvasLayout(state);
 
   return state.windows.reduce<Map<string, InfiniteCanvasRect[]>>((rects, window) => {
     const itemId = getContentWindowItemId(window);
 
-    // This excludes windows outside the active desktop.
-    return itemId === null ||
-      window.mode === "minimized" ||
-      hiddenWindowIds.has(window.id) ||
-      !isInfiniteCanvasWindowInActiveWorkspace(state, window.id)
-      ? rects
-      : rects.set(itemId, [...(rects.get(itemId) ?? []), window.rect]);
+    if (itemId === null || !canvasLayout.visibleWindowIds.has(window.id)) {
+      return rects;
+    }
+
+    const rect = canvasLayout.windowRects.get(window.id);
+
+    return rect === undefined ? rects : rects.set(itemId, [...(rects.get(itemId) ?? []), rect]);
   }, new Map());
 }
 
@@ -93,14 +90,11 @@ function getDrawnConnectors(
         .set(relation.target, (counts.get(relation.target) ?? 0) + 1),
     new Map(),
   );
-  const byHub = visible.reduce<Map<string, ContentRelation[]>>((groups, relation) => {
-    const hub =
-      (degree.get(relation.target) ?? 0) > (degree.get(relation.source) ?? 0)
-        ? relation.target
-        : relation.source;
-
-    return groups.set(hub, [...(groups.get(hub) ?? []), relation]);
-  }, new Map());
+  const byHub = Map.groupBy(visible, (relation) =>
+    (degree.get(relation.target) ?? 0) > (degree.get(relation.source) ?? 0)
+      ? relation.target
+      : relation.source,
+  );
 
   return [...byHub].flatMap(([hubId, group]) =>
     (rectsByItem.get(hubId) ?? []).flatMap((fromRect) => {
@@ -204,7 +198,7 @@ function getSelectedRelations(
   selection: InfiniteCanvasSelection,
   relations: readonly ContentRelation[],
 ): readonly ContentRelation[] {
-  return getSelectionTargets(selection)
+  return selection.targets
     .filter((target) => target.type === "edge" && target.kind === CONNECTOR_TARGET_KIND)
     .flatMap((target) => relations.filter((relation) => relation.id === target.id));
 }

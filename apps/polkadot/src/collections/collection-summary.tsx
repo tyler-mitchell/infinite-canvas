@@ -29,8 +29,8 @@ export function CollectionSummary({
 }: Readonly<{ bodySize: InfiniteCanvasSize; collectionId: string; title: string }>) {
   const zoom = useInfiniteCanvasSelector<WindowKind, number>((state) => state.camera.zoom);
   const { projectId } = useLoaderData({ from: "/canvas/$canvasId" });
-  const listing = useValue(projectContent$);
-  const relations = useValue(relations$);
+  const listing = useValue(projectContent$[projectId]);
+  const relations = useValue(relations$[projectId]) ?? [];
   const question = getCollectionEntry({ collectionId, listing, projectId }).collection?.content;
   const styles = collectionSummary();
   // Keep the count hidden until the project listing loads.

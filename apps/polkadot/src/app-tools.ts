@@ -1,4 +1,5 @@
 import { APP_ACTIONS, isAppActionEnabled, type AppActionContext } from "./app-actions";
+import type { InfiniteCanvasContextualCommand } from "@hyphened/infinite-canvas";
 import { describeCanvas } from "./canvas/describe-canvas";
 import { describeProjectContent } from "./content/describe-content";
 import { projectContent$ } from "./content/project-content";
@@ -25,7 +26,11 @@ const report = (description: string, name: string, execute: () => Promise<string
 });
 
 const getReportingTools = (
-  input: Readonly<{ createContext: () => AppActionContext; projectId: string }>,
+  input: Readonly<{
+    getContextualCommands: () => readonly InfiniteCanvasContextualCommand[];
+    createContext: () => AppActionContext;
+    projectId: string;
+  }>,
 ): readonly AppTool[] => [
   report(
     "Describe what is on the canvas: zoom, the open windows and their kinds, groups, and the selection.",
@@ -37,7 +42,7 @@ const getReportingTools = (
     "content.list",
     async () =>
       describeProjectContent({
-        listing: projectContent$.peek(),
+        listing: projectContent$[input.projectId].peek(),
         projectId: input.projectId,
         relations: getLoadedRelations(input.projectId),
         state: input.createContext().state,
@@ -81,7 +86,7 @@ const getReportingTools = (
 
       await loadSavedViews(context.canvasId);
 
-      const views = getSavedViews(savedViews$.peek(), context.canvasId) ?? [];
+      const views = getSavedViews(savedViews$[context.canvasId].peek(), context.canvasId) ?? [];
 
       return views.length === 0
         ? "No views are saved on this canvas."
@@ -129,19 +134,28 @@ const getReportingTools = (
 ];
 
 const published = (
-  input: Readonly<{ createContext: () => AppActionContext; projectId: string }>,
+  input: Readonly<{
+    getContextualCommands: () => readonly InfiniteCanvasContextualCommand[];
+    createContext: () => AppActionContext;
+    projectId: string;
+  }>,
 ) => {
   const context = input.createContext();
 
   return getPublishedCanvasCommands({
-    actions: context.actions,
+    commands: input.getContextualCommands(),
+    dispatch: context.dispatch,
     projectId: input.projectId,
     state: context.state,
   });
 };
 
 const getCanvasCommandTools = (
-  input: Readonly<{ createContext: () => AppActionContext; projectId: string }>,
+  input: Readonly<{
+    getContextualCommands: () => readonly InfiniteCanvasContextualCommand[];
+    createContext: () => AppActionContext;
+    projectId: string;
+  }>,
 ): readonly AppTool[] =>
   published(input).map((entry) => ({
     description: entry.description,
@@ -177,7 +191,11 @@ const getAppActionTools = (createContext: () => AppActionContext): readonly AppT
   }));
 
 const getAvailabilityTool = (
-  input: Readonly<{ createContext: () => AppActionContext; projectId: string }>,
+  input: Readonly<{
+    getContextualCommands: () => readonly InfiniteCanvasContextualCommand[];
+    createContext: () => AppActionContext;
+    projectId: string;
+  }>,
 ): AppTool =>
   report(
     "List the verbs that can run right now, given what is open and selected. Names are the tool names.",
@@ -246,6 +264,8 @@ const getDevelopmentTools = (): readonly AppTool[] => {
 
 function getAppTools(
   input: Readonly<{
+    getContextualCommands: () => readonly InfiniteCanvasContextualCommand[];
+
     createContext: () => AppActionContext;
     development: boolean;
     projectId: string;

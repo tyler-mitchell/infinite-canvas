@@ -37,10 +37,8 @@ DEFINE FUNCTION OVERWRITE fn::set_relation_label(
 
 -- Removal matches either endpoint order.
 DEFINE FUNCTION OVERWRITE fn::unrelate_content_items(
-  $source: record<content_item>,
-  $target: record<content_item>
+  $pairs: array<array<record<content_item>>>
 ) {
   RETURN DELETE relates_to
-    WHERE (in = $source AND out = $target)
-       OR (in = $target AND out = $source);
+    WHERE [in, out] IN $pairs OR [out, in] IN $pairs;
 };

@@ -4,24 +4,23 @@ import {
   findInfiniteCanvasWindow,
   findInfiniteCanvasWorkspace,
   getInfiniteCanvasGroupableWindowIds,
-  getWindowBounds,
+  getCanvasLayout,
+  unionRects,
   isInfiniteCanvasGroupContainer,
+  isInfiniteCanvasWindowGrouped,
   type InfiniteCanvasCommandId,
-  type InfiniteCanvasCommands,
+  type InfiniteCanvasDispatch,
   type InfiniteCanvasState,
+  getSelectedWindowIds,
 } from "@hyphened/infinite-canvas";
 import { type, type Type } from "arktype";
 
 import { GROUP_LAYOUT_MODES } from "./canvas/group-layout-modes";
 import { openItemWindow } from "./canvas/open-item";
-import { getContentWindowItemId, type WindowKind } from "./canvas/window-registry";
+import { archiveItem } from "./content/archive-item";
+import type { WindowKind } from "./canvas/window-registry";
 import { LISTABLE_KINDS } from "./collections/listable-kinds";
-import {
-  archiveProjectItem,
-  getProjectContent,
-  projectContent$,
-  restoreProjectItem,
-} from "./content/project-content";
+import { getProjectContent, projectContent$, restoreProjectItem } from "./content/project-content";
 import { openNewCollection } from "./collections/open-collection";
 import { RENAMEABLE_KINDS, renameProjectItem } from "./content/rename-item";
 import type { ContentItemRecord } from "./database/database.client";
@@ -33,7 +32,6 @@ import { openNewNote } from "./notes/open-note";
 import { getProjectEntryCanvas } from "./projects/enter-project";
 import {
   getCurrentFraming,
-  getNextViewTitle,
   getSavedViews,
   reframeView,
   removeSavedView,
@@ -75,7 +73,7 @@ import {
  */
 
 type AppActionContext = Readonly<{
-  actions: InfiniteCanvasCommands<WindowKind>;
+  dispatch: InfiniteCanvasDispatch<WindowKind>;
   /**
    * The canvas the verb is standing in, and what it is called.
    *
@@ -87,7 +85,7 @@ type AppActionContext = Readonly<{
   canvasId: string;
   canvasTitle: string;
   /**
-   * Go to a canvas by id — the one act no verb can reach through `actions`.
+   * Go to a canvas by id — the one act no verb can reach through `dispatch`.
    *
    * Changing canvas is a route change, not a canvas command: a different canvas is a different
    * store, keyed by the route. So this is supplied by whoever builds the context, all four of whom
@@ -163,7 +161,9 @@ const describeInvalidInput = (errors: type.errors) => `Refused: ${errors.summary
 
 /** Enablement and the shell rect both need this set, and must not disagree about it. */
 const getGroupableWindowIds = (state: InfiniteCanvasState<WindowKind>): readonly string[] =>
-  getInfiniteCanvasGroupableWindowIds(state, state.selection.windowIds);
+  getInfiniteCanvasGroupableWindowIds(state, getSelectedWindowIds(state.selection)).filter(
+    (windowId) => !isInfiniteCanvasWindowGrouped(state, windowId),
+  );
 
 /**
  * Quote the framework's sentence for a verb re-declared here to take an argument, and add only
@@ -376,7 +376,10 @@ const resolveRelation = (
     return resolved;
   }
 
-  return findRelation(relations$.peek(), resolved.source, resolved.target) ?? NOT_CONNECTED;
+  return (
+    findRelation(relations$[projectId].peek() ?? [], resolved.source, resolved.target) ??
+    NOT_CONNECTED
+  );
 };
 
 /**
@@ -398,7 +401,9 @@ const resolveItem = (projectId: string, itemId: string): ContentItemRecord | str
   // The kind first: "that is a canvas id" is a different correction from "no item has that id", and
   // one lookup answering both would send a caller to fix the wrong thing.
   describeWrongRecordId("item", itemId) ??
-  getProjectContent(projectContent$.peek(), projectId)?.find((item) => item.id === itemId) ??
+  getProjectContent(projectContent$[projectId].peek(), projectId)?.find(
+    (item) => item.id === itemId,
+  ) ??
   NO_SUCH_ITEM;
 
 /**
@@ -418,7 +423,7 @@ const resolveEndpoints = (
   projectId: string,
   ends: Readonly<{ sourceItemId: string; targetItemId: string }>,
 ): Readonly<{ source: string; target: string }> | string => {
-  const items = getProjectContent(projectContent$.peek(), projectId);
+  const items = getProjectContent(projectContent$[projectId].peek(), projectId);
   const source = items?.find((candidate) => candidate.id === ends.sourceItemId);
   const target = items?.find((candidate) => candidate.id === ends.targetItemId);
 
@@ -624,7 +629,7 @@ const VIEW_INPUT = type({ viewId: "string" });
  * indistinguishable here from "no such view", and the correction is the same either way.
  */
 const resolveSavedView = (canvasId: string, viewId: string) => {
-  const view = (getSavedViews(savedViews$.peek(), canvasId) ?? []).find(
+  const view = (getSavedViews(savedViews$[canvasId].peek(), canvasId) ?? []).find(
     (candidate) => candidate.id === viewId,
   );
 
@@ -871,7 +876,7 @@ const APP_ACTIONS: readonly AppAction[] = [
           insets: state.viewportInsets,
           viewport: state.viewport,
         }),
-        title: title ?? getNextViewTitle(getSavedViews(savedViews$.peek(), canvasId) ?? []),
+        title,
       }).then(() => undefined);
     },
   },
@@ -880,7 +885,7 @@ const APP_ACTIONS: readonly AppAction[] = [
     id: "view.open",
     input: VIEW_INPUT,
     label: "Go to a saved view",
-    run: ({ actions, canvasId }, input) => {
+    run: ({ canvasId, dispatch }, input) => {
       const parsed = VIEW_INPUT(input);
 
       if (parsed instanceof type.errors) {
@@ -895,7 +900,13 @@ const APP_ACTIONS: readonly AppAction[] = [
 
       // `fit` at zero padding, which is the menu's own rule and the reason it is not the default:
       // the stored rect is already the inset region, so padding it again widens a view every trip.
-      actions.navigateToRect({ behavior: { paddingPx: 0, type: "fit" }, rect: view.rect });
+      dispatch({
+        request: {
+          behavior: { paddingPx: 0, type: "fit" },
+          target: { rect: view.rect, type: "rect" },
+        },
+        type: "camera.navigate",
+      });
 
       return undefined;
     },
@@ -1086,7 +1097,7 @@ const APP_ACTIONS: readonly AppAction[] = [
     id: "workspace.create",
     input: DESKTOP_CREATE_INPUT,
     label: "New desktop",
-    run: ({ actions, state }, input) => {
+    run: ({ dispatch, state }, input) => {
       const parsed = DESKTOP_CREATE_INPUT(input);
 
       if (parsed instanceof type.errors) {
@@ -1094,7 +1105,7 @@ const APP_ACTIONS: readonly AppAction[] = [
       }
 
       createDesktop({
-        actions,
+        dispatch,
         existingTitles: state.workspaces.map((workspace) => workspace.title),
         title: parsed.title,
       });
@@ -1111,7 +1122,7 @@ const APP_ACTIONS: readonly AppAction[] = [
     id: "workspace.enter",
     input: DESKTOP_INPUT,
     label: "Go to a desktop",
-    run: ({ actions, state }, input) => {
+    run: ({ dispatch, state }, input) => {
       const parsed = DESKTOP_INPUT(input);
 
       if (parsed instanceof type.errors) {
@@ -1122,7 +1133,7 @@ const APP_ACTIONS: readonly AppAction[] = [
         return NO_SUCH_DESKTOP;
       }
 
-      actions.executeCommand({ type: "workspace.enter", workspaceId: parsed.workspaceId });
+      dispatch({ type: "workspace.enter", workspaceId: parsed.workspaceId });
 
       return undefined;
     },
@@ -1136,7 +1147,7 @@ const APP_ACTIONS: readonly AppAction[] = [
     id: "workspace.close",
     input: DESKTOP_INPUT,
     label: "Close a desktop",
-    run: ({ actions, state }, input) => {
+    run: ({ dispatch, state }, input) => {
       const parsed = DESKTOP_INPUT(input);
 
       if (parsed instanceof type.errors) {
@@ -1147,7 +1158,7 @@ const APP_ACTIONS: readonly AppAction[] = [
         return NO_SUCH_DESKTOP;
       }
 
-      actions.executeCommand({ type: "workspace.close", workspaceId: parsed.workspaceId });
+      dispatch({ type: "workspace.close", workspaceId: parsed.workspaceId });
 
       return undefined;
     },
@@ -1164,7 +1175,7 @@ const APP_ACTIONS: readonly AppAction[] = [
     id: "workspace.rename",
     input: DESKTOP_RENAME_INPUT,
     label: "Rename a desktop",
-    run: ({ actions, state }, input) => {
+    run: ({ dispatch, state }, input) => {
       const parsed = DESKTOP_RENAME_INPUT(input);
 
       if (parsed instanceof type.errors) {
@@ -1183,7 +1194,7 @@ const APP_ACTIONS: readonly AppAction[] = [
         return BLANK_TITLE;
       }
 
-      actions.setWorkspaceTitle({ title, workspaceId: parsed.workspaceId });
+      dispatch({ title, type: "workspace.setTitle", workspaceId: parsed.workspaceId });
 
       return undefined;
     },
@@ -1196,7 +1207,7 @@ const APP_ACTIONS: readonly AppAction[] = [
     id: "workspace.moveActiveWindow",
     input: DESKTOP_INPUT,
     label: "Move the window to a desktop",
-    run: ({ actions, state }, input) => {
+    run: ({ dispatch, state }, input) => {
       const parsed = DESKTOP_INPUT(input);
 
       if (parsed instanceof type.errors) {
@@ -1215,10 +1226,7 @@ const APP_ACTIONS: readonly AppAction[] = [
         return NO_ACTIVE_WINDOW;
       }
 
-      actions.executeCommand({
-        type: "workspace.moveActiveWindow",
-        workspaceId: parsed.workspaceId,
-      });
+      dispatch({ type: "workspace.moveActiveWindow", workspaceId: parsed.workspaceId });
 
       return undefined;
     },
@@ -1229,7 +1237,7 @@ const APP_ACTIONS: readonly AppAction[] = [
     id: "group.setLayout",
     input: GROUP_LAYOUT_INPUT,
     label: "Arrange a group",
-    run: ({ actions, state }, input) => {
+    run: ({ dispatch, state }, input) => {
       const parsed = GROUP_LAYOUT_INPUT(input);
 
       if (parsed instanceof type.errors) {
@@ -1247,7 +1255,7 @@ const APP_ACTIONS: readonly AppAction[] = [
         return GROUP_HAS_NO_PANES;
       }
 
-      actions.setGroupLayoutMode({ ...target, layout: parsed.layout });
+      dispatch({ ...target, layout: parsed.layout, type: "group.setLayoutMode" });
 
       return undefined;
     },
@@ -1257,7 +1265,7 @@ const APP_ACTIONS: readonly AppAction[] = [
     id: "group.rename",
     input: GROUP_RENAME_INPUT,
     label: "Rename a group",
-    run: ({ actions, state }, input) => {
+    run: ({ dispatch, state }, input) => {
       const parsed = GROUP_RENAME_INPUT(input);
 
       if (parsed instanceof type.errors) {
@@ -1272,7 +1280,7 @@ const APP_ACTIONS: readonly AppAction[] = [
         return NO_SUCH_GROUP;
       }
 
-      actions.setGroupTitle({ groupId: parsed.groupId, title: parsed.title });
+      dispatch({ groupId: parsed.groupId, title: parsed.title, type: "group.setTitle" });
 
       return undefined;
     },
@@ -1285,7 +1293,7 @@ const APP_ACTIONS: readonly AppAction[] = [
     id: "group.dissolve",
     input: GROUP_INPUT,
     label: "Ungroup",
-    run: ({ actions, state }, input) => {
+    run: ({ dispatch, state }, input) => {
       const parsed = GROUP_INPUT(input);
 
       if (parsed instanceof type.errors) {
@@ -1296,7 +1304,7 @@ const APP_ACTIONS: readonly AppAction[] = [
         return NO_SUCH_GROUP;
       }
 
-      actions.closeGroup(parsed.groupId);
+      dispatch({ groupId: parsed.groupId, type: "group.close" });
 
       return undefined;
     },
@@ -1399,7 +1407,7 @@ const APP_ACTIONS: readonly AppAction[] = [
       }
 
       // Read before the write, because afterwards there is nothing left to read.
-      const removed = findRelation(relations$.peek(), ends.source, ends.target);
+      const removed = findRelation(relations$[projectId].peek() ?? [], ends.source, ends.target);
 
       const cut = disconnectItems({ projectId, ...ends });
 
@@ -1430,7 +1438,7 @@ const APP_ACTIONS: readonly AppAction[] = [
     id: "collection.create.connectedTo",
     input: CONNECTED_INPUT,
     label: "Collection of what an item connects to",
-    run: ({ actions, projectId, state }, input) => {
+    run: ({ dispatch, projectId, state }, input) => {
       const parsed = CONNECTED_INPUT(input);
 
       if (parsed instanceof type.errors) {
@@ -1446,7 +1454,7 @@ const APP_ACTIONS: readonly AppAction[] = [
       // The title comes from the record, not from the caller. A collection named for a subject the
       // caller merely asserted could disagree with the subject it actually lists.
       return openNewCollection({
-        actions,
+        dispatch,
         projectId,
         question: { connectedTo: item.id },
         state,
@@ -1460,7 +1468,7 @@ const APP_ACTIONS: readonly AppAction[] = [
     id: "content.open",
     input: OPEN_INPUT,
     label: "Open an item by id",
-    run: ({ actions, projectId, state }, input) => {
+    run: ({ dispatch, projectId, state }, input) => {
       const parsed = OPEN_INPUT(input);
 
       if (parsed instanceof type.errors) {
@@ -1473,11 +1481,7 @@ const APP_ACTIONS: readonly AppAction[] = [
         return item;
       }
 
-      // Already handles the record being open: `openContentWindow` reveals the existing window
-      // rather than binding a second one to it, which is the rule the library rail learned first.
-      openItemWindow({ actions, item, state });
-
-      return undefined;
+      return Promise.resolve(openItemWindow({ dispatch, item, state })).then(() => undefined);
     },
   },
   {
@@ -1488,7 +1492,7 @@ const APP_ACTIONS: readonly AppAction[] = [
     id: "window.reveal",
     input: REVEAL_INPUT,
     label: "Reveal a window by id",
-    run: ({ actions, state }, input) => {
+    run: ({ dispatch, state }, input) => {
       const parsed = REVEAL_INPUT(input);
 
       if (parsed instanceof type.errors) {
@@ -1508,7 +1512,7 @@ const APP_ACTIONS: readonly AppAction[] = [
 
       // `window.reveal` rather than `focusWindow`: the framework's verb already handles a window
       // that is minimized, behind a tab, or on another desktop. Focusing alone reaches none of those.
-      actions.executeCommand({ type: "window.reveal", windowId: target.id });
+      dispatch({ type: "window.reveal", windowId: target.id });
 
       return undefined;
     },
@@ -1531,7 +1535,7 @@ const APP_ACTIONS: readonly AppAction[] = [
     id: "content.rename",
     input: RENAME_INPUT,
     label: "Rename an item",
-    run: ({ actions, projectId, state }, input) => {
+    run: ({ dispatch, projectId, state }, input) => {
       const parsed = RENAME_INPUT(input);
 
       if (parsed instanceof type.errors) {
@@ -1546,7 +1550,7 @@ const APP_ACTIONS: readonly AppAction[] = [
 
       // The refusal is the module function's, passed through rather than restated: blank, unchanged
       // and wrong-kind are its rules, and the controls that call it enforce exactly the same ones.
-      return renameProjectItem({ actions, item, state, title: parsed.title });
+      return renameProjectItem({ dispatch, item, state, title: parsed.title });
     },
   },
   {
@@ -1555,7 +1559,7 @@ const APP_ACTIONS: readonly AppAction[] = [
     id: "content.archive",
     input: ARCHIVE_INPUT,
     label: "Archive an item",
-    run: ({ actions, projectId, state }, input) => {
+    run: ({ dispatch, projectId, state }, input) => {
       const parsed = ARCHIVE_INPUT(input);
 
       if (parsed instanceof type.errors) {
@@ -1568,20 +1572,9 @@ const APP_ACTIONS: readonly AppAction[] = [
         return item;
       }
 
-      /*
-       * The window closes with it, which is the rail's rule rather than a new one: an item no
-       * longer offered anywhere but still sitting open on the canvas is the state where "archived"
-       * stops meaning anything.
-       */
-      const openWindow = state.windows.find(
-        (window) => getContentWindowItemId(window) === parsed.itemId,
+      return archiveItem({ dispatch, itemId: parsed.itemId, projectId, state }).then(
+        () => undefined,
       );
-
-      if (openWindow !== undefined) {
-        actions.closeWindow(openWindow.id);
-      }
-
-      return archiveProjectItem({ itemId: parsed.itemId, projectId }).then(() => undefined);
     },
   },
   {
@@ -1711,16 +1704,16 @@ const APP_ACTIONS: readonly AppAction[] = [
     description: "Put a new, empty note on the canvas.",
     id: "note.create",
     label: "New note",
-    run: ({ actions, projectId, state }) =>
-      openNewNote({ actions, projectId, state }).then(() => undefined),
+    run: ({ dispatch, projectId, state }) =>
+      openNewNote({ dispatch, projectId, state }).then(() => undefined),
   },
   ...LISTABLE_KINDS.map((kind) => ({
     description: `Open a window listing every ${kind.label.toLowerCase().replace(/s$/, "")} in this project.`,
     id: `collection.create.${kind.kind}`,
     label: `Collection of ${kind.label.toLowerCase()}`,
-    run: ({ actions, projectId, state }: AppActionContext) =>
+    run: ({ dispatch, projectId, state }: AppActionContext) =>
       openNewCollection({
-        actions,
+        dispatch,
         projectId,
         question: { listsKind: kind.kind },
         state,
@@ -1731,11 +1724,10 @@ const APP_ACTIONS: readonly AppAction[] = [
     description:
       "Dock the selected windows together into one group. Windows already in a group, and minimized ones, are left where they are.",
     id: "group.createFromSelection",
-    // Against what the framework will take, not the raw selection: two panes of one shell are both
-    // dropped. Two is this verb's floor; the framework itself refuses only zero.
+    // This action groups floating windows.
     isEnabled: ({ state }) => getGroupableWindowIds(state).length >= 2,
     label: "Group selected",
-    run: ({ actions, state }) => {
+    run: ({ dispatch, state }) => {
       const windowIds = getGroupableWindowIds(state);
 
       if (windowIds.length < 2) {
@@ -1743,15 +1735,17 @@ const APP_ACTIONS: readonly AppAction[] = [
       }
 
       // Bounds of what is being grouped, not of the selection — dropped members are not in it.
-      const rect = getWindowBounds(state, windowIds);
+      const layout = getCanvasLayout(state);
+      const rect = unionRects(windowIds.map((id) => layout.windowRects.get(id)!));
 
       if (rect === null) {
         return "Refused: the selection no longer holds two windows to group.";
       }
 
-      actions.createGroup({
+      dispatch({
         groupId: globalThis.crypto.randomUUID(),
         rect,
+        type: "group.create",
         windowIds,
       });
       /*
@@ -1764,7 +1758,13 @@ const APP_ACTIONS: readonly AppAction[] = [
        * `fit` rather than `center`, because a shell is usually larger than either member and
        * centring one that does not fit shows you its middle.
        */
-      actions.navigateToRect({ behavior: { paddingPx: 64, type: "fit" }, rect });
+      dispatch({
+        request: {
+          behavior: { paddingPx: 64, type: "fit" },
+          target: { rect, type: "rect" },
+        },
+        type: "camera.navigate",
+      });
 
       return undefined;
     },

@@ -1,10 +1,12 @@
 import { observable } from "@legendapp/state";
+import PQueue from "p-queue";
 
 import { rememberUndoableAction } from "../content/undoable-action";
 import type { ContentRelation } from "../database/database.client";
 import * as database from "../database/operations";
 
-const relations$ = observable<readonly ContentRelation[]>([]);
+const relations$ = observable<Record<string, readonly ContentRelation[]>>({});
+const reads = new PQueue({ concurrency: 1 });
 
 // The default relation kind has no visible label.
 const RELATION_KINDS = ["relates", "supports", "contradicts", "refines", "follows"] as const;
@@ -17,27 +19,14 @@ const DEFAULT_RELATION_KIND: RelationKind = "relates";
 const getRelationLabel = (relation: ContentRelation) =>
   relation.label?.trim() || (relation.kind === DEFAULT_RELATION_KIND ? undefined : relation.kind);
 
-// Track which project owns the current relation list.
-const loadedProject = { answered: false, id: null as string | null };
-
 // null means that no relation query has returned for this project.
 const getLoadedRelations = (projectId: string): readonly ContentRelation[] | null =>
-  loadedProject.id === projectId && loadedProject.answered ? relations$.peek() : null;
+  relations$[projectId].peek() ?? null;
 
-// Clear relations when the project changes and ignore late results.
-async function loadRelations(projectId: string) {
-  if (loadedProject.id !== projectId) {
-    loadedProject.id = projectId;
-    loadedProject.answered = false;
-    relations$.set([]);
-  }
-
-  const loaded = await database.relations.list(projectId);
-
-  if (loadedProject.id === projectId) {
-    loadedProject.answered = true;
-    relations$.set(loaded);
-  }
+function loadRelations(projectId: string) {
+  return reads.add(async () => {
+    relations$[projectId].set(await database.relations.list(projectId));
+  });
 }
 
 // An omitted kind uses the default relation kind.
@@ -97,57 +86,40 @@ async function disconnectRelations(
     return;
   }
 
-  await Promise.all(
-    cuts.map((cut) => database.relations.disconnect({ source: cut.source, target: cut.target })),
-  );
-  await loadRelations(input.projectId);
+  await database.relations.disconnect(cuts);
 
   rememberUndoableAction({
     describe: describeCut(cuts),
     undo: async () => {
       await Promise.all(
-        cuts.map((cut) =>
-          database.relations.connect({
-            kind: (cut.kind as RelationKind | undefined) ?? DEFAULT_RELATION_KIND,
+        cuts.map(async (cut) => {
+          const relationId = await database.relations.connect({
+            kind: cut.kind,
             source: cut.source,
             target: cut.target,
-          }),
-        ),
-      );
-      // Reconnects must finish before labels can use the new relation ids.
-      await loadRelations(input.projectId);
-
-      const rebuilt = relations$.peek();
-
-      await Promise.all(
-        cuts.flatMap((cut) => {
-          const edge =
-            cut.label === null || cut.label === undefined
-              ? undefined
-              : findRelation(rebuilt, cut.source, cut.target);
-
-          return edge === undefined || cut.label == null
-            ? []
-            : [database.relations.setLabel({ label: cut.label, relationId: edge.id })];
+          });
+          if (cut.label != null)
+            await database.relations.setLabel({ label: cut.label, relationId });
         }),
       );
       await loadRelations(input.projectId);
     },
   });
+  await loadRelations(input.projectId);
 }
 
 // Resolve the stored direction before the shared removal path.
 async function disconnectItems(
   input: Readonly<{ projectId: string; source: string; target: string }>,
 ) {
-  const cut = findRelation(relations$.peek(), input.source, input.target);
+  const cut = findRelation(relations$[input.projectId].peek() ?? [], input.source, input.target);
 
   if (cut !== undefined) {
     await disconnectRelations({ projectId: input.projectId, relations: [cut] });
     return;
   }
 
-  await database.relations.disconnect({ source: input.source, target: input.target });
+  await database.relations.disconnect([{ source: input.source, target: input.target }]);
   await loadRelations(input.projectId);
 }
 

@@ -1,4 +1,4 @@
-import type { InfiniteCanvasCommands, InfiniteCanvasState } from "@hyphened/infinite-canvas";
+import type { InfiniteCanvasDispatch, InfiniteCanvasState } from "@hyphened/infinite-canvas";
 
 import { getContentWindowItemId, type WindowKind } from "../canvas/window-registry";
 import {
@@ -11,7 +11,8 @@ import { IMAGE_KIND, imageGateway } from "../images/image-gateway";
 import { LINK_KIND, linkGateway } from "../links/link-gateway";
 import { NOTE_KIND, noteGateway, toNote } from "../notes/note-gateway";
 import { renameNote } from "../notes/note-store";
-import { setProjectItemRevision, setProjectItemTitle } from "./project-content";
+import { updateProjectItem } from "./project-content";
+import { batch } from "@legendapp/state";
 
 // A null result means that the writer updates its own revision.
 type TitleWriter = (
@@ -46,7 +47,7 @@ const TITLE_WRITERS: Readonly<Record<string, TitleWriter>> = {
 // its caller, and a write that storage rejects comes back the same way.
 const renameProjectItem = async (
   input: Readonly<{
-    actions: InfiniteCanvasCommands<WindowKind>;
+    dispatch: InfiniteCanvasDispatch<WindowKind>;
     item: ContentItemRecord;
     state: InfiniteCanvasState<WindowKind>;
     title: string;
@@ -68,31 +69,24 @@ const renameProjectItem = async (
     return `Refused: nothing here can save a new title for a "${input.item.kind}" — its kind has no writer yet.`;
   }
 
-  const saved = write(input.item, next);
-
-  // Direct writers return a revision. The note store updates its own.
-  if (saved !== null) {
-    try {
+  try {
+    const saved = write(input.item, next);
+    // The note writer updates its own cached record.
+    if (saved !== null) {
       const record = await saved;
-
-      setProjectItemRevision(record.id, record.revision);
-    } catch (error) {
-      // Storage refused, most often on a revision conflict. Naming the screen
-      // first would leave it showing a title storage does not have, which is
-      // what made a lost rename look like a successful one.
-      return `Refused: the rename did not save. ${String(error)}`;
+      updateProjectItem({ id: record.id, revision: record.revision, title: next });
     }
+  } catch (error) {
+    return `Refused: the rename did not save. ${String(error)}`;
   }
 
-  setProjectItemTitle({ itemId: input.item.id, title: next });
-
-  const windowId = input.state.windows.find(
-    (window) => getContentWindowItemId(window) === input.item.id,
-  )?.id;
-
-  if (windowId !== undefined) {
-    input.actions.setWindowTitle({ title: next, windowId });
-  }
+  batch(() => {
+    for (const window of input.state.windows) {
+      if (getContentWindowItemId(window) === input.item.id) {
+        input.dispatch({ title: next, type: "window.setTitle", windowId: window.id });
+      }
+    }
+  });
 
   return undefined;
 };

@@ -63,10 +63,10 @@ const toPathData = (
     { cornerRadius: CORNER_RADIUS_PX },
   );
 
-export function ConnectorLayer() {
+export function ConnectorLayer({ projectId }: Readonly<{ projectId: string }>) {
   const state = useInfiniteCanvasState<WindowKind>();
-  const relations = useValue(relations$);
-  const listing = useValue(projectContent$);
+  const relations = useValue(relations$[projectId]) ?? [];
+  const listing = useValue(projectContent$[projectId]);
   const drawn = getDrawnConnectors(state, relations);
   // What the project still holds, so a stub does not count a neighbour that was archived away.
   const stubs = getHiddenConnectorStubs(
@@ -80,7 +80,7 @@ export function ConnectorLayer() {
   return drawn.length === 0 && stubs.length === 0 ? null : (
     <svg className={connectors().svg()} data-slot="connector-layer">
       {drawn.map((connector, index) => {
-        const selected = isSelectionTargetSelected(state, {
+        const selected = isSelectionTargetSelected(state.selection, {
           id: connector.relation.id,
           type: "edge",
         });

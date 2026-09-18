@@ -1,7 +1,8 @@
 import { openContentWindow, withSummaryMinimum, type WindowPlacement } from "../canvas/open-window";
-import { noteGateway } from "./note-gateway";
-import { loadProjectContent } from "../content/project-content";
-import { withNamingLock } from "../naming-lock";
+import { NOTE_KIND, noteGateway } from "./note-gateway";
+import { createProjectItem } from "../content/project-content";
+import { namingQueue } from "../naming-queue";
+import { content } from "../database/operations";
 import { getNextNumberedTitle } from "../titles";
 
 const NOTE_SIZE = { height: 240, width: 360 } as const;
@@ -10,7 +11,7 @@ const NOTE_MINIMUM_SIZE = withSummaryMinimum({ height: 200, width: 240 });
 
 function openNoteWindow(input: WindowPlacement & Readonly<{ noteId: string; title: string }>) {
   openContentWindow({
-    actions: input.actions,
+    dispatch: input.dispatch,
     data: { itemId: input.noteId },
     kind: "note",
     minSize: NOTE_MINIMUM_SIZE,
@@ -20,21 +21,21 @@ function openNoteWindow(input: WindowPlacement & Readonly<{ noteId: string; titl
   });
 }
 
-const getNextUntitledTitle = (titles: readonly string[]) =>
-  getNextNumberedTitle("Untitled", titles);
-
-// The naming lock prevents concurrent notes from choosing the same title.
 async function openNewNote(input: WindowPlacement & Readonly<{ projectId: string }>) {
-  return withNamingLock(async () => {
-    const [offered, archived] = await Promise.all([
-      noteGateway.list(input.projectId),
-      noteGateway.listArchived(input.projectId),
-    ]);
-    const title = getNextUntitledTitle([...offered, ...archived].map((note) => note.title));
-    const created = await noteGateway.create({ projectId: input.projectId, text: "", title });
-
-    openNoteWindow({ actions: input.actions, noteId: created.id, state: input.state, title });
-    await loadProjectContent(input.projectId);
+  const created = await namingQueue.add(async () => {
+    const titles = await content.titles({ kind: NOTE_KIND, projectId: input.projectId });
+    const title = getNextNumberedTitle("Untitled", titles);
+    return createProjectItem({
+      projectId: input.projectId,
+      kind: NOTE_KIND,
+      create: () => noteGateway.create({ projectId: input.projectId, text: "", title }),
+    });
+  });
+  openNoteWindow({
+    dispatch: input.dispatch,
+    noteId: created.id,
+    state: input.state,
+    title: created.title,
   });
 }
 

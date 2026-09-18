@@ -4,13 +4,12 @@ import { disconnectRelations, relations$ } from "../relations/relation-store";
 import { getSelectedRelations } from "./connector-geometry";
 import type { WindowKind } from "./window-registry";
 
-const getRelationsToCut = (state: InfiniteCanvasState<WindowKind>) =>
-  getSelectedRelations(state.selection, relations$.peek());
-
 // Framework hotkey scope keeps editor keystrokes local.
 function getConnectorHotkeyActions(
   projectId: string,
 ): readonly InfiniteCanvasHotkeyAction<WindowKind>[] {
+  const getRelationsToCut = (state: InfiniteCanvasState<WindowKind>) =>
+    getSelectedRelations(state.selection, relations$[projectId].peek() ?? []);
   return [
     {
       description: "Remove the selected connections between notes.",

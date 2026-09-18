@@ -1,10 +1,12 @@
 import {
   getInfiniteCanvasContextualCommands,
   getInfiniteCanvasGroupWindowIds,
-  useInfiniteCanvasActions,
+  isInfiniteCanvasWindowCapable,
+  useInfiniteCanvasDispatch,
   useInfiniteCanvasStore,
 } from "@hyphened/infinite-canvas";
 import { useLoaderData } from "@tanstack/react-router";
+import { useValue } from "@legendapp/state/react";
 
 import { useGoToCanvas } from "../workspace/use-go-to-canvas";
 import { useRefreshRoute } from "../workspace/use-refresh-route";
@@ -35,8 +37,10 @@ const getGroupUnderPointer = (target: EventTarget | null) =>
     : null;
 
 function CanvasContextMenu() {
-  const actions = useInfiniteCanvasActions<WindowKind>();
+  const dispatch = useInfiniteCanvasDispatch<WindowKind>();
   const store = useInfiniteCanvasStore<WindowKind>();
+  const goToCanvas = useGoToCanvas();
+  const refreshRoute = useRefreshRoute();
   const canvas = useLoaderData({ from: "/canvas/$canvasId" });
   const projectId = canvas.projectId;
   const [press, setPress] = useState<Readonly<{
@@ -45,6 +49,7 @@ function CanvasContextMenu() {
     x: number;
     y: number;
   }> | null>(null);
+  const state = useValue(() => (press === null ? null : store.state$.get()));
 
   // The document owns this listener because the canvas is not focusable.
   useEffect(() => {
@@ -74,7 +79,7 @@ function CanvasContextMenu() {
 
   useEffect(() => {
     if (pressedWindowId !== null) {
-      actions.focusWindow(pressedWindowId);
+      dispatch({ type: "window.focus", windowId: pressedWindowId });
 
       return;
     }
@@ -85,21 +90,18 @@ function CanvasContextMenu() {
         group === undefined ? undefined : getInfiniteCanvasGroupWindowIds(group.tree)[0];
 
       if (member !== undefined) {
-        actions.focusWindow(member);
+        dispatch({ type: "window.focus", windowId: member });
       }
     }
-  }, [actions, pressedGroupId, pressedWindowId, store]);
+  }, [dispatch, pressedGroupId, pressedWindowId, store]);
 
-  if (press === null) {
+  if (press === null || state === null) {
     return null;
   }
 
-  // Read one state snapshot when the wheel opens.
-  const state = store.state$.peek();
-  const goToCanvas = useGoToCanvas();
-  const refreshRoute = useRefreshRoute();
+  const pressedWindow = state.windows.find((window) => window.id === press.windowId) ?? null;
   const context = {
-    actions,
+    dispatch,
     canvasId: canvas.id,
     canvasTitle: canvas.title,
     goToCanvas,
@@ -112,14 +114,20 @@ function CanvasContextMenu() {
   );
   const canvasVerb = (entry: CanvasRingEntry) => {
     const descriptor = descriptors.get(entry.id);
+    const isMaximizeToggle = entry.id === "activeWindow.toggleMaximized";
+    const isRestore = isMaximizeToggle && pressedWindow?.mode === "maximized";
+    const isEnabled =
+      isMaximizeToggle && pressedWindow !== null
+        ? isRestore || isInfiniteCanvasWindowCapable(pressedWindow, "maximizable")
+        : descriptor?.enabled === true;
 
     return {
       icon: entry.icon,
-      isEnabled: descriptor?.enabled === true,
-      label: entry.label,
+      isEnabled,
+      label: isRestore ? "Restore" : entry.label,
       run: () => {
         if (descriptor !== undefined) {
-          actions.executeCommand(descriptor.command);
+          dispatch(descriptor.command);
         }
       },
     };

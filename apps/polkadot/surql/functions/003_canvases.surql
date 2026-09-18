@@ -14,6 +14,10 @@ DEFINE FUNCTION OVERWRITE fn::open_canvas($canvas: record<canvas_document>) {
 };
 
 -- The list omits layout data.
+DEFINE FUNCTION OVERWRITE fn::list_canvas_titles($project: record<project>) {
+  RETURN SELECT VALUE title FROM canvas_document WHERE project = $project;
+};
+
 DEFINE FUNCTION OVERWRITE fn::list_canvases($project: record<project>) {
   RETURN SELECT id, title, revision, updated_at
     FROM canvas_document

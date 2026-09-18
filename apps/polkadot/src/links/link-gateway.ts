@@ -9,7 +9,7 @@ const LINK_KIND = "link";
 const LinkContent = type({
   host: "string",
   url: "string",
-}).onUndeclaredKey("delete");
+});
 
 type LinkRecord = Readonly<{
   content: typeof LinkContent.infer;
@@ -28,35 +28,40 @@ function toLink(record: ContentItemRecord): LinkRecord {
 }
 
 // Bare domains retry with an https scheme.
-function getLinkHost(url: string): string {
-  for (const candidate of [url, `https://${url}`]) {
+function parseLinkUrl(url: string): URL | null {
+  const trimmedUrl = url.trim();
+  const candidates = /^[a-z][a-z\d+.-]*:/i.test(trimmedUrl)
+    ? [trimmedUrl]
+    : [trimmedUrl, `https://${trimmedUrl}`];
+  for (const candidate of candidates) {
     try {
-      return new URL(candidate).host;
+      return new URL(candidate);
     } catch {
       continue;
     }
   }
 
-  return "";
+  return null;
 }
 
 export const linkGateway = {
-  create: async (input: Readonly<{ projectId: string; title: string; url: string }>) =>
-    toLink(
+  create: async (input: Readonly<{ projectId: string; title: string; url: string }>) => {
+    const parsed = parseLinkUrl(input.url);
+    const url = parsed?.href ?? input.url;
+    return toLink(
       await content.create({
-        content: { host: getLinkHost(input.url), url: input.url },
+        content: { host: parsed?.host ?? "", url },
         kind: LINK_KIND,
         projectId: input.projectId,
-        searchText: `${input.title} ${input.url}`,
+        searchText: `${input.title} ${url}`,
         title: input.title,
       }),
-    ),
-  list: async (projectId: string) =>
-    (await content.list({ kind: LINK_KIND, projectId })).map(toLink),
+    );
+  },
   read: async (linkId: string) => {
     const record = await content.read(linkId);
 
-    return record === null ? null : toLink(record);
+    return record?.kind === LINK_KIND ? toLink(record) : null;
   },
   // Rename preserves the address and keeps it in search text.
   rename: async (input: Readonly<{ item: ContentItemRecord; title: string }>) => {
@@ -74,5 +79,5 @@ export const linkGateway = {
   },
 };
 
-export { getLinkHost, LINK_KIND, LinkContent };
+export { parseLinkUrl, LINK_KIND, LinkContent };
 export type { LinkRecord };

@@ -1,6 +1,6 @@
 import {
   focusInfiniteCanvasCommandSurfaceFrom,
-  useInfiniteCanvasActions,
+  useInfiniteCanvasDispatch,
   useInfiniteCanvasAnnounce,
   useInfiniteCanvasSelector,
   useInfiniteCanvasStore,
@@ -25,15 +25,17 @@ import { openItemWindow } from "../canvas/open-item";
 import { getContentWindowItemId, type WindowKind } from "../canvas/window-registry";
 import { getListableKind } from "../collections/listable-kinds";
 import type { ContentItemRecord } from "../database/database.client";
-import { content } from "../database/operations";
 import { FLOATING_SURFACE } from "../material";
 import { openNewNote } from "../notes/open-note";
 import { renameProjectItem } from "../content/rename-item";
+import { actionFailure$ } from "../content/action-failure";
+import { archiveItem } from "../content/archive-item";
 import { formatRelativeTime } from "../content/relative-time";
 import { getContentSearchExcerpt, matchesContentSearch } from "../content/searchable-text";
 import {
-  archiveProjectItem,
+  archivedProjectContent$,
   getProjectContent,
+  loadArchivedProjectContent,
   loadProjectContent,
   projectContent$,
   restoreProjectItem,
@@ -140,15 +142,13 @@ function LibraryRailContent({
   onCollapse,
   projectId,
 }: Readonly<{ onCollapse: () => void; projectId: string }>) {
-  const actions = useInfiniteCanvasActions<WindowKind>();
+  const dispatch = useInfiniteCanvasDispatch<WindowKind>();
   const store = useInfiniteCanvasStore<WindowKind>();
   // The rail reads the windows; a camera step must not re-render the note list.
   const windows = useInfiniteCanvasSelector<WindowKind, InfiniteCanvasState<WindowKind>["windows"]>(
     (state) => state.windows,
   );
   const getState = () => store.state$.peek() as InfiniteCanvasState<WindowKind>;
-  // The archive list is local because only this rail reads it.
-  const archivedNotes$ = useObservable<readonly ContentItemRecord[] | null>(null);
   const query$ = useObservable("");
   const expanded$ = useObservable<string | null>(null);
   const editing$ = useObservable<Readonly<{ id: string; title: string }> | null>(null);
@@ -164,43 +164,33 @@ function LibraryRailContent({
   const announce = useInfiniteCanvasAnnounce();
   // All rows use the same time reference for one render.
   const now = Date.now();
-  const archivedListing = useValue(archivedNotes$);
+  const archivedListing = getProjectContent(
+    useValue(archivedProjectContent$[projectId]),
+    projectId,
+  );
   const query = useValue(query$);
   const expanded = useValue(expanded$);
   const editing = useValue(editing$);
   const archived = useValue(archived$);
   const pendingCut = useValue(pendingCut$);
-  const relations = useValue(relations$);
-  const reachableListing = getProjectContent(useValue(projectContent$), projectId);
+  const relations = useValue(relations$[projectId]) ?? [];
+  const reachableListing = getProjectContent(useValue(projectContent$[projectId]), projectId);
   const listing = archived ? archivedListing : reachableListing;
   const notes = listing ?? [];
   const styles = rail();
 
   useEffect(() => {
-    if (!archived) {
-      void loadProjectContent(projectId);
-
-      return;
-    }
-
-    archivedNotes$.set(null);
-
-    void content.listArchived({ projectId }).then((listed) => {
-      if (archived$.peek()) {
-        archivedNotes$.set(listed);
-      }
-    });
-  }, [archived, archived$, archivedNotes$, projectId]);
+    void (archived ? loadArchivedProjectContent(projectId) : loadProjectContent(projectId));
+  }, [archived, projectId]);
 
   // Include windows from all desktops.
-  const windowIdByItemId = new Map(
+  const openItemIds = new Set(
     windows.flatMap((window) => {
       const itemId = getContentWindowItemId(window);
 
-      return itemId === null ? [] : [[itemId, window.id] as const];
+      return itemId === null ? [] : [itemId];
     }),
   );
-  const openItemIds = new Set(windowIdByItemId.keys());
 
   const listed = new Set(notes.map((note) => note.id));
   const terms = query.trim().toLowerCase();
@@ -221,7 +211,7 @@ function LibraryRailContent({
         autoFocus
         className={styles.editor()}
         onBlur={() => {
-          commitRename(note, editing?.title ?? note.title);
+          void commitRename(note);
         }}
         onChange={(event) => {
           editing$.set({ id: note.id, title: event.target.value });
@@ -230,7 +220,7 @@ function LibraryRailContent({
           event.stopPropagation();
 
           if (event.key === "Enter") {
-            commitRename(note, editing?.title ?? note.title);
+            void commitRename(note);
           }
 
           if (event.key === "Escape") {
@@ -274,41 +264,33 @@ function LibraryRailContent({
   const visible = terms === "" ? notes : notes.filter((note) => matchesContentSearch(note, terms));
 
   const reach = (from: HTMLElement, item: ContentItemRecord) => {
-    openItemWindow({ actions, item, state: getState() });
+    void openItemWindow({ dispatch, item, state: getState() });
 
     // Restore canvas shortcut focus after the rail action.
     focusInfiniteCanvasCommandSurfaceFrom(from);
   };
 
-  const commitRename = (note: ContentItemRecord, title: string) => {
-    const next = title.trim();
-
+  const commitRename = async (item: ContentItemRecord) => {
+    const draft = editing$.peek();
+    if (draft?.id !== item.id) return;
+    const next = draft.title.trim();
     editing$.set(null);
-
-    void renameProjectItem({ actions, item: note, state: getState(), title: next });
+    const refusal = await renameProjectItem({ dispatch, item, state: getState(), title: next });
+    if (refusal !== undefined) actionFailure$.set(refusal);
   };
 
   const create = async () => {
-    await openNewNote({ actions, projectId, state: getState() });
+    await openNewNote({ dispatch, projectId, state: getState() });
   };
 
-  // Archive closes the open window before it hides the item.
-  const archive = async (itemId: string) => {
-    const windowId = windowIdByItemId.get(itemId);
-
-    if (windowId !== undefined) {
-      actions.closeWindow(windowId);
-    }
-
-    await archiveProjectItem({ itemId, projectId });
-  };
+  const archive = (itemId: string) =>
+    archiveItem({ dispatch, itemId, projectId, state: getState() });
 
   // Restore announces the result because it has no undo notice.
   const restore = async (itemId: string) => {
     const restored = archivedListing?.find((item) => item.id === itemId);
 
     await restoreProjectItem({ itemId, projectId });
-    archivedNotes$.set(await content.listArchived({ projectId }));
     announce(restored === undefined ? "Restored." : `Restored “${restored.title.trim()}”`);
   };
 

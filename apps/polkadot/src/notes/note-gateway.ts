@@ -7,7 +7,7 @@ import { getNoteText } from "./note-text";
 // This layer validates note content inside a generic content item.
 const NOTE_KIND = "note";
 
-const NoteContent = type({ text: "string" }).onUndeclaredKey("delete");
+const NoteContent = type({ text: "string" });
 
 type NoteRecord = Readonly<{
   content: typeof NoteContent.infer;
@@ -41,24 +41,18 @@ export const noteGateway = {
         title: input.title,
       }),
     ),
-  list: async (projectId: string) =>
-    (await content.list({ kind: NOTE_KIND, projectId })).map(toNote),
-  listArchived: async (projectId: string) =>
-    (await content.listArchived({ kind: NOTE_KIND, projectId })).map(toNote),
   read: async (noteId: string) => {
     const record = await content.read(noteId);
 
-    return record === null ? null : toNote(record);
+    return record?.kind === NOTE_KIND ? toNote(record) : null;
   },
-  save: async (
-    input: Readonly<{ noteId: string; revision: number; text: string; title: string }>,
-  ) =>
+  save: async (input: NoteRecord) =>
     toNote(
       await content.save({
-        content: { text: input.text },
-        itemId: input.noteId,
+        content: input.content,
+        itemId: input.id,
         revision: input.revision,
-        searchText: getNoteSearchText(input),
+        searchText: getNoteSearchText({ title: input.title, text: input.content.text }),
         title: input.title,
       }),
     ),

@@ -5,6 +5,10 @@ DEFINE FUNCTION OVERWRITE fn::list_projects() {
     ORDER BY updated_at DESC;
 };
 
+DEFINE FUNCTION OVERWRITE fn::list_project_titles() {
+  RETURN SELECT VALUE title FROM project;
+};
+
 DEFINE FUNCTION OVERWRITE fn::read_project($project: record<project>) {
   RETURN SELECT id, title FROM ONLY $project;
 };

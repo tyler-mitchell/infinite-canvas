@@ -2,6 +2,130 @@ import { expect, test } from "vite-plus/test";
 
 import { getNextNumberedTitle, getNextRepeatTitle, getNextSuffixedTitle } from "./titles";
 
+test.each([
+  { label: "Links", titles: ["Notes", "swatch.png"], expected: "Links" },
+  { label: "Links", titles: ["Links", "Links 2"], expected: "Links 3" },
+  { label: "Links", titles: ["Links archive", "Linkstwo"], expected: "Links" },
+  { label: "Notes (2024)", titles: ["Notes 2024 2"], expected: "Notes (2024)" },
+  { label: "a.b", titles: ["axb 5"], expected: "a.b" },
+  {
+    label: "Connected to Router Docs",
+    titles: ["Connected to Router Docs"],
+    expected: "Connected to Router Docs 2",
+  },
+])("repeated label $label yields $expected", ({ label, titles, expected }) => {
+  expect(getNextRepeatTitle(label, titles)).toBe(expected);
+});
+
+test.each([
+  { mark: "copy", title: "Q3", takenTitles: [], expected: "Q3 copy" },
+  { mark: "copy", title: "Q3", takenTitles: ["Q3", "Q3 copy"], expected: "Q3 copy 2" },
+  { mark: "copy", title: "Q3 copy", takenTitles: ["Q3", "Q3 copy"], expected: "Q3 copy 2" },
+  {
+    mark: "copy",
+    title: "Q3 copy 2",
+    takenTitles: ["Q3", "Q3 copy", "Q3 copy 2"],
+    expected: "Q3 copy 3",
+  },
+  { mark: "copy", title: "Q3", takenTitles: ["Q3 copy", "Q3 copy 5"], expected: "Q3 copy 6" },
+  { mark: "copy", title: "Q3", takenTitles: ["Q3 copy"], expected: "Q3 copy 2" },
+  { mark: "copy", title: "Q3 (draft)", takenTitles: [], expected: "Q3 (draft) copy" },
+  {
+    mark: "copy",
+    title: "Q3 (draft)",
+    takenTitles: ["Q3 (draft) copy"],
+    expected: "Q3 (draft) copy 2",
+  },
+  { mark: "copy", title: "copy of Q3", takenTitles: [], expected: "copy of Q3 copy" },
+  {
+    mark: "(recovered)",
+    title: "Main canvas",
+    takenTitles: [],
+    expected: "Main canvas (recovered)",
+  },
+  {
+    mark: "(recovered)",
+    title: "Main canvas",
+    takenTitles: ["Main canvas", "Main canvas (recovered)"],
+    expected: "Main canvas (recovered) 2",
+  },
+  {
+    mark: "(recovered)",
+    title: "Main canvas",
+    takenTitles: ["Main canvas (recovered)", "Main canvas (recovered) 5"],
+    expected: "Main canvas (recovered) 6",
+  },
+  {
+    mark: "(recovered)",
+    title: "Main canvas (recovered)",
+    takenTitles: ["Main canvas (recovered)"],
+    expected: "Main canvas (recovered) 2",
+  },
+  {
+    mark: "(recovered)",
+    title: "Main canvas (recovered) 2",
+    takenTitles: ["Main canvas (recovered)", "Main canvas (recovered) 2"],
+    expected: "Main canvas (recovered) 3",
+  },
+  {
+    mark: "(recovered)",
+    title: "Main canvas",
+    takenTitles: ["Main canvas (recovered)"],
+    expected: "Main canvas (recovered) 2",
+  },
+  {
+    mark: "(recovered)",
+    title: "Q3 (draft)",
+    takenTitles: ["Q3 (draft) (recovered)"],
+    expected: "Q3 (draft) (recovered) 2",
+  },
+  {
+    mark: "(recovered)",
+    title: "(recovered) notes",
+    takenTitles: [],
+    expected: "(recovered) notes (recovered)",
+  },
+  {
+    mark: "(recovered)",
+    title: "Main canvas (recovered) 4",
+    takenTitles: [],
+    expected: "Main canvas (recovered)",
+  },
+])("suffixing $title yields $expected", ({ expected, ...input }) => {
+  expect(getNextSuffixedTitle(input)).toBe(expected);
+});
+
+test.each(["View", "Canvas", "Project", "Untitled"])(
+  "%s titles increment large ordinals exactly",
+  (label) => {
+    expect(getNextNumberedTitle(label, [`${label} 9007199254740992`])).toBe(
+      `${label} 9007199254740993`,
+    );
+    expect(getNextNumberedTitle(label, [`${label} ${"9".repeat(320)}`])).toBe(
+      `${label} 1${"0".repeat(320)}`,
+    );
+    expect(getNextNumberedTitle(label, ["Overview"])).toBe(`${label} 1`);
+  },
+);
+
+test("repeat and suffix titles preserve large ordinals", () => {
+  expect(getNextRepeatTitle("Links", ["Links", "Links 9007199254740992"])).toBe(
+    "Links 9007199254740993",
+  );
+  expect(
+    getNextSuffixedTitle({
+      mark: "copy",
+      title: "Main copy 9007199254740992",
+      takenTitles: ["Main copy", "Main copy 9007199254740992"],
+    }),
+  ).toBe("Main copy 9007199254740993");
+});
+
+test("large title lists do not exceed the function argument limit", () => {
+  const titles = Array.from({ length: 150_000 }, (_, index) => `Untitled ${index + 1}`);
+  expect(getNextNumberedTitle("Untitled", titles)).toBe("Untitled 150001");
+});
+
 test("numbering follows the highest taken, never the count", () => {
   expect(getNextNumberedTitle("Canvas", ["Canvas 1", "Canvas 3"])).toBe("Canvas 4");
   expect(getNextRepeatTitle("Links", ["Links", "Links 3"])).toBe("Links 4");

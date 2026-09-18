@@ -3,6 +3,7 @@ import { expect, test } from "vite-plus/test";
 
 import { APP_ACTIONS } from "../app-actions";
 import { CONTEXT_MENU_RINGS, getRing } from "./context-menu-rings";
+import { getSpoke, ITEM_SIZE } from "./radial-geometry";
 
 const RING_NAMES = ["canvas", "group", "window"] as const;
 
@@ -41,8 +42,16 @@ test("a ring carries at least one verb whose id is not its command type", () => 
   expect(encodesAnArgument.length).toBeGreaterThan(0);
 });
 
-test("a ring offers six verbs, because the wheel is six fixed positions", () => {
-  expect(RING_NAMES.map((name) => CONTEXT_MENU_RINGS[name].length)).toStrictEqual([6, 6, 6]);
+test.each(RING_NAMES)("the %s ring gives every action a separate hit target", (name) => {
+  const ring = CONTEXT_MENU_RINGS[name];
+  const positions = ring.map((_, index) => getSpoke(index, ring.length));
+  for (const [index, position] of positions.entries()) {
+    for (const other of positions.slice(index + 1)) {
+      expect(Math.hypot(position.x - other.x, position.y - other.y)).toBeGreaterThanOrEqual(
+        ITEM_SIZE,
+      );
+    }
+  }
 });
 
 test("a press on a window opens the window ring even when that window is in a group", () => {

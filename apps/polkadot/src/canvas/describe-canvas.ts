@@ -1,18 +1,25 @@
 import {
-  getInfiniteCanvasGroupProjection,
+  getCanvasLayout,
   getInfiniteCanvasGroupTitle,
   getInfiniteCanvasGroupWindowIds,
-  getSelectionTargets,
   isInfiniteCanvasWindowInActiveWorkspace,
   isWorldRectWithinViewport,
   type InfiniteCanvasState,
+  getSelectedWindowIds,
 } from "@hyphened/infinite-canvas";
 
 import type { WindowKind } from "./window-registry";
 
 function describeCanvas(state: InfiniteCanvasState<WindowKind>): string {
-  const selected = new Set(state.selection.windowIds);
-  const { hiddenWindowIds } = getInfiniteCanvasGroupProjection(state.groups, state.groupMetrics);
+  const selected = new Set(getSelectedWindowIds(state.selection));
+  const canvasLayout = getCanvasLayout(state);
+  const hiddenLabels = new Map(
+    [...canvasLayout.layouts.values()].flatMap(({ tabStrips }) =>
+      tabStrips.flatMap(({ childIds, activeChildId }) =>
+        childIds.filter((id) => id !== activeChildId).map((id) => [id, "behind a tab"] as const),
+      ),
+    ),
+  );
   const windows = state.windows
     .filter((window) => isInfiniteCanvasWindowInActiveWorkspace(state, window.id))
     .map((window) =>
@@ -20,25 +27,35 @@ function describeCanvas(state: InfiniteCanvasState<WindowKind>): string {
         `${window.kind} "${window.title}" [${window.id}]`,
         window.id === state.activeWindowId ? "active" : null,
         selected.has(window.id) ? "selected" : null,
-        hiddenWindowIds.has(window.id) ? "behind a tab" : null,
-        isWorldRectWithinViewport(state.camera, state.viewport, window.rect) ? null : "offscreen",
+        canvasLayout.hiddenWindowIds.has(window.id)
+          ? (hiddenLabels.get(window.id) ?? "hidden in its group")
+          : null,
+        isWorldRectWithinViewport(
+          state.camera,
+          state.viewport,
+          canvasLayout.windowRects.get(window.id)!,
+        )
+          ? null
+          : "offscreen",
         window.mode === "normal" ? null : window.mode,
       ]
         .filter((part) => part !== null)
         .join(", "),
     );
-  const groups = state.groups.map((group) => {
-    const members = getInfiniteCanvasGroupWindowIds(group.tree);
+  const groups = state.groups
+    .filter((group) => canvasLayout.visibleGroupIds.has(group.id))
+    .map((group) => {
+      const members = getInfiniteCanvasGroupWindowIds(group.tree);
 
-    return `"${getInfiniteCanvasGroupTitle(group, state.windows)}" [${group.id}] holding ${members.map((windowId) => `[${windowId}]`).join(", ")}`;
-  });
+      return `"${getInfiniteCanvasGroupTitle(group, state.windows)}" [${group.id}] holding ${members.map((windowId) => `[${windowId}]`).join(", ")}`;
+    });
 
   const desktops = state.workspaces.map(
     (workspace) =>
       `"${workspace.title}" [${workspace.id}]${workspace.id === state.activeWorkspaceId ? " (current)" : ""}`,
   );
 
-  const selectedConnections = getSelectionTargets(state.selection).filter(
+  const selectedConnections = state.selection.targets.filter(
     (target) => target.type === "edge",
   ).length;
 

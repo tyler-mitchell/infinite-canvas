@@ -1,43 +1,36 @@
 import { openContentWindow, withSummaryMinimum, type WindowPlacement } from "../canvas/open-window";
-import { loadProjectContent } from "../content/project-content";
+import { createProjectItem } from "../content/project-content";
 import { content } from "../database/operations";
-import { withNamingLock } from "../naming-lock";
+import { namingQueue } from "../naming-queue";
 import { getNextRepeatTitle } from "../titles";
-import { collectionGateway, type CollectionQuestion } from "./collection-gateway";
+import { COLLECTION_KIND, collectionGateway, type CollectionQuestion } from "./collection-gateway";
 
 const COLLECTION_SIZE = { height: 420, width: 300 } as const;
 // A collection renders a summary, so its minimum cannot fall below the size detail restores from.
 const COLLECTION_MINIMUM_SIZE = withSummaryMinimum({ height: 220, width: 220 });
 
-const getNextCollectionTitle = (label: string, titles: readonly string[]) =>
-  getNextRepeatTitle(label, titles);
-
 async function openNewCollection(
   input: WindowPlacement &
     Readonly<{ projectId: string; question: CollectionQuestion; title: string }>,
 ) {
-  // Serialize title selection to prevent duplicate names.
-  return withNamingLock(async () => {
-    const [offered, archived] = await Promise.all([
-      content.list({ projectId: input.projectId }),
-      content.listArchived({ projectId: input.projectId }),
-    ]);
-    const created = await collectionGateway.create({
+  const created = await namingQueue.add(async () => {
+    const titles = await content.titles({ projectId: input.projectId });
+    return createProjectItem({
       projectId: input.projectId,
-      question: input.question,
-      title: getNextCollectionTitle(
-        input.title,
-        [...offered, ...archived].map((item) => item.title),
-      ),
+      kind: COLLECTION_KIND,
+      create: () =>
+        collectionGateway.create({
+          projectId: input.projectId,
+          question: input.question,
+          title: getNextRepeatTitle(input.title, titles),
+        }),
     });
-
-    openCollectionWindow({
-      actions: input.actions,
-      collectionId: created.id,
-      state: input.state,
-      title: created.title,
-    });
-    await loadProjectContent(input.projectId);
+  });
+  openCollectionWindow({
+    dispatch: input.dispatch,
+    collectionId: created.id,
+    state: input.state,
+    title: created.title,
   });
 }
 
@@ -45,7 +38,7 @@ function openCollectionWindow(
   input: WindowPlacement & Readonly<{ collectionId: string; title: string }>,
 ) {
   openContentWindow({
-    actions: input.actions,
+    dispatch: input.dispatch,
     data: { itemId: input.collectionId },
     kind: "collection",
     minSize: COLLECTION_MINIMUM_SIZE,
@@ -55,10 +48,4 @@ function openCollectionWindow(
   });
 }
 
-export {
-  COLLECTION_MINIMUM_SIZE,
-  COLLECTION_SIZE,
-  getNextCollectionTitle,
-  openCollectionWindow,
-  openNewCollection,
-};
+export { COLLECTION_MINIMUM_SIZE, COLLECTION_SIZE, openCollectionWindow, openNewCollection };

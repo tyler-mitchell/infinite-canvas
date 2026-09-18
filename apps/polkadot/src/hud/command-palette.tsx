@@ -5,11 +5,13 @@ import {
   getInfiniteCanvasGroupTitle,
   getInfiniteCanvasWindowGroup,
   getInfiniteCanvasWindowPresence,
-  useInfiniteCanvasActions,
+  useInfiniteCanvasDispatch,
   useInfiniteCanvasDesktopPortalRoot,
   useInfiniteCanvasState,
+  useInfiniteCanvasStore,
   type InfiniteCanvasCommandGroup,
   type InfiniteCanvasContextualEntry,
+  getSelectedWindowIds,
 } from "@hyphened/infinite-canvas";
 import type { Observable } from "@legendapp/state";
 import { useObservable, useValue } from "@legendapp/state/react";
@@ -123,6 +125,7 @@ type PalettePage =
   | Readonly<{ kind: "rename"; note: ContentItemRecord }>;
 
 const GROUP_ICON: Record<InfiniteCanvasCommandGroup, ComponentType> = {
+  component: Frame,
   canvas: Frame,
   edit: Undo2,
   selection: MousePointerSquareDashed,
@@ -265,13 +268,14 @@ function PaletteContent({
 }>) {
   const page = useValue(page$);
   const state = useInfiniteCanvasState<WindowKind>();
-  const actions = useInfiniteCanvasActions<WindowKind>();
+  const store = useInfiniteCanvasStore<WindowKind>();
+  const dispatch = useInfiniteCanvasDispatch<WindowKind>();
   const canvases$ = useObservable<readonly CanvasSummary[]>([]);
   const projectList$ = useObservable<readonly ProjectSummary[]>([]);
-  const projectListing = useValue(projectContent$);
+  const projectListing = useValue(projectContent$[projectId]);
   const query$ = useObservable("");
   const notes = getProjectContentOfKind({ kind: "note", listing: projectListing, projectId }) ?? [];
-  const relations = useValue(relations$);
+  const relations = useValue(relations$[projectId]) ?? [];
   const undoableAction = useValue(undoableAction$);
   const canvases = useValue(canvases$);
   const projectList = useValue(projectList$);
@@ -282,14 +286,15 @@ function PaletteContent({
 
     return selected === null || itemId === null ? undefined : { itemId, title: selected.title };
   })(
-    state.selection.windowIds.length === 1
-      ? findInfiniteCanvasWindow(state, state.selection.windowIds[0] ?? "")
+    getSelectedWindowIds(state.selection).length === 1
+      ? findInfiniteCanvasWindow(state, getSelectedWindowIds(state.selection)[0] ?? "")
       : null,
   );
   const windows = getInfiniteCanvasWindowPresence(state).windows;
   const activeWindow = windows.find((window) => window.isActive);
   const contextual = getInfiniteCanvasContextualEntries(state, {
-    actions,
+    commands: store.getContextualCommands({ includeDisabled: true }),
+    dispatch,
     hotkeyActions: getConnectorHotkeyActions(projectId),
   });
   const available = contextual.filter((command) => command.enabled);
@@ -337,7 +342,7 @@ function PaletteContent({
 
   const reachNote = (note: Readonly<{ id: string; title: string }>) => {
     rememberNote(note.id);
-    openNoteWindow({ actions, noteId: note.id, state, title: note.title });
+    openNoteWindow({ dispatch, noteId: note.id, state, title: note.title });
   };
 
   const activeStateWindow =
@@ -349,7 +354,7 @@ function PaletteContent({
       ? undefined
       : getInfiniteCanvasWindowGroup(state, state.activeWindowId);
 
-  const selectedNoteIds = state.selection.windowIds
+  const selectedNoteIds = getSelectedWindowIds(state.selection)
     .map((windowId) => {
       return getContentWindowItemId(findInfiniteCanvasWindow(state, windowId));
     })
@@ -383,7 +388,7 @@ function PaletteContent({
       page.kind === "group"
         ? {
             commit: () => {
-              actions.setGroupTitle({ groupId: page.groupId, title: draft });
+              dispatch({ groupId: page.groupId, title: draft, type: "group.setTitle" });
             },
             enabled: true,
             heading: "Group",
@@ -407,7 +412,7 @@ function PaletteContent({
             }
           : {
               commit: () => {
-                void renameProjectItem({ actions, item: page.note, state, title: draft });
+                void renameProjectItem({ dispatch, item: page.note, state, title: draft });
               },
               enabled: draft !== "",
               heading: "Note",
@@ -513,7 +518,7 @@ function PaletteContent({
                     rememberNote(noteId);
                   }
 
-                  actions.executeCommand({ type: "window.reveal", windowId: window.id });
+                  dispatch({ type: "window.reveal", windowId: window.id });
                 })}
                 id={window.id}
                 keywords={`window ${window.kind}`}
@@ -550,7 +555,7 @@ function PaletteContent({
                 icon={LayoutGrid}
                 key={workspace.id}
                 onSelect={run(() => {
-                  actions.executeCommand({ type: "workspace.enter", workspaceId: workspace.id });
+                  dispatch({ type: "workspace.enter", workspaceId: workspace.id });
                 })}
                 id={workspace.id}
                 keywords="desktop"
@@ -571,7 +576,7 @@ function PaletteContent({
                       icon={CornerUpRight}
                       key={`send-${workspace.id}`}
                       onSelect={run(() => {
-                        actions.executeCommand({
+                        dispatch({
                           type: "workspace.moveActiveWindow",
                           workspaceId: workspace.id,
                         });
@@ -585,7 +590,7 @@ function PaletteContent({
               <Row
                 icon={Trash2}
                 onSelect={run(() => {
-                  actions.executeCommand({
+                  dispatch({
                     type: "workspace.close",
                     workspaceId: state.activeWorkspaceId ?? "",
                   });
@@ -642,7 +647,7 @@ function PaletteContent({
         <CommandGroup heading="Actions">
           {APP_ACTIONS.filter((action) => action.input === undefined).map((action) => {
             const context = {
-              actions,
+              dispatch,
               canvasId: canvas.id,
               canvasTitle: canvas.title,
               goToCanvas: openCanvas,
@@ -672,7 +677,7 @@ function PaletteContent({
               onSelect={run(() => {
                 void getAppAction("collection.create.connectedTo")?.run(
                   {
-                    actions,
+                    dispatch,
                     canvasId: canvas.id,
                     canvasTitle: canvas.title,
                     goToCanvas: openCanvas,
@@ -773,7 +778,7 @@ function PaletteContent({
                 )?.id;
 
                 if (windowId !== undefined) {
-                  actions.closeWindow(windowId);
+                  dispatch({ type: "window.close", windowId });
                 }
 
                 void archiveProjectItem({ itemId: activeNote.id, projectId });
@@ -824,7 +829,7 @@ function PaletteContent({
             icon={LayoutGrid}
             onSelect={run(() => {
               createDesktop({
-                actions,
+                dispatch,
                 existingTitles: state.workspaces.map((workspace) => workspace.title),
               });
             })}

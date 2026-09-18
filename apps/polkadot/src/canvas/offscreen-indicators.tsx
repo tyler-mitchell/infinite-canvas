@@ -2,7 +2,7 @@ import {
   findInfiniteCanvasWindow,
   getInfiniteCanvasGroupTitle,
   getInfiniteCanvasOffscreenIndicators,
-  useInfiniteCanvasActions,
+  useInfiniteCanvasDispatch,
   useInfiniteCanvasState,
   type InfiniteCanvasState,
 } from "@hyphened/infinite-canvas";
@@ -46,7 +46,7 @@ const indicators = tv({
 export { getIndicatorTitle };
 
 export function OffscreenIndicators() {
-  const actions = useInfiniteCanvasActions<WindowKind>();
+  const dispatch = useInfiniteCanvasDispatch<WindowKind>();
   const state = useInfiniteCanvasState<WindowKind>();
   const styles = indicators();
   const offscreen = getInfiniteCanvasOffscreenIndicators(state, {
@@ -74,12 +74,12 @@ export function OffscreenIndicators() {
             className={styles.chip({ active: indicator.isActive })}
             key={`${indicator.kind}:${indicator.id}`}
             onClick={() => {
-              actions.executeCommand({
+              dispatch({
                 request: {
                   behavior: { type: "center" },
                   target: { rect: indicator.rect, type: "rect" },
                 },
-                type: "view.navigate",
+                type: "camera.navigate",
               });
             }}
             style={{ left: indicator.point.x, top: indicator.point.y }}

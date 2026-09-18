@@ -2,13 +2,13 @@ import { type } from "arktype";
 
 import {
   getProjectContent,
-  setProjectItemContent,
-  setProjectItemRevision,
+  updateProjectItem,
   type ProjectContent,
 } from "../content/project-content";
 import type { ContentItemRecord, ContentRelation } from "../database/database.client";
 import {
   collectionGateway,
+  COLLECTION_KIND,
   CollectionContent,
   type CollectionQuestion,
   type CollectionRecord,
@@ -30,7 +30,9 @@ function getCollectionEntry(
     return { collection: null, error: null, status: "loading" };
   }
 
-  const item = items.find((candidate) => candidate.id === input.collectionId);
+  const item = items.find(
+    (candidate) => candidate.id === input.collectionId && candidate.kind === COLLECTION_KIND,
+  );
 
   if (item === undefined) {
     return { collection: null, error: "This collection no longer exists.", status: "error" };
@@ -71,13 +73,11 @@ function resolveCollectionItems(
   const connectedTo = input.question.connectedTo;
   // Relations are undirected.
   const neighbours = new Set(
-    input.relations.flatMap((relation) =>
-      relation.source === connectedTo
-        ? [relation.target]
-        : relation.target === connectedTo
-          ? [relation.source]
-          : [],
-    ),
+    input.relations.flatMap((relation) => {
+      if (relation.source === connectedTo) return [relation.target];
+      if (relation.target === connectedTo) return [relation.source];
+      return [];
+    }),
   );
 
   return items.filter((item) => neighbours.has(item.id));
@@ -86,15 +86,19 @@ function resolveCollectionItems(
 async function setCollectionQuestion(
   input: Readonly<{ collection: CollectionRecord; question: CollectionQuestion }>,
 ) {
+  const content = Object.fromEntries(
+    Object.entries(input.collection.content).filter(
+      ([key]) => key !== "listsKind" && key !== "connectedTo",
+    ),
+  );
   const saved = await collectionGateway.save({
     collectionId: input.collection.id,
-    question: input.question,
+    question: { ...content, ...input.question },
     revision: input.collection.revision,
     title: input.collection.title,
   });
 
-  setProjectItemContent(saved.id, saved.content);
-  setProjectItemRevision(saved.id, saved.revision);
+  updateProjectItem({ id: saved.id, content: saved.content, revision: saved.revision });
 }
 
 export { getCollectionEntry, resolveCollectionItems, setCollectionQuestion };

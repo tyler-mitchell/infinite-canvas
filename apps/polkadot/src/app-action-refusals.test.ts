@@ -1,13 +1,13 @@
 import {
   createInfiniteCanvasState,
   createInfiniteCanvasWindow,
-  type InfiniteCanvasCommands,
+  type InfiniteCanvasDispatch,
 } from "@hyphened/infinite-canvas";
 import { expect, test } from "vite-plus/test";
 
 import { APP_ACTIONS, describeCutRelation, getAppAction } from "./app-actions";
 import type { WindowKind } from "./canvas/window-registry";
-import { projectContent$, type ProjectContent } from "./content/project-content";
+import { projectListings$, type ProjectContent } from "./content/project-content";
 
 const state = createInfiniteCanvasState<WindowKind>({
   viewport: { height: 800, width: 1200 },
@@ -21,13 +21,7 @@ const state = createInfiniteCanvasState<WindowKind>({
   ],
 });
 
-const actions = {
-  closeGroup: () => undefined,
-  executeCommand: () => undefined,
-  openWindow: () => undefined,
-  setGroupLayoutMode: () => undefined,
-  setGroupTitle: () => undefined,
-} as unknown as InfiniteCanvasCommands<WindowKind>;
+const dispatch: InfiniteCanvasDispatch<WindowKind> = () => undefined;
 
 const stored: ProjectContent = {
   items: [
@@ -40,12 +34,12 @@ const stored: ProjectContent = {
 const visited: string[] = [];
 
 const refuse = (id: string, input: unknown) => {
-  projectContent$.set(stored);
+  projectListings$[stored.projectId].set(stored);
   visited.length = 0;
 
   return getAppAction(id)?.run(
     {
-      actions,
+      dispatch,
       canvasId: "canvas-1",
       canvasTitle: "Main canvas",
       goToCanvas: ({ canvasId }) => visited.push(canvasId),

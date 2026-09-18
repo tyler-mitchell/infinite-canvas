@@ -1,4 +1,4 @@
-import type { InfiniteCanvasCommands } from "@hyphened/infinite-canvas";
+import type { InfiniteCanvasDispatch } from "@hyphened/infinite-canvas";
 
 import type { WindowKind } from "../canvas/window-registry";
 import { getNextNumberedTitle } from "../titles";
@@ -6,7 +6,7 @@ import { getNextNumberedTitle } from "../titles";
 // Default titles use the names that already exist.
 function createDesktop(
   input: Readonly<{
-    actions: InfiniteCanvasCommands<WindowKind>;
+    dispatch: InfiniteCanvasDispatch<WindowKind>;
     existingTitles: readonly string[];
     title?: string;
   }>,
@@ -14,7 +14,7 @@ function createDesktop(
   const workspaceId = globalThis.crypto.randomUUID();
   const chosen = input.title?.trim();
 
-  input.actions.executeCommand({
+  input.dispatch({
     title:
       chosen === undefined || chosen === ""
         ? getNextNumberedTitle("Desktop", input.existingTitles)

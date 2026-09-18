@@ -1,15 +1,19 @@
 import { useValue } from "@legendapp/state/react";
+import { proxy, syncState } from "@legendapp/state";
+import { synced } from "@legendapp/state/sync";
 import { useEffect } from "react";
+import { Button } from "ui";
 import { tv } from "ui/tv";
 
-import { createContentCache } from "../database/content-cache";
 import { imageGateway, type ImageRecord } from "./image-gateway";
 
-const images = createContentCache<ImageRecord>({
-  failedMessage: "Could not open this image.",
-  missingMessage: "This image no longer exists.",
-  read: (imageId) => imageGateway.read(imageId),
-});
+const images$ = proxy<ImageRecord | null>((imageId) =>
+  synced({
+    initial: null,
+    get: () => imageGateway.read(imageId),
+    onError: (error) => console.warn("Could not read image", { imageId, error }),
+  }),
+);
 
 const imageWindow = tv({
   slots: {
@@ -20,30 +24,57 @@ const imageWindow = tv({
 });
 
 export function ImageWindowBody({ imageId }: Readonly<{ imageId: string }>) {
-  const entry = useValue(images.entries$[imageId]);
+  const image$ = images$[imageId];
+  const image = useValue(image$);
+  const status$ = syncState(image$);
+  const isLoaded = useValue(status$.isLoaded);
+  const isGetting = useValue(status$.isGetting);
+  const error = useValue(status$.error);
   const styles = imageWindow();
 
   useEffect(() => {
-    images.ensureLoaded(imageId);
-  }, [imageId]);
+    if (!status$.isLoaded.peek() && !status$.isGetting.peek() && status$.error.peek() !== undefined)
+      void status$.sync();
+  }, [status$]);
 
-  if (entry === undefined || entry.status === "loading") {
+  if (error !== undefined) {
+    return (
+      <div className={styles.notice()}>
+        <div>
+          <p role="alert">{error?.message ?? "Could not open this image."}</p>
+          <Button
+            disabled={isGetting}
+            onClick={() => {
+              if (!status$.isGetting.peek()) void status$.sync();
+            }}
+            size="sm"
+            variant="ghost"
+          >
+            Retry
+          </Button>
+        </div>
+      </div>
+    );
+  }
+  if (!isLoaded) {
     return <div className={styles.notice()}>Loading…</div>;
   }
 
-  if (entry.status === "error" || entry.record === null) {
-    return <div className={styles.notice()}>{entry.error ?? "Could not open this image."}</div>;
+  if (image == null) {
+    return <div className={styles.notice()}>This image no longer exists.</div>;
   }
 
   return (
     <img
       // The description is alt text. The title can change independently.
-      alt={entry.record.content.description}
+      alt={image.content.description}
       className={styles.image()}
       onError={() => {
-        images.fail(imageId, "This image could not be decoded.");
+        const error = new Error("This image could not be decoded.");
+        status$.error.set(error);
+        console.warn(error.message, { imageId });
       }}
-      src={entry.record.content.source}
+      src={image.content.source}
     />
   );
 }

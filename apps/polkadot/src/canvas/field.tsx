@@ -1,13 +1,14 @@
 import {
-  getInfiniteCanvasGroupProjection,
-  getInfiniteCanvasWorkspaceWindowIds,
+  useInfiniteCanvasStore,
   useInfiniteCanvasSelector,
   worldPointToScreenPoint,
   type InfiniteCanvasCamera,
+  type CanvasLayout,
   type InfiniteCanvasViewportSize,
   type InfiniteCanvasWindow,
 } from "@hyphened/infinite-canvas";
 import { useEffect, useRef } from "react";
+import { useValue } from "@legendapp/state/react";
 import tgpu from "typegpu";
 import { fullScreenTriangle } from "typegpu/common";
 import * as d from "typegpu/data";
@@ -77,11 +78,8 @@ type RectState = {
 };
 
 type FieldInput = Readonly<{
-  /** This set is null when no desktop is active. */
-  admittedWindowIds: ReadonlySet<string> | null;
   camera: InfiniteCanvasCamera;
-  /** This set contains members hidden by a group. */
-  hiddenWindowIds: ReadonlySet<string>;
+  canvasLayout: CanvasLayout;
   viewport: InfiniteCanvasViewportSize;
   windows: readonly InfiniteCanvasWindow<WindowKind>[];
 }>;
@@ -102,38 +100,35 @@ const readColor = (element: Element, name: string) => {
   return d.vec3f(red / 255, green / 255, blue / 255);
 };
 
-const getScreenRects = ({
-  admittedWindowIds,
-  camera,
-  hiddenWindowIds,
-  viewport,
-  windows,
-}: FieldInput) => {
+const getScreenRects = ({ camera, canvasLayout, viewport, windows }: FieldInput) => {
   const centre = { x: viewport.width / 2, y: viewport.height / 2 };
   const distanceFromCentre = (
     rect: Readonly<{ height: number; width: number; x: number; y: number }>,
   ) => (rect.x + rect.width / 2 - centre.x) ** 2 + (rect.y + rect.height / 2 - centre.y) ** 2;
 
   return windows
-    .filter(
-      (window) =>
-        window.mode !== "minimized" &&
-        !hiddenWindowIds.has(window.id) &&
-        (admittedWindowIds === null || admittedWindowIds.has(window.id)),
-    )
-    .map((window) => {
+    .filter((window) => canvasLayout.visibleWindowIds.has(window.id))
+    .flatMap((window) => {
+      const rect = canvasLayout.windowRects.get(window.id);
+
+      if (rect === undefined) {
+        return [];
+      }
+
       const origin = worldPointToScreenPoint(camera, viewport, {
-        x: window.rect.x,
-        y: window.rect.y,
+        x: rect.x,
+        y: rect.y,
       });
 
-      return {
-        height: window.rect.height * camera.zoom,
-        id: window.id,
-        width: window.rect.width * camera.zoom,
-        x: origin.x,
-        y: origin.y,
-      };
+      return [
+        {
+          height: rect.height * camera.zoom,
+          id: window.id,
+          width: rect.width * camera.zoom,
+          x: origin.x,
+          y: origin.y,
+        },
+      ];
     })
     .sort((left, right) => distanceFromCentre(left) - distanceFromCentre(right))
     .slice(0, MAX_RECTS);
@@ -147,22 +142,16 @@ export function Field({ config = DEFAULT_FIELD_CONFIG }: Readonly<{ config?: Fie
     WindowKind,
     readonly InfiniteCanvasWindow<WindowKind>[]
   >((state) => state.windows);
-  const hiddenWindowIds = useInfiniteCanvasSelector<WindowKind, ReadonlySet<string>>(
-    (state) => getInfiniteCanvasGroupProjection(state.groups, state.groupMetrics).hiddenWindowIds,
-  );
-  const admittedWindowIds = useInfiniteCanvasSelector<WindowKind, ReadonlySet<string> | null>(
-    (state) => getInfiniteCanvasWorkspaceWindowIds(state),
-  );
+  const canvasLayout = useValue(useInfiniteCanvasStore<WindowKind>().layout$);
   const inputRef = useRef<FieldInput>({
-    admittedWindowIds,
     camera,
-    hiddenWindowIds,
+    canvasLayout,
     viewport,
     windows,
   });
   const configRef = useRef<FieldConfig>(config);
 
-  inputRef.current = { admittedWindowIds, camera, hiddenWindowIds, viewport, windows };
+  inputRef.current = { camera, canvasLayout, viewport, windows };
   configRef.current = config;
   const styles = field();
 
