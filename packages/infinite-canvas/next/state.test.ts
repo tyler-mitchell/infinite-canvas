@@ -137,6 +137,7 @@ test("docking on an edge of a split child divides its share, and a window cannot
   const canvas = createState();
   canvas.actions.restoreWindow.run({ window: "b" });
   canvas.actions.groupWindows.run({ id: "row", windows: ["a", "c"] });
+  expect(canvas.state.document.content.windows.row.title.peek()).toBe("");
   expect(canvas.actions.dockWindow.canRun({ window: "row", target: "a", edge: "east" })).toBe(
     false,
   );

@@ -1658,8 +1658,8 @@ export const createCanvasState = withComputed(stateModel)
       kind?: string;
       data?: unknown;
     }): WindowState => ({
-      title: "",
       ...input,
+      title: input.title ?? "",
       mode: "normal",
       isPinned: false,
       heightMode: "manual",
