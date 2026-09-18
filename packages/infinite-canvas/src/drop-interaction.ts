@@ -138,6 +138,8 @@ function createInfiniteCanvasDropInteraction<Payload, Kind extends string = stri
 type InfiniteCanvasDropPlacementInput<Kind extends string = string> = Readonly<{
   /** Pointer position in the placed rect, normalized from `0` to `1`. */
   anchor?: InfiniteCanvasPoint;
+  groupInsertion?: InfiniteCanvasDropPlacement["groupInsertion"];
+  contentSize?: InfiniteCanvasSize;
   size: InfiniteCanvasSize;
   /** Snap policy for drop placement. `false` disables snapping. */
   snapPolicy?: InfiniteCanvasSnapPolicy | false;
@@ -145,11 +147,11 @@ type InfiniteCanvasDropPlacementInput<Kind extends string = string> = Readonly<{
   worldPoint: InfiniteCanvasPoint;
 }>;
 
-const DROP_PLACEMENT_WINDOW_ID = "__infinite-canvas-drop-placement__";
-
 /** Returns the pointer-anchored placement used by drop previews and commits. */
 function getInfiniteCanvasDropPlacement<Kind extends string>({
   anchor = { x: 0.5, y: 0.5 },
+  groupInsertion,
+  contentSize,
   size,
   snapPolicy,
   state,
@@ -162,7 +164,12 @@ function getInfiniteCanvasDropPlacement<Kind extends string>({
     y: worldPoint.y - size.height * anchor.y,
   };
 
-  return applySnapToRect(state, DROP_PLACEMENT_WINDOW_ID, rect, snapPolicy, []);
+  const placement = applySnapToRect(state, null, rect, snapPolicy, []);
+  return {
+    ...placement,
+    ...(groupInsertion === undefined ? {} : { groupInsertion }),
+    ...(contentSize === undefined ? {} : { contentSize }),
+  };
 }
 
 export {

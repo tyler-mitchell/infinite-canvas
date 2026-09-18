@@ -1,4 +1,5 @@
 import { DEFAULT_INFINITE_CANVAS_SNAP_POLICY } from "./constants";
+import { resizeRectFromHandle } from "./geometry";
 import { buildSnapCandidates, getMoveSnapAnchors, getResizeSnapAnchors } from "./snap-candidates";
 import type { SnapAdjustment, SnapAnchor, SnapCandidate } from "./snap-types";
 import type {
@@ -9,6 +10,7 @@ import type {
   InfiniteCanvasSnapPolicy,
   InfiniteCanvasSnapPreview,
   InfiniteCanvasState,
+  TransformTarget,
 } from "./types";
 
 type SnapMatch = Readonly<{
@@ -51,23 +53,22 @@ function getCandidateThreshold(
     : engageThreshold;
 }
 
-/** Returns guide IDs held by the current window in the prior frame. */
+/** Returns guide IDs held by the current target in the prior frame. */
 function getEngagedGuideIds<Kind extends string>(
   state: InfiniteCanvasState<Kind>,
-  windowId: string,
+  target: TransformTarget | null,
 ): ReadonlySet<string> {
-  return state.snapPreview === null || state.snapPreview.windowId !== windowId
+  return state.snapPreview === null ||
+    state.snapPreview.target?.type !== target?.type ||
+    state.snapPreview.target?.id !== target?.id
     ? new Set()
     : new Set(state.snapPreview.guides.map((guide) => guide.id));
 }
 
 function toGuide(anchor: SnapAnchor, candidate: SnapCandidate): InfiniteCanvasSnapGuide {
+  const { priority: _priority, ...guide } = candidate;
   return {
-    axis: candidate.axis,
-    from: candidate.from,
-    id: candidate.id,
-    kind: candidate.kind,
-    position: candidate.position,
+    ...guide,
     sourceAnchor: anchor.sourceAnchor,
   };
 }
@@ -139,7 +140,7 @@ function findAxisAdjustment(
 }
 
 function createSnapPreview(
-  windowId: string,
+  target: TransformTarget | null,
   rect: InfiniteCanvasRect,
   guides: readonly InfiniteCanvasSnapGuide[],
 ): InfiniteCanvasSnapPreview | null {
@@ -148,16 +149,16 @@ function createSnapPreview(
     : {
         guides,
         rect,
-        windowId,
+        target,
       };
 }
 
 function applySnapToRect<Kind extends string>(
   state: InfiniteCanvasState<Kind>,
-  windowId: string,
+  target: TransformTarget | null,
   rect: InfiniteCanvasRect,
   policy: InfiniteCanvasSnapPolicy | false = DEFAULT_INFINITE_CANVAS_SNAP_POLICY,
-  excludedWindowIds: readonly string[] = [windowId],
+  excludedWindowIds: readonly string[] = target?.type === "window" ? [target.id] : [],
 ): Readonly<{
   preview: InfiniteCanvasSnapPreview | null;
   rect: InfiniteCanvasRect;
@@ -169,9 +170,15 @@ function applySnapToRect<Kind extends string>(
     };
   }
 
-  const candidates = buildSnapCandidates(state, windowId, rect, policy, excludedWindowIds);
+  const candidates = buildSnapCandidates(
+    state,
+    target?.type === "window" ? target.id : null,
+    rect,
+    policy,
+    excludedWindowIds,
+  );
   const anchors = getMoveSnapAnchors(rect, policy);
-  const engagedGuideIds = getEngagedGuideIds(state, windowId);
+  const engagedGuideIds = getEngagedGuideIds(state, target);
   const xAdjustment = findAxisAdjustment(
     anchors.filter((anchor) => anchor.axis === "x"),
     candidates.filter((candidate) => candidate.axis === "x"),
@@ -194,7 +201,7 @@ function applySnapToRect<Kind extends string>(
   const guides = [xAdjustment, yAdjustment].flatMap((adjustment) => adjustment?.guides ?? []);
 
   return {
-    preview: createSnapPreview(windowId, snappedRect, guides),
+    preview: createSnapPreview(target, snappedRect, guides),
     rect: snappedRect,
   };
 }
@@ -297,6 +304,7 @@ function applyResizeSnapToRect<Kind extends string>(
   handle: InfiniteCanvasResizeHandle,
   minSize: InfiniteCanvasSize,
   policy: InfiniteCanvasSnapPolicy | false = DEFAULT_INFINITE_CANVAS_SNAP_POLICY,
+  aspectRatio?: number,
 ): Readonly<{
   preview: InfiniteCanvasSnapPreview | null;
   rect: InfiniteCanvasRect;
@@ -313,7 +321,7 @@ function applyResizeSnapToRect<Kind extends string>(
   );
   const anchors = getResizeSnapAnchors(rect, handle);
   // Resize guides use the same hysteresis as move guides.
-  const engagedGuideIds = getEngagedGuideIds(state, windowId);
+  const engagedGuideIds = getEngagedGuideIds(state, { type: "window", id: windowId });
   const xAdjustment = findAxisAdjustment(
     anchors.filter((anchor) => anchor.axis === "x"),
     candidates.filter((candidate) => candidate.axis === "x"),
@@ -329,11 +337,37 @@ function applyResizeSnapToRect<Kind extends string>(
     engagedGuideIds,
   );
   const xApplied = applyResizeAxisAdjustment(rect, xAdjustment, minSize);
+  if (aspectRatio !== undefined) {
+    const useX =
+      xAdjustment !== null &&
+      (yAdjustment === null || Math.abs(xAdjustment.delta) <= Math.abs(yAdjustment.delta));
+    const adjustment = useX ? xAdjustment : yAdjustment;
+    const applied = applyResizeAxisAdjustment(rect, adjustment, minSize);
+    const constrained = resizeRectFromHandle(
+      rect,
+      handle,
+      {
+        x: useX ? (adjustment?.delta ?? 0) : 0,
+        y: useX ? 0 : (adjustment?.delta ?? 0),
+      },
+      minSize,
+      aspectRatio,
+    );
+    const guides = (
+      useX ? constrained.width === applied.rect.width : constrained.height === applied.rect.height
+    )
+      ? applied.guides
+      : [];
+    return {
+      rect: constrained,
+      preview: createSnapPreview({ type: "window", id: windowId }, constrained, guides),
+    };
+  }
   const yApplied = applyResizeAxisAdjustment(xApplied.rect, yAdjustment, minSize);
   const guides = [...xApplied.guides, ...yApplied.guides];
 
   return {
-    preview: createSnapPreview(windowId, yApplied.rect, guides),
+    preview: createSnapPreview({ type: "window", id: windowId }, yApplied.rect, guides),
     rect: yApplied.rect,
   };
 }

@@ -6,26 +6,12 @@ import {
   defineInfiniteCanvasWindowRegistry,
 } from "./factory";
 import { DEFAULT_INFINITE_CANVAS_CHROME } from "./constants";
-import { DEFAULT_INFINITE_CANVAS_GROUP_METRICS } from "./group-layout";
-import {
-  assertInfiniteCanvasStateMatchesWindowRegistry,
-  normalizeInfiniteCanvasStateForWindowRegistry,
-  recoverInfiniteCanvasStateForWindowRegistry,
-} from "./registry";
+import { getCanvasLayout } from "./layout";
 import { getInfiniteCanvasWindowProxies } from "./window-proxy";
-import { parseInfiniteCanvasSerializedState } from "./validation";
-import type { InfiniteCanvasState, InfiniteCanvasWindowRegistry } from "./types";
+import { canvasModel } from "./schema";
+import type { InfiniteCanvasWindowRegistry } from "./types";
 
 type BoundaryWindowKind = "demo" | "note";
-
-const windowRegistry = defineInfiniteCanvasWindowRegistry<BoundaryWindowKind>({
-  demo: {
-    kind: "demo",
-  },
-  note: {
-    kind: "note",
-  },
-});
 
 const demoWindow = createInfiniteCanvasWindow<BoundaryWindowKind>({
   id: "demo-window",
@@ -63,8 +49,8 @@ test("consumer factories fill volatile state defaults and normalize selection", 
     width: 0,
   });
   expect(state.selection).toEqual({
-    anchorWindowId: "note-window",
-    windowIds: ["note-window"],
+    anchorTarget: { type: "window", id: "note-window" },
+    targets: [{ type: "window", id: "note-window" }],
   });
   expect(state.windows[0]).toMatchObject({
     id: "demo-window",
@@ -95,24 +81,19 @@ test("consumer factories support empty documents and recover duplicate window id
       },
     ],
   });
-  const validatedEmptyState = assertInfiniteCanvasStateMatchesWindowRegistry(
-    emptyState,
-    windowRegistry,
-  );
-
-  expect(validatedEmptyState).toEqual({
+  expect(emptyState).toEqual({
     ...emptyState,
     activeWindowId: null,
     selection: {
-      anchorWindowId: null,
-      windowIds: [],
+      anchorTarget: null,
+      targets: [],
     },
   });
   expect(duplicateState.windows).toHaveLength(1);
   expect(duplicateState.windows[0]?.title).toBe("Latest demo");
   expect(duplicateState.selection).toEqual({
-    anchorWindowId: "demo-window",
-    windowIds: ["demo-window"],
+    anchorTarget: { type: "window", id: "demo-window" },
+    targets: [{ type: "window", id: "demo-window" }],
   });
 });
 
@@ -160,9 +141,17 @@ test("window proxies expose read-only window projection for R3F layers", () => {
       },
     ],
   });
-  const proxies = getInfiniteCanvasWindowProxies(state, DEFAULT_INFINITE_CANVAS_CHROME);
+  const proxies = getInfiniteCanvasWindowProxies({
+    chrome: DEFAULT_INFINITE_CANVAS_CHROME,
+    canvasLayout: getCanvasLayout(state),
+    state,
+  });
 
-  expect(proxies.map((proxy) => proxy.id)).toEqual(["demo-window", "note-window"]);
+  expect(proxies.map((proxy) => proxy.id)).toEqual([
+    "demo-window",
+    "note-window",
+    "minimized-window",
+  ]);
   expect(proxies[1]).toMatchObject({
     bodyLocalRect: {
       height: 116,
@@ -235,7 +224,12 @@ test("window proxies use the same device-pixel-snapped screen projection as DOM 
       },
     ],
   });
-  const [proxy] = getInfiniteCanvasWindowProxies(state, DEFAULT_INFINITE_CANVAS_CHROME, 2);
+  const [proxy] = getInfiniteCanvasWindowProxies({
+    chrome: DEFAULT_INFINITE_CANVAS_CHROME,
+    devicePixelRatio: 2,
+    canvasLayout: getCanvasLayout(state),
+    state,
+  });
 
   expect(proxy?.screenRect).toEqual({
     height: 143,
@@ -249,8 +243,8 @@ test("window proxies use the same device-pixel-snapped screen projection as DOM 
   });
 });
 
-test("persisted-state parser rejects unsafe geometry and defaults window mode", () => {
-  const parsed = parseInfiniteCanvasSerializedState<BoundaryWindowKind>({
+test("the document schema validates known fields and preserves extensions", () => {
+  const parsed = canvasModel.SerializedState.assert({
     activeWindowId: "demo-window",
     camera: {
       center: {
@@ -259,11 +253,11 @@ test("persisted-state parser rejects unsafe geometry and defaults window mode", 
       },
       zoom: 1,
     },
-    extraPersistedField: "deleted",
-    version: 1,
+    extraPersistedField: "preserved",
+    version: 4,
     windows: [
       {
-        extraWindowField: "deleted",
+        extraWindowField: "preserved",
         id: "demo-window",
         isPinned: false,
         kind: "demo",
@@ -282,7 +276,7 @@ test("persisted-state parser rejects unsafe geometry and defaults window mode", 
       },
     ],
   });
-  const invalid = parseInfiniteCanvasSerializedState({
+  const invalid = canvasModel.SerializedState.allows({
     activeWindowId: "demo-window",
     camera: {
       center: {
@@ -291,7 +285,7 @@ test("persisted-state parser rejects unsafe geometry and defaults window mode", 
       },
       zoom: 1,
     },
-    version: 1,
+    version: 4,
     windows: [
       {
         id: "demo-window",
@@ -312,7 +306,7 @@ test("persisted-state parser rejects unsafe geometry and defaults window mode", 
       },
     ],
   });
-  const invalidMode = parseInfiniteCanvasSerializedState({
+  const invalidMode = canvasModel.SerializedState.allows({
     activeWindowId: "demo-window",
     camera: {
       center: {
@@ -321,7 +315,7 @@ test("persisted-state parser rejects unsafe geometry and defaults window mode", 
       },
       zoom: 1,
     },
-    version: 1,
+    version: 4,
     windows: [
       {
         id: "demo-window",
@@ -344,101 +338,10 @@ test("persisted-state parser rejects unsafe geometry and defaults window mode", 
     ],
   });
 
-  expect(parsed?.windows[0]?.mode).toBe("normal");
-  expect("extraPersistedField" in (parsed ?? {})).toBe(false);
-  expect("extraWindowField" in (parsed?.windows[0] ?? {})).toBe(false);
-  expect(invalid).toBeNull();
-  expect(invalidMode).toBeNull();
-});
-
-test("registry normalization drops stale persisted window kinds", () => {
-  const staleState: InfiniteCanvasState<string> = {
-    activeWindowId: "stale-window",
-    connections: [],
-    camera: {
-      center: {
-        x: 0,
-        y: 0,
-      },
-      zoom: 1,
-    },
-    activeWorkspaceId: null,
-    viewportOccluders: [],
-    groupMetrics: DEFAULT_INFINITE_CANVAS_GROUP_METRICS,
-    groups: [],
-    workspaces: [],
-    history: { future: [], past: [] },
-    interaction: null,
-    selection: {
-      anchorWindowId: "stale-window",
-      windowIds: ["stale-window", "demo-window"],
-    },
-    snapPreview: null,
-    viewport: {
-      height: 0,
-      width: 0,
-    },
-    viewportInsets: { bottom: 0, left: 0, right: 0, top: 0 },
-    windows: [
-      {
-        ...demoWindow,
-        kind: "demo",
-      },
-      {
-        ...demoWindow,
-        id: "stale-window",
-        kind: "removed-kind",
-      },
-    ],
-  };
-  const normalized = normalizeInfiniteCanvasStateForWindowRegistry(staleState, windowRegistry);
-
-  expect(normalized?.windows.map((window) => window.id)).toEqual(["demo-window"]);
-  expect(normalized?.activeWindowId).toBe("demo-window");
-  expect(normalized?.selection).toEqual({
-    anchorWindowId: "demo-window",
-    windowIds: ["demo-window"],
+  expect(parsed).toMatchObject({
+    extraPersistedField: "preserved",
+    windows: [{ extraWindowField: "preserved", mode: "normal" }],
   });
-});
-
-test("registry recovery can clear fully stale runtime windows", () => {
-  const staleState = createInfiniteCanvasState<string>({
-    activeWindowId: "stale-window",
-    selection: ["stale-window"],
-    windows: [
-      {
-        ...demoWindow,
-        id: "stale-window",
-        kind: "removed-kind",
-      },
-    ],
-  });
-  const recovered = recoverInfiniteCanvasStateForWindowRegistry(staleState, windowRegistry);
-
-  expect(recovered.windows).toEqual([]);
-  expect(recovered.activeWindowId).toBeNull();
-  expect(recovered.interaction).toBeNull();
-  expect(recovered.snapPreview).toBeNull();
-  expect(recovered.selection).toEqual({
-    anchorWindowId: null,
-    windowIds: [],
-  });
-});
-
-test("initial state registry assertion fails loudly for unregistered window kinds", () => {
-  const broadRegistry = windowRegistry as unknown as InfiniteCanvasWindowRegistry<string>;
-
-  expect(() => {
-    assertInfiniteCanvasStateMatchesWindowRegistry(
-      createInfiniteCanvasState<string>({
-        windows: [
-          {
-            ...demoWindow,
-            kind: "removed-kind",
-          },
-        ],
-      }),
-      broadRegistry,
-    );
-  }).toThrow(/unregistered window kind/);
+  expect(invalid).toBe(false);
+  expect(invalidMode).toBe(false);
 });

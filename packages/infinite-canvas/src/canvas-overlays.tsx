@@ -1,5 +1,7 @@
 "use client";
 
+import { getInfiniteCanvasSelectionBounds } from "./spatial-target";
+
 import type { CSSProperties } from "react";
 
 import { DEFAULT_INFINITE_CANVAS_STACK_BANDS } from "./constants";
@@ -9,8 +11,8 @@ import {
   projectWorldRectToScreen,
   snapScreenValueToDevicePixel,
 } from "./geometry";
-import { getSelectedWindowBounds } from "./selection";
-import { useInfiniteCanvasState } from "./store";
+import { getSelectedWindowIds } from "./selection";
+import { useInfiniteCanvasState } from "./react/store";
 import type {
   InfiniteCanvasDropInteraction,
   InfiniteCanvasSnapGuide,
@@ -97,11 +99,11 @@ function InfiniteCanvasSelectionBoundsOverlay({
   devicePixelRatio: number;
 }>) {
   const state = useInfiniteCanvasState();
-  const bounds = getSelectedWindowBounds(state);
+  const bounds = getInfiniteCanvasSelectionBounds({ state: state });
 
   if (
     bounds === null ||
-    state.selection.windowIds.length < 2 ||
+    getSelectedWindowIds(state.selection).length < 2 ||
     state.interaction?.kind === "resize"
   ) {
     return null;
@@ -251,7 +253,7 @@ function InfiniteCanvasSnapOverlay({
   );
 }
 
-/** Shows snap guides only when the drop policy defines a placement size. */
+/** Shows the drop rectangle and any active alignment guides. */
 function InfiniteCanvasDropSnapOverlay<Payload, Kind extends string>({
   devicePixelRatio,
   drop,
@@ -259,10 +261,14 @@ function InfiniteCanvasDropSnapOverlay<Payload, Kind extends string>({
   devicePixelRatio: number;
   drop: InfiniteCanvasDropInteraction<Payload, Kind>;
 }>) {
-  const preview = drop.status === "dragging" ? drop.placement?.preview : null;
+  const placement =
+    drop.status === "dragging" && drop.dropTarget.status === "valid" ? drop.placement : null;
 
-  return preview === null || preview === undefined ? null : (
-    <InfiniteCanvasSnapPreviewLayer devicePixelRatio={devicePixelRatio} preview={preview} />
+  return placement === null ? null : (
+    <InfiniteCanvasSnapPreviewLayer
+      devicePixelRatio={devicePixelRatio}
+      preview={placement.preview ?? { target: null, rect: placement.rect, guides: [] }}
+    />
   );
 }
 

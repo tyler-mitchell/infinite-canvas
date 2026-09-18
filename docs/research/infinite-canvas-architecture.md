@@ -17,17 +17,17 @@ Runtime behavior is unverified. No test, compiler, or browser validation is part
 
 The full `packages/infinite-canvas` file inventory has been read.
 
-| Area | Status | Primary entry points |
-| --- | --- | --- |
-| Public contracts | Partial | Package README, root API and architecture docs |
-| State and command path | Partial | factory, state, store, reducer, commands, canvas-handle |
-| Persistence and history | Partial | persistence, validation, history |
-| Groups and layout | Partial | group-tree, group-layout, group-state, recipes |
-| Interaction and targeting | Pending | interaction, keyboard, spatial-target, snap-resolver |
-| React and frame composition | Partial | infinite-canvas, window-frame, frame-slots, store |
-| Selection and workspaces | Pending | selection, workspace, stacking, window-focus |
-| Optional rendering | Pending | scene, compositor, rasterization, window-proxy |
-| Canonical consumers and contracts | Partial | playground, polkadot, consumer and boundary tests |
+| Area                              | Status  | Primary entry points                                    |
+| --------------------------------- | ------- | ------------------------------------------------------- |
+| Public contracts                  | Partial | Package README, root API and architecture docs          |
+| State and command path            | Partial | factory, state, store, reducer, commands, canvas-handle |
+| Persistence and history           | Partial | persistence, validation, history                        |
+| Groups and layout                 | Partial | group-tree, group-layout, group-state, recipes          |
+| Interaction and targeting         | Pending | interaction, keyboard, spatial-target, snap-resolver    |
+| React and frame composition       | Partial | infinite-canvas, window-frame, frame-slots, store       |
+| Selection and workspaces          | Pending | selection, workspace, stacking, window-focus            |
+| Optional rendering                | Pending | scene, compositor, rasterization, window-proxy          |
+| Canonical consumers and contracts | Partial | playground, polkadot, consumer and boundary tests       |
 
 Coverage requires source relationships and invariants, not only file discovery.
 The review does not authorize implementation, deployment, release, or broad cleanup.
@@ -104,8 +104,7 @@ The detailed reducer/workspace trace is still pending.
 
 ```ts
 const next = reduceInfiniteCanvasState(current, action, reducerOptions);
-// The store batches only fields whose identities changed.
-commitInfiniteCanvasState(state$, next);
+state$.assign(next);
 ```
 
 Every store command enters `dispatch`; the reducer applies the action, reconciles workspace

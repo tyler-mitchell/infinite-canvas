@@ -1,7 +1,7 @@
 import { useValue } from "@legendapp/state/react";
 import { createContext, type CSSProperties, useCallback, useContext, useState } from "react";
 
-import { useInfiniteCanvasState$ } from "./store";
+import { useInfiniteCanvasState$ } from "./react/store";
 
 /** Provides separate live regions for active-window and consumer messages. */
 

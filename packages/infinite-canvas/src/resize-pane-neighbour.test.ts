@@ -1,7 +1,8 @@
 import { expect, test } from "vite-plus/test";
 
 import { createInfiniteCanvasState, createInfiniteCanvasWindow } from "./factory";
-import { reduceInfiniteCanvasState } from "./reducer";
+import { reduceInfiniteCanvasState } from "./operations";
+import { getCanvasLayout } from "./layout";
 import type { InfiniteCanvasState } from "./types";
 
 type Kind = "note";
@@ -29,22 +30,19 @@ const row = (activeWindowId: string): InfiniteCanvasState<Kind> => {
 
   expect(grouped.groups).toHaveLength(1);
 
-  return { ...grouped, activeWindowId };
+  return reduceInfiniteCanvasState(grouped, {
+    type: "selection.replace",
+    targets: [{ type: "window", id: activeWindowId }],
+  });
 };
 
 const grow = (state: InfiniteCanvasState<Kind>) =>
-  reduceInfiniteCanvasState(state, {
-    command: { amountPx: 24, type: "group.resizePane" },
-    type: "command.execute",
-  });
+  reduceInfiniteCanvasState(state, { amountPx: 24, type: "group.resizePane" });
 
-const widths = (state: InfiniteCanvasState<Kind>) =>
-  Object.fromEntries(
-    ["a", "b", "c"].map((id) => [
-      id,
-      Math.round(state.windows.find((window) => window.id === id)?.rect.width ?? 0),
-    ]),
-  );
+const widths = (state: InfiniteCanvasState<Kind>) => {
+  const rects = getCanvasLayout(state).windowRects;
+  return Object.fromEntries(["a", "b", "c"].map((id) => [id, Math.round(rects.get(id)!.width)]));
+};
 
 test("a middle pane grows at the expense of the next one along, not the previous", () => {
   const before = widths(row("b"));

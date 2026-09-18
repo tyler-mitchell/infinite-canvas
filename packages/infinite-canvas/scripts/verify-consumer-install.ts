@@ -6,13 +6,14 @@ import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { execa } from "execa";
 
-/**
- * A consumer of the DOM plane alone must end up with none of these installed.
- * They were dependencies until 2026-09-08, and because each declares a
- * required peer on `typegpu`, npm pulled the whole GPU stack into a project
- * that had opted out of it.
- */
-const GPU_STACK_PACKAGES = ["typegpu", "@typegpu/react", "@typegpu/noise", "@typegpu/sdf"];
+const OPTIONAL_HOST_PACKAGES = [
+  "react",
+  "react-dom",
+  "typegpu",
+  "@typegpu/react",
+  "@typegpu/noise",
+  "@typegpu/sdf",
+];
 
 const packageRoot = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const workspaceRoot = resolve(packageRoot, "../..");
@@ -21,11 +22,9 @@ const temporaryDirectory = await mkdtemp(join(tmpdir(), "infinite-canvas-consume
 /** Consumer program used to validate the installed public entry. */
 const CONSUMER_SOURCE = `
 import {
-  createInfiniteCanvasHandle,
-  createInfiniteCanvasState,
   createInfiniteCanvasStore,
   createInfiniteCanvasWindow,
-} from "@hyphened/infinite-canvas";
+} from "@hyphened/infinite-canvas/core";
 
 const pane = (id) =>
   createInfiniteCanvasWindow({
@@ -35,29 +34,24 @@ const pane = (id) =>
     title: id,
   });
 
-// The store and the handle, because that is the programmatic contract a consumer actually has.
-// The reducer is not exported, and the first draft of this script imported it and failed — which
-// is the gate working: a check written against a non-public symbol proves nothing about what
-// ships.
-const store = createInfiniteCanvasStore(
-  createInfiniteCanvasState({ windows: [pane("a"), pane("b")] }),
-);
-const handle = createInfiniteCanvasHandle(store);
+const store = createInfiniteCanvasStore({
+  initialState: { windows: [pane("a"), pane("b")] },
+});
 
-handle.commands.dispatch({
+store.dispatch({
   title: "Research",
   type: "workspace.create",
   windowIds: ["a"],
   workspaceId: "research",
 });
-handle.commands.dispatch({ type: "workspace.activate", workspaceId: "research" });
-handle.commands.openWindow(pane("c"));
+store.dispatch({ type: "workspace.enter", workspaceId: "research" });
+store.dispatch({ type: "window.open", window: pane("c") });
 
-const state = handle.getState();
+const state = store.getState();
 
 if (state.workspaces.length !== 1) {
   throw new Error(
-    "workspace.create did not reach the store through the public facade. state: " +
+    "workspace.create did not reach the public core store. state: " +
       JSON.stringify({
         activeWorkspaceId: state.activeWorkspaceId,
         windows: state.windows.map((w) => w.id),
@@ -66,9 +60,6 @@ if (state.workspaces.length !== 1) {
   );
 }
 
-// The bug fixed on 2026-08-12: a window opened while a desktop is active joins that desktop.
-// Asserted here as well as in the unit suite, because this is the only place it runs against the
-// *published* artifact rather than against the source.
 const members = state.workspaces[0].windowIds;
 
 if (!members.includes("c")) {
@@ -79,9 +70,7 @@ if (state.windows.length !== 3) {
   throw new Error("expected three windows, got " + state.windows.length);
 }
 
-// The snapshot is the persistence contract, and it crosses JSON — the one operation most likely
-// to break on a published build that a source test would never notice.
-if (typeof JSON.parse(JSON.stringify(handle.snapshot())).version !== "number") {
+if (typeof JSON.parse(JSON.stringify(store.snapshot())).version !== "number") {
   throw new Error("the serialized snapshot carries no version");
 }
 
@@ -102,22 +91,25 @@ try {
   );
   await writeFile(join(temporaryDirectory, "consumer.mjs"), CONSUMER_SOURCE);
 
-  // Install React peers from the local workspace.
   await execa(
     "npm",
-    ["install", "--ignore-scripts", "--no-audit", "--no-fund", tarball, "react", "react-dom"],
-    { cwd: temporaryDirectory },
+    ["install", "--omit=peer", "--ignore-scripts", "--no-audit", "--no-fund", tarball],
+    {
+      cwd: temporaryDirectory,
+    },
   );
 
-  const installed = GPU_STACK_PACKAGES.filter((name) =>
+  const installed = OPTIONAL_HOST_PACKAGES.filter((name) =>
     existsSync(join(temporaryDirectory, "node_modules", name)),
   );
 
   if (installed.length > 0) {
+    const explanation = await execa("npm", ["explain", ...installed], {
+      cwd: temporaryDirectory,
+      reject: false,
+    });
     throw new Error(
-      `a consumer that never imports ./scene installed ${installed.join(", ")}. The GPU stack ` +
-        "must stay in peerDependencies with `optional: true`: as a dependency it drags its own " +
-        "required `typegpu` peer into a project that opted out of WebGPU.",
+      `a core consumer installed optional host packages: ${installed.join(", ")}\n${explanation.stdout || explanation.stderr}`,
     );
   }
 
@@ -127,10 +119,7 @@ try {
     throw new Error(`the installed package did not run as a consumer would use it:\n${stdout}`);
   }
 
-  console.log(
-    "Consumer install OK — the packed tarball installs into a clean project with none of the " +
-      "GPU stack, imports through its published entry point, and drives the reducer.",
-  );
+  console.log("Consumer install OK — ./core installs without host runtimes and drives the store.");
 } finally {
   await rm(temporaryDirectory, { force: true, recursive: true });
   await rm(join(workspaceRoot, "packages/infinite-canvas/.pack.tgz"), { force: true });

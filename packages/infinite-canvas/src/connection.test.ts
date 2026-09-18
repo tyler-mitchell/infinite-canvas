@@ -1,8 +1,8 @@
 import { expect, test } from "vite-plus/test";
 
 import { createInfiniteCanvasState } from "./factory";
-import { parseInfiniteCanvasStateJson, stringifyInfiniteCanvasState } from "./persistence";
-import { reduceInfiniteCanvasState } from "./reducer";
+import { createInfiniteCanvasStore } from "./store";
+import { reduceInfiniteCanvasState } from "./operations";
 import type { InfiniteCanvasConnection, InfiniteCanvasState } from "./types";
 
 type Kind = "demo";
@@ -88,36 +88,38 @@ test("closing a window drops the edges that touch it", () => {
 });
 
 test("undo restores a connection that closing a window removed", () => {
-  const opened = open(baseState());
-  const closed = reduceInfiniteCanvasState(opened, {
+  const store = createInfiniteCanvasStore({ initialState: open(baseState()) });
+  store.dispatch({
     type: "window.close",
     windowId: "bravo",
   });
-  const undone = reduceInfiniteCanvasState(closed, {
-    command: { type: "history.undo" },
-    type: "command.execute",
-  });
+  expect(store.getState().connections).toEqual([]);
+  store.dispatch({ type: "history.undo" });
+  const undone = store.getState();
 
   expect(undone.connections).toStrictEqual([edge]);
   expect(undone.windows.map((entry) => entry.id)).toContain("bravo");
 });
 
 test("a connection survives a serialize and hydrate round trip", () => {
-  const hydrated = parseInfiniteCanvasStateJson<Kind>(
-    stringifyInfiniteCanvasState(open(baseState())),
-    baseState(),
-  );
+  const hydrated = createInfiniteCanvasStore<Kind>({
+    document: JSON.parse(
+      JSON.stringify(createInfiniteCanvasStore({ initialState: open(baseState()) }).snapshot()),
+    ),
+  }).getState();
 
   expect(hydrated?.connections).toStrictEqual([edge]);
 });
 
-test("a document written before connections existed hydrates with an empty list", () => {
-  const legacy = JSON.stringify({
+test("current documents default omitted connections and reject older versions", () => {
+  const document = {
     activeWindowId: null,
     camera: { center: { x: 0, y: 0 }, zoom: 1 },
-    version: 3,
+    version: 4,
     windows: [window("alpha")],
-  });
-
-  expect(parseInfiniteCanvasStateJson<Kind>(legacy, baseState())?.connections).toStrictEqual([]);
+  };
+  expect(createInfiniteCanvasStore<Kind>({ document }).getState().connections).toEqual([]);
+  expect(() => createInfiniteCanvasStore<Kind>({ document: { ...document, version: 3 } })).toThrow(
+    /version/,
+  );
 });

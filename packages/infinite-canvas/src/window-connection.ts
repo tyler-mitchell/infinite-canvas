@@ -1,4 +1,5 @@
 import { rectContainsPoint, worldRectToScreenRect } from "./geometry";
+import { getCanvasLayout } from "./layout";
 import {
   getInfiniteCanvasRectConnectorPath,
   type InfiniteCanvasWindowConnectorPathOptions,
@@ -10,7 +11,6 @@ import type {
   InfiniteCanvasRect,
   InfiniteCanvasState,
   InfiniteCanvasViewport,
-  InfiniteCanvasWindow,
 } from "./types";
 
 /** Defines screen-space connection handles and world-space preview paths. */
@@ -36,14 +36,19 @@ type InfiniteCanvasConnectionHandleOptions = Readonly<{
 }>;
 
 /** Converts the CSS projection shape to an `InfiniteCanvasRect`. */
-function getWindowScreenRect<Kind extends string>(
-  window: InfiniteCanvasWindow<Kind>,
+function getWindowScreenRect(
+  rect: InfiniteCanvasRect,
   camera: InfiniteCanvasCamera,
   viewport: InfiniteCanvasViewport,
 ): InfiniteCanvasRect {
-  const rect = worldRectToScreenRect(camera, viewport, window.rect);
+  const screenRect = worldRectToScreenRect(camera, viewport, rect);
 
-  return { height: rect.height, width: rect.width, x: rect.left, y: rect.top };
+  return {
+    height: screenRect.height,
+    width: screenRect.width,
+    x: screenRect.left,
+    y: screenRect.top,
+  };
 }
 
 function getHandleReach(options: InfiniteCanvasConnectionHandleOptions) {
@@ -54,13 +59,13 @@ function getHandleReach(options: InfiniteCanvasConnectionHandleOptions) {
 }
 
 /** Returns one screen-space handle for each window edge. */
-function getInfiniteCanvasConnectionHandles<Kind extends string>(
-  window: InfiniteCanvasWindow<Kind>,
+function getInfiniteCanvasConnectionHandles(
+  { rect: windowRect, windowId }: Readonly<{ rect: InfiniteCanvasRect; windowId: string }>,
   camera: InfiniteCanvasCamera,
   viewport: InfiniteCanvasViewport,
   options: InfiniteCanvasConnectionHandleOptions = {},
 ): readonly InfiniteCanvasConnectionHandle[] {
-  const rect = getWindowScreenRect(window, camera, viewport);
+  const rect = getWindowScreenRect(windowRect, camera, viewport);
   const offsetPx = options.offsetPx ?? DEFAULT_CONNECTION_HANDLE_OFFSET_PX;
   const radiusPx = options.radiusPx ?? DEFAULT_CONNECTION_HANDLE_RADIUS_PX;
   const midX = rect.x + rect.width / 2;
@@ -76,18 +81,18 @@ function getInfiniteCanvasConnectionHandles<Kind extends string>(
     edge,
     point: points[edge],
     radiusPx,
-    windowId: window.id,
+    windowId,
   }));
 }
 
 /** Returns the screen-space halo that keeps handles visible during pointer travel. */
-function getInfiniteCanvasConnectionAffordanceRect<Kind extends string>(
-  window: InfiniteCanvasWindow<Kind>,
+function getInfiniteCanvasConnectionAffordanceRect(
+  window: Readonly<{ rect: InfiniteCanvasRect }>,
   camera: InfiniteCanvasCamera,
   viewport: InfiniteCanvasViewport,
   options: InfiniteCanvasConnectionHandleOptions = {},
 ): InfiniteCanvasRect {
-  const rect = getWindowScreenRect(window, camera, viewport);
+  const rect = getWindowScreenRect(window.rect, camera, viewport);
   const reach = getHandleReach(options);
 
   return {
@@ -105,26 +110,34 @@ function getInfiniteCanvasConnectionAffordanceWindowId<Kind extends string>(
   previousWindowId: string | null = null,
   options: InfiniteCanvasConnectionHandleOptions = {},
 ): string | null {
-  const candidates = sortWindowsByStack(state.windows).filter(
-    (window) => window.mode !== "minimized",
+  const canvasLayout = getCanvasLayout(state);
+  const candidates = sortWindowsByStack(
+    state.windows.filter((window) => canvasLayout.visibleWindowIds.has(window.id)),
   );
   const previous = candidates.find((window) => window.id === previousWindowId);
 
-  if (
-    previous !== undefined &&
-    rectContainsPoint(
-      getInfiniteCanvasConnectionAffordanceRect(previous, state.camera, state.viewport, options),
-      viewportPoint,
-    )
-  ) {
-    return previous.id;
+  if (previous !== undefined) {
+    const rect = canvasLayout.windowRects.get(previous.id);
+    if (
+      rect !== undefined &&
+      rectContainsPoint(
+        getInfiniteCanvasConnectionAffordanceRect({ rect }, state.camera, state.viewport, options),
+        viewportPoint,
+      )
+    ) {
+      return previous.id;
+    }
   }
 
   return (
     candidates
-      .filter((window) =>
-        rectContainsPoint(getWindowScreenRect(window, state.camera, state.viewport), viewportPoint),
-      )
+      .filter((window) => {
+        const rect = canvasLayout.windowRects.get(window.id);
+        return (
+          rect !== undefined &&
+          rectContainsPoint(getWindowScreenRect(rect, state.camera, state.viewport), viewportPoint)
+        );
+      })
       .at(-1)?.id ?? null
   );
 }

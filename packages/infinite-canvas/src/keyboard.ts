@@ -1,12 +1,8 @@
 import { getHotkeyManager } from "@tanstack/hotkeys";
 import type { HotkeyRegistrationHandle, RegisterableHotkey } from "@tanstack/hotkeys";
 
-import {
-  getInfiniteCanvasHotkeyBindings,
-  isInfiniteCanvasCommandEnabled,
-  type InfiniteCanvasHotkeyBinding,
-} from "./commands";
-import type { InfiniteCanvasCommand, InfiniteCanvasRect, InfiniteCanvasState } from "./types";
+import { getInfiniteCanvasHotkeyBindings, type InfiniteCanvasHotkeyBinding } from "./operations";
+import type { InfiniteCanvasCommand, InfiniteCanvasDispatch, InfiniteCanvasState } from "./types";
 
 /** Consumer keyboard action that shares the canvas keyboard scope. */
 type InfiniteCanvasHotkeyAction<Kind extends string = string> = Readonly<{
@@ -22,11 +18,10 @@ type InfiniteCanvasHotkeyAction<Kind extends string = string> = Readonly<{
 
 type InfiniteCanvasHotkeyRegistrationInput<Kind extends string> = Readonly<{
   /** Adds consumer actions without replacing canvas bindings. */
-  actions?: readonly InfiniteCanvasHotkeyAction<Kind>[];
+  hotkeyActions?: readonly InfiniteCanvasHotkeyAction<Kind>[];
   bindings?: readonly InfiniteCanvasHotkeyBinding[];
-  executeCommand: (command: InfiniteCanvasCommand) => void;
-  /** Resolves selection bounds for command availability. */
-  getSelectionBounds?: (state: InfiniteCanvasState<Kind>) => InfiniteCanvasRect | null;
+  dispatch: InfiniteCanvasDispatch<Kind>;
+  isCommandEnabled: (command: InfiniteCanvasCommand) => boolean;
   getState: () => InfiniteCanvasState<Kind>;
   target: HTMLElement;
 }>;
@@ -79,32 +74,23 @@ function shouldHandleInfiniteCanvasKeyboardEvent(event: KeyboardEvent, surface: 
 
 /** Combines command bindings and consumer actions for keyboard registration. */
 function resolveInfiniteCanvasHotkeys<Kind extends string>({
-  actions = [],
+  hotkeyActions = [],
   bindings = getInfiniteCanvasHotkeyBindings(),
-  executeCommand,
-  getSelectionBounds,
+  dispatch,
+  isCommandEnabled,
 }: Pick<
   InfiniteCanvasHotkeyRegistrationInput<Kind>,
-  "actions" | "bindings" | "executeCommand" | "getSelectionBounds"
+  "hotkeyActions" | "bindings" | "dispatch" | "isCommandEnabled"
 >): readonly ResolvedHotkey<Kind>[] {
   return [
     ...bindings.map((binding) => ({
       description: binding.description,
       hotkey: binding.hotkey,
-      // Use the command gate that dispatch uses.
-      isEnabled: (state: InfiniteCanvasState<Kind>) =>
-        isInfiniteCanvasCommandEnabled(
-          state,
-          binding.command,
-          undefined,
-          getSelectionBounds?.(state),
-        ),
+      isEnabled: () => isCommandEnabled(binding.command),
       label: binding.label,
-      run: () => {
-        executeCommand(binding.command);
-      },
+      run: () => dispatch(binding.command),
     })),
-    ...actions.flatMap((action) =>
+    ...hotkeyActions.flatMap((action) =>
       action.hotkeys.map((hotkey) => ({
         description: action.description,
         hotkey,
@@ -117,19 +103,19 @@ function resolveInfiniteCanvasHotkeys<Kind extends string>({
 }
 
 function registerInfiniteCanvasHotkeys<Kind extends string>({
-  actions,
+  hotkeyActions,
   bindings,
-  executeCommand,
-  getSelectionBounds,
+  dispatch,
+  isCommandEnabled,
   getState,
   target,
 }: InfiniteCanvasHotkeyRegistrationInput<Kind>) {
   const manager = getHotkeyManager();
   const handles = resolveInfiniteCanvasHotkeys({
-    actions,
+    hotkeyActions,
     bindings,
-    executeCommand,
-    getSelectionBounds,
+    dispatch,
+    isCommandEnabled,
   }).map((entry): HotkeyRegistrationHandle =>
     manager.register(
       entry.hotkey,

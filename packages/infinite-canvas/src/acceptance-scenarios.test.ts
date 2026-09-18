@@ -1,29 +1,24 @@
+import { getSelectedWindowIds } from "./selection";
 import { expect, test } from "vite-plus/test";
 
-import { getInfiniteCanvasContextualCommands } from "./commands";
+import { getInfiniteCanvasContextualCommands } from "./operations";
 import { DEFAULT_INFINITE_CANVAS_SNAP_POLICY } from "./constants";
 import { createInfiniteCanvasState, createInfiniteCanvasWindow } from "./factory";
 import {
   DEFAULT_INFINITE_CANVAS_GROUP_METRICS,
   getInfiniteCanvasGroupMinimumSize,
   MINIMUM_GROUP_PANE_EXTENT,
-} from "./group-layout";
-import { getInfiniteCanvasGroupProjection } from "./group-state";
+} from "./layout";
+import { getCanvasLayout } from "./layout";
 import { createInfiniteCanvasGroupWindowNode, getInfiniteCanvasGroupWindowIds } from "./group-tree";
 import type { InfiniteCanvasGroupContainerNode } from "./group-tree";
-import {
-  beginInfiniteCanvasGroupMove,
-  beginInfiniteCanvasGroupResize,
-  beginWindowMove,
-  stepCanvasInteraction,
-} from "./interaction";
-import { parseInfiniteCanvasState, serializeInfiniteCanvasState } from "./persistence";
-import { executeInfiniteCanvasCommand, isInfiniteCanvasCommandEnabled } from "./commands";
-import { reduceInfiniteCanvasState } from "./reducer";
+import { beginInfiniteCanvasGroupResize, beginMove, stepCanvasInteraction } from "./interaction";
+import { createInfiniteCanvasStore } from "./store";
+import { isInfiniteCanvasCommandEnabled } from "./operations";
+import { reduceInfiniteCanvasState } from "./operations";
 import {
   getInfiniteCanvasContextualGroup,
   getInfiniteCanvasDirectionalFocusTarget,
-  getNextInfiniteCanvasRovingIndex,
 } from "./window-focus";
 import { screenPointToWorldPoint } from "./geometry";
 import { getInfiniteCanvasWindowPlacementRect } from "./window-placement";
@@ -72,8 +67,13 @@ const groupedState = (): InfiniteCanvasState<Kind> => ({
 
 test("DOCK-003 — moving a shell moves every member by the same delta", () => {
   const state = groupedState();
-  const before = getInfiniteCanvasGroupProjection(state.groups).windowRects;
-  const moving = beginInfiniteCanvasGroupMove(state, POINTER, state.groups[0]!, { x: 100, y: 100 });
+  const before = getCanvasLayout(state).windowRects;
+  const moving = beginMove({
+    currentState: state,
+    pointerId: POINTER,
+    target: { type: "group", id: state.groups[0]!.id },
+    point: { x: 100, y: 100 },
+  });
   const moved = stepCanvasInteraction(moving, POINTER, { x: 340, y: 190 });
 
   const shellDelta = {
@@ -83,7 +83,7 @@ test("DOCK-003 — moving a shell moves every member by the same delta", () => {
 
   expect(shellDelta).toEqual({ x: 240, y: 90 });
 
-  const after = getInfiniteCanvasGroupProjection(moved.groups).windowRects;
+  const after = getCanvasLayout(moved).windowRects;
 
   for (const [windowId, rect] of after) {
     const original = before.get(windowId);
@@ -96,7 +96,12 @@ test("DOCK-003 — moving a shell moves every member by the same delta", () => {
 
 test("DOCK-003 — moving a shell never touches its tree", () => {
   const state = groupedState();
-  const moving = beginInfiniteCanvasGroupMove(state, POINTER, state.groups[0]!, { x: 0, y: 0 });
+  const moving = beginMove({
+    currentState: state,
+    pointerId: POINTER,
+    target: { type: "group", id: state.groups[0]!.id },
+    point: { x: 0, y: 0 },
+  });
   const moved = stepCanvasInteraction(moving, POINTER, { x: 500, y: 0 });
 
   expect(moved.groups[0]!.tree).toBe(state.groups[0]!.tree);
@@ -104,7 +109,7 @@ test("DOCK-003 — moving a shell never touches its tree", () => {
 
 test("SPLIT-001 — reweighting a seam changes the solved rects, with no DOM anywhere", () => {
   const state = groupedState();
-  const even = getInfiniteCanvasGroupProjection(state.groups).windowRects;
+  const even = getCanvasLayout(state).windowRects;
 
   expect(even.get("left")!.width).toBe(even.get("right")!.width);
 
@@ -114,31 +119,10 @@ test("SPLIT-001 — reweighting a seam changes the solved rects, with no DOM any
     type: "group.setChildWeights",
     weights: { left: 3, right: 1 },
   });
-  const skewed = getInfiniteCanvasGroupProjection(reweighted.groups).windowRects;
+  const skewed = getCanvasLayout(reweighted).windowRects;
 
   expect(skewed.get("left")!.width / skewed.get("right")!.width).toBeCloseTo(3, 5);
   expect(reweighted.groups[0]!.rect).toEqual(state.groups[0]!.rect);
-});
-
-test("ACC-001 — roving arrows follow the container's axis, not the screen's", () => {
-  expect(getNextInfiniteCanvasRovingIndex("ArrowRight", 0, 3, "horizontal")).toBe(1);
-  expect(getNextInfiniteCanvasRovingIndex("ArrowDown", 0, 3, "horizontal")).toBeNull();
-
-  expect(getNextInfiniteCanvasRovingIndex("ArrowDown", 0, 3, "vertical")).toBe(1);
-  expect(getNextInfiniteCanvasRovingIndex("ArrowRight", 0, 3, "vertical")).toBeNull();
-});
-
-test("ACC-001 — roving wraps at both ends; Home and End are axis-independent", () => {
-  expect(getNextInfiniteCanvasRovingIndex("ArrowLeft", 0, 3, "horizontal")).toBe(2);
-  expect(getNextInfiniteCanvasRovingIndex("ArrowRight", 2, 3, "horizontal")).toBe(0);
-  expect(getNextInfiniteCanvasRovingIndex("ArrowUp", 0, 3, "vertical")).toBe(2);
-
-  for (const axis of ["horizontal", "vertical"] as const) {
-    expect(getNextInfiniteCanvasRovingIndex("Home", 2, 3, axis)).toBe(0);
-    expect(getNextInfiniteCanvasRovingIndex("End", 0, 3, axis)).toBe(2);
-  }
-
-  expect(getNextInfiniteCanvasRovingIndex("Enter", 1, 3, "horizontal")).toBeNull();
 });
 
 test("FAIL-001 — a zoom mid-drag does not slide the window out from under the cursor", () => {
@@ -147,7 +131,12 @@ test("FAIL-001 — a zoom mid-drag does not slide the window out from under the 
     viewport: { height: 800, width: 1200 },
   };
 
-  const grabbed = beginWindowMove(state, POINTER, "solo", { x: 600, y: 400 });
+  const grabbed = beginMove({
+    currentState: state,
+    pointerId: POINTER,
+    target: { type: "window", id: "solo" },
+    point: { x: 600, y: 400 },
+  });
   const firstLeg = stepCanvasInteraction(grabbed, POINTER, { x: 700, y: 400 });
 
   expect(firstLeg.windows[0]!.rect.x).toBeCloseTo(100, 5);
@@ -168,7 +157,12 @@ test("FAIL-001 — the grabbed world point stays pinned to the cursor across a z
     viewport: { height: 800, width: 1200 },
   };
   const grabPoint = { x: 600, y: 400 };
-  const grabbed = beginWindowMove(state, POINTER, "solo", grabPoint);
+  const grabbed = beginMove({
+    currentState: state,
+    pointerId: POINTER,
+    target: { type: "window", id: "solo" },
+    point: grabPoint,
+  });
   const grabOffset =
     screenToWorldX(grabbed, grabPoint.x) - (grabbed.windows[0]?.rect.x ?? Number.NaN);
 
@@ -196,10 +190,11 @@ test("PERSIST-001 — a cluster of floating windows and a tab group survives a r
     groups: [splitGroup({ ...splitTree(), activeChildId: "right", layout: "tabs" })],
   };
 
-  const restored = parseInfiniteCanvasState(
-    JSON.parse(JSON.stringify(serializeInfiniteCanvasState(state))),
-    base,
-  );
+  const restored = createInfiniteCanvasStore({
+    document: JSON.parse(
+      JSON.stringify(createInfiniteCanvasStore({ initialState: state }).snapshot()),
+    ),
+  }).getState();
 
   expect(restored).not.toBeNull();
   expect(restored!.groups).toHaveLength(1);
@@ -276,7 +271,13 @@ test("arrange verbs report themselves enabled when the selection actually suppor
     ...createInfiniteCanvasState<Kind>({
       windows: [windowAt("left", 0, 0), windowAt("right", 400, 0)],
     }),
-    selection: { anchorWindowId: "right", targets: [], windowIds: ["left", "right"] },
+    selection: {
+      anchorTarget: { type: "window" as const, id: "right" },
+      targets: [
+        { type: "window" as const, id: "left" },
+        { type: "window" as const, id: "right" },
+      ],
+    },
     viewport: { height: 800, width: 1200 },
   };
 
@@ -290,7 +291,7 @@ test("arrange verbs report themselves enabled when the selection actually suppor
 
 test("SPLIT-005 — equalize returns skewed panes to equal widths, and is offered only when it would", () => {
   const state = { ...groupedState(), activeWindowId: "left" };
-  const even = getInfiniteCanvasGroupProjection(state.groups).windowRects;
+  const even = getCanvasLayout(state).windowRects;
 
   expect(even.get("left")!.width).toBe(even.get("right")!.width);
   expect(isInfiniteCanvasCommandEnabled(state, { type: "group.equalizeChildren" })).toBe(false);
@@ -304,8 +305,8 @@ test("SPLIT-005 — equalize returns skewed panes to equal widths, and is offere
 
   expect(isInfiniteCanvasCommandEnabled(skewed, { type: "group.equalizeChildren" })).toBe(true);
 
-  const equalized = executeInfiniteCanvasCommand(skewed, { type: "group.equalizeChildren" });
-  const restored = getInfiniteCanvasGroupProjection(equalized.groups).windowRects;
+  const equalized = reduceInfiniteCanvasState(skewed, { type: "group.equalizeChildren" });
+  const restored = getCanvasLayout(equalized).windowRects;
 
   expect(restored.get("left")!.width).toBe(restored.get("right")!.width);
   expect(equalized.groups[0]!.rect).toEqual(state.groups[0]!.rect);
@@ -338,14 +339,14 @@ test("DOCK-006 — docking right wraps both windows in a group, active window on
     isInfiniteCanvasCommandEnabled(state, { direction: "right", type: "window.dockDirection" }),
   ).toBe(true);
 
-  const docked = executeInfiniteCanvasCommand(state, {
+  const docked = reduceInfiniteCanvasState(state, {
     direction: "right",
     type: "window.dockDirection",
   });
 
   expect(docked.groups).toHaveLength(1);
 
-  const rects = getInfiniteCanvasGroupProjection(docked.groups).windowRects;
+  const rects = getCanvasLayout(docked).windowRects;
 
   expect(rects.get("west")!.x).toBeLessThan(rects.get("east")!.x);
 });
@@ -353,7 +354,7 @@ test("DOCK-006 — docking right wraps both windows in a group, active window on
 test("DOCK-006 — a keyboard dock lands where the drag would, and the pair occupies the target's place", () => {
   const state = twoFloating();
   const targetRect = state.windows.find((window) => window.id === "east")!.rect;
-  const docked = executeInfiniteCanvasCommand(state, {
+  const docked = reduceInfiniteCanvasState(state, {
     direction: "right",
     type: "window.dockDirection",
   });
@@ -362,14 +363,14 @@ test("DOCK-006 — a keyboard dock lands where the drag would, and the pair occu
 });
 
 test("DOCK-006 — undocking frees the active window and leaves the shell holding its last member", () => {
-  const docked = executeInfiniteCanvasCommand(twoFloating(), {
+  const docked = reduceInfiniteCanvasState(twoFloating(), {
     direction: "right",
     type: "window.dockDirection",
   });
 
   expect(isInfiniteCanvasCommandEnabled(docked, { type: "window.undock" })).toBe(true);
 
-  const undocked = executeInfiniteCanvasCommand(docked, { type: "window.undock" });
+  const undocked = reduceInfiniteCanvasState(docked, { type: "window.undock" });
 
   expect(undocked.groups).toHaveLength(1);
   expect(getInfiniteCanvasGroupWindowIds(undocked.groups[0]!.tree)).toEqual(["east"]);
@@ -380,7 +381,7 @@ test("DOCK-006 — undocking frees the active window and leaves the shell holdin
 });
 
 test("DOCK-006 — a docked window cannot dock again, and a lone window has nowhere to dock", () => {
-  const docked = executeInfiniteCanvasCommand(twoFloating(), {
+  const docked = reduceInfiniteCanvasState(twoFloating(), {
     direction: "right",
     type: "window.dockDirection",
   });
@@ -401,7 +402,7 @@ test("DOCK-006 — a docked window cannot dock again, and a lone window has nowh
 });
 
 const dockedPair = () =>
-  executeInfiniteCanvasCommand(
+  reduceInfiniteCanvasState(
     {
       ...createInfiniteCanvasState<Kind>({
         windows: [windowAt("west", 0, 0), windowAt("east", 400, 0)],
@@ -414,14 +415,14 @@ const dockedPair = () =>
 
 test("SPLIT-006 — flipping the axis turns a row of panes into a column", () => {
   const state = dockedPair();
-  const row = getInfiniteCanvasGroupProjection(state.groups).windowRects;
+  const row = getCanvasLayout(state).windowRects;
 
   expect(row.get("west")!.x).not.toBe(row.get("east")!.x);
   expect(row.get("west")!.y).toBe(row.get("east")!.y);
   expect(isInfiniteCanvasCommandEnabled(state, { type: "group.flipAxis" })).toBe(true);
 
-  const flipped = executeInfiniteCanvasCommand(state, { type: "group.flipAxis" });
-  const column = getInfiniteCanvasGroupProjection(flipped.groups).windowRects;
+  const flipped = reduceInfiniteCanvasState(state, { type: "group.flipAxis" });
+  const column = getCanvasLayout(flipped).windowRects;
 
   expect(column.get("west")!.x).toBe(column.get("east")!.x);
   expect(column.get("west")!.y).not.toBe(column.get("east")!.y);
@@ -430,12 +431,10 @@ test("SPLIT-006 — flipping the axis turns a row of panes into a column", () =>
 
 test("SPLIT-006 — flipping twice returns the original layout", () => {
   const state = dockedPair();
-  const once = executeInfiniteCanvasCommand(state, { type: "group.flipAxis" });
-  const twice = executeInfiniteCanvasCommand(once, { type: "group.flipAxis" });
+  const once = reduceInfiniteCanvasState(state, { type: "group.flipAxis" });
+  const twice = reduceInfiniteCanvasState(once, { type: "group.flipAxis" });
 
-  expect(getInfiniteCanvasGroupProjection(twice.groups).windowRects).toEqual(
-    getInfiniteCanvasGroupProjection(state.groups).windowRects,
-  );
+  expect(getCanvasLayout(twice).windowRects).toEqual(getCanvasLayout(state).windowRects);
 });
 
 test("TAB-003 — converting a split to tabs hides all but one pane, keeping every member", () => {
@@ -445,25 +444,25 @@ test("TAB-003 — converting a split to tabs hides all but one pane, keeping eve
     true,
   );
 
-  const tabbed = executeInfiniteCanvasCommand(state, { layout: "tabs", type: "group.setLayout" });
-  const projection = getInfiniteCanvasGroupProjection(tabbed.groups);
+  const tabbed = reduceInfiniteCanvasState(state, { layout: "tabs", type: "group.setLayout" });
+  const canvasLayout = getCanvasLayout(tabbed);
 
   expect(getInfiniteCanvasGroupWindowIds(tabbed.groups[0]!.tree).toSorted()).toEqual([
     "east",
     "west",
   ]);
-  expect(projection.hiddenWindowIds.size).toBe(1);
+  expect(canvasLayout.hiddenWindowIds.size).toBe(1);
 });
 
 test("TAB-003 — a split converted to tabs gets a live active child rather than an empty strip", () => {
-  const tabbed = executeInfiniteCanvasCommand(dockedPair(), {
+  const tabbed = reduceInfiniteCanvasState(dockedPair(), {
     layout: "tabs",
     type: "group.setLayout",
   });
   const container = tabbed.groups[0]!.tree as InfiniteCanvasGroupContainerNode;
 
   expect(container.activeChildId).not.toBeNull();
-  expect(getInfiniteCanvasGroupProjection(tabbed.groups).windowRects.size).toBe(2);
+  expect(getCanvasLayout(tabbed).windowRects.size).toBe(2);
 });
 
 test("TAB-003 — the layout a container already has is not offered, and tabs cannot be flipped", () => {
@@ -473,7 +472,7 @@ test("TAB-003 — the layout a container already has is not offered, and tabs ca
     false,
   );
 
-  const tabbed = executeInfiniteCanvasCommand(state, { layout: "tabs", type: "group.setLayout" });
+  const tabbed = reduceInfiniteCanvasState(state, { layout: "tabs", type: "group.setLayout" });
 
   expect(isInfiniteCanvasCommandEnabled(tabbed, { type: "group.flipAxis" })).toBe(false);
   expect(isInfiniteCanvasCommandEnabled(tabbed, { layout: "tabs", type: "group.setLayout" })).toBe(
@@ -483,11 +482,11 @@ test("TAB-003 — the layout a container already has is not offered, and tabs ca
 
 test("DOCK-007 — dissolving a split leaves every member floating exactly where it was drawn", () => {
   const state = dockedPair();
-  const drawn = getInfiniteCanvasGroupProjection(state.groups).windowRects;
+  const drawn = getCanvasLayout(state).windowRects;
 
   expect(isInfiniteCanvasCommandEnabled(state, { type: "group.dissolve" })).toBe(true);
 
-  const dissolved = executeInfiniteCanvasCommand(state, { type: "group.dissolve" });
+  const dissolved = reduceInfiniteCanvasState(state, { type: "group.dissolve" });
 
   expect(dissolved.groups).toEqual([]);
 
@@ -499,11 +498,11 @@ test("DOCK-007 — dissolving a split leaves every member floating exactly where
 });
 
 test("DOCK-007 — dissolving a tab group fans its members out rather than piling them", () => {
-  const tabbed = executeInfiniteCanvasCommand(dockedPair(), {
+  const tabbed = reduceInfiniteCanvasState(dockedPair(), {
     layout: "tabs",
     type: "group.setLayout",
   });
-  const dissolved = executeInfiniteCanvasCommand(tabbed, { type: "group.dissolve" });
+  const dissolved = reduceInfiniteCanvasState(tabbed, { type: "group.dissolve" });
   const [first, second] = dissolved.windows;
   const overlap =
     first !== undefined &&
@@ -526,11 +525,11 @@ test("TAB-004 — a pane can be moved through its container's order by keyboard"
 
   expect(order(state)).toEqual(["left", "right"]);
 
-  const moved = executeInfiniteCanvasCommand(state, { toward: "end", type: "group.moveChild" });
+  const moved = reduceInfiniteCanvasState(state, { toward: "end", type: "group.moveChild" });
 
   expect(order(moved)).toEqual(["right", "left"]);
   expect(
-    order(executeInfiniteCanvasCommand(moved, { toward: "start", type: "group.moveChild" })),
+    order(reduceInfiniteCanvasState(moved, { toward: "start", type: "group.moveChild" })),
   ).toEqual(["left", "right"]);
 });
 
@@ -544,7 +543,10 @@ test("TAB-004 — the ends of the order are not offered, because the move would 
     true,
   );
 
-  const atEnd = { ...dockedPair(), activeWindowId: "east" };
+  const atEnd = reduceInfiniteCanvasState(dockedPair(), {
+    type: "selection.replace",
+    targets: [{ type: "window" as const, id: "east" }],
+  });
 
   expect(isInfiniteCanvasCommandEnabled(atEnd, { toward: "end", type: "group.moveChild" })).toBe(
     false,
@@ -560,12 +562,12 @@ const threeInARow = (): InfiniteCanvasState<Kind> => ({
 });
 
 test("FOCUS-004 — ordinary directional focus replaces the selection, as a click does", () => {
-  const moved = executeInfiniteCanvasCommand(threeInARow(), {
+  const moved = reduceInfiniteCanvasState(threeInARow(), {
     direction: "right",
     type: "window.focusDirection",
   });
 
-  expect(moved.selection.windowIds).toEqual(["b"]);
+  expect(getSelectedWindowIds(moved.selection)).toEqual(["b"]);
 });
 
 test("FOCUS-004 — extending keeps what was selected and adds the neighbour", () => {
@@ -578,25 +580,25 @@ test("FOCUS-004 — extending keeps what was selected and adds the neighbour", (
     }),
   ).toBe(true);
 
-  const extended = executeInfiniteCanvasCommand(state, {
+  const extended = reduceInfiniteCanvasState(state, {
     direction: "right",
     type: "selection.extendDirection",
   });
 
-  expect([...extended.selection.windowIds].toSorted()).toEqual(["a", "b"]);
+  expect([...getSelectedWindowIds(extended.selection)].toSorted()).toEqual(["a", "b"]);
   expect(extended.activeWindowId).toBe("b");
 
-  const twice = executeInfiniteCanvasCommand(extended, {
+  const twice = reduceInfiniteCanvasState(extended, {
     direction: "right",
     type: "selection.extendDirection",
   });
 
-  expect([...twice.selection.windowIds].toSorted()).toEqual(["a", "b", "c"]);
+  expect([...getSelectedWindowIds(twice.selection)].toSorted()).toEqual(["a", "b", "c"]);
   expect(twice.activeWindowId).toBe("c");
 });
 
 test("FOCUS-004 — a keyboard-built selection makes the arrange verbs usable", () => {
-  const selected = executeInfiniteCanvasCommand(threeInARow(), {
+  const selected = reduceInfiniteCanvasState(threeInARow(), {
     direction: "right",
     type: "selection.extendDirection",
   });
@@ -605,7 +607,7 @@ test("FOCUS-004 — a keyboard-built selection makes the arrange verbs usable", 
     true,
   );
 
-  const aligned = executeInfiniteCanvasCommand(selected, {
+  const aligned = reduceInfiniteCanvasState(selected, {
     alignment: "top",
     type: "window.align",
   });
@@ -630,54 +632,61 @@ test("FOCUS-004 — extending is not offered where there is no neighbour", () =>
 const groupMinimum = () =>
   getInfiniteCanvasGroupMinimumSize(splitTree(), DEFAULT_INFINITE_CANVAS_GROUP_METRICS);
 
-test("SPLIT-004 — resizing the shell re-projects every member onto the new rect", () => {
+test("SPLIT-004 — resizing the shell preserves member geometry", () => {
   const state = groupedState();
-  const resizing = beginInfiniteCanvasGroupResize(
-    state,
-    POINTER,
-    state.groups[0]!,
-    "south-east",
-    groupMinimum(),
-    { x: 800, y: 400 },
-  );
+  const resizing = beginInfiniteCanvasGroupResize({
+    currentState: state,
+    groupId: state.groups[0]!.id,
+    handle: "south-east",
+    minSize: groupMinimum(),
+    point: { x: 800, y: 400 },
+    pointerId: POINTER,
+  });
   const resized = stepCanvasInteraction(resizing, POINTER, { x: 1000, y: 500 });
 
-  expect(resized.groups[0]!.rect.width).toBeGreaterThan(state.groups[0]!.rect.width);
+  expect(getCanvasLayout(resized).groupRects.get(state.groups[0]!.id)!.width).toBeGreaterThan(
+    state.groups[0]!.rect.width,
+  );
 
-  const solved = getInfiniteCanvasGroupProjection(resized.groups).windowRects;
-
-  for (const window of resized.windows) {
-    expect(window.rect).toEqual(solved.get(window.id));
+  const solved = getCanvasLayout(resized).windowRects;
+  const before = getCanvasLayout(state).windowRects;
+  for (const id of getInfiniteCanvasGroupWindowIds(state.groups[0]!.tree)) {
+    expect(solved.get(id)).toEqual(before.get(id));
   }
+  expect(resized.windows.map(({ id, rect }) => ({ id, rect }))).toEqual(
+    state.windows.map(({ id, rect }) => ({ id, rect })),
+  );
 });
 
-test("SPLIT-004 — the shell cannot be dragged below the floor its tree needs", () => {
+test("SPLIT-004 — the shell uses the supplied minimum size", () => {
   const state = groupedState();
   const minimum = groupMinimum();
 
   expect(minimum.width).toBeGreaterThan(MINIMUM_GROUP_PANE_EXTENT);
 
-  const resizing = beginInfiniteCanvasGroupResize(
-    state,
-    POINTER,
-    state.groups[0]!,
-    "south-east",
-    minimum,
-    { x: 800, y: 400 },
-  );
+  const resizing = beginInfiniteCanvasGroupResize({
+    currentState: state,
+    groupId: state.groups[0]!.id,
+    handle: "south-east",
+    minSize: minimum,
+    point: { x: 800, y: 400 },
+    pointerId: POINTER,
+  });
   const crushed = stepCanvasInteraction(resizing, POINTER, { x: -5000, y: -5000 });
 
-  expect(crushed.groups[0]!.rect.width).toBe(minimum.width);
-  expect(crushed.groups[0]!.rect.height).toBe(minimum.height);
+  expect(getCanvasLayout(crushed).groupRects.get(state.groups[0]!.id)!.width).toBe(minimum.width);
+  expect(getCanvasLayout(crushed).groupRects.get(state.groups[0]!.id)!.height).toBe(minimum.height);
 
-  for (const rect of getInfiniteCanvasGroupProjection(crushed.groups).windowRects.values()) {
+  for (const rect of getCanvasLayout(crushed).windowRects.values()) {
     expect(rect.width).toBeGreaterThanOrEqual(MINIMUM_GROUP_PANE_EXTENT);
     expect(rect.height).toBeGreaterThanOrEqual(MINIMUM_GROUP_PANE_EXTENT);
   }
 });
 
 test("SPLIT-004 — a whole shell resize is one undo entry, however many steps it takes", () => {
-  const started = reduceInfiniteCanvasState(groupedState(), {
+  const store = createInfiniteCanvasStore({ initialState: groupedState() });
+  const before = getCanvasLayout(store.getState());
+  store.dispatch({
     groupId: "shell",
     handle: "south-east",
     minSize: groupMinimum(),
@@ -685,21 +694,25 @@ test("SPLIT-004 — a whole shell resize is one undo entry, however many steps i
     pointerId: POINTER,
     type: "interaction.startGroupResize",
   });
-  const dragged = [900, 950, 1000, 1050].reduce(
-    (current, x) =>
-      reduceInfiniteCanvasState(current, {
-        point: { x, y: 450 },
-        pointerId: POINTER,
-        type: "interaction.step",
-      }),
-    started,
-  );
-  const finished = reduceInfiniteCanvasState(dragged, {
+  for (const x of [900, 950, 1000, 1050]) {
+    store.dispatch({
+      point: { x, y: 450 },
+      pointerId: POINTER,
+      type: "interaction.step",
+    });
+  }
+  store.dispatch({
     pointerId: POINTER,
     type: "interaction.finish",
   });
 
-  expect(finished.history.past).toHaveLength(1);
+  expect(store.history.undos$.peek()).toBe(1);
+  const after = getCanvasLayout(store.getState());
+  expect(after.windowRects).toEqual(before.windowRects);
+  expect(after.groupRects.get("shell")).not.toEqual(before.groupRects.get("shell"));
+  store.dispatch({ type: "group.fitContents", groupId: "shell" });
+  expect(getCanvasLayout(store.getState()).windowRects).toEqual(before.windowRects);
+  expect(store.getState().groups[0]!.bounds).toBe("content");
 });
 
 const UNSNAPPED = { ...DEFAULT_INFINITE_CANVAS_SNAP_POLICY, enabled: false };
@@ -713,7 +726,12 @@ const soloAtZoom = (zoom: number): InfiniteCanvasState<Kind> => ({
 test("FLOAT-001 — a drag covers the world distance the camera says it should, at every zoom", () => {
   for (const zoom of [0.12, 0.25, 0.5, 1, 2, 4, 8]) {
     const state = soloAtZoom(zoom);
-    const grabbed = beginWindowMove(state, POINTER, "solo", { x: 600, y: 400 });
+    const grabbed = beginMove({
+      currentState: state,
+      pointerId: POINTER,
+      target: { type: "window", id: "solo" },
+      point: { x: 600, y: 400 },
+    });
     const moved = stepCanvasInteraction(grabbed, POINTER, { x: 840, y: 520 }, UNSNAPPED);
 
     expect(moved.windows[0]!.rect.x).toBeCloseTo(240 / zoom, 5);
@@ -724,7 +742,12 @@ test("FLOAT-001 — a drag covers the world distance the camera says it should, 
 test("FLOAT-001 — the same pointer travel moves a window the same distance on screen", () => {
   for (const zoom of [0.25, 1, 4]) {
     const state = soloAtZoom(zoom);
-    const grabbed = beginWindowMove(state, POINTER, "solo", { x: 600, y: 400 });
+    const grabbed = beginMove({
+      currentState: state,
+      pointerId: POINTER,
+      target: { type: "window", id: "solo" },
+      point: { x: 600, y: 400 },
+    });
     const moved = stepCanvasInteraction(grabbed, POINTER, { x: 700, y: 400 }, UNSNAPPED);
 
     expect(moved.windows[0]!.rect.x * zoom).toBeCloseTo(100, 5);
@@ -733,7 +756,12 @@ test("FLOAT-001 — the same pointer travel moves a window the same distance on 
 
 test("FLOAT-001 — a drag is continuous: many small steps land where one large step does", () => {
   for (const zoom of [0.25, 1, 4]) {
-    const grabbed = beginWindowMove(soloAtZoom(zoom), POINTER, "solo", { x: 600, y: 400 });
+    const grabbed = beginMove({
+      currentState: soloAtZoom(zoom),
+      pointerId: POINTER,
+      target: { type: "window", id: "solo" },
+      point: { x: 600, y: 400 },
+    });
     const oneStep = stepCanvasInteraction(grabbed, POINTER, { x: 700, y: 400 }, UNSNAPPED);
     const manySteps = Array.from({ length: 20 }, (_, index) => 605 + index * 5).reduce(
       (current, x) => stepCanvasInteraction(current, POINTER, { x, y: 400 }, UNSNAPPED),
@@ -813,15 +841,15 @@ test("FAIL-001 sibling — a pan with no zoom change is unaffected by the genera
 
 test("SPLIT-007 — growing a pane takes share from the sibling beside it", () => {
   const state = dockedPair();
-  const before = getInfiniteCanvasGroupProjection(state.groups).windowRects;
+  const before = getCanvasLayout(state).windowRects;
 
   expect(before.get("west")!.width).toBe(before.get("east")!.width);
   expect(isInfiniteCanvasCommandEnabled(state, { amountPx: 24, type: "group.resizePane" })).toBe(
     true,
   );
 
-  const grown = executeInfiniteCanvasCommand(state, { amountPx: 24, type: "group.resizePane" });
-  const after = getInfiniteCanvasGroupProjection(grown.groups).windowRects;
+  const grown = reduceInfiniteCanvasState(state, { amountPx: 24, type: "group.resizePane" });
+  const after = getCanvasLayout(grown).windowRects;
 
   expect(after.get("west")!.width).toBeGreaterThan(before.get("west")!.width);
   expect(after.get("east")!.width).toBeLessThan(before.get("east")!.width);
@@ -830,23 +858,26 @@ test("SPLIT-007 — growing a pane takes share from the sibling beside it", () =
 
 test("SPLIT-007 — shrinking is the inverse, and the two round-trip", () => {
   const state = dockedPair();
-  const roundTripped = executeInfiniteCanvasCommand(
-    executeInfiniteCanvasCommand(state, { amountPx: 24, type: "group.resizePane" }),
+  const roundTripped = reduceInfiniteCanvasState(
+    reduceInfiniteCanvasState(state, { amountPx: 24, type: "group.resizePane" }),
     { amountPx: -24, type: "group.resizePane" },
   );
-  const widths = getInfiniteCanvasGroupProjection(roundTripped.groups).windowRects;
+  const widths = getCanvasLayout(roundTripped).windowRects;
 
   expect(widths.get("west")!.width).toBeCloseTo(
-    getInfiniteCanvasGroupProjection(state.groups).windowRects.get("west")!.width,
+    getCanvasLayout(state).windowRects.get("west")!.width,
     5,
   );
 });
 
 test("SPLIT-007 — the last pane grows by taking from the one before it", () => {
-  const state = { ...dockedPair(), activeWindowId: "east" };
-  const before = getInfiniteCanvasGroupProjection(state.groups).windowRects;
-  const grown = executeInfiniteCanvasCommand(state, { amountPx: 24, type: "group.resizePane" });
-  const after = getInfiniteCanvasGroupProjection(grown.groups).windowRects;
+  const state = reduceInfiniteCanvasState(dockedPair(), {
+    type: "selection.replace",
+    targets: [{ type: "window" as const, id: "east" }],
+  });
+  const before = getCanvasLayout(state).windowRects;
+  const grown = reduceInfiniteCanvasState(state, { amountPx: 24, type: "group.resizePane" });
+  const after = getCanvasLayout(grown).windowRects;
 
   expect(after.get("east")!.width).toBeGreaterThan(before.get("east")!.width);
 });
@@ -866,9 +897,9 @@ test("SPLIT-007 — a floating window has no seam to push", () => {
 test("SPLIT-007 — the seam travels the same distance on screen at any zoom", () => {
   const screenGrowth = [0.25, 1, 4].map((zoom) => {
     const state = { ...dockedPair(), camera: { center: { x: 0, y: 0 }, zoom } };
-    const before = getInfiniteCanvasGroupProjection(state.groups).windowRects.get("west")!.width;
-    const grown = executeInfiniteCanvasCommand(state, { amountPx: 24, type: "group.resizePane" });
-    const after = getInfiniteCanvasGroupProjection(grown.groups).windowRects.get("west")!.width;
+    const before = getCanvasLayout(state).windowRects.get("west")!.width;
+    const grown = reduceInfiniteCanvasState(state, { amountPx: 24, type: "group.resizePane" });
+    const after = getCanvasLayout(grown).windowRects.get("west")!.width;
 
     return (after - before) * zoom;
   });
@@ -879,30 +910,30 @@ test("SPLIT-007 — the seam travels the same distance on screen at any zoom", (
 });
 
 test("FOCUS-004 — extending one window too far is walked back, not started over", () => {
-  const three = executeInfiniteCanvasCommand(
-    executeInfiniteCanvasCommand(threeInARow(), {
+  const three = reduceInfiniteCanvasState(
+    reduceInfiniteCanvasState(threeInARow(), {
       direction: "right",
       type: "selection.extendDirection",
     }),
     { direction: "right", type: "selection.extendDirection" },
   );
 
-  expect([...three.selection.windowIds].toSorted()).toEqual(["a", "b", "c"]);
+  expect([...getSelectedWindowIds(three.selection)].toSorted()).toEqual(["a", "b", "c"]);
   expect(three.activeWindowId).toBe("c");
 
-  const walkedBack = executeInfiniteCanvasCommand(three, { type: "selection.removeActive" });
+  const walkedBack = reduceInfiniteCanvasState(three, { type: "selection.removeActive" });
 
-  expect([...walkedBack.selection.windowIds].toSorted()).toEqual(["a", "b"]);
+  expect([...getSelectedWindowIds(walkedBack.selection)].toSorted()).toEqual(["a", "b"]);
   expect(walkedBack.activeWindowId).toBe("b");
 
-  const further = executeInfiniteCanvasCommand(walkedBack, { type: "selection.removeActive" });
+  const further = reduceInfiniteCanvasState(walkedBack, { type: "selection.removeActive" });
 
-  expect(further.selection.windowIds).toEqual(["a"]);
+  expect(getSelectedWindowIds(further.selection)).toEqual(["a"]);
   expect(further.activeWindowId).toBe("a");
 });
 
 test("FOCUS-004 — a window that is not selected has nothing to remove", () => {
-  const cleared = executeInfiniteCanvasCommand(threeInARow(), { type: "selection.clear" });
+  const cleared = reduceInfiniteCanvasState(threeInARow(), { type: "selection.clear" });
 
   expect(isInfiniteCanvasCommandEnabled(cleared, { type: "selection.removeActive" })).toBe(false);
 });

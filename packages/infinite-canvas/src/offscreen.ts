@@ -5,10 +5,9 @@ import {
   isWorldRectWithinViewport,
   worldPointToScreenPoint,
 } from "./geometry";
-import { getInfiniteCanvasGroupProjection } from "./group-state";
+import { getCanvasLayout } from "./layout";
 import { getInfiniteCanvasGroupWindowIds } from "./group-tree";
 import type { InfiniteCanvasPoint, InfiniteCanvasRect, InfiniteCanvasState } from "./types";
-import { getInfiniteCanvasWorkspaceWindowIds } from "./workspace-membership";
 
 /** @experimental Calculates edge indicators for offscreen groups and windows. */
 type InfiniteCanvasOffscreenTargetKind = "group" | "window";
@@ -87,7 +86,7 @@ function getInfiniteCanvasOffscreenIndicators<Kind extends string>(
     return [];
   }
 
-  const { windowRects } = getInfiniteCanvasGroupProjection(state.groups, state.groupMetrics);
+  const canvasLayout = getCanvasLayout(state);
   const { activeWindowId } = state;
   const activeGroupId =
     activeWindowId === null
@@ -96,35 +95,28 @@ function getInfiniteCanvasOffscreenIndicators<Kind extends string>(
           getInfiniteCanvasGroupWindowIds(group.tree).includes(activeWindowId),
         )?.id ?? null);
 
-  // Apply the active workspace filter to all targets.
-  const admitted = getInfiniteCanvasWorkspaceWindowIds(state);
+  const groupedWindowIds = new Set(
+    state.groups.flatMap((group) => getInfiniteCanvasGroupWindowIds(group.tree)),
+  );
   const targets = [
-    // One admitted member admits its complete group.
     ...state.groups
-      .filter(
-        (group) =>
-          admitted === null ||
-          getInfiniteCanvasGroupWindowIds(group.tree).some((windowId) => admitted.has(windowId)),
-      )
+      .filter((group) => canvasLayout.visibleGroupIds.has(group.id))
       .map((group) => ({
         id: group.id,
         isActive: group.id === activeGroupId,
         kind: "group" as const,
-        rect: group.rect,
+        rect: canvasLayout.groupRects.get(group.id)!,
       })),
-    // Group projection owns all group member rects, including hidden tabs.
     ...state.windows
       .filter(
         (window) =>
-          window.mode !== "minimized" &&
-          !windowRects.has(window.id) &&
-          (admitted === null || admitted.has(window.id)),
+          canvasLayout.visibleWindowIds.has(window.id) && !groupedWindowIds.has(window.id),
       )
       .map((window) => ({
         id: window.id,
         isActive: window.id === activeWindowId,
         kind: "window" as const,
-        rect: window.rect,
+        rect: canvasLayout.windowRects.get(window.id)!,
       })),
   ];
 

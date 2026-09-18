@@ -48,27 +48,8 @@ function updateInfiniteCanvasConnection<Kind extends string>(
   };
 }
 
-/**
- * Drops every edge that touches a closed window.
- *
- * Closing a window already detaches it from its groups and workspaces. An edge left behind would
- * serialize forever and reconnect itself if a later window reused the id. Undo restores it with the
- * window, because both live in the same document.
- */
-function detachInfiniteCanvasConnectionsFromWindow<Kind extends string>(
-  state: InfiniteCanvasState<Kind>,
-  windowId: string,
-): InfiniteCanvasState<Kind> {
-  const connections = state.connections.filter(
-    (connection) => connection.from !== windowId && connection.to !== windowId,
-  );
-
-  return connections.length === state.connections.length ? state : { ...state, connections };
-}
-
 export {
   closeInfiniteCanvasConnection,
-  detachInfiniteCanvasConnectionsFromWindow,
   openInfiniteCanvasConnection,
   updateInfiniteCanvasConnection,
 };

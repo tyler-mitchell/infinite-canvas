@@ -1,13 +1,13 @@
 import { expect, test } from "vite-plus/test";
 
 import { createInfiniteCanvasState } from "./factory";
-import { reduceInfiniteCanvasState } from "./reducer";
+import { reduceInfiniteCanvasState } from "./operations";
 import type { InfiniteCanvasState } from "./types";
 
 function stateWithWorkspaces(ids: readonly string[]): InfiniteCanvasState<"note"> {
   return ids.reduce<InfiniteCanvasState<"note">>(
     (state, workspaceId) =>
-      reduceInfiniteCanvasState(state, { type: "workspace.create", workspaceId }),
+      reduceInfiniteCanvasState(state, { activate: false, type: "workspace.create", workspaceId }),
     createInfiniteCanvasState<"note">({ viewport: { height: 800, width: 1200 }, windows: [] }),
   );
 }

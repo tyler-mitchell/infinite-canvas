@@ -12,8 +12,9 @@ import {
   createInfiniteCanvasWindow,
   defineInfiniteCanvasWindowRegistry,
 } from "./factory";
-import { InfiniteCanvasProvider } from "./store";
+import { InfiniteCanvasProvider } from "./react/store";
 import { InfiniteCanvasWindowFrame } from "./window-frame";
+import { getWindowRasterSignature } from "./window-raster-body";
 
 type Kind = "note";
 
@@ -26,6 +27,56 @@ const noteWindow = createInfiniteCanvasWindow<Kind>({
 
 const BODY_MARKER = "FULL-BODY";
 const SUMMARY_MARKER = "SUMMARY-CARD";
+const rasterPolicy = { adapter: "snapdom", cache: "auto", dpr: 1, format: "png" } as const;
+
+test("unserializable data cannot identify a cached snapshot", () => {
+  const window = { ...noteWindow, data: { value: 1n } };
+  expect(
+    getWindowRasterSignature(window, window.rect, DEFAULT_INFINITE_CANVAS_CHROME, rasterPolicy),
+  ).toBeNull();
+  expect(window.data).toEqual({ value: 1n });
+});
+
+test("cache identity preserves field boundaries and content", () => {
+  const window = {
+    ...noteWindow,
+    title: "Note|with separators",
+    data: { text: "a|b", revision: 7 },
+  };
+  const signature = getWindowRasterSignature(
+    window,
+    window.rect,
+    DEFAULT_INFINITE_CANVAS_CHROME,
+    rasterPolicy,
+  );
+  expect(JSON.parse(signature!)).toEqual({
+    ...rasterPolicy,
+    id: "note-1",
+    kind: "note",
+    title: "Note|with separators",
+    width: 300,
+    height: 210,
+    chrome: DEFAULT_INFINITE_CANVAS_CHROME,
+    isPinned: false,
+    data: { text: "a|b", revision: 7 },
+  });
+});
+
+test("missing data and null data have different cache identities", () => {
+  const missing = getWindowRasterSignature(
+    { ...noteWindow, data: undefined },
+    noteWindow.rect,
+    DEFAULT_INFINITE_CANVAS_CHROME,
+    rasterPolicy,
+  );
+  const empty = getWindowRasterSignature(
+    { ...noteWindow, data: null },
+    noteWindow.rect,
+    DEFAULT_INFINITE_CANVAS_CHROME,
+    rasterPolicy,
+  );
+  expect(missing).not.toBe(empty);
+});
 
 type RenderOptions = Readonly<{
   overflowY?: CSSProperties["overflowY"];
@@ -61,6 +112,7 @@ const render = (options: RenderOptions) => {
         stackBands={DEFAULT_INFINITE_CANVAS_STACK_BANDS}
         theme={DEFAULT_INFINITE_CANVAS_THEME}
         window={noteWindow}
+        rect={noteWindow.rect}
         windowDefinitions={registry(options)}
         zoom={state.camera.zoom}
       />

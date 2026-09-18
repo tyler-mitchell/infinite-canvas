@@ -1,7 +1,8 @@
 import { unionRects } from "./geometry";
+import { getTargetBounds } from "./layout";
 import { reconcileInfiniteCanvasGroups } from "./group-state";
 import { getInfiniteCanvasGroupWindowIds } from "./group-tree";
-import { getSelectableWindowIds } from "./selection";
+import { getSelectableWindowIds, getSelectedWindowIds } from "./selection";
 import type {
   InfiniteCanvasGroup,
   InfiniteCanvasPoint,
@@ -27,7 +28,9 @@ function getInfiniteCanvasRecipeWindowIds<Kind extends string>(
   const selectable = new Set(getSelectableWindowIds(state));
   const requested =
     windowIds ??
-    (state.selection.windowIds.length > 0 ? state.selection.windowIds : [...selectable]);
+    (getSelectedWindowIds(state.selection).length > 0
+      ? getSelectedWindowIds(state.selection)
+      : [...selectable]);
 
   return requested.filter((windowId) => selectable.has(windowId));
 }
@@ -58,7 +61,9 @@ function captureInfiniteCanvasRecipe<Kind extends string>(
   const groups = getCapturableGroups(state.groups, capturedWindowIds);
   const bounds = unionRects([
     ...windows.map((window) => window.rect),
-    ...groups.map((group) => group.rect),
+    ...groups.map(
+      (group) => getTargetBounds({ state, target: { type: "group", id: group.id } }) ?? group.rect,
+    ),
   ]);
 
   if (bounds === null) {
@@ -69,6 +74,14 @@ function captureInfiniteCanvasRecipe<Kind extends string>(
 
   return {
     groups: groups.map((group) => ({
+      ...(group.bounds === undefined
+        ? {}
+        : {
+            bounds:
+              group.bounds === "content"
+                ? ("content" as const)
+                : translateRect(group.bounds, toOrigin),
+          }),
       groupId: group.id,
       rect: translateRect(group.rect, toOrigin),
       title: group.title,
@@ -128,6 +141,12 @@ function applyInfiniteCanvasRecipe<Kind extends string>(
       !getInfiniteCanvasGroupWindowIds(group.tree).some((windowId) => memberById.has(windowId)),
   );
   const restored: InfiniteCanvasGroup[] = recipe.groups.map((group) => ({
+    ...(group.bounds === undefined
+      ? {}
+      : {
+          bounds:
+            group.bounds === "content" ? ("content" as const) : translateRect(group.bounds, origin),
+        }),
     id: group.groupId,
     rect: translateRect(group.rect, origin),
     title: group.title,

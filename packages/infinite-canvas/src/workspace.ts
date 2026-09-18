@@ -1,6 +1,11 @@
 import { getInfiniteCanvasWindowGroup } from "./group-state";
 import { getInfiniteCanvasGroupWindowIds } from "./group-tree";
-import { getSelectableWindowIds, normalizeSelection } from "./selection";
+import {
+  EMPTY_INFINITE_CANVAS_SELECTION,
+  getSelectableWindowIds,
+  getSelectedWindowIds,
+  normalizeSelection,
+} from "./selection";
 import {
   getInfiniteCanvasWorkspaceWindowIds,
   isInfiniteCanvasWindowInActiveWorkspace,
@@ -17,27 +22,33 @@ function findInfiniteCanvasWorkspace<Kind extends string>(
 
 function createInfiniteCanvasWorkspace<Kind extends string>(
   state: InfiniteCanvasState<Kind>,
-  input: Readonly<{ title?: string; windowIds?: readonly string[]; workspaceId: string }>,
+  input: Readonly<{
+    activate?: boolean;
+    title?: string;
+    windowIds?: readonly string[];
+    workspaceId: string;
+  }>,
 ): InfiniteCanvasState<Kind> {
-  const { title, windowIds = [], workspaceId } = input;
+  const { activate = true, title, windowIds = [], workspaceId } = input;
 
   if (findInfiniteCanvasWorkspace(state, workspaceId) !== null) {
-    return state;
+    return activate ? activateInfiniteCanvasWorkspace(state, workspaceId) : state;
   }
 
-  return {
+  const created = {
     ...state,
     workspaces: [
       ...state.workspaces,
       {
         camera: state.camera,
         id: workspaceId,
-        selection: { anchorWindowId: null, windowIds: [] },
+        selection: EMPTY_INFINITE_CANVAS_SELECTION,
         title: title ?? workspaceId,
         windowIds: normalizeInfiniteCanvasWorkspaceWindowIds(state, windowIds),
       },
     ],
   };
+  return activate ? activateInfiniteCanvasWorkspace(created, workspaceId) : created;
 }
 
 /** Closes a workspace without closing its windows. */
@@ -91,7 +102,11 @@ function activateInfiniteCanvasWorkspace<Kind extends string>(
   // Normalize against incoming membership.
   const selection = normalizeSelection(entered, target?.selection ?? entered.selection);
   // Use a selectable member when the saved selection has no window.
-  const activeWindowId = selection.anchorWindowId ?? getSelectableWindowIds(entered).at(-1) ?? null;
+  const selectedWindowId =
+    selection.anchorTarget?.type === "window"
+      ? selection.anchorTarget.id
+      : getSelectedWindowIds(selection).at(-1);
+  const activeWindowId = selectedWindowId ?? getSelectableWindowIds(entered).at(-1) ?? null;
 
   return { ...entered, activeWindowId, selection };
 }
@@ -239,79 +254,35 @@ function reconcileInfiniteCanvasWorkspaces<Kind extends string>(
 
   const reconciled = state.workspaces.map((workspace) => {
     const windowIds = normalizeInfiniteCanvasWorkspaceWindowIds(state, workspace.windowIds);
-    // Clean stored window IDs against each workspace membership.
-    const admitted = new Set(windowIds);
-    const selectedWindowIds = workspace.selection.windowIds.filter((windowId) =>
-      admitted.has(windowId),
+    const selection = normalizeSelection(
+      {
+        ...state,
+        activeWorkspaceId: workspace.id,
+        workspaces: state.workspaces.map((entry) =>
+          entry.id === workspace.id ? { ...entry, windowIds } : entry,
+        ),
+      },
+      workspace.selection,
     );
-    const anchorWindowId =
-      workspace.selection.anchorWindowId !== null &&
-      admitted.has(workspace.selection.anchorWindowId)
-        ? workspace.selection.anchorWindowId
-        : null;
 
     // Preserve workspace identity when no membership changed.
     const isUnchanged =
       windowIds.length === workspace.windowIds.length &&
       windowIds.every((windowId, index) => windowId === workspace.windowIds[index]) &&
-      selectedWindowIds.length === workspace.selection.windowIds.length &&
-      anchorWindowId === workspace.selection.anchorWindowId;
+      selection === workspace.selection;
 
     return isUnchanged
       ? workspace
       : {
           ...workspace,
-          selection: { ...workspace.selection, anchorWindowId, windowIds: selectedWindowIds },
+          selection,
           windowIds,
         };
   });
 
-  const withWorkspaces = reconciled.every(
-    (workspace, index) => workspace === state.workspaces[index],
-  )
+  return reconciled.every((workspace, index) => workspace === state.workspaces[index])
     ? state
     : { ...state, workspaces: reconciled };
-
-  return reconcileActiveAgainstMembership(withWorkspaces);
-}
-
-/** Reconciles active selection and focus with current membership. */
-function reconcileActiveAgainstMembership<Kind extends string>(
-  state: InfiniteCanvasState<Kind>,
-): InfiniteCanvasState<Kind> {
-  const selection = normalizeSelection(state, state.selection);
-  const keepsActive =
-    state.activeWindowId !== null &&
-    isInfiniteCanvasWindowInActiveWorkspace(state, state.activeWindowId);
-  const activeWindowId = keepsActive
-    ? state.activeWindowId
-    : (selection.anchorWindowId ?? getSelectableWindowIds(state).at(-1) ?? null);
-
-  return selection === state.selection && activeWindowId === state.activeWindowId
-    ? state
-    : { ...state, activeWindowId, selection };
-}
-
-/** Removes a closed window from all workspaces. */
-function detachInfiniteCanvasWindowFromWorkspaces<Kind extends string>(
-  state: InfiniteCanvasState<Kind>,
-  windowId: string,
-): InfiniteCanvasState<Kind> {
-  if (!state.workspaces.some((workspace) => workspace.windowIds.includes(windowId))) {
-    return state;
-  }
-
-  return {
-    ...state,
-    workspaces: state.workspaces.map((workspace) =>
-      workspace.windowIds.includes(windowId)
-        ? {
-            ...workspace,
-            windowIds: workspace.windowIds.filter((candidate) => candidate !== windowId),
-          }
-        : workspace,
-    ),
-  };
 }
 
 /** Moves windows and their complete groups to one workspace. */
@@ -358,7 +329,6 @@ export {
   closeInfiniteCanvasWorkspace,
   createInfiniteCanvasWorkspace,
   reconcileInfiniteCanvasWorkspaces,
-  detachInfiniteCanvasWindowFromWorkspaces,
   findInfiniteCanvasWorkspace,
   getInfiniteCanvasWorkspaceWindowIds,
   isInfiniteCanvasWindowInActiveWorkspace,

@@ -38,7 +38,11 @@ test("a window offers one handle per edge", () => {
     throw new Error("fixture window missing");
   }
 
-  const handles = getInfiniteCanvasConnectionHandles(window, SINGLE.camera, SINGLE.viewport);
+  const handles = getInfiniteCanvasConnectionHandles(
+    { rect: window.rect, windowId: window.id },
+    SINGLE.camera,
+    SINGLE.viewport,
+  );
 
   expect(handles.map((handle) => handle.edge)).toEqual(["north", "east", "south", "west"]);
   expect(handles.every((handle) => handle.windowId === "a")).toBe(true);
@@ -52,7 +56,11 @@ test("each handle sits outside the edge it names", () => {
   }
 
   const rect = worldRectToScreenRect(SINGLE.camera, SINGLE.viewport, window.rect);
-  const handles = getInfiniteCanvasConnectionHandles(window, SINGLE.camera, SINGLE.viewport);
+  const handles = getInfiniteCanvasConnectionHandles(
+    { rect: window.rect, windowId: window.id },
+    SINGLE.camera,
+    SINGLE.viewport,
+  );
   const byEdge = new Map(handles.map((handle) => [handle.edge, handle.point]));
 
   expect(byEdge.get("north")?.y).toBeLessThan(rect.top);
@@ -71,7 +79,11 @@ test("the pointer keeps a window's affordance the whole way to every handle", ()
   const rect = worldRectToScreenRect(SINGLE.camera, SINGLE.viewport, window.rect);
   const start = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
 
-  for (const handle of getInfiniteCanvasConnectionHandles(window, SINGLE.camera, SINGLE.viewport)) {
+  for (const handle of getInfiniteCanvasConnectionHandles(
+    { rect: window.rect, windowId: window.id },
+    SINGLE.camera,
+    SINGLE.viewport,
+  )) {
     const held = Array.from({ length: 41 }, (unused, step) => step / 40).reduce<string | null>(
       (previousWindowId, progress) =>
         getInfiniteCanvasConnectionAffordanceWindowId(

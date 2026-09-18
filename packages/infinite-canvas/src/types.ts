@@ -1,5 +1,10 @@
 import type { RegisterableHotkey } from "@tanstack/hotkeys";
-import type { canvasModel } from "./schema";
+import type { useRender } from "@base-ui/react/use-render";
+import type { Type } from "arktype";
+import type { canvasModel, commandInputs } from "./schema";
+import type { CommandId } from "./operations";
+import type { ComponentRenderContext } from "./component";
+import type { CameraNavigationResult } from "./camera-rig";
 import type {
   ComponentType,
   CSSProperties,
@@ -14,29 +19,26 @@ import type {
   InfiniteCanvasGroupContainerNode,
   InfiniteCanvasGroupDockEdge,
   InfiniteCanvasGroupLayoutMode,
+  InfiniteCanvasGroupMasonry,
   InfiniteCanvasGroupNode,
   InfiniteCanvasGroupWindowNodeLayout,
 } from "./group-tree";
-// This type-only import prevents a runtime cycle through `window-placement`.
-import type { InfiniteCanvasAlignment, InfiniteCanvasDistribution } from "./window-arrange";
-import type {
-  InfiniteCanvasWindowPlacement,
-  InfiniteCanvasWindowPlacementRegion,
-} from "./window-placement";
+import type { InfiniteCanvasWindowPlacement } from "./window-placement";
 
 type InfiniteCanvasPoint = Readonly<typeof canvasModel.Point.infer>;
 
 /** World space uses DOM directions. Up decreases `y`. */
-type InfiniteCanvasDirection = "down" | "left" | "right" | "up";
+type InfiniteCanvasDirection = typeof canvasModel.Direction.infer;
 
 type InfiniteCanvasSize = Readonly<typeof canvasModel.Size.infer>;
 
 type InfiniteCanvasRect = Readonly<typeof canvasModel.Rect.infer>;
 
-type InfiniteCanvasCamera = Readonly<{
-  center: InfiniteCanvasPoint;
-  zoom: number;
-}>;
+type InfiniteCanvasCamera = Readonly<typeof canvasModel.Camera.infer>;
+
+/** Screen positions use 0–1 fractions. Target offsets use world units. */
+export type CameraComposition = Readonly<typeof canvasModel.CameraComposition.infer>;
+export type CameraFramingMode = typeof canvasModel.CameraFramingMode.infer;
 
 type InfiniteCanvasViewport = InfiniteCanvasSize;
 
@@ -72,36 +74,28 @@ type InfiniteCanvasWindowCapability =
 
 type InfiniteCanvasWindowCapabilities = Readonly<typeof canvasModel.WindowCapabilities.infer>;
 
-type InfiniteCanvasWindow<Kind extends string = string, Data = unknown> = Readonly<{
-  heightMode?: "content" | "manual";
-  capabilities?: InfiniteCanvasWindowCapabilities;
-  data?: Data;
-  id: string;
-  isPinned: boolean;
-  kind: Kind;
-  minSize: InfiniteCanvasSize;
-  mode: InfiniteCanvasWindowMode;
-  rect: InfiniteCanvasRect;
-  restoreRect?: InfiniteCanvasRect;
-  title: string;
-  zIndex: number;
-}>;
+type InfiniteCanvasWindow<Kind extends string = string, Data = unknown> = Readonly<
+  Omit<typeof canvasModel.Window.infer, "kind" | "data"> & {
+    data?: Data;
+    kind: Kind;
+  }
+>;
 
 type InfiniteCanvasSelection = Readonly<{
-  anchorTarget?: InfiniteCanvasSelectionTarget | null;
-  anchorWindowId: string | null;
-  targets?: readonly InfiniteCanvasSelectionTarget[];
-  windowIds: readonly string[];
+  anchorTarget: InfiniteCanvasSelectionTarget | null;
+  targets: readonly InfiniteCanvasSelectionTarget[];
 }>;
 
-type InfiniteCanvasSelectionTargetType = "edge" | "scene-object";
+type InfiniteCanvasSelectionTargetType = "window" | "edge" | "group" | "scene-object";
 
-type InfiniteCanvasSelectionTarget = Readonly<{
-  data?: unknown;
-  id: string;
-  kind: string;
-  type: InfiniteCanvasSelectionTargetType;
-}>;
+type InfiniteCanvasSelectionTarget =
+  | Readonly<{ id: string; type: "window" }>
+  | Readonly<{
+      data?: unknown;
+      id: string;
+      kind: string;
+      type: Exclude<InfiniteCanvasSelectionTargetType, "window">;
+    }>;
 
 type InfiniteCanvasSnapGuide = Readonly<{
   axis: "x" | "y";
@@ -110,12 +104,13 @@ type InfiniteCanvasSnapGuide = Readonly<{
   kind: "center" | "edge" | "gap";
   position: number;
   sourceAnchor: "bottom" | "center" | "left" | "middle" | "right" | "top";
+  windowIds: readonly string[];
 }>;
 
 type InfiniteCanvasSnapPreview = Readonly<{
   guides: readonly InfiniteCanvasSnapGuide[];
   rect: InfiniteCanvasRect;
-  windowId: string;
+  target: TransformTarget | null;
 }>;
 
 type InfiniteCanvasSnapPolicy = Readonly<{
@@ -144,13 +139,18 @@ type InfiniteCanvasMarqueeInteraction = Readonly<{
   kind: "marquee";
   mode: InfiniteCanvasMarqueeMode;
   originPointer: InfiniteCanvasPoint;
-  originSelectionIds: readonly string[];
+  originSelection: InfiniteCanvasSelection;
   pointerId: number;
 }>;
 
+type TransformTarget =
+  | Readonly<{ id: string; type: "window" }>
+  | Readonly<{ id: string; type: "group" }>;
+
 type InfiniteCanvasMoveOriginRect = Readonly<{
+  bounds: InfiniteCanvasRect;
   rect: InfiniteCanvasRect;
-  windowId: string;
+  target: TransformTarget;
 }>;
 
 /** Describes the group region used when the current move ends. */
@@ -167,24 +167,14 @@ type InfiniteCanvasDockPreview = Readonly<{
 }>;
 
 type InfiniteCanvasMoveInteraction = Readonly<{
+  delta: InfiniteCanvasPoint;
   /** Current move preview. Null when no group target exists. */
   dockPreview: InfiniteCanvasDockPreview | null;
   kind: "move";
   originPointer: InfiniteCanvasPoint;
-  originRect: InfiniteCanvasRect;
   originRects: readonly InfiniteCanvasMoveOriginRect[];
   pointerId: number;
-  windowId: string;
-  originCamera: InfiniteCanvasCamera;
-}>;
-
-/** Moves a group by one member header. */
-type InfiniteCanvasGroupMoveInteraction = Readonly<{
-  groupId: string;
-  kind: "groupMove";
-  originPointer: InfiniteCanvasPoint;
-  originRect: InfiniteCanvasRect;
-  pointerId: number;
+  target: TransformTarget;
   originCamera: InfiniteCanvasCamera;
 }>;
 
@@ -227,24 +217,21 @@ type InfiniteCanvasResizeInteraction = Readonly<{
 }>;
 
 type InfiniteCanvasInteraction =
+  | Readonly<{ kind: "groupReorder"; groupId: string; childId: string; pointerId: number }>
   | InfiniteCanvasMarqueeInteraction
   | InfiniteCanvasPanInteraction
   | InfiniteCanvasMoveInteraction
-  | InfiniteCanvasGroupMoveInteraction
   | InfiniteCanvasGroupGutterInteraction
   | InfiniteCanvasGroupResizeInteraction
   | InfiniteCanvasResizeInteraction
   | null;
 
 /** A world-space shell that arranges member windows with a local tree. */
-type InfiniteCanvasGroup = Readonly<{
-  id: string;
-  rect: InfiniteCanvasRect;
-  /** Null derives the title from current group members. */
-  title: string | null;
-  tree: InfiniteCanvasGroupNode;
-  zIndex: number;
-}>;
+type InfiniteCanvasGroup = Readonly<
+  Omit<typeof canvasModel.GroupHeader.infer, "tree"> & {
+    tree: InfiniteCanvasGroupNode;
+  }
+>;
 
 /**
  * A directed edge between two windows.
@@ -262,7 +249,7 @@ type InfiniteCanvasConnection = Readonly<{
 }>;
 
 /** Undoable document state. */
-type InfiniteCanvasDocument<Kind extends string = string> = Readonly<{
+type DocumentContent<Kind extends string = string> = Readonly<{
   /** The active workspace is part of the undoable document. */
   activeWorkspaceId: string | null;
   connections: readonly InfiniteCanvasConnection[];
@@ -272,35 +259,20 @@ type InfiniteCanvasDocument<Kind extends string = string> = Readonly<{
 }>;
 
 /** A named window set with camera and selection snapshots from its last exit. */
-type InfiniteCanvasWorkspace = Readonly<{
-  camera: InfiniteCanvasCamera;
-  id: string;
-  selection: InfiniteCanvasSelection;
-  title: string;
-  windowIds: readonly string[];
-}>;
+type InfiniteCanvasWorkspace = Readonly<
+  Omit<typeof canvasModel.Workspace.infer, "windowIds" | "selection"> & {
+    selection: InfiniteCanvasSelection;
+    windowIds: readonly string[];
+  }
+>;
 
-type InfiniteCanvasHistory<Kind extends string = string> = Readonly<{
-  future: readonly InfiniteCanvasDocument<Kind>[];
-  past: readonly InfiniteCanvasDocument<Kind>[];
-}>;
+type InfiniteCanvasRecipeWindow = Readonly<typeof canvasModel.RecipeWindow.infer>;
 
-type InfiniteCanvasRecipeWindow = Readonly<{
-  isPinned: boolean;
-  mode: InfiniteCanvasWindowMode;
-  rect: InfiniteCanvasRect;
-  windowId: string;
-  zIndex: number;
-}>;
-
-type InfiniteCanvasRecipeGroup = Readonly<{
-  groupId: string;
-  rect: InfiniteCanvasRect;
-  /** Null preserves a title derived from recipe members. */
-  title: string | null;
-  tree: InfiniteCanvasGroupNode;
-  zIndex: number;
-}>;
+type InfiniteCanvasRecipeGroup = Readonly<
+  Omit<typeof canvasModel.RecipeGroupHeader.infer, "tree"> & {
+    tree: InfiniteCanvasGroupNode;
+  }
+>;
 
 /** A relative arrangement that references windows by ID. */
 type InfiniteCanvasRecipe = Readonly<{
@@ -326,54 +298,43 @@ type InfiniteCanvasGroupMetrics = Readonly<{
 
 type InfiniteCanvasGroupMetricsInput = Partial<InfiniteCanvasGroupMetrics>;
 
-type InfiniteCanvasState<Kind extends string = string> = Readonly<{
-  activeWindowId: string | null;
-  /** Null disables workspace filtering. */
-  activeWorkspaceId: string | null;
-  camera: InfiniteCanvasCamera;
-  connections: readonly InfiniteCanvasConnection[];
-  /** Chrome metrics used by group layout. This state is not serialized. */
-  groupMetrics: InfiniteCanvasGroupMetrics;
-  groups: readonly InfiniteCanvasGroup[];
-  /** Session-only edit history. */
-  history: InfiniteCanvasHistory<Kind>;
-  interaction: InfiniteCanvasInteraction;
-  /**
-   * The region an undo or redo just restored, for a consumer to mark. Not serialized.
-   *
-   * Optional rather than nullable because absent and "nothing revealed" are the same fact, so a
-   * reader needs one check. It also keeps a field about undo out of every fixture that builds a
-   * state for some unrelated reason.
-   *
-   * `token` counts reveals so a renderer can key on it. Undoing twice in the same place produces
-   * the same rectangle, and a marker keyed only by geometry would not restart its animation — the
-   * second undo would look like nothing happened, which is the failure this whole feature exists
-   * to remove.
-   */
-  revealedChange?: Readonly<{ rect: InfiniteCanvasRect; token: number }>;
-  selection: InfiniteCanvasSelection;
-  snapPreview: InfiniteCanvasSnapPreview | null;
-  viewport: InfiniteCanvasViewport;
-  /** Screen-pixel bands covered by consumer chrome. */
-  viewportInsets: InfiniteCanvasViewportInsets;
-  /** Screen-pixel rects covered by chrome inside the content area. */
-  viewportOccluders: readonly InfiniteCanvasViewportOccluder[];
-  windows: readonly InfiniteCanvasWindow<Kind>[];
-  workspaces: readonly InfiniteCanvasWorkspace[];
-}>;
+type InfiniteCanvasState<Kind extends string = string> = DocumentContent<Kind> &
+  Readonly<{
+    activeWindowId: string | null;
+    camera: InfiniteCanvasCamera;
+    /** Chrome metrics used by group layout. This state is not serialized. */
+    groupMetrics: InfiniteCanvasGroupMetrics;
+    /** Session-only edit history. */
+    interaction: InfiniteCanvasInteraction;
+    /**
+     * The region an undo or redo just restored, for a consumer to mark. Not serialized.
+     *
+     * Optional rather than nullable because absent and "nothing revealed" are the same fact, so a
+     * reader needs one check. It also keeps a field about undo out of every fixture that builds a
+     * state for some unrelated reason.
+     *
+     * `token` counts reveals so a renderer can key on it. Undoing twice in the same place produces
+     * the same rectangle, and a marker keyed only by geometry would not restart its animation — the
+     * second undo would look like nothing happened, which is the failure this whole feature exists
+     * to remove.
+     */
+    revealedChange?: Readonly<{ rect: InfiniteCanvasRect; token: number }>;
+    selection: InfiniteCanvasSelection;
+    snapPreview: InfiniteCanvasSnapPreview | null;
+    viewport: InfiniteCanvasViewport;
+    /** Screen-pixel bands covered by consumer chrome. */
+    viewportInsets: InfiniteCanvasViewportInsets;
+    /** Screen-pixel rects covered by chrome inside the content area. */
+    viewportOccluders: readonly InfiniteCanvasViewportOccluder[];
+  }>;
 
-/** Serialized version 3. Older versions migrate missing fields to empty lists. */
-type InfiniteCanvasSerializedState<Kind extends string = string> = Readonly<{
-  activeWindowId: string | null;
-  camera: InfiniteCanvasCamera;
-  activeWorkspaceId?: string | null;
-  connections?: readonly InfiniteCanvasConnection[];
-  groups: readonly InfiniteCanvasGroup[];
-  selection?: InfiniteCanvasSelection;
-  version: 4;
-  windows: readonly InfiniteCanvasWindow<Kind>[];
-  workspaces?: readonly InfiniteCanvasWorkspace[];
-}>;
+type InfiniteCanvasDocument<Kind extends string = string> = DocumentContent<Kind> &
+  Readonly<{
+    activeWindowId: string | null;
+    camera: InfiniteCanvasCamera;
+    selection: InfiniteCanvasSelection;
+    version: 4;
+  }>;
 
 /** Screen-pixel rect covered by consumer chrome. */
 type InfiniteCanvasViewportOccluder = InfiniteCanvasRect;
@@ -453,11 +414,12 @@ type InfiniteCanvasTheme = Readonly<{
 }>;
 
 type InfiniteCanvasWindowRenderContext<Kind extends string = string, Data = unknown> = Readonly<{
-  actions: InfiniteCanvasCommands<Kind>;
+  dispatch: InfiniteCanvasDispatch<Kind>;
   /** The room the body has, after the header and borders. A renderer that fits content needs it. */
   bodySize: InfiniteCanvasSize;
   isActive: boolean;
   isSelected: boolean;
+  rect: InfiniteCanvasRect;
   state: InfiniteCanvasState<Kind>;
   window: InfiniteCanvasWindow<Kind, Data>;
 }>;
@@ -472,6 +434,7 @@ type InfiniteCanvasSpatialTarget<Kind extends string = string> =
     }>
   | Readonly<{
       area: InfiniteCanvasSpatialWindowArea;
+      rect: InfiniteCanvasRect;
       resizeHandle?: InfiniteCanvasResizeHandle;
       type: "window";
       viewportPoint: InfiniteCanvasPoint;
@@ -592,6 +555,8 @@ type InfiniteCanvasResolvedDropTarget<Kind extends string = string> =
 
 /** Snapped drop rect and guides. */
 type InfiniteCanvasDropPlacement = Readonly<{
+  contentSize?: InfiniteCanvasSize;
+  groupInsertion?: Readonly<typeof canvasModel.GroupInsertion.infer>;
   preview: InfiniteCanvasSnapPreview | null;
   rect: InfiniteCanvasRect;
 }>;
@@ -622,13 +587,15 @@ type InfiniteCanvasDragStartInput<Payload = InfiniteCanvasDropPayload> = Readonl
   event: ReactPointerEvent<HTMLElement>;
   id: string;
   payload: Payload;
+  onActivate?: () => void;
+  activationDistance?: number;
 }>;
 
 type InfiniteCanvasDropCommitContext<
   Kind extends string = string,
   Payload = InfiniteCanvasDropPayload,
 > = Readonly<{
-  actions: InfiniteCanvasCommands<Kind>;
+  dispatch: InfiniteCanvasDispatch<Kind>;
   dropTarget: Extract<InfiniteCanvasResolvedDropTarget<Kind>, { status: "valid" }>;
   payload: Payload;
   /** Placement shown when the pointer was released. */
@@ -659,9 +626,13 @@ type InfiniteCanvasDropPolicy<
   ) => InfiniteCanvasDropValidationInput;
   onDrop?: (context: InfiniteCanvasDropCommitContext<Kind, Payload>) => void;
   /** Returns payload size and pointer offset for snap placement, or null. */
-  placement?: (
-    context: InfiniteCanvasDropTargetContext<Kind, Payload>,
-  ) => Readonly<{ anchor?: InfiniteCanvasPoint; size: InfiniteCanvasSize }> | null;
+  placement?: (context: InfiniteCanvasDropTargetContext<Kind, Payload>) => Readonly<{
+    anchor?: InfiniteCanvasPoint;
+    groupInsertion?: InfiniteCanvasDropPlacement["groupInsertion"];
+    contentSize?: InfiniteCanvasSize;
+    size: InfiniteCanvasSize;
+    snapPolicy?: InfiniteCanvasSnapPolicy | false;
+  }> | null;
 }>;
 
 /** Overlay context without the payload-consuming `startDrag` function. */
@@ -669,7 +640,7 @@ type InfiniteCanvasOverlayReadContext<
   Kind extends string = string,
   Payload = InfiniteCanvasDropPayload,
 > = Readonly<{
-  actions: InfiniteCanvasCommands<Kind>;
+  dispatch: InfiniteCanvasDispatch<Kind>;
   cancelDrag: () => void;
   contextualCommands: readonly InfiniteCanvasContextualCommand[];
   drag: InfiniteCanvasDropInteraction<Payload, Kind>;
@@ -687,10 +658,7 @@ type InfiniteCanvasOverlayRenderContext<
   }>;
 
 /** Renders a slot with merged props and default children. */
-type InfiniteCanvasSlotRender = (
-  props: Record<string, unknown>,
-  state: Readonly<{ children?: ReactNode }>,
-) => ReactNode;
+type InfiniteCanvasSlotRender = useRender.RenderProp;
 
 /** DOM attributes plus a React 19 ref and slot renderer. */
 type InfiniteCanvasSlotElementProps<Element extends HTMLElement> = HTMLAttributes<Element> &
@@ -755,7 +723,7 @@ type InfiniteCanvasSceneLayerRenderContext<
   Kind extends string = string,
   Payload = InfiniteCanvasDropPayload,
 > = Readonly<{
-  actions: InfiniteCanvasCommands<Kind>;
+  dispatch: InfiniteCanvasDispatch<Kind>;
   camera: InfiniteCanvasCamera;
   chrome: InfiniteCanvasChromeMetrics;
   devicePixelRatio: number;
@@ -801,6 +769,13 @@ type InfiniteCanvasWindowTextSelection = "none" | "native";
 type InfiniteCanvasWindowFrameChrome = "dom" | "host" | "scene";
 
 type InfiniteCanvasWindowDefinition<Kind extends string = string, Data = unknown> = Readonly<{
+  renderComponent?(props: Data, context: ComponentRenderContext): ReactNode;
+  aspectRatio?: number;
+  minSize?: InfiniteCanvasSize;
+  contextMenu?: ContextMenuPolicy | false;
+  actions?: Readonly<Record<string, ComponentAction<Data>>>;
+  schema?: Type<any, any>;
+  size?: InfiniteCanvasSize;
   bodyDragThresholdPx?: number;
   bodyPointerBehavior?: InfiniteCanvasWindowBodyPointerBehavior;
   frameChrome?: InfiniteCanvasWindowFrameChrome;
@@ -816,6 +791,26 @@ type InfiniteCanvasWindowDefinition<Kind extends string = string, Data = unknown
   wheelBehavior?: InfiniteCanvasWindowWheelBehavior;
 }>;
 
+export type ContextMenuPolicy = Readonly<{
+  commands?: readonly InfiniteCanvasCommandId[];
+  label?: string;
+  showDisabled?: boolean;
+}>;
+
+export type ComponentAction<Props = unknown> = Readonly<{
+  label: string;
+  description?: string;
+  multiple?: boolean;
+  enabled?(props: Props): boolean | string;
+}> &
+  (
+    | Readonly<{ set: Partial<Props>; update?: never }>
+    | Readonly<{
+        set?: never;
+        update(props: Props): Partial<Props> | Error;
+      }>
+  );
+
 /** Per-kind registry input with typed window data. */
 type InfiniteCanvasWindowRegistryInput<
   Kind extends string,
@@ -825,206 +820,40 @@ type InfiniteCanvasWindowRegistryInput<
 }>;
 
 type InfiniteCanvasWindowRegistry<Kind extends string = string> = Readonly<
-  Record<Kind, InfiniteCanvasWindowDefinition<Kind>>
+  Record<string, InfiniteCanvasWindowDefinition<Kind>>
 >;
 
-type InfiniteCanvasCameraNavigationBehavior =
-  | Readonly<{ type: "center" }>
-  | Readonly<{ type: "centerAtZoom"; zoom: number }>
-  | Readonly<{ maxZoom?: number; paddingPx?: number; type: "fit" }>;
+type InfiniteCanvasCameraNavigationBehavior = Readonly<
+  typeof canvasModel.CameraNavigationBehavior.infer
+>;
 
-type InfiniteCanvasCameraNavigationTarget =
-  | Readonly<{ point: InfiniteCanvasPoint; type: "point" }>
-  | Readonly<{ type: "rect"; rect: InfiniteCanvasRect }>
-  | Readonly<{ type: "selection" }>
-  | Readonly<{ type: "visibleWindows" }>
-  | Readonly<{ type: "window"; windowId: string }>;
+type InfiniteCanvasCameraNavigationTarget = Readonly<
+  typeof canvasModel.CameraNavigationTarget.infer
+>;
 
-type InfiniteCanvasCameraNavigationRequest = Readonly<{
-  behavior?: InfiniteCanvasCameraNavigationBehavior;
-  target: InfiniteCanvasCameraNavigationTarget;
-}>;
+type InfiniteCanvasCameraNavigationRequest = Readonly<
+  typeof canvasModel.CameraNavigationRequest.infer
+>;
 
-type InfiniteCanvasCommand =
-  | Readonly<{ type: "desktop.cancel" }>
-  | Readonly<{ type: "selection.clear" }>
-  | Readonly<{ type: "selection.selectAllVisible" }>
-  | Readonly<{ type: "view.fitAll" }>
-  | Readonly<{ type: "view.fitSelection" }>
-  | Readonly<{
-      request: InfiniteCanvasCameraNavigationRequest;
-      type: "view.navigate";
-    }>
-  | Readonly<{
-      amountPx: number;
-      direction: InfiniteCanvasDirection;
-      type: "window.nudge";
-    }>
-  | Readonly<{
-      /** Aligns selected floating windows within their collective bounds. */
-      alignment: InfiniteCanvasAlignment;
-      type: "window.align";
-    }>
-  | Readonly<{ type: "group.equalizeChildren" }>
-  | Readonly<{ type: "activeWindow.close" }>
-  | Readonly<{ type: "activeWindow.minimize" }>
-  | Readonly<{ type: "activeWindow.toggleMaximized" }>
-  | Readonly<{ type: "activeWindow.togglePinned" }>
-  /** Closes all closable selected windows as one edit. */
-  | Readonly<{ type: "selection.close" }>
-  /** Minimizes all permitted selected windows as one edit. */
-  | Readonly<{ type: "selection.minimize" }>
-  /** Pins all selected windows, or unpins them when all are pinned. */
-  | Readonly<{ type: "selection.togglePinned" }>
-  | Readonly<{ amountPx: number; direction: InfiniteCanvasDirection; type: "view.pan" }>
-  | Readonly<{ factor: number; type: "view.zoomBy" }>
-  | Readonly<{ direction: InfiniteCanvasDirection; type: "selection.extendDirection" }>
-  | Readonly<{ type: "selection.removeActive" }>
-  | Readonly<{ direction: "next" | "previous"; type: "workspace.cycle" }>
-  | Readonly<{ type: "workspace.showAll" }>
-  | Readonly<{ type: "workspace.removeActiveWindow" }>
-  /** Creates or enters a named workspace. */
-  | Readonly<{ title?: string; type: "workspace.create"; workspaceId: string }>
-  | Readonly<{ type: "workspace.enter"; workspaceId: string }>
-  /** Closes the workspace without closing its windows. */
-  | Readonly<{ type: "workspace.close"; workspaceId: string }>
-  /** Moves the active window to the named workspace. */
-  | Readonly<{ type: "workspace.moveActiveWindow"; workspaceId: string }>
-  /** Shows, restores, and focuses a window across workspace filters. */
-  | Readonly<{ type: "window.reveal"; windowId: string }>
-  | Readonly<{ amountPx: number; type: "group.resizePane" }>
-  | Readonly<{ type: "group.dissolve" }>
-  | Readonly<{ type: "group.flipAxis" }>
-  | Readonly<{ toward: "end" | "start"; type: "group.moveChild" }>
-  | Readonly<{ layout: InfiniteCanvasGroupLayoutMode; type: "group.setLayout" }>
-  | Readonly<{ direction: InfiniteCanvasDirection; type: "window.dockDirection" }>
-  | Readonly<{ type: "window.undock" }>
-  | Readonly<{ type: "window.swap" }>
-  | Readonly<{
-      /** Space left between packed neighbours. */
-      gapPx?: number;
-      /** Packs selected floating windows into the region they already span. */
-      type: "window.pack";
-    }>
-  | Readonly<{
-      /** Distributes selected floating windows with equal gaps. */
-      distribution: InfiniteCanvasDistribution;
-      type: "window.distribute";
-    }>
-  | Readonly<{
-      /** Places the active window in the visible region without snapping. */
-      region: InfiniteCanvasWindowPlacementRegion;
-      type: "window.place";
-    }>
-  | Readonly<{
-      /** Screen-pixel resize amount. */
-      amountPx: number;
-      /** Right and down grow. Left and up shrink. The origin stays fixed. */
-      direction: InfiniteCanvasDirection;
-      type: "window.resize";
-    }>
-  | Readonly<{
-      direction: InfiniteCanvasDirection;
-      type: "window.focusDirection";
-    }>
-  | Readonly<{ type: "history.undo" }>
-  | Readonly<{ type: "history.redo" }>
-  | Readonly<{ type: "view.resetZoom" }>;
+type InfiniteCanvasCommand = {
+  [CommandType in keyof typeof commandInputs]: Readonly<{ type: CommandType }> & {
+    readonly [Field in keyof (typeof commandInputs)[CommandType]["infer"]]: Readonly<
+      (typeof commandInputs)[CommandType]["infer"][Field]
+    >;
+  };
+}[keyof typeof commandInputs];
 
-type InfiniteCanvasCommandId =
-  | "desktop.cancel"
-  | "history.redo"
-  | "workspace.close"
-  | "workspace.create"
-  | "workspace.enter"
-  | "window.reveal"
-  | "window.align.bottom"
-  | "window.align.horizontal-center"
-  | "window.align.left"
-  | "window.align.right"
-  | "window.align.top"
-  | "window.align.vertical-center"
-  | "window.distribute.horizontal"
-  | "window.distribute.vertical"
-  | "activeWindow.close"
-  | "activeWindow.minimize"
-  | "activeWindow.toggleMaximized"
-  | "activeWindow.togglePinned"
-  | "selection.close"
-  | "selection.minimize"
-  | "selection.togglePinned"
-  | "group.equalizeChildren"
-  | "group.dissolve"
-  | "group.growPane"
-  | "group.shrinkPane"
-  | "selection.extend.down"
-  | "selection.extend.left"
-  | "selection.extend.right"
-  | "selection.extend.up"
-  | "selection.removeActive"
-  | "workspace.cycle.next"
-  | "workspace.cycle.previous"
-  | "workspace.removeActiveWindow"
-  | "workspace.moveActiveWindow"
-  | "workspace.showAll"
-  | "view.pan.down"
-  | "view.pan.left"
-  | "view.pan.right"
-  | "view.pan.up"
-  | "view.zoomIn"
-  | "view.zoomOut"
-  | "group.flipAxis"
-  | "group.moveChild.end"
-  | "group.moveChild.start"
-  | "group.setLayout.accordion"
-  | "group.setLayout.masonry"
-  | "group.setLayout.split"
-  | "group.setLayout.tabs"
-  | "window.dock.down"
-  | "window.dock.left"
-  | "window.dock.right"
-  | "window.dock.up"
-  | "window.undock"
-  | "window.swap"
-  | "window.pack"
-  | "history.undo"
-  | "selection.clear"
-  | "selection.selectAllVisible"
-  | "view.fitAll"
-  | "view.fitSelection"
-  | "view.resetZoom"
-  | "window.focus.down"
-  | "window.focus.left"
-  | "window.focus.right"
-  | "window.focus.up"
-  | "window.nudge.down"
-  | "window.nudge.down.large"
-  | "window.nudge.left"
-  | "window.nudge.left.large"
-  | "window.nudge.right"
-  | "window.nudge.right.large"
-  | "window.nudge.up"
-  | "window.nudge.up.large"
-  | "window.place.bottom"
-  | "window.place.center"
-  | "window.place.fill"
-  | "window.place.left"
-  | "window.place.right"
-  | "window.place.top"
-  | "window.resize.down"
-  | "window.resize.left"
-  | "window.resize.right"
-  | "window.resize.up";
+type InfiniteCanvasCommandId = CommandId | InfiniteCanvasCommand["type"] | `component:${string}`;
 
-type InfiniteCanvasCommandDescriptor = Readonly<{
+type InfiniteCanvasCommandDescriptor<Id extends string = InfiniteCanvasCommandId> = Readonly<{
   command: InfiniteCanvasCommand;
   description: string;
   hotkeys: readonly RegisterableHotkey[];
-  id: InfiniteCanvasCommandId;
+  id: Id;
   label: string;
 }>;
 
-type InfiniteCanvasCommandGroup = "canvas" | "edit" | "selection" | "view" | "window";
+type InfiniteCanvasCommandGroup = "canvas" | "component" | "edit" | "selection" | "view" | "window";
 
 type InfiniteCanvasContextualCommand = InfiniteCanvasCommandDescriptor &
   Readonly<{
@@ -1041,13 +870,9 @@ type InfiniteCanvasHotkeyBinding = Readonly<{
 }>;
 
 type InfiniteCanvasAction<Kind extends string = string> =
-  | Readonly<{
-      request: InfiniteCanvasCameraNavigationRequest;
-      type: "camera.navigate";
-    }>
+  | InfiniteCanvasCommand
   | Readonly<{ delta: InfiniteCanvasPoint; type: "camera.panBy" }>
   | Readonly<{ type: "camera.zoomAt"; anchor: InfiniteCanvasPoint; zoom: number }>
-  | Readonly<{ command: InfiniteCanvasCommand; type: "command.execute" }>
   | Readonly<{ connection: InfiniteCanvasConnection; type: "connection.open" }>
   | Readonly<{ connectionId: string; type: "connection.close" }>
   | Readonly<{
@@ -1056,21 +881,15 @@ type InfiniteCanvasAction<Kind extends string = string> =
       type: "connection.update";
     }>
   | Readonly<{ type: "desktop.hydrate"; state: InfiniteCanvasState<Kind> }>
-  | Readonly<{ type: "desktop.reset"; state: InfiniteCanvasState<Kind> }>
   | Readonly<{
       groupId: string;
       rect: InfiniteCanvasRect;
       title?: string;
       type: "group.create";
+      layout?: InfiniteCanvasGroupLayoutMode;
+      masonry?: InfiniteCanvasGroupMasonry;
       windowIds: readonly string[];
     }>
-  | Readonly<{
-      title?: string;
-      type: "workspace.create";
-      windowIds?: readonly string[];
-      workspaceId: string;
-    }>
-  | Readonly<{ type: "workspace.close"; workspaceId: string }>
   | Readonly<{ title: string; type: "workspace.setTitle"; workspaceId: string }>
   | Readonly<{ type: "workspace.activate"; workspaceId: string | null }>
   | Readonly<{ type: "workspace.addWindow"; windowId: string; workspaceId: string }>
@@ -1119,7 +938,6 @@ type InfiniteCanvasAction<Kind extends string = string> =
       type: "group.setChildWeights";
       weights: Readonly<Record<string, number>>;
     }>
-  | Readonly<{ containerId: string; groupId: string; type: "group.equalizeChildren" }>
   | Readonly<{
       axis: InfiniteCanvasGroupAxis;
       containerId: string;
@@ -1134,8 +952,6 @@ type InfiniteCanvasAction<Kind extends string = string> =
     }>
   | Readonly<{
       afterChildId: string;
-      availableExtent: number;
-      axis: InfiniteCanvasGroupAxis;
       beforeChildId: string;
       containerId: string;
       groupId: string;
@@ -1146,7 +962,7 @@ type InfiniteCanvasAction<Kind extends string = string> =
   | Readonly<{
       groupId: string;
       handle: InfiniteCanvasResizeHandle;
-      /** Structural group minimum from the render layer. */
+      /** Minimum frame size in world units. */
       minSize: InfiniteCanvasSize;
       point: InfiniteCanvasPoint;
       pointerId: number;
@@ -1161,9 +977,16 @@ type InfiniteCanvasAction<Kind extends string = string> =
     }>
   | Readonly<{
       type: "interaction.startMove";
+      undock?: boolean;
       pointerId: number;
       point: InfiniteCanvasPoint;
-      windowId: string;
+      target: TransformTarget;
+    }>
+  | Readonly<{
+      type: "interaction.startGroupReorder";
+      groupId: string;
+      childId: string;
+      pointerId: number;
     }>
   | Readonly<{
       clearSelection?: boolean;
@@ -1186,28 +1009,13 @@ type InfiniteCanvasAction<Kind extends string = string> =
       snapPolicy?: InfiniteCanvasSnapPolicy;
       type: "interaction.step";
     }>
-  | Readonly<{ type: "selection.add"; windowIds: readonly string[] }>
-  | Readonly<{ type: "selection.clear" }>
-  | Readonly<{ type: "selection.remove"; windowIds: readonly string[] }>
-  | Readonly<{ type: "selection.replace"; windowIds: readonly string[] }>
-  | Readonly<{ type: "selection.selectAllVisible" }>
-  | Readonly<{ targets: readonly InfiniteCanvasSelectionTarget[]; type: "selection.targets.add" }>
-  | Readonly<{
-      targets: readonly InfiniteCanvasSelectionTarget[];
-      type: "selection.targets.remove";
-    }>
-  | Readonly<{
-      targets: readonly InfiniteCanvasSelectionTarget[];
-      type: "selection.targets.replace";
-    }>
-  | Readonly<{
-      targets: readonly InfiniteCanvasSelectionTarget[];
-      type: "selection.targets.toggle";
-    }>
-  | Readonly<{ type: "selection.toggle"; windowIds: readonly string[] }>
+  | Readonly<{ type: "selection.add"; targets: readonly InfiniteCanvasSelectionTarget[] }>
+  | Readonly<{ type: "selection.remove"; targets: readonly InfiniteCanvasSelectionTarget[] }>
+  | Readonly<{ type: "selection.replace"; targets: readonly InfiniteCanvasSelectionTarget[] }>
+  | Readonly<{ type: "selection.toggle"; targets: readonly InfiniteCanvasSelectionTarget[] }>
   | Readonly<{ type: "viewport.set"; viewport: InfiniteCanvasViewport }>
-  | Readonly<{ metrics: InfiniteCanvasGroupMetrics; type: "groupMetrics.set" }>
-  | Readonly<{ insets: InfiniteCanvasViewportInsets; type: "viewportInsets.set" }>
+  | Readonly<{ metrics: InfiniteCanvasGroupMetricsInput; type: "groupMetrics.set" }>
+  | Readonly<{ insets: InfiniteCanvasViewportInsetsInput; type: "viewportInsets.set" }>
   | Readonly<{
       occluders: readonly InfiniteCanvasViewportOccluder[];
       type: "viewportOccluders.set";
@@ -1215,10 +1023,7 @@ type InfiniteCanvasAction<Kind extends string = string> =
   | Readonly<{ title: string; type: "window.setTitle"; windowId: string }>
   | Readonly<{ data: unknown; type: "window.setData"; windowId: string }>
   | Readonly<{ height: number; type: "window.setContentHeight"; windowId: string }>
-  | Readonly<{ type: "window.close"; windowId: string }>
   | Readonly<{ type: "window.focus"; windowId: string }>
-  | Readonly<{ type: "window.maximize"; windowId: string }>
-  | Readonly<{ type: "window.minimize"; windowId: string }>
   | Readonly<{
       /** Placement resolved here, against live state, rather than by the caller. */
       placement?: InfiniteCanvasWindowPlacement;
@@ -1226,188 +1031,29 @@ type InfiniteCanvasAction<Kind extends string = string> =
       type: "window.open";
       window: InfiniteCanvasWindow<Kind>;
     }>
-  | Readonly<{ type: "window.restore"; windowId: string }>
   /** A consumer sizes or places a floating window itself, as when its body sizes to content. */
   | Readonly<{ rect: InfiniteCanvasRect; type: "window.setRect"; windowId: string }>
   | Readonly<{ type: "window.togglePinned"; windowId: string }>;
 
-type InfiniteCanvasCommands<Kind extends string = string> = Readonly<{
-  closeGroup: (groupId: string) => void;
-  closeWindow: (windowId: string) => void;
-  createGroup: (
-    input: Readonly<{
-      groupId: string;
-      rect: InfiniteCanvasRect;
-      title?: string;
-      windowIds: readonly string[];
-    }>,
-  ) => void;
-  dispatch: (action: InfiniteCanvasAction<Kind>) => void;
-  dockWindow: (
-    input: Readonly<{
-      containerId: string;
-      edge: InfiniteCanvasGroupDockEdge;
-      groupId: string;
-      targetId: string;
-      windowId: string;
-    }>,
-  ) => void;
-  executeCommand: (command: InfiniteCanvasCommand) => void;
-  finishInteraction: (pointerId: number) => void;
-  focusWindow: (windowId: string) => void;
-  applyRecipe: (
-    input: Readonly<{ placement: InfiniteCanvasRecipePlacement; recipe: InfiniteCanvasRecipe }>,
-  ) => void;
-  redo: () => void;
-  reorderGroupChild: (
-    input: Readonly<{ childId: string; groupId: string; toIndex: number }>,
-  ) => void;
-  /** Rewrites members' lattice fields by id: cells, span, rows, hidden. Omitted fields keep. */
-  setGroupChildLayouts: (
-    input: Readonly<{
-      groupId: string;
-      layouts: Readonly<Record<string, InfiniteCanvasGroupWindowNodeLayout>>;
-    }>,
-  ) => void;
-  reorderWorkspace: (input: Readonly<{ toIndex: number; workspaceId: string }>) => void;
-  setGroupActiveChild: (
-    input: Readonly<{ childId: string; containerId: string; groupId: string }>,
-  ) => void;
-  setGroupChildWeights: (
-    input: Readonly<{
-      containerId: string;
-      groupId: string;
-      weights: Readonly<Record<string, number>>;
-    }>,
-  ) => void;
-  /** Gives a floating window a rect, as when its body sizes to its content. */
-  setWindowRect: (input: Readonly<{ rect: InfiniteCanvasRect; windowId: string }>) => void;
-  /** Updates non-empty titles without command-palette parameters. */
-  setWindowTitle: (input: Readonly<{ title: string; windowId: string }>) => void;
-  setWindowData: (input: Readonly<{ data: unknown; windowId: string }>) => void;
-  setWindowContentHeight: (input: Readonly<{ height: number; windowId: string }>) => void;
-  setGroupTitle: (input: Readonly<{ groupId: string; title: string }>) => void;
-  setWorkspaceTitle: (input: Readonly<{ title: string; workspaceId: string }>) => void;
-  /** Updates one workspace member without replacing the full membership list. */
-  addWindowToWorkspace: (input: Readonly<{ windowId: string; workspaceId: string }>) => void;
-  removeWindowFromWorkspace: (input: Readonly<{ windowId: string; workspaceId: string }>) => void;
-  setGroupAxis: (
-    input: Readonly<{
-      axis: InfiniteCanvasGroupAxis;
-      containerId: string;
-      groupId: string;
-    }>,
-  ) => void;
-  setGroupLayoutMode: (
-    input: Readonly<{
-      containerId: string;
-      groupId: string;
-      layout: InfiniteCanvasGroupLayoutMode;
-    }>,
-  ) => void;
-  setGroupRect: (input: Readonly<{ groupId: string; rect: InfiniteCanvasRect }>) => void;
-  startGroupGutterDrag: (
-    input: Readonly<{
-      afterChildId: string;
-      availableExtent: number;
-      axis: InfiniteCanvasGroupAxis;
-      beforeChildId: string;
-      containerId: string;
-      groupId: string;
-      point: InfiniteCanvasPoint;
-      pointerId: number;
-    }>,
-  ) => void;
-  /** Starts a group resize with a minimum from the same layout metrics. */
-  startGroupResize: (
-    input: Readonly<{
-      groupId: string;
-      handle: InfiniteCanvasResizeHandle;
-      minSize: InfiniteCanvasSize;
-      point: InfiniteCanvasPoint;
-      pointerId: number;
-    }>,
-  ) => void;
-  undo: () => void;
-  undockWindow: (input: Readonly<{ rect?: InfiniteCanvasRect; windowId: string }>) => void;
-  hydrate: (state: InfiniteCanvasState<Kind>) => void;
-  maximizeWindow: (windowId: string) => void;
-  minimizeWindow: (windowId: string) => void;
-  navigateView: (request: InfiniteCanvasCameraNavigationRequest) => void;
-  navigateToPoint: (
-    input: Readonly<{
-      behavior?: InfiniteCanvasCameraNavigationBehavior;
-      point: InfiniteCanvasPoint;
-    }>,
-  ) => void;
-  navigateToRect: (
-    input: Readonly<{
-      behavior?: InfiniteCanvasCameraNavigationBehavior;
-      rect: InfiniteCanvasRect;
-    }>,
-  ) => void;
-  navigateToWindow: (
-    input: Readonly<{
-      behavior?: InfiniteCanvasCameraNavigationBehavior;
-      windowId: string;
-    }>,
-  ) => void;
-  /** Without a placement the window keeps its own rect. */
-  openWindow: (
-    window: InfiniteCanvasWindow<Kind>,
-    placement?: InfiniteCanvasWindowPlacement,
-  ) => void;
-  panBy: (input: Readonly<{ delta: InfiniteCanvasPoint }>) => void;
-  fitAllVisibleWindows: () => void;
-  fitSelection: () => void;
-  reset: () => void;
-  restoreWindow: (windowId: string) => void;
-  selectAllVisibleWindows: () => void;
-  selectTarget: (target: InfiniteCanvasSelectionTarget) => void;
-  selectWindow: (windowId: string) => void;
-  setTargetSelection: (targets: readonly InfiniteCanvasSelectionTarget[]) => void;
-  setSelection: (windowIds: readonly string[]) => void;
-  /** Updates group chrome metrics. */
-  setGroupMetrics: (metrics: InfiniteCanvasGroupMetricsInput) => void;
-  setViewport: (viewport: InfiniteCanvasViewport) => void;
-  /** Updates screen-pixel bands covered by consumer chrome. */
-  setViewportInsets: (insets: InfiniteCanvasViewportInsetsInput) => void;
-  startMarquee: (
-    input: Readonly<{
-      mode: InfiniteCanvasMarqueeMode;
-      pointerId: number;
-      point: InfiniteCanvasPoint;
-    }>,
-  ) => void;
-  startMove: (
-    input: Readonly<{ pointerId: number; point: InfiniteCanvasPoint; windowId: string }>,
-  ) => void;
-  startPan: (
-    input: Readonly<{
-      clearSelection?: boolean;
-      pointerId: number;
-      point: InfiniteCanvasPoint;
-    }>,
-  ) => void;
-  startResize: (
-    input: Readonly<{
-      handle: InfiniteCanvasResizeHandle;
-      pointerId: number;
-      point: InfiniteCanvasPoint;
-      windowId: string;
-    }>,
-  ) => void;
-  stepInteraction: (
-    input: Readonly<{ dockIntent?: boolean; pointerId: number; point: InfiniteCanvasPoint }>,
-  ) => void;
-  toggleTargetSelection: (target: InfiniteCanvasSelectionTarget) => void;
-  toggleWindowSelection: (windowId: string) => void;
-  togglePinned: (windowId: string) => void;
-  zoomAt: (input: Readonly<{ anchor: InfiniteCanvasPoint; zoom: number }>) => void;
-}>;
+type InfiniteCanvasActionInput<
+  Type extends InfiniteCanvasAction["type"],
+  Kind extends string = string,
+> = {
+  [ActionType in Type]: Omit<Extract<InfiniteCanvasAction<Kind>, { type: ActionType }>, "type"> &
+    Readonly<{
+      type: ActionType;
+      currentState: InfiniteCanvasState<Kind>;
+    }>;
+}[Type];
+
+type InfiniteCanvasDispatch<Kind extends string = string> = (
+  action: InfiniteCanvasAction<Kind>,
+  options?: Readonly<{ signal?: AbortSignal }>,
+) => void | Promise<CameraNavigationResult>;
 
 export type {
   InfiniteCanvasAction,
+  InfiniteCanvasActionInput,
   InfiniteCanvasCamera,
   InfiniteCanvasCameraNavigationBehavior,
   InfiniteCanvasCameraNavigationRequest,
@@ -1417,18 +1063,17 @@ export type {
   InfiniteCanvasCommandDescriptor,
   InfiniteCanvasCommandGroup,
   InfiniteCanvasCommandId,
-  InfiniteCanvasCommands,
+  InfiniteCanvasDispatch,
   InfiniteCanvasContextualCommand,
   InfiniteCanvasDirection,
   InfiniteCanvasDockPreview,
-  InfiniteCanvasDocument,
+  DocumentContent,
   InfiniteCanvasGroup,
   InfiniteCanvasGroupGutterInteraction,
   InfiniteCanvasGroupMetrics,
   InfiniteCanvasGroupMetricsInput,
-  InfiniteCanvasGroupMoveInteraction,
+  TransformTarget,
   InfiniteCanvasGroupResizeInteraction,
-  InfiniteCanvasHistory,
   InfiniteCanvasCursor,
   InfiniteCanvasCursorInteraction,
   InfiniteCanvasCursorPolicy,
@@ -1473,7 +1118,7 @@ export type {
   InfiniteCanvasSceneLayerPlacement,
   InfiniteCanvasSceneLayerRenderContext,
   InfiniteCanvasSceneLayerSpace,
-  InfiniteCanvasSerializedState,
+  InfiniteCanvasDocument,
   InfiniteCanvasSelection,
   InfiniteCanvasSelectionTarget,
   InfiniteCanvasSelectionTargetType,

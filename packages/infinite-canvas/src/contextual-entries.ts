@@ -1,13 +1,11 @@
 import type { RegisterableHotkey } from "@tanstack/hotkeys";
 
-import { getInfiniteCanvasContextualCommands } from "./commands";
 import type { InfiniteCanvasHotkeyAction } from "./keyboard";
 import type {
-  InfiniteCanvasCommandDescriptor,
+  InfiniteCanvasContextualCommand,
   InfiniteCanvasCommandGroup,
-  InfiniteCanvasCommands,
+  InfiniteCanvasDispatch,
   InfiniteCanvasState,
-  InfiniteCanvasZoomPolicy,
 } from "./types";
 
 /** One bound list of canvas commands and consumer actions. */
@@ -19,29 +17,24 @@ type InfiniteCanvasContextualEntry = Readonly<{
   hotkeys: readonly RegisterableHotkey[];
   id: string;
   label: string;
-  /** Returns a consumer action promise when the action supplies one. */
-  run: () => Promise<void> | void;
+  /** Preserves asynchronous command and consumer action results. */
+  run: () => Promise<unknown> | void;
 }>;
 
 /** Binds commands and actions. An action with the same id overrides a command. */
 function getInfiniteCanvasContextualEntries<Kind extends string>(
   state: InfiniteCanvasState<Kind>,
   options: Readonly<{
-    actions: InfiniteCanvasCommands<Kind>;
-    commandDescriptors?: readonly InfiniteCanvasCommandDescriptor[];
+    dispatch: InfiniteCanvasDispatch<Kind>;
+    commands: readonly InfiniteCanvasContextualCommand[];
     hotkeyActions?: readonly InfiniteCanvasHotkeyAction<Kind>[];
-    zoomPolicy?: InfiniteCanvasZoomPolicy;
   }>,
 ): readonly InfiniteCanvasContextualEntry[] {
   const hotkeyActions = options.hotkeyActions ?? [];
   const claimed = new Set(hotkeyActions.map((action) => action.id));
 
   return [
-    ...getInfiniteCanvasContextualCommands(
-      state,
-      options.commandDescriptors,
-      options.zoomPolicy,
-    ).flatMap<InfiniteCanvasContextualEntry>((command) =>
+    ...options.commands.flatMap<InfiniteCanvasContextualEntry>((command) =>
       claimed.has(command.id)
         ? []
         : [
@@ -52,7 +45,7 @@ function getInfiniteCanvasContextualEntries<Kind extends string>(
               hotkeys: command.hotkeys,
               id: command.id,
               label: command.label,
-              run: () => options.actions.executeCommand(command.command),
+              run: () => options.dispatch(command.command),
             },
           ],
     ),

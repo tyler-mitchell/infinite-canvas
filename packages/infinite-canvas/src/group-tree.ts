@@ -18,12 +18,17 @@ type InfiniteCanvasGroupWindowNode = InfiniteCanvasGroupWindowNodeLayout &
     weight: number;
   }>;
 
-/** Grid configuration; an absent row height makes square cells. */
+/** Grid configuration uses the native grid defaults. */
 type InfiniteCanvasGroupMasonry = Readonly<
   Partial<GridConfig> & {
     allowOverlap?: boolean;
     compactType?: CompactType;
     preventCollision?: boolean;
+    responsive?: Readonly<{
+      fitViewport?: boolean;
+      breakpoints: Readonly<Record<string, number>>;
+      cols: Readonly<Record<string, number>>;
+    }>;
   }
 >;
 
@@ -76,22 +81,15 @@ function hasInfiniteCanvasGroupActiveChild(container: InfiniteCanvasGroupContain
 function setInfiniteCanvasGroupWindowNodeLayouts(
   root: InfiniteCanvasGroupNode,
   layouts: Readonly<Record<string, InfiniteCanvasGroupWindowNodeLayout>>,
-): InfiniteCanvasGroupNode {
-  if (isInfiniteCanvasGroupContainer(root)) {
-    const children = root.children.map((child) =>
-      setInfiniteCanvasGroupWindowNodeLayouts(child, layouts),
-    );
-    return children.every((child, index) => child === root.children[index])
-      ? root
-      : { ...root, children };
-  }
-
-  const layout = layouts[root.id];
-
-  return layout === undefined ||
-    Object.entries(layout).every(([key, value]) => Reflect.get(root, key) === value)
-    ? root
-    : { ...root, ...layout };
+): InfiniteCanvasGroupNode | null {
+  return normalizeInfiniteCanvasGroupTree(root, (node) => {
+    if (node.kind === "container") return node;
+    const layout = layouts[node.id];
+    return layout === undefined ||
+      Object.entries(layout).every(([key, value]) => Reflect.get(node, key) === value)
+      ? node
+      : { ...node, ...layout };
+  });
 }
 
 function getInfiniteCanvasGroupChildWeightSum(
@@ -152,36 +150,15 @@ function getInfiniteCanvasGroupWindowIds(node: InfiniteCanvasGroupNode): readonl
     : [node.id];
 }
 
-/** Replaces one node with structural sharing. The caller normalizes the result. */
+/** Replaces one node and normalizes the changed tree. */
 function replaceInfiniteCanvasGroupNode(
   node: InfiniteCanvasGroupNode,
   nodeId: string,
   replace: (node: InfiniteCanvasGroupNode) => InfiniteCanvasGroupNode | null,
 ): InfiniteCanvasGroupNode | null {
-  if (node.id === nodeId) {
-    return replace(node);
-  }
-
-  if (!isInfiniteCanvasGroupContainer(node)) {
-    return node;
-  }
-
-  const children: InfiniteCanvasGroupNode[] = [];
-  let hasChanged = false;
-
-  for (const child of node.children) {
-    const nextChild = replaceInfiniteCanvasGroupNode(child, nodeId, replace);
-
-    if (nextChild !== child) {
-      hasChanged = true;
-    }
-
-    if (nextChild !== null) {
-      children.push(nextChild);
-    }
-  }
-
-  return hasChanged ? { ...node, children } : node;
+  return normalizeInfiniteCanvasGroupTree(node, (entry) =>
+    entry.id === nodeId ? replace(entry) : entry,
+  );
 }
 
 /** Flattens nested same-axis splits and preserves relative child weights. */
@@ -212,14 +189,18 @@ function inlineSameAxisSplitChildren(
 
 /** Restores tree invariants or returns `null` for an empty tree. */
 function normalizeInfiniteCanvasGroupTree(
-  node: InfiniteCanvasGroupNode,
+  node: InfiniteCanvasGroupNode | null,
+  update?: (node: InfiniteCanvasGroupNode) => InfiniteCanvasGroupNode | null,
 ): InfiniteCanvasGroupNode | null {
+  if (node === null) return null;
+  const updated = update === undefined ? node : update(node);
+  if (updated !== node) return normalizeInfiniteCanvasGroupTree(updated);
   if (!isInfiniteCanvasGroupContainer(node)) {
     return node;
   }
 
   const normalizedChildren = node.children
-    .map(normalizeInfiniteCanvasGroupTree)
+    .map((child) => normalizeInfiniteCanvasGroupTree(child, update))
     .filter((child): child is InfiniteCanvasGroupNode => child !== null);
   const children = inlineSameAxisSplitChildren({ ...node, children: normalizedChildren });
 
@@ -234,9 +215,16 @@ function normalizeInfiniteCanvasGroupTree(
     return { ...onlyChild, weight: node.weight };
   }
 
+  const activeChildId = resolveInfiniteCanvasGroupActiveChildId(node, children);
+  if (
+    activeChildId === node.activeChildId &&
+    children.length === node.children.length &&
+    children.every((child, index) => child === node.children[index])
+  )
+    return node;
   return {
     ...node,
-    activeChildId: resolveInfiniteCanvasGroupActiveChildId(node, children),
+    activeChildId,
     children,
   };
 }
@@ -370,10 +358,8 @@ function dockInfiniteCanvasGroupWindow(
   const windowNode = createInfiniteCanvasGroupWindowNode(windowId);
 
   if (edge === "center") {
-    return normalizeGroupTreeOrNull(
-      replaceInfiniteCanvasGroupNode(root, targetId, (target) =>
-        mergeInfiniteCanvasGroupWindowAsTab(target, windowNode, containerId),
-      ),
+    return replaceInfiniteCanvasGroupNode(root, targetId, (target) =>
+      mergeInfiniteCanvasGroupWindowAsTab(target, windowNode, containerId),
     );
   }
 
@@ -384,17 +370,13 @@ function dockInfiniteCanvasGroupWindow(
     parent.axis === getInfiniteCanvasGroupDockAxis(edge);
 
   if (canExtendParent) {
-    return normalizeGroupTreeOrNull(
-      replaceInfiniteCanvasGroupNode(root, parent.id, () =>
-        insertInfiniteCanvasGroupWindowBesideSibling(parent, targetId, windowNode, edge),
-      ),
+    return replaceInfiniteCanvasGroupNode(root, parent.id, () =>
+      insertInfiniteCanvasGroupWindowBesideSibling(parent, targetId, windowNode, edge),
     );
   }
 
-  return normalizeGroupTreeOrNull(
-    replaceInfiniteCanvasGroupNode(root, targetId, (target) =>
-      splitInfiniteCanvasGroupNodeWithWindow(target, windowNode, containerId, edge),
-    ),
+  return replaceInfiniteCanvasGroupNode(root, targetId, (target) =>
+    splitInfiniteCanvasGroupNodeWithWindow(target, windowNode, containerId, edge),
   );
 }
 
@@ -403,11 +385,7 @@ function undockInfiniteCanvasGroupWindow(
   root: InfiniteCanvasGroupNode,
   windowId: string,
 ): InfiniteCanvasGroupNode | null {
-  if (findInfiniteCanvasGroupNode(root, windowId) === null) {
-    return root;
-  }
-
-  return normalizeGroupTreeOrNull(replaceInfiniteCanvasGroupNode(root, windowId, () => null));
+  return replaceInfiniteCanvasGroupNode(root, windowId, () => null);
 }
 
 /** Moves a child to a new sibling index. */
@@ -433,9 +411,7 @@ function reorderInfiniteCanvasGroupChild(
   children.splice(fromIndex, 1);
   children.splice(clampIndex(toIndex, children.length), 0, child);
 
-  return normalizeGroupTreeOrNull(
-    replaceInfiniteCanvasGroupNode(root, parent.id, () => ({ ...parent, children })),
-  );
+  return replaceInfiniteCanvasGroupNode(root, parent.id, () => ({ ...parent, children }));
 }
 
 function clampIndex(index: number, lastInsertableIndex: number): number {
@@ -453,10 +429,8 @@ function setInfiniteCanvasGroupLayoutMode(
 ): InfiniteCanvasGroupNode | null {
   const { containerId, layout } = input;
 
-  return normalizeGroupTreeOrNull(
-    replaceInfiniteCanvasGroupNode(root, containerId, (node) =>
-      isInfiniteCanvasGroupContainer(node) ? { ...node, layout } : node,
-    ),
+  return replaceInfiniteCanvasGroupNode(root, containerId, (node) =>
+    isInfiniteCanvasGroupContainer(node) ? { ...node, layout } : node,
   );
 }
 
@@ -466,10 +440,8 @@ function setInfiniteCanvasGroupAxis(
 ): InfiniteCanvasGroupNode | null {
   const { axis, containerId } = input;
 
-  return normalizeGroupTreeOrNull(
-    replaceInfiniteCanvasGroupNode(root, containerId, (node) =>
-      isInfiniteCanvasGroupContainer(node) ? { ...node, axis } : node,
-    ),
+  return replaceInfiniteCanvasGroupNode(root, containerId, (node) =>
+    isInfiniteCanvasGroupContainer(node) ? { ...node, axis } : node,
   );
 }
 
@@ -480,17 +452,15 @@ function setInfiniteCanvasGroupActiveChild(
 ): InfiniteCanvasGroupNode | null {
   const { childId, containerId } = input;
 
-  return normalizeGroupTreeOrNull(
-    replaceInfiniteCanvasGroupNode(root, containerId, (node) => {
-      if (!isInfiniteCanvasGroupContainer(node) || !hasInfiniteCanvasGroupActiveChild(node)) {
-        return node;
-      }
+  return replaceInfiniteCanvasGroupNode(root, containerId, (node) => {
+    if (!isInfiniteCanvasGroupContainer(node) || !hasInfiniteCanvasGroupActiveChild(node)) {
+      return node;
+    }
 
-      const isChild = node.children.some((child) => child.id === childId);
+    const isChild = node.children.some((child) => child.id === childId);
 
-      return isChild ? { ...node, activeChildId: childId } : node;
-    }),
-  );
+    return isChild ? { ...node, activeChildId: childId } : node;
+  });
 }
 
 /** Applies child weights by id so reordering cannot resize the wrong pane. */
@@ -500,57 +470,26 @@ function setInfiniteCanvasGroupChildWeights(
 ): InfiniteCanvasGroupNode | null {
   const { containerId, weights } = input;
 
-  return normalizeGroupTreeOrNull(
-    replaceInfiniteCanvasGroupNode(root, containerId, (node) => {
-      if (!isInfiniteCanvasGroupContainer(node)) {
-        return node;
-      }
+  return replaceInfiniteCanvasGroupNode(root, containerId, (node) => {
+    if (!isInfiniteCanvasGroupContainer(node)) {
+      return node;
+    }
 
-      return {
-        ...node,
-        children: node.children.map((child) => {
-          const weight = weights[child.id];
+    return {
+      ...node,
+      children: node.children.map((child) => {
+        const weight = weights[child.id];
 
-          return weight === undefined ? child : { ...child, weight: toGroupWeight(weight) };
-        }),
-      };
-    }),
-  );
-}
-
-/** Gives all current children equal weights in one tree mutation. */
-function equalizeInfiniteCanvasGroupChildren(
-  root: InfiniteCanvasGroupNode,
-  containerId: string,
-): InfiniteCanvasGroupNode | null {
-  return normalizeGroupTreeOrNull(
-    replaceInfiniteCanvasGroupNode(root, containerId, (node) => {
-      if (!isInfiniteCanvasGroupContainer(node)) {
-        return node;
-      }
-
-      return {
-        ...node,
-        children: node.children.map((child) => ({
-          ...child,
-          weight: DEFAULT_INFINITE_CANVAS_GROUP_WEIGHT,
-        })),
-      };
-    }),
-  );
-}
-
-function normalizeGroupTreeOrNull(
-  node: InfiniteCanvasGroupNode | null,
-): InfiniteCanvasGroupNode | null {
-  return node === null ? null : normalizeInfiniteCanvasGroupTree(node);
+        return weight === undefined ? child : { ...child, weight: toGroupWeight(weight) };
+      }),
+    };
+  });
 }
 
 export {
   DEFAULT_INFINITE_CANVAS_GROUP_WEIGHT,
   createInfiniteCanvasGroupWindowNode,
   dockInfiniteCanvasGroupWindow,
-  equalizeInfiniteCanvasGroupChildren,
   findInfiniteCanvasGroupNode,
   getInfiniteCanvasGroupChildWeightSum,
   getInfiniteCanvasGroupDockAxis,

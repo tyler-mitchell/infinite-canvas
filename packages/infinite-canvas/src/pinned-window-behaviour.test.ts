@@ -1,8 +1,8 @@
 import { expect, test } from "vite-plus/test";
 
-import { executeInfiniteCanvasCommand } from "./commands";
+import { reduceInfiniteCanvasState } from "./operations";
 import { createInfiniteCanvasState, createInfiniteCanvasWindow } from "./factory";
-import { getVisibleWindowBounds } from "./selection";
+import { getVisibleWindowBounds } from "./layout";
 import type { InfiniteCanvasState } from "./types";
 
 type Kind = "note";
@@ -22,7 +22,7 @@ const canvas = (): InfiniteCanvasState<Kind> => ({
 });
 
 const pin = (state: InfiniteCanvasState<Kind>) =>
-  executeInfiniteCanvasCommand(state, { type: "activeWindow.togglePinned" });
+  reduceInfiniteCanvasState(state, { type: "activeWindow.togglePinned" });
 
 const windowById = (state: InfiniteCanvasState<Kind>, id: string) =>
   state.windows.find((window) => window.id === id);
@@ -43,7 +43,7 @@ test("pinning does not move the window", () => {
 
 test("panning leaves a pinned window exactly where it was", () => {
   const pinned = pin(canvas());
-  const panned = executeInfiniteCanvasCommand(pinned, {
+  const panned = reduceInfiniteCanvasState(pinned, {
     amountPx: 200,
     direction: "right",
     type: "view.pan",

@@ -1,7 +1,7 @@
 import { DEFAULT_INFINITE_CANVAS_CHROME } from "./constants";
-import { projectWorldRectToScreen } from "./geometry";
-import { isWindowSelected } from "./selection";
-import { getInfiniteCanvasWindowBodyProjection } from "./window-scene-shell";
+import { getWindowBodyRect, projectWorldRectToScreen } from "./geometry";
+import type { CanvasLayout } from "./layout";
+import { isSelectionTargetSelected } from "./selection";
 import type {
   InfiniteCanvasChromeMetrics,
   InfiniteCanvasRect,
@@ -10,60 +10,46 @@ import type {
   InfiniteCanvasWindowProxy,
 } from "./types";
 
-function getScreenRect<Kind extends string>(
-  state: InfiniteCanvasState<Kind>,
-  window: InfiniteCanvasWindow<Kind>,
-  devicePixelRatio = 1,
-): InfiniteCanvasRect {
-  const projection = projectWorldRectToScreen(
-    state.camera,
-    state.viewport,
-    window.rect,
-    devicePixelRatio,
-  );
-
-  return {
-    height: projection.screenRect.height,
-    width: projection.screenRect.width,
-    x: projection.screenRect.left,
-    y: projection.screenRect.top,
-  };
-}
-
 function getInfiniteCanvasWindowProxy<Kind extends string>(
   state: InfiniteCanvasState<Kind>,
   window: InfiniteCanvasWindow<Kind>,
+  rect: InfiniteCanvasRect,
   chrome: InfiniteCanvasChromeMetrics = DEFAULT_INFINITE_CANVAS_CHROME,
   devicePixelRatio = 1,
 ): InfiniteCanvasWindowProxy<Kind> {
-  const bodyProjection = getInfiniteCanvasWindowBodyProjection(
-    window.rect,
+  const bodyLocalRect = getWindowBodyRect(rect, chrome);
+  const bodyWorldRect = {
+    ...bodyLocalRect,
+    x: rect.x + bodyLocalRect.x,
+    y: rect.y + bodyLocalRect.y,
+  };
+  const center = {
+    x: rect.x + rect.width / 2,
+    y: rect.y + rect.height / 2,
+  };
+  const { screenRect: bounds } = projectWorldRectToScreen(
     state.camera,
     state.viewport,
-    chrome,
+    rect,
     devicePixelRatio,
   );
-  const center = {
-    x: window.rect.x + window.rect.width / 2,
-    y: window.rect.y + window.rect.height / 2,
-  };
-  const screenRect = getScreenRect(state, window, devicePixelRatio);
+  const screenRect = { height: bounds.height, width: bounds.width, x: bounds.left, y: bounds.top };
   const screenCenter = {
     x: screenRect.x + screenRect.width / 2,
     y: screenRect.y + screenRect.height / 2,
   };
   return {
-    bodyLocalRect: bodyProjection.bodyLocalRect,
-    bodyWorldRect: bodyProjection.bodyWorldRect,
+    bodyLocalRect,
+    bodyWorldRect,
     center,
-    frameWorldRect: window.rect,
+    frameWorldRect: rect,
     id: window.id,
     isActive: state.activeWindowId === window.id,
     isPinned: window.isPinned,
-    isSelected: isWindowSelected(state, window.id),
+    isSelected: isSelectionTargetSelected(state.selection, { type: "window", id: window.id }),
     kind: window.kind,
     mode: window.mode,
-    rect: window.rect,
+    rect,
     screenCenter,
     screenRect,
     screenSize: {
@@ -71,22 +57,30 @@ function getInfiniteCanvasWindowProxy<Kind extends string>(
       width: screenRect.width,
     },
     size: {
-      height: window.rect.height,
-      width: window.rect.width,
+      height: rect.height,
+      width: rect.width,
     },
     title: window.title,
     zIndex: window.zIndex,
   };
 }
 
-function getInfiniteCanvasWindowProxies<Kind extends string>(
-  state: InfiniteCanvasState<Kind>,
-  chrome: InfiniteCanvasChromeMetrics = DEFAULT_INFINITE_CANVAS_CHROME,
+function getInfiniteCanvasWindowProxies<Kind extends string>({
+  chrome = DEFAULT_INFINITE_CANVAS_CHROME,
   devicePixelRatio = 1,
-): readonly InfiniteCanvasWindowProxy<Kind>[] {
-  return state.windows
-    .filter((window) => window.mode !== "minimized")
-    .map((window) => getInfiniteCanvasWindowProxy(state, window, chrome, devicePixelRatio));
+  canvasLayout,
+  state,
+}: Readonly<{
+  chrome?: InfiniteCanvasChromeMetrics;
+  devicePixelRatio?: number;
+  canvasLayout: CanvasLayout;
+  state: InfiniteCanvasState<Kind>;
+}>): readonly InfiniteCanvasWindowProxy<Kind>[] {
+  return state.windows.flatMap((window) => {
+    const rect = canvasLayout.windowRects.get(window.id);
+    if (rect === undefined) return [];
+    return [getInfiniteCanvasWindowProxy(state, window, rect, chrome, devicePixelRatio)];
+  });
 }
 
-export { getInfiniteCanvasWindowProxies, getInfiniteCanvasWindowProxy };
+export { getInfiniteCanvasWindowProxies };

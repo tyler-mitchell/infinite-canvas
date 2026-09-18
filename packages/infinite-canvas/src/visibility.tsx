@@ -2,10 +2,11 @@
 
 import { observable, type Observable } from "@legendapp/state";
 import { useValue } from "@legendapp/state/react";
-import { createContext, useContext, useEffect, useMemo, type ReactNode } from "react";
+import { createContext, useContext, useMemo, type ReactNode } from "react";
 
 import { isWorldRectWithinViewport } from "./geometry";
-import { useInfiniteCanvasStore } from "./store";
+import { getCanvasLayout } from "./layout";
+import { useInfiniteCanvasStore } from "./react/store";
 import type { InfiniteCanvasState } from "./types";
 
 /** Whether the viewport frames each tracked window. */
@@ -24,19 +25,41 @@ const InfiniteCanvasVisibilityContext =
   createContext<Observable<InfiniteCanvasVisibilityState>>(disabledVisibility$);
 
 /** Which windows the viewport frames right now. */
-function getFramedWindows(state: InfiniteCanvasState): InfiniteCanvasVisibilityState {
+function getFramedWindows(
+  state: InfiniteCanvasState,
+  canvasLayout = getCanvasLayout(state),
+): InfiniteCanvasVisibilityState {
   return Object.fromEntries(
     state.windows
-      .filter((window) => window.mode !== "minimized")
+      .filter((window) => canvasLayout.visibleWindowIds.has(window.id))
       .map((window) => [
         window.id,
-        isWorldRectWithinViewport(state.camera, state.viewport, window.rect, 0),
+        isWorldRectWithinViewport(
+          state.camera,
+          state.viewport,
+          canvasLayout.windowRects.get(window.id)!,
+          0,
+        ),
       ]),
   );
 }
 
 function InfiniteCanvasVisibilityProvider({ children }: Readonly<{ children: ReactNode }>) {
-  const visibility$ = useMemo(() => observable<InfiniteCanvasVisibilityState>({}), []);
+  const store = useInfiniteCanvasStore();
+  const visibility$ = useMemo(
+    () =>
+      observable(() =>
+        getFramedWindows(
+          {
+            ...store.state$.peek(),
+            camera: store.state$.camera.get(),
+            viewport: store.state$.viewport.get(),
+          },
+          store.layout$.get(),
+        ),
+      ),
+    [store],
+  );
 
   return (
     <InfiniteCanvasVisibilityContext.Provider value={visibility$}>
@@ -45,34 +68,14 @@ function InfiniteCanvasVisibilityProvider({ children }: Readonly<{ children: Rea
   );
 }
 
-/** Records which windows the viewport frames, on every store change. */
-function InfiniteCanvasWindowFrustumProbe() {
-  const store = useInfiniteCanvasStore();
-  const visibility$ = useContext(InfiniteCanvasVisibilityContext);
-
-  useEffect(() => {
-    // One whole-record write drops closed windows, and Legend-State compares
-    // deeply, so only a window whose framing changed notifies its readers.
-    const probe = () => {
-      visibility$.set(getFramedWindows(store.state$.peek() as InfiniteCanvasState));
-    };
-
-    probe();
-
-    return store.state$.onChange(probe);
-  }, [store, visibility$]);
-
-  return null;
-}
-
-/** @experimental Uses a fallback when no frustum probe measures this window. */
+/** Uses a fallback when visibility tracking is disabled. */
 function useInfiniteCanvasWindowFramed(windowId: string, fallback = true) {
   const visibility$ = useContext(InfiniteCanvasVisibilityContext);
 
   return useValue(() => visibility$[windowId].get() ?? fallback);
 }
 
-/** @experimental Returns aggregate frustum counts from the probe store. */
+/** Returns the current window visibility counts. */
 function useInfiniteCanvasVisibilitySummary(): InfiniteCanvasVisibilitySummary {
   const visibility$ = useContext(InfiniteCanvasVisibilityContext);
 
@@ -86,7 +89,6 @@ function useInfiniteCanvasVisibilitySummary(): InfiniteCanvasVisibilitySummary {
 
 export {
   InfiniteCanvasVisibilityProvider,
-  InfiniteCanvasWindowFrustumProbe,
   getFramedWindows,
   useInfiniteCanvasVisibilitySummary,
   useInfiniteCanvasWindowFramed,

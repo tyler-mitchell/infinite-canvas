@@ -9,7 +9,7 @@ import {
   renameInfiniteCanvasGroup,
   resolveInfiniteCanvasDockPreviewForTarget,
 } from "./group-state";
-import { reduceInfiniteCanvasState } from "./reducer";
+import { reduceInfiniteCanvasState } from "./operations";
 import type { InfiniteCanvasState } from "./types";
 
 const seed = (titles: readonly string[]): InfiniteCanvasState<"demo"> =>

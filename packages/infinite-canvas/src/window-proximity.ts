@@ -2,7 +2,7 @@
 
 import { useSelector } from "@legendapp/state/react";
 
-import { useInfiniteCanvasStore } from "./store";
+import { useInfiniteCanvasStore } from "./react/store";
 import type { InfiniteCanvasWindowProximity } from "./types";
 
 /**

@@ -35,13 +35,18 @@
   ],
   "exports": {
     ".": "./src/index.ts",
+    "./core": "./src/core.ts",
     "./scene": "./src/scene.ts",
     "./package.json": "./package.json",
-    "./theme.css": "./src/theme.css"
+    "./theme.css": "./src/theme.css",
+    "./next": "./next/index.ts",
+    "./next/react": "./next/react/index.ts",
+    "./next/theme.css": "./next/theme.css"
   },
   "publishConfig": {
     "exports": {
       ".": "./dist/index.mjs",
+      "./core": "./dist/core.mjs",
       "./scene": "./dist/scene.mjs",
       "./package.json": "./package.json",
       "./theme.css": "./dist/theme.css"
@@ -54,6 +59,7 @@
     "prepack": "vp run build",
     "test": "vp test",
     "check": "vp check",
+    "typecheck": "vp check --no-fmt --no-lint",
     "verify:api-doc": "node ./scripts/verify-api-doc.mjs",
     "verify:pure-core": "node ./scripts/verify-pure-core.mjs",
     "verify": "vp run build && pnpm run verify:consumer && node ./scripts/verify-artifact.mjs && node ./scripts/verify-api-doc.mjs && node ./scripts/verify-pure-core.mjs && node ./scripts/verify-api-stability.mjs",
@@ -62,16 +68,19 @@
     "verify:api-stability": "node ./scripts/verify-api-stability.mjs"
   },
   "dependencies": {
-    "@base-ui/react": "catalog:",
+    "@ark/util": "catalog:",
     "@legendapp/state": "catalog:",
     "@tanstack/hotkeys": "catalog:",
+    "@tanstack/react-hotkeys": "catalog:",
     "@zumer/snapdom": "catalog:",
     "arktype": "catalog:",
     "motion": "catalog:",
-    "react-grid-layout": "catalog:",
-    "use-resize-observer": "catalog:"
+    "webmcp-types": "catalog:"
   },
   "devDependencies": {
+    "@ark/attest": "catalog:",
+    "@base-ui/react": "catalog:",
+    "@base-ui/utils": "catalog:",
     "@typegpu/noise": "catalog:",
     "@typegpu/react": "catalog:",
     "@typegpu/sdf": "catalog:",
@@ -79,24 +88,37 @@
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
     "@typescript/native-preview": "7.0.0-dev.20260509.2",
+    "@vitest/browser-playwright": "catalog:",
     "@webgpu/types": "catalog:",
     "bumpp": "^11.1.0",
     "react": "catalog:",
     "react-dom": "catalog:",
+    "react-grid-layout": "catalog:",
     "typegpu": "catalog:",
     "typescript": "^6.0.3",
     "unplugin-typegpu": "catalog:",
+    "use-resize-observer": "catalog:",
+    "use-webmcp-tool": "catalog:",
     "vite-plus": "catalog:"
   },
   "peerDependencies": {
+    "@base-ui/react": "catalog:",
+    "@base-ui/utils": "catalog:",
     "@typegpu/noise": "^0.12.0",
     "@typegpu/react": "^0.12.0",
     "@typegpu/sdf": "^0.12.0",
-    "react": "^19.0.0",
-    "react-dom": "^19.0.0",
-    "typegpu": "^0.12.3"
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "typegpu": "^0.12.3",
+    "use-resize-observer": "catalog:"
   },
   "peerDependenciesMeta": {
+    "@base-ui/react": {
+      "optional": true
+    },
+    "@base-ui/utils": {
+      "optional": true
+    },
     "@typegpu/noise": {
       "optional": true
     },
@@ -106,11 +128,24 @@
     "@typegpu/sdf": {
       "optional": true
     },
+    "react": {
+      "optional": true
+    },
+    "react-dom": {
+      "optional": true
+    },
     "typegpu": {
+      "optional": true
+    },
+    "use-resize-observer": {
       "optional": true
     }
   },
   "engines": {
     "node": ">=20"
+  },
+  "inlinedDependencies": {
+    "react-grid-layout": "2.2.4",
+    "use-webmcp-tool": "0.3.0"
   }
 }

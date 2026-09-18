@@ -2,13 +2,12 @@ import { expect, test } from "vite-plus/test";
 
 import {
   DEFAULT_INFINITE_CANVAS_COMMAND_DESCRIPTORS,
-  executeInfiniteCanvasCommand,
-  getAvailableInfiniteCanvasContextualCommands,
   getInfiniteCanvasContextualCommands,
   isInfiniteCanvasCommandEnabled,
-} from "./commands";
+} from "./operations";
 import { DEFAULT_INFINITE_CANVAS_ZOOM } from "./constants";
-import { DEFAULT_INFINITE_CANVAS_GROUP_METRICS } from "./group-layout";
+import { DEFAULT_INFINITE_CANVAS_GROUP_METRICS } from "./layout";
+import { reduceInfiniteCanvasState } from "./operations";
 import type { InfiniteCanvasState } from "./types";
 
 type CommandTestWindowKind = "demo";
@@ -28,11 +27,10 @@ const commandState: InfiniteCanvasState<CommandTestWindowKind> = {
   groupMetrics: DEFAULT_INFINITE_CANVAS_GROUP_METRICS,
   groups: [],
   workspaces: [],
-  history: { future: [], past: [] },
   interaction: null,
   selection: {
-    anchorWindowId: "alpha",
-    windowIds: ["alpha"],
+    anchorTarget: { type: "window" as const, id: "alpha" },
+    targets: [{ type: "window" as const, id: "alpha" }],
   },
   snapPreview: null,
   viewport: {
@@ -62,6 +60,23 @@ const commandState: InfiniteCanvasState<CommandTestWindowKind> = {
   ],
 };
 
+test.each(["window.maximize", "window.restore"] as const)(
+  "%s keeps the canonical focus selection",
+  (type) => {
+    const target = { type: "edge" as const, id: "edge-1", kind: "dependency" };
+    const state = {
+      ...commandState,
+      selection: { ...commandState.selection, anchorTarget: target, targets: [target] },
+    };
+    const result = reduceInfiniteCanvasState(state, { type, windowId: "alpha" });
+    expect(result.activeWindowId).toBe("alpha");
+    expect(result.selection).toEqual({
+      anchorTarget: { type: "window" as const, id: "alpha" },
+      targets: [{ type: "window" as const, id: "alpha" }],
+    });
+  },
+);
+
 test("contextual commands expose enabled state and command groups", () => {
   const commands = getInfiniteCanvasContextualCommands(commandState);
   const commandById = new Map(commands.map((command) => [command.id, command]));
@@ -89,22 +104,20 @@ test("contextual commands treat non-window targets as selection", () => {
       anchorTarget: {
         id: "edge-1",
         kind: "dependency",
-        type: "edge",
+        type: "edge" as const,
       },
-      anchorWindowId: null,
       targets: [
         {
           id: "edge-1",
           kind: "dependency",
-          type: "edge",
+          type: "edge" as const,
         },
       ],
-      windowIds: [],
     },
   };
-  const availableCommandIds = getAvailableInfiniteCanvasContextualCommands(targetSelectedState).map(
-    (command) => command.id,
-  );
+  const availableCommandIds = getInfiniteCanvasContextualCommands(targetSelectedState)
+    .filter((command) => command.enabled)
+    .map((command) => command.id);
 
   expect(availableCommandIds).toContain("desktop.cancel");
   expect(availableCommandIds).toContain("selection.clear");
@@ -159,11 +172,11 @@ test("every declared command reaches the palette, with a group and a unique id",
 });
 
 test("closing and minimizing the active window act on it, and nothing else", () => {
-  const closed = executeInfiniteCanvasCommand(commandState, { type: "activeWindow.close" });
+  const closed = reduceInfiniteCanvasState(commandState, { type: "activeWindow.close" });
 
   expect(closed.windows).toEqual([]);
 
-  const minimized = executeInfiniteCanvasCommand(commandState, { type: "activeWindow.minimize" });
+  const minimized = reduceInfiniteCanvasState(commandState, { type: "activeWindow.minimize" });
 
   expect(minimized.windows[0]?.mode).toBe("minimized");
   expect(minimized.activeWindowId).toBeNull();
@@ -171,14 +184,14 @@ test("closing and minimizing the active window act on it, and nothing else", () 
 
 test("maximize toggles back to the size the window had before", () => {
   const originalRect = commandState.windows[0]!.rect;
-  const maximized = executeInfiniteCanvasCommand(commandState, {
+  const maximized = reduceInfiniteCanvasState(commandState, {
     type: "activeWindow.toggleMaximized",
   });
 
   expect(maximized.windows[0]?.mode).toBe("maximized");
   expect(maximized.windows[0]?.rect).not.toEqual(originalRect);
 
-  const restored = executeInfiniteCanvasCommand(maximized, {
+  const restored = reduceInfiniteCanvasState(maximized, {
     type: "activeWindow.toggleMaximized",
   });
 
@@ -187,19 +200,22 @@ test("maximize toggles back to the size the window had before", () => {
 });
 
 test("pinning toggles both ways", () => {
-  const pinned = executeInfiniteCanvasCommand(commandState, {
+  const pinned = reduceInfiniteCanvasState(commandState, {
     type: "activeWindow.togglePinned",
   });
 
   expect(pinned.windows[0]?.isPinned).toBe(true);
   expect(
-    executeInfiniteCanvasCommand(pinned, { type: "activeWindow.togglePinned" }).windows[0]
-      ?.isPinned,
+    reduceInfiniteCanvasState(pinned, { type: "activeWindow.togglePinned" }).windows[0]?.isPinned,
   ).toBe(false);
 });
 
-test("a lifecycle verb is offered only when a window is active", () => {
-  const empty = { ...commandState, activeWindowId: null };
+test("a lifecycle verb requires a selected or active window", () => {
+  const empty = {
+    ...commandState,
+    activeWindowId: null,
+    selection: { anchorTarget: null, targets: [] },
+  };
 
   for (const type of [
     "activeWindow.close",
@@ -213,7 +229,7 @@ test("a lifecycle verb is offered only when a window is active", () => {
 });
 
 test("panning moves the view in the direction named, at any zoom", () => {
-  const panned = executeInfiniteCanvasCommand(commandState, {
+  const panned = reduceInfiniteCanvasState(commandState, {
     amountPx: 200,
     direction: "right",
     type: "view.pan",
@@ -223,17 +239,17 @@ test("panning moves the view in the direction named, at any zoom", () => {
   expect(panned.camera.center.y).toBe(commandState.camera.center.y);
 
   expect(
-    executeInfiniteCanvasCommand(commandState, { amountPx: 200, direction: "up", type: "view.pan" })
+    reduceInfiniteCanvasState(commandState, { amountPx: 200, direction: "up", type: "view.pan" })
       .camera.center.y,
   ).toBeLessThan(commandState.camera.center.y);
 });
 
 test("a pan covers the same world distance per screen pixel at any zoom", () => {
-  const near = executeInfiniteCanvasCommand(
+  const near = reduceInfiniteCanvasState(
     { ...commandState, camera: { ...commandState.camera, zoom: 2 } },
     { amountPx: 200, direction: "right", type: "view.pan" },
   );
-  const far = executeInfiniteCanvasCommand(
+  const far = reduceInfiniteCanvasState(
     { ...commandState, camera: { ...commandState.camera, zoom: 0.5 } },
     { amountPx: 200, direction: "right", type: "view.pan" },
   );
@@ -244,7 +260,7 @@ test("a pan covers the same world distance per screen pixel at any zoom", () => 
 
 test("zooming holds the centre of the viewport still", () => {
   const near = { ...commandState, camera: { ...commandState.camera, zoom: 2 } };
-  const zoomed = executeInfiniteCanvasCommand(near, { factor: 1.25, type: "view.zoomBy" });
+  const zoomed = reduceInfiniteCanvasState(near, { factor: 1.25, type: "view.zoomBy" });
 
   expect(zoomed.camera.zoom).toBeCloseTo(2.5, 5);
   expect(zoomed.camera.center).toEqual(near.camera.center);

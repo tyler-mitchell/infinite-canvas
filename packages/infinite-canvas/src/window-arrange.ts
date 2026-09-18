@@ -3,16 +3,10 @@ import type { InfiniteCanvasPoint, InfiniteCanvasRect } from "./types";
 
 /** Aligns, distributes, and swaps window rects without resizing them. */
 /** Shared edge or center line. */
-type InfiniteCanvasAlignment =
-  | "bottom"
-  | "horizontal-center"
-  | "left"
-  | "right"
-  | "top"
-  | "vertical-center";
+type InfiniteCanvasAlignment = typeof import("./schema").canvasModel.Alignment.infer;
 
 /** Distribution axis. */
-type InfiniteCanvasDistribution = "horizontal" | "vertical";
+type InfiniteCanvasDistribution = typeof import("./schema").canvasModel.GroupAxis.infer;
 
 // Alignment requires two rects.
 const MINIMUM_ALIGN_COUNT = 2;

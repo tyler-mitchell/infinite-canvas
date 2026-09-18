@@ -15,7 +15,7 @@ The `reference/` directory is local and is not part of a clone. See
 
 ## Documents
 
-- [API.md](API.md) lists 232 values and 190 types from the public barrels.
+- [API.md](API.md) documents the public barrels.
 - [SHIP_PLAN.md](SHIP_PLAN.md) lists blockers for production and public use.
 - [ROADMAP.md](ROADMAP.md) defines programs P1 through P8, their dependencies, and their exit criteria.
 - [ARCHITECTURE_PLAN.md](ARCHITECTURE_PLAN.md) records the port plan from 2026-06-10. Most work is completed.

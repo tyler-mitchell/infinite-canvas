@@ -1,7 +1,7 @@
 import { expect, test } from "vite-plus/test";
 
 import { createInfiniteCanvasState, createInfiniteCanvasWindow } from "./factory";
-import { reduceInfiniteCanvasState } from "./reducer";
+import { reduceInfiniteCanvasState } from "./operations";
 import { createInfiniteCanvasStore } from "./store";
 import type { InfiniteCanvasAction, InfiniteCanvasState } from "./types";
 
@@ -23,17 +23,23 @@ const ACTIONS: readonly InfiniteCanvasAction<Kind>[] = [
   { type: "workspace.activate", workspaceId: "research" },
   { type: "window.open", window: pane("c") },
   { type: "window.focus", windowId: "b" },
-  { type: "selection.replace", windowIds: ["a", "b"] },
+  {
+    type: "selection.replace",
+    targets: [
+      { type: "window" as const, id: "a" },
+      { type: "window" as const, id: "b" },
+    ],
+  },
   { anchor: { x: 600, y: 400 }, type: "camera.zoomAt", zoom: 2 },
   { type: "viewport.set", viewport: { height: 800, width: 1200 } },
   { type: "window.close", windowId: "b" },
 ];
 
 test("dispatching leaves the store holding exactly what the reducer produced", () => {
-  const store = createInfiniteCanvasStore(base());
+  const store = createInfiniteCanvasStore({ initialState: base() });
 
   const expected = ACTIONS.reduce<InfiniteCanvasState<Kind>>((state, action) => {
-    store.commands.dispatch(action);
+    store.dispatch(action);
 
     return reduceInfiniteCanvasState(state, action);
   }, base());
@@ -42,15 +48,15 @@ test("dispatching leaves the store holding exactly what the reducer produced", (
 });
 
 test("a workspace action reaches the store at all", () => {
-  const store = createInfiniteCanvasStore(base());
+  const store = createInfiniteCanvasStore({ initialState: base() });
 
-  store.commands.dispatch({
+  store.dispatch({
     title: "Research",
     type: "workspace.create",
     windowIds: ["a"],
     workspaceId: "research",
   });
-  store.commands.dispatch({ type: "workspace.activate", workspaceId: "research" });
+  store.dispatch({ type: "workspace.activate", workspaceId: "research" });
 
   const state = store.state$.peek();
 
@@ -60,10 +66,27 @@ test("a workspace action reaches the store at all", () => {
 });
 
 test("an action that changes nothing writes nothing", () => {
-  const store = createInfiniteCanvasStore(base());
+  const store = createInfiniteCanvasStore({ initialState: base() });
   const before = store.state$.peek();
 
-  store.commands.dispatch({ type: "window.focus", windowId: before.activeWindowId ?? "a" });
+  store.dispatch({ type: "window.focus", windowId: before.activeWindowId ?? "a" });
 
   expect(store.state$.peek().windows).toBe(before.windows);
+});
+
+test("cancelling a drag preserves an edit to another window", () => {
+  const store = createInfiniteCanvasStore({ initialState: base() });
+  store.dispatch({
+    type: "interaction.startMove",
+    pointerId: 1,
+    point: { x: 0, y: 0 },
+    target: { type: "window", id: "a" },
+  });
+  store.dispatch({ type: "interaction.step", pointerId: 1, point: { x: 100, y: 0 } });
+  store.dispatch({ type: "window.setData", windowId: "b", data: { text: "Saved during drag" } });
+  store.dispatch({ type: "desktop.cancel" });
+  expect(store.getState().windows.find((window) => window.id === "a")?.rect.x).toBe(0);
+  expect(store.getState().windows.find((window) => window.id === "b")?.data).toEqual({
+    text: "Saved during drag",
+  });
 });

@@ -2,7 +2,12 @@ import { expect, test } from "vite-plus/test";
 
 import { DEFAULT_INFINITE_CANVAS_STACK_BANDS } from "./constants";
 import { createInfiniteCanvasWindow } from "./factory";
-import { getNextZIndex, getWindowStackValue, sortWindowsByStack } from "./stacking";
+import {
+  getNextVisibleWindowId,
+  getNextZIndex,
+  getWindowStackValue,
+  sortWindowsByStack,
+} from "./stacking";
 
 const windowWith = (id: string, zIndex: number, isPinned: boolean) =>
   createInfiniteCanvasWindow({
@@ -12,6 +17,32 @@ const windowWith = (id: string, zIndex: number, isPinned: boolean) =>
     rect: { height: 10, width: 10, x: 0, y: 0 },
     zIndex,
   });
+
+test("large stacks do not exceed the function argument limit", () => {
+  const template = windowWith("template", 0, false);
+  const windows = Array.from({ length: 150_000 }, (_, zIndex) => ({
+    ...template,
+    id: `window-${zIndex}`,
+    zIndex,
+  }));
+  expect(getNextZIndex(windows, false)).toBe(150_000);
+  expect(getNextZIndex(windows, true)).toBe(0);
+});
+
+test("the next visible window respects stack bands and skips minimized windows", () => {
+  const hidden = { ...windowWith("hidden", 50, true), mode: "minimized" as const };
+  const windows = [hidden, windowWith("pinned", 0, true), windowWith("floating", 10, false)];
+  expect(getNextVisibleWindowId(windows)).toBe("pinned");
+  expect(getNextVisibleWindowId([hidden])).toBeNull();
+  expect(getNextVisibleWindowId([])).toBeNull();
+  expect(windows.map((window) => window.id)).toEqual(["hidden", "pinned", "floating"]);
+});
+
+test("equal stack values retain the last visible window", () => {
+  expect(
+    getNextVisibleWindowId([windowWith("first", 3, false), windowWith("last", 3, false)]),
+  ).toBe("last");
+});
 
 test("pinning lifts a window by a whole band, not by a nudge", () => {
   expect(getWindowStackValue({ isPinned: false, zIndex: 5 })).toBe(5);

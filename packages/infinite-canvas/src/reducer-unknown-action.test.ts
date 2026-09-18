@@ -1,43 +1,51 @@
-import { expect, test } from "vite-plus/test";
+import { afterEach, expect, test, vi } from "vite-plus/test";
 
-import { createInfiniteCanvasState } from "./factory";
-import { reduceInfiniteCanvasState } from "./reducer";
-import type { InfiniteCanvasAction, InfiniteCanvasState } from "./types";
+import { createInfiniteCanvasState, createInfiniteCanvasWindow } from "./factory";
+import { reduceInfiniteCanvasState } from "./operations";
+import type { InfiniteCanvasAction } from "./types";
 
-const STATE: InfiniteCanvasState<"note"> = createInfiniteCanvasState<"note">({
+const state = createInfiniteCanvasState<"note">({
   viewport: { height: 800, width: 1200 },
-  windows: [],
+  windows: [
+    createInfiniteCanvasWindow({
+      id: "only",
+      kind: "note",
+      title: "Only",
+      rect: { x: 0, y: 0, width: 300, height: 200 },
+    }),
+  ],
 });
 
-const unknownAction = (type: string) => ({ type }) as unknown as InfiniteCanvasAction<"note">;
+afterEach(() => vi.restoreAllMocks());
 
-test("an unknown action names itself rather than failing somewhere else", () => {
-  expect(() => reduceInfiniteCanvasState(STATE, unknownAction("window.teleport"))).toThrow(
-    /window\.teleport/,
+test.each([
+  { type: "window.teleport" },
+  { type: "nonsense" },
+  { type: "view.zoomIn" },
+  { type: "view.zoom", direction: "out" },
+  { type: "constructor" },
+  { type: "toString" },
+  { type: "__proto__" },
+  { type: "window.close", windowId: 13 },
+])("rejected action $type preserves state and reports its type", (input) => {
+  const warning = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+  expect(reduceInfiniteCanvasState(state, input as unknown as InfiniteCanvasAction<"note">)).toBe(
+    state,
   );
+  expect(warning).toHaveBeenCalledExactlyOnceWith("Canvas action rejected", { type: input.type });
 });
 
-test("the failure says what kind of thing went wrong", () => {
-  expect(() => reduceInfiniteCanvasState(STATE, unknownAction("nonsense"))).toThrow(
-    /Unknown infinite canvas action type/,
-  );
-});
-
-test("the failure does not blame an unrelated field", () => {
-  expect(() => reduceInfiniteCanvasState(STATE, unknownAction("nonsense"))).not.toThrow(/groups/);
-});
-
-test("a plausible-looking action type is reported verbatim", () => {
-  expect(() => reduceInfiniteCanvasState(STATE, unknownAction("view.zoomIn"))).toThrow(
-    /view\.zoomIn/,
-  );
-});
-
-test("a known action still reduces normally", () => {
-  const panned = reduceInfiniteCanvasState(STATE, {
-    delta: { x: 40, y: 0 },
-    type: "camera.panBy",
+test("known actions still execute", () => {
+  const panned = reduceInfiniteCanvasState(state, { delta: { x: 40, y: 0 }, type: "camera.panBy" });
+  expect(panned.camera.center).not.toEqual(state.camera.center);
+  const minimized = {
+    ...state,
+    windows: state.windows.map((window) => ({ ...window, mode: "minimized" as const })),
+  };
+  const revealed = reduceInfiniteCanvasState(minimized, {
+    type: "window.reveal",
+    windowId: "only",
   });
-
-  expect(panned.camera.center).not.toEqual(STATE.camera.center);
+  expect(revealed.windows[0]?.mode).toBe("normal");
+  expect(revealed.activeWindowId).toBe("only");
 });

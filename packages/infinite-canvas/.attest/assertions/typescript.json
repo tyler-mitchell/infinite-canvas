@@ -1,0 +1,677 @@
+{
+  "next/canvas.attest.ts": [
+    {
+      "location": {
+        "start": {
+          "line": 9,
+          "char": 3
+        },
+        "end": {
+          "line": 12,
+          "char": 6
+        }
+      },
+      "args": [],
+      "typeArgs": [
+        {
+          "type": "{ window?: string | undefined; width?: number | undefined; height?: number | undefined; by?: { x: number; y: number; unit?: \"step\" | \"largeStep\" | undefined; } | undefined; }",
+          "relationships": {
+            "args": [],
+            "typeArgs": ["equality", "equality"]
+          }
+        },
+        {
+          "type": "{ window?: string | undefined; width?: number | undefined; height?: number | undefined; by?: { x: number; y: number; unit?: \"step\" | \"largeStep\" | undefined; } | undefined; }",
+          "relationships": {
+            "args": [],
+            "typeArgs": ["equality", "equality"]
+          }
+        }
+      ],
+      "errors": [],
+      "completions": {}
+    },
+    {
+      "location": {
+        "start": {
+          "line": 13,
+          "char": 3
+        },
+        "end": {
+          "line": 13,
+          "char": 89
+        }
+      },
+      "args": [],
+      "typeArgs": [
+        {
+          "type": "Observable<WindowState>",
+          "relationships": {
+            "args": [],
+            "typeArgs": ["equality", "equality"]
+          }
+        },
+        {
+          "type": "Observable<{ id: string; kind: string; title: string; data?: unknown; mode: \"normal\" | \"minimized\" | \"maximized\"; isPinned: boolean; rect: { x: number; y: number; width: number; height: number; }; restoreRect?: { x: number; y: number; width: number; height: number; } | undefined; minSize?: { width: number; height: number; } | undefined; aspectRatio?: number | undefined; capabilities?: { closable?: boolean | undefined; maximizable?: boolean | undefined; minimizable?: boolean | undefined; movable?: boolean | undefined; resizable?: boolean | undefined; } | undefined; heightMode: \"content\" | \"manual\"; }>",
+          "relationships": {
+            "args": [],
+            "typeArgs": ["equality", "equality"]
+          }
+        }
+      ],
+      "errors": [],
+      "completions": {}
+    },
+    {
+      "location": {
+        "start": {
+          "line": 14,
+          "char": 3
+        },
+        "end": {
+          "line": 14,
+          "char": 89
+        }
+      },
+      "args": [],
+      "typeArgs": [
+        {
+          "type": "Result<null>",
+          "relationships": {
+            "args": [],
+            "typeArgs": ["equality", "equality"]
+          }
+        },
+        {
+          "type": "Result<null>",
+          "relationships": {
+            "args": [],
+            "typeArgs": ["equality", "equality"]
+          }
+        }
+      ],
+      "errors": [],
+      "completions": {}
+    }
+  ],
+  "next/model.attest.ts": [
+    {
+      "location": {
+        "start": {
+          "line": 19,
+          "char": 3
+        },
+        "end": {
+          "line": 19,
+          "char": 49
+        }
+      },
+      "args": [
+        {
+          "type": "number",
+          "relationships": {
+            "args": ["equality"],
+            "typeArgs": ["equality"]
+          }
+        }
+      ],
+      "typeArgs": [
+        {
+          "type": "number",
+          "relationships": {
+            "args": ["equality"],
+            "typeArgs": ["equality"]
+          }
+        }
+      ],
+      "errors": [],
+      "completions": {}
+    },
+    {
+      "location": {
+        "start": {
+          "line": 104,
+          "char": 7
+        },
+        "end": {
+          "line": 104,
+          "char": 34
+        }
+      },
+      "args": [
+        {
+          "type": "string",
+          "relationships": {
+            "args": ["equality"],
+            "typeArgs": ["equality"]
+          }
+        }
+      ],
+      "typeArgs": [
+        {
+          "type": "string",
+          "relationships": {
+            "args": ["equality"],
+            "typeArgs": ["equality"]
+          }
+        }
+      ],
+      "errors": [],
+      "completions": {}
+    },
+    {
+      "location": {
+        "start": {
+          "line": 105,
+          "char": 7
+        },
+        "end": {
+          "line": 105,
+          "char": 62
+        }
+      },
+      "args": [
+        {
+          "type": "\"normal\" | \"minimized\"",
+          "relationships": {
+            "args": ["equality"],
+            "typeArgs": ["equality"]
+          }
+        }
+      ],
+      "typeArgs": [
+        {
+          "type": "\"normal\" | \"minimized\"",
+          "relationships": {
+            "args": ["equality"],
+            "typeArgs": ["equality"]
+          }
+        }
+      ],
+      "errors": [],
+      "completions": {}
+    },
+    {
+      "location": {
+        "start": {
+          "line": 110,
+          "char": 9
+        },
+        "end": {
+          "line": 110,
+          "char": 43
+        }
+      },
+      "args": [
+        {
+          "type": "string",
+          "relationships": {
+            "args": ["equality"],
+            "typeArgs": ["equality"]
+          }
+        }
+      ],
+      "typeArgs": [
+        {
+          "type": "string",
+          "relationships": {
+            "args": ["equality"],
+            "typeArgs": ["equality"]
+          }
+        }
+      ],
+      "errors": [],
+      "completions": {}
+    },
+    {
+      "location": {
+        "start": {
+          "line": 117,
+          "char": 7
+        },
+        "end": {
+          "line": 117,
+          "char": 35
+        }
+      },
+      "args": [
+        {
+          "type": "number",
+          "relationships": {
+            "args": ["equality"],
+            "typeArgs": ["equality"]
+          }
+        }
+      ],
+      "typeArgs": [
+        {
+          "type": "number",
+          "relationships": {
+            "args": ["equality"],
+            "typeArgs": ["equality"]
+          }
+        }
+      ],
+      "errors": [],
+      "completions": {}
+    },
+    {
+      "location": {
+        "start": {
+          "line": 118,
+          "char": 7
+        },
+        "end": {
+          "line": 118,
+          "char": 38
+        }
+      },
+      "args": [
+        {
+          "type": "number",
+          "relationships": {
+            "args": ["equality"],
+            "typeArgs": ["equality"]
+          }
+        }
+      ],
+      "typeArgs": [
+        {
+          "type": "number",
+          "relationships": {
+            "args": ["equality"],
+            "typeArgs": ["equality"]
+          }
+        }
+      ],
+      "errors": [],
+      "completions": {}
+    },
+    {
+      "location": {
+        "start": {
+          "line": 122,
+          "char": 7
+        },
+        "end": {
+          "line": 122,
+          "char": 55
+        }
+      },
+      "args": [
+        {
+          "type": "string",
+          "relationships": {
+            "args": ["equality"],
+            "typeArgs": ["equality"]
+          }
+        }
+      ],
+      "typeArgs": [
+        {
+          "type": "string",
+          "relationships": {
+            "args": ["equality"],
+            "typeArgs": ["equality"]
+          }
+        }
+      ],
+      "errors": [],
+      "completions": {}
+    },
+    {
+      "location": {
+        "start": {
+          "line": 151,
+          "char": 3
+        },
+        "end": {
+          "line": 151,
+          "char": 56
+        }
+      },
+      "args": [
+        {
+          "type": "\"renameWindow\"",
+          "relationships": {
+            "args": ["equality"],
+            "typeArgs": ["equality"]
+          }
+        }
+      ],
+      "typeArgs": [
+        {
+          "type": "\"renameWindow\"",
+          "relationships": {
+            "args": ["equality"],
+            "typeArgs": ["equality"]
+          }
+        }
+      ],
+      "errors": [],
+      "completions": {}
+    },
+    {
+      "location": {
+        "start": {
+          "line": 152,
+          "char": 3
+        },
+        "end": {
+          "line": 152,
+          "char": 82
+        }
+      },
+      "args": [
+        {
+          "type": "{ window: string; title: string; }",
+          "relationships": {
+            "args": ["equality"],
+            "typeArgs": ["equality"]
+          }
+        }
+      ],
+      "typeArgs": [
+        {
+          "type": "{ window: string; title: string; }",
+          "relationships": {
+            "args": ["equality"],
+            "typeArgs": ["equality"]
+          }
+        }
+      ],
+      "errors": [],
+      "completions": {},
+      "jsdoc": "#### type of input this allows\n\n🥸 inference-only property that will be `undefined` at runtime"
+    },
+    {
+      "location": {
+        "start": {
+          "line": 153,
+          "char": 3
+        },
+        "end": {
+          "line": 153,
+          "char": 86
+        }
+      },
+      "args": [
+        {
+          "type": "Result<null>",
+          "relationships": {
+            "args": ["equality"],
+            "typeArgs": ["equality"]
+          }
+        }
+      ],
+      "typeArgs": [
+        {
+          "type": "Result<null>",
+          "relationships": {
+            "args": ["equality"],
+            "typeArgs": ["equality"]
+          }
+        }
+      ],
+      "errors": [],
+      "completions": {}
+    },
+    {
+      "location": {
+        "start": {
+          "line": 154,
+          "char": 3
+        },
+        "end": {
+          "line": 154,
+          "char": 74
+        }
+      },
+      "args": [
+        {
+          "type": "Result<string>",
+          "relationships": {
+            "args": ["equality"],
+            "typeArgs": ["equality"]
+          }
+        }
+      ],
+      "typeArgs": [
+        {
+          "type": "Result<string>",
+          "relationships": {
+            "args": ["equality"],
+            "typeArgs": ["equality"]
+          }
+        }
+      ],
+      "errors": [],
+      "completions": {}
+    },
+    {
+      "location": {
+        "start": {
+          "line": 155,
+          "char": 3
+        },
+        "end": {
+          "line": 155,
+          "char": 79
+        }
+      },
+      "args": [
+        {
+          "type": "Result<string>",
+          "relationships": {
+            "args": ["equality"],
+            "typeArgs": ["equality"]
+          }
+        }
+      ],
+      "typeArgs": [
+        {
+          "type": "Result<string>",
+          "relationships": {
+            "args": ["equality"],
+            "typeArgs": ["equality"]
+          }
+        }
+      ],
+      "errors": [],
+      "completions": {}
+    },
+    {
+      "location": {
+        "start": {
+          "line": 156,
+          "char": 3
+        },
+        "end": {
+          "line": 156,
+          "char": 89
+        }
+      },
+      "args": [
+        {
+          "type": "Result<number>",
+          "relationships": {
+            "args": ["equality"],
+            "typeArgs": ["equality"]
+          }
+        }
+      ],
+      "typeArgs": [
+        {
+          "type": "Result<number>",
+          "relationships": {
+            "args": ["equality"],
+            "typeArgs": ["equality"]
+          }
+        }
+      ],
+      "errors": [],
+      "completions": {}
+    },
+    {
+      "location": {
+        "start": {
+          "line": 169,
+          "char": 3
+        },
+        "end": {
+          "line": 169,
+          "char": 87
+        }
+      },
+      "args": [
+        {
+          "type": "{ window: string; title: string; }",
+          "relationships": {
+            "args": ["equality"],
+            "typeArgs": ["equality"]
+          }
+        }
+      ],
+      "typeArgs": [
+        {
+          "type": "{ window: string; title: string; }",
+          "relationships": {
+            "args": ["equality"],
+            "typeArgs": ["equality"]
+          }
+        }
+      ],
+      "errors": [],
+      "completions": {},
+      "jsdoc": "#### type of input this allows\n\n🥸 inference-only property that will be `undefined` at runtime"
+    },
+    {
+      "location": {
+        "start": {
+          "line": 170,
+          "char": 3
+        },
+        "end": {
+          "line": 170,
+          "char": 92
+        }
+      },
+      "args": [
+        {
+          "type": "string | ArkErrors | Error",
+          "relationships": {
+            "args": ["equality"],
+            "typeArgs": ["equality"]
+          }
+        }
+      ],
+      "typeArgs": [
+        {
+          "type": "string | ArkErrors | Error",
+          "relationships": {
+            "args": ["equality"],
+            "typeArgs": ["equality"]
+          }
+        }
+      ],
+      "errors": [],
+      "completions": {}
+    },
+    {
+      "location": {
+        "start": {
+          "line": 193,
+          "char": 3
+        },
+        "end": {
+          "line": 193,
+          "char": 54
+        }
+      },
+      "args": [
+        {
+          "type": "string",
+          "relationships": {
+            "args": ["equality"],
+            "typeArgs": ["equality"]
+          }
+        }
+      ],
+      "typeArgs": [
+        {
+          "type": "string",
+          "relationships": {
+            "args": ["equality"],
+            "typeArgs": ["equality"]
+          }
+        }
+      ],
+      "errors": [],
+      "completions": {}
+    },
+    {
+      "location": {
+        "start": {
+          "line": 194,
+          "char": 3
+        },
+        "end": {
+          "line": 194,
+          "char": 54
+        }
+      },
+      "args": [
+        {
+          "type": "number",
+          "relationships": {
+            "args": ["equality"],
+            "typeArgs": ["equality"]
+          }
+        }
+      ],
+      "typeArgs": [
+        {
+          "type": "number",
+          "relationships": {
+            "args": ["equality"],
+            "typeArgs": ["equality"]
+          }
+        }
+      ],
+      "errors": [],
+      "completions": {}
+    },
+    {
+      "location": {
+        "start": {
+          "line": 195,
+          "char": 3
+        },
+        "end": {
+          "line": 195,
+          "char": 57
+        }
+      },
+      "args": [
+        {
+          "type": "number | null",
+          "relationships": {
+            "args": ["equality"],
+            "typeArgs": ["equality"]
+          }
+        }
+      ],
+      "typeArgs": [
+        {
+          "type": "number | null",
+          "relationships": {
+            "args": ["equality"],
+            "typeArgs": ["equality"]
+          }
+        }
+      ],
+      "errors": [],
+      "completions": {}
+    }
+  ]
+}

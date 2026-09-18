@@ -1,7 +1,7 @@
 import { expect, test } from "vite-plus/test";
 
 import { createInfiniteCanvasState, createInfiniteCanvasWindow } from "./factory";
-import { reduceInfiniteCanvasState } from "./reducer";
+import { reduceInfiniteCanvasState } from "./operations";
 import type { InfiniteCanvasState } from "./types";
 import { isInfiniteCanvasWindowInActiveWorkspace } from "./workspace-membership";
 
@@ -19,6 +19,7 @@ const twoDesktops = (): InfiniteCanvasState<Kind> => {
   const research = reduceInfiniteCanvasState(
     createInfiniteCanvasState<Kind>({ windows: [pane("sources"), pane("draft")] }),
     {
+      activate: false,
       title: "Research",
       type: "workspace.create",
       windowIds: ["sources"],
@@ -26,6 +27,7 @@ const twoDesktops = (): InfiniteCanvasState<Kind> => {
     },
   );
   const writing = reduceInfiniteCanvasState(research, {
+    activate: false,
     title: "Writing",
     type: "workspace.create",
     windowIds: ["draft"],
@@ -36,10 +38,7 @@ const twoDesktops = (): InfiniteCanvasState<Kind> => {
 };
 
 const reveal = (state: InfiniteCanvasState<Kind>, windowId: string) =>
-  reduceInfiniteCanvasState(state, {
-    command: { type: "window.reveal", windowId },
-    type: "command.execute",
-  });
+  reduceInfiniteCanvasState(state, { type: "window.reveal", windowId });
 
 test("revealing a window on another desktop switches to that desktop", () => {
   const revealed = reveal(twoDesktops(), "sources");

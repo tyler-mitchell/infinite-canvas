@@ -1,7 +1,8 @@
+import { getSelectedWindowIds } from "./selection";
 import { expect, test } from "vite-plus/test";
 
 import { createInfiniteCanvasState, createInfiniteCanvasWindow } from "./factory";
-import { reduceInfiniteCanvasState } from "./reducer";
+import { reduceInfiniteCanvasState } from "./operations";
 import type { InfiniteCanvasState } from "./types";
 
 type Kind = "note";
@@ -29,6 +30,7 @@ const twoDesktops = (): InfiniteCanvasState<Kind> => {
     viewport: { height: 800, width: 1200 },
   };
   const research = reduceInfiniteCanvasState(base, {
+    activate: false,
     title: "Research",
     type: "workspace.create",
     windowIds: ["a", "b"],
@@ -36,6 +38,7 @@ const twoDesktops = (): InfiniteCanvasState<Kind> => {
   });
 
   return reduceInfiniteCanvasState(research, {
+    activate: false,
     title: "Writing",
     type: "workspace.create",
     windowIds: [],
@@ -44,10 +47,7 @@ const twoDesktops = (): InfiniteCanvasState<Kind> => {
 };
 
 const enter = (state: InfiniteCanvasState<Kind>, workspaceId: string) =>
-  reduceInfiniteCanvasState(state, {
-    command: { type: "workspace.enter", workspaceId },
-    type: "command.execute",
-  });
+  reduceInfiniteCanvasState(state, { type: "workspace.enter", workspaceId });
 
 const targetIds = (state: InfiniteCanvasState<Kind>) =>
   (state.selection.targets ?? []).map((target) => target.id);
@@ -55,7 +55,7 @@ const targetIds = (state: InfiniteCanvasState<Kind>) =>
 const withSelectedEdge = () =>
   reduceInfiniteCanvasState(enter(twoDesktops(), "research"), {
     targets: [edge],
-    type: "selection.targets.add",
+    type: "selection.add",
   });
 
 test("an edge can be selected on a desktop", () => {
@@ -79,6 +79,6 @@ test("a stored window id is cleaned while the stored target beside it is not", (
   const closed = reduceInfiniteCanvasState(away, { type: "window.close", windowId: "a" });
   const stored = closed.workspaces.find((workspace) => workspace.id === "research");
 
-  expect(stored?.selection.windowIds ?? []).not.toContain("a");
+  expect(getSelectedWindowIds(stored!.selection)).not.toContain("a");
   expect((stored?.selection.targets ?? []).map((target) => target.id)).toStrictEqual([edge.id]);
 });

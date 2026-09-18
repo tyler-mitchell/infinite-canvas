@@ -1,12 +1,12 @@
+import { getSelectedWindowIds } from "./selection";
 import { expect, test } from "vite-plus/test";
 
-import { createInfiniteCanvasHandle } from "./canvas-handle";
 import { createInfiniteCanvasState, createInfiniteCanvasWindow } from "./factory";
 import { createInfiniteCanvasStore } from "./store";
 
 function createTestStore() {
-  return createInfiniteCanvasStore(
-    createInfiniteCanvasState({
+  return createInfiniteCanvasStore({
+    initialState: createInfiniteCanvasState({
       windows: [
         createInfiniteCanvasWindow({
           id: "note-1",
@@ -22,38 +22,41 @@ function createTestStore() {
         }),
       ],
     }),
-  );
+  });
 }
 
-test("handle commands drive the same mutation path as the store", () => {
+test("store dispatch drives the mutation path", () => {
   const store = createTestStore();
-  const handle = createInfiniteCanvasHandle(store);
 
-  handle.commands.selectWindow("note-2");
-  handle.commands.focusWindow("note-2");
+  store.dispatch({
+    type: "selection.replace",
+    targets: [{ type: "window" as const, id: "note-2" }],
+  });
+  store.dispatch({ type: "window.focus", windowId: "note-2" });
 
-  const state = handle.getState();
+  const state = store.getState();
   expect(state.activeWindowId).toBe("note-2");
-  expect(state.selection.windowIds).toEqual(["note-2"]);
+  expect(getSelectedWindowIds(state.selection)).toEqual(["note-2"]);
 });
 
-test("handle snapshots are JSON-safe and strip transient interaction", () => {
+test("store snapshots are JSON-safe and strip transient interaction", () => {
   const store = createTestStore();
-  const handle = createInfiniteCanvasHandle(store);
 
-  const snapshot = handle.snapshot();
+  const snapshot = store.snapshot();
   expect(() => JSON.stringify(snapshot)).not.toThrow();
-  expect(JSON.parse(JSON.stringify(snapshot))).toEqual(snapshot);
+  expect(JSON.parse(JSON.stringify(snapshot))).toStrictEqual(snapshot);
+  expect(createInfiniteCanvasStore({ document: snapshot }).getState()?.windows).toEqual(
+    snapshot.windows,
+  );
   expect("interaction" in snapshot).toBe(false);
 });
 
-test("handle lists enabled contextual commands with descriptors", () => {
+test("store lists enabled contextual commands with descriptors", () => {
   const store = createTestStore();
-  const handle = createInfiniteCanvasHandle(store);
 
-  handle.commands.setViewport({ height: 800, width: 1200 });
+  store.dispatch({ type: "viewport.set", viewport: { height: 800, width: 1200 } });
 
-  const commands = handle.getContextualCommands();
+  const commands = store.getContextualCommands();
   expect(commands.length).toBeGreaterThan(0);
   for (const command of commands) {
     expect(command.enabled).toBe(true);
@@ -65,13 +68,12 @@ test("handle lists enabled contextual commands with descriptors", () => {
   expect(fitAll).toBeDefined();
 });
 
-test("handle executes contextual command descriptors", () => {
+test("store executes contextual command descriptors", () => {
   const store = createTestStore();
-  const handle = createInfiniteCanvasHandle(store);
-  handle.commands.setViewport({ height: 800, width: 1200 });
-  const before = handle.getState().camera;
+  store.dispatch({ type: "viewport.set", viewport: { height: 800, width: 1200 } });
+  const before = store.getState().camera;
 
-  handle.commands.executeCommand({ type: "view.fitAll" });
+  store.dispatch({ type: "view.fitAll" });
 
-  expect(handle.getState().camera).not.toEqual(before);
+  expect(store.getState().camera).not.toEqual(before);
 });

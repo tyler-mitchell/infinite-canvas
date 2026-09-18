@@ -9,10 +9,10 @@ import { getConstrainedZoom } from "./geometry";
 import { useInfiniteCanvasIcons } from "./icons";
 import { getSelectableWindowIds } from "./selection";
 import {
-  useInfiniteCanvasActions,
+  useInfiniteCanvasDispatch,
   useInfiniteCanvasSelectionBounds,
   useInfiniteCanvasState,
-} from "./store";
+} from "./react/store";
 import type {
   InfiniteCanvasHudPolicy,
   InfiniteCanvasHudPolicyInput,
@@ -109,7 +109,7 @@ function InfiniteCanvasHud({
   zoomPolicy: InfiniteCanvasZoomPolicy;
 }>) {
   const state = useInfiniteCanvasState();
-  const actions = useInfiniteCanvasActions();
+  const dispatch = useInfiniteCanvasDispatch();
   const { reset: ResetIcon } = useInfiniteCanvasIcons();
   const resolvedPolicy = resolveInfiniteCanvasHudPolicy(policy);
   // The dock lists minimized windows in the active workspace.
@@ -190,7 +190,7 @@ function InfiniteCanvasHud({
                   data-slot={INFINITE_CANVAS_SLOTS.hudDockItem}
                   key={window.id}
                   onClick={() => {
-                    actions.restoreWindow(window.id);
+                    dispatch({ type: "window.restore", windowId: window.id });
                   }}
                   style={{ pointerEvents: "auto" }}
                   title={window.title}
@@ -219,7 +219,7 @@ function InfiniteCanvasHud({
                   data-action="reset"
                   data-slot={INFINITE_CANVAS_SLOTS.hudButton}
                   onClick={() => {
-                    actions.reset();
+                    dispatch({ type: "desktop.reset" });
                   }}
                   style={HUD_INTERACTIVE_STYLE}
                   type="button"
@@ -237,7 +237,7 @@ function InfiniteCanvasHud({
 
 function InfiniteCanvasCameraNavigationControls() {
   const state = useInfiniteCanvasState();
-  const actions = useInfiniteCanvasActions();
+  const dispatch = useInfiniteCanvasDispatch();
   const {
     "center-active": CenterActiveIcon,
     "fit-all": FitAllIcon,
@@ -271,10 +271,13 @@ function InfiniteCanvasCameraNavigationControls() {
             return;
           }
 
-          actions.navigateView({
-            target: {
-              type: "window",
-              windowId: activeWindow.id,
+          dispatch({
+            type: "camera.navigate",
+            request: {
+              target: {
+                type: "window",
+                windowId: activeWindow.id,
+              },
             },
           });
         }}
@@ -289,14 +292,7 @@ function InfiniteCanvasCameraNavigationControls() {
         data-slot={INFINITE_CANVAS_SLOTS.hudButton}
         disabled={!selectionExists}
         onClick={() => {
-          actions.navigateView({
-            behavior: {
-              type: "fit",
-            },
-            target: {
-              type: "selection",
-            },
-          });
+          dispatch({ type: "view.fitSelection" });
         }}
         title="Fit selection"
         type="button"
@@ -309,14 +305,7 @@ function InfiniteCanvasCameraNavigationControls() {
         data-slot={INFINITE_CANVAS_SLOTS.hudButton}
         disabled={!visibleWindowExists}
         onClick={() => {
-          actions.navigateView({
-            behavior: {
-              type: "fit",
-            },
-            target: {
-              type: "visibleWindows",
-            },
-          });
+          dispatch({ type: "view.fitAll" });
         }}
         title="Fit all visible windows"
         type="button"
@@ -384,7 +373,7 @@ function InfiniteCanvasZoomControls({
   zoomPolicy: InfiniteCanvasZoomPolicy;
 }>) {
   const state = useInfiniteCanvasState();
-  const actions = useInfiniteCanvasActions();
+  const dispatch = useInfiniteCanvasDispatch();
   const { "zoom-in": ZoomInIcon, "zoom-out": ZoomOutIcon } = useInfiniteCanvasIcons();
   const minZoom = getConstrainedZoom(0, zoomPolicy);
   const zoomPercent = Math.round(state.camera.zoom * 100);
@@ -401,7 +390,8 @@ function InfiniteCanvasZoomControls({
         data-slot={INFINITE_CANVAS_SLOTS.hudButton}
         disabled={state.camera.zoom <= minZoom}
         onClick={() => {
-          actions.zoomAt({
+          dispatch({
+            type: "camera.zoomAt",
             anchor: centerAnchor,
             zoom: state.camera.zoom / zoomPolicy.step,
           });
@@ -415,7 +405,8 @@ function InfiniteCanvasZoomControls({
         data-action="zoom-reset"
         data-slot={INFINITE_CANVAS_SLOTS.hudButton}
         onClick={() => {
-          actions.zoomAt({
+          dispatch({
+            type: "camera.zoomAt",
             anchor: centerAnchor,
             zoom: zoomPolicy.defaultZoom,
           });
@@ -434,7 +425,8 @@ function InfiniteCanvasZoomControls({
         data-slot={INFINITE_CANVAS_SLOTS.hudButton}
         disabled={state.camera.zoom >= zoomPolicy.maxZoom}
         onClick={() => {
-          actions.zoomAt({
+          dispatch({
+            type: "camera.zoomAt",
             anchor: centerAnchor,
             zoom: state.camera.zoom * zoomPolicy.step,
           });

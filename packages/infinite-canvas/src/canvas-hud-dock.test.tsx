@@ -4,7 +4,7 @@ import { expect, test } from "vite-plus/test";
 import { InfiniteCanvasHud } from "./infinite-canvas";
 import { resolveInfiniteCanvasZoomPolicy } from "./constants";
 import { createInfiniteCanvasState, createInfiniteCanvasWindow } from "./factory";
-import { InfiniteCanvasProvider } from "./store";
+import { InfiniteCanvasProvider } from "./react/store";
 import type { InfiniteCanvasState } from "./types";
 
 type Kind = "note";
@@ -53,7 +53,7 @@ test("a desktop filters the dock: it does not offer to restore a window it hides
       {
         camera: state.camera,
         id: "desk",
-        selection: { anchorWindowId: null, windowIds: [] },
+        selection: { anchorTarget: null, targets: [] },
         title: "Desk",
         windowIds: ["here"],
       },

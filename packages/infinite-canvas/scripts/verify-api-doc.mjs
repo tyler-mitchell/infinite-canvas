@@ -9,6 +9,7 @@ const apiDocPath = join(repoRoot, "docs", "API.md");
 
 const BARRELS = [
   { entry: ".", path: join(packageRoot, "src", "index.ts") },
+  { entry: "./core", path: join(packageRoot, "src", "core.ts") },
   { entry: "./scene", path: join(packageRoot, "src", "scene.ts") },
 ];
 
@@ -85,8 +86,10 @@ for (const { entry, path } of BARRELS) {
   for (const line of stripped.split("\n")) {
     const isBlockExport = /^export\s+(type\s+)?\{/.test(line.trim());
     const isExport = /^export\b/.test(line.trim());
+    const star = /^export\s+\*\s+from\s+"\.\/([^"]+)"/.exec(line.trim());
+    const isBarrelStar = star !== null && BARRELS.some((barrel) => barrel.entry === `./${star[1]}`);
 
-    if (isExport && !isBlockExport) {
+    if (isExport && !isBlockExport && !isBarrelStar) {
       failures.push(
         `${entry}: "${line.trim()}" is not a re-export block — this gate cannot see it. ` +
           "Teach verify-api-doc.mjs the new form, or the surface it adds goes undocumented.",

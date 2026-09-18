@@ -1,4 +1,6 @@
 "use client";
+import { WindowContextMenu } from "./context-actions";
+import type { InfiniteCanvasDispatch } from "./types";
 
 import { memo, useMemo, useState, type CSSProperties, type ReactNode } from "react";
 
@@ -13,30 +15,27 @@ import {
   getEventViewportPoint,
   type InfiniteCanvasWindowFrameRuntimeContextValue,
 } from "./frame-slots";
-import { useInfiniteCanvasDetailLevel } from "./detail-level";
+import { useInfiniteCanvasDetailLevel } from "./react/detail-level";
 import { getWindowBodyRect, getWorldLengthWithScreenFloor } from "./geometry";
-import { INFINITE_CANVAS_LAYOUT_TRANSITION } from "./layout-motion";
-import {
-  capturePointer,
-  clearNativeTextSelection,
-  isPrimaryButton,
-  releasePointer,
-} from "./runtime";
+import { CONTENT_LAYOUT_TRANSITION, INFINITE_CANVAS_LAYOUT_TRANSITION } from "./layout-motion";
+import { capturePointer, clearNativeTextSelection, isPrimaryButton } from "../next/input";
 import { InfiniteCanvasWindowPortalContext } from "./portal";
 import { getWindowStackValue } from "./stacking";
-import { useInfiniteCanvasActions, useInfiniteCanvasStore } from "./store";
+import { useInfiniteCanvasDispatch, useInfiniteCanvasStore } from "./react/store";
 import type {
   InfiniteCanvasChromeMetrics,
-  InfiniteCanvasResizeHandle,
+  InfiniteCanvasRect,
   InfiniteCanvasStackBands,
   InfiniteCanvasState,
   InfiniteCanvasTheme,
   InfiniteCanvasWindow,
   InfiniteCanvasWindowFrameRenderContext,
   InfiniteCanvasWindowRegistry,
+  InfiniteCanvasWindowDefinition,
 } from "./types";
 import { isInfiniteCanvasWindowCapable } from "./window-capabilities";
-import { getInfiniteCanvasMasonryMembership } from "./group-state";
+import { getWindowLayoutMembership } from "./group-state";
+import { getResizeHandleDescriptors } from "../next/geometry";
 
 /** Renders each window. Camera changes update only the outer transform. */
 /** World-space handle size that keeps a fixed screen size. */
@@ -61,103 +60,25 @@ type InfiniteCanvasFrameStyle = CSSProperties &
   Readonly<Record<typeof RESIZE_HANDLE_SIZE_CSS_VARIABLE, string>> &
   Readonly<Record<typeof SCREEN_PIXEL_CSS_VARIABLE, string>>;
 
-type InfiniteCanvasResizeHandleDescriptor = Readonly<{
-  cursor: CSSProperties["cursor"];
-  handle: InfiniteCanvasResizeHandle;
-  style: CSSProperties;
-}>;
+const RESIZE_HANDLE_DESCRIPTORS = getResizeHandleDescriptors({
+  size: RESIZE_HANDLE_EXTENT,
+  offset: RESIZE_HANDLE_OVERHANG,
+  inset: RESIZE_HANDLE_EXTENT,
+});
 
-/** Static handle geometry expressed with CSS variables. */
-const RESIZE_HANDLE_DESCRIPTORS: readonly InfiniteCanvasResizeHandleDescriptor[] = [
-  {
-    cursor: "ns-resize",
-    handle: "north",
-    style: {
-      height: RESIZE_HANDLE_EXTENT,
-      left: RESIZE_HANDLE_EXTENT,
-      right: RESIZE_HANDLE_EXTENT,
-      top: RESIZE_HANDLE_OVERHANG,
-    },
-  },
-  {
-    cursor: "ns-resize",
-    handle: "south",
-    style: {
-      bottom: RESIZE_HANDLE_OVERHANG,
-      height: RESIZE_HANDLE_EXTENT,
-      left: RESIZE_HANDLE_EXTENT,
-      right: RESIZE_HANDLE_EXTENT,
-    },
-  },
-  {
-    cursor: "ew-resize",
-    handle: "east",
-    style: {
-      bottom: RESIZE_HANDLE_EXTENT,
-      right: RESIZE_HANDLE_OVERHANG,
-      top: RESIZE_HANDLE_EXTENT,
-      width: RESIZE_HANDLE_EXTENT,
-    },
-  },
-  {
-    cursor: "ew-resize",
-    handle: "west",
-    style: {
-      bottom: RESIZE_HANDLE_EXTENT,
-      left: RESIZE_HANDLE_OVERHANG,
-      top: RESIZE_HANDLE_EXTENT,
-      width: RESIZE_HANDLE_EXTENT,
-    },
-  },
-  {
-    cursor: "nwse-resize",
-    handle: "north-west",
-    style: {
-      height: RESIZE_HANDLE_EXTENT,
-      left: RESIZE_HANDLE_OVERHANG,
-      top: RESIZE_HANDLE_OVERHANG,
-      width: RESIZE_HANDLE_EXTENT,
-    },
-  },
-  {
-    cursor: "nesw-resize",
-    handle: "north-east",
-    style: {
-      height: RESIZE_HANDLE_EXTENT,
-      right: RESIZE_HANDLE_OVERHANG,
-      top: RESIZE_HANDLE_OVERHANG,
-      width: RESIZE_HANDLE_EXTENT,
-    },
-  },
-  {
-    cursor: "nesw-resize",
-    handle: "south-west",
-    style: {
-      bottom: RESIZE_HANDLE_OVERHANG,
-      height: RESIZE_HANDLE_EXTENT,
-      left: RESIZE_HANDLE_OVERHANG,
-      width: RESIZE_HANDLE_EXTENT,
-    },
-  },
-  {
-    cursor: "nwse-resize",
-    handle: "south-east",
-    style: {
-      bottom: RESIZE_HANDLE_OVERHANG,
-      height: RESIZE_HANDLE_EXTENT,
-      right: RESIZE_HANDLE_OVERHANG,
-      width: RESIZE_HANDLE_EXTENT,
-    },
-  },
-];
+function UnavailableWindowContent() {
+  return <p role="status">Content unavailable</p>;
+}
 
 function InfiniteCanvasWindowFrameContent<Kind extends string>({
   canvasInstanceId,
   chrome,
+  dispatch: suppliedDispatch,
   isActive,
   isGrouped,
   isPointerOwned = false,
   isSelected,
+  rect,
   stackBands,
   theme,
   window,
@@ -167,12 +88,14 @@ function InfiniteCanvasWindowFrameContent<Kind extends string>({
   /** Per-canvas namespace for the frame DOM ID. */
   canvasInstanceId: string;
   chrome: InfiniteCanvasChromeMetrics;
+  dispatch?: InfiniteCanvasDispatch<Kind>;
   isActive: boolean;
   /** Grouped panes use seams and do not render window resize handles. */
   isGrouped: boolean;
   /** The pointer writes this rect each frame, so it must not tween. */
   isPointerOwned?: boolean;
   isSelected: boolean;
+  rect: InfiniteCanvasRect;
   stackBands: InfiniteCanvasStackBands;
   theme: InfiniteCanvasTheme;
   window: InfiniteCanvasWindow<Kind>;
@@ -180,18 +103,33 @@ function InfiniteCanvasWindowFrameContent<Kind extends string>({
   /** The camera zoom. The layer carries the camera position, so a pan never renders a frame. */
   zoom: number;
 }>) {
-  const actions = useInfiniteCanvasActions<Kind>();
+  const defaultDispatch = useInfiniteCanvasDispatch<Kind>();
+  const dispatch = suppliedDispatch ?? defaultDispatch;
   const store = useInfiniteCanvasStore<Kind>();
-  const definition = windowDefinitions[window.kind];
+  const definition = useMemo<InfiniteCanvasWindowDefinition<Kind>>(() => {
+    const registered = Object.hasOwn(windowDefinitions, window.kind)
+      ? windowDefinitions[window.kind]
+      : undefined;
+    if (registered === undefined)
+      return { kind: window.kind, renderBody: UnavailableWindowContent };
+    if (
+      registered.renderBody === undefined &&
+      registered.renderComponent === undefined &&
+      registered.renderFrame === undefined
+    )
+      return { ...registered, renderBody: UnavailableWindowContent };
+    return registered;
+  }, [windowDefinitions, window.kind]);
   // Keep chrome legible at far zoom with the body detail hysteresis.
-  const chromeDetail = useInfiniteCanvasDetailLevel(window.rect);
+  const chromeDetail = useInfiniteCanvasDetailLevel(rect);
 
   const frameChrome = definition.frameChrome ?? "dom";
   const isHostLocalChrome = frameChrome === "host" || frameChrome === "scene";
   const textSelection = definition.textSelection ?? "none";
   const bodyPointerBehavior = definition.bodyPointerBehavior ?? "native";
   const [windowPortalRoot, setWindowPortalRoot] = useState<HTMLDivElement | null>(null);
-  const { rect } = window;
+  const layoutTransition =
+    window.heightMode === "manual" ? INFINITE_CANVAS_LAYOUT_TRANSITION : CONTENT_LAYOUT_TRANSITION;
   // The layer carries the camera, so a frame is in world units and a rect change is a tween.
   const articleStyle: InfiniteCanvasFrameStyle = {
     [CHROME_STROKE_CSS_VARIABLE]: `${getWorldLengthWithScreenFloor(chrome.borderWidth, zoom)}px`,
@@ -204,7 +142,7 @@ function InfiniteCanvasWindowFrameContent<Kind extends string>({
     position: "absolute",
     top: "0px",
     transform: `translate(${rect.x}px, ${rect.y}px)`,
-    transition: isPointerOwned ? "none" : INFINITE_CANVAS_LAYOUT_TRANSITION,
+    transition: isPointerOwned ? "none" : layoutTransition,
     width: `${rect.width}px`,
     zIndex: getWindowStackValue(window, stackBands),
   };
@@ -212,25 +150,27 @@ function InfiniteCanvasWindowFrameContent<Kind extends string>({
   const frameRuntimeContext = useMemo(
     () =>
       ({
-        actions,
+        dispatch,
         bodyPointerBehavior,
         chrome,
         definition,
         detailLevel: chromeDetail,
         isActive,
         isSelected,
+        rect,
         textSelection,
         theme,
         window,
       }) satisfies InfiniteCanvasWindowFrameRuntimeContextValue<Kind>,
     [
-      actions,
+      dispatch,
       bodyPointerBehavior,
       chrome,
       chromeDetail,
       definition,
       isActive,
       isSelected,
+      rect,
       textSelection,
       theme,
       window,
@@ -244,14 +184,15 @@ function InfiniteCanvasWindowFrameContent<Kind extends string>({
       ) : (
         <InfiniteCanvasDomChromeFrame />
       );
-    const body = getWindowBodyRect(window.rect, chrome);
+    const body = getWindowBodyRect(rect, chrome);
     const frameContext = {
-      actions,
+      dispatch,
       bodySize: { height: body.height, width: body.width },
       chrome,
       frame: DEFAULT_INFINITE_CANVAS_WINDOW_FRAME_SLOTS,
       isActive,
       isSelected,
+      rect,
       renderDefaultFrame,
       // Read current state without camera-driven body invalidation.
       get state() {
@@ -262,11 +203,25 @@ function InfiniteCanvasWindowFrameContent<Kind extends string>({
     } satisfies InfiniteCanvasWindowFrameRenderContext<Kind>;
 
     return definition.renderFrame?.(frameContext) ?? renderDefaultFrame();
-  }, [actions, chrome, definition, isActive, isHostLocalChrome, isSelected, store, theme, window]);
+  }, [
+    dispatch,
+    chrome,
+    definition,
+    isActive,
+    isHostLocalChrome,
+    isSelected,
+    rect,
+    store,
+    theme,
+    window,
+  ]);
 
   // Hidden handles do not create dead hit targets.
   const isResizable =
-    (!isGrouped || getInfiniteCanvasMasonryMembership(store.state$.peek(), window.id) !== null) &&
+    chrome.resizeHandleSize > 0 &&
+    (!isGrouped ||
+      getWindowLayoutMembership(store.state$.peek(), window.id)?.operations?.resize !==
+        undefined) &&
     isInfiniteCanvasWindowCapable(window, "resizable");
   const resizeHandles = useMemo(
     () =>
@@ -276,12 +231,6 @@ function InfiniteCanvasWindowFrameContent<Kind extends string>({
           data-infinite-canvas-control="true"
           data-slot={INFINITE_CANVAS_SLOTS.resizeHandle}
           key={descriptor.handle}
-          onLostPointerCapture={(event) => {
-            actions.finishInteraction(event.pointerId);
-          }}
-          onPointerCancel={(event) => {
-            actions.finishInteraction(event.pointerId);
-          }}
           onPointerDown={(event) => {
             if (!isPrimaryButton(event)) {
               return;
@@ -291,16 +240,13 @@ function InfiniteCanvasWindowFrameContent<Kind extends string>({
             event.stopPropagation();
             clearNativeTextSelection();
             capturePointer(event.currentTarget, event.pointerId);
-            actions.startResize({
+            dispatch({
+              type: "interaction.startResize",
               handle: descriptor.handle,
               pointerId: event.pointerId,
               point: getEventViewportPoint(event),
               windowId: window.id,
             });
-          }}
-          onPointerUp={(event) => {
-            releasePointer(event.currentTarget, event.pointerId);
-            actions.finishInteraction(event.pointerId);
           }}
           style={{
             ...descriptor.style,
@@ -311,35 +257,37 @@ function InfiniteCanvasWindowFrameContent<Kind extends string>({
           }}
         />
       )),
-    [actions, window.id],
+    [dispatch, window.id],
   );
 
   return (
     <InfiniteCanvasWindowFrameRuntimeContext.Provider value={frameRuntimeContext}>
       <InfiniteCanvasWindowPortalContext.Provider value={windowPortalRoot}>
-        <article
-          aria-label={window.title}
-          // `aria-current` is valid for `role=group`. `aria-selected` is not.
-          aria-current={isActive ? "true" : undefined}
-          aria-roledescription="window"
-          data-frame-chrome={isHostLocalChrome ? "host" : "dom"}
-          data-infinite-canvas-window-id={window.id}
-          // The group tab uses this ID in `aria-controls`.
-          id={getInfiniteCanvasWindowFrameElementId(canvasInstanceId, window.id)}
-          data-kind={window.kind}
-          data-mode={window.mode}
-          data-slot={INFINITE_CANVAS_SLOTS.window}
-          {...getInfiniteCanvasWindowStateAttributes({
-            isActive,
-            isPinned: window.isPinned,
-            isSelected,
-          })}
-          role="group"
-          style={articleStyle}
-        >
-          {frameNode}
-          {isResizable ? resizeHandles : null}
-        </article>
+        <WindowContextMenu windowId={window.id} policy={definition.contextMenu}>
+          <article
+            aria-label={window.title}
+            // `aria-current` is valid for `role=group`. `aria-selected` is not.
+            aria-current={isActive ? "true" : undefined}
+            aria-roledescription="window"
+            data-frame-chrome={isHostLocalChrome ? "host" : "dom"}
+            data-infinite-canvas-window-id={window.id}
+            // The group tab uses this ID in `aria-controls`.
+            id={getInfiniteCanvasWindowFrameElementId(canvasInstanceId, window.id)}
+            data-kind={window.kind}
+            data-mode={window.mode}
+            data-slot={INFINITE_CANVAS_SLOTS.window}
+            {...getInfiniteCanvasWindowStateAttributes({
+              isActive,
+              isPinned: window.isPinned,
+              isSelected,
+            })}
+            role="group"
+            style={articleStyle}
+          >
+            {frameNode}
+            {isResizable ? resizeHandles : null}
+          </article>
+        </WindowContextMenu>
         {definition.portalRoot !== true ? null : (
           // Over the frame at screen scale: the layer's zoom is undone, so portalled controls
           // keep their screen size. They can enable their own pointer events.

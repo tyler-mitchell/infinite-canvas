@@ -1,14 +1,14 @@
 import { expect, test } from "vite-plus/test";
 
 import { createInfiniteCanvasState, createInfiniteCanvasWindow } from "./factory";
-import { parseInfiniteCanvasStateJson, stringifyInfiniteCanvasState } from "./persistence";
-import { reduceInfiniteCanvasState } from "./reducer";
+import { createInfiniteCanvasStore } from "./store";
+import { reduceInfiniteCanvasState } from "./operations";
 import type { InfiniteCanvasState } from "./types";
 
 function stateWithWorkspaces(ids: readonly string[]): InfiniteCanvasState<"note"> {
   return ids.reduce<InfiniteCanvasState<"note">>(
     (state, workspaceId) =>
-      reduceInfiniteCanvasState(state, { type: "workspace.create", workspaceId }),
+      reduceInfiniteCanvasState(state, { activate: false, type: "workspace.create", workspaceId }),
     createInfiniteCanvasState<"note">({
       viewport: { height: 800, width: 1200 },
       windows: [
@@ -24,10 +24,11 @@ function stateWithWorkspaces(ids: readonly string[]): InfiniteCanvasState<"note"
 }
 
 function roundTrip(state: InfiniteCanvasState<"note">) {
-  const restored = parseInfiniteCanvasStateJson<"note">(
-    stringifyInfiniteCanvasState(state),
-    createInfiniteCanvasState<"note">({ viewport: state.viewport, windows: [] }),
-  );
+  const restored = createInfiniteCanvasStore<"note">({
+    document: JSON.parse(
+      JSON.stringify(createInfiniteCanvasStore({ initialState: state }).snapshot()),
+    ),
+  }).getState();
 
   if (restored === null) {
     throw new Error("the serialized document did not parse back");

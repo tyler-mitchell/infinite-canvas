@@ -68,7 +68,7 @@ test("a window another desktop holds is not visible either", () => {
       {
         camera: { center: { x: 0, y: 0 }, zoom: 1 },
         id: "desk",
-        selection: { anchorWindowId: null, windowIds: [] },
+        selection: { anchorTarget: null, targets: [] },
         title: "Desk",
         windowIds: ["host"],
       },

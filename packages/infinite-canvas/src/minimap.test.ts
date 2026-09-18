@@ -49,7 +49,7 @@ test("a desktop admitting none of the canvas's windows has no map either", () =>
       {
         camera: { center: { x: 0, y: 0 }, zoom: 1 },
         id: "empty",
-        selection: { anchorWindowId: null, windowIds: [] },
+        selection: { anchorTarget: null, targets: [] },
         title: "Empty",
         windowIds: [],
       },
@@ -168,7 +168,7 @@ test("a desktop filters the ring: no arrow points at a window it hides", () => {
       {
         camera: base.camera,
         id: "desk",
-        selection: { anchorWindowId: null, windowIds: [] },
+        selection: { anchorTarget: null, targets: [] },
         title: "Desk",
         windowIds: ["near"],
       },
@@ -239,7 +239,7 @@ test("a desktop filters the map: a window it hides is neither drawn nor measured
       {
         camera: base.camera,
         id: "desk",
-        selection: { anchorWindowId: null, windowIds: [] },
+        selection: { anchorTarget: null, targets: [] },
         title: "Desk",
         windowIds: ["a"],
       },

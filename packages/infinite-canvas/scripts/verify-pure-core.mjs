@@ -6,39 +6,7 @@ import { fileURLToPath } from "node:url";
 const packageRoot = dirname(dirname(fileURLToPath(import.meta.url)));
 const sourceRoot = join(packageRoot, "src");
 
-/** Modules that consumers can drive without a renderer. */
-const PURE_CORE_ROOTS = [
-  "camera-navigation.ts",
-  "commands.ts",
-  "constants.ts",
-  "data-attributes.ts",
-  "drop-interaction.ts",
-  "factory.ts",
-  "geometry.ts",
-  "group-layout.ts",
-  "group-state.ts",
-  "group-tree.ts",
-  "history.ts",
-  "input-policy.ts",
-  "interaction.ts",
-  "keyboard.ts",
-  "minimap.ts",
-  "offscreen.ts",
-  "persistence.ts",
-  "recipes.ts",
-  "reducer.ts",
-  "registry.ts",
-  "scene-layer-geometry.ts",
-  "selection.ts",
-  "snap-candidates.ts",
-  "snap-resolver.ts",
-  "spatial-target.ts",
-  "validation.ts",
-  "window-focus.ts",
-  "window-placement.ts",
-  "window-presence.ts",
-  "window-proxy.ts",
-];
+const PURE_CORE_ROOTS = ["core.ts"];
 
 /**
  * Runtime packages forbidden from the core graph. Every package of the GPU
@@ -46,14 +14,16 @@ const PURE_CORE_ROOTS = [
  * to reach any of them, which is what keeps those peers optional.
  */
 const FORBIDDEN_PACKAGES = new Set([
-  "@legendapp/state",
   "@typegpu/noise",
   "@typegpu/react",
   "@typegpu/sdf",
   "@zumer/snapdom",
   "react",
   "react-dom",
+  "solid-js",
+  "svelte",
   "typegpu",
+  "vue",
 ]);
 
 /** Minimum graph size that prevents a vacuous crawl. */

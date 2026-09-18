@@ -1,8 +1,8 @@
 import { expect, test } from "vite-plus/test";
 
 import { createInfiniteCanvasState, createInfiniteCanvasWindow } from "./factory";
-import { parseInfiniteCanvasState, serializeInfiniteCanvasState } from "./persistence";
-import { reduceInfiniteCanvasState } from "./reducer";
+import { createInfiniteCanvasStore } from "./store";
+import { reduceInfiniteCanvasState } from "./operations";
 import type { InfiniteCanvasState } from "./types";
 
 type Kind = "note";
@@ -22,11 +22,8 @@ const measured = (): InfiniteCanvasState<Kind> => ({
 });
 
 const restored = () => {
-  const document = serializeInfiniteCanvasState(measured());
-  const parsed = parseInfiniteCanvasState<Kind>(
-    document,
-    createInfiniteCanvasState<Kind>({ windows: [] }),
-  );
+  const document = createInfiniteCanvasStore({ initialState: measured() }).snapshot();
+  const parsed = createInfiniteCanvasStore<Kind>({ document: document }).getState();
 
   expect(parsed).not.toBeNull();
 
@@ -34,7 +31,9 @@ const restored = () => {
 };
 
 test("a serialized document carries no viewport", () => {
-  const document = serializeInfiniteCanvasState(measured()) as unknown as Record<string, unknown>;
+  const document = createInfiniteCanvasStore({
+    initialState: measured(),
+  }).snapshot() as unknown as Record<string, unknown>;
 
   expect(document["viewport"]).toBeUndefined();
 });

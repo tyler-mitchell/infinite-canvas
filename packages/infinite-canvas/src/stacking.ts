@@ -1,12 +1,5 @@
 import { DEFAULT_INFINITE_CANVAS_STACK_BANDS } from "./constants";
-import { getViewportInsetWorldRect } from "./geometry";
-import { isInfiniteCanvasWindowCapable } from "./window-capabilities";
-import {
-  cleanSelection,
-  isWindowSelected,
-  normalizeSelection,
-  replaceSelection,
-} from "./selection";
+import { normalizeSelection, updateSelection, isSelectionTargetSelected } from "./selection";
 import type { InfiniteCanvasStackBands, InfiniteCanvasState, InfiniteCanvasWindow } from "./types";
 
 function getWindowStackValue(
@@ -21,9 +14,10 @@ function getNextZIndex<Kind extends string>(
   isPinned: boolean,
 ) {
   return (
-    Math.max(
+    windows.reduce(
+      (highest, window) =>
+        window.isPinned === isPinned ? Math.max(highest, window.zIndex) : highest,
       -1,
-      ...windows.filter((window) => window.isPinned === isPinned).map((window) => window.zIndex),
     ) + 1
   );
 }
@@ -42,7 +36,10 @@ function focusWindow<Kind extends string>(
     return state;
   }
 
-  return replaceSelection(raiseWindow(state, targetWindow), [windowId]);
+  return updateSelection(raiseWindow(state, targetWindow), {
+    mode: "replace",
+    targets: [{ type: "window", id: windowId }],
+  });
 }
 
 function focusWindowPreservingSelection<Kind extends string>(
@@ -57,16 +54,19 @@ function focusWindowPreservingSelection<Kind extends string>(
 
   const raisedState = raiseWindow(state, targetWindow);
   const normalizedSelection = normalizeSelection(raisedState, raisedState.selection);
-  const nextSelection = isWindowSelected(raisedState, windowId)
+  const nextSelection = isSelectionTargetSelected(raisedState.selection, {
+    type: "window",
+    id: windowId,
+  })
     ? {
         ...normalizedSelection,
-        anchorWindowId: windowId,
+        anchorTarget: { type: "window" as const, id: windowId },
       }
     : normalizedSelection;
 
   return {
     ...raisedState,
-    activeWindowId: nextSelection.anchorWindowId,
+    activeWindowId: windowId,
     selection: nextSelection,
   };
 }
@@ -75,6 +75,7 @@ function raiseWindow<Kind extends string>(
   state: InfiniteCanvasState<Kind>,
   targetWindow: InfiniteCanvasWindow<Kind>,
 ): InfiniteCanvasState<Kind> {
+  if (state.activeWindowId === targetWindow.id && targetWindow.mode !== "minimized") return state;
   const nextZIndex = getNextZIndex(state.windows, targetWindow.isPinned);
 
   return {
@@ -92,17 +93,6 @@ function raiseWindow<Kind extends string>(
   };
 }
 
-function cleanSelectionWithFallback<Kind extends string>(
-  state: InfiniteCanvasState<Kind>,
-  fallbackWindowId: string | null,
-) {
-  const cleanedState = cleanSelection(state);
-
-  return cleanedState.selection.windowIds.length === 0 && fallbackWindowId !== null
-    ? replaceSelection(cleanedState, [fallbackWindowId])
-    : cleanedState;
-}
-
 function toggleWindowPinned<Kind extends string>(
   state: InfiniteCanvasState<Kind>,
   windowId: string,
@@ -116,7 +106,7 @@ function toggleWindowPinned<Kind extends string>(
   const nextPinned = !targetWindow.isPinned;
   const nextZIndex = getNextZIndex(state.windows, nextPinned);
 
-  return replaceSelection(
+  return updateSelection(
     {
       ...state,
       activeWindowId: windowId,
@@ -130,18 +120,18 @@ function toggleWindowPinned<Kind extends string>(
           : window,
       ),
     },
-    [windowId],
+    { mode: "replace", targets: [{ type: "window", id: windowId }] },
   );
 }
 
 function getNextVisibleWindowId<Kind extends string>(
   windows: readonly InfiniteCanvasWindow<Kind>[],
 ) {
-  return (
-    sortWindowsByStack(windows)
-      .filter((window) => window.mode !== "minimized")
-      .at(-1)?.id ?? null
-  );
+  const top = windows.reduce<InfiniteCanvasWindow<Kind> | null>((top, window) => {
+    if (window.mode === "minimized") return top;
+    return top === null || getWindowStackValue(window) >= getWindowStackValue(top) ? window : top;
+  }, null);
+  return top?.id ?? null;
 }
 
 function openWindow<Kind extends string>(
@@ -155,7 +145,7 @@ function openWindow<Kind extends string>(
     zIndex: getNextZIndex(state.windows, nextWindow.isPinned),
   };
 
-  return replaceSelection(
+  return updateSelection(
     {
       ...state,
       activeWindowId: nextWindow.id,
@@ -166,7 +156,7 @@ function openWindow<Kind extends string>(
               window.id === nextWindow.id ? normalizedWindow : window,
             ),
     },
-    [nextWindow.id],
+    { mode: "replace", targets: [{ type: "window", id: nextWindow.id }] },
   );
 }
 
@@ -186,134 +176,6 @@ function renameWindow<Kind extends string>(
     ...state,
     windows: state.windows.map((window) =>
       window.id === input.windowId ? { ...window, title } : window,
-    ),
-  };
-}
-
-function closeWindow<Kind extends string>(
-  state: InfiniteCanvasState<Kind>,
-  windowId: string,
-): InfiniteCanvasState<Kind> {
-  if (!isInfiniteCanvasWindowCapable(findWindow(state, windowId), "closable")) {
-    return state;
-  }
-
-  const nextWindows = state.windows.filter((window) => window.id !== windowId);
-  const fallbackWindowId =
-    state.activeWindowId === windowId ? getNextVisibleWindowId(nextWindows) : state.activeWindowId;
-
-  return cleanSelectionWithFallback(
-    {
-      ...state,
-      activeWindowId: fallbackWindowId,
-      interaction:
-        state.interaction !== null &&
-        "windowId" in state.interaction &&
-        state.interaction.windowId === windowId
-          ? null
-          : state.interaction,
-      selection: {
-        anchorWindowId:
-          state.selection.anchorWindowId === windowId ? null : state.selection.anchorWindowId,
-        windowIds: state.selection.windowIds.filter(
-          (selectedWindowId) => selectedWindowId !== windowId,
-        ),
-      },
-      snapPreview: state.snapPreview?.windowId === windowId ? null : state.snapPreview,
-      windows: nextWindows,
-    },
-    fallbackWindowId,
-  );
-}
-
-function minimizeWindow<Kind extends string>(
-  state: InfiniteCanvasState<Kind>,
-  windowId: string,
-): InfiniteCanvasState<Kind> {
-  if (!isInfiniteCanvasWindowCapable(findWindow(state, windowId), "minimizable")) {
-    return state;
-  }
-
-  const nextWindows = state.windows.map((window) =>
-    window.id === windowId
-      ? {
-          ...window,
-          mode: "minimized" as const,
-        }
-      : window,
-  );
-  const fallbackWindowId =
-    state.activeWindowId === windowId ? getNextVisibleWindowId(nextWindows) : state.activeWindowId;
-
-  return cleanSelectionWithFallback(
-    {
-      ...state,
-      activeWindowId: fallbackWindowId,
-      interaction:
-        state.interaction !== null &&
-        "windowId" in state.interaction &&
-        state.interaction.windowId === windowId
-          ? null
-          : state.interaction,
-      selection: {
-        anchorWindowId:
-          state.selection.anchorWindowId === windowId ? null : state.selection.anchorWindowId,
-        windowIds: state.selection.windowIds.filter(
-          (selectedWindowId) => selectedWindowId !== windowId,
-        ),
-      },
-      snapPreview: state.snapPreview?.windowId === windowId ? null : state.snapPreview,
-      windows: nextWindows,
-    },
-    fallbackWindowId,
-  );
-}
-
-function maximizeWindow<Kind extends string>(
-  state: InfiniteCanvasState<Kind>,
-  windowId: string,
-): InfiniteCanvasState<Kind> {
-  const focusedState = focusWindow(state, windowId);
-  const targetWindow = findWindow(focusedState, windowId);
-
-  if (!isInfiniteCanvasWindowCapable(targetWindow, "maximizable")) {
-    return state;
-  }
-
-  const maximizedRect = getViewportInsetWorldRect(focusedState.camera, focusedState.viewport, 36);
-
-  return {
-    ...focusedState,
-    windows: focusedState.windows.map((window) =>
-      window.id === windowId
-        ? {
-            ...window,
-            mode: "maximized",
-            rect: maximizedRect,
-            restoreRect: window.mode === "maximized" ? window.restoreRect : window.rect,
-          }
-        : window,
-    ),
-  };
-}
-
-function restoreWindow<Kind extends string>(
-  state: InfiniteCanvasState<Kind>,
-  windowId: string,
-): InfiniteCanvasState<Kind> {
-  const focusedState = focusWindow(state, windowId);
-
-  return {
-    ...focusedState,
-    windows: focusedState.windows.map((window) =>
-      window.id === windowId
-        ? {
-            ...window,
-            mode: "normal",
-            rect: window.restoreRect ?? window.rect,
-            restoreRect: undefined,
-          }
-        : window,
     ),
   };
 }
@@ -341,18 +203,14 @@ function sortWindowsByStack<Kind extends string>(windows: readonly InfiniteCanva
 }
 
 export {
-  closeWindow,
   findWindow,
   focusWindow,
   focusWindowPreservingSelection,
   getNextVisibleWindowId,
   getNextZIndex,
   getWindowStackValue,
-  maximizeWindow,
-  minimizeWindow,
   openWindow,
   renameWindow,
-  restoreWindow,
   sortWindowsByStack,
   toggleWindowPinned,
   updateWindowRect,

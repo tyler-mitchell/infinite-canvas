@@ -98,6 +98,26 @@ export function Workspace() {
 
 Each `window.kind` must have an entry in `windowDefinitions`. Each registry key must equal the definition `kind`. The component examines both conditions during mount. It throws if either condition fails. An empty `windows: []` document is valid.
 
+Use the same flat action payload for framework commands and targeted mutations:
+
+```tsx
+import { useInfiniteCanvasDispatch } from "@hyphened/infinite-canvas";
+
+type WindowKind = "note";
+
+function CanvasControls() {
+  const dispatch = useInfiniteCanvasDispatch<WindowKind>();
+
+  return (
+    <>
+      <button onClick={() => dispatch({ type: "window.focus", windowId: "note-1" })}>Focus</button>
+      <button onClick={() => dispatch({ type: "history.undo" })}>Undo</button>
+      <button onClick={() => dispatch({ type: "view.fitAll" })}>Fit all</button>
+    </>
+  );
+}
+```
+
 ### Type `window.data`
 
 Use a second type argument for the payload of each kind:
@@ -145,10 +165,10 @@ This declaration keeps `infinite-canvas` before `utilities`. Unlayered styles ov
 
 ## Features
 
-- **Window lifecycle.** The typed command API opens, closes, focuses, minimizes, maximizes, restores, and pins windows.
+- **Window lifecycle.** The typed dispatch API opens, closes, focuses, minimizes, maximizes, restores, and pins windows.
 - **Selection.** The canvas supports replace, add, toggle, clear, marquee, group movement, and typed consumer targets.
 - **Snapping.** Move and resize operations use edge, center, and equal-gap guides. Thresholds remain stable in screen pixels. `snapPolicy` controls hysteresis and viewport snapping.
-- **Camera navigation.** Commands use `center`, `centerAtZoom`, or `fit` behavior for a window, selection, point, or rectangle.
+- **Camera navigation.** Actions use `center`, `centerAtZoom`, or `fit` behavior for a window, selection, point, or rectangle.
 - **World overview.** `getInfiniteCanvasMinimapLayout` projects windows, groups, and the camera rectangle. The camera remains inside the bounds. `getInfiniteCanvasMinimapWorldPoint` converts map points to world points.
 - **Offscreen indicators.** `getInfiniteCanvasOffscreenIndicators` returns targets from nearest to farthest. Each group produces one indicator with an angle, edge point, and navigation rectangle.
 - **Persistence.** `storageKey` and `documentKey` select versioned JSON layouts. Hydration validates the layout and removes unknown window kinds.
@@ -180,9 +200,9 @@ Use `hotkeyBindings` to replace these bindings. The canvas applies `preventDefau
 ## Status
 
 Version 0.2.0 is pre-1.0 and can change between minor versions.
-The public API has 386 stable names and 34 experimental names. [The stability manifest](https://github.com/tyler-mitchell/infinite-canvas/blob/main/packages/infinite-canvas/scripts/api-stability.json) is `scripts/api-stability.json`. CI enforces its classes. A stable breaking change appears in the changelog. An experimental export can change or disappear in a release.
+The [stability manifest](https://github.com/tyler-mitchell/infinite-canvas/blob/main/packages/infinite-canvas/scripts/api-stability.json) is `scripts/api-stability.json`. CI enforces its classes. A stable breaking change appears in the changelog. An experimental export can change or disappear in a release.
 
-The experimental API covers rasterization, frustum visibility, native drops, `createInfiniteCanvasHandle`, and the `/scene` entry. The removed `scene-model` and `window-scene-shell` modules are not experimental.
+The experimental API covers rasterization, frustum visibility, native drops, and the `/scene` entry. The removed `scene-model` and `window-scene-shell` modules are not experimental.
 
 `Tab` from the desktop enters the active window body. `Tab` then cycles inside that body, and `Escape` returns focus to the command surface. The window frame gets a unique DOM `id` from `useId()`. A group `role="tab"` points `aria-controls` to its visible panel.
 

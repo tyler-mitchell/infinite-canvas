@@ -1,4 +1,5 @@
 import { getViewportInsetWorldRect } from "./geometry";
+import { getCanvasLayout } from "./layout";
 import type { SnapAnchor, SnapCandidate, WindowSnapSource } from "./snap-types";
 import type {
   InfiniteCanvasRect,
@@ -106,11 +107,15 @@ function getVisibleWindowSnapSources<Kind extends string>(
   state: InfiniteCanvasState<Kind>,
   excludedWindowIds: readonly string[],
 ): readonly WindowSnapSource[] {
+  const canvasLayout = getCanvasLayout(state);
   return state.windows
-    .filter((window) => !excludedWindowIds.includes(window.id) && window.mode !== "minimized")
+    .filter(
+      (window) =>
+        canvasLayout.visibleWindowIds.has(window.id) && !excludedWindowIds.includes(window.id),
+    )
     .map((window) => ({
       id: window.id,
-      rect: window.rect,
+      rect: canvasLayout.windowRects.get(window.id)!,
     }));
 }
 
@@ -128,6 +133,7 @@ function buildViewportSnapCandidates<Kind extends string>(
       axis: "x",
       from: "viewport",
       id: "viewport-left",
+      windowIds: [],
       kind: "edge",
       position: viewportRect.x,
       priority: 3,
@@ -136,6 +142,7 @@ function buildViewportSnapCandidates<Kind extends string>(
       axis: "x",
       from: "viewport",
       id: "viewport-right",
+      windowIds: [],
       kind: "edge",
       position: viewportRect.x + viewportRect.width,
       priority: 3,
@@ -144,6 +151,7 @@ function buildViewportSnapCandidates<Kind extends string>(
       axis: "y",
       from: "viewport",
       id: "viewport-top",
+      windowIds: [],
       kind: "edge",
       position: viewportRect.y,
       priority: 3,
@@ -152,6 +160,7 @@ function buildViewportSnapCandidates<Kind extends string>(
       axis: "y",
       from: "viewport",
       id: "viewport-bottom",
+      windowIds: [],
       kind: "edge",
       position: viewportRect.y + viewportRect.height,
       priority: 3,
@@ -163,6 +172,7 @@ function buildViewportSnapCandidates<Kind extends string>(
           axis: "x",
           from: "viewport",
           id: "viewport-center-x",
+          windowIds: [],
           kind: "center",
           position: viewportRect.x + viewportRect.width / 2,
           priority: 4,
@@ -171,6 +181,7 @@ function buildViewportSnapCandidates<Kind extends string>(
           axis: "y",
           from: "viewport",
           id: "viewport-center-y",
+          windowIds: [],
           kind: "center",
           position: viewportRect.y + viewportRect.height / 2,
           priority: 4,
@@ -190,11 +201,13 @@ function buildWindowSnapCandidates(
   }
 
   return sources.flatMap((source) => {
+    const windowIds = [source.id];
     const edgeCandidates = [
       {
         axis: "x",
         from: "window",
-        id: `${source.id}-left`,
+        id: JSON.stringify(["window", source.id, "left"]),
+        windowIds,
         kind: "edge",
         position: source.rect.x,
         priority: 1,
@@ -202,7 +215,8 @@ function buildWindowSnapCandidates(
       {
         axis: "x",
         from: "window",
-        id: `${source.id}-right`,
+        id: JSON.stringify(["window", source.id, "right"]),
+        windowIds,
         kind: "edge",
         position: source.rect.x + source.rect.width,
         priority: 1,
@@ -210,7 +224,8 @@ function buildWindowSnapCandidates(
       {
         axis: "y",
         from: "window",
-        id: `${source.id}-top`,
+        id: JSON.stringify(["window", source.id, "top"]),
+        windowIds,
         kind: "edge",
         position: source.rect.y,
         priority: 1,
@@ -218,7 +233,8 @@ function buildWindowSnapCandidates(
       {
         axis: "y",
         from: "window",
-        id: `${source.id}-bottom`,
+        id: JSON.stringify(["window", source.id, "bottom"]),
+        windowIds,
         kind: "edge",
         position: source.rect.y + source.rect.height,
         priority: 1,
@@ -229,7 +245,8 @@ function buildWindowSnapCandidates(
           {
             axis: "x",
             from: "window",
-            id: `${source.id}-center-x`,
+            id: JSON.stringify(["window", source.id, "center-x"]),
+            windowIds,
             kind: "center",
             position: source.rect.x + source.rect.width / 2,
             priority: 2,
@@ -237,7 +254,8 @@ function buildWindowSnapCandidates(
           {
             axis: "y",
             from: "window",
-            id: `${source.id}-center-y`,
+            id: JSON.stringify(["window", source.id, "center-y"]),
+            windowIds,
             kind: "center",
             position: source.rect.y + source.rect.height / 2,
             priority: 2,
@@ -278,7 +296,8 @@ function buildGapSnapCandidates(
               {
                 axis: "x",
                 from: "window",
-                id: `gap-x-${left.id}-${right.id}`,
+                id: JSON.stringify(["gap", "x", left.id, right.id]),
+                windowIds: [left.id, right.id],
                 kind: "gap",
                 position: left.rect.x + left.rect.width + (horizontalGap - rect.width) / 2,
                 priority: 5,
@@ -293,7 +312,8 @@ function buildGapSnapCandidates(
               {
                 axis: "y",
                 from: "window",
-                id: `gap-y-${top.id}-${bottom.id}`,
+                id: JSON.stringify(["gap", "y", top.id, bottom.id]),
+                windowIds: [top.id, bottom.id],
                 kind: "gap",
                 position: top.rect.y + top.rect.height + (verticalGap - rect.height) / 2,
                 priority: 5,
@@ -308,10 +328,10 @@ function buildGapSnapCandidates(
 
 function buildSnapCandidates<Kind extends string>(
   state: InfiniteCanvasState<Kind>,
-  windowId: string,
+  windowId: string | null,
   rect: InfiniteCanvasRect,
   policy: InfiniteCanvasSnapPolicy,
-  excludedWindowIds: readonly string[] = [windowId],
+  excludedWindowIds: readonly string[] = windowId === null ? [] : [windowId],
 ): readonly SnapCandidate[] {
   const sources = getVisibleWindowSnapSources(state, excludedWindowIds);
 

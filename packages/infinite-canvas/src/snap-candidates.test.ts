@@ -28,6 +28,30 @@ const stateWith = (
 const RECT = { height: 100, width: 200, x: 0, y: 0 };
 const POLICY = DEFAULT_INFINITE_CANVAS_SNAP_POLICY;
 
+test("guide identities remain distinct for arbitrary window IDs", () => {
+  const candidates = buildSnapCandidates(
+    stateWith(
+      windowAt("viewport", -600, 0),
+      windowAt("a-b", 0, 0),
+      windowAt("c", 500, 0),
+      windowAt("a", 1000, 0),
+      windowAt("b-c", 1500, 0),
+    ),
+    null,
+    RECT,
+    { ...POLICY, snapToViewport: true, snapToGaps: true },
+  );
+  expect(candidates).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({ from: "viewport" }),
+      expect.objectContaining({ from: "window", windowIds: ["viewport"] }),
+      expect.objectContaining({ kind: "gap", windowIds: ["a-b", "c"] }),
+      expect.objectContaining({ kind: "gap", windowIds: ["a", "b-c"] }),
+    ]),
+  );
+  expect(new Set(candidates.map((candidate) => candidate.id)).size).toBe(candidates.length);
+});
+
 test("a moving window offers both edges and its centre on each axis", () => {
   const anchors = getMoveSnapAnchors(RECT, POLICY);
 

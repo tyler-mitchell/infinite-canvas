@@ -4,35 +4,31 @@ import { Button } from "@base-ui/react/button";
 import { Menu } from "@base-ui/react/menu";
 import { mergeProps } from "@base-ui/react/merge-props";
 import { useValue } from "@legendapp/state/react";
-import {
-  DEFAULT_INFINITE_CANVAS_COMMAND_DESCRIPTORS,
-  isInfiniteCanvasCommandEnabled,
-  type CommandId,
-} from "./commands";
-import { useInfiniteCanvasActions, useInfiniteCanvasStore } from "./store";
+import type { InfiniteCanvasCommandId } from "./types";
+import { useInfiniteCanvasStore } from "./react/store";
 
-export type CommandTriggerProps = Button.Props & Readonly<{ commandId: CommandId }>;
-export type CommandMenuItemProps = Menu.Item.Props & Readonly<{ commandId: CommandId }>;
+export type CommandTriggerProps = Button.Props & Readonly<{ commandId: InfiniteCanvasCommandId }>;
+export type CommandMenuItemProps = Menu.Item.Props &
+  Readonly<{ commandId: InfiniteCanvasCommandId }>;
 
-function useCommand(commandId: CommandId) {
+function useCommand(commandId: InfiniteCanvasCommandId) {
   const store = useInfiniteCanvasStore();
-  const actions = useInfiniteCanvasActions();
-  const command = DEFAULT_INFINITE_CANVAS_COMMAND_DESCRIPTORS.find((item) => item.id === commandId);
-  const enabled = useValue(
-    () =>
-      command !== undefined && isInfiniteCanvasCommandEnabled(store.state$.get(), command.command),
+  const command = useValue(() =>
+    store.getContextualCommands({ includeDisabled: true }).find((item) => item.id === commandId),
   );
 
   return {
-    enabled,
+    enabled: command?.enabled ?? false,
     label: command?.label ?? commandId,
     description: command?.description,
     execute: () => {
-      if (
-        command !== undefined &&
-        isInfiniteCanvasCommandEnabled(store.state$.peek(), command.command)
-      )
-        actions.executeCommand(command.command);
+      const current = store
+        .getContextualCommands({ includeDisabled: true })
+        .find((item) => item.id === commandId);
+
+      if (current?.enabled === true) {
+        return store.dispatch(current.command);
+      }
     },
   };
 }
@@ -41,7 +37,7 @@ export function CommandTrigger({ commandId, disabled, ...props }: CommandTrigger
   const command = useCommand(commandId);
   return (
     <Button
-      {...mergeProps<"button">(
+      {...mergeProps<typeof Button>(
         { title: command.description, children: command.label, onClick: command.execute },
         props,
       )}
@@ -57,7 +53,7 @@ export function CommandMenuItem({ commandId, disabled, ...props }: CommandMenuIt
   const command = useCommand(commandId);
   return (
     <Menu.Item
-      {...mergeProps<"div">(
+      {...mergeProps<typeof Menu.Item>(
         { title: command.description, children: command.label, onClick: command.execute },
         props,
       )}

@@ -1,6 +1,6 @@
 import { expect, test } from "vite-plus/test";
 
-import { DEFAULT_INFINITE_CANVAS_GROUP_METRICS } from "./group-layout";
+import { DEFAULT_INFINITE_CANVAS_GROUP_METRICS } from "./layout";
 import { getInfiniteCanvasWindowPresence } from "./window-presence";
 import type { InfiniteCanvasState } from "./types";
 
@@ -21,11 +21,10 @@ const presenceState: InfiniteCanvasState<PresenceWindowKind> = {
   groupMetrics: DEFAULT_INFINITE_CANVAS_GROUP_METRICS,
   groups: [],
   workspaces: [],
-  history: { future: [], past: [] },
   interaction: null,
   selection: {
-    anchorWindowId: "active-window",
-    windowIds: ["active-window"],
+    anchorTarget: { type: "window" as const, id: "active-window" },
+    targets: [{ type: "window" as const, id: "active-window" }],
   },
   snapPreview: null,
   viewport: {

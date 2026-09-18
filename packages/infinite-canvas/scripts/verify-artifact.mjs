@@ -109,6 +109,8 @@ for (const match of readme.matchAll(/import\s+(?:type\s+)?\{([^}]*)\}\s*from\s*"
 }
 
 const bundle = readFileSync(join(dist, "index.mjs"), "utf8");
+const coreBundle = readFileSync(join(dist, "core.mjs"), "utf8");
+const coreTypes = readFileSync(join(dist, "core.d.mts"), "utf8");
 const types = readFileSync(join(dist, "index.d.mts"), "utf8");
 
 // Require the client directive as the first bundle statement.
@@ -116,6 +118,15 @@ check(
   /^["']use client["'];/.test(bundle.trimStart()),
   '"use client" is not the first statement of dist/index.mjs (RSC consumers will break)',
 );
+check(
+  !/^["']use client["'];/.test(coreBundle.trimStart()),
+  'dist/core.mjs starts with "use client"',
+);
+
+const coreImports = new Set(getStaticImports(coreBundle));
+for (const host of ["react", "react-dom", "react-grid-layout", "solid-js", "svelte", "vue"]) {
+  check(!coreImports.has(host), `dist/core.mjs imports host runtime "${host}"`);
+}
 
 // Keep snapdom lazy.
 check(
@@ -172,6 +183,7 @@ for (const chunk of chunks) {
 
 // Public declarations must exist in emitted types.
 check(types.length > 0, "dist/index.d.mts is empty");
+check(coreTypes.length > 0, "dist/core.d.mts is empty");
 check(
   /InfiniteCanvasDesktop/.test(types),
   "dist/index.d.mts does not declare InfiniteCanvasDesktop — dts emit is broken",

@@ -1,7 +1,8 @@
 import { expect, test } from "vite-plus/test";
 
 import { createInfiniteCanvasState, createInfiniteCanvasWindow } from "./factory";
-import { reduceInfiniteCanvasState } from "./reducer";
+import { getCanvasLayout } from "./layout";
+import { reduceInfiniteCanvasState } from "./operations";
 import type { InfiniteCanvasState } from "./types";
 
 type Kind = "note";
@@ -38,8 +39,10 @@ const tabbedShell = (): InfiniteCanvasState<Kind> => {
   return tabbed;
 };
 
-const rects = (state: InfiniteCanvasState<Kind>) =>
-  ["a", "b", "c"].map((id) => state.windows.find((window) => window.id === id)?.rect);
+const rects = (state: InfiniteCanvasState<Kind>) => {
+  const { windowRects } = getCanvasLayout(state);
+  return ["a", "b", "c"].map((id) => windowRects.get(id));
+};
 
 const distinctOrigins = (state: InfiniteCanvasState<Kind>) =>
   new Set(rects(state).map((rect) => `${String(rect?.x)},${String(rect?.y)}`)).size;
@@ -51,7 +54,7 @@ test("tab members share one rect while they are docked", () => {
 test("the command leaves three windows somewhere each can be seen", () => {
   const dissolved = reduceInfiniteCanvasState(
     { ...tabbedShell(), activeWindowId: "a" },
-    { command: { type: "group.dissolve" }, type: "command.execute" },
+    { type: "group.dissolve" },
   );
 
   expect(dissolved.groups).toHaveLength(0);

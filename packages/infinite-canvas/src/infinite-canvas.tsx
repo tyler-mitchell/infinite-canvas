@@ -1,17 +1,27 @@
 "use client";
 
-import { useValue } from "@legendapp/state/react";
+import { getSelectedWindowIds } from "./selection";
+import type { ContextMenuPolicy } from "./types";
+import type { InfiniteCanvasStoreOptions } from "./store";
 
+import { applyModifiedPointerTargetSelection } from "./frame-slots";
+import { InfiniteCanvasPalette, PaletteContext } from "./palette";
+import { useComponentPalette } from "./use-component-palette";
+
+import { useValue } from "@legendapp/state/react";
+import { observablePrimitive, ObservableHint, type OpaqueObject } from "@legendapp/state";
+
+import { getHotkeyManager } from "@tanstack/hotkeys";
 import {
   memo,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useId,
   useMemo,
   useRef,
   useState,
   type CSSProperties,
-  type PointerEvent as ReactPointerEvent,
   type ReactNode,
 } from "react";
 
@@ -28,7 +38,6 @@ import {
   InfiniteCanvasSnapOverlay,
 } from "./canvas-overlays";
 import { getInfiniteCanvasWindowFrameElementId, INFINITE_CANVAS_SLOTS } from "./data-attributes";
-import { getInfiniteCanvasWorkspaceWindowIds } from "./workspace";
 import {
   DEFAULT_INFINITE_CANVAS_COMPOSITOR,
   hasInfiniteCanvasOverlayPass,
@@ -36,7 +45,6 @@ import {
   type InfiniteCanvasCompositorPolicy,
   type InfiniteCanvasCompositorPolicyInput,
 } from "./compositor/policy";
-import { focusInfiniteCanvasContent } from "./focus-trap";
 import {
   DEFAULT_INFINITE_CANVAS_INPUT_POLICY,
   DEFAULT_INFINITE_CANVAS_STACK_BANDS,
@@ -69,9 +77,10 @@ import {
 import { getInfiniteCanvasNativeDropPayload } from "./native-drop";
 import { InfiniteCanvasGridBackdrop } from "./grid-backdrop";
 import { InfiniteCanvasGroupLayer } from "./group-layer";
+import { ComponentPreview } from "./react/component-preview";
 import {
-  getInfiniteCanvasGroupProjection,
   getInfiniteCanvasGroupTabLabel,
+  isInfiniteCanvasWindowGrouped,
   type InfiniteCanvasGroupTabLabel,
 } from "./group-state";
 import type { InfiniteCanvasGroup, InfiniteCanvasGroupMetricsInput } from "./types";
@@ -90,9 +99,9 @@ import {
 } from "./input-policy";
 import { focusInfiniteCanvasCommandSurface, registerInfiniteCanvasHotkeys } from "./keyboard";
 import type { InfiniteCanvasHotkeyAction } from "./keyboard";
-import { getInfiniteCanvasContextualCommands } from "./commands";
-import type { InfiniteCanvasHotkeyBinding } from "./commands";
+import type { InfiniteCanvasHotkeyBinding } from "./operations";
 import {
+  DRAG_THRESHOLD_PX,
   capturePointer,
   clearNativeTextSelection,
   getClientPoint,
@@ -100,25 +109,18 @@ import {
   isInteractiveTarget,
   isPrimaryButton,
   releasePointer,
-} from "./runtime";
+} from "../next/input";
 import {
   getInfiniteCanvasSelectableTargetFromSpatialTarget,
   resolveInfiniteCanvasSpatialTarget,
 } from "./spatial-target";
 import {
-  assertInfiniteCanvasStateMatchesWindowRegistry,
-  getUnknownInfiniteCanvasWindowKinds,
-  isRegisteredInfiniteCanvasWindow,
-  normalizeInfiniteCanvasStateForWindowRegistry,
-  recoverInfiniteCanvasStateForWindowRegistry,
-} from "./registry";
-import {
   InfiniteCanvasProvider,
-  useInfiniteCanvasActions,
+  useInfiniteCanvasDispatch,
   useInfiniteCanvasSelector,
   useInfiniteCanvasState,
   useInfiniteCanvasStore,
-} from "./store";
+} from "./react/store";
 import {
   InfiniteCanvasRasterHud,
   InfiniteCanvasRasterSchedulerGate,
@@ -131,7 +133,6 @@ import type { InfiniteCanvasSceneSurface } from "./scene-surface";
 import { InfiniteCanvasWindowFrame } from "./window-frame";
 import type {
   InfiniteCanvasChromeMetrics,
-  InfiniteCanvasCommands,
   InfiniteCanvasDragStartInput,
   InfiniteCanvasDropPayload,
   InfiniteCanvasDropInteraction,
@@ -146,7 +147,6 @@ import type {
   InfiniteCanvasOverlayRenderContext,
   InfiniteCanvasPoint,
   InfiniteCanvasPointerMode,
-  InfiniteCanvasSelectionTarget,
   InfiniteCanvasSnapPolicy,
   InfiniteCanvasSpatialTarget,
   InfiniteCanvasSpatialTargetResolver,
@@ -159,55 +159,28 @@ import type {
   InfiniteCanvasViewportInsetsInput,
   InfiniteCanvasViewportOccluder,
   InfiniteCanvasZoomPolicy,
-  InfiniteCanvasZoomPolicyInput,
 } from "./types";
 
 type InfiniteCanvasDesktopProps<
-  Kind extends string,
+  Kind extends string = string,
   Payload = InfiniteCanvasDropPayload,
-> = Readonly<{
-  chrome?: InfiniteCanvasChromeMetricsInput;
-  className?: string;
-  /** Which framework compositor passes run and how each is tuned. Needs `sceneSurface`. */
-  compositor?: InfiniteCanvasCompositorPolicyInput;
-  diagnostics?: InfiniteCanvasDiagnosticsPolicyInput;
-  /**
-   * Pans the canvas when a drag reaches a viewport edge. `false` holds the
-   * camera still. Memoize this object: pointer handling restarts when its
-   * identity changes, which stops a pan held at the edge.
-   */
-  edgePan?: InfiniteCanvasEdgePanPolicy | false;
-  documentKey?: string;
-  dropPolicy?: InfiniteCanvasDropPolicy<Kind, Payload>;
-  /** Adds consumer actions to the keymap without replacing command bindings. */
-  hotkeyActions?: readonly InfiniteCanvasHotkeyAction<Kind>[];
-  hotkeyBindings?: readonly InfiniteCanvasHotkeyBinding[];
-  hud?: InfiniteCanvasHudPolicyInput;
-  icons?: InfiniteCanvasIcons;
-  initialState: InfiniteCanvasState<Kind>;
-  inputPolicy?: InfiniteCanvasInputPolicy;
-  rasterization?: InfiniteCanvasRasterizationPolicyInput | boolean;
-  /** Replaces the grid below windows with screen-space content. */
-  renderBackdrop?: (context: InfiniteCanvasOverlayReadContext<Kind, Payload>) => ReactNode;
-  /** World content below windows and above the backdrop. */
-  renderUnderlay?: (context: InfiniteCanvasOverlayReadContext<Kind, Payload>) => ReactNode;
-  renderOverlay?: (context: InfiniteCanvasOverlayRenderContext<Kind, Payload>) => ReactNode;
-  /** Paints the framework's passes. Omit it to exclude scene dependencies from the bundle. */
-  sceneSurface?: InfiniteCanvasSceneSurface<Kind, Payload>;
-  snapPolicy?: InfiniteCanvasSnapPolicy;
-  spatialTargetResolvers?: readonly InfiniteCanvasSpatialTargetResolver<Kind>[];
-  storageKey?: string;
-  subtitle?: string;
-  theme?: Partial<InfiniteCanvasTheme>;
-  title?: string;
-  windowDefinitions: InfiniteCanvasWindowRegistry<Kind>;
-  zoomPolicy?: InfiniteCanvasZoomPolicyInput;
-}>;
+> = InfiniteCanvasStoreOptions<Kind> &
+  Omit<InfiniteCanvasViewportProps<Kind, Payload>, "zoomPolicy" | "compositor" | "diagnostics"> &
+  Readonly<{
+    documentKey?: string;
+    compositor?: InfiniteCanvasCompositorPolicyInput;
+    diagnostics?: InfiniteCanvasDiagnosticsPolicyInput;
+    rasterization?: InfiniteCanvasRasterizationPolicyInput | boolean;
+  }>;
 
 type InfiniteCanvasViewportProps<
   Kind extends string,
   Payload = InfiniteCanvasDropPayload,
 > = Readonly<{
+  children?: ReactNode;
+  componentPalette?: boolean;
+  groupContextMenu?: ContextMenuPolicy | false;
+  tools?: CanvasToolsOptions<Kind>;
   chrome?: InfiniteCanvasChromeMetricsInput;
   className?: string;
   compositor?: InfiniteCanvasCompositorPolicy;
@@ -227,7 +200,12 @@ type InfiniteCanvasViewportProps<
   groupMetrics?: InfiniteCanvasGroupMetricsInput;
   /** Resolves a group label. Return `""` to hide one label. */
   groupLabel?: (
-    context: Readonly<{ group: InfiniteCanvasGroup; windows: readonly InfiniteCanvasWindow[] }>,
+    context: Readonly<{
+      group: InfiniteCanvasGroup;
+      rect: InfiniteCanvasRect;
+      windowRects: ReadonlyMap<string, InfiniteCanvasRect>;
+      windows: readonly InfiniteCanvasWindow[];
+    }>,
   ) => string;
   /** Resolves tab and accordion labels. The default is the window title. */
   groupTabLabel?: InfiniteCanvasGroupTabLabel;
@@ -249,7 +227,6 @@ type InfiniteCanvasViewportProps<
   spatialTargetResolvers?: readonly InfiniteCanvasSpatialTargetResolver<Kind>[];
   theme?: Partial<InfiniteCanvasTheme>;
   title?: string;
-  windowDefinitions: InfiniteCanvasWindowRegistry<Kind>;
   zoomPolicy?: InfiniteCanvasZoomPolicy;
 }>;
 
@@ -363,8 +340,10 @@ function resolveInfiniteCanvasDragDropTarget<Kind extends string, Payload>({
         ? null
         : getInfiniteCanvasDropPlacement({
             anchor: placementInput.anchor,
+            groupInsertion: placementInput.groupInsertion,
+            contentSize: placementInput.contentSize,
             size: placementInput.size,
-            snapPolicy,
+            snapPolicy: placementInput.snapPolicy ?? snapPolicy,
             state,
             worldPoint: target.worldPoint,
           }),
@@ -392,96 +371,38 @@ function useInfiniteCanvasDevicePixelRatio() {
   return devicePixelRatio;
 }
 
-function InfiniteCanvasDesktop<Kind extends string, Payload = InfiniteCanvasDropPayload>({
-  // The viewport merges this partial value with its defaults.
-  chrome,
-  className,
-  compositor,
-  diagnostics,
-  documentKey,
-  dropPolicy,
-  edgePan,
-  hotkeyActions,
-  hotkeyBindings,
-  hud,
-  icons,
-  initialState,
-  inputPolicy = DEFAULT_INFINITE_CANVAS_INPUT_POLICY,
-  rasterization,
-  renderBackdrop,
-  renderOverlay,
-  renderUnderlay,
-  sceneSurface,
-  snapPolicy,
-  spatialTargetResolvers = EMPTY_LIST,
-  storageKey,
-  subtitle = "Composable WebGPU surface, DOM body seam, pure window model.",
-  theme,
-  title = "Infinite Canvas Framework",
-  windowDefinitions,
-  zoomPolicy,
-}: InfiniteCanvasDesktopProps<Kind, Payload>) {
-  const resolvedZoomPolicy = useMemo(
-    () => resolveInfiniteCanvasZoomPolicy(zoomPolicy),
-    [zoomPolicy],
+function InfiniteCanvasDesktop<Kind extends string, Payload = InfiniteCanvasDropPayload>(
+  props: InfiniteCanvasDesktopProps<Kind, Payload>,
+) {
+  const zoomPolicy = useMemo(
+    () => resolveInfiniteCanvasZoomPolicy(props.zoomPolicy),
+    [props.zoomPolicy],
   );
-  const resolvedRasterizationPolicy = useMemo(
-    () => resolveInfiniteCanvasRasterizationPolicy(rasterization),
-    [rasterization],
+  const rasterization = useMemo(
+    () => resolveInfiniteCanvasRasterizationPolicy(props.rasterization),
+    [props.rasterization],
   );
-  const resolvedDiagnosticsPolicy = useMemo(
-    () => resolveInfiniteCanvasDiagnosticsPolicy(diagnostics),
-    [diagnostics],
+  const diagnostics = useMemo(
+    () => resolveInfiniteCanvasDiagnosticsPolicy(props.diagnostics),
+    [props.diagnostics],
   );
-  const resolvedCompositorPolicy = useMemo(
-    () => resolveInfiniteCanvasCompositorPolicy(compositor),
-    [compositor],
+  const compositor = useMemo(
+    () => resolveInfiniteCanvasCompositorPolicy(props.compositor),
+    [props.compositor],
   );
-  const validatedInitialState = useMemo(
-    () => assertInfiniteCanvasStateMatchesWindowRegistry(initialState, windowDefinitions),
-    [initialState, windowDefinitions],
-  );
-  const validateStateForRegistry = useMemo(
-    () => (state: InfiniteCanvasState<Kind>) =>
-      normalizeInfiniteCanvasStateForWindowRegistry(state, windowDefinitions),
-    [windowDefinitions],
-  );
-
   return (
-    <InfiniteCanvasProvider
-      documentKey={documentKey}
-      initialState={validatedInitialState}
-      key={documentKey}
-      snapPolicy={snapPolicy}
-      stateValidator={validateStateForRegistry}
-      storageKey={storageKey}
-      zoomPolicy={resolvedZoomPolicy}
-    >
-      <InfiniteCanvasDiagnosticsProvider policy={resolvedDiagnosticsPolicy}>
-        <InfiniteCanvasRasterizationProvider policy={resolvedRasterizationPolicy}>
+    <InfiniteCanvasProvider {...props} key={props.documentKey} zoomPolicy={zoomPolicy}>
+      <InfiniteCanvasDiagnosticsProvider policy={diagnostics}>
+        <InfiniteCanvasRasterizationProvider policy={rasterization}>
           <InfiniteCanvasViewport
-            chrome={chrome}
-            className={className}
-            compositor={resolvedCompositorPolicy}
-            diagnostics={resolvedDiagnosticsPolicy}
-            dropPolicy={dropPolicy}
-            edgePan={edgePan}
-            hotkeyActions={hotkeyActions}
-            hotkeyBindings={hotkeyBindings}
-            hud={hud}
-            snapPolicy={snapPolicy}
-            icons={icons}
-            inputPolicy={inputPolicy}
-            renderBackdrop={renderBackdrop}
-            renderUnderlay={renderUnderlay}
-            renderOverlay={renderOverlay}
-            sceneSurface={sceneSurface}
-            subtitle={subtitle}
-            spatialTargetResolvers={spatialTargetResolvers}
-            theme={theme}
-            title={title}
-            windowDefinitions={windowDefinitions}
-            zoomPolicy={resolvedZoomPolicy}
+            {...props}
+            zoomPolicy={zoomPolicy}
+            diagnostics={diagnostics}
+            compositor={compositor}
+            title={props.title ?? "Infinite Canvas Framework"}
+            subtitle={
+              props.subtitle ?? "Composable WebGPU surface, DOM body seam, pure window model."
+            }
           />
         </InfiniteCanvasRasterizationProvider>
       </InfiniteCanvasDiagnosticsProvider>
@@ -508,12 +429,15 @@ function isEditableEventTarget(target: EventTarget | null): boolean {
 
 /** Mounts a canvas with default policies without `InfiniteCanvasDesktop`. */
 function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDropPayload>({
+  children,
+  componentPalette,
   chrome: chromeInput,
   className,
   compositor = DEFAULT_INFINITE_CANVAS_COMPOSITOR,
   diagnostics = DEFAULT_INFINITE_CANVAS_DIAGNOSTICS,
   edgePan = DEFAULT_INFINITE_CANVAS_EDGE_PAN,
-  dropPolicy,
+  dropPolicy: suppliedDropPolicy,
+  groupContextMenu,
   groupMetrics,
   groupLabel,
   groupTabLabel = getInfiniteCanvasGroupTabLabel,
@@ -531,9 +455,9 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
   spatialTargetResolvers = EMPTY_LIST,
   theme,
   title = "",
+  tools = false,
   viewportInsets,
   viewportOccluders,
-  windowDefinitions,
   zoomPolicy = resolveInfiniteCanvasZoomPolicy(),
 }: InfiniteCanvasViewportProps<Kind, Payload>) {
   const canvasInstanceId = useId();
@@ -563,12 +487,22 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
     null,
   );
   const [desktopPortalRoot, setDesktopPortalRoot] = useState<HTMLDivElement | null>(null);
-  const [dropInteraction, setDropInteraction] = useState<
-    InfiniteCanvasDropInteraction<Payload, Kind>
-  >(EMPTY_INFINITE_CANVAS_DROP);
-  const dropInteractionRef = useRef<InfiniteCanvasDropInteraction<Payload, Kind>>(dropInteraction);
+  const [dropInteraction$] = useState(() =>
+    observablePrimitive<OpaqueObject<InfiniteCanvasDropInteraction<Payload, Kind>>>(
+      ObservableHint.opaque(EMPTY_INFINITE_CANVAS_DROP),
+    ),
+  );
+  const dropInteraction = useValue(dropInteraction$);
+  const dragActivationRef = useRef<Readonly<{ activate: () => void; distance: number }> | null>(
+    null,
+  );
   const store = useInfiniteCanvasStore<Kind>();
-  const actions = useInfiniteCanvasActions<Kind>();
+  const windowDefinitions = useValue(store.windowDefinitions$);
+  const dispatch = useInfiniteCanvasDispatch<Kind>();
+  const palette = useComponentPalette({ store });
+  const componentPreview = componentPalette ? palette.getPreview(dropInteraction) : null;
+  const dropPolicy = suppliedDropPolicy ?? (componentPalette ? palette.dropPolicy : undefined);
+  const hasDropPolicy = dropPolicy !== undefined;
 
   // Set the resolver during render so HUD bounds are correct on first paint.
   store.setSpatialTargetResolvers(spatialTargetResolvers);
@@ -618,110 +552,20 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
       }),
     [chrome, spatialTargetResolvers, store],
   );
-  const createDropInteractionFromPointer = useCallback(
+  const createDropInteractionFromPointer = useStableCallback(
     (
-      current: Extract<InfiniteCanvasDropInteraction<Payload, Kind>, { status: "dragging" }>,
+      current: Pick<
+        Extract<InfiniteCanvasDropInteraction<Payload, Kind>, { status: "dragging" }>,
+        "id" | "originClientPoint" | "payload" | "pointerId"
+      >,
       event: Pick<PointerEvent, "clientX" | "clientY">,
+      payload: Payload = current.payload,
     ) => {
       const node = rootRef.current;
-      const latestState = store.state$.peek() as InfiniteCanvasState<Kind>;
-      const clientPoint = getClientPoint(event);
-      const viewportPoint =
-        node === null ? current.viewportPoint : getViewportPoint(node, clientPoint);
-      const dropTarget = resolveInfiniteCanvasDragDropTarget({
-        chrome,
-        dropPolicy,
-        payload: current.payload,
-        resolvers: spatialTargetResolvers,
-        snapPolicy,
-        state: latestState,
-        viewportPoint,
-      });
-
-      return node === null
-        ? current
-        : createInfiniteCanvasDropInteraction<Payload, Kind>({
-            camera: latestState.camera,
-            clientPoint,
-            id: current.id,
-            originClientPoint: current.originClientPoint,
-            payload: current.payload,
-            placement: dropTarget.placement,
-            pointerId: current.pointerId,
-            target: dropTarget.target,
-            validation: dropTarget.validation,
-            viewport: latestState.viewport,
-            viewportPoint,
-          });
-    },
-    [chrome, dropPolicy, snapPolicy, spatialTargetResolvers, store],
-  );
-  const cancelDropDrag = useCallback(() => {
-    const current = dropInteractionRef.current;
-
-    if (current.status === "dragging") {
-      releaseDropPointerCapture(current.pointerId);
-    }
-
-    dropInteractionRef.current = EMPTY_INFINITE_CANVAS_DROP;
-    setDropInteraction(EMPTY_INFINITE_CANVAS_DROP);
-  }, [releaseDropPointerCapture]);
-  const startDropDrag = useCallback(
-    ({ event, id, payload }: InfiniteCanvasDragStartInput<Payload>) => {
-      const node = rootRef.current;
-
-      if (node === null || !isPrimaryButton(event)) {
-        return;
-      }
-
-      event.preventDefault();
-      event.stopPropagation();
-      clearNativeTextSelection();
-      focusInfiniteCanvasCommandSurface(commandSurfaceRef.current);
-      capturePointer(event.currentTarget, event.pointerId);
-      dragCaptureTargetRef.current = event.currentTarget;
-
+      if (node === null) return EMPTY_INFINITE_CANVAS_DROP;
       const latestState = store.state$.peek() as InfiniteCanvasState<Kind>;
       const clientPoint = getClientPoint(event);
       const viewportPoint = getViewportPoint(node, clientPoint);
-      const dropTarget = resolveInfiniteCanvasDragDropTarget({
-        chrome,
-        dropPolicy,
-        payload,
-        resolvers: spatialTargetResolvers,
-        state: latestState,
-        viewportPoint,
-      });
-      const nextDropInteraction = createInfiniteCanvasDropInteraction<Payload, Kind>({
-        camera: latestState.camera,
-        clientPoint,
-        id,
-        originClientPoint: clientPoint,
-        payload,
-        pointerId: event.pointerId,
-        target: dropTarget.target,
-        validation: dropTarget.validation,
-        viewport: latestState.viewport,
-        viewportPoint,
-      });
-
-      dropInteractionRef.current = nextDropInteraction;
-      setDropInteraction(nextDropInteraction);
-    },
-    [chrome, dropPolicy, spatialTargetResolvers, store],
-  );
-  // Read native drag data on each event because browsers expose files only at drop.
-  const createDropInteractionFromNativeDrag = useCallback(
-    (
-      current: Extract<InfiniteCanvasDropInteraction<Payload, Kind>, { status: "dragging" }>,
-      event: DragEvent,
-      payload: Payload,
-    ) => {
-      const node = rootRef.current;
-      const latestState = store.state$.peek() as InfiniteCanvasState<Kind>;
-      const clientPoint = getClientPoint(event);
-      const viewportPoint =
-        node === null ? current.viewportPoint : getViewportPoint(node, clientPoint);
       const dropTarget = resolveInfiniteCanvasDragDropTarget({
         chrome,
         dropPolicy,
@@ -739,181 +583,192 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
         originClientPoint: current.originClientPoint,
         payload,
         placement: dropTarget.placement,
-        pointerId: NATIVE_DROP_POINTER_ID,
+        pointerId: current.pointerId,
         target: dropTarget.target,
         validation: dropTarget.validation,
         viewport: latestState.viewport,
         viewportPoint,
       });
     },
-    [chrome, dropPolicy, snapPolicy, spatialTargetResolvers, store],
   );
-  const startNativeDrag = useCallback(
-    (event: DragEvent, payload: Payload) => {
+  useLayoutEffect(() => {
+    const current = dropInteraction$.peek();
+    if (current.status !== "dragging") return;
+    dropInteraction$.set(
+      createDropInteractionFromPointer(current, {
+        clientX: current.clientPoint.x,
+        clientY: current.clientPoint.y,
+      }),
+    );
+  }, [dropPolicy, createDropInteractionFromPointer]);
+
+  const cancelDropDrag = useCallback(() => {
+    dragActivationRef.current = null;
+    const current = dropInteraction$.peek();
+
+    if (current.status === "dragging") {
+      releaseDropPointerCapture(current.pointerId);
+    }
+
+    dropInteraction$.set(EMPTY_INFINITE_CANVAS_DROP);
+  }, [releaseDropPointerCapture]);
+  const startDropDrag = useStableCallback(
+    ({
+      event,
+      id,
+      payload,
+      onActivate,
+      activationDistance = DRAG_THRESHOLD_PX,
+    }: InfiniteCanvasDragStartInput<Payload>) => {
       const node = rootRef.current;
 
-      if (node === null) {
-        return;
-      }
-
-      const latestState = store.state$.peek() as InfiniteCanvasState<Kind>;
-      const clientPoint = getClientPoint(event);
-      const viewportPoint = getViewportPoint(node, clientPoint);
-      const dropTarget = resolveInfiniteCanvasDragDropTarget({
-        chrome,
-        dropPolicy,
-        payload,
-        resolvers: spatialTargetResolvers,
-        snapPolicy,
-        state: latestState,
-        viewportPoint,
-      });
-      const next = createInfiniteCanvasDropInteraction<Payload, Kind>({
-        camera: latestState.camera,
-        clientPoint,
-        id: NATIVE_DROP_INTERACTION_ID,
-        originClientPoint: clientPoint,
-        payload,
-        placement: dropTarget.placement,
-        pointerId: NATIVE_DROP_POINTER_ID,
-        target: dropTarget.target,
-        validation: dropTarget.validation,
-        viewport: latestState.viewport,
-        viewportPoint,
-      });
-
-      dropInteractionRef.current = next;
-      setDropInteraction(next);
-    },
-    [chrome, dropPolicy, snapPolicy, spatialTargetResolvers, store],
-  );
-  /** Treats paste as a drop at the pointer or the visible-region center. */
-  const commitPaste = useCallback(
-    (event: ClipboardEvent, payload: Payload) => {
-      const node = rootRef.current;
-
-      if (node === null) {
-        return;
-      }
-
-      const latestState = store.state$.peek() as InfiniteCanvasState<Kind>;
-      const content = getInfiniteCanvasContentViewport(
-        latestState.viewport,
-        latestState.viewportInsets,
-      );
-      const viewportPoint = pastePointRef.current ?? {
-        x: content.x + content.width / 2,
-        y: content.y + content.height / 2,
-      };
-      const dropTarget = resolveInfiniteCanvasDragDropTarget({
-        chrome,
-        dropPolicy,
-        payload,
-        resolvers: spatialTargetResolvers,
-        snapPolicy,
-        state: latestState,
-        viewportPoint,
-      });
-
-      const interaction = createInfiniteCanvasDropInteraction<Payload, Kind>({
-        camera: latestState.camera,
-        clientPoint: viewportPoint,
-        id: NATIVE_DROP_INTERACTION_ID,
-        originClientPoint: viewportPoint,
-        payload,
-        placement: dropTarget.placement,
-        pointerId: NATIVE_DROP_POINTER_ID,
-        target: dropTarget.target,
-        validation: dropTarget.validation,
-        viewport: latestState.viewport,
-        viewportPoint,
-      });
-
-      if (interaction.status !== "dragging" || interaction.dropTarget.status !== "valid") {
+      if (node === null || !isPrimaryButton(event)) {
         return;
       }
 
       event.preventDefault();
+      event.stopPropagation();
+      clearNativeTextSelection();
+      focusInfiniteCanvasCommandSurface(commandSurfaceRef.current);
+      capturePointer(event.currentTarget, event.pointerId);
+      dragCaptureTargetRef.current = event.currentTarget;
+      dragActivationRef.current =
+        onActivate === undefined ? null : { activate: onActivate, distance: activationDistance };
+
+      const clientPoint = getClientPoint(event);
+      dropInteraction$.set(
+        createDropInteractionFromPointer(
+          {
+            id,
+            originClientPoint: clientPoint,
+            payload,
+            pointerId: event.pointerId,
+          },
+          event,
+        ),
+      );
+    },
+  );
+  const startNativeDrag = useStableCallback((event: DragEvent, payload: Payload) => {
+    const clientPoint = getClientPoint(event);
+    dropInteraction$.set(
+      createDropInteractionFromPointer(
+        {
+          id: NATIVE_DROP_INTERACTION_ID,
+          originClientPoint: clientPoint,
+          payload,
+          pointerId: NATIVE_DROP_POINTER_ID,
+        },
+        event,
+      ),
+    );
+  });
+  const commitDropInteraction = useStableCallback(
+    (interaction: InfiniteCanvasDropInteraction<Payload, Kind>) => {
+      if (interaction.status !== "dragging" || interaction.dropTarget.status !== "valid") return;
       dropPolicy?.onDrop?.({
-        actions,
+        dispatch,
         dropTarget: interaction.dropTarget,
-        payload,
+        payload: interaction.payload,
         placement: interaction.placement,
-        state: latestState,
+        state: store.state$.peek() as InfiniteCanvasState<Kind>,
         target: interaction.dropTarget.target,
         viewportPoint: interaction.viewportPoint,
         worldPoint: interaction.worldPoint,
       });
     },
-    [actions, chrome, dropPolicy, snapPolicy, spatialTargetResolvers, store],
   );
-  const cancelNativeDrag = useCallback(() => {
-    dropInteractionRef.current = EMPTY_INFINITE_CANVAS_DROP;
-    setDropInteraction(EMPTY_INFINITE_CANVAS_DROP);
-  }, []);
+  /** Treats paste as a drop at the pointer or the visible-region center. */
+  const commitPaste = useStableCallback((event: ClipboardEvent, payload: Payload) => {
+    const node = rootRef.current;
+
+    if (node === null) {
+      return;
+    }
+
+    const latestState = store.state$.peek() as InfiniteCanvasState<Kind>;
+    const content = getInfiniteCanvasContentViewport(
+      latestState.viewport,
+      latestState.viewportInsets,
+    );
+    const viewportPoint = pastePointRef.current ?? {
+      x: content.x + content.width / 2,
+      y: content.y + content.height / 2,
+    };
+    const bounds = node.getBoundingClientRect();
+    const clientPoint = { x: bounds.left + viewportPoint.x, y: bounds.top + viewportPoint.y };
+    const interaction = createDropInteractionFromPointer(
+      {
+        id: NATIVE_DROP_INTERACTION_ID,
+        originClientPoint: clientPoint,
+        payload,
+        pointerId: NATIVE_DROP_POINTER_ID,
+      },
+      { clientX: clientPoint.x, clientY: clientPoint.y },
+    );
+
+    if (interaction.status !== "dragging" || interaction.dropTarget.status !== "valid") {
+      return;
+    }
+
+    event.preventDefault();
+    commitDropInteraction(interaction);
+  });
   // The slot that renders an overlay adds the live state, so only a mounted overlay renders per
   // state change and the viewport itself does not subscribe to the state.
   const overlayContext = useMemo(
     () =>
       ({
-        actions,
+        dispatch,
         cancelDrag: cancelDropDrag,
         drag: dropInteraction,
         resolveSpatialTarget,
         startDrag: startDropDrag,
       }) satisfies InfiniteCanvasOverlaySlotContext<Kind, Payload>,
-    [actions, cancelDropDrag, dropInteraction, resolveSpatialTarget, startDropDrag],
+    [dispatch, cancelDropDrag, dropInteraction, resolveSpatialTarget, startDropDrag],
   );
-
-  useEffect(() => {
-    dropInteractionRef.current = dropInteraction;
-  }, [dropInteraction]);
 
   useEffect(() => {
     setPointerModeOverride(null);
   }, [inputPolicy.emptyCanvasDrag]);
 
-  useEffect(() => {
-    const state = store.state$.peek() as InfiniteCanvasState<string>;
-
-    if (getUnknownInfiniteCanvasWindowKinds(state, windowDefinitions).length === 0) {
-      return;
-    }
-
-    actions.hydrate(recoverInfiniteCanvasStateForWindowRegistry(state, windowDefinitions));
-  }, [actions, store, windowDefinitions]);
-
   useResizeObserver({
     box: "border-box",
     onResize: ({ height = 0, width = 0 }) => {
-      actions.setViewport({ height, width });
+      dispatch({ type: "viewport.set", viewport: { height, width } });
     },
     ref: rootRef,
   });
 
   // Depend on fields because this value writes to the store.
   useEffect(() => {
-    actions.setGroupMetrics({
-      accordionHeaderSize: groupMetrics?.accordionHeaderSize,
-      gutterSize: groupMetrics?.gutterSize,
-      tabStripSize: groupMetrics?.tabStripSize,
+    dispatch({
+      type: "groupMetrics.set",
+      metrics: {
+        accordionHeaderSize: groupMetrics?.accordionHeaderSize,
+        gutterSize: groupMetrics?.gutterSize,
+        tabStripSize: groupMetrics?.tabStripSize,
+      },
     });
   }, [
-    actions,
+    dispatch,
     groupMetrics?.accordionHeaderSize,
     groupMetrics?.gutterSize,
     groupMetrics?.tabStripSize,
   ]);
 
   useEffect(() => {
-    actions.setViewportInsets({
-      bottom: viewportInsets?.bottom ?? 0,
-      left: viewportInsets?.left ?? 0,
-      right: viewportInsets?.right ?? 0,
-      top: viewportInsets?.top ?? 0,
+    dispatch({
+      type: "viewportInsets.set",
+      insets: {
+        bottom: viewportInsets?.bottom ?? 0,
+        left: viewportInsets?.left ?? 0,
+        right: viewportInsets?.right ?? 0,
+        top: viewportInsets?.top ?? 0,
+      },
     });
   }, [
-    actions,
+    dispatch,
     viewportInsets?.bottom,
     viewportInsets?.left,
     viewportInsets?.right,
@@ -922,8 +777,8 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
 
   // The consumer must memoize this array because updates depend on its identity.
   useEffect(() => {
-    actions.dispatch({ occluders: viewportOccluders ?? [], type: "viewportOccluders.set" });
-  }, [actions, viewportOccluders]);
+    dispatch({ occluders: viewportOccluders ?? [], type: "viewportOccluders.set" });
+  }, [dispatch, viewportOccluders]);
 
   useEffect(() => {
     const node = commandSurfaceRef.current;
@@ -931,14 +786,14 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
     return node === null
       ? undefined
       : registerInfiniteCanvasHotkeys({
-          actions: hotkeyActions,
-          executeCommand: actions.executeCommand,
-          getSelectionBounds: store.getSelectionBounds,
-          getState: () => store.state$.peek() as InfiniteCanvasState<Kind>,
-          bindings: hotkeyBindings,
+          hotkeyActions,
+          dispatch,
+          isCommandEnabled: store.isCommandEnabled,
+          getState: store.getState,
+          bindings: hotkeyBindings ?? store.hotkeyBindings,
           target: node,
         });
-  }, [actions, hotkeyActions, hotkeyBindings, store]);
+  }, [dispatch, hotkeyActions, hotkeyBindings, store]);
 
   useEffect(() => {
     const node = rootRef.current;
@@ -966,14 +821,16 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
       event.preventDefault();
 
       if (!isZoomGesture) {
-        actions.panBy({
+        dispatch({
+          type: "camera.panBy",
           delta: getWheelScreenDelta(event, state.viewport),
         });
 
         return;
       }
 
-      actions.zoomAt({
+      dispatch({
+        type: "camera.zoomAt",
         anchor: getViewportPoint(node, getClientPoint(event)),
         zoom:
           state.camera.zoom *
@@ -991,7 +848,7 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
         capture: true,
       });
     };
-  }, [actions, store, zoomPolicy]);
+  }, [dispatch, store, zoomPolicy]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -1022,6 +879,15 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
     };
   }, []);
 
+  const getEdgePanVelocity = useStableCallback((point: InfiniteCanvasPoint) => {
+    const current = store.state$.peek() as InfiniteCanvasState<Kind>;
+
+    // A pan interaction already moves the camera; panning it again fights the drag.
+    return current.interaction === null || current.interaction.kind === "pan" || edgePan === false
+      ? null
+      : getInfiniteCanvasEdgePanVelocity(current.viewport, point, edgePan, current.viewportInsets);
+  });
+
   useEffect(() => {
     // Keep listeners mounted so synchronous pointer sequences cannot lose events.
     const getInteractionForPointer = (pointerId: number) => {
@@ -1029,15 +895,14 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
 
       return current !== null && current.pointerId === pointerId ? current : null;
     };
-    const finishInteraction = (pointerId: number) => {
+    const finishInteraction = (pointerId: number, cancelled = false) => {
+      stopEdgePan();
+      dispatch(cancelled ? { type: "desktop.cancel" } : { type: "interaction.finish", pointerId });
       const node = rootRef.current;
 
       if (node !== null) {
         releasePointer(node, pointerId);
       }
-
-      stopEdgePan();
-      actions.finishInteraction(pointerId);
     };
     /**
      * The pointer's last position, so a drag held still at an edge keeps
@@ -1061,20 +926,6 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
       held.point = null;
     };
 
-    const getEdgePanVelocity = (point: InfiniteCanvasPoint) => {
-      const current = store.state$.peek() as InfiniteCanvasState<Kind>;
-
-      // A pan interaction already moves the camera; panning it again fights the drag.
-      return current.interaction === null || current.interaction.kind === "pan" || edgePan === false
-        ? null
-        : getInfiniteCanvasEdgePanVelocity(
-            current.viewport,
-            point,
-            edgePan,
-            current.viewportInsets,
-          );
-    };
-
     const stepEdgePan = (now: number) => {
       const point = held.point;
       const velocity = point === null ? null : getEdgePanVelocity(point);
@@ -1090,9 +941,13 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
       const seconds = Math.min((now - held.time) / 1000, MAX_EDGE_PAN_STEP_SECONDS);
 
       held.time = now;
-      actions.panBy({ delta: { x: velocity.x * seconds, y: velocity.y * seconds } });
+      dispatch({
+        type: "camera.panBy",
+        delta: { x: velocity.x * seconds, y: velocity.y * seconds },
+      });
       // Re-step at the same point: the camera moved, so the drag has travelled.
-      actions.stepInteraction({
+      dispatch({
+        type: "interaction.step",
         dockIntent: held.dockIntent,
         pointerId: interaction.pointerId,
         point,
@@ -1109,7 +964,8 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
 
       const point = getViewportPoint(node, getClientPoint(event));
 
-      actions.stepInteraction({
+      dispatch({
+        type: "interaction.step",
         dockIntent: event.altKey,
         pointerId: event.pointerId,
         point,
@@ -1127,14 +983,14 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
     };
     const handlePointerUp = (event: PointerEvent) => {
       if (getInteractionForPointer(event.pointerId) !== null) {
-        finishInteraction(event.pointerId);
+        finishInteraction(event.pointerId, event.type === "pointercancel");
       }
     };
     const handleBlur = () => {
       const current = (store.state$.peek() as InfiniteCanvasState<Kind>).interaction;
 
       if (current !== null) {
-        finishInteraction(current.pointerId);
+        finishInteraction(current.pointerId, true);
       }
     };
 
@@ -1150,75 +1006,86 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
       window.removeEventListener("pointercancel", handlePointerUp);
       window.removeEventListener("blur", handleBlur);
     };
-  }, [actions, edgePan, store]);
+  }, [dispatch, getEdgePanVelocity, store]);
 
   useEffect(() => {
     const handlePointerMove = (event: PointerEvent) => {
-      const current = dropInteractionRef.current;
+      const current = dropInteraction$.peek();
 
       if (current.status !== "dragging" || event.pointerId !== current.pointerId) {
         return;
       }
 
-      setDropInteraction(createDropInteractionFromPointer(current, event));
+      const activation = dragActivationRef.current;
+      if (
+        activation !== null &&
+        Math.hypot(
+          event.clientX - current.originClientPoint.x,
+          event.clientY - current.originClientPoint.y,
+        ) >= activation.distance
+      ) {
+        dragActivationRef.current = null;
+      }
+      const next = createDropInteractionFromPointer(current, event);
+      dropInteraction$.set(next);
     };
     const finishDropDrag = (event: PointerEvent) => {
-      const current = dropInteractionRef.current;
+      const current = dropInteraction$.peek();
 
       if (current.status !== "dragging" || event.pointerId !== current.pointerId) {
         return;
       }
 
-      const finalDropInteraction = createDropInteractionFromPointer(current, event);
+      try {
+        const finalDropInteraction = createDropInteractionFromPointer(current, event);
+        const activation = dragActivationRef.current;
+        if (
+          activation !== null &&
+          Math.hypot(
+            event.clientX - current.originClientPoint.x,
+            event.clientY - current.originClientPoint.y,
+          ) < activation.distance
+        ) {
+          cancelDropDrag();
+          activation.activate();
+          return;
+        }
+        dragActivationRef.current = null;
 
-      if (
-        finalDropInteraction.status === "dragging" &&
-        finalDropInteraction.dropTarget.status === "valid"
-      ) {
-        const latestState = store.state$.peek() as InfiniteCanvasState<Kind>;
-
-        dropPolicy?.onDrop?.({
-          actions,
-          dropTarget: finalDropInteraction.dropTarget,
-          payload: finalDropInteraction.payload,
-          // Commit the exact placement shown by the preview.
-          placement: finalDropInteraction.placement,
-          state: latestState,
-          target: finalDropInteraction.dropTarget.target,
-          viewportPoint: finalDropInteraction.viewportPoint,
-          worldPoint: finalDropInteraction.worldPoint,
-        });
-      }
-
-      releaseDropPointerCapture(event.pointerId);
-      dropInteractionRef.current = EMPTY_INFINITE_CANVAS_DROP;
-      setDropInteraction(EMPTY_INFINITE_CANVAS_DROP);
-    };
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
+        commitDropInteraction(finalDropInteraction);
+      } finally {
         cancelDropDrag();
       }
     };
+    const escape = getHotkeyManager().register(
+      "Escape",
+      (event) => {
+        if (dropInteraction$.peek().status === "dragging") {
+          event.preventDefault();
+          event.stopPropagation();
+          cancelDropDrag();
+        }
+      },
+      { target: window, ignoreInputs: false, preventDefault: false, stopPropagation: false },
+    );
 
     window.addEventListener("pointermove", handlePointerMove);
     window.addEventListener("pointerup", finishDropDrag);
     window.addEventListener("pointercancel", cancelDropDrag);
-    window.addEventListener("keydown", handleKeyDown);
     window.addEventListener("blur", cancelDropDrag);
 
     return () => {
       window.removeEventListener("pointermove", handlePointerMove);
       window.removeEventListener("pointerup", finishDropDrag);
       window.removeEventListener("pointercancel", cancelDropDrag);
-      window.removeEventListener("keydown", handleKeyDown);
+      escape.unregister();
       window.removeEventListener("blur", cancelDropDrag);
     };
   }, [
-    actions,
+    dispatch,
     cancelDropDrag,
-    chrome,
     createDropInteractionFromPointer,
-    dropPolicy,
+    commitDropInteraction,
     releaseDropPointerCapture,
     store,
   ]);
@@ -1228,7 +1095,7 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
     const node = rootRef.current;
 
     // Handle dragover only with a drop policy so rejected files cannot replace the page.
-    if (node === null || dropPolicy === undefined) {
+    if (node === null || !hasDropPolicy) {
       return;
     }
 
@@ -1238,16 +1105,15 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
     const readPayload = (event: DragEvent) =>
       getInfiniteCanvasNativeDropPayload(event.dataTransfer) as Payload | null;
     const updateFromDragEvent = (event: DragEvent, payload: Payload) => {
-      const current = dropInteractionRef.current;
+      const current = dropInteraction$.peek();
 
       if (current.status !== "dragging" || current.pointerId !== NATIVE_DROP_POINTER_ID) {
         return null;
       }
 
-      const next = createDropInteractionFromNativeDrag(current, event, payload);
+      const next = createDropInteractionFromPointer(current, event, payload);
 
-      dropInteractionRef.current = next;
-      setDropInteraction(next);
+      dropInteraction$.set(next);
 
       return next;
     };
@@ -1261,7 +1127,7 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
       depth += 1;
       event.preventDefault();
 
-      if (dropInteractionRef.current.status !== "dragging") {
+      if (dropInteraction$.peek().status !== "dragging") {
         startNativeDrag(event, payload);
       }
     };
@@ -1291,7 +1157,7 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
       depth = Math.max(0, depth - 1);
 
       if (depth === 0) {
-        cancelNativeDrag();
+        cancelDropDrag();
       }
     };
     const handleDrop = (event: DragEvent) => {
@@ -1304,22 +1170,13 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
       event.preventDefault();
       depth = 0;
 
-      const final = updateFromDragEvent(event, payload);
+      try {
+        const final = updateFromDragEvent(event, payload);
 
-      if (final?.status === "dragging" && final.dropTarget.status === "valid") {
-        dropPolicy?.onDrop?.({
-          actions,
-          dropTarget: final.dropTarget,
-          payload: final.payload,
-          placement: final.placement,
-          state: store.state$.peek() as InfiniteCanvasState<Kind>,
-          target: final.dropTarget.target,
-          viewportPoint: final.viewportPoint,
-          worldPoint: final.worldPoint,
-        });
+        if (final !== null) commitDropInteraction(final);
+      } finally {
+        cancelDropDrag();
       }
-
-      cancelNativeDrag();
     };
 
     // Listen on the document because the canvas is not focusable. Ignore editable targets.
@@ -1359,10 +1216,12 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
       document.removeEventListener("paste", handlePaste);
     };
   }, [
-    actions,
-    cancelNativeDrag,
-    createDropInteractionFromNativeDrag,
-    dropPolicy,
+    dispatch,
+    cancelDropDrag,
+    hasDropPolicy,
+    commitDropInteraction,
+    commitPaste,
+    createDropInteractionFromPointer,
     startNativeDrag,
     store,
   ]);
@@ -1379,10 +1238,8 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
             data-pointer-mode={pointerMode}
             data-slot={INFINITE_CANVAS_SLOTS.viewport}
             onLostPointerCapture={(event) => {
-              actions.finishInteraction(event.pointerId);
-            }}
-            onPointerCancel={(event) => {
-              actions.finishInteraction(event.pointerId);
+              if (store.state$.peek().interaction?.pointerId === event.pointerId)
+                dispatch({ type: "desktop.cancel" });
             }}
             onPointerLeave={() => {
               setIsOverSelectableTarget(false);
@@ -1421,13 +1278,13 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
                   event.stopPropagation();
                   clearNativeTextSelection();
                   focusInfiniteCanvasCommandSurface(commandSurfaceRef.current);
-                  applyModifiedPointerTargetSelection(actions, event, selectableTarget);
+                  applyModifiedPointerTargetSelection(dispatch, event, selectableTarget);
 
                   return;
                 }
               }
 
-              const selectionExists = getState().selection.windowIds.length > 0;
+              const selectionExists = getSelectedWindowIds(getState().selection).length > 0;
               const emptyCanvasDragIntent = getEmptyCanvasDragIntent(
                 activeInputPolicy,
                 event,
@@ -1445,23 +1302,20 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
               capturePointer(event.currentTarget, event.pointerId);
 
               if (emptyCanvasDragIntent === "pan") {
-                actions.startPan({
+                dispatch({
+                  type: "interaction.startPan",
                   clearSelection: shouldClearSelectionOnPanStart(event, spacePanRef.current),
                   pointerId: event.pointerId,
                   point,
                 });
               } else {
-                actions.startMarquee({
+                dispatch({
+                  type: "interaction.startMarquee",
                   mode: getMarqueeMode(event),
                   pointerId: event.pointerId,
                   point,
                 });
               }
-            }}
-            // The window listener is the only pointer-move dispatcher.
-            onPointerUp={(event) => {
-              releasePointer(event.currentTarget, event.pointerId);
-              actions.finishInteraction(event.pointerId);
             }}
             ref={rootRef}
             style={{
@@ -1496,7 +1350,8 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
                   "[data-infinite-canvas-body='true']",
                 );
 
-                if (body !== null && body !== undefined && focusInfiniteCanvasContent(body)) {
+                if (body !== null && body !== undefined) {
+                  body.focus({ preventScroll: true });
                   event.preventDefault();
                 }
               }}
@@ -1564,12 +1419,28 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
             )}
             <InfiniteCanvasGroupLayer
               canvasInstanceId={canvasInstanceId}
+              groupContextMenu={groupContextMenu}
+              dropGroupId={
+                dropInteraction.status === "dragging" &&
+                dropInteraction.dropTarget.status === "valid"
+                  ? dropInteraction.placement?.groupInsertion?.groupId
+                  : undefined
+              }
               groupLabel={groupLabel}
               labelSize={chrome.groupLabelSize}
               resizeHandleSize={chrome.resizeHandleSize}
               tabLabel={groupTabLabel}
               zIndex={GROUP_LAYER_Z_INDEX}
             />
+            {componentPreview === null ? null : (
+              <ComponentPreview
+                {...componentPreview}
+                canvasInstanceId={canvasInstanceId}
+                chrome={chrome}
+                theme={resolvedTheme}
+                onMeasure={palette.measure}
+              />
+            )}
             <InfiniteCanvasWindowLayer
               canvasInstanceId={canvasInstanceId}
               chrome={chrome}
@@ -1596,6 +1467,9 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
               />
             )}
             <InfiniteCanvasRevealedChangeOverlay devicePixelRatio={devicePixelRatio} />
+            {tools === false ? null : (
+              <InfiniteCanvasTools tools={tools === true ? undefined : tools} />
+            )}
             <InfiniteCanvasSelectionBoundsOverlay devicePixelRatio={devicePixelRatio} />
             <InfiniteCanvasDockPreviewOverlay devicePixelRatio={devicePixelRatio} />
             <InfiniteCanvasSnapOverlay devicePixelRatio={devicePixelRatio} />
@@ -1604,6 +1478,7 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
               drop={dropInteraction}
             />
             <InfiniteCanvasMarqueeOverlay />
+            <PaletteContext value={{ palette, context: overlayContext }}>{children}</PaletteContext>
             {renderOverlay === undefined ? null : (
               <InfiniteCanvasOverlaySlot context={overlayContext} render={renderOverlay} />
             )}
@@ -1639,13 +1514,14 @@ function InfiniteCanvasOverlaySlot<Kind extends string, Payload>({
   context: InfiniteCanvasOverlaySlotContext<Kind, Payload>;
   render: (context: InfiniteCanvasOverlayRenderContext<Kind, Payload>) => ReactNode;
 }>) {
+  const store = useInfiniteCanvasStore<Kind>();
   const state = useInfiniteCanvasState<Kind>();
 
   return render({
     ...context,
     // Computed when an overlay reads it.
     get contextualCommands() {
-      return getInfiniteCanvasContextualCommands(state);
+      return store.getContextualCommands();
     },
     state,
   });
@@ -1672,33 +1548,18 @@ function InfiniteCanvasWindowLayerContent<Kind extends string>({
   const store = useInfiniteCanvasStore<Kind>();
   const windows = useValue(store.state$.windows);
   const groups = useValue(store.state$.groups);
-  const groupMetrics = useValue(store.state$.groupMetrics);
   const activeWindowId = useValue(store.state$.activeWindowId);
-  const selectedWindowIds = useValue(store.state$.selection.windowIds);
+  const selectedWindowIds = useValue(() => getSelectedWindowIds(store.state$.selection.get()));
   const interaction = useValue(store.state$.interaction);
-  const workspaces = useValue(store.state$.workspaces);
-  const activeWorkspaceId = useValue(store.state$.activeWorkspaceId);
   const zoom = useValue(store.state$.camera.zoom);
-  // Grouped windows omit resize handles because handles can cover the gutter.
-  const { hiddenWindowIds, windowRects } = useMemo(
-    () => getInfiniteCanvasGroupProjection(groups, groupMetrics),
-    [groupMetrics, groups],
-  );
-  const admittedWindowIds = useMemo(
-    () => getInfiniteCanvasWorkspaceWindowIds(store.state$.peek() as InfiniteCanvasState<Kind>),
-    [activeWorkspaceId, store, workspaces],
-  );
+  const canvasLayout = useValue(store.layout$);
   // Keep DOM order stable. The z-index controls visual stacking.
   const visibleWindows = useMemo(
     () =>
-      windows.filter(
-        (window): window is InfiniteCanvasWindow<Kind> =>
-          window.mode !== "minimized" &&
-          !hiddenWindowIds.has(window.id) &&
-          (admittedWindowIds === null || admittedWindowIds.has(window.id)) &&
-          isRegisteredInfiniteCanvasWindow(windowDefinitions, window),
+      windows.filter((window): window is InfiniteCanvasWindow<Kind> =>
+        canvasLayout.visibleWindowIds.has(window.id),
       ),
-    [admittedWindowIds, hiddenWindowIds, windows, windowDefinitions],
+    [canvasLayout.visibleWindowIds, windows],
   );
   const pointerOwned = useMemo(
     () => getInfiniteCanvasPointerOwnedIds(store.state$.peek() as InfiniteCanvasState<Kind>),
@@ -1707,22 +1568,27 @@ function InfiniteCanvasWindowLayerContent<Kind extends string>({
 
   return (
     <InfiniteCanvasCameraLayer zIndex={zIndex}>
-      {visibleWindows.map((window) => (
-        <InfiniteCanvasWindowFrame
-          canvasInstanceId={resolvedInstanceId}
-          chrome={chrome}
-          isActive={activeWindowId === window.id}
-          isGrouped={windowRects.has(window.id)}
-          isPointerOwned={pointerOwned.windowIds.has(window.id)}
-          isSelected={selectedWindowIds.includes(window.id)}
-          key={window.id}
-          stackBands={stackBands}
-          theme={theme}
-          window={window}
-          windowDefinitions={windowDefinitions}
-          zoom={zoom}
-        />
-      ))}
+      {visibleWindows.map((window) => {
+        const rect = canvasLayout.windowRects.get(window.id);
+        if (rect === undefined) return null;
+        return (
+          <InfiniteCanvasWindowFrame
+            canvasInstanceId={resolvedInstanceId}
+            chrome={chrome}
+            isActive={activeWindowId === window.id}
+            isGrouped={isInfiniteCanvasWindowGrouped(store.state$.peek(), window.id)}
+            isPointerOwned={pointerOwned.windowIds.has(window.id)}
+            isSelected={selectedWindowIds.includes(window.id)}
+            key={window.id}
+            rect={rect}
+            stackBands={stackBands}
+            theme={theme}
+            window={window}
+            windowDefinitions={windowDefinitions}
+            zoom={zoom}
+          />
+        );
+      })}
     </InfiniteCanvasCameraLayer>
   );
 }
@@ -1730,29 +1596,6 @@ function InfiniteCanvasWindowLayerContent<Kind extends string>({
 const InfiniteCanvasWindowLayer = memo(
   InfiniteCanvasWindowLayerContent,
 ) as typeof InfiniteCanvasWindowLayerContent;
-
-function applyModifiedPointerTargetSelection<Kind extends string>(
-  actions: InfiniteCanvasCommands<Kind>,
-  event: ReactPointerEvent<HTMLElement>,
-  target: InfiniteCanvasSelectionTarget,
-) {
-  if (event.shiftKey) {
-    actions.dispatch({
-      targets: [target],
-      type: "selection.targets.add",
-    });
-
-    return;
-  }
-
-  if (event.metaKey || event.ctrlKey) {
-    actions.toggleTargetSelection(target);
-
-    return;
-  }
-
-  actions.selectTarget(target);
-}
 
 function isCanvasPanTarget(
   target: EventTarget | null,
@@ -1848,14 +1691,16 @@ function getCanvasCursor(
   // Consumers can override pan, move, and marquee cursors.
   if (
     interaction.kind === "resize" ||
-    interaction.kind === "groupMove" ||
     interaction.kind === "groupGutter" ||
     interaction.kind === "groupResize"
   ) {
     return getInteractionCursor(interaction);
   }
 
-  return getInfiniteCanvasInteractionCursor(inputPolicy, interaction.kind);
+  return getInfiniteCanvasInteractionCursor(
+    inputPolicy,
+    interaction.kind === "groupReorder" ? "move" : interaction.kind,
+  );
 }
 
 function isCanvasPanGesture(
@@ -1914,6 +1759,7 @@ function isSpacePanKeyEvent(event: KeyboardEvent, commandSurface: HTMLElement | 
 }
 
 const InfiniteCanvas = {
+  Palette: InfiniteCanvasPalette,
   Desktop: InfiniteCanvasDesktop,
   Hud: InfiniteCanvasHud,
   Provider: InfiniteCanvasProvider,
@@ -1930,3 +1776,7 @@ export {
 };
 
 export type { InfiniteCanvasDesktopProps, InfiniteCanvasViewportProps };
+import type { InfiniteCanvasRect } from "./types";
+import type { CanvasToolsOptions } from "./tools";
+import { InfiniteCanvasTools } from "./react/tools";
+import { useStableCallback } from "@base-ui/utils/useStableCallback";

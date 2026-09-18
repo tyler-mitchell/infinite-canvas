@@ -11,7 +11,7 @@ import {
   createInfiniteCanvasWindow,
   defineInfiniteCanvasWindowRegistry,
 } from "./factory";
-import { InfiniteCanvasProvider } from "./store";
+import { InfiniteCanvasProvider } from "./react/store";
 import { InfiniteCanvasWindowFrame } from "./window-frame";
 
 type Kind = "note";
@@ -44,6 +44,7 @@ const renderFrameWith = (
         stackBands={DEFAULT_INFINITE_CANVAS_STACK_BANDS}
         theme={DEFAULT_INFINITE_CANVAS_THEME}
         window={noteWindow}
+        rect={noteWindow.rect}
         windowDefinitions={defineInfiniteCanvasWindowRegistry<Kind>({
           note: { kind: "note", renderFrame },
         })}
@@ -66,7 +67,7 @@ test("a slot renders its default element when `render` is omitted", () => {
 test("`render` replaces the element the framework would have chosen", () => {
   const markup = renderFrameWith(({ frame: { Header, Surface } }) => (
     <Surface>
-      <Header render={(props, { children }) => <nav {...props}>{children}</nav>} />
+      <Header render={<nav />} />
     </Surface>
   ));
 
@@ -77,7 +78,7 @@ test("`render` replaces the element the framework would have chosen", () => {
 test("`render` still receives the framework's own props", () => {
   const markup = renderFrameWith(({ frame: { Header, Surface } }) => (
     <Surface>
-      <Header render={(props, { children }) => <nav {...props}>{children}</nav>} />
+      <Header render={<nav />} />
     </Surface>
   ));
 
@@ -98,7 +99,7 @@ test("arbitrary DOM props reach the element, with or without `render`", () => {
 
   const replaced = renderFrameWith(({ frame: { Header, Surface } }) => (
     <Surface>
-      <Header id="my-header" render={(props, { children }) => <nav {...props}>{children}</nav>} />
+      <Header id="my-header" render={<nav />} />
     </Surface>
   ));
 

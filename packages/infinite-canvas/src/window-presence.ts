@@ -1,4 +1,5 @@
-import { getInfiniteCanvasGroupProjection } from "./group-state";
+import { getSelectedWindowIds } from "./selection";
+import { getCanvasLayout } from "./layout";
 import type { InfiniteCanvasState, InfiniteCanvasWindow, InfiniteCanvasWindowMode } from "./types";
 import { getInfiniteCanvasWorkspaceWindowIds } from "./workspace-membership";
 
@@ -34,10 +35,10 @@ type InfiniteCanvasWindowPresenceScope = Readonly<{
 
 const getInfiniteCanvasWindowPresenceScope = <Kind extends string>(
   state: InfiniteCanvasState<Kind>,
+  hiddenWindowIds = getCanvasLayout(state).hiddenWindowIds,
 ): InfiniteCanvasWindowPresenceScope => ({
   admittedWindowIds: getInfiniteCanvasWorkspaceWindowIds(state),
-  hiddenWindowIds: getInfiniteCanvasGroupProjection(state.groups, state.groupMetrics)
-    .hiddenWindowIds,
+  hiddenWindowIds,
 });
 
 function getInfiniteCanvasWindowPresenceItem<Kind extends string>(
@@ -51,7 +52,7 @@ function getInfiniteCanvasWindowPresenceItem<Kind extends string>(
     isAdmitted: scope.admittedWindowIds === null || scope.admittedWindowIds.has(window.id),
     isHidden: scope.hiddenWindowIds.has(window.id),
     isPinned: window.isPinned,
-    isSelected: state.selection.windowIds.includes(window.id),
+    isSelected: getSelectedWindowIds(state.selection).includes(window.id),
     kind: window.kind,
     mode: window.mode,
     title: window.title,
@@ -68,13 +69,12 @@ function sortWindowPresenceItemsByStack<Kind extends string>(
 function getInfiniteCanvasWindowPresence<Kind extends string>(
   state: InfiniteCanvasState<Kind>,
 ): InfiniteCanvasWindowPresence<Kind> {
-  const scope = getInfiniteCanvasWindowPresenceScope(state);
+  const canvasLayout = getCanvasLayout(state);
+  const scope = getInfiniteCanvasWindowPresenceScope(state, canvasLayout.hiddenWindowIds);
   const windows = sortWindowPresenceItemsByStack(
     state.windows.map((window) => getInfiniteCanvasWindowPresenceItem(state, window, scope)),
   );
-  const visible = windows.filter(
-    (window) => window.mode !== "minimized" && !window.isHidden && window.isAdmitted,
-  );
+  const visible = windows.filter((window) => canvasLayout.visibleWindowIds.has(window.id));
   // Keep minimized windows from all workspaces in the consumer-owned dock.
   const minimized = windows.filter((window) => window.mode === "minimized");
   const pinned = visible.filter((window) => window.isPinned);

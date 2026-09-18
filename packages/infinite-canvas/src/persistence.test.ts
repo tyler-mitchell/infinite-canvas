@@ -1,11 +1,6 @@
 import { expect, test } from "vite-plus/test";
-
-import {
-  getInfiniteCanvasScopedStorageKey,
-  parseInfiniteCanvasStateJson,
-  stringifyInfiniteCanvasState,
-} from "./persistence";
-import { DEFAULT_INFINITE_CANVAS_GROUP_METRICS } from "./group-layout";
+import { createInfiniteCanvasStore } from "./store";
+import { DEFAULT_INFINITE_CANVAS_GROUP_METRICS } from "./layout";
 import type { InfiniteCanvasState } from "./types";
 
 type PersistedWindowKind = "demo";
@@ -25,36 +20,12 @@ const state: InfiniteCanvasState<PersistedWindowKind> = {
   groupMetrics: DEFAULT_INFINITE_CANVAS_GROUP_METRICS,
   groups: [],
   workspaces: [],
-  history: { future: [], past: [] },
-  interaction: {
-    kind: "pan",
-    originCamera: {
-      center: {
-        x: 0,
-        y: 0,
-      },
-      zoom: 1,
-    },
-    originPointer: {
-      x: 0,
-      y: 0,
-    },
-    pointerId: 1,
-  },
+  interaction: null,
   selection: {
-    anchorWindowId: "demo-window",
-    windowIds: ["demo-window"],
+    anchorTarget: { type: "window" as const, id: "demo-window" },
+    targets: [{ type: "window" as const, id: "demo-window" }],
   },
-  snapPreview: {
-    guides: [],
-    rect: {
-      height: 120,
-      width: 160,
-      x: 0,
-      y: 0,
-    },
-    windowId: "demo-window",
-  },
+  snapPreview: null,
   viewport: {
     height: 700,
     width: 900,
@@ -88,36 +59,17 @@ const state: InfiniteCanvasState<PersistedWindowKind> = {
   ],
 };
 
-test("scoped storage keys isolate persisted layouts by document identity", () => {
-  expect(
-    getInfiniteCanvasScopedStorageKey({
-      documentKey: "workspace/A",
-      storageKey: "canvas-layout",
-    }),
-  ).toBe("canvas-layout::document::workspace%2FA");
-  expect(
-    getInfiniteCanvasScopedStorageKey({
-      storageKey: "canvas-layout",
-    }),
-  ).toBe("canvas-layout");
-  expect(
-    getInfiniteCanvasScopedStorageKey({
-      documentKey: "workspace/A",
-    }),
-  ).toBeUndefined();
-});
-
 test("serializing layout strips volatile interaction and viewport state on parse", () => {
-  const restored = parseInfiniteCanvasStateJson(stringifyInfiniteCanvasState(state), {
-    ...state,
-    interaction: null,
-    snapPreview: null,
-    viewport: {
-      height: 0,
-      width: 0,
-    },
-    viewportInsets: { bottom: 0, left: 0, right: 0, top: 0 },
-  });
+  const store = createInfiniteCanvasStore({ initialState: state });
+  store.dispatch({ type: "interaction.startPan", pointerId: 1, point: { x: 0, y: 0 } });
+  expect(store.getState().interaction?.kind).toBe("pan");
+  const document = store.snapshot();
+  expect(document).not.toHaveProperty("interaction");
+  expect(document).not.toHaveProperty("snapPreview");
+  expect(document).not.toHaveProperty("viewport");
+  const restored = createInfiniteCanvasStore({
+    document: JSON.parse(JSON.stringify(document)),
+  }).getState();
 
   expect(restored?.activeWindowId).toBe("demo-window");
   expect(restored?.camera).toEqual(state.camera);
@@ -131,24 +83,18 @@ test("serializing layout strips volatile interaction and viewport state on parse
   expect(restored?.windows[0]?.restoreRect).toEqual(state.windows[0]?.restoreRect);
 });
 
-test("parsing older layouts without selection selects the active window", () => {
+test("omitted selection selects the active window", () => {
   const serialized = JSON.stringify({
     activeWindowId: "demo-window",
     camera: state.camera,
-    version: 1,
+    version: 4,
     windows: state.windows,
   });
-  const restored = parseInfiniteCanvasStateJson(serialized, {
-    ...state,
-    selection: {
-      anchorWindowId: null,
-      windowIds: [],
-    },
-  });
+  const restored = createInfiniteCanvasStore({ document: JSON.parse(serialized) }).getState();
 
   expect(restored?.selection).toEqual({
-    anchorWindowId: "demo-window",
-    windowIds: ["demo-window"],
+    anchorTarget: { type: "window" as const, id: "demo-window" },
+    targets: [{ type: "window" as const, id: "demo-window" }],
   });
 });
 
@@ -164,23 +110,14 @@ test("parsing persisted layouts preserves non-window selection targets", () => {
   const serialized = JSON.stringify({
     activeWindowId: "demo-window",
     camera: state.camera,
-    selection: {
-      anchorWindowId: null,
-      targets: [target, target],
-      windowIds: [],
-    },
-    version: 1,
+    selection: { anchorTarget: null, targets: [target, target] },
+    version: 4,
     windows: state.windows,
   });
-  const restored = parseInfiniteCanvasStateJson(serialized, state);
+  const restored = createInfiniteCanvasStore({ document: JSON.parse(serialized) }).getState();
 
   expect(restored?.activeWindowId).toBeNull();
-  expect(restored?.selection).toEqual({
-    anchorTarget: target,
-    anchorWindowId: null,
-    targets: [target],
-    windowIds: [],
-  });
+  expect(restored?.selection).toEqual({ anchorTarget: target, targets: [target] });
 });
 
 test("parsing empty persisted layouts keeps an empty document valid", () => {
@@ -188,19 +125,16 @@ test("parsing empty persisted layouts keeps an empty document valid", () => {
     activeWindowId: "missing-window",
     camera: state.camera,
     selection: {
-      anchorWindowId: "missing-window",
-      windowIds: ["missing-window"],
+      anchorTarget: { type: "window" as const, id: "missing-window" },
+      targets: [{ type: "window" as const, id: "missing-window" }],
     },
-    version: 1,
+    version: 4,
     windows: [],
   });
-  const restored = parseInfiniteCanvasStateJson(serialized, state);
+  const restored = createInfiniteCanvasStore({ document: JSON.parse(serialized) }).getState();
 
   expect(restored?.activeWindowId).toBeNull();
-  expect(restored?.selection).toEqual({
-    anchorWindowId: null,
-    windowIds: [],
-  });
+  expect(restored?.selection).toEqual({ anchorTarget: null, targets: [] });
   expect(restored?.windows).toEqual([]);
 });
 
@@ -208,7 +142,7 @@ test("parsing persisted layouts recovers duplicate window ids", () => {
   const serialized = JSON.stringify({
     activeWindowId: "demo-window",
     camera: state.camera,
-    version: 1,
+    version: 4,
     windows: [
       state.windows[0],
       {
@@ -217,50 +151,43 @@ test("parsing persisted layouts recovers duplicate window ids", () => {
       },
     ],
   });
-  const restored = parseInfiniteCanvasStateJson(serialized, state);
+  const restored = createInfiniteCanvasStore({ document: JSON.parse(serialized) }).getState();
 
   expect(restored?.windows).toHaveLength(1);
   expect(restored?.windows[0]?.title).toBe("Recovered duplicate");
   expect(restored?.selection).toEqual({
-    anchorWindowId: "demo-window",
-    windowIds: ["demo-window"],
+    anchorTarget: { type: "window" as const, id: "demo-window" },
+    targets: [{ type: "window" as const, id: "demo-window" }],
   });
 });
 
-test("parsing persisted layouts recovers camera and window-level corruption", () => {
-  const serialized = JSON.stringify({
-    activeWindowId: "broken-window",
-    camera: {
-      center: {
-        x: Number.POSITIVE_INFINITY,
-        y: 0,
-      },
-      zoom: 0,
-    },
-    selection: {
-      anchorWindowId: "broken-window",
-      windowIds: ["broken-window", "demo-window"],
-    },
-    version: 1,
-    windows: [
-      {
-        ...state.windows[0],
-        id: "broken-window",
-        rect: {
-          ...state.windows[0]?.rect,
-          width: -1,
-        },
-      },
-      state.windows[0],
-    ],
-  });
-  const restored = parseInfiniteCanvasStateJson(serialized, state);
+test.each([1, 2, 3])("document version %s is rejected", (version) => {
+  const document = {
+    version,
+    activeWindowId: state.activeWindowId,
+    camera: state.camera,
+    windows: state.windows,
+  };
+  expect(() => createInfiniteCanvasStore({ document })).toThrow(/version/);
+});
 
-  expect(restored?.camera).toEqual(state.camera);
-  expect(restored?.activeWindowId).toBe("demo-window");
-  expect(restored?.selection).toEqual({
-    anchorWindowId: "demo-window",
-    windowIds: ["demo-window"],
+test.each([
+  {
+    name: "camera position",
+    patch: { camera: { center: { x: Number.POSITIVE_INFINITY, y: 0 }, zoom: 1 } },
+  },
+  { name: "zoom", patch: { camera: { center: { x: 0, y: 0 }, zoom: 0 } } },
+  {
+    name: "window rectangle",
+    patch: { windows: [{ ...state.windows[0], rect: { ...state.windows[0]!.rect, width: -1 } }] },
+  },
+])("invalid persisted $name is rejected", ({ patch }) => {
+  const serialized = JSON.stringify({
+    version: 4,
+    activeWindowId: state.activeWindowId,
+    camera: state.camera,
+    windows: state.windows,
+    ...patch,
   });
-  expect(restored?.windows.map((window) => window.id)).toEqual(["demo-window"]);
+  expect(() => createInfiniteCanvasStore({ document: JSON.parse(serialized) })).toThrow();
 });

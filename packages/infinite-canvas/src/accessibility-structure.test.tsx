@@ -1,14 +1,14 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { expect, test } from "vite-plus/test";
 
-import { executeInfiniteCanvasCommand } from "./commands";
+import { reduceInfiniteCanvasState } from "./operations";
 import {
   createInfiniteCanvasState,
   createInfiniteCanvasWindow,
   defineInfiniteCanvasWindowRegistry,
 } from "./factory";
 import { InfiniteCanvasViewport } from "./infinite-canvas";
-import { InfiniteCanvasProvider } from "./store";
+import { InfiniteCanvasProvider } from "./react/store";
 import type { InfiniteCanvasState } from "./types";
 
 type Kind = "note";
@@ -39,15 +39,15 @@ const tabbedCanvas = (): InfiniteCanvasState<Kind> => {
     activeWindowId: "west",
   };
 
-  return executeInfiniteCanvasCommand(
-    executeInfiniteCanvasCommand(floating, { direction: "right", type: "window.dockDirection" }),
+  return reduceInfiniteCanvasState(
+    reduceInfiniteCanvasState(floating, { direction: "right", type: "window.dockDirection" }),
     { layout: "tabs", type: "group.setLayout" },
   );
 };
 
 const markup = renderToStaticMarkup(
-  <InfiniteCanvasProvider initialState={tabbedCanvas()}>
-    <InfiniteCanvasViewport<Kind> windowDefinitions={registry} />
+  <InfiniteCanvasProvider initialState={tabbedCanvas()} windowDefinitions={registry}>
+    <InfiniteCanvasViewport<Kind> />
   </InfiniteCanvasProvider>,
 );
 

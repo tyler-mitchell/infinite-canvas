@@ -3,8 +3,8 @@ import { expect, test } from "vite-plus/test";
 
 import { createInfiniteCanvasState, createInfiniteCanvasWindow } from "./factory";
 import { InfiniteCanvasGroupLayer } from "./group-layer";
-import { InfiniteCanvasProvider } from "./store";
-import type { InfiniteCanvasGroup, InfiniteCanvasWindow } from "./types";
+import { InfiniteCanvasProvider } from "./react/store";
+import type { InfiniteCanvasGroup, InfiniteCanvasRect, InfiniteCanvasWindow } from "./types";
 
 type Kind = "note";
 
@@ -43,7 +43,12 @@ const renderLayerFor = (
   labelSize = 20,
   zoom = 1,
   groupLabel?: (
-    context: Readonly<{ group: InfiniteCanvasGroup; windows: readonly InfiniteCanvasWindow[] }>,
+    context: Readonly<{
+      group: InfiniteCanvasGroup;
+      rect: InfiniteCanvasRect;
+      windowRects: ReadonlyMap<string, InfiniteCanvasRect>;
+      windows: readonly InfiniteCanvasWindow[];
+    }>,
   ) => string,
 ) => {
   const state = createInfiniteCanvasState<Kind>({

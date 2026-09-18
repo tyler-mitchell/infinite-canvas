@@ -1,9 +1,9 @@
 import { expect, test } from "vite-plus/test";
 
 import { createInfiniteCanvasState, createInfiniteCanvasWindow } from "./factory";
-import { DEFAULT_INFINITE_CANVAS_GROUP_METRICS } from "./group-layout";
-import { getInfiniteCanvasGroupProjection } from "./group-state";
-import { reduceInfiniteCanvasState } from "./reducer";
+import { DEFAULT_INFINITE_CANVAS_GROUP_METRICS } from "./layout";
+import { getCanvasLayout } from "./layout";
+import { reduceInfiniteCanvasState } from "./operations";
 import type { InfiniteCanvasGroup, InfiniteCanvasState } from "./types";
 
 const TABS_GROUP: InfiniteCanvasGroup = {
@@ -37,6 +37,35 @@ const seed = (): InfiniteCanvasState<"demo"> =>
     ),
   });
 
+test("responsive group bounds follow the projected root width", () => {
+  const group: InfiniteCanvasGroup = {
+    ...TABS_GROUP,
+    tree: {
+      id: "responsive",
+      activeChildId: null,
+      kind: "container",
+      layout: "masonry",
+      axis: "horizontal",
+      weight: 1,
+      children: [{ id: "a", kind: "window", weight: 1 }],
+      masonry: {
+        cols: 6,
+        rowHeight: 40,
+        margin: [0, 0],
+        containerPadding: [0, 0],
+        responsive: { fitViewport: true, breakpoints: { narrow: 0 }, cols: { narrow: 1 } },
+      },
+    },
+  };
+  const canvasLayout = getCanvasLayout({
+    ...seed(),
+    groups: [group],
+    viewport: { width: 300, height: 500 },
+  });
+  expect(canvasLayout.groupRects.get(group.id)).toMatchObject({ x: 150, width: 300 });
+  expect(canvasLayout.windowRects.get("a")).toMatchObject({ x: 150, width: 300 });
+});
+
 test("state carries the default metrics when a consumer names none", () => {
   expect(seed().groupMetrics).toEqual(DEFAULT_INFINITE_CANVAS_GROUP_METRICS);
 });
@@ -60,7 +89,7 @@ test("the tab strip's height is what a member's rect is placed below", () => {
     groupMetrics: { tabStripSize: DEFAULT_INFINITE_CANVAS_GROUP_METRICS.tabStripSize + 40 },
   });
   const memberTop = (state: InfiniteCanvasState<"demo">) =>
-    getInfiniteCanvasGroupProjection(state.groups, state.groupMetrics).windowRects.get("a")?.y;
+    getCanvasLayout(state).windowRects.get("a")?.y;
 
   expect(memberTop(tallStrip)).toBe((memberTop(shortStrip) ?? 0) + 40);
 });
@@ -71,11 +100,9 @@ test("setting the metrics re-places the members there and then", () => {
     metrics: { ...DEFAULT_INFINITE_CANVAS_GROUP_METRICS, tabStripSize: 90 },
     type: "groupMetrics.set",
   });
-  const top = (state: InfiniteCanvasState<"demo">) =>
-    state.windows.find((window) => window.id === "a")?.rect.y;
-
   expect(after.groupMetrics.tabStripSize).toBe(90);
-  expect(top(after)).toBe(
-    (top(before) ?? 0) + (90 - DEFAULT_INFINITE_CANVAS_GROUP_METRICS.tabStripSize),
-  );
+  expect(getCanvasLayout(before).windowRects.get("a")).toMatchObject({
+    y: DEFAULT_INFINITE_CANVAS_GROUP_METRICS.tabStripSize,
+  });
+  expect(getCanvasLayout(after).windowRects.get("a")).toMatchObject({ y: 90 });
 });

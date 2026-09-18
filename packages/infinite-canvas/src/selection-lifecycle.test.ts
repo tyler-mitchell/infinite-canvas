@@ -1,8 +1,9 @@
 import { expect, test } from "vite-plus/test";
+import { createInfiniteCanvasStore } from "./store";
 
 import { createInfiniteCanvasState, createInfiniteCanvasWindow } from "./factory";
 import { isInfiniteCanvasWindowGrouped } from "./group-state";
-import { reduceInfiniteCanvasState } from "./reducer";
+import { reduceInfiniteCanvasState } from "./operations";
 import type { InfiniteCanvasState } from "./types";
 
 type Kind = "note";
@@ -23,22 +24,26 @@ const withShell = (): InfiniteCanvasState<Kind> => {
   };
   const docked = reduceInfiniteCanvasState(
     { ...base, activeWindowId: "a" },
-    { command: { direction: "right", type: "window.dockDirection" }, type: "command.execute" },
+    { direction: "right", type: "window.dockDirection" },
   );
 
   expect(isInfiniteCanvasWindowGrouped(docked, "a")).toBe(true);
 
   return {
     ...docked,
-    selection: { anchorWindowId: "a", windowIds: ["a", "b", "c"] },
+    selection: {
+      anchorTarget: { type: "window" as const, id: "a" },
+      targets: [
+        { type: "window" as const, id: "a" },
+        { type: "window" as const, id: "b" },
+        { type: "window" as const, id: "c" },
+      ],
+    },
   };
 };
 
 const minimizeSelection = (state: InfiniteCanvasState<Kind>) =>
-  reduceInfiniteCanvasState(state, {
-    command: { type: "selection.minimize" },
-    type: "command.execute",
-  });
+  reduceInfiniteCanvasState(state, { type: "selection.minimize" });
 
 test("minimizing a selection takes its docked panes out of their group", () => {
   const minimized = minimizeSelection(withShell());
@@ -56,19 +61,14 @@ test("every minimizable window in the selection ends up minimized", () => {
 });
 
 test("minimizing a whole selection is one undoable edit, not one per window", () => {
-  const before = withShell();
-  const after = minimizeSelection(before);
-
-  expect(after.history.past).toHaveLength(before.history.past.length + 1);
+  const store = createInfiniteCanvasStore({ initialState: withShell() });
+  store.dispatch({ type: "selection.minimize" });
+  expect(store.history.undos$.peek()).toBe(1);
 });
 
 test("closing a whole selection is one undoable edit too", () => {
-  const before = withShell();
-  const after = reduceInfiniteCanvasState(before, {
-    command: { type: "selection.close" },
-    type: "command.execute",
-  });
-
-  expect(after.windows).toHaveLength(0);
-  expect(after.history.past).toHaveLength(before.history.past.length + 1);
+  const store = createInfiniteCanvasStore({ initialState: withShell() });
+  store.dispatch({ type: "selection.close" });
+  expect(store.getState().windows).toHaveLength(0);
+  expect(store.history.undos$.peek()).toBe(1);
 });

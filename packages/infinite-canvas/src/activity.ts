@@ -1,4 +1,3 @@
-import { hasInfiniteCanvasSelection } from "./selection";
 import type { InfiniteCanvasState } from "./types";
 
 /** Reports the current canvas activity for UI chrome. */
@@ -8,8 +7,8 @@ type InfiniteCanvasActivity = "idle" | "selected" | "marquee" | "panning" | "mov
 const ACTIVITY_BY_INTERACTION: Readonly<
   Record<NonNullable<InfiniteCanvasState["interaction"]>["kind"], InfiniteCanvasActivity>
 > = {
+  groupReorder: "moving",
   groupGutter: "resizing",
-  groupMove: "moving",
   groupResize: "resizing",
   marquee: "marquee",
   move: "moving",
@@ -24,7 +23,7 @@ function getInfiniteCanvasActivity<Kind extends string>(
     return ACTIVITY_BY_INTERACTION[state.interaction.kind];
   }
 
-  return hasInfiniteCanvasSelection(state.selection) ? "selected" : "idle";
+  return state.selection.targets.length > 0 ? "selected" : "idle";
 }
 
 /** Returns `true` while a pointer interaction is active. */

@@ -7,7 +7,7 @@ import {
   defineInfiniteCanvasWindowRegistry,
 } from "./factory";
 import { InfiniteCanvas, InfiniteCanvasViewport } from "./infinite-canvas";
-import { InfiniteCanvasProvider } from "./store";
+import { InfiniteCanvasProvider } from "./react/store";
 
 type Kind = "note";
 
@@ -29,8 +29,8 @@ const state = createInfiniteCanvasState<Kind>({
 
 test("a viewport mounts inside a provider with only a window registry", () => {
   const markup = renderToStaticMarkup(
-    <InfiniteCanvasProvider initialState={state}>
-      <InfiniteCanvasViewport<Kind> windowDefinitions={registry} />
+    <InfiniteCanvasProvider initialState={state} windowDefinitions={registry}>
+      <InfiniteCanvasViewport<Kind> />
     </InfiniteCanvasProvider>,
   );
 
@@ -39,8 +39,8 @@ test("a viewport mounts inside a provider with only a window registry", () => {
 
 test("the composed canvas renders its windows and their bodies", () => {
   const markup = renderToStaticMarkup(
-    <InfiniteCanvasProvider initialState={state}>
-      <InfiniteCanvasViewport<Kind> windowDefinitions={registry} />
+    <InfiniteCanvasProvider initialState={state} windowDefinitions={registry}>
+      <InfiniteCanvasViewport<Kind> />
     </InfiniteCanvasProvider>,
   );
 

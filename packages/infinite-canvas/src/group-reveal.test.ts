@@ -1,12 +1,12 @@
 import { expect, test } from "vite-plus/test";
 
-import { executeInfiniteCanvasCommand } from "./commands";
+import { reduceInfiniteCanvasState } from "./operations";
 import { createInfiniteCanvasState, createInfiniteCanvasWindow } from "./factory";
 import {
   applyInfiniteCanvasDockPreview,
-  getInfiniteCanvasGroupProjection,
   resolveInfiniteCanvasDockPreviewForTarget,
 } from "./group-state";
+import { getCanvasLayout } from "./layout";
 import type { InfiniteCanvasState } from "./types";
 
 const dockCentre = (
@@ -48,7 +48,7 @@ function nested(): InfiniteCanvasState<"demo"> {
 }
 
 const isHidden = (state: InfiniteCanvasState<"demo">, windowId: string) =>
-  getInfiniteCanvasGroupProjection(state.groups, state.groupMetrics).hiddenWindowIds.has(windowId);
+  getCanvasLayout(state).hiddenWindowIds.has(windowId);
 
 test("the fixture really does bury one window two levels down", () => {
   const state = nested();
@@ -62,7 +62,7 @@ test("the fixture really does bury one window two levels down", () => {
 });
 
 test("revealing a window two levels down actually shows it", () => {
-  const revealed = executeInfiniteCanvasCommand(nested(), {
+  const revealed = reduceInfiniteCanvasState(nested(), {
     type: "window.reveal",
     windowId: "deep",
   });
@@ -72,7 +72,7 @@ test("revealing a window two levels down actually shows it", () => {
 });
 
 test("revealing one member hides the sibling it displaced, and no more", () => {
-  const revealed = executeInfiniteCanvasCommand(nested(), {
+  const revealed = reduceInfiniteCanvasState(nested(), {
     type: "window.reveal",
     windowId: "deep",
   });
@@ -93,7 +93,7 @@ test("revealing a floating window is a no-op on the tree", () => {
     ...state,
     windows: [...state.windows, floating],
   };
-  const revealed = executeInfiniteCanvasCommand(withFloating, {
+  const revealed = reduceInfiniteCanvasState(withFloating, {
     type: "window.reveal",
     windowId: "free",
   });

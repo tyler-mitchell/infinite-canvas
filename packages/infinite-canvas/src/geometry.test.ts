@@ -161,7 +161,7 @@ test("screen transform can snap translation to the device pixel grid", () => {
 });
 
 test("projected screen rect exposes raw and device-pixel-snapped projection", () => {
-  const projection = projectWorldRectToScreen(
+  const screenGeometry = projectWorldRectToScreen(
     {
       center: {
         x: 100,
@@ -182,11 +182,11 @@ test("projected screen rect exposes raw and device-pixel-snapped projection", ()
     2,
   );
 
-  expect(projection.rawScreenTransform.x).toBeCloseTo(350.26005, 5);
-  expect(projection.rawScreenTransform.y).toBeCloseTo(229.7402, 5);
-  expect(projection.screenTransform.x).toBe(350.5);
-  expect(projection.screenTransform.y).toBe(229.5);
-  expect(projection.screenRect).toEqual({
+  expect(screenGeometry.rawScreenTransform.x).toBeCloseTo(350.26005, 5);
+  expect(screenGeometry.rawScreenTransform.y).toBeCloseTo(229.7402, 5);
+  expect(screenGeometry.screenTransform.x).toBe(350.5);
+  expect(screenGeometry.screenTransform.y).toBe(229.5);
+  expect(screenGeometry.screenRect).toEqual({
     height: 143,
     left: 350.5,
     top: 229.5,
@@ -217,6 +217,29 @@ test("west resize respects minimum width without drifting past the clamp", () =>
   expect(nextRect.x).toBe(240);
   expect(nextRect.y).toBe(200);
   expect(nextRect.height).toBe(240);
+});
+
+test("aspect-constrained resize retains the opposite edges and minimum dimensions", () => {
+  const rect = { x: 100, y: 200, width: 160, height: 80 };
+  const minSize = { width: 60, height: 40 };
+  expect(resizeRectFromHandle(rect, "north", { x: 0, y: -20 }, minSize, 2)).toEqual({
+    x: 100,
+    y: 180,
+    width: 200,
+    height: 100,
+  });
+  expect(resizeRectFromHandle(rect, "west", { x: 140, y: 0 }, minSize, 2)).toEqual({
+    x: 180,
+    y: 200,
+    width: 80,
+    height: 40,
+  });
+  expect(resizeRectFromHandle(rect, "north-west", { x: -10, y: -30 }, minSize, 2)).toEqual({
+    x: 40,
+    y: 170,
+    width: 220,
+    height: 110,
+  });
 });
 
 test("a stroke never renders thinner than one screen pixel", () => {

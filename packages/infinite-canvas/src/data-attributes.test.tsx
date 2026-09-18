@@ -10,6 +10,7 @@ import {
 } from "./canvas-overlays";
 import {
   DEFAULT_INFINITE_CANVAS_CHROME,
+  DEFAULT_INFINITE_CANVAS_SNAP_POLICY,
   DEFAULT_INFINITE_CANVAS_STACK_BANDS,
   DEFAULT_INFINITE_CANVAS_THEME,
   resolveInfiniteCanvasZoomPolicy,
@@ -21,7 +22,8 @@ import {
   defineInfiniteCanvasWindowRegistry,
 } from "./factory";
 import { InfiniteCanvasGridBackdrop } from "./grid-backdrop";
-import { InfiniteCanvasProvider } from "./store";
+import { InfiniteCanvasProvider } from "./react/store";
+import { createInfiniteCanvasStore } from "./store";
 import { InfiniteCanvasWindowFrame } from "./window-frame";
 import type { InfiniteCanvasState } from "./types";
 
@@ -173,6 +175,7 @@ test("dom window frame emits window slot, identity enums, states, and frame anat
       stackBands={DEFAULT_INFINITE_CANVAS_STACK_BANDS}
       theme={DEFAULT_INFINITE_CANVAS_THEME}
       window={noteWindow}
+      rect={noteWindow.rect}
       windowDefinitions={windowRegistry}
       zoom={baseState.camera.zoom}
     />,
@@ -232,6 +235,7 @@ test("host-chrome window frame normalizes scene->host and emits chrome layers", 
       stackBands={DEFAULT_INFINITE_CANVAS_STACK_BANDS}
       theme={DEFAULT_INFINITE_CANVAS_THEME}
       window={hostWindow}
+      rect={hostWindow.rect}
       windowDefinitions={windowRegistry}
       zoom={baseState.camera.zoom}
     />,
@@ -263,49 +267,28 @@ test("selection bounds overlay is tagged data-slot=selection-bounds", () => {
 });
 
 test("snap overlay emits snap-preview and per-guide axis/kind attributes", () => {
-  const snapState: InfiniteCanvasState<ContractWindowKind> = {
-    ...baseState,
-    groups: [],
-    history: { future: [], past: [] },
-    interaction: {
-      dockPreview: null,
-      kind: "move",
-      originPointer: { x: 50, y: 50 },
-      originRect: noteWindow.rect,
-      originRects: [
-        {
-          rect: noteWindow.rect,
-          windowId: noteWindow.id,
-        },
-      ],
-      originCamera: baseState.camera,
-      pointerId: 1,
-      windowId: noteWindow.id,
+  const store = createInfiniteCanvasStore({
+    initialState: { ...baseState, selection: [noteWindow.id] },
+    snapPolicy: {
+      ...DEFAULT_INFINITE_CANVAS_SNAP_POLICY,
+      enabled: true,
+      snapToCenters: true,
+      snapToGaps: false,
+      snapToViewport: false,
     },
-    snapPreview: {
-      guides: [
-        {
-          axis: "x",
-          from: "window",
-          id: "guide-x",
-          kind: "edge",
-          position: 40,
-          sourceAnchor: "left",
-        },
-        {
-          axis: "y",
-          from: "window",
-          id: "guide-y",
-          kind: "center",
-          position: 130,
-          sourceAnchor: "middle",
-        },
-      ],
-      rect: noteWindow.rect,
-      windowId: noteWindow.id,
-    },
-  };
-  const markup = renderWithStore(snapState, <InfiniteCanvasSnapOverlay devicePixelRatio={1} />);
+  });
+  store.dispatch({
+    type: "interaction.startMove",
+    target: { type: "window", id: noteWindow.id },
+    pointerId: 1,
+    point: { x: 0, y: 0 },
+  });
+  store.dispatch({ type: "interaction.step", pointerId: 1, point: { x: 318, y: 48 } });
+  const markup = renderToStaticMarkup(
+    <InfiniteCanvasProvider store={store}>
+      <InfiniteCanvasSnapOverlay devicePixelRatio={1} />
+    </InfiniteCanvasProvider>,
+  );
 
   expect(markup).toContain('data-slot="snap-preview"');
   expect(countOccurrences(markup, 'data-slot="snap-guide"')).toBe(2);
@@ -316,20 +299,19 @@ test("snap overlay emits snap-preview and per-guide axis/kind attributes", () =>
 });
 
 test("marquee overlay emits data-slot=marquee with the interaction mode", () => {
-  const marqueeState: InfiniteCanvasState<ContractWindowKind> = {
-    ...baseState,
-    groups: [],
-    history: { future: [], past: [] },
-    interaction: {
-      currentPointer: { x: 220, y: 160 },
-      kind: "marquee",
-      mode: "toggle",
-      originPointer: { x: 20, y: 20 },
-      originSelectionIds: [],
-      pointerId: 1,
-    },
-  };
-  const markup = renderWithStore(marqueeState, <InfiniteCanvasMarqueeOverlay />);
+  const store = createInfiniteCanvasStore({ initialState: baseState });
+  store.dispatch({
+    type: "interaction.startMarquee",
+    mode: "toggle",
+    pointerId: 1,
+    point: { x: 20, y: 20 },
+  });
+  store.dispatch({ type: "interaction.step", pointerId: 1, point: { x: 220, y: 160 } });
+  const markup = renderToStaticMarkup(
+    <InfiniteCanvasProvider store={store}>
+      <InfiniteCanvasMarqueeOverlay />
+    </InfiniteCanvasProvider>,
+  );
 
   expect(markup).toContain('data-slot="marquee"');
   expect(markup).toContain('data-mode="toggle"');

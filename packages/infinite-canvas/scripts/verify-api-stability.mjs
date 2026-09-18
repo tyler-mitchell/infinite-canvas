@@ -10,6 +10,7 @@ const manifestPath = join(packageRoot, "scripts", "api-stability.json");
 
 const BARRELS = [
   { entry: ".", path: join(packageRoot, "src", "index.ts"), prefix: "" },
+  { entry: "./core", path: join(packageRoot, "src", "core.ts"), prefix: "" },
   { entry: "./scene", path: join(packageRoot, "src", "scene.ts"), prefix: "scene:" },
 ];
 

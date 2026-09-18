@@ -5,7 +5,7 @@ import { useRef } from "react";
 
 import { INFINITE_CANVAS_SLOTS } from "./data-attributes";
 import { getAdaptiveGridSpacing, worldPointToScreenPoint } from "./geometry";
-import { useInfiniteCanvasSelector, useInfiniteCanvasState$ } from "./store";
+import { useInfiniteCanvasSelector, useInfiniteCanvasState$ } from "./react/store";
 import type { InfiniteCanvasCamera, InfiniteCanvasViewport } from "./types";
 
 /** The major cell in screen pixels: four minor cells. */

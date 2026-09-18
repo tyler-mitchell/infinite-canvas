@@ -1,7 +1,8 @@
 import { expect, test } from "vite-plus/test";
+import { createInfiniteCanvasStore } from "./store";
 
 import { createInfiniteCanvasState, createInfiniteCanvasWindow } from "./factory";
-import { reduceInfiniteCanvasState } from "./reducer";
+import { reduceInfiniteCanvasState } from "./operations";
 import type { InfiniteCanvasState } from "./types";
 
 type Kind = "note";
@@ -70,14 +71,15 @@ test("a title is trimmed, so no window is named with invisible padding", () => {
 
 test("renaming to the same title is not an edit", () => {
   const state = canvas();
-  const renamed = reduceInfiniteCanvasState(state, {
+  const store = createInfiniteCanvasStore({ initialState: state });
+  store.dispatch({
     title: "  Draft ",
     type: "window.setTitle",
     windowId: "note-1",
   });
 
-  expect(renamed.windows).toBe(state.windows);
-  expect(renamed.history.past.length).toBe(state.history.past.length);
+  expect(store.getState().windows).toEqual(state.windows);
+  expect(store.history.undos$.peek()).toBe(0);
 });
 
 test("renaming something that does not exist changes nothing", () => {
@@ -97,18 +99,14 @@ test("renaming something that does not exist changes nothing", () => {
 
 test("a rename is undoable", () => {
   const state = canvas();
-  const renamed = reduceInfiniteCanvasState(state, {
+  const store = createInfiniteCanvasStore({ initialState: state });
+  store.dispatch({
     title: "Final",
     type: "window.setTitle",
     windowId: "note-1",
   });
 
-  expect(renamed.history.past.length - state.history.past.length).toBe(1);
-
-  const undone = reduceInfiniteCanvasState(renamed, {
-    command: { type: "history.undo" },
-    type: "command.execute",
-  });
-
-  expect(undone.windows[0]?.title).toBe("Draft");
+  expect(store.history.undos$.peek()).toBe(1);
+  store.dispatch({ type: "history.undo" });
+  expect(store.getState().windows[0]?.title).toBe("Draft");
 });

@@ -33,7 +33,12 @@ const baseState = (zoom = 1): InfiniteCanvasState<Kind> => ({
 const movedTo = (x: number) => ({ height: 200, width: 300, x, y: 0 });
 
 const snapAt = (state: InfiniteCanvasState<Kind>, x: number) =>
-  applySnapToRect(state, "mover", movedTo(x), DEFAULT_INFINITE_CANVAS_SNAP_POLICY);
+  applySnapToRect(
+    state,
+    { type: "window", id: "mover" },
+    movedTo(x),
+    DEFAULT_INFINITE_CANVAS_SNAP_POLICY,
+  );
 
 const xGuides = (result: ReturnType<typeof snapAt>) =>
   (result.preview?.guides ?? []).filter((guide) => guide.axis === "x");
@@ -94,17 +99,22 @@ test("a preview belonging to another window does not make this one sticky", () =
   const engaged = snapAt(state, ANCHOR_X + 10);
   const foreign = {
     ...engaged.preview!,
-    windowId: "someone-else",
+    target: { type: "window" as const, id: "someone-else" },
   };
 
   expect(xGuides(snapAt(withPreview(state, foreign), ANCHOR_X + 14))).toHaveLength(0);
 });
 
 test("snapping off is a pass-through", () => {
-  const disabled = applySnapToRect(baseState(), "mover", movedTo(ANCHOR_X + 2), {
-    ...DEFAULT_INFINITE_CANVAS_SNAP_POLICY,
-    enabled: false,
-  });
+  const disabled = applySnapToRect(
+    baseState(),
+    { type: "window", id: "mover" },
+    movedTo(ANCHOR_X + 2),
+    {
+      ...DEFAULT_INFINITE_CANVAS_SNAP_POLICY,
+      enabled: false,
+    },
+  );
 
   expect(disabled.preview).toBeNull();
   expect(disabled.rect.x).toBe(ANCHOR_X + 2);

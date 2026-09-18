@@ -1,6 +1,9 @@
 import { expect, test } from "vite-plus/test";
 
 import { createInfiniteCanvasState, createInfiniteCanvasWindow } from "./factory";
+import { DEFAULT_INFINITE_CANVAS_CHROME } from "./constants";
+import { getCanvasLayout } from "./layout";
+import { reduceInfiniteCanvasState } from "./operations";
 import {
   createInfiniteCanvasEdgeTargetResolver,
   createInfiniteCanvasOverlayTargetResolver,
@@ -48,6 +51,57 @@ function createTargetState() {
     ],
   });
 }
+
+test("disabled resize handles leave the body interactive", () => {
+  const current = createTargetState();
+  const state = {
+    ...current,
+    windows: current.windows.map((window) => ({ ...window, capabilities: { resizable: false } })),
+  };
+  expect(
+    resolveInfiniteCanvasSpatialTarget({ state, viewportPoint: { x: 145, y: 170 } }),
+  ).toMatchObject({ type: "window", windowId: "front", area: "body" });
+  expect(
+    resolveInfiniteCanvasSpatialTarget({
+      state: current,
+      chrome: { ...DEFAULT_INFINITE_CANVAS_CHROME, resizeHandleSize: 0 },
+      viewportPoint: { x: 145, y: 170 },
+    }),
+  ).toMatchObject({ type: "window", windowId: "front", area: "body" });
+});
+
+test("split members have no window resize hit targets", () => {
+  const selected = reduceInfiniteCanvasState(createTargetState(), {
+    type: "selection.set",
+    selection: {
+      anchorTarget: { type: "window", id: "front" },
+      targets: [
+        { type: "window", id: "back" },
+        { type: "window", id: "front" },
+      ],
+    },
+  });
+  const state = reduceInfiniteCanvasState(selected, {
+    type: "selection.group",
+    groupId: "cards",
+    layout: "split",
+  });
+  const rect = getCanvasLayout(state).windowRects.get("front")!;
+  expect(
+    resolveInfiniteCanvasSpatialTarget({ state, viewportPoint: { x: rect.x + 4, y: rect.y + 60 } }),
+  ).toMatchObject({ type: "window", windowId: "front", area: "body" });
+});
+
+test("header hit bounds include their border offset", () => {
+  const chrome = { ...DEFAULT_INFINITE_CANVAS_CHROME, resizeHandleSize: 0 };
+  expect(
+    resolveInfiniteCanvasSpatialTarget({
+      state: createTargetState(),
+      chrome,
+      viewportPoint: { x: 220, y: 151 },
+    }),
+  ).toMatchObject({ type: "window", windowId: "front", area: "header" });
+});
 
 test("resolves empty world targets", () => {
   expect(
@@ -356,6 +410,7 @@ test("selectable targets are derived only from scene objects and edges", () => {
       y: 120,
     },
     window: createTargetState().windows[0]!,
+    rect: createTargetState().windows[0]!.rect,
     windowId: "back",
     worldPoint: {
       x: 100,

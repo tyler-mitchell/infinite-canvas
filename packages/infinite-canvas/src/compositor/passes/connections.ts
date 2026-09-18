@@ -1,9 +1,7 @@
 import { d, std, tgpu } from "typegpu";
 
-import { getSelectionTargets } from "../../selection";
 import { getInfiniteCanvasWindowConnectorSegment } from "../../scene-layer-geometry";
 import type { InfiniteCanvasDropPayload } from "../../types";
-import { getInfiniteCanvasWindowProxy } from "../../window-proxy";
 import { camera, screenToClip, worldToScreen } from "../backend/camera";
 import { PREMULTIPLIED_OVER_BLEND, type InfiniteCanvasScenePass } from "../pass";
 import { DEFAULT_CONNECTIONS_OPTIONS, type InfiniteCanvasConnectionsOptions } from "../policy";
@@ -95,27 +93,20 @@ function createInfiniteCanvasConnectionsPass<
           const { state } = context;
           // An edge target names a connection by id, whatever kind the consumer gave it.
           const selectedIds = new Set(
-            getSelectionTargets(state.selection)
+            state.selection.targets
               .filter((entry) => entry.type === "edge")
               .map((entry) => entry.id),
           );
           const drawn = state.connections
             .flatMap((connection) => {
-              const from = state.windows.find((window) => window.id === connection.from);
-              const to = state.windows.find((window) => window.id === connection.to);
+              const from = context.windows.find((window) => window.id === connection.from);
+              const to = context.windows.find((window) => window.id === connection.to);
 
               if (from === undefined || to === undefined) {
                 return [];
               }
 
-              const fromProxy = getInfiniteCanvasWindowProxy(state, from);
-              const toProxy = getInfiniteCanvasWindowProxy(state, to);
-
-              if (fromProxy === null || toProxy === null) {
-                return [];
-              }
-
-              const segment = getInfiniteCanvasWindowConnectorSegment(fromProxy, toProxy);
+              const segment = getInfiniteCanvasWindowConnectorSegment(from, to);
               const isSelected = selectedIds.has(connection.id);
 
               return [

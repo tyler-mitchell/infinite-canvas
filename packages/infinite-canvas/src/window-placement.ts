@@ -3,26 +3,17 @@ import {
   getInfiniteCanvasOccluderWorldRects,
   unionRects,
 } from "./geometry";
+import { getCanvasLayout } from "./layout";
 import type {
   InfiniteCanvasRect,
   InfiniteCanvasSize,
   InfiniteCanvasState,
   InfiniteCanvasWindow,
 } from "./types";
-import { isInfiniteCanvasWindowInActiveWorkspace } from "./workspace-membership";
 
 /** Calculates fixed window placement regions without snapping. */
 type InfiniteCanvasWindowPlacementRegion =
-  | "bottom"
-  | "bottom-left"
-  | "bottom-right"
-  | "center"
-  | "fill"
-  | "left"
-  | "right"
-  | "top"
-  | "top-left"
-  | "top-right";
+  typeof import("./schema").canvasModel.PlacementRegion.infer;
 
 /** Placement origin and size as fractions of bounds. */
 type PlacementFractions = Readonly<{ height: number; width: number; x: number; y: number }>;
@@ -202,22 +193,22 @@ function getInfiniteCanvasPlacedWindowRect<Kind extends string>(
     state.viewport,
     state.viewportInsets,
   );
+  const canvasLayout = getCanvasLayout(state);
 
   return getInfiniteCanvasVacantRect({
     bounds,
     gapPx: placement.gapPx,
     occupied: [
       ...getInfiniteCanvasOccluderWorldRects(state.camera, state.viewport, state.viewportOccluders),
-      ...state.groups.map((group) => group.rect),
+      ...[...canvasLayout.groupRects]
+        .filter(([groupId]) => canvasLayout.visibleGroupIds.has(groupId))
+        .map(([, rect]) => rect),
       // A minimized window, or one on another workspace, reserves no space.
       ...state.windows
         .filter(
-          (occupant) =>
-            occupant.id !== window.id &&
-            occupant.mode !== "minimized" &&
-            isInfiniteCanvasWindowInActiveWorkspace(state, occupant.id),
+          (occupant) => canvasLayout.visibleWindowIds.has(occupant.id) && occupant.id !== window.id,
         )
-        .map((occupant) => occupant.rect),
+        .map((occupant) => canvasLayout.windowRects.get(occupant.id)!),
     ],
     preferred: getInfiniteCanvasWindowPlacementRect(
       bounds,

@@ -1,3 +1,4 @@
+import { getSelectedWindowIds } from "./selection";
 import { renderToStaticMarkup } from "react-dom/server";
 import { expect, test } from "vite-plus/test";
 
@@ -6,11 +7,11 @@ import {
   createInfiniteCanvasWindow,
   defineInfiniteCanvasWindowRegistry,
 } from "./factory";
-import { executeInfiniteCanvasCommand, isInfiniteCanvasCommandEnabled } from "./commands";
+import { isInfiniteCanvasCommandEnabled } from "./operations";
 import { InfiniteCanvasViewport } from "./infinite-canvas";
-import { parseInfiniteCanvasState, serializeInfiniteCanvasState } from "./persistence";
-import { reduceInfiniteCanvasState } from "./reducer";
-import { InfiniteCanvasProvider } from "./store";
+import { createInfiniteCanvasStore } from "./store";
+import { reduceInfiniteCanvasState } from "./operations";
+import { InfiniteCanvasProvider } from "./react/store";
 import type { InfiniteCanvasState } from "./types";
 
 type Kind = "note";
@@ -36,6 +37,7 @@ const threeWindows = (): InfiniteCanvasState<Kind> => ({
 
 const withTwoWorkspaces = () => {
   const created = reduceInfiniteCanvasState(threeWindows(), {
+    activate: false,
     title: "Research",
     type: "workspace.create",
     windowIds: ["a", "b"],
@@ -43,6 +45,7 @@ const withTwoWorkspaces = () => {
   });
 
   return reduceInfiniteCanvasState(created, {
+    activate: false,
     title: "Writing",
     type: "workspace.create",
     windowIds: ["c"],
@@ -57,8 +60,8 @@ test("a canvas with no workspace filters nothing, exactly as before they existed
   expect(state.activeWorkspaceId).toBeNull();
 
   const markup = renderToStaticMarkup(
-    <InfiniteCanvasProvider initialState={state}>
-      <InfiniteCanvasViewport<Kind> windowDefinitions={registry} />
+    <InfiniteCanvasProvider initialState={state} windowDefinitions={registry}>
+      <InfiniteCanvasViewport<Kind> />
     </InfiniteCanvasProvider>,
   );
 
@@ -73,8 +76,8 @@ test("activating a workspace filters the canvas to its members", () => {
     workspaceId: "research",
   });
   const markup = renderToStaticMarkup(
-    <InfiniteCanvasProvider initialState={activated}>
-      <InfiniteCanvasViewport<Kind> windowDefinitions={registry} />
+    <InfiniteCanvasProvider initialState={activated} windowDefinitions={registry}>
+      <InfiniteCanvasViewport<Kind> />
     </InfiniteCanvasProvider>,
   );
 
@@ -91,7 +94,7 @@ test("switching preserves each workspace's camera and selection", () => {
   });
   const worked = reduceInfiniteCanvasState(
     { ...research, camera: { center: { x: 500, y: 250 }, zoom: 2 } },
-    { type: "selection.replace", windowIds: ["b"] },
+    { type: "selection.replace", targets: [{ type: "window" as const, id: "b" }] },
   );
 
   const writing = reduceInfiniteCanvasState(worked, {
@@ -107,47 +110,50 @@ test("switching preserves each workspace's camera and selection", () => {
   });
 
   expect(returned.camera).toEqual({ center: { x: 500, y: 250 }, zoom: 2 });
-  expect(returned.selection.windowIds).toEqual(["b"]);
+  expect(getSelectedWindowIds(returned.selection)).toEqual(["b"]);
 });
 
 test("a switch is one undo entry, and undo puts the canvas back on the workspace it left", () => {
-  const state = withTwoWorkspaces();
-  const before = state.history.past.length;
-  const switched = reduceInfiniteCanvasState(state, {
+  const store = createInfiniteCanvasStore({ initialState: withTwoWorkspaces() });
+  store.dispatch({
     type: "workspace.activate",
     workspaceId: "research",
   });
 
-  expect(switched.history.past.length - before).toBe(1);
+  expect(store.history.undos$.peek()).toBe(1);
 
-  const switchedAgain = reduceInfiniteCanvasState(switched, {
+  store.dispatch({
     type: "workspace.activate",
     workspaceId: "writing",
   });
 
-  expect(switchedAgain.history.past.length - switched.history.past.length).toBe(1);
+  expect(store.history.undos$.peek()).toBe(2);
 });
 
-test("workspaces survive a reload, and older payloads migrate to none", () => {
+test("workspaces round-trip and default only within the current document version", () => {
   const active = reduceInfiniteCanvasState(withTwoWorkspaces(), {
     type: "workspace.activate",
     workspaceId: "writing",
   });
-  const restored = parseInfiniteCanvasState<Kind>(
-    serializeInfiniteCanvasState(active),
-    threeWindows(),
-  );
+  const restored = createInfiniteCanvasStore<Kind>({
+    document: createInfiniteCanvasStore({ initialState: active }).snapshot(),
+  }).getState();
 
   expect(restored?.workspaces.map((workspace) => workspace.id)).toEqual(["research", "writing"]);
   expect(restored?.activeWorkspaceId).toBe("writing");
 
-  const { activeWorkspaceId, workspaces, ...legacy } = serializeInfiniteCanvasState(active);
+  const { activeWorkspaceId, workspaces, ...withoutWorkspaces } = createInfiniteCanvasStore({
+    initialState: active,
+  }).snapshot();
 
   expect(workspaces).toHaveLength(2);
   expect(activeWorkspaceId).toBe("writing");
   expect(
-    parseInfiniteCanvasState<Kind>({ ...legacy, version: 2 }, threeWindows())?.workspaces,
+    createInfiniteCanvasStore<Kind>({ document: withoutWorkspaces }).getState().workspaces,
   ).toEqual([]);
+  expect(() =>
+    createInfiniteCanvasStore<Kind>({ document: { ...withoutWorkspaces, version: 2 } }),
+  ).toThrow(/version/);
 });
 
 test("closing a window drops it from every workspace, and closing a workspace keeps its windows", () => {
@@ -192,34 +198,34 @@ test("cycling walks the workspaces and wraps", () => {
     isInfiniteCanvasCommandEnabled(state, { direction: "next", type: "workspace.cycle" }),
   ).toBe(true);
 
-  const first = executeInfiniteCanvasCommand(state, { direction: "next", type: "workspace.cycle" });
+  const first = reduceInfiniteCanvasState(state, { direction: "next", type: "workspace.cycle" });
 
   expect(first.activeWorkspaceId).toBe("research");
 
-  const second = executeInfiniteCanvasCommand(first, {
+  const second = reduceInfiniteCanvasState(first, {
     direction: "next",
     type: "workspace.cycle",
   });
 
   expect(second.activeWorkspaceId).toBe("writing");
   expect(
-    executeInfiniteCanvasCommand(second, { direction: "next", type: "workspace.cycle" })
+    reduceInfiniteCanvasState(second, { direction: "next", type: "workspace.cycle" })
       .activeWorkspaceId,
   ).toBe("research");
   expect(
-    executeInfiniteCanvasCommand(state, { direction: "previous", type: "workspace.cycle" })
+    reduceInfiniteCanvasState(state, { direction: "previous", type: "workspace.cycle" })
       .activeWorkspaceId,
   ).toBe("writing");
 });
 
 test("cycling carries each workspace's camera with it", () => {
-  const research = executeInfiniteCanvasCommand(withTwoWorkspaces(), {
+  const research = reduceInfiniteCanvasState(withTwoWorkspaces(), {
     direction: "next",
     type: "workspace.cycle",
   });
   const moved = { ...research, camera: { center: { x: 900, y: 40 }, zoom: 3 } };
-  const away = executeInfiniteCanvasCommand(moved, { direction: "next", type: "workspace.cycle" });
-  const back = executeInfiniteCanvasCommand(away, {
+  const away = reduceInfiniteCanvasState(moved, { direction: "next", type: "workspace.cycle" });
+  const back = reduceInfiniteCanvasState(away, {
     direction: "previous",
     type: "workspace.cycle",
   });
@@ -228,14 +234,14 @@ test("cycling carries each workspace's camera with it", () => {
 });
 
 test("showing all leaves the workspace without closing it", () => {
-  const active = executeInfiniteCanvasCommand(withTwoWorkspaces(), {
+  const active = reduceInfiniteCanvasState(withTwoWorkspaces(), {
     direction: "next",
     type: "workspace.cycle",
   });
 
   expect(isInfiniteCanvasCommandEnabled(active, { type: "workspace.showAll" })).toBe(true);
 
-  const all = executeInfiniteCanvasCommand(active, { type: "workspace.showAll" });
+  const all = reduceInfiniteCanvasState(active, { type: "workspace.showAll" });
 
   expect(all.activeWorkspaceId).toBeNull();
   expect(all.workspaces).toHaveLength(2);
@@ -243,7 +249,7 @@ test("showing all leaves the workspace without closing it", () => {
 });
 
 test("a window can be taken off the workspace it is on, and stays open", () => {
-  const active = executeInfiniteCanvasCommand(withTwoWorkspaces(), {
+  const active = reduceInfiniteCanvasState(withTwoWorkspaces(), {
     direction: "next",
     type: "workspace.cycle",
   });
@@ -256,7 +262,7 @@ test("a window can be taken off the workspace it is on, and stays open", () => {
     true,
   );
 
-  const removed = executeInfiniteCanvasCommand(active, { type: "workspace.removeActiveWindow" });
+  const removed = reduceInfiniteCanvasState(active, { type: "workspace.removeActiveWindow" });
 
   expect(removed.workspaces[0]?.windowIds).not.toContain(focused);
   expect(removed.windows.map((window) => window.id)).toContain(focused);
@@ -342,17 +348,17 @@ test("adding is idempotent, and neither verb invents a window", () => {
 });
 
 test("select-all and fit-all see only the desktop you are on", () => {
-  const research = executeInfiniteCanvasCommand(withTwoWorkspaces(), {
+  const research = reduceInfiniteCanvasState(withTwoWorkspaces(), {
     direction: "next",
     type: "workspace.cycle",
   });
-  const selected = executeInfiniteCanvasCommand(research, { type: "selection.selectAllVisible" });
+  const selected = reduceInfiniteCanvasState(research, { type: "selection.selectAllVisible" });
 
-  expect([...selected.selection.windowIds].toSorted()).toEqual(["a", "b"]);
+  expect([...getSelectedWindowIds(selected.selection)].toSorted()).toEqual(["a", "b"]);
 
-  const fittedToWorkspace = executeInfiniteCanvasCommand(research, { type: "view.fitAll" });
-  const fittedToEverything = executeInfiniteCanvasCommand(
-    executeInfiniteCanvasCommand(research, { type: "workspace.showAll" }),
+  const fittedToWorkspace = reduceInfiniteCanvasState(research, { type: "view.fitAll" });
+  const fittedToEverything = reduceInfiniteCanvasState(
+    reduceInfiniteCanvasState(research, { type: "workspace.showAll" }),
     { type: "view.fitAll" },
   );
 
@@ -360,7 +366,7 @@ test("select-all and fit-all see only the desktop you are on", () => {
 });
 
 const dockedThenFiltered = () => {
-  const docked = executeInfiniteCanvasCommand(
+  const docked = reduceInfiniteCanvasState(
     { ...threeWindows(), activeWindowId: "a" },
     { direction: "right", type: "window.dockDirection" },
   );
@@ -382,6 +388,7 @@ test("a group's shell is not rendered on a desktop its windows are not on", () =
   const state = dockedThenFiltered();
   const elsewhere = reduceInfiniteCanvasState(
     reduceInfiniteCanvasState(state, {
+      activate: false,
       type: "workspace.create",
       windowIds: ["c"],
       workspaceId: "writing",
@@ -389,8 +396,8 @@ test("a group's shell is not rendered on a desktop its windows are not on", () =
     { type: "workspace.activate", workspaceId: "writing" },
   );
   const markup = renderToStaticMarkup(
-    <InfiniteCanvasProvider initialState={elsewhere}>
-      <InfiniteCanvasViewport<Kind> windowDefinitions={registry} />
+    <InfiniteCanvasProvider initialState={elsewhere} windowDefinitions={registry}>
+      <InfiniteCanvasViewport<Kind> />
     </InfiniteCanvasProvider>,
   );
 
@@ -402,8 +409,8 @@ test("a group's shell is not rendered on a desktop its windows are not on", () =
     workspaceId: "research",
   });
   const onIts = renderToStaticMarkup(
-    <InfiniteCanvasProvider initialState={here}>
-      <InfiniteCanvasViewport<Kind> windowDefinitions={registry} />
+    <InfiniteCanvasProvider initialState={here} windowDefinitions={registry}>
+      <InfiniteCanvasViewport<Kind> />
     </InfiniteCanvasProvider>,
   );
 
@@ -411,7 +418,7 @@ test("a group's shell is not rendered on a desktop its windows are not on", () =
 });
 
 test("docking into a group on a workspace brings the docked window onto it", () => {
-  const docked = executeInfiniteCanvasCommand(
+  const docked = reduceInfiniteCanvasState(
     { ...threeWindows(), activeWindowId: "a" },
     { direction: "right", type: "window.dockDirection" },
   );
@@ -425,7 +432,7 @@ test("docking into a group on a workspace brings the docked window onto it", () 
 
   const grown = reduceInfiniteCanvasState(
     { ...filtered, activeWindowId: "c" },
-    { command: { direction: "left", type: "window.dockDirection" }, type: "command.execute" },
+    { direction: "left", type: "window.dockDirection" },
   );
 
   expect([...(grown.workspaces[0]?.windowIds ?? [])].toSorted()).toEqual(["a", "b", "c"]);
@@ -442,7 +449,7 @@ test("reconciliation returns the identical state when nothing moved", () => {
 });
 
 test("hydration cannot bring in a workspace holding half a group", () => {
-  const docked = executeInfiniteCanvasCommand(
+  const docked = reduceInfiniteCanvasState(
     { ...threeWindows(), activeWindowId: "a" },
     { direction: "right", type: "window.dockDirection" },
   );
@@ -451,13 +458,13 @@ test("hydration cannot bring in a workspace holding half a group", () => {
     windowIds: ["a", "b"],
     workspaceId: "research",
   });
-  const serialized = serializeInfiniteCanvasState(filtered);
+  const serialized = createInfiniteCanvasStore({ initialState: filtered }).snapshot();
 
   const tampered = {
     ...serialized,
     workspaces: serialized.workspaces?.map((workspace) => ({ ...workspace, windowIds: ["a"] })),
   } as never;
-  const restored = parseInfiniteCanvasState<Kind>(tampered, threeWindows());
+  const restored = createInfiniteCanvasStore<Kind>({ document: tampered }).getState();
 
   expect([...(restored?.workspaces[0]?.windowIds ?? [])].toSorted()).toEqual(["a", "b"]);
 });
@@ -468,14 +475,14 @@ test("hydration drops a membership naming a window that did not survive", () => 
     windowIds: ["a", "b"],
     workspaceId: "research",
   });
-  const serialized = serializeInfiniteCanvasState(state);
+  const serialized = createInfiniteCanvasStore({ initialState: state }).snapshot();
   const withoutB = {
     ...serialized,
     windows: serialized.windows.filter((window) => window.id !== "b"),
   } as never;
 
   expect(
-    parseInfiniteCanvasState<Kind>(withoutB, threeWindows())?.workspaces[0]?.windowIds,
+    createInfiniteCanvasStore<Kind>({ document: withoutB }).getState()?.workspaces[0]?.windowIds,
   ).toEqual(["a"]);
 });
 
@@ -490,20 +497,24 @@ test("a workspace names no window that does not exist, in its membership or its 
   );
   const selected = reduceInfiniteCanvasState(state, {
     type: "selection.replace",
-    windowIds: ["b"],
+    targets: [{ type: "window" as const, id: "b" }],
   });
   const left = reduceInfiniteCanvasState(selected, {
     type: "workspace.activate",
     workspaceId: null,
   });
 
-  expect(left.workspaces[0]?.selection.windowIds).toEqual(["b"]);
+  expect(getSelectedWindowIds(left.workspaces[0]?.selection)).toEqual(["b"]);
 
   const closed = reduceInfiniteCanvasState(left, { type: "window.close", windowId: "b" });
 
   expect(closed.workspaces[0]?.windowIds).toEqual(["a"]);
-  expect(closed.workspaces[0]?.selection.windowIds).toEqual([]);
-  expect(closed.workspaces[0]?.selection.anchorWindowId).toBeNull();
+  expect(getSelectedWindowIds(closed.workspaces[0]?.selection)).toEqual([]);
+  expect(
+    closed.workspaces[0]?.selection.anchorTarget?.type === "window"
+      ? closed.workspaces[0]?.selection.anchorTarget.id
+      : null,
+  ).toBeNull();
 });
 
 test("entering a workspace was already safe against a stale stored selection", () => {
@@ -516,7 +527,10 @@ test("entering a workspace was already safe against a stale stored selection", (
     ...state,
     workspaces: state.workspaces.map((workspace) => ({
       ...workspace,
-      selection: { anchorWindowId: "ghost", windowIds: ["ghost"] },
+      selection: {
+        anchorTarget: { type: "window" as const, id: "ghost" },
+        targets: [{ type: "window" as const, id: "ghost" }],
+      },
     })),
   };
   const entered = reduceInfiniteCanvasState(tampered, {
@@ -524,6 +538,6 @@ test("entering a workspace was already safe against a stale stored selection", (
     workspaceId: "research",
   });
 
-  expect(entered.selection.windowIds).toEqual([]);
+  expect(getSelectedWindowIds(entered.selection)).toEqual([]);
   expect(entered.activeWindowId).toBe("a");
 });

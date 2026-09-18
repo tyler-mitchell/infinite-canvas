@@ -1,54 +1,102 @@
+import { playwright } from "@vitest/browser-playwright";
 import typegpu from "unplugin-typegpu/vite";
-import { defineConfig } from "vite-plus";
+import typegpuRolldown from "unplugin-typegpu/rolldown";
+import { defineConfig, type UserConfig } from "vite-plus";
+
+const pack: NonNullable<UserConfig["pack"]> = {
+  plugins: [
+    {
+      name: "react-externals",
+      resolveId: {
+        order: "pre",
+        handler(id) {
+          if (/^react(?:\/|$)/.test(id)) return { id, external: true, moduleSideEffects: false };
+        },
+      },
+    },
+  ],
+  attw: {
+    excludeEntrypoints: ["theme.css"],
+    level: "error",
+    profile: "esm-only",
+  },
+  // React entries keep the client directive. Declarations and core omit it.
+  outputOptions: {
+    banner: (chunk: { fileName: string }) =>
+      /(?:^|\/)(?:index|scene)\.[cm]?js$/.test(chunk.fileName) ? '"use client";' : "",
+  },
+  dts: {
+    tsgo: true,
+  },
+  deps: {
+    alwaysBundle: [/^react-grid-layout(?:\/|$)/, "use-webmcp-tool"],
+  },
+  // Keep `exports` pointing at src for instant playground HMR; vp pack
+  // writes the dist mappings to publishConfig.exports for publishing.
+  // The generator owns the exports field, so the theme.css subpath must
+  // be declared here — hand edits to package.json get clobbered on build.
+  exports: {
+    customExports(exports: Record<string, unknown>, context: { isPublish: boolean }) {
+      exports["./theme.css"] = context.isPublish ? "./dist/theme.css" : "./src/theme.css";
+      if (!context.isPublish)
+        Object.assign(exports, {
+          "./next": "./next/index.ts",
+          "./next/react": "./next/react/index.ts",
+          "./next/theme.css": "./next/theme.css",
+        });
+      return exports;
+    },
+    devExports: true,
+  },
+  publint: true,
+};
 
 export default defineConfig({
-  // Compiles "use gpu" shader functions in the compositor passes.
-  plugins: [typegpu()],
-  pack: {
-    attw: {
-      excludeEntrypoints: ["theme.css"],
-      level: "error",
-      profile: "esm-only",
-    },
-    copy: { from: "src/theme.css", to: "dist" },
-    // Two entries, deliberately. `./scene` is the only one that reaches
-    // `typegpu`, which is what makes that peer genuinely optional: a consumer
-    // who never imports it can leave it uninstalled and their bundler never
-    // tries to resolve it.
-    entry: {
-      index: "src/index.ts",
-      scene: "src/scene.ts",
-    },
-    // The bundler flattens away the per-file "use client" directives, which
-    // silently breaks React Server Component consumers (Next.js App Router)
-    // of what is a hooks/DOM/WebGPU client library. Re-assert it once, as the
-    // bundle's first statement.
-    //
-    // Declaration files go through the same output pipeline, and a directive
-    // prologue is a *statement* — illegal in an ambient context. Emitting it
-    // there makes `tsc` fail with TS1036 for every consumer who has not set
-    // `skipLibCheck`. Banner the JS chunks only. Both halves of this are
-    // asserted by ./scripts/verify-artifact.mjs.
-    outputOptions: {
-      banner: (chunk: { fileName: string }) =>
-        /\.d\.[cm]?ts$/.test(chunk.fileName) ? "" : '"use client";',
-    },
-    dts: {
-      tsgo: true,
-    },
-    // Keep `exports` pointing at src for instant playground HMR; vp pack
-    // writes the dist mappings to publishConfig.exports for publishing.
-    // The generator owns the exports field, so the theme.css subpath must
-    // be declared here — hand edits to package.json get clobbered on build.
-    exports: {
-      customExports(exports: Record<string, unknown>, context: { isPublish: boolean }) {
-        exports["./theme.css"] = context.isPublish ? "./dist/theme.css" : "./src/theme.css";
-        return exports;
+  test: {
+    projects: [
+      {
+        test: {
+          name: "types",
+          include: ["next/**/*.attest.ts"],
+          globalSetup: ["./next/setup-attest.ts"],
+        },
       },
-      devExports: true,
-    },
-    publint: true,
+      {
+        test: {
+          name: "unit",
+          include: ["**/*.{test,spec}.{ts,tsx}"],
+          exclude: ["**/*.browser.test.ts", "**/node_modules/**"],
+        },
+      },
+      {
+        test: {
+          name: "browser",
+          include: ["next/**/*.browser.test.ts"],
+          browser: {
+            enabled: true,
+            headless: true,
+            screenshotFailures: false,
+            provider: playwright(),
+            instances: [{ browser: "chromium" }],
+          },
+        },
+      },
+    ],
   },
+  plugins: [typegpu()],
+  // Build the headless core separately from React entry points.
+  pack: [
+    { ...pack, entry: { core: "src/core.ts" } },
+    {
+      ...pack,
+      entry: { index: "src/index.ts", scene: "src/scene.ts" },
+      plugins: [pack.plugins, typegpuRolldown({ exclude: /\.d\.[cm]?ts$/ })],
+      copy: [
+        { from: "src/theme.css", to: "dist" },
+        { from: "node_modules/use-webmcp-tool/LICENSE", to: "dist/licenses/use-webmcp-tool" },
+      ],
+    },
+  ],
   lint: {
     options: {
       typeAware: true,

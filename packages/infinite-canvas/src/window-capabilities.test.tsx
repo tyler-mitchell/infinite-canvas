@@ -1,16 +1,16 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { expect, test } from "vite-plus/test";
 
-import { executeInfiniteCanvasCommand, isInfiniteCanvasCommandEnabled } from "./commands";
+import { isInfiniteCanvasCommandEnabled } from "./operations";
 import {
   createInfiniteCanvasState,
   createInfiniteCanvasWindow,
   defineInfiniteCanvasWindowRegistry,
 } from "./factory";
 import { InfiniteCanvasViewport } from "./infinite-canvas";
-import { parseInfiniteCanvasState, serializeInfiniteCanvasState } from "./persistence";
-import { reduceInfiniteCanvasState } from "./reducer";
-import { InfiniteCanvasProvider } from "./store";
+import { createInfiniteCanvasStore } from "./store";
+import { reduceInfiniteCanvasState } from "./operations";
+import { InfiniteCanvasProvider } from "./react/store";
 import type { InfiniteCanvasState, InfiniteCanvasWindowCapabilities } from "./types";
 
 type Kind = "note";
@@ -42,9 +42,7 @@ test("a window that declines closing is not closed by the action either", () => 
     reduceInfiniteCanvasState(state, { type: "window.close", windowId: "console" }).windows,
   ).toHaveLength(1);
   expect(isInfiniteCanvasCommandEnabled(state, { type: "activeWindow.close" })).toBe(false);
-  expect(executeInfiniteCanvasCommand(state, { type: "activeWindow.close" }).windows).toHaveLength(
-    1,
-  );
+  expect(reduceInfiniteCanvasState(state, { type: "activeWindow.close" }).windows).toHaveLength(1);
 });
 
 test("minimize and maximize are refused the same way, and pinning is not a capability", () => {
@@ -77,12 +75,18 @@ test("a fixed-size window refuses to begin a resize", () => {
 
 test("a locked window refuses pointer moves, nudges, placement, and arrangement", () => {
   const locked = stateWith({ movable: false });
-  const selected = { ...locked, selection: { anchorWindowId: "console", windowIds: ["console"] } };
+  const selected = {
+    ...locked,
+    selection: {
+      anchorTarget: { type: "window" as const, id: "console" },
+      targets: [{ type: "window" as const, id: "console" }],
+    },
+  };
   const attempted = reduceInfiniteCanvasState(locked, {
     pointerId: 1,
     point: { x: 10, y: 10 },
     type: "interaction.startMove",
-    windowId: "console",
+    target: { type: "window", id: "console" },
   });
 
   expect(attempted.interaction).toBeNull();
@@ -94,7 +98,7 @@ test("a locked window refuses pointer moves, nudges, placement, and arrangement"
     }),
   ).toBe(false);
   expect(
-    executeInfiniteCanvasCommand(selected, {
+    reduceInfiniteCanvasState(selected, {
       amountPx: 1,
       direction: "right",
       type: "window.nudge",
@@ -123,8 +127,11 @@ test("an unspecified capability permits, so existing windows are unaffected", ()
 
 test("withheld controls render disabled and marked, rather than vanishing", () => {
   const markup = renderToStaticMarkup(
-    <InfiniteCanvasProvider initialState={stateWith({ closable: false })}>
-      <InfiniteCanvasViewport<Kind> windowDefinitions={registry} />
+    <InfiniteCanvasProvider
+      initialState={stateWith({ closable: false })}
+      windowDefinitions={registry}
+    >
+      <InfiniteCanvasViewport<Kind> />
     </InfiniteCanvasProvider>,
   );
 
@@ -135,13 +142,16 @@ test("withheld controls render disabled and marked, rather than vanishing", () =
 
 test("a fixed-size window renders no resize handles at all", () => {
   const fixed = renderToStaticMarkup(
-    <InfiniteCanvasProvider initialState={stateWith({ resizable: false })}>
-      <InfiniteCanvasViewport<Kind> windowDefinitions={registry} />
+    <InfiniteCanvasProvider
+      initialState={stateWith({ resizable: false })}
+      windowDefinitions={registry}
+    >
+      <InfiniteCanvasViewport<Kind> />
     </InfiniteCanvasProvider>,
   );
   const ordinary = renderToStaticMarkup(
-    <InfiniteCanvasProvider initialState={stateWith({})}>
-      <InfiniteCanvasViewport<Kind> windowDefinitions={registry} />
+    <InfiniteCanvasProvider initialState={stateWith({})} windowDefinitions={registry}>
+      <InfiniteCanvasViewport<Kind> />
     </InfiniteCanvasProvider>,
   );
 
@@ -150,29 +160,32 @@ test("a fixed-size window renders no resize handles at all", () => {
 });
 
 test("capabilities survive a persistence round-trip", () => {
-  const restored = parseInfiniteCanvasState<Kind>(
-    serializeInfiniteCanvasState(stateWith({ closable: false, resizable: false })),
-    stateWith({}),
-  );
+  const restored = createInfiniteCanvasStore<Kind>({
+    document: createInfiniteCanvasStore({
+      initialState: stateWith({ closable: false, resizable: false }),
+    }).snapshot(),
+  }).getState();
 
   expect(restored?.windows[0]?.capabilities).toEqual({ closable: false, resizable: false });
 });
 
-test("a granted capability is not written out, so equivalent documents serialize alike", () => {
-  const restored = parseInfiniteCanvasState<Kind>(
-    serializeInfiniteCanvasState(stateWith({ closable: true })),
-    stateWith({}),
-  );
+test("explicit capability settings survive a document round trip", () => {
+  const restored = createInfiniteCanvasStore<Kind>({
+    document: createInfiniteCanvasStore({ initialState: stateWith({ closable: true }) }).snapshot(),
+  }).getState();
 
-  expect(restored?.windows[0]?.capabilities).toBeUndefined();
+  expect(restored?.windows[0]?.capabilities).toEqual({ closable: true });
 });
 
 test("a malformed capability set rejects the window rather than silently unlocking it", () => {
+  const document = createInfiniteCanvasStore({
+    initialState: stateWith({ closable: false }),
+  }).snapshot();
   const corrupt = {
-    ...serializeInfiniteCanvasState(stateWith({ closable: false })),
+    ...document,
+    windows: document.windows.map((window) => ({ ...window, capabilities: { closable: "no" } })),
   };
-
-  corrupt.windows = [{ ...corrupt.windows[0], capabilities: { closable: "no" } }] as never;
-
-  expect(parseInfiniteCanvasState<Kind>(corrupt, stateWith({}))?.windows ?? []).toHaveLength(0);
+  expect(() => createInfiniteCanvasStore<Kind>({ document: corrupt })).toThrow(
+    /capabilities\.closable/,
+  );
 });

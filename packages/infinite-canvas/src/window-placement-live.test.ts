@@ -1,7 +1,7 @@
 import { expect, test } from "vite-plus/test";
 
 import { createInfiniteCanvasState, createInfiniteCanvasWindow } from "./factory";
-import { reduceInfiniteCanvasState } from "./reducer";
+import { reduceInfiniteCanvasState } from "./operations";
 import type { InfiniteCanvasRect, InfiniteCanvasState } from "./types";
 
 const SIZE = { height: 240, width: 360 };

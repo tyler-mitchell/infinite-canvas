@@ -1,11 +1,11 @@
 import { expect, test } from "vite-plus/test";
 
-import { executeInfiniteCanvasCommand } from "./commands";
 import { createInfiniteCanvasState, createInfiniteCanvasWindow } from "./factory";
+import { getCanvasLayout } from "./layout";
 import { createInfiniteCanvasGroup, reconcileInfiniteCanvasGroups } from "./group-state";
 import { getInfiniteCanvasGroupWindowIds } from "./group-tree";
-import { serializeInfiniteCanvasState } from "./persistence";
-import { reduceInfiniteCanvasState } from "./reducer";
+import { createInfiniteCanvasStore } from "./store";
+import { reduceInfiniteCanvasState } from "./operations";
 import type { InfiniteCanvasRect, InfiniteCanvasState } from "./types";
 
 type Kind = "demo";
@@ -22,7 +22,7 @@ const twoFloating = (): InfiniteCanvasState<Kind> =>
   });
 
 const docked = () =>
-  executeInfiniteCanvasCommand(twoFloating(), { direction: "right", type: "window.dockDirection" });
+  reduceInfiniteCanvasState(twoFloating(), { direction: "right", type: "window.dockDirection" });
 
 const close = (state: InfiniteCanvasState<Kind>, windowId: string) =>
   reduceInfiniteCanvasState(state, { type: "window.close", windowId });
@@ -34,13 +34,13 @@ test("closing one of two panes dissolves the shell around the survivor", () => {
   expect(after.windows.map((window) => window.id)).toEqual(["east"]);
 });
 
-test("the survivor holds the group's footprint, as it already did while grouped", () => {
+test("the survivor keeps its displayed pane bounds", () => {
   const before = docked();
-  const groupRect = before.groups[0]?.rect;
+  const displayedRect = getCanvasLayout(before).windowRects.get("east");
   const after = close(before, "west").windows.find((window) => window.id === "east")?.rect;
 
-  expect(groupRect).toBeDefined();
-  expect(after).toEqual(groupRect);
+  expect(displayedRect).toBeDefined();
+  expect(after).toEqual(displayedRect);
 });
 
 test("minimizing one of two panes dissolves it too — the pane is just as gone", () => {
@@ -53,7 +53,7 @@ test("minimizing one of two panes dissolves it too — the pane is just as gone"
 });
 
 test("undocking one of two panes keeps the shell, because that is rearrangement", () => {
-  const after = executeInfiniteCanvasCommand(docked(), { type: "window.undock" });
+  const after = reduceInfiniteCanvasState(docked(), { type: "window.undock" });
 
   expect(after.groups).toHaveLength(1);
   expect(getInfiniteCanvasGroupWindowIds(after.groups[0]!.tree)).toEqual(["east"]);
@@ -90,9 +90,43 @@ test("closing the last member still drops the shell, as DOCK-005 always did", ()
   expect(close(groupOf(["west"]), "west").groups).toEqual([]);
 });
 
+test("closing a group cancels its active move", () => {
+  const grouped = groupOf(["west", "east"]);
+  const moving = reduceInfiniteCanvasState(grouped, {
+    pointerId: 7,
+    point: { x: 100, y: 100 },
+    target: { id: "made", type: "group" },
+    type: "interaction.startMove",
+  });
+  const closed = reduceInfiniteCanvasState(moving, { groupId: "made", type: "group.close" });
+
+  expect(moving.interaction?.kind).toBe("move");
+  expect(closed.groups).toEqual([]);
+  expect(closed.interaction).toBeNull();
+  expect(closed.snapPreview).toBeNull();
+});
+
+test("closing a group cancels its active resize", () => {
+  const grouped = groupOf(["west", "east"]);
+  const resizing = reduceInfiniteCanvasState(grouped, {
+    groupId: "made",
+    handle: "south-east",
+    minSize: { height: 100, width: 100 },
+    pointerId: 8,
+    point: { x: 600, y: 200 },
+    type: "interaction.startGroupResize",
+  });
+  const closed = reduceInfiniteCanvasState(resizing, { groupId: "made", type: "group.close" });
+
+  expect(resizing.interaction?.kind).toBe("groupResize");
+  expect(closed.groups).toEqual([]);
+  expect(closed.interaction).toBeNull();
+  expect(closed.snapPreview).toBeNull();
+});
+
 test("a persisted group naming a window that no longer exists dissolves on reconciliation", () => {
   const grouped = groupOf(["west", "east"]);
-  const groupRect = grouped.groups[0]?.rect;
+  const displayedRect = getCanvasLayout(grouped).windowRects.get("east");
   const stale: InfiniteCanvasState<Kind> = {
     ...grouped,
     windows: grouped.windows.filter((window) => window.id !== "west"),
@@ -100,7 +134,7 @@ test("a persisted group naming a window that no longer exists dissolves on recon
   const after = reconcileInfiniteCanvasGroups(stale);
 
   expect(after.groups).toEqual([]);
-  expect(after.windows.find((window) => window.id === "east")?.rect).toEqual(groupRect);
+  expect(after.windows.find((window) => window.id === "east")?.rect).toEqual(displayedRect);
 });
 
 test("a persisted group that still has two live windows survives reconciliation", () => {
@@ -118,8 +152,8 @@ test("a group saved already collapsed to one live member reopens still collapsed
 });
 
 test("an undocked shell is written to the document, which is what makes the two indistinguishable", () => {
-  const undocked = executeInfiniteCanvasCommand(docked(), { type: "window.undock" });
-  const stored = serializeInfiniteCanvasState(undocked).groups;
+  const undocked = reduceInfiniteCanvasState(docked(), { type: "window.undock" });
+  const stored = createInfiniteCanvasStore({ initialState: undocked }).snapshot().groups;
 
   expect(stored).toHaveLength(1);
   expect(stored[0]?.tree).toEqual({ id: "east", kind: "window", weight: 1 });

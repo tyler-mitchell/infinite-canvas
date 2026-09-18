@@ -1,7 +1,7 @@
 import { expect, test } from "vite-plus/test";
 
 import { createInfiniteCanvasState, createInfiniteCanvasWindow } from "./factory";
-import { reduceInfiniteCanvasState } from "./reducer";
+import { reduceInfiniteCanvasState } from "./operations";
 import type { InfiniteCanvasState } from "./types";
 import { isInfiniteCanvasWindowInActiveWorkspace } from "./workspace-membership";
 
@@ -19,6 +19,7 @@ const onDesktop = (): InfiniteCanvasState<Kind> => {
   const created = reduceInfiniteCanvasState(
     createInfiniteCanvasState<Kind>({ windows: [pane("sources")] }),
     {
+      activate: false,
       title: "Research",
       type: "workspace.create",
       windowIds: ["sources"],
@@ -52,6 +53,7 @@ test("a window opened on a desktop is visible on it", () => {
 
 test("it joins only the active desktop, not every desktop", () => {
   const twoDesktops = reduceInfiniteCanvasState(onDesktop(), {
+    activate: false,
     title: "Writing",
     type: "workspace.create",
     windowIds: [],
@@ -71,10 +73,7 @@ test("it joins only the active desktop, not every desktop", () => {
 });
 
 test("a canvas showing all windows is untouched", () => {
-  const showingAll = reduceInfiniteCanvasState(onDesktop(), {
-    command: { type: "workspace.showAll" },
-    type: "command.execute",
-  });
+  const showingAll = reduceInfiniteCanvasState(onDesktop(), { type: "workspace.showAll" });
   const opened = reduceInfiniteCanvasState(showingAll, {
     type: "window.open",
     window: pane("notes"),

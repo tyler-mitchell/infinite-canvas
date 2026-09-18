@@ -1,8 +1,6 @@
 import { getVisibleWorldRect, isUsableViewport, unionRects } from "./geometry";
-import { getInfiniteCanvasGroupProjection } from "./group-state";
-import { getInfiniteCanvasGroupWindowIds } from "./group-tree";
-import { isWindowSelected } from "./selection";
-import { getInfiniteCanvasWorkspaceWindowIds } from "./workspace-membership";
+import { getCanvasLayout } from "./layout";
+import { isSelectionTargetSelected } from "./selection";
 import type {
   InfiniteCanvasPoint,
   InfiniteCanvasRect,
@@ -66,21 +64,11 @@ function getInfiniteCanvasMinimapLayout<Kind extends string>(
     return null;
   }
 
-  const { hiddenWindowIds } = getInfiniteCanvasGroupProjection(state.groups, state.groupMetrics);
-  // Match the active workspace filter.
-  const admitted = getInfiniteCanvasWorkspaceWindowIds(state);
-  const drawnWindows = state.windows.filter(
-    (window) =>
-      window.mode !== "minimized" &&
-      !hiddenWindowIds.has(window.id) &&
-      (admitted === null || admitted.has(window.id)),
+  const canvasLayout = getCanvasLayout(state);
+  const drawnWindows = state.windows.filter((window) =>
+    canvasLayout.visibleWindowIds.has(window.id),
   );
-  // One admitted member admits its complete group.
-  const drawnGroups = state.groups.filter(
-    (group) =>
-      admitted === null ||
-      getInfiniteCanvasGroupWindowIds(group.tree).some((windowId) => admitted.has(windowId)),
-  );
+  const drawnGroups = state.groups.filter((group) => canvasLayout.visibleGroupIds.has(group.id));
   // This guard comes before the camera expands the bounds.
   if (drawnWindows.length === 0 && drawnGroups.length === 0) {
     return null;
@@ -88,8 +76,8 @@ function getInfiniteCanvasMinimapLayout<Kind extends string>(
 
   const visibleWorldRect = getVisibleWorldRect(state.camera, state.viewport, 0);
   const contentBounds = unionRects([
-    ...drawnWindows.map((window) => window.rect),
-    ...drawnGroups.map((group) => group.rect),
+    ...drawnWindows.map((window) => canvasLayout.windowRects.get(window.id)!),
+    ...drawnGroups.map((group) => canvasLayout.groupRects.get(group.id)!),
   ]);
   const bounds = unionRects(
     contentBounds === null ? [visibleWorldRect] : [contentBounds, visibleWorldRect],
@@ -111,7 +99,7 @@ function getInfiniteCanvasMinimapLayout<Kind extends string>(
     // Use the same groups for bounds and output.
     groups: drawnGroups.map((group) => ({
       groupId: group.id,
-      rect: scaleRect(group.rect, bounds, scale, offset),
+      rect: scaleRect(canvasLayout.groupRects.get(group.id)!, bounds, scale, offset),
     })),
     offset,
     scale,
@@ -125,8 +113,8 @@ function getInfiniteCanvasMinimapLayout<Kind extends string>(
         : scaleRect(visibleWorldRect, bounds, scale, offset),
     windows: drawnWindows.map((window) => ({
       isActive: state.activeWindowId === window.id,
-      isSelected: isWindowSelected(state, window.id),
-      rect: scaleRect(window.rect, bounds, scale, offset),
+      isSelected: isSelectionTargetSelected(state.selection, { type: "window", id: window.id }),
+      rect: scaleRect(canvasLayout.windowRects.get(window.id)!, bounds, scale, offset),
       windowId: window.id,
     })),
   };

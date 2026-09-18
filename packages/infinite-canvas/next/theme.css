@@ -1,0 +1,29 @@
+[data-slot="canvas-viewport"] {
+  --canvas-background: #101318;
+  --canvas-window-background: #181d25;
+  --canvas-window-border: #394454;
+  --canvas-window-active-border: #8ac8e8;
+  --canvas-window-text: #eef3f8;
+  --canvas-resize-size: 8px;
+  --canvas-selection-border: #8ac8e8;
+  --canvas-selection-background: #8ac8e81a;
+  background: var(--canvas-background);
+  color: var(--canvas-window-text);
+}
+[data-slot="canvas-window"] {
+  display: flex;
+  flex-direction: column;
+  background: var(--canvas-window-background);
+  box-shadow: inset 0 0 0 1px var(--canvas-window-border);
+}
+[data-slot="canvas-window"][data-active] {
+  box-shadow: inset 0 0 0 1px var(--canvas-window-active-border);
+}
+[data-slot="canvas-drag-handle"] {
+  cursor: grab;
+  user-select: none;
+}
+[data-slot="canvas-marquee"] {
+  border: 1px solid var(--canvas-selection-border);
+  background: var(--canvas-selection-background);
+}

@@ -14,7 +14,7 @@ import {
   createInfiniteCanvasWindow,
   defineInfiniteCanvasWindowRegistry,
 } from "./factory";
-import { InfiniteCanvasProvider } from "./store";
+import { InfiniteCanvasProvider } from "./react/store";
 import { InfiniteCanvasWindowFrame } from "./window-frame";
 
 type Kind = "note";
@@ -71,6 +71,7 @@ function renderFrame(input: Readonly<{ isActive: boolean; isSelected: boolean }>
       stackBands={DEFAULT_INFINITE_CANVAS_STACK_BANDS}
       theme={DEFAULT_INFINITE_CANVAS_THEME}
       window={noteWindow}
+      rect={noteWindow.rect}
       windowDefinitions={windowRegistry}
       zoom={state.camera.zoom}
     />,

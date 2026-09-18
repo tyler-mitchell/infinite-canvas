@@ -8,6 +8,7 @@ type InfiniteCanvasIconProps = Readonly<{
 }>;
 
 type InfiniteCanvasIconName =
+  | "actions"
   | "center-active"
   | "close"
   | "fit-all"
@@ -176,7 +177,17 @@ function InfiniteCanvasResetIcon({ size = 14 }: InfiniteCanvasIconProps) {
   );
 }
 
+function InfiniteCanvasActionsIcon({ size = 14 }: InfiniteCanvasIconProps) {
+  return (
+    <InfiniteCanvasIconSvg size={size}>
+      <path d="M10 2h4l.6 2.6 2.3 1.3 2.6-.8 2 3.5-2 1.8V13l2 1.8-2 3.5-2.6-.8-2.3 1.3-.6 2.6h-4l-.6-2.6-2.3-1.3-2.6.8-2-3.5 2-1.8v-2.6l-2-1.8 2-3.5 2.6.8 2.3-1.3Z" />
+      <circle cx="12" cy="11.7" r="3" />
+    </InfiniteCanvasIconSvg>
+  );
+}
+
 const DEFAULT_INFINITE_CANVAS_ICONS = {
+  actions: InfiniteCanvasActionsIcon,
   "center-active": InfiniteCanvasCenterActiveIcon,
   close: InfiniteCanvasCloseIcon,
   "fit-all": InfiniteCanvasFitAllIcon,

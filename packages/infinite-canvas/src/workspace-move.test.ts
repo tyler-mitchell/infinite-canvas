@@ -1,7 +1,9 @@
+import { getSelectedWindowIds } from "./selection";
 import { expect, test } from "vite-plus/test";
+import { createInfiniteCanvasStore } from "./store";
 
 import { createInfiniteCanvasState, createInfiniteCanvasWindow } from "./factory";
-import { reduceInfiniteCanvasState } from "./reducer";
+import { reduceInfiniteCanvasState } from "./operations";
 import type { InfiniteCanvasState } from "./types";
 
 type Kind = "note";
@@ -23,6 +25,7 @@ const twoDesktops = (): InfiniteCanvasState<Kind> => {
     viewport: { height: 800, width: 1200 },
   };
   const research = reduceInfiniteCanvasState(base, {
+    activate: false,
     title: "Research",
     type: "workspace.create",
     windowIds: ["a", "b", "c"],
@@ -30,6 +33,7 @@ const twoDesktops = (): InfiniteCanvasState<Kind> => {
   });
 
   return reduceInfiniteCanvasState(research, {
+    activate: false,
     title: "Writing",
     type: "workspace.create",
     windowIds: [],
@@ -52,20 +56,20 @@ test("a moved window joins the target and leaves the one it was on", () => {
 });
 
 test("moving is one edit, not a remove and an add", () => {
-  const before = twoDesktops();
-  const moved = reduceInfiniteCanvasState(before, {
+  const store = createInfiniteCanvasStore({ initialState: twoDesktops() });
+  store.dispatch({
     type: "workspace.moveWindows",
     windowIds: ["a"],
     workspaceId: "writing",
   });
 
-  expect(moved.history.past).toHaveLength(before.history.past.length + 1);
+  expect(store.history.undos$.peek()).toBe(1);
 });
 
 test("moving a docked pane takes its whole shell with it", () => {
   const docked = reduceInfiniteCanvasState(
     { ...twoDesktops(), activeWindowId: "a" },
-    { command: { direction: "right", type: "window.dockDirection" }, type: "command.execute" },
+    { direction: "right", type: "window.dockDirection" },
   );
 
   expect(docked.groups).toHaveLength(1);
@@ -110,29 +114,28 @@ test("moving to a desktop that does not exist changes nothing", () => {
 });
 
 test("a whole selection files in one edit, not one per window", () => {
-  const before = twoDesktops();
-  const moved = reduceInfiniteCanvasState(before, {
+  const store = createInfiniteCanvasStore({ initialState: twoDesktops() });
+  store.dispatch({
     type: "workspace.moveWindows",
     windowIds: ["a", "b", "c"],
     workspaceId: "writing",
   });
 
-  expect(membership(moved, "writing")).toEqual(["a", "b", "c"]);
-  expect(membership(moved, "research")).toEqual([]);
-  expect(moved.history.past).toHaveLength(before.history.past.length + 1);
+  expect(membership(store.getState(), "writing")).toEqual(["a", "b", "c"]);
+  expect(membership(store.getState(), "research")).toEqual([]);
+  expect(store.history.undos$.peek()).toBe(1);
 });
 
 test("one undo puts a whole filed selection back", () => {
-  const before = twoDesktops();
-  const moved = reduceInfiniteCanvasState(before, {
+  const store = createInfiniteCanvasStore({ initialState: twoDesktops() });
+  store.dispatch({
     type: "workspace.moveWindows",
     windowIds: ["a", "b", "c"],
     workspaceId: "writing",
   });
-  const undone = reduceInfiniteCanvasState(moved, {
-    command: { type: "history.undo" },
-    type: "command.execute",
-  });
+  expect(membership(store.getState(), "writing")).toEqual(["a", "b", "c"]);
+  store.dispatch({ type: "history.undo" });
+  const undone = store.getState();
 
   expect(membership(undone, "research")).toEqual(["a", "b", "c"]);
   expect(membership(undone, "writing")).toEqual([]);
@@ -161,7 +164,10 @@ test("moving the active window off the desktop you are on does not leave it acti
     ...twoDesktops(),
     activeWindowId: "a",
     activeWorkspaceId: "research",
-    selection: { anchorWindowId: "a", windowIds: ["a"] },
+    selection: {
+      anchorTarget: { type: "window" as const, id: "a" },
+      targets: [{ type: "window" as const, id: "a" }],
+    },
   };
   const moved = reduceInfiniteCanvasState(standing, {
     type: "workspace.moveWindows",
@@ -171,14 +177,17 @@ test("moving the active window off the desktop you are on does not leave it acti
 
   expect(membership(moved, "writing")).toEqual(["a"]);
   expect(moved.activeWindowId).not.toBe("a");
-  expect(moved.selection.windowIds).not.toContain("a");
+  expect(getSelectedWindowIds(moved.selection)).not.toContain("a");
 });
 
 test("the command sends the active window, and works from show-all", () => {
-  const showingAll = { ...twoDesktops(), activeWindowId: "c", activeWorkspaceId: null };
+  const showingAll = reduceInfiniteCanvasState(
+    { ...twoDesktops(), activeWorkspaceId: null },
+    { type: "selection.replace", targets: [{ type: "window" as const, id: "c" }] },
+  );
   const moved = reduceInfiniteCanvasState(showingAll, {
-    command: { type: "workspace.moveActiveWindow", workspaceId: "writing" },
-    type: "command.execute",
+    type: "workspace.moveActiveWindow",
+    workspaceId: "writing",
   });
 
   expect(membership(moved, "writing")).toEqual(["c"]);

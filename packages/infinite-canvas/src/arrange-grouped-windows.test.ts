@@ -1,7 +1,8 @@
 import { expect, test } from "vite-plus/test";
 
 import { createInfiniteCanvasState, createInfiniteCanvasWindow } from "./factory";
-import { reduceInfiniteCanvasState } from "./reducer";
+import { getCanvasLayout } from "./layout";
+import { reduceInfiniteCanvasState } from "./operations";
 import type { InfiniteCanvasState } from "./types";
 
 type Kind = "note";
@@ -24,25 +25,34 @@ const withShellAndFloaters = (): InfiniteCanvasState<Kind> => {
   };
   const docked = reduceInfiniteCanvasState(
     { ...base, activeWindowId: "a" },
-    { command: { direction: "right", type: "window.dockDirection" }, type: "command.execute" },
+    { direction: "right", type: "window.dockDirection" },
   );
 
   expect(docked.groups).toHaveLength(1);
 
   return {
     ...docked,
-    selection: { anchorWindowId: "a", windowIds: ["a", "b", "c", "d"] },
+    selection: {
+      anchorTarget: { type: "window" as const, id: "a" },
+      targets: [
+        { type: "window" as const, id: "a" },
+        { type: "window" as const, id: "b" },
+        { type: "window" as const, id: "c" },
+        { type: "window" as const, id: "d" },
+      ],
+    },
   };
 };
 
 const rectOf = (state: InfiniteCanvasState<Kind>, id: string) =>
-  state.windows.find((window) => window.id === id)?.rect;
+  getCanvasLayout(state).windowRects.get(id);
 
 test("nudging a selection moves a docked pane's whole shell", () => {
   const before = withShellAndFloaters();
   const after = reduceInfiniteCanvasState(before, {
-    command: { amountPx: 10, direction: "right", type: "window.nudge" },
-    type: "command.execute",
+    amountPx: 10,
+    direction: "right",
+    type: "window.nudge",
   });
 
   for (const id of ["a", "b", "c", "d"]) {
@@ -53,8 +63,9 @@ test("nudging a selection moves a docked pane's whole shell", () => {
 test("a group moves once however many of its members are selected", () => {
   const before = withShellAndFloaters();
   const after = reduceInfiniteCanvasState(before, {
-    command: { amountPx: 10, direction: "right", type: "window.nudge" },
-    type: "command.execute",
+    amountPx: 10,
+    direction: "right",
+    type: "window.nudge",
   });
   const travelled = (id: string) => (rectOf(after, id)?.x ?? 0) - (rectOf(before, id)?.x ?? 0);
 
@@ -64,10 +75,7 @@ test("a group moves once however many of its members are selected", () => {
 
 test("aligning the same selection skips the docked panes entirely", () => {
   const before = withShellAndFloaters();
-  const after = reduceInfiniteCanvasState(before, {
-    command: { alignment: "left", type: "window.align" },
-    type: "command.execute",
-  });
+  const after = reduceInfiniteCanvasState(before, { alignment: "left", type: "window.align" });
 
   expect(rectOf(after, "c")?.x).toBe(rectOf(after, "d")?.x);
   expect(rectOf(after, "a")).toStrictEqual(rectOf(before, "a"));
@@ -77,13 +85,11 @@ test("aligning the same selection skips the docked panes entirely", () => {
 test("the two families genuinely disagree about the same window", () => {
   const before = withShellAndFloaters();
   const nudged = reduceInfiniteCanvasState(before, {
-    command: { amountPx: 10, direction: "right", type: "window.nudge" },
-    type: "command.execute",
+    amountPx: 10,
+    direction: "right",
+    type: "window.nudge",
   });
-  const aligned = reduceInfiniteCanvasState(before, {
-    command: { alignment: "left", type: "window.align" },
-    type: "command.execute",
-  });
+  const aligned = reduceInfiniteCanvasState(before, { alignment: "left", type: "window.align" });
 
   expect(rectOf(nudged, "a")).not.toStrictEqual(rectOf(before, "a"));
   expect(rectOf(aligned, "a")).toStrictEqual(rectOf(before, "a"));

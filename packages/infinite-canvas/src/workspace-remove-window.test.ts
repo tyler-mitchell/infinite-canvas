@@ -1,7 +1,8 @@
+import { getSelectedWindowIds } from "./selection";
 import { expect, test } from "vite-plus/test";
 
 import { createInfiniteCanvasState, createInfiniteCanvasWindow } from "./factory";
-import { reduceInfiniteCanvasState } from "./reducer";
+import { reduceInfiniteCanvasState } from "./operations";
 import type { InfiniteCanvasState } from "./types";
 
 type Kind = "note";
@@ -37,7 +38,7 @@ const membership = (state: InfiniteCanvasState<Kind>, workspaceId: string) =>
 const withShell = (): InfiniteCanvasState<Kind> => {
   const docked = reduceInfiniteCanvasState(
     { ...oneDesktop(), activeWindowId: "a", activeWorkspaceId: "research" },
-    { command: { direction: "right", type: "window.dockDirection" }, type: "command.execute" },
+    { direction: "right", type: "window.dockDirection" },
   );
 
   expect(docked.groups).toHaveLength(1);
@@ -48,27 +49,21 @@ const withShell = (): InfiniteCanvasState<Kind> => {
 test("an undocked window comes off the desktop it was on", () => {
   const removed = reduceInfiniteCanvasState(
     { ...oneDesktop(), activeWindowId: "c", activeWorkspaceId: "research" },
-    { command: { type: "workspace.removeActiveWindow" }, type: "command.execute" },
+    { type: "workspace.removeActiveWindow" },
   );
 
   expect(membership(removed, "research")).toEqual(["a", "b"]);
 });
 
 test("removing a docked pane takes its whole shell off with it", () => {
-  const removed = reduceInfiniteCanvasState(withShell(), {
-    command: { type: "workspace.removeActiveWindow" },
-    type: "command.execute",
-  });
+  const removed = reduceInfiniteCanvasState(withShell(), { type: "workspace.removeActiveWindow" });
 
   expect(membership(removed, "research")).not.toContain("a");
   expect(membership(removed, "research")).toEqual(["c"]);
 });
 
 test("what comes off the desktop stays open on the canvas", () => {
-  const removed = reduceInfiniteCanvasState(withShell(), {
-    command: { type: "workspace.removeActiveWindow" },
-    type: "command.execute",
-  });
+  const removed = reduceInfiniteCanvasState(withShell(), { type: "workspace.removeActiveWindow" });
 
   expect(removed.windows.map((window) => window.id).sort()).toEqual(["a", "b", "c"]);
   expect(removed.groups).toHaveLength(1);
@@ -76,12 +71,18 @@ test("what comes off the desktop stays open on the canvas", () => {
 
 test("a window removed from the desktop you are standing on does not stay active", () => {
   const removed = reduceInfiniteCanvasState(
-    { ...withShell(), selection: { anchorWindowId: "a", windowIds: ["a"] } },
-    { command: { type: "workspace.removeActiveWindow" }, type: "command.execute" },
+    {
+      ...withShell(),
+      selection: {
+        anchorTarget: { type: "window" as const, id: "a" },
+        targets: [{ type: "window" as const, id: "a" }],
+      },
+    },
+    { type: "workspace.removeActiveWindow" },
   );
 
   expect(removed.activeWindowId).not.toBe("a");
-  expect(removed.selection.windowIds).not.toContain("a");
+  expect(getSelectedWindowIds(removed.selection)).not.toContain("a");
 });
 
 test("removing a window that is not on the desktop changes nothing", () => {
@@ -96,10 +97,5 @@ test("removing a window that is not on the desktop changes nothing", () => {
     activeWorkspaceId: "writing",
   };
 
-  expect(
-    reduceInfiniteCanvasState(state, {
-      command: { type: "workspace.removeActiveWindow" },
-      type: "command.execute",
-    }),
-  ).toBe(state);
+  expect(reduceInfiniteCanvasState(state, { type: "workspace.removeActiveWindow" })).toBe(state);
 });

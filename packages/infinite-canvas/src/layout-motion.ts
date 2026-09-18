@@ -10,4 +10,8 @@ const INFINITE_CANVAS_LAYOUT_TRANSITION = REDUCED_MOTION
   ? "none"
   : `var(--icx-layout-transition, ${["transform", "width", "height"].map((property) => `${property} ${LAYOUT_SPRING}`).join(", ")})`;
 
-export { INFINITE_CANVAS_LAYOUT_TRANSITION };
+const CONTENT_LAYOUT_TRANSITION = REDUCED_MOTION
+  ? "none"
+  : `var(--icx-content-layout-transition, ${["transform", "width"].map((property) => `${property} ${LAYOUT_SPRING}`).join(", ")})`;
+
+export { CONTENT_LAYOUT_TRANSITION, INFINITE_CANVAS_LAYOUT_TRANSITION };

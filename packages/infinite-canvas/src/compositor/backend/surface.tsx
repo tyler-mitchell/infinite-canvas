@@ -22,8 +22,7 @@ import {
 import { SCENE_UNDERLAY_Z_INDEX } from "../../scene-surface";
 import type { InfiniteCanvasSceneSurfaceProps } from "../../scene-surface";
 import { resolveInfiniteCanvasSpatialTarget } from "../../spatial-target";
-import { findWindow } from "../../stacking";
-import { useInfiniteCanvasActions, useInfiniteCanvasStore } from "../../store";
+import { useInfiniteCanvasDispatch, useInfiniteCanvasStore } from "../../react/store";
 import type {
   InfiniteCanvasDropPayload,
   InfiniteCanvasSceneLayerPlacement,
@@ -31,7 +30,7 @@ import type {
   InfiniteCanvasSceneLayerSpace,
   InfiniteCanvasState,
 } from "../../types";
-import { getInfiniteCanvasWindowProxies, getInfiniteCanvasWindowProxy } from "../../window-proxy";
+import { getInfiniteCanvasWindowProxies } from "../../window-proxy";
 import type { CompositorBuiltPass, CompositorTarget, InfiniteCanvasScenePass } from "../pass";
 import { DEFAULT_INFINITE_CANVAS_COMPOSITOR, type InfiniteCanvasCompositorPolicy } from "../policy";
 import { createInfiniteCanvasAreaLightPass } from "../passes/area-light";
@@ -166,7 +165,7 @@ function CompositorCanvas<Kind extends string, Payload = InfiniteCanvasDropPaylo
 }: InfiniteCanvasSceneSurfaceProps<Kind, Payload>) {
   const root = useRoot();
   const store = useInfiniteCanvasStore<Kind>();
-  const actions = useInfiniteCanvasActions<Kind>();
+  const dispatch = useInfiniteCanvasDispatch<Kind>();
   const worldCamera = useUniform(CompositorCamera);
   const screenCamera = useUniform(CompositorCamera);
   // The document's ask for this frame. Nothing draws from it directly.
@@ -241,8 +240,15 @@ function CompositorCanvas<Kind extends string, Payload = InfiniteCanvasDropPaylo
     }
 
     const state = store.state$.peek() as InfiniteCanvasState<Kind>;
-    const windows = getInfiniteCanvasWindowProxies(state, chrome, devicePixelRatio);
-    const columns = getWindowInstanceColumns(windows);
+    const canvasLayout = store.layout$.peek();
+    const windows = getInfiniteCanvasWindowProxies({
+      chrome,
+      devicePixelRatio,
+      canvasLayout: canvasLayout,
+      state,
+    });
+    const renderWindows = windows.filter((window) => canvasLayout.visibleWindowIds.has(window.id));
+    const columns = getWindowInstanceColumns(renderWindows);
 
     worldCamera.write(getCameraValue(state, "world", devicePixelRatio));
     screenCamera.write(getCameraValue(state, "screen", devicePixelRatio));
@@ -261,19 +267,13 @@ function CompositorCanvas<Kind extends string, Payload = InfiniteCanvasDropPaylo
 
     const visibleWorldRect = getVisibleWorldRect(state.camera, state.viewport);
     const worldContext: InfiniteCanvasSceneLayerRenderContext<Kind, Payload> = {
-      actions,
+      dispatch,
       camera: state.camera,
       chrome,
       devicePixelRatio,
       drop: dropInteraction as InfiniteCanvasSceneLayerRenderContext<Kind, Payload>["drop"],
       getState: () => store.state$.peek() as InfiniteCanvasState<Kind>,
-      getWindowProxy: (windowId) => {
-        const window = findWindow(state, windowId);
-
-        return window === null || window.mode === "minimized"
-          ? null
-          : getInfiniteCanvasWindowProxy(state, window, chrome, devicePixelRatio);
-      },
+      getWindowProxy: (windowId) => windows.find((window) => window.id === windowId) ?? null,
       resolveSpatialTarget: (viewportPoint) =>
         resolveInfiniteCanvasSpatialTarget({
           chrome,
@@ -285,10 +285,14 @@ function CompositorCanvas<Kind extends string, Payload = InfiniteCanvasDropPaylo
       state,
       theme,
       visibleScreenRect: getInfiniteCanvasViewportScreenRect(state.viewport),
-      visibleWindows: getVisibleInfiniteCanvasWindowProxies(windows, visibleWorldRect, "world"),
+      visibleWindows: getVisibleInfiniteCanvasWindowProxies(
+        renderWindows,
+        visibleWorldRect,
+        "world",
+      ),
       visibleWorldRect,
       viewport: state.viewport,
-      windows,
+      windows: renderWindows,
     };
     const timing = { deltaSeconds, elapsedSeconds, instanceCount: columns.count };
     const frames = {

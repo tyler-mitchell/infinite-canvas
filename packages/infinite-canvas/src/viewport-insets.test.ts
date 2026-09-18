@@ -10,7 +10,7 @@ import {
   screenPointToWorldPoint,
 } from "./geometry";
 import { getInfiniteCanvasOffscreenIndicators } from "./offscreen";
-import { reduceInfiniteCanvasState } from "./reducer";
+import { reduceInfiniteCanvasState } from "./operations";
 import type { InfiniteCanvasRect, InfiniteCanvasViewport } from "./types";
 
 const VIEWPORT: InfiniteCanvasViewport = { height: 800, width: 1200 };
@@ -89,11 +89,16 @@ test("getInfiniteCanvasInsetCameraCenter — cancels when opposing edges match, 
 });
 
 test("fitCameraToWorldRect with insets — puts the rect's centre in the middle of the unoccluded region, not the viewport", () => {
-  const camera = fitCameraToWorldRect(VIEWPORT, RECT, 80, undefined, {
-    bottom: 0,
-    left: 320,
-    right: 0,
-    top: 0,
+  const camera = fitCameraToWorldRect({
+    viewport: VIEWPORT,
+    rect: RECT,
+    paddingPx: 80,
+    insets: {
+      bottom: 0,
+      left: 320,
+      right: 0,
+      top: 0,
+    },
   });
 
   expect(camera).not.toBeNull();
@@ -105,24 +110,34 @@ test("fitCameraToWorldRect with insets — puts the rect's centre in the middle 
 });
 
 test("fitCameraToWorldRect with insets — zooms to the unoccluded width, so a wide panel means a smaller fit", () => {
-  const withoutPanel = fitCameraToWorldRect(VIEWPORT, RECT, 0);
-  const withPanel = fitCameraToWorldRect(VIEWPORT, RECT, 0, undefined, {
-    bottom: 0,
-    left: 600,
-    right: 0,
-    top: 0,
+  const withoutPanel = fitCameraToWorldRect({ viewport: VIEWPORT, rect: RECT, paddingPx: 0 });
+  const withPanel = fitCameraToWorldRect({
+    viewport: VIEWPORT,
+    rect: RECT,
+    paddingPx: 0,
+    insets: {
+      bottom: 0,
+      left: 600,
+      right: 0,
+      top: 0,
+    },
   });
 
   expect(withPanel?.zoom).toBeLessThan(withoutPanel?.zoom ?? 0);
 });
 
 test("fitCameraToWorldRect with insets — is unchanged when no insets are given", () => {
-  expect(fitCameraToWorldRect(VIEWPORT, RECT, 80)).toEqual(
-    fitCameraToWorldRect(VIEWPORT, RECT, 80, undefined, {
-      bottom: 0,
-      left: 0,
-      right: 0,
-      top: 0,
+  expect(fitCameraToWorldRect({ viewport: VIEWPORT, rect: RECT, paddingPx: 80 })).toEqual(
+    fitCameraToWorldRect({
+      viewport: VIEWPORT,
+      rect: RECT,
+      paddingPx: 80,
+      insets: {
+        bottom: 0,
+        left: 0,
+        right: 0,
+        top: 0,
+      },
     }),
   );
 });
@@ -201,7 +216,7 @@ test("viewportInsets.set — the store's action reaches state, with unnamed edge
 
 test("fitCameraToWorldRect with insets — agrees with the framework's own screen projection", () => {
   const insets = { bottom: 24, left: 320, right: 0, top: 56 };
-  const camera = fitCameraToWorldRect(VIEWPORT, RECT, 40, undefined, insets);
+  const camera = fitCameraToWorldRect({ viewport: VIEWPORT, rect: RECT, paddingPx: 40, insets });
 
   expect(camera).not.toBeNull();
 

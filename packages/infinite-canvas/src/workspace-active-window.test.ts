@@ -1,12 +1,14 @@
+import { getSelectedWindowIds } from "./selection";
 import { expect, test } from "vite-plus/test";
 
-import { createInfiniteCanvasState, createInfiniteCanvasWindow } from "./factory";
-import { reduceInfiniteCanvasState } from "./reducer";
-import type { InfiniteCanvasState } from "./types";
 import {
-  moveInfiniteCanvasWindowsToWorkspace,
-  reconcileInfiniteCanvasWorkspaces,
-} from "./workspace";
+  createInfiniteCanvasState,
+  createInfiniteCanvasWindow,
+  reconcileInfiniteCanvasState,
+} from "./factory";
+import { reduceInfiniteCanvasState } from "./operations";
+import type { InfiniteCanvasState } from "./types";
+import { moveInfiniteCanvasWindowsToWorkspace } from "./workspace";
 
 type Kind = "note";
 
@@ -26,11 +28,18 @@ const standingOnHere = (): InfiniteCanvasState<Kind> => {
   const withDesktops = reduceInfiniteCanvasState(
     reduceInfiniteCanvasState(base, {
       title: "Here",
+      activate: false,
       type: "workspace.create",
       windowIds: ["a", "b"],
       workspaceId: "here",
     }),
-    { title: "There", type: "workspace.create", windowIds: [], workspaceId: "there" },
+    {
+      activate: false,
+      title: "There",
+      type: "workspace.create",
+      windowIds: [],
+      workspaceId: "there",
+    },
   );
   const onHere = reduceInfiniteCanvasState(withDesktops, {
     type: "workspace.activate",
@@ -53,7 +62,7 @@ test("filing the active window onto another desktop stops it being active here",
 
   expect(after.workspaces.find((workspace) => workspace.id === "there")?.windowIds).toContain("a");
   expect(after.activeWindowId).not.toBe("a");
-  expect(after.selection.windowIds).not.toContain("a");
+  expect(getSelectedWindowIds(after.selection)).not.toContain("a");
 });
 
 test("removing the active window from this desktop stops it being active", () => {
@@ -65,7 +74,7 @@ test("removing the active window from this desktop stops it being active", () =>
   });
 
   expect(after.activeWindowId).not.toBe("a");
-  expect(after.selection.windowIds).not.toContain("a");
+  expect(getSelectedWindowIds(after.selection)).not.toContain("a");
 });
 
 test("the membership writer leaves the active window stale; reconciliation is what clears it", () => {
@@ -79,7 +88,9 @@ test("the membership writer leaves the active window stale; reconciliation is wh
     "a",
   );
   expect(written.activeWindowId).toBe("a");
-  expect(reconcileInfiniteCanvasWorkspaces(written).activeWindowId).not.toBe("a");
+  expect(
+    reconcileInfiniteCanvasState({ state: written, previousState: before }).activeWindowId,
+  ).not.toBe("a");
 });
 
 test("a window this desktop still admits stays active", () => {

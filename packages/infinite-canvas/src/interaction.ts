@@ -5,24 +5,32 @@ import {
   screenPointToWorldPoint,
   subtractPoints,
 } from "./geometry";
-import { getInfiniteCanvasGroupGutterWeights } from "./group-layout";
-import { getInfiniteCanvasGroupWindowIds } from "./group-tree";
+import { getInfiniteCanvasGroupGutterWeights } from "./layout";
 import {
-  MASONRY_RESIZE_HANDLE_AXIS,
+  findInfiniteCanvasGroupNode,
+  getInfiniteCanvasGroupWindowIds,
+  isInfiniteCanvasGroupContainer,
+} from "./group-tree";
+import { getCanvasLayout, getTargetBounds } from "./layout";
+import {
+  getInfiniteCanvasMovableSelection,
+  moveInfiniteCanvasTargets,
+  resolveInfiniteCanvasMoveTarget,
+} from "./movement";
+import {
   applyInfiniteCanvasDockPreview,
   findInfiniteCanvasGroup,
-  getInfiniteCanvasMasonryMembership,
-  moveInfiniteCanvasMasonryMember,
-  resizeInfiniteCanvasMasonryMember,
+  getWindowLayoutMembership,
+  isInfiniteCanvasWindowGrouped,
+  resizeLayoutMember,
   resolveInfiniteCanvasDockPreview,
-  resolveInfiniteCanvasLatticeDropPreview,
   setInfiniteCanvasGroupChildWeightsInState,
-  setInfiniteCanvasGroupRect,
-  syncInfiniteCanvasGroupWindowRects,
+  setInfiniteCanvasGroupBounds,
   undockInfiniteCanvasWindowFromGroup,
 } from "./group-state";
-import { clearSelection, isWindowSelected, replaceSelection } from "./selection";
+import { isSelectionTargetSelected, updateSelection } from "./selection";
 import { applyResizeSnapToRect, applySnapToRect } from "./snap-resolver";
+import { isInfiniteCanvasWindowCapable } from "./window-capabilities";
 import {
   findWindow,
   focusWindow,
@@ -30,30 +38,26 @@ import {
   updateWindowRect,
 } from "./stacking";
 import type {
+  InfiniteCanvasActionInput,
   InfiniteCanvasCamera,
-  InfiniteCanvasGroup,
   InfiniteCanvasGroupGutterInteraction,
   InfiniteCanvasGroupResizeInteraction,
-  InfiniteCanvasSize,
-  InfiniteCanvasGroupMoveInteraction,
   InfiniteCanvasMarqueeInteraction,
-  InfiniteCanvasMarqueeMode,
   InfiniteCanvasMoveInteraction,
   InfiniteCanvasPoint,
-  InfiniteCanvasResizeHandle,
   InfiniteCanvasResizeInteraction,
   InfiniteCanvasSnapPolicy,
   InfiniteCanvasState,
 } from "./types";
 
-function beginCanvasPan<Kind extends string>(
-  state: InfiniteCanvasState<Kind>,
-  pointerId: number,
-  point: InfiniteCanvasPoint,
-  clearSelectionOnStart = false,
-): InfiniteCanvasState<Kind> {
+function beginCanvasPan<Kind extends string>({
+  clearSelection: clearSelectionOnStart = false,
+  currentState: state,
+  point,
+  pointerId,
+}: InfiniteCanvasActionInput<"interaction.startPan", Kind>): InfiniteCanvasState<Kind> {
   return {
-    ...(clearSelectionOnStart ? clearSelection(state) : state),
+    ...(clearSelectionOnStart ? updateSelection(state, { mode: "replace", targets: [] }) : state),
     interaction: {
       kind: "pan",
       originCamera: state.camera,
@@ -64,12 +68,12 @@ function beginCanvasPan<Kind extends string>(
   };
 }
 
-function beginMarqueeSelection<Kind extends string>(
-  state: InfiniteCanvasState<Kind>,
-  pointerId: number,
-  point: InfiniteCanvasPoint,
-  mode: InfiniteCanvasMarqueeMode,
-): InfiniteCanvasState<Kind> {
+function beginMarqueeSelection<Kind extends string>({
+  currentState: state,
+  mode,
+  point,
+  pointerId,
+}: InfiniteCanvasActionInput<"interaction.startMarquee", Kind>): InfiniteCanvasState<Kind> {
   const nextState = {
     ...state,
     interaction: {
@@ -77,13 +81,15 @@ function beginMarqueeSelection<Kind extends string>(
       kind: "marquee",
       mode,
       originPointer: point,
-      originSelectionIds: state.selection.windowIds,
+      originSelection: state.selection,
       pointerId,
     },
     snapPreview: null,
   } satisfies InfiniteCanvasState<Kind>;
 
-  return mode === "replace" ? replaceSelection(nextState, []) : nextState;
+  return mode === "replace"
+    ? updateSelection(nextState, { mode: "replace", targets: [] })
+    : nextState;
 }
 
 /** Returns drag travel in world units across camera changes. */
@@ -101,45 +107,34 @@ function getInteractionWorldDelta<Kind extends string>(
   );
 }
 
-/** Starts a group move from a member header. */
-function beginInfiniteCanvasGroupMove<Kind extends string>(
-  state: InfiniteCanvasState<Kind>,
-  pointerId: number,
-  group: InfiniteCanvasGroup,
-  point: InfiniteCanvasPoint,
-): InfiniteCanvasState<Kind> {
-  return {
-    ...state,
-    interaction: {
-      groupId: group.id,
-      kind: "groupMove",
-      originPointer: point,
-      originRect: group.rect,
-      pointerId,
-      originCamera: state.camera,
-    },
-    snapPreview: null,
-  };
-}
-
 /** Starts a group resize with metrics captured for the complete drag. */
-function beginInfiniteCanvasGroupResize<Kind extends string>(
-  state: InfiniteCanvasState<Kind>,
-  pointerId: number,
-  group: InfiniteCanvasGroup,
-  handle: InfiniteCanvasResizeHandle,
-  minSize: InfiniteCanvasSize,
-  point: InfiniteCanvasPoint,
-): InfiniteCanvasState<Kind> {
+function beginInfiniteCanvasGroupResize<Kind extends string>({
+  currentState: state,
+  groupId,
+  handle,
+  minSize,
+  point,
+  pointerId,
+}: Omit<
+  InfiniteCanvasActionInput<"interaction.startGroupResize", Kind>,
+  "type"
+>): InfiniteCanvasState<Kind> {
+  const group = findInfiniteCanvasGroup(state, groupId);
+
+  if (group === null) return state;
+
   return {
-    ...state,
+    ...updateSelection(state, {
+      mode: "replace",
+      targets: [{ type: "group", kind: "group", id: group.id }],
+    }),
     interaction: {
       groupId: group.id,
       handle,
       kind: "groupResize",
       minSize,
       originPointer: point,
-      originRect: group.rect,
+      originRect: getTargetBounds({ state, target: { type: "group", id: group.id } })!,
       pointerId,
       originCamera: state.camera,
     },
@@ -153,48 +148,53 @@ function stepInfiniteCanvasGroupResize<Kind extends string>(
   interaction: InfiniteCanvasGroupResizeInteraction,
   point: InfiniteCanvasPoint,
 ): InfiniteCanvasState<Kind> {
-  return setInfiniteCanvasGroupRect(state, {
+  const rect = resizeRectFromHandle(
+    interaction.originRect,
+    interaction.handle,
+    getInteractionWorldDelta(state, interaction, point),
+    interaction.minSize,
+  );
+  return setInfiniteCanvasGroupBounds(state, {
     groupId: interaction.groupId,
-    rect: resizeRectFromHandle(
-      interaction.originRect,
-      interaction.handle,
-      getInteractionWorldDelta(state, interaction, point),
-      interaction.minSize,
-    ),
+    bounds: rect,
   });
 }
 
 /** Starts a split-seam drag with all values required by each step. */
 function beginInfiniteCanvasGroupGutterDrag<Kind extends string>(
-  state: InfiniteCanvasState<Kind>,
-  input: Omit<InfiniteCanvasGroupGutterInteraction, "kind" | "originCamera">,
+  input: InfiniteCanvasActionInput<"interaction.startGroupGutter", Kind>,
 ): InfiniteCanvasState<Kind> {
+  const group = findInfiniteCanvasGroup(input.currentState, input.groupId);
+  if (group === null) return input.currentState;
+  const originContainer = findInfiniteCanvasGroupNode(group.tree, input.containerId);
+  if (originContainer === null || !isInfiniteCanvasGroupContainer(originContainer))
+    return input.currentState;
+  const gutter = getCanvasLayout(input.currentState)
+    .layouts.get(group.id)
+    ?.gutters.find(
+      (gutter) =>
+        gutter.containerId === input.containerId &&
+        gutter.beforeChildId === input.beforeChildId &&
+        gutter.afterChildId === input.afterChildId,
+    );
+  if (gutter === undefined) return input.currentState;
   return {
-    ...state,
+    ...input.currentState,
     interaction: {
-      ...input,
+      afterChildId: input.afterChildId,
+      availableExtent: gutter.availableExtent,
+      axis: gutter.axis,
+      beforeChildId: input.beforeChildId,
+      containerId: input.containerId,
+      groupId: input.groupId,
       kind: "groupGutter",
-      originCamera: state.camera,
+      originCamera: input.currentState.camera,
+      originContainer,
+      originPointer: input.point,
+      pointerId: input.pointerId,
     },
     snapPreview: null,
   };
-}
-
-function stepInfiniteCanvasGroupMove<Kind extends string>(
-  state: InfiniteCanvasState<Kind>,
-  interaction: InfiniteCanvasGroupMoveInteraction,
-  point: InfiniteCanvasPoint,
-): InfiniteCanvasState<Kind> {
-  const worldDelta = getInteractionWorldDelta(state, interaction, point);
-
-  return setInfiniteCanvasGroupRect(state, {
-    groupId: interaction.groupId,
-    rect: {
-      ...interaction.originRect,
-      x: interaction.originRect.x + worldDelta.x,
-      y: interaction.originRect.y + worldDelta.y,
-    },
-  });
 }
 
 /** Recomputes seam weights from the original container and total drag distance. */
@@ -220,84 +220,95 @@ function stepInfiniteCanvasGroupGutterDrag<Kind extends string>(
   });
 }
 
-function beginWindowMove<Kind extends string>(
-  state: InfiniteCanvasState<Kind>,
-  pointerId: number,
-  windowId: string,
-  point: InfiniteCanvasPoint,
-): InfiniteCanvasState<Kind> {
-  const shouldMoveSelection =
-    isWindowSelected(state, windowId) && state.selection.windowIds.length > 1;
-  const focusedState = shouldMoveSelection
-    ? focusWindowPreservingSelection(state, windowId)
-    : focusWindow(state, windowId);
-  const targetWindow = findWindow(focusedState, windowId);
-
-  if (targetWindow === null) {
-    return state;
-  }
-
-  const movingWindowIds = shouldMoveSelection ? focusedState.selection.windowIds : [windowId];
-  const selectedOriginRects = focusedState.windows
-    .filter((window) => movingWindowIds.includes(window.id))
-    .map((window) => ({
-      rect: window.rect,
-      windowId: window.id,
-    }));
-  const originRects = selectedOriginRects.some((origin) => origin.windowId === windowId)
-    ? selectedOriginRects
-    : [
-        {
-          rect: targetWindow.rect,
-          windowId,
-        },
-      ];
-
+function beginMove<Kind extends string>({
+  currentState,
+  point,
+  pointerId,
+  target,
+  undock = false,
+}: Omit<
+  InfiniteCanvasActionInput<"interaction.startMove", Kind>,
+  "type"
+>): InfiniteCanvasState<Kind> {
+  const state =
+    undock && target.type === "window"
+      ? undockInfiniteCanvasWindowFromGroup(currentState, { windowId: target.id })
+      : currentState;
+  const resolved = resolveInfiniteCanvasMoveTarget({ state, target });
+  if (resolved === null) return currentState;
+  const selected =
+    target.type === "window"
+      ? isSelectionTargetSelected(state.selection, { type: "window", id: target.id })
+      : isSelectionTargetSelected(state.selection, target);
+  const focusedState = {
+    window: () =>
+      selected ? focusWindowPreservingSelection(state, target.id) : focusWindow(state, target.id),
+    group: () =>
+      selected
+        ? state
+        : updateSelection(state, {
+            mode: "replace",
+            targets: [{ id: target.id, type: "group", kind: "group" }],
+          }),
+  }[target.type]();
   return {
     ...focusedState,
     interaction: {
+      delta: { x: 0, y: 0 },
       dockPreview: null,
       kind: "move",
       originPointer: point,
-      originRect: targetWindow.rect,
-      originRects,
+      originRects: getInfiniteCanvasMovableSelection(focusedState),
       pointerId,
-      windowId,
+      target:
+        resolved.type === "group"
+          ? { type: "group", id: resolved.group.id }
+          : { type: "window", id: resolved.window.id },
       originCamera: focusedState.camera,
     },
     snapPreview: null,
   };
 }
 
-function beginWindowResize<Kind extends string>(
-  state: InfiniteCanvasState<Kind>,
-  pointerId: number,
-  windowId: string,
-  handle: InfiniteCanvasResizeHandle,
-  point: InfiniteCanvasPoint,
-): InfiniteCanvasState<Kind> {
-  const focusedState = focusWindow(state, windowId);
-  const targetWindow = findWindow(focusedState, windowId);
+function beginWindowResize<Kind extends string>({
+  currentState: state,
+  handle,
+  point,
+  pointerId,
+  windowId,
+}: InfiniteCanvasActionInput<"interaction.startResize", Kind>): InfiniteCanvasState<Kind> {
+  const targetWindow = findWindow(state, windowId);
+  const originRect = getTargetBounds({ state, target: { type: "window", id: windowId } });
 
-  return targetWindow === null
-    ? state
-    : {
-        ...focusedState,
-        interaction: {
-          handle,
-          kind: "resize",
-          originPointer: point,
-          originRect: targetWindow.rect,
-          pointerId,
-          windowId,
-          originCamera: focusedState.camera,
-        },
-        snapPreview: null,
-        windows: focusedState.windows.map((window) => {
-          if (window.id !== windowId || window.heightMode === "manual") return window;
-          return { ...window, heightMode: "manual" as const };
-        }),
-      };
+  if (
+    targetWindow === null ||
+    originRect === null ||
+    (isInfiniteCanvasWindowGrouped(state, windowId) &&
+      getWindowLayoutMembership(state, windowId)?.operations?.resize === undefined) ||
+    !isInfiniteCanvasWindowCapable(targetWindow, "resizable")
+  ) {
+    return state;
+  }
+
+  const focusedState = focusWindow(state, windowId);
+
+  return {
+    ...focusedState,
+    interaction: {
+      handle,
+      kind: "resize",
+      originPointer: point,
+      originRect,
+      pointerId,
+      windowId,
+      originCamera: focusedState.camera,
+    },
+    snapPreview: null,
+    windows: focusedState.windows.map((window) => {
+      if (window.id !== windowId || window.heightMode === "manual") return window;
+      return { ...window, heightMode: "manual" as const };
+    }),
+  };
 }
 
 function stepCanvasInteraction<Kind extends string>(
@@ -312,6 +323,8 @@ function stepCanvasInteraction<Kind extends string>(
   if (interaction === null || interaction.pointerId !== pointerId) {
     return state;
   }
+
+  if (interaction.kind === "groupReorder") return state;
 
   if (interaction.kind === "pan") {
     const worldAtOrigin = screenPointToWorldPoint(
@@ -336,10 +349,6 @@ function stepCanvasInteraction<Kind extends string>(
     return stepMarqueeSelection(state, interaction, point);
   }
 
-  if (interaction.kind === "groupMove") {
-    return stepInfiniteCanvasGroupMove(state, interaction, point);
-  }
-
   if (interaction.kind === "groupGutter") {
     return stepInfiniteCanvasGroupGutterDrag(state, interaction, point);
   }
@@ -347,6 +356,9 @@ function stepCanvasInteraction<Kind extends string>(
   if (interaction.kind === "groupResize") {
     return stepInfiniteCanvasGroupResize(state, interaction, point);
   }
+
+  if (interaction.kind === "move")
+    return stepMove(state, interaction, point, snapPolicy, options.dockIntent === true);
 
   const targetWindow = findWindow(state, interaction.windowId);
 
@@ -359,62 +371,32 @@ function stepCanvasInteraction<Kind extends string>(
 
   const worldDelta = getInteractionWorldDelta(state, interaction, point);
 
-  const membership = getInfiniteCanvasMasonryMembership(state, interaction.windowId);
+  const membership = getWindowLayoutMembership(state, interaction.windowId);
 
-  if (interaction.kind === "resize") {
-    if (membership === null) {
-      return stepWindowResize(state, interaction, worldDelta, targetWindow.minSize, snapPolicy);
-    }
-
-    // Grid constraints convert pointer geometry to cells.
-    return resizeInfiniteCanvasMasonryMember(
+  if (membership?.operations?.resize === undefined)
+    return stepWindowResize(
       state,
-      interaction.windowId,
-      resizeRectFromHandle(interaction.originRect, interaction.handle, worldDelta, {
+      interaction,
+      worldDelta,
+      targetWindow.minSize,
+      snapPolicy,
+      targetWindow.aspectRatio,
+    );
+  return resizeLayoutMember(
+    state,
+    interaction.windowId,
+    resizeRectFromHandle(
+      interaction.originRect,
+      interaction.handle,
+      worldDelta,
+      {
         width: 0,
         height: 0,
-      }),
-      MASONRY_RESIZE_HANDLE_AXIS[interaction.handle],
-    );
-  }
-
-  // Leaving a grid through its sides or top detaches the dragged member.
-
-  if (membership !== null) {
-    const moved = stepWindowMove(state, interaction, worldDelta, false);
-    const worldPoint = screenPointToWorldPoint(state.camera, state.viewport, point);
-    const shell = membership.group.rect;
-
-    return worldPoint.x >= shell.x &&
-      worldPoint.x <= shell.x + shell.width &&
-      worldPoint.y >= shell.y
-      ? moveInfiniteCanvasMasonryMember(moved, interaction.windowId)
-      : undockInfiniteCanvasWindowFromGroup(moved, {
-          rect: moved.windows.find((window) => window.id === interaction.windowId)?.rect,
-          windowId: interaction.windowId,
-        });
-  }
-
-  // Grid drops are automatic; other docking requires explicit intent.
-  const worldPoint = screenPointToWorldPoint(state.camera, state.viewport, point);
-  const resolvePreview =
-    options.dockIntent === true
-      ? resolveInfiniteCanvasDockPreview
-      : resolveInfiniteCanvasLatticeDropPreview;
-  const dockPreview =
-    interaction.originRects.length !== 1
-      ? null
-      : resolvePreview(state, worldPoint, interaction.windowId);
-  const moved = stepWindowMove(
-    state,
-    interaction,
-    worldDelta,
-    dockPreview === null ? snapPolicy : false,
+      },
+      targetWindow.aspectRatio,
+    ),
+    interaction.handle,
   );
-
-  return moved.interaction === null || moved.interaction.kind !== "move"
-    ? moved
-    : { ...moved, interaction: { ...moved.interaction, dockPreview } };
 }
 
 function getMarqueeWorldRect<Kind extends string>(
@@ -433,27 +415,10 @@ function getMarqueeHitWindowIds<Kind extends string>(
 ) {
   const marqueeRect = getMarqueeWorldRect(state, interaction);
 
-  return state.windows
-    .filter((window) => window.mode !== "minimized" && rectsIntersect(window.rect, marqueeRect))
-    .map((window) => window.id);
-}
-
-function getMarqueeSelectionIds(
-  originSelectionIds: readonly string[],
-  hitWindowIds: readonly string[],
-  mode: InfiniteCanvasMarqueeMode,
-) {
-  switch (mode) {
-    case "add":
-      return [...originSelectionIds, ...hitWindowIds];
-    case "replace":
-      return hitWindowIds;
-    case "toggle":
-      return [
-        ...originSelectionIds.filter((windowId) => !hitWindowIds.includes(windowId)),
-        ...hitWindowIds.filter((windowId) => !originSelectionIds.includes(windowId)),
-      ];
-  }
+  const geometry = getCanvasLayout(state);
+  return [...geometry.visibleWindowIds].filter((windowId) =>
+    rectsIntersect(geometry.windowRects.get(windowId)!, marqueeRect),
+  );
 }
 
 function stepMarqueeSelection<Kind extends string>(
@@ -465,70 +430,113 @@ function stepMarqueeSelection<Kind extends string>(
     ...interaction,
     currentPointer: point,
   };
-  const selectedWindowIds = getMarqueeSelectionIds(
-    interaction.originSelectionIds,
-    getMarqueeHitWindowIds(state, nextInteraction),
-    interaction.mode,
-  );
-
-  return replaceSelection(
+  return updateSelection(
     {
       ...state,
       interaction: nextInteraction,
+      selection: interaction.originSelection,
     },
-    selectedWindowIds,
+    {
+      mode: interaction.mode,
+      targets: getMarqueeHitWindowIds(state, nextInteraction).map((id) => ({ type: "window", id })),
+    },
   );
 }
 
-function stepWindowMove<Kind extends string>(
+function stepMove<Kind extends string>(
   state: InfiniteCanvasState<Kind>,
   interaction: InfiniteCanvasMoveInteraction,
-  worldDelta: InfiniteCanvasPoint,
-  snapPolicy?: InfiniteCanvasSnapPolicy | false,
+  point: InfiniteCanvasPoint,
+  snapPolicy: InfiniteCanvasSnapPolicy | undefined,
+  dockIntent: boolean,
 ): InfiniteCanvasState<Kind> {
+  const target = interaction.target;
   const targetOrigin = interaction.originRects.find(
-    (origin) => origin.windowId === interaction.windowId,
-  ) ?? {
-    rect: interaction.originRect,
-    windowId: interaction.windowId,
+    (origin) => origin.target.type === target.type && origin.target.id === target.id,
+  );
+  const resolved = resolveInfiniteCanvasMoveTarget({ state, target });
+
+  if (targetOrigin === undefined || resolved === null) {
+    return { ...state, interaction: null, snapPreview: null };
+  }
+
+  const currentBounds = getTargetBounds({ state, target });
+
+  if (currentBounds === null) {
+    return { ...state, interaction: null, snapPreview: null };
+  }
+
+  const worldDelta = getInteractionWorldDelta(state, interaction, point);
+  const originRect = {
+    ...currentBounds,
+    x: targetOrigin.bounds.x,
+    y: targetOrigin.bounds.y,
   };
   const unsnappedRect = {
-    ...targetOrigin.rect,
-    x: targetOrigin.rect.x + worldDelta.x,
-    y: targetOrigin.rect.y + worldDelta.y,
+    ...originRect,
+    x: originRect.x + worldDelta.x,
+    y: originRect.y + worldDelta.y,
   };
-  const excludedWindowIds = interaction.originRects.map((origin) => origin.windowId);
+  const membership = target.type === "window" ? getWindowLayoutMembership(state, target.id) : null;
+  const worldPoint = screenPointToWorldPoint(state.camera, state.viewport, point);
+
+  if (membership?.operations?.move !== undefined) {
+    const shell = getTargetBounds({
+      state,
+      target: { type: "group", id: membership.group.id },
+    });
+    const staysInGrid =
+      shell === null ||
+      (worldPoint.x >= shell.x && worldPoint.x <= shell.x + shell.width && worldPoint.y >= shell.y);
+    if (!staysInGrid) {
+      const undocked = undockInfiniteCanvasWindowFromGroup(state, {
+        windowId: target.id,
+        rect: unsnappedRect,
+      });
+      if (undocked === state) return state;
+      return stepMove(undocked, interaction, point, snapPolicy, dockIntent);
+    }
+    const moved = moveInfiniteCanvasTargets({
+      state,
+      origins: interaction.originRects,
+      delta: worldDelta,
+    });
+
+    return {
+      ...moved,
+      interaction: { ...interaction, delta: worldDelta, dockPreview: null },
+      snapPreview: null,
+    };
+  }
+
+  const dockPreview = resolveInfiniteCanvasDockPreview({ state, worldPoint, dockIntent });
+  const excludedWindowIds = interaction.originRects.flatMap((origin) => {
+    if (origin.target.type === "window") return [origin.target.id];
+    const group = findInfiniteCanvasGroup(state, origin.target.id);
+    if (group === null) return [];
+    return getInfiniteCanvasGroupWindowIds(group.tree);
+  });
   const snapResult = applySnapToRect(
     state,
-    interaction.windowId,
+    target,
     unsnappedRect,
-    snapPolicy,
+    dockPreview === null && snapPolicy,
     excludedWindowIds,
   );
   const snappedDelta = {
-    x: snapResult.rect.x - targetOrigin.rect.x,
-    y: snapResult.rect.y - targetOrigin.rect.y,
+    x: snapResult.rect.x - originRect.x,
+    y: snapResult.rect.y - originRect.y,
   };
+  const moved = moveInfiniteCanvasTargets({
+    state,
+    origins: interaction.originRects,
+    delta: snappedDelta,
+  });
 
   return {
-    ...state,
+    ...moved,
+    interaction: { ...interaction, delta: snappedDelta, dockPreview },
     snapPreview: snapResult.preview,
-    windows: state.windows.map((window) => {
-      const origin = interaction.originRects.find(
-        (originRect) => originRect.windowId === window.id,
-      );
-
-      return origin === undefined
-        ? window
-        : {
-            ...window,
-            rect: {
-              ...origin.rect,
-              x: origin.rect.x + snappedDelta.x,
-              y: origin.rect.y + snappedDelta.y,
-            },
-          };
-    }),
   };
 }
 
@@ -538,12 +546,14 @@ function stepWindowResize<Kind extends string>(
   worldDelta: InfiniteCanvasPoint,
   minSize: InfiniteCanvasState<Kind>["windows"][number]["minSize"],
   snapPolicy?: InfiniteCanvasSnapPolicy,
+  aspectRatio?: number,
 ): InfiniteCanvasState<Kind> {
   const unsnappedRect = resizeRectFromHandle(
     interaction.originRect,
     interaction.handle,
     worldDelta,
     minSize,
+    aspectRatio,
   );
   const snapResult = applyResizeSnapToRect(
     state,
@@ -552,6 +562,7 @@ function stepWindowResize<Kind extends string>(
     interaction.handle,
     minSize,
     snapPolicy,
+    aspectRatio,
   );
 
   return {
@@ -570,17 +581,176 @@ function finishCanvasInteraction<Kind extends string>(
     return state;
   }
 
-  const docked =
-    interaction.kind === "move" && interaction.dockPreview !== null
-      ? applyInfiniteCanvasDockPreview(state, interaction.dockPreview)
-      : state;
+  if (interaction.kind === "move" && interaction.dockPreview !== null) {
+    return {
+      ...applyInfiniteCanvasDockPreview(state, interaction.dockPreview),
+      interaction: null,
+      snapPreview: null,
+    };
+  }
 
-  // A released masonry member kept the pointer's rect through the drag; now its cells place it.
-  return syncInfiniteCanvasGroupWindowRects({
-    ...docked,
+  return {
+    ...state,
     interaction: null,
     snapPreview: null,
-  });
+  };
+}
+
+function isInteractionWindowStable<Kind extends string>(
+  state: InfiniteCanvasState<Kind>,
+  previousState: InfiniteCanvasState<Kind>,
+  windowId: string,
+) {
+  const window = findWindow(state, windowId);
+  const previousWindow = findWindow(previousState, windowId);
+
+  return (
+    window !== null &&
+    previousWindow !== null &&
+    window.mode !== "minimized" &&
+    window.mode === previousWindow.mode
+  );
+}
+
+function isInteractionGroupStable<Kind extends string>(
+  state: InfiniteCanvasState<Kind>,
+  previousState: InfiniteCanvasState<Kind>,
+  groupId: string,
+) {
+  const group = findInfiniteCanvasGroup(state, groupId);
+  const previousGroup = findInfiniteCanvasGroup(previousState, groupId);
+
+  if (group === null || previousGroup === null) return false;
+
+  const windowIds = getInfiniteCanvasGroupWindowIds(group.tree);
+  const previousWindowIds = getInfiniteCanvasGroupWindowIds(previousGroup.tree);
+
+  if (
+    windowIds.length !== previousWindowIds.length ||
+    windowIds.some((windowId) => !previousWindowIds.includes(windowId))
+  ) {
+    return false;
+  }
+
+  return windowIds.every((windowId) => isInteractionWindowStable(state, previousState, windowId));
+}
+
+function isMoveTargetStable<Kind extends string>(
+  state: InfiniteCanvasState<Kind>,
+  previousState: InfiniteCanvasState<Kind>,
+  target: InfiniteCanvasMoveInteraction["target"],
+) {
+  if (target.type === "group") {
+    return isInteractionGroupStable(state, previousState, target.id);
+  }
+  if (!isInteractionWindowStable(state, previousState, target.id)) return false;
+  const resolved = resolveInfiniteCanvasMoveTarget({ state, target });
+  return resolved !== null && resolved.type === "window";
+}
+
+function isInteractionStable<Kind extends string>(
+  state: InfiniteCanvasState<Kind>,
+  previousState: InfiniteCanvasState<Kind>,
+) {
+  const interaction = state.interaction;
+
+  if (interaction === null || interaction.kind === "pan" || interaction.kind === "marquee") {
+    return true;
+  }
+  if (interaction.kind === "resize") {
+    const window = findWindow(state, interaction.windowId);
+    return (
+      isInteractionWindowStable(state, previousState, interaction.windowId) &&
+      isInfiniteCanvasWindowCapable(window, "resizable") &&
+      (!isInfiniteCanvasWindowGrouped(state, interaction.windowId) ||
+        getWindowLayoutMembership(state, interaction.windowId)?.operations?.resize !== undefined)
+    );
+  }
+  if (interaction.kind === "move") {
+    return (
+      isMoveTargetStable(state, previousState, interaction.target) &&
+      interaction.originRects.every(({ target }) =>
+        isMoveTargetStable(state, previousState, target),
+      )
+    );
+  }
+  if (!isInteractionGroupStable(state, previousState, interaction.groupId)) return false;
+  if (interaction.kind === "groupGutter") {
+    const gutter = getCanvasLayout(state)
+      .layouts.get(interaction.groupId)
+      ?.gutters.find(
+        (gutter) =>
+          gutter.containerId === interaction.containerId &&
+          gutter.beforeChildId === interaction.beforeChildId &&
+          gutter.afterChildId === interaction.afterChildId,
+      );
+    return (
+      gutter !== undefined &&
+      gutter.axis === interaction.axis &&
+      gutter.availableExtent === interaction.availableExtent
+    );
+  }
+  return true;
+}
+
+function isDockPreviewTargetPresent<Kind extends string>(
+  state: InfiniteCanvasState<Kind>,
+  interaction: InfiniteCanvasMoveInteraction,
+) {
+  const preview = interaction.dockPreview;
+
+  if (preview === null) return true;
+  const geometry = getCanvasLayout(state);
+  if (!geometry.visibleWindowIds.has(preview.windowId)) return false;
+  if (preview.groupId === null) {
+    return (
+      geometry.visibleWindowIds.has(preview.targetId) &&
+      !isInfiniteCanvasWindowGrouped(state, preview.targetId)
+    );
+  }
+  const group = findInfiniteCanvasGroup(state, preview.groupId);
+  if (group === null || !geometry.visibleGroupIds.has(group.id)) return false;
+  const target = findInfiniteCanvasGroupNode(group.tree, preview.targetId);
+  return target !== null && (target.kind !== "window" || geometry.visibleWindowIds.has(target.id));
+}
+
+function isSnapPreviewValid<Kind extends string>(state: InfiniteCanvasState<Kind>) {
+  const preview = state.snapPreview;
+
+  if (preview === null) return true;
+  const geometry = getCanvasLayout(state);
+  const targets = { group: geometry.visibleGroupIds, window: geometry.visibleWindowIds };
+  if (preview.target != null && !targets[preview.target.type].has(preview.target.id)) return false;
+  return preview.guides.every((guide) =>
+    guide.windowIds.every((id) => geometry.visibleWindowIds.has(id)),
+  );
+}
+
+function reconcileInfiniteCanvasInteraction<Kind extends string>({
+  previousState,
+  state,
+}: Readonly<{
+  previousState: InfiniteCanvasState<Kind>;
+  state: InfiniteCanvasState<Kind>;
+}>): InfiniteCanvasState<Kind> {
+  if (!isInteractionStable(state, previousState)) {
+    return { ...state, interaction: null, snapPreview: null };
+  }
+
+  const interaction = state.interaction;
+  const hasStaleDockPreview =
+    interaction?.kind === "move" && !isDockPreviewTargetPresent(state, interaction);
+  const hasStaleSnapPreview = !isSnapPreviewValid(state);
+
+  if (!hasStaleDockPreview && !hasStaleSnapPreview) return state;
+  if (hasStaleDockPreview && interaction?.kind === "move") {
+    return {
+      ...state,
+      interaction: { ...interaction, dockPreview: null },
+      snapPreview: hasStaleSnapPreview ? null : state.snapPreview,
+    };
+  }
+  return { ...state, snapPreview: null };
 }
 
 const NO_POINTER_OWNED_IDS = { groupIds: new Set<string>(), windowIds: new Set<string>() };
@@ -596,24 +766,32 @@ function getInfiniteCanvasPointerOwnedIds<Kind extends string>(
   }
 
   if (interaction.kind === "move") {
+    const groupIds = new Set(
+      interaction.originRects
+        .filter(({ target }) => target.type === "group")
+        .map(({ target }) => target.id),
+    );
     return {
-      groupIds: NO_POINTER_OWNED_IDS.groupIds,
-      windowIds: new Set(interaction.originRects.map((origin) => origin.windowId)),
+      groupIds,
+      windowIds: new Set([
+        ...interaction.originRects
+          .filter(({ target }) => target.type === "window")
+          .map(({ target }) => target.id),
+        ...state.groups
+          .filter((group) => groupIds.has(group.id))
+          .flatMap((group) => getInfiniteCanvasGroupWindowIds(group.tree)),
+      ]),
     };
   }
 
   // Grid resizing animates between cells; floating resizing follows the pointer.
   if (interaction.kind === "resize") {
-    return getInfiniteCanvasMasonryMembership(state, interaction.windowId) === null
+    return getWindowLayoutMembership(state, interaction.windowId)?.operations?.resize === undefined
       ? { groupIds: NO_POINTER_OWNED_IDS.groupIds, windowIds: new Set([interaction.windowId]) }
       : NO_POINTER_OWNED_IDS;
   }
 
-  if (
-    interaction.kind === "groupMove" ||
-    interaction.kind === "groupResize" ||
-    interaction.kind === "groupGutter"
-  ) {
+  if (interaction.kind === "groupResize" || interaction.kind === "groupGutter") {
     const group = findInfiniteCanvasGroup(state, interaction.groupId);
 
     return {
@@ -633,7 +811,7 @@ function getInteractionCursor(interaction: InfiniteCanvasState["interaction"]) {
   if (
     interaction.kind === "pan" ||
     interaction.kind === "move" ||
-    interaction.kind === "groupMove"
+    interaction.kind === "groupReorder"
   ) {
     return "grabbing";
   }
@@ -665,13 +843,13 @@ function getInteractionCursor(interaction: InfiniteCanvasState["interaction"]) {
 export {
   beginCanvasPan,
   beginInfiniteCanvasGroupGutterDrag,
-  beginInfiniteCanvasGroupMove,
   beginInfiniteCanvasGroupResize,
   beginMarqueeSelection,
-  beginWindowMove,
+  beginMove,
   beginWindowResize,
   finishCanvasInteraction,
   getInfiniteCanvasPointerOwnedIds,
   getInteractionCursor,
+  reconcileInfiniteCanvasInteraction,
   stepCanvasInteraction,
 };

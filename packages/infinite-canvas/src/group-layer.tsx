@@ -1,27 +1,27 @@
 "use client";
+import { GroupActionMenu } from "./context-actions";
+import type { ContextMenuPolicy } from "./types";
+import { Accordion } from "@base-ui/react/accordion";
+import { Tabs } from "@base-ui/react/tabs";
 
 import { useValue } from "@legendapp/state/react";
 import {
   memo,
   useMemo,
   useRef,
-  useState,
   type CSSProperties,
   type PointerEvent as ReactPointerEvent,
 } from "react";
 
 import { InfiniteCanvasCameraLayer } from "./camera-layer";
 import { INFINITE_CANVAS_SLOTS, getInfiniteCanvasWindowFrameElementId } from "./data-attributes";
-import { getEventViewportPoint } from "./frame-slots";
-import { useInfiniteCanvasDetailLevel } from "./detail-level";
+import { applyModifiedPointerTargetSelection, getEventViewportPoint } from "./frame-slots";
+import { useInfiniteCanvasDetailLevel } from "./react/detail-level";
 import { worldRectToScreenRect } from "./geometry";
 import { getInfiniteCanvasPointerOwnedIds } from "./interaction";
 import { INFINITE_CANVAS_LAYOUT_TRANSITION } from "./layout-motion";
-import {
-  getInfiniteCanvasGroupLayout,
-  getInfiniteCanvasGroupMinimumSize,
-  type InfiniteCanvasGroupAccordionHeader,
-} from "./group-layout";
+import { getResizeHandleDescriptors } from "../next/geometry";
+import { type InfiniteCanvasGroupAccordionHeader, type InfiniteCanvasGroupLayout } from "./layout";
 import {
   findInfiniteCanvasGroupNode,
   getInfiniteCanvasGroupWindowIds,
@@ -32,21 +32,16 @@ import {
   getInfiniteCanvasGroupTitle,
   type InfiniteCanvasGroupTabLabel,
 } from "./group-state";
-import { getInfiniteCanvasWorkspaceWindowIds } from "./workspace-membership";
-import { DRAG_THRESHOLD_PX, capturePointer, isPrimaryButton, releasePointer } from "./runtime";
+import { DRAG_THRESHOLD_PX, capturePointer, isPrimaryButton, releasePointer } from "../next/input";
 import {
-  useInfiniteCanvasActions,
-  useInfiniteCanvasSelector,
+  useInfiniteCanvasDispatch,
   useInfiniteCanvasState$,
   useInfiniteCanvasStore,
-} from "./store";
-import { getNextInfiniteCanvasRovingIndex } from "./window-focus";
+} from "./react/store";
 import type {
-  InfiniteCanvasCommands,
+  InfiniteCanvasDispatch,
   InfiniteCanvasGroup,
-  InfiniteCanvasGroupMetrics,
   InfiniteCanvasRect,
-  InfiniteCanvasResizeHandle,
   InfiniteCanvasWindow,
   InfiniteCanvasViewportInsets,
 } from "./types";
@@ -59,12 +54,6 @@ const SHELL_RESIZE_HANDLE_OUTSET = `calc(${SHELL_RESIZE_HANDLE_EXTENT} * -1)`;
 const SHELL_LABEL_SIZE_CSS_VARIABLE = "--icx-group-label-size";
 const SHELL_LABEL_EXTENT = `var(${SHELL_LABEL_SIZE_CSS_VARIABLE})`;
 
-type InfiniteCanvasShellResizeHandleDescriptor = Readonly<{
-  cursor: CSSProperties["cursor"];
-  handle: InfiniteCanvasResizeHandle;
-  style: CSSProperties;
-}>;
-
 /** Adds the two custom properties that `CSSProperties` omits. */
 type InfiniteCanvasGroupShellStyle = CSSProperties &
   Readonly<
@@ -74,89 +63,11 @@ type InfiniteCanvasGroupShellStyle = CSSProperties &
     >
   >;
 
-/** Places shell handles outside the rect so panes cannot cover their hit areas. */
-const SHELL_RESIZE_HANDLE_DESCRIPTORS: readonly InfiniteCanvasShellResizeHandleDescriptor[] = [
-  {
-    cursor: "ns-resize",
-    handle: "north",
-    style: {
-      height: SHELL_RESIZE_HANDLE_EXTENT,
-      left: 0,
-      right: 0,
-      top: SHELL_RESIZE_HANDLE_OUTSET,
-    },
-  },
-  {
-    cursor: "ns-resize",
-    handle: "south",
-    style: {
-      bottom: SHELL_RESIZE_HANDLE_OUTSET,
-      height: SHELL_RESIZE_HANDLE_EXTENT,
-      left: 0,
-      right: 0,
-    },
-  },
-  {
-    cursor: "ew-resize",
-    handle: "west",
-    style: {
-      bottom: 0,
-      left: SHELL_RESIZE_HANDLE_OUTSET,
-      top: 0,
-      width: SHELL_RESIZE_HANDLE_EXTENT,
-    },
-  },
-  {
-    cursor: "ew-resize",
-    handle: "east",
-    style: {
-      bottom: 0,
-      right: SHELL_RESIZE_HANDLE_OUTSET,
-      top: 0,
-      width: SHELL_RESIZE_HANDLE_EXTENT,
-    },
-  },
-  {
-    cursor: "nwse-resize",
-    handle: "north-west",
-    style: {
-      height: SHELL_RESIZE_HANDLE_EXTENT,
-      left: SHELL_RESIZE_HANDLE_OUTSET,
-      top: SHELL_RESIZE_HANDLE_OUTSET,
-      width: SHELL_RESIZE_HANDLE_EXTENT,
-    },
-  },
-  {
-    cursor: "nesw-resize",
-    handle: "north-east",
-    style: {
-      height: SHELL_RESIZE_HANDLE_EXTENT,
-      right: SHELL_RESIZE_HANDLE_OUTSET,
-      top: SHELL_RESIZE_HANDLE_OUTSET,
-      width: SHELL_RESIZE_HANDLE_EXTENT,
-    },
-  },
-  {
-    cursor: "nesw-resize",
-    handle: "south-west",
-    style: {
-      bottom: SHELL_RESIZE_HANDLE_OUTSET,
-      height: SHELL_RESIZE_HANDLE_EXTENT,
-      left: SHELL_RESIZE_HANDLE_OUTSET,
-      width: SHELL_RESIZE_HANDLE_EXTENT,
-    },
-  },
-  {
-    cursor: "nwse-resize",
-    handle: "south-east",
-    style: {
-      bottom: SHELL_RESIZE_HANDLE_OUTSET,
-      height: SHELL_RESIZE_HANDLE_EXTENT,
-      right: SHELL_RESIZE_HANDLE_OUTSET,
-      width: SHELL_RESIZE_HANDLE_EXTENT,
-    },
-  },
-];
+const SHELL_RESIZE_HANDLE_DESCRIPTORS = getResizeHandleDescriptors({
+  size: SHELL_RESIZE_HANDLE_EXTENT,
+  offset: SHELL_RESIZE_HANDLE_OUTSET,
+  inset: 0,
+});
 
 /** A shell in world units under the layer's camera transform; its rect changes tween. */
 function getWorldRectStyle(rect: InfiniteCanvasRect, isPointerOwned: boolean): CSSProperties {
@@ -186,11 +97,14 @@ function getTabDropIndex(siblings: readonly HTMLElement[], clientX: number): num
 }
 
 function useInfiniteCanvasTabDrag(
-  actions: InfiniteCanvasCommands,
+  dispatch: InfiniteCanvasDispatch,
   group: InfiniteCanvasGroup,
   childId: string,
 ) {
   const originRef = useRef<{ x: number; y: number } | null>(null);
+  const reset = () => {
+    originRef.current = null;
+  };
   const node = findInfiniteCanvasGroupNode(group.tree, childId);
   const canTearOut = node !== null && !isInfiniteCanvasGroupContainer(node);
 
@@ -202,6 +116,12 @@ function useInfiniteCanvasTabDrag(
 
       originRef.current = { x: event.clientX, y: event.clientY };
       capturePointer(event.currentTarget, event.pointerId);
+      dispatch({
+        type: "interaction.startGroupReorder",
+        groupId: group.id,
+        childId,
+        pointerId: event.pointerId,
+      });
     },
     onPointerMove: (event: ReactPointerEvent<HTMLElement>) => {
       const origin = originRef.current;
@@ -230,13 +150,14 @@ function useInfiniteCanvasTabDrag(
         }
 
         originRef.current = null;
-        releasePointer(tab, event.pointerId);
-        actions.undockWindow({ windowId: childId });
-        actions.startMove({
+        dispatch({
+          type: "interaction.startMove",
+          undock: true,
           pointerId: event.pointerId,
           point: getEventViewportPoint(event),
-          windowId: childId,
+          target: { type: "window", id: childId },
         });
+        releasePointer(tab, event.pointerId);
 
         return;
       }
@@ -259,18 +180,18 @@ function useInfiniteCanvasTabDrag(
       );
 
       if (toIndex !== fromIndex) {
-        actions.reorderGroupChild({ childId, groupId: group.id, toIndex });
+        dispatch({ type: "group.reorderChild", childId, groupId: group.id, toIndex });
       }
     },
-    onPointerUp: (event: ReactPointerEvent<HTMLElement>) => {
-      originRef.current = null;
-      releasePointer(event.currentTarget, event.pointerId);
-    },
+    onPointerUp: reset,
+    onPointerCancel: reset,
+    onLostPointerCapture: reset,
   };
 }
 
 function InfiniteCanvasGroupShell({
   canvasInstanceId,
+  contextMenu,
   group,
   insets,
   isActive,
@@ -278,13 +199,17 @@ function InfiniteCanvasGroupShell({
   isDropTarget,
   isPointerOwned,
   labelSize,
-  metrics,
+  layout,
+  rect,
   resizeHandleSize,
   tabLabel,
   title,
+  windowRects,
+  windows,
   zoom,
 }: Readonly<{
   canvasInstanceId: string;
+  contextMenu?: ContextMenuPolicy | false;
   group: InfiniteCanvasGroup;
   /** Viewport insets constrain pinned group labels. */
   insets: InfiniteCanvasViewportInsets;
@@ -297,19 +222,24 @@ function InfiniteCanvasGroupShell({
   isPointerOwned: boolean;
   /** Label height in screen pixels. A value of `0` hides labels. */
   labelSize: number;
-  metrics: InfiniteCanvasGroupMetrics;
+  layout: InfiniteCanvasGroupLayout;
+  rect: InfiniteCanvasRect;
   resizeHandleSize: number;
   tabLabel: InfiniteCanvasGroupTabLabel;
   /** Resolves a label with access to the current windows. */
   title: string;
+  windowRects: ReadonlyMap<string, InfiniteCanvasRect>;
+  windows: readonly InfiniteCanvasWindow[];
   zoom: number;
 }>) {
-  const actions = useInfiniteCanvasActions();
+  const dispatch = useInfiniteCanvasDispatch();
   const state$ = useInfiniteCanvasState$();
-  const layout = useMemo(
-    () => getInfiniteCanvasGroupLayout(group.tree, group.rect, metrics),
-    [group.rect, group.tree, metrics],
+  const isSelected = useValue(() =>
+    (state$.selection.targets.get() ?? []).some(
+      (target) => target.type === "group" && target.id === group.id,
+    ),
   );
+  const selectionTarget = { type: "group", kind: "group", id: group.id } as const;
   // Each container owns one roving-focus scope.
   const accordionsByContainer = useMemo(() => {
     const byContainer = new Map<string, InfiniteCanvasGroupAccordionHeader[]>();
@@ -335,7 +265,7 @@ function InfiniteCanvasGroupShell({
     }
 
     const camera = state$.camera.get();
-    const screenRect = worldRectToScreenRect(camera, state$.viewport.get(), group.rect);
+    const screenRect = worldRectToScreenRect(camera, state$.viewport.get(), rect);
 
     if (camera.zoom <= 0) {
       return 0;
@@ -348,7 +278,7 @@ function InfiniteCanvasGroupShell({
     return Math.max(0, pinned - naturalTop) / camera.zoom;
   });
   const shellStyle: InfiniteCanvasGroupShellStyle = {
-    ...getWorldRectStyle(group.rect, isPointerOwned),
+    ...getWorldRectStyle(rect, isPointerOwned),
     // Convert fixed screen sizes to world units for the scaled shell.
     [SHELL_RESIZE_HANDLE_SIZE_CSS_VARIABLE]: `${scale <= 0 ? resizeHandleSize : resizeHandleSize / scale}px`,
     [SHELL_LABEL_SIZE_CSS_VARIABLE]: `${scale <= 0 ? labelSize : labelSize / scale}px`,
@@ -357,7 +287,7 @@ function InfiniteCanvasGroupShell({
   };
 
   // Hide resize handles at summary detail. Keep keyboard controls.
-  const handleDetail = useInfiniteCanvasDetailLevel(group.rect);
+  const handleDetail = useInfiniteCanvasDetailLevel(rect);
 
   return (
     <div
@@ -366,6 +296,7 @@ function InfiniteCanvasGroupShell({
       aria-current={isActive ? "true" : undefined}
       aria-roledescription="window group"
       data-active={isActive ? "" : undefined}
+      data-selected={isSelected ? "" : undefined}
       data-dragging={isDragging ? "" : undefined}
       data-drop-target={isDropTarget ? "" : undefined}
       data-infinite-canvas-group-id={group.id}
@@ -375,18 +306,54 @@ function InfiniteCanvasGroupShell({
     >
       {title === "" || labelSize <= 0 ? null : (
         <div
-          aria-hidden="true"
-          data-slot={INFINITE_CANVAS_SLOTS.groupLabel}
+          data-slot="group-label-row"
           style={{
             bottom: `calc(100% + ${SHELL_RESIZE_HANDLE_EXTENT} - ${String(labelPinOffset)}px)`,
-            // Keep group labels at a fixed screen height.
             height: SHELL_LABEL_EXTENT,
             left: 0,
             maxWidth: "100%",
             position: "absolute",
           }}
         >
-          {title}
+          <button
+            type="button"
+            aria-pressed={isSelected}
+            data-infinite-canvas-control="true"
+            data-slot={INFINITE_CANVAS_SLOTS.groupLabel}
+            onDoubleClick={(event) => {
+              event.stopPropagation();
+              dispatch({ type: "group.fitContents", groupId: group.id });
+            }}
+            onClick={(event) => {
+              if (event.detail === 0)
+                applyModifiedPointerTargetSelection(dispatch, event, selectionTarget);
+            }}
+            onPointerDown={(event) => {
+              if (!isPrimaryButton(event)) return;
+              event.preventDefault();
+              event.stopPropagation();
+              if (!isSelected || event.shiftKey || event.metaKey || event.ctrlKey) {
+                applyModifiedPointerTargetSelection(dispatch, event, selectionTarget);
+              }
+              if (event.shiftKey || event.metaKey || event.ctrlKey) return;
+              capturePointer(event.currentTarget, event.pointerId);
+              dispatch({
+                type: "interaction.startMove",
+                target: { type: "group", id: group.id },
+                point: getEventViewportPoint(event),
+                pointerId: event.pointerId,
+              });
+            }}
+            style={{
+              pointerEvents: "auto",
+              cursor: "grab",
+              height: "100%",
+              maxWidth: "100%",
+            }}
+          >
+            {title}
+          </button>
+          <GroupActionMenu groupId={group.id} policy={contextMenu} />
         </div>
       )}
       {(handleDetail === "full" ? SHELL_RESIZE_HANDLE_DESCRIPTORS : []).map((descriptor) => (
@@ -395,12 +362,6 @@ function InfiniteCanvasGroupShell({
           data-infinite-canvas-control="true"
           data-slot={INFINITE_CANVAS_SLOTS.groupResizeHandle}
           key={descriptor.handle}
-          onLostPointerCapture={(event) => {
-            actions.finishInteraction(event.pointerId);
-          }}
-          onPointerCancel={(event) => {
-            actions.finishInteraction(event.pointerId);
-          }}
           onPointerDown={(event) => {
             if (!isPrimaryButton(event)) {
               return;
@@ -409,17 +370,17 @@ function InfiniteCanvasGroupShell({
             event.preventDefault();
             event.stopPropagation();
             capturePointer(event.currentTarget, event.pointerId);
-            actions.startGroupResize({
+            dispatch({
+              type: "interaction.startGroupResize",
               groupId: group.id,
               handle: descriptor.handle,
-              minSize: getInfiniteCanvasGroupMinimumSize(group.tree, metrics),
+              minSize: {
+                width: Math.max(1, (2 * resizeHandleSize) / scale),
+                height: Math.max(1, (2 * resizeHandleSize) / scale),
+              },
               point: getEventViewportPoint(event),
               pointerId: event.pointerId,
             });
-          }}
-          onPointerUp={(event) => {
-            releasePointer(event.currentTarget, event.pointerId);
-            actions.finishInteraction(event.pointerId);
           }}
           style={{
             ...descriptor.style,
@@ -436,12 +397,6 @@ function InfiniteCanvasGroupShell({
           data-infinite-canvas-control="true"
           data-slot={INFINITE_CANVAS_SLOTS.groupGutter}
           key={`${gutter.containerId}:${gutter.afterChildId}`}
-          onLostPointerCapture={(event) => {
-            actions.finishInteraction(event.pointerId);
-          }}
-          onPointerCancel={(event) => {
-            actions.finishInteraction(event.pointerId);
-          }}
           onPointerDown={(event) => {
             if (!isPrimaryButton(event)) {
               return;
@@ -450,10 +405,9 @@ function InfiniteCanvasGroupShell({
             event.preventDefault();
             event.stopPropagation();
             capturePointer(event.currentTarget, event.pointerId);
-            actions.startGroupGutterDrag({
+            dispatch({
+              type: "interaction.startGroupGutter",
               afterChildId: gutter.afterChildId,
-              availableExtent: gutter.availableExtent,
-              axis: gutter.axis,
               beforeChildId: gutter.beforeChildId,
               containerId: gutter.containerId,
               groupId: group.id,
@@ -461,12 +415,8 @@ function InfiniteCanvasGroupShell({
               pointerId: event.pointerId,
             });
           }}
-          onPointerUp={(event) => {
-            releasePointer(event.currentTarget, event.pointerId);
-            actions.finishInteraction(event.pointerId);
-          }}
           style={{
-            ...getLocalRectStyle(gutter.rect, group.rect),
+            ...getLocalRectStyle(gutter.rect, rect),
             cursor: gutter.axis === "horizontal" ? "ew-resize" : "ns-resize",
             pointerEvents: "auto",
           }}
@@ -480,8 +430,11 @@ function InfiniteCanvasGroupShell({
           containerId={strip.containerId}
           group={group}
           key={strip.containerId}
-          style={getLocalRectStyle(strip.rect, group.rect)}
+          rect={rect}
+          style={getLocalRectStyle(strip.rect, rect)}
           tabLabel={tabLabel}
+          windowRects={windowRects}
+          windows={windows}
         />
       ))}
       {accordionsByContainer.map(([containerId, headers]) => (
@@ -489,7 +442,10 @@ function InfiniteCanvasGroupShell({
           group={group}
           headers={headers}
           key={containerId}
+          rect={rect}
           tabLabel={tabLabel}
+          windowRects={windowRects}
+          windows={windows}
         />
       ))}
     </div>
@@ -500,87 +456,57 @@ function InfiniteCanvasGroupShell({
 function InfiniteCanvasGroupAccordionHeaders({
   group,
   headers,
+  rect,
   tabLabel,
+  windowRects,
+  windows,
 }: Readonly<{
   group: InfiniteCanvasGroup;
   headers: readonly InfiniteCanvasGroupAccordionHeader[];
+  rect: InfiniteCanvasRect;
   tabLabel: InfiniteCanvasGroupTabLabel;
+  windowRects: ReadonlyMap<string, InfiniteCanvasRect>;
+  windows: readonly InfiniteCanvasWindow[];
 }>) {
-  const actions = useInfiniteCanvasActions();
-  const headersRef = useRef<HTMLDivElement>(null);
-  const [focusedChildId, setFocusedChildId] = useState<string | null>(null);
-  const windows = useInfiniteCanvasSelector((state) => state.windows);
-  const childIds = headers.map((header) => header.childId);
-  const expandedChildId = headers.find((header) => header.isExpanded)?.childId;
-  // Use the active or first header when the prior tab stop leaves the accordion.
-  const tabStopChildId =
-    focusedChildId !== null && childIds.includes(focusedChildId)
-      ? focusedChildId
-      : (expandedChildId ?? childIds[0]);
+  const dispatch = useInfiniteCanvasDispatch();
   const axis = headers[0]?.axis ?? "vertical";
 
   return (
-    <div
-      onKeyDown={(event) => {
-        const index = childIds.indexOf(tabStopChildId ?? "");
-        const nextIndex =
-          index === -1
-            ? null
-            : getNextInfiniteCanvasRovingIndex(event.key, index, childIds.length, axis);
-
-        if (nextIndex === null) {
-          return;
-        }
-
-        // Prevent arrow and Home or End keys from scrolling the page.
-        event.preventDefault();
-        setFocusedChildId(childIds[nextIndex] ?? null);
-        focusRovingSibling(
-          headersRef.current,
-          INFINITE_CANVAS_SLOTS.groupAccordionHeader,
-          nextIndex,
-        );
+    <Accordion.Root
+      orientation={axis}
+      value={headers.filter((header) => header.isExpanded).map((header) => header.childId)}
+      onValueChange={(value) => {
+        const header = headers.find((header) => header.childId === value[0]);
+        if (header !== undefined)
+          dispatch({
+            type: "group.setActiveChild",
+            childId: header.childId,
+            containerId: header.containerId,
+            groupId: group.id,
+          });
       }}
-      ref={headersRef}
       style={{ inset: 0, pointerEvents: "none", position: "absolute" }}
     >
       {headers.map((header) => (
-        <button
-          aria-expanded={header.isExpanded}
-          data-active={header.isExpanded ? "" : undefined}
-          // Header text follows the accordion axis.
-          data-axis={header.axis}
-          data-slot={INFINITE_CANVAS_SLOTS.groupAccordionHeader}
-          key={header.childId}
-          onClick={() => {
-            actions.setGroupActiveChild({
-              childId: header.childId,
-              containerId: header.containerId,
-              groupId: group.id,
-            });
-          }}
-          onFocus={() => {
-            setFocusedChildId(header.childId);
-          }}
-          style={{
-            ...getLocalRectStyle(header.rect, group.rect),
-            pointerEvents: "auto",
-          }}
-          tabIndex={header.childId === tabStopChildId ? 0 : -1}
-          type="button"
-        >
-          {tabLabel({ childId: header.childId, group, windows })}
-        </button>
+        <Accordion.Item key={header.childId} value={header.childId} style={{ display: "contents" }}>
+          <Accordion.Header style={{ display: "contents" }}>
+            <Accordion.Trigger
+              data-active={header.isExpanded ? "" : undefined}
+              // Header text follows the accordion axis.
+              data-axis={header.axis}
+              data-slot={INFINITE_CANVAS_SLOTS.groupAccordionHeader}
+              style={{
+                ...getLocalRectStyle(header.rect, rect),
+                pointerEvents: "auto",
+              }}
+            >
+              {tabLabel({ childId: header.childId, group, rect, windowRects, windows })}
+            </Accordion.Trigger>
+          </Accordion.Header>
+        </Accordion.Item>
       ))}
-    </div>
+    </Accordion.Root>
   );
-}
-
-/** Focuses a direct sibling without scrolling its ancestors. */
-function focusRovingSibling(container: HTMLElement | null, slot: string, index: number) {
-  container
-    ?.querySelectorAll<HTMLButtonElement>(`:scope > [data-slot="${slot}"]`)
-    [index]?.focus({ preventScroll: true });
 }
 
 /** Uses one tab stop with manual activation for each tab strip. */
@@ -590,59 +516,54 @@ function InfiniteCanvasGroupTabStrip({
   childIds,
   containerId,
   group,
+  rect,
   style,
   tabLabel,
+  windowRects,
+  windows,
 }: Readonly<{
   activeChildId: string;
   canvasInstanceId: string;
   childIds: readonly string[];
   containerId: string;
   group: InfiniteCanvasGroup;
+  rect: InfiniteCanvasRect;
   style: CSSProperties;
   tabLabel: InfiniteCanvasGroupTabLabel;
+  windowRects: ReadonlyMap<string, InfiniteCanvasRect>;
+  windows: readonly InfiniteCanvasWindow[];
 }>) {
-  const stripRef = useRef<HTMLDivElement>(null);
-  const [focusedChildId, setFocusedChildId] = useState<string | null>(null);
-  const tabStopChildId =
-    focusedChildId !== null && childIds.includes(focusedChildId) ? focusedChildId : activeChildId;
+  const dispatch = useInfiniteCanvasDispatch();
 
   return (
-    <div
-      aria-orientation="horizontal"
-      data-slot={INFINITE_CANVAS_SLOTS.groupTabStrip}
-      onKeyDown={(event) => {
-        const index = childIds.indexOf(tabStopChildId);
-        const nextIndex =
-          index === -1
-            ? null
-            : getNextInfiniteCanvasRovingIndex(event.key, index, childIds.length, "horizontal");
-
-        if (nextIndex === null) {
-          return;
-        }
-
-        event.preventDefault();
-        setFocusedChildId(childIds[nextIndex] ?? null);
-        focusRovingSibling(stripRef.current, INFINITE_CANVAS_SLOTS.groupTab, nextIndex);
+    <Tabs.Root
+      value={activeChildId}
+      style={{ display: "contents" }}
+      onValueChange={(childId) => {
+        if (typeof childId === "string")
+          dispatch({ type: "group.setActiveChild", childId, containerId, groupId: group.id });
       }}
-      ref={stripRef}
-      role="tablist"
-      style={{ ...style, alignItems: "stretch", display: "flex", pointerEvents: "auto" }}
     >
-      {childIds.map((childId) => (
-        <InfiniteCanvasGroupTab
-          canvasInstanceId={canvasInstanceId}
-          childId={childId}
-          containerId={containerId}
-          group={group}
-          isActive={childId === activeChildId}
-          isTabStop={childId === tabStopChildId}
-          key={childId}
-          onFocus={setFocusedChildId}
-          tabLabel={tabLabel}
-        />
-      ))}
-    </div>
+      <Tabs.List
+        data-slot={INFINITE_CANVAS_SLOTS.groupTabStrip}
+        style={{ ...style, alignItems: "stretch", display: "flex", pointerEvents: "auto" }}
+      >
+        {childIds.map((childId) => (
+          <InfiniteCanvasGroupTab
+            canvasInstanceId={canvasInstanceId}
+            childId={childId}
+            containerId={containerId}
+            group={group}
+            isActive={childId === activeChildId}
+            key={childId}
+            rect={rect}
+            tabLabel={tabLabel}
+            windowRects={windowRects}
+            windows={windows}
+          />
+        ))}
+      </Tabs.List>
+    </Tabs.Root>
   );
 }
 
@@ -652,38 +573,37 @@ function InfiniteCanvasGroupTab({
   containerId,
   group,
   isActive,
-  isTabStop,
-  onFocus,
+  rect,
   tabLabel,
+  windowRects,
+  windows,
 }: Readonly<{
   canvasInstanceId: string;
   childId: string;
   containerId: string;
   group: InfiniteCanvasGroup;
   isActive: boolean;
-  isTabStop: boolean;
-  onFocus: (childId: string) => void;
+  rect: InfiniteCanvasRect;
   tabLabel: InfiniteCanvasGroupTabLabel;
+  windowRects: ReadonlyMap<string, InfiniteCanvasRect>;
+  windows: readonly InfiniteCanvasWindow[];
 }>) {
-  const actions = useInfiniteCanvasActions();
-  const tabDrag = useInfiniteCanvasTabDrag(actions, group, childId);
-  const windows = useInfiniteCanvasSelector((state) => state.windows);
+  const dispatch = useInfiniteCanvasDispatch();
+  const tabDrag = useInfiniteCanvasTabDrag(dispatch, group, childId);
 
   return (
-    <button
+    <Tabs.Tab
+      value={childId}
       // Add `aria-controls` only when the active tab panel exists.
       aria-controls={
         isActive ? getInfiniteCanvasWindowFrameElementId(canvasInstanceId, childId) : undefined
       }
-      aria-selected={isActive}
       data-active={isActive ? "" : undefined}
       data-infinite-canvas-control="true"
       data-slot={INFINITE_CANVAS_SLOTS.groupTab}
       onClick={() => {
-        actions.setGroupActiveChild({ childId, containerId, groupId: group.id });
-      }}
-      onFocus={() => {
-        onFocus(childId);
+        if (isActive)
+          dispatch({ type: "group.setActiveChild", childId, containerId, groupId: group.id });
       }}
       onPointerDown={(event) => {
         event.stopPropagation();
@@ -691,12 +611,11 @@ function InfiniteCanvasGroupTab({
       }}
       onPointerMove={tabDrag.onPointerMove}
       onPointerUp={tabDrag.onPointerUp}
-      role="tab"
-      tabIndex={isTabStop ? 0 : -1}
-      type="button"
+      onPointerCancel={tabDrag.onPointerCancel}
+      onLostPointerCapture={tabDrag.onLostPointerCapture}
     >
-      {tabLabel({ childId, group, windows })}
-    </button>
+      {tabLabel({ childId, group, rect, windowRects, windows })}
+    </Tabs.Tab>
   );
 }
 
@@ -712,6 +631,8 @@ function getLocalRectStyle(rect: InfiniteCanvasRect, shell: InfiniteCanvasRect):
 
 function InfiniteCanvasGroupLayerContent({
   canvasInstanceId,
+  groupContextMenu,
+  dropGroupId,
   groupLabel = ({ group, windows }) => getInfiniteCanvasGroupTitle(group, windows),
   labelSize,
   resizeHandleSize,
@@ -720,9 +641,16 @@ function InfiniteCanvasGroupLayerContent({
 }: Readonly<{
   /** Per-canvas token used to match tab controls with frame ids. */
   canvasInstanceId: string;
+  groupContextMenu?: ContextMenuPolicy | false;
+  dropGroupId?: string;
   /** Resolves a group label. Return `""` to hide one label. */
   groupLabel?: (
-    context: Readonly<{ group: InfiniteCanvasGroup; windows: readonly InfiniteCanvasWindow[] }>,
+    context: Readonly<{
+      group: InfiniteCanvasGroup;
+      rect: InfiniteCanvasRect;
+      windowRects: ReadonlyMap<string, InfiniteCanvasRect>;
+      windows: readonly InfiniteCanvasWindow[];
+    }>,
   ) => string;
   /** Label height in screen pixels. A value of `0` hides labels. */
   labelSize: number;
@@ -736,30 +664,15 @@ function InfiniteCanvasGroupLayerContent({
   const windows = useValue(store.state$.windows);
   const insets = useValue(store.state$.viewportInsets);
   const activeWindowId = useValue(store.state$.activeWindowId);
-  // Use store metrics because the reducer uses them to place panes.
-  const metrics = useValue(store.state$.groupMetrics);
-  const workspaces = useValue(store.state$.workspaces);
-  const activeWorkspaceId = useValue(store.state$.activeWorkspaceId);
   const interaction = useValue(store.state$.interaction);
-  // Render a shell only when the active workspace includes its members.
-  const admittedWindowIds = useMemo(
-    () => getInfiniteCanvasWorkspaceWindowIds(store.state$.peek()),
-    [activeWorkspaceId, store, workspaces],
-  );
+  const canvasLayout = useValue(store.layout$);
   const pointerOwnedGroupIds = useMemo(
     () => getInfiniteCanvasPointerOwnedIds(store.state$.peek()).groupIds,
     [allGroups, interaction, store],
   );
   // A shell shows itself while a window is in the hand, and marks itself as the drop target.
   const move = interaction?.kind === "move" ? interaction : null;
-  const groups =
-    admittedWindowIds === null
-      ? allGroups
-      : allGroups.filter((group) =>
-          getInfiniteCanvasGroupWindowIds(group.tree).some((windowId) =>
-            admittedWindowIds.has(windowId),
-          ),
-        );
+  const groups = allGroups.filter((group) => canvasLayout.visibleGroupIds.has(group.id));
 
   if (groups.length === 0) {
     return null;
@@ -767,27 +680,43 @@ function InfiniteCanvasGroupLayerContent({
 
   return (
     <InfiniteCanvasCameraLayer zIndex={zIndex}>
-      {groups.map((group) => (
-        <InfiniteCanvasGroupShell
-          canvasInstanceId={canvasInstanceId}
-          group={group}
-          isActive={
-            activeWindowId !== null &&
-            getInfiniteCanvasGroupWindowIds(group.tree).includes(activeWindowId)
-          }
-          isDragging={move !== null}
-          isDropTarget={move?.dockPreview?.groupId === group.id}
-          isPointerOwned={pointerOwnedGroupIds.has(group.id)}
-          insets={insets}
-          key={group.id}
-          labelSize={labelSize}
-          metrics={metrics}
-          resizeHandleSize={resizeHandleSize}
-          tabLabel={tabLabel}
-          title={groupLabel({ group, windows })}
-          zoom={zoom}
-        />
-      ))}
+      {groups.map((authoredGroup) => {
+        const layout = canvasLayout.layouts.get(authoredGroup.id);
+        if (layout === undefined) return null;
+        const rect = canvasLayout.groupRects.get(authoredGroup.id);
+        if (rect === undefined) return null;
+
+        return (
+          <InfiniteCanvasGroupShell
+            canvasInstanceId={canvasInstanceId}
+            contextMenu={groupContextMenu}
+            group={authoredGroup}
+            isActive={
+              activeWindowId !== null &&
+              getInfiniteCanvasGroupWindowIds(authoredGroup.tree).includes(activeWindowId)
+            }
+            isDragging={move !== null || dropGroupId !== undefined}
+            isDropTarget={(dropGroupId ?? move?.dockPreview?.groupId) === authoredGroup.id}
+            isPointerOwned={pointerOwnedGroupIds.has(authoredGroup.id)}
+            insets={insets}
+            key={authoredGroup.id}
+            labelSize={labelSize}
+            layout={layout}
+            rect={rect}
+            resizeHandleSize={resizeHandleSize}
+            tabLabel={tabLabel}
+            title={groupLabel({
+              group: authoredGroup,
+              rect,
+              windowRects: canvasLayout.windowRects,
+              windows,
+            })}
+            windowRects={canvasLayout.windowRects}
+            windows={windows}
+            zoom={zoom}
+          />
+        );
+      })}
     </InfiniteCanvasCameraLayer>
   );
 }

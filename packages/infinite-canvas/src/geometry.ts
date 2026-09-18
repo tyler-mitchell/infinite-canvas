@@ -6,6 +6,7 @@ import {
   type InfiniteCanvasEdgePanPolicy,
 } from "./constants";
 import type {
+  CameraFramingMode,
   InfiniteCanvasCamera,
   InfiniteCanvasChromeMetrics,
   InfiniteCanvasPoint,
@@ -409,13 +410,23 @@ function panCameraByScreenDelta(
 }
 
 /** Fits a world rect inside the viewport region that chrome does not cover. */
-function fitCameraToWorldRect(
-  viewport: InfiniteCanvasViewport,
-  rect: InfiniteCanvasRect,
+function fitCameraToWorldRect({
+  viewport,
+  rect,
   paddingPx = 80,
-  zoomPolicy: InfiniteCanvasZoomPolicy = DEFAULT_INFINITE_CANVAS_ZOOM,
-  insets: InfiniteCanvasViewportInsets = NO_INFINITE_CANVAS_VIEWPORT_INSETS,
-): InfiniteCanvasCamera | null {
+  zoomPolicy = DEFAULT_INFINITE_CANVAS_ZOOM,
+  insets = NO_INFINITE_CANVAS_VIEWPORT_INSETS,
+  framingMode = "both",
+  framingSize = 1,
+}: Readonly<{
+  viewport: InfiniteCanvasViewport;
+  rect: InfiniteCanvasRect;
+  paddingPx?: number;
+  zoomPolicy?: InfiniteCanvasZoomPolicy;
+  insets?: InfiniteCanvasViewportInsets;
+  framingMode?: CameraFramingMode;
+  framingSize?: number;
+}>): InfiniteCanvasCamera | null {
   if (!isUsableViewport(viewport)) {
     return null;
   }
@@ -423,10 +434,10 @@ function fitCameraToWorldRect(
   const content = getInfiniteCanvasContentViewport(viewport, insets);
   const availableWidth = Math.max(content.width - paddingPx * 2, 1);
   const availableHeight = Math.max(content.height - paddingPx * 2, 1);
-  const requestedZoom = Math.min(
-    availableWidth / Math.max(rect.width, 1),
-    availableHeight / Math.max(rect.height, 1),
-  );
+  const horizontal = availableWidth / Math.max(rect.width, 1);
+  const vertical = availableHeight / Math.max(rect.height, 1);
+  const requestedZoom =
+    { horizontal, vertical, both: Math.min(horizontal, vertical) }[framingMode] * framingSize;
   const zoom = getConstrainedZoom(requestedZoom, zoomPolicy);
 
   return {
@@ -476,21 +487,28 @@ function resizeRectFromHandle(
   handle: InfiniteCanvasResizeHandle,
   delta: InfiniteCanvasPoint,
   minSize: InfiniteCanvasSize,
+  aspectRatio?: number,
 ): InfiniteCanvasRect {
   const west = handle === "west" || handle === "north-west" || handle === "south-west";
   const east = handle === "east" || handle === "north-east" || handle === "south-east";
   const north = handle === "north" || handle === "north-east" || handle === "north-west";
   const south = handle === "south" || handle === "south-east" || handle === "south-west";
-  const width = west
-    ? Math.max(rect.width - delta.x, minSize.width)
-    : east
-      ? Math.max(rect.width + delta.x, minSize.width)
-      : rect.width;
-  const height = north
-    ? Math.max(rect.height - delta.y, minSize.height)
-    : south
-      ? Math.max(rect.height + delta.y, minSize.height)
-      : rect.height;
+  const widthDelta = (Number(east) - Number(west)) * delta.x;
+  const heightDelta = (Number(south) - Number(north)) * delta.y;
+  const rawWidth = Math.max(rect.width + widthDelta, minSize.width);
+  const rawHeight = Math.max(rect.height + heightDelta, minSize.height);
+  const useHeight =
+    !(west || east) ||
+    ((north || south) && Math.abs(heightDelta * (aspectRatio ?? 1)) > Math.abs(widthDelta));
+  const width =
+    aspectRatio === undefined
+      ? rawWidth
+      : Math.max(
+          useHeight ? rawHeight * aspectRatio : rawWidth,
+          minSize.width,
+          minSize.height * aspectRatio,
+        );
+  const height = aspectRatio === undefined ? rawHeight : width / aspectRatio;
 
   return {
     height,

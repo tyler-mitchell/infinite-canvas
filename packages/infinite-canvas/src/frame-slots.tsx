@@ -1,10 +1,14 @@
 "use client";
+import { useRender } from "@base-ui/react/use-render";
 
 import {
+  Fragment,
   createContext,
   useContext,
   useRef,
   type CSSProperties,
+  type FragmentInstance,
+  type FocusEvent as ReactFocusEvent,
   type KeyboardEvent as ReactKeyboardEvent,
   type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
@@ -13,10 +17,11 @@ import {
 import { INFINITE_CANVAS_SLOTS } from "./data-attributes";
 import type { InfiniteCanvasDetailLevel } from "./detail-level";
 import { useInfiniteCanvasIcons } from "./icons";
-import { trapInfiniteCanvasTabKey } from "./focus-trap";
+import { useInfiniteCanvasStore } from "./react/store";
+import { FocusGuard } from "./focus-guard";
 import { focusInfiniteCanvasCommandSurfaceFrom } from "./keyboard";
 import { InfiniteCanvasWindowBody } from "./rasterization-layer";
-import { mergeInfiniteCanvasSlotProps } from "./slot";
+import { mergeProps } from "@base-ui/react/merge-props";
 import {
   DRAG_THRESHOLD_PX,
   capturePointer,
@@ -26,11 +31,13 @@ import {
   isInteractiveTarget,
   isPrimaryButton,
   releasePointer,
-} from "./runtime";
+} from "../next/input";
 import type {
   InfiniteCanvasChromeMetrics,
-  InfiniteCanvasCommands,
+  InfiniteCanvasDispatch,
   InfiniteCanvasPoint,
+  InfiniteCanvasRect,
+  InfiniteCanvasSelectionTarget,
   InfiniteCanvasTheme,
   InfiniteCanvasWindow,
   InfiniteCanvasWindowBodyPointerBehavior,
@@ -48,7 +55,7 @@ import { isInfiniteCanvasWindowCapable } from "./window-capabilities";
 
 /** Holds window data so slot subtrees do not rerender on camera updates. */
 type InfiniteCanvasWindowFrameRuntimeContextValue<Kind extends string> = Readonly<{
-  actions: InfiniteCanvasCommands<Kind>;
+  dispatch: InfiniteCanvasDispatch<Kind>;
   bodyPointerBehavior: InfiniteCanvasWindowBodyPointerBehavior;
   chrome: InfiniteCanvasChromeMetrics;
   definition: InfiniteCanvasWindowDefinition<Kind>;
@@ -56,6 +63,7 @@ type InfiniteCanvasWindowFrameRuntimeContextValue<Kind extends string> = Readonl
   detailLevel: InfiniteCanvasDetailLevel;
   isActive: boolean;
   isSelected: boolean;
+  rect: InfiniteCanvasRect;
   textSelection: InfiniteCanvasWindowTextSelection;
   theme: InfiniteCanvasTheme;
   window: InfiniteCanvasWindow<Kind>;
@@ -85,56 +93,61 @@ function useInfiniteCanvasWindowFrameRuntimeContext<Kind extends string = string
 function InfiniteCanvasWindowFrameTitleSlot({
   children,
   render,
+  ref,
   ...consumerProps
 }: InfiniteCanvasWindowFrameTitleProps) {
   const { detailLevel, window } = useInfiniteCanvasWindowFrameRuntimeContext();
-  const props = mergeInfiniteCanvasSlotProps(
-    {
-      "data-slot": INFINITE_CANVAS_SLOTS.windowTitle,
-      style: {
-        minWidth: 0,
-        overflow: "hidden",
-        textOverflow: "ellipsis",
-        whiteSpace: "nowrap",
+  const props = {
+    ...mergeProps<"div">(
+      {
+        style: {
+          minWidth: 0,
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+          whiteSpace: "nowrap",
+        },
       },
-    },
-    consumerProps,
-  );
+      consumerProps,
+    ),
+    "data-slot": INFINITE_CANVAS_SLOTS.windowTitle,
+  };
   // Keep consumer content because the framework does not own it.
   const defaultTitle = detailLevel === "summary" ? null : window.title;
   const content = children === undefined ? defaultTitle : children;
 
-  return render === undefined ? (
-    <div {...props}>{content}</div>
-  ) : (
-    render(props, { children: content })
-  );
+  return useRender({ defaultTagName: "div", render, ref, props: { ...props, children: content } });
 }
 
 function InfiniteCanvasWindowFrameControlsSlot({
+  children,
   render,
+  ref,
   ...consumerProps
 }: InfiniteCanvasWindowFrameControlsProps) {
-  const { actions, detailLevel, window } = useInfiniteCanvasWindowFrameRuntimeContext();
+  const { dispatch, detailLevel, window } = useInfiniteCanvasWindowFrameRuntimeContext();
   const {
     close: CloseIcon,
     maximize: MaximizeIcon,
     minimize: MinimizeIcon,
     pin: PinIcon,
   } = useInfiniteCanvasIcons();
+  const canToggleMaximized =
+    window.mode === "maximized" || isInfiniteCanvasWindowCapable(window, "maximizable");
 
-  const props = mergeInfiniteCanvasSlotProps(
-    {
-      "data-slot": INFINITE_CANVAS_SLOTS.windowControls,
-      style: {
-        alignItems: "center",
-        display: "flex",
-        flexShrink: 0,
-        gap: "4px",
+  const props = {
+    ...mergeProps<"div">(
+      {
+        style: {
+          alignItems: "center",
+          display: "flex",
+          flexShrink: 0,
+          gap: "4px",
+        },
       },
-    },
-    consumerProps,
-  );
+      consumerProps,
+    ),
+    "data-slot": INFINITE_CANVAS_SLOTS.windowControls,
+  };
   const content = (
     <>
       <button
@@ -144,7 +157,7 @@ function InfiniteCanvasWindowFrameControlsSlot({
         data-slot={INFINITE_CANVAS_SLOTS.windowControl}
         onClick={(event) => {
           event.stopPropagation();
-          actions.togglePinned(window.id);
+          dispatch({ type: "window.togglePinned", windowId: window.id });
         }}
         onPointerDown={(event) => {
           event.stopPropagation();
@@ -163,7 +176,7 @@ function InfiniteCanvasWindowFrameControlsSlot({
           event.stopPropagation();
           // Restore focus before this button unmounts.
           focusInfiniteCanvasCommandSurfaceFrom(event.currentTarget);
-          actions.minimizeWindow(window.id);
+          dispatch({ type: "window.minimize", windowId: window.id });
         }}
         onPointerDown={(event) => {
           event.stopPropagation();
@@ -175,15 +188,15 @@ function InfiniteCanvasWindowFrameControlsSlot({
       <button
         aria-label={window.mode === "maximized" ? "Restore window" : "Maximize window"}
         data-action={window.mode === "maximized" ? "restore" : "maximize"}
-        data-disabled={isInfiniteCanvasWindowCapable(window, "maximizable") ? undefined : ""}
+        data-disabled={canToggleMaximized ? undefined : ""}
         data-slot={INFINITE_CANVAS_SLOTS.windowControl}
-        disabled={!isInfiniteCanvasWindowCapable(window, "maximizable")}
+        disabled={!canToggleMaximized}
         onClick={(event) => {
           event.stopPropagation();
           if (window.mode === "maximized") {
-            actions.restoreWindow(window.id);
+            dispatch({ type: "window.restore", windowId: window.id });
           } else {
-            actions.maximizeWindow(window.id);
+            dispatch({ type: "window.maximize", windowId: window.id });
           }
         }}
         onPointerDown={(event) => {
@@ -203,7 +216,7 @@ function InfiniteCanvasWindowFrameControlsSlot({
           event.stopPropagation();
           // Restore focus before this button unmounts.
           focusInfiniteCanvasCommandSurfaceFrom(event.currentTarget);
-          actions.closeWindow(window.id);
+          dispatch({ type: "window.close", windowId: window.id });
         }}
         onPointerDown={(event) => {
           event.stopPropagation();
@@ -216,75 +229,70 @@ function InfiniteCanvasWindowFrameControlsSlot({
   );
 
   // Keep the slot but omit default controls at summary detail.
-  const rendered = detailLevel === "summary" ? null : content;
+  const rendered = children === undefined ? content : children;
 
-  return render === undefined ? (
-    <div {...props}>{rendered}</div>
-  ) : (
-    render(props, { children: rendered })
-  );
+  return useRender({
+    defaultTagName: "div",
+    render,
+    ref,
+    props: { ...props, children: detailLevel === "summary" ? null : rendered },
+  });
 }
 
 function InfiniteCanvasWindowFrameHeaderSlot({
   children,
   render,
+  ref,
   ...consumerProps
 }: InfiniteCanvasWindowFrameHeaderProps) {
-  const { actions, chrome, window } = useInfiniteCanvasWindowFrameRuntimeContext();
-  const props = mergeInfiniteCanvasSlotProps(
-    {
-      "data-infinite-canvas-control": "true",
-      "data-slot": INFINITE_CANVAS_SLOTS.windowHeader,
-      onLostPointerCapture: (event: ReactPointerEvent<HTMLElement>) => {
-        actions.finishInteraction(event.pointerId);
-      },
-      onPointerCancel: (event: ReactPointerEvent<HTMLElement>) => {
-        actions.finishInteraction(event.pointerId);
-      },
-      onPointerDown: (event: ReactPointerEvent<HTMLElement>) => {
-        if (!isPrimaryButton(event)) {
-          return;
-        }
+  const { dispatch, chrome, window } = useInfiniteCanvasWindowFrameRuntimeContext();
+  const props = {
+    ...mergeProps<"header">(
+      {
+        onPointerDown: (event: ReactPointerEvent<HTMLElement>) => {
+          if (!isPrimaryButton(event)) {
+            return;
+          }
 
-        event.preventDefault();
-        event.stopPropagation();
-        clearNativeTextSelection();
-        focusEventCommandSurface(event);
+          event.preventDefault();
+          event.stopPropagation();
+          clearNativeTextSelection();
+          focusEventCommandSurface(event);
 
-        if (applyModifiedPointerSelection(actions, event, window.id)) {
-          return;
-        }
+          if (applyModifiedPointerSelection(dispatch, event, window.id)) {
+            return;
+          }
 
-        capturePointer(event.currentTarget, event.pointerId);
-        actions.startMove({
-          pointerId: event.pointerId,
-          point: getEventViewportPoint(event),
-          windowId: window.id,
-        });
+          capturePointer(event.currentTarget, event.pointerId);
+          dispatch({
+            type: "interaction.startMove",
+            pointerId: event.pointerId,
+            point: getEventViewportPoint(event),
+            target: { type: "window", id: window.id },
+          });
+        },
+        // Keep computed geometry inline because hit testing uses the same metrics.
+        style: {
+          alignItems: "center",
+          borderBottomWidth: `max(${chrome.headerAccentHeight}px, var(--icx-chrome-stroke))`,
+          cursor: "grab",
+          display: "flex",
+          gap: "12px",
+          height: `${chrome.headerHeight}px`,
+          left: 0,
+          paddingLeft: "12px",
+          paddingRight: "12px",
+          pointerEvents: "auto",
+          position: "absolute",
+          right: 0,
+          top: 0,
+        },
       },
-      onPointerUp: (event: ReactPointerEvent<HTMLElement>) => {
-        releasePointer(event.currentTarget, event.pointerId);
-        actions.finishInteraction(event.pointerId);
-      },
-      // Keep computed geometry inline because hit testing uses the same metrics.
-      style: {
-        alignItems: "center",
-        borderBottomWidth: `max(${chrome.headerAccentHeight}px, var(--icx-chrome-stroke))`,
-        cursor: "grab",
-        display: "flex",
-        gap: "12px",
-        height: `${chrome.headerHeight}px`,
-        left: 0,
-        paddingLeft: "12px",
-        paddingRight: "12px",
-        pointerEvents: "auto",
-        position: "absolute",
-        right: 0,
-        top: 0,
-      },
-    },
-    consumerProps,
-  );
+      consumerProps,
+    ),
+    "data-infinite-canvas-control": "true",
+    "data-slot": INFINITE_CANVAS_SLOTS.windowHeader,
+  };
   const content =
     children === undefined ? (
       <>
@@ -295,141 +303,167 @@ function InfiniteCanvasWindowFrameHeaderSlot({
       children
     );
 
-  return render === undefined ? (
-    <header {...props}>{content}</header>
-  ) : (
-    render(props, { children: content })
-  );
+  return useRender({
+    defaultTagName: "header",
+    render,
+    ref,
+    props: { ...props, children: content },
+  });
 }
 
 function InfiniteCanvasWindowFrameBodySlot({
   children,
   render,
+  ref,
   ...consumerProps
 }: InfiniteCanvasWindowFrameBodyProps) {
   const {
-    actions,
+    dispatch,
     bodyPointerBehavior,
     chrome,
     definition,
     isActive,
     isSelected,
+    rect,
     textSelection,
     window,
   } = useInfiniteCanvasWindowFrameRuntimeContext();
+  const store = useInfiniteCanvasStore();
   // Start a move after the threshold and suppress the click that follows a drag.
   const pressRef = useRef<{ client: InfiniteCanvasPoint; viewport: InfiniteCanvasPoint } | null>(
     null,
   );
   const draggedRef = useRef(false);
-  const props = mergeInfiniteCanvasSlotProps(
-    {
-      "data-infinite-canvas-body": "true",
-      "data-infinite-canvas-body-pan": bodyPointerBehavior === "canvas-pan" ? "true" : undefined,
-      "data-infinite-canvas-native-scroll":
-        definition.wheelBehavior === "native-scroll" ? "true" : undefined,
-      "data-infinite-canvas-native-text-selection": textSelection === "native" ? "true" : undefined,
-      "data-slot": INFINITE_CANVAS_SLOTS.windowBody,
-      onKeyDown: (event: ReactKeyboardEvent<HTMLElement>) => {
-        // Escape returns focus to the canvas command surface.
-        if (event.key === "Escape") {
-          event.preventDefault();
-          event.stopPropagation();
-          focusInfiniteCanvasCommandSurfaceFrom(event.currentTarget);
+  const contentRef = useRef<FragmentInstance>(null);
+  const props = {
+    ...mergeProps<"div">(
+      {
+        onFocus: (event: ReactFocusEvent<HTMLElement>) => {
+          if (event.target === event.currentTarget) {
+            contentRef.current?.focus({ preventScroll: true });
+          }
+        },
+        onKeyDown: (event: ReactKeyboardEvent<HTMLElement>) => {
+          // Escape returns focus to the canvas command surface.
+          if (event.key === "Escape") {
+            event.preventDefault();
+            event.stopPropagation();
+            if (store.state$.peek().interaction !== null) dispatch({ type: "desktop.cancel" });
+            focusInfiniteCanvasCommandSurfaceFrom(event.currentTarget);
 
-          return;
-        }
-
-        if (event.key === "Tab" && trapInfiniteCanvasTabKey(event, event.currentTarget)) {
-          event.preventDefault();
-        }
-      },
-      onClickCapture: (event: ReactMouseEvent<HTMLElement>) => {
-        if (draggedRef.current) {
-          draggedRef.current = false;
-          event.preventDefault();
-          event.stopPropagation();
-        }
-      },
-      onPointerCancel: () => {
-        pressRef.current = null;
-      },
-      onPointerDownCapture: (event: ReactPointerEvent<HTMLElement>) => {
-        if (!isPrimaryButton(event)) {
-          return;
-        }
-
-        if (isInteractiveTarget(event.target)) {
+            return;
+          }
+        },
+        onClickCapture: (event: ReactMouseEvent<HTMLElement>) => {
+          if (draggedRef.current) {
+            draggedRef.current = false;
+            event.preventDefault();
+            event.stopPropagation();
+          }
+        },
+        onPointerCancel: () => {
           pressRef.current = null;
-          actions.focusWindow(window.id);
-          return;
-        }
+          draggedRef.current = false;
+        },
+        onLostPointerCapture: () => {
+          pressRef.current = null;
+        },
+        onPointerDownCapture: (event: ReactPointerEvent<HTMLElement>) => {
+          draggedRef.current = false;
+          if (!isPrimaryButton(event)) {
+            return;
+          }
 
-        if (textSelection === "none") {
-          clearNativeTextSelection();
-        }
+          if (isInteractiveTarget(event.target)) {
+            pressRef.current = null;
+            dispatch({ type: "window.focus", windowId: window.id });
+            return;
+          }
 
-        if (event.shiftKey || event.metaKey || event.ctrlKey) {
+          if (textSelection === "none") {
+            clearNativeTextSelection();
+          }
+
+          if (event.shiftKey || event.metaKey || event.ctrlKey) {
+            event.preventDefault();
+          }
+
+          if (applyModifiedPointerSelection(dispatch, event, window.id)) {
+            event.stopPropagation();
+          } else if (!isSelected) {
+            dispatch({ type: "window.focus", windowId: window.id });
+          }
+
+          pressRef.current =
+            bodyPointerBehavior === "move"
+              ? { client: getClientPoint(event), viewport: getEventViewportPoint(event) }
+              : null;
+          if (pressRef.current !== null) capturePointer(event.currentTarget, event.pointerId);
+        },
+        onPointerMove: (event: ReactPointerEvent<HTMLElement>) => {
+          if (draggedRef.current) {
+            event.preventDefault();
+            return;
+          }
+          const press = pressRef.current;
+
+          if (
+            press === null ||
+            Math.hypot(event.clientX - press.client.x, event.clientY - press.client.y) <
+              (definition.bodyDragThresholdPx ?? DRAG_THRESHOLD_PX)
+          ) {
+            return;
+          }
+
+          pressRef.current = null;
+          draggedRef.current = true;
           event.preventDefault();
-        }
-
-        if (applyModifiedPointerSelection(actions, event, window.id)) {
-          event.stopPropagation();
-        } else {
-          actions.focusWindow(window.id);
-        }
-
-        pressRef.current =
-          bodyPointerBehavior === "move"
-            ? { client: getClientPoint(event), viewport: getEventViewportPoint(event) }
-            : null;
+          clearNativeTextSelection();
+          // The viewport steps and finishes the move by pointer id from here on.
+          dispatch({
+            type: "interaction.startMove",
+            pointerId: event.pointerId,
+            point: press.viewport,
+            target: { type: "window", id: window.id },
+          });
+        },
+        onPointerUp: (event: ReactPointerEvent<HTMLElement>) => {
+          pressRef.current = null;
+          releasePointer(event.currentTarget, event.pointerId);
+        },
+        style: {
+          bottom: 0,
+          cursor: bodyPointerBehavior === "move" ? "grab" : undefined,
+          left: 0,
+          overflowY: definition.overflowY ?? "auto",
+          pointerEvents: "auto",
+          position: "absolute",
+          right: 0,
+          top: `${chrome.headerHeight}px`,
+          userSelect: textSelection === "native" ? undefined : "none",
+        },
+        // The body receives programmatic focus but stays outside the tab order.
+        tabIndex: -1,
       },
-      onPointerMove: (event: ReactPointerEvent<HTMLElement>) => {
-        const press = pressRef.current;
-
-        if (
-          press === null ||
-          Math.hypot(event.clientX - press.client.x, event.clientY - press.client.y) <
-            (definition.bodyDragThresholdPx ?? DRAG_THRESHOLD_PX)
-        ) {
-          return;
-        }
-
-        pressRef.current = null;
-        draggedRef.current = true;
-        // The viewport steps and finishes the move by pointer id from here on.
-        actions.startMove({
-          pointerId: event.pointerId,
-          point: press.viewport,
-          windowId: window.id,
-        });
-      },
-      onPointerUp: () => {
-        pressRef.current = null;
-      },
-      style: {
-        bottom: 0,
-        left: 0,
-        overflowY: definition.overflowY ?? "auto",
-        pointerEvents: "auto",
-        position: "absolute",
-        right: 0,
-        top: `${chrome.headerHeight}px`,
-        userSelect: textSelection === "native" ? undefined : "none",
-      },
-      // The body receives programmatic focus but stays outside the tab order.
-      tabIndex: -1,
-    },
-    consumerProps,
-  );
+      consumerProps,
+    ),
+    "data-infinite-canvas-body": "true",
+    "data-infinite-canvas-body-pan": bodyPointerBehavior === "canvas-pan" ? "true" : undefined,
+    "data-infinite-canvas-native-scroll":
+      definition.wheelBehavior === "native-scroll" ? "true" : undefined,
+    "data-infinite-canvas-native-text-selection": textSelection === "native" ? "true" : undefined,
+    "data-slot": INFINITE_CANVAS_SLOTS.windowBody,
+  };
   const content =
     children === undefined ? (
       <InfiniteCanvasWindowBody
-        actions={actions}
+        key={window.kind}
+        dispatch={dispatch}
         chrome={chrome}
         definition={definition}
         isActive={isActive}
         isSelected={isSelected}
+        rect={rect}
         textSelection={textSelection}
         window={window}
       />
@@ -437,57 +471,83 @@ function InfiniteCanvasWindowFrameBodySlot({
       children
     );
 
-  return render === undefined ? (
-    <section {...props}>{content}</section>
-  ) : (
-    render(props, { children: content })
+  const focusableContent = (
+    <>
+      <FocusGuard
+        onFocus={(event) => {
+          contentRef.current?.focusLast({ preventScroll: true });
+          if (document.activeElement === event.currentTarget)
+            focusInfiniteCanvasCommandSurfaceFrom(event.currentTarget);
+        }}
+      />
+      <Fragment ref={contentRef}>{content}</Fragment>
+      <FocusGuard
+        onFocus={(event) => {
+          contentRef.current?.focus({ preventScroll: true });
+          if (document.activeElement === event.currentTarget)
+            focusInfiniteCanvasCommandSurfaceFrom(event.currentTarget);
+        }}
+      />
+    </>
   );
+
+  return useRender({
+    defaultTagName: "section",
+    render,
+    ref,
+    props: { ...props, children: focusableContent },
+  });
 }
 
 function InfiniteCanvasWindowFrameActiveCornersSlot({
+  children,
   render,
+  ref,
   ...consumerProps
 }: InfiniteCanvasWindowFrameActiveCornersProps) {
   const { chrome, isActive } = useInfiniteCanvasWindowFrameRuntimeContext();
-  const props = mergeInfiniteCanvasSlotProps(
-    {
-      "aria-hidden": "true",
-      "data-slot": INFINITE_CANVAS_SLOTS.windowCorners,
-    },
-    consumerProps,
-  );
-  const content = <ActiveWindowCorners chrome={chrome} />;
+  const props = {
+    ...mergeProps<"div">(
+      {
+        "aria-hidden": "true",
+      },
+      consumerProps,
+    ),
+    "data-slot": INFINITE_CANVAS_SLOTS.windowCorners,
+  };
+  const content = children === undefined ? <ActiveWindowCorners chrome={chrome} /> : children;
 
-  if (!isActive) {
-    return null;
-  }
-
-  return render === undefined ? (
-    <div {...props}>{content}</div>
-  ) : (
-    render(props, { children: content })
-  );
+  return useRender({
+    defaultTagName: "div",
+    render,
+    ref,
+    enabled: isActive,
+    props: { ...props, children: content },
+  });
 }
 
 function InfiniteCanvasWindowFrameSurfaceSlot({
   children,
   render,
+  ref,
   ...consumerProps
 }: InfiniteCanvasWindowFrameSurfaceProps) {
-  const props = mergeInfiniteCanvasSlotProps(
-    {
-      "data-slot": INFINITE_CANVAS_SLOTS.windowSurface,
-      style: {
-        inset: 0,
-        overflow: "hidden",
-        pointerEvents: "auto",
-        position: "absolute",
+  const props = {
+    ...mergeProps<"div">(
+      {
+        style: {
+          inset: 0,
+          overflow: "hidden",
+          pointerEvents: "auto",
+          position: "absolute",
+        },
       },
-    },
-    consumerProps,
-  );
+      consumerProps,
+    ),
+    "data-slot": INFINITE_CANVAS_SLOTS.windowSurface,
+  };
 
-  return render === undefined ? <div {...props}>{children}</div> : render(props, { children });
+  return useRender({ defaultTagName: "div", render, ref, props: { ...props, children } });
 }
 
 function ActiveWindowCorners({
@@ -563,15 +623,15 @@ function focusEventCommandSurface(event: ReactPointerEvent<HTMLElement>) {
 }
 
 function applyModifiedPointerSelection<Kind extends string>(
-  actions: InfiniteCanvasCommands<Kind>,
+  dispatch: InfiniteCanvasDispatch<Kind>,
   event: ReactPointerEvent<HTMLElement>,
   windowId: string,
 ) {
   if (event.shiftKey) {
     event.preventDefault();
-    actions.dispatch({
+    dispatch({
       type: "selection.add",
-      windowIds: [windowId],
+      targets: [{ type: "window" as const, id: windowId }],
     });
 
     return true;
@@ -579,7 +639,7 @@ function applyModifiedPointerSelection<Kind extends string>(
 
   if (event.metaKey || event.ctrlKey) {
     event.preventDefault();
-    actions.toggleWindowSelection(windowId);
+    dispatch({ type: "selection.toggle", targets: [{ type: "window" as const, id: windowId }] });
 
     return true;
   }
@@ -587,7 +647,24 @@ function applyModifiedPointerSelection<Kind extends string>(
   return false;
 }
 
+function applyModifiedPointerTargetSelection<Kind extends string>(
+  dispatch: InfiniteCanvasDispatch<Kind>,
+  event: Pick<ReactMouseEvent, "shiftKey" | "metaKey" | "ctrlKey">,
+  target: InfiniteCanvasSelectionTarget,
+) {
+  if (event.shiftKey) {
+    dispatch({ targets: [target], type: "selection.add" });
+    return;
+  }
+  if (event.metaKey || event.ctrlKey) {
+    dispatch({ targets: [target], type: "selection.toggle" });
+    return;
+  }
+  dispatch({ targets: [target], type: "selection.replace" });
+}
+
 export {
+  applyModifiedPointerTargetSelection,
   DEFAULT_INFINITE_CANVAS_WINDOW_FRAME_SLOTS,
   InfiniteCanvasWindowFrameRuntimeContext,
   getEventViewportPoint,

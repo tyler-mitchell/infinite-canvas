@@ -1,20 +1,11 @@
+import { getSelectedWindowIds } from "./selection";
 import { expect, test } from "vite-plus/test";
 
 import { createInfiniteCanvasState, createInfiniteCanvasWindow } from "./factory";
 import { createInfiniteCanvasGroup } from "./group-state";
-import {
-  EMPTY_INFINITE_CANVAS_HISTORY,
-  INFINITE_CANVAS_HISTORY_LIMIT,
-  canRedoInfiniteCanvas,
-  canUndoInfiniteCanvas,
-  getInfiniteCanvasDocument,
-  isSameInfiniteCanvasDocument,
-  pushInfiniteCanvasHistory,
-  redoInfiniteCanvasHistory,
-  undoInfiniteCanvasHistory,
-} from "./history";
+import { createInfiniteCanvasStore } from "./store";
 import { captureInfiniteCanvasRecipe, applyInfiniteCanvasRecipe } from "./recipes";
-import type { InfiniteCanvasState } from "./types";
+import type { DocumentContent, InfiniteCanvasState } from "./types";
 
 type Kind = "note";
 
@@ -28,72 +19,64 @@ const baseState = (): InfiniteCanvasState<Kind> =>
 
 const ALL = ["a", "b", "c"] as const;
 
-const moveWindow = (state: InfiniteCanvasState<Kind>, id: string, x: number) => ({
-  ...state,
-  windows: state.windows.map((window) =>
-    window.id === id ? { ...window, rect: { ...window.rect, x } } : window,
-  ),
-});
-
-const commitEdit = (state: InfiniteCanvasState<Kind>, next: InfiniteCanvasState<Kind>) => ({
-  ...next,
-  history: pushInfiniteCanvasHistory(state.history, getInfiniteCanvasDocument(state)),
-});
-
-test("the document is what was arranged, not how it is being looked at", () => {
-  const state = baseState();
-  const document = getInfiniteCanvasDocument(state);
-
-  expect(Object.keys(document).toSorted()).toStrictEqual([
-    "activeWorkspaceId",
-    "connections",
-    "groups",
-    "windows",
-    "workspaces",
-  ]);
+test("native history records document content", () => {
+  const store = createInfiniteCanvasStore({ initialState: baseState() });
+  store.dispatch({ type: "window.setTitle", windowId: "a", title: "Edited" });
+  expect(
+    Object.keys(store.history.getHistory()[0]!).toSorted((a, b) => a.localeCompare(b)),
+  ).toStrictEqual(["activeWorkspaceId", "connections", "groups", "windows", "workspaces"]);
 });
 
 test("undo restores the document and leaves the camera alone", () => {
-  const state = baseState();
-  const moved = commitEdit(state, moveWindow(state, "a", 999));
-  const panned = { ...moved, camera: { center: { x: 50, y: 60 }, zoom: 2 } };
-  const undone = undoInfiniteCanvasHistory(panned);
-
+  const store = createInfiniteCanvasStore({
+    initialState: {
+      ...baseState(),
+      camera: { center: { x: 50, y: 60 }, zoom: 2 },
+    },
+  });
+  store.dispatch({
+    type: "window.setRect",
+    windowId: "a",
+    rect: { x: 999, y: 0, width: 100, height: 100 },
+  });
+  store.dispatch({ type: "history.undo" });
+  const undone = store.getState();
   expect(undone.windows.find((window) => window.id === "a")?.rect.x).toBe(0);
   expect(undone.camera).toStrictEqual({ center: { x: 50, y: 60 }, zoom: 2 });
 });
 
-test("reference equality is the change test, so a no-op edit is not an edit", () => {
-  const state = baseState();
-
-  expect(
-    isSameInfiniteCanvasDocument(
-      getInfiniteCanvasDocument(state),
-      getInfiniteCanvasDocument(state),
-    ),
-  ).toBe(true);
-  expect(
-    isSameInfiniteCanvasDocument(
-      getInfiniteCanvasDocument(state),
-      getInfiniteCanvasDocument(moveWindow(state, "a", 1)),
-    ),
-  ).toBe(false);
+test("an unchanged document creates no undo entry", () => {
+  const store = createInfiniteCanvasStore({ initialState: baseState() });
+  store.dispatch({
+    type: "window.setTitle",
+    windowId: "a",
+    title: store.getState().windows[0]!.title,
+  });
+  expect(store.history.undos$.peek()).toBe(0);
 });
 
 test("PERSIST-003: three edits undo in reverse order, each restoring its own prior document", () => {
-  const s0 = baseState();
-  const s1 = commitEdit(s0, moveWindow(s0, "a", 10));
-  const s2 = commitEdit(s1, moveWindow(s1, "b", 20));
-  const s3 = commitEdit(s2, moveWindow(s2, "c", 30));
+  const store = createInfiniteCanvasStore({ initialState: baseState() });
+  for (const [index, windowId] of ALL.entries()) {
+    store.dispatch({
+      type: "window.setRect",
+      windowId,
+      rect: { x: (index + 1) * 10, y: 0, width: 100, height: 100 },
+    });
+  }
+  const s3 = store.getState();
 
   const xOf = (state: InfiniteCanvasState<Kind>, id: string) =>
     state.windows.find((window) => window.id === id)?.rect.x;
 
   expect([xOf(s3, "a"), xOf(s3, "b"), xOf(s3, "c")]).toStrictEqual([10, 20, 30]);
 
-  const u1 = undoInfiniteCanvasHistory(s3);
-  const u2 = undoInfiniteCanvasHistory(u1);
-  const u3 = undoInfiniteCanvasHistory(u2);
+  store.dispatch({ type: "history.undo" });
+  const u1 = store.getState();
+  store.dispatch({ type: "history.undo" });
+  const u2 = store.getState();
+  store.dispatch({ type: "history.undo" });
+  const u3 = store.getState();
 
   expect([xOf(u1, "a"), xOf(u1, "b"), xOf(u1, "c")]).toStrictEqual([10, 20, 400]);
   expect([xOf(u2, "a"), xOf(u2, "b"), xOf(u2, "c")]).toStrictEqual([10, 200, 400]);
@@ -101,62 +84,73 @@ test("PERSIST-003: three edits undo in reverse order, each restoring its own pri
 });
 
 test("PERSIST-003: redo replays the undone edits in order", () => {
-  const s0 = baseState();
-  const s1 = commitEdit(s0, moveWindow(s0, "a", 10));
-  const s2 = commitEdit(s1, moveWindow(s1, "b", 20));
-
-  const back = undoInfiniteCanvasHistory(undoInfiniteCanvasHistory(s2));
-  const forward = redoInfiniteCanvasHistory(redoInfiniteCanvasHistory(back));
-
+  const store = createInfiniteCanvasStore({ initialState: baseState() });
+  store.dispatch({
+    type: "window.setRect",
+    windowId: "a",
+    rect: { x: 10, y: 0, width: 100, height: 100 },
+  });
+  store.dispatch({
+    type: "window.setRect",
+    windowId: "b",
+    rect: { x: 20, y: 0, width: 100, height: 100 },
+  });
+  store.dispatch({ type: "history.undo" });
+  store.dispatch({ type: "history.undo" });
+  store.dispatch({ type: "history.redo" });
+  store.dispatch({ type: "history.redo" });
+  const forward = store.getState();
   expect(forward.windows.find((window) => window.id === "a")?.rect.x).toBe(10);
   expect(forward.windows.find((window) => window.id === "b")?.rect.x).toBe(20);
 });
 
 test("PERSIST-003: a new edit orphans the redo branch", () => {
-  const s0 = baseState();
-  const s1 = commitEdit(s0, moveWindow(s0, "a", 10));
-  const undone = undoInfiniteCanvasHistory(s1);
-
-  expect(canRedoInfiniteCanvas(undone)).toBe(true);
-
-  const diverged = commitEdit(undone, moveWindow(undone, "b", 77));
-
-  expect(canRedoInfiniteCanvas(diverged)).toBe(false);
+  const store = createInfiniteCanvasStore({ initialState: baseState(), history: { limit: 3 } });
+  store.dispatch({ type: "window.setTitle", windowId: "a", title: "First" });
+  store.dispatch({ type: "history.undo" });
+  expect(store.history.redos$.peek()).toBe(1);
+  store.dispatch({ type: "window.setTitle", windowId: "b", title: "New branch" });
+  expect(store.history.redos$.peek()).toBe(0);
 });
 
 test("undo and redo at the ends of the stack are no-ops, not errors", () => {
-  const state = baseState();
-
-  expect(canUndoInfiniteCanvas(state)).toBe(false);
-  expect(undoInfiniteCanvasHistory(state)).toBe(state);
-  expect(canRedoInfiniteCanvas(state)).toBe(false);
-  expect(redoInfiniteCanvasHistory(state)).toBe(state);
+  const store = createInfiniteCanvasStore({ initialState: baseState() });
+  const state = store.getState();
+  store.dispatch({ type: "history.undo" });
+  store.dispatch({ type: "history.redo" });
+  expect(store.getState()).toBe(state);
+  expect(store.history.undos$.peek()).toBe(0);
+  expect(store.history.redos$.peek()).toBe(0);
 });
 
 test("undo clears the live interaction — it cannot survive the document it was editing", () => {
-  const state = baseState();
-  const edited = commitEdit(state, moveWindow(state, "a", 10));
-  const mid = {
-    ...edited,
-    interaction: { kind: "move" as const },
-  } as unknown as InfiniteCanvasState<Kind>;
-
-  expect(undoInfiniteCanvasHistory(mid).interaction).toBeNull();
+  const store = createInfiniteCanvasStore({ initialState: baseState() });
+  store.dispatch({
+    type: "interaction.startMove",
+    pointerId: 1,
+    point: { x: 0, y: 0 },
+    target: { type: "window", id: "a" },
+  });
+  store.dispatch({ type: "interaction.step", pointerId: 1, point: { x: 100, y: 0 } });
+  store.dispatch({ type: "history.undo" });
+  expect(store.getState().interaction).toBeNull();
+  expect(store.getState().windows[0]!.rect.x).toBe(0);
 });
 
 test("the stack is bounded, dropping the oldest entry rather than growing forever", () => {
-  const overLimit = INFINITE_CANVAS_HISTORY_LIMIT + 25;
-  const filled = Array.from({ length: overLimit }).reduce<InfiniteCanvasState<Kind>>(
-    (state, _entry, index) => commitEdit(state, moveWindow(state, "a", index + 1)),
-    baseState(),
-  );
-
-  expect(filled.history.past).toHaveLength(INFINITE_CANVAS_HISTORY_LIMIT);
+  const store = createInfiniteCanvasStore({ initialState: baseState(), history: { limit: 3 } });
+  for (const title of ["One", "Two", "Three", "Four", "Five"])
+    store.dispatch({ type: "window.setTitle", windowId: "a", title });
+  expect(store.history.undos$.peek()).toBe(3);
+  expect(store.history.getHistory()).toHaveLength(4);
 });
 
-test("the empty history assigns into a state of any window kind", () => {
-  expect(EMPTY_INFINITE_CANVAS_HISTORY.past).toStrictEqual([]);
-  expect(EMPTY_INFINITE_CANVAS_HISTORY.future).toStrictEqual([]);
+test("stores have independent history", () => {
+  const first = createInfiniteCanvasStore({ initialState: baseState() });
+  const second = createInfiniteCanvasStore({ initialState: baseState() });
+  first.dispatch({ type: "window.setTitle", windowId: "a", title: "Changed" });
+  expect(first.history.undos$.peek()).toBe(1);
+  expect(second.history.undos$.peek()).toBe(0);
 });
 
 test("RECIPE: a captured arrangement is stored relative to its own origin", () => {
@@ -237,7 +231,7 @@ test("RECIPE: a group is captured only when every member comes along", () => {
 test("RECIPE: capture takes the requested ids, else the selection, else everything", () => {
   const state = baseState();
 
-  expect(state.selection.windowIds).toStrictEqual(["a"]);
+  expect(getSelectedWindowIds(state.selection)).toStrictEqual(["a"]);
 
   const fromSelection = captureInfiniteCanvasRecipe(state, { name: "sel", recipeId: "r1" });
 
@@ -251,7 +245,7 @@ test("RECIPE: capture takes the requested ids, else the selection, else everythi
 
   expect(requested?.windows.map((window) => window.windowId)).toStrictEqual(["b", "c"]);
 
-  const cleared = { ...state, selection: { ...state.selection, windowIds: [] } };
+  const cleared = { ...state, selection: { anchorTarget: null, targets: [] } };
   const everything = captureInfiniteCanvasRecipe(cleared, { name: "all", recipeId: "r3" });
 
   expect(everything?.windows.map((window) => window.windowId)).toStrictEqual(["a", "b", "c"]);
@@ -275,8 +269,8 @@ test("RECIPE: applying a recipe naming no live window leaves the state untouched
   expect(applyInfiniteCanvasRecipe(elsewhere, recipe!, { origin: { x: 0, y: 0 } })).toBe(elsewhere);
 });
 
-const editEveryDocumentField = (state: InfiniteCanvasState<Kind>): InfiniteCanvasState<Kind> => ({
-  ...state,
+const editEveryDocumentField = (state: InfiniteCanvasState<Kind>): DocumentContent<Kind> => ({
+  connections: [{ id: "edge", kind: "link", from: "a", to: "b" }],
   activeWorkspaceId: "research",
   groups: [
     {
@@ -292,24 +286,57 @@ const editEveryDocumentField = (state: InfiniteCanvasState<Kind>): InfiniteCanva
     {
       camera: state.camera,
       id: "research",
-      selection: { anchorWindowId: null, windowIds: [] },
+      selection: { anchorTarget: null, targets: [] },
       title: "Research",
       windowIds: ["a"],
     },
   ],
 });
 
-test("undo restores every field of the document, whatever they are", () => {
-  const state = baseState();
-  const before = getInfiniteCanvasDocument(state);
-  const edited = commitEdit(state, editEveryDocumentField(state));
-
-  const moved = Object.keys(before).filter(
-    (field) =>
-      getInfiniteCanvasDocument(edited)[field as keyof typeof before] !==
-      before[field as keyof typeof before],
-  );
-
-  expect(moved.toSorted()).toEqual(["activeWorkspaceId", "groups", "windows", "workspaces"]);
-  expect(getInfiniteCanvasDocument(undoInfiniteCanvasHistory(edited))).toEqual(before);
+test("undo restores windows, groups, connections, workspaces, and the active workspace", () => {
+  const store = createInfiniteCanvasStore({ initialState: baseState() });
+  const before = store.snapshot();
+  store.document$.assign(editEveryDocumentField(store.getState()));
+  expect(store.history.undos$.peek()).toBe(1);
+  expect(store.snapshot()).toMatchObject({
+    activeWorkspaceId: "research",
+    connections: [{ id: "edge", kind: "link", from: "a", to: "b" }],
+    groups: [
+      {
+        id: "shell",
+        title: "Shell",
+        zIndex: 1,
+        rect: { x: 0, y: 0, width: 800, height: 400 },
+        tree: { id: "a", kind: "window", weight: 1 },
+      },
+    ],
+    windows: [
+      { id: "a", kind: "note", rect: { x: 0, y: 0, width: 100, height: 100 } },
+      { id: "b", kind: "note", rect: { x: 200, y: 0, width: 100, height: 100 } },
+    ],
+    workspaces: [
+      {
+        id: "research",
+        title: "Research",
+        windowIds: ["a"],
+        camera: { center: { x: 0, y: 0 }, zoom: 1 },
+        selection: { anchorTarget: null, targets: [] },
+      },
+    ],
+  });
+  store.dispatch({ type: "history.undo" });
+  expect(store.history.undos$.peek()).toBe(0);
+  expect(store.history.redos$.peek()).toBe(1);
+  expect(store.snapshot()).toMatchObject({
+    activeWorkspaceId: null,
+    connections: [],
+    groups: [],
+    windows: [
+      { id: "a", kind: "note", rect: { x: 0, y: 0, width: 100, height: 100 } },
+      { id: "b", kind: "note", rect: { x: 200, y: 0, width: 100, height: 100 } },
+      { id: "c", kind: "note", rect: { x: 400, y: 0, width: 100, height: 100 } },
+    ],
+    workspaces: [],
+  });
+  expect(store.snapshot()).toEqual(before);
 });

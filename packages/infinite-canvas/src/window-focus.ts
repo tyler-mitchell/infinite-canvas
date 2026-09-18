@@ -1,8 +1,7 @@
 import { getRectCenter, getVisibleWorldRect, rectContainsPoint } from "./geometry";
-import { getInfiniteCanvasGroupProjection, getInfiniteCanvasWindowGroup } from "./group-state";
+import { getCanvasLayout } from "./layout";
+import { getInfiniteCanvasWindowGroup } from "./group-state";
 import { getInfiniteCanvasGroupWindowIds } from "./group-tree";
-import type { InfiniteCanvasGroupAxis } from "./group-tree";
-import { isSelectableWindow } from "./selection";
 import type {
   InfiniteCanvasDirection,
   InfiniteCanvasPoint,
@@ -89,47 +88,41 @@ function compareInfiniteCanvasFocusCandidates(
 }
 
 /** Returns the smallest group that contains the point. */
+function getContextualGroupAmong<Kind extends string>(
+  state: InfiniteCanvasState<Kind>,
+  point: InfiniteCanvasPoint,
+  groupRects: ReadonlyMap<string, InfiniteCanvasRect>,
+): InfiniteCanvasState<Kind>["groups"][number] | null {
+  return (
+    state.groups
+      .map((group) => ({ group, rect: groupRects.get(group.id) }))
+      .filter(
+        (entry): entry is typeof entry & Readonly<{ rect: InfiniteCanvasRect }> =>
+          entry.rect !== undefined,
+      )
+      .filter(({ rect }) => rectContainsPoint(rect, point))
+      .sort(
+        (left, right) =>
+          left.rect.width * left.rect.height - right.rect.width * right.rect.height ||
+          (left.group.id < right.group.id ? -1 : 1),
+      )[0]?.group ?? null
+  );
+}
+
+/** Returns the smallest group that contains the point. */
 function getInfiniteCanvasContextualGroup<Kind extends string>(
   state: InfiniteCanvasState<Kind>,
   point: InfiniteCanvasPoint,
 ): InfiniteCanvasState<Kind>["groups"][number] | null {
-  let contextualGroup: InfiniteCanvasState<Kind>["groups"][number] | null = null;
-  let smallestArea = Number.POSITIVE_INFINITY;
+  const { groupRects } = getCanvasLayout(state);
 
-  for (const group of state.groups) {
-    if (!rectContainsPoint(group.rect, point)) {
-      continue;
-    }
-
-    const area = group.rect.width * group.rect.height;
-    const isTighter =
-      area < smallestArea ||
-      (area === smallestArea && contextualGroup !== null && group.id < contextualGroup.id);
-
-    if (isTighter) {
-      smallestArea = area;
-      contextualGroup = group;
-    }
-  }
-
-  return contextualGroup;
-}
-
-/** Excludes minimized and hidden group members. */
-function getFocusableInfiniteCanvasWindows<Kind extends string>(
-  state: InfiniteCanvasState<Kind>,
-): readonly InfiniteCanvasWindow<Kind>[] {
-  const { hiddenWindowIds } = getInfiniteCanvasGroupProjection(state.groups, state.groupMetrics);
-
-  return state.windows.filter(
-    (window) => isSelectableWindow(window) && !hiddenWindowIds.has(window.id),
-  );
+  return getContextualGroupAmong(state, point, groupRects);
 }
 
 /** Returns the nearest candidate ahead of the source. */
-function getDirectionalTargetAmong<Kind extends string>(
-  source: InfiniteCanvasWindow<Kind>,
-  candidates: readonly InfiniteCanvasWindow<Kind>[],
+function getDirectionalTargetAmong(
+  source: Pick<InfiniteCanvasWindow, "id" | "rect">,
+  candidates: readonly Pick<InfiniteCanvasWindow, "id" | "rect">[],
   direction: InfiniteCanvasDirection,
 ): string | null {
   const sourceCenter = getRectCenter(source.rect);
@@ -160,9 +153,9 @@ function getDirectionalTargetAmong<Kind extends string>(
 }
 
 /** Returns the window nearest the camera center. */
-function getInfiniteCanvasWindowNearestCameraCenter<Kind extends string>(
-  state: InfiniteCanvasState<Kind>,
-  windows: readonly InfiniteCanvasWindow<Kind>[],
+function getInfiniteCanvasWindowNearestCameraCenter(
+  state: InfiniteCanvasState,
+  windows: readonly Pick<InfiniteCanvasWindow, "id" | "rect">[],
 ): string | null {
   let nearestWindowId: string | null = null;
   let nearestDistance = Number.POSITIVE_INFINITY;
@@ -188,7 +181,16 @@ function getInfiniteCanvasDirectionalFocusTarget<Kind extends string>(
   state: InfiniteCanvasState<Kind>,
   direction: InfiniteCanvasDirection,
 ): string | null {
-  const focusableWindows = getFocusableInfiniteCanvasWindows(state);
+  const canvasLayout = getCanvasLayout(state);
+  const focusableWindows = state.windows.flatMap((window) => {
+    if (!canvasLayout.visibleWindowIds.has(window.id)) return [];
+    const rect = canvasLayout.windowRects.get(window.id);
+    if (rect === undefined) return [];
+    return [{ id: window.id, rect }];
+  });
+  const visibleGroupRects = new Map(
+    [...canvasLayout.groupRects].filter(([groupId]) => canvasLayout.visibleGroupIds.has(groupId)),
+  );
   const source = focusableWindows.find((window) => window.id === state.activeWindowId);
 
   if (source === undefined) {
@@ -198,7 +200,7 @@ function getInfiniteCanvasDirectionalFocusTarget<Kind extends string>(
   // Search the member group before the full canvas.
   const group =
     getInfiniteCanvasWindowGroup(state, source.id) ??
-    getInfiniteCanvasContextualGroup(state, getRectCenter(source.rect));
+    getContextualGroupAmong(state, getRectCenter(source.rect), visibleGroupRects);
 
   if (group !== null) {
     const memberIds = new Set(getInfiniteCanvasGroupWindowIds(group.tree));
@@ -235,37 +237,11 @@ function isInfiniteCanvasWindowFullyVisible<Kind extends string>(
   );
 }
 
-/** Returns the next tab or accordion index for the pressed navigation key. */
-function getNextInfiniteCanvasRovingIndex(
-  key: string,
-  index: number,
-  count: number,
-  axis: InfiniteCanvasGroupAxis,
-): number | null {
-  const previousKey = axis === "horizontal" ? "ArrowLeft" : "ArrowUp";
-  const nextKey = axis === "horizontal" ? "ArrowRight" : "ArrowDown";
-
-  if (key === previousKey) {
-    return (index - 1 + count) % count;
-  }
-
-  if (key === nextKey) {
-    return (index + 1) % count;
-  }
-
-  if (key === "Home") {
-    return 0;
-  }
-
-  return key === "End" ? count - 1 : null;
-}
-
 export {
   INFINITE_CANVAS_DIRECTION_VECTORS,
   getInfiniteCanvasContextualGroup,
   getInfiniteCanvasDirectionalFocusTarget,
   getInfiniteCanvasWindowNearestCameraCenter,
-  getNextInfiniteCanvasRovingIndex,
   isInfiniteCanvasWindowFullyVisible,
 };
 export type { InfiniteCanvasFocusCandidate };

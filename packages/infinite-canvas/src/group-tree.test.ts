@@ -3,7 +3,6 @@ import { expect, test } from "vite-plus/test";
 import {
   createInfiniteCanvasGroupWindowNode,
   dockInfiniteCanvasGroupWindow,
-  equalizeInfiniteCanvasGroupChildren,
   getInfiniteCanvasGroupWindowIds,
   isInfiniteCanvasGroupContainer,
   normalizeInfiniteCanvasGroupTree,
@@ -346,7 +345,10 @@ const splitOf = (
 
 test("SPLIT-005: equalizing returns skewed panes to identical weights", () => {
   const equalized = asContainer(
-    equalizeInfiniteCanvasGroupChildren(splitOf(["A", "B", "C"], [7, 1, 4]), "root"),
+    setInfiniteCanvasGroupChildWeights(splitOf(["A", "B", "C"], [7, 1, 4]), {
+      containerId: "root",
+      weights: { A: 1, B: 1, C: 1 },
+    }),
   );
 
   expect(new Set(equalized.children.map((child) => child.weight)).size).toBe(1);
@@ -354,9 +356,15 @@ test("SPLIT-005: equalizing returns skewed panes to identical weights", () => {
 
 test("SPLIT-005: equalizing is idempotent", () => {
   const once = asContainer(
-    equalizeInfiniteCanvasGroupChildren(splitOf(["A", "B"], [3, 1]), "root"),
+    setInfiniteCanvasGroupChildWeights(splitOf(["A", "B"], [3, 1]), {
+      containerId: "root",
+      weights: { A: 1, B: 1 },
+    }),
   );
-  const twice = equalizeInfiniteCanvasGroupChildren(once, "root");
+  const twice = setInfiniteCanvasGroupChildWeights(once, {
+    containerId: "root",
+    weights: { A: 1, B: 1 },
+  });
 
   expect(asContainer(twice).children.map((child) => child.weight)).toStrictEqual(
     once.children.map((child) => child.weight),
@@ -386,7 +394,12 @@ test("SPLIT-005: equalizing a container leaves a nested container's own weights 
       weight: 1,
     }),
   );
-  const equalized = asContainer(equalizeInfiniteCanvasGroupChildren(nested, "root"));
+  const equalized = asContainer(
+    setInfiniteCanvasGroupChildWeights(nested, {
+      containerId: "root",
+      weights: { A: 1, inner: 1 },
+    }),
+  );
   const inner = equalized.children.find((child) => child.id === "inner");
 
   expect(new Set(equalized.children.map((child) => child.weight)).size).toBe(1);
@@ -396,7 +409,10 @@ test("SPLIT-005: equalizing a container leaves a nested container's own weights 
 test("SPLIT-005: equalizing an unknown container id changes nothing", () => {
   const tree = splitOf(["A", "B"], [3, 1]);
 
-  expect(asContainer(equalizeInfiniteCanvasGroupChildren(tree, "absent")).children).toStrictEqual(
-    asContainer(tree).children,
-  );
+  expect(
+    asContainer(
+      setInfiniteCanvasGroupChildWeights(tree, { containerId: "absent", weights: { A: 1, B: 1 } }),
+    ).children,
+  ).toStrictEqual(asContainer(tree).children);
 });
+import { setInfiniteCanvasGroupChildWeights } from "./group-tree";

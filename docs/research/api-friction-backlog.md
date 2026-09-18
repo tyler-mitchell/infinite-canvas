@@ -58,7 +58,7 @@ pointerModeControls?, cameraControls?, zoomControls? }`.
   Automation and browser tests use `down -> move -> up` in one synchronous
   block, so this delay stopped those inputs.
   The listeners remain mounted and read `store.state$.peek()` during each
-  event. `commitInfiniteCanvasState` batches synchronously, so the read has the
+  event. Legend State's `assign` batches synchronously, so the read has the
   current state.
   The cost is one `peek()` for each idle pointer move. The drop path already
   has this cost.

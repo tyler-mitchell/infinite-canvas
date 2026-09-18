@@ -2,6 +2,8 @@
 
 @layer infinite-canvas {
   [data-slot="viewport"] {
+    --icx-layout-transition: initial;
+    --icx-content-layout-transition: initial;
     /* These tokens match `DEFAULT_INFINITE_CANVAS_THEME`. */
     --icx-active-accent: #b7f4ff;
     --icx-active-border: #e8fbff;
@@ -516,6 +518,78 @@
     border: 1px solid var(--icx-idle-border);
     border-radius: var(--icx-group-surface-radius, 2px);
     box-shadow: var(--icx-group-surface-shadow, none);
+  }
+
+  [data-slot="group-shell"][data-selected] {
+    outline: var(--icx-group-selection-outline, 1px solid var(--icx-selection-border));
+  }
+
+  [data-slot="group-shell"][data-drop-target] {
+    outline: var(--icx-group-drop-outline, 2px dashed var(--icx-active-accent));
+  }
+
+  [data-slot="group-label-row"] {
+    display: flex;
+    align-items: center;
+    gap: var(--icx-group-actions-gap, 0.25em);
+  }
+
+  [data-slot="group-label-row"] [data-slot="group-label"] {
+    min-width: 0;
+  }
+
+  [data-slot="group-actions-trigger"] {
+    align-items: center;
+    aspect-ratio: 1;
+    background: transparent;
+    border: 0;
+    color: var(--icx-group-label-fg, var(--icx-color-accent));
+    cursor: pointer;
+    display: inline-flex;
+    flex-shrink: 0;
+    height: 100%;
+    justify-content: center;
+    opacity: 0;
+    padding: 0;
+    pointer-events: none;
+  }
+
+  [data-slot="group-actions-trigger"] svg {
+    width: 65%;
+    height: 65%;
+  }
+  [data-slot="group-label-row"]:hover [data-slot="group-actions-trigger"],
+  [data-slot="group-label-row"]:focus-within [data-slot="group-actions-trigger"],
+  [data-slot="group-actions-trigger"][data-popup-open] {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  [data-slot="context-actions-positioner"] {
+    z-index: var(--icx-context-menu-z-index, 1000);
+  }
+  [data-slot="context-actions"] {
+    background: var(--icx-context-menu-background, var(--icx-body-background, #17191c));
+    border: 1px solid var(--icx-context-menu-border, var(--icx-idle-border, #40444b));
+    border-radius: var(--icx-context-menu-radius, 6px);
+    color: var(--icx-context-menu-color, #e5e7eb);
+    font-size: var(--icx-context-menu-font-size, 13px);
+    min-width: var(--icx-context-menu-min-width, 11rem);
+    outline: none;
+    padding: var(--icx-context-menu-padding, 4px);
+  }
+  [data-slot="context-actions"] [data-slot="command-menu-item"] {
+    border-radius: var(--icx-context-menu-item-radius, 3px);
+    cursor: pointer;
+    outline: none;
+    padding: var(--icx-context-menu-item-padding, 6px 10px);
+  }
+  [data-slot="context-actions"] [data-highlighted] {
+    background: var(--icx-context-menu-highlight, #343940);
+  }
+  [data-slot="context-actions"] [data-disabled] {
+    opacity: var(--icx-context-menu-disabled-opacity, 0.4);
+    cursor: default;
   }
 
   /* The gutter is a control, separate from window border color. */

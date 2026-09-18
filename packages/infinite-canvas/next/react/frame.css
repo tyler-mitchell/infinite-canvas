@@ -1,0 +1,88 @@
+@layer canvas {
+  :where([data-slot="canvas-viewport"]:focus) {
+    outline: none;
+  }
+
+  :where(
+    [data-slot="canvas-window"],
+    [data-slot="canvas-group"],
+    [data-slot="canvas-group-container"],
+    [data-slot="canvas-group-tabs"],
+    [data-slot="canvas-group-accordion-header"],
+    [data-slot="canvas-group-gutter"]
+  ) {
+    transition:
+      transform var(--canvas-layout-motion, var(--canvas-default-layout-motion)),
+      width var(--canvas-layout-motion, var(--canvas-default-layout-motion)),
+      height var(--canvas-layout-motion, var(--canvas-default-layout-motion));
+  }
+
+  :where([data-slot="canvas-window"][data-direct], [data-slot="canvas-group"][data-direct]),
+  :where([data-slot="canvas-group"][data-direct])
+    :where(
+      [data-slot="canvas-group-container"],
+      [data-slot="canvas-group-tabs"],
+      [data-slot="canvas-group-accordion-header"],
+      [data-slot="canvas-group-gutter"]
+    ) {
+    transition: none;
+  }
+
+  :where([data-slot="canvas-viewport"][data-drag-motion="on"])
+    :where([data-slot="canvas-window"][data-dragging], [data-slot="canvas-group"][data-dragging]) {
+    transition: transform var(--canvas-drag-motion, var(--canvas-default-drag-motion));
+  }
+
+  :where([data-slot="canvas-viewport"][data-drag-motion="on"])
+    :where([data-slot="canvas-window"][data-resizing]) {
+    transition:
+      transform var(--canvas-drag-motion, var(--canvas-default-drag-motion)),
+      width var(--canvas-drag-motion, var(--canvas-default-drag-motion)),
+      height var(--canvas-drag-motion, var(--canvas-default-drag-motion));
+  }
+
+  :where(
+      [data-slot="canvas-viewport"][data-reduced-motion="always"],
+      [data-slot="canvas-viewport"][data-layout-motion="off"]
+    )
+    :where(
+      [data-slot="canvas-window"],
+      [data-slot="canvas-group"],
+      [data-slot="canvas-group-container"],
+      [data-slot="canvas-group-tabs"],
+      [data-slot="canvas-group-accordion-header"],
+      [data-slot="canvas-group-gutter"]
+    ) {
+    transition: none;
+  }
+
+  :where([data-slot="canvas-window"]) {
+    isolation: isolate;
+  }
+
+  :where([data-slot="canvas-alignment-guide"]) {
+    border: 0 solid var(--canvas-guide-color, Highlight);
+  }
+
+  :where([data-slot="canvas-alignment-guide"][data-axis="x"]) {
+    border-left-width: calc(var(--canvas-guide-width, 1px) * var(--canvas-screen-scale, 1));
+  }
+
+  :where([data-slot="canvas-alignment-guide"][data-axis="y"]) {
+    border-top-width: calc(var(--canvas-guide-width, 1px) * var(--canvas-screen-scale, 1));
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    :where([data-slot="canvas-viewport"][data-reduced-motion="user"])
+      :where(
+        [data-slot="canvas-window"],
+        [data-slot="canvas-group"],
+        [data-slot="canvas-group-container"],
+        [data-slot="canvas-group-tabs"],
+        [data-slot="canvas-group-accordion-header"],
+        [data-slot="canvas-group-gutter"]
+      ) {
+      transition: none;
+    }
+  }
+}

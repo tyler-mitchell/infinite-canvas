@@ -1,13 +1,13 @@
 import { expect, test } from "vite-plus/test";
 
-import { getInfiniteCanvasHotkeyBindings } from "./commands";
+import { getInfiniteCanvasHotkeyBindings } from "./operations";
 import { createInfiniteCanvasState } from "./factory";
 import {
   resolveInfiniteCanvasHotkeys,
   shouldHandleInfiniteCanvasKeyboardEvent,
   type InfiniteCanvasHotkeyAction,
 } from "./keyboard";
-import type { InfiniteCanvasCommand } from "./types";
+import type { InfiniteCanvasAction } from "./types";
 
 class TestElement {
   parent: TestElement | null = null;
@@ -112,18 +112,20 @@ const cut = (
   run,
 });
 
-const noCommands = (_command: InfiniteCanvasCommand) => {
+const noDispatch = (_action: InfiniteCanvasAction<"note">) => {
   throw new Error("no canvas command should run in these tests");
 };
 
 test("consumer actions are added to the canvas keymap, not swapped for it", () => {
   const resolved = resolveInfiniteCanvasHotkeys<"note">({
-    actions: [cut(() => undefined)],
-    executeCommand: noCommands,
+    hotkeyActions: [cut(() => undefined)],
+    dispatch: noDispatch,
+    isCommandEnabled: () => false,
   });
   const defaults = getInfiniteCanvasHotkeyBindings();
 
   expect(resolved).toHaveLength(defaults.length + 2);
+  expect(resolved.slice(0, defaults.length).every((entry) => !entry.isEnabled(STATE))).toBe(true);
   expect(resolved.map((entry) => entry.hotkey)).toContain("Mod+Z");
   expect(resolved.filter((entry) => entry.label === "Cut Connection").map((e) => e.hotkey)).toEqual(
     ["Backspace", "Delete"],
@@ -133,13 +135,14 @@ test("consumer actions are added to the canvas keymap, not swapped for it", () =
 test("a consumer action runs its own verb, and is gated by its own enablement", () => {
   const ran: string[] = [];
   const resolved = resolveInfiniteCanvasHotkeys<"note">({
-    actions: [
+    hotkeyActions: [
       cut(() => {
         ran.push("cut");
       }),
     ],
     bindings: [],
-    executeCommand: noCommands,
+    dispatch: noDispatch,
+    isCommandEnabled: () => true,
   });
 
   resolved.forEach((entry) => {
@@ -153,7 +156,7 @@ test("a consumer action runs its own verb, and is gated by its own enablement", 
 
 test("an action with nothing to act on is disabled, and the canvas still swallows its chord", () => {
   const resolved = resolveInfiniteCanvasHotkeys<"note">({
-    actions: [
+    hotkeyActions: [
       cut(
         () => {
           throw new Error("a disabled action must not run");
@@ -162,7 +165,8 @@ test("an action with nothing to act on is disabled, and the canvas still swallow
       ),
     ],
     bindings: [],
-    executeCommand: noCommands,
+    dispatch: noDispatch,
+    isCommandEnabled: () => true,
   });
 
   expect(resolved).toHaveLength(2);

@@ -121,6 +121,20 @@ test("`fit` frames the target inside the viewport and respects maxZoom", () => {
   expect(capped.camera.zoom).toBeLessThanOrEqual(1.25);
 });
 
+test("capped fit keeps the target centered between unequal viewport insets", () => {
+  const current = {
+    ...state(),
+    viewportInsets: { left: 300, right: 100, top: 120, bottom: 40 },
+  };
+  const next = navigateCamera(current, {
+    behavior: { type: "fit", maxZoom: 0.75 },
+    target: { type: "window", windowId: "a" },
+  });
+  expect(next.camera.zoom).toBe(0.75);
+  expect((1200 - next.camera.center.x) * next.camera.zoom + 600).toBeCloseTo(700);
+  expect((700 - next.camera.center.y) * next.camera.zoom + 400).toBeCloseTo(440);
+});
+
 test("`fit` is unavailable without a measured viewport, and navigating is a no-op", () => {
   const unmeasured: InfiniteCanvasState<Kind> = {
     ...state(),
@@ -153,7 +167,7 @@ test("navigating to a target that does not exist leaves the camera untouched", (
 test("an empty selection is not a target", () => {
   const empty: InfiniteCanvasState<Kind> = {
     ...state(),
-    selection: { anchorWindowId: null, windowIds: [] },
+    selection: { anchorTarget: null, targets: [] },
   };
 
   expect(getCameraNavigationTargetRect(empty, { type: "selection" })).toBeNull();
@@ -168,7 +182,13 @@ test("a request from outside TypeScript leaves the camera alone", () => {
     target: { type: "rect", rect: current.windows[0]!.rect },
   } as unknown as Parameters<typeof navigateCamera<Kind>>[1];
 
-  expect(getCameraNavigationFrame(current, current.windows[0]!.rect, unknown.behavior)).toBeNull();
+  expect(
+    getCameraNavigationFrame({
+      state: current,
+      rect: current.windows[0]!.rect,
+      behavior: unknown.behavior,
+    }),
+  ).toBeNull();
   expect(navigateCamera(current, unknown)).toBe(current);
   expect(
     getCameraNavigationTargetRect(current, { type: "elsewhere" } as unknown as Parameters<
@@ -180,11 +200,34 @@ test("a request from outside TypeScript leaves the camera alone", () => {
 test("the frame helper is the pure half, usable without producing a state", () => {
   const current = state();
   const rect = getCameraNavigationTargetRect(current, { type: "window", windowId: "b" })!;
-  const frame = getCameraNavigationFrame(current, rect, { type: "center" });
+  const frame = getCameraNavigationFrame({ state: current, rect, behavior: { type: "center" } });
   const applied = navigateCamera(current, {
     behavior: { type: "center" },
     target: { type: "window", windowId: "b" },
   });
 
   expect(frame).toEqual(applied.camera);
+});
+
+test.each([
+  ["horizontal", 1.5],
+  ["vertical", 2],
+  ["both", 1.5],
+] as const)("%s framing uses the requested viewport coverage", (framingMode, zoom) => {
+  const next = navigateCamera(state(), {
+    target: { type: "window", windowId: "a" },
+    behavior: { type: "fit", framingMode, framingSize: 0.5, paddingPx: 0 },
+  });
+  expect(next.camera.zoom).toBe(zoom);
+});
+
+test("composition places the target offset at the requested visible screen position", () => {
+  const current = { ...state(), viewportInsets: { left: 200, right: 0, top: 0, bottom: 0 } };
+  const next = navigateCamera(current, {
+    target: { type: "point", point: { x: 1000, y: 200 } },
+    behavior: { type: "centerAtZoom", zoom: 1 },
+    composition: { screenPosition: { x: 0.25, y: 0.75 }, targetOffset: { x: 50, y: 20 } },
+  });
+  expect((1050 - next.camera.center.x) * next.camera.zoom + 600).toBeCloseTo(450);
+  expect((220 - next.camera.center.y) * next.camera.zoom + 400).toBeCloseTo(600);
 });

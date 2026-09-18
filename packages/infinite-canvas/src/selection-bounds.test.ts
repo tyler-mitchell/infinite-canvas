@@ -1,13 +1,12 @@
 import { expect, test } from "vite-plus/test";
 
-import { isInfiniteCanvasCommandEnabled } from "./commands";
+import { isInfiniteCanvasCommandEnabled } from "./operations";
 import { createInfiniteCanvasState, createInfiniteCanvasWindow } from "./factory";
 import {
   createInfiniteCanvasEdgeTargetResolver,
   createInfiniteCanvasOverlayTargetResolver,
   createInfiniteCanvasSceneObjectTargetResolver,
   getInfiniteCanvasSelectionBounds,
-  getInfiniteCanvasSelectionTargetBounds,
 } from "./spatial-target";
 
 const EDGE_TARGET = {
@@ -49,12 +48,7 @@ const sceneResolver = createInfiniteCanvasSceneObjectTargetResolver({
 
 const stateWith = (targets: readonly (typeof EDGE_TARGET | typeof SCENE_TARGET)[]) =>
   createInfiniteCanvasState({
-    selection: {
-      anchorTarget: targets.at(-1) ?? null,
-      anchorWindowId: null,
-      targets,
-      windowIds: [],
-    },
+    selection: { anchorTarget: targets.at(-1) ?? null, targets },
     viewport: { height: 600, width: 800 },
     windows: [
       createInfiniteCanvasWindow({
@@ -67,7 +61,7 @@ const stateWith = (targets: readonly (typeof EDGE_TARGET | typeof SCENE_TARGET)[
 
 test("an edge's bounds is the box its segment spans", () => {
   expect(
-    getInfiniteCanvasSelectionTargetBounds({
+    getInfiniteCanvasSelectionBounds({
       resolvers: [edgeResolver],
       state: stateWith([EDGE_TARGET]),
     }),
@@ -76,7 +70,7 @@ test("an edge's bounds is the box its segment spans", () => {
 
 test("several selected targets union, across resolvers", () => {
   expect(
-    getInfiniteCanvasSelectionTargetBounds({
+    getInfiniteCanvasSelectionBounds({
       resolvers: [edgeResolver, sceneResolver],
       state: stateWith([EDGE_TARGET, SCENE_TARGET]),
     }),
@@ -85,13 +79,13 @@ test("several selected targets union, across resolvers", () => {
 
 test("a target nothing answers for contributes nothing, rather than the origin", () => {
   expect(
-    getInfiniteCanvasSelectionTargetBounds({
+    getInfiniteCanvasSelectionBounds({
       resolvers: [sceneResolver],
       state: stateWith([EDGE_TARGET]),
     }),
   ).toBeNull();
   expect(
-    getInfiniteCanvasSelectionTargetBounds({ resolvers: [], state: stateWith([EDGE_TARGET]) }),
+    getInfiniteCanvasSelectionBounds({ resolvers: [], state: stateWith([EDGE_TARGET]) }),
   ).toBeNull();
 });
 
@@ -108,9 +102,7 @@ test("selection bounds covers the windows and the targets together", () => {
   const state = createInfiniteCanvasState({
     selection: {
       anchorTarget: EDGE_TARGET,
-      anchorWindowId: "note",
-      targets: [EDGE_TARGET],
-      windowIds: ["note"],
+      targets: [{ type: "window" as const, id: "note" }, EDGE_TARGET],
     },
     viewport: { height: 600, width: 800 },
     windows: [
@@ -132,7 +124,10 @@ test("selection bounds covers the windows and the targets together", () => {
 
 test("with no resolvers the answer is the window bounds, so a canvas without targets is unaffected", () => {
   const state = createInfiniteCanvasState({
-    selection: { anchorWindowId: "note", windowIds: ["note"] },
+    selection: {
+      anchorTarget: { type: "window" as const, id: "note" },
+      targets: [{ type: "window" as const, id: "note" }],
+    },
     viewport: { height: 600, width: 800 },
     windows: [
       createInfiniteCanvasWindow({

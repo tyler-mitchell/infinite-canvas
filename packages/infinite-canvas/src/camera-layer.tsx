@@ -4,7 +4,7 @@ import { useObserveEffect } from "@legendapp/state/react";
 import { useRef, type ReactNode } from "react";
 
 import { worldPointToScreenPoint } from "./geometry";
-import { useInfiniteCanvasState$ } from "./store";
+import { useInfiniteCanvasState$ } from "./react/store";
 import type { InfiniteCanvasCamera, InfiniteCanvasViewport } from "./types";
 
 /** The world origin's screen position and the zoom. Not snapped: a snapped origin steps. */

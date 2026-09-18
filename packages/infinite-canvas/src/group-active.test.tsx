@@ -3,7 +3,7 @@ import { expect, test } from "vite-plus/test";
 
 import { createInfiniteCanvasState, createInfiniteCanvasWindow } from "./factory";
 import { InfiniteCanvasGroupLayer } from "./group-layer";
-import { InfiniteCanvasProvider } from "./store";
+import { InfiniteCanvasProvider } from "./react/store";
 import type { InfiniteCanvasGroup } from "./types";
 
 type Kind = "note";

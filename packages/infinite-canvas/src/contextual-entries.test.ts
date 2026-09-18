@@ -1,9 +1,11 @@
+import { getSelectedWindowIds } from "./selection";
 import { expect, test } from "vite-plus/test";
 
 import { getInfiniteCanvasContextualEntries } from "./contextual-entries";
+import { createInfiniteCanvasStore } from "./store";
 import { createInfiniteCanvasState, createInfiniteCanvasWindow } from "./factory";
 import type { InfiniteCanvasHotkeyAction } from "./keyboard";
-import type { InfiniteCanvasCommands, InfiniteCanvasState } from "./types";
+import type { InfiniteCanvasDispatch, InfiniteCanvasState } from "./types";
 
 type Kind = "note";
 
@@ -25,7 +27,7 @@ const recorder = () => {
   const dispatched: unknown[] = [];
 
   return {
-    actions: { executeCommand: (command: unknown) => dispatched.push(command) },
+    dispatch: (action: unknown) => dispatched.push(action),
     dispatched,
   };
 };
@@ -41,10 +43,13 @@ const cutRelation = (): InfiniteCanvasHotkeyAction<Kind> => ({
 const entries = (
   state: InfiniteCanvasState<Kind>,
   hotkeyActions: readonly InfiniteCanvasHotkeyAction<Kind>[] = [],
-  actions: unknown = recorder().actions,
+  dispatch: unknown = recorder().dispatch,
 ) =>
   getInfiniteCanvasContextualEntries(state, {
-    actions: actions as InfiniteCanvasCommands<Kind>,
+    commands: createInfiniteCanvasStore({ initialState: state }).getContextualCommands({
+      includeDisabled: true,
+    }),
+    dispatch: dispatch as InfiniteCanvasDispatch<Kind>,
     hotkeyActions,
   });
 
@@ -66,14 +71,21 @@ test("a consumer verb carries no framework group", () => {
 test("a consumer verb is enabled by its own predicate, against live state", () => {
   const whenSelected: InfiniteCanvasHotkeyAction<Kind> = {
     ...cutRelation(),
-    isEnabled: (state) => state.selection.windowIds.length > 0,
+    isEnabled: (state) => getSelectedWindowIds(state.selection).length > 0,
   };
-  const idle = entries({ ...canvas(), selection: { anchorWindowId: null, windowIds: [] } }, [
+  const idle = entries({ ...canvas(), selection: { anchorTarget: null, targets: [] } }, [
     whenSelected,
   ]);
-  const selected = entries({ ...canvas(), selection: { anchorWindowId: "a", windowIds: ["a"] } }, [
-    whenSelected,
-  ]);
+  const selected = entries(
+    {
+      ...canvas(),
+      selection: {
+        anchorTarget: { type: "window" as const, id: "a" },
+        targets: [{ type: "window" as const, id: "a" }],
+      },
+    },
+    [whenSelected],
+  );
 
   expect(idle.find((entry) => entry.id === "relation.cut")?.enabled).toBe(false);
   expect(selected.find((entry) => entry.id === "relation.cut")?.enabled).toBe(true);
@@ -100,9 +112,9 @@ test("every id is unique across both vocabularies", () => {
 });
 
 test("a canvas verb runs through the reducer", () => {
-  const { actions, dispatched } = recorder();
+  const { dispatch, dispatched } = recorder();
 
-  void entries(canvas(), [], actions)
+  void entries(canvas(), [], dispatch)
     .find((entry) => entry.id === "view.fitAll")
     ?.run();
 
@@ -110,7 +122,7 @@ test("a canvas verb runs through the reducer", () => {
 });
 
 test("a consumer verb runs its own closure and never the reducer", () => {
-  const { actions, dispatched } = recorder();
+  const { dispatch, dispatched } = recorder();
   const ran: string[] = [];
 
   void entries(
@@ -123,7 +135,7 @@ test("a consumer verb runs its own closure and never the reducer", () => {
         },
       },
     ],
-    actions,
+    dispatch,
   )
     .find((entry) => entry.id === "relation.cut")
     ?.run();
@@ -154,8 +166,8 @@ test("a consumer verb's promise reaches the caller rather than being dropped", a
 });
 
 test("a canvas verb still finishes when it returns, with nothing to await", () => {
-  const { actions } = recorder();
-  const entry = entries(canvas(), [], actions).find((candidate) => candidate.id === "view.fitAll");
+  const { dispatch } = recorder();
+  const entry = entries(canvas(), [], dispatch).find((candidate) => candidate.id === "view.fitAll");
 
   expect(entry?.run()).not.toBeInstanceOf(Promise);
 });

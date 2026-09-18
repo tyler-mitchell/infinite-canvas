@@ -8,8 +8,9 @@ import {
   defineInfiniteCanvasWindowRegistry,
 } from "./factory";
 import { InfiniteCanvasViewport } from "./infinite-canvas";
-import { beginWindowMove, finishCanvasInteraction, stepCanvasInteraction } from "./interaction";
-import { InfiniteCanvasProvider } from "./store";
+import { finishCanvasInteraction } from "./interaction";
+import { InfiniteCanvasProvider } from "./react/store";
+import { createInfiniteCanvasStore } from "./store";
 import type { InfiniteCanvasState } from "./types";
 
 type Kind = "note";
@@ -35,19 +36,28 @@ const twoPanes = (): InfiniteCanvasState<Kind> => ({
   viewport: { height: 800, width: 1200 },
 });
 
-const dragOnto = (point: Readonly<{ x: number; y: number }>) =>
-  stepCanvasInteraction(
-    beginWindowMove(twoPanes(), POINTER, "west", { x: 350, y: 500 }),
-    POINTER,
-    point,
-    DEFAULT_INFINITE_CANVAS_SNAP_POLICY,
-    { dockIntent: true },
-  );
+const dragOnto = ({
+  dockIntent = true,
+  ...point
+}: Readonly<{ x: number; y: number; dockIntent?: boolean }>) => {
+  const store = createInfiniteCanvasStore({
+    initialState: twoPanes(),
+    snapPolicy: DEFAULT_INFINITE_CANVAS_SNAP_POLICY,
+  });
+  store.dispatch({
+    type: "interaction.startMove",
+    pointerId: POINTER,
+    target: { type: "window", id: "west" },
+    point: { x: 350, y: 500 },
+  });
+  store.dispatch({ type: "interaction.step", pointerId: POINTER, point, dockIntent });
+  return store;
+};
 
 const OVER_WEST_EDGE = { x: 640, y: 500 };
 
 test("a drag with dock intent resolves a preview into interaction state", () => {
-  const dragging = dragOnto(OVER_WEST_EDGE);
+  const dragging = dragOnto(OVER_WEST_EDGE).getState();
   const preview = dragging.interaction?.kind === "move" ? dragging.interaction.dockPreview : null;
 
   expect(preview?.targetId).toBe("east");
@@ -55,10 +65,11 @@ test("a drag with dock intent resolves a preview into interaction state", () => 
 });
 
 test("the overlay renders the stored preview rather than hit-testing again", () => {
-  const dragging = dragOnto(OVER_WEST_EDGE);
+  const store = dragOnto(OVER_WEST_EDGE);
+  store.windowDefinitions$.set(registry);
   const markup = renderToStaticMarkup(
-    <InfiniteCanvasProvider initialState={dragging}>
-      <InfiniteCanvasViewport<Kind> windowDefinitions={registry} />
+    <InfiniteCanvasProvider store={store}>
+      <InfiniteCanvasViewport<Kind> />
     </InfiniteCanvasProvider>,
   );
 
@@ -67,15 +78,11 @@ test("the overlay renders the stored preview rather than hit-testing again", () 
 });
 
 test("no preview, no overlay", () => {
-  const plainDrag = stepCanvasInteraction(
-    beginWindowMove(twoPanes(), POINTER, "west", { x: 350, y: 500 }),
-    POINTER,
-    OVER_WEST_EDGE,
-    DEFAULT_INFINITE_CANVAS_SNAP_POLICY,
-  );
+  const store = dragOnto({ ...OVER_WEST_EDGE, dockIntent: false });
+  store.windowDefinitions$.set(registry);
   const markup = renderToStaticMarkup(
-    <InfiniteCanvasProvider initialState={plainDrag}>
-      <InfiniteCanvasViewport<Kind> windowDefinitions={registry} />
+    <InfiniteCanvasProvider store={store}>
+      <InfiniteCanvasViewport<Kind> />
     </InfiniteCanvasProvider>,
   );
 
@@ -88,7 +95,7 @@ test("moving within one dock region does not change the preview — this is the 
     { x: 640, y: 500 },
     { x: 660, y: 550 },
   ].map((point) => {
-    const dragging = dragOnto(point);
+    const dragging = dragOnto(point).getState();
 
     return dragging.interaction?.kind === "move" ? dragging.interaction.dockPreview : null;
   });
@@ -107,7 +114,7 @@ test("moving within one dock region does not change the preview — this is the 
 });
 
 test("releasing docks exactly where the overlay said it would", () => {
-  const dragging = dragOnto(OVER_WEST_EDGE);
+  const dragging = dragOnto(OVER_WEST_EDGE).getState();
   const preview = dragging.interaction?.kind === "move" ? dragging.interaction.dockPreview : null;
   const dropped = finishCanvasInteraction(dragging, POINTER);
 

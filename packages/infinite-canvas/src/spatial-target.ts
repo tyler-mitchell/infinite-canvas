@@ -1,6 +1,14 @@
 import { DEFAULT_INFINITE_CANVAS_CHROME } from "./constants";
-import { rectContainsPoint, screenPointToWorldPoint, unionRects } from "./geometry";
-import { getSelectedWindowBounds, getSelectionTargets } from "./selection";
+import {
+  getWindowBodyRect,
+  getWindowHeaderRect,
+  rectContainsPoint,
+  screenPointToWorldPoint,
+  unionRects,
+} from "./geometry";
+import { getWindowLayoutMembership } from "./group-state";
+import { isInfiniteCanvasWindowCapable } from "./window-capabilities";
+import { getCanvasLayout } from "./layout";
 import { sortWindowsByStack } from "./stacking";
 import type {
   InfiniteCanvasChromeMetrics,
@@ -60,13 +68,13 @@ type InfiniteCanvasWindowLocalPoint = Readonly<{
 
 const DEFAULT_INFINITE_CANVAS_EDGE_TARGET_HIT_RADIUS = 10;
 
-function getWindowLocalPoint<Kind extends string>(
-  window: InfiniteCanvasWindow<Kind>,
+function getWindowLocalPoint(
+  rect: InfiniteCanvasRect,
   worldPoint: InfiniteCanvasPoint,
 ): InfiniteCanvasWindowLocalPoint {
   return {
-    x: worldPoint.x - window.rect.x,
-    y: worldPoint.y - window.rect.y,
+    x: worldPoint.x - rect.x,
+    y: worldPoint.y - rect.y,
   };
 }
 
@@ -87,15 +95,16 @@ function getResizeHandleAxis(
   return null;
 }
 
-function getWindowResizeHandleAtPoint<Kind extends string>(
-  state: InfiniteCanvasState<Kind>,
-  window: InfiniteCanvasWindow<Kind>,
+function getWindowResizeHandleAtPoint(
+  state: InfiniteCanvasState,
+  rect: InfiniteCanvasRect,
   localPoint: InfiniteCanvasWindowLocalPoint,
   chrome: InfiniteCanvasChromeMetrics,
 ): InfiniteCanvasResizeHandle | null {
+  if (chrome.resizeHandleSize <= 0) return null;
   const hitSize = Math.max(chrome.resizeHandleSize / state.camera.zoom, 1);
-  const xAxis = getResizeHandleAxis(localPoint.x, 0, window.rect.width, hitSize);
-  const yAxis = getResizeHandleAxis(localPoint.y, 0, window.rect.height, hitSize);
+  const xAxis = getResizeHandleAxis(localPoint.x, 0, rect.width, hitSize);
+  const yAxis = getResizeHandleAxis(localPoint.y, 0, rect.height, hitSize);
 
   if (xAxis === null && yAxis === null) {
     return null;
@@ -143,7 +152,10 @@ function findSpatialTargetById<Target extends Readonly<{ id: string; kind: strin
 ) {
   return target.type !== type
     ? undefined
-    : targets.find((candidate) => candidate.id === target.id && candidate.kind === target.kind);
+    : targets.find(
+        (candidate) =>
+          candidate.id === target.id && "kind" in target && candidate.kind === target.kind,
+      );
 }
 
 /** Returns the segment bounding box. */
@@ -326,16 +338,29 @@ function createInfiniteCanvasEdgeTargetResolver<Kind extends string = string>({
   };
 }
 
-function getWindowAreaAtPoint<Kind extends string>(
-  state: InfiniteCanvasState<Kind>,
-  window: InfiniteCanvasWindow<Kind>,
-  localPoint: InfiniteCanvasWindowLocalPoint,
-  chrome: InfiniteCanvasChromeMetrics,
-): Readonly<{
+function getWindowAreaAtPoint({
+  state,
+  window,
+  rect,
+  localPoint,
+  chrome,
+}: Readonly<{
+  state: InfiniteCanvasState;
+  window: InfiniteCanvasWindow;
+  rect: InfiniteCanvasRect;
+  localPoint: InfiniteCanvasWindowLocalPoint;
+  chrome: InfiniteCanvasChromeMetrics;
+}>): Readonly<{
   area: InfiniteCanvasSpatialWindowArea;
   resizeHandle?: InfiniteCanvasResizeHandle;
 }> {
-  const resizeHandle = getWindowResizeHandleAtPoint(state, window, localPoint, chrome);
+  const membership = getWindowLayoutMembership(state, window.id);
+  const resizable =
+    isInfiniteCanvasWindowCapable(window, "resizable") &&
+    (membership === null || membership.operations?.resize !== undefined);
+  const resizeHandle = resizable
+    ? getWindowResizeHandleAtPoint(state, rect, localPoint, chrome)
+    : null;
 
   if (resizeHandle !== null) {
     return {
@@ -344,18 +369,13 @@ function getWindowAreaAtPoint<Kind extends string>(
     };
   }
 
-  if (localPoint.y <= chrome.headerHeight) {
+  if (chrome.headerHeight > 0 && rectContainsPoint(getWindowHeaderRect(rect, chrome), localPoint)) {
     return {
       area: "header",
     };
   }
 
-  if (
-    localPoint.x >= chrome.borderWidth &&
-    localPoint.x <= window.rect.width - chrome.borderWidth &&
-    localPoint.y >= chrome.headerHeight &&
-    localPoint.y <= window.rect.height - chrome.borderWidth
-  ) {
+  if (rectContainsPoint(getWindowBodyRect(rect, chrome), localPoint)) {
     return {
       area: "body",
     };
@@ -370,9 +390,16 @@ function getTopmostWindowAtWorldPoint<Kind extends string>(
   state: InfiniteCanvasState<Kind>,
   worldPoint: InfiniteCanvasPoint,
 ) {
+  const canvasLayout = getCanvasLayout(state);
   return (
-    sortWindowsByStack(state.windows)
-      .filter((window) => window.mode !== "minimized" && rectContainsPoint(window.rect, worldPoint))
+    sortWindowsByStack(
+      state.windows.filter((window) => canvasLayout.visibleWindowIds.has(window.id)),
+    )
+      .flatMap((window) => {
+        const rect = canvasLayout.windowRects.get(window.id);
+        if (rect === undefined || !rectContainsPoint(rect, worldPoint)) return [];
+        return [{ rect, window }];
+      })
       .at(-1) ?? null
   );
 }
@@ -409,18 +436,19 @@ function resolveInfiniteCanvasSpatialTarget<Kind extends string>({
     return beforeWindowTarget;
   }
 
-  const window = getTopmostWindowAtWorldPoint(state, worldPoint);
+  const target = getTopmostWindowAtWorldPoint(state, worldPoint);
 
-  if (window !== null) {
-    const localPoint = getWindowLocalPoint(window, worldPoint);
-    const area = getWindowAreaAtPoint(state, window, localPoint, chrome);
+  if (target !== null) {
+    const localPoint = getWindowLocalPoint(target.rect, worldPoint);
+    const area = getWindowAreaAtPoint({ state, ...target, localPoint, chrome });
 
     return {
       ...area,
+      rect: target.rect,
       type: "window",
       viewportPoint,
-      window,
-      windowId: window.id,
+      window: target.window,
+      windowId: target.window.id,
       worldPoint,
     };
   }
@@ -444,16 +472,21 @@ type InfiniteCanvasSelectionBoundsInput<Kind extends string = string> = Readonly
   state: InfiniteCanvasState<Kind>;
 }>;
 
-/** Returns world bounds for selected non-window targets. */
-function getInfiniteCanvasSelectionTargetBounds<Kind extends string>({
+/** Returns world bounds for the selection. */
+function getInfiniteCanvasSelectionBounds<Kind extends string>({
   chrome = DEFAULT_INFINITE_CANVAS_CHROME,
   resolvers = [],
   state,
 }: InfiniteCanvasSelectionBoundsInput<Kind>): InfiniteCanvasRect | null {
   const context = { chrome, state } satisfies InfiniteCanvasSpatialTargetGeometryContext<Kind>;
+  const { groupRects, windowRects } = getCanvasLayout(state);
 
   return unionRects(
-    getSelectionTargets(state.selection).flatMap((target) => {
+    state.selection.targets.flatMap((target) => {
+      if (target.type === "group" || target.type === "window") {
+        const rect = (target.type === "group" ? groupRects : windowRects).get(target.id) ?? null;
+        return rect === null ? [] : [rect];
+      }
       const rect = resolvers.reduce<InfiniteCanvasRect | null>(
         (found, resolver) => found ?? resolver.getTargetRect?.(target, context) ?? null,
         null,
@@ -461,17 +494,6 @@ function getInfiniteCanvasSelectionTargetBounds<Kind extends string>({
 
       return rect === null ? [] : [rect];
     }),
-  );
-}
-
-/** Returns world bounds for all selected windows and targets. */
-function getInfiniteCanvasSelectionBounds<Kind extends string>(
-  input: InfiniteCanvasSelectionBoundsInput<Kind>,
-): InfiniteCanvasRect | null {
-  return unionRects(
-    [getSelectedWindowBounds(input.state), getInfiniteCanvasSelectionTargetBounds(input)].flatMap(
-      (rect) => (rect === null ? [] : [rect]),
-    ),
   );
 }
 
@@ -500,7 +522,6 @@ export {
   createInfiniteCanvasSceneObjectTargetResolver,
   getInfiniteCanvasSelectableTargetFromSpatialTarget,
   getInfiniteCanvasSelectionBounds,
-  getInfiniteCanvasSelectionTargetBounds,
   resolveInfiniteCanvasSpatialTarget,
 };
 

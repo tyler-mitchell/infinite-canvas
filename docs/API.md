@@ -1,7 +1,8 @@
 # API reference
 
-The public surface of `@hyphened/infinite-canvas` is defined by its entry barrels.
-Anything absent from these barrels is internal and unstable.
+The public surface of `@hyphened/infinite-canvas`: 235 values and 228 types.
+
+Anything absent from the public barrels is internal and unstable.
 This rule includes each `data-infinite-canvas-*` attribute, which supports hit tests instead of styles.
 
 The project maintains this document by hand.
@@ -9,6 +10,8 @@ The project maintains this document by hand.
 `verify-api-stability.mjs` makes sure that each export module has a stability class.
 
 Only `@hyphened/infinite-canvas/scene` imports `typegpu` and `@typegpu/react`.
+Import state and geometry APIs from `@hyphened/infinite-canvas/core`.
+The main entry adds React components and hooks.
 
 > Pre-1.0: the API can change between minor versions.
 
@@ -24,11 +27,11 @@ and `verify-api-stability.mjs` enforces them.
 A barrel cannot export a module without a class.
 A new export inherits the class of its module.
 
-| Reason             | Meaning                                                 | Modules                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
-| ------------------ | ------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **unobserved**     | Product use does not exercise every exported path.      | `canvas-handle`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
-| **off-by-default** | Default configuration does not enable the path.         | `rasterization-layer`, `visibility`, `diagnostics`, `native-drop`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
-| **compositor**     | The path is the new TypeGPU compositor behind `/scene`. | `scene-surface`, `scene:scene-surface`, `compositor/policy`, `scene:compositor/policy`, `scene:compositor/pass`, `scene:compositor/backend/camera`, `scene:compositor/backend/surface`, `scene:compositor/backend/world`, `scene:compositor/passes/area-light`, `scene:compositor/passes/connections`, `scene:compositor/passes/contact-shadow`, `scene:compositor/passes/drop-preview`, `scene:compositor/passes/focus-field`, `scene:compositor/passes/grid`, `scene:compositor/passes/particle-field`, `scene:compositor/passes/proximity`, `window-proximity` |
+| Reason             | Meaning                                                | Modules                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| ------------------ | ------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **unobserved**     | Product use does not exercise every exported path.     | `tools`, `use-component-palette`, `component`, `command-trigger`, `schema`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| **off-by-default** | Default configuration does not enable the path.        | `rasterization-layer`, `visibility`, `diagnostics`, `native-drop`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| **compositor**     | The path uses the TypeGPU compositor through `/scene`. | `scene-surface`, `scene:scene-surface`, `compositor/policy`, `scene:compositor/policy`, `scene:compositor/pass`, `scene:compositor/backend/camera`, `scene:compositor/backend/surface`, `scene:compositor/backend/instances`, `scene:compositor/passes/area-light`, `scene:compositor/passes/connections`, `scene:compositor/passes/contact-shadow`, `scene:compositor/passes/drop-preview`, `scene:compositor/passes/focus-field`, `scene:compositor/passes/grid`, `scene:compositor/passes/particle-field`, `scene:compositor/passes/proximity`, `window-proximity` |
 
 The `SceneLayer` types and `InfiniteCanvasWindowProximity` in `types.ts` also have the **compositor** reason.
 The compositor records into TypeGPU's typed command encoder, which TypeGPU 0.12 marks unstable.
@@ -38,12 +41,8 @@ The project removes exports that have no consumers.
 `window-scene-shell` and `scene-model` lost their public exports.
 `scene-model` duplicated `window-proxy`.
 `window-scene-shell.ts` remains internal because `window-proxy` calls one of its functions.
-`canvas-handle` is experimental because some methods have no product caller.
-
-Polkadot uses `subscribeDocument`, `snapshot`, `getState`, and `commands`.
-The handle method `subscribeDocument` supplies document changes.
-No caller uses `subscribe` or the `getContextualCommands` handle method.
-The slice method `subscribe` has no caller.
+Polkadot uses `document$`, `snapshot`, `getState`, and `dispatch`.
+The derived `document$` observable supplies completed document changes.
 The radial menu calls `getAvailableInfiniteCanvasContextualCommands` directly.
 
 `minimap` and `offscreen` have product consumers.
@@ -55,6 +54,64 @@ The radial menu calls `getAvailableInfiniteCanvasContextualCommands` directly.
 `geometry.ts` also remains in the main entry.
 `verify-pure-core.mjs` makes sure that they reach none of the GPU stack.
 They remain outside `/scene` so SVG overlays do not require the optional peers.
+
+## Registered window content
+
+- `getCanvasLayout`, `CanvasLayout`, `getTargetBounds`, `TransformTarget`: projected bounds and visibility.
+- `defineComponent`, `defineComponentRegistry`, `ComponentRenderContext`: registered content rendering.
+- `CommandId`, `CommandTrigger`, `CommandTriggerProps`, `CommandMenuItem`, `CommandMenuItemProps`: command controls.
+- `ComponentPalettePayload`, `useComponentPalette`: palette insertion state and controls.
+- `createComponentWindow`, `insertComponent`: window-based component insertion.
+- `editComponentProps`: validates authored properties and dispatches one content edit.
+- `resolveInfiniteCanvasGroupInsertion`: group placement for component insertion.
+- `InfiniteCanvasDocument`: the persisted canvas document.
+- `DocumentContent`: the document fields that history restores and persistence saves.
+
+```tsx
+import {
+  InfiniteCanvas,
+  createInfiniteCanvasStore,
+  defineComponentRegistry,
+} from "@hyphened/infinite-canvas";
+import { type } from "arktype";
+import "@hyphened/infinite-canvas/theme.css";
+
+const components = defineComponentRegistry({
+  window: { bodyPointerBehavior: "move", textSelection: "native" },
+  components: {
+    note: {
+      schema: type({ text: "string = ''" }),
+      render: ({ text }) => <p>{text}</p>,
+    },
+  },
+});
+const store = createInfiniteCanvasStore({ windows: [] });
+
+<InfiniteCanvas.Provider store={store} storageKey="notes">
+  <InfiniteCanvas.Viewport windowDefinitions={components} componentPalette>
+    <InfiniteCanvas.Palette.Root>
+      <InfiniteCanvas.Palette.Input aria-label="Search components" />
+      <InfiniteCanvas.Palette.List>
+        {({ id }) => (
+          <InfiniteCanvas.Palette.Item key={id} componentId={id}>
+            {id}
+          </InfiniteCanvas.Palette.Item>
+        )}
+      </InfiniteCanvas.Palette.List>
+      <InfiniteCanvas.Palette.Empty>No matching components.</InfiniteCanvas.Palette.Empty>
+      <InfiniteCanvas.Palette.Error />
+    </InfiniteCanvas.Palette.Root>
+  </InfiniteCanvas.Viewport>
+</InfiniteCanvas.Provider>;
+```
+
+Each component definition is a native window definition: `window.kind` selects it,
+and `window.data` contains its authored properties. The schema supplies rendering
+values; edits preserve authored inputs and enter the shared reducer path.
+`window` supplies registry-wide frame and interaction defaults; individual
+definitions can override those same native window options.
+The store owns `getState`, `snapshot`, `getContextualCommands`, and
+`document$`; content edits use the same state and dispatch path.
 
 ## Components
 
@@ -97,8 +154,9 @@ Only `windowDefinitions` is required:
 ```tsx
 import { type } from "arktype";
 import {
-  createInfiniteCanvasHandle, createInfiniteCanvasState, createInfiniteCanvasStore,
-  defineComponent, insertComponent,
+  createInfiniteCanvasStore,
+  defineComponent,
+  insertComponent,
 } from "@hyphened/infinite-canvas";
 
 const components = {
@@ -108,12 +166,14 @@ const components = {
     render: ({ text }) => <p>{text}</p>,
   }),
 };
-const store = createInfiniteCanvasStore(createInfiniteCanvasState({ windows: [] }));
-const handle = createInfiniteCanvasHandle(store);
+const store = createInfiniteCanvasStore({ windows: [] });
 const result = insertComponent({
-  handle, components, kind: "widget",
+  store,
+  components,
   input: {
-    windowId: "note-1", componentId: "note", props: { text: "A note" },
+    windowId: "note-1",
+    componentId: "note",
+    props: { text: "A note" },
     rect: { x: 0, y: 0, width: 320, height: 240 },
   },
 });
@@ -122,6 +182,27 @@ const result = insertComponent({
 `insertComponent` returns the created window, an `Error`, or ArkType errors.
 `createComponentWindow` creates the validated window without dispatching it.
 A window registry renders the instance through its component definition.
+`defineComponent` and `defineComponentRegistry` accept an optional `size` per component.
+The palette uses this size for insertion and drag previews; the default is 320 × 240 world units.
+
+```tsx
+<InfiniteCanvas.Palette.Root>
+  <InfiniteCanvas.Palette.Input aria-label="Search components" />
+  <InfiniteCanvas.Palette.List>
+    {({ id }) => (
+      <InfiniteCanvas.Palette.Item key={id} componentId={id}>
+        {id}
+      </InfiniteCanvas.Palette.Item>
+    )}
+  </InfiniteCanvas.Palette.List>
+  <InfiniteCanvas.Palette.Empty>No matching components.</InfiniteCanvas.Palette.Empty>
+</InfiniteCanvas.Palette.Root>
+```
+
+An item inserts on activation and uses native canvas drag/drop when dragged.
+The palette uses Base UI Autocomplete for filtering and keyboard navigation.
+`Root.autocomplete` accepts its input, filter, and navigation options; items and inline visibility are framework-owned.
+`Input`, `Clear`, and `Empty` expose the native parts. Visual treatment belongs to the consumer.
 `resolveComponentProps` resolves literals and record bindings, then applies an optional component schema.
 Its result includes effective props and their origins. Required missing bindings return an error.
 
@@ -129,10 +210,8 @@ For group insertion, supply `target: { groupId, containerId?, index?, layout? }`
 The container defaults to the group root. `layout` accepts masonry `x`, `y`, `span`, `rows`, and `hidden`.
 An explicit rectangle is optional when a target group is supplied.
 
-`editComponentProps({ handle, components, resolveRecord, input })` accepts
-`{ windowId, expectedRevision, props, bindings?, reset? }`.
-It refuses stale revisions and conflicting assignments before committing.
-`reset` removes overrides so schema defaults apply again. Record bindings remain references.
+`editComponentProps({ store, definition, input })` accepts `{ windowId, props }`.
+It merges the properties into the current window data and validates the result before dispatching.
 
 `CommandTrigger` and `CommandMenuItem` accept `commandId` and their Base UI component props.
 They derive labels and availability from the command catalog and recheck availability on activation.
@@ -140,14 +219,18 @@ They derive labels and availability from the command catalog and recheck availab
 ### Content sizing
 
 `window.heightMode` accepts `"content"` or `"manual"`.
-`commands.setWindowContentHeight({ windowId, height })` takes an outer height in world units.
+Dispatch `{ type: "window.setContentHeight", windowId, height }` with an outer height in world units.
 It updates floating height or masonry rows. Manual windows ignore this command.
 Pointer and keyboard resizing select manual height control.
-`commands.setWindowRect` updates a floating window's rectangle.
+Dispatch `window.setRect` to update a floating window's rectangle.
+`InfiniteCanvas.Content` supplies the allocated body height in manual mode and measures intrinsic height in content mode.
 
 `bodyPointerBehavior: "move"` makes non-interactive body content a drag handle.
 `bodyDragThresholdPx` defaults to 6 screen pixels.
+Body focus uses a React Fragment ref to enter the first focusable descendant.
 `--icx-layout-transition` overrides the default spring transition for frame position and size.
+`--icx-content-layout-transition` overrides position and width transitions for content-sized frames.
+Content-sized frame height follows measured content without a second transition.
 Pointer-owned frames and reduced-motion rendering use no transition.
 
 **`schema`**
@@ -164,12 +247,29 @@ Each field is optional, and an absent field permits the operation.
 `isInfiniteCanvasWindowCapable` applies this default.
 
 The reducer enforces each capability.
-`actions.closeWindow` returns unchanged state for a `closable: false` window.
+`window.close` returns unchanged state for a `closable: false` window.
 `interaction.startResize` refuses a window that does not permit resizing.
 `interaction.startMove`, `window.nudge`, `window.place`, and the arrange commands skip a floating window with `movable: false`. A grouped window still moves with its shell.
 Chrome controls remain present with `disabled` and `data-disabled`.
 Resize handles are absent for a window that does not permit resizing.
 Serialization omits a capability with the value `true` because absence has the same meaning.
+
+```ts
+dispatch({
+  type: "interaction.startMove",
+  target: { type: "window", id: "note-1" },
+  pointerId,
+  point,
+});
+dispatch({
+  type: "interaction.startMove",
+  target: { type: "group", id: "collection-1" },
+  pointerId,
+  point,
+});
+```
+
+`point` uses viewport coordinates. Missing targets leave state unchanged.
 
 **`workspace`**
 
@@ -189,8 +289,9 @@ The top-level camera and selection remain view state. Each workspace stores its 
 
 </details>
 
-`useInfiniteCanvasActions` provides the workspace operations.
-`reorderWorkspace({ toIndex, workspaceId })` moves a workspace to its final index.
+`useInfiniteCanvasDispatch` provides the canvas dispatch function.
+Dispatch `{ type: "workspace.reorder", toIndex, workspaceId }` to move a workspace.
+`workspace.create` enters the new workspace unless `activate` is `false`.
 `toIndex` has the same final-order meaning as `reorderGroupChild`.
 An index outside the list is clamped.
 
@@ -212,19 +313,22 @@ An index outside the list is clamped.
 
 `InfiniteCanvasProvider` accepts either `initialState` or a `store` from `createInfiniteCanvasStore`.
 The two values together cause a compile error.
-An injected store gives the parent read, subscription, command, and handle access.
-Pass that store to `createInfiniteCanvasHandle` for a programmatic client.
+An injected store gives the parent read, subscription, snapshot, and dispatch access.
 
 `storageKey` enables persistence for internal and injected stores.
 Store ownership does not change `storageKey` behavior.
-For an immediate reset write, pass `onReset` to `createInfiniteCanvasStore`.
-Without `onReset`, the normal debounce writes the reset.
+Reset publishes through `store.document$`, like other completed edits.
+Subscribe with `store.document$.onChange(({ value }) => { ... })`.
+The value is `null` during an interaction; persist non-null values.
 
 **`store`**
 
-- `InfiniteCanvasProvider`
 - `createInfiniteCanvasStore`
-- `useInfiniteCanvasActions`
+
+**`react/store`**
+
+- `InfiniteCanvasProvider`
+- `useInfiniteCanvasDispatch`
 - `useInfiniteCanvasSelectionBounds`: Returns bounds for selected windows and consumer targets.
 - `useInfiniteCanvasSelector`
 - `useInfiniteCanvasState`
@@ -234,17 +338,54 @@ Without `onReset`, the normal debounce writes the reset.
 <details><summary>types (3)</summary>
 
 - `InfiniteCanvasSignals`: The store's GPU readback slices, `signals$`. View state: `proximity` is null until the compositor's proximity pass has run.
-- `InfiniteCanvasStateValidator`
+- `InfiniteCanvasStoreOptions`: The options `createInfiniteCanvasStore` accepts.
+- `ComponentAction`: A named edit a component declares for its own data, with `set` or `update`.
+- `ContextMenuPolicy`: Which context menu a right-click opens, per target.
 - `InfiniteCanvasStore`
 
 </details>
 
+`InfiniteCanvasStore.dispatch` is the only mutation entry point.
+`useInfiniteCanvasDispatch` returns the same function inside the provider.
+Send operations as `InfiniteCanvasAction` values:
+
+```tsx
+import { useInfiniteCanvasDispatch } from "@hyphened/infinite-canvas";
+
+function CanvasControls() {
+  const dispatch = useInfiniteCanvasDispatch<"note">();
+
+  return (
+    <>
+      <button onClick={() => dispatch({ type: "window.focus", windowId: "note-1" })}>Focus</button>
+      <button onClick={() => dispatch({ type: "history.undo" })}>Undo</button>
+      <button onClick={() => dispatch({ type: "view.fitAll" })}>Fit all</button>
+    </>
+  );
+}
+```
+
+`InfiniteCanvasAction` is one discriminated union for commands and targeted mutations:
+
+- `camera.*`: navigate, pan, and zoom.
+- Command actions include selection, history, layout, workspace, and view operations.
+- `connection.*`: open, close, and update connections.
+- `desktop.*`: hydrate or reset the desktop.
+- `group.*`: create, close, dock, undock, reorder, and update group layout.
+- `interaction.*`: start, step, and finish pointer interactions.
+- `recipe.apply`: place a saved layout recipe.
+- `selection.*`: add, remove, replace, toggle, select all, and edit target selection.
+- `viewport*` and `groupMetrics.set`: publish measured canvas inputs.
+- `window.*`: open, close, focus, restore, resize, rename, and update window data.
+- `workspace.*`: create, close, activate, reorder, rename, and change membership.
+
+Window, drop, overlay, and scene render contexts expose the same dispatch function.
+`store.getContextualCommands()` returns enabled commands.
+`store.getContextualCommands({ includeDisabled: true })` also returns unavailable commands.
+The store option `getSelectionBounds(state)` supplies bounds for consumer selection targets.
+The store resolves this callback once for each action that needs selection geometry.
+
 When a control measures the full selection, use the selection bounds hook instead of `selection.windowIds.length`.
-
-**`state`**
-
-- `cloneInfiniteCanvasState`
-- `resetInfiniteCanvasState`
 
 **`stacking`**
 
@@ -280,25 +421,17 @@ These functions validate and normalize state against a window registry.
 
 **`registry`**
 
-- `assertInfiniteCanvasStateMatchesWindowRegistry`
-- `getRegisteredInfiniteCanvasWindowKinds`
-- `getUnknownInfiniteCanvasWindowKinds`
-- `isRegisteredInfiniteCanvasWindow`
-- `isRegisteredInfiniteCanvasWindowKind`
-- `normalizeInfiniteCanvasStateForWindowRegistry`
-- `recoverInfiniteCanvasStateForWindowRegistry`
+- `defineInfiniteCanvasWindowRegistry`, `getInfiniteCanvasWindowData`: see Factories.
 
 ## Commands and keyboard
 
-Every layout change uses a named command.
-Pointer input, keyboard input, controls, and programmatic clients share this command path.
+Every layout command is an `InfiniteCanvasAction`.
+Pointer input, keyboard input, controls, and programmatic clients dispatch the same payloads.
 `getInfiniteCanvasContextualCommands` returns the commands that are available for the current state.
 
 **`commands`**
 
 - `DEFAULT_INFINITE_CANVAS_COMMAND_DESCRIPTORS`
-- `executeInfiniteCanvasCommand`
-- `getAvailableInfiniteCanvasContextualCommands`
 - `getInfiniteCanvasCommandGroup`
 - `getInfiniteCanvasContextualCommands`
 - `getInfiniteCanvasHotkeyBindings`
@@ -346,7 +479,7 @@ Only canvas entries have a `group`.
 - `resolveInfiniteCanvasGroupMetrics`: Completes a partial `groupMetrics` value. The reducer and chrome use the result from `state.groupMetrics`.
 - `DEFAULT_INFINITE_CANVAS_GROUP_METRICS`, `MINIMUM_GROUP_PANE_EXTENT`
 
-Pass the minimum size to `startGroupResize`.
+Pass the minimum size in an `interaction.startGroupResize` action.
 This result does not clamp against a member `minSize`.
 This resolver follows `resolveInfiniteCanvasZoomPolicy` and `resolveInfiniteCanvasChromeMetrics`.
 An explicit `undefined` value does not erase a default.
@@ -362,17 +495,24 @@ An explicit `undefined` value does not erase a default.
 
 </details>
 
+**`group-projection`**
+
+- `getCanvasLayout(state)`: Returns layout bounds, visibility, and active move previews.
+- `CanvasLayout`: Contains `windowRects`, `groupRects`, `layouts`, `hiddenWindowIds`, `visibleWindowIds`, and `visibleGroupIds`.
+
+Projection leaves stored window rectangles unchanged.
+`interaction.startGroupGutter` identifies a container and adjacent children; layout supplies its axis and extent.
+
 **`group-state`**
 
 - `findInfiniteCanvasGroup`, `getInfiniteCanvasWindowGroup`, `isInfiniteCanvasWindowGrouped`
 - `getInfiniteCanvasGroupedWindowIds`, `reconcileInfiniteCanvasGroups`
-- `getInfiniteCanvasGroupProjection(groups, groupMetrics)`: Returns member rectangles, hidden member IDs, and masonry shell rectangles.
 - `getInfiniteCanvasGroupableWindowIds`: Returns eligible window IDs in input order. It omits missing, minimized, and grouped windows.
 - `getInfiniteCanvasGroupTitle`: Returns a supplied title. If `title` is `null`, it derives a title from current members.
 - `DEFAULT_INFINITE_CANVAS_GROUP_TITLE`: Names an empty group. Use `title === null` to distinguish a derived title from a supplied title.
 - `getInfiniteCanvasGroupTabLabel`: Returns a window title or the visible child label. A split container uses the group title.
 
-This helper applies the same eligibility rules as `createInfiniteCanvasGroup`.
+This helper applies the same eligibility rules as `group.create`.
 A persisted `string` value in `title` remains a supplied title.
 A `title` value of `null` requests a derived title.
 Pass `groupTabLabel` to replace the default tab label.
@@ -381,7 +521,6 @@ Pass `groupTabLabel` to replace the default tab label.
 
 - `InfiniteCanvasDockPreview`
 - `InfiniteCanvasGroup`: A world object that owns a local layout.
-- `InfiniteCanvasGroupProjection`
 - `InfiniteCanvasGroupTabLabel`: The signature of the `groupTabLabel` prop.
 - `InfiniteCanvasGroupTabLabelContext`: The child, its group, and the canvas windows.
 
@@ -500,7 +639,7 @@ The layout includes the camera rectangle in the bounds.
 The `size` value sets the minimap pixel box.
 It returns `null` for an unmeasured viewport or an empty canvas.
 It omits minimized windows and content hidden by a tab or collapsed accordion.
-Pass the converted point to `navigateToPoint`.
+Dispatch `camera.navigate` with a `point` target from the converted point.
 
 <details><summary>types (4)</summary>
 
@@ -562,29 +701,13 @@ All selection functions are pure.
 **`selection`**
 
 - `EMPTY_INFINITE_CANVAS_SELECTION`
-- `addSelection`
-- `addTargetSelection`
-- `clearSelection`
 - `getSelectableWindowIds`
-- `getSelectedWindowBounds`
-- `getSelectionAnchorTarget`
+- `getSelectedWindowIds`: The window ids among the selection targets, in selection order.
 - `getSelectionTargetKey`
-- `getSelectionTargets`
 - `getVisibleWindowBounds`
-- `getWindowBounds`
-- `hasInfiniteCanvasSelection`
 - `isSelectionTargetSelected`
-- `isWindowSelected`
 - `normalizeSelection`
-- `normalizeSelectionTargets`
-- `normalizeSelectionWindowIds`
-- `removeSelection`
-- `removeTargetSelection`
-- `replaceSelection`
-- `replaceTargetSelection`
-- `selectAllVisibleWindows`
-- `toggleSelection`
-- `toggleTargetSelection`
+- `updateSelection`: `(state, { mode, targets, anchorTarget? })`. Returns the state with the selection replaced, added to, removed from or toggled, and the active window that follows from the anchor.
 
 ## Camera navigation
 
@@ -600,6 +723,13 @@ The available behaviors are `center`, `centerAtZoom`, and `fit`.
 - `isCameraNavigationAvailable`
 - `navigateCamera`
 - `navigateCameraToWindow`
+- `CameraNavigation`: A navigation request with an optional `transition` (or `false` for a jump) and an abort `signal`.
+- `CameraNavigationResult`: `completed`, `cancelled` or `unavailable`.
+- `CameraAnimationRequest`: A camera to animate to, with the same `transition` and `signal`.
+- `CameraTransition`: The Motion value transition the rig accepts, without its callbacks.
+- `CameraRig`, `CameraRigOptions`: The animated camera: `animate`, `navigate`, `stop`; options set the default transition and the reduced-motion policy.
+- `CameraComposition`, `CameraFramingMode`: How a target rectangle is placed and scaled in the viewport.
+- `createCanvasTools`, `CanvasToolsContext`, `CanvasToolsOptions`: The WebMCP tools a canvas store exposes, or a function that derives them from the store context.
 
 ## Geometry helpers
 
@@ -745,7 +875,6 @@ These helpers provide window proxies, connector routes, scene transforms, and fr
 **`window-proxy`**
 
 - `getInfiniteCanvasWindowProxies`
-- `getInfiniteCanvasWindowProxy`
 
 **`visibility`**
 
@@ -770,8 +899,7 @@ Targets can include windows, window areas, handles, empty space, overlays, scene
 - `createInfiniteCanvasOverlayTargetResolver`
 - `createInfiniteCanvasSceneObjectTargetResolver`
 - `getInfiniteCanvasSelectableTargetFromSpatialTarget`
-- `getInfiniteCanvasSelectionBounds`: Returns bounds for selected windows and targets. Without target resolvers, it equals `getSelectedWindowBounds`.
-- `getInfiniteCanvasSelectionTargetBounds`: Returns bounds for selected non-window targets. It omits a target without a resolver.
+- `getInfiniteCanvasSelectionBounds`: Returns bounds for selected windows and targets. It omits a target without a resolver.
 - `resolveInfiniteCanvasSpatialTarget`
 
 <details><summary>types (6)</summary>
@@ -832,30 +960,7 @@ Serialization uses versioned JSON and omits transient interaction state.
 `documentKey` scopes the stored value.
 Each `parse*` function validates the structure, removes unknown keys, and returns the value or `null`.
 
-**`persistence`**
-
-- `getInfiniteCanvasScopedStorageKey`
-- `parseInfiniteCanvasState`
-- `parseInfiniteCanvasStateJson`
-- `serializeInfiniteCanvasState`
-- `stringifyInfiniteCanvasState`
-
-<details><summary>types (1)</summary>
-
-- `InfiniteCanvasStorageKeyInput`
-
-</details>
-
-**`validation`**
-
-- `parseInfiniteCanvasCamera`
-- `parseInfiniteCanvasPoint`
-- `parseInfiniteCanvasRecipe`: Parses an untrusted recipe from storage.
-- `parseInfiniteCanvasRect`
-- `parseInfiniteCanvasSelection`
-- `parseInfiniteCanvasSerializedState`
-- `parseInfiniteCanvasSize`
-- `parseInfiniteCanvasWindow`
+Persistence and validation run through the store's schema; see State and store.
 
 ## History (undo and redo)
 
@@ -866,9 +971,7 @@ A drag adds one entry from its start state.
 
 **`history`**
 
-- `canUndoInfiniteCanvas`, `canRedoInfiniteCanvas`: Report whether the commands are available.
-- `undoInfiniteCanvasHistory`, `redoInfiniteCanvasHistory`
-- `getInfiniteCanvasDocument`: Returns the document state that enters history.
+- `reduceInfiniteCanvasState`, `InfiniteCanvasReducerOptions`: `(state, action, options?)`. The pure reducer behind the store, with the window definitions, history, snap and zoom policies it needs.
   The framework renders that region itself as `data-slot="revealed-change"`, styled by
   `--icx-revealed-change` and faded by a CSS animation keyed on `token`, so each undo restarts it.
   Nothing clears the state: the element ends at zero opacity. `prefers-reduced-motion` hides it
@@ -882,13 +985,11 @@ counts reveals: undoing twice in the same place yields the same rectangle, so a 
 geometry alone would not restart and the second undo would look like nothing happened. The field is
 session state and is never serialized.
 
-- `getInfiniteCanvasDocumentChangeRect`: Returns the world region that differs between two
-  documents, or `null` when nothing placed moved. Undo on a canvas can revert something off screen,
-  so a person sees no movement and presses undo again; pair this with `navigateToRect` to answer
-  "where". A moved item contributes both rectangles, so the frame covers where it left and where it
-  arrived. An item only one document holds contributes its one rectangle. An unchanged item
-  contributes nothing, which is what stops every undo framing the whole canvas.
-- `EMPTY_INFINITE_CANVAS_HISTORY`, `INFINITE_CANVAS_HISTORY_LIMIT`
+- `getDocumentChangeRect`: `({ state, before, after })`. Compares projected bounds using the current layout metrics and viewport. Changed items contribute their previous and next bounds; unchanged items contribute nothing.
+- `revealDocumentChange`: `({ state, before, after })`. Marks that region as the revealed change so the viewport can show where an undo or redo landed.
+
+Dispatch `{ type: "history.undo" }` or `{ type: "history.redo" }`.
+The reducer restores the document, reconciles membership and selection, and cancels the active interaction.
 
 <details><summary>types (3)</summary>
 
@@ -898,7 +999,6 @@ session state and is never serialized.
   window drops the edges that touch it. Dispatch `connection.open`, `connection.close` and
   `connection.update` to change them.
 - `InfiniteCanvasDocument`
-- `InfiniteCanvasHistory`
 
 </details>
 
@@ -1130,21 +1230,6 @@ The `icons` prop overrides each action icon.
 
 </details>
 
-## Handle (experimental)
-
-`createInfiniteCanvasHandle(store)` returns a state snapshot, typed commands, and contextual command descriptors.
-This experimental shape can change before 1.0.
-
-**`canvas-handle`**
-
-- `createInfiniteCanvasHandle`
-
-<details><summary>types (1)</summary>
-
-- `InfiniteCanvasHandle`
-
-</details>
-
 ## Types
 
 This section lists all public types.
@@ -1152,7 +1237,7 @@ The size type `InfiniteCanvasViewport` is exported as `InfiniteCanvasViewportSiz
 
 **`types`**
 
-<details><summary>types (89)</summary>
+<details><summary>types</summary>
 
 - `InfiniteCanvasAction`
 - `InfiniteCanvasCamera`
@@ -1165,7 +1250,7 @@ The size type `InfiniteCanvasViewport` is exported as `InfiniteCanvasViewportSiz
 - `InfiniteCanvasCommandDescriptor`
 - `InfiniteCanvasCommandGroup`
 - `InfiniteCanvasCommandId`
-- `InfiniteCanvasCommands`
+- `InfiniteCanvasDispatch`: `(action: InfiniteCanvasAction<Kind>) => void`.
 - `InfiniteCanvasContextualCommand`
 - `InfiniteCanvasCursor`
 - `InfiniteCanvasCursorInteraction`
@@ -1183,7 +1268,6 @@ The size type `InfiniteCanvasViewport` is exported as `InfiniteCanvasViewportSiz
 - `InfiniteCanvasHotkeyBinding`
 - `InfiniteCanvasGroupGutterInteraction`
 - `InfiniteCanvasGroupMetrics`, `InfiniteCanvasGroupMetricsInput`: The three chrome sizes and their partial input. `state.groupMetrics` holds the completed value.
-- `InfiniteCanvasGroupMoveInteraction`
 - `InfiniteCanvasGroupResizeInteraction`
 - `InfiniteCanvasHudPolicy`
 - `InfiniteCanvasHudPolicyInput`
@@ -1210,7 +1294,6 @@ The size type `InfiniteCanvasViewport` is exported as `InfiniteCanvasViewportSiz
 - `InfiniteCanvasSelection`
 - `InfiniteCanvasSelectionTarget`
 - `InfiniteCanvasSelectionTargetType`
-- `InfiniteCanvasSerializedState`
 - `InfiniteCanvasSize`
 - `InfiniteCanvasSnapGuide`
 - `InfiniteCanvasSnapPolicy`
@@ -1260,13 +1343,13 @@ React 19 passes `ref` as an ordinary prop, so `forwardRef` is not necessary.
 
 The merge uses Base UI `mergeProps` rules:
 
-| Prop kind       | Rule                                                                                                          |
-| --------------- | ------------------------------------------------------------------------------------------------------------- |
-| Event handlers  | Both run, with the consumer first. Call `event.preventInfiniteCanvasHandler()` to skip the framework handler. |
-| `className`     | Values concatenate, with the consumer first.                                                                  |
-| `style`         | Values shallow-merge, with the consumer last.                                                                 |
-| `data-slot`     | The framework owns this value.                                                                                |
-| Everything else | The consumer owns the value.                                                                                  |
+| Prop kind       | Rule                                                                                                  |
+| --------------- | ----------------------------------------------------------------------------------------------------- |
+| Event handlers  | Both run, with the consumer first. Call `event.preventBaseUIHandler()` to skip the framework handler. |
+| `className`     | Values concatenate, with the consumer first.                                                          |
+| `style`         | Values shallow-merge, with the consumer last.                                                         |
+| `data-slot`     | The framework owns this value.                                                                        |
+| Everything else | The consumer owns the value.                                                                          |
 
 An `onPointerDown` consumer handler runs before the framework handler.
 `preventDefault` controls the browser action, not the framework handler.

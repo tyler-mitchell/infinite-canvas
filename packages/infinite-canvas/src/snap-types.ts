@@ -1,13 +1,9 @@
 import type { InfiniteCanvasRect, InfiniteCanvasSnapGuide } from "./types";
 
-type SnapCandidate = Readonly<{
-  axis: "x" | "y";
-  from: "viewport" | "window";
-  id: string;
-  kind: InfiniteCanvasSnapGuide["kind"];
-  position: number;
-  priority: number;
-}>;
+type SnapCandidate = Omit<InfiniteCanvasSnapGuide, "sourceAnchor"> &
+  Readonly<{
+    priority: number;
+  }>;
 
 type SnapAnchor = Readonly<{
   axis: "x" | "y";

@@ -1,9 +1,20 @@
 "use client";
 
 import { useValue } from "@legendapp/state/react";
-import { useEffect, useMemo, useRef, type CSSProperties } from "react";
+import {
+  useEffect,
+  useEffectEvent,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+} from "react";
+import { type } from "arktype";
+import { useResizeObserver } from "use-resize-observer";
+import { editComponentProps, type ComponentRenderContext } from "./component";
 
-import { useInfiniteCanvasDetailLevel } from "./detail-level";
+import { useInfiniteCanvasDetailLevel } from "./react/detail-level";
 import { getWindowBodyRect, isWorldRectWithinViewport } from "./geometry";
 import {
   useInfiniteCanvasRasterCaptureCapacity,
@@ -11,10 +22,11 @@ import {
   useInfiniteCanvasRasterSnapshot,
   type InfiniteCanvasRasterizationPolicy,
 } from "./rasterization";
-import { useInfiniteCanvasStore } from "./store";
+import { useInfiniteCanvasSelector, useInfiniteCanvasStore } from "./react/store";
 import type {
   InfiniteCanvasChromeMetrics,
-  InfiniteCanvasCommands,
+  InfiniteCanvasDispatch,
+  InfiniteCanvasRect,
   InfiniteCanvasState,
   InfiniteCanvasWindow,
   InfiniteCanvasWindowDefinition,
@@ -22,19 +34,21 @@ import type {
 } from "./types";
 
 function InfiniteCanvasWindowBody<Kind extends string>({
-  actions,
+  dispatch,
   chrome,
   definition,
   isActive,
   isSelected,
+  rect,
   textSelection,
   window,
 }: Readonly<{
-  actions: InfiniteCanvasCommands<Kind>;
+  dispatch: InfiniteCanvasDispatch<Kind>;
   chrome: InfiniteCanvasChromeMetrics;
   definition: InfiniteCanvasWindowDefinition<Kind>;
   isActive: boolean;
   isSelected: boolean;
+  rect: InfiniteCanvasRect;
   textSelection: InfiniteCanvasWindowTextSelection;
   window: InfiniteCanvasWindow<Kind>;
 }>) {
@@ -42,29 +56,93 @@ function InfiniteCanvasWindowBody<Kind extends string>({
   const lastRequestedSignatureRef = useRef<string | null>(null);
   const raster = useInfiniteCanvasRasterContext();
   const store = useInfiniteCanvasStore<Kind>();
+  const isComponent = definition.renderComponent !== undefined;
+  const detailLevel = useInfiniteCanvasDetailLevel(rect, definition.renderSummary !== undefined);
+  const [contentHeight, setContentHeight] = useState<number | null>(null);
+  const [editError, setEditError] = useState<string | null>(null);
+  const { height, width } = useResizeObserver<HTMLDivElement>({
+    ref: liveBodyRef,
+    box: "border-box",
+    round: Number,
+  });
+  const componentContext = useMemo<ComponentRenderContext>(
+    () => ({
+      camera: store.camera,
+      windowId: window.id,
+      onPropsChange: (props) => {
+        const result = editComponentProps({ store, input: { windowId: window.id, props } });
+        if (result instanceof type.errors) setEditError(result.summary);
+        else setEditError(result instanceof Error ? result.message : null);
+      },
+      onContentHeightChange: (height) => {
+        if (Number.isFinite(height) && height > 0) setContentHeight(height);
+      },
+    }),
+    [store, window.id],
+  );
+  const reportContentHeight = useEffectEvent((height: number) => {
+    const body = liveBodyRef.current?.closest<HTMLElement>("[data-infinite-canvas-body]");
+    const surface = body?.offsetParent;
+    const chromeHeight =
+      body !== null && body !== undefined && surface instanceof HTMLElement
+        ? (surface.getBoundingClientRect().height - body.getBoundingClientRect().height) /
+          store.getState().camera.zoom
+        : chrome.headerHeight + chrome.borderWidth * 2;
+    dispatch({
+      type: "window.setContentHeight",
+      windowId: window.id,
+      height: height + chromeHeight,
+    });
+  });
+  useLayoutEffect(() => {
+    if (
+      !isComponent ||
+      detailLevel === "summary" ||
+      (window.heightMode === "manual" && window.aspectRatio === undefined) ||
+      height === undefined ||
+      height <= 0
+    )
+      return;
+    reportContentHeight(contentHeight ?? height);
+  }, [
+    isComponent,
+    detailLevel,
+    window.heightMode,
+    window.aspectRatio,
+    contentHeight,
+    height,
+    width,
+    chrome.headerHeight,
+    chrome.borderWidth,
+  ]);
   const snapshot = useInfiniteCanvasRasterSnapshot(window.id);
-  const signature = getWindowRasterSignature(window, chrome, raster.policy);
-
-  const isEligible = useValue(() =>
-    raster.policy.enabled && isWindowRasterizationEligible({
+  const isEligible = useInfiniteCanvasSelector<Kind, boolean>((state) =>
+    isWindowRasterizationEligible({
       definition,
       isActive,
       isSelected,
       policy: raster.policy,
-      state: store.state$.get(),
+      state,
       textSelection,
+      rect,
       window,
     }),
   );
+  const signature = isEligible
+    ? getWindowRasterSignature(window, rect, chrome, raster.policy)
+    : null;
   const isCanvasIdle = useValue(
     () => raster.policy.enabled && store.state$.interaction.get() === null,
   );
 
   const hasMatchingSnapshot = snapshot?.signature === signature;
   const shouldUseSnapshot =
-    isEligible && hasMatchingSnapshot && snapshot.status === "ready" && snapshot.src !== null;
+    signature !== null &&
+    hasMatchingSnapshot &&
+    snapshot.status === "ready" &&
+    snapshot.src !== null;
   const wantsCapture =
-    isEligible &&
+    signature !== null &&
     isCanvasIdle &&
     !shouldUseSnapshot &&
     !(hasMatchingSnapshot && snapshot?.status === "failed") &&
@@ -78,13 +156,18 @@ function InfiniteCanvasWindowBody<Kind extends string>({
   }, [raster, shouldUseSnapshot, window.id]);
 
   useEffect(() => {
+    if (isEligible && signature === null)
+      console.warn("Window data cannot be cached; keeping live content", { windowId: window.id });
+  }, [isEligible, signature, window.id]);
+
+  useEffect(() => {
     if (hasMatchingSnapshot) {
       lastRequestedSignatureRef.current = signature;
     }
   }, [hasMatchingSnapshot, signature]);
 
   useEffect(() => {
-    if (!shouldQueueCapture) {
+    if (!shouldQueueCapture || signature === null) {
       return;
     }
 
@@ -97,7 +180,7 @@ function InfiniteCanvasWindowBody<Kind extends string>({
     const timeout = globalThis.setTimeout(
       () => {
         // Record the signature only after the queue accepts the request.
-        const captured = getWindowBodyRect(window.rect, chrome);
+        const captured = getWindowBodyRect(rect, chrome);
         // Capture the body box. The rect includes the frame border, which the body does not.
         const isQueued = raster.queueCapture({
           element: node,
@@ -125,20 +208,63 @@ function InfiniteCanvasWindowBody<Kind extends string>({
     shouldQueueCapture,
     signature,
     window.id,
-    window.rect.height,
-    window.rect.width,
+    rect.height,
+    rect.width,
   ]);
 
-  const renderedBody = useRenderedWindowBody({
-    actions,
+  const renderedComponent = useMemo(() => {
+    if (definition.renderComponent === undefined) return null;
+    if (definition.schema === undefined)
+      return <p role="alert">The component schema is missing.</p>;
+    const props = definition.schema(window.data);
+    return props instanceof type.errors ? (
+      <p role="alert">{props.summary}</p>
+    ) : (
+      definition.renderComponent(props, componentContext)
+    );
+  }, [definition.renderComponent, definition.schema, window.data, componentContext]);
+  const renderedBody = useMemo(() => {
+    const body = getWindowBodyRect(rect, chrome);
+    const context = {
+      dispatch,
+      bodySize: { height: body.height, width: body.width },
+      isActive,
+      isSelected,
+      rect,
+      get state() {
+        return store.state$.peek() as InfiniteCanvasState<Kind>;
+      },
+      window,
+    };
+    if (detailLevel === "summary" && definition.renderSummary !== undefined)
+      return definition.renderSummary(context);
+    if (definition.renderComponent !== undefined) return renderedComponent;
+    return definition.renderBody?.(context) ?? null;
+  }, [
+    dispatch,
     chrome,
     definition,
+    detailLevel,
     isActive,
     isSelected,
+    rect,
+    store,
     window,
-  });
-  if (textSelection === "native") return renderedBody;
+    renderedComponent,
+  ]);
+  if (textSelection === "native" && !isComponent) return renderedBody;
   const bodyScrolls = isInfiniteCanvasScrollingOverflow(definition.overflowY);
+  const contentStyle: CSSProperties = isComponent
+    ? {
+        display: "flex",
+        flexDirection: "column",
+        height: window.heightMode === "manual" || contentHeight !== null ? "100%" : undefined,
+      }
+    : {
+        contain: "layout paint style",
+        height: bodyScrolls ? undefined : "100%",
+        minHeight: bodyScrolls ? "100%" : undefined,
+      };
 
   if (shouldUseSnapshot) {
     return (
@@ -160,59 +286,17 @@ function InfiniteCanvasWindowBody<Kind extends string>({
   return (
     <div
       ref={liveBodyRef}
+      data-slot={isComponent ? "component-content" : undefined}
+      data-height-mode={window.heightMode ?? "content"}
       style={{
-        contain: "layout paint style",
-        // Scrolling bodies can grow. Other bodies stay pinned to the container.
-        height: bodyScrolls ? undefined : "100%",
-        minHeight: bodyScrolls ? "100%" : undefined,
+        ...contentStyle,
         width: "100%",
       }}
     >
       {renderedBody}
+      {editError === null ? null : <p role="alert">{editError}</p>}
     </div>
   );
-}
-
-function useRenderedWindowBody<Kind extends string>({
-  actions,
-  chrome,
-  definition,
-  isActive,
-  isSelected,
-  window,
-}: Readonly<{
-  actions: InfiniteCanvasCommands<Kind>;
-  chrome: InfiniteCanvasChromeMetrics;
-  definition: InfiniteCanvasWindowDefinition<Kind>;
-  isActive: boolean;
-  isSelected: boolean;
-  window: InfiniteCanvasWindow<Kind>;
-}>) {
-  const store = useInfiniteCanvasStore<Kind>();
-
-  // Read store state on demand so camera ticks do not rerender the body.
-  const detailLevel = useInfiniteCanvasDetailLevel(
-    window.rect,
-    definition.renderSummary !== undefined,
-  );
-
-  return useMemo(() => {
-    const body = getWindowBodyRect(window.rect, chrome);
-    const context = {
-      actions,
-      bodySize: { height: body.height, width: body.width },
-      isActive,
-      isSelected,
-      get state() {
-        return store.state$.peek() as InfiniteCanvasState<Kind>;
-      },
-      window,
-    };
-
-    return detailLevel === "summary" && definition.renderSummary !== undefined
-      ? definition.renderSummary(context)
-      : definition.renderBody?.(context);
-  }, [actions, chrome, definition, detailLevel, isActive, isSelected, store, window]);
 }
 
 /** Returns whether `overflowY` creates a scroll container. */
@@ -223,46 +307,36 @@ function isInfiniteCanvasScrollingOverflow(overflowY: CSSProperties["overflowY"]
 }
 
 function getWindowCaptureDelayMs(windowId: string, policy: InfiniteCanvasRasterizationPolicy) {
-  return policy.captureDelayMs + getStableWindowStaggerIndex(windowId) * policy.captureStaggerMs;
-}
-
-function getStableWindowStaggerIndex(windowId: string) {
-  return Array.from(windowId).reduce(
+  const stagger = Array.from(windowId).reduce(
     (hash, character) => (hash * 31 + character.charCodeAt(0)) % 32,
     0,
   );
+  return policy.captureDelayMs + stagger * policy.captureStaggerMs;
 }
 
-function getWindowRasterSignature<Kind extends string>(
+export function getWindowRasterSignature<Kind extends string>(
   window: InfiniteCanvasWindow<Kind>,
+  rect: InfiniteCanvasRect,
   chrome: InfiniteCanvasChromeMetrics,
-  policy: InfiniteCanvasRasterizationPolicy,
+  policy: Pick<InfiniteCanvasRasterizationPolicy, "adapter" | "cache" | "dpr" | "format">,
 ) {
-  return [
-    policy.adapter,
-    policy.cache,
-    policy.dpr,
-    policy.format,
-    window.id,
-    window.kind,
-    window.title,
-    window.rect.width,
-    window.rect.height,
-    chrome.headerHeight,
-    window.isPinned ? "pinned" : "normal",
-    getJsonSignaturePart(window.data),
-  ].join("|");
-}
-
-function getJsonSignaturePart(value: unknown) {
-  if (value === undefined) {
-    return "";
-  }
-
   try {
-    return JSON.stringify(value) ?? "";
+    return JSON.stringify({
+      adapter: policy.adapter,
+      cache: policy.cache,
+      dpr: policy.dpr,
+      format: policy.format,
+      id: window.id,
+      kind: window.kind,
+      title: window.title,
+      width: rect.width,
+      height: rect.height,
+      chrome,
+      isPinned: window.isPinned,
+      data: window.data,
+    });
   } catch {
-    return "unserializable";
+    return null;
   }
 }
 
@@ -273,6 +347,7 @@ function isWindowRasterizationEligible<Kind extends string>({
   policy,
   state,
   textSelection,
+  rect,
   window,
 }: Readonly<{
   definition: InfiniteCanvasWindowDefinition<Kind>;
@@ -281,11 +356,12 @@ function isWindowRasterizationEligible<Kind extends string>({
   policy: InfiniteCanvasRasterizationPolicy;
   state: InfiniteCanvasState<Kind>;
   textSelection: InfiniteCanvasWindowTextSelection;
+  rect: InfiniteCanvasRect;
   window: InfiniteCanvasWindow<Kind>;
 }>) {
   if (
     !policy.enabled ||
-    definition.renderBody === undefined ||
+    (definition.renderBody === undefined && definition.renderComponent === undefined) ||
     definition.wheelBehavior === "native-scroll" ||
     isActive ||
     isSelected ||
@@ -294,16 +370,16 @@ function isWindowRasterizationEligible<Kind extends string>({
     return false;
   }
 
-  if (state.interaction?.kind === "move" || state.interaction?.kind === "resize") {
+  if (state.interaction?.kind === "move") {
+    return !state.interaction.originRects.some(
+      ({ target }) => target.type === "window" && target.id === window.id,
+    );
+  }
+  if (state.interaction?.kind === "resize") {
     return state.interaction.windowId !== window.id;
   }
 
-  return isWorldRectWithinViewport(
-    state.camera,
-    state.viewport,
-    window.rect,
-    policy.viewportMarginPx,
-  );
+  return isWorldRectWithinViewport(state.camera, state.viewport, rect, policy.viewportMarginPx);
 }
 
 export { InfiniteCanvasWindowBody };

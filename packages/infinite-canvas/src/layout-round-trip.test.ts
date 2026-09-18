@@ -1,7 +1,8 @@
 import { expect, test } from "vite-plus/test";
 
 import { createInfiniteCanvasState, createInfiniteCanvasWindow } from "./factory";
-import { reduceInfiniteCanvasState } from "./reducer";
+import { reduceInfiniteCanvasState } from "./operations";
+import { getCanvasLayout } from "./layout";
 import type { InfiniteCanvasState } from "./types";
 
 type Kind = "note";
@@ -45,8 +46,10 @@ const uneven = (state: InfiniteCanvasState<Kind>) =>
     weights: { a: 2, b: 1 },
   });
 
-const widths = (state: InfiniteCanvasState<Kind>) =>
-  ["a", "b"].map((id) => state.windows.find((window) => window.id === id)?.rect.width);
+const widths = (state: InfiniteCanvasState<Kind>) => {
+  const rects = getCanvasLayout(state).windowRects;
+  return ["a", "b"].map((id) => rects.get(id)!.width);
+};
 
 test("a split gives its panes different widths once their weights differ", () => {
   const [first, second] = widths(uneven(splitShell()));
@@ -55,7 +58,7 @@ test("a split gives its panes different widths once their weights differ", () =>
   expect(first).not.toBe(second);
 });
 
-test("tabs overwrite those widths, which is what makes the question real", () => {
+test("tab panes share the container width", () => {
   const tabbed = widths(setLayout(uneven(splitShell()), "tabs"));
 
   expect(tabbed[0]).toBe(tabbed[1]);

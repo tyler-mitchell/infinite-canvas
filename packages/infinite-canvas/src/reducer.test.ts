@@ -1,8 +1,9 @@
+import { getSelectedWindowIds } from "./selection";
 import { expect, test } from "vite-plus/test";
 
 import { DEFAULT_INFINITE_CANVAS_SNAP_POLICY } from "./constants";
-import { DEFAULT_INFINITE_CANVAS_GROUP_METRICS } from "./group-layout";
-import { reduceInfiniteCanvasState } from "./reducer";
+import { DEFAULT_INFINITE_CANVAS_GROUP_METRICS } from "./layout";
+import { reduceInfiniteCanvasState } from "./operations";
 import type { InfiniteCanvasSelectionTarget, InfiniteCanvasState } from "./types";
 
 type TestWindowKind = "demo";
@@ -22,11 +23,10 @@ const baseState: InfiniteCanvasState<TestWindowKind> = {
   groups: [],
   viewportOccluders: [],
   workspaces: [],
-  history: { future: [], past: [] },
   interaction: null,
   selection: {
-    anchorWindowId: "alpha",
-    windowIds: ["alpha"],
+    anchorTarget: { type: "window" as const, id: "alpha" },
+    targets: [{ type: "window" as const, id: "alpha" }],
   },
   snapPreview: null,
   viewport: {
@@ -80,6 +80,48 @@ const edgeSelectionTarget: InfiniteCanvasSelectionTarget = {
   type: "edge",
 };
 
+test.each(["add", "toggle"] as const)(
+  "%s marquee retains selected groups and external targets",
+  (mode) => {
+    const grouped = reduceInfiniteCanvasState(baseState, {
+      type: "group.create",
+      groupId: "collection",
+      windowIds: ["bravo"],
+      rect: { x: 500, y: 120, width: 320, height: 240 },
+    });
+    const targets: readonly InfiniteCanvasSelectionTarget[] = [
+      { id: "collection", kind: "group", type: "group" },
+      edgeSelectionTarget,
+    ];
+    const selected = reduceInfiniteCanvasState(grouped, { type: "selection.replace", targets });
+    const started = reduceInfiniteCanvasState(selected, {
+      type: "interaction.startMarquee",
+      mode,
+      pointerId: 1,
+      point: { x: 580, y: 520 },
+    });
+    const stepped = reduceInfiniteCanvasState(started, {
+      type: "interaction.step",
+      pointerId: 1,
+      point: { x: 660, y: 600 },
+    });
+    expect(getSelectedWindowIds(stepped.selection)).toEqual(["alpha"]);
+    expect(stepped.selection.targets).toEqual([...targets, { type: "window", id: "alpha" }]);
+    const repeated = reduceInfiniteCanvasState(stepped, {
+      type: "interaction.step",
+      pointerId: 1,
+      point: { x: 660, y: 600 },
+    });
+    expect(repeated.selection).toEqual(stepped.selection);
+    const withdrawn = reduceInfiniteCanvasState(repeated, {
+      type: "interaction.step",
+      pointerId: 1,
+      point: { x: 582, y: 522 },
+    });
+    expect(withdrawn.selection).toEqual(selected.selection);
+  },
+);
+
 test("window move interaction derives rects from captured origin state", () => {
   const started = reduceInfiniteCanvasState(baseState, {
     point: {
@@ -88,7 +130,7 @@ test("window move interaction derives rects from captured origin state", () => {
     },
     pointerId: 7,
     type: "interaction.startMove",
-    windowId: "alpha",
+    target: { type: "window", id: "alpha" },
   });
   const moved = reduceInfiniteCanvasState(started, {
     point: {
@@ -108,7 +150,7 @@ test("window move interaction derives rects from captured origin state", () => {
 test("dragging one selected window moves the whole selection as one group", () => {
   const multiSelected = reduceInfiniteCanvasState(baseState, {
     type: "selection.add",
-    windowIds: ["bravo"],
+    targets: [{ type: "window" as const, id: "bravo" }],
   });
   const started = reduceInfiniteCanvasState(multiSelected, {
     point: {
@@ -117,7 +159,7 @@ test("dragging one selected window moves the whole selection as one group", () =
     },
     pointerId: 17,
     type: "interaction.startMove",
-    windowId: "alpha",
+    target: { type: "window", id: "alpha" },
   });
   const moved = reduceInfiniteCanvasState(started, {
     point: {
@@ -135,8 +177,11 @@ test("dragging one selected window moves the whole selection as one group", () =
   expect(bravo?.rect.x).toBe(530);
   expect(bravo?.rect.y).toBe(65);
   expect(moved.selection).toEqual({
-    anchorWindowId: "alpha",
-    windowIds: ["alpha", "bravo"],
+    anchorTarget: { type: "window" as const, id: "alpha" },
+    targets: [
+      { type: "window" as const, id: "alpha" },
+      { type: "window" as const, id: "bravo" },
+    ],
   });
   expect(moved.activeWindowId).toBe("alpha");
 });
@@ -149,7 +194,7 @@ test("dragging an unselected window replaces selection and moves only that windo
     },
     pointerId: 18,
     type: "interaction.startMove",
-    windowId: "bravo",
+    target: { type: "window", id: "bravo" },
   });
   const moved = reduceInfiniteCanvasState(started, {
     point: {
@@ -166,8 +211,8 @@ test("dragging an unselected window replaces selection and moves only that windo
   expect(bravo?.rect.x).toBe(530);
   expect(bravo?.rect.y).toBe(65);
   expect(moved.selection).toEqual({
-    anchorWindowId: "bravo",
-    windowIds: ["bravo"],
+    anchorTarget: { type: "window" as const, id: "bravo" },
+    targets: [{ type: "window" as const, id: "bravo" }],
   });
 });
 
@@ -263,10 +308,7 @@ test("pan interaction can opt into clearing selection for drag-to-pan input poli
   });
 
   expect(started.activeWindowId).toBe(null);
-  expect(started.selection).toEqual({
-    anchorWindowId: null,
-    windowIds: [],
-  });
+  expect(started.selection).toEqual({ anchorTarget: null, targets: [] });
   expect(started.interaction?.kind).toBe("pan");
 });
 
@@ -289,13 +331,10 @@ test("marquee replace clears selection on press and selects intersecting windows
     type: "interaction.step",
   });
 
-  expect(started.selection).toEqual({
-    anchorWindowId: null,
-    windowIds: [],
-  });
+  expect(started.selection).toEqual({ anchorTarget: null, targets: [] });
   expect(dragged.selection).toEqual({
-    anchorWindowId: "alpha",
-    windowIds: ["alpha"],
+    anchorTarget: { type: "window" as const, id: "alpha" },
+    targets: [{ type: "window" as const, id: "alpha" }],
   });
   expect(dragged.interaction?.kind).toBe("marquee");
 });
@@ -341,13 +380,13 @@ test("marquee add and toggle derive selection from the original selection snapsh
   );
 
   expect(added.selection).toEqual({
-    anchorWindowId: "bravo",
-    windowIds: ["alpha", "bravo"],
+    anchorTarget: { type: "window" as const, id: "bravo" },
+    targets: [
+      { type: "window" as const, id: "alpha" },
+      { type: "window" as const, id: "bravo" },
+    ],
   });
-  expect(toggledOff.selection).toEqual({
-    anchorWindowId: null,
-    windowIds: [],
-  });
+  expect(toggledOff.selection).toEqual({ anchorTarget: null, targets: [] });
 });
 
 test("selection actions normalize visible known window ids", () => {
@@ -357,12 +396,17 @@ test("selection actions normalize visible known window ids", () => {
   });
   const selected = reduceInfiniteCanvasState(minimized, {
     type: "selection.replace",
-    windowIds: ["missing", "alpha", "alpha", "bravo"],
+    targets: [
+      { type: "window" as const, id: "missing" },
+      { type: "window" as const, id: "alpha" },
+      { type: "window" as const, id: "alpha" },
+      { type: "window" as const, id: "bravo" },
+    ],
   });
 
   expect(selected.selection).toEqual({
-    anchorWindowId: "alpha",
-    windowIds: ["alpha"],
+    anchorTarget: { type: "window" as const, id: "alpha" },
+    targets: [{ type: "window" as const, id: "alpha" }],
   });
   expect(selected.activeWindowId).toBe("alpha");
 });
@@ -370,42 +414,45 @@ test("selection actions normalize visible known window ids", () => {
 test("selection add remove toggle and clear stay aligned with active window", () => {
   const added = reduceInfiniteCanvasState(baseState, {
     type: "selection.add",
-    windowIds: ["bravo"],
+    targets: [{ type: "window" as const, id: "bravo" }],
   });
   const toggled = reduceInfiniteCanvasState(added, {
     type: "selection.toggle",
-    windowIds: ["alpha"],
+    targets: [{ type: "window" as const, id: "alpha" }],
   });
   const cleared = reduceInfiniteCanvasState(toggled, {
     type: "selection.clear",
   });
 
   expect(added.selection).toEqual({
-    anchorWindowId: "bravo",
-    windowIds: ["alpha", "bravo"],
+    anchorTarget: { type: "window" as const, id: "bravo" },
+    targets: [
+      { type: "window" as const, id: "alpha" },
+      { type: "window" as const, id: "bravo" },
+    ],
   });
   expect(added.activeWindowId).toBe("bravo");
   expect(toggled.selection).toEqual({
-    anchorWindowId: "bravo",
-    windowIds: ["bravo"],
+    anchorTarget: { type: "window" as const, id: "bravo" },
+    targets: [{ type: "window" as const, id: "bravo" }],
   });
   expect(toggled.activeWindowId).toBe("bravo");
-  expect(cleared.selection.windowIds).toEqual([]);
+  expect(getSelectedWindowIds(cleared.selection)).toEqual([]);
   expect(cleared.activeWindowId).toBe(null);
 });
 
 test("selection target actions support scene-object and edge selection", () => {
   const selectedEdge = reduceInfiniteCanvasState(baseState, {
     targets: [edgeSelectionTarget],
-    type: "selection.targets.replace",
+    type: "selection.replace",
   });
   const addedWindow = reduceInfiniteCanvasState(selectedEdge, {
     type: "selection.add",
-    windowIds: ["bravo"],
+    targets: [{ type: "window" as const, id: "bravo" }],
   });
   const toggledEdge = reduceInfiniteCanvasState(addedWindow, {
     targets: [edgeSelectionTarget],
-    type: "selection.targets.toggle",
+    type: "selection.toggle",
   });
   const cleared = reduceInfiniteCanvasState(addedWindow, {
     type: "selection.clear",
@@ -413,26 +460,33 @@ test("selection target actions support scene-object and edge selection", () => {
 
   expect(selectedEdge.selection).toEqual({
     anchorTarget: edgeSelectionTarget,
-    anchorWindowId: null,
     targets: [edgeSelectionTarget],
-    windowIds: [],
   });
   expect(selectedEdge.activeWindowId).toBe(null);
   expect(addedWindow.selection).toEqual({
-    anchorTarget: edgeSelectionTarget,
-    anchorWindowId: "bravo",
-    targets: [edgeSelectionTarget],
-    windowIds: ["bravo"],
+    anchorTarget: { type: "window", id: "bravo" },
+    targets: [edgeSelectionTarget, { type: "window", id: "bravo" }],
   });
   expect(addedWindow.activeWindowId).toBe("bravo");
   expect(toggledEdge.selection).toEqual({
-    anchorWindowId: "bravo",
-    windowIds: ["bravo"],
+    anchorTarget: { type: "window" as const, id: "bravo" },
+    targets: [{ type: "window" as const, id: "bravo" }],
   });
-  expect(cleared.selection).toEqual({
-    anchorWindowId: null,
-    windowIds: [],
+  expect(cleared.selection).toEqual({ anchorTarget: null, targets: [] });
+});
+
+test("selection distinguishes object types with the same id", () => {
+  const window = { type: "window", id: "alpha" } as const;
+  const edge = { type: "edge", kind: "dependency", id: "alpha" } as const;
+  const selected = reduceInfiniteCanvasState(baseState, {
+    type: "selection.set",
+    selection: { anchorTarget: window, targets: [window, edge, window] },
   });
+  expect(selected.selection.targets).toEqual([window, edge]);
+  expect(selected.activeWindowId).toBe("alpha");
+  const closed = reduceInfiniteCanvasState(selected, { type: "window.close", windowId: "alpha" });
+  expect(closed.selection).toEqual({ anchorTarget: edge, targets: [edge] });
+  expect(closed.activeWindowId).toBeNull();
 });
 
 test("select all visible skips minimized windows", () => {
@@ -445,8 +499,8 @@ test("select all visible skips minimized windows", () => {
   });
 
   expect(selected.selection).toEqual({
-    anchorWindowId: "alpha",
-    windowIds: ["alpha"],
+    anchorTarget: { type: "window" as const, id: "alpha" },
+    targets: [{ type: "window" as const, id: "alpha" }],
   });
 });
 
@@ -472,8 +526,8 @@ test("minimizing active window promotes the next visible stacked window", () => 
   expect(alpha?.mode).toBe("minimized");
   expect(next.activeWindowId).toBe("bravo");
   expect(next.selection).toEqual({
-    anchorWindowId: "bravo",
-    windowIds: ["bravo"],
+    anchorTarget: { type: "window" as const, id: "bravo" },
+    targets: [{ type: "window" as const, id: "bravo" }],
   });
 });
 
@@ -524,14 +578,14 @@ test("opening and closing windows updates focus through the lifecycle API", () =
 
   expect(opened.activeWindowId).toBe("charlie");
   expect(opened.selection).toEqual({
-    anchorWindowId: "charlie",
-    windowIds: ["charlie"],
+    anchorTarget: { type: "window" as const, id: "charlie" },
+    targets: [{ type: "window" as const, id: "charlie" }],
   });
   expect(opened.windows).toHaveLength(3);
   expect(closed.activeWindowId).toBe("bravo");
   expect(closed.selection).toEqual({
-    anchorWindowId: "bravo",
-    windowIds: ["bravo"],
+    anchorTarget: { type: "window" as const, id: "bravo" },
+    targets: [{ type: "window" as const, id: "bravo" }],
   });
   expect(closed.windows).toHaveLength(2);
 });
@@ -541,10 +595,13 @@ test("reset restores a fresh baseline while preserving the measured viewport", (
     type: "window.close",
     windowId: "alpha",
   });
-  const reset = reduceInfiniteCanvasState(closed, {
-    state: baseState,
-    type: "desktop.reset",
-  });
+  const reset = reduceInfiniteCanvasState(
+    closed,
+    {
+      type: "desktop.reset",
+    },
+    { initialState: baseState },
+  );
 
   expect(reset).not.toBe(baseState);
   expect(reset.windows).not.toBe(baseState.windows);
@@ -556,15 +613,12 @@ test("reset restores a fresh baseline while preserving the measured viewport", (
 test("command execution nudges the current selection through screen-pixel deltas", () => {
   const multiSelected = reduceInfiniteCanvasState(baseState, {
     type: "selection.add",
-    windowIds: ["bravo"],
+    targets: [{ type: "window" as const, id: "bravo" }],
   });
   const nudged = reduceInfiniteCanvasState(multiSelected, {
-    command: {
-      amountPx: 10,
-      direction: "right",
-      type: "window.nudge",
-    },
-    type: "command.execute",
+    amountPx: 10,
+    direction: "right",
+    type: "window.nudge",
   });
 
   expect(nudged.windows.find((window) => window.id === "alpha")?.rect.x).toBe(105);
@@ -572,12 +626,7 @@ test("command execution nudges the current selection through screen-pixel deltas
 });
 
 test("fit selection centers and scales the camera around selected bounds", () => {
-  const fitted = reduceInfiniteCanvasState(baseState, {
-    command: {
-      type: "view.fitSelection",
-    },
-    type: "command.execute",
-  });
+  const fitted = reduceInfiniteCanvasState(baseState, { type: "view.fitSelection" });
 
   expect(fitted.camera.center).toEqual({
     x: 260,
@@ -587,12 +636,7 @@ test("fit selection centers and scales the camera around selected bounds", () =>
 });
 
 test("fit all centers and scales the camera around visible window bounds", () => {
-  const fitted = reduceInfiniteCanvasState(baseState, {
-    command: {
-      type: "view.fitAll",
-    },
-    type: "command.execute",
-  });
+  const fitted = reduceInfiniteCanvasState(baseState, { type: "view.fitAll" });
 
   expect(fitted.camera.center).toEqual({
     x: 460,
@@ -621,20 +665,17 @@ test("camera navigation centers a target window while preserving zoom", () => {
 
 test("view navigation can center a target window at an explicit zoom", () => {
   const navigated = reduceInfiniteCanvasState(baseState, {
-    command: {
-      request: {
-        behavior: {
-          type: "centerAtZoom",
-          zoom: 1.25,
-        },
-        target: {
-          type: "window",
-          windowId: "bravo",
-        },
+    request: {
+      behavior: {
+        type: "centerAtZoom",
+        zoom: 1.25,
       },
-      type: "view.navigate",
+      target: {
+        type: "window",
+        windowId: "bravo",
+      },
     },
-    type: "command.execute",
+    type: "camera.navigate",
   });
 
   expect(navigated.camera.center).toEqual({
@@ -646,25 +687,22 @@ test("view navigation can center a target window at an explicit zoom", () => {
 
 test("view navigation can target an explicit world rect", () => {
   const navigated = reduceInfiniteCanvasState(baseState, {
-    command: {
-      request: {
-        behavior: {
-          type: "centerAtZoom",
-          zoom: 0.5,
-        },
-        target: {
-          rect: {
-            height: 100,
-            width: 200,
-            x: -100,
-            y: 20,
-          },
-          type: "rect",
-        },
+    request: {
+      behavior: {
+        type: "centerAtZoom",
+        zoom: 0.5,
       },
-      type: "view.navigate",
+      target: {
+        rect: {
+          height: 100,
+          width: 200,
+          x: -100,
+          y: 20,
+        },
+        type: "rect",
+      },
     },
-    type: "command.execute",
+    type: "camera.navigate",
   });
 
   expect(navigated.camera.center).toEqual({
@@ -676,23 +714,20 @@ test("view navigation can target an explicit world rect", () => {
 
 test("view navigation can target an explicit world point", () => {
   const navigated = reduceInfiniteCanvasState(baseState, {
-    command: {
-      request: {
-        behavior: {
-          type: "centerAtZoom",
-          zoom: 1.4,
-        },
-        target: {
-          point: {
-            x: 120,
-            y: -60,
-          },
-          type: "point",
-        },
+    request: {
+      behavior: {
+        type: "centerAtZoom",
+        zoom: 1.4,
       },
-      type: "view.navigate",
+      target: {
+        point: {
+          x: 120,
+          y: -60,
+        },
+        type: "point",
+      },
     },
-    type: "command.execute",
+    type: "camera.navigate",
   });
 
   expect(navigated.camera.center).toEqual({
@@ -704,19 +739,16 @@ test("view navigation can target an explicit world point", () => {
 
 test("view navigation can fit a target window", () => {
   const navigated = reduceInfiniteCanvasState(baseState, {
-    command: {
-      request: {
-        behavior: {
-          type: "fit",
-        },
-        target: {
-          type: "window",
-          windowId: "bravo",
-        },
+    request: {
+      behavior: {
+        type: "fit",
       },
-      type: "view.navigate",
+      target: {
+        type: "window",
+        windowId: "bravo",
+      },
     },
-    type: "command.execute",
+    type: "camera.navigate",
   });
 
   expect(navigated.camera.center).toEqual({
@@ -759,43 +791,27 @@ test("desktop cancel clears interaction before clearing selection", () => {
     },
     pointerId: 27,
     type: "interaction.startMove",
-    windowId: "alpha",
+    target: { type: "window", id: "alpha" },
   });
-  const canceledInteraction = reduceInfiniteCanvasState(started, {
-    command: {
-      type: "desktop.cancel",
-    },
-    type: "command.execute",
-  });
+  const canceledInteraction = reduceInfiniteCanvasState(started, { type: "desktop.cancel" });
   const canceledSelection = reduceInfiniteCanvasState(canceledInteraction, {
-    command: {
-      type: "desktop.cancel",
-    },
-    type: "command.execute",
+    type: "desktop.cancel",
   });
 
   expect(canceledInteraction.interaction).toBe(null);
-  expect(canceledInteraction.selection.windowIds).toEqual(["alpha"]);
-  expect(canceledSelection.selection.windowIds).toEqual([]);
+  expect(getSelectedWindowIds(canceledInteraction.selection)).toEqual(["alpha"]);
+  expect(getSelectedWindowIds(canceledSelection.selection)).toEqual([]);
   expect(canceledSelection.activeWindowId).toBe(null);
 });
 
 test("desktop cancel clears non-window selection targets", () => {
   const selectedEdge = reduceInfiniteCanvasState(baseState, {
     targets: [edgeSelectionTarget],
-    type: "selection.targets.replace",
+    type: "selection.replace",
   });
-  const canceledSelection = reduceInfiniteCanvasState(selectedEdge, {
-    command: {
-      type: "desktop.cancel",
-    },
-    type: "command.execute",
-  });
+  const canceledSelection = reduceInfiniteCanvasState(selectedEdge, { type: "desktop.cancel" });
 
-  expect(canceledSelection.selection).toEqual({
-    anchorWindowId: null,
-    windowIds: [],
-  });
+  expect(canceledSelection.selection).toEqual({ anchorTarget: null, targets: [] });
 });
 
 test("move interaction snaps to nearby window edges and exposes a preview", () => {
@@ -806,7 +822,7 @@ test("move interaction snaps to nearby window edges and exposes a preview", () =
     },
     pointerId: 12,
     type: "interaction.startMove",
-    windowId: "alpha",
+    target: { type: "window", id: "alpha" },
   });
   const moved = reduceInfiniteCanvasState(started, {
     point: {
@@ -821,8 +837,12 @@ test("move interaction snaps to nearby window edges and exposes a preview", () =
 
   expect(alpha?.rect.x).toBe(180);
   expect(alphaRight).toBe(500);
-  expect(moved.snapPreview?.windowId).toBe("alpha");
+  expect(moved.snapPreview?.target).toEqual({ type: "window", id: "alpha" });
   expect(moved.snapPreview?.guides[0]?.from).toBe("window");
+  expect(moved.snapPreview?.guides[0]?.windowIds).toEqual(["bravo"]);
+  const closed = reduceInfiniteCanvasState(moved, { type: "window.close", windowId: "bravo" });
+  expect(closed.snapPreview).toBeNull();
+  expect(closed.interaction?.kind).toBe("move");
 });
 
 test("move snapping uses screen-pixel thresholds across zoom levels", () => {
@@ -851,7 +871,7 @@ test("move snapping uses screen-pixel thresholds across zoom levels", () => {
     },
     pointerId: 13,
     type: "interaction.startMove",
-    windowId: "alpha",
+    target: { type: "window", id: "alpha" },
   });
   const outsideThreshold = reduceInfiniteCanvasState(started, {
     point: {
@@ -894,7 +914,7 @@ test("viewport snapping is opt-in because the viewport frame is not a world obje
     },
     pointerId: 19,
     type: "interaction.startMove",
-    windowId: "alpha",
+    target: { type: "window", id: "alpha" },
   });
   const defaultMoved = reduceInfiniteCanvasState(started, {
     point: {
@@ -947,7 +967,7 @@ test("move snapping can align window centers without edge snapping", () => {
     },
     pointerId: 14,
     type: "interaction.startMove",
-    windowId: "alpha",
+    target: { type: "window", id: "alpha" },
   });
   const moved = reduceInfiniteCanvasState(started, {
     point: {
@@ -985,7 +1005,7 @@ test("move snapping shows both horizontal rails for equal-width edge alignment",
     },
     pointerId: 17,
     type: "interaction.startMove",
-    windowId: "alpha",
+    target: { type: "window", id: "alpha" },
   });
   const moved = reduceInfiniteCanvasState(started, {
     point: {
@@ -1025,7 +1045,7 @@ test("move snapping shows both vertical rails for equal-height edge alignment", 
     },
     pointerId: 18,
     type: "interaction.startMove",
-    windowId: "alpha",
+    target: { type: "window", id: "alpha" },
   });
   const moved = reduceInfiniteCanvasState(started, {
     point: {
@@ -1089,7 +1109,7 @@ test("move snapping can align equal gaps between neighboring windows", () => {
     },
     pointerId: 15,
     type: "interaction.startMove",
-    windowId: "alpha",
+    target: { type: "window", id: "alpha" },
   });
   const moved = reduceInfiniteCanvasState(started, {
     point: {
@@ -1103,6 +1123,13 @@ test("move snapping can align equal gaps between neighboring windows", () => {
 
   expect(alpha?.rect.x).toBe(150);
   expect(moved.snapPreview?.guides.some((guide) => guide.kind === "gap")).toBe(true);
+  const guide = moved.snapPreview?.guides.find((guide) => guide.kind === "gap");
+  expect(guide?.windowIds).toHaveLength(2);
+  const closed = reduceInfiniteCanvasState(moved, {
+    type: "window.close",
+    windowId: guide!.windowIds[0]!,
+  });
+  expect(closed.snapPreview).toBeNull();
 });
 
 test("resize snapping only adjusts the active edge", () => {

@@ -7,7 +7,7 @@ import {
   defineInfiniteCanvasWindowRegistry,
 } from "./factory";
 import { InfiniteCanvasViewport } from "./infinite-canvas";
-import { InfiniteCanvasProvider } from "./store";
+import { InfiniteCanvasProvider } from "./react/store";
 
 type Kind = "note";
 
@@ -37,8 +37,8 @@ const canvas = () => ({
 
 const markup = () =>
   renderToStaticMarkup(
-    <InfiniteCanvasProvider initialState={canvas()}>
-      <InfiniteCanvasViewport<Kind> windowDefinitions={registry} />
+    <InfiniteCanvasProvider initialState={canvas()} windowDefinitions={registry}>
+      <InfiniteCanvasViewport<Kind> />
     </InfiniteCanvasProvider>,
   );
 

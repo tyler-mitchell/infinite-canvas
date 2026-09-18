@@ -7,6 +7,19 @@ import {
 } from "./drop-interaction";
 import { createInfiniteCanvasState, createInfiniteCanvasWindow } from "./factory";
 
+test("drop placement preserves the resolved group insertion", () => {
+  const groupInsertion = { groupId: "group", containerId: "container", index: 1 };
+  const placement = getInfiniteCanvasDropPlacement({
+    state: createInfiniteCanvasState({ windows: [] }),
+    worldPoint: { x: 100, y: 100 },
+    size: { width: 80, height: 60 },
+    snapPolicy: false,
+    groupInsertion,
+  });
+  expect(placement.groupInsertion).toEqual(groupInsertion);
+  expect(placement.rect).toEqual({ x: 60, y: 70, width: 80, height: 60 });
+});
+
 test("drop interaction maps viewport points into world points", () => {
   const interaction = createInfiniteCanvasDropInteraction({
     camera: {

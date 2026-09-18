@@ -1,8 +1,9 @@
+import { getSelectedWindowIds } from "./selection";
 import { expect, test } from "vite-plus/test";
+import { createInfiniteCanvasStore } from "./store";
 
 import { createInfiniteCanvasState, createInfiniteCanvasWindow } from "./factory";
 import { createInfiniteCanvasGroupWindowNode } from "./group-tree";
-import { reduceInfiniteCanvasState } from "./reducer";
 import { applyInfiniteCanvasRecipe, captureInfiniteCanvasRecipe } from "./recipes";
 import type { InfiniteCanvasGroup, InfiniteCanvasState } from "./types";
 
@@ -138,19 +139,18 @@ test("a restored recipe never lays out a ghost", () => {
 test("applying a recipe is a single undo entry", () => {
   const before = state();
   const recipe = capture(before, BOTH)!;
-  const applied = reduceInfiniteCanvasState(before, {
+  const store = createInfiniteCanvasStore({ initialState: before });
+  store.dispatch({
     placement: { origin: { x: 500, y: 500 } },
     recipe,
     type: "recipe.apply",
   });
 
-  expect(applied.history.past).toHaveLength(1);
-  const undone = reduceInfiniteCanvasState(applied, {
-    command: { type: "history.undo" },
-    type: "command.execute",
-  });
-
-  expect(undone.windows.map((w) => w.rect.x)).toEqual(before.windows.map((w) => w.rect.x));
+  expect(store.history.undos$.peek()).toBe(1);
+  store.dispatch({ type: "history.undo" });
+  expect(store.getState().windows.map((w) => w.rect.x)).toEqual(
+    before.windows.map((w) => w.rect.x),
+  );
 });
 
 test("capturing an empty canvas yields no recipe rather than an empty one", () => {
@@ -165,13 +165,13 @@ test("capturing an empty canvas yields no recipe rather than an empty one", () =
 test("capture prefers an explicit list, then the selection, then everything", () => {
   const selected = state();
 
-  expect(selected.selection.windowIds).toEqual(["a"]);
+  expect(getSelectedWindowIds(selected.selection)).toEqual(["a"]);
   expect(capture(selected)!.windows.map((w) => w.windowId)).toEqual(["a"]);
   expect(capture(selected, BOTH)!.windows.map((w) => w.windowId)).toEqual(["a", "b"]);
 
   const unselected: InfiniteCanvasState<Kind> = {
     ...selected,
-    selection: { anchorWindowId: null, windowIds: [] },
+    selection: { anchorTarget: null, targets: [] },
   };
 
   expect(capture(unselected)!.windows.map((w) => w.windowId)).toEqual(["a", "b"]);
