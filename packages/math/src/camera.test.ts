@@ -21,6 +21,76 @@ const camera = Camera({
 const insets = Insets({ top: 48, right: 16, bottom: 0, left: 220 });
 const none = Insets({ top: 0, right: 0, bottom: 0, left: 0 });
 
+// The shape this package replaces: packages/infinite-canvas/src/geometry.ts, restated rather than
+// imported, so the test does not make that package a dependency of this one.
+const incumbent = {
+  worldToScreen: (
+    centre: { x: number; y: number },
+    viewport: { width: number; height: number },
+    zoom: number,
+    point: { x: number; y: number },
+  ) => ({
+    x: (point.x - centre.x) * zoom + viewport.width / 2,
+    y: (point.y - centre.y) * zoom + viewport.height / 2,
+  }),
+  screenToWorld: (
+    centre: { x: number; y: number },
+    viewport: { width: number; height: number },
+    zoom: number,
+    point: { x: number; y: number },
+  ) => ({
+    x: centre.x + (point.x - viewport.width / 2) / zoom,
+    y: centre.y + (point.y - viewport.height / 2) / zoom,
+  }),
+};
+
+const asPlain = (camera: Camera) => ({
+  centre: { x: camera.center.x, y: camera.center.y },
+  viewport: { width: camera.viewport.x, height: camera.viewport.y },
+});
+
+describe("this camera reproduces the rule it is replacing, in three places at once", () => {
+  const { centre, viewport } = asPlain(camera);
+
+  test("worldToScreen agrees with the DOM function for ordinary coordinates", () => {
+    [d.vec2f(0, 0), d.vec2f(120, -40), d.vec2f(-900, 640), d.vec2f(12.5, 0.25)].forEach((world) => {
+      const mine = worldToScreen(world, camera);
+      const theirs = incumbent.worldToScreen(centre, viewport, camera.zoom, {
+        x: world.x,
+        y: world.y,
+      });
+      expect(mine.x).toBeCloseTo(theirs.x, 3);
+      expect(mine.y).toBeCloseTo(theirs.y, 3);
+    });
+  });
+
+  test("screenToWorld agrees with the DOM function too", () => {
+    [d.vec2f(0, 0), d.vec2f(400, 300), d.vec2f(-50, 780)].forEach((screen) => {
+      const mine = screenToWorld(screen, camera);
+      const theirs = incumbent.screenToWorld(centre, viewport, camera.zoom, {
+        x: screen.x,
+        y: screen.y,
+      });
+      expect(mine.x).toBeCloseTo(theirs.x, 3);
+      expect(mine.y).toBeCloseTo(theirs.y, 3);
+    });
+  });
+
+  test("the two disagree far from the origin, which is why one owner is the point", () => {
+    const far = Camera({ center: d.vec2f(1e7, 0), viewport: d.vec2f(800, 600), zoom: 1 });
+    const world = d.vec2f(1e7 + 0.1, 0);
+    const mine = worldToScreen(world, far);
+    const theirs = incumbent.worldToScreen({ x: 1e7, y: 0 }, { width: 800, height: 600 }, 1, {
+      x: 1e7 + 0.1,
+      y: 0,
+    });
+    // The f64 copy keeps the tenth of a pixel; f32 storage cannot, and the shader agrees with f32.
+    expect(theirs.x).toBeCloseTo(400.1, 4);
+    expect(mine.x).toBe(400);
+    expect(mine.x).not.toBe(theirs.x);
+  });
+});
+
 describe("the two directions of one mapping", () => {
   test("invert each other", () => {
     [d.vec2f(310, 95), d.vec2f(0, 0), d.vec2f(800, 600)].forEach((point) => {
