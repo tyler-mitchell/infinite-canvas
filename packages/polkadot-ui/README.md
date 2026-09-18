@@ -30,6 +30,28 @@ import { Button, Row, Surface, Label, Meta } from "polkadot-ui";
 `Surface` owns tone, padding, radius and lift. `Row` owns a two-ended line and an optional rule.
 Neither has an opinion about what goes inside it.
 
+## Card layout
+
+```tsx
+import { Card, Kind, Prose } from "polkadot-ui";
+
+<Card.Root style={{ height: 320 }}>
+  <Card.Body>
+    <Card.Header>
+      <Kind>Project</Kind>
+    </Card.Header>
+    <Card.Content>
+      <Prose>Project details.</Prose>
+    </Card.Content>
+    <Card.Footer rule="above">Updated today</Card.Footer>
+  </Card.Body>
+</Card.Root>;
+```
+
+`Card.Content` scrolls within the available height. The header and footer keep their size.
+`Card.Root` defaults to no padding; `Card.Body` owns padding and spacing.
+Use `fill={false}` for an intrinsic-height body.
+
 ## The two rules
 
 **Every class a component draws lives in one `tv` call at the top of its file.** A component that
@@ -317,7 +339,7 @@ import { MetricTile, Separator, Surface } from "polkadot-ui";
     318.90
   </MetricTile>
   <Separator look="engraved" />
-</Surface>
+</Surface>;
 ```
 
 `MetricTile look="readout"` uses a prominent sans-serif value and a smaller, muted limit.

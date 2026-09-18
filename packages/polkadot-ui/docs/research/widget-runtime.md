@@ -48,9 +48,10 @@ Out of scope, deliberately: `@hyphened/infinite-canvas`, `packages/ui`, and ever
 
 The three rows above enumerated what `motion` owns, on the assumption that a widget motion system
 would need it. The kit that got built animates its widgets in CSS; `motion` came later for one
-disclosure, and TypeGPU for the backdrop: its declared dependencies are `@base-ui/react`,
-`@legendapp/state`, `@typegpu/color`, `@typegpu/noise`, `@typegpu/react`, `d3-shape`, `motion`,
-`tailwind-variants` and `typegpu`.
+disclosure, and TypeGPU for the backdrop; the portfolio board later brought the canvas framework and
+a headless schema-form library: its declared dependencies are `@base-ui/react`,
+`@hyphened/infinite-canvas`, `@legendapp/state`, `@remoteoss/json-schema-form`, `@typegpu/color`,
+`@typegpu/noise`, `@typegpu/react`, `d3-shape`, `motion`, `tailwind-variants` and `typegpu`.
 
 ```css
 /* src/theme.css — the motion tokens, and the reduced-motion rule that overrides them */
@@ -316,8 +317,9 @@ Status: superseded on the first paragraph, unresolved on the packer.
 - **Q6, Q7 and Q8 are not this package's questions.** They ask about R3F's project shape, whether
   R3F and TypeGPU can share one `GPUDevice`, and what motion and ZUI precedent is worth copying.
   This package paints one canvas, the backdrop under `src/shaders/`, on the global `@typegpu/react`
-  root: its dependencies are `@base-ui/react`, `@legendapp/state`, `@typegpu/color`,
-  `@typegpu/noise`, `@typegpu/react`, `d3-shape`, `motion`, `tailwind-variants` and `typegpu`, and
+  root: its dependencies are `@base-ui/react`, `@hyphened/infinite-canvas`, `@legendapp/state`,
+  `@remoteoss/json-schema-form`, `@typegpu/color`, `@typegpu/noise`, `@typegpu/react`, `d3-shape`,
+  `motion`, `tailwind-variants` and `typegpu`, and
   nothing under `src/` or `app/` imports three.js or R3F. They were scoped here when this package
   was expected to host the widget runtime including the GPU world. It hosts a component kit, and
   the question of whether widgets and the world share a frame belongs with whatever owns the world.

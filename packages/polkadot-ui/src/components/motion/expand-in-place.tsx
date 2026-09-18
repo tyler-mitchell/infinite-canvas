@@ -2,7 +2,7 @@ import { useRender } from "@base-ui/react/use-render";
 import { useValue } from "@legendapp/state/react";
 import { useMeasure } from "@legendapp/state/react-hooks/useMeasure";
 import { motion, useTransform, type HTMLMotionProps } from "motion/react";
-import { Children, isValidElement, useImperativeHandle, useLayoutEffect, useRef, type ComponentProps, type ReactNode } from "react";
+import { Children, isValidElement, useRef, type ComponentProps, type ReactNode } from "react";
 
 import { tv } from "../../tv.ts";
 import {
@@ -12,7 +12,6 @@ import {
   useDisclosureState,
   useMotionPresence,
   useSpringSize,
-  type DisclosureTargetSize,
 } from "./disclosure.tsx";
 
 const expand = tv({
@@ -24,7 +23,10 @@ const expand = tv({
   },
 });
 
-export type ExpandInPlaceViewportProps = Omit<HTMLMotionProps<"div">, "children" | "animate" | "initial" | "exit" | "layout"> & {
+export type ExpandInPlaceViewportProps = Omit<
+  HTMLMotionProps<"div">,
+  "children" | "animate" | "initial" | "exit" | "layout"
+> & {
   readonly summary?: ReactNode;
   readonly children: ReactNode;
   readonly summaryProps?: Omit<ComponentProps<"div">, "children">;
@@ -32,7 +34,6 @@ export type ExpandInPlaceViewportProps = Omit<HTMLMotionProps<"div">, "children"
   readonly stagger?: number;
   readonly distance?: number;
   readonly gap?: number;
-  readonly onTargetSizeChange?: (size: DisclosureTargetSize) => void;
 };
 
 /** Trades summary height for detail height without changing width. */
@@ -44,15 +45,12 @@ function ExpandInPlaceViewport({
   stagger = 0.1,
   distance = 10,
   gap = 12,
-  onTargetSizeChange,
   ref,
   className,
   ...props
 }: ExpandInPlaceViewportProps) {
   const { open, progress, panelId } = useDisclosureState();
   const styles = expand();
-  const viewportRef = useRef<HTMLDivElement | null>(null);
-  useImperativeHandle(ref, () => viewportRef.current!, []);
   const summaryRef = useRef<HTMLDivElement | null>(null);
   const contentRef = useRef<HTMLDivElement | null>(null);
   // Legend v3's ref declaration predates nullable React 19 refs.
@@ -60,19 +58,24 @@ function ExpandInPlaceViewport({
   const contentSize$ = useMeasure(contentRef as Parameters<typeof useMeasure>[0]);
   const measuredSummary = useValue(summarySize$.height);
   const measuredContent = useValue(contentSize$.height);
-  const targetHeight = open ? measuredContent : (measuredSummary ?? 0);
-  useLayoutEffect(() => {
-    if (targetHeight === undefined || viewportRef.current === null) return;
-    onTargetSizeChange?.({ height: targetHeight, element: viewportRef.current });
-  }, [targetHeight, onTargetSizeChange]);
   const summarySize = useSpringSize(measuredSummary);
   const contentSize = useSpringSize(measuredContent);
   const summaryHeight = useTransform(() => Math.max(0, summarySize.get() * (1 - progress.get())));
   const contentHeight = useTransform(() => Math.max(0, contentSize.get() * progress.get()));
-  const summaryOpacity = useTransform(progress, (value) => Math.max(0, Math.min(1, 1 - value * 1.8)));
+  const summaryOpacity = useTransform(progress, (value) =>
+    Math.max(0, Math.min(1, 1 - value * 1.8)),
+  );
   const contentOpacity = useTransform(progress, (value) => Math.max(0, Math.min(1, value * 1.6)));
-  const summaryInteractive = useMotionPresence({ progress: summaryOpacity, active: !open, ref: summaryRef });
-  const contentInteractive = useMotionPresence({ progress: contentOpacity, active: open, ref: contentRef });
+  const summaryInteractive = useMotionPresence({
+    progress: summaryOpacity,
+    active: !open,
+    ref: summaryRef,
+  });
+  const contentInteractive = useMotionPresence({
+    progress: contentOpacity,
+    active: open,
+    ref: contentRef,
+  });
   const items = Children.toArray(children);
 
   const summaryElement = useRender({
@@ -104,13 +107,31 @@ function ExpandInPlaceViewport({
   });
 
   return (
-    <motion.div {...props} ref={viewportRef} className={styles.viewport({ className })} data-slot="expand-in-place" id={panelId}>
+    <motion.div
+      {...props}
+      ref={ref}
+      className={styles.viewport({ className })}
+      data-slot="expand-in-place"
+      id={panelId}
+    >
       {summary === undefined ? null : (
-        <motion.div className={styles.region()} style={{ height: measuredSummary === undefined ? (open ? 0 : "auto") : summaryHeight, opacity: summaryOpacity }}>
+        <motion.div
+          className={styles.region()}
+          style={{
+            height: measuredSummary === undefined ? (open ? 0 : "auto") : summaryHeight,
+            opacity: summaryOpacity,
+          }}
+        >
           {summaryElement}
         </motion.div>
       )}
-      <motion.div className={styles.region()} style={{ height: measuredContent === undefined ? (open ? "auto" : 0) : contentHeight, opacity: contentOpacity }}>
+      <motion.div
+        className={styles.region()}
+        style={{
+          height: measuredContent === undefined ? (open ? "auto" : 0) : contentHeight,
+          opacity: contentOpacity,
+        }}
+      >
         {contentElement}
       </motion.div>
     </motion.div>

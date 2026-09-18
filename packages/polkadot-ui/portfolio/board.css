@@ -1,0 +1,11 @@
+[data-slot="canvas-window"][data-container] {
+  border-radius: var(--pk-radius-card, 12px);
+}
+
+[data-slot="canvas-window"][data-container][data-highlighted] {
+  outline: calc(1px * var(--canvas-screen-scale, 1)) solid var(--pk-line);
+}
+
+[data-slot="canvas-window"][data-container][data-selected] {
+  outline: calc(1px * var(--canvas-screen-scale, 1)) solid var(--pk-accent);
+}

@@ -24,8 +24,9 @@ import {
 } from "react";
 
 export type DisclosureSpring = NonNullable<Parameters<typeof useSpring>[1]>;
-const disclosure = tv({ slots: { item: "empty:hidden", trigger: collapsibleVariants().trigger() } });
-export type DisclosureTargetSize = Readonly<{ height: number; element: HTMLDivElement }>;
+const disclosure = tv({
+  slots: { item: "empty:hidden", trigger: collapsibleVariants().trigger() },
+});
 
 export const DISCLOSURE_SPRINGS = {
   expand: { stiffness: 240, damping: 28, mass: 1 },
@@ -91,39 +92,64 @@ export function useDisclosureState(): DisclosureState {
 
 export type DisclosureTriggerProps = Button.Props;
 
-export function DisclosureItem({ children, index, count, stagger, distance, start = 0 }: Readonly<{
-  children: ReactNode; index: number; count: number; stagger: number; distance: number; start?: number;
+export function DisclosureItem({
+  children,
+  index,
+  count,
+  stagger,
+  distance,
+  start = 0,
+}: Readonly<{
+  children: ReactNode;
+  index: number;
+  count: number;
+  stagger: number;
+  distance: number;
+  start?: number;
 }>) {
   const { progress, reducedMotion } = useDisclosureState();
-  const opacity = useTransform(progress, (value) => getStaggerProgress({ progress: value, index, count, stagger, start }));
-  const y = useTransform(opacity, (value) => reducedMotion ? 0 : (1 - value) * distance);
-  return <motion.div className={disclosure().item()} style={{ opacity, y }}>{children}</motion.div>;
+  const opacity = useTransform(progress, (value) =>
+    getStaggerProgress({ progress: value, index, count, stagger, start }),
+  );
+  const y = useTransform(opacity, (value) => (reducedMotion ? 0 : (1 - value) * distance));
+  return (
+    <motion.div className={disclosure().item()} style={{ opacity, y }}>
+      {children}
+    </motion.div>
+  );
 }
 
 /** An explicit trigger; content clicks do not change disclosure state. */
-export function DisclosureTrigger({ render, ref, disabled, className, ...props }: DisclosureTriggerProps) {
+export function DisclosureTrigger({
+  render,
+  ref,
+  disabled,
+  className,
+  ...props
+}: DisclosureTriggerProps) {
   const { open, onOpenChange, panelId, triggerRef } = useDisclosureState();
-  const element = useRender({
-    defaultTagName: "button",
-    render,
+  return useRender({
     ref: [triggerRef, ref ?? null],
+    render: (
+      <Button
+        {...mergeProps<typeof Button>(
+          {
+            "aria-controls": panelId,
+            "aria-expanded": open,
+            onClick: () => onOpenChange?.(!open),
+          },
+          props,
+        )}
+        disabled={disabled || onOpenChange === undefined}
+        className={(state) =>
+          disclosure().trigger({
+            className: typeof className === "function" ? className(state) : className,
+          })
+        }
+        render={render}
+      />
+    ),
   });
-
-  return (
-    <Button
-      {...mergeProps<"button">(
-        {
-          "aria-controls": panelId,
-          "aria-expanded": open,
-          onClick: () => onOpenChange?.(!open),
-        },
-        props,
-      )}
-      disabled={disabled || onOpenChange === undefined}
-      className={(state) => disclosure().trigger({ className: typeof className === "function" ? className(state) : className })}
-      render={element}
-    />
-  );
 }
 
 /** Measured dimensions initialize directly and retarget smoothly after that. */
@@ -153,7 +179,11 @@ export function useMotionPresence({
   progress,
   active,
   ref,
-}: Readonly<{ progress: MotionValue<number>; active: boolean; ref: RefObject<HTMLElement | null> }>) {
+}: Readonly<{
+  progress: MotionValue<number>;
+  active: boolean;
+  ref: RefObject<HTMLElement | null>;
+}>) {
   const { triggerRef } = useDisclosureState();
   const [arrived, setArrived] = useState(progress.get() >= 0.9);
   const arrivedRef = useRef(arrived);
