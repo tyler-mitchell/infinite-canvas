@@ -1,5 +1,6 @@
 /// <reference lib="dom" />
 import { d, tgpu, type TgpuRoot } from "typegpu";
+import { Camera, screenToWorld, worldToScreen } from "./camera";
 import { gapBetweenIntervals, overlapsInterval } from "./interval";
 import { aspectRatioOfRect, Pieces, Rect, rectRight, subtractRect } from "./rect";
 import { clamp, inverseLerp, roundTo } from "./scalar";
@@ -33,6 +34,8 @@ const Output = d.struct({
   ratioCollapsed: d.f32,
   ratioNormal: d.f32,
   farEdge: d.f32,
+  screened: d.vec2f,
+  worlded: d.vec2f,
   moved: d.vec2f,
   back: d.vec2f,
   overlapping: d.u32,
@@ -99,6 +102,9 @@ export async function inspect({ root }: { root: TgpuRoot }) {
     );
     output.$.ratioNormal = aspectRatioOfRect(given.hole);
     output.$.farEdge = rectRight(given.hole);
+    const view = Camera({ center: d.vec2f(120, -40), viewport: d.vec2f(800, 600), zoom: 1.5 });
+    output.$.screened = d.vec2f(worldToScreen(given.point, view));
+    output.$.worlded = d.vec2f(screenToWorld(given.point, view));
   });
 
   kernel.dispatchThreads();
@@ -107,6 +113,7 @@ export async function inspect({ root }: { root: TgpuRoot }) {
   const transform = scaleAndShift();
   const moved = transformPoint(transform, d.vec2f(7, -4));
   const back = transformPoint(invertTransform(transform), moved);
+  const view = Camera({ center: d.vec2f(120, -40), viewport: d.vec2f(800, 600), zoom: 1.5 });
   const free = subtractRect(
     Rect({ x: 0, y: 0, width: 100, height: 100 }),
     Rect({ x: 30, y: 40, width: 20, height: 25 }),
@@ -143,6 +150,10 @@ export async function inspect({ root }: { root: TgpuRoot }) {
       gpu.farEdge,
       rectRight(Rect({ x: 30, y: 40, width: 20, height: 25 })),
     ],
+    ["worldToScreen x", gpu.screened.x, worldToScreen(d.vec2f(7, -4), view).x],
+    ["worldToScreen y", gpu.screened.y, worldToScreen(d.vec2f(7, -4), view).y],
+    ["screenToWorld x", gpu.worlded.x, screenToWorld(d.vec2f(7, -4), view).x],
+    ["screenToWorld y", gpu.worlded.y, screenToWorld(d.vec2f(7, -4), view).y],
     ["subtractRect piece count", gpu.free.count, free.count],
     ...free.items.flatMap((piece, index): Agreement[] => [
       [`subtractRect piece ${index} x`, gpu.free.items[index]!.x, piece.x],

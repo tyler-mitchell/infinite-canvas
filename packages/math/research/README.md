@@ -1194,6 +1194,43 @@ because the resolver renames them. None of the shipped schemas use a reserved wo
 
 Status: runtime-proven on a software WebGPU device.
 
+## The camera rule has three owners today, and that is the whole case for this package
+
+The duplication is not hypothetical and it is not two copies. `worldToScreen` exists three times in
+this repository:
+
+| Where                                              | Form                     | Precision |
+| -------------------------------------------------- | ------------------------ | --------- |
+| `packages/math/src/camera.ts`                      | `tgpu.fn` over `d.vec2f` | f32       |
+| `infinite-canvas/src/compositor/backend/camera.ts` | `tgpu.fn` over `d.vec2f` | f32       |
+| `infinite-canvas/src/geometry.ts`                  | plain numbers, `{x, y}`  | **f64**   |
+
+The compositor copy carries the comment `identical to worldPointToScreenPoint`, which is the third
+copy's name — the duplication is known and maintained by hand. The two framework copies are not
+actually identical, because one computes in f64 and the other in f32, so DOM hit-testing and GPU
+rendering can place the same world point differently.
+
+`camera.test.ts` pins both halves of that. The incumbent formula is restated in the test rather than
+imported, so this package does not gain a dependency on the one it replaces:
+
+```ts
+test("the two disagree far from the origin, which is why one owner is the point", () => {
+  const far = Camera({ center: d.vec2f(1e7, 0), viewport: d.vec2f(800, 600), zoom: 1 });
+  const mine = worldToScreen(d.vec2f(1e7 + 0.1, 0), far);
+  const theirs = incumbent.worldToScreen(/* the f64 geometry.ts formula */);
+
+  expect(theirs.x).toBeCloseTo(400.1, 4); // the f64 copy keeps the tenth of a pixel
+  expect(mine.x).toBe(400); // f32 storage cannot, and the shader agrees with f32
+});
+```
+
+For ordinary coordinates the three agree, which is why the split has gone unnoticed. Far from the
+origin — a large canvas, which is the product — they do not.
+
+Status: runtime-proven on the CPU path. The replacement itself is not done: nothing in
+`packages/infinite-canvas` imports this package yet, and that migration is a separate piece of work
+in a package another session is actively changing.
+
 ## Conversion state
 
 The scope correction turned the work into one migration: every module whose mathematics is
