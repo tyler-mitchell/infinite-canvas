@@ -1160,6 +1160,34 @@ restated `start + length` inline instead of composing `intervalEnd`, so the edge
 and breaking `intervalEnd` did not fail them. Both now compose it, and breaking `intervalEnd` fails
 their tests.
 
+### An untested export is now a failing test, not a thing to remember
+
+Finding those by hand does not stop the next one, so the audit became a gate. It reads the barrel's
+runtime exports and the text of every sibling suite, and fails on any export no test names:
+
+```ts
+const suites = globSources("./*.test.ts", { query: "?raw", import: "default", eager: true });
+
+test("every runtime export is named by a test, so none ships unexercised", () => {
+  const names = Object.keys(api);
+  // Guards against the gate passing because it found nothing to check.
+  expect(Object.keys(suites).length).toBeGreaterThan(10);
+  expect(names.length).toBeGreaterThan(50);
+
+  expect(names.filter((name) => !new RegExp(`\\b${name}\\b`).test(body))).toEqual([]);
+});
+```
+
+It immediately found six more: `intersectionStart`, `unionStart`, `unionLength`,
+`insetIntervalStart`, `scaleIntervalAbout` and the `Intersection` schema — five of them interval
+kernels that `rect.ts` composes but nothing tested directly, which is exactly where a wrong edge rule
+hides behind a rectangle test that passes for the wrong reason. All six now have tests.
+
+Renaming an export makes the gate fail, which is how its failure path was checked rather than
+assumed. Two honest limits: it is a **coverage floor**, not proof — naming a symbol is not exercising
+it — and it sees runtime values only, never types. `import.meta.glob` is Vite's build-time
+transform, and the call site is typed locally because this package does not depend on `vite`.
+
 Also found while converting: **a WGSL reserved keyword cannot be a `d.struct` field name.**
 `d.struct({ from: d.f32 })` throws `Invalid property key 'from'`. Parameter names are unaffected,
 because the resolver renames them. None of the shipped schemas use a reserved word.
@@ -1307,8 +1335,6 @@ increments, in order of value:
    `Float32Array`, and the schema this document measured at the identical 16-byte stride supersedes
    it. Its `intersectingIndices`/`nearestIndices` queries are real capabilities that belong to the
    unwritten `rect-index.ts`, so this is a move, not a deletion.
-4. **Audit every export for a test.** Four in `rect.ts` had none, and one of those hid a defect. The
-   check is mechanical — an export with zero references outside its own module is untested — and it
-   should be a lint rule rather than a thing an agent remembers to do.
+4. Settle whether `typegpu` is a dependency or a peer dependency (see Unresolved).
    `sources/` holds every artifact already used; add to it before each new module rather than reading
    into context and discarding.

@@ -8,11 +8,81 @@ import {
   containsValue,
   gapBetweenIntervals,
   insetIntervalLength,
+  insetIntervalStart,
   intersectionLength,
+  intersectionStart,
   intersectsInterval,
   overlapsInterval,
+  scaleIntervalAbout,
+  unionLength,
+  unionStart,
 } from "./interval";
 import { containsPoint, containsRect, intersectsRect, overlapsRect, Rect } from "./rect";
+
+describe("intersectionStart and unionStart pick opposite ends", () => {
+  test("the intersection begins at the later start, the union at the earlier", () => {
+    expect(intersectionStart(10, 40)).toBe(40);
+    expect(unionStart(10, 40)).toBe(10);
+  });
+
+  test("both are the same value when the starts agree", () => {
+    expect(intersectionStart(25, 25)).toBe(25);
+    expect(unionStart(25, 25)).toBe(25);
+  });
+
+  test("order of arguments does not matter", () => {
+    expect(intersectionStart(40, 10)).toBe(intersectionStart(10, 40));
+    expect(unionStart(40, 10)).toBe(unionStart(10, 40));
+  });
+});
+
+describe("unionLength spans both intervals", () => {
+  test("reaches from the earlier start to the later end", () => {
+    expect(unionLength(0, 10, 90, 10)).toBe(100);
+  });
+
+  test("is the outer length when one contains the other", () => {
+    expect(unionLength(0, 100, 20, 10)).toBe(100);
+    expect(unionLength(20, 10, 0, 100)).toBe(100);
+  });
+
+  test("pairs with unionStart to give the covering interval", () => {
+    const start = unionStart(30, -20);
+    expect(start).toBe(-20);
+    expect(start + unionLength(30, 10, -20, 5)).toBe(40);
+  });
+});
+
+describe("insetIntervalStart moves the near edge inward", () => {
+  test("adds the leading inset", () => {
+    expect(insetIntervalStart(100, 10)).toBe(110);
+  });
+
+  test("a negative inset outsets instead", () => {
+    expect(insetIntervalStart(100, -10)).toBe(90);
+  });
+
+  test("pairs with insetIntervalLength, which floors the extent at zero", () => {
+    expect(insetIntervalStart(0, 60)).toBe(60);
+    expect(insetIntervalLength(100, 60, 60)).toBe(0);
+  });
+});
+
+describe("scaleIntervalAbout holds the origin still", () => {
+  test("leaves a start already at the origin alone", () => {
+    expect(scaleIntervalAbout(50, 50, 3)).toBe(50);
+  });
+
+  test("moves a start away from the origin by the factor", () => {
+    expect(scaleIntervalAbout(60, 50, 2)).toBe(70);
+    expect(scaleIntervalAbout(40, 50, 2)).toBe(30);
+  });
+
+  test("a factor of one changes nothing, and zero collapses to the origin", () => {
+    expect(scaleIntervalAbout(60, 50, 1)).toBe(60);
+    expect(scaleIntervalAbout(60, 50, 0)).toBe(50);
+  });
+});
 
 describe("the edge rules, stated once each", () => {
   test("containsValue counts both ends", () => {

@@ -15,6 +15,7 @@ import {
   insetRect,
   insetRectBy,
   Insets,
+  Intersection,
   intersectionRect,
   intersectsRect,
   lerpRect,
@@ -177,6 +178,11 @@ describe("intersectionRect", () => {
 
   test("reports no overlap instead of returning null", () => {
     expect(intersectionRect(rect, at(200, 0, 10, 50)).overlaps).toBe(false);
+  });
+
+  test("Intersection is the schema its result is built from", () => {
+    const found = intersectionRect(rect, at(50, 25, 100, 100));
+    expect(found).toEqual(Intersection({ rect: at(50, 25, 50, 25), overlaps: true }));
   });
 });
 
