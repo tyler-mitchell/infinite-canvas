@@ -1,7 +1,7 @@
 import {
   findInfiniteCanvasWindow,
   getInfiniteCanvasOffscreenIndicators,
-  useInfiniteCanvasActions,
+  useInfiniteCanvasDispatch,
   useInfiniteCanvasState,
 } from "@hyphened/infinite-canvas";
 
@@ -17,7 +17,7 @@ const INDICATOR_MARGIN_PX = 96;
 export function CanvasOffscreenIndicators() {
   // Indicators follow camera changes, so they subscribe to all state.
   const state = useInfiniteCanvasState();
-  const actions = useInfiniteCanvasActions();
+  const dispatch = useInfiniteCanvasDispatch();
 
   const indicators = getInfiniteCanvasOffscreenIndicators(state, {
     insetPx: INDICATOR_INSET_PX,
@@ -41,10 +41,16 @@ export function CanvasOffscreenIndicators() {
           ].join(" ")}
           key={`${indicator.kind}:${indicator.id}`}
           onClick={() => {
-            actions.navigateToRect({ behavior: { type: "center" }, rect: indicator.rect });
+            dispatch({
+              request: {
+                behavior: { type: "center" },
+                target: { rect: indicator.rect, type: "rect" },
+              },
+              type: "camera.navigate",
+            });
 
             if (indicator.kind === "window") {
-              actions.focusWindow(indicator.id);
+              dispatch({ type: "window.focus", windowId: indicator.id });
             }
           }}
           onPointerDown={(event) => {

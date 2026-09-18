@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import {
   InfiniteCanvasDesktop,
   unionRects,
-  useInfiniteCanvasActions,
+  useInfiniteCanvasDispatch,
   useInfiniteCanvasState,
 } from "@hyphened/infinite-canvas";
 import { useMemo, useState } from "react";
@@ -75,7 +75,7 @@ const GAP_CHOICES = [0, 16, 40] as const;
 
 function PackingPanel() {
   const state = useInfiniteCanvasState();
-  const actions = useInfiniteCanvasActions();
+  const dispatch = useInfiniteCanvasDispatch();
   const [gapPx, setGapPx] = useState<number>(16);
 
   const rects = state.windows
@@ -127,11 +127,11 @@ function PackingPanel() {
             data-testid="pack-windows"
             onClick={() => {
               // Packing arranges the selection, so select everything first.
-              actions.executeCommand({ type: "selection.selectAllVisible" });
-              actions.executeCommand({ gapPx, type: "window.pack" });
+              dispatch({ type: "selection.selectAllVisible" });
+              dispatch({ gapPx, type: "window.pack" });
               // Rows are as wide as the viewport, so a tidier block is a taller one and can outgrow
               // the screen. Measured here at 24 windows: 6 stayed visible without this.
-              actions.executeCommand({ type: "view.fitSelection" });
+              dispatch({ type: "view.fitSelection" });
             }}
             size="xs"
             variant="secondary"
@@ -140,7 +140,7 @@ function PackingPanel() {
           </Button>
           <Button
             onClick={() => {
-              actions.executeCommand({ type: "history.undo" });
+              dispatch({ type: "history.undo" });
             }}
             size="xs"
             variant="ghost"

@@ -4,7 +4,6 @@ import { useMemo } from "react";
 import { Button } from "ui";
 import { exposeCanvasBenchmark } from "../showcases/benchmark.ts";
 import { CommandPalette } from "../showcases/command-palette.tsx";
-import { exposeCanvasDevHandle } from "../showcases/dev-handle.ts";
 import { CanvasMinimap } from "../showcases/minimap.tsx";
 import { CanvasOffscreenIndicators } from "../showcases/offscreen-indicators.tsx";
 import {
@@ -49,11 +48,11 @@ function StressShowcase() {
   return (
     <div className="absolute inset-0">
       <InfiniteCanvasDesktop
+        tools
         documentKey={`stress-${count}-${raster ? "raster" : "live"}`}
         initialState={initialState}
         rasterization={rasterization}
-        renderOverlay={(context) => {
-          exposeCanvasDevHandle(context);
+        renderOverlay={() => {
           // This route has enough windows for useful benchmark data.
           exposeCanvasBenchmark();
           return (

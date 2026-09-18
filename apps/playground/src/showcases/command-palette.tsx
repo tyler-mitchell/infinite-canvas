@@ -1,7 +1,7 @@
 import {
   getInfiniteCanvasContextualCommands,
   getInfiniteCanvasWindowPresence,
-  useInfiniteCanvasActions,
+  useInfiniteCanvasDispatch,
   useInfiniteCanvasState,
   type InfiniteCanvasWindowPresenceItem,
 } from "@hyphened/infinite-canvas";
@@ -67,7 +67,7 @@ export function CommandPalette() {
 
 function CommandPaletteDialog({ onClose }: { onClose: () => void }) {
   const state = useInfiniteCanvasState();
-  const actions = useInfiniteCanvasActions();
+  const dispatch = useInfiniteCanvasDispatch();
   const [query, setQuery] = useState("");
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -100,15 +100,18 @@ function CommandPaletteDialog({ onClose }: { onClose: () => void }) {
 
   const runEntry = (entry: PaletteEntry) => {
     if (entry.kind === "command") {
-      actions.executeCommand(entry.command.command);
+      dispatch(entry.command.command);
     } else {
       // The palette restores minimized windows before camera navigation.
       if (entry.window.mode === "minimized") {
-        actions.restoreWindow(entry.window.id);
+        dispatch({ type: "window.restore", windowId: entry.window.id });
       }
 
-      actions.focusWindow(entry.window.id);
-      actions.navigateToWindow({ windowId: entry.window.id });
+      dispatch({ type: "window.focus", windowId: entry.window.id });
+      dispatch({
+        request: { target: { type: "window", windowId: entry.window.id } },
+        type: "camera.navigate",
+      });
     }
 
     onClose();

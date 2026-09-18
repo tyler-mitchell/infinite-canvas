@@ -15,7 +15,6 @@ import {
 import { InfiniteCanvasCompositorSurface } from "@hyphened/infinite-canvas/scene";
 import { useMemo, useRef } from "react";
 import { CommandPalette } from "../showcases/command-palette.tsx";
-import { exposeCanvasDevHandle } from "../showcases/dev-handle.ts";
 
 export const Route = createFileRoute("/drop-tray")({
   component: DropTrayShowcase,
@@ -157,14 +156,15 @@ function DropTrayShowcase() {
             }
           );
         },
-        onDrop: ({ actions, payload, placement, state, target }) => {
+        onDrop: ({ dispatch, payload, placement, state, target }) => {
           if (!isCardAsset(payload) || placement === null) {
             return;
           }
           sequenceRef.current += 1;
           const ordinal = sequenceRef.current;
-          actions.openWindow(
-            makeCard({
+          dispatch({
+            type: "window.open",
+            window: makeCard({
               accent: payload.accent,
               id: `drop-${payload.kind}-${ordinal}`,
               kind: payload.kind,
@@ -177,7 +177,7 @@ function DropTrayShowcase() {
               title: `${payload.label} ${String(ordinal).padStart(2, "0")}`,
               zIndex: state.windows.length + 1,
             }),
-          );
+          });
         },
         // The card size makes snap placement and guide rendering possible.
         placement: ({ payload }) => (isCardAsset(payload) ? { size: cardSize } : null),
@@ -199,6 +199,7 @@ function DropTrayShowcase() {
   return (
     <div className="absolute inset-0">
       <InfiniteCanvasDesktop<CardKind, CardAsset>
+        tools
         dropPolicy={dropPolicy}
         initialState={initialState}
         renderOverlay={(context) => (
@@ -222,7 +223,6 @@ function TrayOverlay({
 }: {
   context: InfiniteCanvasOverlayRenderContext<CardKind, CardAsset>;
 }) {
-  exposeCanvasDevHandle(context);
   const { drag } = context;
   const draggingId = drag.status === "dragging" ? drag.id : null;
 

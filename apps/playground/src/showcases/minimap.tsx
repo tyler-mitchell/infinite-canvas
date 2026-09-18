@@ -1,7 +1,7 @@
 import {
   getInfiniteCanvasMinimapLayout,
   getInfiniteCanvasMinimapWorldPoint,
-  useInfiniteCanvasActions,
+  useInfiniteCanvasDispatch,
   useInfiniteCanvasState,
 } from "@hyphened/infinite-canvas";
 
@@ -11,7 +11,7 @@ const MINIMAP_SIZE = { height: 132, width: 200 } as const;
 export function CanvasMinimap() {
   // The minimap follows camera changes, so it subscribes to all state.
   const state = useInfiniteCanvasState();
-  const actions = useInfiniteCanvasActions();
+  const dispatch = useInfiniteCanvasDispatch();
   const layout = getInfiniteCanvasMinimapLayout(state, MINIMAP_SIZE);
 
   if (layout === null) {
@@ -24,11 +24,17 @@ export function CanvasMinimap() {
       onPointerDown={(event) => {
         const bounds = event.currentTarget.getBoundingClientRect();
 
-        actions.navigateToPoint({
-          point: getInfiniteCanvasMinimapWorldPoint(layout, {
-            x: event.clientX - bounds.left,
-            y: event.clientY - bounds.top,
-          }),
+        dispatch({
+          request: {
+            target: {
+              point: getInfiniteCanvasMinimapWorldPoint(layout, {
+                x: event.clientX - bounds.left,
+                y: event.clientY - bounds.top,
+              }),
+              type: "point",
+            },
+          },
+          type: "camera.navigate",
         });
       }}
       style={{ cursor: "crosshair", height: MINIMAP_SIZE.height, width: MINIMAP_SIZE.width }}

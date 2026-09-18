@@ -4,6 +4,7 @@ import {
   createInfiniteCanvasState,
   createInfiniteCanvasWindow,
   defineInfiniteCanvasWindowRegistry,
+  isInfiniteCanvasWindowCapable,
 } from "@hyphened/infinite-canvas";
 import type { InfiniteCanvasState } from "@hyphened/infinite-canvas";
 
@@ -147,7 +148,7 @@ const sampleInfiniteCanvasWindowRegistry =
     control: {
       kind: "control",
       overflowY: "auto",
-      renderBody: ({ actions, isActive, window }) => (
+      renderBody: ({ dispatch, isActive, window }) => (
         <div className="flex h-full flex-col gap-4 p-4 text-[12px] text-white/62">
           <div>
             <div className="text-[10px] font-medium uppercase text-[#ffd27a]/80">
@@ -155,14 +156,14 @@ const sampleInfiniteCanvasWindowRegistry =
             </div>
             <p className="mt-2 leading-relaxed">
               This sample window is just a consumer-provided body renderer. The framework gives it
-              state and commands without exposing renderer internals.
+              state and dispatch without exposing renderer internals.
             </p>
           </div>
           <div className="grid grid-cols-2 gap-2">
             <button
               className="border border-white/10 bg-white/[0.04] px-3 py-2 text-left text-[11px] uppercase text-white/64 transition hover:border-white/20 hover:bg-white/[0.08]"
               onClick={() => {
-                actions.togglePinned(window.id);
+                dispatch({ type: "window.togglePinned", windowId: window.id });
               }}
               type="button"
             >
@@ -171,9 +172,10 @@ const sampleInfiniteCanvasWindowRegistry =
             <button
               className="border border-white/10 bg-white/[0.04] px-3 py-2 text-left text-[11px] uppercase text-white/64 transition hover:border-white/20 hover:bg-white/[0.08]"
               onClick={() => {
-                actions.focusWindow("log-window");
-                actions.navigateToWindow({
-                  windowId: "log-window",
+                dispatch({ type: "window.focus", windowId: "log-window" });
+                dispatch({
+                  request: { target: { type: "window", windowId: "log-window" } },
+                  type: "camera.navigate",
                 });
               }}
               type="button"
@@ -181,18 +183,31 @@ const sampleInfiniteCanvasWindowRegistry =
               Focus Log
             </button>
             <button
+              aria-label={window.mode === "maximized" ? "Restore" : "Maximize"}
               className="border border-white/10 bg-white/[0.04] px-3 py-2 text-left text-[11px] uppercase text-white/64 transition hover:border-white/20 hover:bg-white/[0.08]"
+              data-disabled={
+                window.mode === "maximized" || isInfiniteCanvasWindowCapable(window, "maximizable")
+                  ? undefined
+                  : ""
+              }
+              disabled={
+                window.mode !== "maximized" && !isInfiniteCanvasWindowCapable(window, "maximizable")
+              }
               onClick={() => {
-                actions.maximizeWindow(window.id);
+                if (window.mode === "maximized") {
+                  dispatch({ type: "window.restore", windowId: window.id });
+                } else {
+                  dispatch({ type: "window.maximize", windowId: window.id });
+                }
               }}
               type="button"
             >
-              Maximize
+              {window.mode === "maximized" ? "Restore" : "Maximize"}
             </button>
             <button
               className="border border-white/10 bg-white/[0.04] px-3 py-2 text-left text-[11px] uppercase text-white/64 transition hover:border-white/20 hover:bg-white/[0.08]"
               onClick={() => {
-                actions.fitAllVisibleWindows();
+                dispatch({ type: "view.fitAll" });
               }}
               type="button"
             >
@@ -201,7 +216,7 @@ const sampleInfiniteCanvasWindowRegistry =
             <button
               className="border border-white/10 bg-white/[0.04] px-3 py-2 text-left text-[11px] uppercase text-white/64 transition hover:border-white/20 hover:bg-white/[0.08]"
               onClick={() => {
-                actions.fitSelection();
+                dispatch({ type: "view.fitSelection" });
               }}
               type="button"
             >
@@ -210,15 +225,21 @@ const sampleInfiniteCanvasWindowRegistry =
             <button
               className="border border-white/10 bg-white/[0.04] px-3 py-2 text-left text-[11px] uppercase text-white/64 transition hover:border-white/20 hover:bg-white/[0.08]"
               onClick={() => {
-                actions.navigateToPoint({
-                  behavior: {
-                    type: "centerAtZoom",
-                    zoom: 0.8,
+                dispatch({
+                  request: {
+                    behavior: {
+                      type: "centerAtZoom",
+                      zoom: 0.8,
+                    },
+                    target: {
+                      point: {
+                        x: 0,
+                        y: 0,
+                      },
+                      type: "point",
+                    },
                   },
-                  point: {
-                    x: 0,
-                    y: 0,
-                  },
+                  type: "camera.navigate",
                 });
               }}
               type="button"
@@ -228,8 +249,9 @@ const sampleInfiniteCanvasWindowRegistry =
             <button
               className="border border-white/10 bg-white/[0.04] px-3 py-2 text-left text-[11px] uppercase text-white/64 transition hover:border-white/20 hover:bg-white/[0.08]"
               onClick={() => {
-                actions.openWindow(
-                  createInfiniteCanvasWindow({
+                dispatch({
+                  type: "window.open",
+                  window: createInfiniteCanvasWindow({
                     id: "scratch-window",
                     kind: "archive",
                     minSize: {
@@ -245,7 +267,7 @@ const sampleInfiniteCanvasWindowRegistry =
                     title: "scratch.note",
                     zIndex: 0,
                   }),
-                );
+                });
               }}
               type="button"
             >

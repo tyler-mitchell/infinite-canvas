@@ -4,11 +4,9 @@ import {
   createInfiniteCanvasState,
   createInfiniteCanvasWindow,
   defineInfiniteCanvasWindowRegistry,
-  findInfiniteCanvasWindow,
-  getInfiniteCanvasWindowConnectorSegment,
+  getInfiniteCanvasRectConnectorSegment,
   getInfiniteCanvasWindowPresence,
-  getInfiniteCanvasWindowProxy,
-  getSelectionTargets,
+  getTargetBounds,
   InfiniteCanvasDesktop,
   worldPointToScreenPoint,
   worldRectToScreenRect,
@@ -22,7 +20,6 @@ import { InfiniteCanvasCompositorSurface } from "@hyphened/infinite-canvas/scene
 import { useState } from "react";
 import { Button } from "ui";
 import { CommandPalette } from "../showcases/command-palette.tsx";
-import { exposeCanvasDevHandle } from "../showcases/dev-handle.ts";
 
 export const Route = createFileRoute("/workflow-board")({
   component: WorkflowBoardShowcase,
@@ -162,19 +159,14 @@ function connectionSegment(
   state: InfiniteCanvasState<CardKind>,
   connection: InfiniteCanvasConnection,
 ): InfiniteCanvasWorldSegment | null {
-  const fromWindow = findInfiniteCanvasWindow(state, connection.from);
-  const toWindow = findInfiniteCanvasWindow(state, connection.to);
-  if (fromWindow === null || toWindow === null) {
-    return null;
-  }
-  const from = getInfiniteCanvasWindowProxy(state, fromWindow);
-  const to = getInfiniteCanvasWindowProxy(state, toWindow);
-  return from && to ? getInfiniteCanvasWindowConnectorSegment(from, to) : null;
+  const from = getTargetBounds({ state, target: { type: "window", id: connection.from } });
+  const to = getTargetBounds({ state, target: { type: "window", id: connection.to } });
+  return from && to ? getInfiniteCanvasRectConnectorSegment(from, to) : null;
 }
 
 /** Ignore stale edge selections after a link or workspace changes. */
 function selectedConnectionId(state: InfiniteCanvasState<CardKind>): string | null {
-  const target = getSelectionTargets(state.selection).find(
+  const target = state.selection.targets.find(
     (candidate) => candidate.type === "edge" && candidate.kind === LINK_KIND,
   );
 
@@ -220,6 +212,7 @@ function WorkflowBoardShowcase() {
   return (
     <div className="absolute inset-0">
       <InfiniteCanvasDesktop
+        tools
         documentKey={`workflow-${workspaceId}`}
         initialState={workspace.state}
         renderOverlay={(context) => (
@@ -257,7 +250,6 @@ function BoardOverlay({
   setWorkspaceId: (workspaceId: WorkspaceId) => void;
   workspaceId: WorkspaceId;
 }) {
-  exposeCanvasDevHandle(context);
   const selectedId = selectedConnectionId(context.state);
 
   return (
@@ -279,18 +271,14 @@ function BoardOverlay({
           </Button>
         ))}
         <span className="mx-1 h-4 w-px bg-border" />
-        <Button
-          onClick={() => context.actions.executeCommand({ type: "view.fitAll" })}
-          size="xs"
-          variant="ghost"
-        >
+        <Button onClick={() => context.dispatch({ type: "view.fitAll" })} size="xs" variant="ghost">
           Fit board
         </Button>
         {selectedId === null ? null : (
           <Button
             onClick={() => {
-              context.actions.dispatch({ connectionId: selectedId, type: "connection.close" });
-              context.actions.executeCommand({ type: "selection.clear" });
+              context.dispatch({ connectionId: selectedId, type: "connection.close" });
+              context.dispatch({ type: "selection.clear" });
             }}
             size="xs"
             variant="destructive"
@@ -377,7 +365,7 @@ function WindowPorts({
                     return;
                   }
                   // A repeated pair is the reducer's problem: opening an existing id is a no-op.
-                  context.actions.dispatch({
+                  context.dispatch({
                     connection: link({ from: pendingFrom, label: "link", to: window.id }),
                     type: "connection.open",
                   });
@@ -435,8 +423,11 @@ function Dock({ context }: { context: InfiniteCanvasOverlayRenderContext<CardKin
         <Button
           key={item.id}
           onClick={() => {
-            context.actions.focusWindow(item.id);
-            context.actions.navigateToWindow({ windowId: item.id });
+            context.dispatch({ type: "window.focus", windowId: item.id });
+            context.dispatch({
+              request: { target: { type: "window", windowId: item.id } },
+              type: "camera.navigate",
+            });
           }}
           size="xs"
           variant={item.isActive ? "secondary" : "ghost"}

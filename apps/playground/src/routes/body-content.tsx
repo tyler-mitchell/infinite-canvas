@@ -7,7 +7,6 @@ import {
 } from "@hyphened/infinite-canvas";
 import { useState } from "react";
 import { CommandPalette } from "../showcases/command-palette.tsx";
-import { exposeCanvasDevHandle } from "../showcases/dev-handle.ts";
 import { exposeCanvasVerification } from "../showcases/verify.ts";
 
 type BodyContentWindowKind = "form" | "list" | "prose";
@@ -167,9 +166,9 @@ function BodyContentShowcase() {
   return (
     <div className="absolute inset-0">
       <InfiniteCanvasDesktop
+        tools
         initialState={initialState}
-        renderOverlay={(context) => {
-          exposeCanvasDevHandle(context);
+        renderOverlay={() => {
           // This route supplies the tabbable controls for focus checks.
           exposeCanvasVerification();
 

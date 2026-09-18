@@ -6,17 +6,17 @@ import {
   defineInfiniteCanvasWindowRegistry,
   getInfiniteCanvasGroupWindowIds,
   InfiniteCanvasDesktop,
-  parseInfiniteCanvasRecipe,
+  canvasModel,
   unionRects,
-  useInfiniteCanvasActions,
+  useInfiniteCanvasDispatch,
   useInfiniteCanvasSelector,
   useInfiniteCanvasStore,
   type InfiniteCanvasRecipe,
 } from "@hyphened/infinite-canvas";
 import { useRef } from "react";
+import { type } from "arktype";
 import { Button } from "ui";
 import { CommandPalette } from "../showcases/command-palette.tsx";
-import { exposeCanvasDevHandle } from "../showcases/dev-handle.ts";
 import { CanvasOffscreenIndicators } from "../showcases/offscreen-indicators.tsx";
 import { CanvasThemeSwitcher } from "../showcases/theme-switcher.tsx";
 
@@ -102,14 +102,15 @@ function readStoredRecipe(): InfiniteCanvasRecipe | null {
   }
 
   try {
-    return parseInfiniteCanvasRecipe(JSON.parse(raw));
+    const recipe = canvasModel.Recipe(JSON.parse(raw));
+    return recipe instanceof type.errors ? null : recipe;
   } catch {
     return null;
   }
 }
 
 function RecipeControls() {
-  const actions = useInfiniteCanvasActions();
+  const dispatch = useInfiniteCanvasDispatch();
   const store = useInfiniteCanvasStore();
 
   return (
@@ -136,9 +137,10 @@ function RecipeControls() {
 
           if (recipe !== null) {
             // Recipes translate to the target rect without scaling.
-            actions.applyRecipe({
+            dispatch({
               placement: { rect: { height: 600, width: 900, x: -100, y: -100 } },
               recipe,
+              type: "recipe.apply",
             });
           }
         }}
@@ -154,7 +156,7 @@ function RecipeControls() {
 const NEW_WINDOW_SIZE = { height: 260, width: 320 } as const;
 
 function NewWindowButton() {
-  const actions = useInfiniteCanvasActions<Kind>();
+  const dispatch = useInfiniteCanvasDispatch<Kind>();
   const store = useInfiniteCanvasStore<Kind>();
   const sequenceRef = useRef(0);
 
@@ -167,8 +169,9 @@ function NewWindowButton() {
         const ordinal = sequenceRef.current;
         const cascade = (ordinal % 5) * 28;
 
-        actions.openWindow(
-          createInfiniteCanvasWindow<Kind>({
+        dispatch({
+          type: "window.open",
+          window: createInfiniteCanvasWindow<Kind>({
             id: `pane-${ordinal}`,
             kind: "pane",
             rect: {
@@ -178,7 +181,7 @@ function NewWindowButton() {
             },
             title: `Pane ${ordinal}`,
           }),
-        );
+        });
       }}
       size="xs"
       variant="ghost"
@@ -189,7 +192,7 @@ function NewWindowButton() {
 }
 
 function GroupControls() {
-  const actions = useInfiniteCanvasActions<Kind>();
+  const dispatch = useInfiniteCanvasDispatch<Kind>();
   const groups = useInfiniteCanvasSelector((state) => state.groups);
   const windows = useInfiniteCanvasSelector((state) => state.windows);
   const floatingSequenceRef = useRef(0);
@@ -208,10 +211,11 @@ function GroupControls() {
       <Button
         disabled={members.length < 2}
         onClick={() => {
-          actions.createGroup({
+          dispatch({
             groupId: GROUP_ID,
             rect,
             title: "Workbench",
+            type: "group.create",
             windowIds: members.map((window) => window.id),
           });
         }}
@@ -229,7 +233,12 @@ function GroupControls() {
         <Button
           key={layout}
           onClick={() => {
-            actions.setGroupLayoutMode({ containerId: GROUP_ID, groupId: GROUP_ID, layout });
+            dispatch({
+              containerId: GROUP_ID,
+              groupId: GROUP_ID,
+              layout,
+              type: "group.setLayoutMode",
+            });
           }}
           size="xs"
           variant="ghost"
@@ -239,9 +248,10 @@ function GroupControls() {
       ))}
       <Button
         onClick={() => {
-          actions.setGroupRect({
+          dispatch({
             groupId: GROUP_ID,
             rect: { ...group.rect, x: group.rect.x + 40 },
+            type: "group.setRect",
           });
         }}
         size="xs"
@@ -255,8 +265,9 @@ function GroupControls() {
           const lastMemberId = getInfiniteCanvasGroupWindowIds(group.tree).at(-1);
 
           if (lastMemberId !== undefined) {
-            actions.undockWindow({
+            dispatch({
               rect: { ...NEW_WINDOW_SIZE, x: group.rect.x, y: group.rect.y + 400 },
+              type: "group.undockWindow",
               windowId: lastMemberId,
             });
           }
@@ -272,8 +283,9 @@ function GroupControls() {
           floatingSequenceRef.current += 1;
           const ordinal = floatingSequenceRef.current;
 
-          actions.openWindow(
-            createInfiniteCanvasWindow<Kind>({
+          dispatch({
+            type: "window.open",
+            window: createInfiniteCanvasWindow<Kind>({
               id: `floating-${ordinal}`,
               kind: "pane",
               rect: {
@@ -283,7 +295,7 @@ function GroupControls() {
               },
               title: `Floating ${ordinal}`,
             }),
-          );
+          });
         }}
         size="xs"
         variant="ghost"
@@ -292,7 +304,7 @@ function GroupControls() {
       </Button>
       <Button
         onClick={() => {
-          actions.closeGroup(GROUP_ID);
+          dispatch({ groupId: GROUP_ID, type: "group.close" });
         }}
         size="xs"
         variant="ghost"
@@ -307,9 +319,9 @@ function GroupsShowcase() {
   return (
     <div className="absolute inset-0">
       <InfiniteCanvasDesktop
+        tools
         initialState={initialState}
-        renderOverlay={(context) => {
-          exposeCanvasDevHandle(context);
+        renderOverlay={() => {
           return (
             <>
               <CommandPalette />

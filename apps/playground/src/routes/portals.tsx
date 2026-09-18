@@ -1,14 +1,16 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
+import { createCanvasState } from "@hyphened/infinite-canvas/next";
 import {
-  createInfiniteCanvasState,
-  createInfiniteCanvasWindow,
-  defineInfiniteCanvasWindowRegistry,
-  InfiniteCanvasDesktop,
-  InfiniteCanvasPortal,
-} from "@hyphened/infinite-canvas";
+  CanvasPortal,
+  CanvasTools,
+  CanvasViewport,
+  WindowDragHandle,
+} from "@hyphened/infinite-canvas/next/react";
+import "@hyphened/infinite-canvas/next/theme.css";
 import { Button } from "ui";
-import { CommandPalette } from "../showcases/command-palette.tsx";
+import { CanvasCommands } from "../showcases/canvas-commands";
+import { WindowControls } from "../showcases/sample-canvas";
 
 export const Route = createFileRoute("/portals")({
   component: PortalsShowcase,
@@ -20,8 +22,6 @@ export const Route = createFileRoute("/portals")({
     },
   },
 });
-
-type Kind = "menu";
 
 const POPOVER_CLASS = "absolute bottom-4 w-36 rounded border p-2 text-[10px] leading-snug";
 
@@ -35,8 +35,7 @@ function WindowMenu() {
       </Button>
       <p>
         Open the menu, then zoom. Two popovers, identical at 100%. One grows with the canvas; one
-        does not. If they stay the same size as each other, <code>scope=&quot;window&quot;</code> is
-        broken.
+        does not. The window portal retains its screen size.
       </p>
 
       {isOpen ? (
@@ -49,58 +48,62 @@ function WindowMenu() {
 
       {isOpen ? (
         // The portal restores pointer events and paints above its own frame.
-        <InfiniteCanvasPortal scope="window">
+        <CanvasPortal scope="window">
           <div
             className={`${POPOVER_CLASS} pointer-events-auto right-4 border-emerald-500/50 bg-popover`}
           >
             <div className="font-medium text-emerald-200">portalled</div>
             constant size, tracks the window, above it
           </div>
-        </InfiniteCanvasPortal>
+        </CanvasPortal>
       ) : null}
 
       {isOpen ? (
         // The desktop portal stays fixed to the viewport.
-        <InfiniteCanvasPortal scope="desktop">
+        <CanvasPortal scope="viewport">
           <div className="pointer-events-none absolute top-4 left-1/2 -translate-x-1/2 rounded-md border border-sky-400/40 bg-popover/90 px-2.5 py-1.5 text-[10px] text-sky-100 backdrop-blur">
-            scope=&quot;desktop&quot; — pinned to the viewport. Drag the window; this stays.
+            This message stays fixed to the viewport when the window moves.
           </div>
-        </InfiniteCanvasPortal>
+        </CanvasPortal>
       ) : null}
     </div>
   );
 }
 
-const registry = defineInfiniteCanvasWindowRegistry<Kind>({
-  menu: {
-    kind: "menu",
-    // Only windows that use portals mount a portal root.
-    portalRoot: true,
-    renderBody: () => <WindowMenu />,
-  },
-});
-
-const initialState = createInfiniteCanvasState<Kind>({
-  windows: [
-    createInfiniteCanvasWindow({
-      id: "menus",
-      kind: "menu",
-      rect: { height: 260, width: 360, x: 0, y: 0 },
-      title: "Popovers",
-    }),
-  ],
-});
-
 function PortalsShowcase() {
+  const [canvas] = useState(() =>
+    createCanvasState({
+      windowDefinitions: { menu: {} },
+      document: {
+        content: {
+          windows: {
+            menus: {
+              kind: "menu",
+              title: "Popovers",
+              rect: { x: 0, y: 0, width: 360, height: 260 },
+            },
+          },
+        },
+      },
+    }),
+  );
   return (
     <div className="absolute inset-0">
-      <InfiniteCanvasDesktop
-        initialState={initialState}
-        renderOverlay={() => <CommandPalette />}
-        subtitle='Open the menu and zoom — the HUD reads the zoom out for you. The red popover grows with the canvas; the green one holds its size and stays above its window. If they agree, scope="window" is broken.'
-        title="Portals"
-        windowDefinitions={registry}
-      />
+      <CanvasViewport
+        canvas={canvas}
+        renderWindow={(window) => (
+          <>
+            <WindowDragHandle className="flex h-9 items-center justify-between border-b border-white/10 px-3">
+              <span>Popovers</span>
+              <WindowControls canvas={canvas} window={window} />
+            </WindowDragHandle>
+            <WindowMenu />
+          </>
+        )}
+      >
+        <CanvasCommands canvas={canvas} />
+        <CanvasTools canvas={canvas} />
+      </CanvasViewport>
     </div>
   );
 }
