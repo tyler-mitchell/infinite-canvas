@@ -25,6 +25,7 @@ import {
   CanvasInspector,
   CanvasLauncher,
   CanvasPresentation,
+  CanvasReadingOrder,
   CanvasSectionRail,
   CanvasSelectionToolbar,
   Label,
@@ -232,6 +233,7 @@ export function PortfolioBoard({
       <Palette.Root portal aria-label="Components" className={classes.palette()}>
         <CanvasInspector canvas={canvas} />
         <CanvasPresentation canvas={canvas} />
+        <CanvasReadingOrder canvas={canvas} />
         <header className={styles().paletteHeading()}>
           <Row justify="between">
             <Label>Components</Label>

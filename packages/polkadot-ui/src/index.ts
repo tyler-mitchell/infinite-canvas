@@ -177,6 +177,10 @@ export {
   CanvasPresentation,
   type CanvasPresentationProps,
 } from "./components/canvas-presentation.tsx";
+export {
+  CanvasReadingOrder,
+  type CanvasReadingOrderProps,
+} from "./components/canvas-reading-order.tsx";
 export { SchemaForm, type SchemaFormProps, type SchemaValues } from "./components/schema-form.tsx";
 export {
   CanvasSectionRail,
