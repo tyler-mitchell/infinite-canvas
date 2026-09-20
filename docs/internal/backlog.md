@@ -849,11 +849,23 @@ Legend observable array yields a proxy whether or not an element is there, so a 
 against `undefined` can never fire.
 
 That is exactly the shape of the `SelectionBounds` outage: a strict guard written for a plain value
-applied to an observable that never produces that value. Two instances in one evening in the same
-codebase suggests a rule rather than two fixes — guards against Legend observables must test what
-the observable actually yields (length, or `.peek()`), never identity against `undefined` or
-`null`. Worth a grep for `=== undefined` and `=== null` on observable-derived values before the
-third one is found in production.
+applied to an observable that never produces that value.
+
+AUDITED, and the result is narrower than first written — that earlier "worth a grep for
+`=== undefined`" note was too broad and is corrected here. Most identity comparisons in these
+layers are CORRECT, because they compare the result of `.get()` or `.peek()`, or a DOM ref, or a
+React context. The dangerous shape is specifically an observable compared without ever being
+unwrapped.
+
+Searching the canvas components for comparisons with no `.get()` or `.peek()` on the left returns
+five candidates, and four are fine: `command.description` is a plain registry object, `layout` is
+`window.layout.get()`, `parentType` is `computed.parentLayoutType[id].get()`, and `next` is a
+callback parameter. Exactly one is wrong — `canvas-inspector.tsx:23`, where `selected` is
+`chosen[0]` off an observable array.
+
+So this is one defect, not a class outbreak. The rule still holds and is worth stating once in the
+conventions: never compare a Legend observable for identity without unwrapping it first; test
+`length`, or `.get()`/`.peek()` the value and compare that.
 
 Done when an author opens the panel with nothing selected and is told what to do, and when the four
 groups are visually ranked rather than stacked.
