@@ -779,7 +779,22 @@ read mode renders, and item 1's container label is still correctly absent in rea
 NOT COMMITTED and not committable alone. `viewport.tsx` carries 38 insertions and 21 deletions of
 the in-flight `selectionBounds` refactor beside that one character, and that refactor depends on
 the modified `state.computed.ts:783`. Committing the file by itself would put a half-refactor in
-HEAD. Commit it with the framework set once the refactor settles.
+HEAD.
+
+Nor is the framework set committable as a whole, measured rather than assumed. `packages/infinite-canvas/next`
+has 30+ modified files carrying THREE concurrent workstreams:
+
+  - the `selectionBounds` refactor (`viewport.tsx`, `context.tsx`, `state.computed.ts`)
+  - live layout work (`layout/grid.ts`, `columns.ts`, `lanes.ts`, `tracks.ts`, `grid.test.ts`)
+  - another session's `@hyphened/math` migration, which `state.computed.ts` also carries
+
+Every one of those was touched within the last twenty minutes. A commit spanning them would bundle
+three unrelated changes and capture a refactor mid-move — the same error as `f1f83a87` earlier the
+same session, which caught a still-moving file 35 seconds before it changed again.
+
+What clears it: the layout files stop changing, and `state.computed.ts` is separated from the math
+migration or that migration lands on its own. Then the `selectionBounds` refactor plus the guard
+fix plus the `board.tsx` read-mode label gate commit as one coherent framework-and-consumer slice.
 
 The `__root.tsx` reload failure is SEPARATE and STILL LIVE — re-observed with fresh timestamps
 after the fix above. It is also smaller than this entry first claimed, and that claim is withdrawn:
