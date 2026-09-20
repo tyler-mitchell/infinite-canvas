@@ -174,6 +174,11 @@ export { canvasIcons } from "./components/canvas-icons.ts";
 export { CanvasInspector, type CanvasInspectorProps } from "./components/canvas-inspector.tsx";
 export { CanvasLauncher, type CanvasLauncherProps } from "./components/canvas-launcher.tsx";
 export {
+  CanvasPresentation,
+  type CanvasPresentationProps,
+} from "./components/canvas-presentation.tsx";
+export { SchemaForm, type SchemaFormProps, type SchemaValues } from "./components/schema-form.tsx";
+export {
   CanvasSectionRail,
   canvasSectionRailVariants,
   type CanvasSectionRailProps,

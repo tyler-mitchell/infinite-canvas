@@ -24,6 +24,7 @@ import {
   Button,
   CanvasInspector,
   CanvasLauncher,
+  CanvasPresentation,
   CanvasSectionRail,
   CanvasSelectionToolbar,
   Label,
@@ -36,7 +37,6 @@ import { components } from "./components.tsx";
 import documentSource from "./document.json?raw";
 import "./board.css";
 
-const READING_AXIS = "vertical";
 const RAIL_BREAKPOINT = 641;
 const RAIL_EXTENT = 56;
 
@@ -67,7 +67,8 @@ const styles = tv({
     paletteEmpty: "text-xs opacity-60",
     error: "text-xs",
     rail: "absolute bottom-4 left-1/2 z-20 flex -translate-x-1/2 flex-row gap-2 min-[641px]:top-1/2 min-[641px]:right-4 min-[641px]:bottom-auto min-[641px]:left-auto min-[641px]:translate-x-0 min-[641px]:-translate-y-1/2 min-[641px]:flex-col min-[641px]:items-end min-[641px]:gap-1",
-    railLabel: "hidden min-[641px]:block",
+    railLabel:
+      "hidden group-aria-[current=true]:block min-[641px]:right-full min-[641px]:bottom-auto min-[641px]:left-auto min-[641px]:mr-2 min-[641px]:mb-0 min-[641px]:block min-[641px]:translate-x-0",
   },
   variants: {
     mode: {
@@ -98,9 +99,7 @@ const BoardWindow = observer(function BoardWindow({
       </WindowDragHandle>
     ) : null;
   const position =
-    mode === "edit"
-      ? canvas.computed.route[READING_AXIS].get().findIndex((section) => section.id === id)
-      : -1;
+    mode === "edit" ? canvas.computed.route.get().findIndex((section) => section.id === id) : -1;
   const skipped = mode === "edit" && position < 0 && !canvas.computed.windowSection[id].get();
   return (
     <WindowDragHandle className={styles().card()}>
@@ -168,7 +167,11 @@ const BoardControls = observer(function BoardControls({
 });
 
 const Rail = () => (
-  <CanvasSectionRail className={styles().rail()} classNames={{ label: styles().railLabel() }} />
+  <CanvasSectionRail
+    orientation="horizontal"
+    className={styles().rail()}
+    classNames={{ label: styles().railLabel() }}
+  />
 );
 
 export type BoardMode = "edit" | "read";
@@ -228,6 +231,7 @@ export function PortfolioBoard({
       {mode === "edit" && <CanvasSelectionToolbar canvas={canvas} />}
       <Palette.Root portal aria-label="Components" className={classes.palette()}>
         <CanvasInspector canvas={canvas} />
+        <CanvasPresentation canvas={canvas} />
         <header className={styles().paletteHeading()}>
           <Row justify="between">
             <Label>Components</Label>
@@ -272,7 +276,6 @@ export function PortfolioBoard({
         {mode === "read" ? (
           <CanvasScroll
             canvas={canvas}
-            axis={READING_AXIS}
             attached={!exploring}
             section={section}
             onSectionChange={onSectionChange}
