@@ -3,15 +3,24 @@ import { flatMorph, pick } from "@ark/util";
 import { linked, ObservableHint, type Observable } from "@legendapp/state";
 import { batch, model } from "./model";
 import {
-  containsPoint,
-  getDirectionalTarget,
+  centroidOfRect,
+  clamp,
+  containsRect,
+  dist2,
+  insetRectBy,
+  intersectsRect,
+  panCamera,
+  rectWithCentroid,
   resizeRect,
   screenToWorld,
+  translateRect,
   unionRects,
+  zoomCameraAbout,
   type Rect,
-} from "./geometry";
+} from "@hyphened/math/cpu";
+import { getDirectionalTarget } from "./geometry";
 import { getSelection, type SelectionTarget, type TargetKey } from "./selection";
-import type { CameraStop, WindowState } from "./document.types";
+import type { WindowState } from "./document.types";
 import {
   arrangeWindows,
   bindLayout,
@@ -72,6 +81,11 @@ function decodeWindowData({
 }
 
 type Document = Observable<CanvasSnapshot>;
+
+const manualAxes = ({ from, to }: { from: Rect; to: Rect }) => ({
+  ...(to.width === from.width ? {} : { widthMode: "manual" as const }),
+  ...(to.height === from.height ? {} : { heightMode: "manual" as const }),
+});
 
 function applyChanges({
   document,
@@ -235,7 +249,7 @@ export const createCanvasState = withComputed(stateModel)
         const pointer = canvas.state.input.pointer.get();
         return canvas.state.session.drag.get() === null &&
           pointer?.pointerId === press.pointerId &&
-          Math.hypot(pointer.point.x - press.point.x, pointer.point.y - press.point.y) >=
+          dist2([pointer.point.x, pointer.point.y], [press.point.x, press.point.y]) >=
             press.threshold
           ? press
           : ctx.error("a press past its drag threshold");
@@ -310,8 +324,7 @@ export const createCanvasState = withComputed(stateModel)
         const definition = canvas.state.config.windowDefinitions[input.kind].get();
         const center = canvas.computed.camera.center.get();
         const preferred = input.rect ?? {
-          x: center.x - definition.size.width / 2,
-          y: center.y - definition.size.height / 2,
+          ...rectWithCentroid(center, definition.size),
           ...definition.size,
         };
         const bounds = canvas.computed.viewportRect.get();
@@ -453,10 +466,8 @@ export const createCanvasState = withComputed(stateModel)
       resizableWindow: canvas.inputs.normalWindow.pipe((window, ctx) => {
         if (!canvas.computed.windowCapabilities[window.id.get()].resizable.get())
           return ctx.error("a resizable window");
-        const parent = canvas.computed.windowParent[window.id.get()].get();
-        if (parent === undefined) return window;
-        const type = canvas.state.document.content.windows[parent].layout.type.get();
-        return type !== undefined && canvas.configuration.layouts[type]?.accepts.includes("resize")
+        const type = canvas.computed.parentLayoutType[window.id.get()].get();
+        return type === undefined || canvas.configuration.layouts[type].accepts.includes("resize")
           ? window
           : ctx.error("a floating window or a member of a layout that resizes its items");
       }),
@@ -567,46 +578,10 @@ export const createCanvasState = withComputed(stateModel)
           return windows.length > 0 ? { delta, windows } : ctx.error("a movable selection");
         },
       ),
-      goToCameraStop: type({ stop: "string > 0" }).pipe(
-        ({ stop }, ctx) =>
-          canvas.state.document.content.cameraStops
-            .get()
-            .find((candidate) => candidate.id === stop) ?? ctx.error("an existing camera stop"),
-      ),
-      stepCameraStop: type({ by: "number.integer", "wrap?": "boolean" }).pipe(
-        ({ by, wrap }, ctx) => {
-          const stops = canvas.state.document.content.cameraStops.get();
-          const current = stops.findIndex(
-            (stop) => stop.id === canvas.computed.view.cameraStopId.get(),
-          );
-          const index = current < 0 ? (by > 0 ? 0 : stops.length - 1) : current + by;
-          const stop =
-            stops[
-              wrap && stops.length > 0
-                ? ((index % stops.length) + stops.length) % stops.length
-                : index
-            ];
-          return stop === undefined || stop === stops[current]
-            ? ctx.error("a camera stop in that direction")
-            : stop;
-        },
-      ),
-      addCameraStop: type({
-        "id?": "string > 0",
-        "title?": "string",
-        "navigation?": cameraNavigation,
-      }).pipe(({ id = crypto.randomUUID(), navigation, ...stop }, ctx) => {
-        if (canvas.state.document.content.cameraStops.get().some((existing) => existing.id === id))
-          return ctx.error({ expected: "an unused camera stop ID", path: ["id"] });
-        const { center, zoom } = canvas.computed.camera.get();
-        return {
-          ...stop,
-          id,
-          navigation: navigation ?? {
-            target: { type: "point" as const, point: center },
-            behavior: { type: "centerAtZoom" as const, zoom },
-          },
-        };
+      selectParent: type({}).pipe((_, ctx) => {
+        const id = canvas.computed.view.activeWindowId.get();
+        const parent = id === null ? undefined : canvas.computed.windowParent[id].get();
+        return parent === undefined ? ctx.error("an active window inside a container") : { parent };
       }),
       resizeWindow: type({
         "window?": "string > 0",
@@ -668,11 +643,9 @@ export const createCanvasState = withComputed(stateModel)
         window: canvas.inputs.dockedWindow,
         item: { "[string]": "unknown" },
       }).pipe((input, ctx) => {
-        const parent =
-          canvas.state.document.content.windows[
-            canvas.computed.windowParent[input.window.id.get()].get()!
-          ];
-        const item = canvas.configuration.layouts[parent.layout.type.get() ?? ""]?.item(input.item);
+        const layout = canvas.computed.parentLayoutType[input.window.id.get()].get();
+        const item =
+          layout === undefined ? undefined : canvas.configuration.layouts[layout].item(input.item);
         return item === undefined || item instanceof type.errors
           ? ctx.error("item properties that the parent layout accepts")
           : input;
@@ -717,6 +690,7 @@ export const createCanvasState = withComputed(stateModel)
       beginPan: "pointer",
       beginMarquee: { pointer: "pointer", mode: "'replace' | 'add' | 'toggle'" },
       panCamera: { x: "number", y: "number" },
+      setCamera: { "center?": { x: "number", y: "number" }, "zoom?": "number > 0" },
       zoomCamera: { factor: "number > 0", point: { x: "number", y: "number" } },
       fitAll: {},
       fitSelection: {},
@@ -748,6 +722,17 @@ export const createCanvasState = withComputed(stateModel)
       focusWindow: { window: "existingWindow" },
       selectWindow: { window: "existingWindow" },
       renameWindow: { window: "existingWindow", title: ["string.trim", "|>", "string > 0"] },
+      setWindowSizeMode: type({
+        window: canvas.inputs.existingWindow,
+        "widthMode?": "'viewport' | 'manual'",
+        "heightMode?": "'content' | 'manual'",
+      }).narrow(
+        (input, ctx) =>
+          input.widthMode !== undefined ||
+          input.heightMode !== undefined ||
+          ctx.mustBe("a width mode or a height mode"),
+      ),
+      setWindowSection: { window: "existingWindow", section: "boolean" },
       pinWindow: { window: "floatingWindow", isPinned: "boolean" },
       restoreWindow: { window: "existingWindow" },
       minimizeWindow: { window: "minimizableWindow" },
@@ -835,13 +820,15 @@ export const createCanvasState = withComputed(stateModel)
       ),
       pinWindow: type.fn(inputs.pinWindow)(({ window, isPinned }) => window.isPinned.set(isPinned)),
       nudgeSelection: type.fn(inputs.nudgeSelection)(({ delta, windows }) =>
-        batch(() =>
-          windows.forEach(({ rect }) =>
-            rect.assign({ x: rect.x.peek() + delta.x, y: rect.y.peek() + delta.y }),
-          ),
-        ),
+        batch(() => windows.forEach(({ rect }) => rect.assign(translateRect(rect.peek(), delta)))),
       ),
       renameWindow: type.fn(inputs.renameWindow)(({ window, title }) => window.title.set(title)),
+      setWindowSizeMode: type.fn(inputs.setWindowSizeMode)(({ window, ...modes }) =>
+        window.assign(modes),
+      ),
+      setWindowSection: type.fn(inputs.setWindowSection)(({ window, section }) =>
+        window.section.set(section),
+      ),
       setWindowData: type.fn(inputs.setWindowData)(({ window, data }) => window.assign({ data })),
       renameWorkspace: type.fn(inputs.renameWorkspace)(({ workspace, title }) =>
         workspace.title.set(title),
@@ -897,7 +884,7 @@ export const createCanvasState = withComputed(stateModel)
         if (point == null || input.child === drag.child) return;
         if (
           drag.target === null &&
-          Math.hypot(point.x - drag.startPoint.x, point.y - drag.startPoint.y) < drag.threshold
+          dist2([point.x, point.y], [drag.startPoint.x, drag.startPoint.y]) < drag.threshold
         )
           return;
         state.session.tabDrag.assign({ target: input.child, after: input.after });
@@ -908,7 +895,7 @@ export const createCanvasState = withComputed(stateModel)
           state.session.drop.point.set(input);
           if (
             drop.phase === "press" &&
-            Math.hypot(input.x - drop.startPoint.x, input.y - drop.startPoint.y) >= drop.threshold
+            dist2([input.x, input.y], [drop.startPoint.x, drop.startPoint.y]) >= drop.threshold
           )
             state.session.drop.phase.set("drag");
         }),
@@ -1051,14 +1038,35 @@ export const createCanvasState = withComputed(stateModel)
       if (stopped !== undefined) return stopped;
       const camera = computed.camera.peek();
       batch(() => {
-        computed.view.camera.set({
-          zoom: camera.zoom,
-          center: {
-            x: camera.center.x + input.x / camera.zoom,
-            y: camera.center.y + input.y / camera.zoom,
-          },
-        });
+        computed.view.camera.set(panCamera({ camera, screenDelta: input }));
         state.session.pan.set(null);
+      });
+    }),
+    setCamera: type.fn(inputs.setCamera)((input) => {
+      const stopped = actions.stopCamera.run({});
+      if (stopped !== undefined) return stopped;
+      const camera = computed.camera.peek();
+      const { minZoom, maxZoom } = state.config.camera.peek();
+      batch(() => {
+        computed.view.camera.set({
+          zoom: clamp(input.zoom ?? camera.zoom, minZoom, maxZoom),
+          center: input.center ?? camera.center,
+        });
+        state.session.camera.set(null);
+        state.session.pan.set(null);
+      });
+    }),
+    previewCamera: type.fn(inputs.setCamera)((input) => {
+      const stopped = actions.stopCamera.run({});
+      if (stopped !== undefined) return stopped;
+      const camera = computed.camera.peek();
+      const { minZoom, maxZoom } = state.config.camera.peek();
+      state.session.camera.set({
+        workspaceId: state.document.activeWorkspaceId.peek(),
+        camera: {
+          zoom: clamp(input.zoom ?? camera.zoom, minZoom, maxZoom),
+          center: input.center ?? camera.center,
+        },
       });
     }),
     zoomCamera: type.fn(inputs.zoomCamera)((input) => {
@@ -1067,19 +1075,11 @@ export const createCanvasState = withComputed(stateModel)
       const camera = computed.camera.peek();
       const viewport = state.input.viewport.peek();
       const { minZoom, maxZoom } = state.config.camera.peek();
-      const zoom = Math.max(minZoom, Math.min(maxZoom, camera.zoom * input.factor));
-      const offset = {
-        x: input.point.x - viewport.width / 2,
-        y: input.point.y - viewport.height / 2,
-      };
+      const zoom = clamp(camera.zoom * input.factor, minZoom, maxZoom);
       batch(() => {
-        computed.view.camera.set({
-          zoom,
-          center: {
-            x: camera.center.x + offset.x / camera.zoom - offset.x / zoom,
-            y: camera.center.y + offset.y / camera.zoom - offset.y / zoom,
-          },
-        });
+        computed.view.camera.set(
+          zoomCameraAbout({ camera, viewport, screenPoint: input.point, zoom }),
+        );
         state.session.pan.set(null);
       });
     }),
@@ -1252,12 +1252,15 @@ export const createCanvasState = withComputed(stateModel)
           undockedId === undefined || startRects[undockedId] === undefined
             ? {}
             : { [undockedId]: startRects[undockedId] },
-        alignmentTargets: computed.workspaceRoots.flatMap((window) => {
-          const id = window.id.peek();
-          return moving.some((mover) => rootOf(mover) === id) || !computed.windowVisible[id].peek()
+        alignmentTargets: (parents[input.target] === undefined
+          ? computed.workspaceRoots.map((window) => window.id.peek())
+          : (state.document.content.windows[parents[input.target]].children.peek() ?? [])
+        ).flatMap((id) =>
+          moving.some((mover) => rootOf(mover) === id || mover === id) ||
+          !computed.windowVisible[id].peek()
             ? []
-            : [{ ...computed.windowRect[id].peek()! }];
-        }),
+            : [{ ...computed.windowRect[id].peek()! }],
+        ),
       });
     }),
     resizeWindow: type.fn(inputs.resizeWindow)(({ window, width, height }) =>
@@ -1288,17 +1291,15 @@ export const createCanvasState = withComputed(stateModel)
           return;
         }
         const rect = window.rect.peek();
-        window.assign({
-          heightMode: "manual",
-          rect: resizeRect({
-            rect,
-            handle: "south-east",
-            delta: { x: width - rect.width, y: height - rect.height },
-            minSize: computed.minSize[id].peek(),
-            aspectRatio:
-              window.aspectRatio.peek() ?? computed.windowDefinition[id].aspectRatio.peek(),
-          }),
+        const resized = resizeRect({
+          rect,
+          handle: "south-east",
+          delta: { x: width - rect.width, y: height - rect.height },
+          limits: { min: computed.minSize[id].peek(), max: computed.ownSize[id].max.peek() },
+          aspectRatio:
+            window.aspectRatio.peek() ?? computed.windowDefinition[id].aspectRatio.peek(),
         });
+        window.assign({ rect: resized, ...manualAxes({ from: rect, to: resized }) });
       }),
     ),
   }))
@@ -1311,10 +1312,6 @@ export const createCanvasState = withComputed(stateModel)
       if (error !== undefined) return error;
       const id = computed.view.activeWindowId.peek();
       if (id !== null) return actions.focusWindow.run({ window: id });
-    };
-    const visitCameraStop = (stop: CameraStop) => {
-      computed.view.cameraStopId.set(stop.id);
-      return actions.navigateCamera.run(stop.navigation);
     };
     const roots = (windows: readonly Observable<WindowState>[]) => {
       const parents = computed.parents.peek();
@@ -1331,25 +1328,8 @@ export const createCanvasState = withComputed(stateModel)
       });
     };
     return {
-      goToCameraStop: type.fn(inputs.goToCameraStop)(visitCameraStop),
-      stepCameraStop: type.fn(inputs.stepCameraStop)(visitCameraStop),
-      addCameraStop: type.fn(inputs.addCameraStop)((stop) =>
-        batch(() => {
-          state.document.content.cameraStops.push(stop);
-          computed.view.cameraStopId.set(stop.id);
-        }),
-      ),
-      removeCameraStop: type.fn(inputs.goToCameraStop)((stop) =>
-        batch(() => {
-          const stops = state.document.content.cameraStops;
-          stops.splice(
-            stops.peek().findIndex((candidate) => candidate.id === stop.id),
-            1,
-          );
-          computed.views.forEach((view) => {
-            if (view.cameraStopId.peek() === stop.id) view.cameraStopId.set(null);
-          });
-        }),
+      selectParent: type.fn(inputs.selectParent)(({ parent }) =>
+        actions.selectWindow.run({ window: parent }),
       ),
       revealWindow: type.fn(inputs.revealWindow)(({ window, ...navigation }) => {
         const windowId = window.id.peek();
@@ -1365,16 +1345,12 @@ export const createCanvasState = withComputed(stateModel)
           const view = computed.viewportRect.peek();
           window.assign({
             heightMode: "manual",
+            widthMode: "manual",
             rect: getPlacementRect({
               region,
               size: window.rect.peek(),
               minSize: window.minSize.peek() ?? definition.minSize,
-              bounds: {
-                x: view.x + inset,
-                y: view.y + inset,
-                width: Math.max(view.width - inset * 2, 0),
-                height: Math.max(view.height - inset * 2, 0),
-              },
+              bounds: insetRectBy(view, inset),
             }),
           });
           return actions.selectWindow.run({ window: id });
@@ -1385,12 +1361,8 @@ export const createCanvasState = withComputed(stateModel)
         if (error !== undefined) return error;
         const rect = computed.windowRect[windowId].peek()!;
         const view = computed.viewportRect.peek();
-        const inView =
-          rect.x >= view.x &&
-          rect.y >= view.y &&
-          rect.x + rect.width <= view.x + view.width &&
-          rect.y + rect.height <= view.y + view.height;
-        if (!inView) return actions.navigateCamera.run({ target: { type: "window", windowId } });
+        if (!containsRect(view, rect))
+          return actions.navigateCamera.run({ target: { type: "window", windowId } });
       }),
       undo: type.fn(inputs.undo)(() => restoreHistory("undo")),
       redo: type.fn(inputs.redo)(() => restoreHistory("redo")),
@@ -1453,7 +1425,7 @@ export const createCanvasState = withComputed(stateModel)
               return;
             }
             if (input.kind === "move") window.rect.assign({ x: rect.x, y: rect.y });
-            else window.assign({ rect, heightMode: "manual" });
+            else window.assign({ rect, ...manualAxes({ from: window.rect.peek(), to: rect }) });
           });
           state.session.drag.set(null);
           state.session.press.set(null);
@@ -1564,16 +1536,14 @@ export const createCanvasState = withComputed(stateModel)
           const definition = computed.windowDefinition[window.id.peek()].peek();
           const padding = definition.maximizePadding / computed.camera.zoom.peek();
           const minSize = window.minSize.peek() ?? definition.minSize;
-          const width = Math.max(minSize.width, viewport.width - padding * 2);
-          const height = Math.max(minSize.height, viewport.height - padding * 2);
+          const inner = insetRectBy(viewport, padding);
+          const width = Math.max(minSize.width, inner.width);
+          const height = Math.max(minSize.height, inner.height);
           window.assign({
             restoreRect: window.restoreRect.peek() ?? window.rect.peek(),
             mode: "maximized",
             rect: {
-              x: viewport.x + (viewport.width - width) / 2,
-              y: viewport.y + (viewport.height - height) / 2,
-              width,
-              height,
+              ...rectWithCentroid(centroidOfRect(viewport), { width, height }),
             },
           });
           return actions.selectWindow.run({ window: window.id.peek() });
@@ -1657,13 +1627,17 @@ export const createCanvasState = withComputed(stateModel)
       title?: string;
       kind?: string;
       data?: unknown;
-    }): WindowState => ({
-      ...input,
-      title: input.title ?? "",
-      mode: "normal",
-      isPinned: false,
-      heightMode: "manual",
-    });
+    }): WindowState => {
+      const existing = state.document.content.windows[input.id].peek();
+      return {
+        ...input,
+        title: input.title ?? "",
+        mode: "normal",
+        isPinned: false,
+        heightMode: existing?.heightMode ?? "manual",
+        widthMode: existing?.widthMode ?? "manual",
+      };
+    };
     const placeByRect = ({ parent, rects }: { parent: string; rects: Record<string, Rect> }) => {
       const records = state.document.content.windows.peek();
       const nodes = getWindowTree(records);
@@ -1853,8 +1827,7 @@ export const createCanvasState = withComputed(stateModel)
           if (
             point == null ||
             (input.target === null &&
-              Math.hypot(point.x - input.startPoint.x, point.y - input.startPoint.y) <
-                input.threshold)
+              dist2([point.x, point.y], [input.startPoint.x, input.startPoint.y]) < input.threshold)
           )
             return;
           const inside = computed.tabDragInside.peek();
@@ -1888,6 +1861,7 @@ export const createCanvasState = withComputed(stateModel)
           mode: "normal",
           isPinned: false,
           heightMode: "content",
+          widthMode: "manual",
         });
         const workspaceId = state.document.activeWorkspaceId.peek();
         if (workspaceId !== null)
@@ -1918,16 +1892,10 @@ export const createCanvasState = withComputed(stateModel)
         drag.containers[drag.target] === undefined
       )
         return;
-      const point = computed.pointerWorld.peek();
       const root = computed.windowRoot[drag.target].peek();
       const bounds = computed.baseArrangement[root].rects[root].peek();
-      const rect = computed.baseArrangement[root].rects[drag.target].peek();
-      if (
-        point !== null &&
-        bounds !== undefined &&
-        rect !== undefined &&
-        !containsPoint({ point, rect: bounds })
-      )
+      const rect = computed.dragRect[drag.target].peek();
+      if (bounds !== undefined && rect !== undefined && !intersectsRect(bounds, rect))
         state.session.drag.assign({ detached: { ...drag.detached, [drag.target]: rect } });
     }),
   }))
@@ -1979,9 +1947,19 @@ export const createCanvasState = withComputed(stateModel)
     }),
   }))
   .commands(({ actions }) => ({
-    selectAll: { action: actions.selectAll, label: "Select all", icon: "select" },
-    clearSelection: { action: actions.clearSelection, label: "Clear selection", icon: "select" },
-    restoreDocument: { action: actions.restoreDocument, label: "Restore document", icon: "reset" },
+    selectAll: { action: actions.selectAll, label: "Select all", icon: "select", surface: "view" },
+    clearSelection: {
+      action: actions.clearSelection,
+      label: "Clear selection",
+      icon: "select",
+      surface: "view",
+    },
+    restoreDocument: {
+      action: actions.restoreDocument,
+      label: "Restore document",
+      icon: "reset",
+      surface: "none",
+    },
     insertComponent: { action: actions.insertComponent, label: "Add component", icon: "add" },
     runComponentAction: {
       action: actions.runComponentAction,
@@ -1989,10 +1967,32 @@ export const createCanvasState = withComputed(stateModel)
       icon: "edit",
     },
     navigateCamera: { action: actions.navigateCamera, label: "Navigate camera", icon: "focus" },
-    stopCamera: { action: actions.stopCamera, label: "Stop camera", icon: "stop" },
+    stopCamera: {
+      action: actions.stopCamera,
+      label: "Stop camera",
+      icon: "stop",
+      surface: "none",
+    },
+    setCamera: {
+      action: actions.setCamera,
+      label: "Set camera",
+      icon: "focus",
+      surface: "none",
+    },
+    previewCamera: {
+      action: actions.previewCamera,
+      label: "Preview camera",
+      icon: "focus",
+      surface: "none",
+    },
     openWindow: { action: actions.openWindow, label: "Open window", icon: "add" },
     setWindowData: { action: actions.setWindowData, label: "Set window data", icon: "edit" },
-    activateChild: { action: actions.activateChild, label: "Show child window", icon: "focus" },
+    activateChild: {
+      action: actions.activateChild,
+      label: "Show child window",
+      icon: "focus",
+      surface: "view",
+    },
     groupWindows: { action: actions.groupWindows, label: "Group windows", icon: "group" },
     dockWindow: { action: actions.dockWindow, label: "Dock window", icon: "dock" },
     ungroupWindow: { action: actions.ungroupWindow, label: "Ungroup windows", icon: "ungroup" },
@@ -2007,30 +2007,50 @@ export const createCanvasState = withComputed(stateModel)
       icon: "resize",
     },
     reorderChild: { action: actions.reorderChild, label: "Reorder child window", icon: "reorder" },
-    fitAll: { action: actions.fitAll, label: "Fit all windows", icon: "fit" },
-    fitSelection: { action: actions.fitSelection, label: "Fit selection", icon: "fit" },
+    fitAll: { action: actions.fitAll, label: "Fit all windows", icon: "fit", surface: "view" },
+    fitSelection: {
+      action: actions.fitSelection,
+      label: "Fit selection",
+      icon: "fit",
+      surface: "view",
+    },
     pinWindow: { action: actions.pinWindow, label: "Pin window", icon: "pin" },
     nudgeSelection: { action: actions.nudgeSelection, label: "Nudge selection", icon: "move" },
     renameWindow: { action: actions.renameWindow, label: "Rename window", icon: "rename" },
-    focusWindow: { action: actions.selectWindow, label: "Focus window", icon: "focus" },
-    revealWindow: { action: actions.revealWindow, label: "Go to window", icon: "focus" },
-    goToCameraStop: { action: actions.goToCameraStop, label: "Go to camera stop", icon: "focus" },
-    stepCameraStop: {
-      action: actions.stepCameraStop,
-      label: "Step between camera stops",
-      icon: "focus",
+    setWindowSizeMode: {
+      action: actions.setWindowSizeMode,
+      label: "Set how the window sizes itself",
+      icon: "resize",
     },
-    addCameraStop: { action: actions.addCameraStop, label: "Add camera stop", icon: "add" },
-    removeCameraStop: {
-      action: actions.removeCameraStop,
-      label: "Remove camera stop",
-      icon: "remove",
+    setWindowSection: {
+      action: actions.setWindowSection,
+      label: "Set whether the window is a section",
+      icon: "section",
+    },
+    focusWindow: {
+      action: actions.selectWindow,
+      label: "Focus window",
+      icon: "focus",
+      surface: "view",
+    },
+    selectParent: {
+      action: actions.selectParent,
+      label: "Select the container",
+      icon: "focus",
+      surface: "view",
+    },
+    revealWindow: {
+      action: actions.revealWindow,
+      label: "Go to window",
+      icon: "focus",
+      surface: "view",
     },
     placeWindow: { action: actions.placeWindow, label: "Place window", icon: "layout" },
     focusDirection: {
       action: actions.focusDirection,
       label: "Focus nearest window",
       icon: "focus",
+      surface: "view",
     },
     resizeWindow: { action: actions.resizeWindow, label: "Resize window", icon: "resize" },
     restoreWindow: { action: actions.restoreWindow, label: "Restore window", icon: "restore" },
@@ -2042,6 +2062,7 @@ export const createCanvasState = withComputed(stateModel)
       action: actions.activateWorkspace,
       label: "Switch workspace",
       icon: "workspace",
+      surface: "view",
     },
     createWorkspace: { action: actions.createWorkspace, label: "Create workspace", icon: "add" },
     closeWorkspace: { action: actions.closeWorkspace, label: "Close workspace", icon: "close" },
