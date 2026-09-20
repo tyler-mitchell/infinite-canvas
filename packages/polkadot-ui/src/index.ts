@@ -174,6 +174,11 @@ export { canvasIcons } from "./components/canvas-icons.ts";
 export { CanvasInspector, type CanvasInspectorProps } from "./components/canvas-inspector.tsx";
 export { CanvasLauncher, type CanvasLauncherProps } from "./components/canvas-launcher.tsx";
 export {
+  CanvasSectionRail,
+  canvasSectionRailVariants,
+  type CanvasSectionRailProps,
+} from "./components/canvas-section-rail.tsx";
+export {
   CanvasSelectionToolbar,
   type CanvasSelectionToolbarProps,
 } from "./components/canvas-selection-toolbar.tsx";

@@ -11,7 +11,6 @@ import {
   CanvasViewport,
   ComponentView,
   Palette,
-  Sections,
   WindowContent,
   WindowDragHandle,
 } from "@hyphened/infinite-canvas/next/react";
@@ -26,6 +25,7 @@ import {
   Button,
   CanvasInspector,
   CanvasLauncher,
+  CanvasSectionRail,
   CanvasSelectionToolbar,
   Label,
   Row,
@@ -62,11 +62,7 @@ const styles = tv({
     paletteEmpty: "text-xs opacity-60",
     error: "text-xs",
     rail: "absolute bottom-4 left-1/2 z-20 flex -translate-x-1/2 flex-row gap-2 min-[641px]:top-1/2 min-[641px]:right-4 min-[641px]:bottom-auto min-[641px]:left-auto min-[641px]:translate-x-0 min-[641px]:-translate-y-1/2 min-[641px]:flex-col min-[641px]:items-end min-[641px]:gap-1",
-    railItem: "group relative flex items-center justify-end rounded p-1 focus-visible:outline-none",
-    railDot:
-      "size-1.5 shrink-0 rounded-full bg-pk-ink/30 transition-colors group-hover:bg-pk-ink group-aria-[current=true]:bg-pk-accent",
-    railLabel:
-      "pointer-events-none absolute right-full mr-2 hidden rounded border border-pk-line bg-pk-surface px-2 py-1 text-[11px] whitespace-nowrap text-pk-ink opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-visible:opacity-100 min-[641px]:block",
+    railLabel: "hidden min-[641px]:block",
   },
   variants: {
     mode: {
@@ -156,14 +152,7 @@ const BoardControls = observer(function BoardControls({
 });
 
 const Rail = () => (
-  <Sections.Root className={styles().rail()}>
-    {(section) => (
-      <Sections.Item key={section.id} section={section.id} className={styles().railItem()}>
-        <span aria-hidden="true" className={styles().railDot()} />
-        <span className={styles().railLabel()}>{section.title}</span>
-      </Sections.Item>
-    )}
-  </Sections.Root>
+  <CanvasSectionRail className={styles().rail()} classNames={{ label: styles().railLabel() }} />
 );
 
 export type BoardMode = "edit" | "read";
