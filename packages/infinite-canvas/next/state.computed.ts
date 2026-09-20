@@ -1,14 +1,23 @@
 import { fromEntries } from "@ark/util";
 import { linked } from "@legendapp/state";
+import { type } from "arktype";
+import { compareByKey } from "@thi.ng/compare";
 import {
+  areaOfRect,
+  clamp,
   containsPoint,
   intersectsRect,
+  outsetRectBy,
+  rectFromCorners,
+  rectWithCentroid,
   resizeRect,
   screenToWorld,
+  translateRect,
   unionRects,
+  visibleWorldRect,
   type Rect,
   type Size,
-} from "./geometry";
+} from "@hyphened/math/cpu";
 import type { WindowState } from "./document.types";
 import type { WindowDefinition } from "./state.types";
 import { getDockArrangement, type DockDrop } from "./layout/dock";
@@ -25,6 +34,8 @@ import {
   type Tree,
   type TreeChange,
 } from "./layout/tree";
+import { combineInsets, insetsOfOccluder, type ViewportInsets } from "./camera";
+import { getRoute, type Section } from "./route";
 import { containerDefinition } from "./state.schema";
 import type { stateModel } from "./state";
 import { alignRect, type AlignmentGuide } from "./alignment";
@@ -80,6 +91,15 @@ export type { DockDrop };
 export const withComputed = (model: typeof stateModel) =>
   model
     .computed(({ state }) => ({
+      viewportInsets: (): ViewportInsets => {
+        const viewport = state.input.viewport.get();
+        return combineInsets(
+          Object.values(state.input.viewportOccluders.get()).map((rect) =>
+            insetsOfOccluder({ rect, viewport }),
+          ),
+          state.input.viewportInsets.get(),
+        );
+      },
       windows: () => Object.values(state.document.content.windows),
       documentTree: (): Tree =>
         getWindowTree(
@@ -145,6 +165,9 @@ export const withComputed = (model: typeof stateModel) =>
         ...computed.windowDefinition[windowId].capabilities.get(),
         ...state.document.content.windows[windowId].capabilities.get(),
       }),
+      windowSection: (windowId: string): boolean =>
+        state.document.content.windows[windowId].section.get() ??
+        computed.windowDefinition[windowId].section.get(),
       workspaceWindows: () => {
         const id = state.document.activeWorkspaceId.get();
         const members = id === null ? null : state.document.content.workspaces[id].windowIds.get();
@@ -195,6 +218,14 @@ export const withComputed = (model: typeof stateModel) =>
     }))
     .computed(({ state, computed, configuration }) => ({
       windowParent: (windowId: string) => computed.parents[windowId].get(),
+      parentLayoutType: (windowId: string): string | undefined => {
+        const parent = computed.parents[windowId].get();
+        const type =
+          parent === undefined
+            ? undefined
+            : state.document.content.windows[parent].layout.type.get();
+        return type !== undefined && type in configuration.layouts ? type : undefined;
+      },
       baseTree: (): TreeChange => {
         const detached = Object.keys(computed.detachedRects.get()).reduce<TreeChange>(
           (change, id) => {
@@ -241,17 +272,16 @@ export const withComputed = (model: typeof stateModel) =>
         },
         initial: null,
       }),
-      viewportRect: () => {
-        const { center, zoom } = computed.camera.get();
-        const { width, height } = state.input.viewport.get();
-        const insets = state.input.viewportInsets.get();
-        return {
-          x: center.x + (insets.left - width / 2) / zoom,
-          y: center.y + (insets.top - height / 2) / zoom,
-          width: Math.max(width - insets.left - insets.right, 0) / zoom,
-          height: Math.max(height - insets.top - insets.bottom, 0) / zoom,
-        };
+      viewportWidth: () => {
+        const insets = computed.viewportInsets.get();
+        return Math.max(1, state.input.viewport.width.get() - insets.left - insets.right);
       },
+      viewportRect: () =>
+        visibleWorldRect({
+          camera: computed.camera.get(),
+          viewport: state.input.viewport.get(),
+          insets: computed.viewportInsets.get(),
+        }),
       draggedWindows: () =>
         Object.keys(computed.dragStartRects)
           .map((id) => state.document.content.windows[id])
@@ -292,7 +322,7 @@ export const withComputed = (model: typeof stateModel) =>
         return sourceOf(windowId);
       },
     }))
-    .computed(({ state, computed, configuration }) => ({
+    .computed(({ computed }) => ({
       subtree: (rootId: string) => {
         const windows = computed.baseTree.windows.get();
         const ids = [rootId, ...getDescendants({ windows, id: rootId })];
@@ -313,14 +343,14 @@ export const withComputed = (model: typeof stateModel) =>
     }))
     .computed(({ state, computed, configuration }) => ({
       windowZIndex: (windowId: string) => {
-        if (computed.detachedRects[windowId].get() !== undefined)
+        if (computed.dragStartRects[windowId].get() !== undefined)
           return computed.overlayZIndex.get();
         const root = computed.rectSource[computed.windowRoot[windowId].get()].get();
         const pinned = state.document.content.windows[root].isPinned.get();
         const base =
           computed.zIndex[`window:${root}`].get() +
           (pinned ? computed.view.stackingOrder.length : 0);
-        return base * 32 + Math.min(31, computed.windowDepth[windowId].get());
+        return base * 32 + clamp(computed.windowDepth[windowId].get(), 0, 31);
       },
       minSize: (windowId: string) => {
         const { windows, limits } = computed.subtree[computed.windowRoot[windowId].get()].get();
@@ -370,12 +400,7 @@ export const withComputed = (model: typeof stateModel) =>
           const marquee = state.session.marquee.get();
           const point = computed.pointerWorld.get();
           if (marquee === null || point === null) return null;
-          return {
-            x: Math.min(marquee.startPoint.x, point.x),
-            y: Math.min(marquee.startPoint.y, point.y),
-            width: Math.abs(point.x - marquee.startPoint.x),
-            height: Math.abs(point.y - marquee.startPoint.y),
-          };
+          return rectFromCorners(marquee.startPoint, point);
         },
         initial: null,
       }),
@@ -396,13 +421,16 @@ export const withComputed = (model: typeof stateModel) =>
         const rect = drag?.startRects[windowId];
         const delta = computed.dragDisplacement.get();
         if (drag === null || rect === undefined || delta === null) return undefined;
-        if (drag.kind === "move") return { ...rect, x: rect.x + delta.x, y: rect.y + delta.y };
+        if (drag.kind === "move") return translateRect(rect, delta);
         const window = state.document.content.windows[windowId];
         return resizeRect({
           rect,
           delta,
           handle: drag.handle,
-          minSize: computed.minSize[windowId].get(),
+          limits: {
+            min: computed.minSize[windowId].get(),
+            max: computed.ownSize[windowId].max.get(),
+          },
           aspectRatio:
             window.aspectRatio.get() ?? computed.windowDefinition[windowId].aspectRatio.get(),
         });
@@ -411,7 +439,12 @@ export const withComputed = (model: typeof stateModel) =>
     .computed(({ state, computed }) => ({
       rootRect: (rootId: string) => {
         const source = computed.rectSource[rootId].get();
-        return computed.dragRect[source].get() ?? state.document.content.windows[source].rect.get();
+        const rect =
+          computed.dragRect[source].get() ?? state.document.content.windows[source].rect.get();
+        return rect === undefined ||
+          state.document.content.windows[source].widthMode.get() !== "viewport"
+          ? rect
+          : { ...rect, width: computed.viewportWidth.get() };
       },
       operations: (rootId: string): Record<string, Operation> => {
         const drag = state.session.drag.get();
@@ -491,7 +524,7 @@ export const withComputed = (model: typeof stateModel) =>
                 window: drop.insertion.id,
                 kind: drop.insertion.kind,
                 point,
-                rect: { ...size, x: point.x - size.width / 2, y: point.y - size.height / 2 },
+                rect: rectWithCentroid(point, size),
               };
             }
             const drag = computed.windowDrag.get();
@@ -528,13 +561,9 @@ export const withComputed = (model: typeof stateModel) =>
                 ? []
                 : Object.entries(arrangement.rects)
                     .filter(
-                      ([id, rect]) =>
-                        arrangement.visible[id] && containsPoint({ point: source.point, rect }),
+                      ([id, rect]) => arrangement.visible[id] && containsPoint(rect, source.point),
                     )
-                    .toSorted(
-                      ([, left], [, right]) =>
-                        left.width * left.height - right.width * right.height,
-                    )
+                    .toSorted(compareByKey(([, rect]) => areaOfRect(rect)))
                     .slice(0, 1);
             })[0];
           if (hit === undefined) return null;
@@ -611,11 +640,10 @@ export const withComputed = (model: typeof stateModel) =>
             ?.find((control) => control.type === "tabs");
           return strip === undefined
             ? null
-            : containsPoint({
-                rect: strip.rect,
+            : containsPoint(
+                outsetRectBy(strip.rect, drag.threshold / computed.camera.zoom.get()),
                 point,
-                padding: drag.threshold / computed.camera.zoom.get(),
-              });
+              );
         },
         initial: null,
       }),
@@ -637,7 +665,11 @@ export const withComputed = (model: typeof stateModel) =>
         if (root !== windowId || container || computed.rectSource[windowId].get() !== windowId)
           return computed.arrangement[root].rects[windowId].get() ?? dragged ?? saved;
         if (saved === undefined) return undefined;
-        const source = computed.detachedRects[windowId].get() ?? saved;
+        const placed = computed.detachedRects[windowId].get() ?? saved;
+        const source =
+          window.widthMode.get() === "viewport"
+            ? { ...placed, width: computed.viewportWidth.get() }
+            : placed;
         const size = state.input.contentSizes[windowId].get();
         return window.heightMode.get() === "content" && size?.width === source.width
           ? {
@@ -666,6 +698,17 @@ export const withComputed = (model: typeof stateModel) =>
                 [`window:${window.id.get()}`, computed.windowRect[window.id.get()].get()!] as const,
             ),
         ),
+      route: (): Section[] => {
+        const windows = computed.baseTree.windows.get();
+        const ids = Object.keys(windows);
+        return getRoute({
+          axis: state.document.content.presentation.axis.get(),
+          windows,
+          rects: fromEntries(ids.map((id) => [id, computed.windowRect[id].get()])),
+          sections: fromEntries(ids.map((id) => [id, computed.windowSection[id].get()])),
+          roots: computed.workspaceRoots.map((window) => window.id.get()),
+        });
+      },
       selection: () => {
         const marquee = state.session.marquee.get();
         const rect = computed.marqueeRect.get();
@@ -674,7 +717,7 @@ export const withComputed = (model: typeof stateModel) =>
           .filter(
             (window) =>
               computed.windowVisible[window.id.get()].get() &&
-              intersectsRect({ rect, other: computed.windowRect[window.id.get()].get()! }),
+              intersectsRect(rect, computed.windowRect[window.id.get()].get()!),
           )
           .map((window) => ({ type: "window", id: window.id.get() }));
         return getSelection({ selection: marquee.selection, targets, mode: marquee.mode });
@@ -683,23 +726,23 @@ export const withComputed = (model: typeof stateModel) =>
     .computed(({ state, computed }) => ({
       selectionTargets: () => Object.values(computed.selection.targets),
       occupiedRects: (): Record<string, Rect> => {
-        const { center, zoom } = computed.camera.get();
+        const camera = computed.camera.get();
         const viewport = state.input.viewport.get();
         return {
           ...computed.contentRects.get(),
           ...fromEntries(
-            state.input.viewportOccluders.get().map(
-              (rect, index) =>
-                [
-                  `occluder:${index}`,
-                  {
-                    x: center.x + (rect.x - viewport.width / 2) / zoom,
-                    y: center.y + (rect.y - viewport.height / 2) / zoom,
-                    width: rect.width / zoom,
-                    height: rect.height / zoom,
-                  },
-                ] as const,
-            ),
+            Object.entries(state.input.viewportOccluders.get()).map(([key, rect]) => {
+              const origin = screenToWorld({ point: rect, camera, viewport });
+              return [
+                `occluder:${key}`,
+                {
+                  x: origin.x,
+                  y: origin.y,
+                  width: rect.width / camera.zoom,
+                  height: rect.height / camera.zoom,
+                },
+              ] as const;
+            }),
           ),
         };
       },
@@ -710,6 +753,29 @@ export const withComputed = (model: typeof stateModel) =>
           .filter((target) => target.type.get() === "window")
           .map((target) => state.document.content.windows[target.id.get()])
           .filter((window) => window.id.get() !== undefined && window.mode.get() !== "minimized"),
+    }))
+    .computed(({ computed, configuration }) => ({
+      selectionActions: () => {
+        const windows = computed.selectedWindows;
+        const kinds = new Set(windows.map((window) => window.kind.get()));
+        const kind = kinds.size === 1 ? kinds.values().next().value : undefined;
+        if (kind === undefined) return [];
+        const ids = windows.map((window) => window.id.get());
+        return Object.entries(configuration.components[kind]?.actions ?? {})
+          .filter(
+            ([, action]) =>
+              (ids.length === 1 || action.multiple) &&
+              windows.every((window) => {
+                const data = action.apply(window.data.get());
+                return !(data instanceof Error || data instanceof type.errors);
+              }),
+          )
+          .map(([action, definition]) => ({
+            label: definition.label,
+            icon: definition.icon,
+            input: { action, windows: ids },
+          }));
+      },
     }));
 
 export type ComputedContext = ReturnType<ReturnType<typeof withComputed>["create"]>;

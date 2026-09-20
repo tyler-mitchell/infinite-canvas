@@ -522,6 +522,39 @@ Two shapes:
 
 Done when an author reorders a window from the panel on `/board` and the reading route follows.
 
+## Edit mode reserves no space for the palette
+
+Found 2026-09-20 by reading `portfolio/board.tsx` against the running board.
+
+`setViewportInsets` is called with every inset at zero whenever the mode is not `read`:
+
+```
+mode !== "read"
+  ? { top: 0, right: 0, bottom: 0, left: 0 }
+  : phone.matches
+    ? { ...bottom: RAIL_EXTENT }
+    : { ...right: RAIL_EXTENT }
+```
+
+In edit mode the palette is `min-[641px]:w-[196px]` on the right, and `h-44` with a
+`h-[calc(100%-176px)]` viewport host on a phone. The camera therefore believes it owns the whole
+viewport while a panel covers part of it. Everything that centres — `fitAll`, `fitSelection`,
+`revealWindow`, and any framing an author sets — aims at a centre that is half the panel off. Two
+cards sit under the inspector on the running board at 1440x900. Read mode gets this right; author
+mode does not, and author mode is the half that has to be trustworthy.
+
+The narrow fix is to inset edit mode by the palette extent. That is not the right fix. The consumer
+hand-maintains a `matchMedia` listener plus `RAIL_EXTENT` at 56 and palette extents of 196 and 176,
+and those same numbers already live in the stylesheet — three copies of one fact, already
+disagreeing. The panel knows its own size.
+
+Close it generically: let the framework take an inset from an element, so the media query and both
+constants leave the consumer. If `setViewportInsets` cannot already accept an element or a ref, that
+is the deficit.
+
+Done when the camera frames against the space the canvas actually has in both modes, and
+`board.tsx` no longer carries extent constants.
+
 ## The canvas has a default width on desktop
 
 Deferred by the owner twice, most recently 2026-09-20 with a reference. Do not take it while

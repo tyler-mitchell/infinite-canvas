@@ -9,6 +9,7 @@ import {
   containsRect,
   dist2,
   insetRectBy,
+  minMax,
   panCamera,
   rectWithCentroid,
   resizeRect,
@@ -53,6 +54,7 @@ import {
   containerDefinition,
   pointerInput,
   resizeHandle,
+  screenRect,
   viewState,
 } from "./state.schema";
 import { getOwnSize, getWindowTree, withComputed } from "./state.computed";
@@ -650,6 +652,25 @@ export const createCanvasState = withComputed(stateModel)
           ? ctx.error("item properties that the parent layout accepts")
           : input;
       }),
+      moveSection: type({
+        window: canvas.inputs.existingWindow,
+        by: "number.integer",
+      }).pipe(({ window, by }, ctx) => {
+        const child = window.id.get();
+        const container = canvas.computed.windowParent[child].get();
+        const children =
+          container === undefined
+            ? []
+            : (canvas.state.document.content.windows[container].children.get() ?? []);
+        const route = canvas.computed.route.get().map((section) => section.id);
+        const position = route.indexOf(child);
+        const target = clamp(position + by, ...minMax(0, route.length - 1));
+        const remaining = children.filter((id) => id !== child);
+        const anchor = remaining.indexOf(route[target] ?? "");
+        return position >= 0 && target !== position && anchor >= 0 && container !== undefined
+          ? { container, child, index: by < 0 ? anchor : anchor + 1 }
+          : ctx.error("a section with a sibling section to move past");
+      }),
       reorderChild: type({
         container: canvas.inputs.containerWindow,
         child: "string > 0",
@@ -733,6 +754,16 @@ export const createCanvasState = withComputed(stateModel)
           ctx.mustBe("a width mode or a height mode"),
       ),
       setWindowSection: { window: "existingWindow", "section?": "boolean" },
+      setPresentation: type({
+        "axis?": "'horizontal' | 'vertical'",
+        "maxZoom?": "number > 0",
+      }).narrow(
+        (input, ctx) =>
+          input.axis !== undefined ||
+          input.maxZoom !== undefined ||
+          ctx.mustBe("an axis or a maximum zoom"),
+      ),
+      setViewportOccluder: type({ source: "string > 0", "rect?": screenRect }),
       setViewportInsets: type({
         "top?": "number >= 0",
         "right?": "number >= 0",
@@ -835,8 +866,16 @@ export const createCanvasState = withComputed(stateModel)
       setWindowSection: type.fn(inputs.setWindowSection)(({ window, section }) =>
         section === undefined ? window.section.delete() : window.section.set(section),
       ),
+      setPresentation: type.fn(inputs.setPresentation)((presentation) =>
+        state.document.content.presentation.assign(presentation),
+      ),
       setViewportInsets: type.fn(inputs.setViewportInsets)((insets) =>
         state.input.viewportInsets.assign(insets),
+      ),
+      setViewportOccluder: type.fn(inputs.setViewportOccluder)(({ source, rect }) =>
+        rect === undefined
+          ? state.input.viewportOccluders[source].delete()
+          : state.input.viewportOccluders[source].set(rect),
       ),
       setWindowData: type.fn(inputs.setWindowData)(({ window, data }) => window.assign({ data })),
       renameWorkspace: type.fn(inputs.renameWorkspace)(({ workspace, title }) =>
@@ -1914,9 +1953,19 @@ export const createCanvasState = withComputed(stateModel)
         state.session.drag.assign({ detached: { ...drag.detached, [drag.target]: rect } });
     }),
   }))
-  .actions(({ inputs, actions }) => ({
+  .actions(({ state, computed, inputs, actions, configuration }) => ({
     insertComponent: type.fn(inputs.insertComponent)((input) =>
       actions.openWindow.run(input.input),
+    ),
+    moveSection: type.fn(inputs.moveSection)((input) =>
+      batch(() => {
+        const error = actions.reorderChild.run(input);
+        if (error !== undefined) return error;
+        const layout = computed.parentLayoutType[input.child].peek();
+        const pins = layout === undefined ? [] : configuration.layouts[layout].pins;
+        const item = state.document.content.windows[input.child].item;
+        pins.forEach((pin) => item[pin].delete());
+      }),
     ),
   }))
   .actions(({ state, computed, inputs, actions }) => ({
@@ -2033,6 +2082,11 @@ export const createCanvasState = withComputed(stateModel)
       icon: "resize",
     },
     reorderChild: { action: actions.reorderChild, label: "Reorder child window", icon: "reorder" },
+    moveSection: {
+      action: actions.moveSection,
+      label: "Move the window in the reading order",
+      icon: "reorder",
+    },
     fitAll: { action: actions.fitAll, label: "Fit all windows", icon: "fit", surface: "view" },
     fitSelection: {
       action: actions.fitSelection,
@@ -2051,6 +2105,11 @@ export const createCanvasState = withComputed(stateModel)
     setWindowSection: {
       action: actions.setWindowSection,
       label: "Set whether the window is a section",
+      icon: "section",
+    },
+    setPresentation: {
+      action: actions.setPresentation,
+      label: "Set how the document reads",
       icon: "section",
     },
     focusWindow: {

@@ -215,7 +215,7 @@ heading means nobody has classified it yet, not that it is open.
   Tests pin the initial result and project key.
   They also pin the phrase "not loaded yet" instead of "No connections."
 
-- **A published verb reported "done" before its database write finished.**
+- **RESOLVED. A published verb reported "done" before its database write finished.**
   The framework type caused this error.
 
   `getCanvasCommandTools` calls `run()` and returns `"<label> done."`.

@@ -61,8 +61,8 @@ export const CanvasReadingOrder = observer(function CanvasReadingOrder({
                       size="sm"
                       tone="ghost"
                       aria-label={`Move ${title || section.id} earlier`}
-                      disabled={!canvas.commands.moveChild.canRun({ window: section.id, by: -1 })}
-                      onClick={() => canvas.actions.moveChild.run({ window: section.id, by: -1 })}
+                      disabled={!canvas.commands.moveSection.canRun({ window: section.id, by: -1 })}
+                      onClick={() => canvas.actions.moveSection.run({ window: section.id, by: -1 })}
                     >
                       <ChevronUpIcon aria-hidden="true" />
                     </Button>
@@ -70,8 +70,8 @@ export const CanvasReadingOrder = observer(function CanvasReadingOrder({
                       size="sm"
                       tone="ghost"
                       aria-label={`Move ${title || section.id} later`}
-                      disabled={!canvas.commands.moveChild.canRun({ window: section.id, by: 1 })}
-                      onClick={() => canvas.actions.moveChild.run({ window: section.id, by: 1 })}
+                      disabled={!canvas.commands.moveSection.canRun({ window: section.id, by: 1 })}
+                      onClick={() => canvas.actions.moveSection.run({ window: section.id, by: 1 })}
                     >
                       <ChevronDownIcon aria-hidden="true" />
                     </Button>
