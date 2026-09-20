@@ -622,9 +622,22 @@ because a page width is an authored document property and belongs where an autho
 
 NOT seen on screen.
 
-## Presentation mode shows the container label
+## Presentation mode shows the container label — FIXED, awaiting commit
 
 Raised by the owner 2026-09-20: "in presentation mode the group labels should not be visible."
+
+FIXED and verified live 2026-09-20 at both widths, in the working tree, not yet committed.
+`board.tsx:98` now gates the container label on `mode === "edit"` and returns null otherwise.
+
+    1440x900   edit: label 81px, 9 drag handles    read: label absent, 8 drag handles
+    375x812    edit: label 44px                    read: label absent
+
+Both halves hold: gone for a visitor, still there for an author. Removing it from edit mode would
+have been the worse defect and it did not happen.
+
+Not committable on its own. The same working tree has `board.tsx` importing `useCanvasOccluder`
+from the framework, which only exists in a modified `next/react/index.ts`, so the consumer and the
+framework must land together. Commit the set once the layout refactor in `next/layout` settles.
 
 Measured on the running board. In read mode the container window still paints its label,
 "Sample collection", 81x26. Nine elements carry `data-slot="canvas-drag-handle"` — one label and
@@ -686,6 +699,16 @@ being sized to the column exactly like every other window.
 The owner's "1 unit square size" therefore means a window whose content has a fixed aspect must
 hold its own size when the grid collapses, instead of stretching to the column the way a text card
 should. That is a sizing policy for the window, not a rendering problem in the icon.
+
+### Closed 2026-09-20
+
+The policy is `maxSize`, which a component may now declare alongside `minSize`, and the grid honours
+it: a child is asked for its own width at the track width, and if it wants less it sits centred in
+the leftover track. That is what CSS grid does for an item with a max width, and it is identity for
+every window that declares no maximum, so only the opting-in kind moves.
+
+`icon-square` declares `maxSize: { width: 190 }`. NOT seen on screen; the check is that the two
+icons stay small at 375px instead of filling the column.
 
 Two earlier readings here were wrong and are withdrawn. The screen-pixel comparison (184 at 2382px,
 303 at 375px) described the zoom, not the defect. And `layout/columns.ts` is not the site: the
