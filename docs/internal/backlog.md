@@ -585,14 +585,38 @@ Measured on the running board. In read mode the container window still paints it
 one wrapping each card. The rest of the handle is already correct in read mode: computed cursor is
 `default` on all nine, and the reading-order badges do not paint. Only the label text leaks.
 
-The viewport already publishes `data-mode` on `canvas-viewport`, so no new signal needs threading
-from the consumer. The framework owns both the slot and the mode.
+The viewport publishes `data-mode` on `canvas-viewport`, so no new signal needs threading from the
+consumer.
 
-That label element also carries raw tailwind in JSX — `absolute -top-8 left-0 flex h-8 cursor-grab
-items-center text-xs` — which `AGENTS.md` forbids. Clear it to tv slots in the same change.
+Two earlier claims here were wrong and are withdrawn. The label's tailwind is a tv slot at
+`board.tsx:57`, which is where tailwind belongs — there is no convention defect. And the framework
+does not own the read-mode cursor; see the entry below. The fix is almost certainly a consumer
+change in `board.tsx`, because the consumer is what renders the label.
 
 Open question, not yet a defect: the eight card handles keep `pointer-events: auto` in read mode.
 Unknown whether that swallows text selection or drag-to-scroll on touch.
+
+## The framework stylesheet never reaches polkadot-ui
+
+Found 2026-09-20 by attempting the fix above and regressing the board.
+
+`packages/infinite-canvas/next/theme.css` is not loaded by the board. Measured on the running page:
+stylesheet rules mentioning `canvas-drag-handle` = 0, and computed `box-shadow` on
+`[data-slot="canvas-window"]` = `none`, which is the framework's own window rule not applying.
+
+So the grab cursor does not come from the framework at all. It comes from the `cursor-grab` tailwind
+utility in `board.tsx`'s tv slots, and `board.css` carries a read-mode rule purely to beat that
+utility. The consumer is not duplicating a framework rule. It is compensating for a stylesheet that
+never arrives.
+
+The attempt: move that rule into `next/theme.css` and delete the consumer's. Result: read mode went
+from 9 drag handles at `cursor: default` to 9 at `grab`. Both files were reverted.
+
+The deficit is larger than the cursor. A consumer that uses the framework's slots receives no
+framework styling for them, so every framework visual default has to be re-implemented in
+polkadot-ui — which is why `board.tsx` carries canvas chrome in its tv slots at all. Either
+polkadot-ui imports the framework stylesheet, or the framework stops shipping one and expresses
+these as slots the consumer styles. That is an architecture decision and it is not yet made.
 
 ## Icon-square windows scale with the route zoom
 
