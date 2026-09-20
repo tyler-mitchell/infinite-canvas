@@ -29,6 +29,23 @@ export type ScrollAreaProps = WithClassName<ScrollAreaPrimitive.Root.Props> & {
 /** One source for the name, so a blank one falls back to what the signature already promises. */
 const DEFAULT_LABEL = "scrolling region";
 
+export type ScrollAreaScrollbarProps = WithClassName<ScrollAreaPrimitive.Scrollbar.Props> & {
+  readonly thumbClassName?: string;
+};
+
+function ScrollAreaScrollbar({ className, thumbClassName, ...props }: ScrollAreaScrollbarProps) {
+  const styles = scrollArea();
+  return (
+    <ScrollAreaPrimitive.Scrollbar
+      data-slot="scroll-area-scrollbar"
+      className={styles.scrollbar({ className })}
+      {...props}
+    >
+      <ScrollAreaPrimitive.Thumb className={styles.thumb({ className: thumbClassName })} />
+    </ScrollAreaPrimitive.Scrollbar>
+  );
+}
+
 /** An overlay scrollbar, so the bar costs no width and content does not reflow when it appears. */
 function ScrollArea({
   axis = "vertical",
@@ -57,21 +74,15 @@ function ScrollArea({
         <ScrollAreaPrimitive.Content {...contentProps}>{children}</ScrollAreaPrimitive.Content>
       </ScrollAreaPrimitive.Viewport>
 
-      {axis !== "horizontal" ? (
-        <ScrollAreaPrimitive.Scrollbar orientation="vertical" className={styles.scrollbar()}>
-          <ScrollAreaPrimitive.Thumb className={styles.thumb()} />
-        </ScrollAreaPrimitive.Scrollbar>
-      ) : null}
+      {axis !== "horizontal" ? <ScrollAreaScrollbar orientation="vertical" /> : null}
 
-      {axis !== "vertical" ? (
-        <ScrollAreaPrimitive.Scrollbar orientation="horizontal" className={styles.scrollbar()}>
-          <ScrollAreaPrimitive.Thumb className={styles.thumb()} />
-        </ScrollAreaPrimitive.Scrollbar>
-      ) : null}
+      {axis !== "vertical" ? <ScrollAreaScrollbar orientation="horizontal" /> : null}
 
       {axis === "both" ? <ScrollAreaPrimitive.Corner className={styles.corner()} /> : null}
     </ScrollAreaPrimitive.Root>
   );
 }
 
-export { ScrollArea, scrollArea as scrollAreaVariants };
+ScrollArea.Scrollbar = ScrollAreaScrollbar;
+
+export { ScrollArea, ScrollAreaScrollbar, scrollArea as scrollAreaVariants };

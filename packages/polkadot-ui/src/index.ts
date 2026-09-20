@@ -355,7 +355,13 @@ export {
   type ReceiptSignProps,
 } from "./components/receipt.tsx";
 export { Row, rowVariants, type RowProps } from "./components/row.tsx";
-export { ScrollArea, scrollAreaVariants, type ScrollAreaProps } from "./components/scroll-area.tsx";
+export {
+  ScrollArea,
+  ScrollAreaScrollbar,
+  scrollAreaVariants,
+  type ScrollAreaProps,
+  type ScrollAreaScrollbarProps,
+} from "./components/scroll-area.tsx";
 export {
   Select,
   SelectContent,

@@ -19,7 +19,6 @@ import { syncState, type Observable } from "@legendapp/state";
 import { ObservablePersistLocalStorage } from "@legendapp/state/persist-plugins/local-storage";
 import { syncObservable } from "@legendapp/state/sync";
 import { useState } from "react";
-import { ScrollArea as ScrollAreaPrimitive } from "@base-ui/react/scroll-area";
 import {
   Badge,
   Button,
@@ -30,12 +29,14 @@ import {
   Label,
   Row,
   Surface,
-  scrollAreaVariants,
+  ScrollAreaScrollbar,
   tv,
 } from "polkadot-ui";
 import { components } from "./components.tsx";
 import documentSource from "./document.json?raw";
 import "./board.css";
+
+const READING_AXIS = "vertical";
 
 const styles = tv({
   slots: {
@@ -94,7 +95,7 @@ const BoardWindow = observer(function BoardWindow({
     ) : null;
   const position =
     mode === "edit"
-      ? canvas.computed.route.vertical.get().findIndex((section) => section.id === id)
+      ? canvas.computed.route[READING_AXIS].get().findIndex((section) => section.id === id)
       : -1;
   return (
     <WindowDragHandle className={styles().card()}>
@@ -242,15 +243,12 @@ export function PortfolioBoard({
         {mode === "read" ? (
           <CanvasScroll
             canvas={canvas}
+            axis={READING_AXIS}
             maxZoom={1}
             attached={!exploring}
             section={section}
             onSectionChange={onSectionChange}
-            scrollbar={
-              <ScrollAreaPrimitive.Scrollbar className={scrollAreaVariants().scrollbar()}>
-                <ScrollAreaPrimitive.Thumb className={scrollAreaVariants().thumb()} />
-              </ScrollAreaPrimitive.Scrollbar>
-            }
+            scrollbar={<ScrollAreaScrollbar />}
           >
             {viewport}
             <Rail />
