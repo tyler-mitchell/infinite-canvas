@@ -876,6 +876,21 @@ the displacement tracks the height rather than the width, the mix-up is confirme
 The fix must leave mobile unchanged: at 375 the content fits with no overflow, so this is
 desktop-only, and 375 is the control case.
 
+MOVING, 2026-09-20, later the same session. Re-measured at the same verified 1440x900 in read mode
+after the board was restored:
+
+    earlier   span 570 to 1812   width 1242   overflow right 372
+    later     span 570 to 2008   width 1438   overflow right 568
+
+The left dead band is identical at 570 while the right overflow grew by 196. So the camera centre
+did not move; the content got wider and the extra width went off the right edge. That is consistent
+with the cross centre being pinned to something fixed near world 151 while the content extent
+changes underneath it — and it rules out any explanation where the displacement is proportional to
+content width, since a proportional error would have moved the left edge too.
+
+Whoever fixes this should measure both numbers, not just the overflow. A fix that recentres will
+move the left edge off 570; a fix that only narrows the content will not.
+
 Measured on the running board at a verified 1440x900 viewport, read mode, scroll position 0, with
 `board.v6` removed so no camera was restored:
 
