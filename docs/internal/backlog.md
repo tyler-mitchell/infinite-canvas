@@ -44,6 +44,111 @@ context that overlays subscribe to themselves (framework contract change, playgr
 adapt), or the app moves its chrome out of `renderOverlay` and selects fields.
 D4. [ ] **Yoga-backed `flex` group mode.** Depends on D1 and D2. Same seams, `yoga-layout` as the
 solver with measured sizes as leaf results.
+D5. [ ] **The canvas is the page (reading mode).** The camera-stops model built and rejected on
+2026-09-17 is demolished (stored camera positions stepped like slides). Replacement, designed in
+`~/.claude/plans/lively-singing-brook.md` §2: the page scrolls, the viewport is fixed, one snap
+child per section gives gravity, and Motion's `scroll()` maps the offset through a pure
+`getCameraTrack` into the camera; the route is the layout's reading order (`getRoute`). Built
+2026-09-17, not yet seen live: `getRoute`, `getCameraTrack`, `CanvasScroll` on Base UI
+`ScrollArea` (snap, sticky viewport, `attached`, start `section`, `useCanvasScroll`), the `read`
+and `explore` viewport policies, `setCamera`, the board's rail (titles on desktop, dots on a
+phone), the URL hash per section, Explore and Back to reading, and the playground `reading`
+showcase; design in `docs/reading.md`. Done when the owner scrolls `/board?mode=read` on desktop
+and at phone width and the cards pass in reading order with nothing on the canvas moving but the
+camera. Later on 2026-09-17: the board's consumer plumbing moved into the framework
+(`onSectionChange`, viewport mode from the scroll context, `computed.selectionActions`,
+`computed.parentLayoutType`, the `grouping` option), the scroll camera previews per frame and
+commits on `scrollend` (the lag root: Legend persists the document on every change), and a fresh
+load with a URL hash now places once the viewport is measured. Seen live 2026-09-18 on the
+playground `reading` route, where it was collapsed: every section sat at scroll offset 0 and the
+page had no scroll range at all, because `getCameraTrack` derived `length` from the content
+overflow (`bounds.height * zoom - height`, clamped at 0) and then clamped every section offset to
+it, so any document not taller than the viewport lost its whole route. `length` is now the larger
+of the content overflow and the last section's offset. After the fix the three sections sit at 0,
+100 and 330, scrolling those offsets moves the camera by exactly -100 and -230 in world y, the
+rail's `aria-current` steps archive to control to log, and the world transform is the only thing
+that changes. Two more defects fixed on the same path: the nearest-section search seeded its
+reduce with the current offset, so it compared against a distance of zero and no section could
+ever win; and the settle test used exact float equality on the camera pose, which an animated
+camera can never satisfy. Seen on `/board?mode=read` the same day, at both widths: eight sections
+at distinct offsets, scrolling moves the camera by exactly the scroll delta in world y, the URL
+hash follows the section, and only the world transform changes. At 375px the board fits at zoom
+0.625, which is D6's remaining work, not this item's. Two cards that share a world row share one
+scroll offset, so one of them can never become the current section; whether side-by-side cards
+should be one stop or two is an open design question. The owner's own look is still the verdict.
+D6. [ ] **Legible sections on a phone.** Depends on D5. A window can carry `widthMode:
+"viewport"` (beside `heightMode`), the board's root container does, a resize or placement sets it
+back to manual, and `setWindowSizeMode` switches it, so the grid's breakpoints fire at phone width
+and a section fits near zoom 1. Done when the owner reads the cards in one column near zoom 1 at
+phone width. Measured 2026-09-18 at 375px on `/board?mode=read`: the board document already
+carries `widthMode: "viewport"` on `main` and breakpoints `640 -> 12 columns, 0 -> 1 column`, and
+the canvas viewport element measures 375, but `main` renders **804 world px** wide, so the 640
+breakpoint still matches and the grid never collapses; the board sits at zoom 0.625 with cards
+still side by side. Cause: `columnSize` in `layout/columns.ts` returns
+`Math.max(narrowest, proposal.width)`, where `narrowest` is the widest child's intrinsic minimum
+(`size({ width: 0 }).width`). `widthMode: "viewport"` does hand the container 375, but the layout
+floors it at the children's minimum and reports 804 back. The children only become narrow when the
+column count drops to 1, and the column count only drops when the container narrows, so the two
+hold each other up. That floor was tried and is NOT the cause: removing it left `main` at 804 and
+the zoom at 0.625, so the change was reverted. (An earlier note here blamed a screen/world unit mix
+in `rootRect`; also wrong.) The framework is correct and the cause is persisted state:
+`localStorage["board.v6"]` holds `main.widthMode: "manual"` with a baked-in width of 803.985, and
+the persisted document overrides the shipped `portfolio/document.json`, which still says
+`"viewport"` and 1200. Proven by patching only that one field in the persisted copy and reloading
+at 375: `main` renders 375 wide, the board sits at **zoom 1**, and the cards collapse to one
+column (distinct child x values drop from four to two). The persisted copy was then restored
+untouched, so the board is still in its manual state on disk. Every write of `widthMode: "manual"`
+was then read: `resizeWindow`, `placeWindow`, the resize branch of `commitDrag`, the `container`
+factory that builds wrapper windows, and `openWindow`. None fires on a plain load, and a load in
+read mode was observed leaving a restored `"viewport"` intact, so nothing is flipping it silently.
+The likely history is an ordinary resize of the board container in edit mode, which correctly set
+manual. The real gap is what that leaves behind: once a container that the document declares as
+`widthMode: "viewport"` is resized even once, phone layout is permanently broken and there is no
+visible way back. `setWindowSizeMode` is the action that restores it but nothing in the board's UI
+calls it. Two ways out, and the choice is the owner's because it is a product decision: give the
+container a visible control that returns it to viewport width, or have the board re-assert the
+modes its own `document.json` declares when it loads a persisted copy. The `container` factory at
+`state.ts:1627` also hard-codes `widthMode: "manual"` while rebuilding a wrapper, so a group or
+dock that rebuilds such a container would drop the mode too; that one is a framework defect
+whichever way the product question goes.
+2026-09-19: three claims above are now out of date. The `container` factory keeps an existing
+window's `heightMode` and `widthMode` and defaults to manual only for an id that does not exist
+yet, so that framework defect is closed. The board's inspector carries a **Viewport width** switch
+on the Window fieldset, calling `setWindowSizeMode` for any window with no layout parent, so the
+recovery control exists and the stuck state is no longer a dead end. The persisted copy is not
+stuck either: `localStorage["board.v6"]` reads `main.widthMode: "viewport"` with width 1200. What
+remains is the owner's look at phone width, which is the done-condition. It cannot be measured
+from an agent session: a hidden preview pane reports every rect as zero.
+D9. [ ] **The selection toolbar does not follow the camera.** Found 2026-09-19. The toolbar is a Base
+UI Popover positioned against a world-layer anchor element. Base UI drives position with Floating
+UI's `autoUpdate`, and it hardcodes the options to `{ elementResize, layoutShift }`
+(`esm/utils/useAnchorPositioning.js:287-290`), exposing only `disableAnchorTracking` to turn those
+two off. A camera pan or zoom changes a CSS transform on an ancestor: that fires no scroll, no
+resize, and no ResizeObserver, because the anchor's border box in CSS pixels never changes.
+`layoutShift`'s IntersectionObserver catches some movement but is threshold-based, so it cannot
+follow a camera. Floating UI's own `animationFrame: true` would, and Base UI has no prop for it.
+There is no clean fix inside the current composition, so nothing was changed. Two real options when
+this is taken up: position the toolbar with the framework's own `CanvasPortal scope="window"`, which
+re-renders on every camera change by construction and is how the framework already places
+canvas-anchored chrome, at the cost of Floating UI's collision flipping; or get the `autoUpdate`
+options exposed upstream. Done when the toolbar stays on its selection through a pan and a zoom.
+D8. [ ] **The board's reading width is a tablet-ish measure, not the full desktop viewport.** Deferred
+by the owner on 2026-09-19, to be taken up later: on a desktop screen the main portfolio container
+should read at roughly the width of a tablet screen rather than stretching the full window. The
+measure is a visual approximation, not a device: no tablet width is codified. Today `main` carries
+`widthMode: "viewport"`, which ties it to the viewport width at every size. Done when the board
+reads at that narrower measure on a desktop screen while still collapsing at phone width.
+D7. [ ] **Retire the old `src` framework.** `next` is the only live framework; `src` stays as a
+capability checklist until nothing imports it. Measured 2026-09-17 by import survey: the old entry
+points (`.`, `./core`, `./scene`, `./theme.css`) have 80 consumer files in `apps/polkadot`, 14 in
+`apps/playground` (eight routes, six showcases), and one in `apps/compositor-poc`. The board and
+the `next` playground routes import nothing from `src`. Order: (1) each old playground route is
+either rebuilt on `next` as a showcase of a capability `next` already has, or deleted with the
+capability recorded as a `next` gap; (2) Polkadot moves to `next` one seam at a time, starting
+with the canvas runtime (`apps/polkadot/src/canvas/use-canvas-runtime.ts`) and the window
+registry, because every other file reaches the framework through those two; (3) `src`, its tests,
+and the old package exports are deleted in one commit. Done when `packages/infinite-canvas` has
+one framework and Polkadot's own test suite passes on it.
 
 ## Engine-first target — long-term end state
 
