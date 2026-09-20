@@ -763,11 +763,26 @@ moves content LEFT by roughly 23px, the opposite direction and twenty times too 
 Four candidates are now dead by measurement: stale persisted camera, non-section windows excluded
 from bounds, a per-section cross recomputed downstream, and viewport insets.
 
-One candidate remains: the rects carried by `computed.route`'s sections are not the rects those
-windows actually render at. Their union spans world 1 to 301 where the rendered content spans 1 to
-1243 — consistent with the route holding the left column's rect for every section, or holding
-rects captured before the layout settled. Confirming it needs `computed.route` read at runtime,
-which the DOM does not expose.
+One candidate remains, and the arithmetic pins it to an exact number. Solving the cross formula
+backwards from the measurement:
+
+    camera centre x                     151
+    cross = centroid.x - (0 - 46)/2/1 = centroid.x + 23
+    therefore centroidOfRect(bounds).x  128
+
+128 is exactly half of 256. A bounds rect of `{x: 0, width: 256}` has centroid 128. That is the
+shape of a default, unlaid-out window rect — not the union of six laid-out cards spanning world 1
+to 1243, whose centroid is 622.
+
+So the likely cause is that `computed.route`'s sections carry default or pre-layout rects rather
+than their settled ones, and `getCameraTrack` unions those. It would also explain why the main
+axis still scrolls correctly: `length` takes the larger of the content overflow and the last
+section's offset, so a wrong union can still yield a usable scroll range while the cross centre is
+nonsense.
+
+Check `computed.route`'s rects at runtime against `computed.windowRect` for the same ids. If they
+differ, that is the defect and the fix is to source the route from settled rects. The DOM cannot
+show this from outside; it needs the state.
 
 The fix must leave mobile unchanged: at 375 the content fits with no overflow, so this is
 desktop-only, and 375 is the control case.
