@@ -39,11 +39,13 @@ export type TooltipTriggerProps = Omit<TooltipPrimitive.Trigger.Props, "classNam
  * The trigger is the button, which is how Base UI writes one and how the toolbar and the select
  * draw theirs. For a trigger that is not a button, pass `render` with its own `className`.
  */
-function TooltipTrigger({ tone = "soft", size, className, ...props }: TooltipTriggerProps) {
+function TooltipTrigger({ tone = "soft", size, className, render, ...props }: TooltipTriggerProps) {
+  const styles = render === undefined ? buttonVariants({ tone, size, className }) : className;
   return (
     <TooltipPrimitive.Trigger
       data-slot="tooltip-trigger"
-      className={buttonVariants({ tone, size, className })}
+      {...(render === undefined ? {} : { render })}
+      {...(styles === undefined ? {} : { className: styles })}
       {...props}
     />
   );

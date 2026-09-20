@@ -11,18 +11,26 @@ const toolbar = tv({
     separator:
       "flex-none self-center bg-pk-line-inner data-[orientation=horizontal]:my-1 data-[orientation=horizontal]:h-px data-[orientation=horizontal]:w-4 data-[orientation=vertical]:mx-1 data-[orientation=vertical]:h-4 data-[orientation=vertical]:w-px",
   },
+  variants: {
+    variant: {
+      tray: {},
+      plain: { root: "rounded-none border-0 bg-transparent p-0 shadow-none" },
+    },
+  },
+  defaultVariants: { variant: "tray" },
 });
 
 type WithClassName<T> = Omit<T, "className"> & { className?: string };
 
-export type ToolbarProps = WithClassName<ToolbarPrimitive.Root.Props>;
+export type ToolbarProps = WithClassName<ToolbarPrimitive.Root.Props> &
+  VariantProps<typeof toolbar>;
 
-function Toolbar({ orientation = "horizontal", className, ...props }: ToolbarProps) {
+function Toolbar({ orientation = "horizontal", variant, className, ...props }: ToolbarProps) {
   return (
     <ToolbarPrimitive.Root
       data-slot="toolbar"
       orientation={orientation}
-      className={toolbar().root({ className })}
+      className={toolbar({ variant }).root({ className })}
       {...props}
     />
   );
