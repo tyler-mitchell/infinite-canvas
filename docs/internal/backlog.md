@@ -137,8 +137,15 @@ Built 2026-09-20, first option. `CanvasPortal` gained a `selection` scope over a
 selection a second time. The toolbar renders inside that portal and no longer uses Popover, so
 Floating UI is out of this surface entirely. `selectionAnchor` existed only to give it an anchor
 and had no consumers left: the context field, its state and the ref are deleted. Collision flipping
-is given up, which is the cost the entry named; a canvas toolbar clamps rather than flips. NOT seen
-on screen — the check is the done-condition above.
+is given up, which is the cost the entry named. NOT seen on screen — the check is the
+done-condition above.
+
+Left open by that change: the toolbar sits above the selection with no flip, so a selection near the
+top of the viewport pushes it off screen. Floating UI used to flip it below. A correct flip needs
+the toolbar's own height, which the consumer styles and the framework does not know, so it is
+either a measured height in the consumer or a `data-` signal on the portal box saying how much room
+is above. Neither is threaded today. Reachable by panning, so it is polish rather than a
+correctness defect.
 D8. [ ] **The board's reading width is a tablet-ish measure, not the full desktop viewport.** Deferred
 by the owner on 2026-09-19, to be taken up later: on a desktop screen the main portfolio container
 should read at roughly the width of a tablet screen rather than stretching the full window. The
@@ -741,10 +748,26 @@ alarms earlier the same night. Two separate errors in the console:
       at /app/routes/__root.tsx:326
       [vite] Failed to reload /app/routes/__root.tsx
 
-`SelectionBounds` is `next/react/viewport.tsx:326`. It guards `bounds === null` before use, so the
-undefined `x` is on something else it reads — a rect or point from computed state that is now
-undefined for at least one selected window. That file is inside the framework refactor in flight
-across `route.ts`, `state.computed.ts`, `state.types.ts` and `layout/grid.ts`.
+CAUSE FOUND, and it is one line. `SelectionBounds` at `next/react/viewport.tsx:326` was refactored
+to read a new computed:
+
+    const bounds = canvas.computed.selectionBounds.get();
+    if (bounds === null) return null;
+    ... bounds.x
+
+The guard uses STRICT equality against `null`. The thrown error is "reading 'x' of undefined", so
+the value arriving is `undefined`, not `null`, and the guard lets it through.
+
+The other two call sites of the same computed already handle both:
+
+    context.tsx:70   (canvas.computed.selectionBounds.get() ?? undefined)  then  rect === undefined
+    camera.ts:182    if (rect == null)                                     loose, catches both
+
+So `== null` is already the codebase's own convention for this value, and `viewport.tsx:328` is
+the single site that departs from it. Either widen that guard or make
+`state.computed.ts:783 selectionBounds` honour its declared `Rect | null` and never yield
+undefined. The declared type says `Rect | null`; something upstream is producing undefined anyway,
+so fixing the producer is the better of the two and the guard change is the safe stopgap.
 
 The `__root.tsx` failure is separate and may be the more fundamental of the two: the route module
 itself will not reload, reading `.get()` on something undefined at line 326.
