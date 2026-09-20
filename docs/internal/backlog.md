@@ -891,6 +891,27 @@ content width, since a proportional error would have moved the left edge too.
 Whoever fixes this should measure both numbers, not just the overflow. A fix that recentres will
 move the left edge off 570; a fix that only narrows the content will not.
 
+LIKELY CAUSE, from that constant. A left edge pinned at 570 across two content widths means
+`translateX` is pinned near 569, so the camera centre is frozen at world 151 rather than
+recomputed. `scroll.tsx:130` is the candidate:
+
+    const shape = track === null ? ""
+      : `${track.length}/${track.sections.map((placed) => `${placed.id}@${placed.offset}`).join()}`;
+
+`shape` is the dependency of the effect that calls `place()`, and it carries ONLY `length` and the
+per-section offsets. Not `zoom`, not `cross`. Both of those change when the content's cross-axis
+extent changes, and neither is observed. So a layout settling wider moves `cross` without moving
+any section's offset along the scroll axis, `shape` is unchanged, the effect does not re-run, and
+the camera keeps the cross it was handed before the layout settled.
+
+That also explains the original displacement on a fresh load, which no earlier theory did: the
+first `place()` runs against an early, narrow track, and nothing re-places it once the real widths
+arrive. One mechanism, both observations.
+
+Not confirmed — confirming it means watching `cross` and `shape` across a settle, which needs the
+state. If it holds, the fix is to include the pose in `shape`, or to depend on the track identity
+rather than a string built from two of its fields.
+
 Measured on the running board at a verified 1440x900 viewport, read mode, scroll position 0, with
 `board.v6` removed so no camera was restored:
 
