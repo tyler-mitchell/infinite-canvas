@@ -122,7 +122,77 @@ export {
   type ComboboxListProps,
   type ComboboxProps,
 } from "./components/combobox.tsx";
+export {
+  Command,
+  CommandDialog,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+  CommandSeparator,
+  CommandShortcut,
+  commandVariants,
+  type CommandDialogProps,
+  type CommandEmptyProps,
+  type CommandGroupProps,
+  type CommandInputProps,
+  type CommandItemProps,
+  type CommandListProps,
+  type CommandProps,
+  type CommandSeparatorProps,
+  type CommandShortcutProps,
+} from "./components/command.tsx";
+export {
+  ButtonGroup,
+  ButtonGroupSeparator,
+  ButtonGroupText,
+  buttonGroupVariants,
+  type ButtonGroupProps,
+  type ButtonGroupSeparatorProps,
+  type ButtonGroupTextProps,
+} from "./components/button-group.tsx";
+export {
+  FieldContent,
+  FieldDescription,
+  FieldError,
+  FieldGroup,
+  FieldLegend,
+  FieldSeparator,
+  FieldSet,
+  FieldTitle,
+  type FieldContentProps,
+  type FieldDescriptionProps,
+  type FieldErrorProps,
+  type FieldGroupProps,
+  type FieldLegendProps,
+  type FieldSeparatorProps,
+  type FieldSetProps,
+  type FieldTitleProps,
+} from "./components/field.tsx";
+export { canvasIcons } from "./components/canvas-icons.ts";
+export { CanvasInspector, type CanvasInspectorProps } from "./components/canvas-inspector.tsx";
+export { CanvasLauncher, type CanvasLauncherProps } from "./components/canvas-launcher.tsx";
+export {
+  CanvasSelectionToolbar,
+  type CanvasSelectionToolbarProps,
+} from "./components/canvas-selection-toolbar.tsx";
 export { CommitRow, commitRowVariants, type CommitRowProps } from "./components/commit-row.tsx";
+export {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupButton,
+  InputGroupInput,
+  InputGroupText,
+  InputGroupTextarea,
+  inputGroupVariants,
+  type InputGroupAddonProps,
+  type InputGroupButtonProps,
+  type InputGroupInputProps,
+  type InputGroupProps,
+  type InputGroupTextProps,
+  type InputGroupTextareaProps,
+} from "./components/input-group.tsx";
 export {
   Card,
   CardRoot,

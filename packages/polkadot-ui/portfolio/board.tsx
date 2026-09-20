@@ -6,10 +6,12 @@ import {
   type WindowState,
 } from "@hyphened/infinite-canvas/next";
 import {
+  CanvasScroll,
   CanvasTools,
   CanvasViewport,
   ComponentView,
   Palette,
+  Sections,
   WindowContent,
   WindowDragHandle,
 } from "@hyphened/infinite-canvas/next/react";
@@ -18,20 +20,35 @@ import { syncState, type Observable } from "@legendapp/state";
 import { ObservablePersistLocalStorage } from "@legendapp/state/persist-plugins/local-storage";
 import { syncObservable } from "@legendapp/state/sync";
 import { useState } from "react";
-import { Button, CanvasCommand, Label, Row, Surface, tv } from "polkadot-ui";
+import { ScrollArea as ScrollAreaPrimitive } from "@base-ui/react/scroll-area";
+import {
+  Badge,
+  Button,
+  CanvasInspector,
+  CanvasLauncher,
+  CanvasSelectionToolbar,
+  Label,
+  Row,
+  Surface,
+  scrollAreaVariants,
+  tv,
+} from "polkadot-ui";
 import { components } from "./components.tsx";
-import { Inspector } from "./inspector.tsx";
 import documentSource from "./document.json?raw";
 import "./board.css";
 
 const styles = tv({
   slots: {
     page: "relative h-dvh overflow-hidden bg-pk-ground text-pk-text",
-    controls: "absolute top-4 left-4 z-20 max-w-[calc(100%-2rem)] flex-wrap",
+    launcher: "absolute top-4 left-4 z-20",
+    presentControls: "absolute top-4 right-4 z-20 min-[641px]:right-[212px]",
     viewportHost: "h-[calc(100%-176px)] min-[641px]:h-full min-[641px]:w-[calc(100%-196px)]",
     viewport: "text-pk-ink",
+    card: "h-full cursor-grab",
+    position:
+      "pointer-events-none absolute -top-2 -left-2 z-10 size-5 justify-center rounded-full bg-pk-surface p-0 tabular-nums",
     window:
-      "relative h-full data-selected:outline-2 data-selected:outline-pk-accent data-selected:-outline-offset-2 has-[[data-slot=language-icon]]:border-0 has-[[data-slot=language-icon]]:rounded-none has-[[data-slot=language-icon]]:bg-transparent has-[[data-slot=language-icon]]:shadow-none",
+      "relative h-full in-data-selected:outline-2 in-data-selected:outline-pk-accent in-data-selected:-outline-offset-2 has-[[data-slot=language-icon]]:border-0 has-[[data-slot=language-icon]]:rounded-none has-[[data-slot=language-icon]]:bg-transparent has-[[data-slot=language-icon]]:shadow-none",
     container: "absolute -top-8 left-0 flex h-8 cursor-grab items-center text-xs",
     palette:
       "fixed right-0 bottom-0 z-30 h-44 w-full overflow-auto border-pk-line bg-pk-surface p-3 min-[641px]:top-0 min-[641px]:h-auto min-[641px]:w-[196px] min-[641px]:border-l",
@@ -44,34 +61,53 @@ const styles = tv({
       "mb-3 w-full rounded border border-pk-line bg-transparent px-3 py-2 text-xs outline-none focus:border-pk-accent",
     paletteEmpty: "text-xs opacity-60",
     error: "text-xs",
+    rail: "absolute bottom-4 left-1/2 z-20 flex -translate-x-1/2 flex-row gap-2 min-[641px]:top-1/2 min-[641px]:right-4 min-[641px]:bottom-auto min-[641px]:left-auto min-[641px]:translate-x-0 min-[641px]:-translate-y-1/2 min-[641px]:flex-col min-[641px]:items-end min-[641px]:gap-1",
+    railItem: "group relative flex items-center justify-end rounded p-1 focus-visible:outline-none",
+    railDot:
+      "size-1.5 shrink-0 rounded-full bg-pk-ink/30 transition-colors group-hover:bg-pk-ink group-aria-[current=true]:bg-pk-accent",
+    railLabel:
+      "pointer-events-none absolute right-full mr-2 hidden rounded border border-pk-line bg-pk-surface px-2 py-1 text-[11px] whitespace-nowrap text-pk-ink opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-visible:opacity-100 min-[641px]:block",
+  },
+  variants: {
+    mode: {
+      edit: {},
+      read: {
+        viewportHost: "h-full w-full min-[641px]:w-full",
+        palette: "hidden",
+        presentControls: "min-[641px]:right-4",
+      },
+    },
   },
 });
 
 const BoardWindow = observer(function BoardWindow({
   canvas,
   window,
+  mode,
 }: {
   canvas: Canvas;
   window: Observable<WindowState>;
+  mode: BoardMode;
 }) {
+  const id = window.id.get();
   if (window.kind.get() === undefined)
-    return canvas.computed.windowParent[window.id.get()].get() === undefined ? (
+    return canvas.computed.windowParent[id].get() === undefined ? (
       <WindowDragHandle className={styles().container()}>
         {window.title.get() || "Group"}
       </WindowDragHandle>
     ) : null;
+  const position =
+    mode === "edit"
+      ? canvas.computed.route.vertical.get().findIndex((section) => section.id === id)
+      : -1;
   return (
-    <WindowDragHandle className="h-full cursor-grab">
-      <Surface
-        container
-        padding="none"
-        tone="card"
-        className={styles().window()}
-        data-selected={
-          canvas.computed.selection.targets[`window:${window.id.get()}`].get() !== undefined ||
-          undefined
-        }
-      >
+    <WindowDragHandle className={styles().card()}>
+      <Surface container padding="none" tone="card" className={styles().window()}>
+        {position >= 0 && (
+          <Badge className={styles().position()} tone="outline">
+            {position + 1}
+          </Badge>
+        )}
         <WindowContent>
           <ComponentView canvas={canvas} window={window} components={components} />
         </WindowContent>
@@ -80,49 +116,74 @@ const BoardWindow = observer(function BoardWindow({
   );
 });
 
-const BoardControls = observer(function BoardControls({ canvas }: { canvas: Canvas }) {
-  const windows = canvas.computed.selectedWindows.map((window) => window.id.get());
-  const first = canvas.computed.selectedWindows[0]?.kind.get();
-  const actions =
-    first === undefined
-      ? []
-      : Object.entries(canvas.configuration.components[first]?.actions ?? {});
+const BoardControls = observer(function BoardControls({
+  canvas,
+  mode,
+  onModeChange,
+  exploring,
+  onExploringChange,
+}: {
+  canvas: Canvas;
+  mode: BoardMode;
+  onModeChange: (mode: BoardMode) => void;
+  exploring: boolean;
+  onExploringChange: (exploring: boolean) => void;
+}) {
   const error = syncState(canvas.state.document).error.get();
+  const classes = styles({ mode });
+  if (mode === "read")
+    return (
+      <Row className={classes.presentControls()} role="group" aria-label="Presentation">
+        <Button aria-pressed={exploring} onClick={() => onExploringChange(!exploring)}>
+          {exploring ? "Back to reading" : "Explore"}
+        </Button>
+        <Button onClick={() => onModeChange("edit")}>Exit</Button>
+      </Row>
+    );
   return (
-    <Row className={styles().controls()} role="group" aria-label="Canvas commands">
-      <CanvasCommand command={canvas.commands.undo} input={{}} />
-      <CanvasCommand command={canvas.commands.redo} input={{}} />
-      <CanvasCommand command={canvas.commands.fitAll} input={{}} />
-      <Button onClick={() => void canvas.commands.restoreDocument.run(JSON.parse(documentSource))}>
-        Reset
-      </Button>
-      <CanvasCommand
-        command={canvas.commands.groupWindows}
-        input={{ windows, layout: { type: "grid", rowHeight: 40, compact: true } }}
-      >
-        Group selected
-      </CanvasCommand>
-      {actions
-        .filter(([action]) => canvas.commands.runComponentAction.canRun({ action, windows }))
-        .map(([action, definition]) => (
-          <CanvasCommand
-            key={action}
-            command={canvas.commands.runComponentAction}
-            input={{ action, windows }}
-          >
-            {definition.label}
-          </CanvasCommand>
-        ))}
-      {error != null && <p role="alert">Board save failed: {String(error)}</p>}
-    </Row>
+    <>
+      <CanvasLauncher canvas={canvas} className={classes.launcher()} />
+      <Row className={classes.presentControls()} role="group" aria-label="Presentation">
+        <Button onClick={() => onModeChange("read")}>Present</Button>
+      </Row>
+      {error != null && (
+        <p role="alert" className={classes.error()}>
+          Board save failed: {String(error)}
+        </p>
+      )}
+    </>
   );
 });
 
-export function PortfolioBoard() {
+const Rail = () => (
+  <Sections.Root className={styles().rail()}>
+    {(section) => (
+      <Sections.Item key={section.id} section={section.id} className={styles().railItem()}>
+        <span aria-hidden="true" className={styles().railDot()} />
+        <span className={styles().railLabel()}>{section.title}</span>
+      </Sections.Item>
+    )}
+  </Sections.Root>
+);
+
+export type BoardMode = "edit" | "read";
+
+export function PortfolioBoard({
+  mode,
+  onModeChange,
+  section,
+  onSectionChange,
+}: {
+  mode: BoardMode;
+  onModeChange: (mode: BoardMode) => void;
+  section?: string;
+  onSectionChange?: (section: string) => void;
+}) {
   const [canvas] = useState(() => {
     const canvas = createCanvasState({
       document: JSON.parse(documentSource),
       windowDefinitions: components,
+      grouping: { type: "grid", rowHeight: 40, compact: true },
       cameraMotion: { transition: { type: "spring", visualDuration: 0.8, bounce: 0 } },
     });
     syncObservable(canvas.state.document, {
@@ -135,42 +196,79 @@ export function PortfolioBoard() {
     });
     return canvas;
   });
+  const [exploring, setExploring] = useState(false);
+  const classes = styles({ mode });
+  const viewport = (
+    <CanvasViewport
+      canvas={canvas}
+      className={classes.viewport()}
+      emptyCanvasDrag="marquee"
+      renderWindow={(window) => <BoardWindow canvas={canvas} window={window} mode={mode} />}
+    >
+      <CanvasTools canvas={canvas} />
+      {mode === "edit" && <CanvasSelectionToolbar canvas={canvas} />}
+      <Palette.Root portal aria-label="Components" className={classes.palette()}>
+        <CanvasInspector canvas={canvas} />
+        <header className={styles().paletteHeading()}>
+          <Row justify="between">
+            <Label>Components</Label>
+            <Button
+              size="sm"
+              tone="ghost"
+              onClick={() => void canvas.commands.restoreDocument.run(JSON.parse(documentSource))}
+            >
+              Reset
+            </Button>
+          </Row>
+          <p className={styles().paletteDescription()}>Add or drag onto the canvas.</p>
+        </header>
+        <Palette.Input
+          className={styles().paletteInput()}
+          aria-label="Search components"
+          placeholder="Search components…"
+        />
+        <Palette.Error className={styles().error()} />
+        <Palette.List className={styles().paletteList()}>
+          {(kind: string) => (
+            <Palette.Item key={kind} kind={kind} className={styles().paletteItem()}>
+              {canvas.configuration.components[kind].label ?? kind}
+              <span aria-hidden="true">⠿</span>
+            </Palette.Item>
+          )}
+        </Palette.List>
+        <Palette.Empty className={styles().paletteEmpty()}>No matching components.</Palette.Empty>
+      </Palette.Root>
+    </CanvasViewport>
+  );
   return (
-    <main className={styles().page()}>
-      <BoardControls canvas={canvas} />
-      <div className={styles().viewportHost()}>
-        <CanvasViewport
-          canvas={canvas}
-          className={styles().viewport()}
-          emptyCanvasDrag="marquee"
-          renderWindow={(window) => <BoardWindow canvas={canvas} window={window} />}
-        >
-          <CanvasTools canvas={canvas} />
-          <Palette.Root portal aria-label="Components" className={styles().palette()}>
-            <Inspector canvas={canvas} />
-            <header className={styles().paletteHeading()}>
-              <Label>Components</Label>
-              <p className={styles().paletteDescription()}>Add or drag onto the canvas.</p>
-            </header>
-            <Palette.Input
-              className={styles().paletteInput()}
-              aria-label="Search components"
-              placeholder="Search components…"
-            />
-            <Palette.Error className={styles().error()} />
-            <Palette.List className={styles().paletteList()}>
-              {(kind: string) => (
-                <Palette.Item key={kind} kind={kind} className={styles().paletteItem()}>
-                  {canvas.configuration.components[kind].label ?? kind}
-                  <span aria-hidden="true">⠿</span>
-                </Palette.Item>
-              )}
-            </Palette.List>
-            <Palette.Empty className={styles().paletteEmpty()}>
-              No matching components.
-            </Palette.Empty>
-          </Palette.Root>
-        </CanvasViewport>
+    <main className={classes.page()}>
+      <BoardControls
+        canvas={canvas}
+        mode={mode}
+        onModeChange={onModeChange}
+        exploring={exploring}
+        onExploringChange={setExploring}
+      />
+      <div className={classes.viewportHost()}>
+        {mode === "read" ? (
+          <CanvasScroll
+            canvas={canvas}
+            maxZoom={1}
+            attached={!exploring}
+            section={section}
+            onSectionChange={onSectionChange}
+            scrollbar={
+              <ScrollAreaPrimitive.Scrollbar className={scrollAreaVariants().scrollbar()}>
+                <ScrollAreaPrimitive.Thumb className={scrollAreaVariants().thumb()} />
+              </ScrollAreaPrimitive.Scrollbar>
+            }
+          >
+            {viewport}
+            <Rail />
+          </CanvasScroll>
+        ) : (
+          viewport
+        )}
       </div>
     </main>
   );

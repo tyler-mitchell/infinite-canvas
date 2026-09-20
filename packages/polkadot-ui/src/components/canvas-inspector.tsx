@@ -4,17 +4,19 @@ import { observer } from "@legendapp/state/react";
 import { createHeadlessForm, type Field as FormField } from "@remoteoss/json-schema-form";
 import { type, type Type } from "arktype";
 import { useState } from "react";
-import { Button, Field, Label, NumberField, Select, Stack, Switch, tv } from "polkadot-ui";
+import { tv } from "../tv.ts";
+import { Button } from "./button.tsx";
+import { Field, FieldError, FieldGroup, FieldLegend, FieldSet } from "./field.tsx";
+import { Input } from "./input.tsx";
+import { NumberField } from "./number-field.tsx";
+import { Select } from "./select.tsx";
+import { Switch } from "./switch.tsx";
 
 const styles = tv({
   slots: {
-    root: "mb-4 border-b border-pk-line pb-4",
-    heading: "mb-3",
-    section: "mb-3 text-xs uppercase tracking-wide opacity-60",
-    row: "w-full",
-    rows: "flex w-full flex-col gap-2 rounded-lg border border-pk-line p-2",
+    root: "mb-4 flex flex-col gap-4 border-b border-pk-line pb-4",
+    rows: "flex w-full flex-col gap-2 rounded-pk-inner border border-pk-line p-2",
     entry: "flex items-center gap-2",
-    error: "text-xs text-pk-accent",
   },
 });
 
@@ -148,12 +150,10 @@ const Rows = ({
 );
 
 const Form = observer(function Form({
-  title,
   schema,
   values,
   onChange,
 }: {
-  title: string;
   schema: Type;
   values: Values;
   onChange: Change;
@@ -174,10 +174,9 @@ const Form = observer(function Form({
     );
   };
   return (
-    <Stack gap="sm">
-      <p className={styles().section()}>{title}</p>
+    <>
       {fieldsOf({ schema, values }).map((field) => (
-        <Field key={field.name} layout="stacked" className={styles().row()}>
+        <Field key={field.name} orientation="vertical">
           <Field.Label>{field.label ?? field.name}</Field.Label>
           {field.inputType === "group-array" ? (
             <Rows
@@ -194,74 +193,134 @@ const Form = observer(function Form({
           )}
         </Field>
       ))}
-      {error !== null && (
-        <p role="alert" className={styles().error()}>
-          {error}
-        </p>
-      )}
-    </Stack>
+      {error !== null && <FieldError>{error}</FieldError>}
+    </>
   );
 });
 
-export const Inspector = observer(function Inspector({ canvas }: { canvas: Canvas }) {
+export type CanvasInspectorProps = { canvas: Canvas };
+
+export const CanvasInspector = observer(function CanvasInspector({ canvas }: CanvasInspectorProps) {
   const selected =
     canvas.computed.selectedWindows.length === 1 ? canvas.computed.selectedWindows[0] : undefined;
   if (selected === undefined) return null;
   const id = selected.id.get();
   const window = selected as Observable<WindowState>;
   const layout = window.layout.get();
-  const parentId = canvas.computed.windowParent[id].get();
-  const parentType =
-    parentId === undefined
-      ? undefined
-      : canvas.state.document.content.windows[parentId].layout.type.get();
+  const parentType = canvas.computed.parentLayoutType[id].get();
   const layouts = canvas.configuration.layouts;
   return (
     <section className={styles().root()} aria-label="Selection">
-      <header className={styles().heading()}>
-        <Label>{window.title.get() || id}</Label>
-      </header>
-      {layout !== undefined && (
-        <Stack gap="sm">
-          <Field layout="stacked" className={styles().row()}>
-            <Field.Label>Layout</Field.Label>
-            <Select
-              value={layout.type}
-              onValueChange={(next) => {
-                if (next !== null)
-                  canvas.actions.setWindowLayout.run({ window: id, layout: { type: next } });
+      <FieldSet>
+        <FieldLegend variant="label">Window</FieldLegend>
+        <FieldGroup>
+          <Field orientation="vertical">
+            <Field.Label>Title</Field.Label>
+            <Input
+              key={id}
+              defaultValue={window.title.get()}
+              placeholder={id}
+              onBlur={(event) =>
+                canvas.actions.renameWindow.run({ window: id, title: event.target.value })
+              }
+              onKeyDown={(event) => {
+                if (event.key === "Enter") event.currentTarget.blur();
               }}
-            >
-              <Select.Trigger />
-              <Select.Content>
-                {Object.keys(layouts).map((name) => (
-                  <Select.Item key={name} value={name}>
-                    {name}
-                  </Select.Item>
-                ))}
-              </Select.Content>
-            </Select>
+            />
           </Field>
-          <Form
-            title="Layout options"
-            schema={layouts[layout.type].options}
-            values={layout}
-            onChange={(values) =>
-              canvas.actions.setWindowLayout.run({
-                window: id,
-                layout: { ...values, type: layout.type },
-              })
-            }
-          />
-        </Stack>
+          <Field>
+            <Field.Content>
+              <Field.Label>Section</Field.Label>
+              <Field.Description>Takes its place in the reading order.</Field.Description>
+            </Field.Content>
+            <Switch
+              checked={canvas.computed.windowSection[id].get()}
+              onCheckedChange={(checked) =>
+                canvas.actions.setWindowSection.run({ window: id, section: checked })
+              }
+            />
+          </Field>
+          {parentType === undefined && (
+            <Field>
+              <Field.Content>
+                <Field.Label>Viewport width</Field.Label>
+                <Field.Description>Follows the window rather than its own size.</Field.Description>
+              </Field.Content>
+              <Switch
+                checked={window.widthMode.get() === "viewport"}
+                onCheckedChange={(checked) =>
+                  canvas.actions.setWindowSizeMode.run({
+                    window: id,
+                    widthMode: checked ? "viewport" : "manual",
+                  })
+                }
+              />
+            </Field>
+          )}
+          <Field>
+            <Field.Content>
+              <Field.Label>Fit height to content</Field.Label>
+              <Field.Description>Grows and shrinks with what is inside.</Field.Description>
+            </Field.Content>
+            <Switch
+              checked={window.heightMode.get() === "content"}
+              onCheckedChange={(checked) =>
+                canvas.actions.setWindowSizeMode.run({
+                  window: id,
+                  heightMode: checked ? "content" : "manual",
+                })
+              }
+            />
+          </Field>
+        </FieldGroup>
+      </FieldSet>
+      {layout !== undefined && (
+        <FieldSet>
+          <FieldLegend variant="label">Layout</FieldLegend>
+          <FieldGroup>
+            <Field orientation="vertical">
+              <Field.Label>Kind</Field.Label>
+              <Select
+                value={layout.type}
+                onValueChange={(next) => {
+                  if (next !== null)
+                    canvas.actions.setWindowLayout.run({ window: id, layout: { type: next } });
+                }}
+              >
+                <Select.Trigger />
+                <Select.Content>
+                  {Object.keys(layouts).map((name) => (
+                    <Select.Item key={name} value={name}>
+                      {name}
+                    </Select.Item>
+                  ))}
+                </Select.Content>
+              </Select>
+            </Field>
+            <Form
+              schema={layouts[layout.type].options}
+              values={layout}
+              onChange={(values) =>
+                canvas.actions.setWindowLayout.run({
+                  window: id,
+                  layout: { ...values, type: layout.type },
+                })
+              }
+            />
+          </FieldGroup>
+        </FieldSet>
       )}
       {parentType !== undefined && (
-        <Form
-          title={`${parentType} item`}
-          schema={layouts[parentType].item}
-          values={window.item.get() ?? {}}
-          onChange={(values) => canvas.actions.setWindowItem.run({ window: id, item: values })}
-        />
+        <FieldSet>
+          <FieldLegend variant="label">Placement</FieldLegend>
+          <FieldGroup>
+            <Form
+              schema={layouts[parentType].item}
+              values={window.item.get() ?? {}}
+              onChange={(values) => canvas.actions.setWindowItem.run({ window: id, item: values })}
+            />
+          </FieldGroup>
+        </FieldSet>
       )}
     </section>
   );
