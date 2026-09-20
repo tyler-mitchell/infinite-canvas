@@ -812,6 +812,32 @@ sees is affected. Editing `__root.tsx` needs a manual refresh until the barrel m
 throwing. Likely to clear on its own when the polkadot-ui edits settle; worth one check then
 rather than a hunt now.
 
+## The author panel has no empty state and no hierarchy
+
+Judged as a product on the running board at 1440x900, edit mode, nothing selected.
+
+THE INSPECTOR OFFERS CONTROLS FOR NOTHING. The panel heading reads "0 windows" and then presents
+three switches — Section, Viewport width, Fit height to content — all enabled and all toggled on,
+with no selection behind them. An inspector with no subject should be an empty state that says to
+select something, not a set of live controls over nothing. A toggle that cannot do anything is
+worse than a disabled one, because it invites the click and then teaches the author that the panel
+lies.
+
+NO HIERARCHY BETWEEN GROUPS. The panel stacks the inspector, Route, Reading order and Set snapping
+with identical heading weight, colour and spacing, so four unrelated concerns read as peers and the
+whole column scans as a wall. The reference patterns both solve this the same way: one level of
+section separation, and secondary text that recedes instead of competing with its own label.
+
+Two smaller defects in the same frame:
+
+- Reading order shows `icon-square` twice as a raw identifier where every other row carries a human
+  title. An author never named that; it is an internal kind leaking into an authoring surface.
+- The numbering runs 1, 2, 3, then two unnumbered rows, then 4, 5. The skip is correct — those
+  windows are outside the route — but nothing on the row explains it, so it reads as a bug.
+
+Done when an author opens the panel with nothing selected and is told what to do, and when the four
+groups are visually ranked rather than stacked.
+
 ## Presentation mode centres on one section, not the route
 
 Root cause measured 2026-09-20 at a verified 1440x900, read mode, scroll 0, two settled samples.
@@ -1036,3 +1062,40 @@ NOT seen on screen.
 - **L-shaped widgets:** explore non-rectangular rendering, hit testing, selection, and layout.
 - **Camera rig:** explore one framework-owned API for camera control, framing, navigation,
   constraints, and coordinated transitions.
+
+## A command that needs arguments cannot be run from the launcher
+
+Found 2026-09-20 by reading `next/commands.ts` against the registry.
+
+`getRunnableCommands` fills an input with `{ window: activeId, windows: selectedIds }` and keeps a
+command only when `canRun({})` or `canRun(scope)` passes. Every command that requires a value
+beyond a window therefore never appears:
+
+    setWindowSizeMode   narrow wants a width or height mode
+    setWindowLayout     layout required
+    setWindowItem       item required
+    reorderChild        container, child and index required
+    moveSection         by required
+    setPresentation     narrow wants an axis or a maximum zoom
+    setSnapping         narrow wants one setting
+    setCameraLimits     narrow wants one limit
+
+They are reachable only from the panels built around them, so the palette — the surface an author
+learns the canvas from, and the one an agent drives over WebMCP — advertises less than the canvas
+can do. The `description` written for several of them is never displayed.
+
+One real defect fell out of this and is already fixed: `setWindowSection` takes an optional
+`section`, so it passes `canRun(scope)` with the value absent, and absent means clear the override.
+The launcher entry labelled "Toggle section" was resetting, not toggling. It now reads "Reset
+section", which is what that invocation does.
+
+The shape to build: the launcher asks for the arguments. `SchemaForm` already renders any ArkType
+type, and `command.input` is that type, so selecting a parameterised command can swap the list for
+its form and a Run button — the second step Raycast and Linear use.
+
+One thing to settle first, and it is why this was not built in the same pass. `getRunnableCommands`
+derives `scope` from whether the selection satisfied the input: bare means canvas, otherwise
+selection. A command that satisfies neither cannot be classified that way, and the launcher groups
+by scope, so `setPresentation` would land under SELECTION next to `setWindowSizeMode`. Either the
+command declares its own scope, or the classification stops being derived. The selection toolbar
+filters on scope too and must keep excluding anything that still needs input.
