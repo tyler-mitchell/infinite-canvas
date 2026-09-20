@@ -908,9 +908,26 @@ That also explains the original displacement on a fresh load, which no earlier t
 first `place()` runs against an early, narrow track, and nothing re-places it once the real widths
 arrive. One mechanism, both observations.
 
-Not confirmed — confirming it means watching `cross` and `shape` across a settle, which needs the
-state. If it holds, the fix is to include the pose in `shape`, or to depend on the track identity
-rather than a string built from two of its fields.
+REFUTED the same session, by experiment rather than argument. `scroll.tsx:143` forces `place()`
+whenever `attached` toggles, so Exit then Present re-runs it unconditionally. Measured across that
+toggle at a verified 1440x900:
+
+    before toggle   translateX 569   span 570 to 2008
+    in edit mode    translateX 471
+    after toggle    translateX 569   span 570 to 1962   (two settled samples)
+
+`place()` demonstrably ran — the camera moved to 471 in edit and back — and it recomputed the SAME
+wrong cross. So the value is not stale, it is wrong when freshly computed. The stale-`shape` story
+is dead and the fix is NOT in the effect dependency.
+
+That returns the fault to how `cross` is computed at `route.ts:103` and to what it is given. Note
+also that edit mode sits at translateX 471 while read sits at 569, so the two modes disagree by 98
+— and 98 is close to the 99 a correctly centred 1242-wide block would need. Edit mode may already
+be centring correctly, which would make it the working reference to compare against rather than
+another broken case.
+
+Content width is still moving under the in-flight refactor (1812, then 2008, then 1962) while the
+left edge holds at exactly 570 throughout. Whatever sets that 570 does not depend on content.
 
 Measured on the running board at a verified 1440x900 viewport, read mode, scroll position 0, with
 `board.v6` removed so no camera was restored:
