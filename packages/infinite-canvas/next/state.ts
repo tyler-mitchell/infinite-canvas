@@ -5,10 +5,10 @@ import { batch, model } from "./model";
 import {
   centroidOfRect,
   clamp,
+  containsPoint,
   containsRect,
   dist2,
   insetRectBy,
-  intersectsRect,
   panCamera,
   rectWithCentroid,
   resizeRect,
@@ -1904,7 +1904,11 @@ export const createCanvasState = withComputed(stateModel)
       const root = computed.windowRoot[drag.target].peek();
       const bounds = computed.baseArrangement[root].rects[root].peek();
       const rect = computed.dragRect[drag.target].peek();
-      if (bounds !== undefined && rect !== undefined && !intersectsRect(bounds, rect))
+      if (
+        bounds !== undefined &&
+        rect !== undefined &&
+        !containsPoint(bounds, centroidOfRect(rect))
+      )
         state.session.drag.assign({ detached: { ...drag.detached, [drag.target]: rect } });
     }),
   }))
