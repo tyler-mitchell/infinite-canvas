@@ -961,6 +961,24 @@ question: union three known rects, assert the result spans all three.
 If that passes, `unionRects` is exonerated and the fault is in what `route.ts:85` passes it, which
 returns to checking `computed.route`'s rects at runtime.
 
+THE SINGLE-SECTION PREDICTION IS WRONG. Counted from the rail in read mode: the route has FIVE
+sections — progress, profile, note, project, sparkline — and the scroll range is 5x the viewport
+(4500 over 900). So `route.ts:85` receives five rects, not one.
+
+Five correct rects through a correct `unionRects` cannot yield the first card's centroid. Since
+`unionRects` is cleared by reading, the rects themselves must be wrong: `computed.route`'s sections
+carry rects that are not the ones those windows render at.
+
+That also resolves why the scroll is right while the centre is wrong, which had been the awkward
+part of every theory so far. Stops are computed as `section.rect[mainPosition] - bounds[mainPosition]`
+— a DIFFERENCE, which survives any uniform offset applied to every rect. An absolute centroid does
+not. So a route whose rects are all shifted, or all taken from a pre-layout pass, produces exactly
+what is measured: correct stop spacing, correct scroll length, wrong cross centre.
+
+Next step is now unambiguous and needs the state, not the DOM: compare `computed.route`'s rects
+against `computed.windowRect` for the same five ids. The prediction is that they differ by a
+constant offset, or that route's are the pre-layout values.
+
 Content width is still moving under the in-flight refactor (1812, then 2008, then 1962) while the
 left edge holds at exactly 570 throughout. Whatever sets that 570 does not depend on content.
 
