@@ -132,6 +132,13 @@ this is taken up: position the toolbar with the framework's own `CanvasPortal sc
 re-renders on every camera change by construction and is how the framework already places
 canvas-anchored chrome, at the cost of Floating UI's collision flipping; or get the `autoUpdate`
 options exposed upstream. Done when the toolbar stays on its selection through a pan and a zoom.
+Built 2026-09-20, first option. `CanvasPortal` gained a `selection` scope over a new
+`computed.selectionBounds`, which `SelectionBounds` reads as well rather than unioning the
+selection a second time. The toolbar renders inside that portal and no longer uses Popover, so
+Floating UI is out of this surface entirely. `selectionAnchor` existed only to give it an anchor
+and had no consumers left: the context field, its state and the ref are deleted. Collision flipping
+is given up, which is the cost the entry named; a canvas toolbar clamps rather than flips. NOT seen
+on screen — the check is the done-condition above.
 D8. [ ] **The board's reading width is a tablet-ish measure, not the full desktop viewport.** Deferred
 by the owner on 2026-09-19, to be taken up later: on a desktop screen the main portfolio container
 should read at roughly the width of a tablet screen rather than stretching the full window. The
@@ -721,6 +728,30 @@ the collapse is closed. What remains of D6 is that the route fits 464 world px i
 leaving everything at 0.808 rather than 1:1. The extra ~89 world px is margin in the fit bounds,
 about 44 a side. Whether that margin is wanted is a design call, not a defect.
 
+## The board does not render — SelectionBounds throws, __root will not reload
+
+Found 2026-09-20 while measuring. The board shows the error boundary at every width. Survives a
+cache-busted full navigation, so it is not the stale-dev-module artifact that produced three false
+alarms earlier the same night. Two separate errors in the console:
+
+    TypeError: Cannot read properties of undefined (reading 'x')
+      "The above error occurred in the <SelectionBounds> component"
+
+    TypeError: Cannot read properties of undefined (reading 'get')
+      at /app/routes/__root.tsx:326
+      [vite] Failed to reload /app/routes/__root.tsx
+
+`SelectionBounds` is `next/react/viewport.tsx:326`. It guards `bounds === null` before use, so the
+undefined `x` is on something else it reads — a rect or point from computed state that is now
+undefined for at least one selected window. That file is inside the framework refactor in flight
+across `route.ts`, `state.computed.ts`, `state.types.ts` and `layout/grid.ts`.
+
+The `__root.tsx` failure is separate and may be the more fundamental of the two: the route module
+itself will not reload, reading `.get()` on something undefined at line 326.
+
+Fix this before any other item here. Nothing else on this list is observable while the board does
+not render.
+
 ## Presentation mode centres on one section, not the route
 
 Root cause measured 2026-09-20 at a verified 1440x900, read mode, scroll 0, two settled samples.
@@ -788,6 +819,14 @@ on screen — plausibly a stale registration from edit mode, or a wrong rect fro
 
 Check `computed.viewportInsets` at runtime in read mode. If left is near 900, that is the defect,
 and it sits in occluder registration rather than anywhere in `route.ts`.
+
+One lead, unconfirmed, worth a single look before anything else: the implied 898 is within 2 of
+the viewport HEIGHT, which was 900 in this measurement. A horizontal inset carrying a vertical
+measurement is what an axis mix-up looks like. `insetsOnAxis` in `route.ts:65` reads correctly, so
+if this is real it is upstream — in what `useCanvasOccluder` registers, or in `insetsOfOccluder`,
+which picks `left`/`right` versus `top`/`bottom` from whether a rect spans width or height. Test
+it by measuring at a viewport whose width and height differ from 1440x900 by different amounts: if
+the displacement tracks the height rather than the width, the mix-up is confirmed.
 
 The fix must leave mobile unchanged: at 375 the content fits with no overflow, so this is
 desktop-only, and 375 is the control case.
