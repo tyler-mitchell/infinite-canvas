@@ -149,6 +149,19 @@ with the canvas runtime (`apps/polkadot/src/canvas/use-canvas-runtime.ts`) and t
 registry, because every other file reaches the framework through those two; (3) `src`, its tests,
 and the old package exports are deleted in one commit. Done when `packages/infinite-canvas` has
 one framework and Polkadot's own test suite passes on it.
+2026-09-19 step 1 inventory. Thirteen playground files still import the old entry points: routes
+`welcome`, `stress`, `persistence`, `packing`, `groups`, `body-content`, `workflow-board`,
+`drop-tray`; showcases `minimap`, `offscreen-indicators`, `command-palette`, `sample-layout`,
+`drop-preview-pass`. Capability coverage checked against `next`: the minimap
+(`getMinimapLayout`, `getMinimapWorldPoint`), offscreen indicators (`getOffscreenIndicators`) and
+the command palette (`getRunnableCommands` plus the kit's `CanvasLauncher`) all exist, so those
+three showcases are rebuilds, not deletions. **Rasterization has no counterpart in `next`** — the
+old framework spends five files on it (`window-raster-body`, `raster-devtools`, and three
+callers) and `next` answers the same problem with level of detail instead
+(`WindowDefinition.detail`, `summaryBelow`/`fullAbove`, `getDetailLevel`). That is a deliberate
+replacement, not a gap to fill, so `stress` is rebuilt around detail levels and its raster and
+debug toggles go. `welcome` is done: its only framework import was a decorative constant proving
+source linking, which the canvas-building showcases prove better.
 
 ## Engine-first target — long-term end state
 
@@ -484,6 +497,30 @@ Checked and found NOT to be defects, recorded so nobody re-opens them:
   Reusing capacity-sized arrays would therefore need stride arithmetic and an options object, which
   is more code and more concepts than `new Float32Array(count * 4)`, for a gain nobody has measured.
   The arrays are sized to the live window count, typically a handful.
+
+## Reading order has two owners
+
+Found 2026-09-20 by driving the board. `CanvasReadingOrder`'s reorder buttons render, enable
+correctly, and change nothing.
+
+`canvas-reading-order.tsx` calls `moveChild`, which changes a window's index among its siblings.
+`getRoute` never reads that index; it sorts rects by main then cross position. Every board window
+carries explicit grid placement, so the grid holds each one at its authored row and column whatever
+the child index is. `canRun` returns true because the move itself is legal, which is why the button
+looks live.
+
+Child order and explicit placement both claim to say where a window sits. The route listens only to
+geometry. Pick one owner; do not adapt between them and do not add an order field for `getRoute` to
+consult, which would be a third.
+
+Two shapes:
+
+- Geometry owns. "Move earlier" swaps the window's main-axis placement with its neighbour in the
+  route. `getRoute` is unchanged. Placement stays the single source of position.
+- The tree owns. Placement is derived from child order when a window has no explicit row, and an
+  explicit row overrides. `getRoute` then reads a layout that already reflects child order.
+
+Done when an author reorders a window from the panel on `/board` and the reading route follows.
 
 ## Interaction experiments
 
