@@ -796,6 +796,20 @@ What clears it: the layout files stop changing, and `state.computed.ts` is separ
 migration or that migration lands on its own. Then the `selectionBounds` refactor plus the guard
 fix plus the `board.tsx` read-mode label gate commit as one coherent framework-and-consumer slice.
 
+THE TREND IS THE WRONG WAY. Re-checked twenty minutes after the count above: the change set is
+still growing and has reached the framework's core. Most recent writes were `canvas-selection-toolbar.tsx`
+7 seconds prior, `model.ts` 12 seconds, `state.ts` 21 seconds, `commands.ts` 58 seconds — and
+`model.ts` and `commands.ts` were not among the 30 files catalogued earlier.
+
+So the uncommitted surface is widening from the React layer into the model and the command
+registry. Waiting for a settle is not converging on its own, and the longer it runs the larger the
+eventual all-or-nothing commit becomes. The two verified fixes riding inside it — the read-mode
+label gate and the `SelectionBounds` guard — are hostage to a refactor that keeps recruiting files.
+
+This is worth the owner's attention as a process call rather than a code one: either the refactor
+gets landed as its own commit so the verified fixes can follow, or the fixes get cherry-picked out
+onto a clean base. Neither is a decision to make inside an unrelated session.
+
 The `__root.tsx` reload failure is SEPARATE and STILL LIVE — re-observed with fresh timestamps
 after the fix above. It is also smaller than this entry first claimed, and that claim is withdrawn:
 it is not "possibly the more fundamental of the two."
