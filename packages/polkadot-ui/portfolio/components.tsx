@@ -306,7 +306,9 @@ export const components = defineComponents({
   components: {
     "icon-square": {
       aspectRatio: 1,
+      section: false,
       size: { width: 80, height: 80 },
+      maxSize: { width: 96, height: 96 },
       actions: {
         brand: {
           label: "Use brand colors",
@@ -479,6 +481,7 @@ export const components = defineComponents({
       ),
     },
     checklist: {
+      section: false,
       schema: type({
         title: "string > 0 = 'Checklist'",
         items: type({ id: "string > 0", label: "string > 0", done: "boolean" })
@@ -560,14 +563,7 @@ export const components = defineComponents({
         <ProjectCard
           project={props.content}
           expanded={props.expanded}
-          onExpandedChange={(expanded) => {
-            context.onPropsChange({ expanded });
-            if (expanded)
-              void context.camera.navigate({
-                target: { type: "window", windowId: context.windowId },
-                behavior: { type: "fit", maxZoom: 1 },
-              });
-          }}
+          onExpandedChange={(expanded) => context.onPropsChange({ expanded })}
           onContentHeightChange={context.onContentHeightChange}
         />
       ),
@@ -578,14 +574,7 @@ export const components = defineComponents({
         <ExperienceCard
           experience={props.content}
           expanded={props.expanded}
-          onExpandedChange={(expanded) => {
-            context.onPropsChange({ expanded });
-            if (expanded)
-              void context.camera.navigate({
-                target: { type: "window", windowId: context.windowId },
-                behavior: { type: "fit", maxZoom: 1 },
-              });
-          }}
+          onExpandedChange={(expanded) => context.onPropsChange({ expanded })}
           onContentHeightChange={context.onContentHeightChange}
         />
       ),
@@ -596,14 +585,7 @@ export const components = defineComponents({
         <ExpertiseCard
           expertise={props.content}
           expanded={props.expanded}
-          onExpandedChange={(expanded) => {
-            context.onPropsChange({ expanded });
-            if (expanded)
-              void context.camera.navigate({
-                target: { type: "window", windowId: context.windowId },
-                behavior: { type: "fit", maxZoom: 1 },
-              });
-          }}
+          onExpandedChange={(expanded) => context.onPropsChange({ expanded })}
           onContentHeightChange={context.onContentHeightChange}
         />
       ),

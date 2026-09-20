@@ -1,5 +1,5 @@
 import { type, type ArkErrors, type Type } from "arktype";
-import type { Rect, Size } from "../geometry";
+import { alignRectIn, clamp, clamp0, minMax, type Rect, type Size } from "@hyphened/math/cpu";
 import type {
   Arranged,
   Changes,
@@ -27,6 +27,7 @@ export type BoundLayout = {
   accepts: readonly Operation["type"][];
   presents: "all" | "one";
   collapses: boolean;
+  pins: readonly string[];
   dock(input: {
     options: unknown;
     edge: DockEdge;
@@ -68,6 +69,7 @@ export function bindLayout<Options extends Type, Item extends Type>(
     accepts: layout.accepts ?? [],
     presents: layout.presents ?? "all",
     collapses: layout.collapses ?? false,
+    pins: layout.pins ?? [],
     dock: ({ options, edge, target, items }) => {
       const parsed: Options["infer"] | ArkErrors = layout.options(options);
       const item: Item["infer"] | ArkErrors | undefined =
@@ -138,14 +140,27 @@ export type ArrangeInput = {
   operations?: Readonly<Record<string, Operation>>;
 };
 
-export type SizeLimits = { min: Size; max: Size; ideal: Size; measured?: Size };
+export type SizeLimits = {
+  min: Size;
+  max: Size;
+  ideal: Size;
+  measured?: Size;
+  aspect?: number;
+};
 
 export const limitedSize =
-  ({ min, max, ideal, measured }: SizeLimits) =>
+  ({ min, max, ideal, measured, aspect }: SizeLimits) =>
   (proposal: Proposal): Size => {
-    const width = Math.max(min.width, Math.min(max.width, proposal.width ?? ideal.width));
-    const fitted = measured?.width === width ? measured.height : ideal.height;
-    return { width, height: Math.max(min.height, Math.min(max.height, proposal.height ?? fitted)) };
+    const offered = clamp(proposal.width ?? ideal.width, ...minMax(min.width, max.width));
+    if (aspect !== undefined) {
+      const width = clamp(offered, ...minMax(min.height * aspect, max.height * aspect));
+      return { width, height: width / aspect };
+    }
+    const fitted = measured?.width === offered ? measured.height : ideal.height;
+    return {
+      width: offered,
+      height: clamp(proposal.height ?? fitted, ...minMax(min.height, max.height)),
+    };
   };
 
 export const getLimitedSizes = (limits: Readonly<Record<string, SizeLimits>>) =>
@@ -160,8 +175,8 @@ const within = ({ size, own }: { size: Size; own: (proposal: Proposal) => Size }
   const min = own({ width: 0, height: 0 });
   const max = own({ width: Infinity, height: Infinity });
   return {
-    width: Math.max(min.width, Math.min(max.width, size.width)),
-    height: Math.max(min.height, Math.min(max.height, size.height)),
+    width: clamp(size.width, ...minMax(min.width, max.width)),
+    height: clamp(size.height, ...minMax(min.height, max.height)),
   };
 };
 
@@ -214,14 +229,9 @@ function alignRect({
     width: x === "stretch" ? slot.width : undefined,
     height: y === "stretch" ? slot.height : undefined,
   });
-  const width = Math.min(slot.width, fitted.width);
-  const height = Math.min(slot.height, fitted.height);
-  return {
-    width,
-    height,
-    x: slot.x + (slot.width - width) * fractions[x],
-    y: slot.y + (slot.height - height) * fractions[y],
-  };
+  const width = clamp(fitted.width, 0, clamp0(slot.width));
+  const height = clamp(fitted.height, 0, clamp0(slot.height));
+  return alignRectIn(slot, { width, height }, { x: fractions[x], y: fractions[y] });
 }
 
 export function arrangeWindows(input: ArrangeInput): Arrangement {

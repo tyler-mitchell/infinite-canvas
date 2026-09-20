@@ -64,7 +64,7 @@ export function getOwnSize({
   measured,
 }: {
   window: WindowState | undefined;
-  definition: Pick<WindowDefinition, "minSize" | "size">;
+  definition: Pick<WindowDefinition, "minSize" | "maxSize" | "size" | "aspectRatio">;
   measured: Size | undefined;
 }): SizeLimits {
   if (window === undefined)
@@ -72,14 +72,20 @@ export function getOwnSize({
       min: { width: 0, height: 0 },
       max: { width: Infinity, height: Infinity },
       ideal: { ...definition.size },
+      ...(definition.aspectRatio === undefined ? {} : { aspect: definition.aspectRatio }),
     };
+  const aspect = window.aspectRatio ?? definition.aspectRatio;
   return {
     min:
       window.kind === undefined
         ? { width: 0, height: 0 }
         : { ...(window.minSize ?? definition.minSize) },
-    max: { ...(window.maxSize ?? { width: Infinity, height: Infinity }) },
+    max: {
+      width: window.maxSize?.width ?? definition.maxSize?.width ?? Infinity,
+      height: window.maxSize?.height ?? definition.maxSize?.height ?? Infinity,
+    },
     ideal: { width: window.rect.width, height: window.rect.height },
+    ...(aspect === undefined ? {} : { aspect }),
     ...(window.heightMode === "content" && measured !== undefined
       ? { measured: { ...measured } }
       : {}),
@@ -668,7 +674,13 @@ export const withComputed = (model: typeof stateModel) =>
         const placed = computed.detachedRects[windowId].get() ?? saved;
         const source =
           window.widthMode.get() === "viewport"
-            ? { ...placed, width: computed.viewportWidth.get() }
+            ? {
+                ...placed,
+                width: Math.min(
+                  computed.viewportWidth.get(),
+                  computed.ownSize[windowId].max.width.get(),
+                ),
+              }
             : placed;
         const size = state.input.contentSizes[windowId].get();
         return window.heightMode.get() === "content" && size?.width === source.width
@@ -709,6 +721,16 @@ export const withComputed = (model: typeof stateModel) =>
           roots: computed.workspaceRoots.map((window) => window.id.get()),
         });
       },
+      places: (): Section[] => {
+        const windows = computed.baseTree.windows.get();
+        const ids = Object.keys(windows);
+        return getRoute({
+          axis: state.document.content.presentation.axis.get(),
+          windows,
+          rects: fromEntries(ids.map((id) => [id, computed.windowRect[id].get()])),
+          roots: computed.workspaceRoots.map((window) => window.id.get()),
+        });
+      },
       selection: () => {
         const marquee = state.session.marquee.get();
         const rect = computed.marqueeRect.get();
@@ -725,6 +747,12 @@ export const withComputed = (model: typeof stateModel) =>
     }))
     .computed(({ state, computed }) => ({
       selectionTargets: () => Object.values(computed.selection.targets),
+      outline: (): (Section & { reading: boolean })[] => {
+        const reading = new Set(computed.route.get().map((section) => section.id));
+        return computed.places
+          .get()
+          .map((section) => ({ ...section, reading: reading.has(section.id) }));
+      },
       occupiedRects: (): Record<string, Rect> => {
         const camera = computed.camera.get();
         const viewport = state.input.viewport.get();
@@ -755,6 +783,14 @@ export const withComputed = (model: typeof stateModel) =>
           .filter((window) => window.id.get() !== undefined && window.mode.get() !== "minimized"),
     }))
     .computed(({ computed, configuration }) => ({
+      selectionBounds: (): Rect | null =>
+        unionRects(
+          computed.selectedWindows.flatMap((window) => {
+            const id = window.id.get();
+            const rect = computed.windowRect[id].get();
+            return rect === undefined || !computed.windowVisible[id].get() ? [] : [rect];
+          }),
+        ),
       selectionActions: () => {
         const windows = computed.selectedWindows;
         const kinds = new Set(windows.map((window) => window.kind.get()));
