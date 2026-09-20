@@ -835,6 +835,26 @@ Two smaller defects in the same frame:
 - The numbering runs 1, 2, 3, then two unnumbered rows, then 4, 5. The skip is correct — those
   windows are outside the route — but nothing on the row explains it, so it reads as a bug.
 
+CAUSE OF THE EMPTY STATE, and it is the same bug class as the board outage fixed earlier tonight.
+`canvas-inspector.tsx:21`:
+
+    const chosen = canvas.computed.selectedWindows;
+    const selected = chosen[0];
+    if (selected === undefined) return null;
+    const ids = chosen.map((entry) => entry.id.get());
+
+The guard exists. The component renders anyway with `ids.length === 0`, which is where the "0
+windows" heading comes from — so `chosen[0]` is NOT `undefined` on an empty selection. Indexing a
+Legend observable array yields a proxy whether or not an element is there, so a strict comparison
+against `undefined` can never fire.
+
+That is exactly the shape of the `SelectionBounds` outage: a strict guard written for a plain value
+applied to an observable that never produces that value. Two instances in one evening in the same
+codebase suggests a rule rather than two fixes — guards against Legend observables must test what
+the observable actually yields (length, or `.peek()`), never identity against `undefined` or
+`null`. Worth a grep for `=== undefined` and `=== null` on observable-derived values before the
+third one is found in production.
+
 Done when an author opens the panel with nothing selected and is told what to do, and when the four
 groups are visually ranked rather than stacked.
 
