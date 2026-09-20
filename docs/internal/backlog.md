@@ -781,8 +781,21 @@ the in-flight `selectionBounds` refactor beside that one character, and that ref
 the modified `state.computed.ts:783`. Committing the file by itself would put a half-refactor in
 HEAD. Commit it with the framework set once the refactor settles.
 
-The `__root.tsx:326` reload failure was not addressed and was not re-observed after the fix; it may
-have been a downstream symptom of the same throw, or it may still be live. Check it.
+The `__root.tsx` reload failure is SEPARATE and STILL LIVE — re-observed with fresh timestamps
+after the fix above. It is also smaller than this entry first claimed, and that claim is withdrawn:
+it is not "possibly the more fundamental of the two."
+
+`__root.tsx` is 110 lines and contains no `.get()` call anywhere; it uses tv slot calls. So the
+reported line 326 is the transformed module, not source, and the throw is inside something it
+imports. Its only non-router import is the `polkadot-ui` barrel, which now carries
+`canvas-inspector.tsx`, `canvas-settings.tsx` and `canvas-presentation.tsx` — all under active
+edit, all calling `.get()` on canvas observables. A module in that barrel throwing during
+re-evaluation is what stops the route reloading.
+
+Impact is developer-side only: a full page load works and the board renders, so nothing a visitor
+sees is affected. Editing `__root.tsx` needs a manual refresh until the barrel module stops
+throwing. Likely to clear on its own when the polkadot-ui edits settle; worth one check then
+rather than a hunt now.
 
 ## Presentation mode centres on one section, not the route
 
