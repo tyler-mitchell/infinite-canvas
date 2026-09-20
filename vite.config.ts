@@ -13,7 +13,12 @@ export default defineConfig({
     ],
   },
   lint: {
-    ignorePatterns: ["reference/**", "packages/*/research/sources/**", "**/routeTree.gen.ts"],
+    ignorePatterns: [
+      ".claude/**",
+      "reference/**",
+      "packages/*/research/sources/**",
+      "**/routeTree.gen.ts",
+    ],
     options: { typeAware: true, typeCheck: true },
     overrides: [
       {
