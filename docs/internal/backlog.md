@@ -735,7 +735,7 @@ the collapse is closed. What remains of D6 is that the route fits 464 world px i
 leaving everything at 0.808 rather than 1:1. The extra ~89 world px is margin in the fit bounds,
 about 44 a side. Whether that margin is wanted is a design call, not a defect.
 
-## The board does not render — SelectionBounds throws, __root will not reload
+## The board does not render — FIXED in the working tree, not committable alone
 
 Found 2026-09-20 while measuring. The board shows the error boundary at every width. Survives a
 cache-busted full navigation, so it is not the stale-dev-module artifact that produced three false
@@ -772,8 +772,17 @@ so fixing the producer is the better of the two and the guard change is the safe
 The `__root.tsx` failure is separate and may be the more fundamental of the two: the route module
 itself will not reload, reading `.get()` on something undefined at line 326.
 
-Fix this before any other item here. Nothing else on this list is observable while the board does
-not render.
+FIXED 2026-09-20 in the working tree: `viewport.tsx:328` now reads `if (bounds == null)`. One
+character. Verified live at 1440x900 — the board renders in edit mode with 9 windows and no error,
+read mode renders, and item 1's container label is still correctly absent in read mode.
+
+NOT COMMITTED and not committable alone. `viewport.tsx` carries 38 insertions and 21 deletions of
+the in-flight `selectionBounds` refactor beside that one character, and that refactor depends on
+the modified `state.computed.ts:783`. Committing the file by itself would put a half-refactor in
+HEAD. Commit it with the framework set once the refactor settles.
+
+The `__root.tsx:326` reload failure was not addressed and was not re-observed after the fix; it may
+have been a downstream symptom of the same throw, or it may still be live. Check it.
 
 ## Presentation mode centres on one section, not the route
 
