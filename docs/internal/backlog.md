@@ -920,11 +920,32 @@ toggle at a verified 1440x900:
 wrong cross. So the value is not stale, it is wrong when freshly computed. The stale-`shape` story
 is dead and the fix is NOT in the effect dependency.
 
-That returns the fault to how `cross` is computed at `route.ts:103` and to what it is given. Note
-also that edit mode sits at translateX 471 while read sits at 569, so the two modes disagree by 98
-— and 98 is close to the 99 a correctly centred 1242-wide block would need. Edit mode may already
-be centring correctly, which would make it the working reference to compare against rather than
-another broken case.
+That returns the fault to how `cross` is computed at `route.ts:103` and to what it is given.
+
+The "edit mode is the working reference" idea is withdrawn — measured, edit is off-centre too:
+
+    EDIT   left 472   translateX 471   width 1242   centred left would be  99
+    READ   left 570   translateX 569   width 1392   centred left would be  24
+
+Edit has no centring contract though, since the camera is free to pan there, so its offset is not a
+defect and not a reference. Only read claims to centre.
+
+THE ORIGINAL HYPOTHESIS IS BACK, and it is now the best supported. Across every read-mode
+measurement tonight the camera centre sat at world 151 while the content centroid moved:
+
+    content world 1 to 1243   centroid 622   camera 151   error 471
+    content world 1 to 1393   centroid 697   camera 151   error 546
+
+The camera centre does not move at all; the error is exactly `centroid - 151`. And 151 is the
+centroid of the FIRST card, which occupies world 1 to 301.
+
+I dismissed this earlier on bad grounds. That test only showed the two icon-square windows sit
+inside the card span and so do not change the union — it never tested whether the union is the
+first card alone. It is consistent with `unionRects` receiving a single-element list, or with the
+route's sections all carrying the first card's rect.
+
+Check what `getCameraTrack` actually receives for `sections` in read mode, and the length of the
+list `unionRects` is called with at `route.ts:85`. A list of one is the prediction.
 
 Content width is still moving under the in-flight refactor (1812, then 2008, then 1962) while the
 left edge holds at exactly 570 throughout. Whatever sets that 570 does not depend on content.
