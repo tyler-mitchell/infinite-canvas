@@ -522,6 +522,27 @@ Two shapes:
 
 Done when an author reorders a window from the panel on `/board` and the reading route follows.
 
+## The canvas has a default width on desktop
+
+Deferred by the owner twice, most recently 2026-09-20 with a reference. Do not take it while
+another arc is open.
+
+By default on desktop the canvas should read at about the width of the polkadot-ui docs content
+column — the centred column on `localhost:3400` that holds the widget grid — not the full viewport.
+
+The owner's words, 2026-09-19: "the width of the main portfolio group on desktop resolution should
+appear approximately the same width as an ipad screen width... do not literally codify ipad, that is
+just the visual approximation of what im talking about." The docs column is the concrete reference
+that wording points at.
+
+That column width already exists in polkadot-ui's own layout. Use the token that owns it rather
+than a new number, and do not put a pixel value in the portfolio. If the framework cannot express a
+default content width for a canvas, that is the deficit to close generically, with a default and an
+input.
+
+"Approximately" is the owner's word and it is load-bearing. This is a visual proportion, not a
+measurement to match.
+
 ## Interaction experiments
 
 - **L-shaped widgets:** explore non-rectangular rendering, hit testing, selection, and layout.
