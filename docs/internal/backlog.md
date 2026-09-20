@@ -742,10 +742,20 @@ Two earlier theories are dead, both killed by measurement rather than argument:
   INSIDE the card span 570 to 1812. Including or excluding them gives identical bounds and an
   identical centre, so exclusion cannot displace anything.
 
-`route.ts:103` is still the only line that sets the cross centre, and it reads
-`centroidOfRect(bounds)`. Either `bounds` is not the union it appears to be at that call site, or
-the cross value is being recomputed per section somewhere downstream in `scroll.tsx`. The fix must
-leave mobile unchanged: at 375 the content fits with no overflow, so this is desktop-only.
+Traced by reading, which narrows it further. `scroll.tsx:82` builds the track from
+`canvas.computed.route.get()`. Every camera write goes through `track.at()` — the settled and
+preview writes at line 95, the placement pose at 110, and the `navigateCamera` target at 124 — and
+`at()` returns the single `cross` constant from `route.ts:103`. Nothing recomputes cross per
+section, so the per-section theory is out too.
+
+That leaves one candidate: `unionRects` over `computed.route`'s section rects spans world 1 to 301,
+not 1 to 1243. The route's sections do not cover the content's width. Since `getRoute` recurses
+into children and returns leaves, the question is which windows become leaves — the cards that sit
+right of world 301 are rendered but are evidently not contributing their rects to the union.
+
+Confirming that needs the route's rects at runtime, which is not reachable from outside the app.
+The fix must leave mobile unchanged: at 375 the content fits with no overflow, so this is
+desktop-only, and 375 is the control case.
 
 Measured on the running board at a verified 1440x900 viewport, read mode, scroll position 0, with
 `board.v6` removed so no camera was restored:
