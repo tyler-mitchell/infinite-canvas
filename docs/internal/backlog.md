@@ -947,6 +947,20 @@ route's sections all carrying the first card's rect.
 Check what `getCameraTrack` actually receives for `sections` in read mode, and the length of the
 list `unionRects` is called with at `route.ts:85`. A list of one is the prediction.
 
+`unionRects` ITSELF IS NOT THE BUG — read and cleared. `packages/math/src/rect.ts:613` reduces
+from `rects[0]` and unions each in turn, and `unionRect` at 600 builds two `geomRect`s, takes their
+`union`, and unpacks `pos`/`size`. Both read correctly.
+
+Worth one test anyway, because the read surfaced a migration seam: `unionRect` no longer does the
+min/max arithmetic itself, it delegates to thi.ng's `union` over `geomRect`. `packages/math` is the
+package under the `@hyphened/math` migration. A union whose far edge is off by one rect — or whose
+`size` is a corner rather than an extent — would produce exactly the observed symptom, a bounds
+that tracks the first rect. That is a two-line unit test in `packages/math`, not a browser
+question: union three known rects, assert the result spans all three.
+
+If that passes, `unionRects` is exonerated and the fault is in what `route.ts:85` passes it, which
+returns to checking `computed.route`'s rects at runtime.
+
 Content width is still moving under the in-flight refactor (1812, then 2008, then 1962) while the
 left edge holds at exactly 570 throughout. Whatever sets that 570 does not depend on content.
 
