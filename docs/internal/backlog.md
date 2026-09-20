@@ -753,7 +753,22 @@ not 1 to 1243. The route's sections do not cover the content's width. Since `get
 into children and returns leaves, the question is which windows become leaves — the cards that sit
 right of world 301 are rendered but are evidently not contributing their rects to the union.
 
-Confirming that needs the route's rects at runtime, which is not reachable from outside the app.
+Insets are eliminated too, measured rather than assumed. For the `(crossStart - crossEnd) / 2`
+term to produce a 471px shift it would need `insets.left - insets.right` near 942. The only
+full-height elements over the viewport are on the RIGHT — the rail band at screen x 1394 to 1440,
+and the scroll-area scrollbar at 1435 to 1439. `canvas-portal` spans both axes, which
+`insetsOfOccluder` returns `{}` for. So insets are about `{left: 0, right: 46}`, and that term
+moves content LEFT by roughly 23px, the opposite direction and twenty times too small.
+
+Four candidates are now dead by measurement: stale persisted camera, non-section windows excluded
+from bounds, a per-section cross recomputed downstream, and viewport insets.
+
+One candidate remains: the rects carried by `computed.route`'s sections are not the rects those
+windows actually render at. Their union spans world 1 to 301 where the rendered content spans 1 to
+1243 — consistent with the route holding the left column's rect for every section, or holding
+rects captured before the layout settled. Confirming it needs `computed.route` read at runtime,
+which the DOM does not expose.
+
 The fix must leave mobile unchanged: at 375 the content fits with no overflow, so this is
 desktop-only, and 375 is the control case.
 
