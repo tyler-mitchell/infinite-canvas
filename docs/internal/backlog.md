@@ -721,7 +721,31 @@ the collapse is closed. What remains of D6 is that the route fits 464 world px i
 leaving everything at 0.808 rather than 1:1. The extra ~89 world px is margin in the fit bounds,
 about 44 a side. Whether that margin is wanted is a design call, not a defect.
 
-## Presentation mode does not centre the route
+## Presentation mode centres on one section, not the route
+
+Root cause measured 2026-09-20 at a verified 1440x900, read mode, scroll 0, two settled samples.
+Read the world transform directly rather than inferring from screen positions:
+
+    zoom 1 (capped by maxZoom, correct)      world translateX 569
+    content in world      x 1 to 1243        width 1242   centre 622
+    camera centre in world                                        151
+    content on screen     570 to 1812        centred would be 99 to 1341
+
+The camera's cross-axis centre is world x 151. The first card, "Sample project progress", occupies
+world x 1 to 301 — centroid exactly 151. So the camera is centring on ONE SECTION'S RECT, not on
+the union of the route. That is the whole 471px displacement.
+
+Two earlier theories are dead, both killed by measurement rather than argument:
+
+- Stale persisted camera: the displacement survives `board.v6` being deleted and a fresh document.
+- `bounds` excluding non-section windows: the two icon-square windows sit at screen 883 to 1080,
+  INSIDE the card span 570 to 1812. Including or excluding them gives identical bounds and an
+  identical centre, so exclusion cannot displace anything.
+
+`route.ts:103` is still the only line that sets the cross centre, and it reads
+`centroidOfRect(bounds)`. Either `bounds` is not the union it appears to be at that call site, or
+the cross value is being recomputed per section somewhere downstream in `scroll.tsx`. The fix must
+leave mobile unchanged: at 375 the content fits with no overflow, so this is desktop-only.
 
 Measured on the running board at a verified 1440x900 viewport, read mode, scroll position 0, with
 `board.v6` removed so no camera was restored:
