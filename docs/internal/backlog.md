@@ -576,6 +576,59 @@ input.
 "Approximately" is the owner's word and it is load-bearing. This is a visual proportion, not a
 measurement to match.
 
+## Presentation mode shows the container label
+
+Raised by the owner 2026-09-20: "in presentation mode the group labels should not be visible."
+
+Measured on the running board. In read mode the container window still paints its label,
+"Sample collection", 81x26. Nine elements carry `data-slot="canvas-drag-handle"` — one label and
+one wrapping each card. The rest of the handle is already correct in read mode: computed cursor is
+`default` on all nine, and the reading-order badges do not paint. Only the label text leaks.
+
+The viewport already publishes `data-mode` on `canvas-viewport`, so no new signal needs threading
+from the consumer. The framework owns both the slot and the mode.
+
+That label element also carries raw tailwind in JSX — `absolute -top-8 left-0 flex h-8 cursor-grab
+items-center text-xs` — which `AGENTS.md` forbids. Clear it to tv slots in the same change.
+
+Open question, not yet a defect: the eight card handles keep `pointer-events: auto` in read mode.
+Unknown whether that swallows text selection or drag-to-scroll on touch.
+
+## Icon-square windows scale with the route zoom
+
+Raised by the owner 2026-09-20: "the icons are way too big on mobile when they should remain the
+same 1 unit square size."
+
+Measured: TypeScript and React icons render 184x184 at a 2382px viewport and 303x303 at 375px. The
+icon is larger on the smaller screen, because a narrow viewport fits a narrower column, the
+fit-width zoom rises, and a world-space square grows with it. Their host cards measure 303x326 at
+375px, so the card is not square either and holds a large empty region under the icon.
+
+A one-unit square should stay one unit of the layout. In a single-column arrangement one unit is
+not the whole column.
+
+## Presentation mode does not centre the route
+
+Measured on the running board at a verified 1440x900 viewport, read mode, scroll position 0, with
+`board.v6` removed so no camera was restored:
+
+    content span   570 to 1812   width 1242   viewport 1440
+    dead band left   570
+    overflow right   372
+
+Three cards are cut off the right edge and there is no horizontal scroll to reach them. Centred, a
+1242-wide block would sit at 99. The cross-axis centre is displaced about 471px. The fit also runs
+small — 1242 where about 1384 is available after the 56px right inset — but that is the minor half.
+
+The displacement survives a wiped document, so it is the track and not persistence. It scales with
+content: with the saved document the span was 528 to 1966. That points at the bounds or centroid
+term rather than a constant offset. `route.ts:103` is the only line that sets the cross centre, and
+its inset correction is about 28px, so the arithmetic alone does not explain it. One untested
+candidate: `bounds` is `unionRects` over sections only, and two icon-square windows sit outside the
+route while still rendering, so the camera may centre on a narrower union than what is drawn.
+
+One fit-width zoom for the whole route is the adopted design and is not in question here.
+
 ## Interaction experiments
 
 - **L-shaped widgets:** explore non-rectangular rendering, hit testing, selection, and layout.
