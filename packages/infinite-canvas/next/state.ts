@@ -733,6 +733,12 @@ export const createCanvasState = withComputed(stateModel)
           ctx.mustBe("a width mode or a height mode"),
       ),
       setWindowSection: { window: "existingWindow", section: "boolean" },
+      setViewportInsets: type({
+        "top?": "number >= 0",
+        "right?": "number >= 0",
+        "bottom?": "number >= 0",
+        "left?": "number >= 0",
+      }).narrow((input, ctx) => Object.keys(input).length > 0 || ctx.mustBe("at least one edge")),
       pinWindow: { window: "floatingWindow", isPinned: "boolean" },
       restoreWindow: { window: "existingWindow" },
       minimizeWindow: { window: "minimizableWindow" },
@@ -828,6 +834,9 @@ export const createCanvasState = withComputed(stateModel)
       ),
       setWindowSection: type.fn(inputs.setWindowSection)(({ window, section }) =>
         window.section.set(section),
+      ),
+      setViewportInsets: type.fn(inputs.setViewportInsets)((insets) =>
+        state.input.viewportInsets.assign(insets),
       ),
       setWindowData: type.fn(inputs.setWindowData)(({ window, data }) => window.assign({ data })),
       renameWorkspace: type.fn(inputs.renameWorkspace)(({ workspace, title }) =>

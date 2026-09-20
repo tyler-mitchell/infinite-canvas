@@ -18,7 +18,7 @@ import { observer } from "@legendapp/state/react";
 import { syncState, type Observable } from "@legendapp/state";
 import { ObservablePersistLocalStorage } from "@legendapp/state/persist-plugins/local-storage";
 import { syncObservable } from "@legendapp/state/sync";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Badge,
   Button,
@@ -37,6 +37,8 @@ import documentSource from "./document.json?raw";
 import "./board.css";
 
 const READING_AXIS = "vertical";
+const RAIL_BREAKPOINT = 641;
+const RAIL_EXTENT = 56;
 
 const styles = tv({
   slots: {
@@ -187,6 +189,20 @@ export function PortfolioBoard({
     return canvas;
   });
   const [exploring, setExploring] = useState(false);
+  useEffect(() => {
+    const phone = globalThis.matchMedia(`(max-width: ${RAIL_BREAKPOINT - 1}px)`);
+    const apply = () =>
+      void canvas.actions.setViewportInsets.run(
+        mode !== "read"
+          ? { top: 0, right: 0, bottom: 0, left: 0 }
+          : phone.matches
+            ? { top: 0, right: 0, bottom: RAIL_EXTENT, left: 0 }
+            : { top: 0, right: RAIL_EXTENT, bottom: 0, left: 0 },
+      );
+    apply();
+    phone.addEventListener("change", apply);
+    return () => phone.removeEventListener("change", apply);
+  }, [canvas, mode]);
   const classes = styles({ mode });
   const viewport = (
     <CanvasViewport
@@ -244,7 +260,6 @@ export function PortfolioBoard({
           <CanvasScroll
             canvas={canvas}
             axis={READING_AXIS}
-            maxZoom={1}
             attached={!exploring}
             section={section}
             onSectionChange={onSectionChange}

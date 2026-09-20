@@ -15,7 +15,8 @@ import {
 import { useWebMCP, type WebMCPOptions } from "use-webmcp-tool";
 import { spring } from "motion";
 import type { WindowState } from "../document.types";
-import { getResizeHandleDescriptors, type ResizeHandle } from "../geometry";
+import { cameraMatrix, centroidOfRect, unionRects, type ResizeHandle } from "@hyphened/math/cpu";
+import { getResizeHandleDescriptors } from "../geometry";
 import type { Canvas } from "../state.types";
 import {
   readPointer,
@@ -36,8 +37,8 @@ import { useHotkeys } from "@tanstack/react-hotkeys";
 import "./frame.css";
 import { WindowControls, type ChildLabel, type ControlRenderer } from "./controls";
 import { createCanvasTools } from "../tools";
+import { useCanvasScrollAxis, useCanvasScrollMode } from "./scroll";
 import {
-  CanvasPortal,
   ViewportContext,
   WindowContext,
   useCanvasWindow,
@@ -184,9 +185,7 @@ const WindowView = observer(function WindowView({
     carried ||
     (drag?.kind === "sash" && canvas.computed.windowRoot[drag.container].get() === root);
   const container = !preview && window.layout.get() !== undefined;
-  const resizable =
-    !preview &&
-    canvas.actions.resizeWindow.canRun({ window: id, width: rect.width, height: rect.height });
+  const selected = canvas.computed.selection.targets[`window:${id}`].get() !== undefined;
   return (
     <WindowContext.Provider value={context}>
       <article
@@ -204,9 +203,7 @@ const WindowView = observer(function WindowView({
         data-highlighted={(!preview && canvas.computed.dockDrop.target.get() === id) || undefined}
         data-window-id={id}
         data-active={canvas.computed.view.activeWindowId.get() === id || undefined}
-        data-selected={
-          canvas.computed.selection.targets[`window:${id}`].get() !== undefined || undefined
-        }
+        data-selected={selected || undefined}
         style={{
           position: "absolute",
           boxSizing: "border-box",
@@ -255,16 +252,76 @@ const WindowView = observer(function WindowView({
             renderControl={renderControl}
           />
         )}
-        {resizable && !container && (
-          <ResizeHandles canvas={canvas} window={window} viewport={viewport} />
-        )}
-        {resizable && container && (
-          <CanvasPortal scope="window" above>
-            <ResizeHandles canvas={canvas} window={window} viewport={viewport} />
-          </CanvasPortal>
-        )}
       </article>
     </WindowContext.Provider>
+  );
+});
+
+const SelectionHandles = observer(function SelectionHandles({
+  canvas,
+  viewport,
+}: Pick<WindowContextValue, "canvas" | "viewport">) {
+  return canvas.computed.selectedWindows.map((window) => {
+    const id = window.id.get();
+    const rect = canvas.computed.windowRect[id].get();
+    if (
+      rect === undefined ||
+      !canvas.computed.windowVisible[id].get() ||
+      !canvas.actions.resizeWindow.canRun({ window: id, width: rect.width, height: rect.height })
+    )
+      return null;
+    return (
+      <div
+        key={id}
+        data-slot="canvas-selection"
+        data-window-id={id}
+        style={{
+          position: "absolute",
+          left: 0,
+          top: 0,
+          transform: `translate(${rect.x}px, ${rect.y}px)`,
+          width: rect.width,
+          height: rect.height,
+          pointerEvents: "none",
+          zIndex: canvas.computed.overlayZIndex.get() + 2,
+        }}
+      >
+        <ResizeHandles canvas={canvas} window={window} viewport={viewport} />
+      </div>
+    );
+  });
+});
+
+const SelectionBounds = observer(function SelectionBounds({
+  canvas,
+  ref,
+}: {
+  canvas: Canvas;
+  ref: (element: HTMLDivElement | null) => void;
+}) {
+  const bounds = unionRects(
+    canvas.computed.selectedWindows.flatMap((window) => {
+      const id = window.id.get();
+      const rect = canvas.computed.windowRect[id].get();
+      return rect === undefined || !canvas.computed.windowVisible[id].get() ? [] : [rect];
+    }),
+  );
+  if (bounds === null) return null;
+  return (
+    <div
+      ref={ref}
+      data-slot="canvas-selection-bounds"
+      aria-hidden="true"
+      style={{
+        position: "absolute",
+        left: 0,
+        top: 0,
+        transform: `translate(${bounds.x}px, ${bounds.y}px)`,
+        width: bounds.width,
+        height: bounds.height,
+        pointerEvents: "none",
+      }}
+    />
   );
 });
 
@@ -282,7 +339,7 @@ const WorldLayer = observer(function WorldLayer({
     position: "absolute",
     inset: 0,
     transformOrigin: "0 0",
-    transform: `translate(${size.width / 2 - camera.center.x * camera.zoom}px, ${size.height / 2 - camera.center.y * camera.zoom}px) scale(${camera.zoom})`,
+    transform: `matrix(${[...cameraMatrix({ camera, viewport: size })].join(",")})`,
   };
   return (
     <div data-slot="canvas-world" style={style}>
@@ -340,7 +397,8 @@ export function CanvasViewport({
   wheelLineHeight = 40,
   emptyCanvasDrag = "pan",
   transferType = COMPONENT_TRANSFER_TYPE,
-  hotkeys = defaultHotkeys,
+  mode: modeProp,
+  hotkeys: hotkeysProp,
   layoutMotion,
   dragMotion,
   reducedMotion = "user",
@@ -355,6 +413,7 @@ export function CanvasViewport({
   wheelLineHeight?: number;
   emptyCanvasDrag?: "pan" | "marquee" | "marqueeWhenSelectionExists";
   transferType?: string;
+  mode?: "edit" | "read" | "explore";
   hotkeys?: Hotkeys;
   layoutMotion?: LayoutMotion | false;
   dragMotion?: LayoutMotion | false;
@@ -362,10 +421,15 @@ export function CanvasViewport({
 }) {
   const viewport = useRef<HTMLDivElement>(null);
   const [portal, setPortal] = useState<HTMLDivElement | null>(null);
+  const [selectionAnchor, setSelectionAnchor] = useState<HTMLElement | null>(null);
   const context = useMemo(
-    () => ({ canvas, viewport, transferType, portal }),
-    [canvas, transferType, portal],
+    () => ({ canvas, viewport, transferType, portal, selectionAnchor }),
+    [canvas, transferType, portal, selectionAnchor],
   );
+  const scrollMode = useCanvasScrollMode();
+  const scrollAxis = useCanvasScrollAxis();
+  const mode = modeProp ?? scrollMode ?? "edit";
+  const hotkeys = hotkeysProp ?? (mode === "edit" ? defaultHotkeys : {});
   const instanceId = useId();
   const spacePan = useRef(false);
   const layoutTransition = useMemo(
@@ -408,7 +472,7 @@ export function CanvasViewport({
     if (element === null) return;
     const wheel = (event: WheelEvent) => {
       const size = canvas.state.input.viewport.peek();
-      if (size.width <= 0 || size.height <= 0) return;
+      if (mode === "read" || size.width <= 0 || size.height <= 0) return;
       const zoom = event.ctrlKey || event.metaKey;
       if (
         !zoom &&
@@ -435,7 +499,7 @@ export function CanvasViewport({
     };
     element.addEventListener("wheel", wheel, { capture: true, passive: false });
     return () => element.removeEventListener("wheel", wheel, { capture: true });
-  }, [canvas, wheelLineHeight]);
+  }, [canvas, wheelLineHeight, mode]);
   useHotkeys(getHotkeyDefinitions({ canvas, hotkeys }), {
     target: viewport,
     ignoreInputs: true,
@@ -473,10 +537,9 @@ export function CanvasViewport({
           (tab) =>
             tab.dataset.containerId === tabDrag.container && tab.dataset.childId !== tabDrag.child,
         );
-        const next = siblings.find((tab) => {
-          const rect = tab.getBoundingClientRect();
-          return event.clientX < rect.left + rect.width / 2;
-        });
+        const next = siblings.find(
+          (tab) => event.clientX < centroidOfRect(tab.getBoundingClientRect()).x,
+        );
         const target = next ?? siblings.at(-1);
         if (target?.dataset.childId !== undefined)
           report(
@@ -516,6 +579,7 @@ export function CanvasViewport({
         ref={viewport}
         data-slot="canvas-viewport"
         className={className}
+        data-mode={mode}
         data-layout-motion={layoutMotion === false ? "off" : "on"}
         data-reduced-motion={reducedMotion}
         data-drag-motion={dragMotion === false ? "off" : "on"}
@@ -524,7 +588,7 @@ export function CanvasViewport({
           width: "100%",
           height: "100%",
           overflow: "hidden",
-          touchAction: "none",
+          touchAction: mode !== "read" ? "none" : scrollAxis === "horizontal" ? "pan-x" : "pan-y",
           ...viewportStyle,
         }}
         tabIndex={0}
@@ -595,7 +659,11 @@ export function CanvasViewport({
           if (!event.isPrimary || (event.button !== 0 && event.button !== 1)) return;
           if (!(event.target instanceof Element) || !event.currentTarget.contains(event.target))
             return;
-          if (event.button !== 1 && !event.altKey && !spacePan.current) return;
+          if (mode === "read" || (mode === "explore" && isInteractiveTarget(event.target))) {
+            event.stopPropagation();
+            return;
+          }
+          if (mode === "edit" && event.button !== 1 && !event.altKey && !spacePan.current) return;
           const error = canvas.actions.beginPan.run(readPointer(event, event.currentTarget));
           report(error);
           if (error !== undefined) return;
@@ -646,6 +714,7 @@ export function CanvasViewport({
         onKeyDown={(event) => {
           if (event.defaultPrevented || event.nativeEvent.isComposing) return;
           if (
+            mode === "edit" &&
             event.target === event.currentTarget &&
             (event.code === "Space" || event.key === " ")
           ) {
@@ -686,6 +755,8 @@ export function CanvasViewport({
               />
             )}
           </For>
+          <SelectionBounds canvas={canvas} ref={setSelectionAnchor} />
+          <SelectionHandles canvas={canvas} viewport={viewport} />
           <MarqueeView canvas={canvas} />
           <AlignmentGuides canvas={canvas} />
         </WorldLayer>
