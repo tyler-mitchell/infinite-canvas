@@ -1,6 +1,5 @@
 import { type } from "arktype";
 import { flatMorph } from "@ark/util";
-import { cameraNavigation } from "./camera";
 import { getParents } from "./layout/tree";
 import type { CanvasState } from "./state.types";
 import type { TargetKey } from "./selection";
@@ -21,9 +20,11 @@ const schema = type.module({
     mode: "'normal' | 'minimized' | 'maximized' = 'normal'",
     isPinned: "boolean = false",
     heightMode: "'content' | 'manual' = 'content'",
+    widthMode: "'viewport' | 'manual' = 'manual'",
     rect: "Rect",
     "restoreRect?": "Rect",
     "data?": "unknown",
+    "section?": "boolean",
     "minSize?": "Size",
     "maxSize?": "Size",
     "aspectRatio?": "Positive",
@@ -59,11 +60,6 @@ const schema = type.module({
       () => ({}),
     ],
     "workspaceOrder?": "string[]",
-    cameraStops: [
-      type({ id: "string > 0", "title?": "string", navigation: cameraNavigation }).array(),
-      "=",
-      () => [],
-    ],
   },
   TargetKey: type("string").narrow(
     (key, ctx): key is TargetKey => key.includes(":") || ctx.mustBe("a qualified selection key"),
@@ -73,7 +69,6 @@ const schema = type.module({
   Camera: { center: "Point", zoom: "Positive" },
   View: {
     activeWindowId: "string | null = null",
-    cameraStopId: "string | null = null",
     camera: ["Camera", "=", () => ({ center: { x: 0, y: 0 }, zoom: 1 })],
     selection: ["Selection", "=", () => ({ targets: {}, anchor: null })],
     stackingOrder: ["TargetKey[]", "=", () => []],
@@ -90,10 +85,11 @@ const schema = type.module({
     size: ["Size", "=", () => ({ width: 320, height: 240 })],
     "minSize?": "Size",
     "aspectRatio?": "Positive",
+    section: "boolean = true",
     capabilities: ["Capabilities", "=", () => ({})],
     bodyDragThreshold: "Nonnegative = 4",
-    headerDragThreshold: "Nonnegative = 0",
-    resizeDragThreshold: "Nonnegative = 0",
+    headerDragThreshold: "Nonnegative = 4",
+    resizeDragThreshold: "Nonnegative = 4",
     maximizePadding: "Nonnegative = 36",
     "schema?": "unknown",
     detail: [
@@ -189,8 +185,6 @@ const content = schema.Content.pipe((input, ctx) => {
     )
   )
     return ctx.error("distinct live workspace members");
-  if (new Set(content.cameraStops.map((stop) => stop.id)).size !== content.cameraStops.length)
-    return ctx.error("distinct camera stop IDs");
   const workspaceOrder = content.workspaceOrder ?? Object.keys(content.workspaces);
   return workspaceOrder.length === Object.keys(content.workspaces).length &&
     new Set(workspaceOrder).size === workspaceOrder.length &&
