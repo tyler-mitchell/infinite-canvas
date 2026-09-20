@@ -522,6 +522,22 @@ Two shapes:
 
 Done when an author reorders a window from the panel on `/board` and the reading route follows.
 
+### Closed 2026-09-20 — geometry owns, and the pin is released
+
+Neither shape as written. `moveChild` was replaced by `moveSection`, which steps in the route rather
+than among siblings: it finds the neighbouring section in `computed.route` and inserts next to it,
+so a step never lands on a sibling that is not a section. That was the first defect — on the board a
+step crossed an icon-square and the order did not move.
+
+Geometry still owns, and the pin is what yields to it. A layout declares which item properties place
+an item outside the flow (`Layout.pins`: grid declares `column` and `row`, lanes declares `column`),
+and `moveSection` clears them on the window it moves. Asking for a place in the flow withdraws an
+authored position, which is the rule Figma uses when an absolute item is dragged back into an auto
+layout. No order field was added and nothing adapts between the two.
+
+VERIFIED on screen by the manager: the panel and the canvas badges both reorder, and read mode
+follows.
+
 ## Edit mode reserves no space for the palette
 
 Found 2026-09-20 by reading `portfolio/board.tsx` against the running board.
@@ -555,6 +571,21 @@ is the deficit.
 Done when the camera frames against the space the canvas actually has in both modes, and
 `board.tsx` no longer carries extent constants.
 
+### Closed 2026-09-20, and the premise above was half wrong
+
+The generic half is done. `viewportOccluders` is keyed by source, `useCanvasOccluder` measures an
+element against the canvas viewport and registers its rect, and `computed.viewportInsets` derives
+the insets from the occluders that span an axis and hug an edge. `board.tsx` lost the `matchMedia`
+listener, `RAIL_EXTENT` and `RAIL_BREAKPOINT`.
+
+The arithmetic in the entry above does not hold, though. `viewportHost` is already
+`min-[641px]:w-[calc(100%-196px)]`, so in edit mode the canvas element does not extend under the
+palette: CSS reserves the column, and the camera's viewport is the narrowed element. The palette
+registers an occluder whose left edge sits exactly on the canvas's right edge, so it contributes a
+zero inset, which is correct rather than a miss. Whatever clipped the left column at 1440x900 was
+not this; a stale camera in `board.v6` is the likelier cause, and the test that separates them is
+whether content is still clipped after `fitAll`.
+
 ## The canvas has a default width on desktop
 
 Deferred by the owner twice, most recently 2026-09-20 with a reference. Do not take it while
@@ -576,6 +607,21 @@ input.
 "Approximately" is the owner's word and it is load-bearing. This is a visual proportion, not a
 measurement to match.
 
+### Closed 2026-09-20
+
+`--container-pk-page: 880px` in `theme.css` is the token; Tailwind v4 turns a `--container-*` entry
+into a `max-w-*` utility, so it is Tailwind's own mechanism rather than an invented one. The nine
+docs routes that restated `max-w-[880px]` now read `max-w-pk-page`, and `pk-page` is registered in
+the tv `max-w` class group so it collapses with the class it replaces.
+
+The framework half: `widthMode: "viewport"` wrote the usable width straight into the rect and
+ignored `maxSize`, which already existed and already means this. It clamps now, and `maxSize` takes
+one axis alone so a width cap no longer forces an invented height. The board states
+`maxSize: { width: 880 }` on its root window in `document.json` rather than reading the token,
+because a page width is an authored document property and belongs where an author can change it.
+
+NOT seen on screen.
+
 ## Presentation mode shows the container label
 
 Raised by the owner 2026-09-20: "in presentation mode the group labels should not be visible."
@@ -587,6 +633,15 @@ one wrapping each card. The rest of the handle is already correct in read mode: 
 
 The viewport publishes `data-mode` on `canvas-viewport`, so no new signal needs threading from the
 consumer.
+
+### Closed 2026-09-20
+
+`BoardWindow` returns null for a kindless container unless the mode is `edit`. The consumer already
+gates the selection toolbar and the reading-order badges on the same prop, so this is the pattern
+that was there, applied to the one thing that had been missed. No framework change: the label is
+consumer content, and what a consumer draws per mode is its own call.
+
+NOT seen on screen.
 
 Two earlier claims here were wrong and are withdrawn. The label's tailwind is a tv slot at
 `board.tsx:57`, which is where tailwind belongs — there is no convention defect. And the framework
@@ -623,13 +678,25 @@ these as slots the consumer styles. That is an architecture decision and it is n
 Raised by the owner 2026-09-20: "the icons are way too big on mobile when they should remain the
 same 1 unit square size."
 
-Measured: TypeScript and React icons render 184x184 at a 2382px viewport and 303x303 at 375px. The
-icon is larger on the smaller screen, because a narrow viewport fits a narrower column, the
-fit-width zoom rises, and a world-space square grows with it. Their host cards measure 303x326 at
-375px, so the card is not square either and holds a large empty region under the icon.
+Measured in world units at a verified 375px viewport, read mode, after a full reload: effective
+zoom 0.808, world width visible 464, and an icon-square window 303 screen px = **375 world px**. A
+text card measures the same 375 world px. So the icon is not oversized relative to anything — it is
+being sized to the column exactly like every other window.
 
-A one-unit square should stay one unit of the layout. In a single-column arrangement one unit is
-not the whole column.
+The owner's "1 unit square size" therefore means a window whose content has a fixed aspect must
+hold its own size when the grid collapses, instead of stretching to the column the way a text card
+should. That is a sizing policy for the window, not a rendering problem in the icon.
+
+Two earlier readings here were wrong and are withdrawn. The screen-pixel comparison (184 at 2382px,
+303 at 375px) described the zoom, not the defect. And `layout/columns.ts` is not the site: the
+column collapse is working (see D6 below), so the column is right and the window's appetite for it
+is not.
+
+Also measured, and it updates D6: a card is 375 world px at a 375 viewport. D6 recorded 804 world
+px with the grid never collapsing on 2026-09-18. That is no longer the state — 804 became 375, so
+the collapse is closed. What remains of D6 is that the route fits 464 world px into 375 screen px,
+leaving everything at 0.808 rather than 1:1. The extra ~89 world px is margin in the fit bounds,
+about 44 a side. Whether that margin is wanted is a design call, not a defect.
 
 ## Presentation mode does not centre the route
 
@@ -652,6 +719,20 @@ candidate: `bounds` is `unionRects` over sections only, and two icon-square wind
 route while still rendering, so the camera may centre on a narrower union than what is drawn.
 
 One fit-width zoom for the whole route is the adopted design and is not in question here.
+
+### Superseded 2026-09-20
+
+That last line stopped being true the same day. The owner drove read mode and rejected it: the scene
+filled the top-left of the viewport, scrolling panned raw world with nothing settling, and the cards
+were too small to read. One zoom for the whole route was the cause, not a constant to work around.
+
+`getCameraTrack` now frames each section on its own — `getCameraDestination` fits the section rect
+into the usable inset box, honouring padding and `maxZoom` — and interpolates position and log zoom
+between two stops. There is no single cross centre any more, so `route.ts:103` and the arithmetic
+above no longer exist. The untested candidate in this entry, that `bounds` unions only sections
+while non-sections still render, is moot for the same reason: nothing unions the route now.
+
+NOT seen on screen.
 
 ## Interaction experiments
 
