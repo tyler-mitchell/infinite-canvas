@@ -1781,6 +1781,7 @@ export const createCanvasState = withComputed(stateModel)
           state.input.pointer.set(input.pointer);
           state.session.press.set({
             undock: input.undock ?? false,
+            additive: input.pointer.shiftKey || input.pointer.ctrlKey || input.pointer.metaKey,
             windowId: id,
             pointerId: input.pointer.pointerId,
             point: input.pointer.point,
@@ -1801,6 +1802,7 @@ export const createCanvasState = withComputed(stateModel)
           state.input.pointer.set(input.pointer);
           state.session.press.set({
             undock: false,
+            additive: false,
             windowId: id,
             pointerId: input.pointer.pointerId,
             point: input.pointer.point,
@@ -1953,8 +1955,19 @@ export const createCanvasState = withComputed(stateModel)
         });
       if (actions.commitSashDrag.canRun(input)) return actions.commitSashDrag.run(input);
       const camera = computed.camera.peek();
+      const press = state.session.press.peek();
+      const collapses =
+        press !== null &&
+        press.pointerId === input.pointerId &&
+        press.handle === null &&
+        !press.additive &&
+        computed.selectedWindows.length > 1;
       return batch(() => {
         computed.view.camera.set(camera);
+        if (collapses) {
+          const selected = actions.selectWindow.run({ window: press.windowId });
+          if (selected !== undefined) return selected;
+        }
         return actions.cancelDrag.run({});
       });
     }),

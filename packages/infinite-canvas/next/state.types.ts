@@ -1,6 +1,6 @@
 import type { ArkErrors, Type } from "arktype";
 import type { Observable } from "@legendapp/state";
-import type { Camera, Point, Rect, ResizeHandle, Size } from "./geometry";
+import type { Camera, Point, Rect, ResizeHandle, Size } from "@hyphened/math/cpu";
 import type { CameraMotion, ViewportInsets } from "./camera";
 import type { ComponentActionRuntime, ComponentDrop, WindowCreation } from "./components";
 import type {
@@ -28,6 +28,7 @@ export type PointerState = {
 
 export type WindowPress = {
   undock: boolean;
+  additive: boolean;
   windowId: string;
   pointerId: number;
   point: Point;
@@ -77,6 +78,7 @@ export type WindowDefinition = {
   size: Size;
   minSize: Size;
   aspectRatio?: number;
+  section: boolean;
   capabilities: WindowCapabilities;
   bodyDragThreshold: number;
   headerDragThreshold: number;
@@ -116,7 +118,6 @@ export type CanvasContext = {
 
 export type ViewState = {
   activeWindowId: string | null;
-  cameraStopId: string | null;
   camera: Camera;
   selection: Selection;
   stackingOrder: TargetKey[];
