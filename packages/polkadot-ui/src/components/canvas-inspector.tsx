@@ -231,8 +231,21 @@ export const CanvasInspector = observer(function CanvasInspector({ canvas }: Can
           <Field>
             <Field.Content>
               <Field.Label>Section</Field.Label>
-              <Field.Description>Takes its place in the reading order.</Field.Description>
+              <Field.Description>
+                {window.section.get() === undefined
+                  ? "Takes its place in the reading order. Following this component's default."
+                  : "Takes its place in the reading order. Set on this window."}
+              </Field.Description>
             </Field.Content>
+            {window.section.get() !== undefined && (
+              <Button
+                size="sm"
+                tone="ghost"
+                onClick={() => canvas.actions.setWindowSection.run({ window: id })}
+              >
+                Reset
+              </Button>
+            )}
             <Switch
               checked={canvas.computed.windowSection[id].get()}
               onCheckedChange={(checked) =>

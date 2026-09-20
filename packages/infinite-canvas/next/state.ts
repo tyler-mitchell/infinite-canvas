@@ -732,7 +732,7 @@ export const createCanvasState = withComputed(stateModel)
           input.heightMode !== undefined ||
           ctx.mustBe("a width mode or a height mode"),
       ),
-      setWindowSection: { window: "existingWindow", section: "boolean" },
+      setWindowSection: { window: "existingWindow", "section?": "boolean" },
       setViewportInsets: type({
         "top?": "number >= 0",
         "right?": "number >= 0",
@@ -833,7 +833,7 @@ export const createCanvasState = withComputed(stateModel)
         window.assign(modes),
       ),
       setWindowSection: type.fn(inputs.setWindowSection)(({ window, section }) =>
-        window.section.set(section),
+        section === undefined ? window.section.delete() : window.section.set(section),
       ),
       setViewportInsets: type.fn(inputs.setViewportInsets)((insets) =>
         state.input.viewportInsets.assign(insets),

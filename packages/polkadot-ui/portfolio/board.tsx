@@ -50,6 +50,8 @@ const styles = tv({
     card: "h-full cursor-grab",
     position:
       "pointer-events-none absolute -top-2 -left-2 z-10 size-5 justify-center rounded-full bg-pk-surface p-0 tabular-nums",
+    skipped:
+      "pointer-events-none absolute -top-2 -left-2 z-10 size-5 justify-center rounded-full border-dashed bg-pk-surface p-0 text-pk-ink-faint",
     window:
       "relative h-full in-data-selected:outline-2 in-data-selected:outline-pk-accent in-data-selected:-outline-offset-2 has-[[data-slot=language-icon]]:border-0 has-[[data-slot=language-icon]]:rounded-none has-[[data-slot=language-icon]]:bg-transparent has-[[data-slot=language-icon]]:shadow-none",
     container: "absolute -top-8 left-0 flex h-8 cursor-grab items-center text-xs",
@@ -99,12 +101,23 @@ const BoardWindow = observer(function BoardWindow({
     mode === "edit"
       ? canvas.computed.route[READING_AXIS].get().findIndex((section) => section.id === id)
       : -1;
+  const skipped = mode === "edit" && position < 0 && !canvas.computed.windowSection[id].get();
   return (
     <WindowDragHandle className={styles().card()}>
       <Surface container padding="none" tone="card" className={styles().window()}>
         {position >= 0 && (
           <Badge className={styles().position()} tone="outline">
             {position + 1}
+          </Badge>
+        )}
+        {skipped && (
+          <Badge
+            className={styles().skipped()}
+            tone="outline"
+            aria-label="Not in the reading order"
+            title="Not in the reading order"
+          >
+            —
           </Badge>
         )}
         <WindowContent>
