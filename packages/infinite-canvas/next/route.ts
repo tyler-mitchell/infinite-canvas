@@ -94,19 +94,20 @@ export function getCameraTrack({
     limits,
     navigation: {
       target: { type: "rect", rect: bounds },
-      behavior: { type: "fit", framingMode: crossAxis, padding: 0, maxZoom },
+      behavior: { type: "fit", framingMode: crossAxis, maxZoom },
     },
   });
+  const { padding } = limits;
   const extent = Math.max(viewport[main] - start - end, 1);
   const centreAt = (offset: number) =>
-    bounds[mainPosition] + (offset + viewport[main] / 2 - start) / zoom;
+    bounds[mainPosition] + (offset + viewport[main] / 2 - start - padding) / zoom;
   const cross = centroidOfRect(bounds)[crossPosition] - (crossStart - crossEnd) / 2 / zoom;
   const placed = sections.map((section) => ({
     id: section.id,
     offset: clamp0((section.rect[mainPosition] - bounds[mainPosition]) * zoom),
   }));
   const stops = [...new Set(placed.map((section) => section.offset))];
-  const length = Math.max(clamp0(bounds[main] * zoom - extent), max(stops));
+  const length = Math.max(clamp0(bounds[main] * zoom + padding * 2 - extent), max(stops));
   return {
     zoom,
     length,
