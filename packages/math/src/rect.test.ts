@@ -2,8 +2,10 @@ import { d } from "typegpu";
 import { describe, expect, test } from "vite-plus/test";
 import {
   alignRectIn,
+  alignRectInKernel,
   approxEqualsRect,
   areaOfRect,
+  areaOfRectKernel,
   aspectRatioOfRect,
   centerOfRect,
   clampPointToRect,
@@ -28,15 +30,16 @@ import {
   resizeRect,
   scaleRectAbout,
   translateRect,
+  translateRectKernel,
   unionRect,
   unionRects,
   type ResizeHandle,
 } from "./rect";
-import { intervalEnd } from "./interval";
+import type { SizeLimits } from "./size";
 
 const rect = Rect({ x: 0, y: 0, width: 100, height: 50 });
 
-describe("rectRight and rectBottom read the far edge through intervalEnd", () => {
+describe("rectRight and rectBottom read the far edge", () => {
   test("give the far edge on each axis", () => {
     expect(rectRight(rect)).toBe(100);
     expect(rectBottom(rect)).toBe(50);
@@ -48,10 +51,10 @@ describe("rectRight and rectBottom read the far edge through intervalEnd", () =>
     expect(rectBottom(moved)).toBe(62);
   });
 
-  test("agree with intervalEnd, which owns the rule", () => {
+  test("are the start plus the extent", () => {
     const moved = Rect({ x: -30, y: 12, width: 100, height: 50 });
-    expect(rectRight(moved)).toBe(intervalEnd(moved.x, moved.width));
-    expect(rectBottom(moved)).toBe(intervalEnd(moved.y, moved.height));
+    expect(rectRight(moved)).toBe(moved.x + moved.width);
+    expect(rectBottom(moved)).toBe(moved.y + moved.height);
   });
 });
 
@@ -231,7 +234,8 @@ describe("insetRect and outsetRect", () => {
 
 describe("translateRect and scaleRectAbout", () => {
   test("translate keeps the extents", () => {
-    expect(translateRect(rect, d.vec2f(5, -5))).toEqual(at(5, -5, 100, 50));
+    expect(translateRectKernel(rect, d.vec2f(5, -5))).toEqual(at(5, -5, 100, 50));
+    expect(translateRect(rect, { x: 5, y: -5 })).toEqual(at(5, -5, 100, 50));
   });
 
   test("scale about a point leaves that point where it was", () => {
@@ -271,9 +275,17 @@ describe("alignRectIn", () => {
   test("places by fraction, so zero is the start, one half the centre and one the end", () => {
     const bounds = at(0, 0, 200, 100);
     const size = d.vec2f(50, 20);
-    expect(alignRectIn(bounds, size, d.vec2f(0, 0))).toEqual(at(0, 0, 50, 20));
-    expect(alignRectIn(bounds, size, d.vec2f(0.5, 0.5))).toEqual(at(75, 40, 50, 20));
-    expect(alignRectIn(bounds, size, d.vec2f(1, 1))).toEqual(at(150, 80, 50, 20));
+    expect(alignRectInKernel(bounds, size, d.vec2f(0, 0))).toEqual(at(0, 0, 50, 20));
+    expect(alignRectInKernel(bounds, size, d.vec2f(0.5, 0.5))).toEqual(at(75, 40, 50, 20));
+    expect(alignRectInKernel(bounds, size, d.vec2f(1, 1))).toEqual(at(150, 80, 50, 20));
+  });
+
+  test("the CPU pair places the same rect from a plain size and fraction", () => {
+    const bounds = at(0, 0, 200, 100);
+    const size = { width: 50, height: 20 };
+    expect(alignRectIn(bounds, size, { x: 0, y: 0 })).toEqual(at(0, 0, 50, 20));
+    expect(alignRectIn(bounds, size, { x: 0.5, y: 0.5 })).toEqual(at(75, 40, 50, 20));
+    expect(alignRectIn(bounds, size, { x: 1, y: 1 })).toEqual(at(150, 80, 50, 20));
   });
 });
 
@@ -307,28 +319,36 @@ describe("lerpRect", () => {
 
 describe("resizeRect", () => {
   const base = at(20, 40, 300, 200);
-  const minSize = d.vec2f(60, 30);
+  const unbounded: SizeLimits = {
+    min: { width: 60, height: 30 },
+    max: { width: Infinity, height: Infinity },
+  };
 
   test("grows from the handle's own edge and keeps the opposite edge fixed", () => {
-    expect(resizeRect({ rect: base, handle: "east", delta: d.vec2f(30, 0), minSize })).toEqual(
-      at(20, 40, 330, 200),
-    );
-    expect(resizeRect({ rect: base, handle: "west", delta: d.vec2f(-30, 0), minSize })).toEqual(
-      at(-10, 40, 330, 200),
-    );
+    expect(
+      resizeRect({ rect: base, handle: "east", delta: d.vec2f(30, 0), limits: unbounded }),
+    ).toEqual(at(20, 40, 330, 200));
+    expect(
+      resizeRect({ rect: base, handle: "west", delta: d.vec2f(-30, 0), limits: unbounded }),
+    ).toEqual(at(-10, 40, 330, 200));
+  });
+
+  test("an unbounded maximum is Infinity, which the f64 Size carries and a vec2f could not", () => {
+    expect(
+      resizeRect({ rect: base, handle: "east", delta: d.vec2f(1e6, 0), limits: unbounded }).width,
+    ).toBe(300 + 1e6);
   });
 
   test("stops at the minimum and the maximum size", () => {
-    expect(resizeRect({ rect: base, handle: "east", delta: d.vec2f(-500, 0), minSize }).width).toBe(
-      60,
-    );
+    expect(
+      resizeRect({ rect: base, handle: "east", delta: d.vec2f(-500, 0), limits: unbounded }).width,
+    ).toBe(60);
     expect(
       resizeRect({
         rect: base,
         handle: "south-east",
         delta: d.vec2f(500, 500),
-        minSize,
-        maxSize: d.vec2f(320, 210),
+        limits: { min: unbounded.min, max: { width: 320, height: 210 } },
       }),
     ).toEqual(at(20, 40, 320, 210));
   });
@@ -339,8 +359,7 @@ describe("resizeRect", () => {
         rect: base,
         handle: "east",
         delta: d.vec2f(0, 0),
-        minSize,
-        maxSize: d.vec2f(10, 5),
+        limits: { min: unbounded.min, max: { width: 10, height: 5 } },
       }),
     ).toEqual(at(20, 40, 60, 30));
   });
@@ -361,7 +380,7 @@ describe("resizeRect", () => {
         rect: base,
         handle,
         delta: d.vec2f(37, -23),
-        minSize,
+        limits: unbounded,
         aspectRatio: 2,
       });
       expect(resized.width / resized.height).toBeCloseTo(2, 4);
@@ -374,7 +393,7 @@ describe("resizeRect", () => {
         rect: base,
         handle: "south-east",
         delta: d.vec2f(37, -23),
-        minSize,
+        limits: unbounded,
         aspectRatio,
       });
       expect(Number.isFinite(resized.width)).toBe(true);
@@ -386,6 +405,7 @@ describe("resizeRect", () => {
 describe("centerOfRect, areaOfRect", () => {
   test("report the centre and the area", () => {
     expect(centerOfRect(rect)).toEqual(d.vec2f(50, 25));
+    expect(areaOfRectKernel(rect)).toBe(5000);
     expect(areaOfRect(rect)).toBe(5000);
   });
 });

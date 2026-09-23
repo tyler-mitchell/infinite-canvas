@@ -4,7 +4,7 @@ import { defineConfig } from "vite-plus";
 export default defineConfig({
   plugins: [typegpu()],
   pack: {
-    entry: { index: "src/index.ts" },
+    entry: { cpu: "src/cpu.ts", gpu: "src/gpu.ts" },
     dts: true,
     exports: { devExports: true },
   },

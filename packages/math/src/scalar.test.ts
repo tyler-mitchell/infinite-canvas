@@ -1,15 +1,15 @@
 import { d, std, tgpu } from "typegpu";
 import { describe, expect, test } from "vite-plus/test";
-import { approxEquals, clamp, EPSILON, inverseLerp, mod, roundTo } from "./scalar";
+import { clamp, eqDeltaScaled, EPS, norm, roundTo } from "./scalar";
 
 describe("a declared f32 return rounds once, which is why every export is a tgpu.fn", () => {
   test("the result is the f32 the GPU would hold, not the f64 the CPU computed", () => {
-    expect(roundTo(7.3, 0)).toBe(Math.fround(7.3));
-    expect(roundTo(7.3, 0)).not.toBe(7.3);
+    expect(norm(7.3, 0, 1)).toBe(Math.fround(7.3));
+    expect(norm(7.3, 0, 1)).not.toBe(7.3);
   });
 
   test("an f32-exact value is unchanged, so the rounding is invisible where it does not matter", () => {
-    [0, 1, 0.5, 0.25, -64, 1024].forEach((value) => expect(roundTo(value, 0)).toBe(value));
+    [0, 1, 0.5, 0.25, -64, 1024].forEach((value) => expect(norm(value, 0, 1)).toBe(value));
   });
 });
 
@@ -32,28 +32,28 @@ describe("clamp owns the rule that the minimum wins", () => {
   });
 });
 
-describe("inverseLerp undoes std.mix", () => {
+describe("norm undoes std.mix", () => {
   test("maps the ends to zero and one", () => {
-    expect(inverseLerp(20, 20, 80)).toBe(0);
-    expect(inverseLerp(80, 20, 80)).toBe(1);
-    expect(inverseLerp(50, 20, 80)).toBe(0.5);
+    expect(norm(20, 20, 80)).toBe(0);
+    expect(norm(80, 20, 80)).toBe(1);
+    expect(norm(50, 20, 80)).toBe(0.5);
   });
 
   test("round-trips through std.mix", () => {
     [0, 0.25, 0.5, 1, 1.5, -0.5].forEach((amount) => {
       const value = std.mix(20, 80, amount);
-      expect(inverseLerp(value, 20, 80)).toBeCloseTo(amount, 6);
+      expect(norm(value, 20, 80)).toBeCloseTo(amount, 6);
     });
   });
 
   test("returns zero rather than dividing by zero on an empty range", () => {
-    expect(inverseLerp(7, 7, 7)).toBe(0);
-    expect(inverseLerp(100, 7, 7)).toBe(0);
+    expect(norm(7, 7, 7)).toBe(0);
+    expect(norm(100, 7, 7)).toBe(0);
   });
 
   test("extrapolates outside the range", () => {
-    expect(inverseLerp(110, 20, 80)).toBeCloseTo(1.5, 6);
-    expect(inverseLerp(-10, 20, 80)).toBeCloseTo(-0.5, 6);
+    expect(norm(110, 20, 80)).toBeCloseTo(1.5, 6);
+    expect(norm(-10, 20, 80)).toBeCloseTo(-0.5, 6);
   });
 });
 
@@ -64,13 +64,8 @@ describe("roundTo", () => {
     expect(roundTo(-7, 5)).toBe(-5);
   });
 
-  test("leaves the value alone when the step is zero or negative", () => {
-    expect(roundTo(7.3, 0)).toBe(Math.fround(7.3));
-    expect(roundTo(7.3, -5)).toBe(Math.fround(7.3));
-  });
-
-  test("guards the division with a branch, because WGSL select would evaluate both sides", () => {
-    expect(Number.isFinite(roundTo(7.3, 0))).toBe(true);
+  test("a step of zero divides by zero, exactly as upstream does", () => {
+    expect(() => roundTo(7.3, 0)).toThrow(/Finite Math Assumption/);
   });
 
   test("handles a fractional step", () => {
@@ -79,32 +74,15 @@ describe("roundTo", () => {
   });
 });
 
-describe("mod wraps positive, which std.mod does not", () => {
-  test("keeps a negative value inside the range", () => {
-    expect(std.mod(-5, 4)).toBe(-1);
-    expect(mod(-5, 4)).toBe(3);
-    expect(mod(-1, 4)).toBe(3);
-  });
-
-  test("agrees with std.mod for values already positive", () => {
-    [0, 3, 7, 12.5].forEach((value) => expect(mod(value, 4)).toBeCloseTo(std.mod(value, 4), 6));
-  });
-
-  test("wraps a full turn back to zero", () => {
-    expect(mod(2 * Math.PI, 2 * Math.PI)).toBeCloseTo(0, 6);
-    expect(mod(-Math.PI, 2 * Math.PI)).toBeCloseTo(Math.PI, 6);
-  });
-});
-
-describe("approxEquals scales its tolerance with magnitude", () => {
+describe("eqDeltaScaled scales its tolerance with magnitude", () => {
   test("accepts a small absolute difference near zero", () => {
-    expect(approxEquals(0, 1e-9, EPSILON)).toBe(true);
-    expect(approxEquals(0, 1e-3, EPSILON)).toBe(false);
+    expect(eqDeltaScaled(0, 1e-9, EPS)).toBe(true);
+    expect(eqDeltaScaled(0, 1e-3, EPS)).toBe(false);
   });
 
   test("accepts a proportionally small difference at a large magnitude", () => {
-    expect(approxEquals(1e6, 1e6 + 0.5, EPSILON)).toBe(true);
-    expect(approxEquals(1e6, 1e6 + 100, EPSILON)).toBe(false);
+    expect(eqDeltaScaled(1e6, 1e6 + 0.5, EPS)).toBe(true);
+    expect(eqDeltaScaled(1e6, 1e6 + 100, EPS)).toBe(false);
   });
 });
 
@@ -117,9 +95,9 @@ describe("the scalar rules resolve to WGSL", () => {
       "use gpu";
       return clamp(roundTo(value, step), low, high);
     });
-    const wgsl = tgpu.resolve([snapInside, approxEquals]);
+    const wgsl = tgpu.resolve([snapInside, eqDeltaScaled]);
     expect(wgsl).toContain("fn snapInside");
-    expect(wgsl).toContain("fn approxEquals");
+    expect(wgsl).toContain("fn eqDeltaScaled");
     expect(wgsl).toContain("clamp");
   });
 });

@@ -2,7 +2,7 @@ import { d } from "typegpu";
 import { describe, expect, test } from "vite-plus/test";
 import { axes, placeOnAxis, sizeOnAxis, type Axis } from "./axis";
 import { Rect, resizeRect, type ResizeHandle } from "./rect";
-import { maxOf, minOf } from "./reduce";
+import { max, min } from "@thi.ng/transducers";
 
 type Size = { width: number; height: number };
 
@@ -136,24 +136,24 @@ const rebuiltSplitLimits = ({
     min: sizeOnAxis({
       axis,
       main: sum(limits.map((each) => each.min[main])) + gaps,
-      cross: Math.max(0, maxOf(limits.map((each) => each.min[cross]))),
+      cross: Math.max(0, max(limits.map((each) => each.min[cross]))),
     }),
     max: sizeOnAxis({
       axis,
       main: sum(limits.map((each) => each.max[main])) + gaps,
-      cross: Math.min(Infinity, minOf(limits.map((each) => each.max[cross]))),
+      cross: Math.min(Infinity, min(limits.map((each) => each.max[cross]))),
     }),
   };
 };
 
 const rebuiltStacked = (limits: readonly Limits[]): Limits => ({
   min: {
-    width: Math.max(0, maxOf(limits.map((each) => each.min.width))),
-    height: Math.max(0, maxOf(limits.map((each) => each.min.height))),
+    width: Math.max(0, max(limits.map((each) => each.min.width))),
+    height: Math.max(0, max(limits.map((each) => each.min.height))),
   },
   max: {
-    width: Math.min(Infinity, minOf(limits.map((each) => each.max.width))),
-    height: Math.min(Infinity, minOf(limits.map((each) => each.max.height))),
+    width: Math.min(Infinity, min(limits.map((each) => each.max.width))),
+    height: Math.min(Infinity, min(limits.map((each) => each.max.height))),
   },
 });
 
@@ -257,6 +257,81 @@ const todayResizeRect = ({
   };
 };
 
+describe("this package's resizeRect guards ratios the incumbent never receives", () => {
+  const base: Rect = { x: 20, y: 40, width: 300, height: 200 };
+  const minSize: Size = { width: 60, height: 30 };
+  const limits = { min: minSize, max: { width: Infinity, height: Infinity } };
+  const delta = d.vec2f(37, -23);
+
+  // NOT a defect in the incumbent. next/state.schema.ts:11 defines Positive as "Finite > 0" and
+  // applies it to aspectRatio on both the window record (:29) and the window definition (:86), so
+  // ArkType rejects 0, NaN and Infinity before either call site runs. The guard here is defensive:
+  // this package is published and cannot assume a validated caller. An earlier version of this
+  // suite asserted the incumbent was broken; that claim was wrong and is withdrawn.
+  test("a zero ratio would make an unguarded implementation infinitely tall", () => {
+    const theirs = todayResizeRect({
+      rect: base,
+      handle: "south-east",
+      delta: { x: delta.x, y: delta.y },
+      minSize,
+      aspectRatio: 0,
+    });
+    expect(Number.isFinite(theirs.height)).toBe(false);
+
+    const mine = resizeRect({
+      rect: Rect(base),
+      handle: "south-east",
+      delta,
+      limits,
+      aspectRatio: 0,
+    });
+    expect(Number.isFinite(mine.height)).toBe(true);
+  });
+
+  test("a NaN ratio would poison every field of an unguarded implementation", () => {
+    const theirs = todayResizeRect({
+      rect: base,
+      handle: "south-east",
+      delta: { x: delta.x, y: delta.y },
+      minSize,
+      aspectRatio: Number.NaN,
+    });
+    expect(Number.isNaN(theirs.width)).toBe(true);
+    expect(Number.isNaN(theirs.height)).toBe(true);
+
+    const mine = resizeRect({
+      rect: Rect(base),
+      handle: "south-east",
+      delta,
+      limits,
+      aspectRatio: Number.NaN,
+    });
+    expect(Number.isFinite(mine.width)).toBe(true);
+    expect(Number.isFinite(mine.height)).toBe(true);
+  });
+
+  test("they still agree for every ratio an author would mean", () => {
+    [0.5, 1, 1.75, 16 / 9].forEach((aspectRatio) => {
+      const theirs = todayResizeRect({
+        rect: base,
+        handle: "south-east",
+        delta: { x: delta.x, y: delta.y },
+        minSize,
+        aspectRatio,
+      });
+      const mine = resizeRect({
+        rect: Rect(base),
+        handle: "south-east",
+        delta,
+        limits,
+        aspectRatio,
+      });
+      expect(mine.width).toBeCloseTo(theirs.width, 3);
+      expect(mine.height).toBeCloseTo(theirs.height, 3);
+    });
+  });
+});
+
 const handles: ResizeHandle[] = [
   "north",
   "south",
@@ -287,7 +362,7 @@ describe("resizeRect against the one in next/geometry.ts", () => {
             rect: Rect(base),
             handle,
             delta: d.vec2f(delta.x, delta.y),
-            minSize: d.vec2f(minSize.width, minSize.height),
+            limits: { min: minSize, max: { width: Infinity, height: Infinity } },
             aspectRatio,
           });
           const before = todayResizeRect({ rect: base, handle, delta, minSize, aspectRatio });
@@ -307,7 +382,7 @@ describe("resizeRect against the one in next/geometry.ts", () => {
           rect: Rect(base),
           handle,
           delta: d.vec2f(37, -23),
-          minSize: d.vec2f(minSize.width, minSize.height),
+          limits: { min: minSize, max: { width: Infinity, height: Infinity } },
           aspectRatio,
         });
         expect(Number.isFinite(resized.width)).toBe(true);

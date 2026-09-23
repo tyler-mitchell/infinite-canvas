@@ -1,19 +1,19 @@
 import { d, std, tgpu } from "typegpu";
 import { describe, expect, test } from "vite-plus/test";
 import {
-  Camera,
+  View,
   cameraShowing,
   panCamera,
   screenToClip,
-  screenToWorld,
+  screenToWorldKernel as screenToWorld,
   viewportRect,
-  visibleWorldRect,
-  worldToScreen,
+  visibleWorldRectKernel as visibleWorldRect,
+  worldToScreenKernel as worldToScreen,
   zoomCameraAbout,
 } from "./camera";
 import { centerOfRect, Insets, Rect } from "./rect";
 
-const camera = Camera({
+const camera = View({
   center: d.vec2f(120, -40),
   viewport: d.vec2f(800, 600),
   zoom: 1.5,
@@ -44,7 +44,7 @@ const incumbent = {
   }),
 };
 
-const asPlain = (camera: Camera) => ({
+const asPlain = (camera: View) => ({
   centre: { x: camera.center.x, y: camera.center.y },
   viewport: { width: camera.viewport.x, height: camera.viewport.y },
 });
@@ -77,7 +77,7 @@ describe("this camera reproduces the rule it is replacing, in three places at on
   });
 
   test("the two disagree far from the origin, which is why one owner is the point", () => {
-    const far = Camera({ center: d.vec2f(1e7, 0), viewport: d.vec2f(800, 600), zoom: 1 });
+    const far = View({ center: d.vec2f(1e7, 0), viewport: d.vec2f(800, 600), zoom: 1 });
     const world = d.vec2f(1e7 + 0.1, 0);
     const mine = worldToScreen(world, far);
     const theirs = incumbent.worldToScreen({ x: 1e7, y: 0 }, { width: 800, height: 600 }, 1, {

@@ -1,11 +1,16 @@
+import { BitMatrix, defBitMatrix } from "@thi.ng/bitfield";
+
 export type GridPosition = { column: number; row: number };
 export type GridSpan = { columns: number; rows: number };
 export type GridArea = GridPosition & GridSpan;
 
-export type OccupancyGrid = { columns: number; words: Uint32Array };
+// Source: @thi.ng/bitfield@2.4.44 bitmatrix.d.ts:7 (BitMatrix)
+//   MxN row-major 2D bit matrix, backed by a Uint8Array.
+// The storage, its row-major addressing and its growth are upstream's; only the column bound and
+// the placement scan below belong to this package.
+export type OccupancyGrid = { columns: number; bits: BitMatrix };
 
-const wordsPerRow = (columns: number) => Math.max(1, Math.ceil(columns / 32));
-
+// Source: @thi.ng/bitfield@2.4.44 bitmatrix.d.ts:73 (defBitMatrix)
 export function createOccupancyGrid({
   columns,
   rows = 0,
@@ -13,54 +18,89 @@ export function createOccupancyGrid({
   columns: number;
   rows?: number | undefined;
 }): OccupancyGrid {
-  return { columns, words: new Uint32Array(rows * wordsPerRow(columns)) };
+  return { columns, bits: defBitMatrix(rows, columns) };
 }
 
+// Source: @thi.ng/bitfield@2.4.44 bitmatrix.d.ts:12-13 (BitMatrix.m, the row count)
 export function occupancyRows(grid: OccupancyGrid): number {
-  return grid.words.length / wordsPerRow(grid.columns);
+  return grid.bits.m;
 }
 
+// Rows are unbounded because the grid grows downward; columns are not. BitMatrix.at and setAt do no
+// bounds checking, so an area past the right edge would read or write the next row.
+const areaWithinGrid = (grid: OccupancyGrid, area: GridArea) =>
+  area.column >= 0 &&
+  area.row >= 0 &&
+  area.columns > 0 &&
+  area.rows > 0 &&
+  area.column + area.columns <= grid.columns;
+
+const rowsOf = (area: GridArea): number[] =>
+  Array.from({ length: area.rows }, (_, step) => area.row + step);
+
+// Source: @thi.ng/bitfield@2.4.44 bitmatrix.js:144-151 (BitMatrix.row), whose viewOnly form shares
+// the matrix's own subarray, and bitfield.js:229-242 (BitField.firstOne)
+//   const b = (i << 3) + Math.clz32(x) - 24;
+//   if (b >= from) return b;
+//   ... return -1;
+// so a row with no set bit at or after the search position answers -1.
 export function isAreaFree({ grid, area }: { grid: OccupancyGrid; area: GridArea }): boolean {
-  if (area.column < 0 || area.row < 0 || area.column + area.columns > grid.columns) return false;
-  const perRow = wordsPerRow(grid.columns);
-  const rows = grid.words.length / perRow;
-  const lastRow = Math.min(area.row + area.rows, rows);
-  for (let row = area.row; row < lastRow; row++) {
-    for (let column = area.column; column < area.column + area.columns; column++) {
-      if ((grid.words[row * perRow + (column >> 5)]! & (1 << (column & 31))) !== 0) return false;
-    }
-  }
-  return true;
+  if (!areaWithinGrid(grid, area)) return false;
+  const end = area.column + area.columns;
+  return rowsOf(area)
+    .filter((row) => row < grid.bits.m)
+    .every((row) => {
+      const taken = grid.bits.row(row, true).firstOne(area.column);
+      return taken < 0 || taken >= end;
+    });
 }
 
+// Source: @thi.ng/bitfield@2.4.44 bitfield.js:126-131 (BitField.fill), bitmatrix.js:144-151
+// (BitMatrix.row) and bitmatrix.js:41-52 (BitMatrix.resize). Marks in place and returns the same
+// grid. The bits are shared storage, so a caller that needs a second independent pass builds a
+// second grid rather than reusing this one.
 export function markArea({ grid, area }: { grid: OccupancyGrid; area: GridArea }): OccupancyGrid {
-  const perRow = wordsPerRow(grid.columns);
-  const needed = Math.max(grid.words.length, (area.row + area.rows) * perRow);
-  const words = needed > grid.words.length ? new Uint32Array(needed) : grid.words;
-  if (words !== grid.words) words.set(grid.words);
-  for (let row = area.row; row < area.row + area.rows; row++) {
-    for (let column = area.column; column < area.column + area.columns; column++) {
-      words[row * perRow + (column >> 5)]! |= 1 << (column & 31);
-    }
-  }
-  return words === grid.words ? grid : { columns: grid.columns, words };
+  if (!areaWithinGrid(grid, area)) return grid;
+  if (area.row + area.rows > grid.bits.m) grid.bits.resize(area.row + area.rows, grid.columns);
+  const end = area.column + area.columns;
+  rowsOf(area).forEach((row) => grid.bits.row(row, true).fill(true, area.column, end));
+  return grid;
 }
 
+// Source: research/sources/gridstack.engine.ts:752-772 (findEmptyPosition), the row-major first-fit
+// scan:
+//   for (let i = start; !found; ++i) {
+//     const x = i % column;
+//     const y = Math.floor(i / column);
+//     if (x + node.w! > column) continue;
+//     ...
+//   }
+// Two declared differences:
+//   1. Upstream walks one row-major counter and derives x and y from it; this nests the loops, so
+//      the `x + w > column` skip becomes the inner loop's bound rather than a continue.
+//   2. Upstream tests a candidate against a node list with Utils.isIntercepted. This tests a
+//      BitMatrix instead. The storage is not upstream's; only the scan order and first-fit rule are.
 export function findFreeArea({
   grid,
   span,
   from = { column: 0, row: 0 },
+  column,
 }: {
   grid: OccupancyGrid;
   span: GridSpan;
   from?: GridPosition | undefined;
+  column?: number | undefined;
 }): GridPosition | null {
   if (span.columns <= 0 || span.rows <= 0 || span.columns > grid.columns) return null;
   const lastRow = Math.max(occupancyRows(grid), from.row);
-  for (let row = from.row; row <= lastRow; row++) {
-    const first = row === from.row ? from.column : 0;
-    for (let column = first; column + span.columns <= grid.columns; column++) {
-      if (isAreaFree({ grid, area: { column, row, ...span } })) return { column, row };
+  for (let row = from.row; row <= lastRow; row += 1) {
+    for (
+      let candidateColumn = column ?? (row === from.row ? from.column : 0);
+      candidateColumn <= (column ?? grid.columns - span.columns);
+      candidateColumn += 1
+    ) {
+      if (isAreaFree({ grid, area: { column: candidateColumn, row, ...span } }))
+        return { column: candidateColumn, row };
     }
   }
   return null;

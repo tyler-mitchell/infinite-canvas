@@ -16,6 +16,49 @@ const areasOverlap = (a: GridArea, b: GridArea) =>
   a.row < b.row + b.rows &&
   a.row + a.rows > b.row;
 
+describe("markArea rejects the same areas isAreaFree rejects", () => {
+  test("a column past the grid width does not reach into the next row's word", () => {
+    const grid = createOccupancyGrid({ columns: 10, rows: 3 });
+    const beyond: GridArea = { column: 32, row: 0, columns: 1, rows: 1 };
+    expect(isAreaFree({ grid, area: beyond })).toBe(false);
+    const marked = markArea({ grid, area: beyond });
+    expect(isAreaFree({ grid: marked, area: { column: 0, row: 1, columns: 10, rows: 1 } })).toBe(
+      true,
+    );
+  });
+
+  test("an area straddling the right edge leaves the whole grid free", () => {
+    const grid = createOccupancyGrid({ columns: 10, rows: 3 });
+    const straddling: GridArea = { column: 8, row: 0, columns: 5, rows: 1 };
+    expect(isAreaFree({ grid, area: straddling })).toBe(false);
+    const marked = markArea({ grid, area: straddling });
+    expect(isAreaFree({ grid: marked, area: { column: 0, row: 0, columns: 10, rows: 3 } })).toBe(
+      true,
+    );
+  });
+
+  test("a negative column or row marks nothing", () => {
+    const grid = createOccupancyGrid({ columns: 10, rows: 3 });
+    [
+      { column: -1, row: 1, columns: 2, rows: 1 },
+      { column: 0, row: -1, columns: 2, rows: 1 },
+    ].forEach((area) => {
+      expect(isAreaFree({ grid, area })).toBe(false);
+      const marked = markArea({ grid, area });
+      expect(isAreaFree({ grid: marked, area: { column: 0, row: 0, columns: 10, rows: 3 } })).toBe(
+        true,
+      );
+    });
+  });
+
+  test("an area inside the grid still marks, so the guard is not blanket", () => {
+    const grid = createOccupancyGrid({ columns: 10, rows: 3 });
+    const inside: GridArea = { column: 2, row: 1, columns: 3, rows: 1 };
+    const marked = markArea({ grid, area: inside });
+    expect(isAreaFree({ grid: marked, area: inside })).toBe(false);
+  });
+});
+
 describe("createOccupancyGrid", () => {
   test("starts with every cell unoccupied, including rows past the end", () => {
     const grid = createOccupancyGrid({ columns: 6, rows: 2 });
