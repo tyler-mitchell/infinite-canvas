@@ -38,7 +38,10 @@ export const sceneLayout = tgpu.bindGroupLayout({
 
 export type SurfaceEffect = (uv: d.v2f) => d.v4f;
 
-export const sampleScene = tgpu.fn([d.vec2f], d.vec4f)((uv) => {
+export const sampleScene = tgpu.fn(
+  [d.vec2f],
+  d.vec4f,
+)((uv) => {
   "use gpu";
   return std.textureSample(sceneLayout.$.scene, sceneLayout.$.sceneSampler, uv);
 });
@@ -46,18 +49,16 @@ export const sampleScene = tgpu.fn([d.vec2f], d.vec4f)((uv) => {
 /** Format of every scene a stage paints for the next one to read. */
 export const SCENE_FORMAT: GPUTextureFormat = "rgba8unorm";
 
-type Fragment = TgpuFragmentFn<{ uv: typeof d.vec2f }, typeof d.vec4f> |
-  ((input: TgpuFragmentFn.AutoIn<{ uv: d.v2f }>) => d.v4f);
+type Fragment =
+  | TgpuFragmentFn<{ uv: typeof d.vec2f }, typeof d.vec4f>
+  | ((input: TgpuFragmentFn.AutoIn<{ uv: d.v2f }>) => d.v4f);
 
 /** One source pass and an optional composed effect pass. */
 export type SurfaceShader = Readonly<{
   effect?: SurfaceEffect;
   source: Fragment;
   geometry?: {
-    vertex: TgpuVertexFn<
-      { vertexIndex: typeof d.builtin.vertexIndex },
-      { position: typeof d.builtin.position; uv: typeof d.vec2f }
-    >;
+    vertex: TgpuVertexFn<Record<string, never>, { uv: typeof d.vec2f }>;
     vertexCount: number;
   };
   renderScale: number;

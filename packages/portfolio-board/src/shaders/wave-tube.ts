@@ -74,23 +74,34 @@ export function waveTube({
   const light = d.vec3f(...lightDirection);
   const origin = d.vec2f(...offset);
   const alignment = { left: -1, center: 0, right: 1 }[align];
-  const projection = cameraDistance === undefined ? undefined : perspectiveMatrix({
-    fieldOfView: 2 * Math.atan(0.5 / (scale * cameraDistance)),
-    near: 0.01,
-    far: cameraDistance + length + radius * 2,
-  });
+  const projection =
+    cameraDistance === undefined
+      ? undefined
+      : perspectiveMatrix({
+          fieldOfView: 2 * Math.atan(0.5 / (scale * cameraDistance)),
+          near: 0.01,
+          far: cameraDistance + length + radius * 2,
+        });
   const curve = curvatureWave({
-    wavelength, bendAngle,
+    wavelength,
+    bendAngle,
     anchor: anchor === null ? undefined : start + anchor * length,
   });
-  const capLength = Math.PI * radius / 2;
+  const capLength = (Math.PI * radius) / 2;
   const extent = length + 2 * capLength;
   const corners = tgpu.const(d.arrayOf(d.vec2f, 6), [
-    d.vec2f(0, 0), d.vec2f(1, 0), d.vec2f(0, 1),
-    d.vec2f(0, 1), d.vec2f(1, 0), d.vec2f(1, 1),
+    d.vec2f(0, 0),
+    d.vec2f(1, 0),
+    d.vec2f(0, 1),
+    d.vec2f(0, 1),
+    d.vec2f(1, 0),
+    d.vec2f(1, 1),
   ]);
 
-  const rotate = tgpu.fn([d.vec3f], d.vec3f)((surface) => {
+  const rotate = tgpu.fn(
+    [d.vec3f],
+    d.vec3f,
+  )((surface) => {
     "use gpu";
     const depth = surface.y * std.sin(elevation) + surface.z * std.cos(elevation);
     const x = surface.x * std.cos(tilt) + depth * std.sin(tilt);
@@ -102,13 +113,16 @@ export function waveTube({
     );
   });
 
-  const normal = tgpu.fn([d.vec2f], d.vec3f)((uv) => {
+  const normal = tgpu.fn(
+    [d.vec2f],
+    d.vec3f,
+  )((uv) => {
     "use gpu";
     const distance = uv.x * extent;
     const arc = std.clamp(distance - capLength, 0, length) + start;
-    const angle = bendAngle * std.sin(
-      arc * Math.PI * 2 / wavelength + (frame.$.time * speed + phase) * Math.PI * 2,
-    );
+    const angle =
+      bendAngle *
+      std.sin((arc * Math.PI * 2) / wavelength + (frame.$.time * speed + phase) * Math.PI * 2);
     const cap = (distance - std.clamp(distance, capLength, extent - capLength)) / radius;
     const around = uv.y * Math.PI * 2;
     const radial = std.cos(cap) * std.cos(around);
@@ -146,9 +160,12 @@ export function waveTube({
       };
     }
     return {
-      position: d.vec4f((p.x * scale + origin.x) * 2 / aspect + alignment * (1 - 1 / aspect),
+      position: d.vec4f(
+        ((p.x * scale + origin.x) * 2) / aspect + alignment * (1 - 1 / aspect),
         -(p.y * scale + origin.y) * 2,
-        0.5 - p.z / (length + radius * 4), 1),
+        0.5 - p.z / (length + radius * 4),
+        1,
+      ),
       uv,
     };
   });
@@ -157,27 +174,34 @@ export function waveTube({
     "use gpu";
     const facing = std.normalize(rotate(normal(uv)));
     const illumination = ambient + diffuse * std.max(0, std.dot(facing, std.normalize(light)));
-    const highlight = specular * std.pow(std.max(0, std.dot(
-      facing, std.normalize(std.add(std.normalize(light), d.vec3f(0, 0, 1))),
-    )), shininess);
+    const highlight =
+      specular *
+      std.pow(
+        std.max(0, std.dot(facing, std.normalize(std.add(std.normalize(light), d.vec3f(0, 0, 1))))),
+        shininess,
+      );
     const arc = uv.x * extent - capLength + start;
     const position = (arc - gradientStart) / (gradientEnd - gradientStart);
-    const ratio = gradientSpeed === 0
-      ? std.clamp(position, 0, 1) * (colors.length - 1)
-      : std.fract(position + frame.$.time * gradientSpeed) * colors.length;
+    const ratio =
+      gradientSpeed === 0
+        ? std.clamp(position, 0, 1) * (colors.length - 1)
+        : std.fract(position + frame.$.time * gradientSpeed) * colors.length;
     const index = std.min(d.u32(ratio), d.u32(colors.length - 1));
-    const color = oklabToRgb(std.mix(
-      palette.$[index], palette.$[(index + 1) % colors.length], ratio - d.f32(index),
-    ));
+    const color = oklabToRgb(
+      std.mix(palette.$[index], palette.$[(index + 1) % colors.length], ratio - d.f32(index)),
+    );
     if (iridescence !== undefined) {
       const cosine = std.clamp(facing.z, 0, 1);
       const thickness = std.mix(
-        iridescence.thickness[0], iridescence.thickness[1],
-        0.5 + 0.5 * std.sin(arc * Math.PI * 2 / wavelength),
+        iridescence.thickness[0],
+        iridescence.thickness[1],
+        0.5 + 0.5 * std.sin((arc * Math.PI * 2) / wavelength),
       );
       const reflectance = thinFilmReflectance({ cosine, thickness, ior: iridescence.ior });
       const reflected = std.clamp(
-        std.add(std.mul(reflectance, iridescence.strength), highlight), d.vec3f(0), d.vec3f(1),
+        std.add(std.mul(reflectance, iridescence.strength), highlight),
+        d.vec3f(0),
+        d.vec3f(1),
       );
       return d.vec4f(reflected, std.max(reflected.x, std.max(reflected.y, reflected.z)));
     }
