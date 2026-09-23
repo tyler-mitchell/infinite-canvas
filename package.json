@@ -14,6 +14,11 @@
     "dev": "vp run playground#dev",
     "playground": "vp run playground#dev",
     "polkadot": "vp run polkadot#dev",
+    "portfolio-board": "vp run portfolio-board#dev",
+    "site:build": "node scripts/site.ts build",
+    "site:prepare": "node scripts/site.ts prepare",
+    "site:source": "node scripts/site.ts source",
+    "site:commit": "node scripts/site.ts commit",
     "compositor-poc": "vp run compositor-poc#dev",
     "prepare": "vp config",
     "ready": "vp check && vp run -r test && vp run -r build",
@@ -30,21 +35,16 @@
     "setup:bumpy": "bumpy ci setup",
     "setup:branch-protection": "gh api --silent --method PUT repos/{owner}/{repo}/branches/release/protection --input .github/branch-protection.json",
     "setup:repository": "gh api --silent --method PATCH repos/{owner}/{repo} --field allow_auto_merge=true --field allow_update_branch=true --field delete_branch_on_merge=true",
-    "workflow:check": "go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.12 .github/workflows/*.yml",
-    "portfolio-board": "vp run portfolio-board#dev",
-    "site:build": "node scripts/site.ts build",
-    "site:prepare": "node scripts/site.ts prepare",
-    "site:source": "node scripts/site.ts source",
-    "site:commit": "node scripts/site.ts commit"
+    "workflow:check": "go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.12 .github/workflows/*.yml"
   },
   "devDependencies": {
     "@arethetypeswrong/core": "catalog:",
     "@varlock/bumpy": "catalog:",
+    "cmd-mesh": "catalog:",
     "execa": "catalog:",
     "npm": "^11.15.0",
     "publint": "catalog:",
-    "vite-plus": "catalog:",
-    "cmd-mesh": "catalog:"
+    "vite-plus": "catalog:"
   },
   "engines": {
     "node": ">=22.12.0"
