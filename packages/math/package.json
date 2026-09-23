@@ -23,16 +23,6 @@
     "check": "vp check",
     "typecheck": "tsc --noEmit"
   },
-  "devDependencies": {
-    "@types/d3-interpolate": "catalog:",
-    "typegpu": "catalog:",
-    "typescript": "^6.0.3",
-    "unplugin-typegpu": "catalog:",
-    "vite-plus": "catalog:"
-  },
-  "peerDependencies": {
-    "typegpu": "catalog:"
-  },
   "dependencies": {
     "@thi.ng/adjacency": "catalog:",
     "@thi.ng/api": "catalog:",
@@ -115,5 +105,16 @@
     "@thi.ng/vectors": "catalog:",
     "arktype": "catalog:",
     "d3-interpolate": "catalog:"
+  },
+  "devDependencies": {
+    "@types/d3-interpolate": "catalog:",
+    "@types/node": "catalog:",
+    "typegpu": "catalog:",
+    "typescript": "^6.0.3",
+    "unplugin-typegpu": "catalog:",
+    "vite-plus": "catalog:"
+  },
+  "peerDependencies": {
+    "typegpu": "catalog:"
   }
 }

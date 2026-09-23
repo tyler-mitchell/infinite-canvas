@@ -1,12 +1,23 @@
 /// <reference lib="dom" />
 import { d, tgpu, type TgpuRoot } from "typegpu";
-import { Camera, screenToWorld, worldToScreen } from "./camera";
-import { gapBetweenIntervals, overlapsInterval } from "./interval";
-import { aspectRatioOfRect, Pieces, Rect, rectRight, subtractRect } from "./rect";
-import { clamp, inverseLerp, roundTo } from "./scalar";
+import {
+  screenToWorldKernel as screenToWorld,
+  View,
+  worldToScreenKernel as worldToScreen,
+} from "./camera";
+import {
+  aspectRatioOfRect,
+  gapBetweenRects,
+  overlapsRect,
+  Pieces,
+  Rect,
+  rectRight,
+  subtractRect,
+} from "./rect";
+import { clamp, norm, roundTo } from "./scalar";
 import { containScale } from "./size";
 import { Transform, invertTransform, transformPoint } from "./transform";
-import { cross } from "./vector";
+import { cross2 } from "./vector";
 
 const Input = d.struct({
   value: d.f32,
@@ -19,8 +30,10 @@ const Input = d.struct({
   point: d.vec2f,
   drifting: d.vec3f,
   span: d.vec4f,
-  outer: Rect,
-  hole: Rect,
+  // Rect is vec2f-aligned at 8; a uniform member needs 16. These two land on 16 only because the
+  // vec3f and vec4f above them push the offset there, so the align makes it design, not luck.
+  outer: d.align(16, Rect),
+  hole: d.align(16, Rect),
 });
 
 const Output = d.struct({
@@ -85,24 +98,24 @@ export async function inspect({ root }: { root: TgpuRoot }) {
     const moved = transformPoint(transform, given.point);
     output.$.clamped = clamp(given.value, given.low, given.high);
     output.$.contain = containScale(given.size, given.within);
-    output.$.crossed = cross(given.a, given.b);
+    output.$.crossed = cross2(given.a, given.b);
     output.$.drift = drifting(given.drifting.x, given.drifting.y, given.drifting.z);
     output.$.moved = d.vec2f(moved);
     output.$.back = d.vec2f(transformPoint(invertTransform(transform), moved));
-    output.$.gap = gapBetweenIntervals(given.span.x, given.span.y, given.span.z, given.span.w);
-    output.$.overlapping = d.u32(
-      overlapsInterval(given.span.x, given.span.y, given.span.z, given.span.w) ? 1 : 0,
-    );
+    const spanA = Rect({ x: given.span.x, y: 0, width: given.span.y, height: 1 });
+    const spanB = Rect({ x: given.span.z, y: 0, width: given.span.w, height: 1 });
+    output.$.gap = gapBetweenRects(spanA, spanB).x;
+    output.$.overlapping = d.u32(overlapsRect(spanA, spanB) ? 1 : 0);
     output.$.free = Pieces(subtractRect(given.outer, given.hole));
     // Both guard a division. A ternary would compile to select, which evaluates each side.
     output.$.snappedByZero = roundTo(given.value, 0);
-    output.$.unlerpedEmpty = inverseLerp(given.value, given.low, given.low);
+    output.$.unlerpedEmpty = norm(given.value, given.low, given.low);
     output.$.ratioCollapsed = aspectRatioOfRect(
       Rect({ x: given.outer.x, y: given.outer.y, width: given.outer.width, height: 0 }),
     );
     output.$.ratioNormal = aspectRatioOfRect(given.hole);
     output.$.farEdge = rectRight(given.hole);
-    const view = Camera({ center: d.vec2f(120, -40), viewport: d.vec2f(800, 600), zoom: 1.5 });
+    const view = View({ center: d.vec2f(120, -40), viewport: d.vec2f(800, 600), zoom: 1.5 });
     output.$.screened = d.vec2f(worldToScreen(given.point, view));
     output.$.worlded = d.vec2f(screenToWorld(given.point, view));
   });
@@ -113,7 +126,7 @@ export async function inspect({ root }: { root: TgpuRoot }) {
   const transform = scaleAndShift();
   const moved = transformPoint(transform, d.vec2f(7, -4));
   const back = transformPoint(invertTransform(transform), moved);
-  const view = Camera({ center: d.vec2f(120, -40), viewport: d.vec2f(800, 600), zoom: 1.5 });
+  const view = View({ center: d.vec2f(120, -40), viewport: d.vec2f(800, 600), zoom: 1.5 });
   const free = subtractRect(
     Rect({ x: 0, y: 0, width: 100, height: 100 }),
     Rect({ x: 30, y: 40, width: 20, height: 25 }),
@@ -122,19 +135,31 @@ export async function inspect({ root }: { root: TgpuRoot }) {
   const agreements: readonly Agreement[] = [
     ["clamp, where std.clamp would give 0", gpu.clamped, clamp(5, 10, 0)],
     ["containScale", gpu.contain, containScale(d.vec2f(200, 100), d.vec2f(100, 100))],
-    ["cross", gpu.crossed, cross(d.vec2f(3, -4), d.vec2f(-5, 12))],
+    ["cross2", gpu.crossed, cross2(d.vec2f(3, -4), d.vec2f(-5, 12))],
     ["transformPoint x", gpu.moved.x, moved.x],
     ["transformPoint y", gpu.moved.y, moved.y],
     ["inverse round-trip x", gpu.back.x, back.x],
     ["inverse round-trip y", gpu.back.y, back.y],
-    ["gapBetweenIntervals", gpu.gap, gapBetweenIntervals(10, 30, 35, 20)],
-    ["overlapsInterval", gpu.overlapping, overlapsInterval(10, 30, 35, 20) ? 1 : 0],
-    ["roundTo with a zero step, guarding a divide", gpu.snappedByZero, roundTo(5, 0)],
     [
-      "inverseLerp over an empty range, guarding a divide",
-      gpu.unlerpedEmpty,
-      inverseLerp(5, 10, 10),
+      "gapBetweenRects",
+      gpu.gap,
+      gapBetweenRects(
+        Rect({ x: 10, y: 0, width: 30, height: 1 }),
+        Rect({ x: 35, y: 0, width: 20, height: 1 }),
+      ).x,
     ],
+    [
+      "overlapsRect",
+      gpu.overlapping,
+      overlapsRect(
+        Rect({ x: 10, y: 0, width: 30, height: 1 }),
+        Rect({ x: 35, y: 0, width: 20, height: 1 }),
+      )
+        ? 1
+        : 0,
+    ],
+    ["roundTo with a zero step, guarding a divide", gpu.snappedByZero, roundTo(5, 0)],
+    ["norm over an empty range, guarding a divide", gpu.unlerpedEmpty, norm(5, 10, 10)],
     [
       "aspectRatioOfRect collapsed, guarding a divide",
       gpu.ratioCollapsed,
@@ -163,7 +188,13 @@ export async function inspect({ root }: { root: TgpuRoot }) {
     ]),
   ];
 
-  const disagreed = agreements.filter(([, onGpu, onCpu]) => Math.abs(onGpu - onCpu) > 1e-5);
+  // Scaled, not flat. A fixed epsilon is only meaningful near 1: one f32 step at magnitude 500 is
+  // already 3e-5, so a flat 1e-5 would call a correct kernel wrong as soon as a fixture grew. The
+  // rule is this package's own eqDeltaScaled, from @thi.ng/math@5.15.17 eqdelta.js:5.
+  const disagreed = agreements.filter(
+    ([, onGpu, onCpu]) =>
+      Math.abs(onGpu - onCpu) > 1e-5 * Math.max(1, Math.abs(onGpu), Math.abs(onCpu)),
+  );
   agreements.forEach(([name, onGpu, onCpu]) =>
     console.log(
       `${disagreed.length === 0 ? "agree" : "check"}  ${name}: gpu=${onGpu} cpu=${onCpu}`,

@@ -68,10 +68,6 @@ export const rectBottom = tgpu.fn(
   return rect.y + rect.height;
 });
 
-// Source: @thi.ng/geom@8.3.38 centroid.js:35 (aabb)
-//   out[0] = (box[0] + box[2]) * 0.5;
-//   out[1] = (box[1] + box[3]) * 0.5;
-// Upstream stores min and max. Here max is x + width, and (x + (x + width)) * 0.5 is x + width / 2.
 export const centerOfRect = tgpu.fn(
   [Rect],
   d.vec2f,
@@ -80,9 +76,6 @@ export const centerOfRect = tgpu.fn(
   return d.vec2f(rect.x + rect.width / 2, rect.y + rect.height / 2);
 });
 
-// Source: @thi.ng/geom@8.3.38 area.js:29 (rect)
-//   return (box[2] - box[0]) * (box[3] - box[1]);
-// width is the stored form of box[2] - box[0], and height of box[3] - box[1].
 export const areaOfRectKernel = tgpu.fn(
   [Rect],
   d.f32,
@@ -106,9 +99,6 @@ export const aspectRatioOfRect = tgpu.fn(
   return rect.width / rect.height;
 });
 
-// Source: @thi.ng/geom-isec@4.0.95 point.js:140-143 (pointInRect)
-//   return point[0] >= box[0] && point[0] <= box[2] && point[1] >= box[1] && point[1] <= box[3];
-// The same test, as one vector comparison per corner.
 export const containsPointKernel = tgpu.fn(
   [Rect, d.vec2f],
   d.bool,
@@ -119,10 +109,6 @@ export const containsPointKernel = tgpu.fn(
   return !std.any(std.lt(point, pos)) && !std.any(std.lt(far, point));
 });
 
-// Source: @thi.ng/geom-isec@4.0.95 point.js:140-143 (pointInRect), on both corners
-//   contained[0] >= container[0] &&
-//   contained[2] <= container[2] &&
-// The same test, applied to both corners of the contained rect.
 export const containsRectKernel = tgpu.fn(
   [Rect, Rect],
   d.bool,
@@ -135,9 +121,6 @@ export const containsRectKernel = tgpu.fn(
   return !std.any(std.lt(otherPos, pos)) && !std.any(std.lt(far, otherFar));
 });
 
-// Source: @thi.ng/geom-isec@4.0.95 rect-rect.js:1 (testRectRect)
-//   return boxA[0] <= boxB[2] && boxA[2] >= boxB[0] && boxA[1] <= boxB[3] && boxA[3] >= boxB[1];
-// The same test, as one vector comparison per corner pair.
 export const intersectsRectKernel = tgpu.fn(
   [Rect, Rect],
   d.bool,
@@ -163,11 +146,10 @@ export const outsetRectBy = (rect: Rect, margin: number): Rect => {
 // Source: @thi.ng/geom@8.3.38 map-point.js:9, the rect branch
 //   div(null, sub(out, p, $.pos), $.size)
 export const mapPoint = (rect: Rect, point: Point): Point => {
-  const [x, y] = div2(
-    null,
-    sub2([], [point.x, point.y], [rect.x, rect.y]),
-    [rect.width, rect.height],
-  ) as [number, number];
+  const [x, y] = div2(null, sub2([], [point.x, point.y], [rect.x, rect.y]), [
+    rect.width,
+    rect.height,
+  ]) as [number, number];
   return { x, y };
 };
 
@@ -258,10 +240,6 @@ export const intersectionRect = tgpu.fn(
   });
 });
 
-// Source: @thi.ng/geom@8.3.38 union.js:6-15 (union), the aabb branch
-//   out[0] = Math.min(boxA[0], boxB[0]);
-//   out[2] = Math.max(boxA[2], boxB[2]);
-// The min and max are taken as vectors; width and height come from :251-255 (size).
 export const unionRectKernel = tgpu.fn(
   [Rect, Rect],
   Rect,
@@ -363,10 +341,6 @@ export const outsetRectByKernel = tgpu.fn(
   return insetRectByKernel(rect, -by);
 });
 
-// Source: research/sources/pmndrs-math.vec2.ts:103-107 (add)
-//   out[0] = a[0] + b[0];
-//   out[1] = a[1] + b[1];
-// Applied to the origin only. Size is carried through, which is what makes this a translation.
 export const translateRectKernel = tgpu.fn(
   [Rect, d.vec2f],
   Rect,
@@ -449,12 +423,7 @@ export const alignRectInKernel = tgpu.fn(
   return Rect({ x: start.x, y: start.y, width: size.x, height: size.y });
 });
 
-// Source: research/sources/pmndrs-math.vec2.ts:406-412 (lerp)
-//   out[0] = ax + t * (b[0] - ax);
-//   out[1] = ay + t * (b[1] - ay);
-// std.mix is that expression, supplied by WGSL rather than written again.
-// ADAPTED SIGNATURE, not ergonomics: upstream takes one t. This takes two, so position and size can
-// settle at different rates, which a window animating to a new cell needs.
+// Position and size interpolate independently.
 export const lerpRect = tgpu.fn(
   [Rect, Rect, d.f32, d.f32],
   Rect,
@@ -468,11 +437,6 @@ export const lerpRect = tgpu.fn(
   });
 });
 
-// Source: research/sources/pmndrs-math.box2.ts:124-139 (equals)
-//   Math.abs(a0 - b0) <= EPSILON * Math.max(1.0, Math.abs(a0), Math.abs(b0)) &&
-//   Math.abs(a1 - b1) <= EPSILON * Math.max(1.0, Math.abs(a1), Math.abs(b1)) &&
-// Four components conjoined, each through scalar.ts approxEquals, which carries that comparison.
-// The epsilon is a parameter here rather than upstream's module constant.
 export const approxEqualsRect = tgpu.fn(
   [Rect, Rect, d.f32],
   d.bool,
@@ -540,13 +504,6 @@ export const subtractRect = tgpu.fn(
   return Pieces({ items: pieces, count });
 });
 
-// Source: @thi.ng/geom@8.3.38 union.js:6-15 (union), the aabb branch
-//   out[0] = Math.min(boxA[0], boxB[0]);
-//   out[1] = Math.min(boxA[1], boxB[1]);
-//   out[2] = Math.max(boxA[2], boxB[2]);
-//   out[3] = Math.max(boxA[3], boxB[3]);
-// The out-parameter is dropped because this package returns values; the four assignments are the
-// upstream ones. Width and height come from :251-255 (size): box[2] - box[0], box[3] - box[1].
 export const centroidOfRect = (rect: Rect): Point => {
   const [x, y] = maddN2([], [rect.width, rect.height], 0.5, [rect.x, rect.y]) as [number, number];
   return { x, y };
@@ -567,12 +524,10 @@ export const clampRectWithin = (rect: Rect, bounds: Rect): Rect => {
 export const alignRectIn = (bounds: Rect, size: Size, align: Point): Rect => {
   const pos: Vec = [bounds.x, bounds.y];
   const extent: Vec = [size.width, size.height];
-  const [x, y] = mix2(
-    [],
-    pos,
-    sub2([], add2([], pos, [bounds.width, bounds.height]), extent),
-    [align.x, align.y],
-  ) as [number, number];
+  const [x, y] = mix2([], pos, sub2([], add2([], pos, [bounds.width, bounds.height]), extent), [
+    align.x,
+    align.y,
+  ]) as [number, number];
   return { x, y, width: size.width, height: size.height };
 };
 
@@ -654,7 +609,11 @@ export function resizeRect({
     aspectRatio !== undefined && aspectRatio > 0 && Number.isFinite(aspectRatio)
       ? aspectRatio
       : undefined;
-  const rawWidth = clamp(rect.width + widthDelta, minSize.width, Math.max(minSize.width, limitWidth));
+  const rawWidth = clamp(
+    rect.width + widthDelta,
+    minSize.width,
+    Math.max(minSize.width, limitWidth),
+  );
   const rawHeight = clamp(
     rect.height + heightDelta,
     minSize.height,

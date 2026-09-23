@@ -170,7 +170,7 @@ What is genuinely CPU-only, then, is narrower than "anything with a list":
 | `subtractRect`, and any bounded-capacity result                                                         | dual | fixed capacity plus a count                                  |
 | Reductions over a range or a storage buffer                                                             | dual | runtime-bounded loop                                         |
 | The binary heap                                                                                         | CPU  | unbounded, pointer-chasing, grows during use                 |
-| Occupancy row growth (`markArea` reallocating)                                                          | CPU  | allocation; `isAreaFree` over a fixed grid is dual           |
+| The occupancy grid, all of it                                                                           | CPU  | its state is a `Uint32Array`, which is not a `d.*` schema    |
 | An R-tree build, `pruneContainedRects`, `unionRects(Rect[])` over a JS array                            | CPU  | allocation and JS-array iteration; the buffer forms are dual |
 
 So the package needs an explicit CPU-only region, but it is small and it is a property of the
@@ -1086,7 +1086,13 @@ divergence. Neither substitutes for the other.
 
 Status: runtime-proven on a software WebGPU device.
 
-## Every export is a `tgpu.fn`, and the measurement decided it
+## Every GPU-facing export is a `tgpu.fn`, and the measurement decided it
+
+> **Superseded in part, 2026-09-17.** The measurement below stands: for a function that must match a
+> shader, `tgpu.fn` beats a loose callback. The conclusion drawn from it — that _every_ export should
+> be one — was wrong, and is retracted in "A `tgpu.fn` cannot serve an f64 consumer" below. A
+> `tgpu.fn` rounds its arguments **and its return value** to f32 on every CPU call, so it cannot serve
+> a consumer that needs f64. The package now ships two adapters per shared operation.
 
 The modules disagreed: `interval.ts` and `scalar.ts` exported plain `'use gpu'` callbacks, the rest
 exported `tgpu.fn`. A callback stays polymorphic and never rounds; a `tgpu.fn` pins its WGSL
@@ -1121,9 +1127,9 @@ across the whole chain, while the pinned form rounds at each boundary exactly as
 harness refuses to report a verdict if the two GPU results differ, so it cannot be measuring the
 shader by accident.
 
-**Decision: every exported function is `tgpu.fn` with declared parameter and return types.** The 17
-interval kernels and the scalar rules converted. The cost is polymorphism over `number`, which these
-functions never needed — the library is f32-first because GPU storage is.
+**Decision: every exported GPU-facing function is `tgpu.fn` with declared parameter and return
+types.** The 17 interval kernels and the scalar rules converted. The cost is polymorphism over
+`number`, which these functions never needed — the GPU half is f32-first because GPU storage is.
 
 One visible consequence, now pinned in `scalar.test.ts`: `roundTo(7.3, 0)` returns `Math.fround(7.3)`
 rather than `7.3`. That is the point. **The value a caller gets is the value the shader holds**, and a
@@ -1239,7 +1245,329 @@ Status: runtime-proven on the CPU path. The replacement itself is not done: noth
 `packages/infinite-canvas` imports this package yet, and that migration is a separate piece of work
 in a package another session is actively changing.
 
+## The dual-target claim is now a gate, and the runtime already knew the answer
+
+Tyler asked twice whether this package has a shared interface or merely exports functions with
+matching signatures. The honest answer is the second — the contract is TypeGPU's, adopted rather
+than built — but the deficiency that answer exposes is real: `index.ts` re-exports fifteen modules
+flat, and nothing distinguishes what resolves to WGSL from what never can.
+
+That did not need a new abstraction. It needed the claim to be executable, and the partition is
+derivable at runtime rather than hand-maintained:
+
+```ts
+const kindOf = (name: string, value: unknown) => {
+  try {
+    const wgsl = tgpu.resolve([value as never]);
+    if (wgsl === "") return "empty";
+    if (wgsl.includes(`fn ${name}`)) return "emits";
+    return wgsl.includes(`struct ${name}`) ? "struct" : "empty";
+  } catch {
+    return "cpu"; // a plain function is not resolvable at all
+  }
+};
+```
+
+The package partitions cleanly: **68 exports emit a `fn`**, the 6 shared schemas emit a `struct`, and
+the rest are CPU-only.
+
+**`"empty"` is the state that must never occur, and it is the whole point.** This document already
+recorded that without `unplugin-typegpu` in the Vite config, `tgpu.resolve` returns an empty string
+**instead of throwing**. A build regression would therefore disarm every WGSL claim in this package
+with nothing failing anywhere. Removing the plugin was tried: all five assertions fail, the sharpest
+being `expected 0 to be greater than 60`.
+
+The gate also pins that no dual-target function has drifted into the CPU-only bucket, and vice
+versa, so the conversion-state table above can no longer quietly go stale the way its `isAreaFree`
+row did.
+
+### The split is built, and it needed no relocation at all
+
+An earlier version of this section concluded that a two-entry-point split "needs four functions
+relocated first". **That was wrong, and the error was over-thinking.** A module cut through by the
+split is handled by naming its exports in the entry file. No surgery, no new modules, nothing moved:
+
+```ts
+// src/index.ts — the dual-target surface
+export * from "./camera";
+export * from "./interval";
+// ... and the tgpu.fn half of rect.ts, named rather than starred
+export { containsPoint, subtractRect, unionRect /* … */ } from "./rect";
+
+// src/cpu.ts — iterates JS arrays, allocates, dispatches on strings, or carries f64 Infinity
+export * from "./buffer";
+export * from "./rect-index";
+export { pruneContainedRects, resizeRect, unionRects, type ResizeHandle } from "./rect";
+export { stepSpring, type SpringState } from "./interpolate";
+```
+
+The gate proves the separation rather than asserting it: nothing exported from the root is CPU-only,
+no **function** exported from `./cpu` resolves to WGSL, and any overlap between the two is a schema.
+
+**There are three kinds here, not two, and the first version of this split got that wrong.** Tracing
+what a CPU consumer actually writes is what exposed it: `resizeRect` lives in `./cpu` but needs
+`Rect` to construct its argument and `SizeLimits` to type its limits, and both were published only
+from the root — so using one CPU function meant importing from both entries.
+
+A schema does not _run_ anywhere. It is the data both halves speak, with no execution contract to
+disambiguate, so forbidding it from appearing in both bought nothing and cost every CPU consumer a
+second import. `./cpu` now re-exports `Rect`, `Size` and `SizeLimits`, and the overlap rule is
+narrowed to exactly that: an export may appear in both only if it resolves to a WGSL `struct`.
+
+Re-exporting `containsPoint` — a real `tgpu.fn` — from `./cpu` fails two assertions by name, so the
+looser rule still rejects what it is there to reject.
+
+### Nothing was testing the published surface, which is why that gap needed reasoning to find
+
+Every suite in this package imported module paths — `./rect`, `./axis`, `./interval`. None of that is
+what a consumer gets. The entry points were the one part of the package with no test behind them, so
+the missing `Rect` re-export could only be found by tracing a hypothetical caller by hand.
+
+`published-surface.test.ts` imports **only** `"./index"` and `"./cpu"` and runs a realistic task:
+screen-to-world hit testing, a spatial-index query checked against filtering every window, a resize,
+bounds, and a grid placement. Removing `Rect` from `./cpu` fails it at both the type level and at
+runtime, so it catches the exact class of gap that previously required a manual trace.
+
+It also pins the thing that makes the shared currency work: `Rect` imported from either entry is the
+**same object**, so a value built on one side is accepted by the other with no conversion.
+
+### `d.v2f` in a CPU-only signature is the currency, not a leak
+
+`nearestIndices` is pure JavaScript over a `Float32Array` and still takes a `d.v2f`. That looks like
+the package imposing its GPU dependency on CPU code, and it is not: the coordinates it compares
+against are f32 in that buffer, so `d.v2f` is the type that **matches the data**. An f64 pair there
+would reintroduce a divergence against the buffer it reads.
+
+That argument is local to `nearestIndices` and does not generalise: it held only because the data it
+compares against is already f32. Where the data is DOM geometry, f64 is what matches, which is why
+`Point` came back.
+
+`typegpu` is a peer dependency the consumer already owns, so reaching for `d.vec2f` costs them
+nothing. Re-exporting `d` from `./cpu` would hide the peer relationship and create two ways to reach
+one value. No change.
+
+The split sprang three traps, all the same shape — **a gate that keeps passing while its domain
+changes underneath it.**
+
+**It narrowed a gate.** `export-coverage.test.ts` read only `./index`, so splitting the barrel
+quietly stopped covering half the package, and it still passed because the half it could see was
+fully tested. It now reads both entries and asserts `./cpu` is non-trivial.
+
+**It opened a hole the entries cannot see.** Because both entries name a cut module's exports one by
+one, a function added to `rect.ts` or `interpolate.ts` reaches neither and ships nowhere. No gate
+that reads the entry points can detect what never arrived, so the check has to sweep the modules:
+
+```ts
+const modules = import.meta.glob(
+  ["./*.ts", "!./*.test.ts", "!./*.inspect.ts", "!./gpu.ts", "!./cpu.ts"],
+  { eager: true },
+);
+// every exported VALUE must be reachable from one of the two entries
+```
+
+The comparison is by value identity, not by name. An entry may publish a kernel under a different
+name than its module gives it — `containsPointKernel` ships as `containsPoint` from `./gpu` — and a
+name comparison calls that stranded while missing a genuine rename. Caught by the gate itself: the
+first run after the rename reported seven false strandings.
+
+Adding an export to `rect.ts`, and then to `interpolate.ts`, each fails with the file and symbol
+named.
+
+**And that sweep itself doubled the suite.** An eager glob _imports_ what it matches, so the first
+version pulled in every `*.test.ts` and registered the whole suite a second time — **560 tests where
+there were 285**, all green. Filtering after the glob is too late; the negative patterns have to be
+in it. This was caught by reading the count, not the pass.
+
+Two competing `declare global` blocks for `import.meta.glob` also merge into a shape neither caller
+satisfies, so the package declares it once, with overloads.
+
+### Where the split falls, module by module
+
+Established by reading every module, not by guessing: **the split falls on module boundaries
+everywhere except two files.**
+
+| Wholly GPU-facing                                   | Wholly CPU                                                              |
+| --------------------------------------------------- | ----------------------------------------------------------------------- |
+| `interval`, `scalar`, `vector`, `transform`, `size` | `buffer`, `queue`, `occupancy`, `order`, `reduce`, `rect-index`, `axis` |
+
+The ones that are cut through:
+
+- **`rect.ts`** — `unionRects`, `pruneContainedRects` and `resizeRect` are CPU. `containsPoint`,
+  `containsRect`, `intersectsRect` and `unionRect` exist **twice**: an f64 body on plain objects and
+  a `tgpu.fn` carrying the `Kernel` suffix. The remaining twenty-odd exports are GPU-only.
+- **`camera.ts`** — `screenToWorld`, `worldToScreen` and `visibleWorldRect` exist twice, for the same
+  reason; the last is what a DOM canvas culls with. The rest (`cameraShowing`, `panCamera`,
+  `zoomCameraAbout`, `viewportRect`, `screenToClip`) are kernels only, because nothing on the DOM path
+  calls them yet.
+- **`interpolate.ts`** — `stepSpring` is CPU; `arcPoint` and `arcControlPoint` are `tgpu.fn`.
+
+The modules are untouched; the entry files choose which half each name means.
+
+### `Size` and `SizeLimits` moved out of `axis.ts`, which was a dependency defect
+
+Taking the layout engine's `SizeLimits` shape made `rect.ts` import from `axis.ts` — and `axis.ts`
+is the module this document already flags as likely belonging to the layout package. A core module
+had come to depend on one that is slated to leave.
+
+Both are pure types, so they erase and carry no execution contract, which lets them sit in `size.ts`
+beside the dual-target fit functions without mixing the two. `rect.ts` now depends on `size.ts`,
+which is stable, and `axis.ts` imports `Size` from there like anyone else.
+
+Status: runtime-proven on the CPU path, and break-proofed by removing the plugin.
+
+## The spring poisoned its own state, and my earlier audit had cleared it
+
+An earlier pass through this package looked for unguarded divisions and reported `interpolate.ts`
+clean, on the grounds that `regimeOf` routes `dampingRatio → 1` to the closed-form critical branch
+before `/damped` can divide by zero. **That was wrong in two ways, and the code was reachable.**
+
+```ts
+const regimeOf = (dampingRatio: number) =>
+  Math.abs(dampingRatio - 1) < 1e-4 ? "critical" : dampingRatio < 1 ? "under" : "over";
+```
+
+`damped = omega * sqrt(1 - d²)` is zero whenever **|d| = 1**, so `d = -1` divides by zero too — and
+`regimeOf` sends it to `"under"`, not `"critical"`. Separately, **every comparison against `NaN` is
+false**, so a non-finite ratio fails both tests and falls through to `"over"`, where
+`sqrt(d² - 1)` and the `slow`/`fast` arithmetic produce `NaN`.
+
+Measured, all four giving `NaN` coefficients:
+
+```txt
+dampingRatio -1        -> under -> pv NaN
+dampingRatio NaN       -> over  -> pv NaN
+dampingRatio Infinity  -> over  -> pv NaN
+dampingRatio -Infinity -> under -> pv NaN
+negative delta, critical -> decay 785.77   (the decay runs backwards and grows the state)
+```
+
+A spring whose state becomes `NaN` stays `NaN` for every subsequent step, so one bad frame is
+permanent. The negative-delta case is not even subtle: one step took a value of 40 to **272762**.
+
+The fix is two guards at the entry point, each with a defined physical meaning rather than a
+fabricated default:
+
+```ts
+// No time passed means nothing moves. A negative delta would run the decay backwards.
+if (!Number.isFinite(delta) || delta <= 0) return state;
+const ratio = Number.isFinite(dampingRatio) && dampingRatio > 0 ? dampingRatio : 1;
+```
+
+**The lesson, which is the reason this is recorded at length: an audit that checks the boundary the
+author was thinking about is not an audit.** I checked `d → 1` because that is the case the code
+comments itself around, and missed `d = -1`, which is the same singularity mirrored, and `NaN`,
+which defeats the dispatch rather than the arithmetic. The `Record<Regime, …>` lookup itself is
+total and was never the risk — the hypothesis I went in with was the wrong one.
+
+Status: runtime-proven on the CPU path.
+
+## `buffer.ts` is not replaced by the schema, and the TODO saying so is retired
+
+> **Half retracted, 2026-09-17.** The conclusion that the packed `Float32Array` survives is right and
+> stands — the R-tree and the Hilbert sort read individual floats in tight loops, and
+> `readFromArrayBuffer` would allocate an object per element. But the _write_ path was duplicating an
+> affordance TypeGPU ships: `writeToArrayBuffer` serializes a schema into a plain `ArrayBuffer`
+> synchronously, with no device.
+>
+> ```ts
+> export function packRects(rects: readonly Rect[]): Float32Array {
+>   if (rects.length === 0) return new Float32Array(0);
+>   const schema = d.arrayOf(Rect, rects.length);
+>   const bytes = new ArrayBuffer(d.sizeOf(schema));
+>   writeToArrayBuffer(bytes, schema, rects as Rect[]);
+>   return new Float32Array(bytes);
+> }
+> ```
+>
+> `createRectBuffer` and `writeRect` are deleted. The layout now comes from the schema rather than
+> from a constant a separate test had to guard. Status: runtime-proven — reversing the written order
+> fails 8 tests across `buffer`, `order`, `rect-index` and the published surface.
+
+This document carried "replacement pending: hand-written offsets; `d.arrayOf(Rect, n)` supersedes
+it". Reading how the module is actually consumed settles it the other way. `rect-index.ts` and
+`order.ts` use it as a **CPU-side packed array that is never uploaded**. A TypeGPU buffer needs
+`root.createBuffer`, which needs a device. Routing it through the schema would demand a GPU device
+for code that never touches the GPU — strictly worse, and more code, not less.
+
+What was real is smaller: `RECT_STRIDE = 4` restates what the `Rect` schema already determines, and
+nothing tied the two together.
+
+My first instinct — derive the constant with `d.sizeOf(Rect) / 4` — is wrong, and worth recording
+because it is the more appealing answer. Deriving it makes a field added to `Rect` **silently**
+widen the stride while `writeRect` still writes four floats. Hard-coding the packing decision and
+pinning it to the schema in a test fails loudly instead:
+
+```ts
+test("a rectangle occupies exactly RECT_STRIDE floats, so a new field fails here", () => {
+  expect(d.sizeOf(Rect)).toBe(RECT_STRIDE * Float32Array.BYTES_PER_ELEMENT);
+});
+```
+
+Adding a field to `Rect` was tried, and it fails with `expected 20 to be 16`. The existing check
+(`buffer.length === 2 * RECT_STRIDE`) could never have caught it, because it used the constant to
+verify itself.
+
+**The general rule: derive a value when drift is harmless, assert it when drift is a defect.**
+
+Status: runtime-proven on the CPU path.
+
+## Two corrections from reading `occupancy.ts` end to end
+
+**This document claimed `isAreaFree` was dual-target. It is not, and never was.** It takes an
+`OccupancyGrid`, whose state is a `Uint32Array`. A `Uint32Array` is not a `d.*` schema, so the
+function cannot be a `tgpu.fn` parameter at all. A GPU occupancy search would need `d.arrayOf(d.u32,
+n)` in a storage buffer with the extents as uniforms — a different function, not this one. The claim
+came from reasoning about the algorithm's shape rather than its signature, which is the same mistake
+as reasoning about WGSL instead of measuring it. The whole module is CPU.
+
+**A silent corruption defect, found by the same read.** `isAreaFree` guarded negatives and the right
+edge; `markArea` guarded nothing. The two disagreed about what a valid area is, and the consequence
+was not a wrong answer but a wrong _write_:
+
+```ts
+// columns: 10, so one 32-bit word per row. Marking column 32:
+//   column >> 5           === 1
+//   row * perRow + 1      === 0 * 1 + 1  === words[1], which is row 1's word.
+// An area isAreaFree rejects silently occupied a cell in a different row.
+const areaWithinGrid = (grid: OccupancyGrid, area: GridArea) =>
+  area.column >= 0 &&
+  area.row >= 0 &&
+  area.columns > 0 &&
+  area.rows > 0 &&
+  area.column + area.columns <= grid.columns;
+```
+
+Both functions now go through that predicate, so they cannot drift apart again: `isAreaFree` returns
+false and `markArea` returns the grid unchanged. Three tests fail without the fix.
+
+`findFreeArea` was checked against the new guard rather than assumed safe: its own bounds are
+stricter, and a caller passing a negative `from` gets no match until row and column reach zero, so it
+can never return a position `markArea` would now refuse.
+
+Status: runtime-proven on the CPU path.
+
 ## The R-tree, and what it made unnecessary
+
+> **Extended, 2026-09-17.** The index now answers `bounds` and `nearest` as well as `search`, and
+> `boundsOfRects` and `nearestIndices` are deleted rather than moved. The root box already holds the
+> extent, so the bounds cost nothing; `nearest` is a best-first walk over the tree, which is what
+> `queue.ts` was built for and had no consumer for until now.
+>
+> ```ts
+> // One min-heap holds items and nodes together. The low bit of the id says which.
+> enqueue(queue, isLeafLevel ? (entry << 1) + 1 : entry << 1, distance);
+> while (queue.length > 0 && (peek(queue)! & 1) === 1) {
+>   if (peekValue(queue)! > furthest) break;
+>   found.push(dequeue(queue)! >> 1);
+>   if (found.length === most) return found;
+> }
+> ```
+>
+> `nearest` orders by distance **only**. The deleted scan broke ties by index; a heap cannot promise
+> that, so the oracle sorts by distance alone, compares sets, and separately asserts the returned
+> distances are non-decreasing. Pinning a tie order would test the implementation, not the contract.
+>
+> Status: runtime-proven. Inverting the leaf bit fails exactly the three `nearest` tests.
 
 `hilbertOrder`, the binary heap, and `buffer.ts`'s two query functions were all machinery with no
 consumer: every reference to them was a test. They were written for a spatial index that did not
@@ -1287,27 +1615,33 @@ work list, which the dual-target boundary above puts firmly on the CPU.
 The scope correction turned the work into one migration: every module whose mathematics is
 shape-stable becomes `tgpu.fn` over `d` schemas, and the rest is named CPU-only for a stated reason.
 
-| Module           | State                     | Note                                                        |
-| ---------------- | ------------------------- | ----------------------------------------------------------- |
-| `interval.ts`    | dual-target               | 17 `tgpu.fn` kernels; every edge rule stated once           |
-| `rect.ts`        | dual-target               | composes `interval`; `unionRects`/`pruneContainedRects` CPU |
-| `camera.ts`      | dual-target               | matches the compositor backend expression for expression    |
-| `transform.ts`   | dual-target               | 3x2 affine struct, not a matrix — see the defect above      |
-| `scalar.ts`      | dual-target               | now owns `clamp`; `lerp` deleted as `std.mix`               |
-| `vector.ts`      | dual-target               | 11 functions down to 3; `Point` deleted for `d.vec2f`       |
-| `reduce.ts`      | CPU by nature             | new; JS-array reductions, holds `minOf`/`maxOf`             |
-| `interpolate.ts` | split                     | `arcPoint` dual; the spring is still f64                    |
-| `size.ts`        | dual-target               | `containScale`/`coverScale`; the string `FitMode` is gone   |
-| `occupancy.ts`   | split                     | `isAreaFree` dual; row growth allocates, so CPU             |
-| `queue.ts`       | CPU by nature             | unbounded heap; still has no consumer until k-nearest       |
-| `order.ts`       | CPU, and staying          | its consumer is the R-tree build, which is CPU-only         |
-| `rect-index.ts`  | CPU by nature             | new; packed Hilbert R-tree, a chase over a work list        |
-| `buffer.ts`      | **replacement pending**   | hand-written offsets; `d.arrayOf(Rect, n)` supersedes it    |
-| `axis.ts`        | **placement in question** | CPU-only; owns `Size`; likely belongs to the layout package |
+| Module           | State                      | Note                                                        |
+| ---------------- | -------------------------- | ----------------------------------------------------------- |
+| `interval.ts`    | dual-target                | 17 `tgpu.fn` kernels; every edge rule stated once           |
+| `rect.ts`        | dual-target                | composes `interval`; `unionRects`/`pruneContainedRects` CPU |
+| `camera.ts`      | dual-target                | matches the compositor backend expression for expression    |
+| `transform.ts`   | dual-target                | 3x2 affine struct, not a matrix — see the defect above      |
+| `scalar.ts`      | dual-target                | now owns `clamp`; `lerp` deleted as `std.mix`               |
+| `vector.ts`      | dual-target                | 11 functions down to 3; `Point` deleted for `d.vec2f`       |
+| `reduce.ts`      | CPU by nature              | new; JS-array reductions, holds `minOf`/`maxOf`             |
+| `interpolate.ts` | split                      | `arcPoint` dual; the spring is still f64                    |
+| `size.ts`        | dual-target                | `containScale`/`coverScale`; the string `FitMode` is gone   |
+| `occupancy.ts`   | CPU by nature              | its state is a `Uint32Array`; see the correction below      |
+| `queue.ts`       | CPU by nature              | unbounded heap; still has no consumer until k-nearest       |
+| `order.ts`       | CPU, and staying           | its consumer is the R-tree build, which is CPU-only         |
+| `rect-index.ts`  | CPU by nature              | new; packed Hilbert R-tree, a chase over a work list        |
+| `buffer.ts`      | CPU by nature, and staying | a packed array that is never uploaded; see the note below   |
+| `axis.ts`        | **placement in question**  | CPU-only; owns `Size`; likely belongs to the layout package |
 
 ### `Point` is gone, and `vector.ts` lost eight of eleven functions
 
-`d.vec2f` is the currency. Eight functions were `std` under another name and are deleted outright:
+> **Half retracted, 2026-09-17.** Deleting the eight `std` duplicates was right and stands. Deleting
+> `Point` was wrong: `d.vec2f` is the currency **at the boundary**, not everywhere, and a DOM consumer
+> doing f64 hit-testing has no boundary to be at. `Point` is back in `vector.ts` as a plain
+> `{ x: number; y: number }`, exported as a type from both entries.
+
+`d.vec2f` is the currency at the CPU/GPU boundary. Eight functions were `std` under another name and
+are deleted outright:
 `addPoints`, `subtractPoints`, `scalePoint`, `dot`, `magnitude`, `distance`, `angle`, `lerpPoint`.
 Three survive because `std` genuinely cannot do them, and each one's test now asserts that difference
 at the survivor rather than in a separate probe, so `std-equivalence.probe.test.ts` is deleted:
@@ -1392,11 +1726,146 @@ of their own.
 
 Status: runtime-proven on the CPU path, and break-proofed.
 
+## A `tgpu.fn` cannot serve an f64 consumer
+
+Source: `typegpu@0.12.3`, `core/function/tgpuFn.js`, the CPU call path.
+
+```js
+const castAndCopiedArgs = args.map((arg, index) => schemaCallWrapper(shell.argTypes[index], arg));
+const result = implementation(...castAndCopiedArgs);
+// Casting the result to the appropriate schema
+return schemaCallWrapper(shell.returnType, result);
+```
+
+`data/schemaCallWrapper.js` calls the schema constructor. `data/struct.js` maps every field through
+it. `data/numeric.js:158` is the terminus:
+
+```js
+return Math.fround(v);
+```
+
+Status: observed. **Both the arguments and the return value round to f32 on every CPU call.** So
+`Rect({ x, y, width, height })` rounds all four fields, and `resizeRect` ending in `return Rect({…})`
+returned f32 despite living on the CPU-only entry. The package had no f64 path at all.
+
+The consequence for the canvas is the one `camera.test.ts` already measured: hit-testing at zoom 8 on
+a rect far from the origin needs a tenth of a pixel that f32 storage cannot hold.
+
+### Two execution contracts, one rule, one fixture set
+
+```ts
+// ./cpu — f64, plain objects, what the DOM path imports
+export const containsPoint = (rect: Rect, point: Point): boolean =>
+  point.x >= rect.x &&
+  point.x <= rect.x + rect.width &&
+  point.y >= rect.y &&
+  point.y <= rect.y + rect.height;
+
+// ./gpu — f32, resolves to WGSL, what a shader or a pre-upload path imports
+export const containsPointKernel = tgpu.fn(
+  [Rect, d.vec2f],
+  d.bool,
+)((rect, point) => {
+  "use gpu";
+  return containsValue(rect.x, rect.width, point.x) && containsValue(rect.y, rect.height, point.y);
+});
+```
+
+Same name from either entry; precision chosen by the import line. There is no root entry — the old
+one silently handed f32 to anyone importing the obvious path.
+
+What is shared is not a manifest object. It is `parity.test.ts`: one fixture set and one declared
+tolerance, run through both adapters. A `defineKernel({ inputs: "mat4x4f", precision: "f32" })` would
+restate the signature as strings nothing checks, and its `precision` and `aliasSafe` fields are claims
+rather than constraints. Only fixtures and tolerance can be executed.
+
+Precedent, both read rather than recalled:
+
+| Source                              | What it does                                                                                                          | Status   |
+| ----------------------------------- | --------------------------------------------------------------------------------------------------------------------- | -------- |
+| `typegpu/core/function/dualImpl.js` | One symbol, declared `signature`, `normalImpl` + `codegenImpl`, explicit `MissingCpuImplError` for GPU-only ops       | observed |
+| `tfjs-core/src/test_util.ts`        | `testEpsilon()` returns `TEST_EPSILON_FLOAT32` 1e-3 or `TEST_EPSILON_FLOAT16` 1e-1 from the backend's float precision | observed |
+
+Tolerance belongs to the execution contract, not to a global constant. Neither precedent carries an
+f64 half — tfjs tensors are f32 on the CPU backend too — so the structure is borrowed and the
+precision axis is this package's own.
+
+### The gate has four clauses, and the fixtures failed the first break
+
+```txt
+every ./gpu export resolves to WGSL
+no ./cpu function resolves to WGSL
+a name in both entries is a schema, or parity.test.ts names it
+a shared name is two different function objects, not one re-export
+```
+
+The fourth clause is the one that stops the split being collapsed back; without it the other three
+still pass.
+
+Status: runtime-proven, break-proofed three ways.
+
+- Flipping `>=` to `>` on the near edge of f64 `containsPoint` — **not caught**. Every fixture placed
+  the point on a rect's _far_ corner, so the near-edge rule was never exercised while the test was
+  named "including the inclusive edge". Near-edge fixtures added; the break then failed exactly that
+  test and no other.
+- Skewing f64 `screenToWorld` by one term — fails 4 tests.
+- Re-exporting the kernel as `containsPoint` from `./cpu` — fails 3.
+
+307 tests, 25 files, 0 source typecheck errors.
+
+### The GPU half now runs a batch, and the first run hid a portability defect
+
+`batch.inspect.ts` puts a `d.arrayOf(Rect, 8)` storage buffer through a real compute dispatch and
+compares every element against the f64 adapter.
+
+```ts
+const pipeline = root.createGuardedComputePipeline((index: number) => {
+  "use gpu";
+  const rect = rects.$[index]!;
+  const given = query.$;
+  hits.$[index] = d.u32(containsPointKernel(rect, given.pointer) ? 1 : 0);
+  bounds.$[index] = Rect(unionRectKernel(rect, given.window));
+});
+pipeline.dispatchThreads(COUNT);
+```
+
+```txt
+read back from 8 threads: hits=1 overlaps=6
+agree 48 checks across a d.arrayOf(Rect, 8) dispatch
+```
+
+Status: runtime-proven on SwiftShader. Math owns the witness and still owns **no** dispatch API — the
+runtime owns bind groups and encoders, and a batch surface here would be a second owner of dispatch.
+
+The first run passed while emitting two warnings:
+
+```txt
+⚠️ [uniform-schema-misaligned] Schema 'Query' ... property 'window' does not meet required
+   alignment (offset is 8, required alignment is 16). This is not portable ... will break on some
+   devices.
+```
+
+`Rect` and `Camera` are `vec2f`-aligned at 8; a uniform struct member needs 16. The fix is
+`d.align(16, Rect)`, after which the warning count is zero and the same 48 checks agree. **A green
+run on a software adapter hid a real portability defect** — any consumer putting `Rect` in a uniform
+needs the same align.
+
+Two independent detectors, both break-proofed:
+
+- Removing `dispatchThreads` leaves every buffer zero. A predicate that is uniformly false would
+  agree with that, so the witness requires _mixed_ answers: it throws `containsPoint returned 0 of 8`.
+- Flipping `min` to `max` in f64 `unionRect` names 16 element-level disagreements **while the count
+  guards still pass**, so neither mechanism can carry a false pass alone.
+
 ## Unresolved
 
-- **`typegpu` as `dependencies` or `peerDependencies`.** Currently `dependencies`, moved there
-  because `vp pack` inlined it as a devDependency (192.69 kB down to 25.75 kB). `@typegpu/sdf`
-  declares it a peer. A peer avoids two copies of the runtime in a consumer. Owner decision.
+- **`typegpu` as `dependencies` or `peerDependencies`.** Settled: `devDependencies` plus
+  `peerDependencies`, matching `@typegpu/sdf`, so a consumer holds one copy of the runtime. It is a
+  **required** peer, not optional: `rect.ts` and `camera.ts` import `typegpu` at module top and
+  `./cpu` re-exports from both, so a consumer without it fails at import even calling only
+  `resizeRect`.
+- **`viewportRect`, `cameraShowing`, `panCamera` and `zoomCameraAbout` have no f64 form.** Not a
+  defect yet: nothing on the DOM path calls them. They follow the same treatment the day one does.
 - **Only a software adapter has run this.** `agreement.inspect.ts` closes the execution gap, but on
   SwiftShader. Hardware drivers differ in precision and in how they treat undefined behaviour, so a
   run on a real GPU is still worth having. The harness is ready for one; only the adapter changes.
@@ -1412,16 +1881,23 @@ Status: runtime-proven on the CPU path, and break-proofed.
 
 ## Resumption point
 
-Every module whose mathematics is shape-stable has converted, and the device harness exists. The next
-increments, in order of value:
+Two entries exist, seven operations have both adapters, the gate that holds them together is
+break-proofed, and the GPU half has now run a batch. The next increments, in order of value:
 
-1. Extend `agreement.inspect.ts` to the camera spaces and the occupancy grid. Each addition is a
-   field on the input struct and a row in the comparison table.
-2. Convert `order.ts`, whose Hilbert index is fixed-shape and should already be dual-target.
-3. Decide whether `buffer.ts` survives `d.arrayOf(Rect, n)`. It is hand-written offsets over a
-   `Float32Array`, and the schema this document measured at the identical 16-byte stride supersedes
-   it. Its `intersectingIndices`/`nearestIndices` queries are real capabilities that belong to the
-   unwritten `rect-index.ts`, so this is a move, not a deletion.
-4. Settle whether `typegpu` is a dependency or a peer dependency (see Unresolved).
-   `sources/` holds every artifact already used; add to it before each new module rather than reading
-   into context and discarding.
+1. Convert `order.ts` only when something needs a GPU-side Hilbert sort. It is fixed-shape and could
+   be a kernel, but nothing calls it from a shader, and a GPU form with no caller is the speculative
+   machinery this package refuses elsewhere.
+
+Two earlier items are retired rather than done. "Extend `agreement.inspect.ts` to the camera spaces"
+was already satisfied — `worldToScreen` and `screenToWorld` are in its table. "…and the occupancy
+grid" contradicts this document's own correction that `occupancy.ts` is CPU by nature: it holds a
+`Uint32Array`, which is not a `d.*` schema and cannot be a kernel parameter.
+
+`sources/` holds every artifact already used; add to it before each new module rather than reading
+into context and discarding.
+
+## Sources captured
+
+| File                             | Repo                   | Branch   | Commit                                     | Captured   |
+| -------------------------------- | ---------------------- | -------- | ------------------------------------------ | ---------- |
+| `sources/re-resizable.index.tsx` | `bokuweb/re-resizable` | `master` | `dcadcbed0470ef9f75a22f660285d91f414958a3` | 2026-09-18 |

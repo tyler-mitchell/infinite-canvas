@@ -11,14 +11,20 @@ export type View = d.Infer<typeof View>;
 
 // The CPU has no uniform to bundle for, and the consumer holds these separately, so it says so.
 export type Camera = { center: Point; zoom: number };
-export function cameraEquals({ camera, target, tolerance }: {
+export function cameraEquals({
+  camera,
+  target,
+  tolerance,
+}: {
   camera: Camera;
   target: Camera;
   tolerance?: number;
 }): boolean {
-  return eqDelta(camera.zoom, target.zoom, tolerance) &&
+  return (
+    eqDelta(camera.zoom, target.zoom, tolerance) &&
     eqDelta(camera.center.x, target.center.x, tolerance) &&
-    eqDelta(camera.center.y, target.center.y, tolerance);
+    eqDelta(camera.center.y, target.center.y, tolerance)
+  );
 }
 export type Projection = { point: Point; camera: Camera; viewport: Size };
 
@@ -210,12 +216,7 @@ export const visibleWorldRect = ({
     camera,
     viewport,
   });
-  // Source: @thi.ng/geom@8.3.38 area.js:29 (rect), the extent factors
-  //   out[0] = box[2] - box[0];
-  //   out[1] = box[3] - box[1];
-  // ADAPTED: upstream has no clamp and represents an empty box as +Infinity/-Infinity (:100-106).
-  // Insets larger than the viewport would give a negative extent here, so this reports zero, which
-  // is what a caller culling against the region needs. Pinned by parity.test.ts.
+  // Insets larger than the viewport produce zero extent.
   return {
     x: topLeft.x,
     y: topLeft.y,

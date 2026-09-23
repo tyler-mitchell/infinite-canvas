@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "react:doctor": "react-doctor --project packages/infinite-canvas,packages/portfolio-board --scope files --base HEAD --include-untracked --no-parallel --no-telemetry --no-supply-chain --blocking none",
     "check": "pnpm run ready",
     "ci:dispatch": "gh workflow run ci.yml",
     "ci:cancel": "gh run cancel",
@@ -44,6 +45,7 @@
     "execa": "catalog:",
     "npm": "^11.15.0",
     "publint": "catalog:",
+    "react-doctor": "catalog:",
     "vite-plus": "catalog:"
   },
   "engines": {

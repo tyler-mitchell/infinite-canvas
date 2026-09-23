@@ -4,10 +4,6 @@ export type GridPosition = { column: number; row: number };
 export type GridSpan = { columns: number; rows: number };
 export type GridArea = GridPosition & GridSpan;
 
-// Source: @thi.ng/bitfield@2.4.44 bitmatrix.d.ts:7 (BitMatrix)
-//   MxN row-major 2D bit matrix, backed by a Uint8Array.
-// The storage, its row-major addressing and its growth are upstream's; only the column bound and
-// the placement scan below belong to this package.
 export type OccupancyGrid = { columns: number; bits: BitMatrix };
 
 // Source: @thi.ng/bitfield@2.4.44 bitmatrix.d.ts:73 (defBitMatrix)
