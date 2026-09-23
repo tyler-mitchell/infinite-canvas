@@ -34,6 +34,7 @@
           "type-atlas",
           "hyphened",
           "infinite-canvas",
+          "gitdrops-monorepo",
           "package-management",
           "cmd-mesh",
           "open-source"
@@ -199,7 +200,7 @@
               ]
             }
           },
-          "about": "I’m a full-stack engineer driven by curiosity about how things work and how to make them better. My projects span web applications, developer tools, graphics, and AI, often starting with a problem worth understanding or an idea worth exploring. I enjoy the full process: testing possibilities, shaping the architecture, writing the code, and refining the experience. I care about software that responds quickly, systems that remain easy to build on, and details that make everyday use feel effortless. What keeps me interested is turning what I learn into useful tools that help other people build, explore, and create."
+          "about": "I’m a full-stack engineer who likes getting to the bottom of a problem and building something useful from what I learn. I enjoy the whole process, from early experiments and architecture to the small details that make software feel good to use. I care about speed, clear code, and making complex things easier to work with. Building tools that help other people create keeps me curious."
         }
       },
       "contributions": {
@@ -1271,88 +1272,260 @@
                   "contributionLevel": "SECOND_QUARTILE"
                 },
                 { "date": "2026-07-20", "contributionCount": 0, "contributionLevel": "NONE" },
-                { "date": "2026-07-21", "contributionCount": 10, "contributionLevel": "FIRST_QUARTILE" },
-                { "date": "2026-07-22", "contributionCount": 5, "contributionLevel": "FIRST_QUARTILE" },
-                { "date": "2026-07-23", "contributionCount": 5, "contributionLevel": "FIRST_QUARTILE" },
+                {
+                  "date": "2026-07-21",
+                  "contributionCount": 10,
+                  "contributionLevel": "FIRST_QUARTILE"
+                },
+                {
+                  "date": "2026-07-22",
+                  "contributionCount": 5,
+                  "contributionLevel": "FIRST_QUARTILE"
+                },
+                {
+                  "date": "2026-07-23",
+                  "contributionCount": 5,
+                  "contributionLevel": "FIRST_QUARTILE"
+                },
                 { "date": "2026-07-24", "contributionCount": 0, "contributionLevel": "NONE" },
-                { "date": "2026-07-25", "contributionCount": 1, "contributionLevel": "FIRST_QUARTILE" }
+                {
+                  "date": "2026-07-25",
+                  "contributionCount": 1,
+                  "contributionLevel": "FIRST_QUARTILE"
+                }
               ]
             },
             {
               "contributionDays": [
-                { "date": "2026-07-26", "contributionCount": 8, "contributionLevel": "FIRST_QUARTILE" },
-                { "date": "2026-07-27", "contributionCount": 21, "contributionLevel": "FIRST_QUARTILE" },
+                {
+                  "date": "2026-07-26",
+                  "contributionCount": 8,
+                  "contributionLevel": "FIRST_QUARTILE"
+                },
+                {
+                  "date": "2026-07-27",
+                  "contributionCount": 21,
+                  "contributionLevel": "FIRST_QUARTILE"
+                },
                 { "date": "2026-07-28", "contributionCount": 0, "contributionLevel": "NONE" },
-                { "date": "2026-07-29", "contributionCount": 12, "contributionLevel": "FIRST_QUARTILE" },
-                { "date": "2026-07-30", "contributionCount": 14, "contributionLevel": "FIRST_QUARTILE" },
-                { "date": "2026-07-31", "contributionCount": 13, "contributionLevel": "FIRST_QUARTILE" },
+                {
+                  "date": "2026-07-29",
+                  "contributionCount": 12,
+                  "contributionLevel": "FIRST_QUARTILE"
+                },
+                {
+                  "date": "2026-07-30",
+                  "contributionCount": 14,
+                  "contributionLevel": "FIRST_QUARTILE"
+                },
+                {
+                  "date": "2026-07-31",
+                  "contributionCount": 13,
+                  "contributionLevel": "FIRST_QUARTILE"
+                },
                 { "date": "2026-08-01", "contributionCount": 0, "contributionLevel": "NONE" }
               ]
             },
             {
               "contributionDays": [
-                { "date": "2026-08-02", "contributionCount": 39, "contributionLevel": "FIRST_QUARTILE" },
-                { "date": "2026-08-03", "contributionCount": 32, "contributionLevel": "FIRST_QUARTILE" },
-                { "date": "2026-08-04", "contributionCount": 10, "contributionLevel": "FIRST_QUARTILE" },
+                {
+                  "date": "2026-08-02",
+                  "contributionCount": 39,
+                  "contributionLevel": "FIRST_QUARTILE"
+                },
+                {
+                  "date": "2026-08-03",
+                  "contributionCount": 32,
+                  "contributionLevel": "FIRST_QUARTILE"
+                },
+                {
+                  "date": "2026-08-04",
+                  "contributionCount": 10,
+                  "contributionLevel": "FIRST_QUARTILE"
+                },
                 { "date": "2026-08-05", "contributionCount": 0, "contributionLevel": "NONE" },
-                { "date": "2026-08-06", "contributionCount": 10, "contributionLevel": "FIRST_QUARTILE" },
-                { "date": "2026-08-07", "contributionCount": 5, "contributionLevel": "FIRST_QUARTILE" },
-                { "date": "2026-08-08", "contributionCount": 33, "contributionLevel": "FIRST_QUARTILE" }
+                {
+                  "date": "2026-08-06",
+                  "contributionCount": 10,
+                  "contributionLevel": "FIRST_QUARTILE"
+                },
+                {
+                  "date": "2026-08-07",
+                  "contributionCount": 5,
+                  "contributionLevel": "FIRST_QUARTILE"
+                },
+                {
+                  "date": "2026-08-08",
+                  "contributionCount": 33,
+                  "contributionLevel": "FIRST_QUARTILE"
+                }
               ]
             },
             {
               "contributionDays": [
-                { "date": "2026-08-09", "contributionCount": 5, "contributionLevel": "FIRST_QUARTILE" },
-                { "date": "2026-08-10", "contributionCount": 3, "contributionLevel": "FIRST_QUARTILE" },
-                { "date": "2026-08-11", "contributionCount": 8, "contributionLevel": "FIRST_QUARTILE" },
-                { "date": "2026-08-12", "contributionCount": 333, "contributionLevel": "FOURTH_QUARTILE" },
-                { "date": "2026-08-13", "contributionCount": 53, "contributionLevel": "FIRST_QUARTILE" },
-                { "date": "2026-08-14", "contributionCount": 29, "contributionLevel": "FIRST_QUARTILE" },
-                { "date": "2026-08-15", "contributionCount": 12, "contributionLevel": "FIRST_QUARTILE" }
+                {
+                  "date": "2026-08-09",
+                  "contributionCount": 5,
+                  "contributionLevel": "FIRST_QUARTILE"
+                },
+                {
+                  "date": "2026-08-10",
+                  "contributionCount": 3,
+                  "contributionLevel": "FIRST_QUARTILE"
+                },
+                {
+                  "date": "2026-08-11",
+                  "contributionCount": 8,
+                  "contributionLevel": "FIRST_QUARTILE"
+                },
+                {
+                  "date": "2026-08-12",
+                  "contributionCount": 333,
+                  "contributionLevel": "FOURTH_QUARTILE"
+                },
+                {
+                  "date": "2026-08-13",
+                  "contributionCount": 53,
+                  "contributionLevel": "FIRST_QUARTILE"
+                },
+                {
+                  "date": "2026-08-14",
+                  "contributionCount": 29,
+                  "contributionLevel": "FIRST_QUARTILE"
+                },
+                {
+                  "date": "2026-08-15",
+                  "contributionCount": 12,
+                  "contributionLevel": "FIRST_QUARTILE"
+                }
               ]
             },
             {
               "contributionDays": [
-                { "date": "2026-08-16", "contributionCount": 26, "contributionLevel": "FIRST_QUARTILE" },
-                { "date": "2026-08-17", "contributionCount": 49, "contributionLevel": "FIRST_QUARTILE" },
+                {
+                  "date": "2026-08-16",
+                  "contributionCount": 26,
+                  "contributionLevel": "FIRST_QUARTILE"
+                },
+                {
+                  "date": "2026-08-17",
+                  "contributionCount": 49,
+                  "contributionLevel": "FIRST_QUARTILE"
+                },
                 { "date": "2026-08-18", "contributionCount": 0, "contributionLevel": "NONE" },
-                { "date": "2026-08-19", "contributionCount": 60, "contributionLevel": "FIRST_QUARTILE" },
-                { "date": "2026-08-20", "contributionCount": 68, "contributionLevel": "FIRST_QUARTILE" },
-                { "date": "2026-08-21", "contributionCount": 40, "contributionLevel": "FIRST_QUARTILE" },
-                { "date": "2026-08-22", "contributionCount": 28, "contributionLevel": "FIRST_QUARTILE" }
+                {
+                  "date": "2026-08-19",
+                  "contributionCount": 60,
+                  "contributionLevel": "FIRST_QUARTILE"
+                },
+                {
+                  "date": "2026-08-20",
+                  "contributionCount": 68,
+                  "contributionLevel": "FIRST_QUARTILE"
+                },
+                {
+                  "date": "2026-08-21",
+                  "contributionCount": 40,
+                  "contributionLevel": "FIRST_QUARTILE"
+                },
+                {
+                  "date": "2026-08-22",
+                  "contributionCount": 28,
+                  "contributionLevel": "FIRST_QUARTILE"
+                }
               ]
             },
             {
               "contributionDays": [
-                { "date": "2026-08-23", "contributionCount": 202, "contributionLevel": "THIRD_QUARTILE" },
+                {
+                  "date": "2026-08-23",
+                  "contributionCount": 202,
+                  "contributionLevel": "THIRD_QUARTILE"
+                },
                 { "date": "2026-08-24", "contributionCount": 0, "contributionLevel": "NONE" },
-                { "date": "2026-08-25", "contributionCount": 17, "contributionLevel": "FIRST_QUARTILE" },
-                { "date": "2026-08-26", "contributionCount": 78, "contributionLevel": "FIRST_QUARTILE" },
-                { "date": "2026-08-27", "contributionCount": 10, "contributionLevel": "FIRST_QUARTILE" },
-                { "date": "2026-08-28", "contributionCount": 3, "contributionLevel": "FIRST_QUARTILE" },
-                { "date": "2026-08-29", "contributionCount": 179, "contributionLevel": "SECOND_QUARTILE" }
+                {
+                  "date": "2026-08-25",
+                  "contributionCount": 17,
+                  "contributionLevel": "FIRST_QUARTILE"
+                },
+                {
+                  "date": "2026-08-26",
+                  "contributionCount": 78,
+                  "contributionLevel": "FIRST_QUARTILE"
+                },
+                {
+                  "date": "2026-08-27",
+                  "contributionCount": 10,
+                  "contributionLevel": "FIRST_QUARTILE"
+                },
+                {
+                  "date": "2026-08-28",
+                  "contributionCount": 3,
+                  "contributionLevel": "FIRST_QUARTILE"
+                },
+                {
+                  "date": "2026-08-29",
+                  "contributionCount": 179,
+                  "contributionLevel": "SECOND_QUARTILE"
+                }
               ]
             },
             {
               "contributionDays": [
                 { "date": "2026-08-30", "contributionCount": 0, "contributionLevel": "NONE" },
-                { "date": "2026-08-31", "contributionCount": 56, "contributionLevel": "FIRST_QUARTILE" },
-                { "date": "2026-09-01", "contributionCount": 45, "contributionLevel": "FIRST_QUARTILE" },
-                { "date": "2026-09-02", "contributionCount": 143, "contributionLevel": "SECOND_QUARTILE" },
-                { "date": "2026-09-03", "contributionCount": 380, "contributionLevel": "FOURTH_QUARTILE" },
-                { "date": "2026-09-04", "contributionCount": 28, "contributionLevel": "FIRST_QUARTILE" },
-                { "date": "2026-09-05", "contributionCount": 35, "contributionLevel": "FIRST_QUARTILE" }
+                {
+                  "date": "2026-08-31",
+                  "contributionCount": 56,
+                  "contributionLevel": "FIRST_QUARTILE"
+                },
+                {
+                  "date": "2026-09-01",
+                  "contributionCount": 45,
+                  "contributionLevel": "FIRST_QUARTILE"
+                },
+                {
+                  "date": "2026-09-02",
+                  "contributionCount": 143,
+                  "contributionLevel": "SECOND_QUARTILE"
+                },
+                {
+                  "date": "2026-09-03",
+                  "contributionCount": 380,
+                  "contributionLevel": "FOURTH_QUARTILE"
+                },
+                {
+                  "date": "2026-09-04",
+                  "contributionCount": 28,
+                  "contributionLevel": "FIRST_QUARTILE"
+                },
+                {
+                  "date": "2026-09-05",
+                  "contributionCount": 35,
+                  "contributionLevel": "FIRST_QUARTILE"
+                }
               ]
             },
             {
               "contributionDays": [
-                { "date": "2026-09-06", "contributionCount": 1, "contributionLevel": "FIRST_QUARTILE" },
+                {
+                  "date": "2026-09-06",
+                  "contributionCount": 1,
+                  "contributionLevel": "FIRST_QUARTILE"
+                },
                 { "date": "2026-09-07", "contributionCount": 0, "contributionLevel": "NONE" },
                 { "date": "2026-09-08", "contributionCount": 0, "contributionLevel": "NONE" },
-                { "date": "2026-09-09", "contributionCount": 2, "contributionLevel": "FIRST_QUARTILE" },
+                {
+                  "date": "2026-09-09",
+                  "contributionCount": 2,
+                  "contributionLevel": "FIRST_QUARTILE"
+                },
                 { "date": "2026-09-10", "contributionCount": 0, "contributionLevel": "NONE" },
                 { "date": "2026-09-11", "contributionCount": 0, "contributionLevel": "NONE" },
-                { "date": "2026-09-12", "contributionCount": 3, "contributionLevel": "FIRST_QUARTILE" }
+                {
+                  "date": "2026-09-12",
+                  "contributionCount": 3,
+                  "contributionLevel": "FIRST_QUARTILE"
+                }
               ]
             },
             {
@@ -1361,7 +1534,11 @@
                 { "date": "2026-09-14", "contributionCount": 0, "contributionLevel": "NONE" },
                 { "date": "2026-09-15", "contributionCount": 0, "contributionLevel": "NONE" },
                 { "date": "2026-09-16", "contributionCount": 0, "contributionLevel": "NONE" },
-                { "date": "2026-09-17", "contributionCount": 1, "contributionLevel": "FIRST_QUARTILE" },
+                {
+                  "date": "2026-09-17",
+                  "contributionCount": 1,
+                  "contributionLevel": "FIRST_QUARTILE"
+                },
                 { "date": "2026-09-18", "contributionCount": 0, "contributionLevel": "NONE" },
                 { "date": "2026-09-19", "contributionCount": 0, "contributionLevel": "NONE" }
               ]
@@ -1425,7 +1602,7 @@
           "name": "hyphened",
           "nameWithOwner": "tyler-mitchell/hyphened",
           "topics": ["webgpu", "animation", "webmcp"],
-          "description": "Direct a scene of animated actors by asking. Learned human motion on WebGPU, authored through WebMCP tools.",
+          "description": "🎬 Direct a scene of animated actors by asking. Learned human motion on WebGPU, authored through WebMCP tools.",
           "url": "https://github.com/tyler-mitchell/hyphened",
           "isPrivate": false,
           "stargazerCount": 0,
@@ -1456,7 +1633,7 @@
           "name": "infinite-canvas",
           "nameWithOwner": "tyler-mitchell/infinite-canvas",
           "topics": ["react", "user-experience", "webmcp"],
-          "description": "A headless infinite canvas framework for React. Bring your own components and styling; compose nested layouts with drag-and-resize editing, animated pan and zoom, undo/redo, and typed commands exposed to agents through WebMCP. Powers this portfolio.",
+          "description": "🖼️ A headless infinite canvas framework for React. Bring your own components and styling; compose nested layouts with drag-and-resize editing, animated pan and zoom, undo/redo, and typed commands exposed to agents through WebMCP. Powers this portfolio.",
           "url": "https://github.com/tyler-mitchell/infinite-canvas",
           "npmUrl": "https://www.npmjs.com/package/@hyphened/infinite-canvas",
           "isPrivate": false,
@@ -1469,6 +1646,25 @@
           "owner": {
             "login": "tyler-mitchell"
           }
+        }
+      },
+      "gitdrops-monorepo": {
+        "id": "gitdrops-monorepo",
+        "item": { "column": 12, "columnSpan": 12 },
+        "kind": "repository",
+        "title": "gitdrops-monorepo",
+        "isPinned": false,
+        "mode": "normal",
+        "heightMode": "content",
+        "capabilities": { "maximizable": false, "minimizable": false },
+        "rect": { "x": 606, "y": 1148, "width": 594, "height": 148 },
+        "data": {
+          "name": "gitdrops-monorepo",
+          "description": "💧 Discover, explore, and organize GitHub repositories. A full-stack research workspace with advanced search, rich project previews, saved searches, and local starred-repository collections.",
+          "url": "https://github.com/tyler-mitchell/gitdrops-monorepo",
+          "isPrivate": true,
+          "topics": ["react", "developer-tools", "user-experience"],
+          "owner": { "login": "tyler-mitchell" }
         }
       },
       "package-management": {
