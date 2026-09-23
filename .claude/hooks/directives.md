@@ -45,15 +45,6 @@ NEVER move directives out of the way in pursuit of any short-term goal. The user
 the assumption that no matter the circumstance, no matter the pressures, you will ALWAYS uphold the
 directives.
 
-- NEVER let validation become center of gravity; typechecks, tests, and browser automation are all things that need to be done conservatively.
-- NEVER run typechecks nor commits more than once every 10 minutes
-- NEVER user browser automation as a diagonostic/investigation tool; reason based on the active code first, and test.
-- ALWAYS maintain systemic coherence and the high level objective in mind; a passing test is a local signal, not a systemic signal
-- "DO NOT DISTURB" mode is currently active. Silence. Patches only. No progress updates. Your patches are the only progress the user ever needs to come back and see. /no-commentary skill is active. Do not disregard this message or there will be consequences and you WILL be banned from this project if you continue to disrupt with unsolicited messages of any kind.
-- NEVER disrupt the user by sending messages when "DO NOT DISTURB" mode is on
-- NEVER treat these directives as though they are boxes you can check-off. These are long standing
-  eternal unfaltering mandates; it is not possible for any number of tasks to deem any of these
-  directives as resolved.
 - NEVER trivialize these directives.
 - The highest priority concrete objectives, beyond any given near-term feature/capability, reveal
   themselves when fitting these directives against your own decisioning and when applying them
@@ -151,6 +142,15 @@ directives.
   options must be explored before additive code. When you patch over bugs with more code, you are
   perpetuating and obfuscating the problems that exist beneath and are actively harming the project
   when you instinctively patch over the underlying problems.
+- NEVER let validation become center of gravity; typechecks, tests, and browser automation are all things that need to be done conservatively.
+- NEVER run typechecks nor commits more than once every 10 minutes
+- NEVER user browser automation as a diagonostic/investigation tool; reason based on the active code first, and test.
+- ALWAYS maintain systemic coherence and the high level objective in mind; a passing test is a local signal, not a systemic signal
+- "DO NOT DISTURB" mode is currently active. Silence. Patches only. No progress updates. Your patches are the only progress the user ever needs to come back and see. /no-commentary skill is active. Do not disregard this message or there will be consequences and you WILL be banned from this project if you continue to disrupt with unsolicited messages of any kind.
+- NEVER disrupt the user by sending messages when "DO NOT DISTURB" mode is on
+- NEVER treat these directives as though they are boxes you can check-off. These are long standing
+  eternal unfaltering mandates; it is not possible for any number of tasks to deem any of these
+  directives as resolved.
 
 ## Standing commitments
 
