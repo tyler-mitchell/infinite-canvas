@@ -146,6 +146,19 @@ the toolbar's own height, which the consumer styles and the framework does not k
 either a measured height in the consumer or a `data-` signal on the portal box saying how much room
 is above. Neither is threaded today. Reachable by panning, so it is polish rather than a
 correctness defect.
+
+2026-09-21: the host owns this. CSS anchor positioning (`position-area`, `position-try-fallbacks:
+flip-block`, `anchor-center` shift) flips and shifts with no measured height. It needs the usable
+area as the containing block, with the anchor box before the toolbar inside it. Both earlier
+options above are withdrawn. Mechanism and sources: `docs/internal/handoffs/2026-09-21/gaps.md`
+G2.
+
+Built 2026-09-21. `CanvasPortal` takes `side` and `sideOffset`. The anchor is the part of the
+subject inside the usable viewport. Fallbacks: the opposite side, then inside the subject. The
+positioner remounts for a new subject. `next/react/portal.browser.test.tsx` drives it in headless
+Chromium: above, flip at the top edge, flip at an inset, a new subject starts above again, shift
+at the left edge, inside when neither side fits, hidden when the subject is off screen. It failed
+before the change. The toolbar passes `side="top" sideOffset={12}`. Not seen on screen.
 D8. [ ] **The board's reading width is a tablet-ish measure, not the full desktop viewport.** Deferred
 by the owner on 2026-09-19, to be taken up later: on a desktop screen the main portfolio container
 should read at roughly the width of a tablet screen rather than stretching the full window. The
@@ -512,46 +525,6 @@ Checked and found NOT to be defects, recorded so nobody re-opens them:
   is more code and more concepts than `new Float32Array(count * 4)`, for a gain nobody has measured.
   The arrays are sized to the live window count, typically a handful.
 
-## Reading order has two owners
-
-Found 2026-09-20 by driving the board. `CanvasReadingOrder`'s reorder buttons render, enable
-correctly, and change nothing.
-
-`canvas-reading-order.tsx` calls `moveChild`, which changes a window's index among its siblings.
-`getRoute` never reads that index; it sorts rects by main then cross position. Every board window
-carries explicit grid placement, so the grid holds each one at its authored row and column whatever
-the child index is. `canRun` returns true because the move itself is legal, which is why the button
-looks live.
-
-Child order and explicit placement both claim to say where a window sits. The route listens only to
-geometry. Pick one owner; do not adapt between them and do not add an order field for `getRoute` to
-consult, which would be a third.
-
-Two shapes:
-
-- Geometry owns. "Move earlier" swaps the window's main-axis placement with its neighbour in the
-  route. `getRoute` is unchanged. Placement stays the single source of position.
-- The tree owns. Placement is derived from child order when a window has no explicit row, and an
-  explicit row overrides. `getRoute` then reads a layout that already reflects child order.
-
-Done when an author reorders a window from the panel on `/board` and the reading route follows.
-
-### Closed 2026-09-20 — geometry owns, and the pin is released
-
-Neither shape as written. `moveChild` was replaced by `moveSection`, which steps in the route rather
-than among siblings: it finds the neighbouring section in `computed.route` and inserts next to it,
-so a step never lands on a sibling that is not a section. That was the first defect — on the board a
-step crossed an icon-square and the order did not move.
-
-Geometry still owns, and the pin is what yields to it. A layout declares which item properties place
-an item outside the flow (`Layout.pins`: grid declares `column` and `row`, lanes declares `column`),
-and `moveSection` clears them on the window it moves. Asking for a place in the flow withdraws an
-authored position, which is the rule Figma uses when an absolute item is dragged back into an auto
-layout. No order field was added and nothing adapts between the two.
-
-VERIFIED on screen by the manager: the panel and the canvas badges both reorder, and read mode
-follows.
-
 ## Edit mode reserves no space for the palette
 
 Found 2026-09-20 by reading `portfolio/board.tsx` against the running board.
@@ -837,17 +810,10 @@ select something, not a set of live controls over nothing. A toggle that cannot 
 worse than a disabled one, because it invites the click and then teaches the author that the panel
 lies.
 
-NO HIERARCHY BETWEEN GROUPS. The panel stacks the inspector, Route, Reading order and Set snapping
-with identical heading weight, colour and spacing, so four unrelated concerns read as peers and the
-whole column scans as a wall. The reference patterns both solve this the same way: one level of
-section separation, and secondary text that recedes instead of competing with its own label.
-
-Two smaller defects in the same frame:
-
-- Reading order shows `icon-square` twice as a raw identifier where every other row carries a human
-  title. An author never named that; it is an internal kind leaking into an authoring surface.
-- The numbering runs 1, 2, 3, then two unnumbered rows, then 4, 5. The skip is correct — those
-  windows are outside the route — but nothing on the row explains it, so it reads as a bug.
+NO HIERARCHY BETWEEN GROUPS. The panel stacks the inspector, Route and Set snapping with identical
+heading weight, colour and spacing, so unrelated concerns read as peers and the whole column scans
+as a wall. The reference patterns both solve this the same way: one level of section separation,
+and secondary text that recedes instead of competing with its own label.
 
 CAUSE OF THE EMPTY STATE, and it is the same bug class as the board outage fixed earlier tonight.
 `canvas-inspector.tsx:21`:
@@ -884,224 +850,17 @@ conventions: never compare a Legend observable for identity without unwrapping i
 Done when an author opens the panel with nothing selected and is told what to do, and when the four
 groups are visually ranked rather than stacked.
 
-## Presentation mode centres on one section, not the route
+2026-09-21: the guard tests `chosen.length`, so the inspector draws nothing with an empty
+selection. A DOM test in `interaction.dom.test.tsx` failed before the change and passes after it.
+The empty-state message and the ranking of the four groups are still open. Not seen on screen.
 
-Root cause measured 2026-09-20 at a verified 1440x900, read mode, scroll 0, two settled samples.
-Read the world transform directly rather than inferring from screen positions:
+## Reading after the viewport changes size
 
-    zoom 1 (capped by maxZoom, correct)      world translateX 569
-    content in world      x 1 to 1243        width 1242   centre 622
-    camera centre in world                                        151
-    content on screen     570 to 1812        centred would be 99 to 1341
-
-The camera's cross-axis centre is world x 151. The first card, "Sample project progress", occupies
-world x 1 to 301 — centroid exactly 151. So the camera is centring on ONE SECTION'S RECT, not on
-the union of the route. That is the whole 471px displacement.
-
-Two earlier theories are dead, both killed by measurement rather than argument:
-
-- Stale persisted camera: the displacement survives `board.v6` being deleted and a fresh document.
-- `bounds` excluding non-section windows: the two icon-square windows sit at screen 883 to 1080,
-  INSIDE the card span 570 to 1812. Including or excluding them gives identical bounds and an
-  identical centre, so exclusion cannot displace anything.
-
-Traced by reading, which narrows it further. `scroll.tsx:82` builds the track from
-`canvas.computed.route.get()`. Every camera write goes through `track.at()` — the settled and
-preview writes at line 95, the placement pose at 110, and the `navigateCamera` target at 124 — and
-`at()` returns the single `cross` constant from `route.ts:103`. Nothing recomputes cross per
-section, so the per-section theory is out too.
-
-That leaves one candidate: `unionRects` over `computed.route`'s section rects spans world 1 to 301,
-not 1 to 1243. The route's sections do not cover the content's width. Since `getRoute` recurses
-into children and returns leaves, the question is which windows become leaves — the cards that sit
-right of world 301 are rendered but are evidently not contributing their rects to the union.
-
-Insets are eliminated too, measured rather than assumed. For the `(crossStart - crossEnd) / 2`
-term to produce a 471px shift it would need `insets.left - insets.right` near 942. The only
-full-height elements over the viewport are on the RIGHT — the rail band at screen x 1394 to 1440,
-and the scroll-area scrollbar at 1435 to 1439. `canvas-portal` spans both axes, which
-`insetsOfOccluder` returns `{}` for. So insets are about `{left: 0, right: 46}`, and that term
-moves content LEFT by roughly 23px, the opposite direction and twenty times too small.
-
-Four candidates are now dead by measurement: stale persisted camera, non-section windows excluded
-from bounds, a per-section cross recomputed downstream, and viewport insets.
-
-The bounds are almost certainly FINE. `portfolio/document.json` settles it — every window rect in
-the document:
-
-    main 0,1200   profile 0,594    project 606,1200   welcome 0,594   activity 606,1200
-    checklist 0,392   progress 404,796   typescript 808,998   react 1010,1200
-
-Any sensible union has centroid 600. The container `main` alone is `{x: 0, width: 1200}`, centroid
-600. The eight leaves union to 0 to 1200, centroid 600. There is no subset that gives a centroid
-near the 128 the naive arithmetic implied, and no 256-wide rect anywhere, so "the route carries
-default rects" is dead too.
-
-Run the cross formula the other way, holding centroid at its correct 600:
-
-    cross = 600 - (crossStart - crossEnd) / 2 = 151
-    therefore crossStart - crossEnd  ~ 898
-
-The INSET TERM is wrong by about 898, not the bounds. That is the suspect. `insets.left` minus
-`insets.right` should be near -46 given the rail on the right; it is behaving as though something
-occludes roughly 900px on the LEFT. Nothing full-height renders there, so this is state, not
-layout: `state.input.viewportOccluders` is likely holding a rect that no longer reflects what is
-on screen — plausibly a stale registration from edit mode, or a wrong rect from the newly added
-`useCanvasOccluder` in `board.tsx`.
-
-Check `computed.viewportInsets` at runtime in read mode. If left is near 900, that is the defect,
-and it sits in occluder registration rather than anywhere in `route.ts`.
-
-One lead, unconfirmed, worth a single look before anything else: the implied 898 is within 2 of
-the viewport HEIGHT, which was 900 in this measurement. A horizontal inset carrying a vertical
-measurement is what an axis mix-up looks like. `insetsOnAxis` in `route.ts:65` reads correctly, so
-if this is real it is upstream — in what `useCanvasOccluder` registers, or in `insetsOfOccluder`,
-which picks `left`/`right` versus `top`/`bottom` from whether a rect spans width or height. Test
-it by measuring at a viewport whose width and height differ from 1440x900 by different amounts: if
-the displacement tracks the height rather than the width, the mix-up is confirmed.
-
-The fix must leave mobile unchanged: at 375 the content fits with no overflow, so this is
-desktop-only, and 375 is the control case.
-
-MOVING, 2026-09-20, later the same session. Re-measured at the same verified 1440x900 in read mode
-after the board was restored:
-
-    earlier   span 570 to 1812   width 1242   overflow right 372
-    later     span 570 to 2008   width 1438   overflow right 568
-
-The left dead band is identical at 570 while the right overflow grew by 196. So the camera centre
-did not move; the content got wider and the extra width went off the right edge. That is consistent
-with the cross centre being pinned to something fixed near world 151 while the content extent
-changes underneath it — and it rules out any explanation where the displacement is proportional to
-content width, since a proportional error would have moved the left edge too.
-
-Whoever fixes this should measure both numbers, not just the overflow. A fix that recentres will
-move the left edge off 570; a fix that only narrows the content will not.
-
-LIKELY CAUSE, from that constant. A left edge pinned at 570 across two content widths means
-`translateX` is pinned near 569, so the camera centre is frozen at world 151 rather than
-recomputed. `scroll.tsx:130` is the candidate:
-
-    const shape = track === null ? ""
-      : `${track.length}/${track.sections.map((placed) => `${placed.id}@${placed.offset}`).join()}`;
-
-`shape` is the dependency of the effect that calls `place()`, and it carries ONLY `length` and the
-per-section offsets. Not `zoom`, not `cross`. Both of those change when the content's cross-axis
-extent changes, and neither is observed. So a layout settling wider moves `cross` without moving
-any section's offset along the scroll axis, `shape` is unchanged, the effect does not re-run, and
-the camera keeps the cross it was handed before the layout settled.
-
-That also explains the original displacement on a fresh load, which no earlier theory did: the
-first `place()` runs against an early, narrow track, and nothing re-places it once the real widths
-arrive. One mechanism, both observations.
-
-REFUTED the same session, by experiment rather than argument. `scroll.tsx:143` forces `place()`
-whenever `attached` toggles, so Exit then Present re-runs it unconditionally. Measured across that
-toggle at a verified 1440x900:
-
-    before toggle   translateX 569   span 570 to 2008
-    in edit mode    translateX 471
-    after toggle    translateX 569   span 570 to 1962   (two settled samples)
-
-`place()` demonstrably ran — the camera moved to 471 in edit and back — and it recomputed the SAME
-wrong cross. So the value is not stale, it is wrong when freshly computed. The stale-`shape` story
-is dead and the fix is NOT in the effect dependency.
-
-That returns the fault to how `cross` is computed at `route.ts:103` and to what it is given.
-
-The "edit mode is the working reference" idea is withdrawn — measured, edit is off-centre too:
-
-    EDIT   left 472   translateX 471   width 1242   centred left would be  99
-    READ   left 570   translateX 569   width 1392   centred left would be  24
-
-Edit has no centring contract though, since the camera is free to pan there, so its offset is not a
-defect and not a reference. Only read claims to centre.
-
-THE ORIGINAL HYPOTHESIS IS BACK, and it is now the best supported. Across every read-mode
-measurement tonight the camera centre sat at world 151 while the content centroid moved:
-
-    content world 1 to 1243   centroid 622   camera 151   error 471
-    content world 1 to 1393   centroid 697   camera 151   error 546
-
-The camera centre does not move at all; the error is exactly `centroid - 151`. And 151 is the
-centroid of the FIRST card, which occupies world 1 to 301.
-
-I dismissed this earlier on bad grounds. That test only showed the two icon-square windows sit
-inside the card span and so do not change the union — it never tested whether the union is the
-first card alone. It is consistent with `unionRects` receiving a single-element list, or with the
-route's sections all carrying the first card's rect.
-
-Check what `getCameraTrack` actually receives for `sections` in read mode, and the length of the
-list `unionRects` is called with at `route.ts:85`. A list of one is the prediction.
-
-`unionRects` ITSELF IS NOT THE BUG — read and cleared. `packages/math/src/rect.ts:613` reduces
-from `rects[0]` and unions each in turn, and `unionRect` at 600 builds two `geomRect`s, takes their
-`union`, and unpacks `pos`/`size`. Both read correctly.
-
-Worth one test anyway, because the read surfaced a migration seam: `unionRect` no longer does the
-min/max arithmetic itself, it delegates to thi.ng's `union` over `geomRect`. `packages/math` is the
-package under the `@hyphened/math` migration. A union whose far edge is off by one rect — or whose
-`size` is a corner rather than an extent — would produce exactly the observed symptom, a bounds
-that tracks the first rect. That is a two-line unit test in `packages/math`, not a browser
-question: union three known rects, assert the result spans all three.
-
-If that passes, `unionRects` is exonerated and the fault is in what `route.ts:85` passes it, which
-returns to checking `computed.route`'s rects at runtime.
-
-THE SINGLE-SECTION PREDICTION IS WRONG. Counted from the rail in read mode: the route has FIVE
-sections — progress, profile, note, project, sparkline — and the scroll range is 5x the viewport
-(4500 over 900). So `route.ts:85` receives five rects, not one.
-
-Five correct rects through a correct `unionRects` cannot yield the first card's centroid. Since
-`unionRects` is cleared by reading, the rects themselves must be wrong: `computed.route`'s sections
-carry rects that are not the ones those windows render at.
-
-That also resolves why the scroll is right while the centre is wrong, which had been the awkward
-part of every theory so far. Stops are computed as `section.rect[mainPosition] - bounds[mainPosition]`
-— a DIFFERENCE, which survives any uniform offset applied to every rect. An absolute centroid does
-not. So a route whose rects are all shifted, or all taken from a pre-layout pass, produces exactly
-what is measured: correct stop spacing, correct scroll length, wrong cross centre.
-
-Next step is now unambiguous and needs the state, not the DOM: compare `computed.route`'s rects
-against `computed.windowRect` for the same five ids. The prediction is that they differ by a
-constant offset, or that route's are the pre-layout values.
-
-Content width is still moving under the in-flight refactor (1812, then 2008, then 1962) while the
-left edge holds at exactly 570 throughout. Whatever sets that 570 does not depend on content.
-
-Measured on the running board at a verified 1440x900 viewport, read mode, scroll position 0, with
-`board.v6` removed so no camera was restored:
-
-    content span   570 to 1812   width 1242   viewport 1440
-    dead band left   570
-    overflow right   372
-
-Three cards are cut off the right edge and there is no horizontal scroll to reach them. Centred, a
-1242-wide block would sit at 99. The cross-axis centre is displaced about 471px. The fit also runs
-small — 1242 where about 1384 is available after the 56px right inset — but that is the minor half.
-
-The displacement survives a wiped document, so it is the track and not persistence. It scales with
-content: with the saved document the span was 528 to 1966. That points at the bounds or centroid
-term rather than a constant offset. `route.ts:103` is the only line that sets the cross centre, and
-its inset correction is about 28px, so the arithmetic alone does not explain it. One untested
-candidate: `bounds` is `unionRects` over sections only, and two icon-square windows sit outside the
-route while still rendering, so the camera may centre on a narrower union than what is drawn.
-
-One fit-width zoom for the whole route is the adopted design and is not in question here.
-
-### Superseded 2026-09-20
-
-That last line stopped being true the same day. The owner drove read mode and rejected it: the scene
-filled the top-left of the viewport, scrolling panned raw world with nothing settling, and the cards
-were too small to read. One zoom for the whole route was the cause, not a constant to work around.
-
-`getCameraTrack` now frames each section on its own — `getCameraDestination` fits the section rect
-into the usable inset box, honouring padding and `maxZoom` — and interpolates position and log zoom
-between two stops. There is no single cross centre any more, so `route.ts:103` and the arithmetic
-above no longer exist. The untested candidate in this entry, that `bounds` unions only sections
-while non-sections still render, is moot for the same reason: nothing unions the route now.
-
-NOT seen on screen.
+Seen once 2026-09-22 in headless Chrome. The page changed from 1280 x 720 to 375 x 812 while it
+showed a later stop, and then the hash changed to the first stop. The camera sat about one card
+away from the stop that the rail marked, and a card went under the controls. A fresh load at
+375 x 812 is correct. No test reproduces it yet. The test to write is a resize while the scroll
+offset is past the first stop.
 
 ## Interaction experiments
 
@@ -1121,7 +880,6 @@ beyond a window therefore never appears:
     setWindowLayout     layout required
     setWindowItem       item required
     reorderChild        container, child and index required
-    moveSection         by required
     setPresentation     narrow wants an axis or a maximum zoom
     setSnapping         narrow wants one setting
     setCameraLimits     narrow wants one limit
@@ -1145,3 +903,18 @@ selection. A command that satisfies neither cannot be classified that way, and t
 by scope, so `setPresentation` would land under SELECTION next to `setWindowSizeMode`. Either the
 command declares its own scope, or the classification stops being derived. The selection toolbar
 filters on scope too and must keep excluding anything that still needs input.
+
+### Closed 2026-09-20 — the command declares its scope
+
+Taken: a command may declare `scope`, the way it already declares `surface`, and the derivation
+stays as the default for everything that does not. The eight above declare theirs.
+`getRunnableCommands` keeps every command now and marks it `ready`, carrying `schema`, `canRun` and
+`runWith` so a caller can ask for the rest and validate before running. The selection toolbar
+filters on `ready`.
+
+The launcher swaps its list for a `SchemaForm` over `command.schema` when a chosen command is not
+ready, seeded with whatever the selection could supply, with Run disabled until
+`command.canRun(values)` passes — so the action's own narrow decides when the form is complete and
+nothing is hand-written per command.
+
+NOT seen on screen. The check is opening the launcher, choosing Set snapping, and getting a form.

@@ -15,6 +15,7 @@ The `reference/` directory is local and is not part of a clone. See
 
 ## Documents
 
+- [React 19.3 reference](research/react-19.3.md) records the official API contracts.
 - [API.md](API.md) documents the public barrels.
 - [SHIP_PLAN.md](SHIP_PLAN.md) lists blockers for production and public use.
 - [ROADMAP.md](ROADMAP.md) defines programs P1 through P8, their dependencies, and their exit criteria.
