@@ -4,7 +4,7 @@ import {
   getMinimapLayout,
   getMinimapWorldPoint,
   getOffscreenIndicators,
-} from "./overview";
+} from "@hyphened/math/cpu";
 import { createCanvasState } from "./state";
 
 const viewport = { x: 0, y: 0, width: 400, height: 200 };
@@ -19,7 +19,7 @@ test("the minimap keeps one scale, contains the viewport, and maps points back t
   expect(layout.scale).toBe(0.125);
   expect(layout.viewport).toEqual({ x: 0, y: 37.5, width: 50, height: 25 });
   expect(layout.items.a).toEqual({ x: 50, y: 37.5, width: 50, height: 25 });
-  expect(getMinimapWorldPoint({ layout, size, point: { x: 75, y: 50 } })).toEqual({
+  expect(getMinimapWorldPoint({ layout, point: { x: 75, y: 50 } })).toEqual({
     x: 600,
     y: 100,
   });
@@ -54,7 +54,7 @@ test("content rectangles list root windows without their children or viewport oc
   const canvas = createCanvasState({
     windowDefinitions: { note: {} },
     viewport: { width: 800, height: 600 },
-    viewportOccluders: [{ x: 0, y: 0, width: 50, height: 50 }],
+    viewportOccluders: { hud: { x: 0, y: 0, width: 50, height: 50 } },
     document: {
       content: {
         windows: { a: { kind: "note", title: "A", rect }, b: { kind: "note", title: "B", rect } },
@@ -67,7 +67,7 @@ test("content rectangles list root windows without their children or viewport oc
     "window:g",
   ]);
   expect(Object.keys(canvas.computed.occupiedRects.peek()).toSorted()).toEqual([
-    "occluder:0",
+    "occluder:hud",
     "window:a",
     "window:g",
   ]);

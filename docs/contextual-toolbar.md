@@ -50,17 +50,22 @@ A panel may open a second panel; the second anchors to the first tool, not to th
 
 ## Anchoring
 
-| Rule            | Value                                                    |
-| --------------- | -------------------------------------------------------- |
-| anchor          | union of the selected windows' rects, in the world layer |
-| side            | `top`, flip to `bottom` on collision                     |
-| align           | `center`                                                 |
-| offset          | fixed gap above the selection bounds                     |
-| tracking        | anchor is a real element, so pan and zoom move it        |
-| empty selection | toolbar unmounted                                        |
+| Rule            | Value                                                                    |
+| --------------- | ------------------------------------------------------------------------ |
+| anchor          | the part of the selection bounds inside the usable viewport, on screen   |
+| boundary        | the usable viewport: the viewport less `viewportInsets`                  |
+| side            | `top`. Flips to `bottom`. Inside the top of the selection when neither fits. |
+| align           | `center`, shifted to stay inside the boundary                           |
+| offset          | `sideOffset`, 12 px for the toolbar                                      |
+| tracking        | the portal recomputes the anchor on every camera change                  |
+| empty selection | toolbar unmounted                                                        |
+| selection outside the boundary | toolbar not drawn                                         |
 
-Placement, flipping and collision come from the positioner. The framework supplies the anchor
-element; the toolbar takes it as a prop and knows nothing else about the canvas.
+`CanvasPortal scope="selection" side="top"` places the toolbar with CSS anchor positioning
+(`position-area`, `position-try-fallbacks`). The browser does the flip and the shift, so no size
+is measured. After a flip the toolbar keeps the flipped side until that side overflows (the last
+successful position option of CSS Anchor Positioning 1). A new selection starts again from `top`.
+The toolbar passes `side` and `sideOffset` and knows nothing else about the canvas.
 
 ## Item states
 

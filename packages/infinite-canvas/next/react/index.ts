@@ -1,4 +1,6 @@
-export { CanvasViewport, CanvasTools, WindowDragHandle } from "./viewport";
+export { CanvasViewport, CanvasTools, WindowDragHandle, useCanvasOccluder } from "./viewport";
+export { CanvasScroll, useCanvasScroll } from "./scroll";
+export { Sections } from "./sections";
 export type { ChildLabel, ControlRenderer } from "./controls";
 export { Palette } from "./commands";
 export { CanvasPortal } from "./context";

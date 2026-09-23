@@ -1,5 +1,6 @@
 import { expect, test } from "vite-plus/test";
-import { getCameraTrack, getRoute } from "./route";
+import { getCameraTrack } from "@hyphened/math/cpu";
+import { getRoute } from "./route";
 
 const insets = { top: 0, right: 0, bottom: 0, left: 0 };
 const limits = { minZoom: 0.1, maxZoom: 4, padding: 0 };
@@ -70,7 +71,6 @@ test("the track fits the route's width once and is long enough to reach every se
     { id: "a", offset: 0 },
     { id: "b", offset: 200 },
   ]);
-  expect(track!.stops).toEqual([0, 200]);
   expect(track!.at(0)).toEqual({ zoom: 0.5, center: { x: 500, y: 350 } });
   expect(track!.at(200)).toEqual({ zoom: 0.5, center: { x: 500, y: 750 } });
   expect(track!.at(999).center.y).toBe(750);
@@ -100,7 +100,7 @@ test("a horizontal track is the same track transposed: it fits the height and pa
   expect(track!.offsetAt(track!.at(200))).toBe(200);
 });
 
-test("a route that fits the viewport has no length and snaps at zero; insets shift the frame", () => {
+test("a route that fits the viewport has no length; insets shift the frame", () => {
   const track = getCameraTrack({
     sections: [{ id: "a", rect: { x: 0, y: 0, width: 200, height: 100 } }],
     viewport: { width: 400, height: 300 },
@@ -116,7 +116,7 @@ test("a route that fits the viewport has no length and snaps at zero; insets shi
   ).toBeNull();
 });
 
-test("sections that share a row keep their own entries and share one scroll stop", () => {
+test("sections that share a row keep their own entries and share one offset", () => {
   const track = getCameraTrack({
     sections: [
       { id: "left", rect: { x: 0, y: 0, width: 200, height: 100 } },
@@ -133,5 +133,4 @@ test("sections that share a row keep their own entries and share one scroll stop
     { id: "right", offset: 0 },
     { id: "below", offset: 100 },
   ]);
-  expect(track!.stops).toEqual([0, 100]);
 });

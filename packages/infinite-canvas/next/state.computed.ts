@@ -1,13 +1,16 @@
 import { fromEntries } from "@ark/util";
 import { linked } from "@legendapp/state";
-import { type } from "arktype";
 import { compareByKey } from "@thi.ng/compare";
 import {
   areaOfRect,
   clamp,
+  combineInsets,
+  getCameraTrack,
   containsPoint,
   intersectsRect,
+  insetsOfOccluder,
   outsetRectBy,
+  panCamera,
   rectFromCorners,
   rectWithCentroid,
   resizeRect,
@@ -17,13 +20,14 @@ import {
   visibleWorldRect,
   type Rect,
   type Size,
+  type SizeConstraints,
+  type Insets,
 } from "@hyphened/math/cpu";
 import type { WindowState } from "./document.types";
 import type { WindowDefinition } from "./state.types";
 import { getDockArrangement, type DockDrop } from "./layout/dock";
-import type { SizeLimits } from "./layout/arrange";
 import { getSelection, type SelectionTarget, type TargetKey } from "./selection";
-import { arrangeWindows, getLimitedSizes, getWindowSize } from "./layout/arrange";
+import { arrangeWindows, getWindowSize } from "./layout/arrange";
 import type { Operation } from "./layout/kinds";
 import {
   getDescendants,
@@ -34,7 +38,6 @@ import {
   type Tree,
   type TreeChange,
 } from "./layout/tree";
-import { combineInsets, insetsOfOccluder, type ViewportInsets } from "./camera";
 import { getRoute, type Section } from "./route";
 import { containerDefinition } from "./state.schema";
 import type { stateModel } from "./state";
@@ -66,7 +69,7 @@ export function getOwnSize({
   window: WindowState | undefined;
   definition: Pick<WindowDefinition, "minSize" | "maxSize" | "size" | "aspectRatio">;
   measured: Size | undefined;
-}): SizeLimits {
+}): SizeConstraints {
   if (window === undefined)
     return {
       min: { width: 0, height: 0 },
@@ -92,19 +95,36 @@ export function getOwnSize({
   };
 }
 
+export function getRootRect({
+  rect,
+  widthMode,
+  dragged,
+  viewportWidth,
+  maxWidth,
+}: {
+  rect: Rect;
+  widthMode: WindowState["widthMode"];
+  dragged: Rect | undefined;
+  viewportWidth: number;
+  maxWidth: number;
+}): Rect {
+  if (dragged !== undefined) return dragged;
+  return widthMode === "viewport" ? { ...rect, width: Math.min(viewportWidth, maxWidth) } : rect;
+}
+
 export type { DockDrop };
 
 export const withComputed = (model: typeof stateModel) =>
   model
     .computed(({ state }) => ({
-      viewportInsets: (): ViewportInsets => {
+      viewportInsets: (): Insets => {
         const viewport = state.input.viewport.get();
-        return combineInsets(
-          Object.values(state.input.viewportOccluders.get()).map((rect) =>
+        return combineInsets({
+          parts: Object.values(state.input.viewportOccluders.get()).map((rect) =>
             insetsOfOccluder({ rect, viewport }),
           ),
-          state.input.viewportInsets.get(),
-        );
+          base: state.input.viewportInsets.get(),
+        });
       },
       windows: () => Object.values(state.document.content.windows),
       documentTree: (): Tree =>
@@ -192,20 +212,20 @@ export const withComputed = (model: typeof stateModel) =>
       },
       camera: () => {
         const pan = state.session.pan.get();
-        const pointer = state.input.pointer.get();
+        const pointer = pan === null ? null : state.input.pointer.get();
         if (pan === null || pointer?.pointerId !== pan.pointerId) {
           const motion = state.session.camera.get();
           return motion !== null && motion.workspaceId === state.document.activeWorkspaceId.get()
             ? motion.camera
             : computed.view.camera.get();
         }
-        return {
-          zoom: pan.camera.zoom,
-          center: {
-            x: pan.camera.center.x - (pointer.point.x - pan.point.x) / pan.camera.zoom,
-            y: pan.camera.center.y - (pointer.point.y - pan.point.y) / pan.camera.zoom,
+        return panCamera({
+          camera: pan.camera,
+          screenDelta: {
+            x: pan.point.x - pointer.point.x,
+            y: pan.point.y - pointer.point.y,
           },
-        };
+        });
       },
       activeWindow: linked({
         get: () => {
@@ -360,28 +380,30 @@ export const withComputed = (model: typeof stateModel) =>
       },
       minSize: (windowId: string) => {
         const { windows, limits } = computed.subtree[computed.windowRoot[windowId].get()].get();
-        return getWindowSize({
+        const size = getWindowSize({
           id: windowId,
           nodes: windows,
           layouts: configuration.layouts,
-          sizes: getLimitedSizes({
+          limits: {
             ...limits,
             [windowId]: limits[windowId] ?? computed.ownSize[windowId].get(),
-          }),
-        })({ width: 0, height: 0 });
+          },
+        });
+        const least = size({ width: 0, height: 0 });
+        return { width: least.width, height: Math.min(least.height, size({ height: 0 }).height) };
       },
     }))
     .computed(({ state, computed }) => ({
       dragAlignment: linked({
         get: () => {
           const startPoint = state.session.drag.startPoint.get();
-          const point = computed.pointerWorld.get();
           if (
             startPoint == null ||
-            point === null ||
             state.input.pointer.pointerId.get() !== state.session.drag.pointerId.get()
           )
             return null;
+          const point = computed.pointerWorld.get();
+          if (point === null) return null;
           const delta = { x: point.x - startPoint.x, y: point.y - startPoint.y };
           const drag = state.session.drag.get();
           const snapping = state.config.snapping.get();
@@ -404,8 +426,9 @@ export const withComputed = (model: typeof stateModel) =>
       marqueeRect: linked({
         get: () => {
           const marquee = state.session.marquee.get();
+          if (marquee === null) return null;
           const point = computed.pointerWorld.get();
-          if (marquee === null || point === null) return null;
+          if (point === null) return null;
           return rectFromCorners(marquee.startPoint, point);
         },
         initial: null,
@@ -445,12 +468,14 @@ export const withComputed = (model: typeof stateModel) =>
     .computed(({ state, computed }) => ({
       rootRect: (rootId: string) => {
         const source = computed.rectSource[rootId].get();
-        const rect =
-          computed.dragRect[source].get() ?? state.document.content.windows[source].rect.get();
-        return rect === undefined ||
-          state.document.content.windows[source].widthMode.get() !== "viewport"
-          ? rect
-          : { ...rect, width: computed.viewportWidth.get() };
+        const window = state.document.content.windows[source];
+        return getRootRect({
+          rect: window.rect.get(),
+          widthMode: window.widthMode.get(),
+          dragged: computed.dragRect[source].get(),
+          viewportWidth: computed.viewportWidth.get(),
+          maxWidth: computed.ownSize[source].max.width.get(),
+        });
       },
       operations: (rootId: string): Record<string, Operation> => {
         const drag = state.session.drag.get();
@@ -504,7 +529,7 @@ export const withComputed = (model: typeof stateModel) =>
           rect,
           nodes: windows,
           layouts: configuration.layouts,
-          sizes: getLimitedSizes(limits),
+          limits,
           active: computed.view.activeChildren.get(),
           operations: computed.operations[rootId].get(),
         });
@@ -534,13 +559,13 @@ export const withComputed = (model: typeof stateModel) =>
               };
             }
             const drag = computed.windowDrag.get();
-            const point = computed.pointerWorld.get();
             if (
               drag?.kind !== "move" ||
-              point === null ||
               Object.keys(drag.startRects).length !== 1
             )
               return null;
+            const point = computed.pointerWorld.get();
+            if (point === null) return null;
             const window = drag.target;
             if (computed.previewParents[window].get() !== undefined) return null;
             const rect = computed.dragRect[window].get();
@@ -637,8 +662,9 @@ export const withComputed = (model: typeof stateModel) =>
       tabDragInside: linked({
         get: () => {
           const drag = state.session.tabDrag.get();
+          if (drag === null) return null;
           const point = computed.pointerWorld.get();
-          if (drag === null || point === null) return null;
+          if (point === null) return null;
           const strip = computed.arrangement[computed.windowRoot[drag.container].get()].controls[
             drag.container
           ]
@@ -666,22 +692,12 @@ export const withComputed = (model: typeof stateModel) =>
             : undefined;
         const container = computed.baseTree.windows[windowId].layout.get() !== undefined;
         const dragged = computed.dragRect[windowId].get();
-        if (dragged !== undefined && !container) return dragged;
-        if (docking !== undefined && dragged === undefined) return docking;
+        if (docking !== undefined) return docking;
         if (root !== windowId || container || computed.rectSource[windowId].get() !== windowId)
           return computed.arrangement[root].rects[windowId].get() ?? dragged ?? saved;
-        if (saved === undefined) return undefined;
-        const placed = computed.detachedRects[windowId].get() ?? saved;
-        const source =
-          window.widthMode.get() === "viewport"
-            ? {
-                ...placed,
-                width: Math.min(
-                  computed.viewportWidth.get(),
-                  computed.ownSize[windowId].max.width.get(),
-                ),
-              }
-            : placed;
+        if (dragged !== undefined) return dragged;
+        const source = computed.detachedRects[windowId].get() ?? computed.rootRect[windowId].get();
+        if (source === undefined) return undefined;
         const size = state.input.contentSizes[windowId].get();
         return window.heightMode.get() === "content" && size?.width === source.width
           ? {
@@ -721,16 +737,6 @@ export const withComputed = (model: typeof stateModel) =>
           roots: computed.workspaceRoots.map((window) => window.id.get()),
         });
       },
-      places: (): Section[] => {
-        const windows = computed.baseTree.windows.get();
-        const ids = Object.keys(windows);
-        return getRoute({
-          axis: state.document.content.presentation.axis.get(),
-          windows,
-          rects: fromEntries(ids.map((id) => [id, computed.windowRect[id].get()])),
-          roots: computed.workspaceRoots.map((window) => window.id.get()),
-        });
-      },
       selection: () => {
         const marquee = state.session.marquee.get();
         const rect = computed.marqueeRect.get();
@@ -746,13 +752,17 @@ export const withComputed = (model: typeof stateModel) =>
       },
     }))
     .computed(({ state, computed }) => ({
+      cameraTrack: linked({
+        get: () => getCameraTrack({
+          ...state.document.content.presentation.get(),
+          sections: computed.route.get(),
+          viewport: state.input.viewport.get(),
+          insets: computed.viewportInsets.get(),
+          limits: state.config.camera.get(),
+        }),
+        initial: null,
+      }),
       selectionTargets: () => Object.values(computed.selection.targets),
-      outline: (): (Section & { reading: boolean })[] => {
-        const reading = new Set(computed.route.get().map((section) => section.id));
-        return computed.places
-          .get()
-          .map((section) => ({ ...section, reading: reading.has(section.id) }));
-      },
       occupiedRects: (): Record<string, Rect> => {
         const camera = computed.camera.get();
         const viewport = state.input.viewport.get();
@@ -782,7 +792,7 @@ export const withComputed = (model: typeof stateModel) =>
           .map((target) => state.document.content.windows[target.id.get()])
           .filter((window) => window.id.get() !== undefined && window.mode.get() !== "minimized"),
     }))
-    .computed(({ computed, configuration }) => ({
+    .computed(({ computed }) => ({
       selectionBounds: (): Rect | null =>
         unionRects(
           computed.selectedWindows.flatMap((window) => {
@@ -791,27 +801,6 @@ export const withComputed = (model: typeof stateModel) =>
             return rect === undefined || !computed.windowVisible[id].get() ? [] : [rect];
           }),
         ),
-      selectionActions: () => {
-        const windows = computed.selectedWindows;
-        const kinds = new Set(windows.map((window) => window.kind.get()));
-        const kind = kinds.size === 1 ? kinds.values().next().value : undefined;
-        if (kind === undefined) return [];
-        const ids = windows.map((window) => window.id.get());
-        return Object.entries(configuration.components[kind]?.actions ?? {})
-          .filter(
-            ([, action]) =>
-              (ids.length === 1 || action.multiple) &&
-              windows.every((window) => {
-                const data = action.apply(window.data.get());
-                return !(data instanceof Error || data instanceof type.errors);
-              }),
-          )
-          .map(([action, definition]) => ({
-            label: definition.label,
-            icon: definition.icon,
-            input: { action, windows: ids },
-          }));
-      },
     }));
 
 export type ComputedContext = ReturnType<ReturnType<typeof withComputed>["create"]>;

@@ -1,5 +1,5 @@
 import { expect, test } from "vite-plus/test";
-import { resolveTracks, type Track } from "./tracks";
+import { resolveTracks, type Track } from "@hyphened/math/cpu";
 
 const random = (seed: number) => () => {
   seed = (seed * 1664525 + 1013904223) % 4294967296;

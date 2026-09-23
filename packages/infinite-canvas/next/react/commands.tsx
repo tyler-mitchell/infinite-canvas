@@ -8,7 +8,7 @@ import { type } from "arktype";
 import { createContext, useContext, useMemo, useState, type ComponentPropsWithRef } from "react";
 import { createPortal } from "react-dom";
 import type { MutationResult, Result } from "../model";
-import { capturePointer, getClientPoint, getViewportPoint, isPrimaryButton } from "../input";
+import { capturePointer, getViewportPoint, isPrimaryButton } from "../input";
 import { useCanvasViewport } from "./context";
 
 type CommandProps<Input> = {
@@ -96,6 +96,14 @@ function PaletteRoot({
 }) {
   const { canvas } = useCanvasViewport();
   const [error, setError] = useState<string | null>(null);
+  const context = useMemo(() => ({
+    error,
+    reportError: (error: MutationResult | null) => {
+      const message = error instanceof type.errors ? error.summary : error?.message ?? null;
+      setError(message);
+      if (error != null) console.warn("Component insertion failed.", error);
+    },
+  }), [error]);
   const items = useMemo(
     () =>
       Object.entries(canvas.configuration.components)
@@ -113,17 +121,7 @@ function PaletteRoot({
     props: { ...props, "data-slot": "component-palette", "data-canvas-control": "" },
   });
   const node = (
-    <PaletteContext.Provider
-      value={{
-        error,
-        reportError: (error) => {
-          setError(
-            error == null ? null : error instanceof type.errors ? error.summary : error.message,
-          );
-          if (error != null) console.warn("Component insertion failed.", error);
-        },
-      }}
-    >
+    <PaletteContext.Provider value={context}>
       <Autocomplete.Root {...autocomplete} items={items} inline open>
         {element}
       </Autocomplete.Root>
@@ -153,14 +151,14 @@ const PaletteItem = observer(function PaletteItem({
             const error = canvas.actions.beginDrop.run({
               insertion: { id: crypto.randomUUID(), kind },
               ...(threshold === undefined ? {} : { threshold }),
-              point: getViewportPoint(element, getClientPoint(event)),
+              point: getViewportPoint({ element, event }),
               pointerId: event.pointerId,
             });
             reportError(error);
             if (error !== undefined) return;
             event.preventDefault();
             event.stopPropagation();
-            capturePointer(element, event.pointerId);
+            capturePointer({ canvas, element, pointerId: event.pointerId });
           },
           onDragStart: (event) => {
             const element = viewport.current;
@@ -174,7 +172,7 @@ const PaletteItem = observer(function PaletteItem({
             reportError(
               canvas.actions.beginDrop.run({
                 insertion,
-                point: getViewportPoint(element, getClientPoint(event)),
+                point: getViewportPoint({ element, event }),
               }),
             );
           },

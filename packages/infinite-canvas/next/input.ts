@@ -1,4 +1,4 @@
-import type { Point } from "./geometry";
+import type { Point } from "@hyphened/math/cpu";
 import { type } from "arktype";
 import type { RegisterableHotkey } from "@tanstack/hotkeys";
 import type { Canvas, PointerState } from "./state.types";
@@ -13,7 +13,7 @@ export function readPointer(
 ): PointerState {
   return {
     pointerId: event.pointerId,
-    point: getViewportPoint(viewport, getClientPoint(event)),
+    point: getViewportPoint({ element: viewport, event }),
     altKey: event.altKey,
     ctrlKey: event.ctrlKey,
     metaKey: event.metaKey,
@@ -63,6 +63,7 @@ export const defaultHotkeys = {
   "Mod+A": { command: "selectAll" },
   "Shift+1": { command: "fitAll" },
   "Shift+2": { command: "fitSelection" },
+  "Shift+Enter": { command: "selectParent" },
   ArrowLeft: { command: "nudgeSelection", input: { x: -1, y: 0, unit: "step" } },
   ArrowRight: { command: "nudgeSelection", input: { x: 1, y: 0, unit: "step" } },
   ArrowUp: { command: "nudgeSelection", input: { x: 0, y: -1, unit: "step" } },
@@ -137,28 +138,28 @@ export function getHotkeyDefinitions({ canvas, hotkeys }: { canvas: Canvas; hotk
 
 type PointerLike = Pick<PointerEvent, "clientX" | "clientY">;
 
-function getClientPoint(event: PointerLike): Point {
-  return {
-    x: event.clientX,
-    y: event.clientY,
-  };
-}
-
-function getViewportPoint(element: HTMLElement, point: Point): Point {
+function getViewportPoint({ element, event }: {
+  element: HTMLElement;
+  event: PointerLike;
+}): Point {
   const bounds = element.getBoundingClientRect();
 
   return {
-    x: point.x - bounds.left,
-    y: point.y - bounds.top,
+    x: event.clientX - bounds.left,
+    y: event.clientY - bounds.top,
   };
 }
 
-function capturePointer(element: Pick<HTMLElement, "setPointerCapture">, pointerId: number) {
-  // Pointer capture can fail after release or for synthetic events.
+function capturePointer({ canvas, element, pointerId }: {
+  canvas: Canvas;
+  element: Pick<HTMLElement, "setPointerCapture">;
+  pointerId: number;
+}) {
   try {
     element.setPointerCapture(pointerId);
-  } catch {
-    // Handlers still track the pointer by ID.
+  } catch (error) {
+    report(canvas.actions.cancelPointer.run({ pointerId }));
+    console.warn("Pointer capture failed; gesture cancelled.", error);
   }
 }
 
@@ -174,9 +175,6 @@ function releasePointer(
 function isPrimaryButton(event: Pick<PointerEvent, "button" | "isPrimary">) {
   return event.button === 0 && event.isPrimary;
 }
-
-/** Screen pixels a press travels before it is a drag rather than a click. */
-const DRAG_THRESHOLD_PX = 6;
 
 /** Elements that own their own press: a drag must not start on them. */
 const INTERACTIVE_TARGET_SELECTOR = [
@@ -204,10 +202,8 @@ function clearNativeTextSelection() {
 }
 
 export {
-  DRAG_THRESHOLD_PX,
   capturePointer,
   clearNativeTextSelection,
-  getClientPoint,
   getViewportPoint,
   isInteractiveTarget,
   isPrimaryButton,

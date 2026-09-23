@@ -1,43 +1,27 @@
 import {
-  applyPositionConstraints,
-  applySizeConstraints,
-  bottom,
-  calcGridColWidth,
-  calcGridItemPosition,
-  calcWHRaw,
-  calcXY,
-  calcXYRaw,
-  correctBounds,
-  defaultConstraints,
-  defaultGridConfig,
-  findOrGenerateResponsiveLayout,
-  getAllCollisions,
-  getBreakpointFromWidth,
-  getCompactor,
-  moveElement,
-  resizeItemInDirection,
-  sortBreakpoints,
-  type Compactor,
-  type ConstraintContext,
-  type Layout,
-  type LayoutItem,
-  type PositionParams,
-  type ResizeHandleAxis,
-} from "react-grid-layout/core";
-import { wrapCompactor, wrapOverlapCompactor } from "react-grid-layout/extras";
-
+  boundGridCell, resizeGridCell, compactGrid,
+  gridCellsOverlap, gridGeometry, gridRows, moveGrid, placeGridSequence, type GridCell,
+} from "@hyphened/math/cpu";
 import type {
   InfiniteCanvasGroupContainerNode,
   InfiniteCanvasGroupWindowNodeLayout,
 } from "./group-tree";
-import type { InfiniteCanvasResizeHandle } from "./types";
 import type { LayoutInput, LayoutEngine } from "./layout";
-type MasonryLayouts = Readonly<Record<string, InfiniteCanvasGroupWindowNodeLayout>>;
 
-function getParams({ container, rect }: LayoutInput): PositionParams {
+type MasonryLayouts = Readonly<Record<string, InfiniteCanvasGroupWindowNodeLayout>>;
+type Item = GridCell & { id: string };
+const defaultGridConfig = {
+  cols: 12,
+  rowHeight: 150,
+  margin: [10, 10] as const,
+  containerPadding: null,
+  maxRows: Infinity,
+};
+
+function getParams({ container, rect }: LayoutInput) {
   const config = { ...defaultGridConfig, ...container.masonry };
   const responsive = getResponsiveLayout({ container, rect });
-  return {
+  const params = {
     cols: responsive?.cols ?? config.cols,
     containerPadding: config.containerPadding ?? config.margin,
     containerWidth: rect.width,
@@ -45,18 +29,30 @@ function getParams({ container, rect }: LayoutInput): PositionParams {
     maxRows: config.maxRows,
     rowHeight: config.rowHeight,
   };
+  return {
+    ...params,
+    geometry: gridGeometry({
+      columns: params.cols,
+      width: params.containerWidth,
+      rowHeight: params.rowHeight,
+      gap: params.margin,
+      padding: params.containerPadding,
+    }),
+  };
 }
 
 function getResponsiveLayout({ container, rect }: LayoutInput) {
   const responsive = container.masonry?.responsive;
   if (responsive === undefined) return null;
-  const largest = sortBreakpoints(responsive.breakpoints).at(-1);
+  const breakpoints = Object.keys(responsive.breakpoints).toSorted(
+    (a, b) => responsive.breakpoints[a] - responsive.breakpoints[b],
+  );
+  const largest = breakpoints.at(-1);
   if (largest === undefined) return null;
-  const breakpoint = getBreakpointFromWidth(responsive.breakpoints, rect.width);
+  const breakpoint =
+    breakpoints.findLast((name) => rect.width > responsive.breakpoints[name]) ?? breakpoints[0];
   return {
-    ...responsive,
-    breakpoint,
-    largest,
+    ...responsive, breakpoint, largest,
     cols: responsive.cols[breakpoint] ?? container.masonry?.cols ?? defaultGridConfig.cols,
   };
 }
@@ -65,288 +61,127 @@ function getLayoutChanges(input: LayoutInput, layouts: MasonryLayouts): MasonryL
   const responsive = getResponsiveLayout(input);
   if (responsive === null || responsive.breakpoint === responsive.largest) return layouts;
   const { breakpoint } = responsive;
-  return Object.fromEntries(
-    Object.entries(layouts).map(([id, layout]) => {
-      const child = input.container.children.find((child) => child.id === id);
-      const current = child?.kind === "window" ? child.layouts : undefined;
-      return [
-        id,
-        { layouts: { ...current, [breakpoint]: { ...current?.[breakpoint], ...layout } } },
-      ];
-    }),
-  );
+  return Object.fromEntries(Object.entries(layouts).map(([id, layout]) => {
+    const child = input.container.children.find((child) => child.id === id);
+    const current = child?.kind === "window" ? child.layouts : undefined;
+    return [id, { layouts: { ...current, [breakpoint]: { ...current?.[breakpoint], ...layout } } }];
+  }));
 }
 
-function getMasonryCompactor(container: InfiniteCanvasGroupContainerNode): Compactor {
-  const { allowOverlap, compactType, preventCollision } = container.masonry ?? {};
-  if (compactType === "wrap") {
-    const compactor = allowOverlap ? wrapOverlapCompactor : wrapCompactor;
-    return preventCollision ? { ...compactor, preventCollision } : compactor;
-  }
-  return getCompactor(
-    compactType === undefined ? "vertical" : compactType,
-    allowOverlap,
-    preventCollision,
-  );
-}
-
-function getConstraintContext(params: PositionParams, layout: Layout): ConstraintContext {
+function getMasonryCompactor(container: InfiniteCanvasGroupContainerNode) {
+  const { allowOverlap = false, compactType = "vertical", preventCollision = false } = container.masonry ?? {};
   return {
-    cols: params.cols,
-    containerHeight: 0,
-    containerWidth: params.containerWidth,
-    layout,
-    margin: params.margin,
-    maxRows: params.maxRows,
-    rowHeight: params.rowHeight,
+    mode: compactType, allowOverlap, preventCollision,
+    compact(items: readonly Item[], columns: number): Item[] {
+      if (allowOverlap || compactType === null) return items.map((item) => ({ ...item }));
+      if (compactType === "wrap") {
+        const cells = placeGridSequence({ columns, items });
+        return items.map(({ id }) => ({ id, ...cells[id] }));
+      }
+      return compactGrid({ columns, items, axis: compactType === "vertical" ? "row" : "column" });
+    },
   };
 }
 
 function getGrid(input: LayoutInput) {
   const params = getParams(input);
   const compactor = getMasonryCompactor(input.container);
-  let maxY = 0;
   const items = input.container.children
     .filter((child) => child.kind !== "window" || child.hidden !== true)
-    .map<LayoutItem>((child) => {
+    .reduce<{ items: Item[]; rows: number }>(({ items, rows }, child) => {
       const cells: InfiniteCanvasGroupWindowNodeLayout = child.kind === "window" ? child : {};
       const item = {
-        h: cells.rows ?? 1,
-        i: child.id,
-        w: cells.span ?? 1,
-        x: cells.x ?? 0,
-        y: cells.y ?? maxY,
+        id: child.id, rowSpan: cells.rows ?? 1, columnSpan: cells.span ?? 1,
+        column: cells.x ?? 0, row: cells.y ?? rows,
       };
-      maxY = Math.max(maxY, item.y + item.h);
-      return item;
-    });
+      return { items: [...items, item], rows: Math.max(rows, item.row + item.rowSpan) };
+    }, { items: [], rows: 0 }).items;
   const responsive = getResponsiveLayout(input);
   const children = new Map(input.container.children.map((child) => [child.id, child]));
-  const generated =
-    responsive === null
-      ? items
-      : findOrGenerateResponsiveLayout(
-          { [responsive.largest]: items },
-          responsive.breakpoints,
-          responsive.breakpoint,
-          responsive.largest,
-          params.cols,
-          compactor,
-        );
+  const generated = responsive === null || responsive.breakpoint === responsive.largest
+    ? items
+    : compactor.compact(items.map((item) => ({ ...item, ...boundGridCell({ cell: item, columns: params.cols }) })), params.cols);
   const layout = generated.map((item) => {
-    const child = children.get(item.i);
-    const override =
-      responsive !== null &&
-      responsive.breakpoint !== responsive.largest &&
-      child?.kind === "window"
-        ? child.layouts?.[responsive.breakpoint]
-        : undefined;
-    return override === undefined
-      ? item
-      : {
-          ...item,
-          h: override.rows ?? item.h,
-          w: override.span ?? item.w,
-          x: override.x ?? item.x,
-          y: override.y ?? item.y,
-        };
+    const child = children.get(item.id);
+    const override = responsive !== null && responsive.breakpoint !== responsive.largest && child?.kind === "window"
+      ? child.layouts?.[responsive.breakpoint] : undefined;
+    const cell = {
+      columnSpan: override?.span ?? item.columnSpan,
+      rowSpan: override?.rows ?? item.rowSpan,
+      column: override?.x ?? item.column,
+      row: override?.y ?? item.row,
+    };
+    return { id: item.id, ...boundGridCell({ cell, columns: params.cols }) };
   });
-  return {
-    params,
-    compactor,
-    layout: compactor.compact(correctBounds(layout, { cols: params.cols }), params.cols),
-  };
+  return { params, compactor, layout: compactor.compact(layout, params.cols) };
 }
-
-const resizeHandles: Record<InfiniteCanvasResizeHandle, ResizeHandleAxis> = {
-  east: "e",
-  north: "n",
-  "north-east": "ne",
-  "north-west": "nw",
-  south: "s",
-  "south-east": "se",
-  "south-west": "sw",
-  west: "w",
-};
 
 export const masonryEngine: LayoutEngine = {
   layout(input) {
     const { params, layout } = getGrid(input);
-    const rows = Math.max(1, bottom(layout));
+    const rows = Math.max(1, gridRows(layout));
     return {
-      extent:
-        rows * params.rowHeight + (rows - 1) * params.margin[1] + params.containerPadding[1] * 2,
-      rects: new Map(
-        layout.map((item) => {
-          const position = calcGridItemPosition(params, item.x, item.y, item.w, item.h);
-          return [
-            item.i,
-            {
-              height: position.height,
-              width: position.width,
-              x: input.rect.x + position.left,
-              y: input.rect.y + position.top,
-            },
-          ];
-        }),
-      ),
+      extent: rows * params.rowHeight + (rows - 1) * params.margin[1] + params.containerPadding[1] * 2,
+      rects: new Map(layout.map((item) => {
+        const rect = params.geometry.rect(item);
+        return [item.id, { ...rect, x: input.rect.x + rect.x, y: input.rect.y + rect.y }];
+      })),
     };
   },
   move(input) {
     const { params, compactor, layout } = getGrid(input);
-    const item = layout.find((candidate) => candidate.i === input.windowId);
+    const item = layout.find((item) => item.id === input.windowId);
     if (item === undefined) return {};
-    const raw = calcXYRaw(
-      params,
-      input.windowRect.y - input.rect.y,
-      input.windowRect.x - input.rect.x,
-    );
-    const { x, y } = applyPositionConstraints(
-      defaultConstraints,
-      item,
-      raw.x,
-      raw.y,
-      getConstraintContext(params, layout),
-    );
-    const moved = compactor.compact(
-      moveElement(
-        layout,
-        item,
-        x,
-        y,
-        true,
-        compactor.preventCollision,
-        compactor.type,
-        params.cols,
-        compactor.allowOverlap,
-      ),
-      params.cols,
-    );
-    return getLayoutChanges(
-      input,
-      Object.fromEntries(moved.map((cells) => [cells.i, { x: cells.x, y: cells.y }])),
-    );
+    const raw = params.geometry.position({
+      x: input.windowRect.x - input.rect.x, y: input.windowRect.y - input.rect.y,
+    });
+    const position = boundGridCell({ cell: { ...item, ...raw }, columns: params.cols, rows: params.maxRows });
+    const moved = compactor.compact(moveGrid({ items: layout, id: item.id, position, ...compactor }), params.cols);
+    return getLayoutChanges(input, Object.fromEntries(moved.map((cell) => [cell.id, { x: cell.column, y: cell.row }])));
   },
   resize(input) {
     const { params, compactor, layout: currentLayout } = getGrid(input);
-    const item = currentLayout.find((candidate) => candidate.i === input.windowId);
+    const item = currentLayout.find((item) => item.id === input.windowId);
     if (item === undefined) return {};
-    const handle = resizeHandles[input.handle];
-    const { cols } = params;
-    const preventCollision = compactor.preventCollision ?? false;
-    const position = calcGridItemPosition(params, item.x, item.y, item.w, item.h);
-    const updatedSize = resizeItemInDirection(
-      handle,
-      position,
-      {
-        ...position,
-        height: input.windowRect.height,
-        width: input.windowRect.width,
-      },
-      params.containerWidth,
-    );
-    const rawSize = calcWHRaw(params, updatedSize.width, updatedSize.height);
-    const { w: newW, h: newH } = applySizeConstraints(
-      defaultConstraints,
-      item,
-      rawSize.w,
-      rawSize.h,
-      handle,
-      getConstraintContext(params, currentLayout),
-    );
-    const rawX = handle.includes("w") ? item.x + item.w - newW : item.x;
-    const rawY = handle.includes("n") ? item.y + item.h - newH : item.y;
-    const x = Math.max(0, rawX);
-    const y = Math.max(0, rawY);
-    const resized = { ...item, w: rawX < 0 ? item.w : newW, h: rawY < 0 ? item.h : newH };
-    if (
-      preventCollision &&
-      !compactor.allowOverlap &&
-      getAllCollisions(currentLayout, { ...resized, x, y }).some(
-        (candidate) => candidate.i !== input.windowId,
-      )
-    )
-      return {};
-    const layout = currentLayout.map((candidate) =>
-      candidate.i === input.windowId ? resized : candidate,
-    );
-    const finalLayout =
-      x === item.x && y === item.y
-        ? layout
-        : moveElement(
-            layout,
-            resized,
-            x,
-            y,
-            true,
-            preventCollision,
-            compactor.type,
-            cols,
-            compactor.allowOverlap,
-          );
-    return getLayoutChanges(
-      input,
-      Object.fromEntries(
-        compactor
-          .compact(finalLayout, cols)
-          .map((cells) => [cells.i, { rows: cells.h, span: cells.w, x: cells.x, y: cells.y }]),
-      ),
-    );
+    const { column, row, ...span } = resizeGridCell({
+      cell: item, span: params.geometry.span(input.windowRect), handle: input.handle,
+      columns: params.cols, rows: params.maxRows,
+    });
+    const resized = { ...item, ...span };
+    const position = { column, row };
+    if (compactor.preventCollision && !compactor.allowOverlap && currentLayout.some((other) =>
+      other.id !== item.id && gridCellsOverlap({ a: other, b: { ...resized, ...position } }),
+    )) return {};
+    const layout = currentLayout.map((other) => other.id === item.id ? resized : other);
+    const moved = column === item.column && row === item.row ? layout
+      : moveGrid({ items: layout, id: item.id, position, ...compactor });
+    return getLayoutChanges(input, Object.fromEntries(compactor.compact(moved, params.cols).map((cell) => [
+      cell.id, { rows: cell.rowSpan, span: cell.columnSpan, x: cell.column, y: cell.row },
+    ])));
   },
   contentHeight(input) {
     const { params, layout } = getGrid(input);
-    const item = layout.find((candidate) => candidate.i === input.windowId);
-    const rows = Math.max(
-      1,
-      Math.ceil((input.height + params.margin[1]) / (params.rowHeight + params.margin[1])),
-    );
-    return item === undefined || item.h === rows
-      ? {}
-      : getLayoutChanges(input, { [input.windowId]: { rows } });
+    const item = layout.find((item) => item.id === input.windowId);
+    const rows = params.geometry.span({ width: 0, height: input.height, round: Math.ceil }).rowSpan;
+    return item === undefined || item.rowSpan === rows ? {} : getLayoutChanges(input, { [input.windowId]: { rows } });
   },
   step(input) {
-    const params = getParams(input);
-    return {
-      width: calcGridColWidth(params) + params.margin[0],
-      height: params.rowHeight + params.margin[1],
-    };
+    return getParams(input).geometry.step;
   },
   drop(input) {
     const { params, compactor, layout } = getGrid(input);
-    const size = calcWHRaw(params, input.windowRect.width, input.windowRect.height);
-    const { w: span, h: rows } = applySizeConstraints(
-      defaultConstraints,
-      { i: input.windowId, x: 0, y: 0, ...size },
-      size.w,
-      size.h,
-      "se",
-      getConstraintContext(params, []),
-    );
-    const { x, y } = calcXY(
-      params,
-      input.windowRect.y - input.rect.y,
-      input.windowRect.x - input.rect.x,
-      span,
-      rows,
-    );
-    const placed = compactor
-      .compact(
-        [
-          ...layout.filter((item) => item.i !== input.windowId),
-          { i: input.windowId, x, y, w: span, h: rows },
-        ],
-        params.cols,
-      )
-      .find((item) => item.i === input.windowId)!;
-    const position = calcGridItemPosition(params, placed.x, placed.y, placed.w, placed.h);
+    const span = params.geometry.span(input.windowRect);
+    const position = params.geometry.position({
+      x: input.windowRect.x - input.rect.x, y: input.windowRect.y - input.rect.y,
+    });
+    const cell = boundGridCell({ cell: { ...span, ...position }, columns: params.cols, rows: params.maxRows });
+    const placed = compactor.compact([
+      ...layout.filter((item) => item.id !== input.windowId), { id: input.windowId, ...cell },
+    ], params.cols).find((item) => item.id === input.windowId)!;
+    const rect = params.geometry.rect(placed);
     return {
-      layout: { rows: placed.h, span: placed.w, x: placed.x, y: placed.y },
-      rect: {
-        height: position.height,
-        width: position.width,
-        x: input.rect.x + position.left,
-        y: input.rect.y + position.top,
-      },
+      layout: { rows: placed.rowSpan, span: placed.columnSpan, x: placed.column, y: placed.row },
+      rect: { ...rect, x: input.rect.x + rect.x, y: input.rect.y + rect.y },
     };
   },
 };

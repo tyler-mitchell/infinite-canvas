@@ -26,7 +26,7 @@ const schema = type.module({
     "data?": "unknown",
     "section?": "boolean",
     "minSize?": "Size",
-    "maxSize?": "Size",
+    "maxSize?": { "width?": "Positive", "height?": "Positive" },
     "aspectRatio?": "Positive",
     "layout?": { type: "string > 0", "[string]": "unknown" },
     "children?": "string[]",
@@ -39,7 +39,12 @@ const schema = type.module({
       "resizable?": "boolean",
     },
   },
+  Presentation: {
+    axis: "'horizontal' | 'vertical' = 'vertical'",
+    maxZoom: "Positive = 1",
+  },
   Content: {
+    presentation: ["Presentation", "=", () => ({})],
     windows: [{ "[string]": "Window" }, "=", () => ({})],
     connections: [
       {
@@ -84,6 +89,7 @@ const schema = type.module({
   WindowDefinition: {
     size: ["Size", "=", () => ({ width: 320, height: 240 })],
     "minSize?": "Size",
+    "maxSize?": { "width?": "Positive", "height?": "Positive" },
     "aspectRatio?": "Positive",
     section: "boolean = true",
     capabilities: ["Capabilities", "=", () => ({})],
@@ -131,7 +137,7 @@ const schema = type.module({
     pointer: "Pointer | null = null",
     viewport: ["Viewport", "=", () => ({ width: 0, height: 0 })],
     viewportInsets: ["ViewportInsets", "=", () => ({})],
-    viewportOccluders: ["Rect[]", "=", () => []],
+    viewportOccluders: [{ "[string]": "Rect" }, "=", () => ({})],
     contentSizes: [{ "[string]": "Size" }, "=", () => ({})],
   },
 });
@@ -269,5 +275,6 @@ export const canvasStateSchema = type({
   },
 }));
 
+export const screenRect = schema.Rect;
 export const pointerInput = schema.Pointer;
 export const resizeHandle = schema.ResizeHandle;

@@ -1,5 +1,7 @@
 ---
-"@hyphened/infinite-canvas": minor
+"@hyphened/infinite-canvas": major
 ---
 
-Added responsive masonry layouts with separate breakpoint positions behind one layout engine contract.
+Moved layout calculations into the math package and made column definitions composable ArkType schemas.
+Separated authored placement from drag collision resolution. Layouts own child positions during drag
+and after release. Removed the `dragMotion` prop and drag transition CSS variables.

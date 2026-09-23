@@ -1,5 +1,4 @@
-import type { CameraNavigation } from "./camera";
-import type { Rect, Size } from "./geometry";
+import type { Rect, Size } from "@hyphened/math/cpu";
 
 export type WindowCapabilities = {
   closable: boolean;
@@ -19,15 +18,17 @@ export type WindowState = {
   layout?: WindowLayout;
   children?: string[];
   item?: Record<string, unknown>;
+  section?: boolean;
   mode: "normal" | "minimized" | "maximized";
   isPinned: boolean;
   rect: Rect;
   restoreRect?: Rect;
   minSize?: Size;
-  maxSize?: Size;
+  maxSize?: { width?: number; height?: number };
   aspectRatio?: number;
   capabilities?: Partial<WindowCapabilities>;
   heightMode: "content" | "manual";
+  widthMode: "viewport" | "manual";
 };
 
 export type ConnectionState = {
@@ -44,10 +45,13 @@ export type WorkspaceState = {
   windowIds: string[];
 };
 
-export type CameraStop = { id: string; title?: string; navigation: CameraNavigation };
+export type Presentation = {
+  axis: "horizontal" | "vertical";
+  maxZoom: number;
+};
 
 export type DocumentState = {
-  cameraStops: CameraStop[];
+  presentation: Presentation;
   windows: Record<string, WindowState>;
   connections: Record<string, ConnectionState>;
   workspaces: Record<string, WorkspaceState>;

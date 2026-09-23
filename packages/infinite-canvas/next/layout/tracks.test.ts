@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vite-plus/test";
-import { resizeTracks, resolveTracks, type Track } from "./tracks";
+import { resizeTracks, resolveTracks, type Track } from "@hyphened/math/cpu";
 
 const track = (input: Partial<Track>): Track => ({
   base: 0,

@@ -1,7 +1,7 @@
 import { type, type ArkErrors, type Type } from "arktype";
 import type { CanvasContext } from "./state.types";
 import type { WindowState } from "./document.types";
-import { intersectsRect, type Point, type Rect } from "./geometry";
+import { intersectsRect, rectWithCentroid, type Point, type Rect } from "@hyphened/math/cpu";
 import { getDockArrangement } from "./layout/dock";
 
 export type ComponentAction<Props> = {
@@ -68,13 +68,24 @@ export const windowCreation = type({
   kind: "string > 0",
   title: "string",
   "data?": "unknown",
+  "heightMode?": "'content' | 'manual'",
   "rect?": { x: "number", y: "number", width: "number > 0", height: "number > 0" },
-  "placement?": {
+  "placement?": type({
+    "relativeTo?": "never",
     "region?": placementRegion,
     "gap?": "number >= 0",
-  },
+  }).or({
+    relativeTo: "string > 0",
+    side: "'left' | 'right' | 'top' | 'bottom'",
+    "stack?": "boolean",
+    "matchWidth?": "boolean",
+    "gap?": "number >= 0",
+  }),
   "target?": { window: "string > 0", "edge?": "'north' | 'south' | 'east' | 'west' | 'center'" },
-});
+}).narrow((input, ctx) =>
+  input.target === undefined || input.placement === undefined ||
+  ctx.reject("either a docking target or a floating placement"),
+);
 
 export type WindowCreation = typeof windowCreation.infer;
 
@@ -111,7 +122,7 @@ export function getComponentPlacement({
     Object.entries(canvas.computed.occupiedRects.get()).some(
       ([id, rect]) =>
         id.startsWith("occluder:") &&
-        intersectsRect({ rect, other: { ...point, width: 0, height: 0 } }),
+        intersectsRect(rect, { ...point, width: 0, height: 0 }),
     )
   ) {
     return new Error("Drop on the canvas, outside its controls.");
@@ -131,7 +142,7 @@ export function getComponentPlacement({
     selected?.layout.get() === undefined ? undefined : { window: selected.id.get() };
   const target =
     activeDrop === null ? container : { window: activeDrop.target, edge: activeDrop.edge };
-  const preferred = { ...size, x: point.x - size.width / 2, y: point.y - size.height / 2 };
+  const preferred = rectWithCentroid(point, size);
   const input: WindowCreation = {
     id: insertion.id,
     kind: insertion.kind,
@@ -179,6 +190,7 @@ export function getComponentPlacement({
       data: creation.data,
       mode: "normal",
       heightMode: "content",
+      widthMode: "manual",
       isPinned: false,
       rect,
     },

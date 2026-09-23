@@ -1,8 +1,21 @@
 # Layout engine design
 
 Basis: `docs/research/layout-engine.md`, section "Recommendation". This document fixes the model and the
-code shape in `packages/infinite-canvas/next`. The group model, `next/layout.ts`, `next/groups.ts` and
-`react-grid-layout` are replaced, not extended.
+code shape in `packages/infinite-canvas/next`. The group model, `next/layout.ts` and `next/groups.ts`
+are replaced. `packages/math` uses the pure `react-grid-layout/core` collision functions.
+
+Current shared contracts:
+
+```ts
+import { columnOptions, columnItem, placeGridItems, placeLanes } from "@hyphened/math/cpu";
+
+const options = columnOptions.merge({ type: "'board'" });
+const item = columnItem;
+```
+
+`columnOptions` and `columnItem` are ArkType schemas. Their inferred types also govern the calculations.
+Grid placement accepts target cells separately from authored items. Lane moves use nearest centers
+in the original packed layout; resize preserves order. Runtime behavior remains unobserved.
 
 ## The governing rule
 
@@ -138,8 +151,8 @@ rectangle index) is a separate module after these. It does not depend on the win
 
 | File                       | Owns                                                                                               |
 | -------------------------- | -------------------------------------------------------------------------------------------------- |
-| `next/layout/tracks.ts`    | Resolve flexible lengths and the cascade resize. Arrays of numbers.                                |
-| `next/layout/placement.ts` | Grid auto-placement in cell units (lanes placement comes later).                                   |
+| `packages/math/src/tracks.ts` | Flexible lengths and cascade resize. |
+| `packages/math/src/grid.ts` | Grid auto-placement, collision displacement, and compaction. |
 | `next/layout/kinds.ts`     | The contract types and `split`, `tabs`, `accordion`.                                               |
 | `next/layout/columns.ts`   | Column count by width, cell width, span scaling; shared by `grid` and `lanes`.                     |
 | `next/layout/grid.ts`      | `grid`, and `createGrid({ rules })` for a consumer's placement rules.                              |
@@ -184,8 +197,8 @@ The portfolio board and every dashboard consumer need columns that stack content
    the right proof: obligation 2 is discharged for this kind in `parity.test.ts`, where a `board` kind written
    from the public entry alone gives the built-in's rectangles on 200 random boards.
 
-The move rule for lanes (column from the pointer, order from the pointer's height among settled items) is an
-own rule and is kept apart from `placeLanes`.
+Lane reordering uses closest-center targeting over the original packed rectangles.
+`placeLanes` owns packing; child order remains a canvas concern.
 
 ## State of the work
 
@@ -193,7 +206,7 @@ The model swap is done: one window map, containers are windows, the portfolio bo
 container, the group code is deleted. 133 unit tests and 3 browser tests pass; the grades above say what
 that proves. Not built: `strip`, the consumer-written lanes parity, the guard for obligation 1, the exported
 conformance suite, per-kind default overrides, `snap`, container `padding` for chrome, the free plane.
-Still installed: `react-grid-layout`, now only as the oracle for gap closing.
+`react-grid-layout/core` supplies collision displacement and compaction in `packages/math`.
 
 Decisions made while building, which differ from a first reading of the sources:
 
@@ -201,9 +214,9 @@ Decisions made while building, which differ from a first reading of the sources:
   not applied, because a split must always fill its rectangle.
 - A definite grid position that is taken or out of range falls back to automatic placement in the same
   column. CSS lets definite items overlap; a board must not.
-- An item that the user moves is placed before items with a saved position, so the item under the pointer
-  wins.
-- A grid takes its height from its rows. The stored height of a grid window is not used.
+- Grid moves act on the settled layout. Collision displacement does not restart auto-placement.
+- A grid is at least as tall as its rows. A taller rectangle is kept, so a resize can add room below
+  the rows (2026-09-21; before, the stored height was not used and a grid could not be resized).
 - A container with its own content (`kind`) is never dissolved when its children leave. A split with one
   child and no content dissolves into that child; a tab stack with one child stays.
 - Known limits of the contract, stated to the owner on 2026-09-17: no relations between items of different

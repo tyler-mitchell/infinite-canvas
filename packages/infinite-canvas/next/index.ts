@@ -11,15 +11,16 @@ export type {
 export type {
   ConnectionState,
   DocumentState,
+  Presentation,
   WindowCapabilities,
   WindowLayout,
   WindowState,
   WorkspaceState,
 } from "./document.types";
-export type { Camera, Point, Rect, ResizeHandle, Size } from "./geometry";
+export type { Camera, Point, Rect, ResizeHandle, Size } from "@hyphened/math/cpu";
 export type { Selection, SelectionTarget, TargetKey } from "./selection";
-export { limitedSize } from "./layout/arrange";
-export type { Arrangement, SizeLimits } from "./layout/arrange";
+export { resolveSize, type SizeConstraints } from "@hyphened/math/cpu";
+export type { Arrangement } from "./layout/arrange";
 export { accordion, split, tabs } from "./layout/kinds";
 export type {
   Arranged,
@@ -33,23 +34,27 @@ export type {
   Placement,
   Proposal,
 } from "./layout/kinds";
-export { createGrid, grid } from "./layout/grid";
-export { lanes, placeLanes } from "./layout/lanes";
-export type { Lane, LaneItem } from "./layout/lanes";
-export { columnItem, columnOptions, resolveColumns } from "./layout/columns";
-export type { GridCell, GridItem, GridPlacementRule } from "./layout/placement";
-export { resizeTracks, resolveTracks } from "./layout/tracks";
+export { grid } from "./layout/grid";
+export { lanes } from "./layout/lanes";
+export { placeLanes } from "@hyphened/math/cpu";
+export type { Lane, LaneItem } from "@hyphened/math/cpu";
+export { columnItem, columnOptions, resolveColumns } from "@hyphened/math/cpu";
+export type { GridCell, GridItem } from "@hyphened/math/cpu";
+export { resizeTracks, resolveTracks } from "@hyphened/math/cpu";
+export { getRunnableCommands } from "./commands";
+export type { RunnableCommand } from "./commands";
 export type { MutationResult, Result } from "./model";
 export type {
-  CameraBehavior,
   CameraNavigation,
   CameraNavigationResult,
   CameraTarget,
-  ViewportInsets,
 } from "./camera";
-export type { CameraController, CameraMotion, CameraRequest } from "./camera";
-export { getPlacementRect, getVacantRect } from "./placement";
-export type { PlacementRegion } from "./placement";
+export type { CameraBehavior, Insets as ViewportInsets } from "@hyphened/math/cpu";
+export type { CameraController, CameraMotion, CameraRequest, CameraRequestSource } from "./camera";
+export { getRoute } from "./route";
+export type { Section } from "./route";
+export { getCameraTrack, type CameraTrack } from "@hyphened/math/cpu";
+export { getPlacementRect, getVacantRect, type PlacementRegion } from "@hyphened/math/cpu";
 export { bindComponentActions, getComponentPlacement } from "./components";
 export type {
   ComponentAction,
@@ -57,7 +62,7 @@ export type {
   ComponentPlacement,
   WindowCreation,
 } from "./components";
-export { screenToWorld } from "./geometry";
-export { getMinimapLayout, getMinimapWorldPoint, getOffscreenIndicators } from "./overview";
-export type { DetailLevel, MinimapLayout, OffscreenIndicator } from "./overview";
+export { screenToWorld } from "@hyphened/math/cpu";
+export { getMinimapLayout, getMinimapWorldPoint, getOffscreenIndicators } from "@hyphened/math/cpu";
+export type { DetailLevel, MinimapLayout, OffscreenIndicator } from "@hyphened/math/cpu";
 export { canvasSnapshot } from "./state.schema";

@@ -147,17 +147,18 @@ test("measured grid content reflows without document edits", () => {
   canvas.actions.groupWindows.run({
     id: "board",
     windows: ["a", "b"],
-    layout: { type: "grid", columns: 2, rowHeight: 40, gap: 10 },
-    rect: { x: 0, y: 0, width: 400, height: 240 },
+    layout: { type: "grid", columns: 8, rowHeight: "square", gap: 10 },
+    rect: { x: 0, y: 0, width: 390, height: 240 },
   });
-  canvas.actions.setWindowItem.run({ window: "b", item: { column: 0, row: 3 } });
+  canvas.actions.setWindowItem.run({ window: "a", item: { column: 0, row: 0, columnSpan: 4 } });
+  canvas.actions.setWindowItem.run({ window: "b", item: { column: 0, row: 3, columnSpan: 4 } });
   const history = canvas.history.undos$.peek();
-  expect(canvas.computed.windowRect.a.peek()?.width).toBe(195);
+  expect(canvas.computed.windowRect.a.peek()?.width).toBe(190);
   expect(canvas.computed.windowRect.b.peek()?.y).toBe(150);
-  canvas.actions.setContentSize.run({ windowId: "a", size: { width: 195, height: 165 } });
+  canvas.actions.setContentSize.run({ windowId: "a", size: { width: 190, height: 165 } });
   expect(canvas.computed.windowRect.a.peek()?.height).toBe(190);
   expect(canvas.computed.windowRect.b.peek()?.y).toBe(200);
   expect(canvas.history.undos$.peek()).toBe(history);
-  canvas.actions.setContentSize.run({ windowId: "a", size: { width: 194, height: 165 } });
+  canvas.actions.setContentSize.run({ windowId: "a", size: { width: 189, height: 165 } });
   expect(canvas.computed.windowRect.a.peek()?.height).toBe(140);
 });

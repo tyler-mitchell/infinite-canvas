@@ -1,33 +1,36 @@
-import { argminN, axes, eqDelta, type Axis } from "@hyphened/math/cpu";
+import { axes, cameraEquals, visibleWorldRect, type Axis, type CameraTrack } from "@hyphened/math/cpu";
 import { ScrollArea } from "@base-ui/react/scroll-area";
-import { mergeProps } from "@base-ui/react/merge-props";
-import { useRender } from "@base-ui/react/use-render";
-import { observer } from "@legendapp/state/react";
+import { batch, type Observable } from "@legendapp/state";
+import { observer, useComputed, useObservable } from "@legendapp/state/react";
 import {
   createContext,
   useContext,
+  useCallback,
   useEffect,
   useEffectEvent,
   useMemo,
   useRef,
-  useState,
-  type ComponentPropsWithRef,
   type CSSProperties,
   type ReactNode,
+  type RefObject,
 } from "react";
-import { getCameraTrack, type CameraTrack, type PlacedSection } from "../route";
+import type { PlacedSection } from "@hyphened/math/cpu";
 import type { Canvas } from "../state.types";
+import type { CameraRequest } from "../camera";
 
 type ScrollContextValue = {
   canvas: Canvas;
   sections: readonly PlacedSection[];
-  current: readonly string[];
+  current: Observable<readonly string[]>;
   attached: boolean;
+  following: Observable<boolean>;
   axis: Axis;
-  scrollTo: (id: string) => void;
+  scrollTo: (id?: string) => void;
+  viewport: RefObject<HTMLDivElement | null>;
+  track: CameraTrack | null;
 };
 
-const ScrollContext = createContext<ScrollContextValue | null>(null);
+export const ScrollContext = createContext<ScrollContextValue | null>(null);
 
 export function useCanvasScroll() {
   const context = useContext(ScrollContext);
@@ -37,25 +40,16 @@ export function useCanvasScroll() {
 
 export function useCanvasScrollMode(): "read" | "explore" | undefined {
   const context = useContext(ScrollContext);
-  return context === null ? undefined : context.attached ? "read" : "explore";
+  if (context === null) return undefined;
+  return context.attached ? "read" : "explore";
 }
 
 export function useCanvasScrollAxis(): Axis | undefined {
   return useContext(ScrollContext)?.axis;
 }
 
-const sectionsAt = (sections: readonly PlacedSection[], offset: number): string[] => {
-  const reached = sections.filter((section) => section.offset <= offset + 1);
-  const active = (reached.at(-1) ?? sections[0])?.offset;
-  return active === undefined
-    ? []
-    : sections.filter((section) => section.offset === active).map((section) => section.id);
-};
-
 export const CanvasScroll = observer(function CanvasScroll({
   canvas,
-  maxZoom = 1,
-  axis = "vertical",
   attached = true,
   section,
   onSectionChange,
@@ -65,8 +59,6 @@ export const CanvasScroll = observer(function CanvasScroll({
   children,
 }: {
   canvas: Canvas;
-  maxZoom?: number;
-  axis?: Axis;
   attached?: boolean;
   section?: string;
   onSectionChange?: (section: string) => void;
@@ -76,96 +68,125 @@ export const CanvasScroll = observer(function CanvasScroll({
   children: ReactNode;
 }) {
   const viewport = useRef<HTMLDivElement>(null);
-  const started = useRef(false);
-  const wasAttached = useRef<boolean | null>(null);
-  const [current, setCurrent] = useState<readonly string[]>([]);
-  const track = getCameraTrack({
-    axis,
-    sections: canvas.computed.route[axis].get(),
-    viewport: canvas.state.input.viewport.get(),
-    insets: canvas.state.input.viewportInsets.get(),
-    limits: canvas.state.config.camera.get(),
-    maxZoom,
-  });
-  const visit = useEffectEvent((sections: readonly PlacedSection[], offset: number) => {
-    const next = sectionsAt(sections, offset);
-    if (next.join() === current.join()) return;
-    setCurrent(next);
-    if (next[0] !== undefined && next[0] !== section) onSectionChange?.(next[0]);
-  });
-  const follow = useEffectEvent((offset: number, settled: boolean) => {
+  const scrollOffset = useObservable(0);
+  const current = useComputed<readonly string[]>(() =>
+    canvas.computed.cameraTrack.get()?.sectionIdsAt({ offset: scrollOffset.get() }) ?? [], [canvas]);
+  const following = useComputed(() => {
+    const track = canvas.computed.cameraTrack.get();
+    return attached && track !== null && cameraEquals({
+      camera: canvas.computed.camera.get(),
+      target: track.at(scrollOffset.get()),
+    });
+  }, [canvas, attached]);
+  const axis = canvas.state.document.content.presentation.axis.get();
+  const track = canvas.computed.cameraTrack.get();
+  const follow = useCallback((offset: number, settled: boolean) => {
+    const track = canvas.computed.cameraTrack.peek();
     if (track === null || !attached) return;
-    canvas.actions[settled ? "setCamera" : "previewCamera"].run(track.at(offset));
-    visit(track.sections, offset);
-  });
+    batch(() => {
+      scrollOffset.set(offset);
+      canvas.actions[settled ? "setCamera" : "previewCamera"].run(track.at(offset));
+    });
+    const id = current.peek()[0];
+    if (settled && id !== undefined && id !== section) onSectionChange?.(id);
+  }, [canvas, attached, scrollOffset, current, section, onSectionChange]);
   const offsetOf = (element: HTMLElement) =>
     axis === "vertical" ? element.scrollTop : element.scrollLeft;
-  const place = useEffectEvent(() => {
+  const scrollNavigation = useCallback((): CameraRequest | null => {
+    const track = canvas.computed.cameraTrack.get();
+    if (track === null || !attached) return null;
+    const pose = track.at(scrollOffset.get());
+    return {
+      target: {
+        type: "rect",
+        rect: visibleWorldRect({
+          camera: pose,
+          viewport: canvas.state.input.viewport.get(),
+          insets: canvas.computed.viewportInsets.get(),
+        }),
+      },
+      behavior: { type: "centerAtZoom", zoom: pose.zoom },
+    };
+  }, [canvas, attached, scrollOffset]);
+  const place = useCallback(async ({ offset, immediate = false }: {
+    offset: number;
+    immediate?: boolean;
+  }) => {
     const element = viewport.current;
+    const track = canvas.computed.cameraTrack.peek();
     if (track === null || element === null) return;
-    const camera = canvas.computed.view.camera.peek();
-    const offset = track.offsetAt(camera);
-    const requested = started.current
-      ? undefined
-      : track.sections.find((placed) => placed.id === section)?.offset;
-    started.current = true;
-    const top = requested ?? track.stops[argminN(offset, track.stops)] ?? offset;
-    const pose = track.at(top);
+    const camera = canvas.computed.camera.peek();
+    const pose = track.at(offset);
     const settle = () => {
-      element[axis === "vertical" ? "scrollTop" : "scrollLeft"] = top;
-      visit(track.sections, top);
+      const owner = synchronized.current;
+      if (owner?.canvas !== canvas || !owner.attached || owner.track !== track ||
+        viewport.current !== element) return;
+      element[axis === "vertical" ? "scrollTop" : "scrollLeft"] = offset;
+      follow(offset, true);
     };
     if (
-      requested !== undefined ||
-      (eqDelta(camera.zoom, pose.zoom) &&
-        eqDelta(camera.center.x, pose.center.x) &&
-        eqDelta(camera.center.y, pose.center.y))
+      immediate ||
+      cameraEquals({ camera, target: pose })
     ) {
       settle();
       return;
     }
-    const navigation = canvas.actions.navigateCamera.run({
-      target: { type: "point", point: pose.center },
+    const navigation = await canvas.commands.navigateCamera.run({
+      target: {
+        type: "rect",
+        rect: visibleWorldRect({
+          camera: pose,
+          viewport: canvas.state.input.viewport.peek(),
+          insets: canvas.computed.viewportInsets.peek(),
+        }),
+      },
       behavior: { type: "centerAtZoom", zoom: pose.zoom },
     });
-    if (navigation instanceof Promise) void navigation.then(settle);
-  });
-  const shape =
-    track === null
-      ? ""
-      : `${track.zoom}/${track.length}/${track.sections.map((placed) => `${placed.id}@${placed.offset}`).join()}`;
-  useEffect(() => {
-    if (shape === "") return;
-    const toggled = wasAttached.current !== attached;
-    wasAttached.current = attached;
+    if (navigation.data?.status === "completed" &&
+      !canvas.camera.isNavigating() &&
+      cameraEquals({ camera: canvas.computed.camera.peek(), target: pose })) settle();
+  }, [canvas, axis, follow]);
+  const scrollTo = useCallback((id?: string) => {
+    const offset = id === undefined
+      ? viewport.current?.[axis === "vertical" ? "scrollTop" : "scrollLeft"]
+      : canvas.computed.cameraTrack.peek()?.sections.find((placed) => placed.id === id)?.offset;
+    if (offset === undefined) return;
+    void place({ offset });
+  }, [canvas, axis, place]);
+  const synchronized = useRef<{
+    canvas: Canvas;
+    track: CameraTrack | null;
+    attached: boolean;
+    section: string | undefined;
+  } | null>(null);
+  const synchronize = useEffectEvent(() => {
+    const previous = synchronized.current;
+    synchronized.current = { canvas, track, attached, section };
     if (!attached) {
-      canvas.actions.setCamera.run(canvas.computed.camera.peek());
+      if (previous?.attached !== false || previous.canvas !== canvas)
+        canvas.actions.setCamera.run(canvas.computed.camera.peek());
       return;
     }
     const element = viewport.current;
-    if (toggled || !started.current) place();
-    else if (element !== null) follow(offsetOf(element), true);
-  }, [shape, attached]);
-  const latest = useRef<CameraTrack | null>(track);
-  latest.current = track;
-  const scrollTo = useEffectEvent((id: string) => {
-    const offset = latest.current?.sections.find((placed) => placed.id === id)?.offset;
-    if (offset === undefined) return;
-    viewport.current?.scrollTo({
-      ...(axis === "vertical" ? { top: offset } : { left: offset }),
-      behavior: "smooth",
-    });
+    if (track === null || element === null) return;
+    if (previous?.track == null || previous.canvas !== canvas) {
+      const offset = track.sections.find((placed) => placed.id === section)?.offset;
+      void place({ offset: offset ?? 0, immediate: offset !== undefined });
+    } else if (!previous.attached) {
+      void place({ offset: track.offsetAt(canvas.computed.camera.peek()) });
+    } else if (previous.section !== section && section !== undefined) {
+      if (!current.peek().includes(section)) scrollTo(section);
+    } else if (previous.track !== track && cameraEquals({
+      camera: canvas.computed.camera.peek(),
+      target: previous.track.at(scrollOffset.peek()),
+    })) {
+      follow(offsetOf(element), true);
+    }
   });
-  const requested = useRef(section);
-  useEffect(() => {
-    const asked = requested.current !== section;
-    requested.current = section;
-    if (!asked || section === undefined || !started.current || !attached) return;
-    if (!current.includes(section)) scrollTo(section);
-  }, [section, attached]);
+  useEffect(() => synchronize(), [canvas, track, attached, section]);
   const context = useMemo<ScrollContextValue>(
-    () => ({ canvas, sections: latest.current?.sections ?? [], current, attached, axis, scrollTo }),
-    [canvas, shape, current, attached, axis, scrollTo],
+    () => ({ canvas, sections: track?.sections ?? [], current, attached, following, axis, scrollTo, viewport, track }),
+    [canvas, track, current, attached, following, axis, scrollTo],
   );
   return (
     <ScrollContext.Provider value={context}>
@@ -176,13 +197,31 @@ export const CanvasScroll = observer(function CanvasScroll({
       >
         <ScrollArea.Viewport
           ref={viewport}
-          onScroll={(event) => follow(offsetOf(event.currentTarget), false)}
-          onScrollEnd={(event) => follow(offsetOf(event.currentTarget), true)}
+          onScroll={async (event) => {
+            const element = event.currentTarget;
+            const offset = offsetOf(element);
+            if (following.peek() && !canvas.camera.isNavigating(scrollNavigation)) {
+              follow(offset, false);
+              return;
+            }
+            if (!attached) return;
+            scrollOffset.set(offset);
+            if (canvas.camera.isNavigating(scrollNavigation)) return;
+            const navigation = await canvas.camera.navigate(scrollNavigation);
+            const owner = synchronized.current;
+            if (navigation.status === "completed" && owner?.canvas === canvas &&
+              owner.attached && viewport.current === element &&
+              !canvas.camera.isNavigating() && following.peek())
+              follow(scrollOffset.peek(), true);
+          }}
+          onScrollEnd={(event) => {
+            if (following.peek() && !canvas.camera.isNavigating(scrollNavigation))
+              follow(offsetOf(event.currentTarget), true);
+          }}
           style={{
             position: "relative",
             height: "100%",
             [`overflow${axis === "vertical" ? "X" : "Y"}`]: "hidden",
-            scrollSnapType: `${axes[axis].mainPosition} proximity`,
           }}
         >
           <div
@@ -195,19 +234,7 @@ export const CanvasScroll = observer(function CanvasScroll({
               [axes[axis].main]: `calc(100% + ${track?.length ?? 0}px)`,
               pointerEvents: "none",
             }}
-          >
-            {(track?.stops ?? []).map((offset) => (
-              <div
-                key={offset}
-                style={{
-                  position: "absolute",
-                  [axes[axis].mainPosition === "y" ? "top" : "left"]: offset,
-                  [axes[axis].main]: 1,
-                  scrollSnapAlign: "start",
-                }}
-              />
-            ))}
-          </div>
+          />
           <div style={{ position: "sticky", top: 0, left: 0, height: "100%" }}>{children}</div>
         </ScrollArea.Viewport>
         {scrollbar}
@@ -215,62 +242,3 @@ export const CanvasScroll = observer(function CanvasScroll({
     </ScrollContext.Provider>
   );
 });
-
-export type SectionEntry = PlacedSection & { title: string; current: boolean };
-
-const SectionsRoot = observer(function SectionsRoot({
-  children,
-  render,
-  ref,
-  ...props
-}: Omit<ComponentPropsWithRef<"nav">, "children"> & {
-  render?: useRender.RenderProp;
-  children: (section: SectionEntry) => ReactNode;
-}) {
-  const { canvas, sections, current } = useCanvasScroll();
-  const entries = sections.map((section) => ({
-    ...section,
-    title: canvas.state.document.content.windows[section.id].title.get() || section.id,
-    current: current.includes(section.id),
-  }));
-  return useRender({
-    defaultTagName: "nav",
-    render,
-    ref,
-    props: {
-      "aria-label": "Sections",
-      ...props,
-      "data-slot": "canvas-sections",
-      "data-canvas-control": "",
-      children: entries.map(children),
-    },
-  });
-});
-
-const SectionItem = observer(function SectionItem({
-  section,
-  children,
-  render,
-  ref,
-  ...props
-}: ComponentPropsWithRef<"button"> & { render?: useRender.RenderProp; section: string }) {
-  const { canvas, current, scrollTo } = useCanvasScroll();
-  const title = canvas.state.document.content.windows[section].title.get() || section;
-  return useRender({
-    defaultTagName: "button",
-    render,
-    ref,
-    props: {
-      ...mergeProps<"button">(
-        { type: "button", "aria-label": title, onClick: () => scrollTo(section) },
-        props,
-      ),
-      "aria-current": current.includes(section) || undefined,
-      "data-slot": "canvas-section",
-      "data-canvas-control": "",
-      children: children ?? title,
-    },
-  });
-});
-
-export const Sections = { Root: SectionsRoot, Item: SectionItem };

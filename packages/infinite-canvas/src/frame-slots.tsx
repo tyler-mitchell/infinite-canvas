@@ -22,8 +22,8 @@ import { FocusGuard } from "./focus-guard";
 import { focusInfiniteCanvasCommandSurfaceFrom } from "./keyboard";
 import { InfiniteCanvasWindowBody } from "./rasterization-layer";
 import { mergeProps } from "@base-ui/react/merge-props";
+import { DRAG_THRESHOLD_PX } from "./constants";
 import {
-  DRAG_THRESHOLD_PX,
   capturePointer,
   clearNativeTextSelection,
   getClientPoint,

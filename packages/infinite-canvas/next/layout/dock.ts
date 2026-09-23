@@ -1,10 +1,8 @@
-import type { Rect, Size } from "../geometry";
+import type { Rect, Size, SizeConstraints } from "@hyphened/math/cpu";
 import {
   arrangeWindows,
-  getLimitedSizes,
   type BoundLayout,
   type LayoutNode,
-  type SizeLimits,
 } from "./arrange";
 import type { DockEdge, Operation } from "./kinds";
 import { getDockChange, getParents, type Tree } from "./tree";
@@ -35,7 +33,7 @@ export function getDockArrangement({
   rootId: string;
   rect: Rect;
   windows: Tree;
-  limits: Readonly<Record<string, SizeLimits>>;
+  limits: Readonly<Record<string, SizeConstraints>>;
   drop: DockDrop;
   layouts: Readonly<Record<string, BoundLayout>>;
   wrappers: Readonly<Record<DockEdge, NonNullable<LayoutNode["layout"]>>>;
@@ -53,7 +51,7 @@ export function getDockArrangement({
     wrapper: { id: previewWrapperId, layout: wrappers[drop.edge] },
   });
   const container = getParents(change.windows)[drop.window];
-  const dropped: SizeLimits = {
+  const dropped: SizeConstraints = {
     min: minSize,
     max: { width: Infinity, height: Infinity },
     ideal: drop.rect,
@@ -64,7 +62,7 @@ export function getDockArrangement({
     rect,
     nodes: change.windows,
     layouts,
-    sizes: getLimitedSizes({ [drop.window]: dropped, ...limits }),
+    limits: { [drop.window]: dropped, ...limits },
     active: { ...active, [container]: drop.window },
     operations: {
       ...operations,

@@ -1,6 +1,5 @@
-import { verticalCompactor } from "react-grid-layout/core";
 import { describe, expect, test } from "vite-plus/test";
-import { placeGridItems, type GridItem } from "./placement";
+import { placeGridItems, type GridItem } from "@hyphened/math/cpu";
 
 const item = (
   id: string,
@@ -16,6 +15,15 @@ const at = (column: number, row: number, columnSpan = 1, rowSpan = 1) => ({
 });
 
 describe("placeGridItems", () => {
+  test("resizing keeps the opposite corner fixed while displaced neighbours remain separate", () => {
+    const { cells } = placeGridItems({
+      columns: 8,
+      items: [item("a", 3, 3, { column: 0, row: 0 }), item("b", 3, 3, { column: 4, row: 0 })],
+      targets: { a: { column: 0, row: 0, columnSpan: 7, rowSpan: 5, handle: "south-east" } },
+    });
+    expect(cells.a).toEqual(at(0, 0, 7, 5));
+    expect(cells.b).toEqual(at(4, 5, 3, 3));
+  });
   test("dense packing puts a later small item into a hole that an earlier item left", () => {
     const { cells, rows } = placeGridItems({
       columns: 4,
@@ -56,7 +64,7 @@ describe("placeGridItems", () => {
     );
   });
 
-  test("compaction gives the same cells as the react-grid-layout vertical compactor for any layout without overlap", () => {
+  test("compaction preserves columns and spans, removes overlap, and is idempotent", () => {
     const random = (seed: number) => () => {
       seed = (seed * 1664525 + 1013904223) % 4294967296;
       return seed / 4294967296;
@@ -74,34 +82,30 @@ describe("placeGridItems", () => {
       const apart = Object.entries(placeGridItems({ columns, items: wanted }).cells).map(
         ([id, cell]) => item(id, cell.columnSpan, cell.rowSpan, cell),
       );
-      const expected = Object.fromEntries(
-        verticalCompactor
-          .compact(
-            apart.map((entry) => ({
-              i: entry.id,
-              x: entry.column ?? 0,
-              y: entry.row ?? 0,
-              w: entry.columnSpan,
-              h: entry.rowSpan,
-            })),
-            columns,
-          )
-          .map((entry) => [entry.i, at(entry.x, entry.y, entry.w, entry.h)]),
+      const compacted = placeGridItems({ columns, items: apart, compact: true }).cells;
+      for (const entry of apart) {
+        const cell = compacted[entry.id];
+        expect(cell.column).toBe(entry.column);
+        expect(cell.columnSpan).toBe(entry.columnSpan);
+        expect(cell.rowSpan).toBe(entry.rowSpan);
+        expect(cell.row).toBeLessThanOrEqual(entry.row!);
+      }
+      const occupied = Object.values(compacted).flatMap((cell) =>
+        Array.from(
+          { length: cell.columnSpan * cell.rowSpan },
+          (_, index) =>
+            `${cell.column + (index % cell.columnSpan)}:${cell.row + Math.floor(index / cell.columnSpan)}`,
+        ),
       );
+      expect(new Set(occupied).size).toBe(occupied.length);
       expect(
-        placeGridItems({ columns, items: apart, compact: true }).cells,
-        `seed ${seed}`,
-      ).toEqual(expected);
+        placeGridItems({
+          columns,
+          compact: true,
+          items: Object.entries(compacted).map(([id, cell]) => ({ id, ...cell })),
+        }).cells,
+      ).toEqual(compacted);
     });
-  });
-
-  test("sparse packing never moves the cursor back", () => {
-    const { cells } = placeGridItems({
-      columns: 4,
-      flow: "sparse",
-      items: [item("a", 3), item("b", 2), item("c")],
-    });
-    expect(cells).toEqual({ a: at(0, 0, 3), b: at(0, 1, 2), c: at(2, 1) });
   });
 
   test("an item with a definite position is placed first and the others flow around it", () => {
@@ -138,27 +142,6 @@ describe("placeGridItems", () => {
 
   test("a span wider than the grid is limited to the column count", () => {
     expect(placeGridItems({ columns: 2, items: [item("a", 5)] }).cells.a).toEqual(at(0, 0, 2));
-  });
-
-  test("placement rules are tried in order and then relaxed", () => {
-    const apart: Parameters<typeof placeGridItems>[0]["rules"] = [
-      ({ cell, placed }) =>
-        Object.values(placed).every(
-          (other) => Math.abs(other.column - cell.column) + Math.abs(other.row - cell.row) > 1,
-        ),
-    ];
-    const { cells } = placeGridItems({
-      columns: 2,
-      rules: apart,
-      items: [item("a"), item("b"), item("c")],
-    });
-    expect(cells).toEqual({ a: at(0, 0), b: at(1, 1), c: at(0, 2) });
-    const full = placeGridItems({
-      columns: 1,
-      rules: [() => false],
-      items: [item("a"), item("b")],
-    });
-    expect(full.cells).toEqual({ a: at(0, 0), b: at(0, 1) });
   });
 
   test("no two items share a cell", () => {

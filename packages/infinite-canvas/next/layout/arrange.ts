@@ -1,5 +1,13 @@
 import { type, type ArkErrors, type Type } from "arktype";
-import { alignRectIn, clamp, clamp0, minMax, type Rect, type Size } from "@hyphened/math/cpu";
+import {
+  alignRectIn,
+  clamp,
+  clamp0,
+  resolveSize,
+  type Rect,
+  type Size,
+  type SizeConstraints,
+} from "@hyphened/math/cpu";
 import type {
   Arranged,
   Changes,
@@ -27,7 +35,6 @@ export type BoundLayout = {
   accepts: readonly Operation["type"][];
   presents: "all" | "one";
   collapses: boolean;
-  pins: readonly string[];
   dock(input: {
     options: unknown;
     edge: DockEdge;
@@ -46,21 +53,16 @@ export type BoundLayout = {
   ): Arranged | ArkErrors;
 };
 
-export function bindLayout<Options extends Type, Item extends Type>(
-  layout: Layout<Options, Item>,
-): BoundLayout {
+export function bindLayout(layout: Layout): BoundLayout {
+  const request = type({ options: layout.options, items: layout.item.array() });
+  const docking = request.merge({ "target?": layout.item });
+  const absorption = request.merge({ child: layout.options, slot: layout.item });
   const parse = ({ options, items }: Request) => {
-    const parsed: Options["infer"] | ArkErrors = layout.options(options);
+    const parsed = request({ options, items: items.map((entry) => entry.item ?? {}) });
     if (parsed instanceof type.errors) return parsed;
-    const entries = items.map((entry) => {
-      const item: Item["infer"] | ArkErrors = layout.item(entry.item ?? {});
-      return { ...entry, item };
-    });
-    const invalid = entries.map(({ item }) => item).find((item) => item instanceof type.errors);
-    if (invalid instanceof type.errors) return invalid;
     return {
-      options: parsed,
-      items: entries.flatMap((entry) => (entry.item instanceof type.errors ? [] : [entry])),
+      options: parsed.options,
+      items: items.map((entry, index) => ({ ...entry, item: parsed.items[index] })),
     };
   };
   return {
@@ -69,43 +71,22 @@ export function bindLayout<Options extends Type, Item extends Type>(
     accepts: layout.accepts ?? [],
     presents: layout.presents ?? "all",
     collapses: layout.collapses ?? false,
-    pins: layout.pins ?? [],
     dock: ({ options, edge, target, items }) => {
-      const parsed: Options["infer"] | ArkErrors = layout.options(options);
-      const item: Item["infer"] | ArkErrors | undefined =
-        target === undefined ? undefined : layout.item(target);
-      const siblings = items.map((sibling): Item["infer"] | ArkErrors =>
-        layout.item(sibling ?? {}),
-      );
-      const valid = siblings.flatMap((sibling) =>
-        sibling instanceof type.errors ? [] : [sibling],
-      );
-      return parsed instanceof type.errors ||
-        item instanceof type.errors ||
-        valid.length !== siblings.length
-        ? undefined
-        : layout.dock?.({
-            options: parsed,
-            edge,
-            items: valid,
-            ...(item === undefined ? {} : { target: item }),
-          });
+      const parsed = docking({
+        options,
+        items: items.map((item) => item ?? {}),
+        ...(target === undefined ? {} : { target }),
+      });
+      return parsed instanceof type.errors ? undefined : layout.dock?.({ ...parsed, edge });
     },
     absorb: ({ options, slot, child, items }) => {
-      const own: Options["infer"] | ArkErrors = layout.options(options);
-      const inner: Options["infer"] | ArkErrors = layout.options(child);
-      const place: Item["infer"] | ArkErrors = layout.item(slot ?? {});
-      const parsed = items.map((item): Item["infer"] | ArkErrors => layout.item(item ?? {}));
-      if (
-        own instanceof type.errors ||
-        inner instanceof type.errors ||
-        place instanceof type.errors
-      )
-        return undefined;
-      const valid = parsed.flatMap((item) => (item instanceof type.errors ? [] : [item]));
-      return valid.length === parsed.length
-        ? layout.absorb?.({ options: own, child: inner, slot: place, items: valid })
-        : undefined;
+      const parsed = absorption({
+        options,
+        child,
+        slot: slot ?? {},
+        items: items.map((item) => item ?? {}),
+      });
+      return parsed instanceof type.errors ? undefined : layout.absorb?.(parsed);
     },
     size: ({ proposal, ...input }) => {
       const request = parse(input);
@@ -135,75 +116,39 @@ export type ArrangeInput = {
   rect: Rect;
   nodes: Readonly<Record<string, LayoutNode>>;
   layouts: Readonly<Record<string, BoundLayout>>;
-  sizes?: Readonly<Record<string, (proposal: Proposal) => Size>>;
+  limits?: Readonly<Record<string, SizeConstraints>>;
   active?: Readonly<Record<string, string>>;
   operations?: Readonly<Record<string, Operation>>;
-};
-
-export type SizeLimits = {
-  min: Size;
-  max: Size;
-  ideal: Size;
-  measured?: Size;
-  aspect?: number;
-};
-
-export const limitedSize =
-  ({ min, max, ideal, measured, aspect }: SizeLimits) =>
-  (proposal: Proposal): Size => {
-    const offered = clamp(proposal.width ?? ideal.width, ...minMax(min.width, max.width));
-    if (aspect !== undefined) {
-      const width = clamp(offered, ...minMax(min.height * aspect, max.height * aspect));
-      return { width, height: width / aspect };
-    }
-    const fitted = measured?.width === offered ? measured.height : ideal.height;
-    return {
-      width: offered,
-      height: clamp(proposal.height ?? fitted, ...minMax(min.height, max.height)),
-    };
-  };
-
-export const getLimitedSizes = (limits: Readonly<Record<string, SizeLimits>>) =>
-  Object.fromEntries(Object.entries(limits).map(([id, entry]) => [id, limitedSize(entry)]));
-
-const anySize = (proposal: Proposal): Size => ({
-  width: proposal.width ?? 0,
-  height: proposal.height ?? 0,
-});
-
-const within = ({ size, own }: { size: Size; own: (proposal: Proposal) => Size }): Size => {
-  const min = own({ width: 0, height: 0 });
-  const max = own({ width: Infinity, height: Infinity });
-  return {
-    width: clamp(size.width, ...minMax(min.width, max.width)),
-    height: clamp(size.height, ...minMax(min.height, max.height)),
-  };
 };
 
 export function getWindowSize({
   id,
   nodes,
   layouts,
-  sizes = {},
-}: Pick<ArrangeInput, "id" | "nodes" | "layouts" | "sizes">) {
+  limits = {},
+}: Pick<ArrangeInput, "id" | "nodes" | "layouts" | "limits">) {
+  const constraints = limits[id];
+  const own = (proposal: Proposal) =>
+    constraints === undefined
+      ? { width: proposal.width ?? 0, height: proposal.height ?? 0 }
+      : resolveSize({ constraints, proposal });
   return (proposal: Proposal): Size => {
     const node = nodes[id];
-    const own = sizes[id];
     const layout = node?.layout === undefined ? undefined : layouts[node.layout.type];
     if (node?.layout === undefined || layout === undefined || node.children === undefined)
-      return (own ?? anySize)(proposal);
-    const ideal = own?.({});
+      return own(proposal);
+    const ideal = constraints?.ideal;
     const measured = layout.size({
       options: node.layout,
       proposal: { width: proposal.width ?? ideal?.width, height: proposal.height ?? ideal?.height },
       items: node.children.map((child) => ({
         id: child,
         item: nodes[child]?.item,
-        size: getWindowSize({ id: child, nodes, layouts, sizes }),
+        size: getWindowSize({ id: child, nodes, layouts, limits }),
       })),
     });
-    if (measured instanceof type.errors) return (own ?? anySize)(proposal);
-    return own === undefined ? measured : within({ size: measured, own });
+    if (measured instanceof type.errors) return own(proposal);
+    return constraints === undefined ? measured : resolveSize({ constraints, proposal: measured });
   };
 }
 
@@ -235,8 +180,8 @@ function alignRect({
 }
 
 export function arrangeWindows(input: ArrangeInput): Arrangement {
-  const { nodes, layouts, sizes = {}, active = {}, operations = {} } = input;
-  const sizeOf = (id: string) => getWindowSize({ id, nodes, layouts, sizes });
+  const { nodes, layouts, limits = {}, active = {}, operations = {} } = input;
+  const sizeOf = (id: string) => getWindowSize({ id, nodes, layouts, limits });
   const visit = ({
     id,
     rect,

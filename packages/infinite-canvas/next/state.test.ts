@@ -2,8 +2,88 @@ import { observable, syncState, when } from "@legendapp/state";
 import { syncObservable } from "@legendapp/state/sync";
 import { type } from "arktype";
 import { expect, expectTypeOf, test } from "vite-plus/test";
+import { getRunnableCommands } from "./commands";
+import { bindComponentActions } from "./components";
 import type { Result } from "./model";
+import { getCameraTrack } from "@hyphened/math/cpu";
 import { createCanvasState } from "./state";
+import portfolio from "../../portfolio-board/portfolio/document.json";
+
+test("career details open, remain visible, close, and reopen", async () => {
+  const canvas = createCanvasState({
+    viewport: { width: 2200, height: 1400 },
+    windowDefinitions: {
+      "career-detail": {
+        size: { width: 360, height: 480 },
+        section: false,
+        schema: type({
+          organization: "string > 0",
+          role: "string > 0",
+          summary: "string > 0",
+          icon: "'paypal' | 'federato' | 'utsa'",
+          period: "string > 0",
+          sections: type({ title: "string > 0", body: "string > 0" }).array(),
+          source: "string > 0",
+        }),
+      },
+    },
+    document: {
+      content: {
+        windows: {
+          main: {
+            title: "Portfolio",
+            heightMode: "manual",
+            rect: { x: 0, y: 80, width: 880, height: 2400 },
+          },
+        },
+      },
+      canvasView: { camera: { center: { x: 440, y: 700 }, zoom: 1 } },
+    },
+  });
+  const camera = canvas.computed.camera.peek();
+  for (const name of ["paypal", "federato", "utsa"] as const) {
+    const entry = portfolio.content.windows[name].data;
+    const result = await canvas.commands.openWindow.run({
+      id: `${name}-detail`,
+      kind: "career-detail",
+      heightMode: "manual",
+      title: entry.organization,
+      data: { ...entry, source: "main" },
+      placement: { relativeTo: "main", side: name === "utsa" ? "right" : "left", stack: true, gap: 24 },
+    });
+    expect(result.error).toBeNull();
+    expect(canvas.state.document.content.windows[`${name}-detail`].heightMode.peek()).toBe("manual");
+    expect((await canvas.commands.revealWindow.run({
+      window: `${name}-detail`,
+      behavior: { type: "fit", maxZoom: 1 },
+    })).error).toBeNull();
+    expect(canvas.computed.camera.peek()).toEqual(camera);
+  }
+  for (const name of ["paypal", "federato", "utsa"] as const) {
+    expect((await canvas.commands.closeWindow.run({ window: `${name}-detail` })).error).toBeNull();
+    expect(canvas.state.document.content.windows[`${name}-detail`].peek()).toBeUndefined();
+  }
+  expect((await canvas.commands.openWindow.run({
+    id: "utsa-detail",
+    kind: "career-detail",
+    title: portfolio.content.windows.utsa.data.organization,
+    data: { ...portfolio.content.windows.utsa.data, source: "main" },
+    placement: { relativeTo: "main", side: "right", stack: true, gap: 24 },
+  })).error).toBeNull();
+});
+
+test("observable dependencies preserve the canvas runtime and its observable members", () => {
+  const canvas = createCanvasState({ windowDefinitions: {} });
+  const computed = canvas.computed;
+  const track = computed.cameraTrack;
+  const dependencies = observable([canvas]);
+  dependencies.get();
+  dependencies.set([canvas]);
+  dependencies.get();
+  expect(canvas.computed).toBe(computed);
+  expect(canvas.computed.cameraTrack).toBe(track);
+  expect(track.get()).toBeNull();
+});
 
 function createState() {
   const canvas = createCanvasState({
@@ -63,6 +143,18 @@ function createState() {
   return canvas;
 }
 
+test("revealing a visible window selects it without moving the camera", async () => {
+  const canvas = createState();
+  const camera = canvas.computed.camera.peek();
+  const result = await canvas.commands.revealWindow.run({
+    window: "a",
+    behavior: { type: "fit", maxZoom: 1 },
+  });
+  expect(result.error).toBeNull();
+  expect(canvas.computed.view.activeWindowId.peek()).toBe("a");
+  expect(canvas.computed.camera.peek()).toEqual(camera);
+});
+
 test("camera fitting uses content insets and leaves document history unchanged", async () => {
   const canvas = createState();
   canvas.state.input.viewportInsets.set({ top: 80, right: 120, bottom: 40, left: 20 });
@@ -78,11 +170,38 @@ test("camera fitting uses content insets and leaves document history unchanged",
 
 test("camera refusal preserves the current view", async () => {
   const canvas = createState();
+  canvas.actions.previewCamera.run({ center: { x: 120, y: 80 }, zoom: 1 });
   const initial = canvas.computed.camera.peek();
   expect(await canvas.camera.navigate({ target: { type: "window", windowId: "missing" } })).toEqual(
     { status: "unavailable" },
   );
   expect(canvas.computed.camera.peek()).toEqual(initial);
+});
+
+test("camera navigation starts from the displayed zoom", async () => {
+  const canvas = createState();
+  canvas.actions.previewCamera.run({ center: { x: 120, y: 80 }, zoom: 1 });
+  await canvas.camera.navigate({
+    target: { type: "point", point: { x: 200, y: 300 } },
+    behavior: { type: "center" },
+    reducedMotion: "always",
+  });
+  expect(canvas.computed.camera.peek()).toEqual({ center: { x: 200, y: 300 }, zoom: 1 });
+  expect(canvas.state.session.camera.peek()).toBeNull();
+});
+
+test("pan and zoom commit the displayed camera and clear its preview", () => {
+  const canvas = createState();
+  canvas.actions.previewCamera.run({ center: { x: 120, y: 80 }, zoom: 1 });
+  canvas.actions.panCamera.run({ x: 30, y: 40 });
+  expect(canvas.computed.camera.peek()).toEqual({ center: { x: 150, y: 120 }, zoom: 1 });
+  expect(canvas.state.session.camera.peek()).toBeNull();
+
+  canvas.actions.previewCamera.run({ center: { x: 120, y: 80 }, zoom: 1 });
+  canvas.actions.zoomCamera.run({ factor: 2, point: { x: 500, y: 400 } });
+  expect(canvas.computed.camera.peek()).toEqual({ center: { x: 120, y: 80 }, zoom: 2 });
+  expect(canvas.computed.view.camera.peek()).toEqual(canvas.computed.camera.peek());
+  expect(canvas.state.session.camera.peek()).toBeNull();
 });
 
 test("undo removes view references to a container that no longer exists", () => {
@@ -297,48 +416,41 @@ test("placement fills a region of the view with the active window and is undone 
   expect(canvas.actions.placeWindow.canRun({ region: "left", window: "b" })).toBe(false);
 });
 
-test("camera stops step in order, stop at the ends unless wrapped, and capture the current view", async () => {
+test("a window whose width follows the viewport is as wide as the viewport until it is resized", () => {
   const canvas = createCanvasState({
     windowDefinitions: { note: {} },
     viewport: { width: 1000, height: 800 },
+    viewportInsets: { left: 40 },
     document: {
       content: {
         windows: {
-          a: { kind: "note", title: "A", rect: { x: 1000, y: 0, width: 200, height: 100 } },
-        },
-        cameraStops: [
-          { id: "intro", navigation: { target: { type: "point", point: { x: 0, y: 0 } } } },
-          {
-            id: "work",
-            navigation: {
-              target: { type: "window", windowId: "a" },
-              behavior: { type: "centerAtZoom", zoom: 2 },
-            },
+          board: {
+            title: "Board",
+            widthMode: "viewport",
+            rect: { x: 0, y: 0, width: 1200, height: 400 },
+            layout: { type: "grid", columns: 12, rowHeight: 40 },
+            children: ["a"],
           },
-        ],
+          a: { kind: "note", title: "A", rect: { x: 0, y: 0, width: 200, height: 100 } },
+          b: {
+            kind: "note",
+            title: "B",
+            widthMode: "viewport",
+            rect: { x: 0, y: 500, width: 200, height: 100 },
+          },
+        },
       },
     },
   });
-  expect(canvas.actions.stepCameraStop.canRun({ by: -1 })).toBe(true);
-  expect(await canvas.actions.stepCameraStop.run({ by: 1 })).toEqual({ status: "completed" });
-  expect(canvas.computed.view.cameraStopId.peek()).toBe("intro");
-  await canvas.actions.stepCameraStop.run({ by: 1 });
-  expect(canvas.computed.camera.peek()).toEqual({ center: { x: 1100, y: 50 }, zoom: 2 });
-  expect(canvas.actions.stepCameraStop.canRun({ by: 1 })).toBe(false);
-  await canvas.actions.stepCameraStop.run({ by: 1, wrap: true });
-  expect(canvas.computed.view.cameraStopId.peek()).toBe("intro");
-  expect(canvas.actions.addCameraStop.run({ id: "here" })).toBeUndefined();
-  expect(canvas.state.document.content.cameraStops[2].navigation.peek()).toEqual({
-    target: { type: "point", point: { x: 0, y: 0 } },
-    behavior: { type: "centerAtZoom", zoom: 2 },
-  });
-  expect(canvas.actions.addCameraStop.canRun({ id: "here" })).toBe(false);
-  canvas.actions.removeCameraStop.run({ stop: "here" });
-  expect(canvas.computed.view.cameraStopId.peek()).toBeNull();
-  expect(canvas.state.document.content.cameraStops.peek().map((stop) => stop.id)).toEqual([
-    "intro",
-    "work",
-  ]);
+  expect(canvas.computed.windowRect.board.width.peek()).toBe(960);
+  expect(canvas.computed.windowRect.b.width.peek()).toBe(960);
+  canvas.state.input.viewport.width.set(500);
+  expect(canvas.computed.windowRect.board.width.peek()).toBe(460);
+  canvas.actions.resizeWindow.run({ window: "b", width: 300, height: 100 });
+  expect(canvas.state.document.content.windows.b.widthMode.peek()).toBe("manual");
+  expect(canvas.computed.windowRect.b.width.peek()).toBe(300);
+  canvas.actions.setWindowSizeMode.run({ window: "b", widthMode: "viewport" });
+  expect(canvas.computed.windowRect.b.width.peek()).toBe(460);
 });
 
 test("floating windows have no parent and are their own root", () => {
@@ -592,7 +704,6 @@ test("the active view links to each workspace without copying view state", () =>
   });
   canvas.state.document.workspaceViews.research.set({
     activeWindowId: "c",
-    cameraStopId: null,
     camera: { center: { x: 100, y: 200 }, zoom: 1 },
     selection: { targets: { "window:c": { type: "window", id: "c" } }, anchor: "window:c" },
     stackingOrder: ["window:c"],
@@ -785,5 +896,456 @@ test("resizing a container stops at the minimum size that its children need", ()
     y: 0,
     width: 206,
     height: 50,
+  });
+});
+
+test("the selection's component actions are the runnable ones for a single kind", () => {
+  const schema = type({ done: "boolean = false" });
+  const canvas = createCanvasState({
+    viewport: { width: 1000, height: 800 },
+    windowDefinitions: {
+      task: {
+        schema,
+        actions: bindComponentActions({
+          schema,
+          actions: {
+            complete: { label: "Complete", set: { done: true }, enabled: (props) => !props.done },
+            reopen: { label: "Reopen", multiple: true, set: { done: false } },
+          },
+        }),
+      },
+      label: { schema: type({ text: "string = ''" }) },
+    },
+    document: {
+      content: {
+        windows: {
+          a: {
+            id: "a",
+            kind: "task",
+            title: "A",
+            mode: "normal",
+            isPinned: false,
+            heightMode: "manual",
+            rect: { x: 0, y: 0, width: 200, height: 100 },
+            data: { done: false },
+          },
+          b: {
+            id: "b",
+            kind: "task",
+            title: "B",
+            mode: "normal",
+            isPinned: false,
+            heightMode: "manual",
+            rect: { x: 300, y: 0, width: 200, height: 100 },
+            data: { done: true },
+          },
+          c: {
+            id: "c",
+            kind: "label",
+            title: "C",
+            mode: "normal",
+            isPinned: false,
+            heightMode: "manual",
+            rect: { x: 600, y: 0, width: 200, height: 100 },
+            data: { text: "" },
+          },
+        },
+      },
+    },
+  });
+  const componentActions = () =>
+    getRunnableCommands(canvas)
+      .filter((command) => command.ready && command.name.startsWith("runComponentAction:"))
+      .map(({ label, icon, input }) => ({
+        label,
+        icon,
+        input: type({ action: "string", windows: "string[]" }).assert(input),
+      }));
+  expect(componentActions()).toEqual([]);
+  canvas.actions.selectWindow.run({ window: "b" });
+  expect(componentActions()).toEqual([
+    { label: "Reopen", icon: "edit", input: { action: "reopen", windows: ["b"] } },
+  ]);
+  canvas.actions.selectTargets.run({ targets: [{ type: "window", id: "a" }], mode: "add" });
+  expect(componentActions().map((entry) => entry.input.action)).toEqual(["reopen"]);
+  canvas.actions.selectTargets.run({ targets: [{ type: "window", id: "c" }], mode: "add" });
+  expect(componentActions()).toEqual([]);
+  canvas.actions.selectWindow.run({ window: "a" });
+  const [entry] = componentActions();
+  expect(entry?.input).toEqual({ action: "complete", windows: ["a"] });
+  expect(canvas.commands.runComponentAction.canRun(entry!.input)).toBe(true);
+  canvas.actions.runComponentAction.run(entry!.input);
+  expect(canvas.state.document.content.windows.a.data.get()).toEqual({ done: true });
+  expect(componentActions().map((item) => item.input.action)).toEqual(["reopen"]);
+});
+
+function createReadingState() {
+  return createCanvasState({
+    windowDefinitions: { note: {} },
+    viewport: { width: 1000, height: 800 },
+    document: {
+      content: {
+        windows: {
+          p: {
+            id: "p",
+            kind: "note",
+            heightMode: "manual",
+            rect: { x: 0, y: 200, width: 100, height: 100 },
+          },
+          q: {
+            id: "q",
+            kind: "note",
+            heightMode: "manual",
+            rect: { x: 400, y: 0, width: 100, height: 100 },
+          },
+        },
+      },
+    },
+  });
+}
+
+test("the document carries the reading axis and the reading order follows it", () => {
+  const canvas = createReadingState();
+  expect(canvas.state.document.content.presentation.get()).toEqual({
+    axis: "vertical",
+    maxZoom: 1,
+  });
+  expect(canvas.computed.route.get().map((section) => section.id)).toEqual(["q", "p"]);
+  canvas.actions.setPresentation.run({ axis: "horizontal" });
+  expect(canvas.computed.route.get().map((section) => section.id)).toEqual(["p", "q"]);
+  expect(canvas.state.document.content.presentation.maxZoom.get()).toBe(1);
+});
+
+test("an empty presentation change is rejected and a bad maximum zoom never lands", () => {
+  const canvas = createReadingState();
+  expect(canvas.actions.setPresentation.canRun({})).toBe(false);
+  expect(canvas.actions.setPresentation.run({ maxZoom: 0 })).toBeInstanceOf(type.errors);
+  expect(canvas.state.document.content.presentation.maxZoom.get()).toBe(1);
+});
+
+test("a window that fits its content keeps the measured height until its width changes, then waits for a new measurement", () => {
+  const canvas = createCanvasState({
+    windowDefinitions: { card: {} },
+    viewport: { width: 1200, height: 800 },
+    document: {
+      content: {
+        windows: {
+          main: {
+            id: "main",
+            children: ["card"],
+            layout: { type: "grid", columns: 1, rowHeight: 1, gap: 0, compact: true },
+            rect: { x: 0, y: 0, width: 600, height: 600 },
+          },
+          card: {
+            id: "card",
+            kind: "card",
+            heightMode: "content",
+            rect: { x: 0, y: 0, width: 600, height: 380 },
+          },
+        },
+      },
+    },
+  });
+  const height = () => canvas.computed.windowRect.card.height.get();
+  const width = () => canvas.computed.windowRect.card.width.get() ?? 0;
+  expect(height()).toBe(380);
+  canvas.actions.setContentSize.run({ windowId: "card", size: { width: width(), height: 120 } });
+  expect(height()).toBe(120);
+  canvas.actions.resizeWindow.run({ window: "main", width: 375 });
+  expect(width()).toBe(375);
+  expect(height()).toBe(380);
+  canvas.actions.setContentSize.run({ windowId: "card", size: { width: 375, height: 210 } });
+  expect(height()).toBe(210);
+});
+
+test("a window that follows the viewport stops at its own maximum width", () => {
+  const canvas = createCanvasState({
+    windowDefinitions: { page: {} },
+    viewport: { width: 1440, height: 900 },
+    document: {
+      content: {
+        windows: {
+          page: {
+            id: "page",
+            kind: "page",
+            widthMode: "viewport",
+            heightMode: "manual",
+            rect: { x: 0, y: 0, width: 600, height: 400 },
+          },
+        },
+      },
+    },
+  });
+  const width = () => canvas.computed.windowRect.page.width.get();
+  expect(width()).toBe(1440);
+  canvas.actions.setWindowSizeMode.run({ window: "page", maxSize: { width: 960 } });
+  expect(width()).toBe(960);
+  canvas.actions.setWindowSizeMode.run({ window: "page", maxSize: {} });
+  expect(width()).toBe(1440);
+  canvas.actions.setViewportInsets.run({ left: 700, right: 500 });
+  expect(width()).toBe(240);
+});
+
+test("a container that follows the viewport stops at its maximum width and follows a resize", () => {
+  const canvas = createCanvasState({
+    windowDefinitions: { note: {} },
+    snapping: { enabled: false },
+    viewport: { width: 1000, height: 800 },
+    document: {
+      content: {
+        windows: {
+          board: {
+            title: "Board",
+            widthMode: "viewport",
+            maxSize: { width: 880 },
+            rect: { x: 0, y: 0, width: 400, height: 300 },
+            layout: { type: "grid", columns: 4, rowHeight: 40, gap: 10 },
+            children: ["a"],
+          },
+          a: { kind: "note", title: "A", rect: { x: 0, y: 0, width: 200, height: 100 } },
+        },
+      },
+    },
+  });
+  const width = () => canvas.computed.windowRect.board.width.peek();
+  const pointer = {
+    pointerId: 1,
+    point: { x: 500, y: 400 },
+    altKey: false,
+    ctrlKey: false,
+    metaKey: false,
+    shiftKey: false,
+  };
+  expect(width()).toBe(880);
+  canvas.actions.pressResize.run({ window: "board", pointer, handle: "south", threshold: 0 });
+  canvas.actions.updatePointer.run({ ...pointer, point: { x: 500, y: 600 } });
+  canvas.actions.releasePointer.run({ pointerId: 1 });
+  expect(canvas.state.document.content.windows.board.widthMode.peek()).toBe("viewport");
+  canvas.actions.pressResize.run({ window: "board", pointer, handle: "east", threshold: 0 });
+  canvas.actions.updatePointer.run({ ...pointer, point: { x: 300, y: 400 } });
+  expect(width()).toBe(680);
+  canvas.actions.releasePointer.run({ pointerId: 1 });
+  expect(canvas.state.document.content.windows.board.rect.width.peek()).toBe(680);
+  expect(canvas.state.document.content.windows.board.widthMode.peek()).toBe("manual");
+  expect(width()).toBe(680);
+});
+
+test("vertical lane resizing preserves the displayed height after release", () => {
+  const canvas = createCanvasState({
+    windowDefinitions: { note: { minSize: { width: 50, height: 50 } } },
+    snapping: { enabled: false },
+    viewport: { width: 1000, height: 800 },
+    document: {
+      content: {
+        windows: {
+          board: {
+            title: "Board",
+            rect: { x: 0, y: 0, width: 600, height: 210 },
+            layout: { type: "lanes", columns: 3, gap: 0 },
+            children: ["a", "b", "c"],
+          },
+          ...Object.fromEntries(["a", "b", "c"].map((id) => [id, {
+            kind: "note",
+            title: id,
+            heightMode: "manual" as const,
+            rect: { x: 0, y: 0, width: 200, height: 210 },
+          }])),
+        },
+      },
+    },
+  });
+  const pointer = {
+    pointerId: 1,
+    point: { x: 500, y: 400 },
+    altKey: false,
+    ctrlKey: false,
+    metaKey: false,
+    shiftKey: false,
+  };
+  expect(canvas.computed.windowRect.c.height.peek()).toBe(210);
+  canvas.actions.pressResize.run({ window: "c", pointer, handle: "south", threshold: 0 });
+  canvas.actions.updatePointer.run({ ...pointer, point: { x: 500, y: 460 } });
+  expect(canvas.computed.windowRect.c.height.peek()).toBe(270);
+  canvas.actions.releasePointer.run({ pointerId: 1 });
+  expect(canvas.state.document.content.windows.c.rect.height.peek()).toBe(270);
+  expect(canvas.computed.windowRect.c.height.peek()).toBe(270);
+  expect(canvas.computed.windowRect.a.height.peek()).toBe(210);
+  expect(canvas.computed.windowRect.b.height.peek()).toBe(210);
+});
+
+test("a window docked into a container that follows the viewport takes the cell it was dropped on", () => {
+  const canvas = createCanvasState({
+    windowDefinitions: { card: { size: { width: 100, height: 100 } } },
+    viewport: { width: 400, height: 800 },
+    document: {
+      content: {
+        windows: {
+          board: {
+            title: "Board",
+            widthMode: "viewport",
+            rect: { x: 0, y: 0, width: 800, height: 400 },
+            layout: { type: "grid", columns: 4, rowHeight: 100, gap: 0 },
+            children: ["a"],
+          },
+          a: {
+            kind: "card",
+            title: "A",
+            rect: { x: 0, y: 0, width: 100, height: 100 },
+            item: { column: 0, row: 0, columnSpan: 1 },
+          },
+          c: { kind: "card", title: "C", rect: { x: 300, y: 0, width: 100, height: 100 } },
+        },
+      },
+    },
+  });
+  expect(canvas.computed.windowRect.board.width.peek()).toBe(400);
+  expect(canvas.actions.dockWindow.run({ window: "c", target: "board" })).toBeUndefined();
+  expect(canvas.state.document.content.windows.c.item.column.peek()).toBe(3);
+  expect(canvas.computed.windowRect.c.x.peek()).toBe(300);
+});
+
+test("a root that follows the viewport is read with the camera padding as its margin", () => {
+  const canvas = createCanvasState({
+    windowDefinitions: { note: {} },
+    viewport: { width: 375, height: 812 },
+    document: {
+      content: {
+        windows: {
+          board: {
+            title: "Board",
+            widthMode: "viewport",
+            rect: { x: 0, y: 0, width: 1200, height: 400 },
+            layout: { type: "grid", columns: 1, rowHeight: 40 },
+            children: ["a"],
+          },
+          a: { kind: "note", title: "A", rect: { x: 0, y: 0, width: 200, height: 100 } },
+        },
+      },
+    },
+  });
+  const track = getCameraTrack({
+    sections: canvas.computed.route.get(),
+    viewport: canvas.state.input.viewport.get(),
+    insets: canvas.computed.viewportInsets.get(),
+    limits: canvas.state.config.camera.get(),
+    maxZoom: canvas.state.document.content.presentation.maxZoom.get(),
+  });
+  expect(canvas.computed.windowRect.board.width.peek()).toBe(375);
+  expect(track?.zoom).toBeCloseTo((375 - 72) / 375, 5);
+});
+
+test("snapping and the camera limits are settable, and disordered zoom limits are refused", () => {
+  const canvas = createReadingState();
+  expect(canvas.state.config.snapping.enabled.get()).toBe(true);
+  canvas.actions.setSnapping.run({ enabled: false, threshold: 12 });
+  expect(canvas.state.config.snapping.get()).toEqual({
+    enabled: false,
+    threshold: 12,
+    edges: true,
+    centers: true,
+  });
+  expect(canvas.actions.setSnapping.canRun({})).toBe(false);
+  canvas.actions.setCameraLimits.run({ maxZoom: 2 });
+  expect(canvas.state.config.camera.maxZoom.get()).toBe(2);
+  expect(canvas.actions.setCameraLimits.run({ maxZoom: 0.05 })).toBeInstanceOf(type.errors);
+  expect(canvas.state.config.camera.maxZoom.get()).toBe(2);
+});
+
+test("a window takes its kind's place in the reading order until the author overrides it", () => {
+  const canvas = createCanvasState({
+    windowDefinitions: { note: {}, mark: { section: false } },
+    viewport: { width: 1000, height: 800 },
+    document: {
+      content: {
+        windows: {
+          p: {
+            id: "p",
+            kind: "note",
+            heightMode: "manual",
+            rect: { x: 0, y: 200, width: 100, height: 100 },
+          },
+          q: {
+            id: "q",
+            kind: "mark",
+            heightMode: "manual",
+            rect: { x: 400, y: 0, width: 100, height: 100 },
+          },
+        },
+      },
+    },
+  });
+  const order = () => canvas.computed.route.get().map((section) => section.id);
+  expect(order()).toEqual(["p"]);
+  canvas.actions.setWindowSection.run({ window: "q", section: true });
+  expect(order()).toEqual(["q", "p"]);
+  canvas.actions.setWindowSection.run({ window: "q" });
+  expect(order()).toEqual(["p"]);
+});
+
+test("a panel that hugs one edge insets the camera by its extent, and a floating one does not", () => {
+  const canvas = createReadingState();
+  const insets = () => canvas.computed.viewportInsets.get();
+  expect(insets()).toEqual({ top: 0, right: 0, bottom: 0, left: 0 });
+  canvas.actions.setViewportOccluder.run({
+    source: "palette",
+    rect: { x: 804, y: 0, width: 196, height: 800 },
+  });
+  expect(insets()).toEqual({ top: 0, right: 196, bottom: 0, left: 0 });
+  canvas.actions.setViewportOccluder.run({
+    source: "rail",
+    rect: { x: 0, y: 744, width: 1000, height: 56 },
+  });
+  expect(insets()).toEqual({ top: 0, right: 196, bottom: 56, left: 0 });
+  canvas.actions.setViewportOccluder.run({
+    source: "pill",
+    rect: { x: 400, y: 700, width: 200, height: 40 },
+  });
+  expect(insets()).toEqual({ top: 0, right: 196, bottom: 56, left: 0 });
+  canvas.actions.setViewportOccluder.run({ source: "palette" });
+  expect(insets()).toEqual({ top: 0, right: 0, bottom: 56, left: 0 });
+});
+
+test("every command's input converts to JSON Schema, so listing them for an agent never throws", () => {
+  const canvas = createReadingState();
+  const commands: Record<string, { input: type.Any }> = canvas.commands;
+  const converted = Object.entries(commands).map(([name, command]) => [
+    name,
+    typeof command.input.toJsonSchema({ fallback: { default: (context) => context.base } }),
+  ]);
+  expect(converted.every(([, kind]) => kind === "object")).toBe(true);
+  expect(converted.length).toBeGreaterThan(20);
+});
+
+test("check gives the reason canRun refused, so an agent hears what the launcher shows", () => {
+  const canvas = createReadingState();
+  const commands: Record<
+    string,
+    { check(input: unknown): string | null; canRun(input: unknown): boolean }
+  > = canvas.commands;
+  const probes: unknown[] = [{}, { window: "p", windows: ["p"] }, { axis: "horizontal" }];
+  const disagreed = Object.entries(commands).flatMap(([name, command]) =>
+    probes.flatMap((probe) =>
+      command.canRun(probe) === (command.check(probe) === null)
+        ? []
+        : [`${name} ${JSON.stringify(probe)}`],
+    ),
+  );
+  expect(disagreed).toEqual([]);
+  expect(canvas.commands.setPresentation.check({})).toContain("axis");
+  expect(canvas.commands.setPresentation.check({ axis: "horizontal" })).toBeNull();
+});
+
+test("the presentation input renders as a form", () => {
+  const canvas = createReadingState();
+  const json = canvas.commands.setPresentation.input.toJsonSchema({
+    dialect: null,
+    fallback: { predicate: (context) => context.base },
+  });
+  expect(json).toMatchObject({
+    type: "object",
+    properties: {
+      axis: { enum: ["horizontal", "vertical"] },
+      maxZoom: { type: "number", exclusiveMinimum: 0 },
+    },
   });
 });

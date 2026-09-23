@@ -1,7 +1,7 @@
 import type { ArkErrors, Type } from "arktype";
 import type { Observable } from "@legendapp/state";
-import type { Camera, Point, Rect, ResizeHandle, Size } from "@hyphened/math/cpu";
-import type { CameraMotion, ViewportInsets } from "./camera";
+import type { Camera, Insets, Point, Rect, ResizeHandle, Size } from "@hyphened/math/cpu";
+import type { CameraMotion } from "./camera";
 import type { ComponentActionRuntime, ComponentDrop, WindowCreation } from "./components";
 import type {
   DocumentState,
@@ -77,6 +77,7 @@ export type SashDrag = {
 export type WindowDefinition = {
   size: Size;
   minSize: Size;
+  maxSize?: { width?: number; height?: number };
   aspectRatio?: number;
   section: boolean;
   capabilities: WindowCapabilities;
@@ -160,16 +161,16 @@ export type CanvasState = {
   input: {
     pointer: PointerState | null;
     viewport: Size;
-    viewportInsets: ViewportInsets;
-    viewportOccluders: Rect[];
+    viewportInsets: Insets;
+    viewportOccluders: Record<string, Rect>;
     contentSizes: Record<string, Size>;
   };
 };
 
 export type CanvasOptions = {
   viewport?: Size;
-  viewportInsets?: Partial<ViewportInsets>;
-  viewportOccluders?: Rect[];
+  viewportInsets?: Partial<Insets>;
+  viewportOccluders?: Record<string, Rect>;
   placement?: Partial<CanvasState["config"]["placement"]>;
   docking?: Partial<CanvasState["config"]["docking"]>;
   dropThreshold?: number;

@@ -1,5 +1,5 @@
 import { expect, test, vi } from "vite-plus/test";
-import { defaultHotkeys, getHotkeyDefinitions } from "./input";
+import { capturePointer, defaultHotkeys, getHotkeyDefinitions } from "./input";
 import { createCanvasState } from "./state";
 
 const press = {
@@ -12,6 +12,36 @@ const press = {
 } as unknown as KeyboardEvent;
 
 vi.stubGlobal("Element", class {});
+
+test("failed pointer capture cancels the gesture without committing its camera preview", () => {
+  const canvas = createCanvasState({ windowDefinitions: { note: {} } });
+  const camera = canvas.computed.camera.peek();
+  const pointer = {
+    pointerId: 7,
+    point: { x: 10, y: 10 },
+    altKey: false,
+    ctrlKey: false,
+    metaKey: false,
+    shiftKey: false,
+  };
+  canvas.actions.beginPan.run(pointer);
+  canvas.actions.updatePointer.run({ ...pointer, point: { x: 50, y: 30 } });
+  expect(canvas.computed.camera.peek()).not.toEqual(camera);
+  const error = new Error("Pointer is no longer active");
+  const warning = vi.spyOn(console, "warn").mockImplementation(() => {});
+  try {
+    capturePointer({
+      canvas,
+      pointerId: 7,
+      element: { setPointerCapture: () => { throw error; } },
+    });
+    expect(canvas.computed.capturedPointerId.peek()).toBeNull();
+    expect(canvas.computed.camera.peek()).toEqual(camera);
+    expect(warning).toHaveBeenCalledWith("Pointer capture failed; gesture cancelled.", error);
+  } finally {
+    warning.mockRestore();
+  }
+});
 
 test("hotkey bindings run commands with their input, accept custom actions, and drop removed keys", () => {
   const canvas = createCanvasState({

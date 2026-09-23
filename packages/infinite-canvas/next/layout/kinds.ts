@@ -1,15 +1,26 @@
 import { type, type Type } from "arktype";
-import type { Rect, ResizeHandle, Size } from "../geometry";
-import { resizeTracks, resolveTracks } from "./tracks";
+import {
+  add as sum,
+  clamp,
+  clamp0,
+  max,
+  minMax,
+  resizeTracks,
+  resolveTracks,
+  type Rect,
+  type LayoutOperation,
+  type Size,
+} from "@hyphened/math/cpu";
 
 export type Proposal = { width?: number; height?: number };
-export type LayoutItem<Item> = { id: string; item: Item; size(proposal: Proposal): Size };
+export type LayoutItem<Item> = {
+  id: string;
+  item: Item;
+  size(proposal: Proposal): Size;
+};
 export type Placement = { id: string; rect: Rect; visible: boolean };
 
-export type Operation =
-  | { type: "sash"; index: number; delta: number; sizes: readonly number[] }
-  | { type: "move"; rects: Readonly<Record<string, Rect>> }
-  | { type: "resize"; child: string; rect: Rect; handle: ResizeHandle };
+export type Operation = LayoutOperation;
 
 export type Control =
   | { type: "sash"; rect: Rect; axis: Axis; index: number; sizes: number[] }
@@ -38,7 +49,7 @@ export type DockPlacement = {
   window?: ItemProperties;
 };
 
-export type Layout<Options extends Type, Item extends Type> = {
+export type Layout<Options extends Type = Type, Item extends Type = Type> = {
   options: Options;
   item: Item;
   accepts?: readonly Operation["type"][];
@@ -80,8 +91,6 @@ const axes = {
 const appendOnCenter = ({ edge }: { edge: DockEdge }): DockPlacement | undefined =>
   edge === "center" ? { place: "append" } : undefined;
 
-const sum = (values: readonly number[]) => values.reduce((total, value) => total + value, 0);
-
 export const oriented = ({
   axis,
   along,
@@ -118,7 +127,7 @@ const splitTracks = ({
   const maximums = limit(Infinity);
   return {
     shown,
-    gaps: options.gap * Math.max(0, shown.length - 1),
+    gaps: options.gap * clamp0(shown.length - 1),
     tracks: shown.map(({ item }, index) => ({
       base: 0,
       factor: item.factor,
@@ -166,18 +175,22 @@ export const split: Layout<typeof splitOptions, typeof splitItem> = {
             ],
         ),
       );
-    const along = Math.max(
-      sum(tracks.map((track) => track.min)) + gaps,
-      Math.min(sum(tracks.map((track) => track.max)) + gaps, wanted ?? ideal() + gaps),
+    const along = clamp(
+      wanted ?? ideal() + gaps,
+      ...minMax(
+        sum(tracks.map((track) => track.min)) + gaps,
+        sum(tracks.map((track) => track.max)) + gaps,
+      ),
     );
-    const sizes = resolveTracks({ available: Math.max(0, along - gaps), tracks });
-    const across = Math.max(
-      0,
-      ...shown.map(
-        ({ size }, index) =>
-          size(oriented({ axis: options.axis, along: sizes[index], across: proposal[cross] }))[
-            cross
-          ],
+    const sizes = resolveTracks({ available: clamp0(along - gaps), tracks });
+    const across = clamp0(
+      max(
+        shown.map(
+          ({ size }, index) =>
+            size(oriented({ axis: options.axis, along: sizes[index], across: proposal[cross] }))[
+              cross
+            ],
+        ),
       ),
     );
     return { width: 0, height: 0, [extent]: along, [cross]: across };
@@ -185,7 +198,7 @@ export const split: Layout<typeof splitOptions, typeof splitItem> = {
   arrange: ({ options, items, rect, operation }) => {
     const { position, extent, cross } = axes[options.axis];
     const { shown, gaps, tracks } = splitTracks({ options, items, across: rect[cross] });
-    const available = Math.max(0, rect[extent] - gaps);
+    const available = clamp0(rect[extent] - gaps);
     const sizes =
       operation?.type === "sash"
         ? resizeTracks({ ...operation, tracks })
@@ -232,13 +245,13 @@ const largest = ({
 }): Size => {
   const sizes = items.filter(({ item }) => !item.hidden).map(({ size }) => size(proposal));
   return {
-    width: Math.max(0, ...sizes.map((size) => size.width)),
-    height: Math.max(0, ...sizes.map((size) => size.height)),
+    width: clamp0(max(sizes.map((size) => size.width))),
+    height: clamp0(max(sizes.map((size) => size.height))),
   };
 };
 
 const reduced = (value: number | undefined, by: number) =>
-  value === undefined ? undefined : Math.max(0, value - by);
+  value === undefined ? undefined : clamp0(value - by);
 
 const tabsOptions = type({ type: "'tabs'", stripSize: "number >= 0 = 30" });
 const stackItem = type({ hidden: "boolean = false" });
@@ -258,8 +271,8 @@ export const tabs: Layout<typeof tabsOptions, typeof stackItem> = {
   arrange: ({ options, items, rect, active }) => {
     const shown = items.filter(({ item }) => !item.hidden);
     const current = shown.find(({ id }) => id === active) ?? shown[0];
-    const strip = Math.min(options.stripSize, rect.height);
-    const body = { ...rect, y: rect.y + strip, height: Math.max(0, rect.height - strip) };
+    const strip = clamp(options.stripSize, ...minMax(0, rect.height));
+    const body = { ...rect, y: rect.y + strip, height: clamp0(rect.height - strip) };
     return {
       size: rect,
       children: items.map(({ id }) => ({ id, rect: body, visible: id === current?.id })),
@@ -301,13 +314,10 @@ export const accordion: Layout<typeof accordionOptions, typeof stackItem> = {
   arrange: ({ options, items, rect, active }) => {
     const { position, extent } = axes[options.axis];
     const shown = items.filter(({ item }) => !item.hidden);
-    const expanded = Math.max(
-      0,
-      shown.findIndex(({ id }) => id === active),
-    );
+    const expanded = clamp0(shown.findIndex(({ id }) => id === active));
     const header =
-      shown.length === 0 ? 0 : Math.min(options.headerSize, rect[extent] / shown.length);
-    const body = Math.max(0, rect[extent] - header * shown.length);
+      shown.length === 0 ? 0 : clamp(options.headerSize, ...minMax(0, rect[extent] / shown.length));
+    const body = clamp0(rect[extent] - header * shown.length);
     const offsets = shown.map(
       (_, index) => rect[position] + index * header + (index > expanded ? body : 0),
     );

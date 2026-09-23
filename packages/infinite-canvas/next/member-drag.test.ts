@@ -1,5 +1,6 @@
 import { expect, test } from "vite-plus/test";
 import { createCanvasState } from "./state";
+import { worldToScreen } from "@hyphened/math/cpu";
 
 function createState() {
   const canvas = createCanvasState({
@@ -43,19 +44,44 @@ test("grouping places each window in the grid cell under it", () => {
   expect(canvas.state.document.content.windows.a.item.peek()).toEqual({
     column: 0,
     row: 0,
-    columnSpan: 1,
+    columnSpan: 0.75,
   });
   expect(canvas.state.document.content.windows.b.item.peek()).toEqual({
     column: 1,
     row: 0,
-    columnSpan: 1,
+    columnSpan: 0.75,
   });
-  expect(canvas.computed.windowRect.a.peek()).toEqual({ x: 0, y: 0, width: 195, height: 140 });
-  expect(canvas.computed.windowRect.b.peek()).toEqual({ x: 205, y: 0, width: 195, height: 140 });
-  expect(canvas.computed.windowRect.board.peek()).toEqual({ x: 0, y: 0, width: 400, height: 140 });
+  expect(canvas.computed.windowRect.a.peek()).toEqual({
+    x: 0,
+    y: 0,
+    width: 143.75,
+    height: 143.75,
+  });
+  expect(canvas.computed.windowRect.b.peek()).toEqual({
+    x: 205,
+    y: 0,
+    width: 143.75,
+    height: 143.75,
+  });
+  expect(canvas.computed.windowRect.board.peek()).toEqual({ x: 0, y: 0, width: 400, height: 400 });
 });
 
-test("docked and free windows use the same continuous movement at each zoom", () => {
+test("a grid is resized freely down to its rows", () => {
+  const canvas = createState();
+  canvas.state.document.content.windows.board.layout.assign({
+    breakpoints: [
+      { minWidth: 300, columns: 2 },
+      { minWidth: 0, columns: 1 },
+    ],
+  });
+  canvas.actions.pressResize.run({ window: "board", pointer, handle: "south", threshold: 0 });
+  canvas.actions.updatePointer.run({ ...pointer, point: { x: 600, y: 520 } });
+  expect(canvas.computed.windowRect.board.height.peek()).toBe(500);
+  canvas.actions.updatePointer.run({ ...pointer, point: { x: 600, y: 0 } });
+  expect(canvas.computed.windowRect.board.height.peek()).toBe(143.75);
+});
+
+test("grid members use cell increments while free windows move continuously at each zoom", () => {
   for (const zoom of [0.5, 1, 2]) {
     const canvas = createState();
     canvas.state.document.canvasView.camera.zoom.set(zoom);
@@ -67,16 +93,26 @@ test("docked and free windows use the same continuous movement at each zoom", ()
     });
     for (const window of ["a", "free"]) {
       const start = canvas.computed.windowRect[window].peek()!;
-      expect(canvas.actions.pressMove.run({ window, pointer, threshold: 0 })).toBeUndefined();
+      const origin = {
+        ...pointer,
+        point: worldToScreen({
+          point: { x: start.x + start.width / 2, y: start.y + start.height / 2 },
+          camera: canvas.computed.camera.peek(),
+          viewport: { width: 1000, height: 800 },
+        }),
+      };
+      expect(
+        canvas.actions.pressMove.run({ window, pointer: origin, threshold: 0 }),
+      ).toBeUndefined();
       for (const x of [7, 23, 41]) {
         canvas.actions.updatePointer.run({
           ...pointer,
-          point: { x: pointer.point.x + x, y: pointer.point.y + 11 },
+          point: { x: origin.point.x + x, y: origin.point.y + 11 },
         });
         expect(canvas.computed.windowRect[window].peek()).toEqual({
           ...start,
-          x: start.x + x / zoom,
-          y: start.y + 11 / zoom,
+          x: start.x + (window === "a" ? Math.round(x / zoom / 51.25) * 51.25 : x / zoom),
+          y: start.y + (window === "a" ? Math.round(11 / zoom / 51.25) * 51.25 : 11 / zoom),
         });
       }
       canvas.actions.cancelPointer.run({ pointerId: pointer.pointerId });
@@ -85,18 +121,18 @@ test("docked and free windows use the same continuous movement at each zoom", ()
   }
 });
 
-test("a grid member follows the pointer and commits to the grid", () => {
+test("a grid member commits the displayed placement without a release jump", () => {
   const canvas = createState();
   expect(canvas.actions.pressMove.run({ window: "a", pointer, threshold: 0 })).toBeUndefined();
   const before = canvas.state.document.content.windows.a.item.peek();
   canvas.actions.updatePointer.run({ ...pointer, point: { x: 800, y: 420 } });
-  expect(canvas.computed.windowRect.a.peek()?.x).toBe(200);
+  expect(canvas.computed.windowRect.a.peek()?.x).toBe(205);
   expect(canvas.computed.arrangement.board.rects.a.x.peek()).toBe(205);
   expect(canvas.state.document.content.windows.a.item.peek()).toEqual(before);
   canvas.actions.renameWindow.run({ window: "b", title: "Saved during movement" });
   expect(canvas.actions.releasePointer.run({ pointerId: 1 })).toBeUndefined();
   expect(canvas.computed.windowRect.a.peek()?.x).toBe(205);
-  expect(canvas.computed.windowRect.b.peek()?.y).toBe(150);
+  expect(canvas.computed.windowRect.b.peek()?.y).toBe(153.75);
   canvas.actions.undo.run({});
   expect(canvas.computed.windowRect.a.peek()?.x).toBe(0);
   expect(canvas.state.document.content.windows.b.title.peek()).toBe("Saved during movement");
@@ -121,8 +157,8 @@ test("tear-out remains a preview until commit and cancellation restores membersh
   expect(canvas.state.document.content.windows.a.rect.peek()).toEqual({
     x: 0,
     y: 480,
-    width: 195,
-    height: 140,
+    width: 143.75,
+    height: 143.75,
   });
   expect(canvas.state.document.content.windows.a.item.peek()).toBeUndefined();
   expect(canvas.state.document.content.windows.board.children.peek()).toEqual(["b"]);
@@ -130,7 +166,7 @@ test("tear-out remains a preview until commit and cancellation restores membersh
   expect(canvas.computed.windowParent.a.peek()).toBe("board");
 });
 
-test("a grid resize follows the pointer before it commits its spans", () => {
+test("a grid resize preserves its origin and commits its displayed spans", () => {
   const canvas = createState();
   const resizePointer = { ...pointer, point: { x: 695, y: 490 } };
   expect(
@@ -142,19 +178,29 @@ test("a grid resize follows the pointer before it commits its spans", () => {
     }),
   ).toBeUndefined();
   canvas.actions.updatePointer.run({ ...pointer, point: { x: 900, y: 580 } });
-  expect(canvas.computed.windowRect.a.peek()).toEqual({ x: 0, y: 0, width: 400, height: 230 });
-  expect(canvas.computed.arrangement.board.rects.a.height.peek()).toBe(240);
+  expect(canvas.computed.windowRect.a.peek()).toEqual({
+    x: 0,
+    y: 0,
+    width: 348.75,
+    height: 246.25,
+  });
+  expect(canvas.computed.arrangement.board.rects.a.height.peek()).toBe(246.25);
   canvas.actions.releasePointer.run({ pointerId: 1 });
-  expect(canvas.computed.windowRect.a.peek()).toEqual({ x: 0, y: 0, width: 400, height: 240 });
+  expect(canvas.computed.windowRect.a.peek()).toEqual({
+    x: 0,
+    y: 0,
+    width: 348.75,
+    height: 246.25,
+  });
   expect(canvas.state.document.content.windows.a.item.peek()).toEqual({
     column: 0,
     row: 0,
-    columnSpan: 2,
+    columnSpan: 1.75,
     rowSpan: 5,
   });
   canvas.actions.undo.run({});
   expect(canvas.actions.resizeWindow.run({ window: "a", width: 400, height: 240 })).toBeUndefined();
-  expect(canvas.computed.windowRect.a.peek()).toEqual({ x: 0, y: 0, width: 400, height: 240 });
+  expect(canvas.computed.windowRect.a.peek()).toEqual({ x: 0, y: 0, width: 400, height: 246.25 });
 });
 
 test("a layout change cancels a member gesture that the new layout does not accept", () => {

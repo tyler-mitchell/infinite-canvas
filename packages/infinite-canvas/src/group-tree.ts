@@ -1,6 +1,5 @@
 /** Mutations normalize trees. Window node ids equal window ids. Weights are positive shares. */
 
-import type { CompactType, GridConfig } from "react-grid-layout/core";
 import type { canvasModel } from "./schema";
 
 type InfiniteCanvasGroupAxis = "horizontal" | "vertical";
@@ -19,18 +18,7 @@ type InfiniteCanvasGroupWindowNode = InfiniteCanvasGroupWindowNodeLayout &
   }>;
 
 /** Grid configuration uses the native grid defaults. */
-type InfiniteCanvasGroupMasonry = Readonly<
-  Partial<GridConfig> & {
-    allowOverlap?: boolean;
-    compactType?: CompactType;
-    preventCollision?: boolean;
-    responsive?: Readonly<{
-      fitViewport?: boolean;
-      breakpoints: Readonly<Record<string, number>>;
-      cols: Readonly<Record<string, number>>;
-    }>;
-  }
->;
+type InfiniteCanvasGroupMasonry = Readonly<typeof canvasModel.GroupMasonry.infer>;
 
 type InfiniteCanvasGroupContainerNode = Readonly<{
   /** Visible child for tabs and accordion. `null` for split and masonry. */

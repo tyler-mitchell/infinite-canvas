@@ -39,10 +39,7 @@ export function batch<Value>(run: () => Value): Value {
 type Context = { computed: ObservableObject<{}>; actions: object };
 
 type Operation = ((...args: never[]) => unknown) & {
-  params: {
-    in: Type<[unknown]>;
-    assert(input: unknown): unknown;
-  };
+  params: type.Any<[unknown]>;
 };
 
 type ActionResult<Value> =
@@ -52,6 +49,8 @@ type Actions<Operations extends Record<string, Operation>> = {
   [Key in keyof Operations]: {
     name: Key;
     input: Type<Parameters<Operations[Key]>[0]>;
+    /** Null when the action would run; otherwise why it would not. */
+    check(input: Parameters<Operations[Key]>[0]): string | null;
     canRun(input: Parameters<Operations[Key]>[0]): boolean;
     run(
       input: Parameters<Operations[Key]>[0],
@@ -63,12 +62,15 @@ type CommandDefinition = {
   action: {
     name: string;
     input: type.Any;
+    check(input: never): string | null;
     canRun(input: never): boolean;
     run(input: never): unknown;
   };
   label: string;
   icon: string;
   description?: string;
+  scope?: "selection" | "canvas";
+  surface?: "edit" | "view" | "none";
 };
 
 type CommandData<Value> = Value extends Error | ArkErrors
@@ -81,6 +83,7 @@ type Commands<Definitions extends Record<string, CommandDefinition>> = {
   [Key in keyof Definitions]: Omit<Definitions[Key], "action"> & {
     action: Definitions[Key]["action"]["name"];
     input: Definitions[Key]["action"]["input"];
+    check: Definitions[Key]["action"]["check"];
     canRun: Definitions[Key]["action"]["canRun"];
     run(
       input: Parameters<Definitions[Key]["action"]["run"]>[0],
@@ -173,22 +176,25 @@ class Model<Options, Current extends Context> {
     >((options) => {
       const context = this.create(options);
       const actions = Object.fromEntries(
-        Object.entries(define(context)).map(([name, operation]) => [
+        Object.entries(define(context)).map(([name, operation]) => {
+          const check = (input: unknown) => {
+            try {
+              const result = operation.params([input]);
+              return result instanceof type.errors ? result.transform(inputError).summary : null;
+            } catch (error) {
+              if (error instanceof TraversalError)
+                return error.arkErrors.transform(inputError).summary;
+              console.warn("Action availability failed.", { action: name, error });
+              return "The canvas refused this input.";
+            }
+          };
+          return [
           name,
           {
             name,
             input: operation.params.in.get<0>(0),
-            canRun(input: unknown) {
-              try {
-                operation.params.assert([input]);
-                return true;
-              } catch (error) {
-                if (!(error instanceof TraversalError)) {
-                  console.warn("Action availability failed.", { action: name, error });
-                }
-                return false;
-              }
-            },
+            check,
+            canRun: (input: unknown) => !(operation.params([input]) instanceof type.errors),
             run(input: unknown) {
               try {
                 const result: unknown = Reflect.apply(operation, undefined, [input]);
@@ -198,7 +204,8 @@ class Model<Options, Current extends Context> {
               }
             },
           },
-        ]),
+        ];
+        }),
       ) as Actions<Operations>;
       return { ...context, actions: { ...context.actions, ...actions } };
     });
@@ -225,6 +232,7 @@ class Model<Options, Current extends Context> {
               ...command,
               action: command.action.name,
               input: command.action.input,
+              check: command.action.check.bind(command.action),
               canRun: command.action.canRun.bind(command.action),
               async run(input: unknown) {
                 try {

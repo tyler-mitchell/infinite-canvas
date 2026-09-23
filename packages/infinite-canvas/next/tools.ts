@@ -10,9 +10,11 @@ export function createCanvasTools(canvas: Canvas): WebMCPOptions<unknown, unknow
     string,
     {
       label: string;
+      description?: string;
       icon: string;
+      surface?: "edit" | "view" | "none";
       input: Type;
-      canRun(input: unknown): boolean;
+      check(input: unknown): string | null;
       run(input: unknown): Promise<Result<unknown>>;
     }
   > = canvas.commands;
@@ -56,8 +58,12 @@ export function createCanvasTools(canvas: Canvas): WebMCPOptions<unknown, unknow
         Object.entries(commands).map(([name, command]) => ({
           name,
           label: command.label,
+          ...(command.description === undefined ? {} : { description: command.description }),
           icon: command.icon,
-          input: command.input.in.expression,
+          surface: command.surface ?? "edit",
+          input: command.input.toJsonSchema({
+            fallback: { default: (context) => context.base },
+          }),
         })),
     },
     {
@@ -69,7 +75,9 @@ export function createCanvasTools(canvas: Canvas): WebMCPOptions<unknown, unknow
         const request = execution(input);
         if (request instanceof type.errors) return new Error(request.summary);
         const command = commands[request.name];
-        return { available: command !== undefined && command.canRun(request.input) };
+        if (command === undefined) return { available: false, reason: "Unknown canvas command." };
+        const refused = command.check(request.input);
+        return refused === null ? { available: true } : { available: false, reason: refused };
       },
     },
     {

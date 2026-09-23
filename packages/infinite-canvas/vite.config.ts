@@ -29,7 +29,7 @@ const pack: NonNullable<UserConfig["pack"]> = {
     tsgo: true,
   },
   deps: {
-    alwaysBundle: [/^react-grid-layout(?:\/|$)/, "use-webmcp-tool"],
+    alwaysBundle: ["use-webmcp-tool"],
   },
   // Keep `exports` pointing at src for instant playground HMR; vp pack
   // writes the dist mappings to publishConfig.exports for publishing.
@@ -65,13 +65,13 @@ export default defineConfig({
         test: {
           name: "unit",
           include: ["**/*.{test,spec}.{ts,tsx}"],
-          exclude: ["**/*.browser.test.ts", "**/node_modules/**"],
+          exclude: ["**/*.browser.test.{ts,tsx}", "**/node_modules/**"],
         },
       },
       {
         test: {
           name: "browser",
-          include: ["next/**/*.browser.test.ts"],
+          include: ["next/**/*.browser.test.{ts,tsx}"],
           browser: {
             enabled: true,
             headless: true,

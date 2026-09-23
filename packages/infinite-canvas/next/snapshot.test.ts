@@ -39,6 +39,7 @@ test("entity records take their ID from the key and default their state", () => 
     mode: "normal",
     isPinned: false,
     heightMode: "content",
+    widthMode: "manual",
     rect: { x: 0, y: 0, width: 100, height: 80 },
   });
   expect(canvas.state.document.content.workspaces.research.id.peek()).toBe("research");

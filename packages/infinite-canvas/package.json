@@ -69,9 +69,12 @@
   },
   "dependencies": {
     "@ark/util": "catalog:",
+    "@hyphened/math": "workspace:*",
     "@legendapp/state": "catalog:",
     "@tanstack/hotkeys": "catalog:",
     "@tanstack/react-hotkeys": "catalog:",
+    "@thi.ng/arrays": "catalog:",
+    "@thi.ng/compare": "catalog:",
     "@zumer/snapdom": "catalog:",
     "arktype": "catalog:",
     "motion": "catalog:",
@@ -93,7 +96,6 @@
     "bumpp": "^11.1.0",
     "react": "catalog:",
     "react-dom": "catalog:",
-    "react-grid-layout": "catalog:",
     "typegpu": "catalog:",
     "typescript": "^6.0.3",
     "unplugin-typegpu": "catalog:",
@@ -145,7 +147,6 @@
     "node": ">=20"
   },
   "inlinedDependencies": {
-    "react-grid-layout": "2.2.4",
     "use-webmcp-tool": "0.3.0"
   }
 }

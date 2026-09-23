@@ -1,10 +1,10 @@
+import { intrinsicSize } from "@hyphened/math/cpu";
 import type { Observable } from "@legendapp/state";
 import { observer } from "@legendapp/state/react";
 import { type, type Type } from "arktype";
 import { useResizeObserver } from "use-resize-observer";
 import {
   createContext,
-  useCallback,
   useContext,
   useEffect,
   useRef,
@@ -39,51 +39,26 @@ export function WindowContent({
   const { canvas, window, element } = useCanvasWindow();
   const host = useRef<HTMLDivElement>(null);
   const content = useRef<HTMLDivElement>(null);
-  const heights = useRef<{ frame?: number; host?: number; content?: number }>({});
   const windowId = window.id.peek();
-  const reportHeight = useCallback(
-    (height: number | undefined) => {
-      const { frame, host } = heights.current;
-      const width = Number.parseFloat(element.current?.style.width ?? "");
-      if (
-        height === undefined ||
-        height <= 0 ||
-        frame === undefined ||
-        host === undefined ||
-        !(width > 0)
-      )
-        return;
-      report(
-        canvas.actions.setContentSize.run({
-          windowId,
-          size: { width, height: height + Math.max(0, frame - host) },
-        }),
-      );
-    },
-    [canvas, windowId, element],
-  );
   const [reported, setReported] = useState<number | undefined>(undefined);
-  const measure =
-    (part: "frame" | "host" | "content") =>
-    ({ height }: { height: number | undefined }) => {
-      heights.current = { ...heights.current, [part]: height };
-      reportHeight(reported ?? heights.current.content);
-    };
-  useResizeObserver({ ref: element, box: "border-box", round: exact, onResize: measure("frame") });
-  useResizeObserver({ ref: host, box: "border-box", round: exact, onResize: measure("host") });
-  useResizeObserver({
-    ref: content,
-    box: "border-box",
-    round: exact,
-    onResize: measure("content"),
-  });
-  const reportOwnHeight = useCallback(
-    (height: number) => {
-      setReported(height);
-      reportHeight(height);
-    },
-    [reportHeight],
-  );
+  const frame = useResizeObserver({ ref: element, box: "border-box", round: exact });
+  const viewport = useResizeObserver({ ref: host, box: "border-box", round: exact });
+  const body = useResizeObserver({ ref: content, box: "border-box", round: exact });
+  const height = reported ?? body.height;
+  useEffect(() => {
+    if (
+      frame.width === undefined || frame.height === undefined ||
+      viewport.height === undefined || height === undefined || height <= 0 || frame.width <= 0
+    ) return;
+    report(canvas.actions.setContentSize.run({
+      windowId,
+      size: intrinsicSize({
+        frame: { width: frame.width, height: frame.height },
+        viewport: { height: viewport.height },
+        content: { height },
+      }),
+    }));
+  }, [canvas, windowId, frame.width, frame.height, viewport.height, height]);
   useEffect(
     () => () => {
       if (canvas.state.document.content.windows[windowId].peek() === undefined)
@@ -99,13 +74,13 @@ export function WindowContent({
       data-canvas-scroll={nativeScroll ? "native" : undefined}
       style={{ flex: "1 1 auto", minHeight: 0, overflow, ...style }}
     >
-      <ContentHeightContext.Provider value={reportOwnHeight}>
+      <ContentHeightContext.Provider value={setReported}>
         <div
           ref={content}
           style={{
             display: "flex",
             flexDirection: "column",
-            minHeight: reported === undefined ? undefined : "100%",
+            height: reported === undefined ? undefined : "100%",
           }}
         >
           {children}

@@ -15,6 +15,30 @@ test("alignment chooses the closest edge and exposes its guide", () => {
   expect(result.guides).toEqual([{ axis: "x", position: 300, start: 20, end: 280 }]);
 });
 
+test("alignment snaps a top or bottom edge and exposes a horizontal guide", () => {
+  const target = { x: 300, y: 200, width: 100, height: 80 };
+  const top = alignRect({
+    rect: { x: 0, y: 0, width: 100, height: 80 },
+    delta: { x: 150, y: 196 },
+    targets: [target],
+    threshold: 6,
+    edges: true,
+    centers: false,
+  });
+  expect(top.delta).toEqual({ x: 150, y: 200 });
+  expect(top.guides.map((guide) => [guide.axis, guide.position])).toEqual([["y", 200]]);
+  const bottom = alignRect({
+    rect: { x: 0, y: 0, width: 100, height: 40 },
+    delta: { x: 150, y: 243 },
+    targets: [target],
+    threshold: 6,
+    edges: true,
+    centers: false,
+  });
+  expect(bottom.delta.y).toBe(240);
+  expect(bottom.guides.map((guide) => [guide.axis, guide.position])).toEqual([["y", 280]]);
+});
+
 test("alignment can disable centers and rejects targets beyond its threshold", () => {
   const input = {
     rect: { x: 0, y: 0, width: 40, height: 40 },

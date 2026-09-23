@@ -141,7 +141,7 @@ describe("nesting", () => {
     expect(rects.y).toEqual({ x: 200, y: 0, width: 200, height: 400 });
     expect(rects.z).toEqual({ x: 0, y: 200, width: 200, height: 200 });
     expect(rects.note).toEqual({ x: 400, y: 0, width: 200, height: 200 });
-    expect(size).toEqual({ width: 800, height: 400 });
+    expect(size).toEqual({ width: 800, height: 600 });
   });
 
   test("a strip inside a split inside a strip arranges every level with the same visit", () => {

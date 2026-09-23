@@ -1,8 +1,10 @@
-import { For, observer, useObserve } from "@legendapp/state/react";
+import { For, observer, Show, useObserve, useValue } from "@legendapp/state/react";
 import { useMeasure } from "@legendapp/state/react-hooks/useMeasure";
-import type { Observable } from "@legendapp/state";
+import { observe, type Observable } from "@legendapp/state";
 import {
   useEffect,
+  useCallback,
+  useContext,
   useId,
   useMemo,
   useRef,
@@ -13,34 +15,39 @@ import {
   type ReactNode,
 } from "react";
 import { useWebMCP, type WebMCPOptions } from "use-webmcp-tool";
-import { spring } from "motion";
+import { animate, resize, scroll, spring } from "motion";
 import type { WindowState } from "../document.types";
-import { cameraMatrix, centroidOfRect, unionRects, type ResizeHandle } from "@hyphened/math/cpu";
+import {
+  cameraMatrix,
+  centroidOfRect,
+  intersectsRect,
+  type ResizeHandle,
+} from "@hyphened/math/cpu";
 import { getResizeHandleDescriptors } from "../geometry";
 import type { Canvas } from "../state.types";
 import {
   readPointer,
   report,
   capturePointer,
-  getClientPoint,
   getViewportPoint,
   isInteractiveTarget,
   isPrimaryButton,
   releasePointer,
   COMPONENT_TRANSFER_TYPE,
-  readComponentTransfer,
   defaultHotkeys,
   getHotkeyDefinitions,
   type Hotkeys,
 } from "../input";
-import { useHotkeys } from "@tanstack/react-hotkeys";
+import { useHotkeys, useKeyHold } from "@tanstack/react-hotkeys";
 import "./frame.css";
 import { WindowControls, type ChildLabel, type ControlRenderer } from "./controls";
 import { createCanvasTools } from "../tools";
-import { useCanvasScrollAxis, useCanvasScrollMode } from "./scroll";
+import { ScrollContext, useCanvasScrollAxis, useCanvasScrollMode } from "./scroll";
+import { getTransferHandlers } from "./transfer";
 import {
   ViewportContext,
   WindowContext,
+  useCanvasViewport,
   useCanvasWindow,
   type WindowContextValue,
 } from "./context";
@@ -48,6 +55,34 @@ import {
 function ToolRegistration({ tool }: { tool: WebMCPOptions<unknown, unknown> }) {
   useWebMCP(tool);
   return null;
+}
+
+export function useCanvasOccluder<Element extends HTMLElement>() {
+  const { canvas, viewport } = useCanvasViewport();
+  const source = useId();
+  return useCallback((element: Element | null) => {
+    if (element === null) return;
+    const measure = () => {
+      const bounds = viewport.current?.getBoundingClientRect();
+      const rect = element.getBoundingClientRect();
+      canvas.actions.setViewportOccluder.run({
+        source,
+        rect: bounds === undefined || rect.width <= 0 || rect.height <= 0
+          ? undefined
+          : { x: rect.x - bounds.x, y: rect.y - bounds.y, width: rect.width, height: rect.height },
+      });
+    };
+    const stopResize = resize(element, measure);
+    const stopViewport = observe(() => {
+      canvas.state.input.viewport.get();
+      measure();
+    });
+    return () => {
+      stopResize();
+      stopViewport();
+      canvas.actions.setViewportOccluder.run({ source });
+    };
+  }, [canvas, source, viewport]);
 }
 
 export function CanvasTools({ canvas }: { canvas: Canvas }) {
@@ -99,7 +134,7 @@ function pressWindow({
   if (canvas.computed.capturedPointerId.peek() !== event.pointerId) return;
   event.preventDefault();
   element.focus({ preventScroll: true });
-  capturePointer(element, event.pointerId);
+  capturePointer({ canvas, element, pointerId: event.pointerId });
 }
 
 export function WindowDragHandle({
@@ -108,13 +143,14 @@ export function WindowDragHandle({
   ...props
 }: ComponentProps<"div"> & { threshold?: number }) {
   const context = useCanvasWindow();
+  const { mode } = useCanvasViewport();
   return (
     <div
       {...props}
       data-slot="canvas-drag-handle"
       onPointerDown={(event) => {
         onPointerDown?.(event);
-        if (event.defaultPrevented || isInteractiveTarget(event.target)) return;
+        if (mode !== "edit" || event.defaultPrevented || isInteractiveTarget(event.target)) return;
         pressWindow({ ...context, event, threshold });
       }}
     />
@@ -168,6 +204,7 @@ const WindowView = observer(function WindowView({
     () => ({ canvas, window, viewport, element }),
     [canvas, window, viewport],
   );
+  const { mode } = useCanvasViewport();
   const id = window.id.get();
   const rect = preview ? window.rect.get() : canvas.computed.windowRect[id].get();
   if (rect === undefined) return null;
@@ -182,10 +219,13 @@ const WindowView = observer(function WindowView({
   const resizing = drag?.kind === "resize" && drag.startRects[id] !== undefined;
   const direct =
     preview ||
-    carried ||
-    (drag?.kind === "sash" && canvas.computed.windowRoot[drag.container].get() === root);
+    canvas.computed.dragStartRects[root].get() !== undefined ||
+    Object.values(canvas.computed.operations[root].get()).some(
+      (operation) => operation.type !== "move",
+    );
   const container = !preview && window.layout.get() !== undefined;
-  const selected = canvas.computed.selection.targets[`window:${id}`].get() !== undefined;
+  const selected =
+    mode === "edit" && canvas.computed.selection.targets[`window:${id}`].get() !== undefined;
   return (
     <WindowContext.Provider value={context}>
       <article
@@ -219,7 +259,7 @@ const WindowView = observer(function WindowView({
             : canvas.computed.windowZIndex[id].get(),
         }}
         onPointerDown={(event) => {
-          if (!isPrimaryButton(event)) return;
+          if (mode !== "edit" || event.defaultPrevented || !isPrimaryButton(event)) return;
           if (isInteractiveTarget(event.target)) {
             report(canvas.actions.focusWindow.run({ window: id }));
             return;
@@ -261,6 +301,8 @@ const SelectionHandles = observer(function SelectionHandles({
   canvas,
   viewport,
 }: Pick<WindowContextValue, "canvas" | "viewport">) {
+  const { mode } = useCanvasViewport();
+  if (mode !== "edit") return null;
   return canvas.computed.selectedWindows.map((window) => {
     const id = window.id.get();
     const rect = canvas.computed.windowRect[id].get();
@@ -292,24 +334,13 @@ const SelectionHandles = observer(function SelectionHandles({
   });
 });
 
-const SelectionBounds = observer(function SelectionBounds({
-  canvas,
-  ref,
-}: {
-  canvas: Canvas;
-  ref: (element: HTMLDivElement | null) => void;
-}) {
-  const bounds = unionRects(
-    canvas.computed.selectedWindows.flatMap((window) => {
-      const id = window.id.get();
-      const rect = canvas.computed.windowRect[id].get();
-      return rect === undefined || !canvas.computed.windowVisible[id].get() ? [] : [rect];
-    }),
-  );
-  if (bounds === null) return null;
+const SelectionBounds = observer(function SelectionBounds({ canvas }: { canvas: Canvas }) {
+  const { mode } = useCanvasViewport();
+  if (mode !== "edit") return null;
+  const bounds = canvas.computed.selectionBounds.get();
+  if (bounds == null) return null;
   return (
     <div
-      ref={ref}
       data-slot="canvas-selection-bounds"
       aria-hidden="true"
       style={{
@@ -325,28 +356,59 @@ const SelectionBounds = observer(function SelectionBounds({
   );
 });
 
-const WorldLayer = observer(function WorldLayer({
+function WorldLayer({
   canvas,
   children,
 }: {
   canvas: Canvas;
   children: ReactNode;
 }) {
-  const camera = canvas.computed.camera.get();
-  const size = canvas.state.input.viewport.get();
-  const style: CSSProperties & { "--canvas-screen-scale": number } = {
-    "--canvas-screen-scale": 1 / camera.zoom,
-    position: "absolute",
-    inset: 0,
-    transformOrigin: "0 0",
-    transform: `matrix(${[...cameraMatrix({ camera, viewport: size })].join(",")})`,
-  };
+  const scrollContext = useContext(ScrollContext);
+  const onTrack = useValue(() => {
+    return scrollContext?.canvas === canvas && scrollContext.following.get();
+  });
+  const viewport = scrollContext?.viewport;
+  const track = scrollContext?.track;
+  const axis = scrollContext?.axis;
+  const ref = useCallback((element: HTMLDivElement | null) => {
+    if (element === null) return;
+    const container = viewport?.current;
+    if (onTrack && container && track?.length) {
+      const viewport = canvas.state.input.viewport.peek();
+      const transform = [0, track.length].map((offset) =>
+        `matrix(${[...cameraMatrix({ camera: track.at(offset), viewport })].join(",")})`,
+      );
+      return scroll(animate(element, { transform }, { ease: "linear" }), {
+        container,
+        axis: axis === "vertical" ? "y" : "x",
+      });
+    }
+    return observe(() => {
+      const camera = canvas.computed.camera.get();
+      const viewport = canvas.state.input.viewport.get();
+      element.style.transform = `matrix(${[...cameraMatrix({ camera, viewport })].join(",")})`;
+    });
+  }, [canvas, onTrack, viewport, track, axis]);
   return (
-    <div data-slot="canvas-world" style={style}>
+    <div
+      ref={ref}
+      data-slot="canvas-world"
+      style={{ position: "absolute", inset: 0, transformOrigin: "0 0" }}
+    >
       {children}
     </div>
   );
-});
+}
+
+function CanvasOverlays({ canvas, children }: { canvas: Canvas; children: ReactNode }) {
+  const ref = useCallback((element: HTMLDivElement | null) => {
+    if (element === null) return;
+    return observe(() => {
+      element.style.setProperty("--canvas-screen-scale", String(1 / canvas.computed.camera.zoom.get()));
+    });
+  }, [canvas]);
+  return <div ref={ref} style={{ display: "contents" }}>{children}</div>;
+}
 
 const MarqueeView = observer(function MarqueeView({ canvas }: { canvas: Canvas }) {
   const rect = canvas.computed.marqueeRect.get();
@@ -394,13 +456,14 @@ export function CanvasViewport({
   children,
   className,
   style,
+  "aria-label": ariaLabel = "Canvas",
+  "aria-labelledby": ariaLabelledBy,
   wheelLineHeight = 40,
   emptyCanvasDrag = "pan",
   transferType = COMPONENT_TRANSFER_TYPE,
   mode: modeProp,
   hotkeys: hotkeysProp,
   layoutMotion,
-  dragMotion,
   reducedMotion = "user",
 }: {
   canvas: Canvas;
@@ -410,28 +473,29 @@ export function CanvasViewport({
   children?: ReactNode;
   className?: string;
   style?: CSSProperties;
+  "aria-label"?: string;
+  "aria-labelledby"?: string;
   wheelLineHeight?: number;
   emptyCanvasDrag?: "pan" | "marquee" | "marqueeWhenSelectionExists";
   transferType?: string;
   mode?: "edit" | "read" | "explore";
   hotkeys?: Hotkeys;
   layoutMotion?: LayoutMotion | false;
-  dragMotion?: LayoutMotion | false;
   reducedMotion?: "user" | "always" | "never";
 }) {
   const viewport = useRef<HTMLDivElement>(null);
   const [portal, setPortal] = useState<HTMLDivElement | null>(null);
-  const [selectionAnchor, setSelectionAnchor] = useState<HTMLElement | null>(null);
-  const context = useMemo(
-    () => ({ canvas, viewport, transferType, portal, selectionAnchor }),
-    [canvas, transferType, portal, selectionAnchor],
-  );
   const scrollMode = useCanvasScrollMode();
   const scrollAxis = useCanvasScrollAxis();
   const mode = modeProp ?? scrollMode ?? "edit";
+  const navigationLocked = (scrollMode ?? mode) === "read";
+  const context = useMemo(
+    () => ({ canvas, viewport, transferType, portal, mode }),
+    [canvas, transferType, portal, mode],
+  );
   const hotkeys = hotkeysProp ?? (mode === "edit" ? defaultHotkeys : {});
   const instanceId = useId();
-  const spacePan = useRef(false);
+  const spaceHeld = useKeyHold("Space");
   const layoutTransition = useMemo(
     () =>
       spring({
@@ -442,37 +506,33 @@ export function CanvasViewport({
       }).toString(),
     [layoutMotion],
   );
-  const dragTransition = useMemo(
-    () =>
-      spring({
-        stiffness: 700,
-        damping: 45,
-        ...dragMotion,
-        keyframes: [0, 1],
-      }).toString(),
-    [dragMotion],
-  );
   const viewportStyle: CSSProperties & {
     "--canvas-default-layout-motion": string;
-    "--canvas-default-drag-motion": string;
   } = {
     "--canvas-default-layout-motion": layoutTransition,
-    "--canvas-default-drag-motion": dragTransition,
     ...style,
   };
   // @ts-expect-error useMeasure guards null; its ref type predates React 19.
   const viewportSize = useMeasure(viewport);
   useObserve(() => {
     const { width, height } = viewportSize.get();
-    if (width !== undefined && height !== undefined)
-      canvas.state.input.viewport.set({ width, height });
+    if (width === undefined || height === undefined) return;
+    const opening = canvas.state.input.viewport.width.peek() === 0;
+    canvas.state.input.viewport.set({ width, height });
+    const content = canvas.computed.contentBounds.peek();
+    if (
+      opening &&
+      content !== null &&
+      !intersectsRect(canvas.computed.viewportRect.peek(), content)
+    )
+      report(canvas.actions.fitAll.run({}));
   });
   useEffect(() => {
     const element = viewport.current;
-    if (element === null) return;
+    if (element === null || navigationLocked) return;
     const wheel = (event: WheelEvent) => {
       const size = canvas.state.input.viewport.peek();
-      if (mode === "read" || size.width <= 0 || size.height <= 0) return;
+      if (size.width <= 0 || size.height <= 0) return;
       const zoom = event.ctrlKey || event.metaKey;
       if (
         !zoom &&
@@ -492,14 +552,14 @@ export function CanvasViewport({
       const error = zoom
         ? canvas.actions.zoomCamera.run({
             factor: Math.exp(-event.deltaY * unit.y * canvas.state.config.camera.zoomSpeed.peek()),
-            point: getViewportPoint(element, getClientPoint(event)),
+            point: getViewportPoint({ element, event }),
           })
         : canvas.actions.panCamera.run({ x: event.deltaX * unit.x, y: event.deltaY * unit.y });
       report(error);
     };
     element.addEventListener("wheel", wheel, { capture: true, passive: false });
     return () => element.removeEventListener("wheel", wheel, { capture: true });
-  }, [canvas, wheelLineHeight, mode]);
+  }, [canvas, wheelLineHeight, navigationLocked]);
   useHotkeys(getHotkeyDefinitions({ canvas, hotkeys }), {
     target: viewport,
     ignoreInputs: true,
@@ -514,61 +574,11 @@ export function CanvasViewport({
         releasePointer(viewport.current, previous);
     });
     const cancel = () => {
-      spacePan.current = false;
       report(canvas.actions.cancelDrag.run({}));
     };
-    const keyUp = (event: KeyboardEvent) => {
-      if (event.code === "Space" || event.key === " ") spacePan.current = false;
-    };
-    const move = (event: globalThis.PointerEvent) => {
-      const element = viewport.current;
-      if (element === null) return;
-      const pointerId = canvas.computed.capturedPointerId.peek();
-      if (pointerId !== null && pointerId !== event.pointerId) return;
-      if (
-        pointerId === null &&
-        (!(event.target instanceof Node) || !element.contains(event.target))
-      )
-        return;
-      report(canvas.actions.updatePointer.run(readPointer(event, element)));
-      const tabDrag = canvas.state.session.tabDrag.peek();
-      if (tabDrag !== null && canvas.computed.tabDragInside.peek() === true) {
-        const siblings = [...element.querySelectorAll<HTMLElement>("[data-canvas-tab]")].filter(
-          (tab) =>
-            tab.dataset.containerId === tabDrag.container && tab.dataset.childId !== tabDrag.child,
-        );
-        const next = siblings.find(
-          (tab) => event.clientX < centroidOfRect(tab.getBoundingClientRect()).x,
-        );
-        const target = next ?? siblings.at(-1);
-        if (target?.dataset.childId !== undefined)
-          report(
-            canvas.actions.targetTab.run({
-              child: target.dataset.childId,
-              after: next === undefined,
-            }),
-          );
-      }
-    };
-    const release = (event: globalThis.PointerEvent) => {
-      const element = viewport.current;
-      if (element === null || canvas.computed.capturedPointerId.peek() !== event.pointerId) return;
-      if (event.type === "pointerup") {
-        report(canvas.actions.updatePointer.run(readPointer(event, element)));
-        report(canvas.actions.releasePointer.run({ pointerId: event.pointerId }));
-      } else report(canvas.actions.cancelPointer.run({ pointerId: event.pointerId }));
-    };
-    window.addEventListener("pointermove", move);
-    window.addEventListener("pointerup", release);
-    window.addEventListener("pointercancel", release);
     window.addEventListener("blur", cancel);
-    window.addEventListener("keyup", keyUp);
     return () => {
-      window.removeEventListener("pointermove", move);
-      window.removeEventListener("pointerup", release);
-      window.removeEventListener("pointercancel", release);
       window.removeEventListener("blur", cancel);
-      window.removeEventListener("keyup", keyUp);
       cancel();
       disposeCapture();
     };
@@ -577,131 +587,99 @@ export function CanvasViewport({
     <ViewportContext.Provider value={context}>
       <div
         ref={viewport}
+        role="region"
+        aria-label={ariaLabel}
+        aria-labelledby={ariaLabelledBy}
         data-slot="canvas-viewport"
         className={className}
         data-mode={mode}
         data-layout-motion={layoutMotion === false ? "off" : "on"}
         data-reduced-motion={reducedMotion}
-        data-drag-motion={dragMotion === false ? "off" : "on"}
         style={{
           position: "relative",
           width: "100%",
           height: "100%",
           overflow: "hidden",
-          touchAction: mode !== "read" ? "none" : scrollAxis === "horizontal" ? "pan-x" : "pan-y",
+          touchAction: !navigationLocked ? "none" : scrollAxis === "horizontal" ? "pan-x" : "pan-y",
           ...viewportStyle,
         }}
         tabIndex={0}
-        onDragOver={(event) => {
-          if (!event.dataTransfer.types.includes(transferType)) return;
-          if (event.target instanceof Element && event.target.closest("[data-canvas-control]"))
-            return;
-          event.preventDefault();
-          event.dataTransfer.dropEffect = "copy";
-          if (canvas.state.session.drop.pointerId.peek() === null)
-            report(
-              canvas.actions.updateDrop.run(
-                getViewportPoint(event.currentTarget, getClientPoint(event)),
-              ),
-            );
+        {...(mode === "edit" ? getTransferHandlers({ canvas, transferType }) : {})}
+        onPointerMove={(event) => {
+          const element = event.currentTarget;
+          const pointerId = canvas.computed.capturedPointerId.peek();
+          if (pointerId !== event.pointerId) return;
+          report(canvas.actions.updatePointer.run(readPointer(event, element)));
+          const tabDrag = canvas.state.session.tabDrag.peek();
+          if (tabDrag === null || canvas.computed.tabDragInside.peek() !== true) return;
+          const siblings = [...element.querySelectorAll<HTMLElement>("[data-canvas-tab]")].filter(
+            (tab) =>
+              tab.dataset.containerId === tabDrag.container && tab.dataset.childId !== tabDrag.child,
+          );
+          const next = siblings.find(
+            (tab) => event.clientX < centroidOfRect(tab.getBoundingClientRect()).x,
+          );
+          const target = next ?? siblings.at(-1);
+          if (target?.dataset.childId !== undefined)
+            report(canvas.actions.targetTab.run({
+              child: target.dataset.childId,
+              after: next === undefined,
+            }));
         }}
-        onDragLeave={(event) => {
-          if (!(event.target instanceof Node) || !event.currentTarget.contains(event.target))
-            return;
-          if (
-            event.relatedTarget instanceof Node &&
-            event.currentTarget.contains(event.relatedTarget)
-          )
-            return;
-          if (canvas.state.session.drop.pointerId.peek() === null)
-            report(canvas.actions.cancelDrag.run({}));
+        onPointerUp={(event) => {
+          if (canvas.computed.capturedPointerId.peek() !== event.pointerId) return;
+          report(canvas.actions.updatePointer.run(readPointer(event, event.currentTarget)));
+          report(canvas.actions.releasePointer.run({ pointerId: event.pointerId }));
         }}
-        onDrop={(event) => {
-          if (!event.dataTransfer.types.includes(transferType)) return;
-          if (event.target instanceof Element && event.target.closest("[data-canvas-control]"))
-            return;
-          event.preventDefault();
-          event.stopPropagation();
-          const point = getViewportPoint(event.currentTarget, getClientPoint(event));
-          if (canvas.state.session.drop.pointerId.peek() === null) {
-            report(canvas.actions.updateDrop.run(point));
-            report(canvas.actions.commitDrop.run({}));
-            return;
-          }
-          const insertion = readComponentTransfer({
-            transfer: event.dataTransfer,
-            format: transferType,
-          });
-          if (insertion instanceof Error) {
-            report(insertion);
-            return;
-          }
-          if (insertion === null) return;
-          const error = canvas.actions.beginDrop.run({ insertion, point });
-          report(error);
-          if (error === undefined) report(canvas.actions.commitDrop.run({}));
-        }}
-        onPaste={(event) => {
-          if (isInteractiveTarget(event.target)) return;
-          const insertion = readComponentTransfer({
-            transfer: event.clipboardData,
-            format: transferType,
-          });
-          if (insertion instanceof Error) {
-            report(insertion);
-            return;
-          }
-          if (insertion === null) return;
-          event.preventDefault();
-          report(canvas.actions.insertComponent.run({ ...insertion, id: crypto.randomUUID() }));
+        onPointerCancel={(event) => {
+          if (canvas.computed.capturedPointerId.peek() === event.pointerId)
+            report(canvas.actions.cancelPointer.run({ pointerId: event.pointerId }));
         }}
         onPointerDownCapture={(event) => {
-          if (!event.isPrimary || (event.button !== 0 && event.button !== 1)) return;
-          if (!(event.target instanceof Element) || !event.currentTarget.contains(event.target))
-            return;
-          if (mode === "read" || (mode === "explore" && isInteractiveTarget(event.target))) {
-            event.stopPropagation();
-            return;
-          }
-          if (mode === "edit" && event.button !== 1 && !event.altKey && !spacePan.current) return;
-          const error = canvas.actions.beginPan.run(readPointer(event, event.currentTarget));
-          report(error);
-          if (error !== undefined) return;
-          event.preventDefault();
-          event.stopPropagation();
-          event.currentTarget.focus({ preventScroll: true });
-          capturePointer(event.currentTarget, event.pointerId);
-        }}
-        onPointerDown={(event) => {
           if (
+            event.defaultPrevented ||
             !event.isPrimary ||
-            (event.button !== 0 && event.button !== 1) ||
-            isInteractiveTarget(event.target)
+            (event.button !== 0 && event.button !== 1)
           )
             return;
           if (!(event.target instanceof Element) || !event.currentTarget.contains(event.target))
             return;
-          if (event.target.closest("[data-window-id],[data-canvas-control]")) return;
-          const explicitPan = event.button === 1 || event.altKey || spacePan.current;
+          const interactive = isInteractiveTarget(event.target);
+          if (mode === "read" || (mode === "explore" && interactive)) return;
+          const explicitPan = event.button === 1 || event.altKey ||
+            (spaceHeld && event.currentTarget.ownerDocument.activeElement === event.currentTarget);
+          if (
+            mode === "edit" &&
+            !explicitPan &&
+            (interactive || event.target.closest("[data-window-id]") !== null)
+          )
+            return;
           const pan =
+            mode === "explore" ||
             explicitPan ||
             emptyCanvasDrag === "pan" ||
             (emptyCanvasDrag === "marqueeWhenSelectionExists" &&
               canvas.computed.selectionTargets.length === 0);
+          if (pan && navigationLocked) {
+            event.stopPropagation();
+            return;
+          }
           const pointer = readPointer(event, event.currentTarget);
-          if (pan && !explicitPan) report(canvas.actions.selectTargets.run({ targets: [] }));
-          const mode = event.ctrlKey || event.metaKey ? "toggle" : "add";
+          if (mode === "edit" && pan && !explicitPan)
+            report(canvas.actions.selectTargets.run({ targets: [] }));
+          const selectionMode = event.ctrlKey || event.metaKey ? "toggle" : "add";
           const error = pan
             ? canvas.actions.beginPan.run(pointer)
             : canvas.actions.beginMarquee.run({
                 pointer,
-                mode: event.ctrlKey || event.metaKey || event.shiftKey ? mode : "replace",
+                mode: event.ctrlKey || event.metaKey || event.shiftKey ? selectionMode : "replace",
               });
           report(error);
           if (error !== undefined) return;
           event.preventDefault();
+          event.stopPropagation();
           event.currentTarget.focus({ preventScroll: true });
-          capturePointer(event.currentTarget, event.pointerId);
+          capturePointer({ canvas, element: event.currentTarget, pointerId: event.pointerId });
         }}
         onLostPointerCapture={(event) => {
           if (canvas.computed.capturedPointerId.peek() === event.pointerId)
@@ -719,7 +697,6 @@ export function CanvasViewport({
             (event.code === "Space" || event.key === " ")
           ) {
             event.preventDefault();
-            spacePan.current = true;
           }
           const pointerId = canvas.computed.capturedPointerId.peek();
           if (event.key === "Escape") canvas.camera.stop();
@@ -730,35 +707,39 @@ export function CanvasViewport({
         }}
       >
         <WorldLayer canvas={canvas}>
-          <For each={canvas.computed.workspaceWindows}>
-            {(window) => (
-              <WindowView
-                canvas={canvas}
-                window={window}
-                viewport={viewport}
-                renderWindow={renderWindow}
-                instanceId={instanceId}
-                renderChildLabel={renderChildLabel}
-                renderControl={renderControl}
-              />
-            )}
-          </For>
-          <For each={canvas.computed.previewWindows}>
-            {(window) => (
-              <WindowView
-                canvas={canvas}
-                window={window}
-                viewport={viewport}
-                renderWindow={renderWindow}
-                instanceId={instanceId}
-                preview
-              />
-            )}
-          </For>
-          <SelectionBounds canvas={canvas} ref={setSelectionAnchor} />
-          <SelectionHandles canvas={canvas} viewport={viewport} />
-          <MarqueeView canvas={canvas} />
-          <AlignmentGuides canvas={canvas} />
+          <Show if={() => canvas.state.input.viewport.width.get() > 0}>
+            <For each={canvas.computed.workspaceWindows}>
+              {(window) => (
+                <WindowView
+                  canvas={canvas}
+                  window={window}
+                  viewport={viewport}
+                  renderWindow={renderWindow}
+                  instanceId={instanceId}
+                  renderChildLabel={renderChildLabel}
+                  renderControl={renderControl}
+                />
+              )}
+            </For>
+            <For each={canvas.computed.previewWindows}>
+              {(window) => (
+                <WindowView
+                  canvas={canvas}
+                  window={window}
+                  viewport={viewport}
+                  renderWindow={renderWindow}
+                  instanceId={instanceId}
+                  preview
+                />
+              )}
+            </For>
+          </Show>
+          <CanvasOverlays canvas={canvas}>
+            <SelectionBounds canvas={canvas} />
+            <SelectionHandles canvas={canvas} viewport={viewport} />
+            <MarqueeView canvas={canvas} />
+            <AlignmentGuides canvas={canvas} />
+          </CanvasOverlays>
         </WorldLayer>
         <div
           ref={setPortal}

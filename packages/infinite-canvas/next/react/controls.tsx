@@ -4,10 +4,11 @@ import type { Observable } from "@legendapp/state";
 import { observer } from "@legendapp/state/react";
 import type { CSSProperties, ReactNode, RefObject } from "react";
 import type { WindowState } from "../document.types";
-import type { Rect } from "../geometry";
+import type { Rect } from "@hyphened/math/cpu";
 import { capturePointer, isPrimaryButton, readPointer, report } from "../input";
 import type { Control } from "../layout/kinds";
 import type { Canvas } from "../state.types";
+import { useCanvasViewport } from "./context";
 
 export type ChildLabel = (input: {
   canvas: Canvas;
@@ -38,6 +39,7 @@ export const WindowControls = observer(function WindowControls({
   renderChildLabel?: ChildLabel;
   renderControl?: ControlRenderer;
 }) {
+  const { mode } = useCanvasViewport();
   const id = window.id.get();
   const controls =
     canvas.computed.arrangement[canvas.computed.windowRoot[id].get()].controls[id].get() ?? [];
@@ -82,7 +84,7 @@ export const WindowControls = observer(function WindowControls({
                     data-child-id={child}
                     onPointerDown={(event) => {
                       const element = viewport.current;
-                      if (element === null || !isPrimaryButton(event)) return;
+                      if (mode !== "edit" || element === null || !isPrimaryButton(event)) return;
                       const error = canvas.actions.beginTabDrag.run({
                         target: { container: id, child },
                         pointer: readPointer(event, element),
@@ -90,7 +92,7 @@ export const WindowControls = observer(function WindowControls({
                       report(error);
                       if (error !== undefined) return;
                       event.stopPropagation();
-                      capturePointer(element, event.pointerId);
+                      capturePointer({ canvas, element, pointerId: event.pointerId });
                     }}
                   >
                     {label(child)}
@@ -108,7 +110,7 @@ export const WindowControls = observer(function WindowControls({
               ))}
             </Tabs.Root>
           );
-        if (control.type === "sash")
+        if (control.type === "sash" && mode === "edit")
           return (
             <div
               key={`sash:${control.index}`}
@@ -132,7 +134,7 @@ export const WindowControls = observer(function WindowControls({
                 if (error !== undefined) return;
                 event.preventDefault();
                 event.stopPropagation();
-                capturePointer(element, event.pointerId);
+                capturePointer({ canvas, element, pointerId: event.pointerId });
               }}
             />
           );

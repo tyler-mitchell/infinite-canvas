@@ -15,6 +15,46 @@ The main entry adds React components and hooks.
 
 > Pre-1.0: the API can change between minor versions.
 
+## Workspace `/next` API
+
+Portfolio Board uses `@hyphened/infinite-canvas/next`.
+The package's published entry points still use the API described below.
+
+`canvas.commands.openWindow.run` accepts one floating placement or one docking target:
+
+- `placement: { region, gap? }`: viewport placement.
+- `placement: { relativeTo, side, matchWidth?, gap? }`: placement beside a visible window.
+  `side` is `left`, `right`, `top`, or `bottom`. `matchWidth` copies the anchor width at creation.
+  Placement clears existing content along that side. Existing windows keep their rectangles.
+- `target: { window, edge? }`: dock into or beside a window.
+
+`groupWindows` accepts `heightMode` and `section` at creation.
+Use `heightMode: "content"` for a group that grows with its children.
+Use `section: false` to exclude the group from the reading route.
+
+Camera motion uses D3 zoom interpolation. `cameraMotion.curvature` defaults to `sqrt(2)`;
+values near zero approach a straight path. `transition` controls timing and
+`reducedMotion` controls whether navigation animates.
+`navigateCamera` and `revealWindow` accept `curvature` and `reducedMotion` overrides.
+Set `reducedMotion: "always"` for immediate navigation.
+
+`useCanvasOccluder<Element>()` returns a callback ref for a viewport overlay.
+Attach it to the overlay element. It reports the element's screen rectangle,
+updates it on element or viewport resize, and removes it when the element detaches.
+The return value has no `.current` property.
+
+```ts
+createCanvasState({
+  document,
+  windowDefinitions,
+  cameraMotion: {
+    curvature: 0.8,
+    transition: { type: "tween", duration: 0.45, ease: "easeInOut" },
+    reducedMotion: "user",
+  },
+});
+```
+
 ## Stability
 
 Each module has a stable or experimental class.

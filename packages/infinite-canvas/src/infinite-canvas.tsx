@@ -47,6 +47,7 @@ import {
 } from "./compositor/policy";
 import {
   DEFAULT_INFINITE_CANVAS_INPUT_POLICY,
+  DRAG_THRESHOLD_PX,
   DEFAULT_INFINITE_CANVAS_STACK_BANDS,
   DEFAULT_INFINITE_CANVAS_EDGE_PAN,
   DEFAULT_INFINITE_CANVAS_THEME,
@@ -101,7 +102,6 @@ import { focusInfiniteCanvasCommandSurface, registerInfiniteCanvasHotkeys } from
 import type { InfiniteCanvasHotkeyAction } from "./keyboard";
 import type { InfiniteCanvasHotkeyBinding } from "./operations";
 import {
-  DRAG_THRESHOLD_PX,
   capturePointer,
   clearNativeTextSelection,
   getClientPoint,

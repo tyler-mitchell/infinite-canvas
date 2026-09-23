@@ -2,13 +2,16 @@ import { type } from "arktype";
 import { batch, observable, observe, when } from "@legendapp/state";
 import {
   animate,
-  cancelFrame,
-  frame,
-  motionValue,
   type AnimationPlaybackControlsWithThen,
   type Transition,
 } from "motion";
-import { unionRects, type Camera, type Point, type Rect, type Size } from "./geometry";
+import {
+  getCameraDestination,
+  interpolateCamera,
+  unionRects,
+  type Camera,
+  type Rect,
+} from "@hyphened/math/cpu";
 import type { CanvasContext } from "./state.types";
 
 const point = type({ x: "number", y: "number" });
@@ -29,14 +32,20 @@ export const cameraNavigation = type({
     "maxZoom?": "number > 0",
   }),
   "composition?": { "targetOffset?": point, "screenPosition?": point },
+  "curvature?": "number >= 0",
+  "reducedMotion?": "'user' | 'always' | 'never'",
 });
 
-export type ViewportInsets = { top: number; right: number; bottom: number; left: number };
-
-export type CameraMotion = { transition?: Transition; reducedMotion?: "user" | "always" | "never" };
+export type CameraMotion = {
+  transition?: Transition;
+  curvature?: number;
+  reducedMotion?: "user" | "always" | "never";
+};
 export type CameraRequest = CameraNavigation & CameraMotion;
+export type CameraRequestSource = CameraRequest | (() => CameraRequest | null);
 export type CameraController = {
-  navigate: (request: CameraRequest) => Promise<CameraNavigationResult>;
+  navigate: (source: CameraRequestSource) => Promise<CameraNavigationResult>;
+  isNavigating: (source?: CameraRequestSource) => boolean;
   stop: () => void;
 };
 
@@ -47,44 +56,33 @@ export function createCameraController({
   canvas: Pick<CanvasContext, "state" | "computed">;
   motion?: CameraMotion;
 }): CameraController {
-  const active: { cancel?: () => void } = {};
+  const active: { cancel?: () => void; source?: CameraRequestSource } = {};
   const stop = () => active.cancel?.();
   return {
     stop,
-    navigate: (request) => {
+    isNavigating: (source) =>
+      active.cancel !== undefined && (source === undefined || active.source === source),
+    navigate: (source) => {
       stop();
       const workspaceId = canvas.state.document.activeWorkspaceId.peek();
       const view =
         workspaceId === null
           ? canvas.state.document.canvasView
           : canvas.state.document.workspaceViews[workspaceId];
-      const initialCamera = view.camera.peek();
-      const x = motionValue(initialCamera.center.x);
-      const y = motionValue(initialCamera.center.y);
-      const zoom = motionValue(Math.log(initialCamera.zoom));
+      const initialCamera = canvas.computed.camera.peek();
       const status$ = observable<CameraNavigationResult["status"]>();
       const resources: {
         animation?: AnimationPlaybackControlsWithThen;
         disposeObserver?: () => void;
         destination?: Camera;
-      } = {};
-      const write = () =>
-        canvas.state.session.camera.set({
-          workspaceId,
-          camera: { center: { x: x.get(), y: y.get() }, zoom: Math.exp(zoom.get()) },
-        });
-      const scheduleWrite = () => frame.render(write);
-      const subscriptions = [
-        x.on("change", scheduleWrite),
-        y.on("change", scheduleWrite),
-        zoom.on("change", scheduleWrite),
-      ];
+        camera: Camera;
+        progress: number;
+        interpolate?: (progress: number) => Camera;
+      } = { camera: initialCamera, progress: 0 };
       const finish = (status: CameraNavigationResult["status"]) => {
         if (status$.peek() !== undefined) return;
         resources.disposeObserver?.();
-        subscriptions.forEach((unsubscribe) => unsubscribe());
         resources.animation?.stop();
-        cancelFrame(write);
         const preview = canvas.state.session.camera.peek();
         batch(() => {
           if (
@@ -94,23 +92,29 @@ export function createCameraController({
             if (status === "completed" && resources.destination !== undefined)
               view.camera.set(resources.destination);
             else if (resources.animation !== undefined || preview?.workspaceId === workspaceId)
-              view.camera.set({ center: { x: x.get(), y: y.get() }, zoom: Math.exp(zoom.get()) });
+              view.camera.set(resources.camera);
           }
           canvas.state.session.camera.set(null);
           status$.set(status);
         });
-        if (active.cancel === cancel) active.cancel = undefined;
-        x.destroy();
-        y.destroy();
-        zoom.destroy();
+        if (active.cancel === cancel) {
+          active.cancel = undefined;
+          active.source = undefined;
+        }
       };
       const cancel = () => finish("cancelled");
       active.cancel = cancel;
+      active.source = source;
       const disposeObserver = observe(() => {
         const activeWorkspace = canvas.state.document.activeWorkspaceId.get();
         const pointerId = canvas.computed.capturedPointerId.get();
         if (activeWorkspace !== workspaceId || pointerId !== null) {
           cancel();
+          return;
+        }
+        const request = typeof source === "function" ? source() : source;
+        if (request === null) {
+          finish("unavailable");
           return;
         }
         const target = request.target;
@@ -152,7 +156,7 @@ export function createCameraController({
           rect,
           camera: initialCamera,
           viewport,
-          insets: canvas.state.input.viewportInsets.get(),
+          insets: canvas.computed.viewportInsets.get(),
           navigation: request,
           limits: canvas.state.config.camera.get(),
         });
@@ -164,7 +168,13 @@ export function createCameraController({
         )
           return;
         resources.destination = destination;
-        resources.animation?.stop();
+        resources.interpolate = interpolateCamera({
+          from: resources.camera,
+          to: destination,
+          width: viewport.width,
+          curvature: request.curvature ?? motion.curvature,
+          startProgress: resources.progress,
+        });
         const reducedMotion = request.reducedMotion ?? motion.reducedMotion ?? "user";
         const immediate =
           reducedMotion === "always" ||
@@ -176,18 +186,22 @@ export function createCameraController({
           finish("completed");
           return;
         }
+        if (resources.animation !== undefined) return;
         const transition = {
           duration: 0.7,
           ease: [0.22, 1, 0.36, 1] as const,
           ...motion.transition,
           ...request.transition,
-          at: 0,
         };
-        const animation = animate([
-          [x, destination.center.x, transition],
-          [y, destination.center.y, transition],
-          [zoom, Math.log(destination.zoom), transition],
-        ]);
+        const animation = animate(0, 1, {
+          ...transition,
+          onUpdate: (progress) => {
+            resources.progress = progress;
+            resources.camera = resources.interpolate!(progress);
+            canvas.state.session.camera.set({ workspaceId, camera: resources.camera });
+            transition.onUpdate?.(progress);
+          },
+        });
         resources.animation = animation;
         animation.finished.then(
           () => {
@@ -207,87 +221,10 @@ export function createCameraController({
   };
 }
 
-export type CameraTarget =
-  | { type: "point"; point: Point }
-  | { type: "rect"; rect: Rect }
-  | { type: "window"; windowId: string }
-  | { type: "selection" }
-  | { type: "visibleWindows" };
-
-export type CameraBehavior =
-  | { type: "center" }
-  | { type: "centerAtZoom"; zoom: number }
-  | {
-      type: "fit";
-      padding?: number;
-      framingMode?: "both" | "horizontal" | "vertical";
-      framingSize?: number;
-      maxZoom?: number;
-    };
-
-export type CameraNavigation = {
-  target: CameraTarget;
-  behavior?: CameraBehavior;
-  composition?: { targetOffset?: Point; screenPosition?: Point };
-};
+export type CameraNavigation = typeof cameraNavigation.infer;
+export type CameraTarget = CameraNavigation["target"];
 
 export type CameraNavigationResult =
   | { status: "completed" }
   | { status: "cancelled" }
   | { status: "unavailable" };
-
-export function getCameraDestination({
-  rect,
-  camera,
-  viewport,
-  insets,
-  navigation,
-  limits,
-}: {
-  rect: Rect;
-  camera: Camera;
-  viewport: Size;
-  insets: ViewportInsets;
-  navigation: CameraNavigation;
-  limits: { minZoom: number; maxZoom: number; padding: number };
-}): Camera {
-  const width = Math.max(viewport.width - insets.left - insets.right, 1);
-  const height = Math.max(viewport.height - insets.top - insets.bottom, 1);
-  const behavior = navigation.behavior ?? { type: "center" };
-  const requestedZoom = (() => {
-    switch (behavior.type) {
-      case "center":
-        return camera.zoom;
-      case "centerAtZoom":
-        return behavior.zoom;
-      case "fit": {
-        const padding = behavior.padding ?? limits.padding;
-        const horizontal = Math.max(width - padding * 2, 1) / Math.max(rect.width, 1);
-        const vertical = Math.max(height - padding * 2, 1) / Math.max(rect.height, 1);
-        const fit = { horizontal, vertical, both: Math.min(horizontal, vertical) };
-        return Math.min(
-          fit[behavior.framingMode ?? "both"] * (behavior.framingSize ?? 1),
-          behavior.maxZoom ?? limits.maxZoom,
-        );
-      }
-    }
-  })();
-  const zoom = Math.min(limits.maxZoom, Math.max(limits.minZoom, requestedZoom));
-  const offset = navigation.composition?.targetOffset ?? { x: 0, y: 0 };
-  const position = navigation.composition?.screenPosition ?? { x: 0.5, y: 0.5 };
-  return {
-    zoom,
-    center: {
-      x:
-        rect.x +
-        rect.width / 2 +
-        offset.x -
-        (insets.left + width * position.x - viewport.width / 2) / zoom,
-      y:
-        rect.y +
-        rect.height / 2 +
-        offset.y -
-        (insets.top + height * position.y - viewport.height / 2) / zoom,
-    },
-  };
-}

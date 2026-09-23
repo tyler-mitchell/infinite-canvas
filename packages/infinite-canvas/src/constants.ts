@@ -20,6 +20,8 @@ const DEFAULT_INFINITE_CANVAS_CAMERA: InfiniteCanvasCamera = {
   zoom: 1,
 };
 
+const DRAG_THRESHOLD_PX = 6;
+
 const DEFAULT_INFINITE_CANVAS_CHROME: InfiniteCanvasChromeMetrics = {
   borderWidth: 2,
   cornerSize: 10,
@@ -137,6 +139,7 @@ const DEFAULT_INFINITE_CANVAS_THEME: InfiniteCanvasTheme = {
 
 export type { InfiniteCanvasEdgePanPolicy };
 export {
+  DRAG_THRESHOLD_PX,
   DEFAULT_INFINITE_CANVAS_CAMERA,
   DEFAULT_INFINITE_CANVAS_CHROME,
   DEFAULT_INFINITE_CANVAS_EDGE_PAN,

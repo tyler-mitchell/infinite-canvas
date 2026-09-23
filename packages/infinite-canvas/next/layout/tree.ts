@@ -1,4 +1,4 @@
-import type { Point, Rect } from "../geometry";
+import { mapPoint, min4id, type Point, type Rect } from "@hyphened/math/cpu";
 import type { BoundLayout, LayoutNode } from "./arrange";
 import type { DockEdge } from "./kinds";
 
@@ -52,17 +52,12 @@ export function getDockEdge({
   point: Point;
   zone: number;
 }): DockEdge {
-  const x = (point.x - rect.x) / rect.width;
-  const y = (point.y - rect.y) / rect.height;
-  const nearest = (
-    [
-      ["west", x],
-      ["east", 1 - x],
-      ["north", y],
-      ["south", 1 - y],
-    ] as const
-  ).toSorted(([, left], [, right]) => left - right)[0];
-  return nearest[1] <= zone ? nearest[0] : "center";
+  const { x, y } = mapPoint(rect, point);
+  const distances = [x, 1 - x, y, 1 - y] as const;
+  const nearest = min4id(...distances);
+  return distances[nearest]! <= zone
+    ? (["west", "east", "north", "south"] as const)[nearest]!
+    : "center";
 }
 
 const without = ({ item: _, ...node }: TreeNode): TreeNode => node;
