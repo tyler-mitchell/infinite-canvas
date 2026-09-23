@@ -5,12 +5,12 @@ import {
   cameraShowing,
   panCamera,
   screenToClip,
-  screenToWorldKernel as screenToWorld,
+  screenToWorld,
   viewportRect,
-  visibleWorldRectKernel as visibleWorldRect,
-  worldToScreenKernel as worldToScreen,
+  visibleWorldRect,
+  worldToScreen,
   zoomCameraAbout,
-} from "./camera";
+} from "./gpu";
 import { centerOfRect, Insets, Rect } from "./rect";
 
 const camera = View({
@@ -188,7 +188,7 @@ describe("zoomCameraAbout and panCamera", () => {
       camera.center.x - (pointer.x - grabbed.x) / camera.zoom,
       camera.center.y - (pointer.y - grabbed.y) / camera.zoom,
     );
-    const panned = panCamera(camera, std.sub(pointer, grabbed));
+    const panned = panCamera(camera, std.sub(grabbed, pointer));
     expect(panned.center.x).toBeCloseTo(byHand.x, 3);
     expect(panned.center.y).toBeCloseTo(byHand.y, 3);
   });

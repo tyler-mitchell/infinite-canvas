@@ -13,6 +13,7 @@ test("career details open, remain visible, close, and reopen", async () => {
   const canvas = createCanvasState({
     viewport: { width: 2200, height: 1400 },
     windowDefinitions: {
+      main: {},
       "career-detail": {
         size: { width: 360, height: 480 },
         section: false,
@@ -31,6 +32,7 @@ test("career details open, remain visible, close, and reopen", async () => {
       content: {
         windows: {
           main: {
+            kind: "main",
             title: "Portfolio",
             heightMode: "manual",
             rect: { x: 0, y: 80, width: 880, height: 2400 },
@@ -49,27 +51,42 @@ test("career details open, remain visible, close, and reopen", async () => {
       heightMode: "manual",
       title: entry.organization,
       data: { ...entry, source: "main" },
-      placement: { relativeTo: "main", side: name === "utsa" ? "right" : "left", stack: true, gap: 24 },
+      placement: {
+        relativeTo: "main",
+        side: name === "utsa" ? "right" : "left",
+        stack: true,
+        gap: 24,
+      },
     });
     expect(result.error).toBeNull();
-    expect(canvas.state.document.content.windows[`${name}-detail`].heightMode.peek()).toBe("manual");
-    expect((await canvas.commands.revealWindow.run({
-      window: `${name}-detail`,
-      behavior: { type: "fit", maxZoom: 1 },
-    })).error).toBeNull();
+    expect(canvas.state.document.content.windows[`${name}-detail`].heightMode.peek()).toBe(
+      "manual",
+    );
+    expect(
+      (
+        await canvas.commands.revealWindow.run({
+          window: `${name}-detail`,
+          behavior: { type: "fit", maxZoom: 1 },
+        })
+      ).error,
+    ).toBeNull();
     expect(canvas.computed.camera.peek()).toEqual(camera);
   }
   for (const name of ["paypal", "federato", "utsa"] as const) {
     expect((await canvas.commands.closeWindow.run({ window: `${name}-detail` })).error).toBeNull();
     expect(canvas.state.document.content.windows[`${name}-detail`].peek()).toBeUndefined();
   }
-  expect((await canvas.commands.openWindow.run({
-    id: "utsa-detail",
-    kind: "career-detail",
-    title: portfolio.content.windows.utsa.data.organization,
-    data: { ...portfolio.content.windows.utsa.data, source: "main" },
-    placement: { relativeTo: "main", side: "right", stack: true, gap: 24 },
-  })).error).toBeNull();
+  expect(
+    (
+      await canvas.commands.openWindow.run({
+        id: "utsa-detail",
+        kind: "career-detail",
+        title: portfolio.content.windows.utsa.data.organization,
+        data: { ...portfolio.content.windows.utsa.data, source: "main" },
+        placement: { relativeTo: "main", side: "right", stack: true, gap: 24 },
+      })
+    ).error,
+  ).toBeNull();
 });
 
 test("observable dependencies preserve the canvas runtime and its observable members", () => {
@@ -285,6 +302,8 @@ test("center docking on a floating window wraps both in tabs, and undocking diss
   });
   expect(canvas.computed.view.stackingOrder.peek()).toContain("window:stack");
   expect(canvas.computed.view.stackingOrder.peek()).not.toContain("window:a");
+  expect(canvas.computed.parents.c.peek()).toBe("stack");
+  expect(canvas.computed.view.activeChildren.stack.peek()).toBe("c");
   expect(canvas.computed.windowVisible.c.peek()).toBe(true);
   expect(canvas.computed.windowVisible.a.peek()).toBe(false);
   canvas.actions.undockWindow.run({ window: "c" });
@@ -1144,12 +1163,17 @@ test("vertical lane resizing preserves the displayed height after release", () =
             layout: { type: "lanes", columns: 3, gap: 0 },
             children: ["a", "b", "c"],
           },
-          ...Object.fromEntries(["a", "b", "c"].map((id) => [id, {
-            kind: "note",
-            title: id,
-            heightMode: "manual" as const,
-            rect: { x: 0, y: 0, width: 200, height: 210 },
-          }])),
+          ...Object.fromEntries(
+            ["a", "b", "c"].map((id) => [
+              id,
+              {
+                kind: "note",
+                title: id,
+                heightMode: "manual" as const,
+                rect: { x: 0, y: 0, width: 200, height: 210 },
+              },
+            ]),
+          ),
         },
       },
     },

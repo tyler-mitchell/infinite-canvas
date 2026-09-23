@@ -24,11 +24,7 @@ import {
 import { getDirectionalTarget } from "./geometry";
 import { getSelection, type SelectionTarget, type TargetKey } from "./selection";
 import type { WindowState } from "./document.types";
-import {
-  arrangeWindows,
-  bindLayout,
-  type BoundLayout,
-} from "./layout/arrange";
+import { arrangeWindows, bindLayout, type BoundLayout } from "./layout/arrange";
 import { builtinLayouts, defaultGrouping, defaultWrappers } from "./layout/builtin";
 import type { Changes } from "./layout/kinds";
 import {
@@ -333,8 +329,14 @@ export const createCanvasState = withComputed(stateModel)
         const bounds = canvas.computed.viewportRect.get();
         if (input.placement?.relativeTo !== undefined) {
           const anchor = canvas.computed.windowRect[input.placement.relativeTo].get();
-          if (anchor === undefined || !canvas.computed.windowVisible[input.placement.relativeTo].get())
-            return ctx.error({ expected: "a visible placement anchor", path: ["placement", "relativeTo"] });
+          if (
+            anchor === undefined ||
+            !canvas.computed.windowVisible[input.placement.relativeTo].get()
+          )
+            return ctx.error({
+              expected: "a visible placement anchor",
+              path: ["placement", "relativeTo"],
+            });
           const rect = getAdjacentRect({
             anchor,
             size: {
@@ -773,7 +775,8 @@ export const createCanvasState = withComputed(stateModel)
         "edges?": "boolean",
         "centers?": "boolean",
       }).narrow(
-        (input, ctx) => Object.keys(input).length > 0 || ctx.mustBe("at least one snapping setting"),
+        (input, ctx) =>
+          Object.keys(input).length > 0 || ctx.mustBe("at least one snapping setting"),
       ),
       setCameraLimits: type({
         "minZoom?": "number > 0",
@@ -967,7 +970,7 @@ export const createCanvasState = withComputed(stateModel)
       focusWindow: type.fn(inputs.focusWindow)(({ window }) =>
         batch(() => {
           const id = window.id.peek();
-          const parents = computed.parents.peek();
+          const parents = getParents(getWindowTree(state.document.content.windows.peek()));
           const reveal = (child: string): string => {
             const parent = parents[child];
             if (parent === undefined) return child;
@@ -1721,10 +1724,7 @@ export const createCanvasState = withComputed(stateModel)
             state.config.windowDefinitions[records[id].kind ?? ""].peek() ?? containerDefinition,
         });
       const limits = Object.fromEntries(
-        [root, ...getDescendants({ windows: nodes, id: root })].map((id) => [
-          id,
-          own(id),
-        ]),
+        [root, ...getDescendants({ windows: nodes, id: root })].map((id) => [id, own(id)]),
       );
       const changes = arrangeWindows({
         id: root,
