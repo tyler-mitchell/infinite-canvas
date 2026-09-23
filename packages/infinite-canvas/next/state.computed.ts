@@ -1,5 +1,5 @@
 import { fromEntries } from "@ark/util";
-import { linked } from "@legendapp/state";
+import { linked, ObservableHint } from "@legendapp/state";
 import { compareByKey } from "@thi.ng/compare";
 import {
   areaOfRect,
@@ -559,11 +559,7 @@ export const withComputed = (model: typeof stateModel) =>
               };
             }
             const drag = computed.windowDrag.get();
-            if (
-              drag?.kind !== "move" ||
-              Object.keys(drag.startRects).length !== 1
-            )
-              return null;
+            if (drag?.kind !== "move" || Object.keys(drag.startRects).length !== 1) return null;
             const point = computed.pointerWorld.get();
             if (point === null) return null;
             const window = drag.target;
@@ -753,13 +749,16 @@ export const withComputed = (model: typeof stateModel) =>
     }))
     .computed(({ state, computed }) => ({
       cameraTrack: linked({
-        get: () => getCameraTrack({
-          ...state.document.content.presentation.get(),
-          sections: computed.route.get(),
-          viewport: state.input.viewport.get(),
-          insets: computed.viewportInsets.get(),
-          limits: state.config.camera.get(),
-        }),
+        get: () => {
+          const track = getCameraTrack({
+            ...state.document.content.presentation.get(),
+            sections: computed.route.get(),
+            viewport: state.input.viewport.get(),
+            insets: computed.viewportInsets.get(),
+            limits: state.config.camera.get(),
+          });
+          return track === null ? null : ObservableHint.opaque(track);
+        },
         initial: null,
       }),
       selectionTargets: () => Object.values(computed.selection.targets),

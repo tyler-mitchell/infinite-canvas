@@ -1,5 +1,4 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { DEFAULT_INFINITE_CANVAS_ZOOM } from "@hyphened/infinite-canvas";
 
 export const Route = createFileRoute("/welcome")({
   component: WelcomeShowcase,
@@ -22,10 +21,9 @@ function WelcomeShowcase() {
         app with no build step.
       </p>
       <p className="mb-3">
-        Source link proof — the framework's default zoom policy reports:{" "}
-        <Code data-testid="framework-status">
-          zoom {DEFAULT_INFINITE_CANVAS_ZOOM.minZoom}–{DEFAULT_INFINITE_CANVAS_ZOOM.maxZoom}
-        </Code>
+        Every showcase that builds a canvas is the source link proof: edit{" "}
+        <Code>packages/infinite-canvas/next</Code> and the change reaches the running demo without a
+        build step.
       </p>
       <h3 className="mt-6 mb-2 font-semibold text-foreground">Adding a showcase</h3>
       <p>

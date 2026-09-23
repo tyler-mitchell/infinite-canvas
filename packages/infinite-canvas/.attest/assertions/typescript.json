@@ -7,7 +7,7 @@
           "char": 3
         },
         "end": {
-          "line": 12,
+          "line": 17,
           "char": 6
         }
       },
@@ -34,11 +34,11 @@
     {
       "location": {
         "start": {
-          "line": 13,
+          "line": 18,
           "char": 3
         },
         "end": {
-          "line": 13,
+          "line": 18,
           "char": 89
         }
       },
@@ -52,7 +52,7 @@
           }
         },
         {
-          "type": "Observable<{ id: string; kind: string; title: string; data?: unknown; mode: \"normal\" | \"minimized\" | \"maximized\"; isPinned: boolean; rect: { x: number; y: number; width: number; height: number; }; restoreRect?: { x: number; y: number; width: number; height: number; } | undefined; minSize?: { width: number; height: number; } | undefined; aspectRatio?: number | undefined; capabilities?: { closable?: boolean | undefined; maximizable?: boolean | undefined; minimizable?: boolean | undefined; movable?: boolean | undefined; resizable?: boolean | undefined; } | undefined; heightMode: \"content\" | \"manual\"; }>",
+          "type": "Observable<{ id: string; kind?: string | undefined; title: string; data?: unknown; layout?: { [x: string]: unknown; type: string; } | undefined; children?: string[] | undefined; item?: { [x: string]: unknown; } | undefined; section?: boolean | undefined; mode: \"normal\" | \"minimized\" | \"maximized\"; isPinned: boolean; rect: { x: number; y: number; width: number; height: number; }; restoreRect?: { x: number; y: number; width: number; height: number; } | undefined; minSize?: { width: number; height: number; } | undefined; maxSize?: { width?: number | undefined; height?: number | undefined; } | undefined; aspectRatio?: number | undefined; capabilities?: { closable?: boolean | undefined; maximizable?: boolean | undefined; minimizable?: boolean | undefined; movable?: boolean | undefined; resizable?: boolean | undefined; } | undefined; heightMode: \"content\" | \"manual\"; widthMode: \"manual\" | \"viewport\"; }>",
           "relationships": {
             "args": [],
             "typeArgs": ["equality", "equality"]
@@ -65,11 +65,11 @@
     {
       "location": {
         "start": {
-          "line": 14,
+          "line": 19,
           "char": 3
         },
         "end": {
-          "line": 14,
+          "line": 19,
           "char": 89
         }
       },

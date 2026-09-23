@@ -33,7 +33,7 @@ import {
   type InfiniteCanvasGroupTabLabel,
 } from "./group-state";
 import { DRAG_THRESHOLD_PX } from "./constants";
-import { capturePointer, isPrimaryButton, releasePointer } from "../next/input";
+import { capturePointer, isPrimaryButton, releasePointer } from "./input";
 import {
   useInfiniteCanvasDispatch,
   useInfiniteCanvasState$,

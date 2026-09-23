@@ -18,7 +18,7 @@ import {
 import { useInfiniteCanvasDetailLevel } from "./react/detail-level";
 import { getWindowBodyRect, getWorldLengthWithScreenFloor } from "./geometry";
 import { CONTENT_LAYOUT_TRANSITION, INFINITE_CANVAS_LAYOUT_TRANSITION } from "./layout-motion";
-import { capturePointer, clearNativeTextSelection, isPrimaryButton } from "../next/input";
+import { capturePointer, clearNativeTextSelection, isPrimaryButton } from "./input";
 import { InfiniteCanvasWindowPortalContext } from "./portal";
 import { getWindowStackValue } from "./stacking";
 import { useInfiniteCanvasDispatch, useInfiniteCanvasStore } from "./react/store";

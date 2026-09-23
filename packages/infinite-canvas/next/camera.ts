@@ -1,10 +1,6 @@
 import { type } from "arktype";
 import { batch, observable, observe, when } from "@legendapp/state";
-import {
-  animate,
-  type AnimationPlaybackControlsWithThen,
-  type Transition,
-} from "motion";
+import { animate, type AnimationPlaybackControlsWithThen, type Transition } from "motion";
 import {
   getCameraDestination,
   interpolateCamera,
@@ -199,7 +195,7 @@ export function createCameraController({
             resources.progress = progress;
             resources.camera = resources.interpolate!(progress);
             canvas.state.session.camera.set({ workspaceId, camera: resources.camera });
-            transition.onUpdate?.(progress);
+            if ("onUpdate" in transition) transition.onUpdate?.(progress);
           },
         });
         resources.animation = animation;

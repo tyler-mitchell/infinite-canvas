@@ -31,7 +31,7 @@ import {
   isInteractiveTarget,
   isPrimaryButton,
   releasePointer,
-} from "../next/input";
+} from "./input";
 import type {
   InfiniteCanvasChromeMetrics,
   InfiniteCanvasDispatch,

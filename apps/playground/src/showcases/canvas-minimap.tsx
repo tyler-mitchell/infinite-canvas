@@ -31,7 +31,6 @@ export const CanvasMinimap = observer(function CanvasMinimap({ canvas }: { canva
           const bounds = event.currentTarget.getBoundingClientRect();
           const point = getMinimapWorldPoint({
             layout,
-            size,
             point: { x: event.clientX - bounds.left, y: event.clientY - bounds.top },
           });
           void canvas.commands.navigateCamera.run({ target: { type: "point", point } });

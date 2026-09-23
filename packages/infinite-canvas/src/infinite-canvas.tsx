@@ -109,7 +109,7 @@ import {
   isInteractiveTarget,
   isPrimaryButton,
   releasePointer,
-} from "../next/input";
+} from "./input";
 import {
   getInfiniteCanvasSelectableTargetFromSpatialTarget,
   resolveInfiniteCanvasSpatialTarget,
@@ -600,7 +600,7 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
         clientY: current.clientPoint.y,
       }),
     );
-  }, [dropPolicy, createDropInteractionFromPointer]);
+  }, [dropPolicy, createDropInteractionFromPointer, dropInteraction$]);
 
   const cancelDropDrag = useCallback(() => {
     dragActivationRef.current = null;
@@ -611,7 +611,7 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
     }
 
     dropInteraction$.set(EMPTY_INFINITE_CANVAS_DROP);
-  }, [releaseDropPointerCapture]);
+  }, [releaseDropPointerCapture, dropInteraction$]);
   const startDropDrag = useStableCallback(
     ({
       event,
@@ -1088,6 +1088,7 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
     commitDropInteraction,
     releaseDropPointerCapture,
     store,
+    dropInteraction$,
   ]);
 
   useEffect(() => {
@@ -1224,6 +1225,7 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
     createDropInteractionFromPointer,
     startNativeDrag,
     store,
+    dropInteraction$,
   ]);
 
   return (
@@ -1550,6 +1552,7 @@ function InfiniteCanvasWindowLayerContent<Kind extends string>({
   const groups = useValue(store.state$.groups);
   const activeWindowId = useValue(store.state$.activeWindowId);
   const selectedWindowIds = useValue(() => getSelectedWindowIds(store.state$.selection.get()));
+  const selectedWindowIdSet = new Set(selectedWindowIds);
   const interaction = useValue(store.state$.interaction);
   const zoom = useValue(store.state$.camera.zoom);
   const canvasLayout = useValue(store.layout$);
@@ -1578,7 +1581,7 @@ function InfiniteCanvasWindowLayerContent<Kind extends string>({
             isActive={activeWindowId === window.id}
             isGrouped={isInfiniteCanvasWindowGrouped(store.state$.peek(), window.id)}
             isPointerOwned={pointerOwned.windowIds.has(window.id)}
-            isSelected={selectedWindowIds.includes(window.id)}
+            isSelected={selectedWindowIdSet.has(window.id)}
             key={window.id}
             rect={rect}
             stackBands={stackBands}
