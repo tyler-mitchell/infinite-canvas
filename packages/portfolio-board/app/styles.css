@@ -1,0 +1,45 @@
+@layer theme, base, canvas, components, utilities;
+
+@import "tailwindcss";
+@import "@fontsource-variable/schibsted-grotesk/wght.css";
+@import "@fontsource/dm-mono/400.css";
+@import "@fontsource/dm-mono/500.css";
+
+/* The path a consumer writes, so the documented setup is the one that runs here. */
+@import "portfolio-board/theme.css";
+
+@theme inline {
+  --color-background: var(--pk-ground);
+  --color-foreground: var(--pk-ink);
+  --color-card: var(--pk-surface);
+  --color-card-foreground: var(--pk-ink);
+  --color-popover: var(--pk-surface-inner);
+  --color-popover-foreground: var(--pk-ink);
+  --color-primary: var(--pk-accent);
+  --color-primary-foreground: var(--pk-on-accent);
+  --color-secondary: var(--pk-surface-inner);
+  --color-secondary-foreground: var(--pk-ink-muted);
+  --color-muted: var(--pk-surface-inner);
+  --color-muted-foreground: var(--pk-ink-soft);
+  --color-accent: var(--pk-surface-inner);
+  --color-accent-foreground: var(--pk-ink-bright);
+  --color-border: var(--pk-line);
+  --color-input: var(--pk-line-strong);
+  --color-ring: var(--pk-accent);
+  --color-destructive: #f87171;
+}
+
+:root {
+  --pk-font-sans: "Schibsted Grotesk Variable", ui-sans-serif, system-ui, sans-serif;
+  --popover: var(--pk-surface-inner);
+  --popover-foreground: var(--pk-ink);
+  --border: var(--pk-line);
+  --radius: 0.5rem;
+}
+
+/*
+ * Tailwind looks through the whole package for classes, which reaches the tests and the decision
+ * log. Both are prose about classes rather than classes, and the log grows every session.
+ */
+@source not "../docs";
+@source not "../src/**/*.test.*";
