@@ -187,7 +187,7 @@ function ContributionsCard({
     >
       <Card.Header>
         <Kind>Contributions</Kind>
-        <Meta>{calendar.totalContributions.toLocaleString()} this year</Meta>
+        <Meta>{calendar.totalContributions.toLocaleString("en-US")} this year</Meta>
       </Card.Header>
       <Card.Content>
         <ActivityGrid
@@ -344,7 +344,7 @@ function ProfileCard({
               {[
                 `@${user.login}`,
                 user.location,
-                `On GitHub since ${new Date(user.createdAt).getFullYear()}`,
+                `On GitHub since ${new Date(user.createdAt).getUTCFullYear()}`,
               ]
                 .filter(Boolean)
                 .join(" · ")}

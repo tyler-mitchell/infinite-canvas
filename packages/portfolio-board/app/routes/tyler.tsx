@@ -1,4 +1,4 @@
-import { createFileRoute, useLocation } from "@tanstack/react-router";
+import { createFileRoute, stripSearchParams, useLocation } from "@tanstack/react-router";
 import { useState } from "react";
 
 import { PortfolioBoard, type BoardMode } from "../../portfolio/board.tsx";
@@ -9,7 +9,9 @@ export const Route = createFileRoute("/tyler")({
   validateSearch: (search: Record<string, unknown>): { mode: BoardMode } => ({
     mode: import.meta.env.DEV && search.mode === "edit" ? "edit" : "read",
   }),
+  search: { middlewares: [stripSearchParams({ mode: "read" })] },
   head: () => ({
+    links: [{ rel: "canonical", href: "https://tyler.featuretype.com/" }],
     meta: [
       { title: "Tyler Davis Mitchell — Portfolio" },
       { name: "description", content: "A portfolio laid out on an infinite canvas." },

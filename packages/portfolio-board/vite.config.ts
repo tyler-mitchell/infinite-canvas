@@ -29,7 +29,7 @@ export default defineConfig(({ mode }) => ({
         extends: true,
         test: {
           name: "rules",
-          include: ["src/**/*.test.ts", "src/**/*.test.tsx"],
+          include: ["src/**/*.test.ts", "src/**/*.test.tsx", "app/**/*.test.ts"],
           exclude: ["src/**/*.dom.test.tsx"],
         },
       },
