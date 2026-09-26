@@ -35,7 +35,7 @@ vi.mock("motion", async (original) => ({
   animate: (
     from: unknown,
     _to: unknown,
-    options?: { onUpdate?: (time: number) => void; delay?: number },
+    options?: { onUpdate?: (time: number) => void; delay?: number; duration?: number },
   ) => {
     const completion = { finish: () => {} };
     const promise = new Promise<void>((resolve) => {
@@ -52,7 +52,7 @@ vi.mock("motion", async (original) => ({
       delay: options?.delay,
       segments: Array.isArray(from) ? from : undefined,
     });
-    animation.controls.push(control);
+    if (options?.duration !== 0) animation.controls.push(control);
     return control;
   },
 }));
@@ -84,10 +84,12 @@ function Harness({
     days: data,
     loading,
     replayKey,
-    playback: options,
+    playback: { particles: false, ...options },
     ready: true,
     thresholds: [1, 3, 6, 10],
     columns: (snapshot) => snapshot.slice(-visible),
+    cellSize: 11,
+    gap: 4,
   });
   const phase = useValue(playback.phase$);
   return (
@@ -109,6 +111,11 @@ function Harness({
           {day.count}
           <span data-slot="activity-fill" />
           <span data-slot="activity-cursor" />
+          {day.count >= 10 && (
+            <span data-slot="activity-flash">
+              <span data-slot="activity-core" />
+            </span>
+          )}
         </div>
       ))}
     </div>
@@ -244,10 +251,10 @@ test("completion shimmer shares the cell timelines and starts after all cell eff
     animation.controls[0]!.finish();
   });
   const cellControls = animation.controls.slice(1);
-  expect(cellControls).toHaveLength(9);
+  expect(cellControls).toHaveLength(11);
   const cursorControls = cellControls.filter((control) => {
     const element = control.segments?.[0]?.[0];
-    return element instanceof HTMLElement && element.dataset.slot === "activity-cursor";
+    return typeof element === "string" && element.endsWith('[data-slot="activity-cursor"]');
   });
   expect(cursorControls).toHaveLength(3);
   const cellSegments = cellControls.flatMap((control) =>

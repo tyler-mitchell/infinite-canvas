@@ -43,6 +43,8 @@ export function useActivityPlayback({
   loading,
   replayKey,
   columns,
+  cellSize,
+  gap,
   ready,
   thresholds,
 }: {
@@ -51,6 +53,8 @@ export function useActivityPlayback({
   readonly loading: boolean;
   readonly replayKey: string | number | undefined;
   readonly columns: (days: readonly ActivityDay[]) => readonly (ActivityDay | null)[];
+  readonly cellSize: number;
+  readonly gap: number;
   readonly ready: boolean;
   readonly thresholds: readonly number[];
 }) {
@@ -72,7 +76,6 @@ export function useActivityPlayback({
   const [plot, animate] = useAnimate<HTMLDivElement>();
   const visible = useInView(plot);
   const pageVisible = usePageInView();
-  const particles = useRef<HTMLDivElement>(null);
   const controls = useRef(new Set<AnimationPlaybackControls>());
   const paused = useValue(
     () =>
@@ -151,10 +154,23 @@ export function useActivityPlayback({
     if (!element || !ready) return;
     const state = { cancelled: false };
     const isCurrent = () => !state.cancelled && snapshot.revision === request.current;
-    const current = { shown, options };
-    const cells = [...element.querySelectorAll<HTMLElement>("[data-index]")];
+    const cells = shown.flatMap((day, index) =>
+      day ? [{ day, index, selector: `[data-index="${index}"]` }] : [],
+    );
+    if (!enabled || !cells.length) {
+      animate(
+        '[data-slot="activity-cursor"], [data-slot="activity-flash"], [data-slot="particle"]',
+        { opacity: 0 },
+        { duration: 0 },
+      ).complete();
+      animate(element, { opacity: 1 }, { duration: 0 }).complete();
+      animate('[data-slot="activity-fill"]', { opacity: 1 }, { duration: 0 }).complete();
+      animate("[data-index]", { transform: "none" }, { duration: 0 }).complete();
+      state$.phase.set("complete");
+      return;
+    }
     const schedule = activitySchedule({
-      days: current.shown,
+      days: shown,
       duration,
       cellDuration,
       thresholds,
@@ -162,26 +178,28 @@ export function useActivityPlayback({
     });
     const impacts = schedule.filter((segment) => segment.impactAt !== undefined);
     const impactIndices = new Map(impacts.map((segment, index) => [segment, index]));
-    const sequence = cells.flatMap((cell): TimedDOMSegment[] => {
-      const index = Number(cell.dataset.index);
-      const day = current.shown[index];
+    const sequence = cells.flatMap(({ day, index, selector: cell }): TimedDOMSegment[] => {
       const segment = schedule[index];
-      const fill = cell.querySelector<HTMLElement>('[data-slot="activity-fill"]');
-      if (!day || !segment || !fill) return [];
+      if (!segment) return [];
+      const fill = `${cell} [data-slot="activity-fill"]`;
       const hit = segment.impactAt;
       const colorEnd = hit ?? segment.end;
       const entries: TimedDOMSegment[] = [];
       const burst: TimedDOMSegment[] = [];
-      const cursor =
-        current.options.cursor === false
-          ? null
-          : cell.querySelector<HTMLElement>('[data-slot="activity-cursor"]');
+      const cursor = options.cursor === false ? null : `${cell} [data-slot="activity-cursor"]`;
       const level = thresholds.filter(
         (threshold) => Number.isFinite(threshold) && day.count >= threshold,
       ).length;
+      if (level > 0) {
+        entries.push([
+          fill,
+          { opacity: [0, 1] },
+          { at: segment.start, duration: colorEnd - segment.start, ease: "easeOut" },
+        ]);
+      }
       if (hit === undefined && level > 0 && Number.isFinite(day.count) && day.count > 0) {
-        const minorImpact = Number.isFinite(current.options.minorImpact)
-          ? Math.max(0, Math.min(3, current.options.minorImpact!))
+        const minorImpact = Number.isFinite(options.minorImpact)
+          ? Math.max(0, Math.min(3, options.minorImpact!))
           : 1.4;
         const displacement =
           minorImpact * impact * Math.min(1, level / 3) * (0.85 + Math.random() * 0.15);
@@ -210,9 +228,9 @@ export function useActivityPlayback({
       }
       if (hit !== undefined) {
         const impactIndex = impactIndices.get(segment)!;
-        const comboWindow = durationOr(current.options.comboWindow, 0.35);
-        const comboStrength = Number.isFinite(current.options.comboStrength)
-          ? Math.max(0, Math.min(0.5, current.options.comboStrength!))
+        const comboWindow = durationOr(options.comboWindow, 0.35);
+        const comboStrength = Number.isFinite(options.comboStrength)
+          ? Math.max(0, Math.min(0.5, options.comboStrength!))
           : 0.18;
         const recentImpacts = impacts
           .slice(Math.max(0, impactIndex - 3), impactIndex)
@@ -222,13 +240,13 @@ export function useActivityPlayback({
         const direction = Math.random() * Math.PI * 2;
         const offsetX = Math.cos(direction) * displacement;
         const offsetY = Math.sin(direction) * displacement;
-        const impactDuration = durationOr(current.options.impactDuration, 0.65);
-        const impactDelay = Number.isFinite(current.options.impactDelay)
-          ? Math.max(0, Math.min(1, current.options.impactDelay!))
+        const impactDuration = durationOr(options.impactDuration, 0.65);
+        const impactDelay = Number.isFinite(options.impactDelay)
+          ? Math.max(0, Math.min(1, options.impactDelay!))
           : 0.09;
         const detonation = colorEnd + impactDelay;
-        const flash = cell.querySelector<HTMLElement>('[data-slot="activity-flash"]');
-        if (flash) {
+        const flash = `${cell} [data-slot="activity-flash"]`;
+        if (level === 4) {
           entries.push([
             flash,
             { opacity: [0, 1, 0.8, 0] },
@@ -239,19 +257,17 @@ export function useActivityPlayback({
               ease: "easeOut",
             },
           ]);
-          const core = flash.querySelector<HTMLElement>('[data-slot="activity-core"]');
-          if (core) {
-            entries.push([
-              core,
-              { opacity: [1, 1, 0] },
-              {
-                at: detonation,
-                duration: Math.min(0.25, impactDuration),
-                times: [0, 0.2, 1],
-                ease: "easeOut",
-              },
-            ]);
-          }
+          const core = `${flash} [data-slot="activity-core"]`;
+          entries.push([
+            core,
+            { opacity: [1, 1, 0] },
+            {
+              at: detonation,
+              duration: Math.min(0.25, impactDuration),
+              times: [0, 0.2, 1],
+              ease: "easeOut",
+            },
+          ]);
         }
         entries.push([
           cell,
@@ -271,25 +287,24 @@ export function useActivityPlayback({
             ease: "linear",
           },
         ]);
-        if (cursor && current.options.cursor !== false) {
+        if (cursor) {
           entries.push([
             cursor,
             { opacity: [1, 0.85, 0.4, 0] },
             { at: detonation, duration: impactDuration, times: [0, 0.3, 0.65, 1], ease: "easeOut" },
           ]);
         }
-        if (particles.current && current.options.particles !== false) {
+        if (options.particles !== false) {
           burst.push(
             ...particleBurstSequence({
-              ...current.options.particles,
-              speed: (current.options.particles?.speed ?? 190) * strength,
-              element: particles.current,
-              x: cell.offsetLeft + cell.offsetWidth / 2,
-              y: cell.offsetTop + cell.offsetHeight / 2,
+              ...options.particles,
+              speed: (options.particles?.speed ?? 190) * strength,
+              x: Math.floor(index / 7) * (cellSize + gap) + cellSize / 2,
+              y: (index % 7) * (cellSize + gap) + cellSize / 2,
               at: detonation,
               group: impactIndex % particleGroups,
               lifetime: Math.min(
-                durationOr(current.options.particles?.lifetime, 0.48),
+                durationOr(options.particles?.lifetime, 0.48),
                 (impacts[impactIndex + particleGroups]?.impactAt ?? Infinity) - hit,
               ),
             }),
@@ -298,7 +313,7 @@ export function useActivityPlayback({
       }
       const activeDuration = colorEnd - segment.start;
       const cursorDuration =
-        activeDuration + (hit === undefined ? durationOr(current.options.cursorTrail, 0.2) : 0);
+        activeDuration + (hit === undefined ? durationOr(options.cursorTrail, 0.2) : 0);
       const cursorTrack: TimedDOMSegment[] = cursor
         ? [
             [
@@ -318,32 +333,18 @@ export function useActivityPlayback({
             ],
           ]
         : [];
-      return [
-        [
-          fill,
-          { opacity: [0, 1] },
-          {
-            at: segment.start,
-            duration: activeDuration,
-            ease: "easeOut",
-          },
-        ],
-        ...cursorTrack,
-        ...entries,
-        ...burst,
-      ];
+      return [...cursorTrack, ...entries, ...burst];
     });
-    const shimmerDuration = durationOr(current.options.shimmerDuration, 1.1);
-    const shimmerStrength = Number.isFinite(current.options.shimmerStrength)
-      ? Math.max(0, Math.min(1, current.options.shimmerStrength!))
+    const shimmerDuration = durationOr(options.shimmerDuration, 1.1);
+    const shimmerStrength = Number.isFinite(options.shimmerStrength)
+      ? Math.max(0, Math.min(1, options.shimmerStrength!))
       : 0.45;
     const completionAt = timelineDuration(sequence.map(([, , transition]) => transition));
     const shimmer: TimedDOMSegment[] =
-      current.options.completionShimmer === false
+      options.completionShimmer === false
         ? []
-        : cells.flatMap((cell, index): TimedDOMSegment[] => {
-            const cursor = cell.querySelector<HTMLElement>('[data-slot="activity-cursor"]');
-            if (!cursor) return [];
+        : cells.flatMap(({ selector }, index): TimedDOMSegment[] => {
+            const cursor = `${selector} [data-slot="activity-cursor"]`;
             return [
               [
                 cursor,
@@ -371,41 +372,14 @@ export function useActivityPlayback({
     };
     const run = async () => {
       if (!isCurrent()) return;
-      element
-        .querySelectorAll<HTMLElement>(
-          '[data-slot="activity-cursor"], [data-slot="activity-flash"]',
-        )
-        .forEach((cursor) => {
-          cursor.style.opacity = "0";
-        });
-      if (particles.current) {
-        particles.current.style.opacity = enabled ? "1" : "0";
-        particles.current
-          .querySelectorAll<HTMLElement>('[data-slot="particle"]')
-          .forEach((particle) => {
-            particle.style.opacity = "0";
-          });
-      }
-      if (!enabled || !cells.length) {
-        element.style.opacity = "1";
-        element.style.transform = "";
-        cells.forEach((cell) => {
-          cell.style.backgroundColor = "";
-          cell.style.opacity = "";
-          cell.style.transform = "";
-          const fill = cell.querySelector<HTMLElement>('[data-slot="activity-fill"]');
-          if (fill) fill.style.opacity = "1";
-        });
-        state$.phase.set("complete");
-        return;
-      }
-      cells.forEach((cell) => {
-        cell.style.backgroundColor = "var(--pk-level-0)";
-        const fill = cell.querySelector<HTMLElement>('[data-slot="activity-fill"]');
-        if (fill) fill.style.opacity = "0";
-      });
-      const startDelay = Number.isFinite(current.options.startDelay)
-        ? Math.max(0, Math.min(3600, current.options.startDelay!))
+      animate(
+        '[data-slot="activity-cursor"], [data-slot="activity-flash"], [data-slot="particle"]',
+        { opacity: 0 },
+        { duration: 0 },
+      ).complete();
+      animate('[data-slot="activity-fill"]', { opacity: 0 }, { duration: 0 }).complete();
+      const startDelay = Number.isFinite(options.startDelay)
+        ? Math.max(0, Math.min(3600, options.startDelay!))
         : 0;
       const reveal = animate(
         element,
@@ -418,7 +392,7 @@ export function useActivityPlayback({
       if (sequence.length || shimmer.length) await playSequence([...sequence, ...shimmer]);
       if (!isCurrent()) return;
       state$.phase.set("complete");
-      if (!current.options.loop) return;
+      if (!options.loop) return;
       const exit = animate(
         element,
         { opacity: 0 },
@@ -440,7 +414,6 @@ export function useActivityPlayback({
     days: snapshot.days,
     columns: shown,
     plot,
-    particles,
     particleGroups,
     paused,
     phase$: state$.phase,

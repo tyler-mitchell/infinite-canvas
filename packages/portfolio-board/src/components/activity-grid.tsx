@@ -2,9 +2,8 @@ import { mergeProps } from "@base-ui/react/merge-props";
 import { useRender } from "@base-ui/react/use-render";
 import type { Observable } from "@legendapp/state";
 import { Computed, useObservable, useValue } from "@legendapp/state/react";
-import { $React } from "@legendapp/state/react-web";
 import { useMeasure } from "@legendapp/state/react-hooks/useMeasure";
-import { useCallback, useMemo, useRef } from "react";
+import { memo, useCallback, useMemo, useRef } from "react";
 import { tv } from "../tv.ts";
 import { ParticleField } from "./particle-field.tsx";
 import { Readout } from "./text.tsx";
@@ -45,7 +44,7 @@ const activityGrid = tv({
 });
 
 const TONES = [0, 1, 2, 3, 4] as const;
-const CELLS = TONES.map((tone) => activityGrid().cell({ tone }));
+const CELL = activityGrid().cell({ tone: 0 });
 
 function ActivityGridRoot({
   phase$,
@@ -92,6 +91,44 @@ const level = (count: number, thresholds: readonly number[] = DEFAULT_THRESHOLDS
 
   return TONES[Math.min(bounds.filter((bound) => count >= bound).length, TONES.length - 1)]!;
 };
+
+const ActivityCell = memo(function ActivityCell({
+  day,
+  index,
+  thresholds,
+  selection$,
+}: {
+  day: ActivityDay;
+  index: number;
+  thresholds: readonly number[];
+  selection$: Observable<Partial<Record<number, true>>>;
+}) {
+  const selected = useValue(selection$[index]);
+  const tone = level(day.count, thresholds);
+  return (
+    <div
+      data-slot="activity-day"
+      data-index={index}
+      data-hot={selected ? "" : undefined}
+      onPointerEnter={() => selection$.set({ [index]: true })}
+      className={CELL}
+    >
+      <span
+        data-slot="activity-fill"
+        data-level={tone}
+        aria-hidden
+        className="absolute inset-0 rounded-[inherit] shadow-pk-cell"
+        style={{ backgroundColor: `var(--pk-level-${tone})` }}
+      />
+      <span data-slot="activity-cursor" aria-hidden />
+      {tone === 4 && (
+        <span data-slot="activity-flash" aria-hidden>
+          <span data-slot="activity-core" />
+        </span>
+      )}
+    </div>
+  );
+});
 
 /** Shows whole weeks that fit without reducing cell size. */
 const weeksThatFit = (width: number, cell: number, gap: number, wanted: number) =>
@@ -174,6 +211,8 @@ function ActivityGrid({
     loading,
     replayKey,
     columns: columnsForSnapshot,
+    cellSize: cell,
+    gap,
     ready: width > 0,
     thresholds: thresholds.length ? thresholds : DEFAULT_THRESHOLDS,
   });
@@ -279,7 +318,6 @@ function ActivityGrid({
               style={{ gridAutoColumns: `${cell}px`, gap: `${gap}px` }}
             >
               <ParticleField
-                ref={animation.particles}
                 groups={animation.particleGroups}
                 count={
                   typeof playback === "object" && playback.particles ? playback.particles.count : 12
@@ -287,28 +325,13 @@ function ActivityGrid({
               />
               {columns.map((day, index) =>
                 day ? (
-                  <$React.div
+                  <ActivityCell
                     key={day.date.toISOString()}
-                    data-slot="activity-day"
-                    data-index={index}
-                    $data-hot={() => (selection$[index].get() ? "" : undefined)}
-                    onPointerEnter={() => selection$.set({ [index]: true })}
-                    className={CELLS[level(day.count, thresholds)]}
-                  >
-                    <span
-                      data-slot="activity-fill"
-                      data-level={level(day.count, thresholds)}
-                      aria-hidden
-                      className="absolute inset-0 rounded-[inherit] shadow-pk-cell"
-                      style={{ backgroundColor: `var(--pk-level-${level(day.count, thresholds)})` }}
-                    />
-                    <span data-slot="activity-cursor" aria-hidden />
-                    {level(day.count, thresholds) === 4 && (
-                      <span data-slot="activity-flash" aria-hidden>
-                        <span data-slot="activity-core" />
-                      </span>
-                    )}
-                  </$React.div>
+                    day={day}
+                    index={index}
+                    selection$={selection$}
+                    thresholds={thresholds}
+                  />
                 ) : (
                   <div key={index} aria-hidden />
                 ),

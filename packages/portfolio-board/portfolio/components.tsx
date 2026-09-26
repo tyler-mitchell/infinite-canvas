@@ -1,6 +1,5 @@
-import { For, Show, useComputed } from "@legendapp/state/react";
 import { Button as ButtonPrimitive } from "@base-ui/react/button";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
   ActivityGrid,
   Avatar,
@@ -179,6 +178,8 @@ const contributionCalendar = type({
   }).array(),
 });
 
+const CONTRIBUTION_THRESHOLDS = [1, 5, 12, 25];
+
 function ContributionsCard({
   calendar,
   onContentHeightChange,
@@ -187,6 +188,16 @@ function ContributionsCard({
   onContentHeightChange?: (height: number) => void;
 }) {
   const [replayKey, setReplayKey] = useState(0);
+  const days = useMemo(
+    () =>
+      calendar.weeks.flatMap((week) =>
+        week.contributionDays.map((day) => ({
+          date: new Date(`${day.date}T00:00`),
+          count: day.contributionCount,
+        })),
+      ),
+    [calendar],
+  );
   return (
     <Card.Body
       className="cursor-pointer"
@@ -210,13 +221,8 @@ function ContributionsCard({
             setReplayKey((current) => current + 1);
           }}
           weeks={calendar.weeks.length}
-          days={calendar.weeks.flatMap((week) =>
-            week.contributionDays.map((day) => ({
-              date: new Date(`${day.date}T00:00`),
-              count: day.contributionCount,
-            })),
-          )}
-          thresholds={[1, 5, 12, 25]}
+          days={days}
+          thresholds={CONTRIBUTION_THRESHOLDS}
           playback={{ waitForPageLoad: true, startDelay: 0.8 }}
         />
       </Card.Content>
@@ -249,21 +255,25 @@ type ContentMotionProps = Readonly<{
 }>;
 
 function Tags({ items }: Readonly<{ items: string[] }>) {
-  const items$ = useComputed(() => items, [items]);
   return (
     <Row justify="start" gap="sm">
-      <For each={items$}>{(item$) => <Badge tone="outline">{item$.get()}</Badge>}</For>
+      {items.map((item) => (
+        <Badge key={item} tone="outline">
+          {item}
+        </Badge>
+      ))}
     </Row>
   );
 }
 
 function Links({ links }: Readonly<{ links: Contact["links"] }>) {
-  const links$ = useComputed(() => links, [links]);
   return (
     <Row justify="start" gap="lg">
-      <For each={links$}>
-        {(link$) => <Link href={link$.href.get()}>{link$.label.get()} ↗</Link>}
-      </For>
+      {links.map((link) => (
+        <Link key={link.href} href={link.href}>
+          {link.label} ↗
+        </Link>
+      ))}
     </Row>
   );
 }
@@ -387,7 +397,6 @@ function ProjectCard({
   onExpandedChange,
   onContentHeightChange,
 }: Readonly<{ project: Project }> & ContentMotionProps) {
-  const sections$ = useComputed(() => project.sections, [project.sections]);
   return (
     <ExpandInPlace.Root open={expanded} onOpenChange={onExpandedChange}>
       <Card.Body onContentHeightChange={onContentHeightChange}>
@@ -399,22 +408,22 @@ function ProjectCard({
           <Title>{project.title}</Title>
           <Prose>{project.summary}</Prose>
           <Tags items={project.tags} />
-          <Show if={() => project.sections.length > 0}>
-            <ExpandInPlace.Trigger>Details</ExpandInPlace.Trigger>
-            <ExpandInPlace.Viewport>
-              <Separator look="engraved" />
-              <Stack gap="lg">
-                <For each={sections$}>
-                  {(section$) => (
-                    <Stack gap="sm">
-                      <Kind>{section$.title.get()}</Kind>
-                      <Prose>{section$.body.get()}</Prose>
+          {project.sections.length > 0 && (
+            <>
+              <ExpandInPlace.Trigger>Details</ExpandInPlace.Trigger>
+              <ExpandInPlace.Viewport>
+                <Separator look="engraved" />
+                <Stack gap="lg">
+                  {project.sections.map((section) => (
+                    <Stack key={section.title} gap="sm">
+                      <Kind>{section.title}</Kind>
+                      <Prose>{section.body}</Prose>
                     </Stack>
-                  )}
-                </For>
-              </Stack>
-            </ExpandInPlace.Viewport>
-          </Show>
+                  ))}
+                </Stack>
+              </ExpandInPlace.Viewport>
+            </>
+          )}
         </Card.Content>
         <Card.Footer rule="above" ruleLook="engraved">
           <Meta>{project.visibility}</Meta>
@@ -431,7 +440,6 @@ function ExperienceCard({
   onExpandedChange,
   onContentHeightChange,
 }: Readonly<{ experience: Experience }> & ContentMotionProps) {
-  const details$ = useComputed(() => experience.details, [experience.details]);
   return (
     <ContainerTransform.Root open={expanded} onOpenChange={onExpandedChange}>
       <Card.Body onContentHeightChange={onContentHeightChange}>
@@ -453,7 +461,9 @@ function ExperienceCard({
               <Title>{experience.organization}</Title>
               <Meta>{experience.role}</Meta>
               <Prose>{experience.summary}</Prose>
-              <For each={details$}>{(detail$) => <Prose>{detail$.get()}</Prose>}</For>
+              {experience.details.map((detail) => (
+                <Prose key={detail}>{detail}</Prose>
+              ))}
             </Card.Body>
           </ContainerTransform.Viewport>
         </Card.Content>
@@ -471,7 +481,6 @@ function ExpertiseCard({
   onExpandedChange,
   onContentHeightChange,
 }: Readonly<{ expertise: Expertise }> & ContentMotionProps) {
-  const groups$ = useComputed(() => expertise.groups, [expertise.groups]);
   return (
     <NestedUnfold.Root open={expanded} onOpenChange={onExpandedChange}>
       <Card.Body onContentHeightChange={onContentHeightChange}>
@@ -482,21 +491,16 @@ function ExpertiseCard({
           <Title>{expertise.title}</Title>
           <NestedUnfold.Trigger>Expertise areas</NestedUnfold.Trigger>
           <NestedUnfold.Viewport>
-            <For each={groups$}>
-              {(group$) => (
-                <NestedUnfold.Item
-                  index={expertise.groups.indexOf(group$.peek())}
-                  count={expertise.groups.length}
-                >
-                  <Surface padding="none" interactive={false} tone="card">
-                    <Card.Body fill={false} padding="tight">
-                      <Kind>{group$.title.get()}</Kind>
-                      <Tags items={group$.items.get()} />
-                    </Card.Body>
-                  </Surface>
-                </NestedUnfold.Item>
-              )}
-            </For>
+            {expertise.groups.map((group, index) => (
+              <NestedUnfold.Item key={group.title} index={index} count={expertise.groups.length}>
+                <Surface padding="none" interactive={false} tone="card">
+                  <Card.Body fill={false} padding="tight">
+                    <Kind>{group.title}</Kind>
+                    <Tags items={group.items} />
+                  </Card.Body>
+                </Surface>
+              </NestedUnfold.Item>
+            ))}
           </NestedUnfold.Viewport>
         </Card.Content>
       </Card.Body>

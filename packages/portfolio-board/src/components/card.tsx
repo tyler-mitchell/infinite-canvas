@@ -1,7 +1,6 @@
 import { useRender } from "@base-ui/react/use-render";
 import type { Observable } from "@legendapp/state";
 import { useObservable, useUnmount, useValue } from "@legendapp/state/react";
-import { useMeasure } from "@legendapp/state/react-hooks/useMeasure";
 import { createContext, useContext, useEffectEvent, useLayoutEffect, useRef } from "react";
 import type { VariantProps } from "tailwind-variants";
 import { useResizeObserver } from "use-resize-observer";
@@ -31,7 +30,7 @@ function useCardPartSize(part: CardPart) {
   const parts$ = useContext(CardSizeContext);
   const ref = useRef<HTMLDivElement>(null);
   useResizeObserver<HTMLDivElement>({
-    ref,
+    ref: parts$ === null ? undefined : ref,
     box: "border-box",
     round: Number,
     onResize: ({ height }) => {
@@ -58,15 +57,18 @@ function CardBody({
   ...props
 }: CardBodyProps) {
   const bodyRef = useRef<HTMLDivElement>(null);
-  const bodySize$ = useMeasure(bodyRef as Parameters<typeof useMeasure>[0]);
-  const width = useValue(bodySize$.width);
+  const reportsContentHeight = onContentHeightChange !== undefined;
+  const { width } = useResizeObserver({
+    ref: reportsContentHeight ? bodyRef : undefined,
+    box: "border-box",
+    round: Number,
+  });
   const parts$ = useObservable<Partial<Record<CardPart, number>>>({});
   const [headerHeight, contentHeight, footerHeight] = useValue(() => [
     parts$.header.get(),
     parts$.content.get(),
     parts$.footer.get(),
   ]);
-  const reportsContentHeight = onContentHeightChange !== undefined;
   const reportContentHeight = useEffectEvent((height: number) => onContentHeightChange?.(height));
   useLayoutEffect(() => {
     if (!reportsContentHeight || bodyRef.current === null || contentHeight === undefined) return;
@@ -98,7 +100,7 @@ function CardBody({
       className: card({ padding, fill, responsive, className }),
     },
   });
-  return <CardSizeContext value={parts$}>{body}</CardSizeContext>;
+  return <CardSizeContext value={reportsContentHeight ? parts$ : null}>{body}</CardSizeContext>;
 }
 
 const footer = tv({ base: "mt-auto" });

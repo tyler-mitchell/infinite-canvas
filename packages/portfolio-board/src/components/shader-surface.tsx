@@ -60,6 +60,7 @@ function ShaderCanvas({
 }: ShaderSurfaceProps) {
   const root = useRoot();
   const uniform = useUniform(SurfaceFrame);
+  const effectUniform = useUniform(SurfaceFrame);
   const color = useMemo(() => hexToRgb(accent), [accent]);
   const reducedMotion = useMediaQuery("(prefers-reduced-motion: reduce)", { noSsr: true });
   const pageVisible = usePageInView();
@@ -94,7 +95,7 @@ function ShaderCanvas({
     () =>
       effect === undefined && renderScale === 1
         ? undefined
-        : root.with(surfaceFrame, uniform).createRenderPipeline({
+        : root.with(surfaceFrame, effectUniform).createRenderPipeline({
             vertex: common.fullScreenTriangle,
             targets: { format: SCENE_FORMAT },
             fragment: ({ uv }: TgpuFragmentFn.AutoIn<{ uv: d.v2f }>) => {
@@ -102,13 +103,13 @@ function ShaderCanvas({
               return sample(uv);
             },
           }),
-    [root, uniform, effect, sample, renderScale],
+    [root, effectUniform, effect, sample, renderScale],
   );
   const frame = useRef({
     visible: false,
     time: 0,
     dirty: true,
-    draw: null as ((context: GPUCanvasContext) => void) | null,
+    draw: null as (() => void) | null,
   });
   const { ref, ctxRef } = useConfigureContext({
     format: SCENE_FORMAT,
@@ -117,6 +118,8 @@ function ShaderCanvas({
   });
 
   useEffect(() => {
+    const context = ctxRef.current;
+    if (!context) return;
     const state = frame.current;
     const frameSize = pixelSize({
       ...dimensions,
@@ -130,47 +133,60 @@ function ShaderCanvas({
     const depth = geometry
       ? root.createTexture({ size, format: "depth24plus" }).$usage("render")
       : undefined;
-    const sceneGroup = scene
-      ? root.createBindGroup(sceneLayout, { scene, sceneSampler: sampler })
-      : undefined;
+    const render = pipeline
+      .withColorAttachment({ view: scene ?? context, clearValue: [0, 0, 0, 0] })
+      .withDepthStencilAttachment(depth ? { view: depth, depthClearValue: 1 } : undefined);
+    const postprocess =
+      effectPipeline && scene
+        ? effectPipeline
+            .with(root.createBindGroup(sceneLayout, { scene, sceneSampler: sampler }))
+            .withColorAttachment({ view: context })
+        : undefined;
+    const values = {
+      resolution: d.vec2f(frameSize.width, frameSize.height),
+      time: state.time,
+      pixelRatio: frameSize.pixelRatio,
+      lightMode: 0,
+      ground: d.vec3f(0, 0, 0),
+      lightGround: d.vec3f(1, 1, 1),
+      accent: color,
+    };
+    const effectValues = {
+      ...values,
+      resolution: d.vec2f(dimensions.width, dimensions.height),
+      pixelRatio: globalThis.devicePixelRatio,
+    };
     state.dirty = true;
-    state.draw = (context) => {
-      const values = {
-        resolution: d.vec2f(frameSize.width, frameSize.height),
-        time: state.time,
-        pixelRatio: frameSize.pixelRatio,
-        lightMode: 0,
-        ground: d.vec3f(0, 0, 0),
-        lightGround: d.vec3f(1, 1, 1),
-        accent: color,
-      };
+    state.draw = () => {
+      const encoder = root.createCommandEncoder();
+      values.time = state.time;
       uniform.write(values);
-      const render = pipeline.withColorAttachment({
-        view: scene ?? context,
-        clearValue: [0, 0, 0, 0],
-      });
-      if (depth && geometry) {
-        render
-          .withDepthStencilAttachment({ view: depth, depthClearValue: 1 })
-          .draw(geometry.vertexCount);
-      } else {
-        render.draw(3);
+      render.with(encoder).draw(geometry?.vertexCount ?? 3);
+      if (postprocess) {
+        effectValues.time = state.time;
+        effectUniform.write(effectValues);
+        postprocess.with(encoder).draw(3);
       }
-      if (effectPipeline && sceneGroup) {
-        uniform.write({
-          ...values,
-          resolution: d.vec2f(dimensions.width, dimensions.height),
-          pixelRatio: globalThis.devicePixelRatio,
-        });
-        effectPipeline.with(sceneGroup).withColorAttachment({ view: context }).draw(3);
-      }
+      encoder.submit();
     };
     return () => {
       state.draw = null;
       scene?.destroy();
       depth?.destroy();
     };
-  }, [root, uniform, dimensions, renderScale, geometry, pipeline, effectPipeline, sampler, color]);
+  }, [
+    root,
+    uniform,
+    effectUniform,
+    ctxRef,
+    dimensions,
+    renderScale,
+    geometry,
+    pipeline,
+    effectPipeline,
+    sampler,
+    color,
+  ]);
 
   useFrame(({ deltaSeconds }) => {
     const context = ctxRef.current;
@@ -184,7 +200,7 @@ function ShaderCanvas({
     }
     if (!state.draw || (held && !state.dirty)) return;
     state.time += held ? 0 : deltaSeconds;
-    state.draw(context);
+    state.draw();
     state.dirty = false;
   });
 
