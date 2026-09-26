@@ -25,7 +25,6 @@ import {
   StatusDot,
   Surface,
   ShaderSurface,
-  halftone,
   waveTube,
   type WaveTubeOptions,
   Title,
@@ -37,12 +36,15 @@ import { ExpandInPlace } from "../src/components/motion/expand-in-place.tsx";
 import { defineComponents } from "@hyphened/infinite-canvas/next/react";
 import { type } from "arktype";
 import codexSprite from "./codex.webp";
+import avatarBackground from "./avatar-background.png";
+import pythonLogo from "./python.svg";
 import npm from "./npm.svg";
 import { CareerCard, careerEntry } from "./career.tsx";
 import {
   siClaudecode,
   siCplusplus,
   siDrizzle,
+  siDocker,
   siEffect,
   siGithub,
   siGooglecloud,
@@ -53,8 +55,9 @@ import {
   siNpm,
   siPnpm,
   siPrisma,
-  siPython,
+  siPostgresql,
   siReact,
+  siRedux,
   siRust,
   siSurrealdb,
   siTailwindcss,
@@ -63,6 +66,7 @@ import {
   siTurborepo,
   siTypescript,
   siVite,
+  siVercel,
   siVitest,
   siWebgpu,
   siZod,
@@ -81,7 +85,11 @@ const icons = {
   javascript: siJavascript,
   react: siReact,
   github: siGithub,
-  python: siPython,
+  python: { title: "Python", hex: "3776AB", image: pythonLogo },
+  docker: siDocker,
+  postgresql: siPostgresql,
+  redux: siRedux,
+  vercel: siVercel,
   graphql: siGraphql,
   googlecloud: { ...siGooglecloud, title: "Google Cloud Platform (GCP)" },
   drizzle: { ...siDrizzle, title: "Drizzle ORM" },
@@ -106,13 +114,17 @@ const icons = {
     title: "Codex",
     hex: "7A9DFF",
     image: codexSprite,
+    sprite: { viewBox: "0 0 192 208", width: 1536, height: 1872 },
   },
 } satisfies Record<
   string,
   {
     title: string;
     hex: string;
-  } & ({ path: string } | { image: string })
+  } & (
+    | { path: string }
+    | { image: string; sprite?: { viewBox: string; width: number; height: number } }
+  )
 >;
 
 const link = type({ label: "string > 0", href: type("string.url").and(/^https:\/\//) });
@@ -305,31 +317,6 @@ const flowShader = waveTube({
   colors: ["#96729c", "#ff5d85", "#f7bfc2"],
 });
 
-const avatarShader = waveTube({
-  ...flowOptions,
-  gradientSpeed: 0.08,
-  ambient: 0.82,
-  diffuse: 0.2,
-  specular: 0.18,
-  colors: ["#ff00bd", "#9b38ff", "#395bff", "#00eaff", "#00f5aa", "#d4ff36", "#ff9c26", "#ff3186"],
-});
-const avatarEffect = halftone({ scale: 0.9, strength: 0.9 });
-const avatarPresets = {
-  spectrum: { shader: avatarShader, effect: avatarEffect, className: "avatar-depth" },
-  iridescent: {
-    shader: waveTube({
-      ...flowOptions,
-      specular: 0.9,
-      shininess: 180,
-      speed: 0.28,
-      iridescence: { strength: 2.4, thickness: [180, 900], ior: 1.33 },
-    }),
-    effect: undefined,
-    className: "avatar-iridescent",
-  },
-};
-const avatarPreset = avatarPresets.spectrum;
-
 function ProfileCard({
   user,
   about,
@@ -342,19 +329,10 @@ function ProfileCard({
         <Row justify="start" gap="lg">
           <Avatar
             size="lg"
-            className={avatarPreset.className}
+            className="avatar-depth"
             name={name}
             src={user.avatarUrl}
-            background={
-              <ShaderSurface
-                shader={avatarPreset.shader.source}
-                geometry={avatarPreset.shader.geometry}
-                effect={avatarPreset.effect}
-                renderScale={avatarPreset.shader.renderScale}
-                resolution={{ width: 256, height: 256 }}
-                className="block size-full"
-              />
-            }
+            background={<img src={avatarBackground} alt="" className="block size-full" />}
           />
           <Stack gap="xs">
             <Display fluid>{name}</Display>
@@ -695,23 +673,33 @@ export const components = defineComponents({
               })}
               style={{ color: props.color === "brand" ? `#${icon.hex}` : undefined }}
             >
-              <svg
-                className={styles().icon()}
-                viewBox={"image" in icon ? "0 0 192 208" : "0 0 24 24"}
-                aria-hidden="true"
-                fill="currentColor"
-              >
-                {"image" in icon ? (
-                  <image
-                    href={icon.image}
-                    width="1536"
-                    height="1872"
-                    className={props.color === "monochrome" ? "grayscale" : undefined}
-                  />
-                ) : (
-                  <path d={icon.path} />
-                )}
-              </svg>
+              {"image" in icon && !("sprite" in icon) ? (
+                <img
+                  src={icon.image}
+                  alt=""
+                  className={styles().icon({
+                    className: props.color === "monochrome" ? "grayscale" : undefined,
+                  })}
+                />
+              ) : (
+                <svg
+                  className={styles().icon()}
+                  viewBox={"sprite" in icon ? icon.sprite.viewBox : "0 0 24 24"}
+                  aria-hidden="true"
+                  fill="currentColor"
+                >
+                  {"sprite" in icon ? (
+                    <image
+                      href={icon.image}
+                      width={icon.sprite.width}
+                      height={icon.sprite.height}
+                      className={props.color === "monochrome" ? "grayscale" : undefined}
+                    />
+                  ) : (
+                    <path d={icon.path} />
+                  )}
+                </svg>
+              )}
             </Tooltip.Trigger>
             <Tooltip.Content>{icon.title}</Tooltip.Content>
           </Tooltip>

@@ -134,27 +134,50 @@
       "technologies": {
         "id": "technologies",
         "title": "Technologies",
-        "item": { "column": 2, "columnSpan": 1 },
-        "rect": { "x": 0, "y": 0, "width": 285.33, "height": 211 },
+        "item": {
+          "column": 2,
+          "columnSpan": 1
+        },
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 285.33,
+          "height": 211
+        },
         "layout": {
           "type": "grid",
-          "columns": 4,
+          "columns": 8,
           "rowHeight": "square",
-          "gap": 12
+          "gap": 6
         },
         "children": [
-          "typescript",
-          "react",
           "claudecode",
           "codex",
           "python",
           "graphql",
           "googlecloud",
-          "nodedotjs",
           "drizzle",
           "prisma",
+          "typescript",
+          "react",
+          "nodedotjs",
           "tanstack",
-          "effect"
+          "effect",
+          "postgresql",
+          "redux",
+          "javascript",
+          "tailwindcss",
+          "webgpu",
+          "threedotjs",
+          "surrealdb",
+          "modelcontextprotocol",
+          "docker",
+          "vercel",
+          "vite",
+          "vitest",
+          "turborepo",
+          "pnpm",
+          "github"
         ]
       },
       "profile": {
@@ -1759,149 +1782,761 @@
           }
         }
       },
-      "typescript": {
-        "id": "typescript",
-        "item": { "column": 0, "row": 0 },
-        "kind": "icon-square",
-        "title": "TypeScript",
-        "isPinned": false,
-        "mode": "normal",
-        "heightMode": "content",
-        "capabilities": { "maximizable": false, "minimizable": false },
-        "rect": { "x": 0, "y": 0, "width": 80, "height": 80 },
-        "data": { "icon": "typescript", "color": "brand" }
-      },
-      "react": {
-        "id": "react",
-        "item": { "column": 1, "row": 0 },
-        "kind": "icon-square",
-        "title": "React",
-        "isPinned": false,
-        "mode": "normal",
-        "heightMode": "content",
-        "capabilities": { "maximizable": false, "minimizable": false },
-        "rect": { "x": 0, "y": 0, "width": 80, "height": 80 },
-        "data": { "icon": "react", "color": "brand" }
-      },
       "claudecode": {
         "id": "claudecode",
-        "item": { "column": 2, "row": 0 },
+        "item": {
+          "column": 0,
+          "row": 0,
+          "columnSpan": 2,
+          "rowSpan": 2
+        },
         "kind": "icon-square",
         "title": "Claude Code",
         "isPinned": false,
         "mode": "normal",
         "heightMode": "content",
-        "capabilities": { "maximizable": false, "minimizable": false },
-        "rect": { "x": 0, "y": 0, "width": 80, "height": 80 },
-        "data": { "icon": "claudecode", "color": "brand" }
+        "capabilities": {
+          "maximizable": false,
+          "minimizable": false
+        },
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 80,
+          "height": 80
+        },
+        "data": {
+          "icon": "claudecode",
+          "color": "brand"
+        }
       },
       "codex": {
         "id": "codex",
-        "item": { "column": 3, "row": 0 },
+        "item": {
+          "column": 2,
+          "row": 0,
+          "columnSpan": 2,
+          "rowSpan": 2
+        },
         "kind": "icon-square",
         "title": "Codex",
         "isPinned": false,
         "mode": "normal",
         "heightMode": "content",
-        "capabilities": { "maximizable": false, "minimizable": false },
-        "rect": { "x": 0, "y": 0, "width": 80, "height": 80 },
-        "data": { "icon": "codex", "color": "brand" }
+        "capabilities": {
+          "maximizable": false,
+          "minimizable": false
+        },
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 80,
+          "height": 80
+        },
+        "data": {
+          "icon": "codex",
+          "color": "brand"
+        }
       },
       "python": {
         "id": "python",
-        "item": { "column": 0, "row": 1 },
+        "item": {
+          "column": 4,
+          "row": 0,
+          "columnSpan": 2,
+          "rowSpan": 2
+        },
         "kind": "icon-square",
         "title": "Python",
         "isPinned": false,
         "mode": "normal",
         "heightMode": "content",
-        "capabilities": { "maximizable": false, "minimizable": false },
-        "rect": { "x": 0, "y": 0, "width": 80, "height": 80 },
-        "data": { "icon": "python", "color": "brand" }
+        "capabilities": {
+          "maximizable": false,
+          "minimizable": false
+        },
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 80,
+          "height": 80
+        },
+        "data": {
+          "icon": "python",
+          "color": "brand"
+        }
       },
       "graphql": {
         "id": "graphql",
-        "item": { "column": 1, "row": 1 },
+        "item": {
+          "column": 6,
+          "row": 0,
+          "columnSpan": 2,
+          "rowSpan": 2
+        },
         "kind": "icon-square",
         "title": "GraphQL",
         "isPinned": false,
         "mode": "normal",
         "heightMode": "content",
-        "capabilities": { "maximizable": false, "minimizable": false },
-        "rect": { "x": 0, "y": 0, "width": 80, "height": 80 },
-        "data": { "icon": "graphql", "color": "brand" }
+        "capabilities": {
+          "maximizable": false,
+          "minimizable": false
+        },
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 80,
+          "height": 80
+        },
+        "data": {
+          "icon": "graphql",
+          "color": "brand"
+        }
       },
       "googlecloud": {
         "id": "googlecloud",
-        "item": { "column": 2, "row": 1 },
+        "item": {
+          "column": 0,
+          "row": 2,
+          "columnSpan": 2,
+          "rowSpan": 2
+        },
         "kind": "icon-square",
         "title": "Google Cloud Platform (GCP)",
         "isPinned": false,
         "mode": "normal",
         "heightMode": "content",
-        "capabilities": { "maximizable": false, "minimizable": false },
-        "rect": { "x": 0, "y": 0, "width": 80, "height": 80 },
-        "data": { "icon": "googlecloud", "color": "brand" }
-      },
-      "nodedotjs": {
-        "id": "nodedotjs",
-        "item": { "column": 3, "row": 1 },
-        "kind": "icon-square",
-        "title": "Node.js",
-        "isPinned": false,
-        "mode": "normal",
-        "heightMode": "content",
-        "capabilities": { "maximizable": false, "minimizable": false },
-        "rect": { "x": 0, "y": 0, "width": 80, "height": 80 },
-        "data": { "icon": "nodedotjs", "color": "brand" }
+        "capabilities": {
+          "maximizable": false,
+          "minimizable": false
+        },
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 80,
+          "height": 80
+        },
+        "data": {
+          "icon": "googlecloud",
+          "color": "brand"
+        }
       },
       "drizzle": {
         "id": "drizzle",
-        "item": { "column": 0, "row": 2 },
+        "item": {
+          "column": 2,
+          "row": 2,
+          "columnSpan": 2,
+          "rowSpan": 2
+        },
         "kind": "icon-square",
         "title": "Drizzle ORM",
         "isPinned": false,
         "mode": "normal",
         "heightMode": "content",
-        "capabilities": { "maximizable": false, "minimizable": false },
-        "rect": { "x": 0, "y": 0, "width": 80, "height": 80 },
-        "data": { "icon": "drizzle", "color": "brand" }
+        "capabilities": {
+          "maximizable": false,
+          "minimizable": false
+        },
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 80,
+          "height": 80
+        },
+        "data": {
+          "icon": "drizzle",
+          "color": "brand"
+        }
       },
       "prisma": {
         "id": "prisma",
-        "item": { "column": 1, "row": 2 },
+        "item": {
+          "column": 4,
+          "row": 2,
+          "columnSpan": 2,
+          "rowSpan": 2
+        },
         "kind": "icon-square",
         "title": "Prisma",
         "isPinned": false,
         "mode": "normal",
         "heightMode": "content",
-        "capabilities": { "maximizable": false, "minimizable": false },
-        "rect": { "x": 0, "y": 0, "width": 80, "height": 80 },
-        "data": { "icon": "prisma", "color": "monochrome" }
+        "capabilities": {
+          "maximizable": false,
+          "minimizable": false
+        },
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 80,
+          "height": 80
+        },
+        "data": {
+          "icon": "prisma",
+          "color": "monochrome"
+        }
+      },
+      "typescript": {
+        "id": "typescript",
+        "item": {
+          "column": 6,
+          "row": 2,
+          "columnSpan": 1,
+          "rowSpan": 1
+        },
+        "kind": "icon-square",
+        "title": "TypeScript",
+        "isPinned": false,
+        "mode": "normal",
+        "heightMode": "content",
+        "capabilities": {
+          "maximizable": false,
+          "minimizable": false
+        },
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 80,
+          "height": 80
+        },
+        "data": {
+          "icon": "typescript",
+          "color": "brand"
+        }
+      },
+      "react": {
+        "id": "react",
+        "item": {
+          "column": 7,
+          "row": 2,
+          "columnSpan": 1,
+          "rowSpan": 1
+        },
+        "kind": "icon-square",
+        "title": "React",
+        "isPinned": false,
+        "mode": "normal",
+        "heightMode": "content",
+        "capabilities": {
+          "maximizable": false,
+          "minimizable": false
+        },
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 80,
+          "height": 80
+        },
+        "data": {
+          "icon": "react",
+          "color": "brand"
+        }
+      },
+      "nodedotjs": {
+        "id": "nodedotjs",
+        "item": {
+          "column": 6,
+          "row": 3,
+          "columnSpan": 1,
+          "rowSpan": 1
+        },
+        "kind": "icon-square",
+        "title": "Node.js",
+        "isPinned": false,
+        "mode": "normal",
+        "heightMode": "content",
+        "capabilities": {
+          "maximizable": false,
+          "minimizable": false
+        },
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 80,
+          "height": 80
+        },
+        "data": {
+          "icon": "nodedotjs",
+          "color": "brand"
+        }
       },
       "tanstack": {
         "id": "tanstack",
-        "item": { "column": 2, "row": 2 },
+        "item": {
+          "column": 7,
+          "row": 3,
+          "columnSpan": 1,
+          "rowSpan": 1
+        },
         "kind": "icon-square",
         "title": "TanStack Start",
         "isPinned": false,
         "mode": "normal",
         "heightMode": "content",
-        "capabilities": { "maximizable": false, "minimizable": false },
-        "rect": { "x": 0, "y": 0, "width": 80, "height": 80 },
-        "data": { "icon": "tanstack", "color": "brand" }
+        "capabilities": {
+          "maximizable": false,
+          "minimizable": false
+        },
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 80,
+          "height": 80
+        },
+        "data": {
+          "icon": "tanstack",
+          "color": "brand"
+        }
       },
       "effect": {
         "id": "effect",
-        "item": { "column": 3, "row": 2 },
+        "item": {
+          "column": 0,
+          "row": 4,
+          "columnSpan": 1,
+          "rowSpan": 1
+        },
         "kind": "icon-square",
         "title": "Effect",
         "isPinned": false,
         "mode": "normal",
         "heightMode": "content",
-        "capabilities": { "maximizable": false, "minimizable": false },
-        "rect": { "x": 0, "y": 0, "width": 80, "height": 80 },
-        "data": { "icon": "effect", "color": "brand" }
+        "capabilities": {
+          "maximizable": false,
+          "minimizable": false
+        },
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 80,
+          "height": 80
+        },
+        "data": {
+          "icon": "effect",
+          "color": "brand"
+        }
+      },
+      "postgresql": {
+        "id": "postgresql",
+        "item": {
+          "column": 1,
+          "row": 4,
+          "columnSpan": 1,
+          "rowSpan": 1
+        },
+        "kind": "icon-square",
+        "title": "PostgreSQL",
+        "isPinned": false,
+        "mode": "normal",
+        "heightMode": "content",
+        "capabilities": {
+          "maximizable": false,
+          "minimizable": false
+        },
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 80,
+          "height": 80
+        },
+        "data": {
+          "icon": "postgresql",
+          "color": "brand"
+        }
+      },
+      "redux": {
+        "id": "redux",
+        "item": {
+          "column": 2,
+          "row": 4,
+          "columnSpan": 1,
+          "rowSpan": 1
+        },
+        "kind": "icon-square",
+        "title": "Redux",
+        "isPinned": false,
+        "mode": "normal",
+        "heightMode": "content",
+        "capabilities": {
+          "maximizable": false,
+          "minimizable": false
+        },
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 80,
+          "height": 80
+        },
+        "data": {
+          "icon": "redux",
+          "color": "brand"
+        }
+      },
+      "javascript": {
+        "id": "javascript",
+        "item": {
+          "column": 3,
+          "row": 4,
+          "columnSpan": 1,
+          "rowSpan": 1
+        },
+        "kind": "icon-square",
+        "title": "JavaScript",
+        "isPinned": false,
+        "mode": "normal",
+        "heightMode": "content",
+        "capabilities": {
+          "maximizable": false,
+          "minimizable": false
+        },
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 80,
+          "height": 80
+        },
+        "data": {
+          "icon": "javascript",
+          "color": "brand"
+        }
+      },
+      "tailwindcss": {
+        "id": "tailwindcss",
+        "item": {
+          "column": 4,
+          "row": 4,
+          "columnSpan": 1,
+          "rowSpan": 1
+        },
+        "kind": "icon-square",
+        "title": "Tailwind CSS",
+        "isPinned": false,
+        "mode": "normal",
+        "heightMode": "content",
+        "capabilities": {
+          "maximizable": false,
+          "minimizable": false
+        },
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 80,
+          "height": 80
+        },
+        "data": {
+          "icon": "tailwindcss",
+          "color": "brand"
+        }
+      },
+      "webgpu": {
+        "id": "webgpu",
+        "item": {
+          "column": 5,
+          "row": 4,
+          "columnSpan": 1,
+          "rowSpan": 1
+        },
+        "kind": "icon-square",
+        "title": "WebGPU",
+        "isPinned": false,
+        "mode": "normal",
+        "heightMode": "content",
+        "capabilities": {
+          "maximizable": false,
+          "minimizable": false
+        },
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 80,
+          "height": 80
+        },
+        "data": {
+          "icon": "webgpu",
+          "color": "brand"
+        }
+      },
+      "threedotjs": {
+        "id": "threedotjs",
+        "item": {
+          "column": 6,
+          "row": 4,
+          "columnSpan": 1,
+          "rowSpan": 1
+        },
+        "kind": "icon-square",
+        "title": "Three.js",
+        "isPinned": false,
+        "mode": "normal",
+        "heightMode": "content",
+        "capabilities": {
+          "maximizable": false,
+          "minimizable": false
+        },
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 80,
+          "height": 80
+        },
+        "data": {
+          "icon": "threedotjs",
+          "color": "monochrome"
+        }
+      },
+      "surrealdb": {
+        "id": "surrealdb",
+        "item": {
+          "column": 7,
+          "row": 4,
+          "columnSpan": 1,
+          "rowSpan": 1
+        },
+        "kind": "icon-square",
+        "title": "SurrealDB",
+        "isPinned": false,
+        "mode": "normal",
+        "heightMode": "content",
+        "capabilities": {
+          "maximizable": false,
+          "minimizable": false
+        },
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 80,
+          "height": 80
+        },
+        "data": {
+          "icon": "surrealdb",
+          "color": "brand"
+        }
+      },
+      "modelcontextprotocol": {
+        "id": "modelcontextprotocol",
+        "item": {
+          "column": 0,
+          "row": 5,
+          "columnSpan": 1,
+          "rowSpan": 1
+        },
+        "kind": "icon-square",
+        "title": "Model Context Protocol (MCP)",
+        "isPinned": false,
+        "mode": "normal",
+        "heightMode": "content",
+        "capabilities": {
+          "maximizable": false,
+          "minimizable": false
+        },
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 80,
+          "height": 80
+        },
+        "data": {
+          "icon": "modelcontextprotocol",
+          "color": "monochrome"
+        }
+      },
+      "docker": {
+        "id": "docker",
+        "item": {
+          "column": 1,
+          "row": 5,
+          "columnSpan": 1,
+          "rowSpan": 1
+        },
+        "kind": "icon-square",
+        "title": "Docker",
+        "isPinned": false,
+        "mode": "normal",
+        "heightMode": "content",
+        "capabilities": {
+          "maximizable": false,
+          "minimizable": false
+        },
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 80,
+          "height": 80
+        },
+        "data": {
+          "icon": "docker",
+          "color": "brand"
+        }
+      },
+      "vercel": {
+        "id": "vercel",
+        "item": {
+          "column": 2,
+          "row": 5,
+          "columnSpan": 1,
+          "rowSpan": 1
+        },
+        "kind": "icon-square",
+        "title": "Vercel",
+        "isPinned": false,
+        "mode": "normal",
+        "heightMode": "content",
+        "capabilities": {
+          "maximizable": false,
+          "minimizable": false
+        },
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 80,
+          "height": 80
+        },
+        "data": {
+          "icon": "vercel",
+          "color": "monochrome"
+        }
+      },
+      "vite": {
+        "id": "vite",
+        "item": {
+          "column": 3,
+          "row": 5,
+          "columnSpan": 1,
+          "rowSpan": 1
+        },
+        "kind": "icon-square",
+        "title": "Vite",
+        "isPinned": false,
+        "mode": "normal",
+        "heightMode": "content",
+        "capabilities": {
+          "maximizable": false,
+          "minimizable": false
+        },
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 80,
+          "height": 80
+        },
+        "data": {
+          "icon": "vite",
+          "color": "brand"
+        }
+      },
+      "vitest": {
+        "id": "vitest",
+        "item": {
+          "column": 4,
+          "row": 5,
+          "columnSpan": 1,
+          "rowSpan": 1
+        },
+        "kind": "icon-square",
+        "title": "Vitest",
+        "isPinned": false,
+        "mode": "normal",
+        "heightMode": "content",
+        "capabilities": {
+          "maximizable": false,
+          "minimizable": false
+        },
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 80,
+          "height": 80
+        },
+        "data": {
+          "icon": "vitest",
+          "color": "brand"
+        }
+      },
+      "turborepo": {
+        "id": "turborepo",
+        "item": {
+          "column": 5,
+          "row": 5,
+          "columnSpan": 1,
+          "rowSpan": 1
+        },
+        "kind": "icon-square",
+        "title": "Turborepo",
+        "isPinned": false,
+        "mode": "normal",
+        "heightMode": "content",
+        "capabilities": {
+          "maximizable": false,
+          "minimizable": false
+        },
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 80,
+          "height": 80
+        },
+        "data": {
+          "icon": "turborepo",
+          "color": "brand"
+        }
+      },
+      "pnpm": {
+        "id": "pnpm",
+        "item": {
+          "column": 6,
+          "row": 5,
+          "columnSpan": 1,
+          "rowSpan": 1
+        },
+        "kind": "icon-square",
+        "title": "pnpm",
+        "isPinned": false,
+        "mode": "normal",
+        "heightMode": "content",
+        "capabilities": {
+          "maximizable": false,
+          "minimizable": false
+        },
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 80,
+          "height": 80
+        },
+        "data": {
+          "icon": "pnpm",
+          "color": "brand"
+        }
+      },
+      "github": {
+        "id": "github",
+        "item": {
+          "column": 7,
+          "row": 5,
+          "columnSpan": 1,
+          "rowSpan": 1
+        },
+        "kind": "icon-square",
+        "title": "GitHub",
+        "isPinned": false,
+        "mode": "normal",
+        "heightMode": "content",
+        "capabilities": {
+          "maximizable": false,
+          "minimizable": false
+        },
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 80,
+          "height": 80
+        },
+        "data": {
+          "icon": "github",
+          "color": "monochrome"
+        }
       }
     },
     "connections": {},
