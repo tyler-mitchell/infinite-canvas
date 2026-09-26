@@ -21,6 +21,7 @@ import {
   cameraMatrix,
   centroidOfRect,
   intersectsRect,
+  unionRects,
   type ResizeHandle,
 } from "@hyphened/math/cpu";
 import { getResizeHandleDescriptors } from "../geometry";
@@ -374,6 +375,29 @@ function WorldLayer({ canvas, children }: { canvas: Canvas; children: ReactNode 
   const viewport = scrollContext?.viewport;
   const track = scrollContext?.track;
   const axis = scrollContext?.axis;
+  const initialTransform = useValue(() => {
+    if (
+      scrollContext?.canvas !== canvas ||
+      !scrollContext.attached ||
+      canvas.state.input.viewport.width.get() > 0
+    )
+      return undefined;
+    const bounds = unionRects(canvas.computed.route.get().map((window) => window.rect));
+    if (bounds === null) return undefined;
+    const limits = canvas.state.config.camera.get();
+    const insets = canvas.computed.viewportInsets.get();
+    const maximum = Math.max(
+      limits.minZoom,
+      Math.min(limits.maxZoom, canvas.state.document.content.presentation.maxZoom.get()),
+    );
+    const vertical = axis === "vertical";
+    const crossInset = vertical ? insets.left + insets.right : insets.top + insets.bottom;
+    const crossSize = Math.max(vertical ? bounds.width : bounds.height, 1);
+    const zoom = `clamp(${limits.minZoom}, calc(max(1px, 100${vertical ? "cqw" : "cqh"} - ${crossInset + limits.padding * 2}px) / ${crossSize}px), ${maximum})`;
+    return vertical
+      ? `translate(calc(50% + ${(insets.left - insets.right) / 2}px), ${insets.top + limits.padding}px) scale(${zoom}) translate(${-bounds.x - bounds.width / 2}px, ${-bounds.y}px)`
+      : `translate(${insets.left + limits.padding}px, calc(50% + ${(insets.top - insets.bottom) / 2}px)) scale(${zoom}) translate(${-bounds.x}px, ${-bounds.y - bounds.height / 2}px)`;
+  });
   const ref = useCallback(
     (element: HTMLDivElement | null) => {
       if (element === null) return;
@@ -392,6 +416,7 @@ function WorldLayer({ canvas, children }: { canvas: Canvas; children: ReactNode 
       return observe(() => {
         const camera = canvas.computed.camera.get();
         const viewport = canvas.state.input.viewport.get();
+        if (viewport.width <= 0 || viewport.height <= 0) return;
         element.style.transform = `matrix(${[...cameraMatrix({ camera, viewport })].join(",")})`;
       });
     },
@@ -405,7 +430,9 @@ function WorldLayer({ canvas, children }: { canvas: Canvas; children: ReactNode 
         position: "absolute",
         inset: 0,
         transformOrigin: "0 0",
-        transform: `translate(50%, 50%) scale(${camera.zoom}) translate(${-camera.center.x}px, ${-camera.center.y}px)`,
+        transform:
+          initialTransform ??
+          `translate(50%, 50%) scale(${camera.zoom}) translate(${-camera.center.x}px, ${-camera.center.y}px)`,
       }}
     >
       {children}
@@ -621,6 +648,7 @@ export function CanvasViewport({
         data-reduced-motion={reducedMotion}
         style={{
           position: "relative",
+          containerType: "size",
           width: "100%",
           height: "100%",
           overflow: "hidden",

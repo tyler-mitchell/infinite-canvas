@@ -1,6 +1,7 @@
 import { expect, onTestFinished, test, vi } from "vite-plus/test";
 import { act, StrictMode, type ReactNode } from "react";
-import { createRoot } from "react-dom/client";
+import { createRoot, hydrateRoot } from "react-dom/client";
+import { renderToString } from "react-dom/server";
 import { createCanvasState } from "../state";
 import type { Canvas } from "../state.types";
 import type { CameraMotion } from "../camera";
@@ -31,6 +32,46 @@ const settle = (change?: () => unknown) =>
     change?.();
     await new Promise((resolve) => requestAnimationFrame(() => resolve(undefined)));
   });
+
+test.each([
+  { axis: "vertical" as const, width: 360, height: 600, headerHeight: 0 },
+  { axis: "vertical" as const, width: 1000, height: 600, headerHeight: 0 },
+  { axis: "horizontal" as const, width: 800, height: 300, headerHeight: 0 },
+  { axis: "vertical" as const, width: 360, height: 600, headerHeight: 64 },
+])(
+  "server framing matches hydration at $width × $height on $axis with header $headerHeight",
+  async (viewport) => {
+    const canvas = createReading();
+    canvas.actions.setPresentation.run({ axis: viewport.axis });
+    const view = (
+      <CanvasScroll canvas={canvas}>
+        <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
+          <div style={{ height: viewport.headerHeight, flexShrink: 0 }} />
+          <CanvasViewport
+            canvas={canvas}
+            style={{ flex: 1, minHeight: 0 }}
+            renderWindow={(window) => window.title.get()}
+          />
+        </div>
+      </CanvasScroll>
+    );
+    const host = document.createElement("div");
+    host.style.cssText = `position:fixed;left:0;top:0;width:${viewport.width}px;height:${viewport.height}px`;
+    host.innerHTML = renderToString(view);
+    document.body.append(host);
+    const element = host.querySelector("[data-window-id='a']")!;
+    const initial = element.getBoundingClientRect();
+    const root = hydrateRoot(host, view);
+    onTestFinished(async () => {
+      await act(() => root.unmount());
+      host.remove();
+    });
+    await settle();
+    const hydrated = element.getBoundingClientRect();
+    for (const key of ["x", "y", "width", "height"] as const)
+      expect(hydrated[key]).toBeCloseTo(initial[key], 1);
+  },
+);
 
 const mount = async ({
   canvas = createReading(),

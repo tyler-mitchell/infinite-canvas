@@ -39,11 +39,11 @@ import "./board.css";
 const styles = tv({
   slots: {
     page: "relative h-dvh overflow-hidden bg-pk-ground text-pk-text",
-    topBand: "pointer-events-none absolute inset-x-0 top-0 z-20 flex items-start gap-2 p-4",
+    topBand: "pointer-events-none relative z-20 flex shrink-0 items-start gap-2 p-4",
     launcher: "pointer-events-auto",
     presentControls: "pointer-events-auto ml-auto",
     viewportHost: "h-[calc(100%-176px)] min-[641px]:h-full min-[641px]:w-[calc(100%-240px)]",
-    viewport: "text-pk-ink",
+    viewport: "min-h-0 flex-1 text-pk-ink",
     card: "h-full cursor-grab",
     window:
       "relative h-full in-data-selected:outline-2 in-data-selected:outline-pk-accent in-data-selected:-outline-offset-2",
@@ -105,22 +105,19 @@ const BoardWindow = observer(function BoardWindow({ window }: { window: Observab
 });
 
 const BoardControls = observer(function BoardControls({
+  mode,
   onModeChange,
   onExploringChange,
   children,
 }: {
+  mode: BoardMode;
   onModeChange?: (mode: BoardMode) => void;
   onExploringChange: (exploring: boolean) => void;
   children?: ReactNode;
 }) {
-  const { canvas, mode } = useCanvasViewport();
-  const { attached, following, scrollTo } = useCanvasScroll();
+  const { canvas, attached, following, scrollTo } = useCanvasScroll();
   return (
-    <div
-      ref={useCanvasOccluder<HTMLDivElement>()}
-      data-canvas-control
-      className={styles().topBand()}
-    >
+    <div data-canvas-control className={styles().topBand()}>
       {mode === "edit" && <CanvasLauncher canvas={canvas} className={styles().launcher()} />}
       <Row className={styles().presentControls()} role="group" aria-label="Presentation">
         {children}
@@ -193,9 +190,6 @@ export function PortfolioBoard({
       renderWindow={(window) => <BoardWindow window={window} />}
     >
       {onModeChange && <CanvasTools canvas={canvas} />}
-      <BoardControls onModeChange={onModeChange} onExploringChange={setExploring}>
-        {controls}
-      </BoardControls>
       <CanvasSelectionToolbar canvas={canvas} />
       {mode === "read" && <CanvasWindowNavigation />}
       <PaletteHost>
@@ -241,7 +235,12 @@ export function PortfolioBoard({
           onFocusedWindowChange={onFocusedWindowChange}
           scrollbar={mode === "read" ? <ScrollAreaScrollbar /> : undefined}
         >
-          {viewport}
+          <div className="flex h-full flex-col">
+            <BoardControls mode={mode} onModeChange={onModeChange} onExploringChange={setExploring}>
+              {controls}
+            </BoardControls>
+            {viewport}
+          </div>
         </CanvasScroll>
       </div>
     </main>
