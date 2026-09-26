@@ -1,4 +1,4 @@
-import { expect, test, vi } from "vite-plus/test";
+import { expect, onTestFinished, test, vi } from "vite-plus/test";
 import { act, StrictMode, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import { createCanvasState } from "../state";
@@ -32,11 +32,17 @@ const settle = (change?: () => unknown) =>
     await new Promise((resolve) => requestAnimationFrame(() => resolve(undefined)));
   });
 
-const mount = async ({ canvas = createReading(), content }: { canvas?: Canvas; content?: ReactNode }) => {
+const mount = async ({
+  canvas = createReading(), content, section = "a",
+}: { canvas?: Canvas; content?: ReactNode; section?: string | null }) => {
   const host = document.createElement("div");
   host.style.cssText = "position:fixed;left:0;top:0;width:800px;height:600px";
   document.body.append(host);
   const root = createRoot(host);
+  onTestFinished(async () => {
+    await act(() => root.unmount());
+    host.remove();
+  });
   const render = async ({
     children = content,
     reading = true,
@@ -65,7 +71,7 @@ const mount = async ({ canvas = createReading(), content }: { canvas?: Canvas; c
           {reading ? (
             <CanvasScroll
               canvas={canvas}
-              section="a"
+              section={section ?? undefined}
               attached={attached}
               onSectionChange={onSectionChange}
             >
@@ -109,6 +115,15 @@ test("reading puts the camera on the route when it opens and whenever a panel ch
   expect(first().top).toBeCloseTo(96, 1);
 });
 
+test("opening without a section places the camera without a navigation animation", async () => {
+  const canvas = createReading({ reducedMotion: "never", transition: { duration: 1 } });
+  const navigate = vi.spyOn(canvas.commands.navigateCamera, "run");
+  await mount({ canvas, section: null });
+  expect(navigate).not.toHaveBeenCalled();
+  expect(canvas.computed.camera.peek()).toEqual(canvas.computed.cameraTrack.peek()!.at(0));
+  navigate.mockRestore();
+});
+
 test("scrolling returns an off-route camera through navigation to the latest scroll offset", async () => {
   const { canvas, host } = await mount({
     canvas: createReading({ reducedMotion: "never", transition: { duration: 0.1 } }),
@@ -134,7 +149,9 @@ test("scrolling returns an off-route camera through navigation to the latest scr
   expect(navigate).toHaveBeenCalledTimes(1);
   expect(canvas.computed.view.camera.peek()).toEqual(committed);
   const destination = track.at(viewport.scrollTop);
-  await expect.poll(() => canvas.computed.camera.peek()).toEqual(destination);
+  await act(async () => {
+    await expect.poll(() => canvas.computed.camera.peek()).toEqual(destination);
+  });
 
   act(() => scroll(track.length));
   expect(canvas.computed.camera.peek()).toEqual(track.at(viewport.scrollTop));

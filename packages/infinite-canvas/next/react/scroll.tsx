@@ -6,7 +6,7 @@ import {
   createContext,
   useContext,
   useCallback,
-  useEffect,
+  useLayoutEffect,
   useEffectEvent,
   useMemo,
   useRef,
@@ -171,7 +171,7 @@ export const CanvasScroll = observer(function CanvasScroll({
     if (track === null || element === null) return;
     if (previous?.track == null || previous.canvas !== canvas) {
       const offset = track.sections.find((placed) => placed.id === section)?.offset;
-      void place({ offset: offset ?? 0, immediate: offset !== undefined });
+      void place({ offset: offset ?? 0, immediate: true });
     } else if (!previous.attached) {
       void place({ offset: track.offsetAt(canvas.computed.camera.peek()) });
     } else if (previous.section !== section && section !== undefined) {
@@ -183,7 +183,7 @@ export const CanvasScroll = observer(function CanvasScroll({
       follow(offsetOf(element), true);
     }
   });
-  useEffect(() => synchronize(), [canvas, track, attached, section]);
+  useLayoutEffect(() => synchronize(), [canvas, track, attached, section]);
   const context = useMemo<ScrollContextValue>(
     () => ({ canvas, sections: track?.sections ?? [], current, attached, following, axis, scrollTo, viewport, track }),
     [canvas, track, current, attached, following, axis, scrollTo],
