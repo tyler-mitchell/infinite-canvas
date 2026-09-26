@@ -109,7 +109,9 @@ export function getRootRect({
   maxWidth: number;
 }): Rect {
   if (dragged !== undefined) return dragged;
-  return widthMode === "viewport" ? { ...rect, width: Math.min(viewportWidth, maxWidth) } : rect;
+  return widthMode === "viewport" && viewportWidth > 0
+    ? { ...rect, width: Math.min(viewportWidth, maxWidth) }
+    : rect;
 }
 
 export type { DockDrop };
@@ -300,7 +302,7 @@ export const withComputed = (model: typeof stateModel) =>
       }),
       viewportWidth: () => {
         const insets = computed.viewportInsets.get();
-        return Math.max(1, state.input.viewport.width.get() - insets.left - insets.right);
+        return Math.max(0, state.input.viewport.width.get() - insets.left - insets.right);
       },
       viewportRect: () =>
         visibleWorldRect({

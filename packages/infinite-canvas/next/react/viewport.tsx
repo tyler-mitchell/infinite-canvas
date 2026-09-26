@@ -366,6 +366,7 @@ const SelectionBounds = observer(function SelectionBounds({ canvas }: { canvas: 
 });
 
 function WorldLayer({ canvas, children }: { canvas: Canvas; children: ReactNode }) {
+  const camera = canvas.computed.camera.peek();
   const scrollContext = useContext(ScrollContext);
   const onTrack = useValue(() => {
     return scrollContext?.canvas === canvas && scrollContext.following.get();
@@ -400,7 +401,12 @@ function WorldLayer({ canvas, children }: { canvas: Canvas; children: ReactNode 
     <div
       ref={ref}
       data-slot="canvas-world"
-      style={{ position: "absolute", inset: 0, transformOrigin: "0 0" }}
+      style={{
+        position: "absolute",
+        inset: 0,
+        transformOrigin: "0 0",
+        transform: `translate(50%, 50%) scale(${camera.zoom}) translate(${-camera.center.x}px, ${-camera.center.y}px)`,
+      }}
     >
       {children}
     </div>
